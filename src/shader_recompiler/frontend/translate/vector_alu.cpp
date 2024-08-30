@@ -309,6 +309,7 @@ void Translator::EmitVectorAlu(const GcnInst& inst) {
         return V_MBCNT_U32_B32(true, inst);
     case Opcode::V_MBCNT_HI_U32_B32:
         return V_MBCNT_U32_B32(false, inst);
+    //Rock Band 4 and Amplitude 2016 use this opcode but are playable with it skipped.
     case Opcode::V_MOVRELS_B32:
         return;
     case Opcode::V_NOP:
