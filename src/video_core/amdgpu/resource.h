@@ -124,7 +124,7 @@ enum class TilingMode : u32 {
     Texture_MacroTiled = 0xEu,
 };
 
-constexpr std::string_view NameOf(TilingMode type) {
+constexpr fmt::string_view NameOf(TilingMode type) {
     switch (type) {
     case TilingMode::Depth_MacroTiled:
         return "Depth_MacroTiled";
@@ -134,8 +134,6 @@ constexpr std::string_view NameOf(TilingMode type) {
         return "Display_MacroTiled";
     case TilingMode::Texture_MicroTiled:
         return "Texture_MicroTiled";
-    case TilingMode::Texture_MacroTiled:
-        return "Texture_MacroTiled";
     default:
         return "Unknown";
     }
