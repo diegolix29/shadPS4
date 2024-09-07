@@ -5,9 +5,9 @@ name: Windows-Qt
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "bb-deadlock-shaders-fixes" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "bb-deadlock-shaders-fixes" ]
 
 env:
   BUILD_TYPE: Release
