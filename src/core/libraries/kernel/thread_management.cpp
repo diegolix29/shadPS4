@@ -53,11 +53,12 @@ void init_pthreads() {
 }
 
 void pthreadInitSelfMainThread() {
+    auto name = "Main_Thread";
     auto* pthread_pool = g_pthread_cxt->GetPthreadPool();
-    g_pthread_self = pthread_pool->Create();
+    g_pthread_self = pthread_pool->Create(name);
     scePthreadAttrInit(&g_pthread_self->attr);
     g_pthread_self->pth = pthread_self();
-    g_pthread_self->name = "Main_Thread";
+    g_pthread_self->name = name;
 }
 
 int PS4_SYSV_ABI scePthreadAttrInit(ScePthreadAttr* attr) {
@@ -1013,7 +1014,7 @@ int PS4_SYSV_ABI scePthreadCreate(ScePthread* thread, const ScePthreadAttr* attr
         attr = g_pthread_cxt->GetDefaultAttr();
     }
 
-    *thread = pthread_pool->Create();
+    *thread = pthread_pool->Create(name);
 
     if ((*thread)->attr != nullptr) {
         scePthreadAttrDestroy(&(*thread)->attr);
@@ -1055,17 +1056,27 @@ int PS4_SYSV_ABI scePthreadCreate(ScePthread* thread, const ScePthreadAttr* attr
     }
 }
 
-ScePthread PThreadPool::Create() {
+ScePthread PThreadPool::Create(const char* name) {
     std::scoped_lock lock{m_mutex};
 
     for (auto* p : m_threads) {
-        if (p->is_free) {
+        if (p->is_free ||
+            (p->name == name && (p->name.starts_with("CSChr") || p->name.starts_with("CSCloth")))) {
             p->is_free = false;
             return p;
         }
     }
 
+#ifdef _WIN64
     auto* ret = new PthreadInternal{};
+#else
+    // Linux specific hack
+    static u8* hint_address = reinterpret_cast<u8*>(0x7FFFFC000ULL);
+    auto* ret = reinterpret_cast<PthreadInternal*>(
+        mmap(hint_address, sizeof(PthreadInternal), PROT_READ | PROT_WRITE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0));
+    hint_address += Common::AlignUp(sizeof(PthreadInternal), 4_KB);
+#endif
     ret->is_free = false;
     ret->is_detached = false;
     ret->is_almost_done = false;
