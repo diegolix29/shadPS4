@@ -5,9 +5,9 @@ name: macOS
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "Full-Blood" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "Full-Blood" ]
 
 env:
   BUILD_TYPE: Release

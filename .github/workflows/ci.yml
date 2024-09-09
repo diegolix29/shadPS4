@@ -5,10 +5,10 @@ name: Reuse
 
 on:
   push:
-    branches: [ main ]
+    branches: [ Full-Blood ]
     tags: [ "*" ]
   pull_request:
-    branches: [ main ]
+    branches: [ Full-Blood ]
 jobs:
   reuse:
     runs-on: ubuntu-latest
