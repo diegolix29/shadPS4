@@ -5,9 +5,9 @@ name: Linux-Qt
 
 on:
   push:
-    branches: [ "P-1" ]
+    branches: [ "Full-Blood" ]
   pull_request:
-    branches: [ "P-1" ]
+    branches: [ "Full-Blood" ]
 
 env:
   BUILD_TYPE: Release
