@@ -98,7 +98,22 @@ bool UseFP16(AmdGpu::DataFormat data_format, AmdGpu::NumberFormat num_format) {
 }
 
 IR::Type BufferDataType(const IR::Inst& inst, AmdGpu::NumberFormat num_format) {
-    return IR::Type::U32;
+    switch (inst.GetOpcode()) {
+    case IR::Opcode::LoadBufferU32:
+    case IR::Opcode::LoadBufferU32x2:
+    case IR::Opcode::LoadBufferU32x3:
+    case IR::Opcode::LoadBufferU32x4:
+    case IR::Opcode::StoreBufferU32:
+    case IR::Opcode::StoreBufferU32x2:
+    case IR::Opcode::StoreBufferU32x3:
+    case IR::Opcode::StoreBufferU32x4:
+    case IR::Opcode::ReadConstBuffer:
+    case IR::Opcode::BufferAtomicIAdd32:
+    case IR::Opcode::BufferAtomicSwap32:
+        return IR::Type::U32;
+    default:
+        UNREACHABLE();
+    }
 }
 
 bool IsImageAtomicInstruction(const IR::Inst& inst) {
@@ -208,8 +223,12 @@ public:
 
     u32 Add(const SamplerResource& desc) {
         const u32 index{Add(sampler_resources, desc, [this, &desc](const auto& existing) {
-            return desc.sgpr_base == existing.sgpr_base &&
-                   desc.dword_offset == existing.dword_offset;
+            if (desc.sgpr_base == existing.sgpr_base &&
+                desc.dword_offset == existing.dword_offset) {
+                return true;
+            }
+            // Samplers with different bindings might still be the same.
+            return existing.GetSharp(info) == desc.GetSharp(info);
         })};
         return index;
     }

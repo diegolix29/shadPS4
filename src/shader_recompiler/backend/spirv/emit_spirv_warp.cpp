@@ -27,8 +27,7 @@ Id EmitReadFirstLane(EmitContext& ctx, Id value) {
 }
 
 Id EmitReadLane(EmitContext& ctx, Id value, u32 lane) {
-    return ctx.OpGroupNonUniformBroadcast(ctx.U32[1], SubgroupScope(ctx), value,
-                                          ctx.ConstU32(lane));
+    UNREACHABLE();
 }
 
 Id EmitWriteLane(EmitContext& ctx, Id value, Id write_value, u32 lane) {

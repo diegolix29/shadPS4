@@ -16,13 +16,12 @@ namespace Vulkan {
 
 class Instance;
 class Scheduler;
-class DescriptorHeap;
 
 class ComputePipeline {
 public:
     explicit ComputePipeline(const Instance& instance, Scheduler& scheduler,
-                             DescriptorHeap& desc_heap, vk::PipelineCache pipeline_cache,
-                             u64 compute_key, const Shader::Info& info, vk::ShaderModule module);
+                             vk::PipelineCache pipeline_cache, u64 compute_key,
+                             const Shader::Info& info, vk::ShaderModule module);
     ~ComputePipeline();
 
     [[nodiscard]] vk::Pipeline Handle() const noexcept {
@@ -35,13 +34,11 @@ public:
 private:
     const Instance& instance;
     Scheduler& scheduler;
-    DescriptorHeap& desc_heap;
     vk::UniquePipeline pipeline;
     vk::UniquePipelineLayout pipeline_layout;
     vk::UniqueDescriptorSetLayout desc_layout;
     u64 compute_key;
     const Shader::Info* info;
-    bool uses_push_descriptors{};
 };
 
 } // namespace Vulkan
