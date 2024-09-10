@@ -155,24 +155,6 @@ void Render(const vk::CommandBuffer& cmdbuf, ::Vulkan::Frame* frame) {
             .pLabelName = "ImGui Render",
         });
     }
-    cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                           vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {}, {},
-                           {vk::ImageMemoryBarrier{
-                               .srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-                               .dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead,
-                               .oldLayout = vk::ImageLayout::eUndefined,
-                               .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                               .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                               .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                               .image = frame->image,
-                               .subresourceRange{
-                                   .aspectMask = vk::ImageAspectFlagBits::eColor,
-                                   .baseMipLevel = 0,
-                                   .levelCount = 1,
-                                   .baseArrayLayer = 0,
-                                   .layerCount = VK_REMAINING_ARRAY_LAYERS,
-                               },
-                           }});
 
     vk::RenderingAttachmentInfo color_attachments[1]{
         {
@@ -183,7 +165,7 @@ void Render(const vk::CommandBuffer& cmdbuf, ::Vulkan::Frame* frame) {
         },
     };
     vk::RenderingInfo render_info = {};
-    render_info.renderArea = {
+    render_info.renderArea = vk::Rect2D{
         .offset = {0, 0},
         .extent = {frame->width, frame->height},
     };
