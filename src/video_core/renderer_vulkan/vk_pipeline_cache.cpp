@@ -178,8 +178,7 @@ const ComputePipeline* PipelineCache::GetComputePipeline() {
 }
 
 bool ShouldSkipShader(u64 shader_hash, const char* shader_type) {
-    static constexpr std::array<u64, 22> skip_hashes = {0xff7a6d7c, 0xddfbac23, 0x1635154c, 0x77d1c63, 0x4899010a, 0xc8854a11, 0x9c893ebf,
-        0xaa9d023d, 0x94ec4dfb, 0xbddb8fc7, 0x733dae6f, 0x9a987165, 0x70ffb249, 0x730fb713, 0x730fb713, 0x45d3c7e4,
+    static constexpr std::array<u64, 16> skip_hashes = {0x17a64a21, 0xaa9d023d, 0x94ec4dfb, 0xbddb8fc7, 0x733dae6f, 0x9a987165, 0x70ffb249, 0x730fb713, 0x730fb713, 0x45d3c7e4,
         0x34e9da69, 0xbfed1ef4, 0x6faab5f9, 0x125a83c1, 0xc0cbc309, 0x9f6965c};
 
     if (std::ranges::contains(skip_hashes, shader_hash)) {
