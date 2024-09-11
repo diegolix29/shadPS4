@@ -212,6 +212,9 @@ set(NETWORK_LIBS src/core/libraries/network/http.cpp
                  src/core/libraries/network/net.cpp
                  src/core/libraries/network/netctl.cpp
                  src/core/libraries/network/netctl.h
+                 src/core/libraries/network/net_ctl_obj.cpp
+                 src/core/libraries/network/net_ctl_obj.h
+                 src/core/libraries/network/net_ctl_codes.h
                  src/core/libraries/network/net.h
                  src/core/libraries/network/ssl.cpp
                  src/core/libraries/network/ssl.h
@@ -607,7 +610,6 @@ set(IMGUI src/imgui/imgui_config.h
 
 set(INPUT src/input/controller.cpp
           src/input/controller.h
-          src/input/keys_constants.h
 )
 
 set(EMULATOR src/emulator.cpp
@@ -652,9 +654,6 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/settings_dialog.cpp
            src/qt_gui/settings_dialog.h
            src/qt_gui/settings_dialog.ui
-    	   src/qt_gui/keyboardcontrolswindow.h
-           src/qt_gui/keyboardcontrolswindow.cpp
-    	   src/qt_gui/keyboardcontrolswindow.ui
            src/qt_gui/main.cpp
            ${EMULATOR}
            ${RESOURCE_FILES}

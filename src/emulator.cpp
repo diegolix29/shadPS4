@@ -147,7 +147,7 @@ void Emulator::Run(const std::filesystem::path& file) {
     }
     window = std::make_unique<Frontend::WindowSDL>(
         Config::getScreenWidth(), Config::getScreenHeight(), controller, window_title);
-    window->setKeysBindingsMap(Config::getKeyboardBindingMap());
+
     g_window = window.get();
 
     const auto& mount_data_dir = Common::FS::GetUserPath(Common::FS::PathType::GameDataDir) / id;
@@ -206,7 +206,7 @@ void Emulator::Run(const std::filesystem::path& file) {
 }
 
 void Emulator::LoadSystemModules(const std::filesystem::path& file) {
-    constexpr std::array<SysModules, 10> ModulesToLoad{
+    constexpr std::array<SysModules, 13> ModulesToLoad{
         {{"libSceNgs2.sprx", &Libraries::Ngs2::RegisterlibSceNgs2},
          {"libSceFiber.sprx", nullptr},
          {"libSceUlt.sprx", nullptr},
@@ -216,8 +216,10 @@ void Emulator::LoadSystemModules(const std::filesystem::path& file) {
          {"libSceDiscMap.sprx", &Libraries::DiscMap::RegisterlibSceDiscMap},
          {"libSceRtc.sprx", &Libraries::Rtc::RegisterlibSceRtc},
          {"libSceJpegEnc.sprx", nullptr},
-         {"libSceFont.sprx", nullptr}},
-    };
+         {"libSceFont.sprx", nullptr},
+         {"libSceRazorCpu.sprx", nullptr},
+         {"libSceCesCs.sprx", nullptr},
+         {"libSceRudp.sprx", nullptr}}};
 
     std::vector<std::filesystem::path> found_modules;
     const auto& sys_module_path = Common::FS::GetUserPath(Common::FS::PathType::SysModuleDir);
