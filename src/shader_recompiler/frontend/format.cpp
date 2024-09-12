@@ -3718,8 +3718,9 @@ InstFormat InstructionFormat(InstEncoding encoding, uint32_t opcode) {
         return InstructionFormatSOP2[opcode];
     case InstEncoding::VOP2:
         return InstructionFormatVOP2[opcode];
+    default:
+        UNREACHABLE();
     }
-    UNREACHABLE();
     return {};
 }
 
