@@ -5,10 +5,10 @@ name: Reuse
 
 on:
   push:
-    branches: [ Main ]
+    branches: [ AMD ]
     tags: [ "*" ]
   pull_request:
-    branches: [ Main ]
+    branches: [ AMD ]
 jobs:
   reuse:
     runs-on: ubuntu-latest

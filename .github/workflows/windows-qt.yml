@@ -5,7 +5,7 @@ name: Windows-Qt
 
 on:
   push:
-    branches: [ "Main" ]
+    branches: [ "AMD" ]
   pull_request:
     branches: [ "Main" ]
 
