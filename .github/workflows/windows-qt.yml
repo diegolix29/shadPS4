@@ -5,9 +5,9 @@ name: Windows-Qt
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "Main" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "Main" ]
 
 env:
   BUILD_TYPE: Release
