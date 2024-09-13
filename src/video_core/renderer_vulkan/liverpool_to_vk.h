@@ -51,7 +51,7 @@ vk::Format DepthFormat(Liverpool::DepthBuffer::ZFormat z_format,
 
 vk::ClearValue ColorBufferClearValue(const AmdGpu::Liverpool::ColorBuffer& color_buffer);
 
-vk::SampleCountFlagBits NumSamples(u32 num_samples, vk::SampleCountFlags supported_flags);
+vk::SampleCountFlagBits NumSamples(u32 num_samples);
 
 void EmitQuadToTriangleListIndices(u8* out_indices, u32 num_vertices);
 

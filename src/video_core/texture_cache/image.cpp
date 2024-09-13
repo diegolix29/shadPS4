@@ -146,15 +146,10 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
         break;
     }
 
-    constexpr auto tiling = vk::ImageTiling::eOptimal;
-    const auto supported_format = instance->GetSupportedFormat(info.pixel_format);
-    const auto properties = instance->GetPhysicalDevice().getImageFormatProperties(
-        supported_format, info.type, tiling, usage, flags);
-
     const vk::ImageCreateInfo image_ci = {
         .flags = flags,
         .imageType = info.type,
-        .format = supported_format,
+        .format = instance->GetSupportedFormat(info.pixel_format),
         .extent{
             .width = info.size.width,
             .height = info.size.height,
@@ -162,8 +157,8 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
         },
         .mipLevels = static_cast<u32>(info.resources.levels),
         .arrayLayers = static_cast<u32>(info.resources.layers),
-        .samples = LiverpoolToVK::NumSamples(info.num_samples, properties.sampleCounts),
-        .tiling = tiling,
+        .samples = LiverpoolToVK::NumSamples(info.num_samples),
+        .tiling = vk::ImageTiling::eOptimal,
         .usage = usage,
         .initialLayout = vk::ImageLayout::eUndefined,
     };
