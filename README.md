@@ -79,7 +79,7 @@ Note that macOS users need at least macOS 15 on an Apple Silicon Mac, or at leas
 | Windows | Build status |
 |--------|--------|
 |Windows SDL Build|[![Windows-sdl](https://github.com/shadps4-emu/shadPS4/actions/workflows/windows.yml/badge.svg)](https://github.com/shadps4-emu/shadPS4/actions/workflows/windows.yml)
-|Windows Qt Build|[![Windows-qt](https://github.com/shadps4-emu/shadPS4/actions/workflows/windows-qt.yml/badge.svg)](https://github.com/shadps4-emu/shadPS4/actions/workflows/windows-qt.yml)
+|Windows Qt Build|[![Windows-Qt](https://github.com/shadps4-emu/shadPS4/actions/workflows/windows-qt.yml/badge.svg)](https://github.com/shadps4-emu/shadPS4/actions/workflows/windows-qt.yml)
 </details>
 
 <details>
