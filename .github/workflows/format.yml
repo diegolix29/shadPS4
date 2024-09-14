@@ -5,9 +5,9 @@ name: Clang Format
 
 on:
   push:
-    branches: [ "*" ]
+    branches: [ "Full-Blood" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "Full-Blood" ]
 
 jobs:
   clang-format:

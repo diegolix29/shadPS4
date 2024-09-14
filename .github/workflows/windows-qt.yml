@@ -9,6 +9,7 @@ on:
   pull_request:
     branches: [ "Main" ]
 
+
 env:
   BUILD_TYPE: Release
 

@@ -5,9 +5,11 @@ name: Windows
 
 on:
   push:
+
     branches: [ "*" ]
+
   pull_request:
-    branches: [ "main" ]
+    branches: [ "Full-Blood" ]
 
 env:
   BUILD_TYPE: Release

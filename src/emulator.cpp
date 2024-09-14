@@ -28,6 +28,7 @@
 #include "core/libraries/ngs2/ngs2.h"
 #include "core/libraries/np_trophy/np_trophy.h"
 #include "core/libraries/rtc/rtc.h"
+#include "core/libraries/videoout/video_out.h"
 #include "core/linker.h"
 #include "core/memory.h"
 #include "emulator.h"
