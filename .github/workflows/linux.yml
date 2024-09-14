@@ -5,10 +5,7 @@ name: Linux
 
 on:
   push:
-    branches: [ "Full-Blood" ]
-  pull_request:
-    branches: [ "Full-Blood" ]
-
+    branches: [ "*" ]
 env:
   BUILD_TYPE: Release
 

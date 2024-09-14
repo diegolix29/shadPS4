@@ -5,7 +5,9 @@ name: Windows
 
 on:
   push:
-    branches: [ "Full-Blood" ]
+
+    branches: [ "*" ]
+
   pull_request:
     branches: [ "Full-Blood" ]
 
