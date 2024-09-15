@@ -7,7 +7,7 @@ on:
   push:
     branches: [ "AMD-Fix" ]
   pull_request:
-    branches: [ "Main" ]
+    branches: [ "main" ]
 
 env:
   BUILD_TYPE: Release

@@ -5,7 +5,7 @@ name: Clang Format
 
 on:
   push:
-    branches: [ "*" ]
+    branches: [ AMD-Fix ]
   pull_request:
     branches: [ main ]
 

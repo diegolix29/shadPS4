@@ -8,7 +8,7 @@ on:
     branches: [ AMD-Fix ]
     tags: [ "*" ]
   pull_request:
-    branches: [ AMD-Fix ]
+    branches: [ main ]
 jobs:
   reuse:
     runs-on: ubuntu-latest
