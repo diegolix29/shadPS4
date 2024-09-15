@@ -14,6 +14,7 @@ void Translator::EmitVectorMemory(const GcnInst& inst) {
     case Opcode::IMAGE_SAMPLE_LZ:
     case Opcode::IMAGE_SAMPLE:
     case Opcode::IMAGE_SAMPLE_L:
+    case Opcode::IMAGE_SAMPLE_L_O:
     case Opcode::IMAGE_SAMPLE_C_O:
     case Opcode::IMAGE_SAMPLE_B:
     case Opcode::IMAGE_SAMPLE_C_LZ_O:
@@ -117,10 +118,25 @@ void Translator::EmitVectorMemory(const GcnInst& inst) {
         return BUFFER_ATOMIC(AtomicOp::Add, inst);
     case Opcode::BUFFER_ATOMIC_SWAP:
         return BUFFER_ATOMIC(AtomicOp::Swap, inst);
+    case Opcode::BUFFER_ATOMIC_SMIN:
+        return BUFFER_ATOMIC(AtomicOp::Smin, inst);
     case Opcode::BUFFER_ATOMIC_UMIN:
         return BUFFER_ATOMIC(AtomicOp::Umin, inst);
+    case Opcode::BUFFER_ATOMIC_SMAX:
+        return BUFFER_ATOMIC(AtomicOp::Smax, inst);
     case Opcode::BUFFER_ATOMIC_UMAX:
         return BUFFER_ATOMIC(AtomicOp::Umax, inst);
+    case Opcode::BUFFER_ATOMIC_AND:
+        return BUFFER_ATOMIC(AtomicOp::And, inst);
+    case Opcode::BUFFER_ATOMIC_OR:
+        return BUFFER_ATOMIC(AtomicOp::Or, inst);
+    case Opcode::BUFFER_ATOMIC_XOR:
+        return BUFFER_ATOMIC(AtomicOp::Xor, inst);
+    case Opcode::BUFFER_ATOMIC_INC:
+        return BUFFER_ATOMIC(AtomicOp::Inc, inst);
+    case Opcode::BUFFER_ATOMIC_DEC:
+        return BUFFER_ATOMIC(AtomicOp::Dec, inst);
+
     default:
         LogMissingOpcode(inst);
     }
