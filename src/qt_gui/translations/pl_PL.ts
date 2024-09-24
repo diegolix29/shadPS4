@@ -93,7 +93,7 @@
         <message>
             <location filename="../gui_context_menus.h" line="48"/>
             <source>Cheats / Patches</source>
-            <translation>Kody / Patche</translation>
+            <translation>Kody / poprawki</translation>
         </message>
         <message>
         	<location filename="../gui_context_menus.h" line="49"/>
@@ -251,12 +251,12 @@
         <message>
         	<location filename="../main_window_ui.h" line="343"/>
         	<source>Game Install Directory</source>
-        	<translation>Katalog zainstalowanej gry</translation>
+        	<translation>Katalog zainstalowanych gier</translation>
         </message>
         <message>
             <location filename="../main_window_ui.h" line="343"/>
             <source>Download Cheats/Patches</source>
-            <translation>Pobierz Kody / Patche</translation>
+            <translation>Pobierz kody / poprawki</translation>
         </message>
         <message>
         	<location filename="../main_window_ui.h" line="345"/>
@@ -349,7 +349,7 @@
         <message>
         	<location filename="../pkg_viewer.cpp" line="32"/>
         	<source>Open Folder</source>
-        	<translation>Open Folder</translation>
+        	<translation>Otwórz folder</translation>
         </message>
 	</context>
 	<context>
@@ -450,7 +450,7 @@
         <message>
         	<location filename="../settings_dialog.ui" line="405"/>
         	<source>Vblank Divider</source>
-        	<translation>Dzielnik pionowego blankingu (Vblank)</translation>
+        	<translation>Dzielnik przerwy pionowej (Vblank)</translation>
         </message>
         <message>
         	<location filename="../settings_dialog.ui" line="453"/>
@@ -500,6 +500,11 @@
 	</context>
     <context>
         <name>MainWindow</name>
+		<message>
+			<location filename="../main_window.cpp" line="106"/>
+			<source>Game List</source>
+			<translation>Lista gier</translation>
+		</message>
         <message>
             <location filename="../main_window.cpp" line="168"/>
             <source> * Unsupported Vulkan Version</source>
@@ -563,7 +568,7 @@
         <message>
             <location filename="../main_window.cpp" line="623"/>
             <source>PKG Extraction</source>
-            <translation>Ekstrakcja PKG</translation>
+            <translation>Wypakowywanie PKG</translation>
         </message>
         <message>
         	<location filename="../main_window.cpp" line="646"/>
@@ -628,12 +633,12 @@
         <message>
             <location filename="../main_window.cpp" line="693"/>
             <source>Extracting PKG %1/%2</source>
-            <translation>Ekstrakcja PKG %1/%2</translation>
+            <translation>Wypakowywanie PKG %1/%2</translation>
         </message>
         <message>
             <location filename="../main_window.cpp" line="703"/>
             <source>Extraction Finished</source>
-            <translation>Ekstrakcja zakończona</translation>
+            <translation>Wypakowywanie zakończone</translation>
         </message>
         <message>
             <location filename="../main_window.cpp" line="704"/>
@@ -651,7 +656,7 @@
         <message>
             <location filename="../cheats_patches.cpp" line="44"/>
             <source>Cheats / Patches</source>
-            <translation>Kody / Poprawki</translation>
+            <translation>Kody / poprawki</translation>
         </message>
         <message>
             <location filename="../cheats_patches.cpp" line="50"/>
@@ -771,7 +776,7 @@
         <message>
             <location filename="../cheats_patches.cpp" line="432"/>
             <source>Failed to parse XML: </source>
-            <translation>Nie udało się sparsować XML: </translation>
+            <translation>Nie udało się przeanalizować XML: </translation>
         </message>
         <message>
             <location filename="../cheats_patches.cpp" line="434"/>
@@ -821,7 +826,7 @@
         <message>
             <location filename="../cheats_patches.cpp" line="556"/>
             <source>CheatsNotFound_MSG</source>
-            <translation>Nie znaleziono kodów do tej gry w tej wersji wybranego repozytorium.Spróbuj innego repozytorium lub innej wersji gry.</translation>
+            <translation>Nie znaleziono kodów do tej gry w tej wersji wybranego repozytorium. Spróbuj innego repozytorium lub innej wersji gry.</translation>
         </message>
         <message>
             <location filename="../cheats_patches.cpp" line="593"/>
@@ -851,12 +856,12 @@
         <message>
             <location filename="../cheats_patches.cpp" line="763"/>
             <source>DownloadComplete_MSG</source>
-            <translation>Poprawki zostały pomyślnie pobrane! Wszystkie dostępne poprawki dla wszystkich gier zostały pobrane. Nie ma potrzeby pobierania ich osobno dla każdej gry, która ma kody.</translation>
+            <translation>Poprawki zostały pomyślnie pobrane! Wszystkie dostępne poprawki dla wszystkich gier zostały pobrane. Nie ma potrzeby pobierania ich osobno dla każdej gry, która ma kody. Jeśli poprawka się nie pojawia, możliwe, że nie istnieje dla konkretnego numeru seryjnego i wersji gry. Może być konieczne zaktualizowanie gry.</translation>
         </message>
         <message>
             <location filename="../cheats_patches.cpp" line="773"/>
             <source>Failed to parse JSON data from HTML.</source>
-            <translation>Nie udało się sparsować danych JSON z HTML.</translation>
+            <translation>Nie udało się przeanalizować danych JSON z HTML.</translation>
         </message>
         <message>
             <location filename="../cheats_patches.cpp" line="778"/>
@@ -896,7 +901,78 @@
         <message>
             <location filename="../cheats_patches.cpp" line="1052"/>
             <source>Failed to parse JSON:</source>
-            <translation>Nie udało się sparsować JSON:</translation>
+            <translation>Nie udało się przeanlizować JSON:</translation>
         </message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="1163"/>
+			<source>Can't apply cheats before the game is started</source>
+			<translation>Nie można zastosować kodów przed uruchomieniem gry.</translation>
+		</message>
     </context>
+	<context>
+		<name>SettingsDialog</name>
+		<message>
+			<location filename="../settings_dialog.cpp" line="83"/>
+			<source>Save</source>
+			<translation>Zapisz</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="84"/>
+			<source>Apply</source>
+			<translation>Zastosuj</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="85"/>
+			<source>Restore Defaults</source>
+			<translation>Przywróć ustawienia domyślne</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="86"/>
+			<source>Close</source>
+			<translation>Zamknij</translation>
+		</message>
+	</context>
+	<context>
+		<name>GameListFrame</name>
+		<message>
+			<location filename="../game_list_frame.cpp" line="34"/>
+			<source>Icon</source>
+			<translation>Ikona</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="34"/>
+			<source>Name</source>
+			<translation>Nazwa</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="34"/>
+			<source>Serial</source>
+			<translation>Numer seryjny</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="34"/>
+			<source>Region</source>
+			<translation>Region</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="34"/>
+			<source>Firmware</source>
+			<translation>Oprogramowanie</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="35"/>
+			<source>Size</source>
+			<translation>Rozmiar</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="35"/>
+			<source>Version</source>
+			<translation>Wersja</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="35"/>
+			<source>Path</source>
+			<translation>Ścieżka</translation>
+		</message>
+	</context>
 </TS>

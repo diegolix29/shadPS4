@@ -17,7 +17,7 @@ namespace Vulkan {
 Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
                        AmdGpu::Liverpool* liverpool_)
     : instance{instance_}, scheduler{scheduler_}, page_manager{this},
-      buffer_cache{instance, scheduler, liverpool_, page_manager},
+      buffer_cache{instance, scheduler, liverpool_, texture_cache, page_manager},
       texture_cache{instance, scheduler, buffer_cache, page_manager}, liverpool{liverpool_},
       memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool} {
     if (!Config::nullGpu()) {
@@ -28,6 +28,19 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
 }
 
 Rasterizer::~Rasterizer() = default;
+
+void Rasterizer::CpSync() {
+    scheduler.EndRendering();
+    auto cmdbuf = scheduler.CommandBuffer();
+
+    const vk::MemoryBarrier ib_barrier{
+        .srcAccessMask = vk::AccessFlagBits::eShaderWrite,
+        .dstAccessMask = vk::AccessFlagBits::eIndirectCommandRead,
+    };
+    cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
+                           vk::PipelineStageFlagBits::eDrawIndirect,
+                           vk::DependencyFlagBits::eByRegion, ib_barrier, {}, {});
+}
 
 void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     RENDERER_TRACE;
@@ -49,7 +62,7 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     buffer_cache.BindVertexBuffers(vs_info);
     const u32 num_indices = buffer_cache.BindIndexBuffer(is_indexed, index_offset);
 
-    BeginRendering();
+    BeginRendering(*pipeline);
     UpdateDynamicState(*pipeline);
 
     const auto [vertex_offset, instance_offset] = vs_info.GetDrawOffsets();
@@ -63,6 +76,45 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
                                      : regs.num_indices;
         cmdbuf.draw(num_vertices, regs.num_instances.NumInstances(), vertex_offset,
                     instance_offset);
+    }
+}
+
+void Rasterizer::DrawIndirect(bool is_indexed, VAddr address, u32 offset, u32 size) {
+    RENDERER_TRACE;
+
+    const auto cmdbuf = scheduler.CommandBuffer();
+    const auto& regs = liverpool->regs;
+    const GraphicsPipeline* pipeline = pipeline_cache.GetGraphicsPipeline();
+    if (!pipeline) {
+        return;
+    }
+
+    ASSERT_MSG(regs.primitive_type != AmdGpu::Liverpool::PrimitiveType::RectList,
+               "Unsupported primitive type for indirect draw");
+
+    try {
+        pipeline->BindResources(regs, buffer_cache, texture_cache);
+    } catch (...) {
+        UNREACHABLE();
+    }
+
+    const auto& vs_info = pipeline->GetStage(Shader::Stage::Vertex);
+    buffer_cache.BindVertexBuffers(vs_info);
+    const u32 num_indices = buffer_cache.BindIndexBuffer(is_indexed, 0);
+
+    BeginRendering(*pipeline);
+    UpdateDynamicState(*pipeline);
+
+    const auto [buffer, base] = buffer_cache.ObtainBuffer(address, size, true);
+    const auto total_offset = base + offset;
+
+    // We can safely ignore both SGPR UD indices and results of fetch shader parsing, as vertex and
+    // instance offsets will be automatically applied by Vulkan from indirect args buffer.
+
+    if (is_indexed) {
+        cmdbuf.drawIndexedIndirect(buffer->Handle(), total_offset, 1, 0);
+    } else {
+        cmdbuf.drawIndirect(buffer->Handle(), total_offset, 1, 0);
     }
 }
 
@@ -113,19 +165,6 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     const auto [buffer, base] = buffer_cache.ObtainBuffer(address, size, true);
     const auto total_offset = base + offset;
-
-    // Emulate PFP-to-ME sync packet
-    const vk::BufferMemoryBarrier ib_barrier{
-        .srcAccessMask = vk::AccessFlagBits::eShaderWrite,
-        .dstAccessMask = vk::AccessFlagBits::eIndirectCommandRead,
-        .buffer = buffer->Handle(),
-        .offset = total_offset,
-        .size = size,
-    };
-    cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
-                           vk::PipelineStageFlagBits::eDrawIndirect,
-                           vk::DependencyFlagBits::eByRegion, {}, ib_barrier, {});
-
     cmdbuf.dispatchIndirect(buffer->Handle(), total_offset);
 }
 
@@ -136,9 +175,17 @@ u64 Rasterizer::Flush() {
     return current_tick;
 }
 
-void Rasterizer::BeginRendering() {
+void Rasterizer::Finish() {
+    scheduler.Finish();
+}
+
+void Rasterizer::BeginRendering(const GraphicsPipeline& pipeline) {
     const auto& regs = liverpool->regs;
     RenderState state;
+
+    if (regs.color_control.degamma_enable) {
+        LOG_WARNING(Render_Vulkan, "Color buffers require gamma correction");
+    }
 
     for (auto col_buf_id = 0u; col_buf_id < Liverpool::NumColorBuffers; ++col_buf_id) {
         const auto& col_buf = regs.color_buffers[col_buf_id];
@@ -149,6 +196,13 @@ void Rasterizer::BeginRendering() {
         // If the color buffer is still bound but rendering to it is disabled by the target mask,
         // we need to prevent the render area from being affected by unbound render target extents.
         if (!regs.color_target_mask.GetMask(col_buf_id)) {
+            continue;
+        }
+
+        // Skip stale color buffers if shader doesn't output to them. Otherwise it will perform
+        // an unnecessary transition and may result in state conflict if the resource is already
+        // bound for reading.
+        if ((pipeline.GetMrtMask() & (1 << col_buf_id)) == 0) {
             continue;
         }
 
@@ -193,7 +247,7 @@ void Rasterizer::BeginRendering() {
         state.depth_image = image.image;
         state.depth_attachment = {
             .imageView = *image_view.image_view,
-            .imageLayout = image.layout,
+            .imageLayout = image.last_state.layout,
             .loadOp = is_clear ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
             .storeOp = is_clear ? vk::AttachmentStoreOp::eNone : vk::AttachmentStoreOp::eStore,
             .clearValue = vk::ClearValue{.depthStencil = {.depth = regs.depth_clear,
@@ -206,6 +260,17 @@ void Rasterizer::BeginRendering() {
                             AmdGpu::Liverpool::DepthBuffer::StencilFormat::Invalid;
     }
     scheduler.BeginRendering(state);
+}
+
+void Rasterizer::InlineDataToGds(u32 gds_offset, u32 value) {
+    buffer_cache.InlineDataToGds(gds_offset, value);
+}
+
+u32 Rasterizer::ReadDataFromGds(u32 gds_offset) {
+    auto* gds_buf = buffer_cache.GetGdsBuffer();
+    u32 value;
+    std::memcpy(&value, gds_buf->mapped_data.data() + gds_offset, sizeof(u32));
+    return value;
 }
 
 void Rasterizer::InvalidateMemory(VAddr addr, u64 size) {
@@ -238,6 +303,43 @@ void Rasterizer::UpdateDynamicState(const GraphicsPipeline& pipeline) {
 
         cmdbuf.setColorWriteEnableEXT(write_ens);
         cmdbuf.setColorWriteMaskEXT(0, write_masks);
+    }
+    if (regs.depth_control.depth_bounds_enable) {
+        cmdbuf.setDepthBounds(regs.depth_bounds_min, regs.depth_bounds_max);
+    }
+    if (regs.polygon_control.NeedsBias()) {
+        if (regs.polygon_control.enable_polygon_offset_front) {
+            cmdbuf.setDepthBias(regs.poly_offset.front_offset, regs.poly_offset.depth_bias,
+                                regs.poly_offset.front_scale);
+        } else {
+            cmdbuf.setDepthBias(regs.poly_offset.back_offset, regs.poly_offset.depth_bias,
+                                regs.poly_offset.back_scale);
+        }
+    }
+    if (regs.depth_control.stencil_enable) {
+        const auto front = regs.stencil_ref_front;
+        const auto back = regs.stencil_ref_back;
+        if (front.stencil_test_val == back.stencil_test_val) {
+            cmdbuf.setStencilReference(vk::StencilFaceFlagBits::eFrontAndBack,
+                                       front.stencil_test_val);
+        } else {
+            cmdbuf.setStencilReference(vk::StencilFaceFlagBits::eFront, front.stencil_test_val);
+            cmdbuf.setStencilReference(vk::StencilFaceFlagBits::eBack, back.stencil_test_val);
+        }
+        if (front.stencil_write_mask == back.stencil_write_mask) {
+            cmdbuf.setStencilWriteMask(vk::StencilFaceFlagBits::eFrontAndBack,
+                                       front.stencil_write_mask);
+        } else {
+            cmdbuf.setStencilWriteMask(vk::StencilFaceFlagBits::eFront, front.stencil_write_mask);
+            cmdbuf.setStencilWriteMask(vk::StencilFaceFlagBits::eBack, back.stencil_write_mask);
+        }
+        if (front.stencil_mask == back.stencil_mask) {
+            cmdbuf.setStencilCompareMask(vk::StencilFaceFlagBits::eFrontAndBack,
+                                         front.stencil_mask);
+        } else {
+            cmdbuf.setStencilCompareMask(vk::StencilFaceFlagBits::eFront, front.stencil_mask);
+            cmdbuf.setStencilCompareMask(vk::StencilFaceFlagBits::eBack, back.stencil_mask);
+        }
     }
 }
 
@@ -282,7 +384,7 @@ void Rasterizer::UpdateDepthStencilState() {
 }
 
 void Rasterizer::ScopeMarkerBegin(const std::string_view& str) {
-    if (Config::nullGpu() || !Config::isMarkersEnabled()) {
+    if (Config::nullGpu() || !Config::vkMarkersEnabled()) {
         return;
     }
 
@@ -293,7 +395,7 @@ void Rasterizer::ScopeMarkerBegin(const std::string_view& str) {
 }
 
 void Rasterizer::ScopeMarkerEnd() {
-    if (Config::nullGpu() || !Config::isMarkersEnabled()) {
+    if (Config::nullGpu() || !Config::vkMarkersEnabled()) {
         return;
     }
 
@@ -302,7 +404,7 @@ void Rasterizer::ScopeMarkerEnd() {
 }
 
 void Rasterizer::ScopedMarkerInsert(const std::string_view& str) {
-    if (Config::nullGpu() || !Config::isMarkersEnabled()) {
+    if (Config::nullGpu() || !Config::vkMarkersEnabled()) {
         return;
     }
 
@@ -310,13 +412,6 @@ void Rasterizer::ScopedMarkerInsert(const std::string_view& str) {
     cmdbuf.insertDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
         .pLabelName = str.data(),
     });
-}
-
-void Rasterizer::Breadcrumb(u64 id) {
-    if (Config::nullGpu() || !instance.HasNvCheckpoints()) {
-        return;
-    }
-    scheduler.CommandBuffer().setCheckpointNV(id);
 }
 
 } // namespace Vulkan

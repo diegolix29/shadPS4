@@ -21,7 +21,7 @@
         <message>
             <location filename="../about_dialog.ui" line="99"/>
             <source>This software should not be used to play games you have not legally obtained.</source>
-            <translation>Este software no debe utilizarse para jugar juegos que no hayas obtenido legalmente.</translation>
+            <translation>Este software no debe utilizarse para jugar juegos que hayas obtenido ilegalmente.</translation>
         </message>
     </context>
     <context>
@@ -118,7 +118,7 @@
         <message>
             <location filename="../gui_context_menus.h" line="61"/>
             <source>Copy Serial</source>
-            <translation>Copiar serial</translation>
+            <translation>Copiar número de serie</translation>
         </message>
         <message>
             <location filename="../gui_context_menus.h" line="62"/>
@@ -296,7 +296,7 @@
         <message>
             <location filename="../main_window_ui.h" line="355"/>
             <source>Settings</source>
-            <translation>Configuraciones</translation>
+            <translation>Configuración</translation>
         </message>
         <message>
             <location filename="../main_window_ui.h" line="356"/>
@@ -341,7 +341,7 @@
         <message>
             <location filename="../main_window_ui.h" line="364"/>
             <source>toolBar</source>
-            <translation>barra de herramientas</translation>
+            <translation>Barra de herramientas</translation>
         </message>
     </context>
     <context>
@@ -365,7 +365,7 @@
         <message>
             <location filename="../settings_dialog.ui" line="29"/>
             <source>Settings</source>
-            <translation>Configuraciones</translation>
+            <translation>Configuración</translation>
         </message>
         <message>
             <location filename="../settings_dialog.ui" line="67"/>
@@ -500,6 +500,11 @@
     </context>
 	<context>
         <name>MainWindow</name>
+		<message>
+			<location filename="../main_window.cpp" line="106"/>
+			<source>Game List</source>
+			<translation>Lista de juegos</translation>
+		</message>
         <message>
         	<location filename="../main_window.cpp" line="168"/>
         	<source> * Unsupported Vulkan Version</source>
@@ -533,7 +538,7 @@
         <message>
         	<location filename="../main_window.cpp" line="392"/>
         	<source>All Patches available for all games have been downloaded.</source>
-        	<translation>Todos los parches disponibles para todos los juegos han sido descargados.</translation>
+        	<translation>Todos los parches disponibles han sido descargados para todos los juegos.</translation>
         </message>
         <message>
         	<location filename="../main_window.cpp" line="549"/>
@@ -643,7 +648,7 @@
         <message>
         	<location filename="../main_window.cpp" line="725"/>
         	<source>File doesn't appear to be a valid PKG file</source>
-        	<translation>El archivo no parece ser un archivo PKG válido</translation>
+        	<translation>El archivo parece no ser un archivo PKG válido</translation>
         </message>
 	</context>
 	<context>
@@ -666,7 +671,7 @@
         <message>
         	<location filename="../cheats_patches.cpp" line="79"/>
         	<source>Serial: </source>
-        	<translation>Serie: </translation>
+        	<translation>Número de serie: </translation>
         </message>
         <message>
         	<location filename="../cheats_patches.cpp" line="83"/>
@@ -706,7 +711,7 @@
         <message>
         	<location filename="../cheats_patches.cpp" line="170"/>
         	<source>You can delete the cheats you don't want after downloading them.</source>
-        	<translation>Puedes eliminar los trucos que no quieras después de descargarlos.</translation>
+        	<translation>Puedes eliminar los trucos que no quieras una vez descargados.</translation>
         </message>
         <message>
         	<location filename="../cheats_patches.cpp" line="178"/>
@@ -736,7 +741,7 @@
         <message>
         	<location filename="../cheats_patches.cpp" line="257"/>
         	<source>Patches</source>
-        	<translation>Parche</translation>
+        	<translation>Parches</translation>
         </message>
         <message>
         	<location filename="../cheats_patches.cpp" line="278"/>
@@ -756,7 +761,7 @@
         <message>
         	<location filename="../cheats_patches.cpp" line="316"/>
         	<source>No patch file found for the current serial.</source>
-        	<translation>No se encontró ningún archivo de parche para la serie actual.</translation>
+        	<translation>No se encontró ningún archivo de parche para el número de serie actual.</translation>
         </message>
         <message>
         	<location filename="../cheats_patches.cpp" line="323"/>
@@ -851,7 +856,7 @@
         <message>
         	<location filename="../cheats_patches.cpp" line="763"/>
         	<source>DownloadComplete_MSG</source>
-        	<translation>¡Parches descargados exitosamente! Todos los parches disponibles para todos los juegos han sido descargados, no es necesario descargarlos individualmente para cada juego como ocurre con los trucos.</translation>
+        	<translation>¡Parches descargados exitosamente! Todos los parches disponibles para todos los juegos han sido descargados, no es necesario descargarlos individualmente para cada juego como ocurre con los trucos. Si el parche no aparece, puede ser que no exista para el número de serie y versión específicos del juego. Puede ser necesario actualizar el juego.</translation>
         </message>
         <message>
         	<location filename="../cheats_patches.cpp" line="773"/>
@@ -898,5 +903,76 @@
         	<source>Name:</source>
         	<translation>Nombre:</translation>
         </message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="1163"/>
+			<source>Can't apply cheats before the game is started</source>
+			<translation>No se pueden aplicar trucos antes de que se inicie el juego.</translation>
+		</message>
+	</context>
+	<context>
+		<name>SettingsDialog</name>
+		<message>
+			<location filename="../settings_dialog.cpp" line="83"/>
+			<source>Save</source>
+			<translation>Guardar</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="84"/>
+			<source>Apply</source>
+			<translation>Aplicar</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="85"/>
+			<source>Restore Defaults</source>
+			<translation>Restaurar Valores Predeterminados</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="86"/>
+			<source>Close</source>
+			<translation>Cerrar</translation>
+		</message>
+	</context>
+	<context>
+		<name>GameListFrame</name>
+		<message>
+			<location filename="../game_list_frame.cpp" line="34"/>
+			<source>Icon</source>
+			<translation>Icono</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="34"/>
+			<source>Name</source>
+			<translation>Nombre</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="34"/>
+			<source>Serial</source>
+			<translation>Numero de serie</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="34"/>
+			<source>Region</source>
+			<translation>Región</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="34"/>
+			<source>Firmware</source>
+			<translation>Firmware</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="35"/>
+			<source>Size</source>
+			<translation>Tamaño</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="35"/>
+			<source>Version</source>
+			<translation>Versión</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="35"/>
+			<source>Path</source>
+			<translation>Ruta</translation>
+		</message>
 	</context>
 </TS>

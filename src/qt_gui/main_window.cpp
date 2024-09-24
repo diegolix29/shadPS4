@@ -34,12 +34,12 @@ bool MainWindow::Init() {
     CreateActions();
     CreateRecentGameActions();
     ConfigureGuiFromSettings();
+    LoadTranslation();
     CreateDockWindows();
     CreateConnects();
     SetLastUsedTheme();
     SetLastIconSizeBullet();
     GetPhysicalDevices();
-    LoadTranslation();
     // show ui
     setMinimumSize(350, minimumSizeHint().height());
     setWindowTitle(QString::fromStdString("shadPS4 v" + std::string(Common::VERSION)));
@@ -88,6 +88,7 @@ void MainWindow::AddUiWidgets() {
     ui->toolBar->addWidget(ui->playButton);
     ui->toolBar->addWidget(ui->pauseButton);
     ui->toolBar->addWidget(ui->stopButton);
+    ui->toolBar->addWidget(ui->refreshButton);
     ui->toolBar->addWidget(ui->settingsButton);
     ui->toolBar->addWidget(ui->controllerButton);
     QFrame* line = new QFrame(this);
@@ -103,7 +104,7 @@ void MainWindow::CreateDockWindows() {
     QWidget* phCentralWidget = new QWidget(this);
     setCentralWidget(phCentralWidget);
 
-    m_dock_widget.reset(new QDockWidget("Game List", this));
+    m_dock_widget.reset(new QDockWidget(tr("Game List"), this));
     m_game_list_frame.reset(new GameListFrame(m_game_info, this));
     m_game_list_frame->setObjectName("gamelist");
     m_game_grid_frame.reset(new GameGridFrame(m_game_info, this));
@@ -177,6 +178,7 @@ void MainWindow::CreateConnects() {
     connect(ui->mw_searchbar, &QLineEdit::textChanged, this, &MainWindow::SearchGameTable);
     connect(ui->exitAct, &QAction::triggered, this, &QWidget::close);
     connect(ui->refreshGameListAct, &QAction::triggered, this, &MainWindow::RefreshGameTable);
+    connect(ui->refreshButton, &QPushButton::clicked, this, &MainWindow::RefreshGameTable);
     connect(ui->showGameListAct, &QAction::triggered, this, &MainWindow::ShowGameList);
     connect(this, &MainWindow::ExtractionFinished, this, &MainWindow::RefreshGameTable);
 
@@ -507,6 +509,10 @@ void MainWindow::StartGame() {
     if (gamePath != "") {
         AddRecentFiles(gamePath);
         Core::Emulator emulator;
+        if (!std::filesystem::exists(gamePath.toUtf8().constData())) {
+            QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Eboot.bin file not found")));
+            return;
+        }
         emulator.Run(gamePath.toUtf8().constData());
     }
 }
@@ -575,7 +581,7 @@ void MainWindow::SaveWindowState() const {
 void MainWindow::InstallPkg() {
     QFileDialog dialog;
     dialog.setFileMode(QFileDialog::ExistingFiles);
-    dialog.setNameFilter(tr("PKG File (*.PKG)"));
+    dialog.setNameFilter(tr("PKG File (*.PKG *.pkg)"));
     if (dialog.exec()) {
         QStringList fileNames = dialog.selectedFiles();
         int nPkg = fileNames.size();
@@ -608,6 +614,11 @@ void MainWindow::BootGame() {
             path = std::filesystem::path(fileNames[0].toStdWString());
 #endif
             Core::Emulator emulator;
+            if (!std::filesystem::exists(path)) {
+                QMessageBox::critical(nullptr, tr("Run Game"),
+                                      QString(tr("Eboot.bin file not found")));
+                return;
+            }
             emulator.Run(path);
         }
     }
@@ -625,9 +636,19 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
             QMessageBox msgBox;
             msgBox.setWindowTitle(tr("PKG Extraction"));
 
-            psf.open("", pkg.sfo);
+            if (!psf.Open(pkg.sfo)) {
+                QMessageBox::critical(this, tr("PKG ERROR"),
+                                      "Could not read SFO. Check log for details");
+                return;
+            }
 
-            std::string content_id = psf.GetString("CONTENT_ID");
+            std::string content_id;
+            if (auto value = psf.GetString("CONTENT_ID"); value.has_value()) {
+                content_id = std::string{*value};
+            } else {
+                QMessageBox::critical(this, tr("PKG ERROR"), "PSF file there is no CONTENT_ID");
+                return;
+            }
             std::string entitlement_label = Common::SplitString(content_id, '-')[2];
 
             auto addon_extract_path = Common::FS::GetUserPath(Common::FS::PathType::AddonsDir) /
@@ -636,9 +657,21 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
             auto category = psf.GetString("CATEGORY");
 
             if (pkgType.contains("PATCH")) {
-                QString pkg_app_version = QString::fromStdString(psf.GetString("APP_VER"));
-                psf.open(extract_path.string() + "/sce_sys/param.sfo", {});
-                QString game_app_version = QString::fromStdString(psf.GetString("APP_VER"));
+                QString pkg_app_version;
+                if (auto app_ver = psf.GetString("APP_VER"); app_ver.has_value()) {
+                    pkg_app_version = QString::fromStdString(std::string{*app_ver});
+                } else {
+                    QMessageBox::critical(this, tr("PKG ERROR"), "PSF file there is no APP_VER");
+                    return;
+                }
+                psf.Open(extract_path / "sce_sys" / "param.sfo");
+                QString game_app_version;
+                if (auto app_ver = psf.GetString("APP_VER"); app_ver.has_value()) {
+                    game_app_version = QString::fromStdString(std::string{*app_ver});
+                } else {
+                    QMessageBox::critical(this, tr("PKG ERROR"), "PSF file there is no APP_VER");
+                    return;
+                }
                 double appD = game_app_version.toDouble();
                 double pkgD = pkg_app_version.toDouble();
                 if (pkgD == appD) {
@@ -852,6 +885,7 @@ void MainWindow::SetUiIcons(bool isWhite) {
     ui->playButton->setIcon(RecolorIcon(ui->playButton->icon(), isWhite));
     ui->pauseButton->setIcon(RecolorIcon(ui->pauseButton->icon(), isWhite));
     ui->stopButton->setIcon(RecolorIcon(ui->stopButton->icon(), isWhite));
+    ui->refreshButton->setIcon(RecolorIcon(ui->refreshButton->icon(), isWhite));
     ui->settingsButton->setIcon(RecolorIcon(ui->settingsButton->icon(), isWhite));
     ui->controllerButton->setIcon(RecolorIcon(ui->controllerButton->icon(), isWhite));
     ui->refreshGameListAct->setIcon(RecolorIcon(ui->refreshGameListAct->icon(), isWhite));
@@ -912,6 +946,10 @@ void MainWindow::CreateRecentGameActions() {
         QString gamePath = action->text();
         AddRecentFiles(gamePath); // Update the list.
         Core::Emulator emulator;
+        if (!std::filesystem::exists(gamePath.toUtf8().constData())) {
+            QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Eboot.bin file not found")));
+            return;
+        }
         emulator.Run(gamePath.toUtf8().constData());
     });
 }

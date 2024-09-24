@@ -4,6 +4,7 @@
 #pragma once
 
 #include <span>
+#include "common/assert.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/amdgpu/pixel_format.h"
 #include "video_core/amdgpu/resource.h"
@@ -51,8 +52,17 @@ vk::Format DepthFormat(Liverpool::DepthBuffer::ZFormat z_format,
 
 vk::ClearValue ColorBufferClearValue(const AmdGpu::Liverpool::ColorBuffer& color_buffer);
 
-vk::SampleCountFlagBits NumSamples(u32 num_samples);
+vk::SampleCountFlagBits NumSamples(u32 num_samples, vk::SampleCountFlags supported_flags);
 
 void EmitQuadToTriangleListIndices(u8* out_indices, u32 num_vertices);
+
+static inline vk::Format PromoteFormatToDepth(vk::Format fmt) {
+    if (fmt == vk::Format::eR32Sfloat) {
+        return vk::Format::eD32Sfloat;
+    } else if (fmt == vk::Format::eR16Unorm) {
+        return vk::Format::eD16Unorm;
+    }
+    UNREACHABLE();
+}
 
 } // namespace Vulkan::LiverpoolToVK

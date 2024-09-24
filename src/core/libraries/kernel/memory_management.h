@@ -56,7 +56,7 @@ struct OrbisVirtualQueryInfo {
         BitField<1, 1, u32> is_direct;
         BitField<2, 1, u32> is_stack;
         BitField<3, 1, u32> is_pooled;
-        BitField<4, 1, u32> is_commited;
+        BitField<4, 1, u32> is_committed;
     };
     std::array<char, 32> name;
 };
@@ -94,6 +94,10 @@ s32 PS4_SYSV_ABI sceKernelMapNamedFlexibleMemory(void** addrInOut, std::size_t l
 s32 PS4_SYSV_ABI sceKernelMapFlexibleMemory(void** addr_in_out, std::size_t len, int prot,
                                             int flags);
 int PS4_SYSV_ABI sceKernelQueryMemoryProtection(void* addr, void** start, void** end, u32* prot);
+
+int PS4_SYSV_ABI sceKernelMProtect(const void* addr, size_t size, int prot);
+
+int PS4_SYSV_ABI sceKernelMTypeProtect(const void* addr, size_t size, int mtype, int prot);
 
 int PS4_SYSV_ABI sceKernelDirectMemoryQuery(u64 offset, int flags, OrbisQueryInfo* query_info,
                                             size_t infoSize);

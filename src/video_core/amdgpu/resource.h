@@ -66,7 +66,7 @@ struct Buffer {
     }
 
     u32 GetStride() const noexcept {
-        return stride == 0 ? 1U : stride;
+        return stride;
     }
 
     u32 NumDwords() const noexcept {
@@ -74,7 +74,7 @@ struct Buffer {
     }
 
     u32 GetSize() const noexcept {
-        return GetStride() * num_records;
+        return stride == 0 ? num_records : (stride * num_records);
     }
 };
 static_assert(sizeof(Buffer) == 16); // 128bits
@@ -176,6 +176,18 @@ struct Image {
     u64 lod_hw_cnt_en : 1;
     u64 : 43;
 
+    static constexpr Image Null() {
+        Image image{};
+        image.data_format = u64(DataFormat::Format8_8_8_8);
+        image.dst_sel_x = 4;
+        image.dst_sel_y = 5;
+        image.dst_sel_z = 6;
+        image.dst_sel_w = 7;
+        image.tiling_index = u64(TilingMode::Texture_MicroTiled);
+        image.type = u64(ImageType::Color2D);
+        return image;
+    }
+
     bool Valid() const {
         return (type & 0x8u) != 0;
     }
@@ -226,10 +238,15 @@ struct Image {
         return pitch + 1;
     }
 
-    u32 NumLayers() const {
+    u32 NumLayers(bool is_array) const {
         u32 slices = GetType() == ImageType::Color3D ? 1 : depth + 1;
         if (GetType() == ImageType::Cube) {
-            slices *= 6;
+            if (is_array) {
+                slices = last_array + 1;
+                ASSERT(slices % 6 == 0);
+            } else {
+                slices = 6;
+            }
         }
         if (pow2pad) {
             slices = std::bit_ceil(slices);
@@ -269,6 +286,11 @@ struct Image {
 
     bool IsTiled() const {
         return GetTilingMode() != TilingMode::Display_Linear;
+    }
+
+    bool IsPartialCubemap() const {
+        const auto viewed_slice = last_array - base_array + 1;
+        return GetType() == ImageType::Cube && viewed_slice < 6;
     }
 };
 static_assert(sizeof(Image) == 32); // 256bits

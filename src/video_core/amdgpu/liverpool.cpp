@@ -20,6 +20,20 @@ static const char* acb_task_name{"ACB_TASK"};
 
 std::array<u8, 48_KB> Liverpool::ConstantEngine::constants_heap;
 
+static std::span<const u32> NextPacket(std::span<const u32> span, size_t offset) {
+    if (offset > span.size()) {
+        LOG_ERROR(
+            Lib_GnmDriver,
+            ": packet length exceeds remaining submission size. Packet dword count={}, remaining "
+            "submission dwords={}",
+            offset, span.size());
+        // Return empty subspan so check for next packet bails out
+        return {};
+    }
+
+    return span.subspan(offset);
+}
+
 Liverpool::Liverpool() {
     process_thread = std::jthread{std::bind_front(&Liverpool::Process, this)};
 }
@@ -150,7 +164,7 @@ Liverpool::Task Liverpool::ProcessCeUpdate(std::span<const u32> ccb) {
             UNREACHABLE_MSG("Unknown PM4 type 3 opcode {:#x} with count {}",
                             static_cast<u32>(opcode), count);
         }
-        ccb = ccb.subspan(header->type3.NumWords() + 1);
+        ccb = NextPacket(ccb, header->type3.NumWords() + 1);
     }
 
     TracyFiberLeave;
@@ -184,7 +198,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             break;
         case 2:
             // Type-2 packet are used for padding purposes
-            dcb = dcb.subspan(1);
+            dcb = NextPacket(dcb, 1);
             continue;
         case 3:
             const u32 count = header->type3.NumWords();
@@ -207,11 +221,15 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     const auto marker_sz = nop->header.count.Value() * 2;
                     const std::string_view label{reinterpret_cast<const char*>(&nop->data_block[1]),
                                                  marker_sz};
-                    rasterizer->ScopeMarkerBegin(label);
+                    if (rasterizer) {
+                        rasterizer->ScopeMarkerBegin(label);
+                    }
                     break;
                 }
                 case PM4CmdNop::PayloadType::DebugMarkerPop: {
-                    rasterizer->ScopeMarkerEnd();
+                    if (rasterizer) {
+                        rasterizer->ScopeMarkerEnd();
+                    }
                     break;
                 }
                 default:
@@ -333,7 +351,6 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (rasterizer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndex2", cmd_address));
-                    rasterizer->Breadcrumb(u64(cmd_address));
                     rasterizer->Draw(true);
                     rasterizer->ScopeMarkerEnd();
                 }
@@ -349,7 +366,6 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(
                         fmt::format("dcb:{}:DrawIndexOffset2", cmd_address));
-                    rasterizer->Breadcrumb(u64(cmd_address));
                     rasterizer->Draw(true, draw_index_off->index_offset);
                     rasterizer->ScopeMarkerEnd();
                 }
@@ -362,8 +378,35 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (rasterizer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndexAuto", cmd_address));
-                    rasterizer->Breadcrumb(u64(cmd_address));
                     rasterizer->Draw(false);
+                    rasterizer->ScopeMarkerEnd();
+                }
+                break;
+            }
+            case PM4ItOpcode::DrawIndirect: {
+                const auto* draw_indirect = reinterpret_cast<const PM4CmdDrawIndirect*>(header);
+                const auto offset = draw_indirect->data_offset;
+                const auto ib_address = mapped_queues[GfxQueueId].indirect_args_addr;
+                const auto size = sizeof(PM4CmdDrawIndirect::DrawInstancedArgs);
+                if (rasterizer) {
+                    const auto cmd_address = reinterpret_cast<const void*>(header);
+                    rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndirect", cmd_address));
+                    rasterizer->DrawIndirect(false, ib_address, offset, size);
+                    rasterizer->ScopeMarkerEnd();
+                }
+                break;
+            }
+            case PM4ItOpcode::DrawIndexIndirect: {
+                const auto* draw_index_indirect =
+                    reinterpret_cast<const PM4CmdDrawIndexIndirect*>(header);
+                const auto offset = draw_index_indirect->data_offset;
+                const auto ib_address = mapped_queues[GfxQueueId].indirect_args_addr;
+                const auto size = sizeof(PM4CmdDrawIndexIndirect::DrawIndexInstancedArgs);
+                if (rasterizer) {
+                    const auto cmd_address = reinterpret_cast<const void*>(header);
+                    rasterizer->ScopeMarkerBegin(
+                        fmt::format("dcb:{}:DrawIndexIndirect", cmd_address));
+                    rasterizer->DrawIndirect(true, ib_address, offset, size);
                     rasterizer->ScopeMarkerEnd();
                 }
                 break;
@@ -377,7 +420,6 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (rasterizer && (regs.cs_program.dispatch_initiator & 1)) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:Dispatch", cmd_address));
-                    rasterizer->Breadcrumb(u64(cmd_address));
                     rasterizer->DispatchDirect();
                     rasterizer->ScopeMarkerEnd();
                 }
@@ -393,7 +435,6 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(
                         fmt::format("dcb:{}:DispatchIndirect", cmd_address));
-                    rasterizer->Breadcrumb(u64(cmd_address));
                     rasterizer->DispatchIndirect(ib_address, offset, size);
                     rasterizer->ScopeMarkerEnd();
                 }
@@ -428,6 +469,14 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             case PM4ItOpcode::EventWriteEos: {
                 const auto* event_eos = reinterpret_cast<const PM4CmdEventWriteEos*>(header);
                 event_eos->SignalFence();
+                if (event_eos->command == PM4CmdEventWriteEos::Command::GdsStore) {
+                    ASSERT(event_eos->size == 1);
+                    if (rasterizer) {
+                        rasterizer->Finish();
+                        const u32 value = rasterizer->ReadDataFromGds(event_eos->gds_index);
+                        *event_eos->Address() = value;
+                    }
+                }
                 break;
             }
             case PM4ItOpcode::EventWriteEop: {
@@ -437,6 +486,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             }
             case PM4ItOpcode::DmaData: {
                 const auto* dma_data = reinterpret_cast<const PM4DmaData*>(header);
+                if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
+                    rasterizer->InlineDataToGds(dma_data->dst_addr_lo, dma_data->data);
+                }
                 break;
             }
             case PM4ItOpcode::WriteData: {
@@ -491,13 +543,16 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 break;
             }
             case PM4ItOpcode::PfpSyncMe: {
+                if (rasterizer) {
+                    rasterizer->CpSync();
+                }
                 break;
             }
             default:
                 UNREACHABLE_MSG("Unknown PM4 type 3 opcode {:#x} with count {}",
                                 static_cast<u32>(opcode), count);
             }
-            dcb = dcb.subspan(header->type3.NumWords() + 1);
+            dcb = NextPacket(dcb, header->type3.NumWords() + 1);
             break;
         }
     }
@@ -560,7 +615,6 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, int vqid) {
             if (rasterizer && (regs.cs_program.dispatch_initiator & 1)) {
                 const auto cmd_address = reinterpret_cast<const void*>(header);
                 rasterizer->ScopeMarkerBegin(fmt::format("acb[{}]:{}:Dispatch", vqid, cmd_address));
-                rasterizer->Breadcrumb(u64(cmd_address));
                 rasterizer->DispatchDirect();
                 rasterizer->ScopeMarkerEnd();
             }
@@ -599,7 +653,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, int vqid) {
                             static_cast<u32>(opcode), count);
         }
 
-        acb = acb.subspan(header->type3.NumWords() + 1);
+        acb = NextPacket(acb, header->type3.NumWords() + 1);
     }
 
     TracyFiberLeave;
@@ -608,6 +662,12 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, int vqid) {
 std::pair<std::span<const u32>, std::span<const u32>> Liverpool::CopyCmdBuffers(
     std::span<const u32> dcb, std::span<const u32> ccb) {
     auto& queue = mapped_queues[GfxQueueId];
+
+    // std::vector resize can invalidate spans for commands in flight
+    ASSERT_MSG(queue.dcb_buffer.capacity() >= queue.dcb_buffer_offset + dcb.size(),
+               "dcb copy buffer out of reserved space");
+    ASSERT_MSG(queue.ccb_buffer.capacity() >= queue.ccb_buffer_offset + ccb.size(),
+               "ccb copy buffer out of reserved space");
 
     queue.dcb_buffer.resize(
         std::max(queue.dcb_buffer.size(), queue.dcb_buffer_offset + dcb.size()));

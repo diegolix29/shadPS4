@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "common/enum.h"
 #include "common/types.h"
 #include "core/libraries/videoout/buffer.h"
+#include "shader_recompiler/info.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/texture_cache/types.h"
 
@@ -20,7 +20,7 @@ struct ImageInfo {
               const AmdGpu::Liverpool::CbDbExtent& hint = {}) noexcept;
     ImageInfo(const AmdGpu::Liverpool::DepthBuffer& buffer, u32 num_slices, VAddr htile_address,
               const AmdGpu::Liverpool::CbDbExtent& hint = {}) noexcept;
-    ImageInfo(const AmdGpu::Image& image) noexcept;
+    ImageInfo(const AmdGpu::Image& image, const Shader::ImageResource& desc) noexcept;
 
     bool IsTiled() const {
         return tiling_mode != AmdGpu::TilingMode::Display_Linear;
@@ -28,6 +28,15 @@ struct ImageInfo {
     bool IsBlockCoded() const;
     bool IsPacked() const;
     bool IsDepthStencil() const;
+
+    bool IsMipOf(const ImageInfo& info) const;
+    bool IsSliceOf(const ImageInfo& info) const;
+
+    /// Verifies if images are compatible for subresource merging.
+    bool IsCompatible(const ImageInfo& info) const {
+        return (pixel_format == info.pixel_format && tiling_idx == info.tiling_idx &&
+                num_samples == info.num_samples && num_bits == info.num_bits);
+    }
 
     void UpdateSize();
 

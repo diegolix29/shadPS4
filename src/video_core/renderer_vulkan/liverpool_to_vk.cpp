@@ -199,8 +199,17 @@ vk::SamplerAddressMode ClampMode(AmdGpu::ClampMode mode) {
         return vk::SamplerAddressMode::eMirroredRepeat;
     case AmdGpu::ClampMode::ClampLastTexel:
         return vk::SamplerAddressMode::eClampToEdge;
+    case AmdGpu::ClampMode::MirrorOnceHalfBorder:
+    case AmdGpu::ClampMode::MirrorOnceBorder:
+        LOG_WARNING(Render_Vulkan, "Unimplemented clamp mode {}, using closest equivalent.",
+                    static_cast<u32>(mode));
+        [[fallthrough]];
     case AmdGpu::ClampMode::MirrorOnceLastTexel:
         return vk::SamplerAddressMode::eMirrorClampToEdge;
+    case AmdGpu::ClampMode::ClampHalfBorder:
+        LOG_WARNING(Render_Vulkan, "Unimplemented clamp mode {}, using closest equivalent.",
+                    static_cast<u32>(mode));
+        [[fallthrough]];
     case AmdGpu::ClampMode::ClampBorder:
         return vk::SamplerAddressMode::eClampToBorder;
     default:
@@ -312,6 +321,7 @@ std::span<const vk::Format> GetAllFormats() {
         vk::Format::eD32SfloatS8Uint,
         vk::Format::eR4G4B4A4UnormPack16,
         vk::Format::eR5G6B5UnormPack16,
+        vk::Format::eR5G5B5A1UnormPack16,
         vk::Format::eR8G8B8A8Srgb,
         vk::Format::eR8G8B8A8Uint,
         vk::Format::eR8G8B8A8Unorm,
@@ -385,6 +395,10 @@ vk::Format SurfaceFormat(AmdGpu::DataFormat data_format, AmdGpu::NumberFormat nu
     if (data_format == AmdGpu::DataFormat::Format5_6_5 &&
         num_format == AmdGpu::NumberFormat::Unorm) {
         return vk::Format::eB5G6R5UnormPack16;
+    }
+    if (data_format == AmdGpu::DataFormat::Format1_5_5_5 &&
+        num_format == AmdGpu::NumberFormat::Unorm) {
+        return vk::Format::eR5G5B5A1UnormPack16;
     }
     if (data_format == AmdGpu::DataFormat::Format8 && num_format == AmdGpu::NumberFormat::Unorm) {
         return vk::Format::eR8Unorm;
@@ -580,11 +594,10 @@ vk::Format SurfaceFormat(AmdGpu::DataFormat data_format, AmdGpu::NumberFormat nu
 
 vk::Format AdjustColorBufferFormat(vk::Format base_format,
                                    Liverpool::ColorBuffer::SwapMode comp_swap, bool is_vo_surface) {
-    ASSERT_MSG(comp_swap == Liverpool::ColorBuffer::SwapMode::Standard ||
-                   comp_swap == Liverpool::ColorBuffer::SwapMode::Alternate,
-               "Unsupported component swap mode {}", static_cast<u32>(comp_swap));
-
     const bool comp_swap_alt = comp_swap == Liverpool::ColorBuffer::SwapMode::Alternate;
+    const bool comp_swap_reverse = comp_swap == Liverpool::ColorBuffer::SwapMode::StandardReverse;
+    const bool comp_swap_alt_reverse =
+        comp_swap == Liverpool::ColorBuffer::SwapMode::AlternateReverse;
     if (comp_swap_alt) {
         switch (base_format) {
         case vk::Format::eR8G8B8A8Unorm:
@@ -595,9 +608,23 @@ vk::Format AdjustColorBufferFormat(vk::Format base_format,
             return is_vo_surface ? vk::Format::eB8G8R8A8Unorm : vk::Format::eB8G8R8A8Srgb;
         case vk::Format::eB8G8R8A8Srgb:
             return is_vo_surface ? vk::Format::eR8G8B8A8Unorm : vk::Format::eR8G8B8A8Srgb;
+        case vk::Format::eA2B10G10R10UnormPack32:
+            return vk::Format::eA2R10G10B10UnormPack32;
         default:
             break;
         }
+    } else if (comp_swap_reverse) {
+        switch (base_format) {
+        case vk::Format::eR8G8B8A8Unorm:
+            return vk::Format::eA8B8G8R8UnormPack32;
+        case vk::Format::eR8G8B8A8Srgb:
+            return is_vo_surface ? vk::Format::eA8B8G8R8UnormPack32
+                                 : vk::Format::eA8B8G8R8SrgbPack32;
+        default:
+            break;
+        }
+    } else if (comp_swap_alt_reverse) {
+        return base_format;
     } else {
         if (is_vo_surface && base_format == vk::Format::eR8G8B8A8Srgb) {
             return vk::Format::eR8G8B8A8Unorm;
@@ -642,8 +669,8 @@ void EmitQuadToTriangleListIndices(u8* out_ptr, u32 num_vertices) {
         *out_data++ = i;
         *out_data++ = i + 1;
         *out_data++ = i + 2;
-        *out_data++ = i + 2;
         *out_data++ = i;
+        *out_data++ = i + 2;
         *out_data++ = i + 3;
     }
 }
@@ -700,7 +727,7 @@ vk::ClearValue ColorBufferClearValue(const AmdGpu::Liverpool::ColorBuffer& color
     return {.color = color};
 }
 
-vk::SampleCountFlagBits NumSamples(u32 num_samples) {
+vk::SampleCountFlagBits RawNumSamples(u32 num_samples) {
     switch (num_samples) {
     case 1:
         return vk::SampleCountFlagBits::e1;
@@ -715,6 +742,16 @@ vk::SampleCountFlagBits NumSamples(u32 num_samples) {
     default:
         UNREACHABLE();
     }
+}
+
+vk::SampleCountFlagBits NumSamples(u32 num_samples, vk::SampleCountFlags supported_flags) {
+    vk::SampleCountFlagBits flags = RawNumSamples(num_samples);
+    // Half sample counts until supported, with a minimum of 1.
+    while (!(supported_flags & flags) && num_samples > 1) {
+        num_samples /= 2;
+        flags = RawNumSamples(num_samples);
+    }
+    return flags;
 }
 
 } // namespace Vulkan::LiverpoolToVK

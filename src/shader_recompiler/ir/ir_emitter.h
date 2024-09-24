@@ -67,12 +67,14 @@ public:
     [[nodiscard]] U1 GetVcc();
     [[nodiscard]] U32 GetVccLo();
     [[nodiscard]] U32 GetVccHi();
+    [[nodiscard]] U32 GetM0();
     void SetScc(const U1& value);
     void SetExec(const U1& value);
     void SetVcc(const U1& value);
     void SetSccLo(const U32& value);
     void SetVccLo(const U32& value);
     void SetVccHi(const U32& value);
+    void SetM0(const U32& value);
 
     [[nodiscard]] U1 Condition(IR::Condition cond);
 
@@ -88,7 +90,7 @@ public:
     [[nodiscard]] U32 SharedAtomicIMax(const U32& address, const U32& data, bool is_signed);
 
     [[nodiscard]] U32 ReadConst(const Value& base, const U32& offset);
-    [[nodiscard]] F32 ReadConstBuffer(const Value& handle, const U32& index);
+    [[nodiscard]] U32 ReadConstBuffer(const Value& handle, const U32& index);
 
     [[nodiscard]] Value LoadBuffer(int num_dwords, const Value& handle, const Value& address,
                                    BufferInstInfo info);
@@ -118,6 +120,8 @@ public:
     [[nodiscard]] Value BufferAtomicSwap(const Value& handle, const Value& address,
                                          const Value& value, BufferInstInfo info);
 
+    [[nodiscard]] U32 DataAppend(const U32& counter);
+    [[nodiscard]] U32 DataConsume(const U32& counter);
     [[nodiscard]] U32 LaneId();
     [[nodiscard]] U32 WarpId();
     [[nodiscard]] U32 QuadShuffle(const U32& value, const U32& index);
@@ -137,6 +141,8 @@ public:
 
     [[nodiscard]] U64 PackUint2x32(const Value& vector);
     [[nodiscard]] Value UnpackUint2x32(const U64& value);
+
+    [[nodiscard]] F64 PackFloat2x32(const Value& vector);
 
     [[nodiscard]] U32 PackFloat2x16(const Value& vector);
     [[nodiscard]] Value UnpackFloat2x16(const U32& value);
@@ -190,6 +196,7 @@ public:
     [[nodiscard]] Value IMulExt(const U32& a, const U32& b, bool is_signed = false);
     [[nodiscard]] U32U64 IMul(const U32U64& a, const U32U64& b);
     [[nodiscard]] U32 IDiv(const U32& a, const U32& b, bool is_signed = false);
+    [[nodiscard]] U32 IMod(const U32& a, const U32& b, bool is_signed = false);
     [[nodiscard]] U32U64 INeg(const U32U64& value);
     [[nodiscard]] U32 IAbs(const U32& value);
     [[nodiscard]] U32U64 ShiftLeftLogical(const U32U64& base, const U32& shift);

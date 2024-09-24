@@ -217,6 +217,10 @@ U32 IREmitter::GetVccHi() {
     return Inst<U32>(Opcode::GetVccHi);
 }
 
+U32 IREmitter::GetM0() {
+    return Inst<U32>(Opcode::GetM0);
+}
+
 void IREmitter::SetScc(const U1& value) {
     Inst(Opcode::SetScc, value);
 }
@@ -239,6 +243,10 @@ void IREmitter::SetVccLo(const U32& value) {
 
 void IREmitter::SetVccHi(const U32& value) {
     Inst(Opcode::SetVccHi, value);
+}
+
+void IREmitter::SetM0(const U32& value) {
+    Inst(Opcode::SetM0, value);
 }
 
 F32 IREmitter::GetAttribute(IR::Attribute attribute, u32 comp) {
@@ -305,21 +313,21 @@ U32 IREmitter::ReadConst(const Value& base, const U32& offset) {
     return Inst<U32>(Opcode::ReadConst, base, offset);
 }
 
-F32 IREmitter::ReadConstBuffer(const Value& handle, const U32& index) {
-    return Inst<F32>(Opcode::ReadConstBuffer, handle, index);
+U32 IREmitter::ReadConstBuffer(const Value& handle, const U32& index) {
+    return Inst<U32>(Opcode::ReadConstBuffer, handle, index);
 }
 
 Value IREmitter::LoadBuffer(int num_dwords, const Value& handle, const Value& address,
                             BufferInstInfo info) {
     switch (num_dwords) {
     case 1:
-        return Inst(Opcode::LoadBufferF32, Flags{info}, handle, address);
+        return Inst(Opcode::LoadBufferU32, Flags{info}, handle, address);
     case 2:
-        return Inst(Opcode::LoadBufferF32x2, Flags{info}, handle, address);
+        return Inst(Opcode::LoadBufferU32x2, Flags{info}, handle, address);
     case 3:
-        return Inst(Opcode::LoadBufferF32x3, Flags{info}, handle, address);
+        return Inst(Opcode::LoadBufferU32x3, Flags{info}, handle, address);
     case 4:
-        return Inst(Opcode::LoadBufferF32x4, Flags{info}, handle, address);
+        return Inst(Opcode::LoadBufferU32x4, Flags{info}, handle, address);
     default:
         UNREACHABLE_MSG("Invalid number of dwords {}", num_dwords);
     }
@@ -333,17 +341,16 @@ void IREmitter::StoreBuffer(int num_dwords, const Value& handle, const Value& ad
                             const Value& data, BufferInstInfo info) {
     switch (num_dwords) {
     case 1:
-        Inst(data.Type() == Type::F32 ? Opcode::StoreBufferF32 : Opcode::StoreBufferU32,
-             Flags{info}, handle, address, data);
+        Inst(Opcode::StoreBufferU32, Flags{info}, handle, address, data);
         break;
     case 2:
-        Inst(Opcode::StoreBufferF32x2, Flags{info}, handle, address, data);
+        Inst(Opcode::StoreBufferU32x2, Flags{info}, handle, address, data);
         break;
     case 3:
-        Inst(Opcode::StoreBufferF32x3, Flags{info}, handle, address, data);
+        Inst(Opcode::StoreBufferU32x3, Flags{info}, handle, address, data);
         break;
     case 4:
-        Inst(Opcode::StoreBufferF32x4, Flags{info}, handle, address, data);
+        Inst(Opcode::StoreBufferU32x4, Flags{info}, handle, address, data);
         break;
     default:
         UNREACHABLE_MSG("Invalid number of dwords {}", num_dwords);
@@ -400,6 +407,14 @@ Value IREmitter::BufferAtomicSwap(const Value& handle, const Value& address, con
 void IREmitter::StoreBufferFormat(const Value& handle, const Value& address, const Value& data,
                                   BufferInstInfo info) {
     Inst(Opcode::StoreBufferFormatF32, Flags{info}, handle, address, data);
+}
+
+U32 IREmitter::DataAppend(const U32& counter) {
+    return Inst<U32>(Opcode::DataAppend, counter, Imm32(0));
+}
+
+U32 IREmitter::DataConsume(const U32& counter) {
+    return Inst<U32>(Opcode::DataConsume, counter, Imm32(0));
 }
 
 U32 IREmitter::LaneId() {
@@ -612,6 +627,10 @@ U64 IREmitter::PackUint2x32(const Value& vector) {
 
 Value IREmitter::UnpackUint2x32(const U64& value) {
     return Inst<Value>(Opcode::UnpackUint2x32, value);
+}
+
+F64 IREmitter::PackFloat2x32(const Value& vector) {
+    return Inst<F64>(Opcode::PackFloat2x32, vector);
 }
 
 U32 IREmitter::PackFloat2x16(const Value& vector) {
@@ -1040,6 +1059,10 @@ U32 IREmitter::IDiv(const U32& a, const U32& b, bool is_signed) {
     return Inst<U32>(is_signed ? Opcode::SDiv32 : Opcode::UDiv32, a, b);
 }
 
+U32 IREmitter::IMod(const U32& a, const U32& b, bool is_signed) {
+    return Inst<U32>(is_signed ? Opcode::SMod32 : Opcode::UMod32, a, b);
+}
+
 U32U64 IREmitter::INeg(const U32U64& value) {
     switch (value.Type()) {
     case Type::U32:
@@ -1056,6 +1079,10 @@ U32 IREmitter::IAbs(const U32& value) {
 }
 
 U32U64 IREmitter::ShiftLeftLogical(const U32U64& base, const U32& shift) {
+    if (shift.IsImmediate() && shift.U32() == 0) {
+        return base;
+    }
+
     switch (base.Type()) {
     case Type::U32:
         return Inst<U32>(Opcode::ShiftLeftLogical32, base, shift);
@@ -1067,6 +1094,10 @@ U32U64 IREmitter::ShiftLeftLogical(const U32U64& base, const U32& shift) {
 }
 
 U32U64 IREmitter::ShiftRightLogical(const U32U64& base, const U32& shift) {
+    if (shift.IsImmediate() && shift.U32() == 0) {
+        return base;
+    }
+
     switch (base.Type()) {
     case Type::U32:
         return Inst<U32>(Opcode::ShiftRightLogical32, base, shift);
@@ -1078,6 +1109,10 @@ U32U64 IREmitter::ShiftRightLogical(const U32U64& base, const U32& shift) {
 }
 
 U32U64 IREmitter::ShiftRightArithmetic(const U32U64& base, const U32& shift) {
+    if (shift.IsImmediate() && shift.U32() == 0) {
+        return base;
+    }
+
     switch (base.Type()) {
     case Type::U32:
         return Inst<U32>(Opcode::ShiftRightArithmetic32, base, shift);
@@ -1345,6 +1380,8 @@ U16U32U64 IREmitter::UConvert(size_t result_bitsize, const U16U32U64& value) {
         switch (value.Type()) {
         case Type::U16:
             return Inst<U32>(Opcode::ConvertU32U16, value);
+        default:
+            break;
         }
     default:
         break;

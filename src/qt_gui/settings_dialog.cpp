@@ -4,6 +4,8 @@
 #include <QCompleter>
 #include <QDirIterator>
 
+#include "common/logging/backend.h"
+#include "common/logging/filter.h"
 #include "main_window.h"
 #include "settings_dialog.h"
 #include "ui_settings_dialog.h"
@@ -78,11 +80,20 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices, QWidge
                     Config::setDefaultValues();
                     LoadValuesFromConfig();
                 }
+                if (Common::Log::IsActive()) {
+                    Common::Log::Filter filter;
+                    filter.ParseFilterString(Config::getLogFilter());
+                    Common::Log::SetGlobalFilter(filter);
+                }
             });
 
-    connect(ui->tabWidgetSettings, &QTabWidget::currentChanged, this, [this]() {
-        ui->buttonBox->button(QDialogButtonBox::StandardButton::Close)->setFocus();
-    });
+    ui->buttonBox->button(QDialogButtonBox::Save)->setText(tr("Save"));
+    ui->buttonBox->button(QDialogButtonBox::Apply)->setText(tr("Apply"));
+    ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)->setText(tr("Restore Defaults"));
+    ui->buttonBox->button(QDialogButtonBox::Close)->setText(tr("Close"));
+
+    connect(ui->tabWidgetSettings, &QTabWidget::currentChanged, this,
+            [this]() { ui->buttonBox->button(QDialogButtonBox::Close)->setFocus(); });
 
     // GENERAL TAB
     {

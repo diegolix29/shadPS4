@@ -7,6 +7,7 @@
 #include "core/libraries/error_codes.h"
 #include "core/libraries/kernel/memory_management.h"
 #include "core/memory.h"
+#include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 
 namespace Core {
@@ -57,9 +58,11 @@ PAddr MemoryManager::Allocate(PAddr search_start, PAddr search_end, size_t size,
     auto dmem_area = FindDmemArea(search_start);
 
     const auto is_suitable = [&] {
-        const auto area_addr = dmem_area->second.base;
-        const auto aligned_addr = alignment > 0 ? Common::AlignUp(area_addr, alignment) : area_addr;
-        const auto remaining_size = dmem_area->second.size - (aligned_addr - area_addr);
+        const auto aligned_base = alignment > 0 ? Common::AlignUp(dmem_area->second.base, alignment)
+                                                : dmem_area->second.base;
+        const auto alignment_size = aligned_base - dmem_area->second.base;
+        const auto remaining_size =
+            dmem_area->second.size >= alignment_size ? dmem_area->second.size - alignment_size : 0;
         return dmem_area->second.is_free && remaining_size >= size;
     };
     while (!is_suitable() && dmem_area->second.GetEnd() <= search_end) {
@@ -99,7 +102,7 @@ void MemoryManager::Free(PAddr phys_addr, size_t size) {
         }
     }
     for (const auto& [addr, size] : remove_list) {
-        UnmapMemory(addr, size);
+        UnmapMemoryImpl(addr, size);
     }
 
     // Mark region as free and attempt to coalesce it with neighbours.
@@ -122,7 +125,7 @@ int MemoryManager::Reserve(void** out_addr, VAddr virtual_addr, size_t size, Mem
         const auto& vma = FindVMA(mapped_addr)->second;
         // If the VMA is mapped, unmap the region first.
         if (vma.IsMapped()) {
-            UnmapMemory(mapped_addr, size);
+            UnmapMemoryImpl(mapped_addr, size);
         }
         const size_t remaining_size = vma.base + vma.size - mapped_addr;
         ASSERT_MSG(vma.type == VMAType::Free && remaining_size >= size);
@@ -231,7 +234,10 @@ int MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, size_t size, Mem
 
 void MemoryManager::UnmapMemory(VAddr virtual_addr, size_t size) {
     std::scoped_lock lk{mutex};
+    UnmapMemoryImpl(virtual_addr, size);
+}
 
+void MemoryManager::UnmapMemoryImpl(VAddr virtual_addr, size_t size) {
     const auto it = FindVMA(virtual_addr);
     const auto& vma_base = it->second;
     ASSERT_MSG(vma_base.Contains(virtual_addr, size),
@@ -287,6 +293,61 @@ int MemoryManager::QueryProtection(VAddr addr, void** start, void** end, u32* pr
     return ORBIS_OK;
 }
 
+int MemoryManager::Protect(VAddr addr, size_t size, MemoryProt prot) {
+    std::scoped_lock lk{mutex};
+
+    // Find the virtual memory area that contains the specified address range.
+    auto it = FindVMA(addr);
+    if (it == vma_map.end() || !it->second.Contains(addr, size)) {
+        LOG_ERROR(Core, "Address range not mapped");
+        return ORBIS_KERNEL_ERROR_EINVAL;
+    }
+
+    VirtualMemoryArea& vma = it->second;
+    if (vma.type == VMAType::Free) {
+        LOG_ERROR(Core, "Cannot change protection on free memory region");
+        return ORBIS_KERNEL_ERROR_EINVAL;
+    }
+
+    // Validate protection flags
+    constexpr static MemoryProt valid_flags = MemoryProt::NoAccess | MemoryProt::CpuRead |
+                                              MemoryProt::CpuReadWrite | MemoryProt::GpuRead |
+                                              MemoryProt::GpuWrite | MemoryProt::GpuReadWrite;
+
+    MemoryProt invalid_flags = prot & ~valid_flags;
+    if (u32(invalid_flags) != 0 && u32(invalid_flags) != u32(MemoryProt::NoAccess)) {
+        LOG_ERROR(Core, "Invalid protection flags: prot = {:#x}, invalid flags = {:#x}", u32(prot),
+                  u32(invalid_flags));
+        return ORBIS_KERNEL_ERROR_EINVAL;
+    }
+
+    // Change protection
+    vma.prot = prot;
+
+    // Set permissions
+    Core::MemoryPermission perms{};
+
+    if (True(prot & MemoryProt::CpuRead)) {
+        perms |= Core::MemoryPermission::Read;
+    }
+    if (True(prot & MemoryProt::CpuReadWrite)) {
+        perms |= Core::MemoryPermission::ReadWrite;
+    }
+    if (True(prot & MemoryProt::GpuRead)) {
+        perms |= Core::MemoryPermission::Read;
+    }
+    if (True(prot & MemoryProt::GpuWrite)) {
+        perms |= Core::MemoryPermission::Write;
+    }
+    if (True(prot & MemoryProt::GpuReadWrite)) {
+        perms |= Core::MemoryPermission::ReadWrite;
+    }
+
+    impl.Protect(addr, size, perms);
+
+    return ORBIS_OK;
+}
+
 int MemoryManager::VirtualQuery(VAddr addr, int flags,
                                 ::Libraries::Kernel::OrbisVirtualQueryInfo* info) {
     std::scoped_lock lk{mutex};
@@ -303,15 +364,20 @@ int MemoryManager::VirtualQuery(VAddr addr, int flags,
     const auto& vma = it->second;
     info->start = vma.base;
     info->end = vma.base + vma.size;
+    info->offset = vma.phys_base;
+    info->protection = static_cast<s32>(vma.prot);
     info->is_flexible.Assign(vma.type == VMAType::Flexible);
     info->is_direct.Assign(vma.type == VMAType::Direct);
-    info->is_commited.Assign(vma.type != VMAType::Free);
+    info->is_stack.Assign(vma.type == VMAType::Stack);
+    info->is_pooled.Assign(vma.type == VMAType::Pooled);
+    info->is_committed.Assign(vma.type != VMAType::Free && vma.type != VMAType::Reserved);
     vma.name.copy(info->name.data(), std::min(info->name.size(), vma.name.size()));
     if (vma.type == VMAType::Direct) {
         const auto dmem_it = FindDmemArea(vma.phys_base);
         ASSERT(dmem_it != dmem_map.end());
-        info->offset = vma.phys_base;
         info->memory_type = dmem_it->second.memory_type;
+    } else {
+        info->memory_type = ::Libraries::Kernel::SCE_KERNEL_WB_ONION;
     }
 
     return ORBIS_OK;
@@ -353,9 +419,9 @@ int MemoryManager::DirectQueryAvailable(PAddr search_start, PAddr search_end, si
 
         const auto aligned_base = alignment > 0 ? Common::AlignUp(dmem_area->second.base, alignment)
                                                 : dmem_area->second.base;
+        const auto alignment_size = aligned_base - dmem_area->second.base;
         const auto remaining_size =
-            dmem_area->second.size - (aligned_base - dmem_area->second.base);
-
+            dmem_area->second.size >= alignment_size ? dmem_area->second.size - alignment_size : 0;
         if (remaining_size > max_size) {
             paddr = aligned_base;
             max_size = remaining_size;

@@ -23,24 +23,16 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get, QWidg
     this->horizontalHeader()->setSortIndicatorShown(true);
     this->horizontalHeader()->setStretchLastSection(true);
     this->setContextMenuPolicy(Qt::CustomContextMenu);
-    this->setColumnCount(9);
-    this->setColumnWidth(1, 250);
-    this->setColumnWidth(2, 110);
-    this->setColumnWidth(3, 80);
-    this->setColumnWidth(4, 90);
-    this->setColumnWidth(5, 80);
-    this->setColumnWidth(6, 80);
-    this->setColumnWidth(7, 80);
+    this->setColumnCount(8);
+    this->setColumnWidth(1, 300); // Name
+    this->setColumnWidth(2, 120); // Serial
+    this->setColumnWidth(3, 90);  // Region
+    this->setColumnWidth(4, 90);  // Firmware
+    this->setColumnWidth(5, 90);  // Size
+    this->setColumnWidth(6, 90);  // Version
     QStringList headers;
-    headers << "Icon"
-            << "Name"
-            << "Serial"
-            << "Region"
-            << "Firmware"
-            << "Size"
-            << "Version"
-            << "Category"
-            << "Path";
+    headers << tr("Icon") << tr("Name") << tr("Serial") << tr("Region") << tr("Firmware")
+            << tr("Size") << tr("Version") << tr("Path");
     this->setHorizontalHeaderLabels(headers);
     this->horizontalHeader()->setSortIndicatorShown(true);
     this->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
@@ -87,8 +79,7 @@ void GameListFrame::PopulateGameList() {
         SetTableItem(i, 4, QString::fromStdString(m_game_info->m_games[i].fw));
         SetTableItem(i, 5, QString::fromStdString(m_game_info->m_games[i].size));
         SetTableItem(i, 6, QString::fromStdString(m_game_info->m_games[i].version));
-        SetTableItem(i, 7, QString::fromStdString(m_game_info->m_games[i].category));
-        SetTableItem(i, 8, QString::fromStdString(m_game_info->m_games[i].path));
+        SetTableItem(i, 7, QString::fromStdString(m_game_info->m_games[i].path));
     }
 }
 
@@ -99,9 +90,8 @@ void GameListFrame::SetListBackgroundImage(QTableWidgetItem* item) {
     }
 
     QString pic1Path = QString::fromStdString(m_game_info->m_games[item->row()].pic_path);
-    const auto blurredPic1Path = Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
-                                 "game_data" / m_game_info->m_games[item->row()].serial /
-                                 "pic1.png";
+    const auto blurredPic1Path = Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) /
+                                 m_game_info->m_games[item->row()].serial / "pic1.png";
 #ifdef _WIN32
     const auto blurredPic1PathQt = QString::fromStdWString(blurredPic1Path.wstring());
 #else
@@ -114,7 +104,8 @@ void GameListFrame::SetListBackgroundImage(QTableWidgetItem* item) {
         backgroundImage = m_game_list_utils.BlurImage(image, image.rect(), 16);
 
         std::filesystem::path img_path =
-            std::filesystem::path("user/game_data/") / m_game_info->m_games[item->row()].serial;
+            Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) /
+            m_game_info->m_games[item->row()].serial;
         std::filesystem::create_directories(img_path);
         if (!backgroundImage.save(blurredPic1PathQt, "PNG")) {
             // qDebug() << "Error: Unable to save image.";
@@ -168,7 +159,7 @@ void GameListFrame::SetTableItem(int row, int column, QString itemStr) {
     QVBoxLayout* layout = new QVBoxLayout(widget);
     QLabel* label = new QLabel(itemStr, widget);
 
-    label->setStyleSheet("color: white; font-size: 15px; font-weight: bold;");
+    label->setStyleSheet("color: white; font-size: 16px; font-weight: bold;");
 
     // Create shadow effect
     QGraphicsDropShadowEffect* shadowEffect = new QGraphicsDropShadowEffect();

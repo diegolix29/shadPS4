@@ -7,6 +7,7 @@
 #include "shader_recompiler/exception.h"
 #include "shader_recompiler/frontend/fetch_shader.h"
 #include "shader_recompiler/frontend/translate/translate.h"
+#include "shader_recompiler/info.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/resource.h"
 
@@ -16,8 +17,9 @@
 
 namespace Shader::Gcn {
 
-Translator::Translator(IR::Block* block_, Info& info_, const Profile& profile_)
-    : ir{*block_, block_->begin()}, info{info_}, profile{profile_} {}
+Translator::Translator(IR::Block* block_, Info& info_, const RuntimeInfo& runtime_info_,
+                       const Profile& profile_)
+    : ir{*block_, block_->begin()}, info{info_}, runtime_info{runtime_info_}, profile{profile_} {}
 
 void Translator::EmitPrologue() {
     ir.Prologue();
@@ -25,7 +27,7 @@ void Translator::EmitPrologue() {
 
     // Initialize user data.
     IR::ScalarReg dst_sreg = IR::ScalarReg::S0;
-    for (u32 i = 0; i < info.num_user_data; i++) {
+    for (u32 i = 0; i < runtime_info.num_user_data; i++) {
         ir.SetScalarReg(dst_sreg, ir.GetUserData(dst_sreg));
         ++dst_sreg;
     }
@@ -36,15 +38,15 @@ void Translator::EmitPrologue() {
         // v0: vertex ID, always present
         ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::VertexId));
         // v1: instance ID, step rate 0
-        if (info.num_input_vgprs > 0) {
+        if (runtime_info.num_input_vgprs > 0) {
             ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::InstanceId0));
         }
         // v2: instance ID, step rate 1
-        if (info.num_input_vgprs > 1) {
+        if (runtime_info.num_input_vgprs > 1) {
             ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::InstanceId1));
         }
         // v3: instance ID, plain
-        if (info.num_input_vgprs > 2) {
+        if (runtime_info.num_input_vgprs > 2) {
             ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::InstanceId));
         }
         break;
@@ -64,13 +66,13 @@ void Translator::EmitPrologue() {
         ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::LocalInvocationId, 1));
         ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::LocalInvocationId, 2));
 
-        if (info.tgid_enable[0]) {
+        if (runtime_info.cs_info.tgid_enable[0]) {
             ir.SetScalarReg(dst_sreg++, ir.GetAttributeU32(IR::Attribute::WorkgroupId, 0));
         }
-        if (info.tgid_enable[1]) {
+        if (runtime_info.cs_info.tgid_enable[1]) {
             ir.SetScalarReg(dst_sreg++, ir.GetAttributeU32(IR::Attribute::WorkgroupId, 1));
         }
-        if (info.tgid_enable[2]) {
+        if (runtime_info.cs_info.tgid_enable[2]) {
             ir.SetScalarReg(dst_sreg++, ir.GetAttributeU32(IR::Attribute::WorkgroupId, 2));
         }
         break;
@@ -151,10 +153,11 @@ T Translator::GetSrc(const InstOperand& operand) {
         break;
     case OperandField::M0:
         if constexpr (is_float) {
-            UNREACHABLE();
+            value = ir.BitCast<IR::F32>(ir.GetM0());
         } else {
-            return m0_value;
+            value = ir.GetM0();
         }
+        break;
     default:
         UNREACHABLE();
     }
@@ -168,10 +171,10 @@ T Translator::GetSrc(const InstOperand& operand) {
         }
     } else {
         if (operand.input_modifier.abs) {
-            LOG_WARNING(Render_Vulkan, "Input abs modifier on integer instruction");
+            value = ir.IAbs(value);
         }
         if (operand.input_modifier.neg) {
-            UNREACHABLE();
+            value = ir.INeg(value);
         }
     }
     return value;
@@ -208,7 +211,7 @@ T Translator::GetSrc64(const InstOperand& operand) {
         const auto value_lo = ir.GetVectorReg(IR::VectorReg(operand.code));
         const auto value_hi = ir.GetVectorReg(IR::VectorReg(operand.code + 1));
         if constexpr (is_float) {
-            UNREACHABLE();
+            value = ir.PackFloat2x32(ir.CompositeConstruct(value_lo, value_hi));
         } else {
             value = ir.PackUint2x32(ir.CompositeConstruct(value_lo, value_hi));
         }
@@ -278,12 +281,15 @@ template IR::F64 Translator::GetSrc64<IR::F64>(const InstOperand&);
 
 void Translator::SetDst(const InstOperand& operand, const IR::U32F32& value) {
     IR::U32F32 result = value;
-    if (operand.output_modifier.multiplier != 0.f) {
-        result = ir.FPMul(result, ir.Imm32(operand.output_modifier.multiplier));
+    if (value.Type() == IR::Type::F32) {
+        if (operand.output_modifier.multiplier != 0.f) {
+            result = ir.FPMul(result, ir.Imm32(operand.output_modifier.multiplier));
+        }
+        if (operand.output_modifier.clamp) {
+            result = ir.FPSaturate(value);
+        }
     }
-    if (operand.output_modifier.clamp) {
-        result = ir.FPSaturate(value);
-    }
+
     switch (operand.field) {
     case OperandField::ScalarGPR:
         return ir.SetScalarReg(IR::ScalarReg(operand.code), result);
@@ -294,8 +300,7 @@ void Translator::SetDst(const InstOperand& operand, const IR::U32F32& value) {
     case OperandField::VccHi:
         return ir.SetVccHi(result);
     case OperandField::M0:
-        m0_value = result;
-        break;
+        return ir.SetM0(result);
     default:
         UNREACHABLE();
     }
@@ -445,7 +450,6 @@ void Translator::EmitFlowControl(u32 pc, const GcnInst& inst) {
 }
 
 void Translator::LogMissingOpcode(const GcnInst& inst) {
-    const u32 opcode = u32(inst.opcode);
     LOG_ERROR(Render_Recompiler, "Unknown opcode {} ({}, category = {})",
               magic_enum::enum_name(inst.opcode), u32(inst.opcode),
               magic_enum::enum_name(inst.category));
@@ -453,11 +457,11 @@ void Translator::LogMissingOpcode(const GcnInst& inst) {
 }
 
 void Translate(IR::Block* block, u32 pc, std::span<const GcnInst> inst_list, Info& info,
-               const Profile& profile) {
+               const RuntimeInfo& runtime_info, const Profile& profile) {
     if (inst_list.empty()) {
         return;
     }
-    Translator translator{block, info, profile};
+    Translator translator{block, info, runtime_info, profile};
     for (const auto& inst : inst_list) {
         pc += inst.length;
 

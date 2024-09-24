@@ -6,9 +6,10 @@
 #include <array>
 #include <sirit/sirit.h>
 
+#include "shader_recompiler/backend/bindings.h"
+#include "shader_recompiler/info.h"
 #include "shader_recompiler/ir/program.h"
 #include "shader_recompiler/profile.h"
-#include "shader_recompiler/runtime_info.h"
 
 namespace Shader::Backend::SPIRV {
 
@@ -36,7 +37,8 @@ struct VectorIds {
 
 class EmitContext final : public Sirit::Module {
 public:
-    explicit EmitContext(const Profile& profile, const Shader::Info& info, u32& binding);
+    explicit EmitContext(const Profile& profile, const RuntimeInfo& runtime_info, const Info& info,
+                         Bindings& binding);
     ~EmitContext();
 
     Id Def(const IR::Value& value);
@@ -125,6 +127,7 @@ public:
     }
 
     const Info& info;
+    const RuntimeInfo& runtime_info;
     const Profile& profile;
     Stage stage{};
 
@@ -198,6 +201,7 @@ public:
         Id sampled_type;
         Id pointer_type;
         Id image_type;
+        bool is_storage = false;
     };
 
     struct BufferDefinition {
@@ -214,11 +218,11 @@ public:
         u32 binding;
         Id image_type;
         Id result_type;
-        bool is_integer;
-        bool is_storage;
+        bool is_integer = false;
+        bool is_storage = false;
     };
 
-    u32& binding;
+    Bindings& binding;
     boost::container::small_vector<BufferDefinition, 16> buffers;
     boost::container::small_vector<TextureBufferDefinition, 8> texture_buffers;
     boost::container::small_vector<TextureDefinition, 8> images;

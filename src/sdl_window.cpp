@@ -9,6 +9,7 @@
 #include "common/config.h"
 #include "common/version.h"
 #include "core/libraries/pad/pad.h"
+#include "imgui/renderer/imgui_core.h"
 #include "input/controller.h"
 #include "sdl_window.h"
 #include "video_core/renderdoc.h"
@@ -80,6 +81,10 @@ void WindowSDL::waitEvent() {
         return;
     }
 
+    if (ImGui::Core::ProcessEvent(&event)) {
+        return;
+    }
+
     switch (event.type) {
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_MAXIMIZED:
@@ -115,6 +120,7 @@ void WindowSDL::waitEvent() {
 
 void WindowSDL::onResize() {
     SDL_GetWindowSizeInPixels(window, &width, &height);
+    ImGui::Core::OnResize();
 }
 
 void WindowSDL::onKeyPress(const SDL_Event* event) {
@@ -194,11 +200,6 @@ void WindowSDL::onKeyPress(const SDL_Event* event) {
         ax = Input::GetAxis(-0x80, 0x80, axisvalue);
         break;
     case SDLK_S:
-        if (event->key.mod == SDL_KMOD_LCTRL) {
-            // Trigger rdoc capture
-            VideoCore::TriggerCapture();
-            break;
-        }
         axis = Input::Axis::LeftY;
         if (event->type == SDL_EVENT_KEY_DOWN) {
             axisvalue += 127;
@@ -285,6 +286,12 @@ void WindowSDL::onKeyPress(const SDL_Event* event) {
                 bool is_fullscreen = flag & SDL_WINDOW_FULLSCREEN;
                 SDL_SetWindowFullscreen(window, !is_fullscreen);
             }
+        }
+        break;
+    case SDLK_F12:
+        if (event->type == SDL_EVENT_KEY_DOWN) {
+            // Trigger rdoc capture
+            VideoCore::TriggerCapture();
         }
         break;
     default:

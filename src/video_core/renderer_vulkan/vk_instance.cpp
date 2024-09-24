@@ -14,7 +14,10 @@
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnullability-completeness"
 #include <vk_mem_alloc.h>
+#pragma GCC diagnostic pop
 
 namespace Vulkan {
 
@@ -30,11 +33,16 @@ std::vector<std::string> GetSupportedExtensions(vk::PhysicalDevice physical) {
     return supported_extensions;
 }
 
-std::unordered_map<vk::Format, vk::FormatProperties> GetFormatProperties(
+std::unordered_map<vk::Format, vk::FormatProperties3> GetFormatProperties(
     vk::PhysicalDevice physical) {
-    std::unordered_map<vk::Format, vk::FormatProperties> format_properties;
+    std::unordered_map<vk::Format, vk::FormatProperties3> format_properties;
     for (const auto& format : LiverpoolToVK::GetAllFormats()) {
-        format_properties.emplace(format, physical.getFormatProperties(format));
+        vk::FormatProperties3 properties3{};
+        vk::FormatProperties2 properties2 = {
+            .pNext = &properties3,
+        };
+        physical.getFormatProperties2(format, &properties2);
+        format_properties.emplace(format, properties3);
     }
     return format_properties;
 }
@@ -46,14 +54,15 @@ std::string GetReadableVersion(u32 version) {
 
 } // Anonymous namespace
 
-Instance::Instance(bool enable_validation, bool dump_command_buffers)
-    : instance{CreateInstance(dl, Frontend::WindowSystemType::Headless, enable_validation,
-                              dump_command_buffers)},
+Instance::Instance(bool enable_validation, bool enable_crash_diagnostic)
+    : instance{CreateInstance(Frontend::WindowSystemType::Headless, enable_validation,
+                              enable_crash_diagnostic)},
       physical_devices{instance->enumeratePhysicalDevices()} {}
 
 Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index,
-                   bool enable_validation /*= false*/)
-    : instance{CreateInstance(dl, window.getWindowInfo().type, enable_validation, false)},
+                   bool enable_validation /*= false*/, bool enable_crash_diagnostic /*= false*/)
+    : instance{CreateInstance(window.getWindowInfo().type, enable_validation,
+                              enable_crash_diagnostic)},
       physical_devices{instance->enumeratePhysicalDevices()} {
     if (enable_validation) {
         debug_callback = CreateDebugCallback(*instance);
@@ -118,11 +127,15 @@ Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index,
     // Check and log format support details.
     for (const auto& key : format_properties | std::views::keys) {
         const auto format = key;
-        if (!IsFormatSupported(format)) {
+        if (!IsImageFormatSupported(format)) {
             const auto alternative = GetAlternativeFormat(format);
-            if (IsFormatSupported(alternative)) {
-                LOG_WARNING(Render_Vulkan, "Format {} is not supported, falling back to {}",
+            if (IsImageFormatSupported(alternative)) {
+                LOG_WARNING(Render_Vulkan,
+                            "Format {} is not supported for images, falling back to {}.",
                             vk::to_string(format), vk::to_string(alternative));
+            } else if (IsVertexFormatSupported(format)) {
+                LOG_WARNING(Render_Vulkan, "Format {} is only supported for vertex buffers.",
+                            vk::to_string(format));
             } else {
                 LOG_ERROR(Render_Vulkan,
                           "Format {} is not supported and no suitable alternative is supported.",
@@ -168,8 +181,10 @@ bool Instance::CreateDevice() {
         vk::PhysicalDevicePortabilitySubsetFeaturesKHR>();
     const vk::StructureChain properties_chain = physical_device.getProperties2<
         vk::PhysicalDeviceProperties2, vk::PhysicalDevicePortabilitySubsetPropertiesKHR,
-        vk::PhysicalDeviceExternalMemoryHostPropertiesEXT, vk::PhysicalDeviceVulkan11Properties>();
+        vk::PhysicalDeviceExternalMemoryHostPropertiesEXT, vk::PhysicalDeviceVulkan11Properties,
+        vk::PhysicalDevicePushDescriptorPropertiesKHR>();
     subgroup_size = properties_chain.get<vk::PhysicalDeviceVulkan11Properties>().subgroupSize;
+    push_descriptor_props = properties_chain.get<vk::PhysicalDevicePushDescriptorPropertiesKHR>();
     LOG_INFO(Render_Vulkan, "Physical device subgroup size {}", subgroup_size);
 
     features = feature_chain.get().features;
@@ -199,7 +214,7 @@ bool Instance::CreateDevice() {
     external_memory_host = add_extension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
     custom_border_color = add_extension(VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);
     add_extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
-    const bool depth_clip_control = add_extension(VK_EXT_DEPTH_CLIP_CONTROL_EXTENSION_NAME);
+    depth_clip_control = add_extension(VK_EXT_DEPTH_CLIP_CONTROL_EXTENSION_NAME);
     add_extension(VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME);
     workgroup_memory_explicit_layout =
         add_extension(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME);
@@ -212,21 +227,16 @@ bool Instance::CreateDevice() {
     const bool robustness = add_extension(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME);
     const bool topology_restart =
         add_extension(VK_EXT_PRIMITIVE_TOPOLOGY_LIST_RESTART_EXTENSION_NAME);
+    const bool maintenance5 = add_extension(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
 
     // These extensions are promoted by Vulkan 1.3, but for greater compatibility we use Vulkan 1.2
     // with extensions.
     tooling_info = add_extension(VK_EXT_TOOLING_INFO_EXTENSION_NAME);
     const bool maintenance4 = add_extension(VK_KHR_MAINTENANCE_4_EXTENSION_NAME);
-    const bool maintenance5 = add_extension(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
+    add_extension(VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME);
     add_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
     add_extension(VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME);
-    const bool has_sync2 = add_extension(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
-
-    if (has_sync2) {
-        has_nv_checkpoints = Config::isMarkersEnabled()
-                                 ? add_extension(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME)
-                                 : false;
-    }
+    add_extension(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
 
 #ifdef __APPLE__
     // Required by Vulkan spec if supported.
@@ -272,6 +282,7 @@ bool Instance::CreateDevice() {
         vk::PhysicalDeviceFeatures2{
             .features{
                 .robustBufferAccess = features.robustBufferAccess,
+                .imageCubeArray = features.imageCubeArray,
                 .independentBlend = features.independentBlend,
                 .geometryShader = features.geometryShader,
                 .logicOp = features.logicOp,
@@ -284,6 +295,7 @@ bool Instance::CreateDevice() {
                 .shaderStorageImageExtendedFormats = features.shaderStorageImageExtendedFormats,
                 .shaderStorageImageMultisample = features.shaderStorageImageMultisample,
                 .shaderClipDistance = features.shaderClipDistance,
+                .shaderFloat64 = features.shaderFloat64,
                 .shaderInt64 = features.shaderInt64,
                 .shaderInt16 = features.shaderInt16,
             },
@@ -295,8 +307,10 @@ bool Instance::CreateDevice() {
             .shaderFloat16 = vk12_features.shaderFloat16,
             .scalarBlockLayout = vk12_features.scalarBlockLayout,
             .uniformBufferStandardLayout = vk12_features.uniformBufferStandardLayout,
+            .separateDepthStencilLayouts = vk12_features.separateDepthStencilLayouts,
             .hostQueryReset = vk12_features.hostQueryReset,
             .timelineSemaphore = vk12_features.timelineSemaphore,
+            .samplerMirrorClampToEdge = vk12_features.samplerMirrorClampToEdge,
         },
         vk::PhysicalDeviceMaintenance4FeaturesKHR{
             .maintenance4 = true,
@@ -369,9 +383,12 @@ bool Instance::CreateDevice() {
         device_chain.unlink<vk::PhysicalDevicePrimitiveTopologyListRestartFeaturesEXT>();
     }
     if (robustness) {
-        device_chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor =
+        null_descriptor =
             feature_chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor;
+        device_chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor =
+            null_descriptor;
     } else {
+        null_descriptor = false;
         device_chain.unlink<vk::PhysicalDeviceRobustness2FeaturesEXT>();
     }
     if (!vertex_input_dynamic_state) {
@@ -479,7 +496,7 @@ void Instance::CollectToolingInfo() {
     }
 }
 
-bool Instance::IsFormatSupported(const vk::Format format) const {
+bool Instance::IsImageFormatSupported(const vk::Format format) const {
     if (format == vk::Format::eUndefined) [[unlikely]] {
         return true;
     }
@@ -489,10 +506,24 @@ bool Instance::IsFormatSupported(const vk::Format format) const {
         UNIMPLEMENTED_MSG("Properties of format {} have not been queried.", vk::to_string(format));
     }
 
-    constexpr vk::FormatFeatureFlags optimal_flags = vk::FormatFeatureFlagBits::eTransferSrc |
-                                                     vk::FormatFeatureFlagBits::eTransferDst |
-                                                     vk::FormatFeatureFlagBits::eSampledImage;
+    constexpr vk::FormatFeatureFlags2 optimal_flags = vk::FormatFeatureFlagBits2::eTransferSrc |
+                                                      vk::FormatFeatureFlagBits2::eTransferDst |
+                                                      vk::FormatFeatureFlagBits2::eSampledImage;
     return (it->second.optimalTilingFeatures & optimal_flags) == optimal_flags;
+}
+
+bool Instance::IsVertexFormatSupported(const vk::Format format) const {
+    if (format == vk::Format::eUndefined) [[unlikely]] {
+        return true;
+    }
+
+    const auto it = format_properties.find(format);
+    if (it == format_properties.end()) {
+        UNIMPLEMENTED_MSG("Properties of format {} have not been queried.", vk::to_string(format));
+    }
+
+    constexpr vk::FormatFeatureFlags2 optimal_flags = vk::FormatFeatureFlagBits2::eVertexBuffer;
+    return (it->second.bufferFeatures & optimal_flags) == optimal_flags;
 }
 
 vk::Format Instance::GetAlternativeFormat(const vk::Format format) const {
@@ -505,11 +536,11 @@ vk::Format Instance::GetAlternativeFormat(const vk::Format format) const {
 }
 
 vk::Format Instance::GetSupportedFormat(const vk::Format format) const {
-    if (IsFormatSupported(format)) [[likely]] {
+    if (IsImageFormatSupported(format)) [[likely]] {
         return format;
     }
     const vk::Format alternative = GetAlternativeFormat(format);
-    if (IsFormatSupported(alternative)) [[likely]] {
+    if (IsImageFormatSupported(alternative)) [[likely]] {
         return alternative;
     }
     return format;
@@ -517,7 +548,7 @@ vk::Format Instance::GetSupportedFormat(const vk::Format format) const {
 
 vk::ComponentMapping Instance::GetSupportedComponentSwizzle(vk::Format format,
                                                             vk::ComponentMapping swizzle) const {
-    if (IsFormatSupported(format)) [[likely]] {
+    if (IsImageFormatSupported(format)) [[likely]] {
         return swizzle;
     }
 

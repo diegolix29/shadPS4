@@ -18,6 +18,7 @@
 #include "common/polyfill_thread.h"
 #include "common/types.h"
 #include "common/unique_function.h"
+#include "shader_recompiler/params.h"
 #include "video_core/amdgpu/pixel_format.h"
 #include "video_core/amdgpu/resource.h"
 
@@ -169,6 +170,15 @@ struct Liverpool {
         const auto* bininfo = std::bit_cast<const BinaryInfo*>(code + (code[1] + 1) * 2);
         // ASSERT_MSG(bininfo->Valid(), "Invalid shader binary header");
         return bininfo;
+    }
+
+    static constexpr Shader::ShaderParams GetParams(const auto& sh) {
+        auto* bininfo = GetBinaryInfo(sh);
+        return {
+            .user_data = sh.user_data,
+            .code = sh.Code(),
+            .hash = bininfo->shader_hash,
+        };
     }
 
     union PsInputControl {
@@ -463,6 +473,11 @@ struct Liverpool {
         CullMode CullingMode() const {
             return static_cast<CullMode>(cull_front | cull_back << 1);
         }
+
+        bool NeedsBias() const {
+            return enable_polygon_offset_back || enable_polygon_offset_front ||
+                   enable_polygon_offset_para;
+        }
     };
 
     union VsOutputConfig {
@@ -495,6 +510,11 @@ struct Liverpool {
 
         u32 GetMask(int buf_id) const {
             return (raw >> (buf_id * 4)) & 0xfu;
+        }
+
+        void SetMask(int buf_id, u32 mask) {
+            raw &= ~(0xf << (buf_id * 4));
+            raw |= (mask << (buf_id * 4));
         }
     };
 
@@ -1076,6 +1096,15 @@ public:
         command_queue.emplace(std::move(func));
         ++num_commands;
         submit_cv.notify_one();
+    }
+
+    void reserveCopyBufferSpace() {
+        GpuQueue& gfx_queue = mapped_queues[GfxQueueId];
+        std::scoped_lock<std::mutex> lk(gfx_queue.m_access);
+
+        constexpr size_t GfxReservedSize = 2_MB >> 2;
+        gfx_queue.ccb_buffer.reserve(GfxReservedSize);
+        gfx_queue.dcb_buffer.reserve(GfxReservedSize);
     }
 
 private:

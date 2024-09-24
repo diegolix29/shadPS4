@@ -250,7 +250,7 @@ int PS4_SYSV_ABI scePadOpen(s32 userId, s32 type, s32 index, const OrbisPadOpenP
         if (type != ORBIS_PAD_PORT_TYPE_SPECIAL)
             return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
     } else {
-        if (type != ORBIS_PAD_PORT_TYPE_STANDARD)
+        if (type != ORBIS_PAD_PORT_TYPE_STANDARD && type != ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL)
             return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
     }
     return 1; // dummy
@@ -263,7 +263,7 @@ int PS4_SYSV_ABI scePadOpenExt(s32 userId, s32 type, s32 index,
         if (type != ORBIS_PAD_PORT_TYPE_SPECIAL)
             return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
     } else {
-        if (type != ORBIS_PAD_PORT_TYPE_STANDARD)
+        if (type != ORBIS_PAD_PORT_TYPE_STANDARD && type != ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL)
             return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
     }
     return 1; // dummy
@@ -522,8 +522,8 @@ int PS4_SYSV_ABI scePadSetUserColor() {
 
 int PS4_SYSV_ABI scePadSetVibration(s32 handle, const OrbisPadVibrationParam* pParam) {
     if (pParam != nullptr) {
-        LOG_INFO(Lib_Pad, "scePadSetVibration called handle = {} data = {} , {}", handle,
-                 pParam->smallMotor, pParam->largeMotor);
+        LOG_DEBUG(Lib_Pad, "scePadSetVibration called handle = {} data = {} , {}", handle,
+                  pParam->smallMotor, pParam->largeMotor);
         auto* controller = Common::Singleton<Input::GameController>::Instance();
         controller->SetVibration(pParam->smallMotor, pParam->largeMotor);
         return ORBIS_OK;

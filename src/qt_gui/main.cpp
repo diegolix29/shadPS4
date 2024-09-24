@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/config.h"
+#include "common/memory_patcher.h"
 #include "core/file_sys/fs.h"
 #include "emulator.h"
 #include "game_install_dialog.h"
@@ -16,7 +17,6 @@ int main(int argc, char* argv[]) {
     // Load configurations and initialize Qt application
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
-    std::filesystem::create_directory(user_dir / "game_data");
 
     // Check if elf or eboot.bin path was passed as a command line argument
     bool has_command_line_argument = argc > 1;
@@ -37,6 +37,13 @@ int main(int argc, char* argv[]) {
     // Check for command line arguments
     if (has_command_line_argument) {
         Core::Emulator emulator;
+        for (int i = 0; i < argc; i++) {
+            std::string curArg = argv[i];
+            if (curArg == "-p") {
+                std::string patchFile = argv[i + 1];
+                MemoryPatcher::patchFile = patchFile;
+            }
+        }
         emulator.Run(argv[1]);
     }
 

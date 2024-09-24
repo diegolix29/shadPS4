@@ -17,19 +17,13 @@ class WindowSDL;
 
 VK_DEFINE_HANDLE(VmaAllocator)
 
-#ifdef __APPLE__
-#define VULKAN_LIBRARY_NAME "libMoltenVK.dylib"
-#else
-#define VULKAN_LIBRARY_NAME
-#endif
-
 namespace Vulkan {
 
 class Instance {
 public:
-    explicit Instance(bool validation = false, bool dump_command_buffers = false);
+    explicit Instance(bool validation = false, bool crash_diagnostic = false);
     explicit Instance(Frontend::WindowSDL& window, s32 physical_device_index,
-                      bool enable_validation = false);
+                      bool enable_validation = false, bool enable_crash_diagnostic = false);
     ~Instance();
 
     /// Returns a formatted string for the driver version
@@ -88,10 +82,6 @@ public:
         return profiler_context;
     }
 
-    bool HasNvCheckpoints() const {
-        return has_nv_checkpoints;
-    }
-
     /// Returns true when a known debugging tool is attached.
     bool HasDebuggingToolAttached() const {
         return has_renderdoc || has_nsight_graphics;
@@ -127,6 +117,11 @@ public:
         return external_memory_host;
     }
 
+    /// Returns true when VK_EXT_depth_clip_control is supported
+    bool IsDepthClipControlSupported() const {
+        return depth_clip_control;
+    }
+
     /// Returns true when VK_EXT_color_write_enable is supported
     bool IsColorWriteEnableSupported() const {
         return color_write_en;
@@ -135,6 +130,11 @@ public:
     /// Returns true when VK_EXT_vertex_input_dynamic_state is supported.
     bool IsVertexInputDynamicState() const {
         return vertex_input_dynamic_state;
+    }
+
+    /// Returns true when the nullDescriptor feature of VK_EXT_robustness2 is supported.
+    bool IsNullDescriptorSupported() const {
+        return null_descriptor;
     }
 
     /// Returns the vendor ID of the physical device
@@ -212,6 +212,11 @@ public:
         return properties.limits.maxTexelBufferElements;
     }
 
+    /// Returns the maximum number of push descriptors.
+    u32 MaxPushDescriptors() const {
+        return push_descriptor_props.maxPushDescriptors;
+    }
+
     /// Returns true if shaders can declare the ClipDistance attribute
     bool IsShaderClipDistanceSupported() const {
         return features.shaderClipDistance;
@@ -220,6 +225,13 @@ public:
     /// Returns the minimum imported host pointer alignment
     u64 GetMinImportedHostPointerAlignment() const {
         return min_imported_host_pointer_alignment;
+    }
+
+    /// Returns the sample count flags supported by framebuffers.
+    vk::SampleCountFlags GetFramebufferSampleCounts() const {
+        return properties.limits.framebufferColorSampleCounts &
+               properties.limits.framebufferDepthSampleCounts &
+               properties.limits.framebufferStencilSampleCounts;
     }
 
 private:
@@ -233,18 +245,21 @@ private:
     void CollectDeviceParameters();
     void CollectToolingInfo();
 
-    /// Determines if a format is supported.
-    [[nodiscard]] bool IsFormatSupported(vk::Format format) const;
+    /// Determines if a format is supported for images.
+    [[nodiscard]] bool IsImageFormatSupported(vk::Format format) const;
+
+    /// Determines if a format is supported for vertex buffers.
+    [[nodiscard]] bool IsVertexFormatSupported(vk::Format format) const;
 
     /// Gets a commonly available alternative for an unsupported pixel format.
     vk::Format GetAlternativeFormat(const vk::Format format) const;
 
 private:
-    vk::DynamicLoader dl{VULKAN_LIBRARY_NAME};
     vk::UniqueInstance instance;
     vk::PhysicalDevice physical_device;
     vk::UniqueDevice device;
     vk::PhysicalDeviceProperties properties;
+    vk::PhysicalDevicePushDescriptorPropertiesKHR push_descriptor_props;
     vk::PhysicalDeviceFeatures features;
     vk::DriverIdKHR driver_id;
     vk::UniqueDebugUtilsMessengerEXT debug_callback{};
@@ -254,7 +269,7 @@ private:
     vk::Queue graphics_queue;
     std::vector<vk::PhysicalDevice> physical_devices;
     std::vector<std::string> available_extensions;
-    std::unordered_map<vk::Format, vk::FormatProperties> format_properties;
+    std::unordered_map<vk::Format, vk::FormatProperties3> format_properties;
     TracyVkCtx profiler_context{};
     u32 queue_family_index{0};
     bool image_view_reinterpretation{true};
@@ -265,16 +280,17 @@ private:
     bool fragment_shader_barycentric{};
     bool shader_stencil_export{};
     bool external_memory_host{};
+    bool depth_clip_control{};
     bool workgroup_memory_explicit_layout{};
     bool color_write_en{};
     bool vertex_input_dynamic_state{};
+    bool null_descriptor{};
     u64 min_imported_host_pointer_alignment{};
     u32 subgroup_size{};
     bool tooling_info{};
     bool debug_utils_supported{};
     bool has_nsight_graphics{};
     bool has_renderdoc{};
-    bool has_nv_checkpoints{};
 };
 
 } // namespace Vulkan

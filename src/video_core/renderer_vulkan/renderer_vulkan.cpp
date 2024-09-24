@@ -6,12 +6,16 @@
 #include "common/singleton.h"
 #include "core/file_format/splash.h"
 #include "core/libraries/system/systemservice.h"
+#include "imgui/renderer/imgui_core.h"
 #include "sdl_window.h"
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/texture_cache/image.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnullability-completeness"
 #include <vk_mem_alloc.h>
+#pragma GCC diagnostic pop
 
 namespace Vulkan {
 
@@ -65,10 +69,12 @@ bool CanBlitToSwapchain(const vk::PhysicalDevice physical_device, vk::Format for
 
 RendererVulkan::RendererVulkan(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_)
     : window{window_}, liverpool{liverpool_},
-      instance{window, Config::getGpuId(), Config::vkValidationEnabled()}, draw_scheduler{instance},
-      present_scheduler{instance}, flip_scheduler{instance}, swapchain{instance, window},
+      instance{window, Config::getGpuId(), Config::vkValidationEnabled(),
+               Config::vkCrashDiagnosticEnabled()},
+      draw_scheduler{instance}, present_scheduler{instance}, flip_scheduler{instance},
+      swapchain{instance, window},
       rasterizer{std::make_unique<Rasterizer>(instance, draw_scheduler, liverpool)},
-      texture_cache{rasterizer->GetTextureCache()} {
+      texture_cache{rasterizer->GetTextureCache()}, video_info_ui{this} {
     const u32 num_images = swapchain.GetImageCount();
     const vk::Device device = instance.GetDevice();
 
@@ -79,9 +85,14 @@ RendererVulkan::RendererVulkan(Frontend::WindowSDL& window_, AmdGpu::Liverpool* 
         frame.present_done = device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
         free_queue.push(&frame);
     }
+
+    // Setup ImGui
+    ImGui::Core::Initialize(instance, window, num_images, swapchain.GetSurfaceFormat().format);
+    ImGui::Layer::AddLayer(&video_info_ui);
 }
 
 RendererVulkan::~RendererVulkan() {
+    ImGui::Layer::RemoveLayer(&video_info_ui);
     draw_scheduler.Finish();
     const vk::Device device = instance.GetDevice();
     for (auto& frame : present_frames) {
@@ -89,6 +100,7 @@ RendererVulkan::~RendererVulkan() {
         device.destroyImageView(frame.image_view);
         device.destroyFence(frame.present_done);
     }
+    ImGui::Core::Shutdown(device);
 }
 
 void RendererVulkan::RecreateFrame(Frame* frame, u32 width, u32 height) {
@@ -190,7 +202,8 @@ Frame* RendererVulkan::PrepareFrameInternal(VideoCore::Image& image, bool is_eop
     scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
 
-    image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits::eTransferRead, cmdbuf);
+    image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {},
+                  cmdbuf);
 
     const std::array pre_barrier{
         vk::ImageMemoryBarrier{
@@ -216,7 +229,7 @@ Frame* RendererVulkan::PrepareFrameInternal(VideoCore::Image& image, bool is_eop
 
     // Post-processing (Anti-aliasing, FSR etc) goes here. For now just blit to the frame image.
     cmdbuf.blitImage(
-        image.image, image.layout, frame->image, vk::ImageLayout::eTransferDstOptimal,
+        image.image, image.last_state.layout, frame->image, vk::ImageLayout::eTransferDstOptimal,
         MakeImageBlit(image.info.size.width, image.info.size.height, frame->width, frame->height),
         vk::Filter::eLinear);
 
@@ -249,12 +262,17 @@ Frame* RendererVulkan::PrepareFrameInternal(VideoCore::Image& image, bool is_eop
 }
 
 void RendererVulkan::Present(Frame* frame) {
+    ImGui::Core::NewFrame();
+
     swapchain.AcquireNextImage();
 
     const vk::Image swapchain_image = swapchain.Image();
 
     auto& scheduler = present_scheduler;
     const auto cmdbuf = scheduler.CommandBuffer();
+
+    ImGui::Core::Render(cmdbuf, frame);
+
     {
         auto* profiler_ctx = instance.GetProfilerContext();
         TracyVkNamedZoneC(profiler_ctx, renderer_gpu_zone, cmdbuf, "Host frame",
@@ -354,7 +372,7 @@ Frame* RendererVulkan::GetRenderFrame() {
     {
         std::unique_lock lock{free_mutex};
         free_cv.wait(lock, [this] { return !free_queue.empty(); });
-        LOG_INFO(Render_Vulkan, "Got render frame, remaining {}", free_queue.size() - 1);
+        LOG_DEBUG(Render_Vulkan, "Got render frame, remaining {}", free_queue.size() - 1);
 
         // Take the frame from the queue
         frame = free_queue.front();
