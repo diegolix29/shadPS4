@@ -293,7 +293,6 @@ void Translator::EmitVectorAlu(const GcnInst& inst) {
         //     V_CMP_{OP8}_U64
     case Opcode::V_CMP_NE_U64:
         return V_CMP_NE_U64(inst);
-
     case Opcode::V_CMP_CLASS_F32:
         return V_CMP_CLASS_F32(inst);
 

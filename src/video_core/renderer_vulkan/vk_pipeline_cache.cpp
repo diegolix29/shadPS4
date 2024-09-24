@@ -358,6 +358,7 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info,
     if (Config::dumpShaders()) {
         DumpShader(code, info.pgm_hash, info.stage, perm_idx, "bin");
     }
+
     const auto ir_program = Shader::TranslateProgram(code, pools, info, runtime_info, profile);
     const auto spv = Shader::Backend::SPIRV::EmitSPIRV(profile, runtime_info, ir_program, binding);
     if (Config::dumpShaders()) {
