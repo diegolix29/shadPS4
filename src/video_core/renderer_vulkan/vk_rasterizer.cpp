@@ -24,7 +24,6 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
         liverpool->BindRasterizer(this);
     }
     memory->SetRasterizer(this);
-    wfi_event = instance.GetDevice().createEventUnique({});
 }
 
 Rasterizer::~Rasterizer() = default;
@@ -350,7 +349,10 @@ void Rasterizer::UpdateViewportScissorState() {
     boost::container::static_vector<vk::Rect2D, Liverpool::NumViewports> scissors;
 
     const float reduce_z =
-        regs.clipper_control.clip_space == AmdGpu::Liverpool::ClipSpace::MinusWToW ? 1.0f : 0.0f;
+        instance.IsDepthClipControlSupported() &&
+                regs.clipper_control.clip_space == AmdGpu::Liverpool::ClipSpace::MinusWToW
+            ? 1.0f
+            : 0.0f;
     for (u32 i = 0; i < Liverpool::NumViewports; i++) {
         const auto& vp = regs.viewports[i];
         const auto& vp_d = regs.viewport_depths[i];
@@ -366,11 +368,55 @@ void Rasterizer::UpdateViewportScissorState() {
             .maxDepth = vp.zscale + vp.zoffset,
         });
     }
-    const auto& sc = regs.screen_scissor;
-    scissors.push_back({
-        .offset = {sc.top_left_x, sc.top_left_y},
-        .extent = {sc.GetWidth(), sc.GetHeight()},
-    });
+
+    const bool enable_offset = !regs.window_scissor.window_offset_disable.Value();
+    Liverpool::Scissor scsr{};
+    const auto combined_scissor_value_tl = [](s16 scr, s16 win, s16 gen, s16 win_offset) {
+        return std::max({scr, s16(win + win_offset), s16(gen + win_offset)});
+    };
+
+    scsr.top_left_x = combined_scissor_value_tl(
+        regs.screen_scissor.top_left_x, s16(regs.window_scissor.top_left_x.Value()),
+        s16(regs.generic_scissor.top_left_x.Value()),
+        enable_offset ? regs.window_offset.window_x_offset : 0);
+
+    scsr.top_left_y = combined_scissor_value_tl(
+        regs.screen_scissor.top_left_y, s16(regs.window_scissor.top_left_y.Value()),
+        s16(regs.generic_scissor.top_left_y.Value()),
+        enable_offset ? regs.window_offset.window_y_offset : 0);
+
+    const auto combined_scissor_value_br = [](s16 scr, s16 win, s16 gen, s16 win_offset) {
+        return std::min({scr, s16(win + win_offset), s16(gen + win_offset)});
+    };
+
+    scsr.bottom_right_x = combined_scissor_value_br(
+        regs.screen_scissor.bottom_right_x, regs.window_scissor.bottom_right_x,
+        regs.generic_scissor.bottom_right_x,
+        enable_offset ? regs.window_offset.window_x_offset : 0);
+
+    scsr.bottom_right_y = combined_scissor_value_br(
+        regs.screen_scissor.bottom_right_y, regs.window_scissor.bottom_right_y,
+        regs.generic_scissor.bottom_right_y,
+        enable_offset ? regs.window_offset.window_y_offset : 0);
+
+    for (u32 idx = 0; idx < Liverpool::NumViewports; idx++) {
+        auto vp_scsr = scsr;
+        if (regs.mode_control.vport_scissor_enable) {
+            vp_scsr.top_left_x =
+                std::max(vp_scsr.top_left_x, s16(regs.viewport_scissors[idx].top_left_x.Value()));
+            vp_scsr.top_left_y =
+                std::max(vp_scsr.top_left_y, s16(regs.viewport_scissors[idx].top_left_y.Value()));
+            vp_scsr.bottom_right_x =
+                std::min(vp_scsr.bottom_right_x, regs.viewport_scissors[idx].bottom_right_x);
+            vp_scsr.bottom_right_y =
+                std::min(vp_scsr.bottom_right_y, regs.viewport_scissors[idx].bottom_right_y);
+        }
+        scissors.push_back({
+            .offset = {vp_scsr.top_left_x, vp_scsr.top_left_y},
+            .extent = {vp_scsr.GetWidth(), vp_scsr.GetHeight()},
+        });
+    }
+
     const auto cmdbuf = scheduler.CommandBuffer();
     cmdbuf.setViewport(0, viewports);
     cmdbuf.setScissor(0, scissors);

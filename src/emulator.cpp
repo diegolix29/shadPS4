@@ -61,7 +61,6 @@ Emulator::Emulator() {
     LOG_INFO(Config, "General isNeo: {}", Config::isNeoMode());
     LOG_INFO(Config, "GPU isNullGpu: {}", Config::nullGpu());
     LOG_INFO(Config, "GPU shouldDumpShaders: {}", Config::dumpShaders());
-    LOG_INFO(Config, "GPU shouldDumpPM4: {}", Config::dumpPM4());
     LOG_INFO(Config, "GPU vblankDivider: {}", Config::vblankDiv());
     LOG_INFO(Config, "Vulkan gpuId: {}", Config::getGpuId());
     LOG_INFO(Config, "Vulkan vkValidation: {}", Config::vkValidationEnabled());
@@ -115,7 +114,7 @@ void Emulator::Run(const std::filesystem::path& file) {
                     Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / id / "TrophyFiles";
                 if (!std::filesystem::exists(trophyDir)) {
                     TRP trp;
-                    if (!trp.Extract(file.parent_path())) {
+                    if (!trp.Extract(file.parent_path(), id)) {
                         LOG_ERROR(Loader, "Couldn't extract trophies");
                     }
                 }
@@ -139,7 +138,7 @@ void Emulator::Run(const std::filesystem::path& file) {
                 if (splash->IsLoaded()) {
                     continue;
                 }
-                if (!splash->Open(entry.path().string())) {
+                if (!splash->Open(entry.path())) {
                     LOG_ERROR(Loader, "Game splash: unable to open file");
                 }
             }
@@ -189,7 +188,7 @@ void Emulator::Run(const std::filesystem::path& file) {
     if (!std::filesystem::exists(mount_captures_dir)) {
         std::filesystem::create_directory(mount_captures_dir);
     }
-    VideoCore::SetOutputDir(mount_captures_dir.generic_string(), id);
+    VideoCore::SetOutputDir(mount_captures_dir, id);
 
     // Initialize kernel and library facilities.
     Libraries::Kernel::init_pthreads();
@@ -205,7 +204,7 @@ void Emulator::Run(const std::filesystem::path& file) {
     std::filesystem::path sce_module_folder = file.parent_path() / "sce_module";
     if (std::filesystem::is_directory(sce_module_folder)) {
         for (const auto& entry : std::filesystem::directory_iterator(sce_module_folder)) {
-            LOG_INFO(Loader, "Loading {}", entry.path().string().c_str());
+            LOG_INFO(Loader, "Loading {}", fmt::UTF(entry.path().u8string()));
             linker->LoadModule(entry.path());
         }
     }
