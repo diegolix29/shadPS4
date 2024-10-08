@@ -62,9 +62,16 @@ public:
                      std::span<const vk::ShaderModule> modules);
     ~GraphicsPipeline();
 
+    void BindResources(const Liverpool::Regs& regs, VideoCore::BufferCache& buffer_cache,
+                       VideoCore::TextureCache& texture_cache) const;
+
+    const Shader::Info& GetStage(Shader::LogicalStage stage) const noexcept {
+        return *stages[u32(stage)];
+    }
+
     bool IsEmbeddedVs() const noexcept {
         static constexpr size_t EmbeddedVsHash = 0x9b2da5cf47f8c29f;
-        return key.stage_hashes[u32(Shader::Stage::Vertex)] == EmbeddedVsHash;
+        return key.stage_hashes[u32(Shader::LogicalStage::Vertex)] == EmbeddedVsHash;
     }
 
     auto GetWriteMasks() const {
