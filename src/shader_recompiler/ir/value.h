@@ -17,6 +17,7 @@
 #include "shader_recompiler/ir/opcodes.h"
 #include "shader_recompiler/ir/reg.h"
 #include "shader_recompiler/ir/type.h"
+#include "shader_recompiler/ir/patch.h"
 
 namespace Shader::IR {
 
@@ -33,6 +34,7 @@ public:
     explicit Value(IR::ScalarReg reg) noexcept;
     explicit Value(IR::VectorReg reg) noexcept;
     explicit Value(IR::Attribute value) noexcept;
+    explicit Value(IR::Patch patch) noexcept;
     explicit Value(bool value) noexcept;
     explicit Value(u8 value) noexcept;
     explicit Value(u16 value) noexcept;
@@ -55,6 +57,7 @@ public:
     [[nodiscard]] IR::ScalarReg ScalarReg() const;
     [[nodiscard]] IR::VectorReg VectorReg() const;
     [[nodiscard]] IR::Attribute Attribute() const;
+    [[nodiscard]] IR::Patch Patch() const;
     [[nodiscard]] bool U1() const;
     [[nodiscard]] u8 U8() const;
     [[nodiscard]] u16 U16() const;
@@ -74,6 +77,7 @@ private:
         IR::ScalarReg sreg;
         IR::VectorReg vreg;
         IR::Attribute attribute;
+        IR::Patch patch;
         bool imm_u1;
         u8 imm_u8;
         u16 imm_u16;
@@ -296,6 +300,11 @@ inline IR::VectorReg Value::VectorReg() const {
 inline IR::Attribute Value::Attribute() const {
     DEBUG_ASSERT(type == Type::Attribute);
     return attribute;
+}
+
+inline IR::Patch Value::Patch() const {
+    DEBUG_ASSERT(type == Type::Patch);
+    return patch;
 }
 
 inline bool Value::U1() const {
