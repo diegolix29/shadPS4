@@ -707,6 +707,8 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/check_update.h
            src/qt_gui/main_window_ui.h
            src/qt_gui/main_window.cpp
+           src/qt_gui/kbm_config_dialog.cpp
+           src/qt_gui/kbm_config_dialog.h
            src/qt_gui/main_window.h
            src/qt_gui/gui_context_menus.h
            src/qt_gui/game_list_utils.h

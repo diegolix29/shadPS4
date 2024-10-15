@@ -1,17 +1,17 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "kbm_config_dialog.h"
-#include <QFile>
-#include <QTextStream>
-#include <QMessageBox>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QPushButton>
 #include <QCloseEvent>
+#include <QFile>
 
-EditorDialog::EditorDialog(QWidget *parent)
-        : QDialog(parent) {
+#include <QHBoxLayout>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QTextStream>
+#include <QVBoxLayout>
+#include "kbm_config_dialog.h"
+
+EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
 
 
     setWindowTitle("Edit Config File");
@@ -19,28 +19,28 @@ EditorDialog::EditorDialog(QWidget *parent)
 
     // Create the editor widget
     editor = new QPlainTextEdit(this);
-    editorFont.setPointSize(10);  // Set default text size
-    editor->setFont(editorFont);  // Apply font to the editor
+    editorFont.setPointSize(10); // Set default text size
+    editor->setFont(editorFont); // Apply font to the editor
 
     // Create Save, Cancel, and Help buttons
-    QPushButton *saveButton = new QPushButton("Save", this);
-    QPushButton *cancelButton = new QPushButton("Cancel", this);
-    QPushButton *helpButton = new QPushButton("Help", this);
+    QPushButton* saveButton = new QPushButton("Save", this);
+    QPushButton* cancelButton = new QPushButton("Cancel", this);
+    QPushButton* helpButton = new QPushButton("Help", this);
 
     // Create layout for buttons
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
     buttonLayout->addWidget(saveButton);
     buttonLayout->addWidget(cancelButton);
     buttonLayout->addWidget(helpButton);
 
     // Main layout with editor and buttons
-    QVBoxLayout *layout = new QVBoxLayout(this);
+    QVBoxLayout* layout = new QVBoxLayout(this);
     layout->addWidget(editor);
     layout->addLayout(buttonLayout);
 
     // Load the INI file content into the editor
     loadFile();
-    
+
 
     // Connect the Save button
     connect(saveButton, &QPushButton::clicked, this, &EditorDialog::onSaveClicked);
@@ -76,44 +76,43 @@ void EditorDialog::saveFile() {
 }
 
 // Override the close event to show the save confirmation dialog only if changes were made
-void EditorDialog::closeEvent(QCloseEvent *event) {
+void EditorDialog::closeEvent(QCloseEvent* event) {
     if (hasUnsavedChanges()) {
         QMessageBox::StandardButton reply;
-        reply = QMessageBox::question(this, "Save Changes",
-                                      "Do you want to save changes?",
+        reply = QMessageBox::question(this, "Save Changes", "Do you want to save changes?",
                                       QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
 
         if (reply == QMessageBox::Yes) {
             saveFile();
-            event->accept();  // Close the dialog
+            event->accept(); // Close the dialog
         } else if (reply == QMessageBox::No) {
-            event->accept();  // Close the dialog without saving
+            event->accept(); // Close the dialog without saving
         } else {
-            event->ignore();  // Cancel the close event
+            event->ignore(); // Cancel the close event
         }
     } else {
-        event->accept();  // No changes, close the dialog without prompting
+        event->accept(); // No changes, close the dialog without prompting
     }
 }
 
 void EditorDialog::onSaveClicked() {
     saveFile();
-    reject();  // Close the dialog
+    reject(); // Close the dialog
 }
 
 void EditorDialog::onCancelClicked() {
-    reject();  // Close the dialog
+    reject(); // Close the dialog
 }
 
 void EditorDialog::onHelpClicked() {
-    QDialog *helpDialog = new QDialog(this);
+    QDialog* helpDialog = new QDialog(this);
     helpDialog->setWindowTitle("Help");
     helpDialog->resize(600, 400);
 
-    QPlainTextEdit *helpEditor = new QPlainTextEdit(helpDialog);
+    QPlainTextEdit* helpEditor = new QPlainTextEdit(helpDialog);
     helpEditor->setReadOnly(true);
 
-    QVBoxLayout *helpLayout = new QVBoxLayout(helpDialog);
+    QVBoxLayout* helpLayout = new QVBoxLayout(helpDialog);
     helpLayout->addWidget(helpEditor);
     helpDialog->setLayout(helpLayout);
 
@@ -127,7 +126,7 @@ void EditorDialog::onHelpClicked() {
         QMessageBox::warning(this, "Error", "Could not open the help file");
     }
 
-    helpDialog->exec();  // Show help dialog modally
+    helpDialog->exec(); // Show help dialog modally
 }
 
 bool EditorDialog::hasUnsavedChanges() {
