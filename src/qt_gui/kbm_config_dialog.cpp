@@ -13,7 +13,6 @@
 
 EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
 
-
     setWindowTitle("Edit Config File");
     resize(600, 400);
 
@@ -40,7 +39,6 @@ EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
 
     // Load the INI file content into the editor
     loadFile();
-
 
     // Connect the Save button
     connect(saveButton, &QPushButton::clicked, this, &EditorDialog::onSaveClicked);
