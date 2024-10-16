@@ -789,6 +789,10 @@ if (APPLE)
       # Link MoltenVK for Vulkan support
       find_library(MOLTENVK MoltenVK REQUIRED)
       target_link_libraries(shadps4 PRIVATE ${MOLTENVK})
+
+      # Link against the iconv in macOS
+      find_package(Iconv REQUIRED)
+      target_link_libraries(shadps4 PRIVATE Iconv::Iconv)
   endif()
 
   if (ARCHITECTURE STREQUAL "x86_64")

@@ -135,10 +135,10 @@ std::map<std::string, AxisMapping> string_to_axis_map = {
     {"axis_left_x_minus", {Input::Axis::LeftX, -127}},
     {"axis_left_y_plus", {Input::Axis::LeftY, 127}},
     {"axis_left_y_minus", {Input::Axis::LeftY, -127}},
-    {"axis_right_x_plus", {Input::Axis::RightX, 127}},
-    {"axis_right_x_minus", {Input::Axis::RightX, -127}},
-    {"axis_right_y_plus", {Input::Axis::RightY, 127}},
-    {"axis_right_y_minus", {Input::Axis::RightY, -127}},
+    {"axis_right_x_plus", {Input::Axis::RightX, 100}},
+    {"axis_right_x_minus", {Input::Axis::RightX, -100}},
+    {"axis_right_y_plus", {Input::Axis::RightY, 100}},
+    {"axis_right_y_minus", {Input::Axis::RightY, -100}},
 };
 std::map<std::string, u32> string_to_keyboard_key_map = {
     {"a", SDLK_A},
@@ -177,20 +177,20 @@ std::map<std::string, u32> string_to_keyboard_key_map = {
     {"7", SDLK_7},
     {"8", SDLK_8},
     {"9", SDLK_9},
-    {",", SDLK_COMMA},
-    {".", SDLK_PERIOD},
-    {"?", SDLK_QUESTION},
-    {";", SDLK_SEMICOLON},
-    {"-", SDLK_MINUS},
-    {"_", SDLK_UNDERSCORE},
-    {"(", SDLK_LEFTPAREN},
-    {")", SDLK_RIGHTPAREN},
-    {"[", SDLK_LEFTBRACKET},
-    {"]", SDLK_RIGHTBRACKET},
-    {"{", SDLK_LEFTBRACE},
-    {"}", SDLK_RIGHTBRACE},
-    {"\\", SDLK_BACKSLASH},
-    {"/", SDLK_SLASH},
+    {"comma", SDLK_COMMA},
+    {"period", SDLK_PERIOD},
+    {"question", SDLK_QUESTION},
+    {"semicolon", SDLK_SEMICOLON},
+    {"minus", SDLK_MINUS},
+    {"underscore", SDLK_UNDERSCORE},
+    {"lparenthesis", SDLK_LEFTPAREN},
+    {"rparenthesis", SDLK_RIGHTPAREN},
+    {"lbracket", SDLK_LEFTBRACKET},
+    {"rbracket", SDLK_RIGHTBRACKET},
+    {"lbrace", SDLK_LEFTBRACE},
+    {"rbrace", SDLK_RIGHTBRACE},
+    {"backslash", SDLK_BACKSLASH},
+    {"dash", SDLK_SLASH},
     {"enter", SDLK_RETURN},
     {"space", SDLK_SPACE},
     {"tab", SDLK_TAB},
@@ -406,8 +406,10 @@ void WindowSDL::updateMouse() {
     float d_x = 0, d_y = 0;
     SDL_GetRelativeMouseState(&d_x, &d_y);
 
+    float mouse_speed = SDL_clamp((sqrt(d_x * d_x + d_y * d_y) + 16) * 1, 64.0, 128.0);
+    std::cout << "speed: " << mouse_speed << "\n";
     float angle = atan2(d_y, d_x);
-    float a_x = cos(angle) * 128.0, a_y = sin(angle) * 128.0;
+    float a_x = cos(angle) * mouse_speed, a_y = sin(angle) * mouse_speed;
 
     if (d_x != 0 && d_y != 0) {
         controller->Axis(0, axis_x, Input::GetAxis(-0x80, 0x80, a_x));
