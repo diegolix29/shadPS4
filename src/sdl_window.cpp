@@ -135,10 +135,10 @@ std::map<std::string, AxisMapping> string_to_axis_map = {
     {"axis_left_x_minus", {Input::Axis::LeftX, -127}},
     {"axis_left_y_plus", {Input::Axis::LeftY, 127}},
     {"axis_left_y_minus", {Input::Axis::LeftY, -127}},
-    {"axis_right_x_plus", {Input::Axis::RightX, 100}},
-    {"axis_right_x_minus", {Input::Axis::RightX, -100}},
-    {"axis_right_y_plus", {Input::Axis::RightY, 100}},
-    {"axis_right_y_minus", {Input::Axis::RightY, -100}},
+    {"axis_right_x_plus", {Input::Axis::RightX, 120}},
+    {"axis_right_x_minus", {Input::Axis::RightX, -120}},
+    {"axis_right_y_plus", {Input::Axis::RightY, 120}},
+    {"axis_right_y_minus", {Input::Axis::RightY, -120}},
 };
 std::map<std::string, u32> string_to_keyboard_key_map = {
     {"a", SDLK_A},
