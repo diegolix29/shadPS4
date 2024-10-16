@@ -8,27 +8,26 @@
 #include <QPlainTextEdit>
 
 class EditorDialog : public QDialog {
-    Q_OBJECT  // Necessary for using Qt's meta-object system (signals/slots)
-public:
-    explicit EditorDialog(QWidget *parent = nullptr);  // Constructor
+    Q_OBJECT // Necessary for using Qt's meta-object system (signals/slots)
+        public : explicit EditorDialog(QWidget* parent = nullptr); // Constructor
 
 protected:
-    void closeEvent(QCloseEvent *event) override;  // Override close event
-    void keyPressEvent(QKeyEvent *event) override;
+    void closeEvent(QCloseEvent* event) override; // Override close event
 
 private:
-    QPlainTextEdit *editor;  // Editor widget for the config file
-    QFont editorFont;  // To handle the text size
+    QPlainTextEdit* editor; // Editor widget for the config file
+    QFont editorFont;       // To handle the text size
     QString originalConfig; // starting config string
 
-    void loadFile();  // Function to load the config file
-    void saveFile();  // Function to save the config file
+    void loadFile(); // Function to load the config file
+    void saveFile(); // Function to save the config file
     bool hasUnsavedChanges();
 
 private slots:
-    void onSaveClicked();  // Save button slot
-    void onCancelClicked();  // Slot for handling cancel button
-    void onHelpClicked();  // Slot for handling help button
+    void onSaveClicked();   // Save button slot
+    void onCancelClicked(); // Slot for handling cancel button
+    void onHelpClicked();   // Slot for handling help button
+    // void onTextChanged();  // Slot to detect text changes
 };
 
 #endif // EDITOR_DIALOG_H

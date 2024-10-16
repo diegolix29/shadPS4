@@ -40,6 +40,7 @@
 Uint32 getMouseWheelEvent(const SDL_Event* event) {
     if (event->type != SDL_EVENT_MOUSE_WHEEL)
         return 0;
+
     // std::cout << "We got a wheel event! ";
     if (event->wheel.y > 0) {
         return SDL_EVENT_MOUSE_WHEEL_UP;
@@ -54,11 +55,13 @@ Uint32 getMouseWheelEvent(const SDL_Event* event) {
 }
 
 namespace Frontend {
+
 using Libraries::Pad::OrbisPadButtonDataOffset;
 
 KeyBinding::KeyBinding(const SDL_Event* event) {
     modifier = SDL_GetModState();
     key = 0;
+
     // std::cout << "Someone called the new binding ctor!\n";
     if (event->type == SDL_EVENT_KEY_DOWN || event->type == SDL_EVENT_KEY_UP) {
         key = event->key.key;
@@ -71,6 +74,7 @@ KeyBinding::KeyBinding(const SDL_Event* event) {
         std::cout << "We don't support this event type!\n";
     }
 }
+
 bool KeyBinding::operator<(const KeyBinding& other) const {
     return std::tie(key, modifier) < std::tie(other.key, other.modifier);
 }
@@ -131,10 +135,10 @@ std::map<std::string, AxisMapping> string_to_axis_map = {
     {"axis_left_x_minus", {Input::Axis::LeftX, -127}},
     {"axis_left_y_plus", {Input::Axis::LeftY, 127}},
     {"axis_left_y_minus", {Input::Axis::LeftY, -127}},
-    {"axis_right_x_plus", {Input::Axis::RightX, 127}},
-    {"axis_right_x_minus", {Input::Axis::RightX, -127}},
-    {"axis_right_y_plus", {Input::Axis::RightY, 127}},
-    {"axis_right_y_minus", {Input::Axis::RightY, -127}},
+    {"axis_right_x_plus", {Input::Axis::RightX, 100}},
+    {"axis_right_x_minus", {Input::Axis::RightX, -100}},
+    {"axis_right_y_plus", {Input::Axis::RightY, 100}},
+    {"axis_right_y_minus", {Input::Axis::RightY, -100}},
 };
 std::map<std::string, u32> string_to_keyboard_key_map = {
     {"a", SDLK_A},
@@ -173,20 +177,20 @@ std::map<std::string, u32> string_to_keyboard_key_map = {
     {"7", SDLK_7},
     {"8", SDLK_8},
     {"9", SDLK_9},
-    {",", SDLK_COMMA},
-    {".", SDLK_PERIOD},
-    {"?", SDLK_QUESTION},
-    {";", SDLK_SEMICOLON},
-    {"-", SDLK_MINUS},
-    {"_", SDLK_UNDERSCORE},
-    {"(", SDLK_LEFTPAREN},
-    {")", SDLK_RIGHTPAREN},
-    {"[", SDLK_LEFTBRACKET},
-    {"]", SDLK_RIGHTBRACKET},
-    {"{", SDLK_LEFTBRACE},
-    {"}", SDLK_RIGHTBRACE},
-    {"\\", SDLK_BACKSLASH},
-    {"/", SDLK_SLASH},
+    {"comma", SDLK_COMMA},
+    {"period", SDLK_PERIOD},
+    {"question", SDLK_QUESTION},
+    {"semicolon", SDLK_SEMICOLON},
+    {"minus", SDLK_MINUS},
+    {"underscore", SDLK_UNDERSCORE},
+    {"lparenthesis", SDLK_LEFTPAREN},
+    {"rparenthesis", SDLK_RIGHTPAREN},
+    {"lbracket", SDLK_LEFTBRACKET},
+    {"rbracket", SDLK_RIGHTBRACKET},
+    {"lbrace", SDLK_LEFTBRACE},
+    {"rbrace", SDLK_RIGHTBRACE},
+    {"backslash", SDLK_BACKSLASH},
+    {"dash", SDLK_SLASH},
     {"enter", SDLK_RETURN},
     {"space", SDLK_SPACE},
     {"tab", SDLK_TAB},
@@ -245,88 +249,19 @@ std::map<std::string, u32> string_to_keyboard_mod_key_map = {
 std::map<KeyBinding, u32> button_map = {};
 std::map<KeyBinding, AxisMapping> axis_map = {};
 
-// Flags for varying purposes
 int mouse_joystick_binding = 0;
 Uint32 mouse_polling_id = 0;
 bool mouse_enabled = false, leftjoystick_halfmode = false, rightjoystick_halfmode = false;
-
-// i wrapped it in a function so I can collapse it
-std::string getDefaultKeyboardConfig() {
-    std::string default_config =
-        R"(## SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
-## SPDX-License-Identifier: GPL-2.0-or-later
- 
-#Default controller button mappings
-
-#Taken keys:
-#F11 : fullscreen
-#F10 : FPS counter
-#F9  : toggle mouse capture
-#F8  : reparse keyboard input(this)
-#F7  : toggle mouse-to-joystick input 
-#      (it overwrites everything else to that joystick, so this is required)
-
-#This is a mapping for Bloodborne, inspired by other Souls titles on PC.
-
-#This is a quick and dirty implementation of binding the mouse to a user-specified joystick
-mouse_to_joystick = right;
-
-#Use another item(healing), change status in inventory
-triangle = f;
-#Dodge, back in inventory
-circle = space;
-#Interact, select item in inventory
-cross = e;
-#Use quick item, remove item in inventory
-square = r;
-
-#Emergency extra bullets
-up = w, lalt;
-#Change quick item
-down = s, lalt;
-#Change weapon in left hand
-left = a, lalt;
-#Change weapon in right hand
-right = d, lalt;
-
-#Menu
-options = escape;
-#Gestures
-touchpad = g;
-
-#Transform
-l1 = rightbutton, lshift;
-#Shoot
-r1 = leftbutton;
-#Light attack
-l2 = rightbutton;
-#Heavy attack
-r2 = leftbutton, lshift;
-#Does nothing
-l3 = x;
-#Center cam, lock on
-r3 = q;
-
-#Axis mappings
-#Move
-axis_left_x_minus = a;
-axis_left_x_plus = d;
-axis_left_y_minus = w;
-axis_left_y_plus = s;
-)";
-    return default_config;
-}
-
 void WindowSDL::parseInputConfig(const std::string& filename) {
 
     // Read configuration file.
+    // std::cout << "Reading keyboard config...\n";
     const auto config_file = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / filename;
     if (!std::filesystem::exists(config_file)) {
         // create it
         std::ofstream file;
         file.open(config_file, std::ios::out);
         if (file.is_open()) {
-            file << getDefaultKeyboardConfig();
             file.close();
             std::cout << "Config file generated.\n";
         } else {
@@ -342,7 +277,7 @@ void WindowSDL::parseInputConfig(const std::string& filename) {
     button_map.clear();
     axis_map.clear();
     int lineCount = 0;
-    std::string line = "";
+    std::string line;
     while (std::getline(file, line)) {
         lineCount++;
         // strip the ; and whitespace
@@ -418,6 +353,7 @@ void WindowSDL::parseInputConfig(const std::string& filename) {
         } else {
             std::cerr << "Syntax error while parsing kbm inputs at line " << lineCount
                       << " line data: " << line << "\n";
+            continue; // skip
         }
     }
     file.close();
@@ -427,15 +363,15 @@ Uint32 WindowSDL::keyRepeatCallback(void* param, Uint32 id, Uint32 interval) {
     auto* data = (std::pair<WindowSDL*, SDL_Event*>*)param;
     KeyBinding binding(data->second);
     if (data->second->type == SDL_EVENT_MOUSE_WHEEL) {
-        // send an off signal a frame later
+
         auto button_it = button_map.find(binding);
         auto axis_it = axis_map.find(binding);
         if (button_it != button_map.end()) {
-            data->first->updateButton(binding, button_it->second, false);
+            data->first->updateButton(binding, button_it->second, true);
         } else if (axis_it != axis_map.end()) {
+
             data->first->controller->Axis(0, axis_it->second.axis, Input::GetAxis(-0x80, 0x80, 0));
         }
-        return 0;
     }
     data->first->updateModKeyedInputsManually(binding);
     delete data->second;
@@ -470,8 +406,10 @@ void WindowSDL::updateMouse() {
     float d_x = 0, d_y = 0;
     SDL_GetRelativeMouseState(&d_x, &d_y);
 
+    float mouse_speed = SDL_clamp((sqrt(d_x * d_x + d_y * d_y) + 16) * 1, 64.0, 128.0);
+    std::cout << "speed: " << mouse_speed << "\n";
     float angle = atan2(d_y, d_x);
-    float a_x = cos(angle) * 128.0, a_y = sin(angle) * 128.0;
+    float a_x = cos(angle) * mouse_speed, a_y = sin(angle) * mouse_speed;
 
     if (d_x != 0 && d_y != 0) {
         controller->Axis(0, axis_x, Input::GetAxis(-0x80, 0x80, a_x));
@@ -540,7 +478,7 @@ WindowSDL::~WindowSDL() = default;
 
 void WindowSDL::waitEvent() {
     // Called on main thread
-    SDL_Event event{};
+    SDL_Event event;
     if (mouse_polling_id == 0) {
         mouse_polling_id = SDL_AddTimer(33, mousePolling, (void*)this);
     }
@@ -576,7 +514,7 @@ void WindowSDL::waitEvent() {
     case SDL_EVENT_KEY_DOWN:
     case SDL_EVENT_KEY_UP:
         SDL_AddTimer(33, keyRepeatCallback, (void*)payload_to_timer);
-        onKeyboardMouseEvent(&event);
+        onKeyPress(&event);
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
     case SDL_EVENT_GAMEPAD_BUTTON_UP:
@@ -600,10 +538,9 @@ void WindowSDL::onResize() {
     ImGui::Core::OnResize();
 }
 
-// for L2/R2, touchpad and normal buttons
 void WindowSDL::updateButton(KeyBinding& binding, u32 button, bool is_pressed) {
-    float touchpad_x = 0;
-    Input::Axis axis = Input::Axis::AxisMax;
+    float x;
+    Input::Axis axis;
     switch (button) {
     case OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L2:
     case OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R2:
@@ -614,10 +551,10 @@ void WindowSDL::updateButton(KeyBinding& binding, u32 button, bool is_pressed) {
         controller->Axis(0, axis, Input::GetAxis(0, 0x80, is_pressed ? 255 : 0));
         break;
     case OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TOUCH_PAD:
-        touchpad_x = Config::getBackButtonBehavior() == "left"    ? 0.25f
-                     : Config::getBackButtonBehavior() == "right" ? 0.75f
-                                                                  : 0.5f;
-        controller->SetTouchpadState(0, true, touchpad_x, 0.5f);
+        x = Config::getBackButtonBehavior() == "left"    ? 0.25f
+            : Config::getBackButtonBehavior() == "right" ? 0.75f
+                                                         : 0.5f;
+        controller->SetTouchpadState(0, true, x, 0.5f);
         controller->CheckButton(0, button, is_pressed);
         break;
     default: // is a normal key
@@ -626,14 +563,16 @@ void WindowSDL::updateButton(KeyBinding& binding, u32 button, bool is_pressed) {
     }
 }
 
-// previously onKeyPress
-void WindowSDL::onKeyboardMouseEvent(const SDL_Event* event) {
+void WindowSDL::onKeyPress(const SDL_Event* event) {
     // Extract key and modifier
     KeyBinding binding(event);
-
     bool input_down = event->type == SDL_EVENT_KEY_DOWN ||
                       event->type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
                       event->type == SDL_EVENT_MOUSE_WHEEL;
+
+    u32 button = 0;
+    Input::Axis axis = Input::Axis::AxisMax;
+    int axis_value = 0;
 
     // Handle window controls outside of the input maps
     if (event->type == SDL_EVENT_KEY_DOWN) {
@@ -675,9 +614,10 @@ void WindowSDL::onKeyboardMouseEvent(const SDL_Event* event) {
     }
 
     if (button_it != button_map.end()) {
-        // joystick_halfmode is not a button update so we handle it differently
+        // test
         if (button_it->second == LEFTJOYSTICK_HALFMODE) {
             leftjoystick_halfmode = input_down;
+            // std::cout << "walk mode is " << (joystick_halfmode ? "on" : "off") << "\n";
         } else if (button_it->second == RIGHTJOYSTICK_HALFMODE) {
             rightjoystick_halfmode = input_down;
         } else {
@@ -685,7 +625,9 @@ void WindowSDL::onKeyboardMouseEvent(const SDL_Event* event) {
         }
     }
     if (axis_it != axis_map.end()) {
-        Input::Axis axis = axis_it->second.axis;
+        Input::Axis axis = Input::Axis::AxisMax;
+        int axis_value = 0;
+        axis = axis_it->second.axis;
         float multiplier = 1.0;
         switch (axis) {
         case Input::Axis::LeftX:
@@ -699,7 +641,8 @@ void WindowSDL::onKeyboardMouseEvent(const SDL_Event* event) {
         default:
             break;
         }
-        int axis_value = (input_down ? axis_it->second.value : 0) * multiplier;
+        multiplier = leftjoystick_halfmode ? 0.5 : 1.0;
+        axis_value = (input_down ? axis_it->second.value : 0) * multiplier;
         int ax = Input::GetAxis(-0x80, 0x80, axis_value);
         controller->Axis(0, axis, ax);
     }

@@ -18,8 +18,6 @@ class GameController;
 
 namespace Frontend {
 
-std::string getDefaultKeyboardConfig();
-
 class KeyBinding {
 public:
     Uint32 key;
@@ -85,7 +83,7 @@ public:
 
 private:
     void onResize();
-    void onKeyboardMouseEvent(const SDL_Event* event);
+    void onKeyPress(const SDL_Event* event);
     void onGamepadEvent(const SDL_Event* event);
     int sdlGamepadToOrbisButton(u8 button);
 

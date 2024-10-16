@@ -382,7 +382,7 @@ jobs:
         path: Shadps4-qt.AppImage
 
   pre-release:
-    if: github.ref == 'refs/heads/main' && github.repository == 'shadps4-emu/shadPS4' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/mainBB' && github.repository == 'diegolix29/shadPS4' && github.event_name == 'push'
     needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt]
     runs-on: ubuntu-latest
     steps:
