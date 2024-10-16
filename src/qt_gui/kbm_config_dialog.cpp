@@ -38,7 +38,7 @@ EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
 
     // Load the INI file content into the editor
     loadFile();
-        // Connect the Save button
+    // Connect the Save button
     connect(saveButton, &QPushButton::clicked, this, &EditorDialog::onSaveClicked);
 
     // Connect the Cancel button
