@@ -8,6 +8,8 @@
 #include "shader_recompiler/frontend/fetch_shader.h"
 #include "shader_recompiler/frontend/translate/translate.h"
 #include "shader_recompiler/info.h"
+#include "shader_recompiler/ir/attribute.h"
+#include "shader_recompiler/ir/reg.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/resource.h"
 #include "video_core/amdgpu/types.h"
@@ -51,12 +53,43 @@ void Translator::EmitPrologue() {
             ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::InstanceId));
         }
         break;
-    case LogicalStage::TessellationControl:
-        ir.SetVectorReg(IR::VectorReg::V0, ir.GetAttributeU32(IR::Attribute::PrimitiveId));
+    case LogicalStage::TessellationControl: {
+        // v_bfe_u32       v0, v1, 8, 5
+        // v_bfe_u32       v2, v1, 0, 8
+        // Hull shader seems expect 2 values packed in V1.
+        // V1[0:7] seems like patch_id, aka PrimitiveId
+        // V1[8:12] seems like the output control point id, aka InvocationId
+        // however, in "passthrough" hull shaders, with the same input/output patch topology, and no
+        // additional per-output-control-point attributes, it doesn't make much sense for V1[8:12]
+        // to be a control point ID.
+        // Thats because this value contributes to address calculations for per-patch output writes,
+        // e.g. to the tess factors, in these "passthrough" shaders.
+        // V[0:7] also contributes, which is expected
+        ir.SetVectorReg(IR::VectorReg::V1,
+                        ir.GetAttributeU32(IR::Attribute::PackedHullInvocationInfo));
+
+        // Copy inputs to outputs by InvocationID, to
+        // handle the passthrough case
+        // TODO: skip this if unecessary
+        // TODO: probably do this later because we dont know what attributes are active
+        if (true) {
+            // TODO: ctreate if stmt control flow:
+            // if (invocationID < gl_PatchVerticesIn) {
+            //     out_attr[invocationID][0] = in_attr[invocationID][0];
+            //     out_attr[invocationID][1] = in_attr[invocationID][1];
+            //     ...
+            //     out_attr[invocationID][N] = in_attr[invocationID][N];
+            //}
+            // for (auto i = 0; i < info.)
+            ir.TcsOutputBarrier();
+        }
         break;
+    }
     case LogicalStage::TessellationEval:
-        ir.SetVectorReg(IR::VectorReg::V0, ir.GetAttribute(IR::Attribute::TessellationEvaluationPointU));
-        ir.SetVectorReg(IR::VectorReg::V1, ir.GetAttribute(IR::Attribute::TessellationEvaluationPointV));
+        ir.SetVectorReg(IR::VectorReg::V0,
+                        ir.GetAttribute(IR::Attribute::TessellationEvaluationPointU));
+        ir.SetVectorReg(IR::VectorReg::V1,
+                        ir.GetAttribute(IR::Attribute::TessellationEvaluationPointV));
         ir.SetVectorReg(IR::VectorReg::V2, ir.GetAttributeU32(IR::Attribute::PrimitiveId));
         break;
     case LogicalStage::Fragment:
@@ -471,7 +504,8 @@ void Translate(IR::Block* block, u32 pc, std::span<const GcnInst> inst_list, Inf
 
         // Special case for emitting fetch shader.
         if (inst.opcode == Opcode::S_SWAPPC_B64) {
-            ASSERT(info.stage == Stage::Vertex || info.stage == Stage::Export || info.stage == Stage::Local);
+            ASSERT(info.stage == Stage::Vertex || info.stage == Stage::Export ||
+                   info.stage == Stage::Local);
             translator.EmitFetch(inst);
             continue;
         }

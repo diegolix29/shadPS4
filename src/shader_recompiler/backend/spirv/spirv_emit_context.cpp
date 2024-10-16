@@ -341,6 +341,13 @@ void EmitContext::DefineInputs() {
         }
         break;
     }
+    case LogicalStage::TessellationControl: {
+        invocation_id =
+            DefineVariable(U32[3], spv::BuiltIn::InvocationId, spv::StorageClass::Input);
+        patch_vertices =
+            DefineVariable(U32[1], spv::BuiltIn::PatchVertices, spv::StorageClass::Input);
+        break;
+    }
     case LogicalStage::TessellationEval: {
         tess_coord = DefineInput(F32[3], std::nullopt, spv::BuiltIn::TessCoord);
         break;
@@ -380,12 +387,14 @@ void EmitContext::DefineOutputs() {
     case LogicalStage::TessellationControl: {
         if (info.stores_tess_level_outer) {
             const Id type{TypeArray(F32[1], ConstU32(4U))};
-            output_tess_level_outer = DefineOutput(type, std::nullopt, spv::BuiltIn::TessLevelOuter);
+            output_tess_level_outer =
+                DefineOutput(type, std::nullopt, spv::BuiltIn::TessLevelOuter);
             Decorate(output_tess_level_outer, spv::Decoration::Patch);
         }
         if (info.stores_tess_level_inner) {
             const Id type{TypeArray(F32[1], ConstU32(2U))};
-            output_tess_level_inner = DefineOutput(type, std::nullopt, spv::BuiltIn::TessLevelInner);
+            output_tess_level_inner =
+                DefineOutput(type, std::nullopt, spv::BuiltIn::TessLevelInner);
             Decorate(output_tess_level_inner, spv::Decoration::Patch);
         }
         for (size_t index = 0; index < 30; ++index) {
