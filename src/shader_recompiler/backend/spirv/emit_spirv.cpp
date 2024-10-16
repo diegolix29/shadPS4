@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-#pragma clang optimize off
+
 #include <span>
 #include <type_traits>
 #include <utility>
@@ -13,6 +13,7 @@
 #include "shader_recompiler/frontend/translate/translate.h"
 #include "shader_recompiler/ir/basic_block.h"
 #include "shader_recompiler/ir/program.h"
+#include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/types.h"
 
 namespace Shader::Backend::SPIRV {
@@ -285,6 +286,9 @@ void SetupCapabilities(const Info& info, const Profile& profile, EmitContext& ct
         ctx.AddExtension("SPV_KHR_fragment_shader_barycentric");
         ctx.AddCapability(spv::Capability::FragmentBarycentricKHR);
     }
+    if (stage == LogicalStage::TessellationControl || stage == LogicalStage::TessellationEval) {
+        ctx.AddCapability(spv::Capability::Tessellation);
+    }
 }
 
 void DefineEntryPoint(const Info& info, EmitContext& ctx, Id main) {
@@ -309,7 +313,6 @@ void DefineEntryPoint(const Info& info, EmitContext& ctx, Id main) {
         break;
     case LogicalStage::TessellationEval: {
         execution_model = spv::ExecutionModel::TessellationEvaluation;
-        ctx.AddCapability(spv::Capability::Tessellation);
         const auto& vs_info = ctx.runtime_info.vs_info;
         ctx.AddExecutionMode(main, ExecutionMode(vs_info.tess_type));
         ctx.AddExecutionMode(main, ExecutionMode(vs_info.tess_partitioning));

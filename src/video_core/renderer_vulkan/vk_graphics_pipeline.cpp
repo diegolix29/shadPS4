@@ -8,6 +8,7 @@
 
 #include "common/assert.h"
 #include "common/scope_exit.h"
+#include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/resource.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
@@ -18,6 +19,8 @@
 #include "video_core/texture_cache/texture_cache.h"
 
 namespace Vulkan {
+
+using Shader::LogicalStage; // TODO
 
 GraphicsPipeline::GraphicsPipeline(const Instance& instance_, Scheduler& scheduler_,
                                    DescriptorHeap& desc_heap_, const GraphicsPipelineKey& key_,
@@ -30,6 +33,7 @@ GraphicsPipeline::GraphicsPipeline(const Instance& instance_, Scheduler& schedul
     const vk::Device device = instance.GetDevice();
     std::ranges::copy(infos, stages.begin());
     BuildDescSetLayout();
+    const bool uses_tessellation = stages[u32(LogicalStage::TessellationControl)];
 
     const vk::PushConstantRange push_constants = {
         .stageFlags = gp_stage_flags,
@@ -106,6 +110,10 @@ GraphicsPipeline::GraphicsPipeline(const Instance& instance_, Scheduler& schedul
                    key.primitive_restart_index == 0xFFFFFFFF,
                "Primitive restart index other than -1 is not supported yet");
 
+    const vk::PipelineTessellationStateCreateInfo tessellation_state = {
+        .patchControlPoints = key.patch_control_points,
+    };
+
     const vk::PipelineRasterizationStateCreateInfo raster_state = {
         .depthClampEnable = false,
         .rasterizerDiscardEnable = false,
@@ -165,6 +173,9 @@ GraphicsPipeline::GraphicsPipeline(const Instance& instance_, Scheduler& schedul
         dynamic_states.push_back(vk::DynamicState::eVertexInputEXT);
     } else {
         dynamic_states.push_back(vk::DynamicState::eVertexInputBindingStrideEXT);
+    }
+    if (uses_tessellation && instance.IsPatchControlPointsDynamicState()) {
+        dynamic_states.push_back(vk::DynamicState::ePatchControlPointsEXT);
     }
 
     const vk::PipelineDynamicStateCreateInfo dynamic_info = {
@@ -317,6 +328,9 @@ GraphicsPipeline::GraphicsPipeline(const Instance& instance_, Scheduler& schedul
         .pStages = shader_stages.data(),
         .pVertexInputState = !instance.IsVertexInputDynamicState() ? &vertex_input_info : nullptr,
         .pInputAssemblyState = &input_assembly,
+        .pTessellationState = (uses_tessellation && !instance.IsPatchControlPointsDynamicState())
+                                  ? &tessellation_state
+                                  : nullptr,
         .pViewportState = &viewport_info,
         .pRasterizationState = &raster_state,
         .pMultisampleState = &multisampling,

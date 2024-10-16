@@ -8,6 +8,8 @@
 #include "shader_recompiler/frontend/fetch_shader.h"
 #include "shader_recompiler/frontend/translate/translate.h"
 #include "shader_recompiler/info.h"
+#include "shader_recompiler/ir/attribute.h"
+#include "shader_recompiler/ir/reg.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/resource.h"
 #include "video_core/amdgpu/types.h"
@@ -502,7 +504,8 @@ void Translate(IR::Block* block, u32 pc, std::span<const GcnInst> inst_list, Inf
 
         // Special case for emitting fetch shader.
         if (inst.opcode == Opcode::S_SWAPPC_B64) {
-            ASSERT(info.stage == Stage::Vertex || info.stage == Stage::Export || info.stage == Stage::Local);
+            ASSERT(info.stage == Stage::Vertex || info.stage == Stage::Export ||
+                   info.stage == Stage::Local);
             translator.EmitFetch(inst);
             continue;
         }

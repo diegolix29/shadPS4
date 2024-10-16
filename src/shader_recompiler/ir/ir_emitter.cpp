@@ -134,6 +134,10 @@ void IREmitter::DeviceMemoryBarrier() {
     Inst(Opcode::DeviceMemoryBarrier);
 }
 
+void IREmitter::TcsOutputBarrier() {
+    Inst(Opcode::TcsOutputBarrier);
+}
+
 U32 IREmitter::GetUserData(IR::ScalarReg reg) {
     ASSERT(static_cast<u32>(reg) < IR::NumScalarRegs);
     return Inst<U32>(Opcode::GetUserData, reg);
@@ -266,8 +270,8 @@ void IREmitter::SetM0(const U32& value) {
     Inst(Opcode::SetM0, value);
 }
 
-F32 IREmitter::GetAttribute(IR::Attribute attribute, u32 comp, u32 index) {
-    return Inst<F32>(Opcode::GetAttribute, attribute, Imm32(comp), Imm32(index));
+F32 IREmitter::GetAttribute(IR::Attribute attribute, u32 comp, IR::Value index) {
+    return Inst<F32>(Opcode::GetAttribute, attribute, Imm32(comp), index);
 }
 
 U32 IREmitter::GetAttributeU32(IR::Attribute attribute, u32 comp) {

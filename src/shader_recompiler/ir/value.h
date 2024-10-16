@@ -11,14 +11,16 @@
 #include <boost/container/list.hpp>
 #include <boost/container/small_vector.hpp>
 #include <boost/intrusive/list.hpp>
+#include <boost/range/adaptors.hpp>
+#include <boost/range/algorithm/unique.hpp>
 
 #include "common/assert.h"
 #include "shader_recompiler/exception.h"
 #include "shader_recompiler/ir/attribute.h"
 #include "shader_recompiler/ir/opcodes.h"
+#include "shader_recompiler/ir/patch.h"
 #include "shader_recompiler/ir/reg.h"
 #include "shader_recompiler/ir/type.h"
-#include "shader_recompiler/ir/patch.h"
 
 namespace Shader::IR {
 
@@ -251,7 +253,7 @@ private:
 
     boost::container::list<IR::Use> uses;
 };
-static_assert(sizeof(Inst) <= 160, "Inst size unintentionally increased");
+static_assert(sizeof(Inst) <= 168, "Inst size unintentionally increased");
 
 using U1 = TypedValue<Type::U1>;
 using U8 = TypedValue<Type::U8>;

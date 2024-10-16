@@ -97,7 +97,15 @@ Shader::RuntimeInfo PipelineCache::BuildRuntimeInfo(Stage stage, LogicalStage l_
     }
     case Stage::Hull: {
         BuildCommon(regs.hs_program);
-        info.hs_info.output_control_points = regs.ls_hs_config.hs_output_control_points.Value();
+        // TODO: ls_hs_config.output_control_points seems to be == 1 when doing passthrough
+        // instead of the real number which matches the input patch topology
+        // info.hs_info.output_control_points = regs.ls_hs_config.hs_output_control_points.Value();
+
+        // TODO dont rely on HullStateConstants
+        info.hs_info.output_control_points = regs.hs_constants.num_output_cp;
+        info.hs_info.tess_factor_stride = regs.hs_constants.tess_factor_stride;
+
+        // We need to initialize most hs_info fields after finding the V# with tess constants
         break;
     }
     case Stage::Export: {
@@ -278,6 +286,11 @@ bool PipelineCache::RefreshGraphicsKey() {
     key.mrt_swizzles.fill(Liverpool::ColorBuffer::SwapMode::Standard);
     key.vertex_buffer_formats.fill(vk::Format::eUndefined);
 
+    key.patch_control_points = 0;
+    if (regs.stage_enable.hs_en.Value() && !instance.IsPatchControlPointsDynamicState()) {
+        key.patch_control_points = regs.ls_hs_config.hs_input_control_points.Value();
+    }
+
     // First pass of bindings check to idenitfy formats and swizzles and pass them to rhe shader
     // recompiler.
     for (auto cb = 0u, remapped_cb = 0u; cb < Liverpool::NumColorBuffers; ++cb) {
@@ -425,7 +438,7 @@ bool PipelineCache::RefreshGraphicsKey() {
     key.num_samples = num_samples;
 
     return true;
-}
+} // namespace Vulkan
 
 bool PipelineCache::RefreshComputeKey() {
     Shader::Backend::Bindings binding{};
@@ -436,8 +449,7 @@ bool PipelineCache::RefreshComputeKey() {
     return true;
 }
 
-vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info,
-                                              const Shader::RuntimeInfo& runtime_info,
+vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::RuntimeInfo& runtime_info,
                                               std::span<const u32> code, size_t perm_idx,
                                               Shader::Backend::Bindings& binding) {
     LOG_INFO(Render_Vulkan, "Compiling {} shader {:#x} {}", info.stage, info.pgm_hash,
@@ -465,7 +477,7 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info,
 PipelineCache::Result PipelineCache::GetProgram(Stage stage, LogicalStage l_stage,
                                                 Shader::ShaderParams params,
                                                 Shader::Backend::Bindings& binding) {
-    const auto runtime_info = BuildRuntimeInfo(stage, l_stage);
+    auto runtime_info = BuildRuntimeInfo(stage, l_stage);
     auto [it_pgm, new_program] = program_cache.try_emplace(params.hash);
     if (new_program) {
         Program* program = program_pool.Create(stage, l_stage, params);
@@ -481,6 +493,15 @@ PipelineCache::Result PipelineCache::GetProgram(Stage stage, LogicalStage l_stag
     Program* program = it_pgm->second;
     auto& info = program->info;
     info.RefreshFlatBuf();
+    if (l_stage == LogicalStage::TessellationControl || l_stage == LogicalStage::TessellationEval) {
+        Shader::TessellationDataConstantBuffer tess_constants;
+        info.ReadTessConstantBuffer(tess_constants);
+        if (l_stage == LogicalStage::TessellationControl) {
+            runtime_info.hs_info.InitFromTessConstants(tess_constants);
+        } else {
+            runtime_info.vs_info.InitFromTessConstants(tess_constants);
+        }
+    }
     const auto spec = Shader::StageSpecialization(info, runtime_info, profile, binding);
     size_t perm_idx = program->modules.size();
     vk::ShaderModule module{};

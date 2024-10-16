@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/config.h"
+#include "common/io_file.h"
+#include "common/path_util.h"
 #include "shader_recompiler/frontend/control_flow_graph.h"
 #include "shader_recompiler/frontend/decode.h"
 #include "shader_recompiler/frontend/structured_control_flow.h"
@@ -29,7 +32,7 @@ IR::BlockList GenerateBlocks(const IR::AbstractSyntaxList& syntax_list) {
 }
 
 IR::Program TranslateProgram(std::span<const u32> code, Pools& pools, Info& info,
-                             const RuntimeInfo& runtime_info, const Profile& profile) {
+                             RuntimeInfo& runtime_info, const Profile& profile) {
     // Ensure first instruction is expected.
     constexpr u32 token_mov_vcchi = 0xBEEB03FF;
     if (code[0] != token_mov_vcchi) {
@@ -61,21 +64,58 @@ IR::Program TranslateProgram(std::span<const u32> code, Pools& pools, Info& info
 
     // Run optimization passes
     const auto stage = program.info.stage;
+
+    bool dump_ir = true;
+    auto dumpMatchingIR = [&](std::string phase) {
+        if (dump_ir) {
+            if (Config::dumpShaders()) {
+                std::string s = IR::DumpProgram(program);
+                using namespace Common::FS;
+                const auto dump_dir = GetUserPath(PathType::ShaderDir) / "dumps";
+                if (!std::filesystem::exists(dump_dir)) {
+                    std::filesystem::create_directories(dump_dir);
+                }
+                const auto filename =
+                    fmt::format("{}_{:#018x}.{}.ir.txt", info.stage, info.pgm_hash, phase);
+                const auto file = IOFile{dump_dir / filename, FileAccessMode::Write};
+                file.WriteString(s);
+            }
+        }
+    };
+
+    dumpMatchingIR("init");
+
     Shader::Optimization::SsaRewritePass(program.post_order_blocks);
+    Shader::Optimization::IdentityRemovalPass(program.blocks);
+    // Shader::Optimization::ConstantPropagationPass(program.post_order_blocks);
+    dumpMatchingIR("post_ssa");
     if (stage == Stage::Hull) {
-        Shader::Optimization::HullShaderTransform(program);
+        Shader::Optimization::TessellationPreprocess(program, runtime_info);
+        Shader::Optimization::ConstantPropagationPass(program.post_order_blocks);
+        dumpMatchingIR("pre_hull");
+        Shader::Optimization::HullShaderTransform(program, runtime_info);
+        dumpMatchingIR("post_hull");
+        Shader::Optimization::TessellationPostprocess(program, runtime_info);
+    } else if (info.l_stage == LogicalStage::TessellationEval) {
+        Shader::Optimization::TessellationPreprocess(program, runtime_info);
+        Shader::Optimization::ConstantPropagationPass(program.post_order_blocks);
+        dumpMatchingIR("pre_domain");
+        Shader::Optimization::DomainShaderTransform(program, runtime_info);
+        dumpMatchingIR("post_domain");
+        Shader::Optimization::TessellationPostprocess(program, runtime_info);
     }
     Shader::Optimization::ConstantPropagationPass(program.post_order_blocks);
-    Shader::Optimization::RingAccessElimination(program, runtime_info, stage);
+    Shader::Optimization::RingAccessElimination(program, runtime_info);
     if (stage != Stage::Compute) {
         Shader::Optimization::LowerSharedMemToRegisters(program);
     }
-    Shader::Optimization::RingAccessElimination(program, runtime_info, program.info.stage);
+    Shader::Optimization::ConstantPropagationPass(program.post_order_blocks);
     Shader::Optimization::FlattenExtendedUserdataPass(program);
     Shader::Optimization::ResourceTrackingPass(program);
     Shader::Optimization::IdentityRemovalPass(program.blocks);
     Shader::Optimization::DeadCodeEliminationPass(program);
     Shader::Optimization::CollectShaderInfoPass(program);
+    dumpMatchingIR("final");
 
     return program;
 }
