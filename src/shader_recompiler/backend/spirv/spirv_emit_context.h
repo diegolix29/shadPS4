@@ -189,6 +189,7 @@ public:
     Id clip_distances{};
     Id cull_distances{};
 
+    Id patch_vertices{};
     Id output_tess_level_outer{};
     Id output_tess_level_inner{};
     Id tess_coord;
@@ -196,6 +197,7 @@ public:
 
     Id workgroup_id{};
     Id local_invocation_id{};
+    Id invocation_id{}; // for instanced geoshaders or output vertices within TCS patch
     Id subgroup_local_invocation_id{};
     Id image_u32{};
 
