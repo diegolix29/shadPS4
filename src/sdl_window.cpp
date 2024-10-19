@@ -533,6 +533,7 @@ void WindowSDL::waitEvent() {
         break;
     }
 }
+
 void WindowSDL::onResize() {
     SDL_GetWindowSizeInPixels(window, &width, &height);
     ImGui::Core::OnResize();
