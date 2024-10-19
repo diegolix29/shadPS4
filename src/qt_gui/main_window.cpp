@@ -3,6 +3,7 @@
 
 #include <QDockWidget>
 #include <QKeyEvent>
+#include <QPlainTextEdit>
 #include <QProgressDialog>
 
 #include "about_dialog.h"
@@ -19,7 +20,118 @@
 #include "install_dir_select.h"
 #include "main_window.h"
 #include "settings_dialog.h"
+
+#include "kbm_config_dialog.h"
+
 #include "video_core/renderer_vulkan/vk_instance.h"
+/*
+class EditorDialog : public QDialog {
+
+
+public:
+    EditorDialog(QWidget *parent = nullptr) : QDialog(parent), changesSaved(false) {
+        setWindowTitle("Edit Config File");
+        resize(600, 400);
+
+        // Create the editor
+        editor = new QPlainTextEdit(this);
+
+        // Create the buttons
+        QPushButton *cancelButton = new QPushButton("Cancel", this);
+        QPushButton *helpButton = new QPushButton("Help", this);
+
+        // Layout for buttons
+        QHBoxLayout *buttonLayout = new QHBoxLayout();
+        buttonLayout->addWidget(cancelButton);
+        buttonLayout->addWidget(helpButton);
+
+        // Main layout with editor and buttons
+        QVBoxLayout *layout = new QVBoxLayout(this);
+        layout->addWidget(editor);
+        layout->addLayout(buttonLayout);
+
+        // Load the INI file content into the editor
+        loadFile();
+
+        // --- Connect Cancel button ---
+        connect(cancelButton, &QPushButton::clicked, this, &EditorDialog::onCancelClicked);
+
+        // --- Connect Help button to open help.txt ---
+        connect(helpButton, &QPushButton::clicked, this, &EditorDialog::onHelpClicked);
+    }
+
+protected:
+    // Override close event to save changes
+    void closeEvent(QCloseEvent *event) override {
+        if (!changesSaved) {
+            saveFile();
+        }
+        QDialog::closeEvent(event);  // Call the base class method to close the dialog
+    }
+
+private:
+    QPlainTextEdit *editor;
+    bool changesSaved;
+
+    // Load the file into the editor
+    void loadFile() {
+        QFile file("./user/keyboardInputConfig.ini");
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&file);
+            editor->setPlainText(in.readAll());
+            file.close();
+        } else {
+            QMessageBox::warning(this, "Error", "Could not open the file for reading");
+        }
+    }
+
+    // Save the file when closing
+    void saveFile() {
+        QFile file("./user/keyboardInputConfig.ini");
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << editor->toPlainText();  // Write the changes to the file
+            file.close();
+            changesSaved = true;  // Mark that changes have been saved
+        } else {
+            QMessageBox::warning(this, "Error", "Could not open the file for writing");
+        }
+    }
+
+private slots:
+    // Handle Cancel button (just close without saving)
+    void onCancelClicked() {
+        changesSaved = true;  // Mark as saved to prevent saving when closing
+        reject();  // Close the dialog without saving
+    }
+
+    // Handle Help button to show help.txt in read-only mode
+    void onHelpClicked() {
+        QDialog *helpDialog = new QDialog(this);
+        helpDialog->setWindowTitle("Help");
+        helpDialog->resize(600, 400);
+
+        QPlainTextEdit *helpEditor = new QPlainTextEdit(helpDialog);
+        helpEditor->setReadOnly(true);
+
+        QVBoxLayout *helpLayout = new QVBoxLayout(helpDialog);
+        helpLayout->addWidget(helpEditor);
+        helpDialog->setLayout(helpLayout);
+
+        // Load the help.txt file content
+        QFile helpFile("./user/help.txt");
+        if (helpFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&helpFile);
+            helpEditor->setPlainText(in.readAll());
+            helpFile.close();
+        } else {
+            QMessageBox::warning(this, "Error", "Could not open the help file");
+        }
+
+        helpDialog->exec();  // Show help dialog modally
+    }
+};
+*/
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -252,6 +364,12 @@ void MainWindow::CreateConnects() {
                 &MainWindow::OnLanguageChanged);
 
         settingsDialog->exec();
+    });
+
+    // this is the editor for kbm keybinds
+    connect(ui->controllerButton, &QPushButton::clicked, this, [this]() {
+        EditorDialog* editorWindow = new EditorDialog(this);
+        editorWindow->exec(); // Show the editor window modally
     });
 
     connect(ui->updaterAct, &QAction::triggered, this, [this]() {
@@ -678,10 +796,13 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
         auto game_install_dir = ids.getSelectedDirectory();
         auto game_folder_path = game_install_dir / pkg.GetTitleID();
         QString pkgType = QString::fromStdString(pkg.GetPkgFlags());
-        bool use_game_update = pkgType.contains("PATCH") && Config::getSeparateUpdateEnabled();
+        bool use_game_update = pkgType.contains("Patch") && Config::getSeparateUpdateEnabled();
         auto game_update_path = use_game_update
                                     ? game_install_dir / (std::string(pkg.GetTitleID()) + "-UPDATE")
                                     : game_folder_path;
+        if (!std::filesystem::exists(game_update_path)) {
+            std::filesystem::create_directory(game_update_path);
+        }
         QString gameDirPath;
         Common::FS::PathToQString(gameDirPath, game_folder_path);
         QDir game_dir(gameDirPath);
@@ -789,6 +910,8 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
                     }
                 }
             } else {
+                QString gameDirPath;
+                Common::FS::PathToQString(gameDirPath, game_folder_path);
                 msgBox.setText(QString(tr("Game already installed") + "\n" + gameDirPath + "\n" +
                                        tr("Would you like to overwrite?")));
                 msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
