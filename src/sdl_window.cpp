@@ -15,7 +15,6 @@
 #include <SDL3/SDL_video.h>
 #include "common/assert.h"
 #include "common/config.h"
-#include "common/elf_info.h"
 #include "common/io_file.h"
 #include "common/path_util.h"
 #include "common/version.h"
@@ -259,47 +258,32 @@ std::map<KeyBinding, AxisMapping> axis_map = {};
 int mouse_joystick_binding = 0;
 Uint32 mouse_polling_id = 0;
 bool mouse_enabled = false, leftjoystick_halfmode = false, rightjoystick_halfmode = false;
-void WindowSDL::parseInputConfig() {
-    // Read configuration file of the game, and if it doesn't exist, generate it from default
-    // If that doesn't exist either, generate that from getDefaultConfig() and try again
-    // If even the folder is missing, we start with that.
-    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "kbmConfig";
-    const auto config_file =
-        config_dir / (std::string(Common::ElfInfo::Instance().GameSerial()) + ".ini");
-    const auto default_config_file = config_dir / "default.ini";
-    // Ensure the config directory exists
-    if (!std::filesystem::exists(config_dir)) {
-        std::filesystem::create_directories(config_dir);
-    }
-    // Try loading the game-specific config file
+void WindowSDL::parseInputConfig(const std::string& filename) {
+
+    // Read configuration file.
+    // std::cout << "Reading keyboard config...\n";
+    const auto config_file = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / filename;
     if (!std::filesystem::exists(config_file)) {
-        // If game-specific config doesn't exist, check for the default config
-        if (!std::filesystem::exists(default_config_file)) {
-            // If the default config is also missing, create it from getDefaultConfig()
-            const auto default_config = getDefaultKeyboardConfig();
-            std::ofstream default_config_stream(default_config_file);
-            if (default_config_stream) {
-                default_config_stream << default_config;
-            }
+        // create it
+        std::ofstream file;
+        file.open(config_file, std::ios::out);
+        if (file.is_open()) {
+            file.close();
+            std::cout << "Config file generated.\n";
+        } else {
+            std::cerr << "Error creating file!\n";
         }
-        // If default config now exists, copy it to the game-specific config file
-        if (std::filesystem::exists(default_config_file)) {
-            std::filesystem::copy(default_config_file, config_file);
-        }
+    }
+    std::ifstream file(config_file);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return;
     }
 
-    // we reset these here so in case the user fucks up or doesn't include this we can fall back to
-    // default
-    mouse_deadzone_offset = 0.5;
-    mouse_speed = 1;
-    mouse_speed_offset = 0.125;
     button_map.clear();
     axis_map.clear();
-    key_to_modkey_toggle_map.clear();
     int lineCount = 0;
-
-    std::ifstream file(config_file);
-    std::string line = "";
+    std::string line;
     while (std::getline(file, line)) {
         lineCount++;
         // strip the ; and whitespace
@@ -493,8 +477,14 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameController* controller_
     window_info.render_surface = SDL_Metal_GetLayer(SDL_Metal_CreateView(window));
 #endif
     // initialize kbm controls
-    parseInputConfig();
-    // Start polling the mouse
+    parseInputConfig("keyboardInputConfig.ini");
+}
+
+WindowSDL::~WindowSDL() = default;
+
+void WindowSDL::waitEvent() {
+    // Called on main thread
+    SDL_Event event;
     if (mouse_polling_id == 0) {
         mouse_polling_id = SDL_AddTimer(33, mousePolling, (void*)this);
     }
@@ -600,7 +590,7 @@ void WindowSDL::onKeyPress(const SDL_Event* event) {
         }
         // Reparse kbm inputs
         else if (binding.key == SDLK_F8) {
-            parseInputConfig();
+            parseInputConfig("keyboardInputConfig.ini");
         }
         // Toggle mouse movement input
         else if (binding.key == SDLK_F7) {
