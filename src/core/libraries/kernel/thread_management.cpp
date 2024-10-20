@@ -1073,10 +1073,8 @@ ScePthread PThreadPool::Create(const char* name) {
             p->is_free = false;
             return p;
         }
-	
-    }   
+    }
 #ifdef _WIN64
-    auto* ret = new PthreadInternal{};
     auto* ret = new PthreadInternal{};
 #else
     // TODO: Linux specific hack
@@ -1086,7 +1084,7 @@ ScePthread PThreadPool::Create(const char* name) {
              MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0));
     hint_address += Common::AlignUp(sizeof(PthreadInternal), 4_KB);
 #endif
-    ret->is_free = false;
+
     ret->is_free = false;
     ret->is_detached = false;
     ret->is_almost_done = false;
