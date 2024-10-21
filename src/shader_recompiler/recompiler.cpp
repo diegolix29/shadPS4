@@ -93,6 +93,7 @@ IR::Program TranslateProgram(std::span<const u32> code, Pools& pools, Info& info
         Shader::Optimization::HullShaderTransform(program, runtime_info);
         dumpMatchingIR("post_hull");
     }
+    Shader::Optimization::IdentityRemovalPass(program.blocks);
     Shader::Optimization::ConstantPropagationPass(program.post_order_blocks);
     if (extra_id_removal) {
         Shader::Optimization::IdentityRemovalPass(program.blocks);
