@@ -85,9 +85,8 @@ IR::Program TranslateProgram(std::span<const u32> code, Pools& pools, Info& info
     };
 
     Shader::Optimization::SsaRewritePass(program.post_order_blocks);
-    if (extra_id_removal) {
-        Shader::Optimization::IdentityRemovalPass(program.blocks);
-    }
+    Shader::Optimization::IdentityRemovalPass(program.blocks);
+    dumpMatchingIR("post_ssa");
     if (stage == Stage::Hull) {
         dumpMatchingIR("pre_hull");
         Shader::Optimization::HullShaderTransform(program, runtime_info);
