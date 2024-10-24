@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
-#include <any>
 #include <memory>
 
 #include "shader_recompiler/exception.h"
@@ -152,8 +151,8 @@ void Inst::AddPhiOperand(Block* predecessor, const Value& value) {
 }
 
 void Inst::Invalidate() {
-    ASSERT(users.list.empty());
     ClearArgs();
+    ASSERT(users.list.empty());
     ReplaceOpcode(Opcode::Void);
 }
 
