@@ -31,8 +31,8 @@ struct Program {
     Shader::Info info;
     ModuleList modules;
 
-    explicit Program(Shader::Stage stage, Shader::LogicalStage l_stage,
-                     Shader::ShaderParams params) : info{stage, l_stage, params} {}
+    explicit Program(Shader::Stage stage, Shader::LogicalStage l_stage, Shader::ShaderParams params)
+        : info{stage, l_stage, params} {}
 
     void AddPermut(vk::ShaderModule module, const Shader::StageSpecialization&& spec) {
         modules.emplace_back(module, std::move(spec));
@@ -61,7 +61,7 @@ private:
 
     void DumpShader(std::span<const u32> code, u64 hash, Shader::Stage stage, size_t perm_idx,
                     std::string_view ext);
-    vk::ShaderModule CompileModule(Shader::Info& info, const Shader::RuntimeInfo& runtime_info,
+    vk::ShaderModule CompileModule(Shader::Info& info, Shader::RuntimeInfo& runtime_info,
                                    std::span<const u32> code, size_t perm_idx,
                                    Shader::Backend::Bindings& binding);
     Shader::RuntimeInfo BuildRuntimeInfo(Shader::Stage stage, Shader::LogicalStage l_stage);

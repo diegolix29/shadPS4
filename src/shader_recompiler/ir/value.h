@@ -18,9 +18,9 @@
 #include "shader_recompiler/exception.h"
 #include "shader_recompiler/ir/attribute.h"
 #include "shader_recompiler/ir/opcodes.h"
+#include "shader_recompiler/ir/patch.h"
 #include "shader_recompiler/ir/reg.h"
 #include "shader_recompiler/ir/type.h"
-#include "shader_recompiler/ir/patch.h"
 
 namespace Shader::IR {
 
@@ -131,6 +131,14 @@ public:
 
     Inst& operator=(Inst&&) = delete;
     Inst(Inst&&) = delete;
+
+    IR::Block* GetParent() {
+        ASSERT(parent); // TODO
+        return parent;
+    }
+    void SetParent(IR::Block* block) {
+        parent = block;
+    }
 
     /// Get the number of uses this instruction has.
     [[nodiscard]] int UseCount() const noexcept {
@@ -246,6 +254,7 @@ private:
     IR::Opcode op{};
     u32 flags{};
     u32 definition{};
+    IR::Block* parent{};
     union {
         NonTriviallyDummy dummy{};
         boost::container::small_vector<std::pair<Block*, Value>, 2> phi_args;
@@ -272,7 +281,7 @@ private:
 
     friend class UseIterator;
 };
-static_assert(sizeof(Inst) <= 160, "Inst size unintentionally increased");
+static_assert(sizeof(Inst) <= 168, "Inst size unintentionally increased");
 
 class UseIterator
     : public boost::iterator_facade<UseIterator, IR::Use, boost::forward_traversal_tag, IR::Use> {

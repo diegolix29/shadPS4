@@ -54,35 +54,15 @@ void Translator::EmitPrologue() {
         }
         break;
     case LogicalStage::TessellationControl: {
-        // v_bfe_u32       v0, v1, 8, 5
-        // v_bfe_u32       v2, v1, 0, 8
-        // Hull shader seems expect 2 values packed in V1.
-        // V1[0:7] seems like patch_id, aka PrimitiveId
-        // V1[8:12] seems like the output control point id, aka InvocationId
-        // however, in "passthrough" hull shaders, with the same input/output patch topology, and no
-        // additional per-output-control-point attributes, it doesn't make much sense for V1[8:12]
-        // to be a control point ID.
-        // Thats because this value contributes to address calculations for per-patch output writes,
-        // e.g. to the tess factors, in these "passthrough" shaders.
-        // V[0:7] also contributes, which is expected
         ir.SetVectorReg(IR::VectorReg::V1,
                         ir.GetAttributeU32(IR::Attribute::PackedHullInvocationInfo));
-
-        // Copy inputs to outputs by InvocationID, to
-        // handle the passthrough case
-        // TODO: skip this if unecessary
-        // TODO: probably do this later because we dont know what attributes are active
-        if (true) {
-            // TODO: ctreate if stmt control flow:
-            // if (invocationID < gl_PatchVerticesIn) {
-            //     out_attr[invocationID][0] = in_attr[invocationID][0];
-            //     out_attr[invocationID][1] = in_attr[invocationID][1];
-            //     ...
-            //     out_attr[invocationID][N] = in_attr[invocationID][N];
-            //}
-            // for (auto i = 0; i < info.)
-            ir.TcsOutputBarrier();
-        }
+        // Test
+        // ir.SetPatch(IR::Patch::TessellationLodLeft, ir.Imm32(1.0f));
+        // ir.SetPatch(IR::Patch::TessellationLodTop, ir.Imm32(1.0f));
+        // ir.SetPatch(IR::Patch::TessellationLodRight, ir.Imm32(1.0f));
+        // ir.SetPatch(IR::Patch::TessellationLodBottom, ir.Imm32(1.0f));
+        // ir.SetPatch(IR::Patch::TessellationLodInteriorU, ir.Imm32(1.0f));
+        // ir.SetPatch(IR::Patch::TessellationLodInteriorV, ir.Imm32(1.0f));
         break;
     }
     case LogicalStage::TessellationEval:
@@ -90,7 +70,11 @@ void Translator::EmitPrologue() {
                         ir.GetAttribute(IR::Attribute::TessellationEvaluationPointU));
         ir.SetVectorReg(IR::VectorReg::V1,
                         ir.GetAttribute(IR::Attribute::TessellationEvaluationPointV));
-        ir.SetVectorReg(IR::VectorReg::V2, ir.GetAttributeU32(IR::Attribute::PrimitiveId));
+        // I think V2 is actually the patch id within the patches running on the local CU, used in
+        // compiler generated address calcs,
+        // and V3 is the patch id within the draw
+        ir.SetVectorReg(IR::VectorReg::V2, ir.GetAttributeU32(IR::Attribute::TessPatchIdInVgt));
+        ir.SetVectorReg(IR::VectorReg::V3, ir.GetAttributeU32(IR::Attribute::PrimitiveId));
         break;
     case LogicalStage::Fragment:
         // https://github.com/chaotic-cx/mesa-mirror/blob/72326e15/src/amd/vulkan/radv_shader_args.c#L258
