@@ -31,8 +31,8 @@ struct Program {
     Shader::Info info;
     ModuleList modules;
 
-    explicit Program(Shader::Stage stage, Shader::LogicalStage l_stage,
-                     Shader::ShaderParams params) : info{stage, l_stage, params} {}
+    explicit Program(Shader::Stage stage, Shader::LogicalStage l_stage, Shader::ShaderParams params)
+        : info{stage, l_stage, params} {}
 
     void AddPermut(vk::ShaderModule module, const Shader::StageSpecialization&& spec) {
         modules.emplace_back(module, std::move(spec));
