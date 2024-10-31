@@ -326,6 +326,7 @@ bool Instance::CreateDevice() {
                 .imageCubeArray = features.imageCubeArray,
                 .independentBlend = features.independentBlend,
                 .geometryShader = features.geometryShader,
+                .tessellationShader = features.tessellationShader,
                 .logicOp = features.logicOp,
                 .depthBiasClamp = features.depthBiasClamp,
                 .fillModeNonSolid = features.fillModeNonSolid,
@@ -376,6 +377,9 @@ bool Instance::CreateDevice() {
         },
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT{
             .extendedDynamicState = true,
+        },
+        vk::PhysicalDeviceExtendedDynamicState2FeaturesEXT{
+            .extendedDynamicState2PatchControlPoints = true,
         },
         vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT{
             .extendedDynamicState3ColorWriteMask = true,
@@ -442,6 +446,16 @@ bool Instance::CreateDevice() {
     }
     if (!vertex_input_dynamic_state) {
         device_chain.unlink<vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT>();
+    }
+    if (extended_dynamic_state_2) {
+        patch_control_points_dynamic_state =
+            feature_chain.get<vk::PhysicalDeviceExtendedDynamicState2FeaturesEXT>()
+                .extendedDynamicState2PatchControlPoints;
+        device_chain.get<vk::PhysicalDeviceExtendedDynamicState2FeaturesEXT>()
+            .extendedDynamicState2PatchControlPoints = patch_control_points_dynamic_state;
+    } else {
+        patch_control_points_dynamic_state = false;
+        device_chain.unlink<vk::PhysicalDeviceExtendedDynamicState2FeaturesEXT>();
     }
     if (!fragment_shader_barycentric) {
         device_chain.unlink<vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR>();

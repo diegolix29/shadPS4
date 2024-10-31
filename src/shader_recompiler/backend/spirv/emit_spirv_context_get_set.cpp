@@ -47,15 +47,24 @@ Id VsOutputAttrPointer(EmitContext& ctx, VsOutput output) {
     }
 }
 
-Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, u32 element) {
+Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, Id array_index, u32 element) {
     if (IR::IsParam(attr)) {
         const u32 index{u32(attr) - u32(IR::Attribute::Param0)};
         const auto& info{ctx.output_params.at(index)};
         ASSERT(info.num_components > 0);
-        if (info.num_components == 1) {
+        Id base = info.id;
+        boost::container::small_vector<Id, 2> indices;
+        if (ctx.l_stage == LogicalStage::TessellationControl) {
+            indices.push_back(array_index);
+        }
+        if (info.num_components > 1) {
+            indices.push_back(ctx.ConstU32(element));
+        }
+
+        if (indices.empty()) {
             return info.id;
         } else {
-            return ctx.OpAccessChain(info.pointer_type, info.id, ctx.ConstU32(element));
+            return ctx.OpAccessChain(info.pointer_type, info.id, indices);
         }
     }
     if (IR::IsMrt(attr)) {
@@ -82,6 +91,10 @@ Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, u32 element) {
     default:
         throw NotImplementedException("Write attribute {}", attr);
     }
+}
+
+Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, u32 element) {
+    return OutputAttrPointer(ctx, attr, {}, element);
 }
 
 std::pair<Id, bool> OutputAttrComponentType(EmitContext& ctx, IR::Attribute attr) {
@@ -276,6 +289,7 @@ Id EmitGetAttributeU32(EmitContext& ctx, IR::Attribute attr, u32 comp) {
         return ctx.OpSelect(ctx.U32[1], ctx.OpLoad(ctx.U1[1], ctx.front_facing), ctx.u32_one_value,
                             ctx.u32_zero_value);
     case IR::Attribute::PrimitiveId:
+    case IR::Attribute::TessPatchIdInVgt: // TODO see why this isnt DCEd
         ASSERT(ctx.info.l_stage == LogicalStage::Geometry ||
                ctx.info.l_stage == LogicalStage::TessellationControl ||
                ctx.info.l_stage == LogicalStage::TessellationEval);
@@ -301,7 +315,13 @@ void EmitSetAttribute(EmitContext& ctx, IR::Attribute attr, Id value, u32 elemen
         LOG_WARNING(Render_Vulkan, "Ignoring pos1 export");
         return;
     }
-    const Id pointer{OutputAttrPointer(ctx, attr, element)};
+
+    Id pointer;
+    if (ctx.l_stage == LogicalStage::TessellationControl) {
+        pointer = OutputAttrPointer(ctx, attr, ctx.OpLoad(ctx.U32[1], ctx.invocation_id), element);
+    } else {
+        pointer = OutputAttrPointer(ctx, attr, element);
+    }
     const auto component_type{OutputAttrComponentType(ctx, attr)};
     if (component_type.second) {
         ctx.OpStore(pointer, ctx.OpBitcast(component_type.first, value));
