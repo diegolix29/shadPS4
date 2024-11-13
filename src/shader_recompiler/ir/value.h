@@ -287,7 +287,7 @@ static_assert(sizeof(Inst) <= 168, "Inst size unintentionally increased");
 class UseIterator
     : public boost::iterator_facade<UseIterator, IR::Use, boost::forward_traversal_tag, IR::Use> {
 public:
-    UseIterator() : user_it(), user_end(), bitmask_pos(0) {};
+    UseIterator() : user_it(), user_end(), bitmask_pos(0){};
 
     explicit UseIterator(IR::Inst::UserList::UserIterator user_begin_,
                          IR::Inst::UserList::UserIterator user_end_)
