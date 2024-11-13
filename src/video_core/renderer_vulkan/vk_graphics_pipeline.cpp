@@ -111,8 +111,7 @@ GraphicsPipeline::GraphicsPipeline(const Instance& instance_, Scheduler& schedul
                "Primitive restart index other than -1 is not supported yet");
 
     const vk::PipelineTessellationStateCreateInfo tessellation_state = {
-        // TODO how to handle optional member of graphics key when dynamic state not supported?
-        //.patchControlPoints = key.
+        .patchControlPoints = key.patch_control_points,
     };
 
     const vk::PipelineRasterizationStateCreateInfo raster_state = {
@@ -175,8 +174,7 @@ GraphicsPipeline::GraphicsPipeline(const Instance& instance_, Scheduler& schedul
     } else {
         dynamic_states.push_back(vk::DynamicState::eVertexInputBindingStrideEXT);
     }
-    ASSERT(instance.IsPatchControlPointsDynamicState()); // TODO remove
-    if (instance.IsPatchControlPointsDynamicState() && uses_tessellation) {
+    if (uses_tessellation && instance.IsPatchControlPointsDynamicState()) {
         dynamic_states.push_back(vk::DynamicState::ePatchControlPointsEXT);
     }
 
