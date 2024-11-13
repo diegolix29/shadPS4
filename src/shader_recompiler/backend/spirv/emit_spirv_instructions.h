@@ -1,466 +1,419 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/assert.h"
-#include "shader_recompiler/ir/attribute.h"
-#include "shader_recompiler/runtime_info.h"
-#pragma clang optimize off
-#include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
-#include "shader_recompiler/backend/spirv/spirv_emit_context.h"
-#include "shader_recompiler/ir/patch.h"
+#pragma once
 
-#include <magic_enum.hpp>
+#include <sirit/sirit.h>
+#include "common/types.h"
+
+namespace Shader::IR {
+enum class Attribute : u64;
+enum class ScalarReg : u32;
+enum class Patch : u64;
+class Inst;
+class Value;
+} // namespace Shader::IR
 
 namespace Shader::Backend::SPIRV {
-namespace {
 
-Id VsOutputAttrPointer(EmitContext& ctx, VsOutput output) {
-    switch (output) {
-    case VsOutput::ClipDist0:
-    case VsOutput::ClipDist1:
-    case VsOutput::ClipDist2:
-    case VsOutput::ClipDist3:
-    case VsOutput::ClipDist4:
-    case VsOutput::ClipDist5:
-    case VsOutput::ClipDist6:
-    case VsOutput::ClipDist7: {
-        const u32 index = u32(output) - u32(VsOutput::ClipDist0);
-        const Id clip_num{ctx.ConstU32(index)};
-        ASSERT_MSG(Sirit::ValidId(ctx.clip_distances), "Clip distance used but not defined");
-        return ctx.OpAccessChain(ctx.output_f32, ctx.clip_distances, clip_num);
-    }
-    case VsOutput::CullDist0:
-    case VsOutput::CullDist1:
-    case VsOutput::CullDist2:
-    case VsOutput::CullDist3:
-    case VsOutput::CullDist4:
-    case VsOutput::CullDist5:
-    case VsOutput::CullDist6:
-    case VsOutput::CullDist7: {
-        const u32 index = u32(output) - u32(VsOutput::CullDist0);
-        const Id cull_num{ctx.ConstU32(index)};
-        ASSERT_MSG(Sirit::ValidId(ctx.cull_distances), "Cull distance used but not defined");
-        return ctx.OpAccessChain(ctx.output_f32, ctx.cull_distances, cull_num);
-    }
-    default:
-        UNREACHABLE();
-    }
-}
+using Sirit::Id;
 
-Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, Id array_index, u32 element) {
-    if (IR::IsParam(attr)) {
-        const u32 index{u32(attr) - u32(IR::Attribute::Param0)};
-        const auto& info{ctx.output_params.at(index)};
-        ASSERT(info.num_components > 0);
-        Id base = info.id;
-        boost::container::small_vector<Id, 2> indices;
-        if (ctx.l_stage == LogicalStage::TessellationControl) {
-            indices.push_back(array_index);
-        }
-        if (info.num_components > 1) {
-            indices.push_back(ctx.ConstU32(element));
-        }
+class EmitContext;
 
-        if (indices.empty()) {
-            return info.id;
-        } else {
-            return ctx.OpAccessChain(info.pointer_type, info.id, indices);
-        }
-    }
-    if (IR::IsMrt(attr)) {
-        const u32 index{u32(attr) - u32(IR::Attribute::RenderTarget0)};
-        const auto& info{ctx.frag_outputs.at(index)};
-        if (info.num_components == 1) {
-            return info.id;
-        } else {
-            return ctx.OpAccessChain(info.pointer_type, info.id, ctx.ConstU32(element));
-        }
-    }
-    switch (attr) {
-    case IR::Attribute::Position0: {
-        return ctx.OpAccessChain(ctx.output_f32, ctx.output_position, ctx.ConstU32(element));
-    }
-    case IR::Attribute::Position1:
-    case IR::Attribute::Position2:
-    case IR::Attribute::Position3: {
-        const u32 index = u32(attr) - u32(IR::Attribute::Position1);
-        return VsOutputAttrPointer(ctx, ctx.runtime_info.vs_info.outputs[index][element]);
-    }
-    case IR::Attribute::Depth:
-        return ctx.frag_depth;
-    default:
-        throw NotImplementedException("Write attribute {}", attr);
-    }
-}
+// Microinstruction emitters
+Id EmitPhi(EmitContext& ctx, IR::Inst* inst);
+void EmitVoid(EmitContext& ctx);
+Id EmitIdentity(EmitContext& ctx, const IR::Value& value);
+Id EmitConditionRef(EmitContext& ctx, const IR::Value& value);
+void EmitReference(EmitContext&);
+void EmitPhiMove(EmitContext&);
+void EmitJoin(EmitContext& ctx);
+void EmitGetScc(EmitContext& ctx);
+void EmitGetExec(EmitContext& ctx);
+void EmitGetVcc(EmitContext& ctx);
+void EmitGetSccLo(EmitContext& ctx);
+void EmitGetVccLo(EmitContext& ctx);
+void EmitGetVccHi(EmitContext& ctx);
+void EmitGetM0(EmitContext& ctx);
+void EmitSetScc(EmitContext& ctx);
+void EmitSetExec(EmitContext& ctx);
+void EmitSetVcc(EmitContext& ctx);
+void EmitSetSccLo(EmitContext& ctx);
+void EmitSetVccLo(EmitContext& ctx);
+void EmitSetVccHi(EmitContext& ctx);
+void EmitSetM0(EmitContext& ctx);
+void EmitFPCmpClass32(EmitContext& ctx);
+void EmitPrologue(EmitContext& ctx);
+void EmitEpilogue(EmitContext& ctx);
+void EmitDiscard(EmitContext& ctx);
+void EmitDiscardCond(EmitContext& ctx, Id condition);
+void EmitDebugPrint(EmitContext& ctx, IR::Inst* inst, Id arg0, Id arg1, Id arg2, Id arg3, Id arg4);
+void EmitBarrier(EmitContext& ctx);
+void EmitWorkgroupMemoryBarrier(EmitContext& ctx);
+void EmitDeviceMemoryBarrier(EmitContext& ctx);
+void EmitTcsOutputBarrier(EmitContext& ctx);
+Id EmitGetUserData(EmitContext& ctx, IR::ScalarReg reg);
+void EmitGetThreadBitScalarReg(EmitContext& ctx);
+void EmitSetThreadBitScalarReg(EmitContext& ctx);
+void EmitGetScalarRegister(EmitContext& ctx);
+void EmitSetScalarRegister(EmitContext& ctx);
+void EmitGetVectorRegister(EmitContext& ctx);
+void EmitSetVectorRegister(EmitContext& ctx);
+void EmitSetGotoVariable(EmitContext& ctx);
+void EmitGetGotoVariable(EmitContext& ctx);
+void EmitSetScc(EmitContext& ctx);
+Id EmitReadConst(EmitContext& ctx, IR::Inst* inst);
+Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index);
+Id EmitLoadBufferU32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address);
+Id EmitLoadBufferU32x2(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address);
+Id EmitLoadBufferU32x3(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address);
+Id EmitLoadBufferU32x4(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address);
+Id EmitLoadBufferFormatF32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address);
+void EmitStoreBufferU32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+void EmitStoreBufferU32x2(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+void EmitStoreBufferU32x3(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+void EmitStoreBufferU32x4(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+void EmitStoreBufferFormatF32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicIAdd32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicSMin32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicUMin32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicSMax32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicUMax32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicInc32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicDec32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicAnd32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicOr32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicXor32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitBufferAtomicSwap32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value);
+Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, Id index);
+Id EmitGetAttributeU32(EmitContext& ctx, IR::Attribute attr, u32 comp);
+void EmitSetAttribute(EmitContext& ctx, IR::Attribute attr, Id value, u32 comp);
+Id EmitGetPatch(EmitContext& ctx, IR::Patch patch);
+void EmitSetPatch(EmitContext& ctx, IR::Patch patch, Id value);
+void EmitSetFragColor(EmitContext& ctx, u32 index, u32 component, Id value);
+void EmitSetSampleMask(EmitContext& ctx, Id value);
+void EmitSetFragDepth(EmitContext& ctx, Id value);
+Id EmitWorkgroupId(EmitContext& ctx);
+Id EmitLocalInvocationId(EmitContext& ctx);
+Id EmitInvocationId(EmitContext& ctx);
+Id EmitInvocationInfo(EmitContext& ctx);
+Id EmitSampleId(EmitContext& ctx);
+Id EmitUndefU1(EmitContext& ctx);
+Id EmitUndefU8(EmitContext& ctx);
+Id EmitUndefU16(EmitContext& ctx);
+Id EmitUndefU32(EmitContext& ctx);
+Id EmitUndefU64(EmitContext& ctx);
+Id EmitLoadSharedU32(EmitContext& ctx, Id offset);
+Id EmitLoadSharedU64(EmitContext& ctx, Id offset);
+Id EmitLoadSharedU128(EmitContext& ctx, Id offset);
+void EmitWriteSharedU32(EmitContext& ctx, Id offset, Id value);
+void EmitWriteSharedU64(EmitContext& ctx, Id offset, Id value);
+void EmitWriteSharedU128(EmitContext& ctx, Id offset, Id value);
+Id EmitSharedAtomicIAdd32(EmitContext& ctx, Id offset, Id value);
+Id EmitSharedAtomicUMax32(EmitContext& ctx, Id offset, Id value);
+Id EmitSharedAtomicSMax32(EmitContext& ctx, Id offset, Id value);
+Id EmitSharedAtomicUMin32(EmitContext& ctx, Id offset, Id value);
+Id EmitSharedAtomicSMin32(EmitContext& ctx, Id offset, Id value);
+Id EmitCompositeConstructU32x2(EmitContext& ctx, Id e1, Id e2);
+Id EmitCompositeConstructU32x3(EmitContext& ctx, Id e1, Id e2, Id e3);
+Id EmitCompositeConstructU32x4(EmitContext& ctx, Id e1, Id e2, Id e3, Id e4);
+Id EmitCompositeExtractU32x2(EmitContext& ctx, Id composite, u32 index);
+Id EmitCompositeExtractU32x3(EmitContext& ctx, Id composite, u32 index);
+Id EmitCompositeExtractU32x4(EmitContext& ctx, Id composite, u32 index);
+Id EmitCompositeInsertU32x2(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitCompositeInsertU32x3(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitCompositeInsertU32x4(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitCompositeConstructF16x2(EmitContext& ctx, Id e1, Id e2);
+Id EmitCompositeConstructF16x3(EmitContext& ctx, Id e1, Id e2, Id e3);
+Id EmitCompositeConstructF16x4(EmitContext& ctx, Id e1, Id e2, Id e3, Id e4);
+Id EmitCompositeExtractF16x2(EmitContext& ctx, Id composite, u32 index);
+Id EmitCompositeExtractF16x3(EmitContext& ctx, Id composite, u32 index);
+Id EmitCompositeExtractF16x4(EmitContext& ctx, Id composite, u32 index);
+Id EmitCompositeInsertF16x2(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitCompositeInsertF16x3(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitCompositeInsertF16x4(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitCompositeConstructF32x2(EmitContext& ctx, Id e1, Id e2);
+Id EmitCompositeConstructF32x3(EmitContext& ctx, Id e1, Id e2, Id e3);
+Id EmitCompositeConstructF32x4(EmitContext& ctx, Id e1, Id e2, Id e3, Id e4);
+Id EmitCompositeExtractF32x2(EmitContext& ctx, Id composite, u32 index);
+Id EmitCompositeExtractF32x3(EmitContext& ctx, Id composite, u32 index);
+Id EmitCompositeExtractF32x4(EmitContext& ctx, Id composite, u32 index);
+Id EmitCompositeInsertF32x2(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitCompositeInsertF32x3(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitCompositeInsertF32x4(EmitContext& ctx, Id composite, Id object, u32 index);
+void EmitCompositeConstructF64x2(EmitContext& ctx);
+void EmitCompositeConstructF64x3(EmitContext& ctx);
+void EmitCompositeConstructF64x4(EmitContext& ctx);
+void EmitCompositeExtractF64x2(EmitContext& ctx);
+void EmitCompositeExtractF64x3(EmitContext& ctx);
+void EmitCompositeExtractF64x4(EmitContext& ctx);
+Id EmitCompositeInsertF64x2(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitCompositeInsertF64x3(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitCompositeInsertF64x4(EmitContext& ctx, Id composite, Id object, u32 index);
+Id EmitSelectU1(EmitContext& ctx, Id cond, Id true_value, Id false_value);
+Id EmitSelectU8(EmitContext& ctx, Id cond, Id true_value, Id false_value);
+Id EmitSelectU16(EmitContext& ctx, Id cond, Id true_value, Id false_value);
+Id EmitSelectU32(EmitContext& ctx, Id cond, Id true_value, Id false_value);
+Id EmitSelectU64(EmitContext& ctx, Id cond, Id true_value, Id false_value);
+Id EmitSelectF16(EmitContext& ctx, Id cond, Id true_value, Id false_value);
+Id EmitSelectF32(EmitContext& ctx, Id cond, Id true_value, Id false_value);
+Id EmitSelectF64(EmitContext& ctx, Id cond, Id true_value, Id false_value);
+Id EmitBitCastU16F16(EmitContext& ctx, Id value);
+Id EmitBitCastU32F32(EmitContext& ctx, Id value);
+Id EmitBitCastU64F64(EmitContext& ctx, Id value);
+Id EmitBitCastF16U16(EmitContext& ctx, Id value);
+Id EmitBitCastF32U32(EmitContext& ctx, Id value);
+void EmitBitCastF64U64(EmitContext& ctx);
+Id EmitPackUint2x32(EmitContext& ctx, Id value);
+Id EmitUnpackUint2x32(EmitContext& ctx, Id value);
+Id EmitPackFloat2x32(EmitContext& ctx, Id value);
+Id EmitPackFloat2x16(EmitContext& ctx, Id value);
+Id EmitUnpackFloat2x16(EmitContext& ctx, Id value);
+Id EmitPackHalf2x16(EmitContext& ctx, Id value);
+Id EmitUnpackHalf2x16(EmitContext& ctx, Id value);
+Id EmitFPAbs16(EmitContext& ctx, Id value);
+Id EmitFPAbs32(EmitContext& ctx, Id value);
+Id EmitFPAbs64(EmitContext& ctx, Id value);
+Id EmitFPAdd16(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitFPAdd32(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitFPAdd64(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitFPSub32(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitFPFma16(EmitContext& ctx, IR::Inst* inst, Id a, Id b, Id c);
+Id EmitFPFma32(EmitContext& ctx, IR::Inst* inst, Id a, Id b, Id c);
+Id EmitFPFma64(EmitContext& ctx, IR::Inst* inst, Id a, Id b, Id c);
+Id EmitFPMax32(EmitContext& ctx, Id a, Id b, bool is_legacy = false);
+Id EmitFPMax64(EmitContext& ctx, Id a, Id b);
+Id EmitFPMin32(EmitContext& ctx, Id a, Id b, bool is_legacy = false);
+Id EmitFPMin64(EmitContext& ctx, Id a, Id b);
+Id EmitFPMul16(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitFPMul32(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitFPMul64(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitFPNeg16(EmitContext& ctx, Id value);
+Id EmitFPNeg32(EmitContext& ctx, Id value);
+Id EmitFPNeg64(EmitContext& ctx, Id value);
+Id EmitFPSin(EmitContext& ctx, Id value);
+Id EmitFPCos(EmitContext& ctx, Id value);
+Id EmitFPExp2(EmitContext& ctx, Id value);
+Id EmitFPLdexp(EmitContext& ctx, Id value, Id exp);
+Id EmitFPLog2(EmitContext& ctx, Id value);
+Id EmitFPRecip32(EmitContext& ctx, Id value);
+Id EmitFPRecip64(EmitContext& ctx, Id value);
+Id EmitFPRecipSqrt32(EmitContext& ctx, Id value);
+Id EmitFPRecipSqrt64(EmitContext& ctx, Id value);
+Id EmitFPSqrt(EmitContext& ctx, Id value);
+Id EmitFPSaturate16(EmitContext& ctx, Id value);
+Id EmitFPSaturate32(EmitContext& ctx, Id value);
+Id EmitFPSaturate64(EmitContext& ctx, Id value);
+Id EmitFPClamp16(EmitContext& ctx, Id value, Id min_value, Id max_value);
+Id EmitFPClamp32(EmitContext& ctx, Id value, Id min_value, Id max_value);
+Id EmitFPClamp64(EmitContext& ctx, Id value, Id min_value, Id max_value);
+Id EmitFPRoundEven16(EmitContext& ctx, Id value);
+Id EmitFPRoundEven32(EmitContext& ctx, Id value);
+Id EmitFPRoundEven64(EmitContext& ctx, Id value);
+Id EmitFPFloor16(EmitContext& ctx, Id value);
+Id EmitFPFloor32(EmitContext& ctx, Id value);
+Id EmitFPFloor64(EmitContext& ctx, Id value);
+Id EmitFPCeil16(EmitContext& ctx, Id value);
+Id EmitFPCeil32(EmitContext& ctx, Id value);
+Id EmitFPCeil64(EmitContext& ctx, Id value);
+Id EmitFPTrunc16(EmitContext& ctx, Id value);
+Id EmitFPTrunc32(EmitContext& ctx, Id value);
+Id EmitFPTrunc64(EmitContext& ctx, Id value);
+Id EmitFPFract(EmitContext& ctx, Id value);
+Id EmitFPOrdEqual16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdEqual32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdEqual64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordEqual16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordEqual32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordEqual64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdNotEqual16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdNotEqual32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdNotEqual64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordNotEqual16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordNotEqual32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordNotEqual64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdLessThan16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdLessThan32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdLessThan64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordLessThan16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordLessThan32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordLessThan64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdGreaterThan16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdGreaterThan32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdGreaterThan64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordGreaterThan16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordGreaterThan32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordGreaterThan64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdLessThanEqual16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdLessThanEqual32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdLessThanEqual64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordLessThanEqual16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordLessThanEqual32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordLessThanEqual64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdGreaterThanEqual16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdGreaterThanEqual32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPOrdGreaterThanEqual64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordGreaterThanEqual16(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordGreaterThanEqual32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPUnordGreaterThanEqual64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitFPIsNan16(EmitContext& ctx, Id value);
+Id EmitFPIsNan32(EmitContext& ctx, Id value);
+Id EmitFPIsNan64(EmitContext& ctx, Id value);
+Id EmitFPIsInf32(EmitContext& ctx, Id value);
+Id EmitFPIsInf64(EmitContext& ctx, Id value);
+Id EmitIAdd32(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitIAdd64(EmitContext& ctx, Id a, Id b);
+Id EmitIAddCary32(EmitContext& ctx, Id a, Id b);
+Id EmitISub32(EmitContext& ctx, Id a, Id b);
+Id EmitISub64(EmitContext& ctx, Id a, Id b);
+Id EmitSMulExt(EmitContext& ctx, Id a, Id b);
+Id EmitUMulExt(EmitContext& ctx, Id a, Id b);
+Id EmitIMul32(EmitContext& ctx, Id a, Id b);
+Id EmitIMul64(EmitContext& ctx, Id a, Id b);
+Id EmitSDiv32(EmitContext& ctx, Id a, Id b);
+Id EmitUDiv32(EmitContext& ctx, Id a, Id b);
+Id EmitSMod32(EmitContext& ctx, Id a, Id b);
+Id EmitUMod32(EmitContext& ctx, Id a, Id b);
+Id EmitINeg32(EmitContext& ctx, Id value);
+Id EmitINeg64(EmitContext& ctx, Id value);
+Id EmitIAbs32(EmitContext& ctx, Id value);
+Id EmitShiftLeftLogical32(EmitContext& ctx, Id base, Id shift);
+Id EmitShiftLeftLogical64(EmitContext& ctx, Id base, Id shift);
+Id EmitShiftRightLogical32(EmitContext& ctx, Id base, Id shift);
+Id EmitShiftRightLogical64(EmitContext& ctx, Id base, Id shift);
+Id EmitShiftRightArithmetic32(EmitContext& ctx, Id base, Id shift);
+Id EmitShiftRightArithmetic64(EmitContext& ctx, Id base, Id shift);
+Id EmitBitwiseAnd32(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitBitwiseAnd64(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitBitwiseOr32(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitBitwiseOr64(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitBitwiseXor32(EmitContext& ctx, IR::Inst* inst, Id a, Id b);
+Id EmitBitFieldInsert(EmitContext& ctx, Id base, Id insert, Id offset, Id count);
+Id EmitBitFieldSExtract(EmitContext& ctx, IR::Inst* inst, Id base, Id offset, Id count);
+Id EmitBitFieldUExtract(EmitContext& ctx, IR::Inst* inst, Id base, Id offset, Id count);
+Id EmitBitReverse32(EmitContext& ctx, Id value);
+Id EmitBitCount32(EmitContext& ctx, Id value);
+Id EmitBitwiseNot32(EmitContext& ctx, Id value);
+Id EmitFindSMsb32(EmitContext& ctx, Id value);
+Id EmitFindUMsb32(EmitContext& ctx, Id value);
+Id EmitFindILsb32(EmitContext& ctx, Id value);
+Id EmitSMin32(EmitContext& ctx, Id a, Id b);
+Id EmitUMin32(EmitContext& ctx, Id a, Id b);
+Id EmitSMax32(EmitContext& ctx, Id a, Id b);
+Id EmitUMax32(EmitContext& ctx, Id a, Id b);
+Id EmitSClamp32(EmitContext& ctx, IR::Inst* inst, Id value, Id min, Id max);
+Id EmitUClamp32(EmitContext& ctx, IR::Inst* inst, Id value, Id min, Id max);
+Id EmitSLessThan32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitSLessThan64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitULessThan32(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitULessThan64(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitIEqual(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitSLessThanEqual(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitULessThanEqual(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitSGreaterThan(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitUGreaterThan(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitINotEqual(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitSGreaterThanEqual(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitUGreaterThanEqual(EmitContext& ctx, Id lhs, Id rhs);
+Id EmitLogicalOr(EmitContext& ctx, Id a, Id b);
+Id EmitLogicalAnd(EmitContext& ctx, Id a, Id b);
+Id EmitLogicalXor(EmitContext& ctx, Id a, Id b);
+Id EmitLogicalNot(EmitContext& ctx, Id value);
+Id EmitConvertS16F16(EmitContext& ctx, Id value);
+Id EmitConvertS16F32(EmitContext& ctx, Id value);
+Id EmitConvertS16F64(EmitContext& ctx, Id value);
+Id EmitConvertS32F16(EmitContext& ctx, Id value);
+Id EmitConvertS32F32(EmitContext& ctx, Id value);
+Id EmitConvertS32F64(EmitContext& ctx, Id value);
+Id EmitConvertS64F16(EmitContext& ctx, Id value);
+Id EmitConvertS64F32(EmitContext& ctx, Id value);
+Id EmitConvertS64F64(EmitContext& ctx, Id value);
+Id EmitConvertU16F16(EmitContext& ctx, Id value);
+Id EmitConvertU16F32(EmitContext& ctx, Id value);
+Id EmitConvertU16F64(EmitContext& ctx, Id value);
+Id EmitConvertU32F16(EmitContext& ctx, Id value);
+Id EmitConvertU32F32(EmitContext& ctx, Id value);
+Id EmitConvertU32F64(EmitContext& ctx, Id value);
+Id EmitConvertU64F16(EmitContext& ctx, Id value);
+Id EmitConvertU64F32(EmitContext& ctx, Id value);
+Id EmitConvertU64F64(EmitContext& ctx, Id value);
+Id EmitConvertU64U32(EmitContext& ctx, Id value);
+Id EmitConvertU32U64(EmitContext& ctx, Id value);
+Id EmitConvertF16F32(EmitContext& ctx, Id value);
+Id EmitConvertF32F16(EmitContext& ctx, Id value);
+Id EmitConvertF32F64(EmitContext& ctx, Id value);
+Id EmitConvertF64F32(EmitContext& ctx, Id value);
+Id EmitConvertF16S8(EmitContext& ctx, Id value);
+Id EmitConvertF16S16(EmitContext& ctx, Id value);
+Id EmitConvertF16S32(EmitContext& ctx, Id value);
+Id EmitConvertF16S64(EmitContext& ctx, Id value);
+Id EmitConvertF16U8(EmitContext& ctx, Id value);
+Id EmitConvertF16U16(EmitContext& ctx, Id value);
+Id EmitConvertF16U32(EmitContext& ctx, Id value);
+Id EmitConvertF16U64(EmitContext& ctx, Id value);
+Id EmitConvertF32S8(EmitContext& ctx, Id value);
+Id EmitConvertF32S16(EmitContext& ctx, Id value);
+Id EmitConvertF32S32(EmitContext& ctx, Id value);
+Id EmitConvertF32S64(EmitContext& ctx, Id value);
+Id EmitConvertF32U8(EmitContext& ctx, Id value);
+Id EmitConvertF32U16(EmitContext& ctx, Id value);
+Id EmitConvertF32U32(EmitContext& ctx, Id value);
+Id EmitConvertF32U64(EmitContext& ctx, Id value);
+Id EmitConvertF64S8(EmitContext& ctx, Id value);
+Id EmitConvertF64S16(EmitContext& ctx, Id value);
+Id EmitConvertF64S32(EmitContext& ctx, Id value);
+Id EmitConvertF64S64(EmitContext& ctx, Id value);
+Id EmitConvertF64U8(EmitContext& ctx, Id value);
+Id EmitConvertF64U16(EmitContext& ctx, Id value);
+Id EmitConvertF64U32(EmitContext& ctx, Id value);
+Id EmitConvertF64U64(EmitContext& ctx, Id value);
+Id EmitConvertU16U32(EmitContext& ctx, Id value);
+Id EmitConvertU32U16(EmitContext& ctx, Id value);
 
-Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, u32 element) {
-    return OutputAttrPointer(ctx, attr, {}, element);
-}
+Id EmitImageSampleRaw(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address1, Id address2,
+                      Id address3, Id address4);
+Id EmitImageSampleImplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id bias,
+                              const IR::Value& offset);
+Id EmitImageSampleExplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id lod,
+                              const IR::Value& offset);
+Id EmitImageSampleDrefImplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id dref,
+                                  Id bias, const IR::Value& offset);
+Id EmitImageSampleDrefExplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id dref,
+                                  Id lod, const IR::Value& offset);
+Id EmitImageGather(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords,
+                   const IR::Value& offset);
+Id EmitImageGatherDref(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords,
+                       const IR::Value& offset, Id dref);
+Id EmitImageFetch(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, const IR::Value& offset,
+                  Id lod, Id ms);
+Id EmitImageQueryDimensions(EmitContext& ctx, IR::Inst* inst, u32 handle, Id lod, bool skip_mips);
+Id EmitImageQueryLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords);
+Id EmitImageGradient(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id derivatives_dx,
+                     Id derivatives_dy, const IR::Value& offset, const IR::Value& lod_clamp);
+Id EmitImageRead(EmitContext& ctx, IR::Inst* inst, const IR::Value& index, Id coords);
+void EmitImageWrite(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id color);
 
-std::pair<Id, bool> OutputAttrComponentType(EmitContext& ctx, IR::Attribute attr) {
-    if (IR::IsParam(attr)) {
-        const u32 index{u32(attr) - u32(IR::Attribute::Param0)};
-        const auto& info{ctx.output_params.at(index)};
-        return {info.component_type, info.is_integer};
-    }
-    if (IR::IsMrt(attr)) {
-        const u32 index{u32(attr) - u32(IR::Attribute::RenderTarget0)};
-        const auto& info{ctx.frag_outputs.at(index)};
-        return {info.component_type, info.is_integer};
-    }
-    switch (attr) {
-    case IR::Attribute::Position0:
-    case IR::Attribute::Position1:
-    case IR::Attribute::Position2:
-    case IR::Attribute::Position3:
-    case IR::Attribute::Depth:
-        return {ctx.F32[1], false};
-    default:
-        throw NotImplementedException("Write attribute {}", attr);
-    }
-}
-} // Anonymous namespace
+Id EmitImageAtomicIAdd32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitImageAtomicSMin32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitImageAtomicUMin32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitImageAtomicSMax32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitImageAtomicUMax32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitImageAtomicInc32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitImageAtomicDec32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitImageAtomicAnd32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitImageAtomicOr32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitImageAtomicXor32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitImageAtomicExchange32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id value);
+Id EmitLaneId(EmitContext& ctx);
+Id EmitWarpId(EmitContext& ctx);
+Id EmitQuadShuffle(EmitContext& ctx, Id value, Id index);
+Id EmitReadFirstLane(EmitContext& ctx, Id value);
+Id EmitReadLane(EmitContext& ctx, Id value, u32 lane);
+Id EmitWriteLane(EmitContext& ctx, Id value, Id write_value, u32 lane);
+Id EmitDataAppend(EmitContext& ctx, u32 gds_addr, u32 binding);
+Id EmitDataConsume(EmitContext& ctx, u32 gds_addr, u32 binding);
 
-Id EmitGetUserData(EmitContext& ctx, IR::ScalarReg reg) {
-    const u32 index = ctx.binding.user_data + ctx.info.ud_mask.Index(reg);
-    const u32 half = PushData::UdRegsIndex + (index >> 2);
-    const Id ud_ptr{ctx.OpAccessChain(ctx.TypePointer(spv::StorageClass::PushConstant, ctx.U32[1]),
-                                      ctx.push_data_block, ctx.ConstU32(half),
-                                      ctx.ConstU32(index & 3))};
-    const Id ud_reg{ctx.OpLoad(ctx.U32[1], ud_ptr)};
-    ctx.Name(ud_reg, fmt::format("ud_{}", u32(reg)));
-    return ud_reg;
-}
-
-void EmitGetThreadBitScalarReg(EmitContext& ctx) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitSetThreadBitScalarReg(EmitContext& ctx) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitGetScalarRegister(EmitContext&) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitSetScalarRegister(EmitContext&) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitGetVectorRegister(EmitContext& ctx) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitSetVectorRegister(EmitContext& ctx) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitSetGotoVariable(EmitContext&) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitGetGotoVariable(EmitContext&) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-Id EmitReadConst(EmitContext& ctx, IR::Inst* inst) {
-    u32 flatbuf_off_dw = inst->Flags<u32>();
-    ASSERT(ctx.srt_flatbuf.binding >= 0);
-    ASSERT(flatbuf_off_dw > 0);
-    Id index = ctx.ConstU32(flatbuf_off_dw);
-    auto& buffer = ctx.srt_flatbuf;
-    const Id ptr{ctx.OpAccessChain(buffer.pointer_type, buffer.id, ctx.u32_zero_value, index)};
-    return ctx.OpLoad(ctx.U32[1], ptr);
-}
-
-Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
-    auto& buffer = ctx.buffers[handle];
-    index = ctx.OpIAdd(ctx.U32[1], index, buffer.offset_dwords);
-    const Id ptr{ctx.OpAccessChain(buffer.pointer_type, buffer.id, ctx.u32_zero_value, index)};
-    return ctx.OpLoad(buffer.data_types->Get(1), ptr);
-}
-
-Id EmitReadStepRate(EmitContext& ctx, int rate_idx) {
-    return ctx.OpLoad(
-        ctx.U32[1], ctx.OpAccessChain(ctx.TypePointer(spv::StorageClass::PushConstant, ctx.U32[1]),
-                                      ctx.push_data_block,
-                                      rate_idx == 0 ? ctx.u32_zero_value : ctx.u32_one_value));
-}
-
-Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, Id index) {
-    if (ctx.info.l_stage == LogicalStage::Geometry ||
-        ctx.info.l_stage == LogicalStage::TessellationControl ||
-        ctx.info.l_stage == LogicalStage::TessellationEval) {
-        if (IR::IsPosition(attr)) {
-            ASSERT(ctx.info.l_stage != LogicalStage::TessellationControl &&
-                   ctx.info.l_stage != LogicalStage::TessellationEval);
-            ASSERT(attr == IR::Attribute::Position0);
-            const auto position_arr_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[4]);
-            const auto pointer{
-                ctx.OpAccessChain(position_arr_ptr, ctx.gl_in, index, ctx.ConstU32(0u))};
-            const auto position_comp_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[1]);
-            return ctx.OpLoad(ctx.F32[1],
-                              ctx.OpAccessChain(position_comp_ptr, pointer, ctx.ConstU32(comp)));
-        } else if (IR::IsTessCoord(attr)) {
-            const u32 component = attr == IR::Attribute::TessellationEvaluationPointU ? 0 : 1;
-            const auto component_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[1]);
-            const auto pointer{
-                ctx.OpAccessChain(component_ptr, ctx.tess_coord, ctx.ConstU32(component))};
-            return ctx.OpLoad(ctx.F32[1], pointer);
-        } else if (IR::IsParam(attr)) {
-            const u32 param_id{u32(attr) - u32(IR::Attribute::Param0)};
-            const auto param = ctx.input_params.at(param_id).id;
-            const auto param_arr_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[4]);
-            const auto pointer{ctx.OpAccessChain(param_arr_ptr, param, index)};
-            const auto position_comp_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[1]);
-            return ctx.OpLoad(ctx.F32[1],
-                              ctx.OpAccessChain(position_comp_ptr, pointer, ctx.ConstU32(comp)));
-        }
-        UNREACHABLE();
-    }
-
-    if (IR::IsParam(attr)) {
-        const u32 index{u32(attr) - u32(IR::Attribute::Param0)};
-        const auto& param{ctx.input_params.at(index)};
-        if (param.buffer_handle < 0) {
-            if (!ValidId(param.id)) {
-                // Attribute is disabled or varying component is not written
-                return ctx.ConstF32(comp == 3 ? 1.0f : 0.0f);
-            }
-
-            Id result;
-            if (param.is_default) {
-                result = ctx.OpCompositeExtract(param.component_type, param.id, comp);
-            } else if (param.num_components > 1) {
-                const Id pointer{
-                    ctx.OpAccessChain(param.pointer_type, param.id, ctx.ConstU32(comp))};
-                result = ctx.OpLoad(param.component_type, pointer);
-            } else {
-                result = ctx.OpLoad(param.component_type, param.id);
-            }
-            if (param.is_integer) {
-                result = ctx.OpBitcast(ctx.F32[1], result);
-            }
-            return result;
-        } else {
-            const auto step_rate = EmitReadStepRate(ctx, param.id.value);
-            const auto offset = ctx.OpIAdd(
-                ctx.U32[1],
-                ctx.OpIMul(
-                    ctx.U32[1],
-                    ctx.OpUDiv(ctx.U32[1], ctx.OpLoad(ctx.U32[1], ctx.instance_id), step_rate),
-                    ctx.ConstU32(param.num_components)),
-                ctx.ConstU32(comp));
-            return EmitReadConstBuffer(ctx, param.buffer_handle, offset);
-        }
-    }
-    switch (attr) {
-    case IR::Attribute::FragCoord: {
-        const Id coord = ctx.OpLoad(
-            ctx.F32[1], ctx.OpAccessChain(ctx.input_f32, ctx.frag_coord, ctx.ConstU32(comp)));
-        if (comp == 3) {
-            return ctx.OpFDiv(ctx.F32[1], ctx.ConstF32(1.f), coord);
-        }
-        return coord;
-    }
-    case IR::Attribute::TessellationEvaluationPointU:
-        return ctx.OpLoad(ctx.F32[1],
-                          ctx.OpAccessChain(ctx.input_f32, ctx.tess_coord, ctx.u32_zero_value));
-    case IR::Attribute::TessellationEvaluationPointV:
-        return ctx.OpLoad(ctx.F32[1],
-                          ctx.OpAccessChain(ctx.input_f32, ctx.tess_coord, ctx.ConstU32(1U)));
-    default:
-        UNREACHABLE_MSG("Read attribute {}", attr);
-    }
-}
-
-Id EmitGetAttributeU32(EmitContext& ctx, IR::Attribute attr, u32 comp) {
-    switch (attr) {
-    case IR::Attribute::VertexId:
-        return ctx.OpLoad(ctx.U32[1], ctx.vertex_index);
-    case IR::Attribute::InstanceId:
-        return ctx.OpLoad(ctx.U32[1], ctx.instance_id);
-    case IR::Attribute::InstanceId0:
-        return EmitReadStepRate(ctx, 0);
-    case IR::Attribute::InstanceId1:
-        return EmitReadStepRate(ctx, 1);
-    case IR::Attribute::WorkgroupId:
-        return ctx.OpCompositeExtract(ctx.U32[1], ctx.OpLoad(ctx.U32[3], ctx.workgroup_id), comp);
-    case IR::Attribute::LocalInvocationId:
-        return ctx.OpCompositeExtract(ctx.U32[1], ctx.OpLoad(ctx.U32[3], ctx.local_invocation_id),
-                                      comp);
-    case IR::Attribute::IsFrontFace:
-        return ctx.OpSelect(ctx.U32[1], ctx.OpLoad(ctx.U1[1], ctx.front_facing), ctx.u32_one_value,
-                            ctx.u32_zero_value);
-    case IR::Attribute::PrimitiveId:
-    case IR::Attribute::TessPatchIdInVgt: // TODO see why this isnt DCEd
-        ASSERT(ctx.info.l_stage == LogicalStage::Geometry ||
-               ctx.info.l_stage == LogicalStage::TessellationControl ||
-               ctx.info.l_stage == LogicalStage::TessellationEval);
-        return ctx.OpLoad(ctx.U32[1], ctx.primitive_id);
-    case IR::Attribute::InvocationId:
-        ASSERT(ctx.info.l_stage == LogicalStage::Geometry ||
-               ctx.info.l_stage == LogicalStage::TessellationControl);
-        return ctx.OpLoad(ctx.U32[1], ctx.invocation_id);
-    case IR::Attribute::PatchVertices:
-        ASSERT(ctx.info.l_stage == LogicalStage::TessellationControl);
-        return ctx.OpLoad(ctx.U32[1], ctx.patch_vertices);
-    case IR::Attribute::PackedHullInvocationInfo:
-        // TODO figure out what to do with this
-        // should be dead code, but otherwise return 0 or concat PrimitiveId and InvocationId
-        return ctx.u32_zero_value;
-    default:
-        UNREACHABLE_MSG("Read U32 attribute {}", attr);
-    }
-}
-
-void EmitSetAttribute(EmitContext& ctx, IR::Attribute attr, Id value, u32 element) {
-    if (attr == IR::Attribute::Position1) {
-        LOG_WARNING(Render_Vulkan, "Ignoring pos1 export");
-        return;
-    }
-
-    Id pointer;
-    if (ctx.l_stage == LogicalStage::TessellationControl) {
-        pointer = OutputAttrPointer(ctx, attr, ctx.OpLoad(ctx.U32[1], ctx.invocation_id), element);
-    } else {
-        pointer = OutputAttrPointer(ctx, attr, element);
-    }
-    const auto component_type{OutputAttrComponentType(ctx, attr)};
-    if (component_type.second) {
-        ctx.OpStore(pointer, ctx.OpBitcast(component_type.first, value));
-    } else {
-        ctx.OpStore(pointer, value);
-    }
-}
-
-Id EmitGetPatch(EmitContext& ctx, IR::Patch patch) {
-    const u32 index{IR::GenericPatchIndex(patch)};
-    const Id element{ctx.ConstU32(IR::GenericPatchElement(patch))};
-    const Id type{ctx.stage == Stage::Hull ? ctx.output_f32 : ctx.input_f32};
-    const Id pointer{ctx.OpAccessChain(type, ctx.patches.at(index), element)};
-    return ctx.OpLoad(ctx.F32[1], pointer);
-}
-
-void EmitSetPatch(EmitContext& ctx, IR::Patch patch, Id value) {
-    const Id pointer{[&] {
-        if (IR::IsGeneric(patch)) {
-            const u32 index{IR::GenericPatchIndex(patch)};
-            const Id element{ctx.ConstU32(IR::GenericPatchElement(patch))};
-            return ctx.OpAccessChain(ctx.output_f32, ctx.patches.at(index), element);
-        }
-        switch (patch) {
-        case IR::Patch::TessellationLodLeft:
-        case IR::Patch::TessellationLodRight:
-        case IR::Patch::TessellationLodTop:
-        case IR::Patch::TessellationLodBottom: {
-            const u32 index{static_cast<u32>(patch) - u32(IR::Patch::TessellationLodLeft)};
-            const Id index_id{ctx.ConstU32(index)};
-            return ctx.OpAccessChain(ctx.output_f32, ctx.output_tess_level_outer, index_id);
-        }
-        case IR::Patch::TessellationLodInteriorU:
-            return ctx.OpAccessChain(ctx.output_f32, ctx.output_tess_level_inner,
-                                     ctx.u32_zero_value);
-        case IR::Patch::TessellationLodInteriorV:
-            return ctx.OpAccessChain(ctx.output_f32, ctx.output_tess_level_inner, ctx.ConstU32(1u));
-        default:
-            UNREACHABLE_MSG("Patch {}", u32(patch));
-        }
-    }()};
-    ctx.OpStore(pointer, value);
-}
-
-template <u32 N>
-static Id EmitLoadBufferU32xN(EmitContext& ctx, u32 handle, Id address) {
-    auto& buffer = ctx.buffers[handle];
-    address = ctx.OpIAdd(ctx.U32[1], address, buffer.offset);
-    const Id index = ctx.OpShiftRightLogical(ctx.U32[1], address, ctx.ConstU32(2u));
-    if constexpr (N == 1) {
-        const Id ptr{ctx.OpAccessChain(buffer.pointer_type, buffer.id, ctx.u32_zero_value, index)};
-        return ctx.OpLoad(buffer.data_types->Get(1), ptr);
-    } else {
-        boost::container::static_vector<Id, N> ids;
-        for (u32 i = 0; i < N; i++) {
-            const Id index_i = ctx.OpIAdd(ctx.U32[1], index, ctx.ConstU32(i));
-            const Id ptr{
-                ctx.OpAccessChain(buffer.pointer_type, buffer.id, ctx.u32_zero_value, index_i)};
-            ids.push_back(ctx.OpLoad(buffer.data_types->Get(1), ptr));
-        }
-        return ctx.OpCompositeConstruct(buffer.data_types->Get(N), ids);
-    }
-}
-
-Id EmitLoadBufferU32(EmitContext& ctx, IR::Inst*, u32 handle, Id address) {
-    return EmitLoadBufferU32xN<1>(ctx, handle, address);
-}
-
-Id EmitLoadBufferU32x2(EmitContext& ctx, IR::Inst*, u32 handle, Id address) {
-    return EmitLoadBufferU32xN<2>(ctx, handle, address);
-}
-
-Id EmitLoadBufferU32x3(EmitContext& ctx, IR::Inst*, u32 handle, Id address) {
-    return EmitLoadBufferU32xN<3>(ctx, handle, address);
-}
-
-Id EmitLoadBufferU32x4(EmitContext& ctx, IR::Inst*, u32 handle, Id address) {
-    return EmitLoadBufferU32xN<4>(ctx, handle, address);
-}
-
-Id EmitLoadBufferFormatF32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address) {
-    const auto& buffer = ctx.texture_buffers[handle];
-    const Id tex_buffer = ctx.OpLoad(buffer.image_type, buffer.id);
-    const Id coord = ctx.OpIAdd(ctx.U32[1], address, buffer.coord_offset);
-    Id texel = buffer.is_storage ? ctx.OpImageRead(buffer.result_type, tex_buffer, coord)
-                                 : ctx.OpImageFetch(buffer.result_type, tex_buffer, coord);
-    if (buffer.is_integer) {
-        texel = ctx.OpBitcast(ctx.F32[4], texel);
-    }
-    return texel;
-}
-
-template <u32 N>
-static void EmitStoreBufferU32xN(EmitContext& ctx, u32 handle, Id address, Id value) {
-    auto& buffer = ctx.buffers[handle];
-    address = ctx.OpIAdd(ctx.U32[1], address, buffer.offset);
-    const Id index = ctx.OpShiftRightLogical(ctx.U32[1], address, ctx.ConstU32(2u));
-    if constexpr (N == 1) {
-        const Id ptr{ctx.OpAccessChain(buffer.pointer_type, buffer.id, ctx.u32_zero_value, index)};
-        ctx.OpStore(ptr, value);
-    } else {
-        for (u32 i = 0; i < N; i++) {
-            const Id index_i = ctx.OpIAdd(ctx.U32[1], index, ctx.ConstU32(i));
-            const Id ptr =
-                ctx.OpAccessChain(buffer.pointer_type, buffer.id, ctx.u32_zero_value, index_i);
-            ctx.OpStore(ptr, ctx.OpCompositeExtract(buffer.data_types->Get(1), value, i));
-        }
-    }
-}
-
-void EmitStoreBufferU32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value) {
-    EmitStoreBufferU32xN<1>(ctx, handle, address, value);
-}
-
-void EmitStoreBufferU32x2(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value) {
-    EmitStoreBufferU32xN<2>(ctx, handle, address, value);
-}
-
-void EmitStoreBufferU32x3(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value) {
-    EmitStoreBufferU32xN<3>(ctx, handle, address, value);
-}
-
-void EmitStoreBufferU32x4(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value) {
-    EmitStoreBufferU32xN<4>(ctx, handle, address, value);
-}
-
-void EmitStoreBufferFormatF32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value) {
-    const auto& buffer = ctx.texture_buffers[handle];
-    const Id tex_buffer = ctx.OpLoad(buffer.image_type, buffer.id);
-    const Id coord = ctx.OpIAdd(ctx.U32[1], address, buffer.coord_offset);
-    if (buffer.is_integer) {
-        value = ctx.OpBitcast(buffer.result_type, value);
-    }
-    ctx.OpImageWrite(tex_buffer, coord, value);
-}
+void EmitEmitVertex(EmitContext& ctx);
+void EmitEmitPrimitive(EmitContext& ctx);
 
 } // namespace Shader::Backend::SPIRV
