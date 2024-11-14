@@ -462,10 +462,10 @@ bool isInputActive(const InputBinding& i) {
         while (pressed_it != pressed_end && pressed_it->first <= key) {
             if (pressed_it->first == key) {
                 if (!pressed_it->second) {
-                    key_found = true;
                     flags_to_set.push_back(
                         &pressed_it->second); // Collect pointer if flag is not already set
                 }
+                key_found = true;
                 ++pressed_it; // Move to the next key in pressed_keys
                 break;
             }
@@ -484,7 +484,6 @@ bool isInputActive(const InputBinding& i) {
         *flag = true;
     }
 
-    LOG_DEBUG(Input, "Input found: {}", i.toString());
     return true; // All keys are active
 }
 
