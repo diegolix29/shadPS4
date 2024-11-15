@@ -283,6 +283,12 @@ public:
     std::string toString() const {
         return fmt::format("({}, {}, {})", button, (int)axis, axis_value);
     }
+    inline bool isButton() const {
+        return axis == Axis::AxisMax && button != 0;
+    }
+    inline bool isAxis() const {
+        return axis != Axis::AxisMax && button == 0;
+    }
     void update(bool pressed, u32 param = 0);
     // Off events are not counted
     void addUpdate(bool pressed, u32 param = 0);
@@ -300,7 +306,15 @@ public:
         output = out;
     }
     bool operator<(const BindingConnection& other) const {
-        return binding < other.binding;
+        // a button is a higher priority than an axis, as buttons can influence axes
+        // (e.g. joystick_halfmode)
+        if (output->isButton() && other.output->isAxis()) {
+            return true;
+        }
+        if (binding < other.binding) {
+            return true;
+        }
+        return false;
     }
 };
 
