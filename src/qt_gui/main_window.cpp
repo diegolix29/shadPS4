@@ -7,7 +7,6 @@
 #include <QProgressDialog>
 #include <SDL3/SDL_events.h>
 
-
 #include "about_dialog.h"
 #include "cheats_patches.h"
 #ifdef ENABLE_UPDATER
