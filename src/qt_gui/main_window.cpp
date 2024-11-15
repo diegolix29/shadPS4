@@ -7,6 +7,7 @@
 #include <QProgressDialog>
 #include <SDL3/SDL_events.h>
 
+
 #include "about_dialog.h"
 #include "cheats_patches.h"
 #ifdef ENABLE_UPDATER
@@ -264,6 +265,12 @@ void MainWindow::CreateConnects() {
                 &MainWindow::OnLanguageChanged);
 
         settingsDialog->exec();
+    });
+
+    // this is the editor for kbm keybinds
+    connect(ui->controllerButton, &QPushButton::clicked, this, [this]() {
+        EditorDialog* editorWindow = new EditorDialog(this);
+        editorWindow->exec(); // Show the editor window modally
     });
 
 #ifdef ENABLE_UPDATER

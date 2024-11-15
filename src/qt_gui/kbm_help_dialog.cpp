@@ -1,73 +1,98 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
-// SPDX-License-Identifier: GPL-2.0-or-later
-
 #include "kbm_help_dialog.h"
 
 #include <QApplication>
-
+#include <QDialog>
 #include <QGroupBox>
-
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QPropertyAnimation>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QWidget>
 
-class ExpandableSection : public QWidget {
-public:
-    ExpandableSection(const QString& title, const QString& content, QWidget* parent = nullptr)
-        : QWidget(parent) {
-        QVBoxLayout* layout = new QVBoxLayout;
+ExpandableSection::ExpandableSection(const QString& title, const QString& content,
+                                     QWidget* parent = nullptr)
+    : QWidget(parent) {
+    QVBoxLayout* layout = new QVBoxLayout(this);
 
-        // Create a button for the section title
-        QPushButton* toggleButton = new QPushButton(title);
-        layout->addWidget(toggleButton);
+    // Button to toggle visibility of content
+    toggleButton = new QPushButton(title);
+    layout->addWidget(toggleButton);
 
-        // Create a label for the content (initially hidden) with word wrap
-        QLabel* contentLabel = new QLabel(content);
-        contentLabel->setWordWrap(true);
-        contentLabel->setVisible(false); // Hidden by default
-        layout->addWidget(contentLabel);
+    // QTextBrowser for content (initially hidden)
+    contentBrowser = new QTextBrowser();
+    contentBrowser->setPlainText(content);
+    contentBrowser->setVisible(false);
 
-        // Connect button click to toggle content visibility
-        connect(toggleButton, &QPushButton::clicked,
-                [contentLabel]() { contentLabel->setVisible(!contentLabel->isVisible()); });
+    // Remove scrollbars from QTextBrowser
+    contentBrowser->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    contentBrowser->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-        // Set spacing to 0 for minimal spacing
-        layout->setSpacing(2);                  // Minimal spacing between sections
-        layout->setContentsMargins(0, 0, 0, 0); // No margins for top, left, right, bottom
+    // Set size policy to allow vertical stretching only
+    contentBrowser->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
-        setLayout(layout);
-    }
-};
+    // Calculate and set initial height based on content
+    updateContentHeight();
+
+    layout->addWidget(contentBrowser);
+
+    // Connect button click to toggle visibility
+    connect(toggleButton, &QPushButton::clicked, [this]() {
+        contentBrowser->setVisible(!contentBrowser->isVisible());
+        if (contentBrowser->isVisible()) {
+            updateContentHeight(); // Update height when expanding
+        }
+        emit expandedChanged(); // Notify for layout adjustments
+    });
+
+    // Connect to update height if content changes
+    connect(contentBrowser->document(), &QTextDocument::contentsChanged, this,
+            &ExpandableSection::updateContentHeight);
+
+    // Minimal layout settings for spacing
+    layout->setSpacing(2);
+    layout->setContentsMargins(0, 0, 0, 0);
+}
 
 HelpDialog::HelpDialog(QWidget* parent) : QDialog(parent) {
     // Main layout for the help dialog
-    QVBoxLayout* mainLayout = new QVBoxLayout;
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
-    // Add expandable sections
-    mainLayout->addWidget(new ExpandableSection("Quickstart", quickstart()));
-    mainLayout->addWidget(new ExpandableSection("FAQ", faq()));
-    mainLayout->addWidget(new ExpandableSection("Syntax", syntax()));
-    mainLayout->addWidget(new ExpandableSection("Special Bindings", special()));
-    mainLayout->addWidget(new ExpandableSection("Keybindings", bindings()));
-
-    // Create a widget to hold all sections (with unified scrollable area)
+    // Container widget for the scroll area
     QWidget* containerWidget = new QWidget;
-    containerWidget->setLayout(mainLayout);
+    QVBoxLayout* containerLayout = new QVBoxLayout(containerWidget);
 
-    // Create a scroll area to wrap all content
+    // Add expandable sections to container layout
+    auto* quickstartSection = new ExpandableSection("Quickstart", quickstart());
+    auto* faqSection = new ExpandableSection("FAQ", faq());
+    auto* syntaxSection = new ExpandableSection("Syntax", syntax());
+    auto* specialSection = new ExpandableSection("Special Bindings", special());
+    auto* bindingsSection = new ExpandableSection("Keybindings", bindings());
+
+    containerLayout->addWidget(quickstartSection);
+    containerLayout->addWidget(faqSection);
+    containerLayout->addWidget(syntaxSection);
+    containerLayout->addWidget(specialSection);
+    containerLayout->addWidget(bindingsSection);
+    containerLayout->addStretch(1);
+
+    // Scroll area wrapping the container
     QScrollArea* scrollArea = new QScrollArea;
     scrollArea->setWidgetResizable(true);
     scrollArea->setWidget(containerWidget);
 
-    mainLayout->setAlignment(Qt::AlignTop);
+    // Add the scroll area to the main dialog layout
+    mainLayout->addWidget(scrollArea);
+    setLayout(mainLayout);
 
-    // Main layout for the Help dialog
-    QVBoxLayout* dialogLayout = new QVBoxLayout;
-    dialogLayout->addWidget(scrollArea);
-    setLayout(dialogLayout);
+    // Minimum size for the dialog
+    setMinimumSize(500, 400);
 
-    setMinimumSize(500, 400); // Set a reasonable window size// Set the layout for the dialog
+    // Re-adjust dialog layout when any section expands/collapses
+    connect(quickstartSection, &ExpandableSection::expandedChanged, this, &HelpDialog::adjustSize);
+    connect(faqSection, &ExpandableSection::expandedChanged, this, &HelpDialog::adjustSize);
+    connect(syntaxSection, &ExpandableSection::expandedChanged, this, &HelpDialog::adjustSize);
+    connect(specialSection, &ExpandableSection::expandedChanged, this, &HelpDialog::adjustSize);
+    connect(bindingsSection, &ExpandableSection::expandedChanged, this, &HelpDialog::adjustSize);
 }

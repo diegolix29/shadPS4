@@ -6,6 +6,7 @@
 
 #include <fstream>
 #include <iostream>
+#include "common/config.h"
 #include "common/path_util.h"
 #include "game_info.h"
 #include "src/sdl_window.h"
@@ -74,13 +75,11 @@ EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
 }
 
 void EditorDialog::loadFile(QString game) {
-    // QString game = file;
-    KBMConfig::parseInputConfig(game.toStdString()); // Ensure directory and file exist
 
-    const auto config_file = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "kbmConfig" /
-                             (game != "default" ? game + ".ini" : "default.ini").toStdString();
-
+    // to make sure the files and the directory do exist
+    const auto config_file = Config::GetFoolproofKbmConfigFile(game.toStdString());
     QFile file(config_file);
+
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream in(&file);
         editor->setPlainText(in.readAll());
@@ -92,12 +91,11 @@ void EditorDialog::loadFile(QString game) {
 }
 
 void EditorDialog::saveFile(QString game) {
-    // QString game = file;
-    //  to make sure the files and the directory do exist
-    KBMConfig::parseInputConfig(game.toStdString());
-    const auto config_file = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "kbmConfig" /
-                             (game != "default" ? game + ".ini" : "default.ini").toStdString();
+
+    // to make sure the files and the directory do exist
+    const auto config_file = Config::GetFoolproofKbmConfigFile(game.toStdString());
     QFile file(config_file);
+
     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream out(&file);
         out << editor->toPlainText();
@@ -142,19 +140,25 @@ void EditorDialog::onSaveClicked() {
 void EditorDialog::onCancelClicked() {
     reject(); // Close the dialog
 }
-
+bool isHelpOpen = false;
+HelpDialog* helpDialog;
 void EditorDialog::onHelpClicked() {
-    HelpDialog* helpDialog = new HelpDialog(this);
-    helpDialog->setWindowTitle("Help");
-    helpDialog->setAttribute(Qt::WA_DeleteOnClose); // Clean up on close
-    // Get the position and size of the Config window
-    QRect configGeometry = this->geometry();
-    int helpX = configGeometry.x() + configGeometry.width() + 10; // 10 pixels offset
-    int helpY = configGeometry.y();
-
-    // Move the Help dialog to the right side of the Config window
-    helpDialog->move(helpX, helpY);
-    helpDialog->show();
+    if (!isHelpOpen) {
+        helpDialog = new HelpDialog(this);
+        helpDialog->setWindowTitle("Help");
+        helpDialog->setAttribute(Qt::WA_DeleteOnClose); // Clean up on close
+        // Get the position and size of the Config window
+        QRect configGeometry = this->geometry();
+        int helpX = configGeometry.x() + configGeometry.width() + 10; // 10 pixels offset
+        int helpY = configGeometry.y();
+        // Move the Help dialog to the right side of the Config window
+        helpDialog->move(helpX, helpY);
+        helpDialog->show();
+        isHelpOpen = true;
+    } else {
+        helpDialog->close();
+        isHelpOpen = false;
+    }
 }
 
 bool EditorDialog::hasUnsavedChanges() {

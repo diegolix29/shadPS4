@@ -1,12 +1,31 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
-// SPDX-License-Identifier: GPL-2.0-or-later
-
 #include <QApplication>
 #include <QDialog>
 #include <QGroupBox>
 #include <QLabel>
+#include <QPropertyAnimation>
+#include <QTextBrowser>
 #include <QVBoxLayout>
 #include <QWidget>
+
+class ExpandableSection : public QWidget {
+    Q_OBJECT
+public:
+    explicit ExpandableSection(const QString& title, const QString& content, QWidget* parent);
+
+signals:
+    void expandedChanged(); // Signal to indicate layout size change
+
+private:
+    QPushButton* toggleButton;
+    QTextBrowser* contentBrowser; // Changed from QLabel to QTextBrowser
+    QPropertyAnimation* animation;
+    int contentHeight;
+    void updateContentHeight() {
+        int contentHeight = contentBrowser->document()->size().height();
+        contentBrowser->setMinimumHeight(contentHeight + 5);
+        contentBrowser->setMaximumHeight(contentHeight + 5);
+    }
+};
 
 class HelpDialog : public QDialog {
     Q_OBJECT
@@ -29,8 +48,10 @@ This project started out because I didn't like the original unchangeable keybind
 A: -F12: Triggers Rdoc capture
 -F11: Toggles fullscreen
 -F10: Toggles FPS counter
--F9: Toggles mouse capture and mouse input
+-Ctrl F10: Open the debug menu
+-F9: Pauses emultor, if the debug menu is open
 -F8: Reparses the config file while in-game
+-F7: Toggles mouse capture and mouse input
 
 Q: How do I change between mouse and controller joystick input, and why is it even required?
 A: You can switch between them with F9, and it is required, because mouse input is done with polling, which means mouse movement is checked every frame, and if it didn't move, the code manually sets the emulator's virtual controller to 0 (back to the center), even if other input devices would update it.
@@ -49,13 +70,9 @@ Emulator-reserved keys: F1 through F12, Insert, PrintScreen, Delete, Home, End, 
 
 Syntax (aka how a line can look like):
 #Comment line
+<controller_button> = <key>, <key>, <key>;
+<controller_button> = <key>, <key>;
 <controller_button> = <key>;
-<controller_button> = <key>, <modifier_key>;
-<controller_axis> = <key>;
-<controller_axis> = <key>, <modifier_key>;
-
-As you can see, there's two main types of input: single-keyed and key-modifier-key pairs. The first is fairly straightforward, it's just a key input, that can be anything, with the only thing to note here is that all modifier keys are also normal keys, but not every normal key is a modifier.
-The second type is also easy to understand, it is exactly what it seems.
 
 Examples:
 #Interact
@@ -67,6 +84,7 @@ axis_left_y_minus = w;
 
 You can make a comment line by putting # as the first character.
 Whitespace doesn't matter, <button>=<key>; is just as valid as <button> = <key>;
+';' at the ends of lines is also optional.d
 )";
     }
     QString bindings() {
@@ -87,11 +105,11 @@ Modifier keys (these can be used both as normal and modifier keys):
         'lctrl', 'lshift', 'lalt', 'lwin' = 'lmeta', 'none' (the same as not adding it at all)
 
 Mouse:
-        'leftbutton', 'rightbutton', 'middlebutton'
+        'leftbutton', 'rightbutton', 'middlebutton', 'sidebuttonforward', 'sidebuttonback'
     The following wheel inputs cannot be bound to axis input, only button:
         'mousewheelup', 'mousewheeldown', 'mousewheelleft', 'mousewheelright'
 
-Controller (this is not for controller remappings (yet), but rather the buttons and axes the above key will be bound to):
+Controller (this is not for controller remappings (yet), but rather the buttons and axes the above keys will be bound to):
     The same left-right rule still applies here.
     Buttons:
         'triangle', 'circle', 'cross', 'square', 'l1', 'l2', 'l3',
@@ -123,6 +141,8 @@ You can find these here, with detailed comments, examples and suggestions for mo
             If you input a negative number, the axis directions get reversed.
         3rd: mouse_speed_offset: This also should be in the 0 to 1 range, with 0 being no offset and 1 being offsetting to the max possible value.
             This is best explained through an example: Let's set mouse_deadzone to 0.5, and this to 0: This means that if we move the mousevery slowly, it still inputs a half-strength joystick input, and if we increase the speed, it would stay that way until we move faster than half the max speed. If we instead set this to 0.25, we now only need to move the mouse faster than the 0.5-0.25=0.25=quarter of the max speed, to get an increase in joystick speed. If we set it to 0.5, then even moving the mouse at 1 pixel per frame will result in a faster-than-minimum speed.
+'key_toggle' = <key>, <key_to_toggle>; 
+    This assigns a key to another key, and if pressed, toggles that key's virtual value. If it's on, then it doesn't matter if the key is pressed or not, the input handler will treat it as if it's pressed.
 )";
     }
 };
