@@ -419,8 +419,8 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         token: ${{ secrets.SHADPS4_TOKEN_REPO }}
-        name: "0.4.2"
-        tag: "0.4.2"
+        name: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        tag: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
         draft: false
         prerelease: false
         body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
