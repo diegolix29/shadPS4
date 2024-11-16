@@ -394,7 +394,6 @@ void Rasterizer::UpdateDynamicState(const GraphicsPipeline& pipeline) {
     if (regs.depth_control.depth_bounds_enable) {
         cmdbuf.setDepthBounds(regs.depth_bounds_min, regs.depth_bounds_max);
     }
-
     if (regs.polygon_control.enable_polygon_offset_front) {
         cmdbuf.setDepthBias(regs.poly_offset.front_offset, regs.poly_offset.depth_bias,
                             regs.poly_offset.front_scale / 16.f);
