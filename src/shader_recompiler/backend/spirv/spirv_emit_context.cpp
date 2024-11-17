@@ -383,7 +383,11 @@ void EmitContext::DefineInputs() {
             if (!(info.uses_patches & (1U << index))) {
                 continue;
             }
-            const Id id{DefineInput(F32[4], index)};
+            const Id id{
+                DefineInput(F32[4], 31 - index)}; // TODO: this should usually work, but might
+            // overlap with per-vertex outputs.
+            // Safer solution might require recompiling for every hull/domain permutation to make
+            // sure patch variables match in location
             Decorate(id, spv::Decoration::Patch);
             Name(id, fmt::format("patch_in{}", index));
             patches[index] = id;
@@ -459,7 +463,7 @@ void EmitContext::DefineOutputs() {
             if (!(info.uses_patches & (1U << index))) {
                 continue;
             }
-            const Id id{DefineOutput(F32[4], index)};
+            const Id id{DefineOutput(F32[4], 31 - index)};
             Decorate(id, spv::Decoration::Patch);
             Name(id, fmt::format("patch_out{}", index));
             patches[index] = id;
