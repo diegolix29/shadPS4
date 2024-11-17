@@ -79,7 +79,7 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameController* controller_
     window_info.render_surface = SDL_Metal_GetLayer(SDL_Metal_CreateView(window));
 #endif
     // input handler init-s
-    Input::ControllerOutput::GetControllerOutputController(controller);
+    Input::ControllerOutput::SetControllerOutputController(controller);
     Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
 }
 
@@ -196,10 +196,12 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
     }
 
     // add/remove it from the list
-    Input::UpdatePressedKeys(input_id, input_down);
+    bool inputs_changed = Input::UpdatePressedKeys(input_id, input_down);
 
     // update bindings
-    Input::ActivateOutputsFromInputs();
+    if (inputs_changed) {
+        Input::ActivateOutputsFromInputs();
+    }
 }
 
 void WindowSDL::OnGamepadEvent(const SDL_Event* event) {

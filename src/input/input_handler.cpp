@@ -37,6 +37,17 @@ What structs are needed?
 InputBinding(key1, key2, key3)
 ControllerOutput(button, axis) - we only need a const array of these, and one of the attr-s is
 always 0 BindingConnection(inputBinding (member), controllerOutput (ref to the array element))
+
+Things to always test before pushing like a dumbass:
+Button outputs
+Axis outputs
+Input hierarchy
+Multi key inputs
+Mouse to joystick
+Key toggle
+Joystick halfmode
+
+Don't be an idiot and test only the changed part expecting everything else to not be broken
 */
 
 // Flags and values for varying purposes
@@ -51,6 +62,11 @@ std::list<u32> toggled_keys;
 std::list<BindingConnection> connections = std::list<BindingConnection>();
 
 ControllerOutput output_array[] = {
+    // Important: these have to be the first, or else they will update in the wrong order
+    ControllerOutput(LEFTJOYSTICK_HALFMODE),
+    ControllerOutput(RIGHTJOYSTICK_HALFMODE),
+    ControllerOutput(KEY_TOGGLE),
+
     // Button mappings
     ControllerOutput(OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TRIANGLE),
     ControllerOutput(OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CIRCLE),
@@ -70,15 +86,13 @@ ControllerOutput output_array[] = {
     ControllerOutput(OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_RIGHT),
 
     // Axis mappings
-    ControllerOutput(0, Input::Axis::LeftX), ControllerOutput(0, Input::Axis::LeftY),
-    ControllerOutput(0, Input::Axis::RightX), ControllerOutput(0, Input::Axis::RightY),
-    ControllerOutput(0, Input::Axis::TriggerLeft), ControllerOutput(0, Input::Axis::TriggerRight),
-
-    ControllerOutput(LEFTJOYSTICK_HALFMODE), ControllerOutput(RIGHTJOYSTICK_HALFMODE),
-    ControllerOutput(KEY_TOGGLE),
-
-    // End marker to signify the end of the array
-    ControllerOutput(0, Input::Axis::AxisMax)};
+    ControllerOutput(0, Axis::LeftX),
+    ControllerOutput(0, Axis::LeftY),
+    ControllerOutput(0, Axis::RightX),
+    ControllerOutput(0, Axis::RightY),
+    ControllerOutput(0, Axis::TriggerLeft),
+    ControllerOutput(0, Axis::TriggerRight),
+};
 
 // We had to go through 3 files of indirection just to update a flag
 void ToggleMouseEnabled() {
@@ -287,7 +301,7 @@ u32 InputBinding::GetInputIDFromEvent(const SDL_Event& e) {
 }
 
 GameController* ControllerOutput::controller = nullptr;
-void ControllerOutput::GetControllerOutputController(GameController* c) {
+void ControllerOutput::SetControllerOutputController(GameController* c) {
     ControllerOutput::controller = c;
 }
 
@@ -302,90 +316,61 @@ void ToggleKeyInList(u32 key) {
     }
 }
 
-void ControllerOutput::Update(bool pressed, u32 param) {
-    float touchpad_x = 0;
-    if (button != 0) {
-        switch (button) {
-        case OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TOUCH_PAD:
-            touchpad_x = Config::getBackButtonBehavior() == "left"    ? 0.25f
-                         : Config::getBackButtonBehavior() == "right" ? 0.75f
-                                                                      : 0.5f;
-            controller->SetTouchpadState(0, true, touchpad_x, 0.5f);
-            controller->CheckButton(0, button, pressed);
-            break;
-        case LEFTJOYSTICK_HALFMODE:
-            leftjoystick_halfmode = pressed;
-            break;
-        case RIGHTJOYSTICK_HALFMODE:
-            rightjoystick_halfmode = pressed;
-            break;
-        case KEY_TOGGLE:
-            if (pressed) {
-                ToggleKeyInList(param);
-            }
-            break;
-        default: // is a normal key (hopefully)
-            controller->CheckButton(0, button, pressed);
-            break;
-        }
-    } else if (axis != Axis::AxisMax) {
-        float multiplier = 1.0;
-        switch (axis) {
-        case Axis::LeftX:
-        case Axis::LeftY:
-            multiplier = leftjoystick_halfmode ? 0.5 : 1.0;
-            // LOG_DEBUG(Input, "Joystick multiplier set to {}", multiplier);
-            break;
-        case Axis::RightX:
-        case Axis::RightY:
-            multiplier = rightjoystick_halfmode ? 0.5 : 1.0;
-            // LOG_DEBUG(Input, "Joystick multiplier set to {}", multiplier);
-            break;
-        case Axis::TriggerLeft:
-        case Axis::TriggerRight:
-            // todo: verify this works (This probably works from testing,
-            // but needs extra info (multiple input to the same trigger?))
-            axis_value = SDL_clamp((pressed ? (s32)param : 0), 0, 127);
-            controller->Axis(0, axis, GetAxis(0, 0x80, axis_value));
-            return;
-        default:
-            break;
-        }
-        axis_value = SDL_clamp((pressed ? (s32)param : 0), -127, 127);
-        int ax = GetAxis(-0x80, 0x80, axis_value * multiplier);
-        controller->Axis(0, axis, ax);
-    } else {
-        LOG_DEBUG(Input, "Controller output with no values detected!");
-    }
+void ControllerOutput::ResetUpdate() {
+    state_changed = false;
+    new_button_state = false;
+    new_param = 0;
 }
 void ControllerOutput::AddUpdate(bool pressed, u32 param) {
+    state_changed = true;
+    if (button != 0) {
+        new_button_state |= pressed;
+        new_param = param;
+    } else if (axis != Axis::AxisMax) {
+        float multiplier = 1.0;
+        switch (axis) {
+        case Axis::TriggerLeft:
+        case Axis::TriggerRight:
+            new_param = SDL_clamp((pressed ? (s32)param : 0) + new_param, 0, 127);
+            break;
+        default:
+            new_param = SDL_clamp((pressed ? (s32)param : 0) + new_param, -127, 127);
+            break;
+        }
+    } else {
+        LOG_DEBUG(Input, "Controller output with no values detected!");
+    }
+}
 
+void ControllerOutput::FinalizeUpdate() {
+    old_button_state = new_button_state;
+    old_param = new_param;
     float touchpad_x = 0;
     if (button != 0) {
-        if (!pressed) {
-            return;
-        }
         switch (button) {
         case OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TOUCH_PAD:
             touchpad_x = Config::getBackButtonBehavior() == "left"    ? 0.25f
                          : Config::getBackButtonBehavior() == "right" ? 0.75f
                                                                       : 0.5f;
             controller->SetTouchpadState(0, true, touchpad_x, 0.5f);
-            controller->CheckButton(0, button, pressed);
+            controller->CheckButton(0, button, new_button_state);
             break;
         case LEFTJOYSTICK_HALFMODE:
-            leftjoystick_halfmode |= pressed;
+            leftjoystick_halfmode = new_button_state;
+            // LOG_DEBUG(Input, "This is when we set the halfmode flag to {}",
+            // leftjoystick_halfmode);
             break;
         case RIGHTJOYSTICK_HALFMODE:
-            rightjoystick_halfmode |= pressed;
+            rightjoystick_halfmode = new_button_state;
             break;
         case KEY_TOGGLE:
-            if (pressed) {
-                ToggleKeyInList(param);
+            if (new_button_state) {
+                // LOG_DEBUG(Input, "Toggling a button...");
+                ToggleKeyInList(new_param);
             }
             break;
         default: // is a normal key (hopefully)
-            controller->CheckButton(0, button, pressed);
+            controller->CheckButton(0, button, new_button_state);
             break;
         }
     } else if (axis != Axis::AxisMax) {
@@ -394,32 +379,29 @@ void ControllerOutput::AddUpdate(bool pressed, u32 param) {
         case Axis::LeftX:
         case Axis::LeftY:
             multiplier = leftjoystick_halfmode ? 0.5 : 1.0;
-            LOG_DEBUG(Input, "Left joystick multiplier set to {}", multiplier);
+            // LOG_DEBUG(Input, "This is where we use the halfmode flag that is {}",
+            // leftjoystick_halfmode);
             break;
         case Axis::RightX:
         case Axis::RightY:
             multiplier = rightjoystick_halfmode ? 0.5 : 1.0;
-            LOG_DEBUG(Input, " Right joystick multiplier set to {}", multiplier);
             break;
         case Axis::TriggerLeft:
         case Axis::TriggerRight:
-            // todo: verify this works
-            axis_value = SDL_clamp((pressed ? (s32)param : 0) + axis_value, 0, 127);
-            controller->Axis(0, axis, GetAxis(0, 0x80, axis_value));
+            controller->Axis(0, axis, GetAxis(0, 0x80, new_param));
             return;
         default:
             break;
         }
-        axis_value = SDL_clamp(((pressed ? (s32)param : 0) + axis_value), -127, 127);
-        controller->Axis(0, axis, GetAxis(-0x80, 0x80, axis_value * multiplier));
-        // LOG_INFO(Input, "Axis value delta: {} final value: {}", (pressed ? a_value : 0),
-        // axis_value);
+        controller->Axis(0, axis, GetAxis(-0x80, 0x80, new_param * multiplier));
     } else {
         LOG_DEBUG(Input, "Controller output with no values detected!");
     }
 }
 
-void UpdatePressedKeys(u32 value, bool is_pressed) {
+// Updates the list of pressed keys with the given input.
+// Returns whether the list was updated or not.
+bool UpdatePressedKeys(u32 value, bool is_pressed) {
     if (is_pressed) {
         // Find the correct position for insertion to maintain order
         auto it =
@@ -429,6 +411,7 @@ void UpdatePressedKeys(u32 value, bool is_pressed) {
         // Insert only if 'value' is not already in the list
         if (it == pressed_keys.end() || it->first != value) {
             pressed_keys.insert(it, {value, false});
+            return true;
         }
     } else {
         // Remove 'value' from the list if it's not pressed
@@ -436,16 +419,25 @@ void UpdatePressedKeys(u32 value, bool is_pressed) {
             std::find_if(pressed_keys.begin(), pressed_keys.end(),
                          [value](const std::pair<u32, bool>& pk) { return pk.first == value; });
         if (it != pressed_keys.end()) {
-            pressed_keys.erase(it); // Remove the key entirely from the list
+            pressed_keys.erase(it);
+            return true;
         }
     }
+    return false;
 }
 
 // Check if a given binding's all keys are currently active.
 bool IsInputActive(const InputBinding& i) {
-    // Extract keys from InputBinding and ignore unused (0) keys
+    // Extract keys from InputBinding and ignore unused (0) or virtually pressed keys
     std::list<uint32_t> input_keys = {i.key1, i.key2, i.key3};
     input_keys.remove(0);
+    for (auto key = input_keys.begin(); key != input_keys.end();) {
+        if (std::find(toggled_keys.begin(), toggled_keys.end(), *key) != toggled_keys.end()) {
+            key = input_keys.erase(key); // Use the returned iterator
+        } else {
+            ++key; // Increment only if no erase happened
+        }
+    }
 
     // Iterator for pressed_keys, starting from the beginning
     auto pressed_it = pressed_keys.begin();
@@ -470,11 +462,8 @@ bool IsInputActive(const InputBinding& i) {
             }
             ++pressed_it;
         }
-
-        // If not found in pressed_keys, check in toggled_keys
-        if (!key_found &&
-            std::find(toggled_keys.begin(), toggled_keys.end(), key) == toggled_keys.end()) {
-            return false; // Key not found in either list
+        if (!key_found) {
+            return false;
         }
     }
 
@@ -494,27 +483,23 @@ bool IsInputActive(const InputBinding& i) {
 }
 
 void ActivateOutputsFromInputs() {
-    // LOG_DEBUG(Input, "Starting input scan... {} inputs active",
-    // std::distance(pressed_keys.begin(), pressed_keys.end()));
-    //  reset everything
+    // LOG_DEBUG(Input, "Start of an input frame...");
     for (auto& it : pressed_keys) {
         it.second = false;
     }
-    for (auto it = connections.begin(); it != connections.end(); it++) {
-        if (it->output) {
-            it->output->Update(false, 0);
-        } else {
-            LOG_DEBUG(Input, "Null output in BindingConnection at position {}",
-                      std::distance(connections.begin(), it));
-        }
+
+    // this is the cleanest looking code I've ever written, too bad it is not working
+    // (i left the last part in by accident, then it turnd out to still be true even after I thought
+    // everything is good) (but now it really should be fine)
+    for (auto& it : output_array) {
+        it.ResetUpdate();
     }
-    // iterates over the connections, and updates them depending on whether the corresponding input
-    // trio is found
+
     for (auto& it : connections) {
-        if (it.output) {
-            bool active = IsInputActive(it.binding);
-            it.output->AddUpdate(active, it.parameter);
-        }
+        it.output->AddUpdate(IsInputActive(it.binding), it.parameter);
+    }
+    for (auto& it : output_array) {
+        it.FinalizeUpdate();
     }
 }
 
