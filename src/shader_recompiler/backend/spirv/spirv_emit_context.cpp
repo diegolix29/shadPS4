@@ -385,6 +385,7 @@ void EmitContext::DefineInputs() {
                 continue;
             }
             const Id id{DefineInput(F32[4], patch_base_location + index)};
+            Decorate(id, spv::Decoration::Patch);
             Name(id, fmt::format("patch_in{}", index));
             patches[index] = id;
         }
