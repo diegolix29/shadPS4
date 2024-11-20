@@ -97,7 +97,7 @@ jobs:
     - name: Upload Windows SDL artifact
       uses: actions/upload-artifact@v4
       with:
-        name: shadps4-win64-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-win64-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: ${{github.workspace}}/build/shadPS4.exe
 
   windows-qt:
@@ -153,12 +153,12 @@ jobs:
         mkdir upload
         move build/shadPS4.exe upload
         windeployqt --no-compiler-runtime --no-system-d3d-compiler --no-system-dxc-compiler --dir upload upload/shadPS4.exe
-        Compress-Archive -Path upload/* -DestinationPath shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}.zip
+        Compress-Archive -Path upload/* -DestinationPath shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}.zip
 
     - name: Upload Windows Qt artifact
       uses: actions/upload-artifact@v4
       with:
-        name: shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: upload/
 
   macos-sdl:
@@ -214,7 +214,7 @@ jobs:
         tar cf shadps4-macos-sdl.tar.gz -C upload .
     - uses: actions/upload-artifact@v4
       with:
-        name: shadps4-macos-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-macos-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: shadps4-macos-sdl.tar.gz
 
   macos-qt:
@@ -278,7 +278,7 @@ jobs:
         tar cf shadps4-macos-qt.tar.gz -C upload .
     - uses: actions/upload-artifact@v4
       with:
-        name: shadps4-macos-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-macos-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: shadps4-macos-qt.tar.gz
 
   linux-sdl:
@@ -323,7 +323,7 @@ jobs:
     
     - uses: actions/upload-artifact@v4
       with:
-        name: shadps4-ubuntu64-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-ubuntu64-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: ${{ github.workspace }}/build/shadps4
 
     - name: Run AppImage packaging script
@@ -334,7 +334,7 @@ jobs:
         tar cf shadps4-linux-sdl.tar.gz -C ${{github.workspace}}/build shadps4
     - uses: actions/upload-artifact@v4
       with:
-        name: shadps4-linux-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-linux-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: Shadps4-sdl.AppImage
 
   linux-qt:
@@ -381,7 +381,7 @@ jobs:
         tar cf shadps4-linux-qt.tar.gz -C ${{github.workspace}}/build shadps4
     - uses: actions/upload-artifact@v4
       with:
-        name: shadps4-linux-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-linux-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: Shadps4-qt.AppImage
 
   release:
@@ -419,11 +419,11 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         token: ${{ secrets.SHADPS4_TOKEN_REPO }}
-        name: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
-        tag: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        name: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
+        tag: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
         draft: false
         prerelease: false
-        body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
+        body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
         artifacts: ./artifacts/*.zip
 
     - name: Publish to Release Repository
@@ -456,14 +456,14 @@ jobs:
 
           # Check if release already exists and get ID
           release_id=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$REPO/releases/tags/Release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}" | jq -r '.id')
+            "https://api.github.com/repos/$REPO/releases/tags/Release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}" | jq -r '.id')
           if [[ "$release_id" == "null" ]]; then
             echo "Creating release in $REPO for $filename"
             release_id=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               -d '{
-                "tag_name": "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}",
-                "name": "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}",
+                "tag_name": "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}",
+                "name": "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}",
                 "draft": false,
                 "prerelease": false,
                 "body": "Commit: [${{ needs.get-info.outputs.fullhash }}](https://github.com/diegolix29/shadPS4/commit/${{ needs.get-info.outputs.fullhash }})"
