@@ -37,6 +37,8 @@ public:
     void InstallDragDropPkg(std::filesystem::path file, int pkgNum, int nPkg);
     void InstallDirectory();
     void StartGame();
+    void OpenRemap();
+    void checkremapinifile();
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();

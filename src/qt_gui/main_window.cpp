@@ -4,6 +4,8 @@
 #include <QDockWidget>
 #include <QKeyEvent>
 #include <QProgressDialog>
+#include <iostream>
+#include <fstream>
 
 #include "about_dialog.h"
 #include "cheats_patches.h"
@@ -223,6 +225,7 @@ void MainWindow::CreateConnects() {
     connect(ui->refreshGameListAct, &QAction::triggered, this, &MainWindow::RefreshGameTable);
     connect(ui->refreshButton, &QPushButton::clicked, this, &MainWindow::RefreshGameTable);
     connect(ui->showGameListAct, &QAction::triggered, this, &MainWindow::ShowGameList);
+    connect(ui->controllerButton, &QPushButton::clicked, this, &MainWindow::OpenRemap);
     connect(this, &MainWindow::ExtractionFinished, this, &MainWindow::RefreshGameTable);
 
     connect(ui->sizeSlider, &QSlider::valueChanged, this, [this](int value) {
@@ -573,6 +576,24 @@ void MainWindow::StartGame() {
         }
         emulator.Run(path);
     }
+}
+
+void MainWindow::OpenRemap() {
+
+    checkremapinifile();
+
+    #ifdef _WIN32
+        system("notepad.exe remap.ini");
+    #endif
+
+    #ifdef __APPLE__
+        std::system("open remap.ini");
+    #endif
+
+    #ifdef __linux__
+        std::system("xdg-open remap.ini");
+    #endif
+
 }
 
 void MainWindow::SearchGameTable(const QString& text) {
@@ -1074,3 +1095,120 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
     }
     return QMainWindow::eventFilter(obj, event);
 }
+
+void MainWindow::checkremapinifile() {
+const std::string defaultremap = R"(; Edit only after equal signs ***other edits to the file may cause crashes***
+; See syntax at the bottom of the file
+; Close ini file before returning to game to avoid stability issues
+[Sample binding]
+remap=desired_PS4_button_output
+
+[A button]
+remap=cross
+
+[Y button]
+remap=triangle
+
+[X button]
+remap=square
+
+[B button]
+remap=circle
+
+[Left bumper]
+remap=L1
+
+[Right bumper]
+remap=R1
+
+[Left trigger]
+remap=L2
+
+[Right trigger]
+remap=R2
+
+[dpad up]
+remap=dpad_up
+
+[dpad down]
+remap=dpad_down
+
+[dpad left]
+remap=dpad_left
+
+[dpad right]
+remap=dpad_right
+
+[Left stick button]
+remap=L3
+
+[Right stick button]
+remap=R3
+
+[Start]
+remap=options
+
+[Left analog stick behavior]
+Analog stick or buttons=analog_stick
+Swap sticks=No
+Invert movement vertical=No
+Invert movement horizontal=No
+
+[If Left analog stick mapped to buttons]
+Left stick up remap=dpad_up
+Left stick down remap=dpad_down
+Left stick left remap=dpad_left
+Left stick right remap=dpad_right
+
+[Right analog stick behavior]
+Analog stick or buttons=analog_stick
+Swap sticks=No
+Invert movement vertical=No
+Invert movement horizontal=No
+
+[If Right analog stick mapped to buttons]
+Right stick up remap=triangle
+Right stick down remap=cross
+Right stick left remap=square
+Right stick right remap=circle
+
+[Syntax and defaults, do not edit]
+A button=cross
+Y button=triangle
+X button=square
+B button=circle
+Left bumper=L1
+Right bumper=R1
+Left trigger=L2
+Right trigger=R2
+dpad up=dpad_up
+dpad down=dpad_down
+dpad left=dpad_left
+dpad right=dpad_right
+Left stick button=L3
+Right stick button=R3
+Left stick up=lstickup
+Left stick down=lstickdown
+Left stick left=lstickleft
+Left stick right=lstickright
+Right stick up=rstickup 
+Right stick down=rstickdown
+Right stick left=rstickleft
+Right stick right=rstickright
+Start=options
+
+[Syntax for stick settings, do not edit]
+Swap sticks (default)=No
+Swap sticks (swap)=Yes
+Invert movement (default)=No
+Invert movement (invert)=Yes)";
+    
+    if (!std::filesystem::exists("remap.ini")) {
+        std::ofstream remapfile("remap.ini");
+        remapfile << defaultremap;
+        remapfile.close();
+    }
+
+}
+
+

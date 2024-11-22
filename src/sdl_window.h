@@ -67,14 +67,14 @@ public:
     }
 
     void waitEvent();
-
     void initTimers();
+    void checkremapinifile();
 
 private:
     void onResize();
     void onKeyPress(const SDL_Event* event);
     void onGamepadEvent(const SDL_Event* event);
-
+    std::string sdlButtonToAnalog(u8 button);
     int sdlGamepadToOrbisButton(u8 button);
 
 private:
