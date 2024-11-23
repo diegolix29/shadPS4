@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <fstream>
+#include <iostream>
 #include <QDockWidget>
 #include <QKeyEvent>
 #include <QProgressDialog>
-#include <iostream>
-#include <fstream>
 
 #include "about_dialog.h"
 #include "cheats_patches.h"
@@ -579,21 +579,19 @@ void MainWindow::StartGame() {
 }
 
 void MainWindow::OpenRemap() {
-
     checkremapinifile();
 
-    #ifdef _WIN32
-        system("notepad.exe remap.ini");
-    #endif
+#ifdef _WIN32
+    system("notepad.exe remap.ini");
+#endif
 
-    #ifdef __APPLE__
-        std::system("open remap.ini");
-    #endif
+#ifdef __APPLE__
+    std::system("open remap.ini");
+#endif
 
-    #ifdef __linux__
-        std::system("xdg-open remap.ini");
-    #endif
-
+#ifdef __linux__
+    std::system("xdg-open remap.ini");
+#endif
 }
 
 void MainWindow::SearchGameTable(const QString& text) {
@@ -1097,7 +1095,8 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
 }
 
 void MainWindow::checkremapinifile() {
-const std::string defaultremap = R"(; Edit only after equal signs ***other edits to the file may cause crashes***
+    const std::string defaultremap =
+        R"(; Edit only after equal signs ***other edits to the file may cause crashes***
 ; See syntax at the bottom of the file
 ; Close ini file before returning to game to avoid stability issues
 [Sample binding]
@@ -1191,7 +1190,7 @@ Left stick up=lstickup
 Left stick down=lstickdown
 Left stick left=lstickleft
 Left stick right=lstickright
-Right stick up=rstickup 
+Right stick up=rstickup
 Right stick down=rstickdown
 Right stick left=rstickleft
 Right stick right=rstickright
@@ -1202,13 +1201,9 @@ Swap sticks (default)=No
 Swap sticks (swap)=Yes
 Invert movement (default)=No
 Invert movement (invert)=Yes)";
-    
     if (!std::filesystem::exists("remap.ini")) {
         std::ofstream remapfile("remap.ini");
         remapfile << defaultremap;
         remapfile.close();
     }
-
 }
-
-
