@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <xxhash.h>
+
 #include "common/types.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_common.h"
@@ -14,8 +15,8 @@ class TextureCache;
 
 namespace Vulkan {
 
-static constexpr u32 MaxVertexBufferCount = 32;
 static constexpr u32 MaxShaderStages = 5;
+static constexpr u32 MaxVertexBufferCount = 32;
 
 class Instance;
 class Scheduler;
@@ -100,9 +101,7 @@ private:
     void BuildDescSetLayout();
 
 private:
-    std::array<const Shader::Info*, MaxShaderStages> stages{};
     GraphicsPipelineKey key;
-    bool uses_push_descriptors{};
 };
 
 } // namespace Vulkan

@@ -21,7 +21,7 @@ enum class Stage : u32 {
     Local,
     Compute,
 };
-constexpr u32 MaxStageTypes = 6;
+constexpr u32 MaxStageTypes = 7;
 
 enum class LogicalStage : u32 {
     Fragment,

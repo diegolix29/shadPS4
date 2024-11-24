@@ -31,8 +31,6 @@ enum ImageFlagBits : u32 {
     Registered = 1 << 6,     ///< True when the image is registered
     Picked = 1 << 7,         ///< Temporary flag to mark the image as picked
     MetaRegistered = 1 << 8, ///< True when metadata for this surface is known and registered
-    Bound = 1 << 9,          ///< True when the image is bound to a descriptor set
-    NeedsRebind = 1 << 10,   ///< True when the image needs to be rebound
 };
 DECLARE_ENUM_FLAG_OPERATORS(ImageFlagBits)
 
@@ -120,7 +118,15 @@ struct Image {
     std::vector<ImageViewId> image_view_ids;
 
     // Resource state tracking
-    vk::ImageUsageFlags usage;
+    struct {
+        u32 texture : 1;
+        u32 storage : 1;
+        u32 render_target : 1;
+        u32 depth_target : 1;
+        u32 stencil : 1;
+        u32 vo_surface : 1;
+    } usage{};
+    vk::ImageUsageFlags usage_flags;
     vk::FormatFeatureFlags2 format_features;
     struct State {
         vk::Flags<vk::PipelineStageFlagBits2> pl_stage = vk::PipelineStageFlagBits2::eAllCommands;
