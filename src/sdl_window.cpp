@@ -476,34 +476,34 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
         enum Input::Axis OutputLeftTrig;
         enum Input::Axis OutputRightTrig;
 
-        try {
-            std::ifstream ifs;
-            ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-            const toml::value data = toml::parse("Controller.toml");
-        } catch (std::exception& ex) {
-            fmt::print("Got exception trying to load controller config file 'Controller.toml'. Exception: {}\n", ex.what());
-            return;
-        }
-
+    try {
+        std::ifstream ifs;
+        ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
         const toml::value data = toml::parse("Controller.toml");
-        std::string LTmap = toml::find<std::string>(data, "Left_trigger", "remap");
-        std::string RTmap = toml::find<std::string>(data, "Right_trigger", "remap");
-        std::string Lstickupmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_up_remap");
-        std::string Lstickdownmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_down_remap");
-        std::string Lstickleftmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_left_remap");
-        std::string Lstickrightmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_right_remap");
-        std::string Lstickbehavior = toml::find<std::string>(data, "Left_analog_stick_behavior", "Analog_stick_or_buttons");
-        std::string Lstickswap = toml::find<std::string>(data, "Left_analog_stick_behavior", "Swap_sticks");
-        std::string LstickinvertY = toml::find<std::string>(data, "Left_analog_stick_behavior", "Invert_movement_vertical");
-        std::string LstickinvertX = toml::find<std::string>(data, "Left_analog_stick_behavior", "Invert_movement_horizontal");
-        std::string Rstickupmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_up_remap");
-        std::string Rstickdownmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_down_remap");
-        std::string Rstickleftmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_left_remap");
-        std::string Rstickrightmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_right_remap");
-        std::string Rstickbehavior = toml::find<std::string>(data, "Right_analog_stick_behavior", "Analog_stick_or_buttons");
-        std::string Rstickswap = toml::find<std::string>(data, "Right_analog_stick_behavior", "Swap_sticks");
-        std::string RstickinvertY = toml::find<std::string>(data, "Right_analog_stick_behavior", "Invert_movement_vertical");
-        std::string RstickinvertX = toml::find<std::string>(data, "Right_analog_stick_behavior", "Invert_movement_horizontal"); 
+    } catch (std::exception& ex) {
+        fmt::print("Got exception trying to load controller config file 'Controller.toml'. Exception: {}\n", ex.what());
+        return;
+    }
+
+    const toml::value data = toml::parse("Controller.toml");
+    std::string LTmap = toml::find<std::string>(data, "Left_trigger", "remap");
+    std::string RTmap = toml::find<std::string>(data, "Right_trigger", "remap");
+    std::string Lstickupmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_up_remap");
+    std::string Lstickdownmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_down_remap");
+    std::string Lstickleftmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_left_remap");
+    std::string Lstickrightmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_right_remap");
+    std::string Lstickbehavior = toml::find<std::string>(data, "Left_analog_stick_behavior", "Analog_stick_or_buttons");
+    std::string Lstickswap = toml::find<std::string>(data, "Left_analog_stick_behavior", "Swap_sticks");
+    std::string LstickinvertY = toml::find<std::string>(data, "Left_analog_stick_behavior", "Invert_movement_vertical");
+    std::string LstickinvertX = toml::find<std::string>(data, "Left_analog_stick_behavior", "Invert_movement_horizontal");
+    std::string Rstickupmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_up_remap");
+    std::string Rstickdownmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_down_remap");
+    std::string Rstickleftmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_left_remap");
+    std::string Rstickrightmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_right_remap");
+    std::string Rstickbehavior = toml::find<std::string>(data, "Right_analog_stick_behavior", "Analog_stick_or_buttons");
+    std::string Rstickswap = toml::find<std::string>(data, "Right_analog_stick_behavior", "Swap_sticks");
+    std::string RstickinvertY = toml::find<std::string>(data, "Right_analog_stick_behavior", "Invert_movement_vertical");
+    std::string RstickinvertX = toml::find<std::string>(data, "Right_analog_stick_behavior", "Invert_movement_horizontal"); 
 
         if (LTmap == "R2") {
             OutputLeftTrig = Input::Axis::TriggerRight;
@@ -643,6 +643,15 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
 }
 
 int WindowSDL::sdlGamepadToOrbisButton(u8 button) {
+
+    try {
+        std::ifstream ifs;
+        ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        const toml::value data = toml::parse("Controller.toml");
+    } catch (std::exception& ex) {
+        fmt::print("Got exception trying to load controller config file 'Controller.toml'. Exception: {}\n", ex.what());
+        return;
+    }
 
     using Libraries::Pad::OrbisPadButtonDataOffset;
     const toml::value data = toml::parse("Controller.toml");
