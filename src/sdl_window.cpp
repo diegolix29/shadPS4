@@ -419,14 +419,6 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
     case SDL_EVENT_GAMEPAD_BUTTON_UP:
-        try {
-            std::ifstream ifs;
-            ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-            const toml::value data = toml::parse("Controller.toml");
-        } catch (std::exception& ex) {
-            fmt::print("Got exception trying to load controller config file 'Controller.toml'. Exception: {}\n", ex.what());
-            return;
-        } 
         button = sdlGamepadToOrbisButton(event->gbutton.button);
         // if button is mapped to axis, convert to axis inputs, axes are mapped to values 2000001-8
         if (button > 2000000 ) {
@@ -696,7 +688,7 @@ void RefreshMappings() {
         ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
         const toml::value data = toml::parse("Controller.toml");
     } catch (std::exception& ex) {
-        const std::string ParseErrorMsg = fmt::format("Parse Error 'Controller.toml'. Exception: {}", ex.what());
+        const std::string ParseErrorMsg = fmt::format("Parse Error 'Controller.toml'. Falling back to previous value. Exception: {}", ex.what());
         const char *cParseErrorMsg = ParseErrorMsg.c_str();
         LOG_ERROR(Lib_Pad, cParseErrorMsg);
         return;

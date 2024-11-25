@@ -186,7 +186,7 @@ u32 GameController::Poll() {
 
 void CheckRemapFile() {
     const std::string defaultremap =
-        R"(# Edit only inside quotation marks ***incorrect edits to the file will break all bindings***
+        R"(# Edit only inside quotation marks ***incorrect edits to the file will revert bindings to previously set values***
 # You can search your log file for "Parse Error" to check which line number needs correcting
 # See syntax at the bottom of the file
 # Press F8 to refresh bindings after saving file
