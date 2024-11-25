@@ -189,6 +189,7 @@ void CheckRemapFile() {
         R"(# Edit only inside quotation marks ***other edits to the file will cause bindings to fall back to default or previous values***
 # You can search your log file for "Parse Error" to check which line number was not parsed
 # See syntax at the bottom of the file
+# Press F8 to refresh bindings after saving file
 # Close toml file before returning to game if opened using the controller button
 [Sample_binding]
 remap = "desired_PS4_button_output"
