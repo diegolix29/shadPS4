@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <string>
 #include <SDL3/SDL_events.h>
@@ -9,7 +11,7 @@
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
-#include <toml.hpp>
+#include "INIReader.h"
 #include "common/assert.h"
 #include "common/config.h"
 #include "common/version.h"
@@ -25,33 +27,7 @@
 
 namespace Frontend {
 
-    using Libraries::Pad::OrbisPadButtonDataOffset;
-    std::map<std::string, u32> outputkey_map = {
-        {"dpad_down", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_DOWN},
-        {"dpad_up", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_UP},
-        {"dpad_left", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_LEFT},
-        {"dpad_right", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_RIGHT},
-        {"cross", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CROSS},
-        {"triangle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TRIANGLE},
-        {"square", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_SQUARE},
-        {"circle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CIRCLE},
-        {"options", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_OPTIONS},
-        {"L1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L1},
-        {"R1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R1},
-        {"L3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L3},
-        {"R3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R3},
-        {"L2", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L2},
-        {"R2", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R2},
-        {"lstickup", OrbisPadButtonDataOffset::LEFT_ANALOG_STICKUP}, // OrbisPadButtonDataOffset::LEFT_ANALOG_STICKUP =  2,000,001
-        {"lstickdown", OrbisPadButtonDataOffset::LEFT_ANALOG_STICKDOWN}, // = 2000002
-        {"lstickleft", OrbisPadButtonDataOffset::LEFT_ANALOG_STICKLEFT}, // = 2000003
-        {"lstickright", OrbisPadButtonDataOffset::LEFT_ANALOG_STICKRIGHT}, // = 2000004
-        {"rstickup", OrbisPadButtonDataOffset::RIGHT_ANALOG_STICKUP}, // = 2000005
-        {"rstickdown", OrbisPadButtonDataOffset::RIGHT_ANALOG_STICKDOWN}, // = 2000006
-        {"rstickleft", OrbisPadButtonDataOffset::RIGHT_ANALOG_STICKLEFT}, // = 2000007
-        {"rstickright", OrbisPadButtonDataOffset::RIGHT_ANALOG_STICKRIGHT}, // = 2000008
-        };
-
+// TODO: autogenerate config emulator.cpp line 51
 
 static Uint32 SDLCALL PollController(void* userdata, SDL_TimerID timer_id, Uint32 interval) {
     auto* controller = reinterpret_cast<Input::GameController*>(userdata);
@@ -109,8 +85,7 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameController* controller_
     window_info.render_surface = SDL_Metal_GetLayer(SDL_Metal_CreateView(window));
 #endif
 
-    Input::CheckRemapFile();
-
+    checkremapinifile();
 }
 
 WindowSDL::~WindowSDL() = default;
@@ -361,13 +336,12 @@ void WindowSDL::onKeyPress(const SDL_Event* event) {
 }
 
 void WindowSDL::onGamepadEvent(const SDL_Event* event) {
-   
+    using Libraries::Pad::OrbisPadButtonDataOffset;
     u32 button = 0;
     std::string buttonanalogmap = "default";
     Input::Axis axis = Input::Axis::AxisMax;
     int axisvalue = 0;
     int ax = 0;
-
     switch (event->type) {
     case SDL_EVENT_GAMEPAD_ADDED:
     case SDL_EVENT_GAMEPAD_REMOVED:
@@ -382,67 +356,60 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
     case SDL_EVENT_GAMEPAD_BUTTON_UP:
-        try {
-            std::ifstream ifs;
-            ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-            const toml::value data = toml::parse("Controller.toml");
-        } catch (std::exception& ex) {
-            fmt::print("Got exception trying to load controller config file 'Controller.toml'. Exception: {}\n", ex.what());
-            return;
-        } 
         button = sdlGamepadToOrbisButton(event->gbutton.button);
-        // if button is mapped to axis, convert to axis inputs, axes are mapped to values 2000001-8
-        if (button > 2000000 ) {
-            if (button == OrbisPadButtonDataOffset::LEFT_ANALOG_STICKUP) {
+        // if button is mapped to axis, convert to axis inputs
+        if (button == 100) {
+            buttonanalogmap = sdlButtonToAnalog(event->gbutton.button);
+            if (buttonanalogmap == "lstickup") {
                 axis = Input::Axis::LeftY;
                 if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                     axisvalue += -127;
                 } else {
                     axisvalue = 0;
                 }
-            } else if (button == OrbisPadButtonDataOffset::LEFT_ANALOG_STICKDOWN) {
+            } else if (buttonanalogmap == "lstickdown") {
                 axis = Input::Axis::LeftY;
                 if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                     axisvalue += 127;
                 } else {
                     axisvalue = 0;
                 }
-            } else if (button == OrbisPadButtonDataOffset::LEFT_ANALOG_STICKLEFT) {
+            } else if (buttonanalogmap == "lstickleft") {
                 axis = Input::Axis::LeftX;
                 if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                     axisvalue += -127;
                 } else {
                     axisvalue = 0;
                 }
-            } else if (button == OrbisPadButtonDataOffset::LEFT_ANALOG_STICKRIGHT) {
+            } else if (buttonanalogmap == "lstickright") {
                 axis = Input::Axis::LeftX;
                 if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                     axisvalue += 127;
                 } else {
                     axisvalue = 0;
                 }
-            } else if (button == OrbisPadButtonDataOffset::RIGHT_ANALOG_STICKUP) {
+            } else if (buttonanalogmap == "rstickup") {
                 axis = Input::Axis::RightY;
                 if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                     axisvalue += -127;
                 } else {
                     axisvalue = 0;
                 }
-            } else if (button == OrbisPadButtonDataOffset::RIGHT_ANALOG_STICKDOWN) {
+            } else if (buttonanalogmap == "rstickdown") {
                 axis = Input::Axis::RightY;
                 if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                     axisvalue += 127;
                 } else {
                     axisvalue = 0;
                 }
-            } else if (OrbisPadButtonDataOffset::RIGHT_ANALOG_STICKLEFT) {
+            } else if (buttonanalogmap == "rstickleft") {
                 axis = Input::Axis::RightX;
                 if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                     axisvalue += -127;
                 } else {
                     axisvalue = 0;
                 }
-            } else if (OrbisPadButtonDataOffset::RIGHT_ANALOG_STICKRIGHT) {
+            } else if (buttonanalogmap == "rstickright") {
                 axis = Input::Axis::RightX;
                 if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                     axisvalue += 127;
@@ -453,7 +420,7 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
             ax = Input::GetAxis(-0x80, 0x80, axisvalue);
             controller->Axis(0, axis, ax);
             break;
-        } else {
+        } else if (button != 0) {
             if (event->gbutton.button == SDL_GAMEPAD_BUTTON_BACK) {
                 std::string backButtonBehavior = Config::getBackButtonBehavior();
                 if (backButtonBehavior != "none") {
@@ -476,25 +443,68 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
         enum Input::Axis OutputLeftTrig;
         enum Input::Axis OutputRightTrig;
 
-    const toml::value data = toml::parse("Controller.toml");
-    std::string LTmap = toml::find<std::string>(data, "Left_trigger", "remap");
-    std::string RTmap = toml::find<std::string>(data, "Right_trigger", "remap");
-    std::string Lstickupmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_up_remap");
-    std::string Lstickdownmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_down_remap");
-    std::string Lstickleftmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_left_remap");
-    std::string Lstickrightmap = toml::find<std::string>(data, "If_Left_analog_stick_mapped_to_buttons", "Left_stick_right_remap");
-    std::string Lstickbehavior = toml::find<std::string>(data, "Left_analog_stick_behavior", "Analog_stick_or_buttons");
-    std::string Lstickswap = toml::find<std::string>(data, "Left_analog_stick_behavior", "Swap_sticks");
-    std::string LstickinvertY = toml::find<std::string>(data, "Left_analog_stick_behavior", "Invert_movement_vertical");
-    std::string LstickinvertX = toml::find<std::string>(data, "Left_analog_stick_behavior", "Invert_movement_horizontal");
-    std::string Rstickupmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_up_remap");
-    std::string Rstickdownmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_down_remap");
-    std::string Rstickleftmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_left_remap");
-    std::string Rstickrightmap = toml::find<std::string>(data, "If_Right_analog_stick_mapped_to_buttons", "Right_stick_right_remap");
-    std::string Rstickbehavior = toml::find<std::string>(data, "Right_analog_stick_behavior", "Analog_stick_or_buttons");
-    std::string Rstickswap = toml::find<std::string>(data, "Right_analog_stick_behavior", "Swap_sticks");
-    std::string RstickinvertY = toml::find<std::string>(data, "Right_analog_stick_behavior", "Invert_movement_vertical");
-    std::string RstickinvertX = toml::find<std::string>(data, "Right_analog_stick_behavior", "Invert_movement_horizontal"); 
+        inih::INIReader r{"remap.ini"};
+
+        const std::string LTmap = r.Get<std::string>("Left trigger", "remap");
+        const std::string RTmap = r.Get<std::string>("Right trigger", "remap");
+        const std::string Lstickupmap =
+            r.Get<std::string>("If Left analog stick mapped to buttons", "Left stick up remap");
+        const std::string Lstickdownmap =
+            r.Get<std::string>("If Left analog stick mapped to buttons", "Left stick down remap");
+        const std::string Lstickleftmap =
+            r.Get<std::string>("If Left analog stick mapped to buttons", "Left stick left remap");
+        const std::string Lstickrightmap =
+            r.Get<std::string>("If Left analog stick mapped to buttons", "Left stick right remap");
+        const std::string Lstickbehavior =
+            r.Get<std::string>("Left analog stick behavior", "Analog stick or buttons");
+        const std::string Lstickswap =
+            r.Get<std::string>("Left analog stick behavior", "Swap sticks");
+        const std::string LstickinvertY =
+            r.Get<std::string>("Left analog stick behavior", "Invert movement vertical");
+        const std::string LstickinvertX =
+            r.Get<std::string>("Left analog stick behavior", "Invert movement horizontal");
+        const std::string Rstickupmap =
+            r.Get<std::string>("If Right analog stick mapped to buttons", "Right stick up remap");
+        const std::string Rstickdownmap =
+            r.Get<std::string>("If Right analog stick mapped to buttons", "Right stick down remap");
+        const std::string Rstickleftmap =
+            r.Get<std::string>("If Right analog stick mapped to buttons", "Right stick left remap");
+        const std::string Rstickrightmap = r.Get<std::string>(
+            "If Right analog stick mapped to buttons", "Right stick right remap");
+        const std::string Rstickbehavior =
+            r.Get<std::string>("Right analog stick behavior", "Analog stick or buttons");
+        const std::string Rstickswap =
+            r.Get<std::string>("Right analog stick behavior", "Swap sticks");
+        const std::string RstickinvertY =
+            r.Get<std::string>("Right analog stick behavior", "Invert movement vertical");
+        const std::string RstickinvertX =
+            r.Get<std::string>("Right analog stick behavior", "Invert movement horizontal");
+
+        std::map<std::string, u32> outputkey_map = {
+            {"dpad_down", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_DOWN},
+            {"dpad_up", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_UP},
+            {"dpad_left", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_LEFT},
+            {"dpad_right", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_RIGHT},
+            {"cross", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CROSS},
+            {"triangle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TRIANGLE},
+            {"square", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_SQUARE},
+            {"circle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CIRCLE},
+            {"options", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_OPTIONS},
+            {"L1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L1},
+            {"R1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R1},
+            {"L3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L3},
+            {"R3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R3},
+            {"L2", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L2},
+            {"R2", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R2},
+            {"lstickup", 0},
+            {"lstickdown", 0},
+            {"lstickleft", 0},
+            {"lstickright", 0},
+            {"rstickup", 0},
+            {"rstickdown", 0},
+            {"rstickleft", 0},
+            {"rstickright", 0},
+        };
 
         if (LTmap == "R2") {
             OutputLeftTrig = Input::Axis::TriggerRight;
@@ -538,8 +548,7 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
         if (event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER) {
             if (LTmap == "L2" || LTmap == "R2") {
                 controller->Axis(0, axis, Input::GetAxis(0, 0x8000, event->gaxis.value));
-            // if trigger is not mapped to axis, convert to button inputs, axes are mapped to values 2000000+
-            } else if (outputkey_map[LTmap] < 2000000) {
+            } else if (outputkey_map[LTmap] != 0) {
                 button = outputkey_map[LTmap];
                 controller->CheckButton(0, button, event->gaxis.value > 120);
             } else if (LTmap == "lstickup" || LTmap == "lstickleft" || LTmap == "rstickup" ||
@@ -552,7 +561,7 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
         if (event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) {
             if (RTmap == "L2" || RTmap == "R2") {
                 controller->Axis(0, axis, Input::GetAxis(0, 0x8000, event->gaxis.value));
-            } else if (outputkey_map[RTmap] < 2000000) {
+            } else if (outputkey_map[RTmap] != 0) {
                 button = outputkey_map[RTmap];
                 controller->CheckButton(0, button, event->gaxis.value > 120);
             } else if (RTmap == "lstickup" || RTmap == "lstickleft" || RTmap == "rstickup" ||
@@ -561,8 +570,8 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
             } else if (axis != Input::Axis::AxisMax) {
                 controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
             }
-        } 
-         if (event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTY) {
+        }
+        if (event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTY) {
             if (Rstickbehavior == "buttons") {
                 button = outputkey_map[Rstickupmap];
                 controller->CheckButton(0, button, event->gaxis.value < -15000);
@@ -572,10 +581,10 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
                 if (Rstickswap == "Yes") {
                     axis = Input::Axis::LeftY;
                 }
-                if (RstickinvertY == "Yes") {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue)); 
-                } else { 
+                if (RstickinvertY == "No") {
                     controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
+                } else {
+                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));
                 }
             }
         }
@@ -589,10 +598,10 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
                 if (Rstickswap == "Yes") {
                     axis = Input::Axis::LeftX;
                 }
-                if (RstickinvertX == "Yes") {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue)); 
-                } else {
+                if (RstickinvertX == "No") {
                     controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
+                } else {
+                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));
                 }
             }
         }
@@ -606,13 +615,13 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
                 if (Lstickswap == "Yes") {
                     axis = Input::Axis::RightY;
                 }
-                if (LstickinvertY == "Yes") {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue)); 
-                } else {
+                if (LstickinvertY == "No") {
                     controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
+                } else {
+                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));
                 }
-            } 
-        } 
+            }
+        }
         if (event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFTX) {
             if (Lstickbehavior == "buttons") {
                 button = outputkey_map[Lstickleftmap];
@@ -623,32 +632,60 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
                 if (Lstickswap == "Yes") {
                     axis = Input::Axis::RightX;
                 }
-                if (LstickinvertX == "Yes") {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));  
-                } else {
+                if (LstickinvertX == "No") {
                     controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
+                } else {
+                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));
                 }
             }
-        }    
+        }
     }
 }
 
 int WindowSDL::sdlGamepadToOrbisButton(u8 button) {
     using Libraries::Pad::OrbisPadButtonDataOffset;
-    const toml::value data = toml::parse("Controller.toml");
-    std::string Amap = toml::find<std::string>(data, "A_button", "remap");
-    std::string Ymap = toml::find<std::string>(data, "Y_button", "remap");
-    std::string Xmap = toml::find<std::string>(data, "X_button", "remap");
-    std::string Bmap = toml::find<std::string>(data, "B_button", "remap");
-    std::string LBmap = toml::find<std::string>(data, "Left_bumper", "remap");
-    std::string RBmap = toml::find<std::string>(data, "Right_bumper", "remap");
-    std::string dupmap = toml::find<std::string>(data, "dpad_up", "remap");
-    std::string ddownmap = toml::find<std::string>(data, "dpad_down", "remap");
-    std::string dleftmap = toml::find<std::string>(data, "dpad_left", "remap");
-    std::string drightmap = toml::find<std::string>(data, "dpad_right", "remap");
-    std::string rstickmap = toml::find<std::string>(data, "Right_stick_button", "remap");
-    std::string lstickmap = toml::find<std::string>(data, "Left_stick_button", "remap");
-    std::string startmap = toml::find<std::string>(data, "Start", "remap");
+
+    inih::INIReader r{"remap.ini"};
+
+    const std::string Amap = r.Get<std::string>("A button", "remap");
+    const std::string Ymap = r.Get<std::string>("Y button", "remap");
+    const std::string Xmap = r.Get<std::string>("X button", "remap");
+    const std::string Bmap = r.Get<std::string>("B button", "remap");
+    const std::string LBmap = r.Get<std::string>("Left bumper", "remap");
+    const std::string RBmap = r.Get<std::string>("Right bumper", "remap");
+    const std::string dupmap = r.Get<std::string>("dpad up", "remap");
+    const std::string ddownmap = r.Get<std::string>("dpad down", "remap");
+    const std::string dleftmap = r.Get<std::string>("dpad left", "remap");
+    const std::string drightmap = r.Get<std::string>("dpad right", "remap");
+    const std::string rstickmap = r.Get<std::string>("Right stick button", "remap");
+    const std::string lstickmap = r.Get<std::string>("Left stick button", "remap");
+    const std::string startmap = r.Get<std::string>("Start", "remap");
+
+    std::map<std::string, u32> outputkey_map = {
+        {"dpad_down", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_DOWN},
+        {"dpad_up", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_UP},
+        {"dpad_left", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_LEFT},
+        {"dpad_right", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_RIGHT},
+        {"cross", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CROSS},
+        {"triangle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TRIANGLE},
+        {"square", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_SQUARE},
+        {"circle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CIRCLE},
+        {"options", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_OPTIONS},
+        {"L1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L1},
+        {"R1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R1},
+        {"L3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L3},
+        {"R3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R3},
+        {"L2", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L2},
+        {"R2", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R2},
+        {"lstickup", 100},
+        {"lstickdown", 100},
+        {"lstickleft", 100},
+        {"lstickright", 100},
+        {"rstickup", 100},
+        {"rstickdown", 100},
+        {"rstickleft", 100},
+        {"rstickright", 100},
+    };
 
     switch (button) {
     case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
@@ -683,6 +720,170 @@ int WindowSDL::sdlGamepadToOrbisButton(u8 button) {
         return outputkey_map[rstickmap];
     default:
         return 0;
+    }
+}
+
+std::string WindowSDL::sdlButtonToAnalog(u8 button) {
+
+    inih::INIReader r{"remap.ini"};
+    const std::string Amap = r.Get<std::string>("A button", "remap");
+    const std::string Ymap = r.Get<std::string>("Y button", "remap");
+    const std::string Xmap = r.Get<std::string>("X button", "remap");
+    const std::string Bmap = r.Get<std::string>("B button", "remap");
+    const std::string LBmap = r.Get<std::string>("Left bumper", "remap");
+    const std::string RBmap = r.Get<std::string>("Right bumper", "remap");
+    const std::string dupmap = r.Get<std::string>("dpad up", "remap");
+    const std::string ddownmap = r.Get<std::string>("dpad down", "remap");
+    const std::string dleftmap = r.Get<std::string>("dpad left", "remap");
+    const std::string drightmap = r.Get<std::string>("dpad right", "remap");
+    const std::string rstickmap = r.Get<std::string>("Right stick button", "remap");
+    const std::string lstickmap = r.Get<std::string>("Left stick button", "remap");
+    const std::string startmap = r.Get<std::string>("Start", "remap");
+
+    switch (button) {
+    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
+        return ddownmap;
+    case SDL_GAMEPAD_BUTTON_DPAD_UP:
+        return dupmap;
+    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
+        return dleftmap;
+    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
+        return drightmap;
+    case SDL_GAMEPAD_BUTTON_SOUTH:
+        return Amap;
+    case SDL_GAMEPAD_BUTTON_NORTH:
+        return Ymap;
+    case SDL_GAMEPAD_BUTTON_WEST:
+        return Xmap;
+    case SDL_GAMEPAD_BUTTON_EAST:
+        return Bmap;
+    case SDL_GAMEPAD_BUTTON_START:
+        return startmap;
+    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
+        return LBmap;
+    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
+        return RBmap;
+    case SDL_GAMEPAD_BUTTON_LEFT_STICK:
+        return lstickmap;
+    case SDL_GAMEPAD_BUTTON_RIGHT_STICK:
+        return rstickmap;
+    default:
+        return "null";
+    }
+}
+
+void WindowSDL::checkremapinifile() {
+    const std::string defaultremap =
+        R"(; Edit only after equal signs ***other edits to the file may cause crashes***
+; See syntax at the bottom of the file
+; Close ini file before returning to game to avoid stability issues
+[Sample binding]
+remap=desired_PS4_button_output
+
+[A button]
+remap=cross
+
+[Y button]
+remap=triangle
+
+[X button]
+remap=square
+
+[B button]
+remap=circle
+
+[Left bumper]
+remap=L1
+
+[Right bumper]
+remap=R1
+
+[Left trigger]
+remap=L2
+
+[Right trigger]
+remap=R2
+
+[dpad up]
+remap=dpad_up
+
+[dpad down]
+remap=dpad_down
+
+[dpad left]
+remap=dpad_left
+
+[dpad right]
+remap=dpad_right
+
+[Left stick button]
+remap=L3
+
+[Right stick button]
+remap=R3
+
+[Start]
+remap=options
+
+[Left analog stick behavior]
+Analog stick or buttons=analog_stick
+Swap sticks=No
+Invert movement vertical=No
+Invert movement horizontal=No
+
+[If Left analog stick mapped to buttons]
+Left stick up remap=dpad_up
+Left stick down remap=dpad_down
+Left stick left remap=dpad_left
+Left stick right remap=dpad_right
+
+[Right analog stick behavior]
+Analog stick or buttons=analog_stick
+Swap sticks=No
+Invert movement vertical=No
+Invert movement horizontal=No
+
+[If Right analog stick mapped to buttons]
+Right stick up remap=triangle
+Right stick down remap=cross
+Right stick left remap=square
+Right stick right remap=circle
+
+[Syntax and defaults, do not edit]
+A button=cross
+Y button=triangle
+X button=square
+B button=circle
+Left bumper=L1
+Right bumper=R1
+Left trigger=L2
+Right trigger=R2
+dpad up=dpad_up
+dpad down=dpad_down
+dpad left=dpad_left
+dpad right=dpad_right
+Left stick button=L3
+Right stick button=R3
+Left stick up=lstickup
+Left stick down=lstickdown
+Left stick left=lstickleft
+Left stick right=lstickright
+Right stick up=rstickup
+Right stick down=rstickdown
+Right stick left=rstickleft
+Right stick right=rstickright
+Start=options
+
+[Syntax for stick settings, do not edit]
+Swap sticks (default)=No
+Swap sticks (swap)=Yes
+Invert movement (default)=No
+Invert movement (invert)=Yes)";
+
+    if (!std::filesystem::exists("remap.ini")) {
+        std::ofstream remapfile("remap.ini");
+        remapfile << defaultremap;
+        remapfile.close();
     }
 }
 

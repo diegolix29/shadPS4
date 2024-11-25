@@ -5,13 +5,10 @@
 
 #include <mutex>
 #include "common/types.h"
-#include "core/libraries/pad/pad.h"
 
 struct SDL_Gamepad;
 
 namespace Input {
-
-void CheckRemapFile();
 
 enum class Axis {
     LeftX = 0,

@@ -5,7 +5,6 @@
 
 #include <string>
 #include "common/types.h"
-#include "core/libraries/pad/pad.h"
 
 struct SDL_Window;
 struct SDL_Gamepad;
@@ -24,7 +23,6 @@ enum class WindowSystemType : u8 {
     Wayland,
     Metal,
 };
-
 
 struct WindowSystemInfo {
     // Connection to a display server. This is used on X11 and Wayland platforms.
@@ -70,14 +68,15 @@ public:
 
     void waitEvent();
     void initTimers();
+    void checkremapinifile();
 
 private:
     void onResize();
     void onKeyPress(const SDL_Event* event);
     void onGamepadEvent(const SDL_Event* event);
+    std::string sdlButtonToAnalog(u8 button);
     int sdlGamepadToOrbisButton(u8 button);
-    
-    
+
 private:
     s32 width;
     s32 height;

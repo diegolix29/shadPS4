@@ -47,7 +47,7 @@ Emulator::Emulator() {
     // Read configuration file.
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(config_dir / "config.toml");
-    // Todo init bindings here ***
+
     // Initialize NT API functions and set high priority
 #ifdef _WIN32
     Common::NtApi::Initialize();

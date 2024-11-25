@@ -38,6 +38,7 @@ public:
     void InstallDirectory();
     void StartGame();
     void OpenRemap();
+    void checkremapinifile();
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
