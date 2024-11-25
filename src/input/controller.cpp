@@ -250,9 +250,9 @@ Left_stick_left_remap = "dpad_left"
 Left_stick_right_remap = "dpad_right"
 
 [Right_analog_stick_behavior]
-Analog_stick_or_buttons = "analog_stick"
+Analog_stick_or_buttons = "buttons"
 Swap_sticks = "No"
-Invert_movement_vertical = "No"
+Invert_movement_vertical = "Np"
 Invert_movement_horizontal = "No"
 
 [If_Right_analog_stick_mapped_to_buttons]
