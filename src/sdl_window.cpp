@@ -476,15 +476,6 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
         enum Input::Axis OutputLeftTrig;
         enum Input::Axis OutputRightTrig;
 
-    try {
-        std::ifstream ifs;
-        ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-        const toml::value data = toml::parse("Controller.toml");
-    } catch (std::exception& ex) {
-        fmt::print("Got exception trying to load controller config file 'Controller.toml'. Exception: {}\n", ex.what());
-        return;
-    }
-
     const toml::value data = toml::parse("Controller.toml");
     std::string LTmap = toml::find<std::string>(data, "Left_trigger", "remap");
     std::string RTmap = toml::find<std::string>(data, "Right_trigger", "remap");
@@ -643,16 +634,6 @@ void WindowSDL::onGamepadEvent(const SDL_Event* event) {
 }
 
 int WindowSDL::sdlGamepadToOrbisButton(u8 button) {
-
-    try {
-        std::ifstream ifs;
-        ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-        const toml::value data = toml::parse("Controller.toml");
-    } catch (std::exception& ex) {
-        fmt::print("Got exception trying to load controller config file 'Controller.toml'. Exception: {}\n", ex.what());
-        return;
-    }
-
     using Libraries::Pad::OrbisPadButtonDataOffset;
     const toml::value data = toml::parse("Controller.toml");
     std::string Amap = toml::find<std::string>(data, "A_button", "remap");
