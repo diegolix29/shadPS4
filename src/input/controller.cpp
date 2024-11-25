@@ -186,8 +186,8 @@ u32 GameController::Poll() {
 
 void CheckRemapFile() {
     const std::string defaultremap =
-        R"(# Edit only inside quotation marks ***incorrect edits to the file will cause bindings to fall back to default values***
-# You can search your log file for "Parse Error" to check which line number was not parsed
+        R"(# Edit only inside quotation marks ***incorrect edits to the file will break all bindings***
+# You can search your log file for "Parse Error" to check which line number needs correcting
 # See syntax at the bottom of the file
 # Press F8 to refresh bindings after saving file
 # Close toml file before returning to game if opened using the controller button
