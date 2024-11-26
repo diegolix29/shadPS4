@@ -61,15 +61,6 @@ bool ImageInfo::IsDepthStencil() const {
     }
 }
 
-bool ImageInfo::HasStencil() const {
-    if (pixel_format == vk::Format::eD32SfloatS8Uint ||
-        pixel_format == vk::Format::eD24UnormS8Uint ||
-        pixel_format == vk::Format::eD16UnormS8Uint) {
-        return true;
-    }
-    return false;
-}
-
 static vk::ImageUsageFlags ImageUsageFlags(const ImageInfo& info) {
     vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eTransferSrc |
                                 vk::ImageUsageFlagBits::eTransferDst |
@@ -152,17 +143,14 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
     // the texture cache should re-create the resource with the usage requested
     vk::ImageCreateFlags flags{vk::ImageCreateFlagBits::eMutableFormat |
                                vk::ImageCreateFlagBits::eExtendedUsage};
-    const bool can_be_cube = (info.type == vk::ImageType::e2D) &&
-                             (info.resources.layers % 6 == 0) &&
-                             (info.size.width == info.size.height);
-    if (info.props.is_cube || can_be_cube) {
+    if (info.props.is_cube || (info.type == vk::ImageType::e2D && info.resources.layers >= 6)) {
         flags |= vk::ImageCreateFlagBits::eCubeCompatible;
     } else if (info.props.is_volume) {
         flags |= vk::ImageCreateFlagBits::e2DArrayCompatible;
     }
 
-    usage_flags = ImageUsageFlags(info);
-    format_features = FormatFeatureFlags(usage_flags);
+    usage = ImageUsageFlags(info);
+    format_features = FormatFeatureFlags(usage);
 
     switch (info.pixel_format) {
     case vk::Format::eD16Unorm:
@@ -182,7 +170,7 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
     constexpr auto tiling = vk::ImageTiling::eOptimal;
     const auto supported_format = instance->GetSupportedFormat(info.pixel_format, format_features);
     const auto properties = instance->GetPhysicalDevice().getImageFormatProperties(
-        supported_format, info.type, tiling, usage_flags, flags);
+        supported_format, info.type, tiling, usage, flags);
     const auto supported_samples = properties.result == vk::Result::eSuccess
                                        ? properties.value.sampleCounts
                                        : vk::SampleCountFlagBits::e1;
@@ -200,7 +188,7 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
         .arrayLayers = static_cast<u32>(info.resources.layers),
         .samples = LiverpoolToVK::NumSamples(info.num_samples, supported_samples),
         .tiling = tiling,
-        .usage = usage_flags,
+        .usage = usage,
         .initialLayout = vk::ImageLayout::eUndefined,
     };
 

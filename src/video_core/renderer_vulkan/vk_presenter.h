@@ -55,8 +55,8 @@ public:
 
     Frame* PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& attribute,
                         VAddr cpu_address, bool is_eop) {
-        auto desc = VideoCore::TextureCache::VideoOutDesc{attribute, cpu_address};
-        const auto image_id = texture_cache.FindImage(desc);
+        const auto info = VideoCore::ImageInfo{attribute, cpu_address};
+        const auto image_id = texture_cache.FindImage(info);
         texture_cache.UpdateImage(image_id, is_eop ? nullptr : &flip_scheduler);
         return PrepareFrameInternal(image_id, is_eop);
     }
@@ -68,11 +68,9 @@ public:
     VideoCore::Image& RegisterVideoOutSurface(
         const Libraries::VideoOut::BufferAttributeGroup& attribute, VAddr cpu_address) {
         vo_buffers_addr.emplace_back(cpu_address);
-        auto desc = VideoCore::TextureCache::VideoOutDesc{attribute, cpu_address};
-        const auto image_id = texture_cache.FindImage(desc);
-        auto& image = texture_cache.GetImage(image_id);
-        image.usage.vo_surface = 1u;
-        return image;
+        const auto info = VideoCore::ImageInfo{attribute, cpu_address};
+        const auto image_id = texture_cache.FindImage(info);
+        return texture_cache.GetImage(image_id);
     }
 
     bool IsVideoOutSurface(const AmdGpu::Liverpool::ColorBuffer& color_buffer) {

@@ -28,28 +28,14 @@ struct ImageInfo {
     bool IsBlockCoded() const;
     bool IsPacked() const;
     bool IsDepthStencil() const;
-    bool HasStencil() const;
 
-    int IsMipOf(const ImageInfo& info) const;
-    int IsSliceOf(const ImageInfo& info) const;
+    bool IsMipOf(const ImageInfo& info) const;
+    bool IsSliceOf(const ImageInfo& info) const;
 
     /// Verifies if images are compatible for subresource merging.
     bool IsCompatible(const ImageInfo& info) const {
-        return (pixel_format == info.pixel_format && num_samples == info.num_samples &&
-                num_bits == info.num_bits);
-    }
-
-    bool IsTilingCompatible(u32 lhs, u32 rhs) const {
-        if (lhs == rhs) {
-            return true;
-        }
-        if (lhs == 0x0e && rhs == 0x0d) {
-            return true;
-        }
-        if (lhs == 0x0d && rhs == 0x0e) {
-            return true;
-        }
-        return false;
+        return (pixel_format == info.pixel_format && tiling_idx == info.tiling_idx &&
+                num_samples == info.num_samples && num_bits == info.num_bits);
     }
 
     void UpdateSize();
@@ -59,6 +45,15 @@ struct ImageInfo {
         VAddr fmask_addr;
         VAddr htile_addr;
     } meta_info{};
+
+    struct {
+        u32 texture : 1;
+        u32 storage : 1;
+        u32 render_target : 1;
+        u32 depth_target : 1;
+        u32 stencil : 1;
+        u32 vo_buffer : 1;
+    } usage{}; // Usage data tracked during image lifetime
 
     struct {
         u32 is_cube : 1;
@@ -86,9 +81,6 @@ struct ImageInfo {
     VAddr guest_address{0};
     u32 guest_size_bytes{0};
     u32 tiling_idx{0}; // TODO: merge with existing!
-
-    VAddr stencil_addr{0};
-    u32 stencil_size{0};
 };
 
 } // namespace VideoCore
