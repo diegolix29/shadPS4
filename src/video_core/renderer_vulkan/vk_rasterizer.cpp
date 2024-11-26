@@ -115,7 +115,7 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     }
 }
 
-void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u32 stride,
+void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u32 size,
                               u32 max_count, VAddr count_address) {
     RENDERER_TRACE;
 
@@ -142,8 +142,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
     buffer_cache.BindVertexBuffers(vs_info);
     buffer_cache.BindIndexBuffer(is_indexed, 0);
 
-    const auto [buffer, base] =
-        buffer_cache.ObtainBuffer(arg_address + offset, stride * max_count, false);
+    const auto [buffer, base] = buffer_cache.ObtainBuffer(arg_address + offset, size, false);
 
     VideoCore::Buffer* count_buffer{};
     u32 count_base{};
@@ -159,22 +158,26 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
 
     const auto cmdbuf = scheduler.CommandBuffer();
     if (is_indexed) {
-        ASSERT(sizeof(VkDrawIndexedIndirectCommand) == stride);
+        static_assert(sizeof(VkDrawIndexedIndirectCommand) ==
+                      AmdGpu::Liverpool::DrawIndexedIndirectArgsSize);
 
         if (count_address != 0) {
             cmdbuf.drawIndexedIndirectCount(buffer->Handle(), base, count_buffer->Handle(),
-                                            count_base, max_count, stride);
+                                            count_base, max_count,
+                                            AmdGpu::Liverpool::DrawIndexedIndirectArgsSize);
         } else {
-            cmdbuf.drawIndexedIndirect(buffer->Handle(), base, max_count, stride);
+            cmdbuf.drawIndexedIndirect(buffer->Handle(), base, max_count,
+                                       AmdGpu::Liverpool::DrawIndexedIndirectArgsSize);
         }
     } else {
-        ASSERT(sizeof(VkDrawIndirectCommand) == stride);
+        static_assert(sizeof(VkDrawIndirectCommand) == AmdGpu::Liverpool::DrawIndirectArgsSize);
 
         if (count_address != 0) {
             cmdbuf.drawIndirectCount(buffer->Handle(), base, count_buffer->Handle(), count_base,
-                                     max_count, stride);
+                                     max_count, AmdGpu::Liverpool::DrawIndirectArgsSize);
         } else {
-            cmdbuf.drawIndirect(buffer->Handle(), base, max_count, stride);
+            cmdbuf.drawIndirect(buffer->Handle(), base, max_count,
+                                AmdGpu::Liverpool::DrawIndirectArgsSize);
         }
     }
 }
