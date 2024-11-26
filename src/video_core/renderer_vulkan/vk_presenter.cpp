@@ -75,13 +75,13 @@ bool CanBlitToSwapchain(const vk::PhysicalDevice physical_device, vk::Format for
     return MakeImageBlit(frame_width, frame_height, swapchain_width, swapchain_height, 0, 0);
 }
 
-static vk::Rect2D FitImage(s32 frame_width, s32 frame_height, s32 swapchain_width,
-                           s32 swapchain_height) {
+[[nodiscard]] vk::ImageBlit MakeImageBlitFit(s32 frame_width, s32 frame_height, s32 swapchain_width,
+                                             s32 swapchain_height) {
     float frame_aspect = static_cast<float>(frame_width) / frame_height;
     float swapchain_aspect = static_cast<float>(swapchain_width) / swapchain_height;
 
-    u32 dst_width = swapchain_width;
-    u32 dst_height = swapchain_height;
+    s32 dst_width = swapchain_width;
+    s32 dst_height = swapchain_height;
 
     if (frame_aspect > swapchain_aspect) {
         dst_height = static_cast<s32>(swapchain_width / frame_aspect);
@@ -89,18 +89,10 @@ static vk::Rect2D FitImage(s32 frame_width, s32 frame_height, s32 swapchain_widt
         dst_width = static_cast<s32>(swapchain_height * frame_aspect);
     }
 
-    const s32 offset_x = (swapchain_width - dst_width) / 2;
-    const s32 offset_y = (swapchain_height - dst_height) / 2;
+    s32 offset_x = (swapchain_width - dst_width) / 2;
+    s32 offset_y = (swapchain_height - dst_height) / 2;
 
-    return vk::Rect2D{{offset_x, offset_y}, {dst_width, dst_height}};
-}
-
-[[nodiscard]] vk::ImageBlit MakeImageBlitFit(s32 frame_width, s32 frame_height, s32 swapchain_width,
-                                             s32 swapchain_height) {
-    const auto& dst_rect = FitImage(frame_width, frame_height, swapchain_width, swapchain_height);
-
-    return MakeImageBlit(frame_width, frame_height, dst_rect.extent.width, dst_rect.extent.height,
-                         dst_rect.offset.x, dst_rect.offset.y);
+    return MakeImageBlit(frame_width, frame_height, dst_width, dst_height, offset_x, offset_y);
 }
 
 static vk::Format FormatToUnorm(vk::Format fmt) {
@@ -560,22 +552,25 @@ Frame* Presenter::PrepareFrameInternal(VideoCore::ImageId image_id, bool is_eop)
 
         cmdbuf.bindPipeline(vk::PipelineBindPoint::eGraphics, *pp_pipeline);
 
-        const auto& dst_rect =
-            FitImage(image.info.size.width, image.info.size.height, frame->width, frame->height);
-
         const std::array viewports = {
             vk::Viewport{
-                .x = 1.0f * dst_rect.offset.x,
-                .y = 1.0f * dst_rect.offset.y,
-                .width = 1.0f * dst_rect.extent.width,
-                .height = 1.0f * dst_rect.extent.height,
+                .x = 0.0f,
+                .y = 0.0f,
+                .width = 1.0f * frame->width,
+                .height = 1.0f * frame->height,
                 .minDepth = 0.0f,
                 .maxDepth = 1.0f,
             },
         };
 
+        const std::array scissors = {
+            vk::Rect2D{
+                .offset = {0, 0},
+                .extent = {frame->width, frame->height},
+            },
+        };
         cmdbuf.setViewport(0, viewports);
-        cmdbuf.setScissor(0, {dst_rect});
+        cmdbuf.setScissor(0, scissors);
 
         cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics, *pp_pipeline_layout, 0,
                                     set_writes);
@@ -585,7 +580,7 @@ Frame* Presenter::PrepareFrameInternal(VideoCore::ImageId image_id, bool is_eop)
         const std::array attachments = {vk::RenderingAttachmentInfo{
             .imageView = frame->image_view,
             .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::eClear,
+            .loadOp = vk::AttachmentLoadOp::eDontCare,
             .storeOp = vk::AttachmentStoreOp::eStore,
         }};
 
