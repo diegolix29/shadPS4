@@ -1194,7 +1194,7 @@
 		<message>
 			<location filename="../settings_dialog.cpp" line="305"/>
 			<source>updaterGroupBox</source>
-			<translation>Update:\nRelease: Official versions released every month that may be very outdated, but are more reliable and tested.\nNightly: Development versions that have all the latest features and fixes, but may contain bugs and are less stable.</translation>
+			<translation>Update:\nRelease: Official versions released every month that may be very outdated, but are more reliable and tested.\nBBRemap: rainmakerv2 branch - controller remapping, tesselation, and full rainbow fix</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="306"/>

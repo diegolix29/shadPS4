@@ -488,7 +488,7 @@ void load(const std::filesystem::path& path) {
         if (Common::isRelease) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Release");
         } else {
-            updateChannel = toml::find_or<std::string>(general, "updateChannel", "Nightly");
+            updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBRemap");
         }
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
@@ -677,7 +677,7 @@ void setDefaultValues() {
     if (Common::isRelease) {
         updateChannel = "Release";
     } else {
-        updateChannel = "Nightly";
+        updateChannel = "BBRemap";
     }
     cursorState = HideCursorState::Idle;
     cursorHideTimeout = 5;

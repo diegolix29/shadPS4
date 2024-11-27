@@ -386,7 +386,7 @@
                     </item>
                     <item>
                      <property name="text">
-                      <string>Nightly</string>
+                      <string>BBRemap</string>
                      </property>
                     </item>
                    </widget>

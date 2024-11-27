@@ -45,8 +45,8 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
     bool checkName = true;
     while (checkName) {
         updateChannel = QString::fromStdString(Config::getUpdateChannel());
-        if (updateChannel == "Nightly") {
-            url = QUrl("https://api.github.com/repos/shadps4-emu/shadPS4/releases");
+        if (updateChannel == "BBRemap") {
+            url = QUrl("https://api.github.com/repos/rainmakerv3/shadPS4/releases");
             checkName = false;
         } else if (updateChannel == "Release") {
             url = QUrl("https://api.github.com/repos/shadps4-emu/shadPS4/releases/latest");
@@ -55,7 +55,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             if (Common::isRelease) {
                 Config::setUpdateChannel("Release");
             } else {
-                Config::setUpdateChannel("Nightly");
+                Config::setUpdateChannel("BBRemap");
             }
             const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
             Config::save(config_dir / "config.toml");
@@ -97,7 +97,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
 #endif
 
         QJsonObject jsonObj;
-        if (updateChannel == "Nightly") {
+        if (updateChannel == "BBRemap") {
             QJsonArray jsonArray = jsonDoc.array();
             for (const QJsonValue& value : jsonArray) {
                 jsonObj = value.toObject();
@@ -145,7 +145,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             return;
         }
 
-        QString currentRev = (updateChannel == "Nightly")
+        QString currentRev = (updateChannel == "BBRemap")
                                  ? QString::fromStdString(Common::g_scm_rev).left(7)
                                  : "v." + QString::fromStdString(Common::VERSION);
         QString currentDate = Common::g_scm_date;
@@ -266,7 +266,7 @@ void CheckUpdate::requestChangelog(const QString& currentRev, const QString& lat
                                    const QString& downloadUrl, const QString& latestDate,
                                    const QString& currentDate) {
     QString compareUrlString =
-        QString("https://api.github.com/repos/shadps4-emu/shadPS4/compare/%1...%2")
+        QString("https://api.github.com/repos/shadps4-emu/rainmakerv3/compare/%1...%2")
             .arg(currentRev)
             .arg(latestRev);
 
