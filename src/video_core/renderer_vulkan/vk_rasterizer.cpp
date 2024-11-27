@@ -4,7 +4,6 @@
 #include "common/config.h"
 #include "common/debug.h"
 #include "core/memory.h"
-#include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
@@ -187,7 +186,9 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     if (!pipeline) {
         return;
     }
-    
+
+    auto state = PrepareRenderState(pipeline->GetMrtMask());
+
     if (!BindResources(pipeline)) {
         return;
     }
@@ -231,6 +232,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
         // changes type of the draw, arguments are not valid for this case. We need to run a
         // conversion pass to repack the indirect arguments buffer first.
         LOG_WARNING(Render_Vulkan, "QuadList primitive type is not supported for indirect draw");
+        return;
     }
 
     ASSERT_MSG(regs.primitive_type != AmdGpu::PrimitiveType::RectList,
@@ -242,7 +244,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
     }
 
     auto state = PrepareRenderState(pipeline->GetMrtMask());
-
+    
     if (!BindResources(pipeline)) {
         return;
     }
