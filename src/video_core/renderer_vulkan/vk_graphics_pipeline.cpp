@@ -17,6 +17,8 @@
 
 namespace Vulkan {
 
+using Shader::LogicalStage;
+
 GraphicsPipeline::GraphicsPipeline(const Instance& instance_, Scheduler& scheduler_,
                                    DescriptorHeap& desc_heap_, const GraphicsPipelineKey& key_,
                                    vk::PipelineCache pipeline_cache,

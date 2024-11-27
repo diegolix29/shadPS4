@@ -247,7 +247,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
 
     const GraphicsPipeline* pipeline = pipeline_cache.GetGraphicsPipeline();
 
-    if (!BindResources(pipeline)) {
+    if (!pipeline) {
         return;
     }
 
