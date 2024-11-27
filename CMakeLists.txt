@@ -750,6 +750,7 @@ set(EMULATOR src/emulator.cpp
              src/emulator.h
              src/sdl_window.h
              src/sdl_window.cpp
+             src/INIReader.h
 )
 
 # The above is shared in SDL and Qt version (TODO share them all)
@@ -832,6 +833,7 @@ else()
         src/emulator.h
         src/sdl_window.h
         src/sdl_window.cpp
+	src/INIReader.h
     )
 endif()
 

@@ -1,9 +1,14 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+
 #include "controller.h"
 
 #include "common/assert.h"
+#include "common/path_util.h"
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 
@@ -177,6 +182,119 @@ u32 GameController::Poll() {
         }
     }
     return 100;
+}
+
+void CheckRemapFile() {
+    const std::string defaultremap =
+        R"(# Edit only inside quotation marks ***incorrect edits to the file will revert bindings to previously set values***
+# You can search your log file for "Parse Error" to check which line number needs correcting
+# See syntax at the bottom of the file
+# Press F8 to refresh bindings after saving file
+# Close toml file before returning to game if opened using the controller button
+[Sample_binding]
+remap = "desired_PS4_button_output"
+
+[A_button]
+remap = "cross"
+
+[Y_button]
+remap = "triangle"
+
+[X_button]
+remap = "square"
+
+[B_button]
+remap = "circle"
+
+[Left_bumper]
+remap = "L1"
+
+[Right_bumper]
+remap = "R1"
+
+[Left_trigger]
+remap = "L2"
+
+[Right_trigger]
+remap = "R2"
+
+[dpad_up]
+remap = "dpad_up"
+
+[dpad_down]
+remap = "dpad_down"
+
+[dpad_left]
+remap = "dpad_left"
+
+[dpad_right]
+remap = "dpad_right"
+
+[Left_stick_button]
+remap = "L3"
+
+[Right_stick_button]
+remap = "R3"
+
+[Start]
+remap = "options"
+
+[Left_analog_stick_behavior]
+Analog_stick_or_buttons = "analog_stick"
+Swap_sticks = "No"
+Invert_movement_vertical = "No"
+Invert_movement_horizontal = "No"
+
+[If_Left_analog_stick_mapped_to_buttons]
+Left_stick_up_remap = "dpad_up"
+Left_stick_down_remap = "dpad_down"
+Left_stick_left_remap = "dpad_left"
+Left_stick_right_remap = "dpad_right"
+
+[Right_analog_stick_behavior]
+Analog_stick_or_buttons = "analog_stick"
+Swap_sticks = "No"
+Invert_movement_vertical = "No"
+Invert_movement_horizontal = "No"
+
+[If_Right_analog_stick_mapped_to_buttons]
+Right_stick_up_remap = "triangle"
+Right_stick_down_remap = "cross"
+Right_stick_left_remap = "square"
+Right_stick_right_remap = "circle"
+
+[Syntax_and_defaults]
+A_button = "cross"
+Y_button = "triangle"
+X_button = "square"
+B_button = "circle"
+Left_bumper = "L1"
+Right_bumper = "R1"
+Left_trigger = "L2"
+Right_trigger = "R2"
+dpad_up = "dpad_up"
+dpad_down = "dpad_down"
+dpad_left = "dpad_left"
+dpad_right = "dpad_right"
+Left_stick_button = "L3"
+Right_stick_button = "R3"
+Left_stick_up= "lstickup"
+Left_stick_down = "lstickdown"
+Left_stick_left = "lstickleft"
+Left_stick_right = "lstickright"
+Right_stick_up = "rstickup"
+Right_stick_down = "rstickdown"
+Right_stick_left = "rstickleft"
+Right_stick_right = "rstickright"
+Start = "options"
+Analog_stick_or_buttons_default = "analog_stick"
+Analog_stick_or_buttons_use_buttons = "buttons")";
+
+    if (!std::filesystem::exists("Controller.toml")) {
+        std::ofstream remaptoml("Controller.toml");
+        remaptoml << defaultremap;
+        remaptoml.close();
+    }
 }
 
 } // namespace Input

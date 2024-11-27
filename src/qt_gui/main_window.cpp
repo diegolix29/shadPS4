@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <fstream>
+#include <iostream>
 #include <QDockWidget>
 #include <QKeyEvent>
 #include <QProgressDialog>
@@ -10,6 +12,7 @@
 #ifdef ENABLE_UPDATER
 #include "check_update.h"
 #endif
+#include "../sdl_window.h"
 #include "common/io_file.h"
 #include "common/path_util.h"
 #include "common/scm_rev.h"
@@ -223,6 +226,7 @@ void MainWindow::CreateConnects() {
     connect(ui->refreshGameListAct, &QAction::triggered, this, &MainWindow::RefreshGameTable);
     connect(ui->refreshButton, &QPushButton::clicked, this, &MainWindow::RefreshGameTable);
     connect(ui->showGameListAct, &QAction::triggered, this, &MainWindow::ShowGameList);
+    connect(ui->controllerButton, &QPushButton::clicked, this, &MainWindow::OpenRemap);
     connect(this, &MainWindow::ExtractionFinished, this, &MainWindow::RefreshGameTable);
 
     connect(ui->sizeSlider, &QSlider::valueChanged, this, [this](int value) {
@@ -573,6 +577,22 @@ void MainWindow::StartGame() {
         }
         emulator.Run(path);
     }
+}
+
+void MainWindow::OpenRemap() {
+    Input::CheckRemapFile();
+
+#ifdef _WIN32
+    system("notepad.exe Controller.toml");
+#endif
+
+#ifdef __APPLE__
+    std::system("open Controller.toml");
+#endif
+
+#ifdef __linux__
+    std::system("xdg-open Controller.toml");
+#endif
 }
 
 void MainWindow::SearchGameTable(const QString& text) {
