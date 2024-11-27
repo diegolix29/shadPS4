@@ -187,9 +187,7 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     if (!pipeline) {
         return;
     }
-
-    auto state = PrepareRenderState(pipeline->GetMrtMask());
-
+    
     if (!BindResources(pipeline)) {
         return;
     }
@@ -234,19 +232,11 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
         // conversion pass to repack the indirect arguments buffer first.
         LOG_WARNING(Render_Vulkan, "QuadList primitive type is not supported for indirect draw");
     }
-    const GraphicsPipeline* pipeline = pipeline_cache.GetGraphicsPipeline();
-    if (!pipeline) {
-        return;
-    }
 
-    auto state = PrepareRenderState(pipeline->GetMrtMask());
-
-    const auto& regs = liverpool->regs;
     ASSERT_MSG(regs.primitive_type != AmdGpu::PrimitiveType::RectList,
                "Unsupported primitive type for indirect draw");
 
     const GraphicsPipeline* pipeline = pipeline_cache.GetGraphicsPipeline();
-
     if (!pipeline) {
         return;
     }
