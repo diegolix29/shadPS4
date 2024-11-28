@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <string>
 #include "common/types.h"
+#include "string"
 
 struct SDL_Window;
 struct SDL_Gamepad;
@@ -15,8 +15,6 @@ class GameController;
 }
 
 namespace Frontend {
-
-void RefreshMappings();
 
 enum class WindowSystemType : u8 {
     Headless,
@@ -69,13 +67,19 @@ public:
     }
 
     void waitEvent();
+
     void initTimers();
 
 private:
-    void onResize();
-    void onKeyPress(const SDL_Event* event);
-    void onGamepadEvent(const SDL_Event* event);
+    void OnResize();
+    void parseconfig();
+    void OnKeyboardMouseInput(const SDL_Event* event);
+    std::string sdlButtonToAnalog(u8 button);
+    void checkremapinifile();
+    void OnGamepadEvent(const SDL_Event* event);
+
     int sdlGamepadToOrbisButton(u8 button);
+    int sdlTriggerToOrbisButton(u8 button);
 
 private:
     s32 width;
@@ -85,39 +89,6 @@ private:
     SDL_Window* window{};
     bool is_shown{};
     bool is_open{true};
-/*
-public:
-    std::string Amap;
-    std::string Ymap;
-    std::string Xmap; 
-    std::string Bmap;
-    std::string LBmap;
-    std::string RBmap;
-    std::string dupmap;
-    std::string ddownmap;
-    std::string dleftmap;
-    std::string drightmap;
-    std::string rstickmap;    
-    std::string lstickmap;
-    std::string startmap;
-    std::string LTmap;
-    std::string RTmap;
-    std::string Lstickupmap;
-    std::string Lstickdownmap;
-    std::string Lstickleftmap; 
-    std::string Lstickrightmap; 
-    std::string Lstickbehavior; 
-    std::string Lstickswap; 
-    std::string LstickinvertY; 
-    std::string LstickinvertX; 
-    std::string Rstickupmap; 
-    std::string Rstickdownmap; 
-    std::string Rstickleftmap; 
-    std::string Rstickrightmap; 
-    std::string Rstickbehavior; 
-    std::string Rstickswap; 
-    std::string RstickinvertY; 
-    std::string RstickinvertX; */
 };
 
 } // namespace Frontend

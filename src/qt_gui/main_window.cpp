@@ -5,14 +5,15 @@
 #include <iostream>
 #include <QDockWidget>
 #include <QKeyEvent>
+#include <QPlainTextEdit>
 #include <QProgressDialog>
+#include <SDL3/SDL_events.h>
 
 #include "about_dialog.h"
 #include "cheats_patches.h"
 #ifdef ENABLE_UPDATER
 #include "check_update.h"
 #endif
-#include "../sdl_window.h"
 #include "common/io_file.h"
 #include "common/path_util.h"
 #include "common/scm_rev.h"
@@ -24,6 +25,9 @@
 #include "install_dir_select.h"
 #include "main_window.h"
 #include "settings_dialog.h"
+
+#include "kbm_config_dialog.h"
+
 #include "video_core/renderer_vulkan/vk_instance.h"
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"
@@ -93,6 +97,30 @@ bool MainWindow::Init() {
     return true;
 }
 
+// Initialize shared memory for game state
+QSharedMemory sharedMemory("GameStateKey");
+// Write game state in child process
+void writeGameState() {
+    if (!sharedMemory.create(1024)) {
+        qDebug() << "Failed to create shared memory:" << sharedMemory.errorString();
+        return;
+    }
+    char* to = static_cast<char*>(sharedMemory.data());
+    const char* from = "Game State Data";
+    memcpy(to, from, qstrlen(from));
+    qDebug() << "Game state written to shared memory.";
+}
+// Read game state in the main process
+void readGameState() {
+    if (!sharedMemory.attach()) {
+        qDebug() << "Failed to attach to shared memory:" << sharedMemory.errorString();
+        return;
+    }
+    char* from = static_cast<char*>(sharedMemory.data());
+    qDebug() << "Game state read from shared memory:" << QString::fromLatin1(from);
+    sharedMemory.detach();
+}
+
 void MainWindow::CreateActions() {
     // create action group for icon size
     m_icon_size_act_group = new QActionGroup(this);
@@ -105,7 +133,6 @@ void MainWindow::CreateActions() {
     m_list_mode_act_group = new QActionGroup(this);
     m_list_mode_act_group->addAction(ui->setlistModeListAct);
     m_list_mode_act_group->addAction(ui->setlistModeGridAct);
-    m_list_mode_act_group->addAction(ui->setlistElfAct);
 
     // create action group for themes
     m_theme_act_group = new QActionGroup(this);
@@ -126,6 +153,8 @@ void MainWindow::AddUiWidgets() {
     ui->toolBar->addWidget(ui->refreshButton);
     ui->toolBar->addWidget(ui->settingsButton);
     ui->toolBar->addWidget(ui->controllerButton);
+    ui->toolBar->addWidget(ui->keyboardButton);
+    ui->toolBar->addWidget(ui->restartButton);
     QFrame* line = new QFrame(this);
     line->setFrameShape(QFrame::StyledPanel);
     line->setFrameShadow(QFrame::Sunken);
@@ -246,6 +275,8 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->playButton, &QPushButton::clicked, this, &MainWindow::StartGame);
+    connect(ui->stopButton, &QPushButton::clicked, this, &MainWindow::StopGame);
+    connect(ui->restartButton, &QPushButton::clicked, this, &MainWindow::RestartGame);
     connect(m_game_grid_frame.get(), &QTableWidget::cellDoubleClicked, this,
             &MainWindow::StartGame);
     connect(m_game_list_frame.get(), &QTableWidget::cellDoubleClicked, this,
@@ -267,6 +298,11 @@ void MainWindow::CreateConnects() {
                 &MainWindow::OnLanguageChanged);
 
         settingsDialog->exec();
+    });
+
+    connect(ui->keyboardButton, &QPushButton::clicked, this, [this]() {
+        EditorDialog* editorWindow = new EditorDialog(this);
+        editorWindow->exec(); // Show the editor window modally
     });
 
 #ifdef ENABLE_UPDATER
@@ -367,7 +403,7 @@ void MainWindow::CreateConnects() {
         ui->sizeSlider->setEnabled(true);
         ui->sizeSlider->setSliderPosition(slider_pos_grid);
     });
-    // Elf Viewer
+    // Elf
     connect(ui->setlistElfAct, &QAction::triggered, m_dock_widget.data(), [this]() {
         BackgroundMusicPlayer::getInstance().stopMusic();
         m_dock_widget->setWidget(m_elf_viewer.data());
@@ -580,19 +616,65 @@ void MainWindow::StartGame() {
     }
 }
 
+void MainWindow::StopGame() {
+    SDL_Event quitEvent;
+    quitEvent.type = SDL_EVENT_QUIT;
+    SDL_PushEvent(&quitEvent);
+}
+
+void MainWindow::RestartGame() {
+    if (isGameRunning) {
+        qDebug() << "Preparing to restart the application...";
+
+        // Capture the current application path and arguments
+        QString program = QCoreApplication::applicationFilePath();
+        QStringList arguments = QCoreApplication::arguments();
+
+        // Add the "--resume-child" flag to indicate the new instance should resume from the child
+        arguments << "--resume-child";
+
+        // Start a child process to hold the game state
+        QProcess* childProcess = new QProcess(this);
+        QStringList childArguments;
+        childArguments << "--child-process";
+
+        qDebug() << "Starting child process to carry the game state...";
+        if (!childProcess->startDetached(program, childArguments)) {
+            qDebug() << "Failed to start the child process.";
+            return;
+        }
+        qDebug() << "Child process started successfully.";
+
+        // Stop the current game
+        StopGame();
+        qDebug() << "Stopping the game...";
+
+        // Relaunch the main application
+        qDebug() << "Restarting the application...";
+        if (QProcess::startDetached(program, arguments)) {
+            qDebug() << "Application restarted successfully. Exiting current instance...";
+
+        } else {
+            qDebug() << "Failed to restart the application.";
+        }
+    } else {
+        qDebug() << "No game is currently running to restart.";
+    }
+}
+
 void MainWindow::OpenRemap() {
-    Input::CheckRemapFile();
+    checkremapinifile();
 
 #ifdef _WIN32
-    system("notepad.exe Controller.toml");
+    system("notepad.exe remap.ini");
 #endif
 
 #ifdef __APPLE__
-    std::system("open Controller.toml");
+    std::system("open remap.ini");
 #endif
 
 #ifdef __linux__
-    std::system("xdg-open Controller.toml");
+    std::system("xdg-open remap.ini");
 #endif
 }
 
@@ -643,12 +725,10 @@ void MainWindow::ConfigureGuiFromSettings() {
                 Config::getMainWindowGeometryW(), Config::getMainWindowGeometryH());
 
     ui->showGameListAct->setChecked(true);
-    if (Config::getTableMode() == 0) {
+    if (isTableList) {
         ui->setlistModeListAct->setChecked(true);
-    } else if (Config::getTableMode() == 1) {
+    } else {
         ui->setlistModeGridAct->setChecked(true);
-    } else if (Config::getTableMode() == 2) {
-        ui->setlistElfAct->setChecked(true);
     }
     BackgroundMusicPlayer::getInstance().setVolume(Config::getBGMvolume());
 }
@@ -980,13 +1060,13 @@ void MainWindow::SetUiIcons(bool isWhite) {
     ui->gameInstallPathAct->setIcon(RecolorIcon(ui->gameInstallPathAct->icon(), isWhite));
     ui->menuThemes->setIcon(RecolorIcon(ui->menuThemes->icon(), isWhite));
     ui->menuGame_List_Icons->setIcon(RecolorIcon(ui->menuGame_List_Icons->icon(), isWhite));
-    ui->menuUtils->setIcon(RecolorIcon(ui->menuUtils->icon(), isWhite));
     ui->playButton->setIcon(RecolorIcon(ui->playButton->icon(), isWhite));
     ui->pauseButton->setIcon(RecolorIcon(ui->pauseButton->icon(), isWhite));
     ui->stopButton->setIcon(RecolorIcon(ui->stopButton->icon(), isWhite));
     ui->refreshButton->setIcon(RecolorIcon(ui->refreshButton->icon(), isWhite));
     ui->settingsButton->setIcon(RecolorIcon(ui->settingsButton->icon(), isWhite));
     ui->controllerButton->setIcon(RecolorIcon(ui->controllerButton->icon(), isWhite));
+    ui->keyboardButton->setIcon(RecolorIcon(ui->keyboardButton->icon(), isWhite));
     ui->refreshGameListAct->setIcon(RecolorIcon(ui->refreshGameListAct->icon(), isWhite));
     ui->menuGame_List_Mode->setIcon(RecolorIcon(ui->menuGame_List_Mode->icon(), isWhite));
     ui->pkgViewerAct->setIcon(RecolorIcon(ui->pkgViewerAct->icon(), isWhite));
@@ -1097,4 +1177,118 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
         }
     }
     return QMainWindow::eventFilter(obj, event);
+}
+
+void MainWindow::checkremapinifile() {
+    const std::string default_config =
+        R"(; Edit only after equal signs ***other edits to the file may cause crashes***
+; See syntax at the bottom of the file
+; Close ini file before returning to game to avoid stability issues
+[Sample binding]
+remap=desired_PS4_button_output
+
+[A button]
+remap=cross
+
+[Y button]
+remap=triangle
+
+[X button]
+remap=square
+
+[B button]
+remap=circle
+
+[Left bumper]
+remap=L1
+
+[Right bumper]
+remap=R1
+
+[Left trigger]
+remap=L2
+
+[Right trigger]
+remap=R2
+
+[dpad up]
+remap=dpad_up
+
+[dpad down]
+remap=dpad_down
+
+[dpad left]
+remap=dpad_left
+
+[dpad right]
+remap=dpad_right
+
+[Left stick button]
+remap=L3
+
+[Right stick button]
+remap=R3
+
+[Start]
+remap=options
+
+[Left analog stick behavior]
+Analog stick or buttons=analog_stick
+Swap sticks=No
+Invert movement vertical=No
+Invert movement horizontal=No
+
+[If Left analog stick mapped to buttons]
+Left stick up remap=dpad_up
+Left stick down remap=dpad_down
+Left stick left remap=dpad_left
+Left stick right remap=dpad_right
+
+[Right analog stick behavior]
+Analog stick or buttons=analog_stick
+Swap sticks=No
+Invert movement vertical=No
+Invert movement horizontal=No
+
+[If Right analog stick mapped to buttons]
+Right stick up remap=triangle
+Right stick down remap=cross
+Right stick left remap=square
+Right stick right remap=circle
+
+[Syntax and defaults, do not edit]
+A button=cross
+Y button=triangle
+X button=square
+B button=circle
+Left bumper=L1
+Right bumper=R1
+Left trigger=L2
+Right trigger=R2
+dpad up=dpad_up
+dpad down=dpad_down
+dpad left=dpad_left
+dpad right=dpad_right
+Left stick button=L3
+Right stick button=R3
+Left stick up=lstickup
+Left stick down=lstickdown
+Left stick left=lstickleft
+Left stick right=lstickright
+Right stick up=rstickup
+Right stick down=rstickdown
+Right stick left=rstickleft
+Right stick right=rstickright
+Start=options
+
+[Syntax for stick settings, do not edit]
+Swap sticks (default)=No
+Swap sticks (swap)=Yes
+Invert movement (default)=No
+Invert movement (invert)=Yes)";
+    if (!std::filesystem::exists("remap.ini")) {
+        std::ofstream remapfile("remap.ini");
+        remapfile << default_config;
+        remapfile.close();
+    }
 }

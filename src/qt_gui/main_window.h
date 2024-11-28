@@ -37,7 +37,8 @@ public:
     void InstallDragDropPkg(std::filesystem::path file, int pkgNum, int nPkg);
     void InstallDirectory();
     void StartGame();
-    void OpenRemap();
+    void StopGame();
+    void RestartGame();
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
@@ -45,6 +46,8 @@ private Q_SLOTS:
     void SearchGameTable(const QString& text);
     void ShowGameList();
     void RefreshGameTable();
+    void OpenRemap();
+    void checkremapinifile();
     void HandleResize(QResizeEvent* event);
     void OnLanguageChanged(const std::string& locale);
 
