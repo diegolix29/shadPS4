@@ -354,11 +354,11 @@ void SettingsDialog::LoadValuesFromConfig() {
 #ifdef ENABLE_UPDATER
     ui->updateCheckBox->setChecked(Config::autoUpdate());
     std::string updateChannel = Config::getUpdateChannel();
-    if (updateChannel != "Full-BB" && updateChannel != "MainBB") {
+    if (updateChannel != "Release" && updateChannel != "Nightly") {
         if (Common::isRelease) {
-            updateChannel = "Full-BB";
+            updateChannel = "Release";
         } else {
-            updateChannel = "MainBB";
+            updateChannel = "Nightly";
         }
     }
     ui->updateComboBox->setCurrentText(QString::fromStdString(updateChannel));
