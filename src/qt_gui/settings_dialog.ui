@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
-     SPDX-License-Identifier: GPL-2.0-or-later -->
 <ui version="4.0">
  <class>SettingsDialog</class>
  <widget class="QDialog" name="SettingsDialog">
@@ -60,8 +58,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>832</width>
-        <height>431</height>
+        <width>822</width>
+        <height>547</height>
        </rect>
       </property>
       <property name="sizePolicy">
@@ -296,7 +294,7 @@
             <property name="bottomMargin">
              <number>0</number>
             </property>
-            <item alignment="Qt::AlignmentFlag::AlignTop">
+            <item alignment="Qt::AlignmentFlag::Qt::AlignmentFlag::AlignTop">
              <widget class="QGroupBox" name="updaterGroupBox">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
@@ -381,12 +379,12 @@
                     </property>
                     <item>
                      <property name="text">
-                      <string>Release</string>
+                      <string>Full-BB</string>
                      </property>
                     </item>
                     <item>
                      <property name="text">
-                      <string>Nightly</string>
+                      <string>MainBB</string>
                      </property>
                     </item>
                    </widget>
@@ -445,7 +443,7 @@
           </item>
           <item>
            <layout class="QVBoxLayout" name="GUITabLayoutMiddle" stretch="0">
-            <item alignment="Qt::AlignmentFlag::AlignTop">
+            <item alignment="Qt::AlignmentFlag::Qt::AlignmentFlag::AlignTop">
              <widget class="QGroupBox" name="GUIgroupBox">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -612,7 +610,7 @@
             <property name="bottomMargin">
              <number>0</number>
             </property>
-            <item alignment="Qt::AlignmentFlag::AlignTop">
+            <item alignment="Qt::AlignmentFlag::Qt::AlignmentFlag::AlignTop">
              <widget class="QGroupBox" name="cursorGroupBox">
               <property name="title">
                <string>Cursor</string>
@@ -696,7 +694,7 @@
                   <property name="bottomMargin">
                    <number>5</number>
                   </property>
-                  <item alignment="Qt::AlignmentFlag::AlignHCenter">
+                  <item alignment="">
                    <widget class="QSpinBox" name="idleTimeoutSpinBox">
                     <property name="enabled">
                      <bool>true</bool>
@@ -1202,7 +1200,7 @@
              <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
             </property>
             <layout class="QVBoxLayout" name="debugTabLayout">
-             <item alignment="Qt::AlignmentFlag::AlignTop">
+             <item alignment="Qt::AlignmentFlag::Qt::AlignmentFlag::AlignTop">
               <widget class="QCheckBox" name="debugDump">
                <property name="text">
                 <string>Enable Debug Dumping</string>
