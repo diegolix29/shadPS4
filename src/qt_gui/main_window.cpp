@@ -39,12 +39,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     setAttribute(Qt::WA_DeleteOnClose);
 }
 
-QString MainWindow::getLastEbootPath() {
-    // Example implementation: return the path from a saved state or a configuration file
-    // Replace with your actual logic for retrieving the path
-    return "path/to/last/eboot";
-}
-
 MainWindow::~MainWindow() {
     SaveWindowState();
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
@@ -593,46 +587,32 @@ void MainWindow::StartGame() {
     BackgroundMusicPlayer::getInstance().stopMusic();
     QString gamePath = "";
     int table_mode = Config::getTableMode();
-
-    // Determine the game path based on the current UI table mode
-    if (table_mode == 0) { // List view mode
+    if (table_mode == 0) {
         if (m_game_list_frame->currentItem()) {
             int itemID = m_game_list_frame->currentItem()->row();
             Common::FS::PathToQString(gamePath, m_game_info->m_games[itemID].path / "eboot.bin");
         }
-    } else if (table_mode == 1) { // Grid view mode
+    } else if (table_mode == 1) {
         if (m_game_grid_frame->cellClicked) {
             int itemID = (m_game_grid_frame->crtRow * m_game_grid_frame->columnCnt) +
                          m_game_grid_frame->crtColumn;
             Common::FS::PathToQString(gamePath, m_game_info->m_games[itemID].path / "eboot.bin");
         }
-    } else { // ELF viewer mode
+    } else {
         if (m_elf_viewer->currentItem()) {
             int itemID = m_elf_viewer->currentItem()->row();
             gamePath = m_elf_viewer->m_elf_list[itemID];
         }
     }
-
-    // Validate the game path and start the game
     if (gamePath != "") {
         AddRecentFiles(gamePath);
-
-        // Update currentGameFilePath with the validated game path
-        currentGameFilePath = gamePath;
-        qDebug() << "Starting game: " << getLastEbootPath(); // Replace with the actual method to retrieve this path
-;
-
         Core::Emulator emulator;
         const auto path = Common::FS::PathFromQString(gamePath);
-
         if (!std::filesystem::exists(path)) {
             QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Eboot.bin file not found")));
             return;
         }
-
         emulator.Run(path);
-    } else {
-        qDebug() << "No game selected or invalid game path.";
     }
 }
 
@@ -669,13 +649,6 @@ void MainWindow::RestartGame() {
         // Capture the current application path and arguments
         QString program = QCoreApplication::applicationFilePath();
         QStringList arguments = QCoreApplication::arguments();
-
-        // Assuming 'lastEbootPath' holds the path of the last eboot loaded
-        QString lastEbootPath =
-            getLastEbootPath(); // Replace with the actual method to retrieve this path
-        if (!lastEbootPath.isEmpty()) {
-            arguments << lastEbootPath; // Add the path as an argument to restart the application
-        }
 
         // Restart the application
         qDebug() << "Restarting the application with eboot path...";

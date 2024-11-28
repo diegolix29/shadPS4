@@ -99,8 +99,6 @@ private:
 
     QTranslator* translator;
 
-    QString MainWindow::getLastEbootPath();
-
     // Private member variable to store the currently loaded game path
     QString currentGameFilePath;
 
