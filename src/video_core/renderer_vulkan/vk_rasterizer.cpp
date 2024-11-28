@@ -244,7 +244,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
     }
 
     auto state = PrepareRenderState(pipeline->GetMrtMask());
-    
+
     if (!BindResources(pipeline)) {
         return;
     }
