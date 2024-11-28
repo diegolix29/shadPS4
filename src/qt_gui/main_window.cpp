@@ -39,6 +39,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     setAttribute(Qt::WA_DeleteOnClose);
 }
 
+QString MainWindow::getLastEbootPath() {
+    // Example implementation: return the path from a saved state or a configuration file
+    // Replace with your actual logic for retrieving the path
+    return "path/to/last/eboot";
+}
+
 MainWindow::~MainWindow() {
     SaveWindowState();
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
@@ -587,73 +593,95 @@ void MainWindow::StartGame() {
     BackgroundMusicPlayer::getInstance().stopMusic();
     QString gamePath = "";
     int table_mode = Config::getTableMode();
-    if (table_mode == 0) {
+
+    // Determine the game path based on the current UI table mode
+    if (table_mode == 0) { // List view mode
         if (m_game_list_frame->currentItem()) {
             int itemID = m_game_list_frame->currentItem()->row();
             Common::FS::PathToQString(gamePath, m_game_info->m_games[itemID].path / "eboot.bin");
         }
-    } else if (table_mode == 1) {
+    } else if (table_mode == 1) { // Grid view mode
         if (m_game_grid_frame->cellClicked) {
             int itemID = (m_game_grid_frame->crtRow * m_game_grid_frame->columnCnt) +
                          m_game_grid_frame->crtColumn;
             Common::FS::PathToQString(gamePath, m_game_info->m_games[itemID].path / "eboot.bin");
         }
-    } else {
+    } else { // ELF viewer mode
         if (m_elf_viewer->currentItem()) {
             int itemID = m_elf_viewer->currentItem()->row();
             gamePath = m_elf_viewer->m_elf_list[itemID];
         }
     }
+
+    // Validate the game path and start the game
     if (gamePath != "") {
         AddRecentFiles(gamePath);
+
+        // Update currentGameFilePath with the validated game path
+        currentGameFilePath = gamePath;
+        qDebug() << "Starting game: " << getLastEbootPath(); // Replace with the actual method to retrieve this path
+;
+
         Core::Emulator emulator;
         const auto path = Common::FS::PathFromQString(gamePath);
+
         if (!std::filesystem::exists(path)) {
             QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Eboot.bin file not found")));
             return;
         }
+
         emulator.Run(path);
+    } else {
+        qDebug() << "No game selected or invalid game path.";
     }
 }
 
 void MainWindow::StopGame() {
-    SDL_Event quitEvent;
-    quitEvent.type = SDL_EVENT_QUIT;
-    SDL_PushEvent(&quitEvent);
+    if (isGameRunning) {
+        qDebug() << "Stopping the current game...";
+
+        // Send SDL quit event to stop the emulator's main loop
+        SDL_Event quitEvent;
+        quitEvent.type = SDL_EVENT_QUIT;
+        SDL_PushEvent(&quitEvent);
+
+        // Optional: Handle other game-related cleanup tasks here
+        // For example, resetting UI, releasing memory, or clearing temporary states
+
+        // Update the game running state
+        isGameRunning = false;
+
+        // Log the successful stop operation
+        qDebug() << "Game stopped successfully.";
+    } else {
+        qDebug() << "No game is running to stop.";
+    }
 }
 
 void MainWindow::RestartGame() {
     if (isGameRunning) {
         qDebug() << "Preparing to restart the application...";
 
+        // Call StopGame() to handle any necessary cleanup before restarting
+        StopGame();
+        qDebug() << "Game stopped successfully.";
+
         // Capture the current application path and arguments
         QString program = QCoreApplication::applicationFilePath();
         QStringList arguments = QCoreApplication::arguments();
 
-        // Add the "--resume-child" flag to indicate the new instance should resume from the child
-        arguments << "--resume-child";
-
-        // Start a child process to hold the game state
-        QProcess* childProcess = new QProcess(this);
-        QStringList childArguments;
-        childArguments << "--child-process";
-
-        qDebug() << "Starting child process to carry the game state...";
-        if (!childProcess->startDetached(program, childArguments)) {
-            qDebug() << "Failed to start the child process.";
-            return;
+        // Assuming 'lastEbootPath' holds the path of the last eboot loaded
+        QString lastEbootPath =
+            getLastEbootPath(); // Replace with the actual method to retrieve this path
+        if (!lastEbootPath.isEmpty()) {
+            arguments << lastEbootPath; // Add the path as an argument to restart the application
         }
-        qDebug() << "Child process started successfully.";
 
-        // Stop the current game
-        StopGame();
-        qDebug() << "Stopping the game...";
-
-        // Relaunch the main application
-        qDebug() << "Restarting the application...";
+        // Restart the application
+        qDebug() << "Restarting the application with eboot path...";
         if (QProcess::startDetached(program, arguments)) {
             qDebug() << "Application restarted successfully. Exiting current instance...";
-
+            QCoreApplication::quit();
         } else {
             qDebug() << "Failed to restart the application.";
         }
