@@ -58,7 +58,17 @@ ExpandableSection::ExpandableSection(const QString& title, const QString& conten
     layout->setContentsMargins(0, 0, 0, 0);
 }
 
-HelpDialog::HelpDialog(QWidget* parent) : QDialog(parent) {
+void HelpDialog::closeEvent(QCloseEvent* event) {
+    *help_open_ptr = false;
+    close();
+}
+void HelpDialog::reject() {
+    *help_open_ptr = false;
+    close();
+}
+
+HelpDialog::HelpDialog(bool* open_flag, QWidget* parent) : QDialog(parent) {
+    help_open_ptr = open_flag;
     // Main layout for the help dialog
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
@@ -82,6 +92,7 @@ HelpDialog::HelpDialog(QWidget* parent) : QDialog(parent) {
 
     // Scroll area wrapping the container
     QScrollArea* scrollArea = new QScrollArea;
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     scrollArea->setWidgetResizable(true);
     scrollArea->setWidget(containerWidget);
 

@@ -153,7 +153,7 @@ void MainWindow::AddUiWidgets() {
     ui->toolBar->addWidget(ui->refreshButton);
     ui->toolBar->addWidget(ui->settingsButton);
     ui->toolBar->addWidget(ui->controllerButton);
-    ui->toolBar->addWidget(ui->keyboardButton);
+    //ui->toolBar->addWidget(ui->keyboardButton);
     ui->toolBar->addWidget(ui->restartButton);
     QFrame* line = new QFrame(this);
     line->setFrameShape(QFrame::StyledPanel);
@@ -256,7 +256,7 @@ void MainWindow::CreateConnects() {
     connect(ui->refreshGameListAct, &QAction::triggered, this, &MainWindow::RefreshGameTable);
     connect(ui->refreshButton, &QPushButton::clicked, this, &MainWindow::RefreshGameTable);
     connect(ui->showGameListAct, &QAction::triggered, this, &MainWindow::ShowGameList);
-    connect(ui->controllerButton, &QPushButton::clicked, this, &MainWindow::OpenRemap);
+    //connect(ui->controllerButton, &QPushButton::clicked, this, &MainWindow::OpenRemap);
     connect(this, &MainWindow::ExtractionFinished, this, &MainWindow::RefreshGameTable);
 
     connect(ui->sizeSlider, &QSlider::valueChanged, this, [this](int value) {
@@ -300,7 +300,7 @@ void MainWindow::CreateConnects() {
         settingsDialog->exec();
     });
 
-    connect(ui->keyboardButton, &QPushButton::clicked, this, [this]() {
+    connect(ui->controllerButton, &QPushButton::clicked, this, [this]() {
         EditorDialog* editorWindow = new EditorDialog(this);
         editorWindow->exec(); // Show the editor window modally
     });
@@ -662,7 +662,7 @@ void MainWindow::RestartGame() {
         qDebug() << "No game is currently running to restart.";
     }
 }
-
+/*
 void MainWindow::OpenRemap() {
     checkremapinifile();
 
@@ -677,7 +677,7 @@ void MainWindow::OpenRemap() {
 #ifdef __linux__
     std::system("xdg-open remap.ini");
 #endif
-}
+}*/
 
 void MainWindow::SearchGameTable(const QString& text) {
     if (isTableList) {
@@ -1067,7 +1067,7 @@ void MainWindow::SetUiIcons(bool isWhite) {
     ui->refreshButton->setIcon(RecolorIcon(ui->refreshButton->icon(), isWhite));
     ui->settingsButton->setIcon(RecolorIcon(ui->settingsButton->icon(), isWhite));
     ui->controllerButton->setIcon(RecolorIcon(ui->controllerButton->icon(), isWhite));
-    ui->keyboardButton->setIcon(RecolorIcon(ui->keyboardButton->icon(), isWhite));
+    //ui->keyboardButton->setIcon(RecolorIcon(ui->keyboardButton->icon(), isWhite));
     ui->refreshGameListAct->setIcon(RecolorIcon(ui->refreshGameListAct->icon(), isWhite));
     ui->menuGame_List_Mode->setIcon(RecolorIcon(ui->menuGame_List_Mode->icon(), isWhite));
     ui->pkgViewerAct->setIcon(RecolorIcon(ui->pkgViewerAct->icon(), isWhite));
@@ -1179,7 +1179,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
     }
     return QMainWindow::eventFilter(obj, event);
 }
-
+/*
 void MainWindow::checkremapinifile() {
     const std::string default_config =
         R"(; Edit only after equal signs ***other edits to the file may cause crashes***
@@ -1293,3 +1293,4 @@ Invert movement (invert)=Yes)";
         remapfile.close();
     }
 }
+*/
