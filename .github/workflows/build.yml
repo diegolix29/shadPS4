@@ -22,13 +22,13 @@ jobs:
     continue-on-error: true
     steps:
     - uses: actions/checkout@v4
-    - uses: fsfe/reuse-action@v4
+    - uses: fsfe/reuse-action@v5
 
   clang-format:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Install
