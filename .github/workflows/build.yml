@@ -22,7 +22,7 @@ jobs:
     continue-on-error: true
     steps:
     - uses: actions/checkout@v4
-    - uses: fsfe/reuse-action@v5
+    - uses: fsfe/reuse-action@v4
 
   clang-format:
     runs-on: ubuntu-latest
@@ -34,9 +34,9 @@ jobs:
     - name: Install
       run: |
         wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-        sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main'
+        sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
         sudo apt update
-        sudo apt install clang-format-18
+        sudo apt install clang-format-17
     - name: Build
       env:
         COMMIT_RANGE: ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
@@ -101,7 +101,7 @@ jobs:
     - name: Upload Windows SDL artifact
       uses: actions/upload-artifact@v4
       with:
-        name: shadps4-win64-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-win64-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: ${{github.workspace}}/build/shadPS4.exe
 
   windows-qt:
@@ -157,12 +157,12 @@ jobs:
         mkdir upload
         move build/shadPS4.exe upload
         windeployqt --no-compiler-runtime --no-system-d3d-compiler --no-system-dxc-compiler --dir upload upload/shadPS4.exe
-        Compress-Archive -Path upload/* -DestinationPath shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}.zip
+        Compress-Archive -Path upload/* -DestinationPath shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}.zip
 
     - name: Upload Windows Qt artifact
       uses: actions/upload-artifact@v4
       with:
-        name: shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: upload/
 
   macos-sdl:
@@ -218,7 +218,7 @@ jobs:
         tar cf shadps4-macos-sdl.tar.gz -C upload .
     - uses: actions/upload-artifact@v4
       with:
-        name: shadps4-macos-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-macos-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: shadps4-macos-sdl.tar.gz
 
   macos-qt:
@@ -282,7 +282,7 @@ jobs:
         tar cf shadps4-macos-qt.tar.gz -C upload .
     - uses: actions/upload-artifact@v4
       with:
-        name: shadps4-macos-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-macos-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: shadps4-macos-qt.tar.gz
 
   linux-sdl:
@@ -327,7 +327,7 @@ jobs:
     
     - uses: actions/upload-artifact@v4
       with:
-        name: shadps4-ubuntu64-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-ubuntu64-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: ${{ github.workspace }}/build/shadps4
 
     - name: Run AppImage packaging script
@@ -338,7 +338,7 @@ jobs:
         tar cf shadps4-linux-sdl.tar.gz -C ${{github.workspace}}/build shadps4
     - uses: actions/upload-artifact@v4
       with:
-        name: shadps4-linux-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-linux-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: Shadps4-sdl.AppImage
 
   linux-qt:
@@ -385,12 +385,12 @@ jobs:
         tar cf shadps4-linux-qt.tar.gz -C ${{github.workspace}}/build shadps4
     - uses: actions/upload-artifact@v4
       with:
-        name: shadps4-linux-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+        name: shadps4-linux-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}
         path: Shadps4-qt.AppImage
-         
+
   release:
-    if: github.ref == 'refs/heads/Full-BB' && github.repository == 'shadps4-emu/shadPS4' && github.event_name == 'push'
-    needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt,]
+    if: github.ref == 'refs/heads/Full-BB' && github.event_name == 'push'
+    needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt]
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts
@@ -409,8 +409,8 @@ jobs:
           fi
         done
   
-    - name: Get release information
-      id: get_release
+    - name: Get latest release information
+      id: get_latest_release
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
@@ -421,15 +421,66 @@ jobs:
     - name: Create release on GitHub
       id: create_release
       uses: ncipollo/release-action@v1
+      with:
+        token: ${{ secrets.SHADPS4_TOKEN_REPO }}
+        name: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
+        tag: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
+        draft: false
+        prerelease: false
+        body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
+        artifacts: ./artifacts/*.zip
+
+    - name: Publish to Release Repository
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
-      with:
-        name: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
-        tag: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
-        draft: false
-        release: true
-        body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }})"
-        artifacts: ./artifacts/*.zip
+      run: |
+        ARTIFACTS_DIR=./artifacts
+        REPO_WINDOWS="diegolix29/shadps4-binaries-Windows"
+        REPO_LINUX="diegolix29/shadps4-binaries-Linux"
+        REPO_MAC="diegolix29/shadps4-binaries-Mac"
+
+        for file in "$ARTIFACTS_DIR"/*.zip; do
+          filename=$(basename "$file")
+          REPO=""
+
+          # Determine repository based on file name
+          if [[ "$filename" == *"win64"* ]]; then
+            REPO=$REPO_WINDOWS
+          elif [[ "$filename" == *"linux"* ]] || [[ "$filename" == *"ubuntu64"* ]]; then
+            REPO=$REPO_LINUX
+          elif [[ "$filename" == *"macos"* ]]; then
+            REPO=$REPO_MAC
+          fi
+
+          # If REPO is empty, skip file
+          if [[ -z "$REPO" ]]; then
+            echo "No matching repository for $filename"
+            continue
+          fi
+
+          # Check if release already exists and get ID
+          release_id=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$REPO/releases/tags/Release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}" | jq -r '.id')
+          if [[ "$release_id" == "null" ]]; then
+            echo "Creating release in $REPO for $filename"
+            release_id=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d '{
+                "tag_name": "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}",
+                "name": "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}",
+                "draft": false,
+                "prerelease": false,
+                "body": "Commit: [${{ needs.get-info.outputs.fullhash }}](https://github.com/diegolix29/shadPS4/commit/${{ needs.get-info.outputs.fullhash }})"
+              }' "https://api.github.com/repos/$REPO/releases" | jq -r '.id')
+          else
+            echo "Release already exists in $REPO with ID $release_id"
+          fi
+
+          # Artifact upload
+          echo "Uploading $filename to release $release_id in $REPO"
+          upload_url="https://uploads.github.com/repos/$REPO/releases/$release_id/assets?name=$filename"
+          curl -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$file" "$upload_url"
+        done
          
     - name: Get current release information
       env:
@@ -441,7 +492,7 @@ jobs:
         releases=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url")
         
         # Capture the most recent release (assuming the first one is the latest)
-        current_release=$(echo "$releases" | jq -c '.[] | select(.release == true) | .published_at' | sort -r | head -n 1)
+        current_release=$(echo "$releases" | jq -c '.[] | select(.prerelease == false) | .published_at' | sort -r | head -n 1)
         
         # Remove extra quotes from captured date
         current_release=$(echo $current_release | tr -d '"')
@@ -465,7 +516,7 @@ jobs:
         current_published_ts=$(date -d "$CURRENT_PUBLISHED_AT" +%s)
         
         # Identify releases
-        echo "$releases" | jq -c '.[] | select(.release == true)' | while read -r release; do
+        echo "$releases" | jq -c '.[] | select(.prerelease == false)' | while read -r release; do
           release_date=$(echo "$release" | jq -r '.published_at')
           release_id=$(echo "$release" | jq -r '.id')
           release_tag=$(echo "$release" | jq -r '.tag_name')
