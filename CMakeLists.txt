@@ -280,6 +280,7 @@ set(SYSTEM_LIBS src/core/libraries/system/commondialog.cpp
                 src/core/libraries/save_data/dialog/savedatadialog_ui.h
                 src/core/libraries/system/sysmodule.cpp
                 src/core/libraries/system/sysmodule.h
+                src/core/libraries/system/system_error.h
                 src/core/libraries/system/systemservice.cpp
                 src/core/libraries/system/systemservice.h
                 src/core/libraries/system/userservice.cpp
@@ -321,6 +322,8 @@ set(SYSTEM_LIBS src/core/libraries/system/commondialog.cpp
                 src/core/libraries/remote_play/remoteplay.h
                 src/core/libraries/share_play/shareplay.cpp
                 src/core/libraries/share_play/shareplay.h
+                src/core/libraries/razor_cpu/razor_cpu.cpp
+                src/core/libraries/razor_cpu/razor_cpu.h
 )
 
 set(VIDEOOUT_LIB src/core/libraries/videoout/buffer.h
