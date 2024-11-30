@@ -83,7 +83,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
         }
 
         QString downloadUrl;
-        QString latestVersion;
+        QString lastestCommit;
         QString latestRev;
         QString latestDate;
         QString platformString;
@@ -106,7 +106,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
                 }
             }
             if (!jsonObj.isEmpty()) {
-                latestVersion = jsonObj["tag_name"].toString();
+                lastestCommit = jsonObj["tag_name"].toString();
             } else {
                 QMessageBox::warning(this, tr("Error"), tr("No pre-releases found."));
                 reply->deleteLater();
@@ -115,7 +115,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
         } else {
             jsonObj = jsonDoc.object();
             if (jsonObj.contains("tag_name")) {
-                latestVersion = jsonObj["tag_name"].toString();
+                lastestCommit = jsonObj["tag_name"].toString();
             } else {
                 QMessageBox::warning(this, tr("Error"), tr("Invalid release data."));
                 reply->deleteLater();
@@ -123,7 +123,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             }
         }
 
-        latestRev = latestVersion.right(7);
+        latestRev = lastestCommit.right(7);
         latestDate = jsonObj["published_at"].toString();
 
         QJsonArray assets = jsonObj["assets"].toArray();
@@ -188,7 +188,7 @@ void CheckUpdate::setupUI(const QString& downloadUrl, const QString& latestDate,
 
     QString updateText =
         QString("<p><b><br>" + tr("Update Channel") + ": </b>" + updateChannel + "<br><b>" +
-                tr("Current Version") + ":</b> %1 (%2)<br><b>" + tr("Latest Version") +
+                tr("Current Commit") + ":</b> %1 (%2)<br><b>" + tr("Latest Commit") +
                 ":</b> %3 (%4)</p><p>" + tr("Do you want to update?") + "</p>")
             .arg(currentRev, currentDate, latestRev, latestDate);
     QLabel* updateLabel = new QLabel(updateText, this);
