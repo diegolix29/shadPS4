@@ -72,11 +72,10 @@ public:
 
 private:
     void OnResize();
-    void parseconfig();
     void OnKeyboardMouseInput(const SDL_Event* event);
+    void OnGamepadEvent(const SDL_Event* event);
     std::string sdlButtonToAnalog(u8 button);
     void checkremapinifile();
-    void OnGamepadEvent(const SDL_Event* event);
 
 private:
     s32 width;

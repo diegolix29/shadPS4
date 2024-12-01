@@ -47,7 +47,6 @@ static std::string backButtonBehavior = "left";
 static bool useSpecialPad = false;
 static int specialPadClass = 1;
 static bool isDebugDump = false;
-static bool isShaderDebug = false;
 static bool isShowSplash = false;
 static bool isAutoUpdate = false;
 static bool isNullGpu = false;
@@ -161,7 +160,7 @@ bool debugDump() {
 }
 
 bool collectShadersForDebug() {
-    return isShaderDebug;
+    return false;
 }
 
 bool showSplash() {
@@ -238,10 +237,6 @@ void setScreenHeight(u32 height) {
 
 void setDebugDump(bool enable) {
     isDebugDump = enable;
-}
-
-void setCollectShaderForDebug(bool enable) {
-    isShaderDebug = enable;
 }
 
 void setShowSplash(bool enable) {
@@ -580,7 +575,6 @@ void load(const std::filesystem::path& path) {
         const toml::value& debug = data.at("Debug");
 
         isDebugDump = toml::find_or<bool>(debug, "DebugDump", false);
-        isShaderDebug = toml::find_or<bool>(debug, "CollectShader", false);
     }
 
     if (data.contains("GUI")) {
@@ -672,7 +666,6 @@ void save(const std::filesystem::path& path) {
     data["Vulkan"]["rdocMarkersEnable"] = vkMarkers;
     data["Vulkan"]["crashDiagnostic"] = vkCrashDiagnostic;
     data["Debug"]["DebugDump"] = isDebugDump;
-    data["Debug"]["CollectShader"] = isShaderDebug;
     data["GUI"]["theme"] = mw_themes;
     data["GUI"]["iconSize"] = m_icon_size;
     data["GUI"]["sliderPos"] = m_slider_pos;
@@ -728,7 +721,6 @@ void setDefaultValues() {
     useSpecialPad = false;
     specialPadClass = 1;
     isDebugDump = false;
-    isShaderDebug = false;
     isShowSplash = false;
     isAutoUpdate = false;
     isNullGpu = false;
@@ -746,86 +738,87 @@ void setDefaultValues() {
 }
 
 constexpr std::string_view GetDefaultKeyboardConfig() {
-    return R"(#This is the default keybinding config
-#To change per-game configs, modify the CUSAXXXXX.ini files
-#To change the default config that applies to new games without modifying already existing configs, modify default.ini
-#If you don't like certain mappings, delete, change or comment them out.
-#You can add any amount of KBM keybinds to a single controller input,
-#but you can use each KBM keybind for one controller input.
-#Every input consists of up to 3 different keys.
-#Keybinds used by the emulator (these are unchangeable):
-#F12 : Trigger Renderdoc capture
-#F11 : Fullscreen
-#F10 : FPS counter
-#Ctrl + F10 : Debug overlay
-#F9  : Pause emulator, but only if the debug overlay is active
-#F8  : reparse keyboard input(this)
-#F7  : toggle mouse-to-joystick input 
-#       (it overwrites everything else to that joystick, so this is required)
-#This is a mapping for Bloodborne, inspired by other Souls titles on PC.
-#Specifies which joystick the mouse movement controls.
-mouse_to_joystick = right;
-#Use healing item, change status in inventory
-triangle = f;
-#Dodge, back in inventory
-circle = space;
-#Interact, select item in inventory
-cross = e;
-#Use quick item, remove item in inventory
-square = r;
-#Emergency extra bullets
-up = w, lalt;
-up = mousewheelup;
-#Change quick item
-down = s, lalt;
-down = mousewheeldown;
-#Change weapon in left hand
-left = a, lalt;
-left = mousewheelleft;
-#Change weapon in right hand
-right = d, lalt;
-right = mousewheelright;
-#Change into 'inventory mode', so you don't have to hold the secondary key every time you go into menus
-key_toggle = i, lalt;
-#Menu
-options = escape;
-#Gestures
-touchpad = g;
-#Transform
-l1 = rightbutton, lshift;
-#Light attack
-r1 = leftbutton;
-#Shoot
-l2 = rightbutton;
-#Heavy attack
-r2 = leftbutton, lshift;
-#Does nothing
-l3 = x;
-#Center cam, lock on
-r3 = q;
-r3 = middlebutton;
-#Axis mappings
-#Move
-#Change to 'walk mode' by holding the following key:
-#(halves the distance the inputs push the virtual joystick to a given direction)
-leftjoystick_halfmode = lctrl;
-axis_left_x_minus = a;
-axis_left_x_plus = d;
-axis_left_y_minus = w;
-axis_left_y_plus = s;
+    return R"(#Feeling lost? Check out the Help section!
+
+#Keyboard bindings
+
+triangle = f
+circle = space
+cross = e
+square = r
+
+pad_up = w, lalt
+pad_up = mousewheelup
+pad_down = s, lalt
+pad_down = mousewheeldown
+pad_left = a, lalt
+pad_left = mousewheelleft
+pad_right = d, lalt
+pad_right = mousewheelright
+
+l1 = rightbutton, lshift
+r1 = leftbutton
+l2 = rightbutton
+r2 = leftbutton, lshift
+l3 = x
+r3 = q
+r3 = middlebutton
+
+options = escape
+touchpad = g
+
+key_toggle = i, lalt
+mouse_to_joystick = right
+mouse_movement_params = 0.5, 1, 0.125
+leftjoystick_halfmode = lctrl
+
+axis_left_x_minus = a
+axis_left_x_plus = d
+axis_left_y_minus = w
+axis_left_y_plus = s
+
+#Controller bindings
+
+triangle = triangle
+cross = cross
+square = square
+circle = circle
+
+l1 = l1
+l2 = l2
+l3 = l3
+r1 = r1
+r2 = r2
+r3 = r3
+
+pad_up = pad_up
+pad_down = pad_down
+pad_left = pad_left
+pad_right = pad_right
+
+options = options
+
+axis_left_x = axis_left_x
+axis_left_y = axis_left_y
+
+axis_right_x = axis_right_x
+axis_right_y = axis_right_y
 )";
 }
 std::filesystem::path GetFoolproofKbmConfigFile(const std::string& game_id) {
     // Read configuration file of the game, and if it doesn't exist, generate it from default
     // If that doesn't exist either, generate that from getDefaultConfig() and try again
     // If even the folder is missing, we start with that.
-    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "kbmConfig";
+
+    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "inputConfig";
     const auto config_file = config_dir / (game_id + ".ini");
     const auto default_config_file = config_dir / "default.ini";
+
     // Ensure the config directory exists
     if (!std::filesystem::exists(config_dir)) {
         std::filesystem::create_directories(config_dir);
     }
+
     // Check if the default config exists
     if (!std::filesystem::exists(default_config_file)) {
         // If the default config is also missing, create it from getDefaultConfig()
@@ -835,10 +828,12 @@ std::filesystem::path GetFoolproofKbmConfigFile(const std::string& game_id) {
             default_config_stream << default_config;
         }
     }
+
     // if empty, we only need to execute the function up until this point
     if (game_id.empty()) {
         return default_config_file;
     }
+
     // If game-specific config doesn't exist, create it from the default config
     if (!std::filesystem::exists(config_file)) {
         std::filesystem::copy(default_config_file, config_file);
