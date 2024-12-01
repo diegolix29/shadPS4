@@ -350,7 +350,7 @@ bool PipelineCache::RefreshGraphicsKey() {
             return false;
         }
 
-        if (ShouldSkipShader(bininfo->shader_hash, "graphics")) {
+        if (ShouldSkipShader(bininfo.shader_hash, "graphics")) {
             return false;
         }
 
