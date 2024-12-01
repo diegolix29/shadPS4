@@ -1,10 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <iostream>
-#include <map>
-#include <string>
-#include "INIReader.h"
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_init.h"
 #include "SDL3/SDL_properties.h"
@@ -26,54 +22,6 @@
 #endif
 
 namespace Frontend {
-
-/* placeholder for on-demand config parsing function
-case SDLK_F5:
-    if (event->type == SDL_EVENT_KEY_DOWN) {
-        void parseconfig();
-    }
-void parseconfig() {
-using Libraries::Pad::OrbisPadButtonDataOffset;
-inih::INIReader r{"./user/remap.ini"};
-const std::string Amapping = r.Get<std::string>("A button", "remap");
-const std::string Ymapping = r.Get<std::string>("Y button", "remap");
-const std::string Xmapping = r.Get<std::string>("X button", "remap");
-const std::string Bmapping = r.Get<std::string>("B button", "remap");
-const std::string LBmapping = r.Get<std::string>("Left_bumper", "remap");
-const std::string RBmapping = r.Get<std::string>("Right_bumper", "remap");
-const std::string dupmapping = r.Get<std::string>("dpad_up", "remap");
-const std::string ddownmapping = r.Get<std::string>("dpad_down", "remap");
-const std::string dleftmapping = r.Get<std::string>("dpad_left", "remap");
-const std::string drightmapping = r.Get<std::string>("dpad_right", "remap");
-const std::string rstickmapping = r.Get<std::string>("Right_stick_button", "remap");
-const std::string lstickmapping = r.Get<std::string>("Left_stick_button", "remap");
-const std::string startmapping = r.Get<std::string>("Start", "remap");
-const std::string LTmapping = r.Get<std::string>("Left_trigger", "remap");
-const std::string RTmapping = r.Get<std::string>("Right_trigger", "remap");
-std::map<std::string, u32> outputkey_map = {
-{"dpad_down", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_DOWN},
-{"dpad_up", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_UP},
-{"dpad_left", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_LEFT},
-{"dpad_right", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_RIGHT},
-{"cross", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CROSS},
-{"triangle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TRIANGLE},
-{"square", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_SQUARE},
-{"circle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CIRCLE},
-{"L1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L1},
-{"R1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R1},
-{"L3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L3},
-{"R3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R3},
-{"options", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_OPTIONS},
-{"touchpad", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TOUCH_PAD},
-{"L2", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L2},
-{"R2", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R2},
-};
-}
-*/
-/* todo: autogenerate config
- */
-/* todo: use controls button
- */
 
 using namespace Libraries::Pad;
 
@@ -135,7 +83,6 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameController* controller_
     // input handler init-s
     Input::ControllerOutput::SetControllerOutputController(controller);
     Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
-    checkremapinifile();
 }
 
 WindowSDL::~WindowSDL() = default;
@@ -277,170 +224,6 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
 
     if (inputs_changed) {
         Input::ActivateOutputsFromInputs();
-    }
-}
-
-std::string WindowSDL::sdlButtonToAnalog(u8 button) {
-
-    inih::INIReader r{"remap.ini"};
-    const std::string Amap = r.Get<std::string>("A button", "remap");
-    const std::string Ymap = r.Get<std::string>("Y button", "remap");
-    const std::string Xmap = r.Get<std::string>("X button", "remap");
-    const std::string Bmap = r.Get<std::string>("B button", "remap");
-    const std::string LBmap = r.Get<std::string>("Left bumper", "remap");
-    const std::string RBmap = r.Get<std::string>("Right bumper", "remap");
-    const std::string dupmap = r.Get<std::string>("dpad up", "remap");
-    const std::string ddownmap = r.Get<std::string>("dpad down", "remap");
-    const std::string dleftmap = r.Get<std::string>("dpad left", "remap");
-    const std::string drightmap = r.Get<std::string>("dpad right", "remap");
-    const std::string rstickmap = r.Get<std::string>("Right stick button", "remap");
-    const std::string lstickmap = r.Get<std::string>("Left stick button", "remap");
-    const std::string startmap = r.Get<std::string>("Start", "remap");
-
-    switch (button) {
-    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
-        return ddownmap;
-    case SDL_GAMEPAD_BUTTON_DPAD_UP:
-        return dupmap;
-    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
-        return dleftmap;
-    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
-        return drightmap;
-    case SDL_GAMEPAD_BUTTON_SOUTH:
-        return Amap;
-    case SDL_GAMEPAD_BUTTON_NORTH:
-        return Ymap;
-    case SDL_GAMEPAD_BUTTON_WEST:
-        return Xmap;
-    case SDL_GAMEPAD_BUTTON_EAST:
-        return Bmap;
-    case SDL_GAMEPAD_BUTTON_START:
-        return startmap;
-    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
-        return LBmap;
-    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
-        return RBmap;
-    case SDL_GAMEPAD_BUTTON_LEFT_STICK:
-        return lstickmap;
-    case SDL_GAMEPAD_BUTTON_RIGHT_STICK:
-        return rstickmap;
-    default:
-        return "null";
-    }
-}
-
-void WindowSDL::checkremapinifile() {
-    const std::string defaultremap =
-        R"(; Edit only after equal signs ***other edits to the file may cause crashes***
-; See syntax at the bottom of the file
-; Close ini file before returning to game to avoid stability issues
-[Sample binding]
-remap=desired_PS4_button_output
-
-[A button]
-remap=cross
-
-[Y button]
-remap=triangle
-
-[X button]
-remap=square
-
-[B button]
-remap=circle
-
-[Left bumper]
-remap=L1
-
-[Right bumper]
-remap=R1
-
-[Left trigger]
-remap=L2
-
-[Right trigger]
-remap=R2
-
-[dpad up]
-remap=dpad_up
-
-[dpad down]
-remap=dpad_down
-
-[dpad left]
-remap=dpad_left
-
-[dpad right]
-remap=dpad_right
-
-[Left stick button]
-remap=L3
-
-[Right stick button]
-remap=R3
-
-[Start]
-remap=options
-
-[Left analog stick behavior]
-Analog stick or buttons=analog_stick
-Swap sticks=No
-Invert movement vertical=No
-Invert movement horizontal=No
-
-[If Left analog stick mapped to buttons]
-Left stick up remap=dpad_up
-Left stick down remap=dpad_down
-Left stick left remap=dpad_left
-Left stick right remap=dpad_right
-
-[Right analog stick behavior]
-Analog stick or buttons=analog_stick
-Swap sticks=No
-Invert movement vertical=No
-Invert movement horizontal=No
-
-[If Right analog stick mapped to buttons]
-Right stick up remap=triangle
-Right stick down remap=cross
-Right stick left remap=square
-Right stick right remap=circle
-
-[Syntax and defaults, do not edit]
-A button=cross
-Y button=triangle
-X button=square
-B button=circle
-Left bumper=L1
-Right bumper=R1
-Left trigger=L2
-Right trigger=R2
-dpad up=dpad_up
-dpad down=dpad_down
-dpad left=dpad_left
-dpad right=dpad_right
-Left stick button=L3
-Right stick button=R3
-Left stick up=lstickup
-Left stick down=lstickdown
-Left stick left=lstickleft
-Left stick right=lstickright
-Right stick up=rstickup
-Right stick down=rstickdown
-Right stick left=rstickleft
-Right stick right=rstickright
-Start=options
-
-[Syntax for stick settings, do not edit]
-Swap sticks (default)=No
-Swap sticks (swap)=Yes
-Invert movement (default)=No
-Invert movement (invert)=Yes)";
-
-    if (!std::filesystem::exists("remap.ini")) {
-        std::ofstream remapfile("remap.ini");
-        remapfile << defaultremap;
-        remapfile.close();
     }
 }
 
