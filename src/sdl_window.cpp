@@ -1,64 +1,81 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <SDL3/SDL_events.h>
-#include <SDL3/SDL_init.h>
-#include <SDL3/SDL_properties.h>
-#include <SDL3/SDL_timer.h>
-#include <SDL3/SDL_video.h>
-
+#include <iostream>
+#include <map>
+#include <string>
+#include "INIReader.h"
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_init.h"
+#include "SDL3/SDL_properties.h"
+#include "SDL3/SDL_timer.h"
+#include "SDL3/SDL_video.h"
 #include "common/assert.h"
 #include "common/config.h"
+#include "common/elf_info.h"
+#include "common/version.h"
 #include "core/libraries/pad/pad.h"
 #include "imgui/renderer/imgui_core.h"
 #include "input/controller.h"
+#include "input/input_handler.h"
 #include "sdl_window.h"
 #include "video_core/renderdoc.h"
 
 #ifdef __APPLE__
-#include <SDL3/SDL_metal.h>
+#include "SDL3/SDL_metal.h"
 #endif
 
 namespace Frontend {
 
-using namespace Libraries::Pad;
-
-static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
-    switch (button) {
-    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
-        return OrbisPadButtonDataOffset::Down;
-    case SDL_GAMEPAD_BUTTON_DPAD_UP:
-        return OrbisPadButtonDataOffset::Up;
-    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
-        return OrbisPadButtonDataOffset::Left;
-    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
-        return OrbisPadButtonDataOffset::Right;
-    case SDL_GAMEPAD_BUTTON_SOUTH:
-        return OrbisPadButtonDataOffset::Cross;
-    case SDL_GAMEPAD_BUTTON_NORTH:
-        return OrbisPadButtonDataOffset::Triangle;
-    case SDL_GAMEPAD_BUTTON_WEST:
-        return OrbisPadButtonDataOffset::Square;
-    case SDL_GAMEPAD_BUTTON_EAST:
-        return OrbisPadButtonDataOffset::Circle;
-    case SDL_GAMEPAD_BUTTON_START:
-        return OrbisPadButtonDataOffset::Options;
-    case SDL_GAMEPAD_BUTTON_TOUCHPAD:
-        return OrbisPadButtonDataOffset::TouchPad;
-    case SDL_GAMEPAD_BUTTON_BACK:
-        return OrbisPadButtonDataOffset::TouchPad;
-    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
-        return OrbisPadButtonDataOffset::L1;
-    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
-        return OrbisPadButtonDataOffset::R1;
-    case SDL_GAMEPAD_BUTTON_LEFT_STICK:
-        return OrbisPadButtonDataOffset::L3;
-    case SDL_GAMEPAD_BUTTON_RIGHT_STICK:
-        return OrbisPadButtonDataOffset::R3;
-    default:
-        return OrbisPadButtonDataOffset::None;
+/* placeholder for on-demand config parsing function
+case SDLK_F5:
+    if (event->type == SDL_EVENT_KEY_DOWN) {
+        void parseconfig();
     }
+void parseconfig() {
+using Libraries::Pad::OrbisPadButtonDataOffset;
+inih::INIReader r{"./user/remap.ini"};
+const std::string Amapping = r.Get<std::string>("A button", "remap");
+const std::string Ymapping = r.Get<std::string>("Y button", "remap");
+const std::string Xmapping = r.Get<std::string>("X button", "remap");
+const std::string Bmapping = r.Get<std::string>("B button", "remap");
+const std::string LBmapping = r.Get<std::string>("Left_bumper", "remap");
+const std::string RBmapping = r.Get<std::string>("Right_bumper", "remap");
+const std::string dupmapping = r.Get<std::string>("dpad_up", "remap");
+const std::string ddownmapping = r.Get<std::string>("dpad_down", "remap");
+const std::string dleftmapping = r.Get<std::string>("dpad_left", "remap");
+const std::string drightmapping = r.Get<std::string>("dpad_right", "remap");
+const std::string rstickmapping = r.Get<std::string>("Right_stick_button", "remap");
+const std::string lstickmapping = r.Get<std::string>("Left_stick_button", "remap");
+const std::string startmapping = r.Get<std::string>("Start", "remap");
+const std::string LTmapping = r.Get<std::string>("Left_trigger", "remap");
+const std::string RTmapping = r.Get<std::string>("Right_trigger", "remap");
+std::map<std::string, u32> outputkey_map = {
+{"dpad_down", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_DOWN},
+{"dpad_up", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_UP},
+{"dpad_left", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_LEFT},
+{"dpad_right", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_RIGHT},
+{"cross", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CROSS},
+{"triangle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TRIANGLE},
+{"square", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_SQUARE},
+{"circle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CIRCLE},
+{"L1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L1},
+{"R1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R1},
+{"L3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L3},
+{"R3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R3},
+{"options", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_OPTIONS},
+{"touchpad", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TOUCH_PAD},
+{"L2", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L2},
+{"R2", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R2},
+};
 }
+*/
+/* todo: autogenerate config
+ */
+/* todo: use controls button
+ */
+
+using namespace Libraries::Pad;
 
 static Uint32 SDLCALL PollController(void* userdata, SDL_TimerID timer_id, Uint32 interval) {
     auto* controller = reinterpret_cast<Input::GameController*>(userdata);
@@ -115,6 +132,10 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameController* controller_
     window_info.type = WindowSystemType::Metal;
     window_info.render_surface = SDL_Metal_GetLayer(SDL_Metal_CreateView(window));
 #endif
+    // input handler init-s
+    Input::ControllerOutput::SetControllerOutputController(controller);
+    Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
+    checkremapinifile();
 }
 
 WindowSDL::~WindowSDL() = default;
@@ -142,18 +163,28 @@ void WindowSDL::WaitEvent() {
         is_shown = event.type == SDL_EVENT_WINDOW_EXPOSED;
         OnResize();
         break;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+    case SDL_EVENT_MOUSE_WHEEL:
+    case SDL_EVENT_MOUSE_WHEEL_OFF:
     case SDL_EVENT_KEY_DOWN:
     case SDL_EVENT_KEY_UP:
-        OnKeyPress(&event);
+        OnKeyboardMouseInput(&event);
+        break;
+    case SDL_EVENT_GAMEPAD_ADDED:
+    case SDL_EVENT_GAMEPAD_REMOVED:
+        controller->TryOpenSDLController();
+        break;
+    case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
+    case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
+    case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
+        controller->SetTouchpadState(event.gtouchpad.finger,
+                                     event.type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP, event.gtouchpad.x,
+                                     event.gtouchpad.y);
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
     case SDL_EVENT_GAMEPAD_BUTTON_UP:
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-    case SDL_EVENT_GAMEPAD_ADDED:
-    case SDL_EVENT_GAMEPAD_REMOVED:
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
         OnGamepadEvent(&event);
         break;
     case SDL_EVENT_QUIT:
@@ -166,6 +197,7 @@ void WindowSDL::WaitEvent() {
 
 void WindowSDL::InitTimers() {
     SDL_AddTimer(100, &PollController, controller);
+    SDL_AddTimer(33, Input::MousePolling, (void*)controller);
 }
 
 void WindowSDL::OnResize() {
@@ -173,248 +205,242 @@ void WindowSDL::OnResize() {
     ImGui::Core::OnResize();
 }
 
-void WindowSDL::OnKeyPress(const SDL_Event* event) {
-#ifdef __APPLE__
-    // Use keys that are more friendly for keyboards without a keypad.
-    // Once there are key binding options this won't be necessary.
-    constexpr SDL_Keycode CrossKey = SDLK_N;
-    constexpr SDL_Keycode CircleKey = SDLK_B;
-    constexpr SDL_Keycode SquareKey = SDLK_V;
-    constexpr SDL_Keycode TriangleKey = SDLK_C;
-#else
-    constexpr SDL_Keycode CrossKey = SDLK_KP_2;
-    constexpr SDL_Keycode CircleKey = SDLK_KP_6;
-    constexpr SDL_Keycode SquareKey = SDLK_KP_4;
-    constexpr SDL_Keycode TriangleKey = SDLK_KP_8;
-#endif
+Uint32 wheelOffCallback(void* og_event, Uint32 timer_id, Uint32 interval) {
+    SDL_Event off_event = *(SDL_Event*)og_event;
+    off_event.type = SDL_EVENT_MOUSE_WHEEL_OFF;
+    SDL_PushEvent(&off_event);
+    delete (SDL_Event*)og_event;
+    return 0;
+}
 
-    auto button = OrbisPadButtonDataOffset::None;
-    Input::Axis axis = Input::Axis::AxisMax;
-    int axisvalue = 0;
-    int ax = 0;
-    std::string backButtonBehavior = Config::getBackButtonBehavior();
-    switch (event->key.key) {
-    case SDLK_UP:
-        button = OrbisPadButtonDataOffset::Up;
-        break;
-    case SDLK_DOWN:
-        button = OrbisPadButtonDataOffset::Down;
-        break;
-    case SDLK_LEFT:
-        button = OrbisPadButtonDataOffset::Left;
-        break;
-    case SDLK_RIGHT:
-        button = OrbisPadButtonDataOffset::Right;
-        break;
-    case TriangleKey:
-        button = OrbisPadButtonDataOffset::Triangle;
-        break;
-    case CircleKey:
-        button = OrbisPadButtonDataOffset::Circle;
-        break;
-    case CrossKey:
-        button = OrbisPadButtonDataOffset::Cross;
-        break;
-    case SquareKey:
-        button = OrbisPadButtonDataOffset::Square;
-        break;
-    case SDLK_RETURN:
-        button = OrbisPadButtonDataOffset::Options;
-        break;
-    case SDLK_A:
-        axis = Input::Axis::LeftX;
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            axisvalue += -127;
-        } else {
-            axisvalue = 0;
+void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
+    using Libraries::Pad::OrbisPadButtonDataOffset;
+
+    // get the event's id, if it's keyup or keydown
+    bool input_down = event->type == SDL_EVENT_KEY_DOWN ||
+                      event->type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
+                      event->type == SDL_EVENT_MOUSE_WHEEL;
+    u32 input_id = Input::InputBinding::GetInputIDFromEvent(*event);
+
+    // Handle window controls outside of the input maps
+    if (event->type == SDL_EVENT_KEY_DOWN) {
+        // Reparse kbm inputs
+        if (input_id == SDLK_F8) {
+            Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
+            return;
         }
-        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
-        break;
-    case SDLK_D:
-        axis = Input::Axis::LeftX;
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            axisvalue += 127;
-        } else {
-            axisvalue = 0;
+        // Toggle mouse capture and movement input
+        else if (input_id == SDLK_F7) {
+            Input::ToggleMouseEnabled();
+            SDL_SetWindowRelativeMouseMode(this->GetSDLWindow(),
+                                           !SDL_GetWindowRelativeMouseMode(this->GetSDLWindow()));
+            return;
         }
-        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
-        break;
-    case SDLK_W:
-        axis = Input::Axis::LeftY;
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            axisvalue += -127;
-        } else {
-            axisvalue = 0;
+        // Toggle fullscreen
+        else if (input_id == SDLK_F11) {
+            SDL_WindowFlags flag = SDL_GetWindowFlags(window);
+            bool is_fullscreen = flag & SDL_WINDOW_FULLSCREEN;
+            SDL_SetWindowFullscreen(window, !is_fullscreen);
+            return;
         }
-        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
-        break;
-    case SDLK_S:
-        axis = Input::Axis::LeftY;
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            axisvalue += 127;
-        } else {
-            axisvalue = 0;
-        }
-        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
-        break;
-    case SDLK_J:
-        axis = Input::Axis::RightX;
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            axisvalue += -127;
-        } else {
-            axisvalue = 0;
-        }
-        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
-        break;
-    case SDLK_L:
-        axis = Input::Axis::RightX;
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            axisvalue += 127;
-        } else {
-            axisvalue = 0;
-        }
-        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
-        break;
-    case SDLK_I:
-        axis = Input::Axis::RightY;
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            axisvalue += -127;
-        } else {
-            axisvalue = 0;
-        }
-        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
-        break;
-    case SDLK_K:
-        axis = Input::Axis::RightY;
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            axisvalue += 127;
-        } else {
-            axisvalue = 0;
-        }
-        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
-        break;
-    case SDLK_X:
-        button = OrbisPadButtonDataOffset::L3;
-        break;
-    case SDLK_M:
-        button = OrbisPadButtonDataOffset::R3;
-        break;
-    case SDLK_Q:
-        button = OrbisPadButtonDataOffset::L1;
-        break;
-    case SDLK_U:
-        button = OrbisPadButtonDataOffset::R1;
-        break;
-    case SDLK_E:
-        button = OrbisPadButtonDataOffset::L2;
-        axis = Input::Axis::TriggerLeft;
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            axisvalue += 255;
-        } else {
-            axisvalue = 0;
-        }
-        ax = Input::GetAxis(0, 0x80, axisvalue);
-        break;
-    case SDLK_O:
-        button = OrbisPadButtonDataOffset::R2;
-        axis = Input::Axis::TriggerRight;
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            axisvalue += 255;
-        } else {
-            axisvalue = 0;
-        }
-        ax = Input::GetAxis(0, 0x80, axisvalue);
-        break;
-    case SDLK_SPACE:
-        if (backButtonBehavior != "none") {
-            float x = backButtonBehavior == "left" ? 0.25f
-                                                   : (backButtonBehavior == "right" ? 0.75f : 0.5f);
-            // trigger a touchpad event so that the touchpad emulation for back button works
-            controller->SetTouchpadState(0, true, x, 0.5f);
-            button = OrbisPadButtonDataOffset::TouchPad;
-        } else {
-            button = {};
-        }
-        break;
-    case SDLK_F11:
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            {
-                SDL_WindowFlags flag = SDL_GetWindowFlags(window);
-                bool is_fullscreen = flag & SDL_WINDOW_FULLSCREEN;
-                SDL_SetWindowFullscreen(window, !is_fullscreen);
-            }
-        }
-        break;
-    case SDLK_F12:
-        if (event->type == SDL_EVENT_KEY_DOWN) {
-            // Trigger rdoc capture
+        // Trigger rdoc capture
+        else if (input_id == SDLK_F12) {
             VideoCore::TriggerCapture();
+            return;
         }
-        break;
-    default:
-        break;
     }
-    if (button != OrbisPadButtonDataOffset::None) {
-        controller->CheckButton(0, button, event->type == SDL_EVENT_KEY_DOWN);
+
+    // if it's a wheel event, make a timer that turns it off after a set time
+    if (event->type == SDL_EVENT_MOUSE_WHEEL) {
+        const SDL_Event* copy = new SDL_Event(*event);
+        SDL_AddTimer(33, wheelOffCallback, (void*)copy);
     }
-    if (axis != Input::Axis::AxisMax) {
-        controller->Axis(0, axis, ax);
+
+    // add/remove it from the list
+    bool inputs_changed = Input::UpdatePressedKeys(input_id, input_down);
+
+    // update bindings
+    if (inputs_changed) {
+        Input::ActivateOutputsFromInputs();
     }
 }
 
 void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
-    auto button = OrbisPadButtonDataOffset::None;
-    Input::Axis axis = Input::Axis::AxisMax;
-    switch (event->type) {
-    case SDL_EVENT_GAMEPAD_ADDED:
-    case SDL_EVENT_GAMEPAD_REMOVED:
-        controller->TryOpenSDLController();
-        break;
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
-        controller->SetTouchpadState(event->gtouchpad.finger,
-                                     event->type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP,
-                                     event->gtouchpad.x, event->gtouchpad.y);
-        break;
-    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-    case SDL_EVENT_GAMEPAD_BUTTON_UP: {
-        button = SDLGamepadToOrbisButton(event->gbutton.button);
-        if (button == OrbisPadButtonDataOffset::None) {
-            break;
-        }
-        if (event->gbutton.button != SDL_GAMEPAD_BUTTON_BACK) {
-            controller->CheckButton(0, button, event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
-            break;
-        }
-        const auto backButtonBehavior = Config::getBackButtonBehavior();
-        if (backButtonBehavior != "none") {
-            float x = backButtonBehavior == "left" ? 0.25f
-                                                   : (backButtonBehavior == "right" ? 0.75f : 0.5f);
-            // trigger a touchpad event so that the touchpad emulation for back button works
-            controller->SetTouchpadState(0, true, x, 0.5f);
-            controller->CheckButton(0, button, event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
-        }
-        break;
-    }
-    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-        axis = event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFTX           ? Input::Axis::LeftX
-               : event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY         ? Input::Axis::LeftY
-               : event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTX        ? Input::Axis::RightX
-               : event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTY        ? Input::Axis::RightY
-               : event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER  ? Input::Axis::TriggerLeft
-               : event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER ? Input::Axis::TriggerRight
-                                                                     : Input::Axis::AxisMax;
-        if (axis != Input::Axis::AxisMax) {
-            if (event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ||
-                event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) {
-                controller->Axis(0, axis, Input::GetAxis(0, 0x8000, event->gaxis.value));
 
-            } else {
-                controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
-            }
-        }
-        break;
+    bool input_down = event->type == SDL_EVENT_GAMEPAD_AXIS_MOTION ||
+                      event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ||
+                      event->type == SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN ||
+                      event->type == SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION;
+    u32 input_id = Input::InputBinding::GetInputIDFromEvent(*event);
+
+    bool inputs_changed = Input::UpdatePressedKeys(input_id, input_down);
+
+    if (inputs_changed) {
+        Input::ActivateOutputsFromInputs();
+    }
+}
+
+std::string WindowSDL::sdlButtonToAnalog(u8 button) {
+
+    inih::INIReader r{"remap.ini"};
+    const std::string Amap = r.Get<std::string>("A button", "remap");
+    const std::string Ymap = r.Get<std::string>("Y button", "remap");
+    const std::string Xmap = r.Get<std::string>("X button", "remap");
+    const std::string Bmap = r.Get<std::string>("B button", "remap");
+    const std::string LBmap = r.Get<std::string>("Left bumper", "remap");
+    const std::string RBmap = r.Get<std::string>("Right bumper", "remap");
+    const std::string dupmap = r.Get<std::string>("dpad up", "remap");
+    const std::string ddownmap = r.Get<std::string>("dpad down", "remap");
+    const std::string dleftmap = r.Get<std::string>("dpad left", "remap");
+    const std::string drightmap = r.Get<std::string>("dpad right", "remap");
+    const std::string rstickmap = r.Get<std::string>("Right stick button", "remap");
+    const std::string lstickmap = r.Get<std::string>("Left stick button", "remap");
+    const std::string startmap = r.Get<std::string>("Start", "remap");
+
+    switch (button) {
+    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
+        return ddownmap;
+    case SDL_GAMEPAD_BUTTON_DPAD_UP:
+        return dupmap;
+    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
+        return dleftmap;
+    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
+        return drightmap;
+    case SDL_GAMEPAD_BUTTON_SOUTH:
+        return Amap;
+    case SDL_GAMEPAD_BUTTON_NORTH:
+        return Ymap;
+    case SDL_GAMEPAD_BUTTON_WEST:
+        return Xmap;
+    case SDL_GAMEPAD_BUTTON_EAST:
+        return Bmap;
+    case SDL_GAMEPAD_BUTTON_START:
+        return startmap;
+    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
+        return LBmap;
+    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
+        return RBmap;
+    case SDL_GAMEPAD_BUTTON_LEFT_STICK:
+        return lstickmap;
+    case SDL_GAMEPAD_BUTTON_RIGHT_STICK:
+        return rstickmap;
+    default:
+        return "null";
+    }
+}
+
+void WindowSDL::checkremapinifile() {
+    const std::string defaultremap =
+        R"(; Edit only after equal signs ***other edits to the file may cause crashes***
+; See syntax at the bottom of the file
+; Close ini file before returning to game to avoid stability issues
+[Sample binding]
+remap=desired_PS4_button_output
+
+[A button]
+remap=cross
+
+[Y button]
+remap=triangle
+
+[X button]
+remap=square
+
+[B button]
+remap=circle
+
+[Left bumper]
+remap=L1
+
+[Right bumper]
+remap=R1
+
+[Left trigger]
+remap=L2
+
+[Right trigger]
+remap=R2
+
+[dpad up]
+remap=dpad_up
+
+[dpad down]
+remap=dpad_down
+
+[dpad left]
+remap=dpad_left
+
+[dpad right]
+remap=dpad_right
+
+[Left stick button]
+remap=L3
+
+[Right stick button]
+remap=R3
+
+[Start]
+remap=options
+
+[Left analog stick behavior]
+Analog stick or buttons=analog_stick
+Swap sticks=No
+Invert movement vertical=No
+Invert movement horizontal=No
+
+[If Left analog stick mapped to buttons]
+Left stick up remap=dpad_up
+Left stick down remap=dpad_down
+Left stick left remap=dpad_left
+Left stick right remap=dpad_right
+
+[Right analog stick behavior]
+Analog stick or buttons=analog_stick
+Swap sticks=No
+Invert movement vertical=No
+Invert movement horizontal=No
+
+[If Right analog stick mapped to buttons]
+Right stick up remap=triangle
+Right stick down remap=cross
+Right stick left remap=square
+Right stick right remap=circle
+
+[Syntax and defaults, do not edit]
+A button=cross
+Y button=triangle
+X button=square
+B button=circle
+Left bumper=L1
+Right bumper=R1
+Left trigger=L2
+Right trigger=R2
+dpad up=dpad_up
+dpad down=dpad_down
+dpad left=dpad_left
+dpad right=dpad_right
+Left stick button=L3
+Right stick button=R3
+Left stick up=lstickup
+Left stick down=lstickdown
+Left stick left=lstickleft
+Left stick right=lstickright
+Right stick up=rstickup
+Right stick down=rstickdown
+Right stick left=rstickleft
+Right stick right=rstickright
+Start=options
+
+[Syntax for stick settings, do not edit]
+Swap sticks (default)=No
+Swap sticks (swap)=Yes
+Invert movement (default)=No
+Invert movement (invert)=Yes)";
+
+    if (!std::filesystem::exists("remap.ini")) {
+        std::ofstream remapfile("remap.ini");
+        remapfile << defaultremap;
+        remapfile.close();
     }
 }
 

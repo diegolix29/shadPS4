@@ -40,23 +40,25 @@ struct AxisMapping {
 };
 
 // i strongly suggest you collapse these maps
-const std::map<std::string, u32> string_to_cbutton_map = {
-    {"triangle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TRIANGLE},
-    {"circle", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CIRCLE},
-    {"cross", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CROSS},
-    {"square", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_SQUARE},
-    {"l1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L1},
-    {"r1", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R1},
-    {"l3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L3},
-    {"r3", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R3},
-    {"options", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_OPTIONS},
-    {"touchpad", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TOUCH_PAD},
-    {"up", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_UP},
-    {"down", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_DOWN},
-    {"left", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_LEFT},
-    {"right", OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_RIGHT},
-    {"leftjoystick_halfmode", LEFTJOYSTICK_HALFMODE},
-    {"rightjoystick_halfmode", RIGHTJOYSTICK_HALFMODE},
+const std::map<std::string, OrbisPadButtonDataOffset> string_to_cbutton_map = {
+    {"triangle", OrbisPadButtonDataOffset::Triangle},
+    {"circle", OrbisPadButtonDataOffset::Circle},
+    {"cross", OrbisPadButtonDataOffset::Cross},
+    {"square", OrbisPadButtonDataOffset::Square},
+    {"l1", OrbisPadButtonDataOffset::L1},
+    {"r1", OrbisPadButtonDataOffset::R1},
+    {"l3", OrbisPadButtonDataOffset::L3},
+    {"r3", OrbisPadButtonDataOffset::R3},
+    {"pad_up", OrbisPadButtonDataOffset::Up},
+    {"pad_down", OrbisPadButtonDataOffset::Down},
+    {"pad_left", OrbisPadButtonDataOffset::Left},
+    {"pad_right", OrbisPadButtonDataOffset::Right},
+    {"options", OrbisPadButtonDataOffset::Options},
+
+    // these are outputs only (touchpad can only be bound to itself)
+    {"touchpad", OrbisPadButtonDataOffset::TouchPad},
+    {"leftjoystick_halfmode", (OrbisPadButtonDataOffset)LEFTJOYSTICK_HALFMODE},
+    {"rightjoystick_halfmode", (OrbisPadButtonDataOffset)RIGHTJOYSTICK_HALFMODE},
 };
 const std::map<std::string, AxisMapping> string_to_axis_map = {
     {"axis_left_x_plus", {Input::Axis::LeftX, 127}},
@@ -67,8 +69,15 @@ const std::map<std::string, AxisMapping> string_to_axis_map = {
     {"axis_right_x_minus", {Input::Axis::RightX, -127}},
     {"axis_right_y_plus", {Input::Axis::RightY, 127}},
     {"axis_right_y_minus", {Input::Axis::RightY, -127}},
-    {"l2", {Axis::TriggerLeft, 127}},
-    {"r2", {Axis::TriggerRight, 127}},
+
+    {"l2", {Axis::TriggerLeft, 0}},
+    {"r2", {Axis::TriggerRight, 0}},
+
+    // should only use these to bind analog inputs to analog outputs
+    {"axis_left_x", {Input::Axis::LeftX, 0}},
+    {"axis_left_y", {Input::Axis::LeftY, 0}},
+    {"axis_right_x", {Input::Axis::RightX, 0}},
+    {"axis_right_y", {Input::Axis::RightY, 0}},
 };
 const std::map<std::string, u32> string_to_keyboard_key_map = {
     {"a", SDLK_A},
@@ -248,8 +257,8 @@ public:
     inline bool IsEmpty() {
         return key1 == 0 && key2 == 0 && key3 == 0;
     }
-    std::string ToString() const {
-        return fmt::format("({}, {}, {})", key1, key2, key3);
+    std::string ToString() {
+        return fmt::format("({:X}, {:X}, {:X})", key1, key2, key3);
     }
 
     // returns a u32 based on the event type (keyboard, mouse buttons, or wheel)
@@ -261,12 +270,12 @@ class ControllerOutput {
 public:
     static void SetControllerOutputController(GameController* c);
 
-    u32 button;
+    OrbisPadButtonDataOffset button;
     Axis axis;
     s32 old_param, new_param;
     bool old_button_state, new_button_state, state_changed;
 
-    ControllerOutput(const u32 b, Axis a = Axis::AxisMax) {
+    ControllerOutput(const OrbisPadButtonDataOffset b, Axis a = Axis::AxisMax) {
         button = b;
         axis = a;
         old_param = 0;
@@ -279,17 +288,17 @@ public:
         return button != o.button || axis != o.axis;
     }
     std::string ToString() const {
-        return fmt::format("({}, {}, {})", button, (int)axis, old_param);
+        return fmt::format("({}, {}, {})", (u32)button, (int)axis, old_param);
     }
     inline bool IsButton() const {
-        return axis == Axis::AxisMax && button != 0;
+        return axis == Axis::AxisMax && button != OrbisPadButtonDataOffset::None;
     }
     inline bool IsAxis() const {
-        return axis != Axis::AxisMax && button == 0;
+        return axis != Axis::AxisMax && button == OrbisPadButtonDataOffset::None;
     }
 
     void ResetUpdate();
-    void AddUpdate(bool pressed, u32 param = 0);
+    void AddUpdate(bool pressed, bool analog, u32 param = 0);
     void FinalizeUpdate();
 };
 class BindingConnection {
@@ -299,9 +308,8 @@ public:
     u32 parameter;
     BindingConnection(InputBinding b, ControllerOutput* out, u32 param = 0) {
         binding = b;
-        parameter = param; // bruh this accidentally set to be 0 no wonder it didn't do anything
+        parameter = param;
 
-        // todo: check if out is in the allowed array
         output = out;
     }
     bool operator<(const BindingConnection& other) const {
@@ -318,9 +326,6 @@ public:
         return false;
     }
 };
-
-// Check if the 3 key input is currently active.
-bool IsInputActive(const InputBinding& i);
 
 // Updates the list of pressed keys with the given input.
 // Returns whether the list was updated or not.
