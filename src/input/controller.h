@@ -13,7 +13,6 @@ namespace Input {
 
 void CheckRemapFile();
 
-
 enum class Axis {
     LeftX = 0,
     LeftY = 1,

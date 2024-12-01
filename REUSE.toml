@@ -29,6 +29,7 @@ path = [
     "src/images/flag_world.png",
     "src/images/folder_icon.png",
     "src/images/grid_icon.png",
+    "src/images/keyboard_icon.png",
     "src/images/iconsize_icon.png",
     "src/images/list_icon.png",
     "src/images/list_mode_icon.png",
