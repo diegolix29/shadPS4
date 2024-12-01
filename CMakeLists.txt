@@ -771,12 +771,15 @@ set(IMGUI src/imgui/imgui_config.h
 
 set(INPUT src/input/controller.cpp
           src/input/controller.h
+          src/input/input_handler.cpp
+          src/input/input_handler.h
 )
 
 set(EMULATOR src/emulator.cpp
              src/emulator.h
              src/sdl_window.h
              src/sdl_window.cpp
+             src/INIReader.h
 )
 
 # The above is shared in SDL and Qt version (TODO share them all)
@@ -800,6 +803,10 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/main_window_ui.h
            src/qt_gui/main_window.cpp
            src/qt_gui/main_window.h
+           src/qt_gui/kbm_config_dialog.cpp
+           src/qt_gui/kbm_config_dialog.h
+           src/qt_gui/kbm_help_dialog.cpp
+           src/qt_gui/kbm_help_dialog.h
            src/qt_gui/gui_context_menus.h
            src/qt_gui/game_list_utils.h
            src/qt_gui/game_info.cpp
@@ -859,6 +866,7 @@ else()
         src/emulator.h
         src/sdl_window.h
         src/sdl_window.cpp
+        src/INIReader.h
     )
 endif()
 
