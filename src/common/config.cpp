@@ -143,6 +143,10 @@ std::string getUpdateChannel() {
     return updateChannel;
 }
 
+std::string getCurrentVersion() {
+    return std::string();
+}
+
 std::string getBackButtonBehavior() {
     return backButtonBehavior;
 }
