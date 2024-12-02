@@ -390,8 +390,8 @@ std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_in
                            const IR::Program& program, Bindings& binding) {
     EmitContext ctx{profile, runtime_info, program.info, binding};
     const Id main{DefineMain(ctx, program)};
-    DefineEntryPoint(program, ctx, main);
-    SetupCapabilities(program.info, profile, ctx);
+    DefineEntryPoint(program.info, ctx, main);
+    SetupCapabilities(program.info, ctx);
     SetupFloatMode(ctx, profile, runtime_info, main);
     PatchPhiNodes(program, ctx);
     binding.user_data += program.info.ud_mask.NumRegs();

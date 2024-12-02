@@ -220,15 +220,30 @@ Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, Id index) {
         UNREACHABLE();
     }
 
-Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, u32 index) {
-    if (ctx.info.stage == Stage::Geometry) {
-        return EmitGetAttributeForGeometry(ctx, attr, comp, index);
-    }
-
     if (IR::IsParam(attr)) {
         const u32 index{u32(attr) - u32(IR::Attribute::Param0)};
         const auto& param{ctx.input_params.at(index)};
-        if (param.buffer_handle >= 0) {
+        if (param.buffer_handle < 0) {
+            if (!ValidId(param.id)) {
+                // Attribute is disabled or varying component is not written
+                return ctx.ConstF32(comp == 3 ? 1.0f : 0.0f);
+            }
+
+            Id result;
+            if (param.is_loaded) {
+                result = ctx.OpCompositeExtract(param.component_type, param.id, comp);
+            } else if (param.num_components > 1) {
+                const Id pointer{
+                    ctx.OpAccessChain(param.pointer_type, param.id, ctx.ConstU32(comp))};
+                result = ctx.OpLoad(param.component_type, pointer);
+            } else {
+                result = ctx.OpLoad(param.component_type, param.id);
+            }
+            if (param.is_integer) {
+                result = ctx.OpBitcast(ctx.F32[1], result);
+            }
+            return result;
+        } else {
             const auto step_rate = EmitReadStepRate(ctx, param.id.value);
             const auto offset = ctx.OpIAdd(
                 ctx.U32[1],
@@ -239,26 +254,7 @@ Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, u32 index) {
                 ctx.ConstU32(comp));
             return EmitReadConstBuffer(ctx, param.buffer_handle, offset);
         }
-
-        Id result;
-        if (param.is_loaded) {
-            // Attribute is either default or manually interpolated. The id points to an already
-            // loaded vector.
-            result = ctx.OpCompositeExtract(param.component_type, param.id, comp);
-        } else if (param.num_components > 1) {
-            // Attribute is a vector and we need to access a specific component.
-            const Id pointer{ctx.OpAccessChain(param.pointer_type, param.id, ctx.ConstU32(comp))};
-            result = ctx.OpLoad(param.component_type, pointer);
-        } else {
-            // Attribute is a single float or interger, simply load it.
-            result = ctx.OpLoad(param.component_type, param.id);
-        }
-        if (param.is_integer) {
-            result = ctx.OpBitcast(ctx.F32[1], result);
-        }
-        return result;
     }
-
     switch (attr) {
     case IR::Attribute::FragCoord: {
         const Id coord = ctx.OpLoad(
