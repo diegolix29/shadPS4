@@ -46,10 +46,10 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
     while (checkName) {
         updateChannel = QString::fromStdString(Config::getUpdateChannel());
         if (updateChannel == "Nightly") {
-            url = QUrl("https://api.github.com/repos/shadps4-emu/shadPS4/releases");
+            url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
             checkName = false;
         } else if (updateChannel == "Release") {
-            url = QUrl("https://api.github.com/repos/shadps4-emu/shadPS4/releases/latest");
+            url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases/latest");
             checkName = false;
         } else {
             if (Common::isRelease) {
@@ -108,14 +108,15 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             if (!jsonObj.isEmpty()) {
                 latestVersion = jsonObj["tag_name"].toString();
             } else {
-                QMessageBox::warning(this, tr("Error"), tr("No pre-releases found."));
+                QMessageBox::warning(this, tr("Error"), tr("No releases found."));
                 reply->deleteLater();
                 return;
             }
-        } else {
+        } else if (updateChannel == "Release") {
             jsonObj = jsonDoc.object();
             if (jsonObj.contains("tag_name")) {
                 latestVersion = jsonObj["tag_name"].toString();
+                latestDate = jsonObj["published_at"].toString();
             } else {
                 QMessageBox::warning(this, tr("Error"), tr("Invalid release data."));
                 reply->deleteLater();
@@ -123,33 +124,11 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             }
         }
 
-        latestRev = latestVersion.right(7);
-        latestDate = jsonObj["published_at"].toString();
-
-        QJsonArray assets = jsonObj["assets"].toArray();
-        bool found = false;
-
-        for (const QJsonValue& assetValue : assets) {
-            QJsonObject assetObj = assetValue.toObject();
-            if (assetObj["name"].toString().contains(platformString)) {
-                downloadUrl = assetObj["browser_download_url"].toString();
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            QMessageBox::warning(this, tr("Error"),
-                                 tr("No download URL found for the specified asset."));
-            reply->deleteLater();
-            return;
-        }
-
-        QString currentRev = (updateChannel == "Nightly")
-                                 ? QString::fromStdString(Common::g_scm_rev).left(7)
-                                 : "v." + QString::fromStdString(Common::VERSION);
+        // Extract the current tag or version from the emulator or system configuration
+        QString currentRev = QString::fromStdString(Config::getCurrentVersion()).left(7);
         QString currentDate = Common::g_scm_date;
 
+        // Format the latest version's date if valid
         QDateTime dateTime = QDateTime::fromString(latestDate, Qt::ISODate);
         latestDate = dateTime.isValid() ? dateTime.toString("yyyy-MM-dd HH:mm:ss") : "Unknown date";
 
@@ -211,7 +190,7 @@ void CheckUpdate::setupUI(const QString& downloadUrl, const QString& latestDate,
     layout->addLayout(bottomLayout);
 
     // Don't show changelog button if:
-    // The current version is a pre-release and the version to be downloaded is a release.
+    // The current version is a release and the version to be downloaded is a release.
     bool current_isRelease = currentRev.startsWith('v', Qt::CaseInsensitive);
     bool latest_isRelease = latestRev.startsWith('v', Qt::CaseInsensitive);
     if (!current_isRelease && latest_isRelease) {
@@ -266,7 +245,7 @@ void CheckUpdate::requestChangelog(const QString& currentRev, const QString& lat
                                    const QString& downloadUrl, const QString& latestDate,
                                    const QString& currentDate) {
     QString compareUrlString =
-        QString("https://api.github.com/repos/shadps4-emu/shadPS4/compare/%1...%2")
+        QString("https://api.github.com/repos/diegolix29/shadPS4/compare/%1...%2")
             .arg(currentRev)
             .arg(latestRev);
 

@@ -25,6 +25,7 @@ std::string getLogFilter();
 std::string getLogType();
 std::string getUserName();
 std::string getUpdateChannel();
+std::string getCurrentVersion();
 
 s16 getCursorState();
 int getCursorHideTimeout();
@@ -125,6 +126,8 @@ std::vector<std::string> getRecentFiles();
 std::string getEmulatorLanguage();
 
 void setDefaultValues();
+
+std::filesystem::path GetFoolproofKbmConfigFile(const std::string& game_id = "");
 
 // settings
 u32 GetLanguage();

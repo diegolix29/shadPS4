@@ -16,6 +16,8 @@ class GameController;
 
 namespace Frontend {
 
+void RefreshMappings();
+
 enum class WindowSystemType : u8 {
     Headless,
     Windows,
@@ -66,13 +68,15 @@ public:
         return window_info;
     }
 
-    void WaitEvent();
-    void InitTimers();
+    void waitEvent();
+    void initTimers();
 
 private:
-    void OnResize();
-    void OnKeyPress(const SDL_Event* event);
-    void OnGamepadEvent(const SDL_Event* event);
+    void onResize();
+    void parseconfig();
+    void OnKeyboardMouseInput(const SDL_Event* event);
+    void onGamepadEvent(const SDL_Event* event);
+    int sdlGamepadToOrbisButton(u8 button);
 
 private:
     s32 width;
