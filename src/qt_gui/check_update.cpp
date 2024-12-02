@@ -97,18 +97,18 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
 #endif
 
         QJsonObject jsonObj;
-        if (updateChannel == "Nightly") {
+        if (updateChannel == "Release") {
             QJsonArray jsonArray = jsonDoc.array();
             for (const QJsonValue& value : jsonArray) {
                 jsonObj = value.toObject();
-                if (jsonObj.contains("prerelease") && jsonObj["prerelease"].toBool()) {
+                if (jsonObj.contains("release") && jsonObj["release"].toBool()) {
                     break;
                 }
             }
             if (!jsonObj.isEmpty()) {
                 latestVersion = jsonObj["tag_name"].toString();
             } else {
-                QMessageBox::warning(this, tr("Error"), tr("No pre-releases found."));
+                QMessageBox::warning(this, tr("Error"), tr("No releases found."));
                 reply->deleteLater();
                 return;
             }
@@ -145,7 +145,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             return;
         }
 
-        QString currentRev = (updateChannel == "Nightly")
+        QString currentRev = (updateChannel == "Release")
                                  ? QString::fromStdString(Common::g_scm_rev).left(7)
                                  : "v." + QString::fromStdString(Common::VERSION);
         QString currentDate = Common::g_scm_date;
@@ -211,7 +211,7 @@ void CheckUpdate::setupUI(const QString& downloadUrl, const QString& latestDate,
     layout->addLayout(bottomLayout);
 
     // Don't show changelog button if:
-    // The current version is a pre-release and the version to be downloaded is a release.
+    // The current version is a release and the version to be downloaded is a release.
     bool current_isRelease = currentRev.startsWith('v', Qt::CaseInsensitive);
     bool latest_isRelease = latestRev.startsWith('v', Qt::CaseInsensitive);
     if (!current_isRelease && latest_isRelease) {
