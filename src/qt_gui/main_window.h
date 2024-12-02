@@ -46,8 +46,6 @@ private Q_SLOTS:
     void SearchGameTable(const QString& text);
     void ShowGameList();
     void RefreshGameTable();
-    void OpenRemap();
-    void checkremapinifile();
     void HandleResize(QResizeEvent* event);
     void OnLanguageChanged(const std::string& locale);
 

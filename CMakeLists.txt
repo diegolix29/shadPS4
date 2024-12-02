@@ -779,7 +779,6 @@ set(EMULATOR src/emulator.cpp
              src/emulator.h
              src/sdl_window.h
              src/sdl_window.cpp
-             src/INIReader.h
 )
 
 # The above is shared in SDL and Qt version (TODO share them all)
@@ -800,6 +799,9 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/background_music_player.h
            src/qt_gui/cheats_patches.cpp
            src/qt_gui/cheats_patches.h
+           src/qt_gui/control_settings.cpp
+           src/qt_gui/control_settings.h
+           src/qt_gui/control_settings.ui
            src/qt_gui/main_window_ui.h
            src/qt_gui/main_window.cpp
            src/qt_gui/main_window.h
@@ -866,7 +868,6 @@ else()
         src/emulator.h
         src/sdl_window.h
         src/sdl_window.cpp
-        src/INIReader.h
     )
 endif()
 
