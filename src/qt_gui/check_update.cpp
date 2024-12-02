@@ -97,11 +97,11 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
 #endif
 
         QJsonObject jsonObj;
-        if (updateChannel == "Release") {
+        if (updateChannel == "Nightly") {
             QJsonArray jsonArray = jsonDoc.array();
             for (const QJsonValue& value : jsonArray) {
                 jsonObj = value.toObject();
-                if (jsonObj.contains("release") && jsonObj["release"].toBool()) {
+                if (jsonObj.contains("prerelease") && jsonObj["prerelease"].toBool()) {
                     break;
                 }
             }
@@ -145,7 +145,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             return;
         }
 
-        QString currentRev = (updateChannel == "Release")
+        QString currentRev = (updateChannel == "Nightly")
                                  ? QString::fromStdString(Common::g_scm_rev).left(7)
                                  : "v." + QString::fromStdString(Common::VERSION);
         QString currentDate = Common::g_scm_date;
