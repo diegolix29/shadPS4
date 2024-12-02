@@ -3,9 +3,8 @@
 
 #pragma once
 
+#include <string>
 #include "common/types.h"
-#include "core/libraries/pad/pad.h"
-#include "string"
 
 struct SDL_Window;
 struct SDL_Gamepad;
@@ -16,6 +15,8 @@ class GameController;
 }
 
 namespace Frontend {
+
+void RefreshMappings();
 
 enum class WindowSystemType : u8 {
     Headless,
@@ -67,15 +68,14 @@ public:
         return window_info;
     }
 
-    void WaitEvent();
-    void InitTimers();
+    void waitEvent();
+    void initTimers();
 
 private:
-    void OnResize();
-    void OnKeyboardMouseInput(const SDL_Event* event);
-    void OnGamepadEvent(const SDL_Event* event);
-    std::string sdlButtonToAnalog(u8 button);
-    void checkremapinifile();
+    void onResize();
+    void onKeyPress(const SDL_Event* event);
+    void onGamepadEvent(const SDL_Event* event);
+    int sdlGamepadToOrbisButton(u8 button);
 
 private:
     s32 width;
