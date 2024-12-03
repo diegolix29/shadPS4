@@ -425,7 +425,7 @@ void EmitContext::DefineInputs() {
             if (!(info.uses_patches & (1U << index))) {
                 continue;
             }
-            const Id id{DefineInput(F32[4], index)};
+            const Id id{DefineOutput(F32[4], + index)};
             Decorate(id, spv::Decoration::Patch);
             Name(id, fmt::format("patch_in{}", index));
             patches[index] = id;
@@ -501,7 +501,7 @@ void EmitContext::DefineOutputs() {
             if (!(info.uses_patches & (1U << index))) {
                 continue;
             }
-            const Id id{DefineOutput(F32[4], index)};
+            const Id id{DefineOutput(F32[4], + index)};
             Decorate(id, spv::Decoration::Patch);
             Name(id, fmt::format("patch_out{}", index));
             patches[index] = id;
