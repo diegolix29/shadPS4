@@ -242,7 +242,7 @@ Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, Id index) {
         UNREACHABLE();
     }
 
-   if (IR::IsParam(attr)) {
+    if (IR::IsParam(attr)) {
         const u32 index{u32(attr) - u32(IR::Attribute::Param0)};
         const auto& param{ctx.input_params.at(index)};
         if (param.buffer_handle >= 0) {
