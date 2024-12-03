@@ -256,9 +256,9 @@ bool Instance::CreateDevice() {
     workgroup_memory_explicit_layout =
         add_extension(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME);
     vertex_input_dynamic_state = add_extension(VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME);
+    fragment_shader_barycentric = add_extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
     const bool extended_dynamic_state_2 =
         add_extension(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME);
-    fragment_shader_barycentric = add_extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
 
     // The next two extensions are required to be available together in order to support write masks
     color_write_en = add_extension(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME);
@@ -457,6 +457,9 @@ bool Instance::CreateDevice() {
     } else {
         patch_control_points_dynamic_state = false;
         device_chain.unlink<vk::PhysicalDeviceExtendedDynamicState2FeaturesEXT>();
+    }
+    if (!fragment_shader_barycentric) {
+        device_chain.unlink<vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR>();
     }
 
     auto [device_result, dev] = physical_device.createDeviceUnique(device_chain.get());

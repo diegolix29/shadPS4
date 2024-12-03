@@ -5,7 +5,6 @@
 #include "common/div_ceil.h"
 #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
 #include "shader_recompiler/ir/passes/srt.h"
-#include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/types.h"
 
 #include <boost/container/static_vector.hpp>
@@ -422,14 +421,12 @@ void EmitContext::DefineInputs() {
             input_params[i] = {id, input_f32, F32[1], 4};
         }
 
-        // TODO is it ok to share output locations between patch consts and
-        // per-vertex output attrs?
-        // spirv-val doesn't complain so idk
+        u32 patch_base_location = runtime_info.vs_info.hs_output_cp_stride >> 4;
         for (size_t index = 0; index < 30; ++index) {
             if (!(info.uses_patches & (1U << index))) {
                 continue;
             }
-            const Id id{DefineInput(F32[4], index)};
+            const Id id{DefineInput(F32[4], patch_base_location + index)};
             Decorate(id, spv::Decoration::Patch);
             Name(id, fmt::format("patch_in{}", index));
             patches[index] = id;
