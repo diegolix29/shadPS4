@@ -45,7 +45,7 @@ public:
         }
     }
 
-    const Shader::Info& GetStage(Shader::Stage stage) const noexcept {
+    const Shader::Info& GetStage(Shader::LogicalStage stage) const noexcept {
         return *stages[u32(stage)];
     }
 
