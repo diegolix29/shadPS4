@@ -112,11 +112,10 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
                 reply->deleteLater();
                 return;
             }
-        } else if (updateChannel == "Release") {
+        } else {
             jsonObj = jsonDoc.object();
             if (jsonObj.contains("tag_name")) {
                 latestVersion = jsonObj["tag_name"].toString();
-                latestDate = jsonObj["published_at"].toString();
             } else {
                 QMessageBox::warning(this, tr("Error"), tr("Invalid release data."));
                 reply->deleteLater();
@@ -124,11 +123,33 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             }
         }
 
-        // Extract the current tag or version from the emulator or system configuration
-        QString currentRev = QString::fromStdString(Config::getCurrentVersion()).left(7);
+        latestRev = latestVersion.right(7);
+        latestDate = jsonObj["published_at"].toString();
+
+        QJsonArray assets = jsonObj["assets"].toArray();
+        bool found = false;
+
+        for (const QJsonValue& assetValue : assets) {
+            QJsonObject assetObj = assetValue.toObject();
+            if (assetObj["name"].toString().contains(platformString)) {
+                downloadUrl = assetObj["browser_download_url"].toString();
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            QMessageBox::warning(this, tr("Error"),
+                                 tr("No download URL found for the specified asset."));
+            reply->deleteLater();
+            return;
+        }
+
+        QString currentRev = (updateChannel == "Nightly")
+                                 ? QString::fromStdString(Common::g_scm_rev).left(7)
+                                 : "v." + QString::fromStdString(Common::VERSION);
         QString currentDate = Common::g_scm_date;
 
-        // Format the latest version's date if valid
         QDateTime dateTime = QDateTime::fromString(latestDate, Qt::ISODate);
         latestDate = dateTime.isValid() ? dateTime.toString("yyyy-MM-dd HH:mm:ss") : "Unknown date";
 
