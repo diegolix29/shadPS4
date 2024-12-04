@@ -7,6 +7,8 @@ set_directory_properties(PROPERTIES
     EXCLUDE_FROM_ALL ON
     SYSTEM ON
 )
+# Set CMP0069 policy to "NEW" in order to ensure consistent behavior when building external targets with LTO enabled
+set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 if (MSVC)
     # Silence "deprecation" warnings
