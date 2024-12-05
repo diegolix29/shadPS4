@@ -101,7 +101,7 @@ struct HullRuntimeInfo {
 
     // from tess constants buffer
     u32 ls_stride;
-    u32 hs_cp_stride;
+    u32 hs_output_cp_stride;
     u32 hs_num_patch;
     u32 hs_output_base;
     u32 patch_const_size;
@@ -117,7 +117,7 @@ struct HullRuntimeInfo {
 
     void InitFromTessConstants(Shader::TessellationDataConstantBuffer& tess_constants) {
         ls_stride = tess_constants.m_lsStride;
-        hs_cp_stride = tess_constants.m_hsCpStride;
+        hs_output_cp_stride = tess_constants.m_hsCpStride;
         hs_num_patch = tess_constants.m_hsNumPatch;
         hs_output_base = tess_constants.m_hsOutputBase;
         patch_const_size = tess_constants.m_patchConstSize;
