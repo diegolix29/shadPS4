@@ -8,6 +8,7 @@
 #include <boost/container/static_vector.hpp>
 #include "common/types.h"
 #include "shader_recompiler/frontend/tessellation.h"
+#include "video_core/amdgpu/liverpool.h"
 #include "video_core/amdgpu/types.h"
 
 namespace Shader {
@@ -163,6 +164,8 @@ struct FragmentRuntimeInfo {
 
         auto operator<=>(const PsInput&) const noexcept = default;
     };
+    AmdGpu::Liverpool::PsInput en_flags;
+    AmdGpu::Liverpool::PsInput addr_flags;
     u32 num_inputs;
     std::array<PsInput, 32> inputs;
     struct PsColorBuffer {
@@ -175,6 +178,7 @@ struct FragmentRuntimeInfo {
 
     bool operator==(const FragmentRuntimeInfo& other) const noexcept {
         return std::ranges::equal(color_buffers, other.color_buffers) &&
+               en_flags.raw == other.en_flags.raw && addr_flags.raw == other.addr_flags.raw &&
                num_inputs == other.num_inputs &&
                std::ranges::equal(inputs.begin(), inputs.begin() + num_inputs, other.inputs.begin(),
                                   other.inputs.begin() + num_inputs);

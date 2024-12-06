@@ -147,6 +147,8 @@ Shader::RuntimeInfo PipelineCache::BuildRuntimeInfo(Stage stage, LogicalStage l_
     }
     case Stage::Fragment: {
         BuildCommon(regs.ps_program);
+        info.fs_info.en_flags = regs.ps_input_ena;
+        info.fs_info.addr_flags = regs.ps_input_addr;
         const auto& ps_inputs = regs.ps_inputs;
         info.fs_info.num_inputs = regs.num_interp;
         for (u32 i = 0; i < regs.num_interp; i++) {
