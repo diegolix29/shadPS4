@@ -1124,7 +1124,7 @@ struct Liverpool {
         BitField<27, 1, u32> enable_postz_overrasterization;
     };
 
-        union PsInput {
+    union PsInput {
         u32 raw;
         struct {
             u32 persp_sample_ena : 1;
