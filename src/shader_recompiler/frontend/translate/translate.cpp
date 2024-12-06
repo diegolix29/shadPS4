@@ -114,6 +114,37 @@ void Translator::EmitPrologue() {
             } else {
                 ir.SetVectorReg(dst_vreg++, ir.Imm32(0.0f));
             }
+    case LogicalStage::TessellationControl: {
+        ir.SetVectorReg(IR::VectorReg::V1,
+                        ir.GetAttributeU32(IR::Attribute::PackedHullInvocationInfo));
+        // Test
+        // ir.SetPatch(IR::Patch::TessellationLodLeft, ir.Imm32(1.0f));
+        // ir.SetPatch(IR::Patch::TessellationLodTop, ir.Imm32(1.0f));
+        // ir.SetPatch(IR::Patch::TessellationLodRight, ir.Imm32(1.0f));
+        // ir.SetPatch(IR::Patch::TessellationLodBottom, ir.Imm32(1.0f));
+        // ir.SetPatch(IR::Patch::TessellationLodInteriorU, ir.Imm32(1.0f));
+        // ir.SetPatch(IR::Patch::TessellationLodInteriorV, ir.Imm32(1.0f));
+        break;
+    }
+    case LogicalStage::TessellationEval:
+        ir.SetVectorReg(IR::VectorReg::V0,
+                        ir.GetAttribute(IR::Attribute::TessellationEvaluationPointU));
+        ir.SetVectorReg(IR::VectorReg::V1,
+                        ir.GetAttribute(IR::Attribute::TessellationEvaluationPointV));
+        // I think V2 is actually the patch id within the patches running on the local CU, used in
+        // compiler generated address calcs,
+        // and V3 is the patch id within the draw
+        ir.SetVectorReg(IR::VectorReg::V2, ir.GetAttributeU32(IR::Attribute::TessPatchIdInVgt));
+        ir.SetVectorReg(IR::VectorReg::V3, ir.GetAttributeU32(IR::Attribute::PrimitiveId));
+        break;
+    case LogicalStage::Fragment:
+        // https://github.com/chaotic-cx/mesa-mirror/blob/72326e15/src/amd/vulkan/radv_shader_args.c#L258
+        // The first two VGPRs are used for i/j barycentric coordinates. In the vast majority of
+        // cases it will be only those two, but if shader is using both e.g linear and perspective
+        // inputs it can be more For now assume that this isn't the case.
+        dst_vreg = IR::VectorReg::V2;
+        for (u32 i = 0; i < 4; i++) {
+            ir.SetVectorReg(dst_vreg++, ir.GetAttribute(IR::Attribute::FragCoord, i));
         }
         if (runtime_info.fs_info.addr_flags.front_face_ena) {
             if (runtime_info.fs_info.en_flags.front_face_ena) {
