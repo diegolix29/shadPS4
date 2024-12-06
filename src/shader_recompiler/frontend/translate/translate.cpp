@@ -53,67 +53,6 @@ void Translator::EmitPrologue() {
             ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::InstanceId));
         }
         break;
-    case Stage::Fragment:
-        dst_vreg = IR::VectorReg::V0;
-        if (runtime_info.fs_info.addr_flags.persp_sample_ena) {
-            ++dst_vreg; // I
-            ++dst_vreg; // J
-        }
-        if (runtime_info.fs_info.addr_flags.persp_center_ena) {
-            ++dst_vreg; // I
-            ++dst_vreg; // J
-        }
-        if (runtime_info.fs_info.addr_flags.persp_centroid_ena) {
-            ++dst_vreg; // I
-            ++dst_vreg; // J
-        }
-        if (runtime_info.fs_info.addr_flags.persp_pull_model_ena) {
-            ++dst_vreg; // I/W
-            ++dst_vreg; // J/W
-            ++dst_vreg; // 1/W
-        }
-        if (runtime_info.fs_info.addr_flags.linear_sample_ena) {
-            ++dst_vreg; // I
-            ++dst_vreg; // J
-        }
-        if (runtime_info.fs_info.addr_flags.linear_center_ena) {
-            ++dst_vreg; // I
-            ++dst_vreg; // J
-        }
-        if (runtime_info.fs_info.addr_flags.linear_centroid_ena) {
-            ++dst_vreg; // I
-            ++dst_vreg; // J
-        }
-        if (runtime_info.fs_info.addr_flags.line_stipple_tex_ena) {
-            ++dst_vreg;
-        }
-        if (runtime_info.fs_info.addr_flags.pos_x_float_ena) {
-            if (runtime_info.fs_info.en_flags.pos_x_float_ena) {
-                ir.SetVectorReg(dst_vreg++, ir.GetAttribute(IR::Attribute::FragCoord, 0));
-            } else {
-                ir.SetVectorReg(dst_vreg++, ir.Imm32(0.0f));
-            }
-        }
-        if (runtime_info.fs_info.addr_flags.pos_y_float_ena) {
-            if (runtime_info.fs_info.en_flags.pos_y_float_ena) {
-                ir.SetVectorReg(dst_vreg++, ir.GetAttribute(IR::Attribute::FragCoord, 1));
-            } else {
-                ir.SetVectorReg(dst_vreg++, ir.Imm32(0.0f));
-            }
-        }
-        if (runtime_info.fs_info.addr_flags.pos_z_float_ena) {
-            if (runtime_info.fs_info.en_flags.pos_z_float_ena) {
-                ir.SetVectorReg(dst_vreg++, ir.GetAttribute(IR::Attribute::FragCoord, 2));
-            } else {
-                ir.SetVectorReg(dst_vreg++, ir.Imm32(0.0f));
-            }
-        }
-        if (runtime_info.fs_info.addr_flags.pos_w_float_ena) {
-            if (runtime_info.fs_info.en_flags.pos_w_float_ena) {
-                ir.SetVectorReg(dst_vreg++, ir.GetAttribute(IR::Attribute::FragCoord, 3));
-            } else {
-                ir.SetVectorReg(dst_vreg++, ir.Imm32(0.0f));
-            }
     case LogicalStage::TessellationControl: {
         ir.SetVectorReg(IR::VectorReg::V1,
                         ir.GetAttributeU32(IR::Attribute::PackedHullInvocationInfo));
@@ -146,13 +85,7 @@ void Translator::EmitPrologue() {
         for (u32 i = 0; i < 4; i++) {
             ir.SetVectorReg(dst_vreg++, ir.GetAttribute(IR::Attribute::FragCoord, i));
         }
-        if (runtime_info.fs_info.addr_flags.front_face_ena) {
-            if (runtime_info.fs_info.en_flags.front_face_ena) {
-                ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::IsFrontFace));
-            } else {
-                ir.SetVectorReg(dst_vreg++, ir.Imm32(0));
-            }
-        }
+        ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::IsFrontFace));
         break;
     case LogicalStage::Compute:
         ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::LocalInvocationId, 0));
