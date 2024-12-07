@@ -46,7 +46,7 @@ Liverpool::~Liverpool() {
 }
 
 void Liverpool::Process(std::stop_token stoken) {
-    Common::SetCurrentThreadName("shadPS4:GpuCommandProcessor");
+    Common::SetCurrentThreadName("shadPS4:GPU_CommandProcessor");
 
     while (!stoken.stop_requested()) {
         {
@@ -209,6 +209,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
 
         switch (type) {
         case 0:
+            LOG_ERROR(Lib_GnmDriver, "Continue hack Unsupported PM4 type 0");
+            dcb = NextPacket(dcb, header->type0.NumWords() + 1);
+            continue;
         case 1:
             UNREACHABLE_MSG("Unsupported PM4 type {}", type);
             break;
