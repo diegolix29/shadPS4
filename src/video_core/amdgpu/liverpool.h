@@ -1475,6 +1475,7 @@ static_assert(GFX6_3D_REG_INDEX(viewports) == 0xA10F);
 static_assert(GFX6_3D_REG_INDEX(clip_user_data) == 0xA16F);
 static_assert(GFX6_3D_REG_INDEX(ps_inputs) == 0xA191);
 static_assert(GFX6_3D_REG_INDEX(vs_output_config) == 0xA1B1);
+static_assert(GFX6_3D_REG_INDEX(num_interp) == 0xA1B6);
 static_assert(GFX6_3D_REG_INDEX(ps_input_ena) == 0xA1B3);
 static_assert(GFX6_3D_REG_INDEX(ps_input_addr) == 0xA1B4);
 static_assert(GFX6_3D_REG_INDEX(num_interp) == 0xA1B6);
