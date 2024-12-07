@@ -46,10 +46,10 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
     while (checkName) {
         updateChannel = QString::fromStdString(Config::getUpdateChannel());
         if (updateChannel == "Nightly") {
-            url = QUrl("https://api.github.com/repos/shadps4-emu/shadPS4/releases");
+            url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
             checkName = false;
         } else if (updateChannel == "Release") {
-            url = QUrl("https://api.github.com/repos/shadps4-emu/shadPS4/releases/latest");
+            url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases/latest");
             checkName = false;
         } else {
             if (Common::isRelease) {
@@ -145,9 +145,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             return;
         }
 
-        QString currentRev = (updateChannel == "Nightly")
-                                 ? QString::fromStdString(Common::g_scm_rev).left(7)
-                                 : "v." + QString::fromStdString(Common::VERSION);
+        QString currentRev = QString::fromStdString(Common::g_scm_rev).left(7);
         QString currentDate = Common::g_scm_date;
 
         QDateTime dateTime = QDateTime::fromString(latestDate, Qt::ISODate);
@@ -266,7 +264,7 @@ void CheckUpdate::requestChangelog(const QString& currentRev, const QString& lat
                                    const QString& downloadUrl, const QString& latestDate,
                                    const QString& currentDate) {
     QString compareUrlString =
-        QString("https://api.github.com/repos/shadps4-emu/shadPS4/compare/%1...%2")
+        QString("https://api.github.com/repos/diegolix29/shadPS4/compare/%1...%2")
             .arg(currentRev)
             .arg(latestRev);
 

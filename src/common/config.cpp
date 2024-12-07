@@ -47,7 +47,6 @@ static std::string backButtonBehavior = "left";
 static bool useSpecialPad = false;
 static int specialPadClass = 1;
 static bool isDebugDump = false;
-static bool isShaderDebug = false;
 static bool isShowSplash = false;
 static bool isAutoUpdate = false;
 static bool isNullGpu = false;
@@ -144,6 +143,10 @@ std::string getUpdateChannel() {
     return updateChannel;
 }
 
+std::string getCurrentVersion() {
+    return std::string();
+}
+
 std::string getBackButtonBehavior() {
     return backButtonBehavior;
 }
@@ -161,7 +164,7 @@ bool debugDump() {
 }
 
 bool collectShadersForDebug() {
-    return isShaderDebug;
+    return false;
 }
 
 bool showSplash() {
@@ -238,10 +241,6 @@ void setScreenHeight(u32 height) {
 
 void setDebugDump(bool enable) {
     isDebugDump = enable;
-}
-
-void setCollectShaderForDebug(bool enable) {
-    isShaderDebug = enable;
 }
 
 void setShowSplash(bool enable) {
@@ -580,7 +579,6 @@ void load(const std::filesystem::path& path) {
         const toml::value& debug = data.at("Debug");
 
         isDebugDump = toml::find_or<bool>(debug, "DebugDump", false);
-        isShaderDebug = toml::find_or<bool>(debug, "CollectShader", false);
     }
 
     if (data.contains("GUI")) {
@@ -672,7 +670,6 @@ void save(const std::filesystem::path& path) {
     data["Vulkan"]["rdocMarkersEnable"] = vkMarkers;
     data["Vulkan"]["crashDiagnostic"] = vkCrashDiagnostic;
     data["Debug"]["DebugDump"] = isDebugDump;
-    data["Debug"]["CollectShader"] = isShaderDebug;
     data["GUI"]["theme"] = mw_themes;
     data["GUI"]["iconSize"] = m_icon_size;
     data["GUI"]["sliderPos"] = m_slider_pos;
@@ -728,7 +725,6 @@ void setDefaultValues() {
     useSpecialPad = false;
     specialPadClass = 1;
     isDebugDump = false;
-    isShaderDebug = false;
     isShowSplash = false;
     isAutoUpdate = false;
     isNullGpu = false;
@@ -743,6 +739,110 @@ void setDefaultValues() {
     emulator_language = "en";
     m_language = 1;
     gpuId = -1;
+}
+
+constexpr std::string_view GetDefaultKeyboardConfig() {
+    return R"(#Feeling lost? Check out the Help section!
+
+#Keyboard bindings
+
+triangle = f
+circle = space
+cross = e
+square = r
+
+pad_up = w, lalt
+pad_up = mousewheelup
+pad_down = s, lalt
+pad_down = mousewheeldown
+pad_left = a, lalt
+pad_left = mousewheelleft
+pad_right = d, lalt
+pad_right = mousewheelright
+
+l1 = rightbutton, lshift
+r1 = leftbutton
+l2 = rightbutton
+r2 = leftbutton, lshift
+l3 = x
+r3 = q
+r3 = middlebutton
+
+options = escape
+touchpad = g
+
+key_toggle = i, lalt
+mouse_to_joystick = right
+mouse_movement_params = 0.5, 1, 0.125
+leftjoystick_halfmode = lctrl
+
+axis_left_x_minus = a
+axis_left_x_plus = d
+axis_left_y_minus = w
+axis_left_y_plus = s
+
+#Controller bindings
+
+triangle = triangle
+cross = cross
+square = square
+circle = circle
+
+l1 = l1
+l2 = l2
+l3 = l3
+r1 = r1
+r2 = r2
+r3 = r3
+
+pad_up = pad_up
+pad_down = pad_down
+pad_left = pad_left
+pad_right = pad_right
+
+options = options
+
+axis_left_x = axis_left_x
+axis_left_y = axis_left_y
+
+axis_right_x = axis_right_x
+axis_right_y = axis_right_y
+)";
+}
+std::filesystem::path GetFoolproofKbmConfigFile(const std::string& game_id) {
+    // Read configuration file of the game, and if it doesn't exist, generate it from default
+    // If that doesn't exist either, generate that from getDefaultConfig() and try again
+    // If even the folder is missing, we start with that.
+
+    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "inputConfig";
+    const auto config_file = config_dir / (game_id + ".ini");
+    const auto default_config_file = config_dir / "default.ini";
+
+    // Ensure the config directory exists
+    if (!std::filesystem::exists(config_dir)) {
+        std::filesystem::create_directories(config_dir);
+    }
+
+    // Check if the default config exists
+    if (!std::filesystem::exists(default_config_file)) {
+        // If the default config is also missing, create it from getDefaultConfig()
+        const auto default_config = GetDefaultKeyboardConfig();
+        std::ofstream default_config_stream(default_config_file);
+        if (default_config_stream) {
+            default_config_stream << default_config;
+        }
+    }
+
+    // if empty, we only need to execute the function up until this point
+    if (game_id.empty()) {
+        return default_config_file;
+    }
+
+    // If game-specific config doesn't exist, create it from the default config
+    if (!std::filesystem::exists(config_file)) {
+        std::filesystem::copy(default_config_file, config_file);
+    }
+    return config_file;
 }
 
 } // namespace Config
