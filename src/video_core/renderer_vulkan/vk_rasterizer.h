@@ -27,6 +27,14 @@ public:
     explicit Rasterizer(const Instance& instance, Scheduler& scheduler,
                         AmdGpu::Liverpool* liverpool);
     ~Rasterizer();
+        
+    [[nodiscard]] Scheduler& GetScheduler() noexcept {
+        return scheduler;
+    }
+
+    [[nodiscard]] VideoCore::BufferCache& GetBufferCache() noexcept {
+        return buffer_cache;
+    }
 
     [[nodiscard]] VideoCore::TextureCache& GetTextureCache() noexcept {
         return texture_cache;
