@@ -118,6 +118,7 @@ public:
         }
 
         m_bits |= bits;
+
         m_cond_var.notify_all();
     }
 

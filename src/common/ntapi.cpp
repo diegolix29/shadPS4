@@ -6,6 +6,7 @@
 #include "ntapi.h"
 
 NtClose_t NtClose = nullptr;
+NtDelayExecution_t NtDelayExecution = nullptr;
 NtSetInformationFile_t NtSetInformationFile = nullptr;
 NtCreateThread_t NtCreateThread = nullptr;
 NtTerminateThread_t NtTerminateThread = nullptr;
@@ -17,6 +18,7 @@ void Initialize() {
 
     // http://stackoverflow.com/a/31411628/4725495
     NtClose = (NtClose_t)GetProcAddress(nt_handle, "NtClose");
+    NtDelayExecution = (NtDelayExecution_t)GetProcAddress(nt_handle, "NtDelayExecution");
     NtSetInformationFile =
         (NtSetInformationFile_t)GetProcAddress(nt_handle, "NtSetInformationFile");
     NtCreateThread = (NtCreateThread_t)GetProcAddress(nt_handle, "NtCreateThread");
