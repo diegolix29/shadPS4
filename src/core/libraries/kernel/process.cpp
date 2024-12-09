@@ -45,11 +45,10 @@ s32 PS4_SYSV_ABI sceKernelLoadStartModule(const char* moduleFileName, size_t arg
 
     // Load PRX module and relocate any modules that import it.
     auto* linker = Common::Singleton<Core::Linker>::Instance();
-    u32 handle = linker->FindByName(path);
-    if (handle != -1) {
-        return handle;
+    u32 handle = linker->LoadModule(path, true);
+    if (handle == -1) {
+        return ORBIS_KERNEL_ERROR_EINVAL;
     }
-    handle = linker->LoadModule(path, true);
     auto* module = linker->GetModule(handle);
     linker->RelocateAnyImports(module);
 
@@ -61,10 +60,7 @@ s32 PS4_SYSV_ABI sceKernelLoadStartModule(const char* moduleFileName, size_t arg
     // Retrieve and verify proc param according to libkernel.
     u64* param = module->GetProcParam<u64*>();
     ASSERT_MSG(!param || param[0] >= 0x18, "Invalid module param size: {}", param[0]);
-    s32 ret = module->Start(args, argp, param);
-    if (pRes) {
-        *pRes = ret;
-    }
+    module->Start(args, argp, param);
 
     return handle;
 }
@@ -108,9 +104,6 @@ s32 PS4_SYSV_ABI sceKernelGetModuleInfoForUnwind(VAddr addr, int flags,
     LOG_INFO(Lib_Kernel, "called addr = {:#x}, flags = {:#x}", addr, flags);
     auto* linker = Common::Singleton<Core::Linker>::Instance();
     auto* module = linker->FindByAddress(addr);
-    if (!module) {
-        return ORBIS_KERNEL_ERROR_EFAULT;
-    }
     const auto mod_info = module->GetModuleInfoEx();
 
     // Fill in module info.
