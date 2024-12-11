@@ -1,7 +1,15 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+
+#include "controller.h"
+
 #include <SDL3/SDL.h>
+#include "common/assert.h"
+#include "common/path_util.h"
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "input/controller.h"
@@ -73,8 +81,7 @@ void GameController::AddState(const State& state) {
     m_states_num++;
 }
 
-void GameController::CheckButton(int id, Libraries::Pad::OrbisPadButtonDataOffset button,
-                                 bool is_pressed) {
+void GameController::CheckButton(int id, u32 button, bool is_pressed) {
     std::scoped_lock lock{m_mutex};
     auto state = GetLastState();
     state.time = Libraries::Kernel::sceKernelGetProcessTime();
@@ -172,6 +179,65 @@ u32 GameController::Poll() {
         }
     }
     return 100;
+}
+
+void CheckRemapFile() {
+    const std::string defaultremap =
+        R"([A_button]
+remap = "cross"
+[Y_button]
+remap = "triangle"
+[X_button]
+remap = "square"
+[B_button]
+remap = "circle"
+[Left_bumper]
+remap = "L1"
+[Right_bumper]
+remap = "R1"
+[Left_trigger]
+remap = "L2"
+[Right_trigger]
+remap = "R2"
+[dpad_up]
+remap = "dpad_up"
+[dpad_down]
+remap = "dpad_down"
+[dpad_left]
+remap = "dpad_left"
+[dpad_right]
+remap = "dpad_right"
+[Left_stick_button]
+remap = "L3"
+[Right_stick_button]
+remap = "R3"
+[Start]
+remap = "options"
+[Left_analog_stick_behavior]
+Mapped_to_buttons = false
+Swap_sticks = false
+Invert_movement_vertical = false
+Invert_movement_horizontal = false
+[If_Left_analog_stick_mapped_to_buttons]
+Left_stick_up_remap = "dpad_up"
+Left_stick_down_remap = "dpad_down"
+Left_stick_left_remap = "dpad_left"
+Left_stick_right_remap = "dpad_right"
+[Right_analog_stick_behavior]
+Mapped_to_buttons = false
+Swap_sticks = false
+Invert_movement_vertical = false
+Invert_movement_horizontal = false
+[If_Right_analog_stick_mapped_to_buttons]
+Right_stick_up_remap = "triangle"
+Right_stick_down_remap = "cross"
+Right_stick_left_remap = "square"
+Right_stick_right_remap = "circle")";
+    if (!std::filesystem::exists("Controller.toml")) {
+        std::ofstream remaptoml("Controller.toml");
+        remaptoml << defaultremap;
+        remaptoml.close();
+    }
 }
 
 } // namespace Input

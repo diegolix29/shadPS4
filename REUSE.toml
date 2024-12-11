@@ -18,6 +18,7 @@ path = [
     "scripts/ps4_names.txt",
     "src/images/about_icon.png",
     "src/images/controller_icon.png",
+    "src/images/ps4_controller.png",
     "src/images/discord.png",
     "src/images/dump_icon.png",
     "src/images/exit_icon.png",
@@ -31,6 +32,7 @@ path = [
     "src/images/folder_icon.png",
     "src/images/github.png",
     "src/images/grid_icon.png",
+    "src/images/keyboard_icon.png",
     "src/images/iconsize_icon.png",
     "src/images/ko-fi.png",
     "src/images/list_icon.png",
@@ -95,4 +97,3 @@ SPDX-License-Identifier = "MIT"
 path = "externals/gcn/include/**"
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "CC0-1.0"
-

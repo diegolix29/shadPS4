@@ -433,4 +433,6 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
     }
 }
 
+void RefreshMappings() {}
+
 } // namespace Frontend
