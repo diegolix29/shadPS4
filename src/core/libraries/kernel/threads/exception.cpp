@@ -7,7 +7,6 @@
 #include "core/libraries/libs.h"
 
 #ifdef _WIN64
-#include "common/ntapi.h"
 #else
 #include <signal.h>
 #endif
@@ -65,34 +64,6 @@ void SigactionHandler(int signum, siginfo_t* inf, ucontext_t* raw_context) {
         handler(POSIX_SIGUSR1, &ctx);
     }
 }
-#else
-void ExceptionHandler(void* arg1, void* arg2, void* arg3, PCONTEXT context) {
-    const char* thrName = (char*)arg1;
-    LOG_INFO(Lib_Kernel, "Exception raised successfully on thread '{}'", thrName);
-    const auto handler = Handlers[POSIX_SIGUSR1];
-    if (handler) {
-        auto ctx = Ucontext{};
-        ctx.uc_mcontext.mc_r8 = context->R8;
-        ctx.uc_mcontext.mc_r9 = context->R9;
-        ctx.uc_mcontext.mc_r10 = context->R10;
-        ctx.uc_mcontext.mc_r11 = context->R11;
-        ctx.uc_mcontext.mc_r12 = context->R12;
-        ctx.uc_mcontext.mc_r13 = context->R13;
-        ctx.uc_mcontext.mc_r14 = context->R14;
-        ctx.uc_mcontext.mc_r15 = context->R15;
-        ctx.uc_mcontext.mc_rdi = context->Rdi;
-        ctx.uc_mcontext.mc_rsi = context->Rsi;
-        ctx.uc_mcontext.mc_rbp = context->Rbp;
-        ctx.uc_mcontext.mc_rbx = context->Rbx;
-        ctx.uc_mcontext.mc_rdx = context->Rdx;
-        ctx.uc_mcontext.mc_rax = context->Rax;
-        ctx.uc_mcontext.mc_rcx = context->Rcx;
-        ctx.uc_mcontext.mc_rsp = context->Rsp;
-        ctx.uc_mcontext.mc_fs = context->SegFs;
-        ctx.uc_mcontext.mc_gs = context->SegGs;
-        handler(POSIX_SIGUSR1, &ctx);
-    }
-}
 #endif
 
 int PS4_SYSV_ABI sceKernelInstallExceptionHandler(s32 signum, SceKernelExceptionHandler handler) {
@@ -102,7 +73,9 @@ int PS4_SYSV_ABI sceKernelInstallExceptionHandler(s32 signum, SceKernelException
     }
     ASSERT_MSG(!Handlers[POSIX_SIGUSR1], "Invalid parameters");
     Handlers[POSIX_SIGUSR1] = handler;
-#ifndef _WIN64
+#ifdef _WIN64
+    UNREACHABLE_MSG("Missing exception implementation");
+#else
     struct sigaction act = {};
     act.sa_flags = SA_SIGINFO | SA_RESTART;
     act.sa_sigaction = reinterpret_cast<decltype(act.sa_sigaction)>(SigactionHandler);
@@ -118,7 +91,9 @@ int PS4_SYSV_ABI sceKernelRemoveExceptionHandler(s32 signum) {
     }
     ASSERT_MSG(Handlers[POSIX_SIGUSR1], "Invalid parameters");
     Handlers[POSIX_SIGUSR1] = nullptr;
-#ifndef _WIN64
+#ifdef _WIN64
+    UNREACHABLE_MSG("Missing exception implementation");
+#else
     struct sigaction act = {};
     act.sa_flags = SA_SIGINFO | SA_RESTART;
     act.sa_sigaction = nullptr;
@@ -128,18 +103,13 @@ int PS4_SYSV_ABI sceKernelRemoveExceptionHandler(s32 signum) {
 }
 
 int PS4_SYSV_ABI sceKernelRaiseException(PthreadT thread, int signum) {
-    LOG_WARNING(Lib_Kernel, "Raising exception on thread '{}'", thread->name);
+    LOG_ERROR(Lib_Kernel, "Raising exception");
     ASSERT_MSG(signum == POSIX_SIGUSR1, "Attempting to raise non user defined signal!");
-#ifndef _WIN64
+#ifdef _WIN64
+    UNREACHABLE_MSG("Missing exception implementation");
+#else
     pthread_t pthr = *reinterpret_cast<pthread_t*>(thread->native_thr.GetHandle());
     pthread_kill(pthr, SIGUSR2);
-#else
-    USER_APC_OPTION option;
-    option.UserApcFlags = QueueUserApcFlagsSpecialUserApc;
-
-    u64 res = NtQueueApcThreadEx(reinterpret_cast<HANDLE>(thread->native_thr.GetHandle()), option,
-                                 ExceptionHandler, (void*)thread->name.c_str(), nullptr, nullptr);
-    ASSERT(res == 0);
 #endif
     return 0;
 }
