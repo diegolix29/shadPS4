@@ -910,9 +910,9 @@ if (ENABLE_DISCORD_RPC)
     target_compile_definitions(shadps4 PRIVATE ENABLE_DISCORD_RPC)
 endif()
 
-if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-    target_compile_definitions(shadps4 PRIVATE ENABLE_USERFAULTFD)
-endif()
+#if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    #target_compile_definitions(shadps4 PRIVATE ENABLE_USERFAULTFD)
+#endif()
 
 if (APPLE)
   option(USE_SYSTEM_VULKAN_LOADER "Enables using the system Vulkan loader instead of directly linking with MoltenVK. Useful for loading validation layers." OFF)
