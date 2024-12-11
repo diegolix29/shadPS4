@@ -20,9 +20,14 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_definitions(_DEBUG)
 endif()
 
-option(ENABLE_LTO "Enables link-time optimization" ON)
+option(ENABLE_LTO "Enables link-time optimization" OFF)
 if (ENABLE_LTO)
     add_compile_options(-flto=full)
+endif()
+
+option(ENABLE_PGO "Enables usage of profdata located in pgo directory for building with pgo enabled" OFF)
+if (ENABLE_PGO)
+    add_compile_options(-fprofile-instr-use=${CMAKE_SOURCE_DIR}/pgo/default.profdata -Wno-profile-instr-unprofiled)
 endif()
 
 project(shadPS4)
