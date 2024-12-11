@@ -20,6 +20,11 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_definitions(_DEBUG)
 endif()
 
+option(ENABLE_LTO "Enables link-time optimization" ON)
+if (ENABLE_LTO)
+    add_compile_options(-flto=full)
+endif()
+
 project(shadPS4)
 
 # Forcing PIE makes sure that the base address is high enough so that it doesn't clash with the PS4 memory.

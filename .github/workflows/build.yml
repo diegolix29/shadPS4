@@ -37,7 +37,7 @@ jobs:
       env:
         COMMIT_RANGE: ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
       run: ./.ci/clang-format.sh
-      
+
   get-info:
     runs-on: ubuntu-latest
     outputs:
@@ -55,11 +55,14 @@ jobs:
         echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
         echo "shorthash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
         echo "fullhash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
   windows-sdl:
     runs-on: windows-latest
     needs: get-info
     steps:
+    - name: Upgrade LLVM to 19
+      run: |
+        choco upgrade llvm --version=19.1.5 -y
+
     - uses: actions/checkout@v4
       with:
         submodules: recursive
@@ -74,7 +77,6 @@ jobs:
           key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: |
             ${{ env.cache-name }}-
-
     - name: Cache CMake Build
       uses: hendrikmuhs/ccache-action@v1.2.14
       env:
@@ -89,10 +91,10 @@ jobs:
         arch: amd64
 
     - name: Configure CMake
-      run: cmake --fresh -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      run: cmake --fresh -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} DENABLE_PGO=ON -DENABLE_LTO=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $env:NUMBER_OF_PROCESSORS
 
     - name: Upload Windows SDL artifact
       uses: actions/upload-artifact@v4
@@ -104,6 +106,10 @@ jobs:
     runs-on: windows-latest
     needs: get-info
     steps:
+    - name: Upgrade LLVM to 19
+      run: |
+        choco upgrade llvm --version=19.1.5 -y
+
     - uses: actions/checkout@v4
       with:
         submodules: recursive
@@ -128,7 +134,6 @@ jobs:
           key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
           restore-keys: |
             ${{ env.cache-name }}-
-
     - name: Cache CMake Build
       uses: hendrikmuhs/ccache-action@v1.2.14
       env:
@@ -143,10 +148,10 @@ jobs:
         arch: amd64
 
     - name: Configure CMake
-      run: cmake --fresh -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_QT_GUI=ON -DENABLE_UPDATER=ON -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      run: cmake --fresh -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_QT_GUI=ON -DENABLE_UPDATER=OFF -DENABLE_PGO=ON -DENABLE_LTO=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $env:NUMBER_OF_PROCESSORS
 
     - name: Deploy and Package
       run: |
@@ -154,7 +159,6 @@ jobs:
         move build/shadPS4.exe upload
         windeployqt --no-compiler-runtime --no-system-d3d-compiler --no-system-dxc-compiler --dir upload upload/shadPS4.exe
         Compress-Archive -Path upload/* -DestinationPath shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}.zip
-
     - name: Upload Windows Qt artifact
       uses: actions/upload-artifact@v4
       with:
@@ -178,7 +182,6 @@ jobs:
       run: |
         arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         arch -x86_64 /usr/local/bin/brew install molten-vk
-
     - name: Cache CMake Configuration
       uses: actions/cache@v4 
       env: 
@@ -189,7 +192,6 @@ jobs:
           key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }} 
           restore-keys: | 
             ${{ env.cache-name }}- 
-
     - name: Cache CMake Build
       uses: hendrikmuhs/ccache-action@v1.2.14
       env:
@@ -242,7 +244,7 @@ jobs:
         arch: clang_64
         archives: qtbase qttools
         modules: qtmultimedia
-        
+
     - name: Cache CMake Configuration
       uses: actions/cache@v4 
       env: 
@@ -253,7 +255,6 @@ jobs:
           key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }} 
           restore-keys: | 
             ${{ env.cache-name }}- 
-
     - name: Cache CMake Build
       uses: hendrikmuhs/ccache-action@v1.2.14
       env:
@@ -265,7 +266,7 @@ jobs:
         variant: sccache
 
     - name: Configure CMake
-      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DENABLE_QT_GUI=ON -DENABLE_UPDATER=ON -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DENABLE_QT_GUI=ON -DENABLE_UPDATER=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(sysctl -n hw.ncpu)
@@ -302,7 +303,6 @@ jobs:
           key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }} 
           restore-keys: | 
             ${{ env.cache-name }}- 
-
     - name: Cache CMake Build
       uses: hendrikmuhs/ccache-action@v1.2.14
       env:
@@ -312,7 +312,7 @@ jobs:
         key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
 
     - name: Configure CMake
-      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_C_COMPILER=clang -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel3
@@ -328,7 +328,7 @@ jobs:
 
     - name: Run AppImage packaging script
       run:  ./.github/linux-appimage-sdl.sh
-      
+
     - name: Package and Upload Linux SDL artifact
       run: |
         tar cf shadps4-linux-sdl.tar.gz -C ${{github.workspace}}/build shadps4
@@ -358,7 +358,6 @@ jobs:
           key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }} 
           restore-keys: | 
             ${{ env.cache-name }}- 
-
     - name: Cache CMake Build
       uses: hendrikmuhs/ccache-action@v1.2.14
       env:
@@ -371,7 +370,7 @@ jobs:
       run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DENABLE_QT_GUI=ON -DENABLE_UPDATER=ON -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel3
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
 
     - name: Run AppImage packaging script
       run:  ./.github/linux-appimage-qt.sh
