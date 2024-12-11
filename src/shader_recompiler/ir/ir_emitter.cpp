@@ -134,6 +134,10 @@ void IREmitter::DeviceMemoryBarrier() {
     Inst(Opcode::DeviceMemoryBarrier);
 }
 
+void IREmitter::TcsOutputBarrier() {
+    Inst(Opcode::TcsOutputBarrier);
+}
+
 U32 IREmitter::GetUserData(IR::ScalarReg reg) {
     ASSERT(static_cast<u32>(reg) < IR::NumScalarRegs);
     return Inst<U32>(Opcode::GetUserData, reg);
@@ -266,8 +270,8 @@ void IREmitter::SetM0(const U32& value) {
     Inst(Opcode::SetM0, value);
 }
 
-F32 IREmitter::GetAttribute(IR::Attribute attribute, u32 comp, u32 index) {
-    return Inst<F32>(Opcode::GetAttribute, attribute, Imm32(comp), Imm32(index));
+F32 IREmitter::GetAttribute(IR::Attribute attribute, u32 comp, IR::Value index) {
+    return Inst<F32>(Opcode::GetAttribute, attribute, Imm32(comp), index);
 }
 
 U32 IREmitter::GetAttributeU32(IR::Attribute attribute, u32 comp) {
@@ -276,6 +280,24 @@ U32 IREmitter::GetAttributeU32(IR::Attribute attribute, u32 comp) {
 
 void IREmitter::SetAttribute(IR::Attribute attribute, const F32& value, u32 comp) {
     Inst(Opcode::SetAttribute, attribute, value, Imm32(comp));
+}
+
+F32 IREmitter::GetTessGenericAttribute(const U32& vertex_index, const U32& attr_index,
+                                       const U32& comp_index) {
+    return Inst<F32>(IR::Opcode::GetTessGenericAttribute, vertex_index, attr_index, comp_index);
+}
+
+void IREmitter::SetTcsGenericAttribute(const F32& value, const U32& attr_index,
+                                       const U32& comp_index) {
+    Inst(Opcode::SetTcsGenericAttribute, value, attr_index, comp_index);
+}
+
+F32 IREmitter::GetPatch(Patch patch) {
+    return Inst<F32>(Opcode::GetPatch, patch);
+}
+
+void IREmitter::SetPatch(Patch patch, const F32& value) {
+    Inst(Opcode::SetPatch, patch, value);
 }
 
 Value IREmitter::LoadShared(int bit_size, bool is_signed, const U32& offset) {

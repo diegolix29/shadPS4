@@ -10,6 +10,7 @@
 #include "shader_recompiler/ir/attribute.h"
 #include "shader_recompiler/ir/basic_block.h"
 #include "shader_recompiler/ir/condition.h"
+#include "shader_recompiler/ir/patch.h"
 #include "shader_recompiler/ir/value.h"
 
 namespace Shader::IR {
@@ -49,6 +50,7 @@ public:
     void Barrier();
     void WorkgroupMemoryBarrier();
     void DeviceMemoryBarrier();
+    void TcsOutputBarrier();
 
     [[nodiscard]] U32 GetUserData(IR::ScalarReg reg);
     [[nodiscard]] U1 GetThreadBitScalarReg(IR::ScalarReg reg);
@@ -80,9 +82,17 @@ public:
 
     [[nodiscard]] U1 Condition(IR::Condition cond);
 
-    [[nodiscard]] F32 GetAttribute(Attribute attribute, u32 comp = 0, u32 index = 0);
+    [[nodiscard]] F32 GetAttribute(Attribute attribute, u32 comp = 0,
+                                   IR::Value index = IR::Value(u32(0u)));
     [[nodiscard]] U32 GetAttributeU32(Attribute attribute, u32 comp = 0);
     void SetAttribute(Attribute attribute, const F32& value, u32 comp = 0);
+
+    [[nodiscard]] F32 GetTessGenericAttribute(const U32& vertex_index, const U32& attr_index,
+                                              const U32& comp_index);
+    void SetTcsGenericAttribute(const F32& value, const U32& attr_index, const U32& comp_index);
+
+    [[nodiscard]] F32 GetPatch(Patch patch);
+    void SetPatch(Patch patch, const F32& value);
 
     [[nodiscard]] Value LoadShared(int bit_size, bool is_signed, const U32& offset);
     void WriteShared(int bit_size, const Value& value, const U32& offset);
@@ -330,6 +340,7 @@ private:
     template <typename T = Value, typename... Args>
     T Inst(Opcode op, Args... args) {
         auto it{block->PrependNewInst(insertion_point, op, {Value{args}...})};
+        it->SetParent(block);
         return T{Value{&*it}};
     }
 
@@ -347,6 +358,7 @@ private:
         u32 raw_flags{};
         std::memcpy(&raw_flags, &flags.proxy, sizeof(flags.proxy));
         auto it{block->PrependNewInst(insertion_point, op, {Value{args}...}, raw_flags)};
+        it->SetParent(block);
         return T{Value{&*it}};
     }
 };

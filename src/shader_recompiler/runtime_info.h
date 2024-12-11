@@ -7,6 +7,7 @@
 #include <span>
 #include <boost/container/static_vector.hpp>
 #include "common/types.h"
+#include "shader_recompiler/frontend/tessellation.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/amdgpu/types.h"
 
@@ -23,9 +24,30 @@ enum class Stage : u32 {
 };
 constexpr u32 MaxStageTypes = 7;
 
+// Vertex intentionally comes after TCS/TES because in a tess pipeline,
+// we need to find the ls_stride from tess constants V# (in order to define an output attribute
+// array with correct length), and finding the tess constant V# requires analysis while compiling
+// TCS/TES (for now)
+enum class LogicalStage : u32 {
+    Fragment,
+    TessellationControl,
+    TessellationEval,
+    Vertex,
+    Geometry,
+    GsCopy,
+    Compute,
+};
+
 [[nodiscard]] constexpr Stage StageFromIndex(size_t index) noexcept {
     return static_cast<Stage>(index);
 }
+
+struct LocalRuntimeInfo {
+    u32 ls_stride;
+    bool links_with_tcs;
+
+    auto operator<=>(const LocalRuntimeInfo&) const noexcept = default;
+};
 
 struct ExportRuntimeInfo {
     u32 vertex_data_size;
@@ -64,9 +86,56 @@ struct VertexRuntimeInfo {
     u32 num_outputs;
     std::array<VsOutputMap, 3> outputs;
     bool emulate_depth_negative_one_to_one{};
+    // Domain
+    AmdGpu::TessellationType tess_type;
+    AmdGpu::TessellationTopology tess_topology;
+    AmdGpu::TessellationPartitioning tess_partitioning;
+    u32 hs_output_cp_stride{};
 
     bool operator==(const VertexRuntimeInfo& other) const noexcept {
-        return emulate_depth_negative_one_to_one == other.emulate_depth_negative_one_to_one;
+        return emulate_depth_negative_one_to_one == other.emulate_depth_negative_one_to_one &&
+               tess_type == other.tess_type && tess_topology == other.tess_topology &&
+               tess_partitioning == other.tess_partitioning &&
+               hs_output_cp_stride == other.hs_output_cp_stride;
+    }
+
+    void InitFromTessConstants(Shader::TessellationDataConstantBuffer& tess_constants) {
+        hs_output_cp_stride = tess_constants.m_hsCpStride;
+    }
+};
+
+struct HullRuntimeInfo {
+    // from registers
+    u32 output_control_points;
+
+    // from HullStateConstants in HsProgram (TODO dont rely on this)
+    u32 tess_factor_stride;
+
+    // from tess constants buffer
+    u32 ls_stride;
+    u32 hs_output_cp_stride;
+    u32 hs_num_patch;
+    u32 hs_output_base;
+    u32 patch_const_size;
+    u32 patch_const_base;
+    u32 patch_output_size;
+    u32 first_edge_tess_factor_index;
+
+    auto operator<=>(const HullRuntimeInfo&) const noexcept = default;
+
+    bool IsPassthrough() const {
+        return hs_output_base == 0;
+    };
+
+    void InitFromTessConstants(Shader::TessellationDataConstantBuffer& tess_constants) {
+        ls_stride = tess_constants.m_lsStride;
+        hs_output_cp_stride = tess_constants.m_hsCpStride;
+        hs_num_patch = tess_constants.m_hsNumPatch;
+        hs_output_base = tess_constants.m_hsOutputBase;
+        patch_const_size = tess_constants.m_patchConstSize;
+        patch_const_base = tess_constants.m_patchConstBase;
+        patch_output_size = tess_constants.m_patchOutputSize;
+        first_edge_tess_factor_index = tess_constants.m_firstEdgeTessFactorIndex;
     }
 };
 
@@ -150,8 +219,10 @@ struct RuntimeInfo {
     AmdGpu::FpDenormMode fp_denorm_mode32;
     AmdGpu::FpRoundMode fp_round_mode32;
     union {
+        LocalRuntimeInfo ls_info;
         ExportRuntimeInfo es_info;
         VertexRuntimeInfo vs_info;
+        HullRuntimeInfo hs_info;
         GeometryRuntimeInfo gs_info;
         FragmentRuntimeInfo fs_info;
         ComputeRuntimeInfo cs_info;
@@ -174,6 +245,10 @@ struct RuntimeInfo {
             return es_info == other.es_info;
         case Stage::Geometry:
             return gs_info == other.gs_info;
+        case Stage::Hull:
+            return hs_info == other.hs_info;
+        case Stage::Local:
+            return ls_info == other.ls_info;
         default:
             return true;
         }
