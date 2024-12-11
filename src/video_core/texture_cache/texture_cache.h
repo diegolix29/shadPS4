@@ -28,6 +28,7 @@ enum class FindFlags {
     RelaxDim = 1 << 1,  ///< Do not check the dimentions of image, only address.
     RelaxSize = 1 << 2, ///< Do not check that the size matches exactly.
     RelaxFmt = 1 << 3,  ///< Do not check that format is compatible.
+    ExactFmt = 1 << 4,  ///< Require the format to be exactly the same.
 };
 DECLARE_ENUM_FLAG_OPERATORS(FindFlags)
 
@@ -95,7 +96,7 @@ public:
     ~TextureCache();
 
     /// Invalidates any image in the logical page range.
-    void InvalidateMemory(VAddr addr, VAddr page_addr, size_t size);
+    void InvalidateMemory(VAddr addr, size_t size);
 
     /// Marks an image as dirty if it exists at the provided address.
     void InvalidateMemoryFromGPU(VAddr address, size_t max_size);
