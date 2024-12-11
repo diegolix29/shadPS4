@@ -261,7 +261,7 @@ struct Pthread {
     int refcount;
     PthreadEntryFunc start_routine;
     void* arg;
-    Core::NativeThread native_thr;
+    Core::Thread native_thr;
     PthreadAttr attr;
     bool cancel_enable;
     bool cancel_pending;
