@@ -27,7 +27,7 @@ endif()
 
 option(ENABLE_PGO "Enables usage of profdata located in pgo directory for building with pgo enabled" OFF)
 if (ENABLE_PGO)
-    add_compile_options(-fprofile-instr-use=${CMAKE_SOURCE_DIR}/pgo/default.profdata -Wno-profile-instr-unprofiled)
+    add_compile_options(-fprofile-use=${CMAKE_SOURCE_DIR}/pgo/default.profdata)
 endif()
 
 project(shadPS4)
