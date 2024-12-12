@@ -78,7 +78,6 @@ public:
 
 private:
     void OnResize();
-    void OnKeyPress(const SDL_Event* event);
     void parseconfig();
     void OnKeyboardMouseInput(const SDL_Event* event);
     void OnGamepadEvent(const SDL_Event* event);
