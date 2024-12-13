@@ -39,21 +39,20 @@ void TrophyUI::Draw() {
     const auto& io = GetIO();
 
     const ImVec2 window_size{
-        300.f, // Increased width (1.5x of 200)
-        112.5f // Increased height (1.5x of 75)
+        std::min(io.DisplaySize.x, 250.f),
+        std::min(io.DisplaySize.y, 70.f),
     };
 
     SetNextWindowSize(window_size);
     SetNextWindowCollapsed(false);
-    SetNextWindowPos(ImVec2((io.DisplaySize.x - window_size.x) / 2.0f,
-                            (io.DisplaySize.y - window_size.y) / 12.0f));
+    SetNextWindowPos(ImVec2(io.DisplaySize.x - 250, 50));
     KeepNavHighlight();
 
     if (Begin("Trophy Window", nullptr,
               ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
                   ImGuiWindowFlags_NoInputs)) {
         if (trophy_icon) {
-            Image(trophy_icon.GetTexture().im_id, ImVec2(100, 100));
+            Image(trophy_icon.GetTexture().im_id, ImVec2(50, 50));
             ImGui::SameLine();
         } else {
             // placeholder
