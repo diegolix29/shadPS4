@@ -16,7 +16,16 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-project(shadPS4 CXX C ASM)
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_definitions(_DEBUG)
+endif()
+
+option(ENABLE_LTO "Enables link-time optimization" OFF)
+if (ENABLE_LTO)
+    add_compile_options(-flto=full)
+endif()
+
+project(shadPS4)
 
 # Forcing PIE makes sure that the base address is high enough so that it doesn't clash with the PS4 memory.
 if(UNIX AND NOT APPLE)
@@ -796,6 +805,8 @@ set(IMGUI src/imgui/imgui_config.h
 
 set(INPUT src/input/controller.cpp
           src/input/controller.h
+          src/input/input_handler.cpp
+          src/input/input_handler.h
 )
 
 set(EMULATOR src/emulator.cpp
@@ -822,11 +833,18 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/background_music_player.h
            src/qt_gui/cheats_patches.cpp
            src/qt_gui/cheats_patches.h
+           src/qt_gui/control_settings.cpp
+           src/qt_gui/control_settings.h
+           src/qt_gui/control_settings.ui
            src/qt_gui/compatibility_info.cpp
            src/qt_gui/compatibility_info.h
            src/qt_gui/main_window_ui.h
            src/qt_gui/main_window.cpp
            src/qt_gui/main_window.h
+           src/qt_gui/kbm_config_dialog.cpp
+           src/qt_gui/kbm_config_dialog.h
+           src/qt_gui/kbm_help_dialog.cpp
+           src/qt_gui/kbm_help_dialog.h
            src/qt_gui/gui_context_menus.h
            src/qt_gui/game_list_utils.h
            src/qt_gui/game_info.cpp
