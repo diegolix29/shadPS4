@@ -1,9 +1,13 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <fstream>
+#include <iostream>
 #include <QDockWidget>
 #include <QKeyEvent>
+#include <QPlainTextEdit>
 #include <QProgressDialog>
+#include <SDL3/SDL_events.h>
 
 #include "about_dialog.h"
 #include "cheats_patches.h"
@@ -15,12 +19,16 @@
 #include "common/scm_rev.h"
 #include "common/string_util.h"
 #include "common/version.h"
+#include "control_settings.h"
 #include "core/file_format/pkg.h"
 #include "core/loader.h"
 #include "game_install_dialog.h"
 #include "install_dir_select.h"
 #include "main_window.h"
 #include "settings_dialog.h"
+
+#include "kbm_config_dialog.h"
+
 #include "video_core/renderer_vulkan/vk_instance.h"
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"
@@ -35,7 +43,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 MainWindow::~MainWindow() {
     SaveWindowState();
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-    Config::saveMainWindow(config_dir / "config.toml");
+    Config::save(config_dir / "config.toml");
 }
 
 bool MainWindow::Init() {
@@ -90,6 +98,30 @@ bool MainWindow::Init() {
     return true;
 }
 
+// Initialize shared memory for game state
+QSharedMemory sharedMemory("GameStateKey");
+// Write game state in child process
+void writeGameState() {
+    if (!sharedMemory.create(1024)) {
+        qDebug() << "Failed to create shared memory:" << sharedMemory.errorString();
+        return;
+    }
+    char* to = static_cast<char*>(sharedMemory.data());
+    const char* from = "Game State Data";
+    memcpy(to, from, qstrlen(from));
+    qDebug() << "Game state written to shared memory.";
+}
+// Read game state in the main process
+void readGameState() {
+    if (!sharedMemory.attach()) {
+        qDebug() << "Failed to attach to shared memory:" << sharedMemory.errorString();
+        return;
+    }
+    char* from = static_cast<char*>(sharedMemory.data());
+    qDebug() << "Game state read from shared memory:" << QString::fromLatin1(from);
+    sharedMemory.detach();
+}
+
 void MainWindow::CreateActions() {
     // create action group for icon size
     m_icon_size_act_group = new QActionGroup(this);
@@ -102,7 +134,6 @@ void MainWindow::CreateActions() {
     m_list_mode_act_group = new QActionGroup(this);
     m_list_mode_act_group->addAction(ui->setlistModeListAct);
     m_list_mode_act_group->addAction(ui->setlistModeGridAct);
-    m_list_mode_act_group->addAction(ui->setlistElfAct);
 
     // create action group for themes
     m_theme_act_group = new QActionGroup(this);
@@ -125,6 +156,8 @@ void MainWindow::AddUiWidgets() {
     ui->toolBar->addWidget(ui->refreshButton);
     ui->toolBar->addWidget(ui->settingsButton);
     ui->toolBar->addWidget(ui->controllerButton);
+    ui->toolBar->addWidget(ui->keyboardButton);
+    ui->toolBar->addWidget(ui->restartButton);
     QFrame* line = new QFrame(this);
     line->setFrameShape(QFrame::StyledPanel);
     line->setFrameShadow(QFrame::Sunken);
@@ -248,6 +281,8 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->playButton, &QPushButton::clicked, this, &MainWindow::StartGame);
+    connect(ui->stopButton, &QPushButton::clicked, this, &MainWindow::StopGame);
+    connect(ui->restartButton, &QPushButton::clicked, this, &MainWindow::RestartGame);
     connect(m_game_grid_frame.get(), &QTableWidget::cellDoubleClicked, this,
             &MainWindow::StartGame);
     connect(m_game_list_frame.get(), &QTableWidget::cellDoubleClicked, this,
@@ -275,6 +310,17 @@ void MainWindow::CreateConnects() {
                 &MainWindow::RefreshGameTable);
 
         settingsDialog->exec();
+    });
+
+    connect(ui->keyboardButton, &QPushButton::clicked, this, [this]() {
+        EditorDialog* editorWindow = new EditorDialog(this);
+        editorWindow->exec(); // Show the editor window modally
+    });
+
+    connect(ui->controllerButton, &QPushButton::clicked, this, [this]() {
+        Input::CheckRemapFile();
+        auto configWindow = new ControlSettings(this);
+        configWindow->exec();
     });
 
 #ifdef ENABLE_UPDATER
@@ -375,7 +421,7 @@ void MainWindow::CreateConnects() {
         ui->sizeSlider->setEnabled(true);
         ui->sizeSlider->setSliderPosition(slider_pos_grid);
     });
-    // Elf Viewer
+    // Elf
     connect(ui->setlistElfAct, &QAction::triggered, m_dock_widget.data(), [this]() {
         BackgroundMusicPlayer::getInstance().stopMusic();
         m_dock_widget->setWidget(m_elf_viewer.data());
@@ -602,6 +648,53 @@ void MainWindow::StartGame() {
     }
 }
 
+void MainWindow::StopGame() {
+    if (isGameRunning) {
+        qDebug() << "Stopping the current game...";
+
+        // Send SDL quit event to stop the emulator's main loop
+        SDL_Event quitEvent;
+        quitEvent.type = SDL_EVENT_QUIT;
+        SDL_PushEvent(&quitEvent);
+
+        // Optional: Handle other game-related cleanup tasks here
+        // For example, resetting UI, releasing memory, or clearing temporary states
+
+        // Update the game running state
+        isGameRunning = false;
+
+        // Log the successful stop operation
+        qDebug() << "Game stopped successfully.";
+    } else {
+        qDebug() << "No game is running to stop.";
+    }
+}
+
+void MainWindow::RestartGame() {
+    if (isGameRunning) {
+        qDebug() << "Preparing to restart the application...";
+
+        // Call StopGame() to handle any necessary cleanup before restarting
+        StopGame();
+        qDebug() << "Game stopped successfully.";
+
+        // Capture the current application path and arguments
+        QString program = QCoreApplication::applicationFilePath();
+        QStringList arguments = QCoreApplication::arguments();
+
+        // Restart the application
+        qDebug() << "Restarting the application with eboot path...";
+        if (QProcess::startDetached(program, arguments)) {
+            qDebug() << "Application restarted successfully. Exiting current instance...";
+            QCoreApplication::quit();
+        } else {
+            qDebug() << "Failed to restart the application.";
+        }
+    } else {
+        qDebug() << "No game is currently running to restart.";
+    }
+}
+
 void MainWindow::SearchGameTable(const QString& text) {
     if (isTableList) {
         for (int row = 0; row < m_game_list_frame->rowCount(); row++) {
@@ -649,12 +742,10 @@ void MainWindow::ConfigureGuiFromSettings() {
                 Config::getMainWindowGeometryW(), Config::getMainWindowGeometryH());
 
     ui->showGameListAct->setChecked(true);
-    if (Config::getTableMode() == 0) {
+    if (isTableList) {
         ui->setlistModeListAct->setChecked(true);
-    } else if (Config::getTableMode() == 1) {
+    } else {
         ui->setlistModeGridAct->setChecked(true);
-    } else if (Config::getTableMode() == 2) {
-        ui->setlistElfAct->setChecked(true);
     }
     BackgroundMusicPlayer::getInstance().setVolume(Config::getBGMvolume());
 }
@@ -995,13 +1086,13 @@ void MainWindow::SetUiIcons(bool isWhite) {
     ui->gameInstallPathAct->setIcon(RecolorIcon(ui->gameInstallPathAct->icon(), isWhite));
     ui->menuThemes->setIcon(RecolorIcon(ui->menuThemes->icon(), isWhite));
     ui->menuGame_List_Icons->setIcon(RecolorIcon(ui->menuGame_List_Icons->icon(), isWhite));
-    ui->menuUtils->setIcon(RecolorIcon(ui->menuUtils->icon(), isWhite));
     ui->playButton->setIcon(RecolorIcon(ui->playButton->icon(), isWhite));
     ui->pauseButton->setIcon(RecolorIcon(ui->pauseButton->icon(), isWhite));
     ui->stopButton->setIcon(RecolorIcon(ui->stopButton->icon(), isWhite));
     ui->refreshButton->setIcon(RecolorIcon(ui->refreshButton->icon(), isWhite));
     ui->settingsButton->setIcon(RecolorIcon(ui->settingsButton->icon(), isWhite));
     ui->controllerButton->setIcon(RecolorIcon(ui->controllerButton->icon(), isWhite));
+    ui->keyboardButton->setIcon(RecolorIcon(ui->keyboardButton->icon(), isWhite));
     ui->refreshGameListAct->setIcon(RecolorIcon(ui->refreshGameListAct->icon(), isWhite));
     ui->menuGame_List_Mode->setIcon(RecolorIcon(ui->menuGame_List_Mode->icon(), isWhite));
     ui->pkgViewerAct->setIcon(RecolorIcon(ui->pkgViewerAct->icon(), isWhite));
@@ -1041,7 +1132,7 @@ void MainWindow::AddRecentFiles(QString filePath) {
     }
     Config::setRecentFiles(vec);
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-    Config::saveMainWindow(config_dir / "config.toml");
+    Config::save(config_dir / "config.toml");
     CreateRecentGameActions(); // Refresh the QActions.
 }
 

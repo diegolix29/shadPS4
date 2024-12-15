@@ -38,6 +38,8 @@ public:
     void InstallDragDropPkg(std::filesystem::path file, int pkgNum, int nPkg);
     void InstallDirectory();
     void StartGame();
+    void StopGame();
+    void RestartGame();
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
@@ -98,6 +100,9 @@ private:
         std::make_shared<CompatibilityInfoClass>();
 
     QTranslator* translator;
+
+    // Private member variable to store the currently loaded game path
+    QString currentGameFilePath;
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;

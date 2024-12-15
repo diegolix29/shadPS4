@@ -46,7 +46,8 @@ public:
     QPushButton* refreshButton;
     QPushButton* settingsButton;
     QPushButton* controllerButton;
-
+    QPushButton* keyboardButton;
+    QPushButton* restartButton;
     QWidget* sizeSliderContainer;
     QHBoxLayout* sizeSliderContainer_layout;
     QSlider* sizeSlider;
@@ -112,14 +113,15 @@ public:
         setIconSizeLargeAct->setCheckable(true);
         setlistModeListAct = new QAction(MainWindow);
         setlistModeListAct->setObjectName("setlistModeListAct");
-        setlistModeListAct->setIcon(QIcon(":images/list_icon.png"));
         setlistModeListAct->setCheckable(true);
+        setlistModeListAct->setChecked(true);
+        setlistModeListAct->setIcon(QIcon(":images/list_icon.png"));
         setlistModeGridAct = new QAction(MainWindow);
         setlistModeGridAct->setObjectName("setlistModeGridAct");
-        setlistModeGridAct->setIcon(QIcon(":images/grid_icon.png"));
         setlistModeGridAct->setCheckable(true);
+        setlistModeGridAct->setIcon(QIcon(":images/grid_icon.png"));
         setlistElfAct = new QAction(MainWindow);
-        setlistElfAct->setObjectName("setlistElfAct");
+        setlistElfAct->setObjectName("setlistModeGridAct");
         setlistElfAct->setCheckable(true);
         gameInstallPathAct = new QAction(MainWindow);
         gameInstallPathAct->setObjectName("gameInstallPathAct");
@@ -206,6 +208,14 @@ public:
         controllerButton->setFlat(true);
         controllerButton->setIcon(QIcon(":images/controller_icon.png"));
         controllerButton->setIconSize(QSize(40, 40));
+        restartButton = new QPushButton(centralWidget);
+        restartButton->setFlat(true);
+        restartButton->setIcon(QIcon(":images/refresh_icon.png"));
+        restartButton->setIconSize(QSize(40, 40));
+        keyboardButton = new QPushButton(centralWidget);
+        keyboardButton->setFlat(true);
+        keyboardButton->setIcon(QIcon(":images/keyboard_icon.png"));
+        keyboardButton->setIconSize(QSize(40, 40));
 
         sizeSliderContainer = new QWidget(centralWidget);
         sizeSliderContainer->setObjectName("sizeSliderContainer");
@@ -257,7 +267,6 @@ public:
         menuSettings->setObjectName("menuSettings");
         menuUtils = new QMenu(menuSettings);
         menuUtils->setObjectName("menuUtils");
-        menuUtils->setIcon(QIcon(":images/utils_icon.png"));
         menuThemes = new QMenu(menuView);
         menuThemes->setObjectName("menuThemes");
         menuThemes->setIcon(QIcon(":images/themes_icon.png"));
