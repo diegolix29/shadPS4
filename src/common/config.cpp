@@ -598,8 +598,10 @@ void load(const std::filesystem::path& path) {
         userName = toml::find_or<std::string>(general, "userName", "shadPS4");
         if (Common::isRelease) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Release");
-        } else {
+        } else if (!Common::isRelease) { // Non-release builds
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Nightly");
+        } else { // Fallback to PGO if neither applies
+            updateChannel = toml::find_or<std::string>(general, "updateChannel", "PGO");
         }
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);

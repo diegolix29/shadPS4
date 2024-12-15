@@ -341,8 +341,10 @@ void SettingsDialog::LoadValuesFromConfig() {
     if (updateChannel != "Release" && updateChannel != "Nightly") {
         if (Common::isRelease) {
             updateChannel = "Release";
-        } else {
+        } else if (!Common::isRelease) { // Non-release builds
             updateChannel = "Nightly";
+        } else { // Fallback to PGO if neither applies
+            updateChannel = "PGO";
         }
     }
     ui->updateComboBox->setCurrentText(QString::fromStdString(updateChannel));

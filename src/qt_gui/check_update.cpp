@@ -51,11 +51,16 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
         } else if (updateChannel == "Release") {
             url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases/latest");
             checkName = false;
+        } else if (updateChannel == "PGO") {
+            url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
+            checkName = false;
         } else {
             if (Common::isRelease) {
-                Config::setUpdateChannel("Release");
-            } else {
-                Config::setUpdateChannel("Nightly");
+                updateChannel = "Release";
+            } else if (!Common::isRelease) { // Non-release builds
+                updateChannel = "Nightly";
+            } else { // Fallback to PGO if neither applies
+                updateChannel = "PGO";
             }
             const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
             Config::save(config_dir / "config.toml");
@@ -112,7 +117,23 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
                 reply->deleteLater();
                 return;
             }
-        } else {
+        } else if (updateChannel == "PGO") {
+            // Find the first release with a tag_name starting with "PGO-"
+            QJsonArray jsonArray = jsonDoc.array();
+            for (const QJsonValue& value : jsonArray) {
+                jsonObj = value.toObject();
+                QString tagName = jsonObj["tag_name"].toString();
+                if (tagName.startsWith("PGO-")) {
+                    latestVersion = tagName;
+                    break;
+                }
+            }
+            if (latestVersion.isEmpty()) {
+                QMessageBox::warning(this, tr("Error"), tr("No PGO releases found."));
+                reply->deleteLater();
+                return;
+            }
+        } else { // Release
             jsonObj = jsonDoc.object();
             if (jsonObj.contains("tag_name")) {
                 latestVersion = jsonObj["tag_name"].toString();

@@ -330,6 +330,11 @@
                       <string>Nightly</string>
                      </property>
                     </item>
+                    <item>
+                     <property name="text">
+                      <string>PGO</string>
+                     </property>
+                    </item>
                    </widget>
                   </item>
                  </layout>
