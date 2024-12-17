@@ -1012,6 +1012,7 @@ void MainWindow::SetLastUsedTheme() {
         ui->setThemeViolet->setChecked(true);
         isIconBlack = false;
         SetUiIcons(false);
+        break;
     case Theme::Gruvbox:
         ui->setThemeGruvbox->setChecked(true);
         isIconBlack = false;
