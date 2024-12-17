@@ -123,9 +123,6 @@ void Liverpool::Process(std::stop_token stoken) {
             if (task.done()) {
                 task.destroy();
 
-                if (rasterizer) {
-                    rasterizer->Flush();
-                }
                 std::scoped_lock lock{queue.m_access};
                 queue.submits.pop();
 
