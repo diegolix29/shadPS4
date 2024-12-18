@@ -600,8 +600,8 @@ void load(const std::filesystem::path& path) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Release");
         } else if (!Common::isRelease) { // Non-release builds
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Nightly");
-        } else { // Fallback to PGO if neither applies
-            updateChannel = toml::find_or<std::string>(general, "updateChannel", "PGO");
+        } else { // Fallback to PartBB if neither applies
+            updateChannel = toml::find_or<std::string>(general, "updateChannel", "PartBB");
         }
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);

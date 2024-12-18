@@ -51,7 +51,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
         } else if (updateChannel == "Release") {
             url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases/latest");
             checkName = false;
-        } else if (updateChannel == "PGO") {
+        } else if (updateChannel == "PartBB") {
             url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
             checkName = false;
         } else {
@@ -59,8 +59,8 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
                 updateChannel = "Release";
             } else if (!Common::isRelease) { // Non-release builds
                 updateChannel = "Nightly";
-            } else { // Fallback to PGO if neither applies
-                updateChannel = "PGO";
+            } else { // Fallback to PartBB if neither applies
+                updateChannel = "PartBB";
             }
             const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
             Config::save(config_dir / "config.toml");
@@ -117,19 +117,19 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
                 reply->deleteLater();
                 return;
             }
-        } else if (updateChannel == "PGO") {
-            // Find the first release with a tag_name starting with "PGO-"
+        } else if (updateChannel == "PartBB") {
+            // Find the first release with a tag_name starting with "PartBB-"
             QJsonArray jsonArray = jsonDoc.array();
             for (const QJsonValue& value : jsonArray) {
                 jsonObj = value.toObject();
                 QString tagName = jsonObj["tag_name"].toString();
-                if (tagName.startsWith("PGO-")) {
+                if (tagName.startsWith("PartBB-")) {
                     latestVersion = tagName;
                     break;
                 }
             }
             if (latestVersion.isEmpty()) {
-                QMessageBox::warning(this, tr("Error"), tr("No PGO releases found."));
+                QMessageBox::warning(this, tr("Error"), tr("No PartBB releases found."));
                 reply->deleteLater();
                 return;
             }

@@ -332,7 +332,7 @@
                     </item>
                     <item>
                      <property name="text">
-                      <string>PGO</string>
+                      <string>PartBB</string>
                      </property>
                     </item>
                    </widget>
