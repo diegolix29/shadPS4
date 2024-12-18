@@ -646,8 +646,9 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
             continue;
         }
 
-        auto& [image_id, desc] = image_bindings.emplace_back(std::piecewise_construct, std::tuple{},
-                                                             std::tuple{tsharp, image_desc});
+        auto& [image_id, desc] = image_bindings.emplace_back(
+            std::piecewise_construct, std::tuple{},
+            std::tuple{tsharp, image_desc, image_desc.IsStorage(tsharp)});
         image_id = texture_cache.FindImage(desc);
         auto* image = &texture_cache.GetImage(image_id);
         if (image->depth_id) {

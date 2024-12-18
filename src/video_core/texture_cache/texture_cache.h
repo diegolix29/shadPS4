@@ -64,9 +64,9 @@ public:
 
     struct TextureDesc : public BaseDesc {
         TextureDesc() = default;
-        TextureDesc(const AmdGpu::Image& image, const Shader::ImageResource& desc)
-            : BaseDesc{desc.is_written ? BindingType::Storage : BindingType::Texture,
-                       ImageInfo{image, desc}, ImageViewInfo{image, desc}} {}
+        TextureDesc(const AmdGpu::Image& image, const Shader::ImageResource& desc, bool is_storage)
+            : BaseDesc{is_storage ? BindingType::Storage : BindingType::Texture,
+                       ImageInfo{image, desc}, ImageViewInfo{image, desc, is_storage}} {}
     };
 
     struct RenderTargetDesc : public BaseDesc {
