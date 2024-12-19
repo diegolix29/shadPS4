@@ -338,7 +338,7 @@ void SettingsDialog::LoadValuesFromConfig() {
 #ifdef ENABLE_UPDATER
     ui->updateCheckBox->setChecked(toml::find_or<bool>(data, "General", "autoUpdate", false));
     std::string updateChannel = toml::find_or<std::string>(data, "General", "updateChannel", "");
-    if (updateChannel != "Release" && updateChannel != "Nightly") {
+    if (updateChannel != "Release" && updateChannel != "Nightly" && updateChannel != "PartBB") {
         if (Common::isRelease) {
             updateChannel = "Release";
         } else if (!Common::isRelease) { // Non-release builds
