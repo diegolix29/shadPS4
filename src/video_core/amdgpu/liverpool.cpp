@@ -90,24 +90,26 @@ void Liverpool::Process(std::stop_token stoken) {
         curr_qid = -1;
 
         while (num_submits || num_commands) {
-
             // Process incoming commands with high priority
-            while (num_commands) {
 
+            const size_t batch_size = 0; // Set the number of commands to process per iteration
+            size_t processed = 0;
+
+            while (num_commands && processed < batch_size) {
                 Common::UniqueFunction<void> callback{};
                 {
                     std::unique_lock lk{submit_mutex};
                     callback = std::move(command_queue.back());
                     command_queue.pop();
                 }
-
                 callback();
-
                 --num_commands;
+                ++processed;
             }
 
-            curr_qid = (curr_qid + 1) % num_mapped_queues;
+            std::this_thread::yield();
 
+            curr_qid = (curr_qid + 1) % num_mapped_queues;
             auto& queue = mapped_queues[curr_qid];
 
             Task::Handle task{};
@@ -122,14 +124,17 @@ void Liverpool::Process(std::stop_token stoken) {
 
             if (task.done()) {
                 task.destroy();
-
-                std::scoped_lock lock{queue.m_access};
-                queue.submits.pop();
-
+                {
+                    std::scoped_lock lock{queue.m_access};
+                    queue.submits.pop();
+                }
                 --num_submits;
-                std::scoped_lock lock2{submit_mutex};
-                submit_cv.notify_all();
+                {
+                    std::scoped_lock lock2{submit_mutex};
+                    submit_cv.notify_all();
+                }
             }
+            std::this_thread::yield();
         }
 
         if (submit_done) {
@@ -602,36 +607,31 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     break;
                 }
                 if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
-                    LOG_CRITICAL(Render_Vulkan, "DmaData Data ({}) -> Gds {:#x}, {} bytes",
-                                 dma_data->data, dma_data->dst_addr_lo, dma_data->NumBytes());
+                                 dma_data->data, dma_data->dst_addr_lo, dma_data->NumBytes();
                     rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32),
                                            true);
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Gds) {
-                    LOG_CRITICAL(Render_Vulkan, "DmaData Memory {:#x} -> Gds {:#x}, {} bytes",
                                  dma_data->SrcAddress<VAddr>(), dma_data->dst_addr_lo,
-                                 dma_data->NumBytes());
+                                 dma_data->NumBytes();
                     rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
                                            dma_data->NumBytes(), true, false);
                 } else if (dma_data->src_sel == DmaDataSrc::Data &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    LOG_CRITICAL(Render_Vulkan, "DmaData Data ({}) -> Memory {:#x}, {} bytes",
                                  dma_data->data, dma_data->DstAddress<uintptr_t>(),
-                                 dma_data->NumBytes());
+                                 dma_data->NumBytes();
                     rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data,
                                            sizeof(u32), false);
                 } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    LOG_CRITICAL(Render_Vulkan, "DmaData Gds {:#x} -> Memory {:#x}, {} bytes",
                                  dma_data->src_addr_lo, dma_data->DstAddress<uintptr_t>(),
-                                 dma_data->NumBytes());
+                                 dma_data->NumBytes();
                     rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
                                            dma_data->NumBytes(), false, true);
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    LOG_CRITICAL(Render_Vulkan, "DmaData Memory {:#x} -> Memory {:#x}, {} bytes",
                                  dma_data->SrcAddress<uintptr_t>(),
-                                 dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes());
+                                 dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                     rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
                                            dma_data->SrcAddress<VAddr>(), dma_data->NumBytes(),
                                            false, false);
@@ -766,35 +766,30 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                 break;
             }
             if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
-                LOG_CRITICAL(Render_Vulkan, "DmaData Data ({}) -> Gds {:#x}, {} bytes",
-                             dma_data->data, dma_data->dst_addr_lo, dma_data->NumBytes());
+                             dma_data->data, dma_data->dst_addr_lo, dma_data->NumBytes();
                 rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Gds) {
-                LOG_CRITICAL(Render_Vulkan, "DmaData Memory {:#x} -> Gds {:#x}, {} bytes",
                              dma_data->SrcAddress<VAddr>(), dma_data->dst_addr_lo,
-                             dma_data->NumBytes());
+                             dma_data->NumBytes();
                 rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
                                        dma_data->NumBytes(), true, false);
             } else if (dma_data->src_sel == DmaDataSrc::Data &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                LOG_CRITICAL(Render_Vulkan, "DmaData Data ({}) -> Memory {:#x}, {} bytes",
                              dma_data->data, dma_data->DstAddress<uintptr_t>(),
-                             dma_data->NumBytes());
+                             dma_data->NumBytes();
                 rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data, sizeof(u32),
                                        false);
             } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                LOG_CRITICAL(Render_Vulkan, "DmaData Gds {:#x} -> Memory {:#x}, {} bytes",
                              dma_data->src_addr_lo, dma_data->DstAddress<uintptr_t>(),
-                             dma_data->NumBytes());
+                             dma_data->NumBytes();
                 rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
                                        dma_data->NumBytes(), false, true);
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                LOG_CRITICAL(Render_Vulkan, "DmaData Memory {:#x} -> Memory {:#x}, {} bytes",
                              dma_data->SrcAddress<uintptr_t>(), dma_data->DstAddress<uintptr_t>(),
-                             dma_data->NumBytes());
+                             dma_data->NumBytes();
                 rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->SrcAddress<VAddr>(),
                                        dma_data->NumBytes(), false, false);
             } else {
