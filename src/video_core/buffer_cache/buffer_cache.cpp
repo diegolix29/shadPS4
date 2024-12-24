@@ -331,7 +331,7 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool is_dst_gd
     });
     cmdbuf.copyBuffer(src_buffer.Handle(), dst_buffer.Handle(), region);
 
-cmdbuf.copyBuffer(src_buffer.Handle(), dst_buffer.Handle(), region);
+    cmdbuf.copyBuffer(src_buffer.Handle(), dst_buffer.Handle(), region);
 
     const vk::BufferMemoryBarrier2 buf_barriers_after[2] = {
         {
