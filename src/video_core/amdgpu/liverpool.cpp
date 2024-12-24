@@ -25,7 +25,8 @@ static const char* ccb_task_name{"CCB_TASK"};
 static_assert(Liverpool::NumComputeRings <= MAX_NAMES);
 
 #define NAME_NUM(z, n, name) BOOST_PP_STRINGIZE(name) BOOST_PP_STRINGIZE(n),
-#define NAME_ARRAY(name, num) {BOOST_PP_REPEAT(num, NAME_NUM, name)}
+#define NAME_ARRAY(name, num)                                                                      \
+    { BOOST_PP_REPEAT(num, NAME_NUM, name) }
 
 static const char* acb_task_name[] = NAME_ARRAY(ACB_TASK, MAX_NAMES);
 
@@ -607,31 +608,28 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     break;
                 }
                 if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
-                                 dma_data->data, dma_data->dst_addr_lo, dma_data->NumBytes();
+                    dma_data->data, dma_data->dst_addr_lo, dma_data->NumBytes();
                     rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32),
                                            true);
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Gds) {
-                                 dma_data->SrcAddress<VAddr>(), dma_data->dst_addr_lo,
-                                 dma_data->NumBytes();
+                    dma_data->SrcAddress<VAddr>(), dma_data->dst_addr_lo, dma_data->NumBytes();
                     rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
                                            dma_data->NumBytes(), true, false);
                 } else if (dma_data->src_sel == DmaDataSrc::Data &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                                 dma_data->data, dma_data->DstAddress<uintptr_t>(),
-                                 dma_data->NumBytes();
+                    dma_data->data, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                     rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data,
                                            sizeof(u32), false);
                 } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                                 dma_data->src_addr_lo, dma_data->DstAddress<uintptr_t>(),
-                                 dma_data->NumBytes();
+                    dma_data->src_addr_lo, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                     rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
                                            dma_data->NumBytes(), false, true);
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                                 dma_data->SrcAddress<uintptr_t>(),
-                                 dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
+                    dma_data->SrcAddress<uintptr_t>(), dma_data->DstAddress<uintptr_t>(),
+                        dma_data->NumBytes();
                     rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
                                            dma_data->SrcAddress<VAddr>(), dma_data->NumBytes(),
                                            false, false);
@@ -766,30 +764,27 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                 break;
             }
             if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
-                             dma_data->data, dma_data->dst_addr_lo, dma_data->NumBytes();
+                dma_data->data, dma_data->dst_addr_lo, dma_data->NumBytes();
                 rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Gds) {
-                             dma_data->SrcAddress<VAddr>(), dma_data->dst_addr_lo,
-                             dma_data->NumBytes();
+                dma_data->SrcAddress<VAddr>(), dma_data->dst_addr_lo, dma_data->NumBytes();
                 rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
                                        dma_data->NumBytes(), true, false);
             } else if (dma_data->src_sel == DmaDataSrc::Data &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                             dma_data->data, dma_data->DstAddress<uintptr_t>(),
-                             dma_data->NumBytes();
+                dma_data->data, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                 rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data, sizeof(u32),
                                        false);
             } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                             dma_data->src_addr_lo, dma_data->DstAddress<uintptr_t>(),
-                             dma_data->NumBytes();
+                dma_data->src_addr_lo, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                 rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
                                        dma_data->NumBytes(), false, true);
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                             dma_data->SrcAddress<uintptr_t>(), dma_data->DstAddress<uintptr_t>(),
-                             dma_data->NumBytes();
+                dma_data->SrcAddress<uintptr_t>(), dma_data->DstAddress<uintptr_t>(),
+                    dma_data->NumBytes();
                 rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->SrcAddress<VAddr>(),
                                        dma_data->NumBytes(), false, false);
             } else {
