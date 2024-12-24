@@ -25,7 +25,7 @@ if (ENABLE_LTO)
     add_compile_options(-flto=full)
 endif()
 
-project(shadPS4)
+project(shadPS4 CXX C ASM)
 
 # Forcing PIE makes sure that the base address is high enough so that it doesn't clash with the PS4 memory.
 if(UNIX AND NOT APPLE)
