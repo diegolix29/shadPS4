@@ -25,7 +25,8 @@ static const char* ccb_task_name{"CCB_TASK"};
 static_assert(Liverpool::NumComputeRings <= MAX_NAMES);
 
 #define NAME_NUM(z, n, name) BOOST_PP_STRINGIZE(name) BOOST_PP_STRINGIZE(n),
-#define NAME_ARRAY(name, num) {BOOST_PP_REPEAT(num, NAME_NUM, name)}
+#define NAME_ARRAY(name, num)                                                                      \
+    { BOOST_PP_REPEAT(num, NAME_NUM, name) }
 
 static const char* acb_task_name[] = NAME_ARRAY(ACB_TASK, MAX_NAMES);
 
@@ -627,13 +628,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                                            dma_data->NumBytes(), false, true);
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    constexpr u32 chunkSize = 256 * 1024; // Process in chunks
-                    for (u32 offset = 0; offset < dma_data->NumBytes(); offset += chunkSize) {
-                        rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>() + offset,
-                                               dma_data->SrcAddress<VAddr>() + offset,
-                                               std::min(chunkSize, dma_data->NumBytes() - offset),
-                                               false, false);
-                    }
+                    dma_data->SrcAddress<uintptr_t>(), dma_data->DstAddress<uintptr_t>(),
+                        dma_data->NumBytes();
+                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
+                                           dma_data->SrcAddress<VAddr>(), dma_data->NumBytes(),
+                                           false, false);
                 } else {
                     UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
                                     u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -698,7 +697,6 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             }
             case PM4ItOpcode::WaitOnCeCounter: {
                 while (cblock.ce_count <= cblock.de_count) {
-                    std::this_thread::sleep_for(std::chrono::microseconds(50)); // Reduce CPU spin
                     RESUME_GFX(ce_task);
                 }
                 break;
@@ -785,13 +783,10 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                                        dma_data->NumBytes(), false, true);
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                constexpr u32 chunkSize = 256 * 1024; // Process in chunks
-                for (u32 offset = 0; offset < dma_data->NumBytes(); offset += chunkSize) {
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>() + offset,
-                                           dma_data->SrcAddress<VAddr>() + offset,
-                                           std::min(chunkSize, dma_data->NumBytes() - offset),
-                                           false, false);
-                }
+                dma_data->SrcAddress<uintptr_t>(), dma_data->DstAddress<uintptr_t>(),
+                    dma_data->NumBytes();
+                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->SrcAddress<VAddr>(),
+                                       dma_data->NumBytes(), false, false);
             } else {
                 UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
                                 u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -956,7 +951,7 @@ void Liverpool::SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb) {
         queue.submits.emplace(task.handle);
     }
 
-    std::lock_guard<std::mutex> lk(submit_mutex);
+    std::scoped_lock lk{submit_mutex};
     ++num_submits;
     submit_cv.notify_one();
 }
