@@ -16,10 +16,6 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_compile_definitions(_DEBUG)
-endif()
-
 option(ENABLE_LTO "Enables link-time optimization" OFF)
 if (ENABLE_LTO)
     add_compile_options(-flto=full)
@@ -920,9 +916,9 @@ if (ENABLE_DISCORD_RPC)
 endif()
 
 # Optional due to https://github.com/shadps4-emu/shadPS4/issues/1704
-if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND ENABLE_USERFAULTFD)
-    target_compile_definitions(shadps4 PRIVATE ENABLE_USERFAULTFD)
-endif()
+#if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND ENABLE_USERFAULTFD)
+    #target_compile_definitions(shadps4 PRIVATE ENABLE_USERFAULTFD)
+#endif()
 
 if (APPLE)
   if (ENABLE_QT_GUI)
