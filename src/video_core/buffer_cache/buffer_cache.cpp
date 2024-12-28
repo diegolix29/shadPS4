@@ -292,7 +292,7 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool is_dst_gd
 
     // Retrieve source and destination buffers.
     auto get_buffer = [&](VAddr addr, bool is_gds) -> const Buffer& {
-        return is_gds ? gds_buffer : slot_buffers[FindBuffer(addr, num_bytes)];
+        return is_gds ? gds_buffer : slot_buffers[FindOrCreateBuffer(addr, num_bytes)];
     };
     auto& src_buffer = get_buffer(src, is_src_gds);
     auto& dst_buffer = get_buffer(dst, is_dst_gds);
@@ -383,15 +383,15 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
     Buffer* buffer = nullptr;
     {
         if (!buffer_id || slot_buffers[buffer_id].is_deleted) {
-            buffer_id = FindBuffer(device_addr, size);
+            buffer_id = FindOrCreateBuffer(device_addr, size);
         }
         if (is_written) {
             memory_tracker.MarkRegionAsGpuModified(device_addr, size);
             gpu_modified_ranges.Add(device_addr, size);
         }
         Buffer& buffer = slot_buffers[buffer_id];
-        SynchronizeBuffer(buffer, device_addr, size, is_texel_buffer);
-
+        std::mutex& buffer_mutex = *slot_buffer_mutex_map[buffer_id];
+        SynchronizeBuffer(buffer, buffer_mutex, device_addr, size, is_texel_buffer);
         return {&buffer, buffer.Offset(device_addr)};
     }
 }
