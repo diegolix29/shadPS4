@@ -287,11 +287,11 @@ public:
 #endif
                         QMessageBox::information(
                             nullptr, tr("Shortcut creation"),
-                            QString(tr("Shortcut created successfully!\n %1")).arg(linkPath));
+                            QString(tr("Shortcut created successfully!") + "\n%1").arg(linkPath));
                     } else {
                         QMessageBox::critical(
                             nullptr, tr("Error"),
-                            QString(tr("Error creating shortcut!\n %1")).arg(linkPath));
+                            QString(tr("Error creating shortcut!") + "\n%1").arg(linkPath));
                     }
                 } else {
                     QMessageBox::critical(nullptr, tr("Error"), tr("Failed to convert icon."));
@@ -305,11 +305,11 @@ public:
 #endif
                     QMessageBox::information(
                         nullptr, tr("Shortcut creation"),
-                        QString(tr("Shortcut created successfully!\n %1")).arg(linkPath));
+                        QString(tr("Shortcut created successfully!") + "\n%1").arg(linkPath));
                 } else {
                     QMessageBox::critical(
                         nullptr, tr("Error"),
-                        QString(tr("Error creating shortcut!\n %1")).arg(linkPath));
+                        QString(tr("Error creating shortcut!") + "\n%1").arg(linkPath));
                 }
             }
         }
@@ -347,9 +347,8 @@ public:
 
             if (selected == deleteUpdate) {
                 if (!std::filesystem::exists(Common::FS::PathFromQString(game_update_path))) {
-                    QMessageBox::critical(
-                        nullptr, tr("Error"),
-                        QString(tr("This game has no separate update to delete!")));
+                    QMessageBox::critical(nullptr, tr("Error"),
+                                          QString(tr("This game has no update to delete!")));
                     error = true;
                 } else {
                     folder_path = game_update_path;
