@@ -53,6 +53,19 @@
 		</message>
 	</context>
 	<context>
+		<name>InstallDirSelect</name>
+		<message>
+			<location filename="../install_dir_select.cpp" line="30"/>
+			<source>shadPS4 - Choose directory</source>
+			<translation>ShadPS4 - انتخاب محل نصب بازی</translation>
+		</message>
+		<message>
+			<location filename="../install_dir_select.cpp" line="37"/>
+			<source>Select which directory you want to install to.</source>
+			<translation>محلی را که می‌خواهید در آن نصب شود، انتخاب کنید.</translation>
+		</message>
+	</context>
+	<context>
 		<name>GameInstallDialog</name>
 		<message>
 			<location filename="../game_install_dialog.cpp" line="24"/>
@@ -85,12 +98,7 @@
 		<message>
 			<location filename="../gui_context_menus.h" line="39"/>
 			<source>Create Shortcut</source>
-			<translation>ساخت شورتکات</translation>
-		</message>
-		<message>
-			<location filename="../gui_context_menus.h" line="40"/>
-			<source>Open Game Folder</source>
-			<translation>بازکردن محل نصب بازی</translation>
+			<translation>ایجاد میانبر</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="48"/>
@@ -105,12 +113,32 @@
 		<message>
 			<location filename="../gui_context_menus.h" line="42"/>
 			<source>Trophy Viewer</source>
-			<translation>مشاهده تروفی ها</translation>
+			<translation>مشاهده جوایز</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="49"/>
+			<source>Open Folder...</source>
+			<translation>باز کردن پوشه...</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="50"/>
-			<source>Copy info</source>
-			<translation>کپی کردن اطلاعات</translation>
+			<source>Open Game Folder</source>
+			<translation>باز کردن پوشه بازی</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="51"/>
+			<source>Open Save Data Folder</source>
+			<translation>پوشه ذخیره داده را باز کنید</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="52"/>
+			<source>Open Log Folder</source>
+			<translation>باز کردن پوشه لاگ</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="50"/>
+			<source>Copy info...</source>
+			<translation>...کپی کردن اطلاعات</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="51"/>
@@ -128,14 +156,54 @@
 			<translation>کپی کردن تمامی مقادیر</translation>
 		</message>
 		<message>
+			<location filename="../gui_context_menus.h" line="72"/>
+			<source>Delete...</source>
+			<translation>حذف...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="73"/>
+			<source>Delete Game</source>
+			<translation>حذف بازی</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="74"/>
+			<source>Delete Update</source>
+			<translation>حذف به‌روزرسانی</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="75"/>
+			<source>Delete DLC</source>
+			<translation>حذف محتوای اضافی (DLC)</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="99"/>
+			<source>Compatibility...</source>
+			<translation>Compatibility...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="100"/>
+			<source>Update database</source>
+			<translation>Update database</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="101"/>
+			<source>View report</source>
+			<translation>View report</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="102"/>
+			<source>Submit a report</source>
+			<translation>Submit a report</translation>
+		</message>
+		<message>
 			<location filename="../gui_context_menus.h" line="173"/>
 			<source>Shortcut creation</source>
-			<translation>سازنده شورتکات</translation>
+			<translation>ایجاد میانبر</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="174"/>
-			<source>Shortcut created successfully!\n %1</source>
-			<translation>شورتکات با موفقیت ساخته شد! \n %1</translation>
+			<source>Shortcut created successfully!</source>
+			<translation>میانبر با موفقیت ساخته شد!</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="177"/>
@@ -144,13 +212,53 @@
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="178"/>
-			<source>Error creating shortcut!\n %1</source>
-			<translation>مشکلی در هنگام ساخت شورتکات بوجود آمد!\n %1</translation>
+			<source>Error creating shortcut!</source>
+			<translation>مشکلی در هنگام ساخت میانبر بوجود آمد!</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="253"/>
 			<source>Install PKG</source>
 			<translation>نصب PKG</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="299"/>
+			<source>Game</source>
+			<translation>بازی</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="305"/>
+			<source>requiresEnableSeparateUpdateFolder_MSG</source>
+			<translation>این قابلیت نیازمند فعال‌سازی گزینه تنظیمات «ایجاد پوشه جداگانه برای به‌روزرسانی» است. در صورت تمایل به استفاده از این قابلیت، لطفاً آن را فعال کنید.</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="312"/>
+			<source>This game has no update to delete!</source>
+			<translation>این بازی به‌روزرسانی‌ای برای حذف ندارد!</translation>
+		</message>
+			<message>
+			<location filename="../gui_context_menus.h" line="316"/>
+			<source>Update</source>
+			<translation>به‌روزرسانی</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="321"/>
+			<source>This game has no DLC to delete!</source>
+			<translation>این بازی محتوای اضافی (DLC) برای حذف ندارد!</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="325"/>
+			<source>DLC</source>
+			<translation>DLC</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="332"/>
+			<source>Delete %1</source>
+			<translation>حذف %1</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="333"/>
+			<source>Are you sure you want to delete %1's %2 directory?</source>
+			<translation>Are you sure you want to delete %1's %2 directory?</translation>
 		</message>
 	</context>
 	<context>
@@ -243,7 +351,7 @@
 		<message>
 			<location filename="../main_window_ui.h" line="338"/>
 			<source>List View</source>
-			<translation>لیستی</translation>
+			<translation>نمایش لیست</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="340"/>
@@ -253,7 +361,7 @@
 		<message>
 			<location filename="../main_window_ui.h" line="341"/>
 			<source>Elf Viewer</source>
-			<translation>Elf Viewer</translation>
+			<translation>مشاهده گر Elf</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="343"/>
@@ -364,7 +472,7 @@
 		<message>
 			<location filename="../trophy_viewer.cpp" line="8"/>
 			<source>Trophy Viewer</source>
-			<translation>تروفی ها</translation>
+			<translation>مشاهده جوایز</translation>
 		</message>
 	</context>
 	<context>
@@ -405,6 +513,11 @@
 			<translation>تمام صفحه</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui" line="140"/>
+			<source>Enable Separate Update Folder</source>
+			<translation>فعال‌سازی پوشه جداگانه برای به‌روزرسانی</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="129"/>
 			<source>Show Splash</source>
 			<translation>Splash نمایش</translation>
@@ -413,6 +526,11 @@
 			<location filename="../settings_dialog.ui" line="136"/>
 			<source>Is PS4 Pro</source>
 			<translation>PS4 Pro حالت</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="154"/>
+			<source>Enable Discord Rich Presence</source>
+			<translation>Discord Rich Presence را فعال کنید</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="155"/>
@@ -433,6 +551,41 @@
 			<location filename="../settings_dialog.ui" line="235"/>
 			<source>Log Filter</source>
 			<translation>Log فیلتر</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="595"/>
+			<source>Input</source>
+			<translation>ورودی</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="611"/>
+			<source>Cursor</source>
+			<translation>نشانگر</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="635"/>
+			<source>Hide Cursor</source>
+			<translation>پنهان کردن نشانگر</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="668"/>
+			<source>Hide Cursor Idle Timeout</source>
+			<translation>مخفی کردن زمان توقف مکان نما</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="816"/>
+			<source>s</source>
+			<translation>s</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="767"/>
+			<source>Controller</source>
+			<translation>دسته بازی</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="797"/>
+			<source>Back Button Behavior</source>
+			<translation>رفتار دکمه بازگشت</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="272"/>
@@ -457,7 +610,7 @@
 		<message>
 			<location filename="../settings_dialog.ui" line="405"/>
 			<source>Vblank Divider</source>
-			<translation>Vblank Divider</translation>
+			<translation>تقسیم‌کننده Vblank</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="453"/>
@@ -467,7 +620,7 @@
 		<message>
 			<location filename="../settings_dialog.ui" line="462"/>
 			<source>Enable Shaders Dumping</source>
-			<translation>Shaders Dumping فعال کردن</translation>
+			<translation>فعال‌سازی ذخیره‌سازی شیدرها</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="469"/>
@@ -475,14 +628,29 @@
 			<translation>NULL GPU فعال کردن</translation>
 		</message>
 		<message>
-			<location filename="../settings_dialog.ui" line="476"/>
-			<source>Enable PM4 Dumping</source>
-			<translation>PM4 Dumping فعال کردن</translation>
+			<location filename="../settings_dialog.ui" line="1111"/>
+			<source>Paths</source>
+			<translation>مسیرها</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1119"/>
+			<source>Game Folders</source>
+			<translation>پوشه های بازی</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1141"/>
+			<source>Add...</source>
+			<translation>افزودن...</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1141"/>
+			<source>Remove</source>
+			<translation>حذف</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="517"/>
 			<source>Debug</source>
-			<translation>Debug</translation>
+			<translation>دیباگ</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="537"/>
@@ -507,22 +675,22 @@
 		<message>
 			<location filename="../settings_dialog.ui" line="274"/>
 			<source>Update</source>
-			<translation>بروزرسانی</translation>
+			<translation>به‌روزرسانی</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="286"/>
 			<source>Check for Updates at Startup</source>
-			<translation>بررسی بروزرسانی هنگام شروع</translation>
+			<translation>بررسی به‌روزرسانی‌ها در زمان راه‌اندازی</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="313"/>
 			<source>Update Channel</source>
-			<translation>کانال بروزرسانی</translation>
+			<translation>کانال به‌روزرسانی</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="322"/>
 			<source>Check for Updates</source>
-			<translation>به روز رسانی را بررسی کنید</translation>
+			<translation>بررسی به‌روزرسانی‌ها</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="354"/>
@@ -530,14 +698,44 @@
 			<translation>تنظیمات رابط کاربری</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui" line="475"/>
+			<source>Disable Trophy Pop-ups</source>
+			<translation>غیرفعال کردن نمایش جوایز</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="375"/>
 			<source>Play title music</source>
 			<translation>پخش موسیقی عنوان</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Update Compatibility Database On Startup</source>
+			<translation>به‌روزرسانی پایگاه داده سازگاری هنگام راه‌اندازی</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Game Compatibility</source>
+			<translation>سازگاری بازی با سیستم</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Display Compatibility Data</source>
+			<translation>نمایش داده‌های سازگاری</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Update Compatibility Database</source>
+			<translation>به‌روزرسانی پایگاه داده سازگاری</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="394"/>
 			<source>Volume</source>
-			<translation>صدا </translation>
+			<translation>صدا</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Audio Backend</source>
+			<translation>Audio Backend</translation>
 		</message>
 	</context>
 	<context>
@@ -550,7 +748,7 @@
 		<message>
 			<location filename="../main_window.cpp" line="168"/>
 			<source> * Unsupported Vulkan Version</source>
-			<translation>شما پشتیبانی نمیشود Vulkan ورژن*</translation>
+			<translation>شما پشتیبانی نمیشود Vulkan ورژن *</translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="326"/>
@@ -697,8 +895,8 @@
 		<name>CheatsPatches</name>
 		<message>
 			<location filename="../cheats_patches.cpp" line="44"/>
-			<source>Cheats / Patches</source>
-			<translation>چیت / پچ ها</translation>
+			<source>Cheats / Patches for </source>
+			<translation> چیت / پچ برای </translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="50"/>
@@ -718,7 +916,7 @@
 		<message>
 			<location filename="../cheats_patches.cpp" line="83"/>
 			<source>Version: </source>
-			<translation>ورژن: </translation>
+			<translation>نسخه: </translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="87"/>
@@ -743,7 +941,7 @@
 		<message>
 			<location filename="../cheats_patches.cpp" line="155"/>
 			<source>Delete File</source>
-			<translation>پاک کردن فایل</translation>
+			<translation>حذف فایل</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="169"/>
@@ -893,12 +1091,12 @@
 		<message>
 			<location filename="../cheats_patches.cpp" line="762"/>
 			<source>Download Complete</source>
-			<translation>پچ ها با موفقیت بارگیری شدند! تمام وصله های موجود برای همه بازی ها دانلود شده اند، نیازی به دانلود جداگانه آنها برای هر بازی نیست، همانطور که در Cheats اتفاق می افتد. اگر پچ ظاهر نشد، ممکن است برای سریال و نسخه خاصی از بازی وجود نداشته باشد. ممکن است نیاز به آپدیت بازی باشد.✅</translation>
+			<translation>دانلود کامل شد</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="763"/>
 			<source>DownloadComplete_MSG</source>
-			<translation>دانلود با موفقیت به اتمام رسید✅</translation>
+			<translation>پچ ها با موفقیت بارگیری شدند! تمام وصله های موجود برای همه بازی ها دانلود شده اند، نیازی به دانلود جداگانه آنها برای هر بازی نیست، همانطور که در Cheats اتفاق می افتد. اگر پچ ظاهر نشد، ممکن است برای سریال و نسخه خاصی از بازی وجود نداشته باشد.</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="773"/>
@@ -909,6 +1107,26 @@
 			<location filename="../cheats_patches.cpp" line="778"/>
 			<source>Failed to retrieve HTML page.</source>
 			<translation>HTML خطا دربازیابی صفحه</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="850"/>
+			<source>The game is in version: %1</source>
+			<translation>بازی در نسخه: %1 است</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="851"/>
+			<source>The downloaded patch only works on version: %1</source>
+			<translation>وصله دانلود شده فقط در نسخه: %1 کار می کند</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="856"/>
+			<source>You may need to update your game.</source>
+			<translation>شاید لازم باشد بازی خود را به روز کنید.</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="860"/>
+			<source>Incompatibility Notice</source>
+			<translation>اطلاعیه عدم سازگاری</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="801"/>
@@ -986,67 +1204,147 @@
 		<message>
 			<location filename="../settings_dialog.cpp" line="291"/>
 			<source>emulatorLanguageGroupBox</source>
-			<translation>Emulator Language:\nSets the language of the emulator's user interface.</translation>
+			<translation>زبان شبیه‌ساز:\nزبان رابط کاربری شبیه‌ساز را انتخاب می‌کند.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="293"/>
 			<source>fullscreenCheckBox</source>
-			<translation>Enable Full Screen:\nAutomatically puts the game window into full-screen mode.\nThis can be toggled by pressing the F11 key.</translation>
+			<translation>فعال‌سازی تمام صفحه:\nپنجره بازی را به‌طور خودکار به حالت تمام صفحه در می‌آورد.\nبرای تغییر این حالت می‌توانید کلید F11 را فشار دهید.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="293"/>
+			<source>separateUpdatesCheckBox</source>
+			<translation>فعال‌سازی پوشه جداگانه برای به‌روزرسانی:\nامکان نصب به‌روزرسانی‌های بازی در یک پوشه جداگانه برای مدیریت راحت‌تر را فراهم می‌کند.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="295"/>
 			<source>showSplashCheckBox</source>
-			<translation>Show Splash Screen:\nShows the game's splash screen (a special image) while the game is starting.</translation>
+			<translation>نمایش صفحه شروع:\nصفحه شروع بازی (تصویری ویژه) را هنگام بارگذاری بازی نمایش می‌دهد.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="297"/>
 			<source>ps4proCheckBox</source>
-			<translation>Is PS4 Pro:\nMakes the emulator act as a PS4 PRO, which may enable special features in games that support it.</translation>
+			<translation>حالت PS4 Pro:\nشبیه‌ساز را به‌عنوان PS4 Pro شبیه‌سازی می‌کند که ممکن است ویژگی‌های ویژه‌ای را در بازی‌های پشتیبانی‌شده فعال کند.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="438"/>
+			<source>discordRPCCheckbox</source>
+			<translation>فعال کردن Discord Rich Presence:\nآیکون شبیه ساز و اطلاعات مربوطه را در نمایه Discord شما نمایش می دهد.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="299"/>
 			<source>userName</source>
-			<translation>Username:\nSets the PS4's account username, which may be displayed by some games.</translation>
+			<translation>نام کاربری:\nنام کاربری حساب PS4 را تنظیم می‌کند که ممکن است توسط برخی بازی‌ها نمایش داده شود.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="301"/>
 			<source>logTypeGroupBox</source>
-			<translation>Log Type:\nSets whether to synchronize the output of the log window for performance. May have adverse effects on emulation.</translation>
+			<translation>نوع لاگ:\nتنظیم می‌کند که آیا خروجی پنجره لاگ برای بهبود عملکرد همگام‌سازی شود یا خیر. این ممکن است تأثیر منفی بر شبیه‌سازی داشته باشد.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="303"/>
 			<source>logFilter</source>
-			<translation>Log Filter: Filters the log to only print specific information. Examples: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical" Levels: Trace, Debug, Info, Warning, Error, Critical - in this order, a specific level silences all levels preceding it in the list and logs every level after it.</translation>
+			<translation>Log Filter:\nFilters the log to only print specific information.\nExamples: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical" Levels: Trace, Debug, Info, Warning, Error, Critical - in this order, a specific level silences all levels preceding it in the list and logs every level after it.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="305"/>
 			<source>updaterGroupBox</source>
-			<translation>Update:\nRelease: Official versions released every month that may be very outdated, but are more reliable and tested.\nNightly: Development versions that have all the latest features and fixes, but may contain bugs and are less stable.</translation>
+			<translation>به‌روزرسانی:\nانتشار: نسخه‌های رسمی که هر ماه منتشر می‌شوند و ممکن است بسیار قدیمی باشند، اما پایدارتر و تست‌ شده‌تر هستند.\nشبانه: نسخه‌های توسعه‌ای که شامل جدیدترین ویژگی‌ها و اصلاحات هستند، اما ممکن است دارای اشکال باشند و کمتر پایدار باشند.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="306"/>
 			<source>GUIgroupBox</source>
-			<translation>Play Title Music:\nIf a game supports it, enable playing special music when selecting the game in the GUI.</translation>
+			<translation>پخش موسیقی عنوان:\nIدر صورتی که بازی از آن پشتیبانی کند، پخش موسیقی ویژه هنگام انتخاب بازی در رابط کاربری را فعال می‌کند.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="267"/>
+			<source>disableTrophycheckBox</source>
+			<translation>غیرفعال کردن نمایش جوایز:\nنمایش اعلان‌های جوایز درون بازی را غیرفعال می‌کند. پیشرفت جوایز همچنان از طریق نمایشگر جوایز (کلیک راست روی بازی در پنجره اصلی) قابل پیگیری است..</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="450"/>
+			<source>hideCursorGroupBox</source>
+			<translation>پنهان کردن نشانگر:\nانتخاب کنید که نشانگر چه زمانی ناپدید شود:\nهرگز: شما همیشه ماوس را خواهید دید.\nغیرفعال: زمانی را برای ناپدید شدن بعد از غیرفعالی تعیین کنید.\nهمیشه: شما هرگز ماوس را نخواهید دید.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="452"/>
+			<source>idleTimeoutGroupBox</source>
+			<translation>زمانی را برای ناپدید شدن ماوس بعد از غیرفعالی تعیین کنید.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="454"/>
+			<source>backButtonBehaviorGroupBox</source>
+			<translation>رفتار دکمه برگشت:\nدکمه برگشت کنترلر را طوری تنظیم می کند که ضربه زدن روی موقعیت مشخص شده روی صفحه لمسی PS4 را شبیه سازی کند.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>enableCompatibilityCheckBox</source>
+			<translation>نمایش داده‌های سازگاری:\nاطلاعات سازگاری بازی را به صورت جدول نمایش می‌دهد. برای دریافت اطلاعات به‌روز، گزینه "به‌روزرسانی سازگاری هنگام راه‌اندازی" را فعال کنید.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>checkCompatibilityOnStartupCheckBox</source>
+			<translation>به‌روزرسانی سازگاری هنگام راه‌اندازی:\nبه‌طور خودکار پایگاه داده سازگاری را هنگام راه‌اندازی ShadPS4 به‌روزرسانی می‌کند.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>updateCompatibilityButton</source>
+			<translation>به‌روزرسانی پایگاه داده سازگاری:\nپایگاه داده سازگاری را بلافاصله به‌روزرسانی می‌کند.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="70"/>
+			<source>Never</source>
+			<translation>هرگز</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="71"/>
+			<source>Idle</source>
+			<translation>بیکار</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="72"/>
+			<source>Always</source>
+			<translation>همیشه</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="101"/>
+			<source>Touchpad Left</source>
+			<translation>صفحه لمسی سمت چپ</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="102"/>
+			<source>Touchpad Right</source>
+			<translation>صفحه لمسی سمت راست</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="103"/>
+			<source>Touchpad Center</source>
+			<translation>مرکز صفحه لمسی</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="104"/>
+			<source>None</source>
+			<translation>هیچ کدام</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="312"/>
 			<source>graphicsAdapterGroupBox</source>
-			<translation>Graphics Device:\nOn multiple GPU systems, select the GPU the emulator will use from the drop down list,\nor select "Auto Select" to automatically determine it.</translation>
+			<translation>دستگاه گرافیکی:\nدر سیستم‌های با چندین پردازنده گرافیکی، از فهرست کشویی، پردازنده گرافیکی که شبیه‌ساز از آن استفاده می‌کند را انتخاب کنید، یا گزینه "انتخاب خودکار" را انتخاب کنید تا به طور خودکار تعیین شود.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="314"/>
 			<source>resolutionLayout</source>
-			<translation>Width/Height:\nSets the size of the emulator window at launch, which can be resized during gameplay.\nThis is different from the in-game resolution.</translation>
+			<translation>عرض/ارتفاع:\nاندازه پنجره شبیه‌ساز را در هنگام راه‌اندازی تنظیم می‌کند، که در حین بازی قابل تغییر اندازه است.\nاین با وضوح داخل بازی متفاوت است.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="318"/>
 			<source>heightDivider</source>
-			<translation>Vblank Divider:\nThe frame rate at which the emulator refreshes at is multiplied by this number. Changing this may have adverse effects, such as increasing the game speed, or breaking critical game functionality that does not expect this to change!</translation>
+			<translation>تقسیم‌کننده Vblank:\nمیزان فریم ریت که شبیه‌ساز با آن به‌روزرسانی می‌شود، در این عدد ضرب می‌شود. تغییر این مقدار ممکن است تأثیرات منفی داشته باشد، مانند افزایش سرعت بازی یا خراب شدن عملکردهای حیاتی بازی که انتظار تغییر آن را ندارند!</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="320"/>
 			<source>dumpShadersCheckBox</source>
-			<translation>Enable Shaders Dumping:\nFor the sake of technical debugging, saves the games shaders to a folder as they render.</translation>
+			<translation>فعال‌سازی ذخیره‌سازی شیدرها:\nبه‌منظور اشکال‌زدایی فنی، شیدرهای بازی را هنگام رندر شدن در یک پوشه ذخیره می‌کند.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="322"/>
@@ -1054,14 +1352,24 @@
 			<translation>Enable Null GPU:\nFor the sake of technical debugging, disables game rendering as if there were no graphics card.</translation>
 		</message>
 		<message>
-			<location filename="../settings_dialog.cpp" line="323"/>
-			<source>dumpPM4CheckBox</source>
-			<translation>Enable PM4 Dumping:\nFor the sake of technical debugging, saves raw GPU instruction data to a folder as the emulator processes it.</translation>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>gameFoldersBox</source>
+			<translation>پوشه های بازی:\nلیست پوشه هایی که باید بازی های نصب شده را بررسی کنید.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>addFolderButton</source>
+			<translation>اضافه کردن:\nیک پوشه به لیست اضافه کنید.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>removeFolderButton</source>
+			<translation>حذف:\nیک پوشه را از لیست حذف کنید.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="329"/>
 			<source>debugDump</source>
-			<translation>Enable Debug Dumping:\nSaves the import and export symbols and file header information of the currently running PS4 program to a directory.</translation>
+			<translation>فعال‌سازی ذخیره‌سازی دیباگ:\nنمادهای import و export و اطلاعات هدر فایل برنامه در حال اجرای PS4 را در یک پوشه ذخیره می‌کند.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="331"/>
@@ -1097,6 +1405,11 @@
 			<translation>سریال</translation>
 		</message>
 		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Compatibility</source>
+			<translation>سازگاری</translation>
+		</message>
+		<message>
 			<location filename="../game_list_frame.cpp" line="34"/>
 			<source>Region</source>
 			<translation>منطقه</translation>
@@ -1104,7 +1417,7 @@
 		<message>
 			<location filename="../game_list_frame.cpp" line="34"/>
 			<source>Firmware</source>
-			<translation>فریمور</translation>
+			<translation>فریم‌ور</translation>
 		</message>
 		<message>
 			<location filename="../game_list_frame.cpp" line="35"/>
@@ -1121,13 +1434,68 @@
 			<source>Path</source>
 			<translation>مسیر</translation>
 		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="38"/>
+			<source>Play Time</source>
+			<translation>زمان بازی</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="108"/>
+			<source>Never Played</source>
+			<translation>هرگز بازی نشده</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>h</source>
+			<translation>h</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>m</source>
+			<translation>m</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>s</source>
+			<translation>s</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Compatibility is untested</source>
+			<translation>سازگاری تست نشده است</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game does not initialize properly / crashes the emulator</source>
+			<translation>بازی به درستی راه‌اندازی نمی‌شود / شبیه‌ساز کرش می‌کند</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game boots, but only displays a blank screen</source>
+			<translation>بازی اجرا می‌شود، اما فقط یک صفحه خالی نمایش داده می‌شود</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game displays an image but does not go past the menu</source>
+			<translation>بازی تصویری نمایش می‌دهد، اما از منو فراتر نمی‌رود</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game has game-breaking glitches or unplayable performance</source>
+			<translation>بازی دارای اشکالات بحرانی یا عملکرد غیرقابل بازی است</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game can be completed with playable performance and no major glitches</source>
+			<translation>بازی با عملکرد قابل قبول و بدون اشکالات عمده قابل بازی است.</translation>
+		</message>
 	</context>
 	<context>
 		<name>CheckUpdate</name>
 		<message>
 			<location filename="../check_update.cpp" line="34"/>
 			<source>Auto Updater</source>
-			<translation>به روز رسانی خودکار</translation>
+			<translation>به‌روزرسانی خودکار</translation>
 		</message>
 		<message>
 			<location filename="../check_update.cpp" line="51"/>
@@ -1169,10 +1537,10 @@
 			<source>Update Available</source>
 			<translation>به روز رسانی موجود است</translation>
 		</message>
-		<message> 
+		<message>
 			<location filename="../check_update.cpp" line="187"/>
 			<source>Update Channel</source>
-			<translation>کانال بروزرسانی</translation>
+			<translation>کانال به‌روزرسانی</translation>
 		</message>
 		<message>
 			<location filename="../check_update.cpp" line="177"/>
@@ -1197,7 +1565,7 @@
 		<message>
 			<location filename="../check_update.cpp" line="198"/>
 			<source>Check for Updates at Startup</source>
-			<translation>بررسی بروزرسانی هنگام شروع</translation>
+			<translation>بررسی به‌روزرسانی هنگام شروع</translation>
 		</message>
 		<message>
 			<location filename="../check_update.cpp" line="199"/>
@@ -1249,5 +1617,33 @@
 			<source>Failed to create the update script file</source>
 			<translation>فایل اسکریپت به روز رسانی ایجاد نشد</translation>
 		</message>
+	</context>
+	<context>
+		<name>GameListUtils</name>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>B</source>
+			<translation>B</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>KB</source>
+			<translation>KB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>MB</source>
+			<translation>MB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>GB</source>
+			<translation>GB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>TB</source>
+			<translation>TB</translation>
+		</message>		
 	</context>
 </TS>

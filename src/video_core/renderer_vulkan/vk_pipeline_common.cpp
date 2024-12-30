@@ -4,6 +4,7 @@
 #include <boost/container/static_vector.hpp>
 
 #include "shader_recompiler/info.h"
+#include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_pipeline_common.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
@@ -11,71 +12,47 @@
 
 namespace Vulkan {
 
-boost::container::static_vector<vk::DescriptorImageInfo, 32> Pipeline::image_infos;
-
 Pipeline::Pipeline(const Instance& instance_, Scheduler& scheduler_, DescriptorHeap& desc_heap_,
-                   vk::PipelineCache pipeline_cache)
-    : instance{instance_}, scheduler{scheduler_}, desc_heap{desc_heap_} {}
+                   vk::PipelineCache pipeline_cache, bool is_compute_ /*= false*/)
+    : instance{instance_}, scheduler{scheduler_}, desc_heap{desc_heap_}, is_compute{is_compute_} {}
 
 Pipeline::~Pipeline() = default;
 
-void Pipeline::BindTextures(VideoCore::TextureCache& texture_cache, const Shader::Info& stage,
-                            Shader::Backend::Bindings& binding,
-                            DescriptorWrites& set_writes) const {
+void Pipeline::BindResources(DescriptorWrites& set_writes, const BufferBarriers& buffer_barriers,
+                             const Shader::PushData& push_data) const {
+    const auto cmdbuf = scheduler.CommandBuffer();
+    const auto bind_point =
+        IsCompute() ? vk::PipelineBindPoint::eCompute : vk::PipelineBindPoint::eGraphics;
 
-    using ImageBindingInfo = std::tuple<VideoCore::ImageId, AmdGpu::Image, Shader::ImageResource>;
-    boost::container::static_vector<ImageBindingInfo, 32> image_bindings;
-
-    for (const auto& image_desc : stage.images) {
-        const auto tsharp = image_desc.GetSharp(stage);
-        if (tsharp.GetDataFmt() != AmdGpu::DataFormat::FormatInvalid) {
-            VideoCore::ImageInfo image_info{tsharp, image_desc};
-            const auto image_id = texture_cache.FindImage(image_info);
-            auto& image = texture_cache.GetImage(image_id);
-            image.flags |= VideoCore::ImageFlagBits::Bound;
-            image_bindings.emplace_back(image_id, tsharp, image_desc);
-        } else {
-            image_bindings.emplace_back(VideoCore::ImageId{}, tsharp, image_desc);
-        }
-
-        if (texture_cache.IsMeta(tsharp.Address())) {
-            LOG_WARNING(Render_Vulkan, "Unexpected metadata read by a PS shader (texture)");
-        }
+    if (!buffer_barriers.empty()) {
+        const auto dependencies = vk::DependencyInfo{
+            .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+            .bufferMemoryBarrierCount = u32(buffer_barriers.size()),
+            .pBufferMemoryBarriers = buffer_barriers.data(),
+        };
+        scheduler.EndRendering();
+        cmdbuf.pipelineBarrier2(dependencies);
     }
 
-    // Second pass to re-bind images that were updated after binding
-    for (auto [image_id, tsharp, desc] : image_bindings) {
-        if (!image_id) {
-            if (instance.IsNullDescriptorSupported()) {
-                image_infos.emplace_back(VK_NULL_HANDLE, VK_NULL_HANDLE, vk::ImageLayout::eGeneral);
-            } else {
-                auto& null_image = texture_cache.GetImageView(VideoCore::NULL_IMAGE_VIEW_ID);
-                image_infos.emplace_back(VK_NULL_HANDLE, *null_image.image_view,
-                                         vk::ImageLayout::eGeneral);
-            }
-        } else {
-            auto& image = texture_cache.GetImage(image_id);
-            if (True(image.flags & VideoCore::ImageFlagBits::NeedsRebind)) {
-                image_id = texture_cache.FindImage(image.info);
-            }
-            VideoCore::ImageViewInfo view_info{tsharp, desc};
-            auto& image_view = texture_cache.FindTexture(image_id, view_info);
-            image_infos.emplace_back(VK_NULL_HANDLE, *image_view.image_view,
-                                     texture_cache.GetImage(image_id).last_state.layout);
-            image.flags &=
-                ~(VideoCore::ImageFlagBits::NeedsRebind | VideoCore::ImageFlagBits::Bound);
-        }
+    const auto stage_flags = IsCompute() ? vk::ShaderStageFlagBits::eCompute : gp_stage_flags;
+    cmdbuf.pushConstants(*pipeline_layout, stage_flags, 0u, sizeof(push_data), &push_data);
 
-        set_writes.push_back({
-            .dstSet = VK_NULL_HANDLE,
-            .dstBinding = binding.unified++,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = desc.is_storage ? vk::DescriptorType::eStorageImage
-                                              : vk::DescriptorType::eSampledImage,
-            .pImageInfo = &image_infos.back(),
-        });
+    // Bind descriptor set.
+    if (set_writes.empty()) {
+        return;
     }
+
+    if (uses_push_descriptors) {
+        cmdbuf.pushDescriptorSetKHR(bind_point, *pipeline_layout, 0, set_writes);
+        return;
+    }
+
+    const auto desc_set = desc_heap.Commit(*desc_layout);
+    for (auto& set_write : set_writes) {
+        set_write.dstSet = desc_set;
+    }
+    instance.GetDevice().updateDescriptorSets(set_writes, {});
+    cmdbuf.bindDescriptorSets(bind_point, *pipeline_layout, 0, desc_set, {});
 }
 
 } // namespace Vulkan

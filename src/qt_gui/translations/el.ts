@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="el">
 	<!-- SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
@@ -53,6 +53,19 @@
 		</message>
 	</context>
 	<context>
+		<name>InstallDirSelect</name>
+		<message>
+			<location filename="../install_dir_select.cpp" line="30"/>
+			<source>shadPS4 - Choose directory</source>
+			<translation>shadPS4 - Choose directory</translation>
+		</message>
+		<message>
+			<location filename="../install_dir_select.cpp" line="37"/>
+			<source>Select which directory you want to install to.</source>
+			<translation>Select which directory you want to install to.</translation>
+		</message>
+	</context>
+	<context>
 		<name>GameInstallDialog</name>
 		<message>
 			<location filename="../game_install_dialog.cpp" line="24"/>
@@ -88,11 +101,6 @@
 			<translation>Create Shortcut</translation>
 		</message>
 		<message>
-			<location filename="../gui_context_menus.h" line="47"/>
-			<source>Open Game Folder</source>
-			<translation>Open Game Folder</translation>
-		</message>
-		<message>
 			<location filename="../gui_context_menus.h" line="48"/>
 			<source>Cheats / Patches</source>
 			<translation>Kodikí / Enimeróseis</translation>
@@ -108,9 +116,29 @@
 			<translation>Trophy Viewer</translation>
 		</message>
 		<message>
+			<location filename="../gui_context_menus.h" line="49"/>
+			<source>Open Folder...</source>
+			<translation>Άνοιγμα Φακέλου...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="50"/>
+			<source>Open Game Folder</source>
+			<translation>Άνοιγμα Φακέλου Παιχνιδιού</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="51"/>
+			<source>Open Save Data Folder</source>
+			<translation>Άνοιγμα Φακέλου Αποθηκευμένων Δεδομένων</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="52"/>
+			<source>Open Log Folder</source>
+			<translation>Άνοιγμα Φακέλου Καταγραφής</translation>
+		</message>
+		<message>
 			<location filename="../gui_context_menus.h" line="59"/>
-			<source>Copy info</source>
-			<translation>Copy info</translation>
+			<source>Copy info...</source>
+			<translation>Copy info...</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="60"/>
@@ -128,14 +156,54 @@
 			<translation>Copy All</translation>
 		</message>
 		<message>
+			<location filename="../gui_context_menus.h" line="72"/>
+			<source>Delete...</source>
+			<translation>Delete...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="73"/>
+			<source>Delete Game</source>
+			<translation>Delete Game</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="74"/>
+			<source>Delete Update</source>
+			<translation>Delete Update</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="75"/>
+			<source>Delete DLC</source>
+			<translation>Delete DLC</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="99"/>
+			<source>Compatibility...</source>
+			<translation>Compatibility...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="100"/>
+			<source>Update database</source>
+			<translation>Update database</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="101"/>
+			<source>View report</source>
+			<translation>View report</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="102"/>
+			<source>Submit a report</source>
+			<translation>Submit a report</translation>
+		</message>
+		<message>
 			<location filename="../gui_context_menus.h" line="195"/>
 			<source>Shortcut creation</source>
 			<translation>Shortcut creation</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="196"/>
-			<source>Shortcut created successfully!\n %1</source>
-			<translation>Shortcut created successfully!\n %1</translation>
+			<source>Shortcut created successfully!</source>
+			<translation>Shortcut created successfully!</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="199"/>
@@ -144,13 +212,53 @@
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="200"/>
-			<source>Error creating shortcut!\n %1</source>
-			<translation>Error creating shortcut!\n %1</translation>
+			<source>Error creating shortcut!</source>
+			<translation>Error creating shortcut!</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="275"/>
 			<source>Install PKG</source>
 			<translation>Install PKG</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="299"/>
+			<source>Game</source>
+			<translation>Game</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="305"/>
+			<source>requiresEnableSeparateUpdateFolder_MSG</source>
+			<translation>This feature requires the 'Enable Separate Update Folder' config option to work. If you want to use this feature, please enable it.</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="312"/>
+			<source>This game has no update to delete!</source>
+			<translation>This game has no update to delete!</translation>
+		</message>
+			<message>
+			<location filename="../gui_context_menus.h" line="316"/>
+			<source>Update</source>
+			<translation>Update</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="321"/>
+			<source>This game has no DLC to delete!</source>
+			<translation>This game has no DLC to delete!</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="325"/>
+			<source>DLC</source>
+			<translation>DLC</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="332"/>
+			<source>Delete %1</source>
+			<translation>Delete %1</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="333"/>
+			<source>Are you sure you want to delete %1's %2 directory?</source>
+			<translation>Are you sure you want to delete %1's %2 directory?</translation>
 		</message>
 	</context>
 	<context>
@@ -405,6 +513,11 @@
 			<translation>Enable Fullscreen</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui" line="140"/>
+			<source>Enable Separate Update Folder</source>
+			<translation>Enable Separate Update Folder</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="129"/>
 			<source>Show Splash</source>
 			<translation>Show Splash</translation>
@@ -413,6 +526,11 @@
 			<location filename="../settings_dialog.ui" line="136"/>
 			<source>Is PS4 Pro</source>
 			<translation>Is PS4 Pro</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="154"/>
+			<source>Enable Discord Rich Presence</source>
+			<translation>Ενεργοποίηση Discord Rich Presence</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="155"/>
@@ -433,6 +551,41 @@
 			<location filename="../settings_dialog.ui" line="235"/>
 			<source>Log Filter</source>
 			<translation>Log Filter</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="595"/>
+			<source>Input</source>
+			<translation>Είσοδος</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="611"/>
+			<source>Cursor</source>
+			<translation>Δείκτης</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="635"/>
+			<source>Hide Cursor</source>
+			<translation>Απόκρυψη δείκτη</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="668"/>
+			<source>Hide Cursor Idle Timeout</source>
+			<translation>Χρόνος αδράνειας απόκρυψης δείκτη</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="816"/>
+			<source>s</source>
+			<translation>s</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="767"/>
+			<source>Controller</source>
+			<translation>Controller</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="797"/>
+			<source>Back Button Behavior</source>
+			<translation>Συμπεριφορά κουμπιού επιστροφής</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="272"/>
@@ -475,9 +628,24 @@
 			<translation>Enable NULL GPU</translation>
 		</message>
 		<message>
-			<location filename="../settings_dialog.ui" line="476"/>
-			<source>Enable PM4 Dumping</source>
-			<translation>Enable PM4 Dumping</translation>
+			<location filename="../settings_dialog.ui" line="1111"/>
+			<source>Paths</source>
+			<translation>Διαδρομές</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1119"/>
+			<source>Game Folders</source>
+			<translation>Φάκελοι παιχνιδιών</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1141"/>
+			<source>Add...</source>
+			<translation>Προσθήκη...</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1141"/>
+			<source>Remove</source>
+			<translation>Αφαίρεση</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="517"/>
@@ -530,14 +698,44 @@
 			<translation>Ρυθμίσεις GUI</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui" line="475"/>
+			<source>Disable Trophy Pop-ups</source>
+			<translation>Disable Trophy Pop-ups</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="375"/>
 			<source>Play title music</source>
 			<translation>Αναπαραγωγή μουσικής τίτλου</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Update Compatibility Database On Startup</source>
+			<translation>Update Compatibility Database On Startup</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Game Compatibility</source>
+			<translation>Game Compatibility</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Display Compatibility Data</source>
+			<translation>Display Compatibility Data</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Update Compatibility Database</source>
+			<translation>Update Compatibility Database</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="394"/>
 			<source>Volume</source>
 			<translation>ένταση</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Audio Backend</source>
+			<translation>Audio Backend</translation>
 		</message>
 	</context>
 	<context>
@@ -697,8 +895,8 @@
 		<name>CheatsPatches</name>
 		<message>
 			<location filename="../cheats_patches.cpp" line="44"/>
-			<source>Cheats / Patches</source>
-			<translation>Cheats / Patches</translation>
+			<source>Cheats / Patches for </source>
+			<translation>Cheats / Patches for </translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="50"/>
@@ -898,7 +1096,7 @@
 		<message>
 			<location filename="../cheats_patches.cpp" line="763"/>
 			<source>DownloadComplete_MSG</source>
-			<translation>Τα Patches κατεβάστηκαν επιτυχώς! Όλα τα Patches για όλα τα παιχνίδια έχουν κατέβει, δεν είναι απαραίτητο να τα κατεβάσετε ένα-ένα για κάθε παιχνίδι, όπως με τα Cheats. Εάν η ενημέρωση δεν εμφανίζεται, μπορεί να μην υπάρχει για τον συγκεκριμένο σειριακό αριθμό και έκδοση του παιχνιδιού. Μπορεί να χρειαστεί να ενημερώσετε το παιχνίδι.</translation>
+			<translation>Τα Patches κατεβάστηκαν επιτυχώς! Όλα τα Patches για όλα τα παιχνίδια έχουν κατέβει, δεν είναι απαραίτητο να τα κατεβάσετε ένα-ένα για κάθε παιχνίδι, όπως με τα Cheats. Εάν η ενημέρωση δεν εμφανίζεται, μπορεί να μην υπάρχει για τον συγκεκριμένο σειριακό αριθμό και έκδοση του παιχνιδιού.</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="773"/>
@@ -909,6 +1107,26 @@
 			<location filename="../cheats_patches.cpp" line="778"/>
 			<source>Failed to retrieve HTML page.</source>
 			<translation>Αποτυχία ανάκτησης σελίδας HTML.</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="850"/>
+			<source>The game is in version: %1</source>
+			<translation>Το παιχνίδι είναι στην έκδοση: %1</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="851"/>
+			<source>The downloaded patch only works on version: %1</source>
+			<translation>Η ληφθείσα ενημέρωση λειτουργεί μόνο στην έκδοση: %1</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="856"/>
+			<source>You may need to update your game.</source>
+			<translation>Μπορεί να χρειαστεί να ενημερώσετε το παιχνίδι σας.</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="860"/>
+			<source>Incompatibility Notice</source>
+			<translation>Ειδοποίηση ασυμβατότητας</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="801"/>
@@ -994,6 +1212,11 @@
 			<translation>Ενεργοποίηση Πλήρους Οθόνης:\nΑυτόματα μετατρέπει το παράθυρο του παιχνιδιού σε λειτουργία πλήρους οθόνης.\nΜπορεί να ενεργοποιηθεί/απενεργοποιηθεί πατώντας το πλήκτρο F11.</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.cpp" line="293"/>
+			<source>separateUpdatesCheckBox</source>
+			<translation>Enable Separate Update Folder:\nEnables installing game updates into a separate folder for easy management.</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.cpp" line="295"/>
 			<source>showSplashCheckBox</source>
 			<translation>Εμφάνιση Splash Screen:\nΕμφανίζει ειδική γραφική οθόνη κατά την εκκίνηση.</translation>
@@ -1002,6 +1225,11 @@
 			<location filename="../settings_dialog.cpp" line="297"/>
 			<source>ps4proCheckBox</source>
 			<translation>Είναι PS4 Pro:\nΕπιτρέπει στον εξομοιωτή να λειτουργεί σαν PS4 PRO, κάτι που μπορεί να ενεργοποιήσει συγκεκριμένες λειτουργίες σε παιχνίδια που το υποστηρίζουν.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="438"/>
+			<source>discordRPCCheckbox</source>
+			<translation>Ενεργοποίηση Discord Rich Presence:\nΕμφανίζει το εικονίδιο του emulator και σχετικές πληροφορίες στο προφίλ σας στο Discord.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="299"/>
@@ -1016,7 +1244,7 @@
 		<message>
 			<location filename="../settings_dialog.cpp" line="303"/>
 			<source>logFilter</source>
-			<translation>Φίλτρο Καταγραφής: Φιλτράρει τις καταγραφές ώστε να εκτυπώνονται μόνο συγκεκριμένες πληροφορίες. Παραδείγματα: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical" Επίπεδα: Trace, Debug, Info, Warning, Error, Critical - με τη σειρά αυτή, κάθε επίπεδο που επιλέγεται αποκλείει τα προηγούμενα και εμφανίζει τα επόμενα επίπεδα.</translation>
+			<translation>Φίλτρο Καταγραφής:\nΦιλτράρει τις καταγραφές ώστε να εκτυπώνονται μόνο συγκεκριμένες πληροφορίες.\nΠαραδείγματα: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical" Επίπεδα: Trace, Debug, Info, Warning, Error, Critical - με τη σειρά αυτή, κάθε επίπεδο που επιλέγεται αποκλείει τα προηγούμενα και εμφανίζει τα επόμενα επίπεδα.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="305"/>
@@ -1027,6 +1255,76 @@
 			<location filename="../settings_dialog.cpp" line="306"/>
 			<source>GUIgroupBox</source>
 			<translation>Αναπαραγωγή Μουσικής Τίτλων:\nΕάν το παιχνίδι το υποστηρίζει, ενεργοποιεί ειδική μουσική κατά την επιλογή του παιχνιδιού από τη διεπαφή χρήστη.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="267"/>
+			<source>disableTrophycheckBox</source>
+			<translation>Disable Trophy Pop-ups:\nDisable in-game trophy notifications. Trophy progress can still be tracked using the Trophy Viewer (right-click the game in the main window).</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="450"/>
+			<source>hideCursorGroupBox</source>
+			<translation>Απόκρυψη Κέρσορα:\nΕπιλέξτε πότε θα εξαφανιστεί ο κέρσορας:\nΠοτέ: θα βλέπετε πάντα το ποντίκι.\nΑδρανές: ορίστε έναν χρόνο για να εξαφανιστεί μετά από αδράνεια.\nΠάντα: δεν θα δείτε ποτέ το ποντίκι.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="452"/>
+			<source>idleTimeoutGroupBox</source>
+			<translation>Ορίστε έναν χρόνο για να εξαφανιστεί το ποντίκι μετά από αδράνεια.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="454"/>
+			<source>backButtonBehaviorGroupBox</source>
+			<translation>Συμπεριφορά Κουμπιού Επιστροφής:\nΟρίζει το κουμπί επιστροφής του ελεγκτή να προσομοιώνει το πάτημα της καθορισμένης θέσης στην οθόνη αφής PS4.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>enableCompatibilityCheckBox</source>
+			<translation>Display Compatibility Data:\nDisplays game compatibility information in table view. Enable "Update Compatibility On Startup" to get up-to-date information.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>checkCompatibilityOnStartupCheckBox</source>
+			<translation>Update Compatibility On Startup:\nAutomatically update the compatibility database when shadPS4 starts.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>updateCompatibilityButton</source>
+			<translation>Update Compatibility Database:\nImmediately update the compatibility database.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="70"/>
+			<source>Never</source>
+			<translation>Ποτέ</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="71"/>
+			<source>Idle</source>
+			<translation>Αδρανής</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="72"/>
+			<source>Always</source>
+			<translation>Πάντα</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="101"/>
+			<source>Touchpad Left</source>
+			<translation>Touchpad Αριστερά</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="102"/>
+			<source>Touchpad Right</source>
+			<translation>Touchpad Δεξιά</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="103"/>
+			<source>Touchpad Center</source>
+			<translation>Κέντρο Touchpad</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="104"/>
+			<source>None</source>
+			<translation>Κανένα</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="312"/>
@@ -1054,9 +1352,19 @@
 			<translation>Ενεργοποίηση Εικονικής GPU:\nΓια τεχνικό εντοπισμό σφαλμάτων, απενεργοποιεί την εμφάνιση του παιχνιδιού σαν να μην υπάρχει κάρτα γραφικών.</translation>
 		</message>
 		<message>
-			<location filename="../settings_dialog.cpp" line="323"/>
-			<source>dumpPM4CheckBox</source>
-			<translation>Ενεργοποίηση Καταγραφής PM4:\nΓια τεχνικό εντοπισμό σφαλμάτων, αποθηκεύει τις ακατέργαστες εντολές της GPU σε φάκελο κατά την επεξεργασία.</translation>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>gameFoldersBox</source>
+			<translation>Φάκελοι Παιχνιδιών:\nΗ λίστα των φακέλων για έλεγχο των εγκατεστημένων παιχνιδιών.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>addFolderButton</source>
+			<translation>Προσθήκη:\nΠροσθέστε έναν φάκελο στη λίστα.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>removeFolderButton</source>
+			<translation>Αφαίρεση:\nΑφαιρέστε έναν φάκελο από τη λίστα.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="329"/>
@@ -1097,6 +1405,11 @@
 			<translation>Σειριακός αριθμός</translation>
 		</message>
 		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Compatibility</source>
+			<translation>Compatibility</translation>
+		</message>
+		<message>
 			<location filename="../game_list_frame.cpp" line="34"/>
 			<source>Region</source>
 			<translation>Περιοχή</translation>
@@ -1120,6 +1433,61 @@
 			<location filename="../game_list_frame.cpp" line="35"/>
 			<source>Path</source>
 			<translation>Διαδρομή</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="38"/>
+			<source>Play Time</source>
+			<translation>Χρόνος παιχνιδιού</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="108"/>
+			<source>Never Played</source>
+			<translation>Never Played</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>h</source>
+			<translation>h</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>m</source>
+			<translation>m</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>s</source>
+			<translation>s</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Compatibility is untested</source>
+			<translation>Compatibility is untested</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game does not initialize properly / crashes the emulator</source>
+			<translation>Game does not initialize properly / crashes the emulator</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game boots, but only displays a blank screen</source>
+			<translation>Game boots, but only displays a blank screen</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game displays an image but does not go past the menu</source>
+			<translation>Game displays an image but does not go past the menu</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game has game-breaking glitches or unplayable performance</source>
+			<translation>Game has game-breaking glitches or unplayable performance</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game can be completed with playable performance and no major glitches</source>
+			<translation>Game can be completed with playable performance and no major glitches</translation>
 		</message>
 	</context>
 	<context>
@@ -1169,7 +1537,7 @@
 			<source>Update Available</source>
 			<translation>Διαθέσιμη Ενημέρωση</translation>
 		</message>
-		<message> 
+		<message>
 			<location filename="../check_update.cpp" line="187"/>
 			<source>Update Channel</source>
 			<translation>Κανάλι Ενημέρωσης</translation>
@@ -1249,5 +1617,33 @@
 			<source>Failed to create the update script file</source>
 			<translation>Αποτυχία δημιουργίας του αρχείου σεναρίου ενημέρωσης</translation>
 		</message>
+	</context>
+	<context>
+		<name>GameListUtils</name>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>B</source>
+			<translation>B</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>KB</source>
+			<translation>KB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>MB</source>
+			<translation>MB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>GB</source>
+			<translation>GB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>TB</source>
+			<translation>TB</translation>
+		</message>		
 	</context>
 </TS>

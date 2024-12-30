@@ -6,13 +6,21 @@
 #include <QHoverEvent>
 
 #include <common/version.h>
+#include "common/config.h"
+#include "qt_gui/compatibility_info.h"
+#ifdef ENABLE_DISCORD_RPC
+#include "common/discord_rpc_handler.h"
+#endif
+#ifdef ENABLE_UPDATER
 #include "check_update.h"
+#endif
+#include <toml.hpp>
 #include "common/logging/backend.h"
 #include "common/logging/filter.h"
+#include "common/logging/formatter.h"
 #include "main_window.h"
 #include "settings_dialog.h"
 #include "ui_settings_dialog.h"
-
 QStringList languageNames = {"Arabic",
                              "Czech",
                              "Danish",
@@ -29,7 +37,7 @@ QStringList languageNames = {"Arabic",
                              "Italian",
                              "Japanese",
                              "Korean",
-                             "Norwegian",
+                             "Norwegian (Bokmaal)",
                              "Polish",
                              "Portuguese (Brazil)",
                              "Portuguese (Portugal)",
@@ -42,15 +50,19 @@ QStringList languageNames = {"Arabic",
                              "Thai",
                              "Traditional Chinese",
                              "Turkish",
+                             "Ukrainian",
                              "Vietnamese"};
 
-const QVector<int> languageIndexes = {21, 23, 14, 6,  18, 1,  12, 22, 2,  4, 25, 24, 29, 5,  0,
-                                      9,  15, 16, 17, 7,  26, 8,  11, 20, 3, 13, 27, 10, 19, 28};
+const QVector<int> languageIndexes = {21, 23, 14, 6, 18, 1, 12, 22, 2, 4,  25, 24, 29, 5,  0, 9,
+                                      15, 16, 17, 7, 26, 8, 11, 20, 3, 13, 27, 10, 19, 30, 28};
 
-SettingsDialog::SettingsDialog(std::span<const QString> physical_devices, QWidget* parent)
+SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
+                               std::shared_ptr<CompatibilityInfoClass> m_compat_info,
+                               QWidget* parent)
     : QDialog(parent), ui(new Ui::SettingsDialog) {
     ui->setupUi(this);
     ui->tabWidgetSettings->setUsesScrollButtons(false);
+    initialHeight = this->height();
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Close)->setFocus();
@@ -67,6 +79,15 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices, QWidge
     completer->setCaseSensitivity(Qt::CaseInsensitive);
     ui->consoleLanguageComboBox->setCompleter(completer);
 
+    ui->hideCursorComboBox->addItem(tr("Never"));
+    ui->hideCursorComboBox->addItem(tr("Idle"));
+    ui->hideCursorComboBox->addItem(tr("Always"));
+
+    ui->backButtonBehaviorComboBox->addItem(tr("Touchpad Left"), "left");
+    ui->backButtonBehaviorComboBox->addItem(tr("Touchpad Center"), "center");
+    ui->backButtonBehaviorComboBox->addItem(tr("Touchpad Right"), "right");
+    ui->backButtonBehaviorComboBox->addItem(tr("None"), "none");
+
     InitializeEmulatorLanguages();
     LoadValuesFromConfig();
 
@@ -78,13 +99,18 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices, QWidge
     connect(ui->buttonBox, &QDialogButtonBox::clicked, this,
             [this, config_dir](QAbstractButton* button) {
                 if (button == ui->buttonBox->button(QDialogButtonBox::Save)) {
+                    UpdateSettings();
                     Config::save(config_dir / "config.toml");
                     QWidget::close();
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::Apply)) {
+                    UpdateSettings();
                     Config::save(config_dir / "config.toml");
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)) {
                     Config::setDefaultValues();
+                    Config::save(config_dir / "config.toml");
                     LoadValuesFromConfig();
+                } else if (button == ui->buttonBox->button(QDialogButtonBox::Close)) {
+                    ResetInstallFolders();
                 }
                 if (Common::Log::IsActive()) {
                     Common::Log::Filter filter;
@@ -103,32 +129,7 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices, QWidge
 
     // GENERAL TAB
     {
-        connect(ui->userNameLineEdit, &QLineEdit::textChanged, this,
-                [](const QString& text) { Config::setUserName(text.toStdString()); });
-
-        connect(ui->consoleLanguageComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-                this, [](int index) {
-                    if (index >= 0 && index < languageIndexes.size()) {
-                        int languageCode = languageIndexes[index];
-                        Config::setLanguage(languageCode);
-                    }
-                });
-
-        connect(ui->fullscreenCheckBox, &QCheckBox::stateChanged, this,
-                [](int val) { Config::setFullscreenMode(val); });
-
-        connect(ui->showSplashCheckBox, &QCheckBox::stateChanged, this,
-                [](int val) { Config::setShowSplash(val); });
-
-        connect(ui->ps4proCheckBox, &QCheckBox::stateChanged, this,
-                [](int val) { Config::setNeoMode(val); });
-
-        connect(ui->logTypeComboBox, &QComboBox::currentTextChanged, this,
-                [](const QString& text) { Config::setLogType(text.toStdString()); });
-
-        connect(ui->logFilterLineEdit, &QLineEdit::textChanged, this,
-                [](const QString& text) { Config::setLogFilter(text.toStdString()); });
-
+#ifdef ENABLE_UPDATER
         connect(ui->updateCheckBox, &QCheckBox::stateChanged, this,
                 [](int state) { Config::setAutoUpdate(state == Qt::Checked); });
 
@@ -139,56 +140,55 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices, QWidge
             auto checkUpdate = new CheckUpdate(true);
             checkUpdate->exec();
         });
+#else
+        ui->updaterGroupBox->setVisible(false);
+        ui->GUIgroupBox->setMaximumSize(265, 16777215);
+#endif
+        connect(ui->updateCompatibilityButton, &QPushButton::clicked, this,
+                [this, parent, m_compat_info]() {
+                    m_compat_info->UpdateCompatibilityDatabase(this, true);
+                    emit CompatibilityChanged();
+                });
 
-        connect(ui->playBGMCheckBox, &QCheckBox::stateChanged, this, [](int val) {
-            Config::setPlayBGM(val);
-            if (val == Qt::Unchecked) {
-                BackgroundMusicPlayer::getInstance().stopMusic();
+        connect(ui->enableCompatibilityCheckBox, &QCheckBox::stateChanged, this, [this](int state) {
+            Config::setCompatibilityEnabled(state);
+            emit CompatibilityChanged();
+        });
+    }
+
+    // Input TAB
+    {
+        connect(ui->hideCursorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                [this](s16 index) { OnCursorStateChanged(index); });
+    }
+
+    // PATH TAB
+    {
+        connect(ui->addFolderButton, &QPushButton::clicked, this, [this]() {
+            const auto config_dir = Config::getGameInstallDirs();
+            QString file_path_string =
+                QFileDialog::getExistingDirectory(this, tr("Directory to install games"));
+            auto file_path = Common::FS::PathFromQString(file_path_string);
+            if (!file_path.empty() && Config::addGameInstallDir(file_path)) {
+                QListWidgetItem* item = new QListWidgetItem(file_path_string);
+                ui->gameFoldersListWidget->addItem(item);
             }
         });
 
-        connect(ui->BGMVolumeSlider, &QSlider::valueChanged, this, [](float val) {
-            Config::setBGMvolume(val);
-            BackgroundMusicPlayer::getInstance().setVolume(val);
+        connect(ui->gameFoldersListWidget, &QListWidget::itemSelectionChanged, this, [this]() {
+            ui->removeFolderButton->setEnabled(
+                !ui->gameFoldersListWidget->selectedItems().isEmpty());
         });
-    }
 
-    // GPU TAB
-    {
-        // First options is auto selection -1, so gpuId on the GUI will always have to subtract 1
-        // when setting and add 1 when getting to select the correct gpu in Qt
-        connect(ui->graphicsAdapterBox, &QComboBox::currentIndexChanged, this,
-                [](int index) { Config::setGpuId(index - 1); });
-
-        connect(ui->widthSpinBox, &QSpinBox::valueChanged, this,
-                [](int val) { Config::setScreenWidth(val); });
-
-        connect(ui->heightSpinBox, &QSpinBox::valueChanged, this,
-                [](int val) { Config::setScreenHeight(val); });
-
-        connect(ui->vblankSpinBox, &QSpinBox::valueChanged, this,
-                [](int val) { Config::setVblankDiv(val); });
-
-        connect(ui->dumpShadersCheckBox, &QCheckBox::stateChanged, this,
-                [](int val) { Config::setDumpShaders(val); });
-
-        connect(ui->nullGpuCheckBox, &QCheckBox::stateChanged, this,
-                [](int val) { Config::setNullGpu(val); });
-    }
-
-    // DEBUG TAB
-    {
-        connect(ui->debugDump, &QCheckBox::stateChanged, this,
-                [](int val) { Config::setDebugDump(val); });
-
-        connect(ui->vkValidationCheckBox, &QCheckBox::stateChanged, this,
-                [](int val) { Config::setVkValidation(val); });
-
-        connect(ui->vkSyncValidationCheckBox, &QCheckBox::stateChanged, this,
-                [](int val) { Config::setVkSyncValidation(val); });
-
-        connect(ui->rdocCheckBox, &QCheckBox::stateChanged, this,
-                [](int val) { Config::setRdocEnabled(val); });
+        connect(ui->removeFolderButton, &QPushButton::clicked, this, [this]() {
+            QListWidgetItem* selected_item = ui->gameFoldersListWidget->currentItem();
+            QString item_path_string = selected_item ? selected_item->text() : QString();
+            if (!item_path_string.isEmpty()) {
+                auto file_path = Common::FS::PathFromQString(item_path_string);
+                Config::removeGameInstallDir(file_path);
+                delete selected_item;
+            }
+        });
     }
 
     // Descriptions
@@ -197,13 +197,26 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices, QWidge
         ui->consoleLanguageGroupBox->installEventFilter(this);
         ui->emulatorLanguageGroupBox->installEventFilter(this);
         ui->fullscreenCheckBox->installEventFilter(this);
+        ui->separateUpdatesCheckBox->installEventFilter(this);
         ui->showSplashCheckBox->installEventFilter(this);
-        ui->ps4proCheckBox->installEventFilter(this);
+        ui->discordRPCCheckbox->installEventFilter(this);
         ui->userName->installEventFilter(this);
         ui->logTypeGroupBox->installEventFilter(this);
         ui->logFilter->installEventFilter(this);
+#ifdef ENABLE_UPDATER
         ui->updaterGroupBox->installEventFilter(this);
+#endif
         ui->GUIgroupBox->installEventFilter(this);
+        ui->disableTrophycheckBox->installEventFilter(this);
+        ui->enableCompatibilityCheckBox->installEventFilter(this);
+        ui->checkCompatibilityOnStartupCheckBox->installEventFilter(this);
+        ui->updateCompatibilityButton->installEventFilter(this);
+        ui->audioBackendComboBox->installEventFilter(this);
+
+        // Input
+        ui->hideCursorGroupBox->installEventFilter(this);
+        ui->idleTimeoutGroupBox->installEventFilter(this);
+        ui->backButtonBehaviorGroupBox->installEventFilter(this);
 
         // Graphics
         ui->graphicsAdapterGroupBox->installEventFilter(this);
@@ -212,6 +225,12 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices, QWidge
         ui->heightDivider->installEventFilter(this);
         ui->dumpShadersCheckBox->installEventFilter(this);
         ui->nullGpuCheckBox->installEventFilter(this);
+
+        // Paths
+        ui->gameFoldersGroupBox->installEventFilter(this);
+        ui->gameFoldersListWidget->installEventFilter(this);
+        ui->addFolderButton->installEventFilter(this);
+        ui->removeFolderButton->installEventFilter(this);
 
         // Debug
         ui->debugDump->installEventFilter(this);
@@ -222,34 +241,76 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices, QWidge
 }
 
 void SettingsDialog::LoadValuesFromConfig() {
+
+    std::filesystem::path userdir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+    std::error_code error;
+    if (!std::filesystem::exists(userdir / "config.toml", error)) {
+        Config::load(userdir / "config.toml");
+        return;
+    }
+
+    try {
+        std::ifstream ifs;
+        ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        const toml::value data = toml::parse(userdir / "config.toml");
+    } catch (std::exception& ex) {
+        fmt::print("Got exception trying to load config file. Exception: {}\n", ex.what());
+        return;
+    }
+
+    const toml::value data = toml::parse(userdir / "config.toml");
+    const QVector<int> languageIndexes = {21, 23, 14, 6, 18, 1, 12, 22, 2, 4,  25, 24, 29, 5,  0, 9,
+                                          15, 16, 17, 7, 26, 8, 11, 20, 3, 13, 27, 10, 19, 30, 28};
+
     ui->consoleLanguageComboBox->setCurrentIndex(
-        std::distance(
-            languageIndexes.begin(),
-            std::find(languageIndexes.begin(), languageIndexes.end(), Config::GetLanguage())) %
+        std::distance(languageIndexes.begin(),
+                      std::find(languageIndexes.begin(), languageIndexes.end(),
+                                toml::find_or<int>(data, "Settings", "consoleLanguage", 6))) %
         languageIndexes.size());
-    ui->emulatorLanguageComboBox->setCurrentIndex(languages[Config::getEmulatorLanguage()]);
-    ui->graphicsAdapterBox->setCurrentIndex(Config::getGpuId() + 1);
-    ui->widthSpinBox->setValue(Config::getScreenWidth());
-    ui->heightSpinBox->setValue(Config::getScreenHeight());
-    ui->vblankSpinBox->setValue(Config::vblankDiv());
-    ui->dumpShadersCheckBox->setChecked(Config::dumpShaders());
-    ui->nullGpuCheckBox->setChecked(Config::nullGpu());
-    ui->playBGMCheckBox->setChecked(Config::getPlayBGM());
-    ui->BGMVolumeSlider->setValue((Config::getBGMvolume()));
-    ui->fullscreenCheckBox->setChecked(Config::isFullscreenMode());
-    ui->showSplashCheckBox->setChecked(Config::showSplash());
-    ui->ps4proCheckBox->setChecked(Config::isNeoMode());
-    ui->logTypeComboBox->setCurrentText(QString::fromStdString(Config::getLogType()));
-    ui->logFilterLineEdit->setText(QString::fromStdString(Config::getLogFilter()));
-    ui->userNameLineEdit->setText(QString::fromStdString(Config::getUserName()));
+    ui->emulatorLanguageComboBox->setCurrentIndex(
+        languages[toml::find_or<std::string>(data, "GUI", "emulatorLanguage", "en")]);
+    ui->hideCursorComboBox->setCurrentIndex(toml::find_or<int>(data, "Input", "cursorState", 1));
+    OnCursorStateChanged(toml::find_or<int>(data, "Input", "cursorState", 1));
+    ui->idleTimeoutSpinBox->setValue(toml::find_or<int>(data, "Input", "cursorHideTimeout", 5));
+    // First options is auto selection -1, so gpuId on the GUI will always have to subtract 1
+    // when setting and add 1 when getting to select the correct gpu in Qt
+    ui->graphicsAdapterBox->setCurrentIndex(toml::find_or<int>(data, "Vulkan", "gpuId", -1) + 1);
+    ui->widthSpinBox->setValue(toml::find_or<int>(data, "GPU", "screenWidth", 1280));
+    ui->heightSpinBox->setValue(toml::find_or<int>(data, "GPU", "screenHeight", 720));
+    ui->vblankSpinBox->setValue(toml::find_or<int>(data, "GPU", "vblankDivider", 1));
+    ui->dumpShadersCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "dumpShaders", false));
+    ui->nullGpuCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "nullGpu", false));
+    ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
+    ui->disableTrophycheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
+    ui->BGMVolumeSlider->setValue(toml::find_or<int>(data, "General", "BGMvolume", 50));
+    ui->discordRPCCheckbox->setChecked(
+        toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
+    ui->fullscreenCheckBox->setChecked(toml::find_or<bool>(data, "General", "Fullscreen", false));
+    ui->separateUpdatesCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "separateUpdateEnabled", false));
+    ui->showSplashCheckBox->setChecked(toml::find_or<bool>(data, "General", "showSplash", false));
+    ui->logTypeComboBox->setCurrentText(
+        QString::fromStdString(toml::find_or<std::string>(data, "General", "logType", "async")));
+    ui->logFilterLineEdit->setText(
+        QString::fromStdString(toml::find_or<std::string>(data, "General", "logFilter", "")));
+    ui->userNameLineEdit->setText(
+        QString::fromStdString(toml::find_or<std::string>(data, "General", "userName", "shadPS4")));
+    ui->debugDump->setChecked(toml::find_or<bool>(data, "Debug", "DebugDump", false));
+    ui->vkValidationCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "validation", false));
+    ui->vkSyncValidationCheckBox->setChecked(
+        toml::find_or<bool>(data, "Vulkan", "validation_sync", false));
+    ui->rdocCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "rdocEnable", false));
+    ui->enableCompatibilityCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "compatibilityEnabled", false));
+    ui->checkCompatibilityOnStartupCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
+    ui->audioBackendComboBox->setCurrentText(
+        QString::fromStdString(toml::find_or<std::string>(data, "Audio", "backend", "cubeb")));
 
-    ui->debugDump->setChecked(Config::debugDump());
-    ui->vkValidationCheckBox->setChecked(Config::vkValidationEnabled());
-    ui->vkSyncValidationCheckBox->setChecked(Config::vkValidationSyncEnabled());
-    ui->rdocCheckBox->setChecked(Config::isRdocEnabled());
-
-    ui->updateCheckBox->setChecked(Config::autoUpdate());
-    std::string updateChannel = Config::getUpdateChannel();
+#ifdef ENABLE_UPDATER
+    ui->updateCheckBox->setChecked(toml::find_or<bool>(data, "General", "autoUpdate", false));
+    std::string updateChannel = toml::find_or<std::string>(data, "General", "updateChannel", "");
     if (updateChannel != "Release" && updateChannel != "Nightly") {
         if (Common::isRelease) {
             updateChannel = "Release";
@@ -258,20 +319,44 @@ void SettingsDialog::LoadValuesFromConfig() {
         }
     }
     ui->updateComboBox->setCurrentText(QString::fromStdString(updateChannel));
+#endif
+
+    QString backButtonBehavior = QString::fromStdString(
+        toml::find_or<std::string>(data, "Input", "backButtonBehavior", "left"));
+    int index = ui->backButtonBehaviorComboBox->findData(backButtonBehavior);
+    ui->backButtonBehaviorComboBox->setCurrentIndex(index != -1 ? index : 0);
+
+    ui->removeFolderButton->setEnabled(!ui->gameFoldersListWidget->selectedItems().isEmpty());
+    ResetInstallFolders();
 }
 
 void SettingsDialog::InitializeEmulatorLanguages() {
     QDirIterator it(QStringLiteral(":/translations"), QDirIterator::NoIteratorFlags);
 
-    int idx = 0;
+    QVector<QPair<QString, QString>> languagesList;
+
     while (it.hasNext()) {
         QString locale = it.next();
         locale.truncate(locale.lastIndexOf(QLatin1Char{'.'}));
         locale.remove(0, locale.lastIndexOf(QLatin1Char{'/'}) + 1);
         const QString lang = QLocale::languageToString(QLocale(locale).language());
         const QString country = QLocale::territoryToString(QLocale(locale).territory());
-        ui->emulatorLanguageComboBox->addItem(QStringLiteral("%1 (%2)").arg(lang, country), locale);
 
+        QString displayName = QStringLiteral("%1 (%2)").arg(lang, country);
+        languagesList.append(qMakePair(locale, displayName));
+    }
+
+    std::sort(languagesList.begin(), languagesList.end(),
+              [](const QPair<QString, QString>& a, const QPair<QString, QString>& b) {
+                  return a.second < b.second;
+              });
+
+    int idx = 0;
+    for (const auto& pair : languagesList) {
+        const QString& locale = pair.first;
+        const QString& displayName = pair.second;
+
+        ui->emulatorLanguageComboBox->addItem(displayName, locale);
         languages[locale.toStdString()] = idx;
         idx++;
     }
@@ -287,6 +372,18 @@ void SettingsDialog::OnLanguageChanged(int index) {
     ui->retranslateUi(this);
 
     emit LanguageChanged(ui->emulatorLanguageComboBox->itemData(index).toString().toStdString());
+}
+
+void SettingsDialog::OnCursorStateChanged(s16 index) {
+    if (index == -1)
+        return;
+    if (index == Config::HideCursorState::Idle) {
+        ui->idleTimeoutGroupBox->show();
+    } else {
+        if (!ui->idleTimeoutGroupBox->isHidden()) {
+            ui->idleTimeoutGroupBox->hide();
+        }
+    }
 }
 
 int SettingsDialog::exec() {
@@ -305,20 +402,43 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
         text = tr("emulatorLanguageGroupBox");
     } else if (elementName == "fullscreenCheckBox") {
         text = tr("fullscreenCheckBox");
+    } else if (elementName == "separateUpdatesCheckBox") {
+        text = tr("separateUpdatesCheckBox");
     } else if (elementName == "showSplashCheckBox") {
         text = tr("showSplashCheckBox");
-    } else if (elementName == "ps4proCheckBox") {
-        text = tr("ps4proCheckBox");
+    } else if (elementName == "discordRPCCheckbox") {
+        text = tr("discordRPCCheckbox");
     } else if (elementName == "userName") {
         text = tr("userName");
     } else if (elementName == "logTypeGroupBox") {
         text = tr("logTypeGroupBox");
     } else if (elementName == "logFilter") {
         text = tr("logFilter");
+#ifdef ENABLE_UPDATER
     } else if (elementName == "updaterGroupBox") {
         text = tr("updaterGroupBox");
+#endif
     } else if (elementName == "GUIgroupBox") {
         text = tr("GUIgroupBox");
+    } else if (elementName == "disableTrophycheckBox") {
+        text = tr("disableTrophycheckBox");
+    } else if (elementName == "enableCompatibilityCheckBox") {
+        text = tr("enableCompatibilityCheckBox");
+    } else if (elementName == "checkCompatibilityOnStartupCheckBox") {
+        text = tr("checkCompatibilityOnStartupCheckBox");
+    } else if (elementName == "updateCompatibilityButton") {
+        text = tr("updateCompatibilityButton");
+    } else if (elementName == "audioBackendGroupBox") {
+        text = tr("audioBackendGroupBox");
+    }
+
+    // Input
+    if (elementName == "hideCursorGroupBox") {
+        text = tr("hideCursorGroupBox");
+    } else if (elementName == "idleTimeoutGroupBox") {
+        text = tr("idleTimeoutGroupBox");
+    } else if (elementName == "backButtonBehaviorGroupBox") {
+        text = tr("backButtonBehaviorGroupBox");
     }
 
     // Graphics
@@ -334,8 +454,15 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
         text = tr("dumpShadersCheckBox");
     } else if (elementName == "nullGpuCheckBox") {
         text = tr("nullGpuCheckBox");
-    } else if (elementName == "dumpPM4CheckBox") {
-        text = tr("dumpPM4CheckBox");
+    }
+
+    // Path
+    if (elementName == "gameFoldersGroupBox" || elementName == "gameFoldersListWidget") {
+        text = tr("gameFoldersBox");
+    } else if (elementName == "addFolderButton") {
+        text = tr("addFolderButton");
+    } else if (elementName == "removeFolderButton") {
+        text = tr("removeFolderButton");
     }
 
     // Debug
@@ -352,7 +479,7 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
     ui->descriptionText->setText(text.replace("\\n", "\n"));
 }
 
-bool SettingsDialog::override(QObject* obj, QEvent* event) {
+bool SettingsDialog::eventFilter(QObject* obj, QEvent* event) {
     if (event->type() == QEvent::Enter || event->type() == QEvent::Leave) {
         if (qobject_cast<QWidget*>(obj)) {
             bool hovered = (event->type() == QEvent::Enter);
@@ -365,15 +492,96 @@ bool SettingsDialog::override(QObject* obj, QEvent* event) {
             }
 
             // if the text exceeds the size of the box, it will increase the size
+            QRect currentGeometry = this->geometry();
+            int newWidth = currentGeometry.width();
+
             int documentHeight = ui->descriptionText->document()->size().height();
             int visibleHeight = ui->descriptionText->viewport()->height();
             if (documentHeight > visibleHeight) {
-                ui->descriptionText->setMinimumHeight(90);
+                ui->descriptionText->setMaximumSize(16777215, 110);
+                this->setGeometry(currentGeometry.x(), currentGeometry.y(), newWidth,
+                                  currentGeometry.height() + 40);
             } else {
-                ui->descriptionText->setMinimumHeight(70);
+                ui->descriptionText->setMaximumSize(16777215, 70);
+                this->setGeometry(currentGeometry.x(), currentGeometry.y(), newWidth,
+                                  initialHeight);
             }
             return true;
         }
     }
     return QDialog::eventFilter(obj, event);
+}
+
+void SettingsDialog::UpdateSettings() {
+
+    const QVector<std::string> TouchPadIndex = {"left", "center", "right", "none"};
+    Config::setBackButtonBehavior(TouchPadIndex[ui->backButtonBehaviorComboBox->currentIndex()]);
+    Config::setFullscreenMode(ui->fullscreenCheckBox->isChecked());
+    Config::setisTrophyPopupDisabled(ui->disableTrophycheckBox->isChecked());
+    Config::setPlayBGM(ui->playBGMCheckBox->isChecked());
+    Config::setLogType(ui->logTypeComboBox->currentText().toStdString());
+    Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());
+    Config::setUserName(ui->userNameLineEdit->text().toStdString());
+    Config::setCursorState(ui->hideCursorComboBox->currentIndex());
+    Config::setCursorHideTimeout(ui->idleTimeoutSpinBox->value());
+    Config::setGpuId(ui->graphicsAdapterBox->currentIndex() - 1);
+    Config::setBGMvolume(ui->BGMVolumeSlider->value());
+    Config::setLanguage(languageIndexes[ui->consoleLanguageComboBox->currentIndex()]);
+    Config::setEnableDiscordRPC(ui->discordRPCCheckbox->isChecked());
+    Config::setScreenWidth(ui->widthSpinBox->value());
+    Config::setScreenHeight(ui->heightSpinBox->value());
+    Config::setVblankDiv(ui->vblankSpinBox->value());
+    Config::setDumpShaders(ui->dumpShadersCheckBox->isChecked());
+    Config::setNullGpu(ui->nullGpuCheckBox->isChecked());
+    Config::setSeparateUpdateEnabled(ui->separateUpdatesCheckBox->isChecked());
+    Config::setShowSplash(ui->showSplashCheckBox->isChecked());
+    Config::setDebugDump(ui->debugDump->isChecked());
+    Config::setVkValidation(ui->vkValidationCheckBox->isChecked());
+    Config::setVkSyncValidation(ui->vkSyncValidationCheckBox->isChecked());
+    Config::setRdocEnabled(ui->rdocCheckBox->isChecked());
+    Config::setAutoUpdate(ui->updateCheckBox->isChecked());
+    Config::setUpdateChannel(ui->updateComboBox->currentText().toStdString());
+    Config::setCompatibilityEnabled(ui->enableCompatibilityCheckBox->isChecked());
+    Config::setCheckCompatibilityOnStartup(ui->checkCompatibilityOnStartupCheckBox->isChecked());
+    Config::setAudioBackend(ui->audioBackendComboBox->currentText().toStdString());
+
+#ifdef ENABLE_DISCORD_RPC
+    auto* rpc = Common::Singleton<DiscordRPCHandler::RPC>::Instance();
+    if (Config::getEnableDiscordRPC()) {
+        rpc->init();
+        rpc->setStatusIdling();
+    } else {
+        rpc->shutdown();
+    }
+#endif
+
+    BackgroundMusicPlayer::getInstance().setVolume(ui->BGMVolumeSlider->value());
+}
+
+void SettingsDialog::ResetInstallFolders() {
+
+    std::filesystem::path userdir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+    const toml::value data = toml::parse(userdir / "config.toml");
+
+    if (data.contains("GUI")) {
+        const toml::value& gui = data.at("GUI");
+        const auto install_dir_array =
+            toml::find_or<std::vector<std::string>>(gui, "installDirs", {});
+        std::vector<std::filesystem::path> settings_install_dirs_config = {};
+
+        for (const auto& dir : install_dir_array) {
+            if (std::find(settings_install_dirs_config.begin(), settings_install_dirs_config.end(),
+                          dir) == settings_install_dirs_config.end()) {
+                settings_install_dirs_config.push_back(dir);
+            }
+        }
+
+        for (const auto& dir : settings_install_dirs_config) {
+            QString path_string;
+            Common::FS::PathToQString(path_string, dir);
+            QListWidgetItem* item = new QListWidgetItem(path_string);
+            ui->gameFoldersListWidget->addItem(item);
+        }
+        Config::setGameInstallDirs(settings_install_dirs_config);
+    }
 }

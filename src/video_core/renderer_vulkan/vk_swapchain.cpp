@@ -14,7 +14,7 @@ namespace Vulkan {
 Swapchain::Swapchain(const Instance& instance_, const Frontend::WindowSDL& window)
     : instance{instance_}, surface{CreateSurface(instance.GetInstance(), window)} {
     FindPresentFormat();
-    Create(window.getWidth(), window.getHeight(), surface);
+    Create(window.GetWidth(), window.GetHeight(), surface);
 }
 
 Swapchain::~Swapchain() {
@@ -47,7 +47,7 @@ void Swapchain::Create(u32 width_, u32 height_, vk::SurfaceKHR surface_) {
             std::find_if(modes.begin(), modes.end(),
                          [&requested](vk::PresentModeKHR mode) { return mode == requested; });
 
-        return it != modes.end();
+        return it != modes.cend();
     };
     const bool has_mailbox = find_mode(vk::PresentModeKHR::eMailbox);
 
@@ -84,6 +84,7 @@ void Swapchain::Create(u32 width_, u32 height_, vk::SurfaceKHR surface_) {
 }
 
 void Swapchain::Recreate(u32 width_, u32 height_) {
+    LOG_DEBUG(Render_Vulkan, "Recreate the swapchain: width={} height={}", width_, height_);
     Create(width_, height_, surface);
 }
 
@@ -112,7 +113,7 @@ bool Swapchain::AcquireNextImage() {
     return !needs_recreation;
 }
 
-void Swapchain::Present() {
+bool Swapchain::Present() {
 
     const vk::PresentInfoKHR present_info = {
         .waitSemaphoreCount = 1,
@@ -131,6 +132,8 @@ void Swapchain::Present() {
     }
 
     frame_index = (frame_index + 1) % image_count;
+
+    return !needs_recreation;
 }
 
 void Swapchain::FindPresentFormat() {

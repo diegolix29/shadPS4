@@ -4,12 +4,14 @@
 // Based on imgui_impl_sdl3.cpp from Dear ImGui repository
 
 #include <imgui.h>
+#include "common/config.h"
 #include "imgui_impl_sdl3.h"
 
 // SDL
 #include <SDL3/SDL.h>
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
+#include <dispatch/dispatch.h>
 #endif
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -36,6 +38,8 @@ struct SdlData {
     SDL_Cursor* mouse_cursors[ImGuiMouseCursor_COUNT]{};
     SDL_Cursor* mouse_last_cursor{};
     int mouse_pending_leave_frame{};
+    ImVec2 prev_mouse_pos{0, 0};
+    Uint64 lastCursorMoveTime{};
 
     // Gamepad handling
     ImVector<SDL_Gamepad*> gamepads{};
@@ -68,7 +72,14 @@ static void PlatformSetImeData(ImGuiContext*, ImGuiViewport* viewport, ImGuiPlat
     auto window_id = (SDL_WindowID)(intptr_t)viewport->PlatformHandle;
     SDL_Window* window = SDL_GetWindowFromID(window_id);
     if ((!data->WantVisible || bd->ime_window != window) && bd->ime_window != nullptr) {
-        SDL_StopTextInput(bd->ime_window);
+        auto stop_input = [&bd] { SDL_StopTextInput(bd->ime_window); };
+#ifdef __APPLE__
+        dispatch_sync(dispatch_get_main_queue(), ^{
+          stop_input();
+        });
+#else
+        stop_input();
+#endif
         bd->ime_window = nullptr;
     }
     if (data->WantVisible) {
@@ -77,8 +88,17 @@ static void PlatformSetImeData(ImGuiContext*, ImGuiViewport* viewport, ImGuiPlat
         r.y = (int)data->InputPos.y;
         r.w = 1;
         r.h = (int)data->InputLineHeight;
-        SDL_SetTextInputArea(window, &r, 0);
-        SDL_StartTextInput(window);
+        const auto start_input = [&window, &r] {
+            SDL_SetTextInputArea(window, &r, 0);
+            SDL_StartTextInput(window);
+        };
+#ifdef __APPLE__
+        dispatch_sync(dispatch_get_main_queue(), ^{
+          start_input();
+        });
+#else
+        start_input();
+#endif
         bd->ime_window = window;
     }
 }
@@ -371,6 +391,13 @@ bool ProcessEvent(const SDL_Event* event) {
                                    ? ImGuiMouseSource_TouchScreen
                                    : ImGuiMouseSource_Mouse);
         io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
+        if (mouse_pos.x != bd->prev_mouse_pos.x || mouse_pos.y != bd->prev_mouse_pos.y) {
+            bd->prev_mouse_pos.x = mouse_pos.x;
+            bd->prev_mouse_pos.y = mouse_pos.y;
+            if (Config::getCursorState() == Config::HideCursorState::Idle) {
+                bd->lastCursorMoveTime = bd->time;
+            }
+        }
         return true;
     }
     case SDL_EVENT_MOUSE_WHEEL: {
@@ -447,6 +474,7 @@ bool ProcessEvent(const SDL_Event* event) {
             return false;
         bd->mouse_window_id = event->window.windowID;
         bd->mouse_pending_leave_frame = 0;
+        bd->lastCursorMoveTime = bd->time;
         return true;
     }
     // - In some cases, when detaching a window from main viewport SDL may send
@@ -459,6 +487,7 @@ bool ProcessEvent(const SDL_Event* event) {
         if (GetViewportForWindowId(event->window.windowID) == NULL)
             return false;
         bd->mouse_pending_leave_frame = ImGui::GetFrameCount() + 1;
+        bd->lastCursorMoveTime = bd->time;
         return true;
     }
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
@@ -581,7 +610,7 @@ static void UpdateMouseData() {
     // (below)
     // SDL_CaptureMouse() let the OS know e.g. that our imgui drag outside the SDL window boundaries
     // shouldn't e.g. trigger other operations outside
-    SDL_CaptureMouse((bd->mouse_buttons_down != 0) ? SDL_TRUE : SDL_FALSE);
+    SDL_CaptureMouse((bd->mouse_buttons_down != 0) ? true : false);
     SDL_Window* focused_window = SDL_GetKeyboardFocus();
     const bool is_app_focused = (bd->window == focused_window);
 
@@ -600,7 +629,18 @@ static void UpdateMouseData() {
             int window_x, window_y;
             SDL_GetGlobalMouseState(&mouse_x_global, &mouse_y_global);
             SDL_GetWindowPosition(focused_window, &window_x, &window_y);
-            io.AddMousePosEvent(mouse_x_global - (float)window_x, mouse_y_global - (float)window_y);
+            mouse_x_global -= (float)window_x;
+            mouse_y_global -= (float)window_y;
+            io.AddMousePosEvent(mouse_x_global, mouse_y_global);
+            // SDL_EVENT_MOUSE_MOTION isn't triggered before the first frame is rendered
+            // force update the prev_cursor coords
+            if (mouse_x_global != bd->prev_mouse_pos.x || mouse_y_global != bd->prev_mouse_pos.y &&
+                                                              bd->prev_mouse_pos.y == 0 &&
+                                                              bd->prev_mouse_pos.x == 0) {
+                bd->prev_mouse_pos.x = mouse_x_global;
+                bd->prev_mouse_pos.y = mouse_y_global;
+                bd->lastCursorMoveTime = bd->time;
+            }
         }
     }
 }
@@ -611,10 +651,25 @@ static void UpdateMouseCursor() {
         return;
     SdlData* bd = GetBackendData();
 
+    s16 cursorState = Config::getCursorState();
     ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
-    if (io.MouseDrawCursor || imgui_cursor == ImGuiMouseCursor_None) {
+    if (io.MouseDrawCursor || imgui_cursor == ImGuiMouseCursor_None ||
+        cursorState == Config::HideCursorState::Always) {
         // Hide OS mouse cursor if imgui is drawing it or if it wants no cursor
         SDL_HideCursor();
+
+    } else if (cursorState == Config::HideCursorState::Idle &&
+               bd->time - bd->lastCursorMoveTime >=
+                   Config::getCursorHideTimeout() * SDL_GetPerformanceFrequency()) {
+
+        bool wasCursorVisible = SDL_CursorVisible();
+        SDL_HideCursor();
+
+        if (wasCursorVisible) {
+            SDL_WarpMouseInWindow(SDL_GetKeyboardFocus(), bd->prev_mouse_pos.x,
+                                  bd->prev_mouse_pos.y); // Force refresh the cursor state
+        }
+
     } else {
         // Show OS mouse cursor
         SDL_Cursor* expected_cursor = bd->mouse_cursors[imgui_cursor]

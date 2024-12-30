@@ -69,6 +69,7 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     SUB(Common, Memory)                                                                            \
     CLS(Core)                                                                                      \
     SUB(Core, Linker)                                                                              \
+    SUB(Core, Devices)                                                                             \
     CLS(Config)                                                                                    \
     CLS(Debug)                                                                                     \
     CLS(Kernel)                                                                                    \
@@ -96,6 +97,7 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     SUB(Lib, Http)                                                                                 \
     SUB(Lib, Ssl)                                                                                  \
     SUB(Lib, SysModule)                                                                            \
+    SUB(Lib, Move)                                                                                 \
     SUB(Lib, NpManager)                                                                            \
     SUB(Lib, NpScore)                                                                              \
     SUB(Lib, NpTrophy)                                                                             \
@@ -105,7 +107,9 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     SUB(Lib, Rtc)                                                                                  \
     SUB(Lib, DiscMap)                                                                              \
     SUB(Lib, Png)                                                                                  \
+    SUB(Lib, Jpeg)                                                                                 \
     SUB(Lib, PlayGo)                                                                               \
+    SUB(Lib, PlayGoDialog)                                                                         \
     SUB(Lib, Random)                                                                               \
     SUB(Lib, Usbd)                                                                                 \
     SUB(Lib, Ajm)                                                                                  \
@@ -114,6 +118,14 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     SUB(Lib, AvPlayer)                                                                             \
     SUB(Lib, Ngs2)                                                                                 \
     SUB(Lib, Audio3d)                                                                              \
+    SUB(Lib, Ime)                                                                                  \
+    SUB(Lib, GameLiveStreaming)                                                                    \
+    SUB(Lib, Remoteplay)                                                                           \
+    SUB(Lib, SharePlay)                                                                            \
+    SUB(Lib, Fiber)                                                                                \
+    SUB(Lib, Vdec2)                                                                                \
+    SUB(Lib, Videodec)                                                                             \
+    SUB(Lib, RazorCpu)                                                                             \
     CLS(Frontend)                                                                                  \
     CLS(Render)                                                                                    \
     SUB(Render, Vulkan)                                                                            \

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <span>
 #include <string>
@@ -67,10 +68,11 @@ public:
     std::optional<s32> GetInteger(std::string_view key) const;
 
     void AddBinary(std::string key, std::vector<u8> value, bool update = false);
+    void AddBinary(std::string key, uint64_t value, bool update = false); // rsv4 format
     void AddString(std::string key, std::string value, bool update = false);
     void AddInteger(std::string key, s32 value, bool update = false);
 
-    [[nodiscard]] std::filesystem::file_time_type GetLastWrite() const {
+    [[nodiscard]] std::chrono::system_clock::time_point GetLastWrite() const {
         return last_write;
     }
 
@@ -79,7 +81,7 @@ public:
     }
 
 private:
-    mutable std::filesystem::file_time_type last_write;
+    mutable std::chrono::system_clock::time_point last_write;
 
     std::vector<Entry> entry_list;
 

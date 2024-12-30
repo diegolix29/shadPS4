@@ -8,14 +8,17 @@
 #include "core/libraries/audio/audioout.h"
 #include "core/libraries/audio3d/audio3d.h"
 #include "core/libraries/avplayer/avplayer.h"
-#include "core/libraries/dialogs/error_dialog.h"
-#include "core/libraries/dialogs/ime_dialog.h"
 #include "core/libraries/disc_map/disc_map.h"
+#include "core/libraries/game_live_streaming/gamelivestreaming.h"
 #include "core/libraries/gnmdriver/gnmdriver.h"
-#include "core/libraries/kernel/libkernel.h"
+#include "core/libraries/ime/error_dialog.h"
+#include "core/libraries/ime/ime.h"
+#include "core/libraries/ime/ime_dialog.h"
+#include "core/libraries/kernel/kernel.h"
 #include "core/libraries/libc_internal/libc_internal.h"
 #include "core/libraries/libpng/pngdec.h"
 #include "core/libraries/libs.h"
+#include "core/libraries/move/move.h"
 #include "core/libraries/network/http.h"
 #include "core/libraries/network/net.h"
 #include "core/libraries/network/netctl.h"
@@ -25,11 +28,15 @@
 #include "core/libraries/np_trophy/np_trophy.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/playgo/playgo.h"
+#include "core/libraries/playgo/playgo_dialog.h"
 #include "core/libraries/random/random.h"
+#include "core/libraries/razor_cpu/razor_cpu.h"
+#include "core/libraries/remote_play/remoteplay.h"
 #include "core/libraries/rtc/rtc.h"
 #include "core/libraries/save_data/dialog/savedatadialog.h"
 #include "core/libraries/save_data/savedata.h"
 #include "core/libraries/screenshot/screenshot.h"
+#include "core/libraries/share_play/shareplay.h"
 #include "core/libraries/system/commondialog.h"
 #include "core/libraries/system/msgdialog.h"
 #include "core/libraries/system/posix.h"
@@ -37,17 +44,17 @@
 #include "core/libraries/system/systemservice.h"
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/usbd/usbd.h"
+#include "core/libraries/videodec/videodec.h"
+#include "core/libraries/videodec/videodec2.h"
 #include "core/libraries/videoout/video_out.h"
 
 namespace Libraries {
 
 void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
     LOG_INFO(Lib_Kernel, "Initializing HLE libraries");
-    Libraries::Kernel::LibKernel_Register(sym);
+    Libraries::Kernel::RegisterKernel(sym);
     Libraries::GnmDriver::RegisterlibSceGnmDriver(sym);
     Libraries::VideoOut::RegisterLib(sym);
-
-    // New libraries folder from autogen
     Libraries::UserService::RegisterlibSceUserService(sym);
     Libraries::SystemService::RegisterlibSceSystemService(sym);
     Libraries::CommonDialog::RegisterlibSceCommonDialog(sym);
@@ -69,6 +76,7 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
     Libraries::AppContent::RegisterlibSceAppContent(sym);
     Libraries::PngDec::RegisterlibScePngDec(sym);
     Libraries::PlayGo::RegisterlibScePlayGo(sym);
+    Libraries::PlayGo::Dialog::RegisterlibScePlayGoDialog(sym);
     Libraries::Random::RegisterlibSceRandom(sym);
     Libraries::Usbd::RegisterlibSceUsbd(sym);
     Libraries::Pad::RegisterlibScePad(sym);
@@ -76,7 +84,15 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
     Libraries::ErrorDialog::RegisterlibSceErrorDialog(sym);
     Libraries::ImeDialog::RegisterlibSceImeDialog(sym);
     Libraries::AvPlayer::RegisterlibSceAvPlayer(sym);
+    Libraries::Vdec2::RegisterlibSceVdec2(sym);
     Libraries::Audio3d::RegisterlibSceAudio3d(sym);
+    Libraries::Ime::RegisterlibSceIme(sym);
+    Libraries::GameLiveStreaming::RegisterlibSceGameLiveStreaming(sym);
+    Libraries::SharePlay::RegisterlibSceSharePlay(sym);
+    Libraries::Remoteplay::RegisterlibSceRemoteplay(sym);
+    Libraries::Videodec::RegisterlibSceVideodec(sym);
+    Libraries::RazorCpu::RegisterlibSceRazorCpu(sym);
+    Libraries::Move::RegisterlibSceMove(sym);
 }
 
 } // namespace Libraries

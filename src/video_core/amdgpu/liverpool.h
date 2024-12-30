@@ -16,9 +16,11 @@
 #include "common/assert.h"
 #include "common/bit_field.h"
 #include "common/polyfill_thread.h"
+#include "common/slot_vector.h"
 #include "common/types.h"
 #include "common/unique_function.h"
 #include "shader_recompiler/params.h"
+#include "types.h"
 #include "video_core/amdgpu/pixel_format.h"
 #include "video_core/amdgpu/resource.h"
 
@@ -44,7 +46,8 @@ struct Liverpool {
     static constexpr u32 NumGfxRings = 1u;     // actually 2, but HP is reserved by system software
     static constexpr u32 NumComputePipes = 7u; // actually 8, but #7 is reserved by system software
     static constexpr u32 NumQueuesPerPipe = 8u;
-    static constexpr u32 NumTotalQueues = NumGfxRings + (NumComputePipes * NumQueuesPerPipe);
+    static constexpr u32 NumComputeRings = NumComputePipes * NumQueuesPerPipe;
+    static constexpr u32 NumTotalQueues = NumGfxRings + NumComputeRings;
     static_assert(NumTotalQueues < 64u); // need to fit into u64 bitmap for ffs
 
     static constexpr u32 NumColorBuffers = 8;
@@ -85,12 +88,44 @@ struct Liverpool {
         }
     };
 
+    static const BinaryInfo& SearchBinaryInfo(const u32* code, size_t search_limit = 0x1000) {
+        constexpr u32 token_mov_vcchi = 0xBEEB03FF;
+
+        if (code[0] == token_mov_vcchi) {
+            const auto* info = std::bit_cast<const BinaryInfo*>(code + (code[1] + 1) * 2);
+            if (info->Valid()) {
+                return *info;
+            }
+        }
+
+        // First instruction is not s_mov_b32 vcc_hi, #imm,
+        // which means we cannot get the binary info via said instruction.
+        // The easiest solution is to iterate through each dword and break
+        // on the first instance of the binary info.
+        constexpr size_t signature_size = sizeof(BinaryInfo::signature_ref) / sizeof(u8);
+        const u32* end = code + search_limit;
+
+        for (const u32* it = code; it < end; ++it) {
+            if (const BinaryInfo* info = std::bit_cast<const BinaryInfo*>(it); info->Valid()) {
+                return *info;
+            }
+        }
+
+        UNREACHABLE_MSG("Shader binary info not found.");
+    }
+
     struct ShaderProgram {
         u32 address_lo;
         BitField<0, 8, u32> address_hi;
         union {
             BitField<0, 6, u64> num_vgprs;
             BitField<6, 4, u64> num_sgprs;
+            BitField<10, 2, u64> priority;
+            BitField<12, 2, FpRoundMode> fp_round_mode32;
+            BitField<14, 2, FpRoundMode> fp_round_mode64;
+            BitField<16, 2, FpDenormMode> fp_denorm_mode32;
+            BitField<18, 2, FpDenormMode> fp_denorm_mode64;
+            BitField<12, 8, u64> float_mode;
             BitField<24, 2, u64> vgpr_comp_cnt; // SPI provided per-thread inputs
             BitField<33, 5, u64> num_user_regs;
         } settings;
@@ -104,11 +139,17 @@ struct Liverpool {
 
         std::span<const u32> Code() const {
             const u32* code = Address<u32*>();
-            BinaryInfo bininfo;
-            std::memcpy(&bininfo, code + (code[1] + 1) * 2, sizeof(bininfo));
+            const BinaryInfo& bininfo = SearchBinaryInfo(code);
             const u32 num_dwords = bininfo.length / sizeof(u32);
             return std::span{code, num_dwords};
         }
+    };
+
+    struct HsTessFactorClamp {
+        // I've only seen min=0.0, max=1.0 so far.
+        // TODO why is max set to 1.0? Makes no sense
+        float hs_max_tess;
+        float hs_min_tess;
     };
 
     struct ComputeProgram {
@@ -157,27 +198,24 @@ struct Liverpool {
 
         std::span<const u32> Code() const {
             const u32* code = Address<u32*>();
-            BinaryInfo bininfo;
-            std::memcpy(&bininfo, code + (code[1] + 1) * 2, sizeof(bininfo));
+            const BinaryInfo& bininfo = SearchBinaryInfo(code);
             const u32 num_dwords = bininfo.length / sizeof(u32);
             return std::span{code, num_dwords};
         }
     };
 
     template <typename Shader>
-    static constexpr auto* GetBinaryInfo(const Shader& sh) {
+    static constexpr const BinaryInfo& GetBinaryInfo(const Shader& sh) {
         const auto* code = sh.template Address<u32*>();
-        const auto* bininfo = std::bit_cast<const BinaryInfo*>(code + (code[1] + 1) * 2);
-        // ASSERT_MSG(bininfo->Valid(), "Invalid shader binary header");
-        return bininfo;
+        return SearchBinaryInfo(code);
     }
 
     static constexpr Shader::ShaderParams GetParams(const auto& sh) {
-        auto* bininfo = GetBinaryInfo(sh);
+        auto& bininfo = GetBinaryInfo(sh);
         return {
             .user_data = sh.user_data,
             .code = sh.Code(),
-            .hash = bininfo->shader_hash,
+            .hash = bininfo.shader_hash,
         };
     }
 
@@ -390,6 +428,14 @@ struct Liverpool {
             BitField<0, 22, u32> tile_max;
         } depth_slice;
 
+        bool DepthValid() const {
+            return Address() != 0 && z_info.format != ZFormat::Invalid;
+        }
+
+        bool StencilValid() const {
+            return Address() != 0 && stencil_info.format != StencilFormat::Invalid;
+        }
+
         u32 Pitch() const {
             return (depth_size.pitch_tile_max + 1) << 3;
         }
@@ -400,6 +446,10 @@ struct Liverpool {
 
         u64 Address() const {
             return u64(z_read_base) << 8;
+        }
+
+        u64 StencilAddress() const {
+            return u64(stencil_read_base) << 8;
         }
 
         u32 NumSamples() const {
@@ -765,6 +815,8 @@ struct Liverpool {
             BitField<27, 1, u32> fmask_compress_1frag_only;
             BitField<28, 1, u32> dcc_enable;
             BitField<29, 1, u32> cmask_addr_type;
+
+            u32 u32all;
         } info;
         union Color0Attrib {
             BitField<0, 5, TilingMode> tile_mode_index;
@@ -773,6 +825,8 @@ struct Liverpool {
             BitField<12, 3, u32> num_samples_log2;
             BitField<15, 2, u32> num_fragments_log2;
             BitField<17, 1, u32> force_dst_alpha_1;
+
+            u32 u32all;
         } attrib;
         INSERT_PADDING_WORDS(1);
         u32 cmask_base_address;
@@ -840,26 +894,6 @@ struct Liverpool {
             return info.number_type == AmdGpu::NumberFormat::SnormNz ? AmdGpu::NumberFormat::Srgb
                                                                      : info.number_type.Value();
         }
-    };
-
-    enum class PrimitiveType : u32 {
-        None = 0,
-        PointList = 1,
-        LineList = 2,
-        LineStrip = 3,
-        TriangleList = 4,
-        TriangleFan = 5,
-        TriangleStrip = 6,
-        PatchPrimitive = 9,
-        AdjLineList = 10,
-        AdjLineStrip = 11,
-        AdjTriangleList = 12,
-        AdjTriangleStrip = 13,
-        RectList = 17,
-        LineLoop = 18,
-        QuadList = 19,
-        QuadStrip = 20,
-        Polygon = 21,
     };
 
     enum ContextRegs : u32 {
@@ -936,14 +970,21 @@ struct Liverpool {
     };
 
     union ShaderStageEnable {
-        u32 raw;
+        enum VgtStages : u32 {
+            Vs = 0u, // always enabled
+            EsGs = 0xB0u,
+            LsHs = 0x45u,
+        };
+
+        VgtStages raw;
         BitField<0, 2, u32> ls_en;
         BitField<2, 1, u32> hs_en;
         BitField<3, 2, u32> es_en;
         BitField<5, 1, u32> gs_en;
-        BitField<6, 1, u32> vs_en;
+        BitField<6, 2, u32> vs_en;
+        BitField<8, 1, u32> dynamic_hs;
 
-        bool IsStageEnabled(u32 stage) {
+        bool IsStageEnabled(u32 stage) const {
             switch (stage) {
             case 0:
             case 1:
@@ -959,6 +1000,103 @@ struct Liverpool {
             default:
                 UNREACHABLE();
             }
+        }
+    };
+
+    union GsInstances {
+        u32 raw;
+        struct {
+            u32 enable : 2;
+            u32 count : 6;
+        };
+
+        bool IsEnabled() const {
+            return enable && count > 0;
+        }
+    };
+
+    union GsOutPrimitiveType {
+        u32 raw;
+        struct {
+            GsOutputPrimitiveType outprim_type : 6;
+            GsOutputPrimitiveType outprim_type1 : 6;
+            GsOutputPrimitiveType outprim_type2 : 6;
+            GsOutputPrimitiveType outprim_type3 : 6;
+            u32 reserved : 3;
+            u32 unique_type_per_stream : 1;
+        };
+
+        GsOutputPrimitiveType GetPrimitiveType(u32 stream) const {
+            if (unique_type_per_stream == 0) {
+                return outprim_type;
+            }
+
+            switch (stream) {
+            case 0:
+                return outprim_type;
+            case 1:
+                return outprim_type1;
+            case 2:
+                return outprim_type2;
+            case 3:
+                return outprim_type3;
+            default:
+                UNREACHABLE();
+            }
+        }
+    };
+
+    union GsMode {
+        u32 raw;
+        BitField<0, 3, u32> mode;
+        BitField<3, 2, u32> cut_mode;
+        BitField<22, 2, u32> onchip;
+    };
+
+    union StreamOutConfig {
+        u32 raw;
+        struct {
+            u32 streamout_0_en : 1;
+            u32 streamout_1_en : 1;
+            u32 streamout_2_en : 1;
+            u32 streamout_3_en : 1;
+            u32 rast_stream : 3;
+            u32 : 1;
+            u32 rast_stream_mask : 4;
+            u32 : 19;
+            u32 use_rast_stream_mask : 1;
+        };
+    };
+
+    union StreamOutBufferConfig {
+        u32 raw;
+        struct {
+            u32 stream_0_buf_en : 4;
+            u32 stream_1_buf_en : 4;
+            u32 stream_2_buf_en : 4;
+            u32 stream_3_buf_en : 4;
+        };
+    };
+
+    union LsHsConfig {
+        u32 raw;
+        BitField<0, 8, u32> num_patches;
+        BitField<8, 6, u32> hs_input_control_points;
+        BitField<14, 6, u32> hs_output_control_points;
+    };
+
+    union TessellationConfig {
+        u32 raw;
+        BitField<0, 2, TessellationType> type;
+        BitField<2, 3, TessellationPartitioning> partitioning;
+        BitField<5, 3, TessellationTopology> topology;
+    };
+
+    union TessFactorMemoryBase {
+        u32 base;
+
+        u64 MemoryBase() const {
+            return static_cast<u64>(base) << 8;
         }
     };
 
@@ -978,6 +1116,28 @@ struct Liverpool {
         BitField<27, 1, u32> enable_postz_overrasterization;
     };
 
+    union PsInput {
+        u32 raw;
+        struct {
+            u32 persp_sample_ena : 1;
+            u32 persp_center_ena : 1;
+            u32 persp_centroid_ena : 1;
+            u32 persp_pull_model_ena : 1;
+            u32 linear_sample_ena : 1;
+            u32 linear_center_ena : 1;
+            u32 linear_centroid_ena : 1;
+            u32 line_stipple_tex_ena : 1;
+            u32 pos_x_float_ena : 1;
+            u32 pos_y_float_ena : 1;
+            u32 pos_z_float_ena : 1;
+            u32 pos_w_float_ena : 1;
+            u32 front_face_ena : 1;
+            u32 ancillary_ena : 1;
+            u32 sample_coverage_ena : 1;
+            u32 pos_fixed_pt_ena : 1;
+        };
+    };
+
     union Regs {
         struct {
             INSERT_PADDING_WORDS(0x2C08);
@@ -990,10 +1150,10 @@ struct Liverpool {
             ShaderProgram es_program;
             INSERT_PADDING_WORDS(0x2C);
             ShaderProgram hs_program;
-            INSERT_PADDING_WORDS(0x2C);
+            INSERT_PADDING_WORDS(0x2D48 - 0x2d08 - 20);
             ShaderProgram ls_program;
             INSERT_PADDING_WORDS(0xA4);
-            ComputeProgram cs_program;
+            ComputeProgram cs_program; // shadowed by `cs_state` in `mapped_queues`
             INSERT_PADDING_WORDS(0xA008 - 0x2E00 - 80 - 3 - 5);
             DepthRenderControl depth_render_control;
             INSERT_PADDING_WORDS(1);
@@ -1018,7 +1178,8 @@ struct Liverpool {
             INSERT_PADDING_WORDS(2);
             std::array<ViewportScissor, NumViewports> viewport_scissors;
             std::array<ViewportDepth, NumViewports> viewport_depths;
-            INSERT_PADDING_WORDS(0xA103 - 0xA0D4);
+            INSERT_PADDING_WORDS(0xA102 - 0xA0D4);
+            u32 index_offset;
             u32 primitive_restart_index;
             INSERT_PADDING_WORDS(1);
             BlendConstants blend_constants;
@@ -1032,7 +1193,10 @@ struct Liverpool {
             INSERT_PADDING_WORDS(0xA191 - 0xA187);
             std::array<PsInputControl, 32> ps_inputs;
             VsOutputConfig vs_output_config;
-            INSERT_PADDING_WORDS(4);
+            INSERT_PADDING_WORDS(1);
+            PsInput ps_input_ena;
+            PsInput ps_input_addr;
+            INSERT_PADDING_WORDS(1);
             BitField<0, 6, u32> num_interp;
             INSERT_PADDING_WORDS(0xA1C3 - 0xA1B6 - 1);
             ShaderPosFormat shader_pos_format;
@@ -1053,9 +1217,15 @@ struct Liverpool {
             PolygonControl polygon_control;
             ViewportControl viewport_control;
             VsOutputControl vs_output_control;
-            INSERT_PADDING_WORDS(0xA292 - 0xA207 - 1);
+            INSERT_PADDING_WORDS(0xA287 - 0xA207 - 1);
+            HsTessFactorClamp hs_clamp;
+            INSERT_PADDING_WORDS(0xA290 - 0xA287 - 2);
+            GsMode vgt_gs_mode;
+            INSERT_PADDING_WORDS(1);
             ModeControl mode_control;
-            INSERT_PADDING_WORDS(0xA29D - 0xA292 - 1);
+            INSERT_PADDING_WORDS(8);
+            GsOutPrimitiveType vgt_gs_out_prim_type;
+            INSERT_PADDING_WORDS(1);
             u32 index_size;
             u32 max_index_size;
             IndexBufferType index_buffer_type;
@@ -1066,11 +1236,22 @@ struct Liverpool {
             INSERT_PADDING_WORDS(0xA2A8 - 0xA2A5 - 1);
             u32 vgt_instance_step_rate_0;
             u32 vgt_instance_step_rate_1;
-            INSERT_PADDING_WORDS(0xA2D5 - 0xA2A9 - 1);
+            INSERT_PADDING_WORDS(0xA2AB - 0xA2A9 - 1);
+            u32 vgt_esgs_ring_itemsize;
+            u32 vgt_gsvs_ring_itemsize;
+            INSERT_PADDING_WORDS(0xA2CE - 0xA2AC - 1);
+            BitField<0, 11, u32> vgt_gs_max_vert_out;
+            INSERT_PADDING_WORDS(0xA2D5 - 0xA2CE - 1);
             ShaderStageEnable stage_enable;
-            INSERT_PADDING_WORDS(9);
+            LsHsConfig ls_hs_config;
+            u32 vgt_gs_vert_itemsize[4];
+            TessellationConfig tess_config;
+            INSERT_PADDING_WORDS(3);
             PolygonOffset poly_offset;
-            INSERT_PADDING_WORDS(0xA2F8 - 0xA2DF - 5);
+            GsInstances vgt_gs_instance_cnt;
+            StreamOutConfig vgt_strmout_config;
+            StreamOutBufferConfig vgt_strmout_buffer_config;
+            INSERT_PADDING_WORDS(0xA2F8 - 0xA2E6 - 1);
             AaConfig aa_config;
             INSERT_PADDING_WORDS(0xA318 - 0xA2F8 - 1);
             ColorBuffer color_buffers[NumColorBuffers];
@@ -1079,6 +1260,8 @@ struct Liverpool {
             INSERT_PADDING_WORDS(0xC24C - 0xC243);
             u32 num_indices;
             VgtNumInstances num_instances;
+            INSERT_PADDING_WORDS(0xC250 - 0xC24D - 1);
+            TessFactorMemoryBase vgt_tf_memory_base;
         };
         std::array<u32, NumRegs> reg_array{};
 
@@ -1098,6 +1281,26 @@ struct Liverpool {
                 return &ls_program;
             }
             return nullptr;
+        }
+
+        u32 NumSamples() const {
+            // It seems that the number of samples > 1 set in the AA config doesn't mean we're
+            // always rendering with MSAA, so we need to derive MS ratio from the CB and DB
+            // settings.
+            u32 num_samples = 1u;
+            if (color_control.mode != ColorControl::OperationMode::Disable) {
+                for (auto cb = 0u; cb < NumColorBuffers; ++cb) {
+                    const auto& col_buf = color_buffers[cb];
+                    if (!col_buf) {
+                        continue;
+                    }
+                    num_samples = std::max(num_samples, col_buf.NumSamples());
+                }
+            }
+            if (depth_buffer.DepthValid() || depth_buffer.StencilValid()) {
+                num_samples = std::max(num_samples, depth_buffer.NumSamples());
+            }
+            return num_samples;
         }
 
         void SetDefaults();
@@ -1125,7 +1328,7 @@ public:
     ~Liverpool();
 
     void SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb);
-    void SubmitAsc(u32 vqid, std::span<const u32> acb);
+    void SubmitAsc(u32 gnm_vqid, std::span<const u32> acb);
 
     void SubmitDone() noexcept {
         std::scoped_lock lk{submit_mutex};
@@ -1168,6 +1371,18 @@ public:
         gfx_queue.dcb_buffer.reserve(GfxReservedSize);
     }
 
+    inline ComputeProgram& GetCsRegs() {
+        return mapped_queues[curr_qid].cs_state;
+    }
+
+    struct AscQueueInfo {
+        VAddr map_addr;
+        u32* read_addr;
+        u32 ring_size_dw;
+        u32 pipe_id;
+    };
+    Common::SlotVector<AscQueueInfo> asc_queues{};
+
 private:
     struct Task {
         struct promise_type {
@@ -1205,7 +1420,8 @@ private:
                                                                          std::span<const u32> ccb);
     Task ProcessGraphics(std::span<const u32> dcb, std::span<const u32> ccb);
     Task ProcessCeUpdate(std::span<const u32> ccb);
-    Task ProcessCompute(std::span<const u32> acb, int vqid);
+    template <bool is_indirect = false>
+    Task ProcessCompute(std::span<const u32> acb, u32 vqid);
 
     void Process(std::stop_token stoken);
 
@@ -1220,6 +1436,7 @@ private:
         VAddr indirect_args_addr{};
     };
     std::array<GpuQueue, NumTotalQueues> mapped_queues{};
+    u32 num_mapped_queues{1u}; // GFX is always available
 
     struct ConstantEngine {
         void Reset() {
@@ -1248,6 +1465,7 @@ private:
     std::mutex submit_mutex;
     std::condition_variable_any submit_cv;
     std::queue<Common::UniqueFunction<void>> command_queue{};
+    int curr_qid{-1};
 };
 
 static_assert(GFX6_3D_REG_INDEX(ps_program) == 0x2C08);
@@ -1273,12 +1491,15 @@ static_assert(GFX6_3D_REG_INDEX(color_target_mask) == 0xA08E);
 static_assert(GFX6_3D_REG_INDEX(color_shader_mask) == 0xA08F);
 static_assert(GFX6_3D_REG_INDEX(generic_scissor) == 0xA090);
 static_assert(GFX6_3D_REG_INDEX(viewport_scissors) == 0xA094);
+static_assert(GFX6_3D_REG_INDEX(index_offset) == 0xA102);
 static_assert(GFX6_3D_REG_INDEX(primitive_restart_index) == 0xA103);
 static_assert(GFX6_3D_REG_INDEX(stencil_control) == 0xA10B);
 static_assert(GFX6_3D_REG_INDEX(viewports) == 0xA10F);
 static_assert(GFX6_3D_REG_INDEX(clip_user_data) == 0xA16F);
 static_assert(GFX6_3D_REG_INDEX(ps_inputs) == 0xA191);
 static_assert(GFX6_3D_REG_INDEX(vs_output_config) == 0xA1B1);
+static_assert(GFX6_3D_REG_INDEX(ps_input_ena) == 0xA1B3);
+static_assert(GFX6_3D_REG_INDEX(ps_input_addr) == 0xA1B4);
 static_assert(GFX6_3D_REG_INDEX(num_interp) == 0xA1B6);
 static_assert(GFX6_3D_REG_INDEX(shader_pos_format) == 0xA1C3);
 static_assert(GFX6_3D_REG_INDEX(z_export_format) == 0xA1C4);
@@ -1291,15 +1512,26 @@ static_assert(GFX6_3D_REG_INDEX(color_control) == 0xA202);
 static_assert(GFX6_3D_REG_INDEX(clipper_control) == 0xA204);
 static_assert(GFX6_3D_REG_INDEX(viewport_control) == 0xA206);
 static_assert(GFX6_3D_REG_INDEX(vs_output_control) == 0xA207);
+static_assert(GFX6_3D_REG_INDEX(hs_clamp) == 0xA287);
+static_assert(GFX6_3D_REG_INDEX(vgt_gs_mode) == 0xA290);
 static_assert(GFX6_3D_REG_INDEX(mode_control) == 0xA292);
+static_assert(GFX6_3D_REG_INDEX(vgt_gs_out_prim_type) == 0xA29B);
 static_assert(GFX6_3D_REG_INDEX(index_size) == 0xA29D);
 static_assert(GFX6_3D_REG_INDEX(index_buffer_type) == 0xA29F);
 static_assert(GFX6_3D_REG_INDEX(enable_primitive_id) == 0xA2A1);
 static_assert(GFX6_3D_REG_INDEX(enable_primitive_restart) == 0xA2A5);
 static_assert(GFX6_3D_REG_INDEX(vgt_instance_step_rate_0) == 0xA2A8);
 static_assert(GFX6_3D_REG_INDEX(vgt_instance_step_rate_1) == 0xA2A9);
+static_assert(GFX6_3D_REG_INDEX(vgt_esgs_ring_itemsize) == 0xA2AB);
+static_assert(GFX6_3D_REG_INDEX(vgt_gsvs_ring_itemsize) == 0xA2AC);
+static_assert(GFX6_3D_REG_INDEX(vgt_gs_max_vert_out) == 0xA2CE);
 static_assert(GFX6_3D_REG_INDEX(stage_enable) == 0xA2D5);
+static_assert(GFX6_3D_REG_INDEX(vgt_gs_vert_itemsize[0]) == 0xA2D7);
+static_assert(GFX6_3D_REG_INDEX(tess_config) == 0xA2DB);
 static_assert(GFX6_3D_REG_INDEX(poly_offset) == 0xA2DF);
+static_assert(GFX6_3D_REG_INDEX(vgt_gs_instance_cnt) == 0xA2E4);
+static_assert(GFX6_3D_REG_INDEX(vgt_strmout_config) == 0xA2E5);
+static_assert(GFX6_3D_REG_INDEX(vgt_strmout_buffer_config) == 0xA2E6);
 static_assert(GFX6_3D_REG_INDEX(aa_config) == 0xA2F8);
 static_assert(GFX6_3D_REG_INDEX(color_buffers[0].base_address) == 0xA318);
 static_assert(GFX6_3D_REG_INDEX(color_buffers[0].pitch) == 0xA319);
@@ -1307,6 +1539,7 @@ static_assert(GFX6_3D_REG_INDEX(color_buffers[0].slice) == 0xA31A);
 static_assert(GFX6_3D_REG_INDEX(color_buffers[7].base_address) == 0xA381);
 static_assert(GFX6_3D_REG_INDEX(primitive_type) == 0xC242);
 static_assert(GFX6_3D_REG_INDEX(num_instances) == 0xC24D);
+static_assert(GFX6_3D_REG_INDEX(vgt_tf_memory_base) == 0xc250);
 
 #undef GFX6_3D_REG_INDEX
 

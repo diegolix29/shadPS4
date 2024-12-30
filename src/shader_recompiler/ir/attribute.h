@@ -72,8 +72,13 @@ enum class Attribute : u64 {
     LocalInvocationId = 75,
     LocalInvocationIndex = 76,
     FragCoord = 77,
-    InstanceId0 = 78, // step rate 0
-    InstanceId1 = 79, // step rate 1
+    InstanceId0 = 78,  // step rate 0
+    InstanceId1 = 79,  // step rate 1
+    InvocationId = 80, // TCS id in output patch and instanced geometry shader id
+    PatchVertices = 81,
+    TessellationEvaluationPointU = 82,
+    TessellationEvaluationPointV = 83,
+    PackedHullInvocationInfo = 84, // contains patch id within the VGT and invocation ID
     Max,
 };
 
@@ -81,9 +86,22 @@ constexpr size_t NumAttributes = static_cast<size_t>(Attribute::Max);
 constexpr size_t NumRenderTargets = 8;
 constexpr size_t NumParams = 32;
 
-[[nodiscard]] bool IsParam(Attribute attribute) noexcept;
+constexpr bool IsPosition(Attribute attribute) noexcept {
+    return attribute >= Attribute::Position0 && attribute <= Attribute::Position3;
+}
 
-[[nodiscard]] bool IsMrt(Attribute attribute) noexcept;
+constexpr bool IsTessCoord(Attribute attribute) noexcept {
+    return attribute >= Attribute::TessellationEvaluationPointU &&
+           attribute <= Attribute::TessellationEvaluationPointV;
+}
+
+constexpr bool IsParam(Attribute attribute) noexcept {
+    return attribute >= Attribute::Param0 && attribute <= Attribute::Param31;
+}
+
+constexpr bool IsMrt(Attribute attribute) noexcept {
+    return attribute >= Attribute::RenderTarget0 && attribute <= Attribute::RenderTarget7;
+}
 
 [[nodiscard]] std::string NameOf(Attribute attribute);
 

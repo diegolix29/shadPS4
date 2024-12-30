@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="fi">
 	<!-- SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
@@ -53,6 +53,19 @@
 		</message>
 	</context>
 	<context>
+		<name>InstallDirSelect</name>
+		<message>
+			<location filename="../install_dir_select.cpp" line="30"/>
+			<source>shadPS4 - Choose directory</source>
+			<translation>shadPS4 - Choose directory</translation>
+		</message>
+		<message>
+			<location filename="../install_dir_select.cpp" line="37"/>
+			<source>Select which directory you want to install to.</source>
+			<translation>Select which directory you want to install to.</translation>
+		</message>
+	</context>
+	<context>
 		<name>GameInstallDialog</name>
 		<message>
 			<location filename="../game_install_dialog.cpp" line="24"/>
@@ -88,11 +101,6 @@
 			<translation>Create Shortcut</translation>
 		</message>
 		<message>
-			<location filename="../gui_context_menus.h" line="47"/>
-			<source>Open Game Folder</source>
-			<translation>Open Game Folder</translation>
-		</message>
-		<message>
 			<location filename="../gui_context_menus.h" line="48"/>
 			<source>Cheats / Patches</source>
 			<translation>Huijaukset / Korjaukset</translation>
@@ -108,9 +116,29 @@
 			<translation>Trophy Viewer</translation>
 		</message>
 		<message>
+			<location filename="../gui_context_menus.h" line="49"/>
+			<source>Open Folder...</source>
+			<translation>Avaa Kansio...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="50"/>
+			<source>Open Game Folder</source>
+			<translation>Avaa Pelikansio</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="51"/>
+			<source>Open Save Data Folder</source>
+			<translation>Avaa Tallennustiedostokansio</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="52"/>
+			<source>Open Log Folder</source>
+			<translation>Avaa Lokikansio</translation>
+		</message>
+		<message>
 			<location filename="../gui_context_menus.h" line="59"/>
-			<source>Copy info</source>
-			<translation>Copy info</translation>
+			<source>Copy info...</source>
+			<translation>Copy info...</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="60"/>
@@ -128,14 +156,54 @@
 			<translation>Copy All</translation>
 		</message>
 		<message>
+			<location filename="../gui_context_menus.h" line="72"/>
+			<source>Delete...</source>
+			<translation>Delete...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="73"/>
+			<source>Delete Game</source>
+			<translation>Delete Game</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="74"/>
+			<source>Delete Update</source>
+			<translation>Delete Update</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="75"/>
+			<source>Delete DLC</source>
+			<translation>Delete DLC</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="99"/>
+			<source>Compatibility...</source>
+			<translation>Compatibility...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="100"/>
+			<source>Update database</source>
+			<translation>Update database</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="101"/>
+			<source>View report</source>
+			<translation>View report</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="102"/>
+			<source>Submit a report</source>
+			<translation>Submit a report</translation>
+		</message>
+		<message>
 			<location filename="../gui_context_menus.h" line="195"/>
 			<source>Shortcut creation</source>
 			<translation>Shortcut creation</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="196"/>
-			<source>Shortcut created successfully!\n %1</source>
-			<translation>Shortcut created successfully!\n %1</translation>
+			<source>Shortcut created successfully!</source>
+			<translation>Shortcut created successfully!</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="199"/>
@@ -144,13 +212,53 @@
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="200"/>
-			<source>Error creating shortcut!\n %1</source>
-			<translation>Error creating shortcut!\n %1</translation>
+			<source>Error creating shortcut!</source>
+			<translation>Error creating shortcut!</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="275"/>
 			<source>Install PKG</source>
 			<translation>Install PKG</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="299"/>
+			<source>Game</source>
+			<translation>Game</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="305"/>
+			<source>requiresEnableSeparateUpdateFolder_MSG</source>
+			<translation>This feature requires the 'Enable Separate Update Folder' config option to work. If you want to use this feature, please enable it.</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="312"/>
+			<source>This game has no update to delete!</source>
+			<translation>This game has no update to delete!</translation>
+		</message>
+			<message>
+			<location filename="../gui_context_menus.h" line="316"/>
+			<source>Update</source>
+			<translation>Update</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="321"/>
+			<source>This game has no DLC to delete!</source>
+			<translation>This game has no DLC to delete!</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="325"/>
+			<source>DLC</source>
+			<translation>DLC</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="332"/>
+			<source>Delete %1</source>
+			<translation>Delete %1</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="333"/>
+			<source>Are you sure you want to delete %1's %2 directory?</source>
+			<translation>Are you sure you want to delete %1's %2 directory?</translation>
 		</message>
 	</context>
 	<context>
@@ -405,6 +513,11 @@
 			<translation>Enable Fullscreen</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui" line="140"/>
+			<source>Enable Separate Update Folder</source>
+			<translation>Enable Separate Update Folder</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="129"/>
 			<source>Show Splash</source>
 			<translation>Show Splash</translation>
@@ -413,6 +526,11 @@
 			<location filename="../settings_dialog.ui" line="136"/>
 			<source>Is PS4 Pro</source>
 			<translation>Is PS4 Pro</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="154"/>
+			<source>Enable Discord Rich Presence</source>
+			<translation>Ota käyttöön Discord Rich Presence</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="155"/>
@@ -433,6 +551,41 @@
 			<location filename="../settings_dialog.ui" line="235"/>
 			<source>Log Filter</source>
 			<translation>Log Filter</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="595"/>
+			<source>Input</source>
+			<translation>Syöttö</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="611"/>
+			<source>Cursor</source>
+			<translation>Kursori</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="635"/>
+			<source>Hide Cursor</source>
+			<translation>Piilota kursor</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="668"/>
+			<source>Hide Cursor Idle Timeout</source>
+			<translation>Inaktiivisuuden aikaraja kursorin piilottamiselle</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="816"/>
+			<source>s</source>
+			<translation>s</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="767"/>
+			<source>Controller</source>
+			<translation>Ohjain</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="797"/>
+			<source>Back Button Behavior</source>
+			<translation>Takaisin-painikkeen käyttäytyminen</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="272"/>
@@ -475,9 +628,24 @@
 			<translation>Enable NULL GPU</translation>
 		</message>
 		<message>
-			<location filename="../settings_dialog.ui" line="476"/>
-			<source>Enable PM4 Dumping</source>
-			<translation>Enable PM4 Dumping</translation>
+			<location filename="../settings_dialog.ui" line="1111"/>
+			<source>Paths</source>
+			<translation>Polut</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1119"/>
+			<source>Game Folders</source>
+			<translation>Pelihakemistot</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1141"/>
+			<source>Add...</source>
+				<translation>Lisää...</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1141"/>
+			<source>Remove</source>
+			<translation>Poista</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="517"/>
@@ -530,14 +698,44 @@
 			<translation>GUI-Asetukset</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui" line="475"/>
+			<source>Disable Trophy Pop-ups</source>
+			<translation>Disable Trophy Pop-ups</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="375"/>
 			<source>Play title music</source>
 			<translation>Soita otsikkomusiikkia</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Update Compatibility Database On Startup</source>
+			<translation>Update Compatibility Database On Startup</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Game Compatibility</source>
+			<translation>Game Compatibility</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Display Compatibility Data</source>
+			<translation>Display Compatibility Data</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Update Compatibility Database</source>
+			<translation>Update Compatibility Database</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="394"/>
 			<source>Volume</source>
 			<translation>Äänenvoimakkuus</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Audio Backend</source>
+			<translation>Audio Backend</translation>
 		</message>
 	</context>
 	<context>
@@ -697,8 +895,8 @@
 		<name>CheatsPatches</name>
 		<message>
 			<location filename="../cheats_patches.cpp" line="44"/>
-			<source>Cheats / Patches</source>
-			<translation>Huijaukset / Korjaukset</translation>
+			<source>Cheats / Patches for </source>
+			<translation>Cheats / Patches for </translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="50"/>
@@ -898,7 +1096,7 @@
 		<message>
 			<location filename="../cheats_patches.cpp" line="763"/>
 			<source>DownloadComplete_MSG</source>
-			<translation>Korjaukset ladattu onnistuneesti! Kaikki saatavilla olevat korjaukset kaikille peleille on ladattu, eikä niitä tarvitse ladata yksittäin jokaiselle pelille kuten huijauksissa. Jos päivitystä ei näy, se saattaa olla, että sitä ei ole saatavilla tietylle sarjanumerolle ja peliversiolle. Saattaa olla tarpeen päivittää peli.</translation>
+			<translation>Korjaukset ladattu onnistuneesti! Kaikki saatavilla olevat korjaukset kaikille peleille on ladattu, eikä niitä tarvitse ladata yksittäin jokaiselle pelille kuten huijauksissa. Jos päivitystä ei näy, se saattaa olla, että sitä ei ole saatavilla tietylle sarjanumerolle ja peliversiolle.</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="773"/>
@@ -909,6 +1107,26 @@
 			<location filename="../cheats_patches.cpp" line="778"/>
 			<source>Failed to retrieve HTML page.</source>
 			<translation>HTML-sivun hakeminen epäonnistui.</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="850"/>
+			<source>The game is in version: %1</source>
+			<translation>Peli on versiossa: %1</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="851"/>
+			<source>The downloaded patch only works on version: %1</source>
+			<translation> ladattu päivitys toimii vain versiossa: %1</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="856"/>
+			<source>You may need to update your game.</source>
+			<translation>Sinun on ehkä päivitettävä peliäsi.</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="860"/>
+			<source>Incompatibility Notice</source>
+			<translation>Yhteensopivuusilmoitus</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="801"/>
@@ -994,6 +1212,11 @@
 			<translation>Ota Täysikokoisuus käyttöön:\nSiirtää pelin ikkunan automaattisesti täysikokoiseen tilaan.\nTätä voidaan vaihtaa painamalla F11-näppäintä.</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.cpp" line="293"/>
+			<source>separateUpdatesCheckBox</source>
+			<translation>Enable Separate Update Folder:\nEnables installing game updates into a separate folder for easy management.</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.cpp" line="295"/>
 			<source>showSplashCheckBox</source>
 				<translation>Näytä Alkunäyttö:\nNäyttää pelin alkunäytön (erityinen kuva) pelin käynnistyessä.</translation>
@@ -1002,6 +1225,11 @@
 			<location filename="../settings_dialog.cpp" line="297"/>
 			<source>ps4proCheckBox</source>
 			<translation>Onko PS4 Pro:\nAsettaa emulaattorin toimimaan PS4 PRO:na, mikä voi mahdollistaa erityisiä ominaisuuksia peleissä, jotka tukevat sitä.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="438"/>
+			<source>discordRPCCheckbox</source>
+			<translation>Ota käyttöön Discord Rich Presence:\nNäyttää emulaattorin kuvakkeen ja asiaankuuluvat tiedot Discord-profiilissasi.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="299"/>
@@ -1016,7 +1244,7 @@
 		<message>
 			<location filename="../settings_dialog.cpp" line="303"/>
 			<source>logFilter</source>
-			<translation>Lokifiltteri: Suodattaa lokia tulostamaan vain erityistä tietoa. Esimerkkejä: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical" Tasot: Jälki, Virheenkorjaus, Tieto, Varoitus, Virhe, Kriittinen - tällä järjestyksellä, tietty taso vaientaa kaikki edeltävät tasot luettelossa ja kirjaa kaikki tasot sen jälkeen.</translation>
+			<translation>Lokifiltteri:\nSuodattaa lokia tulostamaan vain erityistä tietoa.\nEsimerkkejä: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical" Tasot: Jälki, Virheenkorjaus, Tieto, Varoitus, Virhe, Kriittinen - tällä järjestyksellä, tietty taso vaientaa kaikki edeltävät tasot luettelossa ja kirjaa kaikki tasot sen jälkeen.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="305"/>
@@ -1027,6 +1255,76 @@
 			<location filename="../settings_dialog.cpp" line="306"/>
 			<source>GUIgroupBox</source>
 			<translation>Soita Otsikkomusiikkia:\nJos peli tukee sitä, ota käyttöön erityisen musiikin soittaminen pelin valinnan yhteydessä käyttöliittymässä.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="267"/>
+			<source>disableTrophycheckBox</source>
+			<translation>Disable Trophy Pop-ups:\nDisable in-game trophy notifications. Trophy progress can still be tracked using the Trophy Viewer (right-click the game in the main window).</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="450"/>
+			<source>hideCursorGroupBox</source>
+			<translation>Piilota kursori:\nValitse, milloin kursori häviää:\nEi koskaan: Näet hiiren aina.\nAktiivinen: Aseta aika, jolloin se häviää oltuaan aktiivinen.\nAina: et koskaan näe hiirtä.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="452"/>
+			<source>idleTimeoutGroupBox</source>
+			<translation>Aseta aika, jolloin hiiri häviää oltuaan aktiivinen.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="454"/>
+			<source>backButtonBehaviorGroupBox</source>
+			<translation>Takaisin-napin käyttäytyminen:\nAsettaa ohjaimen takaisin-napin jäljittelemään kosketusta PS4:n kosketuslevyn määritettyyn kohtaan.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>enableCompatibilityCheckBox</source>
+			<translation>Display Compatibility Data:\nDisplays game compatibility information in table view. Enable "Update Compatibility On Startup" to get up-to-date information.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>checkCompatibilityOnStartupCheckBox</source>
+			<translation>Update Compatibility On Startup:\nAutomatically update the compatibility database when shadPS4 starts.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>updateCompatibilityButton</source>
+			<translation>Update Compatibility Database:\nImmediately update the compatibility database.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="70"/>
+			<source>Never</source>
+			<translation>Ei koskaan</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="71"/>
+			<source>Idle</source>
+			<translation>Odotustila</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="72"/>
+			<source>Always</source>
+			<translation> aina</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="101"/>
+			<source>Touchpad Left</source>
+			<translation>Kosketuslevy Vasemmalla</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="102"/>
+			<source>Touchpad Right</source>
+			<translation>Kosketuslevy Oikealla</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="103"/>
+			<source>Touchpad Center</source>
+			<translation>Kosketuslevy Keskellä</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="104"/>
+			<source>None</source>
+			<translation>Ei mitään</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="312"/>
@@ -1054,9 +1352,19 @@
 			<translation>Ota Null GPU käyttöön:\nTeknistä vianetsintää varten pelin renderöinti estetään niin, että ikään kuin grafiikkakorttia ei olisi.</translation>
 		</message>
 		<message>
-			<location filename="../settings_dialog.cpp" line="323"/>
-			<source>dumpPM4CheckBox</source>
-			<translation>Ota PM4 dumpaus käyttöön:\nTeknistä vianetsintää varten raakoja GPU-ohjeita tallennetaan kansioon emulaattorin käsitellessä sitä.</translation>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>gameFoldersBox</source>
+			<translation>Pelihakemistot:\nLuettelo hakemistoista asennettujen pelien tarkistamiseksi.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>addFolderButton</source>
+			<translation>Lisää:\nLisää hakemisto luetteloon.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>removeFolderButton</source>
+			<translation>Poista:\nPoista hakemisto luettelosta.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="329"/>
@@ -1097,6 +1405,11 @@
 			<translation>Sarjanumero</translation>
 		</message>
 		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Compatibility</source>
+			<translation>Compatibility</translation>
+		</message>
+		<message>
 			<location filename="../game_list_frame.cpp" line="34"/>
 			<source>Region</source>
 			<translation>Alue</translation>
@@ -1120,6 +1433,61 @@
 			<location filename="../game_list_frame.cpp" line="35"/>
 			<source>Path</source>
 			<translation>Polku</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="38"/>
+			<source>Play Time</source>
+			<translation>Peliaika</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="108"/>
+			<source>Never Played</source>
+			<translation>Never Played</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>h</source>
+			<translation>h</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>m</source>
+			<translation>m</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>s</source>
+			<translation>s</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Compatibility is untested</source>
+			<translation>Compatibility is untested</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game does not initialize properly / crashes the emulator</source>
+			<translation>Game does not initialize properly / crashes the emulator</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game boots, but only displays a blank screen</source>
+			<translation>Game boots, but only displays a blank screen</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game displays an image but does not go past the menu</source>
+			<translation>Game displays an image but does not go past the menu</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game has game-breaking glitches or unplayable performance</source>
+			<translation>Game has game-breaking glitches or unplayable performance</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game can be completed with playable performance and no major glitches</source>
+			<translation>Game can be completed with playable performance and no major glitches</translation>
 		</message>
 	</context>
 	<context>
@@ -1169,7 +1537,7 @@
 			<source>Update Available</source>
 			<translation>Päivitys saatavilla</translation>
 		</message>
-		<message> 
+		<message>
 			<location filename="../check_update.cpp" line="187"/>
 			<source>Update Channel</source>
 			<translation>Päivityskanava</translation>
@@ -1249,5 +1617,33 @@
 			<source>Failed to create the update script file</source>
 			<translation>Päivitysskripttitiedoston luominen epäonnistui</translation>
 		</message>
+	</context>
+	<context>
+		<name>GameListUtils</name>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>B</source>
+			<translation>B</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>KB</source>
+			<translation>KB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>MB</source>
+			<translation>MB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>GB</source>
+			<translation>GB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>TB</source>
+			<translation>TB</translation>
+		</message>		
 	</context>
 </TS>

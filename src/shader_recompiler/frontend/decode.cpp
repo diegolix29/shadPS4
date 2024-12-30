@@ -5,7 +5,7 @@
 #include "common/assert.h"
 #include "shader_recompiler/frontend/decode.h"
 
-#include "magic_enum.hpp"
+#include <magic_enum/magic_enum.hpp>
 
 namespace Shader::Gcn {
 
@@ -654,7 +654,7 @@ void GcnDecodeContext::decodeInstructionVOP3(uint64_t hexInstruction) {
 
     OpcodeVOP3 vop3Op = static_cast<OpcodeVOP3>(op);
     if (IsVop3BEncoding(m_instruction.opcode)) {
-        m_instruction.dst[1].field = OperandField::ScalarGPR;
+        m_instruction.dst[1].field = getOperandField(sdst);
         m_instruction.dst[1].type = ScalarType::Uint64;
         m_instruction.dst[1].code = sdst;
     } else {

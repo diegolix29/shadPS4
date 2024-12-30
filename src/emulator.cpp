@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <set>
 #include <fmt/core.h>
 
 #include "common/config.h"
@@ -8,9 +9,13 @@
 #include "common/logging/backend.h"
 #include "common/logging/log.h"
 #ifdef ENABLE_QT_GUI
+#include <QtCore>
 #include "common/memory_patcher.h"
 #endif
 #include "common/assert.h"
+#ifdef ENABLE_DISCORD_RPC
+#include "common/discord_rpc_handler.h"
+#endif
 #include "common/elf_info.h"
 #include "common/ntapi.h"
 #include "common/path_util.h"
@@ -18,13 +23,13 @@
 #include "common/scm_rev.h"
 #include "common/singleton.h"
 #include "common/version.h"
-#include "core/file_format/playgo_chunk.h"
 #include "core/file_format/psf.h"
 #include "core/file_format/splash.h"
 #include "core/file_format/trp.h"
 #include "core/file_sys/fs.h"
 #include "core/libraries/disc_map/disc_map.h"
-#include "core/libraries/kernel/thread_management.h"
+#include "core/libraries/fiber/fiber.h"
+#include "core/libraries/jpeg/jpegenc.h"
 #include "core/libraries/libc_internal/libc_internal.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/ngs2/ngs2.h"
@@ -40,10 +45,6 @@ Frontend::WindowSDL* g_window = nullptr;
 namespace Core {
 
 Emulator::Emulator() {
-    // Read configuration file.
-    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-    Config::load(config_dir / "config.toml");
-
     // Initialize NT API functions and set high priority
 #ifdef _WIN32
     Common::NtApi::Initialize();
@@ -58,6 +59,7 @@ Emulator::Emulator() {
     LOG_INFO(Loader, "Branch {}", Common::g_scm_branch);
     LOG_INFO(Loader, "Description {}", Common::g_scm_desc);
 
+    LOG_INFO(Config, "General Logtype: {}", Config::getLogType());
     LOG_INFO(Config, "General isNeo: {}", Config::isNeoMode());
     LOG_INFO(Config, "GPU isNullGpu: {}", Config::nullGpu());
     LOG_INFO(Config, "GPU shouldDumpShaders: {}", Config::dumpShaders());
@@ -70,6 +72,9 @@ Emulator::Emulator() {
     LOG_INFO(Config, "Vulkan rdocMarkersEnable: {}", Config::vkMarkersEnabled());
     LOG_INFO(Config, "Vulkan crashDiagnostics: {}", Config::vkCrashDiagnosticEnabled());
 
+    // Create stdin/stdout/stderr
+    Common::Singleton<FileSys::HandleTable>::Instance()->CreateStdHandles();
+
     // Defer until after logging is initialized.
     memory = Core::Memory::Instance();
     controller = Common::Singleton<Input::GameController>::Instance();
@@ -77,14 +82,33 @@ Emulator::Emulator() {
 
     // Load renderdoc module.
     VideoCore::LoadRenderDoc();
+
+    // Start the timer (Play Time)
+#ifdef ENABLE_QT_GUI
+    start_time = std::chrono::steady_clock::now();
+    const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+    QString filePath = QString::fromStdString((user_dir / "play_time.txt").string());
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+        LOG_INFO(Loader, "Error opening or creating play_time.txt");
+    }
+#endif
 }
 
 Emulator::~Emulator() {
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-    Config::save(config_dir / "config.toml");
+    Config::saveMainWindow(config_dir / "config.toml");
 }
 
 void Emulator::Run(const std::filesystem::path& file) {
+
+    // Use the eboot from the separated updates folder if it's there
+    std::filesystem::path game_patch_folder = file.parent_path();
+    game_patch_folder += "-UPDATE";
+    std::filesystem::path eboot_path = std::filesystem::exists(game_patch_folder / file.filename())
+                                           ? game_patch_folder / file.filename()
+                                           : file;
+
     // Applications expect to be run from /app0 so mount the file's parent path as app0.
     auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
     mnt->Mount(file.parent_path(), "/app0");
@@ -99,7 +123,7 @@ void Emulator::Run(const std::filesystem::path& file) {
     std::string app_version;
     u32 fw_version;
 
-    std::filesystem::path sce_sys_folder = file.parent_path() / "sce_sys";
+    std::filesystem::path sce_sys_folder = eboot_path.parent_path() / "sce_sys";
     if (std::filesystem::is_directory(sce_sys_folder)) {
         for (const auto& entry : std::filesystem::directory_iterator(sce_sys_folder)) {
             if (entry.path().filename() == "param.sfo") {
@@ -114,26 +138,27 @@ void Emulator::Run(const std::filesystem::path& file) {
                     Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / id / "TrophyFiles";
                 if (!std::filesystem::exists(trophyDir)) {
                     TRP trp;
-                    if (!trp.Extract(file.parent_path(), id)) {
+                    if (!trp.Extract(eboot_path.parent_path(), id)) {
                         LOG_ERROR(Loader, "Couldn't extract trophies");
                     }
                 }
 #ifdef ENABLE_QT_GUI
                 MemoryPatcher::g_game_serial = id;
+
+                // Timer for 'Play Time'
+                QTimer* timer = new QTimer();
+                QObject::connect(timer, &QTimer::timeout, [this, id]() {
+                    UpdatePlayTime(id);
+                    start_time = std::chrono::steady_clock::now();
+                });
+                timer->start(60000); // 60000 ms = 1 minute
 #endif
                 title = param_sfo->GetString("TITLE").value_or("Unknown title");
                 LOG_INFO(Loader, "Game id: {} Title: {}", id, title);
                 fw_version = param_sfo->GetInteger("SYSTEM_VER").value_or(0x4700000);
                 app_version = param_sfo->GetString("APP_VER").value_or("Unknown version");
                 LOG_INFO(Loader, "Fw: {:#x} App Version: {}", fw_version, app_version);
-            } else if (entry.path().filename() == "playgo-chunk.dat") {
-                auto* playgo = Common::Singleton<PlaygoFile>::Instance();
-                auto filepath = sce_sys_folder / "playgo-chunk.dat";
-                if (!playgo->Open(filepath)) {
-                    LOG_ERROR(Loader, "PlayGo: unable to open file");
-                }
-            } else if (entry.path().filename() == "pic0.png" ||
-                       entry.path().filename() == "pic1.png") {
+            } else if (entry.path().filename() == "pic1.png") {
                 auto* splash = Common::Singleton<Splash>::Instance();
                 if (splash->IsLoaded()) {
                     continue;
@@ -191,50 +216,86 @@ void Emulator::Run(const std::filesystem::path& file) {
     VideoCore::SetOutputDir(mount_captures_dir, id);
 
     // Initialize kernel and library facilities.
-    Libraries::Kernel::init_pthreads();
     Libraries::InitHLELibs(&linker->GetHLESymbols());
 
     // Load the module with the linker
-    linker->LoadModule(file);
+    linker->LoadModule(eboot_path);
 
     // check if we have system modules to load
-    LoadSystemModules(file);
+    LoadSystemModules(eboot_path, game_info.game_serial);
 
     // Load all prx from game's sce_module folder
-    std::filesystem::path sce_module_folder = file.parent_path() / "sce_module";
-    if (std::filesystem::is_directory(sce_module_folder)) {
-        for (const auto& entry : std::filesystem::directory_iterator(sce_module_folder)) {
-            LOG_INFO(Loader, "Loading {}", fmt::UTF(entry.path().u8string()));
-            linker->LoadModule(entry.path());
+    std::vector<std::filesystem::path> modules_to_load;
+    std::filesystem::path game_module_folder = file.parent_path() / "sce_module";
+    if (std::filesystem::is_directory(game_module_folder)) {
+        for (const auto& entry : std::filesystem::directory_iterator(game_module_folder)) {
+            if (entry.is_regular_file()) {
+                modules_to_load.push_back(entry.path());
+            }
         }
     }
 
-    // start execution
-    std::jthread mainthread =
-        std::jthread([this](std::stop_token stop_token) { linker->Execute(); });
-
-    while (window->isOpen()) {
-        window->waitEvent();
+    // Load all prx from separate update's sce_module folder
+    std::filesystem::path update_module_folder = game_patch_folder / "sce_module";
+    if (std::filesystem::is_directory(update_module_folder)) {
+        for (const auto& entry : std::filesystem::directory_iterator(update_module_folder)) {
+            auto it = std::find_if(modules_to_load.begin(), modules_to_load.end(),
+                                   [&entry](const std::filesystem::path& p) {
+                                       return p.filename() == entry.path().filename();
+                                   });
+            if (it != modules_to_load.end()) {
+                *it = entry.path();
+            } else {
+                modules_to_load.push_back(entry.path());
+            }
+        }
     }
+
+    for (const auto& module_path : modules_to_load) {
+        LOG_INFO(Loader, "Loading {}", fmt::UTF(module_path.u8string()));
+        linker->LoadModule(module_path);
+    }
+
+#ifdef ENABLE_DISCORD_RPC
+    // Discord RPC
+    if (Config::getEnableDiscordRPC()) {
+        auto* rpc = Common::Singleton<DiscordRPCHandler::RPC>::Instance();
+        if (rpc->getRPCEnabled() == false) {
+            rpc->init();
+        }
+        rpc->setStatusPlaying(game_info.title, id);
+    }
+#endif
+
+    linker->Execute();
+
+    window->InitTimers();
+    while (window->IsOpen()) {
+        window->WaitEvent();
+    }
+
+#ifdef ENABLE_QT_GUI
+    UpdatePlayTime(id);
+#endif
 
     std::exit(0);
 }
 
-void Emulator::LoadSystemModules(const std::filesystem::path& file) {
+void Emulator::LoadSystemModules(const std::filesystem::path& file, std::string game_serial) {
     constexpr std::array<SysModules, 13> ModulesToLoad{
         {{"libSceNgs2.sprx", &Libraries::Ngs2::RegisterlibSceNgs2},
-         {"libSceFiber.sprx", nullptr},
+         {"libSceFiber.sprx", &Libraries::Fiber::RegisterlibSceFiber},
          {"libSceUlt.sprx", nullptr},
          {"libSceJson.sprx", nullptr},
          {"libSceJson2.sprx", nullptr},
          {"libSceLibcInternal.sprx", &Libraries::LibcInternal::RegisterlibSceLibcInternal},
          {"libSceDiscMap.sprx", &Libraries::DiscMap::RegisterlibSceDiscMap},
          {"libSceRtc.sprx", &Libraries::Rtc::RegisterlibSceRtc},
-         {"libSceJpegEnc.sprx", nullptr},
-         {"libSceFont.sprx", nullptr},
-         {"libSceRazorCpu.sprx", nullptr},
+         {"libSceJpegEnc.sprx", &Libraries::JpegEnc::RegisterlibSceJpegEnc},
          {"libSceCesCs.sprx", nullptr},
-         {"libSceRudp.sprx", nullptr}}};
+         {"libSceFont.sprx", nullptr},
+         {"libSceFontFt.sprx", nullptr},
+         {"libSceFreeTypeOt.sprx", nullptr}}};
 
     std::vector<std::filesystem::path> found_modules;
     const auto& sys_module_path = Common::FS::GetUserPath(Common::FS::PathType::SysModuleDir);
@@ -246,8 +307,9 @@ void Emulator::LoadSystemModules(const std::filesystem::path& file) {
             found_modules, [&](const auto& path) { return path.filename() == module_name; });
         if (it != found_modules.end()) {
             LOG_INFO(Loader, "Loading {}", it->string());
-            linker->LoadModule(*it);
-            continue;
+            if (linker->LoadModule(*it) != -1) {
+                continue;
+            }
         }
         if (init_func) {
             LOG_INFO(Loader, "Can't Load {} switching to HLE", module_name);
@@ -256,6 +318,84 @@ void Emulator::LoadSystemModules(const std::filesystem::path& file) {
             LOG_INFO(Loader, "No HLE available for {} module", module_name);
         }
     }
+    if (!game_serial.empty() && std::filesystem::exists(sys_module_path / game_serial)) {
+        for (const auto& entry :
+             std::filesystem::directory_iterator(sys_module_path / game_serial)) {
+            LOG_INFO(Loader, "Loading {} from game serial file {}", entry.path().string(),
+                     game_serial);
+            linker->LoadModule(entry.path());
+        }
+    }
 }
+
+#ifdef ENABLE_QT_GUI
+void Emulator::UpdatePlayTime(const std::string& serial) {
+    const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+    QString filePath = QString::fromStdString((user_dir / "play_time.txt").string());
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+        LOG_INFO(Loader, "Error opening play_time.txt");
+        return;
+    }
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
+    int totalSeconds = duration.count();
+
+    QTextStream in(&file);
+    QStringList lines;
+    QString content;
+    while (!in.atEnd()) {
+        content += in.readLine() + "\n";
+    }
+    file.close();
+
+    QStringList existingLines = content.split('\n', Qt::SkipEmptyParts);
+    int accumulatedSeconds = 0;
+    bool found = false;
+
+    for (const QString& line : existingLines) {
+        QStringList parts = line.split(' ');
+        if (parts.size() == 2 && parts[0] == QString::fromStdString(serial)) {
+            QStringList timeParts = parts[1].split(':');
+            if (timeParts.size() == 3) {
+                int hours = timeParts[0].toInt();
+                int minutes = timeParts[1].toInt();
+                int seconds = timeParts[2].toInt();
+                accumulatedSeconds = hours * 3600 + minutes * 60 + seconds;
+                found = true;
+                break;
+            }
+        }
+    }
+    accumulatedSeconds += totalSeconds;
+    int hours = accumulatedSeconds / 3600;
+    int minutes = (accumulatedSeconds % 3600) / 60;
+    int seconds = accumulatedSeconds % 60;
+    QString playTimeSaved = QString::number(hours) + ":" +
+                            QString::number(minutes).rightJustified(2, '0') + ":" +
+                            QString::number(seconds).rightJustified(2, '0');
+
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&file);
+        bool lineUpdated = false;
+
+        for (const QString& line : existingLines) {
+            if (line.startsWith(QString::fromStdString(serial))) {
+                out << QString::fromStdString(serial) + " " + playTimeSaved + "\n";
+                lineUpdated = true;
+            } else {
+                out << line << "\n";
+            }
+        }
+
+        if (!lineUpdated) {
+            out << QString::fromStdString(serial) + " " + playTimeSaved + "\n";
+        }
+    }
+    LOG_INFO(Loader, "Playing time for {}: {}", serial, playTimeSaved.toStdString());
+}
+#endif
 
 } // namespace Core

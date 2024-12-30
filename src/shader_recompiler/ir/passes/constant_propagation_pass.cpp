@@ -6,6 +6,7 @@
 #include <type_traits>
 #include "common/func_traits.h"
 #include "shader_recompiler/ir/basic_block.h"
+#include "shader_recompiler/ir/ir_emitter.h"
 
 namespace Shader::Optimization {
 
@@ -42,7 +43,7 @@ bool FoldCommutative(IR::Inst& inst, ImmFn&& imm_fn) {
 
     if (is_lhs_immediate && is_rhs_immediate) {
         const auto result{imm_fn(Arg<T>(lhs), Arg<T>(rhs))};
-        inst.ReplaceUsesWith(IR::Value{result});
+        inst.ReplaceUsesWithAndRemove(IR::Value{result});
         return false;
     }
     if (is_lhs_immediate && !is_rhs_immediate) {
@@ -74,7 +75,7 @@ bool FoldWhenAllImmediates(IR::Inst& inst, Func&& func) {
         return false;
     }
     using Indices = std::make_index_sequence<Common::LambdaTraits<decltype(func)>::NUM_ARGS>;
-    inst.ReplaceUsesWith(EvalImmediates(inst, func, Indices{}));
+    inst.ReplaceUsesWithAndRemove(EvalImmediates(inst, func, Indices{}));
     return true;
 }
 
@@ -82,12 +83,12 @@ template <IR::Opcode op, typename Dest, typename Source>
 void FoldBitCast(IR::Inst& inst, IR::Opcode reverse) {
     const IR::Value value{inst.Arg(0)};
     if (value.IsImmediate()) {
-        inst.ReplaceUsesWith(IR::Value{std::bit_cast<Dest>(Arg<Source>(value))});
+        inst.ReplaceUsesWithAndRemove(IR::Value{std::bit_cast<Dest>(Arg<Source>(value))});
         return;
     }
     IR::Inst* const arg_inst{value.InstRecursive()};
     if (arg_inst->GetOpcode() == reverse) {
-        inst.ReplaceUsesWith(arg_inst->Arg(0));
+        inst.ReplaceUsesWithAndRemove(arg_inst->Arg(0));
         return;
     }
 }
@@ -130,7 +131,7 @@ void FoldCompositeExtract(IR::Inst& inst, IR::Opcode construct, IR::Opcode inser
     if (!result) {
         return;
     }
-    inst.ReplaceUsesWith(*result);
+    inst.ReplaceUsesWithAndRemove(*result);
 }
 
 void FoldConvert(IR::Inst& inst, IR::Opcode opposite) {
@@ -140,7 +141,7 @@ void FoldConvert(IR::Inst& inst, IR::Opcode opposite) {
     }
     IR::Inst* const producer{value.InstRecursive()};
     if (producer->GetOpcode() == opposite) {
-        inst.ReplaceUsesWith(producer->Arg(0));
+        inst.ReplaceUsesWithAndRemove(producer->Arg(0));
     }
 }
 
@@ -151,9 +152,9 @@ void FoldLogicalAnd(IR::Inst& inst) {
     const IR::Value rhs{inst.Arg(1)};
     if (rhs.IsImmediate()) {
         if (rhs.U1()) {
-            inst.ReplaceUsesWith(inst.Arg(0));
+            inst.ReplaceUsesWithAndRemove(inst.Arg(0));
         } else {
-            inst.ReplaceUsesWith(IR::Value{false});
+            inst.ReplaceUsesWithAndRemove(IR::Value{false});
         }
     }
 }
@@ -161,7 +162,7 @@ void FoldLogicalAnd(IR::Inst& inst) {
 void FoldSelect(IR::Inst& inst) {
     const IR::Value cond{inst.Arg(0)};
     if (cond.IsImmediate()) {
-        inst.ReplaceUsesWith(cond.U1() ? inst.Arg(1) : inst.Arg(2));
+        inst.ReplaceUsesWithAndRemove(cond.U1() ? inst.Arg(1) : inst.Arg(2));
     }
 }
 
@@ -172,9 +173,9 @@ void FoldLogicalOr(IR::Inst& inst) {
     const IR::Value rhs{inst.Arg(1)};
     if (rhs.IsImmediate()) {
         if (rhs.U1()) {
-            inst.ReplaceUsesWith(IR::Value{true});
+            inst.ReplaceUsesWithAndRemove(IR::Value{true});
         } else {
-            inst.ReplaceUsesWith(inst.Arg(0));
+            inst.ReplaceUsesWithAndRemove(inst.Arg(0));
         }
     }
 }
@@ -182,12 +183,12 @@ void FoldLogicalOr(IR::Inst& inst) {
 void FoldLogicalNot(IR::Inst& inst) {
     const IR::U1 value{inst.Arg(0)};
     if (value.IsImmediate()) {
-        inst.ReplaceUsesWith(IR::Value{!value.U1()});
+        inst.ReplaceUsesWithAndRemove(IR::Value{!value.U1()});
         return;
     }
     IR::Inst* const arg{value.InstRecursive()};
     if (arg->GetOpcode() == IR::Opcode::LogicalNot) {
-        inst.ReplaceUsesWith(arg->Arg(0));
+        inst.ReplaceUsesWithAndRemove(arg->Arg(0));
     }
 }
 
@@ -198,7 +199,7 @@ void FoldInverseFunc(IR::Inst& inst, IR::Opcode reverse) {
     }
     IR::Inst* const arg_inst{value.InstRecursive()};
     if (arg_inst->GetOpcode() == reverse) {
-        inst.ReplaceUsesWith(arg_inst->Arg(0));
+        inst.ReplaceUsesWithAndRemove(arg_inst->Arg(0));
         return;
     }
 }
@@ -210,55 +211,85 @@ void FoldAdd(IR::Block& block, IR::Inst& inst) {
     }
     const IR::Value rhs{inst.Arg(1)};
     if (rhs.IsImmediate() && Arg<T>(rhs) == 0) {
-        inst.ReplaceUsesWith(inst.Arg(0));
+        inst.ReplaceUsesWithAndRemove(inst.Arg(0));
         return;
     }
 }
 
-template <u32 idx>
-bool IsArgImm(const IR::Inst& inst, u32 imm) {
-    const IR::Value& arg = inst.Arg(idx);
-    return arg.IsImmediate() && arg.U32() == imm;
-};
-
-void FoldBooleanConvert(IR::Inst& inst) {
-    // Eliminate pattern
-    // %4 = <some bool>
-    // %5 = SelectU32 %4, #1, #0 (uses: 2)
-    // %8 = INotEqual %5, #0 (uses: 1)
-    if (!IsArgImm<1>(inst, 0)) {
+template <typename T>
+void FoldMul(IR::Block& block, IR::Inst& inst) {
+    if (!FoldCommutative<T>(inst, [](T a, T b) { return a * b; })) {
         return;
     }
-    IR::Inst* prod = inst.Arg(0).TryInstRecursive();
-    if (!prod || prod->GetOpcode() != IR::Opcode::SelectU32) {
+    const IR::Value rhs{inst.Arg(1)};
+    if (rhs.IsImmediate() && Arg<T>(rhs) == 0) {
+        inst.ReplaceUsesWithAndRemove(IR::Value(0u));
         return;
-    }
-    if (IsArgImm<1>(*prod, 1) && IsArgImm<2>(*prod, 0)) {
-        inst.ReplaceUsesWith(prod->Arg(0));
     }
 }
 
-void FoldCmpClass(IR::Inst& inst) {
+void FoldCmpClass(IR::Block& block, IR::Inst& inst) {
     ASSERT_MSG(inst.Arg(1).IsImmediate(), "Unable to resolve compare operation");
     const auto class_mask = static_cast<IR::FloatClassFunc>(inst.Arg(1).U32());
     if ((class_mask & IR::FloatClassFunc::NaN) == IR::FloatClassFunc::NaN) {
         inst.ReplaceOpcode(IR::Opcode::FPIsNan32);
     } else if ((class_mask & IR::FloatClassFunc::Infinity) == IR::FloatClassFunc::Infinity) {
         inst.ReplaceOpcode(IR::Opcode::FPIsInf32);
+    } else if ((class_mask & IR::FloatClassFunc::Finite) == IR::FloatClassFunc::Finite) {
+        IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+        const IR::F32 value = IR::F32{inst.Arg(0)};
+        inst.ReplaceUsesWithAndRemove(
+            ir.LogicalNot(ir.LogicalOr(ir.FPIsInf(value), ir.FPIsInf(value))));
     } else {
         UNREACHABLE();
     }
 }
 
-void FoldReadLane(IR::Inst& inst) {
+void FoldReadLane(IR::Block& block, IR::Inst& inst) {
     const u32 lane = inst.Arg(1).U32();
     IR::Inst* prod = inst.Arg(0).InstRecursive();
-    while (prod->GetOpcode() == IR::Opcode::WriteLane) {
-        if (prod->Arg(2).U32() == lane) {
-            inst.ReplaceUsesWith(prod->Arg(1));
+
+    const auto search_chain = [lane](const IR::Inst* prod) -> IR::Value {
+        while (prod->GetOpcode() == IR::Opcode::WriteLane) {
+            if (prod->Arg(2).U32() == lane) {
+                return prod->Arg(1);
+            }
+            prod = prod->Arg(0).InstRecursive();
+        }
+        return {};
+    };
+
+    if (prod->GetOpcode() == IR::Opcode::WriteLane) {
+        if (const IR::Value value = search_chain(prod); !value.IsEmpty()) {
+            inst.ReplaceUsesWith(value);
+        }
+        return;
+    }
+
+    if (prod->GetOpcode() == IR::Opcode::Phi) {
+        boost::container::small_vector<IR::Value, 2> phi_args;
+        for (size_t arg_index = 0; arg_index < prod->NumArgs(); ++arg_index) {
+            const IR::Inst* arg{prod->Arg(arg_index).InstRecursive()};
+            if (arg->GetOpcode() != IR::Opcode::WriteLane) {
+                return;
+            }
+            const IR::Value value = search_chain(arg);
+            if (value.IsEmpty()) {
+                continue;
+            }
+            phi_args.emplace_back(value);
+        }
+        if (std::ranges::all_of(phi_args, [&](IR::Value value) { return value == phi_args[0]; })) {
+            inst.ReplaceUsesWith(phi_args[0]);
             return;
         }
-        prod = prod->Arg(0).InstRecursive();
+        const auto insert_point = IR::Block::InstructionList::s_iterator_to(*prod);
+        IR::Inst* const new_phi{&*block.PrependNewInst(insert_point, IR::Opcode::Phi)};
+        new_phi->SetFlags(IR::Type::U32);
+        for (size_t arg_index = 0; arg_index < phi_args.size(); arg_index++) {
+            new_phi->AddPhiOperand(prod->PhiBlock(arg_index), phi_args[arg_index]);
+        }
+        inst.ReplaceUsesWith(IR::Value{new_phi});
     }
 }
 
@@ -273,10 +304,22 @@ void ConstantPropagation(IR::Block& block, IR::Inst& inst) {
         FoldWhenAllImmediates(inst, [](u32 a) { return static_cast<float>(a); });
         return;
     case IR::Opcode::IMul32:
-        FoldWhenAllImmediates(inst, [](u32 a, u32 b) { return a * b; });
+        FoldMul<u32>(block, inst);
+        return;
+    case IR::Opcode::UDiv32:
+        FoldWhenAllImmediates(inst, [](u32 a, u32 b) {
+            ASSERT_MSG(b != 0, "Folding UDiv32 with divisor 0");
+            return a / b;
+        });
+        return;
+    case IR::Opcode::UMod32:
+        FoldWhenAllImmediates(inst, [](u32 a, u32 b) {
+            ASSERT_MSG(b != 0, "Folding UMod32 with modulo 0");
+            return a % b;
+        });
         return;
     case IR::Opcode::FPCmpClass32:
-        FoldCmpClass(inst);
+        FoldCmpClass(block, inst);
         return;
     case IR::Opcode::ShiftLeftLogical32:
         FoldWhenAllImmediates(inst, [](u32 a, u32 b) { return static_cast<u32>(a << b); });
@@ -308,7 +351,7 @@ void ConstantPropagation(IR::Block& block, IR::Inst& inst) {
     case IR::Opcode::SelectF64:
         return FoldSelect(inst);
     case IR::Opcode::ReadLane:
-        return FoldReadLane(inst);
+        return FoldReadLane(block, inst);
     case IR::Opcode::FPNeg32:
         FoldWhenAllImmediates(inst, [](f32 a) { return -a; });
         return;
@@ -348,8 +391,11 @@ void ConstantPropagation(IR::Block& block, IR::Inst& inst) {
     case IR::Opcode::UGreaterThanEqual:
         FoldWhenAllImmediates(inst, [](u32 a, u32 b) { return a >= b; });
         return;
-    case IR::Opcode::IEqual:
+    case IR::Opcode::IEqual32:
         FoldWhenAllImmediates(inst, [](u32 a, u32 b) { return a == b; });
+        return;
+    case IR::Opcode::IEqual64:
+        FoldWhenAllImmediates(inst, [](u64 a, u64 b) { return a == b; });
         return;
     case IR::Opcode::INotEqual:
         FoldWhenAllImmediates(inst, [](u32 a, u32 b) { return a != b; });

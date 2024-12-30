@@ -36,14 +36,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 **shadPS4** is an early **PlayStation 4** emulator for **Windows**, **Linux** and **macOS** written in C++.
 
-If you encounter problems or have doubts, do not hesitate to look at the [**Quickstart**](https://github.com/shadps4-emu/shadPS4/blob/main/documents/Quickstart/Quickstart.md).
-
-To verify that a game works, you can look at [**shadPS4 Game Compatibility**](https://github.com/shadps4-emu/shadps4-game-compatibility).
-
-To discuss shadPS4 development, suggest ideas or to ask for help, join our [**Discord server**](https://discord.gg/bFJxfftGW6).
-
-To get the latest news, go to our [**X (Twitter)**](https://x.com/shadps4) or our [**website**](https://shadps4.net/).
-
+If you encounter problems or have doubts, do not hesitate to look at the [**Quickstart**](https://github.com/shadps4-emu/shadPS4/blob/main/documents/Quickstart/Quickstart.md).\
+To verify that a game works, you can look at [**shadPS4 Game Compatibility**](https://github.com/shadps4-emu/shadps4-game-compatibility).\
+To discuss shadPS4 development, suggest ideas or to ask for help, join our [**Discord server**](https://discord.gg/bFJxfftGW6).\
+To get the latest news, go to our [**X (Twitter)**](https://x.com/shadps4) or our [**website**](https://shadps4.net/).\
 For those who'd like to donate to the project, we now have a [**Kofi page**](https://ko-fi.com/shadps4)!
 
 # Status
@@ -51,7 +47,7 @@ For those who'd like to donate to the project, we now have a [**Kofi page**](htt
 > [!IMPORTANT]
 > shadPS4 is early in development, don't expect a flawless experience.
 
-Currently, the emulator successfully runs small games like [**Sonic Mania**](https://www.youtube.com/watch?v=AAHoNzhHyCU), [**Undertale**](https://youtu.be/5zIvdy65Ro4) and it can even run [**Bloodborne**](https://www.youtube.com/watch?v=wC6s0avpQRE).
+Currently, the emulator can successfully run games like [**Bloodborne**](https://www.youtube.com/watch?v=wC6s0avpQRE), [**Dark Souls Remastered**](https://www.youtube.com/watch?v=-3PA-Xwszts), [**Red Dead Redemption**](https://www.youtube.com/watch?v=Al7yz_5nLag) and many other games.
 
 # Why
 
@@ -80,35 +76,42 @@ For more information on how to test, debug and report issues with the emulator o
 
 # Keyboard mapping
 
+| Button | Function |
+|-------------|-------------|
+F10 | FPS Counter
+Ctrl+F10 | Video Debug Info
+F11 | Fullscreen
+F12 | Trigger RenderDoc Capture
+
 > [!NOTE]
 > Xbox and DualShock controllers work out of the box.
 
-| Controller button | Keyboard equivelant |
-|-------------|-------------|
-LEFT AXIS UP | W |
-LEFT AXIS DOWN | S |
-LEFT AXIS LEFT | A |
-LEFT AXIS RIGHT | D |
-RIGHT AXIS UP | I |
-RIGHT AXIS DOWN | K |
-RIGHT AXIS LEFT | J |
-RIGHT AXIS RIGHT | L |
-TRIANGLE | Numpad 8 |
-CIRCLE | Numpad 6 |
-CROSS | Numpad 2 |
-SQUARE | Numpad 4 |
-PAD UP | UP |
-PAD DOWN | DOWN |
-PAD LEFT | LEFT |
-PAD RIGHT | RIGHT |
-OPTIONS | RETURN |
-TOUCH PAD | SPACE |
-L1 | Q |
-R1 | U |
-L2 | E |
-R2 | O |
-L3 | X |
-R3 | M |
+| Controller button | Keyboard equivelant | Mac alternative |
+|-------------|-------------|--------------|
+LEFT AXIS UP | W | |
+LEFT AXIS DOWN | S | |
+LEFT AXIS LEFT | A | |
+LEFT AXIS RIGHT | D | |
+RIGHT AXIS UP | I | |
+RIGHT AXIS DOWN | K | |
+RIGHT AXIS LEFT | J | |
+RIGHT AXIS RIGHT | L | |
+TRIANGLE | Numpad 8 | C |
+CIRCLE | Numpad 6 | B |
+CROSS | Numpad 2 | N |
+SQUARE | Numpad 4 | V |
+PAD UP | UP | |
+PAD DOWN | DOWN | |
+PAD LEFT | LEFT | |
+PAD RIGHT | RIGHT | |
+OPTIONS | RETURN | |
+BACK BUTTON / TOUCH PAD | SPACE | |
+L1 | Q | |
+R1 | U | |
+L2 | E | |
+R2 | O | |
+L3 | X | |
+R3 | M | |
 
 # Main team
 
@@ -118,13 +121,17 @@ R3 | M |
 - [**skmp**](https://github.com/skmp)
 - [**wheremyfoodat**](https://github.com/wheremyfoodat)
 - [**raziel1000**](https://github.com/raziel1000)
+- [**viniciuslrangel**](https://github.com/viniciuslrangel)
+- [**roamic**](https://github.com/vladmikhalin)
+- [**poly**](https://github.com/polybiusproxy)
+- [**squidbus**](https://github.com/squidbus)
+- [**frodo**](https://github.com/baggins183)
 
 Logo is done by [**Xphalnos**](https://github.com/Xphalnos)
 
 # Contributing
 
-If you want to contribute, please look the [**CONTRIBUTING.md**](https://github.com/shadps4-emu/shadPS4/blob/main/CONTRIBUTING.md) file.
-
+If you want to contribute, please look the [**CONTRIBUTING.md**](https://github.com/shadps4-emu/shadPS4/blob/main/CONTRIBUTING.md) file.\
 Open a PR and we'll check it :)
 
 # Contributors

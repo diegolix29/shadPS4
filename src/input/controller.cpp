@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <SDL3/SDL.h>
-#include "core/libraries/kernel/time_management.h"
+#include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "input/controller.h"
 
@@ -56,9 +56,7 @@ State GameController::GetLastState() const {
     if (m_states_num == 0) {
         return m_last_state;
     }
-
-    auto last = (m_first_state + m_states_num - 1) % MAX_STATES;
-
+    const u32 last = (m_first_state + m_states_num - 1) % MAX_STATES;
     return m_states[last];
 }
 
@@ -68,19 +66,19 @@ void GameController::AddState(const State& state) {
         m_first_state = (m_first_state + 1) % MAX_STATES;
     }
 
-    auto index = (m_first_state + m_states_num) % MAX_STATES;
-
+    const u32 index = (m_first_state + m_states_num) % MAX_STATES;
     m_states[index] = state;
     m_last_state = state;
     m_private[index].obtained = false;
     m_states_num++;
 }
 
-void GameController::CheckButton(int id, u32 button, bool isPressed) {
+void GameController::CheckButton(int id, Libraries::Pad::OrbisPadButtonDataOffset button,
+                                 bool is_pressed) {
     std::scoped_lock lock{m_mutex};
     auto state = GetLastState();
     state.time = Libraries::Kernel::sceKernelGetProcessTime();
-    if (isPressed) {
+    if (is_pressed) {
         state.buttonsState |= button;
     } else {
         state.buttonsState &= ~button;
@@ -90,28 +88,28 @@ void GameController::CheckButton(int id, u32 button, bool isPressed) {
 }
 
 void GameController::Axis(int id, Input::Axis axis, int value) {
+    using Libraries::Pad::OrbisPadButtonDataOffset;
+
     std::scoped_lock lock{m_mutex};
     auto state = GetLastState();
 
     state.time = Libraries::Kernel::sceKernelGetProcessTime();
-
     int axis_id = static_cast<int>(axis);
-
     state.axes[axis_id] = value;
 
     if (axis == Input::Axis::TriggerLeft) {
         if (value > 0) {
-            state.buttonsState |= Libraries::Pad::OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L2;
+            state.buttonsState |= OrbisPadButtonDataOffset::L2;
         } else {
-            state.buttonsState &= ~Libraries::Pad::OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L2;
+            state.buttonsState &= ~OrbisPadButtonDataOffset::L2;
         }
     }
 
     if (axis == Input::Axis::TriggerRight) {
         if (value > 0) {
-            state.buttonsState |= Libraries::Pad::OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R2;
+            state.buttonsState |= OrbisPadButtonDataOffset::R2;
         } else {
-            state.buttonsState &= ~Libraries::Pad::OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R2;
+            state.buttonsState &= ~OrbisPadButtonDataOffset::R2;
         }
     }
 
@@ -155,6 +153,25 @@ void GameController::TryOpenSDLController() {
 
         SetLightBarRGB(0, 0, 255);
     }
+}
+
+u32 GameController::Poll() {
+    if (m_connected) {
+        auto time = Libraries::Kernel::sceKernelGetProcessTime();
+        if (m_states_num == 0) {
+            auto diff = (time - m_last_state.time) / 1000;
+            if (diff >= 100) {
+                AddState(GetLastState());
+            }
+        } else {
+            auto index = (m_first_state - 1 + m_states_num) % MAX_STATES;
+            auto diff = (time - m_states[index].time) / 1000;
+            if (m_private[index].obtained && diff >= 100) {
+                AddState(GetLastState());
+            }
+        }
+    }
+    return 100;
 }
 
 } // namespace Input

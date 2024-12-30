@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="it">
 	<!-- SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
@@ -18,7 +18,7 @@
 		<message>
 			<location filename="../about_dialog.ui" line="78"/>
 			<source>shadPS4 is an experimental open-source emulator for the PlayStation 4.</source>
-			<translation>shadPS4 è un emulatore sperimentale open source per PlayStation 4.</translation>
+			<translation>shadPS4 è un emulatore sperimentale open-source per PlayStation 4.</translation>
 		</message>
 		<message>
 			<location filename="../about_dialog.ui" line="99"/>
@@ -50,6 +50,19 @@
 			<location filename="../game_info.cpp" line="27"/>
 			<source>Loading...</source>
 			<translation>Caricamento...</translation>
+		</message>
+	</context>
+	<context>
+		<name>InstallDirSelect</name>
+		<message>
+			<location filename="../install_dir_select.cpp" line="30"/>
+			<source>shadPS4 - Choose directory</source>
+			<translation>shadPS4 - Scegli cartella</translation>
+		</message>
+		<message>
+			<location filename="../install_dir_select.cpp" line="37"/>
+			<source>Select which directory you want to install to.</source>
+			<translation>Seleziona in quale cartella vuoi effettuare l'installazione.</translation>
 		</message>
 	</context>
 	<context>
@@ -88,11 +101,6 @@
 			<translation>Crea scorciatoia</translation>
 		</message>
 		<message>
-			<location filename="../gui_context_menus.h" line="47"/>
-			<source>Open Game Folder</source>
-			<translation>Apri cartella del gioco</translation>
-		</message>
-		<message>
 			<location filename="../gui_context_menus.h" line="48"/>
 			<source>Cheats / Patches</source>
 			<translation>Trucchi / Patch</translation>
@@ -108,9 +116,29 @@
 			<translation>Visualizzatore Trofei</translation>
 		</message>
 		<message>
+			<location filename="../gui_context_menus.h" line="49"/>
+			<source>Open Folder...</source>
+			<translation>Apri Cartella...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="50"/>
+			<source>Open Game Folder</source>
+			<translation>Apri Cartella del Gioco</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="51"/>
+			<source>Open Save Data Folder</source>
+			<translation>Apri Cartella dei Dati di Salvataggio</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="52"/>
+			<source>Open Log Folder</source>
+			<translation>Apri Cartella dei Log</translation>
+		</message>
+		<message>
 			<location filename="../gui_context_menus.h" line="59"/>
-			<source>Copy info</source>
-			<translation>Copia informazioni</translation>
+			<source>Copy info...</source>
+			<translation>Copia informazioni...</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="60"/>
@@ -128,14 +156,54 @@
 			<translation>Copia Tutto</translation>
 		</message>
 		<message>
+			<location filename="../gui_context_menus.h" line="72"/>
+			<source>Delete...</source>
+			<translation>Elimina...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="73"/>
+			<source>Delete Game</source>
+			<translation>Elimina Gioco</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="74"/>
+			<source>Delete Update</source>
+			<translation>Elimina Aggiornamento</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="75"/>
+			<source>Delete DLC</source>
+			<translation>Elimina DLC</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="99"/>
+			<source>Compatibility...</source>
+			<translation>Compatibility...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="100"/>
+			<source>Update database</source>
+			<translation>Update database</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="101"/>
+			<source>View report</source>
+			<translation>View report</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="102"/>
+			<source>Submit a report</source>
+			<translation>Submit a report</translation>
+		</message>
+		<message>
 			<location filename="../gui_context_menus.h" line="195"/>
 			<source>Shortcut creation</source>
 			<translation>Creazione scorciatoia</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="196"/>
-			<source>Shortcut created successfully!\n %1</source>
-			<translation>Scorciatoia creata con successo!\n %1</translation>
+			<source>Shortcut created successfully!</source>
+			<translation>Scorciatoia creata con successo!</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="199"/>
@@ -144,13 +212,53 @@
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="200"/>
-			<source>Error creating shortcut!\n %1</source>
-			<translation>Errore nella creazione della scorciatoia!\n %1</translation>
+			<source>Error creating shortcut!</source>
+			<translation>Errore nella creazione della scorciatoia!</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="275"/>
 			<source>Install PKG</source>
 			<translation>Installa PKG</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="299"/>
+			<source>Game</source>
+			<translation>Gioco</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="305"/>
+			<source>requiresEnableSeparateUpdateFolder_MSG</source>
+			<translation>Questa feature richiede che venga attivata l'opzione "Abilita Cartella Aggiornamenti Separata" per poter funzionare, per favore abilitala.</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="312"/>
+			<source>This game has no update to delete!</source>
+			<translation>Questo gioco non ha alcun aggiornamento da eliminare!</translation>
+		</message>
+			<message>
+			<location filename="../gui_context_menus.h" line="316"/>
+			<source>Update</source>
+			<translation>Update</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="321"/>
+			<source>This game has no DLC to delete!</source>
+			<translation>Questo gioco non ha alcun DLC da eliminare!</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="325"/>
+			<source>DLC</source>
+			<translation>DLC</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="332"/>
+			<source>Delete %1</source>
+			<translation>Elimina %1</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="333"/>
+			<source>Are you sure you want to delete %1's %2 directory?</source>
+			<translation>Sei sicuro di eliminale la cartella %2 di %1?</translation>
 		</message>
 	</context>
 	<context>
@@ -263,7 +371,7 @@
 		<message>
 			<location filename="../main_window_ui.h" line="343"/>
 			<source>Download Cheats/Patches</source>
-			<translation>Scarica Trucchi / Patch</translation>
+			<translation>Scarica Trucchi/Patch</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="345"/>
@@ -405,6 +513,11 @@
 			<translation>Abilita Schermo Intero</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui" line="140"/>
+			<source>Enable Separate Update Folder</source>
+			<translation>Abilita Cartella Aggiornamenti Separata</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="129"/>
 			<source>Show Splash</source>
 			<translation>Mostra Schermata Iniziale</translation>
@@ -412,7 +525,12 @@
 		<message>
 			<location filename="../settings_dialog.ui" line="136"/>
 			<source>Is PS4 Pro</source>
-			<translation>Modalità Ps4Pro</translation>
+			<translation>Modalità Ps4 Pro</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="154"/>
+			<source>Enable Discord Rich Presence</source>
+			<translation>Abilita Discord Rich Presence</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="155"/>
@@ -435,6 +553,41 @@
 			<translation>Filtro Log</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui" line="595"/>
+			<source>Input</source>
+			<translation>Input</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="611"/>
+			<source>Cursor</source>
+			<translation>Cursore</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="635"/>
+			<source>Hide Cursor</source>
+			<translation>Nascondi Cursore</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="668"/>
+			<source>Hide Cursor Idle Timeout</source>
+			<translation>Timeout inattività per nascondere il cursore</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="816"/>
+			<source>s</source>
+			<translation>s</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="767"/>
+			<source>Controller</source>
+			<translation>Controller</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="797"/>
+			<source>Back Button Behavior</source>
+			<translation>Comportamento del pulsante Indietro</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="272"/>
 			<source>Graphics</source>
 			<translation>Grafica</translation>
@@ -442,7 +595,7 @@
 		<message>
 			<location filename="../settings_dialog.ui" line="282"/>
 			<source>Graphics Device</source>
-			<translation>Adattatore grafico</translation>
+			<translation>Scheda Grafica</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="326"/>
@@ -462,7 +615,7 @@
 		<message>
 			<location filename="../settings_dialog.ui" line="453"/>
 			<source>Advanced</source>
-			<translation>Avanzato</translation>
+			<translation>Avanzate</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="462"/>
@@ -475,9 +628,24 @@
 			<translation>Abilita NULL GPU</translation>
 		</message>
 		<message>
-			<location filename="../settings_dialog.ui" line="476"/>
-			<source>Enable PM4 Dumping</source>
-			<translation>Abilita Dump PM4</translation>
+			<location filename="../settings_dialog.ui" line="1111"/>
+			<source>Paths</source>
+			<translation>Percorsi</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1119"/>
+			<source>Game Folders</source>
+			<translation>Cartelle di gioco</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1141"/>
+			<source>Add...</source>
+				<translation>Aggiungi...</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1141"/>
+			<source>Remove</source>
+			<translation>Rimuovi</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="517"/>
@@ -486,8 +654,8 @@
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="537"/>
-			<source>Enable Debug Dumping</source>
-			<translation>Abilita Dump Debug</translation>
+			<source>Enable</source>
+			<translation>Abilita Debug Dumping</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="560"/>
@@ -502,7 +670,7 @@
 		<message>
 			<location filename="../settings_dialog.ui" line="574"/>
 			<source>Enable RenderDoc Debugging</source>
-			<translation>Abilita Debugging RenderDoc</translation>
+			<translation>Abilita RenderDoc Debugging</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="274"/>
@@ -530,14 +698,44 @@
 			<translation>Impostazioni GUI</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui" line="475"/>
+			<source>Disable Trophy Pop-ups</source>
+			<translation>Disabilita Notifica Trofei</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="375"/>
 			<source>Play title music</source>
 			<translation>Riproduci musica del titolo</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Update Compatibility Database On Startup</source>
+			<translation>Aggiorna Database Compatibilità all'Avvio</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Game Compatibility</source>
+			<translation>Compatibilità Gioco</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Display Compatibility Data</source>
+			<translation>Mostra Dati Compatibilità</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Update Compatibility Database</source>
+			<translation>Aggiorna Database Compatibilità</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.ui" line="394"/>
 			<source>Volume</source>
 			<translation>Volume</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui"/>
+			<source>Audio Backend</source>
+			<translation>Audio Backend</translation>
 		</message>
 	</context>
 	<context>
@@ -565,7 +763,7 @@
 		<message>
 			<location filename="../main_window.cpp" line="363"/>
 			<source>Download Complete</source>
-			<translation>Scaricamento completato</translation>
+			<translation>Download completato</translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="364"/>
@@ -620,7 +818,7 @@
 		<message>
 			<location filename="../main_window.cpp" line="646"/>
 			<source>PKG and Game versions match: </source>
-			<translation>Le versioni di PKG e del gioco corrispondono: </translation>
+			<translation>Le versioni di PKG e del Gioco corrispondono: </translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="647"/>
@@ -697,8 +895,8 @@
 		<name>CheatsPatches</name>
 		<message>
 			<location filename="../cheats_patches.cpp" line="44"/>
-			<source>Cheats / Patches</source>
-			<translation>Trucchi / Patch</translation>
+			<source>Cheats / Patches for </source>
+			<translation>Cheats / Patches for </translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="50"/>
@@ -898,7 +1096,7 @@
 		<message>
 			<location filename="../cheats_patches.cpp" line="763"/>
 			<source>DownloadComplete_MSG</source>
-			<translation>Patch scaricata con successo! Vengono scaricate tutte le patch disponibili per tutti i giochi, non è necessario scaricarle singolarmente per ogni gioco come nel caso dei trucchi. Se la patch non appare, potrebbe essere che non esista per il numero di serie e la versione specifica del gioco. Potrebbe essere necessario aggiornare il gioco.</translation>
+			<translation>Patch scaricata con successo! Vengono scaricate tutte le patch disponibili per tutti i giochi, non è necessario scaricarle singolarmente per ogni gioco come nel caso dei trucchi. Se la patch non appare, potrebbe essere che non esista per il numero di serie e la versione specifica del gioco.</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="773"/>
@@ -909,6 +1107,26 @@
 			<location filename="../cheats_patches.cpp" line="778"/>
 			<source>Failed to retrieve HTML page.</source>
 			<translation>Impossibile recuperare la pagina HTML.</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="850"/>
+			<source>The game is in version: %1</source>
+			<translation>Il gioco è nella versione: %1</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="851"/>
+			<source>The downloaded patch only works on version: %1</source>
+			<translation>La patch scaricata funziona solo sulla versione: %1</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="856"/>
+			<source>You may need to update your game.</source>
+			<translation>Potresti aver bisogno di aggiornare il tuo gioco.</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="860"/>
+			<source>Incompatibility Notice</source>
+			<translation>Avviso di incompatibilità</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="801"/>
@@ -994,6 +1212,11 @@
 			<translation>Abilita Schermo Intero:\nMetti automaticamente la finestra di gioco in modalità schermo intero.\nQuesto può essere disattivato premendo il tasto F11.</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.cpp" line="293"/>
+			<source>separateUpdatesCheckBox</source>
+			<translation>Abilita Cartella Aggiornamenti Separata:\nAbilita l'installazione degli aggiornamenti in una cartella separata per una più facile gestione.</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.cpp" line="295"/>
 			<source>showSplashCheckBox</source>
 			<translation>Mostra Schermata di Avvio:\nMostra la schermata di avvio del gioco (un'immagine speciale) mentre il gioco si sta avviando.</translation>
@@ -1002,6 +1225,11 @@
 			<location filename="../settings_dialog.cpp" line="297"/>
 			<source>ps4proCheckBox</source>
 			<translation>È PS4 Pro:\nFa sì che l'emulatore si comporti come una PS4 PRO, il che può abilitare funzionalità speciali in giochi che la supportano.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="438"/>
+			<source>discordRPCCheckbox</source>
+			<translation>Abilita Discord Rich Presence:\nMostra l'icona dell'emulatore e informazioni pertinenti sul tuo profilo Discord.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="299"/>
@@ -1016,7 +1244,7 @@
 		<message>
 			<location filename="../settings_dialog.cpp" line="303"/>
 			<source>logFilter</source>
-			<translation>Filtro Log: Filtra il log per stampare solo informazioni specifiche. Esempi: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical" Livelli: Trace, Debug, Info, Warning, Error, Critical - in questo ordine, un livello specifico silenzia tutti i livelli precedenti nell'elenco e registra ogni livello successivo.</translation>
+			<translation>Filtro Log:\nFiltra il log per stampare solo informazioni specifiche.\nEsempi: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical" Livelli: Trace, Debug, Info, Warning, Error, Critical - in questo ordine, un livello specifico silenzia tutti i livelli precedenti nell'elenco e registra ogni livello successivo.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="305"/>
@@ -1027,6 +1255,76 @@
 			<location filename="../settings_dialog.cpp" line="306"/>
 			<source>GUIgroupBox</source>
 			<translation>Riproduci Musica del Titolo:\nSe un gioco lo supporta, attiva la riproduzione di musica speciale quando selezioni il gioco nell'interfaccia grafica.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="267"/>
+			<source>disableTrophycheckBox</source>
+			<translation>Disable Trophy Pop-ups:\nDisable in-game trophy notifications. Trophy progress can still be tracked using the Trophy Viewer (right-click the game in the main window).</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="450"/>
+			<source>hideCursorGroupBox</source>
+			<translation>Nascondi cursore:\nScegli quando il cursore scomparirà:\nMai: Vedrai sempre il mouse.\nInattivo: Imposta un tempo per farlo scomparire dopo essere stato inattivo.\nSempre: non vedrai mai il mouse.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="452"/>
+				<source>idleTimeoutGroupBox</source>
+			<translation>Imposta un tempo affinché il mouse scompaia dopo essere stato inattivo.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="454"/>
+			<source>backButtonBehaviorGroupBox</source>
+			<translation>Comportamento del pulsante Indietro:\nImposta il pulsante Indietro del controller per emulare il tocco sulla posizione specificata sul touchpad PS4.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>enableCompatibilityCheckBox</source>
+			<translation>Mostra Dati Compatibilità:\nMostra informazioni sulla compatibilità del gioco nella visualizzazione lista. Abilita "Aggiorna Compatiblità all'Avvio" per ottenere informazioni aggiornate.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>checkCompatibilityOnStartupCheckBox</source>
+			<translation>Aggiorna Compatibilità all'Avvio:\nAggiorna automaticamente il database della compatibilità quando si avvia shadps4.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp"/>
+			<source>updateCompatibilityButton</source>
+			<translation>Aggiorna Database Compatibilità:\nAggiorna immediatamente il database di compatibilità.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="70"/>
+			<source>Never</source>
+			<translation>Mai</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="71"/>
+			<source>Idle</source>
+			<translation>Inattivo</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="72"/>
+			<source>Always</source>
+			<translation>Sempre</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="101"/>
+			<source>Touchpad Left</source>
+			<translation>Touchpad Sinistra</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="102"/>
+			<source>Touchpad Right</source>
+			<translation>Touchpad Destra</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="103"/>
+			<source>Touchpad Center</source>
+			<translation>Centro del Touchpad</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="104"/>
+			<source>None</source>
+			<translation>Nessuno</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="312"/>
@@ -1054,9 +1352,19 @@
 			<translation>Abilita GPU Null:\nPer scopi di debug tecnico, disabilita il rendering del gioco come se non ci fosse alcuna scheda grafica.</translation>
 		</message>
 		<message>
-			<location filename="../settings_dialog.cpp" line="323"/>
-			<source>dumpPM4CheckBox</source>
-			<translation>Abilita Pompaggio PM4:\nPer scopi di debug tecnico, salva i dati delle istruzioni GPU grezze in una cartella mentre l'emulatore li elabora.</translation>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>gameFoldersBox</source>
+			<translation>Cartelle di Gioco:\nL'elenco delle cartelle da controllare per i giochi installati.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>addFolderButton</source>
+			<translation>Aggiungi:\nAggiungi una cartella all'elenco.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>removeFolderButton</source>
+			<translation>Rimuovi:\nRimuovi una cartella dall'elenco.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="329"/>
@@ -1097,6 +1405,11 @@
 			<translation>Seriale</translation>
 		</message>
 		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Compatibility</source>
+			<translation>Compatibilità</translation>
+		</message>
+		<message>
 			<location filename="../game_list_frame.cpp" line="34"/>
 			<source>Region</source>
 			<translation>Regione</translation>
@@ -1120,6 +1433,61 @@
 			<location filename="../game_list_frame.cpp" line="35"/>
 			<source>Path</source>
 			<translation>Percorso</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="38"/>
+			<source>Play Time</source>
+			<translation>Tempo di Gioco</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="108"/>
+			<source>Never Played</source>
+			<translation>Mai Giocato</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>h</source>
+			<translation>h</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>m</source>
+			<translation>m</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>s</source>
+			<translation>s</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Compatibility is untested</source>
+			<translation>Nessuna informazione sulla compatibilità</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game does not initialize properly / crashes the emulator</source>
+			<translation>Il gioco non si avvia in modo corretto / forza chiusura dell'emulatore</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game boots, but only displays a blank screen</source>
+			<translation>Il gioco si avvia, ma mostra solo una schermata nera</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game displays an image but does not go past the menu</source>
+			<translation>Il gioco mostra immagini ma non va oltre il menu</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game has game-breaking glitches or unplayable performance</source>
+			<translation>Il gioco ha problemi gravi di emulazione oppure framerate troppo basso</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp"/>
+			<source>Game can be completed with playable performance and no major glitches</source>
+			<translation>Il gioco può essere completato con buone prestazioni e senza problemi gravi</translation>
 		</message>
 	</context>
 	<context>
@@ -1169,7 +1537,7 @@
 			<source>Update Available</source>
 			<translation>Aggiornamento disponibile</translation>
 		</message>
-		<message> 
+		<message>
 			<location filename="../check_update.cpp" line="187"/>
 			<source>Update Channel</source>
 			<translation>Canale di Aggiornamento</translation>
@@ -1197,7 +1565,7 @@
 		<message>
 			<location filename="../check_update.cpp" line="198"/>
 			<source>Check for Updates at Startup</source>
-			<translation>Verifica aggiornamenti all’avvio</translation>
+			<translation>Controlla aggiornamenti all’avvio</translation>
 		</message>
 		<message>
 			<location filename="../check_update.cpp" line="199"/>
@@ -1249,5 +1617,33 @@
 			<source>Failed to create the update script file</source>
 			<translation>Impossibile creare il file di script di aggiornamento</translation>
 		</message>
+	</context>
+	<context>
+		<name>GameListUtils</name>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>B</source>
+			<translation>B</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>KB</source>
+			<translation>KB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>MB</source>
+			<translation>MB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>GB</source>
+			<translation>GB</translation>
+		</message>
+		<message>
+			<location filename="../game_list_utils.h" line="34"/>
+			<source>TB</source>
+			<translation>TB</translation>
+		</message>		
 	</context>
 </TS>

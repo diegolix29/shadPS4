@@ -18,7 +18,9 @@ vk::StencilOp StencilOp(Liverpool::StencilFunc op);
 
 vk::CompareOp CompareOp(Liverpool::CompareFunc func);
 
-vk::PrimitiveTopology PrimitiveType(Liverpool::PrimitiveType type);
+bool IsPrimitiveCulled(AmdGpu::PrimitiveType type);
+
+vk::PrimitiveTopology PrimitiveType(AmdGpu::PrimitiveType type);
 
 vk::PolygonMode PolygonMode(Liverpool::PolygonMode mode);
 
@@ -51,7 +53,7 @@ std::span<const SurfaceFormatInfo> SurfaceFormats();
 vk::Format SurfaceFormat(AmdGpu::DataFormat data_format, AmdGpu::NumberFormat num_format);
 
 vk::Format AdjustColorBufferFormat(vk::Format base_format,
-                                   Liverpool::ColorBuffer::SwapMode comp_swap, bool is_vo_surface);
+                                   Liverpool::ColorBuffer::SwapMode comp_swap);
 
 struct DepthFormatInfo {
     Liverpool::DepthBuffer::ZFormat z_format;
@@ -67,8 +69,6 @@ vk::Format DepthFormat(Liverpool::DepthBuffer::ZFormat z_format,
 vk::ClearValue ColorBufferClearValue(const AmdGpu::Liverpool::ColorBuffer& color_buffer);
 
 vk::SampleCountFlagBits NumSamples(u32 num_samples, vk::SampleCountFlags supported_flags);
-
-void EmitQuadToTriangleListIndices(u8* out_indices, u32 num_vertices);
 
 static inline vk::Format PromoteFormatToDepth(vk::Format fmt) {
     if (fmt == vk::Format::eR32Sfloat) {
