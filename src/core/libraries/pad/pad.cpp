@@ -1,12 +1,11 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/assert.h"
 #include "common/config.h"
 #include "common/logging/log.h"
 #include "common/singleton.h"
-#include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
+#include "core/libraries/pad/pad_errors.h"
 #include "input/controller.h"
 #include "pad.h"
 
@@ -25,6 +24,7 @@ int PS4_SYSV_ABI scePadConnectPort() {
 int PS4_SYSV_ABI scePadDeviceClassGetExtendedInformation(
     s32 handle, OrbisPadDeviceClassExtendedInformation* pExtInfo) {
     LOG_ERROR(Lib_Pad, "(STUBBED) called");
+    std::memset(pExtInfo, 0, sizeof(OrbisPadDeviceClassExtendedInformation));
     if (Config::getUseSpecialPad()) {
         pExtInfo->deviceClass = (OrbisPadDeviceClass)Config::getSpecialPadClass();
     }
@@ -88,7 +88,7 @@ int PS4_SYSV_ABI scePadGetCapability() {
 }
 
 int PS4_SYSV_ABI scePadGetControllerInformation(s32 handle, OrbisPadControllerInformation* pInfo) {
-    LOG_INFO(Lib_Pad, "called handle = {}", handle);
+    LOG_DEBUG(Lib_Pad, "called handle = {}", handle);
     if (handle < 0) {
         pInfo->touchPadInfo.pixelDensity = 1;
         pInfo->touchPadInfo.resolution.x = 1920;
@@ -98,8 +98,8 @@ int PS4_SYSV_ABI scePadGetControllerInformation(s32 handle, OrbisPadControllerIn
         pInfo->connectionType = ORBIS_PAD_PORT_TYPE_STANDARD;
         pInfo->connectedCount = 1;
         pInfo->connected = false;
-        pInfo->deviceClass = ORBIS_PAD_DEVICE_CLASS_STANDARD;
-        return SCE_OK;
+        pInfo->deviceClass = OrbisPadDeviceClass::Standard;
+        return ORBIS_OK;
     }
     pInfo->touchPadInfo.pixelDensity = 1;
     pInfo->touchPadInfo.resolution.x = 1920;
@@ -109,12 +109,12 @@ int PS4_SYSV_ABI scePadGetControllerInformation(s32 handle, OrbisPadControllerIn
     pInfo->connectionType = ORBIS_PAD_PORT_TYPE_STANDARD;
     pInfo->connectedCount = 1;
     pInfo->connected = true;
-    pInfo->deviceClass = ORBIS_PAD_DEVICE_CLASS_STANDARD;
+    pInfo->deviceClass = OrbisPadDeviceClass::Standard;
     if (Config::getUseSpecialPad()) {
         pInfo->connectionType = ORBIS_PAD_PORT_TYPE_SPECIAL;
         pInfo->deviceClass = (OrbisPadDeviceClass)Config::getSpecialPadClass();
     }
-    return SCE_OK;
+    return ORBIS_OK;
 }
 
 int PS4_SYSV_ABI scePadGetDataInternal() {
@@ -155,6 +155,9 @@ int PS4_SYSV_ABI scePadGetFeatureReport() {
 }
 
 int PS4_SYSV_ABI scePadGetHandle(s32 userId, s32 type, s32 index) {
+    if (userId == -1) {
+        return ORBIS_PAD_ERROR_DEVICE_NO_HANDLE;
+    }
     LOG_DEBUG(Lib_Pad, "(DUMMY) called");
     return 1;
 }
@@ -246,6 +249,9 @@ int PS4_SYSV_ABI scePadMbusTerm() {
 
 int PS4_SYSV_ABI scePadOpen(s32 userId, s32 type, s32 index, const OrbisPadOpenParam* pParam) {
     LOG_INFO(Lib_Pad, "(DUMMY) called user_id = {} type = {} index = {}", userId, type, index);
+    if (userId == -1) {
+        return ORBIS_PAD_ERROR_DEVICE_NO_HANDLE;
+    }
     if (Config::getUseSpecialPad()) {
         if (type != ORBIS_PAD_PORT_TYPE_SPECIAL)
             return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
@@ -346,6 +352,9 @@ int PS4_SYSV_ABI scePadReadHistory() {
 }
 
 int PS4_SYSV_ABI scePadReadState(s32 handle, OrbisPadData* pData) {
+    if (handle == ORBIS_PAD_ERROR_DEVICE_NO_HANDLE) {
+        return ORBIS_PAD_ERROR_INVALID_HANDLE;
+    }
     auto* controller = Common::Singleton<Input::GameController>::Instance();
     int connectedCount = 0;
     bool isConnected = false;
@@ -368,19 +377,20 @@ int PS4_SYSV_ABI scePadReadState(s32 handle, OrbisPadData* pData) {
     pData->angularVelocity.x = 0.0f;
     pData->angularVelocity.y = 0.0f;
     pData->angularVelocity.z = 0.0f;
-    pData->touchData.touchNum = 0;
-    pData->touchData.touch[0].x = 0;
-    pData->touchData.touch[0].y = 0;
+    pData->touchData.touchNum =
+        (state.touchpad[0].state ? 1 : 0) + (state.touchpad[1].state ? 1 : 0);
+    pData->touchData.touch[0].x = state.touchpad[0].x;
+    pData->touchData.touch[0].y = state.touchpad[0].y;
     pData->touchData.touch[0].id = 1;
-    pData->touchData.touch[1].x = 0;
-    pData->touchData.touch[1].y = 0;
+    pData->touchData.touch[1].x = state.touchpad[1].x;
+    pData->touchData.touch[1].y = state.touchpad[1].y;
     pData->touchData.touch[1].id = 2;
     pData->timestamp = state.time;
     pData->connected = true;   // isConnected; //TODO fix me proper
     pData->connectedCount = 1; // connectedCount;
     pData->deviceUniqueDataLen = 0;
 
-    return SCE_OK;
+    return ORBIS_OK;
 }
 
 int PS4_SYSV_ABI scePadReadStateExt() {

@@ -231,7 +231,7 @@ void IOFile::Unlink() {
 
     // Mark the file for deletion
     // TODO: Also remove the file path?
-#if _WIN64
+#ifdef _WIN64
     FILE_DISPOSITION_INFORMATION disposition;
     IO_STATUS_BLOCK iosb;
 
@@ -242,7 +242,11 @@ void IOFile::Unlink() {
     NtSetInformationFile(hfile, &iosb, &disposition, sizeof(disposition),
                          FileDispositionInformation);
 #else
-    UNREACHABLE_MSG("Missing Linux implementation");
+    if (unlink(file_path.c_str()) != 0) {
+        const auto ec = std::error_code{errno, std::generic_category()};
+        LOG_ERROR(Common_Filesystem, "Failed to unlink the file at path={}, ec_message={}",
+                  PathToUTF8String(file_path), ec.message());
+    }
 #endif
 }
 
@@ -373,16 +377,18 @@ bool IOFile::Seek(s64 offset, SeekOrigin origin) const {
         return false;
     }
 
-    u64 size = GetSize();
-    if (origin == SeekOrigin::CurrentPosition && Tell() + offset > size) {
-        LOG_ERROR(Common_Filesystem, "Seeking past the end of the file");
-        return false;
-    } else if (origin == SeekOrigin::SetOrigin && (u64)offset > size) {
-        LOG_ERROR(Common_Filesystem, "Seeking past the end of the file");
-        return false;
-    } else if (origin == SeekOrigin::End && offset > 0) {
-        LOG_ERROR(Common_Filesystem, "Seeking past the end of the file");
-        return false;
+    if (False(file_access_mode & (FileAccessMode::Write | FileAccessMode::Append))) {
+        u64 size = GetSize();
+        if (origin == SeekOrigin::CurrentPosition && Tell() + offset > size) {
+            LOG_ERROR(Common_Filesystem, "Seeking past the end of the file");
+            return false;
+        } else if (origin == SeekOrigin::SetOrigin && (u64)offset > size) {
+            LOG_ERROR(Common_Filesystem, "Seeking past the end of the file");
+            return false;
+        } else if (origin == SeekOrigin::End && offset > 0) {
+            LOG_ERROR(Common_Filesystem, "Seeking past the end of the file");
+            return false;
+        }
     }
 
     errno = 0;

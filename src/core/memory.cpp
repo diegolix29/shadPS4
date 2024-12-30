@@ -3,11 +3,11 @@
 
 #include "common/alignment.h"
 #include "common/assert.h"
+#include "common/config.h"
 #include "common/debug.h"
-#include "core/libraries/error_codes.h"
-#include "core/libraries/kernel/memory_management.h"
+#include "core/libraries/kernel/memory.h"
+#include "core/libraries/kernel/orbis_error.h"
 #include "core/memory.h"
-#include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 
 namespace Core {
@@ -39,8 +39,10 @@ MemoryManager::MemoryManager() {
 MemoryManager::~MemoryManager() = default;
 
 void MemoryManager::SetupMemoryRegions(u64 flexible_size) {
+    const auto total_size =
+        Config::isNeoMode() ? SCE_KERNEL_MAIN_DMEM_SIZE_PRO : SCE_KERNEL_MAIN_DMEM_SIZE;
     total_flexible_size = flexible_size;
-    total_direct_size = SCE_KERNEL_MAIN_DMEM_SIZE - flexible_size;
+    total_direct_size = total_size - flexible_size;
 
     // Insert an area that covers direct memory physical block.
     // Note that this should never be called after direct memory allocations have been made.
@@ -49,6 +51,17 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size) {
 
     LOG_INFO(Kernel_Vmm, "Configured memory regions: flexible size = {:#x}, direct size = {:#x}",
              total_flexible_size, total_direct_size);
+}
+
+bool MemoryManager::TryWriteBacking(void* address, const void* data, u32 num_bytes) {
+    const VAddr virtual_addr = std::bit_cast<VAddr>(address);
+    const auto& vma = FindVMA(virtual_addr)->second;
+    if (vma.type != VMAType::Direct) {
+        return false;
+    }
+    u8* backing = impl.BackingBase() + vma.phys_base + (virtual_addr - vma.base);
+    memcpy(backing, data, num_bytes);
+    return true;
 }
 
 PAddr MemoryManager::PoolExpand(PAddr search_start, PAddr search_end, size_t size, u64 alignment) {
@@ -83,25 +96,25 @@ PAddr MemoryManager::PoolExpand(PAddr search_start, PAddr search_end, size_t siz
 PAddr MemoryManager::Allocate(PAddr search_start, PAddr search_end, size_t size, u64 alignment,
                               int memory_type) {
     std::scoped_lock lk{mutex};
+    alignment = alignment > 0 ? alignment : 16_KB;
 
     auto dmem_area = FindDmemArea(search_start);
 
     const auto is_suitable = [&] {
-        const auto aligned_base = alignment > 0 ? Common::AlignUp(dmem_area->second.base, alignment)
-                                                : dmem_area->second.base;
+        const auto aligned_base = Common::AlignUp(dmem_area->second.base, alignment);
         const auto alignment_size = aligned_base - dmem_area->second.base;
         const auto remaining_size =
             dmem_area->second.size >= alignment_size ? dmem_area->second.size - alignment_size : 0;
         return dmem_area->second.is_free && remaining_size >= size;
     };
     while (!is_suitable() && dmem_area->second.GetEnd() <= search_end) {
-        dmem_area++;
+        ++dmem_area;
     }
     ASSERT_MSG(is_suitable(), "Unable to find free direct memory area: size = {:#x}", size);
 
     // Align free position
     PAddr free_addr = dmem_area->second.base;
-    free_addr = alignment > 0 ? Common::AlignUp(free_addr, alignment) : free_addr;
+    free_addr = Common::AlignUp(free_addr, alignment);
 
     // Add the allocated region to the list and commit its pages.
     auto& area = CarveDmemArea(free_addr, size)->second;
@@ -242,6 +255,7 @@ int MemoryManager::PoolCommit(VAddr virtual_addr, size_t size, MemoryProt prot) 
     new_vma.is_exec = false;
     new_vma.phys_base = 0;
 
+    rasterizer->MapMemory(mapped_addr, size);
     return ORBIS_OK;
 }
 
@@ -253,7 +267,7 @@ int MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, size_t size, M
     // Certain games perform flexible mappings on loop to determine
     // the available flexible memory size. Questionable but we need to handle this.
     if (type == VMAType::Flexible && flexible_usage + size > total_flexible_size) {
-        return SCE_KERNEL_ERROR_ENOMEM;
+        return ORBIS_KERNEL_ERROR_ENOMEM;
     }
 
     // When virtual addr is zero, force it to virtual_base. The guest cannot pass Fixed
@@ -314,7 +328,7 @@ int MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, size_t size, Mem
     }
 
     // Map the file.
-    impl.MapFile(mapped_addr, size, offset, std::bit_cast<u32>(prot), fd);
+    impl.MapFile(mapped_addr, size_aligned, offset, std::bit_cast<u32>(prot), fd);
 
     // Add virtual memory area
     auto& new_vma = CarveVMA(mapped_addr, size_aligned)->second;
@@ -361,12 +375,12 @@ void MemoryManager::PoolDecommit(VAddr virtual_addr, size_t size) {
     TRACK_FREE(virtual_addr, "VMEM");
 }
 
-void MemoryManager::UnmapMemory(VAddr virtual_addr, size_t size) {
+s32 MemoryManager::UnmapMemory(VAddr virtual_addr, size_t size) {
     std::scoped_lock lk{mutex};
-    UnmapMemoryImpl(virtual_addr, size);
+    return UnmapMemoryImpl(virtual_addr, size);
 }
 
-void MemoryManager::UnmapMemoryImpl(VAddr virtual_addr, size_t size) {
+s32 MemoryManager::UnmapMemoryImpl(VAddr virtual_addr, size_t size) {
     const auto it = FindVMA(virtual_addr);
     const auto& vma_base = it->second;
     ASSERT_MSG(vma_base.Contains(virtual_addr, size),
@@ -401,6 +415,8 @@ void MemoryManager::UnmapMemoryImpl(VAddr virtual_addr, size_t size) {
     impl.Unmap(vma_base_addr, vma_base_size, start_in_vma, start_in_vma + size, phys_base, is_exec,
                has_backing, readonly_file);
     TRACK_FREE(virtual_addr, "VMEM");
+
+    return ORBIS_OK;
 }
 
 int MemoryManager::QueryProtection(VAddr addr, void** start, void** end, u32* prot) {
@@ -483,7 +499,7 @@ int MemoryManager::VirtualQuery(VAddr addr, int flags,
 
     auto it = FindVMA(addr);
     if (it->second.type == VMAType::Free && flags == 1) {
-        it++;
+        ++it;
     }
     if (it->second.type == VMAType::Free) {
         LOG_WARNING(Kernel_Vmm, "VirtualQuery on free memory region");
@@ -498,8 +514,8 @@ int MemoryManager::VirtualQuery(VAddr addr, int flags,
     info->is_flexible.Assign(vma.type == VMAType::Flexible);
     info->is_direct.Assign(vma.type == VMAType::Direct);
     info->is_stack.Assign(vma.type == VMAType::Stack);
-    info->is_pooled.Assign(vma.type == VMAType::Pooled);
-    info->is_committed.Assign(vma.type != VMAType::Free && vma.type != VMAType::Reserved);
+    info->is_pooled.Assign(vma.type == VMAType::PoolReserved);
+    info->is_committed.Assign(vma.type == VMAType::Pooled);
     vma.name.copy(info->name.data(), std::min(info->name.size(), vma.name.size()));
     if (vma.type == VMAType::Direct) {
         const auto dmem_it = FindDmemArea(vma.phys_base);
@@ -570,6 +586,13 @@ void MemoryManager::NameVirtualRange(VAddr virtual_addr, size_t size, std::strin
                "Range provided is not fully contained in vma");
     it->second.name = name;
 }
+
+void MemoryManager::InvalidateMemory(const VAddr addr, const u64 size) const {
+    if (rasterizer) {
+        rasterizer->InvalidateMemory(addr, size);
+    }
+}
+
 VAddr MemoryManager::SearchFree(VAddr virtual_addr, size_t size, u32 alignment) {
     // If the requested address is below the mapped range, start search from the lowest address
     auto min_search_address = impl.SystemManagedVirtualBase();
@@ -599,7 +622,7 @@ VAddr MemoryManager::SearchFree(VAddr virtual_addr, size_t size, u32 alignment) 
         return remaining_size >= size;
     };
     while (!is_suitable()) {
-        it++;
+        ++it;
     }
     return virtual_addr;
 }
@@ -676,7 +699,7 @@ MemoryManager::DMemHandle MemoryManager::Split(DMemHandle dmem_handle, size_t of
     new_area.size -= offset_in_area;
 
     return dmem_map.emplace_hint(std::next(dmem_handle), new_area.base, new_area);
-};
+}
 
 int MemoryManager::GetDirectMemoryType(PAddr addr, int* directMemoryTypeOut,
                                        void** directMemoryStartOut, void** directMemoryEndOut) {

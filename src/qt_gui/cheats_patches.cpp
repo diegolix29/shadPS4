@@ -32,8 +32,6 @@
 #include "common/path_util.h"
 #include "core/module.h"
 
-using namespace Common::FS;
-
 CheatsPatches::CheatsPatches(const QString& gameName, const QString& gameSerial,
                              const QString& gameVersion, const QString& gameSize,
                              const QPixmap& gameImage, QWidget* parent)
@@ -41,7 +39,7 @@ CheatsPatches::CheatsPatches(const QString& gameName, const QString& gameSerial,
       m_gameSize(gameSize), m_gameImage(gameImage), manager(new QNetworkAccessManager(this)) {
     setupUI();
     resize(500, 400);
-    setWindowTitle(tr("Cheats / Patches"));
+    setWindowTitle(tr("Cheats / Patches for ") + m_gameName);
 }
 
 CheatsPatches::~CheatsPatches() {}
@@ -53,6 +51,9 @@ void CheatsPatches::setupUI() {
     QString CHEATS_DIR_QString;
     Common::FS::PathToQString(CHEATS_DIR_QString,
                               Common::FS::GetUserPath(Common::FS::PathType::CheatsDir));
+    QString PATCHS_DIR_QString;
+    Common::FS::PathToQString(PATCHS_DIR_QString,
+                              Common::FS::GetUserPath(Common::FS::PathType::PatchesDir));
     QString NameCheatJson = m_gameSerial + "_" + m_gameVersion + ".json";
     m_cheatFilePath = CHEATS_DIR_QString + "/" + NameCheatJson;
 
@@ -239,9 +240,45 @@ void CheatsPatches::setupUI() {
     });
     patchesControlLayout->addWidget(patchesButton);
 
+    QPushButton* deletePatchButton = new QPushButton(tr("Delete File"));
+    connect(deletePatchButton, &QPushButton::clicked, [this, PATCHS_DIR_QString]() {
+        QStringListModel* model = qobject_cast<QStringListModel*>(patchesListView->model());
+        if (!model) {
+            return;
+        }
+        QItemSelectionModel* selectionModel = patchesListView->selectionModel();
+        if (!selectionModel) {
+            return;
+        }
+        QModelIndexList selectedIndexes = selectionModel->selectedIndexes();
+        if (selectedIndexes.isEmpty()) {
+            QMessageBox::warning(this, tr("Delete File"), tr("No files selected."));
+            return;
+        }
+        QModelIndex selectedIndex = selectedIndexes.first();
+        QString selectedFileName = model->data(selectedIndex).toString();
+
+        int ret = QMessageBox::warning(
+            this, tr("Delete File"),
+            QString(tr("Do you want to delete the selected file?\\n%1").replace("\\n", "\n"))
+                .arg(selectedFileName),
+            QMessageBox::Yes | QMessageBox::No);
+
+        if (ret == QMessageBox::Yes) {
+            QString fileName = selectedFileName.split('|').first().trimmed();
+            QString directoryName = selectedFileName.split('|').last().trimmed();
+            QString filePath = PATCHS_DIR_QString + "/" + directoryName + "/" + fileName;
+
+            QFile::remove(filePath);
+            createFilesJson(directoryName);
+            populateFileListPatches();
+        }
+    });
+
     QPushButton* saveButton = new QPushButton(tr("Save"));
     connect(saveButton, &QPushButton::clicked, this, &CheatsPatches::onSaveButtonClicked);
 
+    patchesControlLayout->addWidget(deletePatchButton);
     patchesControlLayout->addWidget(saveButton);
 
     patchesLayout->addLayout(patchesControlLayout);
@@ -436,7 +473,9 @@ QCheckBox* CheatsPatches::findCheckBoxByName(const QString& name) {
             QWidget* widget = item->widget();
             QCheckBox* checkBox = qobject_cast<QCheckBox*>(widget);
             if (checkBox) {
-                if (checkBox->text().toStdString().find(name.toStdString()) != std::string::npos) {
+                const auto patchName = checkBox->property("patchName");
+                if (patchName.isValid() && patchName.toString().toStdString().find(
+                                               name.toStdString()) != std::string::npos) {
                     return checkBox;
                 }
             }
@@ -776,6 +815,7 @@ void CheatsPatches::downloadPatches(const QString repository, const bool showMes
             // Create the files.json file with the identification of which file to open
             createFilesJson(repository);
             populateFileListPatches();
+            compatibleVersionNotice(repository);
         } else {
             if (showMessageBox) {
                 QMessageBox::warning(this, tr("Error"),
@@ -785,6 +825,84 @@ void CheatsPatches::downloadPatches(const QString repository, const bool showMes
         }
         emit downloadFinished();
     });
+}
+
+void CheatsPatches::compatibleVersionNotice(const QString repository) {
+    QDir patchesDir(Common::FS::GetUserPath(Common::FS::PathType::PatchesDir));
+    QDir dir = patchesDir.filePath(repository);
+
+    QStringList xmlFiles = dir.entryList(QStringList() << "*.xml", QDir::Files);
+    QSet<QString> appVersionsSet;
+
+    foreach (const QString& xmlFile, xmlFiles) {
+        QFile file(dir.filePath(xmlFile));
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QMessageBox::warning(this, tr("ERROR"),
+                                 QString(tr("Failed to open file:") + "\n%1").arg(xmlFile));
+            continue;
+        }
+
+        QXmlStreamReader xmlReader(&file);
+        bool foundMatchingID = false;
+
+        while (!xmlReader.atEnd() && !xmlReader.hasError()) {
+            QXmlStreamReader::TokenType token = xmlReader.readNext();
+            if (token == QXmlStreamReader::StartElement) {
+                if (xmlReader.name() == QStringLiteral("ID")) {
+                    QString id = xmlReader.readElementText();
+                    if (id == m_gameSerial) {
+                        foundMatchingID = true;
+                    }
+                } else if (xmlReader.name() == QStringLiteral("Metadata")) {
+                    if (foundMatchingID) {
+                        QString appVer = xmlReader.attributes().value("AppVer").toString();
+                        if (!appVer.isEmpty()) {
+                            appVersionsSet.insert(appVer);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (xmlReader.hasError()) {
+            QMessageBox::warning(this, tr("ERROR"),
+                                 QString(tr("XML ERROR:") + "\n%1").arg(xmlReader.errorString()));
+        }
+
+        if (foundMatchingID) {
+            QStringList incompatibleVersions;
+            bool hasMatchingVersion = false;
+
+            foreach (const QString& appVer, appVersionsSet) {
+                if (appVer != m_gameVersion) {
+                    incompatibleVersions.append(appVer);
+                } else {
+                    hasMatchingVersion = true;
+                }
+            }
+
+            if (!incompatibleVersions.isEmpty() ||
+                (hasMatchingVersion && incompatibleVersions.isEmpty())) {
+                QString message;
+
+                if (!incompatibleVersions.isEmpty()) {
+                    QString versionsList = incompatibleVersions.join(", ");
+                    message += QString(tr("The game is in version: %1")).arg(m_gameVersion) + "\n" +
+                               QString(tr("The downloaded patch only works on version: %1"))
+                                   .arg(versionsList);
+
+                    if (hasMatchingVersion) {
+                        message += QString(", %1").arg(m_gameVersion);
+                    }
+                    message += QString("\n" + tr("You may need to update your game."));
+                }
+
+                if (!message.isEmpty()) {
+                    QMessageBox::information(this, tr("Incompatibility Notice"), message);
+                }
+            }
+        }
+    }
 }
 
 void CheatsPatches::createFilesJson(const QString& repository) {
@@ -837,15 +955,33 @@ void CheatsPatches::createFilesJson(const QString& repository) {
     jsonFile.close();
 }
 
-void CheatsPatches::addCheatsToLayout(const QJsonArray& modsArray, const QJsonArray& creditsArray) {
+void CheatsPatches::clearListCheats() {
     QLayoutItem* item;
     while ((item = rightLayout->takeAt(0)) != nullptr) {
-        delete item->widget();
-        delete item;
+        QWidget* widget = item->widget();
+        if (widget) {
+            delete widget;
+        } else {
+            QLayout* layout = item->layout();
+            if (layout) {
+                QLayoutItem* innerItem;
+                while ((innerItem = layout->takeAt(0)) != nullptr) {
+                    QWidget* innerWidget = innerItem->widget();
+                    if (innerWidget) {
+                        delete innerWidget;
+                    }
+                    delete innerItem;
+                }
+                delete layout;
+            }
+        }
     }
     m_cheats.clear();
     m_cheatCheckBoxes.clear();
+}
 
+void CheatsPatches::addCheatsToLayout(const QJsonArray& modsArray, const QJsonArray& creditsArray) {
+    clearListCheats();
     int maxWidthButton = 0;
 
     for (const QJsonValue& modValue : modsArray) {
@@ -938,6 +1074,8 @@ void CheatsPatches::addCheatsToLayout(const QJsonArray& modsArray, const QJsonAr
 }
 
 void CheatsPatches::populateFileListCheats() {
+    clearListCheats();
+
     QString cheatsDir;
     Common::FS::PathToQString(cheatsDir, Common::FS::GetUserPath(Common::FS::PathType::CheatsDir));
 
@@ -1099,6 +1237,7 @@ void CheatsPatches::addPatchesToLayout(const QString& filePath) {
 
                 if (!patchName.isEmpty() && !patchLines.isEmpty()) {
                     QCheckBox* patchCheckBox = new QCheckBox(patchName);
+                    patchCheckBox->setProperty("patchName", patchName);
                     patchCheckBox->setChecked(isEnabled);
                     patchesGroupBoxLayout->addWidget(patchCheckBox);
 
@@ -1126,8 +1265,8 @@ void CheatsPatches::addPatchesToLayout(const QString& filePath) {
         }
     }
 
-    // Remove the item from the list view if no patches were added (the game has patches, but not
-    // for the current version)
+    // Remove the item from the list view if no patches were added
+    // (the game has patches, but not for the current version)
     if (!patchAdded) {
         QStringListModel* model = qobject_cast<QStringListModel*>(patchesListView->model());
         if (model) {
@@ -1154,12 +1293,6 @@ void CheatsPatches::updateNoteTextEdit(const QString& patchName) {
             QString type = lineObject["Type"].toString();
             QString address = lineObject["Address"].toString();
             QString patchValue = lineObject["Value"].toString();
-
-            // add the values ​​to be modified in instructionsTextEdit
-            // text.append(QString("\nType: %1\nAddress: %2\n\nValue: %3")
-            //                .arg(type)
-            //                .arg(address)
-            //                .arg(patchValue));
         }
         text.replace("\\n", "\n");
         instructionsTextEdit->setText(text);
@@ -1278,8 +1411,10 @@ bool CheatsPatches::eventFilter(QObject* obj, QEvent* event) {
 
 void CheatsPatches::onPatchCheckBoxHovered(QCheckBox* checkBox, bool hovered) {
     if (hovered) {
-        QString text = checkBox->text();
-        updateNoteTextEdit(text);
+        const auto patchName = checkBox->property("patchName");
+        if (patchName.isValid()) {
+            updateNoteTextEdit(patchName.toString());
+        }
     } else {
         instructionsTextEdit->setText(defaultTextEdit);
     }

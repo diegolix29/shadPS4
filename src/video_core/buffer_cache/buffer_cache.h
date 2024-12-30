@@ -12,6 +12,7 @@
 #include "common/types.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/buffer_cache/memory_tracker_base.h"
+#include "video_core/buffer_cache/range_set.h"
 #include "video_core/multi_level_page_table.h"
 
 namespace AmdGpu {
@@ -19,8 +20,11 @@ struct Liverpool;
 }
 
 namespace Shader {
-struct Info;
+namespace Gcn {
+struct FetchShaderData;
 }
+struct Info;
+} // namespace Shader
 
 namespace VideoCore {
 
@@ -38,7 +42,7 @@ public:
 
     struct Traits {
         using Entry = BufferId;
-        static constexpr size_t AddressSpaceBits = 39;
+        static constexpr size_t AddressSpaceBits = 40;
         static constexpr size_t FirstLevelBits = 14;
         static constexpr size_t PageBits = CACHING_PAGEBITS;
     };
@@ -53,7 +57,7 @@ public:
 
 public:
     explicit BufferCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                         const AmdGpu::Liverpool* liverpool, TextureCache& texture_cache,
+                         AmdGpu::Liverpool* liverpool, TextureCache& texture_cache,
                          PageManager& tracker);
     ~BufferCache();
 
@@ -67,24 +71,33 @@ public:
         return slot_buffers[id];
     }
 
+    [[nodiscard]] vk::BufferView& NullBufferView() {
+        return null_buffer_view;
+    }
+
     /// Invalidates any buffer in the logical page range.
     void InvalidateMemory(VAddr device_addr, u64 size);
 
     /// Binds host vertex buffers for the current draw.
-    bool BindVertexBuffers(const Shader::Info& vs_info);
+    bool BindVertexBuffers(const Shader::Info& vs_info,
+                           const std::optional<Shader::Gcn::FetchShaderData>& fetch_shader);
 
     /// Bind host index buffer for the current draw.
     u32 BindIndexBuffer(bool& is_indexed, u32 index_offset);
 
-    /// Writes a value to GDS buffer.
-    void InlineDataToGds(u32 gds_offset, u32 value);
+    /// Writes a value to GPU buffer.
+    void InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds);
+
+    [[nodiscard]] std::pair<Buffer*, u32> ObtainHostUBO(std::span<const u32> data);
 
     /// Obtains a buffer for the specified region.
     [[nodiscard]] std::pair<Buffer*, u32> ObtainBuffer(VAddr gpu_addr, u32 size, bool is_written,
-                                                       bool is_texel_buffer = false);
+                                                       bool is_texel_buffer = false,
+                                                       BufferId buffer_id = {});
 
-    /// Obtains a temporary buffer for usage in texture cache.
-    [[nodiscard]] std::pair<Buffer*, u32> ObtainTempBuffer(VAddr gpu_addr, u32 size);
+    /// Attempts to obtain a buffer without modifying the cache contents.
+    [[nodiscard]] std::pair<Buffer*, u32> ObtainViewBuffer(VAddr gpu_addr, u32 size,
+                                                           bool prefer_gpu);
 
     /// Return true when a region is registered on the cache
     [[nodiscard]] bool IsRegionRegistered(VAddr addr, size_t size);
@@ -94,6 +107,8 @@ public:
 
     /// Return true when a CPU region is modified from the GPU
     [[nodiscard]] bool IsRegionGpuModified(VAddr addr, size_t size);
+
+    [[nodiscard]] BufferId FindBuffer(VAddr device_addr, u32 size);
 
 private:
     template <typename Func>
@@ -115,8 +130,6 @@ private:
 
     void DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size);
 
-    [[nodiscard]] BufferId FindBuffer(VAddr device_addr, u32 size);
-
     [[nodiscard]] OverlapResult ResolveOverlaps(VAddr device_addr, u32 wanted_size);
 
     void JoinOverlap(BufferId new_buffer_id, BufferId overlap_id, bool accumulate_stream_score);
@@ -134,11 +147,11 @@ private:
 
     bool SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size);
 
-    void DeleteBuffer(BufferId buffer_id, bool do_not_mark = false);
+    void DeleteBuffer(BufferId buffer_id);
 
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
-    const AmdGpu::Liverpool* liverpool;
+    AmdGpu::Liverpool* liverpool;
     TextureCache& texture_cache;
     PageManager& tracker;
     StreamBuffer staging_buffer;
@@ -146,6 +159,8 @@ private:
     Buffer gds_buffer;
     std::mutex mutex;
     Common::SlotVector<Buffer> slot_buffers;
+    RangeSet gpu_modified_ranges;
+    vk::BufferView null_buffer_view;
     MemoryTracker memory_tracker;
     PageTable page_table;
 };

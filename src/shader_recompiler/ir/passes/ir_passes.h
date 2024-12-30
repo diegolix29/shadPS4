@@ -6,14 +6,25 @@
 #include "shader_recompiler/ir/basic_block.h"
 #include "shader_recompiler/ir/program.h"
 
+namespace Shader {
+struct Profile;
+}
+
 namespace Shader::Optimization {
 
 void SsaRewritePass(IR::BlockList& program);
 void IdentityRemovalPass(IR::BlockList& program);
 void DeadCodeEliminationPass(IR::Program& program);
 void ConstantPropagationPass(IR::BlockList& program);
+void FlattenExtendedUserdataPass(IR::Program& program);
 void ResourceTrackingPass(IR::Program& program);
 void CollectShaderInfoPass(IR::Program& program);
 void LowerSharedMemToRegisters(IR::Program& program);
+void RingAccessElimination(const IR::Program& program, const RuntimeInfo& runtime_info,
+                           Stage stage);
+void TessellationPreprocess(IR::Program& program, RuntimeInfo& runtime_info);
+void HullShaderTransform(IR::Program& program, RuntimeInfo& runtime_info);
+void DomainShaderTransform(IR::Program& program, RuntimeInfo& runtime_info);
+void SharedMemoryBarrierPass(IR::Program& program, const Profile& profile);
 
 } // namespace Shader::Optimization

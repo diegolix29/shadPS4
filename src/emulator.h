@@ -26,14 +26,16 @@ public:
     ~Emulator();
 
     void Run(const std::filesystem::path& file);
+    void UpdatePlayTime(const std::string& serial);
 
 private:
-    void LoadSystemModules(const std::filesystem::path& file);
+    void LoadSystemModules(const std::filesystem::path& file, std::string game_serial);
 
     Core::MemoryManager* memory;
     Input::GameController* controller;
     Core::Linker* linker;
     std::unique_ptr<Frontend::WindowSDL> window;
+    std::chrono::steady_clock::time_point start_time;
 };
 
 } // namespace Core

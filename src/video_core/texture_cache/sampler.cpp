@@ -8,6 +8,9 @@
 namespace VideoCore {
 
 Sampler::Sampler(const Vulkan::Instance& instance, const AmdGpu::Sampler& sampler) {
+    if (sampler.force_degamma) {
+        LOG_WARNING(Render_Vulkan, "Texture requires gamma correction");
+    }
     using namespace Vulkan;
     const vk::SamplerCreateInfo sampler_ci = {
         .magFilter = LiverpoolToVK::Filter(sampler.xy_mag_filter),
@@ -16,13 +19,13 @@ Sampler::Sampler(const Vulkan::Instance& instance, const AmdGpu::Sampler& sample
         .addressModeU = LiverpoolToVK::ClampMode(sampler.clamp_x),
         .addressModeV = LiverpoolToVK::ClampMode(sampler.clamp_y),
         .addressModeW = LiverpoolToVK::ClampMode(sampler.clamp_z),
-        .mipLodBias = sampler.LodBias(),
+        .mipLodBias = std::min(sampler.LodBias(), instance.MaxSamplerLodBias()),
         .compareEnable = sampler.depth_compare_func != AmdGpu::DepthCompare::Never,
         .compareOp = LiverpoolToVK::DepthCompare(sampler.depth_compare_func),
         .minLod = sampler.MinLod(),
         .maxLod = sampler.MaxLod(),
         .borderColor = LiverpoolToVK::BorderColor(sampler.border_color_type),
-        .unnormalizedCoordinates = bool(sampler.force_unnormalized),
+        .unnormalizedCoordinates = false, // Handled in shader due to Vulkan limitations.
     };
     auto [sampler_result, smplr] = instance.GetDevice().createSamplerUnique(sampler_ci);
     ASSERT_MSG(sampler_result == vk::Result::eSuccess, "Failed to create sampler: {}",

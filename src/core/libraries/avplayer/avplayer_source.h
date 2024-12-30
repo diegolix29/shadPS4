@@ -3,20 +3,18 @@
 
 #pragma once
 
-#include "avplayer.h"
-#include "avplayer_common.h"
-#include "avplayer_data_streamer.h"
-
-#include "common/polyfill_thread.h"
-#include "common/types.h"
-#include "core/libraries/kernel/thread_management.h"
-
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <optional>
-#include <string>
+#include <string_view>
+
+#include "common/assert.h"
+#include "core/libraries/avplayer/avplayer.h"
+#include "core/libraries/avplayer/avplayer_common.h"
+#include "core/libraries/avplayer/avplayer_data_streamer.h"
+#include "core/libraries/kernel/threads.h"
 
 struct AVCodecContext;
 struct AVFormatContext;
@@ -120,7 +118,7 @@ private:
 
 class AvPlayerSource {
 public:
-    AvPlayerSource(AvPlayerStateCallback& state);
+    AvPlayerSource(AvPlayerStateCallback& state, bool use_vdec2);
     ~AvPlayerSource();
 
     bool Init(const SceAvPlayerInitData& init_data, std::string_view path);
@@ -139,8 +137,6 @@ public:
     bool IsActive();
 
 private:
-    using ScePthread = Kernel::ScePthread;
-
     static void ReleaseAVPacket(AVPacket* packet);
     static void ReleaseAVFrame(AVFrame* frame);
     static void ReleaseAVCodecContext(AVCodecContext* context);
@@ -168,6 +164,7 @@ private:
     Frame PrepareVideoFrame(FrameBuffer buffer, const AVFrame& frame);
 
     AvPlayerStateCallback& m_state;
+    bool m_use_vdec2 = false;
 
     SceAvPlayerMemAllocator m_memory_replacement{};
     u32 m_num_output_video_framebuffers{};
@@ -203,9 +200,9 @@ private:
     EventCV m_stop_cv{};
 
     std::mutex m_state_mutex{};
-    std::jthread m_demuxer_thread{};
-    std::jthread m_video_decoder_thread{};
-    std::jthread m_audio_decoder_thread{};
+    Kernel::Thread m_demuxer_thread{};
+    Kernel::Thread m_video_decoder_thread{};
+    Kernel::Thread m_audio_decoder_thread{};
 
     AVFormatContextPtr m_avformat_context{nullptr, &ReleaseAVFormatContext};
     AVCodecContextPtr m_video_codec_context{nullptr, &ReleaseAVCodecContext};

@@ -52,6 +52,10 @@ struct Buffer {
         return std::memcmp(this, &other, sizeof(Buffer)) == 0;
     }
 
+    u32 DstSelect() const {
+        return dst_sel_x | (dst_sel_y << 3) | (dst_sel_z << 6) | (dst_sel_w << 9);
+    }
+
     CompSwizzle GetSwizzle(u32 comp) const noexcept {
         const std::array select{dst_sel_x, dst_sel_y, dst_sel_z, dst_sel_w};
         return static_cast<CompSwizzle>(select[comp]);
@@ -122,6 +126,7 @@ enum class TilingMode : u32 {
     Display_MacroTiled = 0xAu,
     Texture_MicroTiled = 0xDu,
     Texture_MacroTiled = 0xEu,
+    Texture_Volume = 0x13u,
 };
 
 constexpr std::string_view NameOf(TilingMode type) {
@@ -136,6 +141,8 @@ constexpr std::string_view NameOf(TilingMode type) {
         return "Texture_MicroTiled";
     case TilingMode::Texture_MacroTiled:
         return "Texture_MacroTiled";
+    case TilingMode::Texture_Volume:
+        return "Texture_Volume";
     default:
         return "Unknown";
     }
@@ -204,6 +211,11 @@ struct Image {
         return dst_sel_x | (dst_sel_y << 3) | (dst_sel_z << 6) | (dst_sel_w << 9);
     }
 
+    CompSwizzle GetSwizzle(u32 comp) const noexcept {
+        const std::array select{dst_sel_x, dst_sel_y, dst_sel_z, dst_sel_w};
+        return static_cast<CompSwizzle>(select[comp]);
+    }
+
     static char SelectComp(u32 sel) {
         switch (sel) {
         case 0:
@@ -261,6 +273,13 @@ struct Image {
         return last_level + 1;
     }
 
+    u32 NumSamples() const {
+        if (GetType() == ImageType::Color2DMsaa || GetType() == ImageType::Color2DMsaaArray) {
+            return 1u << last_level;
+        }
+        return 1;
+    }
+
     ImageType GetType() const noexcept {
         return static_cast<ImageType>(type);
     }
@@ -278,9 +297,6 @@ struct Image {
             return tiling_index == 5 ? TilingMode::Texture_MicroTiled
                                      : TilingMode::Depth_MacroTiled;
         }
-        if (tiling_index == 0x13) {
-            return TilingMode::Texture_MicroTiled;
-        }
         return static_cast<TilingMode>(tiling_index);
     }
 
@@ -288,9 +304,18 @@ struct Image {
         return GetTilingMode() != TilingMode::Display_Linear;
     }
 
+    bool IsFmask() const noexcept {
+        return GetDataFmt() >= DataFormat::FormatFmask8_1 &&
+               GetDataFmt() <= DataFormat::FormatFmask64_8;
+    }
+
     bool IsPartialCubemap() const {
         const auto viewed_slice = last_array - base_array + 1;
         return GetType() == ImageType::Cube && viewed_slice < 6;
+    }
+
+    ImageType GetBoundType() const noexcept {
+        return IsPartialCubemap() ? ImageType::Color2DArray : GetType();
     }
 };
 static_assert(sizeof(Image) == 32); // 256bits
@@ -346,8 +371,8 @@ enum class MipFilter : u64 {
 };
 
 enum class BorderColor : u64 {
-    OpaqueBlack = 0,
-    TransparentBlack = 1,
+    TransparentBlack = 0,
+    OpaqueBlack = 1,
     White = 2,
     Custom = 3,
 };
@@ -404,11 +429,11 @@ struct Sampler {
     }
 
     float MinLod() const noexcept {
-        return static_cast<float>(min_lod);
+        return static_cast<float>(min_lod.Value()) / 256.0f;
     }
 
     float MaxLod() const noexcept {
-        return static_cast<float>(max_lod);
+        return static_cast<float>(max_lod.Value()) / 256.0f;
     }
 };
 

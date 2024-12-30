@@ -15,7 +15,7 @@ enum class Type {
     ScalarReg = 1 << 1,
     VectorReg = 1 << 2,
     Attribute = 1 << 3,
-    SystemValue = 1 << 4,
+    Patch = 1 << 4,
     U1 = 1 << 5,
     U8 = 1 << 6,
     U16 = 1 << 7,
@@ -36,6 +36,7 @@ enum class Type {
     F64x2 = 1 << 22,
     F64x3 = 1 << 23,
     F64x4 = 1 << 24,
+    StringLiteral = 1 << 25,
 };
 DECLARE_ENUM_FLAG_OPERATORS(Type)
 

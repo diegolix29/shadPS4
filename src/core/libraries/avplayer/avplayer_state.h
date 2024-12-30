@@ -3,16 +3,13 @@
 
 #pragma once
 
-#include "avplayer.h"
-#include "avplayer_data_streamer.h"
-#include "avplayer_source.h"
-
-#include "common/polyfill_thread.h"
-#include "core/libraries/kernel/thread_management.h"
-
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+
+#include "core/libraries/avplayer/avplayer.h"
+#include "core/libraries/avplayer/avplayer_source.h"
+#include "core/libraries/kernel/threads.h"
 
 namespace Libraries::AvPlayer {
 
@@ -24,6 +21,7 @@ public:
     AvPlayerState(const SceAvPlayerInitData& init_data);
     ~AvPlayerState();
 
+    void PostInit(const SceAvPlayerPostInitData& post_init_data);
     bool AddSource(std::string_view filename, SceAvPlayerSourceType source_type);
     s32 GetStreamCount();
     bool GetStreamInfo(u32 stream_index, SceAvPlayerStreamInfo& info);
@@ -41,6 +39,9 @@ private:
     // Event Replacement
     static void PS4_SYSV_ABI AutoPlayEventCallback(void* handle, SceAvPlayerEvents event_id,
                                                    s32 source_id, void* event_data);
+
+    static void PS4_SYSV_ABI DefaultEventCallback(void* handle, SceAvPlayerEvents event_id,
+                                                  s32 source_id, void* event_data);
 
     void OnWarning(u32 id) override;
     void OnError() override;
@@ -65,9 +66,10 @@ private:
     std::unique_ptr<AvPlayerSource> m_up_source;
 
     SceAvPlayerInitData m_init_data{};
+    SceAvPlayerPostInitData m_post_init_data{};
     SceAvPlayerEventReplacement m_event_replacement{};
     bool m_auto_start{};
-    u8 m_default_language[4]{};
+    char m_default_language[4]{};
 
     std::atomic<AvState> m_current_state;
     std::atomic<AvState> m_previous_state;
@@ -78,7 +80,7 @@ private:
     std::shared_mutex m_source_mutex{};
     std::mutex m_state_machine_mutex{};
     std::mutex m_event_handler_mutex{};
-    std::jthread m_controller_thread{};
+    Kernel::Thread m_controller_thread{};
     AvPlayerQueue<AvPlayerEvent> m_event_queue{};
 };
 

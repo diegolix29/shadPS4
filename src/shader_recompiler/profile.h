@@ -19,16 +19,15 @@ struct Profile {
     bool support_float_controls{};
     bool support_separate_denorm_behavior{};
     bool support_separate_rounding_mode{};
-    bool support_fp16_denorm_preserve{};
     bool support_fp32_denorm_preserve{};
-    bool support_fp16_denorm_flush{};
     bool support_fp32_denorm_flush{};
-    bool support_fp16_signed_zero_nan_preserve{};
-    bool support_fp32_signed_zero_nan_preserve{};
-    bool support_fp64_signed_zero_nan_preserve{};
     bool support_explicit_workgroup_layout{};
+    bool support_legacy_vertex_attributes{};
+    bool supports_image_load_store_lod{};
     bool has_broken_spirv_clamp{};
     bool lower_left_origin_mode{};
+    bool needs_manual_interpolation{};
+    bool needs_lds_barriers{};
     u64 min_ssbo_alignment{};
 };
 

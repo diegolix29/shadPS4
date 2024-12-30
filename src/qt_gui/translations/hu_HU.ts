@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="hu_HU">
 	<!-- SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
@@ -53,6 +53,19 @@
 		</message>
 	</context>
 	<context>
+		<name>InstallDirSelect</name>
+		<message>
+			<location filename="../install_dir_select.cpp" line="30"/>
+			<source>shadPS4 - Choose directory</source>
+			<translation>shadPS4 - Mappa kiválasztása</translation>
+		</message>
+		<message>
+			<location filename="../install_dir_select.cpp" line="37"/>
+			<source>Select which directory you want to install to.</source>
+			<translation>Válassza ki a mappát a játékok telepítésére.</translation>
+		</message>
+	</context>
+	<context>
 		<name>GameInstallDialog</name>
 		<message>
 			<location filename="../game_install_dialog.cpp" line="24"/>
@@ -77,7 +90,7 @@
 		<message>
 			<location filename="../game_install_dialog.cpp" line="75"/>
 			<source>The value for location to install games is not valid.</source>
-			<translation>A játékok telepítéséhez megadott érték nem érvényes.</translation>
+			<translation>A játékok telepítéséhez megadott útvonal nem érvényes.</translation>
 		</message>
 	</context>
 	<context>
@@ -88,11 +101,6 @@
 			<translation>Parancsikon Létrehozása</translation>
 		</message>
 		<message>
-			<location filename="../gui_context_menus.h" line="40"/>
-			<source>Open Game Folder</source>
-			<translation>Játék Mappa Megnyitása</translation>
-		</message>
-		<message>
 			<location filename="../gui_context_menus.h" line="48"/>
 			<source>Cheats / Patches</source>
 			<translation>Csalások / Javítások</translation>
@@ -100,7 +108,7 @@
 		<message>
 			<location filename="../gui_context_menus.h" line="41"/>
 			<source>SFO Viewer</source>
-			<translation>SFO Néző</translation>
+			<translation>SFO Nézegető</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="42"/>
@@ -108,9 +116,29 @@
 			<translation>Trófeák Megtekintése</translation>
 		</message>
 		<message>
+			<location filename="../gui_context_menus.h" line="49"/>
+			<source>Open Folder...</source>
+			<translation>Mappa megnyitása...</translation>
+		</message>
+		<message>
 			<location filename="../gui_context_menus.h" line="50"/>
-			<source>Copy info</source>
-			<translation>Információ Másolása</translation>
+			<source>Open Game Folder</source>
+			<translation>Játék Mappa Megnyitása</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="51"/>
+			<source>Open Save Data Folder</source>
+			<translation>Mentési adatok mappa megnyitása</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="52"/>
+			<source>Open Log Folder</source>
+			<translation>Napló mappa megnyitása</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="50"/>
+			<source>Copy info...</source>
+			<translation>Információ Másolása...</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="51"/>
@@ -126,6 +154,26 @@
 			<location filename="../gui_context_menus.h" line="53"/>
 			<source>Copy All</source>
 			<translation>Összes Másolása</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="72"/>
+			<source>Delete...</source>
+			<translation>Törlés...</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="73"/>
+			<source>Delete Game</source>
+			<translation>Játék törlése</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="74"/>
+			<source>Delete Update</source>
+			<translation>Frissítések törlése</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="75"/>
+			<source>Delete DLC</source>
+			<translation>DLC-k törlése</translation>
 		</message>
 		<message>
 			<location filename="../gui_context_menus.h" line="173"/>
@@ -152,13 +200,53 @@
 			<source>Install PKG</source>
 			<translation>PKG telepítése</translation>
 		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="299"/>
+			<source>Game</source>
+			<translation>Játék</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="305"/>
+			<source>requiresEnableSeparateUpdateFolder_MSG</source>
+			<translation>Ehhez a funkcióhoz szükséges a 'Külön Frissítési Mappa Engedélyezése' opció, hogy működjön. Ha használni akarja, először engedélyezze azt.</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="312"/>
+			<source>This game has no update to delete!</source>
+			<translation>Ehhez a játékhoz nem tartozik törlendő frissítés!</translation>
+		</message>
+			<message>
+			<location filename="../gui_context_menus.h" line="316"/>
+			<source>Update</source>
+			<translation>Frissítés</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="321"/>
+			<source>This game has no DLC to delete!</source>
+			<translation>Ehhez a játékhoz nem tartozik törlendő DLC!</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="325"/>
+			<source>DLC</source>
+			<translation>DLC</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="332"/>
+			<source>Delete %1</source>
+			<translation>Delete %1</translation>
+		</message>
+		<message>
+			<location filename="../gui_context_menus.h" line="333"/>
+			<source>Are you sure you want to delete %1's %2 directory?</source>
+			<translation>Biztosan törölni akarja a %1's %2 mappát?</translation>
+		</message>
 	</context>
 	<context>
 		<name>MainWindow</name>
 		<message>
 			<location filename="../main_window_ui.h" line="310"/>
 			<source>Open/Add Elf Folder</source>
-			<translation>Efl Mappa Megnyitása/Hozzáadása</translation>
+			<translation>ELF Mappa Megnyitása/Hozzáadása</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="312"/>
@@ -168,7 +256,7 @@
 		<message>
 			<location filename="../main_window_ui.h" line="313"/>
 			<source>Boot Game</source>
-			<translation>Játék Bootolása</translation>
+			<translation>Játék Indítása</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="308"/>
@@ -203,12 +291,12 @@
 		<message>
 			<location filename="../main_window_ui.h" line="323"/>
 			<source>Exit shadPS4</source>
-			<translation>Kilépés a shadPS4</translation>
+			<translation>Kilépés a shadPS4-ből</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="327"/>
 			<source>Exit the application.</source>
-			<translation>Lépjen ki az programból.</translation>
+			<translation>Lépjen ki a programból.</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="330"/>
@@ -253,7 +341,7 @@
 		<message>
 			<location filename="../main_window_ui.h" line="341"/>
 			<source>Elf Viewer</source>
-			<translation>Elf Néző</translation>
+			<translation>Elf Nézegető</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="343"/>
@@ -268,12 +356,12 @@
 		<message>
 			<location filename="../main_window_ui.h" line="345"/>
 			<source>Dump Game List</source>
-			<translation>Játék Lista Dumpolása</translation>
+			<translation>Játéklista Dumpolása</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="346"/>
 			<source>PKG Viewer</source>
-			<translation>PKG Néző</translation>
+			<translation>PKG Nézegető</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="348"/>
@@ -288,17 +376,17 @@
 		<message>
 			<location filename="../main_window_ui.h" line="350"/>
 			<source>View</source>
-			<translation>Megnézés</translation>
+			<translation>Nézet</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="352"/>
 			<source>Game List Icons</source>
-			<translation>Játék Könyvtár Ikonok</translation>
+			<translation>Játékkönyvtár Ikonok</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="354"/>
 			<source>Game List Mode</source>
-			<translation>Játék Könyvtár Mód</translation>
+			<translation>Játékkönyvtár Nézet</translation>
 		</message>
 		<message>
 			<location filename="../main_window_ui.h" line="355"/>
@@ -402,7 +490,12 @@
 		<message>
 			<location filename="../settings_dialog.ui" line="122"/>
 			<source>Enable Fullscreen</source>
-			<translation>Teljesképernyő Engedélyezése</translation>
+			<translation>Teljes Képernyő Engedélyezése</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="140"/>
+			<source>Enable Separate Update Folder</source>
+			<translation>Külön Frissítési Mappa Engedélyezése</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="129"/>
@@ -412,7 +505,12 @@
 		<message>
 			<location filename="../settings_dialog.ui" line="136"/>
 			<source>Is PS4 Pro</source>
-			<translation>PS4 Pro</translation>
+			<translation>PS4 Pro mód</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="154"/>
+			<source>Enable Discord Rich Presence</source>
+			<translation>A Discord Rich Presence engedélyezése</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="155"/>
@@ -433,6 +531,36 @@
 			<location filename="../settings_dialog.ui" line="235"/>
 			<source>Log Filter</source>
 			<translation>Naplózási Filter</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="595"/>
+			<source>Input</source>
+			<translation>Bemenet</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="611"/>
+			<source>Cursor</source>
+			<translation>Kurzor</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="635"/>
+			<source>Hide Cursor</source>
+			<translation>Kurzor elrejtése</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="668"/>
+			<source>Hide Cursor Idle Timeout</source>
+			<translation>Kurzor inaktivitási időtúllépés</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="767"/>
+			<source>Controller</source>
+			<translation>Kontroller</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="797"/>
+			<source>Back Button Behavior</source>
+			<translation>Vissza gomb Viselkedése</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="272"/>
@@ -475,9 +603,24 @@
 			<translation>NULL GPU Engedélyezése</translation>
 		</message>
 		<message>
-			<location filename="../settings_dialog.ui" line="476"/>
-			<source>Enable PM4 Dumping</source>
-			<translation>PM4 Dumpolás Engedélyezése</translation>
+			<location filename="../settings_dialog.ui" line="1111"/>
+			<source>Paths</source>
+			<translation>Útvonalak</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1119"/>
+			<source>Game Folders</source>
+			<translation>Játékmappák</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1141"/>
+			<source>Add...</source>
+			<translation>Hozzáadás...</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.ui" line="1141"/>
+			<source>Remove</source>
+			<translation>Eltávolítás</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.ui" line="517"/>
@@ -550,17 +693,17 @@
 		<message>
 			<location filename="../main_window.cpp" line="168"/>
 			<source> * Unsupported Vulkan Version</source>
-			<translation> * Támogatott Vulkan verzió hiányzik</translation>
+			<translation> * Nem támogatott Vulkan verzió</translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="326"/>
 			<source>Download Cheats For All Installed Games</source>
-			<translation>Letöltés csalások minden telepített játékhoz</translation>
+			<translation>Csalások letöltése minden telepített játékhoz</translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="328"/>
 			<source>Download Patches For All Games</source>
-			<translation>Frissítések letöltése minden játékhoz</translation>
+			<translation>Javítások letöltése minden játékhoz</translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="363"/>
@@ -570,17 +713,17 @@
 		<message>
 			<location filename="../main_window.cpp" line="364"/>
 			<source>You have downloaded cheats for all the games you have installed.</source>
-			<translation>Csalásokat töltöttél le az összes telepített játékhoz.</translation>
+			<translation>Minden elérhető csalás letöltődött az összes telepített játékhoz.</translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="391"/>
 			<source>Patches Downloaded Successfully!</source>
-			<translation>Frissítések sikeresen letöltve!</translation>
+			<translation>Javítások sikeresen letöltve!</translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="392"/>
 			<source>All Patches available for all games have been downloaded.</source>
-			<translation>Az összes játékhoz elérhető frissítés letöltésre került.</translation>
+			<translation>Az összes játékhoz elérhető javítás letöltésre került.</translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="549"/>
@@ -630,7 +773,7 @@
 		<message>
 			<location filename="../main_window.cpp" line="639"/>
 			<source>PKG Version %1 is older than installed version: </source>
-			<translation>A %1-es PKG verzió régebbi, mint a telepített verzió: </translation>
+			<translation>A(z) %1-es PKG verzió régebbi, mint a telepített verzió: </translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="660"/>
@@ -650,7 +793,7 @@
 		<message>
 			<location filename="../main_window.cpp" line="674"/>
 			<source>Would you like to install DLC: %1?</source>
-			<translation>Szeretné telepíteni a DLC-t: %1?</translation>
+			<translation>Szeretné telepíteni a %1 DLC-t?</translation>
 		</message>
 		<message>
 			<location filename="../main_window.cpp" line="688"/>
@@ -697,13 +840,13 @@
 		<name>CheatsPatches</name>
 		<message>
 			<location filename="../cheats_patches.cpp" line="44"/>
-			<source>Cheats / Patches</source>
-			<translation>Csalások / Javítások</translation>
+			<source>Cheats / Patches for </source>
+			<translation>Cheats / Patches for </translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="50"/>
 			<source>defaultTextEdit_MSG</source>
-			<translation>A csalások/patchek kísérleti jellegűek.\nHasználja őket óvatosan.\n\nTöltse le a csalásokat egyesével a repository kiválasztásával és a letöltés gombra kattintással.\nA Patches fül alatt egyszerre letöltheti az összes patchet, választhat, melyeket szeretné használni, és elmentheti a választását.\n\nMivel nem fejlesztjük a csalásokat/patch-eket,\nkérjük, jelentse a problémákat a csalás szerzőjének.\n\nKészített egy új csalást? Látogasson el ide:\nhttps://github.com/shadps4-emu/ps4_cheats</translation>
+			<translation>A csalások/javítások kísérleti jellegűek.\nHasználja őket óvatosan.\n\nTöltse le a csalásokat egyesével a tároló kiválasztásával és a letöltés gombra kattintással.\nA Javítások fül alatt egyszerre letöltheti az összes javítást, majd választhat, melyeket szeretné használni, és elmentheti a választását.\n\nMivel nem mi fejlesztjük a csalásokat/patch-eket,\nkérjük, jelentse a problémákat a csalás szerzőjének.\n\nKészített egy új csalást? Látogasson el ide:\nhttps://github.com/shadps4-emu/ps4_cheats</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="69"/>
@@ -868,7 +1011,7 @@
 		<message>
 			<location filename="../cheats_patches.cpp" line="556"/>
 			<source>CheatsNotFound_MSG</source>
-			<translation>Nincs található csalás ezen a játékverzión ebben a kiválasztott tárolóban,próbálj meg egy másik tárolót vagy a játék egy másik verzióját.</translation>
+			<translation>Nincs található csalás ezen a játékverzión ebben a kiválasztott tárolóban, próbálj meg egy másik tárolót vagy a játék egy másik verzióját.</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="593"/>
@@ -898,7 +1041,7 @@
 		<message>
 			<location filename="../cheats_patches.cpp" line="763"/>
 			<source>DownloadComplete_MSG</source>
-			<translation>Frissítések sikeresen letöltve! Minden elérhető frissítés letöltésre került, nem szükséges egyesével letölteni őket minden játékhoz, mint a csalások esetében. Ha a javítás nem jelenik meg, lehet, hogy nem létezik a játék adott sorozatszámához és verziójához. Lehet, hogy frissítenie kell a játékot.</translation>
+			<translation>Frissítések sikeresen letöltve! Minden elérhető frissítés letöltésre került, nem szükséges egyesével letölteni őket minden játékhoz, mint a csalások esetében. Ha a javítások nem jelennek meg, lehet, hogy nem léteznek a játék adott sorozatszámához és verziójához.</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="773"/>
@@ -909,6 +1052,26 @@
 			<location filename="../cheats_patches.cpp" line="778"/>
 			<source>Failed to retrieve HTML page.</source>
 			<translation>Nem sikerült HTML oldal lekérése.</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="850"/>
+			<source>The game is in version: %1</source>
+			<translation>A játék verziója: %1</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="851"/>
+			<source>The downloaded patch only works on version: %1</source>
+			<translation>A letöltött javításhoz a(z) %1 verzió működik</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="856"/>
+			<source>You may need to update your game.</source>
+			<translation>Lehet, hogy frissítened kell a játékodat.</translation>
+		</message>
+		<message>
+			<location filename="../cheats_patches.cpp" line="860"/>
+			<source>Incompatibility Notice</source>
+			<translation>Inkompatibilitási értesítés</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="801"/>
@@ -933,7 +1096,7 @@
 		<message>
 			<location filename="../cheats_patches.cpp" line="997"/>
 			<source>Directory does not exist:</source>
-			<translation>A könyvtár nem létezik:</translation>
+			<translation>A mappa nem létezik:</translation>
 		</message>
 		<message>
 			<location filename="../cheats_patches.cpp" line="1006"/>
@@ -994,14 +1157,24 @@
 			<translation>Teljes képernyő engedélyezése:\nAutomatikusan teljes képernyőre állítja a játék ablakát.\nEz a F11 billentyű megnyomásával kapcsolható ki/be.</translation>
 		</message>
 		<message>
+			<location filename="../settings_dialog.cpp" line="293"/>
+			<source>separateUpdatesCheckBox</source>
+			<translation>Külön Frissítéi Mappa Engedélyezése:\nEngedélyezi a frissítések külön mappába helyezését, a könnyű kezelésük érdekében.</translation>
+		</message>
+		<message>
 			<location filename="../settings_dialog.cpp" line="295"/>
 			<source>showSplashCheckBox</source>
-			<translation>Indító képernyő megjelenítése:\nMegjeleníti a játék indító képernyőjét (különleges képet) a játék elindításakor.</translation>
+			<translation>Indítóképernyő megjelenítése:\nMegjeleníti a játék indítóképernyőjét (különleges képet) a játék elindításakor.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="297"/>
 			<source>ps4proCheckBox</source>
-			<translation>PS4 Pro:\nAz emulátort PS4 PRO-ként kezeli, ami engedélyezheti a speciális funkciókat olyan játékokban, amelyek támogatják.</translation>
+			<translation>PS4 Pro:\nAz emulátort PS4 PRO-ként kezeli, ami engedélyezhet speciális funkciókat olyan játékokban, amelyek támogatják azt.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="438"/>
+			<source>discordRPCCheckbox</source>
+			<translation>A Discord Rich Presence engedélyezése:\nMegjeleníti az emulator ikonját és a kapcsolódó információkat a Discord profilján.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="299"/>
@@ -1016,7 +1189,7 @@
 		<message>
 			<location filename="../settings_dialog.cpp" line="303"/>
 			<source>logFilter</source>
-			<translation>Napló szűrő: Csak bizonyos információk megjelenítésére szűri a naplót. Példák: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical" Szintek: Trace, Debug, Info, Warning, Error, Critical - ebben a sorrendben, egy konkrét szint elnémítja az előtte lévő összes szintet, és naplózza az utána következő szinteket.</translation>
+			<translation>Napló szűrő:\nCsak bizonyos információk megjelenítésére szűri a naplót.\nPéldák: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical" Szintek: Trace, Debug, Info, Warning, Error, Critical - ebben a sorrendben, egy konkrét szint elnémítja az előtte lévő összes szintet, és naplózza az utána következő szinteket.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="305"/>
@@ -1026,12 +1199,62 @@
 		<message>
 			<location filename="../settings_dialog.cpp" line="306"/>
 			<source>GUIgroupBox</source>
-			<translation>Játék címzene lejátszása:\nHa a játék támogatja, engedélyezze a speciális zene lejátszását, amikor a játékot kiválasztja a GUI-ban.</translation>
+			<translation>Játék címzene lejátszása:\nHa a játék támogatja, engedélyezze egy speciális zene lejátszását, amikor a játékot kiválasztja a GUI-ban.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="450"/>
+			<source>hideCursorGroupBox</source>
+			<translation>Kurzor elrejtése:\nVálassza ki, mikor tűnjön el az egérmutató:\nSoha: Az egér mindig látható.\nInaktív: Állítson be egy időt, amennyi idő mozdulatlanság után eltűnik.\nMindig: az egér mindig el lesz rejtve.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="452"/>
+			<source>idleTimeoutGroupBox</source>
+			<translation>Állítson be egy időt, ami után egér inaktív állapotban eltűnik.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="454"/>
+			<source>backButtonBehaviorGroupBox</source>
+			<translation>Vissza gomb viselkedés:\nBeállítja a vezérlő vissza gombját, hogy utánozza a PS4 érintőpadján megadott pozíció megérintését.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="70"/>
+			<source>Never</source>
+			<translation>Soha</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="71"/>
+			<source>Idle</source>
+			<translation>Inaktív</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="72"/>
+			<source>Always</source>
+			<translation>Mindig</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="101"/>
+			<source>Touchpad Left</source>
+			<translation>Érintőpad Bal</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="102"/>
+			<source>Touchpad Right</source>
+			<translation>Érintőpad Jobb</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="103"/>
+			<source>Touchpad Center</source>
+			<translation>Érintőpad Közép</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="104"/>
+			<source>None</source>
+			<translation>Semmi</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="312"/>
 			<source>graphicsAdapterGroupBox</source>
-			<translation>Grafikus eszköz:\nTöbb GPU-s rendszereken válassza ki a GPU-t, amelyet az emulátor használ a legördülő listából,\nvagy válassza az "Auto Select" lehetőséget, hogy automatikusan meghatározza azt.</translation>
+			<translation>Grafikus eszköz:\nTöbb GPU-s rendszereken válassza ki, melyik GPU-t használja az emulátor a legördülő listából,\nvagy válassza az "Auto Select" lehetőséget, hogy automatikusan kiválassza azt.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="314"/>
@@ -1041,7 +1264,7 @@
 		<message>
 			<location filename="../settings_dialog.cpp" line="318"/>
 			<source>heightDivider</source>
-			<translation>Vblank osztó:\nAz emulátor frissítési sebessége e számot megszorozva működik. Ennek megváltoztatása kedvezőtlen hatásokat okozhat, például növelheti a játék sebességét, vagy megszakíthat kritikus játékfunkciókat, amelyek nem számítanak arra, hogy ez megváltozik!</translation>
+			<translation>Vblank elosztó:\nAz emulátor frissítési sebessége e számot megszorozva működik. Ennek megváltoztatása kedvezőtlen hatásokat okozhat, például növelheti a játék sebességét, vagy megszakíthat kritikus játékfunkciókat, amelyek nem számítanak arra, hogy ez megváltozik!</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="320"/>
@@ -1054,9 +1277,19 @@
 			<translation>Null GPU engedélyezése:\nMűszaki hibaelhárítás céljából letiltja a játék renderelését, mintha nem lenne grafikus kártya.</translation>
 		</message>
 		<message>
-			<location filename="../settings_dialog.cpp" line="323"/>
-			<source>dumpPM4CheckBox</source>
-			<translation>PM4 dumpolás engedélyezése:\nMűszaki hibaelhárítás céljából a nyers GPU utasítási adatokat elmenti egy mappába, ahogy az emulátor feldolgozza őket.</translation>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>gameFoldersBox</source>
+			<translation>Játék mappák:\nA mappák listája, ahol telepített játékok vannak.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>addFolderButton</source>
+			<translation>Hozzáadás:\nHozzon létre egy mappát a listában.</translation>
+		</message>
+		<message>
+			<location filename="../settings_dialog.cpp" line="465"/>
+			<source>removeFolderButton</source>
+			<translation>Eltávolítás:\nTávolítson el egy mappát a listából.</translation>
 		</message>
 		<message>
 			<location filename="../settings_dialog.cpp" line="329"/>
@@ -1121,6 +1354,16 @@
 			<source>Path</source>
 			<translation>Útvonal</translation>
 		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="38"/>
+			<source>Play Time</source>
+			<translation>Játékidő</translation>
+		</message>
+		<message>
+			<location filename="../game_list_frame.cpp" line="108"/>
+			<source>Never Played</source>
+			<translation>Never Played</translation>
+		</message>
 	</context>
 	<context>
 		<name>CheckUpdate</name>
@@ -1169,7 +1412,7 @@
 			<source>Update Available</source>
 			<translation>Frissítés elérhető</translation>
 		</message>
-		<message> 
+		<message>
 			<location filename="../check_update.cpp" line="187"/>
 			<source>Update Channel</source>
 			<translation>Frissítési Csatorna</translation>
@@ -1182,7 +1425,7 @@
 		<message>
 			<location filename="../check_update.cpp" line="178"/>
 			<source>Latest Version</source>
-			<translation>Legújabb verzió</translation>
+			<translation>Új verzió</translation>
 		</message>
 		<message>
 			<location filename="../check_update.cpp" line="179"/>
@@ -1192,7 +1435,7 @@
 		<message>
 			<location filename="../check_update.cpp" line="193"/>
 			<source>Show Changelog</source>
-			<translation>Módosítások megjelenítése</translation>
+			<translation>Változások megjelenítése</translation>
 		</message>
 		<message>
 			<location filename="../check_update.cpp" line="198"/>
@@ -1207,17 +1450,17 @@
 		<message>
 			<location filename="../check_update.cpp" line="200"/>
 			<source>No</source>
-			<translation>Nem</translation>
+			<translation>Mégse</translation>
 		</message>
 		<message>
 			<location filename="../check_update.cpp" line="223"/>
 			<source>Hide Changelog</source>
-			<translation>Módosítások elrejtése</translation>
+			<translation>Változások elrejtése</translation>
 		</message>
 		<message>
 			<location filename="../check_update.cpp" line="296"/>
 			<source>Changes</source>
-			<translation>Módosítások</translation>
+			<translation>Változások</translation>
 		</message>
 		<message>
 			<location filename="../check_update.cpp" line="310"/>

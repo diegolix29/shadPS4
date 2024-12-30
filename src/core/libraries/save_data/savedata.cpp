@@ -5,7 +5,7 @@
 #include <vector>
 
 #include <core/libraries/system/msgdialog_ui.h>
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 
 #include "common/assert.h"
 #include "common/cstring.h"
@@ -149,7 +149,7 @@ struct OrbisSaveDataIcon {
     size_t dataSize;
     std::array<u8, 32> _reserved;
 
-    Error LoadIcon(const std::filesystem::path& icon_path) {
+    Error LoadIcon(const fs::path& icon_path) {
         try {
             const Common::FS::IOFile file(icon_path, Common::FS::FileAccessMode::Read);
             dataSize = file.GetSize();
@@ -345,7 +345,9 @@ static bool match(std::string_view str, std::string_view pattern) {
         if (*pat_it == '_') { // 1 character wildcard
             ++str_it;
             ++pat_it;
-        } else if (*pat_it != *str_it) {
+            continue;
+        }
+        if (*pat_it != *str_it) {
             return false;
         }
         ++str_it;
@@ -445,7 +447,7 @@ static Error saveDataMount(const OrbisSaveDataMount2* mount_info,
         fs::create_directories(root_save);
         const auto available = fs::space(root_save).available;
 
-        auto requested_size = mount_info->blocks * OrbisSaveDataBlockSize;
+        auto requested_size = save_instance.GetMaxBlocks() * OrbisSaveDataBlockSize;
         if (requested_size > available) {
             mount_result->required_blocks = (requested_size - available) / OrbisSaveDataBlockSize;
             return Error::NO_SPACE_FS;
@@ -830,10 +832,11 @@ Error PS4_SYSV_ABI sceSaveDataDirNameSearch(const OrbisSaveDataDirNameSearchCond
             LOG_ERROR(Lib_SaveData, "Failed to read SFO: {}", fmt::UTF(sfo_path.u8string()));
             ASSERT_MSG(false, "Failed to read SFO");
         }
-        map_dir_sfo.emplace(dir_name, std::move(sfo));
 
         size_t size = Common::FS::GetDirectorySize(dir_path);
-        size_t total = SaveInstance::GetMaxBlocks(dir_path);
+        size_t total = SaveInstance::GetMaxBlockFromSFO(sfo);
+
+        map_dir_sfo.emplace(dir_name, std::move(sfo));
         map_free_size.emplace(dir_name, total - size / OrbisSaveDataBlockSize);
         map_max_blocks.emplace(dir_name, total);
     }
@@ -1229,7 +1232,7 @@ Error PS4_SYSV_ABI sceSaveDataLoadIcon(const OrbisSaveDataMountPoint* mountPoint
         return Error::PARAMETER;
     }
     LOG_DEBUG(Lib_SaveData, "called");
-    std::filesystem::path path;
+    fs::path path;
     const std::string_view mount_point_str{mountPoint->data};
     for (const auto& instance : g_mount_slots) {
         if (instance.has_value() && instance->GetMountPoint() == mount_point_str) {
@@ -1374,7 +1377,7 @@ Error PS4_SYSV_ABI sceSaveDataSaveIcon(const OrbisSaveDataMountPoint* mountPoint
         return Error::PARAMETER;
     }
     LOG_DEBUG(Lib_SaveData, "called");
-    std::filesystem::path path;
+    fs::path path;
     const std::string_view mount_point_str{mountPoint->data};
     for (const auto& instance : g_mount_slots) {
         if (instance.has_value() && instance->GetMountPoint() == mount_point_str) {

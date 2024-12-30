@@ -15,6 +15,7 @@
 #include <QNetworkRequest>
 #include <QProcess>
 #include <QPushButton>
+#include <QStandardPaths>
 #include <QString>
 #include <QStringList>
 #include <QTextEdit>
@@ -145,7 +146,9 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             return;
         }
 
-        QString currentRev = QString::fromStdString(Common::g_scm_rev).left(7);
+        QString currentRev = (updateChannel == "Nightly")
+                                 ? QString::fromStdString(Common::g_scm_rev).left(7)
+                                 : "v." + QString::fromStdString(Common::VERSION);
         QString currentDate = Common::g_scm_date;
 
         QDateTime dateTime = QDateTime::fromString(latestDate, Qt::ISODate);
@@ -345,7 +348,13 @@ void CheckUpdate::DownloadUpdate(const QString& url) {
 
         QString userPath;
         Common::FS::PathToQString(userPath, Common::FS::GetUserPath(Common::FS::PathType::UserDir));
+#ifdef Q_OS_WIN
+        QString tempDownloadPath =
+            QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
+            "/Temp/temp_download_update";
+#else
         QString tempDownloadPath = userPath + "/temp_download_update";
+#endif
         QDir dir(tempDownloadPath);
         if (!dir.exists()) {
             dir.mkpath(".");
@@ -374,10 +383,16 @@ void CheckUpdate::Install() {
     QString userPath;
     Common::FS::PathToQString(userPath, Common::FS::GetUserPath(Common::FS::PathType::UserDir));
 
-    QString startingUpdate = tr("Starting Update...");
-    QString tempDirPath = userPath + "/temp_download_update";
     QString rootPath;
     Common::FS::PathToQString(rootPath, std::filesystem::current_path());
+
+    QString tempDirPath = userPath + "/temp_download_update";
+    QString startingUpdate = tr("Starting Update...");
+
+    QString binaryStartingUpdate;
+    for (QChar c : startingUpdate) {
+        binaryStartingUpdate.append(QString::number(c.unicode(), 2).rightJustified(16, '0'));
+    }
 
     QString scriptContent;
     QString scriptFileName;
@@ -385,19 +400,32 @@ void CheckUpdate::Install() {
     QString processCommand;
 
 #ifdef Q_OS_WIN
+    // On windows, overwrite tempDirPath with AppData/Roaming/shadps4/Temp folder
+    // due to PowerShell Expand-Archive not being able to handle correctly
+    // paths in square brackets (ie: ./[shadps4])
+    tempDirPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
+                  "/Temp/temp_download_update";
+
     // Windows Batch Script
     scriptFileName = tempDirPath + "/update.ps1";
     scriptContent = QStringLiteral(
         "Set-ExecutionPolicy Bypass -Scope Process -Force\n"
-        "Write-Output '%1'\n"
+        "$binaryStartingUpdate = '%1'\n"
+        "$chars = @()\n"
+        "for ($i = 0; $i -lt $binaryStartingUpdate.Length; $i += 16) {\n"
+        "    $chars += [char]([convert]::ToInt32($binaryStartingUpdate.Substring($i, 16), 2))\n"
+        "}\n"
+        "$startingUpdate = -join $chars\n"
+        "Write-Output $startingUpdate\n"
         "Expand-Archive -Path '%2\\temp_download_update.zip' -DestinationPath '%2' -Force\n"
         "Start-Sleep -Seconds 3\n"
         "Copy-Item -Recurse -Force '%2\\*' '%3\\'\n"
         "Start-Sleep -Seconds 2\n"
-        "Remove-Item -Force '%3\\update.ps1'\n"
-        "Remove-Item -Force '%3\\temp_download_update.zip'\n"
-        "Start-Process '%3\\shadps4.exe'\n"
-        "Remove-Item -Recurse -Force '%2'\n");
+        "Remove-Item -Force -LiteralPath '%3\\update.ps1'\n"
+        "Remove-Item -Force -LiteralPath '%3\\temp_download_update.zip'\n"
+        "Remove-Item -Recurse -Force '%2'\n"
+        "Start-Process -FilePath '%3\\shadps4.exe' "
+        "-WorkingDirectory ([WildcardPattern]::Escape('%3'))\n");
     arguments << "-ExecutionPolicy"
               << "Bypass"
               << "-File" << scriptFileName;
@@ -454,6 +482,10 @@ void CheckUpdate::Install() {
         "    sleep 2\n"
         "    extract_file\n"
         "    sleep 2\n"
+        "    if pgrep -f \"Shadps4-qt.AppImage\" > /dev/null; then\n"
+        "        pkill -f \"Shadps4-qt.AppImage\"\n"
+        "        sleep 2\n"
+        "    fi\n"
         "    cp -r \"%2/\"* \"%3/\"\n"
         "    sleep 2\n"
         "    rm \"%3/update.sh\"\n"
@@ -508,7 +540,13 @@ void CheckUpdate::Install() {
     QFile scriptFile(scriptFileName);
     if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream out(&scriptFile);
+        scriptFile.write("\xEF\xBB\xBF");
+#ifdef Q_OS_WIN
+        out << scriptContent.arg(binaryStartingUpdate).arg(tempDirPath).arg(rootPath);
+#endif
+#if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
         out << scriptContent.arg(startingUpdate).arg(tempDirPath).arg(rootPath);
+#endif
         scriptFile.close();
 
 // Make the script executable on Unix-like systems
