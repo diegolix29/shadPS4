@@ -324,7 +324,7 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool is_dst_gd
     });
 }
 
-    std::pair<Buffer*, u32> BufferCache::ObtainHostUBO(std::span<const u32> data) {
+std::pair<Buffer*, u32> BufferCache::ObtainHostUBO(std::span<const u32> data) {
     static constexpr u64 StreamThreshold = CACHING_PAGESIZE;
     ASSERT(data.size_bytes() <= StreamThreshold);
     const u64 offset = stream_buffer.Copy(reinterpret_cast<VAddr>(data.data()), data.size_bytes(),
