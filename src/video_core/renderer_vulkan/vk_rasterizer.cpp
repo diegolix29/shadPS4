@@ -498,8 +498,7 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
     for (const auto& desc : stage.buffers) {
         const auto vsharp = desc.GetSharp(stage);
         if (!desc.is_gds_buffer && vsharp.base_address != 0 && vsharp.GetSize() > 0) {
-            const auto buffer_id =
-                buffer_cache.FindOrCreateBuffer(vsharp.base_address, vsharp.GetSize());
+            const auto buffer_id = buffer_cache.FindBuffer(vsharp.base_address, vsharp.GetSize());
             buffer_bindings.emplace_back(buffer_id, vsharp);
         } else {
             buffer_bindings.emplace_back(VideoCore::BufferId{}, vsharp);
@@ -512,8 +511,7 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
         const auto vsharp = desc.GetSharp(stage);
         if (vsharp.base_address != 0 && vsharp.GetSize() > 0 &&
             vsharp.GetDataFmt() != AmdGpu::DataFormat::FormatInvalid) {
-            const auto buffer_id =
-                buffer_cache.FindOrCreateBuffer(vsharp.base_address, vsharp.GetSize());
+            const auto buffer_id = buffer_cache.FindBuffer(vsharp.base_address, vsharp.GetSize());
             texbuffer_bindings.emplace_back(buffer_id, vsharp);
         } else {
             texbuffer_bindings.emplace_back(VideoCore::BufferId{}, vsharp);
