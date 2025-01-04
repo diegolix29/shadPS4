@@ -252,75 +252,97 @@ void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bo
 }
 void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool is_dst_gds,
                              bool is_src_gds) {
-    // Check if the destination region is valid or registered.
+    // Direct memory copy for unregistered regions
     if (!is_dst_gds && !IsRegionRegistered(dst, num_bytes)) {
         if (is_src_gds || IsRegionRegistered(src, num_bytes)) {
             LOG_CRITICAL(Render_Vulkan, "Readback is not implemented for unregistered regions");
             return;
         }
-        // Perform direct memory copy for unregistered regions.
         memcpy(reinterpret_cast<void*>(dst), reinterpret_cast<void*>(src), num_bytes);
         return;
     }
-    // Check if the source region is valid or registered.
+
+    // Inline data if source is unregistered
     if (!is_src_gds && !IsRegionRegistered(src, num_bytes)) {
-        // Inline data for unregistered source regions.
         InlineData(dst, reinterpret_cast<void*>(src), num_bytes, is_dst_gds);
         return;
     }
-    // Retrieve source and destination buffers.
-    auto& src_buffer = [&]() -> const Buffer& {
-        if (is_src_gds) {
-            return gds_buffer; // Use the GDS buffer for source.
-        }
-        const BufferId buffer_id = FindBuffer(src, num_bytes);
-        return slot_buffers[buffer_id];
+
+    // Obtain source and destination buffers
+    const auto& src_buffer = [&]() -> const Buffer& {
+        return is_src_gds ? gds_buffer : slot_buffers[FindBuffer(src, num_bytes)];
     }();
-    auto& dst_buffer = [&]() -> const Buffer& {
-        if (is_dst_gds) {
-            return gds_buffer; // Use the GDS buffer for destination.
-        }
-        const BufferId buffer_id = FindBuffer(dst, num_bytes);
-        return slot_buffers[buffer_id];
+    const auto& dst_buffer = [&]() -> const Buffer& {
+        return is_dst_gds ? gds_buffer : slot_buffers[FindBuffer(dst, num_bytes)];
     }();
-    // Define Vulkan buffer copy region.
+
+    // Batch and prepare Vulkan copy regions
     vk::BufferCopy region{
         .srcOffset = src_buffer.Offset(src),
         .dstOffset = dst_buffer.Offset(dst),
         .size = num_bytes,
     };
-    const vk::BufferMemoryBarrier2 buf_barriers[2] = {
+
+    // Define buffer memory barriers
+    const vk::BufferMemoryBarrier2 pre_barriers[] = {
         {
             .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
             .srcAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-            .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-            .buffer = dst_buffer.Handle(),
-            .offset = dst_buffer.Offset(dst),
+            .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
+            .buffer = src_buffer.Handle(),
+            .offset = src_buffer.Offset(src),
             .size = num_bytes,
         },
         {
             .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
             .srcAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .buffer = dst_buffer.Handle(),
+            .offset = dst_buffer.Offset(dst),
+            .size = num_bytes,
+        }};
+
+    const vk::BufferMemoryBarrier2 post_barriers[] = {
+        {
+            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferRead,
             .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
             .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
             .buffer = src_buffer.Handle(),
             .offset = src_buffer.Offset(src),
             .size = num_bytes,
         },
-    };
+        {
+            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+            .buffer = dst_buffer.Handle(),
+            .offset = dst_buffer.Offset(dst),
+            .size = num_bytes,
+        }};
+
+    // Submit Vulkan commands
     scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
+
+    // Apply pre-copy barriers
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
         .bufferMemoryBarrierCount = 2,
-        .pBufferMemoryBarriers = buf_barriers,
+        .pBufferMemoryBarriers = pre_barriers,
     });
+
+    // Perform the buffer copy
     cmdbuf.copyBuffer(src_buffer.Handle(), dst_buffer.Handle(), region);
+
+    // Apply post-copy barriers
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
         .bufferMemoryBarrierCount = 2,
-        .pBufferMemoryBarriers = buf_barriers,
+        .pBufferMemoryBarriers = post_barriers,
     });
 }
 
