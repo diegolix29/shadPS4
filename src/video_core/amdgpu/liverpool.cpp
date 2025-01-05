@@ -89,10 +89,10 @@ void Liverpool::Process(std::stop_token stoken) {
 
         curr_qid = -1;
 
-        while (num_submits || num_commands) {
-            // Process incoming commands with high priority
+        auto start_time = std::chrono::high_resolution_clock::now();
 
-            const size_t batch_size = 0; // Set the number of commands to process per iteration
+        while (num_submits || num_commands) {
+            const size_t batch_size = 0;
             size_t processed = 0;
 
             while (num_commands && processed < batch_size) {
@@ -627,7 +627,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                                            dma_data->NumBytes(), false, true);
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    constexpr u32 chunkSize = 256 * 1024; // Process in chunks
+                    constexpr u32 chunkSize = 256 * 1024; // Process in chunks to prevent stalls
                     for (u32 offset = 0; offset < dma_data->NumBytes(); offset += chunkSize) {
                         rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>() + offset,
                                                dma_data->SrcAddress<VAddr>() + offset,
@@ -784,7 +784,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                                        dma_data->NumBytes(), false, true);
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                constexpr u32 chunkSize = 256 * 1024; // Process in chunks
+                constexpr u32 chunkSize = 256 * 1024; // Process in chunks to prevent stalls
                 for (u32 offset = 0; offset < dma_data->NumBytes(); offset += chunkSize) {
                     rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>() + offset,
                                            dma_data->SrcAddress<VAddr>() + offset,
