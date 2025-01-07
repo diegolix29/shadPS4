@@ -36,7 +36,7 @@
   <categories>
     <category translate="no">Game</category>
   </categories>
-  <releases> type="external" url="https://cdn.jsdelivr.net/gh/fpiesche/flatpak-builds/apps/net.shadps4.shadPS4/net.shadps4.shadPS4.releases.xml">
+  <releases> type="external" url="https://cdn.jsdelivr.net/gh/fpiesche/flatpak-builds/apps/net.shadps4.shadPS4/net.shadps4.shadPS4.metainfo.xml">
     <release version="0.5.0" date="2024-12-25">
       <url>https://github.com/shadps4-emu/shadPS4/releases/tag/v.0.5.0</url>
     </release>
