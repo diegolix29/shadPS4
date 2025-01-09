@@ -270,6 +270,7 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool is_dst_gd
     // Inline data if source is unregistered
     if (!is_src_gds && !IsRegionRegistered(src, num_bytes)) {
         const auto [staging_memory, staging_offset] = staging_buffer.Map(num_bytes);
+        InlineData(dst, reinterpret_cast<void*>(src), num_bytes, is_dst_gds);
 
         // Ensure rendering is finished before issuing copy commands
         scheduler.EndRendering();
