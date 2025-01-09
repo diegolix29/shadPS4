@@ -252,6 +252,11 @@ void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bo
 }
 void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool is_dst_gds,
                              bool is_src_gds) {
+    // Retrieve the source buffer based on whether it's GDS or a registered buffer
+    const auto& src_buffer = [&]() -> const Buffer& {
+        return is_src_gds ? gds_buffer : slot_buffers[FindBuffer(src, num_bytes)];
+    }();
+
     // Direct memory copy for unregistered regions
     if (!is_dst_gds && !IsRegionRegistered(dst, num_bytes)) {
         if (is_src_gds || IsRegionRegistered(src, num_bytes)) {
@@ -264,19 +269,37 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool is_dst_gd
 
     // Inline data if source is unregistered
     if (!is_src_gds && !IsRegionRegistered(src, num_bytes)) {
-        InlineData(dst, reinterpret_cast<void*>(src), num_bytes, is_dst_gds);
+        const auto [staging_memory, staging_offset] = staging_buffer.Map(num_bytes);
+
+        // Ensure rendering is finished before issuing copy commands
+        scheduler.EndRendering();
+        const auto cmdbuf = scheduler.CommandBuffer();
+
+        // Define Vulkan copy region
+        vk::BufferCopy copy_region{
+            .srcOffset = src_buffer.Offset(src),
+            .dstOffset = staging_offset,
+            .size = num_bytes,
+        };
+
+        // Issue Vulkan copy command
+        cmdbuf.copyBuffer(src_buffer.Handle(), staging_buffer.Handle(), copy_region);
+
+        // Ensure GPU operations are completed
+        scheduler.Finish();
+
+        // Transfer data from mapped staging memory to destination
+        std::memcpy(reinterpret_cast<void*>(dst), staging_memory + staging_offset, num_bytes);
+
         return;
     }
 
     // Obtain source and destination buffers
-    const auto& src_buffer = [&]() -> const Buffer& {
-        return is_src_gds ? gds_buffer : slot_buffers[FindBuffer(src, num_bytes)];
-    }();
     const auto& dst_buffer = [&]() -> const Buffer& {
         return is_dst_gds ? gds_buffer : slot_buffers[FindBuffer(dst, num_bytes)];
     }();
 
-    // Batch and prepare Vulkan copy regions
+    // Vulkan copy region
     vk::BufferCopy region{
         .srcOffset = src_buffer.Offset(src),
         .dstOffset = dst_buffer.Offset(dst),
@@ -327,6 +350,11 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool is_dst_gd
     // Submit Vulkan commands
     scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 2,
+        .pBufferMemoryBarriers = pre_barriers,
+    });
 
     // Apply pre-copy barriers
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
