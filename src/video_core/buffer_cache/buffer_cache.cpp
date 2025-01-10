@@ -104,8 +104,6 @@ void BufferCache::BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline) {
     if (bindings.empty()) {
         // If there are no bindings, there is nothing further to do.
         return;
-    if (!fetch_shader || fetch_shader->attributes.empty()) {
-        return false;
     }
 
     struct BufferRange {
