@@ -45,6 +45,7 @@ bool getIsMotionControlsEnabled();
 u32 getScreenWidth();
 u32 getScreenHeight();
 s32 getGpuId();
+std::string getPostProcessingFilter();
 
 bool debugDump();
 bool collectShadersForDebug();
@@ -65,6 +66,7 @@ void setNullGpu(bool enable);
 void setCopyGPUCmdBuffers(bool enable);
 void setDumpShaders(bool enable);
 void setVblankDiv(u32 value);
+void setPostProcessingFilter(const std::string& type);
 void setGpuId(s32 selectedGpuId);
 void setScreenWidth(u32 width);
 void setScreenHeight(u32 height);
