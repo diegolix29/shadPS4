@@ -131,8 +131,6 @@ class DebugStateImpl {
     friend class Core::Devtools::Widget::FrameGraph;
     friend class Core::Devtools::Widget::ShaderList;
 
-    bool showing_debug_menu_bar = false;
-
     std::queue<std::string> debug_message_popup;
 
     std::mutex guest_threads_mutex{};
@@ -155,18 +153,11 @@ class DebugStateImpl {
     std::vector<ShaderDump> shader_dump_list{};
 
 public:
-    float Framerate = 1.0f / 60.0f;
-    float FrameDeltaTime;
-
     void ShowDebugMessage(std::string message) {
         if (message.empty()) {
             return;
         }
         debug_message_popup.push(std::move(message));
-    }
-
-    bool& ShowingDebugMenuBar() {
-        return showing_debug_menu_bar;
     }
 
     void AddCurrentThreadToGuestList();

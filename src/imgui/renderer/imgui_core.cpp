@@ -6,7 +6,6 @@
 
 #include "common/config.h"
 #include "common/path_util.h"
-#include "core/debug_state.h"
 #include "core/devtools/layer.h"
 #include "imgui/imgui_layer.h"
 #include "imgui_core.h"
@@ -168,7 +167,7 @@ bool ProcessEvent(SDL_Event* event) {
     }
 }
 
-ImGuiID NewFrame(bool is_reusing_frame) {
+void NewFrame() {
     {
         std::scoped_lock lock{change_layers_mutex};
         while (!change_layers.empty()) {
@@ -183,24 +182,17 @@ ImGuiID NewFrame(bool is_reusing_frame) {
         }
     }
 
-    Sdl::NewFrame(is_reusing_frame);
+    Sdl::NewFrame();
     ImGui::NewFrame();
 
-    ImGuiWindowFlags flags = ImGuiDockNodeFlags_PassthruCentralNode;
-    if (!DebugState.ShowingDebugMenuBar()) {
-        flags |= ImGuiDockNodeFlags_NoTabBar;
-    }
-    ImGuiID dockId = DockSpaceOverViewport(0, GetMainViewport(), flags);
+    DockSpaceOverViewport(0, GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
     for (auto* layer : layers) {
         layer->Draw();
     }
-
-    return dockId;
 }
 
-void Render(const vk::CommandBuffer& cmdbuf, const vk::ImageView& image_view,
-            const vk::Extent2D& extent) {
+void Render(const vk::CommandBuffer& cmdbuf, ::Vulkan::Frame* frame) {
     ImGui::Render();
     ImDrawData* draw_data = GetDrawData();
     if (draw_data->CmdListsCount == 0) {
@@ -215,16 +207,16 @@ void Render(const vk::CommandBuffer& cmdbuf, const vk::ImageView& image_view,
 
     vk::RenderingAttachmentInfo color_attachments[1]{
         {
-            .imageView = image_view,
+            .imageView = frame->image_view,
             .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::eClear,
+            .loadOp = vk::AttachmentLoadOp::eLoad,
             .storeOp = vk::AttachmentStoreOp::eStore,
         },
     };
     vk::RenderingInfo render_info{};
     render_info.renderArea = vk::Rect2D{
         .offset = {0, 0},
-        .extent = extent,
+        .extent = {frame->width, frame->height},
     };
     render_info.layerCount = 1;
     render_info.colorAttachmentCount = 1;
