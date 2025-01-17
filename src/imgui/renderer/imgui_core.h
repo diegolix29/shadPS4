@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <imgui.h>
-
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "vulkan/vulkan_handles.hpp"
 
@@ -26,9 +24,8 @@ void Shutdown(const vk::Device& device);
 
 bool ProcessEvent(SDL_Event* event);
 
-ImGuiID NewFrame(bool is_reusing_frame = false);
+void NewFrame();
 
-void Render(const vk::CommandBuffer& cmdbuf, const vk::ImageView& image_view,
-            const vk::Extent2D& extent);
+void Render(const vk::CommandBuffer& cmdbuf, Vulkan::Frame* frame);
 
 } // namespace ImGui::Core

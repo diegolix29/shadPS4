@@ -28,6 +28,7 @@ static bool show_simple_fps = false;
 static bool visibility_toggled = false;
 
 static float fps_scale = 1.0f;
+static bool show_advanced_debug = false;
 static int dump_frame_count = 1;
 
 static Widget::FrameGraph frame_graph;
@@ -252,8 +253,8 @@ void L::DrawAdvanced() {
 }
 
 void L::DrawSimple() {
-    const float frameRate = DebugState.Framerate;
-    Text("%d FPS (%.1f ms)", static_cast<int>(std::round(1.0f / frameRate)), frameRate * 1000.0f);
+    const auto io = GetIO();
+    Text("%.1f FPS (%.2f ms)", io.Framerate, 1000.0f / io.Framerate);
 }
 
 static void LoadSettings(const char* line) {
@@ -264,7 +265,7 @@ static void LoadSettings(const char* line) {
         return;
     }
     if (sscanf(line, "show_advanced_debug=%d", &i) == 1) {
-        DebugState.ShowingDebugMenuBar() = i != 0;
+        show_advanced_debug = i != 0;
         return;
     }
     if (sscanf(line, "show_frame_graph=%d", &i) == 1) {
@@ -309,7 +310,7 @@ void L::SetupSettings() {
     handler.WriteAllFn = [](ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buf) {
         buf->appendf("[%s][Data]\n", handler->TypeName);
         buf->appendf("fps_scale=%f\n", fps_scale);
-        buf->appendf("show_advanced_debug=%d\n", DebugState.ShowingDebugMenuBar());
+        buf->appendf("show_advanced_debug=%d\n", show_advanced_debug);
         buf->appendf("show_frame_graph=%d\n", frame_graph.is_open);
         buf->appendf("dump_frame_count=%d\n", dump_frame_count);
         buf->append("\n");
@@ -335,12 +336,12 @@ void L::Draw() {
 
     if (!DebugState.IsGuestThreadsPaused()) {
         const auto fn = DebugState.flip_frame_count.load();
-        frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
+        frame_graph.AddFrame(fn, io.DeltaTime);
     }
 
     if (IsKeyPressed(ImGuiKey_F10, false)) {
         if (io.KeyCtrl) {
-            DebugState.ShowingDebugMenuBar() ^= true;
+            show_advanced_debug = !show_advanced_debug;
         } else {
             show_simple_fps = !show_simple_fps;
         }
@@ -375,7 +376,7 @@ void L::Draw() {
         End();
     }
 
-    if (DebugState.ShowingDebugMenuBar()) {
+    if (show_advanced_debug) {
         PushFont(io.Fonts->Fonts[IMGUI_FONT_MONO]);
         PushID("DevtoolsLayer");
         DrawAdvanced();

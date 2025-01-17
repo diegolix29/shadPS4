@@ -5,7 +5,6 @@
 
 #include <condition_variable>
 
-#include "imgui/imgui_config.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
@@ -31,8 +30,6 @@ struct Frame {
     vk::Fence present_done;
     vk::Semaphore ready_semaphore;
     u64 ready_tick;
-
-    ImTextureID imgui_texture;
 };
 
 enum SchedulerType {
@@ -89,9 +86,8 @@ public:
     }
 
     bool ShowSplash(Frame* frame = nullptr);
-    void Present(Frame* frame, bool is_reusing_frame = false);
+    void Present(Frame* frame);
     void RecreateFrame(Frame* frame, u32 width, u32 height);
-    Frame* PrepareLastFrame();
 
     void FlushDraw() {
         SubmitInfo info{};
@@ -125,7 +121,6 @@ private:
     vk::UniqueCommandPool command_pool;
     std::vector<Frame> present_frames;
     std::queue<Frame*> free_queue;
-    Frame* last_submit_frame;
     std::mutex free_mutex;
     std::condition_variable free_cv;
     std::condition_variable_any frame_cv;

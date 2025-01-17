@@ -4,7 +4,6 @@
 #include <deque>
 #include <utility>
 
-#include <imgui.h>
 #include "common/assert.h"
 #include "common/config.h"
 #include "common/io_file.h"
@@ -124,7 +123,7 @@ static std::deque<UploadJob> g_upload_list;
 namespace Core::TextureManager {
 
 Inner::~Inner() {
-    if (upload_data.im_texture != nullptr) {
+    if (upload_data.descriptor_set != nullptr) {
         std::unique_lock lk{g_upload_mtx};
         g_upload_list.emplace_back(UploadJob{
             .data = this->upload_data,
@@ -240,7 +239,7 @@ void Submit() {
     }
     if (upload.core != nullptr) {
         upload.core->upload_data.Upload();
-        upload.core->texture_id = upload.core->upload_data.im_texture;
+        upload.core->texture_id = upload.core->upload_data.descriptor_set;
         if (upload.core->count.fetch_sub(1) == 1) {
             delete upload.core;
         }
