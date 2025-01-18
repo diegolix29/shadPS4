@@ -614,7 +614,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                            dma_data->dst_sel == DmaDataDst::Gds) {
                     dma_data->SrcAddress<VAddr>(), dma_data->dst_addr_lo, dma_data->NumBytes();
                     rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
-                                           dma_data->NumBytes(), true, false);
+                                           dma_data->NumBytes() -1, true, false);
                 } else if (dma_data->src_sel == DmaDataSrc::Data &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
                     dma_data->data, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
@@ -624,7 +624,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                            dma_data->dst_sel == DmaDataDst::Memory) {
                     dma_data->src_addr_lo, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                     rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                           dma_data->NumBytes(), false, true);
+                                           dma_data->NumBytes() -1, false, true);
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
                     constexpr u32 chunkSize = 256 * 1024; // Process in chunks to prevent stalls
@@ -771,7 +771,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                        dma_data->dst_sel == DmaDataDst::Gds) {
                 dma_data->SrcAddress<VAddr>(), dma_data->dst_addr_lo, dma_data->NumBytes();
                 rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
-                                       dma_data->NumBytes(), true, false);
+                                       dma_data->NumBytes() -1, true, false);
             } else if (dma_data->src_sel == DmaDataSrc::Data &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
                 dma_data->data, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
@@ -781,7 +781,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                        dma_data->dst_sel == DmaDataDst::Memory) {
                 dma_data->src_addr_lo, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                 rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                       dma_data->NumBytes(), false, true);
+                                       dma_data->NumBytes() -1, false, true);
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
                 constexpr u32 chunkSize = 256 * 1024; // Process in chunks to prevent stalls
