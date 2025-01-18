@@ -390,7 +390,7 @@ void Presenter::RecreateFrame(Frame* frame, u32 width, u32 height) {
     const vk::ImageViewCreateInfo view_info = {
         .image = frame->image,
         .viewType = vk::ImageViewType::e2D,
-        .format = swapchain.GetViewFormat(),
+        .format = format,
         .subresourceRange{
             .aspectMask = vk::ImageAspectFlagBits::eColor,
             .baseMipLevel = 0,
@@ -486,7 +486,7 @@ bool Presenter::ShowSplash(Frame* frame /*= nullptr*/) {
     if (!frame) {
         if (!splash_img.has_value()) {
             VideoCore::ImageInfo info{};
-            info.pixel_format = vk::Format::eR8G8B8A8Srgb;
+            info.pixel_format = vk::Format::eR8G8B8A8Unorm;
             info.type = vk::ImageType::e2D;
             info.size =
                 VideoCore::Extent3D{splash->GetImageInfo().width, splash->GetImageInfo().height, 1};
@@ -497,6 +497,7 @@ bool Presenter::ShowSplash(Frame* frame /*= nullptr*/) {
                                           splash->GetImageInfo().width,
                                           splash->GetImageInfo().height, 0);
             splash_img.emplace(instance, present_scheduler, info);
+            splash_img->flags &= ~VideoCore::GpuDirty;
             texture_cache.RefreshImage(*splash_img);
 
             splash_img->Transit(vk::ImageLayout::eTransferSrcOptimal,
