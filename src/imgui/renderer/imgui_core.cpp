@@ -52,7 +52,8 @@ void Initialize(const ::Vulkan::Instance& instance, const Frontend::WindowSDL& w
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.DisplaySize = ImVec2((float)window.GetWidth(), (float)window.GetHeight());
-    PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f); // Makes the window edges rounded
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowBorderSize = 0.0f;
 
     auto path = config_path.u8string();
     char* config_file_buf = new char[path.size() + 1]();
