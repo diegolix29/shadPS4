@@ -25,7 +25,8 @@ static const char* ccb_task_name{"CCB_TASK"};
 static_assert(Liverpool::NumComputeRings <= MAX_NAMES);
 
 #define NAME_NUM(z, n, name) BOOST_PP_STRINGIZE(name) BOOST_PP_STRINGIZE(n),
-#define NAME_ARRAY(name, num) {BOOST_PP_REPEAT(num, NAME_NUM, name)}
+#define NAME_ARRAY(name, num)                                                                      \
+    { BOOST_PP_REPEAT(num, NAME_NUM, name) }
 
 static const char* acb_task_name[] = NAME_ARRAY(ACB_TASK, MAX_NAMES);
 
@@ -89,27 +90,25 @@ void Liverpool::Process(std::stop_token stoken) {
 
         curr_qid = -1;
 
-        auto start_time = std::chrono::high_resolution_clock::now();
-
         while (num_submits || num_commands) {
-            const size_t batch_size = 0;
-            size_t processed = 0;
 
-            while (num_commands && processed < batch_size) {
+            // Process incoming commands with high priority
+            while (num_commands) {
+
                 Common::UniqueFunction<void> callback{};
                 {
                     std::unique_lock lk{submit_mutex};
                     callback = std::move(command_queue.back());
                     command_queue.pop();
                 }
+
                 callback();
+
                 --num_commands;
-                ++processed;
             }
 
-            std::this_thread::yield();
-
             curr_qid = (curr_qid + 1) % num_mapped_queues;
+
             auto& queue = mapped_queues[curr_qid];
 
             Task::Handle task{};
@@ -124,17 +123,14 @@ void Liverpool::Process(std::stop_token stoken) {
 
             if (task.done()) {
                 task.destroy();
-                {
-                    std::scoped_lock lock{queue.m_access};
-                    queue.submits.pop();
-                }
+
+                std::scoped_lock lock{queue.m_access};
+                queue.submits.pop();
+
                 --num_submits;
-                {
-                    std::scoped_lock lock2{submit_mutex};
-                    submit_cv.notify_all();
-                }
+                std::scoped_lock lock2{submit_mutex};
+                submit_cv.notify_all();
             }
-            std::this_thread::yield();
         }
 
         if (submit_done) {
@@ -236,9 +232,6 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
 
         switch (type) {
         case 0:
-            LOG_ERROR(Lib_GnmDriver, "Continue hack Unsupported PM4 type 0");
-            dcb = NextPacket(dcb, header->type0.NumWords() + 1);
-            continue;
         case 1:
             UNREACHABLE_MSG("Unsupported PM4 type {}", type);
             break;
@@ -607,33 +600,25 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     break;
                 }
                 if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
-                    dma_data->data, dma_data->dst_addr_lo, dma_data->NumBytes();
                     rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32),
                                            true);
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Gds) {
-                    dma_data->SrcAddress<VAddr>(), dma_data->dst_addr_lo, dma_data->NumBytes();
                     rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
-                                           dma_data->NumBytes() -1, true, false);
+                                           dma_data->NumBytes(), true, false);
                 } else if (dma_data->src_sel == DmaDataSrc::Data &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    dma_data->data, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                     rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data,
                                            sizeof(u32), false);
                 } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    dma_data->src_addr_lo, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                     rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                           dma_data->NumBytes() -1, false, true);
+                                           dma_data->NumBytes(), false, true);
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    constexpr u32 chunkSize = 256 * 1024; // Process in chunks to prevent stalls
-                    for (u32 offset = 0; offset < dma_data->NumBytes(); offset += chunkSize) {
-                        rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>() + offset,
-                                               dma_data->SrcAddress<VAddr>() + offset,
-                                               std::min(chunkSize, dma_data->NumBytes() - offset),
-                                               false, false);
-                    }
+                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
+                                           dma_data->SrcAddress<VAddr>(), dma_data->NumBytes() - 1,
+                                           false, false);
                 } else {
                     UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
                                     u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -765,32 +750,23 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                 break;
             }
             if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
-                dma_data->data, dma_data->dst_addr_lo, dma_data->NumBytes();
                 rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Gds) {
-                dma_data->SrcAddress<VAddr>(), dma_data->dst_addr_lo, dma_data->NumBytes();
                 rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
-                                       dma_data->NumBytes() -1, true, false);
+                                       dma_data->NumBytes(), true, false);
             } else if (dma_data->src_sel == DmaDataSrc::Data &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                dma_data->data, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                 rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data, sizeof(u32),
                                        false);
             } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                dma_data->src_addr_lo, dma_data->DstAddress<uintptr_t>(), dma_data->NumBytes();
                 rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                       dma_data->NumBytes() -1, false, true);
+                                       dma_data->NumBytes(), false, true);
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                constexpr u32 chunkSize = 256 * 1024; // Process in chunks to prevent stalls
-                for (u32 offset = 0; offset < dma_data->NumBytes(); offset += chunkSize) {
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>() + offset,
-                                           dma_data->SrcAddress<VAddr>() + offset,
-                                           std::min(chunkSize, dma_data->NumBytes() - offset),
-                                           false, false);
-                }
+                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->SrcAddress<VAddr>(),
+                                       dma_data->NumBytes() - 1, false, false);
             } else {
                 UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
                                 u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -956,7 +932,7 @@ void Liverpool::SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb) {
         queue.submits.emplace(task.handle);
     }
 
-    std::lock_guard<std::mutex> lk(submit_mutex);
+    std::scoped_lock lk{submit_mutex};
     ++num_submits;
     submit_cv.notify_one();
 }
