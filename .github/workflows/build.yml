@@ -383,7 +383,6 @@ jobs:
       with:
         name: shadps4-linux-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         path: Shadps4-qt.AppImage
-
   linux-sdl-gcc:
     runs-on: ubuntu-24.04
     needs: get-info
@@ -466,8 +465,8 @@ jobs:
         path: shadps4.flatpak
         name: shadps4-linux-flatpak-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         
-  PartBB:
-    if: github.ref == 'refs/heads/PartBB' && github.event_name == 'push'
+  release:
+    if: github.ref == 'refs/heads/Full-BB' && github.event_name == 'push'
     needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
     runs-on: ubuntu-latest
     steps:
@@ -487,8 +486,8 @@ jobs:
           fi
         done
   
-    - name: Get PartBB information
-      id: get_PartBB
+    - name: Get release information
+      id: get_release
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
@@ -496,20 +495,20 @@ jobs:
         latest_release_info=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url/releases/latest")
         echo "last_release_tag=$(echo "$latest_release_info" | jq -r '.tag_name')" >> $GITHUB_ENV
 
-    - name: Create PartBB on GitHub
-      id: create_PartBB
+    - name: Create release on GitHub
+      id: create_release
       uses: ncipollo/release-action@v1
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       with:
-        name: "PartBB-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
-        tag: "PartBB-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        name: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        tag: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
         draft: false
         prerelease: false
         body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }})"
         artifacts: ./artifacts/*.zip
          
-    - name: Get current PartBB information
+    - name: Get current release information
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
@@ -518,7 +517,7 @@ jobs:
         # Get all releases (sorted by date)
         releases=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url")
         
-        # Capture the most recent PartBB (assuming the first one is the latest)
+        # Capture the most recent release (assuming the first one is the latest)
         current_release=$(echo "$releases" | jq -c '.[] | select(.prerelease == true) | .published_at' | sort -r | head -n 1)
         
         # Remove extra quotes from captured date
@@ -527,13 +526,13 @@ jobs:
         # Export the current published_at to be available for the next step
         echo "CURRENT_PUBLISHED_AT=$current_release" >> $GITHUB_ENV
     
-    - name: Delete old PartBBs and tags
+    - name: Delete old releases and tags
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
         
-        # Get current PartBBs
+        # Get current releases
         releases=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url")
                 
         # Remove extra quotes from captured date
@@ -542,7 +541,7 @@ jobs:
         # Convert CURRENT_PUBLISHED_AT para timestamp Unix
         current_published_ts=$(date -d "$CURRENT_PUBLISHED_AT" +%s)
         
-        # Identify PartBBs
+        # Identify releases
         echo "$releases" | jq -c '.[] | select(.prerelease == true)' | while read -r release; do
           release_date=$(echo "$release" | jq -r '.published_at')
           release_id=$(echo "$release" | jq -r '.id')
@@ -554,14 +553,14 @@ jobs:
           # Convert release_date para timestamp Unix
           release_date_ts=$(date -d "$release_date" +%s)
                     
-          # Compare timestamps and delete old PartBBs
+          # Compare timestamps and delete old releases
           if [[ "$release_date_ts" -lt "$current_published_ts" ]]; then
-            echo "Deleting old PartBB: $release_id from $release_date with tag: $release_tag"
-            # Delete the PartBB
+            echo "Deleting old release: $release_id from $release_date with tag: $release_tag"
+            # Delete the release
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "$api_url/$release_id"
             # Delete the tag
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$release_tag"
           else
-            echo "Skipping PartBB: $release_id (newer or same date)"
+            echo "Skipping release: $release_id (newer or same date)"
           fi
         done
