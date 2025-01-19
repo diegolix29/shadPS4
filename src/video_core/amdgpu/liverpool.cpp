@@ -955,4 +955,3 @@ void Liverpool::SubmitAsc(u32 gnm_vqid, std::span<const u32> acb) {
 }
 
 } // namespace AmdGpu
-} // namespace AmdGpu
