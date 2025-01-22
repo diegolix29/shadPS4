@@ -260,7 +260,7 @@ int MemoryManager::PoolCommit(VAddr virtual_addr, size_t size, MemoryProt prot) 
     new_vma.disallow_merge = false;
     new_vma.prot = prot;
     new_vma.name = "";
-    new_vma.type = Core::VMAType::Pooled;
+    new_vma.type = Core::VMAType::Reserved;
     new_vma.is_exec = false;
     new_vma.phys_base = 0;
 
@@ -530,7 +530,7 @@ int MemoryManager::VirtualQuery(VAddr addr, int flags,
     info->is_direct.Assign(vma.type == VMAType::Direct);
     info->is_stack.Assign(vma.type == VMAType::Stack);
     info->is_pooled.Assign(vma.type == VMAType::PoolReserved);
-    info->is_committed.Assign(vma.type == VMAType::Pooled);
+    info->is_committed.Assign(vma.type != VMAType::Reserved)
     vma.name.copy(info->name.data(), std::min(info->name.size(), vma.name.size()));
     if (vma.type == VMAType::Direct) {
         const auto dmem_it = FindDmemArea(vma.phys_base);
