@@ -492,17 +492,17 @@
                     </property>
                     <item>
                      <property name="text">
-                      <string>Release</string>
+                      <string>Full-BB</string>
                      </property>
                     </item>
                     <item>
                      <property name="text">
-                      <string>Nightly</string>
+                      <string>mainBB</string>
                      </property>
                     </item>
                     <item>
                      <property name="text">
-                      <string>PartBB</string>
+                      <string>PRTBB</string>
                      </property>
                     </item>
                    </widget>
