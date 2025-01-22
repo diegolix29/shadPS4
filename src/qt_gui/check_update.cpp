@@ -45,22 +45,22 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
     bool checkName = true;
     while (checkName) {
         updateChannel = QString::fromStdString(Config::getUpdateChannel());
-        if (updateChannel == "Nightly") {
+        if (updateChannel == "mainBB") {
             url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
             checkName = false;
-        } else if (updateChannel == "Release") {
+        } else if (updateChannel == "Full-BB") {
             url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases/latest");
             checkName = false;
-        } else if (updateChannel == "PartBB") {
+        } else if (updateChannel == "PRTBB") {
             url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
             checkName = false;
         } else {
             if (Common::isRelease) {
-                updateChannel = "Release";
+                updateChannel = "Full-BB";
             } else if (!Common::isRelease) { // Non-release builds
-                updateChannel = "Nightly";
-            } else { // Fallback to PartBB if neither applies
-                updateChannel = "PartBB";
+                updateChannel = "mainBB";
+            } else { // Fallback to PRTBB if neither applies
+                updateChannel = "PRTBB";
             }
             const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
             Config::save(config_dir / "config.toml");
@@ -102,7 +102,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
 #endif
 
         QJsonObject jsonObj;
-        if (updateChannel == "Nightly") {
+        if (updateChannel == "mainBB") {
             QJsonArray jsonArray = jsonDoc.array();
             for (const QJsonValue& value : jsonArray) {
                 jsonObj = value.toObject();
@@ -117,19 +117,19 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
                 reply->deleteLater();
                 return;
             }
-        } else if (updateChannel == "PartBB") {
-            // Find the first release with a tag_name starting with "PartBB-"
+        } else if (updateChannel == "PRTBB") {
+            // Find the first release with a tag_name starting with "PRTBB-"
             QJsonArray jsonArray = jsonDoc.array();
             for (const QJsonValue& value : jsonArray) {
                 jsonObj = value.toObject();
                 QString tagName = jsonObj["tag_name"].toString();
-                if (tagName.startsWith("PartBB-")) {
+                if (tagName.startsWith("PRTBB-")) {
                     latestVersion = tagName;
                     break;
                 }
             }
             if (latestVersion.isEmpty()) {
-                QMessageBox::warning(this, tr("Error"), tr("No PartBB releases found."));
+                QMessageBox::warning(this, tr("Error"), tr("No PRTBB releases found."));
                 reply->deleteLater();
                 return;
             }
