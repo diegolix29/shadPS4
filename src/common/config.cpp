@@ -646,11 +646,11 @@ void load(const std::filesystem::path& path) {
         } else { // Fallback to PRTBB if neither applies
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "PRTBB");
         }
-        if (updateChannel == "Nightly") {
-            updateChannel = "mainBB";
-        }
         if (updateChannel == "Release") {
             updateChannel = "Full-BB";
+        }
+        if (updateChannel == "Nightly") {
+            updateChannel = "mainBB";
         }
         if (updateChannel == "PartBB") {
             updateChannel = "PRTBB";
