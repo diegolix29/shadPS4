@@ -260,7 +260,7 @@ int MemoryManager::PoolCommit(VAddr virtual_addr, size_t size, MemoryProt prot) 
     new_vma.disallow_merge = false;
     new_vma.prot = prot;
     new_vma.name = "";
-    new_vma.type = Core::VMAType::Pooled;
+    new_vma.type = Core::VMAType:: Pooled;
     new_vma.is_exec = false;
     new_vma.phys_base = 0;
 
