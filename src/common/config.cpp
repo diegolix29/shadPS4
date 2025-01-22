@@ -639,7 +639,6 @@ void load(const std::filesystem::path& path) {
         logFilter = toml::find_or<std::string>(general, "logFilter", "");
         logType = toml::find_or<std::string>(general, "logType", "sync");
         userName = toml::find_or<std::string>(general, "userName", "shadPS4");
-
         if (Common::isRelease) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Full-BB");
         } else if (!Common::isRelease) { // Non-release builds
@@ -647,13 +646,15 @@ void load(const std::filesystem::path& path) {
         } else { // Fallback to PRTBB if neither applies
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "PRTBB");
         }
-        if (updateChannel != "Nightly") {
+        if (updateChannel == "Nightly") {
             updateChannel = "mainBB";
         }
-        if (updateChannel != "Release") {
+        if (updateChannel == "Release") {
             updateChannel = "Full-BB";
         }
-
+        if (updateChannel == "PartBB") {
+            updateChannel = "PRTBB";
+        }
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
         separateupdatefolder = toml::find_or<bool>(general, "separateUpdateEnabled", false);
