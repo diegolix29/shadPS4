@@ -647,13 +647,15 @@ void load(const std::filesystem::path& path) {
         } else { // Fallback to PRTBB if neither applies
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "PRTBB");
         }
-        if (updateChannel != "Nightly") {
+        if (updateChannel == "Nightly") {
             updateChannel = "mainBB";
         }
-        if (updateChannel != "Release") {
+        if (updateChannel == "Release") {
             updateChannel = "Full-BB";
         }
-
+        if (updateChannel == "PartBB") {
+            updateChannel = "PRTBB";
+        }
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
         separateupdatefolder = toml::find_or<bool>(general, "separateUpdateEnabled", false);
