@@ -654,7 +654,6 @@ void load(const std::filesystem::path& path) {
             updateChannel = "Full-BB";
         }
 
-
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
         separateupdatefolder = toml::find_or<bool>(general, "separateUpdateEnabled", false);
