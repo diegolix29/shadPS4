@@ -65,7 +65,6 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
     : QDialog(parent), ui(new Ui::SettingsDialog) {
     ui->setupUi(this);
     ui->tabWidgetSettings->setUsesScrollButtons(false);
-
     initialHeight = this->height();
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
@@ -151,6 +150,7 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
         });
 #else
         ui->updaterGroupBox->setVisible(false);
+        ui->GUIgroupBox->setMaximumSize(265, 16777215);
 #endif
         connect(ui->updateCompatibilityButton, &QPushButton::clicked, this,
                 [this, parent, m_compat_info]() {
@@ -169,11 +169,6 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
         });
     }
 
-    // Gui TAB
-    {
-        connect(ui->chooseHomeTabComboBox, &QComboBox::currentTextChanged, this,
-                [](const QString& hometab) { Config::setChooseHomeTab(hometab.toStdString()); });
-    }
     // Input TAB
     {
         connect(ui->hideCursorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
@@ -251,7 +246,7 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
 #ifdef ENABLE_UPDATER
         ui->updaterGroupBox->installEventFilter(this);
 #endif
-        ui->GUIMusicGroupBox->installEventFilter(this);
+        ui->GUIgroupBox->installEventFilter(this);
         ui->disableTrophycheckBox->installEventFilter(this);
         ui->enableCompatibilityCheckBox->installEventFilter(this);
         ui->checkCompatibilityOnStartupCheckBox->installEventFilter(this);
@@ -378,15 +373,6 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->updateComboBox->setCurrentText(QString::fromStdString(updateChannel));
 #endif
 
-    std::string chooseHomeTab = toml::find_or<std::string>(data, "General", "chooseHomeTab", "");
-    ui->chooseHomeTabComboBox->setCurrentText(QString::fromStdString(chooseHomeTab));
-    QStringList tabNames = {tr("General"), tr("Gui"),   tr("Graphics"), tr("User"),
-                            tr("Input"),   tr("Paths"), tr("Debug")};
-    QString chooseHomeTabQString = QString::fromStdString(chooseHomeTab);
-    int indexTab = tabNames.indexOf(chooseHomeTabQString);
-    indexTab = (indexTab == -1) ? 0 : indexTab;
-    ui->tabWidgetSettings->setCurrentIndex(indexTab);
-
     QString backButtonBehavior = QString::fromStdString(
         toml::find_or<std::string>(data, "Input", "backButtonBehavior", "left"));
     int index = ui->backButtonBehaviorComboBox->findData(backButtonBehavior);
@@ -490,8 +476,8 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
     } else if (elementName == "updaterGroupBox") {
         text = tr("updaterGroupBox");
 #endif
-    } else if (elementName == "GUIMusicGroupBox") {
-        text = tr("GUIMusicGroupBox");
+    } else if (elementName == "GUIgroupBox") {
+        text = tr("GUIgroupBox");
     } else if (elementName == "disableTrophycheckBox") {
         text = tr("disableTrophycheckBox");
     } else if (elementName == "enableCompatibilityCheckBox") {
@@ -606,7 +592,6 @@ void SettingsDialog::UpdateSettings() {
     Config::setRdocEnabled(ui->rdocCheckBox->isChecked());
     Config::setAutoUpdate(ui->updateCheckBox->isChecked());
     Config::setUpdateChannel(ui->updateComboBox->currentText().toStdString());
-    Config::setChooseHomeTab(ui->chooseHomeTabComboBox->currentText().toStdString());
     Config::setCompatibilityEnabled(ui->enableCompatibilityCheckBox->isChecked());
     Config::setCheckCompatibilityOnStartup(ui->checkCompatibilityOnStartupCheckBox->isChecked());
 

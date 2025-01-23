@@ -541,16 +541,8 @@
 			<translation>Abilita Schermo Intero</translation>
 		</message>
 		<message>
-			<source>Fullscreen Mode</source>
-			<translation>Modalità Schermo Intero</translation>
-		</message>
-		<message>
 			<source>Enable Separate Update Folder</source>
 			<translation>Abilita Cartella Aggiornamenti Separata</translation>
-		</message>
-		<message>
-			<source>Default tab when opening settings</source>
-			<translation>Scheda predefinita all'apertura delle impostazioni</translation>
 		</message>
 		<message> 
 			<source>Show Game Size In List</source>
@@ -627,14 +619,6 @@
 		<message>
 			<source>Graphics</source>
 			<translation>Grafica</translation>
-		</message>
-		<message>
-			<source>Gui</source>
-			<translation>Interfaccia</translation>
-		</message>
-		<message>
-			<source>User</source>
-			<translation>Utente</translation>
 		</message>
 		<message>
 			<source>Graphics Device</source>
@@ -821,7 +805,7 @@
 			<translation>Aggiornamento:\nRelease: Versioni ufficiali rilasciate ogni mese che potrebbero essere molto datate, ma sono più affidabili e testate.\nNightly: Versioni di sviluppo che hanno tutte le ultime funzionalità e correzioni, ma potrebbero contenere bug e sono meno stabili.</translation>
 		</message>
 		<message>
-			<source>GUIMusicGroupBox</source>
+			<source>GUIgroupBox</source>
 			<translation>Riproduci Musica del Titolo:\nSe un gioco lo supporta, attiva la riproduzione di musica speciale quando selezioni il gioco nell'interfaccia grafica.</translation>
 		</message>
 		<message>
