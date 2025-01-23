@@ -541,16 +541,8 @@
 			<translation>Enable Fullscreen</translation>
 		</message>
 		<message>
-			<source>Fullscreen Mode</source>
-			<translation>Viso ekranas</translation>
-		</message>
-		<message>
 			<source>Enable Separate Update Folder</source>
 			<translation>Enable Separate Update Folder</translation>
-		</message>
-		<message>
-			<source>Default tab when opening settings</source>
-			<translation>Numatytoji kortelė atidarius nustatymus</translation>
 		</message>
 		<message> 
 			<source>Show Game Size In List</source>
@@ -627,14 +619,6 @@
 		<message>
 			<source>Graphics</source>
 			<translation>Graphics</translation>
-		</message>
-		<message>
-			<source>Gui</source>
-			<translation>Interfeisa</translation>
-		</message>
-		<message>
-			<source>User</source>
-			<translation>Naudotojas</translation>
 		</message>
 		<message>
 			<source>Graphics Device</source>
@@ -821,7 +805,7 @@
 			<translation>Atnaujinti:\nRelease: Oficialios versijos, išleidžiamos kiekvieną mėnesį, kurios gali būti labai pasenusios, tačiau yra patikimos ir išbandytos.\nNightly: Vystymo versijos, kuriose yra visos naujausios funkcijos ir taisymai, tačiau gali turėti klaidų ir būti mažiau stabilios.</translation>
 		</message>
 		<message>
-			<source>GUIMusicGroupBox</source>
+			<source>GUIgroupBox</source>
 			<translation>Groti antraščių muziką:\nJei žaidimas tai palaiko, įjungia specialios muzikos grojimą, kai pasirinkite žaidimą GUI.</translation>
 		</message>
 		<message>

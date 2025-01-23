@@ -541,16 +541,8 @@
 			<translation>Enable Fullscreen</translation>
 		</message>
 		<message>
-			<source>Fullscreen Mode</source>
-			<translation>Fullscreen Mode</translation>
-		</message>
-		<message>
 			<source>Enable Separate Update Folder</source>
 			<translation>Enable Separate Update Folder</translation>
-		</message>
-		<message>
-			<source>Default tab when opening settings</source>
-			<translation>Default tab when opening settings</translation>
 		</message>
 		<message>
 			<source>Show Game Size In List</source>
@@ -627,14 +619,6 @@
 		<message>
 			<source>Graphics</source>
 			<translation>Graphics</translation>
-		</message>
-		<message>
-			<source>Gui</source>
-			<translation>Gui</translation>
-		</message>
-		<message>
-			<source>User</source> 
-			<translation>User</translation>
 		</message>
 		<message>
 			<source>Graphics Device</source>
@@ -821,7 +805,7 @@
 			<translation>Update:\nRelease: Official versions released every month that may be very outdated, but are more reliable and tested.\nNightly: Development versions that have all the latest features and fixes, but may contain bugs and are less stable.</translation>
 		</message>
 		<message>
-			<source>GUIMusicGroupBox</source>
+			<source>GUIgroupBox</source>
 			<translation>Play Title Music:\nIf a game supports it, enable playing special music when selecting the game in the GUI.</translation>
 		</message>
 		<message>

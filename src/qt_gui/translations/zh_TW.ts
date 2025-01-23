@@ -541,16 +541,8 @@
 			<translation>Enable Fullscreen</translation>
 		</message>
 		<message>
-			<source>Fullscreen Mode</source>
-			<translation>全螢幕模式</translation>
-		</message>
-		<message>
 			<source>Enable Separate Update Folder</source>
 			<translation>Enable Separate Update Folder</translation>
-		</message>
-		<message>
-			<source>Default tab when opening settings</source>
-			<translation>打開設置時的默認選項卡</translation>
 		</message>
 		<message> 
 			<source>Show Game Size In List</source>
@@ -627,14 +619,6 @@
 		<message>
 			<source>Graphics</source>
 			<translation>Graphics</translation>
-		</message>
-		<message>
-			<source>Gui</source>
-			<translation>介面</translation>
-		</message>
-		<message>
-			<source>User</source>
-			<translation>使用者</translation>
 		</message>
 		<message>
 			<source>Graphics Device</source>
@@ -821,7 +805,7 @@
 			<translation>更新:\nRelease: 每月發布的官方版本，可能非常舊，但更可靠且經過測試。\nNightly: 開發版本，擁有所有最新的功能和修復，但可能包含錯誤，穩定性較差。</translation>
 		</message>
 		<message>
-			<source>GUIMusicGroupBox</source>
+			<source>GUIgroupBox</source>
 			<translation>播放標題音樂:\n如果遊戲支持，啟用在GUI中選擇遊戲時播放特殊音樂。</translation>
 		</message>
 		<message>

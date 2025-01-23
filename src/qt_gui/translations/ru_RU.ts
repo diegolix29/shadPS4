@@ -541,16 +541,8 @@
 			<translation>Полноэкранный режим</translation>
 		</message>
 		<message>
-			<source>Fullscreen Mode</source>
-			<translation>Режим Полного Экран</translation>
-		</message>
-		<message>
 			<source>Enable Separate Update Folder</source>
 			<translation>Отдельная папка обновлений</translation>
-		</message>
-		<message>
-			<source>Default tab when opening settings</source>
-			<translation>Вкладка по умолчанию при открытии настроек</translation>
 		</message>
 		<message> 
 			<source>Show Game Size In List</source>
@@ -627,14 +619,6 @@
 		<message>
 			<source>Graphics</source>
 			<translation>Графика</translation>
-		</message>
-		<message>
-			<source>Gui</source>
-			<translation>Интерфейс</translation>
-		</message>
-		<message>
-			<source>User</source>
-			<translation>Пользователь</translation>
 		</message>
 		<message>
 			<source>Graphics Device</source>
@@ -821,7 +805,7 @@
 			<translation>Обновление:\nRelease: Официальные версии, которые выпускаются каждый месяц и могут быть очень старыми, но они более надежные и проверенные.\nNightly: Версии разработки, которые содержат все последние функции и исправления, но могут содержать ошибки и менее стабильны.</translation>
 		</message>
 		<message>
-			<source>GUIMusicGroupBox</source>
+			<source>GUIgroupBox</source>
 			<translation>Играть заглавную музыку:\nВключает воспроизведение специальной музыки при выборе игры в списке, если она это поддерживает.</translation>
 		</message>
 		<message>
