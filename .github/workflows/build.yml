@@ -24,20 +24,26 @@ jobs:
     runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
+      
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
+
     - name: Install
       run: |
         wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
         sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main'
-        sudo apt update
-        sudo apt install clang-format-18
+
+    - uses: awalsh128/cache-apt-pkgs-action@latest
+      with: 
+        packages: clang-format-18
+        version: 1.0
+
     - name: Build
       env:
         COMMIT_RANGE: ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
       run: ./.ci/clang-format.sh
-      
+
   get-info:
     runs-on: ubuntu-24.04
     outputs:
