@@ -568,9 +568,18 @@ void PatchTextureBufferArgs(IR::Block& block, IR::Inst& inst, Info& info) {
     // Stride of 1 to get an index into formatted data. See above addressing limitations.
     inst.SetArg(1, CalculateBufferAddress(ir, inst, info, buffer, 1U));
 
-    if (inst.GetOpcode() == IR::Opcode::LoadBufferFormatF32) {
+    if (inst.GetOpcode() == IR::Opcode::StoreBufferFormatF32) {
+        const auto swizzled = ApplySwizzle(ir, inst.Arg(2), buffer.DstSelect());
+        const auto converted =
+            ApplyWriteNumberConversionVec4(ir, swizzled, buffer.GetNumberConversion());
+        inst.SetArg(2, converted);
+    } else if (inst.GetOpcode() == IR::Opcode::LoadBufferFormatF32) {
         const auto inst_info = inst.Flags<IR::BufferInstInfo>();
         const auto texel = ir.LoadBufferFormat(inst.Arg(0), inst.Arg(1), inst_info);
+        const auto swizzled = ApplySwizzle(ir, texel, buffer.DstSelect());
+        const auto converted =
+            ApplyReadNumberConversionVec4(ir, swizzled, buffer.GetNumberConversion());
+        inst.ReplaceUsesWith(converted);
     }
 }
 
@@ -806,6 +815,7 @@ void PatchImageArgs(IR::Block& block, IR::Inst& inst, Info& info) {
         auto texel = ir.ImageRead(handle, coords, lod, ms, inst_info);
         if (is_storage) {
             // Storage image requires shader swizzle.
+            texel = ApplySwizzle(ir, texel, image.DstSelect());
         }
         const auto converted =
             ApplyReadNumberConversionVec4(ir, texel, image.GetNumberConversion());
@@ -819,6 +829,7 @@ void PatchImageArgs(IR::Block& block, IR::Inst& inst, Info& info) {
             auto texel = inst.Arg(4);
             if (is_storage) {
                 // Storage image requires shader swizzle.
+                texel = ApplySwizzle(ir, texel, image.DstSelect());
             }
             const auto converted =
                 ApplyWriteNumberConversionVec4(ir, texel, image.GetNumberConversion());
