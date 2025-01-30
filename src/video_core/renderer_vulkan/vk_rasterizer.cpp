@@ -1244,8 +1244,8 @@ void Rasterizer::UpdateViewportScissorState(const GraphicsPipeline& pipeline) {
 }
 
 void Rasterizer::ScopeMarkerBegin(const std::string_view& str, bool from_guest) {
-    if ((from_guest && !Config::vkGuestMarkersEnabled()) ||
-        (!from_guest && !Config::vkHostMarkersEnabled())) {
+    if ((from_guest && !Config::getVkGuestMarkersEnabled()) ||
+        (!from_guest && !Config::getVkHostMarkersEnabled())) {
         return;
     }
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -1255,8 +1255,8 @@ void Rasterizer::ScopeMarkerBegin(const std::string_view& str, bool from_guest) 
 }
 
 void Rasterizer::ScopeMarkerEnd(bool from_guest) {
-    if ((from_guest && !Config::vkGuestMarkersEnabled()) ||
-        (!from_guest && !Config::vkHostMarkersEnabled())) {
+    if ((from_guest && !Config::getVkGuestMarkersEnabled()) ||
+        (!from_guest && !Config::getVkHostMarkersEnabled())) {
         return;
     }
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -1264,8 +1264,8 @@ void Rasterizer::ScopeMarkerEnd(bool from_guest) {
 }
 
 void Rasterizer::ScopedMarkerInsert(const std::string_view& str, bool from_guest) {
-    if ((from_guest && !Config::vkGuestMarkersEnabled()) ||
-        (!from_guest && !Config::vkHostMarkersEnabled())) {
+    if ((from_guest && !Config::getVkGuestMarkersEnabled()) ||
+        (!from_guest && !Config::getVkHostMarkersEnabled())) {
         return;
     }
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -1276,8 +1276,8 @@ void Rasterizer::ScopedMarkerInsert(const std::string_view& str, bool from_guest
 
 void Rasterizer::ScopedMarkerInsertColor(const std::string_view& str, const u32 color,
                                          bool from_guest) {
-    if ((from_guest && !Config::vkGuestMarkersEnabled()) ||
-        (!from_guest && !Config::vkHostMarkersEnabled())) {
+    if ((from_guest && !Config::getVkGuestMarkersEnabled()) ||
+        (!from_guest && !Config::getVkHostMarkersEnabled())) {
         return;
     }
     const auto cmdbuf = scheduler.CommandBuffer();
