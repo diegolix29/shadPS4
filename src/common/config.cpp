@@ -68,7 +68,6 @@ static bool vkGuestMarkers = false;
 static bool rdocEnable = false;
 static s16 cursorState = HideCursorState::Idle;
 static int cursorHideTimeout = 5; // 5 seconds (default)
-static bool useUnifiedInputConfig = true;
 static bool separateupdatefolder = false;
 static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
@@ -98,14 +97,6 @@ std::string emulator_language = "en";
 
 // Language
 u32 m_language = 1; // english
-
-bool GetUseUnifiedInputConfig() {
-    return useUnifiedInputConfig;
-}
-
-void SetUseUnifiedInputConfig(bool use) {
-    useUnifiedInputConfig = use;
-}
 
 std::string getTrophyKey() {
     return trophyKey;
@@ -666,7 +657,6 @@ void load(const std::filesystem::path& path) {
         useSpecialPad = toml::find_or<bool>(input, "useSpecialPad", false);
         specialPadClass = toml::find_or<int>(input, "specialPadClass", 1);
         isMotionControlsEnabled = toml::find_or<bool>(input, "isMotionControlsEnabled", true);
-        useUnifiedInputConfig = toml::find_or<bool>(input, "useUnifiedInputConfig", true);
     }
 
     if (data.contains("GPU")) {
@@ -789,7 +779,6 @@ void save(const std::filesystem::path& path) {
     data["Input"]["useSpecialPad"] = useSpecialPad;
     data["Input"]["specialPadClass"] = specialPadClass;
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled;
-    data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig;
     data["GPU"]["screenWidth"] = screenWidth;
     data["GPU"]["screenHeight"] = screenHeight;
     data["GPU"]["nullGpu"] = isNullGpu;
@@ -980,12 +969,9 @@ touchpad = back
 
 axis_left_x = axis_left_x
 axis_left_y = axis_left_y
+
 axis_right_x = axis_right_x
 axis_right_y = axis_right_y
-
-# Range of deadzones: 1 (almost none) to 127 (max)
-analog_deadzone = leftjoystick, 2
-analog_deadzone = rightjoystick, 2
 )";
 }
 std::filesystem::path GetFoolproofKbmConfigFile(const std::string& game_id) {
