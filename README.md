@@ -77,7 +77,7 @@ Check the build instructions for [**macOS**](https://github.com/shadps4-emu/shad
 
 For more information on how to test, debug and report issues with the emulator or games, read the [**Debugging documentation**](https://github.com/shadps4-emu/shadPS4/blob/main/documents/Debugging/Debugging.md).
 
-# Keyboard mapping
+# Keyboard and Mouse Mappings
 
 > [!NOTE]
 > Some keyboards may also require you to hold the Fn key to use the F\* keys. Mac users should use the Command key instead of Control, and need to use Command+F11 for full screen to avoid conflicting with system key bindings.
@@ -118,6 +118,9 @@ L2 | E |
 R2 | O |
 L3 | X |
 R3 | M |
+
+Keyboard and mouse inputs can be customized in the settings menu by clicking the Controller button, and further details and help on controls are  also found there. Custom bindings are saved per-game. Inputs support up to three keys per binding, mouse buttons, mouse movement mapped to joystick input, and more.
+
 
 # Main team
 
