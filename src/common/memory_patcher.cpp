@@ -188,7 +188,7 @@ void OnGameLoaded() {
                                 patchMask = MemoryPatcher::PatchMask::Mask_Jump32;
 
                             MemoryPatcher::PatchMemory(currentPatchName, address, patchValue, false,
-                                                       littleEndian, patchMask);
+                                                       littleEndian, patchMask, maskOffsetValue);
                         }
                     }
                 }
@@ -292,6 +292,7 @@ void OnGameLoaded() {
                             lineObject["Type"] = attributes.value("Type").toString();
                             lineObject["Address"] = attributes.value("Address").toString();
                             lineObject["Value"] = attributes.value("Value").toString();
+                            lineObject["Offset"] = attributes.value("Offset").toString();
                             linesArray.append(lineObject);
                         }
                     }
@@ -335,7 +336,7 @@ void OnGameLoaded() {
 
                             MemoryPatcher::PatchMemory(currentPatchName, address.toStdString(),
                                                        patchValue.toStdString(), false,
-                                                       littleEndian, patchMask);
+                                                       littleEndian, patchMask, maskOffsetValue);
                         }
                     }
                 }
