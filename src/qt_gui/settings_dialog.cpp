@@ -176,6 +176,9 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
     {
         connect(ui->chooseHomeTabComboBox, &QComboBox::currentTextChanged, this,
                 [](const QString& hometab) { Config::setChooseHomeTab(hometab.toStdString()); });
+
+        connect(ui->showBackgroundImageCheckBox, &QCheckBox::stateChanged, this,
+                [](int state) { Config::setShowBackgroundImage(state == Qt::Checked); });
     }
     // Input TAB
     {
@@ -254,6 +257,7 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
 #ifdef ENABLE_UPDATER
         ui->updaterGroupBox->installEventFilter(this);
 #endif
+        ui->GUIBackgroundImageGroupBox->installEventFilter(this);
         ui->GUIMusicGroupBox->installEventFilter(this);
         ui->disableTrophycheckBox->installEventFilter(this);
         ui->enableCompatibilityCheckBox->installEventFilter(this);
@@ -420,6 +424,8 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     ui->removeFolderButton->setEnabled(!ui->gameFoldersListWidget->selectedItems().isEmpty());
     ResetInstallFolders();
+    ui->backgroundImageOpacitySlider->setValue(Config::getBackgroundImageOpacity());
+    ui->showBackgroundImageCheckBox->setChecked(Config::getShowBackgroundImage());
 }
 
 void SettingsDialog::InitializeEmulatorLanguages() {
@@ -514,6 +520,8 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
     } else if (elementName == "updaterGroupBox") {
         text = tr("updaterGroupBox");
 #endif
+    } else if (elementName == "GUIBackgroundImageGroupBox") {
+        text = tr("GUIBackgroundImageGroupBox");
     } else if (elementName == "GUIMusicGroupBox") {
         text = tr("GUIMusicGroupBox");
     } else if (elementName == "disableTrophycheckBox") {
@@ -649,6 +657,9 @@ void SettingsDialog::UpdateSettings() {
     Config::setChooseHomeTab(ui->chooseHomeTabComboBox->currentText().toStdString());
     Config::setCompatibilityEnabled(ui->enableCompatibilityCheckBox->isChecked());
     Config::setCheckCompatibilityOnStartup(ui->checkCompatibilityOnStartupCheckBox->isChecked());
+    Config::setBackgroundImageOpacity(ui->backgroundImageOpacitySlider->value());
+    emit BackgroundOpacityChanged(ui->backgroundImageOpacitySlider->value());
+    Config::setShowBackgroundImage(ui->showBackgroundImageCheckBox->isChecked());
 
 #ifdef ENABLE_DISCORD_RPC
     auto* rpc = Common::Singleton<DiscordRPCHandler::RPC>::Instance();
