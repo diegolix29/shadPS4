@@ -354,6 +354,11 @@ void MainWindow::CreateConnects() {
         configWindow->exec();
     });
 
+    connect(ui->keyboardButton, &QPushButton::clicked, this, [this]() {
+        auto kbmWindow = new EditorDialog(this);
+        kbmWindow->exec();
+    });
+
 #ifdef ENABLE_UPDATER
     connect(ui->updaterAct, &QAction::triggered, this, [this]() {
         auto checkUpdate = new CheckUpdate(true);
