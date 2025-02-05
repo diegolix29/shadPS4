@@ -70,6 +70,12 @@ A: The code recognises the line as wrong, and skip it, so the rest of the file w
 
 Q: I want to bind <input> to <output>, but your code doesn't support <input>!
 A: Some keys are intentionally omitted, but if you read the bindings through, and you're sure it is not there and isn't one of the intentionally disabled ones, open an issue on https://github.com/shadps4-emu/shadPS4.
+
+Q: What does default.ini do?
+A: If you're using per-game configs, it's the base from which all new games generate their config file. If you use the unified config, then this is used for every game directly instead.
+
+Q: What does the use Per-game Config checkbox do?
+A: It controls whether the config is loaded from CUSAXXXXX.ini for a game, or from default.ini. This way, if you only want to manage one set of bindings, you can do so, but if you want to use a different setup for every game, that's possible as well.
 )";
     }
     QString syntax() {
@@ -161,6 +167,10 @@ You can find these here, with detailed comments, examples and suggestions for mo
     You can make an input toggleable with this, for example: Let's say we want to be able to toggle l1 with t. You can then bind l1 to a key you won't use, like kpenter, then bind t to toggle that, so you will end up with this:
         l1 = kpenter;
         key_toggle = t, kpenter;
+'analog_deadzone' = <device>, <value>, <value>;
+    Values go from 1 to 127 (no deadzone to max deadzone), first is the inner, second is the outer deadzone
+    If you only want inner or outer deadzone, set the other to 1 or 127, respectively
+    Devices: leftjoystick, rightjoystick, l2, r2
 )";
     }
 };
