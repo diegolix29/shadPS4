@@ -45,7 +45,7 @@ inline int GetAxis(int min, int max, int value) {
     return (v < 0 ? 0 : (v > 255 ? 255 : v));
 }
 
-constexpr u32 MAX_STATES = 64;
+constexpr u32 MAX_STATES = 32;
 
 class GameController {
 public:
