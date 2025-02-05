@@ -278,7 +278,7 @@ s32 PS4_SYSV_ABI sceImeKeyboardOpen(s32 userId, const OrbisImeKeyboardParam* par
         return ORBIS_IME_ERROR_BUSY;
     }
 
-    g_keyboard_handler = std::make_unique<ImeHandler>(param);
+    //g_keyboard_handler = std::make_unique<ImeHandler>(param);
     return ORBIS_OK;
 }
 
