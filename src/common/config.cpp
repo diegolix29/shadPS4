@@ -70,6 +70,7 @@ static bool vkGuestMarkers = false;
 static bool rdocEnable = false;
 static s16 cursorState = HideCursorState::Idle;
 static int cursorHideTimeout = 5; // 5 seconds (default)
+static bool useUnifiedInputConfig = true;
 static bool separateupdatefolder = false;
 static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
@@ -102,6 +103,14 @@ static bool showBackgroundImage = true;
 
 // Language
 u32 m_language = 1; // english
+
+bool GetUseUnifiedInputConfig() {
+    return useUnifiedInputConfig;
+}
+
+void SetUseUnifiedInputConfig(bool use) {
+    useUnifiedInputConfig = use;
+}
 
 std::string getTrophyKey() {
     return trophyKey;
@@ -711,6 +720,7 @@ void load(const std::filesystem::path& path) {
         useSpecialPad = toml::find_or<bool>(input, "useSpecialPad", false);
         specialPadClass = toml::find_or<int>(input, "specialPadClass", 1);
         isMotionControlsEnabled = toml::find_or<bool>(input, "isMotionControlsEnabled", true);
+        useUnifiedInputConfig = toml::find_or<bool>(input, "useUnifiedInputConfig", true);
     }
 
     if (data.contains("GPU")) {
@@ -838,6 +848,7 @@ void save(const std::filesystem::path& path) {
     data["Input"]["useSpecialPad"] = useSpecialPad;
     data["Input"]["specialPadClass"] = specialPadClass;
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled;
+    data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig;
     data["GPU"]["screenWidth"] = screenWidth;
     data["GPU"]["screenHeight"] = screenHeight;
     data["GPU"]["ppFilter"] = ppFilter;
@@ -970,12 +981,15 @@ void setDefaultValues() {
 }
 
 constexpr std::string_view GetDefaultKeyboardConfig() {
-    return R"(#Feeling lost? Check out the Help section!
-#Keyboard bindings
+    return R"(# Feeling lost? Check out the Help section!
+
+# Keyboard bindings
+
 triangle = f
 circle = space
 cross = e
 square = r
+
 pad_up = w, lalt
 pad_up = mousewheelup
 pad_down = s, lalt
@@ -984,6 +998,7 @@ pad_left = a, lalt
 pad_left = mousewheelleft
 pad_right = d, lalt
 pad_right = mousewheelright
+
 l1 = rightbutton, lshift
 r1 = leftbutton
 l2 = rightbutton
@@ -991,32 +1006,42 @@ r2 = leftbutton, lshift
 l3 = x
 r3 = q
 r3 = middlebutton
+
 options = escape
 touchpad = g
+
 key_toggle = i, lalt
 mouse_to_joystick = right
 mouse_movement_params = 0.5, 1, 0.125
 leftjoystick_halfmode = lctrl
+
 axis_left_x_minus = a
 axis_left_x_plus = d
 axis_left_y_minus = w
 axis_left_y_plus = s
-#Controller bindings
+
+# Controller bindings
+
 triangle = triangle
 cross = cross
 square = square
 circle = circle
+
 l1 = l1
 l2 = l2
 l3 = l3
 r1 = r1
 r2 = r2
 r3 = r3
+
+options = options
+touchpad = back
+
 pad_up = pad_up
 pad_down = pad_down
 pad_left = pad_left
 pad_right = pad_right
-options = options
+
 axis_left_x = axis_left_x
 axis_left_y = axis_left_y
 axis_right_x = axis_right_x
@@ -1031,13 +1056,16 @@ std::filesystem::path GetFoolproofKbmConfigFile(const std::string& game_id) {
     // Read configuration file of the game, and if it doesn't exist, generate it from default
     // If that doesn't exist either, generate that from getDefaultConfig() and try again
     // If even the folder is missing, we start with that.
-    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "inputConfig";
+
+    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "input_config";
     const auto config_file = config_dir / (game_id + ".ini");
     const auto default_config_file = config_dir / "default.ini";
+
     // Ensure the config directory exists
     if (!std::filesystem::exists(config_dir)) {
         std::filesystem::create_directories(config_dir);
     }
+
     // Check if the default config exists
     if (!std::filesystem::exists(default_config_file)) {
         // If the default config is also missing, create it from getDefaultConfig()
@@ -1047,14 +1075,17 @@ std::filesystem::path GetFoolproofKbmConfigFile(const std::string& game_id) {
             default_config_stream << default_config;
         }
     }
+
     // if empty, we only need to execute the function up until this point
     if (game_id.empty()) {
         return default_config_file;
     }
+
     // If game-specific config doesn't exist, create it from the default config
     if (!std::filesystem::exists(config_file)) {
         std::filesystem::copy(default_config_file, config_file);
     }
     return config_file;
 }
+
 } // namespace Config
