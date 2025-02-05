@@ -43,7 +43,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 MainWindow::~MainWindow() {
     SaveWindowState();
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-    Config::save(config_dir / "config.toml");
+    Config::saveMainWindow(config_dir / "config.toml");
 }
 
 bool MainWindow::Init() {
@@ -146,6 +146,7 @@ void MainWindow::CreateActions() {
     m_list_mode_act_group = new QActionGroup(this);
     m_list_mode_act_group->addAction(ui->setlistModeListAct);
     m_list_mode_act_group->addAction(ui->setlistModeGridAct);
+    m_list_mode_act_group->addAction(ui->setlistElfAct);
 
     // create action group for themes
     m_theme_act_group = new QActionGroup(this);
@@ -327,18 +328,35 @@ void MainWindow::CreateConnects() {
         connect(settingsDialog, &SettingsDialog::CompatibilityChanged, this,
                 &MainWindow::RefreshGameTable);
 
+        connect(settingsDialog, &SettingsDialog::BackgroundOpacityChanged, this,
+                [this](int opacity) {
+                    Config::setBackgroundImageOpacity(opacity);
+                    if (m_game_list_frame) {
+                        QTableWidgetItem* current = m_game_list_frame->GetCurrentItem();
+                        if (current) {
+                            m_game_list_frame->SetListBackgroundImage(current);
+                        }
+                    }
+                    if (m_game_grid_frame) {
+                        if (m_game_grid_frame->IsValidCellSelected()) {
+                            m_game_grid_frame->SetGridBackgroundImage(m_game_grid_frame->crtRow,
+                                                                      m_game_grid_frame->crtColumn);
+                        }
+                    }
+                });
+
         settingsDialog->exec();
     });
 
-    connect(ui->keyboardButton, &QPushButton::clicked, this, [this]() {
-        EditorDialog* editorWindow = new EditorDialog(this);
-        editorWindow->exec(); // Show the editor window modally
+    // this is the editor for kbm keybinds
+    connect(ui->controllerButton, &QPushButton::clicked, this, [this]() {
+        auto configWindow = new ControlSettings(m_game_info, this);
+        configWindow->exec();
     });
 
-    connect(ui->controllerButton, &QPushButton::clicked, this, [this]() {
-        Input::CheckRemapFile();
-        auto configWindow = new ControlSettings(this);
-        configWindow->exec();
+    connect(ui->keyboardButton, &QPushButton::clicked, this, [this]() {
+        auto kbmWindow = new EditorDialog(this);
+        kbmWindow->exec();
     });
 
 #ifdef ENABLE_UPDATER
@@ -439,7 +457,7 @@ void MainWindow::CreateConnects() {
         ui->sizeSlider->setEnabled(true);
         ui->sizeSlider->setSliderPosition(slider_pos_grid);
     });
-    // Elf
+    // Elf Viewer
     connect(ui->setlistElfAct, &QAction::triggered, m_dock_widget.data(), [this]() {
         BackgroundMusicPlayer::getInstance().stopMusic();
         m_dock_widget->setWidget(m_elf_viewer.data());
@@ -760,10 +778,12 @@ void MainWindow::ConfigureGuiFromSettings() {
                 Config::getMainWindowGeometryW(), Config::getMainWindowGeometryH());
 
     ui->showGameListAct->setChecked(true);
-    if (isTableList) {
+    if (Config::getTableMode() == 0) {
         ui->setlistModeListAct->setChecked(true);
-    } else {
+    } else if (Config::getTableMode() == 1) {
         ui->setlistModeGridAct->setChecked(true);
+    } else if (Config::getTableMode() == 2) {
+        ui->setlistElfAct->setChecked(true);
     }
     BackgroundMusicPlayer::getInstance().setVolume(Config::getBGMvolume());
 }
@@ -1158,13 +1178,13 @@ void MainWindow::SetUiIcons(bool isWhite) {
     ui->gameInstallPathAct->setIcon(RecolorIcon(ui->gameInstallPathAct->icon(), isWhite));
     ui->menuThemes->setIcon(RecolorIcon(ui->menuThemes->icon(), isWhite));
     ui->menuGame_List_Icons->setIcon(RecolorIcon(ui->menuGame_List_Icons->icon(), isWhite));
+    ui->menuUtils->setIcon(RecolorIcon(ui->menuUtils->icon(), isWhite));
     ui->playButton->setIcon(RecolorIcon(ui->playButton->icon(), isWhite));
     ui->pauseButton->setIcon(RecolorIcon(ui->pauseButton->icon(), isWhite));
     ui->stopButton->setIcon(RecolorIcon(ui->stopButton->icon(), isWhite));
     ui->refreshButton->setIcon(RecolorIcon(ui->refreshButton->icon(), isWhite));
     ui->settingsButton->setIcon(RecolorIcon(ui->settingsButton->icon(), isWhite));
     ui->controllerButton->setIcon(RecolorIcon(ui->controllerButton->icon(), isWhite));
-    ui->keyboardButton->setIcon(RecolorIcon(ui->keyboardButton->icon(), isWhite));
     ui->refreshGameListAct->setIcon(RecolorIcon(ui->refreshGameListAct->icon(), isWhite));
     ui->menuGame_List_Mode->setIcon(RecolorIcon(ui->menuGame_List_Mode->icon(), isWhite));
     ui->pkgViewerAct->setIcon(RecolorIcon(ui->pkgViewerAct->icon(), isWhite));
@@ -1204,7 +1224,7 @@ void MainWindow::AddRecentFiles(QString filePath) {
     }
     Config::setRecentFiles(vec);
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-    Config::save(config_dir / "config.toml");
+    Config::saveMainWindow(config_dir / "config.toml");
     CreateRecentGameActions(); // Refresh the QActions.
 }
 
