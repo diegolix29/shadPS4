@@ -981,44 +981,44 @@ void setDefaultValues() {
 }
 
 constexpr std::string_view GetDefaultKeyboardConfig() {
-    return R"(#Feeling lost? Check out the Help section!
+    return R"(# Feeling lost? Check out the Help section!
 
 # Keyboard bindings
 
-triangle = kp8
-circle = kp6
-cross = kp2
-square = kp4
-# Alternatives for users without a keypad
-triangle = c
-circle = b
-cross = n
-square = v
+triangle = f
+circle = space
+cross = e
+square = r
 
-l1 = q
-r1 = u
-l2 = e
-r2 = o
+pad_up = w, lalt
+pad_up = mousewheelup
+pad_down = s, lalt
+pad_down = mousewheeldown
+pad_left = a, lalt
+pad_left = mousewheelleft
+pad_right = d, lalt
+pad_right = mousewheelright
+
+l1 = rightbutton, lshift
+r1 = leftbutton
+l2 = rightbutton
+r2 = leftbutton, lshift
 l3 = x
-r3 = m
+r3 = q
+r3 = middlebutton
 
-options = enter
-touchpad = space
+options = escape
+touchpad = g
 
-pad_up = up
-pad_down = down
-pad_left = left
-pad_right = right
+key_toggle = i, lalt
+mouse_to_joystick = right
+mouse_movement_params = 0.5, 1, 0.125
+leftjoystick_halfmode = lctrl
 
 axis_left_x_minus = a
 axis_left_x_plus = d
 axis_left_y_minus = w
 axis_left_y_plus = s
-
-axis_right_x_minus = j
-axis_right_x_plus = l
-axis_right_y_minus = i
-axis_right_y_plus = k
 
 # Controller bindings
 
