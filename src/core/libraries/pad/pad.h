@@ -124,7 +124,7 @@ struct OrbisPadAnalogStick {
     u8 y;
 };
 
-enum OrbisPadButtonDataOffset : u32 {
+enum class OrbisPadButtonDataOffset : u32 {
     None = 0,
     L3 = 0x2,
     R3 = 0x4,
@@ -142,14 +142,6 @@ enum OrbisPadButtonDataOffset : u32 {
     Cross = 0x4000,
     Square = 0x8000,
     TouchPad = 0x100000,
-    LeftStickUp = 2000001,
-    LeftStickDown = 2000002,
-    LeftStickLeft = 2000003,
-    LeftStickRight = 2000004,
-    RightStickUp = 2000005,
-    RightStickDown = 2000006,
-    RightStickLeft = 2000007,
-    RightStickRight = 2000008,
     Intercepted = 0x80000000,
 };
 DECLARE_ENUM_FLAG_OPERATORS(OrbisPadButtonDataOffset)
@@ -184,7 +176,7 @@ struct OrbisPadExtensionUnitData {
 };
 
 struct OrbisPadData {
-    u32 buttons;
+    OrbisPadButtonDataOffset buttons;
     OrbisPadAnalogStick leftStick;
     OrbisPadAnalogStick rightStick;
     OrbisPadAnalogButtons analogButtons;
@@ -357,5 +349,4 @@ int PS4_SYSV_ABI Func_89C9237E393DA243();
 int PS4_SYSV_ABI Func_EF103E845B6F0420();
 
 void RegisterlibScePad(Core::Loader::SymbolsResolver* sym);
-
 } // namespace Libraries::Pad

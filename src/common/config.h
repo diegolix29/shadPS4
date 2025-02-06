@@ -47,6 +47,8 @@ std::string getBackButtonBehavior();
 bool getUseSpecialPad();
 int getSpecialPadClass();
 bool getIsMotionControlsEnabled();
+bool GetUseUnifiedInputConfig();
+void SetUseUnifiedInputConfig(bool use);
 
 u32 getScreenWidth();
 u32 getScreenHeight();

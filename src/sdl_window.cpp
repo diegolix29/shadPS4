@@ -1,90 +1,222 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <fstream>
-#include <map>
-#include <string>
-#include <SDL3/SDL_events.h>
-#include <SDL3/SDL_init.h>
-#include <SDL3/SDL_properties.h>
-#include <SDL3/SDL_timer.h>
-#include <SDL3/SDL_video.h>
-#include <toml.hpp>
-#include "common/elf_info.h"
-
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_hints.h"
+#include "SDL3/SDL_init.h"
+#include "SDL3/SDL_properties.h"
+#include "SDL3/SDL_timer.h"
+#include "SDL3/SDL_video.h"
 #include "common/assert.h"
 #include "common/config.h"
+#include "common/elf_info.h"
+#include "common/version.h"
+#include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "imgui/renderer/imgui_core.h"
 #include "input/controller.h"
+#include "input/input_handler.h"
+#include "input/input_mouse.h"
 #include "sdl_window.h"
 #include "video_core/renderdoc.h"
 
 #ifdef __APPLE__
-#include <SDL3/SDL_metal.h>
+#include "SDL3/SDL_metal.h"
 #endif
-#include <input/input_handler.h>
+
+namespace Input {
+
+using Libraries::Pad::OrbisPadButtonDataOffset;
+
+static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
+    using OPBDO = OrbisPadButtonDataOffset;
+
+    switch (button) {
+    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
+        return OPBDO::Down;
+    case SDL_GAMEPAD_BUTTON_DPAD_UP:
+        return OPBDO::Up;
+    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
+        return OPBDO::Left;
+    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
+        return OPBDO::Right;
+    case SDL_GAMEPAD_BUTTON_SOUTH:
+        return OPBDO::Cross;
+    case SDL_GAMEPAD_BUTTON_NORTH:
+        return OPBDO::Triangle;
+    case SDL_GAMEPAD_BUTTON_WEST:
+        return OPBDO::Square;
+    case SDL_GAMEPAD_BUTTON_EAST:
+        return OPBDO::Circle;
+    case SDL_GAMEPAD_BUTTON_START:
+        return OPBDO::Options;
+    case SDL_GAMEPAD_BUTTON_TOUCHPAD:
+        return OPBDO::TouchPad;
+    case SDL_GAMEPAD_BUTTON_BACK:
+        return OPBDO::TouchPad;
+    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
+        return OPBDO::L1;
+    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
+        return OPBDO::R1;
+    case SDL_GAMEPAD_BUTTON_LEFT_STICK:
+        return OPBDO::L3;
+    case SDL_GAMEPAD_BUTTON_RIGHT_STICK:
+        return OPBDO::R3;
+    default:
+        return OPBDO::None;
+    }
+}
+
+static SDL_GamepadAxis InputAxisToSDL(Axis axis) {
+    switch (axis) {
+    case Axis::LeftX:
+        return SDL_GAMEPAD_AXIS_LEFTX;
+    case Axis::LeftY:
+        return SDL_GAMEPAD_AXIS_LEFTY;
+    case Axis::RightX:
+        return SDL_GAMEPAD_AXIS_RIGHTX;
+    case Axis::RightY:
+        return SDL_GAMEPAD_AXIS_RIGHTY;
+    case Axis::TriggerLeft:
+        return SDL_GAMEPAD_AXIS_LEFT_TRIGGER;
+    case Axis::TriggerRight:
+        return SDL_GAMEPAD_AXIS_RIGHT_TRIGGER;
+    default:
+        UNREACHABLE();
+    }
+}
+
+SDLInputEngine::~SDLInputEngine() {
+    if (m_gamepad) {
+        SDL_CloseGamepad(m_gamepad);
+    }
+}
+
+void SDLInputEngine::Init() {
+    if (m_gamepad) {
+        SDL_CloseGamepad(m_gamepad);
+        m_gamepad = nullptr;
+    }
+    int gamepad_count;
+    SDL_JoystickID* gamepads = SDL_GetGamepads(&gamepad_count);
+    if (!gamepads) {
+        LOG_ERROR(Input, "Cannot get gamepad list: {}", SDL_GetError());
+        return;
+    }
+    if (gamepad_count == 0) {
+        LOG_INFO(Input, "No gamepad found!");
+        SDL_free(gamepads);
+        return;
+    }
+    LOG_INFO(Input, "Got {} gamepads. Opening the first one.", gamepad_count);
+    if (!(m_gamepad = SDL_OpenGamepad(gamepads[0]))) {
+        LOG_ERROR(Input, "Failed to open gamepad 0: {}", SDL_GetError());
+        SDL_free(gamepads);
+        return;
+    }
+    if (Config::getIsMotionControlsEnabled()) {
+        if (SDL_SetGamepadSensorEnabled(m_gamepad, SDL_SENSOR_GYRO, true)) {
+            m_gyro_poll_rate = SDL_GetGamepadSensorDataRate(m_gamepad, SDL_SENSOR_GYRO);
+            LOG_INFO(Input, "Gyro initialized, poll rate: {}", m_gyro_poll_rate);
+        } else {
+            LOG_ERROR(Input, "Failed to initialize gyro controls for gamepad");
+        }
+        if (SDL_SetGamepadSensorEnabled(m_gamepad, SDL_SENSOR_ACCEL, true)) {
+            m_accel_poll_rate = SDL_GetGamepadSensorDataRate(m_gamepad, SDL_SENSOR_ACCEL);
+            LOG_INFO(Input, "Accel initialized, poll rate: {}", m_accel_poll_rate);
+        } else {
+            LOG_ERROR(Input, "Failed to initialize accel controls for gamepad");
+        };
+    }
+    SDL_free(gamepads);
+    SetLightBarRGB(0, 0, 255);
+}
+
+void SDLInputEngine::SetLightBarRGB(u8 r, u8 g, u8 b) {
+    if (m_gamepad) {
+        SDL_SetGamepadLED(m_gamepad, r, g, b);
+    }
+}
+
+void SDLInputEngine::SetVibration(u8 smallMotor, u8 largeMotor) {
+    if (m_gamepad) {
+        const auto low_freq = (smallMotor / 255.0f) * 0xFFFF;
+        const auto high_freq = (largeMotor / 255.0f) * 0xFFFF;
+        SDL_RumbleGamepad(m_gamepad, low_freq, high_freq, -1);
+    }
+}
+
+State SDLInputEngine::ReadState() {
+    State state{};
+    state.time = Libraries::Kernel::sceKernelGetProcessTime();
+
+    // Buttons
+    for (u8 i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; ++i) {
+        auto orbisButton = SDLGamepadToOrbisButton(i);
+        if (orbisButton == OrbisPadButtonDataOffset::None) {
+            continue;
+        }
+        state.OnButton(orbisButton, SDL_GetGamepadButton(m_gamepad, (SDL_GamepadButton)i));
+    }
+
+    // Axes
+    for (int i = 0; i < static_cast<int>(Axis::AxisMax); ++i) {
+        const auto axis = static_cast<Axis>(i);
+        const auto value = SDL_GetGamepadAxis(m_gamepad, InputAxisToSDL(axis));
+        switch (axis) {
+        case Axis::TriggerLeft:
+        case Axis::TriggerRight:
+            state.OnAxis(axis, GetAxis(0, 0x8000, value));
+            break;
+        default:
+            state.OnAxis(axis, GetAxis(-0x8000, 0x8000, value));
+            break;
+        }
+    }
+
+    // Touchpad
+    if (SDL_GetNumGamepadTouchpads(m_gamepad) > 0) {
+        for (int finger = 0; finger < 2; ++finger) {
+            bool down;
+            float x, y;
+            if (SDL_GetGamepadTouchpadFinger(m_gamepad, 0, finger, &down, &x, &y, NULL)) {
+                state.OnTouchpad(finger, down, x, y);
+            }
+        }
+    }
+
+    // Gyro
+    if (SDL_GamepadHasSensor(m_gamepad, SDL_SENSOR_GYRO)) {
+        float gyro[3];
+        if (SDL_GetGamepadSensorData(m_gamepad, SDL_SENSOR_GYRO, gyro, 3)) {
+            state.OnGyro(gyro);
+        }
+    }
+
+    // Accel
+    if (SDL_GamepadHasSensor(m_gamepad, SDL_SENSOR_ACCEL)) {
+        float accel[3];
+        if (SDL_GetGamepadSensorData(m_gamepad, SDL_SENSOR_ACCEL, accel, 3)) {
+            state.OnAccel(accel);
+        }
+    }
+
+    return state;
+}
+
+float SDLInputEngine::GetGyroPollRate() const {
+    return m_gyro_poll_rate;
+}
+
+float SDLInputEngine::GetAccelPollRate() const {
+    return m_accel_poll_rate;
+}
+
+} // namespace Input
 
 namespace Frontend {
 
-using Libraries::Pad::OrbisPadButtonDataOffset;
-std::map<std::string, u32> outputkey_map = {
-    {"dpad_down", OrbisPadButtonDataOffset::Down},
-    {"dpad_up", OrbisPadButtonDataOffset::Up},
-    {"dpad_left", OrbisPadButtonDataOffset::Left},
-    {"dpad_right", OrbisPadButtonDataOffset::Right},
-    {"cross", OrbisPadButtonDataOffset::Cross},
-    {"triangle", OrbisPadButtonDataOffset::Triangle},
-    {"square", OrbisPadButtonDataOffset::Square},
-    {"circle", OrbisPadButtonDataOffset::Circle},
-    {"options", OrbisPadButtonDataOffset::Options},
-    {"L1", OrbisPadButtonDataOffset::L1},
-    {"R1", OrbisPadButtonDataOffset::R1},
-    {"L3", OrbisPadButtonDataOffset::L3},
-    {"R3", OrbisPadButtonDataOffset::R3},
-    {"L2", OrbisPadButtonDataOffset::L2},
-    {"R2", OrbisPadButtonDataOffset::R2},
-    {"lstickup", OrbisPadButtonDataOffset::LeftStickUp},        // = 2,000,001
-    {"lstickdown", OrbisPadButtonDataOffset::LeftStickDown},    // = 2000002
-    {"lstickleft", OrbisPadButtonDataOffset::LeftStickLeft},    // = 2000003
-    {"lstickright", OrbisPadButtonDataOffset::LeftStickRight},  // = 2000004
-    {"rstickup", OrbisPadButtonDataOffset::RightStickUp},       // = 2000005
-    {"rstickdown", OrbisPadButtonDataOffset::RightStickDown},   // = 2000006
-    {"rstickleft", OrbisPadButtonDataOffset::RightStickLeft},   // = 2000007
-    {"rstickright", OrbisPadButtonDataOffset::RightStickRight}, // = 2000008
-};
-
-static std::string Amap = "cross";
-static std::string Ymap = "triangle";
-static std::string Xmap = "square";
-static std::string Bmap = "circle";
-static std::string LBmap = "L1";
-static std::string RBmap = "R1";
-static std::string dupmap = "dpad_up";
-static std::string ddownmap = "dpad_down";
-static std::string dleftmap = "dpad_left";
-static std::string drightmap = "dpad_right";
-static std::string rstickmap = "R3";
-static std::string lstickmap = "L3";
-static std::string startmap = "options";
-static std::string LTmap = "L2";
-static std::string RTmap = "R2";
-static std::string Lstickupmap = "lstickup";
-static std::string Lstickdownmap = "lstickdown";
-static std::string Lstickleftmap = "lstickleft";
-static std::string Lstickrightmap = "lstickright";
-static bool Lstickbuttons = false;
-static bool Lstickswap = false;
-static bool LstickinvertY = false;
-static bool LstickinvertX = false;
-static std::string Rstickupmap = "rstickup";
-static std::string Rstickdownmap = "rstickdown";
-static std::string Rstickleftmap = "rstickleft";
-static std::string Rstickrightmap = "rstickright";
-static bool Rstickbuttons = false;
-static bool Rstickswap = false;
-static bool RstickinvertY = false;
-static bool RstickinvertX = false;
+using namespace Libraries::Pad;
 
 static Uint32 SDLCALL PollController(void* userdata, SDL_TimerID timer_id, Uint32 interval) {
     auto* controller = reinterpret_cast<Input::GameController*>(userdata);
@@ -94,6 +226,9 @@ static Uint32 SDLCALL PollController(void* userdata, SDL_TimerID timer_id, Uint3
 WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameController* controller_,
                      std::string_view window_title)
     : width{width_}, height{height_}, controller{controller_} {
+    if (!SDL_SetHint(SDL_HINT_APP_NAME, "shadPS4")) {
+        UNREACHABLE_MSG("Failed to set SDL window hint: {}", SDL_GetError());
+    }
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         UNREACHABLE_MSG("Failed to initialize SDL video subsystem: {}", SDL_GetError());
     }
@@ -134,7 +269,7 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameController* controller_
     SDL_SetWindowFullscreen(window, Config::getIsFullscreen());
 
     SDL_InitSubSystem(SDL_INIT_GAMEPAD);
-    controller->TryOpenSDLController();
+    controller->SetEngine(std::make_unique<Input::SDLInputEngine>());
 
 #if defined(SDL_PLATFORM_WIN32)
     window_info.type = WindowSystemType::Windows;
@@ -158,12 +293,10 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameController* controller_
     window_info.type = WindowSystemType::Metal;
     window_info.render_surface = SDL_Metal_GetLayer(SDL_Metal_CreateView(window));
 #endif
-
-    Input::CheckRemapFile();
     // input handler init-s
     Input::ControllerOutput::SetControllerOutputController(controller);
+    Input::ControllerOutput::LinkJoystickAxes();
     Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
-    RefreshMappings();
 }
 
 WindowSDL::~WindowSDL() = default;
@@ -201,7 +334,7 @@ void WindowSDL::WaitEvent() {
         break;
     case SDL_EVENT_GAMEPAD_ADDED:
     case SDL_EVENT_GAMEPAD_REMOVED:
-        controller->TryOpenSDLController();
+        controller->SetEngine(std::make_unique<Input::SDLInputEngine>());
         break;
     case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
     case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
@@ -278,13 +411,14 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
     using Libraries::Pad::OrbisPadButtonDataOffset;
 
     // get the event's id, if it's keyup or keydown
-    bool input_down = event->type == SDL_EVENT_KEY_DOWN ||
-                      event->type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
-                      event->type == SDL_EVENT_MOUSE_WHEEL;
-    u32 input_id = Input::InputBinding::GetInputIDFromEvent(*event);
+    const bool input_down = event->type == SDL_EVENT_KEY_DOWN ||
+                            event->type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
+                            event->type == SDL_EVENT_MOUSE_WHEEL;
+    Input::InputEvent input_event = Input::InputBinding::GetInputEventFromSDLEvent(*event);
 
     // Handle window controls outside of the input maps
     if (event->type == SDL_EVENT_KEY_DOWN) {
+        u32 input_id = input_event.input.sdl_id;
         // Reparse kbm inputs
         if (input_id == SDLK_F8) {
             Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
@@ -318,7 +452,7 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
     }
 
     // add/remove it from the list
-    bool inputs_changed = Input::UpdatePressedKeys(input_id, input_down);
+    bool inputs_changed = Input::UpdatePressedKeys(input_event);
 
     // update bindings
     if (inputs_changed) {
@@ -328,349 +462,25 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
 
 void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
 
-    u32 button = 0;
-    std::string buttonanalogmap = "default";
-    Input::Axis axis = Input::Axis::AxisMax;
-    int axisvalue = 0;
-    int ax = 0;
+    bool input_down = event->type == SDL_EVENT_GAMEPAD_AXIS_MOTION ||
+                      event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+    Input::InputEvent input_event = Input::InputBinding::GetInputEventFromSDLEvent(*event);
 
-    switch (event->type) {
-    case SDL_EVENT_GAMEPAD_ADDED:
-    case SDL_EVENT_GAMEPAD_REMOVED:
-        controller->TryOpenSDLController();
-        break;
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
-        controller->SetTouchpadState(event->gtouchpad.finger,
-                                     event->type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP,
-                                     event->gtouchpad.x, event->gtouchpad.y);
-        break;
-    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-    case SDL_EVENT_GAMEPAD_BUTTON_UP:
-        button = sdlGamepadToOrbisButton(event->gbutton.button);
-        // if button is mapped to axis, convert to axis inputs, axes are mapped to values 2000001-8
-        if (button > 2000000) {
-            if (button == OrbisPadButtonDataOffset::LeftStickUp) {
-                axis = Input::Axis::LeftY;
-                if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-                    axisvalue += -127;
-                } else {
-                    axisvalue = 0;
-                }
-            } else if (button == OrbisPadButtonDataOffset::LeftStickDown) {
-                axis = Input::Axis::LeftY;
-                if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-                    axisvalue += 127;
-                } else {
-                    axisvalue = 0;
-                }
-            } else if (button == OrbisPadButtonDataOffset::LeftStickLeft) {
-                axis = Input::Axis::LeftX;
-                if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-                    axisvalue += -127;
-                } else {
-                    axisvalue = 0;
-                }
-            } else if (button == OrbisPadButtonDataOffset::LeftStickRight) {
-                axis = Input::Axis::LeftX;
-                if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-                    axisvalue += 127;
-                } else {
-                    axisvalue = 0;
-                }
-            } else if (button == OrbisPadButtonDataOffset::RightStickUp) {
-                axis = Input::Axis::RightY;
-                if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-                    axisvalue += -127;
-                } else {
-                    axisvalue = 0;
-                }
-            } else if (button == OrbisPadButtonDataOffset::RightStickDown) {
-                axis = Input::Axis::RightY;
-                if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-                    axisvalue += 127;
-                } else {
-                    axisvalue = 0;
-                }
-            } else if (OrbisPadButtonDataOffset::RightStickLeft) {
-                axis = Input::Axis::RightX;
-                if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-                    axisvalue += -127;
-                } else {
-                    axisvalue = 0;
-                }
-            } else if (OrbisPadButtonDataOffset::RightStickRight) {
-                axis = Input::Axis::RightX;
-                if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-                    axisvalue += 127;
-                } else {
-                    axisvalue = 0;
-                }
-            }
-            ax = Input::GetAxis(-0x80, 0x80, axisvalue);
-            controller->Axis(0, axis, ax);
-            break;
-        } else {
-            if (event->gbutton.button == SDL_GAMEPAD_BUTTON_BACK) {
-                std::string backButtonBehavior = Config::getBackButtonBehavior();
-                if (backButtonBehavior != "none") {
-                    float x = backButtonBehavior == "left"
-                                  ? 0.25f
-                                  : (backButtonBehavior == "right" ? 0.75f : 0.5f);
-                    // trigger a touchpad event so that the touchpad emulation for back button works
-                    controller->SetTouchpadState(0, true, x, 0.5f);
-                    controller->CheckButton(0, button,
-                                            event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
-                }
-            } else {
-                controller->CheckButton(0, button, event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
-            }
-        }
-        break;
-
-    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-        int negaxisvalue = event->gaxis.value * -1;
-        enum Input::Axis OutputLeftTrig;
-        enum Input::Axis OutputRightTrig;
-
-        if (LTmap == "R2") {
-            OutputLeftTrig = Input::Axis::TriggerRight;
-        } else if (LTmap == "L2") {
-            OutputLeftTrig = Input::Axis::TriggerLeft;
-        } else if (LTmap == "lstickup" || LTmap == "lstickdown") {
-            OutputLeftTrig = Input::Axis::LeftY;
-        } else if (LTmap == "lstickleft" || LTmap == "lstickright") {
-            OutputLeftTrig = Input::Axis::LeftX;
-        } else if (LTmap == "rstickup" || LTmap == "rstickdown") {
-            OutputLeftTrig = Input::Axis::RightY;
-        } else if (LTmap == "rstickleft" || LTmap == "rstickright") {
-            OutputLeftTrig = Input::Axis::RightX;
-        } else {
-            OutputLeftTrig = Input::Axis::AxisMax;
-        }
-
-        if (RTmap == "R2") {
-            OutputRightTrig = Input::Axis::TriggerRight;
-        } else if (RTmap == "L2") {
-            OutputRightTrig = Input::Axis::TriggerLeft;
-        } else if (RTmap == "lstickup" || RTmap == "lstickdown") {
-            OutputRightTrig = Input::Axis::LeftY;
-        } else if (RTmap == "lstickleft" || RTmap == "lstickright") {
-            OutputRightTrig = Input::Axis::LeftX;
-        } else if (RTmap == "rstickup" || RTmap == "rstickdown") {
-            OutputRightTrig = Input::Axis::RightY;
-        } else if (RTmap == "rstickleft" || RTmap == "rstickright") {
-            OutputRightTrig = Input::Axis::RightX;
-        } else {
-            OutputRightTrig = Input::Axis::AxisMax;
-        }
-
-        axis = event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFTX           ? Input::Axis::LeftX
-               : event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY         ? Input::Axis::LeftY
-               : event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTX        ? Input::Axis::RightX
-               : event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTY        ? Input::Axis::RightY
-               : event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER  ? OutputLeftTrig
-               : event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER ? OutputRightTrig
-                                                                     : Input::Axis::AxisMax;
-        if (event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER) {
-            if (LTmap == "L2" || LTmap == "R2") {
-                controller->Axis(0, axis, Input::GetAxis(0, 0x8000, event->gaxis.value));
-                // if trigger is not mapped to axis, convert to button inputs, axes are mapped to
-                // values 2000000+
-            } else if (outputkey_map[LTmap] < 2000000) {
-                button = outputkey_map[LTmap];
-                controller->CheckButton(0, button, event->gaxis.value > 120);
-            } else if (LTmap == "lstickup" || LTmap == "lstickleft" || LTmap == "rstickup" ||
-                       LTmap == "rstickleft") {
-                controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));
-            } else if (axis != Input::Axis::AxisMax) {
-                controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
-            }
-        }
-        if (event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) {
-            if (RTmap == "L2" || RTmap == "R2") {
-                controller->Axis(0, axis, Input::GetAxis(0, 0x8000, event->gaxis.value));
-            } else if (outputkey_map[RTmap] < 2000000) {
-                button = outputkey_map[RTmap];
-                controller->CheckButton(0, button, event->gaxis.value > 120);
-            } else if (RTmap == "lstickup" || RTmap == "lstickleft" || RTmap == "rstickup" ||
-                       RTmap == "rstickleft") {
-                controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));
-            } else if (axis != Input::Axis::AxisMax) {
-                controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
-            }
-        }
-        if (event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTY) {
-            if (Rstickbuttons) {
-                button = outputkey_map[Rstickupmap];
-                controller->CheckButton(0, button, event->gaxis.value < -15000);
-                button = outputkey_map[Rstickdownmap];
-                controller->CheckButton(0, button, event->gaxis.value > 15000);
-            } else {
-                if (Rstickswap) {
-                    axis = Input::Axis::LeftY;
-                }
-                if (RstickinvertY) {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));
-                } else {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
-                }
-            }
-        }
-        if (event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTX) {
-            if (Rstickbuttons) {
-                button = outputkey_map[Rstickleftmap];
-                controller->CheckButton(0, button, event->gaxis.value < -15000);
-                button = outputkey_map[Rstickrightmap];
-                controller->CheckButton(0, button, event->gaxis.value > 15000);
-            } else {
-                if (Rstickswap) {
-                    axis = Input::Axis::LeftX;
-                }
-                if (RstickinvertX) {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));
-                } else {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
-                }
-            }
-        }
-        if (event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY) {
-            if (Lstickbuttons) {
-                button = outputkey_map[Lstickupmap];
-                controller->CheckButton(0, button, event->gaxis.value < -15000);
-                button = outputkey_map[Lstickdownmap];
-                controller->CheckButton(0, button, event->gaxis.value > 15000);
-            } else {
-                if (Lstickswap) {
-                    axis = Input::Axis::RightY;
-                }
-                if (LstickinvertY) {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));
-                } else {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
-                }
-            }
-        }
-        if (event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFTX) {
-            if (Lstickbuttons) {
-                button = outputkey_map[Lstickleftmap];
-                controller->CheckButton(0, button, event->gaxis.value < -15000);
-                button = outputkey_map[Lstickrightmap];
-                controller->CheckButton(0, button, event->gaxis.value > 15000);
-            } else {
-                if (Lstickswap) {
-                    axis = Input::Axis::RightX;
-                }
-                if (LstickinvertX) {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, negaxisvalue));
-                } else {
-                    controller->Axis(0, axis, Input::GetAxis(-0x8000, 0x8000, event->gaxis.value));
-                }
-            }
-        }
-    }
-}
-
-int WindowSDL::sdlGamepadToOrbisButton(u8 button) {
-    using Libraries::Pad::OrbisPadButtonDataOffset;
-
-    switch (button) {
-    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
-        return outputkey_map[ddownmap];
-    case SDL_GAMEPAD_BUTTON_DPAD_UP:
-        return outputkey_map[dupmap];
-    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
-        return outputkey_map[dleftmap];
-    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
-        return outputkey_map[drightmap];
-    case SDL_GAMEPAD_BUTTON_SOUTH:
-        return outputkey_map[Amap];
-    case SDL_GAMEPAD_BUTTON_NORTH:
-        return outputkey_map[Ymap];
-    case SDL_GAMEPAD_BUTTON_WEST:
-        return outputkey_map[Xmap];
-    case SDL_GAMEPAD_BUTTON_EAST:
-        return outputkey_map[Bmap];
-    case SDL_GAMEPAD_BUTTON_START:
-        return outputkey_map[startmap];
-    case SDL_GAMEPAD_BUTTON_TOUCHPAD:
-        return OrbisPadButtonDataOffset::TouchPad;
-    case SDL_GAMEPAD_BUTTON_BACK:
-        return OrbisPadButtonDataOffset::TouchPad;
-    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
-        return outputkey_map[LBmap];
-    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
-        return outputkey_map[RBmap];
-    case SDL_GAMEPAD_BUTTON_LEFT_STICK:
-        return outputkey_map[lstickmap];
-    case SDL_GAMEPAD_BUTTON_RIGHT_STICK:
-        return outputkey_map[rstickmap];
-    default:
-        return 0;
-    }
-}
-
-void RefreshMappings() {
-
-    try {
-        std::ifstream ifs;
-        ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-        const toml::value data = toml::parse("Controller.toml");
-    } catch (std::exception& ex) {
-        const std::string ParseErrorMsg =
-            fmt::format("Parse Error 'Controller.toml'. Exception: {}", ex.what());
-        const char* cParseErrorMsg = ParseErrorMsg.c_str();
-        LOG_ERROR(Lib_Pad, cParseErrorMsg);
+    // the touchpad button shouldn't be rebound to anything else,
+    // as it would break the entire touchpad handling
+    // You can still bind other things to it though
+    if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
+        controller->CheckButton(0, OrbisPadButtonDataOffset::TouchPad, input_down);
         return;
     }
 
-    const toml::value data = toml::parse("Controller.toml");
-    Amap = toml::find_or<std::string>(data, "A_button", "remap", "cross");
-    Ymap = toml::find_or<std::string>(data, "Y_button", "remap", "triangle");
-    Xmap = toml::find_or<std::string>(data, "X_button", "remap", "square");
-    Bmap = toml::find_or<std::string>(data, "B_button", "remap", "circle");
-    LBmap = toml::find_or<std::string>(data, "Left_bumper", "remap", "L1");
-    RBmap = toml::find_or<std::string>(data, "Right_bumper", "remap", "R1");
-    dupmap = toml::find_or<std::string>(data, "dpad_up", "remap", "dpad_up");
-    ddownmap = toml::find_or<std::string>(data, "dpad_down", "remap", "dpad_down");
-    dleftmap = toml::find_or<std::string>(data, "dpad_left", "remap", "dpad_left");
-    drightmap = toml::find_or<std::string>(data, "dpad_right", "remap", "dpad_right");
-    rstickmap = toml::find_or<std::string>(data, "Right_stick_button", "remap", "R3");
-    lstickmap = toml::find_or<std::string>(data, "Left_stick_button", "remap", "L3");
-    startmap = toml::find_or<std::string>(data, "Start", "remap", "options");
-    LTmap = toml::find_or<std::string>(data, "Left_trigger", "remap", "L2");
-    RTmap = toml::find_or<std::string>(data, "Right_trigger", "remap", "R2");
-    Lstickupmap = toml::find_or<std::string>(data, "If_Left_analog_stick_mapped_to_buttons",
-                                             "Left_stick_up_remap", "lstickup");
-    Lstickdownmap = toml::find_or<std::string>(data, "If_Left_analog_stick_mapped_to_buttons",
-                                               "Left_stick_down_remap", "lstickdown");
-    Lstickleftmap = toml::find_or<std::string>(data, "If_Left_analog_stick_mapped_to_buttons",
-                                               "Left_stick_left_remap", "lstickleft");
-    Lstickrightmap = toml::find_or<std::string>(data, "If_Left_analog_stick_mapped_to_buttons",
-                                                "Left_stick_right_remap", "lstickright");
-    Lstickbuttons =
-        toml::find_or<bool>(data, "Left_analog_stick_behavior", "Mapped_to_buttons", false);
-    Lstickswap = toml::find_or<bool>(data, "Left_analog_stick_behavior", "Swap_sticks", false);
-    LstickinvertY =
-        toml::find_or<bool>(data, "Left_analog_stick_behavior", "Invert_movement_vertical", false);
-    LstickinvertX = toml::find_or<bool>(data, "Left_analog_stick_behavior",
-                                        "Invert_movement_horizontal", false);
-    Rstickupmap = toml::find_or<std::string>(data, "If_Right_analog_stick_mapped_to_buttons",
-                                             "Right_stick_up_remap", "rstickup");
-    Rstickdownmap = toml::find_or<std::string>(data, "If_Right_analog_stick_mapped_to_buttons",
-                                               "Right_stick_down_remap", "rstickdown");
-    Rstickleftmap = toml::find_or<std::string>(data, "If_Right_analog_stick_mapped_to_buttons",
-                                               "Right_stick_left_remap", "rstickleft");
-    Rstickrightmap = toml::find_or<std::string>(data, "If_Right_analog_stick_mapped_to_buttons",
-                                                "Right_stick_right_remap", "rstickright");
-    Rstickbuttons =
-        toml::find_or<bool>(data, "Right_analog_stick_behavior", "Mapped_to_buttons", false);
-    Rstickswap = toml::find_or<bool>(data, "Right_analog_stick_behavior", "Swap_sticks", false);
-    RstickinvertY =
-        toml::find_or<bool>(data, "Right_analog_stick_behavior", "Invert_movement_vertical", false);
-    RstickinvertX = toml::find_or<bool>(data, "Right_analog_stick_behavior",
-                                        "Invert_movement_horizontal", false);
+    // add/remove it from the list
+    bool inputs_changed = Input::UpdatePressedKeys(input_event);
+
+    // update bindings
+    if (inputs_changed) {
+        Input::ActivateOutputsFromInputs();
+    }
 }
 
 } // namespace Frontend
