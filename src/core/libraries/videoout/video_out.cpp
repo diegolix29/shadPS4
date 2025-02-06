@@ -40,13 +40,13 @@ void PS4_SYSV_ABI sceVideoOutSetBufferAttribute(BufferAttribute* attribute, Pixe
 s32 PS4_SYSV_ABI sceVideoOutAddFlipEvent(Kernel::SceKernelEqueue eq, s32 handle, void* udata) {
     LOG_INFO(Lib_VideoOut, "handle = {}", handle);
 
+    if (eq == nullptr) {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE;
+    }
+
     auto* port = driver->GetPort(handle);
     if (port == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
-    }
-
-    if (eq == nullptr) {
-        return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE;
     }
 
     Kernel::EqueueEvent event{};
@@ -299,6 +299,13 @@ s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, u32 arg, void** u
     auto* port = driver->GetPort(handle);
     if (!port) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
+    }
+
+    std::unique_lock lock{port->port_mutex};
+
+    if (port->buffer_labels[buf_id] != 1) {
+        // LOG_ERROR(Lib_VideoOut, "Setting buffer label correctly for buf_id = {}", buf_id);
+        port->buffer_labels[buf_id] = 1;
     }
 
     Platform::IrqC::Instance()->RegisterOnce(

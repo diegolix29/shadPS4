@@ -10,6 +10,8 @@ namespace Shader::Gcn {
 void Translator::EmitVectorAlu(const GcnInst& inst) {
     switch (inst.opcode) {
         // VOP2
+    case Opcode::V_MUL_HI_I32:
+        return V_MUL_HI_U32(true, inst);
     case Opcode::V_CNDMASK_B32:
         return V_CNDMASK_B32(inst);
     case Opcode::V_READLANE_B32:

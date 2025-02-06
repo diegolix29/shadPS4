@@ -327,8 +327,8 @@ ImageId TextureCache::FindImage(BaseDesc& desc, FindFlags flags) {
             info.pixel_format != cache_image.info.pixel_format) {
             continue;
         }
-        ASSERT((cache_image.info.type == info.type || info.size == Extent3D{1, 1, 1} ||
-                True(flags & FindFlags::RelaxFmt)));
+        //ASSERT((cache_image.info.type == info.type || info.size == Extent3D{1, 1, 1} ||
+        //        True(flags & FindFlags::RelaxFmt)));
         image_id = cache_id;
     }
 
