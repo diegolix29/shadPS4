@@ -48,7 +48,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
         if (updateChannel == "mainBB") {
             url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
             checkName = false;
-        } else if (updateChannel == "Full-BB") {
+        } else if (updateChannel == "Full-Souls") {
             url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases/latest");
             checkName = false;
         } else if (updateChannel == "PRTBB") {
@@ -56,7 +56,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             checkName = false;
         } else {
             if (Common::isRelease) {
-                updateChannel = "Full-BB";
+                updateChannel = "Full-Souls";
             } else if (!Common::isRelease) { // Non-release builds
                 updateChannel = "mainBB";
             } else { // Fallback to PRTBB if neither applies

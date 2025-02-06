@@ -685,14 +685,14 @@ void load(const std::filesystem::path& path) {
         logType = toml::find_or<std::string>(general, "logType", "sync");
         userName = toml::find_or<std::string>(general, "userName", "shadPS4");
         if (Common::isRelease) {
-            updateChannel = toml::find_or<std::string>(general, "updateChannel", "Full-BB");
+            updateChannel = toml::find_or<std::string>(general, "updateChannel", "Full-Souls");
         } else if (!Common::isRelease) { // Non-release builds
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "mainBB");
         } else { // Fallback to PRTBB if neither applies
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "PRTBB");
         }
         if (updateChannel == "Release") {
-            updateChannel = "Full-BB";
+            updateChannel = "Full-Souls";
         }
         if (updateChannel == "Nightly") {
             updateChannel = "mainBB";
