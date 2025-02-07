@@ -1512,10 +1512,10 @@ private:
             }
             void unhandled_exception() {
                 // try {
-                    // std::rethrow_exception(std::current_exception());
+                // std::rethrow_exception(std::current_exception());
                 // } catch (const std::exception& e) {
-                    // UNREACHABLE_MSG("Unhandled exception: {}", e.what());
-               // }
+                // UNREACHABLE_MSG("Unhandled exception: {}", e.what());
+                // }
             }
             void return_void() {}
             struct empty {};
