@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="zh_CN">
-	<!-- SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+	<!-- SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
          SPDX-License-Identifier: GPL-2.0-or-later -->
 	<context>
 		<name>AboutDialog</name>
@@ -637,7 +637,7 @@
 			<translation>图像</translation>
 		</message>
 		<message>
-			<source>Gui</source>
+			<source>GUI</source>
 			<translation>界面</translation>
 		</message>
 		<message>
@@ -1311,6 +1311,14 @@
 			<source>Game can be completed with playable performance and no major glitches</source>
 			<translation>游戏能在可玩的性能下通关且没有重大 Bug</translation>
 		</message>
+		<message>
+			<source>Click to see details on github</source>
+			<translation>点击查看 GitHub 上的详细信息</translation>
+		</message>
+		<message>
+			<source>Last updated</source>
+			<translation>最后更新</translation>
+		</message>
 	</context>
 	<context>
 		<name>CheckUpdate</name>
@@ -1444,6 +1452,30 @@
 	</context>
 	<context>
 		<name>CompatibilityInfoClass</name>
+		<message>
+			<source>Fetching compatibility data, please wait</source>
+			<translation>正在获取兼容性数据，请稍等</translation>
+		</message>
+		<message>
+			<source>Cancel</source>
+			<translation>取消</translation>
+		</message>
+		<message>
+			<source>Loading...</source>
+			<translation>加载中...</translation>
+		</message>
+		<message>
+			<source>Error</source>
+			<translation>错误</translation>
+		</message>
+		<message>
+			<source>Unable to update compatibility data! Try again later.</source>
+			<translation>无法更新兼容性数据！稍后再试。</translation>
+		</message>
+		<message>
+			<source>Unable to open compatibility_data.json for writing.</source>
+			<translation>无法打开 compatibility_data.json 进行写入。</translation>
+		</message>
 		<message>
 			<source>Unknown</source>
 			<translation>未知</translation>
