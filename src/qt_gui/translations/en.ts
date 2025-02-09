@@ -673,6 +673,10 @@
 			<translation>Enable NULL GPU</translation>
 		</message>
 		<message>
+		    <source>Enable HDR</source>
+			<translation>Enable HDR</translation>
+		</message>
+		<message>
 			<source>Paths</source>
 			<translation>Paths</translation>
 		</message>
@@ -727,8 +731,7 @@
 		<message>
 			<source>Guest Debug Markers</source>
 			<translation>Guest Debug Markers</translation>
-		</message>
-		
+		</message>		
 		<message>
 			<source>Update</source>
 			<translation>Update</translation>
@@ -948,6 +951,10 @@
 		<message>
 			<source>nullGpuCheckBox</source>
 			<translation>Enable Null GPU:\nFor the sake of technical debugging, disables game rendering as if there were no graphics card.</translation>
+		</message>
+		<message>
+		    <source>enableHDRCheckBox</source>
+			<translation>Enable HDR:\nEnables HDR in games that support it.\nYour monitor must have support for the BT2020 PQ color space and the RGB10A2 swapchain format.</translation>
 		</message>
 		<message>
 			<source>gameFoldersBox</source>

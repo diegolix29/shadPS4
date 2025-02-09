@@ -280,6 +280,7 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
         ui->heightDivider->installEventFilter(this);
         ui->dumpShadersCheckBox->installEventFilter(this);
         ui->nullGpuCheckBox->installEventFilter(this);
+        ui->enableHDRCheckBox->installEventFilter(this);
 
         // Paths
         ui->gameFoldersGroupBox->installEventFilter(this);
@@ -354,6 +355,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     }
     ui->dumpShadersCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "dumpShaders", false));
     ui->nullGpuCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "nullGpu", false));
+    ui->enableHDRCheckBox->setChecked(toml::find_or<bool>(data, "General", "isHDRAllowed", false));
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->disableTrophycheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
@@ -528,6 +530,8 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
         text = tr("GUIBackgroundImageGroupBox");
     } else if (elementName == "GUIMusicGroupBox") {
         text = tr("GUIMusicGroupBox");
+    } else if (elementName == "enableHDRCheckBox") {
+        text = tr("enableHDRCheckBox");
     } else if (elementName == "disableTrophycheckBox") {
         text = tr("disableTrophycheckBox");
     } else if (elementName == "enableCompatibilityCheckBox") {
@@ -628,6 +632,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setIsMotionControlsEnabled(ui->motionControlsCheckBox->isChecked());
     Config::setisTrophyPopupDisabled(ui->disableTrophycheckBox->isChecked());
     Config::setPlayBGM(ui->playBGMCheckBox->isChecked());
+    Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
     Config::setLogType(ui->logTypeComboBox->currentText().toStdString());
     Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());
     Config::setUserName(ui->userNameLineEdit->text().toStdString());
