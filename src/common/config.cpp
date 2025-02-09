@@ -31,6 +31,7 @@ std::filesystem::path find_fs_path_or(const basic_value<TC>& v, const K& ky,
 
 namespace Config {
 
+static bool isHDRAllowed = false;
 static bool isNeo = false;
 static bool isFullscreen = false;
 static std::string fullscreenMode = "borderless";
@@ -103,6 +104,10 @@ static bool showBackgroundImage = true;
 
 // Language
 u32 m_language = 1; // english
+
+bool allowHDR() {
+    return isHDRAllowed;
+}
 
 bool GetUseUnifiedInputConfig() {
     return useUnifiedInputConfig;
@@ -353,6 +358,10 @@ void setAutoUpdate(bool enable) {
 
 void setNullGpu(bool enable) {
     isNullGpu = enable;
+}
+
+void setAllowHDR(bool enable) {
+    isHDRAllowed = enable;
 }
 
 void setCopyGPUCmdBuffers(bool enable) {
@@ -674,6 +683,7 @@ void load(const std::filesystem::path& path) {
     if (data.contains("General")) {
         const toml::value& general = data.at("General");
 
+        isHDRAllowed = toml::find_or<bool>(general, "allowHDR", false);
         isNeo = toml::find_or<bool>(general, "isPS4Pro", false);
         isFullscreen = toml::find_or<bool>(general, "Fullscreen", false);
         fullscreenMode = toml::find_or<std::string>(general, "FullscreenMode", "borderless");
@@ -823,6 +833,7 @@ void save(const std::filesystem::path& path) {
         fmt::print("Saving new configuration file {}\n", fmt::UTF(path.u8string()));
     }
 
+    data["General"]["allowHDR"] = isHDRAllowed;
     data["General"]["isPS4Pro"] = isNeo;
     data["General"]["Fullscreen"] = isFullscreen;
     data["General"]["FullscreenMode"] = fullscreenMode;
@@ -934,6 +945,7 @@ void saveMainWindow(const std::filesystem::path& path) {
 }
 
 void setDefaultValues() {
+    isHDRAllowed = false;
     isNeo = false;
     isFullscreen = false;
     isTrophyPopupDisabled = false;
