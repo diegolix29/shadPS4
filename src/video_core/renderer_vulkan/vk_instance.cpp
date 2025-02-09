@@ -254,9 +254,10 @@ bool Instance::CreateDevice() {
     add_extension(VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME);
     add_extension(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
     add_extension(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
-    tooling_info = add_extension(VK_EXT_TOOLING_INFO_EXTENSION_NAME);
+    if (Config ::vkValidationEnabled() || Config::isRdocEnabled()) {
+        tooling_info = add_extension(VK_EXT_TOOLING_INFO_EXTENSION_NAME);
+    }
     const bool maintenance4 = add_extension(VK_KHR_MAINTENANCE_4_EXTENSION_NAME);
-
     add_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     add_extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
     add_extension(VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME);
