@@ -302,13 +302,6 @@ s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, u32 arg, void** u
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
 
-    std::unique_lock lock{port->port_mutex};
-
-    if (port->buffer_labels[buf_id] != 1) {
-        // LOG_ERROR(Lib_VideoOut, "Setting buffer label correctly for buf_id = {}", buf_id);
-        port->buffer_labels[buf_id] = 1;
-    }
-
     Platform::IrqC::Instance()->RegisterOnce(
         Platform::InterruptId::GfxFlip, [=](Platform::InterruptId irq) {
             ASSERT_MSG(irq == Platform::InterruptId::GfxFlip, "An unexpected IRQ occured");
