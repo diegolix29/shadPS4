@@ -55,40 +55,27 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
 void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size) {
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;
+
     memory_tracker.ForEachDownloadRange<true>(
         device_addr, size, [&](u64 device_addr_out, u64 range_size) {
             const VAddr buffer_addr = buffer.CpuAddr();
             const auto add_download = [&](VAddr start, VAddr end) {
-                const u64 new_offset = start - buffer_addr;
-                const u64 new_size = end - start;
                 copies.push_back(vk::BufferCopy{
-                    .srcOffset = new_offset,
+                    .srcOffset = start - buffer_addr,
                     .dstOffset = total_size_bytes,
-                    .size = new_size,
+                    .size = end - start,
                 });
-                total_size_bytes += new_size;
+                total_size_bytes += end - start;
             };
             gpu_modified_ranges.ForEachInRange(device_addr_out, range_size, add_download);
             gpu_modified_ranges.Subtract(device_addr_out, range_size);
         });
+
     if (total_size_bytes == 0) {
         return;
     }
-    const auto [staging, offset] = staging_buffer.Map(total_size_bytes);
-    for (auto& copy : copies) {
-        // Modify copies to have the staging offset in mind
-        copy.dstOffset += offset;
-    }
-    staging_buffer.Commit();
-    scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
     cmdbuf.copyBuffer(buffer.buffer, staging_buffer.Handle(), copies);
-    scheduler.Finish();
-    for (const auto& copy : copies) {
-        const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
-        const u64 dst_offset = copy.dstOffset - offset;
-        std::memcpy(std::bit_cast<u8*>(copy_device_addr), staging + dst_offset, copy.size);
-    }
 }
 
 void BufferCache::BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline) {
@@ -207,18 +194,15 @@ void BufferCache::BindIndexBuffer(u32 index_offset) {
 
 void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
     ASSERT_MSG(address % 4 == 0, "GDS offset must be dword aligned");
+
     if (!is_gds && !IsRegionRegistered(address, num_bytes)) {
         memcpy(std::bit_cast<void*>(address), value, num_bytes);
         return;
     }
+
     scheduler.EndRendering();
-    const Buffer* buffer = [&] {
-        if (is_gds) {
-            return &gds_buffer;
-        }
-        const BufferId buffer_id = FindBuffer(address, num_bytes);
-        return &slot_buffers[buffer_id];
-    }();
+    const Buffer* buffer = is_gds ? &gds_buffer : &slot_buffers[FindBuffer(address, num_bytes)];
+
     const auto cmdbuf = scheduler.CommandBuffer();
     const vk::BufferMemoryBarrier2 pre_barrier = {
         .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
@@ -243,6 +227,7 @@ void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bo
         .bufferMemoryBarrierCount = 1,
         .pBufferMemoryBarriers = &pre_barrier,
     });
+
     cmdbuf.updateBuffer(buffer->Handle(), buffer->Offset(address), num_bytes, value);
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
@@ -440,15 +425,20 @@ BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {
     if (device_addr == 0) {
         return NULL_BUFFER_ID;
     }
+
     const u64 page = device_addr >> CACHING_PAGEBITS;
     const BufferId buffer_id = page_table[page];
+
     if (!buffer_id) {
         return CreateBuffer(device_addr, size);
     }
-    const Buffer& buffer = slot_buffers[buffer_id];
+
+    Buffer& buffer = slot_buffers[buffer_id];
+
     if (buffer.IsInBounds(device_addr, size)) {
         return buffer_id;
     }
+
     return CreateBuffer(device_addr, size);
 }
 
