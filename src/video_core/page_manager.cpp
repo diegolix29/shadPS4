@@ -114,7 +114,8 @@ struct PageManager::Impl {
 
             // Notify rasterizer about the fault.
             const VAddr addr = msg.arg.pagefault.address;
-            rasterizer->InvalidateMemory(addr, 1);
+            const VAddr addr_page = GetPageAddr(addr);
+            rasterizer->InvalidateMemory(addr, addr_page, PAGESIZE);
         }
     }
 
@@ -152,7 +153,8 @@ struct PageManager::Impl {
     static bool GuestFaultSignalHandler(void* context, void* fault_address) {
         const auto addr = reinterpret_cast<VAddr>(fault_address);
         if (Common::IsWriteError(context)) {
-            return rasterizer->InvalidateMemory(addr, 1);
+            const VAddr addr_aligned = GetPageAddr(addr);
+            return rasterizer->InvalidateMemory(addr, addr_aligned, PAGESIZE);
         }
         return false;
     }

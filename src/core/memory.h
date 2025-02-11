@@ -211,7 +211,7 @@ public:
 
     void NameVirtualRange(VAddr virtual_addr, size_t size, std::string_view name);
 
-    void InvalidateMemory(VAddr addr, u64 size) const;
+    void InvalidateMemory(const VAddr addr, const VAddr addr_aligned, const u64 size) const;
 
 private:
     VMAHandle FindVMA(VAddr target) {
