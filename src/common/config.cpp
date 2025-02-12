@@ -57,6 +57,7 @@ static bool isDebugDump = false;
 static bool isShaderDebug = false;
 static bool isShowSplash = false;
 static bool isAutoUpdate = false;
+static bool isAlwaysShowChangelog = false;
 static bool isNullGpu = false;
 static bool shouldCopyGPUBuffers = false;
 static bool shouldDumpShaders = false;
@@ -252,6 +253,10 @@ bool autoUpdate() {
     return isAutoUpdate;
 }
 
+bool alwaysShowChangelog() {
+    return isAlwaysShowChangelog;
+}
+
 bool nullGpu() {
     return isNullGpu;
 }
@@ -354,6 +359,10 @@ void setShowSplash(bool enable) {
 
 void setAutoUpdate(bool enable) {
     isAutoUpdate = enable;
+}
+
+void setAlwaysShowChangelog(bool enable) {
+    isAlwaysShowChangelog = enable;
 }
 
 void setNullGpu(bool enable) {
@@ -712,6 +721,7 @@ void load(const std::filesystem::path& path) {
         }
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
+        isAlwaysShowChangelog = toml::find_or<bool>(general, "alwaysShowChangelog", false);
         separateupdatefolder = toml::find_or<bool>(general, "separateUpdateEnabled", false);
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
@@ -848,6 +858,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash;
     data["General"]["autoUpdate"] = isAutoUpdate;
+    data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
     data["General"]["separateUpdateEnabled"] = separateupdatefolder;
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
@@ -972,6 +983,7 @@ void setDefaultValues() {
     isShaderDebug = false;
     isShowSplash = false;
     isAutoUpdate = false;
+    isAlwaysShowChangelog = false;
     isNullGpu = false;
     shouldDumpShaders = false;
     vblankDivider = 1;
