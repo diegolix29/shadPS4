@@ -2,12 +2,12 @@
 <!-- SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
      SPDX-License-Identifier: GPL-2.0-or-later -->
 <!DOCTYPE TS>
-<TS version="2.1" language="ja_JP" sourcelanguage="en">
+<TS version="2.1" language="id_ID" sourcelanguage="en">
   <context>
     <name>AboutDialog</name>
     <message>
       <source>About shadPS4</source>
-      <translation>shadPS4について</translation>
+      <translation type="unfinished">About shadPS4</translation>
     </message>
     <message>
       <source>shadPS4</source>
@@ -15,396 +15,396 @@
     </message>
     <message>
       <source>shadPS4 is an experimental open-source emulator for the PlayStation 4.</source>
-      <translation>shadPS4は、PlayStation 4の実験的なオープンソースエミュレーターです。</translation>
+      <translation type="unfinished">shadPS4 is an experimental open-source emulator for the PlayStation 4.</translation>
     </message>
     <message>
       <source>This software should not be used to play games you have not legally obtained.</source>
-      <translation>非正規、非合法のゲームをプレイするためにこのソフトウェアを使用しないでください。</translation>
+      <translation type="unfinished">This software should not be used to play games you have not legally obtained.</translation>
     </message>
   </context>
   <context>
     <name>CheatsPatches</name>
     <message>
       <source>Cheats / Patches for </source>
-      <translation>のチート/パッチ</translation>
+      <translation type="unfinished">Cheats / Patches for </translation>
     </message>
     <message>
       <source>defaultTextEdit_MSG</source>
-      <translation>チート/パッチは実験的です。\n使用には注意してください。\n\nリポジトリを選択し、ダウンロードボタンをクリックしてチートを個別にダウンロードします。\n「Patches」タブでは、すべてのパッチを一度にダウンロードし、使用したいものを選択して選択を保存できます。\n\nチート/パッチは開発を行っていないため、\n問題があればチートの作者に報告してください。\n\n新しいチートを作成しましたか？\nhttps://github.com/shadps4-emu/ps4_cheats を訪問してください。</translation>
+      <translation>Cheats/Patches bersifat eksperimental.\nGunakan dengan hati-hati.\n\nUnduh cheats satu per satu dengan memilih repositori dan mengklik tombol unduh.\nDi tab Patches, Anda dapat mengunduh semua patch sekaligus, memilih yang ingin digunakan, dan menyimpan pilihan Anda.\n\nKarena kami tidak mengembangkan Cheats/Patches,\nharap laporkan masalah kepada pembuat cheat.\n\nMembuat cheat baru? Kunjungi:\nhttps://github.com/shadps4-emu/ps4_cheats</translation>
     </message>
     <message>
       <source>No Image Available</source>
-      <translation>画像は利用できません</translation>
+      <translation>Tidak Ada Gambar Tersedia</translation>
     </message>
     <message>
       <source>Serial: </source>
-      <translation>シリアル: </translation>
+      <translation type="unfinished">Serial: </translation>
     </message>
     <message>
       <source>Version: </source>
-      <translation>バージョン: </translation>
+      <translation>Versi: </translation>
     </message>
     <message>
       <source>Size: </source>
-      <translation>サイズ: </translation>
+      <translation>Ukuran: </translation>
     </message>
     <message>
       <source>Select Cheat File:</source>
-      <translation>チートファイルを選択:</translation>
+      <translation>Pilih File Cheat:</translation>
     </message>
     <message>
       <source>Repository:</source>
-      <translation>リポジトリ:</translation>
+      <translation>Repositori:</translation>
     </message>
     <message>
       <source>Download Cheats</source>
-      <translation>チートをダウンロード</translation>
+      <translation>Unduh Cheat</translation>
     </message>
     <message>
       <source>Delete File</source>
-      <translation>ファイルを削除</translation>
+      <translation>Hapus File</translation>
     </message>
     <message>
       <source>No files selected.</source>
-      <translation>ファイルが選択されていません。</translation>
+      <translation>Tidak ada file yang dipilih.</translation>
     </message>
     <message>
       <source>You can delete the cheats you don&apos;t want after downloading them.</source>
-      <translation>ダウンロード後に不要なチートを削除できます。</translation>
+      <translation>Anda dapat menghapus cheat yang tidak Anda inginkan setelah mengunduhnya.</translation>
     </message>
     <message>
       <source>Do you want to delete the selected file?\n%1</source>
-      <translation>選択したファイルを削除しますか？\n%1</translation>
+      <translation>Apakah Anda ingin menghapus berkas yang dipilih?\n%1</translation>
     </message>
     <message>
       <source>Select Patch File:</source>
-      <translation>パッチファイルを選択:</translation>
+      <translation>Pilih File Patch:</translation>
     </message>
     <message>
       <source>Download Patches</source>
-      <translation>パッチをダウンロード</translation>
+      <translation>Unduh Patch</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation>保存</translation>
+      <translation>Simpan</translation>
     </message>
     <message>
       <source>Cheats</source>
-      <translation>チート</translation>
+      <translation>Cheat</translation>
     </message>
     <message>
       <source>Patches</source>
-      <translation>パッチ</translation>
+      <translation>Patch</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Kesalahan</translation>
     </message>
     <message>
       <source>No patch selected.</source>
-      <translation>パッチが選択されていません。</translation>
+      <translation>Tidak ada patch yang dipilih.</translation>
     </message>
     <message>
       <source>Unable to open files.json for reading.</source>
-      <translation>files.jsonを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Tidak dapat membuka files.json untuk dibaca.</translation>
     </message>
     <message>
       <source>No patch file found for the current serial.</source>
-      <translation>現在のシリアルに対するパッチファイルが見つかりません。</translation>
+      <translation>Tidak ada file patch ditemukan untuk serial saat ini.</translation>
     </message>
     <message>
       <source>Unable to open the file for reading.</source>
-      <translation>ファイルを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Tidak dapat membuka file untuk dibaca.</translation>
     </message>
     <message>
       <source>Unable to open the file for writing.</source>
-      <translation>ファイルをを書き込みのために開く事が出来ませんでした。</translation>
+      <translation>Tidak dapat membuka file untuk menulis.</translation>
     </message>
     <message>
       <source>Failed to parse XML: </source>
-      <translation>XMLの解析に失敗しました: </translation>
+      <translation>Gagal menganalisis XML: </translation>
     </message>
     <message>
       <source>Success</source>
-      <translation>成功</translation>
+      <translation>Sukses</translation>
     </message>
     <message>
       <source>Options saved successfully.</source>
-      <translation>オプションが正常に保存されました。</translation>
+      <translation>Opsi berhasil disimpan.</translation>
     </message>
     <message>
       <source>Invalid Source</source>
-      <translation>無効なソース</translation>
+      <translation>Sumber Tidak Valid</translation>
     </message>
     <message>
       <source>The selected source is invalid.</source>
-      <translation>選択されたソースは無効です。</translation>
+      <translation>Sumber yang dipilih tidak valid.</translation>
     </message>
     <message>
       <source>File Exists</source>
-      <translation>ファイルが存在します</translation>
+      <translation>File Ada</translation>
     </message>
     <message>
       <source>File already exists. Do you want to replace it?</source>
-      <translation>ファイルはすでに存在します。置き換えますか？</translation>
+      <translation>File sudah ada. Apakah Anda ingin menggantinya?</translation>
     </message>
     <message>
       <source>Failed to save file:</source>
-      <translation>ファイルの保存に失敗しました:</translation>
+      <translation>Gagal menyimpan file:</translation>
     </message>
     <message>
       <source>Failed to download file:</source>
-      <translation>ファイルのダウンロードに失敗しました:</translation>
+      <translation>Gagal mengunduh file:</translation>
     </message>
     <message>
       <source>Cheats Not Found</source>
-      <translation>チートが見つかりません</translation>
+      <translation>Cheat Tidak Ditemukan</translation>
     </message>
     <message>
       <source>CheatsNotFound_MSG</source>
-      <translation>このゲームのこのバージョンのチートが選択されたリポジトリに見つかりませんでした。別のリポジトリまたはゲームの別のバージョンを試してください。</translation>
+      <translation>Cheat tidak ditemukan untuk game ini dalam versi repositori yang dipilih,cobalah repositori lain atau versi game yang berbeda.</translation>
     </message>
     <message>
       <source>Cheats Downloaded Successfully</source>
-      <translation>チートが正常にダウンロードされました</translation>
+      <translation>Cheat Berhasil Diunduh</translation>
     </message>
     <message>
       <source>CheatsDownloadedSuccessfully_MSG</source>
-      <translation>このゲームのこのバージョンのチートをリポジトリから正常にダウンロードしました。 別のリポジトリからのダウンロードも試せます。利用可能であれば、リストからファイルを選択して使用することも可能です。</translation>
+      <translation>Anda telah berhasil mengunduh cheat untuk versi game ini dari repositori yang dipilih. Anda bisa mencoba mengunduh dari repositori lain, jika tersedia akan juga memungkinkan untuk menggunakannya dengan memilih file dari daftar.</translation>
     </message>
     <message>
       <source>Failed to save:</source>
-      <translation>保存に失敗しました:</translation>
+      <translation>Gagal menyimpan:</translation>
     </message>
     <message>
       <source>Failed to download:</source>
-      <translation>ダウンロードに失敗しました:</translation>
+      <translation>Gagal mengunduh:</translation>
     </message>
     <message>
       <source>Download Complete</source>
-      <translation>ダウンロード完了</translation>
+      <translation>Unduhan Selesai</translation>
     </message>
     <message>
       <source>DownloadComplete_MSG</source>
-      <translation>パッチが正常にダウンロードされました！ すべてのゲームに利用可能なパッチがダウンロードされました。チートとは異なり、各ゲームごとに個別にダウンロードする必要はありません。 パッチが表示されない場合、特定のシリアル番号とバージョンのゲームには存在しない可能性があります。</translation>
+      <translation>Patch Berhasil Diunduh! Semua Patch yang tersedia untuk semua game telah diunduh, tidak perlu mengunduhnya satu per satu seperti yang terjadi pada Cheat. Jika patch tidak muncul, mungkin patch tersebut tidak ada untuk nomor seri dan versi game yang spesifik.</translation>
     </message>
     <message>
       <source>Failed to parse JSON data from HTML.</source>
-      <translation>HTMLからJSONデータの解析に失敗しました。</translation>
+      <translation>Gagal menganalisis data JSON dari HTML.</translation>
     </message>
     <message>
       <source>Failed to retrieve HTML page.</source>
-      <translation>HTMLページの取得に失敗しました。</translation>
+      <translation>Gagal mengambil halaman HTML.</translation>
     </message>
     <message>
       <source>The game is in version: %1</source>
-      <translation>ゲームのバージョン: %1</translation>
+      <translation>Permainan berada di versi: %1</translation>
     </message>
     <message>
       <source>The downloaded patch only works on version: %1</source>
-      <translation>ダウンロードしたパッチはバージョン: %1 のみ機能します</translation>
+      <translation>Patch yang diunduh hanya berfungsi pada versi: %1</translation>
     </message>
     <message>
       <source>You may need to update your game.</source>
-      <translation>ゲームを更新する必要があるかもしれません。</translation>
+      <translation>Anda mungkin perlu memperbarui permainan Anda.</translation>
     </message>
     <message>
       <source>Incompatibility Notice</source>
-      <translation>互換性のない通知</translation>
+      <translation>Pemberitahuan Ketidakcocokan</translation>
     </message>
     <message>
       <source>Failed to open file:</source>
-      <translation>ファイルを開くのに失敗しました:</translation>
+      <translation>Gagal membuka file:</translation>
     </message>
     <message>
       <source>XML ERROR:</source>
-      <translation>XMLエラー:</translation>
+      <translation>KESALAHAN XML:</translation>
     </message>
     <message>
       <source>Failed to open files.json for writing</source>
-      <translation>files.jsonを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Gagal membuka files.json untuk menulis</translation>
     </message>
     <message>
       <source>Author: </source>
-      <translation>著者: </translation>
+      <translation>Penulis: </translation>
     </message>
     <message>
       <source>Directory does not exist:</source>
-      <translation>ディレクトリが存在しません:</translation>
+      <translation>Direktori tidak ada:</translation>
     </message>
     <message>
       <source>Failed to open files.json for reading.</source>
-      <translation>files.jsonを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Gagal membuka files.json untuk dibaca.</translation>
     </message>
     <message>
       <source>Name:</source>
-      <translation>名前:</translation>
+      <translation>Nama:</translation>
     </message>
     <message>
       <source>Can&apos;t apply cheats before the game is started</source>
-      <translation>ゲームが開始される前にチートを適用することはできません。</translation>
+      <translation>Tidak bisa menerapkan cheat sebelum permainan dimulai.</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation>閉じる</translation>
+      <translation>Tutup</translation>
     </message>
   </context>
   <context>
     <name>CheckUpdate</name>
     <message>
       <source>Auto Updater</source>
-      <translation>自動アップデーター</translation>
+      <translation>Pembaruan Otomatis</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Kesalahan</translation>
     </message>
     <message>
       <source>Network error:</source>
-      <translation>ネットワークエラー:</translation>
+      <translation>Kesalahan jaringan:</translation>
     </message>
     <message>
       <source>Error_Github_limit_MSG</source>
-      <translation>自動アップデーターは1時間に最大60回の更新チェックを許可します。\nこの制限に達しました。後でもう一度お試しください。</translation>
+      <translation>Pembaruan Otomatis memungkinkan hingga 60 pemeriksaan pembaruan per jam.\nAnda telah mencapai batas ini. Silakan coba lagi nanti.</translation>
     </message>
     <message>
       <source>Failed to parse update information.</source>
-      <translation>アップデート情報の解析に失敗しました。</translation>
+      <translation>Gagal memparse informasi pembaruan.</translation>
     </message>
     <message>
       <source>No pre-releases found.</source>
-      <translation>プレリリースは見つかりませんでした。</translation>
+      <translation>Tidak ada pra-rilis yang ditemukan.</translation>
     </message>
     <message>
       <source>Invalid release data.</source>
-      <translation>リリースデータが無効です。</translation>
+      <translation>Data rilis tidak valid.</translation>
     </message>
     <message>
       <source>No download URL found for the specified asset.</source>
-      <translation>指定されたアセットのダウンロードURLが見つかりませんでした。</translation>
+      <translation>Tidak ada URL unduhan ditemukan untuk aset yang ditentukan.</translation>
     </message>
     <message>
       <source>Your version is already up to date!</source>
-      <translation>あなたのバージョンはすでに最新です！</translation>
+      <translation>Versi Anda sudah terbaru!</translation>
     </message>
     <message>
       <source>Update Available</source>
-      <translation>アップデートがあります</translation>
+      <translation>Pembaruan Tersedia</translation>
     </message>
     <message>
       <source>Update Channel</source>
-      <translation>アップデートチャネル</translation>
+      <translation>Saluran Pembaruan</translation>
     </message>
     <message>
       <source>Current Version</source>
-      <translation>現在のバージョン</translation>
+      <translation>Versi Saat Ini</translation>
     </message>
     <message>
       <source>Latest Version</source>
-      <translation>最新バージョン</translation>
+      <translation>Versi Terbaru</translation>
     </message>
     <message>
       <source>Do you want to update?</source>
-      <translation>アップデートしますか？</translation>
+      <translation>Apakah Anda ingin memperbarui?</translation>
     </message>
     <message>
       <source>Show Changelog</source>
-      <translation>変更ログを表示</translation>
+      <translation>Tampilkan Catatan Perubahan</translation>
     </message>
     <message>
       <source>Check for Updates at Startup</source>
-      <translation>起動時に更新確認</translation>
+      <translation>Periksa pembaruan saat mulai</translation>
     </message>
     <message>
       <source>Update</source>
-      <translation>アップデート</translation>
+      <translation>Perbarui</translation>
     </message>
     <message>
       <source>No</source>
-      <translation>いいえ</translation>
+      <translation>Tidak</translation>
     </message>
     <message>
       <source>Hide Changelog</source>
-      <translation>変更ログを隠す</translation>
+      <translation>Sembunyikan Catatan Perubahan</translation>
     </message>
     <message>
       <source>Changes</source>
-      <translation>変更点</translation>
+      <translation>Perubahan</translation>
     </message>
     <message>
       <source>Network error occurred while trying to access the URL</source>
-      <translation>URLにアクセス中にネットワークエラーが発生しました</translation>
+      <translation>Kesalahan jaringan terjadi saat mencoba mengakses URL</translation>
     </message>
     <message>
       <source>Download Complete</source>
-      <translation>ダウンロード完了</translation>
+      <translation>Unduhan Selesai</translation>
     </message>
     <message>
       <source>The update has been downloaded, press OK to install.</source>
-      <translation>アップデートがダウンロードされました。インストールするにはOKを押してください。</translation>
+      <translation>Pembaruan telah diunduh, tekan OK untuk menginstal.</translation>
     </message>
     <message>
       <source>Failed to save the update file at</source>
-      <translation>更新ファイルの保存に失敗しました</translation>
+      <translation>Gagal menyimpan file pembaruan di</translation>
     </message>
     <message>
       <source>Starting Update...</source>
-      <translation>アップデートを開始しています...</translation>
+      <translation>Memulai Pembaruan...</translation>
     </message>
     <message>
       <source>Failed to create the update script file</source>
-      <translation>アップデートスクリプトファイルの作成に失敗しました</translation>
+      <translation>Gagal membuat file skrip pembaruan</translation>
     </message>
   </context>
   <context>
     <name>CompatibilityInfoClass</name>
     <message>
       <source>Fetching compatibility data, please wait</source>
-      <translation>互換性データを取得しています。少々お待ちください。</translation>
+      <translation>Memuat data kompatibilitas, harap tunggu</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation>キャンセル</translation>
+      <translation>Batal</translation>
     </message>
     <message>
       <source>Loading...</source>
-      <translation>読み込み中...</translation>
+      <translation>Memuat...</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Kesalahan</translation>
     </message>
     <message>
       <source>Unable to update compatibility data! Try again later.</source>
-      <translation>互換性データを更新できませんでした！後で再試行してください。</translation>
+      <translation>Tidak dapat memperbarui data kompatibilitas! Coba lagi nanti.</translation>
     </message>
     <message>
       <source>Unable to open compatibility_data.json for writing.</source>
-      <translation>compatibility_data.jsonを開いて書き込むことができませんでした。</translation>
+      <translation>Tidak dapat membuka compatibility_data.json untuk menulis.</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation>不明</translation>
+      <translation>Tidak Dikenal</translation>
     </message>
     <message>
       <source>Nothing</source>
-      <translation>何もない</translation>
+      <translation>Tidak ada</translation>
     </message>
     <message>
       <source>Boots</source>
-      <translation>ブーツ</translation>
+      <translation>Sepatu Bot</translation>
     </message>
     <message>
       <source>Menus</source>
-      <translation>メニュー</translation>
+      <translation>Menu</translation>
     </message>
     <message>
       <source>Ingame</source>
-      <translation>ゲーム内</translation>
+      <translation>Dalam Permainan</translation>
     </message>
     <message>
       <source>Playable</source>
-      <translation>プレイ可能</translation>
+      <translation type="unfinished">Playable</translation>
     </message>
   </context>
   <context>
@@ -538,41 +538,41 @@
     <name>ElfViewer</name>
     <message>
       <source>Open Folder</source>
-      <translation>フォルダを開く</translation>
+      <translation type="unfinished">Open Folder</translation>
     </message>
   </context>
   <context>
     <name>GameInfoClass</name>
     <message>
       <source>Loading game list, please wait :3</source>
-      <translation>ゲームリストを読み込み中です。しばらくお待ちください :3</translation>
+      <translation type="unfinished">Loading game list, please wait :3</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation>キャンセル</translation>
+      <translation type="unfinished">Cancel</translation>
     </message>
     <message>
       <source>Loading...</source>
-      <translation>読み込み中...</translation>
+      <translation type="unfinished">Loading...</translation>
     </message>
   </context>
   <context>
     <name>GameInstallDialog</name>
     <message>
       <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - ディレクトリを選択</translation>
+      <translation type="unfinished">shadPS4 - Choose directory</translation>
     </message>
     <message>
       <source>Directory to install games</source>
-      <translation>ゲームをインストールするディレクトリ</translation>
+      <translation type="unfinished">Directory to install games</translation>
     </message>
     <message>
       <source>Browse</source>
-      <translation>参照</translation>
+      <translation type="unfinished">Browse</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation type="unfinished">Error</translation>
     </message>
     <message>
       <source>Directory to install DLC</source>
@@ -583,15 +583,15 @@
     <name>GameListFrame</name>
     <message>
       <source>Icon</source>
-      <translation>アイコン</translation>
+      <translation>Ikon</translation>
     </message>
     <message>
       <source>Name</source>
-      <translation>名前</translation>
+      <translation>Nama</translation>
     </message>
     <message>
       <source>Serial</source>
-      <translation>シリアル</translation>
+      <translation type="unfinished">Serial</translation>
     </message>
     <message>
       <source>Compatibility</source>
@@ -599,75 +599,75 @@
     </message>
     <message>
       <source>Region</source>
-      <translation>地域</translation>
+      <translation>Wilayah</translation>
     </message>
     <message>
       <source>Firmware</source>
-      <translation>ファームウェア</translation>
+      <translation type="unfinished">Firmware</translation>
     </message>
     <message>
       <source>Size</source>
-      <translation>サイズ</translation>
+      <translation>Ukuran</translation>
     </message>
     <message>
       <source>Version</source>
-      <translation>バージョン</translation>
+      <translation>Versi</translation>
     </message>
     <message>
       <source>Path</source>
-      <translation>パス</translation>
+      <translation>Jalur</translation>
     </message>
     <message>
       <source>Play Time</source>
-      <translation>プレイ時間</translation>
+      <translation>Waktu Bermain</translation>
     </message>
     <message>
       <source>Never Played</source>
-      <translation>未プレイ</translation>
+      <translation type="unfinished">Never Played</translation>
     </message>
     <message>
       <source>h</source>
-      <translation>時間</translation>
+      <translation type="unfinished">h</translation>
     </message>
     <message>
       <source>m</source>
-      <translation>分</translation>
+      <translation type="unfinished">m</translation>
     </message>
     <message>
       <source>s</source>
-      <translation>秒</translation>
+      <translation type="unfinished">s</translation>
     </message>
     <message>
       <source>Compatibility is untested</source>
-      <translation>互換性は未検証です</translation>
+      <translation type="unfinished">Compatibility is untested</translation>
     </message>
     <message>
       <source>Game does not initialize properly / crashes the emulator</source>
-      <translation>ゲームが正常に初期化されない/エミュレーターがクラッシュする</translation>
+      <translation type="unfinished">Game does not initialize properly / crashes the emulator</translation>
     </message>
     <message>
       <source>Game boots, but only displays a blank screen</source>
-      <translation>ゲームは起動しますが、空のスクリーンが表示されます</translation>
+      <translation type="unfinished">Game boots, but only displays a blank screen</translation>
     </message>
     <message>
       <source>Game displays an image but does not go past the menu</source>
-      <translation>正常にゲーム画面が表示されますが、メニューから先に進むことができません</translation>
+      <translation type="unfinished">Game displays an image but does not go past the menu</translation>
     </message>
     <message>
       <source>Game has game-breaking glitches or unplayable performance</source>
-      <translation>ゲームを壊すような不具合や、プレイが不可能なほどのパフォーマンスの問題があります</translation>
+      <translation type="unfinished">Game has game-breaking glitches or unplayable performance</translation>
     </message>
     <message>
       <source>Game can be completed with playable performance and no major glitches</source>
-      <translation>パフォーマンスに問題はなく、大きな不具合なしでゲームをプレイすることができます</translation>
+      <translation type="unfinished">Game can be completed with playable performance and no major glitches</translation>
     </message>
     <message>
       <source>Click to see details on github</source>
-      <translation>詳細を見るにはGitHubをクリックしてください</translation>
+      <translation>Klik untuk melihat detail di GitHub</translation>
     </message>
     <message>
       <source>Last updated</source>
-      <translation>最終更新</translation>
+      <translation>Terakhir diperbarui</translation>
     </message>
   </context>
   <context>
@@ -697,47 +697,47 @@
     <name>GuiContextMenus</name>
     <message>
       <source>Create Shortcut</source>
-      <translation>ショートカットを作成</translation>
+      <translation type="unfinished">Create Shortcut</translation>
     </message>
     <message>
       <source>Cheats / Patches</source>
-      <translation>チート / パッチ</translation>
+      <translation>Cheat / Patch</translation>
     </message>
     <message>
       <source>SFO Viewer</source>
-      <translation>SFOビューワー</translation>
+      <translation type="unfinished">SFO Viewer</translation>
     </message>
     <message>
       <source>Trophy Viewer</source>
-      <translation>トロフィービューワー</translation>
+      <translation type="unfinished">Trophy Viewer</translation>
     </message>
     <message>
       <source>Open Folder...</source>
-      <translation>フォルダを開く...</translation>
+      <translation>Buka Folder...</translation>
     </message>
     <message>
       <source>Open Game Folder</source>
-      <translation>ゲームフォルダを開く</translation>
+      <translation>Buka Folder Game</translation>
     </message>
     <message>
       <source>Open Save Data Folder</source>
-      <translation>セーブデータフォルダを開く</translation>
+      <translation>Buka Folder Data Simpanan</translation>
     </message>
     <message>
       <source>Open Log Folder</source>
-      <translation>ログフォルダを開く</translation>
+      <translation>Buka Folder Log</translation>
     </message>
     <message>
       <source>Copy info...</source>
-      <translation>情報をコピー...</translation>
+      <translation type="unfinished">Copy info...</translation>
     </message>
     <message>
       <source>Copy Name</source>
-      <translation>名前をコピー</translation>
+      <translation type="unfinished">Copy Name</translation>
     </message>
     <message>
       <source>Copy Serial</source>
-      <translation>シリアルをコピー</translation>
+      <translation type="unfinished">Copy Serial</translation>
     </message>
     <message>
       <source>Copy Version</source>
@@ -749,75 +749,75 @@
     </message>
     <message>
       <source>Copy All</source>
-      <translation>すべてコピー</translation>
+      <translation type="unfinished">Copy All</translation>
     </message>
     <message>
       <source>Delete...</source>
-      <translation>削除...</translation>
+      <translation type="unfinished">Delete...</translation>
     </message>
     <message>
       <source>Delete Game</source>
-      <translation>ゲームを削除</translation>
+      <translation type="unfinished">Delete Game</translation>
     </message>
     <message>
       <source>Delete Update</source>
-      <translation>アップデートを削除</translation>
+      <translation type="unfinished">Delete Update</translation>
     </message>
     <message>
       <source>Delete DLC</source>
-      <translation>DLCを削除</translation>
+      <translation type="unfinished">Delete DLC</translation>
     </message>
     <message>
       <source>Compatibility...</source>
-      <translation>互換性...</translation>
+      <translation type="unfinished">Compatibility...</translation>
     </message>
     <message>
       <source>Update database</source>
-      <translation>データベースを更新</translation>
+      <translation type="unfinished">Update database</translation>
     </message>
     <message>
       <source>View report</source>
-      <translation>レポートを表示</translation>
+      <translation type="unfinished">View report</translation>
     </message>
     <message>
       <source>Submit a report</source>
-      <translation>レポートを送信</translation>
+      <translation type="unfinished">Submit a report</translation>
     </message>
     <message>
       <source>Shortcut creation</source>
-      <translation>ショートカットの作成</translation>
+      <translation type="unfinished">Shortcut creation</translation>
     </message>
     <message>
       <source>Shortcut created successfully!</source>
-      <translation>ショートカットが正常に作成されました!</translation>
+      <translation type="unfinished">Shortcut created successfully!</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation type="unfinished">Error</translation>
     </message>
     <message>
       <source>Error creating shortcut!</source>
-      <translation>ショートカットの作成に失敗しました!</translation>
+      <translation type="unfinished">Error creating shortcut!</translation>
     </message>
     <message>
       <source>Install PKG</source>
-      <translation>PKGをインストール</translation>
+      <translation type="unfinished">Install PKG</translation>
     </message>
     <message>
       <source>Game</source>
-      <translation>ゲーム</translation>
+      <translation type="unfinished">Game</translation>
     </message>
     <message>
       <source>This game has no update to delete!</source>
-      <translation>このゲームにはアップデートがないため削除することができません!</translation>
+      <translation type="unfinished">This game has no update to delete!</translation>
     </message>
     <message>
       <source>Update</source>
-      <translation>アップデート</translation>
+      <translation type="unfinished">Update</translation>
     </message>
     <message>
       <source>This game has no DLC to delete!</source>
-      <translation>このゲームにはDLCがないため削除することができません!</translation>
+      <translation type="unfinished">This game has no DLC to delete!</translation>
     </message>
     <message>
       <source>DLC</source>
@@ -825,11 +825,11 @@
     </message>
     <message>
       <source>Delete %1</source>
-      <translation>%1 を削除</translation>
+      <translation type="unfinished">Delete %1</translation>
     </message>
     <message>
       <source>Are you sure you want to delete %1&apos;s %2 directory?</source>
-      <translation>%1 の %2 ディレクトリを本当に削除しますか?</translation>
+      <translation type="unfinished">Are you sure you want to delete %1&apos;s %2 directory?</translation>
     </message>
     <message>
       <source>Open Update Folder</source>
@@ -860,11 +860,11 @@
     <name>InstallDirSelect</name>
     <message>
       <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - ディレクトリを選択</translation>
+      <translation type="unfinished">shadPS4 - Choose directory</translation>
     </message>
     <message>
       <source>Select which directory you want to install to.</source>
-      <translation>インストール先のディレクトリを選択してください。</translation>
+      <translation type="unfinished">Select which directory you want to install to.</translation>
     </message>
     <message>
       <source>Install All Queued to Selected Folder</source>
@@ -879,275 +879,275 @@
     <name>MainWindow</name>
     <message>
       <source>Open/Add Elf Folder</source>
-      <translation>Elfフォルダを開く/追加する</translation>
+      <translation type="unfinished">Open/Add Elf Folder</translation>
     </message>
     <message>
       <source>Install Packages (PKG)</source>
-      <translation>パッケージをインストール (PKG)</translation>
+      <translation type="unfinished">Install Packages (PKG)</translation>
     </message>
     <message>
       <source>Boot Game</source>
-      <translation>ゲームを起動</translation>
+      <translation type="unfinished">Boot Game</translation>
     </message>
     <message>
       <source>Check for Updates</source>
-      <translation>更新を確認する</translation>
+      <translation>Periksa pembaruan</translation>
     </message>
     <message>
       <source>About shadPS4</source>
-      <translation>shadPS4について</translation>
+      <translation type="unfinished">About shadPS4</translation>
     </message>
     <message>
       <source>Configure...</source>
-      <translation>設定...</translation>
+      <translation type="unfinished">Configure...</translation>
     </message>
     <message>
       <source>Install application from a .pkg file</source>
-      <translation>.pkgファイルからアプリケーションをインストール</translation>
+      <translation type="unfinished">Install application from a .pkg file</translation>
     </message>
     <message>
       <source>Recent Games</source>
-      <translation>最近プレイしたゲーム</translation>
+      <translation type="unfinished">Recent Games</translation>
     </message>
     <message>
       <source>Open shadPS4 Folder</source>
-      <translation>shadPS4フォルダを開く</translation>
+      <translation type="unfinished">Open shadPS4 Folder</translation>
     </message>
     <message>
       <source>Exit</source>
-      <translation>終了</translation>
+      <translation type="unfinished">Exit</translation>
     </message>
     <message>
       <source>Exit shadPS4</source>
-      <translation>shadPS4を終了</translation>
+      <translation type="unfinished">Exit shadPS4</translation>
     </message>
     <message>
       <source>Exit the application.</source>
-      <translation>アプリケーションを終了します。</translation>
+      <translation type="unfinished">Exit the application.</translation>
     </message>
     <message>
       <source>Show Game List</source>
-      <translation>ゲームリストを表示</translation>
+      <translation type="unfinished">Show Game List</translation>
     </message>
     <message>
       <source>Game List Refresh</source>
-      <translation>ゲームリストの更新</translation>
+      <translation type="unfinished">Game List Refresh</translation>
     </message>
     <message>
       <source>Tiny</source>
-      <translation>最小</translation>
+      <translation type="unfinished">Tiny</translation>
     </message>
     <message>
       <source>Small</source>
-      <translation>小</translation>
+      <translation type="unfinished">Small</translation>
     </message>
     <message>
       <source>Medium</source>
-      <translation>中</translation>
+      <translation type="unfinished">Medium</translation>
     </message>
     <message>
       <source>Large</source>
-      <translation>大</translation>
+      <translation type="unfinished">Large</translation>
     </message>
     <message>
       <source>List View</source>
-      <translation>リストビュー</translation>
+      <translation type="unfinished">List View</translation>
     </message>
     <message>
       <source>Grid View</source>
-      <translation>グリッドビュー</translation>
+      <translation type="unfinished">Grid View</translation>
     </message>
     <message>
       <source>Elf Viewer</source>
-      <translation>Elfビューアー</translation>
+      <translation type="unfinished">Elf Viewer</translation>
     </message>
     <message>
       <source>Game Install Directory</source>
-      <translation>ゲームインストールディレクトリ</translation>
+      <translation type="unfinished">Game Install Directory</translation>
     </message>
     <message>
       <source>Download Cheats/Patches</source>
-      <translation>チート / パッチをダウンロード</translation>
+      <translation>Unduh Cheat / Patch</translation>
     </message>
     <message>
       <source>Dump Game List</source>
-      <translation>ゲームリストをダンプ</translation>
+      <translation type="unfinished">Dump Game List</translation>
     </message>
     <message>
       <source>PKG Viewer</source>
-      <translation>PKGビューアー</translation>
+      <translation type="unfinished">PKG Viewer</translation>
     </message>
     <message>
       <source>Search...</source>
-      <translation>検索...</translation>
+      <translation type="unfinished">Search...</translation>
     </message>
     <message>
       <source>File</source>
-      <translation>ファイル</translation>
+      <translation type="unfinished">File</translation>
     </message>
     <message>
       <source>View</source>
-      <translation>表示</translation>
+      <translation type="unfinished">View</translation>
     </message>
     <message>
       <source>Game List Icons</source>
-      <translation>ゲームリストアイコン</translation>
+      <translation type="unfinished">Game List Icons</translation>
     </message>
     <message>
       <source>Game List Mode</source>
-      <translation>ゲームリストモード</translation>
+      <translation type="unfinished">Game List Mode</translation>
     </message>
     <message>
       <source>Settings</source>
-      <translation>設定</translation>
+      <translation type="unfinished">Settings</translation>
     </message>
     <message>
       <source>Utils</source>
-      <translation>ユーティリティ</translation>
+      <translation type="unfinished">Utils</translation>
     </message>
     <message>
       <source>Themes</source>
-      <translation>テーマ</translation>
+      <translation type="unfinished">Themes</translation>
     </message>
     <message>
       <source>Help</source>
-      <translation>ヘルプ</translation>
+      <translation>Bantuan</translation>
     </message>
     <message>
       <source>Dark</source>
-      <translation>ダーク</translation>
+      <translation type="unfinished">Dark</translation>
     </message>
     <message>
       <source>Light</source>
-      <translation>ライト</translation>
+      <translation type="unfinished">Light</translation>
     </message>
     <message>
       <source>Green</source>
-      <translation>グリーン</translation>
+      <translation type="unfinished">Green</translation>
     </message>
     <message>
       <source>Blue</source>
-      <translation>ブルー</translation>
+      <translation type="unfinished">Blue</translation>
     </message>
     <message>
       <source>Violet</source>
-      <translation>バイオレット</translation>
+      <translation type="unfinished">Violet</translation>
     </message>
     <message>
       <source>toolBar</source>
-      <translation>ツールバー</translation>
+      <translation type="unfinished">toolBar</translation>
     </message>
     <message>
       <source>Game List</source>
-      <translation>ゲームリスト</translation>
+      <translation>Daftar game</translation>
     </message>
     <message>
       <source> * Unsupported Vulkan Version</source>
-      <translation> * サポートされていないVulkanバージョン</translation>
+      <translation> * Versi Vulkan Tidak Didukung</translation>
     </message>
     <message>
       <source>Download Cheats For All Installed Games</source>
-      <translation>すべてのインストール済みゲームのチートをダウンロード</translation>
+      <translation>Unduh Cheat Untuk Semua Game Yang Terpasang</translation>
     </message>
     <message>
       <source>Download Patches For All Games</source>
-      <translation>すべてのゲームのパッチをダウンロード</translation>
+      <translation>Unduh Patch Untuk Semua Game</translation>
     </message>
     <message>
       <source>Download Complete</source>
-      <translation>ダウンロード完了</translation>
+      <translation>Unduhan Selesai</translation>
     </message>
     <message>
       <source>You have downloaded cheats for all the games you have installed.</source>
-      <translation>インストールされているすべてのゲームのチートをダウンロードしました。</translation>
+      <translation>Anda telah mengunduh cheat untuk semua game yang terpasang.</translation>
     </message>
     <message>
       <source>Patches Downloaded Successfully!</source>
-      <translation>パッチが正常にダウンロードされました!</translation>
+      <translation>Patch Berhasil Diunduh!</translation>
     </message>
     <message>
       <source>All Patches available for all games have been downloaded.</source>
-      <translation>すべてのゲームに利用可能なパッチがダウンロードされました。</translation>
+      <translation>Semua Patch yang tersedia untuk semua game telah diunduh.</translation>
     </message>
     <message>
       <source>Games: </source>
-      <translation>ゲーム: </translation>
+      <translation>Game: </translation>
     </message>
     <message>
       <source>ELF files (*.bin *.elf *.oelf)</source>
-      <translation>ELFファイル (*.bin *.elf *.oelf)</translation>
+      <translation>File ELF (*.bin *.elf *.oelf)</translation>
     </message>
     <message>
       <source>Game Boot</source>
-      <translation>ゲームブート</translation>
+      <translation>Boot Game</translation>
     </message>
     <message>
       <source>Only one file can be selected!</source>
-      <translation>1つのファイルしか選択できません!</translation>
+      <translation>Hanya satu file yang bisa dipilih!</translation>
     </message>
     <message>
       <source>PKG Extraction</source>
-      <translation>PKGの抽出</translation>
+      <translation>Ekstraksi PKG</translation>
     </message>
     <message>
       <source>Patch detected!</source>
-      <translation>パッチが検出されました！</translation>
+      <translation>Patch terdeteksi!</translation>
     </message>
     <message>
       <source>PKG and Game versions match: </source>
-      <translation>PKGとゲームのバージョンが一致しています: </translation>
+      <translation>Versi PKG dan Game cocok: </translation>
     </message>
     <message>
       <source>Would you like to overwrite?</source>
-      <translation>上書きしてもよろしいですか？</translation>
+      <translation>Apakah Anda ingin menimpa?</translation>
     </message>
     <message>
       <source>PKG Version %1 is older than installed version: </source>
-      <translation>PKGバージョン %1 はインストールされているバージョンよりも古いです: </translation>
+      <translation>Versi PKG %1 lebih lama dari versi yang terpasang: </translation>
     </message>
     <message>
       <source>Game is installed: </source>
-      <translation>ゲームはインストール済みです: </translation>
+      <translation>Game telah terpasang: </translation>
     </message>
     <message>
       <source>Would you like to install Patch: </source>
-      <translation>パッチをインストールしてもよろしいですか: </translation>
+      <translation>Apakah Anda ingin menginstal patch: </translation>
     </message>
     <message>
       <source>DLC Installation</source>
-      <translation>DLCのインストール</translation>
+      <translation>Instalasi DLC</translation>
     </message>
     <message>
       <source>Would you like to install DLC: %1?</source>
-      <translation>DLCをインストールしてもよろしいですか: %1?</translation>
+      <translation>Apakah Anda ingin menginstal DLC: %1?</translation>
     </message>
     <message>
       <source>DLC already installed:</source>
-      <translation>DLCはすでにインストールされています:</translation>
+      <translation>DLC sudah terpasang:</translation>
     </message>
     <message>
       <source>Game already installed</source>
-      <translation>ゲームはすでにインストールされています</translation>
+      <translation>Game sudah terpasang</translation>
     </message>
     <message>
       <source>PKG ERROR</source>
-      <translation>PKGエラー</translation>
+      <translation>KESALAHAN PKG</translation>
     </message>
     <message>
       <source>Extracting PKG %1/%2</source>
-      <translation>PKGを抽出中 %1/%2</translation>
+      <translation>Mengekstrak PKG %1/%2</translation>
     </message>
     <message>
       <source>Extraction Finished</source>
-      <translation>抽出完了</translation>
+      <translation>Ekstraksi Selesai</translation>
     </message>
     <message>
       <source>Game successfully installed at %1</source>
-      <translation>ゲームが %1 に正常にインストールされました</translation>
+      <translation>Game berhasil dipasang di %1</translation>
     </message>
     <message>
       <source>File doesn&apos;t appear to be a valid PKG file</source>
-      <translation>ファイルが有効なPKGファイルでないようです</translation>
+      <translation>File tampaknya bukan file PKG yang valid</translation>
     </message>
     <message>
       <source>Run Game</source>
@@ -1178,19 +1178,19 @@
     <name>PKGViewer</name>
     <message>
       <source>Open Folder</source>
-      <translation>フォルダーを開く</translation>
+      <translation type="unfinished">Open Folder</translation>
     </message>
     <message>
       <source>PKG ERROR</source>
-      <translation>PKGエラー</translation>
+      <translation>KESALAHAN PKG</translation>
     </message>
     <message>
       <source>Name</source>
-      <translation>名前</translation>
+      <translation>Nama</translation>
     </message>
     <message>
       <source>Serial</source>
-      <translation>シリアル</translation>
+      <translation type="unfinished">Serial</translation>
     </message>
     <message>
       <source>Installed</source>
@@ -1198,7 +1198,7 @@
     </message>
     <message>
       <source>Size</source>
-      <translation>サイズ</translation>
+      <translation>Ukuran</translation>
     </message>
     <message>
       <source>Category</source>
@@ -1218,7 +1218,7 @@
     </message>
     <message>
       <source>Region</source>
-      <translation>地域</translation>
+      <translation>Wilayah</translation>
     </message>
     <message>
       <source>Flags</source>
@@ -1226,15 +1226,15 @@
     </message>
     <message>
       <source>Path</source>
-      <translation>パス</translation>
+      <translation>Jalur</translation>
     </message>
     <message>
       <source>File</source>
-      <translation>ファイル</translation>
+      <translation type="unfinished">File</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation>不明</translation>
+      <translation>Tidak Dikenal</translation>
     </message>
     <message>
       <source>Package</source>
@@ -1245,99 +1245,99 @@
     <name>SettingsDialog</name>
     <message>
       <source>Settings</source>
-      <translation>設定</translation>
+      <translation type="unfinished">Settings</translation>
     </message>
     <message>
       <source>General</source>
-      <translation>一般</translation>
+      <translation type="unfinished">General</translation>
     </message>
     <message>
       <source>System</source>
-      <translation>システム</translation>
+      <translation type="unfinished">System</translation>
     </message>
     <message>
       <source>Console Language</source>
-      <translation>コンソールの言語</translation>
+      <translation type="unfinished">Console Language</translation>
     </message>
     <message>
       <source>Emulator Language</source>
-      <translation>エミュレーターの言語</translation>
+      <translation type="unfinished">Emulator Language</translation>
     </message>
     <message>
       <source>Emulator</source>
-      <translation>エミュレーター</translation>
+      <translation type="unfinished">Emulator</translation>
     </message>
     <message>
       <source>Enable Fullscreen</source>
-      <translation>フルスクリーンを有効にする</translation>
+      <translation type="unfinished">Enable Fullscreen</translation>
     </message>
     <message>
       <source>Fullscreen Mode</source>
-      <translation>全画面モード</translation>
+      <translation>Mode Layar Penuh</translation>
     </message>
     <message>
       <source>Enable Separate Update Folder</source>
-      <translation>アップデートフォルダの分離を有効化</translation>
+      <translation type="unfinished">Enable Separate Update Folder</translation>
     </message>
     <message>
       <source>Default tab when opening settings</source>
-      <translation>設定を開くときのデフォルトタブ</translation>
+      <translation>Tab default saat membuka pengaturan</translation>
     </message>
     <message>
       <source>Show Game Size In List</source>
-      <translation>ゲームサイズをリストに表示</translation>
+      <translation>Tampilkan Ukuran Game di Daftar</translation>
     </message>
     <message>
       <source>Show Splash</source>
-      <translation>スプラッシュ画面を表示する</translation>
+      <translation type="unfinished">Show Splash</translation>
     </message>
     <message>
       <source>Enable Discord Rich Presence</source>
-      <translation>Discord Rich Presenceを有効にする</translation>
+      <translation>Aktifkan Discord Rich Presence</translation>
     </message>
     <message>
       <source>Username</source>
-      <translation>ユーザー名</translation>
+      <translation type="unfinished">Username</translation>
     </message>
     <message>
       <source>Trophy Key</source>
-      <translation>トロフィーキー</translation>
+      <translation type="unfinished">Trophy Key</translation>
     </message>
     <message>
       <source>Trophy</source>
-      <translation>トロフィー</translation>
+      <translation type="unfinished">Trophy</translation>
     </message>
     <message>
       <source>Logger</source>
-      <translation>ロガー</translation>
+      <translation type="unfinished">Logger</translation>
     </message>
     <message>
       <source>Log Type</source>
-      <translation>ログタイプ</translation>
+      <translation type="unfinished">Log Type</translation>
     </message>
     <message>
       <source>Log Filter</source>
-      <translation>ログフィルター</translation>
+      <translation type="unfinished">Log Filter</translation>
     </message>
     <message>
       <source>Open Log Location</source>
-      <translation>ログの場所を開く</translation>
+      <translation>Buka Lokasi Log</translation>
     </message>
     <message>
       <source>Input</source>
-      <translation>入力</translation>
+      <translation>Masukan</translation>
     </message>
     <message>
       <source>Cursor</source>
-      <translation>カーソル</translation>
+      <translation>Kursor</translation>
     </message>
     <message>
       <source>Hide Cursor</source>
-      <translation>カーソルを隠す</translation>
+      <translation>Sembunyikan kursor</translation>
     </message>
     <message>
       <source>Hide Cursor Idle Timeout</source>
-      <translation>カーソルを隠すまでの非アクティブ期間</translation>
+      <translation>Batas waktu sembunyikan kursor tidak aktif</translation>
     </message>
     <message>
       <source>s</source>
@@ -1345,51 +1345,51 @@
     </message>
     <message>
       <source>Controller</source>
-      <translation>コントローラー</translation>
+      <translation>Pengontrol</translation>
     </message>
     <message>
       <source>Back Button Behavior</source>
-      <translation>戻るボタンの動作</translation>
+      <translation>Perilaku tombol kembali</translation>
     </message>
     <message>
       <source>Graphics</source>
-      <translation>グラフィックス</translation>
+      <translation type="unfinished">Graphics</translation>
     </message>
     <message>
       <source>GUI</source>
-      <translation>インターフェース</translation>
+      <translation>Antarmuka</translation>
     </message>
     <message>
       <source>User</source>
-      <translation>ユーザー</translation>
+      <translation>Pengguna</translation>
     </message>
     <message>
       <source>Graphics Device</source>
-      <translation>グラフィックスデバイス</translation>
+      <translation type="unfinished">Graphics Device</translation>
     </message>
     <message>
       <source>Width</source>
-      <translation>幅</translation>
+      <translation type="unfinished">Width</translation>
     </message>
     <message>
       <source>Height</source>
-      <translation>高さ</translation>
+      <translation type="unfinished">Height</translation>
     </message>
     <message>
       <source>Vblank Divider</source>
-      <translation>Vblankディバイダー</translation>
+      <translation type="unfinished">Vblank Divider</translation>
     </message>
     <message>
       <source>Advanced</source>
-      <translation>高度な設定</translation>
+      <translation type="unfinished">Advanced</translation>
     </message>
     <message>
       <source>Enable Shaders Dumping</source>
-      <translation>シェーダーのダンプを有効にする</translation>
+      <translation type="unfinished">Enable Shaders Dumping</translation>
     </message>
     <message>
       <source>Enable NULL GPU</source>
-      <translation>NULL GPUを有効にする</translation>
+      <translation type="unfinished">Enable NULL GPU</translation>
     </message>
     <message>
       <source>Enable HDR</source>
@@ -1397,39 +1397,39 @@
     </message>
     <message>
       <source>Paths</source>
-      <translation>パス</translation>
+      <translation>Jalur</translation>
     </message>
     <message>
       <source>Game Folders</source>
-      <translation>ゲームフォルダ</translation>
+      <translation>Folder Permainan</translation>
     </message>
     <message>
       <source>Add...</source>
-      <translation>追加...</translation>
+      <translation>Tambah...</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation>削除</translation>
+      <translation>Hapus</translation>
     </message>
     <message>
       <source>Debug</source>
-      <translation>デバッグ</translation>
+      <translation type="unfinished">Debug</translation>
     </message>
     <message>
       <source>Enable Debug Dumping</source>
-      <translation>デバッグダンプを有効にする</translation>
+      <translation type="unfinished">Enable Debug Dumping</translation>
     </message>
     <message>
       <source>Enable Vulkan Validation Layers</source>
-      <translation>Vulkan検証レイヤーを有効にする</translation>
+      <translation type="unfinished">Enable Vulkan Validation Layers</translation>
     </message>
     <message>
       <source>Enable Vulkan Synchronization Validation</source>
-      <translation>Vulkan同期検証を有効にする</translation>
+      <translation type="unfinished">Enable Vulkan Synchronization Validation</translation>
     </message>
     <message>
       <source>Enable RenderDoc Debugging</source>
-      <translation>RenderDocデバッグを有効にする</translation>
+      <translation type="unfinished">Enable RenderDoc Debugging</translation>
     </message>
     <message>
       <source>Enable Crash Diagnostics</source>
@@ -1453,27 +1453,27 @@
     </message>
     <message>
       <source>Update</source>
-      <translation>更新</translation>
+      <translation>Pembaruan</translation>
     </message>
     <message>
       <source>Check for Updates at Startup</source>
-      <translation>起動時に更新確認</translation>
+      <translation>Periksa pembaruan saat mulai</translation>
     </message>
     <message>
       <source>Always Show Changelog</source>
-      <translation>常に変更履歴を表示</translation>
+      <translation>Selalu Tampilkan Riwayat Perubahan</translation>
     </message>
     <message>
       <source>Update Channel</source>
-      <translation>アップデートチャネル</translation>
+      <translation>Saluran Pembaruan</translation>
     </message>
     <message>
       <source>Check for Updates</source>
-      <translation>更新を確認</translation>
+      <translation>Periksa pembaruan</translation>
     </message>
     <message>
       <source>GUI Settings</source>
-      <translation>GUI設定</translation>
+      <translation>Pengaturan GUI</translation>
     </message>
     <message>
       <source>Title Music</source>
@@ -1481,7 +1481,7 @@
     </message>
     <message>
       <source>Disable Trophy Pop-ups</source>
-      <translation>トロフィーのポップアップを無効化</translation>
+      <translation type="unfinished">Disable Trophy Pop-ups</translation>
     </message>
     <message>
       <source>Background Image</source>
@@ -1497,91 +1497,91 @@
     </message>
     <message>
       <source>Play title music</source>
-      <translation>タイトル音楽を再生する</translation>
+      <translation>Putar musik judul</translation>
     </message>
     <message>
       <source>Update Compatibility Database On Startup</source>
-      <translation>起動時に互換性データベースを更新する</translation>
+      <translation type="unfinished">Update Compatibility Database On Startup</translation>
     </message>
     <message>
       <source>Game Compatibility</source>
-      <translation>ゲームの互換性</translation>
+      <translation type="unfinished">Game Compatibility</translation>
     </message>
     <message>
       <source>Display Compatibility Data</source>
-      <translation>互換性に関するデータを表示</translation>
+      <translation type="unfinished">Display Compatibility Data</translation>
     </message>
     <message>
       <source>Update Compatibility Database</source>
-      <translation>互換性データベースを更新</translation>
+      <translation type="unfinished">Update Compatibility Database</translation>
     </message>
     <message>
       <source>Volume</source>
-      <translation>音量</translation>
+      <translation type="unfinished">Volume</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation>保存</translation>
+      <translation>Simpan</translation>
     </message>
     <message>
       <source>Apply</source>
-      <translation>適用</translation>
+      <translation>Terapkan</translation>
     </message>
     <message>
       <source>Restore Defaults</source>
-      <translation>デフォルトに戻す</translation>
+      <translation>Kembalikan Pengaturan Default</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation>閉じる</translation>
+      <translation>Tutup</translation>
     </message>
     <message>
       <source>Point your mouse at an option to display its description.</source>
-      <translation>設定項目にマウスをホバーすると、説明が表示されます。</translation>
+      <translation>Arahkan mouse Anda pada opsi untuk menampilkan deskripsinya.</translation>
     </message>
     <message>
       <source>consoleLanguageGroupBox</source>
-      <translation>コンソールの言語:\nPS4ゲームが使用する言語を設定します。\nゲームでサポートされている言語に設定することをお勧めしますが、地域によって異なる場合があります。</translation>
+      <translation>Bahasa Konsol:\nMenetapkan bahasa yang digunakan oleh permainan PS4.\nDisarankan untuk mengatur ini ke bahasa yang didukung oleh permainan, yang dapat bervariasi berdasarkan wilayah.</translation>
     </message>
     <message>
       <source>emulatorLanguageGroupBox</source>
-      <translation>エミュレーターの言語:\nエミュレーターのユーザーインターフェースの言語を設定します。</translation>
+      <translation>Bahasa Emulator:\nMenetapkan bahasa antarmuka pengguna emulator.</translation>
     </message>
     <message>
       <source>fullscreenCheckBox</source>
-      <translation>全画面モードを有効にする:\nゲームウィンドウを自動的に全画面モードにします。\nF11キーを押すことで切り替えることができます。</translation>
+      <translation>Aktifkan Mode Layar Penuh:\nSecara otomatis menempatkan jendela permainan dalam mode layar penuh.\nIni dapat dinonaktifkan dengan menekan tombol F11.</translation>
     </message>
     <message>
       <source>separateUpdatesCheckBox</source>
-      <translation>Enable Separate Update Folder:\nゲームのアップデートを別のフォルダにインストールすることで、管理が容易になります。</translation>
+      <translation>Enable Separate Update Folder:\nEnables installing game updates into a separate folder for easy management.</translation>
     </message>
     <message>
       <source>showSplashCheckBox</source>
-      <translation>スプラッシュスクリーンを表示:\nゲーム起動中にゲームのスプラッシュスクリーン（特別な画像）を表示します。</translation>
+      <translation>Tampilkan Layar Pembuka:\nMenampilkan layar pembuka permainan (gambar khusus) saat permainan dimulai.</translation>
     </message>
     <message>
       <source>discordRPCCheckbox</source>
-      <translation>Discord Rich Presenceを有効にする:\nエミュレーターのアイコンと関連情報をDiscordプロフィールに表示します。</translation>
+      <translation>Aktifkan Discord Rich Presence:\nMenampilkan ikon emulator dan informasi relevan di profil Discord Anda.</translation>
     </message>
     <message>
       <source>userName</source>
-      <translation>ユーザー名:\nPS4のアカウントユーザー名を設定します。これは、一部のゲームで表示される場合があります。</translation>
+      <translation>Nama Pengguna:\nMenetapkan nama pengguna akun PS4, yang mungkin ditampilkan oleh beberapa permainan.</translation>
     </message>
     <message>
       <source>TrophyKey</source>
-      <translation>トロフィーキー:\nトロフィーの復号に使用されるキーです。脱獄済みのコンソールから取得することができます。\n16進数のみを受け入れます。</translation>
+      <translation>Trophy Key:\nKey used to decrypt trophies. Must be obtained from your jailbroken console.\nMust contain only hex characters.</translation>
     </message>
     <message>
       <source>logTypeGroupBox</source>
-      <translation>ログタイプ:\nパフォーマンスのためにログウィンドウの出力を同期させるかどうかを設定します。エミュレーションに悪影響を及ぼす可能性があります。</translation>
+      <translation>Jenis Log:\nMenetapkan apakah untuk menyinkronkan output jendela log untuk kinerja. Dapat memiliki efek buruk pada emulasi.</translation>
     </message>
     <message>
       <source>logFilter</source>
-      <translation>ログフィルター:\n特定の情報のみを印刷するようにログをフィルタリングします。\n例: &quot;Core:Trace&quot; &quot;Lib.Pad:Debug Common.Filesystem:Error&quot; &quot;*:Critical&quot; \nレベル: Trace, Debug, Info, Warning, Error, Critical - レベルはこの並び通りに処理され、指定されたレベルより前のレベル ログを抑制し、それ以外のすべてのレベルをログに記録します。</translation>
+      <translation>Filter Log:\nMenyaring log untuk hanya mencetak informasi tertentu.\nContoh: &quot;Core:Trace&quot; &quot;Lib.Pad:Debug Common.Filesystem:Error&quot; &quot;*:Critical&quot; Tingkatan: Trace, Debug, Info, Warning, Error, Critical - dalam urutan ini, tingkat tertentu membungkam semua tingkat sebelumnya dalam daftar dan mencatat setiap tingkat setelahnya.</translation>
     </message>
     <message>
       <source>updaterGroupBox</source>
-      <translation>更新:\nRelease: 最新の機能を利用できない可能性がありますが、より信頼性が高くテストされた公式バージョンが毎月リリースされます。\nNightly: 最新の機能と修正がすべて含まれていますが、バグが含まれている可能性があり、安定性は低いです。</translation>
+      <translation>Pembaruan:\nRelease: Versi resmi yang dirilis setiap bulan yang mungkin sangat ketinggalan zaman, tetapi lebih dapat diandalkan dan teruji.\nNightly: Versi pengembangan yang memiliki semua fitur dan perbaikan terbaru, tetapi mungkin mengandung bug dan kurang stabil.</translation>
     </message>
     <message>
       <source>GUIBackgroundImageGroupBox</source>
@@ -1589,83 +1589,83 @@
     </message>
     <message>
       <source>GUIMusicGroupBox</source>
-      <translation>タイトルミュージックを再生:\nゲームでサポートされている場合に、GUIでゲームを選択したときに特別な音楽を再生する機能を有効にします。</translation>
+      <translation>Putar Musik Judul Permainan:\nJika permainan mendukungnya, aktifkan pemutaran musik khusus saat memilih permainan di GUI.</translation>
     </message>
     <message>
       <source>disableTrophycheckBox</source>
-      <translation>トロフィーのポップアップを無効化:\nゲーム内でのトロフィー通知を無効化します。 トロフィーの進行状況は、トロフィービューアーを使用して確認できます。(メインウィンドウでゲームを右クリック)</translation>
+      <translation>Disable Trophy Pop-ups:\nDisable in-game trophy notifications. Trophy progress can still be tracked using the Trophy Viewer (right-click the game in the main window).</translation>
     </message>
     <message>
       <source>hideCursorGroupBox</source>
-      <translation>カーソルを隠す:\nカーソルが消えるタイミングを選択してください:\n無効: 常にカーソルが表示されます。\n非アクティブ時: カーソルの非アクティブ期間が指定した時間を超えた場合にカーソルを隠します。\n常に: カーソルは常に隠れた状態になります。</translation>
+      <translation>Sembunyikan Kursor:\nPilih kapan kursor akan menghilang:\nTidak Pernah: Anda akan selalu melihat mouse.\nTidak Aktif: Tetapkan waktu untuk menghilang setelah tidak aktif.\nSelalu: Anda tidak akan pernah melihat mouse.</translation>
     </message>
     <message>
       <source>idleTimeoutGroupBox</source>
-      <translation>カーソルが非アクティブになってから隠すまでの時間を設定します。</translation>
+      <translation>Tetapkan waktu untuk mouse menghilang setelah tidak aktif.</translation>
     </message>
     <message>
       <source>backButtonBehaviorGroupBox</source>
-      <translation>戻るボタンの動作:\nコントローラーの戻るボタンを、PS4のタッチパッドの指定された位置をタッチするように設定します。</translation>
+      <translation>Perilaku Tombol Kembali:\nMengatur tombol kembali pada pengontrol untuk meniru ketukan di posisi yang ditentukan di touchpad PS4.</translation>
     </message>
     <message>
       <source>enableCompatibilityCheckBox</source>
-      <translation>互換性に関するデータを表示:\nゲームの互換性に関する情報を表として表示します。常に最新情報を取得したい場合、&quot;起動時に互換性データベースを更新する&quot; を有効化してください。</translation>
+      <translation>Display Compatibility Data:\nDisplays game compatibility information in table view. Enable &quot;Update Compatibility On Startup&quot; to get up-to-date information.</translation>
     </message>
     <message>
       <source>checkCompatibilityOnStartupCheckBox</source>
-      <translation>起動時に互換性データベースを更新する:\nshadPS4の起動時に自動で互換性データベースを更新します。</translation>
+      <translation>Update Compatibility On Startup:\nAutomatically update the compatibility database when shadPS4 starts.</translation>
     </message>
     <message>
       <source>updateCompatibilityButton</source>
-      <translation>互換性データベースを更新する:\n今すぐ互換性データベースを更新します。</translation>
+      <translation>Update Compatibility Database:\nImmediately update the compatibility database.</translation>
     </message>
     <message>
       <source>Never</source>
-      <translation>無効</translation>
+      <translation>Tidak Pernah</translation>
     </message>
     <message>
       <source>Idle</source>
-      <translation>非アクティブ時</translation>
+      <translation>Diam</translation>
     </message>
     <message>
       <source>Always</source>
-      <translation>常に</translation>
+      <translation>Selalu</translation>
     </message>
     <message>
       <source>Touchpad Left</source>
-      <translation>左タッチパッド</translation>
+      <translation>Touchpad Kiri</translation>
     </message>
     <message>
       <source>Touchpad Right</source>
-      <translation>右タッチパッド</translation>
+      <translation>Touchpad Kanan</translation>
     </message>
     <message>
       <source>Touchpad Center</source>
-      <translation>タッチパッド中央</translation>
+      <translation>Pusat Touchpad</translation>
     </message>
     <message>
       <source>None</source>
-      <translation>なし</translation>
+      <translation>Tidak Ada</translation>
     </message>
     <message>
       <source>graphicsAdapterGroupBox</source>
-      <translation>グラフィックデバイス:\nシステムに複数のGPUが搭載されている場合、ドロップダウンリストからエミュレーターで使用するGPUを選択するか、\n「自動選択」を選択して自動的に決定します。</translation>
+      <translation>Perangkat Grafis:\nPada sistem GPU ganda, pilih GPU yang akan digunakan emulator dari daftar dropdown,\natau pilih &quot;Auto Select&quot; untuk menentukan secara otomatis.</translation>
     </message>
     <message>
       <source>resolutionLayout</source>
-      <translation>幅/高さ:\n起動時にエミュレーターウィンドウのサイズを設定します。ゲーム中でもサイズを変更することができます。\nこれはゲーム内の解像度とは異なります。</translation>
+      <translation>Lebar/Tinggi:\nMenetapkan ukuran jendela emulator saat diluncurkan, yang dapat diubah ukurannya selama permainan.\nIni berbeda dari resolusi dalam permainan.</translation>
     </message>
     <message>
       <source>heightDivider</source>
-      <translation>Vblankディバイダー:\nエミュレーターが更新されるフレームレートにこの数を掛けます。これを変更すると、ゲームの速度が上がったり、想定外の変更がある場合、ゲームの重要な機能が壊れる可能性があります!</translation>
+      <translation>Pembagi Vblank:\nKecepatan bingkai di mana emulator menyegarkan dikalikan dengan angka ini. Mengubah ini dapat memiliki efek buruk, seperti meningkatkan kecepatan permainan, atau merusak fungsi kritis permainan yang tidak mengharapkan ini berubah!</translation>
     </message>
     <message>
       <source>dumpShadersCheckBox</source>
-      <translation>シェーダーダンプを有効にする:\n技術的なデバッグの目的で、レンダリング中にゲームのシェーダーをフォルダーに保存します。</translation>
+      <translation>Aktifkan Pembuangan Shader:\nUntuk tujuan debugging teknis, menyimpan shader permainan ke folder saat mereka dirender.</translation>
     </message>
     <message>
       <source>nullGpuCheckBox</source>
-      <translation>Null GPUを有効にする:\n技術的なデバッグの目的で、グラフィックスカードがないかのようにゲームのレンダリングを無効にします。</translation>
+      <translation>Aktifkan GPU Null:\nUntuk tujuan debugging teknis, menonaktifkan rendering permainan seolah-olah tidak ada kartu grafis.</translation>
     </message>
     <message>
       <source>enableHDRCheckBox</source>
@@ -1673,31 +1673,31 @@
     </message>
     <message>
       <source>gameFoldersBox</source>
-      <translation>ゲームフォルダ:\nインストールされたゲームを確認するためのフォルダのリスト。</translation>
+      <translation>Folder Permainan:\nDaftar folder untuk memeriksa permainan yang diinstal.</translation>
     </message>
     <message>
       <source>addFolderButton</source>
-      <translation>追加:\nリストにフォルダを追加します。</translation>
+      <translation>Tambah:\nTambahkan folder ke daftar.</translation>
     </message>
     <message>
       <source>removeFolderButton</source>
-      <translation>削除:\nリストからフォルダを削除します。</translation>
+      <translation>Hapus:\nHapus folder dari daftar.</translation>
     </message>
     <message>
       <source>debugDump</source>
-      <translation>デバッグダンプを有効にする:\n現在実行中のPS4プログラムのインポートおよびエクスポートシンボルとファイルヘッダー情報をディレクトリに保存します。</translation>
+      <translation>Aktifkan Pembuangan Debug:\nMenyimpan simbol impor dan ekspor serta informasi header file dari program PS4 yang sedang berjalan ke direktori.</translation>
     </message>
     <message>
       <source>vkValidationCheckBox</source>
-      <translation>Vulkanバリデーションレイヤーを有効にする:\nVulkanのレンダリングステータスを検証し、内部状態に関する情報をログに記録するシステムを有効にします。これによりパフォーマンスが低下し、エミュレーションの動作が変わる可能性があります。</translation>
+      <translation>Aktifkan Vulkan Validation Layers:\nMengaktifkan sistem yang memvalidasi status penggambaran Vulkan dan mencatat informasi tentang status internalnya. Ini akan mengurangi kinerja dan kemungkinan mengubah perilaku emulasi.</translation>
     </message>
     <message>
       <source>vkSyncValidationCheckBox</source>
-      <translation>Vulkan同期バリデーションを有効にする:\nVulkanのレンダリングタスクのタイミングを検証するシステムを有効にします。これによりパフォーマンスが低下し、エミュレーションの動作が変わる可能性があります。</translation>
+      <translation>Aktifkan Vulkan Synchronization Validation:\nMengaktifkan sistem yang memvalidasi waktu tugas penggambaran Vulkan. Ini akan mengurangi kinerja dan kemungkinan mengubah perilaku emulasi.</translation>
     </message>
     <message>
       <source>rdocCheckBox</source>
-      <translation>RenderDocデバッグを有効にする:\n有効にすると、エミュレーターはRenderdocとの互換性を提供し、現在レンダリング中のフレームのキャプチャと分析を可能にします。</translation>
+      <translation>Aktifkan Debugging RenderDoc:\nJika diaktifkan, emulator akan menyediakan kompatibilitas dengan Renderdoc untuk memungkinkan pengambilan dan analisis bingkai yang sedang dirender.</translation>
     </message>
     <message>
       <source>collectShaderCheckBox</source>
@@ -1757,7 +1757,7 @@
     </message>
     <message>
       <source>Browse</source>
-      <translation>参照</translation>
+      <translation type="unfinished">Browse</translation>
     </message>
     <message>
       <source>async</source>
@@ -1773,7 +1773,7 @@
     </message>
     <message>
       <source>Directory to install games</source>
-      <translation>ゲームをインストールするディレクトリ</translation>
+      <translation type="unfinished">Directory to install games</translation>
     </message>
     <message>
       <source>Directory to save data</source>
@@ -1784,7 +1784,7 @@
     <name>TrophyViewer</name>
     <message>
       <source>Trophy Viewer</source>
-      <translation>トロフィービューアー</translation>
+      <translation type="unfinished">Trophy Viewer</translation>
     </message>
   </context>
 </TS>

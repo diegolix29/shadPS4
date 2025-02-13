@@ -2,12 +2,12 @@
 <!-- SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
      SPDX-License-Identifier: GPL-2.0-or-later -->
 <!DOCTYPE TS>
-<TS version="2.1" language="ja_JP" sourcelanguage="en">
+<TS version="2.1" language="el_GR" sourcelanguage="en">
   <context>
     <name>AboutDialog</name>
     <message>
       <source>About shadPS4</source>
-      <translation>shadPS4について</translation>
+      <translation type="unfinished">About shadPS4</translation>
     </message>
     <message>
       <source>shadPS4</source>
@@ -15,396 +15,396 @@
     </message>
     <message>
       <source>shadPS4 is an experimental open-source emulator for the PlayStation 4.</source>
-      <translation>shadPS4は、PlayStation 4の実験的なオープンソースエミュレーターです。</translation>
+      <translation type="unfinished">shadPS4 is an experimental open-source emulator for the PlayStation 4.</translation>
     </message>
     <message>
       <source>This software should not be used to play games you have not legally obtained.</source>
-      <translation>非正規、非合法のゲームをプレイするためにこのソフトウェアを使用しないでください。</translation>
+      <translation type="unfinished">This software should not be used to play games you have not legally obtained.</translation>
     </message>
   </context>
   <context>
     <name>CheatsPatches</name>
     <message>
       <source>Cheats / Patches for </source>
-      <translation>のチート/パッチ</translation>
+      <translation type="unfinished">Cheats / Patches for </translation>
     </message>
     <message>
       <source>defaultTextEdit_MSG</source>
-      <translation>チート/パッチは実験的です。\n使用には注意してください。\n\nリポジトリを選択し、ダウンロードボタンをクリックしてチートを個別にダウンロードします。\n「Patches」タブでは、すべてのパッチを一度にダウンロードし、使用したいものを選択して選択を保存できます。\n\nチート/パッチは開発を行っていないため、\n問題があればチートの作者に報告してください。\n\n新しいチートを作成しましたか？\nhttps://github.com/shadps4-emu/ps4_cheats を訪問してください。</translation>
+      <translation>Οι cheats/patches είναι πειραματικά.\nΧρησιμοποιήστε τα με προσοχή.\n\nΚατεβάστε τους cheats μεμονωμένα επιλέγοντας το αποθετήριο και κάνοντας κλικ στο κουμπί λήψης.\nΣτην καρτέλα Patches, μπορείτε να κατεβάσετε όλα τα patches ταυτόχρονα, να επιλέξετε ποια θέλετε να χρησιμοποιήσετε και να αποθηκεύσετε την επιλογή.\n\nΔεδομένου ότι δεν αναπτύσσουμε τους cheats/patches,\nπαρακαλώ αναφέρετε προβλήματα στον δημιουργό του cheat.\n\nΔημιουργήσατε ένα νέο cheat; Επισκεφθείτε:\nhttps://github.com/shadps4-emu/ps4_cheats</translation>
     </message>
     <message>
       <source>No Image Available</source>
-      <translation>画像は利用できません</translation>
+      <translation>Δεν διατίθεται εικόνα</translation>
     </message>
     <message>
       <source>Serial: </source>
-      <translation>シリアル: </translation>
+      <translation>Σειριακός αριθμός: </translation>
     </message>
     <message>
       <source>Version: </source>
-      <translation>バージョン: </translation>
+      <translation>Έκδοση: </translation>
     </message>
     <message>
       <source>Size: </source>
-      <translation>サイズ: </translation>
+      <translation>Μέγεθος: </translation>
     </message>
     <message>
       <source>Select Cheat File:</source>
-      <translation>チートファイルを選択:</translation>
+      <translation>Επιλέξτε αρχείο Cheat:</translation>
     </message>
     <message>
       <source>Repository:</source>
-      <translation>リポジトリ:</translation>
+      <translation>Αποθετήριο:</translation>
     </message>
     <message>
       <source>Download Cheats</source>
-      <translation>チートをダウンロード</translation>
+      <translation>Λήψη Cheats</translation>
     </message>
     <message>
       <source>Delete File</source>
-      <translation>ファイルを削除</translation>
+      <translation>Διαγραφή αρχείου</translation>
     </message>
     <message>
       <source>No files selected.</source>
-      <translation>ファイルが選択されていません。</translation>
+      <translation>Δεν έχουν επιλεγεί αρχεία.</translation>
     </message>
     <message>
       <source>You can delete the cheats you don&apos;t want after downloading them.</source>
-      <translation>ダウンロード後に不要なチートを削除できます。</translation>
+      <translation>Μπορείτε να διαγράψετε τα cheats που δεν θέλετε μετά τη λήψη τους.</translation>
     </message>
     <message>
       <source>Do you want to delete the selected file?\n%1</source>
-      <translation>選択したファイルを削除しますか？\n%1</translation>
+      <translation>Θέλετε να διαγράψετε το επιλεγμένο αρχείο;\n%1</translation>
     </message>
     <message>
       <source>Select Patch File:</source>
-      <translation>パッチファイルを選択:</translation>
+      <translation>Επιλέξτε αρχείο Patch:</translation>
     </message>
     <message>
       <source>Download Patches</source>
-      <translation>パッチをダウンロード</translation>
+      <translation>Λήψη Patches</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation>保存</translation>
+      <translation>Αποθήκευση</translation>
     </message>
     <message>
       <source>Cheats</source>
-      <translation>チート</translation>
+      <translation type="unfinished">Cheats</translation>
     </message>
     <message>
       <source>Patches</source>
-      <translation>パッチ</translation>
+      <translation type="unfinished">Patches</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Σφάλμα</translation>
     </message>
     <message>
       <source>No patch selected.</source>
-      <translation>パッチが選択されていません。</translation>
+      <translation>Δεν έχει επιλεγεί κανένα patch.</translation>
     </message>
     <message>
       <source>Unable to open files.json for reading.</source>
-      <translation>files.jsonを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Αδυναμία ανοίγματος του files.json για ανάγνωση.</translation>
     </message>
     <message>
       <source>No patch file found for the current serial.</source>
-      <translation>現在のシリアルに対するパッチファイルが見つかりません。</translation>
+      <translation>Δεν βρέθηκε αρχείο patch για τον τρέχοντα σειριακό αριθμό.</translation>
     </message>
     <message>
       <source>Unable to open the file for reading.</source>
-      <translation>ファイルを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Αδυναμία ανοίγματος του αρχείου για ανάγνωση.</translation>
     </message>
     <message>
       <source>Unable to open the file for writing.</source>
-      <translation>ファイルをを書き込みのために開く事が出来ませんでした。</translation>
+      <translation>Αδυναμία ανοίγματος του αρχείου για εγγραφή.</translation>
     </message>
     <message>
       <source>Failed to parse XML: </source>
-      <translation>XMLの解析に失敗しました: </translation>
+      <translation>Αποτυχία ανάλυσης XML: </translation>
     </message>
     <message>
       <source>Success</source>
-      <translation>成功</translation>
+      <translation>Επιτυχία</translation>
     </message>
     <message>
       <source>Options saved successfully.</source>
-      <translation>オプションが正常に保存されました。</translation>
+      <translation>Οι ρυθμίσεις αποθηκεύτηκαν επιτυχώς.</translation>
     </message>
     <message>
       <source>Invalid Source</source>
-      <translation>無効なソース</translation>
+      <translation>Μη έγκυρη Πηγή</translation>
     </message>
     <message>
       <source>The selected source is invalid.</source>
-      <translation>選択されたソースは無効です。</translation>
+      <translation>Η επιλεγμένη πηγή είναι μη έγκυρη.</translation>
     </message>
     <message>
       <source>File Exists</source>
-      <translation>ファイルが存在します</translation>
+      <translation>Η αρχείο υπάρχει</translation>
     </message>
     <message>
       <source>File already exists. Do you want to replace it?</source>
-      <translation>ファイルはすでに存在します。置き換えますか？</translation>
+      <translation>Η αρχείο υπάρχει ήδη. Θέλετε να την αντικαταστήσετε;</translation>
     </message>
     <message>
       <source>Failed to save file:</source>
-      <translation>ファイルの保存に失敗しました:</translation>
+      <translation>Αποτυχία αποθήκευσης αρχείου:</translation>
     </message>
     <message>
       <source>Failed to download file:</source>
-      <translation>ファイルのダウンロードに失敗しました:</translation>
+      <translation>Αποτυχία λήψης αρχείου:</translation>
     </message>
     <message>
       <source>Cheats Not Found</source>
-      <translation>チートが見つかりません</translation>
+      <translation>Δεν βρέθηκαν Cheats</translation>
     </message>
     <message>
       <source>CheatsNotFound_MSG</source>
-      <translation>このゲームのこのバージョンのチートが選択されたリポジトリに見つかりませんでした。別のリポジトリまたはゲームの別のバージョンを試してください。</translation>
+      <translation>Δεν βρέθηκαν cheats για αυτό το παιχνίδι στην τρέχουσα έκδοση του επιλεγμένου αποθετηρίου. Δοκιμάστε να κατεβάσετε από άλλο αποθετήριο ή άλλη έκδοση του παιχνιδιού.</translation>
     </message>
     <message>
       <source>Cheats Downloaded Successfully</source>
-      <translation>チートが正常にダウンロードされました</translation>
+      <translation>Cheats κατεβάστηκαν επιτυχώς</translation>
     </message>
     <message>
       <source>CheatsDownloadedSuccessfully_MSG</source>
-      <translation>このゲームのこのバージョンのチートをリポジトリから正常にダウンロードしました。 別のリポジトリからのダウンロードも試せます。利用可能であれば、リストからファイルを選択して使用することも可能です。</translation>
+      <translation>Κατεβάσατε επιτυχώς cheats για αυτή την έκδοση του παιχνιδιού από το επιλεγμένο αποθετήριο. Μπορείτε να δοκιμάσετε να κατεβάσετε από άλλο αποθετήριο. Αν είναι διαθέσιμο, μπορείτε να το επιλέξετε επιλέγοντας το αρχείο από τη λίστα.</translation>
     </message>
     <message>
       <source>Failed to save:</source>
-      <translation>保存に失敗しました:</translation>
+      <translation>Αποτυχία αποθήκευσης:</translation>
     </message>
     <message>
       <source>Failed to download:</source>
-      <translation>ダウンロードに失敗しました:</translation>
+      <translation>Αποτυχία λήψης:</translation>
     </message>
     <message>
       <source>Download Complete</source>
-      <translation>ダウンロード完了</translation>
+      <translation>Η λήψη ολοκληρώθηκε</translation>
     </message>
     <message>
       <source>DownloadComplete_MSG</source>
-      <translation>パッチが正常にダウンロードされました！ すべてのゲームに利用可能なパッチがダウンロードされました。チートとは異なり、各ゲームごとに個別にダウンロードする必要はありません。 パッチが表示されない場合、特定のシリアル番号とバージョンのゲームには存在しない可能性があります。</translation>
+      <translation>Τα Patches κατεβάστηκαν επιτυχώς! Όλα τα Patches για όλα τα παιχνίδια έχουν κατέβει, δεν είναι απαραίτητο να τα κατεβάσετε ένα-ένα για κάθε παιχνίδι, όπως με τα Cheats. Εάν η ενημέρωση δεν εμφανίζεται, μπορεί να μην υπάρχει για τον συγκεκριμένο σειριακό αριθμό και έκδοση του παιχνιδιού.</translation>
     </message>
     <message>
       <source>Failed to parse JSON data from HTML.</source>
-      <translation>HTMLからJSONデータの解析に失敗しました。</translation>
+      <translation>Αποτυχία ανάλυσης δεδομένων JSON από HTML.</translation>
     </message>
     <message>
       <source>Failed to retrieve HTML page.</source>
-      <translation>HTMLページの取得に失敗しました。</translation>
+      <translation>Αποτυχία ανάκτησης σελίδας HTML.</translation>
     </message>
     <message>
       <source>The game is in version: %1</source>
-      <translation>ゲームのバージョン: %1</translation>
+      <translation>Το παιχνίδι είναι στην έκδοση: %1</translation>
     </message>
     <message>
       <source>The downloaded patch only works on version: %1</source>
-      <translation>ダウンロードしたパッチはバージョン: %1 のみ機能します</translation>
+      <translation>Η ληφθείσα ενημέρωση λειτουργεί μόνο στην έκδοση: %1</translation>
     </message>
     <message>
       <source>You may need to update your game.</source>
-      <translation>ゲームを更新する必要があるかもしれません。</translation>
+      <translation>Μπορεί να χρειαστεί να ενημερώσετε το παιχνίδι σας.</translation>
     </message>
     <message>
       <source>Incompatibility Notice</source>
-      <translation>互換性のない通知</translation>
+      <translation>Ειδοποίηση ασυμβατότητας</translation>
     </message>
     <message>
       <source>Failed to open file:</source>
-      <translation>ファイルを開くのに失敗しました:</translation>
+      <translation>Αποτυχία ανοίγματος αρχείου:</translation>
     </message>
     <message>
       <source>XML ERROR:</source>
-      <translation>XMLエラー:</translation>
+      <translation>ΣΦΑΛΜΑ XML:</translation>
     </message>
     <message>
       <source>Failed to open files.json for writing</source>
-      <translation>files.jsonを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Αποτυχία ανοίγματος του files.json για εγγραφή</translation>
     </message>
     <message>
       <source>Author: </source>
-      <translation>著者: </translation>
+      <translation>Συγγραφέας: </translation>
     </message>
     <message>
       <source>Directory does not exist:</source>
-      <translation>ディレクトリが存在しません:</translation>
+      <translation>Ο φάκελος δεν υπάρχει:</translation>
     </message>
     <message>
       <source>Failed to open files.json for reading.</source>
-      <translation>files.jsonを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Αποτυχία ανοίγματος του files.json για ανάγνωση.</translation>
     </message>
     <message>
       <source>Name:</source>
-      <translation>名前:</translation>
+      <translation>Όνομα:</translation>
     </message>
     <message>
       <source>Can&apos;t apply cheats before the game is started</source>
-      <translation>ゲームが開始される前にチートを適用することはできません。</translation>
+      <translation>Δεν μπορείτε να εφαρμόσετε cheats πριν ξεκινήσει το παιχνίδι.</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation>閉じる</translation>
+      <translation>Κλείσιμο</translation>
     </message>
   </context>
   <context>
     <name>CheckUpdate</name>
     <message>
       <source>Auto Updater</source>
-      <translation>自動アップデーター</translation>
+      <translation>Αυτόματος Ενημερωτής</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Σφάλμα</translation>
     </message>
     <message>
       <source>Network error:</source>
-      <translation>ネットワークエラー:</translation>
+      <translation>Σφάλμα δικτύου:</translation>
     </message>
     <message>
       <source>Error_Github_limit_MSG</source>
-      <translation>自動アップデーターは1時間に最大60回の更新チェックを許可します。\nこの制限に達しました。後でもう一度お試しください。</translation>
+      <translation>Ο Αυτόματος Ενημερωτής επιτρέπει έως και 60 ελέγχους ενημερώσεων ανά ώρα.\nΈχετε φτάσει αυτό το όριο. Παρακαλώ δοκιμάστε ξανά αργότερα.</translation>
     </message>
     <message>
       <source>Failed to parse update information.</source>
-      <translation>アップデート情報の解析に失敗しました。</translation>
+      <translation>Αποτυχία ανάλυσης πληροφοριών ενημέρωσης.</translation>
     </message>
     <message>
       <source>No pre-releases found.</source>
-      <translation>プレリリースは見つかりませんでした。</translation>
+      <translation>Δεν βρέθηκαν προ-κυκλοφορίες.</translation>
     </message>
     <message>
       <source>Invalid release data.</source>
-      <translation>リリースデータが無効です。</translation>
+      <translation>Μη έγκυρα δεδομένα έκδοσης.</translation>
     </message>
     <message>
       <source>No download URL found for the specified asset.</source>
-      <translation>指定されたアセットのダウンロードURLが見つかりませんでした。</translation>
+      <translation>Δεν βρέθηκε URL λήψης για το συγκεκριμένο στοιχείο.</translation>
     </message>
     <message>
       <source>Your version is already up to date!</source>
-      <translation>あなたのバージョンはすでに最新です！</translation>
+      <translation>Η έκδοσή σας είναι ήδη ενημερωμένη!</translation>
     </message>
     <message>
       <source>Update Available</source>
-      <translation>アップデートがあります</translation>
+      <translation>Διαθέσιμη Ενημέρωση</translation>
     </message>
     <message>
       <source>Update Channel</source>
-      <translation>アップデートチャネル</translation>
+      <translation>Κανάλι Ενημέρωσης</translation>
     </message>
     <message>
       <source>Current Version</source>
-      <translation>現在のバージョン</translation>
+      <translation>Τρέχουσα Έκδοση</translation>
     </message>
     <message>
       <source>Latest Version</source>
-      <translation>最新バージョン</translation>
+      <translation>Τελευταία Έκδοση</translation>
     </message>
     <message>
       <source>Do you want to update?</source>
-      <translation>アップデートしますか？</translation>
+      <translation>Θέλετε να ενημερώσετε;</translation>
     </message>
     <message>
       <source>Show Changelog</source>
-      <translation>変更ログを表示</translation>
+      <translation>Εμφάνιση Ιστορικού Αλλαγών</translation>
     </message>
     <message>
       <source>Check for Updates at Startup</source>
-      <translation>起動時に更新確認</translation>
+      <translation>Έλεγχος για ενημερώσεις κατά την εκκίνηση</translation>
     </message>
     <message>
       <source>Update</source>
-      <translation>アップデート</translation>
+      <translation>Ενημέρωση</translation>
     </message>
     <message>
       <source>No</source>
-      <translation>いいえ</translation>
+      <translation>Όχι</translation>
     </message>
     <message>
       <source>Hide Changelog</source>
-      <translation>変更ログを隠す</translation>
+      <translation>Απόκρυψη Ιστορικού Αλλαγών</translation>
     </message>
     <message>
       <source>Changes</source>
-      <translation>変更点</translation>
+      <translation>Αλλαγές</translation>
     </message>
     <message>
       <source>Network error occurred while trying to access the URL</source>
-      <translation>URLにアクセス中にネットワークエラーが発生しました</translation>
+      <translation>Σφάλμα δικτύου κατά την προσπάθεια πρόσβασης στη διεύθυνση URL</translation>
     </message>
     <message>
       <source>Download Complete</source>
-      <translation>ダウンロード完了</translation>
+      <translation>Λήψη ολοκληρώθηκε</translation>
     </message>
     <message>
       <source>The update has been downloaded, press OK to install.</source>
-      <translation>アップデートがダウンロードされました。インストールするにはOKを押してください。</translation>
+      <translation>Η ενημέρωση έχει ληφθεί, πατήστε OK για να εγκαταστήσετε.</translation>
     </message>
     <message>
       <source>Failed to save the update file at</source>
-      <translation>更新ファイルの保存に失敗しました</translation>
+      <translation>Αποτυχία αποθήκευσης του αρχείου ενημέρωσης στο</translation>
     </message>
     <message>
       <source>Starting Update...</source>
-      <translation>アップデートを開始しています...</translation>
+      <translation>Εκκίνηση Ενημέρωσης...</translation>
     </message>
     <message>
       <source>Failed to create the update script file</source>
-      <translation>アップデートスクリプトファイルの作成に失敗しました</translation>
+      <translation>Αποτυχία δημιουργίας του αρχείου σεναρίου ενημέρωσης</translation>
     </message>
   </context>
   <context>
     <name>CompatibilityInfoClass</name>
     <message>
       <source>Fetching compatibility data, please wait</source>
-      <translation>互換性データを取得しています。少々お待ちください。</translation>
+      <translation>Φόρτωση δεδομένων συμβατότητας, παρακαλώ περιμένετε</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation>キャンセル</translation>
+      <translation>Ακύρωση</translation>
     </message>
     <message>
       <source>Loading...</source>
-      <translation>読み込み中...</translation>
+      <translation>Φόρτωση...</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Σφάλμα</translation>
     </message>
     <message>
       <source>Unable to update compatibility data! Try again later.</source>
-      <translation>互換性データを更新できませんでした！後で再試行してください。</translation>
+      <translation>Δεν ήταν δυνατή η ενημέρωση των δεδομένων συμβατότητας! Προσπαθήστε αργότερα.</translation>
     </message>
     <message>
       <source>Unable to open compatibility_data.json for writing.</source>
-      <translation>compatibility_data.jsonを開いて書き込むことができませんでした。</translation>
+      <translation>Αδύνατο να ανοίξετε το compatibility_data.json για εγγραφή.</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation>不明</translation>
+      <translation>Άγνωστο</translation>
     </message>
     <message>
       <source>Nothing</source>
-      <translation>何もない</translation>
+      <translation>Τίποτα</translation>
     </message>
     <message>
       <source>Boots</source>
-      <translation>ブーツ</translation>
+      <translation>Μπότες</translation>
     </message>
     <message>
       <source>Menus</source>
-      <translation>メニュー</translation>
+      <translation>Μενού</translation>
     </message>
     <message>
       <source>Ingame</source>
-      <translation>ゲーム内</translation>
+      <translation>Εντός παιχνιδιού</translation>
     </message>
     <message>
       <source>Playable</source>
-      <translation>プレイ可能</translation>
+      <translation>Παιχνιδεύσιμο</translation>
     </message>
   </context>
   <context>
@@ -538,41 +538,41 @@
     <name>ElfViewer</name>
     <message>
       <source>Open Folder</source>
-      <translation>フォルダを開く</translation>
+      <translation type="unfinished">Open Folder</translation>
     </message>
   </context>
   <context>
     <name>GameInfoClass</name>
     <message>
       <source>Loading game list, please wait :3</source>
-      <translation>ゲームリストを読み込み中です。しばらくお待ちください :3</translation>
+      <translation type="unfinished">Loading game list, please wait :3</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation>キャンセル</translation>
+      <translation type="unfinished">Cancel</translation>
     </message>
     <message>
       <source>Loading...</source>
-      <translation>読み込み中...</translation>
+      <translation type="unfinished">Loading...</translation>
     </message>
   </context>
   <context>
     <name>GameInstallDialog</name>
     <message>
       <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - ディレクトリを選択</translation>
+      <translation type="unfinished">shadPS4 - Choose directory</translation>
     </message>
     <message>
       <source>Directory to install games</source>
-      <translation>ゲームをインストールするディレクトリ</translation>
+      <translation type="unfinished">Directory to install games</translation>
     </message>
     <message>
       <source>Browse</source>
-      <translation>参照</translation>
+      <translation type="unfinished">Browse</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation type="unfinished">Error</translation>
     </message>
     <message>
       <source>Directory to install DLC</source>
@@ -583,15 +583,15 @@
     <name>GameListFrame</name>
     <message>
       <source>Icon</source>
-      <translation>アイコン</translation>
+      <translation>Εικονίδιο</translation>
     </message>
     <message>
       <source>Name</source>
-      <translation>名前</translation>
+      <translation>Όνομα</translation>
     </message>
     <message>
       <source>Serial</source>
-      <translation>シリアル</translation>
+      <translation>Σειριακός αριθμός</translation>
     </message>
     <message>
       <source>Compatibility</source>
@@ -599,75 +599,75 @@
     </message>
     <message>
       <source>Region</source>
-      <translation>地域</translation>
+      <translation>Περιοχή</translation>
     </message>
     <message>
       <source>Firmware</source>
-      <translation>ファームウェア</translation>
+      <translation>Λογισμικό</translation>
     </message>
     <message>
       <source>Size</source>
-      <translation>サイズ</translation>
+      <translation>Μέγεθος</translation>
     </message>
     <message>
       <source>Version</source>
-      <translation>バージョン</translation>
+      <translation>Έκδοση</translation>
     </message>
     <message>
       <source>Path</source>
-      <translation>パス</translation>
+      <translation>Διαδρομή</translation>
     </message>
     <message>
       <source>Play Time</source>
-      <translation>プレイ時間</translation>
+      <translation>Χρόνος παιχνιδιού</translation>
     </message>
     <message>
       <source>Never Played</source>
-      <translation>未プレイ</translation>
+      <translation type="unfinished">Never Played</translation>
     </message>
     <message>
       <source>h</source>
-      <translation>時間</translation>
+      <translation type="unfinished">h</translation>
     </message>
     <message>
       <source>m</source>
-      <translation>分</translation>
+      <translation type="unfinished">m</translation>
     </message>
     <message>
       <source>s</source>
-      <translation>秒</translation>
+      <translation type="unfinished">s</translation>
     </message>
     <message>
       <source>Compatibility is untested</source>
-      <translation>互換性は未検証です</translation>
+      <translation type="unfinished">Compatibility is untested</translation>
     </message>
     <message>
       <source>Game does not initialize properly / crashes the emulator</source>
-      <translation>ゲームが正常に初期化されない/エミュレーターがクラッシュする</translation>
+      <translation type="unfinished">Game does not initialize properly / crashes the emulator</translation>
     </message>
     <message>
       <source>Game boots, but only displays a blank screen</source>
-      <translation>ゲームは起動しますが、空のスクリーンが表示されます</translation>
+      <translation type="unfinished">Game boots, but only displays a blank screen</translation>
     </message>
     <message>
       <source>Game displays an image but does not go past the menu</source>
-      <translation>正常にゲーム画面が表示されますが、メニューから先に進むことができません</translation>
+      <translation type="unfinished">Game displays an image but does not go past the menu</translation>
     </message>
     <message>
       <source>Game has game-breaking glitches or unplayable performance</source>
-      <translation>ゲームを壊すような不具合や、プレイが不可能なほどのパフォーマンスの問題があります</translation>
+      <translation type="unfinished">Game has game-breaking glitches or unplayable performance</translation>
     </message>
     <message>
       <source>Game can be completed with playable performance and no major glitches</source>
-      <translation>パフォーマンスに問題はなく、大きな不具合なしでゲームをプレイすることができます</translation>
+      <translation type="unfinished">Game can be completed with playable performance and no major glitches</translation>
     </message>
     <message>
       <source>Click to see details on github</source>
-      <translation>詳細を見るにはGitHubをクリックしてください</translation>
+      <translation>Κάντε κλικ για να δείτε λεπτομέρειες στο GitHub</translation>
     </message>
     <message>
       <source>Last updated</source>
-      <translation>最終更新</translation>
+      <translation>Τελευταία ενημέρωση</translation>
     </message>
   </context>
   <context>
@@ -697,47 +697,47 @@
     <name>GuiContextMenus</name>
     <message>
       <source>Create Shortcut</source>
-      <translation>ショートカットを作成</translation>
+      <translation type="unfinished">Create Shortcut</translation>
     </message>
     <message>
       <source>Cheats / Patches</source>
-      <translation>チート / パッチ</translation>
+      <translation>Kodikí / Enimeróseis</translation>
     </message>
     <message>
       <source>SFO Viewer</source>
-      <translation>SFOビューワー</translation>
+      <translation type="unfinished">SFO Viewer</translation>
     </message>
     <message>
       <source>Trophy Viewer</source>
-      <translation>トロフィービューワー</translation>
+      <translation type="unfinished">Trophy Viewer</translation>
     </message>
     <message>
       <source>Open Folder...</source>
-      <translation>フォルダを開く...</translation>
+      <translation>Άνοιγμα Φακέλου...</translation>
     </message>
     <message>
       <source>Open Game Folder</source>
-      <translation>ゲームフォルダを開く</translation>
+      <translation>Άνοιγμα Φακέλου Παιχνιδιού</translation>
     </message>
     <message>
       <source>Open Save Data Folder</source>
-      <translation>セーブデータフォルダを開く</translation>
+      <translation>Άνοιγμα Φακέλου Αποθηκευμένων Δεδομένων</translation>
     </message>
     <message>
       <source>Open Log Folder</source>
-      <translation>ログフォルダを開く</translation>
+      <translation>Άνοιγμα Φακέλου Καταγραφής</translation>
     </message>
     <message>
       <source>Copy info...</source>
-      <translation>情報をコピー...</translation>
+      <translation type="unfinished">Copy info...</translation>
     </message>
     <message>
       <source>Copy Name</source>
-      <translation>名前をコピー</translation>
+      <translation type="unfinished">Copy Name</translation>
     </message>
     <message>
       <source>Copy Serial</source>
-      <translation>シリアルをコピー</translation>
+      <translation type="unfinished">Copy Serial</translation>
     </message>
     <message>
       <source>Copy Version</source>
@@ -749,75 +749,75 @@
     </message>
     <message>
       <source>Copy All</source>
-      <translation>すべてコピー</translation>
+      <translation type="unfinished">Copy All</translation>
     </message>
     <message>
       <source>Delete...</source>
-      <translation>削除...</translation>
+      <translation type="unfinished">Delete...</translation>
     </message>
     <message>
       <source>Delete Game</source>
-      <translation>ゲームを削除</translation>
+      <translation type="unfinished">Delete Game</translation>
     </message>
     <message>
       <source>Delete Update</source>
-      <translation>アップデートを削除</translation>
+      <translation type="unfinished">Delete Update</translation>
     </message>
     <message>
       <source>Delete DLC</source>
-      <translation>DLCを削除</translation>
+      <translation type="unfinished">Delete DLC</translation>
     </message>
     <message>
       <source>Compatibility...</source>
-      <translation>互換性...</translation>
+      <translation type="unfinished">Compatibility...</translation>
     </message>
     <message>
       <source>Update database</source>
-      <translation>データベースを更新</translation>
+      <translation type="unfinished">Update database</translation>
     </message>
     <message>
       <source>View report</source>
-      <translation>レポートを表示</translation>
+      <translation type="unfinished">View report</translation>
     </message>
     <message>
       <source>Submit a report</source>
-      <translation>レポートを送信</translation>
+      <translation type="unfinished">Submit a report</translation>
     </message>
     <message>
       <source>Shortcut creation</source>
-      <translation>ショートカットの作成</translation>
+      <translation type="unfinished">Shortcut creation</translation>
     </message>
     <message>
       <source>Shortcut created successfully!</source>
-      <translation>ショートカットが正常に作成されました!</translation>
+      <translation type="unfinished">Shortcut created successfully!</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation type="unfinished">Error</translation>
     </message>
     <message>
       <source>Error creating shortcut!</source>
-      <translation>ショートカットの作成に失敗しました!</translation>
+      <translation type="unfinished">Error creating shortcut!</translation>
     </message>
     <message>
       <source>Install PKG</source>
-      <translation>PKGをインストール</translation>
+      <translation type="unfinished">Install PKG</translation>
     </message>
     <message>
       <source>Game</source>
-      <translation>ゲーム</translation>
+      <translation type="unfinished">Game</translation>
     </message>
     <message>
       <source>This game has no update to delete!</source>
-      <translation>このゲームにはアップデートがないため削除することができません!</translation>
+      <translation type="unfinished">This game has no update to delete!</translation>
     </message>
     <message>
       <source>Update</source>
-      <translation>アップデート</translation>
+      <translation type="unfinished">Update</translation>
     </message>
     <message>
       <source>This game has no DLC to delete!</source>
-      <translation>このゲームにはDLCがないため削除することができません!</translation>
+      <translation type="unfinished">This game has no DLC to delete!</translation>
     </message>
     <message>
       <source>DLC</source>
@@ -825,11 +825,11 @@
     </message>
     <message>
       <source>Delete %1</source>
-      <translation>%1 を削除</translation>
+      <translation type="unfinished">Delete %1</translation>
     </message>
     <message>
       <source>Are you sure you want to delete %1&apos;s %2 directory?</source>
-      <translation>%1 の %2 ディレクトリを本当に削除しますか?</translation>
+      <translation type="unfinished">Are you sure you want to delete %1&apos;s %2 directory?</translation>
     </message>
     <message>
       <source>Open Update Folder</source>
@@ -860,11 +860,11 @@
     <name>InstallDirSelect</name>
     <message>
       <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - ディレクトリを選択</translation>
+      <translation type="unfinished">shadPS4 - Choose directory</translation>
     </message>
     <message>
       <source>Select which directory you want to install to.</source>
-      <translation>インストール先のディレクトリを選択してください。</translation>
+      <translation type="unfinished">Select which directory you want to install to.</translation>
     </message>
     <message>
       <source>Install All Queued to Selected Folder</source>
@@ -879,275 +879,275 @@
     <name>MainWindow</name>
     <message>
       <source>Open/Add Elf Folder</source>
-      <translation>Elfフォルダを開く/追加する</translation>
+      <translation type="unfinished">Open/Add Elf Folder</translation>
     </message>
     <message>
       <source>Install Packages (PKG)</source>
-      <translation>パッケージをインストール (PKG)</translation>
+      <translation type="unfinished">Install Packages (PKG)</translation>
     </message>
     <message>
       <source>Boot Game</source>
-      <translation>ゲームを起動</translation>
+      <translation type="unfinished">Boot Game</translation>
     </message>
     <message>
       <source>Check for Updates</source>
-      <translation>更新を確認する</translation>
+      <translation>Έλεγχος για ενημερώσεις</translation>
     </message>
     <message>
       <source>About shadPS4</source>
-      <translation>shadPS4について</translation>
+      <translation type="unfinished">About shadPS4</translation>
     </message>
     <message>
       <source>Configure...</source>
-      <translation>設定...</translation>
+      <translation type="unfinished">Configure...</translation>
     </message>
     <message>
       <source>Install application from a .pkg file</source>
-      <translation>.pkgファイルからアプリケーションをインストール</translation>
+      <translation type="unfinished">Install application from a .pkg file</translation>
     </message>
     <message>
       <source>Recent Games</source>
-      <translation>最近プレイしたゲーム</translation>
+      <translation type="unfinished">Recent Games</translation>
     </message>
     <message>
       <source>Open shadPS4 Folder</source>
-      <translation>shadPS4フォルダを開く</translation>
+      <translation type="unfinished">Open shadPS4 Folder</translation>
     </message>
     <message>
       <source>Exit</source>
-      <translation>終了</translation>
+      <translation type="unfinished">Exit</translation>
     </message>
     <message>
       <source>Exit shadPS4</source>
-      <translation>shadPS4を終了</translation>
+      <translation type="unfinished">Exit shadPS4</translation>
     </message>
     <message>
       <source>Exit the application.</source>
-      <translation>アプリケーションを終了します。</translation>
+      <translation type="unfinished">Exit the application.</translation>
     </message>
     <message>
       <source>Show Game List</source>
-      <translation>ゲームリストを表示</translation>
+      <translation type="unfinished">Show Game List</translation>
     </message>
     <message>
       <source>Game List Refresh</source>
-      <translation>ゲームリストの更新</translation>
+      <translation type="unfinished">Game List Refresh</translation>
     </message>
     <message>
       <source>Tiny</source>
-      <translation>最小</translation>
+      <translation type="unfinished">Tiny</translation>
     </message>
     <message>
       <source>Small</source>
-      <translation>小</translation>
+      <translation type="unfinished">Small</translation>
     </message>
     <message>
       <source>Medium</source>
-      <translation>中</translation>
+      <translation type="unfinished">Medium</translation>
     </message>
     <message>
       <source>Large</source>
-      <translation>大</translation>
+      <translation type="unfinished">Large</translation>
     </message>
     <message>
       <source>List View</source>
-      <translation>リストビュー</translation>
+      <translation type="unfinished">List View</translation>
     </message>
     <message>
       <source>Grid View</source>
-      <translation>グリッドビュー</translation>
+      <translation type="unfinished">Grid View</translation>
     </message>
     <message>
       <source>Elf Viewer</source>
-      <translation>Elfビューアー</translation>
+      <translation type="unfinished">Elf Viewer</translation>
     </message>
     <message>
       <source>Game Install Directory</source>
-      <translation>ゲームインストールディレクトリ</translation>
+      <translation type="unfinished">Game Install Directory</translation>
     </message>
     <message>
       <source>Download Cheats/Patches</source>
-      <translation>チート / パッチをダウンロード</translation>
+      <translation>Κατεβάστε Κωδικούς / Ενημερώσεις</translation>
     </message>
     <message>
       <source>Dump Game List</source>
-      <translation>ゲームリストをダンプ</translation>
+      <translation type="unfinished">Dump Game List</translation>
     </message>
     <message>
       <source>PKG Viewer</source>
-      <translation>PKGビューアー</translation>
+      <translation type="unfinished">PKG Viewer</translation>
     </message>
     <message>
       <source>Search...</source>
-      <translation>検索...</translation>
+      <translation type="unfinished">Search...</translation>
     </message>
     <message>
       <source>File</source>
-      <translation>ファイル</translation>
+      <translation type="unfinished">File</translation>
     </message>
     <message>
       <source>View</source>
-      <translation>表示</translation>
+      <translation type="unfinished">View</translation>
     </message>
     <message>
       <source>Game List Icons</source>
-      <translation>ゲームリストアイコン</translation>
+      <translation type="unfinished">Game List Icons</translation>
     </message>
     <message>
       <source>Game List Mode</source>
-      <translation>ゲームリストモード</translation>
+      <translation type="unfinished">Game List Mode</translation>
     </message>
     <message>
       <source>Settings</source>
-      <translation>設定</translation>
+      <translation type="unfinished">Settings</translation>
     </message>
     <message>
       <source>Utils</source>
-      <translation>ユーティリティ</translation>
+      <translation type="unfinished">Utils</translation>
     </message>
     <message>
       <source>Themes</source>
-      <translation>テーマ</translation>
+      <translation type="unfinished">Themes</translation>
     </message>
     <message>
       <source>Help</source>
-      <translation>ヘルプ</translation>
+      <translation>Βοήθεια</translation>
     </message>
     <message>
       <source>Dark</source>
-      <translation>ダーク</translation>
+      <translation type="unfinished">Dark</translation>
     </message>
     <message>
       <source>Light</source>
-      <translation>ライト</translation>
+      <translation type="unfinished">Light</translation>
     </message>
     <message>
       <source>Green</source>
-      <translation>グリーン</translation>
+      <translation type="unfinished">Green</translation>
     </message>
     <message>
       <source>Blue</source>
-      <translation>ブルー</translation>
+      <translation type="unfinished">Blue</translation>
     </message>
     <message>
       <source>Violet</source>
-      <translation>バイオレット</translation>
+      <translation type="unfinished">Violet</translation>
     </message>
     <message>
       <source>toolBar</source>
-      <translation>ツールバー</translation>
+      <translation type="unfinished">toolBar</translation>
     </message>
     <message>
       <source>Game List</source>
-      <translation>ゲームリスト</translation>
+      <translation>Λίστα παιχνιδιών</translation>
     </message>
     <message>
       <source> * Unsupported Vulkan Version</source>
-      <translation> * サポートされていないVulkanバージョン</translation>
+      <translation> * Μη υποστηριζόμενη έκδοση Vulkan</translation>
     </message>
     <message>
       <source>Download Cheats For All Installed Games</source>
-      <translation>すべてのインストール済みゲームのチートをダウンロード</translation>
+      <translation>Λήψη Cheats για όλα τα εγκατεστημένα παιχνίδια</translation>
     </message>
     <message>
       <source>Download Patches For All Games</source>
-      <translation>すべてのゲームのパッチをダウンロード</translation>
+      <translation>Λήψη Patches για όλα τα παιχνίδια</translation>
     </message>
     <message>
       <source>Download Complete</source>
-      <translation>ダウンロード完了</translation>
+      <translation>Η λήψη ολοκληρώθηκε</translation>
     </message>
     <message>
       <source>You have downloaded cheats for all the games you have installed.</source>
-      <translation>インストールされているすべてのゲームのチートをダウンロードしました。</translation>
+      <translation>Έχετε κατεβάσει cheats για όλα τα εγκατεστημένα παιχνίδια.</translation>
     </message>
     <message>
       <source>Patches Downloaded Successfully!</source>
-      <translation>パッチが正常にダウンロードされました!</translation>
+      <translation>Τα Patches κατέβηκαν επιτυχώς!</translation>
     </message>
     <message>
       <source>All Patches available for all games have been downloaded.</source>
-      <translation>すべてのゲームに利用可能なパッチがダウンロードされました。</translation>
+      <translation>Όλα τα διαθέσιμα Patches για όλα τα παιχνίδια έχουν κατέβει.</translation>
     </message>
     <message>
       <source>Games: </source>
-      <translation>ゲーム: </translation>
+      <translation>Παιχνίδια: </translation>
     </message>
     <message>
       <source>ELF files (*.bin *.elf *.oelf)</source>
-      <translation>ELFファイル (*.bin *.elf *.oelf)</translation>
+      <translation>Αρχεία ELF (*.bin *.elf *.oelf)</translation>
     </message>
     <message>
       <source>Game Boot</source>
-      <translation>ゲームブート</translation>
+      <translation>Εκκίνηση παιχνιδιού</translation>
     </message>
     <message>
       <source>Only one file can be selected!</source>
-      <translation>1つのファイルしか選択できません!</translation>
+      <translation>Μπορεί να επιλεγεί μόνο ένα αρχείο!</translation>
     </message>
     <message>
       <source>PKG Extraction</source>
-      <translation>PKGの抽出</translation>
+      <translation>Εξαγωγή PKG</translation>
     </message>
     <message>
       <source>Patch detected!</source>
-      <translation>パッチが検出されました！</translation>
+      <translation>Αναγνώριση ενημέρωσης!</translation>
     </message>
     <message>
       <source>PKG and Game versions match: </source>
-      <translation>PKGとゲームのバージョンが一致しています: </translation>
+      <translation>Οι εκδόσεις PKG και παιχνιδιού ταιριάζουν: </translation>
     </message>
     <message>
       <source>Would you like to overwrite?</source>
-      <translation>上書きしてもよろしいですか？</translation>
+      <translation>Θέλετε να αντικαταστήσετε;</translation>
     </message>
     <message>
       <source>PKG Version %1 is older than installed version: </source>
-      <translation>PKGバージョン %1 はインストールされているバージョンよりも古いです: </translation>
+      <translation>Η έκδοση PKG %1 είναι παλαιότερη από την εγκατεστημένη έκδοση: </translation>
     </message>
     <message>
       <source>Game is installed: </source>
-      <translation>ゲームはインストール済みです: </translation>
+      <translation>Το παιχνίδι είναι εγκατεστημένο: </translation>
     </message>
     <message>
       <source>Would you like to install Patch: </source>
-      <translation>パッチをインストールしてもよろしいですか: </translation>
+      <translation>Θέλετε να εγκαταστήσετε την ενημέρωση: </translation>
     </message>
     <message>
       <source>DLC Installation</source>
-      <translation>DLCのインストール</translation>
+      <translation>Εγκατάσταση DLC</translation>
     </message>
     <message>
       <source>Would you like to install DLC: %1?</source>
-      <translation>DLCをインストールしてもよろしいですか: %1?</translation>
+      <translation>Θέλετε να εγκαταστήσετε το DLC: %1;</translation>
     </message>
     <message>
       <source>DLC already installed:</source>
-      <translation>DLCはすでにインストールされています:</translation>
+      <translation>DLC ήδη εγκατεστημένο:</translation>
     </message>
     <message>
       <source>Game already installed</source>
-      <translation>ゲームはすでにインストールされています</translation>
+      <translation>Παιχνίδι ήδη εγκατεστημένο</translation>
     </message>
     <message>
       <source>PKG ERROR</source>
-      <translation>PKGエラー</translation>
+      <translation>ΣΦΑΛΜΑ PKG</translation>
     </message>
     <message>
       <source>Extracting PKG %1/%2</source>
-      <translation>PKGを抽出中 %1/%2</translation>
+      <translation>Εξαγωγή PKG %1/%2</translation>
     </message>
     <message>
       <source>Extraction Finished</source>
-      <translation>抽出完了</translation>
+      <translation>Η εξαγωγή ολοκληρώθηκε</translation>
     </message>
     <message>
       <source>Game successfully installed at %1</source>
-      <translation>ゲームが %1 に正常にインストールされました</translation>
+      <translation>Το παιχνίδι εγκαταστάθηκε επιτυχώς στο %1</translation>
     </message>
     <message>
       <source>File doesn&apos;t appear to be a valid PKG file</source>
-      <translation>ファイルが有効なPKGファイルでないようです</translation>
+      <translation>Η αρχείο δεν φαίνεται να είναι έγκυρο αρχείο PKG</translation>
     </message>
     <message>
       <source>Run Game</source>
@@ -1178,19 +1178,19 @@
     <name>PKGViewer</name>
     <message>
       <source>Open Folder</source>
-      <translation>フォルダーを開く</translation>
+      <translation type="unfinished">Open Folder</translation>
     </message>
     <message>
       <source>PKG ERROR</source>
-      <translation>PKGエラー</translation>
+      <translation>ΣΦΑΛΜΑ PKG</translation>
     </message>
     <message>
       <source>Name</source>
-      <translation>名前</translation>
+      <translation>Όνομα</translation>
     </message>
     <message>
       <source>Serial</source>
-      <translation>シリアル</translation>
+      <translation>Σειριακός αριθμός</translation>
     </message>
     <message>
       <source>Installed</source>
@@ -1198,7 +1198,7 @@
     </message>
     <message>
       <source>Size</source>
-      <translation>サイズ</translation>
+      <translation>Μέγεθος</translation>
     </message>
     <message>
       <source>Category</source>
@@ -1218,7 +1218,7 @@
     </message>
     <message>
       <source>Region</source>
-      <translation>地域</translation>
+      <translation>Περιοχή</translation>
     </message>
     <message>
       <source>Flags</source>
@@ -1226,15 +1226,15 @@
     </message>
     <message>
       <source>Path</source>
-      <translation>パス</translation>
+      <translation>Διαδρομή</translation>
     </message>
     <message>
       <source>File</source>
-      <translation>ファイル</translation>
+      <translation type="unfinished">File</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation>不明</translation>
+      <translation>Άγνωστο</translation>
     </message>
     <message>
       <source>Package</source>
@@ -1245,99 +1245,99 @@
     <name>SettingsDialog</name>
     <message>
       <source>Settings</source>
-      <translation>設定</translation>
+      <translation type="unfinished">Settings</translation>
     </message>
     <message>
       <source>General</source>
-      <translation>一般</translation>
+      <translation type="unfinished">General</translation>
     </message>
     <message>
       <source>System</source>
-      <translation>システム</translation>
+      <translation type="unfinished">System</translation>
     </message>
     <message>
       <source>Console Language</source>
-      <translation>コンソールの言語</translation>
+      <translation type="unfinished">Console Language</translation>
     </message>
     <message>
       <source>Emulator Language</source>
-      <translation>エミュレーターの言語</translation>
+      <translation type="unfinished">Emulator Language</translation>
     </message>
     <message>
       <source>Emulator</source>
-      <translation>エミュレーター</translation>
+      <translation type="unfinished">Emulator</translation>
     </message>
     <message>
       <source>Enable Fullscreen</source>
-      <translation>フルスクリーンを有効にする</translation>
+      <translation type="unfinished">Enable Fullscreen</translation>
     </message>
     <message>
       <source>Fullscreen Mode</source>
-      <translation>全画面モード</translation>
+      <translation>Λειτουργία Πλήρους Οθόνης</translation>
     </message>
     <message>
       <source>Enable Separate Update Folder</source>
-      <translation>アップデートフォルダの分離を有効化</translation>
+      <translation type="unfinished">Enable Separate Update Folder</translation>
     </message>
     <message>
       <source>Default tab when opening settings</source>
-      <translation>設定を開くときのデフォルトタブ</translation>
+      <translation>Προεπιλεγμένη καρτέλα κατά την ανοίγμα των ρυθμίσεων</translation>
     </message>
     <message>
       <source>Show Game Size In List</source>
-      <translation>ゲームサイズをリストに表示</translation>
+      <translation>Εμφάνιση Μεγέθους Παιχνιδιού στη Λίστα</translation>
     </message>
     <message>
       <source>Show Splash</source>
-      <translation>スプラッシュ画面を表示する</translation>
+      <translation type="unfinished">Show Splash</translation>
     </message>
     <message>
       <source>Enable Discord Rich Presence</source>
-      <translation>Discord Rich Presenceを有効にする</translation>
+      <translation>Ενεργοποίηση Discord Rich Presence</translation>
     </message>
     <message>
       <source>Username</source>
-      <translation>ユーザー名</translation>
+      <translation type="unfinished">Username</translation>
     </message>
     <message>
       <source>Trophy Key</source>
-      <translation>トロフィーキー</translation>
+      <translation type="unfinished">Trophy Key</translation>
     </message>
     <message>
       <source>Trophy</source>
-      <translation>トロフィー</translation>
+      <translation type="unfinished">Trophy</translation>
     </message>
     <message>
       <source>Logger</source>
-      <translation>ロガー</translation>
+      <translation type="unfinished">Logger</translation>
     </message>
     <message>
       <source>Log Type</source>
-      <translation>ログタイプ</translation>
+      <translation type="unfinished">Log Type</translation>
     </message>
     <message>
       <source>Log Filter</source>
-      <translation>ログフィルター</translation>
+      <translation type="unfinished">Log Filter</translation>
     </message>
     <message>
       <source>Open Log Location</source>
-      <translation>ログの場所を開く</translation>
+      <translation>Άνοιγμα τοποθεσίας αρχείου καταγραφής</translation>
     </message>
     <message>
       <source>Input</source>
-      <translation>入力</translation>
+      <translation>Είσοδος</translation>
     </message>
     <message>
       <source>Cursor</source>
-      <translation>カーソル</translation>
+      <translation>Δείκτης</translation>
     </message>
     <message>
       <source>Hide Cursor</source>
-      <translation>カーソルを隠す</translation>
+      <translation>Απόκρυψη δείκτη</translation>
     </message>
     <message>
       <source>Hide Cursor Idle Timeout</source>
-      <translation>カーソルを隠すまでの非アクティブ期間</translation>
+      <translation>Χρόνος αδράνειας απόκρυψης δείκτη</translation>
     </message>
     <message>
       <source>s</source>
@@ -1345,51 +1345,51 @@
     </message>
     <message>
       <source>Controller</source>
-      <translation>コントローラー</translation>
+      <translation type="unfinished">Controller</translation>
     </message>
     <message>
       <source>Back Button Behavior</source>
-      <translation>戻るボタンの動作</translation>
+      <translation>Συμπεριφορά κουμπιού επιστροφής</translation>
     </message>
     <message>
       <source>Graphics</source>
-      <translation>グラフィックス</translation>
+      <translation type="unfinished">Graphics</translation>
     </message>
     <message>
       <source>GUI</source>
-      <translation>インターフェース</translation>
+      <translation>Διεπαφή</translation>
     </message>
     <message>
       <source>User</source>
-      <translation>ユーザー</translation>
+      <translation>Χρήστης</translation>
     </message>
     <message>
       <source>Graphics Device</source>
-      <translation>グラフィックスデバイス</translation>
+      <translation type="unfinished">Graphics Device</translation>
     </message>
     <message>
       <source>Width</source>
-      <translation>幅</translation>
+      <translation type="unfinished">Width</translation>
     </message>
     <message>
       <source>Height</source>
-      <translation>高さ</translation>
+      <translation type="unfinished">Height</translation>
     </message>
     <message>
       <source>Vblank Divider</source>
-      <translation>Vblankディバイダー</translation>
+      <translation type="unfinished">Vblank Divider</translation>
     </message>
     <message>
       <source>Advanced</source>
-      <translation>高度な設定</translation>
+      <translation type="unfinished">Advanced</translation>
     </message>
     <message>
       <source>Enable Shaders Dumping</source>
-      <translation>シェーダーのダンプを有効にする</translation>
+      <translation type="unfinished">Enable Shaders Dumping</translation>
     </message>
     <message>
       <source>Enable NULL GPU</source>
-      <translation>NULL GPUを有効にする</translation>
+      <translation type="unfinished">Enable NULL GPU</translation>
     </message>
     <message>
       <source>Enable HDR</source>
@@ -1397,39 +1397,39 @@
     </message>
     <message>
       <source>Paths</source>
-      <translation>パス</translation>
+      <translation>Διαδρομές</translation>
     </message>
     <message>
       <source>Game Folders</source>
-      <translation>ゲームフォルダ</translation>
+      <translation>Φάκελοι παιχνιδιών</translation>
     </message>
     <message>
       <source>Add...</source>
-      <translation>追加...</translation>
+      <translation>Προσθήκη...</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation>削除</translation>
+      <translation>Αφαίρεση</translation>
     </message>
     <message>
       <source>Debug</source>
-      <translation>デバッグ</translation>
+      <translation type="unfinished">Debug</translation>
     </message>
     <message>
       <source>Enable Debug Dumping</source>
-      <translation>デバッグダンプを有効にする</translation>
+      <translation type="unfinished">Enable Debug Dumping</translation>
     </message>
     <message>
       <source>Enable Vulkan Validation Layers</source>
-      <translation>Vulkan検証レイヤーを有効にする</translation>
+      <translation type="unfinished">Enable Vulkan Validation Layers</translation>
     </message>
     <message>
       <source>Enable Vulkan Synchronization Validation</source>
-      <translation>Vulkan同期検証を有効にする</translation>
+      <translation type="unfinished">Enable Vulkan Synchronization Validation</translation>
     </message>
     <message>
       <source>Enable RenderDoc Debugging</source>
-      <translation>RenderDocデバッグを有効にする</translation>
+      <translation type="unfinished">Enable RenderDoc Debugging</translation>
     </message>
     <message>
       <source>Enable Crash Diagnostics</source>
@@ -1453,27 +1453,27 @@
     </message>
     <message>
       <source>Update</source>
-      <translation>更新</translation>
+      <translation>Ενημέρωση</translation>
     </message>
     <message>
       <source>Check for Updates at Startup</source>
-      <translation>起動時に更新確認</translation>
+      <translation>Έλεγχος για ενημερώσεις κατά την εκκίνηση</translation>
     </message>
     <message>
       <source>Always Show Changelog</source>
-      <translation>常に変更履歴を表示</translation>
+      <translation>Πάντα εμφάνιση ιστορικού αλλαγών</translation>
     </message>
     <message>
       <source>Update Channel</source>
-      <translation>アップデートチャネル</translation>
+      <translation>Κανάλι Ενημέρωσης</translation>
     </message>
     <message>
       <source>Check for Updates</source>
-      <translation>更新を確認</translation>
+      <translation>Έλεγχος για ενημερώσεις</translation>
     </message>
     <message>
       <source>GUI Settings</source>
-      <translation>GUI設定</translation>
+      <translation>Ρυθμίσεις GUI</translation>
     </message>
     <message>
       <source>Title Music</source>
@@ -1481,7 +1481,7 @@
     </message>
     <message>
       <source>Disable Trophy Pop-ups</source>
-      <translation>トロフィーのポップアップを無効化</translation>
+      <translation type="unfinished">Disable Trophy Pop-ups</translation>
     </message>
     <message>
       <source>Background Image</source>
@@ -1497,91 +1497,91 @@
     </message>
     <message>
       <source>Play title music</source>
-      <translation>タイトル音楽を再生する</translation>
+      <translation>Αναπαραγωγή μουσικής τίτλου</translation>
     </message>
     <message>
       <source>Update Compatibility Database On Startup</source>
-      <translation>起動時に互換性データベースを更新する</translation>
+      <translation type="unfinished">Update Compatibility Database On Startup</translation>
     </message>
     <message>
       <source>Game Compatibility</source>
-      <translation>ゲームの互換性</translation>
+      <translation type="unfinished">Game Compatibility</translation>
     </message>
     <message>
       <source>Display Compatibility Data</source>
-      <translation>互換性に関するデータを表示</translation>
+      <translation type="unfinished">Display Compatibility Data</translation>
     </message>
     <message>
       <source>Update Compatibility Database</source>
-      <translation>互換性データベースを更新</translation>
+      <translation type="unfinished">Update Compatibility Database</translation>
     </message>
     <message>
       <source>Volume</source>
-      <translation>音量</translation>
+      <translation>ένταση</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation>保存</translation>
+      <translation>Αποθήκευση</translation>
     </message>
     <message>
       <source>Apply</source>
-      <translation>適用</translation>
+      <translation>Εφαρμογή</translation>
     </message>
     <message>
       <source>Restore Defaults</source>
-      <translation>デフォルトに戻す</translation>
+      <translation>Επαναφορά Προεπιλογών</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation>閉じる</translation>
+      <translation>Κλείσιμο</translation>
     </message>
     <message>
       <source>Point your mouse at an option to display its description.</source>
-      <translation>設定項目にマウスをホバーすると、説明が表示されます。</translation>
+      <translation>Τοποθετήστε το ποντίκι σας πάνω σε μια επιλογή για να εμφανίσετε την περιγραφή της.</translation>
     </message>
     <message>
       <source>consoleLanguageGroupBox</source>
-      <translation>コンソールの言語:\nPS4ゲームが使用する言語を設定します。\nゲームでサポートされている言語に設定することをお勧めしますが、地域によって異なる場合があります。</translation>
+      <translation>Γλώσσα Κονσόλας:\nΡυθμίζει τη γλώσσα που θα χρησιμοποιήσει το παιχνίδι PS4.\nΣυνιστάται να επιλέξετε μία από τις γλώσσες που υποστηρίζονται από το παιχνίδι, η οποία ενδέχεται να διαφέρει ανάλογα με την περιοχή.</translation>
     </message>
     <message>
       <source>emulatorLanguageGroupBox</source>
-      <translation>エミュレーターの言語:\nエミュレーターのユーザーインターフェースの言語を設定します。</translation>
+      <translation>Γλώσσα Εξομοιωτή:\nΡυθμίζει τη γλώσσα του γραφικού περιβάλλοντος του εξομοιωτή.</translation>
     </message>
     <message>
       <source>fullscreenCheckBox</source>
-      <translation>全画面モードを有効にする:\nゲームウィンドウを自動的に全画面モードにします。\nF11キーを押すことで切り替えることができます。</translation>
+      <translation>Ενεργοποίηση Πλήρους Οθόνης:\nΑυτόματα μετατρέπει το παράθυρο του παιχνιδιού σε λειτουργία πλήρους οθόνης.\nΜπορεί να ενεργοποιηθεί/απενεργοποιηθεί πατώντας το πλήκτρο F11.</translation>
     </message>
     <message>
       <source>separateUpdatesCheckBox</source>
-      <translation>Enable Separate Update Folder:\nゲームのアップデートを別のフォルダにインストールすることで、管理が容易になります。</translation>
+      <translation>Enable Separate Update Folder:\nEnables installing game updates into a separate folder for easy management.</translation>
     </message>
     <message>
       <source>showSplashCheckBox</source>
-      <translation>スプラッシュスクリーンを表示:\nゲーム起動中にゲームのスプラッシュスクリーン（特別な画像）を表示します。</translation>
+      <translation>Εμφάνιση Splash Screen:\nΕμφανίζει ειδική γραφική οθόνη κατά την εκκίνηση.</translation>
     </message>
     <message>
       <source>discordRPCCheckbox</source>
-      <translation>Discord Rich Presenceを有効にする:\nエミュレーターのアイコンと関連情報をDiscordプロフィールに表示します。</translation>
+      <translation>Ενεργοποίηση Discord Rich Presence:\nΕμφανίζει το εικονίδιο του emulator και σχετικές πληροφορίες στο προφίλ σας στο Discord.</translation>
     </message>
     <message>
       <source>userName</source>
-      <translation>ユーザー名:\nPS4のアカウントユーザー名を設定します。これは、一部のゲームで表示される場合があります。</translation>
+      <translation>Όνομα Χρήστη:\nΟρίζει το όνομα του λογαριασμού PS4, το οποίο μπορεί να εμφανιστεί σε ορισμένα παιχνίδια.</translation>
     </message>
     <message>
       <source>TrophyKey</source>
-      <translation>トロフィーキー:\nトロフィーの復号に使用されるキーです。脱獄済みのコンソールから取得することができます。\n16進数のみを受け入れます。</translation>
+      <translation>Trophy Key:\nKey used to decrypt trophies. Must be obtained from your jailbroken console.\nMust contain only hex characters.</translation>
     </message>
     <message>
       <source>logTypeGroupBox</source>
-      <translation>ログタイプ:\nパフォーマンスのためにログウィンドウの出力を同期させるかどうかを設定します。エミュレーションに悪影響を及ぼす可能性があります。</translation>
+      <translation>Τύπος Καταγραφής:\nΚαθορίζει αν η έξοδος του παραθύρου καταγραφής θα συγχρονιστεί για αύξηση της απόδοσης. Αυτό μπορεί να επηρεάσει αρνητικά τις επιδόσεις του εξομοιωτή.</translation>
     </message>
     <message>
       <source>logFilter</source>
-      <translation>ログフィルター:\n特定の情報のみを印刷するようにログをフィルタリングします。\n例: &quot;Core:Trace&quot; &quot;Lib.Pad:Debug Common.Filesystem:Error&quot; &quot;*:Critical&quot; \nレベル: Trace, Debug, Info, Warning, Error, Critical - レベルはこの並び通りに処理され、指定されたレベルより前のレベル ログを抑制し、それ以外のすべてのレベルをログに記録します。</translation>
+      <translation>Φίλτρο Καταγραφής:\nΦιλτράρει τις καταγραφές ώστε να εκτυπώνονται μόνο συγκεκριμένες πληροφορίες.\nΠαραδείγματα: &quot;Core:Trace&quot; &quot;Lib.Pad:Debug Common.Filesystem:Error&quot; &quot;*:Critical&quot; Επίπεδα: Trace, Debug, Info, Warning, Error, Critical - με τη σειρά αυτή, κάθε επίπεδο που επιλέγεται αποκλείει τα προηγούμενα και εμφανίζει τα επόμενα επίπεδα.</translation>
     </message>
     <message>
       <source>updaterGroupBox</source>
-      <translation>更新:\nRelease: 最新の機能を利用できない可能性がありますが、より信頼性が高くテストされた公式バージョンが毎月リリースされます。\nNightly: 最新の機能と修正がすべて含まれていますが、バグが含まれている可能性があり、安定性は低いです。</translation>
+      <translation>Ενημερώσεις:\nRelease: Επίσημες εκδόσεις που κυκλοφορούν μηνιαίως, είναι παλαιότερες αλλά πιο σταθερές και δοκιμασμένες.\nNightly: Εκδόσεις προγραμματιστών με νέες δυνατότητες και διορθώσεις, αλλά μπορεί να περιέχουν σφάλματα και να είναι λιγότερο σταθερές.</translation>
     </message>
     <message>
       <source>GUIBackgroundImageGroupBox</source>
@@ -1589,83 +1589,83 @@
     </message>
     <message>
       <source>GUIMusicGroupBox</source>
-      <translation>タイトルミュージックを再生:\nゲームでサポートされている場合に、GUIでゲームを選択したときに特別な音楽を再生する機能を有効にします。</translation>
+      <translation>Αναπαραγωγή Μουσικής Τίτλων:\nΕάν το παιχνίδι το υποστηρίζει, ενεργοποιεί ειδική μουσική κατά την επιλογή του παιχνιδιού από τη διεπαφή χρήστη.</translation>
     </message>
     <message>
       <source>disableTrophycheckBox</source>
-      <translation>トロフィーのポップアップを無効化:\nゲーム内でのトロフィー通知を無効化します。 トロフィーの進行状況は、トロフィービューアーを使用して確認できます。(メインウィンドウでゲームを右クリック)</translation>
+      <translation>Disable Trophy Pop-ups:\nDisable in-game trophy notifications. Trophy progress can still be tracked using the Trophy Viewer (right-click the game in the main window).</translation>
     </message>
     <message>
       <source>hideCursorGroupBox</source>
-      <translation>カーソルを隠す:\nカーソルが消えるタイミングを選択してください:\n無効: 常にカーソルが表示されます。\n非アクティブ時: カーソルの非アクティブ期間が指定した時間を超えた場合にカーソルを隠します。\n常に: カーソルは常に隠れた状態になります。</translation>
+      <translation>Απόκρυψη Κέρσορα:\nΕπιλέξτε πότε θα εξαφανιστεί ο κέρσορας:\nΠοτέ: θα βλέπετε πάντα το ποντίκι.\nΑδρανές: ορίστε έναν χρόνο για να εξαφανιστεί μετά από αδράνεια.\nΠάντα: δεν θα δείτε ποτέ το ποντίκι.</translation>
     </message>
     <message>
       <source>idleTimeoutGroupBox</source>
-      <translation>カーソルが非アクティブになってから隠すまでの時間を設定します。</translation>
+      <translation>Ορίστε έναν χρόνο για να εξαφανιστεί το ποντίκι μετά από αδράνεια.</translation>
     </message>
     <message>
       <source>backButtonBehaviorGroupBox</source>
-      <translation>戻るボタンの動作:\nコントローラーの戻るボタンを、PS4のタッチパッドの指定された位置をタッチするように設定します。</translation>
+      <translation>Συμπεριφορά Κουμπιού Επιστροφής:\nΟρίζει το κουμπί επιστροφής του ελεγκτή να προσομοιώνει το πάτημα της καθορισμένης θέσης στην οθόνη αφής PS4.</translation>
     </message>
     <message>
       <source>enableCompatibilityCheckBox</source>
-      <translation>互換性に関するデータを表示:\nゲームの互換性に関する情報を表として表示します。常に最新情報を取得したい場合、&quot;起動時に互換性データベースを更新する&quot; を有効化してください。</translation>
+      <translation>Display Compatibility Data:\nDisplays game compatibility information in table view. Enable &quot;Update Compatibility On Startup&quot; to get up-to-date information.</translation>
     </message>
     <message>
       <source>checkCompatibilityOnStartupCheckBox</source>
-      <translation>起動時に互換性データベースを更新する:\nshadPS4の起動時に自動で互換性データベースを更新します。</translation>
+      <translation>Update Compatibility On Startup:\nAutomatically update the compatibility database when shadPS4 starts.</translation>
     </message>
     <message>
       <source>updateCompatibilityButton</source>
-      <translation>互換性データベースを更新する:\n今すぐ互換性データベースを更新します。</translation>
+      <translation>Update Compatibility Database:\nImmediately update the compatibility database.</translation>
     </message>
     <message>
       <source>Never</source>
-      <translation>無効</translation>
+      <translation>Ποτέ</translation>
     </message>
     <message>
       <source>Idle</source>
-      <translation>非アクティブ時</translation>
+      <translation>Αδρανής</translation>
     </message>
     <message>
       <source>Always</source>
-      <translation>常に</translation>
+      <translation>Πάντα</translation>
     </message>
     <message>
       <source>Touchpad Left</source>
-      <translation>左タッチパッド</translation>
+      <translation>Touchpad Αριστερά</translation>
     </message>
     <message>
       <source>Touchpad Right</source>
-      <translation>右タッチパッド</translation>
+      <translation>Touchpad Δεξιά</translation>
     </message>
     <message>
       <source>Touchpad Center</source>
-      <translation>タッチパッド中央</translation>
+      <translation>Κέντρο Touchpad</translation>
     </message>
     <message>
       <source>None</source>
-      <translation>なし</translation>
+      <translation>Κανένα</translation>
     </message>
     <message>
       <source>graphicsAdapterGroupBox</source>
-      <translation>グラフィックデバイス:\nシステムに複数のGPUが搭載されている場合、ドロップダウンリストからエミュレーターで使用するGPUを選択するか、\n「自動選択」を選択して自動的に決定します。</translation>
+      <translation>Προσαρμογέας Γραφικών:\nΣε συστήματα με πολλές GPU, επιλέξτε από το μενού την GPU που θα χρησιμοποιήσει ο εξομοιωτής,\nή επιλέξτε &quot;Auto Select&quot; για αυτόματη επιλογή.</translation>
     </message>
     <message>
       <source>resolutionLayout</source>
-      <translation>幅/高さ:\n起動時にエミュレーターウィンドウのサイズを設定します。ゲーム中でもサイズを変更することができます。\nこれはゲーム内の解像度とは異なります。</translation>
+      <translation>Ανάλυση Οθόνης:\nΚαθορίζει το μέγεθος του παραθύρου του εξομοιωτή κατά την αναπαραγωγή, το οποίο μπορεί να αλλάξει κατά τη διάρκεια του παιχνιδιού.\nΑυτό είναι διαφορετικό από την ανάλυση του ίδιου του παιχνιδιού.</translation>
     </message>
     <message>
       <source>heightDivider</source>
-      <translation>Vblankディバイダー:\nエミュレーターが更新されるフレームレートにこの数を掛けます。これを変更すると、ゲームの速度が上がったり、想定外の変更がある場合、ゲームの重要な機能が壊れる可能性があります!</translation>
+      <translation>Διαιρέτης Συχνότητας Ανανέωσης:\nΠολλαπλασιάζει τον ρυθμό με τον οποίο ο εξομοιωτής ενημερώνει την εικόνα με αυτόν τον αριθμό. Η αλλαγή αυτής της ρύθμισης μπορεί να έχει αρνητικές επιπτώσεις, όπως ταχύτερο παιχνίδι ή σπασμένες λειτουργίες!</translation>
     </message>
     <message>
       <source>dumpShadersCheckBox</source>
-      <translation>シェーダーダンプを有効にする:\n技術的なデバッグの目的で、レンダリング中にゲームのシェーダーをフォルダーに保存します。</translation>
+      <translation>Ενεργοποίηση Καταγραφής Σκιάσεων (Shaders):\nΓια τεχνικό εντοπισμό σφαλμάτων, αποθηκεύει τις σκιάσεις του παιχνιδιού σε φάκελο κατά τη διάρκεια της αναπαραγωγής.</translation>
     </message>
     <message>
       <source>nullGpuCheckBox</source>
-      <translation>Null GPUを有効にする:\n技術的なデバッグの目的で、グラフィックスカードがないかのようにゲームのレンダリングを無効にします。</translation>
+      <translation>Ενεργοποίηση Εικονικής GPU:\nΓια τεχνικό εντοπισμό σφαλμάτων, απενεργοποιεί την εμφάνιση του παιχνιδιού σαν να μην υπάρχει κάρτα γραφικών.</translation>
     </message>
     <message>
       <source>enableHDRCheckBox</source>
@@ -1673,31 +1673,31 @@
     </message>
     <message>
       <source>gameFoldersBox</source>
-      <translation>ゲームフォルダ:\nインストールされたゲームを確認するためのフォルダのリスト。</translation>
+      <translation>Φάκελοι Παιχνιδιών:\nΗ λίστα των φακέλων για έλεγχο των εγκατεστημένων παιχνιδιών.</translation>
     </message>
     <message>
       <source>addFolderButton</source>
-      <translation>追加:\nリストにフォルダを追加します。</translation>
+      <translation>Προσθήκη:\nΠροσθέστε έναν φάκελο στη λίστα.</translation>
     </message>
     <message>
       <source>removeFolderButton</source>
-      <translation>削除:\nリストからフォルダを削除します。</translation>
+      <translation>Αφαίρεση:\nΑφαιρέστε έναν φάκελο από τη λίστα.</translation>
     </message>
     <message>
       <source>debugDump</source>
-      <translation>デバッグダンプを有効にする:\n現在実行中のPS4プログラムのインポートおよびエクスポートシンボルとファイルヘッダー情報をディレクトリに保存します。</translation>
+      <translation>Ενεργοποίηση Καταγραφής Αποσφαλμάτωσης:\nΑποθηκεύει τα σύμβολα εισαγωγής/εξαγωγής και τις κεφαλίδες πληροφοριών του τρέχοντος προγράμματος PS4 σε έναν φάκελο.</translation>
     </message>
     <message>
       <source>vkValidationCheckBox</source>
-      <translation>Vulkanバリデーションレイヤーを有効にする:\nVulkanのレンダリングステータスを検証し、内部状態に関する情報をログに記録するシステムを有効にします。これによりパフォーマンスが低下し、エミュレーションの動作が変わる可能性があります。</translation>
+      <translation>Ενεργοποίηση Επικύρωσης Vulkan:\nΕνεργοποιεί ένα σύστημα που επικυρώνει την κατάσταση του προγράμματος οδήγησης Vulkan και καταγράφει πληροφορίες για την εσωτερική του κατάσταση. Αυτό θα μειώσει την απόδοση και ενδέχεται να αλλάξει τη συμπεριφορά του εξομοιωτή.</translation>
     </message>
     <message>
       <source>vkSyncValidationCheckBox</source>
-      <translation>Vulkan同期バリデーションを有効にする:\nVulkanのレンダリングタスクのタイミングを検証するシステムを有効にします。これによりパフォーマンスが低下し、エミュレーションの動作が変わる可能性があります。</translation>
+      <translation>Ενεργοποίηση Επικύρωσης Συγχρονισμού Vulkan:\nΕνεργοποιεί ένα σύστημα που επικυρώνει τον συγχρονισμό των εργασιών απόδοσης του Vulkan. Αυτό θα μειώσει την απόδοση και ενδέχεται να αλλάξει τη συμπεριφορά του εξομοιωτή.</translation>
     </message>
     <message>
       <source>rdocCheckBox</source>
-      <translation>RenderDocデバッグを有効にする:\n有効にすると、エミュレーターはRenderdocとの互換性を提供し、現在レンダリング中のフレームのキャプチャと分析を可能にします。</translation>
+      <translation>Ενεργοποίηση Καταγραφής RenderDoc:\nΌταν είναι ενεργοποιημένο, ο εξομοιωτής είναι συμβατός με το RenderDoc για τη λήψη και ανάλυση του τρέχοντος καρέ.</translation>
     </message>
     <message>
       <source>collectShaderCheckBox</source>
@@ -1757,7 +1757,7 @@
     </message>
     <message>
       <source>Browse</source>
-      <translation>参照</translation>
+      <translation type="unfinished">Browse</translation>
     </message>
     <message>
       <source>async</source>
@@ -1773,7 +1773,7 @@
     </message>
     <message>
       <source>Directory to install games</source>
-      <translation>ゲームをインストールするディレクトリ</translation>
+      <translation type="unfinished">Directory to install games</translation>
     </message>
     <message>
       <source>Directory to save data</source>
@@ -1784,7 +1784,7 @@
     <name>TrophyViewer</name>
     <message>
       <source>Trophy Viewer</source>
-      <translation>トロフィービューアー</translation>
+      <translation type="unfinished">Trophy Viewer</translation>
     </message>
   </context>
 </TS>
