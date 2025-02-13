@@ -2,12 +2,12 @@
 <!-- SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
      SPDX-License-Identifier: GPL-2.0-or-later -->
 <!DOCTYPE TS>
-<TS version="2.1" language="ja_JP" sourcelanguage="en">
+<TS version="2.1" language="no_NO" sourcelanguage="en">
   <context>
     <name>AboutDialog</name>
     <message>
       <source>About shadPS4</source>
-      <translation>shadPS4について</translation>
+      <translation>Om shadPS4</translation>
     </message>
     <message>
       <source>shadPS4</source>
@@ -15,396 +15,396 @@
     </message>
     <message>
       <source>shadPS4 is an experimental open-source emulator for the PlayStation 4.</source>
-      <translation>shadPS4は、PlayStation 4の実験的なオープンソースエミュレーターです。</translation>
+      <translation>shadPS4 er en eksperimentell åpen kildekode-emulator for PlayStation 4.</translation>
     </message>
     <message>
       <source>This software should not be used to play games you have not legally obtained.</source>
-      <translation>非正規、非合法のゲームをプレイするためにこのソフトウェアを使用しないでください。</translation>
+      <translation>Denne programvaren skal ikke brukes til å spille spill du ikke har fått lovlig.</translation>
     </message>
   </context>
   <context>
     <name>CheatsPatches</name>
     <message>
       <source>Cheats / Patches for </source>
-      <translation>のチート/パッチ</translation>
+      <translation>Juks / Programrettelser for </translation>
     </message>
     <message>
       <source>defaultTextEdit_MSG</source>
-      <translation>チート/パッチは実験的です。\n使用には注意してください。\n\nリポジトリを選択し、ダウンロードボタンをクリックしてチートを個別にダウンロードします。\n「Patches」タブでは、すべてのパッチを一度にダウンロードし、使用したいものを選択して選択を保存できます。\n\nチート/パッチは開発を行っていないため、\n問題があればチートの作者に報告してください。\n\n新しいチートを作成しましたか？\nhttps://github.com/shadps4-emu/ps4_cheats を訪問してください。</translation>
+      <translation>Juks/programrettelse er eksperimentelle.\nBruk med forsiktighet.\n\nLast ned juks individuelt ved å velge pakkebrønn og klikke på nedlastingsknappen.\nPå fanen programrettelse kan du laste ned alle programrettelser samtidig, velge hvilke du ønsker å bruke, og lagre valget ditt.\n\nSiden vi ikke utvikler Juks/Programrettelse,\nvær vennlig å rapportere problemer til juks/programrettelse utvikleren.\n\nHar du laget en ny juks? Besøk:\nhttps://github.com/shadps4-emu/ps4_cheats</translation>
     </message>
     <message>
       <source>No Image Available</source>
-      <translation>画像は利用できません</translation>
+      <translation>Ingen bilde tilgjengelig</translation>
     </message>
     <message>
       <source>Serial: </source>
-      <translation>シリアル: </translation>
+      <translation>Serienummer: </translation>
     </message>
     <message>
       <source>Version: </source>
-      <translation>バージョン: </translation>
+      <translation>Versjon: </translation>
     </message>
     <message>
       <source>Size: </source>
-      <translation>サイズ: </translation>
+      <translation>Størrelse: </translation>
     </message>
     <message>
       <source>Select Cheat File:</source>
-      <translation>チートファイルを選択:</translation>
+      <translation>Velg juksefil:</translation>
     </message>
     <message>
       <source>Repository:</source>
-      <translation>リポジトリ:</translation>
+      <translation>Pakkebrønn:</translation>
     </message>
     <message>
       <source>Download Cheats</source>
-      <translation>チートをダウンロード</translation>
+      <translation>Last ned juks</translation>
     </message>
     <message>
       <source>Delete File</source>
-      <translation>ファイルを削除</translation>
+      <translation>Slett fil</translation>
     </message>
     <message>
       <source>No files selected.</source>
-      <translation>ファイルが選択されていません。</translation>
+      <translation>Ingen filer valgt.</translation>
     </message>
     <message>
       <source>You can delete the cheats you don&apos;t want after downloading them.</source>
-      <translation>ダウンロード後に不要なチートを削除できます。</translation>
+      <translation>Du kan slette juks du ikke ønsker etter å ha lastet dem ned.</translation>
     </message>
     <message>
       <source>Do you want to delete the selected file?\n%1</source>
-      <translation>選択したファイルを削除しますか？\n%1</translation>
+      <translation>Ønsker du å slette den valgte filen?\n%1</translation>
     </message>
     <message>
       <source>Select Patch File:</source>
-      <translation>パッチファイルを選択:</translation>
+      <translation>Velg programrettelse-filen:</translation>
     </message>
     <message>
       <source>Download Patches</source>
-      <translation>パッチをダウンロード</translation>
+      <translation>Last ned programrettelser</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation>保存</translation>
+      <translation>Lagre</translation>
     </message>
     <message>
       <source>Cheats</source>
-      <translation>チート</translation>
+      <translation>Juks</translation>
     </message>
     <message>
       <source>Patches</source>
-      <translation>パッチ</translation>
+      <translation>Programrettelse</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Feil</translation>
     </message>
     <message>
       <source>No patch selected.</source>
-      <translation>パッチが選択されていません。</translation>
+      <translation>Ingen programrettelse valgt.</translation>
     </message>
     <message>
       <source>Unable to open files.json for reading.</source>
-      <translation>files.jsonを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Kan ikke åpne files.json for lesing.</translation>
     </message>
     <message>
       <source>No patch file found for the current serial.</source>
-      <translation>現在のシリアルに対するパッチファイルが見つかりません。</translation>
+      <translation>Ingen programrettelse-fil funnet for det aktuelle serienummeret.</translation>
     </message>
     <message>
       <source>Unable to open the file for reading.</source>
-      <translation>ファイルを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Kan ikke åpne filen for lesing.</translation>
     </message>
     <message>
       <source>Unable to open the file for writing.</source>
-      <translation>ファイルをを書き込みのために開く事が出来ませんでした。</translation>
+      <translation>Kan ikke åpne filen for skriving.</translation>
     </message>
     <message>
       <source>Failed to parse XML: </source>
-      <translation>XMLの解析に失敗しました: </translation>
+      <translation>Feil ved tolkning av XML: </translation>
     </message>
     <message>
       <source>Success</source>
-      <translation>成功</translation>
+      <translation>Vellykket</translation>
     </message>
     <message>
       <source>Options saved successfully.</source>
-      <translation>オプションが正常に保存されました。</translation>
+      <translation>Alternativer ble lagret.</translation>
     </message>
     <message>
       <source>Invalid Source</source>
-      <translation>無効なソース</translation>
+      <translation>Ugyldig kilde</translation>
     </message>
     <message>
       <source>The selected source is invalid.</source>
-      <translation>選択されたソースは無効です。</translation>
+      <translation>Den valgte kilden er ugyldig.</translation>
     </message>
     <message>
       <source>File Exists</source>
-      <translation>ファイルが存在します</translation>
+      <translation>Filen eksisterer</translation>
     </message>
     <message>
       <source>File already exists. Do you want to replace it?</source>
-      <translation>ファイルはすでに存在します。置き換えますか？</translation>
+      <translation>Filen eksisterer allerede. Ønsker du å erstatte den?</translation>
     </message>
     <message>
       <source>Failed to save file:</source>
-      <translation>ファイルの保存に失敗しました:</translation>
+      <translation>Kunne ikke lagre filen:</translation>
     </message>
     <message>
       <source>Failed to download file:</source>
-      <translation>ファイルのダウンロードに失敗しました:</translation>
+      <translation>Kunne ikke laste ned filen:</translation>
     </message>
     <message>
       <source>Cheats Not Found</source>
-      <translation>チートが見つかりません</translation>
+      <translation>Fant ikke juks</translation>
     </message>
     <message>
       <source>CheatsNotFound_MSG</source>
-      <translation>このゲームのこのバージョンのチートが選択されたリポジトリに見つかりませんでした。別のリポジトリまたはゲームの別のバージョンを試してください。</translation>
+      <translation>Ingen juks funnet for dette spillet i denne versjonen av den valgte pakkebrønnen,prøv en annen pakkebrønn eller en annen versjon av spillet.</translation>
     </message>
     <message>
       <source>Cheats Downloaded Successfully</source>
-      <translation>チートが正常にダウンロードされました</translation>
+      <translation>Juks ble lastet ned</translation>
     </message>
     <message>
       <source>CheatsDownloadedSuccessfully_MSG</source>
-      <translation>このゲームのこのバージョンのチートをリポジトリから正常にダウンロードしました。 別のリポジトリからのダウンロードも試せます。利用可能であれば、リストからファイルを選択して使用することも可能です。</translation>
+      <translation>Du har lastet ned juks for denne versjonen av spillet fra den valgte pakkebrønnen. Du kan prøve å laste ned fra en annen pakkebrønn, hvis det er tilgjengelig, vil det også være mulig å bruke det ved å velge filen fra listen.</translation>
     </message>
     <message>
       <source>Failed to save:</source>
-      <translation>保存に失敗しました:</translation>
+      <translation>Kunne ikke lagre:</translation>
     </message>
     <message>
       <source>Failed to download:</source>
-      <translation>ダウンロードに失敗しました:</translation>
+      <translation>Kunne ikke laste ned:</translation>
     </message>
     <message>
       <source>Download Complete</source>
-      <translation>ダウンロード完了</translation>
+      <translation>Nedlasting fullført</translation>
     </message>
     <message>
       <source>DownloadComplete_MSG</source>
-      <translation>パッチが正常にダウンロードされました！ すべてのゲームに利用可能なパッチがダウンロードされました。チートとは異なり、各ゲームごとに個別にダウンロードする必要はありません。 パッチが表示されない場合、特定のシリアル番号とバージョンのゲームには存在しない可能性があります。</translation>
+      <translation>Programrettelser ble lastet ned! Alle programrettelsene tilgjengelige for alle spill har blitt lastet ned, det er ikke nødvendig å laste dem ned individuelt for hvert spill som skjer med juks. Hvis programrettelsen ikke vises, kan det hende at den ikke finnes for den spesifikke serienummeret og versjonen av spillet.</translation>
     </message>
     <message>
       <source>Failed to parse JSON data from HTML.</source>
-      <translation>HTMLからJSONデータの解析に失敗しました。</translation>
+      <translation>Kunne ikke analysere JSON-data fra HTML.</translation>
     </message>
     <message>
       <source>Failed to retrieve HTML page.</source>
-      <translation>HTMLページの取得に失敗しました。</translation>
+      <translation>Kunne ikke hente HTML-side.</translation>
     </message>
     <message>
       <source>The game is in version: %1</source>
-      <translation>ゲームのバージョン: %1</translation>
+      <translation>Spillet er i versjon: %1</translation>
     </message>
     <message>
       <source>The downloaded patch only works on version: %1</source>
-      <translation>ダウンロードしたパッチはバージョン: %1 のみ機能します</translation>
+      <translation>Den nedlastede programrettelsen fungerer bare på versjon: %1</translation>
     </message>
     <message>
       <source>You may need to update your game.</source>
-      <translation>ゲームを更新する必要があるかもしれません。</translation>
+      <translation>Du må kanskje oppdatere spillet ditt.</translation>
     </message>
     <message>
       <source>Incompatibility Notice</source>
-      <translation>互換性のない通知</translation>
+      <translation>Inkompatibilitets-varsel</translation>
     </message>
     <message>
       <source>Failed to open file:</source>
-      <translation>ファイルを開くのに失敗しました:</translation>
+      <translation>Kunne ikke åpne filen:</translation>
     </message>
     <message>
       <source>XML ERROR:</source>
-      <translation>XMLエラー:</translation>
+      <translation>XML FEIL:</translation>
     </message>
     <message>
       <source>Failed to open files.json for writing</source>
-      <translation>files.jsonを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Kunne ikke åpne files.json for skriving</translation>
     </message>
     <message>
       <source>Author: </source>
-      <translation>著者: </translation>
+      <translation>Forfatter: </translation>
     </message>
     <message>
       <source>Directory does not exist:</source>
-      <translation>ディレクトリが存在しません:</translation>
+      <translation>Mappen eksisterer ikke:</translation>
     </message>
     <message>
       <source>Failed to open files.json for reading.</source>
-      <translation>files.jsonを読み取りのために開く事が出来ませんでした。</translation>
+      <translation>Kunne ikke åpne files.json for lesing.</translation>
     </message>
     <message>
       <source>Name:</source>
-      <translation>名前:</translation>
+      <translation>Navn:</translation>
     </message>
     <message>
       <source>Can&apos;t apply cheats before the game is started</source>
-      <translation>ゲームが開始される前にチートを適用することはできません。</translation>
+      <translation>Kan ikke bruke juks før spillet er startet.</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation>閉じる</translation>
+      <translation>Lukk</translation>
     </message>
   </context>
   <context>
     <name>CheckUpdate</name>
     <message>
       <source>Auto Updater</source>
-      <translation>自動アップデーター</translation>
+      <translation>Automatisk oppdatering</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Feil</translation>
     </message>
     <message>
       <source>Network error:</source>
-      <translation>ネットワークエラー:</translation>
+      <translation>Nettverksfeil:</translation>
     </message>
     <message>
       <source>Error_Github_limit_MSG</source>
-      <translation>自動アップデーターは1時間に最大60回の更新チェックを許可します。\nこの制限に達しました。後でもう一度お試しください。</translation>
+      <translation>Den automatiske oppdateringen tillater opptil 60 oppdateringssjekker per time.\nDu har nådd denne grensen. Prøv igjen senere.</translation>
     </message>
     <message>
       <source>Failed to parse update information.</source>
-      <translation>アップデート情報の解析に失敗しました。</translation>
+      <translation>Kunne ikke analysere oppdaterings-informasjonen.</translation>
     </message>
     <message>
       <source>No pre-releases found.</source>
-      <translation>プレリリースは見つかりませんでした。</translation>
+      <translation>Fant ingen forhåndsutgivelser.</translation>
     </message>
     <message>
       <source>Invalid release data.</source>
-      <translation>リリースデータが無効です。</translation>
+      <translation>Ugyldige utgivelsesdata.</translation>
     </message>
     <message>
       <source>No download URL found for the specified asset.</source>
-      <translation>指定されたアセットのダウンロードURLが見つかりませんでした。</translation>
+      <translation>Ingen nedlastings-URL funnet for den spesifiserte ressursen.</translation>
     </message>
     <message>
       <source>Your version is already up to date!</source>
-      <translation>あなたのバージョンはすでに最新です！</translation>
+      <translation>Din versjon er allerede oppdatert!</translation>
     </message>
     <message>
       <source>Update Available</source>
-      <translation>アップデートがあります</translation>
+      <translation>Oppdatering tilgjengelig</translation>
     </message>
     <message>
       <source>Update Channel</source>
-      <translation>アップデートチャネル</translation>
+      <translation>Oppdateringskanal</translation>
     </message>
     <message>
       <source>Current Version</source>
-      <translation>現在のバージョン</translation>
+      <translation>Gjeldende versjon</translation>
     </message>
     <message>
       <source>Latest Version</source>
-      <translation>最新バージョン</translation>
+      <translation>Nyeste versjon</translation>
     </message>
     <message>
       <source>Do you want to update?</source>
-      <translation>アップデートしますか？</translation>
+      <translation>Vil du oppdatere?</translation>
     </message>
     <message>
       <source>Show Changelog</source>
-      <translation>変更ログを表示</translation>
+      <translation>Vis endringslogg</translation>
     </message>
     <message>
       <source>Check for Updates at Startup</source>
-      <translation>起動時に更新確認</translation>
+      <translation>Se etter oppdateringer ved oppstart</translation>
     </message>
     <message>
       <source>Update</source>
-      <translation>アップデート</translation>
+      <translation>Oppdater</translation>
     </message>
     <message>
       <source>No</source>
-      <translation>いいえ</translation>
+      <translation>Nei</translation>
     </message>
     <message>
       <source>Hide Changelog</source>
-      <translation>変更ログを隠す</translation>
+      <translation>Skjul endringslogg</translation>
     </message>
     <message>
       <source>Changes</source>
-      <translation>変更点</translation>
+      <translation>Endringer</translation>
     </message>
     <message>
       <source>Network error occurred while trying to access the URL</source>
-      <translation>URLにアクセス中にネットワークエラーが発生しました</translation>
+      <translation>Nettverksfeil oppstod mens vi prøvde å få tilgang til URL</translation>
     </message>
     <message>
       <source>Download Complete</source>
-      <translation>ダウンロード完了</translation>
+      <translation>Nedlasting fullført</translation>
     </message>
     <message>
       <source>The update has been downloaded, press OK to install.</source>
-      <translation>アップデートがダウンロードされました。インストールするにはOKを押してください。</translation>
+      <translation>Oppdateringen har blitt lastet ned, trykk OK for å installere.</translation>
     </message>
     <message>
       <source>Failed to save the update file at</source>
-      <translation>更新ファイルの保存に失敗しました</translation>
+      <translation>Kunne ikke lagre oppdateringsfilen på</translation>
     </message>
     <message>
       <source>Starting Update...</source>
-      <translation>アップデートを開始しています...</translation>
+      <translation>Starter oppdatering...</translation>
     </message>
     <message>
       <source>Failed to create the update script file</source>
-      <translation>アップデートスクリプトファイルの作成に失敗しました</translation>
+      <translation>Kunne ikke opprette oppdateringsskriptfilen</translation>
     </message>
   </context>
   <context>
     <name>CompatibilityInfoClass</name>
     <message>
       <source>Fetching compatibility data, please wait</source>
-      <translation>互換性データを取得しています。少々お待ちください。</translation>
+      <translation>Henter kompatibilitetsdata, vennligst vent</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation>キャンセル</translation>
+      <translation>Avbryt</translation>
     </message>
     <message>
       <source>Loading...</source>
-      <translation>読み込み中...</translation>
+      <translation>Laster...</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Feil</translation>
     </message>
     <message>
       <source>Unable to update compatibility data! Try again later.</source>
-      <translation>互換性データを更新できませんでした！後で再試行してください。</translation>
+      <translation>Kan ikke oppdatere kompatibilitetsdata! Prøv igjen senere.</translation>
     </message>
     <message>
       <source>Unable to open compatibility_data.json for writing.</source>
-      <translation>compatibility_data.jsonを開いて書き込むことができませんでした。</translation>
+      <translation>Kan ikke åpne compatibility_data.json for skriving.</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation>不明</translation>
+      <translation>Ukjent</translation>
     </message>
     <message>
       <source>Nothing</source>
-      <translation>何もない</translation>
+      <translation>Ingenting</translation>
     </message>
     <message>
       <source>Boots</source>
-      <translation>ブーツ</translation>
+      <translation>Starter opp</translation>
     </message>
     <message>
       <source>Menus</source>
-      <translation>メニュー</translation>
+      <translation>Menyene</translation>
     </message>
     <message>
       <source>Ingame</source>
-      <translation>ゲーム内</translation>
+      <translation>I spill</translation>
     </message>
     <message>
       <source>Playable</source>
-      <translation>プレイ可能</translation>
+      <translation>Spillbar</translation>
     </message>
   </context>
   <context>
@@ -538,41 +538,41 @@
     <name>ElfViewer</name>
     <message>
       <source>Open Folder</source>
-      <translation>フォルダを開く</translation>
+      <translation>Åpne mappe</translation>
     </message>
   </context>
   <context>
     <name>GameInfoClass</name>
     <message>
       <source>Loading game list, please wait :3</source>
-      <translation>ゲームリストを読み込み中です。しばらくお待ちください :3</translation>
+      <translation>Laster spill-liste, vennligst vent :3</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation>キャンセル</translation>
+      <translation>Avbryt</translation>
     </message>
     <message>
       <source>Loading...</source>
-      <translation>読み込み中...</translation>
+      <translation>Laster...</translation>
     </message>
   </context>
   <context>
     <name>GameInstallDialog</name>
     <message>
       <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - ディレクトリを選択</translation>
+      <translation>shadPS4 - Velg mappe</translation>
     </message>
     <message>
       <source>Directory to install games</source>
-      <translation>ゲームをインストールするディレクトリ</translation>
+      <translation>Mappe for å installere spill</translation>
     </message>
     <message>
       <source>Browse</source>
-      <translation>参照</translation>
+      <translation>Bla gjennom</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Feil</translation>
     </message>
     <message>
       <source>Directory to install DLC</source>
@@ -583,91 +583,91 @@
     <name>GameListFrame</name>
     <message>
       <source>Icon</source>
-      <translation>アイコン</translation>
+      <translation>Ikon</translation>
     </message>
     <message>
       <source>Name</source>
-      <translation>名前</translation>
+      <translation>Navn</translation>
     </message>
     <message>
       <source>Serial</source>
-      <translation>シリアル</translation>
+      <translation>Serienummer</translation>
     </message>
     <message>
       <source>Compatibility</source>
-      <translation type="unfinished">Compatibility</translation>
+      <translation>Kompatibilitet</translation>
     </message>
     <message>
       <source>Region</source>
-      <translation>地域</translation>
+      <translation type="unfinished">Region</translation>
     </message>
     <message>
       <source>Firmware</source>
-      <translation>ファームウェア</translation>
+      <translation>Fastvare</translation>
     </message>
     <message>
       <source>Size</source>
-      <translation>サイズ</translation>
+      <translation>Størrelse</translation>
     </message>
     <message>
       <source>Version</source>
-      <translation>バージョン</translation>
+      <translation>Versjon</translation>
     </message>
     <message>
       <source>Path</source>
-      <translation>パス</translation>
+      <translation>Adresse</translation>
     </message>
     <message>
       <source>Play Time</source>
-      <translation>プレイ時間</translation>
+      <translation>Spilletid</translation>
     </message>
     <message>
       <source>Never Played</source>
-      <translation>未プレイ</translation>
+      <translation>Aldri spilt</translation>
     </message>
     <message>
       <source>h</source>
-      <translation>時間</translation>
+      <translation type="unfinished">h</translation>
     </message>
     <message>
       <source>m</source>
-      <translation>分</translation>
+      <translation type="unfinished">m</translation>
     </message>
     <message>
       <source>s</source>
-      <translation>秒</translation>
+      <translation type="unfinished">s</translation>
     </message>
     <message>
       <source>Compatibility is untested</source>
-      <translation>互換性は未検証です</translation>
+      <translation>kompatibilitet er utestet</translation>
     </message>
     <message>
       <source>Game does not initialize properly / crashes the emulator</source>
-      <translation>ゲームが正常に初期化されない/エミュレーターがクラッシュする</translation>
+      <translation>Spillet initialiseres ikke riktig / krasjer emulatoren</translation>
     </message>
     <message>
       <source>Game boots, but only displays a blank screen</source>
-      <translation>ゲームは起動しますが、空のスクリーンが表示されます</translation>
+      <translation>Spillet starter, men viser bare en tom skjerm</translation>
     </message>
     <message>
       <source>Game displays an image but does not go past the menu</source>
-      <translation>正常にゲーム画面が表示されますが、メニューから先に進むことができません</translation>
+      <translation>Spillet viser et bilde, men går ikke forbi menyen</translation>
     </message>
     <message>
       <source>Game has game-breaking glitches or unplayable performance</source>
-      <translation>ゲームを壊すような不具合や、プレイが不可能なほどのパフォーマンスの問題があります</translation>
+      <translation>Spillet har spillbrytende feil eller uspillbar ytelse</translation>
     </message>
     <message>
       <source>Game can be completed with playable performance and no major glitches</source>
-      <translation>パフォーマンスに問題はなく、大きな不具合なしでゲームをプレイすることができます</translation>
+      <translation>Spillet kan fullføres med spillbar ytelse og uten store feil</translation>
     </message>
     <message>
       <source>Click to see details on github</source>
-      <translation>詳細を見るにはGitHubをクリックしてください</translation>
+      <translation>Klikk for å se detaljer på GitHub</translation>
     </message>
     <message>
       <source>Last updated</source>
-      <translation>最終更新</translation>
+      <translation>Sist oppdatert</translation>
     </message>
   </context>
   <context>
@@ -697,127 +697,127 @@
     <name>GuiContextMenus</name>
     <message>
       <source>Create Shortcut</source>
-      <translation>ショートカットを作成</translation>
+      <translation>Lag snarvei</translation>
     </message>
     <message>
       <source>Cheats / Patches</source>
-      <translation>チート / パッチ</translation>
+      <translation>Juks / Programrettelse</translation>
     </message>
     <message>
       <source>SFO Viewer</source>
-      <translation>SFOビューワー</translation>
+      <translation>SFO viser</translation>
     </message>
     <message>
       <source>Trophy Viewer</source>
-      <translation>トロフィービューワー</translation>
+      <translation>Trofé viser</translation>
     </message>
     <message>
       <source>Open Folder...</source>
-      <translation>フォルダを開く...</translation>
+      <translation>Åpne mappe...</translation>
     </message>
     <message>
       <source>Open Game Folder</source>
-      <translation>ゲームフォルダを開く</translation>
+      <translation>Åpne spillmappen</translation>
     </message>
     <message>
       <source>Open Save Data Folder</source>
-      <translation>セーブデータフォルダを開く</translation>
+      <translation>Åpne lagrede datamappen</translation>
     </message>
     <message>
       <source>Open Log Folder</source>
-      <translation>ログフォルダを開く</translation>
+      <translation>Åpne loggmappen</translation>
     </message>
     <message>
       <source>Copy info...</source>
-      <translation>情報をコピー...</translation>
+      <translation>Kopier info...</translation>
     </message>
     <message>
       <source>Copy Name</source>
-      <translation>名前をコピー</translation>
+      <translation>Kopier navn</translation>
     </message>
     <message>
       <source>Copy Serial</source>
-      <translation>シリアルをコピー</translation>
+      <translation>Kopier serienummer</translation>
     </message>
     <message>
       <source>Copy Version</source>
-      <translation type="unfinished">Copy Version</translation>
+      <translation>Kopier versjon</translation>
     </message>
     <message>
       <source>Copy Size</source>
-      <translation type="unfinished">Copy Size</translation>
+      <translation>Kopier størrelse</translation>
     </message>
     <message>
       <source>Copy All</source>
-      <translation>すべてコピー</translation>
+      <translation>Kopier alt</translation>
     </message>
     <message>
       <source>Delete...</source>
-      <translation>削除...</translation>
+      <translation>Slett...</translation>
     </message>
     <message>
       <source>Delete Game</source>
-      <translation>ゲームを削除</translation>
+      <translation>Slett spill</translation>
     </message>
     <message>
       <source>Delete Update</source>
-      <translation>アップデートを削除</translation>
+      <translation>Slett oppdatering</translation>
     </message>
     <message>
       <source>Delete DLC</source>
-      <translation>DLCを削除</translation>
+      <translation>Slett DLC</translation>
     </message>
     <message>
       <source>Compatibility...</source>
-      <translation>互換性...</translation>
+      <translation>Kompatibilitet...</translation>
     </message>
     <message>
       <source>Update database</source>
-      <translation>データベースを更新</translation>
+      <translation>Oppdater database</translation>
     </message>
     <message>
       <source>View report</source>
-      <translation>レポートを表示</translation>
+      <translation>Vis rapport</translation>
     </message>
     <message>
       <source>Submit a report</source>
-      <translation>レポートを送信</translation>
+      <translation>Send inn en rapport</translation>
     </message>
     <message>
       <source>Shortcut creation</source>
-      <translation>ショートカットの作成</translation>
+      <translation>Snarvei opprettelse</translation>
     </message>
     <message>
       <source>Shortcut created successfully!</source>
-      <translation>ショートカットが正常に作成されました!</translation>
+      <translation>Snarvei opprettet!</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation>エラー</translation>
+      <translation>Feil</translation>
     </message>
     <message>
       <source>Error creating shortcut!</source>
-      <translation>ショートカットの作成に失敗しました!</translation>
+      <translation>Feil ved opprettelse av snarvei!</translation>
     </message>
     <message>
       <source>Install PKG</source>
-      <translation>PKGをインストール</translation>
+      <translation>Installer PKG</translation>
     </message>
     <message>
       <source>Game</source>
-      <translation>ゲーム</translation>
+      <translation>Spill</translation>
     </message>
     <message>
       <source>This game has no update to delete!</source>
-      <translation>このゲームにはアップデートがないため削除することができません!</translation>
+      <translation>Dette spillet har ingen oppdatering å slette!</translation>
     </message>
     <message>
       <source>Update</source>
-      <translation>アップデート</translation>
+      <translation>Oppdater</translation>
     </message>
     <message>
       <source>This game has no DLC to delete!</source>
-      <translation>このゲームにはDLCがないため削除することができません!</translation>
+      <translation>Dette spillet har ingen DLC å slette!</translation>
     </message>
     <message>
       <source>DLC</source>
@@ -825,11 +825,11 @@
     </message>
     <message>
       <source>Delete %1</source>
-      <translation>%1 を削除</translation>
+      <translation>Slett %1</translation>
     </message>
     <message>
       <source>Are you sure you want to delete %1&apos;s %2 directory?</source>
-      <translation>%1 の %2 ディレクトリを本当に削除しますか?</translation>
+      <translation>Er du sikker på at du vil slette %1&apos;s %2 directory?</translation>
     </message>
     <message>
       <source>Open Update Folder</source>
@@ -860,11 +860,11 @@
     <name>InstallDirSelect</name>
     <message>
       <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - ディレクトリを選択</translation>
+      <translation>shadPS4 - Velg mappe</translation>
     </message>
     <message>
       <source>Select which directory you want to install to.</source>
-      <translation>インストール先のディレクトリを選択してください。</translation>
+      <translation>Velg hvilken mappe du vil installere til.</translation>
     </message>
     <message>
       <source>Install All Queued to Selected Folder</source>
@@ -879,275 +879,275 @@
     <name>MainWindow</name>
     <message>
       <source>Open/Add Elf Folder</source>
-      <translation>Elfフォルダを開く/追加する</translation>
+      <translation>Åpne/Legg til Elf-mappe</translation>
     </message>
     <message>
       <source>Install Packages (PKG)</source>
-      <translation>パッケージをインストール (PKG)</translation>
+      <translation>Installer pakker (PKG)</translation>
     </message>
     <message>
       <source>Boot Game</source>
-      <translation>ゲームを起動</translation>
+      <translation>Start spill</translation>
     </message>
     <message>
       <source>Check for Updates</source>
-      <translation>更新を確認する</translation>
+      <translation>Se etter oppdateringer</translation>
     </message>
     <message>
       <source>About shadPS4</source>
-      <translation>shadPS4について</translation>
+      <translation>Om shadPS4</translation>
     </message>
     <message>
       <source>Configure...</source>
-      <translation>設定...</translation>
+      <translation>Konfigurer...</translation>
     </message>
     <message>
       <source>Install application from a .pkg file</source>
-      <translation>.pkgファイルからアプリケーションをインストール</translation>
+      <translation>Installer fra en .pkg fil</translation>
     </message>
     <message>
       <source>Recent Games</source>
-      <translation>最近プレイしたゲーム</translation>
+      <translation>Nylige spill</translation>
     </message>
     <message>
       <source>Open shadPS4 Folder</source>
-      <translation>shadPS4フォルダを開く</translation>
+      <translation type="unfinished">Open shadPS4 Folder</translation>
     </message>
     <message>
       <source>Exit</source>
-      <translation>終了</translation>
+      <translation>Avslutt</translation>
     </message>
     <message>
       <source>Exit shadPS4</source>
-      <translation>shadPS4を終了</translation>
+      <translation>Avslutt shadPS4</translation>
     </message>
     <message>
       <source>Exit the application.</source>
-      <translation>アプリケーションを終了します。</translation>
+      <translation>Avslutt programmet.</translation>
     </message>
     <message>
       <source>Show Game List</source>
-      <translation>ゲームリストを表示</translation>
+      <translation>Vis spill-listen</translation>
     </message>
     <message>
       <source>Game List Refresh</source>
-      <translation>ゲームリストの更新</translation>
+      <translation>Oppdater spill-listen</translation>
     </message>
     <message>
       <source>Tiny</source>
-      <translation>最小</translation>
+      <translation>Bitteliten</translation>
     </message>
     <message>
       <source>Small</source>
-      <translation>小</translation>
+      <translation>Liten</translation>
     </message>
     <message>
       <source>Medium</source>
-      <translation>中</translation>
+      <translation type="unfinished">Medium</translation>
     </message>
     <message>
       <source>Large</source>
-      <translation>大</translation>
+      <translation>Stor</translation>
     </message>
     <message>
       <source>List View</source>
-      <translation>リストビュー</translation>
+      <translation>Liste-visning</translation>
     </message>
     <message>
       <source>Grid View</source>
-      <translation>グリッドビュー</translation>
+      <translation>Rute-visning</translation>
     </message>
     <message>
       <source>Elf Viewer</source>
-      <translation>Elfビューアー</translation>
+      <translation>Elf-visning</translation>
     </message>
     <message>
       <source>Game Install Directory</source>
-      <translation>ゲームインストールディレクトリ</translation>
+      <translation>Spillinstallasjons-mappe</translation>
     </message>
     <message>
       <source>Download Cheats/Patches</source>
-      <translation>チート / パッチをダウンロード</translation>
+      <translation>Last ned juks/programrettelse</translation>
     </message>
     <message>
       <source>Dump Game List</source>
-      <translation>ゲームリストをダンプ</translation>
+      <translation>Dump spill-liste</translation>
     </message>
     <message>
       <source>PKG Viewer</source>
-      <translation>PKGビューアー</translation>
+      <translation>PKG viser</translation>
     </message>
     <message>
       <source>Search...</source>
-      <translation>検索...</translation>
+      <translation>Søk...</translation>
     </message>
     <message>
       <source>File</source>
-      <translation>ファイル</translation>
+      <translation>Fil</translation>
     </message>
     <message>
       <source>View</source>
-      <translation>表示</translation>
+      <translation>Oversikt</translation>
     </message>
     <message>
       <source>Game List Icons</source>
-      <translation>ゲームリストアイコン</translation>
+      <translation>Spill-liste ikoner</translation>
     </message>
     <message>
       <source>Game List Mode</source>
-      <translation>ゲームリストモード</translation>
+      <translation>Spill-liste modus</translation>
     </message>
     <message>
       <source>Settings</source>
-      <translation>設定</translation>
+      <translation>Innstillinger</translation>
     </message>
     <message>
       <source>Utils</source>
-      <translation>ユーティリティ</translation>
+      <translation>Verktøy</translation>
     </message>
     <message>
       <source>Themes</source>
-      <translation>テーマ</translation>
+      <translation>Tema</translation>
     </message>
     <message>
       <source>Help</source>
-      <translation>ヘルプ</translation>
+      <translation>Hjelp</translation>
     </message>
     <message>
       <source>Dark</source>
-      <translation>ダーク</translation>
+      <translation>Mørk</translation>
     </message>
     <message>
       <source>Light</source>
-      <translation>ライト</translation>
+      <translation>Lys</translation>
     </message>
     <message>
       <source>Green</source>
-      <translation>グリーン</translation>
+      <translation>Grønn</translation>
     </message>
     <message>
       <source>Blue</source>
-      <translation>ブルー</translation>
+      <translation>Blå</translation>
     </message>
     <message>
       <source>Violet</source>
-      <translation>バイオレット</translation>
+      <translation>Lilla</translation>
     </message>
     <message>
       <source>toolBar</source>
-      <translation>ツールバー</translation>
+      <translation>Verktøylinje</translation>
     </message>
     <message>
       <source>Game List</source>
-      <translation>ゲームリスト</translation>
+      <translation>Spill-liste</translation>
     </message>
     <message>
       <source> * Unsupported Vulkan Version</source>
-      <translation> * サポートされていないVulkanバージョン</translation>
+      <translation> * Ustøttet Vulkan-versjon</translation>
     </message>
     <message>
       <source>Download Cheats For All Installed Games</source>
-      <translation>すべてのインストール済みゲームのチートをダウンロード</translation>
+      <translation>Last ned juks for alle installerte spill</translation>
     </message>
     <message>
       <source>Download Patches For All Games</source>
-      <translation>すべてのゲームのパッチをダウンロード</translation>
+      <translation>Last ned programrettelser for alle spill</translation>
     </message>
     <message>
       <source>Download Complete</source>
-      <translation>ダウンロード完了</translation>
+      <translation>Nedlasting fullført</translation>
     </message>
     <message>
       <source>You have downloaded cheats for all the games you have installed.</source>
-      <translation>インストールされているすべてのゲームのチートをダウンロードしました。</translation>
+      <translation>Du har lastet ned juks for alle spillene du har installert.</translation>
     </message>
     <message>
       <source>Patches Downloaded Successfully!</source>
-      <translation>パッチが正常にダウンロードされました!</translation>
+      <translation>Programrettelser ble lastet ned!</translation>
     </message>
     <message>
       <source>All Patches available for all games have been downloaded.</source>
-      <translation>すべてのゲームに利用可能なパッチがダウンロードされました。</translation>
+      <translation>Programrettelser tilgjengelige for alle spill har blitt lastet ned.</translation>
     </message>
     <message>
       <source>Games: </source>
-      <translation>ゲーム: </translation>
+      <translation>Spill: </translation>
     </message>
     <message>
       <source>ELF files (*.bin *.elf *.oelf)</source>
-      <translation>ELFファイル (*.bin *.elf *.oelf)</translation>
+      <translation>ELF-filer (*.bin *.elf *.oelf)</translation>
     </message>
     <message>
       <source>Game Boot</source>
-      <translation>ゲームブート</translation>
+      <translation>Spilloppstart</translation>
     </message>
     <message>
       <source>Only one file can be selected!</source>
-      <translation>1つのファイルしか選択できません!</translation>
+      <translation>Kun én fil kan velges!</translation>
     </message>
     <message>
       <source>PKG Extraction</source>
-      <translation>PKGの抽出</translation>
+      <translation>PKG-utpakking</translation>
     </message>
     <message>
       <source>Patch detected!</source>
-      <translation>パッチが検出されました！</translation>
+      <translation>Programrettelse oppdaget!</translation>
     </message>
     <message>
       <source>PKG and Game versions match: </source>
-      <translation>PKGとゲームのバージョンが一致しています: </translation>
+      <translation>PKG og spillversjoner stemmer overens: </translation>
     </message>
     <message>
       <source>Would you like to overwrite?</source>
-      <translation>上書きしてもよろしいですか？</translation>
+      <translation>Ønsker du å overskrive?</translation>
     </message>
     <message>
       <source>PKG Version %1 is older than installed version: </source>
-      <translation>PKGバージョン %1 はインストールされているバージョンよりも古いです: </translation>
+      <translation>PKG-versjon %1 er eldre enn installert versjon: </translation>
     </message>
     <message>
       <source>Game is installed: </source>
-      <translation>ゲームはインストール済みです: </translation>
+      <translation>Spillet er installert: </translation>
     </message>
     <message>
       <source>Would you like to install Patch: </source>
-      <translation>パッチをインストールしてもよろしいですか: </translation>
+      <translation>Ønsker du å installere programrettelsen: </translation>
     </message>
     <message>
       <source>DLC Installation</source>
-      <translation>DLCのインストール</translation>
+      <translation>DLC installasjon</translation>
     </message>
     <message>
       <source>Would you like to install DLC: %1?</source>
-      <translation>DLCをインストールしてもよろしいですか: %1?</translation>
+      <translation>Ønsker du å installere DLC: %1?</translation>
     </message>
     <message>
       <source>DLC already installed:</source>
-      <translation>DLCはすでにインストールされています:</translation>
+      <translation>DLC allerede installert:</translation>
     </message>
     <message>
       <source>Game already installed</source>
-      <translation>ゲームはすでにインストールされています</translation>
+      <translation>Spillet er allerede installert</translation>
     </message>
     <message>
       <source>PKG ERROR</source>
-      <translation>PKGエラー</translation>
+      <translation>PKG FEIL</translation>
     </message>
     <message>
       <source>Extracting PKG %1/%2</source>
-      <translation>PKGを抽出中 %1/%2</translation>
+      <translation>Pakker ut PKG %1/%2</translation>
     </message>
     <message>
       <source>Extraction Finished</source>
-      <translation>抽出完了</translation>
+      <translation>Utpakking fullført</translation>
     </message>
     <message>
       <source>Game successfully installed at %1</source>
-      <translation>ゲームが %1 に正常にインストールされました</translation>
+      <translation>Spillet ble installert i %1</translation>
     </message>
     <message>
       <source>File doesn&apos;t appear to be a valid PKG file</source>
-      <translation>ファイルが有効なPKGファイルでないようです</translation>
+      <translation>Filen ser ikke ut til å være en gyldig PKG-fil</translation>
     </message>
     <message>
       <source>Run Game</source>
@@ -1178,19 +1178,19 @@
     <name>PKGViewer</name>
     <message>
       <source>Open Folder</source>
-      <translation>フォルダーを開く</translation>
+      <translation>Åpne mappe</translation>
     </message>
     <message>
       <source>PKG ERROR</source>
-      <translation>PKGエラー</translation>
+      <translation>PKG FEIL</translation>
     </message>
     <message>
       <source>Name</source>
-      <translation>名前</translation>
+      <translation>Navn</translation>
     </message>
     <message>
       <source>Serial</source>
-      <translation>シリアル</translation>
+      <translation>Serienummer</translation>
     </message>
     <message>
       <source>Installed</source>
@@ -1198,7 +1198,7 @@
     </message>
     <message>
       <source>Size</source>
-      <translation>サイズ</translation>
+      <translation>Størrelse</translation>
     </message>
     <message>
       <source>Category</source>
@@ -1218,7 +1218,7 @@
     </message>
     <message>
       <source>Region</source>
-      <translation>地域</translation>
+      <translation type="unfinished">Region</translation>
     </message>
     <message>
       <source>Flags</source>
@@ -1226,15 +1226,15 @@
     </message>
     <message>
       <source>Path</source>
-      <translation>パス</translation>
+      <translation>Adresse</translation>
     </message>
     <message>
       <source>File</source>
-      <translation>ファイル</translation>
+      <translation>Fil</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation>不明</translation>
+      <translation>Ukjent</translation>
     </message>
     <message>
       <source>Package</source>
@@ -1245,99 +1245,99 @@
     <name>SettingsDialog</name>
     <message>
       <source>Settings</source>
-      <translation>設定</translation>
+      <translation>Innstillinger</translation>
     </message>
     <message>
       <source>General</source>
-      <translation>一般</translation>
+      <translation>Generell</translation>
     </message>
     <message>
       <source>System</source>
-      <translation>システム</translation>
+      <translation type="unfinished">System</translation>
     </message>
     <message>
       <source>Console Language</source>
-      <translation>コンソールの言語</translation>
+      <translation>Konsollspråk</translation>
     </message>
     <message>
       <source>Emulator Language</source>
-      <translation>エミュレーターの言語</translation>
+      <translation>Emulatorspråk</translation>
     </message>
     <message>
       <source>Emulator</source>
-      <translation>エミュレーター</translation>
+      <translation type="unfinished">Emulator</translation>
     </message>
     <message>
       <source>Enable Fullscreen</source>
-      <translation>フルスクリーンを有効にする</translation>
+      <translation>Aktiver fullskjerm</translation>
     </message>
     <message>
       <source>Fullscreen Mode</source>
-      <translation>全画面モード</translation>
+      <translation>Fullskjermmodus</translation>
     </message>
     <message>
       <source>Enable Separate Update Folder</source>
-      <translation>アップデートフォルダの分離を有効化</translation>
+      <translation>Aktiver seperat oppdateringsmappe</translation>
     </message>
     <message>
       <source>Default tab when opening settings</source>
-      <translation>設定を開くときのデフォルトタブ</translation>
+      <translation>Standardfanen når innstillingene åpnes</translation>
     </message>
     <message>
       <source>Show Game Size In List</source>
-      <translation>ゲームサイズをリストに表示</translation>
+      <translation>Vis spillstørrelse i listen</translation>
     </message>
     <message>
       <source>Show Splash</source>
-      <translation>スプラッシュ画面を表示する</translation>
+      <translation>Vis velkomstbilde</translation>
     </message>
     <message>
       <source>Enable Discord Rich Presence</source>
-      <translation>Discord Rich Presenceを有効にする</translation>
+      <translation>Aktiver Discord Rich Presence</translation>
     </message>
     <message>
       <source>Username</source>
-      <translation>ユーザー名</translation>
+      <translation>Brukernavn</translation>
     </message>
     <message>
       <source>Trophy Key</source>
-      <translation>トロフィーキー</translation>
+      <translation>Trofénøkkel</translation>
     </message>
     <message>
       <source>Trophy</source>
-      <translation>トロフィー</translation>
+      <translation>Trofé</translation>
     </message>
     <message>
       <source>Logger</source>
-      <translation>ロガー</translation>
+      <translation type="unfinished">Logger</translation>
     </message>
     <message>
       <source>Log Type</source>
-      <translation>ログタイプ</translation>
+      <translation>Logg type</translation>
     </message>
     <message>
       <source>Log Filter</source>
-      <translation>ログフィルター</translation>
+      <translation>Logg filter</translation>
     </message>
     <message>
       <source>Open Log Location</source>
-      <translation>ログの場所を開く</translation>
+      <translation>Åpne loggplassering</translation>
     </message>
     <message>
       <source>Input</source>
-      <translation>入力</translation>
+      <translation>Inndata</translation>
     </message>
     <message>
       <source>Cursor</source>
-      <translation>カーソル</translation>
+      <translation>Musepeker</translation>
     </message>
     <message>
       <source>Hide Cursor</source>
-      <translation>カーソルを隠す</translation>
+      <translation>Skjul musepeker</translation>
     </message>
     <message>
       <source>Hide Cursor Idle Timeout</source>
-      <translation>カーソルを隠すまでの非アクティブ期間</translation>
+      <translation>Skjul musepeker ved inaktivitet</translation>
     </message>
     <message>
       <source>s</source>
@@ -1345,51 +1345,51 @@
     </message>
     <message>
       <source>Controller</source>
-      <translation>コントローラー</translation>
+      <translation>Kontroller</translation>
     </message>
     <message>
       <source>Back Button Behavior</source>
-      <translation>戻るボタンの動作</translation>
+      <translation>Tilbakeknapp atferd</translation>
     </message>
     <message>
       <source>Graphics</source>
-      <translation>グラフィックス</translation>
+      <translation>Grafikk</translation>
     </message>
     <message>
       <source>GUI</source>
-      <translation>インターフェース</translation>
+      <translation>Grensesnitt</translation>
     </message>
     <message>
       <source>User</source>
-      <translation>ユーザー</translation>
+      <translation>Bruker</translation>
     </message>
     <message>
       <source>Graphics Device</source>
-      <translation>グラフィックスデバイス</translation>
+      <translation>Grafikkenhet</translation>
     </message>
     <message>
       <source>Width</source>
-      <translation>幅</translation>
+      <translation>Bredde</translation>
     </message>
     <message>
       <source>Height</source>
-      <translation>高さ</translation>
+      <translation>Høyde</translation>
     </message>
     <message>
       <source>Vblank Divider</source>
-      <translation>Vblankディバイダー</translation>
+      <translation>Vblank skillelinje</translation>
     </message>
     <message>
       <source>Advanced</source>
-      <translation>高度な設定</translation>
+      <translation>Avansert</translation>
     </message>
     <message>
       <source>Enable Shaders Dumping</source>
-      <translation>シェーダーのダンプを有効にする</translation>
+      <translation>Aktiver skyggeleggerdumping</translation>
     </message>
     <message>
       <source>Enable NULL GPU</source>
-      <translation>NULL GPUを有効にする</translation>
+      <translation>Aktiver NULL GPU</translation>
     </message>
     <message>
       <source>Enable HDR</source>
@@ -1397,275 +1397,275 @@
     </message>
     <message>
       <source>Paths</source>
-      <translation>パス</translation>
+      <translation>Mapper</translation>
     </message>
     <message>
       <source>Game Folders</source>
-      <translation>ゲームフォルダ</translation>
+      <translation>Spillmapper</translation>
     </message>
     <message>
       <source>Add...</source>
-      <translation>追加...</translation>
+      <translation>Legg til...</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation>削除</translation>
+      <translation>Fjern</translation>
     </message>
     <message>
       <source>Debug</source>
-      <translation>デバッグ</translation>
+      <translation>Feilretting</translation>
     </message>
     <message>
       <source>Enable Debug Dumping</source>
-      <translation>デバッグダンプを有効にする</translation>
+      <translation>Aktiver feilrettingsdumping</translation>
     </message>
     <message>
       <source>Enable Vulkan Validation Layers</source>
-      <translation>Vulkan検証レイヤーを有効にする</translation>
+      <translation>Aktiver Vulkan Validation Layers</translation>
     </message>
     <message>
       <source>Enable Vulkan Synchronization Validation</source>
-      <translation>Vulkan同期検証を有効にする</translation>
+      <translation>Aktiver Vulkan synkroniseringslag</translation>
     </message>
     <message>
       <source>Enable RenderDoc Debugging</source>
-      <translation>RenderDocデバッグを有効にする</translation>
+      <translation>Aktiver RenderDoc feilretting</translation>
     </message>
     <message>
       <source>Enable Crash Diagnostics</source>
-      <translation type="unfinished">Enable Crash Diagnostics</translation>
+      <translation>Aktiver krasjdiagnostikk</translation>
     </message>
     <message>
       <source>Collect Shaders</source>
-      <translation type="unfinished">Collect Shaders</translation>
+      <translation>Lagre skyggeleggere</translation>
     </message>
     <message>
       <source>Copy GPU Buffers</source>
-      <translation type="unfinished">Copy GPU Buffers</translation>
+      <translation>Kopier GPU-buffere</translation>
     </message>
     <message>
       <source>Host Debug Markers</source>
-      <translation type="unfinished">Host Debug Markers</translation>
+      <translation>Vertsfeilsøkingsmarkører</translation>
     </message>
     <message>
       <source>Guest Debug Markers</source>
-      <translation type="unfinished">Guest Debug Markers</translation>
+      <translation>Gjestefeilsøkingsmarkører</translation>
     </message>
     <message>
       <source>Update</source>
-      <translation>更新</translation>
+      <translation>Oppdatering</translation>
     </message>
     <message>
       <source>Check for Updates at Startup</source>
-      <translation>起動時に更新確認</translation>
+      <translation>Se etter oppdateringer ved oppstart</translation>
     </message>
     <message>
       <source>Always Show Changelog</source>
-      <translation>常に変更履歴を表示</translation>
+      <translation type="unfinished">Always Show Changelog</translation>
     </message>
     <message>
       <source>Update Channel</source>
-      <translation>アップデートチャネル</translation>
+      <translation>Oppdateringskanal</translation>
     </message>
     <message>
       <source>Check for Updates</source>
-      <translation>更新を確認</translation>
+      <translation>Se etter oppdateringer</translation>
     </message>
     <message>
       <source>GUI Settings</source>
-      <translation>GUI設定</translation>
+      <translation>Grensesnitt-innstillinger</translation>
     </message>
     <message>
       <source>Title Music</source>
-      <translation type="unfinished">Title Music</translation>
+      <translation>Tittelmusikk</translation>
     </message>
     <message>
       <source>Disable Trophy Pop-ups</source>
-      <translation>トロフィーのポップアップを無効化</translation>
+      <translation>Deaktiver trofé hurtigmeny</translation>
     </message>
     <message>
       <source>Background Image</source>
-      <translation type="unfinished">Background Image</translation>
+      <translation>Bakgrunnsbilde</translation>
     </message>
     <message>
       <source>Show Background Image</source>
-      <translation type="unfinished">Show Background Image</translation>
+      <translation>Vis bakgrunnsbilde</translation>
     </message>
     <message>
       <source>Opacity</source>
-      <translation type="unfinished">Opacity</translation>
+      <translation>Synlighet</translation>
     </message>
     <message>
       <source>Play title music</source>
-      <translation>タイトル音楽を再生する</translation>
+      <translation>Spill tittelmusikk</translation>
     </message>
     <message>
       <source>Update Compatibility Database On Startup</source>
-      <translation>起動時に互換性データベースを更新する</translation>
+      <translation>Oppdater database ved oppstart</translation>
     </message>
     <message>
       <source>Game Compatibility</source>
-      <translation>ゲームの互換性</translation>
+      <translation>Spill kompatibilitet</translation>
     </message>
     <message>
       <source>Display Compatibility Data</source>
-      <translation>互換性に関するデータを表示</translation>
+      <translation>Vis kompatibilitets-data</translation>
     </message>
     <message>
       <source>Update Compatibility Database</source>
-      <translation>互換性データベースを更新</translation>
+      <translation>Oppdater kompatibilitets-database</translation>
     </message>
     <message>
       <source>Volume</source>
-      <translation>音量</translation>
+      <translation>Volum</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation>保存</translation>
+      <translation>Lagre</translation>
     </message>
     <message>
       <source>Apply</source>
-      <translation>適用</translation>
+      <translation>Bruk</translation>
     </message>
     <message>
       <source>Restore Defaults</source>
-      <translation>デフォルトに戻す</translation>
+      <translation>Gjenopprett standardinnstillinger</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation>閉じる</translation>
+      <translation>Lukk</translation>
     </message>
     <message>
       <source>Point your mouse at an option to display its description.</source>
-      <translation>設定項目にマウスをホバーすると、説明が表示されます。</translation>
+      <translation>Pek musen over et alternativ for å vise beskrivelsen.</translation>
     </message>
     <message>
       <source>consoleLanguageGroupBox</source>
-      <translation>コンソールの言語:\nPS4ゲームが使用する言語を設定します。\nゲームでサポートされている言語に設定することをお勧めしますが、地域によって異なる場合があります。</translation>
+      <translation>Konsollspråk:\nAngir språket som PS4-spillet bruker.\nDet anbefales å sette dette til et språk som spillet støtter, noe som kan variere avhengig av region.</translation>
     </message>
     <message>
       <source>emulatorLanguageGroupBox</source>
-      <translation>エミュレーターの言語:\nエミュレーターのユーザーインターフェースの言語を設定します。</translation>
+      <translation>Emulatorspråket:\nAngir språket for emulatorens brukergrensesnitt.</translation>
     </message>
     <message>
       <source>fullscreenCheckBox</source>
-      <translation>全画面モードを有効にする:\nゲームウィンドウを自動的に全画面モードにします。\nF11キーを押すことで切り替えることができます。</translation>
+      <translation>Aktiver fullskjerm:\nSetter spillvinduet automatisk i fullskjermmodus.\nDette kan slås av ved å trykke på F11-tasten.</translation>
     </message>
     <message>
       <source>separateUpdatesCheckBox</source>
-      <translation>Enable Separate Update Folder:\nゲームのアップデートを別のフォルダにインストールすることで、管理が容易になります。</translation>
+      <translation>Aktiver separat oppdateringsmappe:\nAktiverer installering av spill i en egen mappe for enkel administrasjon.</translation>
     </message>
     <message>
       <source>showSplashCheckBox</source>
-      <translation>スプラッシュスクリーンを表示:\nゲーム起動中にゲームのスプラッシュスクリーン（特別な画像）を表示します。</translation>
+      <translation>Vis velkomstbilde:\nViser spillets velkomstbilde (et spesialbilde) når spillet starter.</translation>
     </message>
     <message>
       <source>discordRPCCheckbox</source>
-      <translation>Discord Rich Presenceを有効にする:\nエミュレーターのアイコンと関連情報をDiscordプロフィールに表示します。</translation>
+      <translation>Aktiver Discord Rich Presence:\nViser emulatorikonet og relevant informasjon på Discord-profilen din.</translation>
     </message>
     <message>
       <source>userName</source>
-      <translation>ユーザー名:\nPS4のアカウントユーザー名を設定します。これは、一部のゲームで表示される場合があります。</translation>
+      <translation>Brukernavn:\nAngir brukernavnet for PS4-kontoen, som kan vises av enkelte spill.</translation>
     </message>
     <message>
       <source>TrophyKey</source>
-      <translation>トロフィーキー:\nトロフィーの復号に使用されるキーです。脱獄済みのコンソールから取得することができます。\n16進数のみを受け入れます。</translation>
+      <translation>Trofénøkkel:\nNøkkel brukes til å dekryptere trofeer. Må hentes fra din konsoll (jailbroken).\nMå bare inneholde sekskantede tegn.</translation>
     </message>
     <message>
       <source>logTypeGroupBox</source>
-      <translation>ログタイプ:\nパフォーマンスのためにログウィンドウの出力を同期させるかどうかを設定します。エミュレーションに悪影響を及ぼす可能性があります。</translation>
+      <translation>Logg type:\nAngir om loggvinduets utdata skal synkroniseres for ytelse. Kan ha negative effekter for emulatoren.</translation>
     </message>
     <message>
       <source>logFilter</source>
-      <translation>ログフィルター:\n特定の情報のみを印刷するようにログをフィルタリングします。\n例: &quot;Core:Trace&quot; &quot;Lib.Pad:Debug Common.Filesystem:Error&quot; &quot;*:Critical&quot; \nレベル: Trace, Debug, Info, Warning, Error, Critical - レベルはこの並び通りに処理され、指定されたレベルより前のレベル ログを抑制し、それ以外のすべてのレベルをログに記録します。</translation>
+      <translation>Logg filter:\nFiltrerer loggen for å kun skrive ut spesifikk informasjon.\nEksempler: &quot;Core:Trace&quot; &quot;Lib.Pad:Debug Common.Filesystem:Error&quot; &quot;*:Critical&quot; Nivåer: Trace, Debug, Info, Warning, Error, Critical - i denne rekkefølgen, et spesifikt nivå demper alle tidligere nivåer i listen og logger alle nivåer etter det.</translation>
     </message>
     <message>
       <source>updaterGroupBox</source>
-      <translation>更新:\nRelease: 最新の機能を利用できない可能性がありますが、より信頼性が高くテストされた公式バージョンが毎月リリースされます。\nNightly: 最新の機能と修正がすべて含まれていますが、バグが含まれている可能性があり、安定性は低いです。</translation>
+      <translation>Oppdatering:\nRelease: Offisielle versjoner utgitt hver måned som kan være veldig utdaterte, men er mer pålitelige og testet.\nNightly: Utviklingsversjoner som har alle de nyeste funksjonene og feilrettingene, men som kan inneholde feil og er mindre stabile.</translation>
     </message>
     <message>
       <source>GUIBackgroundImageGroupBox</source>
-      <translation type="unfinished">GUIBackgroundImageGroupBox</translation>
+      <translation>Bakgrunnsbilde:\nEndrer synligheten til spillets bakgrunnsbilde.</translation>
     </message>
     <message>
       <source>GUIMusicGroupBox</source>
-      <translation>タイトルミュージックを再生:\nゲームでサポートされている場合に、GUIでゲームを選択したときに特別な音楽を再生する機能を有効にします。</translation>
+      <translation>Spille tittelmusikk:\nHvis et spill støtter det, så aktiveres det spesiell musikk når du velger spillet i menyen.</translation>
     </message>
     <message>
       <source>disableTrophycheckBox</source>
-      <translation>トロフィーのポップアップを無効化:\nゲーム内でのトロフィー通知を無効化します。 トロフィーの進行状況は、トロフィービューアーを使用して確認できます。(メインウィンドウでゲームを右クリック)</translation>
+      <translation>Deaktiver trofé hurtigmeny:\nDeaktiver trofévarsler i spillet. Trofé-fremgang kan fortsatt ved help av troféviseren (høyreklikk på spillet i hovedvinduet).</translation>
     </message>
     <message>
       <source>hideCursorGroupBox</source>
-      <translation>カーソルを隠す:\nカーソルが消えるタイミングを選択してください:\n無効: 常にカーソルが表示されます。\n非アクティブ時: カーソルの非アクティブ期間が指定した時間を超えた場合にカーソルを隠します。\n常に: カーソルは常に隠れた状態になります。</translation>
+      <translation>Skjul musepeker:\nVelg når musepekeren skal forsvinne:\nAldri: Du vil alltid se musepekeren.\nInaktiv: Sett en tid for at den skal forsvinne etter å ha vært inaktiv.\nAlltid: du vil aldri se musepekeren.</translation>
     </message>
     <message>
       <source>idleTimeoutGroupBox</source>
-      <translation>カーソルが非アクティブになってから隠すまでの時間を設定します。</translation>
+      <translation>Sett en tid for når musepekeren forsvinner etter å ha vært inaktiv.</translation>
     </message>
     <message>
       <source>backButtonBehaviorGroupBox</source>
-      <translation>戻るボタンの動作:\nコントローラーの戻るボタンを、PS4のタッチパッドの指定された位置をタッチするように設定します。</translation>
+      <translation>Atferd for tilbaketasten:\nSetter tilbaketasten på kontrolleren til å imitere et trykk på den angitte posisjonen på PS4s berøringsplate.</translation>
     </message>
     <message>
       <source>enableCompatibilityCheckBox</source>
-      <translation>互換性に関するデータを表示:\nゲームの互換性に関する情報を表として表示します。常に最新情報を取得したい場合、&quot;起動時に互換性データベースを更新する&quot; を有効化してください。</translation>
+      <translation>Vis kompatibilitets-data:\nViser informasjon om spillkompatibilitet i tabellvisning. Aktiver &quot;Oppdater kompatibilitets-data ved oppstart&quot; for oppdatert informasjon.</translation>
     </message>
     <message>
       <source>checkCompatibilityOnStartupCheckBox</source>
-      <translation>起動時に互換性データベースを更新する:\nshadPS4の起動時に自動で互換性データベースを更新します。</translation>
+      <translation>Oppdater database ved oppstart:\nOppdaterer kompatibilitets-databasen automatisk når shadPS4 starter.</translation>
     </message>
     <message>
       <source>updateCompatibilityButton</source>
-      <translation>互換性データベースを更新する:\n今すぐ互換性データベースを更新します。</translation>
+      <translation>Oppdater kompatibilitets-database:\nOppdater kompatibilitets-databasen nå.</translation>
     </message>
     <message>
       <source>Never</source>
-      <translation>無効</translation>
+      <translation>Aldri</translation>
     </message>
     <message>
       <source>Idle</source>
-      <translation>非アクティブ時</translation>
+      <translation>Inaktiv</translation>
     </message>
     <message>
       <source>Always</source>
-      <translation>常に</translation>
+      <translation>Alltid</translation>
     </message>
     <message>
       <source>Touchpad Left</source>
-      <translation>左タッチパッド</translation>
+      <translation>Berøringsplate Venstre</translation>
     </message>
     <message>
       <source>Touchpad Right</source>
-      <translation>右タッチパッド</translation>
+      <translation>Berøringsplate Høyre</translation>
     </message>
     <message>
       <source>Touchpad Center</source>
-      <translation>タッチパッド中央</translation>
+      <translation>Berøringsplate Midt</translation>
     </message>
     <message>
       <source>None</source>
-      <translation>なし</translation>
+      <translation>Ingen</translation>
     </message>
     <message>
       <source>graphicsAdapterGroupBox</source>
-      <translation>グラフィックデバイス:\nシステムに複数のGPUが搭載されている場合、ドロップダウンリストからエミュレーターで使用するGPUを選択するか、\n「自動選択」を選択して自動的に決定します。</translation>
+      <translation>Grafikkenhet:\nI systemer med flere GPU-er, velg GPU-en emulatoren skal bruke fra rullegardinlisten,\neller velg &quot;Auto Select&quot; for å velge automatisk.</translation>
     </message>
     <message>
       <source>resolutionLayout</source>
-      <translation>幅/高さ:\n起動時にエミュレーターウィンドウのサイズを設定します。ゲーム中でもサイズを変更することができます。\nこれはゲーム内の解像度とは異なります。</translation>
+      <translation>Bredde/Høyde:\nAngir størrelsen på emulatorvinduet ved oppstart, som kan endres under spillingen.\nDette er forskjellig fra oppløsningen i spillet.</translation>
     </message>
     <message>
       <source>heightDivider</source>
-      <translation>Vblankディバイダー:\nエミュレーターが更新されるフレームレートにこの数を掛けます。これを変更すると、ゲームの速度が上がったり、想定外の変更がある場合、ゲームの重要な機能が壊れる可能性があります!</translation>
+      <translation>Vblank skillelinje:\nBildehastigheten som emulatoren oppdaterer ved, multipliseres med dette tallet. Endring av dette kan ha negative effekter, som å øke hastigheten av spillet, eller ødelegge kritisk spillfunksjonalitet som ikke forventer at dette endres!</translation>
     </message>
     <message>
       <source>dumpShadersCheckBox</source>
-      <translation>シェーダーダンプを有効にする:\n技術的なデバッグの目的で、レンダリング中にゲームのシェーダーをフォルダーに保存します。</translation>
+      <translation>Aktiver skyggeleggerdumping:\nFor teknisk feilsøking lagrer skyggeleggerne fra spillet i en mappe mens de gjengis.</translation>
     </message>
     <message>
       <source>nullGpuCheckBox</source>
-      <translation>Null GPUを有効にする:\n技術的なデバッグの目的で、グラフィックスカードがないかのようにゲームのレンダリングを無効にします。</translation>
+      <translation>Aktiver Null GPU:\nFor teknisk feilsøking deaktiverer spillets-gjengivelse som om det ikke var noe grafikkort.</translation>
     </message>
     <message>
       <source>enableHDRCheckBox</source>
@@ -1673,59 +1673,59 @@
     </message>
     <message>
       <source>gameFoldersBox</source>
-      <translation>ゲームフォルダ:\nインストールされたゲームを確認するためのフォルダのリスト。</translation>
+      <translation>Spillmapper:\nListe over mapper som brukes for å se etter installerte spill.</translation>
     </message>
     <message>
       <source>addFolderButton</source>
-      <translation>追加:\nリストにフォルダを追加します。</translation>
+      <translation>Legg til:\nLegg til en mappe til listen.</translation>
     </message>
     <message>
       <source>removeFolderButton</source>
-      <translation>削除:\nリストからフォルダを削除します。</translation>
+      <translation>Fjern:\nFjern en mappe fra listen.</translation>
     </message>
     <message>
       <source>debugDump</source>
-      <translation>デバッグダンプを有効にする:\n現在実行中のPS4プログラムのインポートおよびエクスポートシンボルとファイルヘッダー情報をディレクトリに保存します。</translation>
+      <translation>Aktiver feilrettingsdumping:\nLagrer import- og eksport-symbolene og filoverskriftsinformasjonen til det nåværende kjørende PS4-programmet i en katalog.</translation>
     </message>
     <message>
       <source>vkValidationCheckBox</source>
-      <translation>Vulkanバリデーションレイヤーを有効にする:\nVulkanのレンダリングステータスを検証し、内部状態に関する情報をログに記録するシステムを有効にします。これによりパフォーマンスが低下し、エミュレーションの動作が変わる可能性があります。</translation>
+      <translation>Aktiver Vulkan Validation Layers:\nAktiverer et system som validerer tilstanden til Vulkan-gjengiveren og logger informasjon om dens indre tilstand. Dette vil redusere ytelsen og sannsynligvis endre emulatorens atferd.</translation>
     </message>
     <message>
       <source>vkSyncValidationCheckBox</source>
-      <translation>Vulkan同期バリデーションを有効にする:\nVulkanのレンダリングタスクのタイミングを検証するシステムを有効にします。これによりパフォーマンスが低下し、エミュレーションの動作が変わる可能性があります。</translation>
+      <translation>Aktiver Vulkan synkronisering validering:\nAktiverer et system som validerer frekvens tiden av Vulkan-gjengivelsensoppgaver. Dette vil redusere ytelsen og sannsynligvis endre emulatorens atferd.</translation>
     </message>
     <message>
       <source>rdocCheckBox</source>
-      <translation>RenderDocデバッグを有効にする:\n有効にすると、エミュレーターはRenderdocとの互換性を提供し、現在レンダリング中のフレームのキャプチャと分析を可能にします。</translation>
+      <translation>Aktiver RenderDoc feilsøking:\nHvis aktivert, vil emulatoren gi kompatibilitet med RenderDoc for å tillate opptak og analyse av det nåværende gjengitte bildet.</translation>
     </message>
     <message>
       <source>collectShaderCheckBox</source>
-      <translation>Collect Shaders:\nYou need this enabled to edit shaders with the debug menu (Ctrl + F10).</translation>
+      <translation>Lagre skyggeleggere:\nDu trenger dette aktivert for å redigere skyggeleggerne med feilsøkingsmenyen (Ctrl + F10).</translation>
     </message>
     <message>
       <source>crashDiagnosticsCheckBox</source>
-      <translation>Crash Diagnostics:\nCreates a .yaml file with info about the Vulkan state at the time of crashing.\nUseful for debugging &apos;Device lost&apos; errors. If you have this enabled, you should enable Host AND Guest Debug Markers.\nDoes not work on Intel GPUs.\nYou need Vulkan Validation Layers enabled and the Vulkan SDK for this to work.</translation>
+      <translation>Krasjdiagnostikk:\nOppretter en .yaml-fil med informasjon om Vulkan-tilstanden ved krasj.\nNyttig for feilsøking &apos;Device lost&apos; feil. Hvis du har dette aktivert, burde du aktivere vert OG gjestefeilsøkingsmarkører.\nFunker ikke med Intel GPU-er.\nDu trenger Vulkan Validation Layers og Vulkan SDK for at dette skal fungere.</translation>
     </message>
     <message>
       <source>copyGPUBuffersCheckBox</source>
-      <translation>Copy GPU Buffers:\nGets around race conditions involving GPU submits.\nMay or may not help with PM4 type 0 crashes.</translation>
+      <translation>Kopier GPU-buffere:\nKommer rundt løpsforhold som involverer GPU-innsendinger.\nKan muligens hjelpe med PM4 type 0 krasj.</translation>
     </message>
     <message>
       <source>hostMarkersCheckBox</source>
-      <translation>Host Debug Markers:\nInserts emulator-side information like markers for specific AMDGPU commands around Vulkan commands, as well as giving resources debug names.\nIf you have this enabled, you should enable Crash Diagnostics.\nUseful for programs like RenderDoc.</translation>
+      <translation>Vertsfeilsøkingsmarkører:\nSetter inn emulator-side informasjon som markører for spesifikke AMDGPU-kommandoer rundt Vulkan-kommandoer, i tillegg til å gi ressurser feilrettingsnavn.\nHvis du har dette aktivert, burde du aktivere krasjdiagnostikk.\nNyttig for programmer som RenderDoc.</translation>
     </message>
     <message>
       <source>guestMarkersCheckBox</source>
-      <translation>Guest Debug Markers:\nInserts any debug markers the game itself has added to the command buffer.\nIf you have this enabled, you should enable Crash Diagnostics.\nUseful for programs like RenderDoc.</translation>
+      <translation>Gjestefeilsøkingsmarkører:\nSetter inn eventuelle feilsøkingsmarkører spillet selv har lagt til kommandobufferen.\nHvis du har dette aktivert, burde du aktivere krasjdiagnostikk.\nNyttig for programmer som RenderDoc.</translation>
     </message>
     <message>
       <source>saveDataBox</source>
-      <translation type="unfinished">saveDataBox</translation>
+      <translation>Lagrede datamappe:\nListe over data shadPS4 lagrer.</translation>
     </message>
     <message>
       <source>browseButton</source>
-      <translation type="unfinished">browseButton</translation>
+      <translation>Endre mappe:\nEndrer hvilken mappe shadPS4 skal lagre data til.</translation>
     </message>
     <message>
       <source>Borderless</source>
@@ -1753,11 +1753,11 @@
     </message>
     <message>
       <source>Save Data Path</source>
-      <translation type="unfinished">Save Data Path</translation>
+      <translation>Lagrede datamappe</translation>
     </message>
     <message>
       <source>Browse</source>
-      <translation>参照</translation>
+      <translation>Endre mappe</translation>
     </message>
     <message>
       <source>async</source>
@@ -1773,7 +1773,7 @@
     </message>
     <message>
       <source>Directory to install games</source>
-      <translation>ゲームをインストールするディレクトリ</translation>
+      <translation>Mappe for å installere spill</translation>
     </message>
     <message>
       <source>Directory to save data</source>
@@ -1784,7 +1784,7 @@
     <name>TrophyViewer</name>
     <message>
       <source>Trophy Viewer</source>
-      <translation>トロフィービューアー</translation>
+      <translation>Trofé viser</translation>
     </message>
   </context>
 </TS>
