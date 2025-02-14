@@ -418,8 +418,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
     ui->updateComboBox->setCurrentText(channelMap.key(
         (updateChannel != "Full-Souls" && updateChannel != "mainBB" && updateChannel != "PRTBB")
-            ? (Common::isRelease ? "Full-Souls" : "mainBB")
-            : "PRTBB"));
+            ? (Common::isRelease ? "Full-Souls" : "mainBB", "PRTBB")
+            : updateChannel));
 #endif
 
     std::string chooseHomeTab = toml::find_or<std::string>(data, "General", "chooseHomeTab", "");
