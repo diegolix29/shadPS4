@@ -72,7 +72,8 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
 
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Close)->setFocus();
 
-    channelMap = {{tr("Full-Souls"), "Full-Souls"}, {tr("mainBB"), "mainBB"}, {tr("PRTBB"), "PRTBB"}};
+    channelMap = {
+        {tr("Full-Souls"), "Full-Souls"}, {tr("mainBB"), "mainBB"}, {tr("PRTBB"), "PRTBB"}};
 
     // Add list of available GPUs
     ui->graphicsAdapterBox->addItem(tr("Auto Select")); // -1, auto selection
