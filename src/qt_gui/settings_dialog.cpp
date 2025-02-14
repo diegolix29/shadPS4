@@ -72,7 +72,7 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
 
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Close)->setFocus();
 
-    channelMap = {{tr("Release"), "Release"}, {tr("Nightly"), "Nightly"}};
+    channelMap = {{tr("Full-Souls"), "Full-Souls"}, {tr("mainBB"), "mainBB"}, {tr("PRTBB"), "PRTBB"}};
 
     // Add list of available GPUs
     ui->graphicsAdapterBox->addItem(tr("Auto Select")); // -1, auto selection
@@ -415,10 +415,10 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "alwaysShowChangelog", false));
 
     QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
-    ui->updateComboBox->setCurrentText(
-        channelMap.key(updateChannel != "Release" && updateChannel != "Nightly"
-                           ? (Common::isRelease ? "Release" : "Nightly")
-                           : updateChannel));
+    ui->updateComboBox->setCurrentText(channelMap.key(
+        updateChannel != "Full-Souls" && updateChannel != "mainBB" && updateChannel != "PRTBB"
+            ? (Common::isRelease ? "Full-Souls" : "mainBB", "PRTBB")
+            : updateChannel));
 #endif
 
     std::string chooseHomeTab = toml::find_or<std::string>(data, "General", "chooseHomeTab", "");
