@@ -17,7 +17,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
         run: |
-          for TAG in Release PRTBB; do
+          for TAG in Release; do
             EXISTS=$(gh release list --repo diegolix29/shadPS4 --json tagName -q ".[] | select(.tagName == \"$TAG\") | .tagName")
             if [ -n "$EXISTS" ]; then
               echo "Deleting release with tag: $TAG"
@@ -32,7 +32,7 @@ jobs:
           GH_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
         run: |
           git fetch --prune --tags
-          for TAG in Release PRTBB; do
+          for TAG in Release; do
             if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
               echo "Deleting local tag: $TAG"
               git tag -d "$TAG"  # Delete local tag
