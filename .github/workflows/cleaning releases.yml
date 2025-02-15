@@ -18,27 +18,13 @@ jobs:
           GH_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
         run: |
           for TAG in Release PRTBB; do
-            RELEASES=$(gh release list --repo diegolix29/shadPS4 --json tagName,id -q ".[] | select(.tagName == \"$TAG\") | .id")
+            RELEASES=$(gh release list --repo diegolix29/shadPS4 --json tagName,tagName -q ".[] | select(.tagName == \"$TAG\") | .tagName")
             if [ -n "$RELEASES" ]; then
-              for RELEASE_ID in $RELEASES; do
-                echo "Deleting release with ID: $RELEASE_ID (Tag: $TAG)"
-                gh release delete "$RELEASE_ID" --repo diegolix29/shadPS4 --yes
+              for RELEASE_tagName in $RELEASES; do
+                echo "Deleting release with tagName: $RELEASE_tagName (Tag: $TAG)"
+                gh release delete "$RELEASE_tagName" --repo diegolix29/shadPS4 --yes
               done
             else
               echo "No releases found with tag: $TAG"
-            fi
-          done
-
-      - name: Delete Tags Release and PRTBB
-        env:
-          GH_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
-        run: |
-          git fetch --prune --tags
-          for TAG in Release PRTBB; do
-            if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
-              echo "Deleting tag: $TAG"
-              git push origin --delete "$TAG"
-            else
-              echo "No tag found: $TAG"
             fi
           done
