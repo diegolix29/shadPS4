@@ -1,14 +1,22 @@
-name: Delete Release and PRTBB Binaries
+name: Delete Release and PRTBB
 
 on:
   workflow_dispatch:  # Allows manual triggering from GitHub Actions tab
 
 jobs:
-  delete_binaries:
+  cleanup:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - name: Set up GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install -y gh
+
+      - name: Authenticate with GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
+        run: echo $GITHUB_TOKEN | gh auth login --with-token
 
       - name: Delete Releases with Tags Release and PRTBB
         env:
@@ -23,17 +31,17 @@ jobs:
               echo "No release found with tag: $TAG"
             fi
           done
-        continue-on-error: true
 
-      - name: Delete Artifacts from Previous Runs
+      - name: Delete Tags Release and PRTBB
         env:
           GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
         run: |
-          for ARTIFACT in Release PRTBB; do
-            ARTIFACTS=$(gh api repos/diegolix29/shadPS4/actions/artifacts --jq ".artifacts[] | select(.name == \"$ARTIFACT\") | .id")
-            for ID in $ARTIFACTS; do
-              echo "Deleting artifact ID: $ID"
-              gh api -X DELETE repos/diegolix29/shadPS4/actions/artifacts/$ID
-            done
+          git fetch --prune --tags
+          for TAG in Release PRTBB; do
+            if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+              echo "Deleting tag: $TAG"
+              git push origin --delete "$TAG"
+            else
+              echo "No tag found: $TAG"
+            fi
           done
-        continue-on-error: true
