@@ -9,6 +9,7 @@ path = [
     ".github/shadps4.png",
 	".github/workflows/scripts/update_translation.sh",
 	".github/workflows/update_translation.yml",
+        ".github/workflows/cleaning releases",
     ".gitmodules",
     "dist/MacOSBundleInfo.plist.in",
     "dist/net.shadps4.shadPS4.desktop",
