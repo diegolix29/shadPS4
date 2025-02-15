@@ -13,11 +13,6 @@ jobs:
           sudo apt update
           sudo apt install -y gh
 
-      - name: Authenticate with GitHub CLI
-        env:
-          GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
-        run: echo $GITHUB_TOKEN | gh auth login --with-token
-
       - name: Delete Releases with Tags Release and PRTBB
         env:
           GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
