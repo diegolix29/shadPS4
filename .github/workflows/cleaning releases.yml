@@ -1,34 +1,39 @@
-name: Apagar Releases e Tags
+name: Delete Release and PRTBB Binaries
 
 on:
-  workflow_dispatch:  # Permite execução manual do workflow
+  workflow_dispatch:  # Allows manual triggering from GitHub Actions tab
 
 jobs:
-  cleanup:
+  delete_binaries:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Configurar GitHub CLI
-      run: |
-        sudo apt update
-        sudo apt install gh
-        
-    - name: Autenticar com GitHub CLI
-      run: gh auth login --with-token < ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Apagar todas as releases
-      run: |
-        # Listando todas as releases e apagando
-        releases=$(gh release list --json "id" --jq ".[].id")
-        for release in $releases; do
-          gh release delete "$release" --yes
-        done
+      - name: Delete Releases with Tags Release and PRTBB
+        env:
+          GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
+        run: |
+          for TAG in Release PRTBB; do
+            RELEASE_ID=$(gh release list --repo diegolix29/shadPS4 --json tagName,id -q ".[] | select(.tagName == \"$TAG\") | .id")
+            if [ ! -z "$RELEASE_ID" ]; then
+              echo "Deleting release with tag $TAG (ID: $RELEASE_ID)"
+              gh release delete "$TAG" --repo diegolix29/shadPS4 --yes
+            else
+              echo "No release found with tag: $TAG"
+            fi
+          done
+        continue-on-error: true
 
-    - name: Apagar todas as tags
-      run: |
-        # Listando todas as tags e apagando
-        tags=$(git tag)
-        for tag in $tags; do
-          git push --delete origin "$tag"
-          git tag -d "$tag"
-        done
+      - name: Delete Artifacts from Previous Runs
+        env:
+          GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
+        run: |
+          for ARTIFACT in Release PRTBB; do
+            ARTIFACTS=$(gh api repos/diegolix29/shadPS4/actions/artifacts --jq ".artifacts[] | select(.name == \"$ARTIFACT\") | .id")
+            for ID in $ARTIFACTS; do
+              echo "Deleting artifact ID: $ID"
+              gh api -X DELETE repos/diegolix29/shadPS4/actions/artifacts/$ID
+            done
+          done
+        continue-on-error: true
