@@ -1,25 +1,34 @@
-name: Delete Specific Releases
+name: Apagar Releases e Tags
 
 on:
-  workflow_dispatch:  # Allows manual execution of the workflow
+  workflow_dispatch:  # Permite execução manual do workflow
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Configure GitHub CLI
+    - name: Configurar GitHub CLI
       run: |
         sudo apt update
         sudo apt install gh
         
-    - name: Authenticate with GitHub CLI
+    - name: Autenticar com GitHub CLI
       run: gh auth login --with-token < ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Delete specific releases
+    - name: Apagar todas as releases
       run: |
-        # Listing all releases and filtering only those with "Release" or "PRTBB"
-        releases=$(gh release list --json "name,id" --jq '.[] | select(.name | test("^(Release|PRTBB)$")) | .id')
+        # Listando todas as releases e apagando
+        releases=$(gh release list --json "id" --jq ".[].id")
         for release in $releases; do
           gh release delete "$release" --yes
+        done
+
+    - name: Apagar todas as tags
+      run: |
+        # Listando todas as tags e apagando
+        tags=$(git tag)
+        for tag in $tags; do
+          git push --delete origin "$tag"
+          git tag -d "$tag"
         done
