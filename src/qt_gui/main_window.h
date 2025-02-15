@@ -67,6 +67,7 @@ private:
     void SetUiIcons(bool isWhite);
     void InstallPkg();
     void BootGame();
+    QString getLastEbootPath();
     void AddRecentFiles(QString filePath);
     void LoadTranslation();
     void PlayBackgroundMusic();

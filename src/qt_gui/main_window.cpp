@@ -110,30 +110,6 @@ bool MainWindow::Init() {
     return true;
 }
 
-// Initialize shared memory for game state
-QSharedMemory sharedMemory("GameStateKey");
-// Write game state in child process
-void writeGameState() {
-    if (!sharedMemory.create(1024)) {
-        qDebug() << "Failed to create shared memory:" << sharedMemory.errorString();
-        return;
-    }
-    char* to = static_cast<char*>(sharedMemory.data());
-    const char* from = "Game State Data";
-    memcpy(to, from, qstrlen(from));
-    qDebug() << "Game state written to shared memory.";
-}
-// Read game state in the main process
-void readGameState() {
-    if (!sharedMemory.attach()) {
-        qDebug() << "Failed to attach to shared memory:" << sharedMemory.errorString();
-        return;
-    }
-    char* from = static_cast<char*>(sharedMemory.data());
-    qDebug() << "Game state read from shared memory:" << QString::fromLatin1(from);
-    sharedMemory.detach();
-}
-
 void MainWindow::CreateActions() {
     // create action group for icon size
     m_icon_size_act_group = new QActionGroup(this);
@@ -688,53 +664,6 @@ void MainWindow::StartGame() {
     }
 }
 
-void MainWindow::StopGame() {
-    if (isGameRunning) {
-        qDebug() << "Stopping the current game...";
-
-        // Send SDL quit event to stop the emulator's main loop
-        SDL_Event quitEvent;
-        quitEvent.type = SDL_EVENT_QUIT;
-        SDL_PushEvent(&quitEvent);
-
-        // Optional: Handle other game-related cleanup tasks here
-        // For example, resetting UI, releasing memory, or clearing temporary states
-
-        // Update the game running state
-        isGameRunning = false;
-
-        // Log the successful stop operation
-        qDebug() << "Game stopped successfully.";
-    } else {
-        qDebug() << "No game is running to stop.";
-    }
-}
-
-void MainWindow::RestartGame() {
-    if (isGameRunning) {
-        qDebug() << "Preparing to restart the application...";
-
-        // Call StopGame() to handle any necessary cleanup before restarting
-        StopGame();
-        qDebug() << "Game stopped successfully.";
-
-        // Capture the current application path and arguments
-        QString program = QCoreApplication::applicationFilePath();
-        QStringList arguments = QCoreApplication::arguments();
-
-        // Restart the application
-        qDebug() << "Restarting the application with eboot path...";
-        if (QProcess::startDetached(program, arguments)) {
-            qDebug() << "Application restarted successfully. Exiting current instance...";
-            QCoreApplication::quit();
-        } else {
-            qDebug() << "Failed to restart the application.";
-        }
-    } else {
-        qDebug() << "No game is currently running to restart.";
-    }
-}
-
 void MainWindow::SearchGameTable(const QString& text) {
     if (isTableList) {
         for (int row = 0; row < m_game_list_frame->rowCount(); row++) {
@@ -836,6 +765,10 @@ void MainWindow::BootGame() {
             StartEmulator(path);
         }
     }
+}
+
+QString MainWindow::getLastEbootPath() {
+    return QString();
 }
 
 void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int nPkg) {
@@ -1319,4 +1252,46 @@ void MainWindow::StartEmulator(std::filesystem::path path) {
     });
     emulator_thread.detach();
 #endif
+}
+
+void MainWindow::StopGame() {
+    if (!isGameRunning) {
+        QMessageBox::information(this, tr("Stop Game"), tr("No game is currently running."));
+        return;
+    }
+
+    // Get the emulator instance and stop it
+    Core::Emulator& emulator = Core::Emulator::GetInstance(); // Use the correct instance method
+    emulator.StopEmulation();
+
+    isGameRunning = false;
+    QMessageBox::information(this, tr("Stop Game"), tr("Game has been stopped successfully."));
+
+    SDL_Event quitEvent;
+    quitEvent.type = SDL_EVENT_QUIT + 1;
+    SDL_PushEvent(&quitEvent);
+}
+
+void MainWindow::RestartGame() {
+    if (!isGameRunning) {
+        QMessageBox::warning(this, tr("Restart Game"), tr("No game is running to restart."));
+        return;
+    }
+
+    std::vector<std::string> recentFiles = Config::getRecentFiles();
+    if (recentFiles.empty()) {
+        QMessageBox::warning(this, tr("Restart Game"), tr("No recent game found."));
+        return;
+    }
+
+    QString lastGamePath = QString::fromStdString(recentFiles.front());
+
+    // Stop the current game first
+    StopGame();
+
+    // Wait for cleanup
+    QThread::sleep(1);
+
+    // Restart the game
+    StartEmulator(Common::FS::PathFromQString(lastGamePath));
 }
