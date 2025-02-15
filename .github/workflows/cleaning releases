@@ -1,0 +1,25 @@
+name: Delete Specific Releases
+
+on:
+  workflow_dispatch:  # Allows manual execution of the workflow
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Configure GitHub CLI
+      run: |
+        sudo apt update
+        sudo apt install gh
+        
+    - name: Authenticate with GitHub CLI
+      run: gh auth login --with-token < ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Delete specific releases
+      run: |
+        # Listing all releases and filtering only those with "Release" or "PRTBB"
+        releases=$(gh release list --json "name,id" --jq '.[] | select(.name | test("^(Release|PRTBB)$")) | .id')
+        for release in $releases; do
+          gh release delete "$release" --yes
+        done
