@@ -17,7 +17,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
         run: |
-          for TAG in Release PRTBB; do
+          for TAG in Releases; do
             RELEASES=$(gh release list --repo diegolix29/shadPS4 --json tagName,tagName -q ".[] | select(.tagName == \"$TAG\") | .tagName")
             if [ -n "$RELEASES" ]; then
               for RELEASE_tagName in $RELEASES; do
