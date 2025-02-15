@@ -75,7 +75,8 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
 
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Close)->setFocus();
 
-    channelMap = {{tr("Release"), "Release"}, {tr("Nightly"), "Nightly"}};
+    channelMap = {
+        {tr("Full-Souls"), "Full-Souls"}, {tr("mainBB"), "mainBB"}, {tr("PRTBB"), "PRTBB"}};
     logTypeMap = {{tr("async"), "async"}, {tr("sync"), "sync"}};
     fullscreenModeMap = {{tr("Borderless"), "Borderless"}, {tr("True"), "True"}};
     chooseHomeTabMap = {{tr("General"), "General"},   {tr("GUI"), "GUI"},
