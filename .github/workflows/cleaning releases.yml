@@ -1,9 +1,7 @@
-name: Delete Releases with Specific Tags
+name: Delete Releases with Tags Release and PRTBB
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:  # Allows manual triggering from GitHub Actions tab
 
 jobs:
   delete-releases:
