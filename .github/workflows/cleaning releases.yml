@@ -18,9 +18,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
         run: |
           for TAG in Release PRTBB; do
-            RELEASE_ID=$(gh release list --repo diegolix29/shadPS4 --json tagName,id -q ".[] | select(.tagName == \"$TAG\") | .id")
-            if [ ! -z "$RELEASE_ID" ]; then
-              echo "Deleting release with tag $TAG (ID: $RELEASE_ID)"
+            RELEASE_tagName=$(gh release list --repo diegolix29/shadPS4 --json tagName,tagName -q ".[] | select(.tagName == \"$TAG\") | .tagName")
+            if [ ! -z "$RELEASE_tagName" ]; then
+              echo "Deleting release with tag $TAG (tagName: $RELEASE_tagName)"
               gh release delete "$TAG" --repo diegolix29/shadPS4 --yes
             else
               echo "No release found with tag: $TAG"
