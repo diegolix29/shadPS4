@@ -1,6 +1,15 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#ifdef ENABLE_QT_GUI
+#include <QCoreApplication>
+#include <QFileInfo>
+#include <QProcess>
+#include <QStandardPaths>
+#include <QString>
+#include <QThread>
+#include "common/memory_patcher.h"
+#endif
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_hints.h"
 #include "SDL3/SDL_init.h"
@@ -363,12 +372,66 @@ void WindowSDL::WaitEvent() {
             break;
         }
         break;
+
     case SDL_EVENT_QUIT:
         is_open = false;
         break;
-    default:
+    case SDL_EVENT_QUIT + 1:
+        is_open = false;
+        RelaunchEmulator();
         break;
     }
+}
+
+void WindowSDL::RelaunchEmulator() {
+#ifdef Q_OS_WIN
+    QString emulatorPath = QCoreApplication::applicationFilePath(); // Get current executable path
+    QString emulatorDir = QFileInfo(emulatorPath).absolutePath();   // Get working directory
+    QString scriptFileName =
+        QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/relaunch.ps1";
+    QString scriptContent =
+        QStringLiteral(
+            "Start-Sleep -Seconds 2\n"
+            "Start-Process -FilePath '%1' -WorkingDirectory ([WildcardPattern]::Escape('%2'))\n")
+            .arg(emulatorPath, emulatorDir);
+
+    QFile scriptFile(scriptFileName);
+    if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&scriptFile);
+        scriptFile.write("\xEF\xBB\xBF"); // UTF-8 BOM
+        out << scriptContent;
+        scriptFile.close();
+
+        // Execute PowerShell script
+        QProcess::startDetached("powershell.exe", QStringList() << "-ExecutionPolicy"
+                                                                << "Bypass"
+                                                                << "-File" << scriptFileName);
+    }
+
+#elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
+    QString emulatorPath = QCoreApplication::applicationFilePath(); // Get current executable path
+    QString emulatorDir = QFileInfo(emulatorPath).absolutePath();   // Get working directory
+    QString scriptFileName = "/tmp/relaunch.sh";
+    QString scriptContent = QStringLiteral("#!/bin/bash\n"
+                                           "sleep 2\n"
+                                           "cd '%2'\n"
+                                           "./'%1' &\n")
+                                .arg(QFileInfo(emulatorPath).fileName(), emulatorDir);
+
+    QFile scriptFile(scriptFileName);
+    if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&scriptFile);
+        out << scriptContent;
+        scriptFile.close();
+
+        // Make script executable
+        scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner |
+                                  QFileDevice::WriteOwner);
+
+        // Execute bash script
+        QProcess::startDetached("bash", QStringList() << scriptFileName);
+    }
+#endif
 }
 
 void WindowSDL::InitTimers() {
