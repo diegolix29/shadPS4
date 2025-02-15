@@ -1,44 +1,41 @@
-name: Delete Releases with Tags Release and PRTBB
+name: Delete Releases with Specific Tags
 
 on:
-  workflow_dispatch:  # Allows manual triggering from GitHub Actions tab
+  push:
+    branches:
+      - main
 
 jobs:
-  cleanup:
+  delete-releases:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Set up GitHub CLI
-        run: |
-          sudo apt update
-          sudo apt install -y gh
+      - name: Check out the repository
+        uses: actions/checkout@v3
 
-      - name: Delete Releases with Tags Release and PRTBB
+      - name: Delete releases with specific tags
         env:
           GH_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
         run: |
-          for TAG in Release; do
-            EXISTS=$(gh release list --repo diegolix29/shadPS4 --json tagName -q ".[] | select(.tagName == \"$TAG\") | .tagName")
-            if [ -n "$EXISTS" ]; then
-              echo "Deleting release with tag: $TAG"
-              gh release delete "$TAG" --repo diegolix29/shadPS4 --yes
-            else
-              echo "No release found with tag: $TAG"
-            fi
-          done
+          # Get all releases
+          releases=$(curl -s -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/diegolix29/shadPS4/releases")
 
-      - name: Delete Tags Release and PRTBB
-        env:
-          GH_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
-        run: |
-          git fetch --prune --tags
-          for TAG in Release; do
-            if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
-              echo "Deleting local tag: $TAG"
-              git tag -d "$TAG"  # Delete local tag
-              echo "Deleting remote tag: $TAG"
-              git push origin --delete "$TAG"  # Delete remote tag
-            else
-              echo "No tag found: $TAG"
+          # Loop through each release and check if it has the specific tags
+          for release in $(echo "$releases" | jq -r '.[] | @base64'); do
+            _jq() {
+              echo ${release} | base64 --decode | jq -r ${1}
+            }
+
+            tag_name=$(_jq '.tag_name')
+            release_id=$(_jq '.id')
+
+            # Check if the release tag matches the desired tags
+            if [[ "$tag_name" == "release-shadPS4" ]] || [[ "$tag_name" == "PRTBB-shadPS4" ]]; then
+              echo "Deleting release with tag $tag_name"
+              
+              # Delete the release
+              curl -X DELETE -H "Authorization: token $GH_TOKEN" \
+                "https://api.github.com/repos/diegolix29/shadPS4/releases/$release_id"
             fi
           done
