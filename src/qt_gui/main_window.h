@@ -67,10 +67,9 @@ private:
     void SetUiIcons(bool isWhite);
     void InstallPkg();
     void BootGame();
-#ifdef ENABLE_QT_GUI
-    QString getLastEbootPath();
-    std::filesystem::path lastGamePath;
-#endif
+    std::string lastGamePath;
+    std::string getLastEbootPath();
+
     void AddRecentFiles(QString filePath);
     void LoadTranslation();
     void PlayBackgroundMusic();
@@ -104,9 +103,6 @@ private:
         std::make_shared<CompatibilityInfoClass>();
 
     QTranslator* translator;
-
-    // Private member variable to store the currently loaded game path
-    QString currentGameFilePath;
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
