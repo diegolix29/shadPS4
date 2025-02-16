@@ -767,12 +767,6 @@ void MainWindow::BootGame() {
         }
     }
 }
-#ifdef ENABLE_QT_GUI
-
-QString MainWindow::getLastEbootPath() {
-    return QString();
-}
-#endif
 
 void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int nPkg) {
     if (Loader::DetectFileType(file) == Loader::FileTypes::Pkg) {
@@ -1247,12 +1241,9 @@ void MainWindow::StartEmulator(std::filesystem::path path) {
         QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Game is already running!")));
         return;
     }
-
-    lastGamePath = path; // Store the last played game
     isGameRunning = true;
 
 #ifdef __APPLE__
-    // SDL on macOS requires main thread.
     Core::Emulator emulator;
     emulator.Run(path);
 #else
