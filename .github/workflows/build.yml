@@ -541,7 +541,7 @@ jobs:
 
         echo "Current release timestamp: $current_published_ts"
 
-        echo "$releases" | jq -c '.[] | select(.draft == false and .prerelease == false)' | while read -r release; do
+        echo "$releases" | jq -c '.[] | select(.draft == false and .prerelease == false and (.tag_name | startswith("release-shadPS4-")))' | while read -r release; do
           release_date=$(echo "$release" | jq -r '.published_at')
           release_id=$(echo "$release" | jq -r '.id')
           release_tag=$(echo "$release" | jq -r '.tag_name')
@@ -551,7 +551,7 @@ jobs:
           echo "Checking release: $release_tag from $release_date"
 
           if [[ "$release_date_ts" -lt "$current_published_ts" ]]; then
-            echo "Deleting old release: $release_id ($release_tag)"
+            echo "Deleting old Full-Souls release: $release_id ($release_tag)"
 
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
 
