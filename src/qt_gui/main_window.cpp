@@ -60,7 +60,7 @@ bool MainWindow::Init() {
     SetLastIconSizeBullet();
     GetPhysicalDevices();
     // show ui
-    setMinimumSize(350, minimumSizeHint().height());
+    setMinimumSize(720, 405);
     std::string window_title = "";
     if (Common::isRelease) {
         window_title = fmt::format("shadPS4 v{}", Common::VERSION);
@@ -976,6 +976,9 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
                 dialog.setLabelText(extractmsg);
                 dialog.setAutoClose(true);
                 dialog.setRange(0, nfiles);
+
+                dialog.setGeometry(QStyle::alignedRect(Qt::LeftToRight, Qt::AlignCenter,
+                                                       dialog.size(), this->geometry()));
 
                 QFutureWatcher<void> futureWatcher;
                 connect(&futureWatcher, &QFutureWatcher<void>::finished, this, [=, this]() {
