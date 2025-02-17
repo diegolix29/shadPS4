@@ -507,7 +507,7 @@ jobs:
         name: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
         tag: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
         draft: false
-        release: true
+        prerelease: false
         body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }})"
         artifacts: ./artifacts/*.zip
          
@@ -535,40 +535,30 @@ jobs:
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
         
-        # Get current releases
         releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
 
-        # Remove extra quotes from captured date
         CURRENT_PUBLISHED_AT=$(echo $CURRENT_PUBLISHED_AT | tr -d '"')
 
-        # Convert CURRENT_PUBLISHED_AT to Unix timestamp
         current_published_ts=$(date -u -d "$CURRENT_PUBLISHED_AT" +%s)
 
-        # Identify releases
         echo "$releases" | jq -c '.[] | select(.draft == false and .prerelease == false)' | while read -r release; do
           release_date=$(echo "$release" | jq -r '.published_at')
           release_id=$(echo "$release" | jq -r '.id')
           release_tag=$(echo "$release" | jq -r '.tag_name')
 
-          # Remove extra quotes from captured date
-          release_date=$(echo $release_date | tr -d '"')
-
-          # Convert release_date to Unix timestamp
           release_date_ts=$(date -u -d "$release_date" +%s)
-                    
-          # Compare timestamps and delete old releases
+
+          echo "Checking release $release_tag from $release_date"
+
           if [[ "$release_date_ts" -lt "$current_published_ts" ]]; then
-            echo "Deleting old release: $release_id from $release_date with tag: $release_tag"
-            
-            # Delete the release
+            echo "Deleting old release: $release_id ($release_tag)"
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "$api_url/$release_id"
-            
-            # Delete the tag
+
+            echo "Deleting tag: $release_tag"
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$release_tag"
-            
-            # Delay to prevent API rate limits
+
             sleep 1
           else
-            echo "Skipping release: $release_id (newer or same date)"
+            echo "Skipping newer release: $release_id ($release_tag)"
           fi
         done
