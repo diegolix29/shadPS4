@@ -494,9 +494,14 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
-        api_url="https://api.github.com/repos/${{ github.repository }}"
-        latest_release_info=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url/releases/latest")
-        echo "last_release_tag=$(echo "$latest_release_info" | jq -r '.tag_name')" >> $GITHUB_ENV
+        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
+
+        latest_release_info=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url" | jq -r 'sort_by(.published_at) | last')
+
+        last_release_tag=$(echo "$latest_release_info" | jq -r '.tag_name')
+
+        echo "Latest release tag: $last_release_tag"
+        echo "last_release_tag=$last_release_tag" >> $GITHUB_ENV
 
     - name: Create release on GitHub
       id: create_release
@@ -516,26 +521,25 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        
-        releases=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-        
-        current_release=$(echo "$releases" | jq -c '.[] | select(.prerelease == false) | .published_at' | sort -r | head -n 1)
-        
-        current_release=$(echo $current_release | tr -d '"')
-                
-        echo "CURRENT_PUBLISHED_AT=$current_release" >> $GITHUB_ENV
+
+        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
+
+        CURRENT_PUBLISHED_AT=$(echo "$releases" | jq -r 'map(select(.draft == false and .prerelease == false)) | sort_by(.published_at) | last | .published_at')
+
+        echo "Latest published release date: $CURRENT_PUBLISHED_AT"
+        echo "CURRENT_PUBLISHED_AT=$CURRENT_PUBLISHED_AT" >> $GITHUB_ENV
     
     - name: Delete old releases and tags
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        
+
         releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
 
-        CURRENT_PUBLISHED_AT=$(echo $CURRENT_PUBLISHED_AT | tr -d '"')
-
         current_published_ts=$(date -u -d "$CURRENT_PUBLISHED_AT" +%s)
+
+        echo "Current release timestamp: $current_published_ts"
 
         echo "$releases" | jq -c '.[] | select(.draft == false and .prerelease == false)' | while read -r release; do
           release_date=$(echo "$release" | jq -r '.published_at')
@@ -544,17 +548,17 @@ jobs:
 
           release_date_ts=$(date -u -d "$release_date" +%s)
 
-          echo "Checking release $release_tag from $release_date"
+          echo "Checking release: $release_tag from $release_date"
 
           if [[ "$release_date_ts" -lt "$current_published_ts" ]]; then
             echo "Deleting old release: $release_id ($release_tag)"
-            curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "$api_url/$release_id"
 
-            echo "Deleting tag: $release_tag"
+            curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$release_tag"
 
             sleep 1
           else
-            echo "Skipping newer release: $release_id ($release_tag)"
+            echo "Skipping release: $release_id (newer or same date)"
           fi
         done
