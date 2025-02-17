@@ -506,7 +506,7 @@ jobs:
         name: "PRTBB-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
         tag: "PRTBB-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
         draft: false
-        PRTBB: true
+        prerelease: false
         body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }})"
         artifacts: ./artifacts/*.zip
          
@@ -520,7 +520,7 @@ jobs:
         releases=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url")
         
         # Capture the most recent PRTBB (assuming the first one is the latest)
-        current_release=$(echo "$releases" | jq -c '.[] | select(.PRTBB == true) | .published_at' | sort -r | head -n 1)
+        current_release=$(echo "$releases" | jq -c '.[] | select(.prerelease == false) | .published_at' | sort -r | head -n 1)
         
         # Remove extra quotes from captured date
         current_release=$(echo $current_release | tr -d '"')
