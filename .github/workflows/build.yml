@@ -536,33 +536,38 @@ jobs:
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
         
         # Get current releases
-        releases=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-                
+        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
+
         # Remove extra quotes from captured date
         CURRENT_PUBLISHED_AT=$(echo $CURRENT_PUBLISHED_AT | tr -d '"')
-        
-        # Convert CURRENT_PUBLISHED_AT para timestamp Unix
-        current_published_ts=$(date -d "$CURRENT_PUBLISHED_AT" +%s)
-        
+
+        # Convert CURRENT_PUBLISHED_AT to Unix timestamp
+        current_published_ts=$(date -u -d "$CURRENT_PUBLISHED_AT" +%s)
+
         # Identify releases
-        echo "$releases" | jq -c '.[] | select(.release == true)' | while read -r release; do
+        echo "$releases" | jq -c '.[] | select(.draft == false and .prerelease == false)' | while read -r release; do
           release_date=$(echo "$release" | jq -r '.published_at')
           release_id=$(echo "$release" | jq -r '.id')
           release_tag=$(echo "$release" | jq -r '.tag_name')
-          
+
           # Remove extra quotes from captured date
           release_date=$(echo $release_date | tr -d '"')
-          
-          # Convert release_date para timestamp Unix
-          release_date_ts=$(date -d "$release_date" +%s)
+
+          # Convert release_date to Unix timestamp
+          release_date_ts=$(date -u -d "$release_date" +%s)
                     
           # Compare timestamps and delete old releases
           if [[ "$release_date_ts" -lt "$current_published_ts" ]]; then
             echo "Deleting old release: $release_id from $release_date with tag: $release_tag"
+            
             # Delete the release
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "$api_url/$release_id"
+            
             # Delete the tag
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$release_tag"
+            
+            # Delay to prevent API rate limits
+            sleep 1
           else
             echo "Skipping release: $release_id (newer or same date)"
           fi
