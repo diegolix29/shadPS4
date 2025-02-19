@@ -1269,7 +1269,6 @@ void MainWindow::StopGame() {
 
     if (isGameRunning == true)
         ;
-    ShowMessageBox("Stop Game", "Game has been stopped successfully.");
     SDL_Event quitEvent;
     quitEvent.type = SDL_EVENT_QUIT + 1;
     SDL_PushEvent(&quitEvent);
