@@ -170,7 +170,6 @@ void SDLInputEngine::Init() {
     }
 }
 
-
 void SDLInputEngine::SetLightBarRGB(u8 r, u8 g, u8 b) {
     if (m_gamepad) {
         SDL_SetGamepadLED(m_gamepad, r, g, b);
