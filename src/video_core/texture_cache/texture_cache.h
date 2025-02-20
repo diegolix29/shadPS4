@@ -56,7 +56,6 @@ public:
         ImageInfo info;
         ImageViewInfo view_info;
         BindingType type{BindingType::Texture};
-
         BaseDesc() = default;
         BaseDesc(BindingType type_, ImageInfo info_, ImageViewInfo view_info_) noexcept
             : info{std::move(info_)}, view_info{std::move(view_info_)}, type{type_} {}
@@ -64,9 +63,9 @@ public:
 
     struct TextureDesc : public BaseDesc {
         TextureDesc() = default;
-        TextureDesc(const AmdGpu::Image& image, const Shader::ImageResource& desc, bool is_storage)
-            : BaseDesc{is_storage ? BindingType::Storage : BindingType::Texture,
-                       ImageInfo{image, desc}, ImageViewInfo{image, desc, is_storage}} {}
+        TextureDesc(const AmdGpu::Image& image, const Shader::ImageResource& desc)
+            : BaseDesc{desc.is_written ? BindingType::Storage : BindingType::Texture,
+                       ImageInfo{image, desc}, ImageViewInfo{image, desc}} {}
     };
 
     struct RenderTargetDesc : public BaseDesc {

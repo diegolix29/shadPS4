@@ -320,29 +320,6 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
     });
 }
 
-std::pair<Buffer*, u32> BufferCache::ObtainHostUBO(std::span<const u32> data) {
-    static constexpr u64 StreamThreshold = CACHING_PAGESIZE;
-    ASSERT(data.size_bytes() <= StreamThreshold);
-    static constexpr vk::MemoryBarrier READ_BARRIER{
-        .srcAccessMask = vk::AccessFlagBits::eMemoryWrite,
-        .dstAccessMask = vk::AccessFlagBits::eTransferRead | vk::AccessFlagBits::eTransferWrite,
-    };
-    static constexpr vk::MemoryBarrier WRITE_BARRIER{
-        .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
-        .dstAccessMask = vk::AccessFlagBits::eMemoryRead | vk::AccessFlagBits::eMemoryWrite,
-    };
-    const auto cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands,
-                           vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlagBits::eByRegion,
-                           READ_BARRIER, {}, {});
-    const u64 offset = stream_buffer.Copy(reinterpret_cast<VAddr>(data.data()), data.size_bytes(),
-                                          instance.UniformMinAlignment());
-    cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands,
-                           vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlagBits::eByRegion,
-                           WRITE_BARRIER, {}, {});
-    return {&stream_buffer, offset};
-}
-
 std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, bool is_written,
                                                   bool is_texel_buffer, BufferId buffer_id) {
     // For small uniform buffers that have not been modified by gpu
