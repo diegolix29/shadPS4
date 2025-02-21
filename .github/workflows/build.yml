@@ -81,7 +81,7 @@ jobs:
             ${{ env.cache-name }}-
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.14
+      uses: hendrikmuhs/ccache-action@v1.2.17
       env:
           cache-name: ${{ runner.os }}-sdl-cache-cmake-build
       with:
@@ -120,7 +120,7 @@ jobs:
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4
       with:
-        version: 6.8.2
+        version: 6.9.0
         host: windows
         target: desktop
         arch: win64_msvc2022_64
@@ -139,7 +139,7 @@ jobs:
             ${{ env.cache-name }}-
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.14
+      uses: hendrikmuhs/ccache-action@v1.2.17
       env:
           cache-name: ${{ runner.os }}-qt-cache-cmake-build
       with:
@@ -195,7 +195,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.14
+      uses: hendrikmuhs/ccache-action@v1.2.17
       env:
           cache-name: ${{runner.os}}-sdl-cache-cmake-build
       with:
@@ -237,7 +237,7 @@ jobs:
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4
       with:
-        version: 6.8.2
+        version: 6.9.0
         host: mac
         target: desktop
         arch: clang_64
@@ -256,7 +256,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.14
+      uses: hendrikmuhs/ccache-action@v1.2.17
       env:
           cache-name: ${{runner.os}}-qt-cache-cmake-build
       with:
@@ -305,7 +305,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.14
+      uses: hendrikmuhs/ccache-action@v1.2.17
       env:
           cache-name: ${{ runner.os }}-sdl-cache-cmake-build
       with:
@@ -361,7 +361,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.14
+      uses: hendrikmuhs/ccache-action@v1.2.17
       env:
           cache-name: ${{ runner.os }}-qt-cache-cmake-build
       with:
@@ -405,7 +405,7 @@ jobs:
           restore-keys: | 
             ${{ env.cache-name }}- 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.14
+      uses: hendrikmuhs/ccache-action@v1.2.17
       env:
           cache-name: ${{ runner.os }}-sdl-gcc-cache-cmake-build
       with:
@@ -436,7 +436,7 @@ jobs:
           restore-keys: | 
             ${{ env.cache-name }}- 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.14
+      uses: hendrikmuhs/ccache-action@v1.2.17
       env:
           cache-name: ${{ runner.os }}-qt-gcc-cache-cmake-build
       with:
