@@ -736,7 +736,7 @@ void MainWindow::RestartGame() {
         qDebug() << "No game is currently running to restart.";
     }
 }
-
+bool isTable;
 void MainWindow::SearchGameTable(const QString& text) {
     if (isTableList) {
         if (isTable != true) {
