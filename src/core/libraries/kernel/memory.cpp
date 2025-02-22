@@ -26,6 +26,13 @@ u64 PS4_SYSV_ABI sceKernelGetDirectMemorySize() {
 
 int PS4_SYSV_ABI sceKernelAllocateDirectMemory(s64 searchStart, s64 searchEnd, u64 len,
                                                u64 alignment, int memoryType, s64* physAddrOut) {
+    // ew
+    constexpr u64 GFX_GraphicsPrivate_Address = 0x904732DD8;
+    *reinterpret_cast<u64*>(GFX_GraphicsPrivate_Address) = 0x8EF00000LL * 1.25;
+
+    constexpr u64 GFX_GraphicsPrivateB_Address = 0x904732DE0;
+    *reinterpret_cast<u64*>(GFX_GraphicsPrivateB_Address) = 0x37600000LL * 2;
+
     if (searchStart < 0 || searchEnd < 0) {
         LOG_ERROR(Kernel_Vmm, "Invalid parameters!");
         return ORBIS_KERNEL_ERROR_EINVAL;
