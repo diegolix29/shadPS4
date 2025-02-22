@@ -39,7 +39,6 @@ public:
     void InstallDirectory();
     void StartGame();
     void StopGameforUpdate(bool shouldRelaunch);
-    void StopGame();
     std::string lastGamePath;
     std::string getLastEbootPath();
     bool isGameRunning = false;

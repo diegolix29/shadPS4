@@ -1292,21 +1292,6 @@ void MainWindow::StopGameforUpdate(bool shouldRelaunch) {
 
 void MainWindow::StopGame() {
     if (!isGameRunning) {
-        return;
-    }
-
-    Core::Emulator& emulator = Core::Emulator::GetInstance();
-    emulator.StopEmulation();
-
-    if (isGameRunning == true)
-        ;
-    SDL_Event quitEvent;
-    quitEvent.type = SDL_EVENT_QUIT + 1;
-    SDL_PushEvent(&quitEvent);
-}
-
-void MainWindow::StopGame() {
-    if (!isGameRunning) {
         ShowMessageBox("Stop Game", "No game is currently running.");
         return;
     }
@@ -1321,17 +1306,11 @@ void MainWindow::StopGame() {
     SDL_PushEvent(&quitEvent);
 }
 
-std::string MainWindow::getLastEbootPath() {
-    return std::string();
-}
-
 void MainWindow::RestartGame() {
     if (!isGameRunning) {
         ShowMessageBox("Restart Game", "No game is running to restart.");
         return;
     }
-
-    std::string lastGamePath = getLastEbootPath();
 
     if (lastGamePath.empty()) {
         ShowMessageBox("Restart Game", "No recent game found.");

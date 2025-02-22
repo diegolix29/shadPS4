@@ -98,7 +98,6 @@ private:
     void OnResize();
     void OnKeyboardMouseInput(const SDL_Event* event);
     void OnGamepadEvent(const SDL_Event* event);
-    void RelaunchEmulator();
 
 private:
     s32 width;
