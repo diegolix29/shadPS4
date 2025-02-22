@@ -38,6 +38,11 @@ public:
     void InstallDragDropPkg(std::filesystem::path file, int pkgNum, int nPkg);
     void InstallDirectory();
     void StartGame();
+    void StopGameforUpdate(bool shouldRelaunch);
+    void StopGame();
+    std::string lastGamePath;
+    std::string getLastEbootPath();
+    bool isGameRunning = false;
     void StopGame();
     void RestartGame();
 
@@ -67,8 +72,7 @@ private:
     void SetUiIcons(bool isWhite);
     void InstallPkg();
     void BootGame();
-    std::string lastGamePath;
-    std::string getLastEbootPath();
+    bool stopButtonClicked = false;
 
     void AddRecentFiles(QString filePath);
     void LoadTranslation();
@@ -77,7 +81,6 @@ private:
     void StartEmulator(std::filesystem::path);
     bool isIconBlack = false;
     bool isTableList = true;
-    bool isGameRunning = false;
     QActionGroup* m_icon_size_act_group = nullptr;
     QActionGroup* m_list_mode_act_group = nullptr;
     QActionGroup* m_theme_act_group = nullptr;

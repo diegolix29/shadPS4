@@ -232,7 +232,7 @@ void MainWindow::CheckUpdateMain(bool checkSave) {
             return;
         }
     }
-    auto checkUpdate = new CheckUpdate(false);
+    auto checkUpdate = new CheckUpdate(this, false, this);
     checkUpdate->exec();
 }
 #endif
@@ -342,7 +342,7 @@ void MainWindow::CreateConnects() {
 
 #ifdef ENABLE_UPDATER
     connect(ui->updaterAct, &QAction::triggered, this, [this]() {
-        auto checkUpdate = new CheckUpdate(true);
+        auto checkUpdate = new CheckUpdate(this, true, this);
         checkUpdate->exec();
     });
 #endif
@@ -1159,6 +1159,10 @@ void MainWindow::HandleResize(QResizeEvent* event) {
     }
 }
 
+std::string MainWindow::getLastEbootPath() {
+    return std::string();
+}
+
 void MainWindow::AddRecentFiles(QString filePath) {
     std::vector<std::string> vec = Config::getRecentFiles();
     if (!vec.empty()) {
@@ -1269,6 +1273,36 @@ void MainWindow::StartEmulator(std::filesystem::path path) {
     });
     emulator_thread.detach();
 #endif
+}
+
+void MainWindow::StopGameforUpdate(bool shouldRelaunch) {
+    if (!isGameRunning) {
+        return;
+    }
+
+    Core::Emulator& emulator = Core::Emulator::GetInstance();
+    emulator.StopEmulation();
+
+    SDL_Event quitEvent;
+    quitEvent.type = SDL_EVENT_QUIT;
+    SDL_PushEvent(&quitEvent);
+
+    isGameRunning = false;
+}
+
+void MainWindow::StopGame() {
+    if (!isGameRunning) {
+        return;
+    }
+
+    Core::Emulator& emulator = Core::Emulator::GetInstance();
+    emulator.StopEmulation();
+
+    if (isGameRunning == true)
+        ;
+    SDL_Event quitEvent;
+    quitEvent.type = SDL_EVENT_QUIT + 1;
+    SDL_PushEvent(&quitEvent);
 }
 
 void MainWindow::StopGame() {
