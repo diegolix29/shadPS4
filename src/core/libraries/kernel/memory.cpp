@@ -28,7 +28,7 @@ int PS4_SYSV_ABI sceKernelAllocateDirectMemory(s64 searchStart, s64 searchEnd, u
                                                u64 alignment, int memoryType, s64* physAddrOut) {
     // ew
     constexpr u64 GFX_GraphicsPrivate_Address = 0x904732DD8;
-    *reinterpret_cast<u64*>(GFX_GraphicsPrivate_Address) = 0x8EF00000LL * 1.875;
+    *reinterpret_cast<u64*>(GFX_GraphicsPrivate_Address) = 0x8EF00000LL * 1.750;
 
     constexpr u64 GFX_GraphicsPrivateB_Address = 0x904732DE0;
     *reinterpret_cast<u64*>(GFX_GraphicsPrivateB_Address) = 0x37600000LL * 4;
