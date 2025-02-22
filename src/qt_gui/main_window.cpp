@@ -1283,7 +1283,7 @@ void MainWindow::StopGameforUpdate(bool shouldRelaunch) {
     Core::Emulator& emulator = Core::Emulator::GetInstance();
     emulator.StopEmulation();
 
-    SDL_Event quitEvent;
+    SDL_Event quitEvent{};
     quitEvent.type = SDL_EVENT_QUIT;
     SDL_PushEvent(&quitEvent);
 
@@ -1301,7 +1301,7 @@ void MainWindow::StopGame() {
 
     if (isGameRunning == true)
         ;
-    SDL_Event quitEvent;
+    SDL_Event quitEvent{};
     quitEvent.type = SDL_EVENT_QUIT + 1;
     SDL_PushEvent(&quitEvent);
 }
