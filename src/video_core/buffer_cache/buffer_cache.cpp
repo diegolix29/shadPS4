@@ -245,20 +245,10 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
         InlineData(dst, std::bit_cast<void*>(src), num_bytes, dst_gds);
         return;
     }
-    auto& src_buffer = [&] -> const Buffer& {
-        if (src_gds) {
-            return gds_buffer;
-        }
-        const BufferId buffer_id = FindBuffer(src, num_bytes);
-        return slot_buffers[buffer_id];
-    }();
-    auto& dst_buffer = [&] -> const Buffer& {
-        if (dst_gds) {
-            return gds_buffer;
-        }
-        const BufferId buffer_id = FindBuffer(dst, num_bytes);
-        return slot_buffers[buffer_id];
-    }();
+
+    auto& src_buffer = src_gds ? gds_buffer : slot_buffers[FindBuffer(src, num_bytes)];
+    auto& dst_buffer = dst_gds ? gds_buffer : slot_buffers[FindBuffer(dst, num_bytes)];
+
     vk::BufferCopy region{
         .srcOffset = src_buffer.Offset(src),
         .dstOffset = dst_buffer.Offset(dst),
