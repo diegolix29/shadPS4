@@ -60,6 +60,8 @@ struct Liverpool {
     static constexpr u32 ShRegWordOffset = 0x2C00;
     static constexpr u32 NumRegs = 0xD000;
 
+    std::thread::id GPUThreadID;
+
     using UserData = std::array<u32, NumShaderUserData>;
 
     struct BinaryInfo {
@@ -83,8 +85,7 @@ struct Liverpool {
         u32 crc32;
 
         bool Valid() const {
-            return shader_hash && crc32 &&
-                   (std::memcmp(signature.data(), signature_ref, sizeof(signature_ref)) == 0);
+            return std::memcmp(signature.data(), signature_ref, sizeof(signature_ref)) == 0;
         }
     };
 
