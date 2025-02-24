@@ -43,22 +43,6 @@ BufferCache::~BufferCache() = default;
 void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
     const bool is_tracked = IsRegionRegistered(device_addr, size);
     if (is_tracked) {
-        if (memory_tracker.IsRegionGpuModified(device_addr, size)) {
-            if (std::this_thread::get_id() != liverpool->GPUThreadID) {
-
-                std::binary_semaphore commandWait{0};
-                liverpool->SendCommand([this, &commandWait, device_addr, size] {
-                    Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
-                    DownloadBufferMemory(buffer, device_addr, size);
-                    commandWait.release();
-                });
-                commandWait.acquire();
-
-            } else {
-                Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
-                DownloadBufferMemory(buffer, device_addr, size);
-            }
-        }
         // Mark the page as CPU modified to stop tracking writes.
         memory_tracker.MarkRegionAsCpuModified(device_addr, size);
     }
