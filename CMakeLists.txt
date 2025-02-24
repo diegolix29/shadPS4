@@ -962,12 +962,6 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
 )
 endif()
 
-set(RESOURCEFOLDER Resources/bronze.png
-    		   Resources/gold.png
-    		   Resources/platinum.png
-    		   Resources/silver.png
-)
-
 if (ENABLE_QT_GUI)
     qt_add_executable(shadps4
         ${AUDIO_CORE}
@@ -979,7 +973,6 @@ if (ENABLE_QT_GUI)
         ${SHADER_RECOMPILER}
         ${VIDEO_CORE}
         ${EMULATOR}
-	${RESOURCEFOLDER}
         src/images/shadPS4.icns
     )
 else()
@@ -992,7 +985,6 @@ else()
         ${SHADER_RECOMPILER}
         ${VIDEO_CORE}
         ${EMULATOR}
-        ${RESOURCEFOLDER}
         src/main.cpp
         src/emulator.cpp
         src/emulator.h
@@ -1125,7 +1117,10 @@ include(CMakeRC)
 cmrc_add_resource_library(embedded-resources
         ALIAS res::embedded
         NAMESPACE res
-        ${RESOURCEFOLDER})
+        src/images/bronze.png
+        src/images/gold.png
+        src/images/platinum.png
+        src/images/silver.png)
 
 target_link_libraries(shadps4 PRIVATE res::embedded)
 
