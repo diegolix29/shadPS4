@@ -32,16 +32,16 @@ private:
     QString gameTrpPath_;
     TRP trp;
 
-    std::string GetTrpType(const QChar trp_) {
+    QString GetTrpType(const QChar trp_) {
         switch (trp_.toLatin1()) {
         case 'B':
-            return "bronze.png";
+            return "Bronze";
         case 'S':
-            return "silver.png";
+            return "Silver";
         case 'G':
-            return "gold.png";
+            return "Gold";
         case 'P':
-            return "platinum.png";
+            return "Platinum";
         }
         return "Unknown";
     }
