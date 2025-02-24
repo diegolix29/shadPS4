@@ -61,6 +61,8 @@ struct Liverpool {
     static constexpr u32 NumRegs = 0xD000;
     std::thread::id gpu_id;
 
+    std::thread::id GPUThreadID;
+
     using UserData = std::array<u32, NumShaderUserData>;
 
     struct BinaryInfo {
