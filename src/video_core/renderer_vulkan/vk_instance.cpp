@@ -16,6 +16,80 @@
 
 namespace Vulkan {
 
+static uint32_t FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties,
+                        vk::PhysicalDevice physicalDevice) {
+    vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) &&
+            (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("Failed to find suitable memory type.");
+}
+
+vk::Buffer CreateStagingBuffer(vk::Device device, vk::PhysicalDevice physicalDevice,
+                               vk::DeviceSize size, vk::DeviceMemory& stagingMemory,
+                               void*& mappedData) {
+    vk::BufferCreateInfo bufferInfo{
+        .size = size,
+        .usage = vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst,
+        .sharingMode = vk::SharingMode::eExclusive,
+    };
+
+    vk::Buffer stagingBuffer = device.createBuffer(bufferInfo).value;
+
+    vk::MemoryRequirements memRequirements = device.getBufferMemoryRequirements(stagingBuffer);
+
+    vk::MemoryAllocateInfo allocInfo{
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits,
+                                          vk::MemoryPropertyFlagBits::eHostVisible |
+                                              vk::MemoryPropertyFlagBits::eHostCoherent,
+                                          physicalDevice),
+    };
+
+    stagingMemory = device.allocateMemory(allocInfo).value;
+    device.bindBufferMemory(stagingBuffer, stagingMemory, 0);
+
+    mappedData = device.mapMemory(stagingMemory, 0, size).value;
+
+    return stagingBuffer;
+}
+
+void CopyBufferToCPU(vk::Device device, vk::CommandBuffer cmdBuffer, vk::Queue queue,
+                     vk::Buffer gpuBuffer, vk::Buffer stagingBuffer, vk::DeviceSize size,
+                     void* mappedData, void* localBuffer) {
+    vk::BufferCopy copyRegion{
+        .size = size,
+    };
+
+    cmdBuffer.copyBuffer(gpuBuffer, stagingBuffer, copyRegion);
+
+    vk::Fence fence = device.createFence({}).value;
+
+    vk::SubmitInfo submitInfo{
+        .commandBufferCount = 1,
+        .pCommandBuffers = &cmdBuffer,
+    };
+
+    queue.submit(submitInfo, fence);
+    device.waitForFences(fence, VK_TRUE, UINT64_MAX);
+
+    memcpy(localBuffer, mappedData, static_cast<size_t>(size));
+
+    device.destroyFence(fence);
+}
+
+void DestroyStagingBuffer(vk::Device device, vk::Buffer stagingBuffer,
+                          vk::DeviceMemory stagingMemory) {
+    device.unmapMemory(stagingMemory);
+    device.destroyBuffer(stagingBuffer);
+    device.freeMemory(stagingMemory);
+}
+
 namespace {
 
 std::vector<vk::PhysicalDevice> EnumeratePhysicalDevices(vk::UniqueInstance& instance) {
