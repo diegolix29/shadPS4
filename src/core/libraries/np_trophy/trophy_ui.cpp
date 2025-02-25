@@ -70,9 +70,7 @@ void TrophyUI::Draw() {
 
     SetNextWindowSize(window_size);
     SetNextWindowCollapsed(false);
-    SetNextWindowPos(ImVec2((io.DisplaySize.x - window_size.x) * 0.5f,
-                            (50 * AdjustHeight)
-                            ));
+    SetNextWindowPos(ImVec2((io.DisplaySize.x - window_size.x) * 0.5f, (50 * AdjustHeight)));
     KeepNavHighlight();
     if (Begin("Trophy Window", nullptr,
               ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
