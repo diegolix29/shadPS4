@@ -219,8 +219,16 @@ void BufferCache::BindIndexBuffer(u32 index_offset) {
 
 void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
     ASSERT_MSG(address % 4 == 0, "GDS offset must be dword aligned");
-    if (!is_gds && !IsRegionRegistered(address, num_bytes)) {
-        memcpy(std::bit_cast<void*>(address), value, num_bytes);
+
+    if (std::this_thread::get_id() != liverpool->GPUThreadID) {
+        std::binary_semaphore commandWait{0};
+
+        liverpool->SendCommand([this, &commandWait, address, value, num_bytes, is_gds] {
+            InlineData(address, value, num_bytes, is_gds);
+            commandWait.release();
+        });
+
+        commandWait.acquire();
         return;
     }
     scheduler.EndRendering();

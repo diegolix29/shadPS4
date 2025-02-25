@@ -56,6 +56,16 @@ public:
         VAddr end;
         bool has_stream_leap = false;
     };
+    static constexpr uint32_t READBACK_BUFFER_COUNT = 2;
+
+    struct ReadbackBuffer {
+        vk::Buffer buffer;       // Raw Vulkan buffer handle
+        vk::DeviceMemory memory; // Add this to manage memory binding
+        vk::Fence fence;
+    };
+
+    ReadbackBuffer readback_buffers[READBACK_BUFFER_COUNT];
+    uint32_t current_readback_index = 0;
 
 public:
     explicit BufferCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
@@ -80,6 +90,8 @@ public:
 
     /// Invalidates any buffer in the logical page range.
     void InvalidateMemory(VAddr device_addr, u64 size);
+
+    void* MapReadbackData();
 
     /// Binds host vertex buffers for the current draw.
     void BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline);
