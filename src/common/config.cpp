@@ -871,7 +871,7 @@ void load(const std::filesystem::path& path) {
 }
 
 void save(const std::filesystem::path& path) {
-    toml::value data;
+    toml::ordered_value data;
 
     std::error_code error;
     if (std::filesystem::exists(path, error)) {
@@ -879,7 +879,8 @@ void save(const std::filesystem::path& path) {
             std::ifstream ifs;
             ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
             ifs.open(path, std::ios_base::binary);
-            data = toml::parse(ifs, std::string{fmt::UTF(path.filename().u8string()).data});
+            data = toml::parse<toml::ordered_type_config>(
+                ifs, std::string{fmt::UTF(path.filename().u8string()).data});
         } catch (const std::exception& ex) {
             fmt::print("Exception trying to parse config file. Exception: {}\n", ex.what());
             return;
@@ -964,7 +965,7 @@ void save(const std::filesystem::path& path) {
 }
 
 void saveMainWindow(const std::filesystem::path& path) {
-    toml::value data;
+    toml::ordered_value data;
 
     std::error_code error;
     if (std::filesystem::exists(path, error)) {
@@ -972,7 +973,8 @@ void saveMainWindow(const std::filesystem::path& path) {
             std::ifstream ifs;
             ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
             ifs.open(path, std::ios_base::binary);
-            data = toml::parse(ifs, std::string{fmt::UTF(path.filename().u8string()).data});
+            data = toml::parse<toml::ordered_type_config>(
+                ifs, std::string{fmt::UTF(path.filename().u8string()).data});
         } catch (const std::exception& ex) {
             fmt::print("Exception trying to parse config file. Exception: {}\n", ex.what());
             return;
