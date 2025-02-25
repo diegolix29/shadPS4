@@ -17,7 +17,7 @@
 namespace Vulkan {
 
 static uint32_t FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties,
-                        vk::PhysicalDevice physicalDevice) {
+                               vk::PhysicalDevice physicalDevice) {
     vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
