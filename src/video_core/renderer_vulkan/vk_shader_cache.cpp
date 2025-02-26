@@ -1,7 +1,10 @@
-#include "vk_shader_cache.h"
-#include <fstream>
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include <filesystem>
+#include <fstream>
 #include <functional>
+#include "vk_shader_cache.h"
 
 namespace Vulkan {
 

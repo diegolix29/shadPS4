@@ -133,7 +133,7 @@ TileManager::TileManager(const Vulkan::Instance& instance, Vulkan::Scheduler& sc
             .stage = vk::ShaderStageFlagBits::eCompute,
             .module = module,
             .pName = "main",
-        };  
+        };
 
         const vk::DescriptorSetLayout set_layout = *desc_layout;
         const vk::PipelineLayoutCreateInfo layout_info = {

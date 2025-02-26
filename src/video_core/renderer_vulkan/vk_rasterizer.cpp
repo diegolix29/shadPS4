@@ -10,9 +10,9 @@
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_hle.h"
+#include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/texture_cache/image_view.h"
 #include "video_core/texture_cache/texture_cache.h"
-#include "video_core/renderer_vulkan/vk_shader_util.h"
 
 #ifdef MemoryBarrier
 #undef MemoryBarrier
@@ -387,7 +387,7 @@ void Rasterizer::DispatchDirect() {
         return;
     }
 
-const auto& cs = pipeline->GetStage(Shader::LogicalStage::Compute);
+    const auto& cs = pipeline->GetStage(Shader::LogicalStage::Compute);
     std::string shader_source = GenerateCopyShaderSource(cs);
     auto device = GetInstance().GetDevice();
 

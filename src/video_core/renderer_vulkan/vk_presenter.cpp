@@ -138,7 +138,7 @@ void Presenter::CreatePostProcessPipeline() {
         .size = sizeof(PostProcessSettings),
     };
 
-const uint32_t perm_idx = 0; // Use appropriate value for specialization
+    const uint32_t perm_idx = 0; // Use appropriate value for specialization
 
     const auto& vs_module = Vulkan::Compile(pp_shaders[0], vk::ShaderStageFlagBits::eVertex,
                                             instance.GetDevice(), perm_idx);

@@ -245,7 +245,6 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
     LOG_INFO(Render_Vulkan, "PipelineCache initialized with specialization constants.");
 }
 
-
 PipelineCache::~PipelineCache() = default;
 
 const GraphicsPipeline* PipelineCache::GetGraphicsPipeline() {
@@ -584,7 +583,6 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
                      spirv_cache_file_path.string());
         }
     }
-
 
     vk::ShaderModule module;
 
