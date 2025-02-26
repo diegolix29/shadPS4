@@ -92,6 +92,9 @@ private:
     DescriptorHeap desc_heap;
     vk::UniquePipelineCache pipeline_cache;
     vk::UniquePipelineLayout pipeline_layout;
+    vk::SpecializationMapEntry specialization_map_entry{};
+    vk::SpecializationInfo specialization_info{};
+    u32 specialization_constant_value = 0; 
     Shader::Profile profile{};
     Shader::Pools pools;
     tsl::robin_map<size_t, std::unique_ptr<Program>> program_cache;

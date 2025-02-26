@@ -161,12 +161,13 @@ bool InitializeCompiler() {
 }
 } // Anonymous namespace
 
-vk::ShaderModule Compile(std::string_view code, vk::ShaderStageFlagBits stage, vk::Device device) {
+vk::ShaderModule Compile(std::string_view code, vk::ShaderStageFlagBits stage, vk::Device device,
+                         uint32_t perm_idx) {
     static ShaderCache cache("user/shader_cache");
 
     // Try loading from cache
-    if (auto spirv = cache.LoadShader(std::string(code), stage); !spirv.empty()) {
-        return CompileSPV(spirv, device); // Use cached SPIR-V to create shader module
+    if (auto spirv = cache.LoadShader(std::string(code), stage, perm_idx); !spirv.empty()) {
+        return CompileSPV(spirv, device); // Use cached SPIR-V
     }
 
     // Compile from GLSL to SPIR-V if cache miss
@@ -217,7 +218,7 @@ vk::ShaderModule Compile(std::string_view code, vk::ShaderStageFlagBits stage, v
     }
 
     // Save SPIR-V to cache
-    cache.SaveShader(std::string(code), stage, spirv_code);
+    cache.SaveShader(std::string(code), stage, perm_idx, spirv_code);
 
     return CompileSPV(spirv_code, device); // Create shader module from SPIR-V
 }

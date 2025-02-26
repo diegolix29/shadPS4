@@ -390,12 +390,14 @@ void Rasterizer::DispatchDirect() {
 const auto& cs = pipeline->GetStage(Shader::LogicalStage::Compute);
     std::string shader_source = GenerateCopyShaderSource(cs);
     auto device = GetInstance().GetDevice();
-    auto shader_module = Vulkan::Compile(shader_source, vk::ShaderStageFlagBits::eCompute, device);
+
+    uint32_t perm_idx = 0;
+    auto shader_module =
+        Vulkan::Compile(shader_source, vk::ShaderStageFlagBits::eCompute, device, perm_idx);
 
     if (ExecuteShaderHLE(cs, liverpool->regs, cs_program, *this, shader_module)) {
         return;
     }
-
 
     if (!BindResources(pipeline)) {
         return;

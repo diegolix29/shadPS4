@@ -119,8 +119,11 @@ TileManager::TileManager(const Vulkan::Instance& instance, Vulkan::Scheduler& sc
     for (int pl_id = 0; pl_id < DetilerType::Max; ++pl_id) {
         auto& ctx = detilers[pl_id];
 
-        const auto& module = Vulkan::Compile(
-            detiler_shaders[pl_id], vk::ShaderStageFlagBits::eCompute, instance.GetDevice());
+        uint32_t perm_idx =
+            static_cast<uint32_t>(pl_id); // Use pl_id as perm_idx or another relevant value
+        const auto& module =
+            Vulkan::Compile(detiler_shaders[pl_id], vk::ShaderStageFlagBits::eCompute,
+                            instance.GetDevice(), perm_idx);
 
         // Set module debug name
         auto module_name = magic_enum::enum_name(static_cast<DetilerType>(pl_id));
@@ -130,7 +133,7 @@ TileManager::TileManager(const Vulkan::Instance& instance, Vulkan::Scheduler& sc
             .stage = vk::ShaderStageFlagBits::eCompute,
             .module = module,
             .pName = "main",
-        };
+        };  
 
         const vk::DescriptorSetLayout set_layout = *desc_layout;
         const vk::PipelineLayoutCreateInfo layout_info = {

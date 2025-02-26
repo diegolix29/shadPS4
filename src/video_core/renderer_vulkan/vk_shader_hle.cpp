@@ -136,7 +136,6 @@ std::string Vulkan::GenerateCopyShaderSource(const Shader::Info& info) {
         }
     )glsl";
 }
-
 bool Vulkan::ExecuteShaderHLE(const Shader::Info& info, const AmdGpu::Liverpool::Regs& regs,
                               const AmdGpu::Liverpool::ComputeProgram& cs_program,
                               Rasterizer& rasterizer, vk::ShaderModule shader_module) {
@@ -146,8 +145,10 @@ bool Vulkan::ExecuteShaderHLE(const Shader::Info& info, const AmdGpu::Liverpool:
 
         // Generate or retrieve the shader source code
         std::string shader_source = GenerateCopyShaderSource(info);
+
+        uint32_t perm_idx = 0; // Replace with actual permutation index if needed
         auto shader_module =
-            Vulkan::Compile(shader_source, vk::ShaderStageFlagBits::eCompute, device);
+            Vulkan::Compile(shader_source, vk::ShaderStageFlagBits::eCompute, device, perm_idx);
 
         // Compile and use shader inside ExecuteCopyShaderHLE without passing the module
         return ExecuteCopyShaderHLE(info, cs_program, rasterizer);
@@ -156,5 +157,6 @@ bool Vulkan::ExecuteShaderHLE(const Shader::Info& info, const AmdGpu::Liverpool:
         return false;
     }
 }
+
 
 } // namespace Vulkan

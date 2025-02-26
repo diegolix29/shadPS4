@@ -190,13 +190,16 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
 PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
                              AmdGpu::Liverpool* liverpool_)
     : instance{instance_}, scheduler{scheduler_}, liverpool{liverpool_},
-      desc_heap{instance, scheduler.GetMasterSemaphore(), DescriptorHeapSizes} {
+      desc_heap{instance, scheduler.GetMasterSemaphore(), DescriptorHeapSizes},
+      specialization_constant_value{0} {
+
     const auto shader_cache_dir =
         Common::FS::GetUserPath(Common::FS::PathType::ShaderDir) / "cache";
     if (!std::filesystem::exists(shader_cache_dir)) {
         std::filesystem::create_directories(shader_cache_dir);
         LOG_INFO(Loader, "Created shader cache directory: {}", shader_cache_dir.string());
     }
+
     const auto& vk12_props = instance.GetVk12Properties();
     profile = Shader::Profile{
         .supported_spirv = instance.ApiVersion() >= VK_API_VERSION_1_3 ? 0x00010600U : 0x00010500U,
@@ -213,19 +216,35 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
                                       instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
         .needs_lds_barriers = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary ||
                               instance.GetDriverID() == vk::DriverId::eMoltenvk,
-        // When binding a UBO, we calculate its size considering the offset in the larger buffer
-        // cache underlying resource. In some cases, it may produce sizes exceeding the system
-        // maximum allowed UBO range, so we need to reduce the threshold to prevent issues.
         .max_ubo_size = instance.UniformMaxSize() - instance.UniformMinAlignment(),
         .max_viewport_width = instance.GetMaxViewportWidth(),
         .max_viewport_height = instance.GetMaxViewportHeight(),
         .max_shared_memory_size = instance.MaxComputeSharedMemorySize(),
     };
-    auto [cache_result, cache] = instance.GetDevice().createPipelineCacheUnique({});
+
+    vk::PipelineCacheCreateInfo cache_info{};
+    auto [cache_result, cache] = instance.GetDevice().createPipelineCacheUnique(cache_info);
     ASSERT_MSG(cache_result == vk::Result::eSuccess, "Failed to create pipeline cache: {}",
                vk::to_string(cache_result));
     pipeline_cache = std::move(cache);
+
+    // Specialization constant setup
+    specialization_map_entry = vk::SpecializationMapEntry{
+        .constantID = 0,
+        .offset = 0,
+        .size = sizeof(u32),
+    };
+
+    specialization_info = vk::SpecializationInfo{
+        .mapEntryCount = 1,
+        .pMapEntries = &specialization_map_entry,
+        .dataSize = sizeof(specialization_constant_value),
+        .pData = &specialization_constant_value,
+    };
+
+    LOG_INFO(Render_Vulkan, "PipelineCache initialized with specialization constants.");
 }
+
 
 PipelineCache::~PipelineCache() = default;
 

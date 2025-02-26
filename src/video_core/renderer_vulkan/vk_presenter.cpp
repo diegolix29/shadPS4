@@ -138,13 +138,15 @@ void Presenter::CreatePostProcessPipeline() {
         .size = sizeof(PostProcessSettings),
     };
 
-    const auto& vs_module =
-        Vulkan::Compile(pp_shaders[0], vk::ShaderStageFlagBits::eVertex, instance.GetDevice());
+const uint32_t perm_idx = 0; // Use appropriate value for specialization
+
+    const auto& vs_module = Vulkan::Compile(pp_shaders[0], vk::ShaderStageFlagBits::eVertex,
+                                            instance.GetDevice(), perm_idx);
     ASSERT(vs_module);
     Vulkan::SetObjectName(instance.GetDevice(), vs_module, "fs_tri.vert");
 
-    const auto& fs_module =
-        Vulkan::Compile(pp_shaders[1], vk::ShaderStageFlagBits::eFragment, instance.GetDevice());
+    const auto& fs_module = Vulkan::Compile(pp_shaders[1], vk::ShaderStageFlagBits::eFragment,
+                                            instance.GetDevice(), perm_idx);
     ASSERT(fs_module);
     Vulkan::SetObjectName(instance.GetDevice(), fs_module, "post_process.frag");
 
