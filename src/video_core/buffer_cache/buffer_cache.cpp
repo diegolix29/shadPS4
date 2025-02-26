@@ -264,6 +264,7 @@ void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bo
         .pBufferMemoryBarriers = &pre_barrier,
     });
     cmdbuf.updateBuffer(buffer->Handle(), buffer->Offset(address), num_bytes, value);
+    
 }
 
 std::pair<Buffer*, u32> BufferCache::ObtainHostUBO(std::span<const u32> data) {
