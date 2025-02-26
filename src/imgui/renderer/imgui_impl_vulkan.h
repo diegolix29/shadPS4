@@ -67,6 +67,5 @@ void RenderDrawData(ImDrawData& draw_data, vk::CommandBuffer command_buffer,
                     vk::Pipeline pipeline = VK_NULL_HANDLE);
 
 void SetBlendEnabled(bool enabled);
-void OnSurfaceFormatChange(vk::Format surface_format);
 
 } // namespace ImGui::Vulkan

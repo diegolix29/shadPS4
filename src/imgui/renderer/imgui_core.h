@@ -22,8 +22,6 @@ void Initialize(const Vulkan::Instance& instance, const Frontend::WindowSDL& win
 
 void OnResize();
 
-void OnSurfaceFormatChange(vk::Format surface_format);
-
 void Shutdown(const vk::Device& device);
 
 bool ProcessEvent(SDL_Event* event);
