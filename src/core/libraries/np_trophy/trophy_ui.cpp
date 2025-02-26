@@ -31,6 +31,22 @@ TrophyUI::TrophyUI(const std::filesystem::path& trophyIconPath, const std::strin
                   fmt::UTF(trophyIconPath.u8string()));
     }
 
+    std::string pathString;
+    if (trophy_type == "P") {
+        pathString = "src/images/platinum.png";
+    } else if (trophy_type == "G") {
+        pathString = "src/images/gold.png";
+    } else if (trophy_type == "S") {
+        pathString = "src/images/silver.png";
+    } else if (trophy_type == "B") {
+        pathString = "src/images/bronze.png";
+    }
+
+    auto resource = cmrc::res::get_filesystem();
+    auto file = resource.open(pathString);
+    std::vector<u8> imgdata(file.begin(), file.end());
+    trophy_type_icon = RefCountedTexture::DecodePngTexture(imgdata);
+
     AddLayer(this);
 }
 

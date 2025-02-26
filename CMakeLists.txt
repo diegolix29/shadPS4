@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 if(APPLE)
-    enable_language(OBJC)
+    list(APPEND ADDITIONAL_LANGUAGES OBJC)
     set(CMAKE_OSX_DEPLOYMENT_TARGET 14)
 endif()
 
@@ -16,12 +16,7 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-option(ENABLE_LTO "Enables link-time optimization" OFF)
-if (ENABLE_LTO)
-    add_compile_options(-flto=full)
-endif()
-
-project(shadPS4 CXX C ASM)
+project(shadPS4 CXX C ASM ${ADDITIONAL_LANGUAGES})
 
 # Forcing PIE makes sure that the base address is high enough so that it doesn't clash with the PS4 memory.
 if(UNIX AND NOT APPLE)
@@ -962,12 +957,6 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
 )
 endif()
 
-set(RESOURCEFOLDER Resources/bronze.png
-    		   Resources/gold.png
-    		   Resources/platinum.png
-    		   Resources/silver.png
-)
-
 if (ENABLE_QT_GUI)
     qt_add_executable(shadps4
         ${AUDIO_CORE}
@@ -979,7 +968,6 @@ if (ENABLE_QT_GUI)
         ${SHADER_RECOMPILER}
         ${VIDEO_CORE}
         ${EMULATOR}
-	${RESOURCEFOLDER}
         src/images/shadPS4.icns
     )
 else()
@@ -992,7 +980,6 @@ else()
         ${SHADER_RECOMPILER}
         ${VIDEO_CORE}
         ${EMULATOR}
-        ${RESOURCEFOLDER}
         src/main.cpp
         src/emulator.cpp
         src/emulator.h
@@ -1125,7 +1112,10 @@ include(CMakeRC)
 cmrc_add_resource_library(embedded-resources
         ALIAS res::embedded
         NAMESPACE res
-        ${RESOURCEFOLDER})
+        src/images/bronze.png
+        src/images/gold.png
+        src/images/platinum.png
+        src/images/silver.png)
 
 target_link_libraries(shadps4 PRIVATE res::embedded)
 
