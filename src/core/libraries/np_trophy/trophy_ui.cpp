@@ -64,13 +64,13 @@ void TrophyUI::Draw() {
     float AdjustWidth = io.DisplaySize.x / 1280;
     float AdjustHeight = io.DisplaySize.y / 720;
     const ImVec2 window_size{
-        std::min(io.DisplaySize.x, (350 * AdjustWidth)),
-        std::min(io.DisplaySize.y, (70 * AdjustHeight)),
+        std::min(io.DisplaySize.x, (175 * AdjustWidth)),
+        std::min(io.DisplaySize.y, (35 * AdjustHeight)),
     };
 
     SetNextWindowSize(window_size);
     SetNextWindowCollapsed(false);
-    SetNextWindowPos(ImVec2(io.DisplaySize.x - (370 * AdjustWidth), (50 * AdjustHeight)));
+    SetNextWindowPos(ImVec2((io.DisplaySize.x - window_size.x) * 0.5f, (50 * AdjustHeight)));
     KeepNavHighlight();
     if (Begin("Trophy Window", nullptr,
               ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
