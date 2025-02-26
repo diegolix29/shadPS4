@@ -200,6 +200,7 @@ endif()
 
 add_subdirectory(externals)
 include_directories(src)
+include_directories(Resources)
 
 if(ENABLE_QT_GUI)
     find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent LinguistTools Network Multimedia)
@@ -961,6 +962,12 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
 )
 endif()
 
+set(RESOURCEFOLDER Resources/bronze.png
+    		   Resources/gold.png
+    		   Resources/platinum.png
+    		   Resources/silver.png
+)
+
 if (ENABLE_QT_GUI)
     qt_add_executable(shadps4
         ${AUDIO_CORE}
@@ -972,6 +979,7 @@ if (ENABLE_QT_GUI)
         ${SHADER_RECOMPILER}
         ${VIDEO_CORE}
         ${EMULATOR}
+	${RESOURCEFOLDER}
         src/images/shadPS4.icns
     )
 else()
@@ -984,6 +992,7 @@ else()
         ${SHADER_RECOMPILER}
         ${VIDEO_CORE}
         ${EMULATOR}
+        ${RESOURCEFOLDER}
         src/main.cpp
         src/emulator.cpp
         src/emulator.h
@@ -1109,6 +1118,16 @@ set(HOST_SHADERS_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/src/video_core/host_shaders
 add_subdirectory(${HOST_SHADERS_INCLUDE})
 add_dependencies(shadps4 host_shaders)
 target_include_directories(shadps4 PRIVATE ${HOST_SHADERS_INCLUDE})
+
+# embed resources
+
+include(CMakeRC)
+cmrc_add_resource_library(embedded-resources
+        ALIAS res::embedded
+        NAMESPACE res
+        ${RESOURCEFOLDER})
+
+target_link_libraries(shadps4 PRIVATE res::embedded)
 
 # ImGui resources
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/imgui/renderer)
