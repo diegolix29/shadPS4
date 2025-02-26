@@ -55,7 +55,8 @@ Don't be an idiot and test only the changed part expecting everything else to no
 */
 
 bool leftjoystick_halfmode = false, rightjoystick_halfmode = false;
-int leftjoystick_deadzone, rightjoystick_deadzone, lefttrigger_deadzone, righttrigger_deadzone;
+std::pair<int, int> leftjoystick_deadzone, rightjoystick_deadzone, lefttrigger_deadzone,
+    righttrigger_deadzone;
 
 std::list<std::pair<InputEvent, bool>> pressed_keys;
 std::list<InputID> toggled_keys;
@@ -208,10 +209,10 @@ void ParseInputConfig(const std::string game_id = "") {
     float mouse_speed = 1;
     float mouse_speed_offset = 0.125;
 
-    leftjoystick_deadzone = 1;
-    rightjoystick_deadzone = 1;
-    lefttrigger_deadzone = 1;
-    righttrigger_deadzone = 1;
+    leftjoystick_deadzone = {1, 127};
+    rightjoystick_deadzone = {1, 127};
+    lefttrigger_deadzone = {1, 127};
+    righttrigger_deadzone = {1, 127};
 
     int lineCount = 0;
 
@@ -298,26 +299,45 @@ void ParseInputConfig(const std::string game_id = "") {
             continue;
         } else if (output_string == "analog_deadzone") {
             std::stringstream ss(input_string);
-            std::string device;
-            int deadzone;
-            std::getline(ss, device, ',');
-            ss >> deadzone;
-            if (ss.fail()) {
-                LOG_WARNING(Input, "Failed to parse deadzone config from line: {}", line);
+            std::string device, inner_deadzone_str, outer_deadzone_str;
+
+            if (!std::getline(ss, device, ',') || !std::getline(ss, inner_deadzone_str, ',') ||
+                !std::getline(ss, outer_deadzone_str)) {
+                LOG_WARNING(Input, "Malformed deadzone config at line {}: \"{}\"", lineCount, line);
                 continue;
-            } else {
-                LOG_DEBUG(Input, "Parsed deadzone: {} {}", device, deadzone);
             }
-            if (device == "leftjoystick") {
-                leftjoystick_deadzone = deadzone;
-            } else if (device == "rightjoystick") {
-                rightjoystick_deadzone = deadzone;
-            } else if (device == "l2") {
-                lefttrigger_deadzone = deadzone;
-            } else if (device == "r2") {
-                righttrigger_deadzone = deadzone;
+
+            auto parseInt = [](const std::string& s) -> std::optional<int> {
+                try {
+                    return std::stoi(s);
+                } catch (...) {
+                    return std::nullopt;
+                }
+            };
+
+            auto inner_deadzone = parseInt(inner_deadzone_str);
+            auto outer_deadzone = parseInt(outer_deadzone_str);
+
+            if (!inner_deadzone || !outer_deadzone) {
+                LOG_WARNING(Input, "Invalid deadzone values at line {}: \"{}\"", lineCount, line);
+                continue;
+            }
+
+            std::pair<int, int> deadzone = {*inner_deadzone, *outer_deadzone};
+
+            static std::unordered_map<std::string, std::pair<int, int>&> deadzone_map = {
+                {"leftjoystick", leftjoystick_deadzone},
+                {"rightjoystick", rightjoystick_deadzone},
+                {"l2", lefttrigger_deadzone},
+                {"r2", righttrigger_deadzone},
+            };
+
+            if (auto it = deadzone_map.find(device); it != deadzone_map.end()) {
+                it->second = deadzone;
+                LOG_DEBUG(Input, "Parsed deadzone: {} {} {}", device, inner_deadzone_str,
+                          outer_deadzone_str);
             } else {
-                LOG_WARNING(Input, "Invalid axis name at line: {}, data: \"{}\", skipping line.",
+                LOG_WARNING(Input, "Invalid axis name at line {}: \"{}\", skipping line.",
                             lineCount, line);
             }
             continue;
@@ -428,7 +448,6 @@ void ControllerOutput::ResetUpdate() {
     *new_param = 0; // bruh
 }
 void ControllerOutput::AddUpdate(InputEvent event) {
-    state_changed = true;
     if (button == KEY_TOGGLE) {
         if (event.active) {
             ToggleKeyInList(event.input);
@@ -445,24 +464,14 @@ void ControllerOutput::AddUpdate(InputEvent event) {
         }
 
     } else if (axis != SDL_GAMEPAD_AXIS_INVALID) {
-        switch (axis) {
-        case SDL_GAMEPAD_AXIS_LEFT_TRIGGER:
-        case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER:
-            // if it's a button input, then we know the value to set, so the param is 0.
-            // if it's an analog input, then the param isn't 0
-            *new_param = (event.active ? event.axis_value : 0) + *new_param;
-            break;
-        default:
-            *new_param = (event.active ? event.axis_value : 0) + *new_param;
-            break;
-        }
+        *new_param = (event.active ? event.axis_value : 0) + *new_param;
     }
 }
 void ControllerOutput::FinalizeUpdate() {
+    state_changed = old_button_state != new_button_state || old_param != *new_param;
     if (!state_changed) {
-        // return;
+        return;
     }
-
     old_button_state = new_button_state;
     old_param = *new_param;
     float touchpad_x = 0;
@@ -491,13 +500,17 @@ void ControllerOutput::FinalizeUpdate() {
         }
     } else if (axis != SDL_GAMEPAD_AXIS_INVALID && positive_axis) {
         // avoid double-updating axes, but don't skip directional button bindings
-        float multiplier = 1.0;
-        int deadzone = 0;
-        auto ApplyDeadzone = [](s16* value, int deadzone) {
-            if (std::abs(*value) <= deadzone) {
+        auto ApplyDeadzone = [](s16* value, std::pair<int, int> deadzone) {
+            if (std::abs(*value) <= deadzone.first || deadzone.first == deadzone.second) {
                 *value = 0;
+            } else {
+                *value = (*value >= 0 ? 1 : -1) *
+                         std::clamp((int)((128.0 * (std::abs(*value) - deadzone.first)) /
+                                          (float)(deadzone.second - deadzone.first)),
+                                    0, 128);
             }
         };
+        float multiplier = 1.0;
         Axis c_axis = GetAxisFromSDLAxis(axis);
         switch (c_axis) {
         case Axis::LeftX:
@@ -547,6 +560,10 @@ bool UpdatePressedKeys(InputEvent event) {
             pressed_keys.insert(it, {event, false});
             LOG_DEBUG(Input, "Added axis {} to the input list", event.input.sdl_id);
         } else {
+            // noise filter
+            if (std::abs(it->first.axis_value - event.axis_value) <= 1) {
+                return false;
+            }
             it->first.axis_value = event.axis_value;
         }
         return true;

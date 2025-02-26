@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="fr">
-	<!-- SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+	<!-- SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
          SPDX-License-Identifier: GPL-2.0-or-later -->
 	<context>
 		<name>AboutDialog</name>
@@ -629,7 +629,7 @@
 			<translation>Graphismes</translation>
 		</message>
 		<message>
-			<source>Gui</source>
+			<source>GUI</source>
 			<translation>Interface</translation>
 		</message>
 		<message>
@@ -742,7 +742,7 @@
 		</message>
 		<message>
 			<source>Title Music</source>
-			<translation>Title Music</translation>
+			<translation>Musique du titre</translation>
 		</message>
 		<message>
 			<source>Disable Trophy Pop-ups</source>
@@ -958,7 +958,7 @@
 		</message>
 		<message>
 			<source>crashDiagnosticsCheckBox</source>
-			<translation>Diagnostic de crash:\nCrée un fichier .yaml avec des informations sur l'état de Vulkan au moment du crash.\nUtile pour déboguer les erreurs "Device lost". Si cette option est activée, vous devez aussi activer Marqueur de débogage hôte ET invité.\nNe marche pas pour les GPUs Intel.\nVous devez activer le Vulkan Validation Layers ainsi que le Vulkan SDK pour que cela fonctionne.</translation>
+			<translation>Diagnostic de crash:\nCrée un fichier .yaml avec des informations sur l'état de Vulkan au moment du crash.\nUtile pour déboguer les erreurs "Device lost". Si cette option est activée, vous devez aussi activer Marqueur de débogage hôte ET invité.\nNe marche pas pour les GPUs Intel.\nVous devez activer la couche de validation Vulkan ainsi que le Vulkan SDK pour que cela fonctionne.</translation>
 		</message>
 		<message>
 			<source>copyGPUBuffersCheckBox</source>
@@ -1278,6 +1278,14 @@
 			<source>Game can be completed with playable performance and no major glitches</source>
 			<translation>Le jeu peut être terminé avec des performances acceptables et sans problèmes majeurs</translation>
 		</message>
+		<message>
+			<source>Click to see details on github</source>
+			<translation>Cliquez pour voir les détails sur GitHub</translation>
+		</message>
+		<message>
+			<source>Last updated</source>
+			<translation>Dernière mise à jour</translation>
+		</message>
 	</context>
 	<context>
 		<name>CheckUpdate</name>
@@ -1292,6 +1300,10 @@
 		<message>
 			<source>Network error:</source>
 			<translation>Erreur réseau:</translation>
+		</message>
+		<message>
+			<source>Error_Github_limit_MSG</source>
+			<translation>Le programme de mise à jour automatique permet jusqu'à 60 vérifications de mise à jour par heure.\nVous avez atteint cette limite. Veuillez réessayer plus tard.</translation>
 		</message>
 		<message>
 			<source>Failed to parse update information.</source>
@@ -1403,6 +1415,57 @@
 		<message>
 			<source>TB</source>
 			<translation>TB</translation>
+		</message>
+	</context>
+	<context>
+		<name>CompatibilityInfoClass</name>
+		<message>
+			<source>Fetching compatibility data, please wait</source>
+			<translation>Récupération des données de compatibilité, veuillez patienter</translation>
+		</message>
+		<message>
+			<source>Cancel</source>
+			<translation>Annuler</translation>
+		</message>
+		<message>
+			<source>Loading...</source>
+			<translation>Chargement...</translation>
+		</message>
+		<message>
+			<source>Error</source>
+			<translation>Erreur</translation>
+		</message>
+		<message>
+			<source>Unable to update compatibility data! Try again later.</source>
+			<translation>Impossible de mettre à jour les données de compatibilité ! Essayez plus tard.</translation>
+		</message>
+		<message>
+			<source>Unable to open compatibility_data.json for writing.</source>
+			<translation>Impossible d'ouvrir compatibility_data.json en écriture.</translation>
+		</message>
+		<message>
+			<source>Unknown</source>
+			<translation>Inconnu</translation>
+		</message>
+		<message>
+			<source>Nothing</source>
+			<translation>Rien</translation>
+		</message>
+		<message>
+			<source>Boots</source>
+			<translation>Démarre</translation>
+		</message>
+		<message>
+			<source>Menus</source>
+			<translation>Menu</translation>
+		</message>
+		<message>
+			<source>Ingame</source>
+			<translation>En jeu</translation>
+		</message>
+		<message>
+			<source>Playable</source>
+			<translation>Jouable</translation>
 		</message>
 	</context>
 </TS>

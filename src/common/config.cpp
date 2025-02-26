@@ -31,6 +31,7 @@ std::filesystem::path find_fs_path_or(const basic_value<TC>& v, const K& ky,
 
 namespace Config {
 
+static bool isHDRAllowed = false;
 static bool isNeo = false;
 static bool isFullscreen = false;
 static std::string fullscreenMode = "borderless";
@@ -95,9 +96,15 @@ std::vector<std::string> m_pkg_viewer;
 std::vector<std::string> m_elf_viewer;
 std::vector<std::string> m_recent_files;
 std::string emulator_language = "en";
+static int backgroundImageOpacity = 50;
+static bool showBackgroundImage = true;
 
 // Language
 u32 m_language = 1; // english
+
+bool allowHDR() {
+    return isHDRAllowed;
+}
 
 bool GetUseUnifiedInputConfig() {
     return useUnifiedInputConfig;
@@ -611,6 +618,22 @@ u32 GetLanguage() {
     return m_language;
 }
 
+int getBackgroundImageOpacity() {
+    return backgroundImageOpacity;
+}
+
+void setBackgroundImageOpacity(int opacity) {
+    backgroundImageOpacity = std::clamp(opacity, 0, 100);
+}
+
+bool getShowBackgroundImage() {
+    return showBackgroundImage;
+}
+
+void setShowBackgroundImage(bool show) {
+    showBackgroundImage = show;
+}
+
 void load(const std::filesystem::path& path) {
     // If the configuration file does not exist, create it and return
     std::error_code error;
@@ -633,6 +656,7 @@ void load(const std::filesystem::path& path) {
     if (data.contains("General")) {
         const toml::value& general = data.at("General");
 
+        isHDRAllowed = toml::find_or<bool>(general, "allowHDR", false);
         isNeo = toml::find_or<bool>(general, "isPS4Pro", false);
         isFullscreen = toml::find_or<bool>(general, "Fullscreen", false);
         fullscreenMode = toml::find_or<std::string>(general, "FullscreenMode", "borderless");
@@ -731,6 +755,8 @@ void load(const std::filesystem::path& path) {
         m_recent_files = toml::find_or<std::vector<std::string>>(gui, "recentFiles", {});
         m_table_mode = toml::find_or<int>(gui, "gameTableMode", 0);
         emulator_language = toml::find_or<std::string>(gui, "emulatorLanguage", "en");
+        backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
+        showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
     }
 
     if (data.contains("Settings")) {
@@ -766,6 +792,7 @@ void save(const std::filesystem::path& path) {
         fmt::print("Saving new configuration file {}\n", fmt::UTF(path.u8string()));
     }
 
+    data["General"]["allowHDR"] = isHDRAllowed;
     data["General"]["isPS4Pro"] = isNeo;
     data["General"]["Fullscreen"] = isFullscreen;
     data["General"]["FullscreenMode"] = fullscreenMode;
@@ -821,6 +848,8 @@ void save(const std::filesystem::path& path) {
     data["GUI"]["addonInstallDir"] =
         std::string{fmt::UTF(settings_addon_install_dir.u8string()).data};
     data["GUI"]["emulatorLanguage"] = emulator_language;
+    data["GUI"]["backgroundImageOpacity"] = backgroundImageOpacity;
+    data["GUI"]["showBackgroundImage"] = showBackgroundImage;
     data["Settings"]["consoleLanguage"] = m_language;
 
     std::ofstream file(path, std::ios::binary);
@@ -872,6 +901,7 @@ void saveMainWindow(const std::filesystem::path& path) {
 }
 
 void setDefaultValues() {
+    isHDRAllowed = false;
     isNeo = false;
     isFullscreen = false;
     isTrophyPopupDisabled = false;
@@ -914,6 +944,8 @@ void setDefaultValues() {
     separateupdatefolder = false;
     compatibilityData = false;
     checkCompatibilityOnStartup = false;
+    backgroundImageOpacity = 50;
+    showBackgroundImage = true;
 }
 
 constexpr std::string_view GetDefaultKeyboardConfig() {
@@ -984,8 +1016,8 @@ axis_right_x = axis_right_x
 axis_right_y = axis_right_y
 
 # Range of deadzones: 1 (almost none) to 127 (max)
-analog_deadzone = leftjoystick, 2
-analog_deadzone = rightjoystick, 2
+analog_deadzone = leftjoystick, 2, 127
+analog_deadzone = rightjoystick, 2, 127
 )";
 }
 std::filesystem::path GetFoolproofKbmConfigFile(const std::string& game_id) {

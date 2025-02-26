@@ -3,6 +3,7 @@
 
 #include "common/assert.h"
 #include "common/config.h"
+#include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/system/userservice.h"
@@ -50,7 +51,7 @@ s32 PS4_SYSV_ABI sceVideoOutAddFlipEvent(Kernel::SceKernelEqueue eq, s32 handle,
     }
 
     Kernel::EqueueEvent event{};
-    event.event.ident = u64(OrbisVideoOutEventId::Flip);
+    event.event.ident = static_cast<u64>(OrbisVideoOutInternalEventId::Flip);
     event.event.filter = Kernel::SceKernelEvent::Filter::VideoOut;
     event.event.flags = Kernel::SceKernelEvent::Flags::Add;
     event.event.udata = udata;
@@ -60,6 +61,20 @@ s32 PS4_SYSV_ABI sceVideoOutAddFlipEvent(Kernel::SceKernelEqueue eq, s32 handle,
     eq->AddEvent(event);
 
     port->flip_events.push_back(eq);
+    return ORBIS_OK;
+}
+
+s32 PS4_SYSV_ABI sceVideoOutDeleteFlipEvent(Kernel::SceKernelEqueue eq, s32 handle) {
+    auto* port = driver->GetPort(handle);
+    if (port == nullptr) {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
+    }
+
+    if (eq == nullptr) {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE;
+    }
+    eq->RemoveEvent(handle, Kernel::SceKernelEvent::Filter::VideoOut);
+    port->flip_events.erase(find(port->flip_events.begin(), port->flip_events.end(), eq));
     return ORBIS_OK;
 }
 
@@ -76,7 +91,7 @@ s32 PS4_SYSV_ABI sceVideoOutAddVblankEvent(Kernel::SceKernelEqueue eq, s32 handl
     }
 
     Kernel::EqueueEvent event{};
-    event.event.ident = u64(OrbisVideoOutEventId::Vblank);
+    event.event.ident = static_cast<u64>(OrbisVideoOutInternalEventId::Vblank);
     event.event.filter = Kernel::SceKernelEvent::Filter::VideoOut;
     event.event.flags = Kernel::SceKernelEvent::Flags::Add;
     event.event.udata = udata;
@@ -156,9 +171,27 @@ int PS4_SYSV_ABI sceVideoOutGetEventId(const Kernel::SceKernelEvent* ev) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_ADDRESS;
     }
     if (ev->filter != Kernel::SceKernelEvent::Filter::VideoOut) {
-        return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE;
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT;
     }
-    return ev->ident;
+
+    OrbisVideoOutInternalEventId internal_event_id =
+        static_cast<OrbisVideoOutInternalEventId>(ev->ident);
+    switch (internal_event_id) {
+    case OrbisVideoOutInternalEventId::Flip:
+        return static_cast<s32>(OrbisVideoOutEventId::Flip);
+    case OrbisVideoOutInternalEventId::Vblank:
+    case OrbisVideoOutInternalEventId::SysVblank:
+        return static_cast<s32>(OrbisVideoOutEventId::Vblank);
+    case OrbisVideoOutInternalEventId::PreVblankStart:
+        return static_cast<s32>(OrbisVideoOutEventId::PreVblankStart);
+    case OrbisVideoOutInternalEventId::SetMode:
+        return static_cast<s32>(OrbisVideoOutEventId::SetMode);
+    case OrbisVideoOutInternalEventId::Position:
+        return static_cast<s32>(OrbisVideoOutEventId::Position);
+    default: {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT;
+    }
+    }
 }
 
 int PS4_SYSV_ABI sceVideoOutGetEventData(const Kernel::SceKernelEvent* ev, int64_t* data) {
@@ -283,6 +316,12 @@ s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, u32 arg, void** u
 s32 PS4_SYSV_ABI sceVideoOutGetDeviceCapabilityInfo(
     s32 handle, SceVideoOutDeviceCapabilityInfo* pDeviceCapabilityInfo) {
     pDeviceCapabilityInfo->capability = 0;
+    if (presenter->IsHDRSupported()) {
+        auto& game_info = Common::ElfInfo::Instance();
+        if (game_info.GetPSFAttributes().support_hdr) {
+            pDeviceCapabilityInfo->capability |= ORBIS_VIDEO_OUT_DEVICE_CAPABILITY_BT2020_PQ;
+        }
+    }
     return ORBIS_OK;
 }
 
@@ -317,6 +356,49 @@ s32 PS4_SYSV_ABI sceVideoOutAdjustColor(s32 handle, const SceVideoOutColorSettin
     }
 
     presenter->GetGammaRef() = settings->gamma;
+    return ORBIS_OK;
+}
+
+struct Mode {
+    u32 size;
+    u8 encoding;
+    u8 range;
+    u8 colorimetry;
+    u8 depth;
+    u64 refresh_rate;
+    u64 resolution;
+    u8 reserved[8];
+};
+
+void PS4_SYSV_ABI sceVideoOutModeSetAny_(Mode* mode, u32 size) {
+    std::memset(mode, 0xff, size);
+    mode->size = size;
+}
+
+s32 PS4_SYSV_ABI sceVideoOutConfigureOutputMode_(s32 handle, u32 reserved, const Mode* mode,
+                                                 const void* options, u32 size_mode,
+                                                 u32 size_options) {
+    auto* port = driver->GetPort(handle);
+    if (!port) {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
+    }
+
+    if (reserved != 0) {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_VALUE;
+    }
+
+    if (mode->colorimetry != OrbisVideoOutColorimetry::Any) {
+        auto& game_info = Common::ElfInfo::Instance();
+        if (mode->colorimetry == OrbisVideoOutColorimetry::Bt2020PQ &&
+            game_info.GetPSFAttributes().support_hdr) {
+            port->is_mode_changing = true;
+            presenter->SetHDR(true);
+            port->is_mode_changing = false;
+        } else {
+            return ORBIS_VIDEO_OUT_ERROR_INVALID_VALUE;
+        }
+    }
+
     return ORBIS_OK;
 }
 
@@ -356,6 +438,12 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
                  sceVideoOutColorSettingsSetGamma);
     LIB_FUNCTION("pv9CI5VC+R0", "libSceVideoOut", 1, "libSceVideoOut", 0, 0,
                  sceVideoOutAdjustColor);
+    LIB_FUNCTION("-Ozn0F1AFRg", "libSceVideoOut", 1, "libSceVideoOut", 0, 0,
+                 sceVideoOutDeleteFlipEvent);
+    LIB_FUNCTION("pjkDsgxli6c", "libSceVideoOut", 1, "libSceVideoOut", 0, 0,
+                 sceVideoOutModeSetAny_);
+    LIB_FUNCTION("N1bEoJ4SRw4", "libSceVideoOut", 1, "libSceVideoOut", 0, 0,
+                 sceVideoOutConfigureOutputMode_);
 
     // openOrbis appears to have libSceVideoOut_v1 module libSceVideoOut_v1.1
     LIB_FUNCTION("Up36PTk687E", "libSceVideoOut", 1, "libSceVideoOut", 1, 1, sceVideoOutOpen);

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US">
-	<!-- SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+	<!-- SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
          SPDX-License-Identifier: GPL-2.0-or-later -->
 	<context>
 		<name>AboutDialog</name>
@@ -124,6 +124,14 @@
 			<source>Copy Serial</source>
 			<translation>Copy Serial</translation>
 		</message>
+		<message>
+			<source>Copy Version</source>
+			<translation>Copy Version</translation>
+		</message>
+		<message>
+			<source>Copy Size</source>
+			<translation>Copy Size</translation>		 
+	 </message>
 		<message>
 			<source>Copy All</source>
 			<translation>Copy All</translation>
@@ -629,7 +637,7 @@
 			<translation>Graphics</translation>
 		</message>
 		<message>
-			<source>Gui</source>
+			<source>GUI</source>
 			<translation>Gui</translation>
 		</message>
 		<message>
@@ -750,6 +758,18 @@
 			<translation>Disable Trophy Pop-ups</translation>
 		</message>
 		<message>
+			<source>Background Image</source>
+			<translation>Background Image</translation>
+		</message>
+		<message>
+			<source>Show Background Image</source>
+			<translation>Show Background Image</translation>
+		</message>
+		<message>
+			<source>Opacity</source>
+			<translation>Opacity</translation>
+		</message>
+		<message>
 			<source>Play title music</source>
 			<translation>Play title music</translation>
 		</message>
@@ -844,6 +864,10 @@
 		<message>
 			<source>updaterGroupBox</source>
 			<translation>Update:\nRelease: Official versions released every month that may be very outdated, but are more reliable and tested.\nNightly: Development versions that have all the latest features and fixes, but may contain bugs and are less stable.</translation>
+		</message>
+		<message>
+			<source>GUIBackgroundImageGroupBox</source>
+			<translation>Background Image:\nControl the opacity of the game background image.</translation>
 		</message>
 		<message>
 			<source>GUIMusicGroupBox</source>
@@ -1287,6 +1311,14 @@
 			<source>Game can be completed with playable performance and no major glitches</source>
 			<translation>Game can be completed with playable performance and no major glitches</translation>
 		</message>
+		<message>
+			<source>Click to see details on github</source>
+			<translation>Click to see details on GitHub</translation>
+		</message>
+		<message>
+			<source>Last updated</source>
+			<translation>Last updated</translation>
+		</message>
 	</context>
 	<context>
 		<name>CheckUpdate</name>
@@ -1301,6 +1333,10 @@
 		<message>
 			<source>Network error:</source>
 			<translation>Network error:</translation>
+		</message>
+		<message>
+			<source>Error_Github_limit_MSG</source>
+			<translation>The Auto Updater allows up to 60 update checks per hour.\nYou have reached this limit. Please try again later.</translation>
 		</message>
 		<message>
 			<source>Failed to parse update information.</source>
@@ -1412,6 +1448,57 @@
 		<message>
 			<source>TB</source>
 			<translation>TB</translation>
+		</message>
+	</context>
+	<context>
+		<name>CompatibilityInfoClass</name>
+		<message>
+			<source>Fetching compatibility data, please wait</source>
+			<translation>Fetching compatibility data, please wait</translation>
+		</message>
+		<message>
+			<source>Cancel</source>
+			<translation>Cancel</translation>
+		</message>
+		<message>
+			<source>Loading...</source>
+			<translation>Loading...</translation>
+		</message>
+		<message>
+			<source>Error</source>
+			<translation>Error</translation>
+		</message>
+		<message>
+			<source>Unable to update compatibility data! Try again later.</source>
+			<translation>Unable to update compatibility data! Try again later.</translation>
+		</message>
+		<message>
+			<source>Unable to open compatibility_data.json for writing.</source>
+			<translation>Unable to open compatibility_data.json for writing.</translation>
+		</message>
+		<message>
+			<source>Unknown</source>
+			<translation>Unknown</translation>
+		</message>
+		<message>
+			<source>Nothing</source>
+			<translation>Nothing</translation>
+		</message>
+		<message>
+			<source>Boots</source>
+			<translation>Boots</translation>
+		</message>
+		<message>
+			<source>Menus</source>
+			<translation>Menus</translation>
+		</message>
+		<message>
+			<source>Ingame</source>
+			<translation>Ingame</translation>
+		</message>
+		<message>
+			<source>Playable</source>
+			<translation>Playable</translation>
 		</message>
 	</context>
 </TS>
