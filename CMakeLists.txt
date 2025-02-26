@@ -988,6 +988,17 @@ else()
 endif()
 
 create_target_directory_groups(shadps4)
+find_package(Vulkan REQUIRED)
+
+if(NOT Vulkan_LIBRARY)
+    if(WIN32)
+        set(Vulkan_LIBRARY "$ENV{VULKAN_SDK}/Lib/vulkan-1.lib")
+    elseif(UNIX)
+        set(Vulkan_LIBRARY "$ENV{VULKAN_SDK}/lib/libvulkan.so")
+    elseif(APPLE)
+        set(Vulkan_LIBRARY "$ENV{VULKAN_SDK}/lib/libvulkan.dylib")
+    endif()
+endif()
 
 target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui gcn half::half ZLIB::ZLIB PNG::PNG)
 target_link_libraries(shadps4 PRIVATE Boost::headers GPUOpen::VulkanMemoryAllocator LibAtrac9 sirit Vulkan::Headers xxHash::xxhash Zydis::Zydis glslang::glslang SDL3::SDL3 pugixml::pugixml stb::headers)
