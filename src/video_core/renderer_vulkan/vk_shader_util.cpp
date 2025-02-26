@@ -228,7 +228,7 @@ vk::ShaderModule CompileSPV(std::span<const u32> code, vk::Device device) {
     shader_info.codeSize = code.size() * sizeof(u32);
     shader_info.pCode = code.data();
 
-vk::ShaderModule module = device.createShaderModule(shader_info);
+    vk::ShaderModule module = device.createShaderModule(shader_info);
     return module; // Implicitly throws if creation fails (if exceptions are enabled)
 }
 

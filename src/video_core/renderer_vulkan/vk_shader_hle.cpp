@@ -158,5 +158,4 @@ bool Vulkan::ExecuteShaderHLE(const Shader::Info& info, const AmdGpu::Liverpool:
     }
 }
 
-
 } // namespace Vulkan
