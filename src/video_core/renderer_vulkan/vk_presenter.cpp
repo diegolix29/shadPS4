@@ -380,7 +380,7 @@ void Presenter::RecreateFrame(Frame* frame, u32 width, u32 height) {
     const vk::ImageViewCreateInfo view_info = {
         .image = frame->image,
         .viewType = vk::ImageViewType::e2D,
-        .format = FormatToUnorm(format),
+        .format = format,
         .subresourceRange{
             .aspectMask = vk::ImageAspectFlagBits::eColor,
             .baseMipLevel = 0,
@@ -397,7 +397,6 @@ void Presenter::RecreateFrame(Frame* frame, u32 width, u32 height) {
     frame->height = height;
 
     frame->imgui_texture = ImGui::Vulkan::AddTexture(view, vk::ImageLayout::eShaderReadOnlyOptimal);
-    frame->imgui_texture->disable_blend = true;
 }
 
 Frame* Presenter::PrepareLastFrame() {
@@ -468,10 +467,16 @@ bool Presenter::ShowSplash(Frame* frame /*= nullptr*/) {
     draw_scheduler.EndRendering();
     const auto cmdbuf = draw_scheduler.CommandBuffer();
 
+    if (Config::vkHostMarkersEnabled()) {
+        cmdbuf.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
+            .pLabelName = "ShowSplash",
+        });
+    }
+
     if (!frame) {
         if (!splash_img.has_value()) {
             VideoCore::ImageInfo info{};
-            info.pixel_format = vk::Format::eR8G8B8A8Srgb;
+            info.pixel_format = vk::Format::eR8G8B8A8Unorm;
             info.type = vk::ImageType::e2D;
             info.size =
                 VideoCore::Extent3D{splash->GetImageInfo().width, splash->GetImageInfo().height, 1};
@@ -482,6 +487,7 @@ bool Presenter::ShowSplash(Frame* frame /*= nullptr*/) {
                                           splash->GetImageInfo().width,
                                           splash->GetImageInfo().height, 0);
             splash_img.emplace(instance, present_scheduler, info);
+            splash_img->flags &= ~VideoCore::GpuDirty;
             texture_cache.RefreshImage(*splash_img);
 
             splash_img->Transit(vk::ImageLayout::eTransferSrcOptimal,
@@ -535,6 +541,10 @@ bool Presenter::ShowSplash(Frame* frame /*= nullptr*/) {
         .pImageMemoryBarriers = &post_barrier,
     });
 
+    if (Config::vkHostMarkersEnabled()) {
+        cmdbuf.endDebugUtilsLabelEXT();
+    }
+
     // Flush frame creation commands.
     frame->ready_semaphore = draw_scheduler.GetMasterSemaphore()->Handle();
     frame->ready_tick = draw_scheduler.CurrentTick();
@@ -563,6 +573,12 @@ Frame* Presenter::PrepareFrameInternal(VideoCore::ImageId image_id, bool is_eop)
     auto& scheduler = is_eop ? draw_scheduler : flip_scheduler;
     scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
+    if (Config::vkHostMarkersEnabled()) {
+        const auto label = fmt::format("PrepareFrameInternal:{}", image_id.index);
+        cmdbuf.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
+            .pLabelName = label.c_str(),
+        });
+    }
 
     const auto frame_subresources = vk::ImageSubresourceRange{
         .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -587,6 +603,23 @@ Frame* Presenter::PrepareFrameInternal(VideoCore::ImageId image_id, bool is_eop)
         .pImageMemoryBarriers = &pre_barrier,
     });
 
+    const std::array attachments = {vk::RenderingAttachmentInfo{
+        .imageView = frame->image_view,
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eClear,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+    }};
+    const vk::RenderingInfo rendering_info{
+        .renderArea =
+            vk::Rect2D{
+                .offset = {0, 0},
+                .extent = {frame->width, frame->height},
+            },
+        .layerCount = 1,
+        .colorAttachmentCount = attachments.size(),
+        .pColorAttachments = attachments.data(),
+    };
+
     if (image_id != VideoCore::NULL_IMAGE_ID) {
         auto& image = texture_cache.GetImage(image_id);
         image.Transit(vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlagBits2::eShaderRead, {},
@@ -599,6 +632,13 @@ Frame* Presenter::PrepareFrameInternal(VideoCore::ImageId image_id, bool is_eop)
 
         VideoCore::ImageViewInfo info{};
         info.format = image.info.pixel_format;
+        // Exclude alpha from output frame to avoid blending with UI.
+        info.mapping = vk::ComponentMapping{
+            .r = vk::ComponentSwizzle::eIdentity,
+            .g = vk::ComponentSwizzle::eIdentity,
+            .b = vk::ComponentSwizzle::eIdentity,
+            .a = vk::ComponentSwizzle::eOne,
+        };
         if (auto view = image.FindView(info)) {
             image_info.imageView = *texture_cache.GetImageView(view).image_view;
         } else {
@@ -640,25 +680,12 @@ Frame* Presenter::PrepareFrameInternal(VideoCore::ImageId image_id, bool is_eop)
         cmdbuf.pushConstants(*pp_pipeline_layout, vk::ShaderStageFlagBits::eFragment, 0,
                              sizeof(PostProcessSettings), &pp_settings);
 
-        const std::array attachments = {vk::RenderingAttachmentInfo{
-            .imageView = frame->image_view,
-            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-        }};
-
-        vk::RenderingInfo rendering_info{
-            .renderArea =
-                vk::Rect2D{
-                    .offset = {0, 0},
-                    .extent = {frame->width, frame->height},
-                },
-            .layerCount = 1,
-            .colorAttachmentCount = attachments.size(),
-            .pColorAttachments = attachments.data(),
-        };
         cmdbuf.beginRendering(rendering_info);
         cmdbuf.draw(3, 1, 0, 0);
+        cmdbuf.endRendering();
+    } else {
+        // Fix display of garbage images on startup on some drivers
+        cmdbuf.beginRendering(rendering_info);
         cmdbuf.endRendering();
     }
 
@@ -676,6 +703,10 @@ Frame* Presenter::PrepareFrameInternal(VideoCore::ImageId image_id, bool is_eop)
         .imageMemoryBarrierCount = 1,
         .pImageMemoryBarriers = &post_barrier,
     });
+
+    if (Config::vkHostMarkersEnabled()) {
+        cmdbuf.endDebugUtilsLabelEXT();
+    }
 
     // Flush frame creation commands.
     frame->ready_semaphore = scheduler.GetMasterSemaphore()->Handle();
@@ -723,6 +754,12 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
 
     auto& scheduler = present_scheduler;
     const auto cmdbuf = scheduler.CommandBuffer();
+
+    if (Config::vkHostMarkersEnabled()) {
+        cmdbuf.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
+            .pLabelName = "Present",
+        });
+    }
 
     {
         auto* profiler_ctx = instance.GetProfilerContext();
@@ -788,6 +825,9 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
 
         { // Draw the game
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0.0f});
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
             ImGui::SetNextWindowDockID(dockId, ImGuiCond_Once);
             ImGui::Begin("Display##game_display", nullptr, ImGuiWindowFlags_NoNav);
 
@@ -803,7 +843,8 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
                                                    static_cast<float>(imgRect.extent.height),
                                                });
             ImGui::End();
-            ImGui::PopStyleVar();
+            ImGui::PopStyleVar(3);
+            ImGui::PopStyleColor();
         }
         ImGui::Core::Render(cmdbuf, swapchain_image_view, swapchain.GetExtent());
 
@@ -814,6 +855,10 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
         if (profiler_ctx) {
             TracyVkCollect(profiler_ctx, cmdbuf);
         }
+    }
+
+    if (Config::vkHostMarkersEnabled()) {
+        cmdbuf.endDebugUtilsLabelEXT();
     }
 
     // Flush vulkan commands.

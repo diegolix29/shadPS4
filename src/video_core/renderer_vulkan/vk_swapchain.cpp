@@ -147,7 +147,7 @@ void Swapchain::FindPresentFormat() {
     // If there is a single undefined surface format, the device doesn't care, so we'll just use
     // RGBA sRGB.
     if (formats[0].format == vk::Format::eUndefined) {
-        surface_format.format = vk::Format::eR8G8B8A8Srgb;
+        surface_format.format = vk::Format::eR8G8B8A8Unorm;
         surface_format.colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear;
         return;
     }
@@ -155,7 +155,7 @@ void Swapchain::FindPresentFormat() {
     // Try to find a suitable format.
     for (const vk::SurfaceFormatKHR& sformat : formats) {
         vk::Format format = sformat.format;
-        if (format != vk::Format::eR8G8B8A8Srgb && format != vk::Format::eB8G8R8A8Srgb) {
+        if (format != vk::Format::eR8G8B8A8Unorm && format != vk::Format::eB8G8R8A8Unorm) {
             continue;
         }
 
@@ -262,7 +262,7 @@ void Swapchain::SetupImages() {
         auto [im_view_result, im_view] = device.createImageView(vk::ImageViewCreateInfo{
             .image = images[i],
             .viewType = vk::ImageViewType::e2D,
-            .format = FormatToUnorm(surface_format.format),
+            .format = surface_format.format,
             .subresourceRange =
                 {
                     .aspectMask = vk::ImageAspectFlagBits::eColor,
