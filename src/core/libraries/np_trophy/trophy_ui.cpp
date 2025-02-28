@@ -27,6 +27,7 @@ namespace Libraries::NpTrophy {
 std::optional<TrophyUI> current_trophy_ui;
 std::queue<TrophyInfo> trophy_queue;
 std::mutex queueMtx;
+bool isTopSide;
 bool isLeftSide;
 double trophy_timer;
 
@@ -34,6 +35,7 @@ TrophyUI::TrophyUI(const std::filesystem::path& trophyIconPath, const std::strin
                    const std::string_view& rarity)
     : trophy_name(trophyName), trophy_type(rarity) {
 
+    isTopSide = Config::TopSideTrophy();
     isLeftSide = Config::leftSideTrophy();
     trophy_timer = Config::getTrophyNotificationDuration();
 
@@ -128,16 +130,19 @@ void TrophyUI::Draw() {
     float final_pos_x, start_x;
     float final_pos_y, start_y;
 
-    if (isLeftSide) {
-        // Start from above the screen
-        start_x = (io.DisplaySize.x - window_size.x) * 0.5f; // Centered horizontally
-        start_y = -window_size.y;                            // Start above the screen
+    if (isTopSide) {
+        start_x = (io.DisplaySize.x - window_size.x) * 0.5f;
+        start_y = -window_size.y;
         final_pos_x = start_x;
-        final_pos_y = 50 * AdjustHeight; // Move down to this Y position
+        final_pos_y = 50 * AdjustHeight;
+    } else if (isLeftSide) {
+        start_x = -window_size.x;
+        start_y = 50 * AdjustHeight;
+        final_pos_x = 20 * AdjustWidth;
+        final_pos_y = start_y;
     } else {
-        // Start from the right side
         start_x = io.DisplaySize.x;
-        start_y = 50 * AdjustHeight; // Keep Y fixed
+        start_y = 50 * AdjustHeight;
         final_pos_x = io.DisplaySize.x - window_size.x - 20 * AdjustWidth;
         final_pos_y = start_y;
     }
@@ -148,7 +153,6 @@ void TrophyUI::Draw() {
     trophy_timer -= io.DeltaTime;
 
     ImGui::SetNextWindowPos(current_pos);
-
 
     // If the remaining time of the trophy is less than or equal to 1 second, the fade-out begins.
     if (trophy_timer <= 1.0f) {
