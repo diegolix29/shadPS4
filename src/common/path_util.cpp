@@ -136,10 +136,10 @@ static auto UserPaths = [] {
         notice_file
             << "Custom Trophy Images / Sound\nYou can add custom images to the trophies.\nIn this "
                "folder ('user\\custom_trophy'), add the files with the following "
-               "names:\nbronze.png, silver.png, gold.png, platinum.png.\n\nYou can add a custom "
+               "names:\nbronze.png, silver.png, gold.png, platinum.png\n\nYou can add a custom "
                "sound for trophy notifications.\nBy default, no audio is played unless it is in "
                "this folder and you are using the QT version.\nIn this folder "
-               "('user\\custom_trophy'), add the files with the following names:\ntrophy.mp3.";
+               "('user\\custom_trophy'), add the files with the following names:\ntrophy.mp3";
         notice_file.close();
     }
 
