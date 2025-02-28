@@ -618,7 +618,7 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
 
     //User
     if (elementName == "OpenCustomTrophyLocationButton") {
-        text = tr("Open the custom trophy images/sounds folder:\\nYou can add custom images to the trophies and an audio.\\nAdd the files to custom_trophy with the following names:\\nthophy.mp3, bronze.png, gold.png, platinum.png, silver.png");
+        text = tr("Open the custom trophy images/sounds folder:\\nYou can add custom images to the trophies and an audio.\\nAdd the files to custom_trophy with the following names:\\nthophy.mp3, bronze.png, gold.png, platinum.png, silver.png\\nNote: The sound will only work in QT versions.");
     }
 
     // Input
@@ -713,7 +713,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setisTrophyPopupDisabled(ui->disableTrophycheckBox->isChecked());
     Config::setTrophyNotificationDuration(ui->popUpDurationSpinBox->value());
 
-if (ui->radioButton_Top->isChecked()) {
+    if (ui->radioButton_Top->isChecked()) {
         Config::setSideTrophy("top");
     } else if (ui->radioButton_Left->isChecked()) {
         Config::setSideTrophy("left");
@@ -722,8 +722,6 @@ if (ui->radioButton_Top->isChecked()) {
     } else if (ui->radioButton_Bottom->isChecked()) {
         Config::setSideTrophy("bottom");
     }
-
-
 
     Config::setPlayBGM(ui->playBGMCheckBox->isChecked());
     Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
