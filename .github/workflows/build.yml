@@ -63,7 +63,7 @@ jobs:
     steps:
     - name: Upgrade LLVM to 19
       run: |
-        choco upgrade llvm --version=19.1.5 -y
+        choco upgrade llvm --version=19.1.7 -y
 
     - uses: actions/checkout@v4
       with:
@@ -111,7 +111,7 @@ jobs:
     steps:
     - name: Upgrade LLVM to 19
       run: |
-        choco upgrade llvm --version=19.1.5 -y
+        choco upgrade llvm --version=19.1.7 -y
 
     - uses: actions/checkout@v4
       with:
