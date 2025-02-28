@@ -134,8 +134,8 @@ static auto UserPaths = [] {
     std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
     if (notice_file.is_open()) {
         notice_file
-            << "//++++++++++++++++++++++++++++++++\n//+ Custom Trophy Images / Sound "
-               "+\n//++++++++++++++++++++++++++++++++\n\nYou can add custom images to the "
+            << "++++++++++++++++++++++++++++++++\n+ Custom Trophy Images / Sound "
+               "+\n++++++++++++++++++++++++++++++++\n\nYou can add custom images to the "
                "trophies.\n*We recommend a square resolution image, for example 200x200, 500x500, "
                "the same size as the height and width.\nIn this folder ('user\\custom_trophy'), "
                "add the files with the following "
