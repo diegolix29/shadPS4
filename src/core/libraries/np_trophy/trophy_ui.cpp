@@ -64,8 +64,8 @@ void TrophyUI::Draw() {
     float AdjustWidth = io.DisplaySize.x / 1280;
     float AdjustHeight = io.DisplaySize.y / 720;
     const ImVec2 window_size{
-        std::min(io.DisplaySize.x, (175 * AdjustWidth)),
-        std::min(io.DisplaySize.y, (35 * AdjustHeight)),
+        std::min(io.DisplaySize.x, (350 * AdjustWidth)),
+        std::min(io.DisplaySize.y, (70 * AdjustHeight)),
     };
 
     SetNextWindowSize(window_size);
