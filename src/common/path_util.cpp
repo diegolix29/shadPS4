@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <fstream>
 #include <unordered_map>
 #include "common/logging/log.h"
 #include "common/path_util.h"
@@ -129,6 +130,18 @@ static auto UserPaths = [] {
     create_path(PathType::PatchesDir, user_dir / PATCHES_DIR);
     create_path(PathType::MetaDataDir, user_dir / METADATA_DIR);
     create_path(PathType::CustomTrophy, user_dir / CUSTOM_TROPHY);
+
+    std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
+    if (notice_file.is_open()) {
+        notice_file
+            << "Custom Trophy Images / Sound\nYou can add custom images to the trophies.\nIn this "
+               "folder ('user\\custom_trophy'), add the files with the following "
+               "names:\nbronze.png, silver.png, gold.png, platinum.png.\n\nYou can add a custom "
+               "sound for trophy notifications.\nBy default, no audio is played unless it is in "
+               "this folder and you are using the QT version.\nIn this folder "
+               "('user\\custom_trophy'), add the files with the following names:\ntrophy.mp3.";
+        notice_file.close();
+    }
 
     return paths;
 }();

@@ -418,10 +418,14 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->disableTrophycheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
     ui->popUpDurationSpinBox->setValue(Config::getTrophyNotificationDuration());
-    ui->radioButton_Top->setChecked(Config::TopSideTrophy());
-    ui->radioButton_Left->setChecked(Config::leftSideTrophy());
-    ui->radioButton_Right->setChecked(
-        !(ui->radioButton_Left->isChecked() || ui->radioButton_Top->isChecked()));
+
+    QString side = QString::fromStdString(Config::sideTrophy());
+
+    ui->radioButton_Left->setChecked(side == "left");
+    ui->radioButton_Right->setChecked(side == "right");
+    ui->radioButton_Top->setChecked(side == "top");
+    ui->radioButton_Bottom->setChecked(side == "bottom");
+
     ui->BGMVolumeSlider->setValue(toml::find_or<int>(data, "General", "BGMvolume", 50));
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
@@ -708,8 +712,19 @@ void SettingsDialog::UpdateSettings() {
     Config::setIsMotionControlsEnabled(ui->motionControlsCheckBox->isChecked());
     Config::setisTrophyPopupDisabled(ui->disableTrophycheckBox->isChecked());
     Config::setTrophyNotificationDuration(ui->popUpDurationSpinBox->value());
-    Config::setTopSideTrophy(ui->radioButton_Top->isChecked());
-    Config::setLeftSideTrophy(ui->radioButton_Left->isChecked());
+
+if (ui->radioButton_Top->isChecked()) {
+        Config::setSideTrophy("top");
+    } else if (ui->radioButton_Left->isChecked()) {
+        Config::setSideTrophy("left");
+    } else if (ui->radioButton_Right->isChecked()) {
+        Config::setSideTrophy("right");
+    } else if (ui->radioButton_Bottom->isChecked()) {
+        Config::setSideTrophy("bottom");
+    }
+
+
+
     Config::setPlayBGM(ui->playBGMCheckBox->isChecked());
     Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
     Config::setLogType(logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString());

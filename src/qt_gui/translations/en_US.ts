@@ -1840,6 +1840,14 @@
         <translation>Right</translation>
     </message>
     <message>
+        <source>Top</source>
+        <translation>Top</translation>
+    </message>
+    <message>
+        <source>Bottom</source>
+        <translation>Bottom</translation>
+    </message>
+    <message>
         <source>Notification Duration</source>
         <translation>Notification Duration</translation>
     </message>
