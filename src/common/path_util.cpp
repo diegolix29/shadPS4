@@ -134,12 +134,15 @@ static auto UserPaths = [] {
     std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
     if (notice_file.is_open()) {
         notice_file
-            << "Custom Trophy Images / Sound\nYou can add custom images to the trophies.\nIn this "
-               "folder ('user\\custom_trophy'), add the files with the following "
-               "names:\nbronze.png, silver.png, gold.png, platinum.png\n\nYou can add a custom "
-               "sound for trophy notifications.\nBy default, no audio is played unless it is in "
+            << "//++++++++++++++++++++++++++++++++\n//+ Custom Trophy Images / Sound "
+               "+\n//++++++++++++++++++++++++++++++++\n\nYou can add custom images to the "
+               "trophies.\n*We recommend a square resolution image, for example 200x200, 500x500, "
+               "the same size as the height and width.\nIn this folder ('user\\custom_trophy'), "
+               "add the files with the following "
+               "names:\n\nbronze.png\nsilver.png\ngold.png\nplatinum.png\n\nYou can add a custom "
+               "sound for trophy notifications.\n*By default, no audio is played unless it is in "
                "this folder and you are using the QT version.\nIn this folder "
-               "('user\\custom_trophy'), add the files with the following names:\ntrophy.mp3";
+               "('user\\custom_trophy'), add the files with the following names:\n\ntrophy.mp3";
         notice_file.close();
     }
 
