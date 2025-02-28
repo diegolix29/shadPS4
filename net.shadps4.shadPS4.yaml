@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 app-id: net.shadps4.shadPS4
 runtime: org.kde.Platform
 runtime-version: '6.8'
