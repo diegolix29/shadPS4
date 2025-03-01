@@ -168,6 +168,8 @@ struct PageManager::Impl {
 
         const auto release_pending = [&] {
             if (range_bytes > 0) {
+                Core::MemoryPermission perms =
+                    Core::MemoryPermission::Read | Core::MemoryPermission::Write;
                 Protect(range_begin << PAGE_BITS, range_bytes, perms);
                 range_bytes = 0;
             }
@@ -255,5 +257,10 @@ template <s32 delta, bool is_read>
 void PageManager::UpdatePageWatchers(VAddr addr, u64 size) {
     impl->UpdatePageWatchers<delta, is_read>(addr, size);
 }
+
+template void PageManager::UpdatePageWatchers<-1, true>(VAddr, u64);
+template void PageManager::UpdatePageWatchers<1, true>(VAddr, u64);
+template void PageManager::UpdatePageWatchers<-1, false>(VAddr, u64);
+template void PageManager::UpdatePageWatchers<1, false>(VAddr, u64);
 
 } // namespace VideoCore
