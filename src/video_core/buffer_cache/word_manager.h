@@ -28,8 +28,8 @@ constexpr u64 HIGHER_PAGE_MASK = HIGHER_PAGE_SIZE - 1ULL;
 constexpr u64 NUM_REGION_WORDS = HIGHER_PAGE_SIZE / BYTES_PER_WORD;
 
 enum class Type {
-    CPU,    ///< Set if CPU page data is more up-to-date than GPU data.
-    GPU,    ///< Set if GPU page data is more up-to-date than CPU data.
+    CPU, ///< Set if CPU page data is more up-to-date than GPU data.
+    GPU, ///< Set if GPU page data is more up-to-date than CPU data.
 };
 
 using WordsArray = std::array<u64, NUM_REGION_WORDS>;
@@ -251,7 +251,8 @@ private:
         const u64 changed_bits = (add_to_tracker ? access_bits : ~access_bits) & mask;
         const VAddr addr = cpu_addr + word_index * BYTES_PER_WORD;
         IteratePages(changed_bits, [&](size_t offset, size_t size) {
-            tracker->UpdatePageWatchers<delta, is_read>(addr + offset * BYTES_PER_PAGE, size * BYTES_PER_PAGE);
+            tracker->UpdatePageWatchers<delta, is_read>(addr + offset * BYTES_PER_PAGE,
+                                                        size * BYTES_PER_PAGE);
         });
     }
 

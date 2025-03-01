@@ -238,7 +238,8 @@ struct PageManager::Impl {
 #endif
 };
 
-PageManager::PageManager(Vulkan::Rasterizer* rasterizer_) : impl{std::make_unique<Impl>(rasterizer_)} {}
+PageManager::PageManager(Vulkan::Rasterizer* rasterizer_)
+    : impl{std::make_unique<Impl>(rasterizer_)} {}
 
 PageManager::~PageManager() = default;
 
