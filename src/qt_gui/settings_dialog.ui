@@ -952,18 +952,6 @@
                 <number>0</number>
                </property>
                <item>
-                <widget class="QGroupBox" name="ppFilterGroupBox">
-                 <property name="title">
-                  <string>Post-Processing Filter</string>
-                 </property>
-                 <layout class="QVBoxLayout" name="verticalLayout_2">
-                  <item>
-                   <widget class="QComboBox" name="ppFilterComboBox"/>
-                  </item>
-                 </layout>
-                </widget>
-               </item>			   
-               <item>
                 <spacer name="verticalSpacer_2">
                  <property name="orientation">
                   <enum>Qt::Orientation::Vertical</enum>
@@ -1303,13 +1291,6 @@
                    </property>
                   </widget>
                  </item>
-				 <item>
-				  <widget class="QRadioButton" name="radioButton_Top">
-				   <property name="text">
-				    <string>Top</string>
-				   </property>
-				  </widget>
-				  </item>
                  <item>
                   <widget class="QRadioButton" name="radioButton_Left">
                    <property name="text">
