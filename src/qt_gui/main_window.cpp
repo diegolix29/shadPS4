@@ -723,52 +723,6 @@ void MainWindow::StartGame() {
     }
 }
 
-void MainWindow::StopGame() {
-    if (isGameRunning) {
-        qDebug() << "Stopping the current game...";
-
-        // Send SDL quit event to stop the emulator's main loop
-        SDL_Event quitEvent;
-        quitEvent.type = SDL_EVENT_QUIT;
-        SDL_PushEvent(&quitEvent);
-
-        // Optional: Handle other game-related cleanup tasks here
-        // For example, resetting UI, releasing memory, or clearing temporary states
-
-        // Update the game running state
-        isGameRunning = false;
-
-        // Log the successful stop operation
-        qDebug() << "Game stopped successfully.";
-    } else {
-        qDebug() << "No game is running to stop.";
-    }
-}
-
-void MainWindow::RestartGame() {
-    if (isGameRunning) {
-        qDebug() << "Preparing to restart the application...";
-
-        // Call StopGame() to handle any necessary cleanup before restarting
-        StopGame();
-        qDebug() << "Game stopped successfully.";
-
-        // Capture the current application path and arguments
-        QString program = QCoreApplication::applicationFilePath();
-        QStringList arguments = QCoreApplication::arguments();
-
-        // Restart the application
-        qDebug() << "Restarting the application with eboot path...";
-        if (QProcess::startDetached(program, arguments)) {
-            qDebug() << "Application restarted successfully. Exiting current instance...";
-            QCoreApplication::quit();
-        } else {
-            qDebug() << "Failed to restart the application.";
-        }
-    } else {
-        qDebug() << "No game is currently running to restart.";
-    }
-}
 bool isTable;
 void MainWindow::SearchGameTable(const QString& text) {
     if (isTableList) {
