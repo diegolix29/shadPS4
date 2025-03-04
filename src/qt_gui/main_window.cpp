@@ -32,6 +32,7 @@
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"
 #endif
+#include <SDL3/SDL_messagebox.h>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -1340,6 +1341,10 @@ void MainWindow::OnLanguageChanged(const std::string& locale) {
     LoadTranslation();
 }
 
+static void ShowMessageBox(const std::string& title, const std::string& message) {
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, title.c_str(), message.c_str(), NULL);
+}
+
 bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
@@ -1371,4 +1376,46 @@ void MainWindow::StartEmulator(std::filesystem::path path) {
     });
     emulator_thread.detach();
 #endif
+}
+
+void MainWindow::StopGame() {
+    if (!isGameRunning) {
+        ShowMessageBox("Stop Game", "No game is currently running.");
+        return;
+    }
+
+    Core::Emulator& emulator = Core::Emulator::GetInstance();
+    emulator.StopEmulation();
+
+    if (isGameRunning == true)
+        ;
+    ShowMessageBox("Stop Game", "Game has been stopped successfully.");
+    SDL_Event quitEvent;
+    quitEvent.type = SDL_EVENT_QUIT + 1;
+    SDL_PushEvent(&quitEvent);
+}
+
+std::string MainWindow::getLastEbootPath() {
+    return std::string();
+}
+
+void MainWindow::RestartGame() {
+    if (!isGameRunning) {
+        ShowMessageBox("Restart Game", "No game is running to restart.");
+        return;
+    }
+
+    std::string lastGamePath = getLastEbootPath();
+
+    if (lastGamePath.empty()) {
+        ShowMessageBox("Restart Game", "No recent game found.");
+    }
+
+    StopGame();
+
+    while (isGameRunning) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    StartEmulator(lastGamePath);
 }

@@ -67,6 +67,9 @@ private:
     void SetUiIcons(bool isWhite);
     void InstallPkg();
     void BootGame();
+    std::string lastGamePath;
+    std::string getLastEbootPath();
+
     void AddRecentFiles(QString filePath);
     void LoadTranslation();
     void PlayBackgroundMusic();
