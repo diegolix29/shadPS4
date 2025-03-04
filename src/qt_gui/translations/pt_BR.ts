@@ -733,7 +733,7 @@
     </message>
     <message>
       <source>Open Log Folder</source>
-      <translation>Abrir Pasta de Registros</translation>
+      <translation>Abrir Pasta de Log</translation>
     </message>
     <message>
       <source>Copy info...</source>
@@ -901,6 +901,169 @@
     <message>
       <source>Delete PKG File on Install</source>
       <translation>Excluir o PKG após a Instalação</translation>
+    </message>
+  </context>
+  <context>
+    <name>KBMSettings</name>
+    <message>
+      <source>Configure Controls</source>
+      <translation>Configurar Controles</translation>
+    </message>
+    <message>
+      <source>D-Pad</source>
+      <translation>Direcionais</translation>
+    </message>
+    <message>
+      <source>Up</source>
+      <translation>Cima</translation>
+    </message>
+    <message>
+      <source>unmapped</source>
+      <translation>não mapeado</translation>
+    </message>
+    <message>
+      <source>Left</source>
+      <translation>Esquerda</translation>
+    </message>
+    <message>
+      <source>Right</source>
+      <translation>Direita</translation>
+    </message>
+    <message>
+      <source>Down</source>
+      <translation>Baixo</translation>
+    </message>
+    <message>
+      <source>Left Analog Halfmode</source>
+      <translation>Meio Analógico Esquerdo</translation>
+    </message>
+    <message>
+      <source>hold to move left stick at half-speed</source>
+      <translation>Segure para mover o analógico esquerdo pela metade da velocidade</translation>
+    </message>
+    <message>
+      <source>Left Stick</source>
+      <translation>Analógico Esquerdo</translation>
+    </message>
+    <message>
+      <source>Config Selection</source>
+      <translation>Seleção de Configuração</translation>
+    </message>
+    <message>
+      <source>Common Config</source>
+      <translation>Configuração Comum</translation>
+    </message>
+    <message>
+      <source>Use per-game configs</source>
+      <translation>Usar configurações por jogo</translation>
+    </message>
+    <message>
+      <source>Copy  from Common Config</source>
+      <translation>Copiar da Configuração Comum</translation>
+    </message>
+    <message>
+      <source>L1</source>
+      <translation>L1</translation>
+    </message>
+    <message>
+      <source>L2</source>
+      <translation>L2</translation>
+    </message>
+    <message>
+      <source>Text Editor</source>
+      <translation>Editor de Texto</translation>
+    </message>
+    <message>
+      <source>Help</source>
+      <translation>Ajuda</translation>
+    </message>
+    <message>
+      <source>R1</source>
+      <translation>R1</translation>
+    </message>
+    <message>
+      <source>R2</source>
+      <translation>R2</translation>
+    </message>
+    <message>
+      <source>L3</source>
+      <translation>L3</translation>
+    </message>
+    <message>
+      <source>Touchpad Click</source>
+      <translation>Clique do Touchpad</translation>
+    </message>
+    <message>
+      <source>Mouse to Joystick</source>
+      <translation>Mouse para Analógico</translation>
+    </message>
+    <message>
+      <source>*press F7 ingame to activate</source>
+      <translation>*Pressione F7 no jogo para ativar</translation>
+    </message>
+    <message>
+      <source>R3</source>
+      <translation>R3</translation>
+    </message>
+    <message>
+      <source>Options</source>
+      <translation>Opções</translation>
+    </message>
+    <message>
+      <source>Mouse Movement Parameters</source>
+      <translation>Parâmetros de Movimento do Mouse</translation>
+    </message>
+    <message>
+      <source>note: click Help Button/Special Keybindings for more information</source>
+      <translation>Nota: clique no botão de Ajuda -> Special Bindings para obter mais informações</translation>
+    </message>
+    <message>
+      <source>Face Buttons</source>
+      <translation>Botões de Ação</translation>
+    </message>
+    <message>
+      <source>Triangle</source>
+      <translation>Triângulo</translation>
+    </message>
+    <message>
+      <source>Square</source>
+      <translation>Quadrado</translation>
+    </message>
+    <message>
+      <source>Circle</source>
+      <translation>Círculo</translation>
+    </message>
+    <message>
+      <source>Cross</source>
+      <translation>Cruz</translation>
+    </message>
+    <message>
+      <source>Right Analog Halfmode</source>
+      <translation>Meio Analógico Direito</translation>
+    </message>
+    <message>
+      <source>hold to move right stick at half-speed</source>
+      <translation>Segure para mover o analógico direito pela metade da velocidade</translation>
+    </message>
+    <message>
+      <source>Right Stick</source>
+      <translation>Analógico Direito</translation>
+    </message>
+    <message>
+      <source>Deadzone Offset (def 0.50): </source>
+      <translation>Deslocamento da Zona Morta (Pad 0,50): </translation>
+    </message>
+    <message>
+      <source>Speed Multiplier (def 1.0): </source>
+      <translation>Multiplicador de Velocidade (Pad 1,0): </translation>
+    </message>
+    <message>
+      <source>Speed Offset (def 0.125):</source>
+      <translation>Deslocamento de Velocidade (Pad 0,125):</translation>
+    </message>
+    <message>
+      <source>Speed Offset (def 0.125): </source>
+      <translation>Deslocamento de Velocidade (Pad 0,125): </translation>
     </message>
   </context>
   <context>
@@ -1517,7 +1680,7 @@
     </message>
     <message>
       <source>Update Compatibility Database On Startup</source>
-      <translation>Atualizar Base de Dados de Compatibilidade ao Inicializar</translation>
+      <translation>Atualizar Banco de Dados de Compatibilidade ao Inicializar</translation>
     </message>
     <message>
       <source>Game Compatibility</source>
@@ -1589,7 +1752,7 @@
     </message>
     <message>
       <source>Log Filter:\nFilters the log to only print specific information.\nExamples: &quot;Core:Trace&quot; &quot;Lib.Pad:Debug Common.Filesystem:Error&quot; &quot;*:Critical&quot;\nLevels: Trace, Debug, Info, Warning, Error, Critical - in this order, a specific level silences all levels preceding it in the list and logs every level after it.</source>
-      <translation>Filtro de Registro:\nFiltra o registro para exibir apenas informações específicas.\nExemplos: &quot;Core:Trace&quot; &quot;Lib.Pad:Debug Common.Filesystem:Error&quot; &quot;*:Critical&quot;\nNíveis: Trace, Debug, Info, Warning, Error, Critical - nesta ordem, um nível específico silencia todos os níveis anteriores na lista e registra todos os níveis após ele.</translation>
+      <translation>Filtro do Registro:\nFiltra o registro para exibir apenas informações específicas.\nExemplos: &quot;Core:Trace&quot; &quot;Lib.Pad:Debug Common.Filesystem:Error&quot; &quot;*:Critical&quot;\nNíveis: Trace, Debug, Info, Warning, Error, Critical - nesta ordem, um nível específico silencia todos os níveis anteriores na lista e registra todos os níveis após este.</translation>
     </message>
     <message>
       <source>Update:\nRelease: Official versions released every month that may be very outdated, but are more reliable and tested.\nNightly: Development versions that have all the latest features and fixes, but may contain bugs and are less stable.</source>
@@ -1632,8 +1795,8 @@
       <translation>Atualizar Lista de Compatibilidade:\nAtualiza imediatamente o banco de dados de compatibilidade.</translation>
     </message>
     <message>
-      <source>Open the custom trophy images/sounds folder:\nYou can add custom images to the trophies and an audio.\nAdd the files to custom_trophy with the following names:\nthophy.mp3, bronze.png, gold.png, platinum.png, silver.png</source>
-      <translation>Abrir a pasta de imagens/sons de troféus personalizados:\nVocê pode adicionar imagens e sons personalizados aos troféus.\nAdicione os arquivos em custom_trophy com os seguintes nomes:\nthophy.mp3, bronze.png, gold.png, platinum.png, silver.png</translation>
+      <source>Open the custom trophy images/sounds folder:\nYou can add custom images to the trophies and an audio.\nAdd the files to custom_trophy with the following names:\ntrophy.mp3, bronze.png, gold.png, platinum.png, silver.png\nNote: The sound will only work in QT versions.</source>
+      <translation>Abrir a pasta de imagens/sons de troféus personalizados:\nVocê pode adicionar imagens personalizadas aos troféus e um áudio.\nAdicione os arquivos na pasta custom_trophy com os seguintes nomes:\ntrophy.mp3, bronze.png, gold.png, platinum.png, silver.png\nObservação: O som funcionará apenas em versões Qt.</translation>
     </message>
     <message>
       <source>Never</source>
@@ -1840,8 +2003,28 @@
       <translation>Direita</translation>
     </message>
     <message>
+      <source>Top</source>
+      <translation>Acima</translation>
+    </message>
+    <message>
+      <source>Bottom</source>
+      <translation>Abaixo</translation>
+    </message>
+    <message>
       <source>Notification Duration</source>
       <translation>Duração da Notificação</translation>
+    </message>
+    <message>
+      <source>Portable User Folder</source>
+      <translation>Pasta de Usuário Portátil</translation>
+    </message>
+    <message>
+      <source>Create Portable User Folder from Common User Folder</source>
+      <translation>Criar Pasta de Usuário Portátil a partir da Pasta de Usuário Comum</translation>
+    </message>
+    <message>
+      <source>Portable user folder:\nStores shadPS4 settings and data that will be applied only to the shadPS4 build located in the current folder. Restart the app after creating the portable user folder to begin using it.</source>
+      <translation>Pasta de usuário portátil:\nArmazena as configurações e dados do shadPS4 que serão aplicados apenas à compilação do shadPS4 localizada na pasta atual. Reinicie o aplicativo após criar a pasta de usuário portátil para começar a usá-la.</translation>
     </message>
   </context>
   <context>

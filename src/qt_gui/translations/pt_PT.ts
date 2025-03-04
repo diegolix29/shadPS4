@@ -777,7 +777,7 @@
     </message>
     <message>
       <source>Delete Trophy</source>
-      <translation type="unfinished">Delete Trophy</translation>
+      <translation>Eliminar Troféu</translation>
     </message>
     <message>
       <source>Compatibility...</source>
@@ -857,7 +857,7 @@
     </message>
     <message>
       <source>No log file found for this game!</source>
-      <translation type="unfinished">No log file found for this game!</translation>
+      <translation>Não foi encontrado nenhum ficheiro de registo para este jogo!</translation>
     </message>
     <message>
       <source>Failed to convert icon.</source>
@@ -869,7 +869,7 @@
     </message>
     <message>
       <source>This game has no saved trophies to delete!</source>
-      <translation type="unfinished">This game has no saved trophies to delete!</translation>
+      <translation>Este jogo não tem troféus guardados para eliminar!</translation>
     </message>
     <message>
       <source>Save Data</source>
@@ -877,7 +877,7 @@
     </message>
     <message>
       <source>Trophy</source>
-      <translation type="unfinished">Trophy</translation>
+      <translation>Troféus</translation>
     </message>
     <message>
       <source>SFO Viewer for </source>
@@ -901,6 +901,169 @@
     <message>
       <source>Delete PKG File on Install</source>
       <translation>Eliminar Ficheiro PKG após Instalação</translation>
+    </message>
+  </context>
+  <context>
+    <name>KBMSettings</name>
+    <message>
+      <source>Configure Controls</source>
+      <translation>Configurar Comandos</translation>
+    </message>
+    <message>
+      <source>D-Pad</source>
+      <translation>Botões de Direção</translation>
+    </message>
+    <message>
+      <source>Up</source>
+      <translation>Cima</translation>
+    </message>
+    <message>
+      <source>unmapped</source>
+      <translation>não mapeado</translation>
+    </message>
+    <message>
+      <source>Left</source>
+      <translation>Esquerda</translation>
+    </message>
+    <message>
+      <source>Right</source>
+      <translation>Direita</translation>
+    </message>
+    <message>
+      <source>Down</source>
+      <translation>Baixo</translation>
+    </message>
+    <message>
+      <source>Left Analog Halfmode</source>
+      <translation>Meio Modo do Manípulo Esquerdo</translation>
+    </message>
+    <message>
+      <source>hold to move left stick at half-speed</source>
+      <translation>mantenha pressionado para mover o manípulo esquerdo à metade da velocidade</translation>
+    </message>
+    <message>
+      <source>Left Stick</source>
+      <translation>Manípulo Esquerdo</translation>
+    </message>
+    <message>
+      <source>Config Selection</source>
+      <translation>Seleção de Configuração</translation>
+    </message>
+    <message>
+      <source>Common Config</source>
+      <translation>Configuração Comum</translation>
+    </message>
+    <message>
+      <source>Use per-game configs</source>
+      <translation>Utilizar configurações por jogo</translation>
+    </message>
+    <message>
+      <source>Copy  from Common Config</source>
+      <translation>Copiar da Configuração Comum</translation>
+    </message>
+    <message>
+      <source>L1</source>
+      <translation>L1</translation>
+    </message>
+    <message>
+      <source>L2</source>
+      <translation>L2</translation>
+    </message>
+    <message>
+      <source>Text Editor</source>
+      <translation>Editor de Texto</translation>
+    </message>
+    <message>
+      <source>Help</source>
+      <translation>Ajuda</translation>
+    </message>
+    <message>
+      <source>R1</source>
+      <translation>R1</translation>
+    </message>
+    <message>
+      <source>R2</source>
+      <translation>R2</translation>
+    </message>
+    <message>
+      <source>L3</source>
+      <translation>L3</translation>
+    </message>
+    <message>
+      <source>Touchpad Click</source>
+      <translation>Clique do Touchpad</translation>
+    </message>
+    <message>
+      <source>Mouse to Joystick</source>
+      <translation>Rato para Manípulo</translation>
+    </message>
+    <message>
+      <source>*press F7 ingame to activate</source>
+      <translation>*pressione F7 em jogo para ativar</translation>
+    </message>
+    <message>
+      <source>R3</source>
+      <translation>R3</translation>
+    </message>
+    <message>
+      <source>Options</source>
+      <translation>Opções</translation>
+    </message>
+    <message>
+      <source>Mouse Movement Parameters</source>
+      <translation>Parâmetros de Movimento do Rato</translation>
+    </message>
+    <message>
+      <source>note: click Help Button/Special Keybindings for more information</source>
+      <translation>nota: clique no Botão de Ajuda/Special Keybindings para obter mais informações</translation>
+    </message>
+    <message>
+      <source>Face Buttons</source>
+      <translation>Botões Frontais</translation>
+    </message>
+    <message>
+      <source>Triangle</source>
+      <translation>Triângulo</translation>
+    </message>
+    <message>
+      <source>Square</source>
+      <translation>Quadrado</translation>
+    </message>
+    <message>
+      <source>Circle</source>
+      <translation>Círculo</translation>
+    </message>
+    <message>
+      <source>Cross</source>
+      <translation>Cruz</translation>
+    </message>
+    <message>
+      <source>Right Analog Halfmode</source>
+      <translation>Meio Modo do Manípulo Direito</translation>
+    </message>
+    <message>
+      <source>hold to move right stick at half-speed</source>
+      <translation>mantenha pressionado para mover o manípulo direito à metade da velocidade</translation>
+    </message>
+    <message>
+      <source>Right Stick</source>
+      <translation>Manípulo Direito</translation>
+    </message>
+    <message>
+      <source>Deadzone Offset (def 0.50): </source>
+      <translation>Deslocamento da Zona Morta (def 0,50): </translation>
+    </message>
+    <message>
+      <source>Speed Multiplier (def 1.0): </source>
+      <translation>Multiplicador de Velocidade (def 1,0): </translation>
+    </message>
+    <message>
+      <source>Speed Offset (def 0.125):</source>
+      <translation>Deslocamento de Velocidade (def 0,125):</translation>
+    </message>
+    <message>
+      <source>Speed Offset (def 0.125): </source>
+      <translation>Deslocamento de Velocidade (def 0,125): </translation>
     </message>
   </context>
   <context>
@@ -1329,7 +1492,7 @@
     </message>
     <message>
       <source>Open the custom trophy images/sounds folder</source>
-      <translation type="unfinished">Open the custom trophy images/sounds folder</translation>
+      <translation>Abrir a pasta de imagens/sons de troféus personalizados</translation>
     </message>
     <message>
       <source>Logger</source>
@@ -1497,7 +1660,7 @@
     </message>
     <message>
       <source>Disable Trophy Notification</source>
-      <translation type="unfinished">Disable Trophy Notification</translation>
+      <translation>Desativar Notificações de Troféus</translation>
     </message>
     <message>
       <source>Background Image</source>
@@ -1632,8 +1795,8 @@
       <translation>Atualizar Base de Dados de Compatibilidade:\nAtualiza imediatamente a base de dados de compatibilidade.</translation>
     </message>
     <message>
-      <source>Open the custom trophy images/sounds folder:\nYou can add custom images to the trophies and an audio.\nAdd the files to custom_trophy with the following names:\nthophy.mp3, bronze.png, gold.png, platinum.png, silver.png</source>
-      <translation type="unfinished">Open the custom trophy images/sounds folder:\nYou can add custom images to the trophies and an audio.\nAdd the files to custom_trophy with the following names:\nthophy.mp3, bronze.png, gold.png, platinum.png, silver.png</translation>
+      <source>Open the custom trophy images/sounds folder:\nYou can add custom images to the trophies and an audio.\nAdd the files to custom_trophy with the following names:\ntrophy.mp3, bronze.png, gold.png, platinum.png, silver.png\nNote: The sound will only work in QT versions.</source>
+      <translation>Abrir a pasta de imagens/sons de troféus personalizados:\nPoderá adicionar imagens personalizadas aos troféus e um áudio.\nAdicione os ficheiros na pasta custom_trophy com os seguintes nomes:\ntrophy.mp3, bronze.png, gold.png, platinum.png, silver.png\nObservação: O som funcionará apenas nas versões Qt.</translation>
     </message>
     <message>
       <source>Never</source>
@@ -1829,19 +1992,39 @@
     </message>
     <message>
       <source>Trophy Notification Position</source>
-      <translation type="unfinished">Trophy Notification Position</translation>
+      <translation>Posição da Notificação do Troféu</translation>
     </message>
     <message>
       <source>Left</source>
-      <translation type="unfinished">Left</translation>
+      <translation>Esquerda</translation>
     </message>
     <message>
       <source>Right</source>
-      <translation type="unfinished">Right</translation>
+      <translation>Direita</translation>
+    </message>
+    <message>
+      <source>Top</source>
+      <translation>Acima</translation>
+    </message>
+    <message>
+      <source>Bottom</source>
+      <translation>Abaixo</translation>
     </message>
     <message>
       <source>Notification Duration</source>
-      <translation type="unfinished">Notification Duration</translation>
+      <translation>Duração da Notificação</translation>
+    </message>
+    <message>
+      <source>Portable User Folder</source>
+      <translation>Pasta de Utilizador Portátil</translation>
+    </message>
+    <message>
+      <source>Create Portable User Folder from Common User Folder</source>
+      <translation>Criar Pasta de Utilizador Portátil a partir da Pasta de Utilizador Comum</translation>
+    </message>
+    <message>
+      <source>Portable user folder:\nStores shadPS4 settings and data that will be applied only to the shadPS4 build located in the current folder. Restart the app after creating the portable user folder to begin using it.</source>
+      <translation>Pasta de utilizador portátil:\nArmazena as definições e dados do shadPS4 que serão aplicados apenas na compilação do shadPS4 localizada na pasta atual. Reinicie a aplicação após criar a pasta de utilizador portátil para começar a usá-la.</translation>
     </message>
   </context>
   <context>
@@ -1852,19 +2035,19 @@
     </message>
     <message>
       <source>Progress</source>
-      <translation type="unfinished">Progress</translation>
+      <translation>Progresso</translation>
     </message>
     <message>
       <source>Show Earned Trophies</source>
-      <translation type="unfinished">Show Earned Trophies</translation>
+      <translation>Mostrar Troféus Conquistados</translation>
     </message>
     <message>
       <source>Show Not Earned Trophies</source>
-      <translation type="unfinished">Show Not Earned Trophies</translation>
+      <translation>Mostrar Troféus Não Conquistados</translation>
     </message>
     <message>
       <source>Show Hidden Trophies</source>
-      <translation type="unfinished">Show Hidden Trophies</translation>
+      <translation>Mostrar Troféus Ocultos</translation>
     </message>
   </context>
 </TS>
