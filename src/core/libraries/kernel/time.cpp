@@ -50,6 +50,36 @@ u64 PS4_SYSV_ABI sceKernelReadTsc() {
     return clock->GetUptime();
 }
 
+int clock_gettime(clockid_t clk_id, struct timespec* tp) {
+    if (clk_id == CLOCK_REALTIME) {
+        FILETIME filetime;
+        GetSystemTimeAsFileTime(&filetime);
+
+        ULARGE_INTEGER ull;
+        ull.LowPart = filetime.dwLowDateTime;
+        ull.HighPart = filetime.dwHighDateTime;
+
+        u64 ticks = ull.QuadPart / 10;
+        const u64 UNIX_TIME_START = 0x295E9648864000;
+        ticks -= UNIX_TIME_START;
+
+        tp->tv_sec = ticks / 1000000;
+        tp->tv_nsec = (ticks % 1000000) * 1000;
+        return 0;
+    } else if (clk_id == CLOCK_MONOTONIC) {
+        LARGE_INTEGER counter;
+        QueryPerformanceCounter(&counter);
+
+        LARGE_INTEGER frequency;
+        QueryPerformanceFrequency(&frequency);
+
+        tp->tv_sec = counter.QuadPart / frequency.QuadPart;
+        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 / frequency.QuadPart;
+        return 0;
+    }
+    return -1;
+}
+
 int PS4_SYSV_ABI sceKernelUsleep(u32 microseconds) {
 #ifdef _WIN64
     const auto start_time = std::chrono::high_resolution_clock::now();
@@ -117,19 +147,25 @@ int PS4_SYSV_ABI sceKernelClockGettime(s32 clock_id, OrbisKernelTimespec* tp) {
     }
 
     if (pclock_id == CLOCK_REALTIME) {
-        time_t raw_time = time(nullptr);
-        if (raw_time == (time_t)(-1)) {
-            return ORBIS_KERNEL_ERROR_EINVAL;
-        }
-        tp->tv_sec = static_cast<long>(raw_time);
-        tp->tv_nsec = 0;
+        LARGE_INTEGER counter;
+        LARGE_INTEGER frequency;
+
+        QueryPerformanceFrequency(&frequency);
+        QueryPerformanceCounter(&counter);
+
+        tp->tv_sec = counter.QuadPart / frequency.QuadPart;
+        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 / frequency.QuadPart;
+    } else if (pclock_id == CLOCK_MONOTONIC) {
+        LARGE_INTEGER counter;
+        LARGE_INTEGER frequency;
+
+        QueryPerformanceFrequency(&frequency);
+        QueryPerformanceCounter(&counter);
+
+        tp->tv_sec = counter.QuadPart / frequency.QuadPart;
+        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 / frequency.QuadPart;
     } else {
-        struct timespec ts;
-        if (clock_gettime(pclock_id, &ts) != 0) {
-            return ORBIS_KERNEL_ERROR_EINVAL;
-        }
-        tp->tv_sec = ts.tv_sec;
-        tp->tv_nsec = ts.tv_nsec;
+        return ORBIS_KERNEL_ERROR_EINVAL;
     }
 
     return ORBIS_OK;
