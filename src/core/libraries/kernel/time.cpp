@@ -52,19 +52,32 @@ u64 PS4_SYSV_ABI sceKernelReadTsc() {
 
 int clock_gettime(clockid_t clk_id, struct timespec* tp) {
     if (clk_id == CLOCK_REALTIME) {
-        LARGE_INTEGER counter;
-        LARGE_INTEGER frequency;
+        FILETIME filetime;
+        GetSystemTimeAsFileTime(&filetime);
 
+        ULARGE_INTEGER ull;
+        ull.LowPart = filetime.dwLowDateTime;
+        ull.HighPart = filetime.dwHighDateTime;
+
+        u64 ticks = ull.QuadPart / 10;
+        const u64 UNIX_TIME_START = 0x295E9648864000;
+        ticks -= UNIX_TIME_START;
+
+        tp->tv_sec = ticks / 1000000;
+        tp->tv_nsec = (ticks % 1000000) * 1000;
+        return 0;
+    } else if (clk_id == CLOCK_MONOTONIC) {
+        LARGE_INTEGER counter;
+        QueryPerformanceCounter(&counter);
+
+        LARGE_INTEGER frequency;
         QueryPerformanceFrequency(&frequency);
-        QueryPerformanceCounter(&counter); 
 
         tp->tv_sec = counter.QuadPart / frequency.QuadPart;
-        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 /
-                      frequency.QuadPart;
+        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 / frequency.QuadPart;
         return 0;
-    } else {
-        return -1;
     }
+    return -1;
 }
 
 int PS4_SYSV_ABI sceKernelUsleep(u32 microseconds) {
@@ -140,9 +153,8 @@ int PS4_SYSV_ABI sceKernelClockGettime(s32 clock_id, OrbisKernelTimespec* tp) {
         QueryPerformanceFrequency(&frequency);
         QueryPerformanceCounter(&counter);
 
-        tp->tv_sec = counter.QuadPart / frequency.QuadPart; 
-        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 /
-                      frequency.QuadPart; 
+        tp->tv_sec = counter.QuadPart / frequency.QuadPart;
+        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 / frequency.QuadPart;
     } else if (pclock_id == CLOCK_MONOTONIC) {
         LARGE_INTEGER counter;
         LARGE_INTEGER frequency;
@@ -151,15 +163,13 @@ int PS4_SYSV_ABI sceKernelClockGettime(s32 clock_id, OrbisKernelTimespec* tp) {
         QueryPerformanceCounter(&counter);
 
         tp->tv_sec = counter.QuadPart / frequency.QuadPart;
-        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 /
-                      frequency.QuadPart;
+        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 / frequency.QuadPart;
     } else {
         return ORBIS_KERNEL_ERROR_EINVAL;
     }
 
     return ORBIS_OK;
 }
-
 
 int PS4_SYSV_ABI posix_clock_gettime(s32 clock_id, OrbisKernelTimespec* time) {
     int result = sceKernelClockGettime(clock_id, time);
