@@ -50,6 +50,23 @@ u64 PS4_SYSV_ABI sceKernelReadTsc() {
     return clock->GetUptime();
 }
 
+int clock_gettime(clockid_t clk_id, struct timespec* tp) {
+    if (clk_id == CLOCK_REALTIME) {
+        LARGE_INTEGER counter;
+        LARGE_INTEGER frequency;
+
+        QueryPerformanceFrequency(&frequency);
+        QueryPerformanceCounter(&counter); 
+
+        tp->tv_sec = counter.QuadPart / frequency.QuadPart;
+        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 /
+                      frequency.QuadPart;
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
 int PS4_SYSV_ABI sceKernelUsleep(u32 microseconds) {
 #ifdef _WIN64
     const auto start_time = std::chrono::high_resolution_clock::now();
@@ -117,23 +134,32 @@ int PS4_SYSV_ABI sceKernelClockGettime(s32 clock_id, OrbisKernelTimespec* tp) {
     }
 
     if (pclock_id == CLOCK_REALTIME) {
-        time_t raw_time = time(nullptr);
-        if (raw_time == (time_t)(-1)) {
-            return ORBIS_KERNEL_ERROR_EINVAL;
-        }
-        tp->tv_sec = static_cast<long>(raw_time);
-        tp->tv_nsec = 0;
+        LARGE_INTEGER counter;
+        LARGE_INTEGER frequency;
+
+        QueryPerformanceFrequency(&frequency);
+        QueryPerformanceCounter(&counter);
+
+        tp->tv_sec = counter.QuadPart / frequency.QuadPart; 
+        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 /
+                      frequency.QuadPart; 
+    } else if (pclock_id == CLOCK_MONOTONIC) {
+        LARGE_INTEGER counter;
+        LARGE_INTEGER frequency;
+
+        QueryPerformanceFrequency(&frequency);
+        QueryPerformanceCounter(&counter);
+
+        tp->tv_sec = counter.QuadPart / frequency.QuadPart;
+        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 /
+                      frequency.QuadPart;
     } else {
-        struct timespec ts;
-        if (clock_gettime(pclock_id, &ts) != 0) {
-            return ORBIS_KERNEL_ERROR_EINVAL;
-        }
-        tp->tv_sec = ts.tv_sec;
-        tp->tv_nsec = ts.tv_nsec;
+        return ORBIS_KERNEL_ERROR_EINVAL;
     }
 
     return ORBIS_OK;
 }
+
 
 int PS4_SYSV_ABI posix_clock_gettime(s32 clock_id, OrbisKernelTimespec* time) {
     int result = sceKernelClockGettime(clock_id, time);
