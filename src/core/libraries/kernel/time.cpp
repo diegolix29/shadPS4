@@ -99,6 +99,13 @@ static int clock_gettime(clockid_t clk_id, OrbisKernelTimespec* tp) {
     }
     return -1;
 }
+#else
+
+// For Linux/macOS, clock_gettime should work
+int result = clock_gettime(pclock_id, tp);
+if (result != 0) {
+    return ORBIS_KERNEL_ERROR_EINVAL;
+}
 
 #endif
 
@@ -169,20 +176,26 @@ int PS4_SYSV_ABI sceKernelClockGettime(s32 clock_id, OrbisKernelTimespec* tp) {
     }
 
     if (pclock_id == CLOCK_REALTIME) {
-        LARGE_INTEGER counter;
-        LARGE_INTEGER frequency;
+        FILETIME filetime;
+        GetSystemTimeAsFileTime(&filetime);
 
-        QueryPerformanceFrequency(&frequency);
-        QueryPerformanceCounter(&counter);
+        ULARGE_INTEGER ull;
+        ull.LowPart = filetime.dwLowDateTime;
+        ull.HighPart = filetime.dwHighDateTime;
 
-        tp->tv_sec = counter.QuadPart / frequency.QuadPart;
-        tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 / frequency.QuadPart;
+        u64 ticks = ull.QuadPart / 10;
+        const u64 UNIX_TIME_START = 0x295E9648864000;
+        ticks -= UNIX_TIME_START;
+
+        tp->tv_sec = ticks / 1000000;
+        tp->tv_nsec = (ticks % 1000000) * 1000;
+        return 0;
     } else if (pclock_id == CLOCK_MONOTONIC) {
         LARGE_INTEGER counter;
-        LARGE_INTEGER frequency;
-
-        QueryPerformanceFrequency(&frequency);
         QueryPerformanceCounter(&counter);
+
+        LARGE_INTEGER frequency;
+        QueryPerformanceFrequency(&frequency);
 
         tp->tv_sec = counter.QuadPart / frequency.QuadPart;
         tp->tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1000000000 / frequency.QuadPart;
