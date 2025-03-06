@@ -50,8 +50,28 @@ u64 PS4_SYSV_ABI sceKernelReadTsc() {
     return clock->GetUptime();
 }
 
-int clock_gettime(clockid_t clk_id, struct timespec* tp) {
-    if (clk_id == CLOCK_REALTIME) {
+#ifdef _WIN64
+
+static int clock_gettime(clockid_t clk_id, OrbisKernelTimespec* tp) {
+    clockid_t pclock_id;
+    switch (clk_id) {
+    case ORBIS_CLOCK_REALTIME:
+    case ORBIS_CLOCK_REALTIME_PRECISE:
+    case ORBIS_CLOCK_REALTIME_FAST:
+        pclock_id = CLOCK_REALTIME;
+        break;
+    case ORBIS_CLOCK_SECOND:
+    case ORBIS_CLOCK_MONOTONIC:
+    case ORBIS_CLOCK_MONOTONIC_PRECISE:
+    case ORBIS_CLOCK_MONOTONIC_FAST:
+        pclock_id = CLOCK_MONOTONIC;
+        break;
+    default:
+        LOG_ERROR(Lib_Kernel, "unsupported clock_id = {}. Returning error.", clk_id);
+        return ORBIS_KERNEL_ERROR_EINVAL;
+    }
+
+    if (pclock_id == CLOCK_REALTIME) {
         FILETIME filetime;
         GetSystemTimeAsFileTime(&filetime);
 
@@ -66,7 +86,7 @@ int clock_gettime(clockid_t clk_id, struct timespec* tp) {
         tp->tv_sec = ticks / 1000000;
         tp->tv_nsec = (ticks % 1000000) * 1000;
         return 0;
-    } else if (clk_id == CLOCK_MONOTONIC) {
+    } else if (pclock_id == CLOCK_MONOTONIC) {
         LARGE_INTEGER counter;
         QueryPerformanceCounter(&counter);
 
@@ -79,6 +99,8 @@ int clock_gettime(clockid_t clk_id, struct timespec* tp) {
     }
     return -1;
 }
+
+#endif
 
 int PS4_SYSV_ABI sceKernelUsleep(u32 microseconds) {
 #ifdef _WIN64
