@@ -72,17 +72,13 @@ int PS4_SYSV_ABI sceKernelUsleep(u32 microseconds) {
 
     return 0;
 #else
-    timespec start;
-    timespec remain;
-    start.tv_sec = microseconds / 1000000;
-    start.tv_nsec = (microseconds % 1000000) * 1000;
-    timespec* requested = &start;
-    int ret = 0;
-    do {
-        ret = nanosleep(requested, &remain);
-        requested = &remain;
-    } while (ret != 0);
-    return ret;
+    struct timespec req, rem;
+    req.tv_sec = microseconds / 1000000;
+    req.tv_nsec = (microseconds % 1000000) * 1000;
+    while (nanosleep(&req, &rem) == -1) {
+        req = rem;
+    }
+    return 0;
 #endif
 }
 
@@ -111,8 +107,8 @@ u32 PS4_SYSV_ABI sceKernelSleep(u32 seconds) {
 #ifndef CLOCK_REALTIME_COARSE
 #define CLOCK_REALTIME_COARSE 5
 #endif
-#ifndef CLOCK_MONOTONIC_COARSE
-#define CLOCK_MONOTONIC_COARSE 6
+#ifndef CLOCK_MONOTONIC_RAW
+#define CLOCK_MONOTONIC_RAW 6
 #endif
 
 #define DELTA_EPOCH_IN_100NS 116444736000000000ULL
@@ -133,7 +129,7 @@ static s32 clock_gettime(u32 clock_id, struct timespec* ts) {
         return 0;
     }
     case CLOCK_MONOTONIC:
-    case CLOCK_MONOTONIC_COARSE: {
+    case CLOCK_MONOTONIC_RAW: {
         static LARGE_INTEGER pf = [] {
             LARGE_INTEGER res{};
             QueryPerformanceFrequency(&pf);
@@ -185,8 +181,11 @@ int PS4_SYSV_ABI orbis_clock_gettime(s32 clock_id, OrbisKernelTimespec* tp) {
         break;
     case ORBIS_CLOCK_SECOND:
     case ORBIS_CLOCK_REALTIME_FAST:
+#ifdef __APPLE__
+        pclock_id = CLOCK_REALTIME;
+#else
         pclock_id = CLOCK_REALTIME_COARSE;
-        break;
+#endif break;
     case ORBIS_CLOCK_UPTIME:
     case ORBIS_CLOCK_UPTIME_PRECISE:
     case ORBIS_CLOCK_MONOTONIC:
@@ -195,7 +194,7 @@ int PS4_SYSV_ABI orbis_clock_gettime(s32 clock_id, OrbisKernelTimespec* tp) {
         break;
     case ORBIS_CLOCK_UPTIME_FAST:
     case ORBIS_CLOCK_MONOTONIC_FAST:
-        pclock_id = CLOCK_MONOTONIC_COARSE;
+        pclock_id = CLOCK_MONOTONIC_RAW;
         break;
     case ORBIS_CLOCK_THREAD_CPUTIME_ID:
         pclock_id = CLOCK_THREAD_CPUTIME_ID;
@@ -221,7 +220,8 @@ int PS4_SYSV_ABI orbis_clock_gettime(s32 clock_id, OrbisKernelTimespec* tp) {
         if (res < 0) {
             return res;
         }
-        *tp = ru.ru_utime;
+        tp->tv_sec = ru.ru_utime.tv_sec;
+        tp->tv_nsec = ru.ru_utime.tv_usec * 1000;
 #endif
         return 0;
     }
@@ -240,7 +240,8 @@ int PS4_SYSV_ABI orbis_clock_gettime(s32 clock_id, OrbisKernelTimespec* tp) {
         if (res < 0) {
             return res;
         }
-        *tp = ru.ru_stime;
+        tp->tv_sec = ru.ru_stime.tv_sec;
+        tp->tv_nsec = ru.ru_stime.tv_usec * 1000;
 #endif
         return 0;
     }
