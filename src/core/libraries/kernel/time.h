@@ -75,7 +75,7 @@ u64 PS4_SYSV_ABI sceKernelGetProcessTime();
 u64 PS4_SYSV_ABI sceKernelGetProcessTimeCounter();
 u64 PS4_SYSV_ABI sceKernelGetProcessTimeCounterFrequency();
 u64 PS4_SYSV_ABI sceKernelReadTsc();
-int PS4_SYSV_ABI sceKernelClockGettime(s32 clock_id, OrbisKernelTimespec* tp);
+int PS4_SYSV_ABI sceKernelClockGettime(s32 clock_id, timespec* tp);
 s32 PS4_SYSV_ABI sceKernelGettimezone(OrbisKernelTimezone* tz);
 int PS4_SYSV_ABI sceKernelConvertLocaltimeToUtc(time_t param_1, int64_t param_2, time_t* seconds,
                                                 OrbisKernelTimezone* timezone, int* dst_seconds);

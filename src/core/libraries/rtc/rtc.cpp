@@ -393,7 +393,7 @@ int PS4_SYSV_ABI sceRtcGetCurrentAdNetworkTick(OrbisRtcTick* pTick) {
     if (pTick == nullptr)
         return ORBIS_RTC_ERROR_INVALID_POINTER;
 
-    Kernel::OrbisKernelTimespec clocktime;
+    timespec clocktime;
     int returnValue = Kernel::sceKernelClockGettime(Kernel::ORBIS_CLOCK_REALTIME, &clocktime);
 
     if (returnValue == ORBIS_OK) {
@@ -411,7 +411,7 @@ int PS4_SYSV_ABI sceRtcGetCurrentClock(OrbisRtcDateTime* pTime, int timeZone) {
     if (pTime == nullptr)
         return ORBIS_RTC_ERROR_DATETIME_UNINITIALIZED;
 
-    Kernel::OrbisKernelTimespec clocktime;
+    timespec clocktime;
     int returnValue = Kernel::sceKernelClockGettime(Kernel::ORBIS_CLOCK_REALTIME, &clocktime);
 
     if (returnValue == ORBIS_OK) {
@@ -457,7 +457,7 @@ int PS4_SYSV_ABI sceRtcGetCurrentDebugNetworkTick(OrbisRtcTick* pTick) {
     if (pTick == nullptr)
         return ORBIS_RTC_ERROR_INVALID_POINTER;
 
-    Kernel::OrbisKernelTimespec clocktime;
+    timespec clocktime;
     int returnValue = Kernel::sceKernelClockGettime(Kernel::ORBIS_CLOCK_REALTIME, &clocktime);
 
     if (returnValue == ORBIS_OK) {
@@ -475,7 +475,7 @@ int PS4_SYSV_ABI sceRtcGetCurrentNetworkTick(OrbisRtcTick* pTick) {
     if (pTick == nullptr)
         return ORBIS_RTC_ERROR_INVALID_POINTER;
 
-    Kernel::OrbisKernelTimespec clocktime;
+    timespec clocktime;
     int returnValue = Kernel::sceKernelClockGettime(Kernel::ORBIS_CLOCK_REALTIME, &clocktime);
 
     if (returnValue == ORBIS_OK) {
@@ -493,7 +493,7 @@ int PS4_SYSV_ABI sceRtcGetCurrentRawNetworkTick(OrbisRtcTick* pTick) {
     if (pTick == nullptr)
         return ORBIS_RTC_ERROR_INVALID_POINTER;
 
-    Kernel::OrbisKernelTimespec clocktime;
+    timespec clocktime;
     int returnValue = Kernel::sceKernelClockGettime(Kernel::ORBIS_CLOCK_REALTIME, &clocktime);
 
     if (returnValue == ORBIS_OK) {
@@ -511,7 +511,7 @@ int PS4_SYSV_ABI sceRtcGetCurrentTick(OrbisRtcTick* pTick) {
     if (pTick == nullptr)
         return ORBIS_RTC_ERROR_DATETIME_UNINITIALIZED;
 
-    Kernel::OrbisKernelTimespec clocktime;
+    timespec clocktime;
     int returnValue = Kernel::sceKernelClockGettime(Kernel::ORBIS_CLOCK_REALTIME, &clocktime);
 
     if (returnValue >= 0) {
