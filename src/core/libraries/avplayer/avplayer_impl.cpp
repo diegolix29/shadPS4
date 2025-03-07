@@ -119,15 +119,8 @@ s32 AvPlayer::AddSourceEx(std::string_view path, AvPlayerSourceType source_type)
     return ORBIS_OK;
 }
 
-s32 AvPlayer::GetStreamCount() {
-    if (m_state == nullptr) {
-        return ORBIS_AVPLAYER_ERROR_OPERATION_FAILED;
-    }
-    const auto res = m_state->GetStreamCount();
-    if (AVPLAYER_IS_ERROR(res)) {
-        return ORBIS_AVPLAYER_ERROR_OPERATION_FAILED;
-    }
-    return res;
+u32 AvPlayer::GetStreamCount() {
+    return m_state->GetStreamCount();
 }
 
 s32 AvPlayer::GetStreamInfo(u32 stream_index, AvPlayerStreamInfo& info) {
