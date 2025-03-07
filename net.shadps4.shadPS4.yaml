@@ -79,10 +79,10 @@ modules:
       # We're using a git source here rather than a zipball because zip/tarballs
       # don't include submodules, which shadps4 depends on (in the externals directory)
       - type: git
-        url: https://github.com/shadps4-emu/shadPS4
-        tag: v.0.5.0
+        url: https://github.com/diegolix29/shadPS4
+        tag: Pre-release-shadPS4-2025-03-07-ceca4c9
         x-checker-data:
           type: json
-          url: https://api.github.com/repos/shadps4-emu/shadps4/releases/latest
+          url: https://api.github.com/diegolix29/shadPS4/releases/latest
           tag-query: .tag_name
           version-query: .tag_name | sub("^v."; "")
