@@ -128,7 +128,7 @@ void RingAccessElimination(const IR::Program& program, const RuntimeInfo& runtim
 
                 const auto vc_read_ofs = (((offset / comp_ofs) * comp_ofs) % output_size) * 16u;
                 const auto& it = info.gs_copy_data.attr_map.find(vc_read_ofs);
-                // ASSERT(it != info.gs_copy_data.attr_map.cend());
+                ASSERT(it != info.gs_copy_data.attr_map.cend());
                 const auto& [attr, comp] = it->second;
 
                 inst.ReplaceOpcode(IR::Opcode::SetAttribute);
