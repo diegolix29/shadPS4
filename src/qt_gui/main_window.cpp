@@ -143,8 +143,7 @@ void MainWindow::AddUiWidgets() {
 
     // Detect background color
     QColor bgColor = palette().color(QPalette::Window);
-    QString textColor =
-        (bgColor.lightness() > 128) ? "#000" : "#fff";
+    QString textColor = (bgColor.lightness() > 128) ? "#000" : "#fff";
 
     ui->playButton->setToolTip(
         QString("<span style='color:%1;'><b>Play</b></span>").arg(textColor));
