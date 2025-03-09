@@ -168,7 +168,7 @@ static s32 clock_gettime(u32 clock_id, struct timespec* ts) {
 }
 #endif
 
-static int PS4_SYSV_ABI orbis_clock_gettime(s32 clock_id, timespec* tp) {
+int PS4_SYSV_ABI orbis_clock_gettime(s32 clock_id, OrbisKernelTimespec* tp) {
     if (tp == nullptr) {
         return ORBIS_KERNEL_ERROR_EFAULT;
     }
@@ -185,8 +185,7 @@ static int PS4_SYSV_ABI orbis_clock_gettime(s32 clock_id, timespec* tp) {
         pclock_id = CLOCK_REALTIME;
 #else
         pclock_id = CLOCK_REALTIME_COARSE;
-#endif
-        break;
+#endif break;
     case ORBIS_CLOCK_UPTIME:
     case ORBIS_CLOCK_UPTIME_PRECISE:
     case ORBIS_CLOCK_MONOTONIC:
@@ -269,7 +268,7 @@ static int PS4_SYSV_ABI orbis_clock_gettime(s32 clock_id, timespec* tp) {
     return 0;
 }
 
-int PS4_SYSV_ABI sceKernelClockGettime(s32 clock_id, timespec* tp) {
+int PS4_SYSV_ABI sceKernelClockGettime(s32 clock_id, OrbisKernelTimespec* tp) {
     const auto res = orbis_clock_gettime(clock_id, tp);
     if (res < 0) {
         return ErrnoToSceKernelError(res);
