@@ -470,7 +470,7 @@ jobs:
         
   pre-release:
     if: github.ref == 'refs/heads/mainBB' && github.event_name == 'push'
-    needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
+    needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt, linux-flatpak, linux-qt-gcc, linux-sdl-gcc]
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts
