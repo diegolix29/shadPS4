@@ -449,7 +449,7 @@ jobs:
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
 
   pre-release:
-    if: github.ref == 'refs/heads/main' && github.repository == 'shadps4-emu/shadPS4' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.repository == 'diegolix29/shadPS4' && github.event_name == 'push'
     needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt]
     runs-on: ubuntu-latest
     steps:
@@ -487,7 +487,7 @@ jobs:
         tag: "Pre-release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
         draft: false
         prerelease: true
-        body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/shadps4-emu/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
+        body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
         artifacts: ./artifacts/*.zip
 
     - name: Publish to Release Repository
@@ -495,9 +495,9 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         ARTIFACTS_DIR=./artifacts
-        REPO_WINDOWS="shadps4-emu/shadps4-binaries-Windows"
-        REPO_LINUX="shadps4-emu/shadps4-binaries-Linux"
-        REPO_MAC="shadps4-emu/shadps4-binaries-Mac"
+        REPO_WINDOWS="diegolix29/shadps4-binaries-Windows"
+        REPO_LINUX="diegolix29/shadps4-binaries-Linux"
+        REPO_MAC="diegolix29/shadps4-binaries-Mac"
 
         for file in "$ARTIFACTS_DIR"/*.zip; do
           filename=$(basename "$file")
@@ -531,7 +531,7 @@ jobs:
                 "name": "Pre-release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}",
                 "draft": false,
                 "prerelease": true,
-                "body": "Commit: [${{ needs.get-info.outputs.fullhash }}](https://github.com/shadps4-emu/shadPS4/commit/${{ needs.get-info.outputs.fullhash }})"
+                "body": "Commit: [${{ needs.get-info.outputs.fullhash }}](https://github.com/diegolix29/shadPS4/commit/${{ needs.get-info.outputs.fullhash }})"
               }' "https://api.github.com/repos/$REPO/releases" | jq -r '.id')
           else
             echo "Release already exists in $REPO with ID $release_id"
