@@ -74,7 +74,7 @@
     </message>
     <message>
       <source>Select Patch File:</source>
-      <translation>Përzgjidh Skedarin e Arnës:</translation>
+      <translation>Përzgjidh skedarin e arnës:</translation>
     </message>
     <message>
       <source>Download Patches</source>
@@ -138,7 +138,7 @@
     </message>
     <message>
       <source>File Exists</source>
-      <translation>Skedari Ekziston</translation>
+      <translation>Skedari ekziston</translation>
     </message>
     <message>
       <source>File already exists. Do you want to replace it?</source>
@@ -451,7 +451,7 @@
     </message>
     <message>
       <source>Use per-game configs</source>
-      <translation>Përdor konfigurime për secilën lojë</translation>
+      <translation>Përdor konfigurime të veçanta për secilën lojë</translation>
     </message>
     <message>
       <source>L1 / LB</source>
@@ -540,6 +540,61 @@
     <message>
       <source>Override Color</source>
       <translation>Zëvendëso Ngjyrën</translation>
+    </message>
+    <message>
+      <source>Unable to Save</source>
+      <translation>Ruajtja Dështoi</translation>
+    </message>
+    <message>
+      <source>Cannot bind axis values more than once</source>
+      <translation>Nuk mund të caktohen vlerat e boshtit më shumë se një herë</translation>
+    </message>
+  </context>
+  <context>
+    <name>EditorDialog</name>
+    <message>
+      <source>Edit Keyboard + Mouse and Controller input bindings</source>
+      <translation>Redakto caktimet e hyrjeve për Tastierën + Miun dhe Dorezën</translation>
+    </message>
+    <message>
+      <source>Use Per-Game configs</source>
+      <translation>Përdor konfigurime për secilën lojë</translation>
+    </message>
+    <message>
+      <source>Error</source>
+      <translation>Gabim</translation>
+    </message>
+    <message>
+      <source>Could not open the file for reading</source>
+      <translation>Skedari nuk mund të hapet për lexim</translation>
+    </message>
+    <message>
+      <source>Could not open the file for writing</source>
+      <translation>Skedari nuk mund të hapet për shkrim</translation>
+    </message>
+    <message>
+      <source>Save Changes</source>
+      <translation>Ruaj Ndryshimet</translation>
+    </message>
+    <message>
+      <source>Do you want to save changes?</source>
+      <translation>Do të ruash ndryshimet?</translation>
+    </message>
+    <message>
+      <source>Help</source>
+      <translation>Ndihmë</translation>
+    </message>
+    <message>
+      <source>Do you want to reset your custom default config to the original default config?</source>
+      <translation>A do ta rivendosësh konfigurimin tënd të paracaktuar të personalizuar te konfigurimi i paracaktuar origjinal?</translation>
+    </message>
+    <message>
+      <source>Do you want to reset this config to your custom default config?</source>
+      <translation>A do ta rivendosësh këtë konfigurim në konfigurimin tënd të paracaktuar të personalizuar?</translation>
+    </message>
+    <message>
+      <source>Reset to Default</source>
+      <translation>Rivendos në të Paracaktuarit</translation>
     </message>
   </context>
   <context>
@@ -885,6 +940,29 @@
     </message>
   </context>
   <context>
+    <name>HelpDialog</name>
+    <message>
+      <source>Quickstart</source>
+      <translation>Nisje e shpejtë</translation>
+    </message>
+    <message>
+      <source>FAQ</source>
+      <translation>Pyetje të Shpeshta</translation>
+    </message>
+    <message>
+      <source>Syntax</source>
+      <translation>Sintaksa</translation>
+    </message>
+    <message>
+      <source>Special Bindings</source>
+      <translation>Caktimet e Veçantë</translation>
+    </message>
+    <message>
+      <source>Keybindings</source>
+      <translation>Caktimet e Tasteve</translation>
+    </message>
+  </context>
+  <context>
     <name>InstallDirSelect</name>
     <message>
       <source>shadPS4 - Choose directory</source>
@@ -935,23 +1013,23 @@
     </message>
     <message>
       <source>Left Analog Halfmode</source>
-      <translation type="unfinished">Left Analog Halfmode</translation>
+      <translation>Mënyra e gjysmuar për levën e majtë</translation>
     </message>
     <message>
       <source>hold to move left stick at half-speed</source>
-      <translation type="unfinished">hold to move left stick at half-speed</translation>
+      <translation>mbaj shtypur për të lëvizur levën e majtë me gjysmën e shpejtësisë</translation>
     </message>
     <message>
       <source>Left Stick</source>
-      <translation type="unfinished">Left Stick</translation>
+      <translation>Leva e Majtë</translation>
     </message>
     <message>
       <source>Config Selection</source>
-      <translation type="unfinished">Config Selection</translation>
+      <translation>Zgjedhja e Konfigurimit</translation>
     </message>
     <message>
       <source>Common Config</source>
-      <translation type="unfinished">Common Config</translation>
+      <translation>Konfigurim i Përbashkët</translation>
     </message>
     <message>
       <source>Use per-game configs</source>
@@ -967,7 +1045,7 @@
     </message>
     <message>
       <source>Text Editor</source>
-      <translation type="unfinished">Text Editor</translation>
+      <translation>Redaktuesi i Tekstit</translation>
     </message>
     <message>
       <source>Help</source>
@@ -987,15 +1065,15 @@
     </message>
     <message>
       <source>Touchpad Click</source>
-      <translation type="unfinished">Touchpad Click</translation>
+      <translation>Klikim i Panelit me Prekje</translation>
     </message>
     <message>
       <source>Mouse to Joystick</source>
-      <translation type="unfinished">Mouse to Joystick</translation>
+      <translation>Miu në Levë</translation>
     </message>
     <message>
       <source>*press F7 ingame to activate</source>
-      <translation type="unfinished">*press F7 ingame to activate</translation>
+      <translation>*shtyp F7 gjatë lojës për ta aktivizuar</translation>
     </message>
     <message>
       <source>R3</source>
@@ -1003,63 +1081,99 @@
     </message>
     <message>
       <source>Options</source>
-      <translation type="unfinished">Options</translation>
+      <translation>Rregullime</translation>
     </message>
     <message>
       <source>Mouse Movement Parameters</source>
-      <translation type="unfinished">Mouse Movement Parameters</translation>
+      <translation>Parametrat e Lëvizjes së Miut</translation>
     </message>
     <message>
       <source>note: click Help Button/Special Keybindings for more information</source>
-      <translation type="unfinished">note: click Help Button/Special Keybindings for more information</translation>
+      <translation>shënim: kliko Butonin e Ndihmës/Caktimet e Tasteve të Veçantë për më shumë informacion</translation>
     </message>
     <message>
       <source>Face Buttons</source>
-      <translation type="unfinished">Face Buttons</translation>
+      <translation>Butonat Kryesore</translation>
     </message>
     <message>
       <source>Triangle</source>
-      <translation type="unfinished">Triangle</translation>
+      <translation>Trekëndësh</translation>
     </message>
     <message>
       <source>Square</source>
-      <translation type="unfinished">Square</translation>
+      <translation>Katror</translation>
     </message>
     <message>
       <source>Circle</source>
-      <translation type="unfinished">Circle</translation>
+      <translation>Rreth</translation>
     </message>
     <message>
       <source>Cross</source>
-      <translation type="unfinished">Cross</translation>
+      <translation>Kryq</translation>
     </message>
     <message>
       <source>Right Analog Halfmode</source>
-      <translation type="unfinished">Right Analog Halfmode</translation>
+      <translation>Mënyra e gjysmuar për levën e djathtë</translation>
     </message>
     <message>
       <source>hold to move right stick at half-speed</source>
-      <translation type="unfinished">hold to move right stick at half-speed</translation>
+      <translation>mbaj shtypur për të lëvizur levën e djathtë me gjysmën e shpejtësisë</translation>
     </message>
     <message>
       <source>Right Stick</source>
-      <translation type="unfinished">Right Stick</translation>
+      <translation>Leva e Djathtë</translation>
     </message>
     <message>
       <source>Speed Offset (def 0.125):</source>
-      <translation type="unfinished">Speed Offset (def 0.125):</translation>
+      <translation>Ofset i Shpejtësisë (paracaktuar 0.125):</translation>
     </message>
     <message>
       <source>Copy from Common Config</source>
-      <translation type="unfinished">Copy from Common Config</translation>
+      <translation>Kopjo nga Konfigurimi i Përbashkët</translation>
     </message>
     <message>
       <source>Deadzone Offset (def 0.50):</source>
-      <translation type="unfinished">Deadzone Offset (def 0.50):</translation>
+      <translation>Ofseti i Zonës së Vdekur (paracaktuar 0.50):</translation>
     </message>
     <message>
       <source>Speed Multiplier (def 1.0):</source>
-      <translation type="unfinished">Speed Multiplier (def 1.0):</translation>
+      <translation>Shumëzuesi i Shpejtësisë (paracaktuar 1.0):</translation>
+    </message>
+    <message>
+      <source>Common Config Selected</source>
+      <translation>Konfigurimi i Përbashkët i Zgjedhur</translation>
+    </message>
+    <message>
+      <source>This button copies mappings from the Common Config to the currently selected profile, and cannot be used when the currently selected profile is the Common Config.</source>
+      <translation>Ky buton kopjon caktimet nga Konfigurimi i Përbashkët në profilin e zgjedhur aktualisht, dhe nuk mund të përdoret kur profili i zgjedhur aktualisht është Konfigurimi i Përbashkët.</translation>
+    </message>
+    <message>
+      <source>Copy values from Common Config</source>
+      <translation>Kopjo vlerat nga Konfigurimi i Përbashkët</translation>
+    </message>
+    <message>
+      <source>Do you want to overwrite existing mappings with the mappings from the Common Config?</source>
+      <translation>A dëshiron të mbishkruash caktimet ekzistuese me ato nga Konfigurimi i Përbashkët?</translation>
+    </message>
+    <message>
+      <source>Unable to Save</source>
+      <translation>Ruajtja Dështoi</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once</source>
+      <translation>Asnjë hyrje unike nuk mund të caktohet më shumë se një herë</translation>
+    </message>
+    <message>
+      <source>Press a key</source>
+      <translation>Shtyp një tast</translation>
+    </message>
+    <message>
+      <source>Cannot set mapping</source>
+      <translation>Caktimi nuk u vendos dot</translation>
+    </message>
+    <message>
+      <source>Mousewheel cannot be mapped to stick outputs</source>
+      <translation>Rrota e miut nuk mund të caktohet për daljet e levës</translation>
     </message>
   </context>
   <context>
@@ -1560,7 +1674,7 @@
     </message>
     <message>
       <source>Enable Shaders Dumping</source>
-      <translation>Aktivizo Zbrazjen e Shaders-ave</translation>
+      <translation>Aktivizo Zbrazjen e Shader-ave</translation>
     </message>
     <message>
       <source>Enable NULL GPU</source>
@@ -1636,7 +1750,7 @@
     </message>
     <message>
       <source>Always Show Changelog</source>
-      <translation>Shfaq gjithmonë regjistrin e ndryshimeve</translation>
+      <translation>Shfaq gjithmonë ditarin e ndryshimeve</translation>
     </message>
     <message>
       <source>Update Channel</source>
@@ -1776,7 +1890,7 @@
     </message>
     <message>
       <source>Back Button Behavior:\nSets the controller&apos;s back button to emulate tapping the specified position on the PS4 touchpad.</source>
-      <translation>Sjellja e butonit mbrapa:\nLejon të përcaktohet se në cilën pjesë të tastierës prekëse do të imitojë një prekje butoni mbrapa.</translation>
+      <translation>Sjellja e butonit mbrapa:\nLejon të përcaktohet se në cilën pjesë të panelit me prekje të dorezës do të imitojë një prekje butoni mbrapa.</translation>
     </message>
     <message>
       <source>Display Compatibility Data:\nDisplays game compatibility information in table view. Enable &quot;Update Compatibility On Startup&quot; to get up-to-date information.</source>
@@ -1789,10 +1903,6 @@
     <message>
       <source>Update Compatibility Database:\nImmediately update the compatibility database.</source>
       <translation>Përditëso bazën e të dhënave të përputhshmërisë:\nPërditëso menjëherë bazën e të dhënave të përputhshmërisë.</translation>
-    </message>
-    <message>
-      <source>Open the custom trophy images/sounds folder:\nYou can add custom images to the trophies and an audio.\nAdd the files to custom_trophy with the following names:\ntrophy.mp3, bronze.png, gold.png, platinum.png, silver.png\nNote: The sound will only work in QT versions.</source>
-      <translation>Hap dosjen e imazheve/tingujve të trofeve të personalizuar:\nMund të shtosh imazhe të personalizuara për trofetë dhe një audio.\nShto skedarët në dosjen custom_trophy me emrat që vijojnë:\ntrophy.mp3, bronze.png, gold.png, platinum.png, silver.png\nShënim: Tingulli do të punojë vetëm në versionet QT.</translation>
     </message>
     <message>
       <source>Never</source>
@@ -1808,15 +1918,15 @@
     </message>
     <message>
       <source>Touchpad Left</source>
-      <translation>Tastiera prekëse majtas</translation>
+      <translation>Paneli me Prekje Majtas</translation>
     </message>
     <message>
       <source>Touchpad Right</source>
-      <translation>Tastiera prekëse djathtas</translation>
+      <translation>Paneli me Prekje Djathtas</translation>
     </message>
     <message>
       <source>Touchpad Center</source>
-      <translation>Tastiera prekëse në qendër</translation>
+      <translation>Paneli me Prekje në Qendër</translation>
     </message>
     <message>
       <source>None</source>
@@ -2012,15 +2122,35 @@
     </message>
     <message>
       <source>Portable User Folder</source>
-      <translation type="unfinished">Portable User Folder</translation>
+      <translation>Dosja Portative e Përdoruesit</translation>
     </message>
     <message>
       <source>Create Portable User Folder from Common User Folder</source>
-      <translation type="unfinished">Create Portable User Folder from Common User Folder</translation>
+      <translation>Krijo Dosje Portative të Përdoruesit nga Dosja e Përbashkët e Përdoruesit</translation>
     </message>
     <message>
       <source>Portable user folder:\nStores shadPS4 settings and data that will be applied only to the shadPS4 build located in the current folder. Restart the app after creating the portable user folder to begin using it.</source>
-      <translation type="unfinished">Portable user folder:\nStores shadPS4 settings and data that will be applied only to the shadPS4 build located in the current folder. Restart the app after creating the portable user folder to begin using it.</translation>
+      <translation>Dosja portative e përdoruesit:\nRuan cilësimet dhe të dhënat të shadPS4 që do të zbatohen vetëm për konstruktin e shadPS4 të vendosur në dosjen aktuale. Rinis aplikacionin pasi të krijosh dosjen portative te përdoruesit për ta përdorur.</translation>
+    </message>
+    <message>
+      <source>Cannot create portable user folder</source>
+      <translation>Dosja portative e përdoruesit nuk u krijua dot</translation>
+    </message>
+    <message>
+      <source>%1 already exists</source>
+      <translation>%1 tashmë ekziston</translation>
+    </message>
+    <message>
+      <source>Portable user folder created</source>
+      <translation>Dosja portative e përdoruesit u krijua</translation>
+    </message>
+    <message>
+      <source>%1 successfully created.</source>
+      <translation>%1 u krijua me sukses.</translation>
+    </message>
+    <message>
+      <source>Open the custom trophy images/sounds folder:\nYou can add custom images to the trophies and an audio.\nAdd the files to custom_trophy with the following names:\ntrophy.wav OR trophy.mp3, bronze.png, gold.png, platinum.png, silver.png\nNote: The sound will only work in QT versions.</source>
+      <translation>Hap dosjen e imazheve/tingujve të trofeve të personalizuar:\nMund të shtosh imazhe të personalizuara për trofetë dhe një audio.\nShto skedarët në dosjen custom_trophy me emrat që vijojnë:\ntrophy.wav ose trophy.mp3, bronze.png, gold.png, platinum.png, silver.png\nShënim: Tingulli do të punojë vetëm në versionet QT.</translation>
     </message>
   </context>
   <context>
