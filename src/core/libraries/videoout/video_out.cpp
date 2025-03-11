@@ -41,13 +41,13 @@ void PS4_SYSV_ABI sceVideoOutSetBufferAttribute(BufferAttribute* attribute, Pixe
 s32 PS4_SYSV_ABI sceVideoOutAddFlipEvent(Kernel::SceKernelEqueue eq, s32 handle, void* udata) {
     LOG_INFO(Lib_VideoOut, "handle = {}", handle);
 
-    if (eq == nullptr) {
-        return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE;
-    }
-
     auto* port = driver->GetPort(handle);
     if (port == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
+    }
+
+    if (eq == nullptr) {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE;
     }
 
     Kernel::EqueueEvent event{};
@@ -360,7 +360,7 @@ s32 PS4_SYSV_ABI sceVideoOutAdjustColor(s32 handle, const SceVideoOutColorSettin
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
 
-    presenter->GetPPSettingsRef().gamma = settings->gamma;
+    presenter->GetGammaRef() = settings->gamma;
     return ORBIS_OK;
 }
 
