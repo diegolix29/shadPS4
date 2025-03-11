@@ -56,6 +56,7 @@ private:
     void AddUiWidgets();
     void UpdateToolbarLabels();
     void CreateActions();
+    void PauseGame();
     void toggleFullscreen();
     void CreateRecentGameActions();
     void CreateDockWindows();

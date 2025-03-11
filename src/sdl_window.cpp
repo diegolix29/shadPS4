@@ -404,6 +404,10 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_QUIT:
         is_open = false;
         break;
+    case SDL_EVENT_QUIT + 1:
+        is_open = false;
+        RelaunchEmulator();
+        break;
     case SDL_EVENT_TOGGLE_FULLSCREEN: {
         if (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) {
             SDL_SetWindowFullscreen(window, 0);
@@ -422,9 +426,6 @@ void WindowSDL::WaitEvent() {
             SDL_Log("Game Resumed");
             DebugState.ResumeGuestThreads();
         }
-    case SDL_EVENT_QUIT + 1:
-        is_open = false;
-        RelaunchEmulator();
         break;
     }
 }

@@ -217,6 +217,7 @@ void MainWindow::AddUiWidgets() {
     buttonLayout->addWidget(createButtonWithLabel(ui->playButton, tr("Play")));
     buttonLayout->addWidget(createButtonWithLabel(ui->pauseButton, tr("Pause")));
     buttonLayout->addWidget(createButtonWithLabel(ui->stopButton, tr("Stop")));
+    buttonLayout->addWidget(createButtonWithLabel(ui->restartButton, tr("Restart Game")));
     buttonLayout->addWidget(createLine());
 
     buttonLayout->addWidget(createButtonWithLabel(ui->settingsButton, tr("Settings")));
@@ -378,6 +379,7 @@ void MainWindow::CreateConnects() {
 
     connect(ui->playButton, &QPushButton::clicked, this, &MainWindow::StartGame);
     connect(ui->stopButton, &QPushButton::clicked, this, &MainWindow::StopGame);
+    connect(ui->pauseButton, &QPushButton::clicked, this, &MainWindow::PauseGame);
     connect(ui->restartButton, &QPushButton::clicked, this, &MainWindow::RestartGame);
     connect(m_game_grid_frame.get(), &QTableWidget::cellDoubleClicked, this,
             &MainWindow::StartGame);
