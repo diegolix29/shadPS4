@@ -49,15 +49,19 @@ private Q_SLOTS:
     void RefreshGameTable();
     void HandleResize(QResizeEvent* event);
     void OnLanguageChanged(const std::string& locale);
+    void toggleLabelsUnderIcons();
 
 private:
     Ui_MainWindow* ui;
     void AddUiWidgets();
+    void UpdateToolbarLabels();
     void CreateActions();
+    void toggleFullscreen();
     void CreateRecentGameActions();
     void CreateDockWindows();
     void GetPhysicalDevices();
     void LoadGameLists();
+
 #ifdef ENABLE_UPDATER
     void CheckUpdateMain(bool checkSave);
 #endif
@@ -76,6 +80,7 @@ private:
     void PlayBackgroundMusic();
     QIcon RecolorIcon(const QIcon& icon, bool isWhite);
     void StartEmulator(std::filesystem::path);
+    bool is_paused = false;
     bool isIconBlack = false;
     bool isTableList = true;
     bool isGameRunning = false;

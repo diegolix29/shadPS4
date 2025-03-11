@@ -20,6 +20,7 @@
 #include "common/config.h"
 #include "common/elf_info.h"
 #include "common/version.h"
+#include "core/debug_state.h"
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "imgui/renderer/imgui_core.h"
@@ -342,7 +343,6 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameController* controller_
 WindowSDL::~WindowSDL() = default;
 
 void WindowSDL::WaitEvent() {
-    // Called on main thread
     SDL_Event event;
 
     if (!SDL_WaitEvent(&event)) {
@@ -352,7 +352,7 @@ void WindowSDL::WaitEvent() {
     if (ImGui::Core::ProcessEvent(&event)) {
         return;
     }
-
+    bool is_game_running = true;
     switch (event.type) {
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_MAXIMIZED:
@@ -388,8 +388,6 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
         OnGamepadEvent(&event);
         break;
-    // i really would have appreciated ANY KIND OF DOCUMENTATION ON THIS
-    // AND IT DOESN'T EVEN USE PROPER ENUMS
     case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
         switch ((SDL_SensorType)event.gsensor.sensor) {
         case SDL_SENSOR_GYRO:
@@ -406,6 +404,24 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_QUIT:
         is_open = false;
         break;
+    case SDL_EVENT_TOGGLE_FULLSCREEN: {
+        if (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) {
+            SDL_SetWindowFullscreen(window, 0);
+        } else {
+            SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+        }
+        break;
+    }
+    case SDL_EVENT_TOGGLE_PAUSE:
+        SDL_Log("Received SDL_EVENT_TOGGLE_PAUSE");
+        is_paused = !is_paused;
+        if (is_paused) {
+            SDL_Log("Game Paused");
+            DebugState.PauseGuestThreads();
+        } else {
+            SDL_Log("Game Resumed");
+            DebugState.ResumeGuestThreads();
+        }
     case SDL_EVENT_QUIT + 1:
         is_open = false;
         RelaunchEmulator();
