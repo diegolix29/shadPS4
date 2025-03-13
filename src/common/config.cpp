@@ -453,7 +453,7 @@ void setPostProcessingFilter(const std::string& type) {
 void setIsFullscreen(bool enable) {
     isFullscreen = enable;
 }
-void setShowLabelsUnderIcons(bool enable) {
+static void setShowLabelsUnderIcons(bool enable) {
     showLabelsUnderIcons = enable;
 }
 

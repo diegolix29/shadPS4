@@ -352,7 +352,6 @@ void WindowSDL::WaitEvent() {
     if (ImGui::Core::ProcessEvent(&event)) {
         return;
     }
-    bool is_game_running = true;
     switch (event.type) {
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_MAXIMIZED:
@@ -418,13 +417,13 @@ void WindowSDL::WaitEvent() {
     }
     case SDL_EVENT_TOGGLE_PAUSE:
         SDL_Log("Received SDL_EVENT_TOGGLE_PAUSE");
-        is_paused = !is_paused;
-        if (is_paused) {
-            SDL_Log("Game Paused");
-            DebugState.PauseGuestThreads();
-        } else {
+
+        if (DebugState.IsGuestThreadsPaused()) {
             SDL_Log("Game Resumed");
             DebugState.ResumeGuestThreads();
+        } else {
+            SDL_Log("Game Paused");
+            DebugState.PauseGuestThreads();
         }
         break;
     }

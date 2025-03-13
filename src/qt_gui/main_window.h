@@ -5,6 +5,7 @@
 
 #include <QActionGroup>
 #include <QDragEnterEvent>
+#include <QProcess>
 #include <QTranslator>
 
 #include "background_music_player.h"
@@ -38,6 +39,8 @@ public:
     void InstallDragDropPkg(std::filesystem::path file, int pkgNum, int nPkg);
     void InstallDirectory();
     void StartGame();
+    void PauseGame();
+    bool showLabels;
     void StopGame();
     void RestartGame();
 
@@ -55,6 +58,8 @@ private:
     Ui_MainWindow* ui;
     void AddUiWidgets();
     void UpdateToolbarLabels();
+    void UpdateToolbarButtons();
+    QWidget* createButtonWithLabel(QPushButton* button, const QString& labelText, bool showLabel);
     void CreateActions();
     void PauseGame();
     void toggleFullscreen();
@@ -81,7 +86,6 @@ private:
     void PlayBackgroundMusic();
     QIcon RecolorIcon(const QIcon& icon, bool isWhite);
     void StartEmulator(std::filesystem::path);
-    bool is_paused = false;
     bool isIconBlack = false;
     bool isTableList = true;
     bool isGameRunning = false;
