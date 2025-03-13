@@ -61,7 +61,6 @@ private:
     void UpdateToolbarButtons();
     QWidget* createButtonWithLabel(QPushButton* button, const QString& labelText, bool showLabel);
     void CreateActions();
-    void PauseGame();
     void toggleFullscreen();
     void CreateRecentGameActions();
     void CreateDockWindows();
