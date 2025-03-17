@@ -106,7 +106,7 @@ public:
         showGameListAct->setCheckable(true);
         refreshGameListAct = new QAction(MainWindow);
         refreshGameListAct->setObjectName("refreshGameListAct");
-        refreshGameListAct->setIcon(QIcon(":images/refresh_icon.png"));
+        refreshGameListAct->setIcon(QIcon(":images/refreshlist_icon.png"));
 
         toggleLabelsAct = new QAction(MainWindow);
         toggleLabelsAct->setObjectName("toggleLabelsAct");
@@ -216,8 +216,8 @@ public:
         stopButton->setIconSize(QSize(40, 40));
         refreshButton = new QPushButton(centralWidget);
         refreshButton->setFlat(true);
-        refreshButton->setIcon(QIcon(":images/refresh_icon.png"));
-        refreshButton->setIconSize(QSize(38, 38));
+        refreshButton->setIcon(QIcon(":images/refreshlist_icon.png"));
+        refreshButton->setIconSize(QSize(40, 40));
         fullscreenButton = new QPushButton(centralWidget);
         fullscreenButton->setFlat(true);
         fullscreenButton->setIcon(QIcon(":images/fullscreen_icon.png"));
@@ -233,11 +233,11 @@ public:
         keyboardButton = new QPushButton(centralWidget);
         keyboardButton->setFlat(true);
         keyboardButton->setIcon(QIcon(":images/keyboard_icon.png"));
-        keyboardButton->setIconSize(QSize(48, 44));
+        keyboardButton->setIconSize(QSize(50, 50));
         restartButton = new QPushButton(centralWidget);
         restartButton->setFlat(true);
-        restartButton->setIcon(QIcon(":images/restart_icon.png"));
-        restartButton->setIconSize(QSize(48, 44));
+        restartButton->setIcon(QIcon(":images/restart_game_icon.png"));
+        restartButton->setIconSize(QSize(40, 40));
 
         sizeSliderContainer = new QWidget(centralWidget);
         sizeSliderContainer->setObjectName("sizeSliderContainer");
