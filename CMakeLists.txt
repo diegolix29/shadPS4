@@ -42,8 +42,10 @@ option(ENABLE_UPDATER "Enables the options to updater" ON)
 # First, determine whether to use CMAKE_OSX_ARCHITECTURES or CMAKE_SYSTEM_PROCESSOR.
 if (APPLE AND CMAKE_OSX_ARCHITECTURES)
     set(BASE_ARCHITECTURE "${CMAKE_OSX_ARCHITECTURES}")
-else()
+elseif (CMAKE_SYSTEM_PROCESSOR)
     set(BASE_ARCHITECTURE "${CMAKE_SYSTEM_PROCESSOR}")
+else()
+    set(BASE_ARCHITECTURE "${CMAKE_HOST_SYSTEM_PROCESSOR}")
 endif()
 
 # Next, match common architecture strings down to a known common value.
@@ -55,7 +57,12 @@ else()
     message(FATAL_ERROR "Unsupported CPU architecture: ${BASE_ARCHITECTURE}")
 endif()
 
-if (APPLE AND ARCHITECTURE STREQUAL "x86_64" AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+if (ARCHITECTURE STREQUAL "x86_64")
+    # Set x86_64 target level to Sandy Bridge to generally match what is supported for PS4 guest code with CPU patches.
+    add_compile_options(-march=sandybridge)
+endif()
+
+if (APPLE AND ARCHITECTURE STREQUAL "x86_64" AND CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64")
     # Exclude ARM homebrew path to avoid conflicts when cross compiling.
     list(APPEND CMAKE_IGNORE_PREFIX_PATH "/opt/homebrew")
 
@@ -1003,7 +1010,7 @@ endif()
 create_target_directory_groups(shadps4)
 
 target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui gcn half::half ZLIB::ZLIB PNG::PNG)
-target_link_libraries(shadps4 PRIVATE Boost::headers GPUOpen::VulkanMemoryAllocator LibAtrac9 sirit Vulkan::Headers xxHash::xxhash Zydis::Zydis glslang::glslang SDL3::SDL3 pugixml::pugixml stb::headers)
+target_link_libraries(shadps4 PRIVATE Boost::headers GPUOpen::VulkanMemoryAllocator LibAtrac9 sirit Vulkan::Headers xxHash::xxhash Zydis::Zydis glslang::glslang SDL3::SDL3 pugixml::pugixml stb::headers cryptopp::cryptopp)
 
 target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config.h")
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
@@ -1050,12 +1057,6 @@ endif()
 
 if (NOT ENABLE_QT_GUI)
   target_link_libraries(shadps4 PRIVATE SDL3::SDL3)
-endif()
-
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND MSVC)
-    target_link_libraries(shadps4 PRIVATE cryptoppwin)
-else()
-    target_link_libraries(shadps4 PRIVATE cryptopp::cryptopp)
 endif()
 
 if (ENABLE_QT_GUI)
