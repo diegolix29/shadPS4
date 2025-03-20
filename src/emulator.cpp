@@ -82,7 +82,7 @@ Emulator::~Emulator() {
     Config::saveMainWindow(config_dir / "config.toml");
 }
 
-void Emulator::Run(const std::filesystem::path& file, const std::vector<std::string> args) {
+void Core::Emulator::Run(const std::filesystem::path& file, const std::vector<std::string> args) {
     isRunning = true;
     const auto eboot_name = file.filename().string();
     auto game_folder = file.parent_path();
@@ -356,7 +356,7 @@ isRunning = true;
 #endif
 } // namespace Core
 
-void Emulator::LoadSystemModules(const std::string& game_serial) {
+void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
     constexpr std::array<SysModules, 11> ModulesToLoad{
         {{"libSceNgs2.sprx", &Libraries::Ngs2::RegisterlibSceNgs2},
          {"libSceUlt.sprx", nullptr},
@@ -404,7 +404,7 @@ void Emulator::LoadSystemModules(const std::string& game_serial) {
 }
 
 #ifdef ENABLE_QT_GUI
-void Emulator::UpdatePlayTime(const std::string& serial) const {
+void Core::Emulator::UpdatePlayTime(const std::string& serial) const {
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     QString filePath = QString::fromStdString((user_dir / "play_time.txt").string());
 
