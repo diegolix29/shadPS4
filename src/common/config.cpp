@@ -81,7 +81,6 @@ static bool separateupdatefolder = false;
 static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
 static std::string trophyKey;
-static std::string ppFilter;
 
 // Gui
 static bool load_game_size = true;
@@ -267,10 +266,6 @@ std::string getBackButtonBehavior() {
     return backButtonBehavior;
 }
 
-std::string getCurrentVersion() {
-    return std::string();
-}
-
 bool getUseSpecialPad() {
     return useSpecialPad;
 }
@@ -333,10 +328,6 @@ bool fpsColor() {
 
 u32 vblankDiv() {
     return vblankDivider;
-}
-
-std::string getPostProcessingFilter() {
-    return ppFilter;
 }
 
 bool vkValidationEnabled() {
@@ -453,10 +444,6 @@ void setRdocEnabled(bool enable) {
 
 void setVblankDiv(u32 value) {
     vblankDivider = value;
-}
-
-void setPostProcessingFilter(const std::string& type) {
-    ppFilter = type;
 }
 
 void setIsFullscreen(bool enable) {

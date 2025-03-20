@@ -29,28 +29,8 @@ vk::ImageViewType ConvertImageViewType(AmdGpu::ImageType type) {
     }
 }
 
-vk::ComponentSwizzle ConvertComponentSwizzle(u32 dst_sel) {
-    switch (dst_sel) {
-    case 0:
-        return vk::ComponentSwizzle::eZero;
-    case 1:
-        return vk::ComponentSwizzle::eOne;
-    case 4:
-        return vk::ComponentSwizzle::eR;
-    case 5:
-        return vk::ComponentSwizzle::eG;
-    case 6:
-        return vk::ComponentSwizzle::eB;
-    case 7:
-        return vk::ComponentSwizzle::eA;
-    default:
-        UNREACHABLE();
-    }
-}
-
-ImageViewInfo::ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageResource& desc,
-                             bool is_storage_) noexcept
-    : is_storage{is_storage_} {
+ImageViewInfo::ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageResource& desc) noexcept
+    : is_storage{desc.is_written} {
     const auto dfmt = image.GetDataFmt();
     auto nfmt = image.GetNumberFmt();
     if (is_storage && nfmt == AmdGpu::NumberFormat::Srgb) {

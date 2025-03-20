@@ -82,7 +82,7 @@ Emulator::~Emulator() {
     Config::saveMainWindow(config_dir / "config.toml");
 }
 
-void Core::Emulator::Run(const std::filesystem::path& file, const std::vector<std::string> args) {
+void Emulator::Run(const std::filesystem::path& file, const std::vector<std::string> args) {
     isRunning = true;
     const auto eboot_name = file.filename().string();
     auto game_folder = file.parent_path();
@@ -356,7 +356,7 @@ isRunning = true;
 #endif
 } // namespace Core
 
-void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
+void Emulator::LoadSystemModules(const std::string& game_serial) {
     constexpr std::array<SysModules, 11> ModulesToLoad{
         {{"libSceNgs2.sprx", &Libraries::Ngs2::RegisterlibSceNgs2},
          {"libSceUlt.sprx", nullptr},
@@ -375,7 +375,9 @@ void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
     for (const auto& entry : std::filesystem::directory_iterator(sys_module_path)) {
         found_modules.push_back(entry.path());
     }
-    for (const auto& [module_name, init_func] : ModulesToLoad) {
+    for (const auto& module : ModulesToLoad) {
+        const auto& module_name = module.module_name;
+        const auto& init_func = module.callback;
         const auto it = std::ranges::find_if(
             found_modules, [&](const auto& path) { return path.filename() == module_name; });
         if (it != found_modules.end()) {
@@ -402,7 +404,7 @@ void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
 }
 
 #ifdef ENABLE_QT_GUI
-void Core::Emulator::UpdatePlayTime(const std::string& serial) const {
+void Emulator::UpdatePlayTime(const std::string& serial) const {
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     QString filePath = QString::fromStdString((user_dir / "play_time.txt").string());
 
