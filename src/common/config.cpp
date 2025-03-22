@@ -118,7 +118,7 @@ bool allowHDR() {
     return isHDRAllowed;
 }
 
-bool Config::getEnableAutoBackup() {
+bool getEnableAutoBackup() {
     return enableAutoBackup;
 }
 
@@ -427,7 +427,7 @@ void setAllowHDR(bool enable) {
     isHDRAllowed = enable;
 }
 
-void Config::setEnableAutoBackup(bool enable) {
+void setEnableAutoBackup(bool enable) {
     enableAutoBackup = enable;
 }
 
