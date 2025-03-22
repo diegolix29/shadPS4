@@ -203,9 +203,7 @@ void AutoBackupThread(const std::filesystem::path& save_dir) {
 
         if (Config::getEnableAutoBackup()) {
             BackupFilesInDirectory(save_dir);
-            qDebug() << "[Auto Backup] Backup executed.";
         } else {
-            qDebug() << "[Auto Backup] Skipped (disabled).";
         }
     }
 }
