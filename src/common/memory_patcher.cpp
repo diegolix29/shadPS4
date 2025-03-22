@@ -5,8 +5,10 @@
 #include <codecvt>
 #include <fstream>
 #include <iostream>
+#include <regex>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <pugixml.hpp>
 #ifdef ENABLE_QT_GUI
 #include <QDir>
@@ -119,18 +121,112 @@ std::string convertValueToHex(const std::string type, const std::string valueStr
     return result;
 }
 
+std::atomic<bool> g_running = true;
+
+void BackupFilesInDirectory(const std::filesystem::path& directory) {
+    if (!std::filesystem::exists(directory))
+        return;
+
+    std::regex userdata_regex(R"(userdata\d{4})");
+
+    for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+        if (entry.is_regular_file() &&
+            std::regex_match(entry.path().filename().string(), userdata_regex)) {
+            std::ifstream src(entry.path(), std::ios::binary);
+
+            if (!src.is_open()) {
+                std::cerr << "[ERROR] Failed to open file for backup: " << entry.path()
+                          << std::endl;
+                continue;
+            }
+
+            std::time_t now = std::time(nullptr);
+            char timestamp[20];
+            std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", std::localtime(&now));
+
+            std::filesystem::path backup_file =
+                entry.path().parent_path() / ("backup_" + std::string(timestamp) + "_" +
+                                              entry.path().filename().string() + ".bak");
+
+            std::ofstream dst(backup_file, std::ios::binary);
+
+            if (!dst.is_open()) {
+                std::cerr << "[ERROR] Failed to create backup for file: " << entry.path()
+                          << std::endl;
+                continue;
+            }
+
+            dst << src.rdbuf();
+            std::cout << "[AUTO-BACKUP] Created: " << backup_file << std::endl;
+        }
+    }
+}
+
+void BackupSaveFile(const std::filesystem::path& savefile_path) {
+    if (!std::filesystem::exists(savefile_path))
+        return;
+
+    std::time_t now = std::time(nullptr);
+    char timestamp[20];
+    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", std::localtime(&now));
+
+    std::filesystem::path backup_file =
+        savefile_path.parent_path() / ("backup_" + std::string(timestamp) + ".bak");
+
+    std::ifstream src(savefile_path, std::ios::binary);
+    std::ofstream dst(backup_file, std::ios::binary);
+
+    if (src.is_open() && dst.is_open()) {
+        dst << src.rdbuf();
+        std::cout << "[AUTO-BACKUP] Created: " << backup_file << std::endl;
+    } else {
+        std::cerr << "[ERROR] Backup failed!" << std::endl;
+    }
+}
+
+void AutoBackupThread(const std::filesystem::path& save_dir) {
+    while (g_running) {
+        std::this_thread::sleep_for(std::chrono::minutes(10)); // backup every 10 minutes
+        BackupFilesInDirectory(save_dir);
+    }
+}
+
 void OnGameLoaded() {
+    std::filesystem::path savedir = Common::FS::GetUserPath(Common::FS::PathType::SaveDataDir) /
+                                    "1" / g_game_serial / "SPRJ0005";
+
+    std::filesystem::path backupDir = savedir;
+
+    std::time_t now = std::time(nullptr);
+    std::tm localTime;
+    localtime_s(&localTime, &now);
+
+    std::ostringstream dateStream;
+    dateStream << std::put_time(&localTime, "%Y-%m-%d");
+    std::string dateString = dateStream.str();
+
+    std::filesystem::path backupFile = backupDir / (dateString + "_userdata_backup.bak");
+
+    if (std::filesystem::exists(backupFile)) {
+        std::filesystem::remove(backupFile);
+    }
+
+    std::ifstream src(savedir / "userdata0010", std::ios::binary);
+    std::ofstream dest(backupFile, std::ios::binary);
+
+    dest << src.rdbuf();
+
+    src.close();
+    dest.close();
 
     if (g_game_serial == "CUSA03173" || g_game_serial == "CUSA00900" ||
         g_game_serial == "CUSA00299" || g_game_serial == "CUSA00207") {
-        std::filesystem::path savedir = Common::FS::GetUserPath(Common::FS::PathType::SaveDataDir) /
-                                        "1" / g_game_serial / "SPRJ0005";
-
         std::ofstream savefile1;
-        savefile1.open(savedir / "userdata0010.", std::ios::in | std::ios::out | std::ios::binary);
+        savefile1.open(savedir / "userdata0010", std::ios::in | std::ios::out | std::ios::binary);
         savefile1.seekp(0x204E);
         savefile1.put(0x1);
         savefile1.close();
+        std::thread(AutoBackupThread, savedir).detach();
     }
 
     if (!patchFile.empty()) {
