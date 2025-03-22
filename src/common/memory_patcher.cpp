@@ -23,6 +23,7 @@
 #endif
 #include "common/logging/log.h"
 #include "common/path_util.h"
+#include "config.h"
 #include "memory_patcher.h"
 
 namespace MemoryPatcher {
@@ -142,7 +143,13 @@ void BackupFilesInDirectory(const std::filesystem::path& directory) {
 
             std::time_t now = std::time(nullptr);
             char timestamp[20];
-            std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", std::localtime(&now));
+            std::tm localTime;
+#ifdef _WIN32
+            localtime_s(&localTime, &now);
+#else
+            localtime_r(&now, &localTime);
+#endif
+            std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", &localTime);
 
             std::filesystem::path backup_file =
                 entry.path().parent_path() / ("backup_" + std::string(timestamp) + "_" +
@@ -168,7 +175,13 @@ void BackupSaveFile(const std::filesystem::path& savefile_path) {
 
     std::time_t now = std::time(nullptr);
     char timestamp[20];
-    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", std::localtime(&now));
+    std::tm localTime;
+#ifdef _WIN32
+    localtime_s(&localTime, &now);
+#else
+    localtime_r(&now, &localTime);
+#endif
+    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", &localTime);
 
     std::filesystem::path backup_file =
         savefile_path.parent_path() / ("backup_" + std::string(timestamp) + ".bak");
@@ -186,8 +199,14 @@ void BackupSaveFile(const std::filesystem::path& savefile_path) {
 
 void AutoBackupThread(const std::filesystem::path& save_dir) {
     while (g_running) {
-        std::this_thread::sleep_for(std::chrono::minutes(10)); // backup every 10 minutes
-        BackupFilesInDirectory(save_dir);
+        std::this_thread::sleep_for(std::chrono::minutes(10));
+
+        if (Config::getEnableAutoBackup()) {
+            BackupFilesInDirectory(save_dir);
+            qDebug() << "[Auto Backup] Backup executed.";
+        } else {
+            qDebug() << "[Auto Backup] Skipped (disabled).";
+        }
     }
 }
 
@@ -199,7 +218,12 @@ void OnGameLoaded() {
 
     std::time_t now = std::time(nullptr);
     std::tm localTime;
+
+#ifdef _WIN32
     localtime_s(&localTime, &now);
+#else
+    localtime_r(&now, &localTime);
+#endif
 
     std::ostringstream dateStream;
     dateStream << std::put_time(&localTime, "%Y-%m-%d");
@@ -226,7 +250,9 @@ void OnGameLoaded() {
         savefile1.seekp(0x204E);
         savefile1.put(0x1);
         savefile1.close();
-        std::thread(AutoBackupThread, savedir).detach();
+        if (Config::getEnableAutoBackup()) {
+            std::thread(AutoBackupThread, savedir).detach();
+        }
     }
 
     if (!patchFile.empty()) {

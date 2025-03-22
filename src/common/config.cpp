@@ -108,6 +108,7 @@ static bool showBackgroundImage = true;
 static bool isFullscreen = false;
 static std::string fullscreenMode = "Windowed";
 static bool isHDRAllowed = false;
+static bool enableAutoBackup = false;
 static bool showLabelsUnderIcons = true;
 
 // Language
@@ -115,6 +116,10 @@ u32 m_language = 1; // english
 
 bool allowHDR() {
     return isHDRAllowed;
+}
+
+bool Config::getEnableAutoBackup() {
+    return enableAutoBackup;
 }
 
 bool GetUseUnifiedInputConfig() {
@@ -420,6 +425,10 @@ void setNullGpu(bool enable) {
 
 void setAllowHDR(bool enable) {
     isHDRAllowed = enable;
+}
+
+void Config::setEnableAutoBackup(bool enable) {
+    enableAutoBackup = enable;
 }
 
 void setCopyGPUCmdBuffers(bool enable) {
@@ -750,7 +759,7 @@ void load(const std::filesystem::path& path) {
     }
     if (data.contains("General")) {
         const toml::value& general = data.at("General");
-
+        enableAutoBackup = toml::find_or<bool>(general, "enableAutoBackup", false);
         isNeo = toml::find_or<bool>(general, "isPS4Pro", false);
         playBGM = toml::find_or<bool>(general, "playBGM", false);
         isTrophyPopupDisabled = toml::find_or<bool>(general, "isTrophyPopupDisabled", false);
@@ -763,9 +772,9 @@ void load(const std::filesystem::path& path) {
         userName = toml::find_or<std::string>(general, "userName", "shadPS4");
         if (Common::isRelease) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Full-Souls");
-        } else if (!Common::isRelease) { // Non-release builds
+        } else if (!Common::isRelease) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "mainBB");
-        } else { // Fallback to PRTBB if neither applies
+        } else {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "PRTBB");
         }
         if (updateChannel == "Release") {
@@ -958,6 +967,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["Fullscreen"] = isFullscreen;
     data["GPU"]["FullscreenMode"] = fullscreenMode;
     data["GPU"]["allowHDR"] = isHDRAllowed;
+    data["General"]["enableAutoBackup"] = enableAutoBackup;
     data["Vulkan"]["gpuId"] = gpuId;
     data["Vulkan"]["validation"] = vkValidation;
     data["Vulkan"]["validation_sync"] = vkValidationSync;

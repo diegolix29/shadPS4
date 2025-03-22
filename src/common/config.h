@@ -63,6 +63,7 @@ u32 getScreenWidth();
 u32 getScreenHeight();
 s32 getGpuId();
 bool allowHDR();
+bool getEnableAutoBackup();
 
 bool debugDump();
 bool collectShadersForDebug();
@@ -86,6 +87,7 @@ void setAlwaysShowChangelog(bool enable);
 void setSideTrophy(std::string side);
 void setNullGpu(bool enable);
 void setAllowHDR(bool enable);
+void setEnableAutoBackup(bool enable);
 void setCopyGPUCmdBuffers(bool enable);
 void setDumpShaders(bool enable);
 void setVblankDiv(u32 value);

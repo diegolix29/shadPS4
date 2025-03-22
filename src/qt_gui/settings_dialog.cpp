@@ -88,6 +88,8 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
             &SettingsDialog::OnRcasAttenuationChanged);
     connect(ui->rcasAttenuationSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             &SettingsDialog::OnRcasAttenuationSpinBoxChanged);
+    connect(ui->enableAutoBackupCheckBox, &QCheckBox::stateChanged, this,
+            [](int state) { Config::setEnableAutoBackup(state == Qt::Checked); });
 
     channelMap = {
         {tr("Full-Souls"), "Full-Souls"}, {tr("mainBB"), "mainBB"}, {tr("PRTBB"), "PRTBB"}};
@@ -361,6 +363,7 @@ SettingsDialog::SettingsDialog(std::span<const QString> physical_devices,
         ui->dumpShadersCheckBox->installEventFilter(this);
         ui->nullGpuCheckBox->installEventFilter(this);
         ui->enableHDRCheckBox->installEventFilter(this);
+        ui->enableAutoBackupCheckBox->installEventFilter(this);
 
         // Paths
         ui->gameFoldersGroupBox->installEventFilter(this);
@@ -442,6 +445,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->dumpShadersCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "dumpShaders", false));
     ui->nullGpuCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "nullGpu", false));
     ui->enableHDRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "allowHDR", false));
+    ui->enableAutoBackupCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "enableAutoBackup", false));
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->disableTrophycheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
@@ -758,6 +763,7 @@ void SettingsDialog::UpdateSettings() {
 
     Config::setPlayBGM(ui->playBGMCheckBox->isChecked());
     Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
+    Config::setEnableAutoBackup(ui->enableAutoBackupCheckBox->isChecked());
     Config::setLogType(logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString());
     Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());
     Config::setUserName(ui->userNameLineEdit->text().toStdString());

@@ -1122,14 +1122,25 @@
                  </item>
                 </layout>
                </item>
-               <item>
-                <widget class="QCheckBox" name="enableHDRCheckBox">
-                 <property name="text">
-                  <string>Enable HDR</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
+				  <item>
+					  <layout class="QHBoxLayout">
+						  <item>
+							  <widget class="QCheckBox" name="enableHDRCheckBox">
+								  <property name="text">
+									  <string>Enable HDR</string>
+								  </property>
+							  </widget>
+						  </item>
+						  <item>
+							  <widget class="QCheckBox" name="enableAutoBackupCheckBox">
+								  <property name="text">
+									  <string>Enable Auto Backups</string>
+								  </property>
+							  </widget>
+						  </item>
+					  </layout>
+				  </item>
+			  </layout>
              </widget>
             </item>
 			   <item>
