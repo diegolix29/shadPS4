@@ -245,8 +245,6 @@ void MainWindow::UpdateToolbarButtons() {
     ui->playButton->setVisible(false);
     ui->pauseButton->setVisible(true);
 
-    bool isLightTheme = isIconBlack;
-
     if (showLabels) {
         QLabel* playButtonLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
         if (playButtonLabel)
@@ -257,7 +255,7 @@ void MainWindow::UpdateToolbarButtons() {
         ui->pauseButton->setIcon(ui->playButton->icon());
         ui->pauseButton->setToolTip(tr("Resume"));
     } else {
-        if (isLightTheme) {
+        if (isIconBlack) {
             ui->pauseButton->setIcon(QIcon(":images/pause_icon.png"));
         } else {
             ui->pauseButton->setIcon(RecolorIcon(QIcon(":images/pause_icon.png"), isWhite));
