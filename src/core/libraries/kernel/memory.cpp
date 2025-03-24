@@ -37,7 +37,7 @@ int PS4_SYSV_ABI sceKernelAllocateDirectMemory(s64 searchStart, s64 searchEnd, u
         *reinterpret_cast<u64*>(GFX_GraphicsPrivate_Address) = 0x8EF00000LL * 1.750;
 
         constexpr u64 GFX_GraphicsPrivateB_Address = 0x904732DE0;
-        *reinterpret_cast<u64*>(GFX_GraphicsPrivateB_Address) = 0x37600000LL * 4;
+        *reinterpret_cast<u64*>(GFX_GraphicsPrivateB_Address) = 0x37600000LL * 3;
     } else {
         LOG_INFO(Kernel_Vmm, "Game '{}' using standard memory allocation.",
                  MemoryPatcher::g_game_serial);
