@@ -87,7 +87,7 @@ void Core::Emulator::Run(const std::filesystem::path& file, const std::vector<st
     const auto eboot_name = file.filename().string();
     auto game_folder = file.parent_path();
     if (const auto game_folder_name = game_folder.filename().string();
-        game_folder_name.ends_with("-UPDATE")) {
+        game_folder_name.ends_with("-UPDATE") || game_folder_name.ends_with("-patch")) {
         // If an executable was launched from a separate update directory,
         // use the base game directory as the game folder.
         const auto base_name = game_folder_name.substr(0, game_folder_name.size() - 7);

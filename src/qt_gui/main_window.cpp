@@ -852,7 +852,7 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
         // Default paths
         auto game_folder_path = game_install_dir / pkg.GetTitleID();
         auto game_update_path = use_game_update ? game_folder_path.parent_path() /
-                                                      (std::string{pkg.GetTitleID()} + "-UPDATE")
+                                                      (std::string{pkg.GetTitleID()} + "-patch")
                                                 : game_folder_path;
         const int max_depth = 5;
 
@@ -863,7 +863,7 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
             if (found_game.has_value()) {
                 game_folder_path = found_game.value().parent_path();
                 game_update_path = use_game_update ? game_folder_path.parent_path() /
-                                                         (std::string{pkg.GetTitleID()} + "-UPDATE")
+                                                         (std::string{pkg.GetTitleID()} + "-patch")
                                                    : game_folder_path;
             }
         } else {
@@ -878,7 +878,7 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
                 game_folder_path = game_install_dir / pkg.GetTitleID();
             }
             game_update_path = use_game_update ? game_folder_path.parent_path() /
-                                                     (std::string{pkg.GetTitleID()} + "-UPDATE")
+                                                     (std::string{pkg.GetTitleID()} + "-patch")
                                                : game_folder_path;
         }
 
