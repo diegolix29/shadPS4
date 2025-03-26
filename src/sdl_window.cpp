@@ -426,6 +426,8 @@ void WindowSDL::WaitEvent() {
             DebugState.PauseGuestThreads();
         }
         break;
+    default:
+        break;
     }
 }
 
