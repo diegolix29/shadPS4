@@ -292,44 +292,6 @@ void MainWindow::UpdateToolbarLabels() {
     AddUiWidgets();
 }
 
-void MainWindow::UpdateToolbarButtons() {
-    // add toolbar widgets when game is running
-    bool showLabels = ui->toggleLabelsAct->isChecked();
-
-    ui->playButton->setVisible(false);
-    ui->pauseButton->setVisible(true);
-
-    if (showLabels) {
-        QLabel* playButtonLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
-        if (playButtonLabel)
-            playButtonLabel->setVisible(false);
-    }
-
-    if (is_paused) {
-        ui->pauseButton->setIcon(ui->playButton->icon());
-        ui->pauseButton->setToolTip(tr("Resume"));
-    } else {
-        if (isIconBlack) {
-            ui->pauseButton->setIcon(QIcon(":images/pause_icon.png"));
-        } else {
-            ui->pauseButton->setIcon(RecolorIcon(QIcon(":images/pause_icon.png"), isWhite));
-        }
-        ui->pauseButton->setToolTip(tr("Pause"));
-    }
-
-    if (showLabels) {
-        QLabel* pauseButtonLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
-        if (pauseButtonLabel) {
-            pauseButtonLabel->setText(is_paused ? tr("Resume") : tr("Pause"));
-            pauseButtonLabel->setVisible(true);
-        }
-    }
-}
-
-void MainWindow::UpdateToolbarLabels() {
-    AddUiWidgets();
-}
-
 void MainWindow::CreateDockWindows() {
     // place holder widget is needed for good health they say :)
     QWidget* phCentralWidget = new QWidget(this);
