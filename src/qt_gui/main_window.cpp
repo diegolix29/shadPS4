@@ -3,11 +3,12 @@
 
 #include <fstream>
 #include <iostream>
+#include "SDL3/SDL_events.h"
+
 #include <QDockWidget>
 #include <QKeyEvent>
 #include <QPlainTextEdit>
 #include <QProgressDialog>
-#include <SDL3/SDL_events.h>
 
 #include "about_dialog.h"
 #include "cheats_patches.h"
@@ -212,9 +213,6 @@ void MainWindow::AddUiWidgets() {
         createButtonWithLabel(ui->controllerButton, tr("Controllers"), showLabels));
     ui->toolBar->addWidget(createButtonWithLabel(ui->keyboardButton, tr("Keyboard"), showLabels));
     ui->toolBar->addWidget(createSpacer(this));
-    ui->toolBar->addWidget(
-        createButtonWithLabel(ui->refreshButton, tr("Refresh List"), showLabels));
-    ui->toolBar->addWidget(createSpacer(this));
     QFrame* line = new QFrame(this);
     line->setFrameShape(QFrame::VLine);
     line->setFrameShadow(QFrame::Sunken);
@@ -227,6 +225,9 @@ void MainWindow::AddUiWidgets() {
             pauseButtonLabel->setVisible(false);
         }
     }
+    ui->toolBar->addWidget(
+        createButtonWithLabel(ui->refreshButton, tr("Refresh List"), showLabels));
+    ui->toolBar->addWidget(createSpacer(this));
 
     QBoxLayout* toolbarLayout = new QBoxLayout(QBoxLayout::TopToBottom);
     toolbarLayout->setSpacing(2);
