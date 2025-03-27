@@ -15,7 +15,6 @@
 #include "core/libraries/libs.h"
 #include "core/linker.h"
 #include "core/memory.h"
-#include "src/common/memory_patcher.h"
 
 namespace Libraries::Kernel {
 
@@ -27,22 +26,6 @@ u64 PS4_SYSV_ABI sceKernelGetDirectMemorySize() {
 
 int PS4_SYSV_ABI sceKernelAllocateDirectMemory(s64 searchStart, s64 searchEnd, u64 len,
                                                u64 alignment, int memoryType, s64* physAddrOut) {
-    auto* memory = Core::Memory::Instance();
-
-    if (memory->NeedsExtraMemory()) {
-        LOG_INFO(Kernel_Vmm, "Game '{}' requires extra memory, applying expanded allocation.",
-                 MemoryPatcher::g_game_serial);
-
-        constexpr u64 GFX_GraphicsPrivate_Address = 0x904732DD8;
-        *reinterpret_cast<u64*>(GFX_GraphicsPrivate_Address) = 0x8EF00000LL * 1.750;
-
-        constexpr u64 GFX_GraphicsPrivateB_Address = 0x904732DE0;
-        *reinterpret_cast<u64*>(GFX_GraphicsPrivateB_Address) = 0x37600000LL * 3;
-    } else {
-        LOG_INFO(Kernel_Vmm, "Game '{}' using standard memory allocation.",
-                 MemoryPatcher::g_game_serial);
-    }
-
     if (searchStart < 0 || searchEnd < 0) {
         LOG_ERROR(Kernel_Vmm, "Invalid parameters!");
         return ORBIS_KERNEL_ERROR_EINVAL;
@@ -73,6 +56,7 @@ int PS4_SYSV_ABI sceKernelAllocateDirectMemory(s64 searchStart, s64 searchEnd, u
         return ORBIS_KERNEL_ERROR_EAGAIN;
     }
 
+    auto* memory = Core::Memory::Instance();
     PAddr phys_addr = memory->Allocate(searchStart, searchEnd, len, alignment, memoryType);
     if (phys_addr == -1) {
         return ORBIS_KERNEL_ERROR_EAGAIN;

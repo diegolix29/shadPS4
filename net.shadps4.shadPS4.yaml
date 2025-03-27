@@ -80,9 +80,9 @@ modules:
       # don't include submodules, which shadps4 depends on (in the externals directory)
       - type: git
         url: https://github.com/diegolix29/shadPS4
-        branch: mainBB
+        branch: PRTBB
         x-checker-data:
           type: json
           url: https://api.github.com/repos/diegolix29/shadPS4/releases
-          tag-query: '[.[] | select(.prerelease == true)] | first | .tag_name // "mainBB"'
-          version-query: '[.[] | select(.prerelease == true)] | first | .tag_name // "mainBB"'
+          tag-query: '[.[] | select(.prerelease == false)] | first | .tag_name // "PRTBB"'
+          version-query: '[.[] | select(.prerelease == false)] | first | .tag_name // "PRTBB"'
