@@ -602,25 +602,20 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
                     rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32),
                                            true);
-                } else if ((dma_data->src_sel == DmaDataSrc::Memory ||
-                            dma_data->src_sel == DmaDataSrc::MemoryUsingL2) &&
+                } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Gds) {
                     rasterizer->InlineData(dma_data->dst_addr_lo,
                                            dma_data->SrcAddress<const void*>(),
                                            dma_data->NumBytes(), true);
                 } else if (dma_data->src_sel == DmaDataSrc::Data &&
-                           (dma_data->dst_sel == DmaDataDst::Memory ||
-                            dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                           dma_data->dst_sel == DmaDataDst::Memory) {
                     rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data,
                                            sizeof(u32), false);
                 } else if (dma_data->src_sel == DmaDataSrc::Gds &&
-                           (dma_data->dst_sel == DmaDataDst::Memory ||
-                            dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                           dma_data->dst_sel == DmaDataDst::Memory) {
                     // LOG_WARNING(Render_Vulkan, "GDS memory read");
-                } else if ((dma_data->src_sel == DmaDataSrc::Memory ||
-                            dma_data->src_sel == DmaDataSrc::MemoryUsingL2) &&
-                           (dma_data->dst_sel == DmaDataDst::Memory ||
-                            dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                } else if (dma_data->src_sel == DmaDataSrc::Memory &&
+                           dma_data->dst_sel == DmaDataDst::Memory) {
                     rasterizer->InlineData(dma_data->DstAddress<VAddr>(),
                                            dma_data->SrcAddress<const void*>(),
                                            dma_data->NumBytes(), false);
@@ -790,24 +785,19 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
             }
             if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
                 rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
-            } else if ((dma_data->src_sel == DmaDataSrc::Memory ||
-                        dma_data->src_sel == DmaDataSrc::MemoryUsingL2) &&
+            } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Gds) {
                 rasterizer->InlineData(dma_data->dst_addr_lo, dma_data->SrcAddress<const void*>(),
                                        dma_data->NumBytes(), true);
             } else if (dma_data->src_sel == DmaDataSrc::Data &&
-                       (dma_data->dst_sel == DmaDataDst::Memory ||
-                        dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                       dma_data->dst_sel == DmaDataDst::Memory) {
                 rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data, sizeof(u32),
                                        false);
             } else if (dma_data->src_sel == DmaDataSrc::Gds &&
-                       (dma_data->dst_sel == DmaDataDst::Memory ||
-                        dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                       dma_data->dst_sel == DmaDataDst::Memory) {
                 // LOG_WARNING(Render_Vulkan, "GDS memory read");
-            } else if ((dma_data->src_sel == DmaDataSrc::Memory ||
-                        dma_data->src_sel == DmaDataSrc::MemoryUsingL2) &&
-                       (dma_data->dst_sel == DmaDataDst::Memory ||
-                        dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+            } else if (dma_data->src_sel == DmaDataSrc::Memory &&
+                       dma_data->dst_sel == DmaDataDst::Memory) {
                 rasterizer->InlineData(dma_data->DstAddress<VAddr>(),
                                        dma_data->SrcAddress<const void*>(), dma_data->NumBytes(),
                                        false);
