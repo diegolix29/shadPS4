@@ -1175,7 +1175,7 @@ void setDefaultValues() {
     screenWidth = 1280;
     screenHeight = 720;
     logFilter = "";
-    logType = "async";
+    logType = "sync";
     userName = "shadPS4";
     if (Common::isRelease) {
         updateChannel = "Release";
