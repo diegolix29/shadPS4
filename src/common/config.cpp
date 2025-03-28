@@ -42,7 +42,7 @@ static u32 screenHeight = 720;
 static s32 gpuId = -1; // Vulkan physical device index. Set to negative for auto select
 static std::string logFilter;
 static float rcas_attenuation = 0.25f;
-static std::string logType = "async";
+static std::string logType = "sync";
 static std::string userName = "shadPS4";
 static std::string updateChannel;
 static std::string chooseHomeTab;
@@ -1175,7 +1175,7 @@ void setDefaultValues() {
     screenWidth = 1280;
     screenHeight = 720;
     logFilter = "";
-    logType = "async";
+    logType = "sync";
     userName = "shadPS4";
     if (Common::isRelease) {
         updateChannel = "Release";
