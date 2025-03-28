@@ -1,4 +1,3 @@
-
 # SPDX-FileCopyrightText: 2024 shadPS4 Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -384,7 +383,6 @@ jobs:
       with:
         name: shadps4-linux-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         path: Shadps4-qt.AppImage
-
   linux-sdl-gcc:
     runs-on: ubuntu-24.04
     needs: get-info
@@ -394,6 +392,7 @@ jobs:
         submodules: recursive
     - name: Install dependencies
       run: sudo apt-get update && sudo apt install -y libx11-dev libxext-dev libwayland-dev libdecor-0-dev libxkbcommon-dev libglfw3-dev libgles2-mesa-dev libfuse2 gcc-14 build-essential libasound2-dev libpulse-dev libopenal-dev libudev-dev
+
     - name: Cache CMake Configuration
       uses: actions/cache@v4 
       env: 
@@ -424,6 +423,7 @@ jobs:
         submodules: recursive
     - name: Install dependencies
       run: sudo apt-get update && sudo apt install -y libx11-dev libxext-dev libwayland-dev libdecor-0-dev libxkbcommon-dev libglfw3-dev libgles2-mesa-dev libfuse2 gcc-14 build-essential qt6-base-dev qt6-tools-dev qt6-multimedia-dev libasound2-dev libpulse-dev libopenal-dev libudev-dev
+
     - name: Cache CMake Configuration
       uses: actions/cache@v4 
       env: 
@@ -443,6 +443,7 @@ jobs:
         key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
     - name: Configure CMake
       run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DENABLE_QT_GUI=ON -DENABLE_UPDATER=ON -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
       
@@ -467,8 +468,8 @@ jobs:
         path: shadps4.flatpak
         name: shadps4-linux-flatpak-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         
-  PRTBB:
-    if: github.ref == 'refs/heads/PRTBB' && github.event_name == 'push'
+  release:
+    if: github.ref == 'refs/heads/Full-Souls' && github.event_name == 'push'
     needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
     runs-on: ubuntu-latest
     steps:
@@ -488,69 +489,69 @@ jobs:
           fi
         done
   
-    - name: Get PRTBB information
-      id: get_PRTBB
+    - name: Get release information
+      id: get_release
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-        
-        latest_PRTBB=$(echo "$releases" | jq -r '.[] | select(.tag_name | startswith("PRTBB-")) | .tag_name' | sort -r | head -n 1)
-        
-        echo "Latest PRTBB release tag: $latest_PRTBB"
-        echo "last_PRTBB_release_tag=$latest_PRTBB" >> $GITHUB_ENV
 
-    - name: Create PRTBB on GitHub
-      id: create_PRTBB
+        latest_release_info=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url" | jq -r 'sort_by(.published_at) | last')
+
+        last_release_tag=$(echo "$latest_release_info" | jq -r '.tag_name')
+
+        echo "Latest release tag: $last_release_tag"
+        echo "last_release_tag=$last_release_tag" >> $GITHUB_ENV
+
+    - name: Create release on GitHub
+      id: create_release
       uses: ncipollo/release-action@v1
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       with:
-        name: "PRTBB-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
-        tag: "PRTBB-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        name: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        tag: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
         draft: false
         prerelease: false
-        body: "Full Changelog: [${{ env.last_PRTBB_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_PRTBB_release_tag }}...${{ needs.get-info.outputs.shorthash }})"
+        body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }})"
         artifacts: ./artifacts/*.zip
          
-    - name: Get current PRTBB information
+    - name: Get current release information
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        
+
         releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
 
-        CURRENT_PUBLISHED_AT=$(echo "$releases" | jq -r '.[] | select(.tag_name | startswith("PRTBB-")) | .published_at' | sort -r | head -n 1)
-        CURRENT_PUBLISHED_AT=$(echo "$CURRENT_PUBLISHED_AT" | tr -d '"')
+        CURRENT_PUBLISHED_AT=$(echo "$releases" | jq -r 'map(select(.draft == false and .prerelease == false)) | sort_by(.published_at) | last | .published_at')
 
-        echo "Latest PRTBB release date: $CURRENT_PUBLISHED_AT"
+        echo "Latest published release date: $CURRENT_PUBLISHED_AT"
         echo "CURRENT_PUBLISHED_AT=$CURRENT_PUBLISHED_AT" >> $GITHUB_ENV
     
-    - name: Delete old PRTBBs and tags
+    - name: Delete old releases and tags
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        
+
         releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-        
+
         current_published_ts=$(date -u -d "$CURRENT_PUBLISHED_AT" +%s)
 
-        echo "Current PRTBB timestamp: $current_published_ts"
+        echo "Current release timestamp: $current_published_ts"
 
-        echo "$releases" | jq -c '.[] | select(.tag_name | startswith("PRTBB-"))' | while read -r release; do
+        echo "$releases" | jq -c '.[] | select(.draft == false and .prerelease == false and (.tag_name | startswith("release-shadPS4-")))' | while read -r release; do
           release_date=$(echo "$release" | jq -r '.published_at')
           release_id=$(echo "$release" | jq -r '.id')
           release_tag=$(echo "$release" | jq -r '.tag_name')
 
           release_date_ts=$(date -u -d "$release_date" +%s)
 
-          echo "Checking PRTBB release: $release_tag from $release_date"
+          echo "Checking release: $release_tag from $release_date"
 
           if [[ "$release_date_ts" -lt "$current_published_ts" ]]; then
-            echo "Deleting old PRTBB release: $release_id ($release_tag)"
+            echo "Deleting old Full-Souls release: $release_id ($release_tag)"
 
             curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
 
@@ -558,6 +559,6 @@ jobs:
 
             sleep 1
           else
-            echo "Skipping PRTBB: $release_id (newer or same date)"
+            echo "Skipping release: $release_id (newer or same date)"
           fi
         done
