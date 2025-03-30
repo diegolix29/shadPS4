@@ -78,7 +78,6 @@ static double trophyNotificationDuration = 6.0;
 static bool useUnifiedInputConfig = true;
 static bool overrideControllerColor = false;
 static int controllerCustomColorRGB[3] = {0, 0, 255};
-static bool separateupdatefolder = false;
 static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
 static std::string trophyKey;
@@ -376,10 +375,6 @@ void setVkGuestMarkersEnabled(bool enable) {
     vkGuestMarkers = enable;
 }
 
-bool getSeparateUpdateEnabled() {
-    return separateupdatefolder;
-}
-
 bool getCompatibilityEnabled() {
     return compatibilityData;
 }
@@ -543,10 +538,6 @@ void setSpecialPadClass(int type) {
 
 void setIsMotionControlsEnabled(bool use) {
     isMotionControlsEnabled = use;
-}
-
-void setSeparateUpdateEnabled(bool use) {
-    separateupdatefolder = use;
 }
 
 void setCompatibilityEnabled(bool use) {
@@ -820,7 +811,6 @@ void load(const std::filesystem::path& path) {
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
         isAlwaysShowChangelog = toml::find_or<bool>(general, "alwaysShowChangelog", false);
         isSideTrophy = toml::find_or<std::string>(general, "sideTrophy", "right");
-        separateupdatefolder = toml::find_or<bool>(general, "separateUpdateEnabled", false);
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
@@ -1019,7 +1009,6 @@ void save(const std::filesystem::path& path) {
     data["General"]["autoUpdate"] = isAutoUpdate;
     data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
     data["General"]["sideTrophy"] = isSideTrophy;
-    data["General"]["separateUpdateEnabled"] = separateupdatefolder;
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
     data["Input"]["deadZoneLeft"] = deadZoneLeft;
@@ -1196,7 +1185,6 @@ void setDefaultValues() {
     emulator_language = "en_US";
     m_language = 1;
     gpuId = -1;
-    separateupdatefolder = false;
     compatibilityData = false;
     checkCompatibilityOnStartup = false;
     backgroundImageOpacity = 50;
