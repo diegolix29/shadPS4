@@ -59,6 +59,7 @@ struct Liverpool {
     static constexpr u32 ConfigRegWordOffset = 0x2000;
     static constexpr u32 ShRegWordOffset = 0x2C00;
     static constexpr u32 NumRegs = 0xD000;
+    std::thread::id gpu_id;
 
     using UserData = std::array<u32, NumShaderUserData>;
 
@@ -1502,7 +1503,6 @@ public:
         u32 pipe_id;
     };
     Common::SlotVector<AscQueueInfo> asc_queues{};
-    std::thread::id gpu_id;
 
 private:
     struct Task {
