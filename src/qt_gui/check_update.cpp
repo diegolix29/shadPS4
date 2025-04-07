@@ -24,7 +24,6 @@
 #include <common/config.h>
 #include <common/path_util.h>
 #include <common/scm_rev.h>
-#include <common/version.h>
 #include "check_update.h"
 
 using namespace Common::FS;
@@ -55,9 +54,9 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
             checkName = false;
         } else {
-            if (Common::isRelease) {
+            if (Common::g_is_release) {
                 updateChannel = "Full-Souls";
-            } else if (!Common::isRelease) { // Non-release builds
+            } else if (!Common::g_is_release) { // Non-release builds
                 updateChannel = "mainBB";
             } else { // Fallback to PRTBB if neither applies
                 updateChannel = "PRTBB";
