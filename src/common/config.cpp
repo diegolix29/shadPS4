@@ -791,9 +791,9 @@ void load(const std::filesystem::path& path) {
         logFilter = toml::find_or<std::string>(general, "logFilter", "");
         logType = toml::find_or<std::string>(general, "logType", "sync");
         userName = toml::find_or<std::string>(general, "userName", "shadPS4");
-        if (Common::isRelease) {
+        if (Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Full-Souls");
-        } else if (!Common::isRelease) {
+        } else if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "mainBB");
         } else {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "PRTBB");
