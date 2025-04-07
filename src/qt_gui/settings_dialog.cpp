@@ -9,7 +9,7 @@
 #include <fmt/format.h>
 
 #include "common/config.h"
-#include "common/version.h"
+#include "common/scm_rev.h"
 #include "qt_gui/compatibility_info.h"
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"
@@ -510,7 +510,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
     ui->updateComboBox->setCurrentText(channelMap.key(
         (updateChannel != "Full-Souls" && updateChannel != "mainBB" && updateChannel != "PRTBB")
-            ? (Common::isRelease ? "Full-Souls" : "mainBB", "PRTBB")
+            ? (Common::g_is_release ? "Full-Souls" : "mainBB", "PRTBB")
             : updateChannel));
 #endif
 
