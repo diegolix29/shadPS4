@@ -9,7 +9,7 @@
 #include <fmt/format.h>
 
 #include "common/config.h"
-#include "common/version.h"
+#include "common/scm_rev.h"
 #include "qt_gui/compatibility_info.h"
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"

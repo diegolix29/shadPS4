@@ -24,7 +24,6 @@
 #include <common/config.h>
 #include <common/path_util.h>
 #include <common/scm_rev.h>
-#include <common/version.h>
 #include "check_update.h"
 
 using namespace Common::FS;
