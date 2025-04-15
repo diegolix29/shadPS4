@@ -167,14 +167,6 @@ public:
         return virtual_addr >= vma_map.begin()->first && virtual_addr < end_addr;
     }
 
-    bool NeedsExtraMemory() {
-        static const std::unordered_set<std::string> extra_memory_games = {
-            "CUSA03173", "CUSA00900", "CUSA00299", "CUSA00207",
-            "CUSA03023", "CUSA00208", "CUSA01363"};
-
-        return extra_memory_games.find(MemoryPatcher::g_game_serial) != extra_memory_games.end();
-    }
-
     u64 ClampRangeSize(VAddr virtual_addr, u64 size);
 
     bool TryWriteBacking(void* address, const void* data, u32 num_bytes);
