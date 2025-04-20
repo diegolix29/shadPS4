@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <unordered_map>
 #include <sirit/sirit.h>
 
 #include "shader_recompiler/backend/bindings.h"
@@ -388,6 +389,7 @@ public:
     boost::container::small_vector<TextureDefinition, 8> images;
     boost::container::small_vector<Id, 4> samplers;
     PhysicalPointerTypes physical_pointer_types;
+    std::unordered_map<u32, Id> first_to_last_label_map;
 
     size_t flatbuf_index{};
     size_t bda_pagetable_index{};
