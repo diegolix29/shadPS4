@@ -126,8 +126,12 @@ void RingAccessElimination(const IR::Program& program, const RuntimeInfo& runtim
                 const auto output_size = comp_ofs * gs_info.out_vertex_data_size;
 
                 const auto vc_read_ofs = (((offset / comp_ofs) * comp_ofs) % output_size) * 16u;
-                const auto& it = info.gs_copy_data.attr_map.find(vc_read_ofs);
-                // ASSERT(it != info.gs_copy_data.attr_map.cend());
+                const auto& attr_map = info.gs_copy_data.attr_map;
+                const auto it = attr_map.find(vc_read_ofs);
+                ASSERT_MSG(
+                    it != attr_map.cend(),
+                    "Attribute not found in gs_copy_data.attr_map. Requested key: {}. Map size: {}",
+                    vc_read_ofs, attr_map.size());
                 const auto& [attr, comp] = it->second;
 
                 inst.ReplaceOpcode(IR::Opcode::SetAttribute);
