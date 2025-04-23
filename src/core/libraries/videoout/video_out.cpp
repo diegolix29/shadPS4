@@ -346,7 +346,6 @@ s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, u32 arg, void** u
             if (port->buffer_labels[buf_id] != 1) {
                 ASSERT_MSG(port->buffer_labels[buf_id] == 1, "Out of order flip IRQ");
 
-
                 return;
             }
             const auto result = driver->SubmitFlip(port, buf_id, arg, true);
