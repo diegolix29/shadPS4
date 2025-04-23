@@ -88,8 +88,16 @@ s32 PS4_SYSV_ABI sceNpWebApiAddMultipartPart() {
     return ORBIS_OK;
 }
 
+static bool g_fakeNpWebApiTimedOut = true;
+
 s32 PS4_SYSV_ABI sceNpWebApiCheckTimeout() {
-    LOG_ERROR(Lib_NpWebApi, "(STUBBED) called");
+    LOG_TRACE(Lib_NpWebApi, "sceNpWebApiCheckTimeout called");
+
+    if (g_fakeNpWebApiTimedOut) {
+        LOG_ERROR(Lib_NpWebApi, "Fake timeout reported");
+        return ORBIS_FAIL; // Or whatever error code PS4 returns on timeout
+    }
+
     return ORBIS_OK;
 }
 
