@@ -634,7 +634,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                         UNREACHABLE_MSG("Invalid NumBytes for memory-to-memory copy: {}", size);
                     }
                     rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                           dma_data->SrcAddress<VAddr>(), size, false, false);
+                                           dma_data->SrcAddress<VAddr>(), size - 2, false, false);
                 } else {
                     UNREACHABLE_MSG("Unsupported DMA copy src_sel = {}, dst_sel = {}",
                                     u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -832,7 +832,7 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
                     UNREACHABLE_MSG("Invalid NumBytes for memory-to-memory copy: {}", size);
                 }
                 rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->SrcAddress<VAddr>(),
-                                       size, false, false);
+                                       size - 2, false, false);
             } else {
                 UNREACHABLE_MSG("Unsupported DMA copy src_sel = {}, dst_sel = {}",
                                 u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -967,21 +967,22 @@ std::pair<std::span<const u32>, std::span<const u32>> Liverpool::CopyCmdBuffers(
 
     std::scoped_lock lock{queue.m_access};
 
-queue.ccb_buffer.resize(
+    queue.ccb_buffer.resize(
         std::max(queue.ccb_buffer.size(), queue.ccb_buffer_offset + ccb.size()));
     ASSERT(queue.ccb_buffer.size() >= queue.ccb_buffer_offset + ccb.size());
-queue.ccb_buffer.resize(std::max(queue.ccb_buffer.size(), queue.ccb_buffer_offset + ccb.size()));
-ASSERT(queue.ccb_buffer.size() >= queue.ccb_buffer_offset + ccb.size());
-constexpr size_t kMaxBufferSizeDwords = 256 * 1024;
-if (queue.dcb_buffer_offset > kMaxBufferSizeDwords) {
-    queue.dcb_buffer.clear();
-    queue.dcb_buffer_offset = 0;
-}
+    queue.ccb_buffer.resize(
+        std::max(queue.ccb_buffer.size(), queue.ccb_buffer_offset + ccb.size()));
+    ASSERT(queue.ccb_buffer.size() >= queue.ccb_buffer_offset + ccb.size());
+    constexpr size_t kMaxBufferSizeDwords = 256 * 1024;
+    if (queue.dcb_buffer_offset > kMaxBufferSizeDwords) {
+        queue.dcb_buffer.clear();
+        queue.dcb_buffer_offset = 0;
+    }
 
-if (queue.ccb_buffer_offset > kMaxBufferSizeDwords) {
-    queue.ccb_buffer.clear();
-    queue.ccb_buffer_offset = 0;
-}
+    if (queue.ccb_buffer_offset > kMaxBufferSizeDwords) {
+        queue.ccb_buffer.clear();
+        queue.ccb_buffer_offset = 0;
+    }
     if (!dcb.empty()) {
         std::memcpy(queue.dcb_buffer.data() + queue.dcb_buffer_offset, dcb.data(),
                     dcb.size_bytes());
