@@ -604,37 +604,39 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 auto isMemorySource = [](DmaDataSrc src) {
                     return src == DmaDataSrc::Memory || src == DmaDataSrc::MemoryUsingL2;
                 };
+                const bool srcIsMem = isMemorySource(dma_data->src_sel);
+                const bool dstIsMem = dma_data->dst_sel == DmaDataDst::Memory ||
+                                      dma_data->dst_sel == DmaDataDst::MemoryUsingL2;
+                constexpr u32 kMaxCopySize = 16 * 1024 * 1024;
+                const u32 size = dma_data->NumBytes();
 
                 if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
                     rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32),
                                            true);
-                } else if (isMemorySource(dma_data->src_sel) &&
-                           dma_data->dst_sel == DmaDataDst::Gds) {
+                } else if (srcIsMem && dma_data->dst_sel == DmaDataDst::Gds) {
+                    if (size == 0 || size > kMaxCopySize) {
+                        UNREACHABLE_MSG("Invalid NumBytes for memory-to-GDS copy: {}", size);
+                    }
                     rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
-                                           dma_data->NumBytes(), true, false);
-                } else if (dma_data->src_sel == DmaDataSrc::Data &&
-                           (dma_data->dst_sel == DmaDataDst::Memory ||
-                            dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                                           size, true, false);
+                } else if (dma_data->src_sel == DmaDataSrc::Data && dstIsMem) {
                     rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data,
                                            sizeof(u32), false);
                 } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                           dma_data->NumBytes(), false, true);
-                    // LOG_WARNING(Render_Vulkan, "GDS memory read");
-                } else if (isMemorySource(dma_data->src_sel) &&
-                           (dma_data->dst_sel == DmaDataDst::Memory ||
-                            dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                    if (dma_data->NumBytes() > 2) {
-                        rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                               dma_data->SrcAddress<VAddr>(),
-                                               dma_data->NumBytes() - 2, false, false);
-                    } else {
-                        UNREACHABLE_MSG("Invalid NumBytes for memory copy: {}",
-                                        dma_data->NumBytes());
+                    if (size == 0 || size > kMaxCopySize) {
+                        UNREACHABLE_MSG("Invalid NumBytes for GDS-to-memory copy: {}", size);
                     }
+                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
+                                           size, false, true);
+                } else if (srcIsMem && dstIsMem) {
+                    if (size == 0 || size > kMaxCopySize) {
+                        UNREACHABLE_MSG("Invalid NumBytes for memory-to-memory copy: {}", size);
+                    }
+                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
+                                           dma_data->SrcAddress<VAddr>(), size, false, false);
                 } else {
-                    UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
+                    UNREACHABLE_MSG("Unsupported DMA copy src_sel = {}, dst_sel = {}",
                                     u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
                 }
                 break;
@@ -800,33 +802,39 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
             auto isMemorySource = [](DmaDataSrc src) {
                 return src == DmaDataSrc::Memory || src == DmaDataSrc::MemoryUsingL2;
             };
+            const bool srcIsMem = isMemorySource(dma_data->src_sel);
+            const bool dstIsMem = dma_data->dst_sel == DmaDataDst::Memory ||
+                                  dma_data->dst_sel == DmaDataDst::MemoryUsingL2;
+            constexpr u32 kMaxCopySize = 16 * 1024 * 1024;
+            const u32 size = dma_data->NumBytes();
             if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
                 rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
-            } else if (isMemorySource(dma_data->src_sel) && dma_data->dst_sel == DmaDataDst::Gds) {
-                rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
-                                       dma_data->NumBytes(), true, false);
-            } else if (dma_data->src_sel == DmaDataSrc::Data &&
-                       (dma_data->dst_sel == DmaDataDst::Memory ||
-                        dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+
+            } else if (srcIsMem && dma_data->dst_sel == DmaDataDst::Gds) {
+                if (size == 0 || size > kMaxCopySize) {
+                    UNREACHABLE_MSG("Invalid NumBytes for memory-to-GDS copy: {}", size);
+                }
+                rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(), size,
+                                       true, false);
+            } else if (dma_data->src_sel == DmaDataSrc::Data && dstIsMem) {
                 rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data, sizeof(u32),
                                        false);
             } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                       dma_data->NumBytes(), false, true);
-                // LOG_WARNING(Render_Vulkan, "GDS memory read");
-            } else if (isMemorySource(dma_data->src_sel) &&
-                       (dma_data->dst_sel == DmaDataDst::Memory ||
-                        dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                if (dma_data->NumBytes() > 2) {
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                           dma_data->SrcAddress<VAddr>(), dma_data->NumBytes() - 2,
-                                           false, false);
-                } else {
-                    UNREACHABLE_MSG("Invalid NumBytes for memory copy: {}", dma_data->NumBytes());
+                if (size == 0 || size > kMaxCopySize) {
+                    UNREACHABLE_MSG("Invalid NumBytes for GDS-to-memory copy: {}", size);
                 }
+                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo, size,
+                                       false, true);
+
+            } else if (srcIsMem && dstIsMem) {
+                if (size == 0 || size > kMaxCopySize) {
+                    UNREACHABLE_MSG("Invalid NumBytes for memory-to-memory copy: {}", size);
+                }
+                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->SrcAddress<VAddr>(),
+                                       size, false, false);
             } else {
-                UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
+                UNREACHABLE_MSG("Unsupported DMA copy src_sel = {}, dst_sel = {}",
                                 u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
             }
             break;
@@ -957,20 +965,28 @@ std::pair<std::span<const u32>, std::span<const u32>> Liverpool::CopyCmdBuffers(
     std::span<const u32> dcb, std::span<const u32> ccb) {
     auto& queue = mapped_queues[GfxQueueId];
 
+    std::scoped_lock lock{queue.m_access};
+
 queue.ccb_buffer.resize(
         std::max(queue.ccb_buffer.size(), queue.ccb_buffer_offset + ccb.size()));
     ASSERT(queue.ccb_buffer.size() >= queue.ccb_buffer_offset + ccb.size());
 queue.ccb_buffer.resize(std::max(queue.ccb_buffer.size(), queue.ccb_buffer_offset + ccb.size()));
 ASSERT(queue.ccb_buffer.size() >= queue.ccb_buffer_offset + ccb.size());
+constexpr size_t kMaxBufferSizeDwords = 256 * 1024;
+if (queue.dcb_buffer_offset > kMaxBufferSizeDwords) {
+    queue.dcb_buffer.clear();
+    queue.dcb_buffer_offset = 0;
+}
 
-
-    u32 prev_dcb_buffer_offset = queue.dcb_buffer_offset;
-    u32 prev_ccb_buffer_offset = queue.ccb_buffer_offset;
+if (queue.ccb_buffer_offset > kMaxBufferSizeDwords) {
+    queue.ccb_buffer.clear();
+    queue.ccb_buffer_offset = 0;
+}
     if (!dcb.empty()) {
         std::memcpy(queue.dcb_buffer.data() + queue.dcb_buffer_offset, dcb.data(),
                     dcb.size_bytes());
         queue.dcb_buffer_offset += dcb.size();
-        dcb = std::span<const u32>{queue.dcb_buffer.data() + prev_dcb_buffer_offset,
+        dcb = std::span<const u32>{queue.dcb_buffer.data() + kMaxBufferSizeDwords,
                                    queue.dcb_buffer.data() + queue.dcb_buffer_offset};
     }
 
@@ -978,7 +994,7 @@ ASSERT(queue.ccb_buffer.size() >= queue.ccb_buffer_offset + ccb.size());
         std::memcpy(queue.ccb_buffer.data() + queue.ccb_buffer_offset, ccb.data(),
                     ccb.size_bytes());
         queue.ccb_buffer_offset += ccb.size();
-        ccb = std::span<const u32>{queue.ccb_buffer.data() + prev_ccb_buffer_offset,
+        ccb = std::span<const u32>{queue.ccb_buffer.data() + kMaxBufferSizeDwords,
                                    queue.ccb_buffer.data() + queue.ccb_buffer_offset};
     }
 
