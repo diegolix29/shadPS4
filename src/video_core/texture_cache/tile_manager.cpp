@@ -264,26 +264,37 @@ std::pair<vk::Buffer, u32> TileManager::TryDetile(vk::Buffer in_buffer, u32 in_o
     cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eCompute, *detiler->pl_layout, 0,
                                 set_writes);
 
-    DetilerParams params;
+DetilerParams params{};
     std::memset(&params, 0, sizeof(params));
-    params.num_levels = std::min(7u, info.resources.levels);
+
+    params.num_levels = std::min(15u, info.resources.levels);
     params.pitch0 = info.pitch >> (info.props.is_block ? 2u : 0u);
     params.height = info.size.height;
-    if (info.tiling_mode == AmdGpu::TilingMode::Texture_Volume ||
-        info.tiling_mode == AmdGpu::TilingMode::Display_MicroTiled) {
 
+    const bool is_volume_tiled = info.tiling_mode == AmdGpu::TilingMode::Texture_Volume;
+    const bool is_display_tiled = info.tiling_mode == AmdGpu::TilingMode::Display_MicroTiled;
+    if (is_volume_tiled) {
         for (uint32_t level = 0; level < params.num_levels; ++level) {
-            const uint32_t pitch_bytes = info.pitch >> level;
-            const uint32_t tiles_per_row = pitch_bytes / 8u;
+            const uint32_t mip_pitch = std::max(1u, info.pitch >> level);
+            const uint32_t tiles_per_row = mip_pitch / 8u;
             const uint32_t mip_height = std::max(1u, info.size.height >> level);
             const uint32_t tiles_per_slice = tiles_per_row * ((mip_height + 7u) / 8u);
 
             params.sizes[level * 2 + 0] = tiles_per_row;
             params.sizes[level * 2 + 1] = tiles_per_slice;
         }
+    } else if (is_display_tiled) {
+        ASSERT(info.resources.levels == 1);
+        params.num_levels = 1;
+        const uint32_t tiles_per_row = info.pitch / 8u;
+        const uint32_t tiles_per_slice = (info.size.height + 7u) / 8u;
+        params.sizes[0] = tiles_per_row;
+        params.sizes[1] = tiles_per_slice;
+        for (size_t i = 2; i < std::size(params.sizes); ++i)
+            params.sizes[i] = 0;
     } else {
         ASSERT(params.num_levels <= 14);
-        for (uint32_t m = 0; m < info.resources.levels; ++m) {
+        for (uint32_t m = 0; m < params.num_levels; ++m) {
             params.sizes[m] = info.mips_layout[m].size + (m > 0 ? params.sizes[m - 1] : 0);
         }
     }
@@ -292,13 +303,12 @@ std::pair<vk::Buffer, u32> TileManager::TryDetile(vk::Buffer in_buffer, u32 in_o
                          &params);
 
     const u32 tile_size = 64;
-    if ((image_size % tile_size) != 0) {
-        const u32 aligned_size = (image_size + 63) & ~63u;
-    }
-    const u32 aligned_size = (image_size + (tile_size - 1)) & ~(tile_size - 1);
+    ASSERT(image_size % tile_size == 0);
+    const u32 aligned_size = Common::AlignUp(image_size, tile_size);
     const auto bpp = info.num_bits * (info.props.is_block ? 16u : 1u);
-    const auto num_tiles = image_size / (64 * (bpp / 8));
+    const auto num_tiles = aligned_size / (tile_size * (bpp / 8));
     cmdbuf.dispatch(num_tiles, 1, 1);
+
     return {out_buffer.first, 0};
 }
 
