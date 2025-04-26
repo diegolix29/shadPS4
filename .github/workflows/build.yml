@@ -446,7 +446,7 @@ jobs:
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
-      
+
   linux-flatpak:
     runs-on: ubuntu-24.04
     needs: get-info
