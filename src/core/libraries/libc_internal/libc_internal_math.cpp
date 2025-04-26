@@ -9,109 +9,109 @@
 namespace Libraries::LibcInternal {
 
 double PS4_SYSV_ABI internal_sin(double x) {
-    return std::sin(x);
+    return sin(x);
 }
 
 float PS4_SYSV_ABI internal_sinf(float x) {
-    return std::sinf(x);
+    return sinf(x);
 }
 
 double PS4_SYSV_ABI internal_cos(double x) {
-    return std::cos(x);
+    return cos(x);
 }
 
 float PS4_SYSV_ABI internal_cosf(float x) {
-    return std::cosf(x);
+    return cosf(x);
 }
 
 void PS4_SYSV_ABI internal_sincos(double x, double* sinp, double* cosp) {
-    *sinp = std::sin(x);
-    *cosp = std::cos(x);
+    *sinp = sin(x);
+    *cosp = cos(x);
 }
 
 void PS4_SYSV_ABI internal_sincosf(float x, float* sinp, float* cosp) {
-    *sinp = std::sinf(x);
-    *cosp = std::cosf(x);
+    *sinp = sinf(x);
+    *cosp = cosf(x);
 }
 
 double PS4_SYSV_ABI internal_tan(double x) {
-    return std::tan(x);
+    return tan(x);
 }
 
 float PS4_SYSV_ABI internal_tanf(float x) {
-    return std::tanf(x);
+    return tanf(x);
 }
 
 double PS4_SYSV_ABI internal_asin(double x) {
-    return std::asin(x);
+    return asin(x);
 }
 
 float PS4_SYSV_ABI internal_asinf(float x) {
-    return std::asinf(x);
+    return asinf(x);
 }
 
 double PS4_SYSV_ABI internal_acos(double x) {
-    return std::acos(x);
+    return acos(x);
 }
 
 float PS4_SYSV_ABI internal_acosf(float x) {
-    return std::acosf(x);
+    return acosf(x);
 }
 
 double PS4_SYSV_ABI internal_atan(double x) {
-    return std::atan(x);
+    return atan(x);
 }
 
 float PS4_SYSV_ABI internal_atanf(float x) {
-    return std::atanf(x);
+    return atanf(x);
 }
 
 double PS4_SYSV_ABI internal_atan2(double y, double x) {
-    return std::atan2(y, x);
+    return atan2(y, x);
 }
 
 float PS4_SYSV_ABI internal_atan2f(float y, float x) {
-    return std::atan2f(y, x);
+    return atan2f(y, x);
 }
 
 double PS4_SYSV_ABI internal_exp(double x) {
-    return std::exp(x);
+    return exp(x);
 }
 
 float PS4_SYSV_ABI internal_expf(float x) {
-    return std::expf(x);
+    return expf(x);
 }
 
 double PS4_SYSV_ABI internal_exp2(double x) {
-    return std::exp2(x);
+    return exp2(x);
 }
 
 float PS4_SYSV_ABI internal_exp2f(float x) {
-    return std::exp2f(x);
+    return exp2f(x);
 }
 
 double PS4_SYSV_ABI internal_pow(double x, double y) {
-    return std::pow(x, y);
+    return pow(x, y);
 }
 
 float PS4_SYSV_ABI internal_powf(float x, float y) {
-    return std::powf(x, y);
+    return powf(x, y);
 }
 
 double PS4_SYSV_ABI internal_log(double x) {
-    return std::log(x);
+    return log(x);
 }
 
 float PS4_SYSV_ABI internal_logf(float x) {
-    return std::logf(x);
+    return logf(x);
 }
 
 double PS4_SYSV_ABI internal_log10(double x) {
-    return std::log10(x);
+    return log10(x);
 }
 
 float PS4_SYSV_ABI internal_log10f(float x) {
-    return std::log10f(x);
+    return log10f(x);
 }
 
 void RegisterlibSceLibcInternalMath(Core::Loader::SymbolsResolver* sym) {
