@@ -1,1 +1,1 @@
-cmake --build . --parallel$(nproc)
+cmake --build . --config RELEASE --parallel $(nproc)
