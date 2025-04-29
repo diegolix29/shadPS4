@@ -203,7 +203,7 @@ void PageManager::UpdatePagesCachedCount(VAddr addr, u64 size, s32 delta) {
         const VAddr interval_end_addr = boost::icl::last_next(interval) << PageShift;
         const u32 interval_size = interval_end_addr - interval_start_addr;
         if (!rasterizer->IsMapped(interval_start_addr, interval_size)) {
-            LOG_DEBUG(Debug,"[PageManager] Skipping untracked memory region at {}, size {}.",
+            LOG_DEBUG(Debug, "[PageManager] Skipping untracked memory region at {}, size {}.",
                       interval_start_addr, interval_size);
             continue;
         }
