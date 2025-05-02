@@ -536,7 +536,7 @@ struct PM4CmdWriteData {
 };
 
 struct PM4CmdEventWrite {
-    PM4Type3Header header; 
+    PM4Type3Header header;
     u32 event_type;
     u32 event_index;
     u32 address_lo;
