@@ -19,6 +19,7 @@ using OrbisNpStateCallbackForNpToolkit = PS4_SYSV_ABI void (*)(s32 userId, Orbis
 constexpr int ORBIS_NP_ONLINEID_MAX_LENGTH = 16;
 
 using OrbisUserServiceUserId = s32;
+using OrbisNpAccountId = s32;
 
 struct OrbisNpOnlineId {
     char data[ORBIS_NP_ONLINEID_MAX_LENGTH];
@@ -231,7 +232,8 @@ int PS4_SYSV_ABI sceNpGetOnlineId(OrbisUserServiceUserId user_id, OrbisNpOnlineI
 int PS4_SYSV_ABI sceNpGetParentalControlInfo();
 int PS4_SYSV_ABI sceNpGetParentalControlInfoA();
 int PS4_SYSV_ABI sceNpGetState(OrbisUserServiceUserId user_id, OrbisNpState* state);
-int PS4_SYSV_ABI sceNpGetUserIdByAccountId();
+int PS4_SYSV_ABI sceNpGetUserIdByAccountId(OrbisNpAccountId account_id,
+                                           OrbisUserServiceUserId* user_id);
 int PS4_SYSV_ABI sceNpGetUserIdByOnlineId();
 int PS4_SYSV_ABI sceNpHasSignedUp(OrbisUserServiceUserId user_id, bool* has_signed_up);
 int PS4_SYSV_ABI sceNpIdMapperAbortRequest();

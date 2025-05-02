@@ -1019,8 +1019,14 @@ int PS4_SYSV_ABI sceNpGetState(OrbisUserServiceUserId user_id, OrbisNpState* sta
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceNpGetUserIdByAccountId() {
-    LOG_ERROR(Lib_NpManager, "(STUBBED) called");
+int PS4_SYSV_ABI sceNpGetUserIdByAccountId(OrbisNpAccountId account_id,
+                                           OrbisUserServiceUserId* user_id) {
+    account_id = 1;
+
+    LOG_ERROR(Lib_NpManager, "(STUBBED) sceNpGetUserIdByAccountId called with accountId: {}",
+              account_id);
+    if (account_id)
+        *user_id = 1;
     return ORBIS_OK;
 }
 

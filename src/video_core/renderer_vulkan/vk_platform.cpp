@@ -41,14 +41,16 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugUtilsCallback(
         level = Common::Log::Level::Error;
         break;
     case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
-        level = Common::Log::Level::Info;
+        level = Common::Log::Level::Warning;
         break;
     case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
+        level = Common::Log::Level::Info;
+        break;
     case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
         level = Common::Log::Level::Debug;
         break;
     default:
-        level = Common::Log::Level::Info;
+        level = Common::Log::Level::Debug;
     }
 
     LOG_GENERIC(Common::Log::Class::Render_Vulkan, level, "{}: {}",
@@ -69,8 +71,10 @@ vk::SurfaceKHR CreateSurface(vk::Instance instance, const Frontend::WindowSDL& e
             .hwnd = static_cast<HWND>(window_info.render_surface),
         };
 
-        if (instance.createWin32SurfaceKHR(&win32_ci, nullptr, &surface) != vk::Result::eSuccess) {
-            LOG_CRITICAL(Render_Vulkan, "Failed to initialize Win32 surface");
+        const vk::Result result = instance.createWin32SurfaceKHR(&win32_ci, nullptr, &surface);
+        if (result != vk::Result::eSuccess) {
+            LOG_CRITICAL(Render_Vulkan, "Failed to initialize Win32 surface: {}",
+                         vk::to_string(result));
             UNREACHABLE();
         }
     }
@@ -111,7 +115,8 @@ vk::SurfaceKHR CreateSurface(vk::Instance instance, const Frontend::WindowSDL& e
 #endif
 
     if (!surface) {
-        LOG_CRITICAL(Render_Vulkan, "Presentation not supported on this platform");
+        LOG_CRITICAL(Render_Vulkan, "Vulkan surface creation failed for window type {}",
+                     static_cast<int>(window_info.type));
         UNREACHABLE();
     }
 
@@ -242,10 +247,14 @@ vk::UniqueInstance CreateInstance(Frontend::WindowSystemType window_type, bool e
     // installs it here by default, but it is not in the default library search path.
     // The loader has a clause to check for it, but at a lower priority than the bundled
     // libMoltenVK.dylib, so we need to handle it ourselves to give it priority.
+    static vk::detail::DynamicLoader dl;
+#ifdef __APPLE__
     static const std::string usr_local_path = "/usr/local/lib/libvulkan.dylib";
-    static vk::detail::DynamicLoader dl = std::filesystem::exists(usr_local_path)
-                                              ? vk::detail::DynamicLoader(usr_local_path)
-                                              : vk::detail::DynamicLoader();
+    if (std::filesystem::exists(usr_local_path)) {
+        dl = vk::detail::DynamicLoader(usr_local_path);
+    }
+#endif
+
 #else
     static vk::detail::DynamicLoader dl;
 #endif
