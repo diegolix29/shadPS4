@@ -33,10 +33,10 @@ int PS4_SYSV_ABI sceKernelAllocateDirectMemory(s64 searchStart, s64 searchEnd, u
         LOG_INFO(Kernel_Vmm, "Game '{}' requires extra memory, applying expanded allocation.",
                  MemoryPatcher::g_game_serial);
 
-        constexpr u64 GFX_GraphicsPrivate_Address = 0x804732DD8;
+        constexpr u64 GFX_GraphicsPrivate_Address = 0x904732DD8;
         *reinterpret_cast<u64*>(GFX_GraphicsPrivate_Address) = 0x8EF00000LL * 1.750;
 
-        constexpr u64 GFX_GraphicsPrivateB_Address = 0x804732DE0;
+        constexpr u64 GFX_GraphicsPrivateB_Address = 0x904732DE0;
         *reinterpret_cast<u64*>(GFX_GraphicsPrivateB_Address) = 0x37600000LL * 3;
     } else {
         LOG_INFO(Kernel_Vmm, "Game '{}' using standard memory allocation.",
