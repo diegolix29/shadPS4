@@ -11,7 +11,7 @@ use std::time::SystemTime;
 use zerocopy::FromBytes;
 
 /// This is a direct conversion from
-/// https://github.com/diegolix29/shadPS4/blob/b41664ac616894686e072ede61c609b422d79ed4/src/core/file_format/psf.h
+/// https://github.com/shadps4-emu/shadPS4/blob/b41664ac616894686e072ede61c609b422d79ed4/src/core/file_format/psf.h
 
 mod file_format {
     use num_derive::FromPrimitive;
