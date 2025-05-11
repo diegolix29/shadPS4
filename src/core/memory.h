@@ -209,7 +209,7 @@ public:
     int MapFile(void** out_addr, VAddr virtual_addr, size_t size, MemoryProt prot,
                 MemoryMapFlags flags, uintptr_t fd, size_t offset);
 
-    void PoolDecommit(VAddr virtual_addr, size_t size);
+    s32 PoolDecommit(VAddr virtual_addr, size_t size);
 
     s32 UnmapMemory(VAddr virtual_addr, size_t size);
 
@@ -285,6 +285,7 @@ private:
     size_t total_direct_size{};
     size_t total_flexible_size{};
     size_t flexible_usage{};
+    size_t pool_budget{};
     Vulkan::Rasterizer* rasterizer{};
 
     friend class ::Core::Devtools::Widget::MemoryMapViewer;
