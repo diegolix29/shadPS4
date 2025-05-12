@@ -62,7 +62,6 @@ private:
     void toggleFullscreen();
     void CreateRecentGameActions();
     void CreateDockWindows();
-    void GetPhysicalDevices();
     void LoadGameLists();
 
 #ifdef ENABLE_UPDATER
@@ -102,8 +101,6 @@ private:
     QScopedPointer<ElfViewer> m_elf_viewer;
     // Status Bar.
     QScopedPointer<QStatusBar> statusBar;
-    // Available GPU devices
-    std::vector<QString> m_physical_devices;
 
     PSF psf;
 
