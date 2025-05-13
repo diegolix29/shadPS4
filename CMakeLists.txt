@@ -1108,6 +1108,9 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
         target_compile_definitions(shadps4 PRIVATE ENABLE_USERFAULTFD)
     endif()
 
+    target_link_libraries(shadps4 PRIVATE uuid)
+endif()
+
 if (APPLE)
     # Include MoltenVK, along with an ICD file so it can be found by the system Vulkan loader if used for loading layers.
     if (ENABLE_QT_GUI)
