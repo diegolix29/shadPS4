@@ -674,14 +674,6 @@ struct PM4CmdWriteData {
     }
 };
 
-struct PM4CmdEventWrite {
-    PM4Type3Header header;
-    u32 event_type;
-    u32 event_index;
-    u32 address_lo;
-    u32 address_hi;
-};
-
 struct PM4CmdEventWriteEos {
     enum class Command : u32 {
         GdsStore = 1u,
