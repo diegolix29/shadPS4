@@ -59,9 +59,9 @@ else()
 endif()
 
 if (ARCHITECTURE STREQUAL "x86_64")
-    # Target the same CPU architecture as the PS4, to maintain the same level of compatibility.
-    # Exclude SSE4a as it is only available on AMD CPUs.
-    add_compile_options(-march=btver2 -mtune=generic -mno-sse4a)
+    # Target x86-64-v3 CPU architecture as this is a good balance between supporting performance critical
+    # instructions like AVX2 and maintaining support for older CPUs.
+    add_compile_options(-march=x86-64-v3)
 endif()
 
 if (APPLE AND ARCHITECTURE STREQUAL "x86_64" AND CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64")
@@ -243,13 +243,6 @@ if (APPLE)
     find_package(date 3.0.1 CONFIG)
 endif()
 list(POP_BACK CMAKE_MODULE_PATH)
-
-# Note: Windows always has these functions through winpthreads
-include(CheckSymbolExists)
-check_symbol_exists(pthread_mutex_timedlock "pthread.h" HAVE_PTHREAD_MUTEX_TIMEDLOCK)
-if(HAVE_PTHREAD_MUTEX_TIMEDLOCK OR WIN32)
-    add_compile_options(-DHAVE_PTHREAD_MUTEX_TIMEDLOCK)
-endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     # libc++ requires -fexperimental-library to enable std::jthread and std::stop_token support.
@@ -611,6 +604,10 @@ set(CAMERA_LIBS  src/core/libraries/camera/camera.cpp
                  src/core/libraries/camera/camera_error.h
 )
 
+set(COMPANION_LIBS  src/core/libraries/companion/companion_httpd.cpp
+                    src/core/libraries/companion/companion_httpd.h
+                    src/core/libraries/companion/companion_error.h
+)
 set(DEV_TOOLS src/core/devtools/layer.cpp
               src/core/devtools/layer.h
               src/core/devtools/options.cpp
@@ -775,6 +772,7 @@ set(CORE src/core/aerolib/stubs.cpp
          ${VDEC_LIB}
          ${VR_LIBS}
          ${CAMERA_LIBS}
+         ${COMPANION_LIBS}
          ${DEV_TOOLS}
          src/core/debug_state.cpp
          src/core/debug_state.h
@@ -1164,7 +1162,7 @@ if (ENABLE_QT_GUI)
 endif()
 
 if (WIN32)
-    target_link_libraries(shadps4 PRIVATE mincore winpthreads)
+    target_link_libraries(shadps4 PRIVATE mincore)
 
     if (MSVC)
         # MSVC likes putting opinions on what people can use, disable:
