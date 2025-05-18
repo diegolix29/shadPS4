@@ -128,11 +128,11 @@ void BackupFilesInDirectory(const std::filesystem::path& directory) {
     if (!std::filesystem::exists(directory))
         return;
 
-    std::regex userdata_regex(R"(userdata\d{4})");
+    std::regex INSTALL_DIR_SAVEDATA(R"(userdata\d{4})");
 
     for (const auto& entry : std::filesystem::directory_iterator(directory)) {
         if (entry.is_regular_file() &&
-            std::regex_match(entry.path().filename().string(), userdata_regex)) {
+            std::regex_match(entry.path().filename().string(), INSTALL_DIR_SAVEDATA)) {
             std::ifstream src(entry.path(), std::ios::binary);
 
             if (!src.is_open()) {
@@ -209,10 +209,11 @@ void AutoBackupThread(const std::filesystem::path& save_dir) {
 }
 
 void OnGameLoaded() {
-    std::filesystem::path savedir = Common::FS::GetUserPath(Common::FS::PathType::SaveDataDir) /
-                                    "1" / g_game_serial / "SPRJ0005";
+    std::filesystem::path INSTALL_DIR_SAVEDATA =
+        Common::FS::GetUserPath(Common::FS::PathType::SaveDataDir) / "1" / g_game_serial /
+        "SPRJ0005";
 
-    std::filesystem::path backupDir = savedir;
+    std::filesystem::path backupDir = INSTALL_DIR_SAVEDATA;
 
     std::time_t now = std::time(nullptr);
     std::tm localTime;
@@ -233,7 +234,7 @@ void OnGameLoaded() {
         std::filesystem::remove(backupFile);
     }
 
-    std::ifstream src(savedir / "userdata0010", std::ios::binary);
+    std::ifstream src(INSTALL_DIR_SAVEDATA / "userdata0010", std::ios::binary);
     std::ofstream dest(backupFile, std::ios::binary);
 
     dest << src.rdbuf();
@@ -244,12 +245,13 @@ void OnGameLoaded() {
     if (g_game_serial == "CUSA03173" || g_game_serial == "CUSA00900" ||
         g_game_serial == "CUSA00299" || g_game_serial == "CUSA00207") {
         std::ofstream savefile1;
-        savefile1.open(savedir / "userdata0010", std::ios::in | std::ios::out | std::ios::binary);
+        savefile1.open(INSTALL_DIR_SAVEDATA / "userdata0010",
+                       std::ios::in | std::ios::out | std::ios::binary);
         savefile1.seekp(0x204E);
         savefile1.put(0x1);
         savefile1.close();
         if (Config::getEnableAutoBackup()) {
-            std::thread(AutoBackupThread, savedir).detach();
+            std::thread(AutoBackupThread, INSTALL_DIR_SAVEDATA).detach();
         }
     }
 
