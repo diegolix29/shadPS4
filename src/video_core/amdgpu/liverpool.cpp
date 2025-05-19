@@ -633,6 +633,8 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 }
 
                 const u32 num_bytes = dma_data->NumBytes();
+                auto dst_addr = dma_data->DstAddress<VAddr>();
+                auto src_addr = dma_data->SrcAddress<VAddr>();
 
                 auto isMemorySource = [](DmaDataSrc src) {
                     return src == DmaDataSrc::Memory || src == DmaDataSrc::MemoryUsingL2;
@@ -644,37 +646,32 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
 
                 } else if (isMemorySource(dma_data->src_sel) &&
                            dma_data->dst_sel == DmaDataDst::Gds) {
-                    rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
-                                           num_bytes, true, false);
+                    rasterizer->CopyBuffer(dma_data->dst_addr_lo, src_addr, num_bytes, true, false);
 
                 } else if (dma_data->src_sel == DmaDataSrc::Data &&
                            (dma_data->dst_sel == DmaDataDst::Memory ||
                             dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                    rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data,
-                                           sizeof(u32), false);
+                    rasterizer->InlineData(dst_addr, &dma_data->data, sizeof(u32), false);
 
                 } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                            (dma_data->dst_sel == DmaDataDst::Memory ||
                             dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                           num_bytes, false, true);
+                    rasterizer->CopyBuffer(dst_addr, dma_data->src_addr_lo, num_bytes, false, true);
 
                 } else if (isMemorySource(dma_data->src_sel) &&
                            (dma_data->dst_sel == DmaDataDst::Memory ||
                             dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                    auto dst_addr = dma_data->DstAddress<VAddr>();
-                    auto src_addr = dma_data->SrcAddress<VAddr>();
 
-                    if (num_bytes < 4) {
-                        LOG_WARNING(Render_Vulkan, "Skipping unsafe small DMA transfer of {} bytes",
+                    if (num_bytes == 2 || num_bytes == 4) {
+                        LOG_WARNING(Render,
+                                    "Padding small DMA transfer of {} bytes to avoid slowdown",
                                     num_bytes);
-                    } else if (num_bytes > 4 && num_bytes % 4 != 0) {
-                        LOG_WARNING(Render_Vulkan,
-                                    "Unaligned DMA transfer of {} bytes , truncating to {}",
-                                    num_bytes, num_bytes & ~3);
-                        rasterizer->CopyBuffer(dst_addr, src_addr, num_bytes & ~3, false, false);
-                    } else {
+                        const u32 padded_bytes = 8;
+                        rasterizer->CopyBuffer(dst_addr, src_addr, padded_bytes, false, false);
+                    } else if (num_bytes > 0) {
                         rasterizer->CopyBuffer(dst_addr, src_addr, num_bytes, false, false);
+                    } else {
+                        LOG_WARNING(Render, "Ignoring 0-byte DMA transfer.");
                     }
 
                 } else {
@@ -855,6 +852,8 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
             }
 
             const u32 num_bytes = dma_data->NumBytes();
+            auto dst_addr = dma_data->DstAddress<VAddr>();
+            auto src_addr = dma_data->SrcAddress<VAddr>();
 
             auto isMemorySource = [](DmaDataSrc src) {
                 return src == DmaDataSrc::Memory || src == DmaDataSrc::MemoryUsingL2;
@@ -864,37 +863,31 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
                 rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
 
             } else if (isMemorySource(dma_data->src_sel) && dma_data->dst_sel == DmaDataDst::Gds) {
-                rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
-                                       num_bytes, true, false);
+                rasterizer->CopyBuffer(dma_data->dst_addr_lo, src_addr, num_bytes, true, false);
 
             } else if (dma_data->src_sel == DmaDataSrc::Data &&
                        (dma_data->dst_sel == DmaDataDst::Memory ||
                         dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data, sizeof(u32),
-                                       false);
+                rasterizer->InlineData(dst_addr, &dma_data->data, sizeof(u32), false);
 
             } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                        (dma_data->dst_sel == DmaDataDst::Memory ||
                         dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                       num_bytes, false, true);
+                rasterizer->CopyBuffer(dst_addr, dma_data->src_addr_lo, num_bytes, false, true);
 
             } else if (isMemorySource(dma_data->src_sel) &&
                        (dma_data->dst_sel == DmaDataDst::Memory ||
                         dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                auto dst_addr = dma_data->DstAddress<VAddr>();
-                auto src_addr = dma_data->SrcAddress<VAddr>();
 
-                if (num_bytes > 4) {
-                    LOG_WARNING(Render_Vulkan, "Skipping unsafe small DMA transfer of {} bytes",
+                if (num_bytes == 2 || num_bytes == 4) {
+                    LOG_WARNING(Render, "Padding small DMA transfer of {} bytes to avoid slowdown",
                                 num_bytes);
-                } else if (num_bytes > 4 && num_bytes % 4 != 0) {
-                    LOG_WARNING(Render_Vulkan,
-                                "Unaligned DMA transfer of {} bytes , truncating to {}", num_bytes,
-                                num_bytes & ~3);
-                    rasterizer->CopyBuffer(dst_addr, src_addr, num_bytes & ~3, false, false);
-                } else {
+                    const u32 padded_bytes = 8;
+                    rasterizer->CopyBuffer(dst_addr, src_addr, padded_bytes, false, false);
+                } else if (num_bytes > 0) {
                     rasterizer->CopyBuffer(dst_addr, src_addr, num_bytes, false, false);
+                } else {
+                    LOG_WARNING(Render, "Ignoring 0-byte DMA transfer.");
                 }
 
             } else {
