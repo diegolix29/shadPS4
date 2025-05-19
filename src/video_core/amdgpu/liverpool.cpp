@@ -1029,42 +1029,41 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
 std::pair<std::span<const u32>, std::span<const u32>> Liverpool::CopyCmdBuffers(
     std::span<const u32> dcb, std::span<const u32> ccb) {
     auto& queue = mapped_queues[GfxQueueId];
-
     std::scoped_lock lock{queue.m_access};
 
-    queue.ccb_buffer.resize(
-        std::max(queue.ccb_buffer.size(), queue.ccb_buffer_offset + ccb.size()));
-    ASSERT(queue.ccb_buffer.size() >= queue.ccb_buffer_offset + ccb.size());
-    queue.ccb_buffer.resize(
-        std::max(queue.ccb_buffer.size(), queue.ccb_buffer_offset + ccb.size()));
-    ASSERT(queue.ccb_buffer.size() >= queue.ccb_buffer_offset + ccb.size());
     constexpr size_t kMaxBufferSizeDwords = 256 * 1024;
+
     if (queue.dcb_buffer_offset > kMaxBufferSizeDwords) {
         queue.dcb_buffer.clear();
         queue.dcb_buffer_offset = 0;
     }
-
     if (queue.ccb_buffer_offset > kMaxBufferSizeDwords) {
         queue.ccb_buffer.clear();
         queue.ccb_buffer_offset = 0;
     }
+    size_t required_dcb_size = queue.dcb_buffer_offset + dcb.size();
+    size_t required_ccb_size = queue.ccb_buffer_offset + ccb.size();
+
+    queue.dcb_buffer.resize(std::max(queue.dcb_buffer.size(), required_dcb_size));
+    queue.ccb_buffer.resize(std::max(queue.ccb_buffer.size(), required_ccb_size));
+
+    u32 prev_dcb_offset = queue.dcb_buffer_offset;
+    u32 prev_ccb_offset = queue.ccb_buffer_offset;
     if (!dcb.empty()) {
-        std::memcpy(queue.dcb_buffer.data() + queue.dcb_buffer_offset, dcb.data(),
-                    dcb.size_bytes());
+        std::memcpy(queue.dcb_buffer.data() + prev_dcb_offset, dcb.data(), dcb.size_bytes());
         queue.dcb_buffer_offset += dcb.size();
-        dcb = std::span<const u32>{queue.dcb_buffer.data() + kMaxBufferSizeDwords,
-                                   queue.dcb_buffer.data() + queue.dcb_buffer_offset};
+        dcb = {queue.dcb_buffer.begin() + prev_dcb_offset,
+               queue.dcb_buffer.begin() + queue.dcb_buffer_offset};
     }
 
     if (!ccb.empty()) {
-        std::memcpy(queue.ccb_buffer.data() + queue.ccb_buffer_offset, ccb.data(),
-                    ccb.size_bytes());
+        std::memcpy(queue.ccb_buffer.data() + prev_ccb_offset, ccb.data(), ccb.size_bytes());
         queue.ccb_buffer_offset += ccb.size();
-        ccb = std::span<const u32>{queue.ccb_buffer.data() + kMaxBufferSizeDwords,
-                                   queue.ccb_buffer.data() + queue.ccb_buffer_offset};
+        ccb = {queue.ccb_buffer.begin() + prev_ccb_offset,
+               queue.ccb_buffer.begin() + queue.ccb_buffer_offset};
     }
 
-    return std::make_pair(dcb, ccb);
+    return {dcb, ccb};
 }
 
 void Liverpool::SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb) {
