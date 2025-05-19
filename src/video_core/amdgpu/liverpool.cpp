@@ -663,8 +663,20 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     if (size == 0 || size > kMaxCopySize) {
                         UNREACHABLE_MSG("Invalid NumBytes for memory-to-memory copy: {}", size);
                     }
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                           dma_data->SrcAddress<VAddr>(), size - 2, false, false);
+
+                    if (size == 2 || size == 4) {
+                        LOG_WARNING(Render,
+                                    "Padding small DMA transfer of {} bytes to avoid slowdown",
+                                    size);
+                        constexpr u32 padded_size = 8;
+                        rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
+                                               dma_data->SrcAddress<VAddr>(), padded_size, false,
+                                               false);
+                    } else {
+                        rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
+                                               dma_data->SrcAddress<VAddr>(), size, false, false);
+                    }
+
                 } else {
                     UNREACHABLE_MSG("Unsupported DMA copy src_sel = {}, dst_sel = {}",
                                     u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -871,8 +883,19 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
                 if (size == 0 || size > kMaxCopySize) {
                     UNREACHABLE_MSG("Invalid NumBytes for memory-to-memory copy: {}", size);
                 }
-                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->SrcAddress<VAddr>(),
-                                       size - 2, false, false);
+
+                if (size == 2 || size == 4) {
+                    LOG_WARNING(Render, "Padding small DMA transfer of {} bytes to avoid slowdown",
+                                size);
+                    constexpr u32 padded_size = 8;
+                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
+                                           dma_data->SrcAddress<VAddr>(), padded_size, false,
+                                           false);
+                } else {
+                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
+                                           dma_data->SrcAddress<VAddr>(), size, false, false);
+                }
+
             } else {
                 UNREACHABLE_MSG("Unsupported DMA copy src_sel = {}, dst_sel = {}",
                                 u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
