@@ -631,54 +631,57 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (dma_data->dst_addr_lo == 0x3022C || !rasterizer) {
                     break;
                 }
+
+                const u32 num_bytes = dma_data->NumBytes();
+                auto dst_addr = dma_data->DstAddress<VAddr>();
+                auto src_addr = dma_data->SrcAddress<VAddr>();
+
                 auto isMemorySource = [](DmaDataSrc src) {
                     return src == DmaDataSrc::Memory || src == DmaDataSrc::MemoryUsingL2;
                 };
-                const bool srcIsMem = isMemorySource(dma_data->src_sel);
-                const bool dstIsMem = dma_data->dst_sel == DmaDataDst::Memory ||
-                                      dma_data->dst_sel == DmaDataDst::MemoryUsingL2;
-                constexpr u32 kMaxCopySize = 16 * 1024 * 1024;
-                const u32 size = dma_data->NumBytes();
 
                 if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
                     rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32),
                                            true);
-                } else if (srcIsMem && dma_data->dst_sel == DmaDataDst::Gds) {
-                    if (size == 0 || size > kMaxCopySize) {
-                        UNREACHABLE_MSG("Invalid NumBytes for memory-to-GDS copy: {}", size);
-                    }
-                    rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
-                                           size, true, false);
-                } else if (dma_data->src_sel == DmaDataSrc::Data && dstIsMem) {
-                    rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data,
-                                           sizeof(u32), false);
+
+                } else if (isMemorySource(dma_data->src_sel) &&
+                           dma_data->dst_sel == DmaDataDst::Gds) {
+                    rasterizer->CopyBuffer(dma_data->dst_addr_lo, src_addr, num_bytes, true, false);
+
+                } else if (dma_data->src_sel == DmaDataSrc::Data &&
+                           (dma_data->dst_sel == DmaDataDst::Memory ||
+                            dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                    rasterizer->InlineData(dst_addr, &dma_data->data, sizeof(u32), false);
+
                 } else if (dma_data->src_sel == DmaDataSrc::Gds &&
-                           dma_data->dst_sel == DmaDataDst::Memory) {
-                    if (size == 0 || size > kMaxCopySize) {
-                        UNREACHABLE_MSG("Invalid NumBytes for GDS-to-memory copy: {}", size);
-                    }
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                           size, false, true);
-                } else if (srcIsMem && dstIsMem) {
-                    if (size == 0 || size > kMaxCopySize) {
-                        UNREACHABLE_MSG("Invalid NumBytes for memory-to-memory copy: {}", size);
+                           (dma_data->dst_sel == DmaDataDst::Memory ||
+                            dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                    rasterizer->CopyBuffer(dst_addr, dma_data->src_addr_lo, num_bytes, false, true);
+
+                } else if (isMemorySource(dma_data->src_sel) &&
+                           (dma_data->dst_sel == DmaDataDst::Memory ||
+                            dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+
+                    if (num_bytes == 2 || num_bytes == 4) {
+                        LOG_WARNING(Render,
+                                    "Padding small DMA transfer of {} bytes to avoid slowdown",
+                                    num_bytes);
+                        const u32 padded_bytes = 2;
+                        rasterizer->CopyBuffer(dst_addr, src_addr, padded_bytes, false, false);
+                    } else if (num_bytes > 0) {
+                        rasterizer->CopyBuffer(dst_addr, src_addr, num_bytes, false, false);
+                    } else {
+                        LOG_WARNING(Render, "Ignoring 0-byte DMA transfer.");
                     }
 
-                    if (size == 2 || size == 4) {
-                        LOG_WARNING(Render, "Small DMA transfer of {} bytes",
-                                    size);
-                        rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                               dma_data->SrcAddress<VAddr>(), size, false, false);
-                    } else {
-                        rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                               dma_data->SrcAddress<VAddr>(), size, false, false);
-                    }
                 } else {
-                    UNREACHABLE_MSG("Unsupported DMA copy src_sel = {}, dst_sel = {}",
+                    UNREACHABLE_MSG("Unhandled DMA path: src_sel={} dst_sel={}",
                                     u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
                 }
+
                 break;
             }
+
             case PM4ItOpcode::WriteData: {
                 const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
                 ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
@@ -847,53 +850,54 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
             if (dma_data->dst_addr_lo == 0x3022C || !rasterizer) {
                 break;
             }
+
+            const u32 num_bytes = dma_data->NumBytes();
+            auto dst_addr = dma_data->DstAddress<VAddr>();
+            auto src_addr = dma_data->SrcAddress<VAddr>();
+
             auto isMemorySource = [](DmaDataSrc src) {
                 return src == DmaDataSrc::Memory || src == DmaDataSrc::MemoryUsingL2;
             };
-            const bool srcIsMem = isMemorySource(dma_data->src_sel);
-            const bool dstIsMem = dma_data->dst_sel == DmaDataDst::Memory ||
-                                  dma_data->dst_sel == DmaDataDst::MemoryUsingL2;
-            constexpr u32 kMaxCopySize = 16 * 1024 * 1024;
-            const u32 size = dma_data->NumBytes();
+
             if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
                 rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
 
-            } else if (srcIsMem && dma_data->dst_sel == DmaDataDst::Gds) {
-                if (size == 0 || size > kMaxCopySize) {
-                    UNREACHABLE_MSG("Invalid NumBytes for memory-to-GDS copy: {}", size);
-                }
-                rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(), size,
-                                       true, false);
-            } else if (dma_data->src_sel == DmaDataSrc::Data && dstIsMem) {
-                rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data, sizeof(u32),
-                                       false);
+            } else if (isMemorySource(dma_data->src_sel) && dma_data->dst_sel == DmaDataDst::Gds) {
+                rasterizer->CopyBuffer(dma_data->dst_addr_lo, src_addr, num_bytes, true, false);
+
+            } else if (dma_data->src_sel == DmaDataSrc::Data &&
+                       (dma_data->dst_sel == DmaDataDst::Memory ||
+                        dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                rasterizer->InlineData(dst_addr, &dma_data->data, sizeof(u32), false);
+
             } else if (dma_data->src_sel == DmaDataSrc::Gds &&
-                       dma_data->dst_sel == DmaDataDst::Memory) {
-                if (size == 0 || size > kMaxCopySize) {
-                    UNREACHABLE_MSG("Invalid NumBytes for GDS-to-memory copy: {}", size);
-                }
-                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo, size,
-                                       false, true);
+                       (dma_data->dst_sel == DmaDataDst::Memory ||
+                        dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                rasterizer->CopyBuffer(dst_addr, dma_data->src_addr_lo, num_bytes, false, true);
 
-            } else if (srcIsMem && dstIsMem) {
-                if (size == 0 || size > kMaxCopySize) {
-                    UNREACHABLE_MSG("Invalid NumBytes for memory-to-memory copy: {}", size);
-                }
+            } else if (isMemorySource(dma_data->src_sel) &&
+                       (dma_data->dst_sel == DmaDataDst::Memory ||
+                        dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
 
-                if (size == 2 || size == 4) {
-                    LOG_WARNING(Render, "Small DMA transfer of {} bytes", size);
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                           dma_data->SrcAddress<VAddr>(), size, false, false);
+                if (num_bytes == 2 || num_bytes == 4) {
+                    LOG_WARNING(Render, "Padding small DMA transfer of {} bytes to avoid slowdown",
+                                num_bytes);
+                    const u32 padded_bytes = 2;
+                    rasterizer->CopyBuffer(dst_addr, src_addr, padded_bytes, false, false);
+                } else if (num_bytes > 0) {
+                    rasterizer->CopyBuffer(dst_addr, src_addr, num_bytes, false, false);
                 } else {
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                           dma_data->SrcAddress<VAddr>(), size, false, false);
+                    LOG_WARNING(Render, "Ignoring 0-byte DMA transfer.");
                 }
+
             } else {
-                UNREACHABLE_MSG("Unsupported DMA copy src_sel = {}, dst_sel = {}",
+                UNREACHABLE_MSG("Unhandled DMA path: src_sel={} dst_sel={}",
                                 u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
             }
+
             break;
         }
+
         case PM4ItOpcode::AcquireMem: {
             break;
         }
