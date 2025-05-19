@@ -635,7 +635,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     return src == DmaDataSrc::Memory || src == DmaDataSrc::MemoryUsingL2;
                 };
 
-if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
+                if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
                     rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32),
                                            true);
 
