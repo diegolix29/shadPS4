@@ -2222,7 +2222,7 @@
     </message>
     <message>
       <source> * Unsupported Vulkan Version</source>
-      <translation type="unfinished"> * Unsupported Vulkan Version</translation>
+      <translation> * Version de Vulkan non prise en charge</translation>
     </message>
   </context>
   <context>
