@@ -165,6 +165,11 @@ int VideoOutDriver::UnregisterBuffers(VideoOutPort* port, s32 attributeIndex) {
 }
 
 void VideoOutDriver::Flip(const Request& req) {
+    if (!req.frame) {
+        LOG_ERROR(Lib_VideoOut, "Flip: Cannot present null frame (index = {})", req.index);
+        return;
+    }
+
     // Present the frame.
     presenter->Present(req.frame);
 
@@ -202,6 +207,15 @@ void VideoOutDriver::Flip(const Request& req) {
     }
     // save to prev buf index
     port->prev_index = req.index;
+}
+
+void VideoOutDriver::ProcessFlipQueue() {
+    std::scoped_lock lock{mutex};
+    while (!requests.empty()) {
+        Request req = requests.front();
+        requests.pop();
+        Flip(req);
+    }
 }
 
 void VideoOutDriver::DrawBlankFrame() {
@@ -258,6 +272,16 @@ void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_
         frame = presenter->PrepareFrame(group, buffer.address_left, is_eop);
     }
 
+    if (!frame) {
+        LOG_ERROR(Lib_VideoOut, "SubmitFlipInternal: Failed to prepare frame (index = {})", index);
+        std::unique_lock lock{port->port_mutex};
+        --port->flip_status.flip_pending_num;
+        if (is_eop) {
+            --port->flip_status.gc_queue_num;
+        }
+        return;
+    }
+
     std::scoped_lock lock{mutex};
     requests.push({
         .frame = frame,
@@ -267,6 +291,7 @@ void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_
         .eop = is_eop,
     });
 }
+
 
 void VideoOutDriver::PresentThread(std::stop_token token) {
     static constexpr std::chrono::nanoseconds VblankPeriod{16666667};
