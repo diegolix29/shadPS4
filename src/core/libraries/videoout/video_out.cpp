@@ -11,8 +11,8 @@
 #include "core/libraries/videoout/video_out.h"
 #include "core/libraries/videoout/videoout_error.h"
 #include "core/platform.h"
-#include "video_core/renderer_vulkan/vk_presenter.h"
 #include "src/core/libraries/videoout/driver.h"
+#include "video_core/renderer_vulkan/vk_presenter.h"
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
 
@@ -182,7 +182,6 @@ s32 PS4_SYSV_ABI sceVideoOutSubmitFlip(s32 handle, s32 bufferIndex, s32 flipMode
 
     return ORBIS_OK;
 }
-
 
 s32 PS4_SYSV_ABI sceVideoOutGetEventId(const Kernel::SceKernelEvent* ev) {
     if (ev == nullptr) {
