@@ -12,6 +12,7 @@
 #include "core/libraries/videoout/videoout_error.h"
 #include "core/platform.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
+#include "src/core/libraries/videoout/driver.h"
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
 
@@ -155,6 +156,8 @@ s32 PS4_SYSV_ABI sceVideoOutSubmitFlip(s32 handle, s32 bufferIndex, s32 flipMode
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
 
+    driver->ProcessFlipQueue();
+
     if (flipMode != 1) {
         LOG_WARNING(Lib_VideoOut, "flipmode = {}", flipMode);
     }
@@ -179,6 +182,7 @@ s32 PS4_SYSV_ABI sceVideoOutSubmitFlip(s32 handle, s32 bufferIndex, s32 flipMode
 
     return ORBIS_OK;
 }
+
 
 s32 PS4_SYSV_ABI sceVideoOutGetEventId(const Kernel::SceKernelEvent* ev) {
     if (ev == nullptr) {
@@ -393,13 +397,18 @@ s32 PS4_SYSV_ABI sceVideoOutColorSettingsSetGamma(SceVideoOutColorSettings* sett
 }
 
 s32 PS4_SYSV_ABI sceVideoOutAdjustColor(s32 handle, const SceVideoOutColorSettings* settings) {
-    if (settings == nullptr) {
+    if (!settings) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_ADDRESS;
     }
 
     auto* port = driver->GetPort(handle);
     if (!port) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
+    }
+
+    // Optional: Validate gamma value is within a reasonable range
+    if (settings->gamma < 0.1f || settings->gamma > 5.0f) {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_VALUE;
     }
 
     presenter->GetPPSettingsRef().gamma = settings->gamma;
