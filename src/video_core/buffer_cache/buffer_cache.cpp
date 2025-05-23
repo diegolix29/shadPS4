@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
-#include <semaphore>
 #include "common/alignment.h"
+#include "common/debug.h"
 #include "common/scope_exit.h"
 #include "common/types.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
+#include "video_core/host_shaders/fault_buffer_process_comp.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
+#include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
+#include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/texture_cache/texture_cache.h"
 
 namespace VideoCore {
@@ -18,17 +21,26 @@ namespace VideoCore {
 static constexpr size_t DataShareBufferSize = 64_KB;
 static constexpr size_t StagingBufferSize = 512_MB;
 static constexpr size_t UboStreamBufferSize = 128_MB;
+static constexpr size_t DownloadBufferSize = 128_MB;
+static constexpr size_t MaxPageFaults = 1024;
 
 BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
-                         AmdGpu::Liverpool* liverpool_, TextureCache& texture_cache_,
-                         PageManager& tracker_)
-    : instance{instance_}, scheduler{scheduler_}, liverpool{liverpool_},
+                         Vulkan::Rasterizer& rasterizer_, AmdGpu::Liverpool* liverpool_,
+                         TextureCache& texture_cache_, PageManager& tracker_)
+    : instance{instance_}, scheduler{scheduler_}, rasterizer{rasterizer_}, liverpool{liverpool_},
       texture_cache{texture_cache_}, tracker{tracker_},
       staging_buffer{instance, scheduler, MemoryUsage::Upload, StagingBufferSize},
       stream_buffer{instance, scheduler, MemoryUsage::Stream, UboStreamBufferSize},
+      download_buffer(instance, scheduler, MemoryUsage::Download, DownloadBufferSize),
       gds_buffer{instance, scheduler, MemoryUsage::Stream, 0, AllFlags, DataShareBufferSize},
-      memory_tracker{&tracker} {
+      bda_pagetable_buffer{instance, scheduler, MemoryUsage::DeviceLocal,
+                           0,        AllFlags,  BDA_PAGETABLE_SIZE},
+      fault_buffer(instance, scheduler, MemoryUsage::DeviceLocal, 0, AllFlags, FAULT_BUFFER_SIZE),
+      memory_tracker{tracker} {
     Vulkan::SetObjectName(instance.GetDevice(), gds_buffer.Handle(), "GDS Buffer");
+    Vulkan::SetObjectName(instance.GetDevice(), bda_pagetable_buffer.Handle(),
+                          "BDA Page Table Buffer");
+    Vulkan::SetObjectName(instance.GetDevice(), fault_buffer.Handle(), "Fault Buffer");
 
     // Ensure the first slot is used for the null buffer
     const auto null_id =
@@ -36,42 +48,133 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
     ASSERT(null_id.index == 0);
     const vk::Buffer& null_buffer = slot_buffers[null_id].buffer;
     Vulkan::SetObjectName(instance.GetDevice(), null_buffer, "Null Buffer");
+
+    // Prepare the fault buffer parsing pipeline
+    boost::container::static_vector<vk::DescriptorSetLayoutBinding, 2> bindings{
+        {
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        {
+            .binding = 1,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+    };
+
+    const vk::DescriptorSetLayoutCreateInfo desc_layout_ci = {
+        .flags = vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR,
+        .bindingCount = static_cast<u32>(bindings.size()),
+        .pBindings = bindings.data(),
+    };
+    auto [desc_layout_result, desc_layout] =
+        instance.GetDevice().createDescriptorSetLayoutUnique(desc_layout_ci);
+    ASSERT_MSG(desc_layout_result == vk::Result::eSuccess,
+               "Failed to create descriptor set layout: {}", vk::to_string(desc_layout_result));
+    fault_process_desc_layout = std::move(desc_layout);
+
+    const auto& module = Vulkan::Compile(HostShaders::FAULT_BUFFER_PROCESS_COMP,
+                                         vk::ShaderStageFlagBits::eCompute, instance.GetDevice());
+    Vulkan::SetObjectName(instance.GetDevice(), module, "Fault Buffer Parser");
+
+    const vk::SpecializationMapEntry specialization_map_entry = {
+        .constantID = 0,
+        .offset = 0,
+        .size = sizeof(u32),
+    };
+
+    const vk::SpecializationInfo specialization_info = {
+        .mapEntryCount = 1,
+        .pMapEntries = &specialization_map_entry,
+        .dataSize = sizeof(u32),
+        .pData = &CACHING_PAGEBITS,
+    };
+
+    const vk::PipelineShaderStageCreateInfo shader_ci = {
+        .stage = vk::ShaderStageFlagBits::eCompute,
+        .module = module,
+        .pName = "main",
+        .pSpecializationInfo = &specialization_info,
+    };
+
+    const vk::PipelineLayoutCreateInfo layout_info = {
+        .setLayoutCount = 1U,
+        .pSetLayouts = &(*fault_process_desc_layout),
+    };
+    auto [layout_result, layout] = instance.GetDevice().createPipelineLayoutUnique(layout_info);
+    ASSERT_MSG(layout_result == vk::Result::eSuccess, "Failed to create pipeline layout: {}",
+               vk::to_string(layout_result));
+    fault_process_pipeline_layout = std::move(layout);
+
+    const vk::ComputePipelineCreateInfo pipeline_info = {
+        .stage = shader_ci,
+        .layout = *fault_process_pipeline_layout,
+    };
+    auto [pipeline_result, pipeline] =
+        instance.GetDevice().createComputePipelineUnique({}, pipeline_info);
+    ASSERT_MSG(pipeline_result == vk::Result::eSuccess, "Failed to create compute pipeline: {}",
+               vk::to_string(pipeline_result));
+    fault_process_pipeline = std::move(pipeline);
+    Vulkan::SetObjectName(instance.GetDevice(), *fault_process_pipeline,
+                          "Fault Buffer Parser Pipeline");
+
+    instance.GetDevice().destroyShaderModule(module);
 }
 
 BufferCache::~BufferCache() = default;
 
-void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
+void BufferCache::InvalidateMemory(VAddr device_addr, u64 size, bool unmap) {
     const bool is_tracked = IsRegionRegistered(device_addr, size);
     if (is_tracked) {
         // Mark the page as CPU modified to stop tracking writes.
         memory_tracker.MarkRegionAsCpuModified(device_addr, size);
+
+        if (unmap) {
+            return;
+        }
     }
 }
 
 void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size) {
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;
-
     memory_tracker.ForEachDownloadRange<true>(
         device_addr, size, [&](u64 device_addr_out, u64 range_size) {
             const VAddr buffer_addr = buffer.CpuAddr();
             const auto add_download = [&](VAddr start, VAddr end) {
+                const u64 new_offset = start - buffer_addr;
+                const u64 new_size = end - start;
                 copies.push_back(vk::BufferCopy{
-                    .srcOffset = start - buffer_addr,
+                    .srcOffset = new_offset,
                     .dstOffset = total_size_bytes,
-                    .size = end - start,
+                    .size = new_size,
                 });
-                total_size_bytes += end - start;
+                total_size_bytes += new_size;
             };
             gpu_modified_ranges.ForEachInRange(device_addr_out, range_size, add_download);
             gpu_modified_ranges.Subtract(device_addr_out, range_size);
         });
-
     if (total_size_bytes == 0) {
         return;
     }
+    const auto [download, offset] = download_buffer.Map(total_size_bytes);
+    for (auto& copy : copies) {
+        // Modify copies to have the staging offset in mind
+        copy.dstOffset += offset;
+    }
+    download_buffer.Commit();
+    scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.copyBuffer(buffer.buffer, staging_buffer.Handle(), copies);
+    cmdbuf.copyBuffer(buffer.buffer, download_buffer.Handle(), copies);
+    scheduler.Finish();
+    for (const auto& copy : copies) {
+        const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
+        const u64 dst_offset = copy.dstOffset - offset;
+        std::memcpy(std::bit_cast<u8*>(copy_device_addr), download + dst_offset, copy.size);
+    }
 }
 
 void BufferCache::BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline) {
@@ -190,170 +293,41 @@ void BufferCache::BindIndexBuffer(u32 index_offset) {
 
 void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
     ASSERT_MSG(address % 4 == 0, "GDS offset must be dword aligned");
-
     if (!is_gds && !IsRegionRegistered(address, num_bytes)) {
         memcpy(std::bit_cast<void*>(address), value, num_bytes);
         return;
     }
-
-    scheduler.EndRendering();
-    const Buffer* buffer = is_gds ? &gds_buffer : &slot_buffers[FindBuffer(address, num_bytes)];
-
-    const auto cmdbuf = scheduler.CommandBuffer();
-    const vk::BufferMemoryBarrier2 pre_barrier = {
-        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
-        .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
-        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
-        .buffer = buffer->Handle(),
-        .offset = buffer->Offset(address),
-        .size = num_bytes,
-    };
-    const vk::BufferMemoryBarrier2 post_barrier = {
-        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
-        .buffer = buffer->Handle(),
-        .offset = buffer->Offset(address),
-        .size = num_bytes,
-    };
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = 1,
-        .pBufferMemoryBarriers = &pre_barrier,
-    });
-    // vkCmdUpdateBuffer can only copy up to 65536 bytes at a time.
-    static constexpr u32 UpdateBufferMaxSize = 65536;
-    const auto dst_offset = buffer->Offset(address);
-    for (u32 offset = 0; offset < num_bytes; offset += UpdateBufferMaxSize) {
-        const auto* update_src = static_cast<const u8*>(value) + offset;
-        const auto update_dst = dst_offset + offset;
-        const auto update_size = std::min(num_bytes - offset, UpdateBufferMaxSize);
-        cmdbuf.updateBuffer(buffer->Handle(), update_dst, update_size, update_src);
-    }
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = 1,
-        .pBufferMemoryBarriers = &post_barrier,
-    });
+    Buffer* buffer = [&] {
+        if (is_gds) {
+            return &gds_buffer;
+        }
+        const BufferId buffer_id = FindBuffer(address, num_bytes);
+        return &slot_buffers[buffer_id];
+    }();
+    InlineDataBuffer(*buffer, address, value, num_bytes);
 }
 
-void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds) {
-    if (!dst_gds && !IsRegionRegistered(dst, num_bytes)) {
-        if (!src_gds && !IsRegionRegistered(src, num_bytes)) {
-            // Both buffers were not transferred to GPU yet. Can safely copy in host memory.
-            memcpy(std::bit_cast<void*>(dst), std::bit_cast<void*>(src), num_bytes);
-            return;
-        }
-        // Without a readback there's nothing we can do with this
-        // Fallback to creating dst buffer on GPU to at least have this data there
-    }
-    if (!src_gds && !IsRegionRegistered(src, num_bytes)) {
-        InlineData(dst, std::bit_cast<void*>(src), num_bytes, dst_gds);
+void BufferCache::WriteData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
+    ASSERT_MSG(address % 4 == 0, "GDS offset must be dword aligned");
+    if (!is_gds && !IsRegionRegistered(address, num_bytes)) {
+        memcpy(std::bit_cast<void*>(address), value, num_bytes);
         return;
     }
-    auto& src_buffer = [&] -> const Buffer& {
-        if (src_gds) {
-            return gds_buffer;
+    Buffer* buffer = [&] {
+        if (is_gds) {
+            return &gds_buffer;
         }
-        const BufferId buffer_id = FindBuffer(src, num_bytes);
-        return slot_buffers[buffer_id];
+        const BufferId buffer_id = FindBuffer(address, num_bytes);
+        return &slot_buffers[buffer_id];
     }();
-    auto& dst_buffer = [&] -> const Buffer& {
-        if (dst_gds) {
-            return gds_buffer;
-        }
-        const BufferId buffer_id = FindBuffer(dst, num_bytes);
-        return slot_buffers[buffer_id];
-    }();
-    vk::BufferCopy region{
-        .srcOffset = src_buffer.Offset(src),
-        .dstOffset = dst_buffer.Offset(dst),
-        .size = num_bytes,
-    };
-    const vk::BufferMemoryBarrier2 buf_barriers_before[2] = {
-        {
-            .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-            .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
-            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-            .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
-            .buffer = dst_buffer.Handle(),
-            .offset = dst_buffer.Offset(dst),
-            .size = num_bytes,
-        },
-        {
-            .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-            .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
-            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-            .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
-            .buffer = src_buffer.Handle(),
-            .offset = src_buffer.Offset(src),
-            .size = num_bytes,
-        },
-    };
-    scheduler.EndRendering();
-    const auto cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = 2,
-        .pBufferMemoryBarriers = buf_barriers_before,
-    });
-    cmdbuf.copyBuffer(src_buffer.Handle(), dst_buffer.Handle(), region);
-    const vk::BufferMemoryBarrier2 buf_barriers_after[2] = {
-        {
-            .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-            .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
-            .buffer = dst_buffer.Handle(),
-            .offset = dst_buffer.Offset(dst),
-            .size = num_bytes,
-        },
-        {
-            .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-            .srcAccessMask = vk::AccessFlagBits2::eTransferRead,
-            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-            .dstAccessMask = vk::AccessFlagBits2::eMemoryWrite,
-            .buffer = src_buffer.Handle(),
-            .offset = src_buffer.Offset(src),
-            .size = num_bytes,
-        },
-    };
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = 2,
-        .pBufferMemoryBarriers = buf_barriers_after,
-    });
-}
-
-std::pair<Buffer*, u32> BufferCache::ObtainHostUBO(std::span<const u32> data) {
-    static constexpr u64 StreamThreshold = CACHING_PAGESIZE;
-    ASSERT(data.size_bytes() <= StreamThreshold);
-    static constexpr vk::MemoryBarrier READ_BARRIER{
-        .srcAccessMask = vk::AccessFlagBits::eMemoryWrite,
-        .dstAccessMask = vk::AccessFlagBits::eTransferRead | vk::AccessFlagBits::eTransferWrite,
-    };
-    static constexpr vk::MemoryBarrier WRITE_BARRIER{
-        .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
-        .dstAccessMask = vk::AccessFlagBits::eMemoryRead | vk::AccessFlagBits::eMemoryWrite,
-    };
-    const auto cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands,
-                           vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlagBits::eByRegion,
-                           READ_BARRIER, {}, {});
-    const u64 offset = stream_buffer.Copy(reinterpret_cast<VAddr>(data.data()), data.size_bytes(),
-                                          instance.UniformMinAlignment());
-    cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands,
-                           vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlagBits::eByRegion,
-                           WRITE_BARRIER, {}, {});
-    return {&stream_buffer, offset};
+    WriteDataBuffer(*buffer, address, value, num_bytes);
 }
 
 std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, bool is_written,
                                                   bool is_texel_buffer, BufferId buffer_id) {
     // For small uniform buffers that have not been modified by gpu
     // use device local stream buffer to reduce renderpass breaks.
+    // Maybe we want to modify the threshold now that the page size is 16KB?
     static constexpr u64 StreamThreshold = CACHING_PAGESIZE;
     const bool is_gpu_dirty = memory_tracker.IsRegionGpuModified(device_addr, size);
     if (!is_written && size <= StreamThreshold && !is_gpu_dirty) {
@@ -376,7 +350,7 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
 std::pair<Buffer*, u32> BufferCache::ObtainViewBuffer(VAddr gpu_addr, u32 size, bool prefer_gpu) {
     // Check if any buffer contains the full requested range.
     const u64 page = gpu_addr >> CACHING_PAGEBITS;
-    const BufferId buffer_id = page_table[page];
+    const BufferId buffer_id = page_table[page].buffer_id;
     if (buffer_id) {
         Buffer& buffer = slot_buffers[buffer_id];
         if (buffer.IsInBounds(gpu_addr, size)) {
@@ -396,24 +370,8 @@ std::pair<Buffer*, u32> BufferCache::ObtainViewBuffer(VAddr gpu_addr, u32 size, 
 }
 
 bool BufferCache::IsRegionRegistered(VAddr addr, size_t size) {
-    const VAddr end_addr = addr + size;
-    const u64 page_end = Common::DivCeil(end_addr, CACHING_PAGESIZE);
-    for (u64 page = addr >> CACHING_PAGEBITS; page < page_end;) {
-        const BufferId buffer_id = page_table[page];
-        if (!buffer_id) {
-            ++page;
-            continue;
-        }
-        std::shared_lock lk{mutex};
-        Buffer& buffer = slot_buffers[buffer_id];
-        const VAddr buf_start_addr = buffer.CpuAddr();
-        const VAddr buf_end_addr = buf_start_addr + buffer.SizeBytes();
-        if (buf_start_addr < end_addr && addr < buf_end_addr) {
-            return true;
-        }
-        page = Common::DivCeil(buf_end_addr, CACHING_PAGESIZE);
-    }
-    return false;
+    // Check if we are missing some edge case here
+    return buffer_ranges.Intersects(addr, size);
 }
 
 bool BufferCache::IsRegionCpuModified(VAddr addr, size_t size) {
@@ -428,20 +386,15 @@ BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {
     if (device_addr == 0) {
         return NULL_BUFFER_ID;
     }
-
     const u64 page = device_addr >> CACHING_PAGEBITS;
-    const BufferId buffer_id = page_table[page];
-
+    const BufferId buffer_id = page_table[page].buffer_id;
     if (!buffer_id) {
         return CreateBuffer(device_addr, size);
     }
-
-    Buffer& buffer = slot_buffers[buffer_id];
-
+    const Buffer& buffer = slot_buffers[buffer_id];
     if (buffer.IsInBounds(device_addr, size)) {
         return buffer_id;
     }
-
     return CreateBuffer(device_addr, size);
 }
 
@@ -480,7 +433,7 @@ BufferCache::OverlapResult BufferCache::ResolveOverlaps(VAddr device_addr, u32 w
     }
     for (; device_addr >> CACHING_PAGEBITS < Common::DivCeil(end, CACHING_PAGESIZE);
          device_addr += CACHING_PAGESIZE) {
-        const BufferId overlap_id = page_table[device_addr >> CACHING_PAGEBITS];
+        const BufferId overlap_id = page_table[device_addr >> CACHING_PAGEBITS].buffer_id;
         if (!overlap_id) {
             continue;
         }
@@ -581,11 +534,21 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
     const OverlapResult overlap = ResolveOverlaps(device_addr, wanted_size);
     const u32 size = static_cast<u32>(overlap.end - overlap.begin);
     const BufferId new_buffer_id = [&] {
-        std::scoped_lock lk{mutex};
+        std::scoped_lock lk{slot_buffers_mutex};
         return slot_buffers.insert(instance, scheduler, MemoryUsage::DeviceLocal, overlap.begin,
-                                   AllFlags, size);
+                                   AllFlags | vk::BufferUsageFlagBits::eShaderDeviceAddress, size);
     }();
     auto& new_buffer = slot_buffers[new_buffer_id];
+    boost::container::small_vector<vk::DeviceAddress, 128> bda_addrs;
+    const u64 start_page = overlap.begin >> CACHING_PAGEBITS;
+    const u64 size_pages = size >> CACHING_PAGEBITS;
+    bda_addrs.reserve(size_pages);
+    for (u64 i = 0; i < size_pages; ++i) {
+        vk::DeviceAddress addr = new_buffer.BufferDeviceAddress() + (i << CACHING_PAGEBITS);
+        bda_addrs.push_back(addr);
+    }
+    WriteDataBuffer(bda_pagetable_buffer, start_page * sizeof(vk::DeviceAddress), bda_addrs.data(),
+                    bda_addrs.size() * sizeof(vk::DeviceAddress));
     const size_t size_bytes = new_buffer.SizeBytes();
     const auto cmdbuf = scheduler.CommandBuffer();
     scheduler.EndRendering();
@@ -595,6 +558,129 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
     }
     Register(new_buffer_id);
     return new_buffer_id;
+}
+
+void BufferCache::ProcessFaultBuffer() {
+    // Run fault processing shader
+    const auto [mapped, offset] = download_buffer.Map(MaxPageFaults * sizeof(u64));
+    vk::BufferMemoryBarrier2 fault_buffer_barrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eShaderWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eComputeShader,
+        .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+        .buffer = fault_buffer.Handle(),
+        .offset = 0,
+        .size = FAULT_BUFFER_SIZE,
+    };
+    vk::BufferMemoryBarrier2 download_barrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eComputeShader,
+        .dstAccessMask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite,
+        .buffer = download_buffer.Handle(),
+        .offset = offset,
+        .size = MaxPageFaults * sizeof(u64),
+    };
+    std::array<vk::BufferMemoryBarrier2, 2> barriers{fault_buffer_barrier, download_barrier};
+    vk::DescriptorBufferInfo fault_buffer_info{
+        .buffer = fault_buffer.Handle(),
+        .offset = 0,
+        .range = FAULT_BUFFER_SIZE,
+    };
+    vk::DescriptorBufferInfo download_info{
+        .buffer = download_buffer.Handle(),
+        .offset = offset,
+        .range = MaxPageFaults * sizeof(u64),
+    };
+    boost::container::small_vector<vk::WriteDescriptorSet, 2> writes{
+        {
+            .dstSet = VK_NULL_HANDLE,
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .pBufferInfo = &fault_buffer_info,
+        },
+        {
+            .dstSet = VK_NULL_HANDLE,
+            .dstBinding = 1,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .pBufferInfo = &download_info,
+        },
+    };
+    download_buffer.Commit();
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    cmdbuf.fillBuffer(download_buffer.Handle(), offset, MaxPageFaults * sizeof(u64), 0);
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 2,
+        .pBufferMemoryBarriers = barriers.data(),
+    });
+    cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, *fault_process_pipeline);
+    cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eCompute, *fault_process_pipeline_layout, 0,
+                                writes);
+    constexpr u32 num_threads = CACHING_NUMPAGES / 32; // 1 bit per page, 32 pages per workgroup
+    constexpr u32 num_workgroups = Common::DivCeil(num_threads, 64u);
+    cmdbuf.dispatch(num_workgroups, 1, 1);
+
+    // Reset fault buffer
+    const vk::BufferMemoryBarrier2 reset_pre_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eComputeShader,
+        .srcAccessMask = vk::AccessFlagBits2::eShaderRead,
+        .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .buffer = fault_buffer.Handle(),
+        .offset = 0,
+        .size = FAULT_BUFFER_SIZE,
+    };
+    const vk::BufferMemoryBarrier2 reset_post_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+        .buffer = fault_buffer.Handle(),
+        .offset = 0,
+        .size = FAULT_BUFFER_SIZE,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &reset_pre_barrier,
+    });
+    cmdbuf.fillBuffer(fault_buffer.buffer, 0, FAULT_BUFFER_SIZE, 0);
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &reset_post_barrier,
+    });
+
+    // Defer creating buffers
+    scheduler.DeferOperation([this, mapped]() {
+        // Create the fault buffers batched
+        boost::icl::interval_set<VAddr> fault_ranges;
+        const u64* fault_ptr = std::bit_cast<const u64*>(mapped);
+        const u32 fault_count = static_cast<u32>(*(fault_ptr++));
+        for (u32 i = 0; i < fault_count; ++i) {
+            const VAddr fault = *(fault_ptr++);
+            const VAddr fault_end = fault + CACHING_PAGESIZE; // This can be adjusted
+            fault_ranges +=
+                boost::icl::interval_set<VAddr>::interval_type::right_open(fault, fault_end);
+            LOG_INFO(Render_Vulkan, "Accessed non-GPU mapped memory at {:#x}", fault);
+        }
+        for (const auto& range : fault_ranges) {
+            const VAddr start = range.lower();
+            const VAddr end = range.upper();
+            const u64 page_start = start >> CACHING_PAGEBITS;
+            const u64 page_end = Common::DivCeil(end, CACHING_PAGESIZE);
+            // Buffer size is in 32 bits
+            ASSERT_MSG((range.upper() - range.lower()) <= std::numeric_limits<u32>::max(),
+                       "Buffer size is too large");
+            CreateBuffer(start, static_cast<u32>(end - start));
+        }
+    });
 }
 
 void BufferCache::Register(BufferId buffer_id) {
@@ -615,10 +701,15 @@ void BufferCache::ChangeRegister(BufferId buffer_id) {
     const u64 page_end = Common::DivCeil(device_addr_end, CACHING_PAGESIZE);
     for (u64 page = page_begin; page != page_end; ++page) {
         if constexpr (insert) {
-            page_table[page] = buffer_id;
+            page_table[page].buffer_id = buffer_id;
         } else {
-            page_table[page] = BufferId{};
+            page_table[page].buffer_id = BufferId{};
         }
+    }
+    if constexpr (insert) {
+        buffer_ranges.Add(buffer.CpuAddr(), buffer.SizeBytes(), buffer_id);
+    } else {
+        buffer_ranges.Subtract(buffer.CpuAddr(), buffer.SizeBytes());
     }
 }
 
@@ -796,6 +887,138 @@ bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, 
         });
     }
     return true;
+}
+
+void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size) {
+    if (device_addr == 0) {
+        return;
+    }
+    VAddr device_addr_end = device_addr + size;
+    ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
+        RENDERER_TRACE;
+        VAddr start = std::max(buffer.CpuAddr(), device_addr);
+        VAddr end = std::min(buffer.CpuAddr() + buffer.SizeBytes(), device_addr_end);
+        u32 size = static_cast<u32>(end - start);
+        SynchronizeBuffer(buffer, start, size, false);
+    });
+}
+
+void BufferCache::MemoryBarrier() {
+    // Vulkan doesn't know which buffer we access in a shader if we use
+    // BufferDeviceAddress. We need a full memory barrier.
+    // For now, we only read memory using BDA. If we want to write to it,
+    // we might need to change this.
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    vk::MemoryBarrier2 barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .memoryBarrierCount = 1,
+        .pMemoryBarriers = &barrier,
+    });
+}
+
+void BufferCache::InlineDataBuffer(Buffer& buffer, VAddr address, const void* value,
+                                   u32 num_bytes) {
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    const vk::BufferMemoryBarrier2 pre_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
+        .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .buffer = buffer.Handle(),
+        .offset = buffer.Offset(address),
+        .size = num_bytes,
+    };
+    const vk::BufferMemoryBarrier2 post_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+        .buffer = buffer.Handle(),
+        .offset = buffer.Offset(address),
+        .size = num_bytes,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &pre_barrier,
+    });
+    // vkCmdUpdateBuffer can only copy up to 65536 bytes at a time.
+    static constexpr u32 UpdateBufferMaxSize = 65536;
+    const auto dst_offset = buffer.Offset(address);
+    for (u32 offset = 0; offset < num_bytes; offset += UpdateBufferMaxSize) {
+        const auto* update_src = static_cast<const u8*>(value) + offset;
+        const auto update_dst = dst_offset + offset;
+        const auto update_size = std::min(num_bytes - offset, UpdateBufferMaxSize);
+        cmdbuf.updateBuffer(buffer.Handle(), update_dst, update_size, update_src);
+    }
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &post_barrier,
+    });
+}
+
+void BufferCache::WriteDataBuffer(Buffer& buffer, VAddr address, const void* value, u32 num_bytes) {
+    vk::BufferCopy copy = {
+        .srcOffset = 0,
+        .dstOffset = buffer.Offset(address),
+        .size = num_bytes,
+    };
+    vk::Buffer src_buffer = staging_buffer.Handle();
+    if (num_bytes < StagingBufferSize) {
+        const auto [staging, offset] = staging_buffer.Map(num_bytes);
+        std::memcpy(staging, value, num_bytes);
+        copy.srcOffset = offset;
+        staging_buffer.Commit();
+    } else {
+        // For large one time transfers use a temporary host buffer.
+        // RenderDoc can lag quite a bit if the stream buffer is too large.
+        Buffer temp_buffer{
+            instance, scheduler, MemoryUsage::Upload, 0, vk::BufferUsageFlagBits::eTransferSrc,
+            num_bytes};
+        src_buffer = temp_buffer.Handle();
+        u8* const staging = temp_buffer.mapped_data.data();
+        std::memcpy(staging, value, num_bytes);
+        scheduler.DeferOperation([buffer = std::move(temp_buffer)]() mutable {});
+    }
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    const vk::BufferMemoryBarrier2 pre_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
+        .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .buffer = buffer.Handle(),
+        .offset = buffer.Offset(address),
+        .size = num_bytes,
+    };
+    const vk::BufferMemoryBarrier2 post_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+        .buffer = buffer.Handle(),
+        .offset = buffer.Offset(address),
+        .size = num_bytes,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &pre_barrier,
+    });
+    cmdbuf.copyBuffer(src_buffer, buffer.Handle(), copy);
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &post_barrier,
+    });
 }
 
 void BufferCache::DeleteBuffer(BufferId buffer_id) {
