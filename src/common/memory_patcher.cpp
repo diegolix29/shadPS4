@@ -212,8 +212,8 @@ void OnGameLoaded() {
     if (g_game_serial == "CUSA03173") {
         g_game_serial = "CUSA00207";
     }
-    std::filesystem::path savedir = Common::FS::GetUserPath(Common::FS::PathType::GameDataDir) /
-                                    "1" / g_game_serial / "SPRJ0005";
+    std::filesystem::path savedir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
+                                    "savedata" / "1" / g_game_serial / "SPRJ0005";
 
     std::filesystem::path backupDir = savedir;
 
