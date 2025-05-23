@@ -4,7 +4,7 @@
 #pragma once
 
 #include <shared_mutex>
-
+#include "common/recursive_lock.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/page_manager.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
@@ -67,9 +67,19 @@ public:
     void CpSync();
     u64 Flush();
     void Finish();
+    void ProcessFaults();
 
     PipelineCache& GetPipelineCache() {
         return pipeline_cache;
+    }
+
+    template <typename Func>
+    void ForEachMappedRangeInRange(VAddr addr, u64 size, Func&& func) {
+        const auto range = decltype(mapped_ranges)::interval_type::right_open(addr, addr + size);
+        Common::RecursiveSharedLock lock{mapped_ranges_mutex};
+        for (const auto& mapped_range : (mapped_ranges & range)) {
+            func(mapped_range);
+        }
     }
 
 private:
@@ -102,6 +112,8 @@ private:
     bool IsComputeMetaClear(const Pipeline* pipeline);
 
 private:
+    friend class VideoCore::BufferCache;
+
     const Instance& instance;
     Scheduler& scheduler;
     VideoCore::PageManager page_manager;
@@ -128,6 +140,7 @@ private:
     boost::container::static_vector<BufferBindingInfo, Shader::NumBuffers> buffer_bindings;
     using ImageBindingInfo = std::pair<VideoCore::ImageId, VideoCore::TextureCache::TextureDesc>;
     boost::container::static_vector<ImageBindingInfo, Shader::NumImages> image_bindings;
+    bool fault_process_pending{false};
 };
 
 } // namespace Vulkan
