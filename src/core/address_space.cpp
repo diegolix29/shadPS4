@@ -137,6 +137,9 @@ struct AddressSpace::Impl {
     }
 
     void* Map(VAddr virtual_addr, PAddr phys_addr, size_t size, ULONG prot, uintptr_t fd = 0) {
+        // HACK: prevents Windows complaining when doing very teeny tiny mappings
+        if (size < 0x1000)
+            size = 0x1000;
         // Before mapping we must carve a placeholder with the exact properties of our mapping.
         auto* region = EnsureSplitRegionForMapping(virtual_addr, size);
         region->is_mapped = true;
@@ -206,6 +209,9 @@ struct AddressSpace::Impl {
                        "Region with address {:#x} and size {:#x} can't fit {:#x}", mapping_address,
                        region_size, size);
 
+            LOG_INFO(Kernel_Vmm, "line 215 calling VirtualFreeEx address = {} size = {}",
+                     fmt::ptr((void*)address), size);
+
             // Split the placeholder.
             if (!VirtualFreeEx(process, LPVOID(address), size,
                                MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER)) {
@@ -227,6 +233,9 @@ struct AddressSpace::Impl {
         const size_t offset_in_region = address - mapping_address;
         const size_t minimum_size = size + offset_in_region;
         ASSERT(region_size >= minimum_size);
+
+        LOG_INFO(Kernel_Vmm, "line 240 calling VirtualFreeEx address = {} size = {}",
+                 fmt::ptr((void*)address), size);
 
         // Split the placeholder.
         if (!VirtualFreeEx(process, LPVOID(address), size,

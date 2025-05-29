@@ -30,6 +30,7 @@ enum class MemoryProt : u32 {
     NoAccess = 0,
     CpuRead = 1,
     CpuReadWrite = 2,
+    CpuExecute = 4,
     GpuRead = 16,
     GpuWrite = 32,
     GpuReadWrite = 48,

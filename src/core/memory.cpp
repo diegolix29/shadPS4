@@ -485,7 +485,8 @@ int MemoryManager::Protect(VAddr addr, size_t size, MemoryProt prot) {
     // Validate protection flags
     constexpr static MemoryProt valid_flags = MemoryProt::NoAccess | MemoryProt::CpuRead |
                                               MemoryProt::CpuReadWrite | MemoryProt::GpuRead |
-                                              MemoryProt::GpuWrite | MemoryProt::GpuReadWrite;
+                                              MemoryProt::GpuWrite | MemoryProt::GpuReadWrite |
+                                              MemoryProt::CpuExecute;
 
     MemoryProt invalid_flags = prot & ~valid_flags;
     if (u32(invalid_flags) != 0 && u32(invalid_flags) != u32(MemoryProt::NoAccess)) {
@@ -514,6 +515,9 @@ int MemoryManager::Protect(VAddr addr, size_t size, MemoryProt prot) {
     }
     if (True(prot & MemoryProt::GpuReadWrite)) {
         perms |= Core::MemoryPermission::ReadWrite;
+    }
+    if (True(prot & MemoryProt::CpuExecute)) {
+        perms |= Core::MemoryPermission::Execute;
     }
 
     impl.Protect(addr, size, perms);
