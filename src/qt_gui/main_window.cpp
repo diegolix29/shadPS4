@@ -784,13 +784,13 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
         std::filesystem::path game_install_dir = last_install_dir;
 
         QString pkgType = QString::fromStdString(pkg.GetPkgFlags());
-        //bool use_game_update = pkgType.contains("PATCH") && Config::getSeparateUpdateEnabled();
+        bool use_game_update = pkgType.contains("PATCH") && Config::getSeparateUpdateEnabled();
 
         // Default paths
         auto game_folder_path = game_install_dir / pkg.GetTitleID();
-        //auto game_update_path = use_game_update ? game_folder_path.parent_path() /
-        //                                              (std::string{pkg.GetTitleID()} + "-UPDATE")
-        //                                        : game_folder_path;
+        auto game_update_path = use_game_update ? game_folder_path.parent_path() /
+                                                      (std::string{pkg.GetTitleID()} + "-UPDATE")
+                                                : game_folder_path;
         const int max_depth = 5;
 
         if (pkgType.contains("PATCH")) {
@@ -798,10 +798,10 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
             auto found_game = Common::FS::FindGameByID(game_install_dir,
                                                        std::string{pkg.GetTitleID()}, max_depth);
             if (found_game.has_value()) {
-                //game_folder_path = found_game.value().parent_path();
-                //game_update_path = use_game_update ? game_folder_path.parent_path() /
-                  //                                       (std::string{pkg.GetTitleID()} + "-UPDATE")
-                  //                                 : game_folder_path;
+                game_folder_path = found_game.value().parent_path();
+                game_update_path = use_game_update ? game_folder_path.parent_path() /
+                                                         (std::string{pkg.GetTitleID()} + "-UPDATE")
+                                                   : game_folder_path;
             }
         } else {
             // For base games, we check if the game is already installed
