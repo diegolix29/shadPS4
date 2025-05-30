@@ -35,6 +35,7 @@ bool getPlayBGM();
 int getBGMvolume();
 bool getisTrophyPopupDisabled();
 bool getEnableDiscordRPC();
+bool getSeparateUpdateEnabled();
 bool getCompatibilityEnabled();
 bool getCheckCompatibilityOnStartup();
 int getBackgroundImageOpacity();

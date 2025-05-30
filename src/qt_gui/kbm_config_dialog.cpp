@@ -10,7 +10,7 @@
 #include "common/config.h"
 #include "common/path_util.h"
 #include "game_info.h"
-#include "sdl_window.h"
+#include "src/sdl_window.h"
 
 #include <QCheckBox>
 #include <QCloseEvent>
@@ -28,7 +28,7 @@ HelpDialog* helpDialog;
 
 EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
 
-    setWindowTitle(tr("Edit Keyboard + Mouse and Controller input bindings"));
+    setWindowTitle("Edit Keyboard + Mouse and Controller input bindings");
     resize(600, 400);
 
     // Create the editor widget
@@ -39,10 +39,19 @@ EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
     // Create the game selection combo box
     gameComboBox = new QComboBox(this);
     gameComboBox->addItem("default"); // Add default option
+                                      /*
+                                          gameComboBox = new QComboBox(this);
+                                          layout->addWidget(gameComboBox); // Add the combobox for selecting game configurations
+                                  
+                                          // Populate the combo box with game configurations
+                                          QStringList gameConfigs = GameInfoClass::GetGameInfo(this);
+                                          gameComboBox->addItems(gameConfigs);
+                                          gameComboBox->setCurrentText("default.ini"); // Set the default selection
+                                      */
     // Load all installed games
     loadInstalledGames();
 
-    QCheckBox* unifiedInputCheckBox = new QCheckBox(tr("Use Per-Game configs"), this);
+    QCheckBox* unifiedInputCheckBox = new QCheckBox("Use Per-Game configs", this);
     unifiedInputCheckBox->setChecked(!Config::GetUseUnifiedInputConfig());
 
     // Connect checkbox signal
@@ -51,6 +60,7 @@ EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
         Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
     });
     // Create Save, Cancel, and Help buttons
+    Config::SetUseUnifiedInputConfig(!Config::GetUseUnifiedInputConfig());
     QPushButton* saveButton = new QPushButton("Save", this);
     QPushButton* cancelButton = new QPushButton("Cancel", this);
     QPushButton* helpButton = new QPushButton("Help", this);
@@ -94,7 +104,7 @@ void EditorDialog::loadFile(QString game) {
         originalConfig = editor->toPlainText();
         file.close();
     } else {
-        QMessageBox::warning(this, tr("Error"), tr("Could not open the file for reading"));
+        QMessageBox::warning(this, "Error", "Could not open the file for reading");
     }
 }
 
@@ -108,7 +118,7 @@ void EditorDialog::saveFile(QString game) {
         out << editor->toPlainText();
         file.close();
     } else {
-        QMessageBox::warning(this, tr("Error"), tr("Could not open the file for writing"));
+        QMessageBox::warning(this, "Error", "Could not open the file for writing");
     }
 }
 
@@ -121,7 +131,7 @@ void EditorDialog::closeEvent(QCloseEvent* event) {
     }
     if (hasUnsavedChanges()) {
         QMessageBox::StandardButton reply;
-        reply = QMessageBox::question(this, tr("Save Changes"), tr("Do you want to save changes?"),
+        reply = QMessageBox::question(this, "Save Changes", "Do you want to save changes?",
                                       QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
 
         if (reply == QMessageBox::Yes) {
@@ -168,7 +178,7 @@ void EditorDialog::onCancelClicked() {
 void EditorDialog::onHelpClicked() {
     if (!isHelpOpen) {
         helpDialog = new HelpDialog(&isHelpOpen, this);
-        helpDialog->setWindowTitle(tr("Help"));
+        helpDialog->setWindowTitle("Help");
         helpDialog->setAttribute(Qt::WA_DeleteOnClose); // Clean up on close
         // Get the position and size of the Config window
         QRect configGeometry = this->geometry();
@@ -188,10 +198,10 @@ void EditorDialog::onResetToDefaultClicked() {
     bool default_default = gameComboBox->currentText() == "default";
     QString prompt =
         default_default
-            ? tr("Do you want to reset your custom default config to the original default config?")
-            : tr("Do you want to reset this config to your custom default config?");
-    QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Reset to Default"), prompt,
-                                                              QMessageBox::Yes | QMessageBox::No);
+            ? "Do you want to reset your custom default config to the original default config?"
+            : "Do you want to reset this config to your custom default config?";
+    QMessageBox::StandardButton reply =
+        QMessageBox::question(this, "Reset to Default", prompt, QMessageBox::Yes | QMessageBox::No);
 
     if (reply == QMessageBox::Yes) {
         if (default_default) {
@@ -206,7 +216,7 @@ void EditorDialog::onResetToDefaultClicked() {
             editor->setPlainText(in.readAll());
             file.close();
         } else {
-            QMessageBox::warning(this, tr("Error"), tr("Could not open the file for reading"));
+            QMessageBox::warning(this, "Error", "Could not open the file for reading");
         }
         // saveFile(gameComboBox->currentText());
     }
@@ -225,8 +235,7 @@ void EditorDialog::loadInstalledGames() {
         QDir parentFolder(installDir);
         QFileInfoList fileList = parentFolder.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
         for (const auto& fileInfo : fileList) {
-            if (fileInfo.isDir() && (!fileInfo.filePath().endsWith("-UPDATE") ||
-                                     !fileInfo.filePath().endsWith("-patch"))) {
+            if (fileInfo.isDir() && !fileInfo.filePath().endsWith("-UPDATE")) {
                 gameComboBox->addItem(fileInfo.fileName()); // Add game name to combo box
             }
         }

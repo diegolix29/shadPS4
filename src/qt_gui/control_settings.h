@@ -18,7 +18,6 @@ public:
 private Q_SLOTS:
     void SaveControllerConfig(bool CloseOnSave);
     void SetDefault();
-    void UpdateLightbarColor();
 
 private:
     std::unique_ptr<Ui::ControlSettings> ui;

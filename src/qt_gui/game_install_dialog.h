@@ -11,7 +11,6 @@
 class QLineEdit;
 
 class GameInstallDialog final : public QDialog {
-    Q_OBJECT
 public:
     GameInstallDialog();
     ~GameInstallDialog();

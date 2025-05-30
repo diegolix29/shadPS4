@@ -20,7 +20,7 @@ void ScanDirectoryRecursively(const QString& dir, QStringList& filePaths, int cu
     QFileInfoList entries = directory.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
 
     for (const auto& entry : entries) {
-        if (entry.fileName().endsWith("-UPDATE") || entry.fileName().endsWith("-patch")) {
+        if (entry.fileName().endsWith("-UPDATE")) {
             continue;
         }
 
@@ -48,9 +48,6 @@ void GameInfoClass::GetGameInfo(QWidget* parent) {
     m_games = QtConcurrent::mapped(filePaths, [&](const QString& path) {
                   return readGameInfo(Common::FS::PathFromQString(path));
               }).results();
-
-    // used to retrieve values after performing a search
-    m_games_backup = m_games;
 
     // Progress bar, please be patient :)
     QProgressDialog dialog(tr("Loading game list, please wait :3"), tr("Cancel"), 0, 0, parent);

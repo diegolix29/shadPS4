@@ -353,6 +353,10 @@ void setVkGuestMarkersEnabled(bool enable) {
     vkGuestMarkers = enable;
 }
 
+bool getSeparateUpdateEnabled() {
+    return separateupdatefolder;
+}
+
 bool getCompatibilityEnabled() {
     return compatibilityData;
 }

@@ -20,7 +20,8 @@ class SettingsDialog;
 class SettingsDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
+    explicit SettingsDialog(std::span<const QString> physical_devices,
+                            std::shared_ptr<CompatibilityInfoClass> m_compat_info,
                             QWidget* parent = nullptr);
     ~SettingsDialog();
 
@@ -41,7 +42,6 @@ private:
     void InitializeEmulatorLanguages();
     void OnLanguageChanged(int index);
     void OnCursorStateChanged(s16 index);
-    void closeEvent(QCloseEvent* event) override;
 
     std::unique_ptr<Ui::SettingsDialog> ui;
 
@@ -50,6 +50,4 @@ private:
     QString defaultTextEdit;
 
     int initialHeight;
-
-    bool is_saving = false;
 };

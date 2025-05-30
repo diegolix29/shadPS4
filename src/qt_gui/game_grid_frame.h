@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <QPainter>
 #include <QScrollBar>
 
 #include "background_music_player.h"
@@ -22,7 +21,6 @@ Q_SIGNALS:
 public Q_SLOTS:
     void SetGridBackgroundImage(int row, int column);
     void RefreshGridBackgroundImage();
-    void resizeEvent(QResizeEvent* event);
     void PlayBackgroundMusic(QString path);
     void onCurrentCellChanged(int currentRow, int currentColumn, int previousRow,
                               int previousColumn);
