@@ -520,6 +520,10 @@ void setIsMotionControlsEnabled(bool use) {
     isMotionControlsEnabled = use;
 }
 
+void setSeparateUpdateEnabled(bool use) {
+    separateupdatefolder = use;
+}
+
 void setCompatibilityEnabled(bool use) {
     compatibilityData = use;
 }
