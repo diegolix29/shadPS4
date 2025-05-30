@@ -784,11 +784,6 @@ void load(const std::filesystem::path& path) {
         logFilter = toml::find_or<std::string>(general, "logFilter", "");
         logType = toml::find_or<std::string>(general, "logType", "sync");
         userNames[0] = toml::find_or<std::string>(general, "userName", "shadPS4");
-        //if (Common::g_is_release) {
-        //    updateChannel = toml::find_or<std::string>(general, "updateChannel", "Release");
-        //} else {
-        //    updateChannel = toml::find_or<std::string>(general, "updateChannel", "Nightly");
-        //}
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
         isAlwaysShowChangelog = toml::find_or<bool>(general, "alwaysShowChangelog", false);
