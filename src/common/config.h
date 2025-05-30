@@ -153,6 +153,7 @@ void setSliderPositionGrid(u32 pos);
 void setTableMode(u32 mode);
 void setMainWindowWidth(u32 width);
 void setMainWindowHeight(u32 height);
+void setPkgViewer(const std::vector<std::string>& pkgList);
 void setElfViewer(const std::vector<std::string>& elfList);
 void setRecentFiles(const std::vector<std::string>& recentFiles);
 void setEmulatorLanguage(std::string language);

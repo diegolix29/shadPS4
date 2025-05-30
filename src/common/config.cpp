@@ -599,6 +599,11 @@ void setMainWindowHeight(u32 height) {
     m_window_size_H = height;
 }
 
+void setPkgViewer(const std::vector<std::string>& pkgList) {
+    m_pkg_viewer.resize(pkgList.size());
+    m_pkg_viewer = pkgList;
+}
+
 void setElfViewer(const std::vector<std::string>& elfList) {
     m_elf_viewer.resize(elfList.size());
     m_elf_viewer = elfList;
