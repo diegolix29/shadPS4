@@ -172,6 +172,7 @@ u32 getSliderPositionGrid();
 u32 getTableMode();
 u32 getMainWindowWidth();
 u32 getMainWindowHeight();
+std::vector<std::string> getPkgViewer();
 std::vector<std::string> getElfViewer();
 std::vector<std::string> getRecentFiles();
 std::string getEmulatorLanguage();

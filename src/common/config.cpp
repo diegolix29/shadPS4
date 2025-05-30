@@ -700,6 +700,10 @@ u32 getMainWindowHeight() {
     return m_window_size_H;
 }
 
+std::vector<std::string> getPkgViewer() {
+    return m_pkg_viewer;
+}
+
 std::vector<std::string> getElfViewer() {
     return m_elf_viewer;
 }
