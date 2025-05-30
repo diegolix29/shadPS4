@@ -185,7 +185,8 @@ void GameListFrame::SetListBackgroundImage(QTableWidgetItem* item) {
 
     // Recompute if opacity changed or we switched to a different game
     if (opacity != m_last_opacity || game.pic_path != m_current_game_path) {
-        QImage original_image(QString::fromStdString(game.pic_path.string()));
+        auto image_path = game.pic_path.u8string();
+        QImage original_image(QString::fromStdString({image_path.begin(), image_path.end()}));
         if (!original_image.isNull()) {
             backgroundImage = m_game_list_utils.ChangeImageOpacity(
                 original_image, original_image.rect(), opacity / 100.0f);
@@ -200,12 +201,26 @@ void GameListFrame::SetListBackgroundImage(QTableWidgetItem* item) {
 void GameListFrame::RefreshListBackgroundImage() {
     QPalette palette;
     if (!backgroundImage.isNull() && Config::getShowBackgroundImage()) {
-        palette.setBrush(QPalette::Base,
-                         QBrush(backgroundImage.scaled(size(), Qt::IgnoreAspectRatio)));
+        QSize widgetSize = size();
+        QPixmap scaledPixmap =
+            QPixmap::fromImage(backgroundImage)
+                .scaled(widgetSize, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+        int x = (widgetSize.width() - scaledPixmap.width()) / 2;
+        int y = (widgetSize.height() - scaledPixmap.height()) / 2;
+        QPixmap finalPixmap(widgetSize);
+        finalPixmap.fill(Qt::transparent);
+        QPainter painter(&finalPixmap);
+        painter.drawPixmap(x, y, scaledPixmap);
+        palette.setBrush(QPalette::Base, QBrush(finalPixmap));
     }
     QColor transparentColor = QColor(135, 206, 235, 40);
     palette.setColor(QPalette::Highlight, transparentColor);
     this->setPalette(palette);
+}
+
+void GameListFrame::resizeEvent(QResizeEvent* event) {
+    QTableWidget::resizeEvent(event);
+    RefreshListBackgroundImage();
 }
 
 void GameListFrame::SortNameAscending(int columnIndex) {

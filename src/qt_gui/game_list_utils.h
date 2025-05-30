@@ -25,6 +25,7 @@ struct GameInfo {
     std::string version = "Unknown";
     std::string region = "Unknown";
     std::string fw = "Unknown";
+    std::string save_dir = "Unknown";
 
     std::string play_time = "Unknown";
     CompatibilityEntry compatibility = CompatibilityEntry{CompatibilityStatus::Unknown};
@@ -69,8 +70,12 @@ public:
         }
 
         // Cache path
-        QFile size_cache_file(Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) /
-                              game.serial / "size_cache.txt");
+        QDir cacheDir =
+            QDir(Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / game.serial);
+        if (!cacheDir.exists()) {
+            cacheDir.mkpath(".");
+        }
+        QFile size_cache_file(cacheDir.absoluteFilePath("size_cache.txt"));
         QFileInfo cacheInfo(size_cache_file);
         QFileInfo dirInfo(dirPath);
 
