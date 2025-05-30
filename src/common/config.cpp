@@ -75,6 +75,7 @@ static s16 cursorState = HideCursorState::Idle;
 static int cursorHideTimeout = 5; // 5 seconds (default)
 static double trophyNotificationDuration = 6.0;
 static bool useUnifiedInputConfig = true;
+static bool separateupdatefolder = false;
 static bool overrideControllerColor = false;
 static int controllerCustomColorRGB[3] = {0, 0, 255};
 static bool compatibilityData = false;
@@ -99,6 +100,7 @@ u32 m_slider_pos_grid = 0;
 u32 m_table_mode = 0;
 u32 m_window_size_W = 1280;
 u32 m_window_size_H = 720;
+std::vector<std::string> m_pkg_viewer;
 std::vector<std::string> m_elf_viewer;
 std::vector<std::string> m_recent_files;
 std::string emulator_language = "en_US";
