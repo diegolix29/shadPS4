@@ -69,7 +69,7 @@ static bool vkGuestMarkers = false;
 static bool rdocEnable = false;
 static bool isFpsColor = true;
 static bool isSeparateLogFilesEnabled = false;
-static s16 cursorState = HideCursorState::Idle;
+static int cursorState = HideCursorState::Idle;
 static int cursorHideTimeout = 5; // 5 seconds (default)
 static double trophyNotificationDuration = 6.0;
 static bool useUnifiedInputConfig = true;
@@ -79,6 +79,7 @@ static bool separateupdatefolder = false;
 static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
 static std::string trophyKey;
+static bool isPSNSignedIn = false;
 
 // Gui
 static bool load_game_size = true;
@@ -749,6 +750,14 @@ void setShowBackgroundImage(bool show) {
     showBackgroundImage = show;
 }
 
+bool getPSNSignedIn() {
+    return isPSNSignedIn;
+}
+
+void setPSNSignedIn(bool sign) {
+    isPSNSignedIn = sign;
+}
+
 void load(const std::filesystem::path& path) {
     // If the configuration file does not exist, create it and return
     std::error_code error;
@@ -773,6 +782,7 @@ void load(const std::filesystem::path& path) {
 
         isNeo = toml::find_or<bool>(general, "isPS4Pro", false);
         isDevKit = toml::find_or<bool>(general, "isDevKit", false);
+        isPSNSignedIn = toml::find_or<bool>(general, "isPSNSignedIn", false);
         playBGM = toml::find_or<bool>(general, "playBGM", false);
         isTrophyPopupDisabled = toml::find_or<bool>(general, "isTrophyPopupDisabled", false);
         trophyNotificationDuration =
@@ -974,6 +984,7 @@ void save(const std::filesystem::path& path) {
 
     data["General"]["isPS4Pro"] = isNeo;
     data["General"]["isDevKit"] = isDevKit;
+    data["General"]["isPSNSignedIn"] = isPSNSignedIn;
     data["General"]["isTrophyPopupDisabled"] = isTrophyPopupDisabled;
     data["General"]["trophyNotificationDuration"] = trophyNotificationDuration;
     data["General"]["playBGM"] = playBGM;
@@ -1121,6 +1132,7 @@ void setDefaultValues() {
     isHDRAllowed = false;
     isNeo = false;
     isDevKit = false;
+    isPSNSignedIn = false;
     isFullscreen = false;
     isTrophyPopupDisabled = false;
     playBGM = false;
