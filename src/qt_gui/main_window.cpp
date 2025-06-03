@@ -1227,7 +1227,7 @@ void MainWindow::StartEmulator(std::filesystem::path path) {
 #else
     std::thread emulator_thread([=] {
         Core::Emulator emulator;
-        emulator.Run(path);
+        emulator.Run(path, {});
     });
     emulator_thread.detach();
 #endif
