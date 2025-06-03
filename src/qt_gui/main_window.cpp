@@ -1244,7 +1244,7 @@ void MainWindow::StartEmulator(std::filesystem::path path) {
 
 #ifdef __APPLE__
     Core::Emulator emulator;
-    emulator.Run(path);
+    emulator.Run(path, {});
 #else
     std::thread emulator_thread([this, path]() {
         emulator->Run(path, {});
