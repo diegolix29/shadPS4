@@ -11,7 +11,6 @@
 #include "core/libraries/videoout/video_out.h"
 #include "core/libraries/videoout/videoout_error.h"
 #include "core/platform.h"
-#include "src/core/libraries/videoout/driver.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
@@ -155,8 +154,6 @@ s32 PS4_SYSV_ABI sceVideoOutSubmitFlip(s32 handle, s32 bufferIndex, s32 flipMode
         LOG_ERROR(Lib_VideoOut, "Invalid handle = {}", handle);
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
-
-    driver->ProcessFlipQueue();
 
     if (flipMode != 1) {
         LOG_WARNING(Lib_VideoOut, "flipmode = {}", flipMode);
@@ -339,28 +336,20 @@ s32 PS4_SYSV_ABI sceVideoOutGetBufferLabelAddress(s32 handle, uintptr_t* label_a
 s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, u32 arg, void** unk) {
     auto* port = driver->GetPort(handle);
     if (!port) {
-        return ORBIS_OK;
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
+    Platform::IrqC::Instance()->RegisterOnce(
+        Platform::InterruptId::GfxFlip, [=](Platform::InterruptId irq) {
+            ASSERT_MSG(irq == Platform::InterruptId::GfxFlip, "Unexpected IRQ");
+            if (port->is_mode_changing) {
+                LOG_WARNING(Lib_VideoOut, "Ignoring flip IRQ during mode change");
+                return;
+            }
+            const bool result = driver->SubmitFlip(port, buf_id, arg, true);
+            ASSERT_MSG(result, "EOP flip submission failed for buffer {}", buf_id);
+        });
 
-    static std::mutex irq_mutex;
-
-    {
-        std::lock_guard<std::mutex> lock(irq_mutex);
-
-        Platform::IrqC::Instance()->RegisterOnce(
-            Platform::InterruptId::GfxFlip, [=](Platform::InterruptId irq) {
-                ASSERT_MSG(irq == Platform::InterruptId::GfxFlip, "Unexpected IRQ occurred");
-
-                const auto result = driver->SubmitFlip(port, buf_id, arg, true);
-                if (!result) {
-                    LOG_ERROR(Lib_VideoOut, "EOP flip submission failed for buffer {}", buf_id);
-                    return;
-                }
-
-                port->buffer_labels[buf_id] = 0;
-            });
-        return ORBIS_OK;
-    }
+    return ORBIS_OK;
 }
 
 s32 PS4_SYSV_ABI sceVideoOutGetDeviceCapabilityInfo(
@@ -396,18 +385,13 @@ s32 PS4_SYSV_ABI sceVideoOutColorSettingsSetGamma(SceVideoOutColorSettings* sett
 }
 
 s32 PS4_SYSV_ABI sceVideoOutAdjustColor(s32 handle, const SceVideoOutColorSettings* settings) {
-    if (!settings) {
+    if (settings == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_ADDRESS;
     }
 
     auto* port = driver->GetPort(handle);
     if (!port) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
-    }
-
-    // Optional: Validate gamma value is within a reasonable range
-    if (settings->gamma < 0.1f || settings->gamma > 5.0f) {
-        return ORBIS_VIDEO_OUT_ERROR_INVALID_VALUE;
     }
 
     presenter->GetPPSettingsRef().gamma = settings->gamma;
