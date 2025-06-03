@@ -12,7 +12,6 @@
 #include "core/libraries/videoout/videoout_error.h"
 #include "core/platform.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
-#include "src/core/libraries/videoout/driver.h"
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
 
@@ -43,7 +42,6 @@ s32 PS4_SYSV_ABI sceVideoOutAddFlipEvent(Kernel::SceKernelEqueue eq, s32 handle,
     LOG_INFO(Lib_VideoOut, "handle = {}", handle);
 
     auto* port = driver->GetPort(handle);
-
     if (port == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
@@ -157,8 +155,6 @@ s32 PS4_SYSV_ABI sceVideoOutSubmitFlip(s32 handle, s32 bufferIndex, s32 flipMode
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
 
-    driver->ProcessFlipQueue();
-
     if (flipMode != 1) {
         LOG_WARNING(Lib_VideoOut, "flipmode = {}", flipMode);
     }
@@ -183,7 +179,6 @@ s32 PS4_SYSV_ABI sceVideoOutSubmitFlip(s32 handle, s32 bufferIndex, s32 flipMode
 
     return ORBIS_OK;
 }
-
 
 s32 PS4_SYSV_ABI sceVideoOutGetEventId(const Kernel::SceKernelEvent* ev) {
     if (ev == nullptr) {
@@ -345,13 +340,13 @@ s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, u32 arg, void** u
     }
     Platform::IrqC::Instance()->RegisterOnce(
         Platform::InterruptId::GfxFlip, [=](Platform::InterruptId irq) {
-            ASSERT_MSG(irq == Platform::InterruptId::GfxFlip, "An unexpected IRQ occured");
-            port->buffer_labels[buf_id] = 1;
-
-            ASSERT_MSG(port->buffer_labels[buf_id] == 1, "Out of order flip IRQ");
-
-            const auto result = driver->SubmitFlip(port, buf_id, arg, true);
-            ASSERT_MSG(result, "EOP flip submission failed");
+            ASSERT_MSG(irq == Platform::InterruptId::GfxFlip, "Unexpected IRQ");
+            if (port->is_mode_changing) {
+                LOG_WARNING(Lib_VideoOut, "Ignoring flip IRQ during mode change");
+                return;
+            }
+            const bool result = driver->SubmitFlip(port, buf_id, arg, true);
+            ASSERT_MSG(result, "EOP flip submission failed for buffer {}", buf_id);
         });
 
     return ORBIS_OK;
@@ -390,18 +385,13 @@ s32 PS4_SYSV_ABI sceVideoOutColorSettingsSetGamma(SceVideoOutColorSettings* sett
 }
 
 s32 PS4_SYSV_ABI sceVideoOutAdjustColor(s32 handle, const SceVideoOutColorSettings* settings) {
-    if (!settings) {
+    if (settings == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_ADDRESS;
     }
 
     auto* port = driver->GetPort(handle);
     if (!port) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
-    }
-
-    // Optional: Validate gamma value is within a reasonable range
-    if (settings->gamma < 0.1f || settings->gamma > 5.0f) {
-        return ORBIS_VIDEO_OUT_ERROR_INVALID_VALUE;
     }
 
     presenter->GetPPSettingsRef().gamma = settings->gamma;
