@@ -2137,32 +2137,42 @@
        </layout>
       </widget>
      </widget>
-    <widget class="QWidget" name="experimentalTab">
-		<attribute name="title">
-			<string>Experimental
-		</string>
-		</attribute>
-		<layout class="QVBoxLayout" name="verticalLayout_experimental">
-			<item>
-				<widget class="QCheckBox" name="isDevKitCheckBox">
-					<property name="text">
-						<string>Enable DevKit Mode
-						</string>
-					</property>
-				</widget>
-			</item>
-			<item>
-				<widget class="QCheckBox" name="isNeoModeCheckBox">
-					<property name="text">
-						<string>Enable Neo Mode
-						</string>
-					</property>
-				</widget>
-			</item>
-		</layout>
-	</widget>
-	</widget>
-   </item>
+		<widget class="QScrollArea" name="experimentalTab">
+			<property name="widgetResizable">
+				<bool>true</bool>
+			</property>
+			<attribute name="title">
+				<string>Experimental</string>
+			</attribute>
+			<widget class="QWidget" name="experimentalTabContents">
+				<property name="geometry">
+					<rect>
+						<x>0</x>
+						<y>0</y>
+						<width>946</width>
+						<height>536</height>
+					</rect>
+				</property>
+				<layout class="QVBoxLayout" name="verticalLayout_experimental">
+					<item>
+						<widget class="QCheckBox" name="isDevKitCheckBox">
+							<property name="text">
+								<string>Enable DevKit Mode</string>
+							</property>
+						</widget>
+					</item>
+					<item>
+						<widget class="QCheckBox" name="isNeoModeCheckBox">
+							<property name="text">
+								<string>Enable Neo Mode</string>
+							</property>
+						</widget>
+					</item>
+				</layout>
+			</widget>
+		</widget>
+	 </widget>
+	</item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="standardButtons">
