@@ -28,7 +28,7 @@ public:
     Emulator();
     ~Emulator();
 
-    void Run(const std::filesystem::path& file, const std::vector<std::string> args = {});
+    void Run(std::filesystem::path file, const std::vector<std::string> args);
     void UpdatePlayTime(const std::string& serial) const;
     static Emulator& GetInstance();
     void StopEmulation();
@@ -42,9 +42,8 @@ private:
 #ifdef ENABLE_QT_GUI
     QString lastEbootPath;
     void saveLastEbootPath(const QString& path);
-    QString getLastEbootPath();
+    QString getLastEbootPath() const;
 #endif
-    bool isRunning = false;
     Core::MemoryManager* memory;
     Input::GameController* controller;
     Core::Linker* linker;

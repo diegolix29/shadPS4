@@ -375,7 +375,6 @@ void MainWindow::CreateConnects() {
     connect(ui->refreshGameListAct, &QAction::triggered, this, &MainWindow::RefreshGameTable);
     connect(ui->refreshButton, &QPushButton::clicked, this, &MainWindow::RefreshGameTable);
     connect(ui->showGameListAct, &QAction::triggered, this, &MainWindow::ShowGameList);
-    connect(this, &MainWindow::ExtractionFinished, this, &MainWindow::RefreshGameTable);
     connect(ui->toggleLabelsAct, &QAction::toggled, this, &MainWindow::toggleLabelsUnderIcons);
     connect(ui->fullscreenButton, &QPushButton::clicked, this, &MainWindow::toggleFullscreen);
 
@@ -877,6 +876,23 @@ void MainWindow::StartGame() {
     }
 }
 
+void MainWindow::StartGameWithPath(const QString& gamePath) {
+    if (gamePath.isEmpty()) {
+        QMessageBox::warning(this, tr("Run Game"), tr("No game path provided."));
+        return;
+    }
+
+    AddRecentFiles(gamePath);
+    const auto path = Common::FS::PathFromQString(gamePath);
+    if (!std::filesystem::exists(path)) {
+        QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
+        return;
+    }
+    StartEmulator(path);
+
+    UpdateToolbarButtons();
+}
+
 bool isTable;
 void MainWindow::SearchGameTable(const QString& text) {
     if (isTableList) {
@@ -1197,6 +1213,8 @@ void MainWindow::LoadTranslation() {
     }
 }
 
+void MainWindow::PlayBackgroundMusic() {}
+
 void MainWindow::OnLanguageChanged(const std::string& locale) {
     Config::setEmulatorLanguage(locale);
 
@@ -1216,18 +1234,21 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
     }
     return QMainWindow::eventFilter(obj, event);
 }
-
 void MainWindow::StartEmulator(std::filesystem::path path) {
+    // Normalize path slashes for display only:
+    QString normalizedPath = QString::fromStdString(path.string()).replace("\\", "/");
+    lastGamePath = normalizedPath;
     isGameRunning = true;
 
+    emulator = std::make_unique<Core::Emulator>();
+
 #ifdef __APPLE__
-    // SDL on macOS requires main thread.
     Core::Emulator emulator;
     emulator.Run(path);
 #else
-    std::thread emulator_thread([=] {
-        Core::Emulator emulator;
-        emulator.Run(path);
+    std::thread emulator_thread([this, path]() {
+        emulator->Run(path, {});
+        isGameRunning = false;
     });
     emulator_thread.detach();
 #endif
@@ -1254,26 +1275,24 @@ void MainWindow::StopGame() {
 }
 
 void MainWindow::RestartGame() {
-    if (!isGameRunning) {
+    if (!emulator || !emulator->is_running) {
         QMessageBox::warning(this, tr("Restart Game"), tr("No game is running to restart."));
         return;
     }
 
-    if (lastGamePath.empty()) {
+    if (lastGamePath.isEmpty()) {
         QMessageBox::warning(this, tr("Restart Game"), tr("No recent game found."));
         return;
     }
 
-    // Stop the current game properly
     StopGame();
 
-    // Ensure the game has fully stopped before restarting
-    while (isGameRunning) {
+    while (emulator->is_running) {
         QCoreApplication::processEvents();
-        QThread::msleep(100); // Small delay to allow cleanup
+        QThread::msleep(100);
     }
 
-    // Restart the emulator with the last played game
-    StartEmulator(lastGamePath);
+lastGamePath.replace("\\", "/"); // fix any Windows-style backslashes
+    StartGameWithPath(lastGamePath);
 }
 #endif

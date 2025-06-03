@@ -74,6 +74,10 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
         file /= "eboot.bin";
     }
 
+#ifdef ENABLE_QT_GUI
+    lastEbootPath = QString::fromStdString(file.string());
+    is_running = true;
+#endif
     const auto eboot_name = file.filename().string();
 
     auto game_folder = file.parent_path();
@@ -333,7 +337,7 @@ void Emulator::saveLastEbootPath(const QString& path) {
     lastEbootPath = path;
 }
 
-QString Emulator::getLastEbootPath() {
+QString Emulator::getLastEbootPath() const {
     return lastEbootPath;
 }
 
@@ -351,7 +355,7 @@ void Emulator::StopEmulation() {
 }
 
 void Emulator::Restart() {
-    if (!isRunning) {
+    if (!is_running) {
         LOG_INFO(Loader, "Emulator is not running. Starting normally...");
         return;
     }
@@ -385,13 +389,13 @@ QString emulatorPath = QStandardPaths::writableLocation(QStandardPaths::AppDataL
                        "/shadps4.app/Contents/MacOS/shadps4";
 QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
 
-isRunning = true;
+is_running = true;
 
 #endif
 } // namespace Core
 
 void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
-    constexpr std::array<SysModules, 11> ModulesToLoad{
+    constexpr std::array<SysModules, 10> ModulesToLoad{
         {{"libSceNgs2.sprx", &Libraries::Ngs2::RegisterlibSceNgs2},
          {"libSceUlt.sprx", nullptr},
          {"libSceJson.sprx", nullptr},
