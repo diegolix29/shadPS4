@@ -1223,7 +1223,7 @@ void MainWindow::StartEmulator(std::filesystem::path path) {
 #ifdef __APPLE__
     // SDL on macOS requires main thread.
     Core::Emulator emulator;
-    emulator.Run(path);
+    emulator.Run(path, {});
 #else
     std::thread emulator_thread([=] {
         Core::Emulator emulator;
