@@ -4,12 +4,18 @@
 #include <filesystem>
 #include <set>
 #include <fmt/core.h>
-
 #include "common/config.h"
 #include "common/debug.h"
 #include "common/logging/backend.h"
 #include "common/logging/log.h"
 #ifdef ENABLE_QT_GUI
+#include <QCoreApplication>
+#include <QDebug>
+#include <QFile>
+#include <QProcess>
+#include <QSettings>
+#include <QString>
+#include <QThread>
 #include <QtCore>
 #endif
 #include "common/assert.h"
@@ -68,6 +74,10 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
         file /= "eboot.bin";
     }
 
+#ifdef ENABLE_QT_GUI
+    lastEbootPath = QString::fromStdString(file.string());
+    is_running = true;
+#endif
     const auto eboot_name = file.filename().string();
 
     auto game_folder = file.parent_path();
@@ -322,7 +332,69 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
     std::quick_exit(0);
 }
 
-void Emulator::LoadSystemModules(const std::string& game_serial) {
+#ifdef ENABLE_QT_GUI
+void Emulator::saveLastEbootPath(const QString& path) {
+    lastEbootPath = path;
+}
+
+QString Emulator::getLastEbootPath() const {
+    return lastEbootPath;
+}
+
+Emulator& Emulator::GetInstance() {
+    static Emulator instance;
+    return instance;
+}
+
+void Emulator::StopEmulation() {
+    if (!is_running)
+        return;
+
+    is_running = false;
+    qDebug() << "Stopping emulator...";
+}
+
+void Emulator::Restart() {
+    if (!is_running) {
+        LOG_INFO(Loader, "Emulator is not running. Starting normally...");
+        return;
+    }
+
+    LOG_INFO(Loader, "Restarting the emulator...");
+
+    // Stop current emulator session
+    StopEmulation();
+
+    // Wait a moment before restarting
+    QThread::sleep(2);
+
+    // Retrieve last known EBOOT path
+    QString lastEbootPath = getLastEbootPath();
+    if (lastEbootPath.isEmpty()) {
+        LOG_ERROR(Loader, "No previous EBOOT path found! Cannot restart.");
+        return;
+    }
+#endif
+    // Relaunch emulator with last game
+#ifdef Q_OS_WIN
+    QString emulatorPath =
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/shadps4.exe";
+    QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
+#elif defined(Q_OS_LINUX)
+QString emulatorPath =
+    QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/Shadps4-qt.AppImage";
+QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
+#elif defined(Q_OS_MAC)
+QString emulatorPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
+                       "/shadps4.app/Contents/MacOS/shadps4";
+QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
+
+is_running = true;
+
+#endif
+} // namespace Core
+
+void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
     constexpr std::array<SysModules, 10> ModulesToLoad{
         {{"libSceNgs2.sprx", &Libraries::Ngs2::RegisterlibSceNgs2},
          {"libSceUlt.sprx", nullptr},
@@ -340,7 +412,9 @@ void Emulator::LoadSystemModules(const std::string& game_serial) {
     for (const auto& entry : std::filesystem::directory_iterator(sys_module_path)) {
         found_modules.push_back(entry.path());
     }
-    for (const auto& [module_name, init_func] : ModulesToLoad) {
+    for (const auto& module : ModulesToLoad) {
+        const auto& module_name = module.module_name;
+        const auto& init_func = module.callback;
         const auto it = std::ranges::find_if(
             found_modules, [&](const auto& path) { return path.filename() == module_name; });
         if (it != found_modules.end()) {
@@ -367,7 +441,7 @@ void Emulator::LoadSystemModules(const std::string& game_serial) {
 }
 
 #ifdef ENABLE_QT_GUI
-void Emulator::UpdatePlayTime(const std::string& serial) {
+void Core::Emulator::UpdatePlayTime(const std::string& serial) const {
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     QString filePath = QString::fromStdString((user_dir / "play_time.txt").string());
 
@@ -434,6 +508,5 @@ void Emulator::UpdatePlayTime(const std::string& serial) {
     }
     LOG_INFO(Loader, "Playing time for {}: {}", serial, playTimeSaved.toStdString());
 }
+}
 #endif
-
-} // namespace Core

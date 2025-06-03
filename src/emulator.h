@@ -5,7 +5,10 @@
 
 #include <filesystem>
 #include <thread>
-
+#include "common/elf_info.h"
+#ifdef ENABLE_QT_GUI
+#include <QString>
+#endif
 #include "common/singleton.h"
 #include "core/linker.h"
 #include "input/controller.h"
@@ -25,12 +28,22 @@ public:
     Emulator();
     ~Emulator();
 
-    void Run(std::filesystem::path file, const std::vector<std::string> args = {});
-    void UpdatePlayTime(const std::string& serial);
+    void Run(std::filesystem::path file, const std::vector<std::string> args);
+    void UpdatePlayTime(const std::string& serial) const;
+    static Emulator& GetInstance();
+    void StopEmulation();
+    bool is_running = false;
+    void Restart();
 
 private:
     void LoadSystemModules(const std::string& game_serial);
+    Common::ElfInfo game_info;
 
+#ifdef ENABLE_QT_GUI
+    QString lastEbootPath;
+    void saveLastEbootPath(const QString& path);
+    QString getLastEbootPath() const;
+#endif
     Core::MemoryManager* memory;
     Input::GameController* controller;
     Core::Linker* linker;
