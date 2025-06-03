@@ -1292,7 +1292,7 @@ void MainWindow::RestartGame() {
         QThread::msleep(100);
     }
 
-lastGamePath.replace("\\", "/"); // fix any Windows-style backslashes
+    lastGamePath.replace("\\", "/"); // fix any Windows-style backslashes
     StartGameWithPath(lastGamePath);
 }
 #endif
