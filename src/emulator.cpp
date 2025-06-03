@@ -1,20 +1,15 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <filesystem>
 #include <set>
 #include <fmt/core.h>
+
 #include "common/config.h"
 #include "common/debug.h"
 #include "common/logging/backend.h"
 #include "common/logging/log.h"
 #ifdef ENABLE_QT_GUI
-#include <QCoreApplication>
-#include <QDebug>
-#include <QFile>
-#include <QProcess>
-#include <QSettings>
-#include <QString>
-#include <QThread>
 #include <QtCore>
 #endif
 #include "common/assert.h"
@@ -68,9 +63,13 @@ Emulator::~Emulator() {
     Config::saveMainWindow(config_dir / "config.toml");
 }
 
-void Core::Emulator::Run(const std::filesystem::path& file, const std::vector<std::string> args) {
-    isRunning = true;
+void Emulator::Run(std::filesystem::path file, const std::vector<std::string> args) {
+    if (std::filesystem::is_directory(file)) {
+        file /= "eboot.bin";
+    }
+
     const auto eboot_name = file.filename().string();
+
     auto game_folder = file.parent_path();
     if (const auto game_folder_name = game_folder.filename().string();
         game_folder_name.ends_with("-UPDATE") || game_folder_name.ends_with("-patch")) {
@@ -121,6 +120,11 @@ void Core::Emulator::Run(const std::filesystem::path& file, const std::vector<st
         Common::Log::Initialize();
     }
     Common::Log::Start();
+    if (!std::filesystem::exists(file)) {
+        LOG_CRITICAL(Loader, "eboot.bin does not exist: {}",
+                     std::filesystem::absolute(file).string());
+        std::quick_exit(0);
+    }
 
     LOG_INFO(Loader, "Starting shadps4 emulator v{} ", Common::g_version);
     LOG_INFO(Loader, "Revision {}", Common::g_scm_rev);
@@ -257,7 +261,12 @@ void Core::Emulator::Run(const std::filesystem::path& file, const std::vector<st
 
     // Load the module with the linker
     const auto eboot_path = mnt->GetHostPath("/app0/" + eboot_name);
-    linker->LoadModule(eboot_path);
+    if (linker->LoadModule(eboot_path) == -1) {
+        LOG_CRITICAL(Loader, "Failed to load game's eboot.bin: {}",
+                     std::filesystem::absolute(eboot_path).string());
+        std::quick_exit(0);
+    }
+
     // check if we have system modules to load
     LoadSystemModules(game_info.game_serial);
 
@@ -313,70 +322,8 @@ void Core::Emulator::Run(const std::filesystem::path& file, const std::vector<st
     std::quick_exit(0);
 }
 
-#ifdef ENABLE_QT_GUI
-void Emulator::saveLastEbootPath(const QString& path) {
-    lastEbootPath = path;
-}
-
-QString Emulator::getLastEbootPath() {
-    return lastEbootPath;
-}
-
-Emulator& Emulator::GetInstance() {
-    static Emulator instance;
-    return instance;
-}
-
-void Emulator::StopEmulation() {
-    if (!is_running)
-        return;
-
-    is_running = false;
-    qDebug() << "Stopping emulator...";
-}
-
-void Emulator::Restart() {
-    if (!isRunning) {
-        LOG_INFO(Loader, "Emulator is not running. Starting normally...");
-        return;
-    }
-
-    LOG_INFO(Loader, "Restarting the emulator...");
-
-    // Stop current emulator session
-    StopEmulation();
-
-    // Wait a moment before restarting
-    QThread::sleep(2);
-
-    // Retrieve last known EBOOT path
-    QString lastEbootPath = getLastEbootPath();
-    if (lastEbootPath.isEmpty()) {
-        LOG_ERROR(Loader, "No previous EBOOT path found! Cannot restart.");
-        return;
-    }
-#endif
-    // Relaunch emulator with last game
-#ifdef Q_OS_WIN
-    QString emulatorPath =
-        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/shadps4.exe";
-    QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
-#elif defined(Q_OS_LINUX)
-QString emulatorPath =
-    QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/Shadps4-qt.AppImage";
-QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
-#elif defined(Q_OS_MAC)
-QString emulatorPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
-                       "/shadps4.app/Contents/MacOS/shadps4";
-QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
-
-isRunning = true;
-
-#endif
-} // namespace Core
-
-void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
-    constexpr std::array<SysModules, 11> ModulesToLoad{
+void Emulator::LoadSystemModules(const std::string& game_serial) {
+    constexpr std::array<SysModules, 10> ModulesToLoad{
         {{"libSceNgs2.sprx", &Libraries::Ngs2::RegisterlibSceNgs2},
          {"libSceUlt.sprx", nullptr},
          {"libSceJson.sprx", nullptr},
@@ -393,9 +340,7 @@ void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
     for (const auto& entry : std::filesystem::directory_iterator(sys_module_path)) {
         found_modules.push_back(entry.path());
     }
-    for (const auto& module : ModulesToLoad) {
-        const auto& module_name = module.module_name;
-        const auto& init_func = module.callback;
+    for (const auto& [module_name, init_func] : ModulesToLoad) {
         const auto it = std::ranges::find_if(
             found_modules, [&](const auto& path) { return path.filename() == module_name; });
         if (it != found_modules.end()) {
@@ -422,7 +367,7 @@ void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
 }
 
 #ifdef ENABLE_QT_GUI
-void Core::Emulator::UpdatePlayTime(const std::string& serial) const {
+void Emulator::UpdatePlayTime(const std::string& serial) {
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     QString filePath = QString::fromStdString((user_dir / "play_time.txt").string());
 
@@ -489,5 +434,6 @@ void Core::Emulator::UpdatePlayTime(const std::string& serial) const {
     }
     LOG_INFO(Loader, "Playing time for {}: {}", serial, playTimeSaved.toStdString());
 }
-}
 #endif
+
+} // namespace Core
