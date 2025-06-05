@@ -8,12 +8,12 @@
 
 namespace Common {
 
-template <typename T>
-[[nodiscard]] constexpr T AlignUp(T value, std::size_t size) {
-    static_assert(std::is_unsigned_v<T>, "T must be an unsigned value.");
-    auto mod{static_cast<T>(value % size)};
-    value -= mod;
-    return static_cast<T>(mod == T{0} ? value : value + size);
+template <typename T, typename U>
+[[nodiscard]] constexpr auto AlignUp(T value, U alignment) {
+    static_assert(std::is_integral_v<T> && std::is_integral_v<U>, "Both types must be integers.");
+    using R = std::make_unsigned_t<std::common_type_t<T, U>>;
+    return (static_cast<R>(value) + static_cast<R>(alignment) - 1) &
+           ~(static_cast<R>(alignment) - 1);
 }
 
 template <typename T>

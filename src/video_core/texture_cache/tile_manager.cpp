@@ -318,14 +318,16 @@ std::pair<vk::Buffer, u32> TileManager::TryDetile(vk::Buffer in_buffer, u32 in_o
     const auto aligned_image_size = Common::AlignUp(image_size, 64u);
     ASSERT((aligned_image_size % 64) == 0);
 
-    const auto bpp = info.num_bits * (info.props.is_block ? 16u : 1u);
-    const auto num_tiles = aligned_image_size / (64 * (bpp / 8));
+    const auto bits_per_pixel = info.num_bits * (info.props.is_block ? 16u : 1u);
+    ASSERT((bits_per_pixel % 8) == 0);
+
+    const auto bytes_per_pixel = bits_per_pixel / 8;
+    const auto num_tiles = aligned_image_size / (64 * bytes_per_pixel);
 
     LOG_DEBUG(Lib_Videodec, "Dispatch: image_size={}, aligned={}, bpp={}, num_tiles={}", image_size,
-              aligned_image_size, bpp, num_tiles);
+              aligned_image_size, bits_per_pixel, num_tiles);
 
     cmdbuf.dispatch(num_tiles, 1, 1);
-    return std::make_pair(out_buffer.first, 0u);
     return std::make_pair(out_buffer.first, 0u);
 }
 
