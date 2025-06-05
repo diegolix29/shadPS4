@@ -103,7 +103,7 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
     Libraries::Random::RegisterlibSceRandom(sym);
     Libraries::Usbd::RegisterlibSceUsbd(sym);
     Libraries::Pad::RegisterlibScePad(sym);
-    //Libraries::Ajm::RegisterlibSceAjm(sym);
+    // Libraries::Ajm::RegisterlibSceAjm(sym);
     Libraries::ErrorDialog::RegisterlibSceErrorDialog(sym);
     Libraries::ImeDialog::RegisterlibSceImeDialog(sym);
     Libraries::AvPlayer::RegisterlibSceAvPlayer(sym);
