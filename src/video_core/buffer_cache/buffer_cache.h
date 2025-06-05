@@ -9,7 +9,7 @@
 #include "common/slot_vector.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/buffer.h"
-#include "video_core/buffer_cache/memory_tracker.h"
+#include "video_core/buffer_cache/memory_tracker_base.h"
 #include "video_core/buffer_cache/range_set.h"
 #include "video_core/multi_level_page_table.h"
 
@@ -35,8 +35,6 @@ using BufferId = Common::SlotId;
 static constexpr BufferId NULL_BUFFER_ID{0};
 
 class TextureCache;
-class MemoryTracker;
-class PageManager;
 
 class BufferCache {
 public:
@@ -66,6 +64,7 @@ public:
         VAddr end;
         bool has_stream_leap = false;
     };
+
 public:
     explicit BufferCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
                          Vulkan::Rasterizer& rasterizer_, AmdGpu::Liverpool* liverpool,
@@ -100,8 +99,6 @@ public:
     /// Invalidates any buffer in the logical page range.
     void InvalidateMemory(VAddr device_addr, u64 size, bool unmap);
 
-        void ReadMemory(VAddr device_addr, u64 size);
-
     /// Binds host vertex buffers for the current draw.
     void BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline);
 
@@ -110,8 +107,6 @@ public:
 
     /// Writes a value to GPU buffer. (uses command buffer to temporarily store the data)
     void InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds);
-
-        void CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds);
 
     /// Writes a value to GPU buffer. (uses staging buffer to temporarily store the data)
     void WriteData(VAddr address, const void* value, u32 num_bytes, bool is_gds);
@@ -189,7 +184,7 @@ private:
     Vulkan::Rasterizer& rasterizer;
     AmdGpu::Liverpool* liverpool;
     TextureCache& texture_cache;
-    std::unique_ptr<MemoryTracker> memory_tracker;
+    PageManager& tracker;
     StreamBuffer staging_buffer;
     StreamBuffer stream_buffer;
     StreamBuffer download_buffer;
@@ -200,6 +195,7 @@ private:
     Common::SlotVector<Buffer> slot_buffers;
     RangeSet gpu_modified_ranges;
     SplitRangeMap<BufferId> buffer_ranges;
+    MemoryTracker memory_tracker;
     PageTable page_table;
     vk::UniqueDescriptorSetLayout fault_process_desc_layout;
     vk::UniquePipeline fault_process_pipeline;

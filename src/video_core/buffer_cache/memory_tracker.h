@@ -7,7 +7,6 @@
 #include <deque>
 #include <type_traits>
 #include <vector>
-#include "common/logging/log.h"
 #include "common/debug.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/word_manager.h"
@@ -58,14 +57,6 @@ public:
                             });
     }
 
-    void UnmarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size) noexcept {
-        IteratePages<false>(dirty_cpu_addr, query_size,
-                            [](RegionManager* manager, u64 offset, size_t size) {
-                                manager->template ChangeRegionState<Type::GPU, false>(
-                                    manager->GetCpuAddr() + offset, size);
-                            });
-    }
-
     /// Call 'func' for each CPU modified range and unmark those pages as CPU modified
     void ForEachUploadRange(VAddr query_cpu_range, u64 query_size, auto&& func) {
         IteratePages<true>(query_cpu_range, query_size,
@@ -95,6 +86,7 @@ private:
      */
     template <bool create_region_on_fail, typename Func>
     bool IteratePages(VAddr cpu_address, size_t size, Func&& func) {
+        RENDERER_TRACE;
         using FuncReturn = typename std::invoke_result<Func, RegionManager*, u64, size_t>::type;
         static constexpr bool BOOL_BREAK = std::is_same_v<FuncReturn, bool>;
         std::size_t remaining_size{size};
