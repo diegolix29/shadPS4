@@ -78,7 +78,7 @@ static void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
     case SIGSEGV:
     case SIGBUS: {
         const bool is_write = Common::IsWriteError(raw_context);
-        // if (!signals->DispatchAccessViolation(raw_context, info->si_addr)) {
+        if (!signals->DispatchAccessViolation(raw_context, info->si_addr)) {
         // UNREACHABLE_MSG(
         //  "Unhandled access violation in thread '{}' at code address {}: {} address {}",
         //  GetThreadName(), fmt::ptr(code_address), is_write ? "Write to" : "Read from",
