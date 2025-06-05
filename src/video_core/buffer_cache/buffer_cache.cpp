@@ -167,7 +167,10 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
                     .dstOffset = total_size_bytes,
                     .size = new_size,
                 });
-                total_size_bytes += new_size;
+                // Align up to avoid cache conflicts
+                constexpr u64 align = 64ULL;
+                constexpr u64 mask = ~(align - 1ULL);
+                total_size_bytes += (new_size + align - 1) & mask;
             };
             gpu_modified_ranges.ForEachInRange(device_addr_out, range_size, add_download);
             gpu_modified_ranges.Subtract(device_addr_out, range_size);
@@ -307,20 +310,51 @@ void BufferCache::BindIndexBuffer(u32 index_offset) {
 }
 
 void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
-    ASSERT_MSG((static_cast<uintptr_t>(address) % 4) == 0, "GDS offset must be dword aligned");
-
-    if (!is_gds && !IsRegionRegistered(address, num_bytes)) {
-        memcpy(reinterpret_cast<void*>(static_cast<uintptr_t>(address)), value, num_bytes);
-        return;
+    ASSERT_MSG(address % 4 == 0, "GDS offset must be dword aligned");
+    if (!is_gds) {
+        memcpy(std::bit_cast<void*>(address), value, num_bytes);
+        if (!IsRegionRegistered(address, num_bytes)) {
+            return;
+        }
     }
-    Buffer* buffer = [&] {
+    scheduler.EndRendering();
+    const Buffer* buffer = [&] {
         if (is_gds) {
             return &gds_buffer;
         }
         const BufferId buffer_id = FindBuffer(address, num_bytes);
         return &slot_buffers[buffer_id];
     }();
-    InlineDataBuffer(*buffer, address, value, num_bytes);
+    const auto cmdbuf = scheduler.CommandBuffer();
+    const vk::BufferMemoryBarrier2 pre_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
+        .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .buffer = buffer->Handle(),
+        .offset = buffer->Offset(address),
+        .size = num_bytes,
+    };
+    const vk::BufferMemoryBarrier2 post_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+        .buffer = buffer->Handle(),
+        .offset = buffer->Offset(address),
+        .size = num_bytes,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &pre_barrier,
+    });
+    cmdbuf.updateBuffer(buffer->Handle(), buffer->Offset(address), num_bytes, value);
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &post_barrier,
+    });
 }
 
 void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds) {
@@ -432,9 +466,8 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
     // For small uniform buffers that have not been modified by gpu
     // use device local stream buffer to reduce renderpass breaks.
     // Maybe we want to modify the threshold now that the page size is 16KB?
-    static constexpr u64 StreamThreshold = CACHING_PAGESIZE;
-    const bool is_gpu_dirty = memory_tracker.IsRegionGpuModified(device_addr, size);
-    if (!is_written && size <= StreamThreshold && !is_gpu_dirty) {
+    static constexpr u64 StreamThreshold = CACHING_PAGESIZE * 2;
+    if (!is_written && size <= StreamThreshold && !IsRegionGpuModified(device_addr, size)) {
         const u64 offset = stream_buffer.Copy(device_addr, size, instance.UniformMinAlignment());
         return {&stream_buffer, offset};
     }

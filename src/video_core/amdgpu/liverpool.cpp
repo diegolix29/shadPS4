@@ -76,7 +76,6 @@ void Liverpool::Process(std::stop_token stoken) {
     Common::SetCurrentThreadName("shadPS4:GpuCommandProcessor");
 
     gpu_id = std::this_thread::get_id();
-
     while (!stoken.stop_requested()) {
         {
             std::unique_lock lk{submit_mutex};
@@ -231,9 +230,6 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
 
         switch (type) {
         case 0:
-            LOG_ERROR(Lib_GnmDriver, "Continue hack Unsupported PM4 type 0");
-            dcb = NextPacket(dcb, header->type0.NumWords() + 1);
-            continue;
         case 1:
             UNREACHABLE_MSG("Unsupported PM4 type {}", type);
             break;
@@ -399,7 +395,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 break;
             }
             case PM4ItOpcode::SetPredication: {
-                LOG_WARNING(Render, "Unimplemented IT_SET_PREDICATION");
+                LOG_WARNING(Render_Vulkan, "Unimplemented IT_SET_PREDICATION");
                 break;
             }
             case PM4ItOpcode::IndexType: {
@@ -591,7 +587,8 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             }
             case PM4ItOpcode::EventWrite: {
                 const auto* event = reinterpret_cast<const PM4CmdEventWrite*>(header);
-                LOG_DEBUG(Render, "Encountered EventWrite: event_type = {}, event_index = {}",
+                LOG_DEBUG(Render_Vulkan,
+                          "Encountered EventWrite: event_type = {}, event_index = {}",
                           magic_enum::enum_name(event->event_type.Value()),
                           magic_enum::enum_name(event->event_index.Value()));
                 if (event->event_type.Value() == EventType::SoVgtStreamoutFlush) {
@@ -634,38 +631,34 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (dma_data->dst_addr_lo == 0x3022C || !rasterizer) {
                     break;
                 }
-                auto isMemorySource = [](DmaDataSrc src) {
-                    return src == DmaDataSrc::Memory || src == DmaDataSrc::MemoryUsingL2;
-                };
-
                 if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
                     rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32),
                                            true);
-                } else if (isMemorySource(dma_data->src_sel) &&
+                } else if ((dma_data->src_sel == DmaDataSrc::Memory ||
+                            dma_data->src_sel == DmaDataSrc::MemoryUsingL2) &&
                            dma_data->dst_sel == DmaDataDst::Gds) {
                     rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
                                            dma_data->NumBytes(), true, false);
+
                 } else if (dma_data->src_sel == DmaDataSrc::Data &&
                            (dma_data->dst_sel == DmaDataDst::Memory ||
                             dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
                     rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data,
                                            sizeof(u32), false);
                 } else if (dma_data->src_sel == DmaDataSrc::Gds &&
-                           dma_data->dst_sel == DmaDataDst::Memory) {
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                           dma_data->NumBytes(), false, true);
-                    // LOG_WARNING(Render_Vulkan, "GDS memory read");
-                } else if (isMemorySource(dma_data->src_sel) &&
                            (dma_data->dst_sel == DmaDataDst::Memory ||
                             dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                    if (dma_data->NumBytes() > 2) {
-                        rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                               dma_data->SrcAddress<VAddr>(),
-                                               dma_data->NumBytes() - 2, false, false);
-                    } else {
-                        UNREACHABLE_MSG("Invalid NumBytes for memory copy: {}",
-                                        dma_data->NumBytes());
-                    }
+                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
+                                           dma_data->NumBytes(), false, true);
+
+                } else if ((dma_data->src_sel == DmaDataSrc::Memory ||
+                            dma_data->src_sel == DmaDataSrc::MemoryUsingL2) &&
+                           (dma_data->dst_sel == DmaDataDst::Memory ||
+                            dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
+                                           dma_data->SrcAddress<VAddr>(), dma_data->NumBytes(),
+                                           false, false);
+
                 } else {
                     UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
                                     u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -682,16 +675,6 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 } else {
                     UNREACHABLE();
                 }
-                break;
-            }
-            case PM4ItOpcode::CopyData: {
-                const auto* copy_data = reinterpret_cast<const PM4CmdCopyData*>(header);
-                LOG_WARNING(Render,
-                            "unhandled IT_COPY_DATA src_sel = {}, dst_sel = {}, "
-                            "count_sel = {}, wr_confirm = {}, engine_sel = {}",
-                            u32(copy_data->src_sel.Value()), u32(copy_data->dst_sel.Value()),
-                            copy_data->count_sel.Value(), copy_data->wr_confirm.Value(),
-                            u32(copy_data->engine_sel.Value()));
                 break;
             }
             case PM4ItOpcode::MemSemaphore: {
@@ -711,6 +694,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 break;
             }
             case PM4ItOpcode::Rewind: {
+                if (!rasterizer) {
+                    break;
+                }
                 const PM4CmdRewind* rewind = reinterpret_cast<const PM4CmdRewind*>(header);
                 while (!rewind->Valid()) {
                     YIELD_GFX();
@@ -854,34 +840,32 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
             if (dma_data->dst_addr_lo == 0x3022C || !rasterizer) {
                 break;
             }
-            auto isMemorySource = [](DmaDataSrc src) {
-                return src == DmaDataSrc::Memory || src == DmaDataSrc::MemoryUsingL2;
-            };
             if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
                 rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
-            } else if (isMemorySource(dma_data->src_sel) && dma_data->dst_sel == DmaDataDst::Gds) {
+            } else if ((dma_data->src_sel == DmaDataSrc::Memory ||
+                        dma_data->src_sel == DmaDataSrc::MemoryUsingL2) &&
+                       dma_data->dst_sel == DmaDataDst::Gds) {
                 rasterizer->CopyBuffer(dma_data->dst_addr_lo, dma_data->SrcAddress<VAddr>(),
                                        dma_data->NumBytes(), true, false);
+
             } else if (dma_data->src_sel == DmaDataSrc::Data &&
                        (dma_data->dst_sel == DmaDataDst::Memory ||
                         dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
                 rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data, sizeof(u32),
                                        false);
             } else if (dma_data->src_sel == DmaDataSrc::Gds &&
-                       dma_data->dst_sel == DmaDataDst::Memory) {
-                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
-                                       dma_data->NumBytes(), false, true);
-                // LOG_WARNING(Render_Vulkan, "GDS memory read");
-            } else if (isMemorySource(dma_data->src_sel) &&
                        (dma_data->dst_sel == DmaDataDst::Memory ||
                         dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                if (dma_data->NumBytes() > 2) {
-                    rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                           dma_data->SrcAddress<VAddr>(), dma_data->NumBytes() - 2,
-                                           false, false);
-                } else {
-                    UNREACHABLE_MSG("Invalid NumBytes for memory copy: {}", dma_data->NumBytes());
-                }
+                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->src_addr_lo,
+                                       dma_data->NumBytes(), false, true);
+
+            } else if ((dma_data->src_sel == DmaDataSrc::Memory ||
+                        dma_data->src_sel == DmaDataSrc::MemoryUsingL2) &&
+                       (dma_data->dst_sel == DmaDataDst::Memory ||
+                        dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
+                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->SrcAddress<VAddr>(),
+                                       dma_data->NumBytes(), false, false);
+
             } else {
                 UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
                                 u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -892,6 +876,9 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
             break;
         }
         case PM4ItOpcode::Rewind: {
+            if (!rasterizer) {
+                break;
+            }
             const PM4CmdRewind* rewind = reinterpret_cast<const PM4CmdRewind*>(header);
             while (!rewind->Valid()) {
                 YIELD_ASC(vqid);
@@ -1019,41 +1006,37 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
 std::pair<std::span<const u32>, std::span<const u32>> Liverpool::CopyCmdBuffers(
     std::span<const u32> dcb, std::span<const u32> ccb) {
     auto& queue = mapped_queues[GfxQueueId];
-    std::scoped_lock lock{queue.m_access};
 
-    constexpr size_t kMaxBufferSizeDwords = 256 * 1024;
+    // std::vector resize can invalidate spans for commands in flight
+    ASSERT_MSG(queue.dcb_buffer.capacity() >= queue.dcb_buffer_offset + dcb.size(),
+               "dcb copy buffer out of reserved space");
+    ASSERT_MSG(queue.ccb_buffer.capacity() >= queue.ccb_buffer_offset + ccb.size(),
+               "ccb copy buffer out of reserved space");
 
-    if (queue.dcb_buffer_offset > kMaxBufferSizeDwords) {
-        queue.dcb_buffer.clear();
-        queue.dcb_buffer_offset = 0;
-    }
-    if (queue.ccb_buffer_offset > kMaxBufferSizeDwords) {
-        queue.ccb_buffer.clear();
-        queue.ccb_buffer_offset = 0;
-    }
-    size_t required_dcb_size = queue.dcb_buffer_offset + dcb.size();
-    size_t required_ccb_size = queue.ccb_buffer_offset + ccb.size();
+    queue.dcb_buffer.resize(
+        std::max(queue.dcb_buffer.size(), queue.dcb_buffer_offset + dcb.size()));
+    queue.ccb_buffer.resize(
+        std::max(queue.ccb_buffer.size(), queue.ccb_buffer_offset + ccb.size()));
 
-    queue.dcb_buffer.resize(std::max(queue.dcb_buffer.size(), required_dcb_size));
-    queue.ccb_buffer.resize(std::max(queue.ccb_buffer.size(), required_ccb_size));
-
-    u32 prev_dcb_offset = queue.dcb_buffer_offset;
-    u32 prev_ccb_offset = queue.ccb_buffer_offset;
+    u32 prev_dcb_buffer_offset = queue.dcb_buffer_offset;
+    u32 prev_ccb_buffer_offset = queue.ccb_buffer_offset;
     if (!dcb.empty()) {
-        std::memcpy(queue.dcb_buffer.data() + prev_dcb_offset, dcb.data(), dcb.size_bytes());
+        std::memcpy(queue.dcb_buffer.data() + queue.dcb_buffer_offset, dcb.data(),
+                    dcb.size_bytes());
         queue.dcb_buffer_offset += dcb.size();
-        dcb = {queue.dcb_buffer.begin() + prev_dcb_offset,
-               queue.dcb_buffer.begin() + queue.dcb_buffer_offset};
+        dcb = std::span<const u32>{queue.dcb_buffer.begin() + prev_dcb_buffer_offset,
+                                   queue.dcb_buffer.begin() + queue.dcb_buffer_offset};
     }
 
     if (!ccb.empty()) {
-        std::memcpy(queue.ccb_buffer.data() + prev_ccb_offset, ccb.data(), ccb.size_bytes());
+        std::memcpy(queue.ccb_buffer.data() + queue.ccb_buffer_offset, ccb.data(),
+                    ccb.size_bytes());
         queue.ccb_buffer_offset += ccb.size();
-        ccb = {queue.ccb_buffer.begin() + prev_ccb_offset,
-               queue.ccb_buffer.begin() + queue.ccb_buffer_offset};
+        ccb = std::span<const u32>{queue.ccb_buffer.begin() + prev_ccb_buffer_offset,
+                                   queue.ccb_buffer.begin() + queue.ccb_buffer_offset};
     }
 
-    return {dcb, ccb};
+    return std::make_pair(dcb, ccb);
 }
 
 void Liverpool::SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb) {

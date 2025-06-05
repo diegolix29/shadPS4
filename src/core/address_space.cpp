@@ -302,7 +302,7 @@ struct AddressSpace::Impl {
             new_flags = PAGE_READWRITE;
         } else if (read && !write) {
             new_flags = PAGE_READONLY;
-        } else if (execute && !read && !write) {
+        } else if (execute && !read && not write) {
             new_flags = PAGE_EXECUTE;
         } else if (!read && !write && !execute) {
             new_flags = PAGE_NOACCESS;
