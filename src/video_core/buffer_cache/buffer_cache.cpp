@@ -167,7 +167,10 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
                     .dstOffset = total_size_bytes,
                     .size = new_size,
                 });
-                total_size_bytes += new_size;
+                // Align up to avoid cache conflicts
+                constexpr u64 align = 64ULL;
+                constexpr u64 mask = ~(align - 1ULL);
+                total_size_bytes += (new_size + align - 1) & mask;
             };
             gpu_modified_ranges.ForEachInRange(device_addr_out, range_size, add_download);
             gpu_modified_ranges.Subtract(device_addr_out, range_size);
@@ -322,16 +325,25 @@ void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bo
     InlineDataBuffer(*buffer, address, value, num_bytes);
 }
 
+void BufferCache::EnsureRegionRegistered(VAddr address, u32 size) {
+    if (!IsRegionRegistered(address, size)) {
+        const BufferId buffer_id = FindBuffer(address, size);
+        (void)buffer_id;
+    }
+}
+
 void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds) {
-    if (!dst_gds && !IsRegionRegistered(dst, num_bytes)) {
-        if (!src_gds && !IsRegionRegistered(src, num_bytes)) {
-            // Both buffers were not transferred to GPU yet. Can safely copy in host memory.
+    if (!src_gds && !IsRegionRegistered(src, num_bytes)) {
+        if (!dst_gds && !IsRegionRegistered(dst, num_bytes)) {
             memcpy(std::bit_cast<void*>(dst), std::bit_cast<void*>(src), num_bytes);
             return;
         }
-        // Without a readback there's nothing we can do with this
-        // Fallback to creating dst buffer on GPU to at least have this data there
+        // Force GPU write to dst even if dst was not previously registered
+        EnsureRegionRegistered(dst, num_bytes); // You'd implement this
+        InlineData(dst, std::bit_cast<void*>(src), num_bytes, dst_gds);
+        return;
     }
+
     if (!src_gds && !IsRegionRegistered(src, num_bytes)) {
         InlineData(dst, std::bit_cast<void*>(src), num_bytes, dst_gds);
         return;
@@ -375,7 +387,7 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
             .size = num_bytes,
         },
     };
-    scheduler.EndRendering();
+
     const auto cmdbuf = scheduler.CommandBuffer();
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
@@ -931,15 +943,16 @@ bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, 
         const u32 height = std::max(image.info.size.height >> m, 1u);
         const u32 depth =
             image.info.props.is_volume ? std::max(image.info.size.depth >> m, 1u) : 1u;
-        const auto& [mip_size, mip_pitch, mip_height, mip_ofs] = image.info.mips_layout[m];
-        offset += mip_ofs;
-        if (offset + mip_size > max_offset) {
+        const auto& mip = image.info.mips_layout[m];
+        offset += mip.offset;
+        if (offset + mip.size > max_offset) {
             break;
         }
+
         copies.push_back({
             .bufferOffset = offset,
-            .bufferRowLength = static_cast<u32>(mip_pitch),
-            .bufferImageHeight = static_cast<u32>(mip_height),
+            .bufferRowLength = static_cast<u32>(mip.pitch),
+            .bufferImageHeight = static_cast<u32>(mip.height),
             .imageSubresource{
                 .aspectMask = image.aspect_mask & ~vk::ImageAspectFlagBits::eStencil,
                 .mipLevel = m,
