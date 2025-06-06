@@ -306,6 +306,12 @@ struct AddressSpace::Impl {
             new_flags = PAGE_EXECUTE;
         } else if (!read && !write && !execute) {
             new_flags = PAGE_NOACCESS;
+        } else if (!read && write && !execute) {
+            new_flags = PAGE_READWRITE;
+            LOG_WARNING(
+                Common_Memory,
+                "Requested write-only protection at {:#x} upgraded to read/write (PAGE_READWRITE)",
+                virtual_addr);
         } else {
             LOG_CRITICAL(Common_Memory,
                          "Unsupported protection flag combination for address {:#x}, size {}, "
