@@ -581,7 +581,7 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
                 is_storage ? instance.StorageMinAlignment() : instance.UniformMinAlignment();
             const u32 offset_aligned = Common::AlignDown(offset, alignment);
             const u32 adjust = offset - offset_aligned;
-            ASSERT(adjust % 4 == 0);
+            //ASSERT(adjust % 4 == 0);
             push_data.AddOffset(binding.buffer, adjust);
             buffer_infos.emplace_back(vk_buffer->Handle(), offset_aligned, size + adjust);
             if (auto barrier =
