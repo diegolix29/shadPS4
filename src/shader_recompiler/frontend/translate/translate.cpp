@@ -284,7 +284,7 @@ T Translator::GetSrc(const InstOperand& operand) {
         }
         break;
     default:
-        UNREACHABLE();
+        //UNREACHABLE();
     }
 
     if constexpr (is_float) {
