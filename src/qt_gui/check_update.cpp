@@ -158,7 +158,7 @@ tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached 
             }
         }
 
-        latestRev = latestVersion.right(40);
+        latestRev = latestVersion.right(40).left(7);
         latestDate = jsonObj["published_at"].toString();
 
         QJsonArray assets = jsonObj["assets"].toArray();
