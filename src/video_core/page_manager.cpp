@@ -39,36 +39,20 @@ constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
-        u8 num_write_watchers{};
-        u8 has_read_watcher{};
+        u8 num_watchers{};
 
-        Core::MemoryPermission WritePerm() const noexcept {
-            return num_write_watchers == 0 ? Core::MemoryPermission::Write
-                                           : Core::MemoryPermission::None;
+        Core::MemoryPermission Perm() {
+            return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
+                                     : Core::MemoryPermission::Read;
         }
 
-        Core::MemoryPermission ReadPerm() const noexcept {
-            return has_read_watcher == 0 ? Core::MemoryPermission::Read
-                                         : Core::MemoryPermission::None;
-        }
-
-        Core::MemoryPermission Perms() const noexcept {
-            return ReadPerm() | WritePerm();
-        }
-
-        template <bool is_read, s32 delta>
+        template <s32 delta>
         u8 AddDelta() noexcept {
-            if constexpr (is_read) {
-                ASSERT_MSG(has_read_watcher == (delta < 0), "Invalid read watcher state");
-                has_read_watcher = delta > 0;
-                return has_read_watcher;
+            if constexpr (delta > 0) {
+                return ++num_watchers;
             } else {
-                if constexpr (delta > 0) {
-                    return ++num_write_watchers;
-                } else {
-                    ASSERT_MSG(num_write_watchers > 0, "No write watcher to remove");
-                    return --num_write_watchers;
-                }
+                ASSERT_MSG(num_watchers > 0, "Watcher underflow");
+                return --num_watchers;
             }
         }
     };
@@ -234,9 +218,9 @@ struct PageManager::Impl {
                 std::scoped_lock lk(lock);
                 PageState& state = cached_pages[page];
                 old_state = state; // copy old state
-                const auto new_count = state.AddDelta<is_read, delta>();
+                const auto new_count = state.AddDelta<delta>();
 
-                Core::MemoryPermission new_perms = state.Perms();
+                Core::MemoryPermission new_perms = state.Perm();
                 if (new_perms != perms) [[unlikely]] {
                     release_pending();
                     perms = new_perms;
