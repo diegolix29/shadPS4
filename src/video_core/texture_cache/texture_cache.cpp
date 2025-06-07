@@ -8,7 +8,6 @@
 #include "common/debug.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/page_manager.h"
-#include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/texture_cache/host_compatibility.h"
@@ -741,7 +740,7 @@ void TextureCache::UntrackImage(ImageId image_id) {
     image.track_addr = 0;
     image.track_addr_end = 0;
     if (size != 0) {
-        tracker.UpdatePageWatchers<-1>(addr, size);
+        tracker.UpdatePageWatchers<false>(addr, size);
     }
 }
 
@@ -760,7 +759,7 @@ void TextureCache::UntrackImageHead(ImageId image_id) {
         // Cehck its hash later.
         MarkAsMaybeDirty(image_id, image);
     }
-    tracker.UpdatePageWatchers<-1>(image_begin, size);
+    tracker.UpdatePageWatchers<false>(image_begin, size);
 }
 
 void TextureCache::UntrackImageTail(ImageId image_id) {
@@ -779,7 +778,7 @@ void TextureCache::UntrackImageTail(ImageId image_id) {
         // Cehck its hash later.
         MarkAsMaybeDirty(image_id, image);
     }
-    tracker.UpdatePageWatchers<-1>(addr, size);
+    tracker.UpdatePageWatchers<false>(addr, size);
 }
 
 void TextureCache::DeleteImage(ImageId image_id) {
