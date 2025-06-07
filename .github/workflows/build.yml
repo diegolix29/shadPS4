@@ -82,12 +82,7 @@ jobs:
       with:
         append-timestamp: false
         key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
-
-    - name: Setup VS Environment
-      uses: ilammy/msvc-dev-cmd@v1.13.0
-      with:
-        arch: amd64
-
+        
     - name: Configure CMake
       run: cmake --fresh -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON  -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
@@ -136,11 +131,6 @@ jobs:
       with:
         append-timestamp: false
         key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
-
-    - name: Setup VS Environment
-      uses: ilammy/msvc-dev-cmd@v1.13.0
-      with:
-        arch: amd64
 
     - name: Configure CMake
       run: cmake --fresh -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_QT_GUI=ON -DENABLE_UPDATER=ON  -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
