@@ -76,7 +76,7 @@ jobs:
             ${{ env.cache-name }}-
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.17
+      uses: hendrikmuhs/ccache-action@v1.2.18
       env:
           cache-name: ${{ runner.os }}-sdl-cache-cmake-build
       with:
@@ -130,7 +130,7 @@ jobs:
             ${{ env.cache-name }}-
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.17
+      uses: hendrikmuhs/ccache-action@v1.2.18
       env:
           cache-name: ${{ runner.os }}-qt-cache-cmake-build
       with:
@@ -186,7 +186,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.17
+      uses: hendrikmuhs/ccache-action@v1.2.18
       env:
           cache-name: ${{runner.os}}-sdl-cache-cmake-build
       with:
@@ -247,7 +247,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.17
+      uses: hendrikmuhs/ccache-action@v1.2.18
       env:
           cache-name: ${{runner.os}}-qt-cache-cmake-build
       with:
@@ -301,7 +301,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.17
+      uses: hendrikmuhs/ccache-action@v1.2.18
       env:
           cache-name: ${{ runner.os }}-sdl-cache-cmake-build
       with:
@@ -362,7 +362,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.17
+      uses: hendrikmuhs/ccache-action@v1.2.18
       env:
           cache-name: ${{ runner.os }}-qt-cache-cmake-build
       with:
@@ -409,7 +409,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.17
+      uses: hendrikmuhs/ccache-action@v1.2.18
       env:
           cache-name: ${{ runner.os }}-sdl-gcc-cache-cmake-build
       with:
@@ -445,7 +445,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.17
+      uses: hendrikmuhs/ccache-action@v1.2.18
       env:
           cache-name: ${{ runner.os }}-qt-gcc-cache-cmake-build
       with:
