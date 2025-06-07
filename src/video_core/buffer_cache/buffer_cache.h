@@ -17,13 +17,6 @@ namespace AmdGpu {
 struct Liverpool;
 }
 
-namespace Shader {
-namespace Gcn {
-struct FetchShaderData;
-}
-struct Info;
-} // namespace Shader
-
 namespace Vulkan {
 class GraphicsPipeline;
 }
@@ -106,6 +99,7 @@ public:
     /// Invalidates any buffer in the logical page range.
     void InvalidateMemory(VAddr device_addr, u64 size, bool unmap);
 
+    /// Waits on pending downloads in the logical page range.
     void ReadMemory(VAddr device_addr, u64 size);
 
     /// Binds host vertex buffers for the current draw.
@@ -116,6 +110,8 @@ public:
 
     /// Writes a value to GPU buffer. (uses command buffer to temporarily store the data)
     void InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds);
+
+    /// Performs buffer to buffer data copy on the GPU.
     void CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds);
 
     /// Writes a value to GPU buffer. (uses staging buffer to temporarily store the data)
@@ -194,7 +190,7 @@ private:
     Vulkan::Rasterizer& rasterizer;
     AmdGpu::Liverpool* liverpool;
     TextureCache& texture_cache;
-    PageManager& tracker;
+    std::unique_ptr<MemoryTracker> memory_tracker;
     StreamBuffer staging_buffer;
     StreamBuffer stream_buffer;
     StreamBuffer download_buffer;
@@ -205,7 +201,6 @@ private:
     Common::SlotVector<Buffer> slot_buffers;
     RangeSet gpu_modified_ranges;
     SplitRangeMap<BufferId> buffer_ranges;
-    MemoryTracker memory_tracker;
     PageTable page_table;
     vk::UniqueDescriptorSetLayout fault_process_desc_layout;
     vk::UniquePipeline fault_process_pipeline;
