@@ -25,10 +25,9 @@
 namespace VideoCore {
 
 const DetilerContext* TileManager::GetDetiler(const ImageInfo& info) const {
-    const auto bpp = info.num_bits * (info.props.is_block ? 16 : 1);
     switch (info.tiling_mode) {
     case AmdGpu::TilingMode::Texture_MicroTiled:
-        switch (bpp) {
+        switch (info.num_bits) {
         case 8:
             return &detilers[DetilerType::Micro8];
         case 16:
@@ -43,7 +42,7 @@ const DetilerContext* TileManager::GetDetiler(const ImageInfo& info) const {
             return nullptr;
         }
     case AmdGpu::TilingMode::Texture_Volume:
-        switch (bpp) {
+        switch (info.num_bits) {
         case 8:
             return &detilers[DetilerType::Macro8];
         case 32:
@@ -55,7 +54,7 @@ const DetilerContext* TileManager::GetDetiler(const ImageInfo& info) const {
         }
         break;
     case AmdGpu::TilingMode::Display_MicroTiled:
-        switch (bpp) {
+        switch (info.num_bits) {
         case 64:
             return &detilers[DetilerType::Display_Micro64];
         default:
@@ -71,7 +70,7 @@ struct DetilerParams {
     u32 num_levels;
     u32 pitch0;
     u32 height;
-    std::array<u32, 14> sizes{};
+    std::array<u32, 16> sizes;
 };
 
 TileManager::TileManager(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler)
@@ -264,69 +263,32 @@ std::pair<vk::Buffer, u32> TileManager::TryDetile(vk::Buffer in_buffer, u32 in_o
     cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eCompute, *detiler->pl_layout, 0,
                                 set_writes);
 
-    DetilerParams params{};
+    DetilerParams params;
     params.num_levels = info.resources.levels;
     params.pitch0 = info.pitch >> (info.props.is_block ? 2u : 0u);
     params.height = info.size.height;
-
-    const bool is_volume = info.tiling_mode == AmdGpu::TilingMode::Texture_Volume;
-    const bool is_display = info.tiling_mode == AmdGpu::TilingMode::Display_MicroTiled;
-
-    if (is_volume || is_display) {
-        // Display surfaces must not use mipmaps.
-        if (is_display && info.resources.levels > 1) {
-            LOG_ERROR(Lib_Videodec, "Display tiling with multiple mip levels is not supported.");
-            return {}; // or handle error
-        }
-
-        ASSERT(in_buffer != out_buffer.first);
-
+    if (info.tiling_mode == AmdGpu::TilingMode::Texture_Volume ||
+        info.tiling_mode == AmdGpu::TilingMode::Display_MicroTiled) {
+        ASSERT(info.resources.levels == 1);
         const auto tiles_per_row = info.pitch / 8u;
-        const auto tiles_per_slice = tiles_per_row * (Common::AlignUp(info.size.height, 8u) / 8u);
-
+        const auto tiles_per_slice = tiles_per_row * ((info.size.height + 7u) / 8u);
         params.sizes[0] = tiles_per_row;
         params.sizes[1] = tiles_per_slice;
-
-        for (size_t i = 2; i < params.sizes.size(); ++i)
-            params.sizes[i] = 0;
     } else {
-        if (info.resources.levels > params.sizes.size()) {
-            LOG_ERROR(Lib_Videodec, "Too many mip levels: {}, max supported is {}",
-                      info.resources.levels, params.sizes.size());
-            return {};
+        ASSERT(info.resources.levels <= params.sizes.size());
+        std::memset(&params.sizes, 0, sizeof(params.sizes));
+        for (int m = 0; m < info.resources.levels; ++m) {
+            params.sizes[m] = info.mips_layout[m].size + (m > 0 ? params.sizes[m - 1] : 0);
         }
-
-        u32 accum = 0;
-        for (uint32_t m = 0; m < info.resources.levels; ++m) {
-            accum += info.mips_layout[m].size;
-            params.sizes[m] = accum;
-        }
-        for (uint32_t m = info.resources.levels; m < params.sizes.size(); ++m)
-            params.sizes[m] = 0;
     }
-
-    // Log DetilerParams for debug
-    LOG_DEBUG(Lib_Videodec, "DetilerParams: levels={}, pitch0={}, height={}", params.num_levels,
-              params.pitch0, params.height);
-    for (size_t i = 0; i < params.sizes.size(); ++i)
-        LOG_DEBUG(Lib_Videodec, "  sizes[{}] = {}", i, params.sizes[i]);
 
     cmdbuf.pushConstants(*detiler->pl_layout, vk::ShaderStageFlagBits::eCompute, 0u, sizeof(params),
                          &params);
 
-    // Make sure size is aligned
-    const auto aligned_image_size = Common::AlignUp(image_size, 64u);
-    ASSERT((aligned_image_size % 64) == 0);
-
-    const auto bpp = info.num_bits * (info.props.is_block ? 16u : 1u);
-    const auto num_tiles = aligned_image_size / (64 * (bpp / 8));
-
-    LOG_DEBUG(Lib_Videodec, "Dispatch: image_size={}, aligned={}, bpp={}, num_tiles={}", image_size,
-              aligned_image_size, bpp, num_tiles);
-
+    ASSERT((image_size % 64) == 0);
+    const auto num_tiles = image_size / (64 * (info.num_bits / 8));
     cmdbuf.dispatch(num_tiles, 1, 1);
-    return std::make_pair(out_buffer.first, 0u);
-    return std::make_pair(out_buffer.first, 0u);
+    return {out_buffer.first, 0};
 }
 
 } // namespace VideoCore
