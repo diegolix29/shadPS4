@@ -93,7 +93,7 @@ struct PageManager::Impl {
             }
         }
 
-    template <bool is_read, s32 delta>
+        template <bool is_read, s32 delta>
         u8 AddDelta() noexcept {
             static_assert(delta == 1 || delta == -1, "Delta must be +1 or -1");
 
@@ -285,7 +285,7 @@ struct PageManager::Impl {
             }
         };
 
-for (; page != page_end; ++page) {
+        for (; page != page_end; ++page) {
             PageState old_state;
             {
                 std::scoped_lock lk(lock);

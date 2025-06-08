@@ -7,8 +7,8 @@
 #include <deque>
 #include <type_traits>
 #include <vector>
-#include "common/logging/log.h"
 #include "common/debug.h"
+#include "common/logging/log.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/word_manager.h"
 

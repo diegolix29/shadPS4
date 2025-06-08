@@ -659,8 +659,8 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                             dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
                     if (dma_data->NumBytes() > 2) {
                         rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(),
-                                               dma_data->SrcAddress<VAddr>(),
-                                               dma_data->NumBytes(), false, false);
+                                               dma_data->SrcAddress<VAddr>(), dma_data->NumBytes(),
+                                               false, false);
                     } else {
                         UNREACHABLE_MSG("Invalid NumBytes for memory copy: {}",
                                         dma_data->NumBytes());
