@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-
+#include <cstdio>
 #include <boost/container/small_vector.hpp>
 #include "common/assert.h"
 #include "common/debug.h"
@@ -39,21 +39,94 @@ constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
-        u8 num_watchers{};
+        u8 watch_flags{};
 
-        Core::MemoryPermission Perm() {
-            return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
-                                     : Core::MemoryPermission::Read;
+        static constexpr u8 READ_COUNT_MASK = 0x0F;  // bits 0-3
+        static constexpr u8 WRITE_COUNT_MASK = 0xF0; // bits 4-7
+
+        u8 GetReadCount() const noexcept {
+            return watch_flags & READ_COUNT_MASK;
+        }
+        u8 GetWriteCount() const noexcept {
+            return (watch_flags & WRITE_COUNT_MASK) >> 4;
         }
 
-        template <s32 delta>
-        u8 AddDelta() noexcept {
-            if constexpr (delta > 0) {
-                return ++num_watchers;
+        void IncrementReadCount() {
+            auto count = GetReadCount();
+            if (count < 15) {
+                ++count;
+                watch_flags = (watch_flags & WRITE_COUNT_MASK) | count;
             } else {
-                ASSERT_MSG(num_watchers > 0, "Watcher underflow");
-                return --num_watchers;
+                // handle overflow
             }
+        }
+
+        void DecrementReadCount() {
+            auto count = GetReadCount();
+            if (count > 0) {
+                --count;
+                watch_flags = (watch_flags & WRITE_COUNT_MASK) | count;
+            } else {
+                // error
+            }
+        }
+
+        // Similarly for write count:
+
+        void IncrementWriteCount() {
+            auto count = GetWriteCount();
+            if (count < 15) {
+                ++count;
+                watch_flags = (watch_flags & READ_COUNT_MASK) | (count << 4);
+            } else {
+                // handle overflow
+            }
+        }
+
+        void DecrementWriteCount() {
+            auto count = GetWriteCount();
+            if (count > 0) {
+                --count;
+                watch_flags = (watch_flags & READ_COUNT_MASK) | (count << 4);
+            } else {
+                // error
+            }
+        }
+
+    template <bool is_read, s32 delta>
+        u8 AddDelta() noexcept {
+            static_assert(delta == 1 || delta == -1, "Delta must be +1 or -1");
+
+            u8 read_count = GetReadCount();
+            u8 write_count = GetWriteCount();
+
+            if constexpr (is_read) {
+                s32 new_count = static_cast<s32>(read_count) + delta;
+                ASSERT_MSG(new_count >= 0 && new_count <= 15, "Invalid read watcher count");
+                read_count = static_cast<u8>(new_count);
+            } else {
+                s32 new_count = static_cast<s32>(write_count) + delta;
+                ASSERT_MSG(new_count >= 0 && new_count <= 15, "Invalid write watcher count");
+                write_count = static_cast<u8>(new_count);
+            }
+
+            watch_flags = (write_count << 4) | read_count;
+
+            return watch_flags;
+        }
+
+        Core::MemoryPermission WritePerm() const noexcept {
+            return GetWriteCount() == 0 ? Core::MemoryPermission::Write
+                                        : Core::MemoryPermission::None;
+        }
+
+        Core::MemoryPermission ReadPerm() const noexcept {
+            return GetReadCount() == 0 ? Core::MemoryPermission::Read
+                                       : Core::MemoryPermission::None;
+        }
+
+        Core::MemoryPermission Perms() const noexcept {
+            return ReadPerm() | WritePerm();
         }
     };
 
@@ -212,21 +285,38 @@ struct PageManager::Impl {
             }
         };
 
-        for (; page != page_end; ++page) {
+for (; page != page_end; ++page) {
             PageState old_state;
             {
                 std::scoped_lock lk(lock);
                 PageState& state = cached_pages[page];
                 old_state = state; // copy old state
-                const auto new_count = state.AddDelta<delta>();
 
-                Core::MemoryPermission new_perms = state.Perm();
-                if (new_perms != perms) [[unlikely]] {
+                const auto old_perms = state.Perms();
+                u8 old_watch_flags = state.watch_flags;
+
+                u8 new_watch_flags = state.AddDelta<is_read, delta>();
+
+                const auto new_perms = state.Perms();
+
+                if (new_perms != old_perms) {
                     release_pending();
                     perms = new_perms;
                 }
 
-                if ((new_count == 0 && delta < 0) || (new_count == 1 && delta > 0)) {
+                // Extract relevant counts depending on is_read
+                u8 old_count = 0;
+                u8 new_count = 0;
+                if constexpr (is_read) {
+                    old_count = old_watch_flags & PageState::READ_COUNT_MASK;
+                    new_count = new_watch_flags & PageState::READ_COUNT_MASK;
+                } else {
+                    old_count = (old_watch_flags & PageState::WRITE_COUNT_MASK) >> 4;
+                    new_count = (new_watch_flags & PageState::WRITE_COUNT_MASK) >> 4;
+                }
+
+                // Check if watcher count changed from 0 to 1 or 1 to 0
+                if ((new_count == 0 && old_count == 1) || (new_count == 1 && old_count == 0)) {
                     if (range_bytes == 0) {
                         range_begin = page;
                     }
