@@ -267,49 +267,29 @@ std::pair<vk::Buffer, u32> TileManager::TryDetile(vk::Buffer in_buffer, u32 in_o
     params.num_levels = info.resources.levels;
     params.pitch0 = info.pitch >> (info.props.is_block ? 2u : 0u);
     params.height = info.size.height;
-
-    const bool is_volume = info.tiling_mode == AmdGpu::TilingMode::Texture_Volume;
-    const bool is_display = info.tiling_mode == AmdGpu::TilingMode::Display_MicroTiled;
-
-    if (is_volume || is_display) {
-        if (is_display && info.resources.levels > 1) {
-            LOG_ERROR(Lib_Videodec, "Display tiling with multiple mip levels is not supported.");
-            return {};
+    if (info.tiling_mode == AmdGpu::TilingMode::Texture_Volume ||
+        info.tiling_mode == AmdGpu::TilingMode::Display_MicroTiled) {
+        if (info.resources.levels != 1) {
+            LOG_ERROR(Render_Vulkan, "Unexpected mipmaps for volume and display tilings {}",
+                      info.resources.levels);
         }
-        ASSERT(in_buffer != out_buffer.first);
-
         const auto tiles_per_row = info.pitch / 8u;
-        const auto tiles_per_slice = tiles_per_row * (Common::AlignUp(info.size.height, 8u) / 8u);
-
+        const auto tiles_per_slice = tiles_per_row * ((info.size.height + 7u) / 8u);
         params.sizes[0] = tiles_per_row;
         params.sizes[1] = tiles_per_slice;
-        for (size_t i = 2; i < params.sizes.size(); ++i)
-            params.sizes[i] = 0;
     } else {
-        if (info.resources.levels > params.sizes.size()) {
-            LOG_ERROR(Lib_Videodec, "Too many mip levels: {}, max supported is {}",
-                      info.resources.levels, params.sizes.size());
-            return {};
+        ASSERT(info.resources.levels <= params.sizes.size());
+        std::memset(&params.sizes, 0, sizeof(params.sizes));
+        for (int m = 0; m < info.resources.levels; ++m) {
+            params.sizes[m] = info.mips_layout[m].size + (m > 0 ? params.sizes[m - 1] : 0);
         }
-        u32 accum = 0;
-        for (uint32_t m = 0; m < info.resources.levels; ++m) {
-            accum += info.mips_layout[m].size;
-            params.sizes[m] = accum;
-        }
-        for (uint32_t m = info.resources.levels; m < params.sizes.size(); ++m)
-            params.sizes[m] = 0;
     }
-    LOG_DEBUG(Lib_Videodec, "DetilerParams: levels={}, pitch0={}, height={}", params.num_levels,
-              params.pitch0, params.height);
-    for (size_t i = 0; i < params.sizes.size(); ++i)
-        LOG_DEBUG(Lib_Videodec, "  sizes[{}] = {}", i, params.sizes[i]);
+
     cmdbuf.pushConstants(*detiler->pl_layout, vk::ShaderStageFlagBits::eCompute, 0u, sizeof(params),
                          &params);
-    const auto aligned_image_size = Common::AlignUp(image_size, 64u);
-    ASSERT(info.resources.levels <= params.sizes.size());
+
+    ASSERT((image_size % 64) == 0);
     const auto num_tiles = image_size / (64 * (info.num_bits / 8));
-    LOG_DEBUG(Lib_Videodec, "Dispatch: image_size={}, aligned={}, info.num_bits={}, num_tiles={}",
-              image_size, aligned_image_size, info.num_bits, num_tiles);
     cmdbuf.dispatch(num_tiles, 1, 1);
     return {out_buffer.first, 0};
 }
