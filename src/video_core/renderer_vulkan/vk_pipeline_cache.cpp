@@ -237,7 +237,7 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
 }
 
 bool ShouldSkipShader(u64 shader_hash, const char* shader_type) {
-    static std::vector<u64> skip_hashes = {0x4b0392bf, 0x9f37ecc3};
+    static std::vector<u64> skip_hashes = {0x4b0392bf, 0x9f37ecc3, 0x4a586e81};
     if (std::ranges::contains(skip_hashes, shader_hash)) {
         LOG_WARNING(Render_Vulkan, "Skipped {} shader hash {:#x}.", shader_type, shader_hash);
         return true;
