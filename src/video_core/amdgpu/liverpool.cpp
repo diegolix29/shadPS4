@@ -227,6 +227,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
         const u32 type = header->type;
 
         switch (type) {
+        default:
+            UNREACHABLE_MSG("Wrong PM4 type {}", type);
+            break;
         case 0:
             LOG_ERROR(Lib_GnmDriver, "Continue hack Unsupported PM4 type 0");
             dcb = NextPacket(dcb, header->type0.NumWords() + 1);
@@ -833,6 +836,19 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
                 *queue.read_addr %= queue.ring_size_dw;
             }
             break;
+        }
+
+        if (header->type == 2) {
+            // Type-2 packet are used for padding purposes
+            next_dw_off = 1;
+            acb += next_dw_off;
+            acb_dwords -= next_dw_off;
+
+            if constexpr (!is_indirect) {
+                *queue.read_addr += next_dw_off;
+                *queue.read_addr %= queue.ring_size_dw;
+            }
+            continue;
         }
 
         if (header->type != 3) {
