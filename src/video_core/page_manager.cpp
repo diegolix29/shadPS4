@@ -29,6 +29,49 @@
 namespace VideoCore {
 
 struct PageManager::Impl {
+    struct PageState {
+        u8 num_write_watchers : 7;
+        u8 num_read_watchers : 1;
+
+        Core::MemoryPermission WritePerm() const noexcept {
+            return num_write_watchers == 0 ? Core::MemoryPermission::Write
+                                           : Core::MemoryPermission::None;
+        }
+
+        Core::MemoryPermission ReadPerm() const noexcept {
+            return num_read_watchers == 0 ? Core::MemoryPermission::Read
+                                          : Core::MemoryPermission::None;
+        }
+
+        Core::MemoryPermission Perms() const noexcept {
+            return ReadPerm() | WritePerm();
+        }
+
+        template <bool IsRead, s32 Delta>
+        u8 AddDelta() noexcept {
+            static_assert(Delta == 1 || Delta == -1, "Delta must be 1 or -1");
+
+            if constexpr (IsRead) {
+                if constexpr (Delta > 0) {
+                    ASSERT_MSG(num_read_watchers == 0, "Multiple read watchers not supported");
+                    num_read_watchers = 1;
+                } else {
+                    ASSERT_MSG(num_read_watchers == 1, "Read watcher underflow");
+                    num_read_watchers = 0;
+                }
+                return num_read_watchers;
+            } else {
+                if constexpr (Delta > 0) {
+                    ASSERT_MSG(num_write_watchers < 127, "Write watcher overflow");
+                    return ++num_write_watchers;
+                } else {
+                    ASSERT_MSG(num_write_watchers > 0, "Write watcher underflow");
+                    return --num_write_watchers;
+                }
+            }
+        }
+    };
+
     static constexpr size_t ADDRESS_BITS = 40;
     static constexpr size_t NUM_ADDRESS_PAGES = 1ULL << (40 - PAGE_BITS);
     inline static Vulkan::Rasterizer* rasterizer;
@@ -200,44 +243,6 @@ struct PageManager::Impl {
             }
         }
         release_pending();
-    }
-
-    struct PageState {
-        u8 num_write_watchers : 7;
-        // At the moment only buffer cache can request read watchers.
-        // And buffers cannot overlap, thus only 1 can exist per page.
-        u8 num_read_watchers : 1;
-
-        Core::MemoryPermission WritePerm() const noexcept {
-            return num_write_watchers == 0 ? Core::MemoryPermission::Write
-                                           : Core::MemoryPermission::None;
-        }
-
-        Core::MemoryPermission ReadPerm() const noexcept {
-            return num_read_watchers == 0 ? Core::MemoryPermission::Read
-                                          : Core::MemoryPermission::None;
-        }
-
-        Core::MemoryPermission Perms() const noexcept {
-            return ReadPerm() | WritePerm();
-        }
-
-        template <bool is_read, s32 delta>
-        u8 AddDelta() {
-            if constexpr (is_read) {
-                if constexpr (delta == 1) {
-                    return ++num_read_watchers;
-                } else {
-                    return --num_read_watchers;
-                }
-            } else {
-                if constexpr (delta == 1) {
-                    return ++num_write_watchers;
-                } else {
-                    return --num_write_watchers;
-                }
-            }
-        }
     };
 
     std::array<PageState, NUM_ADDRESS_PAGES> cached_pages{};
