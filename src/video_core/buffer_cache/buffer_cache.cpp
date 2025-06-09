@@ -506,9 +506,7 @@ std::pair<Buffer*, u32> BufferCache::ObtainViewBuffer(VAddr gpu_addr, u32 size, 
         return ObtainBuffer(gpu_addr, size, false, false);
     }
     // In all other cases, just do a CPU copy to the staging buffer.
-    const auto [data, offset] = staging_buffer.Map(size, 16);
-    memory->CopySparseMemory(gpu_addr, data, size);
-    staging_buffer.Commit();
+    const u32 offset = staging_buffer.Copy(gpu_addr, size, 16);
     return {&staging_buffer, offset};
 }
 

@@ -189,7 +189,6 @@ private:
     Vulkan::Scheduler& scheduler;
     Vulkan::Rasterizer& rasterizer;
     AmdGpu::Liverpool* liverpool;
-    Core::MemoryManager* memory;
     TextureCache& texture_cache;
     std::unique_ptr<MemoryTracker> memory_tracker;
     StreamBuffer staging_buffer;
