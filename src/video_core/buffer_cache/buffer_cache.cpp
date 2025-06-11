@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <semaphore>
 #include "common/alignment.h"
 #include "common/debug.h"
 #include "common/scope_exit.h"
@@ -9,6 +10,7 @@
 #include "core/memory.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
+#include "video_core/buffer_cache/memory_tracker.h"
 #include "video_core/host_shaders/fault_buffer_process_comp.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -28,9 +30,8 @@ static constexpr size_t MaxPageFaults = 1024;
 
 BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
                          Vulkan::Rasterizer& rasterizer_, AmdGpu::Liverpool* liverpool_,
-                         TextureCache& texture_cache_, PageManager& tracker_)
-    : instance{instance_}, scheduler{scheduler_}, rasterizer{rasterizer_}, liverpool{liverpool_},
-      memory{Core::Memory::Instance()}, texture_cache{texture_cache_}, tracker{tracker_},
+                         TextureCache& texture_cache_, PageManager& tracker)
+    : instance{instance_}, scheduler{scheduler_}, rasterizer{rasterizer_}, liverpool{liverpool_}, texture_cache{texture_cache_},
       staging_buffer{instance, scheduler, MemoryUsage::Upload, StagingBufferSize},
       stream_buffer{instance, scheduler, MemoryUsage::Stream, UboStreamBufferSize},
       download_buffer{instance, scheduler, MemoryUsage::Download, DownloadBufferSize},
@@ -38,8 +39,8 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
       gds_buffer{instance, scheduler, MemoryUsage::Stream, 0, AllFlags, DataShareBufferSize},
       bda_pagetable_buffer{instance, scheduler, MemoryUsage::DeviceLocal,
                            0,        AllFlags,  BDA_PAGETABLE_SIZE},
-      fault_buffer(instance, scheduler, MemoryUsage::DeviceLocal, 0, AllFlags, FAULT_BUFFER_SIZE),
-      memory_tracker{tracker} {
+      fault_buffer(instance, scheduler, MemoryUsage::DeviceLocal, 0, AllFlags, FAULT_BUFFER_SIZE) {
+    memory_tracker = std::make_unique<MemoryTracker>(tracker);
     Vulkan::SetObjectName(instance.GetDevice(), gds_buffer.Handle(), "GDS Buffer");
     Vulkan::SetObjectName(instance.GetDevice(), bda_pagetable_buffer.Handle(),
                           "BDA Page Table Buffer");
@@ -129,23 +130,37 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
 
 BufferCache::~BufferCache() = default;
 
-void BufferCache::InvalidateMemory(VAddr device_addr, u64 size, bool unmap) {
-    const bool is_tracked = IsRegionRegistered(device_addr, size);
-    if (is_tracked) {
-        // Mark the page as CPU modified to stop tracking writes.
-        memory_tracker.MarkRegionAsCpuModified(device_addr, size);
-
-        if (unmap) {
-            return;
-        }
+void BufferCache::InvalidateMemory(VAddr addr, u64 size) {
+    if (!IsRegionRegistered(addr, size)) {
+        return;
     }
+    if (memory_tracker->IsRegionGpuModified(addr, size)) {
+        ReadMemory(addr, size);
+    }
+    memory_tracker->MarkRegionAsCpuModified(addr, size);
 }
 
-void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size) {
+void BufferCache::ReadMemory(VAddr addr, u64 size) {
+    if (std::this_thread::get_id() != liverpool->gpu_id) {
+        std::binary_semaphore command_wait{0};
+        liverpool->SendCommand([this, &command_wait, addr, size] {
+            Buffer& buffer = slot_buffers[FindBuffer(addr, size)];
+            DownloadBufferMemory(buffer, addr, size);
+            command_wait.release();
+        });
+        command_wait.acquire();
+    } else {
+        Buffer& buffer = slot_buffers[FindBuffer(addr, size)];
+        DownloadBufferMemory(buffer, addr, size);
+    }
+    memory_tracker->UnmarkRegionAsGpuModified(addr, size);
+}
+
+void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr addr, u64 size) {
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;
-    memory_tracker.ForEachDownloadRange<true>(
-        device_addr, size, [&](u64 device_addr_out, u64 range_size) {
+    memory_tracker->ForEachDownloadRange<true>(
+        addr, size, [&](u64 addr_out, u64 range_size) {
             const VAddr buffer_addr = buffer.CpuAddr();
             const auto add_download = [&](VAddr start, VAddr end) {
                 const u64 new_offset = start - buffer_addr;
@@ -155,10 +170,12 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
                     .dstOffset = total_size_bytes,
                     .size = new_size,
                 });
-                total_size_bytes += new_size;
+                constexpr u64 align = 64ULL;
+                constexpr u64 mask = ~(align - 1ULL);
+                total_size_bytes += (new_size + align - 1) & mask;
             };
-            gpu_modified_ranges.ForEachInRange(device_addr_out, range_size, add_download);
-            gpu_modified_ranges.Subtract(device_addr_out, range_size);
+            gpu_modified_ranges.ForEachInRange(addr_out, range_size, add_download);
+            gpu_modified_ranges.Subtract(addr_out, range_size);
         });
     if (total_size_bytes == 0) {
         return;
@@ -173,10 +190,12 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
     const auto cmdbuf = scheduler.CommandBuffer();
     cmdbuf.copyBuffer(buffer.buffer, download_buffer.Handle(), copies);
     scheduler.Finish();
+    auto* memory = Core::Memory::Instance();
     for (const auto& copy : copies) {
-        const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
+        const VAddr copy_addr = buffer.CpuAddr() + copy.srcOffset;
         const u64 dst_offset = copy.dstOffset - offset;
-        std::memcpy(std::bit_cast<u8*>(copy_device_addr), download + dst_offset, copy.size);
+        memory->TryWriteBacking(std::bit_cast<u8*>(copy_addr), download + dst_offset,
+                                copy.size);
     }
 }
 
@@ -296,18 +315,138 @@ void BufferCache::BindIndexBuffer(u32 index_offset) {
 
 void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
     ASSERT_MSG(address % 4 == 0, "GDS offset must be dword aligned");
-    if (!is_gds && !IsRegionGpuModified(address, num_bytes)) {
+    if (!is_gds) {
         memcpy(std::bit_cast<void*>(address), value, num_bytes);
-        return;
+        if (!IsRegionRegistered(address, num_bytes)) {
+            return;
+        }
     }
-    Buffer* buffer = [&] {
+    scheduler.EndRendering();
+    const Buffer* buffer = [&] {
         if (is_gds) {
             return &gds_buffer;
         }
         const BufferId buffer_id = FindBuffer(address, num_bytes);
         return &slot_buffers[buffer_id];
     }();
-    InlineDataBuffer(*buffer, address, value, num_bytes);
+    const auto cmdbuf = scheduler.CommandBuffer();
+    const vk::BufferMemoryBarrier2 pre_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
+        .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .buffer = buffer->Handle(),
+        .offset = buffer->Offset(address),
+        .size = num_bytes,
+    };
+    const vk::BufferMemoryBarrier2 post_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+        .buffer = buffer->Handle(),
+        .offset = buffer->Offset(address),
+        .size = num_bytes,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &pre_barrier,
+    });
+    cmdbuf.updateBuffer(buffer->Handle(), buffer->Offset(address), num_bytes, value);
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &post_barrier,
+    });
+}
+
+void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds) {
+    if (!dst_gds && !IsRegionRegistered(dst, num_bytes)) {
+        if (!src_gds && !IsRegionRegistered(src, num_bytes)) {
+            // Both buffers were not transferred to GPU yet. Can safely copy in host memory.
+            memcpy(std::bit_cast<void*>(dst), std::bit_cast<void*>(src), num_bytes);
+            return;
+        }
+        // Without a readback there's nothing we can do with this
+        // Fallback to creating dst buffer on GPU to at least have this data there
+    }
+    auto& src_buffer = [&] -> const Buffer& {
+        if (src_gds) {
+            return gds_buffer;
+        }
+        // Avoid using ObtainBuffer here as that might give us the stream buffer.
+        const BufferId buffer_id = FindBuffer(src, num_bytes);
+        auto& buffer = slot_buffers[buffer_id];
+        SynchronizeBuffer(buffer, src, num_bytes, false);
+        return buffer;
+    }();
+    auto& dst_buffer = [&] -> const Buffer& {
+        if (dst_gds) {
+            return gds_buffer;
+        }
+        // Prefer using ObtainBuffer here as that will auto-mark the region as GPU modified.
+        const auto [buffer, offset] = ObtainBuffer(dst, num_bytes, true);
+        return *buffer;
+    }();
+    vk::BufferCopy region{
+        .srcOffset = src_buffer.Offset(src),
+        .dstOffset = dst_buffer.Offset(dst),
+        .size = num_bytes,
+    };
+    const vk::BufferMemoryBarrier2 buf_barriers_before[2] = {
+        {
+            .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
+            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .buffer = dst_buffer.Handle(),
+            .offset = dst_buffer.Offset(dst),
+            .size = num_bytes,
+        },
+        {
+            .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
+            .buffer = src_buffer.Handle(),
+            .offset = src_buffer.Offset(src),
+            .size = num_bytes,
+        },
+    };
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 2,
+        .pBufferMemoryBarriers = buf_barriers_before,
+    });
+    cmdbuf.copyBuffer(src_buffer.Handle(), dst_buffer.Handle(), region);
+    const vk::BufferMemoryBarrier2 buf_barriers_after[2] = {
+        {
+            .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+            .buffer = dst_buffer.Handle(),
+            .offset = dst_buffer.Offset(dst),
+            .size = num_bytes,
+        },
+        {
+            .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferRead,
+            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .dstAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+            .buffer = src_buffer.Handle(),
+            .offset = src_buffer.Offset(src),
+            .size = num_bytes,
+        },
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 2,
+        .pBufferMemoryBarriers = buf_barriers_after,
+    });
 }
 
 void BufferCache::WriteData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
@@ -326,34 +465,33 @@ void BufferCache::WriteData(VAddr address, const void* value, u32 num_bytes, boo
     WriteDataBuffer(*buffer, address, value, num_bytes);
 }
 
-std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, bool is_written,
+std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr addr, u32 size, bool is_written,
                                                   bool is_texel_buffer, BufferId buffer_id) {
     // For small uniform buffers that have not been modified by gpu
     // use device local stream buffer to reduce renderpass breaks.
     // Maybe we want to modify the threshold now that the page size is 16KB?
-    static constexpr u64 StreamThreshold = CACHING_PAGESIZE;
-    const bool is_gpu_dirty = memory_tracker.IsRegionGpuModified(device_addr, size);
-    if (!is_written && size <= StreamThreshold && !is_gpu_dirty) {
-        const u64 offset = stream_buffer.Copy(device_addr, size, instance.UniformMinAlignment());
+    static constexpr u64 StreamThreshold = CACHING_PAGESIZE * 2;
+    if (!is_written && size <= StreamThreshold && !IsRegionGpuModified(addr, size)) {
+        const u64 offset = stream_buffer.Copy(addr, size, instance.UniformMinAlignment());
         return {&stream_buffer, offset};
     }
 
     if (!buffer_id || slot_buffers[buffer_id].is_deleted) {
-        buffer_id = FindBuffer(device_addr, size);
+        buffer_id = FindBuffer(addr, size);
     }
     Buffer& buffer = slot_buffers[buffer_id];
-    SynchronizeBuffer(buffer, device_addr, size, is_texel_buffer);
-    if (is_written) {
-        memory_tracker.MarkRegionAsGpuModified(device_addr, size);
-        gpu_modified_ranges.Add(device_addr, size);
+    SynchronizeBuffer(buffer, addr, size, is_texel_buffer);
+    static constexpr u64 GpuMarkThreshold = 512_MB;
+    if (is_written && size <= GpuMarkThreshold) {
+        memory_tracker->MarkRegionAsGpuModified(addr, size);
+        gpu_modified_ranges.Add(addr, size);
     }
-    return {&buffer, buffer.Offset(device_addr)};
+    return {&buffer, buffer.Offset(addr)};
 }
 
 std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 size) {
     // Check if any buffer contains the full requested range.
-    const u64 page = gpu_addr >> CACHING_PAGEBITS;
-    const BufferId buffer_id = page_table[page].buffer_id;
+    const BufferId buffer_id = page_table[gpu_addr >> CACHING_PAGEBITS].buffer_id;
     if (buffer_id) {
         Buffer& buffer = slot_buffers[buffer_id];
         if (buffer.IsInBounds(gpu_addr, size)) {
@@ -363,9 +501,10 @@ std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 si
     }
     // If no buffer contains the full requested range but some buffer within was GPU-modified,
     // fall back to ObtainBuffer to create a full buffer and avoid losing GPU modifications.
-    if (memory_tracker.IsRegionGpuModified(gpu_addr, size)) {
+    if (memory_tracker->IsRegionGpuModified(gpu_addr, size)) {
         return ObtainBuffer(gpu_addr, size, false, false);
     }
+    auto* memory = Core::Memory::Instance();
 
     // In all other cases, just do a CPU copy to the staging buffer.
     const auto [data, offset] = staging_buffer.Map(size, 16);
@@ -380,45 +519,50 @@ bool BufferCache::IsRegionRegistered(VAddr addr, size_t size) {
 }
 
 bool BufferCache::IsRegionCpuModified(VAddr addr, size_t size) {
-    return memory_tracker.IsRegionCpuModified(addr, size);
+    return memory_tracker->IsRegionCpuModified(addr, size);
 }
 
 bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
-    return memory_tracker.IsRegionGpuModified(addr, size);
+    if (!memory_tracker->IsRegionGpuModified(addr, size)) {
+        return false;
+    }
+    bool modified = false;
+    gpu_modified_ranges.ForEachInRange(addr, size, [&](VAddr, size_t) { modified = true; });
+    return modified;
 }
 
-BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {
-    if (device_addr == 0) {
+BufferId BufferCache::FindBuffer(VAddr addr, u32 size) {
+    if (addr == 0) {
         return NULL_BUFFER_ID;
     }
-    const u64 page = device_addr >> CACHING_PAGEBITS;
+    const u64 page = addr >> CACHING_PAGEBITS;
     const BufferId buffer_id = page_table[page].buffer_id;
     if (!buffer_id) {
-        return CreateBuffer(device_addr, size);
+        return CreateBuffer(addr, size);
     }
     const Buffer& buffer = slot_buffers[buffer_id];
-    if (buffer.IsInBounds(device_addr, size)) {
+    if (buffer.IsInBounds(addr, size)) {
         return buffer_id;
     }
-    return CreateBuffer(device_addr, size);
+    return CreateBuffer(addr, size);
 }
 
-BufferCache::OverlapResult BufferCache::ResolveOverlaps(VAddr device_addr, u32 wanted_size) {
+BufferCache::OverlapResult BufferCache::ResolveOverlaps(VAddr addr, u32 wanted_size) {
     static constexpr int STREAM_LEAP_THRESHOLD = 16;
     boost::container::small_vector<BufferId, 16> overlap_ids;
-    VAddr begin = device_addr;
-    VAddr end = device_addr + wanted_size;
+    VAddr begin = addr;
+    VAddr end = addr + wanted_size;
     int stream_score = 0;
     bool has_stream_leap = false;
     const auto expand_begin = [&](VAddr add_value) {
         static constexpr VAddr min_page = CACHING_PAGESIZE + DEVICE_PAGESIZE;
         if (add_value > begin - min_page) {
             begin = min_page;
-            device_addr = DEVICE_PAGESIZE;
+            addr = DEVICE_PAGESIZE;
             return;
         }
         begin -= add_value;
-        device_addr = begin - CACHING_PAGESIZE;
+        addr = begin - CACHING_PAGESIZE;
     };
     const auto expand_end = [&](VAddr add_value) {
         static constexpr VAddr max_page = 1ULL << MemoryTracker::MAX_CPU_PAGE_BITS;
@@ -436,9 +580,9 @@ BufferCache::OverlapResult BufferCache::ResolveOverlaps(VAddr device_addr, u32 w
             .has_stream_leap = has_stream_leap,
         };
     }
-    for (; device_addr >> CACHING_PAGEBITS < Common::DivCeil(end, CACHING_PAGESIZE);
-         device_addr += CACHING_PAGESIZE) {
-        const BufferId overlap_id = page_table[device_addr >> CACHING_PAGEBITS].buffer_id;
+    for (; addr >> CACHING_PAGEBITS < Common::DivCeil(end, CACHING_PAGESIZE);
+         addr += CACHING_PAGESIZE) {
+        const BufferId overlap_id = page_table[addr >> CACHING_PAGEBITS].buffer_id;
         if (!overlap_id) {
             continue;
         }
@@ -448,12 +592,12 @@ BufferCache::OverlapResult BufferCache::ResolveOverlaps(VAddr device_addr, u32 w
         }
         overlap_ids.push_back(overlap_id);
         overlap.is_picked = true;
-        const VAddr overlap_device_addr = overlap.CpuAddr();
-        const bool expands_left = overlap_device_addr < begin;
+        const VAddr overlap_addr = overlap.CpuAddr();
+        const bool expands_left = overlap_addr < begin;
         if (expands_left) {
-            begin = overlap_device_addr;
+            begin = overlap_addr;
         }
-        const VAddr overlap_end = overlap_device_addr + overlap.SizeBytes();
+        const VAddr overlap_end = overlap_addr + overlap.SizeBytes();
         const bool expands_right = overlap_end > end;
         if (overlap_end > end) {
             end = overlap_end;
@@ -532,11 +676,11 @@ void BufferCache::JoinOverlap(BufferId new_buffer_id, BufferId overlap_id,
     DeleteBuffer(overlap_id);
 }
 
-BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
-    const VAddr device_addr_end = Common::AlignUp(device_addr + wanted_size, CACHING_PAGESIZE);
-    device_addr = Common::AlignDown(device_addr, CACHING_PAGESIZE);
-    wanted_size = static_cast<u32>(device_addr_end - device_addr);
-    const OverlapResult overlap = ResolveOverlaps(device_addr, wanted_size);
+BufferId BufferCache::CreateBuffer(VAddr addr, u32 wanted_size) {
+    const VAddr addr_end = Common::AlignUp(addr + wanted_size, CACHING_PAGESIZE);
+    addr = Common::AlignDown(addr, CACHING_PAGESIZE);
+    wanted_size = static_cast<u32>(addr_end - addr);
+    const OverlapResult overlap = ResolveOverlaps(addr, wanted_size);
     const u32 size = static_cast<u32>(overlap.end - overlap.begin);
     const BufferId new_buffer_id = [&] {
         std::scoped_lock lk{slot_buffers_mutex};
@@ -700,10 +844,10 @@ template <bool insert>
 void BufferCache::ChangeRegister(BufferId buffer_id) {
     Buffer& buffer = slot_buffers[buffer_id];
     const auto size = buffer.SizeBytes();
-    const VAddr device_addr_begin = buffer.CpuAddr();
-    const VAddr device_addr_end = device_addr_begin + size;
-    const u64 page_begin = device_addr_begin / CACHING_PAGESIZE;
-    const u64 page_end = Common::DivCeil(device_addr_end, CACHING_PAGESIZE);
+    const VAddr addr_begin = buffer.CpuAddr();
+    const VAddr addr_end = addr_begin + size;
+    const u64 page_begin = addr_begin / CACHING_PAGESIZE;
+    const u64 page_end = Common::DivCeil(addr_end, CACHING_PAGESIZE);
     for (u64 page = page_begin; page != page_end; ++page) {
         if constexpr (insert) {
             page_table[page].buffer_id = buffer_id;
@@ -718,22 +862,22 @@ void BufferCache::ChangeRegister(BufferId buffer_id) {
     }
 }
 
-void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
+void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr addr, u32 size,
                                     bool is_texel_buffer) {
     boost::container::small_vector<vk::BufferCopy, 4> copies;
     u64 total_size_bytes = 0;
     VAddr buffer_start = buffer.CpuAddr();
-    memory_tracker.ForEachUploadRange(device_addr, size, [&](u64 device_addr_out, u64 range_size) {
+    memory_tracker->ForEachUploadRange(addr, size, [&](u64 addr_out, u64 range_size) {
         copies.push_back(vk::BufferCopy{
             .srcOffset = total_size_bytes,
-            .dstOffset = device_addr_out - buffer_start,
+            .dstOffset = addr_out - buffer_start,
             .size = range_size,
         });
         total_size_bytes += range_size;
     });
     SCOPE_EXIT {
         if (is_texel_buffer) {
-            SynchronizeBufferFromImage(buffer, device_addr, size);
+            SynchronizeBufferFromImage(buffer, addr, size);
         }
     };
     if (total_size_bytes == 0) {
@@ -744,8 +888,8 @@ void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
         const auto [staging, offset] = staging_buffer.Map(total_size_bytes);
         for (auto& copy : copies) {
             u8* const src_pointer = staging + copy.srcOffset;
-            const VAddr device_addr = buffer.CpuAddr() + copy.dstOffset;
-            std::memcpy(src_pointer, std::bit_cast<const u8*>(device_addr), copy.size);
+            const VAddr addr = buffer.CpuAddr() + copy.dstOffset;
+            std::memcpy(src_pointer, std::bit_cast<const u8*>(addr), copy.size);
             // Apply the staging offset
             copy.srcOffset += offset;
         }
@@ -763,8 +907,8 @@ void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
         u8* const staging = temp_buffer.mapped_data.data();
         for (auto& copy : copies) {
             u8* const src_pointer = staging + copy.srcOffset;
-            const VAddr device_addr = buffer.CpuAddr() + copy.dstOffset;
-            std::memcpy(src_pointer, std::bit_cast<const u8*>(device_addr), copy.size);
+            const VAddr addr = buffer.CpuAddr() + copy.dstOffset;
+            std::memcpy(src_pointer, std::bit_cast<const u8*>(addr), copy.size);
         }
         scheduler.DeferOperation([buffer = std::move(temp_buffer)]() mutable {});
     }
@@ -802,10 +946,10 @@ void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
     });
 }
 
-bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size) {
+bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr addr, u32 size) {
     boost::container::small_vector<ImageId, 6> image_ids;
-    texture_cache.ForEachImageInRegion(device_addr, size, [&](ImageId image_id, Image& image) {
-        if (image.info.guest_address != device_addr) {
+    texture_cache.ForEachImageInRegion(addr, size, [&](ImageId image_id, Image& image) {
+        if (image.info.guest_address != addr) {
             return;
         }
         // Only perform sync if image is:
@@ -837,13 +981,13 @@ bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, 
         if (!image_id) {
             LOG_WARNING(Render_Vulkan,
                         "Failed to find exact image match for copy addr={:#x}, size={:#x}",
-                        device_addr, size);
+                        addr, size);
             return false;
         }
     }
     Image& image = texture_cache.GetImage(image_id);
-    ASSERT_MSG(device_addr == image.info.guest_address,
-               "Texel buffer aliases image subresources {:x} : {:x}", device_addr,
+    ASSERT_MSG(addr == image.info.guest_address,
+               "Texel buffer aliases image subresources {:x} : {:x}", addr,
                image.info.guest_address);
     boost::container::small_vector<vk::BufferImageCopy, 8> copies;
     u32 offset = buffer.Offset(image.info.guest_address);
@@ -915,15 +1059,15 @@ bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, 
     return true;
 }
 
-void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size) {
-    if (device_addr == 0) {
+void BufferCache::SynchronizeBuffersInRange(VAddr addr, u64 size) {
+    if (addr == 0) {
         return;
     }
-    VAddr device_addr_end = device_addr + size;
-    ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
+    VAddr addr_end = addr + size;
+    ForEachBufferInRange(addr, size, [&](BufferId buffer_id, Buffer& buffer) {
         RENDERER_TRACE;
-        VAddr start = std::max(buffer.CpuAddr(), device_addr);
-        VAddr end = std::min(buffer.CpuAddr() + buffer.SizeBytes(), device_addr_end);
+        VAddr start = std::max(buffer.CpuAddr(), addr);
+        VAddr end = std::min(buffer.CpuAddr() + buffer.SizeBytes(), addr_end);
         u32 size = static_cast<u32>(end - start);
         SynchronizeBuffer(buffer, start, size, false);
     });
