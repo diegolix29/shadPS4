@@ -78,6 +78,9 @@ struct DirectMemoryArea {
         if (base + size != next.base) {
             return false;
         }
+        if (memory_type != next.memory_type) {
+            return false;
+        }
         if (is_free != next.is_free) {
             return false;
         }
