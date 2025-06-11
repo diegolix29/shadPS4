@@ -31,7 +31,8 @@ static constexpr size_t MaxPageFaults = 1024;
 BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
                          Vulkan::Rasterizer& rasterizer_, AmdGpu::Liverpool* liverpool_,
                          TextureCache& texture_cache_, PageManager& tracker)
-    : instance{instance_}, scheduler{scheduler_}, rasterizer{rasterizer_}, liverpool{liverpool_}, texture_cache{texture_cache_},
+    : instance{instance_}, scheduler{scheduler_}, rasterizer{rasterizer_}, liverpool{liverpool_},
+      texture_cache{texture_cache_},
       staging_buffer{instance, scheduler, MemoryUsage::Upload, StagingBufferSize},
       stream_buffer{instance, scheduler, MemoryUsage::Stream, UboStreamBufferSize},
       download_buffer{instance, scheduler, MemoryUsage::Download, DownloadBufferSize},
@@ -159,24 +160,23 @@ void BufferCache::ReadMemory(VAddr addr, u64 size) {
 void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr addr, u64 size) {
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;
-    memory_tracker->ForEachDownloadRange<true>(
-        addr, size, [&](u64 addr_out, u64 range_size) {
-            const VAddr buffer_addr = buffer.CpuAddr();
-            const auto add_download = [&](VAddr start, VAddr end) {
-                const u64 new_offset = start - buffer_addr;
-                const u64 new_size = end - start;
-                copies.push_back(vk::BufferCopy{
-                    .srcOffset = new_offset,
-                    .dstOffset = total_size_bytes,
-                    .size = new_size,
-                });
-                constexpr u64 align = 64ULL;
-                constexpr u64 mask = ~(align - 1ULL);
-                total_size_bytes += (new_size + align - 1) & mask;
-            };
-            gpu_modified_ranges.ForEachInRange(addr_out, range_size, add_download);
-            gpu_modified_ranges.Subtract(addr_out, range_size);
-        });
+    memory_tracker->ForEachDownloadRange<true>(addr, size, [&](u64 addr_out, u64 range_size) {
+        const VAddr buffer_addr = buffer.CpuAddr();
+        const auto add_download = [&](VAddr start, VAddr end) {
+            const u64 new_offset = start - buffer_addr;
+            const u64 new_size = end - start;
+            copies.push_back(vk::BufferCopy{
+                .srcOffset = new_offset,
+                .dstOffset = total_size_bytes,
+                .size = new_size,
+            });
+            constexpr u64 align = 64ULL;
+            constexpr u64 mask = ~(align - 1ULL);
+            total_size_bytes += (new_size + align - 1) & mask;
+        };
+        gpu_modified_ranges.ForEachInRange(addr_out, range_size, add_download);
+        gpu_modified_ranges.Subtract(addr_out, range_size);
+    });
     if (total_size_bytes == 0) {
         return;
     }
@@ -194,8 +194,7 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr addr, u64 size) {
     for (const auto& copy : copies) {
         const VAddr copy_addr = buffer.CpuAddr() + copy.srcOffset;
         const u64 dst_offset = copy.dstOffset - offset;
-        memory->TryWriteBacking(std::bit_cast<u8*>(copy_addr), download + dst_offset,
-                                copy.size);
+        memory->TryWriteBacking(std::bit_cast<u8*>(copy_addr), download + dst_offset, copy.size);
     }
 }
 
@@ -862,8 +861,7 @@ void BufferCache::ChangeRegister(BufferId buffer_id) {
     }
 }
 
-void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr addr, u32 size,
-                                    bool is_texel_buffer) {
+void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr addr, u32 size, bool is_texel_buffer) {
     boost::container::small_vector<vk::BufferCopy, 4> copies;
     u64 total_size_bytes = 0;
     VAddr buffer_start = buffer.CpuAddr();
@@ -980,8 +978,8 @@ bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr addr, u32 siz
         }
         if (!image_id) {
             LOG_WARNING(Render_Vulkan,
-                        "Failed to find exact image match for copy addr={:#x}, size={:#x}",
-                        addr, size);
+                        "Failed to find exact image match for copy addr={:#x}, size={:#x}", addr,
+                        size);
             return false;
         }
     }
