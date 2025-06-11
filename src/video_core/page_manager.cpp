@@ -39,20 +39,44 @@ constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
-        u8 num_watchers{};
+        u8 num_write_watchers : 7;
+        u8 num_read_watchers : 1;
 
-        Core::MemoryPermission Perm() {
-            return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
-                                     : Core::MemoryPermission::Read;
+        Core::MemoryPermission WritePerm() const noexcept {
+            return num_write_watchers == 0 ? Core::MemoryPermission::Write
+                                           : Core::MemoryPermission::None;
         }
 
-        template <s32 delta>
+        Core::MemoryPermission ReadPerm() const noexcept {
+            return num_read_watchers == 0 ? Core::MemoryPermission::Read
+                                          : Core::MemoryPermission::None;
+        }
+
+        Core::MemoryPermission Perms() const noexcept {
+            return ReadPerm() | WritePerm();
+        }
+
+        template <bool IsRead, s32 Delta>
         u8 AddDelta() noexcept {
-            if constexpr (delta > 0) {
-                return ++num_watchers;
+            static_assert(Delta == 1 || Delta == -1, "Delta must be 1 or -1");
+
+            if constexpr (IsRead) {
+                if constexpr (Delta > 0) {
+                    ASSERT_MSG(num_read_watchers == 0, "Multiple read watchers not supported");
+                    num_read_watchers = 1;
+                } else {
+                    ASSERT_MSG(num_read_watchers == 1, "Read watcher underflow");
+                    num_read_watchers = 0;
+                }
+                return num_read_watchers;
             } else {
-                ASSERT_MSG(num_watchers > 0, "Watcher underflow");
-                return --num_watchers;
+                if constexpr (Delta > 0) {
+                    ASSERT_MSG(num_write_watchers < 127, "Write watcher overflow");
+                    return ++num_write_watchers;
+                } else {
+                    ASSERT_MSG(num_write_watchers > 0, "Write watcher underflow");
+                    return --num_write_watchers;
+                }
             }
         }
     };
@@ -218,9 +242,9 @@ struct PageManager::Impl {
                 std::scoped_lock lk(lock);
                 PageState& state = cached_pages[page];
                 old_state = state; // copy old state
-                const auto new_count = state.AddDelta<delta>();
+                const auto new_count = state.AddDelta<is_read, delta>();
 
-                Core::MemoryPermission new_perms = state.Perm();
+                Core::MemoryPermission new_perms = state.Perms();
                 if (new_perms != perms) {
                     release_pending();
                     perms = new_perms;
