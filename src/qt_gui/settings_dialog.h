@@ -11,7 +11,6 @@
 
 #include "common/config.h"
 #include "common/path_util.h"
-#include "gui_settings.h"
 #include "qt_gui/compatibility_info.h"
 
 namespace Ui {
@@ -21,8 +20,7 @@ class SettingsDialog;
 class SettingsDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit SettingsDialog(std::shared_ptr<gui_settings> gui_settings,
-                            std::shared_ptr<CompatibilityInfoClass> m_compat_info,
+    explicit SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
                             QWidget* parent = nullptr);
     ~SettingsDialog();
 
@@ -44,7 +42,6 @@ private:
     void OnLanguageChanged(int index);
     void OnCursorStateChanged(s16 index);
     void closeEvent(QCloseEvent* event) override;
-    void setDefaultValues();
 
     std::unique_ptr<Ui::SettingsDialog> ui;
 
@@ -55,5 +52,4 @@ private:
     int initialHeight;
 
     bool is_saving = false;
-    std::shared_ptr<gui_settings> m_gui_settings;
 };

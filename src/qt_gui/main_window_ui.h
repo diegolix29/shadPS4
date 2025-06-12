@@ -107,6 +107,7 @@ public:
         toggleLabelsAct = new QAction(MainWindow);
         toggleLabelsAct->setObjectName("toggleLabelsAct");
         toggleLabelsAct->setCheckable(true);
+        toggleLabelsAct->setChecked(Config::getShowLabelsUnderIcons());
 
         setIconSizeTinyAct = new QAction(MainWindow);
         setIconSizeTinyAct->setObjectName("setIconSizeTinyAct");
