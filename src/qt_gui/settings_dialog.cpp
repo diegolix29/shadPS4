@@ -448,7 +448,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->dumpShadersCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "dumpShaders", false));
     ui->nullGpuCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "nullGpu", false));
     ui->enableHDRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "allowHDR", false));
-    ui->playBGMCheckBox->setChecked(m_gui_settings->GetValue(gui::gl_playBackgroundMusic).toBool());
+    ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->disableTrophycheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
     ui->popUpDurationSpinBox->setValue(Config::getTrophyNotificationDuration());
@@ -460,7 +460,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->radioButton_Top->setChecked(side == "top");
     ui->radioButton_Bottom->setChecked(side == "bottom");
 
-    ui->BGMVolumeSlider->setValue(m_gui_settings->GetValue(gui::gl_backgroundMusicVolume).toInt());
+    ui->BGMVolumeSlider->setValue(toml::find_or<int>(data, "General", "BGMvolume", 50));
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
     QString translatedText_FullscreenMode =
