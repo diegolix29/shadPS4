@@ -1370,22 +1370,30 @@ void Translator::SetCarryOut(const GcnInst& inst, const IR::U1& carry) {
 // [src_vgprno, src_vgprno + max_m0]. Same for dst regs we may write back to
 
 IR::U32 Translator::VMovRelSHelper(u32 src_vgprno, const IR::U32 m0) {
-    // Read from VGPR0 by default when src_vgprno + m0 > num_allocated_vgprs
-    IR::U32 src_val = ir.GetVectorReg<IR::U32>(IR::VectorReg::V0);
-    for (u32 i = src_vgprno; i < runtime_info.num_allocated_vgprs; i++) {
-        const IR::U1 cond = ir.IEqual(m0, ir.Imm32(i - src_vgprno));
-        src_val =
-            IR::U32{ir.Select(cond, ir.GetVectorReg<IR::U32>(IR::VectorReg::V0 + i), src_val)};
+    // Default to reading from src_vgprno (instead of always V0)
+    IR::U32 src_val = ir.GetVectorReg<IR::U32>(IR::VectorReg::V0 + src_vgprno);
+
+    const u32 max_index = runtime_info.num_allocated_vgprs - src_vgprno;
+    for (u32 i = 1; i < max_index; ++i) {
+        const IR::U1 cond = ir.IEqual(m0, ir.Imm32(i));
+        const u32 reg_index = src_vgprno + i;
+        src_val = IR::U32{
+            ir.Select(cond, ir.GetVectorReg<IR::U32>(IR::VectorReg::V0 + reg_index), src_val)};
     }
     return src_val;
 }
 
 void Translator::VMovRelDHelper(u32 dst_vgprno, const IR::U32 src_val, const IR::U32 m0) {
-    for (u32 i = dst_vgprno; i < runtime_info.num_allocated_vgprs; i++) {
-        const IR::U1 cond = ir.IEqual(m0, ir.Imm32(i - dst_vgprno));
-        const IR::U32 dst_val =
-            IR::U32{ir.Select(cond, src_val, ir.GetVectorReg<IR::U32>(IR::VectorReg::V0 + i))};
-        ir.SetVectorReg(IR::VectorReg::V0 + i, dst_val);
+    const u32 max_index = runtime_info.num_allocated_vgprs - dst_vgprno;
+
+    for (u32 i = 0; i < max_index; ++i) {
+        const IR::U1 cond = ir.IEqual(m0, ir.Imm32(i));
+        const u32 reg_index = dst_vgprno + i;
+
+        const IR::U32 dst_val = IR::U32{
+            ir.Select(cond, src_val, ir.GetVectorReg<IR::U32>(IR::VectorReg::V0 + reg_index))};
+
+        ir.SetVectorReg(IR::VectorReg::V0 + reg_index, dst_val);
     }
 }
 
