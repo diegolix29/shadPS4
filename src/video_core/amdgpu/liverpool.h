@@ -1479,6 +1479,7 @@ struct Liverpool {
     };
     std::array<CbDbExtent, NumColorBuffers> last_cb_extent{};
     CbDbExtent last_db_extent{};
+    std::thread::id gpu_id;
 
 public:
     Liverpool();

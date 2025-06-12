@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <semaphore>
 #include "common/alignment.h"
 #include "common/debug.h"
 #include "common/scope_exit.h"
@@ -9,6 +10,7 @@
 #include "core/memory.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
+#include "video_core/buffer_cache/memory_tracker_base.h"
 #include "video_core/host_shaders/fault_buffer_process_comp.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -130,15 +132,29 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
 BufferCache::~BufferCache() = default;
 
 void BufferCache::InvalidateMemory(VAddr device_addr, u64 size, bool unmap) {
-    const bool is_tracked = IsRegionRegistered(device_addr, size);
-    if (is_tracked) {
-        // Mark the page as CPU modified to stop tracking writes.
-        memory_tracker.MarkRegionAsCpuModified(device_addr, size);
-
-        if (unmap) {
-            return;
-        }
+    if (!IsRegionRegistered(device_addr, size)) {
+        return;
     }
+    if (memory_tracker.IsRegionGpuModified(device_addr, size)) {
+        ReadMemory(device_addr, size);
+    }
+    memory_tracker.MarkRegionAsCpuModified(device_addr, size);
+}
+
+void BufferCache::ReadMemory(VAddr device_addr, u64 size) {
+    if (std::this_thread::get_id() != liverpool->gpu_id) {
+        std::binary_semaphore command_wait{0};
+        liverpool->SendCommand([this, &command_wait, device_addr, size] {
+            Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
+            DownloadBufferMemory(buffer, device_addr, size);
+            command_wait.release();
+        });
+        command_wait.acquire();
+    } else {
+        Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
+        DownloadBufferMemory(buffer, device_addr, size);
+    }
+    memory_tracker.UnmarkRegionAsGpuModified(device_addr, size);
 }
 
 void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size) {
@@ -471,8 +487,14 @@ bool BufferCache::IsRegionCpuModified(VAddr addr, size_t size) {
     return memory_tracker.IsRegionCpuModified(addr, size);
 }
 
+
 bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
-    return memory_tracker.IsRegionGpuModified(addr, size);
+    if (!memory_tracker.IsRegionGpuModified(addr, size)) {
+        return false;
+    }
+    bool modified = false;
+    gpu_modified_ranges.ForEachInRange(addr, size, [&](VAddr, size_t) { modified = true; });
+    return modified;
 }
 
 BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {

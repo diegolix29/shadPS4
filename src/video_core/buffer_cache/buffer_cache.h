@@ -39,6 +39,8 @@ using BufferId = Common::SlotId;
 static constexpr BufferId NULL_BUFFER_ID{0};
 
 class TextureCache;
+class MemoryTracker;
+class PageManager;
 
 class BufferCache {
 public:
@@ -68,7 +70,11 @@ public:
         VAddr end;
         bool has_stream_leap = false;
     };
-
+        using IntervalSet =
+        boost::icl::interval_set<VAddr, std::less,
+                                 ICL_INTERVAL_INSTANCE(ICL_INTERVAL_DEFAULT, VAddr, std::less),
+                                 RangeSetsAllocator>;
+    using IntervalType = typename IntervalSet::interval_type;
 public:
     explicit BufferCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
                          Vulkan::Rasterizer& rasterizer_, AmdGpu::Liverpool* liverpool,
@@ -111,6 +117,8 @@ public:
 
     /// Invalidates any buffer in the logical page range.
     void InvalidateMemory(VAddr device_addr, u64 size, bool unmap);
+
+        void ReadMemory(VAddr device_addr, u64 size);
 
     /// Binds host vertex buffers for the current draw.
     void BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline);
