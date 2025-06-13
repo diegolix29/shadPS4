@@ -1,10 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <thread>
-#include <boost/icl/interval_set.hpp>
+#include <boost/container/small_vector.hpp>
 #include "common/assert.h"
-#include "common/error.h"
+#include "common/debug.h"
 #include "common/signal_context.h"
 #include "common/spin_lock.h"
 #include "core/memory.h"
@@ -16,66 +15,57 @@
 #include <sys/mman.h>
 #include "common/adaptive_mutex.h"
 #ifdef ENABLE_USERFAULTFD
+#include <thread>
 #include <fcntl.h>
 #include <linux/userfaultfd.h>
 #include <poll.h>
 #include <sys/ioctl.h>
+#include "common/error.h"
 #endif
 #else
 #include <windows.h>
+#endif
+
+#ifdef __linux__
+#include "common/adaptive_mutex.h"
+#else
 #include "common/spin_lock.h"
 #endif
 
 namespace VideoCore {
 
+constexpr size_t PAGE_SIZE = 4_KB;
+constexpr size_t PAGE_BITS = 12;
+
 struct PageManager::Impl {
     struct PageState {
-        u8 num_write_watchers : 7;
-        u8 num_read_watchers : 1;
+        u8 num_watchers{};
 
-        Core::MemoryPermission WritePerm() const noexcept {
-            return num_write_watchers == 0 ? Core::MemoryPermission::Write
-                                           : Core::MemoryPermission::None;
+        Core::MemoryPermission Perm() {
+            return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
+                                     : Core::MemoryPermission::Read;
         }
 
-        Core::MemoryPermission ReadPerm() const noexcept {
-            return num_read_watchers == 0 ? Core::MemoryPermission::Read
-                                          : Core::MemoryPermission::None;
-        }
-
-        Core::MemoryPermission Perms() const noexcept {
-            return ReadPerm() | WritePerm();
-        }
-
-        template <bool IsRead, s32 Delta>
+        template <s32 delta>
         u8 AddDelta() noexcept {
-            static_assert(Delta == 1 || Delta == -1, "Delta must be 1 or -1");
-
-            if constexpr (IsRead) {
-                if constexpr (Delta > 0) {
-                    ASSERT_MSG(num_read_watchers == 0, "Multiple read watchers not supported");
-                    num_read_watchers = 1;
-                } else {
-                    ASSERT_MSG(num_read_watchers == 1, "Read watcher underflow");
-                    num_read_watchers = 0;
-                }
-                return num_read_watchers;
+            if constexpr (delta > 0) {
+                return ++num_watchers;
             } else {
-                if constexpr (Delta > 0) {
-                    ASSERT_MSG(num_write_watchers < 127, "Write watcher overflow");
-                    return ++num_write_watchers;
-                } else {
-                    ASSERT_MSG(num_write_watchers > 0, "Write watcher underflow");
-                    return --num_write_watchers;
-                }
+                ASSERT_MSG(num_watchers > 0, "Watcher underflow");
+                return --num_watchers;
             }
         }
+    };
+
+    struct UpdateProtectRange {
+        VAddr addr;
+        u64 size;
+        Core::MemoryPermission perms;
     };
 
     static constexpr size_t ADDRESS_BITS = 40;
     static constexpr size_t NUM_ADDRESS_PAGES = 1ULL << (40 - PAGE_BITS);
     inline static Vulkan::Rasterizer* rasterizer;
-
 #ifdef ENABLE_USERFAULTFD
     Impl(Vulkan::Rasterizer* rasterizer_) {
         rasterizer = rasterizer_;
@@ -110,7 +100,8 @@ struct PageManager::Impl {
         ASSERT_MSG(ret != -1, "Uffdio unregister failed");
     }
 
-    void Protect(VAddr address, size_t size, bool allow_write) {
+    void Protect(VAddr address, size_t size, Core::MemoryPermission perms) {
+        bool allow_write = True(perms & Core::MemoryPermission::Write);
         uffdio_writeprotect wp;
         wp.range.start = address;
         wp.range.len = size;
@@ -200,53 +191,61 @@ struct PageManager::Impl {
         }
         return false;
     }
-#endif
 
+#endif
     template <s32 delta, bool is_read>
     void UpdatePageWatchers(VAddr addr, u64 size) {
-        std::scoped_lock lk{lock};
-        std::atomic_thread_fence(std::memory_order_acquire);
+        boost::container::small_vector<UpdateProtectRange, 16> update_ranges;
 
         size_t page = addr >> PAGE_BITS;
-        auto perms = cached_pages[page].Perms();
+        const u64 page_end = Common::DivCeil(addr + size, PAGE_SIZE);
+
+        Core::MemoryPermission perms = Core::MemoryPermission::ReadWrite; // default
+
         u64 range_begin = 0;
         u64 range_bytes = 0;
 
-        const auto release_pending = [&] {
+        auto release_pending = [&]() {
             if (range_bytes > 0) {
-                Protect(range_begin << PAGE_BITS, range_bytes, perms);
+                update_ranges.push_back({range_begin << PAGE_BITS, range_bytes, perms});
                 range_bytes = 0;
             }
         };
-        // Iterate requested pages.
-        const size_t page_end = Common::DivCeil(addr + size, PAGE_SIZE);
+
         for (; page != page_end; ++page) {
-            PageState& state = cached_pages[page];
+            PageState old_state;
+            {
+                std::scoped_lock lk(lock);
+                PageState& state = cached_pages[page];
+                old_state = state; // copy old state
+                const auto new_count = state.AddDelta<delta>();
 
-            // Apply the change to the page state.
-            const auto new_count = state.AddDelta<is_read, delta>();
-
-            // If the protection changed flush pending (un)protect action.
-            if (auto new_perms = state.Perms(); new_perms != perms) [[unlikely]] {
-                release_pending();
-                perms = new_perms;
-            }
-
-            // If the page must be (un)protected add it to pending range.
-            if ((new_count == 0 && delta < 0) || (new_count == 1 && delta > 0)) {
-                if (range_bytes == 0) {
-                    range_begin = page;
+                Core::MemoryPermission new_perms = state.Perm();
+                if (new_perms != perms) {
+                    release_pending();
+                    perms = new_perms;
                 }
-                range_bytes += PAGE_SIZE;
-            } else {
-                release_pending();
+
+                if ((new_count == 0 && delta < 0) || (new_count == 1 && delta > 0)) {
+                    if (range_bytes == 0) {
+                        range_begin = page;
+                    }
+                    range_bytes += PAGE_SIZE;
+                } else {
+                    release_pending();
+                }
             }
         }
         release_pending();
-    };
+
+        // Flush deferred protects outside lock
+        for (const auto& range : update_ranges) {
+            Protect(range.addr, range.size, range.perms);
+        }
+    }
 
     std::array<PageState, NUM_ADDRESS_PAGES> cached_pages{};
-#ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
+#ifdef __linux__
     Common::AdaptiveMutex lock;
 #else
     Common::SpinLock lock;
