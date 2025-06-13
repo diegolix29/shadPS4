@@ -208,13 +208,43 @@ static const std::unordered_map<vk::Format, CompatibilityClass> FORMAT_TABLE = {
     {vk::Format::eUndefined, CompatibilityClass::NONE},
 };
 
+static vk::Format UnsrgbFormat(vk::Format fmt) {
+    switch (fmt) {
+    case vk::Format::eR8G8B8A8Srgb:
+        return vk::Format::eR8G8B8A8Unorm;
+    case vk::Format::eB8G8R8A8Srgb:
+        return vk::Format::eB8G8R8A8Unorm;
+    default:
+        return fmt;
+    }
+}
+
+static bool IsSrgbAliasable(vk::Format a, vk::Format b) {
+    auto StripSrgb = [](vk::Format fmt) {
+        switch (fmt) {
+        case vk::Format::eR8G8B8A8Srgb:
+            return vk::Format::eR8G8B8A8Unorm;
+        case vk::Format::eB8G8R8A8Srgb:
+            return vk::Format::eB8G8R8A8Unorm;
+        case vk::Format::eR8G8B8Srgb:
+            return vk::Format::eR8G8B8Unorm;
+        case vk::Format::eB8G8R8Srgb:
+            return vk::Format::eB8G8R8Unorm;
+        default:
+            return fmt;
+        }
+    };
+    return StripSrgb(a) == StripSrgb(b);
+}
+
 bool IsVulkanFormatCompatible(vk::Format base, vk::Format view) {
-    if (base == view) {
+    if (base == view || IsSrgbAliasable(base, view)) {
         return true;
     }
     const auto base_comp = FORMAT_TABLE.at(base);
     const auto view_comp = FORMAT_TABLE.at(view);
     return (base_comp & view_comp) == view_comp;
 }
+
 
 } // namespace VideoCore

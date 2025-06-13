@@ -12,5 +12,6 @@ namespace VideoCore {
 
 /// Returns true if the two formats are compatible according to Vulkan's format compatibility rules
 bool IsVulkanFormatCompatible(vk::Format base, vk::Format view);
-
+bool IsSrgbAliasable(vk::Format a, vk::Format b);
+vk::Format UnsrgbFormat(vk::Format fmt);
 } // namespace VideoCore

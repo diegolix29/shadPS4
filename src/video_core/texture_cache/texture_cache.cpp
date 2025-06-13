@@ -211,9 +211,8 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
         scheduler.CurrentTick() - tex_cache_image.tick_accessed_last > NumFramesBeforeRemoval;
 
     if (image_info.guest_address == tex_cache_image.info.guest_address) { // Equal address
-        if (image_info.BlockDim() != tex_cache_image.info.BlockDim() ||
-            image_info.num_bits * image_info.num_samples !=
-                tex_cache_image.info.num_bits * tex_cache_image.info.num_samples) {
+        if (!IsSrgbAliasable(image_info.pixel_format, tex_cache_image.info.pixel_format) ||
+            image_info.guest_size <= tex_cache_image.info.guest_size) {
             // Very likely this kind of overlap is caused by allocation from a pool.
             if (safe_to_delete) {
                 FreeImage(cache_image_id);
@@ -358,10 +357,12 @@ ImageId TextureCache::FindImage(BaseDesc& desc, FindFlags flags) {
             continue;
         }
         if (False(flags & FindFlags::RelaxFmt) &&
-            (!IsVulkanFormatCompatible(cache_image.info.pixel_format, info.pixel_format) ||
+            (!IsVulkanFormatCompatible(cache_image.info.pixel_format, info.pixel_format) &&
+                 !IsSrgbAliasable(cache_image.info.pixel_format, info.pixel_format) ||
              (cache_image.info.type != info.type && info.size != Extent3D{1, 1, 1}))) {
             continue;
         }
+
         if (True(flags & FindFlags::ExactFmt) &&
             info.pixel_format != cache_image.info.pixel_format) {
             continue;
@@ -534,7 +535,11 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
         const auto addr = std::bit_cast<u8*>(image.info.guest_address);
         const u32 w = std::min(image.info.size.width, u32(8));
         const u32 h = std::min(image.info.size.height, u32(8));
-        const u32 size = w * h * image.info.num_bits >> (3 + image.info.props.is_block ? 4 : 0);
+        const u32 bpp = image.info.num_bits;
+        const u32 block_size = image.info.props.is_block
+                                   ? 16
+                                   : 1; // TODO: replace 16 with real BC block size if you have it
+        const u32 size = (w * h * bpp / 8) / block_size;
         const u64 hash = XXH3_64bits(addr, size);
         if (image.hash == hash) {
             image.flags &= ~ImageFlagBits::MaybeCpuDirty;
@@ -613,8 +618,11 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
         });
     }
 
+ImageInfo detile_info = image.info;
+    detile_info.pixel_format = UnsrgbFormat(detile_info.pixel_format);
     const auto [buffer, offset] =
-        tile_manager.TryDetile(vk_buffer->Handle(), buf_offset, image.info);
+        tile_manager.TryDetile(vk_buffer->Handle(), buf_offset, detile_info);
+
     for (auto& copy : image_copy) {
         copy.bufferOffset += offset;
     }
