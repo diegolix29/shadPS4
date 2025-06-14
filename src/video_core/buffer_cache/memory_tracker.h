@@ -7,7 +7,7 @@
 #include <deque>
 #include <type_traits>
 #include <vector>
-#include "common/debug.h"
+#include "common/logging/log.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/word_manager.h"
 
@@ -53,6 +53,14 @@ public:
         IteratePages<false>(dirty_cpu_addr, query_size,
                             [](RegionManager* manager, u64 offset, size_t size) {
                                 manager->template ChangeRegionState<Type::GPU, true>(
+                                    manager->GetCpuAddr() + offset, size);
+                            });
+    }
+
+    void UnmarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size) noexcept {
+        IteratePages<false>(dirty_cpu_addr, query_size,
+                            [](RegionManager* manager, u64 offset, size_t size) {
+                                manager->template ChangeRegionState<Type::GPU, false>(
                                     manager->GetCpuAddr() + offset, size);
                             });
     }
