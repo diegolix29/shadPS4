@@ -593,9 +593,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             }
             case PM4ItOpcode::EventWrite: {
                 const auto* event = reinterpret_cast<const PM4CmdEventWrite*>(header);
-                LOG_DEBUG(Render, "Encountered EventWrite: event_type = {}, event_index = {}",
-                          magic_enum::enum_name(event->event_type.Value()),
-                          magic_enum::enum_name(event->event_index.Value()));
+                //LOG_DEBUG(Render, "Encountered EventWrite: event_type = {}, event_index = {}",
+                 //         magic_enum::enum_name(event->event_type.Value()),
+                 //         magic_enum::enum_name(event->event_index.Value()));
                 if (event->event_type.Value() == EventType::SoVgtStreamoutFlush) {
                     // TODO: handle proper synchronization, for now signal that update is done
                     // immediately

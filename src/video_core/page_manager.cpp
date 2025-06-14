@@ -33,26 +33,24 @@
 #endif
 
 namespace VideoCore {
-
 constexpr size_t PAGE_SIZE = 4_KB;
 constexpr size_t PAGE_BITS = 12;
-
 struct PageManager::Impl {
     struct PageState {
         u8 num_watchers{};
-
-        Core::MemoryPermission Perm() {
+        Core::MemoryPermission Perm() const noexcept {
             return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
                                      : Core::MemoryPermission::Read;
         }
-
         template <s32 delta>
-        u8 AddDelta() noexcept {
-            if constexpr (delta > 0) {
+        u8 AddDelta() {
+            if constexpr (delta == 1) {
                 return ++num_watchers;
-            } else {
-                ASSERT_MSG(num_watchers > 0, "Watcher underflow");
+            } else if constexpr (delta == -1) {
+                ASSERT_MSG(num_watchers > 0, "Not enough watchers");
                 return --num_watchers;
+            } else {
+                return num_watchers;
             }
         }
     };
