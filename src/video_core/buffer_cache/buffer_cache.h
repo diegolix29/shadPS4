@@ -5,7 +5,6 @@
 
 #include <shared_mutex>
 #include <boost/container/small_vector.hpp>
-#include "common/div_ceil.h"
 #include "common/slot_vector.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/buffer.h"
@@ -71,8 +70,8 @@ public:
 
 public:
     explicit BufferCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                         Vulkan::Rasterizer& rasterizer_, AmdGpu::Liverpool* liverpool,
-                         TextureCache& texture_cache, PageManager& tracker);
+                         AmdGpu::Liverpool* liverpool, TextureCache& texture_cache,
+                         PageManager& tracker);
     ~BufferCache();
 
     /// Returns a pointer to GDS device local buffer.
@@ -110,7 +109,7 @@ public:
     }
 
     /// Invalidates any buffer in the logical page range.
-    void InvalidateMemory(VAddr device_addr, u64 size, bool unmap);
+    void InvalidateMemory(VAddr device_addr, u64 size);
 
     /// Waits on pending downloads in the logical page range.
     void ReadMemory(VAddr device_addr, u64 size);
@@ -199,7 +198,6 @@ private:
 
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
-    Vulkan::Rasterizer& rasterizer;
     AmdGpu::Liverpool* liverpool;
     Core::MemoryManager* memory;
     TextureCache& texture_cache;
@@ -214,11 +212,7 @@ private:
     std::shared_mutex slot_buffers_mutex;
     Common::SlotVector<Buffer> slot_buffers;
     RangeSet gpu_modified_ranges;
-<<<<<<< HEAD
     SplitRangeMap<BufferId> buffer_ranges;
-    MemoryTracker memory_tracker;
-=======
->>>>>>> 879dd60f (Readbacks)
     PageTable page_table;
     vk::UniqueDescriptorSetLayout fault_process_desc_layout;
     vk::UniquePipeline fault_process_pipeline;

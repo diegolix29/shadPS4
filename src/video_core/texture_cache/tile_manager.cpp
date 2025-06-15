@@ -5,7 +5,6 @@
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/texture_cache/image_info.h"
-#include "video_core/texture_cache/image_view.h"
 #include "video_core/texture_cache/tile_manager.h"
 
 #include "video_core/host_shaders/detilers/display_micro_64bpp_comp.h"
@@ -24,7 +23,7 @@
 
 namespace VideoCore {
 
-const DetilerContext* TileManager::GetDetiler(const ImageInfo& info) const {
+const TileManager::DetilerContext* TileManager::GetDetiler(const ImageInfo& info) const {
     switch (info.tiling_mode) {
     case AmdGpu::TilingMode::Texture_MicroTiled:
         switch (info.num_bits) {

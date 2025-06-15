@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-
+#pragma clang optimize off
 #include <optional>
 #include <xxhash.h>
 
@@ -22,7 +22,7 @@ static constexpr u64 NumFramesBeforeRemoval = 32;
 TextureCache::TextureCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
                            BufferCache& buffer_cache_, PageManager& tracker_)
     : instance{instance_}, scheduler{scheduler_}, buffer_cache{buffer_cache_}, tracker{tracker_},
-      tile_manager{instance, scheduler} {
+      blit_helper{instance, scheduler}, tile_manager{instance, scheduler} {
     // Create basic null image at fixed image ID.
     const auto null_id = GetNullImage(vk::Format::eR8G8B8A8Unorm);
     ASSERT(null_id.index == NULL_IMAGE_ID.index);
@@ -178,9 +178,16 @@ ImageId TextureCache::ResolveDepthOverlap(const ImageInfo& requested_info, Bindi
         new_image.usage = cache_image.usage;
         new_image.flags &= ~ImageFlagBits::Dirty;
 
-        // Perform depth<->color copy using the intermediate copy buffer.
-        const auto& copy_buffer = buffer_cache.GetUtilityBuffer(MemoryUsage::DeviceLocal);
-        new_image.CopyImageWithBuffer(cache_image, copy_buffer.Handle(), 0);
+        if (cache_image.info.num_samples == 1 && new_info.num_samples == 1) {
+            // Perform depth<->color copy using the intermediate copy buffer.
+            const auto& copy_buffer = buffer_cache.GetUtilityBuffer(MemoryUsage::DeviceLocal);
+            new_image.CopyImageWithBuffer(cache_image, copy_buffer.Handle(), 0);
+        } else if (cache_image.info.num_samples == 1 && new_info.IsDepthStencil() &&
+                   new_info.num_samples > 1) {
+            // Perform a helper rendering pass to transfer the channels of source as samples in
+            // dest.
+            blit_helper.BlitColorToMsDepth(cache_image, new_image);
+        }
 
         // Free the cache image.
         FreeImage(cache_image_id);
@@ -202,7 +209,8 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
 
     if (image_info.guest_address == tex_cache_image.info.guest_address) { // Equal address
         if (image_info.BlockDim() != tex_cache_image.info.BlockDim() ||
-            image_info.num_bits != tex_cache_image.info.num_bits) {
+            image_info.num_bits * image_info.num_samples !=
+                tex_cache_image.info.num_bits * tex_cache_image.info.num_samples) {
             // Very likely this kind of overlap is caused by allocation from a pool.
             if (safe_to_delete) {
                 FreeImage(cache_image_id);

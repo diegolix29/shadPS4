@@ -27,11 +27,6 @@ enum DetilerType : u32 {
     Max
 };
 
-struct DetilerContext {
-    vk::UniquePipeline pl;
-    vk::UniquePipelineLayout pl_layout;
-};
-
 class TileManager {
 public:
     using ScratchBuffer = std::pair<vk::Buffer, VmaAllocation>;
@@ -47,6 +42,11 @@ public:
     void FreeBuffer(ScratchBuffer buffer);
 
 private:
+    struct DetilerContext {
+        vk::UniquePipeline pl;
+        vk::UniquePipelineLayout pl_layout;
+    };
+
     const DetilerContext* GetDetiler(const ImageInfo& info) const;
 
 private:
