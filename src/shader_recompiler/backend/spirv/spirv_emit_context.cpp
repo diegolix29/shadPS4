@@ -137,9 +137,13 @@ void EmitContext::DefineArithmeticTypes() {
 
     true_value = ConstantTrue(U1[1]);
     false_value = ConstantFalse(U1[1]);
+    u8_one_value = Constant(U8, 1U);
+    u8_zero_value = Constant(U8, 0U);
     u32_one_value = ConstU32(1U);
     u32_zero_value = ConstU32(0U);
     f32_zero_value = ConstF32(0.0f);
+    u64_one_value = Constant(U64, 1ULL);
+    u64_zero_value = Constant(U64, 0ULL);
 
     pi_x2 = ConstF32(2.0f * float{std::numbers::pi});
 
@@ -197,7 +201,7 @@ EmitContext::SpirvAttribute EmitContext::GetAttributeInfo(AmdGpu::NumberFormat f
 Id EmitContext::GetBufferSize(const u32 sharp_idx) {
     const auto& srt_flatbuf = buffers.back();
     ASSERT(srt_flatbuf.buffer_type == BufferType::ReadConstUbo);
-    const auto [id, pointer_type] = srt_flatbuf[BufferAlias::U32];
+    const auto [id, pointer_type] = srt_flatbuf[PointerType::U32];
 
     const auto rsrc1{
         OpLoad(U32[1], OpAccessChain(pointer_type, id, u32_zero_value, ConstU32(sharp_idx + 1)))};
@@ -720,20 +724,24 @@ void EmitContext::DefineBuffers() {
 
         // Define aliases depending on the shader usage.
         auto& spv_buffer = buffers.emplace_back(binding.buffer++, desc.buffer_type);
+        if (True(desc.used_types & IR::Type::U64)) {
+            spv_buffer[PointerType::U64] =
+                DefineBuffer(is_storage, desc.is_written, 0, desc.buffer_type, U64);
+        }
         if (True(desc.used_types & IR::Type::U32)) {
-            spv_buffer[BufferAlias::U32] =
+            spv_buffer[PointerType::U32] =
                 DefineBuffer(is_storage, desc.is_written, 2, desc.buffer_type, U32[1]);
         }
         if (True(desc.used_types & IR::Type::F32)) {
-            spv_buffer[BufferAlias::F32] =
+            spv_buffer[PointerType::F32] =
                 DefineBuffer(is_storage, desc.is_written, 2, desc.buffer_type, F32[1]);
         }
         if (True(desc.used_types & IR::Type::U16)) {
-            spv_buffer[BufferAlias::U16] =
+            spv_buffer[PointerType::U16] =
                 DefineBuffer(is_storage, desc.is_written, 1, desc.buffer_type, U16);
         }
         if (True(desc.used_types & IR::Type::U8)) {
-            spv_buffer[BufferAlias::U8] =
+            spv_buffer[PointerType::U8] =
                 DefineBuffer(is_storage, desc.is_written, 0, desc.buffer_type, U8);
         }
         ++binding.unified;

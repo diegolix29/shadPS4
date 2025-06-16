@@ -41,6 +41,17 @@ public:
                          Bindings& binding);
     ~EmitContext();
 
+    enum class PointerType : u32 {
+        U8,
+        U16,
+        F16,
+        U32,
+        F32,
+        U64,
+        F64,
+        NumAlias,
+    };
+
     Id Def(const IR::Value& value);
 
     void DefineBufferProperties();
@@ -133,11 +144,41 @@ public:
         return ConstantComposite(type, constituents);
     }
 
+    PointerType PointerTypeFromType(Id type) {
+        if (type.value == U8.value)
+            return PointerType::U8;
+        if (type.value == U16.value)
+            return PointerType::U16;
+        if (type.value == F16[1].value)
+            return PointerType::F16;
+        if (type.value == U32[1].value)
+            return PointerType::U32;
+        if (type.value == F32[1].value)
+            return PointerType::F32;
+        if (type.value == U64.value)
+            return PointerType::U64;
+        if (type.value == F64[1].value)
+            return PointerType::F64;
+        UNREACHABLE_MSG("Unknown type for pointer");
+    }
+
+    inline Id AddLabel() {
+        last_label = Module::AddLabel();
+        return last_label;
+    }
+
+    inline Id AddLabel(Id label) {
+        last_label = Module::AddLabel(label);
+        return last_label;
+    }
+
     Info& info;
     const RuntimeInfo& runtime_info;
     const Profile& profile;
     Stage stage;
     LogicalStage l_stage{};
+
+    Id last_label{};
 
     Id void_id{};
     Id U8{};
@@ -161,9 +202,13 @@ public:
 
     Id true_value{};
     Id false_value{};
+    Id u8_one_value{};
+    Id u8_zero_value{};
     Id u32_one_value{};
     Id u32_zero_value{};
     Id f32_zero_value{};
+    Id u64_one_value{};
+    Id u64_zero_value{};
 
     Id shared_u8{};
     Id shared_u16{};
@@ -231,14 +276,6 @@ public:
         bool is_storage = false;
     };
 
-    enum class BufferAlias : u32 {
-        U8,
-        U16,
-        U32,
-        F32,
-        NumAlias,
-    };
-
     struct BufferSpv {
         Id id;
         Id pointer_type;
@@ -252,13 +289,13 @@ public:
         Id size;
         Id size_shorts;
         Id size_dwords;
-        std::array<BufferSpv, u32(BufferAlias::NumAlias)> aliases;
+        std::array<BufferSpv, u32(PointerType::NumAlias)> aliases;
 
-        const BufferSpv& operator[](BufferAlias alias) const {
+        const BufferSpv& operator[](PointerType alias) const {
             return aliases[u32(alias)];
         }
 
-        BufferSpv& operator[](BufferAlias alias) {
+        BufferSpv& operator[](PointerType alias) {
             return aliases[u32(alias)];
         }
     };
