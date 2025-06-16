@@ -181,6 +181,8 @@ struct PageManager::Impl {
         const auto addr = reinterpret_cast<VAddr>(fault_address);
         if (Common::IsWriteError(context)) {
             return rasterizer->InvalidateMemory(addr, 1);
+        } else {
+            return rasterizer->ReadMemory(addr, 1);
         }
         return false;
     }
