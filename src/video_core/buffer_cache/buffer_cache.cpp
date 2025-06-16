@@ -137,9 +137,8 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
     if (!IsRegionRegistered(device_addr, size)) {
         return;
     }
-    if (memory_tracker->IsRegionGpuModified(device_addr, size)) {
-        ReadMemory(device_addr, size);
-    }
+    ReadMemory(device_addr, size);
+    std::scoped_lock lk{data_lock};
     memory_tracker->MarkRegionAsCpuModified(device_addr, size);
 }
 
@@ -164,9 +163,8 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
     memory_tracker->ForEachDownloadRange<true>(
         device_addr, size, [&](u64 device_addr_out, u64 range_size) {
             const VAddr buffer_addr = buffer.CpuAddr();
-            const auto add_download = [&](VAddr start, VAddr end) {
+            const auto add_download = [&](VAddr start, u32 new_size) {
                 const u64 new_offset = start - buffer_addr;
-                const u64 new_size = end - start;
                 copies.push_back(vk::BufferCopy{
                     .srcOffset = new_offset,
                     .dstOffset = total_size_bytes,
@@ -177,8 +175,7 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
                 constexpr u64 mask = ~(align - 1ULL);
                 total_size_bytes += (new_size + align - 1) & mask;
             };
-            gpu_modified_ranges.ForEachInRange(device_addr_out, range_size, add_download);
-            gpu_modified_ranges.Subtract(device_addr_out, range_size);
+            add_download(device_addr_out, range_size);
         });
     if (total_size_bytes == 0) {
         return;
@@ -200,7 +197,6 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
         ASSERT(memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
                                        copy.size));
     }
-    memory_tracker->UnmarkRegionAsGpuModified(device_addr, size);
 }
 
 void BufferCache::BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline) {
@@ -440,6 +436,7 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
 
 std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, bool is_written,
                                                   bool is_texel_buffer, BufferId buffer_id) {
+    std::scoped_lock lk{data_lock};
     // For small uniform buffers that have not been modified by gpu
     // use device local stream buffer to reduce renderpass breaks.
     // Maybe we want to modify the threshold now that the page size is 16KB?
@@ -459,8 +456,7 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
 
     // Mark region as GPU modified to get additional tracking needed for readbacks.
     // Somtimes huge buffers may be bound, so set a threshold here as well.
-    static constexpr u64 GpuMarkThreshold = 512_MB;
-    if (is_written && size <= GpuMarkThreshold) {
+    if (is_written) {
         memory_tracker->MarkRegionAsGpuModified(device_addr, size);
         gpu_modified_ranges.Add(device_addr, size);
     }
@@ -502,12 +498,7 @@ bool BufferCache::IsRegionCpuModified(VAddr addr, size_t size) {
 }
 
 bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
-    if (!memory_tracker->IsRegionGpuModified(addr, size)) {
-        return false;
-    }
-    bool modified = false;
-    gpu_modified_ranges.ForEachInRange(addr, size, [&](VAddr, size_t) { modified = true; });
-    return modified;
+    return memory_tracker->IsRegionGpuModified(addr, size);
 }
 
 BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {

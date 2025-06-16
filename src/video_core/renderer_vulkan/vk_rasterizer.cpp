@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-
+#pragma clang optimize off
 #include "common/config.h"
 #include "common/debug.h"
 #include "core/memory.h"
@@ -37,7 +37,7 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
                        AmdGpu::Liverpool* liverpool_)
     : instance{instance_}, scheduler{scheduler_}, page_manager{this},
       buffer_cache{instance, scheduler, liverpool_, texture_cache, page_manager},
-      texture_cache{instance, scheduler, buffer_cache, page_manager}, liverpool{liverpool_},
+      texture_cache{instance, scheduler, liverpool_, buffer_cache, page_manager}, liverpool{liverpool_},
       memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool} {
     if (!Config::nullGpu()) {
         liverpool->BindRasterizer(this);
@@ -186,8 +186,15 @@ RenderState Rasterizer::PrepareRenderState(u32 mrt_mask) {
         image.binding.is_target = 1u;
 
         const auto slice = image_view.info.range.base.layer;
-        const bool is_depth_clear = (regs.depth_render_control.depth_clear_enable ||
-                                     texture_cache.IsMetaCleared(htile_address, slice));
+        const bool clear_enable = regs.depth_render_control.depth_clear_enable;
+        const bool is_meta_cleared = texture_cache.IsMetaCleared(htile_address, slice);
+        const bool is_depth_clear = (clear_enable || is_meta_cleared);
+        if (image.info.guest_address == 0x50131f0000) {
+            printf("color_depth\n");
+        }
+        if (image.info.guest_address == 0x500f0e0000 && is_depth_clear) {
+            printf("test\n");
+        }
         const bool is_stencil_clear = regs.depth_render_control.stencil_clear_enable;
         ASSERT(desc.view_info.range.extent.levels == 1);
 
@@ -472,8 +479,6 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
         uses_dma |= stage->dma_types != Shader::IR::Type::Void;
     }
 
-    pipeline->BindResources(set_writes, buffer_barriers, push_data);
-
     if (uses_dma && !fault_process_pending) {
         // We only use fault buffer for DMA right now.
         {
@@ -487,6 +492,8 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
         }
         buffer_cache.MemoryBarrier();
     }
+
+    pipeline->BindResources(set_writes, buffer_barriers, push_data);
 
     fault_process_pending |= uses_dma;
 

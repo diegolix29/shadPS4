@@ -187,9 +187,7 @@ public:
                     write[index] &= ~mask;
                 } else {
                     UpdateProtection<false, true>(index, read[index], mask);
-                    UpdateProtection<false, false>(index, write[index], mask);
                     read[index] |= mask;
-                    write[index] |= mask;
                 }
                 state_words[index] &= ~mask;
             }

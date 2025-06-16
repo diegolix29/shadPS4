@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-
+#include <sys/mman.h>
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/config.h"
@@ -145,6 +145,7 @@ bool MemoryManager::TryWriteBacking(void* address, const void* data, u32 num_byt
     }
     u8* backing = impl.BackingBase() + vma.phys_base + (virtual_addr - vma.base);
     memcpy(backing, data, num_bytes);
+    msync(impl.BackingBase() + vma.phys_base, vma.size, MS_INVALIDATE);
     return true;
 }
 

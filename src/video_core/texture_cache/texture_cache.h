@@ -15,6 +15,10 @@
 #include "video_core/texture_cache/sampler.h"
 #include "video_core/texture_cache/tile_manager.h"
 
+namespace AmdGpu {
+struct Liverpool;
+}
+
 namespace Core::Libraries::VideoOut {
 struct BufferAttributeGroup;
 }
@@ -93,7 +97,7 @@ public:
 
 public:
     TextureCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                 BufferCache& buffer_cache, PageManager& tracker);
+                 AmdGpu::Liverpool* liverpool, BufferCache& buffer_cache, PageManager& tracker);
     ~TextureCache();
 
     /// Invalidates any image in the logical page range.
@@ -287,6 +291,7 @@ private:
     Vulkan::Scheduler& scheduler;
     BufferCache& buffer_cache;
     PageManager& tracker;
+    AmdGpu::Liverpool* liverpool;
     BlitHelper blit_helper;
     TileManager tile_manager;
     Common::SlotVector<Image> slot_images;

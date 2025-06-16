@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-
+#pragma clang optimize off
 #include <boost/preprocessor/stringize.hpp>
 
 #include "common/assert.h"
@@ -72,6 +72,20 @@ Liverpool::~Liverpool() {
     process_thread.join();
 }
 
+void Liverpool::ProcessCommands() {
+    // Process incoming commands with high priority
+    while (num_commands) {
+        Common::UniqueFunction<void> callback{};
+        {
+            std::unique_lock lk{submit_mutex};
+            callback = std::move(command_queue.front());
+            command_queue.pop();
+            --num_commands;
+        }
+        callback();
+    }
+}
+
 void Liverpool::Process(std::stop_token stoken) {
     Common::SetCurrentThreadName("shadPS4:GpuCommandProcessor");
     gpu_id = std::this_thread::get_id();
@@ -91,18 +105,7 @@ void Liverpool::Process(std::stop_token stoken) {
         curr_qid = -1;
 
         while (num_submits || num_commands) {
-
-            // Process incoming commands with high priority
-            while (num_commands) {
-                Common::UniqueFunction<void> callback{};
-                {
-                    std::unique_lock lk{submit_mutex};
-                    callback = std::move(command_queue.front());
-                    command_queue.pop();
-                    --num_commands;
-                }
-                callback();
-            }
+            ProcessCommands();
 
             curr_qid = (curr_qid + 1) % num_mapped_queues;
 
@@ -225,6 +228,8 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
 
     const auto base_addr = reinterpret_cast<uintptr_t>(dcb.data());
     while (!dcb.empty()) {
+        ProcessCommands();
+
         const auto* header = reinterpret_cast<const PM4Header*>(dcb.data());
         const u32 type = header->type;
 
@@ -603,10 +608,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             case PM4ItOpcode::EventWriteEos: {
                 const auto* event_eos = reinterpret_cast<const PM4CmdEventWriteEos*>(header);
                 event_eos->SignalFence([](void* address, u64 data, u32 num_bytes) {
-                    auto* memory = Core::Memory::Instance();
-                    if (!memory->TryWriteBacking(address, &data, num_bytes)) {
-                        memcpy(address, &data, num_bytes);
-                    }
+                    memcpy(address, &data, num_bytes);
                 });
                 if (event_eos->command == PM4CmdEventWriteEos::Command::GdsStore) {
                     ASSERT(event_eos->size == 1);
@@ -621,10 +623,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             case PM4ItOpcode::EventWriteEop: {
                 const auto* event_eop = reinterpret_cast<const PM4CmdEventWriteEop*>(header);
                 event_eop->SignalFence([](void* address, u64 data, u32 num_bytes) {
-                    auto* memory = Core::Memory::Instance();
-                    if (!memory->TryWriteBacking(address, &data, num_bytes)) {
-                        memcpy(address, &data, num_bytes);
-                    }
+                    memcpy(address, &data, num_bytes);
                 });
                 break;
             }
@@ -691,7 +690,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (mem_semaphore->IsSignaling()) {
                     mem_semaphore->Signal();
                 } else {
+                    LOG_WARNING(Render_Vulkan, "MEM SEMAPHORE");
                     while (!mem_semaphore->Signaled()) {
+                        LOG_WARNING(Render_Vulkan, "MEM SEMAPHORE LOOP");
                         YIELD_GFX();
                     }
                     mem_semaphore->Decrement();
@@ -724,6 +725,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     num_submits == mapped_queues[GfxQueueId].submits.size()) {
                     vo_port->WaitVoLabel([&] { return wait_reg_mem->Test(regs.reg_array); });
                     break;
+                }
+                if (wait_reg_mem->Address<VAddr>() == 0x40046455b0) {
+                    printf("test\n");
                 }
                 while (!wait_reg_mem->Test(regs.reg_array)) {
                     YIELD_GFX();
@@ -811,6 +815,8 @@ Liverpool::Task Liverpool::ProcessCompute(const u32* acb, u32 acb_dwords, u32 vq
 
     auto base_addr = reinterpret_cast<VAddr>(acb);
     while (acb_dwords > 0) {
+        ProcessCommands();
+
         auto* header = reinterpret_cast<const PM4Header*>(acb);
         u32 next_dw_off = header->type3.NumWords() + 1;
 

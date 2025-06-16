@@ -5,6 +5,7 @@
 
 #include <shared_mutex>
 #include <boost/container/small_vector.hpp>
+#include "common/spin_lock.h"
 #include "common/slot_vector.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/buffer.h"
@@ -214,6 +215,7 @@ private:
     RangeSet gpu_modified_ranges;
     SplitRangeMap<BufferId> buffer_ranges;
     PageTable page_table;
+    Common::SpinLock data_lock;
     vk::UniqueDescriptorSetLayout fault_process_desc_layout;
     vk::UniquePipeline fault_process_pipeline;
     vk::UniquePipelineLayout fault_process_pipeline_layout;

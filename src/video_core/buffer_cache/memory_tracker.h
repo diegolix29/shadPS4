@@ -7,6 +7,7 @@
 #include <deque>
 #include <type_traits>
 #include <vector>
+#include "common/spin_lock.h"
 #include "common/logging/log.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/word_manager.h"
@@ -94,7 +95,6 @@ private:
      */
     template <bool create_region_on_fail, typename Func>
     bool IteratePages(VAddr cpu_address, size_t size, Func&& func) {
-        RENDERER_TRACE;
         using FuncReturn = typename std::invoke_result<Func, RegionManager*, u64, size_t>::type;
         static constexpr bool BOOL_BREAK = std::is_same_v<FuncReturn, bool>;
         std::size_t remaining_size{size};
@@ -104,17 +104,15 @@ private:
             const std::size_t copy_amount{
                 std::min<std::size_t>(HIGHER_PAGE_SIZE - page_offset, remaining_size)};
             auto* manager{top_tier[page_index]};
-            if (manager) {
-                if constexpr (BOOL_BREAK) {
-                    if (func(manager, page_offset, copy_amount)) {
-                        return true;
-                    }
-                } else {
-                    func(manager, page_offset, copy_amount);
-                }
-            } else if constexpr (create_region_on_fail) {
-                CreateRegion(page_index);
+            if (!manager && create_region_on_fail) {
+                std::scoped_lock lk{manager_lock};
                 manager = top_tier[page_index];
+                if (!manager) {
+                    CreateRegion(page_index);
+                    manager = top_tier[page_index];
+                }
+            }
+            if (manager) {
                 if constexpr (BOOL_BREAK) {
                     if (func(manager, page_offset, copy_amount)) {
                         return true;
@@ -151,6 +149,7 @@ private:
     std::deque<std::array<RegionManager, MANAGER_POOL_SIZE>> manager_pool;
     std::vector<RegionManager*> free_managers;
     std::array<RegionManager*, NUM_HIGH_PAGES> top_tier{};
+    Common::SpinLock manager_lock;
 };
 
 } // namespace VideoCore

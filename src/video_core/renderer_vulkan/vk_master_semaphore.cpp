@@ -62,7 +62,17 @@ void MasterSemaphore::Wait(u64 tick) {
         .pValues = &tick,
     };
 
-    while (instance.GetDevice().waitSemaphores(&wait_info, WAIT_TIMEOUT) != vk::Result::eSuccess) {
+    vk::Result result;
+    const auto wait = [&] {
+        result = instance.GetDevice().waitSemaphores(&wait_info, WAIT_TIMEOUT);
+        return result != vk::Result::eSuccess;
+    };
+
+    while (wait()) {
+        if (result == vk::Result::eTimeout) {
+            continue;
+        }
+        UNREACHABLE_MSG("Unexpected error while waiting for timeline semaphore {}", vk::to_string(result));
     }
     Refresh();
 }

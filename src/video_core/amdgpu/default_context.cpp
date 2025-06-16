@@ -50,6 +50,7 @@ void Liverpool::Regs::SetDefaults() {
     reg_array[ContextRegWordOffset + 0x02fd] = 0x3f800000u;
     reg_array[ContextRegWordOffset + 0x0316] = 0x0000000eu;
     reg_array[ContextRegWordOffset + 0x0317] = 0x00000010u;
+    reg_array[ContextRegWordOffset + 0x185] = 0b100;
 }
 
 } // namespace AmdGpu

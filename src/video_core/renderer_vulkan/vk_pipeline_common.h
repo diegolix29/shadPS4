@@ -62,7 +62,7 @@ public:
     void BindResources(DescriptorWrites& set_writes, const BufferBarriers& buffer_barriers,
                        const Shader::PushData& push_data) const;
 
-protected:
+public:
     [[nodiscard]] std::string GetDebugString() const;
 
     const Instance& instance;
