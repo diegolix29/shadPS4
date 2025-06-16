@@ -469,7 +469,7 @@ jobs:
         path: shadps4.flatpak
         name: shadps4-linux-flatpak-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         
-  release:
+  Full-Souls:
     if: github.ref == 'refs/heads/Full-Souls' && github.event_name == 'push'
     needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
     runs-on: ubuntu-latest
@@ -490,66 +490,66 @@ jobs:
           fi
         done
   
-    - name: Get release information
-      id: get_release
+    - name: Get Full-Souls information
+      id: get_Full-Souls
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
+        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
+        
+        latest_Full-Souls=$(echo "$releases" | jq -r '.[] | select(.tag_name | startswith("Full-Souls-")) | .tag_name' | sort -r | head -n 1)
+        
+        echo "Latest Full-Souls release tag: $latest_Full-Souls"
+        echo "last_Full-Souls_release_tag=$latest_Full-Souls" >> $GITHUB_ENV
 
-        latest_release_info=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url" | jq -r 'sort_by(.published_at) | last')
-
-        last_release_tag=$(echo "$latest_release_info" | jq -r '.tag_name')
-
-        echo "Latest release tag: $last_release_tag"
-        echo "last_release_tag=$last_release_tag" >> $GITHUB_ENV
-
-    - name: Create release on GitHub
-      id: create_release
+    - name: Create Full-Souls on GitHub
+      id: create_Full-Souls
       uses: ncipollo/release-action@v1
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       with:
-        name: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
-        tag: "release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
+        name: "Full-Souls-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        tag: "Full-Souls-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
         draft: false
         prerelease: false
-        body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
+        body: "Full Changelog: [${{ env.last_Full-Souls_release_tag }}...${{ needs.get-info.outputs.fullhash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_Full-Souls_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
         artifacts: ./artifacts/*.zip
          
-    - name: Get current release information
+    - name: Get current Full-Souls information
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-
+        
         releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
 
-        CURRENT_PUBLISHED_AT=$(echo "$releases" | jq -r 'map(select(.draft == false and .prerelease == false)) | sort_by(.published_at) | last | .published_at')
+        CURRENT_PUBLISHED_AT=$(echo "$releases" | jq -r '.[] | select(.tag_name | startswith("Full-Souls-")) | .published_at' | sort -r | head -n 1)
+        CURRENT_PUBLISHED_AT=$(echo "$CURRENT_PUBLISHED_AT" | tr -d '"')
 
-        echo "Latest published release date: $CURRENT_PUBLISHED_AT"
+        echo "Latest Full-Souls release date: $CURRENT_PUBLISHED_AT"
         echo "CURRENT_PUBLISHED_AT=$CURRENT_PUBLISHED_AT" >> $GITHUB_ENV
     
-    - name: Delete old releases and tags
+    - name: Delete old Full-Soulss and tags
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-
+        
         releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-
+        
         current_published_ts=$(date -u -d "$CURRENT_PUBLISHED_AT" +%s)
 
-        echo "Current release timestamp: $current_published_ts"
+        echo "Current Full-Souls timestamp: $current_published_ts"
 
-        echo "$releases" | jq -c '.[] | select(.draft == false and .prerelease == false and (.tag_name | startswith("release-shadPS4-")))' | while read -r release; do
+        echo "$releases" | jq -c '.[] | select(.tag_name | startswith("Full-Souls-"))' | while read -r release; do
           release_date=$(echo "$release" | jq -r '.published_at')
           release_id=$(echo "$release" | jq -r '.id')
           release_tag=$(echo "$release" | jq -r '.tag_name')
 
           release_date_ts=$(date -u -d "$release_date" +%s)
 
-          echo "Checking release: $release_tag from $release_date"
+          echo "Checking Full-Souls release: $release_tag from $release_date"
 
           if [[ "$release_date_ts" -lt "$current_published_ts" ]]; then
             echo "Deleting old Full-Souls release: $release_id ($release_tag)"
@@ -560,6 +560,6 @@ jobs:
 
             sleep 1
           else
-            echo "Skipping release: $release_id (newer or same date)"
+            echo "Skipping Full-Souls: $release_id (newer or same date)"
           fi
         done
