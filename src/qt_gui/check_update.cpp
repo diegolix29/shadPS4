@@ -44,7 +44,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
     bool checkName = true;
     while (checkName) {
         updateChannel = QString::fromStdString(Config::getUpdateChannel());
-        if (updateChannel == "mainBB") {
+        if (updateChannel == "BBFork") {
             url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
             checkName = false;
         } else if (updateChannel == "Full-Souls") {
@@ -57,7 +57,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
             if (Common::g_is_release) {
                 updateChannel = "Full-Souls";
             } else if (!Common::g_is_release) { // Non-release builds
-                updateChannel = "mainBB";
+                updateChannel = "BBFork";
             } else { // Fallback to PRTBB if neither applies
                 updateChannel = "PRTBB";
             }
@@ -116,7 +116,7 @@ tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached 
 #endif
 
         QJsonObject jsonObj;
-        if (updateChannel == "mainBB") {
+        if (updateChannel == "BBFork") {
             QJsonArray jsonArray = jsonDoc.array();
             for (const QJsonValue& value : jsonArray) {
                 jsonObj = value.toObject();
