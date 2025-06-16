@@ -42,6 +42,7 @@ bool getCheckCompatibilityOnStartup();
 int getBackgroundImageOpacity();
 bool getShowBackgroundImage();
 bool getPSNSignedIn();
+bool getReadbacksEnabled();
 
 std::string getLogFilter();
 std::string getLogType();
@@ -147,6 +148,7 @@ void setCheckCompatibilityOnStartup(bool use);
 void setBackgroundImageOpacity(int opacity);
 void setShowBackgroundImage(bool show);
 void setPSNSignedIn(bool sign);
+void setReadbacksEnabled(bool enable);
 
 void setCursorState(s16 cursorState);
 void setCursorHideTimeout(int newcursorHideTimeout);

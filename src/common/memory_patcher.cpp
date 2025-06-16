@@ -21,6 +21,7 @@
 #include <QString>
 #include <QXmlStreamReader>
 #endif
+#include "common/config.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "config.h"

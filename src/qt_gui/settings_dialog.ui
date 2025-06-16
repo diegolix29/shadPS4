@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
-     SPDX-License-Identifier: GPL-2.0-or-later -->
 <ui version="4.0">
  <class>SettingsDialog</class>
  <widget class="QDialog" name="SettingsDialog">
@@ -59,7 +57,7 @@
       </size>
      </property>
      <property name="currentIndex">
-      <number>5</number>
+      <number>0</number>
      </property>
      <widget class="QScrollArea" name="generalTab">
       <property name="widgetResizable">
@@ -2096,6 +2094,13 @@
               <widget class="QCheckBox" name="separateLogFilesCheckbox">
                <property name="text">
                 <string>Separate Log Files</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QCheckBox" name="ReadbacksCheckBox">
+               <property name="text">
+                <string>Enable Readbacks (removes vertex Explosions in BB, causes additional stutters)</string>
                </property>
               </widget>
              </item>
