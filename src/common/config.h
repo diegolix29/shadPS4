@@ -43,6 +43,8 @@ int getBackgroundImageOpacity();
 bool getShowBackgroundImage();
 bool getPSNSignedIn();
 bool getReadbacksEnabled();
+std::string getAudioBackend();
+int getAudioVolume();
 
 std::string getLogFilter();
 std::string getLogType();
@@ -149,6 +151,8 @@ void setBackgroundImageOpacity(int opacity);
 void setShowBackgroundImage(bool show);
 void setPSNSignedIn(bool sign);
 void setReadbacksEnabled(bool enable);
+void setAudioBackend(std::string backend);
+void setAudioVolume(int volume);
 
 void setCursorState(s16 cursorState);
 void setCursorHideTimeout(int newcursorHideTimeout);

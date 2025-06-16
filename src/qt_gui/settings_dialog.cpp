@@ -207,6 +207,10 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             auto checkUpdate = new CheckUpdate(true);
             checkUpdate->exec();
         });
+
+        connect(ui->VolumeSlider, &QSlider::valueChanged, this, [this](int value) {
+            ui->VolumeValue->setText(QString::number(ui->VolumeSlider->value()));
+        });
 #else
         ui->updaterGroupBox->setVisible(false);
 #endif
@@ -514,6 +518,10 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "compatibilityEnabled", false));
     ui->checkCompatibilityOnStartupCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
+    ui->audioBackendComboBox->setCurrentText(
+        QString::fromStdString(toml::find_or<std::string>(data, "General", "backend", "cubeb")));
+    ui->VolumeSlider->setValue(toml::find_or<int>(data, "General", "volume", 100));
+    ui->VolumeValue->setText(QString::number(Config::getAudioVolume()));
 
     ui->rcasAttenuationSlider->setValue(static_cast<int>(Config::getRcasAttenuation() * 1000));
     ui->rcasAttenuationSpinBox->setValue(Config::getRcasAttenuation());
@@ -797,6 +805,12 @@ void SettingsDialog::UpdateSettings() {
     Config::setVkCrashDiagnosticEnabled(ui->crashDiagnosticsCheckBox->isChecked());
     Config::setCollectShaderForDebug(ui->collectShaderCheckBox->isChecked());
     Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
+    Config::setAudioVolume(ui->VolumeSlider->value());
+
+    m_gui_settings->SetValue(gui::gen_checkForUpdates, ui->updateCheckBox->isChecked());
+    m_gui_settings->SetValue(gui::gen_showChangeLog, ui->changelogCheckBox->isChecked());
+    m_gui_settings->SetValue(gui::gen_updateChannel,
+                             channelMap.value(ui->updateComboBox->currentText()));
     Config::setAutoUpdate(ui->updateCheckBox->isChecked());
     Config::setAlwaysShowChangelog(ui->changelogCheckBox->isChecked());
     Config::setUpdateChannel(channelMap.value(ui->updateComboBox->currentText()).toStdString());

@@ -80,6 +80,8 @@ static bool checkCompatibilityOnStartup = false;
 static std::string trophyKey;
 static bool isPSNSignedIn = false;
 static bool readbacksEnabled = false;
+static std::string audioBackend = "cubeb";
+static int audioVolume = 100;
 
 // Gui
 static bool load_game_size = true;
@@ -370,6 +372,14 @@ bool getCheckCompatibilityOnStartup() {
     return checkCompatibilityOnStartup;
 }
 
+std::string getAudioBackend() {
+    return audioBackend;
+}
+
+int getAudioVolume() {
+    return audioVolume;
+}
+
 void setGpuId(s32 selectedGpuId) {
     gpuId = selectedGpuId;
 }
@@ -540,6 +550,10 @@ void setMainWindowGeometry(u32 x, u32 y, u32 w, u32 h) {
     main_window_geometry_y = y;
     main_window_geometry_w = w;
     main_window_geometry_h = h;
+}
+
+void setAudioVolume(int volume) {
+    audioVolume = volume;
 }
 
 bool addGameInstallDir(const std::filesystem::path& dir, bool enabled) {
@@ -822,6 +836,8 @@ void load(const std::filesystem::path& path) {
         checkCompatibilityOnStartup =
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", "Release");
+        audioBackend = toml::find_or<std::string>(general, "backend", "cubeb");
+        audioVolume = toml::find_or<int>(general, "volume", 100);
     }
 
     if (data.contains("Input")) {
@@ -1044,6 +1060,8 @@ void save(const std::filesystem::path& path) {
     data["Vulkan"]["hostMarkers"] = vkHostMarkers;
     data["Vulkan"]["guestMarkers"] = vkGuestMarkers;
     data["Vulkan"]["rdocEnable"] = rdocEnable;
+    data["General"]["backend"] = audioBackend;
+    data["General"]["volume"] = audioVolume;
     data["Debug"]["DebugDump"] = isDebugDump;
     data["Debug"]["CollectShader"] = isShaderDebug;
     data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled;
@@ -1195,6 +1213,8 @@ void setDefaultValues() {
     checkCompatibilityOnStartup = false;
     backgroundImageOpacity = 50;
     showBackgroundImage = true;
+    audioBackend = "cubeb";
+    audioVolume = 100;
 }
 
 constexpr std::string_view GetDefaultKeyboardConfig() {
