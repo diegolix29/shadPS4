@@ -818,6 +818,9 @@ void load(const std::filesystem::path& path) {
         if (updateChannel == "Nightly") {
             updateChannel = "BBFork";
         }
+        if (updateChannel == "mainBB") {
+            updateChannel = "BBFork";
+        }
         if (updateChannel == "PartBB") {
             updateChannel = "PRTBB";
         }
