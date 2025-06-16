@@ -478,33 +478,38 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         path: ./artifacts
-  
-    - name: Compress individual directories (without parent directory)
+
+    - name: Compress artifacts
       run: |
         cd ./artifacts
         for dir in */; do
-          if [ -d "$dir" ]; then
-            dir_name=${dir%/}
-            echo "Creating zip for $dir_name"
-            (cd "$dir_name" && zip -r "../${dir_name}.zip" .)
-          fi
+          dir_name="${dir%/}"
+          (cd "$dir_name" && zip -r "../${dir_name}.zip" .)
         done
-  
-    - name: Get Full-Souls information
-      id: get_Full-Souls
+
+    - name: Get previous Full-Souls release
+      id: get_release
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-        
-        latest_release=$(echo "$releases" | jq -r '.[] | select(.tag_name | startswith("Full-Souls-")) | .tag_name' | sort -r | head -n 1)
-        
-        echo "Latest Full-Souls release tag: $latest_Full-Souls"
-        echo "last_Full-Souls_release_tag=$latest_Full-Souls" >> $GITHUB_ENV
+        latest_release=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url" |
+          jq -r '[.[] | select(.tag_name | startswith("Full-Souls-shadPS4-"))] | sort_by(.published_at) | last')
+        echo "$latest_release" | jq -r '.tag_name' | tee /dev/stderr
+        echo "last_release_tag=$(echo "$latest_release" | jq -r '.tag_name')" >> $GITHUB_ENV
+        echo "last_release_id=$(echo "$latest_release" | jq -r '.id')" >> $GITHUB_ENV
 
-    - name: Create Full-Souls on GitHub
-      id: create_Full-Souls
+    - name: Delete previous Full-Souls release and tag
+      if: env.last_release_id != 'null'
+      env:
+        GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
+      run: |
+        curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/${{ env.last_release_id }}"
+        curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+          "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/${{ env.last_release_tag }}"
+
+    - name: Create new Full-Souls release
       uses: ncipollo/release-action@v1
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
@@ -513,53 +518,21 @@ jobs:
         tag: "Full-Souls-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
         draft: false
         prerelease: false
-        body: "Full Changelog: [${{ env.last_Full-Souls_release_tag }}...${{ needs.get-info.outputs.fullhash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_Full-Souls_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
+        body: |
+          Full Changelog:
+          [${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }}](https://github.com/${{ github.repository }}/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})
+
         artifacts: ./artifacts/*.zip
-         
-    - name: Get current Full-Souls information
-      env:
-        GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
+
+    - name: Update 'latest-release' tag
       run: |
-        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        
-        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
 
-        CURRENT_PUBLISHED_AT=$(echo "$releases" | jq -r '.[] | select(.tag_name | startswith("Full-Souls-")) | .published_at' | sort -r | head -n 1)
-        CURRENT_PUBLISHED_AT=$(echo "$CURRENT_PUBLISHED_AT" | tr -d '"')
+        new_tag="Full-Souls-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
 
-        echo "Latest Full-Souls release date: $CURRENT_PUBLISHED_AT"
-        echo "CURRENT_PUBLISHED_AT=$CURRENT_PUBLISHED_AT" >> $GITHUB_ENV
-    
-    - name: Delete old Full-Soulss and tags
-      env:
-        GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
-      run: |
-        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        
-        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-        
-        current_published_ts=$(date -u -d "$CURRENT_PUBLISHED_AT" +%s)
+        git fetch --tags
+        git tag -f latest-release "$new_tag"
+        git push --force origin latest-release
 
-        echo "Current Full-Souls timestamp: $current_published_ts"
 
-        echo "$releases" | jq -c '.[] | select(.tag_name | startswith("Full-Souls-"))' | while read -r release; do
-          release_date=$(echo "$release" | jq -r '.published_at')
-          release_id=$(echo "$release" | jq -r '.id')
-          release_tag=$(echo "$release" | jq -r '.tag_name')
-
-          release_date_ts=$(date -u -d "$release_date" +%s)
-
-          echo "Checking Full-Souls release: $release_tag from $release_date"
-
-          if [[ "$release_date_ts" -lt "$current_published_ts" ]]; then
-            echo "Deleting old Full-Souls release: $release_id ($release_tag)"
-
-            curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
-
-            curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$release_tag"
-
-            sleep 1
-          else
-            echo "Skipping Full-Souls: $release_id (newer or same date)"
-          fi
-        done
