@@ -1176,10 +1176,6 @@
       <translation>Не удаётся сохранить</translation>
     </message>
     <message>
-      <source>Cannot bind any unique input more than once</source>
-      <translation>Невозможно привязать уникальный ввод более одного раза</translation>
-    </message>
-    <message>
       <source>Press a key</source>
       <translation>Нажмите кнопку</translation>
     </message>
@@ -1206,6 +1202,14 @@
     <message>
       <source>Cancel</source>
       <translation>Отмена</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</source>
+      <translation type="unfinished">Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</translation>
     </message>
   </context>
   <context>

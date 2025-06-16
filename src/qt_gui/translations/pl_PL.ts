@@ -1176,10 +1176,6 @@
       <translation>Zapisywanie nie powiodło się</translation>
     </message>
     <message>
-      <source>Cannot bind any unique input more than once</source>
-      <translation>Nie można powiązać żadnych unikalnych danych wejściowych więcej niż raz</translation>
-    </message>
-    <message>
       <source>Press a key</source>
       <translation>Naciśnij klawisz</translation>
     </message>
@@ -1206,6 +1202,14 @@
     <message>
       <source>Cancel</source>
       <translation>Anuluj</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</source>
+      <translation type="unfinished">Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</translation>
     </message>
   </context>
   <context>
