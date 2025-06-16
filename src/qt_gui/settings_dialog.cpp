@@ -95,7 +95,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             [](int state) { Config::setEnableAutoBackup(state == Qt::Checked); });
 
     channelMap = {
-        {tr("Full-Souls"), "Full-Souls"}, {tr("mainBB"), "mainBB"}, {tr("PRTBB"), "PRTBB"}};
+        {tr("Full-Souls"), "Full-Souls"}, {tr("BBFork"), "BBFork"}, {tr("PRTBB"), "PRTBB"}};
     logTypeMap = {{tr("async"), "async"}, {tr("sync"), "sync"}};
     screenModeMap = {{tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
                      {tr("Windowed"), "Windowed"},
@@ -530,8 +530,8 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
     ui->updateComboBox->setCurrentText(channelMap.key(
-        (updateChannel != "Full-Souls" && updateChannel != "mainBB" && updateChannel != "PRTBB")
-            ? (Common::g_is_release ? "Full-Souls" : "mainBB", "PRTBB")
+        (updateChannel != "Full-Souls" && updateChannel != "BBFork" && updateChannel != "PRTBB")
+            ? (Common::g_is_release ? "Full-Souls" : "BBFork", "PRTBB")
             : updateChannel));
 #endif
 
