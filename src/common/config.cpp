@@ -808,7 +808,7 @@ void load(const std::filesystem::path& path) {
         if (Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Full-Souls");
         } else if (!Common::g_is_release) {
-            updateChannel = toml::find_or<std::string>(general, "updateChannel", "mainBB");
+            updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
         } else {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "PRTBB");
         }
@@ -816,7 +816,7 @@ void load(const std::filesystem::path& path) {
             updateChannel = "Full-Souls";
         }
         if (updateChannel == "Nightly") {
-            updateChannel = "mainBB";
+            updateChannel = "BBFork";
         }
         if (updateChannel == "PartBB") {
             updateChannel = "PRTBB";
