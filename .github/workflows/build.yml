@@ -498,7 +498,7 @@ jobs:
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
         releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
         
-        latest_Full-Souls=$(echo "$releases" | jq -r '.[] | select(.tag_name | startswith("Full-Souls-")) | .tag_name' | sort -r | head -n 1)
+        latest_release=$(echo "$releases" | jq -r '.[] | select(.tag_name | startswith("Full-Souls-")) | .tag_name' | sort -r | head -n 1)
         
         echo "Latest Full-Souls release tag: $latest_Full-Souls"
         echo "last_Full-Souls_release_tag=$latest_Full-Souls" >> $GITHUB_ENV
