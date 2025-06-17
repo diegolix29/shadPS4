@@ -27,7 +27,7 @@ PRTBB
 This is the safest branch at the moment. It doesn’t include any extra features.
 
 BBFork (previously known as mainBB)
--Includes a high-resolution hack (thanks to fmod) and modified by me to avoid crashing other games.
+-Includes a high-resolution hack (thanks to fmod) with adjonesse hack to stabilize it and modified by me to avoid crashing other games.
 -Note: May impact performance on mid- or low-end systems.
 
 Full-Souls
