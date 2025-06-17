@@ -2,6 +2,26 @@
 SPDX-FileCopyrightText: 2024 shadPS4 Emulator Project
 SPDX-License-Identifier: GPL-2.0-or-later
 -->
+This repository has 3 branches with extra features from main shad, they are experimental and others are self added for comvienence, They all share these things:
+Bloodborne especific:
+- Extra Sfx particles shown snow sparks, etc. from roamic pr - adjonese hack to stabilize it - and rewritted by me to work with current main shad implementations. 
+- Sound hack that prevents the game Bloodborne to lose sound.
+- Automatic Backups with a checkbox in settings graphics tab.
+- pm4 type 0 hack to avoid it happens, dont use it with copy buffer checkbox under debug tab in settings.
+- Rcas bar in settings to set the sharpness of the fsr
+- restart button and stop button working (they both do the same thing atm - closing the current game and restarting the emulator.)
+- Keyboard and mouse custom buttons mapping for fromsoft games
+- Experimental tab with both isDevKit and Neo Mode (ps4 pro mode) check boxes in settings.
+- Safe Tiling and Usb prs that i made for main shad.
+
+PRTBB is the safest at the moment dosent have any extra stuff
+
+BBFork (before known as mainBB) specific:
+-High resolution hack thanks to fmod and modified to not crash other games by me. but might tank some mid end and low end systems.
+
+Full-Souls specific: 
+- Av impruvements pr for Dark Souls 2 main intro to not crash
+- Readbacks PR faster version by me. But it creates smalls stutters on heavy areas.
 
 <h1 align="center">
   <br>
