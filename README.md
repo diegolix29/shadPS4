@@ -5,35 +5,35 @@ SPDX-License-Identifier: GPL-2.0-or-later
 This repository has three branches with extra features based on the main Shad branch. They are experimental or self-added for convenience.
 They all share the following Bloodborne-specific enhancements:
 
-Extra SFX particles shown (snow, sparks, etc.), originally from the roamic PR – further stabilized with the adjonese hack and rewritten by me to work with the current main Shad implementations.
+-Extra SFX particles shown (snow, sparks, etc.), originally from the roamic PR – further stabilized with the adjonese hack and rewritten by me to work with the current main Shad implementations.
 
-A sound hack that prevents Bloodborne from losing audio.
+-A sound hack that prevents Bloodborne from losing audio.
 
-Automatic backups via a checkbox in the Graphics tab in Settings.
+-Automatic backups via a checkbox in the Graphics tab in Settings.
 
-A PM4 Type 0 hack to avoid related issues. (Do not use this with the "Copy Buffer" checkbox under the Debug tab in Settings.)
+-A PM4 Type 0 hack to avoid related issues. (Do not use this with the "Copy Buffer" checkbox under the Debug tab in Settings.)
 
-An RCAS bar in Settings to adjust FSR sharpness.
+-An RCAS bar in Settings to adjust FSR sharpness.
 
-Restart and Stop buttons working (currently both do the same thing – close the current game and restart the emulator).
+-Restart and Stop buttons working (currently both do the same thing – close the current game and restart the emulator).
 
-Keyboard and mouse custom button mapping for FromSoftware games.
+-Keyboard and mouse custom button mapping for FromSoftware games.
 
-An Experimental tab with both isDevKit and Neo Mode (PS4 Pro Mode) checkboxes in Settings.
+-An Experimental tab with both isDevKit and Neo Mode (PS4 Pro Mode) checkboxes in Settings.
 
-Safe Tiling and USB PRs that I developed for main Shad.
+-Safe Tiling and USB PRs that I developed for main Shad.
 
 PRTBB
 This is the safest branch at the moment. It doesn’t include any extra features.
 
 BBFork (previously known as mainBB)
-Includes a high-resolution hack (thanks to fmod) and modified by me to avoid crashing other games.
-Note: May impact performance on mid- or low-end systems.
+-Includes a high-resolution hack (thanks to fmod) and modified by me to avoid crashing other games.
+-Note: May impact performance on mid- or low-end systems.
 
 Full-Souls
-Includes the AV improvements PR to prevent Dark Souls 2’s main intro from crashing.
+-Includes the AV improvements PR to prevent Dark Souls 2’s main intro from crashing.
 
-Includes a faster readbacks PR by me.
+-Includes a faster readbacks PR by me.
 Note: This can cause minor stutters in heavy areas.
 
 <h1 align="center">
