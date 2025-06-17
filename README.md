@@ -2,26 +2,39 @@
 SPDX-FileCopyrightText: 2024 shadPS4 Emulator Project
 SPDX-License-Identifier: GPL-2.0-or-later
 -->
-This repository has 3 branches with extra features from main shad, they are experimental and others are self added for comvienence, They all share these things:
-Bloodborne especific:
-- Extra Sfx particles shown snow sparks, etc. from roamic pr - adjonese hack to stabilize it - and rewritted by me to work with current main shad implementations. 
-- Sound hack that prevents the game Bloodborne to lose sound.
-- Automatic Backups with a checkbox in settings graphics tab.
-- pm4 type 0 hack to avoid it happens, dont use it with copy buffer checkbox under debug tab in settings.
-- Rcas bar in settings to set the sharpness of the fsr
-- restart button and stop button working (they both do the same thing atm - closing the current game and restarting the emulator.)
-- Keyboard and mouse custom buttons mapping for fromsoft games
-- Experimental tab with both isDevKit and Neo Mode (ps4 pro mode) check boxes in settings.
-- Safe Tiling and Usb prs that i made for main shad.
+This repository has three branches with extra features based on the main Shad branch. They are experimental or self-added for convenience.
+They all share the following Bloodborne-specific enhancements:
 
-PRTBB is the safest at the moment dosent have any extra stuff
+Extra SFX particles shown (snow, sparks, etc.), originally from the roamic PR – further stabilized with the adjonese hack and rewritten by me to work with the current main Shad implementations.
 
-BBFork (before known as mainBB) specific:
--High resolution hack thanks to fmod and modified to not crash other games by me. but might tank some mid end and low end systems.
+A sound hack that prevents Bloodborne from losing audio.
 
-Full-Souls specific: 
-- Av impruvements pr for Dark Souls 2 main intro to not crash
-- Readbacks PR faster version by me. But it creates smalls stutters on heavy areas.
+Automatic backups via a checkbox in the Graphics tab in Settings.
+
+A PM4 Type 0 hack to avoid related issues. (Do not use this with the "Copy Buffer" checkbox under the Debug tab in Settings.)
+
+An RCAS bar in Settings to adjust FSR sharpness.
+
+Restart and Stop buttons working (currently both do the same thing – close the current game and restart the emulator).
+
+Keyboard and mouse custom button mapping for FromSoftware games.
+
+An Experimental tab with both isDevKit and Neo Mode (PS4 Pro Mode) checkboxes in Settings.
+
+Safe Tiling and USB PRs that I developed for main Shad.
+
+PRTBB
+This is the safest branch at the moment. It doesn’t include any extra features.
+
+BBFork (previously known as mainBB)
+Includes a high-resolution hack (thanks to fmod) and modified by me to avoid crashing other games.
+Note: May impact performance on mid- or low-end systems.
+
+Full-Souls
+Includes the AV improvements PR to prevent Dark Souls 2’s main intro from crashing.
+
+Includes a faster readbacks PR by me.
+Note: This can cause minor stutters in heavy areas.
 
 <h1 align="center">
   <br>
