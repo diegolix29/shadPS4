@@ -38,33 +38,9 @@ CheckUpdate::CheckUpdate(const bool showMessage, QWidget* parent)
 CheckUpdate::~CheckUpdate() {}
 
 void CheckUpdate::CheckForUpdates(const bool showMessage) {
-    QString updateChannel;
-    QUrl url;
+    QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
+    QUrl url("https://api.github.com/repos/diegolix29/shadPS4/releases");
 
-    bool checkName = true;
-    while (checkName) {
-        updateChannel = QString::fromStdString(Config::getUpdateChannel());
-        if (updateChannel == "BBFork") {
-            url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
-            checkName = false;
-        } else if (updateChannel == "Full-Souls") {
-            url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases/latest");
-            checkName = false;
-        } else if (updateChannel == "PRTBB") {
-            url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
-            checkName = false;
-        } else {
-            if (Common::g_is_release) {
-                updateChannel = "Full-Souls";
-            } else if (!Common::g_is_release) { // Non-release builds
-                updateChannel = "BBFork";
-            } else { // Fallback to PRTBB if neither applies
-                updateChannel = "PRTBB";
-            }
-            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-            Config::save(config_dir / "config.toml");
-        }
-    }
 
     QNetworkRequest request(url);
     QNetworkReply* reply = networkManager->get(request);
@@ -115,47 +91,24 @@ tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached 
         platformString = "macos-qt";
 #endif
 
+        QJsonArray jsonArray = jsonDoc.array();
         QJsonObject jsonObj;
-        if (updateChannel == "BBFork") {
-            QJsonArray jsonArray = jsonDoc.array();
-            for (const QJsonValue& value : jsonArray) {
-                jsonObj = value.toObject();
-                if (jsonObj.contains("prerelease") && jsonObj["prerelease"].toBool()) {
-                    break;
-                }
+
+        for (const QJsonValue& value : jsonArray) {
+            QJsonObject obj = value.toObject();
+            QString tagName = obj["tag_name"].toString();
+            if (tagName.startsWith(updateChannel)) {
+                jsonObj = obj;
+                latestVersion = tagName;
+                break;
             }
-            if (!jsonObj.isEmpty()) {
-                latestVersion = jsonObj["tag_name"].toString();
-            } else {
-                QMessageBox::warning(this, tr("Error"), tr("No pre-releases found."));
-                reply->deleteLater();
-                return;
-            }
-        } else if (updateChannel == "PRTBB") {
-            // Find the first release with a tag_name starting with "PRTBB-"
-            QJsonArray jsonArray = jsonDoc.array();
-            for (const QJsonValue& value : jsonArray) {
-                jsonObj = value.toObject();
-                QString tagName = jsonObj["tag_name"].toString();
-                if (tagName.startsWith("PRTBB-")) {
-                    latestVersion = tagName;
-                    break;
-                }
-            }
-            if (latestVersion.isEmpty()) {
-                QMessageBox::warning(this, tr("Error"), tr("No PRTBB releases found."));
-                reply->deleteLater();
-                return;
-            }
-        } else { // Release
-            jsonObj = jsonDoc.object();
-            if (jsonObj.contains("tag_name")) {
-                latestVersion = jsonObj["tag_name"].toString();
-            } else {
-                QMessageBox::warning(this, tr("Error"), tr("Invalid release data."));
-                reply->deleteLater();
-                return;
-            }
+        }
+
+        if (latestVersion.isEmpty()) {
+            QMessageBox::warning(this, tr("Error"),
+                                 tr("No releases found for update channel: ") + updateChannel);
+            reply->deleteLater();
+            return;
         }
 
         latestRev = latestVersion.right(40).left(7);
