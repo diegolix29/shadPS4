@@ -41,7 +41,6 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
     QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
     QUrl url("https://api.github.com/repos/diegolix29/shadPS4/releases");
 
-
     QNetworkRequest request(url);
     QNetworkReply* reply = networkManager->get(request);
 
