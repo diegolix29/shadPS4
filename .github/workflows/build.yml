@@ -495,12 +495,9 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
-        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-        latest_release_info=$(echo "$releases" | jq -r '[.[] | select(.prerelease == true and (.tag_name != null and .tag_name | startswith("BBFork-shadPS4-")))] | sort_by(.published_at) | last')
-        last_release_tag=$(echo "$latest_release_info" | jq -r '.tag_name')
-        echo "Last BBFork tag: $last_release_tag"
-        echo "last_release_tag=$last_release_tag" >> $GITHUB_ENV
+        api_url="https://api.github.com/repos/${{ github.repository }}"
+        latest_release_info=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url/releases/latest")
+        echo "last_release_tag=$(echo "$latest_release_info" | jq -r '.tag_name')" >> $GITHUB_ENV
 
     - name: Create BBFork on GitHub
       id: create_BBFork
