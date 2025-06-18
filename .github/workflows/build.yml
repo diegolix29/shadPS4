@@ -514,9 +514,6 @@ jobs:
       with:
         name: "PRTBB-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
         tag: "PRTBB-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
-        draft: true
-        prerelease: false
-        makeLatest: false
         body: "Full Changelog: [${{ env.last_PRTBB_release_tag }}...${{ needs.get-info.outputs.fullhash }}](https://github.com/diegolix29/shadPS4/compare/${{ env.last_PRTBB_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
         artifacts: ./artifacts/*.zip
          
