@@ -474,7 +474,7 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
 
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
 
-    if (uses_dma && !fault_process_pending) {
+    if (uses_dma) {
         // We only use fault buffer for DMA right now.
         {
             // TODO: GPU might have written to memory (for example with EVENT_WRITE_EOP)
