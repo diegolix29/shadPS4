@@ -25,7 +25,7 @@ private:
     void setupUI(const QString& downloadUrl, const QString& latestDate, const QString& latestRev,
                  const QString& currentDate, const QString& currentRev);
 
-    void requestChangelog(const QString& currentRev, const QString& latestRev,
+    void requestChangelog(const QString& previousSha, const QString& latestSha,
                           const QString& downloadUrl, const QString& latestDate,
                           const QString& currentDate);
 

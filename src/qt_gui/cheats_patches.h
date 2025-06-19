@@ -44,7 +44,8 @@ signals:
 
 private:
     // UI Setup and Event Handlers
-    void setupUI();
+    void setupUI(const QString& downloadUrl, const QString& latestDate, const QString& latestRev,
+                 const QString& currentDate, const QString& currentRev);
     void onSaveButtonClicked();
     QCheckBox* findCheckBoxByName(const QString& name);
     bool eventFilter(QObject* obj, QEvent* event);

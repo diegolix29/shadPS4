@@ -90,16 +90,25 @@ tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached 
         platformString = "macos-qt";
 #endif
 
-        QJsonArray jsonArray = jsonDoc.array();
         QJsonObject jsonObj;
+        QString previousVersionTag;
+        QString previousCommitSha;
+        QString latestCommitSha;
 
+        QJsonArray jsonArray = jsonDoc.array();
         for (const QJsonValue& value : jsonArray) {
             QJsonObject obj = value.toObject();
             QString tagName = obj["tag_name"].toString();
             if (tagName.startsWith(updateChannel)) {
-                jsonObj = obj;
-                latestVersion = tagName;
-                break;
+                if (latestVersion.isEmpty()) {
+                    latestVersion = tagName;
+                    jsonObj = obj;
+                    latestCommitSha = obj["target_commitish"].toString();
+                } else {
+                    previousVersionTag = tagName;
+                    previousCommitSha = obj["target_commitish"].toString();
+                    break;
+                }
             }
         }
 
@@ -275,77 +284,68 @@ void CheckUpdate::setupUI(const QString& downloadUrl, const QString& latestDate,
     setLayout(layout);
 }
 
-void CheckUpdate::requestChangelog(const QString& currentRev, const QString& latestRev,
+void CheckUpdate::requestChangelog(const QString& previousSha, const QString& latestSha,
                                    const QString& downloadUrl, const QString& latestDate,
                                    const QString& currentDate) {
     QString compareUrlString =
         QString("https://api.github.com/repos/diegolix29/shadPS4/compare/%1...%2")
-            .arg(currentRev)
-            .arg(latestRev);
+            .arg(previousSha, latestSha);
 
     QUrl compareUrl(compareUrlString);
     QNetworkRequest compareRequest(compareUrl);
     QNetworkReply* compareReply = networkManager->get(compareRequest);
 
-    connect(compareReply, &QNetworkReply::finished, this,
-            [this, compareReply, downloadUrl, latestDate, latestRev, currentDate, currentRev]() {
-                if (compareReply->error() != QNetworkReply::NoError) {
-                    QMessageBox::warning(
-                        this, tr("Error"),
-                        QString(tr("Network error:") + "\n%1").arg(compareReply->errorString()));
-                    compareReply->deleteLater();
-                    return;
-                }
-
-                QByteArray compareResponse = compareReply->readAll();
-                QJsonDocument compareJsonDoc(QJsonDocument::fromJson(compareResponse));
-                QJsonObject compareJsonObj = compareJsonDoc.object();
-                QJsonArray commits = compareJsonObj["commits"].toArray();
-
-                QString changes;
-                for (const QJsonValue& commitValue : commits) {
-                    QJsonObject commitObj = commitValue.toObject();
-                    QString message = commitObj["commit"].toObject()["message"].toString();
-
-                    // Remove texts after first line break, if any, to make it cleaner
-                    int newlineIndex = message.indexOf('\n');
-                    if (newlineIndex != -1) {
-                        message = message.left(newlineIndex);
-                    }
-                    if (!changes.isEmpty()) {
-                        changes += "<br>";
-                    }
-                    changes += "&nbsp;&nbsp;&nbsp;&nbsp;• " + message;
-                }
-
-                // Update the text field with the changelog
-                QTextBrowser* textField = findChild<QTextBrowser*>();
-                if (textField) {
-                    QRegularExpression re("\\(\\#(\\d+)\\)");
-                    QString newChanges;
-                    int lastIndex = 0;
-                    QRegularExpressionMatchIterator i = re.globalMatch(changes);
-                    while (i.hasNext()) {
-                        QRegularExpressionMatch match = i.next();
-                        newChanges += changes.mid(lastIndex, match.capturedStart() - lastIndex);
-                        QString num = match.captured(1);
-                        newChanges +=
-                            QString(
-                                "(<a "
-                                "href=\"https://github.com/shadps4-emu/shadPS4/pull/%1\">#%1</a>)")
-                                .arg(num);
-                        lastIndex = match.capturedEnd();
-                    }
-
-                    newChanges += changes.mid(lastIndex);
-                    changes = newChanges;
-
-                    textField->setOpenExternalLinks(true);
-                    textField->setHtml("<h2>" + tr("Changes") + ":</h2>" + changes);
-                }
-
+    connect(
+        compareReply, &QNetworkReply::finished, this,
+        [this, compareReply, downloadUrl, latestDate, latestSha, currentDate, previousSha]() {
+            if (compareReply->error() != QNetworkReply::NoError) {
+                QMessageBox::warning(
+                    this, tr("Error"),
+                    QString(tr("Network error:") + "\n%1").arg(compareReply->errorString()));
                 compareReply->deleteLater();
-            });
+                return;
+            }
+
+            QByteArray compareResponse = compareReply->readAll();
+            QJsonDocument compareJsonDoc(QJsonDocument::fromJson(compareResponse));
+            QJsonObject compareJsonObj = compareJsonDoc.object();
+            QJsonArray commits = compareJsonObj["commits"].toArray();
+
+            QString changes;
+            for (const QJsonValue& commitValue : commits) {
+                QJsonObject commitObj = commitValue.toObject();
+                QString message = commitObj["commit"].toObject()["message"].toString();
+                int newlineIndex = message.indexOf('\n');
+                if (newlineIndex != -1)
+                    message = message.left(newlineIndex);
+                if (!changes.isEmpty())
+                    changes += "<br>";
+                changes += "&nbsp;&nbsp;&nbsp;&nbsp;• " + message;
+            }
+
+            QTextBrowser* textField = findChild<QTextBrowser*>();
+            if (textField) {
+                QRegularExpression re("\\(\\#(\\d+)\\)");
+                QString newChanges;
+                int lastIndex = 0;
+                QRegularExpressionMatchIterator i = re.globalMatch(changes);
+                while (i.hasNext()) {
+                    QRegularExpressionMatch match = i.next();
+                    newChanges += changes.mid(lastIndex, match.capturedStart() - lastIndex);
+                    QString num = match.captured(1);
+                    newChanges +=
+                        QString(
+                            "(<a href=\"https://github.com/shadps4-emu/shadPS4/pull/%1\">#%1</a>)")
+                            .arg(num);
+                    lastIndex = match.capturedEnd();
+                }
+                newChanges += changes.mid(lastIndex);
+                textField->setOpenExternalLinks(true);
+                textField->setHtml("<h2>" + tr("Changes") + ":</h2>" + newChanges);
+            }
+
+            compareReply->deleteLater();
+        });
 }
 
 void CheckUpdate::DownloadUpdate(const QString& url) {

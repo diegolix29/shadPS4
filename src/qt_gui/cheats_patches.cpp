@@ -26,6 +26,7 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QXmlStreamReader>
+#include <common/scm_rev.h>
 
 #include "cheats_patches.h"
 #include "common/config.h"
@@ -39,14 +40,24 @@ CheatsPatches::CheatsPatches(const QString& gameName, const QString& gameSerial,
                              const QPixmap& gameImage, QWidget* parent)
     : QWidget(parent), m_gameName(gameName), m_gameSerial(gameSerial), m_gameVersion(gameVersion),
       m_gameSize(gameSize), m_gameImage(gameImage), manager(new QNetworkAccessManager(this)) {
-    setupUI();
+    QString downloadUrl;
+    QString latestVersion;
+    QString latestRev;
+    QString latestDate;
+    QString platformString;
+    QString currentRev = QString::fromStdString(Common::g_scm_rev).left(7);
+    QString currentDate = Common::g_scm_date;
+
+    setupUI(downloadUrl, latestDate, latestRev, currentDate, currentRev);
     resize(500, 400);
     setWindowTitle(tr("Cheats / Patches for ") + m_gameName);
 }
 
 CheatsPatches::~CheatsPatches() {}
 
-void CheatsPatches::setupUI() {
+void CheatsPatches::setupUI(const QString& downloadUrl, const QString& latestDate,
+                            const QString& latestRev, const QString& currentDate,
+                            const QString& currentRev) {
 
     // clang-format off
     defaultTextEdit_MSG = tr("Cheats/Patches are experimental.\\nUse with caution.\\n\\nDownload cheats individually by selecting the repository and clicking the download button.\\nIn the Patches tab, you can download all patches at once, choose which ones you want to use, and save your selection.\\n\\nSince we do not develop the Cheats/Patches,\\nplease report issues to the cheat author.\\n\\nCreated a new cheat? Visit:\\n").replace("\\n", "\n")+"https://github.com/shadps4-emu/ps4_cheats";
