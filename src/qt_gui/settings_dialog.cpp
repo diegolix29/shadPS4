@@ -597,7 +597,7 @@ void SettingsDialog::OnLanguageChanged(int index) {
 
     ui->retranslateUi(this);
 
-    emit LanguageChanged(ui->emulatorLanguageComboBox->itemData(index).toString().toStdString());
+    emit LanguageChanged(ui->emulatorLanguageComboBox->itemData(index).toString());
 }
 
 void SettingsDialog::OnCursorStateChanged(s16 index) {
@@ -892,4 +892,5 @@ void SettingsDialog::setDefaultValues() {
     } else {
         m_gui_settings->SetValue(gui::gen_updateChannel, "Nightly");
     }
+    m_gui_settings->SetValue(gui::gen_guiLanguage, "en_US");
 }
