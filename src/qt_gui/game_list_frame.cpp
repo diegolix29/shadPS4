@@ -9,13 +9,11 @@
 #include "game_list_frame.h"
 #include "game_list_utils.h"
 
-GameListFrame::GameListFrame(std::shared_ptr<gui_settings> gui_settings,
-                             std::shared_ptr<GameInfoClass> game_info_get,
+GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
                              std::shared_ptr<CompatibilityInfoClass> compat_info_get,
                              QWidget* parent)
-    : QTableWidget(parent), m_gui_settings(std::move(gui_settings)), m_game_info(game_info_get),
-      m_compat_info(compat_info_get) {
-    icon_size = m_gui_settings->GetValue(gui::gl_icon_size).toInt();
+    : QTableWidget(parent), m_game_info(game_info_get), m_compat_info(compat_info_get) {
+    icon_size = Config::getIconSize();
     this->setShowGrid(false);
     this->setEditTriggers(QAbstractItemView::NoEditTriggers);
     this->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -99,7 +97,7 @@ void GameListFrame::onCurrentCellChanged(int currentRow, int currentColumn, int 
 }
 
 void GameListFrame::PlayBackgroundMusic(QTableWidgetItem* item) {
-    if (!item || !m_gui_settings->GetValue(gui::gl_playBackgroundMusic).toBool()) {
+    if (!item || !Config::getPlayBGM()) {
         BackgroundMusicPlayer::getInstance().stopMusic();
         return;
     }
@@ -174,7 +172,7 @@ void GameListFrame::SetListBackgroundImage(QTableWidgetItem* item) {
     }
 
     // If background images are hidden, clear the background image
-    if (!m_gui_settings->GetValue(gui::gl_showBackgroundImage).toBool()) {
+    if (!Config::getShowBackgroundImage()) {
         backgroundImage = QImage();
         m_last_opacity = -1;         // Reset opacity tracking when disabled
         m_current_game_path.clear(); // Reset current game path
@@ -183,7 +181,7 @@ void GameListFrame::SetListBackgroundImage(QTableWidgetItem* item) {
     }
 
     const auto& game = m_game_info->m_games[item->row()];
-    const int opacity = m_gui_settings->GetValue(gui::gl_backgroundImageOpacity).toInt();
+    const int opacity = Config::getBackgroundImageOpacity();
 
     // Recompute if opacity changed or we switched to a different game
     if (opacity != m_last_opacity || game.pic_path != m_current_game_path) {
@@ -202,8 +200,7 @@ void GameListFrame::SetListBackgroundImage(QTableWidgetItem* item) {
 
 void GameListFrame::RefreshListBackgroundImage() {
     QPalette palette;
-    if (!backgroundImage.isNull() &&
-        m_gui_settings->GetValue(gui::gl_showBackgroundImage).toBool()) {
+    if (!backgroundImage.isNull() && Config::getShowBackgroundImage()) {
         QSize widgetSize = size();
         QPixmap scaledPixmap =
             QPixmap::fromImage(backgroundImage)
