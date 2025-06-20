@@ -209,8 +209,6 @@ bool getEnableDiscordRPC() {
     return enableDiscordRPC;
 }
 
-
-
 s16 getCursorState() {
     return cursorState;
 }
