@@ -209,13 +209,7 @@ bool getEnableDiscordRPC() {
     return enableDiscordRPC;
 }
 
-u16 leftDeadZone() {
-    return deadZoneLeft;
-}
 
-u16 rightDeadZone() {
-    return deadZoneRight;
-}
 
 s16 getCursorState() {
     return cursorState;
@@ -826,8 +820,6 @@ void load(const std::filesystem::path& path) {
     if (data.contains("Input")) {
         const toml::value& input = data.at("Input");
 
-        deadZoneLeft = toml::find_or<float>(input, "deadZoneLeft", 2.0);
-        deadZoneRight = toml::find_or<float>(input, "deadZoneRight", 2.0);
         cursorState = toml::find_or<int>(input, "cursorState", HideCursorState::Idle);
         cursorHideTimeout = toml::find_or<int>(input, "cursorHideTimeout", 5);
         useSpecialPad = toml::find_or<bool>(input, "useSpecialPad", false);
@@ -1017,8 +1009,6 @@ void save(const std::filesystem::path& path) {
     data["General"]["sideTrophy"] = isSideTrophy;
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
-    data["Input"]["deadZoneLeft"] = deadZoneLeft;
-    data["Input"]["deadZoneRight"] = deadZoneRight;
     data["Input"]["cursorState"] = cursorState;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout;
     data["Input"]["useSpecialPad"] = useSpecialPad;
