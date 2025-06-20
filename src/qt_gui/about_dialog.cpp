@@ -12,8 +12,7 @@
 #include "main_window_themes.h"
 #include "ui_about_dialog.h"
 
-AboutDialog::AboutDialog(std::shared_ptr<gui_settings> gui_settings, QWidget* parent)
-    : QDialog(parent), ui(new Ui::AboutDialog), m_gui_settings(std::move(gui_settings)) {
+AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent), ui(new Ui::AboutDialog) {
     ui->setupUi(this);
     preloadImages();
 
@@ -58,7 +57,7 @@ void AboutDialog::preloadImages() {
 }
 
 void AboutDialog::updateImagesForCurrentTheme() {
-    Theme currentTheme = static_cast<Theme>(m_gui_settings->GetValue(gui::gen_theme).toInt());
+    Theme currentTheme = static_cast<Theme>(Config::getMainWindowTheme());
     bool isDarkTheme = (currentTheme == Theme::Dark || currentTheme == Theme::Green ||
                         currentTheme == Theme::Blue || currentTheme == Theme::Violet);
     if (isDarkTheme) {
@@ -189,7 +188,7 @@ void AboutDialog::removeHoverEffect(QLabel* label) {
 }
 
 bool AboutDialog::isDarkTheme() const {
-    Theme currentTheme = static_cast<Theme>(m_gui_settings->GetValue(gui::gen_theme).toInt());
+    Theme currentTheme = static_cast<Theme>(Config::getMainWindowTheme());
     return currentTheme == Theme::Dark || currentTheme == Theme::Green ||
            currentTheme == Theme::Blue || currentTheme == Theme::Violet;
 }

@@ -39,6 +39,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
 MainWindow::~MainWindow() {
     SaveWindowState();
+    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+    Config::saveMainWindow(config_dir / "config.toml");
 }
 
 bool MainWindow::Init() {
@@ -295,7 +297,7 @@ void MainWindow::CreateDockWindows() {
     m_game_list_frame->setObjectName("gamelist");
     m_game_grid_frame.reset(new GameGridFrame(m_gui_settings, m_game_info, m_compat_info, this));
     m_game_grid_frame->setObjectName("gamegridlist");
-    m_elf_viewer.reset(new ElfViewer(m_gui_settings, this));
+    m_elf_viewer.reset(new ElfViewer(this));
     m_elf_viewer->setObjectName("elflist");
 
     int table_mode = m_gui_settings->GetValue(gui::gl_mode).toInt();
@@ -490,7 +492,7 @@ void MainWindow::CreateConnects() {
 #endif
 
     connect(ui->aboutAct, &QAction::triggered, this, [this]() {
-        auto aboutDialog = new AboutDialog(m_gui_settings, this);
+        auto aboutDialog = new AboutDialog(this);
         aboutDialog->exec();
     });
 
@@ -769,14 +771,14 @@ void MainWindow::CreateConnects() {
 
         QString gameName = QString::fromStdString(firstGame.name);
         TrophyViewer* trophyViewer =
-            new TrophyViewer(m_gui_settings, trophyPath, gameTrpPath, gameName, allTrophyGames);
+            new TrophyViewer(trophyPath, gameTrpPath, gameName, allTrophyGames);
         trophyViewer->show();
     });
 
     // Themes
     connect(ui->setThemeDark, &QAction::triggered, &m_window_themes, [this]() {
         m_window_themes.SetWindowTheme(Theme::Dark, ui->mw_searchbar);
-        m_gui_settings->SetValue(gui::gen_theme, static_cast<int>(Theme::Dark));
+        Config::setMainWindowTheme(static_cast<int>(Theme::Dark));
         if (isIconBlack) {
             SetUiIcons(false);
             isIconBlack = false;
@@ -784,7 +786,7 @@ void MainWindow::CreateConnects() {
     });
     connect(ui->setThemeLight, &QAction::triggered, &m_window_themes, [this]() {
         m_window_themes.SetWindowTheme(Theme::Light, ui->mw_searchbar);
-        m_gui_settings->SetValue(gui::gen_theme, static_cast<int>(Theme::Light));
+        Config::setMainWindowTheme(static_cast<int>(Theme::Light));
         if (!isIconBlack) {
             SetUiIcons(true);
             isIconBlack = true;
@@ -792,7 +794,7 @@ void MainWindow::CreateConnects() {
     });
     connect(ui->setThemeGreen, &QAction::triggered, &m_window_themes, [this]() {
         m_window_themes.SetWindowTheme(Theme::Green, ui->mw_searchbar);
-        m_gui_settings->SetValue(gui::gen_theme, static_cast<int>(Theme::Green));
+        Config::setMainWindowTheme(static_cast<int>(Theme::Green));
         if (isIconBlack) {
             SetUiIcons(false);
             isIconBlack = false;
@@ -800,7 +802,7 @@ void MainWindow::CreateConnects() {
     });
     connect(ui->setThemeBlue, &QAction::triggered, &m_window_themes, [this]() {
         m_window_themes.SetWindowTheme(Theme::Blue, ui->mw_searchbar);
-        m_gui_settings->SetValue(gui::gen_theme, static_cast<int>(Theme::Blue));
+        Config::setMainWindowTheme(static_cast<int>(Theme::Blue));
         if (isIconBlack) {
             SetUiIcons(false);
             isIconBlack = false;
@@ -808,7 +810,7 @@ void MainWindow::CreateConnects() {
     });
     connect(ui->setThemeViolet, &QAction::triggered, &m_window_themes, [this]() {
         m_window_themes.SetWindowTheme(Theme::Violet, ui->mw_searchbar);
-        m_gui_settings->SetValue(gui::gen_theme, static_cast<int>(Theme::Violet));
+        Config::setMainWindowTheme(static_cast<int>(Theme::Violet));
         if (isIconBlack) {
             SetUiIcons(false);
             isIconBlack = false;
@@ -816,7 +818,7 @@ void MainWindow::CreateConnects() {
     });
     connect(ui->setThemeGruvbox, &QAction::triggered, &m_window_themes, [this]() {
         m_window_themes.SetWindowTheme(Theme::Gruvbox, ui->mw_searchbar);
-        m_gui_settings->SetValue(gui::gen_theme, static_cast<int>(Theme::Gruvbox));
+        Config::setMainWindowTheme(static_cast<int>(Theme::Gruvbox));
         if (isIconBlack) {
             SetUiIcons(false);
             isIconBlack = false;
@@ -824,7 +826,7 @@ void MainWindow::CreateConnects() {
     });
     connect(ui->setThemeTokyoNight, &QAction::triggered, &m_window_themes, [this]() {
         m_window_themes.SetWindowTheme(Theme::TokyoNight, ui->mw_searchbar);
-        m_gui_settings->SetValue(gui::gen_theme, static_cast<int>(Theme::TokyoNight));
+        Config::setMainWindowTheme(static_cast<int>(Theme::TokyoNight));
         if (isIconBlack) {
             SetUiIcons(false);
             isIconBlack = false;
@@ -832,7 +834,7 @@ void MainWindow::CreateConnects() {
     });
     connect(ui->setThemeOled, &QAction::triggered, &m_window_themes, [this]() {
         m_window_themes.SetWindowTheme(Theme::Oled, ui->mw_searchbar);
-        m_gui_settings->SetValue(gui::gen_theme, static_cast<int>(Theme::Oled));
+        Config::setMainWindowTheme(static_cast<int>(Theme::Oled));
         if (isIconBlack) {
             SetUiIcons(false);
             isIconBlack = false;
@@ -979,7 +981,7 @@ void MainWindow::InstallDirectory() {
 }
 
 void MainWindow::SetLastUsedTheme() {
-    Theme lastTheme = static_cast<Theme>(m_gui_settings->GetValue(gui::gen_theme).toInt());
+    Theme lastTheme = static_cast<Theme>(Config::getMainWindowTheme());
     m_window_themes.SetWindowTheme(lastTheme, ui->mw_searchbar);
 
     switch (lastTheme) {
@@ -1120,32 +1122,33 @@ void MainWindow::HandleResize(QResizeEvent* event) {
 }
 
 void MainWindow::AddRecentFiles(QString filePath) {
-    QList<QString> list = gui_settings::Var2List(m_gui_settings->GetValue(gui::gen_recentFiles));
-    if (!list.empty()) {
-        if (filePath == list.at(0)) {
+    std::vector<std::string> vec = Config::getRecentFiles();
+    if (!vec.empty()) {
+        if (filePath.toStdString() == vec.at(0)) {
             return;
         }
-        auto it = std::find(list.begin(), list.end(), filePath);
-        if (it != list.end()) {
-            list.erase(it);
+        auto it = std::find(vec.begin(), vec.end(), filePath.toStdString());
+        if (it != vec.end()) {
+            vec.erase(it);
         }
     }
-    list.insert(list.begin(), filePath);
-    if (list.size() > 6) {
-        list.pop_back();
+    vec.insert(vec.begin(), filePath.toStdString());
+    if (vec.size() > 6) {
+        vec.pop_back();
     }
-    m_gui_settings->SetValue(gui::gen_recentFiles, gui_settings::List2Var(list));
+    Config::setRecentFiles(vec);
+    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+    Config::saveMainWindow(config_dir / "config.toml");
     CreateRecentGameActions(); // Refresh the QActions.
 }
 
 void MainWindow::CreateRecentGameActions() {
     m_recent_files_group = new QActionGroup(this);
     ui->menuRecent->clear();
-    QList<QString> list = gui_settings::Var2List(m_gui_settings->GetValue(gui::gen_recentFiles));
-
-    for (int i = 0; i < list.size(); i++) {
+    std::vector<std::string> vec = Config::getRecentFiles();
+    for (int i = 0; i < vec.size(); i++) {
         QAction* recentFileAct = new QAction(this);
-        recentFileAct->setText(list.at(i));
+        recentFileAct->setText(QString::fromStdString(vec.at(i)));
         ui->menuRecent->addAction(recentFileAct);
         m_recent_files_group->addAction(recentFileAct);
     }
@@ -1162,7 +1165,7 @@ void MainWindow::CreateRecentGameActions() {
 }
 
 void MainWindow::LoadTranslation() {
-    auto language = m_gui_settings->GetValue(gui::gen_guiLanguage).toString();
+    auto language = QString::fromStdString(Config::getEmulatorLanguage());
 
     const QString base_dir = QStringLiteral(":/translations");
     QString base_path = QStringLiteral("%1/%2.qm").arg(base_dir).arg(language);
@@ -1187,8 +1190,8 @@ void MainWindow::LoadTranslation() {
     }
 }
 
-void MainWindow::OnLanguageChanged(const QString& locale) {
-    m_gui_settings->SetValue(gui::gen_guiLanguage, locale);
+void MainWindow::OnLanguageChanged(const std::string& locale) {
+    Config::setEmulatorLanguage(locale);
 
     LoadTranslation();
 }

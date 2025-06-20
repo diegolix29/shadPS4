@@ -8,7 +8,6 @@
 #include <QLabel>
 #include <QPixmap>
 #include <QUrl>
-#include "gui_settings.h"
 
 namespace Ui {
 class AboutDialog;
@@ -18,7 +17,7 @@ class AboutDialog : public QDialog {
     Q_OBJECT
 
 public:
-    explicit AboutDialog(std::shared_ptr<gui_settings> gui_settings, QWidget* parent = nullptr);
+    explicit AboutDialog(QWidget* parent = nullptr);
     ~AboutDialog();
     bool eventFilter(QObject* obj, QEvent* event);
 
@@ -34,5 +33,4 @@ private:
 
     QPixmap originalImages[5];
     QPixmap invertedImages[5];
-    std::shared_ptr<gui_settings> m_gui_settings;
 };

@@ -58,7 +58,10 @@ Emulator::Emulator() {
 #endif
 }
 
-Emulator::~Emulator() {}
+Emulator::~Emulator() {
+    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+    Config::saveMainWindow(config_dir / "config.toml");
+}
 
 void Emulator::Run(std::filesystem::path file, const std::vector<std::string> args) {
     if (std::filesystem::is_directory(file)) {
