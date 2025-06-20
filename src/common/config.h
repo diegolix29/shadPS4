@@ -107,7 +107,35 @@ void setPlayBGM(bool enable);
 void setBGMvolume(int volume);
 void setEnableDiscordRPC(bool enable);
 void setLanguage(u32 language);
-void setNeoMode(bool enable);
+void setUseSpecialPad(bool use);
+bool getUseSpecialPad();
+void setSpecialPadClass(int type);
+int getSpecialPadClass();
+bool getPSNSignedIn();
+void setPSNSignedIn(bool sign); // no ui setting
+bool patchShaders();            // no set
+bool fpsColor();                // no set
+bool isNeoModeConsole();
+void setNeoMode(bool enable);  // no ui setting
+bool isDevKitConsole();        // no set
+bool vkValidationGpuEnabled(); // no set
+bool getIsMotionControlsEnabled();
+void setIsMotionControlsEnabled(bool use);
+
+// TODO
+bool GetLoadGameSizeEnabled();
+std::filesystem::path GetSaveDataPath();
+void setLoadGameSizeEnabled(bool enable);
+bool getCompatibilityEnabled();
+bool getCheckCompatibilityOnStartup();
+std::string getUserName();
+std::string getChooseHomeTab();
+bool GetUseUnifiedInputConfig();
+void SetUseUnifiedInputConfig(bool use);
+bool GetOverrideControllerColor();
+void SetOverrideControllerColor(bool enable);
+int* GetControllerCustomColor();
+void SetControllerCustomColor(int r, int b, int g);
 void setUserName(const std::string& type);
 void setUpdateChannel(const std::string& type);
 void setChooseHomeTab(const std::string& type);

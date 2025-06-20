@@ -46,9 +46,6 @@ static std::string logType = "sync";
 static std::string userName = "shadPS4";
 static std::string updateChannel;
 static std::string chooseHomeTab;
-static u16 deadZoneLeft = 2.0;
-static u16 deadZoneRight = 2.0;
-static std::string backButtonBehavior = "left";
 static bool useSpecialPad = false;
 static int specialPadClass = 1;
 static bool isMotionControlsEnabled = true;
@@ -270,10 +267,6 @@ std::string getUpdateChannel() {
 
 std::string getChooseHomeTab() {
     return chooseHomeTab;
-}
-
-std::string getBackButtonBehavior() {
-    return backButtonBehavior;
 }
 
 bool getUseSpecialPad() {
@@ -527,10 +520,6 @@ void setUpdateChannel(const std::string& type) {
 }
 void setChooseHomeTab(const std::string& type) {
     chooseHomeTab = type;
-}
-
-void setBackButtonBehavior(const std::string& type) {
-    backButtonBehavior = type;
 }
 
 void setUseSpecialPad(bool use) {
@@ -841,7 +830,6 @@ void load(const std::filesystem::path& path) {
         deadZoneRight = toml::find_or<float>(input, "deadZoneRight", 2.0);
         cursorState = toml::find_or<int>(input, "cursorState", HideCursorState::Idle);
         cursorHideTimeout = toml::find_or<int>(input, "cursorHideTimeout", 5);
-        backButtonBehavior = toml::find_or<std::string>(input, "backButtonBehavior", "left");
         useSpecialPad = toml::find_or<bool>(input, "useSpecialPad", false);
         specialPadClass = toml::find_or<int>(input, "specialPadClass", 1);
         isMotionControlsEnabled = toml::find_or<bool>(input, "isMotionControlsEnabled", true);
@@ -1033,7 +1021,6 @@ void save(const std::filesystem::path& path) {
     data["Input"]["deadZoneRight"] = deadZoneRight;
     data["Input"]["cursorState"] = cursorState;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout;
-    data["Input"]["backButtonBehavior"] = backButtonBehavior;
     data["Input"]["useSpecialPad"] = useSpecialPad;
     data["Input"]["specialPadClass"] = specialPadClass;
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled;
@@ -1182,7 +1169,6 @@ void setDefaultValues() {
     cursorState = HideCursorState::Idle;
     cursorHideTimeout = 5;
     trophyNotificationDuration = 6.0;
-    backButtonBehavior = "left";
     useSpecialPad = false;
     specialPadClass = 1;
     isDebugDump = false;
@@ -1265,7 +1251,7 @@ r2 = r2
 r3 = r3
 
 options = options
-touchpad = back
+touchpad_center = back
 
 pad_up = pad_up
 pad_down = pad_down
