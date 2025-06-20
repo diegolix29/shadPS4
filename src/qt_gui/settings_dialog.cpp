@@ -503,8 +503,9 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
 
 #ifdef ENABLE_UPDATER
-    ui->updateCheckBox->setChecked(m_gui_settings->GetValue(gui::gen_checkForUpdates).toBool());
-    ui->changelogCheckBox->setChecked(m_gui_settings->GetValue(gui::gen_showChangeLog).toBool());
+    ui->updateCheckBox->setChecked(toml::find_or<bool>(data, "General", "autoUpdate", false));
+    ui->changelogCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "alwaysShowChangelog", false));
 
     QString updateChannel = m_gui_settings->GetValue(gui::gen_updateChannel).toString();
     ui->updateComboBox->setCurrentText(
