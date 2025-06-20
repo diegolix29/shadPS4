@@ -42,7 +42,6 @@ static std::string logFilter;
 static std::string logType = "sync";
 static std::string userName = "shadPS4";
 static std::string chooseHomeTab;
-static std::string backButtonBehavior = "left";
 static bool useSpecialPad = false;
 static int specialPadClass = 1;
 static bool isMotionControlsEnabled = true;
@@ -205,10 +204,6 @@ std::string getUserName() {
 
 std::string getChooseHomeTab() {
     return chooseHomeTab;
-}
-
-std::string getBackButtonBehavior() {
-    return backButtonBehavior;
 }
 
 bool getUseSpecialPad() {
@@ -430,10 +425,6 @@ void setChooseHomeTab(const std::string& type) {
     chooseHomeTab = type;
 }
 
-void setBackButtonBehavior(const std::string& type) {
-    backButtonBehavior = type;
-}
-
 void setUseSpecialPad(bool use) {
     useSpecialPad = use;
 }
@@ -602,7 +593,6 @@ void load(const std::filesystem::path& path) {
 
         cursorState = toml::find_or<int>(input, "cursorState", HideCursorState::Idle);
         cursorHideTimeout = toml::find_or<int>(input, "cursorHideTimeout", 5);
-        backButtonBehavior = toml::find_or<std::string>(input, "backButtonBehavior", "left");
         useSpecialPad = toml::find_or<bool>(input, "useSpecialPad", false);
         specialPadClass = toml::find_or<int>(input, "specialPadClass", 1);
         isMotionControlsEnabled = toml::find_or<bool>(input, "isMotionControlsEnabled", true);
@@ -759,7 +749,6 @@ void save(const std::filesystem::path& path) {
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
     data["Input"]["cursorState"] = cursorState;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout;
-    data["Input"]["backButtonBehavior"] = backButtonBehavior;
     data["Input"]["useSpecialPad"] = useSpecialPad;
     data["Input"]["specialPadClass"] = specialPadClass;
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled;
@@ -850,7 +839,6 @@ void setDefaultValues() {
     cursorState = HideCursorState::Idle;
     cursorHideTimeout = 5;
     trophyNotificationDuration = 6.0;
-    backButtonBehavior = "left";
     useSpecialPad = false;
     specialPadClass = 1;
     isDebugDump = false;
@@ -897,7 +885,7 @@ l3 = x
 r3 = m
 
 options = enter
-touchpad = space
+touchpad_center = space
 
 pad_up = up
 pad_down = down
@@ -929,7 +917,7 @@ r2 = r2
 r3 = r3
 
 options = options
-touchpad = back
+touchpad_center = back
 
 pad_up = pad_up
 pad_down = pad_down
