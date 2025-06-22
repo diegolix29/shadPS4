@@ -71,11 +71,13 @@ ImageViewInfo::ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageReso
 }
 
 ImageViewInfo::ImageViewInfo(const AmdGpu::Liverpool::ColorBuffer& col_buffer) noexcept {
+    const auto base_format =
+        Vulkan::LiverpoolToVK::SurfaceFormat(col_buffer.GetDataFmt(), col_buffer.GetNumberFmt());
     range.base.layer = col_buffer.view.slice_start;
     range.extent.layers = col_buffer.NumSlices() - range.base.layer;
     type = range.extent.layers > 1 ? vk::ImageViewType::e2DArray : vk::ImageViewType::e2D;
-    format =
-        Vulkan::LiverpoolToVK::SurfaceFormat(col_buffer.GetDataFmt(), col_buffer.GetNumberFmt());
+    format = Vulkan::LiverpoolToVK::AdjustColorBufferFormat(base_format,
+                                                            col_buffer.info.comp_swap.Value());
 }
 
 ImageViewInfo::ImageViewInfo(const AmdGpu::Liverpool::DepthBuffer& depth_buffer,

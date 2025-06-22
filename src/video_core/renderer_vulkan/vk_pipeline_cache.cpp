@@ -350,7 +350,9 @@ bool PipelineCache::RefreshGraphicsKey() {
 
         const auto format =
             LiverpoolToVK::SurfaceFormat(col_buf.GetDataFmt(), col_buf.GetNumberFmt());
-        key.color_formats[remapped_cb] = format;
+        key.color_formats[remapped_cb] =
+            LiverpoolToVK::AdjustColorBufferFormat(format, col_buf.info.comp_swap.Value());
+        bool equal_formats = format == key.color_formats[remapped_cb];
         if (!instance.IsFormatSupported(format, vk::FormatFeatureFlagBits2::eColorAttachment)) {
             LOG_WARNING(Render_Vulkan,
                         "color buffer format {} does not support COLOR_ATTACHMENT_BIT",
@@ -362,7 +364,7 @@ bool PipelineCache::RefreshGraphicsKey() {
             .num_conversion = col_buf.GetNumberConversion(),
             .export_format = regs.color_export_format.GetFormat(cb),
             .needs_unorm_fixup = needs_unorm_fixup,
-            .swizzle = col_buf.Swizzle(),
+            .swizzle = col_buf.Swizzle(equal_formats),
         };
     }
 
