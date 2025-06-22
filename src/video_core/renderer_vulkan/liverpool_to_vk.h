@@ -111,4 +111,6 @@ static inline vk::Format PromoteFormatToDepth(vk::Format fmt) {
     UNREACHABLE_MSG("Unexpected depth format {}", vk::to_string(fmt));
 }
 
+vk::Format ForceDegamma(vk::Format format, AmdGpu::NumberFormat num_format);
+
 } // namespace Vulkan::LiverpoolToVK

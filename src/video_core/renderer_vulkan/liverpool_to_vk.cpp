@@ -1123,4 +1123,28 @@ vk::SampleCountFlagBits NumSamples(u32 num_samples, vk::SampleCountFlags support
     return flags;
 }
 
+vk::Format ForceDegamma(vk::Format format, AmdGpu::NumberFormat num_format) {
+    if (num_format == AmdGpu::NumberFormat::Srgb)
+        return format;
+    switch (format) {
+    case vk::Format::eR8G8B8A8Unorm:
+        return vk::Format::eR8G8B8A8Srgb;
+    case vk::Format::eBc1RgbaUnormBlock:
+        return vk::Format::eBc1RgbaSrgbBlock;
+    case vk::Format::eBc2UnormBlock:
+        return vk::Format::eBc2SrgbBlock;
+    case vk::Format::eBc3UnormBlock:
+        return vk::Format::eBc3SrgbBlock;
+    case vk::Format::eBc7UnormBlock:
+        return vk::Format::eBc7SrgbBlock;
+    case vk::Format::eR8Unorm:
+        return vk::Format::eR8Unorm;
+    case vk::Format::eB10G11R11UfloatPack32:
+        // LOG_WARNING(Render_Vulkan, "format {} cannot be viewed as srgb", vk::to_string(format));
+        return vk::Format::eB10G11R11UfloatPack32;
+    default:
+        UNREACHABLE_MSG("format {} is not supported", vk::to_string(format));
+    }
+}
+
 } // namespace Vulkan::LiverpoolToVK
