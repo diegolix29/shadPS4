@@ -54,7 +54,7 @@ int PS4_SYSV_ABI sys_accept(OrbisNetId s, OrbisNetSockaddr* addr, u32* paddrlen)
     auto new_sock = sock->Accept(addr, paddrlen);
     if (!new_sock) {
         *Libraries::Kernel::__Error() = ORBIS_NET_EBADF;
-        LOG_ERROR(Lib_Net, "error creating new socket for accepting");
+        LOG_DEBUG(Lib_Net, "error creating new socket for accepting");
         return -1;
     }
     auto id = ++netcall->next_sock_id;
@@ -172,7 +172,7 @@ int PS4_SYSV_ABI sys_socketclose(OrbisNetId s) {
     auto sock = netcall->FindSocket(s);
     if (!sock) {
         *Libraries::Kernel::__Error() = ORBIS_NET_ERROR_EBADF;
-        LOG_ERROR(Lib_Net, "socket id is invalid = {}", s);
+        LOG_DEBUG(Lib_Net, "socket id is invalid = {}", s);
         return -1;
     }
     int returncode = sock->Close();
@@ -210,7 +210,7 @@ int PS4_SYSV_ABI sys_recvfrom(OrbisNetId s, void* buf, u64 len, int flags, Orbis
     auto sock = netcall->FindSocket(s);
     if (!sock) {
         *Libraries::Kernel::__Error() = ORBIS_NET_ERROR_EBADF;
-        LOG_ERROR(Lib_Net, "socket id is invalid = {}", s);
+        LOG_DEBUG(Lib_Net, "socket id is invalid = {}", s);
         return -1;
     }
     int returncode = sock->ReceivePacket(buf, len, flags, addr, paddrlen);
@@ -218,7 +218,7 @@ int PS4_SYSV_ABI sys_recvfrom(OrbisNetId s, void* buf, u64 len, int flags, Orbis
         return returncode;
     }
     *Libraries::Kernel::__Error() = returncode;
-    LOG_ERROR(Lib_Net, "error code returned : {:#x}", (u32)returncode);
+    LOG_DEBUG(Lib_Net, "error code returned : {:#x}", (u32)returncode);
     return -1;
 }
 int PS4_SYSV_ABI sys_recvmsg(OrbisNetId s, OrbisNetMsghdr* msg, int flags) {
