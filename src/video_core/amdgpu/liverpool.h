@@ -941,8 +941,10 @@ struct Liverpool {
             return MapNumberConversion(GetFixedNumberFormat(), info.format);
         }
 
-        [[nodiscard]] CompMapping Swizzle() const {
+        [[nodiscard]] CompMapping Swizzle(bool to_remap = true) const {
             // clang-format off
+            CompMapping mrt_swizzle = {};
+            if(!to_remap) return mrt_swizzle;
             static constexpr std::array<std::array<CompMapping, 4>, 4> mrt_swizzles{{
                 // Standard
                 std::array<CompMapping, 4>{{
@@ -976,7 +978,7 @@ struct Liverpool {
             // clang-format on
             const auto swap_idx = static_cast<u32>(info.comp_swap.Value());
             const auto components_idx = NumComponents(info.format) - 1;
-            const auto mrt_swizzle = mrt_swizzles[swap_idx][components_idx];
+            mrt_swizzle = mrt_swizzles[swap_idx][components_idx];
             return RemapSwizzle(info.format, mrt_swizzle);
         }
 
