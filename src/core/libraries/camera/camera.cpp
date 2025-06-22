@@ -210,7 +210,7 @@ s32 PS4_SYSV_ABI sceCameraInitializeRegistryCalibData() {
 }
 
 s32 PS4_SYSV_ABI sceCameraIsAttached(s32 index) {
-    LOG_ERROR(Lib_Camera, "(STUBBED) called");
+    LOG_DEBUG(Lib_Camera, "(STUBBED) called");
     return ORBIS_OK;
 }
 

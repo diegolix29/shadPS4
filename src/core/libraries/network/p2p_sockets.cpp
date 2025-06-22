@@ -38,7 +38,7 @@ int P2PSocket::SendPacket(const void* msg, u32 len, int flags, const OrbisNetSoc
 }
 
 int P2PSocket::ReceivePacket(void* buf, u32 len, int flags, OrbisNetSockaddr* from, u32* fromlen) {
-    LOG_ERROR(Lib_Net, "(STUBBED) called");
+    LOG_DEBUG(Lib_Net, "(STUBBED) called");
     return -1;
 }
 
