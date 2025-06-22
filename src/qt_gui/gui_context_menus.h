@@ -16,7 +16,6 @@
 #include "common/scm_rev.h"
 #include "compatibility_info.h"
 #include "game_info.h"
-#include "gui_settings.h"
 #include "trophy_viewer.h"
 
 #ifdef Q_OS_WIN
@@ -31,13 +30,13 @@
 class GuiContextMenus : public QObject {
     Q_OBJECT
 public:
-    int RequestGameMenu(const QPoint& pos, QVector<GameInfo>& m_games,
-                        std::shared_ptr<CompatibilityInfoClass> m_compat_info,
-                        std::shared_ptr<gui_settings> settings, QTableWidget* widget, bool isList) {
+    void RequestGameMenu(const QPoint& pos, QVector<GameInfo>& m_games,
+                         std::shared_ptr<CompatibilityInfoClass> m_compat_info,
+                         std::shared_ptr<gui_settings> settings, QTableWidget* widget,
+                         bool isList) {
         QPoint global_pos = widget->viewport()->mapToGlobal(pos);
         std::shared_ptr<gui_settings> m_gui_settings = std::move(settings);
         int itemID = 0;
-        int changedFavorite = 0;
         if (isList) {
             itemID = widget->currentRow();
         } else {
@@ -46,7 +45,7 @@ public:
 
         // Do not show the menu if no item is selected
         if (itemID < 0 || itemID >= m_games.size()) {
-            return changedFavorite;
+            return;
         }
 
         // Setup menu.
@@ -66,22 +65,11 @@ public:
 
         menu.addMenu(openFolderMenu);
 
-        QString serialStr = QString::fromStdString(m_games[itemID].serial);
-        QList<QString> list = gui_settings::Var2List(m_gui_settings->GetValue(gui::favorites_list));
-        bool isFavorite = list.contains(serialStr);
-        QAction* toggleFavorite;
-
-        if (isFavorite) {
-            toggleFavorite = new QAction(tr("Remove from Favorites"), widget);
-        } else {
-            toggleFavorite = new QAction(tr("Add to Favorites"), widget);
-        }
         QAction createShortcut(tr("Create Shortcut"), widget);
         QAction openCheats(tr("Cheats / Patches"), widget);
         QAction openSfoViewer(tr("SFO Viewer"), widget);
         QAction openTrophyViewer(tr("Trophy Viewer"), widget);
 
-        menu.addAction(toggleFavorite);
         menu.addAction(&createShortcut);
         menu.addAction(&openCheats);
         menu.addAction(&openSfoViewer);
@@ -142,7 +130,7 @@ public:
         // Show menu.
         auto selected = menu.exec(global_pos);
         if (!selected) {
-            return changedFavorite;
+            return;
         }
 
         if (selected == openGameFolder) {
@@ -313,16 +301,6 @@ public:
                 tableWidget->setWindowTitle(tr("SFO Viewer for ") + gameName);
                 tableWidget->show();
             }
-        }
-
-        if (selected == toggleFavorite) {
-            if (isFavorite) {
-                list.removeOne(serialStr);
-            } else {
-                list.append(serialStr);
-            }
-            m_gui_settings->SetValue(gui::favorites_list, gui_settings::List2Var(list));
-            changedFavorite = 1;
         }
 
         if (selected == &openCheats) {
@@ -610,7 +588,6 @@ public:
                     QUrl(url_issues + m_games[itemID].compatibility.issue_number));
             }
         }
-        return changedFavorite;
     }
 
     int GetRowIndex(QTreeWidget* treeWidget, QTreeWidgetItem* item) {
