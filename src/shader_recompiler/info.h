@@ -85,6 +85,7 @@ struct ImageResource {
     bool is_array{};
     bool is_written{};
     bool is_r128{};
+    bool force_degamma{};
 
     [[nodiscard]] constexpr AmdGpu::Image GetSharp(const Info& info) const noexcept;
 };
