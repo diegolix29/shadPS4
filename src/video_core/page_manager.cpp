@@ -196,55 +196,55 @@ struct PageManager::Impl {
         RENDERER_TRACE;
         boost::container::small_vector<UpdateProtectRange, 16> update_ranges;
         //{
-            std::scoped_lock lk(lock);
+        std::scoped_lock lk(lock);
 
-            size_t page = addr >> PAGE_BITS;
-            auto perms = cached_pages[page].Perm();
-            u64 range_begin = 0;
-            u64 range_bytes = 0;
+        size_t page = addr >> PAGE_BITS;
+        auto perms = cached_pages[page].Perm();
+        u64 range_begin = 0;
+        u64 range_bytes = 0;
 
-            const auto release_pending = [&] {
-                if (range_bytes > 0) {
-                    RENDERER_TRACE;
-                    // Add pending (un)protect action
-                    update_ranges.push_back({range_begin << PAGE_BITS, range_bytes, perms});
-                    range_bytes = 0;
-                }
-            };
+        const auto release_pending = [&] {
+            if (range_bytes > 0) {
+                RENDERER_TRACE;
+                // Add pending (un)protect action
+                update_ranges.push_back({range_begin << PAGE_BITS, range_bytes, perms});
+                range_bytes = 0;
+            }
+        };
 
-            // Iterate requested pages
-            const u64 page_end = Common::DivCeil(addr + size, PAGE_SIZE);
-            const u64 aligned_addr = page << PAGE_BITS;
-            const u64 aligned_end = page_end << PAGE_BITS;
-            ASSERT_MSG(rasterizer->IsMapped(aligned_addr, aligned_end - aligned_addr),
-                       "Attempted to track non-GPU memory at address {:#x}, size {:#x}.",
-                       aligned_addr, aligned_end - aligned_addr);
+        // Iterate requested pages
+        const u64 page_end = Common::DivCeil(addr + size, PAGE_SIZE);
+        const u64 aligned_addr = page << PAGE_BITS;
+        const u64 aligned_end = page_end << PAGE_BITS;
+        ASSERT_MSG(rasterizer->IsMapped(aligned_addr, aligned_end - aligned_addr),
+                   "Attempted to track non-GPU memory at address {:#x}, size {:#x}.", aligned_addr,
+                   aligned_end - aligned_addr);
 
-            for (; page != page_end; ++page) {
-                PageState& state = cached_pages[page];
+        for (; page != page_end; ++page) {
+            PageState& state = cached_pages[page];
 
-                // Apply the change to the page state
-                const u8 new_count = state.AddDelta<delta>();
+            // Apply the change to the page state
+            const u8 new_count = state.AddDelta<delta>();
 
-                // If the protection changed add pending (un)protect action
-                if (auto new_perms = state.Perm(); new_perms != perms) [[unlikely]] {
-                    release_pending();
-                    perms = new_perms;
-                }
-
-                // If the page must be (un)protected, add it to the pending range
-                if ((new_count == 0 && delta < 0) || (new_count == 1 && delta > 0)) {
-                    if (range_bytes == 0) {
-                        range_begin = page;
-                    }
-                    range_bytes += PAGE_SIZE;
-                } else {
-                    release_pending();
-                }
+            // If the protection changed add pending (un)protect action
+            if (auto new_perms = state.Perm(); new_perms != perms) [[unlikely]] {
+                release_pending();
+                perms = new_perms;
             }
 
-            // Add pending (un)protect action
-            release_pending();
+            // If the page must be (un)protected, add it to the pending range
+            if ((new_count == 0 && delta < 0) || (new_count == 1 && delta > 0)) {
+                if (range_bytes == 0) {
+                    range_begin = page;
+                }
+                range_bytes += PAGE_SIZE;
+            } else {
+                release_pending();
+            }
+        }
+
+        // Add pending (un)protect action
+        release_pending();
         //}
 
         // Flush deferred protects
