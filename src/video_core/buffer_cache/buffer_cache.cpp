@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <new>
+#include <semaphore>
 #include "common/alignment.h"
 #include "common/debug.h"
 #include "common/div_ceil.h"
