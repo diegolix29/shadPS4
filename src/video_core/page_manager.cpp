@@ -195,7 +195,7 @@ struct PageManager::Impl {
     void UpdatePageWatchers(VAddr addr, u64 size) {
         RENDERER_TRACE;
         boost::container::small_vector<UpdateProtectRange, 16> update_ranges;
-        {
+        //{
             std::scoped_lock lk(lock);
 
             size_t page = addr >> PAGE_BITS;
@@ -245,7 +245,7 @@ struct PageManager::Impl {
 
             // Add pending (un)protect action
             release_pending();
-        }
+        //}
 
         // Flush deferred protects
         for (const auto& range : update_ranges) {
