@@ -24,6 +24,10 @@ struct FetchShaderData;
 struct Info;
 } // namespace Shader
 
+namespace Core {
+class MemoryManager;
+}
+
 namespace Vulkan {
 class GraphicsPipeline;
 }
@@ -152,6 +156,7 @@ private:
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
     AmdGpu::Liverpool* liverpool;
+    Core::MemoryManager* memory;
     TextureCache& texture_cache;
     PageManager& tracker;
     StreamBuffer staging_buffer;
