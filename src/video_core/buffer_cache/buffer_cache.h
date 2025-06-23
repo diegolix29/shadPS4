@@ -72,14 +72,21 @@ public:
         return &gds_buffer;
     }
 
-    /// Retrieves the host visible device local stream buffer.
-    [[nodiscard]] StreamBuffer& GetStreamBuffer() noexcept {
-        return stream_buffer;
-    }
-
     /// Retrieves the buffer with the specified id.
     [[nodiscard]] Buffer& GetBuffer(BufferId id) {
         return slot_buffers[id];
+    }
+
+    /// Retrieves a utility buffer optimized for specified memory usage.
+    StreamBuffer& GetUtilityBuffer(MemoryUsage usage) noexcept {
+        switch (usage) {
+        case MemoryUsage::Stream:
+            return stream_buffer;
+        case MemoryUsage::Upload:
+            return staging_buffer;
+        case MemoryUsage::DeviceLocal:
+            return device_buffer;
+        }
     }
 
     /// Invalidates any buffer in the logical page range.
@@ -100,8 +107,7 @@ public:
                                                        BufferId buffer_id = {});
 
     /// Attempts to obtain a buffer without modifying the cache contents.
-    [[nodiscard]] std::pair<Buffer*, u32> ObtainViewBuffer(VAddr gpu_addr, u32 size,
-                                                           bool prefer_gpu);
+    [[nodiscard]] std::pair<Buffer*, u32> ObtainBufferForImage(VAddr gpu_addr, u32 size);
 
     /// Return true when a region is registered on the cache
     [[nodiscard]] bool IsRegionRegistered(VAddr addr, size_t size);
@@ -161,6 +167,7 @@ private:
     PageManager& tracker;
     StreamBuffer staging_buffer;
     StreamBuffer stream_buffer;
+    StreamBuffer device_buffer;
     Buffer gds_buffer;
     std::shared_mutex mutex;
     Common::SlotVector<Buffer> slot_buffers;
