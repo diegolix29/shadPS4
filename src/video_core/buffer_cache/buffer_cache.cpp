@@ -278,7 +278,7 @@ bool BufferCache::CommitPendingDownloads(bool wait_done) {
     if (wait_done) {
         scheduler.Finish();
     } else {
-        scheduler.Flush();
+        scheduler.Finish();
     }
     return true;
 }
