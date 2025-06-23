@@ -56,10 +56,14 @@ std::tuple<u32, u32> AjmAt9Decoder::ProcessData(std::span<u8>& in_buf, SparseOut
                                                 AjmInstanceGapless& gapless) {
     int ret = 0;
     int bytes_used = 0;
+    Frame* frame = &static_cast<Atrac9Handle*>(m_handle)->Frame;
+
     switch (m_format) {
     case AjmFormatEncoding::S16:
-        ret = Atrac9Decode(m_handle, in_buf.data(), reinterpret_cast<s16*>(m_pcm_buffer.data()),
-                           &bytes_used, True(m_flags & AjmAt9CodecFlags::NonInterleavedOutput));
+        if (frame->Config != NULL) {
+            ret = Atrac9Decode(m_handle, in_buf.data(), reinterpret_cast<s16*>(m_pcm_buffer.data()),
+                               &bytes_used, True(m_flags & AjmAt9CodecFlags::NonInterleavedOutput));
+        }
         break;
     case AjmFormatEncoding::S32:
         ret = Atrac9DecodeS32(m_handle, in_buf.data(), reinterpret_cast<s32*>(m_pcm_buffer.data()),
@@ -101,6 +105,13 @@ std::tuple<u32, u32> AjmAt9Decoder::ProcessData(std::span<u8>& in_buf, SparseOut
         break;
     default:
         UNREACHABLE();
+    }
+
+    if (m_codec_info.framesInSuperframe == 0) {
+        m_codec_info.framesInSuperframe = 1;
+    }
+    if (m_codec_info.channels == 0) {
+        m_codec_info.channels = 1;
     }
 
     const auto samples_written = pcm_written / m_codec_info.channels;

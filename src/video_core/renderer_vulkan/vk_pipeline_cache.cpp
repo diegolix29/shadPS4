@@ -276,6 +276,16 @@ const ComputePipeline* PipelineCache::GetComputePipeline() {
     return it->second.get();
 }
 
+bool ShouldSkipShader(u64 shader_hash, const char* shader_type) {
+    std::vector<u64> skip_hashes = Config::hashesToSkip();
+    shader_hash = shader_hash & INT64_MAX;
+    if (std::ranges::contains(skip_hashes, shader_hash)) {
+        //LOG_WARNING(Render_Vulkan, "Skipped {} shader hash {:#x}.", shader_type, shader_hash);
+        return true;
+    }
+    return false;
+}
+
 bool PipelineCache::RefreshGraphicsKey() {
     std::memset(&graphics_key, 0, sizeof(GraphicsPipelineKey));
 
@@ -351,7 +361,7 @@ bool PipelineCache::RefreshGraphicsKey() {
             LiverpoolToVK::AdjustColorBufferFormat(format, col_buf.info.comp_swap.Value());
         bool equal_formats = format == key.color_formats[remapped_cb];
         if (!instance.IsFormatSupported(format, vk::FormatFeatureFlagBits2::eColorAttachment)) {
-            LOG_WARNING(Render_Vulkan,
+            LOG_DEBUG(Render_Vulkan,
                         "color buffer format {} does not support COLOR_ATTACHMENT_BIT",
                         vk::to_string(format));
         }
@@ -389,6 +399,10 @@ bool PipelineCache::RefreshGraphicsKey() {
             LOG_WARNING(Render_Vulkan, "Invalid binary info structure!");
             key.stage_hashes[stage_out_idx] = 0;
             infos[stage_out_idx] = nullptr;
+            return false;
+        }
+
+        if (ShouldSkipShader(bininfo.shader_hash, "graphics")) {
             return false;
         }
 
@@ -500,6 +514,9 @@ bool PipelineCache::RefreshComputeKey() {
     Shader::Backend::Bindings binding{};
     const auto& cs_pgm = liverpool->GetCsRegs();
     const auto cs_params = Liverpool::GetParams(cs_pgm);
+    if (ShouldSkipShader(cs_params.hash, "compute")) {
+        return false;
+    }
     std::tie(infos[0], modules[0], fetch_shader, compute_key.value) =
         GetProgram(Shader::Stage::Compute, LogicalStage::Compute, cs_params, binding);
     return true;
