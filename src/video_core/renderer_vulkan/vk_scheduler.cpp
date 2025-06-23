@@ -8,6 +8,8 @@
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 
+extern std::thread::id gpu_id;
+
 namespace Vulkan {
 
 std::mutex Scheduler::submit_mutex;
@@ -65,9 +67,26 @@ void Scheduler::EndRendering() {
     current_cmdbuf.endRendering();
 }
 
+void Scheduler::PopPendingOperations() {
+    master_semaphore.Refresh();
+    while (!pending_ops.empty() && master_semaphore.IsFree(pending_ops.front().gpu_tick)) {
+        ASSERT(gpu_id == std::this_thread::get_id());
+        ASSERT(op_scope == 0);
+        ++op_scope;
+        pending_ops.front().callback();
+        --op_scope;
+        pending_ops.pop();
+    }
+}
+
 void Scheduler::Flush(SubmitInfo& info) {
     // When flushing, we only send data to the driver; no waiting is necessary.
     SubmitExecution(info);
+}
+
+void Scheduler::Flush() {
+    SubmitInfo info{};
+    Flush(info);
 }
 
 void Scheduler::Finish() {
@@ -160,11 +179,7 @@ void Scheduler::SubmitExecution(SubmitInfo& info) {
     master_semaphore.Refresh();
     AllocateWorkerCommandBuffers();
 
-    // Apply pending operations
-    while (!pending_ops.empty() && IsFree(pending_ops.front().gpu_tick)) {
-        pending_ops.front().callback();
-        pending_ops.pop();
-    }
+    PopPendingOperations();
 }
 
 void DynamicState::Commit(const Instance& instance, const vk::CommandBuffer& cmdbuf) {

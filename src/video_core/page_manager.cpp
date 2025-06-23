@@ -3,6 +3,7 @@
 
 #include <boost/icl/interval_set.hpp>
 #include "common/assert.h"
+#include "common/div_ceil.h"
 #include "common/signal_context.h"
 #include "core/memory.h"
 #include "core/signals.h"

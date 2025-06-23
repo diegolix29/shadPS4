@@ -3,11 +3,16 @@
 
 #pragma once
 
+#include <atomic>
+#include <condition_variable>
 #include <shared_mutex>
+#include <thread>
 #include <boost/container/small_vector.hpp>
+#include <queue>
 #include "common/div_ceil.h"
 #include "common/slot_vector.h"
 #include "common/types.h"
+#include "common/unique_function.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/buffer_cache/memory_tracker_base.h"
 #include "video_core/buffer_cache/range_set.h"
@@ -46,8 +51,13 @@ public:
     static constexpr u64 CACHING_PAGESIZE = u64{1} << CACHING_PAGEBITS;
     static constexpr u64 DEVICE_PAGESIZE = 4_KB;
 
+    struct PageData {
+        BufferId buffer_id{};
+        u64 target_tick{};
+    };
+
     struct Traits {
-        using Entry = BufferId;
+        using Entry = PageData;
         static constexpr size_t AddressSpaceBits = 40;
         static constexpr size_t FirstLevelBits = 14;
         static constexpr size_t PageBits = CACHING_PAGEBITS;
@@ -84,6 +94,8 @@ public:
             return stream_buffer;
         case MemoryUsage::Upload:
             return staging_buffer;
+        case MemoryUsage::Download:
+            return download_buffer;
         case MemoryUsage::DeviceLocal:
             return device_buffer;
         }
@@ -106,6 +118,9 @@ public:
 
     /// Performs buffer to buffer data copy on the GPU.
     void CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds);
+
+    /// Schedules pending GPU modified ranges since last commit to be copied back the host memory.
+    bool CommitPendingDownloads(bool wait_done);
 
     /// Obtains a buffer for the specified region.
     [[nodiscard]] std::pair<Buffer*, u32> ObtainBuffer(VAddr gpu_addr, u32 size, bool is_written,
@@ -131,7 +146,7 @@ private:
     void ForEachBufferInRange(VAddr device_addr, u64 size, Func&& func) {
         const u64 page_end = Common::DivCeil(device_addr + size, CACHING_PAGESIZE);
         for (u64 page = device_addr >> CACHING_PAGEBITS; page < page_end;) {
-            const BufferId buffer_id = page_table[page];
+            const BufferId buffer_id = page_table[page].buffer_id;
             if (!buffer_id) {
                 ++page;
                 continue;
@@ -144,7 +159,19 @@ private:
         }
     }
 
-    void DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size);
+    inline bool IsBufferInvalid(BufferId buffer_id) const {
+        return !buffer_id || slot_buffers[buffer_id].is_deleted;
+    }
+
+    inline void WaitForTargetTick(u64 target_tick) {
+        u64 tick = download_tick.load();
+        while (tick < target_tick) {
+            download_tick.wait(tick);
+            tick = download_tick.load();
+        }
+    }
+
+    void DownloadBufferMemory(const Buffer& buffer, VAddr device_addr, u64 size);
 
     [[nodiscard]] OverlapResult ResolveOverlaps(VAddr device_addr, u32 wanted_size);
 
@@ -159,11 +186,13 @@ private:
     template <bool insert>
     void ChangeRegister(BufferId buffer_id);
 
-    void SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_texel_buffer);
+    bool SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_texel_buffer);
 
     bool SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size);
 
     void DeleteBuffer(BufferId buffer_id);
+
+    void DownloadThread(std::stop_token token);
 
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
@@ -173,13 +202,26 @@ private:
     PageManager& tracker;
     StreamBuffer staging_buffer;
     StreamBuffer stream_buffer;
+    StreamBuffer download_buffer;
     StreamBuffer device_buffer;
     Buffer gds_buffer;
     std::shared_mutex mutex;
     Common::SlotVector<Buffer> slot_buffers;
+    RangeSet pending_download_ranges;
     RangeSet gpu_modified_ranges;
     MemoryTracker memory_tracker;
     PageTable page_table;
+    std::jthread async_download_thread;
+    struct PendingDownload {
+        Common::UniqueFunction<void> callback;
+        u64 gpu_tick;
+        u64 signal_tick;
+    };
+    std::mutex queue_mutex;
+    std::condition_variable_any queue_cv;
+    std::queue<PendingDownload> async_downloads;
+    u64 current_download_tick{0};
+    std::atomic<u64> download_tick{1};
 };
 
 } // namespace VideoCore
