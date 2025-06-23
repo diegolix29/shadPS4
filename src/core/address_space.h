@@ -11,7 +11,6 @@
 namespace Core {
 
 enum class MemoryPermission : u32 {
-    None = 0,
     Read = 1 << 0,
     Write = 1 << 1,
     ReadWrite = Read | Write,
