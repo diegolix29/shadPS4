@@ -28,7 +28,7 @@ public:
     void OnGpuUnmap(VAddr address, size_t size);
 
     /// Updates watches in the pages touching the specified region.
-    template <s32 delta>
+    template <s32 delta, bool is_read = false>
     void UpdatePageWatchers(VAddr addr, u64 size) const;
 
     /// Returns page aligned address.
