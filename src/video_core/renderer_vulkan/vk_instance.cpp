@@ -214,7 +214,8 @@ bool Instance::CreateDevice() {
                           vk::PhysicalDevicePortabilitySubsetFeaturesKHR,
                           vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
                           vk::PhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR,
-                          vk::PhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT>();
+                          vk::PhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT,
+                          vk::PhysicalDeviceConditionalRenderingFeaturesEXT>();
     features = feature_chain.get().features;
 
     const vk::StructureChain properties_chain = physical_device.getProperties2<
@@ -305,6 +306,7 @@ bool Instance::CreateDevice() {
     }
     dynamic_rendering_unused_attachments =
         add_extension(VK_EXT_DYNAMIC_RENDERING_UNUSED_ATTACHMENTS_EXTENSION_NAME);
+    conditional_rendering = add_extension(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME);
     const bool calibrated_timestamps =
         TRACY_GPU_ENABLED ? add_extension(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME) : false;
 
@@ -459,6 +461,9 @@ bool Instance::CreateDevice() {
         vk::PhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT{
             .dynamicRenderingUnusedAttachments = true,
         },
+        vk::PhysicalDeviceConditionalRenderingFeaturesEXT{
+            .conditionalRendering = true,
+        },
 #ifdef __APPLE__
         vk::PhysicalDevicePortabilitySubsetFeaturesKHR{
             .constantAlphaColorBlendFactors = portability_features.constantAlphaColorBlendFactors,
@@ -515,6 +520,9 @@ bool Instance::CreateDevice() {
 
     if (!dynamic_rendering_unused_attachments) {
         device_chain.unlink<vk::PhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT>();
+    }
+    if (!conditional_rendering) {
+        device_chain.unlink<vk::PhysicalDeviceConditionalRenderingFeaturesEXT>();
     }
 
     auto [device_result, dev] = physical_device.createDeviceUnique(device_chain.get());

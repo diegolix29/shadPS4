@@ -612,6 +612,7 @@ void Translator::TranslateInstruction(const GcnInst& inst, const u32 pc) {
         EmitVectorAlu(inst);
         break;
     case InstCategory::DebugProfile:
+    case InstCategory::Undefined:
         break;
     default:
         UNREACHABLE_MSG("Unsupported TranslateInstruction: {:#x}", static_cast<u32>(inst.category));
