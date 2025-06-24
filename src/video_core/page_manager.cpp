@@ -67,7 +67,7 @@ struct PageManager::Impl {
             return ReadPerm() | WritePerm();
         }
 
-template <bool is_read, s32 delta>
+        template <bool is_read, s32 delta>
         u8 AddDelta() {
             if constexpr (delta == 0) {
                 // No-op probe
@@ -88,7 +88,6 @@ template <bool is_read, s32 delta>
                 }
             }
         }
-
     };
 
 #ifdef ENABLE_USERFAULTFD
@@ -312,6 +311,5 @@ template void PageManager::UpdatePageWatchers<-1, true>(VAddr addr, u64 size) co
 template void PageManager::UpdatePageWatchers<-1, false>(VAddr addr, u64 size) const;
 template void PageManager::UpdatePageWatchers<0, true>(VAddr addr, u64 size) const;
 template void PageManager::UpdatePageWatchers<0, false>(VAddr addr, u64 size) const;
-
 
 } // namespace VideoCore
