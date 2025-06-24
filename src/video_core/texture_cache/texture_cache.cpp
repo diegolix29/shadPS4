@@ -761,7 +761,7 @@ void TextureCache::UntrackImage(ImageId image_id) {
     image.track_addr = 0;
     image.track_addr_end = 0;
     if (size != 0) {
-        tracker.UpdatePageWatchers<false>(addr, size);
+        tracker.UpdatePageWatchers<-1>(addr, size);
     }
 }
 
@@ -780,7 +780,7 @@ void TextureCache::UntrackImageHead(ImageId image_id) {
         // Cehck its hash later.
         MarkAsMaybeDirty(image_id, image);
     }
-    tracker.UpdatePageWatchers<false>(image_begin, size);
+    tracker.UpdatePageWatchers<-1>(image_begin, size);
 }
 
 void TextureCache::UntrackImageTail(ImageId image_id) {
@@ -799,7 +799,7 @@ void TextureCache::UntrackImageTail(ImageId image_id) {
         // Cehck its hash later.
         MarkAsMaybeDirty(image_id, image);
     }
-    tracker.UpdatePageWatchers<false>(addr, size);
+    tracker.UpdatePageWatchers<-1>(addr, size);
 }
 
 void TextureCache::DeleteImage(ImageId image_id) {

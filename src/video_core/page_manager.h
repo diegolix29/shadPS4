@@ -6,7 +6,6 @@
 #include <memory>
 #include "common/alignment.h"
 #include "common/types.h"
-#include "video_core/buffer_cache//region_definitions.h"
 
 namespace Vulkan {
 class Rasterizer;
@@ -29,13 +28,8 @@ public:
     void OnGpuUnmap(VAddr address, size_t size);
 
     /// Updates watches in the pages touching the specified region.
-    template <bool track>
+    template <s32 delta>
     void UpdatePageWatchers(VAddr addr, u64 size) const;
-
-    /// Updates watches in the pages touching the specified region
-    /// using a mask.
-    template <bool track>
-    void UpdatePageWatchersForRegion(VAddr base_addr, RegionBits& mask) const;
 
     /// Returns page aligned address.
     static constexpr VAddr GetPageAddr(VAddr addr) {
