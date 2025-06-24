@@ -71,8 +71,8 @@ public:
 
 public:
     explicit BufferCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                         Vulkan::Rasterizer& rasterizer_, AmdGpu::Liverpool* liverpool,
-                         TextureCache& texture_cache, PageManager& tracker);
+                         AmdGpu::Liverpool* liverpool,  TextureCache& texture_cache,
+                         PageManager& tracker);
     ~BufferCache();
 
     /// Returns a pointer to GDS device local buffer.
@@ -159,11 +159,19 @@ public:
 private:
     template <typename Func>
     void ForEachBufferInRange(VAddr device_addr, u64 size, Func&& func) {
-        buffer_ranges.ForEachInRange(device_addr, size,
-                                     [&](u64 page_start, u64 page_end, BufferId id) {
-                                         Buffer& buffer = slot_buffers[id];
-                                         func(id, buffer);
-                                     });
+        const u64 page_end = Common::DivCeil(device_addr + size, CACHING_PAGESIZE);
+        for (u64 page = device_addr >> CACHING_PAGEBITS; page < page_end;) {
+            const BufferId buffer_id = page_table[page].buffer_id;
+            if (!buffer_id) {
+                ++page;
+                continue;
+            }
+            Buffer& buffer = slot_buffers[buffer_id];
+            func(buffer_id, buffer);
+
+            const VAddr end_addr = buffer.CpuAddr() + buffer.SizeBytes();
+            page = Common::DivCeil(end_addr, CACHING_PAGESIZE);
+        }
     }
 
     void DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size);
@@ -193,7 +201,6 @@ private:
 
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
-    Vulkan::Rasterizer& rasterizer;
     AmdGpu::Liverpool* liverpool;
     Core::MemoryManager* memory;
     TextureCache& texture_cache;
@@ -203,6 +210,7 @@ private:
     StreamBuffer download_buffer;
     StreamBuffer device_buffer;
     Buffer gds_buffer;
+    std::shared_mutex mutex;
     Buffer bda_pagetable_buffer;
     Buffer fault_buffer;
     std::shared_mutex slot_buffers_mutex;

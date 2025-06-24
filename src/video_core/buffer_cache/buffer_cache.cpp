@@ -27,9 +27,9 @@ static constexpr size_t DeviceBufferSize = 128_MB;
 static constexpr size_t MaxPageFaults = 1024;
 
 BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
-                         Vulkan::Rasterizer& rasterizer_, AmdGpu::Liverpool* liverpool_,
-                         TextureCache& texture_cache_, PageManager& tracker_)
-    : instance{instance_}, scheduler{scheduler_}, rasterizer{rasterizer_}, liverpool{liverpool_},
+                         AmdGpu::Liverpool* liverpool_, TextureCache& texture_cache_,
+                         PageManager& tracker_)
+    : instance{instance_}, scheduler{scheduler_}, liverpool{liverpool_},
       memory{Core::Memory::Instance()}, texture_cache{texture_cache_}, tracker{tracker_},
       staging_buffer{instance, scheduler, MemoryUsage::Upload, StagingBufferSize},
       stream_buffer{instance, scheduler, MemoryUsage::Stream, UboStreamBufferSize},
@@ -375,8 +375,24 @@ std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 si
 }
 
 bool BufferCache::IsRegionRegistered(VAddr addr, size_t size) {
-    // Check if we are missing some edge case here
-    return buffer_ranges.Intersects(addr, size);
+    const VAddr end_addr = addr + size;
+    const u64 page_end = Common::DivCeil(end_addr, CACHING_PAGESIZE);
+    for (u64 page = addr >> CACHING_PAGEBITS; page < page_end;) {
+        const BufferId buffer_id = page_table[page].buffer_id;
+        if (!buffer_id) {
+            ++page;
+            continue;
+        }
+        std::shared_lock lk{mutex};
+        Buffer& buffer = slot_buffers[buffer_id];
+        const VAddr buf_start_addr = buffer.CpuAddr();
+        const VAddr buf_end_addr = buf_start_addr + buffer.SizeBytes();
+        if (buf_start_addr < end_addr && addr < buf_end_addr) {
+            return true;
+        }
+        page = Common::DivCeil(buf_end_addr, CACHING_PAGESIZE);
+    }
+    return false;
 }
 
 bool BufferCache::IsRegionCpuModified(VAddr addr, size_t size) {
@@ -541,19 +557,9 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
     const BufferId new_buffer_id = [&] {
         std::scoped_lock lk{slot_buffers_mutex};
         return slot_buffers.insert(instance, scheduler, MemoryUsage::DeviceLocal, overlap.begin,
-                                   AllFlags | vk::BufferUsageFlagBits::eShaderDeviceAddress, size);
+                                   AllFlags, size);
     }();
     auto& new_buffer = slot_buffers[new_buffer_id];
-    boost::container::small_vector<vk::DeviceAddress, 128> bda_addrs;
-    const u64 start_page = overlap.begin >> CACHING_PAGEBITS;
-    const u64 size_pages = size >> CACHING_PAGEBITS;
-    bda_addrs.reserve(size_pages);
-    for (u64 i = 0; i < size_pages; ++i) {
-        vk::DeviceAddress addr = new_buffer.BufferDeviceAddress() + (i << CACHING_PAGEBITS);
-        bda_addrs.push_back(addr);
-    }
-    WriteDataBuffer(bda_pagetable_buffer, start_page * sizeof(vk::DeviceAddress), bda_addrs.data(),
-                    bda_addrs.size() * sizeof(vk::DeviceAddress));
     const size_t size_bytes = new_buffer.SizeBytes();
     const auto cmdbuf = scheduler.CommandBuffer();
     scheduler.EndRendering();
@@ -710,11 +716,6 @@ void BufferCache::ChangeRegister(BufferId buffer_id) {
         } else {
             page_table[page].buffer_id = BufferId{};
         }
-    }
-    if constexpr (insert) {
-        buffer_ranges.Add(buffer.CpuAddr(), buffer.SizeBytes(), buffer_id);
-    } else {
-        buffer_ranges.Subtract(buffer.CpuAddr(), buffer.SizeBytes());
     }
 }
 
