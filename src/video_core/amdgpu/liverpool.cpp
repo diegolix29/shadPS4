@@ -769,7 +769,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             }
             case PM4ItOpcode::StrmoutBufferUpdate: {
                 const auto* strmout = reinterpret_cast<const PM4CmdStrmoutBufferUpdate*>(header);
-                LOG_WARNING(Render_Vulkan,
+                LOG_DEBUG(Render_Vulkan,
                             "Unimplemented IT_STRMOUT_BUFFER_UPDATE, update_memory = {}, "
                             "source_select = {}, buffer_select = {}",
                             strmout->update_memory.Value(),
