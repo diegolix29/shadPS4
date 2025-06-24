@@ -241,6 +241,7 @@ T Translator::GetSrc(const InstOperand& operand) {
         value = get_imm(-s32(operand.code) + SignedConstIntNegMin - 1);
         break;
     case OperandField::LiteralConst:
+    case OperandField::LdsDirect:
         value = get_imm(operand.code);
         break;
     case OperandField::ConstFloatPos_1_0:
@@ -274,6 +275,14 @@ T Translator::GetSrc(const InstOperand& operand) {
             value = ir.GetVccLo();
         }
         break;
+    case OperandField::ExecLo:
+        if constexpr (is_float) {
+            UNREACHABLE();
+        } else {
+            value = ir.BitCast<IR::U32>(ir.GetExec());
+        }
+        break;
+    case OperandField::ExecHi:
     case OperandField::VccHi:
         if constexpr (is_float) {
             value = ir.BitCast<IR::F32>(ir.GetVccHi());
@@ -296,7 +305,7 @@ T Translator::GetSrc(const InstOperand& operand) {
         }
         break;
     default:
-        UNREACHABLE();
+        UNREACHABLE_MSG("Unsupported GetSrc: {:#x}", static_cast<u32>(operand.field));
     }
 
     if constexpr (is_float) {
@@ -605,7 +614,7 @@ void Translator::TranslateInstruction(const GcnInst& inst, const u32 pc) {
     case InstCategory::DebugProfile:
         break;
     default:
-        UNREACHABLE();
+        UNREACHABLE_MSG("Unsupported TranslateInstruction: {:#x}", static_cast<u32>(inst.category));
     }
 }
 

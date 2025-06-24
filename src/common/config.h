@@ -48,6 +48,7 @@ void setCopyGPUCmdBuffers(bool enable);
 bool dumpShaders();
 void setDumpShaders(bool enable);
 u32 vblankDiv();
+std::vector<u64> hashesToSkip();
 void setVblankDiv(u32 value);
 bool getisTrophyPopupDisabled();
 void setisTrophyPopupDisabled(bool disable);

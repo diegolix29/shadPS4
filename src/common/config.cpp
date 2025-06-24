@@ -73,6 +73,7 @@ static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
 static std::string trophyKey;
 static bool isPSNSignedIn = false;
+std::vector<u64> skipedHashes = {};
 
 // Gui
 static bool load_game_size = true;
@@ -368,6 +369,10 @@ void setIsFullscreen(bool enable) {
     isFullscreen = enable;
 }
 
+std::vector<u64> hashesToSkip() {
+    return skipedHashes;
+}
+
 void setFullscreenMode(std::string mode) {
     fullscreenMode = mode;
 }
@@ -592,6 +597,7 @@ void load(const std::filesystem::path& path) {
         isFullscreen = toml::find_or<bool>(gpu, "Fullscreen", false);
         fullscreenMode = toml::find_or<std::string>(gpu, "FullscreenMode", "Windowed");
         isHDRAllowed = toml::find_or<bool>(gpu, "allowHDR", false);
+        skipedHashes = toml::find_or<std::vector<u64>>(gpu, "skipShaders", {});
     }
 
     if (data.contains("Vulkan")) {
@@ -741,6 +747,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["Fullscreen"] = isFullscreen;
     data["GPU"]["FullscreenMode"] = fullscreenMode;
     data["GPU"]["allowHDR"] = isHDRAllowed;
+    data["GPU"]["skipShaders"] = skipedHashes;
     data["Vulkan"]["gpuId"] = gpuId;
     data["Vulkan"]["validation"] = vkValidation;
     data["Vulkan"]["validation_sync"] = vkValidationSync;
