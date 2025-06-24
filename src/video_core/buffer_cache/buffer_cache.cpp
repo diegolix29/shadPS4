@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-#pragma clang optimize off
+
 #include <algorithm>
+#include <new>
+#include <semaphore>
 #include "common/alignment.h"
 #include "common/debug.h"
-#include "common/scope_exit.h"
+#include "common/thread.h"
 #include "common/types.h"
 #include "core/memory.h"
 #include "video_core/amdgpu/liverpool.h"
@@ -25,6 +27,7 @@ static constexpr size_t UboStreamBufferSize = 128_MB;
 static constexpr size_t DownloadBufferSize = 128_MB;
 static constexpr size_t DeviceBufferSize = 128_MB;
 static constexpr size_t MaxPageFaults = 1024;
+static constexpr size_t DownloadSizeThreshold = 512_KB;
 
 BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
                          AmdGpu::Liverpool* liverpool_, TextureCache& texture_cache_,
@@ -125,24 +128,47 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
                           "Fault Buffer Parser Pipeline");
 
     instance.GetDevice().destroyShaderModule(module);
+
+    async_download_thread = std::jthread{std::bind_front(&BufferCache::DownloadThread, this)};
 }
 
 BufferCache::~BufferCache() = default;
 
 void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
     const bool is_tracked = IsRegionRegistered(device_addr, size);
-    if (is_tracked) {
-        // Mark the page as CPU modified to stop tracking writes.
-        memory_tracker.MarkRegionAsCpuModified(device_addr, size);
+    if (!is_tracked) {
+        return;
     }
+
+    // Wait for any pending downloads to this page.
+    const u64 target_tick = page_table[device_addr >> CACHING_PAGEBITS].target_tick;
+    WaitForTargetTick(target_tick);
+
+    // Mark the page as CPU modified to stop tracking writes.
+    memory_tracker.MarkRegionAsCpuModified(device_addr, size);
 }
 
 void BufferCache::ReadMemory(VAddr device_addr, u64 size) {
-    Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
-    DownloadBufferMemory(buffer, device_addr, size);
+    if (!memory_tracker.IsRegionGpuModified(device_addr, size)) {
+        return;
+    }
+    std::binary_semaphore sem{0};
+    liverpool->SendCommand([this, &sem, device_addr, size] {
+        ForEachBufferInRange(
+            device_addr, size, [this, device_addr, size](BufferId buffer_id, Buffer& buffer) {
+                const VAddr buffer_start = buffer.CpuAddr();
+                const VAddr buffer_end = buffer_start + buffer.SizeBytes();
+                const VAddr download_start = std::max(buffer_start, device_addr);
+                const VAddr download_end = std::min<VAddr>(buffer_end, device_addr + size);
+                const u64 download_size = download_end - download_start;
+                DownloadBufferMemory(buffer, download_start, download_size);
+            });
+        sem.release();
+    });
+    sem.acquire();
 }
 
-void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size) {
+void BufferCache::DownloadBufferMemory(const Buffer& buffer, VAddr device_addr, u64 size) {
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;
     memory_tracker.ForEachDownloadRange<true>(
@@ -180,9 +206,99 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
     for (const auto& copy : copies) {
         const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
         const u64 dst_offset = copy.dstOffset - offset;
-        ASSERT(memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr),
-                                       download + dst_offset, copy.size));
+        if (!memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
+                                     copy.size)) {
+            std::memcpy(std::bit_cast<u8*>(copy_device_addr), download + dst_offset, copy.size);
+        }
     }
+}
+
+bool BufferCache::CommitPendingDownloads(bool wait_done) {
+    if (pending_download_ranges.Empty()) {
+        return false;
+    }
+    using BufferCopies = boost::container::small_vector<vk::BufferCopy, 8>;
+    tsl::robin_map<BufferId, BufferCopies> copies;
+    u64 total_size_bytes = 0;
+    pending_download_ranges.ForEach([&](VAddr interval_lower, VAddr interval_upper) {
+        const std::size_t size = interval_upper - interval_lower;
+        const VAddr device_addr = interval_lower;
+        const u64 page_begin = device_addr >> CACHING_PAGEBITS;
+        const u64 page_end = Common::DivCeil(device_addr + size, CACHING_PAGESIZE);
+        for (u64 page = page_begin; page != page_end; ++page) {
+            page_table[page].target_tick = current_download_tick;
+        }
+        ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
+            const VAddr buffer_start = buffer.CpuAddr();
+            const VAddr buffer_end = buffer_start + buffer.SizeBytes();
+            const VAddr new_start = std::max(buffer_start, device_addr);
+            const VAddr new_end = std::min(buffer_end, device_addr + size);
+            const u64 new_size = new_end - new_start;
+            copies[buffer_id].emplace_back(new_start - buffer_start, total_size_bytes, new_size);
+            // Align up to avoid cache conflicts
+            constexpr u64 align = std::hardware_destructive_interference_size;
+            constexpr u64 mask = ~(align - 1ULL);
+            total_size_bytes += (new_size + align - 1) & mask;
+        });
+    });
+    pending_download_ranges.Clear();
+    if (total_size_bytes == 0) {
+        return false;
+    }
+    const auto [download, offset] = download_buffer.Map(total_size_bytes);
+    download_buffer.Commit();
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    static constexpr vk::MemoryBarrier2 read_barrier = {
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .memoryBarrierCount = 1u,
+        .pMemoryBarriers = &read_barrier,
+    });
+    for (auto it = copies.begin(); it != copies.end(); ++it) {
+        auto& buffer_copies = it.value();
+        if (buffer_copies.empty()) {
+            continue;
+        }
+        for (auto& copy : buffer_copies) {
+            copy.dstOffset += offset;
+        }
+        const BufferId buffer_id = it.key();
+        Buffer& buffer = slot_buffers[buffer_id];
+        cmdbuf.copyBuffer(buffer.Handle(), download_buffer.Handle(), buffer_copies);
+    }
+    const auto writeback_host = [this, download, offset, copies = std::move(copies)]() {
+        auto* memory = Core::Memory::Instance();
+        for (auto it = copies.begin(); it != copies.end(); ++it) {
+            auto& buffer_copies = it.value();
+            const BufferId buffer_id = it.key();
+            const VAddr buffer_base = slot_buffers[buffer_id].CpuAddr();
+            for (auto& copy : buffer_copies) {
+                const VAddr copy_device_addr = buffer_base + copy.srcOffset;
+                const u64 dst_offset = copy.dstOffset - offset;
+                if (!memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr),
+                                             download + dst_offset, copy.size)) {
+                    //std::memcpy(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
+                    //            copy.size);
+                }
+            }
+        }
+    };
+    const u64 wait_tick = scheduler.CurrentTick();
+    scheduler.Flush();
+    {
+        std::scoped_lock lk{queue_mutex};
+        async_downloads.emplace(std::move(writeback_host), wait_tick, current_download_tick);
+    }
+    queue_cv.notify_one();
+    if (wait_done) {
+        WaitForTargetTick(current_download_tick);
+    }
+    ++current_download_tick;
+    return true;
 }
 
 void BufferCache::BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline) {
@@ -302,9 +418,11 @@ void BufferCache::BindIndexBuffer(u32 index_offset) {
 void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
     ASSERT_MSG(address % 4 == 0, "GDS offset must be dword aligned");
     if (!is_gds) {
-        if (!IsRegionGpuModified(address, num_bytes)) {
+        if (!memory_tracker.IsRegionGpuModified(address, num_bytes)) {
             memcpy(std::bit_cast<void*>(address), value, num_bytes);
+            return;
         } else {
+            // Write to backing memory to bypass memory protection.
             ASSERT(memory->TryWriteBacking(std::bit_cast<void*>(address), value, num_bytes));
         }
     }
@@ -319,11 +437,15 @@ void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bo
 }
 
 void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds) {
-    if (!dst_gds && !IsRegionGpuModified(dst, num_bytes)) {
-        if (!src_gds && !IsRegionGpuModified(src, num_bytes)) {
+    if (!src_gds && !memory_tracker.IsRegionGpuModified(src, num_bytes)) {
+        if (!dst_gds && !memory_tracker.IsRegionGpuModified(dst, num_bytes)) {
             // Both buffers were not transferred to GPU yet. Can safely copy in host memory.
             memcpy(std::bit_cast<void*>(dst), std::bit_cast<void*>(src), num_bytes);
             return;
+        } else if (!dst_gds) {
+            // Write to backing memory to bypass memory protection.
+            ASSERT(memory->TryWriteBacking(std::bit_cast<void*>(dst), std::bit_cast<void*>(src),
+                                           num_bytes));
         }
         // Without a readback there's nothing we can do with this
         // Fallback to creating dst buffer on GPU to at least have this data there
@@ -400,53 +522,33 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
     });
 }
 
-void BufferCache::WriteData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
-    ASSERT_MSG(address % 4 == 0, "GDS offset must be dword aligned");
-    if (!is_gds && !IsRegionRegistered(address, num_bytes)) {
-        memcpy(std::bit_cast<void*>(address), value, num_bytes);
-        return;
-    }
-    Buffer* buffer = [&] {
-        if (is_gds) {
-            return &gds_buffer;
-        }
-        const BufferId buffer_id = FindBuffer(address, num_bytes);
-        return &slot_buffers[buffer_id];
-    }();
-    WriteDataBuffer(*buffer, address, value, num_bytes);
-}
-
 std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, bool is_written,
                                                   bool is_texel_buffer, BufferId buffer_id) {
-    // For small uniform buffers that have not been modified by gpu
-    // use device local stream buffer to reduce renderpass breaks.
-    // Maybe we want to modify the threshold now that the page size is 16KB?
-    static constexpr u64 StreamThreshold = CACHING_PAGESIZE;
-    const bool is_gpu_dirty = memory_tracker.IsRegionGpuModified(device_addr, size);
-    if (!is_written && size <= StreamThreshold && !is_gpu_dirty) {
+    // For small read-only buffers use device local stream buffer to reduce renderpass breaks.
+    if (!is_written && size <= CACHING_PAGESIZE && !IsRegionGpuModified(device_addr, size)) {
         const u64 offset = stream_buffer.Copy(device_addr, size, instance.UniformMinAlignment());
         return {&stream_buffer, offset};
     }
-
-    if (!buffer_id || slot_buffers[buffer_id].is_deleted) {
+    if (IsBufferInvalid(buffer_id)) {
         buffer_id = FindBuffer(device_addr, size);
     }
     Buffer& buffer = slot_buffers[buffer_id];
-    SynchronizeBuffer(buffer, device_addr, size, is_texel_buffer);
+    const bool is_image_alias = SynchronizeBuffer(buffer, device_addr, size, is_texel_buffer);
     if (is_written) {
         memory_tracker.MarkRegionAsGpuModified(device_addr, size);
         gpu_modified_ranges.Add(device_addr, size);
+        if (!is_image_alias && size <= DownloadSizeThreshold) {
+            pending_download_ranges.Add(device_addr, size);
+        }
     }
     return {&buffer, buffer.Offset(device_addr)};
 }
 
 std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 size) {
     // Check if any buffer contains the full requested range.
-    const u64 page = gpu_addr >> CACHING_PAGEBITS;
-    const BufferId buffer_id = page_table[page].buffer_id;
+    const BufferId buffer_id = page_table[gpu_addr >> CACHING_PAGEBITS].buffer_id;
     if (buffer_id) {
-        Buffer& buffer = slot_buffers[buffer_id];
-        if (buffer.IsInBounds(gpu_addr, size)) {
+        if (Buffer& buffer = slot_buffers[buffer_id]; buffer.IsInBounds(gpu_addr, size)) {
             SynchronizeBuffer(buffer, gpu_addr, size, false);
             return {&buffer, buffer.Offset(gpu_addr)};
         }
@@ -456,7 +558,6 @@ std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 si
     if (memory_tracker.IsRegionGpuModified(gpu_addr, size)) {
         return ObtainBuffer(gpu_addr, size, false, false);
     }
-
     // In all other cases, just do a CPU copy to the staging buffer.
     const auto [data, offset] = staging_buffer.Map(size, 16);
     memory->CopySparseMemory(gpu_addr, data, size);
@@ -490,7 +591,12 @@ bool BufferCache::IsRegionCpuModified(VAddr addr, size_t size) {
 }
 
 bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
-    return memory_tracker.IsRegionGpuModified(addr, size);
+    if (!memory_tracker.IsRegionGpuModified(addr, size)) {
+        return false;
+    }
+    bool modified = false;
+    gpu_modified_ranges.ForEachInRange(addr, size, [&](VAddr, size_t) { modified = true; });
+    return modified;
 }
 
 BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {
@@ -809,7 +915,7 @@ void BufferCache::ChangeRegister(BufferId buffer_id) {
     }
 }
 
-void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
+bool BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
                                     bool is_texel_buffer) {
     boost::container::small_vector<vk::BufferCopy, 4> copies;
     u64 total_size_bytes = 0;
@@ -822,13 +928,11 @@ void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
         });
         total_size_bytes += range_size;
     });
-    SCOPE_EXIT {
-        if (is_texel_buffer) {
-            SynchronizeBufferFromImage(buffer, device_addr, size);
-        }
-    };
     if (total_size_bytes == 0) {
-        return;
+        if (is_texel_buffer) {
+            return SynchronizeBufferFromImage(buffer, device_addr, size);
+        }
+        return false;
     }
     vk::Buffer src_buffer = staging_buffer.Handle();
     if (total_size_bytes < StagingBufferSize) {
@@ -891,6 +995,10 @@ void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
         .bufferMemoryBarrierCount = 1,
         .pBufferMemoryBarriers = &post_barrier,
     });
+    if (is_texel_buffer) {
+        return SynchronizeBufferFromImage(buffer, device_addr, size);
+    }
+    return false;
 }
 
 bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size) {
@@ -1143,6 +1251,31 @@ void BufferCache::DeleteBuffer(BufferId buffer_id) {
     Unregister(buffer_id);
     scheduler.DeferOperation([this, buffer_id] { slot_buffers.erase(buffer_id); });
     buffer.is_deleted = true;
+}
+
+void BufferCache::DownloadThread(std::stop_token stoken) {
+    Common::SetCurrentThreadName("shadPS4:GpuCommandProcessor");
+
+    while (!stoken.stop_requested()) {
+        PendingDownload download;
+        {
+            std::unique_lock lk{queue_mutex};
+            Common::CondvarWait(queue_cv, lk, stoken, [this] { return !async_downloads.empty(); });
+            if (stoken.stop_requested()) {
+                break;
+            }
+            download = std::move(async_downloads.front());
+            async_downloads.pop();
+        }
+
+        // Wait for GPU to complete its work and writeback data to host
+        scheduler.Wait(download.gpu_tick);
+        download.callback();
+
+        // Signal completion of download
+        download_tick.store(download.signal_tick);
+        download_tick.notify_all();
+    }
 }
 
 } // namespace VideoCore

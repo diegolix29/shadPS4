@@ -3,11 +3,16 @@
 
 #pragma once
 
+#include <atomic>
+#include <condition_variable>
 #include <shared_mutex>
+#include <thread>
 #include <boost/container/small_vector.hpp>
 #include "common/div_ceil.h"
+#include <queue>
 #include "common/slot_vector.h"
 #include "common/types.h"
+#include "common/unique_function.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/buffer_cache/memory_tracker_base.h"
 #include "video_core/buffer_cache/range_set.h"
@@ -52,6 +57,7 @@ public:
 
     struct PageData {
         BufferId buffer_id{};
+        u64 target_tick{};
     };
 
     struct Traits {
@@ -71,7 +77,7 @@ public:
 
 public:
     explicit BufferCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                         AmdGpu::Liverpool* liverpool,  TextureCache& texture_cache,
+                         AmdGpu::Liverpool* liverpool, TextureCache& texture_cache,
                          PageManager& tracker);
     ~BufferCache();
 
@@ -127,8 +133,8 @@ public:
     /// Performs buffer to buffer data copy on the GPU.
     void CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds);
 
-    /// Writes a value to GPU buffer. (uses staging buffer to temporarily store the data)
-    void WriteData(VAddr address, const void* value, u32 num_bytes, bool is_gds);
+    /// Schedules pending GPU modified ranges since last commit to be copied back the host memory.
+    bool CommitPendingDownloads(bool wait_done);
 
     /// Obtains a buffer for the specified region.
     [[nodiscard]] std::pair<Buffer*, u32> ObtainBuffer(VAddr gpu_addr, u32 size, bool is_written,
@@ -180,7 +186,19 @@ private:
         }
     }
 
-    void DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size);
+    inline bool IsBufferInvalid(BufferId buffer_id) const {
+        return !buffer_id || slot_buffers[buffer_id].is_deleted;
+    }
+
+    inline void WaitForTargetTick(u64 target_tick) {
+        u64 tick = download_tick.load();
+        while (tick < target_tick) {
+            download_tick.wait(tick);
+            tick = download_tick.load();
+        }
+    }
+
+    void DownloadBufferMemory(const Buffer& buffer, VAddr device_addr, u64 size);
 
     [[nodiscard]] OverlapResult ResolveOverlaps(VAddr device_addr, u32 wanted_size);
 
@@ -195,7 +213,7 @@ private:
     template <bool insert>
     void ChangeRegister(BufferId buffer_id);
 
-    void SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_texel_buffer);
+    bool SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_texel_buffer);
 
     bool SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size);
 
@@ -204,6 +222,8 @@ private:
     void WriteDataBuffer(Buffer& buffer, VAddr address, const void* value, u32 num_bytes);
 
     void DeleteBuffer(BufferId buffer_id);
+
+    void DownloadThread(std::stop_token token);
 
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
@@ -221,6 +241,7 @@ private:
     Buffer fault_buffer;
     std::shared_mutex slot_buffers_mutex;
     Common::SlotVector<Buffer> slot_buffers;
+    RangeSet pending_download_ranges;
     RangeSet gpu_modified_ranges;
     SplitRangeMap<BufferId> buffer_ranges;
     MemoryTracker memory_tracker;
@@ -228,6 +249,17 @@ private:
     vk::UniqueDescriptorSetLayout fault_process_desc_layout;
     vk::UniquePipeline fault_process_pipeline;
     vk::UniquePipelineLayout fault_process_pipeline_layout;
+    std::jthread async_download_thread;
+    struct PendingDownload {
+        Common::UniqueFunction<void> callback;
+        u64 gpu_tick;
+        u64 signal_tick;
+    };
+    std::mutex queue_mutex;
+    std::condition_variable_any queue_cv;
+    std::queue<PendingDownload> async_downloads;
+    u64 current_download_tick{0};
+    std::atomic<u64> download_tick{1};
 };
 
 } // namespace VideoCore

@@ -3,6 +3,7 @@
 
 #include "common/config.h"
 #include "common/debug.h"
+#include "common/scope_exit.h"
 #include "core/memory.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/liverpool.h"
@@ -58,6 +59,10 @@ void Rasterizer::CpSync() {
     cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
                            vk::PipelineStageFlagBits::eDrawIndirect,
                            vk::DependencyFlagBits::eByRegion, ib_barrier, {}, {});
+}
+
+bool Rasterizer::CommitPendingDownloads(bool wait_done) {
+    return buffer_cache.CommitPendingDownloads(wait_done);
 }
 
 bool Rasterizer::FilterDraw() {
@@ -272,6 +277,8 @@ void Rasterizer::EliminateFastClear() {
 void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     RENDERER_TRACE;
 
+    scheduler.PopPendingOperations();
+
     if (!FilterDraw()) {
         return;
     }
@@ -316,6 +323,8 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
 void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u32 stride,
                               u32 max_count, VAddr count_address) {
     RENDERER_TRACE;
+
+    scheduler.PopPendingOperations();
 
     if (!FilterDraw()) {
         return;
@@ -380,6 +389,8 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
 void Rasterizer::DispatchDirect() {
     RENDERER_TRACE;
 
+    scheduler.PopPendingOperations();
+
     const auto& cs_program = liverpool->GetCsRegs();
     const ComputePipeline* pipeline = pipeline_cache.GetComputePipeline();
     if (!pipeline) {
@@ -406,6 +417,8 @@ void Rasterizer::DispatchDirect() {
 
 void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
     RENDERER_TRACE;
+
+    scheduler.PopPendingOperations();
 
     const auto& cs_program = liverpool->GetCsRegs();
     const ComputePipeline* pipeline = pipeline_cache.GetComputePipeline();
