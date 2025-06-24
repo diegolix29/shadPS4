@@ -5,7 +5,6 @@
 
 #include <set>
 #include "common/singleton.h"
-#include "common/types.h"
 
 namespace Core {
 
