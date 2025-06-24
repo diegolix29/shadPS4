@@ -73,10 +73,8 @@ struct OrbisVideodec2OutputInfo {
     u32 frameHeight;
     void* frameBuffer;
     u64 frameBufferSize;
-    u32 frameFormat;
-    u32 framePitchInBytes;
 };
-static_assert(sizeof(OrbisVideodec2OutputInfo) == 0x38);
+static_assert(sizeof(OrbisVideodec2OutputInfo) == 0x30);
 
 struct OrbisVideodec2FrameBuffer {
     u64 thisSize;
