@@ -545,7 +545,12 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
 
     const auto& num_layers = image.info.resources.layers;
     const auto& num_mips = image.info.resources.levels;
-    ASSERT(num_mips == image.info.mips_layout.size());
+    // ASSERT(num_mips == image.info.mips_layout.size());
+
+    if (num_mips != image.info.mips_layout.size()) {
+        LOG_WARNING(Render_Vulkan, "Unexpected inequality: num_mips = {}, mips layout size = {}",
+                    num_mips, image.info.mips_layout.size());
+    }
 
     const bool is_gpu_modified = True(image.flags & ImageFlagBits::GpuModified);
     const bool is_gpu_dirty = True(image.flags & ImageFlagBits::GpuDirty);

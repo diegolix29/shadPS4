@@ -2226,7 +2226,7 @@
           <item>
             <widget class="QCheckBox" name="ReadbacksCheckBox">
               <property name="text">
-                <string>Enable Readbacks (eliminates vertex Explosions w/o mods)</string>
+                <string>Enable Readbacks (No Vertex Explosions)</string>
               </property>
             </widget>
           </item>
@@ -2240,7 +2240,7 @@
                 </font>
               </property>
               <property name="text">
-                <string>NOTE: may cause stutters on most systems</string>
+                <string>Hint: This Readbacks only work ok on BB not on other games</string>
               </property>
             </widget>
           </item>
@@ -2248,7 +2248,7 @@
           <item>
             <widget class="QCheckBox" name="ParticlesCheckBox">
               <property name="text">
-                <string>Enable DMA particles (renders certain particle effects like snow, black particles on warp)</string>
+                <string>Enable DMA particles (snow, wind, sparks, small tiny particles, void black spots, etc)</string>
               </property>
             </widget>
           </item>
@@ -2262,7 +2262,7 @@
                 </font>
               </property>
               <property name="text">
-                <string>NOTE: may rarely cause freezes for several seconds or rainbow lights explosions</string>
+                <string>Hint:Disable for other games if they dont boot as in main</string>
               </property>
             </widget>
           </item>
