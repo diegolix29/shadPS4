@@ -469,7 +469,6 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->ReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacksEnabled", false));
     ui->ParticlesCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "particlesEnabled", false));
-    ui->playBGMCheckBox->setChecked(m_gui_settings->GetValue(gui::gl_playBackgroundMusic).toBool());
     ui->disableTrophycheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
     ui->popUpDurationSpinBox->setValue(Config::getTrophyNotificationDuration());
