@@ -125,8 +125,6 @@ public:
     void InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds);
     void CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds);
 
-    std::pair<Buffer*, u32> ObtainHostUBO(std::span<const u32> data);
-
     /// Writes a value to GPU buffer. (uses staging buffer to temporarily store the data)
     void WriteData(VAddr address, const void* value, u32 num_bytes, bool is_gds);
 

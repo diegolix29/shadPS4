@@ -338,7 +338,36 @@ void BufferCache::InlineData(VAddr address, const void* value, u32 num_bytes, bo
         const BufferId buffer_id = FindBuffer(address, num_bytes);
         return &slot_buffers[buffer_id];
     }();
-    InlineDataBuffer(*buffer, address, value, num_bytes);
+    const auto cmdbuf = scheduler.CommandBuffer();
+    const vk::BufferMemoryBarrier2 buf_barrier_before = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .buffer = buffer->Handle(),
+        .offset = buffer->Offset(address),
+        .size = num_bytes,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &buf_barrier_before,
+    });
+    cmdbuf.updateBuffer(buffer->Handle(), buffer->Offset(address), num_bytes, value);
+    const vk::BufferMemoryBarrier2 buf_barrier_after = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+        .buffer = buffer->Handle(),
+        .offset = buffer->Offset(address),
+        .size = num_bytes,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &buf_barrier_after,
+    });
 }
 
 void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds) {
