@@ -558,10 +558,6 @@ void setAudioVolume(int volume) {
     audioVolume = volume;
 }
 
-void setAudioVolume(int volume) {
-    audioVolume = volume;
-}
-
 bool addGameInstallDir(const std::filesystem::path& dir, bool enabled) {
     for (const auto& install_dir : settings_install_dirs) {
         if (install_dir.path == dir) {

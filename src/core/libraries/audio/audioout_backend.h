@@ -26,20 +26,6 @@ public:
     virtual std::unique_ptr<PortBackend> Open(PortOut& port) = 0;
 };
 
-class CubebAudioOut final : public AudioOutBackend {
-public:
-    CubebAudioOut();
-    ~CubebAudioOut() override;
-
-    std::unique_ptr<PortBackend> Open(PortOut& port) override;
-
-private:
-    cubeb* ctx = nullptr;
-#ifdef _WIN32
-    bool owns_com = false;
-#endif
-};
-
 class SDLAudioOut final : public AudioOutBackend {
 public:
     std::unique_ptr<PortBackend> Open(PortOut& port) override;
