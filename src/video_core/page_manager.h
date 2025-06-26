@@ -15,13 +15,8 @@ class Rasterizer;
 namespace VideoCore {
 
 class PageManager {
-    // Use the same page size as the tracker.
-    static constexpr size_t PAGE_BITS = TRACKER_PAGE_BITS;
-    static constexpr size_t PAGE_SIZE = TRACKER_BYTES_PER_PAGE;
-
-    // Keep the lock granularity the same as region granularity. (since each regions has
-    // itself a lock)
-    static constexpr size_t PAGES_PER_LOCK = NUM_PAGES_PER_REGION;
+    static constexpr size_t PAGE_BITS = 12;
+    static constexpr size_t PAGE_SIZE = 1ULL << PAGE_BITS;
 
 public:
     explicit PageManager(Vulkan::Rasterizer* rasterizer);
