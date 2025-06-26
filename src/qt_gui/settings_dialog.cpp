@@ -471,7 +471,6 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->ParticlesCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "particlesEnabled", true));
     ui->MemoryComboBox->setCurrentText(
         QString::fromStdString(toml::find_or<std::string>(data, "GPU", "memoryAlloc", "medium")));
-    ui->playBGMCheckBox->setChecked(m_gui_settings->GetValue(gui::gl_playBackgroundMusic).toBool());
     ui->disableTrophycheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
     ui->popUpDurationSpinBox->setValue(Config::getTrophyNotificationDuration());
