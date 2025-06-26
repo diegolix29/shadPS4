@@ -2268,10 +2268,20 @@
           </item>
 
           <item>
+            <widget class="QGroupBox" name="groupBox">
+              <property name="title">
+                <string>Backup Save Options</string>
+              </property>
+            </widget>
+          </item>
+
+          <item>
             <widget class="QGroupBox" name="groupBox_2">
               <property name="title">
                 <string>Memory Allocation</string>
               </property>
+
+              <!-- Add the MemoryComboBox inside this group box if you want it visually grouped -->
 
               <layout class="QVBoxLayout" name="groupBox_2_layout">
                 <item>
@@ -2303,6 +2313,14 @@
                 </item>
               </layout>
 
+            </widget>
+          </item>
+
+          <item>
+            <widget class="QGroupBox" name="groupBox_3">
+              <property name="title">
+                <string>FSR Settings</string>
+              </property>
             </widget>
           </item>
 
@@ -2344,4 +2362,3 @@
 </resources>
 <connections/>
 </ui>
-
