@@ -238,7 +238,7 @@ struct Info {
         Dynamic = 1 << 1,
     };
     ReadConstType readconst_types{};
-    IR::Type dma_types{IR::Type::Void};
+    bool uses_dma{false};
 
     explicit Info(Stage stage_, LogicalStage l_stage_, ShaderParams params)
         : stage{stage_}, l_stage{l_stage_}, pgm_hash{params.hash}, pgm_base{params.Base()},
@@ -308,17 +308,19 @@ constexpr AmdGpu::Image ImageResource::GetSharp(const Info& info) const noexcept
     if (!is_r128) {
         image = info.ReadUdSharp<AmdGpu::Image>(sharp_idx);
     } else {
-        AmdGpu::Buffer buf = info.ReadUdSharp<AmdGpu::Buffer>(sharp_idx);
+        const auto buf = info.ReadUdSharp<AmdGpu::Buffer>(sharp_idx);
         memcpy(&image, &buf, sizeof(buf));
     }
     if (!image.Valid()) {
         // Fall back to null image if unbound.
-        return AmdGpu::Image::Null();
-    }
-    const auto data_fmt = image.GetDataFmt();
-    if (is_depth && data_fmt != AmdGpu::DataFormat::Format16 &&
-        data_fmt != AmdGpu::DataFormat::Format32) {
-        return AmdGpu::Image::NullDepth();
+        LOG_DEBUG(Render_Vulkan, "Encountered unbound image!");
+        image = is_depth ? AmdGpu::Image::NullDepth() : AmdGpu::Image::Null();
+    } else if (is_depth) {
+        const auto data_fmt = image.GetDataFmt();
+        if (data_fmt != AmdGpu::DataFormat::Format16 && data_fmt != AmdGpu::DataFormat::Format32) {
+            LOG_DEBUG(Render_Vulkan, "Encountered non-depth image used with depth instruction!");
+            image = AmdGpu::Image::NullDepth();
+        }
     }
     return image;
 }
