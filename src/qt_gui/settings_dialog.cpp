@@ -807,10 +807,6 @@ void SettingsDialog::UpdateSettings() {
     Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
     Config::setAudioVolume(ui->VolumeSlider->value());
 
-    m_gui_settings->SetValue(gui::gen_checkForUpdates, ui->updateCheckBox->isChecked());
-    m_gui_settings->SetValue(gui::gen_showChangeLog, ui->changelogCheckBox->isChecked());
-    m_gui_settings->SetValue(gui::gen_updateChannel,
-                             channelMap.value(ui->updateComboBox->currentText()));
     Config::setAutoUpdate(ui->updateCheckBox->isChecked());
     Config::setAlwaysShowChangelog(ui->changelogCheckBox->isChecked());
     Config::setUpdateChannel(channelMap.value(ui->updateComboBox->currentText()).toStdString());
