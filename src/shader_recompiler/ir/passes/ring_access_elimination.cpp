@@ -135,18 +135,29 @@ void RingAccessElimination(const IR::Program& program, const RuntimeInfo& runtim
                     break;
                 }
 
-                const auto offset = inst.Flags<IR::BufferInstInfo>().inst_offset.Value();
+const auto offset = inst.Flags<IR::BufferInstInfo>().inst_offset.Value();
                 const auto data = ir.BitCast<IR::F32>(IR::U32{inst.Arg(2)});
                 const auto comp_ofs = output_vertices * 4u;
                 const auto output_size = comp_ofs * gs_info.out_vertex_data_size;
 
-                const auto vc_read_ofs = (((offset / comp_ofs) * comp_ofs) % output_size) * 16u;
+                const auto vc_read_ofs = ((offset / comp_ofs) * comp_ofs) % output_size;
                 const auto& attr_map = info.gs_copy_data.attr_map;
-                const auto it = attr_map.find(vc_read_ofs);
-                ASSERT_MSG(
-                    it != attr_map.cend(),
-                    "Attribute not found in gs_copy_data.attr_map. Requested key: {}. Map size: {}",
-                    vc_read_ofs, attr_map.size());
+                const auto aligned_read_ofs = (vc_read_ofs / 512) * 512;
+                const auto it = attr_map.find(aligned_read_ofs);
+
+                for (const auto& [key, _] : attr_map) {
+                    LOG_INFO(Render_Vulkan, "Attr map key: {}", key);
+                }
+                if (it == attr_map.cend()) {
+                    LOG_CRITICAL(Render_Vulkan,
+                                 "Shader crash in stage: {}, hash: 0x{:08X}, vc_read_ofs: {}, "
+                                 "attr_map size: {}",
+                                 static_cast<int>(info.stage), info.pgm_hash, vc_read_ofs,
+                                 attr_map.size());
+
+                    break;
+                }
+
                 const auto& [attr, comp] = it->second;
 
                 inst.ReplaceOpcode(IR::Opcode::SetAttribute);
