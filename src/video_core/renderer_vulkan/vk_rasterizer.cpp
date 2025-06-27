@@ -472,17 +472,15 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
         stage->PushUd(binding, push_data);
         BindBuffers(*stage, binding, push_data);
         BindTextures(*stage, binding);
-
-        uses_dma |= stage->dma_types != Shader::IR::Type::Void;
+        uses_dma |= stage->uses_dma;
     }
 
+    if (uses_dma && !fault_process_pending) {
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
 
     if (uses_dma) {
         // We only use fault buffer for DMA right now.
         {
-            // TODO: GPU might have written to memory (for example with EVENT_WRITE_EOP)
-            // we need to account for that and synchronize.
             Common::RecursiveSharedLock lock{mapped_ranges_mutex};
             for (auto& range : mapped_ranges) {
                 buffer_cache.SynchronizeBuffersInRange(range.lower(),
@@ -493,6 +491,8 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
     }
 
     fault_process_pending |= uses_dma;
+
+    pipeline->BindResources(set_writes, buffer_barriers, push_data);
 
     return true;
 }
@@ -960,6 +960,15 @@ u32 Rasterizer::ReadDataFromGds(u32 gds_offset) {
     u32 value;
     std::memcpy(&value, gds_buf->mapped_data.data() + gds_offset, sizeof(u32));
     return value;
+}
+
+bool Rasterizer::ReadMemory(VAddr addr, u64 size) {
+    if (!IsMapped(addr, size)) {
+        // Not GPU mapped memory, can skip invalidation logic entirely.
+        return false;
+    }
+    buffer_cache.ReadMemory(addr, size);
+    return true;
 }
 
 bool Rasterizer::InvalidateMemory(VAddr addr, u64 size) {

@@ -36,10 +36,12 @@ public:
     bool Init();
     void InstallDirectory();
     void StartGame();
+    void StartGameWithPath(const QString&);
     void PauseGame();
     bool showLabels;
     void StopGame();
     void RestartGame();
+    std::unique_ptr<Core::Emulator> emulator;
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
@@ -73,7 +75,7 @@ private:
     void BootGame();
 #ifdef ENABLE_QT_GUI
     QString getLastEbootPath();
-    std::filesystem::path lastGamePath;
+    QString lastGamePath;
 #endif
     void AddRecentFiles(QString filePath);
     void LoadTranslation();

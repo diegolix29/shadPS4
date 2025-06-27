@@ -7,7 +7,7 @@ This repository has three branches with extra features based on the main Shad br
 
 -Extra SFX particles shown (snow, sparks, etc.), originally from the roamic PR – further stabilized with the adjonese hack and rewritten by me to work with the current main Shad implementations.
 
--A sound hack that prevents Bloodborne from losing audio.
+-A sound hack that prevents Bloodborne from losing audio. (originally made by rainvmaker)
 
 -Automatic backups via a checkbox in the Graphics tab in Settings.
 

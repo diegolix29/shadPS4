@@ -7,6 +7,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include "common/enum.h"
 #include "common/singleton.h"
 #include "common/types.h"

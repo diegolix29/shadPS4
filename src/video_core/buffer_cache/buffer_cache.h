@@ -9,7 +9,7 @@
 #include "common/slot_vector.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/buffer.h"
-#include "video_core/buffer_cache/memory_tracker.h"
+#include "video_core/buffer_cache/memory_tracker_base.h"
 #include "video_core/buffer_cache/range_set.h"
 #include "video_core/multi_level_page_table.h"
 
@@ -110,6 +110,9 @@ public:
 
     /// Waits on pending downloads in the logical page range.
     void ReadMemory(VAddr addr, u64 size);
+
+    /// Waits on pending downloads in the logical page range.
+    void ReadMemory(VAddr device_addr, u64 size);
 
     /// Binds host vertex buffers for the current draw.
     void BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline);

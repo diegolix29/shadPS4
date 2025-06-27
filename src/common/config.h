@@ -42,6 +42,11 @@ bool getCheckCompatibilityOnStartup();
 int getBackgroundImageOpacity();
 bool getShowBackgroundImage();
 bool getPSNSignedIn();
+bool getReadbacksEnabled();
+bool getParticlesEnabled();
+std::string getAudioBackend();
+int getAudioVolume();
+std::string getMemoryAlloc();
 
 std::string getLogFilter();
 std::string getLogType();
@@ -147,6 +152,12 @@ void setCheckCompatibilityOnStartup(bool use);
 void setBackgroundImageOpacity(int opacity);
 void setShowBackgroundImage(bool show);
 void setPSNSignedIn(bool sign);
+void setReadbacksEnabled(bool enable);
+void setParticlesEnabled(bool enable);
+void setAudioBackend(std::string backend);
+void setAudioVolume(int volume);
+void setSeparateUpdateEnabled(bool use);
+void setMemoryAlloc(std::string alloc);
 
 void setCursorState(s16 cursorState);
 void setCursorHideTimeout(int newcursorHideTimeout);

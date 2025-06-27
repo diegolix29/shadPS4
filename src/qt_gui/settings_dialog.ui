@@ -59,7 +59,7 @@
       </size>
      </property>
      <property name="currentIndex">
-      <number>5</number>
+      <number>7</number>
      </property>
      <widget class="QScrollArea" name="generalTab">
       <property name="widgetResizable">
@@ -114,7 +114,7 @@
               <property name="checkable">
                <bool>false</bool>
               </property>
-              <layout class="QVBoxLayout" name="additionalSettingsVLayout" stretch="0">
+              <layout class="QVBoxLayout" name="additionalSettingsVLayout" stretch="0,0,0,0,0,0">
                <property name="spacing">
                 <number>6</number>
                </property>
@@ -151,6 +151,19 @@
                  </item>
                 </layout>
                </item>
+               <item>
+                <spacer name="verticalSpacer_8">
+                 <property name="orientation">
+                  <enum>Qt::Orientation::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
               </layout>
              </widget>
             </item>
@@ -167,7 +180,7 @@
             <item>
              <widget class="QGroupBox" name="SystemSettings">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
@@ -2107,72 +2120,157 @@
        </layout>
       </widget>
      </widget>
-		<widget class="QScrollArea" name="experimentalTab">
-			<property name="widgetResizable">
-				<bool>true</bool>
-			</property>
-			<attribute name="title">
-				<string>Experimental</string>
-			</attribute>
-			<widget class="QWidget" name="experimentalTabContents">
-				<property name="geometry">
-					<rect>
-						<x>0</x>
-						<y>0</y>
-						<width>946</width>
-						<height>536</height>
-					</rect>
-				</property>
-				<layout class="QVBoxLayout" name="verticalLayout_experimental">
-					<item>
-						<widget class="QCheckBox" name="isDevKitCheckBox">
-							<property name="text">
-								<string>Enable DevKit Mode</string>
-							</property>
-						</widget>
-					</item>
-					<item>
-						<widget class="QCheckBox" name="isNeoModeCheckBox">
-							<property name="text">
-								<string>Enable Neo Mode</string>
-							</property>
-						</widget>
-					</item>
-				</layout>
-			</widget>
-		</widget>
-	 </widget>
-	</item>
-   <item>
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="standardButtons">
-      <set>QDialogButtonBox::StandardButton::Apply|QDialogButtonBox::StandardButton::Close|QDialogButtonBox::StandardButton::RestoreDefaults|QDialogButtonBox::StandardButton::Save</set>
-     </property>
+    <widget class="QScrollArea" name="experimentalTab">
+      <property name="widgetResizable">
+        <bool>true</bool>
+      </property>
+      <attribute name="title">
+        <string>Experimental</string>
+      </attribute>
+      <widget class="QWidget" name="experimentalTabContents">
+        <property name="geometry">
+          <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>946</width>
+            <height>536</height>
+          </rect>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_experimental">
+          <item>
+            <widget class="QCheckBox" name="isDevKitCheckBox">
+              <property name="text">
+                <string>Enable DevKit Mode</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QCheckBox" name="isNeoModeCheckBox">
+              <property name="text">
+                <string>Enable Neo Mode</string>
+              </property>
+            </widget>
+          </item>
+
+          <item>
+            <widget class="QCheckBox" name="ReadbacksCheckBox">
+              <property name="text">
+                <string>Enable Readbacks (No Vertex Explosions)</string>
+              </property>
+            </widget>
+          </item>
+
+          <item>
+            <widget class="QLabel" name="label_2">
+              <property name="font">
+                <font>
+                  <pointsize>11</pointsize>
+                  <bold>true</bold>
+                </font>
+              </property>
+              <property name="text">
+                <string>Hint: This Readbacks only work ok on BB not on other games</string>
+              </property>
+            </widget>
+          </item>
+
+          <item>
+            <widget class="QCheckBox" name="ParticlesCheckBox">
+              <property name="text">
+                <string>Enable DMA particles (snow, wind, sparks, small tiny particles, void black spots, etc)</string>
+              </property>
+            </widget>
+          </item>
+
+          <item>
+            <widget class="QLabel" name="label_3">
+              <property name="font">
+                <font>
+                  <pointsize>11</pointsize>
+                  <bold>true</bold>
+                </font>
+              </property>
+              <property name="text">
+                <string>Hint:Disable for other games if they dont boot as in main</string>
+              </property>
+            </widget>
+          </item>
+
+          <item>
+            <widget class="QGroupBox" name="groupBox_2">
+              <property name="title">
+                <string>Memory Allocation</string>
+              </property>
+
+              <layout class="QVBoxLayout" name="groupBox_2_layout">
+                <item>
+                  <widget class="QComboBox" name="MemoryComboBox">
+                    <property name="currentText">
+                      <string>medium</string>
+                    </property>
+                    <item>
+                      <property name="text">
+                        <string>low</string>
+                      </property>
+                    </item>
+                    <item>
+                      <property name="text">
+                        <string>medium</string>
+                      </property>
+                    </item>
+                    <item>
+                      <property name="text">
+                        <string>high</string>
+                      </property>
+                    </item>
+                    <item>
+                      <property name="text">
+                        <string>max</string>
+                      </property>
+                    </item>
+                  </widget>
+                </item>
+              </layout>
+
+            </widget>
+          </item>
+
+        </layout>
+      </widget>
     </widget>
-   </item>
-   <item>
-    <widget class="QTextEdit" name="descriptionText">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>16777215</width>
-       <height>120</height>
-      </size>
-     </property>
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-  </layout>
- </widget>
- <resources>
-  <include location="../shadps4.qrc"/>
- </resources>
- <connections/>
+   </widget>
+  </item>
+  <item>
+   <widget class="QDialogButtonBox" name="buttonBox">
+    <property name="standardButtons">
+     <set>QDialogButtonBox::StandardButton::Apply|QDialogButtonBox::StandardButton::Close|QDialogButtonBox::StandardButton::RestoreDefaults|QDialogButtonBox::StandardButton::Save</set>
+    </property>
+   </widget>
+  </item>
+  <item>
+   <widget class="QTextEdit" name="descriptionText">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+    <property name="maximumSize">
+     <size>
+      <width>16777215</width>
+      <height>120</height>
+     </size>
+    </property>
+    <property name="readOnly">
+     <bool>true</bool>
+    </property>
+   </widget>
+  </item>
+ </layout>
+</widget>
+<resources>
+ <include location="../shadps4.qrc"/>
+</resources>
+<connections/>
 </ui>
+
