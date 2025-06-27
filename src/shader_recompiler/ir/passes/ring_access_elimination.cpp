@@ -135,7 +135,7 @@ void RingAccessElimination(const IR::Program& program, const RuntimeInfo& runtim
                     break;
                 }
 
-const auto offset = inst.Flags<IR::BufferInstInfo>().inst_offset.Value();
+                const auto offset = inst.Flags<IR::BufferInstInfo>().inst_offset.Value();
                 const auto data = ir.BitCast<IR::F32>(IR::U32{inst.Arg(2)});
                 const auto comp_ofs = output_vertices * 4u;
                 const auto output_size = comp_ofs * gs_info.out_vertex_data_size;
