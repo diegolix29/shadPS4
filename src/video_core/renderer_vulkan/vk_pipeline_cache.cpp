@@ -241,7 +241,8 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
 }
 
 bool ShouldSkipShader(u64 shader_hash, const char* shader_type) {
-    static std::vector<u64> skip_hashes = {0x4b0392bf, 0x9f37ecc3, 0x4a586e81, 0x7EE03D3F};
+    static std::vector<u64> skip_hashes = {0x4b0392bf, 0x9f37ecc3, 0x4a586e81, 0x7EE03D3F,
+                                           0x1635154C};
     if (std::ranges::contains(skip_hashes, shader_hash)) {
         LOG_WARNING(Render_Vulkan, "Skipped {} shader hash {:#x}.", shader_type, shader_hash);
         return true;
@@ -530,18 +531,14 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
              perm_idx != 0 ? "(permutation)" : "");
     DumpShader(code, info.pgm_hash, info.stage, perm_idx, "bin");
 
-const std::string stage_name = fmt::format("{}", info.stage);
+    const std::string stage_name = fmt::format("{}", info.stage);
     const auto ir_program = Shader::TranslateProgram(code, pools, info, runtime_info, profile);
     auto spv = Shader::Backend::SPIRV::EmitSPIRV(profile, runtime_info, ir_program, binding);
     if (ShouldSkipShader(info.pgm_hash, stage_name.c_str())) {
         LOG_WARNING(Render_Vulkan, "Returning stub shader for skipped hash {:#x}", info.pgm_hash);
 
-
-
-
-
-    DumpShader(spv, info.pgm_hash, info.stage, perm_idx, "spv");
-       return CompileSPV(spv, instance.GetDevice());
+        DumpShader(spv, info.pgm_hash, info.stage, perm_idx, "spv");
+        return CompileSPV(spv, instance.GetDevice());
     }
     vk::ShaderModule module;
 
@@ -562,7 +559,6 @@ const std::string stage_name = fmt::format("{}", info.stage);
     }
     return module;
 }
-
 
 PipelineCache::Result PipelineCache::GetProgram(Stage stage, LogicalStage l_stage,
                                                 Shader::ShaderParams params,

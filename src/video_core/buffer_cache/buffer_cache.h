@@ -111,9 +111,6 @@ public:
     /// Waits on pending downloads in the logical page range.
     void ReadMemory(VAddr addr, u64 size);
 
-    /// Waits on pending downloads in the logical page range.
-    void ReadMemory(VAddr device_addr, u64 size);
-
     /// Binds host vertex buffers for the current draw.
     void BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline);
 

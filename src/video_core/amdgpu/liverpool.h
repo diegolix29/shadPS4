@@ -1488,7 +1488,6 @@ public:
 
     void SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb);
     void SubmitAsc(u32 gnm_vqid, std::span<const u32> acb);
-    std::thread::id gpu_id;
     void SubmitDone() noexcept {
         std::scoped_lock lk{submit_mutex};
         mapped_queues[GfxQueueId].ccb_buffer_offset = 0;
