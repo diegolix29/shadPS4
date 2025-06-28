@@ -2151,8 +2151,29 @@
               </property>
             </widget>
           </item>
+			<item>
+				<widget class="QCheckBox" name="SkipsCheckBox">
+					<property name="text">
+						<string>Enable Shader Skips (for EldenRing and FireFades DS3)</string>
+					</property>
+				</widget>
+			</item>
 
-          <item>
+			<item>
+				<widget class="QLabel" name="label_4">
+					<property name="font">
+						<font>
+							<pointsize>11</pointsize>
+							<bold>true</bold>
+						</font>
+					</property>
+					<property name="text">
+						<string>Hint: Disable if you encounter graphical issues</string>
+					</property>
+				</widget>
+			</item>
+
+			<item>
             <widget class="QCheckBox" name="ReadbacksCheckBox">
               <property name="text">
                 <string>Enable Readbacks (No Vertex Explosions)</string>

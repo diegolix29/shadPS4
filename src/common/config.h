@@ -44,6 +44,7 @@ bool getShowBackgroundImage();
 bool getPSNSignedIn();
 bool getReadbacksEnabled();
 bool getParticlesEnabled();
+bool getShaderSkipsEnabled();
 std::string getAudioBackend();
 int getAudioVolume();
 std::string getMemoryAlloc();
@@ -154,6 +155,8 @@ void setShowBackgroundImage(bool show);
 void setPSNSignedIn(bool sign);
 void setReadbacksEnabled(bool enable);
 void setParticlesEnabled(bool enable);
+void setShaderSkipsEnabled(bool enable);
+
 void setAudioBackend(std::string backend);
 void setAudioVolume(int volume);
 void setSeparateUpdateEnabled(bool use);

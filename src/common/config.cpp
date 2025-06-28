@@ -81,6 +81,7 @@ static std::string trophyKey;
 static bool isPSNSignedIn = false;
 static bool readbacksEnabled = false;
 static bool particlesEnabled = true;
+static bool shaderSkipsEnabled = false;
 static std::string memoryAlloc = "medium";
 static std::string audioBackend = "cubeb";
 static int audioVolume = 100;
@@ -785,6 +786,14 @@ void setParticlesEnabled(bool enable) {
     particlesEnabled = enable;
 }
 
+bool getShaderSkipsEnabled() {
+    return shaderSkipsEnabled;
+}
+
+void setShaderSkipsEnabled(bool enable) {
+    shaderSkipsEnabled = enable;
+}
+
 std::string getMemoryAlloc() {
     return memoryAlloc;
 }
@@ -885,6 +894,7 @@ void load(const std::filesystem::path& path) {
         isHDRAllowed = toml::find_or<bool>(gpu, "allowHDR", false);
         readbacksEnabled = toml::find_or<bool>(gpu, "readbacksEnabled", false);
         particlesEnabled = toml::find_or<bool>(gpu, "particlesEnabled", true);
+        shaderSkipsEnabled = toml::find_or<bool>(gpu, "ShaderSkipsEnabled", true);
         memoryAlloc = toml::find_or<bool>(gpu, "memoryAlloc", "medium");
     }
 
@@ -1073,6 +1083,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["enableAutoBackup"] = enableAutoBackup;
     data["GPU"]["readbacksEnabled"] = readbacksEnabled;
     data["GPU"]["particlesEnabled"] = particlesEnabled;
+    data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled;
     data["GPU"]["memoryAlloc"] = memoryAlloc;
     data["Vulkan"]["gpuId"] = gpuId;
     data["Vulkan"]["validation"] = vkValidation;
@@ -1201,6 +1212,7 @@ void setDefaultValues() {
     userName = "shadPS4";
     readbacksEnabled = false;
     particlesEnabled = true;
+    shaderSkipsEnabled = false;
     memoryAlloc = "medium";
 
     if (Common::g_is_release) {
