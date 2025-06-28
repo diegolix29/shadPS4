@@ -34,6 +34,8 @@ void setDebugDump(bool enable);
 s32 getGpuId();
 void setGpuId(s32 selectedGpuId);
 bool allowHDR();
+bool getReadbacksEnabled();
+bool getParticlesEnabled();
 void setAllowHDR(bool enable);
 bool collectShadersForDebug();
 void setCollectShaderForDebug(bool enable);

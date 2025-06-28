@@ -41,7 +41,7 @@ static Shader::PushData MakeUserData(const AmdGpu::Liverpool::Regs& regs) {
 Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
                        AmdGpu::Liverpool* liverpool_)
     : instance{instance_}, scheduler{scheduler_}, page_manager{this},
-      buffer_cache{instance, scheduler, liverpool_, texture_cache, page_manager},
+      buffer_cache{instance, scheduler, *this, liverpool_, texture_cache, page_manager},
       texture_cache{instance, scheduler, buffer_cache, page_manager}, liverpool{liverpool_},
       memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool},
       occlusion_query_buffer{instance,
@@ -77,13 +77,6 @@ void Rasterizer::CpSync() {
     cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
                            vk::PipelineStageFlagBits::eDrawIndirect,
                            vk::DependencyFlagBits::eByRegion, ib_barrier, {}, {});
-}
-
-bool Rasterizer::CommitPendingDownloads(bool wait_done) {
-    SCOPE_EXIT {
-        scheduler.PopPendingOperations();
-    };
-    return buffer_cache.CommitPendingDownloads(wait_done);
 }
 
 bool Rasterizer::FilterDraw() {
@@ -997,7 +990,7 @@ bool Rasterizer::InvalidateMemory(VAddr addr, u64 size) {
         // Not GPU mapped memory, can skip invalidation logic entirely.
         return false;
     }
-    buffer_cache.InvalidateMemory(addr, size);
+    buffer_cache.InvalidateMemory(addr, size, false);
     texture_cache.InvalidateMemory(addr, size);
     return true;
 }

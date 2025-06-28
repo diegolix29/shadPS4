@@ -60,6 +60,8 @@ struct Liverpool {
     static constexpr u32 ShRegWordOffset = 0x2C00;
     static constexpr u32 NumRegs = 0xD000;
 
+    std::thread::id gpu_id;
+
     using UserData = std::array<u32, NumShaderUserData>;
 
     struct BinaryInfo {
@@ -1486,7 +1488,6 @@ public:
 
     void SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb);
     void SubmitAsc(u32 gnm_vqid, std::span<const u32> acb);
-
     void SubmitDone() noexcept {
         std::scoped_lock lk{submit_mutex};
         mapped_queues[GfxQueueId].ccb_buffer_offset = 0;
@@ -1585,7 +1586,7 @@ private:
     Task ProcessGraphics(std::span<const u32> dcb, std::span<const u32> ccb);
     Task ProcessCeUpdate(std::span<const u32> ccb);
     template <bool is_indirect = false>
-    Task ProcessCompute(std::span<const u32> acb, u32 vqid);
+    Task ProcessCompute(const u32* acb, u32 acb_dwords, u32 vqid);
 
     void ProcessCommands();
     void Process(std::stop_token stoken);
