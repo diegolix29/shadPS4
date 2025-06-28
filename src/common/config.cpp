@@ -73,7 +73,7 @@ static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
 static std::string trophyKey;
 static bool isPSNSignedIn = false;
-static bool readbacksEnabled = false;
+static bool readbacksEnabled = true;
 static bool particlesEnabled = true;
 // Gui
 static bool load_game_size = true;
@@ -609,7 +609,7 @@ void load(const std::filesystem::path& path) {
         isFullscreen = toml::find_or<bool>(gpu, "Fullscreen", false);
         fullscreenMode = toml::find_or<std::string>(gpu, "FullscreenMode", "Windowed");
         isHDRAllowed = toml::find_or<bool>(gpu, "allowHDR", false);
-        readbacksEnabled = toml::find_or<bool>(gpu, "readbacksEnabled", false);
+        readbacksEnabled = toml::find_or<bool>(gpu, "readbacksEnabled", true);
         particlesEnabled = toml::find_or<bool>(gpu, "particlesEnabled", true);
     }
 
@@ -828,8 +828,8 @@ void setDefaultValues() {
     isFullscreen = false;
     isTrophyPopupDisabled = false;
     enableDiscordRPC = true;
-    readbacksEnabled = false;
-    particlesEnabled = false;
+    readbacksEnabled = true;
+    particlesEnabled = true;
     screenWidth = 1280;
     screenHeight = 720;
     logFilter = "";
