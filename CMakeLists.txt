@@ -1108,8 +1108,8 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/game_list_frame.h
            src/qt_gui/game_grid_frame.cpp
            src/qt_gui/game_grid_frame.h
-           src/qt_gui/game_install_dialog.cpp
-           src/qt_gui/game_install_dialog.h
+           src/qt_gui/game_directory_dialog.cpp
+           src/qt_gui/game_directory_dialog.h
            src/qt_gui/game_specific_dialog.h
            src/qt_gui/game_specific_dialog.cpp
            src/qt_gui/game_specific_dialog.ui

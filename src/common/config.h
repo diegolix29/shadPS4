@@ -16,7 +16,7 @@ enum class ConfigMode {
 };
 void setConfigMode(ConfigMode mode);
 
-struct GameInstallDir {
+struct GameDirectories {
     std::filesystem::path path;
     bool enabled;
 };
@@ -201,8 +201,8 @@ void SetControllerCustomColor(int r, int b, int g);
 void setUserName(const std::string& type);
 void setUpdateChannel(const std::string& type);
 void setChooseHomeTab(const std::string& type);
-void setGameInstallDirs(const std::vector<std::filesystem::path>& dirs_config);
-void setAllGameInstallDirs(const std::vector<GameInstallDir>& dirs_config);
+void setGameDirectories(const std::vector<std::filesystem::path>& dirs_config);
+void setAllGameDirectories(const std::vector<GameDirectories>& dirs_config);
 void setSaveDataPath(const std::filesystem::path& path);
 void setCompatibilityEnabled(bool use);
 void setCheckCompatibilityOnStartup(bool use);
@@ -251,10 +251,10 @@ void setDevKitMode(bool enable);
 
 // Gui
 void setMainWindowGeometry(u32 x, u32 y, u32 w, u32 h);
-bool addGameInstallDir(const std::filesystem::path& dir, bool enabled = true);
-void removeGameInstallDir(const std::filesystem::path& dir);
-void setGameInstallDirEnabled(const std::filesystem::path& dir, bool enabled);
-void setAddonInstallDir(const std::filesystem::path& dir);
+bool addGameDirectories(const std::filesystem::path& dir, bool enabled = true);
+void removeGameDirectories(const std::filesystem::path& dir);
+void setGameDirectoriesEnabled(const std::filesystem::path& dir, bool enabled);
+void setAddonDirectories(const std::filesystem::path& dir);
 void setMainWindowTheme(u32 theme);
 void setIconSize(u32 size);
 void setIconSizeGrid(u32 size);
@@ -277,9 +277,9 @@ u32 getMainWindowGeometryX();
 u32 getMainWindowGeometryY();
 u32 getMainWindowGeometryW();
 u32 getMainWindowGeometryH();
-const std::vector<std::filesystem::path> getGameInstallDirs();
-const std::vector<bool> getGameInstallDirsEnabled();
-std::filesystem::path getAddonInstallDir();
+const std::vector<std::filesystem::path> getGameDirectories();
+const std::vector<bool> getGameDirectoriesEnabled();
+std::filesystem::path getAddonDirectory();
 u32 getMainWindowTheme();
 u32 getIconSize();
 u32 getIconSizeGrid();

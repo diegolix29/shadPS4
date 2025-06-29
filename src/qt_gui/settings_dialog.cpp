@@ -386,7 +386,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             QString file_path_string =
                 QFileDialog::getExistingDirectory(this, tr("Directory to install games"));
             auto file_path = Common::FS::PathFromQString(file_path_string);
-            if (!file_path.empty() && Config::addGameInstallDir(file_path, true)) {
+            if (!file_path.empty() && Config::addGameDirectories(file_path, true)) {
                 QListWidgetItem* item = new QListWidgetItem(file_path_string);
                 item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
                 item->setCheckState(Qt::Checked);
@@ -411,7 +411,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             QString item_path_string = selected_item ? selected_item->text() : QString();
             if (!item_path_string.isEmpty()) {
                 auto file_path = Common::FS::PathFromQString(item_path_string);
-                Config::removeGameInstallDir(file_path);
+                Config::removeGameDirectories(file_path);
                 delete selected_item;
             }
         });
@@ -454,7 +454,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         });
 
         connect(ui->folderButton, &QPushButton::clicked, this, [this]() {
-            const auto dlc_folder_path = Config::getAddonInstallDir();
+            const auto dlc_folder_path = Config::getAddonDirectory();
             QString initial_path;
             Common::FS::PathToQString(initial_path, dlc_folder_path);
 
@@ -463,7 +463,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
             auto file_path = Common::FS::PathFromQString(dlc_folder_path_string);
             if (!file_path.empty()) {
-                Config::setAddonInstallDir(file_path);
+                Config::setAddonDirectories(file_path);
                 ui->currentDLCFolder->setText(dlc_folder_path_string);
             }
         });
@@ -754,7 +754,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     Common::FS::PathToQString(save_data_path_string, save_data_path);
     ui->currentSaveDataPath->setText(save_data_path_string);
 
-    const auto dlc_folder_path = Config::getAddonInstallDir();
+    const auto dlc_folder_path = Config::getAddonDirectory();
     QString dlc_folder_path_string;
     Common::FS::PathToQString(dlc_folder_path_string, dlc_folder_path);
     ui->currentDLCFolder->setText(dlc_folder_path_string);
@@ -1275,7 +1275,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
     Config::setPSNSignedIn(ui->isPSNSignedInCheckBox->isChecked());
 
-    std::vector<Config::GameInstallDir> dirs_with_states;
+    std::vector<Config::GameDirectories> dirs_with_states;
     for (int i = 0; i < ui->gameFoldersListWidget->count(); i++) {
         QListWidgetItem* item = ui->gameFoldersListWidget->item(i);
         QString path_string = item->text();
@@ -1284,7 +1284,7 @@ void SettingsDialog::UpdateSettings() {
 
         dirs_with_states.push_back({path, enabled});
     }
-    Config::setAllGameInstallDirs(dirs_with_states);
+    Config::setAllGameDirectories(dirs_with_states);
 
 #ifdef ENABLE_DISCORD_RPC
     auto* rpc = Common::Singleton<DiscordRPCHandler::RPC>::Instance();
@@ -1336,7 +1336,7 @@ void SettingsDialog::SyncRealTimeWidgetstoConfig() {
 
         std::vector<bool> install_dirs_enabled;
         try {
-            install_dirs_enabled = Config::getGameInstallDirsEnabled();
+            install_dirs_enabled = Config::getGameDirectoriesEnabled();
         } catch (...) {
             // If it does not exist, assume that all are enabled.
             install_dirs_enabled.resize(install_dir_array.size(), true);
@@ -1346,7 +1346,7 @@ void SettingsDialog::SyncRealTimeWidgetstoConfig() {
             install_dirs_enabled.resize(install_dir_array.size(), true);
         }
 
-        std::vector<Config::GameInstallDir> settings_install_dirs_config;
+        std::vector<Config::GameDirectories> settings_install_dirs_config;
 
         for (size_t i = 0; i < install_dir_array.size(); i++) {
             std::filesystem::path dir = install_dir_array[i];
@@ -1363,7 +1363,7 @@ void SettingsDialog::SyncRealTimeWidgetstoConfig() {
             ui->gameFoldersListWidget->addItem(item);
         }
 
-        Config::setAllGameInstallDirs(settings_install_dirs_config);
+        Config::setAllGameDirectories(settings_install_dirs_config);
     }
 
     if (Config::getGameRunning() && m_ipc_client) {

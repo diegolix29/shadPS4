@@ -35,7 +35,7 @@
 #include "core/libraries/audio/audioout.h"
 #include "version_dialog.h"
 
-#include "game_install_dialog.h"
+#include "game_directory_dialog.h"
 #include "hotkeys.h"
 #include "input/controller.h"
 #include "input/input_handler.h"
@@ -1077,7 +1077,7 @@ void MainWindow::CreateConnects() {
 
     // Package install.
     connect(ui->bootGameAct, &QAction::triggered, this, &MainWindow::BootGame);
-    connect(ui->gameInstallPathAct, &QAction::triggered, this, &MainWindow::InstallDirectory);
+    connect(ui->gameInstallPathAct, &QAction::triggered, this, &MainWindow::Directories);
 
     // elf viewer
     connect(ui->addElfFolderAct, &QAction::triggered, m_elf_viewer.data(),
@@ -1588,8 +1588,8 @@ QString MainWindow::getLastEbootPath() {
 }
 #endif
 
-void MainWindow::InstallDirectory() {
-    GameInstallDialog dlg;
+void MainWindow::Directories() {
+    GameDirectoryDialog dlg;
     dlg.exec();
     RefreshGameTable();
 }

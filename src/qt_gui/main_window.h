@@ -36,7 +36,7 @@ public:
     std::string GetRunningGameSerial() const;
     bool Init();
     void UserPath();
-    void InstallDirectory();
+    void Directories();
     void ApplyLastUsedStyle();
     void StartGame();
     void StartGameWithArgs(QStringList args);

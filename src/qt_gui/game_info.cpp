@@ -43,7 +43,7 @@ GameInfoClass::~GameInfoClass() = default;
 
 void GameInfoClass::GetGameInfo(QWidget* parent) {
     QStringList filePaths;
-    for (const auto& installLoc : Config::getGameInstallDirs()) {
+    for (const auto& installLoc : Config::getGameDirectories()) {
         QString installDir;
         Common::FS::PathToQString(installDir, installLoc);
         ScanDirectoryRecursively(installDir, filePaths, 0);
