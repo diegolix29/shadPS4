@@ -79,6 +79,13 @@ void Rasterizer::CpSync() {
                            vk::DependencyFlagBits::eByRegion, ib_barrier, {}, {});
 }
 
+bool Rasterizer::CommitPendingDownloads(bool wait_done) {
+    SCOPE_EXIT {
+        scheduler.PopPendingOperations();
+    };
+    return buffer_cache.CommitPendingDownloads(wait_done);
+}
+
 bool Rasterizer::FilterDraw() {
     const auto& regs = liverpool->regs;
     // There are several cases (e.g. FCE, FMask/HTile decompression) where we don't need to do an

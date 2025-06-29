@@ -205,9 +205,88 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
     for (const auto& copy : copies) {
         const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
         const u64 dst_offset = copy.dstOffset - offset;
-        memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
-                                copy.size);
+        if (!memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
+                                     copy.size)) {
+            std::memcpy(std::bit_cast<u8*>(copy_device_addr), download + dst_offset, copy.size);
+        }
     }
+}
+
+bool BufferCache::CommitPendingDownloads(bool wait_done) {
+    if (pending_download_ranges.Empty()) {
+        return false;
+    }
+    using BufferCopies = boost::container::small_vector<vk::BufferCopy, 8>;
+    tsl::robin_map<BufferId, BufferCopies> copies;
+    u64 total_size_bytes = 0;
+    pending_download_ranges.ForEach([&](VAddr interval_lower, VAddr interval_upper) {
+        const std::size_t size = interval_upper - interval_lower;
+        const VAddr device_addr = interval_lower;
+        ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
+            const VAddr buffer_start = buffer.CpuAddr();
+            const VAddr buffer_end = buffer_start + buffer.SizeBytes();
+            const VAddr new_start = std::max(buffer_start, device_addr);
+            const VAddr new_end = std::min(buffer_end, device_addr + size);
+            const u64 new_size = new_end - new_start;
+            copies[buffer_id].emplace_back(new_start - buffer_start, total_size_bytes, new_size);
+            // Align up to avoid cache conflicts
+            constexpr u64 align = std::hardware_destructive_interference_size;
+            constexpr u64 mask = ~(align - 1ULL);
+            total_size_bytes += (new_size + align - 1) & mask;
+        });
+    });
+    pending_download_ranges.Clear();
+    if (total_size_bytes == 0) {
+        return false;
+    }
+    const auto [download, offset] = download_buffer.Map(total_size_bytes);
+    download_buffer.Commit();
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    static constexpr vk::MemoryBarrier2 read_barrier = {
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .memoryBarrierCount = 1u,
+        .pMemoryBarriers = &read_barrier,
+    });
+    for (auto it = copies.begin(); it != copies.end(); ++it) {
+        auto& buffer_copies = it.value();
+        if (buffer_copies.empty()) {
+            continue;
+        }
+        for (auto& copy : buffer_copies) {
+            copy.dstOffset += offset;
+        }
+        const BufferId buffer_id = it.key();
+        Buffer& buffer = slot_buffers[buffer_id];
+        cmdbuf.copyBuffer(buffer.Handle(), download_buffer.Handle(), buffer_copies);
+    }
+    scheduler.DeferOperation([this, download, offset, copies]() {
+        auto* memory = Core::Memory::Instance();
+        for (auto it = copies.begin(); it != copies.end(); ++it) {
+            auto& buffer_copies = it.value();
+            const BufferId buffer_id = it.key();
+            Buffer& buffer = slot_buffers[buffer_id];
+            for (auto& copy : buffer_copies) {
+                const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
+                const u64 dst_offset = copy.dstOffset - offset;
+                if (!memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr),
+                                             download + dst_offset, copy.size)) {
+                    std::memcpy(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
+                                copy.size);
+                }
+            }
+        }
+    });
+    if (wait_done) {
+        scheduler.Finish();
+    } else {
+        scheduler.Finish();
+    }
+    return true;
 }
 
 void BufferCache::BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline) {

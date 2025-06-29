@@ -217,6 +217,7 @@ private:
     Buffer fault_buffer;
     std::shared_mutex slot_buffers_mutex;
     Common::SlotVector<Buffer> slot_buffers;
+    RangeSet pending_download_ranges;
     RangeSet gpu_modified_ranges;
     SplitRangeMap<BufferId> buffer_ranges;
     MemoryTracker memory_tracker;
