@@ -91,7 +91,7 @@ u64 MemoryManager::ClampRangeSize(VAddr virtual_addr, u64 size) {
 
     if (size != clamped_size) {
         LOG_DEBUG(Kernel_Vmm, "Clamped requested buffer range addr={:#x}, size={:#x} to {:#x}",
-                    virtual_addr, size, clamped_size);
+                  virtual_addr, size, clamped_size);
     }
     return clamped_size;
 }

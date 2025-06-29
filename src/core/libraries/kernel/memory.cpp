@@ -65,9 +65,9 @@ s32 PS4_SYSV_ABI sceKernelAllocateDirectMemory(s64 searchStart, s64 searchEnd, u
     *physAddrOut = static_cast<s64>(phys_addr);
 
     LOG_DEBUG(Kernel_Vmm,
-             "searchStart = {:#x}, searchEnd = {:#x}, len = {:#x}, "
-             "alignment = {:#x}, memoryType = {:#x}, physAddrOut = {:#x}",
-             searchStart, searchEnd, len, alignment, memoryType, phys_addr);
+              "searchStart = {:#x}, searchEnd = {:#x}, len = {:#x}, "
+              "alignment = {:#x}, memoryType = {:#x}, physAddrOut = {:#x}",
+              searchStart, searchEnd, len, alignment, memoryType, phys_addr);
 
     return ORBIS_OK;
 }
@@ -163,9 +163,9 @@ s32 PS4_SYSV_ABI sceKernelMapNamedDirectMemory(void** addr, u64 len, s32 prot, s
                                                s64 directMemoryStart, u64 alignment,
                                                const char* name) {
     LOG_DEBUG(Kernel_Vmm,
-             "in_addr = {}, len = {:#x}, prot = {:#x}, flags = {:#x}, "
-             "directMemoryStart = {:#x}, alignment = {:#x}, name = '{}'",
-             fmt::ptr(*addr), len, prot, flags, directMemoryStart, alignment, name);
+              "in_addr = {}, len = {:#x}, prot = {:#x}, flags = {:#x}, "
+              "directMemoryStart = {:#x}, alignment = {:#x}, name = '{}'",
+              fmt::ptr(*addr), len, prot, flags, directMemoryStart, alignment, name);
 
     if (len == 0 || !Common::Is16KBAligned(len)) {
         LOG_ERROR(Kernel_Vmm, "Map size is either zero or not 16KB aligned!");
@@ -341,10 +341,10 @@ s32 PS4_SYSV_ABI sceKernelBatchMap2(OrbisKernelBatchMapEntry* entries, s32 numEn
                                                    entries[i].protection, flags,
                                                    static_cast<s64>(entries[i].offset), 0, "anon");
             LOG_DEBUG(Kernel_Vmm,
-                     "entry = {}, operation = {}, len = {:#x}, offset = {:#x}, type = {}, "
-                     "result = {}",
-                     i, entries[i].operation, entries[i].length, entries[i].offset,
-                     (u8)entries[i].type, result);
+                      "entry = {}, operation = {}, len = {:#x}, offset = {:#x}, type = {}, "
+                      "result = {}",
+                      i, entries[i].operation, entries[i].length, entries[i].offset,
+                      (u8)entries[i].type, result);
             break;
         }
         case MemoryOpTypes::ORBIS_KERNEL_MAP_OP_UNMAP: {

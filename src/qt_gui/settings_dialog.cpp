@@ -466,8 +466,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->ReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacksEnabled", false));
     ui->ParticlesCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "particlesEnabled", true));
-    ui->SkipsCheckBox->setChecked(
-        toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled ", false));
+    ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled ", false));
     ui->MemoryComboBox->setCurrentText(
         QString::fromStdString(toml::find_or<std::string>(data, "GPU", "memoryAlloc", "medium")));
     ui->disableTrophycheckBox->setChecked(
