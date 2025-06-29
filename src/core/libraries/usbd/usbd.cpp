@@ -52,7 +52,7 @@ s64 PS4_SYSV_ABI sceUsbdGetDeviceList(SceUsbdDevice*** list) {
     if (count != device_count) {
         LOG_INFO(Lib_Usbd, "Found {} USB devices", count);
     }
-    return libusb_get_device_list(count);
+    return ORBIS_FAIL;
 }
 
 void PS4_SYSV_ABI sceUsbdFreeDeviceList(SceUsbdDevice** list, s32 unref_devices) {
