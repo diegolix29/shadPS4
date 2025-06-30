@@ -325,6 +325,9 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
     if (!pipeline) {
         return;
     }
+    if (auto* info = pipeline->GetStages()[u32(Shader::LogicalStage::Fragment)]; info && info->pgm_hash == 0xee1ee51b) {
+        return;
+    }
 
     auto state = PrepareRenderState(pipeline->GetMrtMask());
     if (!BindResources(pipeline)) {
