@@ -217,25 +217,30 @@ bool BufferCache::CommitPendingDownloads(bool wait_done) {
     if (pending_download_ranges.Empty()) {
         return false;
     }
-    using BufferCopies = boost::container::small_vector<vk::BufferCopy, 8>;
-    tsl::robin_map<BufferId, BufferCopies> copies;
-    u64 total_size_bytes = 0;
-    pending_download_ranges.ForEach([&](VAddr interval_lower, VAddr interval_upper) {
-        const std::size_t size = interval_upper - interval_lower;
-        const VAddr device_addr = interval_lower;
-        ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
-            const VAddr buffer_start = buffer.CpuAddr();
-            const VAddr buffer_end = buffer_start + buffer.SizeBytes();
-            const VAddr new_start = std::max(buffer_start, device_addr);
-            const VAddr new_end = std::min(buffer_end, device_addr + size);
-            const u64 new_size = new_end - new_start;
-            copies[buffer_id].emplace_back(new_start - buffer_start, total_size_bytes, new_size);
-            // Align up to avoid cache conflicts
-            constexpr u64 align = std::hardware_destructive_interference_size;
-            constexpr u64 mask = ~(align - 1ULL);
-            total_size_bytes += (new_size + align - 1) & mask;
-        });
+using BufferCopies = boost::container::small_vector<vk::BufferCopy, 8>;
+tsl::robin_map<BufferId, BufferCopies> copies;
+u64 total_size_bytes = 0;
+pending_download_ranges.ForEach([&](VAddr interval_lower, VAddr interval_upper) {
+    const std::size_t size = interval_upper - interval_lower;
+    const VAddr device_addr = interval_lower;
+    ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
+        const VAddr buffer_start = buffer.CpuAddr();
+        const VAddr buffer_end = buffer_start + buffer.SizeBytes();
+        const VAddr new_start = std::max(buffer_start, device_addr);
+        const VAddr new_end = std::min(buffer_end, device_addr + size);
+        const u64 new_size = new_end - new_start;
+        copies[buffer_id].emplace_back(new_start - buffer_start, total_size_bytes, new_size);
+
+        // Align up to avoid cache conflicts
+#if defined(__cpp_lib_hardware_interference_size)
+        constexpr u64 align = std::hardware_destructive_interference_size;
+#else
+        constexpr u64 align = 64;
+#endif
+        constexpr u64 mask = ~(align - 1ULL);
+        total_size_bytes += (new_size + align - 1) & mask;
     });
+});
     pending_download_ranges.Clear();
     if (total_size_bytes == 0) {
         return false;
