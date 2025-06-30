@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <semaphore>
+#include <new>
 #include "common/alignment.h"
 #include "common/config.h"
 #include "common/debug.h"
