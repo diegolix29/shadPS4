@@ -13,7 +13,6 @@
 
 #ifndef _WIN64
 #include <sys/mman.h>
-#include "common/adaptive_mutex.h"
 #ifdef ENABLE_USERFAULTFD
 #include <thread>
 #include <fcntl.h>
@@ -24,7 +23,6 @@
 #endif
 #else
 #include <windows.h>
-#include "common/spin_lock.h"
 #endif
 
 #ifdef __linux__
@@ -40,45 +38,22 @@ constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
-        u8 num_write_watchers : 7;
-        // At the moment only buffer cache can request read watchers.
-        // And buffers cannot overlap, thus only 1 can exist per page.
-        u8 num_read_watchers : 1;
+        u8 num_watchers{};
 
-        Core::MemoryPermission WritePerm() const noexcept {
-            return num_write_watchers == 0 ? Core::MemoryPermission::Write
-                                           : Core::MemoryPermission::None;
+        Core::MemoryPermission Perm() const noexcept {
+            return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
+                                     : Core::MemoryPermission::Read;
         }
 
-        Core::MemoryPermission ReadPerm() const noexcept {
-            return num_read_watchers == 0 ? Core::MemoryPermission::Read
-                                          : Core::MemoryPermission::None;
-        }
-
-        Core::MemoryPermission Perms() const noexcept {
-            return ReadPerm() | WritePerm();
-        }
-
-        template <s32 delta, bool is_read>
+        template <s32 delta>
         u8 AddDelta() {
-            if constexpr (is_read) {
-                if constexpr (delta == 1) {
-                    return ++num_read_watchers;
-                } else if (delta == -1) {
-                    ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
-                    return --num_read_watchers;
-                } else {
-                    return num_read_watchers;
-                }
+            if constexpr (delta == 1) {
+                return ++num_watchers;
+            } else if constexpr (delta == -1) {
+                ASSERT_MSG(num_watchers > 0, "Not enough watchers");
+                return --num_watchers;
             } else {
-                if constexpr (delta == 1) {
-                    return ++num_write_watchers;
-                } else if (delta == -1) {
-                    ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
-                    return --num_write_watchers;
-                } else {
-                    return num_write_watchers;
-                }
+                return num_watchers;
             }
         }
     };
@@ -201,7 +176,6 @@ struct PageManager::Impl {
         RENDERER_TRACE;
         auto* memory = Core::Memory::Instance();
         auto& impl = memory->GetAddressSpace();
-        // ASSERT(perms != Core::MemoryPermission::Write);
         impl.Protect(address, size, perms);
     }
 
@@ -209,14 +183,12 @@ struct PageManager::Impl {
         const auto addr = reinterpret_cast<VAddr>(fault_address);
         if (Common::IsWriteError(context)) {
             return rasterizer->InvalidateMemory(addr, 1);
-        } else {
-            return rasterizer->ReadMemory(addr, 1);
         }
         return false;
     }
-#endif
 
-    template <bool track, bool is_read>
+#endif
+    template <bool track>
     void UpdatePageWatchers(VAddr addr, u64 size) {
         RENDERER_TRACE;
 
@@ -228,7 +200,7 @@ struct PageManager::Impl {
         const auto lock_end = locks.begin() + Common::DivCeil(page_end, PAGES_PER_LOCK);
         Common::RangeLockGuard lk(lock_start, lock_end);
 
-        auto perms = cached_pages[page].Perms();
+        auto perms = cached_pages[page].Perm();
         u64 range_begin = 0;
         u64 range_bytes = 0;
         u64 potential_range_bytes = 0;
@@ -254,9 +226,9 @@ struct PageManager::Impl {
             PageState& state = cached_pages[page];
 
             // Apply the change to the page state
-            const u8 new_count = state.AddDelta<track ? 1 : -1, is_read>();
+            const u8 new_count = state.AddDelta<track ? 1 : -1>();
 
-            if (auto new_perms = state.Perms(); new_perms != perms) [[unlikely]] {
+            if (auto new_perms = state.Perm(); new_perms != perms) [[unlikely]] {
                 // If the protection changed add pending (un)protect action
                 release_pending();
                 perms = new_perms;
@@ -281,23 +253,25 @@ struct PageManager::Impl {
         release_pending();
     }
 
-    template <bool track, bool is_read>
+    template <bool track>
     void UpdatePageWatchersForRegion(VAddr base_addr, RegionBits& mask) {
         RENDERER_TRACE;
         auto start_range = mask.FirstRange();
         auto end_range = mask.LastRange();
 
         if (start_range.second == end_range.second) {
-            // if all pages are contiguous, use the regular UpdatePageWatchers
+            // Optimization: if all pages are contiguous, use the regular UpdatePageWatchers
             const VAddr start_addr = base_addr + (start_range.first << PAGE_BITS);
             const u64 size = (start_range.second - start_range.first) << PAGE_BITS;
-            return UpdatePageWatchers<track, is_read>(start_addr, size);
+
+            UpdatePageWatchers<track>(start_addr, size);
+            return;
         }
 
         size_t base_page = (base_addr >> PAGE_BITS);
         ASSERT(base_page % PAGES_PER_LOCK == 0);
         std::scoped_lock lk(locks[base_page / PAGES_PER_LOCK]);
-        auto perms = cached_pages[base_page + start_range.first].Perms();
+        auto perms = cached_pages[base_page + start_range.first].Perm();
         u64 range_begin = 0;
         u64 range_bytes = 0;
         u64 potential_range_bytes = 0;
@@ -318,10 +292,9 @@ struct PageManager::Impl {
             const bool update = mask.Get(page);
 
             // Apply the change to the page state
-            const u8 new_count =
-                update ? state.AddDelta<track ? 1 : -1, is_read>() : state.AddDelta<0, is_read>();
+            const u8 new_count = update ? state.AddDelta<track ? 1 : -1>() : state.AddDelta<0>();
 
-            if (auto new_perms = state.Perms(); new_perms != perms) [[unlikely]] {
+            if (auto new_perms = state.Perm(); new_perms != perms) [[unlikely]] {
                 // If the protection changed add pending (un)protect action
                 release_pending();
                 perms = new_perms;
@@ -375,23 +348,19 @@ void PageManager::OnGpuUnmap(VAddr address, size_t size) {
 
 template <bool track>
 void PageManager::UpdatePageWatchers(VAddr addr, u64 size) const {
-    impl->UpdatePageWatchers<track, false>(addr, size);
+    impl->UpdatePageWatchers<track>(addr, size);
 }
 
-template <bool track, bool is_read>
+template <bool track>
 void PageManager::UpdatePageWatchersForRegion(VAddr base_addr, RegionBits& mask) const {
-    impl->UpdatePageWatchersForRegion<track, is_read>(base_addr, mask);
+    impl->UpdatePageWatchersForRegion<track>(base_addr, mask);
 }
 
 template void PageManager::UpdatePageWatchers<true>(VAddr addr, u64 size) const;
 template void PageManager::UpdatePageWatchers<false>(VAddr addr, u64 size) const;
-template void PageManager::UpdatePageWatchersForRegion<true, true>(VAddr base_addr,
-                                                                   RegionBits& mask) const;
-template void PageManager::UpdatePageWatchersForRegion<true, false>(VAddr base_addr,
-                                                                    RegionBits& mask) const;
-template void PageManager::UpdatePageWatchersForRegion<false, true>(VAddr base_addr,
-                                                                    RegionBits& mask) const;
-template void PageManager::UpdatePageWatchersForRegion<false, false>(VAddr base_addr,
-                                                                     RegionBits& mask) const;
+template void PageManager::UpdatePageWatchersForRegion<true>(VAddr base_addr,
+                                                             RegionBits& mask) const;
+template void PageManager::UpdatePageWatchersForRegion<false>(VAddr base_addr,
+                                                              RegionBits& mask) const;
 
 } // namespace VideoCore

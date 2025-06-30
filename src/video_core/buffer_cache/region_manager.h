@@ -4,6 +4,7 @@
 #pragma once
 
 #include <mutex>
+#include <utility>
 #include "common/div_ceil.h"
 
 #ifdef __linux__
@@ -19,7 +20,7 @@
 namespace VideoCore {
 
 /**
- * Allows tracking CPU and GPU modification of pages in a contigious 16MB virtual address region.
+ * Allows tracking CPU and GPU modification of pages in a contigious 4MB virtual address region.
  * Information is stored in bitsets for spacial locality and fast update of single pages.
  */
 class RegionManager {
@@ -29,7 +30,6 @@ public:
         cpu.Fill();
         gpu.Clear();
         writeable.Fill();
-        readable.Fill();
     }
     explicit RegionManager() = default;
 
@@ -99,9 +99,7 @@ public:
             bits.UnsetRange(start_page, end_page);
         }
         if constexpr (type == Type::CPU) {
-            UpdateProtection<!enable, false>();
-        } else {
-            UpdateProtection<enable, true>();
+            UpdateProtection<!enable>();
         }
     }
 
@@ -129,6 +127,11 @@ public:
         RegionBits& bits = GetRegionBits<type>();
         RegionBits mask(bits, start_page, end_page);
 
+        // TODO: this will not be needed once we handle readbacks
+        if constexpr (type == Type::GPU) {
+            mask &= ~writeable;
+        }
+
         for (const auto& [start, end] : mask) {
             func(cpu_addr + start * TRACKER_BYTES_PER_PAGE, (end - start) * TRACKER_BYTES_PER_PAGE);
         }
@@ -136,9 +139,7 @@ public:
         if constexpr (clear) {
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
-                UpdateProtection<true, false>();
-            } else {
-                UpdateProtection<false, true>();
+                UpdateProtection<true>();
             }
         }
     }
@@ -150,7 +151,7 @@ public:
      * @param size   Size in bytes of the region to query for modifications
      */
     template <Type type>
-    [[nodiscard]] bool IsRegionModified(u64 offset, u64 size) noexcept {
+    [[nodiscard]] bool IsRegionModified(u64 offset, u64 size) const noexcept {
         RENDERER_TRACE;
         const size_t start_page = SanitizeAddress(offset) / TRACKER_BYTES_PER_PAGE;
         const size_t end_page =
@@ -158,11 +159,17 @@ public:
         if (start_page >= NUM_PAGES_PER_REGION || end_page <= start_page) {
             return false;
         }
-        std::scoped_lock lk{lock};
+        // std::scoped_lock lk{lock}; // Is this needed?
         static_assert(type != Type::Writeable);
 
         const RegionBits& bits = GetRegionBits<type>();
         RegionBits test(bits, start_page, end_page);
+
+        // TODO: this will not be needed once we handle readbacks
+        if constexpr (type == Type::GPU) {
+            test &= ~writeable;
+        }
+
         return test.Any();
     }
 
@@ -174,21 +181,19 @@ private:
      * @param current_bits Current state of the word
      * @param new_bits     New state of the word
      *
-     * @tparam track True when the tracker should start tracking the new pages
+     * @tparam add_to_tracker True when the tracker should start tracking the new pages
      */
-    template <bool track, bool is_read>
+    template <bool add_to_tracker>
     void UpdateProtection() {
         RENDERER_TRACE;
-        RegionBits mask = is_read ? (~gpu ^ readable) : (cpu ^ writeable);
+        RegionBits mask = cpu ^ writeable;
+
         if (mask.None()) {
-            return;
+            return; // No changes to the CPU tracking state
         }
-        if constexpr (is_read) {
-            readable = ~gpu;
-        } else {
-            writeable = cpu;
-        }
-        tracker->UpdatePageWatchersForRegion<track, is_read>(cpu_addr, mask);
+
+        writeable = cpu;
+        tracker->UpdatePageWatchersForRegion<add_to_tracker>(cpu_addr, mask);
     }
 
 #ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
@@ -201,7 +206,6 @@ private:
     RegionBits cpu;
     RegionBits gpu;
     RegionBits writeable;
-    RegionBits readable;
 };
 
 } // namespace VideoCore
