@@ -58,6 +58,7 @@ struct BufferResource {
     BufferType buffer_type;
     u8 instance_attrib{};
     bool is_written{};
+    bool is_read{};
     bool is_formatted{};
 
     bool IsSpecial() const noexcept {
@@ -225,6 +226,8 @@ struct Info {
     bool uses_fp64{};
     bool uses_pack_10_11_11{};
     bool uses_unpack_10_11_11{};
+    bool uses_buffer_int64_atomics{};
+    bool uses_shared_int64_atomics{};
     bool stores_tess_level_outer{};
     bool stores_tess_level_inner{};
     bool translation_failed{};
