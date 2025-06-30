@@ -79,8 +79,13 @@ static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
 static std::string trophyKey;
 static bool isPSNSignedIn = false;
-static bool readbacksEnabled = true;
+static bool readbacksEnabled = false;
 static bool particlesEnabled = true;
+static bool shaderSkipsEnabled = false;
+static std::string memoryAlloc = "medium";
+static std::string audioBackend = "cubeb";
+static int audioVolume = 100;
+
 // Gui
 static bool load_game_size = true;
 static std::vector<GameInstallDir> settings_install_dirs = {};
@@ -370,6 +375,14 @@ bool getCheckCompatibilityOnStartup() {
     return checkCompatibilityOnStartup;
 }
 
+std::string getAudioBackend() {
+    return audioBackend;
+}
+
+int getAudioVolume() {
+    return audioVolume;
+}
+
 void setGpuId(s32 selectedGpuId) {
     gpuId = selectedGpuId;
 }
@@ -540,6 +553,10 @@ void setMainWindowGeometry(u32 x, u32 y, u32 w, u32 h) {
     main_window_geometry_y = y;
     main_window_geometry_w = w;
     main_window_geometry_h = h;
+}
+
+void setAudioVolume(int volume) {
+    audioVolume = volume;
 }
 
 bool addGameInstallDir(const std::filesystem::path& dir, bool enabled) {
@@ -769,6 +786,22 @@ void setParticlesEnabled(bool enable) {
     particlesEnabled = enable;
 }
 
+bool getShaderSkipsEnabled() {
+    return shaderSkipsEnabled;
+}
+
+void setShaderSkipsEnabled(bool enable) {
+    shaderSkipsEnabled = enable;
+}
+
+std::string getMemoryAlloc() {
+    return memoryAlloc;
+}
+
+void setMemoryAlloc(std::string alloc) {
+    memoryAlloc = alloc;
+}
+
 void load(const std::filesystem::path& path) {
     // If the configuration file does not exist, create it and return
     std::error_code error;
@@ -830,6 +863,8 @@ void load(const std::filesystem::path& path) {
         checkCompatibilityOnStartup =
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", "Release");
+        audioBackend = toml::find_or<std::string>(general, "backend", "cubeb");
+        audioVolume = toml::find_or<int>(general, "volume", 100);
     }
 
     if (data.contains("Input")) {
@@ -857,8 +892,10 @@ void load(const std::filesystem::path& path) {
         isFullscreen = toml::find_or<bool>(gpu, "Fullscreen", false);
         fullscreenMode = toml::find_or<std::string>(gpu, "FullscreenMode", "Windowed");
         isHDRAllowed = toml::find_or<bool>(gpu, "allowHDR", false);
-        readbacksEnabled = toml::find_or<bool>(gpu, "readbacksEnabled", true);
+        readbacksEnabled = toml::find_or<bool>(gpu, "readbacksEnabled", false);
         particlesEnabled = toml::find_or<bool>(gpu, "particlesEnabled", true);
+        shaderSkipsEnabled = toml::find_or<bool>(gpu, "ShaderSkipsEnabled", true);
+        memoryAlloc = toml::find_or<bool>(gpu, "memoryAlloc", "medium");
     }
 
     if (data.contains("Vulkan")) {
@@ -1043,9 +1080,11 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["Fullscreen"] = isFullscreen;
     data["GPU"]["FullscreenMode"] = fullscreenMode;
     data["GPU"]["allowHDR"] = isHDRAllowed;
+    data["General"]["enableAutoBackup"] = enableAutoBackup;
     data["GPU"]["readbacksEnabled"] = readbacksEnabled;
     data["GPU"]["particlesEnabled"] = particlesEnabled;
-    data["General"]["enableAutoBackup"] = enableAutoBackup;
+    data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled;
+    data["GPU"]["memoryAlloc"] = memoryAlloc;
     data["Vulkan"]["gpuId"] = gpuId;
     data["Vulkan"]["validation"] = vkValidation;
     data["Vulkan"]["validation_sync"] = vkValidationSync;
@@ -1054,6 +1093,8 @@ void save(const std::filesystem::path& path) {
     data["Vulkan"]["hostMarkers"] = vkHostMarkers;
     data["Vulkan"]["guestMarkers"] = vkGuestMarkers;
     data["Vulkan"]["rdocEnable"] = rdocEnable;
+    data["General"]["backend"] = audioBackend;
+    data["General"]["volume"] = audioVolume;
     data["Debug"]["DebugDump"] = isDebugDump;
     data["Debug"]["CollectShader"] = isShaderDebug;
     data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled;
@@ -1164,13 +1205,16 @@ void setDefaultValues() {
     playBGM = false;
     BGMvolume = 50;
     enableDiscordRPC = true;
-    readbacksEnabled = true;
-    particlesEnabled = true;
     screenWidth = 1280;
     screenHeight = 720;
     logFilter = "";
     logType = "sync";
     userName = "shadPS4";
+    readbacksEnabled = false;
+    particlesEnabled = true;
+    shaderSkipsEnabled = false;
+    memoryAlloc = "medium";
+
     if (Common::g_is_release) {
         updateChannel = "Release";
     } else {
@@ -1205,6 +1249,8 @@ void setDefaultValues() {
     checkCompatibilityOnStartup = false;
     backgroundImageOpacity = 50;
     showBackgroundImage = true;
+    audioBackend = "cubeb";
+    audioVolume = 100;
 }
 
 constexpr std::string_view GetDefaultKeyboardConfig() {

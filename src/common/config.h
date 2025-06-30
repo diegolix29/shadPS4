@@ -42,6 +42,12 @@ bool getCheckCompatibilityOnStartup();
 int getBackgroundImageOpacity();
 bool getShowBackgroundImage();
 bool getPSNSignedIn();
+bool getReadbacksEnabled();
+bool getParticlesEnabled();
+bool getShaderSkipsEnabled();
+std::string getAudioBackend();
+int getAudioVolume();
+std::string getMemoryAlloc();
 
 std::string getLogFilter();
 std::string getLogType();
@@ -69,9 +75,6 @@ u32 getScreenWidth();
 u32 getScreenHeight();
 s32 getGpuId();
 bool allowHDR();
-bool getReadbacksEnabled();
-bool getParticlesEnabled();
-void setAllowHDR(bool enable);
 bool getEnableAutoBackup();
 
 bool debugDump();
@@ -150,6 +153,14 @@ void setCheckCompatibilityOnStartup(bool use);
 void setBackgroundImageOpacity(int opacity);
 void setShowBackgroundImage(bool show);
 void setPSNSignedIn(bool sign);
+void setReadbacksEnabled(bool enable);
+void setParticlesEnabled(bool enable);
+void setShaderSkipsEnabled(bool enable);
+
+void setAudioBackend(std::string backend);
+void setAudioVolume(int volume);
+void setSeparateUpdateEnabled(bool use);
+void setMemoryAlloc(std::string alloc);
 
 void setCursorState(s16 cursorState);
 void setCursorHideTimeout(int newcursorHideTimeout);

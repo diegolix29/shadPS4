@@ -207,6 +207,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             auto checkUpdate = new CheckUpdate(true);
             checkUpdate->exec();
         });
+
 #else
         ui->updaterGroupBox->setVisible(false);
 #endif
@@ -463,6 +464,11 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->enableAutoBackupCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "enableAutoBackup", false));
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
+    ui->ReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacksEnabled", false));
+    ui->ParticlesCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "particlesEnabled", true));
+    ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled ", false));
+    ui->MemoryComboBox->setCurrentText(
+        QString::fromStdString(toml::find_or<std::string>(data, "GPU", "memoryAlloc", "medium")));
     ui->disableTrophycheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
     ui->popUpDurationSpinBox->setValue(Config::getTrophyNotificationDuration());
@@ -783,6 +789,11 @@ void SettingsDialog::UpdateSettings() {
     Config::setVblankDiv(ui->vblankSpinBox->value());
     Config::setDumpShaders(ui->dumpShadersCheckBox->isChecked());
     Config::setNullGpu(ui->nullGpuCheckBox->isChecked());
+    Config::setReadbacksEnabled(ui->ReadbacksCheckBox->isChecked());
+    Config::setParticlesEnabled(ui->ParticlesCheckBox->isChecked());
+    Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
+
+    Config::setMemoryAlloc(ui->MemoryComboBox->currentText().toStdString());
     Config::setLoadGameSizeEnabled(ui->gameSizeCheckBox->isChecked());
     Config::setShowSplash(ui->showSplashCheckBox->isChecked());
     Config::setDebugDump(ui->debugDump->isChecked());
@@ -795,6 +806,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setVkCrashDiagnosticEnabled(ui->crashDiagnosticsCheckBox->isChecked());
     Config::setCollectShaderForDebug(ui->collectShaderCheckBox->isChecked());
     Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
+
     Config::setAutoUpdate(ui->updateCheckBox->isChecked());
     Config::setAlwaysShowChangelog(ui->changelogCheckBox->isChecked());
     Config::setUpdateChannel(channelMap.value(ui->updateComboBox->currentText()).toStdString());
