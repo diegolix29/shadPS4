@@ -214,6 +214,11 @@ public:
         return !portability_subset || portability_features.tessellationPointMode;
     }
 
+    /// Returns true when VK_EXT_conditional_rendering is supported by the device
+    bool IsConditionalRenderingSupported() const {
+        return conditional_rendering;
+    }
+
     /// Returns the vendor ID of the physical device
     u32 GetVendorID() const {
         return properties.vendorID;
@@ -400,6 +405,7 @@ private:
     bool amd_gcn_shader{};
     bool amd_shader_trinary_minmax{};
     bool shader_atomic_float2{};
+    bool conditional_rendering{};
     bool workgroup_memory_explicit_layout{};
     bool portability_subset{};
 };
