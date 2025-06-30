@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
-#include <semaphore>
 #include <new>
+#include <semaphore>
 #include "common/alignment.h"
 #include "common/config.h"
 #include "common/debug.h"
