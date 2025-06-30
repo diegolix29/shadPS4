@@ -8,7 +8,6 @@
 #include <type_traits>
 #include <vector>
 #include "common/debug.h"
-#include "common/logging/log.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/word_manager.h"
 
@@ -58,12 +57,13 @@ public:
                             });
     }
 
+    /// Unmark region as modified from the host GPU
     void UnmarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size) noexcept {
-        IteratePages<false>(dirty_cpu_addr, query_size,
-                            [](RegionManager* manager, u64 offset, size_t size) {
-                                manager->template ChangeRegionState<Type::GPU, false>(
-                                    manager->GetCpuAddr() + offset, size);
-                            });
+        IteratePages<true>(dirty_cpu_addr, query_size,
+                           [](RegionManager* manager, u64 offset, size_t size) {
+                               manager->template ChangeRegionState<Type::GPU, false>(
+                                   manager->GetCpuAddr() + offset, size);
+                           });
     }
 
     /// Call 'func' for each CPU modified range and unmark those pages as CPU modified

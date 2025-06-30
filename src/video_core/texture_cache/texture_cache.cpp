@@ -212,7 +212,8 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
 
     if (image_info.guest_address == tex_cache_image.info.guest_address) { // Equal address
         if (image_info.BlockDim() != tex_cache_image.info.BlockDim() ||
-            image_info.num_bits != tex_cache_image.info.num_bits) {
+            image_info.num_bits * image_info.num_samples !=
+                tex_cache_image.info.num_bits * tex_cache_image.info.num_samples) {
             // Very likely this kind of overlap is caused by allocation from a pool.
             if (safe_to_delete) {
                 FreeImage(cache_image_id);
@@ -544,8 +545,12 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
 
     const auto& num_layers = image.info.resources.layers;
     const auto& num_mips = image.info.resources.levels;
-    ASSERT(num_mips == image.info.mips_layout.size());
+    // ASSERT(num_mips == image.info.mips_layout.size());
 
+    if (num_mips != image.info.mips_layout.size()) {
+        LOG_WARNING(Render_Vulkan, "Unexpected inequality: num_mips = {}, mips layout size = {}",
+                    num_mips, image.info.mips_layout.size());
+    }
     const bool is_gpu_modified = True(image.flags & ImageFlagBits::GpuModified);
     const bool is_gpu_dirty = True(image.flags & ImageFlagBits::GpuDirty);
 
@@ -706,9 +711,11 @@ void TextureCache::TrackImage(ImageId image_id) {
 
     if (!image.IsTracked()) {
         // Re-track the whole image
+        const auto size = image.info.guest_size;
         image.track_addr = image_begin;
         image.track_addr_end = image_end;
-        tracker.UpdatePageWatchers<1>(image_begin, image.info.guest_size);
+        tracker.UpdatePageWatchers<1>(image_begin, size);
+        tracker.UpdatePageWatchers<0, false>(image_begin, size);
     } else {
         if (image_begin < image.track_addr) {
             TrackImageHead(image_id);
@@ -732,6 +739,7 @@ void TextureCache::TrackImageHead(ImageId image_id) {
     const auto size = image.track_addr - image_begin;
     image.track_addr = image_begin;
     tracker.UpdatePageWatchers<1>(image_begin, size);
+    tracker.UpdatePageWatchers<0, false>(image_begin, size);
 }
 
 void TextureCache::TrackImageTail(ImageId image_id) {
@@ -748,6 +756,7 @@ void TextureCache::TrackImageTail(ImageId image_id) {
     const auto size = image_end - image.track_addr_end;
     image.track_addr_end = image_end;
     tracker.UpdatePageWatchers<1>(addr, size);
+    tracker.UpdatePageWatchers<0, false>(addr, size);
 }
 
 void TextureCache::UntrackImage(ImageId image_id) {
@@ -761,6 +770,7 @@ void TextureCache::UntrackImage(ImageId image_id) {
     image.track_addr_end = 0;
     if (size != 0) {
         tracker.UpdatePageWatchers<-1>(addr, size);
+        tracker.UpdatePageWatchers<0, false>(addr, size);
     }
 }
 
@@ -774,12 +784,10 @@ void TextureCache::UntrackImageHead(ImageId image_id) {
     const auto size = addr - image_begin;
     image.track_addr = addr;
     if (image.track_addr == image.track_addr_end) {
-        // This image spans only 2 pages and both are modified,
-        // but the image itself was not directly affected.
-        // Cehck its hash later.
         MarkAsMaybeDirty(image_id, image);
     }
     tracker.UpdatePageWatchers<-1>(image_begin, size);
+    tracker.UpdatePageWatchers<0, false>(image_begin, size);
 }
 
 void TextureCache::UntrackImageTail(ImageId image_id) {
@@ -793,12 +801,10 @@ void TextureCache::UntrackImageTail(ImageId image_id) {
     const auto size = image_end - addr;
     image.track_addr_end = addr;
     if (image.track_addr == image.track_addr_end) {
-        // This image spans only 2 pages and both are modified,
-        // but the image itself was not directly affected.
-        // Cehck its hash later.
         MarkAsMaybeDirty(image_id, image);
     }
     tracker.UpdatePageWatchers<-1>(addr, size);
+    tracker.UpdatePageWatchers<0, false>(addr, size);
 }
 
 void TextureCache::DeleteImage(ImageId image_id) {

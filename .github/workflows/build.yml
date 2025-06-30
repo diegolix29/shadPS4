@@ -3,7 +3,7 @@
 
 name: Build and Release
 
-on: [push, pull_request]
+on: [push, pull_request] 
 
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }}

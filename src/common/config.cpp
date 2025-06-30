@@ -79,7 +79,8 @@ static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
 static std::string trophyKey;
 static bool isPSNSignedIn = false;
-
+static bool readbacksEnabled = true;
+static bool particlesEnabled = true;
 // Gui
 static bool load_game_size = true;
 static std::vector<GameInstallDir> settings_install_dirs = {};
@@ -752,6 +753,22 @@ void setPSNSignedIn(bool sign) {
     isPSNSignedIn = sign;
 }
 
+bool getReadbacksEnabled() {
+    return readbacksEnabled;
+}
+
+void setReadbacksEnabled(bool enable) {
+    readbacksEnabled = enable;
+}
+
+bool getParticlesEnabled() {
+    return particlesEnabled;
+}
+
+void setParticlesEnabled(bool enable) {
+    particlesEnabled = enable;
+}
+
 void load(const std::filesystem::path& path) {
     // If the configuration file does not exist, create it and return
     std::error_code error;
@@ -840,6 +857,8 @@ void load(const std::filesystem::path& path) {
         isFullscreen = toml::find_or<bool>(gpu, "Fullscreen", false);
         fullscreenMode = toml::find_or<std::string>(gpu, "FullscreenMode", "Windowed");
         isHDRAllowed = toml::find_or<bool>(gpu, "allowHDR", false);
+        readbacksEnabled = toml::find_or<bool>(gpu, "readbacksEnabled", true);
+        particlesEnabled = toml::find_or<bool>(gpu, "particlesEnabled", true);
     }
 
     if (data.contains("Vulkan")) {
@@ -1024,6 +1043,8 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["Fullscreen"] = isFullscreen;
     data["GPU"]["FullscreenMode"] = fullscreenMode;
     data["GPU"]["allowHDR"] = isHDRAllowed;
+    data["GPU"]["readbacksEnabled"] = readbacksEnabled;
+    data["GPU"]["particlesEnabled"] = particlesEnabled;
     data["General"]["enableAutoBackup"] = enableAutoBackup;
     data["Vulkan"]["gpuId"] = gpuId;
     data["Vulkan"]["validation"] = vkValidation;
@@ -1143,6 +1164,8 @@ void setDefaultValues() {
     playBGM = false;
     BGMvolume = 50;
     enableDiscordRPC = true;
+    readbacksEnabled = true;
+    particlesEnabled = true;
     screenWidth = 1280;
     screenHeight = 720;
     logFilter = "";

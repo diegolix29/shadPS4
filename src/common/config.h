@@ -69,6 +69,9 @@ u32 getScreenWidth();
 u32 getScreenHeight();
 s32 getGpuId();
 bool allowHDR();
+bool getReadbacksEnabled();
+bool getParticlesEnabled();
+void setAllowHDR(bool enable);
 bool getEnableAutoBackup();
 
 bool debugDump();

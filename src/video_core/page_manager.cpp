@@ -4,6 +4,7 @@
 #include <boost/container/small_vector.hpp>
 #include "common/assert.h"
 #include "common/debug.h"
+#include "common/div_ceil.h"
 #include "common/signal_context.h"
 #include "common/spin_lock.h"
 #include "core/memory.h"
@@ -24,6 +25,7 @@
 #endif
 #else
 #include <windows.h>
+#include "common/spin_lock.h"
 #endif
 
 #ifdef __linux__
@@ -34,28 +36,10 @@
 
 namespace VideoCore {
 
-constexpr size_t PAGE_SIZE = 4_KB;
-constexpr size_t PAGE_BITS = 12;
-
 struct PageManager::Impl {
-    struct PageState {
-        u8 num_watchers{};
-
-        Core::MemoryPermission Perm() {
-            return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
-                                     : Core::MemoryPermission::Read;
-        }
-
-        template <s32 delta>
-        u8 AddDelta() noexcept {
-            if constexpr (delta > 0) {
-                return ++num_watchers;
-            } else {
-                ASSERT_MSG(num_watchers > 0, "Watcher underflow");
-                return --num_watchers;
-            }
-        }
-    };
+    static constexpr size_t ADDRESS_BITS = 40;
+    static constexpr size_t NUM_ADDRESS_PAGES = 1ULL << (40 - PAGE_BITS);
+    inline static Vulkan::Rasterizer* rasterizer;
 
     struct UpdateProtectRange {
         VAddr addr;
@@ -63,9 +47,49 @@ struct PageManager::Impl {
         Core::MemoryPermission perms;
     };
 
-    static constexpr size_t ADDRESS_BITS = 40;
-    static constexpr size_t NUM_ADDRESS_PAGES = 1ULL << (40 - PAGE_BITS);
-    inline static Vulkan::Rasterizer* rasterizer;
+    struct PageState {
+        u8 num_write_watchers : 7;
+        // At the moment only buffer cache can request read watchers.
+        // And buffers cannot overlap, thus only 1 can exist per page.
+        u8 num_read_watchers : 1;
+
+        Core::MemoryPermission WritePerm() const noexcept {
+            return num_write_watchers == 0 ? Core::MemoryPermission::Write
+                                           : Core::MemoryPermission::None;
+        }
+
+        Core::MemoryPermission ReadPerm() const noexcept {
+            return num_read_watchers == 0 ? Core::MemoryPermission::Read
+                                          : Core::MemoryPermission::None;
+        }
+
+        Core::MemoryPermission Perms() const noexcept {
+            return ReadPerm() | WritePerm();
+        }
+
+        template <bool is_read, s32 delta>
+        u8 AddDelta() {
+            if constexpr (delta == 0) {
+                // No-op probe
+                return is_read ? num_read_watchers : num_write_watchers;
+            }
+
+            if constexpr (is_read) {
+                if constexpr (delta == 1) {
+                    return ++num_read_watchers;
+                } else {
+                    return --num_read_watchers;
+                }
+            } else {
+                if constexpr (delta == 1) {
+                    return ++num_write_watchers;
+                } else {
+                    return --num_write_watchers;
+                }
+            }
+        }
+    };
+
 #ifdef ENABLE_USERFAULTFD
     Impl(Vulkan::Rasterizer* rasterizer_) {
         rasterizer = rasterizer_;
@@ -191,41 +215,50 @@ struct PageManager::Impl {
         }
         return false;
     }
-
 #endif
+
     template <s32 delta, bool is_read>
     void UpdatePageWatchers(VAddr addr, u64 size) {
+        RENDERER_TRACE;
         boost::container::small_vector<UpdateProtectRange, 16> update_ranges;
+        {
+            std::scoped_lock lk(lock);
 
-        size_t page = addr >> PAGE_BITS;
-        const u64 page_end = Common::DivCeil(addr + size, PAGE_SIZE);
+            size_t page = addr >> PAGE_BITS;
+            auto perms = cached_pages[page].Perms();
+            u64 range_begin = 0;
+            u64 range_bytes = 0;
 
-        Core::MemoryPermission perms = Core::MemoryPermission::ReadWrite; // default
+            const auto release_pending = [&] {
+                if (range_bytes > 0) {
+                    RENDERER_TRACE;
+                    // Add pending (un)protect action
+                    update_ranges.push_back({range_begin << PAGE_BITS, range_bytes, perms});
+                    range_bytes = 0;
+                }
+            };
 
-        u64 range_begin = 0;
-        u64 range_bytes = 0;
+            // Iterate requested pages
+            const u64 page_end = Common::DivCeil(addr + size, PAGE_SIZE);
+            const u64 aligned_addr = page << PAGE_BITS;
+            const u64 aligned_end = page_end << PAGE_BITS;
+            ASSERT_MSG(rasterizer->IsMapped(aligned_addr, aligned_end - aligned_addr),
+                       "Attempted to track non-GPU memory at address {:#x}, size {:#x}.",
+                       aligned_addr, aligned_end - aligned_addr);
 
-        auto release_pending = [&]() {
-            if (range_bytes > 0) {
-                update_ranges.push_back({range_begin << PAGE_BITS, range_bytes, perms});
-                range_bytes = 0;
-            }
-        };
-
-        for (; page != page_end; ++page) {
-            PageState old_state;
-            {
-                std::scoped_lock lk(lock);
+            for (; page != page_end; ++page) {
                 PageState& state = cached_pages[page];
-                old_state = state; // copy old state
-                const auto new_count = state.AddDelta<delta>();
 
-                Core::MemoryPermission new_perms = state.Perm();
-                if (new_perms != perms) {
+                // Apply the change to the page state
+                const u8 new_count = state.AddDelta<is_read, delta>();
+
+                // If the protection changed add pending (un)protect action
+                if (auto new_perms = state.Perms(); new_perms != perms) [[unlikely]] {
                     release_pending();
                     perms = new_perms;
                 }
 
+                // If the page must be (un)protected, add it to the pending range
                 if ((new_count == 0 && delta < 0) || (new_count == 1 && delta > 0)) {
                     if (range_bytes == 0) {
                         range_begin = page;
@@ -235,10 +268,12 @@ struct PageManager::Impl {
                     release_pending();
                 }
             }
-        }
-        release_pending();
 
-        // Flush deferred protects outside lock
+            // Add pending (un)protect action
+            release_pending();
+        }
+
+        // Flush deferred protects
         for (const auto& range : update_ranges) {
             Protect(range.addr, range.size, range.perms);
         }
@@ -274,5 +309,7 @@ template void PageManager::UpdatePageWatchers<1, true>(VAddr addr, u64 size) con
 template void PageManager::UpdatePageWatchers<1, false>(VAddr addr, u64 size) const;
 template void PageManager::UpdatePageWatchers<-1, true>(VAddr addr, u64 size) const;
 template void PageManager::UpdatePageWatchers<-1, false>(VAddr addr, u64 size) const;
+template void PageManager::UpdatePageWatchers<0, true>(VAddr addr, u64 size) const;
+template void PageManager::UpdatePageWatchers<0, false>(VAddr addr, u64 size) const;
 
 } // namespace VideoCore

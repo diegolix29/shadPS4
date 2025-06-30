@@ -60,6 +60,8 @@ struct Liverpool {
     static constexpr u32 ShRegWordOffset = 0x2C00;
     static constexpr u32 NumRegs = 0xD000;
 
+    std::thread::id gpu_id;
+
     using UserData = std::array<u32, NumShaderUserData>;
 
     struct BinaryInfo {
@@ -1486,7 +1488,6 @@ public:
 
     void SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb);
     void SubmitAsc(u32 gnm_vqid, std::span<const u32> acb);
-    std::thread::id gpu_id;
     void SubmitDone() noexcept {
         std::scoped_lock lk{submit_mutex};
         mapped_queues[GfxQueueId].ccb_buffer_offset = 0;
@@ -1530,6 +1531,10 @@ public:
 
     inline ComputeProgram& GetCsRegs() {
         return mapped_queues[curr_qid].cs_state;
+    }
+
+    inline u64 GetFenceTick() const {
+        return fence_tick;
     }
 
     struct AscQueueInfo {
@@ -1583,6 +1588,7 @@ private:
     template <bool is_indirect = false>
     Task ProcessCompute(const u32* acb, u32 acb_dwords, u32 vqid);
 
+    void ProcessCommands();
     void Process(std::stop_token stoken);
 
     struct GpuQueue {
@@ -1627,6 +1633,7 @@ private:
     std::condition_variable_any submit_cv;
     std::queue<Common::UniqueFunction<void>> command_queue{};
     int curr_qid{-1};
+    u64 fence_tick{0};
 };
 
 static_assert(GFX6_3D_REG_INDEX(ps_program) == 0x2C08);

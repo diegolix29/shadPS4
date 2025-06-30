@@ -3,6 +3,7 @@
 
 #include "common/config.h"
 #include "common/debug.h"
+#include "common/scope_exit.h"
 #include "core/memory.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/liverpool.h"
@@ -16,6 +17,10 @@
 #ifdef MemoryBarrier
 #undef MemoryBarrier
 #endif
+
+namespace {
+const int OCCLUSION_QUERIES_COUNT = 16;
+}
 
 namespace Vulkan {
 
@@ -38,11 +43,25 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
     : instance{instance_}, scheduler{scheduler_}, page_manager{this},
       buffer_cache{instance, scheduler, *this, liverpool_, texture_cache, page_manager},
       texture_cache{instance, scheduler, buffer_cache, page_manager}, liverpool{liverpool_},
-      memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool} {
+      memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool},
+      occlusion_query_buffer{instance,
+                             scheduler,
+                             VideoCore::MemoryUsage::DeviceLocal,
+                             0,
+                             vk::BufferUsageFlagBits::eConditionalRenderingEXT |
+                                 vk::BufferUsageFlagBits::eTransferDst,
+                             sizeof(u32) * OCCLUSION_QUERIES_COUNT} {
     if (!Config::nullGpu()) {
         liverpool->BindRasterizer(this);
     }
     memory->SetRasterizer(this);
+    occlusion_query_pool = Check<"occlusion query pool">(instance.GetDevice().createQueryPool({
+        .queryType = vk::QueryType::eOcclusion,
+        .queryCount = OCCLUSION_QUERIES_COUNT,
+    }));
+    instance.GetDevice().resetQueryPool(occlusion_query_pool, 0, OCCLUSION_QUERIES_COUNT);
+    Vulkan::SetObjectName(instance.GetDevice(), occlusion_query_buffer.Handle(),
+                          "OcclusionQueryBuffer:{:#x}", sizeof(u32) * OCCLUSION_QUERIES_COUNT);
 }
 
 Rasterizer::~Rasterizer() = default;
@@ -58,6 +77,13 @@ void Rasterizer::CpSync() {
     cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
                            vk::PipelineStageFlagBits::eDrawIndirect,
                            vk::DependencyFlagBits::eByRegion, ib_barrier, {}, {});
+}
+
+bool Rasterizer::CommitPendingDownloads(bool wait_done) {
+    SCOPE_EXIT {
+        scheduler.PopPendingOperations();
+    };
+    return buffer_cache.CommitPendingDownloads(wait_done);
 }
 
 bool Rasterizer::FilterDraw() {
@@ -272,6 +298,8 @@ void Rasterizer::EliminateFastClear() {
 void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     RENDERER_TRACE;
 
+    scheduler.PopPendingOperations();
+
     if (!FilterDraw()) {
         return;
     }
@@ -317,6 +345,8 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
                               u32 max_count, VAddr count_address) {
     RENDERER_TRACE;
 
+    scheduler.PopPendingOperations();
+
     if (!FilterDraw()) {
         return;
     }
@@ -350,10 +380,6 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
 
     // We can safely ignore both SGPR UD indices and results of fetch shader parsing, as vertex and
     // instance offsets will be automatically applied by Vulkan from indirect args buffer.
-    const auto& regs = liverpool->regs;
-    if (regs.primitive_type == AmdGpu::PrimitiveType::QuadList) {
-        return;
-    }
 
     const auto cmdbuf = scheduler.CommandBuffer();
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline->Handle());
@@ -384,6 +410,8 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
 void Rasterizer::DispatchDirect() {
     RENDERER_TRACE;
 
+    scheduler.PopPendingOperations();
+
     const auto& cs_program = liverpool->GetCsRegs();
     const ComputePipeline* pipeline = pipeline_cache.GetComputePipeline();
     if (!pipeline) {
@@ -410,6 +438,8 @@ void Rasterizer::DispatchDirect() {
 
 void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
     RENDERER_TRACE;
+
+    scheduler.PopPendingOperations();
 
     const auto& cs_program = liverpool->GetCsRegs();
     const ComputePipeline* pipeline = pipeline_cache.GetComputePipeline();
@@ -476,9 +506,7 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
         uses_dma |= stage->dma_types != Shader::IR::Type::Void;
     }
 
-    pipeline->BindResources(set_writes, buffer_barriers, push_data);
-
-    if (uses_dma) {
+    if (uses_dma && !fault_process_pending) {
         // We only use fault buffer for DMA right now.
         {
             // TODO: GPU might have written to memory (for example with EVENT_WRITE_EOP)
@@ -493,6 +521,8 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
     }
 
     fault_process_pending |= uses_dma;
+
+    pipeline->BindResources(set_writes, buffer_barriers, push_data);
 
     return true;
 }
@@ -967,7 +997,7 @@ bool Rasterizer::InvalidateMemory(VAddr addr, u64 size) {
         // Not GPU mapped memory, can skip invalidation logic entirely.
         return false;
     }
-    buffer_cache.InvalidateMemory(addr, size);
+    buffer_cache.InvalidateMemory(addr, size, false);
     texture_cache.InvalidateMemory(addr, size);
     return true;
 }
@@ -1001,7 +1031,7 @@ void Rasterizer::MapMemory(VAddr addr, u64 size) {
 }
 
 void Rasterizer::UnmapMemory(VAddr addr, u64 size) {
-    buffer_cache.InvalidateMemory(addr, size);
+    buffer_cache.ReadMemory(addr, size);
     texture_cache.UnmapMemory(addr, size);
     page_manager.OnGpuUnmap(addr, size);
     {
@@ -1278,6 +1308,107 @@ void Rasterizer::ScopedMarkerInsertColor(const std::string_view& str, const u32 
         .color = std::array<f32, 4>(
             {(f32)((color >> 16) & 0xff) / 255.0f, (f32)((color >> 8) & 0xff) / 255.0f,
              (f32)(color & 0xff) / 255.0f, (f32)((color >> 24) & 0xff) / 255.0f})});
+}
+
+void Rasterizer::StartPredication(VAddr addr, bool draw_if_visible, bool wait_for_result) {
+    if (!instance.IsConditionalRenderingSupported()) {
+        return;
+    }
+
+    ASSERT(!active_predication);
+    ASSERT(occlusion_index_mapping.contains(addr));
+
+    auto index = occlusion_index_mapping[addr];
+    LOG_DEBUG(Render_Vulkan,
+              "addr = {:#x}, index = {}, draw_if_visible = {} "
+              "wait_for_result = {}",
+              addr, index, draw_if_visible, wait_for_result);
+
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+
+    cmdbuf.copyQueryPoolResults(occlusion_query_pool, index, 1, occlusion_query_buffer.Handle(),
+                                index * sizeof(u32), sizeof(u32),
+                                wait_for_result ? vk::QueryResultFlagBits::eWait
+                                                : vk::QueryResultFlagBits::ePartial);
+
+    const auto pre_barrier = vk::BufferMemoryBarrier2{
+        .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .buffer = occlusion_query_buffer.Handle(),
+        .offset = index * sizeof(u32),
+        .size = sizeof(u32),
+    };
+
+    const vk::MemoryBarrier2 ib_barrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eConditionalRenderingEXT,
+        .dstAccessMask = vk::AccessFlagBits2::eConditionalRenderingReadEXT,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .memoryBarrierCount = 1,
+        .pMemoryBarriers = &ib_barrier,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &pre_barrier,
+    });
+
+    ScopeMarkerBegin("gfx:{}:predication", fmt::ptr(reinterpret_cast<const void*>(addr)));
+    vk::ConditionalRenderingBeginInfoEXT conditional_rendering_info{
+        .buffer = occlusion_query_buffer.Handle(),
+        .offset = index * sizeof(u32),
+        .flags = draw_if_visible ? vk::ConditionalRenderingFlagBitsEXT::eInverted
+                                 : vk::ConditionalRenderingFlagsEXT(),
+    };
+    cmdbuf.beginConditionalRenderingEXT(&conditional_rendering_info);
+
+    active_predication = true;
+}
+
+void Rasterizer::EndPredication() {
+    if (!active_predication) {
+        return;
+    }
+
+    LOG_DEBUG(Render_Vulkan, "");
+
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    cmdbuf.endConditionalRenderingEXT();
+    ScopeMarkerEnd();
+    active_predication = false;
+}
+
+void Rasterizer::StartOcclusionQuery(VAddr addr) {
+    LOG_DEBUG(Render_Vulkan, "addr = {:#x}, index = {}", addr, occlusion_current_index);
+
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    cmdbuf.resetQueryPool(occlusion_query_pool, occlusion_current_index, 1);
+    ScopeMarkerBegin("gfx:{}:occlusionQuery", fmt::ptr(reinterpret_cast<const void*>(addr)));
+    cmdbuf.beginQuery(occlusion_query_pool, occlusion_current_index, vk::QueryControlFlags());
+
+    occlusion_index_mapping.insert_or_assign(addr, occlusion_current_index);
+
+    occlusion_current_index++;
+    if (occlusion_current_index > OCCLUSION_QUERIES_COUNT - 1) {
+        occlusion_current_index = 0;
+    }
+}
+
+void Rasterizer::EndOcclusionQuery(VAddr addr) {
+    ASSERT(occlusion_index_mapping.contains(addr));
+
+    auto index = occlusion_index_mapping[addr];
+    LOG_DEBUG(Render_Vulkan, "addr = {:#x}, index = {}", addr, index);
+
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    cmdbuf.endQuery(occlusion_query_pool, index);
+    ScopeMarkerEnd();
 }
 
 } // namespace Vulkan
