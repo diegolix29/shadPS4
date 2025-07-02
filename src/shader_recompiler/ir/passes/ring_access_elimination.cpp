@@ -141,8 +141,11 @@ void RingAccessElimination(const IR::Program& program, const RuntimeInfo& runtim
                 const auto output_size = comp_ofs * gs_info.out_vertex_data_size;
 
                 const auto vc_read_ofs = (((offset / comp_ofs) * comp_ofs) % output_size) * 16u;
-                const auto& it = info.gs_copy_data.attr_map.find(vc_read_ofs);
-                ASSERT(it != info.gs_copy_data.attr_map.cend());
+                const auto& attr_map = info.gs_copy_data.attr_map;
+                const auto it = attr_map.find(vc_read_ofs);
+                ASSERT_MSG(it != info.gs_copy_data.attr_map.cend(),
+                           "attr_map missing vc_read_ofs {}, Shader hash=0x{:08X}", vc_read_ofs,
+                           info.pgm_hash);
                 const auto& [attr, comp] = it->second;
 
                 inst.ReplaceOpcode(IR::Opcode::SetAttribute);
