@@ -922,7 +922,7 @@ set(VIDEO_CORE src/video_core/amdgpu/liverpool.cpp
                src/video_core/buffer_cache/buffer.h
                src/video_core/buffer_cache/buffer_cache.cpp
                src/video_core/buffer_cache/buffer_cache.h
-               src/video_core/buffer_cache/memory_tracker_base.h
+               src/video_core/buffer_cache/memory_tracker.h
                src/video_core/buffer_cache/range_set.h
                src/video_core/buffer_cache/word_manager.h
                src/video_core/renderer_vulkan/liverpool_to_vk.cpp
@@ -1069,10 +1069,6 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/settings_dialog.h
            src/qt_gui/settings_dialog.ui
            src/qt_gui/main.cpp
-           src/qt_gui/gui_settings.cpp
-           src/qt_gui/gui_settings.h
-           src/qt_gui/settings.cpp
-           src/qt_gui/settings.h
            src/qt_gui/sdl_event_wrapper.cpp
            src/qt_gui/sdl_event_wrapper.h
            ${EMULATOR}

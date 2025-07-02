@@ -43,7 +43,7 @@ int getBackgroundImageOpacity();
 bool getShowBackgroundImage();
 bool getPSNSignedIn();
 bool getReadbacksEnabled();
-bool getParticlesEnabled();
+bool getFastReadbacksEnabled();
 bool getShaderSkipsEnabled();
 std::string getAudioBackend();
 int getAudioVolume();
@@ -154,7 +154,7 @@ void setBackgroundImageOpacity(int opacity);
 void setShowBackgroundImage(bool show);
 void setPSNSignedIn(bool sign);
 void setReadbacksEnabled(bool enable);
-void setParticlesEnabled(bool enable);
+void setFastReadbacksEnabled(bool enable);
 void setShaderSkipsEnabled(bool enable);
 
 void setAudioBackend(std::string backend);

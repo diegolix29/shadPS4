@@ -57,7 +57,6 @@ static bool isAlwaysShowChangelog = false;
 static std::string isSideTrophy = "right";
 static bool isNullGpu = false;
 static bool shouldCopyGPUBuffers = false;
-static bool readbacksEnabled = false;
 static bool shouldDumpShaders = false;
 static bool shouldPatchShaders = true;
 static u32 vblankDivider = 1;
@@ -81,7 +80,7 @@ static bool checkCompatibilityOnStartup = false;
 static std::string trophyKey;
 static bool isPSNSignedIn = false;
 static bool readbacksEnabled = false;
-static bool particlesEnabled = true;
+static bool fastreadbacksEnabled = false;
 static bool shaderSkipsEnabled = false;
 static std::string memoryAlloc = "medium";
 static std::string audioBackend = "cubeb";
@@ -312,8 +311,8 @@ bool copyGPUCmdBuffers() {
     return shouldCopyGPUBuffers;
 }
 
-bool readbacks() {
-    return readbacksEnabled;
+void setReadbacksEnabled(bool enable) {
+    readbacksEnabled = enable;
 }
 
 bool dumpShaders() {
@@ -440,8 +439,12 @@ void setCopyGPUCmdBuffers(bool enable) {
     shouldCopyGPUBuffers = enable;
 }
 
-void setReadbacks(bool enable) {
-    readbacksEnabled = enable;
+bool getFastReadbacksEnabled() {
+    return fastreadbacksEnabled;
+}
+
+void setFastReadbacksEnabled(bool enable) {
+    fastreadbacksEnabled = enable;
 }
 
 void setDumpShaders(bool enable) {
@@ -782,19 +785,6 @@ void setPSNSignedIn(bool sign) {
 bool getReadbacksEnabled() {
     return readbacksEnabled;
 }
-
-void setReadbacksEnabled(bool enable) {
-    readbacksEnabled = enable;
-}
-
-bool getParticlesEnabled() {
-    return particlesEnabled;
-}
-
-void setParticlesEnabled(bool enable) {
-    particlesEnabled = enable;
-}
-
 bool getShaderSkipsEnabled() {
     return shaderSkipsEnabled;
 }
@@ -895,7 +885,6 @@ void load(const std::filesystem::path& path) {
         rcas_attenuation = toml::find_or<float>(gpu, "rcas_attenuation", 0.25f);
         isNullGpu = toml::find_or<bool>(gpu, "nullGpu", false);
         shouldCopyGPUBuffers = toml::find_or<bool>(gpu, "copyGPUBuffers", false);
-        readbacksEnabled = toml::find_or<bool>(gpu, "readbacks", false);
         shouldDumpShaders = toml::find_or<bool>(gpu, "dumpShaders", false);
         shouldPatchShaders = toml::find_or<bool>(gpu, "patchShaders", true);
         vblankDivider = toml::find_or<int>(gpu, "vblankDivider", 1);
@@ -903,8 +892,8 @@ void load(const std::filesystem::path& path) {
         fullscreenMode = toml::find_or<std::string>(gpu, "FullscreenMode", "Windowed");
         isHDRAllowed = toml::find_or<bool>(gpu, "allowHDR", false);
         readbacksEnabled = toml::find_or<bool>(gpu, "readbacksEnabled", false);
-        particlesEnabled = toml::find_or<bool>(gpu, "particlesEnabled", true);
-        shaderSkipsEnabled = toml::find_or<bool>(gpu, "ShaderSkipsEnabled", true);
+        fastreadbacksEnabled = toml::find_or<bool>(gpu, "fastreadbacksEnabled", false);
+        shaderSkipsEnabled = toml::find_or<bool>(gpu, "shaderSkipsEnabled", true);
         memoryAlloc = toml::find_or<bool>(gpu, "memoryAlloc", "medium");
     }
 
@@ -1084,7 +1073,6 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["rcas_attenuation"] = rcas_attenuation;
     data["GPU"]["nullGpu"] = isNullGpu;
     data["GPU"]["copyGPUBuffers"] = shouldCopyGPUBuffers;
-    data["GPU"]["readbacks"] = readbacksEnabled;
     data["GPU"]["dumpShaders"] = shouldDumpShaders;
     data["GPU"]["patchShaders"] = shouldPatchShaders;
     data["GPU"]["vblankDivider"] = vblankDivider;
@@ -1093,7 +1081,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["allowHDR"] = isHDRAllowed;
     data["General"]["enableAutoBackup"] = enableAutoBackup;
     data["GPU"]["readbacksEnabled"] = readbacksEnabled;
-    data["GPU"]["particlesEnabled"] = particlesEnabled;
+    data["GPU"]["fastreadbacksEnabled"] = fastreadbacksEnabled;
     data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled;
     data["GPU"]["memoryAlloc"] = memoryAlloc;
     data["Vulkan"]["gpuId"] = gpuId;
@@ -1222,7 +1210,7 @@ void setDefaultValues() {
     logType = "sync";
     userName = "shadPS4";
     readbacksEnabled = false;
-    particlesEnabled = true;
+    fastreadbacksEnabled = false;
     shaderSkipsEnabled = false;
     memoryAlloc = "medium";
 

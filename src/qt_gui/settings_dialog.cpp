@@ -465,8 +465,8 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "enableAutoBackup", false));
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->ReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacksEnabled", false));
-    ui->ParticlesCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "particlesEnabled", true));
-    ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled ", false));
+    ui->FastReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fastreadbacksEnabled", false));
+    ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));
     ui->MemoryComboBox->setCurrentText(
         QString::fromStdString(toml::find_or<std::string>(data, "GPU", "memoryAlloc", "medium")));
     ui->disableTrophycheckBox->setChecked(
@@ -790,7 +790,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setDumpShaders(ui->dumpShadersCheckBox->isChecked());
     Config::setNullGpu(ui->nullGpuCheckBox->isChecked());
     Config::setReadbacksEnabled(ui->ReadbacksCheckBox->isChecked());
-    Config::setParticlesEnabled(ui->ParticlesCheckBox->isChecked());
+    Config::setFastReadbacksEnabled(ui->FastReadbacksCheckBox->isChecked());
     Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
 
     Config::setMemoryAlloc(ui->MemoryComboBox->currentText().toStdString());

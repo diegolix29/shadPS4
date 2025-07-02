@@ -4,6 +4,7 @@
 #pragma once
 
 #include <mutex>
+#include <utility>
 #include "common/config.h"
 #include "common/div_ceil.h"
 
@@ -90,7 +91,9 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::readbacks()) {
+        } else if (Config::getFastReadbacksEnabled()) {
+            UpdateProtection<!enable, false>();
+        } else if (Config::getReadbacksEnabled()) {
             UpdateProtection<enable, true>();
         }
     }
@@ -126,7 +129,9 @@ public:
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
-            } else if (Config::readbacks()) {
+            } else if (Config::getFastReadbacksEnabled()) {
+                UpdateProtection<true, false>();
+            } else {
                 UpdateProtection<false, true>();
             }
         }

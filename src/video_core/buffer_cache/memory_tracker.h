@@ -9,14 +9,14 @@
 #include <vector>
 #include "common/debug.h"
 #include "common/types.h"
-#include "video_core/buffer_cache/word_manager.h"
+#include "video_core/buffer_cache/region_manager.h"
 
 namespace VideoCore {
 
 class MemoryTracker {
 public:
     static constexpr size_t MAX_CPU_PAGE_BITS = 40;
-    static constexpr size_t NUM_HIGH_PAGES = 1ULL << (MAX_CPU_PAGE_BITS - HIGHER_PAGE_BITS);
+    static constexpr size_t NUM_HIGH_PAGES = 1ULL << (MAX_CPU_PAGE_BITS - TRACKER_HIGHER_PAGE_BITS);
     static constexpr size_t MANAGER_POOL_SIZE = 32;
 
 public:
@@ -37,14 +37,6 @@ public:
             query_cpu_addr, query_size, [](RegionManager* manager, u64 offset, size_t size) {
                 return manager->template IsRegionModified<Type::GPU>(offset, size);
             });
-    }
-
-    void UnmarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size) noexcept {
-        IteratePages<false>(dirty_cpu_addr, query_size,
-                            [](RegionManager* manager, u64 offset, size_t size) {
-                                manager->template ChangeRegionState<Type::GPU, false>(
-                                    manager->GetCpuAddr() + offset, size);
-                            });
     }
 
     /// Mark region as CPU modified, notifying the device_tracker about this change
@@ -106,11 +98,11 @@ private:
         using FuncReturn = typename std::invoke_result<Func, RegionManager*, u64, size_t>::type;
         static constexpr bool BOOL_BREAK = std::is_same_v<FuncReturn, bool>;
         std::size_t remaining_size{size};
-        std::size_t page_index{cpu_address >> HIGHER_PAGE_BITS};
-        u64 page_offset{cpu_address & HIGHER_PAGE_MASK};
+        std::size_t page_index{cpu_address >> TRACKER_HIGHER_PAGE_BITS};
+        u64 page_offset{cpu_address & TRACKER_HIGHER_PAGE_MASK};
         while (remaining_size > 0) {
             const std::size_t copy_amount{
-                std::min<std::size_t>(HIGHER_PAGE_SIZE - page_offset, remaining_size)};
+                std::min<std::size_t>(TRACKER_HIGHER_PAGE_SIZE - page_offset, remaining_size)};
             auto* manager{top_tier[page_index]};
             if (manager) {
                 if constexpr (BOOL_BREAK) {
@@ -139,7 +131,7 @@ private:
     }
 
     void CreateRegion(std::size_t page_index) {
-        const VAddr base_cpu_addr = page_index << HIGHER_PAGE_BITS;
+        const VAddr base_cpu_addr = page_index << TRACKER_HIGHER_PAGE_BITS;
         if (free_managers.empty()) {
             manager_pool.emplace_back();
             auto& last_pool = manager_pool.back();

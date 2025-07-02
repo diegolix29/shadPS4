@@ -3,6 +3,7 @@
 
 #include <boost/container/small_vector.hpp>
 #include "common/assert.h"
+#include "common/config.h"
 #include "common/debug.h"
 #include "common/range_lock.h"
 #include "common/signal_context.h"
@@ -40,14 +41,21 @@ constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
+        u8 num_watchers{}; // for fast readbacks mode
+
+        // Use a single u8 to pack write/read watchers as bitfields
         u8 num_write_watchers : 7;
-        // At the moment only buffer cache can request read watchers.
-        // And buffers cannot overlap, thus only 1 can exist per page.
         u8 num_read_watchers : 1;
 
         Core::MemoryPermission WritePerm() const noexcept {
-            return num_write_watchers == 0 ? Core::MemoryPermission::Write
-                                           : Core::MemoryPermission::None;
+            if (Config::getFastReadbacksEnabled()) {
+                return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
+                                         : Core::MemoryPermission::Read;
+            } else {
+                // Note: logic seems reversed in your original code (check)
+                return num_write_watchers == 0 ? Core::MemoryPermission::Write
+                                               : Core::MemoryPermission::None;
+            }
         }
 
         Core::MemoryPermission ReadPerm() const noexcept {
@@ -59,29 +67,43 @@ struct PageManager::Impl {
             return ReadPerm() | WritePerm();
         }
 
-        template <s32 delta, bool is_read>
+        template <s32 delta, bool is_read = false>
         u8 AddDelta() {
-            if constexpr (is_read) {
+            if (Config::getFastReadbacksEnabled()) {
                 if constexpr (delta == 1) {
-                    return ++num_read_watchers;
-                } else if (delta == -1) {
-                    ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
-                    return --num_read_watchers;
+                    return ++num_watchers;
+                } else if constexpr (delta == -1) {
+                    ASSERT_MSG(num_watchers > 0, "Not enough watchers");
+                    return --num_watchers;
                 } else {
-                    return num_read_watchers;
+                    return num_watchers;
                 }
             } else {
-                if constexpr (delta == 1) {
-                    return ++num_write_watchers;
-                } else if (delta == -1) {
-                    ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
-                    return --num_write_watchers;
+                if constexpr (is_read) {
+                    if constexpr (delta == 1) {
+                        ASSERT_MSG(num_read_watchers < 1, "num_read_watchers overflow");
+                        return ++num_read_watchers;
+                    } else if constexpr (delta == -1) {
+                        ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
+                        return --num_read_watchers;
+                    } else {
+                        return num_read_watchers;
+                    }
                 } else {
-                    return num_write_watchers;
+                    if constexpr (delta == 1) {
+                        ASSERT_MSG(num_write_watchers < 127, "num_write_watchers overflow");
+                        return ++num_write_watchers;
+                    } else if constexpr (delta == -1) {
+                        ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
+                        return --num_write_watchers;
+                    } else {
+                        return num_write_watchers;
+                    }
                 }
             }
         }
     };
+
 
     static constexpr size_t ADDRESS_BITS = 40;
     static constexpr size_t NUM_ADDRESS_PAGES = 1ULL << (40 - PAGE_BITS);

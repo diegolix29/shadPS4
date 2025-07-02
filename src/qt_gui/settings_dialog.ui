@@ -2190,32 +2190,32 @@
                 </font>
               </property>
               <property name="text">
-                <string>Hint: This Readbacks only work ok on BB not on other games</string>
+                <string>Hint: This Readbacks only work ok on other games</string>
               </property>
             </widget>
           </item>
 
-          <item>
-            <widget class="QCheckBox" name="ParticlesCheckBox">
-              <property name="text">
-                <string>Enable DMA particles (snow, wind, sparks, small tiny particles, void black spots, etc)</string>
-              </property>
-            </widget>
-          </item>
+			<item>
+				<widget class="QCheckBox" name="FastReadbacksCheckBox">
+					<property name="text">
+						<string>Fast Readbacks for BloodBorne (No Vertex Explosions)</string>
+					</property>
+				</widget>
+			</item>
 
-          <item>
-            <widget class="QLabel" name="label_3">
-              <property name="font">
-                <font>
-                  <pointsize>11</pointsize>
-                  <bold>true</bold>
-                </font>
-              </property>
-              <property name="text">
-                <string>Hint:Disable for other games if they dont boot as in main</string>
-              </property>
-            </widget>
-          </item>
+			<item>
+				<widget class="QLabel" name="label_21">
+					<property name="font">
+						<font>
+							<pointsize>11</pointsize>
+							<bold>true</bold>
+						</font>
+					</property>
+					<property name="text">
+						<string>Hint: This Readbacks only work ok on BloodBorne</string>
+					</property>
+				</widget>
+			</item>
 
           <item>
             <widget class="QGroupBox" name="groupBox_2">
