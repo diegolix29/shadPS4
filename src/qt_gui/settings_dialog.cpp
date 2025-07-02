@@ -465,7 +465,8 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "enableAutoBackup", false));
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->ReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacksEnabled", false));
-    ui->FastReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fastreadbacksEnabled", false));
+    ui->FastReadbacksCheckBox->setChecked(
+        toml::find_or<bool>(data, "GPU", "fastreadbacksEnabled", false));
     ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));
     ui->MemoryComboBox->setCurrentText(
         QString::fromStdString(toml::find_or<std::string>(data, "GPU", "memoryAlloc", "medium")));
