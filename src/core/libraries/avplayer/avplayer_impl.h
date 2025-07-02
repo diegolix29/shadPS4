@@ -24,7 +24,7 @@ public:
     s32 PostInit(const AvPlayerPostInitData& data);
     s32 AddSource(std::string_view filename);
     s32 AddSourceEx(std::string_view path, AvPlayerSourceType source_type);
-    u32 GetStreamCount();
+    s32 GetStreamCount();
     s32 GetStreamInfo(u32 stream_index, AvPlayerStreamInfo& info);
     s32 EnableStream(u32 stream_index);
     s32 Start();

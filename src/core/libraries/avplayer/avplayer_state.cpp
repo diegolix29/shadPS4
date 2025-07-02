@@ -6,7 +6,6 @@
 #include "core/libraries/avplayer/avplayer_error.h"
 #include "core/libraries/avplayer/avplayer_source.h"
 #include "core/libraries/avplayer/avplayer_state.h"
-#include "core/libraries/kernel/time.h"
 #include "core/tls.h"
 
 #include <magic_enum/magic_enum.hpp>
@@ -155,32 +154,14 @@ bool AvPlayerState::AddSource(std::string_view path, AvPlayerSourceType source_t
 }
 
 // Called inside GAME thread
-u32 AvPlayerState::GetStreamCount() {
+s32 AvPlayerState::GetStreamCount() {
+    std::shared_lock lock(m_source_mutex);
     if (m_up_source == nullptr) {
-        return 0;
+        LOG_ERROR(Lib_AvPlayer, "Could not get stream count. No source.");
+        return -1;
     }
-    auto count = m_up_source->GetStreamCount();
-    if (!m_stream_infos.empty()) {
-        return count;
-    }
-    if (count > 0) {
-        m_stream_infos.reserve(count);
-        for (u32 i = 0; i < count; ++i) {
-            AvPlayerStreamInfo info;
-            if (!m_up_source->GetStreamInfo(i, info)) {
-                std::lock_guard guard(m_stream_infos_mutex);
-                m_stream_infos.clear();
-                return 0;
-            }
-            std::lock_guard guard(m_stream_infos_mutex);
-            m_stream_infos.emplace_back(info);
-        }
-    }
-    InitFilters();
-    return count;
+    return m_up_source->GetStreamCount();
 }
-
-void AvPlayerState::InitFilters() {}
 
 // Called inside GAME thread
 bool AvPlayerState::GetStreamInfo(u32 stream_index, AvPlayerStreamInfo& info) {
@@ -194,12 +175,6 @@ bool AvPlayerState::GetStreamInfo(u32 stream_index, AvPlayerStreamInfo& info) {
 
 // Called inside GAME thread
 bool AvPlayerState::Start() {
-    if (m_current_state != AvState::Ready && m_current_state != AvState::Stop) {
-        if (!Stop()) {
-            return false;
-        }
-    }
-    SetState(AvState::Starting);
     std::shared_lock lock(m_source_mutex);
     if (m_up_source == nullptr || !m_up_source->Start()) {
         LOG_ERROR(Lib_AvPlayer, "Could not start playback.");
@@ -212,56 +187,34 @@ bool AvPlayerState::Start() {
 
 // Called inside GAME thread
 bool AvPlayerState::Pause() {
+    std::shared_lock lock(m_source_mutex);
     if (m_current_state == AvState::EndOfFile) {
         return true;
     }
-    if (m_current_state == AvState::Pause || m_current_state == AvState::Ready ||
-        m_current_state == AvState::Initial || m_current_state == AvState::Unknown ||
-        m_current_state == AvState::AddingSource) {
+    if (m_up_source == nullptr || m_current_state == AvState::Pause ||
+        m_current_state == AvState::Ready || m_current_state == AvState::Initial ||
+        m_current_state == AvState::Unknown || m_current_state == AvState::AddingSource) {
         LOG_ERROR(Lib_AvPlayer, "Could not pause playback.");
-        return false;
-    }
-    std::shared_lock lock(m_source_mutex);
-    if (m_up_source == nullptr) {
         return false;
     }
     m_up_source->Pause();
     SetState(AvState::Pause);
-    m_timer.Update();
     OnPlaybackStateChanged(AvState::Pause);
     return true;
 }
 
 // Called inside GAME thread
 bool AvPlayerState::Resume() {
-    if (m_current_state == AvState::Initial || m_current_state == AvState::Stop ||
-        m_current_state == AvState::Ready || m_current_state == AvState::AddingSource ||
-        m_current_state == AvState::Error) {
+    std::shared_lock lock(m_source_mutex);
+    if (m_up_source == nullptr || m_current_state != AvState::Pause) {
+        LOG_ERROR(Lib_AvPlayer, "Could not resume playback.");
         return false;
     }
-    while (m_current_state == AvState::Starting || m_current_state == AvState::Jump ||
-           m_current_state == AvState::TrickMode) {
-        std::this_thread::sleep_for(std::chrono::microseconds(90));
-    }
-    if (m_current_state == AvState::Buffering || m_current_state == AvState::Pause ||
-        m_current_state == AvState::C0x10) {
-        m_timer.UpdateVPts();
-        std::shared_lock lock(m_source_mutex);
-        m_up_source->Resume();
-        SetState(AvState::Play);
-        OnPlaybackStateChanged(AvState::Play);
-        return true;
-    }
-    if (m_current_state == AvState::PauseOnEOF) {
-        m_timer.UpdateVPts();
-        SetState(AvState::EndOfFile);
-        OnPlaybackStateChanged(AvState::EndOfFile);
-        return true;
-    }
-    if (m_current_state == AvState::Play || m_current_state == AvState::EndOfFile) {
-        return true;
-    }
-    return false;
+    m_up_source->Resume();
+    const auto state = m_previous_state.load();
+    SetState(state);
+    OnPlaybackStateChanged(state);
+    return true;
 }
 
 void AvPlayerState::SetAvSyncMode(AvPlayerAvSyncMode sync_mode) {
@@ -316,31 +269,21 @@ bool AvPlayerState::EnableStream(u32 stream_index) {
 
 // Called inside GAME thread
 bool AvPlayerState::Stop() {
-    if (m_current_state == AvState::Unknown || m_current_state == AvState::Stop) {
+    std::shared_lock lock(m_source_mutex);
+    if (m_up_source == nullptr || m_current_state == AvState::Stop) {
         return false;
     }
-    while (m_current_state == AvState::Jump || m_current_state == AvState::TrickMode) {
-        std::this_thread::sleep_for(std::chrono::microseconds(90));
+    if (!m_up_source->Stop()) {
+        return false;
     }
     if (!SetState(AvState::Stop)) {
         return false;
     }
-    EmitEvent(AvPlayerEvents::StateStop);
-    {
-        std::shared_lock lock(m_source_mutex);
-        if (m_up_source == nullptr || !m_up_source->Stop()) {
-            return false;
-        }
-    }
-    m_timer.Reset();
+    OnPlaybackStateChanged(AvState::Stop);
     return true;
 }
 
 bool AvPlayerState::GetVideoData(AvPlayerFrameInfo& video_info) {
-    if (m_current_state == AvState::Play || m_current_state == AvState::EndOfFile ||
-        m_current_state == AvState::C0x10) {
-        return false;
-    }
     std::shared_lock lock(m_source_mutex);
     if (m_up_source == nullptr) {
         return false;
@@ -349,10 +292,6 @@ bool AvPlayerState::GetVideoData(AvPlayerFrameInfo& video_info) {
 }
 
 bool AvPlayerState::GetVideoData(AvPlayerFrameInfoEx& video_info) {
-    if (m_current_state == AvState::Play || m_current_state == AvState::EndOfFile ||
-        m_current_state == AvState::C0x10) {
-        return false;
-    }
     std::shared_lock lock(m_source_mutex);
     if (m_up_source == nullptr) {
         return false;
@@ -411,11 +350,6 @@ void AvPlayerState::OnError() {
     OnPlaybackStateChanged(AvState::Error);
 }
 
-void AvPlayerState::OnLoop() {
-    auto id = ORBIS_AVPLAYER_ERROR_WAR_LOOPING_BACK;
-    EmitEvent(AvPlayerEvents::WarningId, &id);
-}
-
 void AvPlayerState::OnEOF() {
     SetState(AvState::EndOfFile);
 }
@@ -441,10 +375,6 @@ void AvPlayerState::OnPlaybackStateChanged(AvState state) {
     }
     case AvState::Buffering: {
         EmitEvent(AvPlayerEvents::StateBuffering);
-        break;
-    }
-    case AvState::EndOfFile: {
-        EmitEvent(AvPlayerEvents::Initial);
         break;
     }
     default:
@@ -537,7 +467,6 @@ void AvPlayerState::UpdateBufferingState() {
         if (has_frames.value()) {
             const auto state =
                 m_previous_state >= AvState::C0x0B ? m_previous_state.load() : AvState::Play;
-            m_timer.UpdateVPts();
             SetState(state);
             OnPlaybackStateChanged(state);
         }
@@ -559,7 +488,7 @@ bool AvPlayerState::IsStateTransitionValid(AvState state) {
         switch (m_current_state.load()) {
         case AvState::Stop:
         case AvState::EndOfFile:
-        case AvState::PauseOnEOF:
+        // case AvState::C0x08:
         case AvState::Error:
             return false;
         default:
@@ -570,7 +499,7 @@ bool AvPlayerState::IsStateTransitionValid(AvState state) {
         switch (m_current_state.load()) {
         case AvState::Stop:
         case AvState::EndOfFile:
-        case AvState::PauseOnEOF:
+        // case AvState::C0x08:
         case AvState::Starting:
         case AvState::Error:
             return false;
@@ -582,7 +511,7 @@ bool AvPlayerState::IsStateTransitionValid(AvState state) {
         switch (m_current_state.load()) {
         case AvState::Stop:
         case AvState::EndOfFile:
-        case AvState::PauseOnEOF:
+        // case AvState::C0x08:
         case AvState::TrickMode:
         case AvState::Starting:
         case AvState::Error:
@@ -595,7 +524,7 @@ bool AvPlayerState::IsStateTransitionValid(AvState state) {
         switch (m_current_state.load()) {
         case AvState::Stop:
         case AvState::EndOfFile:
-        case AvState::PauseOnEOF:
+        // case AvState::C0x08:
         case AvState::Jump:
         case AvState::Starting:
         case AvState::Error:
@@ -609,7 +538,7 @@ bool AvPlayerState::IsStateTransitionValid(AvState state) {
         case AvState::Stop:
         case AvState::EndOfFile:
         case AvState::Pause:
-        case AvState::PauseOnEOF:
+        // case AvState::C0x08:
         case AvState::Starting:
         case AvState::Error:
             return false;
@@ -620,72 +549,6 @@ bool AvPlayerState::IsStateTransitionValid(AvState state) {
     default:
         return true;
     }
-}
-
-u64 AvPlayerTimer::Now() {
-    auto now = Kernel::sceKernelGetProcessTimeCounter();
-    const auto frequency = Kernel::sceKernelGetProcessTimeCounterFrequency();
-    if (frequency != 0) {
-        now = ((now % frequency) * 1'000'000) / frequency + (now / frequency) * 1'000'000;
-    }
-    return now / 100;
-}
-
-void AvPlayerTimer::Update() {
-    UpdateAPts(m_v_hint_pts);
-}
-
-void AvPlayerTimer::UpdateAPts(u64 timestamp) {
-    const auto now = Now();
-
-    m_last_update_pts = now;
-    m_a_pts = timestamp;
-    m_ts_diff = now - m_a_pts;
-}
-
-void AvPlayerTimer::UpdateVPts() {
-    const auto now = Now();
-
-    m_last_update_pts = now;
-    m_v_pts = now;
-    m_ts_diff = now - m_a_pts;
-}
-
-void AvPlayerTimer::UpdateVHintPts(u64 hint) {
-    const auto now = Now();
-
-    m_v_pts = now;
-    m_v_hint_pts = hint;
-}
-
-void AvPlayerTimer::Reset() {
-    m_ts_diff = -1;
-    m_v_pts = -1;
-    m_v_hint_pts = -1;
-    m_last_update_pts = 0;
-    m_a_pts = 0;
-}
-
-AvPlayerTimer::State AvPlayerTimer::GetState(AvPlayerAvSyncMode sync_mode) {
-    if (m_ts_diff == -1 || m_v_hint_pts == -1) {
-        return State::Error;
-    }
-
-    if (sync_mode == AvPlayerAvSyncMode::None) {
-        return State::Ok;
-    }
-
-    const s64 diff = (Now() - m_last_update_pts) + (m_a_pts - m_v_hint_pts);
-    if (diff > 2800) {
-        return State::VideoBehind;
-    }
-    if (diff < -6900) {
-        return State::VideoAhead;
-    }
-    if (diff < 200) {
-        return State::WaitForSync;
-    }
-    return State::Ok;
 }
 
 } // namespace Libraries::AvPlayer

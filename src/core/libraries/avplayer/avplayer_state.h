@@ -16,33 +16,6 @@ namespace Libraries::AvPlayer {
 class Stream;
 class AvDecoder;
 
-class AvPlayerTimer {
-public:
-    enum class State {
-        Ok,
-        WaitForSync,
-        VideoAhead,
-        VideoBehind,
-        Error,
-    };
-
-    void Update();
-    void UpdateAPts(u64 timestamp);
-    void UpdateVHintPts(u64 hint);
-    void UpdateVPts();
-    void Reset();
-    State GetState(AvPlayerAvSyncMode sync_mode);
-
-private:
-    static u64 Now();
-
-    std::atomic<s64> m_ts_diff = -1;
-    std::atomic<s64> m_v_pts = -1;
-    std::atomic<s64> m_v_hint_pts = -1;
-    std::atomic<u64> m_last_update_pts = 0;
-    std::atomic<u64> m_a_pts = 0;
-};
-
 class AvPlayerState : public AvPlayerStateCallback {
 public:
     AvPlayerState(const AvPlayerInitData& init_data);
@@ -50,7 +23,7 @@ public:
 
     void PostInit(const AvPlayerPostInitData& post_init_data);
     bool AddSource(std::string_view filename, AvPlayerSourceType source_type);
-    u32 GetStreamCount();
+    s32 GetStreamCount();
     bool GetStreamInfo(u32 stream_index, AvPlayerStreamInfo& info);
     bool EnableStream(u32 stream_index);
     bool Start();
@@ -76,7 +49,6 @@ private:
     AvPlayerAvSyncMode GetSyncMode() override;
     void OnWarning(u32 id) override;
     void OnError() override;
-    void OnLoop() override;
     void OnEOF() override;
 
     void OnPlaybackStateChanged(AvState state);
@@ -87,7 +59,6 @@ private:
 
     void AvControllerThread(std::stop_token stop);
 
-    void InitFilters();
     void AddSourceEvent();
     void WarningEvent(s32 id);
 
@@ -107,7 +78,6 @@ private:
 
     std::atomic<AvState> m_current_state;
     std::atomic<AvState> m_previous_state;
-    AvPlayerTimer m_timer;
     u32 m_thread_priority;
     u32 m_thread_affinity;
     std::atomic_uint32_t m_some_event_result{};
@@ -117,9 +87,6 @@ private:
     std::mutex m_event_handler_mutex{};
     Kernel::Thread m_controller_thread{};
     AvPlayerQueue<AvPlayerEvent> m_event_queue{};
-
-    std::mutex m_stream_infos_mutex;
-    std::vector<AvPlayerStreamInfo> m_stream_infos;
 };
 
 } // namespace Libraries::AvPlayer
