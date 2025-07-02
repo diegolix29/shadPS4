@@ -2144,6 +2144,33 @@
               </property>
             </widget>
           </item>
+
+			<item>
+				<widget class="QLabel" name="label_22">
+					<property name="font">
+						<font>
+							<pointsize>11</pointsize>
+							<bold>true</bold>
+						</font>
+					</property>
+					<property name="wordWrap">
+						<bool>true</bool>
+					</property>
+					<property name="alignment">
+					</property>
+					<property name="text">
+						<string notr="true">
+							<![CDATA[
+        <b>Hint:</b><br/>
+        Enable this for High Resolution Patches<br/>
+        Can cause issues on other games.<br/>
+        Disable if you cant boot other games.
+        ]]>
+						</string>
+					</property>
+				</widget>
+			</item>
+			
           <item>
             <widget class="QCheckBox" name="isNeoModeCheckBox">
               <property name="text">
@@ -2154,7 +2181,7 @@
 			<item>
 				<widget class="QCheckBox" name="SkipsCheckBox">
 					<property name="text">
-						<string>Enable Shader Skips (for EldenRing and FireFades DS3)</string>
+						<string>Enable Shader Skips (for EldenRing, FireFades DS3 and Driveclub)</string>
 					</property>
 				</widget>
 			</item>
@@ -2167,8 +2194,20 @@
 							<bold>true</bold>
 						</font>
 					</property>
+					<property name="wordWrap">
+						<bool>true</bool>
+					</property>
+					<property name="alignment">
+					</property>
 					<property name="text">
-						<string>Hint: Disable if you encounter graphical issues</string>
+						<string notr="true">
+							<![CDATA[
+        <b>Hint:</b><br/>
+        Helps Elden Ring to not crash in open world<br/>
+        FireFades to not crash on killing enemies<br/>
+        Driveclub to not have slow downs on Windows.
+        ]]>
+						</string>
 					</property>
 				</widget>
 			</item>
@@ -2176,32 +2215,38 @@
 			<item>
             <widget class="QCheckBox" name="ReadbacksCheckBox">
               <property name="text">
-                <string>Enable Readbacks (No Vertex Explosions)</string>
+                <string>Enable Readbacks</string>
               </property>
             </widget>
           </item>
 
           <item>
-            <widget class="QLabel" name="label_2">
+            <widget class="QLabel" name="label_23">
               <property name="font">
                 <font>
                   <pointsize>11</pointsize>
                   <bold>true</bold>
                 </font>
               </property>
-              <property name="text">
-                <string>Hint: This Readbacks only work ok on other games</string>
-              </property>
-            </widget>
-          </item>
+				<property name="text">
+					<string notr="true">
+						<![CDATA[
+        <b>Hint:</b><br/>
+        Readbacks implementation,<br/>
+        Enable this for Driveclub.<br/>
+        ]]>
+					</string>
+				</property>
+			</widget>
+		</item>
 
 			<item>
-				<widget class="QCheckBox" name="FastReadbacksCheckBox">
-					<property name="text">
-						<string>Fast Readbacks for BloodBorne (No Vertex Explosions)</string>
-					</property>
-				</widget>
-			</item>
+			<widget class="QCheckBox" name="FastReadbacksCheckBox">
+			  <property name="text">
+				 <string>Fast Readbacks for BloodBorne (No Vertex Explosions)</string>
+			  </property>
+		    </widget>
+		  </item>
 
 			<item>
 				<widget class="QLabel" name="label_21">
@@ -2212,7 +2257,14 @@
 						</font>
 					</property>
 					<property name="text">
-						<string>Hint: This Readbacks only work ok on BloodBorne</string>
+						<string notr="true">
+							<![CDATA[
+        <b>Hint:</b><br/>
+        Faster Readbacks for Bloodborne<br/>
+        No vertex Explosions<br/>
+        Need Readbacks to be Enabled.
+        ]]>
+						</string>
 					</property>
 				</widget>
 			</item>
