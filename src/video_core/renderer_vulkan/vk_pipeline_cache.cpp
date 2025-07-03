@@ -244,8 +244,8 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
 
 bool ShouldSkipShader(u64 shader_hash, const char* shader_type) {
     if (Config::getShaderSkipsEnabled()) {
-        static std::vector<u64> skip_hashes = {0x4b0392bf, 0x9f37ecc3, 0x4a586e81, 
-                                               0x1635154C, 0xa7441e6,  0xc6e4f37d};
+        static std::vector<u64> skip_hashes = {0x4b0392bf, 0x9f37ecc3, 0x4a586e81, 0x7ee03d3f,
+                                               0x1635154C};
         if (std::ranges::contains(skip_hashes, shader_hash)) {
             LOG_WARNING(Render_Vulkan, "Skipped {} shader hash {:#x}.", shader_type, shader_hash);
             return true;

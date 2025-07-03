@@ -52,7 +52,8 @@ struct PageManager::Impl {
                 return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
                                          : Core::MemoryPermission::Read;
             } else {
-                return num_write_watchers == 0 ? Core::MemoryPermission::ReadWrite
+                // Note: logic seems reversed in your original code (check)
+                return num_write_watchers == 0 ? Core::MemoryPermission::Write
                                                : Core::MemoryPermission::None;
             }
         }

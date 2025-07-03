@@ -40,54 +40,24 @@ CopyShaderData ParseCopyShader(std::span<const u32> code) {
         case Gcn::Opcode::EXP: {
             const auto& exp = inst.control.exp;
             const IR::Attribute semantic = static_cast<IR::Attribute>(exp.target);
-
-            fmt::print(stderr, "[ParseCopyShader] EXP semantic={} src_count={}\n", int(semantic),
-                       inst.src_count);
             for (int i = 0; i < inst.src_count; ++i) {
                 const auto ofs = offsets[inst.src[i].code];
-                fmt::print(stderr, "  EXP src {} reg={} -> offset={}\n", i, inst.src[i].code, ofs);
                 if (ofs != -1) {
                     data.attr_map[ofs] = {semantic, i};
                     if (semantic > last_attr) {
                         last_attr = semantic;
                     }
-                } else {
-                    fmt::print(stderr,
-                               "[ParseCopyShader] WARNING: EXP src reg={} had no known offset "
-                               "(semantic {}). Shader will likely break.\n",
-                               inst.src[i].code, int(semantic));
                 }
             }
-
             break;
         }
-
-case Gcn::Opcode::BUFFER_LOAD_DWORD: {
-            s32 base = inst.control.mubuf.offset;
-
+        case Gcn::Opcode::BUFFER_LOAD_DWORD: {
+            offsets[inst.src[1].code] = inst.control.mubuf.offset;
             if (inst.src[3].field != Gcn::OperandField::ConstZero) {
                 const u32 index = inst.src[3].code;
                 ASSERT(sources[index] != -1);
-                base += sources[index];
-                fmt::print(stderr,
-                           "[ParseCopyShader] BUFFER_LOAD_DWORD: Added src3 sources[{}]={}\n",
-                           index, sources[index]);
+                offsets[inst.src[1].code] += sources[index];
             }
-
-            if (inst.src[2].field != Gcn::OperandField::ConstZero) {
-                fmt::print(
-                    stderr,
-                    "[ParseCopyShader] WARNING: Ignoring dynamic indexing via src[2] reg {}.\n",
-                    inst.src[2].code);
-            }
-
-            offsets[inst.src[1].code] = base;
-
-            fmt::print(stderr,
-                       "[ParseCopyShader] BUFFER_LOAD_DWORD:\n"
-                       "  dst_reg={} base_reg={} final offset={}\n",
-                       inst.dst[0].code, inst.src[1].code, base);
-
             break;
         }
         default:
