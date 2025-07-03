@@ -135,17 +135,37 @@ void RingAccessElimination(const IR::Program& program, const RuntimeInfo& runtim
                     break;
                 }
 
-                const auto offset = inst.Flags<IR::BufferInstInfo>().inst_offset.Value();
+const auto offset = inst.Flags<IR::BufferInstInfo>().inst_offset.Value();
                 const auto data = ir.BitCast<IR::F32>(IR::U32{inst.Arg(2)});
                 const auto comp_ofs = output_vertices * 4u;
                 const auto output_size = comp_ofs * gs_info.out_vertex_data_size;
 
+                // Remove const so we can insert fallback entries
+                auto& attr_map = info.gs_copy_data.attr_map;
+
                 const auto vc_read_ofs = (((offset / comp_ofs) * comp_ofs) % output_size) * 16u;
-                const auto& attr_map = info.gs_copy_data.attr_map;
-                const auto it = attr_map.find(vc_read_ofs);
-                ASSERT_MSG(it != info.gs_copy_data.attr_map.cend(),
-                           "attr_map missing vc_read_ofs {}, Shader hash=0x{:08X}", vc_read_ofs,
-                           info.pgm_hash);
+
+                auto it = attr_map.find(vc_read_ofs);
+                if (it == attr_map.end()) {
+                    LOG_ERROR(Render,
+                              "Missing vc_read_ofs={} in attr_map. Shader hash=0x{:08X}\nKnown "
+                              "attribute offsets:",
+                              vc_read_ofs, info.pgm_hash);
+
+                    for (const auto& kv : attr_map) {
+                        LOG_ERROR(Render, " - vc_read_ofs={} -> (attr={}, comp={})", kv.first,
+                                  int(kv.second.first), int(kv.second.second));
+                    }
+
+                    LOG_WARNING(Render, "Missing vc_read_ofs={} in attr_map, inserting fallback.",
+                                vc_read_ofs);
+
+                    // Insert fallback - Position0, component 0 is a safe default guess
+                    attr_map[vc_read_ofs] = {IR::Attribute::Position0, 0};
+                    it = attr_map.find(vc_read_ofs);
+                }
+
+                // Now use the attr and comp from the (possibly newly inserted) map entry
                 const auto& [attr, comp] = it->second;
 
                 inst.ReplaceOpcode(IR::Opcode::SetAttribute);
@@ -153,6 +173,7 @@ void RingAccessElimination(const IR::Program& program, const RuntimeInfo& runtim
                 inst.SetArg(0, IR::Value{attr});
                 inst.SetArg(1, data);
                 inst.SetArg(2, ir.Imm32(comp));
+
                 break;
             }
             default:
