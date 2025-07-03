@@ -145,7 +145,6 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
     LOG_INFO(Config, "General LogType: {}", Config::getLogType());
     LOG_INFO(Config, "General isNeo: {}", Config::isNeoModeConsole());
     LOG_INFO(Config, "GPU isNullGpu: {}", Config::nullGpu());
-    LOG_INFO(Config, "GPU readbacks: {}", Config::readbacks());
     LOG_INFO(Config, "GPU directMemoryAccess: {}", Config::directMemoryAccess());
     LOG_INFO(Config, "GPU readbacks: {}", Config::getReadbacksEnabled());
     LOG_INFO(Config, "GPU shouldDumpShaders: {}", Config::dumpShaders());

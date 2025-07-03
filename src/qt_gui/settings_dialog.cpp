@@ -465,6 +465,8 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "enableAutoBackup", false));
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->ReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacksEnabled", false));
+    ui->DMACheckBox->setChecked(
+        toml::find_or<bool>(data, "GPU", "directMemoryAccessEnabled", false));
     ui->FastReadbacksCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "fastreadbacksEnabled", false));
     ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));
@@ -791,6 +793,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setDumpShaders(ui->dumpShadersCheckBox->isChecked());
     Config::setNullGpu(ui->nullGpuCheckBox->isChecked());
     Config::setReadbacksEnabled(ui->ReadbacksCheckBox->isChecked());
+    Config::setDirectMemoryAccess(ui->DMACheckBox->isChecked());
     Config::setFastReadbacksEnabled(ui->FastReadbacksCheckBox->isChecked());
     Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
 

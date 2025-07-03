@@ -57,7 +57,6 @@ static bool isAlwaysShowChangelog = false;
 static std::string isSideTrophy = "right";
 static bool isNullGpu = false;
 static bool shouldCopyGPUBuffers = false;
-static bool readbacksEnabled = false;
 static bool directMemoryAccessEnabled = false;
 static bool shouldDumpShaders = false;
 static bool shouldPatchShaders = true;

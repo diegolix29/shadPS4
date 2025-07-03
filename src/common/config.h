@@ -86,8 +86,6 @@ std::string sideTrophy();
 bool nullGpu();
 bool copyGPUCmdBuffers();
 void setCopyGPUCmdBuffers(bool enable);
-bool readbacks();
-void setReadbacks(bool enable);
 bool directMemoryAccess();
 void setDirectMemoryAccess(bool enable);
 bool dumpShaders();

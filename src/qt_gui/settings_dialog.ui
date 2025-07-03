@@ -2240,6 +2240,34 @@
 		</item>
 
 			<item>
+				<widget class="QCheckBox" name="DMACheckBox">
+					<property name="text">
+						<string>Enable DMA</string>
+					</property>
+				</widget>
+			</item>
+
+			<item>
+				<widget class="QLabel" name="label_23">
+					<property name="font">
+						<font>
+							<pointsize>11</pointsize>
+							<bold>true</bold>
+						</font>
+					</property>
+					<property name="text">
+						<string notr="true">
+							<![CDATA[
+        <b>Hint:</b><br/>
+        DMA implementation,<br/>
+        Disable this for TLG, disabling may help with random crashes.<br/>
+        ]]>
+						</string>
+					</property>
+				</widget>
+			</item>
+
+			<item>
 			<widget class="QCheckBox" name="FastReadbacksCheckBox">
 			  <property name="text">
 				 <string>Fast Readbacks for BloodBorne (No Vertex Explosions)</string>
