@@ -212,8 +212,7 @@ bool Instance::CreateDevice() {
                           vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT,
                           vk::PhysicalDevicePrimitiveTopologyListRestartFeaturesEXT,
                           vk::PhysicalDevicePortabilitySubsetFeaturesKHR,
-                          vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
-                          vk::PhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR>();
+                          vk::PhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR,
                           vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
                           vk::PhysicalDeviceConditionalRenderingFeaturesEXT>();
     features = feature_chain.get().features;
