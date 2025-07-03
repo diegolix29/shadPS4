@@ -57,6 +57,8 @@ static bool isAlwaysShowChangelog = false;
 static std::string isSideTrophy = "right";
 static bool isNullGpu = false;
 static bool shouldCopyGPUBuffers = false;
+static bool readbacksEnabled = false;
+static bool directMemoryAccessEnabled = false;
 static bool shouldDumpShaders = false;
 static bool shouldPatchShaders = true;
 static u32 vblankDivider = 1;
@@ -315,6 +317,10 @@ void setReadbacksEnabled(bool enable) {
     readbacksEnabled = enable;
 }
 
+bool directMemoryAccess() {
+    return directMemoryAccessEnabled;
+}
+
 bool dumpShaders() {
     return shouldDumpShaders;
 }
@@ -445,6 +451,10 @@ bool getFastReadbacksEnabled() {
 
 void setFastReadbacksEnabled(bool enable) {
     fastreadbacksEnabled = enable;
+}
+
+void setDirectMemoryAccess(bool enable) {
+    directMemoryAccessEnabled = enable;
 }
 
 void setDumpShaders(bool enable) {
@@ -885,6 +895,8 @@ void load(const std::filesystem::path& path) {
         rcas_attenuation = toml::find_or<float>(gpu, "rcas_attenuation", 0.25f);
         isNullGpu = toml::find_or<bool>(gpu, "nullGpu", false);
         shouldCopyGPUBuffers = toml::find_or<bool>(gpu, "copyGPUBuffers", false);
+        readbacksEnabled = toml::find_or<bool>(gpu, "readbacks", false);
+        directMemoryAccessEnabled = toml::find_or<bool>(gpu, "directMemoryAccess", false);
         shouldDumpShaders = toml::find_or<bool>(gpu, "dumpShaders", false);
         shouldPatchShaders = toml::find_or<bool>(gpu, "patchShaders", true);
         vblankDivider = toml::find_or<int>(gpu, "vblankDivider", 1);
@@ -1073,6 +1085,8 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["rcas_attenuation"] = rcas_attenuation;
     data["GPU"]["nullGpu"] = isNullGpu;
     data["GPU"]["copyGPUBuffers"] = shouldCopyGPUBuffers;
+    data["GPU"]["readbacks"] = readbacksEnabled;
+    data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled;
     data["GPU"]["dumpShaders"] = shouldDumpShaders;
     data["GPU"]["patchShaders"] = shouldPatchShaders;
     data["GPU"]["vblankDivider"] = vblankDivider;
