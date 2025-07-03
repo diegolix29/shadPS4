@@ -156,13 +156,17 @@ void RingAccessElimination(const IR::Program& program, const RuntimeInfo& runtim
                                   int(kv.second.first), int(kv.second.second));
                     }
 
-                    LOG_WARNING(Render, "Missing vc_read_ofs={} in attr_map, inserting fallback.",
-                                vc_read_ofs);
+                    // Add a dedicated warning line similar to ASSERT_MSG
+                    LOG_ERROR(Render,
+                              "attr_map missing vc_read_ofs {} (Shader hash=0x{:08X}). Inserting "
+                              "fallback.",
+                              vc_read_ofs, info.pgm_hash);
 
                     // Insert fallback - Position0, component 0 is a safe default guess
                     attr_map[vc_read_ofs] = {IR::Attribute::Position0, 0};
                     it = attr_map.find(vc_read_ofs);
                 }
+
                 const auto& [attr, comp] = it->second;
 
                 inst.ReplaceOpcode(IR::Opcode::SetAttribute);
