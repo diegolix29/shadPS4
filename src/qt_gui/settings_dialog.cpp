@@ -466,7 +466,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->ReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacksEnabled", false));
     ui->DMACheckBox->setChecked(
-        toml::find_or<bool>(data, "GPU", "directMemoryAccessEnabled", false));
+        toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
     ui->FastReadbacksCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "fastreadbacksEnabled", false));
     ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));

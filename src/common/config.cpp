@@ -1225,6 +1225,7 @@ void setDefaultValues() {
     readbacksEnabled = false;
     fastreadbacksEnabled = false;
     shaderSkipsEnabled = false;
+    directMemoryAccessEnabled = false;
     memoryAlloc = "medium";
 
     if (Common::g_is_release) {
