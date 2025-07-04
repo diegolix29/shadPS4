@@ -161,7 +161,7 @@ struct AddressSpace::Impl {
                 VirtualAlloc2(process, reinterpret_cast<PVOID>(virtual_addr), size,
                               MEM_RESERVE | MEM_COMMIT | MEM_REPLACE_PLACEHOLDER, prot, nullptr, 0);
         }
-        //ASSERT_MSG(ptr, "{}", Common::GetLastErrorMsg());
+        // ASSERT_MSG(ptr, "{}", Common::GetLastErrorMsg());
         return ptr;
     }
 
