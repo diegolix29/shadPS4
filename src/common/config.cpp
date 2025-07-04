@@ -794,7 +794,10 @@ void load(const std::filesystem::path& path) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "PRTBB");
         }
         if (updateChannel == "Release") {
-            updateChannel = "Full-Souls";
+            updateChannel = "BBFork";
+        }
+        if (updateChannel == "Full-Souls") {
+            updateChannel = "BBFork";
         }
         if (updateChannel == "Nightly") {
             updateChannel = "BBFork";
@@ -803,7 +806,7 @@ void load(const std::filesystem::path& path) {
             updateChannel = "BBFork";
         }
         if (updateChannel == "PartBB") {
-            updateChannel = "PRTBB";
+            updateChannel = "BBFork";
         }
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
