@@ -373,7 +373,6 @@ void MainWindow::CreateConnects() {
     connect(ui->mw_searchbar, &QLineEdit::textChanged, this, &MainWindow::SearchGameTable);
     connect(ui->exitAct, &QAction::triggered, this, &QWidget::close);
     connect(ui->refreshGameListAct, &QAction::triggered, this, &MainWindow::RefreshGameTable);
-    connect(ui->updaterAct, &QAction::triggered, this, &MainWindow::CheckUpdateMain);
     connect(ui->refreshButton, &QPushButton::clicked, this, &MainWindow::RefreshGameTable);
     connect(ui->showGameListAct, &QAction::triggered, this, &MainWindow::ShowGameList);
     connect(ui->toggleLabelsAct, &QAction::toggled, this, &MainWindow::toggleLabelsUnderIcons);
