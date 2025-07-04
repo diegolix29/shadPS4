@@ -310,7 +310,7 @@ s32 MemoryManager::PoolCommit(VAddr virtual_addr, u64 size, MemoryProt prot) {
 
     // Perform the mapping
     void* out_addr = impl.Map(mapped_addr, size, alignment, -1, false);
-    TRACK_ALLOC(out_addr, size, "VMEM");
+    // TRACK_ALLOC(out_addr, size, "VMEM");
 
     if (IsValidGpuMapping(mapped_addr, size)) {
         rasterizer->MapMemory(mapped_addr, size);
@@ -425,7 +425,7 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
         }
         *out_addr = impl.Map(mapped_addr, size, alignment, phys_addr, is_exec);
 
-        TRACK_ALLOC(*out_addr, size, "VMEM");
+        // TRACK_ALLOC(*out_addr, size, "VMEM");
     }
 
     return ORBIS_OK;
