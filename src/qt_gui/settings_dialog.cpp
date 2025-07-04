@@ -94,8 +94,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     connect(ui->enableAutoBackupCheckBox, &QCheckBox::stateChanged, this,
             [](int state) { Config::setEnableAutoBackup(state == Qt::Checked); });
 
-    channelMap = {
-        {tr("Full-Souls"), "Full-Souls"}, {tr("BBFork"), "BBFork"}, {tr("PRTBB"), "PRTBB"}};
+    channelMap = {{tr("BBFork"), "BBFork"}};
     logTypeMap = {{tr("async"), "async"}, {tr("sync"), "sync"}};
     screenModeMap = {{tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
                      {tr("Windowed"), "Windowed"},
@@ -195,13 +194,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         connect(ui->changelogCheckBox, &QCheckBox::checkStateChanged, this,
                 [](Qt::CheckState state) { Config::setAlwaysShowChangelog(state == Qt::Checked); });
 #endif
-
-        connect(ui->updateComboBox, &QComboBox::currentTextChanged, this,
-                [this](const QString& channel) {
-                    if (channelMap.contains(channel)) {
-                        Config::setUpdateChannel(channelMap.value(channel).toStdString());
-                    }
-                });
 
         connect(ui->checkUpdateButton, &QPushButton::clicked, this, []() {
             auto checkUpdate = new CheckUpdate(true);
@@ -530,11 +522,6 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->changelogCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "alwaysShowChangelog", false));
 
-    QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
-    ui->updateComboBox->setCurrentText(channelMap.key(
-        (updateChannel != "Full-Souls" && updateChannel != "BBFork" && updateChannel != "PRTBB")
-            ? (Common::g_is_release ? "Full-Souls" : "BBFork", "PRTBB")
-            : updateChannel));
 #endif
 
     std::string chooseHomeTab =
@@ -812,7 +799,6 @@ void SettingsDialog::UpdateSettings() {
 
     Config::setAutoUpdate(ui->updateCheckBox->isChecked());
     Config::setAlwaysShowChangelog(ui->changelogCheckBox->isChecked());
-    Config::setUpdateChannel(channelMap.value(ui->updateComboBox->currentText()).toStdString());
     Config::setChooseHomeTab(
         chooseHomeTabMap.value(ui->chooseHomeTabComboBox->currentText()).toStdString());
     Config::setCompatibilityEnabled(ui->enableCompatibilityCheckBox->isChecked());

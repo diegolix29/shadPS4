@@ -221,8 +221,8 @@ void MainWindow::AddUiWidgets() {
     }
     ui->toolBar->addWidget(
         createButtonWithLabel(ui->refreshButton, tr("Refresh List"), showLabels));
+    ui->toolBar->addWidget(createButtonWithLabel(ui->updaterButton, tr("Update"), showLabels));
     ui->toolBar->addWidget(createSpacer(this));
-
     QBoxLayout* toolbarLayout = new QBoxLayout(QBoxLayout::TopToBottom);
     toolbarLayout->setSpacing(2);
     toolbarLayout->setContentsMargins(2, 2, 2, 2);
@@ -373,6 +373,7 @@ void MainWindow::CreateConnects() {
     connect(ui->mw_searchbar, &QLineEdit::textChanged, this, &MainWindow::SearchGameTable);
     connect(ui->exitAct, &QAction::triggered, this, &QWidget::close);
     connect(ui->refreshGameListAct, &QAction::triggered, this, &MainWindow::RefreshGameTable);
+    connect(ui->updaterAct, &QAction::triggered, this, &MainWindow::CheckUpdateMain);
     connect(ui->refreshButton, &QPushButton::clicked, this, &MainWindow::RefreshGameTable);
     connect(ui->showGameListAct, &QAction::triggered, this, &MainWindow::ShowGameList);
     connect(ui->toggleLabelsAct, &QAction::toggled, this, &MainWindow::toggleLabelsUnderIcons);
@@ -486,7 +487,14 @@ void MainWindow::CreateConnects() {
     });
 
 #ifdef ENABLE_UPDATER
+    // Help menu
     connect(ui->updaterAct, &QAction::triggered, this, [this]() {
+        auto checkUpdate = new CheckUpdate(true);
+        checkUpdate->exec();
+    });
+
+    // Toolbar button
+    connect(ui->updaterButton, &QPushButton::clicked, this, [this]() {
         auto checkUpdate = new CheckUpdate(true);
         checkUpdate->exec();
     });
@@ -1126,6 +1134,7 @@ void MainWindow::SetUiIcons(bool isWhite) {
     ui->controllerButton->setIcon(RecolorIcon(ui->controllerButton->icon(), isWhite));
     ui->keyboardButton->setIcon(RecolorIcon(ui->keyboardButton->icon(), isWhite));
     ui->refreshGameListAct->setIcon(RecolorIcon(ui->refreshGameListAct->icon(), isWhite));
+    ui->updaterButton->setIcon(RecolorIcon(ui->updaterButton->icon(), isWhite));
     ui->menuGame_List_Mode->setIcon(RecolorIcon(ui->menuGame_List_Mode->icon(), isWhite));
     ui->trophyViewerAct->setIcon(RecolorIcon(ui->trophyViewerAct->icon(), isWhite));
     ui->configureAct->setIcon(RecolorIcon(ui->configureAct->icon(), isWhite));
