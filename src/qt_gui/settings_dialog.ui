@@ -363,29 +363,13 @@
 																			<number>11</number>
 																		</property>
 																		<item>
-																			<widget class="QComboBox" name="updateComboBox">
-																				<property name="sizePolicy">
-																					<sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-																						<horstretch>0</horstretch>
-																						<verstretch>0</verstretch>
-																					</sizepolicy>
+																			<widget class="QLabel" name="updateChannelLabel">
+																				<property name="text">
+																					<string>BBFork</string>
 																				</property>
-																				<item>
-																					<property name="text">
-																						<string>Full-Souls</string>
-																					</property>
-																				</item>
-																				<item>
-																					<property name="text">
-																						<string>BBFork</string>
-																					</property>
-																				</item>
-																				<item>
-																					<property name="text">
-																						<string>PRTBB</string>
-																					</property>
-																				</item>
 																			</widget>
+
+
 																		</item>
 																	</layout>
 																</widget>

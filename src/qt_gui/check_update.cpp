@@ -38,13 +38,13 @@ CheckUpdate::CheckUpdate(const bool showMessage, QWidget* parent)
 CheckUpdate::~CheckUpdate() {}
 
 void CheckUpdate::CheckForUpdates(const bool showMessage) {
-    QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
+    //QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
     QUrl url("https://api.github.com/repos/diegolix29/shadPS4/releases");
 
     QNetworkRequest request(url);
     QNetworkReply* reply = networkManager->get(request);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, showMessage, updateChannel]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, showMessage]() {
         if (reply->error() != QNetworkReply::NoError) {
             if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 403) {
                 QString response = reply->readAll();
@@ -99,7 +99,7 @@ tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached 
         for (const QJsonValue& value : jsonArray) {
             QJsonObject obj = value.toObject();
             QString tagName = obj["tag_name"].toString();
-            if (tagName.startsWith(updateChannel)) {
+            if (tagName.startsWith("BBFork")) {
                 if (latestVersion.isEmpty()) {
                     latestVersion = tagName;
                     jsonObj = obj;
@@ -114,7 +114,7 @@ tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached 
 
         if (latestVersion.isEmpty()) {
             QMessageBox::warning(this, tr("Error"),
-                                 tr("No releases found for update channel: ") + updateChannel);
+                                 tr("No releases found for update channel: "));
             reply->deleteLater();
             return;
         }
