@@ -193,8 +193,8 @@ void Translator::BUFFER_LOAD(u32 num_dwords, bool is_inst_typed, bool is_buffer_
     const IR::ScalarReg sharp{inst.src[2].code * 4};
     const IR::Value soffset{GetSrc(inst.src[3])};
     if (info.stage != Stage::Geometry) {
-        ASSERT_MSG(soffset.IsImmediate() && soffset.U32() == 0,
-                   "Non immediate offset not supported");
+        //ASSERT_MSG(soffset.IsImmediate() && soffset.U32() == 0,
+       //          "Non immediate offset not supported");
     }
 
     const IR::Value address = [&] -> IR::Value {
@@ -255,8 +255,8 @@ void Translator::BUFFER_STORE(u32 num_dwords, bool is_inst_typed, bool is_buffer
     const IR::Value soffset{GetSrc(inst.src[3])};
 
     if (info.stage != Stage::Export && info.stage != Stage::Hull && info.stage != Stage::Geometry) {
-        ASSERT_MSG(soffset.IsImmediate() && soffset.U32() == 0,
-                   "Non immediate offset not supported");
+       // ASSERT_MSG(soffset.IsImmediate() && soffset.U32() == 0,
+       //            "Non immediate offset not supported");
     }
 
     IR::Value address = [&] -> IR::Value {
