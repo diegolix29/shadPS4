@@ -136,10 +136,9 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
     if (!IsRegionRegistered(device_addr, size)) {
         return;
     }
-    if (Config::readbacks() && memory_tracker->IsRegionGpuModified(device_addr, size)) {
-        ReadMemory(device_addr, size);
-    }
     memory_tracker->MarkRegionAsCpuModified(device_addr, size);
+    device_addr, size, Config::getReadbacksEnabled(),
+        [this, device_addr, size] { ReadMemory(device_addr, size); };
 }
 
 void BufferCache::ReadMemory(VAddr device_addr, u64 size) {
