@@ -221,17 +221,16 @@ struct PageManager::Impl {
         RENDERER_TRACE;
         auto* memory = Core::Memory::Instance();
         auto& impl = memory->GetAddressSpace();
-        ASSERT_MSG(perms != Core::MemoryPermission::Write,
-                   "Attempted to protect region as write-only which is not a valid permission");
+        // ASSERT(perms != Core::MemoryPermission::Write);
         impl.Protect(address, size, perms);
     }
 
     static bool GuestFaultSignalHandler(void* context, void* fault_address) {
         const auto addr = reinterpret_cast<VAddr>(fault_address);
         if (Common::IsWriteError(context)) {
-            return rasterizer->InvalidateMemory(addr, 8);
+            return rasterizer->InvalidateMemory(addr, 1);
         } else {
-            return rasterizer->ReadMemory(addr, 8);
+            return rasterizer->ReadMemory(addr, 1);
         }
         return false;
     }

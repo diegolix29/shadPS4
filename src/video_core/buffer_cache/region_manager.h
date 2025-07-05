@@ -7,7 +7,6 @@
 #include <utility>
 #include "common/config.h"
 #include "common/div_ceil.h"
-#include "common/logging/log.h"
 
 #ifdef __linux__
 #include "common/adaptive_mutex.h"
@@ -20,12 +19,6 @@
 #include "video_core/page_manager.h"
 
 namespace VideoCore {
-
-#ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
-using LockType = Common::AdaptiveMutex;
-#else
-using LockType = Common::SpinLock;
-#endif
 
 /**
  * Allows tracking CPU and GPU modification of pages in a contigious 16MB virtual address region.
@@ -88,6 +81,7 @@ public:
         if (start_page >= NUM_PAGES_PER_REGION || end_page <= start_page) {
             return;
         }
+        std::scoped_lock lk{lock};
 
         RegionBits& bits = GetRegionBits<type>();
         if constexpr (enable) {
@@ -122,9 +116,14 @@ public:
         if (start_page >= NUM_PAGES_PER_REGION || end_page <= start_page) {
             return;
         }
+        std::scoped_lock lk{lock};
 
         RegionBits& bits = GetRegionBits<type>();
         RegionBits mask(bits, start_page, end_page);
+
+        for (const auto& [start, end] : mask) {
+            func(cpu_addr + start * TRACKER_BYTES_PER_PAGE, (end - start) * TRACKER_BYTES_PER_PAGE);
+        }
 
         if constexpr (clear) {
             bits.UnsetRange(start_page, end_page);
@@ -135,10 +134,6 @@ public:
             } else {
                 UpdateProtection<false, true>();
             }
-        }
-
-        for (const auto& [start, end] : mask) {
-            func(cpu_addr + start * TRACKER_BYTES_PER_PAGE, (end - start) * TRACKER_BYTES_PER_PAGE);
         }
     }
 
@@ -157,13 +152,12 @@ public:
         if (start_page >= NUM_PAGES_PER_REGION || end_page <= start_page) {
             return false;
         }
+        std::scoped_lock lk{lock};
 
         const RegionBits& bits = GetRegionBits<type>();
         RegionBits test(bits, start_page, end_page);
         return test.Any();
     }
-
-    LockType lock;
 
 private:
     /**
@@ -190,6 +184,11 @@ private:
         tracker->UpdatePageWatchersForRegion<track, is_read>(cpu_addr, mask);
     }
 
+#ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
+    Common::AdaptiveMutex lock;
+#else
+    Common::SpinLock lock;
+#endif
     PageManager* tracker;
     VAddr cpu_addr = 0;
     RegionBits cpu;
