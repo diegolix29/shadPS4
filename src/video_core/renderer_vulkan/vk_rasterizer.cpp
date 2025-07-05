@@ -1296,8 +1296,8 @@ void Rasterizer::StartPredication(VAddr addr, bool draw_if_visible, bool wait_fo
         return;
     }
 
-   // ASSERT(!active_predication);
-   // ASSERT(occlusion_index_mapping.contains(addr));
+    // ASSERT(!active_predication);
+    // ASSERT(occlusion_index_mapping.contains(addr));
 
     auto index = occlusion_index_mapping[addr];
     LOG_DEBUG(Render_Vulkan,
