@@ -923,7 +923,6 @@ void load(const std::filesystem::path& path) {
         rcas_attenuation = toml::find_or<float>(gpu, "rcas_attenuation", 0.25f);
         isNullGpu = toml::find_or<bool>(gpu, "nullGpu", false);
         shouldCopyGPUBuffers = toml::find_or<bool>(gpu, "copyGPUBuffers", false);
-        readbacksEnabled = toml::find_or<bool>(gpu, "readbacks", false);
         directMemoryAccessEnabled = toml::find_or<bool>(gpu, "directMemoryAccess", false);
         shouldDumpShaders = toml::find_or<bool>(gpu, "dumpShaders", false);
         shouldPatchShaders = toml::find_or<bool>(gpu, "patchShaders", true);
@@ -937,7 +936,6 @@ void load(const std::filesystem::path& path) {
         memoryAlloc = toml::find_or<bool>(gpu, "memoryAlloc", "medium");
         isNullGpu = toml::find_or<bool>(gpu, "nullGpu", isNullGpu);
         shouldCopyGPUBuffers = toml::find_or<bool>(gpu, "copyGPUBuffers", shouldCopyGPUBuffers);
-        readbacksEnabled = toml::find_or<bool>(gpu, "readbacks", readbacksEnabled);
         directMemoryAccessEnabled =
             toml::find_or<bool>(gpu, "directMemoryAccess", directMemoryAccessEnabled);
         shouldDumpShaders = toml::find_or<bool>(gpu, "dumpShaders", shouldDumpShaders);
@@ -1145,7 +1143,6 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["rcas_attenuation"] = rcas_attenuation;
     data["GPU"]["nullGpu"] = isNullGpu;
     data["GPU"]["copyGPUBuffers"] = shouldCopyGPUBuffers;
-    data["GPU"]["readbacks"] = readbacksEnabled;
     data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled;
     data["GPU"]["dumpShaders"] = shouldDumpShaders;
     data["GPU"]["patchShaders"] = shouldPatchShaders;
@@ -1284,10 +1281,6 @@ void setDefaultValues() {
     logFilter = "";
     logType = "sync";
     userName = "shadPS4";
-    readbacksEnabled = false;
-    fastreadbacksEnabled = false;
-    shaderSkipsEnabled = false;
-    directMemoryAccessEnabled = false;
     memoryAlloc = "medium";
     chooseHomeTab = "General";
     isShowSplash = false;
@@ -1319,6 +1312,8 @@ void setDefaultValues() {
     isNullGpu = false;
     shouldCopyGPUBuffers = false;
     readbacksEnabled = false;
+    fastreadbacksEnabled = false;
+    shaderSkipsEnabled = false;
     directMemoryAccessEnabled = false;
     shouldDumpShaders = false;
     shouldPatchShaders = false;
