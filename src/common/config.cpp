@@ -40,17 +40,11 @@ static bool isTrophyPopupDisabled = false;
 static double trophyNotificationDuration = 6.0;
 static int BGMvolume = 50;
 static bool enableDiscordRPC = false;
-static u32 screenWidth = 1280;
-static u32 screenHeight = 720;
-static s32 gpuId = -1; // Vulkan physical device index. Set to negative for auto select
-static std::string logFilter;
 static float rcas_attenuation = 0.25f;
 static std::string logFilter = "";
 static std::string logType = "sync";
 static std::string userName = "shadPS4";
 static std::string chooseHomeTab = "General";
-static bool isShowSplash = false;
-static std::string isSideTrophy = "right";
 static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
 
@@ -69,8 +63,6 @@ static int controllerCustomColorRGB[3] = {0, 0, 255};
 // GPU
 static u32 screenWidth = 1280;
 static u32 screenHeight = 720;
-static bool isDebugDump = false;
-static bool isShaderDebug = false;
 static bool isShowSplash = false;
 static bool isAutoUpdate = false;
 static bool isAlwaysShowChangelog = false;
@@ -81,9 +73,7 @@ static bool directMemoryAccessEnabled = false;
 static bool shouldDumpShaders = false;
 static bool shouldPatchShaders = false;
 static u32 vblankDivider = 1;
-static bool isFullscreen = false;
-static std::string fullscreenMode = "Windowed";
-static bool isHDRAllowed = false;
+static bool fpsColorState = false;
 
 // Vulkan
 static s32 gpuId = -1;
@@ -99,16 +89,6 @@ static bool rdocEnable = false;
 static bool isDebugDump = false;
 static bool isShaderDebug = false;
 static bool isSeparateLogFilesEnabled = false;
-static int cursorState = HideCursorState::Idle;
-static int cursorHideTimeout = 5; // 5 seconds (default)
-static double trophyNotificationDuration = 6.0;
-static bool useUnifiedInputConfig = true;
-static bool overrideControllerColor = false;
-static int controllerCustomColorRGB[3] = {0, 0, 255};
-static bool compatibilityData = false;
-static bool checkCompatibilityOnStartup = false;
-static std::string trophyKey;
-static bool isPSNSignedIn = false;
 static bool readbacksEnabled = false;
 static bool fastreadbacksEnabled = false;
 static bool shaderSkipsEnabled = false;
@@ -144,6 +124,7 @@ static std::string fullscreenMode = "Windowed";
 static bool isHDRAllowed = false;
 static bool enableAutoBackup = false;
 static bool showLabelsUnderIcons = true;
+static std::string updateChannel;
 
 // Settings
 u32 m_language = 1; // english
@@ -368,7 +349,7 @@ bool isRdocEnabled() {
 }
 
 bool fpsColor() {
-    return isFpsColor;
+    return fpsColorState;
 }
 
 u32 vblankDiv() {
@@ -427,6 +408,9 @@ int getAudioVolume() {
     return audioVolume;
 }
 
+void setfpsColor(bool enable) {
+    fpsColorState = enable;
+}
 void setGpuId(s32 selectedGpuId) {
     gpuId = selectedGpuId;
 }
@@ -988,7 +972,7 @@ void load(const std::filesystem::path& path) {
         isSeparateLogFilesEnabled =
             toml::find_or<bool>(debug, "isSeparateLogFilesEnabled", isSeparateLogFilesEnabled);
         isShaderDebug = toml::find_or<bool>(debug, "CollectShader", isShaderDebug);
-        isFpsColor = toml::find_or<bool>(debug, "FPSColor", isFpsColor);
+        setfpsColor(toml::find_or<bool>(debug, "FPSColor", fpsColor()));
 
         entry_count += debug.size();
     }
@@ -1187,7 +1171,7 @@ void save(const std::filesystem::path& path) {
     data["Debug"]["DebugDump"] = isDebugDump;
     data["Debug"]["CollectShader"] = isShaderDebug;
     data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled;
-    data["Debug"]["FPSColor"] = isFpsColor;
+    data["Debug"]["FPSColor"] = fpsColor;
     data["Keys"]["TrophyKey"] = trophyKey;
 
     std::vector<std::string> install_dirs;
@@ -1357,7 +1341,7 @@ void setDefaultValues() {
     isDebugDump = false;
     isShaderDebug = false;
     isSeparateLogFilesEnabled = false;
-    isFpsColor = true;
+    setfpsColor(true);
 
     // GUI
     load_game_size = true;

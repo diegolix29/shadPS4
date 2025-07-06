@@ -123,7 +123,7 @@ int getSpecialPadClass();
 bool getPSNSignedIn();
 void setPSNSignedIn(bool sign); // no ui setting
 bool patchShaders();            // no set
-bool fpsColor();                // no set
+void setfpsColor(bool enable);
 bool isNeoModeConsole();
 void setNeoMode(bool enable);  // no ui setting
 bool isDevKitConsole();        // no set
