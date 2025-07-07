@@ -2289,7 +2289,7 @@
 			</item>
 
 			<item>
-				<widget class="QLabel" name="label_21">
+				<widget class="QLabel" name="label_211">
 					<property name="font">
 						<font>
 							<pointsize>11</pointsize>
