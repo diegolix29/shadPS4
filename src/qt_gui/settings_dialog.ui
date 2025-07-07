@@ -2164,7 +2164,7 @@
 			<item>
 				<widget class="QCheckBox" name="SkipsCheckBox">
 					<property name="text">
-						<string>Enable Shader Skips (for EldenRing - FireFades DS3 - Driveclub)</string>
+						<string>Enable Shader Skips (for Driveclub)</string>
 					</property>
 				</widget>
 			</item>
@@ -2186,9 +2186,7 @@
 						<string notr="true">
 							<![CDATA[
         <b>Hint:</b><br/>
-        Helps Elden Ring to not crash in open world<br/>
-        FireFades to not crash on killing enemies<br/>
-		And Driveclub Slowdowns and Shadows.
+        Helps Driveclub Slowdowns and Shadows.<br/>		
         ]]>
 						</string>
 					</property>
