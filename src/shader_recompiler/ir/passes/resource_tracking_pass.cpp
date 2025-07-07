@@ -413,8 +413,6 @@ void PatchBufferSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors&
         });
     }
 
-
-
     // Replace handle with binding index in buffer resource list.
     IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
     inst.SetArg(0, ir.Imm32(binding));
