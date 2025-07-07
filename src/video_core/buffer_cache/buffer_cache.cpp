@@ -142,14 +142,14 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
     memory_tracker->MarkRegionAsCpuModified(device_addr, size);
 }
 
-void BufferCache::ReadMemory(VAddr device_addr, u64 size) {
-    liverpool->SendCommand<true>([this, device_addr, size] {
+void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
+    liverpool->SendCommand<true>([this, device_addr, size, is_write] {
         Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
-        DownloadBufferMemory(buffer, device_addr, size);
+        DownloadBufferMemory(buffer, device_addr, size, is_write);
     });
 }
 
-void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size) {
+void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size, bool is_write) {
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;
     memory_tracker->ForEachDownloadRange<false>(

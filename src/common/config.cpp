@@ -73,7 +73,6 @@ static u32 internalScreenWidth = 1280;
 static u32 internalScreenHeight = 720;
 static bool isNullGpu = false;
 static bool shouldCopyGPUBuffers = false;
-static bool readbacksEnabled = false;
 static bool readbackLinearImagesEnabled = false;
 static bool directMemoryAccessEnabled = false;
 static bool shouldDumpShaders = false;
@@ -346,7 +345,11 @@ void setReadbacksEnabled(bool enable) {
     readbacksEnabled = enable;
 }
 
-bool readbackLinearImages() {
+bool setReadbackLinearImages(bool enable) {
+    return readbackLinearImagesEnabled = enable;
+}
+
+bool getReadbackLinearImages() {
     return readbackLinearImagesEnabled;
 }
 

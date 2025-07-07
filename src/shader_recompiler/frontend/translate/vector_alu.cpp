@@ -570,7 +570,7 @@ void Translator::V_MBCNT_U32_B32(bool is_low, const GcnInst& inst) {
              inst.src[1].field == OperandField::VectorGPR)) {
             return SetDst(inst.dst[0], GetSrc(inst.src[1]));
         }
-        UNREACHABLE();
+        //UNREACHABLE();
     } else {
         // v_mbcnt_lo_u32_b32 vY, -1, vX
         // used combined with above to fetch lane id in non-compute stages
@@ -582,7 +582,7 @@ void Translator::V_MBCNT_U32_B32(bool is_low, const GcnInst& inst) {
         if (inst.src[0].field == OperandField::ExecLo || inst.src[0].field == OperandField::VccLo) {
             return SetDst(inst.dst[0], GetSrc(inst.src[1]));
         }
-        UNREACHABLE();
+       // UNREACHABLE();
     }
 }
 void Translator::V_ADD_I32(const GcnInst& inst) {

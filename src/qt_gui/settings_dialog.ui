@@ -2253,7 +2253,7 @@
 			<item>
 			<widget class="QCheckBox" name="FastReadbacksCheckBox">
 			  <property name="text">
-				 <string>Fast Readbacks for BloodBorne (No Vertex Explosions)</string>
+				 <string>Fast Readbacks for BloodBorne - DS3 - Elden Ring (No Vertex Explosions)</string>
 			  </property>
 		    </widget>
 		  </item>
@@ -2270,7 +2270,7 @@
 						<string notr="true">
 							<![CDATA[
         <b>Hint:</b><br/>
-        Faster Readbacks for Bloodborne and Dark Souls 3<br/>
+        Faster Readbacks for Bloodborne - Dark Souls 3 - Elden Ring<br/>
         No vertex Explosions<br/>
         Need Readbacks to be Enabled.
         ]]>
@@ -2279,7 +2279,35 @@
 				</widget>
 			</item>
 
-          <item>
+			<item>
+				<widget class="QCheckBox" name="ReadbacksLinearCheckBox">
+					<property name="text">
+						<string>LinearImage Readbacks</string>
+					</property>
+				</widget>
+			</item>
+
+			<item>
+				<widget class="QLabel" name="label_21">
+					<property name="font">
+						<font>
+							<pointsize>11</pointsize>
+							<bold>true</bold>
+						</font>
+					</property>
+					<property name="text">
+						<string notr="true">
+							<![CDATA[
+        <b>Hint:</b><br/>
+        Linear Readbacks for Postprocessing, helps TLG<br/>
+        Disable if encounter issues<br/>       
+        ]]>
+						</string>
+					</property>
+				</widget>
+			</item>
+
+			<item>
             <widget class="QGroupBox" name="groupBox_2">
               <property name="title">
                 <string>Memory Allocation</string>
