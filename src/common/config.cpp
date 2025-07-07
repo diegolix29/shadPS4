@@ -67,8 +67,14 @@ static bool isShowSplash = false;
 static bool isAutoUpdate = false;
 static bool isAlwaysShowChangelog = false;
 static std::string isSideTrophy = "right";
+static u32 windowWidth = 1280;
+static u32 windowHeight = 720;
+static u32 internalScreenWidth = 1280;
+static u32 internalScreenHeight = 720;
 static bool isNullGpu = false;
 static bool shouldCopyGPUBuffers = false;
+static bool readbacksEnabled = false;
+static bool readbackLinearImagesEnabled = false;
 static bool directMemoryAccessEnabled = false;
 static bool shouldDumpShaders = false;
 static bool shouldPatchShaders = false;
@@ -133,7 +139,7 @@ u32 m_language = 1; // english
 static std::string trophyKey = "";
 
 // Expected number of items in the config file
-static constexpr u64 total_entries = 51;
+static constexpr u64 total_entries = 54;
 
 bool allowHDR() {
     return isHDRAllowed;
@@ -244,12 +250,20 @@ double getTrophyNotificationDuration() {
     return trophyNotificationDuration;
 }
 
-u32 getScreenWidth() {
-    return screenWidth;
+u32 getWindowWidth() {
+    return windowWidth;
 }
 
-u32 getScreenHeight() {
-    return screenHeight;
+u32 getWindowHeight() {
+    return windowHeight;
+}
+
+u32 getInternalScreenWidth() {
+    return internalScreenHeight;
+}
+
+u32 getInternalScreenHeight() {
+    return internalScreenHeight;
 }
 
 s32 getGpuId() {
@@ -330,6 +344,10 @@ bool copyGPUCmdBuffers() {
 
 void setReadbacksEnabled(bool enable) {
     readbacksEnabled = enable;
+}
+
+bool readbackLinearImages() {
+    return readbackLinearImagesEnabled;
 }
 
 bool directMemoryAccess() {
@@ -415,12 +433,20 @@ void setGpuId(s32 selectedGpuId) {
     gpuId = selectedGpuId;
 }
 
-void setScreenWidth(u32 width) {
-    screenWidth = width;
+void setWindowWidth(u32 width) {
+    windowWidth = width;
 }
 
-void setScreenHeight(u32 height) {
-    screenHeight = height;
+void setWindowHeight(u32 height) {
+    windowHeight = height;
+}
+
+void setInternalScreenWidth(u32 width) {
+    internalScreenWidth = width;
+}
+
+void setInternalScreenHeight(u32 height) {
+    internalScreenHeight = height;
 }
 
 void setDebugDump(bool enable) {
@@ -529,6 +555,7 @@ void setCursorState(s16 newCursorState) {
 void setCursorHideTimeout(int newcursorHideTimeout) {
     cursorHideTimeout = newcursorHideTimeout;
 }
+
 void setTrophyNotificationDuration(double newTrophyNotificationDuration) {
     trophyNotificationDuration = newTrophyNotificationDuration;
 }
@@ -934,8 +961,16 @@ void load(const std::filesystem::path& path) {
         fastreadbacksEnabled = toml::find_or<bool>(gpu, "fastreadbacksEnabled", false);
         shaderSkipsEnabled = toml::find_or<bool>(gpu, "shaderSkipsEnabled", true);
         memoryAlloc = toml::find_or<bool>(gpu, "memoryAlloc", "medium");
+        windowWidth = toml::find_or<int>(gpu, "screenWidth", windowWidth);
+        windowHeight = toml::find_or<int>(gpu, "screenHeight", windowHeight);
+        internalScreenWidth = toml::find_or<int>(gpu, "internalScreenWidth", internalScreenWidth);
+        internalScreenHeight =
+            toml::find_or<int>(gpu, "internalScreenHeight", internalScreenHeight);
         isNullGpu = toml::find_or<bool>(gpu, "nullGpu", isNullGpu);
         shouldCopyGPUBuffers = toml::find_or<bool>(gpu, "copyGPUBuffers", shouldCopyGPUBuffers);
+        readbacksEnabled = toml::find_or<bool>(gpu, "readbacks", readbacksEnabled);
+        readbackLinearImagesEnabled =
+            toml::find_or<bool>(gpu, "readbackLinearImages", readbackLinearImagesEnabled);
         directMemoryAccessEnabled =
             toml::find_or<bool>(gpu, "directMemoryAccess", directMemoryAccessEnabled);
         shouldDumpShaders = toml::find_or<bool>(gpu, "dumpShaders", shouldDumpShaders);
@@ -1141,8 +1176,14 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["screenWidth"] = screenWidth;
     data["GPU"]["screenHeight"] = screenHeight;
     data["GPU"]["rcas_attenuation"] = rcas_attenuation;
+    data["GPU"]["screenWidth"] = windowWidth;
+    data["GPU"]["screenHeight"] = windowHeight;
+    data["GPU"]["internalScreenWidth"] = internalScreenWidth;
+    data["GPU"]["internalScreenHeight"] = internalScreenHeight;
     data["GPU"]["nullGpu"] = isNullGpu;
     data["GPU"]["copyGPUBuffers"] = shouldCopyGPUBuffers;
+    data["GPU"]["readbacks"] = readbacksEnabled;
+    data["GPU"]["readbackLinearImages"] = readbackLinearImagesEnabled;
     data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled;
     data["GPU"]["dumpShaders"] = shouldDumpShaders;
     data["GPU"]["patchShaders"] = shouldPatchShaders;
@@ -1309,11 +1350,16 @@ void setDefaultValues() {
     isAutoUpdate = false;
     isAlwaysShowChangelog = false;
     isSideTrophy = "right";
+    windowWidth = 1280;
+    windowHeight = 720;
+    internalScreenWidth = 1280;
+    internalScreenHeight = 720;
     isNullGpu = false;
     shouldCopyGPUBuffers = false;
     readbacksEnabled = false;
     fastreadbacksEnabled = false;
     shaderSkipsEnabled = false;
+    readbackLinearImagesEnabled = false;
     directMemoryAccessEnabled = false;
     shouldDumpShaders = false;
     shouldPatchShaders = false;
