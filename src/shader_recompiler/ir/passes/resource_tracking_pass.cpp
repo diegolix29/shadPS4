@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/config.h"
 #include "shader_recompiler/info.h"
 #include "shader_recompiler/ir/basic_block.h"
 #include "shader_recompiler/ir/breadth_first_search.h"
@@ -393,16 +394,26 @@ void PatchBufferSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors&
         SharpLocation sharp;
         std::tie(sharp, buffer) = TrackSharp<AmdGpu::Buffer>(producer, info);
         const bool is_written = IsBufferStore(inst);
+
+        bool is_read; // Declare here
+        if (Config::getShaderSkipsEnabled()) {
+            is_read = !IsBufferStore(inst);
+        } else {
+            is_read = IsBufferAtomic(inst);
+        }
+
         binding = descriptors.Add(BufferResource{
             .sharp_idx = sharp,
             .used_types = BufferDataType(inst, buffer.GetNumberFmt()),
             .buffer_type = BufferType::Guest,
             .is_written = is_written,
-            .is_read = !is_written,
+            .is_read = is_read,
             .is_formatted = inst.GetOpcode() == IR::Opcode::LoadBufferFormatF32 ||
                             inst.GetOpcode() == IR::Opcode::StoreBufferFormatF32,
         });
     }
+
+
 
     // Replace handle with binding index in buffer resource list.
     IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
