@@ -71,7 +71,7 @@ public:
                     // modified. If we need to flush the flush function is going to perform CPU
                     // state change.
                     std::scoped_lock lk{manager->lock};
-                    if (Config::readbacks() &&
+                    if (Config::getReadbacksEnabled() &&
                         manager->template IsRegionModified<Type::GPU>(offset, size)) {
                         return true;
                     }
