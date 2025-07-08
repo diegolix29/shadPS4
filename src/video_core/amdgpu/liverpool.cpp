@@ -236,14 +236,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
 
         switch (type) {
         default:
-            UNREACHABLE_MSG("Wrong PM4 type {}", type);
+           // UNREACHABLE_MSG("Wrong PM4 type {}", type);
             break;
         case 0:
-            LOG_ERROR(Lib_GnmDriver, "Continue hack Unsupported PM4 type 0");
-            dcb = NextPacket(dcb, header->type0.NumWords() + 1);
-            continue;
-        case 1:
-            UNREACHABLE_MSG("Unsupported PM4 type {}", type);
+            //UNREACHABLE_MSG("Unimplemented PM4 type 0, base reg: {}, size: {}",
+                            header->type0.base.Value(), header->type0.NumWords());
             break;
         case 2:
             // Type-2 packet are used for padding purposes
