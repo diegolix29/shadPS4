@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <QProcess>
+#include <signal.h>
 
 #include "SDL3/SDL_events.h"
 
