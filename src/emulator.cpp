@@ -1,9 +1,12 @@
+
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <filesystem>
 #include <set>
 #include <fmt/core.h>
+#include "SDL3/SDL_events.h"
+
 #include "common/config.h"
 #include "common/debug.h"
 #include "common/logging/backend.h"
@@ -70,6 +73,12 @@ Emulator::~Emulator() {
 }
 
 void Emulator::Run(std::filesystem::path file, const std::vector<std::string> args) {
+    if (is_running) {
+        LOG_ERROR(Loader, "Emulator is already running!");
+        return;
+    }
+
+    is_running = true;
     if (std::filesystem::is_directory(file)) {
         file /= "eboot.bin";
     }
@@ -325,9 +334,20 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
     linker->Execute(args);
 
     window->InitTimers();
-    while (window->IsOpen()) {
+
+    // Main loop
+    while (window->IsOpen() && is_running) {
         window->WaitEvent();
     }
+
+    // Cleanup before exit
+    window.reset();
+    g_window = nullptr;
+
+    // Mark stopped
+    is_running = false;
+
+    LOG_INFO(Loader, "Emulator stopped normally.");
 
 #ifdef ENABLE_QT_GUI
     UpdatePlayTime(id);
@@ -351,33 +371,51 @@ Emulator& Emulator::GetInstance() {
 }
 
 void Emulator::StopEmulation() {
-    if (!is_running)
-        return;
-
-    is_running = false;
-    qDebug() << "Stopping emulator...";
-}
-
-void Emulator::Restart() {
     if (!is_running) {
-        LOG_INFO(Loader, "Emulator is not running. Starting normally...");
+        return;
+    }
+    is_running = false;
+
+    // Push an SDL quit event to signal the window to close:
+    if (window) {
+        SDL_Event quitEvent;
+        quitEvent.type = SDL_EVENT_QUIT + 1;
+        SDL_PushEvent(&quitEvent);
+    }
+
+    LOG_INFO(Loader, "StopEmulation called.");
+}
+#endif
+void Emulator::Restart() {
+#ifdef ENABLE_QT_GUI
+    if (!is_running) {
+        LOG_INFO(Loader, "Emulator is not running. Skipping restart.");
         return;
     }
 
     LOG_INFO(Loader, "Restarting the emulator...");
 
-    // Stop current emulator session
-    StopEmulation();
-
-    // Wait a moment before restarting
-    QThread::sleep(2);
-
-    // Retrieve last known EBOOT path
-    QString lastEbootPath = getLastEbootPath();
-    if (lastEbootPath.isEmpty()) {
-        LOG_ERROR(Loader, "No previous EBOOT path found! Cannot restart.");
+    // Save current game path
+    const QString path = getLastEbootPath();
+    if (path.isEmpty()) {
+        LOG_ERROR(Loader, "No EBOOT path available to restart.");
         return;
     }
+
+    is_running = false; // Mark emulator as stopped
+
+    // Get current executable path
+    const QString exePath = QCoreApplication::applicationFilePath();
+
+    // Start a new detached process with the same executable and game path as argument
+    const bool success = QProcess::startDetached(exePath, QStringList() << path);
+
+    if (!success) {
+        LOG_ERROR(Loader, "Failed to restart emulator via startDetached.");
+        return;
+    }
+
+    LOG_INFO(Loader, "New emulator process started. Exiting current one...");
 #endif
     // Relaunch emulator with last game
 #ifdef Q_OS_WIN
@@ -385,15 +423,15 @@ void Emulator::Restart() {
         QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/shadps4.exe";
     QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
 #elif defined(Q_OS_LINUX)
-QString emulatorPath =
-    QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/Shadps4-qt.AppImage";
-QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
+    QString emulatorPath =
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/Shadps4-qt.AppImage";
+    QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
 #elif defined(Q_OS_MAC)
-QString emulatorPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
-                       "/shadps4.app/Contents/MacOS/shadps4";
-QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
+    QString emulatorPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
+                           "/shadps4.app/Contents/MacOS/shadps4";
+    QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
 
-is_running = true;
+    is_running = true;
 
 #endif
 } // namespace Core

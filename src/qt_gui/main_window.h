@@ -42,6 +42,8 @@ public:
     void StopGame();
     void RestartGame();
     std::unique_ptr<Core::Emulator> emulator;
+    bool pendingRestart = false;
+    qint64 detachedGamePid = -1;
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();

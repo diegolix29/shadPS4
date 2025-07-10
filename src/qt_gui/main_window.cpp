@@ -873,18 +873,12 @@ void MainWindow::StartGame() {
             gamePath = m_elf_viewer->m_elf_list[itemID];
         }
     }
-    if (gamePath != "") {
-        AddRecentFiles(gamePath);
-        const auto path = Common::FS::PathFromQString(gamePath);
-        if (!std::filesystem::exists(path)) {
-            QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Eboot.bin file not found")));
-            return;
-        }
-        StartEmulator(path);
 
-        UpdateToolbarButtons();
+    if (!gamePath.isEmpty()) {
+        StartGameWithPath(gamePath);
     }
 }
+
 
 void MainWindow::StartGameWithPath(const QString& gamePath) {
     if (gamePath.isEmpty()) {
@@ -893,15 +887,30 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
     }
 
     AddRecentFiles(gamePath);
+
     const auto path = Common::FS::PathFromQString(gamePath);
     if (!std::filesystem::exists(path)) {
         QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
         return;
     }
-    StartEmulator(path);
+
+    // Start emulator detached
+    QString exePath = QCoreApplication::applicationFilePath();
+    bool started =
+        QProcess::startDetached(exePath, QStringList() << gamePath, QString(), &detachedGamePid);
+    if (!started) {
+        QMessageBox::critical(this, tr("Run Game"), tr("Failed to start emulator."));
+        return;
+    }
+
+    lastGamePath = gamePath;
+    isGameRunning = true;
 
     UpdateToolbarButtons();
 }
+
+
+
 
 bool isTable;
 void MainWindow::SearchGameTable(const QString& text) {
@@ -1273,20 +1282,23 @@ void MainWindow::StopGame() {
         return;
     }
 
-    // Get the emulator instance and stop it
-    Core::Emulator& emulator = Core::Emulator::GetInstance(); // Use the correct instance method
-    emulator.StopEmulation();
+#ifdef Q_OS_WIN
+    QProcess::execute("taskkill", {"/PID", QString::number(detachedGamePid), "/F", "/T"});
+#else
+    ::kill(detachedGamePid, SIGKILL);
+#endif
 
+    detachedGamePid = -1;
     isGameRunning = false;
-    QMessageBox::information(this, tr("Stop Game"), tr("Game has been stopped successfully."));
 
-    SDL_Event quitEvent;
-    quitEvent.type = SDL_EVENT_QUIT + 1;
-    SDL_PushEvent(&quitEvent);
+    QMessageBox::information(this, tr("Stop Game"), tr("Game has been stopped successfully."));
+    UpdateToolbarButtons();
 }
 
+
+
 void MainWindow::RestartGame() {
-    if (!emulator || !emulator->is_running) {
+    if (!isGameRunning) {
         QMessageBox::warning(this, tr("Restart Game"), tr("No game is running to restart."));
         return;
     }
@@ -1296,14 +1308,29 @@ void MainWindow::RestartGame() {
         return;
     }
 
-    StopGame();
+    const QString exePath = QCoreApplication::applicationFilePath();
 
-    while (emulator->is_running) {
-        QCoreApplication::processEvents();
-        QThread::msleep(100);
+    // Kill detached process if needed:
+#ifdef Q_OS_WIN
+    if (detachedGamePid > 0) {
+        QProcess::execute("taskkill", {"/PID", QString::number(detachedGamePid), "/F", "/T"});
+        detachedGamePid = -1;
+    }
+#else
+    if (detachedGamePid > 0) {
+        ::kill(detachedGamePid, SIGKILL);
+        detachedGamePid = -1;
+    }
+#endif
+
+    // Start new detached process
+    bool started = QProcess::startDetached(exePath, QStringList() << lastGamePath);
+    if (!started) {
+        QMessageBox::critical(this, tr("Restart Game"), tr("Failed to restart emulator."));
+        return;
     }
 
-    lastGamePath.replace("\\", "/"); // fix any Windows-style backslashes
-    StartGameWithPath(lastGamePath);
 }
+
+
 #endif
