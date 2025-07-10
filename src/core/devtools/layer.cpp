@@ -362,9 +362,6 @@ void L::Draw() {
     const auto io = GetIO();
     PushID("DevtoolsLayer");
     if (IsKeyPressed(ImGuiKey_F4, false)) {
-        Emulator& emulator = Emulator::GetInstance();
-        emulator.StopEmulation();
-
         SDL_Event quitEvent;
         quitEvent.type = SDL_EVENT_QUIT + 1;
         SDL_PushEvent(&quitEvent);
