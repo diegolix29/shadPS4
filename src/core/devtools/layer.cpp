@@ -4,8 +4,6 @@
 #include "layer.h"
 
 #include <imgui.h>
-#include <emulator.h>
-#include "SDL3/SDL_events.h"
 
 #include "SDL3/SDL_log.h"
 #include "common/config.h"
@@ -21,8 +19,6 @@
 #include "widget/memory_map.h"
 #include "widget/module_list.h"
 #include "widget/shader_list.h"
-
-
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
 

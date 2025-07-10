@@ -871,7 +871,6 @@ void MainWindow::StartGame() {
     }
 }
 
-
 void MainWindow::StartGameWithPath(const QString& gamePath) {
     if (gamePath.isEmpty()) {
         QMessageBox::warning(this, tr("Run Game"), tr("No game path provided."));
@@ -900,9 +899,6 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
 
     UpdateToolbarButtons();
 }
-
-
-
 
 bool isTable;
 void MainWindow::SearchGameTable(const QString& text) {
