@@ -4,6 +4,8 @@
 #include "layer.h"
 
 #include <imgui.h>
+#include <emulator.h>
+#include "SDL3/SDL_events.h"
 
 #include "SDL3/SDL_log.h"
 #include "common/config.h"
@@ -19,6 +21,8 @@
 #include "widget/memory_map.h"
 #include "widget/module_list.h"
 #include "widget/shader_list.h"
+
+
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
 
@@ -359,6 +363,14 @@ void L::SetupSettings() {
 void L::Draw() {
     const auto io = GetIO();
     PushID("DevtoolsLayer");
+    if (IsKeyPressed(ImGuiKey_F4, false)) {
+        Emulator& emulator = Emulator::GetInstance();
+        emulator.StopEmulation();
+
+        SDL_Event quitEvent;
+        quitEvent.type = SDL_EVENT_QUIT + 1;
+        SDL_PushEvent(&quitEvent);
+    }
 
     if (!DebugState.IsGuestThreadsPaused()) {
         const auto fn = DebugState.flip_frame_count.load();

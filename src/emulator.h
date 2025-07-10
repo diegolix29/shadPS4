@@ -25,16 +25,25 @@ public:
     Emulator();
     ~Emulator();
 
-    void Run(std::filesystem::path file, const std::vector<std::string> args = {});
-    void UpdatePlayTime(const std::string& serial);
+    void Run(std::filesystem::path file, const std::vector<std::string> args);
+    void StopEmulation();
+    void UpdatePlayTime(const std::string& serial) const;
+    static Emulator& GetInstance();
+    void Restart();
+    std::atomic<bool> is_running{false};
 
 private:
     void LoadSystemModules(const std::string& game_serial);
-
+    Common::ElfInfo game_info;
+    std::unique_ptr<Frontend::WindowSDL> window = nullptr;
+#ifdef ENABLE_QT_GUI
+    QString lastEbootPath;
+    void saveLastEbootPath(const QString& path);
+    QString getLastEbootPath() const;
+#endif
     Core::MemoryManager* memory;
     Input::GameController* controller;
     Core::Linker* linker;
-    std::unique_ptr<Frontend::WindowSDL> window;
     std::chrono::steady_clock::time_point start_time;
 };
 
