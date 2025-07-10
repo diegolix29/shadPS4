@@ -432,9 +432,8 @@ void Emulator::Restart() {
     QProcess::startDetached(emulatorPath, QStringList() << lastEbootPath);
 
     is_running = true;
-
 #endif
-} // namespace Core
+} 
 
 void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
     constexpr std::array<SysModules, 10> ModulesToLoad{
@@ -550,5 +549,6 @@ void Core::Emulator::UpdatePlayTime(const std::string& serial) const {
     }
     LOG_INFO(Loader, "Playing time for {}: {}", serial, playTimeSaved.toStdString());
 }
-}
+
 #endif
+} // namespace Core
