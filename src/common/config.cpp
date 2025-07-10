@@ -960,7 +960,6 @@ void load(const std::filesystem::path& path) {
         isFullscreen = toml::find_or<bool>(gpu, "Fullscreen", false);
         fullscreenMode = toml::find_or<std::string>(gpu, "FullscreenMode", "Windowed");
         isHDRAllowed = toml::find_or<bool>(gpu, "allowHDR", false);
-        readbacksEnabled = toml::find_or<bool>(gpu, "readbacksEnabled", false);
         fastreadbacksEnabled = toml::find_or<bool>(gpu, "fastreadbacksEnabled", false);
         shaderSkipsEnabled = toml::find_or<bool>(gpu, "shaderSkipsEnabled", true);
         memoryAlloc = toml::find_or<bool>(gpu, "memoryAlloc", "medium");
@@ -1195,7 +1194,6 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["FullscreenMode"] = fullscreenMode;
     data["GPU"]["allowHDR"] = isHDRAllowed;
     data["General"]["enableAutoBackup"] = enableAutoBackup;
-    data["GPU"]["readbacksEnabled"] = readbacksEnabled;
     data["GPU"]["fastreadbacksEnabled"] = fastreadbacksEnabled;
     data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled;
     data["GPU"]["memoryAlloc"] = memoryAlloc;

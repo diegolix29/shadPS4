@@ -456,7 +456,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->enableAutoBackupCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "enableAutoBackup", false));
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
-    ui->ReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacksEnabled", false));
+    ui->ReadbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacks", false));
     ui->ReadbacksLinearCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "readbackLinearImages", false));
     ui->DMACheckBox->setChecked(toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
