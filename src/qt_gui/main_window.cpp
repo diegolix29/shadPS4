@@ -398,7 +398,9 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->playButton, &QPushButton::clicked, this, &MainWindow::StartGame);
+    connect(ui->stopButton, &QPushButton::clicked, this, &MainWindow::StopGame);
     connect(ui->pauseButton, &QPushButton::clicked, this, &MainWindow::PauseGame);
+    connect(ui->restartButton, &QPushButton::clicked, this, &MainWindow::RestartGame);
     connect(m_game_grid_frame.get(), &QTableWidget::cellDoubleClicked, this,
             &MainWindow::StartGame);
     connect(m_game_list_frame.get(), &QTableWidget::cellDoubleClicked, this,
@@ -1235,19 +1237,20 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
 }
 
 void MainWindow::StartEmulator(std::filesystem::path path) {
-    if (isGameRunning) {
-        QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Game is already running!")));
-        return;
-    }
+    // Normalize path slashes for display only:
+    QString normalizedPath = QString::fromStdString(path.string()).replace("\\", "/");
+    lastGamePath = normalizedPath;
     isGameRunning = true;
+
+    emulator = std::make_unique<Core::Emulator>();
+
 #ifdef __APPLE__
-    // SDL on macOS requires main thread.
     Core::Emulator emulator;
-    emulator.Run(path);
+    emulator.Run(path, {});
 #else
-    std::thread emulator_thread([=] {
-        Core::Emulator emulator;
-        emulator.Run(path);
+    std::thread emulator_thread([this, path]() {
+        emulator->Run(path, {});
+        isGameRunning = false;
     });
     emulator_thread.detach();
 #endif
@@ -1274,8 +1277,6 @@ void MainWindow::StopGame() {
     UpdateToolbarButtons();
 }
 
-
-
 void MainWindow::RestartGame() {
     if (!isGameRunning) {
         QMessageBox::warning(this, tr("Restart Game"), tr("No game is running to restart."));
@@ -1287,29 +1288,29 @@ void MainWindow::RestartGame() {
         return;
     }
 
-    const QString exePath = QCoreApplication::applicationFilePath();
-
-    // Kill detached process if needed:
 #ifdef Q_OS_WIN
     if (detachedGamePid > 0) {
         QProcess::execute("taskkill", {"/PID", QString::number(detachedGamePid), "/F", "/T"});
-        detachedGamePid = -1;
     }
 #else
     if (detachedGamePid > 0) {
         ::kill(detachedGamePid, SIGKILL);
-        detachedGamePid = -1;
     }
 #endif
 
-    // Start new detached process
-    bool started = QProcess::startDetached(exePath, QStringList() << lastGamePath);
-    if (!started) {
-        QMessageBox::critical(this, tr("Restart Game"), tr("Failed to restart emulator."));
-        return;
+    detachedGamePid = -1;
+    isGameRunning = false;
+
+    const QString exePath = QCoreApplication::applicationFilePath();
+    qint64 newPid = -1;
+    bool started =
+        QProcess::startDetached(exePath, QStringList() << lastGamePath, QString(), &newPid);
+    if (started) {
+        detachedGamePid = newPid;
+        isGameRunning = true;
     }
 
+    UpdateToolbarButtons();
 }
-
 
 #endif
