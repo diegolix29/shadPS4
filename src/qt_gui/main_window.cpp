@@ -8,6 +8,7 @@
 #include <QPlainTextEdit>
 #include <QProgressDialog>
 #include <QStatusBar>
+#include <signal.h>
 
 #include "about_dialog.h"
 #include "cheats_patches.h"
