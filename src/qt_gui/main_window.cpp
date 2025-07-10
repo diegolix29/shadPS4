@@ -3,6 +3,8 @@
 
 #include <fstream>
 #include <iostream>
+#include <QProcess>
+
 #include "SDL3/SDL_events.h"
 
 #include <QDockWidget>
@@ -879,7 +881,6 @@ void MainWindow::StartGame() {
     }
 }
 
-
 void MainWindow::StartGameWithPath(const QString& gamePath) {
     if (gamePath.isEmpty()) {
         QMessageBox::warning(this, tr("Run Game"), tr("No game path provided."));
@@ -908,9 +909,6 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
 
     UpdateToolbarButtons();
 }
-
-
-
 
 bool isTable;
 void MainWindow::SearchGameTable(const QString& text) {
@@ -1295,8 +1293,6 @@ void MainWindow::StopGame() {
     UpdateToolbarButtons();
 }
 
-
-
 void MainWindow::RestartGame() {
     if (!isGameRunning) {
         QMessageBox::warning(this, tr("Restart Game"), tr("No game is running to restart."));
@@ -1308,29 +1304,29 @@ void MainWindow::RestartGame() {
         return;
     }
 
-    const QString exePath = QCoreApplication::applicationFilePath();
-
-    // Kill detached process if needed:
 #ifdef Q_OS_WIN
     if (detachedGamePid > 0) {
         QProcess::execute("taskkill", {"/PID", QString::number(detachedGamePid), "/F", "/T"});
-        detachedGamePid = -1;
     }
 #else
     if (detachedGamePid > 0) {
         ::kill(detachedGamePid, SIGKILL);
-        detachedGamePid = -1;
     }
 #endif
 
-    // Start new detached process
-    bool started = QProcess::startDetached(exePath, QStringList() << lastGamePath);
-    if (!started) {
-        QMessageBox::critical(this, tr("Restart Game"), tr("Failed to restart emulator."));
-        return;
+    detachedGamePid = -1;
+    isGameRunning = false;
+
+    const QString exePath = QCoreApplication::applicationFilePath();
+    qint64 newPid = -1;
+    bool started =
+        QProcess::startDetached(exePath, QStringList() << lastGamePath, QString(), &newPid);
+    if (started) {
+        detachedGamePid = newPid;
+        isGameRunning = true;
     }
 
+    UpdateToolbarButtons();
 }
-
 
 #endif
