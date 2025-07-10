@@ -433,7 +433,7 @@ void Emulator::Restart() {
 
     is_running = true;
 #endif
-} 
+}
 
 void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
     constexpr std::array<SysModules, 10> ModulesToLoad{
