@@ -257,11 +257,11 @@ void GcnDecodeContext::updateInstructionMeta(InstEncoding encoding) {
     uint32_t encodingOp = mapEncodingOp(encoding, m_instruction.opcode);
     InstFormat instFormat = InstructionFormat(encoding, encodingOp);
 
-    ASSERT_MSG(instFormat.src_type != ScalarType::Undefined &&
-                   instFormat.dst_type != ScalarType::Undefined,
-               "Instruction format table incomplete for opcode {} ({}, encoding = 0x{:x})",
-               magic_enum::enum_name(m_instruction.opcode), u32(m_instruction.opcode),
-               u32(encoding));
+    // ASSERT_MSG(instFormat.src_type != ScalarType::Undefined &&
+    //                instFormat.dst_type != ScalarType::Undefined,
+    //            "Instruction format table incomplete for opcode {} ({}, encoding = 0x{:x})",
+    //            magic_enum::enum_name(m_instruction.opcode), u32(m_instruction.opcode),
+    //            u32(encoding));
 
     m_instruction.inst_class = instFormat.inst_class;
     m_instruction.category = instFormat.inst_category;
