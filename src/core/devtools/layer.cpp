@@ -32,7 +32,7 @@ static bool show_simple_fps = false;
 static bool visibility_toggled = false;
 
 static bool show_fullscreen_tip = true;
-static float fullscreen_tip_timer = 5.0f;
+static float fullscreen_tip_timer = 8.0f;
 
 static float fps_scale = 1.0f;
 static int dump_frame_count = 1;
@@ -366,11 +366,11 @@ void L::Draw() {
     PushID("DevtoolsLayer");
     if (IsKeyPressed(ImGuiKey_F4, false)) {
         SDL_Event quitEvent;
-        quitEvent.type = SDL_EVENT_QUIT + 1;
+        quitEvent.type = SDL_EVENT_QUIT;
         SDL_PushEvent(&quitEvent);
     }
 
-    if (show_fullscreen_tip) {
+if (show_fullscreen_tip) {
         fullscreen_tip_timer -= io.DeltaTime;
         if (fullscreen_tip_timer <= 0.0f) {
             show_fullscreen_tip = false;
@@ -378,10 +378,13 @@ void L::Draw() {
             // Display the fullscreen tip near the top-left corner, below pause message if needed
             ImVec2 pos(10, 30); // adjust Y so it doesn't overlap pause text at y=10
             ImU32 color = IM_COL32(255, 255, 255, 255);
-            ImGui::GetForegroundDrawList()->AddText(
-                pos, color, "Press F11 to toggle FullScreen and F9 to Pause Emulation");
+            ImGui::GetForegroundDrawList()->AddText(pos, color,
+                                                    "Press F11 to toggle FullScreen\n"
+                                                    "F9 to Pause Emulation\n"
+                                                    "F4 to Stop Game");
         }
     }
+
     if (!DebugState.IsGuestThreadsPaused()) {
         const auto fn = DebugState.flip_frame_count.load();
         frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
