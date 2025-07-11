@@ -370,7 +370,7 @@ void L::Draw() {
         SDL_PushEvent(&quitEvent);
     }
 
-if (show_fullscreen_tip) {
+    if (show_fullscreen_tip) {
         fullscreen_tip_timer -= io.DeltaTime;
         if (fullscreen_tip_timer <= 0.0f) {
             show_fullscreen_tip = false;
