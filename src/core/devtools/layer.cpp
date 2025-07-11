@@ -31,6 +31,9 @@ using L = ::Core::Devtools::Layer;
 static bool show_simple_fps = false;
 static bool visibility_toggled = false;
 
+static bool show_fullscreen_tip = true;
+static float fullscreen_tip_timer = 5.0f;
+
 static float fps_scale = 1.0f;
 static int dump_frame_count = 1;
 
@@ -367,6 +370,18 @@ void L::Draw() {
         SDL_PushEvent(&quitEvent);
     }
 
+    if (show_fullscreen_tip) {
+        fullscreen_tip_timer -= io.DeltaTime;
+        if (fullscreen_tip_timer <= 0.0f) {
+            show_fullscreen_tip = false;
+        } else {
+            // Display the fullscreen tip near the top-left corner, below pause message if needed
+            ImVec2 pos(10, 30); // adjust Y so it doesn't overlap pause text at y=10
+            ImU32 color = IM_COL32(255, 255, 255, 255);
+            ImGui::GetForegroundDrawList()->AddText(
+                pos, color, "Press F11 to toggle FullScreen and F9 to Pause Emulation");
+        }
+    }
     if (!DebugState.IsGuestThreadsPaused()) {
         const auto fn = DebugState.flip_frame_count.load();
         frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
