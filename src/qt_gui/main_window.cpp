@@ -812,6 +812,12 @@ void MainWindow::CreateConnects() {
 }
 
 void MainWindow::StartGame() {
+    if (isGameRunning) {
+        QMessageBox::critical(nullptr, tr("Run Game"), tr("Game is already running!"));
+        return;
+    }
+
+    isGameRunning = false;
     BackgroundMusicPlayer::getInstance().stopMusic();
     QString gamePath = "";
     int table_mode = Config::getTableMode();
