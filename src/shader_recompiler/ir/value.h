@@ -134,8 +134,8 @@ public:
     Inst(Inst&&) = delete;
 
     IR::Block* GetParent() const {
-        ASSERT(parent);
-        return parent;
+        //ASSERT(parent);
+        //return parent;
     }
     void SetParent(IR::Block* block) {
         parent = block;
