@@ -8,6 +8,7 @@
 #include <QHoverEvent>
 #include <QMessageBox>
 #include <fmt/format.h>
+#include <QDialog>
 
 #include "common/config.h"
 #include "common/scm_rev.h"

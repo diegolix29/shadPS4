@@ -5,6 +5,7 @@
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_hints.h>
 #include <src/qt_gui/settings_dialog.h>
+#include <QDialog>
 
 #include "common/logging/log.h"
 #include "core/libraries/audio/audioout.h"
