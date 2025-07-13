@@ -41,6 +41,7 @@ static double trophyNotificationDuration = 6.0;
 static int BGMvolume = 50;
 static bool enableDiscordRPC = false;
 static float rcas_attenuation = 0.25f;
+static float gameVolume = 2.0f;
 static std::string logFilter = "";
 static std::string logType = "sync";
 static std::string userName = "shadPS4";
@@ -295,6 +296,14 @@ std::string getUpdateChannel() {
 
 std::string getChooseHomeTab() {
     return chooseHomeTab;
+}
+
+float getVolumeLevel() {
+    return gameVolume;
+}
+
+void setVolumeLevel(float value) {
+    gameVolume = value;
 }
 
 bool getUseSpecialPad() {
@@ -928,6 +937,7 @@ void load(const std::filesystem::path& path) {
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", "Release");
         audioBackend = toml::find_or<std::string>(general, "backend", "cubeb");
         audioVolume = toml::find_or<int>(general, "volume", 100);
+        gameVolume = toml::find_or<float>(general, "gameVolume", 2.0f);
     }
 
     if (data.contains("Input")) {
@@ -981,7 +991,6 @@ void load(const std::filesystem::path& path) {
         isFullscreen = toml::find_or<bool>(gpu, "Fullscreen", isFullscreen);
         fullscreenMode = toml::find_or<std::string>(gpu, "FullscreenMode", fullscreenMode);
         isHDRAllowed = toml::find_or<bool>(gpu, "allowHDR", isHDRAllowed);
-
         entry_count += gpu.size();
     }
 
@@ -1207,6 +1216,7 @@ void save(const std::filesystem::path& path) {
     data["Vulkan"]["rdocEnable"] = rdocEnable;
     data["General"]["backend"] = audioBackend;
     data["General"]["volume"] = audioVolume;
+    data["General"]["gameVolume"] = gameVolume;
     data["Debug"]["DebugDump"] = isDebugDump;
     data["Debug"]["CollectShader"] = isShaderDebug;
     data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled;

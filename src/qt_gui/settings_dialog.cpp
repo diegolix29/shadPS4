@@ -68,7 +68,9 @@ QMap<QString, QString> chooseHomeTabMap;
 
 int backgroundImageOpacitySlider_backup;
 int bgm_volume_backup;
+int volume_slider_backup;
 
+using namespace std;
 static std::vector<QString> m_physical_devices;
 
 SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
@@ -82,10 +84,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Close)->setFocus();
 
-    float rcas_value = Config::getRcasAttenuation();
-    ui->rcasAttenuationSlider->setValue(static_cast<int>(rcas_value * 1000));
-    ui->rcasAttenuationSpinBox->setValue(rcas_value);
-
     // Connect signals and slots
     connect(ui->rcasAttenuationSlider, &QSlider::valueChanged, this,
             &SettingsDialog::OnRcasAttenuationChanged);
@@ -93,6 +91,8 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             &SettingsDialog::OnRcasAttenuationSpinBoxChanged);
     connect(ui->enableAutoBackupCheckBox, &QCheckBox::stateChanged, this,
             [](int state) { Config::setEnableAutoBackup(state == Qt::Checked); });
+    connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this,
+            &SettingsDialog::OnVolumeSliderChanged);
 
     channelMap = {{tr("BBFork"), "BBFork"}};
     logTypeMap = {{tr("async"), "async"}, {tr("sync"), "sync"}};
@@ -157,8 +157,11 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                     Config::save(config_dir / "config.toml");
                     LoadValuesFromConfig();
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::Close)) {
+                    ResetInstallFolders();
                     ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
                     emit BackgroundOpacityChanged(backgroundImageOpacitySlider_backup);
+                    ui->horizontalVolumeSlider->setValue(volume_slider_backup);
+                    Config::setVolumeLevel(volume_slider_backup);
                     ui->BGMVolumeSlider->setValue(bgm_volume_backup);
                     BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
                     ResetInstallFolders();
@@ -179,6 +182,8 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             [this]() { ui->buttonBox->button(QDialogButtonBox::Close)->setFocus(); });
 
     // GENERAL TAB
+    connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this,
+            [this](int value) { OnVolumeSliderChanged(value); });
     {
 #ifdef ENABLE_UPDATER
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
@@ -401,6 +406,8 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
     if (!is_saving) {
         ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
         emit BackgroundOpacityChanged(backgroundImageOpacitySlider_backup);
+        ui->horizontalVolumeSlider->setValue(volume_slider_backup);
+        Config::setVolumeLevel(volume_slider_backup);
         ui->BGMVolumeSlider->setValue(bgm_volume_backup);
         BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
     }
@@ -477,6 +484,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->radioButton_Bottom->setChecked(side == "bottom");
 
     ui->BGMVolumeSlider->setValue(toml::find_or<int>(data, "General", "BGMvolume", 50));
+    ui->horizontalVolumeSlider->setValue(toml::find_or<int>(data, "General", "gameVolume", 100));
+    ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->sliderPosition()) + "%");
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
     QString translatedText_FullscreenMode =
@@ -518,6 +527,10 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     ui->rcasAttenuationSlider->setValue(static_cast<int>(Config::getRcasAttenuation() * 1000));
     ui->rcasAttenuationSpinBox->setValue(Config::getRcasAttenuation());
+
+    float volume = Config::getVolumeLevel(); // 0.0 to 1.0
+    ui->horizontalVolumeSlider->setValue(static_cast<int>(volume * 500));
+    ui->volumeText->setText(QString::number(static_cast<int>(volume * 100)) + "%");
 
 #ifdef ENABLE_UPDATER
     ui->updateCheckBox->setChecked(toml::find_or<bool>(data, "General", "autoUpdate", false));
@@ -810,6 +823,7 @@ void SettingsDialog::UpdateSettings() {
     emit BackgroundOpacityChanged(ui->backgroundImageOpacitySlider->value());
     Config::setShowBackgroundImage(ui->showBackgroundImageCheckBox->isChecked());
     Config::setRcasAttenuation(ui->rcasAttenuationSpinBox->value());
+    Config::setVolumeLevel(static_cast<float>(ui->horizontalVolumeSlider->value()) / 500.0f);
 
     std::vector<Config::GameInstallDir> dirs_with_states;
     for (int i = 0; i < ui->gameFoldersListWidget->count(); i++) {
@@ -845,6 +859,12 @@ void SettingsDialog::OnRcasAttenuationSpinBoxChanged(double value) {
     int int_value = static_cast<int>(value * 1000);
     ui->rcasAttenuationSlider->setValue(int_value);
     Config::setRcasAttenuation(static_cast<float>(value));
+}
+
+void SettingsDialog::OnVolumeSliderChanged(int value) {
+    int percent = static_cast<int>((value + 2) / 5.0f); // Add 2 for rounding
+    ui->volumeText->setText(QString::number(percent) + "%");
+    Config::setVolumeLevel(static_cast<float>(value) / 500.0f);
 }
 
 void SettingsDialog::ResetInstallFolders() {

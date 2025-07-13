@@ -44,6 +44,7 @@ private:
     void closeEvent(QCloseEvent* event) override;
     void OnRcasAttenuationChanged(int value);
     void OnRcasAttenuationSpinBoxChanged(double value);
+    void OnVolumeSliderChanged(int value);
 
     std::unique_ptr<Ui::SettingsDialog> ui;
 
