@@ -4,8 +4,11 @@
 #include <thread>
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_hints.h>
-#include <src/qt_gui/settings_dialog.h>
+#ifdef ENABLE_QT_GUI
+#include "qt_gui/settings_dialog.h"
+#endif
 
+#include "common/config.h"
 #include "common/logging/log.h"
 #include "core/libraries/audio/audioout.h"
 #include "core/libraries/audio/audioout_backend.h"
