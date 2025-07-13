@@ -3,6 +3,8 @@
 
 #pragma once
 
+#ifdef ENABLE_QT_GUI
+
 #include <memory>
 #include <span>
 #include <QDialog>
@@ -56,3 +58,5 @@ private:
 
     bool is_saving = false;
 };
+
+#endif // ENABLE_QT_GUI
