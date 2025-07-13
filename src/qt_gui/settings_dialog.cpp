@@ -68,7 +68,6 @@ QMap<QString, QString> chooseHomeTabMap;
 
 int backgroundImageOpacitySlider_backup;
 int bgm_volume_backup;
-int volume_slider_backup;
 
 using namespace std;
 static std::vector<QString> m_physical_devices;
@@ -160,8 +159,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                     ResetInstallFolders();
                     ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
                     emit BackgroundOpacityChanged(backgroundImageOpacitySlider_backup);
-                    ui->horizontalVolumeSlider->setValue(volume_slider_backup);
-                    Config::setVolumeLevel(volume_slider_backup);
                     ui->BGMVolumeSlider->setValue(bgm_volume_backup);
                     BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
                     ResetInstallFolders();
@@ -406,8 +403,6 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
     if (!is_saving) {
         ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
         emit BackgroundOpacityChanged(backgroundImageOpacitySlider_backup);
-        ui->horizontalVolumeSlider->setValue(volume_slider_backup);
-        Config::setVolumeLevel(volume_slider_backup);
         ui->BGMVolumeSlider->setValue(bgm_volume_backup);
         BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
     }
