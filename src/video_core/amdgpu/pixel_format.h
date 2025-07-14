@@ -284,7 +284,7 @@ constexpr NumberConversion MapNumberConversion(const NumberFormat num_fmt,
         case DataFormat::Format16_16_16_16:
             return NumberConversion::Sint16ToSnormNz;
         default:
-            //UNREACHABLE_MSG("data_fmt = {}", u32(data_fmt));
+            return NumberConversion::None;
         }
     }
     default:
