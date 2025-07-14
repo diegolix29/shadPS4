@@ -763,8 +763,7 @@ Value IREmitter::CompositeConstruct(std::span<const Value> elements) {
     case 4:
         return CompositeConstruct(elements[0], elements[1], elements[2], elements[3]);
     default:
-        //UNREACHABLE_MSG("Composite construct with {} elements, only 2-4 are supported",
-        //                elements.size());
+        return {}; 
     }
 }
 
