@@ -627,7 +627,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     // immediately
                     regs.cp_strmout_cntl.offset_update_done = 1;
                 } else if (event->event_index.Value() == EventIndex::ZpassDone) {
-                    LOG_WARNING(Render, "Unimplemented occlusion query");
+                    LOG_DEBUG(Render, "Unimplemented occlusion query");
                 }
 
                 if (event->event_index.Value() == EventIndex::ZpassDone) {
