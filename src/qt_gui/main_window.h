@@ -22,6 +22,7 @@
 #include "game_list_utils.h"
 #include "main_window_themes.h"
 #include "main_window_ui.h"
+#include "cheats_patches.h" 
 
 class GameListFrame;
 
@@ -44,6 +45,8 @@ public:
     bool pendingRestart = false;
     qint64 detachedGamePid = -1;
     bool isDetachedLaunch = false;
+    CheatsPatches* m_cheatsDialog = nullptr;
+    QDockWidget* m_cheatsDock = nullptr;
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
@@ -57,6 +60,7 @@ private Q_SLOTS:
 
 private:
     Ui_MainWindow* ui;
+    void onShowCheatsDialog();
     void AddUiWidgets();
     void UpdateToolbarLabels();
     void UpdateToolbarButtons();
@@ -127,7 +131,6 @@ protected:
     }
 
     void resizeEvent(QResizeEvent* event) override;
-
     std::filesystem::path last_install_dir = "";
     bool delete_file_on_install = false;
     bool use_for_all_queued = false;

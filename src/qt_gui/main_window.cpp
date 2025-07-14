@@ -45,9 +45,12 @@ MainWindow::~MainWindow() {
     Config::saveMainWindow(config_dir / "config.toml");
 }
 
+#include "cheats_patches.h"  // make sure to include the header
+
 bool MainWindow::Init() {
     auto start = std::chrono::steady_clock::now();
-    // setup ui
+
+    // Setup UI
     LoadTranslation();
     AddUiWidgets();
     CreateActions();
@@ -57,8 +60,22 @@ bool MainWindow::Init() {
     CreateConnects();
     SetLastUsedTheme();
     SetLastIconSizeBullet();
-    // show ui
+
+    // Initialize Cheats Dialog
+    // Provide your actual game info here. Use empty strings or default pixmap if you don't have actual data yet.
+    QString gameName = "";       // or actual game name
+    QString gameSerial = "";     // or actual serial
+    QString gameVersion = "";    // or actual version
+    QString gameSize = "";       // or actual size
+    QPixmap gameImage;           // default constructed pixmap or your actual image
+
+    m_cheatsDialog = new CheatsPatches("", "", "", "", QPixmap(), this);
+
+    m_cheatsDock = new QDockWidget(tr("Cheats & Patches"), this);
+    m_cheatsDock->setWidget(m_cheatsDialog);
+    addDockWidget(Qt::RightDockWidgetArea, m_cheatsDock);
     setMinimumSize(720, 405);
+
     std::string window_title = "";
     std::string remote_url(Common::g_scm_remote_url);
     std::string remote_host = Common::GetRemoteNameFromLink();
@@ -78,9 +95,13 @@ bool MainWindow::Init() {
         }
     }
     setWindowTitle(QString::fromStdString(window_title));
+    m_cheatsDock->hide();
+
     this->show();
+
     // load game list
     LoadGameLists();
+
 #ifdef ENABLE_UPDATER
     // Check for update
     CheckUpdateMain(true);
@@ -88,8 +109,10 @@ bool MainWindow::Init() {
 
     auto end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
     statusBar.reset(new QStatusBar);
     this->setStatusBar(statusBar.data());
+
     // Update status bar
     int numGames = m_game_info->m_games.size();
     QString statusMessage = tr("Games: ") + QString::number(numGames) + " (" +
@@ -106,6 +129,7 @@ bool MainWindow::Init() {
 
     return true;
 }
+
 
 void MainWindow::CreateActions() {
     // create action group for icon size
@@ -172,8 +196,21 @@ QWidget* createSpacer(QWidget* parent) {
     return spacer;
 }
 
+void MainWindow::onShowCheatsDialog() {
+    if (m_cheatsDock) {
+        bool visible = m_cheatsDock->isVisible();
+        m_cheatsDock->setVisible(!visible);
+        if (!visible) {
+            m_cheatsDock->raise();
+            m_cheatsDock->activateWindow();
+        }
+    }
+}
+
 void MainWindow::AddUiWidgets() {
     // add toolbar widgets
+    QAction* cheatsAction = new QAction(tr("Cheats & Patches"), this);
+    connect(cheatsAction, &QAction::triggered, this, &MainWindow::onShowCheatsDialog);
 
     QApplication::setStyle("Fusion");
 
@@ -856,14 +893,22 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
 
     const auto path = Common::FS::PathFromQString(gamePath);
     if (!std::filesystem::exists(path)) {
-        QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
+        QMessageBox::critical(this, tr("Run Game"), tr("Eboot.bin file not found"));
         return;
     }
 
-    // Start emulator detached
+    const auto config_path = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml";
+    Config::save(config_path);
+
+    if (m_cheatsDialog && m_cheatsDialog->isVisible()) {
+        m_cheatsDialog->onSaveButtonClicked();
+    }
+
     QString exePath = QCoreApplication::applicationFilePath();
-    bool started =
-        QProcess::startDetached(exePath, QStringList() << gamePath, QString(), &detachedGamePid);
+    QStringList args;
+    args << "--game" << gamePath;
+
+    bool started = QProcess::startDetached(exePath, args, QString(), &detachedGamePid);
     if (!started) {
         QMessageBox::critical(this, tr("Run Game"), tr("Failed to start emulator."));
         return;
@@ -874,6 +919,7 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
 
     UpdateToolbarButtons();
 }
+
 
 bool isTable;
 void MainWindow::SearchGameTable(const QString& text) {

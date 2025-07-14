@@ -38,6 +38,7 @@ public:
     void createFilesJson(const QString& repository);
     void clearListCheats();
     void compatibleVersionNotice(const QString repository);
+    void onSaveButtonClicked();
 
 signals:
     void downloadFinished();
@@ -45,7 +46,6 @@ signals:
 private:
     // UI Setup and Event Handlers
     void setupUI();
-    void onSaveButtonClicked();
     QCheckBox* findCheckBoxByName(const QString& name);
     bool eventFilter(QObject* obj, QEvent* event);
     void onPatchCheckBoxHovered(QCheckBox* checkBox, bool hovered);
