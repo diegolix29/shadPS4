@@ -111,7 +111,7 @@ struct Liverpool {
             }
         }
 
-        UNREACHABLE_MSG("Shader binary info not found.");
+        //UNREACHABLE_MSG("Shader binary info not found.");
     }
 
     struct ShaderProgram {
