@@ -9,6 +9,7 @@
 #include <QTranslator>
 
 #include "background_music_player.h"
+#include "cheats_patches.h"
 #include "common/config.h"
 #include "common/path_util.h"
 #include "compatibility_info.h"
@@ -22,7 +23,6 @@
 #include "game_list_utils.h"
 #include "main_window_themes.h"
 #include "main_window_ui.h"
-#include "cheats_patches.h" 
 
 class GameListFrame;
 

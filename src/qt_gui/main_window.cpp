@@ -45,8 +45,6 @@ MainWindow::~MainWindow() {
     Config::saveMainWindow(config_dir / "config.toml");
 }
 
-#include "cheats_patches.h"  // make sure to include the header
-
 bool MainWindow::Init() {
     auto start = std::chrono::steady_clock::now();
 
@@ -62,12 +60,13 @@ bool MainWindow::Init() {
     SetLastIconSizeBullet();
 
     // Initialize Cheats Dialog
-    // Provide your actual game info here. Use empty strings or default pixmap if you don't have actual data yet.
-    QString gameName = "";       // or actual game name
-    QString gameSerial = "";     // or actual serial
-    QString gameVersion = "";    // or actual version
-    QString gameSize = "";       // or actual size
-    QPixmap gameImage;           // default constructed pixmap or your actual image
+    // Provide your actual game info here. Use empty strings or default pixmap if you don't have
+    // actual data yet.
+    QString gameName = "";    // or actual game name
+    QString gameSerial = "";  // or actual serial
+    QString gameVersion = ""; // or actual version
+    QString gameSize = "";    // or actual size
+    QPixmap gameImage;        // default constructed pixmap or your actual image
 
     m_cheatsDialog = new CheatsPatches("", "", "", "", QPixmap(), this);
 
@@ -129,7 +128,6 @@ bool MainWindow::Init() {
 
     return true;
 }
-
 
 void MainWindow::CreateActions() {
     // create action group for icon size
@@ -919,7 +917,6 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
 
     UpdateToolbarButtons();
 }
-
 
 bool isTable;
 void MainWindow::SearchGameTable(const QString& text) {

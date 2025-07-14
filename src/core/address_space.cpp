@@ -307,10 +307,10 @@ struct AddressSpace::Impl {
         } else if (!read && !write && !execute) {
             new_flags = PAGE_NOACCESS;
         } else {
-             LOG_ERROR(Common_Memory,
-                         "Unsupported protection flag combination for address {:#x}, size {}, "
-                         "read={}, write={}, execute={}",
-                         virtual_addr, size, read, write, execute);
+            LOG_ERROR(Common_Memory,
+                      "Unsupported protection flag combination for address {:#x}, size {}, "
+                      "read={}, write={}, execute={}",
+                      virtual_addr, size, read, write, execute);
             return;
         }
 
@@ -325,10 +325,9 @@ struct AddressSpace::Impl {
             const size_t range_size = std::min(region.base + region.size, virtual_end) - range_addr;
             DWORD old_flags{};
             if (!VirtualProtectEx(process, LPVOID(range_addr), range_size, new_flags, &old_flags)) {
-                LOG_ERROR(
-                    Common_Memory,
-                    "Failed to change virtual memory protection for address {:#x}, size {}",
-                    range_addr, range_size);
+                LOG_ERROR(Common_Memory,
+                          "Failed to change virtual memory protection for address {:#x}, size {}",
+                          range_addr, range_size);
             }
         }
     }
