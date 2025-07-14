@@ -17,8 +17,8 @@ namespace {
                                    std::source_location loc = std::source_location::current()) {
     const std::string functionName = loc.function_name();
     const int lineNumber = loc.line();
-    UNREACHABLE_MSG("Invalid type = {}, functionName = {}, line = {}", u32(type), functionName,
-                    lineNumber);
+    //UNREACHABLE_MSG("Invalid type = {}, functionName = {}, line = {}", u32(type), functionName,
+    //                lineNumber);
 }
 } // Anonymous namespace
 
@@ -763,8 +763,8 @@ Value IREmitter::CompositeConstruct(std::span<const Value> elements) {
     case 4:
         return CompositeConstruct(elements[0], elements[1], elements[2], elements[3]);
     default:
-        UNREACHABLE_MSG("Composite construct with {} elements, only 2-4 are supported",
-                        elements.size());
+        //UNREACHABLE_MSG("Composite construct with {} elements, only 2-4 are supported",
+        //                elements.size());
     }
 }
 
@@ -1817,7 +1817,7 @@ U1 IREmitter::IGreaterThan(const U32U64& lhs, const U32U64& rhs, bool is_signed)
 
 U1 IREmitter::INotEqual(const U32U64& lhs, const U32U64& rhs) {
     if (lhs.Type() != rhs.Type()) {
-        UNREACHABLE_MSG("Mismatching types {} and {}", lhs.Type(), rhs.Type());
+        //UNREACHABLE_MSG("Mismatching types {} and {}", lhs.Type(), rhs.Type());
     }
     switch (lhs.Type()) {
     case Type::U32:

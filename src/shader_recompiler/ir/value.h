@@ -135,7 +135,7 @@ public:
 
     IR::Block* GetParent() const {
         // ASSERT(parent);
-        // return parent;
+        return parent;
     }
     void SetParent(IR::Block* block) {
         parent = block;
