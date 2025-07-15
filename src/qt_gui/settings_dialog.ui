@@ -2130,7 +2130,7 @@
 						<item>
 							<widget class="QSlider" name="horizontalVolumeSlider">
 								<property name="maximum">
-									<number>1000</number>
+									<number>1500</number>
 								</property>
 								<property name="value">
 									<number>100</number>
@@ -2146,7 +2146,7 @@
 						<item>
 							<widget class="QLineEdit" name="volumeText">
 								<property name="text">
-									<string>100%</string>
+									<string>300%</string>
 								</property>
 								<property name="alignment">
 									<set>Qt::AlignCenter</set>
@@ -2207,7 +2207,7 @@
 			<item>
 				<widget class="QCheckBox" name="SkipsCheckBox">
 					<property name="text">
-						<string>Enable Shader Skips (for Driveclub)</string>
+						<string>Enable Shader Skips</string>
 					</property>
 				</widget>
 			</item>
@@ -2229,7 +2229,9 @@
 						<string notr="true">
 							<![CDATA[
         <b>Hint:</b><br/>
-        Helps Driveclub Slowdowns and Shadows.<br/>		
+        Helps inFamous crash on binaryinfo crash,
+		Driveclub slowdowns,
+		and COD Ghost boot to main menu and some stages.<br/>		
         ]]>
 						</string>
 					</property>
@@ -2256,7 +2258,7 @@
 					<string notr="true">
 						<![CDATA[
         <b>Hint:</b><br/>
-        Readbacks implementation,<br/>
+        Readbacks implementation,
         Enable this for Driveclub.<br/>
         ]]>
 					</string>
@@ -2284,7 +2286,7 @@
 						<string notr="true">
 							<![CDATA[
         <b>Hint:</b><br/>
-        DMA implementation,<br/>
+        DMA implementation,
         Disable this for TLG, disabling may help with random crashes.<br/>
         ]]>
 						</string>
@@ -2311,9 +2313,9 @@
 						<string notr="true">
 							<![CDATA[
         <b>Hint:</b><br/>
-        Faster Readbacks for Bloodborne - Dark Souls 3 - Elden Ring<br/>
-        No vertex Explosions<br/>
-        Need Readbacks to be Enabled.
+        Faster Readbacks for Bloodborne - Dark Souls 3 - Elden Ring
+        No vertex Explosions,
+        need Readbacks to be Enabled.<br/>
         ]]>
 						</string>
 					</property>
@@ -2340,7 +2342,7 @@
 						<string notr="true">
 							<![CDATA[
         <b>Hint:</b><br/>
-        Linear Readbacks for Postprocessing, helps TLG<br/>
+        Linear Readbacks for Postprocessing, helps TLG
 		Disable for Elden Ring.
         Disable if encounter issues<br/>       
         ]]>

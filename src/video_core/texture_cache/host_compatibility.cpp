@@ -199,6 +199,7 @@ static const std::unordered_map<vk::Format, CompatibilityClass> FORMAT_TABLE = {
     {vk::Format::eR8Sint, CompatibilityClass::_8BIT},
     {vk::Format::eR8Snorm, CompatibilityClass::_8BIT},
     {vk::Format::eR8Srgb, CompatibilityClass::_8BIT},
+    {vk::Format::eR8G8B8A8Srgb, CompatibilityClass::_8BIT},
     {vk::Format::eR8Sscaled, CompatibilityClass::_8BIT},
     {vk::Format::eR8Uint, CompatibilityClass::_8BIT},
     {vk::Format::eR8Unorm, CompatibilityClass::_8BIT},
