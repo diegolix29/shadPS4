@@ -381,7 +381,9 @@ void L::Draw() {
             ImGui::GetForegroundDrawList()->AddText(pos, color,
                                                     "Press F11 to toggle FullScreen\n"
                                                     "F9 to Pause Emulation\n"
-                                                    "F4 to Stop Game");
+                                                    "F4 to Stop Game(if Qt press stop button after)\n"
+                                                    "Ctrl + F10 for Devtools\n"
+                                                    "NOTE: Cheats arent working right now");
         }
     }
 
