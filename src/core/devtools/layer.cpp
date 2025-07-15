@@ -378,12 +378,13 @@ void L::Draw() {
             // Display the fullscreen tip near the top-left corner, below pause message if needed
             ImVec2 pos(10, 30); // adjust Y so it doesn't overlap pause text at y=10
             ImU32 color = IM_COL32(255, 255, 255, 255);
-            ImGui::GetForegroundDrawList()->AddText(pos, color,
-                                                    "Press F11 to toggle FullScreen\n"
-                                                    "F9 to Pause Emulation\n"
-                                                    "F4 to Stop Game(if Qt press stop button after)\n"
-                                                    "Ctrl + F10 for Devtools\n"
-                                                    "NOTE: Cheats arent working right now");
+            ImGui::GetForegroundDrawList()->AddText(
+                pos, color,
+                "Press F11 to toggle FullScreen\n"
+                "F9 to Pause Emulation\n"
+                "F4 to Stop Game(if Qt press stop button after)\n"
+                "Ctrl + F10 for Developer tools\n"
+                "NOTE: Cheats aren't working right now");
         }
     }
 
