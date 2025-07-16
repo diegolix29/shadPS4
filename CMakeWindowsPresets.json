@@ -14,6 +14,8 @@
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang-cl",
         "CMAKE_CXX_COMPILER": "clang-cl",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE": "ON",
+        "ENABLE_UPDATER": "ON",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/Build/${presetName}"
       },
       "vendor": {
