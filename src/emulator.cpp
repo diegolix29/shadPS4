@@ -211,6 +211,10 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
             }
         }
     }
+    if (Config::getShaderSkipsEnabled()) {
+        Config::SetSkippedShaderHashes("Default");
+        Config::SetSkippedShaderHashes(id);
+    }
 
     auto& game_info = Common::ElfInfo::Instance();
     game_info.initialized = true;

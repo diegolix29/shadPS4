@@ -108,6 +108,8 @@ bool patchShaders();
 bool isRdocEnabled();
 bool fpsColor();
 u32 vblankDiv();
+bool ShouldSkipShader(const u64& hash);
+void SetSkippedShaderHashes(const std::string& game_id);
 
 void setDebugDump(bool enable);
 void setCollectShaderForDebug(bool enable);

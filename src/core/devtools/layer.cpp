@@ -375,16 +375,42 @@ void L::Draw() {
         if (fullscreen_tip_timer <= 0.0f) {
             show_fullscreen_tip = false;
         } else {
-            // Display the fullscreen tip near the top-left corner, below pause message if needed
-            ImVec2 pos(10, 30); // adjust Y so it doesn't overlap pause text at y=10
             ImU32 color = IM_COL32(255, 255, 255, 255);
+            ImVec2 pos_top(10, 30);
+
+            // fullscreen tip
             ImGui::GetForegroundDrawList()->AddText(
-                pos, color,
+                pos_top, color,
                 "Press F11 to toggle FullScreen\n"
                 "F9 to Pause Emulation\n"
-                "F4 to Stop Game(if Qt press stop button after)\n"
+                "F4 to Stop Game (if Qt, press stop button after)\n"
                 "Ctrl + F10 for Developer tools\n"
                 "NOTE: Cheats aren't working right now");
+
+            constexpr float line_height = 18.0f;
+            constexpr int fullscreen_lines = 5;
+            ImVec2 pos_below(pos_top.x, pos_top.y + fullscreen_lines * line_height + 10);
+
+            ImU32 config_color = IM_COL32(180, 220, 255, 255);
+            std::string configText = fmt::format(
+                "Readbacks: {}\n"
+                "Fast Readbacks: {}\n"
+                "Shader Skips: {}\n"
+                "Linear Readbacks: {}\n"
+                "DMA Access: {}\n"
+                "VBlank Divider: {}\n"
+                "HDR Allowed: {}\n"
+                "Auto Backup: {}\n"
+                "PSN Signed In: {}",
+                Config::getReadbacksEnabled() ? "On" : "Off",
+                Config::getFastReadbacksEnabled() ? "On" : "Off",
+                Config::getShaderSkipsEnabled() ? "On" : "Off",
+                Config::getReadbackLinearImages() ? "On" : "Off",
+                Config::directMemoryAccess() ? "On" : "Off", Config::vblankDiv(),
+                Config::allowHDR() ? "Yes" : "No", Config::getEnableAutoBackup() ? "On" : "Off",
+                Config::getPSNSignedIn() ? "Yes" : "No");
+
+            ImGui::GetForegroundDrawList()->AddText(pos_below, config_color, configText.c_str());
         }
     }
 

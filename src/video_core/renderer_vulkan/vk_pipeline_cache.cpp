@@ -245,25 +245,6 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
     pipeline_cache = std::move(cache);
 }
 
-bool ShouldSkipShader(u64 shader_hash, const char* shader_type) {
-    if (Config::getShaderSkipsEnabled()) {
-        static std::vector<u64> skip_hashes = {
-            0x1635154C,         0xf5874f2a8d7f2037, 0xf5874f2a65f418f9, 0x25593f798d7f2037,
-            0x25593f7965f418f9, 0x2537adba98213a66, 0xfe36adba8c8b5626, 0xb5a945a8,
-            0x3ae1c2c7,         0x43e07e56,         0xc7e25f41,         0x99f9bc07,
-            0x6dc1df2,          0xd1ea45ad,         0x17b8cf1b,         0x9be5b74e,
-            0x61a44417,         0x2a8576db,         0xb33e9db6,         0xd0019dd9,
-            0xd94ec720,         0x8fb484ae,         0x02e27c82,         0x2a6e88d3,
-            0xf11eae1f,         0xbaabdd0c,         0x61c26b46,         0xb6fee93e,
-            0x911e3823,         0xa0acfa89,         0xcb510565,         0x586682de};
-        if (std::ranges::contains(skip_hashes, shader_hash)) {
-            LOG_WARNING(Render_Vulkan, "Skipped {} shader hash {:#x}.", shader_type, shader_hash);
-            return true;
-        }
-    }
-    return false;
-}
-
 PipelineCache::~PipelineCache() = default;
 
 const GraphicsPipeline* PipelineCache::GetGraphicsPipeline() {
@@ -412,10 +393,13 @@ bool PipelineCache::RefreshGraphicsKey() {
             return false;
         }
 
-        if (ShouldSkipShader(bininfo.shader_hash, "graphics")) {
-            return false;
+        if (Config::getShaderSkipsEnabled()) {
+            if (Config::ShouldSkipShader(bininfo.shader_hash)) {
+                LOG_WARNING(Render_Vulkan, "Skipped graphics shader hash {:#x}.",
+                            bininfo.shader_hash);
+                return false;
+            }
         }
-
         auto params = Liverpool::GetParams(*pgm);
         std::optional<Shader::Gcn::FetchShaderData> fetch_shader_;
         std::tie(infos[stage_out_idx], modules[stage_out_idx], fetch_shader_,
@@ -520,9 +504,13 @@ bool PipelineCache::RefreshComputeKey() {
     Shader::Backend::Bindings binding{};
     const auto& cs_pgm = liverpool->GetCsRegs();
     const auto cs_params = Liverpool::GetParams(cs_pgm);
-    if (ShouldSkipShader(cs_params.hash, "compute")) {
-        return false;
+    if (Config::getShaderSkipsEnabled()) {
+        if (Config::ShouldSkipShader(cs_params.hash)) {
+            LOG_WARNING(Render_Vulkan, "Skipped compute shader hash {:#x}.", cs_params.hash);
+            return false;
+        }
     }
+
     std::tie(infos[0], modules[0], fetch_shader, compute_key.value) =
         GetProgram(Shader::Stage::Compute, LogicalStage::Compute, cs_params, binding);
     return true;
@@ -538,12 +526,6 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
     const std::string stage_name = fmt::format("{}", info.stage);
     const auto ir_program = Shader::TranslateProgram(code, pools, info, runtime_info, profile);
     auto spv = Shader::Backend::SPIRV::EmitSPIRV(profile, runtime_info, ir_program, binding);
-    if (ShouldSkipShader(info.pgm_hash, stage_name.c_str())) {
-        LOG_WARNING(Render_Vulkan, "Returning stub shader for skipped hash {:#x}", info.pgm_hash);
-
-        DumpShader(spv, info.pgm_hash, info.stage, perm_idx, "spv");
-        return CompileSPV(spv, instance.GetDevice());
-    }
     vk::ShaderModule module;
 
     auto patch = GetShaderPatch(info.pgm_hash, info.stage, perm_idx, "spv");
