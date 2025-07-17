@@ -58,7 +58,7 @@ static int BGMvolume = 50;
 static bool enableDiscordRPC = false;
 static float rcas_attenuation = 0.25f;
 static float gameVolume = 2.0f;
-static std::string logFilter = "";
+static std::string logFilter = "*:Warning";
 static std::string logType = "sync";
 static std::string userName = "shadPS4";
 static std::string chooseHomeTab = "General";
@@ -1387,7 +1387,7 @@ void setDefaultValues() {
     enableDiscordRPC = true;
     screenWidth = 1280;
     screenHeight = 720;
-    logFilter = "*:Warning";
+    logFilter = "";
     logType = "sync";
     userName = "shadPS4";
     memoryAlloc = "medium";
