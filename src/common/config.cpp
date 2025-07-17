@@ -1387,7 +1387,7 @@ void setDefaultValues() {
     enableDiscordRPC = true;
     screenWidth = 1280;
     screenHeight = 720;
-    logFilter = "";
+    logFilter = "*:Warning";
     logType = "sync";
     userName = "shadPS4";
     memoryAlloc = "medium";
