@@ -164,7 +164,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
 
-connect(ui->buttonBox, &QDialogButtonBox::clicked, this,
+    connect(ui->buttonBox, &QDialogButtonBox::clicked, this,
             [this, config_dir](QAbstractButton* button) {
                 if (button == ui->buttonBox->button(QDialogButtonBox::Apply)) {
                     UpdateSettings();
@@ -189,7 +189,6 @@ connect(ui->buttonBox, &QDialogButtonBox::clicked, this,
                     Common::Log::SetGlobalFilter(filter);
                 }
             });
-
 
     ui->buttonBox->button(QDialogButtonBox::Apply)->setText(tr("Apply"));
     ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)->setText(tr("Restore Defaults"));
