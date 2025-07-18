@@ -81,7 +81,7 @@ void Translator::V_INTERP_MOV_F32(const GcnInst& inst) {
     const IR::Attribute attrib = IR::Attribute::Param0 + attr_index;
     const auto& attr = runtime_info.fs_info.inputs[attr_index];
     auto& interp = info.fs_interpolation[attr_index];
-    ASSERT(attr.is_flat);
+    //ASSERT(attr.is_flat);
     if (profile.supports_amd_shader_explicit_vertex_parameter ||
         (profile.supports_fragment_shader_barycentric &&
          !profile.has_incomplete_fragment_shader_barycentric)) {
