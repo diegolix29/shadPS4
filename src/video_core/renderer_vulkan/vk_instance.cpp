@@ -679,6 +679,12 @@ vk::Format Instance::GetSupportedFormat(const vk::Format format,
             }
             break;
         case vk::Format::eR8Srgb:
+            if (IsFormatSupported(vk::Format::eR8Unorm, flags)) {
+                return vk::Format::eR8Unorm;
+            }
+            break;
+            break;
+        case vk::Format::eR8Srgb:
             if (IsFormatSupported(vk::Format::eR8G8B8A8Srgb, flags)) {
                 return vk::Format::eR8G8B8A8Srgb;
             }
