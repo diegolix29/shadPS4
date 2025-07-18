@@ -1228,7 +1228,7 @@ void Rasterizer::UpdateDepthStencilState() const {
         } : front_ops;
         dynamic_state.SetStencilOps(front_ops, back_ops);
 
-       const bool stencil_clear = regs.depth_render_control.stencil_clear_enable;
+        const bool stencil_clear = regs.depth_render_control.stencil_clear_enable;
         const auto front = regs.stencil_ref_front;
         const auto back =
             regs.depth_control.backface_enable ? regs.stencil_ref_back : regs.stencil_ref_front;
