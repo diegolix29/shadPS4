@@ -32,6 +32,7 @@ std::filesystem::path find_fs_path_or(const basic_value<TC>& v, const K& ky,
 namespace Config {
 
 // General
+static int volumeSlider = 100;
 static bool isNeo = false;
 static bool isDevKit = false;
 static bool isPSNSignedIn = false;
@@ -110,6 +111,9 @@ static std::string trophyKey = "";
 // Expected number of items in the config file
 static constexpr u64 total_entries = 54;
 
+int getVolumeSlider() {
+    return volumeSlider;
+}
 bool allowHDR() {
     return isHDRAllowed;
 }
@@ -157,6 +161,10 @@ std::filesystem::path GetSaveDataPath() {
         return Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "savedata";
     }
     return save_data_path;
+}
+
+void setVolumeSlider(int volumeValue) {
+    volumeSlider = volumeValue;
 }
 
 void setLoadGameSizeEnabled(bool enable) {
@@ -630,6 +638,7 @@ void load(const std::filesystem::path& path) {
     if (data.contains("General")) {
         const toml::value& general = data.at("General");
 
+        volumeSlider = toml::find_or<int>(general, "volumeSlider", volumeSlider);
         isNeo = toml::find_or<bool>(general, "isPS4Pro", isNeo);
         isDevKit = toml::find_or<bool>(general, "isDevKit", isDevKit);
         isPSNSignedIn = toml::find_or<bool>(general, "isPSNSignedIn", isPSNSignedIn);
@@ -826,6 +835,7 @@ void save(const std::filesystem::path& path) {
         fmt::print("Saving new configuration file {}\n", fmt::UTF(path.u8string()));
     }
 
+    data["General"]["volumeSlider"] = volumeSlider;
     data["General"]["isPS4Pro"] = isNeo;
     data["General"]["isDevKit"] = isDevKit;
     data["General"]["isPSNSignedIn"] = isPSNSignedIn;
@@ -922,6 +932,7 @@ void save(const std::filesystem::path& path) {
 
 void setDefaultValues() {
     // General
+    volumeSlider = 100;
     isNeo = false;
     isDevKit = false;
     isPSNSignedIn = false;
