@@ -1233,8 +1233,10 @@ void Rasterizer::UpdateDepthStencilState() const {
         const auto back =
             regs.depth_control.backface_enable ? regs.stencil_ref_back : regs.stencil_ref_front;
         dynamic_state.SetStencilReferences(front.stencil_test_val, back.stencil_test_val);
-        dynamic_state.SetStencilWriteMasks(!stencil_clear ? front.stencil_write_mask : 0U,
-                                           !stencil_clear ? back.stencil_write_mask : 0U);
+        dynamic_state.SetStencilWriteMasks(
+            !stencil_clear ? static_cast<unsigned int>(front.stencil_write_mask) : 0U,
+            !stencil_clear ? static_cast<unsigned int>(back.stencil_write_mask) : 0U);
+
         dynamic_state.SetStencilCompareMasks(front.stencil_mask, back.stencil_mask);
     }
 }
