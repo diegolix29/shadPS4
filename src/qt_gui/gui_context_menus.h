@@ -582,7 +582,7 @@ public:
         if (selected == viewCompatibilityReport) {
             if (m_games[itemID].compatibility.issue_number != "") {
                 auto url_issues =
-                    "https://github.com/shadps4-emu/shadps4-game-compatibility/issues/";
+                    "https://github.com/shadps4-compatibility/shadps4-game-compatibility/issues/";
                 QDesktopServices::openUrl(
                     QUrl(url_issues + m_games[itemID].compatibility.issue_number));
             }
@@ -590,8 +590,8 @@ public:
 
         if (selected == submitCompatibilityReport) {
             if (m_games[itemID].compatibility.issue_number == "") {
-                QUrl url =
-                    QUrl("https://github.com/shadps4-emu/shadps4-game-compatibility/issues/new");
+                QUrl url = QUrl("https://github.com/shadps4-compatibility/"
+                                "shadps4-game-compatibility/issues/new");
                 QUrlQuery query;
                 query.addQueryItem("template", QString("game_compatibility.yml"));
                 query.addQueryItem(
@@ -606,7 +606,7 @@ public:
                 QDesktopServices::openUrl(url);
             } else {
                 auto url_issues =
-                    "https://github.com/shadps4-emu/shadps4-game-compatibility/issues/";
+                    "https://github.com/shadps4-compatibility/shadps4-game-compatibility/issues/";
                 QDesktopServices::openUrl(
                     QUrl(url_issues + m_games[itemID].compatibility.issue_number));
             }
