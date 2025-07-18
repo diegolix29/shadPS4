@@ -164,16 +164,12 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
 
-    connect(ui->buttonBox, &QDialogButtonBox::clicked, this,
+connect(ui->buttonBox, &QDialogButtonBox::clicked, this,
             [this, config_dir](QAbstractButton* button) {
-                if (button == ui->buttonBox->button(QDialogButtonBox::Save)) {
-                    is_saving = true;
+                if (button == ui->buttonBox->button(QDialogButtonBox::Apply)) {
                     UpdateSettings();
                     Config::save(config_dir / "config.toml");
                     QWidget::close();
-                } else if (button == ui->buttonBox->button(QDialogButtonBox::Apply)) {
-                    UpdateSettings();
-                    Config::save(config_dir / "config.toml");
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)) {
                     Config::setDefaultValues();
                     Config::save(config_dir / "config.toml");
@@ -186,6 +182,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                     BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
                     ResetInstallFolders();
                 }
+
                 if (Common::Log::IsActive()) {
                     Common::Log::Filter filter;
                     filter.ParseFilterString(Config::getLogFilter());
@@ -193,7 +190,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                 }
             });
 
-    ui->buttonBox->button(QDialogButtonBox::Save)->setText(tr("Save"));
+
     ui->buttonBox->button(QDialogButtonBox::Apply)->setText(tr("Apply"));
     ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)->setText(tr("Restore Defaults"));
     ui->buttonBox->button(QDialogButtonBox::Close)->setText(tr("Close"));

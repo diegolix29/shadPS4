@@ -110,6 +110,8 @@ bool fpsColor();
 u32 vblankDiv();
 bool ShouldSkipShader(const u64& hash);
 void SetSkippedShaderHashes(const std::string& game_id);
+void setMicDevice(std::string device);
+std::string getMicDevice();
 
 void setDebugDump(bool enable);
 void setCollectShaderForDebug(bool enable);
