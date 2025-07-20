@@ -42,7 +42,7 @@ public:
     FrameBuffer(const AvPlayerMemAllocator& memory_replacement, u32 align, u32 size) noexcept
         : m_memory_replacement(memory_replacement),
           m_data(Allocate(memory_replacement, align, size)) {
-        ASSERT_MSG(m_data, "Could not allocated frame buffer.");
+        ASSERT_MSG(m_data, "Could not allocate frame buffer.");
     }
 
     ~FrameBuffer() {
