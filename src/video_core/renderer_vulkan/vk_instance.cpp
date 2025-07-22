@@ -677,17 +677,6 @@ vk::Format Instance::GetSupportedFormat(const vk::Format format,
             if (IsFormatSupported(vk::Format::eD32SfloatS8Uint, flags)) {
                 return vk::Format::eD32SfloatS8Uint;
             }
-            break;
-        case vk::Format::eR8Srgb:
-            if (IsFormatSupported(vk::Format::eR8Unorm, flags)) {
-                return vk::Format::eR8Unorm;
-            }
-            break;
-        case vk::Format::eB5G6R5UnormPack16:
-            if (IsFormatSupported(vk::Format::eB8G8R8A8Unorm, flags)) {
-                return vk::Format::eB8G8R8A8Unorm;
-            }
-            break;
         default:
             break;
         }
