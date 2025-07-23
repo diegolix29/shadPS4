@@ -64,6 +64,7 @@ static std::string userName = "shadPS4";
 static std::string chooseHomeTab = "General";
 static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
+static bool isConnectedToNetwork = false;
 
 // Input
 static int cursorState = HideCursorState::Idle;
@@ -462,6 +463,10 @@ int getAudioVolume() {
 void setfpsColor(bool enable) {
     fpsColorState = enable;
 }
+bool getIsConnectedToNetwork() {
+    return isConnectedToNetwork;
+}
+
 void setGpuId(s32 selectedGpuId) {
     gpuId = selectedGpuId;
 }
@@ -1226,6 +1231,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["sideTrophy"] = isSideTrophy;
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
+    data["General"]["isConnectedToNetwork"] = isConnectedToNetwork;
     data["Input"]["cursorState"] = cursorState;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout;
     data["Input"]["useSpecialPad"] = useSpecialPad;
@@ -1398,6 +1404,7 @@ void setDefaultValues() {
     isSideTrophy = "right";
     compatibilityData = false;
     checkCompatibilityOnStartup = false;
+    isConnectedToNetwork = false;
 
     // Input
     cursorState = HideCursorState::Idle;
