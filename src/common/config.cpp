@@ -940,8 +940,6 @@ void load(const std::filesystem::path& path) {
         return;
     }
 
-    u64 entry_count = 0;
-
     if (data.contains("General")) {
         const toml::value& general = data.at("General");
         enableAutoBackup = toml::find_or<bool>(general, "enableAutoBackup", false);
@@ -1003,7 +1001,6 @@ void load(const std::filesystem::path& path) {
             toml::find_or<bool>(input, "useUnifiedInputConfig", useUnifiedInputConfig);
         micDevice = toml::find_or<std::string>(input, "micDevice", micDevice);
 
-        entry_count += input.size();
     }
 
     if (data.contains("GPU")) {
@@ -1042,7 +1039,6 @@ void load(const std::filesystem::path& path) {
         isFullscreen = toml::find_or<bool>(gpu, "Fullscreen", isFullscreen);
         fullscreenMode = toml::find_or<std::string>(gpu, "FullscreenMode", fullscreenMode);
         isHDRAllowed = toml::find_or<bool>(gpu, "allowHDR", isHDRAllowed);
-        entry_count += gpu.size();
     }
 
     if (data.contains("Vulkan")) {
@@ -1057,7 +1053,6 @@ void load(const std::filesystem::path& path) {
         vkGuestMarkers = toml::find_or<bool>(vk, "guestMarkers", vkGuestMarkers);
         rdocEnable = toml::find_or<bool>(vk, "rdocEnable", rdocEnable);
 
-        entry_count += vk.size();
     }
 
     if (data.contains("Debug")) {
@@ -1069,7 +1064,6 @@ void load(const std::filesystem::path& path) {
         isShaderDebug = toml::find_or<bool>(debug, "CollectShader", isShaderDebug);
         setfpsColor(toml::find_or<bool>(debug, "FPSColor", fpsColor()));
 
-        entry_count += debug.size();
     }
 
     if (data.contains("GUI")) {
@@ -1121,21 +1115,18 @@ void load(const std::filesystem::path& path) {
         emulator_language = toml::find_or<std::string>(gui, "emulatorLanguage", "en_US");
         backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
         showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
-        entry_count += gui.size();
     }
 
     if (data.contains("Settings")) {
         const toml::value& settings = data.at("Settings");
         m_language = toml::find_or<int>(settings, "consoleLanguage", m_language);
 
-        entry_count += settings.size();
     }
 
     if (data.contains("Keys")) {
         const toml::value& keys = data.at("Keys");
         trophyKey = toml::find_or<std::string>(keys, "TrophyKey", trophyKey);
 
-        entry_count += keys.size();
     }
 
     if (data.contains("ShaderSkip")) {
