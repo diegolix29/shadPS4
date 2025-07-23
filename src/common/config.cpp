@@ -1007,7 +1007,6 @@ void load(const std::filesystem::path& path) {
         useUnifiedInputConfig =
             toml::find_or<bool>(input, "useUnifiedInputConfig", useUnifiedInputConfig);
         micDevice = toml::find_or<std::string>(input, "micDevice", micDevice);
-
     }
 
     if (data.contains("GPU")) {
@@ -1059,7 +1058,6 @@ void load(const std::filesystem::path& path) {
         vkHostMarkers = toml::find_or<bool>(vk, "hostMarkers", vkHostMarkers);
         vkGuestMarkers = toml::find_or<bool>(vk, "guestMarkers", vkGuestMarkers);
         rdocEnable = toml::find_or<bool>(vk, "rdocEnable", rdocEnable);
-
     }
 
     if (data.contains("Debug")) {
@@ -1070,7 +1068,6 @@ void load(const std::filesystem::path& path) {
             toml::find_or<bool>(debug, "isSeparateLogFilesEnabled", isSeparateLogFilesEnabled);
         isShaderDebug = toml::find_or<bool>(debug, "CollectShader", isShaderDebug);
         setfpsColor(toml::find_or<bool>(debug, "FPSColor", fpsColor()));
-
     }
 
     if (data.contains("GUI")) {
@@ -1127,13 +1124,11 @@ void load(const std::filesystem::path& path) {
     if (data.contains("Settings")) {
         const toml::value& settings = data.at("Settings");
         m_language = toml::find_or<int>(settings, "consoleLanguage", m_language);
-
     }
 
     if (data.contains("Keys")) {
         const toml::value& keys = data.at("Keys");
         trophyKey = toml::find_or<std::string>(keys, "TrophyKey", trophyKey);
-
     }
 
     if (data.contains("ShaderSkip")) {
