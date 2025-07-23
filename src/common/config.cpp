@@ -987,6 +987,8 @@ void load(const std::filesystem::path& path) {
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
+        isConnectedToNetwork =
+            toml::find_or<bool>(general, "isConnectedToNetwork", isConnectedToNetwork);
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", "Release");
         audioBackend = toml::find_or<std::string>(general, "backend", "cubeb");
         audioVolume = toml::find_or<int>(general, "volume", 100);
