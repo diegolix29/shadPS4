@@ -141,10 +141,8 @@ void CFG::EmitLabels() {
         } else if (inst.IsConditionalBranch()) {
             const u32 true_label = inst.BranchTarget(pc);
             const u32 false_label = pc + inst.length;
-            if (true_label != false_label) {
-                AddLabel(true_label);
-                AddLabel(false_label);
-            }
+            AddLabel(true_label);
+            AddLabel(false_label);
         } else if (inst.opcode == Opcode::S_ENDPGM) {
             const u32 next_label = pc + inst.length;
             AddLabel(next_label);
