@@ -243,4 +243,8 @@ if (APPLE)
     if (NOT TARGET MoltenVK)
         add_subdirectory(MoltenVK)
     endif()
+
+    if (NOT TARGET epoll-shim)
+        add_subdirectory(epoll-shim)
+    endif()
 endif()
