@@ -446,6 +446,10 @@ void Rasterizer::Finish() {
     scheduler.Finish();
 }
 
+void Rasterizer::CommitPendingGpuRanges() {
+    buffer_cache.CommitPendingGpuRanges();
+}
+
 void Rasterizer::EndCommandList() {
     if (fault_process_pending) {
         fault_process_pending = false;
