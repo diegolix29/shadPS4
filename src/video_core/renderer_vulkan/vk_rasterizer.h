@@ -73,6 +73,7 @@ public:
     void CpSync();
     u64 Flush();
     void Finish();
+    void CommitPendingGpuRanges();
     void EndCommandList();
 
     PipelineCache& GetPipelineCache() {
