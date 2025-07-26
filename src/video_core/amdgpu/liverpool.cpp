@@ -135,7 +135,7 @@ void Liverpool::Process(std::stop_token stoken) {
         }
 
         if (submit_done) {
-            LOG_WARNING(Render, "Flushed pages per frame {}", num_flushes);
+            LOG_DEBUG(Render, "Flushed pages per frame {}", num_flushes);
             num_flushes = 0;
             VideoCore::EndCapture();
             if (rasterizer) {
@@ -553,7 +553,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             case PM4ItOpcode::SetPredication: {
                 const auto* predication = reinterpret_cast<const PM4CmdSetPredication*>(header);
                 if (predication->continue_bit.Value()) {
-                    LOG_WARNING(Render_Vulkan, "unhandled continue bit in predication command");
+                    LOG_DEBUG(Render_Vulkan, "unhandled continue bit in predication command");
                 }
                 if (predication->pred_op.Value() == PredicateOperation::Clear) {
                     if (rasterizer) {
@@ -567,7 +567,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                             predication->hint.Value() == PredicationHint::Wait);
                     }
                 } else {
-                    LOG_WARNING(Render_Vulkan, "unhandled predicate operation {}",
+                    LOG_DEBUG(Render_Vulkan, "unhandled predicate operation {}",
                                 magic_enum::enum_name(predication->pred_op.Value()));
                 }
                 break;
@@ -885,7 +885,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             }
             case PM4ItOpcode::CopyData: {
                 const auto* copy_data = reinterpret_cast<const PM4CmdCopyData*>(header);
-                LOG_WARNING(Render,
+                LOG_DEBUG(Render,
                             "unhandled IT_COPY_DATA src_sel = {}, dst_sel = {}, "
                             "count_sel = {}, wr_confirm = {}, engine_sel = {}",
                             u32(copy_data->src_sel.Value()), u32(copy_data->dst_sel.Value()),
@@ -968,7 +968,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             }
             case PM4ItOpcode::StrmoutBufferUpdate: {
                 const auto* strmout = reinterpret_cast<const PM4CmdStrmoutBufferUpdate*>(header);
-                LOG_WARNING(Render_Vulkan,
+                LOG_DEBUG(Render_Vulkan,
                             "Unimplemented IT_STRMOUT_BUFFER_UPDATE, update_memory = {}, "
                             "source_select = {}, buffer_select = {}",
                             strmout->update_memory.Value(),
@@ -977,13 +977,13 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 break;
             }
             case PM4ItOpcode::GetLodStats: {
-                LOG_WARNING(Render_Vulkan, "Unimplemented IT_GET_LOD_STATS");
+                LOG_DEBUG(Render_Vulkan, "Unimplemented IT_GET_LOD_STATS");
                 break;
             }
             case PM4ItOpcode::CondExec: {
                 const auto* cond_exec = reinterpret_cast<const PM4CmdCondExec*>(header);
                 if (cond_exec->command.Value() != 0) {
-                    LOG_WARNING(Render, "IT_COND_EXEC used a reserved command");
+                    LOG_DEBUG(Render, "IT_COND_EXEC used a reserved command");
                 }
                 const auto skip = *cond_exec->Address() == false;
                 if (skip) {
@@ -1179,7 +1179,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
         }
         case PM4ItOpcode::SetQueueReg: {
             const auto* set_data = reinterpret_cast<const PM4CmdSetQueueReg*>(header);
-            LOG_WARNING(Render, "Encountered compute SetQueueReg: vqid = {}, reg_offset = {:#x}",
+            LOG_DEBUG(Render, "Encountered compute SetQueueReg: vqid = {}, reg_offset = {:#x}",
                         set_data->vqid.Value(), set_data->reg_offset.Value());
             break;
         }
