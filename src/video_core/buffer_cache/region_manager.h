@@ -96,7 +96,7 @@ public:
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
         } else if (Config::getReadbacksEnabled()) {
-            UpdateProtection<enable, true>();        
+            UpdateProtection<enable, true>();
         } else if (Config::getFastReadbacksEnabled()) {
             UpdateProtection<enable, false>();
         }

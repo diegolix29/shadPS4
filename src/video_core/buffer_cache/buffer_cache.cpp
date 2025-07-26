@@ -175,7 +175,8 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
         return;
     }
     ++num_flushes;
-    //LOG_WARNING(Render, "Flushing page addr={:#x} fence_tick={}", device_addr, page_table[device_addr >> CACHING_PAGEBITS].fence_tick);
+    // LOG_WARNING(Render, "Flushing page addr={:#x} fence_tick={}", device_addr,
+    // page_table[device_addr >> CACHING_PAGEBITS].fence_tick);
     const auto [download, offset] = download_buffer.Map(total_size_bytes);
     for (auto& copy : copies) {
         // Modify copies to have the staging offset in mind
@@ -451,7 +452,10 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
         buffer_id = FindBuffer(device_addr, size);
     }
     Buffer& buffer = slot_buffers[buffer_id];
-    SynchronizeBuffer(buffer, device_addr, size, is_written && /*Config::fenceDetection() == Config::FenceDetection::None*/false, is_texel_buffer);
+    SynchronizeBuffer(buffer, device_addr, size,
+                      is_written &&
+                          /*Config::fenceDetection() == Config::FenceDetection::None*/ false,
+                      is_texel_buffer);
     if (is_written) {
         gpu_modified_ranges_pending.Add(device_addr, size);
     }
@@ -493,7 +497,8 @@ bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
     }
     const VAddr page_addr = PageManager::GetPageAddr(addr);
     bool modified = false;
-    gpu_modified_ranges_pending.ForEachInRange(page_addr, PageManager::PAGE_SIZE, [&](VAddr, VAddr) { modified = true; });
+    gpu_modified_ranges_pending.ForEachInRange(page_addr, PageManager::PAGE_SIZE,
+                                               [&](VAddr, VAddr) { modified = true; });
     return modified;
 }
 
@@ -834,12 +839,14 @@ void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
     size_t total_size_bytes = 0;
     VAddr buffer_start = buffer.CpuAddr();
     vk::Buffer src_buffer = VK_NULL_HANDLE;
-    memory_tracker->ForEachUploadRange(device_addr, size, is_written,
+    memory_tracker->ForEachUploadRange(
+        device_addr, size, is_written,
         [&](u64 device_addr_out, u64 range_size) {
-            gpu_modified_ranges.ForEachNotInRange(device_addr_out, range_size, [&](VAddr range_addr, u32 range_size) {
-                copies.emplace_back(total_size_bytes, range_addr - buffer_start, range_size);
-                total_size_bytes += range_size;
-            });
+            gpu_modified_ranges.ForEachNotInRange(
+                device_addr_out, range_size, [&](VAddr range_addr, u32 range_size) {
+                    copies.emplace_back(total_size_bytes, range_addr - buffer_start, range_size);
+                    total_size_bytes += range_size;
+                });
         },
         [&] { src_buffer = UploadCopies(buffer, copies, total_size_bytes); });
 
@@ -849,7 +856,8 @@ void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
         const vk::BufferMemoryBarrier2 pre_barrier = {
             .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
             .srcAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite |
-                             vk::AccessFlagBits2::eTransferRead | vk::AccessFlagBits2::eTransferWrite,
+                             vk::AccessFlagBits2::eTransferRead |
+                             vk::AccessFlagBits2::eTransferWrite,
             .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
             .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
             .buffer = buffer.Handle(),
@@ -1040,7 +1048,8 @@ void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is
         u32 size = static_cast<u32>(end - start);
         SynchronizeBuffer(buffer, start, size, is_written, false);
         if (is_written) {
-            //LOG_WARNING(Render, "Commit pending GPU range device_addr={:#x}, size={:#x}, fence_tick={}", start, end - start, fence_tick);
+            // LOG_WARNING(Render, "Commit pending GPU range device_addr={:#x}, size={:#x},
+            // fence_tick={}", start, end - start, fence_tick);
             const u64 page_start = start >> CACHING_PAGEBITS;
             const u64 page_end = Common::DivCeil(end, CACHING_PAGESIZE);
             for (u64 page = page_start; page != page_end; ++page) {
@@ -1070,9 +1079,8 @@ void BufferCache::MemoryBarrier() {
 }
 
 void BufferCache::CommitPendingGpuRanges() {
-    gpu_modified_ranges_pending.ForEach([this](VAddr begin, VAddr end) {
-        SynchronizeBuffersInRange(begin, end - begin, true);
-    });
+    gpu_modified_ranges_pending.ForEach(
+        [this](VAddr begin, VAddr end) { SynchronizeBuffersInRange(begin, end - begin, true); });
     gpu_modified_ranges.m_ranges_set += gpu_modified_ranges_pending.m_ranges_set;
     gpu_modified_ranges_pending.Clear();
 }
