@@ -1757,7 +1757,44 @@
               </widget>
              </widget>
             </item>
-            <item>
+			   <item>
+				   <widget class="QGroupBox" name="AudioOutputGroupBox">
+					   <property name="title">
+						   <string>Audio Output</string>
+					   </property>
+					   <layout class="QVBoxLayout" name="audioOutputLayout">
+						   <item>
+							   <widget class="QLabel" name="mainOutputLabel">
+								   <property name="text">
+									   <string>Main Output Device</string>
+								   </property>
+							   </widget>
+						   </item>
+						   <item>
+							   <widget class="QComboBox" name="mainOutputComboBox">
+								   <property name="toolTip">
+									   <string>Select main audio output device</string>
+								   </property>
+							   </widget>
+						   </item>
+						   <item>
+							   <widget class="QLabel" name="padSpkOutputLabel">
+								   <property name="text">
+									   <string>Controller Speaker Output</string>
+								   </property>
+							   </widget>
+						   </item>
+						   <item>
+							   <widget class="QComboBox" name="padSpkOutputComboBox">
+								   <property name="toolTip">
+									   <string>Select controller speaker output device</string>
+								   </property>
+							   </widget>
+						   </item>
+					   </layout>
+				   </widget>
+			   </item>
+			   <item>
              <spacer name="verticalSpacer_8">
               <property name="orientation">
                <enum>Qt::Orientation::Vertical</enum>

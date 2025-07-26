@@ -147,6 +147,25 @@ SettingsDialog::SettingsDialog(std::shared_ptr<gui_settings> gui_settings,
     } else {
         qDebug() << "Erro SDL_GetAudioRecordingDevices:" << SDL_GetError();
     }
+    ui->mainOutputComboBox->addItem(tr("Default Device"), "Default Device");
+    ui->padSpkOutputComboBox->addItem(tr("Default Device"), "Default Device");
+
+    int playbackCount = 0;
+    SDL_AudioDeviceID* playbackDevices = SDL_GetAudioPlaybackDevices(&playbackCount);
+    if (playbackDevices) {
+        for (int i = 0; i < playbackCount; ++i) {
+            SDL_AudioDeviceID devId = playbackDevices[i];
+            const char* name = SDL_GetAudioDeviceName(devId);
+            if (name) {
+                QString qname = QString::fromUtf8(name);
+                ui->mainOutputComboBox->addItem(qname, qname);
+                ui->padSpkOutputComboBox->addItem(qname, qname);
+            }
+        }
+        SDL_free(playbackDevices);
+    } else {
+        qDebug() << "Error SDL_GetAudioPlaybackDevices:" << SDL_GetError();
+    }
 
     InitializeEmulatorLanguages();
     LoadValuesFromConfig();
@@ -486,6 +505,14 @@ void SettingsDialog::LoadValuesFromConfig() {
     } else {
         ui->micComboBox->setCurrentIndex(0);
     }
+    QString mainOutput = QString::fromStdString(Config::getMainOutputDevice());
+    int mainIndex = ui->mainOutputComboBox->findData(mainOutput);
+    ui->mainOutputComboBox->setCurrentIndex(mainIndex != -1 ? mainIndex : 0);
+
+    QString padSpkOutput = QString::fromStdString(Config::getPadSpkOutputDevice());
+    int padIndex = ui->padSpkOutputComboBox->findData(padSpkOutput);
+    ui->padSpkOutputComboBox->setCurrentIndex(padIndex != -1 ? padIndex : 0);
+
     // First options is auto selection -1, so gpuId on the GUI will always have to subtract 1
     // when setting and add 1 when getting to select the correct gpu in Qt
     ui->graphicsAdapterBox->setCurrentIndex(toml::find_or<int>(data, "Vulkan", "gpuId", -1) + 1);
@@ -812,6 +839,8 @@ void SettingsDialog::UpdateSettings() {
     Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
     Config::setLogType(logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString());
     Config::setMicDevice(ui->micComboBox->currentData().toString().toStdString());
+    Config::setMainOutputDevice(ui->mainOutputComboBox->currentData().toString().toStdString());
+    Config::setPadSpkOutputDevice(ui->padSpkOutputComboBox->currentData().toString().toStdString());
     Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());
     Config::setUserName(ui->userNameLineEdit->text().toStdString());
     Config::setTrophyKey(ui->trophyKeyLineEdit->text().toStdString());
