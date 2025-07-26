@@ -2271,7 +2271,7 @@
           </item>
 
           <item>
-            <widget class="QLabel" name="label_23">
+            <widget class="QLabel" name="label_231">
               <property name="font">
                 <font>
                   <pointsize>11</pointsize>
@@ -2282,8 +2282,8 @@
 					<string notr="true">
 						<![CDATA[
         <b>Hint:</b><br/>
-        Readbacks implementation,
-        Enable this for Driveclub.<br/>
+        Readbacks implementation - Make particles show on Infamous games and Dead or Alive.<br/>
+		NO vertex explosions - May cause issues on some games to boot, or low performance.<br/>
         ]]>
 					</string>
 				</property>
@@ -2320,7 +2320,7 @@
 		<item>
 			<widget class="QCheckBox" name="FastReadbacksCheckBox">
 			  <property name="text">
-				 <string>Fast Readbacks for BloodBorne - DS3 - Elden Ring (No Vertex Explosions)</string>
+				 <string>Fast Readbacks for BloodBorne - DS3 - Elden Ring - DRIVECLUB (No Vertex Explosions)</string>
 			  </property>
 		    </widget>
 		  </item>
@@ -2337,9 +2337,8 @@
 						<string notr="true">
 							<![CDATA[
         <b>Hint:</b><br/>
-        Faster Readbacks for Bloodborne - Dark Souls 3 - Elden Ring - Rock Band 4
-        No vertex Explosions, shows crowd on Rock Band without slowdowns
-        need Readbacks to be Enabled.<br/>
+        Faster Readbacks for Bloodborne - Dark Souls 3 - Elden Ring - DRIVECLUB<br/>
+        No vertex Explosions. May still reduce performance on some games but not as much as readbacks<br/>
         ]]>
 						</string>
 					</property>
