@@ -568,7 +568,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     }
                 } else {
                     LOG_DEBUG(Render_Vulkan, "unhandled predicate operation {}",
-                                magic_enum::enum_name(predication->pred_op.Value()));
+                              magic_enum::enum_name(predication->pred_op.Value()));
                 }
                 break;
             }
@@ -886,11 +886,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             case PM4ItOpcode::CopyData: {
                 const auto* copy_data = reinterpret_cast<const PM4CmdCopyData*>(header);
                 LOG_DEBUG(Render,
-                            "unhandled IT_COPY_DATA src_sel = {}, dst_sel = {}, "
-                            "count_sel = {}, wr_confirm = {}, engine_sel = {}",
-                            u32(copy_data->src_sel.Value()), u32(copy_data->dst_sel.Value()),
-                            copy_data->count_sel.Value(), copy_data->wr_confirm.Value(),
-                            u32(copy_data->engine_sel.Value()));
+                          "unhandled IT_COPY_DATA src_sel = {}, dst_sel = {}, "
+                          "count_sel = {}, wr_confirm = {}, engine_sel = {}",
+                          u32(copy_data->src_sel.Value()), u32(copy_data->dst_sel.Value()),
+                          copy_data->count_sel.Value(), copy_data->wr_confirm.Value(),
+                          u32(copy_data->engine_sel.Value()));
                 break;
             }
             case PM4ItOpcode::MemSemaphore: {
@@ -969,11 +969,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             case PM4ItOpcode::StrmoutBufferUpdate: {
                 const auto* strmout = reinterpret_cast<const PM4CmdStrmoutBufferUpdate*>(header);
                 LOG_DEBUG(Render_Vulkan,
-                            "Unimplemented IT_STRMOUT_BUFFER_UPDATE, update_memory = {}, "
-                            "source_select = {}, buffer_select = {}",
-                            strmout->update_memory.Value(),
-                            magic_enum::enum_name(strmout->source_select.Value()),
-                            strmout->buffer_select.Value());
+                          "Unimplemented IT_STRMOUT_BUFFER_UPDATE, update_memory = {}, "
+                          "source_select = {}, buffer_select = {}",
+                          strmout->update_memory.Value(),
+                          magic_enum::enum_name(strmout->source_select.Value()),
+                          strmout->buffer_select.Value());
                 break;
             }
             case PM4ItOpcode::GetLodStats: {
@@ -1180,7 +1180,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
         case PM4ItOpcode::SetQueueReg: {
             const auto* set_data = reinterpret_cast<const PM4CmdSetQueueReg*>(header);
             LOG_DEBUG(Render, "Encountered compute SetQueueReg: vqid = {}, reg_offset = {:#x}",
-                        set_data->vqid.Value(), set_data->reg_offset.Value());
+                      set_data->vqid.Value(), set_data->reg_offset.Value());
             break;
         }
         case PM4ItOpcode::DispatchDirect: {
