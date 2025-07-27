@@ -411,8 +411,8 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->hostMarkersCheckBox->installEventFilter(this);
         ui->collectShaderCheckBox->installEventFilter(this);
         ui->copyGPUBuffersCheckBox->installEventFilter(this);
-        ui->readbacksCheckBox->installEventFilter(this);
-        ui->readbackLinearImagesCheckBox->installEventFilter(this);
+        ui->ReadbacksCheckBox->installEventFilter(this);
+        ui->ReadbacksLinearCheckBox->installEventFilter(this);
         ui->separateLogFilesCheckbox->installEventFilter(this);
 
         // Experimental
