@@ -398,6 +398,7 @@ s32 PS4_SYSV_ABI sceAudioOutOutput(s32 handle, void* ptr) {
         return ORBIS_AUDIO_OUT_ERROR_INVALID_PORT;
     }
 
+    auto samples_sent = 0;
     auto& port = ports_out.at(handle - 1);
     {
         std::unique_lock lock{port.mutex};
@@ -409,20 +410,22 @@ s32 PS4_SYSV_ABI sceAudioOutOutput(s32 handle, void* ptr) {
             std::memcpy(port.output_buffer, ptr, port.BufferSize());
             port.output_ready = true;
             port.last_output_time = Kernel::sceKernelGetProcessTime();
+            samples_sent = port.buffer_frames * port.format_info.num_channels;
         }
     }
     port.output_cv.notify_one();
-    return ORBIS_OK;
+    return samples_sent;
 }
 
 int PS4_SYSV_ABI sceAudioOutOutputs(OrbisAudioOutOutputParam* param, u32 num) {
+    int ret = 0;
     for (u32 i = 0; i < num; i++) {
         const auto [handle, ptr] = param[i];
-        if (const auto ret = sceAudioOutOutput(handle, ptr); ret != ORBIS_OK) {
+        if (ret = sceAudioOutOutput(handle, ptr); ret < 0) {
             return ret;
         }
     }
-    return ORBIS_OK;
+    return ret;
 }
 
 int PS4_SYSV_ABI sceAudioOutPtClose() {

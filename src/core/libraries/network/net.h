@@ -95,6 +95,11 @@ enum OrbisNetEpollEvents : u32 {
     ORBIS_NET_EPOLLDESCID = 0x10000,
 };
 
+enum OrbisNetResolverFlag : u32 {
+    ORBIS_NET_RESOLVER_ASYNC = 0x1,
+    ORBIS_NET_RESOLVER_START_NTOA_DISABLE_IPADDRESS = 0x10000,
+};
+
 using OrbisNetId = s32;
 
 struct OrbisNetSockaddr {
@@ -110,6 +115,12 @@ struct OrbisNetSockaddrIn {
     u32 sin_addr;
     u16 sin_vport;
     char sin_zero[6];
+};
+
+using OrbisNetInAddr_t = u32;
+
+struct OrbisNetInAddr {
+    OrbisNetInAddr_t inaddr_addr;
 };
 
 struct OrbisNetIovec {
@@ -139,6 +150,24 @@ struct OrbisNetEpollEvent {
     u32 pad;
     u64 ident;
     OrbisNetEpollData data;
+};
+
+union OrbisNetAddrUnion {
+    OrbisNetInAddr addr;
+    u8 addr6[16];
+};
+
+struct OrbisNetResolverAddr {
+    OrbisNetAddrUnion u;
+    u32 af;
+    u32 pad[3];
+};
+
+struct OrbisNetResolverInfo {
+    OrbisNetResolverAddr addrs[10];
+    u32 records;
+    u32 recordsv4;
+    u32 pad[14];
 };
 
 int PS4_SYSV_ABI in6addr_any();
@@ -284,7 +313,7 @@ u16 PS4_SYSV_ABI sceNetHtons(u16 host16);
 const char* PS4_SYSV_ABI sceNetInetNtop(int af, const void* src, char* dst, u32 size);
 int PS4_SYSV_ABI sceNetInetNtopWithScopeId();
 int PS4_SYSV_ABI sceNetInetPton(int af, const char* src, void* dst);
-int PS4_SYSV_ABI sceNetInetPtonEx();
+int PS4_SYSV_ABI sceNetInetPtonEx(int af, const char* src, void* dst, int flags);
 int PS4_SYSV_ABI sceNetInetPtonWithScopeId();
 int PS4_SYSV_ABI sceNetInfoDumpStart();
 int PS4_SYSV_ABI sceNetInfoDumpStop();
@@ -310,14 +339,17 @@ int PS4_SYSV_ABI sceNetResolverConnect();
 int PS4_SYSV_ABI sceNetResolverConnectAbort();
 int PS4_SYSV_ABI sceNetResolverConnectCreate();
 int PS4_SYSV_ABI sceNetResolverConnectDestroy();
-int PS4_SYSV_ABI sceNetResolverCreate();
-int PS4_SYSV_ABI sceNetResolverDestroy();
+int PS4_SYSV_ABI sceNetResolverCreate(const char* name, int poolid, int flags);
+int PS4_SYSV_ABI sceNetResolverDestroy(OrbisNetId resolverid);
 int PS4_SYSV_ABI sceNetResolverGetError();
 int PS4_SYSV_ABI sceNetResolverStartAton();
 int PS4_SYSV_ABI sceNetResolverStartAton6();
-int PS4_SYSV_ABI sceNetResolverStartNtoa();
+int PS4_SYSV_ABI sceNetResolverStartNtoa(OrbisNetId resolverid, const char* hostname,
+                                         OrbisNetInAddr* addr, int timeout, int retry, int flags);
 int PS4_SYSV_ABI sceNetResolverStartNtoa6();
-int PS4_SYSV_ABI sceNetResolverStartNtoaMultipleRecords();
+int PS4_SYSV_ABI sceNetResolverStartNtoaMultipleRecords(OrbisNetId resolverid, const char* hostname,
+                                                        OrbisNetResolverInfo* info, int timeout,
+                                                        int retry, int flags);
 int PS4_SYSV_ABI sceNetResolverStartNtoaMultipleRecordsEx();
 int PS4_SYSV_ABI sceNetSend(OrbisNetId s, const void* buf, u64 len, int flags);
 int PS4_SYSV_ABI sceNetSendmsg(OrbisNetId s, const OrbisNetMsghdr* msg, int flags);
