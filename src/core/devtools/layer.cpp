@@ -468,8 +468,7 @@ void L::Draw() {
         visibility_toggled = true;
     }
 
-    if (IsKeyPressed(ImGuiKey_F11, false) ||
-        Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::Options})) {
+    if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::Options})) {
         SDL_Event toggleFullscreenEvent;
         toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
         SDL_PushEvent(&toggleFullscreenEvent);
