@@ -36,7 +36,7 @@ static bool show_simple_fps = false;
 static bool visibility_toggled = false;
 
 static bool show_fullscreen_tip = true;
-static float fullscreen_tip_timer = 8.0f;
+static float fullscreen_tip_timer = 10.0f;
 
 static float fps_scale = 1.0f;
 static int dump_frame_count = 1;
@@ -365,13 +365,78 @@ void L::SetupSettings() {
     DockBuilderFinish(dock_id);
 }
 
+void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
+    if (!is_open)
+        return;
+
+    constexpr ImVec2 window_pos = {10, 10};
+    constexpr ImVec2 window_size = {325, 350};
+
+    ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
+    ImGui::SetNextWindowSize(window_size, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.9f);
+
+    if (ImGui::Begin("Fullscreen Tip", &is_open,
+                     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
+                         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                         ImGuiWindowFlags_NoCollapse)) {
+        ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or R1+R2+Options\n"
+                               "Stop the game with: F4 or L1+L2+Options\n"
+                               "Toggle fullscreen: F11 or L2+R2+Options\n"
+                               "Developer Tools: Ctrl + F10 or L2+R2+R3\n"
+                               "Show FPS: F10 or L2+R2+L3");
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::TextDisabled("NOTE: CHEATS AREN'T WORKING RIGHT NOW");
+
+        ImGui::Spacing();
+        ImGui::SeparatorText("Current Config");
+
+        ImGui::Text("Readbacks: %s", Config::getReadbacksEnabled() ? "On" : "Off");
+        ImGui::Text("Fast Readbacks: %s", Config::getFastReadbacksEnabled() ? "On" : "Off");
+        ImGui::Text("Shader Skips: %s", Config::getShaderSkipsEnabled() ? "On" : "Off");
+        ImGui::Text("Linear Readbacks: %s", Config::getReadbackLinearImages() ? "On" : "Off");
+        ImGui::Text("DMA Access: %s", Config::directMemoryAccess() ? "On" : "Off");
+        ImGui::Text("VBlank Divider: %d", Config::vblankDiv());
+        ImGui::Text("HDR Allowed: %s", Config::allowHDR() ? "Yes" : "No");
+        ImGui::Text("Auto Backup: %s", Config::getEnableAutoBackup() ? "On" : "Off");
+        ImGui::Text("PSN Signed In: %s", Config::getPSNSignedIn() ? "Yes" : "No");
+    }
+    ImGui::End();
+}
+
+void DrawPauseStatusWindow(bool& is_open) {
+    if (!is_open)
+        return;
+
+    constexpr ImVec2 window_size = {600, 250};
+    ImGui::SetNextWindowSize(window_size, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowBgAlpha(0.9f);
+
+    if (ImGui::Begin("Pause Menu - Hotkeys", &is_open,
+                     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs)) {
+        ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or R1+R2+Options\n"
+                               "Stop the game with: F4 or L1+L2+Options\n"
+                               "Toggle fullscreen: F11 or L2+R2+Options\n"
+                               "Developer Tools: Ctrl + F10 or L2+R2+R3\n"
+                               "Show FPS: F10 or L2+R2+L3\n");
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::TextDisabled("Tip: Use the keyboard or controller shortcuts above.");
+    }
+    ImGui::End();
+}
+
 void L::Draw() {
     const auto io = GetIO();
     PushID("DevtoolsLayer");
     if (IsKeyPressed(ImGuiKey_F4, false) ||
-        Input::ControllerComboPressedOnce({Btn::L1, Btn::L2, Btn::Share})) {
+        Input::ControllerComboPressedOnce({Btn::L1, Btn::L2, Btn::Options})) {
         SDL_Event quitEvent;
-        quitEvent.type = SDL_EVENT_QUIT + 1;
+        quitEvent.type = SDL_EVENT_QUIT;
         SDL_PushEvent(&quitEvent);
     }
 
@@ -380,42 +445,7 @@ void L::Draw() {
         if (fullscreen_tip_timer <= 0.0f) {
             show_fullscreen_tip = false;
         } else {
-            ImU32 color = IM_COL32(255, 255, 255, 255);
-            ImVec2 pos_top(10, 30);
-
-            // fullscreen tip
-            ImGui::GetForegroundDrawList()->AddText(
-                pos_top, color,
-                "Press F11 to toggle FullScreen or L2+R2+Options\n"
-                "F9 to Pause Emulation or R1+R2+Options\n"
-                "F4 to Stop Game (if Qt, press stop button after) or L1+L2+Options\n"
-                "Ctrl + F10 for Developer tools\n"
-                "NOTE: Cheats aren't working right now");
-
-            constexpr float line_height = 18.0f;
-            constexpr int fullscreen_lines = 5;
-            ImVec2 pos_below(pos_top.x, pos_top.y + fullscreen_lines * line_height + 10);
-
-            ImU32 config_color = IM_COL32(180, 220, 255, 255);
-            std::string configText = fmt::format(
-                "Readbacks: {}\n"
-                "Fast Readbacks: {}\n"
-                "Shader Skips: {}\n"
-                "Linear Readbacks: {}\n"
-                "DMA Access: {}\n"
-                "VBlank Divider: {}\n"
-                "HDR Allowed: {}\n"
-                "Auto Backup: {}\n"
-                "PSN Signed In: {}",
-                Config::getReadbacksEnabled() ? "On" : "Off",
-                Config::getFastReadbacksEnabled() ? "On" : "Off",
-                Config::getShaderSkipsEnabled() ? "On" : "Off",
-                Config::getReadbackLinearImages() ? "On" : "Off",
-                Config::directMemoryAccess() ? "On" : "Off", Config::vblankDiv(),
-                Config::allowHDR() ? "Yes" : "No", Config::getEnableAutoBackup() ? "On" : "Off",
-                Config::getPSNSignedIn() ? "Yes" : "No");
-
-            ImGui::GetForegroundDrawList()->AddText(pos_below, config_color, configText.c_str());
+            DrawFullscreenTipWindow(show_fullscreen_tip, fullscreen_tip_timer);
         }
     }
 
@@ -424,12 +454,17 @@ void L::Draw() {
         frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
     }
 
-    if (IsKeyPressed(ImGuiKey_F10, false)) {
-        if (io.KeyCtrl) {
-            DebugState.IsShowingDebugMenuBar() ^= true;
-        } else {
-            show_simple_fps = !show_simple_fps;
-        }
+    const bool key_f10 = ImGui::IsKeyPressed(ImGuiKey_F10, false);
+    const bool ctrl_held = ImGui::GetIO().KeyCtrl;
+    const bool show_debug_menu_combo =
+        Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::R3});
+    const bool show_fps_combo = Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::L3});
+
+    if ((key_f10 && ctrl_held) || show_debug_menu_combo) {
+        DebugState.IsShowingDebugMenuBar() ^= true;
+        visibility_toggled = true;
+    } else if (key_f10 || show_fps_combo) {
+        show_simple_fps = !show_simple_fps;
         visibility_toggled = true;
     }
 
@@ -460,17 +495,10 @@ void L::Draw() {
         }
     }
 
-    if (show_pause_status) {
-        ImVec2 pos = ImVec2(10, 10);
-        ImU32 color = IM_COL32(255, 255, 255, 255);
-        ImVec2 pos_top(10, 30);
+    static bool showPauseHelpWindow = true;
 
-        ImGui::GetForegroundDrawList()->AddText(
-            pos_top, color,
-            "Press F11 to toggle FullScreen or L2+R2+Options\n"
-            "F9 to Pause Emulation or R1+R2+Options\n"
-            "F4 to Stop Game (if Qt, press stop button after) or L1+L2+Options\n"
-            "Ctrl + F10 for Developer tools\n");
+    if (show_pause_status) {
+        DrawPauseStatusWindow(showPauseHelpWindow);
     }
 
     if (show_simple_fps) {

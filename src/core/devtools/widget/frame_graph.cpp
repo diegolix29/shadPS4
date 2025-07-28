@@ -75,7 +75,9 @@ void FrameGraph::Draw() {
         return;
     }
     SetNextWindowSize({308.0, 270.0f}, ImGuiCond_FirstUseEver);
-    if (Begin("Video debug info", &is_open)) {
+    ImGuiWindowFlags window_flags =
+        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs;
+    if (Begin("Video debug info", &is_open, window_flags)) {
         const auto& ctx = *GImGui;
         const auto& io = ctx.IO;
         const auto& window = *ctx.CurrentWindow;

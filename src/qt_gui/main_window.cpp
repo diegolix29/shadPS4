@@ -811,17 +811,6 @@ void MainWindow::CreateConnects() {
     });
 }
 
-void MainWindow::OnGameExited(int exitCode, QProcess::ExitStatus exitStatus) {
-    qDebug("Game exited with code %d", exitCode);
-    isGameRunning = false;
-    UpdateToolbarButtons();
-
-    if (m_gameProcess) {
-        m_gameProcess->deleteLater();
-        m_gameProcess = nullptr;
-    }
-}
-
 void MainWindow::StartGame() {
     if (isGameRunning) {
         QMessageBox::critical(nullptr, tr("Run Game"), tr("Game is already running!"));
@@ -877,14 +866,11 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
         QProcess::startDetached(exePath, QStringList() << gamePath, QString(), &detachedGamePid);
     if (!started) {
         QMessageBox::critical(this, tr("Run Game"), tr("Failed to start emulator."));
-        delete m_gameProcess;
-        m_gameProcess = nullptr;
         return;
     }
 
     lastGamePath = gamePath;
     isGameRunning = true;
-    isDetachedLaunch = false;
 
     UpdateToolbarButtons();
 }
