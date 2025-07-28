@@ -47,8 +47,7 @@ MainWindow::~MainWindow() {
 
 bool MainWindow::Init() {
     auto start = std::chrono::steady_clock::now();
-
-    // Setup UI
+    // setup ui
     LoadTranslation();
     AddUiWidgets();
     CreateActions();
@@ -58,23 +57,8 @@ bool MainWindow::Init() {
     CreateConnects();
     SetLastUsedTheme();
     SetLastIconSizeBullet();
-
-    // Initialize Cheats Dialog
-    // Provide your actual game info here. Use empty strings or default pixmap if you don't have
-    // actual data yet.
-    QString gameName = "";    // or actual game name
-    QString gameSerial = "";  // or actual serial
-    QString gameVersion = ""; // or actual version
-    QString gameSize = "";    // or actual size
-    QPixmap gameImage;        // default constructed pixmap or your actual image
-
-    m_cheatsDialog = new CheatsPatches("", "", "", "", QPixmap(), this);
-
-    m_cheatsDock = new QDockWidget(tr("Cheats & Patches"), this);
-    m_cheatsDock->setWidget(m_cheatsDialog);
-    addDockWidget(Qt::RightDockWidgetArea, m_cheatsDock);
+    // show ui
     setMinimumSize(720, 405);
-
     std::string window_title = "";
     std::string remote_url(Common::g_scm_remote_url);
     std::string remote_host = Common::GetRemoteNameFromLink();
@@ -94,13 +78,9 @@ bool MainWindow::Init() {
         }
     }
     setWindowTitle(QString::fromStdString(window_title));
-    m_cheatsDock->hide();
-
     this->show();
-
     // load game list
     LoadGameLists();
-
 #ifdef ENABLE_UPDATER
     // Check for update
     CheckUpdateMain(true);
@@ -108,10 +88,8 @@ bool MainWindow::Init() {
 
     auto end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
     statusBar.reset(new QStatusBar);
     this->setStatusBar(statusBar.data());
-
     // Update status bar
     int numGames = m_game_info->m_games.size();
     QString statusMessage = tr("Games: ") + QString::number(numGames) + " (" +
@@ -194,21 +172,8 @@ QWidget* createSpacer(QWidget* parent) {
     return spacer;
 }
 
-void MainWindow::onShowCheatsDialog() {
-    if (m_cheatsDock) {
-        bool visible = m_cheatsDock->isVisible();
-        m_cheatsDock->setVisible(!visible);
-        if (!visible) {
-            m_cheatsDock->raise();
-            m_cheatsDock->activateWindow();
-        }
-    }
-}
-
 void MainWindow::AddUiWidgets() {
     // add toolbar widgets
-    QAction* cheatsAction = new QAction(tr("Cheats & Patches"), this);
-    connect(cheatsAction, &QAction::triggered, this, &MainWindow::onShowCheatsDialog);
 
     QApplication::setStyle("Fusion");
 
@@ -902,38 +867,15 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
 
     const auto path = Common::FS::PathFromQString(gamePath);
     if (!std::filesystem::exists(path)) {
-        QMessageBox::critical(this, tr("Run Game"), tr("Eboot.bin file not found"));
+        QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
         return;
     }
 
-    const auto config_path = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml";
-    Config::save(config_path);
-
-    if (m_cheatsDialog && m_cheatsDialog->isVisible()) {
-        m_cheatsDialog->onSaveButtonClicked();
-    }
-
+    // Start emulator detached
     QString exePath = QCoreApplication::applicationFilePath();
-    QStringList args;
-    args << "--game" << gamePath;
-
-    // Stop any existing process
-    if (m_gameProcess) {
-        m_gameProcess->kill();
-        m_gameProcess->deleteLater();
-        m_gameProcess = nullptr;
-    }
-
-    m_gameProcess = new QProcess(this);
-
-    connect(m_gameProcess, &QProcess::started, this, []() { qDebug("Game process started"); });
-
-    connect(m_gameProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
-            &MainWindow::OnGameExited);
-
-    m_gameProcess->start(exePath, args);
-
-    if (!m_gameProcess->waitForStarted()) {
+    bool started =
+        QProcess::startDetached(exePath, QStringList() << gamePath, QString(), &detachedGamePid);
+    if (!started) {
         QMessageBox::critical(this, tr("Run Game"), tr("Failed to start emulator."));
         delete m_gameProcess;
         m_gameProcess = nullptr;
