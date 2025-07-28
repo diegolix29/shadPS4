@@ -74,6 +74,7 @@ private:
     void CheckUpdateMain(bool checkSave);
 #endif
     void CreateConnects();
+    void OnGameExited(int exitCode, QProcess::ExitStatus exitStatus);
     void SetLastUsedTheme();
     void SetLastIconSizeBullet();
     void SetUiIcons(bool isWhite);
@@ -94,6 +95,7 @@ private:
     bool isWhite = false;
     bool is_paused = false;
     std::string runningGameSerial = "";
+    QProcess* m_gameProcess = nullptr;
 
     QActionGroup* m_icon_size_act_group = nullptr;
     QActionGroup* m_list_mode_act_group = nullptr;
