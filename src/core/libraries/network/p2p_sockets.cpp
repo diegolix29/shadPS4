@@ -18,12 +18,12 @@ int P2PSocket::Close() {
 }
 
 int P2PSocket::SetSocketOptions(int level, int optname, const void* optval, u32 optlen) {
-    LOG_INFO(Lib_Net, "P2PSocket::SetSocketOptions: level=%d, opt=%d (ignored)", level, optname);
+    LOG_INFO(Lib_Net, "P2PSocket::SetSocketOptions: level={}, opt={} (ignored)", level, optname);
     return 0;
 }
 
 int P2PSocket::GetSocketOptions(int level, int optname, void* optval, u32* optlen) {
-    LOG_INFO(Lib_Net, "P2PSocket::GetSocketOptions: level=%d, opt=%d (dummy zero)", level, optname);
+    LOG_INFO(Lib_Net, "P2PSocket::GetSocketOptions: level={}, opt={} (dummy zero)", level, optname);
     if (optval && optlen && *optlen >= sizeof(int)) {
         *reinterpret_cast<int*>(optval) = 0;
         *optlen = sizeof(int);
