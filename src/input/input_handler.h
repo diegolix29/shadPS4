@@ -376,7 +376,9 @@ class ControllerOutput {
 public:
     static void SetControllerOutputController(GameController* c);
     static void LinkJoystickAxes();
-
+    static GameController* GetController() {
+        return controller;
+    }
     u32 button;
     u32 axis;
     // these are only used as s8,
@@ -453,5 +455,7 @@ public:
 bool UpdatePressedKeys(InputEvent event);
 
 void ActivateOutputsFromInputs();
+bool ControllerComboPressedOnce(
+    std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons);
 
 } // namespace Input

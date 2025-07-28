@@ -711,6 +711,35 @@ InputEvent BindingConnection::ProcessBinding() {
     return event; // All keys are active
 }
 
+bool ControllerComboPressedOnce(
+    std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons) {
+    static std::unordered_map<u32, bool> combo_states;
+
+    auto* controller = ControllerOutput::GetController();
+    if (!controller) {
+        return false;
+    }
+
+    const auto& state = controller->GetLastState();
+    u32 comboMask = 0;
+    for (auto button : buttons) {
+        comboMask |= static_cast<u32>(button);
+    }
+
+    u32 pressedButtons = static_cast<u32>(state.buttonsState);
+    bool currentlyPressed = (pressedButtons & comboMask) == comboMask;
+    bool& wasPressed = combo_states[comboMask];
+
+    if (currentlyPressed && !wasPressed) {
+        wasPressed = true;
+        return true; // Trigger only on new press
+    } else if (!currentlyPressed) {
+        wasPressed = false; // Reset when released
+    }
+
+    return false;
+}
+
 void ActivateOutputsFromInputs() {
     // Reset values and flags
     for (auto& it : pressed_keys) {

@@ -12,8 +12,11 @@
 #include "common/singleton.h"
 #include "common/types.h"
 #include "core/debug_state.h"
+#include "core/libraries/pad/pad.h"
+#include "core/libraries/videoout/video_out.h"
 #include "imgui/imgui_std.h"
 #include "imgui_internal.h"
+#include "input/input_handler.h"
 #include "options.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
 #include "widget/frame_dump.h"
@@ -23,6 +26,7 @@
 #include "widget/shader_list.h"
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
+using Btn = Libraries::Pad::OrbisPadButtonDataOffset;
 
 using namespace ImGui;
 using namespace ::Core::Devtools;
@@ -364,9 +368,10 @@ void L::SetupSettings() {
 void L::Draw() {
     const auto io = GetIO();
     PushID("DevtoolsLayer");
-    if (IsKeyPressed(ImGuiKey_F4, false)) {
+    if (IsKeyPressed(ImGuiKey_F4, false) ||
+        Input::ControllerComboPressedOnce({Btn::L1, Btn::L2, Btn::Share})) {
         SDL_Event quitEvent;
-        quitEvent.type = SDL_EVENT_QUIT;
+        quitEvent.type = SDL_EVENT_QUIT + 1;
         SDL_PushEvent(&quitEvent);
     }
 
@@ -381,9 +386,9 @@ void L::Draw() {
             // fullscreen tip
             ImGui::GetForegroundDrawList()->AddText(
                 pos_top, color,
-                "Press F11 to toggle FullScreen\n"
-                "F9 to Pause Emulation\n"
-                "F4 to Stop Game (if Qt, press stop button after)\n"
+                "Press F11 to toggle FullScreen or L2+R2+Options\n"
+                "F9 to Pause Emulation or R1+R2+Options\n"
+                "F4 to Stop Game (if Qt, press stop button after) or L1+L2+Options\n"
                 "Ctrl + F10 for Developer tools\n"
                 "NOTE: Cheats aren't working right now");
 
@@ -428,7 +433,15 @@ void L::Draw() {
         visibility_toggled = true;
     }
 
-    if (IsKeyPressed(ImGuiKey_F9, false)) {
+    if (IsKeyPressed(ImGuiKey_F11, false) ||
+        Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::Options})) {
+        SDL_Event toggleFullscreenEvent;
+        toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
+        SDL_PushEvent(&toggleFullscreenEvent);
+    }
+
+    if (IsKeyPressed(ImGuiKey_F9, false) ||
+        Input::ControllerComboPressedOnce({Btn::R1, Btn::R2, Btn::Options})) {
         if (io.KeyCtrl && io.KeyAlt) {
             if (!DebugState.ShouldPauseInSubmit()) {
                 DebugState.RequestFrameDump(dump_frame_count);
@@ -450,8 +463,14 @@ void L::Draw() {
     if (show_pause_status) {
         ImVec2 pos = ImVec2(10, 10);
         ImU32 color = IM_COL32(255, 255, 255, 255);
+        ImVec2 pos_top(10, 30);
 
-        ImGui::GetForegroundDrawList()->AddText(pos, color, "Game Paused Press F9 to Resume");
+        ImGui::GetForegroundDrawList()->AddText(
+            pos_top, color,
+            "Press F11 to toggle FullScreen or L2+R2+Options\n"
+            "F9 to Pause Emulation or R1+R2+Options\n"
+            "F4 to Stop Game (if Qt, press stop button after) or L1+L2+Options\n"
+            "Ctrl + F10 for Developer tools\n");
     }
 
     if (show_simple_fps) {
