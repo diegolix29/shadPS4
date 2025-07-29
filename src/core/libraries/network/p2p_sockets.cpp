@@ -3,10 +3,10 @@
 
 #include <common/assert.h>
 #include "common/types.h"
+#include "core/libraries/kernel/file_system.h"
 #include "net.h"
 #include "net_error.h"
 #include "sockets.h"
-#include "core/libraries/kernel/file_system.h"
 
 namespace Libraries::Net {
 
@@ -78,7 +78,7 @@ int P2PSocket::SendPacket(const void* msg, u32 len, int flags, const OrbisNetSoc
     }
 
     LOG_DEBUG(Lib_Net, "P2PSocket::SendPacket: sent {} bytes:\nHEX: [{}]\nASCII:[{}]", len, hex,
-                ascii);
+              ascii);
 
     return len; // simulate success
 }
@@ -105,7 +105,6 @@ int P2PSocket::ReceivePacket(void* buf, u32 len, int flags, OrbisNetSockaddr* fr
     LOG_DEBUG(Lib_Net, "P2PSocket::ReceivePacket: delivered {} bytes", copy_len);
     return copy_len;
 }
-
 
 SocketPtr P2PSocket::Accept(OrbisNetSockaddr* addr, u32* addrlen) {
     std::scoped_lock lock(m_mutex);
@@ -172,6 +171,5 @@ int P2PSocket::fstat(Libraries::Kernel::OrbisKernelStat* stat) {
 
     return 0;
 }
-
 
 } // namespace Libraries::Net
