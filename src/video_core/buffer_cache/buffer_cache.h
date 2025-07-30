@@ -97,7 +97,7 @@ public:
     }
 
     /// Retrieves GPU modified ranges since last CPU fence that haven't been read protected yet.
-    [[nodiscard]] RangeSet& GetPendingGpuModifiedRanges() {
+    [[nodiscard]] const RangeSet& GetPendingGpuModifiedRanges() const {
         return gpu_modified_ranges_pending;
     }
 
