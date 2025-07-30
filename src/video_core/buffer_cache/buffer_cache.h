@@ -44,12 +44,8 @@ public:
     static constexpr u64 BDA_PAGETABLE_SIZE = CACHING_NUMPAGES * sizeof(vk::DeviceAddress);
     static constexpr u64 FAULT_BUFFER_SIZE = CACHING_NUMPAGES / 8; // Bit per page
 
-    struct PageData {
-        BufferId buffer_id{};
-    };
-
     struct Traits {
-        using Entry = PageData;
+        using Entry = BufferId;
         static constexpr size_t AddressSpaceBits = 40;
         static constexpr size_t FirstLevelBits = 16;
         static constexpr size_t PageBits = CACHING_PAGEBITS;
@@ -95,6 +91,11 @@ public:
         return slot_buffers[id];
     }
 
+    /// Retrieves GPU modified ranges since last CPU fence that haven't been read protected yet.
+    [[nodiscard]] RangeSet& GetPendingGpuModifiedRanges() {
+        return gpu_modified_ranges_pending;
+    }
+
     /// Retrieves a utility buffer optimized for specified memory usage.
     StreamBuffer& GetUtilityBuffer(MemoryUsage usage) noexcept {
         switch (usage) {
@@ -107,6 +108,7 @@ public:
         case MemoryUsage::DeviceLocal:
             return device_buffer;
         }
+        UNREACHABLE();
     }
 
     /// Invalidates any buffer in the logical page range.
@@ -154,13 +156,13 @@ public:
     void ProcessFaultBuffer();
 
     /// Synchronizes all buffers in the specified range.
-    void SynchronizeBuffersInRange(VAddr device_addr, u64 size);
+    void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
 
     /// Synchronizes all buffers neede for DMA.
     void SynchronizeDmaBuffers();
 
-    /// Record memory barrier. Used for buffers when accessed via BDA.
-    void MemoryBarrier();
+    /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
+    void CommitPendingGpuRanges();
 
 private:
     template <typename Func>
@@ -221,6 +223,16 @@ private:
     std::shared_mutex slot_buffers_mutex;
     Common::SlotVector<Buffer> slot_buffers;
     RangeSet gpu_modified_ranges;
+    RangeSet gpu_modified_ranges_pending;
+    struct PreemptiveDownload {
+        VAddr device_addr;
+        u64 size;
+        u8* staging;
+        u64 done_tick;
+
+        auto operator<=>(const PreemptiveDownload&) const = default;
+    };
+    SplitRangeMap<PreemptiveDownload> preemptive_downloads;
     SplitRangeMap<BufferId> buffer_ranges;
     PageTable page_table;
     vk::UniqueDescriptorSetLayout fault_process_desc_layout;

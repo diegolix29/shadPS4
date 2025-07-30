@@ -18,6 +18,7 @@ public:
     static constexpr size_t MAX_CPU_PAGE_BITS = 40;
     static constexpr size_t NUM_HIGH_PAGES = 1ULL << (MAX_CPU_PAGE_BITS - TRACKER_HIGHER_PAGE_BITS);
     static constexpr size_t MANAGER_POOL_SIZE = 32;
+    static constexpr size_t PREEMPTIVE_FLUSH_THRESHOLD = 32;
 
 public:
     explicit MemoryTracker(PageManager& tracker_) : tracker{&tracker_} {}
@@ -61,6 +62,20 @@ public:
                             });
     }
 
+    /// Call 'func' for each page that should be preemptively flushed
+    void ForEachPreemptiveFlushPage(VAddr cpu_addr, u64 size, auto&& func) {
+        IteratePages<false>(
+            cpu_addr, size, [&func](RegionManager* manager, u64 offset, size_t size) {
+                const size_t start_page = offset / TRACKER_BYTES_PER_PAGE;
+                const size_t end_page = Common::DivCeil(offset + size, TRACKER_BYTES_PER_PAGE);
+                for (u64 page = start_page; page != end_page; ++page) {
+                    if (manager->NumFlushes(page) >= PREEMPTIVE_FLUSH_THRESHOLD) {
+                        func(manager->GetCpuAddr() + page * TRACKER_BYTES_PER_PAGE);
+                    }
+                }
+            });
+    }
+
     /// Removes all protection from a page and ensures GPU data has been flushed if requested
     void InvalidateRegion(VAddr cpu_addr, u64 size, auto&& on_flush) noexcept {
         IteratePages<false>(
@@ -76,7 +91,7 @@ public:
                         return true;
                     } else if (Config::getFastReadbacksEnabled() &&
                                manager->template IsRegionModified<Type::GPU>(offset, size)) {
-                        return true;
+                        return true; // You can change this logic if needed
                     }
                     manager->template ChangeRegionState<Type::CPU, true>(
                         manager->GetCpuAddr() + offset, size);
@@ -87,6 +102,7 @@ public:
                 }
             });
     }
+
     /// Call 'func' for each CPU modified range and unmark those pages as CPU modified
     void ForEachUploadRange(VAddr query_cpu_range, u64 query_size, bool is_written, auto&& func,
                             auto&& on_upload) {

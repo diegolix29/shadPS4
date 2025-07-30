@@ -5,7 +5,6 @@
 
 #include "common/config.h"
 #include "common/div_ceil.h"
-#include "common/logging/log.h"
 
 #ifdef __linux__
 #include "common/adaptive_mutex.h"
@@ -48,6 +47,10 @@ public:
         return cpu_addr;
     }
 
+    u16 NumFlushes(u32 page) const {
+        return flushes[page];
+    }
+
     static constexpr size_t SanitizeAddress(size_t address) {
         return static_cast<size_t>(std::max<s64>(static_cast<s64>(address), 0LL));
     }
@@ -87,7 +90,7 @@ public:
             return;
         }
 
-                RegionBits& bits = GetRegionBits<type>();
+        RegionBits& bits = GetRegionBits<type>();
         if constexpr (enable) {
             bits.SetRange(start_page, end_page);
         } else {
@@ -128,10 +131,21 @@ public:
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
-            } else if (Config::getReadbacksEnabled()) {
-                UpdateProtection<false, true>();
-            } else if (Config::getFastReadbacksEnabled()) {
-                UpdateProtection<true, false>();
+            } else {
+                const bool readbacks = Config::getReadbacksEnabled();
+                const bool fast = Config::getFastReadbacksEnabled();
+
+                if (readbacks) {
+                    UpdateProtection<false, true>();
+                } else if (fast) {
+                    UpdateProtection<true, false>();
+                }
+
+                if (!readbacks && !fast) {
+                    for (size_t page = start_page; page != end_page; ++page) {
+                        ++flushes[page];
+                    }
+                }
             }
         }
 
@@ -149,16 +163,21 @@ public:
     template <Type type>
     [[nodiscard]] bool IsRegionModified(u64 offset, u64 size) noexcept {
         RENDERER_TRACE;
-        const size_t start_page = SanitizeAddress(offset) / TRACKER_BYTES_PER_PAGE;
-        const size_t end_page =
-            Common::DivCeil(SanitizeAddress(offset + size), TRACKER_BYTES_PER_PAGE);
+        const u64 sanitized_offset = SanitizeAddress(offset);
+        const u64 sanitized_end = SanitizeAddress(offset + size);
+        const size_t start_page = sanitized_offset / TRACKER_BYTES_PER_PAGE;
+        const size_t end_page = Common::DivCeil(sanitized_end, TRACKER_BYTES_PER_PAGE);
         if (start_page >= NUM_PAGES_PER_REGION || end_page <= start_page) {
             return false;
         }
 
         const RegionBits& bits = GetRegionBits<type>();
-        RegionBits test(bits, start_page, end_page);
-        return test.Any();
+        for (size_t i = start_page; i < end_page; ++i) {
+            if (bits.Get(i)) [[unlikely]] {
+                return true;
+            }
+        }
+        return false;
     }
 
     LockType lock;
@@ -194,6 +213,7 @@ private:
     RegionBits gpu;
     RegionBits writeable;
     RegionBits readable;
+    RegionWords flushes{};
 };
 
 } // namespace VideoCore
