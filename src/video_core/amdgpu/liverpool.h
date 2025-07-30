@@ -498,7 +498,7 @@ struct Liverpool {
         }
 
         size_t GetDepthSliceSize() const {
-            //ASSERT(z_info.format != ZFormat::Invalid);
+            // ASSERT(z_info.format != ZFormat::Invalid);
             const auto bpe = NumBits() >> 3; // in bytes
             return (depth_slice.tile_max + 1) * 64 * bpe * NumSamples();
         }
