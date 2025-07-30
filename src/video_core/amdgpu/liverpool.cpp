@@ -233,9 +233,15 @@ Fences DetectFences(std::span<const u32> cmd) {
         switch (type) {
         default:
             UNREACHABLE_MSG("Wrong PM4 type {}", type);
-        case 0:
-            UNREACHABLE_MSG("Unimplemented PM4 type 0, base reg: {}, size: {}",
-                            header->type0.base.Value(), header->type0.NumWords());
+        case 0: {
+            // PM4 type 0: Direct register writes (usually setup/config)
+            const u32 base_reg = header->type0.base.Value();
+            const u32 count = header->type0.NumWords();
+            LOG_TRACE(Render, "Skipping PM4 type 0: base reg: {}, size: {}", base_reg, count);
+            cmd = NextPacket(cmd, count + 1);
+            continue;
+        }
+
         case 2:
             cmd = NextPacket(cmd, 1);
             break;
@@ -254,10 +260,7 @@ Fences DetectFences(std::span<const u32> cmd) {
             }
             case PM4ItOpcode::EventWriteEop: {
                 const auto* event_eop = reinterpret_cast<const PM4CmdEventWriteEop*>(header);
-                if (event_eop->int_sel != InterruptSelect::None) {
-                    fences.emplace_back(header);
-                    // LOG_WARNING(Render, "EventWriteEop Irq");
-                }
+
                 if (event_eop->data_sel == DataSelect::Data32Low) {
                     fences.emplace_back(header, event_eop->Address<VAddr>(),
                                         event_eop->DataDWord());
@@ -291,8 +294,12 @@ Fences DetectFences(std::span<const u32> cmd) {
                 ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
                 const u32 data_size = (header->type3.count.Value() - 2) * 4;
                 if (data_size <= sizeof(u64) && write_data->wr_confirm) {
-                    u64 value{};
-                    std::memcpy(&value, write_data->data, data_size);
+                    u64 value = 0;
+                    for (u32 i = 0; i < data_size; ++i) {
+                        value |= static_cast<u64>(reinterpret_cast<const u8*>(write_data->data)[i])
+                                 << (i * 8);
+                    }
+
                     fences.emplace_back(header, write_data->Address<VAddr>(), value);
                     // LOG_WARNING(Render, "WriteData label={:#x}, value={:#x}",
                     // write_data->Address<VAddr>(), write_data->data[0]);
