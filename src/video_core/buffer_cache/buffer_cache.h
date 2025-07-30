@@ -44,13 +44,8 @@ public:
     static constexpr u64 BDA_PAGETABLE_SIZE = CACHING_NUMPAGES * sizeof(vk::DeviceAddress);
     static constexpr u64 FAULT_BUFFER_SIZE = CACHING_NUMPAGES / 8; // Bit per page
 
-    struct PageData {
-        BufferId buffer_id{};
-        u64 fence_tick;
-    };
-
     struct Traits {
-        using Entry = PageData;
+        using Entry = BufferId;
         static constexpr size_t AddressSpaceBits = 40;
         static constexpr size_t FirstLevelBits = 16;
         static constexpr size_t PageBits = CACHING_PAGEBITS;
@@ -166,9 +161,6 @@ public:
     /// Synchronizes all buffers neede for DMA.
     void SynchronizeDmaBuffers();
 
-    /// Record memory barrier. Used for buffers when accessed via BDA.
-    void MemoryBarrier();
-
     /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
     void CommitPendingGpuRanges();
 
@@ -232,6 +224,15 @@ private:
     Common::SlotVector<Buffer> slot_buffers;
     RangeSet gpu_modified_ranges;
     RangeSet gpu_modified_ranges_pending;
+    struct PreemptiveDownload {
+        VAddr device_addr;
+        u64 size;
+        u8* staging;
+        u64 done_tick;
+
+        auto operator<=>(const PreemptiveDownload&) const = default;
+    };
+    SplitRangeMap<PreemptiveDownload> preemptive_downloads;
     SplitRangeMap<BufferId> buffer_ranges;
     PageTable page_table;
     vk::UniqueDescriptorSetLayout fault_process_desc_layout;

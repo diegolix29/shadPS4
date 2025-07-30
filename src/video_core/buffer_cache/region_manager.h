@@ -5,7 +5,6 @@
 
 #include "common/config.h"
 #include "common/div_ceil.h"
-#include "common/logging/log.h"
 
 #ifdef __linux__
 #include "common/adaptive_mutex.h"
@@ -46,6 +45,10 @@ public:
 
     VAddr GetCpuAddr() const {
         return cpu_addr;
+    }
+
+    u16 NumFlushes(u32 page) const {
+        return flushes[page];
     }
 
     static constexpr size_t SanitizeAddress(size_t address) {
@@ -128,11 +131,21 @@ public:
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
-            } else if (Config::getReadbacksEnabled()) {
-                UpdateProtection<false, true>();
-            } else if (Config::getFastReadbacksEnabled()) {
-                UpdateProtection<false, true>(); // You can adjust this if fast readbacks require
-                                                 // different args
+            } else {
+                const bool readbacks = Config::getReadbacksEnabled();
+                const bool fast = Config::getFastReadbacksEnabled();
+
+                if (readbacks) {
+                    UpdateProtection<false, true>();
+                } else if (fast) {
+                    UpdateProtection<true, false>();
+                }
+
+                if (!readbacks && !fast) {
+                    for (size_t page = start_page; page != end_page; ++page) {
+                        ++flushes[page];
+                    }
+                }
             }
         }
 
@@ -200,6 +213,7 @@ private:
     RegionBits gpu;
     RegionBits writeable;
     RegionBits readable;
+    RegionWords flushes{};
 };
 
 } // namespace VideoCore
