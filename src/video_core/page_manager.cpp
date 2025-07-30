@@ -44,8 +44,8 @@ struct PageManager::Impl {
         u8 num_watchers{}; // for fast readbacks mode
 
         // Use a single u8 to pack write/read watchers as bitfields
-        u8 num_write_watchers{};
-        u8 num_read_watchers{};
+        u8 num_write_watchers : 7;
+        u8 num_read_watchers : 1;
 
         Core::MemoryPermission WritePerm() const noexcept {
             if (Config::getFastReadbacksEnabled()) {

@@ -97,8 +97,6 @@ public:
             UpdateProtection<!enable, false>();
         } else if (Config::getReadbacksEnabled()) {
             UpdateProtection<enable, true>();
-        } else if (Config::getFastReadbacksEnabled()) {
-            UpdateProtection<enable, false>();
         }
     }
 
@@ -130,9 +128,6 @@ public:
                 UpdateProtection<true, false>();
             } else if (Config::getReadbacksEnabled()) {
                 UpdateProtection<false, true>();
-            } else if (Config::getFastReadbacksEnabled()) {
-                UpdateProtection<false, true>(); // You can adjust this if fast readbacks require
-                                                 // different args
             }
         }
 
@@ -150,21 +145,16 @@ public:
     template <Type type>
     [[nodiscard]] bool IsRegionModified(u64 offset, u64 size) noexcept {
         RENDERER_TRACE;
-        const u64 sanitized_offset = SanitizeAddress(offset);
-        const u64 sanitized_end = SanitizeAddress(offset + size);
-        const size_t start_page = sanitized_offset / TRACKER_BYTES_PER_PAGE;
-        const size_t end_page = Common::DivCeil(sanitized_end, TRACKER_BYTES_PER_PAGE);
+        const size_t start_page = SanitizeAddress(offset) / TRACKER_BYTES_PER_PAGE;
+        const size_t end_page =
+            Common::DivCeil(SanitizeAddress(offset + size), TRACKER_BYTES_PER_PAGE);
         if (start_page >= NUM_PAGES_PER_REGION || end_page <= start_page) {
             return false;
         }
 
         const RegionBits& bits = GetRegionBits<type>();
-        for (size_t i = start_page; i < end_page; ++i) {
-            if (bits.Get(i)) [[unlikely]] {
-                return true;
-            }
-        }
-        return false;
+        RegionBits test(bits, start_page, end_page);
+        return test.Any();
     }
 
     LockType lock;
