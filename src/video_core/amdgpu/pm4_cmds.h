@@ -276,15 +276,13 @@ struct PM4CmdStrmoutBufferUpdate {
     template <typename T = u64>
     T DstAddress() const {
         ASSERT(update_memory.Value() == 1);
-        return reinterpret_cast<T>(
-            static_cast<uintptr_t>(dst_address_lo.Value() | (u64(dst_address_hi & 0xFFFF) << 32)));
+        return reinterpret_cast<T>(dst_address_lo.Value() | u64(dst_address_hi & 0xFFFF) << 32);
     }
 
     template <typename T = u64>
     T SrcAddress() const {
         ASSERT(source_select.Value() == SourceSelect::SrcAddress);
-        return reinterpret_cast<T>(
-            static_cast<uintptr_t>(src_address_lo.Value() | (u64(src_address_hi & 0xFFFF) << 32)));
+        return reinterpret_cast<T>(src_address_lo.Value() | u64(src_address_hi & 0xFFFF) << 32);
     }
 };
 
@@ -417,13 +415,6 @@ struct PM4CmdEventWrite {
         BitField<20, 1, u32> inv_l2; ///< Send WBINVL2 op to the TC L2 cache when EVENT_INDEX = 0111
     };
     u32 address[];
-
-    template <typename T>
-    T Address() const {
-        ASSERT(event_index.Value() >= EventIndex::ZpassDone &&
-               event_index.Value() <= EventIndex::SampleStreamoutStatSx);
-        return std::bit_cast<T>((u64(address[1]) << 32u) | u64(address[0]));
-    }
 };
 
 struct PM4CmdEventWriteEop {
@@ -444,13 +435,8 @@ struct PM4CmdEventWriteEop {
     u32 data_hi; ///< Value that will be written to memory when event occurs
 
     template <typename T>
-    T Address() const {
-        uintptr_t value = static_cast<uintptr_t>((u64(address_hi) << 32) | address_lo);
-        if constexpr (std::is_pointer_v<T>) {
-            return reinterpret_cast<T>(value);
-        } else {
-            return static_cast<T>(value);
-        }
+    T* Address() const {
+        return reinterpret_cast<T*>(address_lo | u64(address_hi) << 32);
     }
 
     u32 DataDWord() const {
@@ -462,7 +448,7 @@ struct PM4CmdEventWriteEop {
     }
 
     void SignalFence(auto&& write_mem) const {
-        u32* address = Address<u32*>();
+        u32* address = Address<u32>();
         switch (data_sel.Value()) {
         case DataSelect::None: {
             break;
@@ -677,7 +663,7 @@ struct PM4CmdWaitRegMem {
         return reg.Value();
     }
 
-    bool Test(std::span<const u32> regs) const {
+    bool Test(const std::array<u32, Liverpool::NumRegs>& regs) const {
         u32 value = mem_space.Value() == MemSpace::Memory ? *Address() : regs[Reg()];
         switch (function.Value()) {
         case Function::Always: {
@@ -739,7 +725,7 @@ struct PM4CmdWriteData {
 
     template <typename T>
     T Address() const {
-        return reinterpret_cast<T>(static_cast<uintptr_t>(addr64));
+        return reinterpret_cast<T>(addr64);
     }
 };
 
@@ -770,7 +756,7 @@ struct PM4CmdEventWriteEos {
 
     template <typename T = u32*>
     T Address() const {
-        return reinterpret_cast<T>(static_cast<uintptr_t>(address_lo | (u64(address_hi) << 32)));
+        return reinterpret_cast<T>(address_lo | u64(address_hi) << 32);
     }
 
     u32 DataDWord() const {
@@ -829,7 +815,7 @@ struct PM4DumpConstRam {
 
     template <typename T>
     T Address() const {
-        return reinterpret_cast<T>(static_cast<uintptr_t>((u64(addr_hi) << 32u) | addr_lo));
+        return reinterpret_cast<T>((u64(addr_hi) << 32u) | addr_lo);
     }
 
     [[nodiscard]] u32 Offset() const {
@@ -881,7 +867,7 @@ struct PM4CmdIndirectBuffer {
 
     template <typename T>
     T* Address() const {
-        return reinterpret_cast<T*>(static_cast<uintptr_t>((u64(ibase_hi) << 32u) | ibase_lo));
+        return reinterpret_cast<T*>((u64(ibase_hi) << 32u) | ibase_lo);
     }
 };
 
@@ -917,8 +903,8 @@ struct PM4CmdReleaseMem {
     u32 data_hi;
 
     template <typename T>
-    T Address() const {
-        return reinterpret_cast<T>(static_cast<uintptr_t>(address_lo | (u64(address_hi) << 32)));
+    T* Address() const {
+        return reinterpret_cast<T*>(address_lo | u64(address_hi) << 32);
     }
 
     u32 DataDWord() const {
@@ -932,19 +918,19 @@ struct PM4CmdReleaseMem {
     void SignalFence(Platform::InterruptId irq_id) const {
         switch (data_sel.Value()) {
         case DataSelect::Data32Low: {
-            *Address<u32*>() = DataDWord();
+            *Address<u32>() = DataDWord();
             break;
         }
         case DataSelect::Data64: {
-            *Address<u64*>() = DataQWord();
+            *Address<u64>() = DataQWord();
             break;
         }
         case DataSelect::GpuClock64: {
-            *Address<u64*>() = GetGpuClock64();
+            *Address<u64>() = GetGpuClock64();
             break;
         }
         case DataSelect::PerfCounter: {
-            *Address<u64*>() = Common::FencedRDTSC();
+            *Address<u64>() = Common::FencedRDTSC();
             break;
         }
         default: {
@@ -990,14 +976,7 @@ struct PM4CmdSetBase {
     T Address() const {
         ASSERT(base_index == BaseIndex::DisplayListPatchTable ||
                base_index == BaseIndex::DrawIndexIndirPatchTable);
-
-        uintptr_t value = static_cast<uintptr_t>(address0 | (u64(address1 & 0xffff) << 32u));
-
-        if constexpr (std::is_pointer_v<T>) {
-            return reinterpret_cast<T>(value);
-        } else {
-            return static_cast<T>(value);
-        }
+        return reinterpret_cast<T>(address0 | (u64(address1 & 0xffff) << 32u));
     }
 };
 
@@ -1198,45 +1177,6 @@ struct PM4CmdCondExec {
     bool* Address() const {
         return std::bit_cast<bool*>(u64(bool_addr_hi.Value()) << 32 | u64(bool_addr_lo.Value())
                                                                           << 2);
-    }
-};
-
-enum class Predication : u32 {
-    DrawIfNotVisible = 0,
-    DrawIfVisible = 1,
-};
-
-enum class PredicationHint : u32 {
-    Wait = 0,
-    Draw = 1,
-};
-
-enum class PredicateOperation : u32 {
-    Clear = 0,
-    Zpass = 1,
-    PrimCount = 2,
-    // other values are reserved
-};
-
-struct PM4CmdSetPredication {
-    PM4Type3Header header;
-    union {
-        BitField<4, 28, u32> start_address_lo;
-        u32 raw1;
-    };
-    union {
-        BitField<0, 8, u32> start_address_hi;
-        BitField<8, 1, Predication> action;
-        BitField<12, 1, PredicationHint> hint;
-        BitField<16, 3, PredicateOperation> pred_op;
-        BitField<31, 1, u32> continue_bit;
-        u32 raw2;
-    };
-
-    template <typename T = u64>
-    T Address() const {
-        return std::bit_cast<T>(u64(start_address_lo.Value()) << 4 | u64(start_address_hi.Value())
-                                                                         << 32);
     }
 };
 

@@ -15,7 +15,6 @@ class Rasterizer;
 namespace VideoCore {
 
 class PageManager {
-public:
     // Use the same page size as the tracker.
     static constexpr size_t PAGE_BITS = TRACKER_PAGE_BITS;
     static constexpr size_t PAGE_SIZE = TRACKER_BYTES_PER_PAGE;

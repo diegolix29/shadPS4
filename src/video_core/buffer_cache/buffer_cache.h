@@ -154,16 +154,13 @@ public:
     void ProcessFaultBuffer();
 
     /// Synchronizes all buffers in the specified range.
-    void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
+    void SynchronizeBuffersInRange(VAddr device_addr, u64 size);
 
     /// Synchronizes all buffers neede for DMA.
     void SynchronizeDmaBuffers();
 
     /// Record memory barrier. Used for buffers when accessed via BDA.
     void MemoryBarrier();
-
-    /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
-    void CommitPendingGpuRanges();
 
 private:
     template <typename Func>
@@ -224,7 +221,6 @@ private:
     std::shared_mutex slot_buffers_mutex;
     Common::SlotVector<Buffer> slot_buffers;
     RangeSet gpu_modified_ranges;
-    RangeSet gpu_modified_ranges_pending;
     SplitRangeMap<BufferId> buffer_ranges;
     PageTable page_table;
     vk::UniqueDescriptorSetLayout fault_process_desc_layout;
