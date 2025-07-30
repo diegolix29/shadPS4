@@ -21,8 +21,8 @@
 #include <QString>
 #include <QXmlStreamReader>
 #endif
-#include "common/elf_info.h"
 #include "common/config.h"
+#include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "core/file_format/psf.h"
