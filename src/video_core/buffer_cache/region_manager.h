@@ -87,7 +87,7 @@ public:
             return;
         }
 
-        RegionBits& bits = GetRegionBits<type>();
+                RegionBits& bits = GetRegionBits<type>();
         if constexpr (enable) {
             bits.SetRange(start_page, end_page);
         } else {
@@ -97,6 +97,8 @@ public:
             UpdateProtection<!enable, false>();
         } else if (Config::getReadbacksEnabled()) {
             UpdateProtection<enable, true>();
+        } else if (Config::getFastReadbacksEnabled()) {
+            UpdateProtection<enable, false>();
         }
     }
 
@@ -128,6 +130,8 @@ public:
                 UpdateProtection<true, false>();
             } else if (Config::getReadbacksEnabled()) {
                 UpdateProtection<false, true>();
+            } else if (Config::getFastReadbacksEnabled()) {
+                UpdateProtection<true, false>();
             }
         }
 

@@ -415,9 +415,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         // Experimental
         ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
         ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
-        ui->ReadbacksCheckBox->installEventFilter(this);
-        ui->ReadbacksLinearCheckBox->installEventFilter(this);
-        ui->separateLogFilesCheckbox->installEventFilter(this);
     }
 }
 

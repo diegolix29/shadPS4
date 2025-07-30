@@ -74,6 +74,9 @@ public:
                     if (Config::getReadbacksEnabled() &&
                         manager->template IsRegionModified<Type::GPU>(offset, size)) {
                         return true;
+                    } else if (Config::getFastReadbacksEnabled() &&
+                               manager->template IsRegionModified<Type::GPU>(offset, size)) {
+                        return true;
                     }
                     manager->template ChangeRegionState<Type::CPU, true>(
                         manager->GetCpuAddr() + offset, size);
@@ -84,7 +87,6 @@ public:
                 }
             });
     }
-
     /// Call 'func' for each CPU modified range and unmark those pages as CPU modified
     void ForEachUploadRange(VAddr query_cpu_range, u64 query_size, bool is_written, auto&& func,
                             auto&& on_upload) {
