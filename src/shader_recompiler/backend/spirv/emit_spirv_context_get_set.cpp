@@ -315,12 +315,13 @@ Id EmitGetPatch(EmitContext& ctx, IR::Patch patch) {
 }
 
 void EmitSetPatch(EmitContext& ctx, IR::Patch patch, Id value) {
-    const Id pointer{[&] {
+    const Id pointer = [&] {
         if (IR::IsGeneric(patch)) {
             const u32 index{IR::GenericPatchIndex(patch)};
             const Id element{ctx.ConstU32(IR::GenericPatchElement(patch))};
             return ctx.OpAccessChain(ctx.output_f32, ctx.patches.at(index), element);
         }
+
         switch (patch) {
         case IR::Patch::TessellationLodLeft:
         case IR::Patch::TessellationLodRight:
@@ -339,9 +340,9 @@ void EmitSetPatch(EmitContext& ctx, IR::Patch patch, Id value) {
             // UNREACHABLE_MSG("Patch {}", u32(patch));
             return ctx.u32_zero_value;
         }
-    }()};
+    }();
+
     ctx.OpStore(pointer, value);
-}
 }
 
 template <u32 N, PointerType alias>
