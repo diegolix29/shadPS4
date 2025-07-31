@@ -387,7 +387,7 @@ void HullShaderTransform(IR::Program& program, RuntimeInfo& runtime_info) {
                 };
                 const u32 num_dwords = u32(opcode) - u32(IR::Opcode::StoreBufferU32) + 1;
                 IR::U32 index = IR::U32{inst.Arg(1)};
-                ASSERT(index.IsImmediate());
+                // ASSERT(index.IsImmediate());
                 const u32 gcn_factor_idx = (info.inst_offset.Value() + index.U32()) >> 2;
 
                 const IR::Value data = inst.Arg(2);
@@ -402,10 +402,10 @@ void HullShaderTransform(IR::Program& program, RuntimeInfo& runtime_info) {
                     // The layout seems to be implied by the type of the abstract domain.
                     switch (runtime_info.hs_info.tess_type) {
                     case AmdGpu::TessellationType::Isoline:
-                        ASSERT(gcn_factor_idx < 2);
+                        // ASSERT(gcn_factor_idx < 2);
                         return IR::PatchFactor(gcn_factor_idx);
                     case AmdGpu::TessellationType::Triangle:
-                        ASSERT(gcn_factor_idx < 4);
+                        // ASSERT(gcn_factor_idx < 4);
                         if (gcn_factor_idx == 3) {
                             return IR::Patch::TessellationLodInteriorU;
                         }

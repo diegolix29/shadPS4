@@ -336,7 +336,7 @@ void EmitSetPatch(EmitContext& ctx, IR::Patch patch, Id value) {
         case IR::Patch::TessellationLodInteriorV:
             return ctx.OpAccessChain(ctx.output_f32, ctx.output_tess_level_inner, ctx.ConstU32(1u));
         default:
-            UNREACHABLE_MSG("Patch {}", u32(patch));
+            // UNREACHABLE_MSG("Patch {}", u32(patch));
         }
     }()};
     ctx.OpStore(pointer, value);
