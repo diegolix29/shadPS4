@@ -64,7 +64,7 @@ int P2PSocket::ReceivePacket(void* buf, u32 len, int flags, OrbisNetSockaddr* fr
     std::scoped_lock lock(m_mutex);
     if (recv_queue.empty())
         *Libraries::Kernel::__Error() = ORBIS_NET_EAGAIN;
-        return -1; // simulate no data available
+    return -1; // simulate no data available
 
     auto& packet = recv_queue.front();
     u32 copy_len = std::min(len, static_cast<u32>(packet.size()));
@@ -81,7 +81,7 @@ SocketPtr P2PSocket::Accept(OrbisNetSockaddr* addr, u32* addrlen) {
     std::scoped_lock lock(m_mutex);
     if (!is_listening)
         *Libraries::Kernel::__Error() = ORBIS_NET_EAGAIN;
-        return nullptr;
+    return nullptr;
 
     auto new_socket = std::make_shared<P2PSocket>(0, 0, 0);
     new_socket->is_connected = true;
