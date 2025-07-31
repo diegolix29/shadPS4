@@ -110,9 +110,8 @@ struct Liverpool {
                 return *info;
             }
         }
-        static const BinaryInfo dummy{};
-        // ASSERT_MSG(false, "Shader binary info not found!");
-        return dummy;
+
+        // UNREACHABLE_MSG("Shader binary info not found.");
     }
 
     struct ShaderProgram {

@@ -338,7 +338,6 @@ void EmitSetPatch(EmitContext& ctx, IR::Patch patch, Id value) {
             return ctx.OpAccessChain(ctx.output_f32, ctx.output_tess_level_inner, ctx.ConstU32(1u));
         default:
             // UNREACHABLE_MSG("Patch {}", u32(patch));
-            return ctx.u32_zero_value;
         }
     }();
 
