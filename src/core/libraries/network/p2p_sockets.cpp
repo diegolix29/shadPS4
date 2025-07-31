@@ -3,7 +3,6 @@
 
 #include <common/assert.h>
 #include "common/types.h"
-#include "core/libraries/kernel/file_system.h"
 #include "core/libraries/kernel/kernel.h"
 #include "net.h"
 #include "net_error.h"
@@ -20,12 +19,12 @@ int P2PSocket::Close() {
 }
 
 int P2PSocket::SetSocketOptions(int level, int optname, const void* optval, u32 optlen) {
-    LOG_INFO(Lib_Net, "P2PSocket::SetSocketOptions: level={}, opt={} (ignored)", level, optname);
+    LOG_INFO(Lib_Net, "P2PSocket::SetSocketOptions: level=%d, opt=%d (ignored)", level, optname);
     return 0;
 }
 
 int P2PSocket::GetSocketOptions(int level, int optname, void* optval, u32* optlen) {
-    LOG_INFO(Lib_Net, "P2PSocket::GetSocketOptions: level={}, opt={} (dummy zero)", level, optname);
+    LOG_INFO(Lib_Net, "P2PSocket::GetSocketOptions: level=%d, opt=%d (dummy zero)", level, optname);
     if (optval && optlen && *optlen >= sizeof(int)) {
         *reinterpret_cast<int*>(optval) = 0;
         *optlen = sizeof(int);
@@ -56,60 +55,32 @@ int P2PSocket::Listen(int backlog) {
 int P2PSocket::SendPacket(const void* msg, u32 len, int flags, const OrbisNetSockaddr* to,
                           u32 tolen) {
     std::scoped_lock lock(m_mutex);
-
-    const u8* data = static_cast<const u8*>(msg);
-
-    // If no packets to receive, inject a dummy packet once to keep game progressing
-    static bool sent_dummy = false;
-    if (!sent_dummy && recv_queue.empty()) {
-        recv_queue.push_back(std::vector<u8>{0x00}); // dummy minimal packet
-        sent_dummy = true;
-    }
-
-    // Format hex + ascii for logging once
-    std::string hex;
-    std::string ascii;
-    hex.reserve(len * 3);
-    ascii.reserve(len);
-
-    for (u32 i = 0; i < len; ++i) {
-        u8 b = data[i];
-        fmt::format_to(std::back_inserter(hex), "{:02X} ", b);
-        ascii += std::isprint(b) ? static_cast<char>(b) : '.';
-    }
-
-    LOG_DEBUG(Lib_Net, "P2PSocket::SendPacket: sent {} bytes:\nHEX: [{}]\nASCII:[{}]", len, hex,
-              ascii);
-
+    LOG_INFO(Lib_Net, "P2PSocket::SendPacket: sent %u bytes (dummy, discarded)", len);
+    *Libraries::Kernel::__Error() = ORBIS_NET_EAGAIN;
     return len; // simulate success
 }
 
 int P2PSocket::ReceivePacket(void* buf, u32 len, int flags, OrbisNetSockaddr* from, u32* fromlen) {
     std::scoped_lock lock(m_mutex);
-
-    if (recv_queue.empty()) {
-        errno = EAGAIN; // or EWOULDBLOCK
-        return -1;      // indicate no data available now, try later
-    }
+    if (recv_queue.empty())
+        *Libraries::Kernel::__Error() = ORBIS_NET_EAGAIN;
+        return -1; // simulate no data available
 
     auto& packet = recv_queue.front();
     u32 copy_len = std::min(len, static_cast<u32>(packet.size()));
     std::memcpy(buf, packet.data(), copy_len);
-
     if (from && fromlen && *fromlen >= sizeof(OrbisNetSockaddr)) {
         std::memcpy(from, &peer_addr, sizeof(OrbisNetSockaddr));
         *fromlen = sizeof(OrbisNetSockaddr);
     }
-
     recv_queue.erase(recv_queue.begin());
-
-    LOG_DEBUG(Lib_Net, "P2PSocket::ReceivePacket: delivered {} bytes", copy_len);
     return copy_len;
 }
 
 SocketPtr P2PSocket::Accept(OrbisNetSockaddr* addr, u32* addrlen) {
     std::scoped_lock lock(m_mutex);
     if (!is_listening)
+        *Libraries::Kernel::__Error() = ORBIS_NET_EAGAIN;
         return nullptr;
 
     auto new_socket = std::make_shared<P2PSocket>(0, 0, 0);
@@ -147,35 +118,8 @@ int P2PSocket::GetPeerName(OrbisNetSockaddr* addr, u32* namelen) {
     LOG_ERROR(Lib_Net, "(STUBBED) called");
     return 0;
 }
-
 int P2PSocket::fstat(Libraries::Kernel::OrbisKernelStat* stat) {
-    LOG_INFO(Lib_Net, "P2PSocket::fstat: (DUMMY) called");
-
-    if (!stat)
-        return -1;
-
-    std::memset(stat, 0, sizeof(Libraries::Kernel::OrbisKernelStat));
-
-    // S_IFSOCK (socket) | 0666 permissions
-    stat->st_mode = 0xC000 | 0666;
-
-    stat->st_nlink = 1;
-    stat->st_uid = 1337;
-    stat->st_gid = 1337;
-    stat->st_blksize = 4096;
-    stat->st_size = 0;
-    stat->st_blocks = 0;
-
-    // Set dummy timestamps
-    Libraries::Kernel::OrbisKernelTimespec now = {};
-    now.tv_sec = 0;
-    now.tv_nsec = 0;
-    stat->st_atim = now;
-    stat->st_mtim = now;
-    stat->st_ctim = now;
-    stat->st_birthtim = now;
-
+    LOG_ERROR(Lib_Net, "(STUBBED) called");
     return 0;
 }
-
 } // namespace Libraries::Net
