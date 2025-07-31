@@ -4,6 +4,7 @@
 #include <common/assert.h>
 #include "common/types.h"
 #include "core/libraries/kernel/file_system.h"
+#include "core/libraries/kernel/kernel.h"
 #include "net.h"
 #include "net_error.h"
 #include "sockets.h"
@@ -139,6 +140,11 @@ int P2PSocket::GetSocketAddress(OrbisNetSockaddr* name, u32* namelen) {
         return -1;
     std::memcpy(name, &bound_addr, sizeof(OrbisNetSockaddr));
     *namelen = sizeof(OrbisNetSockaddr);
+    return 0;
+}
+
+int P2PSocket::GetPeerName(OrbisNetSockaddr* addr, u32* namelen) {
+    LOG_ERROR(Lib_Net, "(STUBBED) called");
     return 0;
 }
 
