@@ -28,7 +28,7 @@ void DecoderImpl::printInstruction(void* code, u64 address) {
     ZyanStatus status =
         ZydisDecoderDecodeFull(&m_decoder, code, sizeof(code), &instruction, operands);
     if (!ZYAN_SUCCESS(status)) {
-        fmt::print("decode instruction failed at {}\n", fmt::ptr(code));
+        // fmt::print("decode instruction failed at {}\n", fmt::ptr(code));
     } else {
         printInst(instruction, operands, address);
     }
