@@ -30,10 +30,12 @@ IR::BlockList GenerateBlocks(const IR::AbstractSyntaxList& syntax_list) {
 
 IR::Program TranslateProgram(std::span<const u32> code, Pools& pools, Info& info,
                              RuntimeInfo& runtime_info, const Profile& profile) {
-    // Ensure first instruction is expected.
+    // Validate input shader code
     constexpr u32 token_mov_vcchi = 0xBEEB03FF;
-    if (code[0] != token_mov_vcchi) {
-        LOG_DEBUG(Render_Recompiler, "First instruction is not s_mov_b32 vcc_hi, #imm");
+    if (code.empty() || code[0] != token_mov_vcchi) {
+        LOG_ERROR(Render_Recompiler,
+                  "Shader skipped: first instruction is not s_mov_b32 vcc_hi, #imm");
+        return IR::Program(info); // early exit to avoid crash/hang
     }
 
     Gcn::GcnCodeSlice slice(code.data(), code.data() + code.size());
@@ -42,8 +44,19 @@ IR::Program TranslateProgram(std::span<const u32> code, Pools& pools, Info& info
     // Decode and save instructions
     IR::Program program{info};
     program.ins_list.reserve(code.size());
-    while (!slice.atEnd()) {
-        program.ins_list.emplace_back(decoder.decodeInstruction(slice));
+
+    try {
+        while (!slice.atEnd()) {
+            program.ins_list.emplace_back(decoder.decodeInstruction(slice));
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR(Render_Recompiler, "Shader decode failed: {}", e.what());
+        return IR::Program(info); 
+    }
+
+    if (program.ins_list.empty()) {
+        LOG_ERROR(Render_Recompiler, "Shader decode yielded no instructions. Aborting.");
+        return IR::Program(info);
     }
 
     // Clear any previous pooled data.
