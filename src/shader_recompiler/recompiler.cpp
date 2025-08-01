@@ -51,7 +51,7 @@ IR::Program TranslateProgram(std::span<const u32> code, Pools& pools, Info& info
         }
     } catch (const std::exception& e) {
         LOG_ERROR(Render_Recompiler, "Shader decode failed: {}", e.what());
-        return IR::Program(info); 
+        return IR::Program(info);
     }
 
     if (program.ins_list.empty()) {
