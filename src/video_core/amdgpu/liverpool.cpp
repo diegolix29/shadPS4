@@ -15,9 +15,10 @@
 #include "video_core/amdgpu/pm4_cmds.h"
 #include "video_core/renderdoc.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
-
-namespace AmdGpu {
+extern u32 num_flushes;
+extern u64 fence_tick;
 extern u32 draw_id;
+namespace AmdGpu {
 
 static const char* dcb_task_name{"DCB_TASK"};
 static const char* ccb_task_name{"CCB_TASK"};
@@ -128,6 +129,8 @@ void Liverpool::Process(std::stop_token stoken) {
                 std::scoped_lock lock{queue.m_access};
                 queue.submits.pop();
 
+                // LOG_WARNING(Render, "End command list");
+
                 --num_submits;
                 std::scoped_lock lock2{submit_mutex};
                 submit_cv.notify_all();
@@ -135,6 +138,8 @@ void Liverpool::Process(std::stop_token stoken) {
         }
 
         if (submit_done) {
+            LOG_DEBUG(Render, "Flushed pages per frame {}", num_flushes);
+            num_flushes = 0;
             VideoCore::EndCapture();
             if (rasterizer) {
                 rasterizer->OnSubmit();
@@ -213,6 +218,142 @@ Liverpool::Task Liverpool::ProcessCeUpdate(std::span<const u32> ccb) {
     FIBER_EXIT;
 }
 
+struct LabelWrite {
+    const PM4Header* packet;
+    VAddr label;
+    u64 value;
+};
+using Fences = std::vector<LabelWrite>;
+
+Fences DetectFences(std::span<const u32> cmd) {
+    Fences fences;
+    while (!cmd.empty()) {
+        const auto* header = reinterpret_cast<const PM4Header*>(cmd.data());
+        const u32 type = header->type;
+
+        switch (type) {
+        default:
+            UNREACHABLE_MSG("Wrong PM4 type {}", type);
+        case 0:
+            UNREACHABLE_MSG("Unimplemented PM4 type 0, base reg: {}, size: {}",
+                            header->type0.base.Value(), header->type0.NumWords());
+        case 2:
+            cmd = NextPacket(cmd, 1);
+            break;
+        case 3:
+            const PM4ItOpcode opcode = header->type3.opcode;
+            switch (opcode) {
+            case PM4ItOpcode::EventWriteEos: {
+                const auto* event_eos = reinterpret_cast<const PM4CmdEventWriteEos*>(header);
+                if (event_eos->command == PM4CmdEventWriteEos::Command::SignalFence) {
+                    fences.emplace_back(header, event_eos->Address<VAddr>(),
+                                        event_eos->DataDWord());
+                    // LOG_WARNING(Render, "EventWriteEos label={:#x}, value={:#x}",
+                    // event_eos->Address<VAddr>(), event_eos->DataDWord());
+                }
+                break;
+            }
+            case PM4ItOpcode::EventWriteEop: {
+                const auto* event_eop = reinterpret_cast<const PM4CmdEventWriteEop*>(header);
+                if (event_eop->int_sel != InterruptSelect::None) {
+                    fences.emplace_back(header);
+                    // LOG_WARNING(Render, "EventWriteEop Irq");
+                }
+                if (event_eop->data_sel == DataSelect::Data32Low) {
+                    fences.emplace_back(header, event_eop->Address<VAddr>(),
+                                        event_eop->DataDWord());
+                    // LOG_WARNING(Render, "EventWriteEop label={:#x}, value32={:#x}",
+                    // event_eop->Address<VAddr>(), event_eop->DataDWord());
+                } else if (event_eop->data_sel == DataSelect::Data64) {
+                    fences.emplace_back(header, event_eop->Address<VAddr>(),
+                                        event_eop->DataQWord());
+                    // LOG_WARNING(Render, "EventWriteEop label={:#x}, value64={:#x}",
+                    // event_eop->Address<VAddr>(), event_eop->DataQWord());
+                }
+                break;
+            }
+            case PM4ItOpcode::ReleaseMem: {
+                const auto* release_mem = reinterpret_cast<const PM4CmdReleaseMem*>(header);
+                if (release_mem->data_sel == DataSelect::Data32Low) {
+                    fences.emplace_back(header, release_mem->Address<VAddr>(),
+                                        release_mem->DataDWord());
+                    // LOG_WARNING(Render, "ReleaseMem label={:#x}, value32={:#x}",
+                    // release_mem->Address<VAddr>(), release_mem->DataDWord());
+                } else if (release_mem->data_sel == DataSelect::Data64) {
+                    fences.emplace_back(header, release_mem->Address<VAddr>(),
+                                        release_mem->DataQWord());
+                    // LOG_WARNING(Render, "ReleaseMem label={:#x}, value64={:#x}",
+                    // release_mem->Address<VAddr>(), release_mem->DataQWord());
+                }
+                break;
+            }
+            case PM4ItOpcode::WriteData: {
+                const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
+                ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
+                const u32 data_size = (header->type3.count.Value() - 2) * 4;
+                if (data_size <= sizeof(u64) && write_data->wr_confirm) {
+                    u64 value{};
+                    std::memcpy(&value, write_data->data, data_size);
+                    fences.emplace_back(header, write_data->Address<VAddr>(), value);
+                    // LOG_WARNING(Render, "WriteData label={:#x}, value={:#x}",
+                    // write_data->Address<VAddr>(), write_data->data[0]);
+                }
+                break;
+            }
+            case PM4ItOpcode::WaitRegMem: {
+                const auto* wait_reg_mem = reinterpret_cast<const PM4CmdWaitRegMem*>(header);
+                if (wait_reg_mem->mem_space == PM4CmdWaitRegMem::MemSpace::Register) {
+                    break;
+                }
+                const VAddr wait_addr = wait_reg_mem->Address<VAddr>();
+                using Function = PM4CmdWaitRegMem::Function;
+                const u32 mask = wait_reg_mem->mask;
+                const u32 ref = wait_reg_mem->ref;
+                // LOG_WARNING(Render, "WaitRegMem label={:#x}, ref={:#x}, function={}",
+                // wait_reg_mem->Address<VAddr>(), wait_reg_mem->ref,
+                // u32(wait_reg_mem->function.Value()));
+                std::erase_if(fences, [&](const LabelWrite& write) {
+                    if (wait_addr != write.label) {
+                        return false;
+                    }
+                    const u32 value = static_cast<u32>(write.value);
+                    const bool matched = [&] {
+                        switch (wait_reg_mem->function.Value()) {
+                        case Function::LessThan:
+                            return (value & mask) < ref;
+                        case Function::LessThanEqual:
+                            return (value & mask) <= ref;
+                        case Function::Equal:
+                            return (value & mask) == ref;
+                        case Function::NotEqual:
+                            return (value & mask) != ref;
+                        case Function::GreaterThanEqual:
+                            return (value & mask) >= ref;
+                        case Function::GreaterThan:
+                            return (value & mask) > ref;
+                        default:
+                            UNREACHABLE();
+                        }
+                    }();
+                    if (matched) {
+                        // LOG_WARNING(Render, "WaitRegMem Matched with label write");
+                    }
+                    return matched;
+                });
+                break;
+            }
+            default:
+                break;
+            }
+            cmd = NextPacket(cmd, header->type3.NumWords() + 1);
+            break;
+        }
+    }
+
+    // LOG_WARNING(Render, "Final num fences {}", fences.size());
+    return fences;
+}
+
 Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<const u32> ccb) {
     FIBER_ENTER(dcb_task_name);
 
@@ -228,6 +369,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
         RESUME_GFX(ce_task);
     }
 
+    // LOG_ERROR(Render, "Graphics");
+    const auto fences = DetectFences(dcb);
+
     const auto base_addr = reinterpret_cast<uintptr_t>(dcb.data());
     while (!dcb.empty()) {
         ProcessCommands();
@@ -239,13 +383,10 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
         default:
             UNREACHABLE_MSG("Wrong PM4 type {}", type);
             break;
-        case 0: {
-            const u32 base_reg = header->type0.base.Value();
-            const u32 count = header->type0.NumWords();
-            LOG_DEBUG(Render, "Skipping PM4 type 0: base reg: {}, size: {}", base_reg, count);
-            dcb = NextPacket(dcb, count + 1);
-            continue;
-        }
+        case 0:
+            UNREACHABLE_MSG("Unimplemented PM4 type 0, base reg: {}, size: {}",
+                            header->type0.base.Value(), header->type0.NumWords());
+            break;
         case 2:
             // Type-2 packet are used for padding purposes
             dcb = NextPacket(dcb, 1);
@@ -608,18 +749,12 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     // immediately
                     regs.cp_strmout_cntl.offset_update_done = 1;
                 } else if (event->event_index.Value() == EventIndex::ZpassDone) {
-                    LOG_DEBUG(Render, "Unimplemented occlusion query");
+                    LOG_WARNING(Render, "Unimplemented occlusion query");
                 }
                 break;
             }
             case PM4ItOpcode::EventWriteEos: {
                 const auto* event_eos = reinterpret_cast<const PM4CmdEventWriteEos*>(header);
-                event_eos->SignalFence([](void* address, u64 data, u32 num_bytes) {
-                    auto* memory = Core::Memory::Instance();
-                    if (!memory->TryWriteBacking(address, &data, num_bytes)) {
-                        memcpy(address, &data, num_bytes);
-                    }
-                });
                 if (event_eos->command == PM4CmdEventWriteEos::Command::GdsStore) {
                     ASSERT(event_eos->size == 1);
                     if (rasterizer) {
@@ -627,11 +762,29 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                         const u32 value = rasterizer->ReadDataFromGds(event_eos->gds_index);
                         *event_eos->Address() = value;
                     }
+                } else if (std::ranges::contains(fences, header, &LabelWrite::packet) &&
+                           rasterizer) {
+                    ++fence_tick;
+                    // LOG_WARNING(Render, "EventWriteEos label={:#x} fence_tick = {}",
+                    // event_eos->Address<VAddr>(), fence_tick);
+                    rasterizer->CommitPendingGpuRanges();
                 }
+                event_eos->SignalFence([](void* address, u64 data, u32 num_bytes) {
+                    auto* memory = Core::Memory::Instance();
+                    if (!memory->TryWriteBacking(address, &data, num_bytes)) {
+                        memcpy(address, &data, num_bytes);
+                    }
+                });
                 break;
             }
             case PM4ItOpcode::EventWriteEop: {
                 const auto* event_eop = reinterpret_cast<const PM4CmdEventWriteEop*>(header);
+                if (std::ranges::contains(fences, header, &LabelWrite::packet) && rasterizer) {
+                    ++fence_tick;
+                    // LOG_WARNING(Render, "EventWriteEop label={:#x} fence_tick = {}",
+                    // event_eop->Address<VAddr>(), fence_tick);
+                    rasterizer->CommitPendingGpuRanges();
+                }
                 event_eop->SignalFence([](void* address, u64 data, u32 num_bytes) {
                     auto* memory = Core::Memory::Instance();
                     if (!memory->TryWriteBacking(address, &data, num_bytes)) {
@@ -680,9 +833,13 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
                 ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
                 const u32 data_size = (header->type3.count.Value() - 2) * 4;
-                u64* address = write_data->Address<u64*>();
+                if (std::ranges::contains(fences, header, &LabelWrite::packet) && rasterizer) {
+                    ++fence_tick;
+                    // LOG_WARNING(Render, "WriteData fence_tick = {}", fence_tick);
+                    rasterizer->CommitPendingGpuRanges();
+                }
                 if (!write_data->wr_one_addr.Value()) {
-                    std::memcpy(address, write_data->data, data_size);
+                    std::memcpy(write_data->Address<void*>(), write_data->data, data_size);
                 } else {
                     UNREACHABLE();
                 }
@@ -719,6 +876,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     break;
                 }
                 const PM4CmdRewind* rewind = reinterpret_cast<const PM4CmdRewind*>(header);
+                rasterizer->CommitPendingGpuRanges();
                 while (!rewind->Valid()) {
                     YIELD_GFX();
                 }
@@ -820,6 +978,11 @@ template <bool is_indirect>
 Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
     FIBER_ENTER(acb_task_name[vqid]);
     auto& queue = asc_queues[{vqid}];
+
+    // LOG_ERROR(Render, "Compute");
+    const auto fences = DetectFences(acb);
+
+    boost::container::small_vector<const PM4Header*, 4> indirect_patches;
 
     auto base_addr = reinterpret_cast<VAddr>(acb.data());
     while (!acb.empty()) {
@@ -925,9 +1088,39 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                 break;
             }
             const PM4CmdRewind* rewind = reinterpret_cast<const PM4CmdRewind*>(header);
-            while (!rewind->Valid()) {
-                YIELD_ASC(vqid);
+            auto& buffer_cache = rasterizer->GetBufferCache();
+            auto& gpu_modified_ranges_pending = buffer_cache.GetPendingGpuModifiedRanges();
+            const VAddr rewind_addr = reinterpret_cast<VAddr>(acb.data());
+            bool must_flush = false;
+            gpu_modified_ranges_pending.ForEachInRange(
+                rewind_addr, acb.size_bytes(),
+                [&indirect_patches, &must_flush, rewind_header = header](VAddr begin, VAddr end) {
+                    const u32 range_size = end - begin;
+                    if (range_size != sizeof(PM4CmdDispatchIndirect::GroupDimensions)) {
+                        must_flush = true;
+                        return;
+                    }
+                    const PM4Header* header =
+                        reinterpret_cast<const PM4Header*>(begin - sizeof(PM4Header));
+                    if (header->type != 3 || header->type3.opcode != PM4ItOpcode::DispatchDirect) {
+                        must_flush = true;
+                        return;
+                    }
+                    indirect_patches.push_back(header);
+                    // LOG_ERROR(Render, "Rewind GPU range addr={:#x}, size={:#x}", begin, end -
+                    // begin);
+                });
+
+            if (must_flush) {
+                rasterizer->CommitPendingGpuRanges();
+            } else {
+                // All GPU modified regions in the command list are patched with indirect
+                // dispatches. There is no needed to flush GPU data to CPU so avoiding read
+                // protecting pages.
+                gpu_modified_ranges_pending.Subtract(rewind_addr, acb.size_bytes());
             }
+
+            ASSERT_MSG(rewind->Valid(), "Rewind valid bit must be set");
             break;
         }
         case PM4ItOpcode::SetShReg: {
@@ -954,6 +1147,12 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
         }
         case PM4ItOpcode::DispatchDirect: {
             const auto* dispatch_direct = reinterpret_cast<const PM4CmdDispatchDirect*>(header);
+            if (std::ranges::contains(indirect_patches, header)) {
+                const VAddr ib_address = reinterpret_cast<VAddr>(header) + sizeof(PM4Header);
+                const auto size = sizeof(PM4CmdDispatchIndirect::GroupDimensions);
+                rasterizer->DispatchIndirect(ib_address, 0, size);
+                break;
+            }
             auto& cs_program = GetCsRegs();
             cs_program.dim_x = dispatch_direct->dim_x;
             cs_program.dim_y = dispatch_direct->dim_y;
@@ -978,6 +1177,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             auto& cs_program = GetCsRegs();
             const auto ib_address = dispatch_indirect->Address<VAddr>();
             const auto size = sizeof(PM4CmdDispatchIndirect::GroupDimensions);
+            cs_program.dispatch_initiator = dispatch_indirect->dispatch_initiator;
             if (DebugState.DumpingCurrentReg()) {
                 DebugState.PushRegsDumpCompute(base_addr, reinterpret_cast<uintptr_t>(header),
                                                cs_program);
@@ -995,6 +1195,11 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
             ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
             const u32 data_size = (header->type3.count.Value() - 2) * 4;
+            if (std::ranges::contains(fences, header, &LabelWrite::packet) && rasterizer) {
+                ++fence_tick;
+                // LOG_WARNING(Render, "Compute WriteData fence_tick = {}", fence_tick);
+                rasterizer->CommitPendingGpuRanges();
+            }
             if (!write_data->wr_one_addr.Value()) {
                 std::memcpy(write_data->Address<void*>(), write_data->data, data_size);
             } else {
@@ -1024,6 +1229,11 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
         }
         case PM4ItOpcode::ReleaseMem: {
             const auto* release_mem = reinterpret_cast<const PM4CmdReleaseMem*>(header);
+            if (std::ranges::contains(fences, header, &LabelWrite::packet) && rasterizer) {
+                ++fence_tick;
+                // LOG_WARNING(Render, "ReleaseMem fence_tick = {}", fence_tick);
+                rasterizer->CommitPendingGpuRanges();
+            }
             release_mem->SignalFence(static_cast<Platform::InterruptId>(queue.pipe_id));
             break;
         }
