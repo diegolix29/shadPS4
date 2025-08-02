@@ -2282,64 +2282,63 @@
 					<string notr="true">
 						<![CDATA[
         <b>Hint:</b><br/>
-        Readbacks implementation,
-        Enable this for Driveclub.<br/>
+        Readbacks implementation - Make particles show on Infamous games and Dead or Alive.<br/>
+		NO vertex explosions - May cause issues on some games to boot, or low performance.<br/>
         ]]>
 					</string>
 				</property>
 			</widget>
 		</item>
 
-			<item>
-				<widget class="QCheckBox" name="DMACheckBox">
-					<property name="text">
-						<string>Enable DMA</string>
-					</property>
-				</widget>
-			</item>
+		<item>
+			<widget class="QCheckBox" name="DMACheckBox">
+				<property name="text">
+					<string>Enable DMA</string>
+				</property>
+			</widget>
+		</item>
 
-			<item>
-				<widget class="QLabel" name="label_23">
-					<property name="font">
-						<font>
-							<pointsize>11</pointsize>
-							<bold>true</bold>
-						</font>
-					</property>
-					<property name="text">
-						<string notr="true">
-							<![CDATA[
+		<item>
+			<widget class="QLabel" name="label_23">
+				<property name="font">
+					<font>
+						<pointsize>11</pointsize>
+						<bold>true</bold>
+					</font>
+				</property>
+				<property name="text">
+					<string notr="true">
+						<![CDATA[
         <b>Hint:</b><br/>
         DMA implementation,
-        Disable this for TLG, disabling may help with random crashes.<br/>
+        Disable this for TLG, disabling help with random crashes.<br/>
         ]]>
-						</string>
-					</property>
-				</widget>
-			</item>
+					</string>
+				</property>
+			</widget>
+		</item>
 		<item>
 			<widget class="QCheckBox" name="FastReadbacksCheckBox">
-			  <property name="text">
-				 <string>Fast Readbacks for BloodBorne - DS3 - Elden Ring (No Vertex Explosions)</string>
-			  </property>
-		    </widget>
-		  </item>
+				<property name="text">
+					<string>Fast Readbacks for BloodBorne - DS3 - Elden Ring - DRIVECLUB (No Vertex Explosions)</string>
+				</property>
+			</widget>
+		</item>
 
-			<item>
-				<widget class="QLabel" name="label_21">
-					<property name="font">
-						<font>
-							<pointsize>11</pointsize>
-							<bold>true</bold>
-						</font>
-					</property>
-					<property name="text">
-						<string notr="true">
-							<![CDATA[
+		<item>
+			<widget class="QLabel" name="label_21">
+				<property name="font">
+					<font>
+						<pointsize>11</pointsize>
+						<bold>true</bold>
+					</font>
+				</property>
+				<property name="text">
+					<string notr="true">
+						<![CDATA[
         <b>Hint:</b><br/>
-        Faster Readbacks for Bloodborne - Dark Souls 3 - Elden Ring - Rock Band 4
-        No vertex Explosions, shows crowd on Rock Band without slowdowns
-        need Readbacks to be Enabled.<br/>
+        Faster Readbacks for Bloodborne - Dark Souls 3 - Elden Ring - DRIVECLUB (creates missplaced objects)<br/>
+        No vertex Explosions. May still reduce performance on some games but not as much as readbacks<br/>
         ]]>
 						</string>
 					</property>
@@ -2368,7 +2367,8 @@
         <b>Hint:</b><br/>
         Linear Readbacks for Postprocessing, helps TLG
 		Disable for Elden Ring.
-        Disable if encounter issues<br/>       
+        Disable if encounter issues
+		Enable if you get Driver restart on DRIVECLUB<br/>       
         ]]>
 						</string>
 					</property>
