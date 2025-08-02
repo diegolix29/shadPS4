@@ -138,7 +138,7 @@ public:
                 if (readbacks) {
                     UpdateProtection<false, true>();
                 } else if (fast) {
-                    UpdateProtection<true, false>();
+                    UpdateProtection<false, false>();
                 }
 
                 if (!readbacks && !fast) {

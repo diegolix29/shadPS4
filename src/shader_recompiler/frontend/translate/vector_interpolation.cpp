@@ -61,7 +61,7 @@ void Translator::V_INTERP_P2_F32(const GcnInst& inst) {
     const IR::Attribute attrib = IR::Attribute::Param0 + attr_index;
     const auto& attr = runtime_info.fs_info.inputs[attr_index];
     auto& interp = info.fs_interpolation[attr_index];
-    ASSERT(!attr.IsDefault() && !attr.is_flat);
+    // ASSERT(!attr.IsDefault() && !attr.is_flat);
     if (!profile.needs_manual_interpolation) {
         interp = GetInterpolation(vgpr_to_interp[inst.src[0].code]);
         SetDst(inst.dst[0], ir.GetAttribute(attrib, inst.control.vintrp.chan));

@@ -91,7 +91,7 @@ public:
                         return true;
                     } else if (Config::getFastReadbacksEnabled() &&
                                manager->template IsRegionModified<Type::GPU>(offset, size)) {
-                        return true; // You can change this logic if needed
+                        return true;
                     }
                     manager->template ChangeRegionState<Type::CPU, true>(
                         manager->GetCpuAddr() + offset, size);
