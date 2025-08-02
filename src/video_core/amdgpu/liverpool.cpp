@@ -235,8 +235,9 @@ Fences DetectFences(std::span<const u32> cmd) {
         default:
             UNREACHABLE_MSG("Wrong PM4 type {}", type);
         case 0:
-            UNREACHABLE_MSG("Unimplemented PM4 type 0, base reg: {}, size: {}",
-                            header->type0.base.Value(), header->type0.NumWords());
+            LOG_ERROR(Lib_GnmDriver, "Continue hack Unsupported PM4 type 0");
+            dcb = NextPacket(dcb, header->type0.NumWords() + 1);
+            continue;
         case 2:
             cmd = NextPacket(cmd, 1);
             break;
