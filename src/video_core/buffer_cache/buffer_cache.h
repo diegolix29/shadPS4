@@ -5,7 +5,7 @@
 
 #include <shared_mutex>
 #include <boost/container/small_vector.hpp>
-#include "common/div_ceil.h"
+#include "common/lru_cache.h"
 #include "common/slot_vector.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/buffer.h"
@@ -43,6 +43,15 @@ public:
 
     static constexpr u64 BDA_PAGETABLE_SIZE = CACHING_NUMPAGES * sizeof(vk::DeviceAddress);
     static constexpr u64 FAULT_BUFFER_SIZE = CACHING_NUMPAGES / 8; // Bit per page
+
+    // Default values for garbage collection
+    static constexpr s64 DEFAULT_TRIGGER_GC_MEMORY = 1_GB;
+    static constexpr s64 DEFAULT_CRITICAL_GC_MEMORY = 2_GB;
+    static constexpr s64 TARGET_GC_THRESHOLD = 8_GB;
+
+    struct PageData {
+        BufferId buffer_id{};
+    };
 
     struct Traits {
         using Entry = BufferId;
@@ -164,6 +173,9 @@ public:
     /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
     void CommitPendingGpuRanges();
 
+    /// Runs the garbage collector.
+    void RunGarbageCollector();
+
 private:
     template <typename Func>
     void ForEachBufferInRange(VAddr device_addr, u64 size, Func&& func) {
@@ -178,6 +190,7 @@ private:
         return !buffer_id || slot_buffers[buffer_id].is_deleted;
     }
 
+    template <bool async>
     void DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size, bool is_write);
 
     [[nodiscard]] OverlapResult ResolveOverlaps(VAddr device_addr, u32 wanted_size);
@@ -205,6 +218,8 @@ private:
 
     void WriteDataBuffer(Buffer& buffer, VAddr address, const void* value, u32 num_bytes);
 
+    void TouchBuffer(const Buffer& buffer);
+
     void DeleteBuffer(BufferId buffer_id);
 
     const Vulkan::Instance& instance;
@@ -222,6 +237,11 @@ private:
     Buffer fault_buffer;
     std::shared_mutex slot_buffers_mutex;
     Common::SlotVector<Buffer> slot_buffers;
+    u64 total_used_memory = 0;
+    u64 trigger_gc_memory = 0;
+    u64 critical_gc_memory = 0;
+    u64 gc_tick = 0;
+    Common::LeastRecentlyUsedCache<BufferId, u64> lru_cache;
     RangeSet gpu_modified_ranges;
     RangeSet gpu_modified_ranges_pending;
     struct PreemptiveDownload {
