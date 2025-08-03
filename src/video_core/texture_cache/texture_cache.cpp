@@ -24,7 +24,7 @@ static constexpr u64 NumFramesBeforeRemoval = 32;
 TextureCache::TextureCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
                            BufferCache& buffer_cache_, PageManager& tracker_)
     : instance{instance_}, scheduler{scheduler_}, buffer_cache{buffer_cache_}, tracker{tracker_},
-      blit_helper{instance, scheduler}, tile_manager{instance, scheduler} {
+      blit_helper{instance, scheduler}, tile_manager{instance, scheduler, buffer_cache.GetUtilityBuffer(MemoryUsage::Stream)} {
     // Create basic null image at fixed image ID.
     const auto null_id = GetNullImage(vk::Format::eR8G8B8A8Unorm);
     ASSERT(null_id.index == NULL_IMAGE_ID.index);
@@ -40,8 +40,8 @@ ImageId TextureCache::GetNullImage(const vk::Format format) {
 
     ImageInfo info{};
     info.pixel_format = format;
-    info.type = vk::ImageType::e2D;
-    info.tiling_idx = static_cast<u32>(AmdGpu::TilingMode::Texture_MicroTiled);
+    info.type = AmdGpu::ImageType::Color2D;
+    info.tile_mode = AmdGpu::TileMode::Thin1DThin;
     info.num_bits = 32;
     info.UpdateSize();
 
@@ -271,7 +271,7 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
             return {depth_image_id, -1, -1};
         }
 
-        if (image_info.IsBlockCoded() && !tex_cache_image.info.IsBlockCoded()) {
+        if (image_info.props.is_block && !tex_cache_image.info.props.is_block) {
             // Compressed view of uncompressed image with same block size.
             // We need to recreate the image with compressed format and copy.
             return {ExpandImage(image_info, cache_image_id), -1, -1};
@@ -292,7 +292,7 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
             return {ExpandImage(image_info, cache_image_id), -1, -1};
         }
 
-        if (image_info.tiling_mode != tex_cache_image.info.tiling_mode) {
+        if (image_info.tile_mode != tex_cache_image.info.tile_mode) {
             // Size is greater but resources are not, because the tiling mode is different.
             // Likely this memory address is being reused for a different image with a different
             // tiling mode.
@@ -487,8 +487,7 @@ ImageView& TextureCache::FindTexture(ImageId image_id, const BaseDesc& desc) {
     Image& image = slot_images[image_id];
     if (desc.type == BindingType::Storage) {
         image.flags |= ImageFlagBits::GpuModified;
-        if (Config::readbackLinearImages() &&
-            image.info.tiling_mode == AmdGpu::TilingMode::Display_Linear) {
+        if (Config::readbackLinearImages() && image.info.props.is_tiled) {
             download_images.emplace(image_id);
         }
     }
@@ -499,11 +498,8 @@ ImageView& TextureCache::FindTexture(ImageId image_id, const BaseDesc& desc) {
 ImageView& TextureCache::FindRenderTarget(BaseDesc& desc) {
     const ImageId image_id = FindImage(desc);
     Image& image = slot_images[image_id];
+    ASSERT(image.info.mips_layout[0].height > 0);
     image.flags |= ImageFlagBits::GpuModified;
-    if (Config::readbackLinearImages() &&
-        image.info.tiling_mode == AmdGpu::TilingMode::Display_Linear) {
-        download_images.emplace(image_id);
-    }
     image.usage.render_target = 1u;
     UpdateImage(image_id);
 
@@ -564,11 +560,7 @@ ImageView& TextureCache::FindDepthTarget(BaseDesc& desc) {
 }
 
 void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_scheduler /*= nullptr*/) {
-    if (False(image.flags & ImageFlagBits::Dirty)) {
-        return;
-    }
-
-    if (image.info.num_samples > 1) {
+    if ((False(image.flags & ImageFlagBits::Dirty) && image.info.guest_address != 0x265b00000) || image.info.num_samples > 1) {
         return;
     }
 
@@ -619,15 +611,10 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
 
         const u32 extent_width = mip_pitch ? std::min(mip_pitch, width) : width;
         const u32 extent_height = mip_height ? std::min(mip_height, height) : height;
-        const bool is_volume = image.info.tiling_mode == AmdGpu::TilingMode::Texture_Volume;
-        const u32 height_aligned = mip_height && image.info.IsTiled() && !is_volume
-                                       ? std::max(mip_height, 8U)
-                                       : mip_height;
-
         image_copy.push_back({
             .bufferOffset = mip_offset,
             .bufferRowLength = mip_pitch,
-            .bufferImageHeight = height_aligned,
+            .bufferImageHeight = mip_height,
             .imageSubresource{
                 .aspectMask = image.aspect_mask & ~vk::ImageAspectFlagBits::eStencil,
                 .mipLevel = m,
@@ -650,6 +637,7 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
     const VAddr image_addr = image.info.guest_address;
     const size_t image_size = image.info.guest_size;
     const auto [vk_buffer, buf_offset] = buffer_cache.ObtainBufferForImage(image_addr, image_size);
+    const bool should_detile = vk_buffer == &buffer_cache.GetUtilityBuffer(MemoryUsage::Upload);
 
     const auto cmdbuf = sched_ptr->CommandBuffer();
 
@@ -663,8 +651,11 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
         });
     }
 
-    const auto [buffer, offset] =
-        tile_manager.TryDetile(vk_buffer->Handle(), buf_offset, image.info);
+    vk::Buffer buffer = vk_buffer->Handle();
+    u32 offset = buf_offset;
+    if (!AmdGpu::IsMacroTiled(image.info.array_mode)) {
+        std::tie(buffer, offset) = tile_manager.TryDetile(vk_buffer->Handle(), buf_offset, image.info);
+    }
     for (auto& copy : image_copy) {
         copy.bufferOffset += offset;
     }
