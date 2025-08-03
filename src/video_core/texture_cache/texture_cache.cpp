@@ -638,9 +638,9 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
     const VAddr image_addr = image.info.guest_address;
     const size_t image_size = image.info.guest_size;
     const auto [in_buffer, in_offset] = buffer_cache.ObtainBufferForImage(image_addr, image_size);
-    const auto cmdbuf = sched_ptr->CommandBuffer();
     if (auto barrier = in_buffer->GetBarrier(vk::AccessFlagBits2::eTransferRead,
                                              vk::PipelineStageFlagBits2::eTransfer)) {
+        const auto cmdbuf = sched_ptr->CommandBuffer();
         cmdbuf.pipelineBarrier2(vk::DependencyInfo{
             .dependencyFlags = vk::DependencyFlagBits::eByRegion,
             .bufferMemoryBarrierCount = 1,
@@ -649,7 +649,8 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
     }
 
     const auto [buffer, offset] =
-        tile_manager.DetileImage(in_buffer->Handle(), in_offset, image.info);
+        !custom_scheduler ? tile_manager.DetileImage(in_buffer->Handle(), in_offset, image.info)
+                          : std::make_pair(in_buffer->Handle(), in_offset);
     for (auto& copy : image_copy) {
         copy.bufferOffset += offset;
     }
@@ -675,6 +676,7 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
     const auto image_barriers =
         image.GetBarriers(vk::ImageLayout::eTransferDstOptimal, vk::AccessFlagBits2::eTransferWrite,
                           vk::PipelineStageFlagBits2::eTransfer, {});
+    const auto cmdbuf = sched_ptr->CommandBuffer();
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
         .bufferMemoryBarrierCount = 1,
