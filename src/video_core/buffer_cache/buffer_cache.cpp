@@ -167,11 +167,10 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
 void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
     liverpool->SendCommand<true>([this, device_addr, size, is_write] {
         Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
-        DownloadBufferMemory<false>(buffer, device_addr, size, is_write);
+        DownloadBufferMemory(buffer, device_addr, size, is_write);
     });
 }
 
-template <bool async>
 void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size, bool is_write) {
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;
@@ -197,34 +196,22 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
     if (total_size_bytes == 0) {
         return;
     }
-    const VAddr page_addr = PageManager::GetPageAddr(device_addr);
+    const auto [download, offset] = download_buffer.Map(total_size_bytes);
+    for (auto& copy : copies) {
+        // Modify copies to have the staging offset in mind
+        copy.dstOffset += offset;
+    }
+    download_buffer.Commit();
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    cmdbuf.copyBuffer(buffer.buffer, download_buffer.Handle(), copies);
+    scheduler.Finish();
     auto* memory = Core::Memory::Instance();
-    if (preemptive_downloads.Intersects(page_addr, PageManager::PAGE_SIZE)) {
-        preemptive_downloads.ForEachInRange(
-            page_addr, PageManager::PAGE_SIZE,
-            [&](VAddr begin, VAddr end, const PreemptiveDownload& download) {
-                scheduler.Wait(download.done_tick);
-                memory->TryWriteBacking(std::bit_cast<u8*>(download.device_addr), download.staging,
-                                        download.size);
-            });
-        preemptive_downloads.Subtract(page_addr, PageManager::PAGE_SIZE);
-    } else {
-        const auto [download, offset] = download_buffer.Map(total_size_bytes);
-        for (auto& copy : copies) {
-            // Modify copies to have the staging offset in mind
-            copy.dstOffset += offset;
-        }
-        download_buffer.Commit();
-        scheduler.EndRendering();
-        const auto cmdbuf = scheduler.CommandBuffer();
-        cmdbuf.copyBuffer(buffer.buffer, download_buffer.Handle(), copies);
-        scheduler.Finish();
-        for (const auto& copy : copies) {
-            const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
-            const u64 dst_offset = copy.dstOffset - offset;
-            memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
-                                    copy.size);
-        }
+    for (const auto& copy : copies) {
+        const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
+        const u64 dst_offset = copy.dstOffset - offset;
+        memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
+                                copy.size);
     }
     memory_tracker->UnmarkRegionAsGpuModified(device_addr, size);
     if (is_write) {
@@ -1249,8 +1236,7 @@ void BufferCache::RunGarbageCollector() {
         }
         --max_deletions;
         Buffer& buffer = slot_buffers[buffer_id];
-        // InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes());
-        DownloadBufferMemory<true>(buffer, buffer.CpuAddr(), buffer.SizeBytes(), true);
+        InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes());
         DeleteBuffer(buffer_id);
     };
 }
