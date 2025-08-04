@@ -726,7 +726,6 @@ bool HasUserHotkeyDefined(Input::HotkeyPad hotkey) {
     return false; // no real user binding found
 }
 
-
 bool ControllerComboPressedOnce(
     std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons) {
     static std::unordered_map<u32, bool> combo_states;
