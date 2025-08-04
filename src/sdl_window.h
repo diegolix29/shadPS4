@@ -3,10 +3,12 @@
 
 #pragma once
 
+#include <string>
+
 #include "common/types.h"
 #include "core/libraries/pad/pad.h"
 #include "input/controller.h"
-#include "string"
+
 #define SDL_EVENT_TOGGLE_FULLSCREEN (SDL_EVENT_USER + 1)
 #define SDL_EVENT_TOGGLE_PAUSE (SDL_EVENT_USER + 2)
 #define SDL_EVENT_CHANGE_CONTROLLER (SDL_EVENT_USER + 3)
@@ -98,6 +100,7 @@ private:
     void OnResize();
     void OnKeyboardMouseInput(const SDL_Event* event);
     void OnGamepadEvent(const SDL_Event* event);
+    void CheckHotkeys();
     void RelaunchEmulator();
 
 private:
@@ -108,8 +111,7 @@ private:
     SDL_Window* window{};
     bool is_shown{};
     bool is_open{true};
-    bool is_paused = false;
-    bool restartRequested = false;
+    bool process_hotkeys{true};
 };
 
 } // namespace Frontend

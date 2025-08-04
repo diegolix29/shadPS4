@@ -4,9 +4,11 @@
 #pragma once
 
 #include <array>
+#include <filesystem>
 #include <map>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_timer.h"
@@ -450,11 +452,17 @@ public:
     InputEvent ProcessBinding();
 };
 
+enum HotkeyPad { FullscreenPad, PausePad, SimpleFpsPad, QuitPad };
+
 // Updates the list of pressed keys with the given input.
 // Returns whether the list was updated or not.
 bool UpdatePressedKeys(InputEvent event);
 
 void ActivateOutputsFromInputs();
+void LoadHotkeyInputs();
+bool HotkeyInputsPressed(std::vector<std::string> inputs);
+std::vector<std::string> GetHotkeyInputs(Input::HotkeyPad hotkey);
+void createHotkeyFile(std::filesystem::path hotkey_file);
 bool ControllerComboPressedOnce(
     std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons);
 
