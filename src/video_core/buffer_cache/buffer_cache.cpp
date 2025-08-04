@@ -18,9 +18,8 @@
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/texture_cache/texture_cache.h"
-u32 num_flushes = 0;
-u64 fence_tick = 0;
 u32 draw_id = 0;
+
 namespace VideoCore {
 
 static constexpr size_t DataShareBufferSize = 64_KB;
@@ -176,26 +175,52 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
     if (total_size_bytes == 0) {
         return;
     }
-    const auto [download, offset] = download_buffer.Map(total_size_bytes);
-    for (auto& copy : copies) {
-        // Modify copies to have the staging offset in mind
-        copy.dstOffset += offset;
-    }
-    download_buffer.Commit();
-    scheduler.EndRendering();
-    const auto cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.copyBuffer(buffer.buffer, download_buffer.Handle(), copies);
-    scheduler.Finish();
+    const VAddr page_addr = PageManager::GetPageAddr(device_addr);
     auto* memory = Core::Memory::Instance();
-    for (const auto& copy : copies) {
-        const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
-        const u64 dst_offset = copy.dstOffset - offset;
-        memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
-                                copy.size);
-    }
-    memory_tracker->UnmarkRegionAsGpuModified(device_addr, size);
-    if (is_write) {
-        memory_tracker->MarkRegionAsCpuModified(device_addr, size);
+
+    if (preemptive_downloads.Intersects(page_addr, PageManager::PAGE_SIZE)) {
+        preemptive_downloads.ForEachInRange(
+            page_addr, PageManager::PAGE_SIZE,
+            [&](VAddr begin, VAddr end, const PreemptiveDownload& download) {
+                scheduler.Wait(download.done_tick);
+                memory->TryWriteBacking(std::bit_cast<u8*>(download.device_addr), download.staging,
+                                        download.size);
+            });
+        preemptive_downloads.Subtract(page_addr, PageManager::PAGE_SIZE);
+
+        memory_tracker->UnmarkRegionAsGpuModified(device_addr, size);
+        if (is_write) {
+            memory_tracker->MarkRegionAsCpuModified(device_addr, size);
+        }
+    } else {
+        const auto [download, offset] = download_buffer.Map(total_size_bytes);
+        for (auto& copy : copies) {
+            copy.dstOffset += offset;
+        }
+        download_buffer.Commit();
+        scheduler.EndRendering();
+        const auto cmdbuf = scheduler.CommandBuffer();
+        cmdbuf.copyBuffer(buffer.buffer, download_buffer.Handle(), copies);
+
+        const auto write_data = [&]() {
+            for (const auto& copy : copies) {
+                const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
+                const u64 dst_offset = copy.dstOffset - offset;
+                memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
+                                        copy.size);
+            }
+            memory_tracker->UnmarkRegionAsGpuModified(device_addr, size);
+            if (is_write) {
+                memory_tracker->MarkRegionAsCpuModified(device_addr, size);
+            }
+        };
+
+        if constexpr (async) {
+            scheduler.DeferOperation(write_data);
+        } else {
+            scheduler.Finish();
+            write_data();
+        }
     }
 }
 
@@ -360,6 +385,7 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
             memcpy(std::bit_cast<void*>(dst), std::bit_cast<void*>(src), num_bytes);
             return;
         }
+        // Without a readback there's nothing we can do with this
         // Fallback to creating dst buffer on GPU to at least have this data there
     }
     auto& src_buffer = [&] -> const Buffer& {
@@ -451,12 +477,9 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
         buffer_id = FindBuffer(device_addr, size);
     }
     Buffer& buffer = slot_buffers[buffer_id];
-    SynchronizeBuffer(buffer, device_addr, size,
-                      is_written &&
-                          /*Config::fenceDetection() == Config::FenceDetection::None*/ false,
-                      is_texel_buffer);
+    SynchronizeBuffer(buffer, device_addr, size, is_written, is_texel_buffer);
     if (is_written) {
-        gpu_modified_ranges_pending.Add(device_addr, size);
+        gpu_modified_ranges.Add(device_addr, size);
     }
     return {&buffer, buffer.Offset(device_addr)};
 }
@@ -464,6 +487,7 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
 std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 size) {
     // Check if any buffer contains the full requested range.
     const BufferId buffer_id = page_table[gpu_addr >> CACHING_PAGEBITS];
+
     if (buffer_id) {
         if (Buffer& buffer = slot_buffers[buffer_id]; buffer.IsInBounds(gpu_addr, size)) {
             SynchronizeBuffer(buffer, gpu_addr, size, false, false);
@@ -482,6 +506,7 @@ std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 si
 }
 
 bool BufferCache::IsRegionRegistered(VAddr addr, size_t size) {
+    // Check if we are missing some edge case here
     return buffer_ranges.Intersects(addr, size);
 }
 
@@ -490,14 +515,7 @@ bool BufferCache::IsRegionCpuModified(VAddr addr, size_t size) {
 }
 
 bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
-    if (memory_tracker->IsRegionGpuModified(addr, size)) {
-        return true;
-    }
-    const VAddr page_addr = PageManager::GetPageAddr(addr);
-    bool modified = false;
-    gpu_modified_ranges_pending.ForEachInRange(page_addr, PageManager::PAGE_SIZE,
-                                               [&](VAddr, VAddr) { modified = true; });
-    return modified;
+    return memory_tracker->IsRegionGpuModified(addr, size);
 }
 
 BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {
@@ -506,6 +524,7 @@ BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {
     }
     const u64 page = device_addr >> CACHING_PAGEBITS;
     const BufferId buffer_id = page_table[page];
+
     if (!buffer_id) {
         return CreateBuffer(device_addr, size);
     }
@@ -552,6 +571,7 @@ BufferCache::OverlapResult BufferCache::ResolveOverlaps(VAddr device_addr, u32 w
     for (; device_addr >> CACHING_PAGEBITS < Common::DivCeil(end, CACHING_PAGESIZE);
          device_addr += CACHING_PAGESIZE) {
         const BufferId overlap_id = page_table[device_addr >> CACHING_PAGEBITS];
+
         if (!overlap_id) {
             continue;
         }
@@ -1039,6 +1059,7 @@ bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, 
 
 void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written) {
     const VAddr device_addr_end = device_addr + size;
+
     ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
         RENDERER_TRACE;
         const VAddr start = std::max(buffer.CpuAddr(), device_addr);

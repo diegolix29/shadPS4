@@ -946,7 +946,7 @@ void EmitContext::DefineImagesAndSamplers() {
         Decorate(id, spv::Decoration::Binding, binding.unified++);
         Decorate(id, spv::Decoration::DescriptorSet, 0U);
         const auto sharp_desc =
-            samp_desc.inline_sampler
+            samp_desc.is_inline_sampler
                 ? fmt::format("inline:{:#x}:{:#x}", samp_desc.inline_sampler.raw0,
                               samp_desc.inline_sampler.raw1)
                 : fmt::format("sgpr:{}", samp_desc.sharp_idx);
