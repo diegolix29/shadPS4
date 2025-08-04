@@ -20,6 +20,7 @@ public:
     static void SetupSettings();
 
     void Draw() override;
+    bool show_pause_status = false;
     void TextCentered(const std::string& text);
 };
 

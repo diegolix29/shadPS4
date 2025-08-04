@@ -452,7 +452,7 @@ public:
     InputEvent ProcessBinding();
 };
 
-enum HotkeyPad { FullscreenPad, PausePad, SimpleFpsPad, QuitPad };
+enum HotkeyPad { FullscreenPad, PausePad, SimpleFpsPad, QuitPad, DebugMenuPad };
 
 // Updates the list of pressed keys with the given input.
 // Returns whether the list was updated or not.
@@ -465,5 +465,6 @@ std::vector<std::string> GetHotkeyInputs(Input::HotkeyPad hotkey);
 void createHotkeyFile(std::filesystem::path hotkey_file);
 bool ControllerComboPressedOnce(
     std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons);
+bool HasUserHotkeyDefined(Input::HotkeyPad hotkey);
 
 } // namespace Input

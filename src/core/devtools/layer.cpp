@@ -3,8 +3,8 @@
 
 #include "layer.h"
 
-#include <emulator.h>
 #include <SDL3/SDL_events.h>
+#include <emulator.h>
 #include <imgui.h>
 #include "SDL3/SDL_events.h"
 
@@ -376,11 +376,11 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
                          ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                          ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
                          ImGuiWindowFlags_NoCollapse)) {
-        ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or R1+R2+Options\n"
-                               "Stop the game with: F4 or L1+L2+Options\n"
-                               "Toggle fullscreen: F11 or L2+R2+Options\n"
-                               "Developer Tools: Ctrl + F10 or L2+R2+R3\n"
-                               "Show FPS: F10 or L2+R2+L3");
+        ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or L2+R2+Options\n"
+                               "Stop the game with: F4 or L2+L2+Share/Back/Select\n"
+                               "Toggle fullscreen: F11 or L2+R2+L3\n"
+                               "Developer Tools: Ctrl + F10 or L2+R2+Square\n"
+                               "Show FPS: F10 or L2+R2+R3\n");
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -398,6 +398,7 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::Text("HDR Allowed: %s", Config::allowHDR() ? "Yes" : "No");
         ImGui::Text("Auto Backup: %s", Config::getEnableAutoBackup() ? "On" : "Off");
         ImGui::Text("PSN Signed In: %s", Config::getPSNSignedIn() ? "Yes" : "No");
+        ImGui::Text("LogType: %s", Config::getLogType().c_str());
     }
     ImGui::End();
 }
@@ -412,11 +413,11 @@ void DrawPauseStatusWindow(bool& is_open) {
 
     if (ImGui::Begin("Pause Menu - Hotkeys", &is_open,
                      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs)) {
-        ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or R1+R2+Options\n"
-                               "Stop the game with: F4 or L1+L2+Options\n"
-                               "Toggle fullscreen: F11 or L2+R2+Options\n"
-                               "Developer Tools: Ctrl + F10 or L2+R2+R3\n"
-                               "Show FPS: F10 or L2+R2+L3\n");
+        ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or L2+R2+Options\n"
+                               "Stop the game with: F4 or L2+L2+Share/Back/Select\n"
+                               "Toggle fullscreen: F11 or L2+R2+L3\n"
+                               "Developer Tools: Ctrl + F10 or L2+R2+Square\n"
+                               "Show FPS: F10 or L2+R2+R3\n");
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -428,11 +429,90 @@ void DrawPauseStatusWindow(bool& is_open) {
 void L::Draw() {
     const auto io = GetIO();
     PushID("DevtoolsLayer");
-    if (IsKeyPressed(ImGuiKey_F4, false) ||
-        Input::ControllerComboPressedOnce({Btn::L1, Btn::L2, Btn::Options})) {
-        SDL_Event quitEvent;
-        quitEvent.type = SDL_EVENT_QUIT;
-        SDL_PushEvent(&quitEvent);
+
+    if (IsKeyPressed(ImGuiKey_F4, false)) {
+        show_quit_window = true;
+    }
+
+    if (IsKeyPressed(ImGuiKey_F9, false)) {
+        if (io.KeyCtrl && io.KeyAlt) {
+            if (!DebugState.ShouldPauseInSubmit()) {
+                DebugState.RequestFrameDump(dump_frame_count);
+            }
+        } else {
+            if (DebugState.IsGuestThreadsPaused()) {
+                DebugState.ResumeGuestThreads();
+                SDL_Log("Game resumed from Keyboard");
+                show_pause_status = false;
+            } else {
+                DebugState.PauseGuestThreads();
+                SDL_Log("Game paused from Keyboard");
+                show_pause_status = true;
+            }
+            visibility_toggled = true;
+        }
+    }
+
+    const bool key_f10 = ImGui::IsKeyPressed(ImGuiKey_F10, false);
+    const bool ctrl_held = io.KeyCtrl;
+
+    if ((key_f10 && ctrl_held)) {
+        DebugState.IsShowingDebugMenuBar() ^= true;
+        visibility_toggled = true;
+    } else if (key_f10) {
+        show_simple_fps = !show_simple_fps;
+        visibility_toggled = true;
+    }
+
+    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad)) {
+        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::R3})) {
+            show_simple_fps = !show_simple_fps;
+            visibility_toggled = true;
+        }
+    }
+
+    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::FullscreenPad)) {
+        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::L3})) {
+            SDL_Event toggleFullscreenEvent;
+            toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
+            SDL_PushEvent(&toggleFullscreenEvent);
+        }
+    }
+
+    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
+        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::Options})) {
+            if (DebugState.IsGuestThreadsPaused()) {
+                DebugState.ResumeGuestThreads();
+                SDL_Log("Game resumed from Controller");
+                show_pause_status = false;
+            } else {
+                DebugState.PauseGuestThreads();
+                SDL_Log("Game paused from Controller");
+                show_pause_status = true;
+            }
+            visibility_toggled = true;
+        }
+    }
+
+    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad)) {
+        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::TouchPad})) {
+            show_quit_window = true;
+        }
+    }
+
+    const bool show_debug_menu_combo =
+        Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::Square});
+
+    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::DebugMenuPad)) {
+        if ((key_f10 && ctrl_held) || show_debug_menu_combo) {
+            DebugState.IsShowingDebugMenuBar() ^= true;
+            visibility_toggled = true;
+        }
+    }
+
+    if (!DebugState.IsGuestThreadsPaused()) {
+        const auto fn = DebugState.flip_frame_count.load();
+        frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
     }
 
     if (show_fullscreen_tip) {
@@ -444,52 +524,9 @@ void L::Draw() {
         }
     }
 
-    if (!DebugState.IsGuestThreadsPaused()) {
-        const auto fn = DebugState.flip_frame_count.load();
-        frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
-    }
-
-    const bool key_f10 = ImGui::IsKeyPressed(ImGuiKey_F10, false);
-    const bool ctrl_held = ImGui::GetIO().KeyCtrl;
-    const bool show_debug_menu_combo =
-        Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::R3});
-    const bool show_fps_combo = Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::L3});
-
-    if ((key_f10 && ctrl_held) || show_debug_menu_combo) {
-        DebugState.IsShowingDebugMenuBar() ^= true;
-        visibility_toggled = true;
-    } else if (key_f10 || show_fps_combo) {
-        show_simple_fps = !show_simple_fps;
-        visibility_toggled = true;
-    }
-
-    if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::Options})) {
-        SDL_Event toggleFullscreenEvent;
-        toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
-        SDL_PushEvent(&toggleFullscreenEvent);
-    }
-
-    if (IsKeyPressed(ImGuiKey_F9, false) ||
-        Input::ControllerComboPressedOnce({Btn::R1, Btn::R2, Btn::Options})) {
-        if (io.KeyCtrl && io.KeyAlt) {
-            if (!DebugState.ShouldPauseInSubmit()) {
-                DebugState.RequestFrameDump(dump_frame_count);
-            }
-        } else {
-            if (DebugState.IsGuestThreadsPaused()) {
-                DebugState.ResumeGuestThreads();
-                SDL_Log("Game resumed from Keyboard");
-            } else {
-                DebugState.PauseGuestThreads();
-                SDL_Log("Game paused from Keyboard");
-            }
-            visibility_toggled = true;
-        }
-    }
-
     static bool showPauseHelpWindow = true;
 
-    if (show_pause_status) {
+    if (DebugState.IsGuestThreadsPaused()) {
         DrawPauseStatusWindow(showPauseHelpWindow);
     }
 

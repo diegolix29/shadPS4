@@ -715,6 +715,18 @@ InputEvent BindingConnection::ProcessBinding() {
     return event; // All keys are active
 }
 
+bool HasUserHotkeyDefined(Input::HotkeyPad hotkey) {
+    const auto& inputs = GetHotkeyInputs(hotkey);
+    for (const auto& input : inputs) {
+        // Treat these strings as "no binding"
+        if (!input.empty() && input != "placeholder" && input != "unmapped" && input != "unused") {
+            return true; // user did define a real binding
+        }
+    }
+    return false; // no real user binding found
+}
+
+
 bool ControllerComboPressedOnce(
     std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons) {
     static std::unordered_map<u32, bool> combo_states;
@@ -901,7 +913,8 @@ bool HotkeyInputsPressed(std::vector<std::string> inputs) {
 }
 
 void createHotkeyFile(std::filesystem::path hotkey_file) {
-    std::string_view default_hotkeys = R"(controllerStop = unmapped
+    std::string_view default_hotkeys = R"(
+controllerQuit = l2,r2,back
 controllerFps = l2,r2,r3
 controllerPause = l2,r2,options
 controllerFullscreen = l2,r2,l3
