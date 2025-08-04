@@ -5,7 +5,6 @@
 #include "common/assert.h"
 #include "common/config.h"
 #include "common/debug.h"
-#include "common/div_ceil.h"
 #include "common/range_lock.h"
 #include "common/signal_context.h"
 #include "core/memory.h"
