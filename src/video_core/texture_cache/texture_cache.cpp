@@ -482,7 +482,6 @@ ImageId TextureCache::FindImage(BaseDesc& desc, FindFlags flags) {
 
     Image& image = slot_images[image_id];
     image.tick_accessed_last = scheduler.CurrentTick();
-    TouchImage(image);
 
     // If the image requested is a subresource of the image from cache record its location.
     if (view_mip > 0) {
@@ -491,6 +490,9 @@ ImageId TextureCache::FindImage(BaseDesc& desc, FindFlags flags) {
     if (view_slice > 0) {
         desc.view_info.range.base.layer = view_slice;
     }
+
+    // Touch the image on LRU cache
+    lru_cache.Touch(image.lru_id, gc_tick);
 
     return image_id;
 }
@@ -581,7 +583,6 @@ ImageView& TextureCache::FindDepthTarget(BaseDesc& desc) {
             RegisterImage(stencil_id);
         }
         Image& image = slot_images[stencil_id];
-        TouchImage(image);
         image.AssociateDepth(image_id);
     }
 
@@ -933,10 +934,6 @@ void TextureCache::RunGarbageCollector() {
         configure(true);
         lru_cache.ForEachItemBelow(gc_tick - ticks_to_destroy, clean_up);
     }
-}
-
-void TextureCache::TouchImage(const Image& image) {
-    lru_cache.Touch(image.lru_id, gc_tick);
 }
 
 void TextureCache::DeleteImage(ImageId image_id) {
