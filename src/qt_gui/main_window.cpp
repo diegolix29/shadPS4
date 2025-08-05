@@ -193,6 +193,10 @@ void MainWindow::AddUiWidgets() {
         createButtonWithLabel(ui->controllerButton, tr("Controllers"), showLabels));
     ui->toolBar->addWidget(createButtonWithLabel(ui->keyboardButton, tr("Keyboard"), showLabels));
     ui->toolBar->addWidget(createSpacer(this));
+
+    ui->toolBar->addWidget(
+        createButtonWithLabel(ui->configureHotkeysButton, tr("Hotkeys"), showLabels));
+    ui->toolBar->addWidget(createButtonWithLabel(ui->updaterButton, tr("Update"), showLabels));
     QFrame* line = new QFrame(this);
     line->setFrameShape(QFrame::VLine);
     line->setFrameShadow(QFrame::Sunken);
@@ -202,7 +206,7 @@ void MainWindow::AddUiWidgets() {
 
     ui->toolBar->addWidget(
         createButtonWithLabel(ui->refreshButton, tr("Refresh List"), showLabels));
-    ui->toolBar->addWidget(createButtonWithLabel(ui->updaterButton, tr("Update"), showLabels));
+
     ui->toolBar->addWidget(createSpacer(this));
     QBoxLayout* toolbarLayout = new QBoxLayout(QBoxLayout::TopToBottom);
     toolbarLayout->setSpacing(2);
@@ -221,6 +225,7 @@ void MainWindow::AddUiWidgets() {
     searchSliderContainer->setLayout(searchSliderLayout);
 
     ui->toolBar->addWidget(searchSliderContainer);
+    toolbarLayout->setSpacing(2);
 
     if (!showLabels) {
         toolbarLayout->addWidget(searchSliderContainer);
@@ -467,6 +472,11 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->configureHotkeys, &QAction::triggered, this, [this]() {
+        auto hotkeyDialog = new hotkeys(isGameRunning, this);
+        hotkeyDialog->exec();
+    });
+
+    connect(ui->configureHotkeysButton, &QPushButton::clicked, this, [this]() {
         auto hotkeyDialog = new hotkeys(isGameRunning, this);
         hotkeyDialog->exec();
     });
@@ -1110,6 +1120,7 @@ void MainWindow::SetUiIcons(bool isWhite) {
     ui->keyboardButton->setIcon(RecolorIcon(ui->keyboardButton->icon(), isWhite));
     ui->refreshGameListAct->setIcon(RecolorIcon(ui->refreshGameListAct->icon(), isWhite));
     ui->updaterButton->setIcon(RecolorIcon(ui->updaterButton->icon(), isWhite));
+    ui->configureHotkeysButton->setIcon(RecolorIcon(ui->configureHotkeysButton->icon(), isWhite));
     ui->menuGame_List_Mode->setIcon(RecolorIcon(ui->menuGame_List_Mode->icon(), isWhite));
     ui->trophyViewerAct->setIcon(RecolorIcon(ui->trophyViewerAct->icon(), isWhite));
     ui->configureAct->setIcon(RecolorIcon(ui->configureAct->icon(), isWhite));

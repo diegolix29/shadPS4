@@ -51,6 +51,7 @@ public:
     QPushButton* keyboardButton;
     QPushButton* restartButton;
     QPushButton* updaterButton;
+    QPushButton* configureHotkeysButton;
 
     QWidget* sizeSliderContainer;
     QHBoxLayout* sizeSliderContainer_layout;
@@ -232,7 +233,10 @@ public:
         updaterButton->setFlat(true);
         updaterButton->setIcon(QIcon(":images/update_icon.png"));
         updaterButton->setIconSize(QSize(40, 40));
-
+        configureHotkeysButton = new QPushButton(centralWidget);
+        configureHotkeysButton->setFlat(true);
+        configureHotkeysButton->setIcon(QIcon(":images/hotkeybutton.png"));
+        configureHotkeysButton->setIconSize(QSize(50, 40));
         sizeSliderContainer = new QWidget(centralWidget);
         sizeSliderContainer->setObjectName("sizeSliderContainer");
         sizeSliderContainer->setGeometry(QRect(280, 10, 181, 31));
