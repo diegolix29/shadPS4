@@ -201,7 +201,7 @@ void CheatsPatches::setupUI() {
     QPushButton* closeButton = new QPushButton(tr("Close"));
     connect(closeButton, &QPushButton::clicked, [this]() { QWidget::close(); });
 
-controlLayout->addWidget(downloadButton);
+    controlLayout->addWidget(downloadButton);
     controlLayout->addWidget(deleteCheatButton);
     controlLayout->addWidget(closeButton);
 
@@ -321,7 +321,6 @@ controlLayout->addWidget(downloadButton);
 }
 
 void CheatsPatches::onSaveCheatsClicked() {
-    QJsonObject root;
     QJsonArray selected;
 
     for (auto& checkBox : m_cheatCheckBoxes) {
@@ -334,9 +333,43 @@ void CheatsPatches::onSaveCheatsClicked() {
         }
     }
 
-    root["selected"] = selected;
+    QString repo = "default";
+    if (listView_selectFile && listView_selectFile->currentIndex().isValid()) {
+        QString fileName = listView_selectFile->currentIndex().data().toString();
+        if (fileName.contains("_")) {
+            QStringList parts = fileName.split('_');
+            QString suffix = parts.last(); // e.g., "shadPS4.json"
+            if (suffix.contains(".")) {
+                repo = suffix.split('.').first();
+            }
+        }
+    }
 
-    QFile file(m_cheatFilePath + ".selected.json");
+    QString gameKey = m_gameSerial + "_" + m_gameVersion;
+    QString cheatsPath;
+    Common::FS::PathToQString(cheatsPath, Common::FS::GetUserPath(Common::FS::PathType::CheatsDir));
+    QDir dir(cheatsPath);
+    dir.mkpath("activated");
+    cheatsPath += "/activated/cheats.json";
+
+    QJsonObject root;
+
+    QFile file(cheatsPath);
+    if (file.exists() && file.open(QIODevice::ReadOnly)) {
+        QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        file.close();
+        if (doc.isObject()) {
+            root = doc.object();
+        }
+    }
+
+    QJsonObject enabled = root["enabled"].toObject();
+    QJsonObject gameEntry = enabled[gameKey].toObject();
+    gameEntry[repo] = selected;
+    enabled[gameKey] = gameEntry;
+    root["enabled"] = enabled;
+
+    // Save it back
     if (file.open(QIODevice::WriteOnly)) {
         file.write(QJsonDocument(root).toJson());
         file.close();
@@ -1130,42 +1163,63 @@ void CheatsPatches::populateFileListCheats() {
             [this]() {
                 QModelIndexList selectedIndexes =
                     listView_selectFile->selectionModel()->selectedIndexes();
-                if (!selectedIndexes.isEmpty()) {
+                if (selectedIndexes.isEmpty())
+                    return;
 
-                    QString selectedFileName = selectedIndexes.first().data().toString();
-                    QString cheatsDir;
-                    Common::FS::PathToQString(
-                        cheatsDir, Common::FS::GetUserPath(Common::FS::PathType::CheatsDir));
+                QString selectedFileName = selectedIndexes.first().data().toString();
+                QString cheatsDir;
+                Common::FS::PathToQString(cheatsDir,
+                                          Common::FS::GetUserPath(Common::FS::PathType::CheatsDir));
 
-                    QFile file(cheatsDir + "/" + selectedFileName);
-                    if (file.open(QIODevice::ReadOnly)) {
-                        QByteArray jsonData = file.readAll();
-                        QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
-                        QJsonObject jsonObject = jsonDoc.object();
-                        QJsonArray modsArray = jsonObject["mods"].toArray();
-                        QJsonArray creditsArray = jsonObject["credits"].toArray();
-                        addCheatsToLayout(modsArray, creditsArray);
-                        QFile selectedFile(cheatsDir + "/" + selectedFileName + ".selected.json");
-                        if (selectedFile.open(QIODevice::ReadOnly)) {
-                            QJsonDocument doc = QJsonDocument::fromJson(selectedFile.readAll());
-                            selectedFile.close();
-                            QJsonObject root = doc.object();
-                            QJsonArray selected = root["selected"].toArray();
-                            for (const QJsonValue& nameVal : selected) {
-                                QString name = nameVal.toString();
-                                for (auto& cb : m_cheatCheckBoxes) {
-                                    if (cb->text() == name) {
-                                        cb->setChecked(true);
-                                        break;
-                                    }
-                                }
-                            }
+                QFile file(cheatsDir + "/" + selectedFileName);
+                if (!file.open(QIODevice::ReadOnly))
+                    return;
+
+                QByteArray jsonData = file.readAll();
+                QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
+                QJsonObject jsonObject = jsonDoc.object();
+                QJsonArray modsArray = jsonObject["mods"].toArray();
+                QJsonArray creditsArray = jsonObject["credits"].toArray();
+                addCheatsToLayout(modsArray, creditsArray);
+
+                QString cheatsJsonPath;
+                Common::FS::PathToQString(cheatsJsonPath,
+                                          Common::FS::GetUserPath(Common::FS::PathType::CheatsDir));
+                cheatsJsonPath += "/activated/cheats.json";
+
+                QString gameKey = m_gameSerial + "_" + m_gameVersion;
+                QString repo = "default";
+
+                if (selectedFileName.contains("_")) {
+                    QStringList parts = selectedFileName.split('_');
+                    QString suffix = parts.last();
+                    if (suffix.contains(".")) {
+                        repo = suffix.split('.').first();
+                    }
+                }
+
+                QFile activatedFile(cheatsJsonPath);
+                if (!activatedFile.open(QIODevice::ReadOnly))
+                    return;
+
+                QJsonDocument activatedDoc = QJsonDocument::fromJson(activatedFile.readAll());
+                activatedFile.close();
+
+                QJsonObject root = activatedDoc.object();
+                QJsonObject enabled = root["enabled"].toObject();
+                QJsonObject gameEntry = enabled[gameKey].toObject();
+                QJsonArray selected = gameEntry[repo].toArray();
+
+                for (const QJsonValue& val : selected) {
+                    QString name = val.toString();
+                    for (auto& cb : m_cheatCheckBoxes) {
+                        if (cb->text() == name) {
+                            cb->setChecked(true);
+                            break;
                         }
-
                     }
                 }
             });
-
     if (!fileNames.isEmpty()) {
         QModelIndex firstIndex = model->index(0, 0);
         listView_selectFile->selectionModel()->select(firstIndex, QItemSelectionModel::Select |
@@ -1367,28 +1421,27 @@ void CheatsPatches::applyCheat(const QString& modName, bool enabled) {
         bool isHintPresent = m_cheats[modName].hasHint;
         bool littleEndian = false;
 
-            // If game is not running yet, queue cheat patch manually
-            if (MemoryPatcher::g_eboot_address == 0) {
-                MemoryPatcher::patchInfo patch;
-                patch.gameSerial = "*";
-                patch.modNameStr = modNameStr;
-                patch.offsetStr = offsetStr;
-                patch.valueStr = valueStr;
-                patch.targetStr = "";
-                patch.sizeStr = sizeStr;
-                patch.isOffset = true;
-                patch.littleEndian = littleEndian;
-                patch.patchMask = MemoryPatcher::PatchMask::None;
-                patch.maskOffset = 0;
-                MemoryPatcher::AddPatchToQueue(patch);
-                continue;
-            }
-
-            MemoryPatcher::PatchMemory(modNameStr, offsetStr, valueStr, "", sizeStr, !isHintPresent,
-                                       littleEndian);
+        // If game is not running yet, queue cheat patch manually
+        if (MemoryPatcher::g_eboot_address == 0) {
+            MemoryPatcher::patchInfo patch;
+            patch.gameSerial = "*";
+            patch.modNameStr = modNameStr;
+            patch.offsetStr = offsetStr;
+            patch.valueStr = valueStr;
+            patch.targetStr = "";
+            patch.sizeStr = sizeStr;
+            patch.isOffset = true;
+            patch.littleEndian = littleEndian;
+            patch.patchMask = MemoryPatcher::PatchMask::None;
+            patch.maskOffset = 0;
+            MemoryPatcher::AddPatchToQueue(patch);
+            continue;
         }
-    }
 
+        MemoryPatcher::PatchMemory(modNameStr, offsetStr, valueStr, "", sizeStr, !isHintPresent,
+                                   littleEndian);
+    }
+}
 
 void CheatsPatches::applyPatch(const QString& patchName, bool enabled) {
     if (!enabled)
