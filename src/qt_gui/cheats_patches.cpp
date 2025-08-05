@@ -201,12 +201,17 @@ void CheatsPatches::setupUI() {
     QPushButton* closeButton = new QPushButton(tr("Close"));
     connect(closeButton, &QPushButton::clicked, [this]() { QWidget::close(); });
 
-    controlLayout->addWidget(downloadButton);
+controlLayout->addWidget(downloadButton);
     controlLayout->addWidget(deleteCheatButton);
     controlLayout->addWidget(closeButton);
 
+    QPushButton* saveCheatsButton = new QPushButton(tr("Save Cheats"));
+    connect(saveCheatsButton, &QPushButton::clicked, this, &CheatsPatches::onSaveCheatsClicked);
+    controlLayout->addWidget(saveCheatsButton);
+
     cheatsLayout->addLayout(controlLayout);
     cheatsTab->setLayout(cheatsLayout);
+    ;
 
     // Setup the patches tab
     QGroupBox* patchesGroupBox = new QGroupBox();
@@ -313,6 +318,32 @@ void CheatsPatches::setupUI() {
     manager = new QNetworkAccessManager(this);
 
     setLayout(mainLayout);
+}
+
+void CheatsPatches::onSaveCheatsClicked() {
+    QJsonObject root;
+    QJsonArray selected;
+
+    for (auto& checkBox : m_cheatCheckBoxes) {
+        QString modName = checkBox->text();
+        if (checkBox->isChecked()) {
+            selected.append(modName);
+            applyCheat(modName, true);
+        } else {
+            applyCheat(modName, false);
+        }
+    }
+
+    root["selected"] = selected;
+
+    QFile file(m_cheatFilePath + ".selected.json");
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(QJsonDocument(root).toJson());
+        file.close();
+        QMessageBox::information(this, tr("Success"), tr("Cheats saved successfully."));
+    } else {
+        QMessageBox::critical(this, tr("Error"), tr("Failed to write cheat selection file."));
+    }
 }
 
 void CheatsPatches::onSaveButtonClicked() {
@@ -1114,6 +1145,23 @@ void CheatsPatches::populateFileListCheats() {
                         QJsonArray modsArray = jsonObject["mods"].toArray();
                         QJsonArray creditsArray = jsonObject["credits"].toArray();
                         addCheatsToLayout(modsArray, creditsArray);
+                        QFile selectedFile(cheatsDir + "/" + selectedFileName + ".selected.json");
+                        if (selectedFile.open(QIODevice::ReadOnly)) {
+                            QJsonDocument doc = QJsonDocument::fromJson(selectedFile.readAll());
+                            selectedFile.close();
+                            QJsonObject root = doc.object();
+                            QJsonArray selected = root["selected"].toArray();
+                            for (const QJsonValue& nameVal : selected) {
+                                QString name = nameVal.toString();
+                                for (auto& cb : m_cheatCheckBoxes) {
+                                    if (cb->text() == name) {
+                                        cb->setChecked(true);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
                     }
                 }
             });
@@ -1306,13 +1354,6 @@ void CheatsPatches::applyCheat(const QString& modName, bool enabled) {
     if (!m_cheats.contains(modName))
         return;
 
-    if (MemoryPatcher::g_eboot_address == 0 && enabled) {
-        QMessageBox::critical(this, tr("Error"),
-                              tr("Can't apply cheats before the game is started"));
-        uncheckAllCheatCheckBoxes();
-        return;
-    }
-
     Cheat cheat = m_cheats[modName];
 
     for (const MemoryMod& memoryMod : cheat.memoryMods) {
@@ -1321,15 +1362,33 @@ void CheatsPatches::applyCheat(const QString& modName, bool enabled) {
         std::string modNameStr = modName.toStdString();
         std::string offsetStr = memoryMod.offset.toStdString();
         std::string valueStr = value.toStdString();
+        std::string sizeStr = ""; // Optional, leave empty for now
 
-        if (MemoryPatcher::g_eboot_address == 0)
-            return;
-
-        // Determine if the hint field is present
         bool isHintPresent = m_cheats[modName].hasHint;
-        MemoryPatcher::PatchMemory(modNameStr, offsetStr, valueStr, "", "", !isHintPresent, false);
+        bool littleEndian = false;
+
+            // If game is not running yet, queue cheat patch manually
+            if (MemoryPatcher::g_eboot_address == 0) {
+                MemoryPatcher::patchInfo patch;
+                patch.gameSerial = "*";
+                patch.modNameStr = modNameStr;
+                patch.offsetStr = offsetStr;
+                patch.valueStr = valueStr;
+                patch.targetStr = "";
+                patch.sizeStr = sizeStr;
+                patch.isOffset = true;
+                patch.littleEndian = littleEndian;
+                patch.patchMask = MemoryPatcher::PatchMask::None;
+                patch.maskOffset = 0;
+                MemoryPatcher::AddPatchToQueue(patch);
+                continue;
+            }
+
+            MemoryPatcher::PatchMemory(modNameStr, offsetStr, valueStr, "", sizeStr, !isHintPresent,
+                                       littleEndian);
+        }
     }
-}
+
 
 void CheatsPatches::applyPatch(const QString& patchName, bool enabled) {
     if (!enabled)

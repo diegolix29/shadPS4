@@ -106,6 +106,15 @@ void IPC::InputLoop() {
             entry.patchMask = static_cast<MemoryPatcher::PatchMask>(next_u64());
             entry.maskOffset = static_cast<int>(next_u64());
             MemoryPatcher::AddPatchToQueue(entry);
+        } else if (cmd == "CHEAT_ENABLE") {
+                std::string modNameStr = next_str();
+                std::string offsetStr = next_str();
+                std::string valueStr = next_str();
+                std::string sizeStr = next_str();
+                bool littleEndian = next_u64() != 0;
+
+                MemoryPatcher::PatchMemory(modNameStr, offsetStr, valueStr, "", sizeStr, true,
+                                           littleEndian);
         } else {
             std::cerr << "UNKNOWN CMD: " << cmd << std::endl;
         }
