@@ -176,9 +176,6 @@ public:
     /// Garbage collects buffers that were unused for a while.
     void RunGarbageCollector();
 
-    /// Runs the garbage collector.
-    void RunGarbageCollector();
-
 private:
     template <typename Func>
     void ForEachBufferInRange(VAddr device_addr, u64 size, Func&& func) {
