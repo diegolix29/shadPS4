@@ -447,7 +447,6 @@ void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
          {"libSceJson.sprx", nullptr},
          {"libSceJson2.sprx", nullptr},
          {"libSceLibcInternal.sprx", &Libraries::LibcInternal::RegisterlibSceLibcInternal},
-         {"libSceRtc.sprx", &Libraries::Rtc::RegisterlibSceRtc},
          {"libSceCesCs.sprx", nullptr},
          {"libSceFont.sprx", nullptr},
          {"libSceFontFt.sprx", nullptr},
