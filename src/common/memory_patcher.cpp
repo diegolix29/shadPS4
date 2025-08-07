@@ -208,7 +208,6 @@ void AutoBackupThread(const std::filesystem::path& save_dir) {
 
         if (Config::getEnableAutoBackup()) {
             BackupFilesInDirectory(save_dir);
-        } else {
         }
     }
 }
@@ -293,9 +292,7 @@ void OnGameLoaded() {
                                 continue;
 
                             std::string currentPatchName = it->attribute("Name").value();
-
-                            for (pugi::xml_node_iterator patchLineIt = patchList.children().begin();
-                                 patchLineIt != patchList.children().end(); ++patchLineIt) {
+                            {
 
                                 std::string type = patchLineIt->attribute("Type").value();
                                 std::string address = patchLineIt->attribute("Address").value();
