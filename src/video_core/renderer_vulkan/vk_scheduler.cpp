@@ -79,13 +79,22 @@ void Scheduler::Finish() {
 }
 
 void Scheduler::Wait(u64 tick) {
+    // If the requested tick has not been submitted yet, submit now.
     if (tick >= master_semaphore.CurrentTick()) {
-        // Make sure we are not waiting for the current tick without signalling
-        SubmitInfo info{};
-        Flush(info);
+        Flush(); // Use the existing overload instead of re-creating SubmitInfo
     }
+
+    // Wait until the GPU reaches the desired tick.
     master_semaphore.Wait(tick);
+
+    // Process any pending operations up to this tick.
+    while (!pending_ops.empty() && pending_ops.front().gpu_tick <= tick) {
+        auto op = std::move(pending_ops.front());
+        pending_ops.pop();
+        op.callback(); // Call after pop to minimize queue lock time (if any)
+    }
 }
+
 
 void Scheduler::PopPendingOperations() {
     master_semaphore.Refresh();
@@ -101,9 +110,9 @@ void Scheduler::AllocateWorkerCommandBuffers() {
     };
 
     current_cmdbuf = command_pool.Commit();
-    auto begin_result = current_cmdbuf.begin(begin_info);
-    ASSERT_MSG(begin_result == vk::Result::eSuccess, "Failed to begin command buffer: {}",
-               vk::to_string(begin_result));
+    ASSERT_MSG(current_cmdbuf.begin(begin_info) == vk::Result::eSuccess,
+               "Failed to begin command buffer");
+
 
     // Invalidate dynamic state so it gets applied to the new command buffer.
     dynamic_state.Invalidate();

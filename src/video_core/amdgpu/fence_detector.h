@@ -22,27 +22,22 @@ public:
     }
 
 private:
-    static std::span<const u32> NextPacket(std::span<const u32> cmd, size_t offset) {
-        if (offset > cmd.size()) {
-            return {};
-        }
-        return cmd.subspan(offset);
+    static std::span<const u32> NextPacket(std::span<const u32> cmd, size_t offset) noexcept {
+        return offset < cmd.size() ? cmd.subspan(offset) : std::span<const u32>{};
     }
 
-    void DetectFences(std::span<const u32> cmd) {
+void DetectFences(std::span<const u32> cmd) {
         while (!cmd.empty()) {
             const auto* header = reinterpret_cast<const PM4Header*>(cmd.data());
-            const u32 type = header->type;
 
-            switch (type) {
-            default:
-                UNREACHABLE_MSG("Wrong PM4 type {}", type);
+            switch (header->type) {
             case 0:
                 UNREACHABLE_MSG("Unimplemented PM4 type 0, base reg: {}, size: {}",
                                 header->type0.base.Value(), header->type0.NumWords());
+                break;
             case 2:
                 cmd = NextPacket(cmd, 1);
-                break;
+                continue;
             case 3:
                 const PM4ItOpcode opcode = header->type3.opcode;
                 switch (opcode) {
@@ -55,38 +50,34 @@ private:
                     break;
                 }
                 case PM4ItOpcode::EventWriteEop: {
-                    const auto* event_eop = reinterpret_cast<const PM4CmdEventWriteEop*>(header);
-                    if (event_eop->int_sel != InterruptSelect::None) {
+                    const auto* e = reinterpret_cast<const PM4CmdEventWriteEop*>(header);
+                    if (e->int_sel != InterruptSelect::None) {
                         fences.emplace_back(header);
                     }
-                    if (event_eop->data_sel == DataSelect::Data32Low) {
-                        fences.emplace_back(header, event_eop->Address<VAddr>(),
-                                            event_eop->DataDWord());
-                    } else if (event_eop->data_sel == DataSelect::Data64) {
-                        fences.emplace_back(header, event_eop->Address<VAddr>(),
-                                            event_eop->DataQWord());
+                    if (e->data_sel == DataSelect::Data32Low) {
+                        fences.emplace_back(header, e->Address<VAddr>(), e->DataDWord());
+                    } else if (e->data_sel == DataSelect::Data64) {
+                        fences.emplace_back(header, e->Address<VAddr>(), e->DataQWord());
                     }
                     break;
                 }
                 case PM4ItOpcode::ReleaseMem: {
-                    const auto* release_mem = reinterpret_cast<const PM4CmdReleaseMem*>(header);
-                    if (release_mem->data_sel == DataSelect::Data32Low) {
-                        fences.emplace_back(header, release_mem->Address<VAddr>(),
-                                            release_mem->DataDWord());
-                    } else if (release_mem->data_sel == DataSelect::Data64) {
-                        fences.emplace_back(header, release_mem->Address<VAddr>(),
-                                            release_mem->DataQWord());
+                    const auto* e = reinterpret_cast<const PM4CmdReleaseMem*>(header);
+                    if (e->data_sel == DataSelect::Data32Low) {
+                        fences.emplace_back(header, e->Address<VAddr>(), e->DataDWord());
+                    } else if (e->data_sel == DataSelect::Data64) {
+                        fences.emplace_back(header, e->Address<VAddr>(), e->DataQWord());
                     }
                     break;
                 }
                 case PM4ItOpcode::WriteData: {
-                    const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
-                    ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
-                    const u32 data_size = (header->type3.count.Value() - 2) * 4;
-                    if (data_size <= sizeof(u64) && write_data->wr_confirm) {
+                    const auto* e = reinterpret_cast<const PM4CmdWriteData*>(header);
+                    ASSERT(e->dst_sel.Value() == 2 || e->dst_sel.Value() == 5);
+                    const u32 size = (header->type3.count.Value() - 2) * 4;
+                    if (size <= sizeof(u64) && e->wr_confirm) {
                         u64 value{};
-                        std::memcpy(&value, write_data->data, data_size);
-                        fences.emplace_back(header, write_data->Address<VAddr>(), value);
+                        std::memcpy(&value, e->data, size);
+                        fences.emplace_back(header, e->Address<VAddr>(), value);
                     }
                     break;
                 }

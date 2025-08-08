@@ -94,7 +94,6 @@ static u32 internalScreenHeight = 720;
 static bool isNullGpu = false;
 static bool shouldCopyGPUBuffers = false;
 static FenceDetection fenceDetectionMode = FenceDetection::None;
-static bool readbacksEnabled = false;
 static bool readbackLinearImagesEnabled = false;
 static bool directMemoryAccessEnabled = false;
 static bool shouldDumpShaders = false;
@@ -375,14 +374,12 @@ bool copyGPUCmdBuffers() {
     return shouldCopyGPUBuffers;
 }
 
-void setReadbacksEnabled(bool enable) {
-    readbacksEnabled = enable;
 FenceDetection fenceDetection() {
     return fenceDetectionMode;
 }
 
-bool readbacks() {
-    return readbacksEnabled;
+void setReadbacksEnabled(bool enable) {
+    readbacksEnabled = enable;
 }
 
 bool setReadbackLinearImages(bool enable) {

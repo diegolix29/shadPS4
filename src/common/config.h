@@ -54,6 +54,7 @@ bool getCheckCompatibilityOnStartup();
 int getBackgroundImageOpacity();
 bool getShowBackgroundImage();
 bool getPSNSignedIn();
+FenceDetection fenceDetection();
 bool getReadbacksEnabled();
 bool getFastReadbacksEnabled();
 bool getShaderSkipsEnabled();

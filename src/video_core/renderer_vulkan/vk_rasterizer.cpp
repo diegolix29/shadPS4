@@ -16,7 +16,6 @@
 #ifdef MemoryBarrier
 #undef MemoryBarrier
 #endif
-extern u32 draw_id;
 
 namespace {
 const int OCCLUSION_QUERIES_COUNT = 16;
@@ -331,7 +330,6 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     }
 
     ResetBindings();
-    ++draw_id;
 }
 
 void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u32 stride,
@@ -398,7 +396,6 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
     }
 
     ResetBindings();
-    ++draw_id;
 }
 
 void Rasterizer::DispatchDirect() {
@@ -428,7 +425,6 @@ void Rasterizer::DispatchDirect() {
     cmdbuf.dispatch(cs_program.dim_x, cs_program.dim_y, cs_program.dim_z);
 
     ResetBindings();
-    ++draw_id;
 }
 
 void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
@@ -455,7 +451,6 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
     cmdbuf.dispatchIndirect(buffer->Handle(), base);
 
     ResetBindings();
-    ++draw_id;
 }
 
 u64 Rasterizer::Flush() {
