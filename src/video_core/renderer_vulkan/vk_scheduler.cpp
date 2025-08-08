@@ -94,7 +94,6 @@ void Scheduler::Wait(u64 tick) {
     }
 }
 
-
 void Scheduler::PopPendingOperations() {
     master_semaphore.Refresh();
     while (!pending_ops.empty() && master_semaphore.IsFree(pending_ops.front().gpu_tick)) {
@@ -111,7 +110,6 @@ void Scheduler::AllocateWorkerCommandBuffers() {
     current_cmdbuf = command_pool.Commit();
     ASSERT_MSG(current_cmdbuf.begin(begin_info) == vk::Result::eSuccess,
                "Failed to begin command buffer");
-
 
     // Invalidate dynamic state so it gets applied to the new command buffer.
     dynamic_state.Invalidate();

@@ -26,7 +26,7 @@ private:
         return offset < cmd.size() ? cmd.subspan(offset) : std::span<const u32>{};
     }
 
-void DetectFences(std::span<const u32> cmd) {
+    void DetectFences(std::span<const u32> cmd) {
         while (!cmd.empty()) {
             const auto* header = reinterpret_cast<const PM4Header*>(cmd.data());
 
