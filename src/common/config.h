@@ -5,7 +5,7 @@
 
 #include <filesystem>
 #include <vector>
-#include "types.h"
+#include "common/types.h"
 
 namespace Config {
 
@@ -14,7 +14,17 @@ struct GameInstallDir {
     bool enabled;
 };
 
-enum HideCursorState : int { Never, Idle, Always };
+enum HideCursorState : u32 {
+    Never,
+    Idle,
+    Always,
+};
+
+enum class FenceDetection : u32 {
+    None,
+    Normal,
+    Relaxed,
+};
 
 void load(const std::filesystem::path& path);
 void save(const std::filesystem::path& path);

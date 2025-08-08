@@ -49,10 +49,6 @@ public:
     static constexpr s64 DEFAULT_CRITICAL_GC_MEMORY = 2_GB;
     static constexpr s64 TARGET_GC_THRESHOLD = 8_GB;
 
-    struct PageData {
-        BufferId buffer_id{};
-    };
-
     struct Traits {
         using Entry = BufferId;
         static constexpr size_t AddressSpaceBits = 40;
@@ -163,17 +159,20 @@ public:
     /// Processes the fault buffer.
     void ProcessFaultBuffer();
 
+    /// Processes ready preemptive downloads not consumed by the guest.
+    void ProcessPreemptiveDownloads();
+
     /// Synchronizes all buffers in the specified range.
     void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
 
     /// Synchronizes all buffers neede for DMA.
     void SynchronizeDmaBuffers();
 
+    /// Runs the garbage collector.
+    void RunGarbageCollector();
+
     /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
     void CommitPendingGpuRanges();
-
-    /// Garbage collects buffers that were unused for a while.
-    void RunGarbageCollector();
 
 private:
     template <typename Func>

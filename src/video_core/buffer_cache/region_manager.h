@@ -47,7 +47,7 @@ public:
         return cpu_addr;
     }
 
-    u16 NumFlushes(u32 page) const {
+    u16& NumFlushes(u32 page) {
         return flushes[page];
     }
 
@@ -98,10 +98,13 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::getReadbacksEnabled()) {
-            UpdateProtection<enable, true>();
-        } else if (Config::getFastReadbacksEnabled()) {
-            UpdateProtection<enable, false>();
+        } else {
+            if (Config::readbacks()) {
+                UpdateProtection<enable, true>();
+            }
+            for (size_t page = start_page; page != end_page && !enable; ++page) {
+                ++flushes[page];
+            }
         }
     }
 

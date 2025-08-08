@@ -11,6 +11,7 @@
 #include "core/debug_state.h"
 #include "core/libraries/videoout/driver.h"
 #include "core/memory.h"
+#include "video_core/amdgpu/fence_detector.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/amdgpu/pm4_cmds.h"
 #include "video_core/renderdoc.h"
@@ -370,8 +371,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
         RESUME_GFX(ce_task);
     }
 
-    // LOG_ERROR(Render, "Graphics");
-    const auto fences = DetectFences(dcb);
+    const auto fence_detector = FenceDetector(dcb);
 
     const auto base_addr = reinterpret_cast<uintptr_t>(dcb.data());
     while (!dcb.empty()) {
@@ -763,11 +763,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                         const u32 value = rasterizer->ReadDataFromGds(event_eos->gds_index);
                         *event_eos->Address() = value;
                     }
-                } else if (std::ranges::contains(fences, header, &LabelWrite::packet) &&
-                           rasterizer) {
-                    ++fence_tick;
-                    // LOG_WARNING(Render, "EventWriteEos label={:#x} fence_tick = {}",
-                    // event_eos->Address<VAddr>(), fence_tick);
+                } else if (fence_detector.IsFence(header) && rasterizer) {
                     rasterizer->CommitPendingGpuRanges();
                 }
                 event_eos->SignalFence([](void* address, u64 data, u32 num_bytes) {
@@ -780,10 +776,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             }
             case PM4ItOpcode::EventWriteEop: {
                 const auto* event_eop = reinterpret_cast<const PM4CmdEventWriteEop*>(header);
-                if (std::ranges::contains(fences, header, &LabelWrite::packet) && rasterizer) {
-                    ++fence_tick;
-                    // LOG_WARNING(Render, "EventWriteEop label={:#x} fence_tick = {}",
-                    // event_eop->Address<VAddr>(), fence_tick);
+                if (fence_detector.IsFence(header) && rasterizer) {
                     rasterizer->CommitPendingGpuRanges();
                 }
                 event_eop->SignalFence([](void* address, u64 data, u32 num_bytes) {
@@ -834,9 +827,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
                 ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
                 const u32 data_size = (header->type3.count.Value() - 2) * 4;
-                if (std::ranges::contains(fences, header, &LabelWrite::packet) && rasterizer) {
-                    ++fence_tick;
-                    // LOG_WARNING(Render, "WriteData fence_tick = {}", fence_tick);
+                if (fence_detector.IsFence(header) && rasterizer) {
                     rasterizer->CommitPendingGpuRanges();
                 }
                 if (!write_data->wr_one_addr.Value()) {
@@ -980,9 +971,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
     FIBER_ENTER(acb_task_name[vqid]);
     auto& queue = asc_queues[{vqid}];
 
-    // LOG_ERROR(Render, "Compute");
-    const auto fences = DetectFences(acb);
-
+    const auto fence_detector = FenceDetector(acb);
     boost::container::small_vector<const PM4Header*, 4> indirect_patches;
 
     auto base_addr = reinterpret_cast<VAddr>(acb.data());
@@ -1108,16 +1097,14 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                         return;
                     }
                     indirect_patches.push_back(header);
-                    // LOG_ERROR(Render, "Rewind GPU range addr={:#x}, size={:#x}", begin, end -
-                    // begin);
                 });
 
             if (must_flush) {
                 rasterizer->CommitPendingGpuRanges();
             } else {
                 // All GPU modified regions in the command list are patched with indirect
-                // dispatches. There is no needed to flush GPU data to CPU so avoiding read
-                // protecting pages.
+                // dispatches. There is no needed to flush GPU data to CPU so avoiding
+                // read-protecting pages.
                 gpu_modified_ranges_pending.Subtract(rewind_addr, acb.size_bytes());
             }
 
@@ -1196,9 +1183,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
             ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
             const u32 data_size = (header->type3.count.Value() - 2) * 4;
-            if (std::ranges::contains(fences, header, &LabelWrite::packet) && rasterizer) {
-                ++fence_tick;
-                // LOG_WARNING(Render, "Compute WriteData fence_tick = {}", fence_tick);
+            if (fence_detector.IsFence(header) && rasterizer) {
                 rasterizer->CommitPendingGpuRanges();
             }
             if (!write_data->wr_one_addr.Value()) {
@@ -1230,9 +1215,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
         }
         case PM4ItOpcode::ReleaseMem: {
             const auto* release_mem = reinterpret_cast<const PM4CmdReleaseMem*>(header);
-            if (std::ranges::contains(fences, header, &LabelWrite::packet) && rasterizer) {
-                ++fence_tick;
-                // LOG_WARNING(Render, "ReleaseMem fence_tick = {}", fence_tick);
+            if (fence_detector.IsFence(header) && rasterizer) {
                 rasterizer->CommitPendingGpuRanges();
             }
             release_mem->SignalFence(static_cast<Platform::InterruptId>(queue.pipe_id));

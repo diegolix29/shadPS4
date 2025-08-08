@@ -11,16 +11,15 @@
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/buffer_cache/memory_tracker.h"
-#include "video_core/host_shaders/fault_buffer_process_comp.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/texture_cache/texture_cache.h"
-u32 num_flushes = 0;
-u64 fence_tick = 0;
-u32 draw_id = 0;
+
+#include "video_core/host_shaders/fault_buffer_process_comp.h"
+
 namespace VideoCore {
 
 static constexpr size_t DataShareBufferSize = 64_KB;
@@ -199,7 +198,6 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
     }
     const VAddr page_addr = PageManager::GetPageAddr(device_addr);
     auto* memory = Core::Memory::Instance();
-
     if (preemptive_downloads.Intersects(page_addr, PageManager::PAGE_SIZE)) {
         preemptive_downloads.ForEachInRange(
             page_addr, PageManager::PAGE_SIZE,
@@ -209,21 +207,17 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
                                         download.size);
             });
         preemptive_downloads.Subtract(page_addr, PageManager::PAGE_SIZE);
-
-        memory_tracker->UnmarkRegionAsGpuModified(device_addr, size);
-        if (is_write) {
-            memory_tracker->MarkRegionAsCpuModified(device_addr, size);
-        }
+        memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, is_write);
     } else {
         const auto [download, offset] = download_buffer.Map(total_size_bytes);
         for (auto& copy : copies) {
+            // Modify copies to have the staging offset in mind
             copy.dstOffset += offset;
         }
         download_buffer.Commit();
         scheduler.EndRendering();
         const auto cmdbuf = scheduler.CommandBuffer();
         cmdbuf.copyBuffer(buffer.buffer, download_buffer.Handle(), copies);
-
         const auto write_data = [&]() {
             for (const auto& copy : copies) {
                 const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
@@ -231,12 +225,8 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
                 memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
                                         copy.size);
             }
-            memory_tracker->UnmarkRegionAsGpuModified(device_addr, size);
-            if (is_write) {
-                memory_tracker->MarkRegionAsCpuModified(device_addr, size);
-            }
+            memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, is_write);
         };
-
         if constexpr (async) {
             scheduler.DeferOperation(write_data);
         } else {
@@ -717,6 +707,18 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
     return new_buffer_id;
 }
 
+void BufferCache::ProcessPreemptiveDownloads() {
+    auto* memory = Core::Memory::Instance();
+    preemptive_downloads.ForEach([this, memory](VAddr, VAddr, const PreemptiveDownload& download) {
+        if (!scheduler.IsFree(download.done_tick)) {
+            return false;
+        }
+        memory->TryWriteBacking(std::bit_cast<u8*>(download.device_addr), download.staging,
+                                download.size);
+        return true;
+    });
+}
+
 void BufferCache::ProcessFaultBuffer() {
     // Run fault processing shader
     const auto [mapped, offset] = download_buffer.Map(MaxPageFaults * sizeof(u64));
@@ -899,8 +901,11 @@ bool BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
     memory_tracker->ForEachUploadRange(
         device_addr, size, is_written,
         [&](u64 device_addr_out, u64 range_size) {
-            copies.emplace_back(total_size_bytes, device_addr_out - buffer_start, range_size);
-            total_size_bytes += range_size;
+            gpu_modified_ranges.ForEachNotInRange(
+                device_addr_out, range_size, [&](VAddr range_addr, u32 range_size) {
+                    copies.emplace_back(total_size_bytes, range_addr - buffer_start, range_size);
+                    total_size_bytes += range_size;
+                });
         },
         [&] { src_buffer = UploadCopies(buffer, copies, total_size_bytes); });
 
@@ -1071,7 +1076,7 @@ void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is
 
 void BufferCache::CommitPendingGpuRanges() {
     using BufferCopies = boost::container::small_vector<vk::BufferCopy, 8>;
-    static tsl::robin_map<BufferId, BufferCopies> download_copies;
+    static tsl::robin_map<BufferId, BufferCopies> preemptive_copies;
     size_t total_size_bytes = 0;
     gpu_modified_ranges_pending.ForEach([&](VAddr begin, VAddr end) {
         memory_tracker->ForEachPreemptiveFlushPage(begin, end - begin, [&](VAddr page_addr) {
@@ -1080,19 +1085,20 @@ void BufferCache::CommitPendingGpuRanges() {
             const VAddr start_addr = std::max(page_addr, begin);
             const VAddr end_addr = std::min(page_addr + PageManager::PAGE_SIZE, end);
             const u32 size = end_addr - start_addr;
-            download_copies[buffer_id].emplace_back(buffer.Offset(start_addr), total_size_bytes,
-                                                    size);
+            preemptive_copies[buffer_id].emplace_back(buffer.Offset(start_addr), total_size_bytes,
+                                                      size);
             total_size_bytes += size;
+            return false;
         });
         SynchronizeBuffersInRange(begin, end - begin, true);
     });
     gpu_modified_ranges.m_ranges_set += gpu_modified_ranges_pending.m_ranges_set;
     gpu_modified_ranges_pending.Clear();
-    if (!download_copies.empty()) {
+    if (!preemptive_copies.empty()) {
         const u64 done_tick = scheduler.CurrentTick();
         const auto [staging, offset] = download_buffer.Map(total_size_bytes);
         download_buffer.Commit();
-        for (auto it = download_copies.begin(); it != download_copies.end(); ++it) {
+        for (auto it = preemptive_copies.begin(); it != preemptive_copies.end(); ++it) {
             const BufferId buffer_id = it.key();
             auto& copies = it.value();
             const Buffer& buffer = slot_buffers[buffer_id];
@@ -1104,6 +1110,7 @@ void BufferCache::CommitPendingGpuRanges() {
                                              .size = copy.size,
                                              .staging = staging + copy.dstOffset,
                                              .done_tick = done_tick,
+
                                          });
                 copy.dstOffset += offset;
             }
@@ -1111,7 +1118,7 @@ void BufferCache::CommitPendingGpuRanges() {
             const auto cmdbuf = scheduler.CommandBuffer();
             cmdbuf.copyBuffer(buffer.Handle(), download_buffer.Handle(), copies);
         }
-        download_copies.clear();
+        preemptive_copies.clear();
         scheduler.Flush();
     }
 }

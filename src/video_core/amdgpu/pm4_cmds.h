@@ -445,12 +445,7 @@ struct PM4CmdEventWriteEop {
 
     template <typename T>
     T Address() const {
-        uintptr_t value = static_cast<uintptr_t>((u64(address_hi) << 32) | address_lo);
-        if constexpr (std::is_pointer_v<T>) {
-            return reinterpret_cast<T>(value);
-        } else {
-            return static_cast<T>(value);
-        }
+        return reinterpret_cast<T>(address_lo | u64(address_hi) << 32);
     }
 
     u32 DataDWord() const {
