@@ -378,9 +378,9 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
                          ImGuiWindowFlags_NoCollapse)) {
         ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or L2+R2+Options\n"
                                "Stop the game with: F4 or L2+L2+Share/Back/Select\n"
-                               "Toggle fullscreen: F11 or L2+R2+L3\n"
+                               "Toggle fullscreen: F11 or L2+R2+R3\n"
                                "Developer Tools: Ctrl + F10 or L2+R2+Square\n"
-                               "Show FPS: F10 or L2+R2+R3\n");
+                               "Show FPS: F10 or L2+R2+L3\n");
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -415,9 +415,9 @@ void DrawPauseStatusWindow(bool& is_open) {
                      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs)) {
         ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or L2+R2+Options\n"
                                "Stop the game with: F4 or L2+L2+Share/Back/Select\n"
-                               "Toggle fullscreen: F11 or L2+R2+L3\n"
+                               "Toggle fullscreen: F11 or L2+R2+R3\n"
                                "Developer Tools: Ctrl + F10 or L2+R2+Square\n"
-                               "Show FPS: F10 or L2+R2+R3\n");
+                               "Show FPS: F10 or L2+R2+L3\n");
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -465,14 +465,14 @@ void L::Draw() {
     }
 
     if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad)) {
-        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::R3})) {
+        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::L3})) {
             show_simple_fps = !show_simple_fps;
             visibility_toggled = true;
         }
     }
 
     if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::FullscreenPad)) {
-        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::L3})) {
+        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::R3})) {
             SDL_Event toggleFullscreenEvent;
             toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
             SDL_PushEvent(&toggleFullscreenEvent);
