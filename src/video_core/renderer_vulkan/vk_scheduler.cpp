@@ -80,14 +80,9 @@ void Scheduler::Finish() {
 
 void Scheduler::Wait(u64 tick) {
     if (tick >= master_semaphore.CurrentTick()) {
-        // Make sure we are not waiting for the current tick without signalling
-        SubmitInfo info{};
-        Flush(info);
+        Flush();
     }
     master_semaphore.Wait(tick);
-
-    // CAUTION: This can introduce unexpected variation in the wait time.
-    // We don't currently sync the GPU, and some games are very sensitive to this.
     // If this becomes a problem, it can be commented out.
     // Idealy we would implement proper gpu sync.
     while (!pending_ops.empty() && pending_ops.front().gpu_tick <= tick) {

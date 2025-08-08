@@ -914,9 +914,9 @@ bool HotkeyInputsPressed(std::vector<std::string> inputs) {
 void createHotkeyFile(std::filesystem::path hotkey_file) {
     std::string_view default_hotkeys = R"(
 controllerQuit = l2,r2,back
-controllerFps = l2,r2,r3
+controllerFps = l2,r2,l3
 controllerPause = l2,r2,options
-controllerFullscreen = l2,r2,l3
+controllerFullscreen = l2,r2,r3
 
 keyboardStop = placeholder
 keyboardFps = placeholder
