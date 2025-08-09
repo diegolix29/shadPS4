@@ -901,10 +901,24 @@ bool BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
     memory_tracker->ForEachUploadRange(
         device_addr, size, is_written,
         [&](u64 device_addr_out, u64 range_size) {
-            copies.emplace_back(total_size_bytes, device_addr_out - buffer_start, range_size);
-            total_size_bytes += range_size;
+            bool uploaded_any_gap = false;
+            gpu_modified_ranges.ForEachNotInRange(
+                device_addr_out, range_size, [&](VAddr range_addr, u32 gap_size) {
+                    uploaded_any_gap = true;
+                    copies.emplace_back(total_size_bytes, range_addr - buffer_start, gap_size);
+                    total_size_bytes += gap_size;
+                });
+
+            if (!uploaded_any_gap) {
+                copies.emplace_back(total_size_bytes, device_addr_out - buffer_start, range_size);
+                total_size_bytes += range_size;
+            }
         },
-        [&] { src_buffer = UploadCopies(buffer, copies, total_size_bytes); });
+        [&] {
+            if (!copies.empty()) {
+                src_buffer = UploadCopies(buffer, copies, total_size_bytes);
+            }
+        });
 
     if (src_buffer) {
         scheduler.EndRendering();
