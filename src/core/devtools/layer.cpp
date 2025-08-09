@@ -365,7 +365,7 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         return;
 
     constexpr ImVec2 window_pos = {10, 10};
-    constexpr ImVec2 window_size = {325, 350};
+    constexpr ImVec2 window_size = {325, 375};
 
     ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
     ImGui::SetNextWindowSize(window_size, ImGuiCond_Always);
@@ -399,6 +399,19 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::Text("Auto Backup: %s", Config::getEnableAutoBackup() ? "On" : "Off");
         ImGui::Text("PSN Signed In: %s", Config::getPSNSignedIn() ? "Yes" : "No");
         ImGui::Text("LogType: %s", Config::getLogType().c_str());
+        const char* fenceModeStr = "Unknown";
+        switch (Config::getFenceDetectionMode()) {
+        case Config::FenceDetection::None:
+            fenceModeStr = "None";
+            break;
+        case Config::FenceDetection::Normal:
+            fenceModeStr = "Normal";
+            break;
+        case Config::FenceDetection::Relaxed:
+            fenceModeStr = "Relaxed";
+            break;
+        }
+        ImGui::Text("Fence Detection: %s", fenceModeStr);
     }
     ImGui::End();
 }
