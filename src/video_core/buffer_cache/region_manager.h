@@ -111,7 +111,6 @@ public:
                 ++flushes[page];
             }
         }
-
     }
 
     /**
