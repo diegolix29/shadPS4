@@ -490,7 +490,7 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
         buffer_id = FindBuffer(device_addr, size);
     }
     Buffer& buffer = slot_buffers[buffer_id];
-    const bool fence_detection = Config::fenceDetection() != Config::FenceDetection::None;
+    const bool fence_detection = Config::getFenceDetectionMode() != Config::FenceDetection::None;
     SynchronizeBuffer(buffer, device_addr, size, is_written && !fence_detection, is_texel_buffer);
     if (is_written) {
         if (fence_detection) {
@@ -710,7 +710,7 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
 }
 
 void BufferCache::ProcessPreemptiveDownloads() {
-    if (Config::fenceDetection() == Config::FenceDetection::None) {
+    if (Config::getFenceDetectionMode() == Config::FenceDetection::None) {
         return;
     }
     auto* memory = Core::Memory::Instance();

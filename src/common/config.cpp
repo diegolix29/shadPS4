@@ -374,8 +374,12 @@ bool copyGPUCmdBuffers() {
     return shouldCopyGPUBuffers;
 }
 
-FenceDetection fenceDetection() {
+FenceDetection getFenceDetectionMode() {
     return fenceDetectionMode;
+}
+
+void setFenceDetectionMode(FenceDetection mode) {
+    fenceDetectionMode = mode;
 }
 
 void setReadbacksEnabled(bool enable) {
@@ -1051,7 +1055,8 @@ void load(const std::filesystem::path& path) {
         isNullGpu = toml::find_or<bool>(gpu, "nullGpu", isNullGpu);
         shouldCopyGPUBuffers = toml::find_or<bool>(gpu, "copyGPUBuffers", shouldCopyGPUBuffers);
         fenceDetectionMode = static_cast<FenceDetection>(
-            toml::find_or<int>(gpu, "fenceDetection", static_cast<int>(fenceDetectionMode)));
+            toml::find_or<u32>(gpu, "fenceDetection", static_cast<u32>(FenceDetection::Normal)));
+
         readbacksEnabled = toml::find_or<bool>(gpu, "readbacks", readbacksEnabled);
         readbackLinearImagesEnabled =
             toml::find_or<bool>(gpu, "readbackLinearImages", readbackLinearImagesEnabled);
@@ -1264,7 +1269,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["internalScreenHeight"] = internalScreenHeight;
     data["GPU"]["nullGpu"] = isNullGpu;
     data["GPU"]["copyGPUBuffers"] = shouldCopyGPUBuffers;
-    data["GPU"]["fenceDetection"] = static_cast<int>(fenceDetectionMode);
+    data["GPU"]["fenceDetection"] = static_cast<u32>(fenceDetectionMode);
     data["GPU"]["readbacks"] = readbacksEnabled;
     data["GPU"]["readbackLinearImages"] = readbackLinearImagesEnabled;
     data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled;

@@ -31,7 +31,7 @@ private:
     }
 
     void DetectFences(std::span<const u32> cmd) {
-        if (Config::fenceDetection() == Config::FenceDetection::None) {
+        if (Config::getFenceDetectionMode() == Config::FenceDetection::None) {
             return;
         }
         while (!cmd.empty()) {

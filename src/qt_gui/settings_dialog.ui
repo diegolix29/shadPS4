@@ -2376,6 +2376,50 @@
 			</item>
 
 			<item>
+				<widget class="QComboBox" name="FenceDetectionComboBox">
+					<property name="toolTip">
+						<string>Select the fence detection mode</string>
+					</property>
+					<item>
+						<property name="text">
+							<string>None</string>
+						</property>
+					</item>
+					<item>
+						<property name="text">
+							<string>Normal</string>
+						</property>
+					</item>
+					<item>
+						<property name="text">
+							<string>Relaxed</string>
+						</property>
+					</item>
+				</widget>
+			</item>
+
+			<item>
+				<widget class="QLabel" name="label_fencedetection_hint">
+					<property name="font">
+						<font>
+							<pointsize>11</pointsize>
+							<bold>true</bold>
+						</font>
+					</property>
+					<property name="text">
+						<string notr="true">
+							<![CDATA[
+<b>Hint:</b><br/>
+None – Disable fence detection<br/>
+Normal – Standard fence detection (default)<br/>
+Relaxed – Looser detection, may help performance in some cases<br/>
+                ]]>
+						</string>
+					</property>
+				</widget>
+			</item>
+
+			<item>
             <widget class="QGroupBox" name="groupBox_2">
               <property name="title">
                 <string>Memory Allocation</string>
