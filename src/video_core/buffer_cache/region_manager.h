@@ -105,7 +105,7 @@ public:
                 ++flushes[page];
             }
         } else if (Config::getFastReadbacksEnabled()) {
-            UpdateProtection<enable, true>();
+            UpdateProtection<!enable, false>();
 
             for (size_t page = start_page; page != end_page && !enable; ++page) {
                 ++flushes[page];
@@ -147,7 +147,7 @@ public:
                 if (readbacks) {
                     UpdateProtection<false, true>();
                 } else if (fast) {
-                    UpdateProtection<true, false>();
+                    UpdateProtection<false, true>();
                 }
 
                 if (!readbacks && !fast) {
