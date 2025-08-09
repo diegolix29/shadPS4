@@ -102,14 +102,15 @@ public:
 
     /// Retrieves a utility buffer optimized for specified memory usage.
     StreamBuffer& GetUtilityBuffer(MemoryUsage usage) noexcept {
-        if (usage == MemoryUsage::Stream) {
+        switch (usage) {
+        case MemoryUsage::Stream:
             return stream_buffer;
-        } else if (usage == MemoryUsage::Download) {
+        case MemoryUsage::Download:
             return download_buffer;
-        } else if (usage == MemoryUsage::DeviceLocal) {
-            return device_buffer;
-        } else {
+        case MemoryUsage::Upload:
             return staging_buffer;
+        case MemoryUsage::DeviceLocal:
+            return device_buffer;
         }
     }
 
@@ -199,7 +200,7 @@ private:
     template <bool insert>
     void ChangeRegister(BufferId buffer_id);
 
-    bool SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_written,
+    void SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_written,
                            bool is_texel_buffer);
 
     vk::Buffer UploadCopies(Buffer& buffer, std::span<vk::BufferCopy> copies,

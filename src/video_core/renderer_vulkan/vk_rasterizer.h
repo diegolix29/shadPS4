@@ -112,7 +112,6 @@ private:
     }
 
     bool IsComputeMetaClear(const Pipeline* pipeline);
-    bool IsComputeImageCopy(const Pipeline* pipeline);
 
 private:
     friend class VideoCore::BufferCache;
