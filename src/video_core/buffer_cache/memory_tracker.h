@@ -9,6 +9,7 @@
 #include <vector>
 #include "common/debug.h"
 #include "common/types.h"
+#include "region_manager.h"
 #include "video_core/buffer_cache/region_manager.h"
 
 namespace VideoCore {
@@ -18,7 +19,7 @@ public:
     static constexpr size_t MAX_CPU_PAGE_BITS = 40;
     static constexpr size_t NUM_HIGH_PAGES = 1ULL << (MAX_CPU_PAGE_BITS - TRACKER_HIGHER_PAGE_BITS);
     static constexpr size_t MANAGER_POOL_SIZE = 32;
-    static constexpr size_t PREEMPTIVE_FLUSH_THRESHOLD = 32;
+    static constexpr size_t PREEMPTIVE_FLUSH_THRESHOLD = 16;
 
 public:
     explicit MemoryTracker(PageManager& tracker_) : tracker{&tracker_} {}
@@ -53,12 +54,16 @@ public:
     }
 
     /// Unmark region as modified from the host GPU
-    void UnmarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size) noexcept {
+    void UnmarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size, bool is_write) noexcept {
         IteratePages<false>(dirty_cpu_addr, query_size,
-                            [](RegionManager* manager, u64 offset, size_t size) {
+                            [is_write](RegionManager* manager, u64 offset, size_t size) {
                                 std::scoped_lock lk{manager->lock};
                                 manager->template ChangeRegionState<Type::GPU, false>(
                                     manager->GetCpuAddr() + offset, size);
+                                if (is_write) {
+                                    manager->template ChangeRegionState<Type::CPU, true>(
+                                        manager->GetCpuAddr() + offset, size);
+                                }
                             });
     }
 
@@ -204,6 +209,7 @@ private:
     PageManager* tracker;
     std::deque<std::array<RegionManager, MANAGER_POOL_SIZE>> manager_pool;
     std::vector<RegionManager*> free_managers;
+    std::vector<RegionManager*> preempt_managers;
     std::array<RegionManager*, NUM_HIGH_PAGES> top_tier{};
 };
 

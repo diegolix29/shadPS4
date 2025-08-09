@@ -83,12 +83,6 @@ void Scheduler::Wait(u64 tick) {
         Flush();
     }
     master_semaphore.Wait(tick);
-    // If this becomes a problem, it can be commented out.
-    // Idealy we would implement proper gpu sync.
-    while (!pending_ops.empty() && pending_ops.front().gpu_tick <= tick) {
-        pending_ops.front().callback();
-        pending_ops.pop();
-    }
 }
 
 void Scheduler::PopPendingOperations() {

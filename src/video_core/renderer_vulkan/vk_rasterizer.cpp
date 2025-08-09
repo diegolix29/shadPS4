@@ -362,7 +362,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
     const auto& [buffer, base] =
         buffer_cache.ObtainBuffer(arg_address + offset, stride * max_count, false);
 
-    VideoCore::Buffer* count_buffer{};
+    const VideoCore::Buffer* count_buffer{};
     u32 count_base{};
     if (count_address != 0) {
         std::tie(count_buffer, count_base) = buffer_cache.ObtainBuffer(count_address, 4, false);
@@ -444,12 +444,12 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
 
     const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, true);
     buffer_cache.GetPendingGpuModifiedRanges().Subtract(address + offset, size);
+
     if (!BindResources(pipeline)) {
         return;
     }
 
     scheduler.EndRendering();
-
     const auto cmdbuf = scheduler.CommandBuffer();
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatchIndirect(buffer->Handle(), base);
@@ -476,11 +476,14 @@ void Rasterizer::OnSubmit() {
     }
     texture_cache.ProcessDownloadImages();
     texture_cache.RunGarbageCollector();
+    buffer_cache.ProcessPreemptiveDownloads();
     buffer_cache.RunGarbageCollector();
 }
+
 void Rasterizer::CommitPendingGpuRanges() {
     buffer_cache.CommitPendingGpuRanges();
 }
+
 bool Rasterizer::BindResources(const Pipeline* pipeline) {
     if (IsComputeMetaClear(pipeline)) {
         return false;
@@ -508,26 +511,10 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
 
     if (uses_dma) {
         // We only use fault buffer for DMA right now.
-        {
-            Common::RecursiveSharedLock lock{mapped_ranges_mutex};
-            for (auto& range : mapped_ranges) {
-                buffer_cache.SynchronizeBuffersInRange(range.lower(),
-                                                       range.upper() - range.lower());
-            }
+        Common::RecursiveSharedLock lock{mapped_ranges_mutex};
+        for (auto& range : mapped_ranges) {
+            buffer_cache.SynchronizeBuffersInRange(range.lower(), range.upper() - range.lower());
         }
-        // Issue global memory barrier
-        scheduler.EndRendering();
-        const auto cmdbuf = scheduler.CommandBuffer();
-        vk::MemoryBarrier2 barrier = {
-            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-            .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
-            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-            .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
-        };
-        cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-            .memoryBarrierCount = 1,
-            .pMemoryBarriers = &barrier,
-        });
     }
 
     fault_process_pending |= uses_dma;
