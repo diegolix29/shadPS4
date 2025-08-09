@@ -16,9 +16,7 @@
 #include "video_core/amdgpu/pm4_cmds.h"
 #include "video_core/renderdoc.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
-extern u32 num_flushes;
-extern u64 fence_tick;
-extern u32 draw_id;
+
 namespace AmdGpu {
 
 static const char* dcb_task_name{"DCB_TASK"};
@@ -139,8 +137,6 @@ void Liverpool::Process(std::stop_token stoken) {
         }
 
         if (submit_done) {
-            LOG_DEBUG(Render, "Flushed pages per frame {}", num_flushes);
-            num_flushes = 0;
             VideoCore::EndCapture();
             if (rasterizer) {
                 rasterizer->OnSubmit();

@@ -895,8 +895,8 @@ void BufferCache::ChangeRegister(BufferId buffer_id) {
     }
 }
 
-bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32 size,
-                                    bool is_written, bool is_texel_buffer) {
+void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_written,
+                                    bool is_texel_buffer) {
     boost::container::small_vector<vk::BufferCopy, 4> copies;
     size_t total_size_bytes = 0;
     VAddr buffer_start = buffer.CpuAddr();
@@ -904,11 +904,8 @@ bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32
     memory_tracker->ForEachUploadRange(
         device_addr, size, is_written,
         [&](u64 device_addr_out, u64 range_size) {
-            gpu_modified_ranges_pending.ForEachNotInRange(
-                device_addr_out, range_size, [&](VAddr range_addr, u32 range_size) {
-                    copies.emplace_back(total_size_bytes, range_addr - buffer_start, range_size);
-                    total_size_bytes += range_size;
-                });
+            copies.emplace_back(total_size_bytes, device_addr_out - buffer_start, range_size);
+            total_size_bytes += range_size;
         },
         [&] { src_buffer = UploadCopies(buffer, copies, total_size_bytes); });
     SCOPE_EXIT {
@@ -987,10 +984,44 @@ vk::Buffer BufferCache::UploadCopies(const Buffer& buffer, std::span<vk::BufferC
     }
 }
 
-bool BufferCache::SynchronizeBufferFromImage(const Buffer& buffer, VAddr device_addr, u32 size) {
-    const ImageId image_id = texture_cache.FindImageFromRange(device_addr, size);
-    if (!image_id) {
+bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size) {
+    boost::container::small_vector<ImageId, 6> image_ids;
+    texture_cache.ForEachImageInRegion(device_addr, size, [&](ImageId image_id, Image& image) {
+        if (image.info.guest_address != device_addr) {
+            return;
+        }
+        // Only perform sync if image is:
+        // - GPU modified; otherwise there are no changes to synchronize.
+        // - Not CPU dirty; otherwise we could overwrite CPU changes with stale GPU changes.
+        // - Not GPU dirty; otherwise we could overwrite GPU changes with stale image data.
+        if (False(image.flags & ImageFlagBits::GpuModified) ||
+            True(image.flags & ImageFlagBits::Dirty)) {
+            return;
+        }
+        image_ids.push_back(image_id);
+    });
+    if (image_ids.empty()) {
         return false;
+    }
+    ImageId image_id{};
+    if (image_ids.size() == 1) {
+        // Sometimes image size might not exactly match with requested buffer size
+        // If we only found 1 candidate image use it without too many questions.
+        image_id = image_ids[0];
+    } else {
+        for (s32 i = 0; i < image_ids.size(); ++i) {
+            Image& image = texture_cache.GetImage(image_ids[i]);
+            if (image.info.guest_size == size) {
+                image_id = image_ids[i];
+                break;
+            }
+        }
+        if (!image_id) {
+            LOG_WARNING(Render_Vulkan,
+                        "Failed to find exact image match for copy addr={:#x}, size={:#x}",
+                        device_addr, size);
+            return false;
+        }
     }
     Image& image = texture_cache.GetImage(image_id);
     ASSERT_MSG(device_addr == image.info.guest_address,
