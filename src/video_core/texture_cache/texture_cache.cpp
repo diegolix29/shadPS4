@@ -539,7 +539,7 @@ ImageView& TextureCache::FindTexture(ImageId image_id, const BaseDesc& desc) {
     if (desc.type == BindingType::Storage) {
         image.flags |= ImageFlagBits::GpuModified;
         if (Config::getReadbackLinearImages() &&
-            image.info.tiling_mode == AmdGpu::TilingMode::Display_Linear) {
+            image.info.tile_mode == AmdGpu::TileMode::DisplayLinearAligned) {
             download_images.emplace(image_id);
         }
     }
@@ -552,7 +552,7 @@ ImageView& TextureCache::FindRenderTarget(BaseDesc& desc) {
     Image& image = slot_images[image_id];
     image.flags |= ImageFlagBits::GpuModified;
     if (Config::getReadbackLinearImages() &&
-        image.info.tiling_mode == AmdGpu::TilingMode::Display_Linear) {
+        image.info.tile_mode == AmdGpu::TileMode::DisplayLinearAligned) {
         download_images.emplace(image_id);
     }
     image.usage.render_target = 1u;
