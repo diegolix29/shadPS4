@@ -98,12 +98,15 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else {
-            if (Config::getReadbacksEnabled()) {
-                UpdateProtection<enable, true>();
-            } else if (Config::getFastReadbacksEnabled()) {
-                UpdateProtection<enable, false>();
+        } else if (Config::getReadbacksEnabled()) {
+            UpdateProtection<enable, true>();
+
+            for (size_t page = start_page; page != end_page && !enable; ++page) {
+                ++flushes[page];
             }
+        } else if (Config::getFastReadbacksEnabled()) {
+            UpdateProtection<!enable, true>();
+
             for (size_t page = start_page; page != end_page && !enable; ++page) {
                 ++flushes[page];
             }

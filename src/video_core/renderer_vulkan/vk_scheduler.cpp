@@ -79,18 +79,9 @@ void Scheduler::Finish() {
 }
 
 void Scheduler::Wait(u64 tick) {
-    // If the requested tick has not been submitted yet, submit now.
     if (tick >= master_semaphore.CurrentTick()) {
-        Flush();
-    }
-
-    // Wait until the GPU reaches the desired tick.
-    master_semaphore.Wait(tick);
-    // If this becomes a problem, it can be commented out.
-    // Idealy we would implement proper gpu sync.
-    while (!pending_ops.empty() && pending_ops.front().gpu_tick <= tick) {
-        pending_ops.front().callback();
-        pending_ops.pop();
+        SubmitInfo info{};
+        Flush(info);
     }
 }
 
