@@ -109,11 +109,6 @@ public:
         return vk12_features.shaderInt8;
     }
 
-    /// Returns true if VK_KHR_maintenance8 is supported
-    bool IsMaintenance8Supported() const {
-        return maintenance_8;
-    }
-
     /// Returns true when VK_EXT_custom_border_color is supported
     bool IsCustomBorderColorSupported() const {
         return custom_border_color;
@@ -480,7 +475,6 @@ private:
     bool workgroup_memory_explicit_layout{};
     bool conditional_rendering{};
     bool portability_subset{};
-    bool maintenance_8{};
     bool supports_memory_budget{};
     u64 total_memory_budget{};
     std::vector<size_t> valid_heaps;
