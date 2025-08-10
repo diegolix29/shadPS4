@@ -373,9 +373,8 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
 
     if (ImGui::Begin("Fullscreen Tip", &is_open,
                      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
-                         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-                         ImGuiWindowFlags_NoCollapse)) {
+                         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                         ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse)) {
         ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or L2+R2+Options\n"
                                "Stop the game with: F4 or L2+L2+Share/Back/Select\n"
                                "Toggle fullscreen: F11 or L2+R2+R3\n"
