@@ -904,8 +904,11 @@ void BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
     memory_tracker->ForEachUploadRange(
         device_addr, size, is_written,
         [&](u64 device_addr_out, u64 range_size) {
-            copies.emplace_back(total_size_bytes, device_addr_out - buffer_start, range_size);
-            total_size_bytes += range_size;
+            gpu_modified_ranges_pending.ForEachNotInRange(
+                device_addr_out, range_size, [&](VAddr range_addr, u32 range_size) {
+                    copies.emplace_back(total_size_bytes, range_addr - buffer_start, range_size);
+                    total_size_bytes += range_size;
+                });
         },
         [&] { src_buffer = UploadCopies(buffer, copies, total_size_bytes); });
     SCOPE_EXIT {
