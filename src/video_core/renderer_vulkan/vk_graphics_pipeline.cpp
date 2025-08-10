@@ -137,8 +137,7 @@ GraphicsPipeline::GraphicsPipeline(
     const vk::PipelineMultisampleStateCreateInfo multisampling = {
         .rasterizationSamples =
             LiverpoolToVK::NumSamples(key.num_samples, instance.GetFramebufferSampleCounts()),
-        .sampleShadingEnable =
-            fs_info.addr_flags.persp_sample_ena || fs_info.addr_flags.linear_sample_ena,
+        .sampleShadingEnable = false,
     };
 
     const vk::PipelineViewportDepthClipControlCreateInfoEXT clip_control = {

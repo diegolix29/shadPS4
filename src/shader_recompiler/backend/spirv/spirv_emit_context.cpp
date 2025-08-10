@@ -198,15 +198,14 @@ const VectorIds& GetAttributeType(EmitContext& ctx, AmdGpu::NumberFormat fmt) {
 }
 
 EmitContext::SpirvAttribute EmitContext::GetAttributeInfo(AmdGpu::NumberFormat fmt, Id id,
-                                                          u32 num_components, bool output,
-                                                          bool loaded, bool array) {
+                                                          u32 num_components, bool output) {
     switch (GetNumberClass(fmt)) {
     case AmdGpu::NumberClass::Float:
-        return {id, output ? output_f32 : input_f32, F32[1], num_components, false, loaded, array};
+        return {id, output ? output_f32 : input_f32, F32[1], num_components, false};
     case AmdGpu::NumberClass::Uint:
-        return {id, output ? output_u32 : input_u32, U32[1], num_components, true, loaded, array};
+        return {id, output ? output_u32 : input_u32, U32[1], num_components, true};
     case AmdGpu::NumberClass::Sint:
-        return {id, output ? output_s32 : input_s32, S32[1], num_components, true, loaded, array};
+        return {id, output ? output_s32 : input_s32, S32[1], num_components, true};
     default:
         break;
     }
@@ -301,24 +300,33 @@ void EmitContext::DefineBufferProperties() {
     }
 }
 
-void EmitContext::DefineAmdPerVertexAttribs() {
-    if (!profile.supports_amd_shader_explicit_vertex_parameter) {
+void EmitContext::DefineInterpolatedAttribs() {
+    if (!profile.needs_manual_interpolation) {
         return;
     }
+    // Iterate all input attributes, load them and manually interpolate.
     for (s32 i = 0; i < runtime_info.fs_info.num_inputs; i++) {
         const auto& input = runtime_info.fs_info.inputs[i];
-        if (input.IsDefault() || info.fs_interpolation[i].primary != Qualifier::PerVertex) {
+        auto& params = input_params[i];
+        if (input.is_flat || params.is_loaded) {
             continue;
         }
-        auto& param = input_params[i];
-        const Id pointer = param.id;
-        param.id_array[0] =
-            OpInterpolateAtVertexAMD(F32[param.num_components], pointer, ConstU32(0U));
-        param.id_array[1] =
-            OpInterpolateAtVertexAMD(F32[param.num_components], pointer, ConstU32(1U));
-        param.id_array[2] =
-            OpInterpolateAtVertexAMD(F32[param.num_components], pointer, ConstU32(2U));
-        param.is_loaded = true;
+        const Id p_array{OpLoad(TypeArray(F32[4], ConstU32(3U)), params.id)};
+        const Id p0{OpCompositeExtract(F32[4], p_array, 0U)};
+        const Id p1{OpCompositeExtract(F32[4], p_array, 1U)};
+        const Id p2{OpCompositeExtract(F32[4], p_array, 2U)};
+        const Id p10{OpFSub(F32[4], p1, p0)};
+        const Id p20{OpFSub(F32[4], p2, p0)};
+        const Id bary_coord{OpLoad(F32[3], IsLinear(info.interp_qualifiers[i])
+                                               ? bary_coord_linear_id
+                                               : bary_coord_persp_id)};
+        const Id bary_coord_y{OpCompositeExtract(F32[1], bary_coord, 1)};
+        const Id bary_coord_z{OpCompositeExtract(F32[1], bary_coord, 2)};
+        const Id p10_y{OpVectorTimesScalar(F32[4], p10, bary_coord_y)};
+        const Id p20_z{OpVectorTimesScalar(F32[4], p20, bary_coord_z)};
+        params.id = OpFAdd(F32[4], p0, OpFAdd(F32[4], p10_y, p20_z));
+        Name(params.id, fmt::format("fs_in_attr{}", i));
+        params.is_loaded = true;
     }
 }
 
@@ -334,6 +342,21 @@ void EmitContext::DefineWorkgroupIndex() {
         OpIAdd(U32[1], OpIAdd(U32[1], workgroup_x, OpIMul(U32[1], workgroup_y, num_workgroups_x)),
                OpIMul(U32[1], workgroup_z, OpIMul(U32[1], num_workgroups_x, num_workgroups_y)));
     Name(workgroup_index_id, "workgroup_index");
+}
+
+Id MakeDefaultValue(EmitContext& ctx, u32 default_value) {
+    switch (default_value) {
+    case 0:
+        return ctx.ConstF32(0.f, 0.f, 0.f, 0.f);
+    case 1:
+        return ctx.ConstF32(0.f, 0.f, 0.f, 1.f);
+    case 2:
+        return ctx.ConstF32(1.f, 1.f, 1.f, 0.f);
+    case 3:
+        return ctx.ConstF32(1.f, 1.f, 1.f, 1.f);
+    default:
+        UNREACHABLE();
+    }
 }
 
 void EmitContext::DefineInputs() {
@@ -377,71 +400,49 @@ void EmitContext::DefineInputs() {
             front_facing =
                 DefineVariable(U1[1], spv::BuiltIn::FrontFacing, spv::StorageClass::Input);
         }
-        if (info.loads.GetAny(IR::Attribute::BaryCoordSmooth)) {
-            if (profile.supports_amd_shader_explicit_vertex_parameter) {
-                bary_coord_smooth = DefineVariable(F32[2], spv::BuiltIn::BaryCoordSmoothAMD,
-                                                   spv::StorageClass::Input);
-            } else if (profile.supports_fragment_shader_barycentric) {
-                bary_coord_smooth =
+        if (profile.needs_manual_interpolation) {
+            if (info.has_perspective_interp) {
+                bary_coord_persp_id =
                     DefineVariable(F32[3], spv::BuiltIn::BaryCoordKHR, spv::StorageClass::Input);
-            } else {
-                bary_coord_smooth = ConstF32(0.f, 0.f);
             }
-        }
-        if (info.loads.GetAny(IR::Attribute::BaryCoordSmoothSample)) {
-            if (profile.supports_amd_shader_explicit_vertex_parameter) {
-                bary_coord_smooth_sample = DefineVariable(
-                    F32[2], spv::BuiltIn::BaryCoordSmoothSampleAMD, spv::StorageClass::Input);
-            } else if (profile.supports_fragment_shader_barycentric) {
-                bary_coord_smooth_sample =
-                    DefineVariable(F32[3], spv::BuiltIn::BaryCoordKHR, spv::StorageClass::Input);
-                // Decorate(bary_coord_smooth_sample, spv::Decoration::Sample);
-            } else {
-                bary_coord_smooth_sample = ConstF32(0.f, 0.f);
-            }
-        }
-        if (info.loads.GetAny(IR::Attribute::BaryCoordNoPersp)) {
-            if (profile.supports_amd_shader_explicit_vertex_parameter) {
-                bary_coord_nopersp = DefineVariable(F32[2], spv::BuiltIn::BaryCoordNoPerspAMD,
-                                                    spv::StorageClass::Input);
-            } else if (profile.supports_fragment_shader_barycentric) {
-                bary_coord_nopersp = DefineVariable(F32[3], spv::BuiltIn::BaryCoordNoPerspKHR,
-                                                    spv::StorageClass::Input);
-            } else {
-                bary_coord_nopersp = ConstF32(0.f, 0.f);
+            if (info.has_linear_interp) {
+                bary_coord_linear_id = DefineVariable(F32[3], spv::BuiltIn::BaryCoordNoPerspKHR,
+                                                      spv::StorageClass::Input);
             }
         }
         for (s32 i = 0; i < runtime_info.fs_info.num_inputs; i++) {
             const auto& input = runtime_info.fs_info.inputs[i];
             if (input.IsDefault()) {
+                input_params[i] = {
+                    .id = MakeDefaultValue(*this, input.default_value),
+                    .pointer_type = input_f32,
+                    .component_type = F32[1],
+                    .num_components = 4,
+                    .is_integer = false,
+                    .is_loaded = true,
+                };
                 continue;
             }
-            const IR::Attribute param = IR::Attribute::Param0 + i;
+            const IR::Attribute param{IR::Attribute::Param0 + i};
             const u32 num_components = info.loads.NumComponents(param);
-            const auto [primary, auxiliary] = info.fs_interpolation[i];
-            const Id type = F32[num_components];
-            const Id attr_id = [&] {
-                if (primary == Qualifier::PerVertex &&
-                    profile.supports_fragment_shader_barycentric) {
-                    return Name(DefineInput(TypeArray(type, ConstU32(3U)), input.param_index),
-                                fmt::format("fs_in_attr{}_p", i));
+            const Id type{F32[num_components]};
+            Id attr_id{};
+            if (profile.needs_manual_interpolation && !input.is_flat) {
+                attr_id = DefineInput(TypeArray(type, ConstU32(3U)), input.param_index);
+                Decorate(attr_id, spv::Decoration::PerVertexKHR);
+                Name(attr_id, fmt::format("fs_in_attr{}_p", i));
+            } else {
+                attr_id = DefineInput(type, input.param_index);
+                Name(attr_id, fmt::format("fs_in_attr{}", i));
+
+                if (input.is_flat) {
+                    Decorate(attr_id, spv::Decoration::Flat);
+                } else if (IsLinear(info.interp_qualifiers[i])) {
+                    Decorate(attr_id, spv::Decoration::NoPerspective);
                 }
-                return Name(DefineInput(type, input.param_index), fmt::format("fs_in_attr{}", i));
-            }();
-            if (primary == Qualifier::PerVertex) {
-                Decorate(attr_id, profile.supports_amd_shader_explicit_vertex_parameter
-                                      ? spv::Decoration::ExplicitInterpAMD
-                                      : spv::Decoration::PerVertexKHR);
-            } else if (primary != Qualifier::Smooth) {
-                Decorate(attr_id, primary == Qualifier::Flat ? spv::Decoration::Flat
-                                                             : spv::Decoration::NoPerspective);
             }
-            if (auxiliary != Qualifier::None) {
-                Decorate(attr_id, auxiliary == Qualifier::Centroid ? spv::Decoration::Centroid
-                                                                   : spv::Decoration::Sample);
-            }
-            input_params[i] = GetAttributeInfo(AmdGpu::NumberFormat::Float, attr_id, num_components,
-                                               false, false, primary == Qualifier::PerVertex);
+            input_params[i] =
+                GetAttributeInfo(AmdGpu::NumberFormat::Float, attr_id, num_components, false);
         }
         break;
     case LogicalStage::Compute:
@@ -462,16 +463,17 @@ void EmitContext::DefineInputs() {
     case LogicalStage::Geometry: {
         primitive_id = DefineVariable(U32[1], spv::BuiltIn::PrimitiveId, spv::StorageClass::Input);
         const auto gl_per_vertex =
-            Name(TypeStruct(F32[4], F32[1], TypeArray(F32[1], ConstU32(1u))), "gl_PerVertex");
+            Name(TypeStruct(TypeVector(F32[1], 4), F32[1], TypeArray(F32[1], ConstU32(1u))),
+                 "gl_PerVertex");
         MemberName(gl_per_vertex, 0, "gl_Position");
         MemberName(gl_per_vertex, 1, "gl_PointSize");
         MemberName(gl_per_vertex, 2, "gl_ClipDistance");
         MemberDecorate(gl_per_vertex, 0, spv::Decoration::BuiltIn,
-                       static_cast<u32>(spv::BuiltIn::Position));
+                       static_cast<std::uint32_t>(spv::BuiltIn::Position));
         MemberDecorate(gl_per_vertex, 1, spv::Decoration::BuiltIn,
-                       static_cast<u32>(spv::BuiltIn::PointSize));
+                       static_cast<std::uint32_t>(spv::BuiltIn::PointSize));
         MemberDecorate(gl_per_vertex, 2, spv::Decoration::BuiltIn,
-                       static_cast<u32>(spv::BuiltIn::ClipDistance));
+                       static_cast<std::uint32_t>(spv::BuiltIn::ClipDistance));
         Decorate(gl_per_vertex, spv::Decoration::Block);
         const auto num_verts_in = NumVertices(runtime_info.gs_info.in_primitive);
         const auto vertices_in = TypeArray(gl_per_vertex, ConstU32(num_verts_in));
@@ -483,8 +485,7 @@ void EmitContext::DefineInputs() {
             const Id type{TypeArray(F32[4], ConstU32(num_verts_in))};
             const Id id{DefineInput(type, param_id)};
             Name(id, fmt::format("gs_in_attr{}", param_id));
-            input_params[param_id] =
-                GetAttributeInfo(AmdGpu::NumberFormat::Float, id, 4, false, false, true);
+            input_params[param_id] = {id, input_f32, F32[1], 4};
         }
         break;
     }
@@ -666,7 +667,7 @@ void EmitContext::DefineOutputs() {
         for (u32 attr_id = 0; attr_id < info.gs_copy_data.num_attrs; attr_id++) {
             const Id id{DefineOutput(F32[4], attr_id)};
             Name(id, fmt::format("out_attr{}", attr_id));
-            output_params[attr_id] = GetAttributeInfo(AmdGpu::NumberFormat::Float, id, 4, true);
+            output_params[attr_id] = {id, output_f32, F32[1], 4u};
         }
         break;
     }
