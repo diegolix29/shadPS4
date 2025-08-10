@@ -101,9 +101,9 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
     const auto image_mips = image.info.resources.levels;
     boost::container::small_vector<vk::BufferImageCopy, 8> buffer_copies;
     for (u32 mip = 0; mip < image_mips; ++mip) {
-        const auto& width = std::max(image.info.size.width >> mip, 1u);
-        const auto& height = std::max(image.info.size.height >> mip, 1u);
-        const auto& depth =
+        const u32 width = std::max(image.info.size.width >> mip, 1u);
+        const u32 height = std::max(image.info.size.height >> mip, 1u);
+        const u32 depth =
             image.info.props.is_volume ? std::max(image.info.size.depth >> mip, 1u) : 1u;
         const auto [mip_size, mip_pitch, mip_height, mip_offset] = image.info.mips_layout[mip];
         const u32 extent_width = mip_pitch ? std::min(mip_pitch, width) : width;
@@ -125,16 +125,6 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
     if (buffer_copies.empty()) {
         return;
     }
-    const auto [download, offset] = download_buffer.Map(image_size);
-    download_buffer.Commit();
-    scheduler.EndRendering();
-    image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {});
-    tile_manager.TileImage(image.image, buffer_copies, download_buffer.Handle(), offset,
-                           image.info);
-    scheduler.DeferOperation([image_addr, download, image_size] {
-        auto* memory = Core::Memory::Instance();
-        memory->TryWriteBacking(std::bit_cast<u8*>(image_addr), download, image_size);
-    });
 }
 
 void TextureCache::MarkAsMaybeDirty(ImageId image_id, Image& image) {
