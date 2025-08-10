@@ -241,8 +241,7 @@ spv::ExecutionMode ExecutionMode(AmdGpu::TessellationPartitioning spacing) {
     UNREACHABLE_MSG("Tessellation spacing {}", spacing);
 }
 
-void SetupCapabilities(const Info& info, const Profile& profile, const RuntimeInfo& runtime_info,
-                       EmitContext& ctx) {
+void SetupCapabilities(const Info& info, const Profile& profile, EmitContext& ctx) {
     ctx.AddCapability(spv::Capability::Image1D);
     ctx.AddCapability(spv::Capability::Sampled1D);
     ctx.AddCapability(spv::Capability::ImageQuery);
@@ -301,8 +300,8 @@ void SetupCapabilities(const Info& info, const Profile& profile, const RuntimeIn
             ctx.AddExtension("SPV_KHR_fragment_shader_barycentric");
             ctx.AddCapability(spv::Capability::FragmentBarycentricKHR);
         }
-        if (runtime_info.fs_info.addr_flags.linear_sample_ena ||
-            runtime_info.fs_info.addr_flags.persp_sample_ena) {
+        if (info.loads.GetAny(IR::Attribute::BaryCoordSmoothSample) ||
+            info.loads.GetAny(IR::Attribute::BaryCoordNoPerspSample)) {
             ctx.AddCapability(spv::Capability::SampleRateShading);
         }
     }
@@ -444,7 +443,7 @@ std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_in
     EmitContext ctx{profile, runtime_info, program.info, binding};
     const Id main{DefineMain(ctx, program)};
     DefineEntryPoint(program.info, ctx, main);
-    SetupCapabilities(program.info, profile, runtime_info, ctx);
+    SetupCapabilities(program.info, profile, ctx);
     SetupFloatMode(ctx, profile, runtime_info, main);
     PatchPhiNodes(program, ctx);
     binding.user_data += program.info.ud_mask.NumRegs();
