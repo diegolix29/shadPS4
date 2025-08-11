@@ -534,7 +534,6 @@ void WindowSDL::RelaunchEmulator() {
 #endif
 }
 
-
 void WindowSDL::InitTimers() {
     SDL_AddTimer(100, &PollController, controller);
     SDL_AddTimer(33, Input::MousePolling, (void*)controller);

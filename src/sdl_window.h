@@ -14,7 +14,6 @@
 #define SDL_EVENT_CHANGE_CONTROLLER (SDL_EVENT_USER + 3)
 #define SDL_EVENT_RELAUNCH (SDL_EVENT_USER + 4)
 
-
 struct SDL_Window;
 struct SDL_Gamepad;
 union SDL_Event;
