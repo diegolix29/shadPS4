@@ -141,8 +141,7 @@ public:
                 UpdateProtection<true, false>();
             } else {
                 const bool readbacks = Config::getReadbacksEnabled();
-                const bool low =
-                    readbacks && Config::readbackSpeed() == Config::ReadbackSpeed::Low;
+                const bool low = readbacks && Config::readbackSpeed() == Config::ReadbackSpeed::Low;
                 const bool unsafe =
                     readbacks && Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe;
 
