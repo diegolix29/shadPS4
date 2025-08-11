@@ -473,11 +473,11 @@ void setfpsColor(bool enable) {
     fpsColorState = enable;
 }
 
-bool Config::getIsConnectedToNetwork() {
+bool getIsConnectedToNetwork() {
     return isConnectedToNetwork;
 }
 
-void Config::setIsConnectedToNetwork(bool connected) {
+void setIsConnectedToNetwork(bool connected) {
     isConnectedToNetwork = connected;
 }
 
