@@ -1731,7 +1731,7 @@
              </widget>
             </item>
             <item>
-             <spacer name="verticalSpacer_8">
+             <spacer name="verticalSpacer_81">
               <property name="orientation">
                <enum>Qt::Orientation::Vertical</enum>
               </property>
@@ -2317,34 +2317,6 @@
 				</property>
 			</widget>
 		</item>
-		<item>
-			<widget class="QCheckBox" name="FastReadbacksCheckBox">
-				<property name="text">
-					<string>Fast Readbacks for BloodBorne - DS3 - Elden Ring - DRIVECLUB (No Vertex Explosions)</string>
-				</property>
-			</widget>
-		</item>
-
-		<item>
-			<widget class="QLabel" name="label_21">
-				<property name="font">
-					<font>
-						<pointsize>11</pointsize>
-						<bold>true</bold>
-					</font>
-				</property>
-				<property name="text">
-					<string notr="true">
-						<![CDATA[
-        <b>Hint:</b><br/>
-        Faster Readbacks for Bloodborne - Dark Souls 3 - Elden Ring - DRIVECLUB (creates missplaced objects)<br/>
-        No vertex Explosions. May still reduce performance on some games but not as much as readbacks<br/>
-        ]]>
-						</string>
-					</property>
-				</widget>
-			</item>
-
 			<item>
 				<widget class="QCheckBox" name="ReadbacksLinearCheckBox">
 					<property name="text">
@@ -2382,6 +2354,11 @@
 					</property>
 					<item>
 						<property name="text">
+							<string>Unsafe</string>
+						</property>
+					</item>
+					<item>
+						<property name="text">
 							<string>Low</string>
 						</property>
 					</item>
@@ -2410,6 +2387,7 @@
 						<string notr="true">
 							<![CDATA[
 <b>Hint:</b><br/>
+Unsafe – Fastreadbacks accuracy - DRIVECLUB (if lazy driver reload race)<br/>
 Low – Low readbacks accuracy<br/>
 High – Standard readbacks accuracy (default)<br/>
 Extreme – May help performance in some cases<br/>

@@ -42,20 +42,12 @@ constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
-        u8 num_watchers{}; // for fast readbacks mode
-
-        // Use a single u8 to pack write/read watchers as bitfields
         u8 num_write_watchers{};
         u8 num_read_watchers{};
 
         Core::MemoryPermission WritePerm() const noexcept {
-            if (Config::getFastReadbacksEnabled()) {
-                return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
-                                         : Core::MemoryPermission::Read;
-            } else {
-                return num_write_watchers == 0 ? Core::MemoryPermission::ReadWrite
-                                               : Core::MemoryPermission::None;
-            }
+            return num_write_watchers == 0 ? Core::MemoryPermission::ReadWrite
+                                           : Core::MemoryPermission::None;
         }
 
         Core::MemoryPermission ReadPerm() const noexcept {
@@ -69,36 +61,25 @@ struct PageManager::Impl {
 
         template <s32 delta, bool is_read = false>
         u8 AddDelta() {
-            if (Config::getFastReadbacksEnabled()) {
+            if constexpr (is_read) {
                 if constexpr (delta == 1) {
-                    return ++num_watchers;
+                    ASSERT_MSG(num_read_watchers < 1, "num_read_watchers overflow");
+                    return ++num_read_watchers;
                 } else if constexpr (delta == -1) {
-                    ASSERT_MSG(num_watchers > 0, "Not enough watchers");
-                    return --num_watchers;
+                    ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
+                    return --num_read_watchers;
                 } else {
-                    return num_watchers;
+                    return num_read_watchers;
                 }
             } else {
-                if constexpr (is_read) {
-                    if constexpr (delta == 1) {
-                        ASSERT_MSG(num_read_watchers < 1, "num_read_watchers overflow");
-                        return ++num_read_watchers;
-                    } else if constexpr (delta == -1) {
-                        ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
-                        return --num_read_watchers;
-                    } else {
-                        return num_read_watchers;
-                    }
+                if constexpr (delta == 1) {
+                    ASSERT_MSG(num_write_watchers < 127, "num_write_watchers overflow");
+                    return ++num_write_watchers;
+                } else if constexpr (delta == -1) {
+                    ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
+                    return --num_write_watchers;
                 } else {
-                    if constexpr (delta == 1) {
-                        ASSERT_MSG(num_write_watchers < 127, "num_write_watchers overflow");
-                        return ++num_write_watchers;
-                    } else if constexpr (delta == -1) {
-                        ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
-                        return --num_write_watchers;
-                    } else {
-                        return num_write_watchers;
-                    }
+                    return num_write_watchers;
                 }
             }
         }

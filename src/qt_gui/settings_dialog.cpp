@@ -489,8 +489,6 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->ReadbacksLinearCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "readbackLinearImages", false));
     ui->DMACheckBox->setChecked(toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
-    ui->FastReadbacksCheckBox->setChecked(
-        toml::find_or<bool>(data, "GPU", "fastreadbacksEnabled", false));
     ui->ReadbackAccuracyComboBox->setCurrentIndex(static_cast<int>(Config::readbackAccuracy()));
 
     ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));
@@ -821,7 +819,6 @@ void SettingsDialog::UpdateSettings() {
     Config::setReadbacksEnabled(ui->ReadbacksCheckBox->isChecked());
     Config::setReadbackLinearImages(ui->ReadbacksLinearCheckBox->isChecked());
     Config::setDirectMemoryAccess(ui->DMACheckBox->isChecked());
-    Config::setFastReadbacksEnabled(ui->FastReadbacksCheckBox->isChecked());
     Config::setReadbackAccuracy(
         static_cast<Config::ReadbackAccuracy>(ui->ReadbackAccuracyComboBox->currentIndex()));
 

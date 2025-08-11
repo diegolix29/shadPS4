@@ -116,7 +116,6 @@ static bool isDebugDump = false;
 static bool isShaderDebug = false;
 static bool isSeparateLogFilesEnabled = false;
 static bool readbacksEnabled = false;
-static bool fastreadbacksEnabled = false;
 static bool shaderSkipsEnabled = false;
 static std::string memoryAlloc = "medium";
 static std::string audioBackend = "cubeb";
@@ -562,14 +561,6 @@ void setEnableAutoBackup(bool enable) {
 
 void setCopyGPUCmdBuffers(bool enable) {
     shouldCopyGPUBuffers = enable;
-}
-
-bool getFastReadbacksEnabled() {
-    return fastreadbacksEnabled;
-}
-
-void setFastReadbacksEnabled(bool enable) {
-    fastreadbacksEnabled = enable;
 }
 
 void setDirectMemoryAccess(bool enable) {
@@ -1044,7 +1035,6 @@ void load(const std::filesystem::path& path) {
         isFullscreen = toml::find_or<bool>(gpu, "Fullscreen", false);
         fullscreenMode = toml::find_or<std::string>(gpu, "FullscreenMode", "Windowed");
         isHDRAllowed = toml::find_or<bool>(gpu, "allowHDR", false);
-        fastreadbacksEnabled = toml::find_or<bool>(gpu, "fastreadbacksEnabled", false);
         shaderSkipsEnabled = toml::find_or<bool>(gpu, "shaderSkipsEnabled", true);
         memoryAlloc = toml::find_or<bool>(gpu, "memoryAlloc", "medium");
         windowWidth = toml::find_or<int>(gpu, "screenWidth", windowWidth);
@@ -1279,7 +1269,6 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["FullscreenMode"] = fullscreenMode;
     data["GPU"]["allowHDR"] = isHDRAllowed;
     data["General"]["enableAutoBackup"] = enableAutoBackup;
-    data["GPU"]["fastreadbacksEnabled"] = fastreadbacksEnabled;
     data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled;
     data["GPU"]["memoryAlloc"] = memoryAlloc;
     data["Vulkan"]["gpuId"] = gpuId;
@@ -1457,7 +1446,6 @@ void setDefaultValues() {
     shouldCopyGPUBuffers = false;
     readbackAccuracyMode = ReadbackAccuracy::High;
     readbacksEnabled = false;
-    fastreadbacksEnabled = false;
     shaderSkipsEnabled = false;
     readbackLinearImagesEnabled = false;
     directMemoryAccessEnabled = false;

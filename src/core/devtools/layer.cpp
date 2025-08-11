@@ -389,7 +389,6 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::SeparatorText("Current Config");
 
         ImGui::Text("Readbacks: %s", Config::getReadbacksEnabled() ? "On" : "Off");
-        ImGui::Text("Fast Readbacks: %s", Config::getFastReadbacksEnabled() ? "On" : "Off");
         ImGui::Text("Shader Skips: %s", Config::getShaderSkipsEnabled() ? "On" : "Off");
         ImGui::Text("Linear Readbacks: %s", Config::getReadbackLinearImages() ? "On" : "Off");
         ImGui::Text("DMA Access: %s", Config::directMemoryAccess() ? "On" : "Off");
@@ -400,6 +399,9 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::Text("LogType: %s", Config::getLogType().c_str());
         const char* readbackaccuStr = "Unknown";
         switch (Config::readbackAccuracy()) {
+        case Config::ReadbackAccuracy::Unsafe:
+            readbackaccuStr = "Unsafe";
+            break;
         case Config::ReadbackAccuracy::Low:
             readbackaccuStr = "Low";
             break;

@@ -164,7 +164,6 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
     LOG_INFO(Config, "GPU readbackLinearImages: {}", Config::getReadbackLinearImages());
     LOG_INFO(Config, "GPU readbacks: {}", Config::getReadbacksEnabled());
     LOG_INFO(Config, "GPU directMemoryAccess: {}", Config::directMemoryAccess());
-    LOG_INFO(Config, "GPU fastreadbacks: {}", Config::getFastReadbacksEnabled());
     LOG_INFO(Config, "GPU shouldDumpShaders: {}", Config::dumpShaders());
     LOG_INFO(Config, "GPU vblankDivider: {}", Config::vblankDiv());
     LOG_INFO(Config, "Vulkan gpuId: {}", Config::getGpuId());

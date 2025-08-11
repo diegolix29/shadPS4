@@ -709,7 +709,7 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
 }
 
 void BufferCache::ProcessPreemptiveDownloads() {
-    if ((!Config::getReadbacksEnabled() && !Config::getFastReadbacksEnabled()) ||
+    if ((!Config::getReadbacksEnabled()) ||
         Config::readbackAccuracy() == Config::ReadbackAccuracy::Extreme) {
         return;
     }

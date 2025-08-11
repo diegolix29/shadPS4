@@ -94,7 +94,10 @@ public:
                     if (Config::getReadbacksEnabled() &&
                         manager->template IsRegionModified<Type::GPU>(offset, size)) {
                         return true;
-                    } else if (Config::getFastReadbacksEnabled() &&
+                    } else if (Config::readbackAccuracy() == Config::ReadbackAccuracy::Low &&
+                               manager->template IsRegionModified<Type::GPU>(offset, size)) {
+                        return true;
+                    } else if (Config::readbackAccuracy() == Config::ReadbackAccuracy::Unsafe &&
                                manager->template IsRegionModified<Type::GPU>(offset, size)) {
                         return true;
                     }

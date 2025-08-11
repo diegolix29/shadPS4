@@ -99,18 +99,12 @@ public:
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
         } else if (Config::getReadbacksEnabled()) {
-            if (Config::readbackAccuracy() != Config::ReadbackAccuracy::Low) {
-                UpdateProtection<enable, true>();
-            }
-            if (Config::readbackAccuracy() != Config::ReadbackAccuracy::Extreme) {
-                for (size_t page = start_page; page != end_page && !enable; ++page) {
-                    ++flushes[page];
-                }
-            }
-        } else if (Config::getFastReadbacksEnabled()) {
-            if (Config::readbackAccuracy() != Config::ReadbackAccuracy::Low) {
+            if (Config::readbackAccuracy() == Config::ReadbackAccuracy::Unsafe) {
                 UpdateProtection<!enable, false>();
+            } else if (Config::readbackAccuracy() == Config::ReadbackAccuracy::Low) {
+                UpdateProtection<enable, true>(); 
             }
+
             if (Config::readbackAccuracy() != Config::ReadbackAccuracy::Extreme) {
                 for (size_t page = start_page; page != end_page && !enable; ++page) {
                     ++flushes[page];
@@ -147,11 +141,14 @@ public:
                 UpdateProtection<true, false>();
             } else {
                 const bool readbacks = Config::getReadbacksEnabled();
-                const bool fast = Config::getFastReadbacksEnabled();
+                const bool fast = Config::readbackAccuracy() == Config::ReadbackAccuracy::Low;
+                const bool faster = Config::readbackAccuracy() == Config::ReadbackAccuracy::Unsafe;
 
                 if (readbacks) {
                     UpdateProtection<false, true>();
                 } else if (fast) {
+                    UpdateProtection<false, true>();
+                } else if (faster) {
                     UpdateProtection<true, false>();
                 }
 
