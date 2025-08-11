@@ -383,6 +383,13 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
 
         ImGui::Spacing();
         ImGui::Separator();
+
+        if (Config::getIsConnectedToNetwork()) {
+            ImGui::TextColored(ImVec4(0, 1, 0, 1), "Network: Connected");
+        } else {
+            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Network: Disconnected");
+        }
+
         ImGui::TextDisabled("NOTE: CHEATS AREN'T WORKING RIGHT NOW");
 
         ImGui::Spacing();
@@ -421,7 +428,7 @@ void DrawPauseStatusWindow(bool& is_open) {
     if (!is_open)
         return;
 
-    constexpr ImVec2 window_size = {600, 250};
+    constexpr ImVec2 window_size = {600, 500};
     ImGui::SetNextWindowSize(window_size, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowBgAlpha(0.9f);
 
@@ -436,6 +443,86 @@ void DrawPauseStatusWindow(bool& is_open) {
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::TextDisabled("Tip: Use the keyboard or controller shortcuts above.");
+
+        ImGui::Spacing();
+        ImGui::SeparatorText("Network Status");
+
+        if (Config::getIsConnectedToNetwork()) {
+            ImGui::TextColored(ImVec4(0, 1, 0, 1), "Network: Connected");
+        } else {
+            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Network: Disconnected");
+        }
+
+        static bool network_connected = Config::getIsConnectedToNetwork();
+        if (ImGui::Checkbox("Set Network Connected", &network_connected)) {
+            Config::setIsConnectedToNetwork(network_connected);
+        }
+
+        ImGui::Spacing();
+        ImGui::SeparatorText("Edit Configurations");
+
+        if (ImGui::Checkbox("Show Fullscreen Tip", &show_fullscreen_tip)) {
+            if (show_fullscreen_tip)
+                fullscreen_tip_timer = 10.0f;
+        }
+
+        bool rb = Config::getReadbacksEnabled();
+        if (ImGui::Checkbox("Readbacks", &rb))
+            Config::setReadbacksEnabled(rb);
+
+        bool ss = Config::getShaderSkipsEnabled();
+        if (ImGui::Checkbox("Shader Skips", &ss))
+            Config::setShaderSkipsEnabled(ss);
+
+        bool lr = Config::getReadbackLinearImages();
+        if (ImGui::Checkbox("Linear Readbacks", &lr))
+            Config::setReadbackLinearImages(lr);
+
+        bool dma = Config::directMemoryAccess();
+        if (ImGui::Checkbox("DMA Access", &dma))
+            Config::setDirectMemoryAccess(dma);
+
+        int vblank = Config::vblankDiv();
+        if (ImGui::SliderInt("VBlank Divider", &vblank, 1, 100))
+            Config::setVblankDiv(vblank);
+
+        bool hdr = Config::allowHDR();
+        if (ImGui::Checkbox("HDR Allowed", &hdr))
+            Config::setAllowHDR(hdr);
+
+        bool autobackup = Config::getEnableAutoBackup();
+        if (ImGui::Checkbox("Auto Backup", &autobackup))
+            Config::setEnableAutoBackup(autobackup);
+
+        bool psn = Config::getPSNSignedIn();
+        if (ImGui::Checkbox("PSN Signed In", &psn))
+            Config::setPSNSignedIn(psn);
+
+        static const char* logTypes[] = {"sync", "async"};
+        int logTypeIndex = 0;
+        for (int i = 0; i < IM_ARRAYSIZE(logTypes); i++) {
+            if (Config::getLogType() == logTypes[i]) {
+                logTypeIndex = i;
+                break;
+            }
+        }
+        if (ImGui::Combo("Log Type", &logTypeIndex, logTypes, IM_ARRAYSIZE(logTypes)))
+            Config::setLogType(logTypes[logTypeIndex]);
+
+        static const char* readbackAccuracyStrs[] = {"Unsafe", "Low", "High", "Extreme"};
+        int readbackAccIndex = (int)Config::readbackAccuracy();
+        if (ImGui::Combo("Readbacks Accuracy", &readbackAccIndex, readbackAccuracyStrs,
+                         IM_ARRAYSIZE(readbackAccuracyStrs)))
+            Config::setReadbackAccuracy((Config::ReadbackAccuracy)readbackAccIndex);
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        if (ImGui::Button("Save")) {
+            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+            Config::save(config_dir / "config.toml");
+            DebugState.ResumeGuestThreads();
+        };
     }
     ImGui::End();
 }
@@ -592,6 +679,7 @@ void L::Draw() {
             NewLine();
             Text("Press Escape or Circle/B button to cancel");
             Text("Press Enter or Cross/A button to quit");
+            Text("Press Backspace or Triangle/X button to relaunch emulator");
 
             if (IsKeyPressed(ImGuiKey_Escape, false) ||
                 (IsKeyPressed(ImGuiKey_GamepadFaceRight, false))) {
@@ -603,6 +691,13 @@ void L::Draw() {
                 SDL_Event event;
                 SDL_memset(&event, 0, sizeof(event));
                 event.type = SDL_EVENT_QUIT;
+                SDL_PushEvent(&event);
+            }
+            if (IsKeyPressed(ImGuiKey_Backspace, false) ||
+                (IsKeyPressed(ImGuiKey_GamepadFaceUp, false))) {
+                SDL_Event event;
+                SDL_memset(&event, 0, sizeof(event));
+                event.type = SDL_EVENT_RELAUNCH;
                 SDL_PushEvent(&event);
             }
         }

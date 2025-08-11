@@ -8,6 +8,8 @@
 #include <QStandardPaths>
 #include <QString>
 #include <QThread>
+#include <emulator.h>
+
 #include "common/memory_patcher.h"
 #endif
 #include "SDL3/SDL_events.h"
@@ -434,10 +436,11 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_QUIT:
         is_open = false;
         break;
-    case SDL_EVENT_QUIT + 1:
+    case SDL_EVENT_RELAUNCH:
         is_open = false;
-        RelaunchEmulator();
+        Core::Emulator::GetInstance().Restart();
         break;
+
     case SDL_EVENT_TOGGLE_FULLSCREEN: {
         if (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) {
             SDL_SetWindowFullscreen(window, 0);
@@ -471,33 +474,41 @@ void WindowSDL::RelaunchEmulator() {
     QString emulatorDir = QFileInfo(emulatorPath).absolutePath();   // Get working directory
     QString scriptFileName =
         QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/relaunch.ps1";
+
+    // Use double quotes, remove unnecessary escaping
     QString scriptContent =
-        QStringLiteral(
-            "Start-Sleep -Seconds 2\n"
-            "Start-Process -FilePath '%1' -WorkingDirectory ([WildcardPattern]::Escape('%2'))\n")
+        QStringLiteral("Start-Sleep -Seconds 2\n"
+                       "Start-Process -FilePath \"%1\" -WorkingDirectory \"%2\"\n")
             .arg(emulatorPath, emulatorDir);
 
     QFile scriptFile(scriptFileName);
     if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream out(&scriptFile);
-        scriptFile.write("\xEF\xBB\xBF"); // UTF-8 BOM
+        scriptFile.write("\xEF\xBB\xBF"); // UTF-8 BOM for PowerShell script
         out << scriptContent;
         scriptFile.close();
 
-        // Execute PowerShell script
-        QProcess::startDetached("powershell.exe", QStringList() << "-ExecutionPolicy"
-                                                                << "Bypass"
-                                                                << "-File" << scriptFileName);
+        bool started =
+            QProcess::startDetached("powershell.exe", QStringList() << "-ExecutionPolicy"
+                                                                    << "Bypass"
+                                                                    << "-File" << scriptFileName);
+        if (!started) {
+            qWarning() << "Failed to start relaunch PowerShell script";
+        }
+    } else {
+        qWarning() << "Failed to write relaunch PowerShell script";
     }
 
 #elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
     QString emulatorPath = QCoreApplication::applicationFilePath(); // Get current executable path
     QString emulatorDir = QFileInfo(emulatorPath).absolutePath();   // Get working directory
     QString scriptFileName = "/tmp/relaunch.sh";
+
+    // Remove quotes around %1, keep quotes around %2 for safety
     QString scriptContent = QStringLiteral("#!/bin/bash\n"
                                            "sleep 2\n"
                                            "cd '%2'\n"
-                                           "./'%1' &\n")
+                                           "./%1 &\n")
                                 .arg(QFileInfo(emulatorPath).fileName(), emulatorDir);
 
     QFile scriptFile(scriptFileName);
@@ -506,15 +517,23 @@ void WindowSDL::RelaunchEmulator() {
         out << scriptContent;
         scriptFile.close();
 
-        // Make script executable
-        scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner |
-                                  QFileDevice::WriteOwner);
+        // Make script executable AFTER closing the file
+        bool permSet = scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner |
+                                                 QFileDevice::WriteOwner);
+        if (!permSet) {
+            qWarning() << "Failed to set execute permissions on relaunch script";
+        }
 
-        // Execute bash script
-        QProcess::startDetached("bash", QStringList() << scriptFileName);
+        bool started = QProcess::startDetached("bash", QStringList() << scriptFileName);
+        if (!started) {
+            qWarning() << "Failed to start relaunch bash script";
+        }
+    } else {
+        qWarning() << "Failed to write relaunch bash script";
     }
 #endif
 }
+
 
 void WindowSDL::InitTimers() {
     SDL_AddTimer(100, &PollController, controller);

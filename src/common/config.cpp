@@ -472,8 +472,13 @@ int getAudioVolume() {
 void setfpsColor(bool enable) {
     fpsColorState = enable;
 }
-bool getIsConnectedToNetwork() {
+
+bool Config::getIsConnectedToNetwork() {
     return isConnectedToNetwork;
+}
+
+void Config::setIsConnectedToNetwork(bool connected) {
+    isConnectedToNetwork = connected;
 }
 
 void setGpuId(s32 selectedGpuId) {

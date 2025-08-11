@@ -172,6 +172,7 @@ void setLoadGameSizeEnabled(bool enable);
 bool getCompatibilityEnabled();
 bool getCheckCompatibilityOnStartup();
 bool getIsConnectedToNetwork();
+void setIsConnectedToNetwork(bool connected);
 std::string getUserName();
 std::string getChooseHomeTab();
 bool GetUseUnifiedInputConfig();
