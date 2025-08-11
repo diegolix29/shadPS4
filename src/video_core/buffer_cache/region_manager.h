@@ -102,7 +102,7 @@ public:
             if (Config::readbackAccuracy() == Config::ReadbackAccuracy::Unsafe) {
                 UpdateProtection<!enable, false>();
             } else if (Config::readbackAccuracy() == Config::ReadbackAccuracy::Low) {
-                UpdateProtection<enable, true>(); 
+                UpdateProtection<enable, true>();
             }
 
             if (Config::readbackAccuracy() != Config::ReadbackAccuracy::Extreme) {

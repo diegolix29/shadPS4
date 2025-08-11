@@ -822,7 +822,6 @@ void SettingsDialog::UpdateSettings() {
     Config::setReadbackAccuracy(
         static_cast<Config::ReadbackAccuracy>(ui->ReadbackAccuracyComboBox->currentIndex()));
 
-
     Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
 
     Config::setMemoryAlloc(ui->MemoryComboBox->currentText().toStdString());
