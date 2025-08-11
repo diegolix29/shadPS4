@@ -20,7 +20,7 @@ enum HideCursorState : u32 {
     Always,
 };
 
-enum class ReadbackAccuracy : u32 {
+enum class ReadbackSpeed : u32 {
     Unsafe,
     Low,
     High,
@@ -109,9 +109,9 @@ std::string sideTrophy();
 bool nullGpu();
 bool copyGPUCmdBuffers();
 void setCopyGPUCmdBuffers(bool enable);
-ReadbackAccuracy readbackAccuracy();
+ReadbackSpeed readbackSpeed();
 void setReadbacksEnabled(bool enable);
-void setReadbackAccuracy(ReadbackAccuracy mode);
+void setReadbackSpeed(ReadbackSpeed mode);
 bool setReadbackLinearImages(bool enable);
 bool getReadbackLinearImages();
 bool directMemoryAccess();

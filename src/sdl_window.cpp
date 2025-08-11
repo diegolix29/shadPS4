@@ -8,7 +8,6 @@
 #include <QStandardPaths>
 #include <QString>
 #include <QThread>
-#include <emulator.h>
 
 #include "common/memory_patcher.h"
 #endif
@@ -436,9 +435,9 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_QUIT:
         is_open = false;
         break;
-    case SDL_EVENT_RELAUNCH:
+    case SDL_EVENT_QUIT + 1:
         is_open = false;
-        Core::Emulator::GetInstance().Restart();
+        RelaunchEmulator();
         break;
 
     case SDL_EVENT_TOGGLE_FULLSCREEN: {

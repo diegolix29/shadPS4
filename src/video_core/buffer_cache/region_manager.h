@@ -99,13 +99,13 @@ public:
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
         } else if (Config::getReadbacksEnabled()) {
-            if (Config::readbackAccuracy() == Config::ReadbackAccuracy::Unsafe) {
+            if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
                 UpdateProtection<!enable, false>();
-            } else if (Config::readbackAccuracy() == Config::ReadbackAccuracy::Low) {
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
                 UpdateProtection<enable, true>();
             }
 
-            if (Config::readbackAccuracy() != Config::ReadbackAccuracy::Extreme) {
+            if (Config::readbackSpeed() != Config::ReadbackSpeed::Extreme) {
                 for (size_t page = start_page; page != end_page && !enable; ++page) {
                     ++flushes[page];
                 }
@@ -141,18 +141,18 @@ public:
                 UpdateProtection<true, false>();
             } else {
                 const bool readbacks = Config::getReadbacksEnabled();
-                const bool fast = Config::readbackAccuracy() == Config::ReadbackAccuracy::Low;
-                const bool faster = Config::readbackAccuracy() == Config::ReadbackAccuracy::Unsafe;
+                const bool low =
+                    readbacks && Config::readbackSpeed() == Config::ReadbackSpeed::Low;
+                const bool unsafe =
+                    readbacks && Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe;
 
                 if (readbacks) {
                     UpdateProtection<false, true>();
-                } else if (fast) {
+                } else if (low) {
                     UpdateProtection<false, true>();
-                } else if (faster) {
+                } else if (unsafe) {
                     UpdateProtection<true, false>();
-                }
-
-                if (!readbacks && !fast) {
+                } else {
                     for (size_t page = start_page; page != end_page; ++page) {
                         ++flushes[page];
                     }

@@ -405,21 +405,21 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::Text("PSN Signed In: %s", Config::getPSNSignedIn() ? "Yes" : "No");
         ImGui::Text("LogType: %s", Config::getLogType().c_str());
         const char* readbackaccuStr = "Unknown";
-        switch (Config::readbackAccuracy()) {
-        case Config::ReadbackAccuracy::Unsafe:
+        switch (Config::readbackSpeed()) {
+        case Config::ReadbackSpeed::Unsafe:
             readbackaccuStr = "Unsafe";
             break;
-        case Config::ReadbackAccuracy::Low:
+        case Config::ReadbackSpeed::Low:
             readbackaccuStr = "Low";
             break;
-        case Config::ReadbackAccuracy::High:
+        case Config::ReadbackSpeed::High:
             readbackaccuStr = "High";
             break;
-        case Config::ReadbackAccuracy::Extreme:
+        case Config::ReadbackSpeed::Extreme:
             readbackaccuStr = "Extreme";
             break;
         }
-        ImGui::Text("Readbacks Accuracy: %s", readbackaccuStr);
+        ImGui::Text("Readbacks Speed: %s", readbackaccuStr);
     }
     ImGui::End();
 }
@@ -510,10 +510,10 @@ void DrawPauseStatusWindow(bool& is_open) {
             Config::setLogType(logTypes[logTypeIndex]);
 
         static const char* readbackAccuracyStrs[] = {"Unsafe", "Low", "High", "Extreme"};
-        int readbackAccIndex = (int)Config::readbackAccuracy();
-        if (ImGui::Combo("Readbacks Accuracy", &readbackAccIndex, readbackAccuracyStrs,
+        int readbackAccIndex = (int)Config::readbackSpeed();
+        if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
                          IM_ARRAYSIZE(readbackAccuracyStrs)))
-            Config::setReadbackAccuracy((Config::ReadbackAccuracy)readbackAccIndex);
+            Config::setReadbackSpeed((Config::ReadbackSpeed)readbackAccIndex);
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -679,7 +679,6 @@ void L::Draw() {
             NewLine();
             Text("Press Escape or Circle/B button to cancel");
             Text("Press Enter or Cross/A button to quit");
-            Text("Press Backspace or Triangle/X button to relaunch emulator");
 
             if (IsKeyPressed(ImGuiKey_Escape, false) ||
                 (IsKeyPressed(ImGuiKey_GamepadFaceRight, false))) {
@@ -691,13 +690,6 @@ void L::Draw() {
                 SDL_Event event;
                 SDL_memset(&event, 0, sizeof(event));
                 event.type = SDL_EVENT_QUIT;
-                SDL_PushEvent(&event);
-            }
-            if (IsKeyPressed(ImGuiKey_Backspace, false) ||
-                (IsKeyPressed(ImGuiKey_GamepadFaceUp, false))) {
-                SDL_Event event;
-                SDL_memset(&event, 0, sizeof(event));
-                event.type = SDL_EVENT_RELAUNCH;
                 SDL_PushEvent(&event);
             }
         }

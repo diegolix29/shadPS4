@@ -2348,9 +2348,23 @@
 			</item>
 
 			<item>
-				<widget class="QComboBox" name="ReadbackAccuracyComboBox">
+				<widget class="QLabel" name="label_readbacks_speed_title">
+					<property name="text">
+						<string>Readbacks Speed</string>
+					</property>
+					<property name="font">
+						<font>
+							<pointsize>11</pointsize>
+							<bold>true</bold>
+						</font>
+					</property>
+				</widget>
+			</item>
+
+			<item>
+				<widget class="QComboBox" name="ReadbackSpeedComboBox">
 					<property name="toolTip">
-						<string>Select the readbacks accuracy mode</string>
+						<string>Select the readbacks speed mode</string>
 					</property>
 					<item>
 						<property name="text">
@@ -2387,9 +2401,9 @@
 						<string notr="true">
 							<![CDATA[
 <b>Hint:</b><br/>
-Unsafe – Fastreadbacks accuracy - DRIVECLUB (if lazy driver reload race)<br/>
-Low – Low readbacks accuracy<br/>
-High – Standard readbacks accuracy (default)<br/>
+Unsafe – Fastreadbacks Speed - DRIVECLUB (if lazy driver reload race)<br/>
+Low – Low readbacks Speed<br/>
+High – Standard readbacks Speed (default)<br/>
 Extreme – May help performance in some cases<br/>
                 ]]>
 						</string>
