@@ -398,19 +398,19 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::Text("Auto Backup: %s", Config::getEnableAutoBackup() ? "On" : "Off");
         ImGui::Text("PSN Signed In: %s", Config::getPSNSignedIn() ? "Yes" : "No");
         ImGui::Text("LogType: %s", Config::getLogType().c_str());
-        const char* fenceModeStr = "Unknown";
-        switch (Config::getFenceDetectionMode()) {
-        case Config::FenceDetection::None:
-            fenceModeStr = "None";
+        const char* readbackaccuStr = "Unknown";
+        switch (Config::readbackAccuracy()) {
+        case Config::ReadbackAccuracy::Low:
+            readbackaccuStr = "Low";
             break;
-        case Config::FenceDetection::Normal:
-            fenceModeStr = "Normal";
+        case Config::ReadbackAccuracy::High:
+            readbackaccuStr = "High";
             break;
-        case Config::FenceDetection::Relaxed:
-            fenceModeStr = "Relaxed";
+        case Config::ReadbackAccuracy::Extreme:
+            readbackaccuStr = "Extreme";
             break;
         }
-        ImGui::Text("Fence Detection: %s", fenceModeStr);
+        ImGui::Text("Readbacks Accuracy: %s", readbackaccuStr);
     }
     ImGui::End();
 }

@@ -491,7 +491,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->DMACheckBox->setChecked(toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
     ui->FastReadbacksCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "fastreadbacksEnabled", false));
-    ui->FenceDetectionComboBox->setCurrentIndex(static_cast<int>(Config::getFenceDetectionMode()));
+    ui->ReadbackAccuracyComboBox->setCurrentIndex(static_cast<int>(Config::readbackAccuracy()));
 
     ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));
     ui->MemoryComboBox->setCurrentText(
@@ -822,8 +822,10 @@ void SettingsDialog::UpdateSettings() {
     Config::setReadbackLinearImages(ui->ReadbacksLinearCheckBox->isChecked());
     Config::setDirectMemoryAccess(ui->DMACheckBox->isChecked());
     Config::setFastReadbacksEnabled(ui->FastReadbacksCheckBox->isChecked());
-    Config::setFenceDetectionMode(
-        static_cast<Config::FenceDetection>(ui->FenceDetectionComboBox->currentIndex()));
+    Config::setReadbackAccuracy(
+        static_cast<Config::ReadbackAccuracy>(ui->ReadbackAccuracyComboBox->currentIndex()));
+
+
     Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
 
     Config::setMemoryAlloc(ui->MemoryComboBox->currentText().toStdString());

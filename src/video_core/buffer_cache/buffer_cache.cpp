@@ -709,7 +709,8 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
 }
 
 void BufferCache::ProcessPreemptiveDownloads() {
-    if (!Config::readbacks() || Config::readbackAccuracy() == Config::ReadbackAccuracy::Extreme) {
+    if ((!Config::getReadbacksEnabled() && !Config::getFastReadbacksEnabled()) ||
+        Config::readbackAccuracy() == Config::ReadbackAccuracy::Extreme) {
         return;
     }
     auto* memory = Core::Memory::Instance();

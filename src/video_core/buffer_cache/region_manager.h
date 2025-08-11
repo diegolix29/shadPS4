@@ -98,9 +98,18 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::readbacks()) {
+        } else if (Config::getReadbacksEnabled()) {
             if (Config::readbackAccuracy() != Config::ReadbackAccuracy::Low) {
                 UpdateProtection<enable, true>();
+            }
+            if (Config::readbackAccuracy() != Config::ReadbackAccuracy::Extreme) {
+                for (size_t page = start_page; page != end_page && !enable; ++page) {
+                    ++flushes[page];
+                }
+            }
+        } else if (Config::getFastReadbacksEnabled()) {
+            if (Config::readbackAccuracy() != Config::ReadbackAccuracy::Low) {
+                UpdateProtection<!enable, false>();
             }
             if (Config::readbackAccuracy() != Config::ReadbackAccuracy::Extreme) {
                 for (size_t page = start_page; page != end_page && !enable; ++page) {

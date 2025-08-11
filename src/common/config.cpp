@@ -93,7 +93,6 @@ static u32 internalScreenWidth = 1280;
 static u32 internalScreenHeight = 720;
 static bool isNullGpu = false;
 static bool shouldCopyGPUBuffers = false;
-static bool readbacksEnabled = false;
 static ReadbackAccuracy readbackAccuracyMode = ReadbackAccuracy::High;
 static bool readbackLinearImagesEnabled = false;
 static bool directMemoryAccessEnabled = false;
@@ -379,8 +378,8 @@ ReadbackAccuracy readbackAccuracy() {
     return readbackAccuracyMode;
 }
 
-void setFenceDetectionMode(FenceDetection mode) {
-    fenceDetectionMode = mode;
+void setReadbackAccuracy(ReadbackAccuracy mode) {
+    readbackAccuracyMode = mode;
 }
 
 void setReadbacksEnabled(bool enable) {
