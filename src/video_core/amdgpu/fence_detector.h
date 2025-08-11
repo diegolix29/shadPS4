@@ -31,7 +31,8 @@ private:
     }
 
     void DetectFences(std::span<const u32> cmd) {
-        if (Config::getFenceDetectionMode() == Config::FenceDetection::None) {
+        if (!Config::readbacks() ||
+            Config::readbackAccuracy() == Config::ReadbackAccuracy::Extreme) {
             return;
         }
         while (!cmd.empty()) {
@@ -42,8 +43,7 @@ private:
             default:
                 UNREACHABLE_MSG("Wrong PM4 type {}", type);
             case 0:
-                UNREACHABLE_MSG("Unimplemented PM4 type 0, base reg: {}, size: {}",
-                                header->type0.base.Value(), header->type0.NumWords());
+                return;
             case 2:
                 cmd = NextPacket(cmd, 1);
                 break;
