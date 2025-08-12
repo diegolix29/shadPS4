@@ -107,6 +107,12 @@ public:
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
             UpdateProtection<enable, true>();
         }
+
+        if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
+            for (size_t page = start_page; page != end_page && !enable; ++page) {
+                ++flushes[page];
+            }
+        }
     }
 
     /**
