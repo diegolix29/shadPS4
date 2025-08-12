@@ -5,8 +5,8 @@
 #include <filesystem>
 #include <set>
 #include <fmt/core.h>
-#include "SDL3/SDL_events.h"
 #include <magic_enum/magic_enum.hpp>
+#include "SDL3/SDL_events.h"
 
 #include "common/config.h"
 #include "common/debug.h"
