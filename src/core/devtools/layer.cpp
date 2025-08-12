@@ -395,7 +395,6 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::Spacing();
         ImGui::SeparatorText("Current Config");
 
-        ImGui::Text("Readbacks: %s", Config::getReadbacksEnabled() ? "On" : "Off");
         ImGui::Text("Shader Skips: %s", Config::getShaderSkipsEnabled() ? "On" : "Off");
         ImGui::Text("Linear Readbacks: %s", Config::getReadbackLinearImages() ? "On" : "Off");
         ImGui::Text("DMA Access: %s", Config::directMemoryAccess() ? "On" : "Off");
@@ -412,11 +411,11 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         case Config::ReadbackSpeed::Low:
             readbackaccuStr = "Low";
             break;
-        case Config::ReadbackSpeed::High:
-            readbackaccuStr = "High";
+        case Config::ReadbackSpeed::Fast:
+            readbackaccuStr = "Fast";
             break;
-        case Config::ReadbackSpeed::Extreme:
-            readbackaccuStr = "Extreme";
+        case Config::ReadbackSpeed::Default:
+            readbackaccuStr = "Default";
             break;
         }
         ImGui::Text("Readbacks Speed: %s", readbackaccuStr);
@@ -466,10 +465,6 @@ void DrawPauseStatusWindow(bool& is_open) {
                 fullscreen_tip_timer = 10.0f;
         }
 
-        bool rb = Config::getReadbacksEnabled();
-        if (ImGui::Checkbox("Readbacks", &rb))
-            Config::setReadbacksEnabled(rb);
-
         bool ss = Config::getShaderSkipsEnabled();
         if (ImGui::Checkbox("Shader Skips", &ss))
             Config::setShaderSkipsEnabled(ss);
@@ -514,7 +509,7 @@ void DrawPauseStatusWindow(bool& is_open) {
         if (ImGui::Combo("Log Type", &logTypeIndex, logTypes, IM_ARRAYSIZE(logTypes)))
             Config::setLogType(logTypes[logTypeIndex]);
 
-        static const char* readbackAccuracyStrs[] = {"Unsafe", "Low", "High", "Extreme"};
+        static const char* readbackAccuracyStrs[] = {"Unsafe", "Low", "Fast", "Default"};
         int readbackAccIndex = (int)Config::readbackSpeed();
         if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
                          IM_ARRAYSIZE(readbackAccuracyStrs)))

@@ -23,8 +23,8 @@ enum HideCursorState : u32 {
 enum class ReadbackSpeed : u32 {
     Unsafe,
     Low,
-    High,
-    Extreme,
+    Fast,
+    Default,
 };
 
 void load(const std::filesystem::path& path);

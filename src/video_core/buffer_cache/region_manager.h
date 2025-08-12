@@ -98,18 +98,14 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::getReadbacksEnabled()) {
-            if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
-                UpdateProtection<!enable, false>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
-                UpdateProtection<enable, true>();
-            }
-
-            if (Config::readbackSpeed() != Config::ReadbackSpeed::Extreme) {
-                for (size_t page = start_page; page != end_page && !enable; ++page) {
-                    ++flushes[page];
-                }
-            }
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
+            UpdateProtection<!enable, false>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
+            UpdateProtection<enable, true>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
+            UpdateProtection<enable, true>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
+            UpdateProtection<enable, true>();
         }
     }
 
@@ -140,16 +136,17 @@ public:
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
             } else {
-                const bool readbacks = Config::getReadbacksEnabled();
-                const bool low = readbacks && Config::readbackSpeed() == Config::ReadbackSpeed::Low;
-                const bool unsafe =
-                    readbacks && Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe;
-
-                if (readbacks) {
-                    UpdateProtection<false, true>();
-                } else if (low) {
+                const bool low = Config::readbackSpeed() == Config::ReadbackSpeed::Low;
+                const bool unsafe = Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe;
+                const bool fast = Config::readbackSpeed() == Config::ReadbackSpeed::Fast;
+                const bool normal = Config::readbackSpeed() == Config::ReadbackSpeed::Default;
+                if (low) {
                     UpdateProtection<false, true>();
                 } else if (unsafe) {
+                    UpdateProtection<false, false>();
+                } else if (fast) {
+                    UpdateProtection<false, true>();
+                } else if (normal) {
                     UpdateProtection<true, false>();
                 } else {
                     for (size_t page = start_page; page != end_page; ++page) {

@@ -100,6 +100,12 @@ public:
                     } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe &&
                                manager->template IsRegionModified<Type::GPU>(offset, size)) {
                         return true;
+                    } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast &&
+                               manager->template IsRegionModified<Type::GPU>(offset, size)) {
+                        return true;
+                    } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default &&
+                               manager->template IsRegionModified<Type::GPU>(offset, size)) {
+                        return true;
                     }
                     manager->template ChangeRegionState<Type::CPU, true>(
                         manager->GetCpuAddr() + offset, size);

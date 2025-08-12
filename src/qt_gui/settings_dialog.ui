@@ -2378,12 +2378,12 @@
 					</item>
 					<item>
 						<property name="text">
-							<string>High</string>
+							<string>Fast</string>
 						</property>
 					</item>
 					<item>
 						<property name="text">
-							<string>Extreme</string>
+							<string>Default</string>
 						</property>
 					</item>
 				</widget>
@@ -2401,10 +2401,10 @@
 						<string notr="true">
 							<![CDATA[
 <b>Hint:</b><br/>
-Unsafe – Fastreadbacks Speed - DRIVECLUB (if lazy driver reload race)<br/>
+Unsafe – Fast Readbacks Speed - Only this won't let you Climb Trico on TLG -<br/>
 Low – Low readbacks Speed<br/>
-High – Standard readbacks Speed (default)<br/>
-Extreme – May help performance in some cases<br/>
+Fast – Fast readbacks Speed (Works on BloodBorne)<br/>
+Default – Normal Readbacks Speed<br/>
                 ]]>
 						</string>
 					</property>
