@@ -37,7 +37,7 @@ private:
 
             switch (type) {
             default:
-                UNREACHABLE_MSG("Wrong PM4 type {}", type);
+                return;
             case 0:
                 return;
             case 2:

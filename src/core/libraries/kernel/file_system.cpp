@@ -1188,7 +1188,7 @@ s32 PS4_SYSV_ABI posix_select(s32 nfds, fd_set_posix* readfds, fd_set_posix* wri
               read_host.fd_count, write_host.fd_count, except_host.fd_count);
 
     if (read_host.fd_count == 0 && write_host.fd_count == 0 && except_host.fd_count == 0) {
-        LOG_WARNING(Kernel_Fs, "No sockets in fd_sets, select() will return immediately");
+        LOG_DEBUG(Kernel_Fs, "No sockets in fd_sets, select() will return immediately");
     }
 
     if (readfds) {
