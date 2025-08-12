@@ -498,6 +498,11 @@ void DrawPauseStatusWindow(bool& is_open) {
         if (ImGui::Checkbox("PSN Signed In", &psn))
             Config::setPSNSignedIn(psn);
 
+        float volume = Config::getVolumeLevel();
+        if (ImGui::SliderFloat("Volume", &volume, 0.0f, 3.0f)) {
+            Config::setVolumeLevel(volume);
+        }
+
         static const char* logTypes[] = {"sync", "async"};
         int logTypeIndex = 0;
         for (int i = 0; i < IM_ARRAYSIZE(logTypes); i++) {

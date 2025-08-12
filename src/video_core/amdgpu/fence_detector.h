@@ -31,7 +31,7 @@ private:
     }
 
     void DetectFences(std::span<const u32> cmd) {
-        if ((!Config::getReadbacksEnabled()) ||
+        if ((Config::getReadbacksEnabled()) ||
             Config::readbackSpeed() == Config::ReadbackSpeed::Extreme) {
             return;
         }
