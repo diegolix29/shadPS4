@@ -115,7 +115,6 @@ static bool rdocEnable = false;
 static bool isDebugDump = false;
 static bool isShaderDebug = false;
 static bool isSeparateLogFilesEnabled = false;
-static bool readbacksEnabled = false;
 static bool shaderSkipsEnabled = false;
 static std::string memoryAlloc = "medium";
 static std::string audioBackend = "cubeb";
@@ -379,10 +378,6 @@ ReadbackSpeed readbackSpeed() {
 
 void setReadbackSpeed(ReadbackSpeed mode) {
     readbackSpeedMode = mode;
-}
-
-void setReadbacksEnabled(bool enable) {
-    readbacksEnabled = enable;
 }
 
 bool setReadbackLinearImages(bool enable) {
@@ -912,9 +907,6 @@ void setPSNSignedIn(bool sign) {
     isPSNSignedIn = sign;
 }
 
-bool getReadbacksEnabled() {
-    return readbacksEnabled;
-}
 bool getShaderSkipsEnabled() {
     return shaderSkipsEnabled;
 }
@@ -1051,7 +1043,6 @@ void load(const std::filesystem::path& path) {
         shouldCopyGPUBuffers = toml::find_or<bool>(gpu, "copyGPUBuffers", shouldCopyGPUBuffers);
         readbackSpeedMode = static_cast<ReadbackSpeed>(
             toml::find_or<int>(gpu, "readbackSpeed", static_cast<int>(readbackSpeedMode)));
-        readbacksEnabled = toml::find_or<bool>(gpu, "readbacks", readbacksEnabled);
         readbackLinearImagesEnabled =
             toml::find_or<bool>(gpu, "readbackLinearImages", readbackLinearImagesEnabled);
         directMemoryAccessEnabled =
@@ -1263,7 +1254,6 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["internalScreenHeight"] = internalScreenHeight;
     data["GPU"]["nullGpu"] = isNullGpu;
     data["GPU"]["copyGPUBuffers"] = shouldCopyGPUBuffers;
-    data["GPU"]["readbacks"] = readbacksEnabled;
     data["GPU"]["readbackSpeed"] = static_cast<int>(readbackSpeedMode);
     data["GPU"]["readbackLinearImages"] = readbackLinearImagesEnabled;
     data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled;
@@ -1450,7 +1440,6 @@ void setDefaultValues() {
     isNullGpu = false;
     shouldCopyGPUBuffers = false;
     readbackSpeedMode = ReadbackSpeed::Fast;
-    readbacksEnabled = false;
     shaderSkipsEnabled = false;
     readbackLinearImagesEnabled = false;
     directMemoryAccessEnabled = false;

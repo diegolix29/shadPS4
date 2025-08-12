@@ -2262,34 +2262,6 @@
 				</widget>
 			</item>
 
-			<item>
-            <widget class="QCheckBox" name="ReadbacksCheckBox">
-              <property name="text">
-                <string>Enable Readbacks</string>
-              </property>
-            </widget>
-          </item>
-
-          <item>
-            <widget class="QLabel" name="label_23">
-              <property name="font">
-                <font>
-                  <pointsize>11</pointsize>
-                  <bold>true</bold>
-                </font>
-              </property>
-				<property name="text">
-					<string notr="true">
-						<![CDATA[
-        <b>Hint:</b><br/>
-        Readbacks implementation - Make particles show on Infamous games and Dead or Alive.<br/>
-		NO vertex explosions - May cause issues on some games to boot, or low performance.<br/>
-        ]]>
-					</string>
-				</property>
-			</widget>
-		</item>
-
 		<item>
 			<widget class="QCheckBox" name="DMACheckBox">
 				<property name="text">
