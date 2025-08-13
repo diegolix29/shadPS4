@@ -93,7 +93,7 @@ static u32 internalScreenWidth = 1280;
 static u32 internalScreenHeight = 720;
 static bool isNullGpu = false;
 static bool shouldCopyGPUBuffers = false;
-static ReadbackSpeed readbackSpeedMode = ReadbackSpeed::Fast;
+static ReadbackSpeed readbackSpeedMode = ReadbackSpeed::Default;
 static bool readbackLinearImagesEnabled = false;
 static bool directMemoryAccessEnabled = false;
 static bool shouldDumpShaders = false;
@@ -1439,7 +1439,7 @@ void setDefaultValues() {
     internalScreenHeight = 720;
     isNullGpu = false;
     shouldCopyGPUBuffers = false;
-    readbackSpeedMode = ReadbackSpeed::Fast;
+    readbackSpeedMode = ReadbackSpeed::Default;
     shaderSkipsEnabled = false;
     readbackLinearImagesEnabled = false;
     directMemoryAccessEnabled = false;
