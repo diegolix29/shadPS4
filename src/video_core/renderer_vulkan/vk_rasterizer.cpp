@@ -17,10 +17,6 @@
 #undef MemoryBarrier
 #endif
 
-namespace {
-const int OCCLUSION_QUERIES_COUNT = 16;
-}
-
 namespace Vulkan {
 
 static Shader::PushData MakeUserData(const AmdGpu::Liverpool::Regs& regs) {
@@ -39,25 +35,11 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
     : instance{instance_}, scheduler{scheduler_}, page_manager{this},
       buffer_cache{instance, scheduler, liverpool_, texture_cache, page_manager},
       texture_cache{instance, scheduler, buffer_cache, page_manager}, liverpool{liverpool_},
-      memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool},
-      occlusion_query_buffer{instance,
-                             scheduler,
-                             VideoCore::MemoryUsage::DeviceLocal,
-                             0,
-                             vk::BufferUsageFlagBits::eConditionalRenderingEXT |
-                                 vk::BufferUsageFlagBits::eTransferDst,
-                             sizeof(u32) * OCCLUSION_QUERIES_COUNT} {
+      memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool} {
     if (!Config::nullGpu()) {
         liverpool->BindRasterizer(this);
     }
     memory->SetRasterizer(this);
-    occlusion_query_pool = Check<"occlusion query pool">(instance.GetDevice().createQueryPool({
-        .queryType = vk::QueryType::eOcclusion,
-        .queryCount = OCCLUSION_QUERIES_COUNT,
-    }));
-    instance.GetDevice().resetQueryPool(occlusion_query_pool, 0, OCCLUSION_QUERIES_COUNT);
-    Vulkan::SetObjectName(instance.GetDevice(), occlusion_query_buffer.Handle(),
-                          "OcclusionQueryBuffer:{:#x}", sizeof(u32) * OCCLUSION_QUERIES_COUNT);
 }
 
 Rasterizer::~Rasterizer() = default;

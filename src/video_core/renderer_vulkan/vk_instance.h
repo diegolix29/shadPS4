@@ -239,11 +239,6 @@ public:
         return !portability_subset || portability_features.tessellationPointMode;
     }
 
-    /// Returns true when VK_EXT_conditional_rendering is supported by the device
-    bool IsConditionalRenderingSupported() const {
-        return conditional_rendering;
-    }
-
     /// Returns the vendor ID of the physical device
     u32 GetVendorID() const {
         return properties.vendorID;
@@ -467,7 +462,6 @@ private:
     bool amd_shader_trinary_minmax{};
     bool shader_atomic_float2{};
     bool workgroup_memory_explicit_layout{};
-    bool conditional_rendering{};
     bool portability_subset{};
     bool supports_memory_budget{};
     u64 total_memory_budget{};
