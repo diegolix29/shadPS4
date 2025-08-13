@@ -405,6 +405,9 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::Text("LogType: %s", Config::getLogType().c_str());
         const char* readbackaccuStr = "Unknown";
         switch (Config::readbackSpeed()) {
+        case Config::ReadbackSpeed::Disable:
+            readbackaccuStr = "Disable";
+            break;
         case Config::ReadbackSpeed::Unsafe:
             readbackaccuStr = "Unsafe";
             break;
@@ -509,7 +512,7 @@ void DrawPauseStatusWindow(bool& is_open) {
         if (ImGui::Combo("Log Type", &logTypeIndex, logTypes, IM_ARRAYSIZE(logTypes)))
             Config::setLogType(logTypes[logTypeIndex]);
 
-        static const char* readbackAccuracyStrs[] = {"Unsafe", "Low", "Fast", "Default"};
+        static const char* readbackAccuracyStrs[] = {"Disable","Unsafe", "Low", "Fast", "Default"};
         int readbackAccIndex = (int)Config::readbackSpeed();
         if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
                          IM_ARRAYSIZE(readbackAccuracyStrs)))

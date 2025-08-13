@@ -98,6 +98,8 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
+            UpdateProtection<!enable, false>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
             UpdateProtection<!enable, false>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
@@ -142,18 +144,21 @@ public:
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
             } else {
+                const bool disable = Config::readbackSpeed() == Config::ReadbackSpeed::Disable;
                 const bool low = Config::readbackSpeed() == Config::ReadbackSpeed::Low;
                 const bool unsafe = Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe;
                 const bool fast = Config::readbackSpeed() == Config::ReadbackSpeed::Fast;
                 const bool normal = Config::readbackSpeed() == Config::ReadbackSpeed::Default;
-                if (low) {
-                    UpdateProtection<false, true>();
+                if (disable) {
+                    UpdateProtection<true, false>();
+                } else if (low) {
+                    UpdateProtection<false, false>();
                 } else if (unsafe) {
                     UpdateProtection<false, false>();
                 } else if (fast) {
                     UpdateProtection<false, true>();
                 } else if (normal) {
-                    UpdateProtection<true, false>();
+                    UpdateProtection<false, true>();
                 } else {
                     for (size_t page = start_page; page != end_page; ++page) {
                         ++flushes[page];

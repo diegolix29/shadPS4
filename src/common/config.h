@@ -21,6 +21,7 @@ enum HideCursorState : u32 {
 };
 
 enum class ReadbackSpeed : u32 {
+    Disable,
     Unsafe,
     Low,
     Fast,

@@ -2340,6 +2340,11 @@
 					</property>
 					<item>
 						<property name="text">
+							<string>Disable</string>
+						</property>
+					</item>
+					<item>
+						<property name="text">
 							<string>Unsafe</string>
 						</property>
 					</item>
@@ -2373,6 +2378,7 @@
 						<string notr="true">
 							<![CDATA[
 <b>Hint:</b><br/>
+Disable – Disable readbacks<br/>
 Unsafe – Fast Readbacks Speed - Only this won't let you Climb Trico on TLG - If day races dosent show brighness on Driveclub reload Event<br/>
 Low – Low readbacks Speed<br/>
 Fast – Fast readbacks Speed<br/>
