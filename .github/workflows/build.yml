@@ -472,8 +472,8 @@ jobs:
         path: shadps4.flatpak
         name: shadps4-linux-flatpak-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         
-  BBFork:
-    if: github.ref == 'refs/heads/BBFork' && github.event_name == 'push'
+  Shadlix:
+    if: github.ref == 'refs/heads/Shadlix' && github.event_name == 'push'
     needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
     runs-on: ubuntu-latest
     steps:
@@ -482,14 +482,14 @@ jobs:
       with:
         path: ./artifacts
 
-    - name: Compress individual directories as BBFork-<platform>.zip
+    - name: Compress individual directories as Shadlix-<platform>.zip
       run: |
         cd ./artifacts
         for dir in */; do
           if [ -d "$dir" ]; then
             dir_name=${dir%/}
             echo "Creating zip for $dir_name"
-            (cd "$dir_name" && zip -r "../BBFork-${dir_name}.zip" .)
+            (cd "$dir_name" && zip -r "../Shadlix-${dir_name}.zip" .)
           fi
         done
 
@@ -510,10 +510,10 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       with:
-        name: "BBFork-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
-        tag: "BBFork-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
+        name: "Shadlix-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        tag: "Shadlix-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
         body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }}](https://github.com/${{ github.repository }}/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
-        artifacts: ./artifacts/BBFork-*.zip
+        artifacts: ./artifacts/Shadlix-*.zip
 
     - name: Get current release information
       env:
@@ -525,7 +525,7 @@ jobs:
         echo "Latest published release date: $CURRENT_PUBLISHED_AT"
         echo "CURRENT_PUBLISHED_AT=$CURRENT_PUBLISHED_AT" >> $GITHUB_ENV
 
-    - name: Delete old BBFork-shadPS4 releases and tags
+    - name: Delete old Shadlix-shadPS4 releases and tags
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
@@ -534,7 +534,7 @@ jobs:
         current_published_ts=$(date -u -d "$CURRENT_PUBLISHED_AT" +%s)
         echo "Current release timestamp: $current_published_ts"
 
-        echo "$releases" | jq -c '.[] | select(.draft == false and .prerelease == false and (.tag_name | startswith("BBFork-shadPS4-")))' | while read -r release; do
+        echo "$releases" | jq -c '.[] | select(.draft == false and .prerelease == false and (.tag_name | startswith("Shadlix-shadPS4-")))' | while read -r release; do
           release_date=$(echo "$release" | jq -r '.published_at')
           release_id=$(echo "$release" | jq -r '.id')
           release_tag=$(echo "$release" | jq -r '.tag_name')

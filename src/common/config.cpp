@@ -969,22 +969,22 @@ void load(const std::filesystem::path& path) {
         if (Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Full-Souls");
         } else if (!Common::g_is_release) {
-            updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
+            updateChannel = toml::find_or<std::string>(general, "updateChannel", "Shadlix");
         }
         if (updateChannel == "Release") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         if (updateChannel == "Full-Souls") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         if (updateChannel == "Nightly") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         if (updateChannel == "mainBB") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         if (updateChannel == "PartBB") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);

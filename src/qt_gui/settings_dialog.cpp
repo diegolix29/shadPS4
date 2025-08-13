@@ -96,7 +96,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this,
             &SettingsDialog::OnVolumeSliderChanged);
 
-    channelMap = {{tr("BBFork"), "BBFork"}};
+    channelMap = {{tr("Shadlix"), "Shadlix"}};
     logTypeMap = {{tr("async"), "async"}, {tr("sync"), "sync"}};
     screenModeMap = {{tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
                      {tr("Windowed"), "Windowed"},

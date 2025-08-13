@@ -403,7 +403,7 @@
                   <item>
 					  <widget class="QLabel" name="updateChannelLabel">
 						  <property name="text">
-							  <string>BBFork</string>
+							  <string>Shadlix</string>
 						  </property>
 					  </widget>
 

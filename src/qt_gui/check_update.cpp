@@ -99,7 +99,7 @@ tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached 
         for (const QJsonValue& value : jsonArray) {
             QJsonObject obj = value.toObject();
             QString tagName = obj["tag_name"].toString();
-            if (tagName.startsWith("BBFork")) {
+            if (tagName.startsWith("Shadlix")) {
                 if (latestVersion.isEmpty()) {
                     latestVersion = tagName;
                     jsonObj = obj;
