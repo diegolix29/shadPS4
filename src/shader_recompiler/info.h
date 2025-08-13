@@ -200,7 +200,7 @@ struct Info {
 
     std::array<IR::Interpolation, 32> interp_qualifiers{};
 
-        struct Interpolation {
+    struct Interpolation {
         Qualifier primary;
         Qualifier auxiliary;
     };
