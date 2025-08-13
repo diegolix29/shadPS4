@@ -512,7 +512,7 @@ void DrawPauseStatusWindow(bool& is_open) {
         if (ImGui::Combo("Log Type", &logTypeIndex, logTypes, IM_ARRAYSIZE(logTypes)))
             Config::setLogType(logTypes[logTypeIndex]);
 
-        static const char* readbackAccuracyStrs[] = {"Disable","Unsafe", "Low", "Fast", "Default"};
+        static const char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low", "Fast", "Default"};
         int readbackAccIndex = (int)Config::readbackSpeed();
         if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
                          IM_ARRAYSIZE(readbackAccuracyStrs)))
