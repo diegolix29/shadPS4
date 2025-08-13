@@ -112,7 +112,8 @@ struct Image {
     }
 
     bool SafeToDownload() const {
-        return True(flags & ImageFlagBits::GpuModified) && False(flags & ImageFlagBits::Dirty);
+        return True(flags & ImageFlagBits::GpuModified) &&
+               False(flags & (ImageFlagBits::GpuDirty | ImageFlagBits::CpuDirty));
     }
 
     const Vulkan::Instance* instance;

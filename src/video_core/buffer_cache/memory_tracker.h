@@ -104,6 +104,8 @@ public:
                                manager->template IsRegionModified<Type::GPU>(offset, size)) {
                         return true;
                     }
+                    manager->template ChangeRegionState<Type::GPU, false>(
+                        manager->GetCpuAddr() + offset, size);
                     manager->template ChangeRegionState<Type::CPU, true>(
                         manager->GetCpuAddr() + offset, size);
                     return false;
