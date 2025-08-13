@@ -267,6 +267,7 @@ public:
 
     // Vector interpolation
     // VINTRP
+    void V_INTERP_P1_F32(const GcnInst& inst);
     void V_INTERP_P2_F32(const GcnInst& inst);
     void V_INTERP_MOV_F32(const GcnInst& inst);
 
