@@ -7,7 +7,10 @@
 #include <emulator.h>
 #include <imgui.h>
 #include "SDL3/SDL_events.h"
+
+#ifdef ENABLE_QT_GUI
 #include "qt_gui/main_window.h"
+#endif
 
 #include "SDL3/SDL_log.h"
 #include "common/config.h"
