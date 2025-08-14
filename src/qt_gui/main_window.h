@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
-
+#ifdef ENABLE_QT_GUI
 #include <QActionGroup>
 #include <QDragEnterEvent>
 #include <QProcess>
 #include <QTranslator>
-
+#endif
 #include "background_music_player.h"
 #include "cheats_patches.h"
 #include "common/config.h"

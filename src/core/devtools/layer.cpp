@@ -667,7 +667,7 @@ void L::Draw() {
         PopFont();
     }
 
-if (show_quit_window) {
+    if (show_quit_window) {
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
@@ -689,7 +689,6 @@ if (show_quit_window) {
                     g_MainWindow->RestartGame();
                 }
             }
-
 
             // Common input handling
             if (IsKeyPressed(ImGuiKey_Escape, false) ||
@@ -714,9 +713,9 @@ if (show_quit_window) {
             }
         }
         End();
-}
+    }
 
-PopID();
+    PopID();
 }
 
 void L::TextCentered(const std::string& text) {
