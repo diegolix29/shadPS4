@@ -421,6 +421,7 @@ void Emulator::Restart() {
     auto config_path = config_dir / "config.toml";
 
     LOG_INFO(Loader, "Restarting the emulator...");
+#ifdef ENABLE_QT_GUI
 
     // Save current game path
     const QString path = getLastEbootPath();
@@ -433,6 +434,7 @@ void Emulator::Restart() {
 
     // Start a new detached process with the same executable and game path as argument
     const bool success = QProcess::startDetached(exePath, QStringList() << path);
+#endif
 
     if (!success) {
         LOG_ERROR(Loader, "Failed to restart emulator via startDetached.");

@@ -1297,33 +1297,19 @@ void MainWindow::StopGame() {
     if (!isGameRunning) {
         QMessageBox::information(this, tr("Stop Game"), tr("No game is currently running."));
         return;
-
-    if (gameProcess) {
-        gameProcess->kill();
-        gameProcess->deleteLater();
-        gameProcess = nullptr;
     }
-
     if (emulator) {
         emulator->RestartEmulation();
         emulator.reset();
     }
-
     isGameRunning = false;
-    UpdateToolbarButtons();
-}
 }
 
 void MainWindow::RestartGame() {
-    StartGameWithPath(lastGamePath);
-
-    Core::Emulator::GetInstance().Restart();
-
-    gameProcess->kill();
-    gameProcess->waitForFinished();
-    gameProcess->deleteLater();
-    gameProcess = nullptr;
-
+    if (!isGameRunning) {
+        QMessageBox::information(this, tr("Restart Game"), tr("No game is currently running to Restart"));
+        return;
+    }
     if (emulator) {
         emulator->Restart();
         emulator.reset();

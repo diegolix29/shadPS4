@@ -679,6 +679,7 @@ void L::Draw() {
             NewLine();
             Text("Press Escape or Circle/B button to cancel");
             Text("Press Enter or Cross/A button to quit");
+            NewLine();
             Text("Press Backspace or DpadUp button to Relaunch Emulator");
             Text("Press Space Bar or DpadDown button to Restart Game without Gui");
 
