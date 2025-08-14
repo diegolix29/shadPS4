@@ -101,14 +101,14 @@ public:
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
             UpdateProtection<!enable, false>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
-            UpdateProtection<enable, true>();
+            UpdateProtection<enable, false>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-            UpdateProtection<enable, true>();
+            UpdateProtection<enable, false>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
-            UpdateProtection<enable, true>();
+            UpdateProtection<enable, false>();
         }
 
-        if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
+        if (Config::readbackSpeed() != Config::ReadbackSpeed::Fast) {
             for (size_t page = start_page; page != end_page && !enable; ++page) {
                 ++flushes[page];
             }
@@ -141,23 +141,17 @@ public:
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
+                UpdateProtection<false, true>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
+                UpdateProtection<false, true>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
+                UpdateProtection<false, true>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
+                UpdateProtection<false, true>();
             } else {
-                const bool low = Config::readbackSpeed() == Config::ReadbackSpeed::Low;
-                const bool unsafe = Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe;
-                const bool fast = Config::readbackSpeed() == Config::ReadbackSpeed::Fast;
-                const bool normal = Config::readbackSpeed() == Config::ReadbackSpeed::Default;
-                if (low) {
-                    UpdateProtection<false, false>();
-                } else if (unsafe) {
-                    UpdateProtection<false, false>();
-                } else if (fast) {
-                    UpdateProtection<false, true>();
-                } else if (normal) {
-                    UpdateProtection<false, true>();
-                } else {
-                    for (size_t page = start_page; page != end_page; ++page) {
-                        ++flushes[page];
-                    }
+                for (size_t page = start_page; page != end_page; ++page) {
+                    ++flushes[page];
                 }
             }
         }
@@ -176,21 +170,16 @@ public:
     template <Type type>
     [[nodiscard]] bool IsRegionModified(u64 offset, u64 size) noexcept {
         RENDERER_TRACE;
-        const u64 sanitized_offset = SanitizeAddress(offset);
-        const u64 sanitized_end = SanitizeAddress(offset + size);
-        const size_t start_page = sanitized_offset / TRACKER_BYTES_PER_PAGE;
-        const size_t end_page = Common::DivCeil(sanitized_end, TRACKER_BYTES_PER_PAGE);
+        const size_t start_page = SanitizeAddress(offset) / TRACKER_BYTES_PER_PAGE;
+        const size_t end_page =
+            Common::DivCeil(SanitizeAddress(offset + size), TRACKER_BYTES_PER_PAGE);
         if (start_page >= NUM_PAGES_PER_REGION || end_page <= start_page) {
             return false;
         }
 
         const RegionBits& bits = GetRegionBits<type>();
-        for (size_t i = start_page; i < end_page; ++i) {
-            if (bits.Get(i)) [[unlikely]] {
-                return true;
-            }
-        }
-        return false;
+        RegionBits test(bits, start_page, end_page);
+        return test.Any();
     }
 
     LockType lock;
