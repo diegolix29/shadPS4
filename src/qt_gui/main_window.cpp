@@ -1307,7 +1307,8 @@ void MainWindow::StopGame() {
 
 void MainWindow::RestartGame() {
     if (!isGameRunning) {
-        QMessageBox::information(this, tr("Restart Game"), tr("No game is currently running to Restart"));
+        QMessageBox::information(this, tr("Restart Game"),
+                                 tr("No game is currently running to Restart"));
         return;
     }
     if (emulator) {
