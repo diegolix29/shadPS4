@@ -5,9 +5,9 @@
 #include <filesystem>
 #include <set>
 #include <fmt/core.h>
+#include <hwinfo/hwinfo.h>
 #include <magic_enum/magic_enum.hpp>
 #include "SDL3/SDL_events.h"
-#include <hwinfo/hwinfo.h>
 
 #include "common/config.h"
 #include "common/debug.h"
@@ -418,14 +418,13 @@ void Emulator::RestartEmulation() {
     LOG_INFO(Loader, "StopEmulation called.");
 }
 #endif
-void Emulator::Restart() {
+
 #ifdef ENABLE_QT_GUI
+void Emulator::Restart() {
     if (!is_running) {
         LOG_INFO(Loader, "Emulator is not running. Skipping restart.");
         return;
     }
-#endif
-
     LOG_INFO(Loader, "Restarting emulator...");
 
     // Load config to get most recent game path
@@ -433,20 +432,9 @@ void Emulator::Restart() {
     auto config_path = config_dir / "config.toml";
 
     LOG_INFO(Loader, "Restarting the emulator...");
-#ifdef ENABLE_QT_GUI
-
-    // Save current game path
-    const QString path = getLastEbootPath();
-    if (path.isEmpty()) {
-        LOG_ERROR(Loader, "No EBOOT path available to restart.");
-        return;
-    }
-
     const QString exePath = QCoreApplication::applicationFilePath();
-
-    // Start a new detached process with the same executable and game path as argument
-    const bool success = QProcess::startDetached(exePath, QStringList() << path);
-#endif
+    const QString lastEboot = getLastEbootPath(); // <- use the saved path
+    bool success = QProcess::startDetached(exePath, QStringList() << lastEboot);
 
     if (!success) {
         LOG_ERROR(Loader, "Failed to restart emulator via startDetached.");
@@ -454,10 +442,9 @@ void Emulator::Restart() {
     }
 
     LOG_INFO(Loader, "New emulator process started. Closing current SDL window...");
-
-    // Close only the SDL window, not the entire GUI
     StopEmulation();
 }
+#endif
 
 void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
     constexpr std::array<SysModules, 10> ModulesToLoad{
