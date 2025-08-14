@@ -667,7 +667,7 @@ void L::Draw() {
         PopFont();
     }
 
-    if (show_quit_window) {
+if (show_quit_window) {
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
@@ -681,15 +681,24 @@ void L::Draw() {
             Text("Press Enter or Cross/A button to quit");
             NewLine();
             Text("Press Backspace or DpadUp button to Relaunch Emulator");
-            Text("Press Space Bar or DpadDown button to Restart Game without Gui");
+            if (g_MainWindow && g_MainWindow->isVisible()) {
+                Text("Press Space Bar or DpadDown button to Restart Game without Gui");
 
+                if (IsKeyPressed(ImGuiKey_Space, false) ||
+                    IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
+                    g_MainWindow->RestartGame();
+                }
+            }
+
+
+            // Common input handling
             if (IsKeyPressed(ImGuiKey_Escape, false) ||
-                (IsKeyPressed(ImGuiKey_GamepadFaceRight, false))) {
+                IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
                 show_quit_window = false;
             }
 
             if (IsKeyPressed(ImGuiKey_Enter, false) ||
-                (IsKeyPressed(ImGuiKey_GamepadFaceDown, false))) {
+                IsKeyPressed(ImGuiKey_GamepadFaceDown, false)) {
                 SDL_Event event;
                 SDL_memset(&event, 0, sizeof(event));
                 event.type = SDL_EVENT_QUIT;
@@ -697,24 +706,17 @@ void L::Draw() {
             }
 
             if (IsKeyPressed(ImGuiKey_Backspace, false) ||
-                (IsKeyPressed(ImGuiKey_GamepadDpadUp, false))) {
+                IsKeyPressed(ImGuiKey_GamepadDpadUp, false)) {
                 SDL_Event event;
                 SDL_memset(&event, 0, sizeof(event));
                 event.type = SDL_EVENT_QUIT + 1;
                 SDL_PushEvent(&event);
             }
-
-            if (IsKeyPressed(ImGuiKey_Space, false) ||
-                (IsKeyPressed(ImGuiKey_GamepadDpadDown, false))) {
-                if (g_MainWindow)
-                    g_MainWindow->RestartGame();
-                Emulator::GetInstance().Restart();
-            }
         }
         End();
-    }
+}
 
-    PopID();
+PopID();
 }
 
 void L::TextCentered(const std::string& text) {
