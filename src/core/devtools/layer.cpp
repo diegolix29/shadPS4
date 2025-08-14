@@ -684,6 +684,8 @@ void L::Draw() {
             Text("Press Enter or Cross/A button to quit");
             NewLine();
             Text("Press Backspace or DpadUp button to Relaunch Emulator");
+
+#ifdef ENABLE_QT_GUI
             if (g_MainWindow && g_MainWindow->isVisible()) {
                 Text("Press Space Bar or DpadDown button to Restart Game without Gui");
 
@@ -692,7 +694,7 @@ void L::Draw() {
                     g_MainWindow->RestartGame();
                 }
             }
-
+#endif
             // Common input handling
             if (IsKeyPressed(ImGuiKey_Escape, false) ||
                 IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
