@@ -7,6 +7,7 @@
 #include <fmt/core.h>
 #include <magic_enum/magic_enum.hpp>
 #include "SDL3/SDL_events.h"
+#include <hwinfo/hwinfo.h>
 
 #include "common/config.h"
 #include "common/debug.h"
@@ -173,6 +174,17 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
     LOG_INFO(Config, "Vulkan hostMarkers: {}", Config::getVkHostMarkersEnabled());
     LOG_INFO(Config, "Vulkan guestMarkers: {}", Config::getVkGuestMarkersEnabled());
     LOG_INFO(Config, "Vulkan rdocEnable: {}", Config::isRdocEnabled());
+
+    hwinfo::Memory ram;
+    hwinfo::OS os;
+    const auto cpus = hwinfo::getAllCPUs();
+    for (const auto& cpu : cpus) {
+        LOG_INFO(Config, "CPU Model: {}", cpu.modelName());
+        LOG_INFO(Config, "CPU Physical Cores: {}, Logical Cores: {}", cpu.numPhysicalCores(),
+                 cpu.numLogicalCores());
+    }
+    LOG_INFO(Config, "Total RAM: {} GB", std::round(ram.total_Bytes() / pow(1024, 3)));
+    LOG_INFO(Config, "Operating System: {}", os.name());
 
     if (param_sfo_exists) {
         LOG_INFO(Loader, "Game id: {} Title: {}", id, title);
