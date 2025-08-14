@@ -1,3 +1,4 @@
+
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -214,8 +215,8 @@ bool Instance::CreateDevice() {
                           vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT,
                           vk::PhysicalDevicePrimitiveTopologyListRestartFeaturesEXT,
                           vk::PhysicalDevicePortabilitySubsetFeaturesKHR,
-                          vk::PhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR,
-                          vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT>();
+                          vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
+                          vk::PhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR>();
     features = feature_chain.get().features;
 
     const vk::StructureChain properties_chain = physical_device.getProperties2<
@@ -276,7 +277,12 @@ bool Instance::CreateDevice() {
     depth_clip_enable = add_extension(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
     vertex_input_dynamic_state = add_extension(VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME);
     list_restart = add_extension(VK_EXT_PRIMITIVE_TOPOLOGY_LIST_RESTART_EXTENSION_NAME);
-    fragment_shader_barycentric = add_extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+    amd_shader_explicit_vertex_parameter =
+        add_extension(VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_EXTENSION_NAME);
+    if (!amd_shader_explicit_vertex_parameter) {
+        fragment_shader_barycentric =
+            add_extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+    }
     legacy_vertex_attributes = add_extension(VK_EXT_LEGACY_VERTEX_ATTRIBUTES_EXTENSION_NAME);
     provoking_vertex = add_extension(VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME);
     shader_stencil_export = add_extension(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
@@ -472,9 +478,6 @@ bool Instance::CreateDevice() {
                     .workgroupMemoryExplicitLayoutScalarBlockLayout,
             .workgroupMemoryExplicitLayout16BitAccess =
                 workgroup_memory_explicit_layout_features.workgroupMemoryExplicitLayout16BitAccess,
-        },
-        vk::PhysicalDeviceConditionalRenderingFeaturesEXT{
-            .conditionalRendering = true,
         },
 #ifdef __APPLE__
         vk::PhysicalDevicePortabilitySubsetFeaturesKHR{
@@ -738,13 +741,8 @@ vk::Format Instance::GetSupportedFormat(const vk::Format format,
             }
             break;
         case vk::Format::eR8Srgb:
-            if (IsFormatSupported(vk::Format::eR8G8B8A8Srgb, flags)) {
-                return vk::Format::eR8G8B8A8Srgb;
-            }
-            break;
-        case vk::Format::eB5G6R5UnormPack16:
-            if (IsFormatSupported(vk::Format::eB8G8R8A8Unorm, flags)) {
-                return vk::Format::eB8G8R8A8Unorm;
+            if (IsFormatSupported(vk::Format::eR8Unorm, flags)) {
+                return vk::Format::eR8Unorm;
             }
             break;
         default:
