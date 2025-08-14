@@ -30,6 +30,7 @@ public:
 
     void Run(std::filesystem::path file, const std::vector<std::string> args);
     void StopEmulation();
+    void RestartEmulation();
     void UpdatePlayTime(const std::string& serial) const;
     static Emulator& GetInstance();
     void Restart();

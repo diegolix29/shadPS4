@@ -7,6 +7,7 @@
 #include <emulator.h>
 #include <imgui.h>
 #include "SDL3/SDL_events.h"
+#include "qt_gui/main_window.h"
 
 #include "SDL3/SDL_log.h"
 #include "common/config.h"
@@ -557,14 +558,12 @@ void L::Draw() {
         }
     }
 
-    const bool key_f10 = ImGui::IsKeyPressed(ImGuiKey_F10, false);
-    const bool ctrl_held = io.KeyCtrl;
-
-    if ((key_f10 && ctrl_held)) {
-        DebugState.IsShowingDebugMenuBar() ^= true;
-        visibility_toggled = true;
-    } else if (key_f10) {
-        show_simple_fps = !show_simple_fps;
+    if (IsKeyPressed(ImGuiKey_F10, false)) {
+        if (io.KeyCtrl) {
+            DebugState.IsShowingDebugMenuBar() ^= true;
+        } else {
+            show_simple_fps = !show_simple_fps;
+        }
         visibility_toggled = true;
     }
 
@@ -607,11 +606,9 @@ void L::Draw() {
     const bool show_debug_menu_combo =
         Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::Square});
 
-    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::DebugMenuPad)) {
-        if ((key_f10 && ctrl_held) || show_debug_menu_combo) {
-            DebugState.IsShowingDebugMenuBar() ^= true;
-            visibility_toggled = true;
-        }
+    if (show_debug_menu_combo) {
+        DebugState.IsShowingDebugMenuBar() ^= true;
+        visibility_toggled = true;
     }
 
     if (!DebugState.IsGuestThreadsPaused()) {
@@ -682,6 +679,8 @@ void L::Draw() {
             NewLine();
             Text("Press Escape or Circle/B button to cancel");
             Text("Press Enter or Cross/A button to quit");
+            Text("Press Backspace or DpadUp button to Relaunch Emulator");
+            Text("Press Space Bar or DpadDown button to Restart Game without Gui");
 
             if (IsKeyPressed(ImGuiKey_Escape, false) ||
                 (IsKeyPressed(ImGuiKey_GamepadFaceRight, false))) {
@@ -694,6 +693,21 @@ void L::Draw() {
                 SDL_memset(&event, 0, sizeof(event));
                 event.type = SDL_EVENT_QUIT;
                 SDL_PushEvent(&event);
+            }
+
+            if (IsKeyPressed(ImGuiKey_Backspace, false) ||
+                (IsKeyPressed(ImGuiKey_GamepadDpadUp, false))) {
+                SDL_Event event;
+                SDL_memset(&event, 0, sizeof(event));
+                event.type = SDL_EVENT_QUIT + 1;
+                SDL_PushEvent(&event);
+            }
+
+            if (IsKeyPressed(ImGuiKey_Space, false) ||
+                (IsKeyPressed(ImGuiKey_GamepadDpadDown, false))) {
+                if (g_MainWindow)
+                    g_MainWindow->RestartGame();
+                Emulator::GetInstance().Restart();
             }
         }
         End();

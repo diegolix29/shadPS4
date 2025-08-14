@@ -46,6 +46,11 @@ public:
     qint64 detachedGamePid = -1;
     bool isDetachedLaunch = false;
 
+#ifdef ENABLE_QT_GUI
+    QString getLastEbootPath();
+    QString lastGamePath;
+    QProcess* gameProcess = nullptr;
+#endif
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
     void SaveWindowState() const;
@@ -75,10 +80,7 @@ private:
     void SetLastIconSizeBullet();
     void SetUiIcons(bool isWhite);
     void BootGame();
-#ifdef ENABLE_QT_GUI
-    QString getLastEbootPath();
-    QString lastGamePath;
-#endif
+
     void AddRecentFiles(QString filePath);
     void LoadTranslation();
     void PlayBackgroundMusic();
@@ -132,3 +134,5 @@ protected:
     bool delete_file_on_install = false;
     bool use_for_all_queued = false;
 };
+
+extern MainWindow* g_MainWindow;
