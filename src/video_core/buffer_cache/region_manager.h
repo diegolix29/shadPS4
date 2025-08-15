@@ -99,13 +99,13 @@ public:
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
-            UpdateProtection<!enable, false>();
+            UpdateProtection<!enable, true>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
-            UpdateProtection<enable, false>();
+            UpdateProtection<enable, true>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-            UpdateProtection<enable, false>();
+            UpdateProtection<enable, true>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
-            UpdateProtection<enable, false>();
+            UpdateProtection<enable, true>();
         }
 
         if (Config::readbackSpeed() != Config::ReadbackSpeed::Fast) {
