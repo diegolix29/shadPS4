@@ -538,7 +538,7 @@ void DrawPauseStatusWindow(bool& is_open) {
                 g_MainWindow->RestartGame();
             }
         }
-#endif
+
         ImGui::SameLine(0.0f, 10.0f);
         if (ImGui::Button("Restart Emulator")) {
             SDL_Event event;
@@ -546,7 +546,7 @@ void DrawPauseStatusWindow(bool& is_open) {
             event.type = SDL_EVENT_QUIT + 1;
             SDL_PushEvent(&event);
         }
-
+#endif
         ImGui::SameLine(0.0f, 10.0f);
         if (ImGui::Button("Quit Emulator")) {
             SDL_Event event;
@@ -711,7 +711,7 @@ void L::Draw() {
 
 #ifdef ENABLE_QT_GUI
             if (g_MainWindow && g_MainWindow->isVisible()) {
-                Text("Press Space Bar or DpadDown button to Restart Game without Gui");
+                Text("Press Space Bar or DpadDown button to Quick Restart Game");
 
                 if (IsKeyPressed(ImGuiKey_Space, false) ||
                     IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
