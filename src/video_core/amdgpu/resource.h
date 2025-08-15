@@ -319,6 +319,21 @@ struct Image {
         return GetTilingMode() != TilingMode::Display_Linear;
     }
 
+    ImageType GetBaseType() const noexcept {
+        const auto base_type = GetType();
+        if (base_type == ImageType::Color1DArray) {
+            return ImageType::Color1D;
+        }
+        if (base_type == ImageType::Color2DArray) {
+            return ImageType::Color2D;
+        }
+        if (base_type == ImageType::Color2DMsaa || base_type == ImageType::Color2DMsaaArray) {
+            return ImageType::Color2D;
+        }
+        return base_type;
+    }
+
+    ImageType GetViewType(const bool is_array) const noexcept {
     bool IsFmask() const noexcept {
         return GetDataFmt() >= DataFormat::FormatFmask8_1 &&
                GetDataFmt() <= DataFormat::FormatFmask64_8;

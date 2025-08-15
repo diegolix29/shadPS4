@@ -303,8 +303,17 @@ constexpr NumberClass GetNumberClass(const NumberFormat nfmt) {
     }
 }
 
+constexpr bool IsRgb(CompSwizzle swizzle) {
+    return swizzle == CompSwizzle::Red || swizzle == CompSwizzle::Green ||
+           swizzle == CompSwizzle::Blue;
+}
+
 constexpr bool IsInteger(const NumberFormat nfmt) {
     return nfmt == AmdGpu::NumberFormat::Sint || nfmt == AmdGpu::NumberFormat::Uint;
+}
+
+constexpr bool IsFmask(DataFormat format) {
+    return format >= DataFormat::FormatFmask8_1 && format <= DataFormat::FormatFmask64_8;
 }
 
 std::string_view NameOf(DataFormat fmt);
