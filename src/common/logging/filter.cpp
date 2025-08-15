@@ -197,6 +197,8 @@ Filter::Filter(Level default_level) {
 
 void Filter::ResetAll(Level level) {
     class_levels.fill(level);
+    class_levels[static_cast<u8>(Class::Loader)] = Level::Info;
+    class_levels[static_cast<u8>(Class::Config)] = Level::Info;
 }
 
 void Filter::SetClassLevel(Class log_class, Level level) {
