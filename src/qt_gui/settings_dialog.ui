@@ -2037,14 +2037,27 @@
                      </property>
                      <layout class="QVBoxLayout" name="logFilterLayout">
                       <item>
-                       <widget class="QLineEdit" name="logFilterLineEdit"/>
-                      </item>
-                     </layout>
-                    </widget>
-                   </item>
-                  </layout>
-                 </item>
-                </layout>
+						  <widget class="QLineEdit" name="logFilterLineEdit"/>
+					  </item>
+					  <item>
+						  <widget class="QLabel" name="logFilterNoteLabel">
+							  <property name="text">
+								  <string>NOTE: Log Filter to *:Warning helps with performance. But might make some games not boot, test carefully. *:Critical will silent the console.</string>
+							  </property>
+							  <property name="wordWrap">
+								  <bool>true</bool>
+							  </property>
+							  <property name="styleSheet">
+								  <string notr="true">color: gray; font-size: 12px;</string>
+							  </property>
+						  </widget>
+					  </item>
+				  </layout>
+			  </widget>
+		    </item>
+	      </layout>
+            </item>
+            </layout>
                </item>
                <item>
                 <widget class="QPushButton" name="OpenLogLocationButton">
