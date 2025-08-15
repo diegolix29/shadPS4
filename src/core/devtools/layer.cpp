@@ -529,6 +529,30 @@ void DrawPauseStatusWindow(bool& is_open) {
             const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
             Config::save(config_dir / "config.toml");
             DebugState.ResumeGuestThreads();
+        }
+
+#ifdef ENABLE_QT_GUI
+        if (g_MainWindow && g_MainWindow->isVisible()) {
+            ImGui::SameLine(0.0f, 10.0f);
+            if (ImGui::Button("Restart Game")) {
+                g_MainWindow->RestartGame();
+            }
+        }
+#endif
+        ImGui::SameLine(0.0f, 10.0f);
+        if (ImGui::Button("Restart Emulator")) {
+            SDL_Event event;
+            SDL_memset(&event, 0, sizeof(event));
+            event.type = SDL_EVENT_QUIT + 1;
+            SDL_PushEvent(&event);
+        }
+
+        ImGui::SameLine(0.0f, 10.0f);
+        if (ImGui::Button("Quit Emulator")) {
+            SDL_Event event;
+            SDL_memset(&event, 0, sizeof(event));
+            event.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&event);
         };
     }
     ImGui::End();
