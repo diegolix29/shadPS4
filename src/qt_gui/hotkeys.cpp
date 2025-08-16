@@ -385,9 +385,7 @@ void hotkeys::Cleanup() {
         SDL_QuitSubSystem(SDL_INIT_EVENTS);
         SDL_Quit();
     } else {
-        if (!Config::getBackgroundControllerInput()) {
-            SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "0");
-        }
+        SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "0");
     }
 }
 
