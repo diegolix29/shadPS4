@@ -1686,21 +1686,28 @@
                <property name="bottomMargin">
                 <number>11</number>
                </property>
-               <item>
-                <widget class="QCheckBox" name="motionControlsCheckBox">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Minimum" vsizetype="Maximum">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="text">
-                  <string>Enable Motion Controls</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </widget>
+                 <item>
+				   <widget class="QCheckBox" name="motionControlsCheckBox">
+					   <property name="sizePolicy">
+						   <sizepolicy hsizetype="Minimum" vsizetype="Maximum">
+							  <horstretch>0</horstretch>
+							 <verstretch>0</verstretch>
+						   </sizepolicy>
+					     </property>
+					   <property name="text">
+					    <string>Enable Motion Controls</string>
+					   </property>
+				      </widget>
+			         </item>
+			        <item>
+				      <widget class="QCheckBox" name="backgroundControllerCheckBox">
+					   <property name="text">
+				      <string>Enable Background Controller Input</string>
+					 </property>
+				   </widget>
+			     </item>
+		      </layout>
+	        </widget>
             </item>
            </layout>
           </item>

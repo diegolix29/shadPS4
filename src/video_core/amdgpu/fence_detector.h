@@ -39,7 +39,9 @@ private:
             default:
                 return;
             case 0:
-                return;
+                LOG_ERROR(Lib_GnmDriver, "Continue hack Unsupported PM4 type 0");
+                cmd = NextPacket(cmd, header->type0.NumWords() + 1);
+                continue;
             case 2:
                 cmd = NextPacket(cmd, 1);
                 break;
@@ -81,7 +83,7 @@ private:
                 }
                 case PM4ItOpcode::WriteData: {
                     const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
-                    ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
+                    // ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
                     const u32 data_size = (header->type3.count.Value() - 2) * 4;
                     if (data_size <= sizeof(u64) && write_data->wr_confirm) {
                         u64 value{};
