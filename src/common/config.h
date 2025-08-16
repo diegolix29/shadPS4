@@ -163,8 +163,6 @@ bool getIsMotionControlsEnabled();
 void setIsMotionControlsEnabled(bool use);
 std::string getDefaultControllerID();
 void setDefaultControllerID(std::string id);
-bool getBackgroundControllerInput();
-void setBackgroundControllerInput(bool enable);
 
 // TODO
 bool GetLoadGameSizeEnabled();
