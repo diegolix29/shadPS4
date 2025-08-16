@@ -634,18 +634,18 @@ void DrawPauseStatusWindow(bool& is_open) {
         }
 
 #ifdef ENABLE_QT_GUI
+        ImGui::SameLine(0.0f, 10.0f);
+        if (ImGui::Button("Restart Emulator")) {
+            SDL_Event event{};
+            event.type = SDL_EVENT_QUIT + 1;
+            SDL_PushEvent(&event);
+        }
         if (g_MainWindow && g_MainWindow->isVisible()) {
             ImGui::SameLine(0.0f, 10.0f);
             if (ImGui::Button("Restart Game"))
                 g_MainWindow->RestartGame();
-
-            ImGui::SameLine(0.0f, 10.0f);
-            if (ImGui::Button("Restart Emulator")) {
-                SDL_Event event{};
-                event.type = SDL_EVENT_QUIT + 1;
-                SDL_PushEvent(&event);
-            }
         }
+
 #endif
 
         ImGui::SameLine(0.0f, 10.0f);
