@@ -33,6 +33,13 @@
 extern std::unique_ptr<Vulkan::Presenter> presenter;
 using Btn = Libraries::Pad::OrbisPadButtonDataOffset;
 
+std::string current_filter = Config::getLogFilter();
+std::string filter = Config::getLogFilter();
+static char filter_buf[256] = "";
+
+static bool show_virtual_keyboard = false;
+static bool should_focus = false;
+
 using namespace ImGui;
 using namespace ::Core::Devtools;
 using L = ::Core::Devtools::Layer;
@@ -372,7 +379,6 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
     constexpr ImVec2 window_size = {325, 375};
 
     ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(window_size, ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.9f);
 
     if (ImGui::Begin("Fullscreen Tip", &is_open,
@@ -394,7 +400,7 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
             ImGui::TextColored(ImVec4(1, 0, 0, 1), "Network: Disconnected");
         }
 
-        ImGui::TextDisabled("NOTE: CHEATS AREN'T WORKING RIGHT NOW");
+        ImGui::TextDisabled("NOTE: CHEATS ARE WORKING NOW");
 
         ImGui::Spacing();
         ImGui::SeparatorText("Current Config");
@@ -407,6 +413,8 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::Text("Auto Backup: %s", Config::getEnableAutoBackup() ? "On" : "Off");
         ImGui::Text("PSN Signed In: %s", Config::getPSNSignedIn() ? "Yes" : "No");
         ImGui::Text("LogType: %s", Config::getLogType().c_str());
+        ImGui::Text("Current Log Filter: %s", Config::getLogFilter().c_str());
+
         const char* readbackaccuStr = "Unknown";
         switch (Config::readbackSpeed()) {
         case Config::ReadbackSpeed::Disable:
@@ -430,39 +438,121 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
     ImGui::End();
 }
 
+void DrawVirtualKeyboard() {
+    if (!show_virtual_keyboard)
+        return;
+
+    static bool first_letter_caps = true;
+    static bool caps_lock = false;
+
+    ImGui::SetNextWindowSize(ImVec2(600, 300), ImGuiCond_Always);
+    if (ImGui::Begin("Virtual Keyboard", &show_virtual_keyboard)) {
+
+        if (ImGui::Button("Close Keyboard")) {
+            show_virtual_keyboard = false;
+            Config::setLogFilter(std::string(filter_buf));
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Clear Text")) {
+            filter_buf[0] = '\0';
+            first_letter_caps = true;
+        }
+
+        static const char* keys_lower[] = {"q", "w", "e",     "r",    "t",    "y", "u", "i",
+                                           "o", "p", "a",     "s",    "d",    "f", "g", "h",
+                                           "j", "k", "l",     "z",    "x",    "c", "v", "b",
+                                           "n", "m", "SPACE", "BACK", "CAPS", "*", "/", ":"};
+
+        static const char* keys_upper[] = {"Q", "W", "E",     "R",    "T",    "Y", "U", "I",
+                                           "O", "P", "A",     "S",    "D",    "F", "G", "H",
+                                           "J", "K", "L",     "Z",    "X",    "C", "V", "B",
+                                           "N", "M", "SPACE", "BACK", "CAPS", "*", "/", ":"};
+
+        // Choose key set based on caps_lock or first_letter_caps
+        const char** keys = (caps_lock || first_letter_caps) ? keys_upper : keys_lower;
+
+        int columns = 10;
+        ImGui::Columns(columns, nullptr, false);
+        for (int i = 0; i < IM_ARRAYSIZE(keys_lower); i++) {
+            const char* key = keys[i];
+
+            if (ImGui::Button(key, ImVec2(40, 40))) {
+                if (strcmp(key, "SPACE") == 0) {
+                    strncat(filter_buf, " ", sizeof(filter_buf) - strlen(filter_buf) - 1);
+                } else if (strcmp(key, "BACK") == 0) {
+                    int len = strlen(filter_buf);
+                    if (len > 0)
+                        filter_buf[len - 1] = '\0';
+                    if (strlen(filter_buf) == 0)
+                        first_letter_caps = true;
+                } else if (strcmp(key, "CAPS") == 0) {
+                    caps_lock = !caps_lock;
+                } else {
+                    char c = key[0];
+                    // Determine actual case
+                    if (!caps_lock && !first_letter_caps && isalpha(c))
+                        c = tolower(c);
+                    strncat(filter_buf, &c, 1); // append character
+
+                    if (first_letter_caps)
+                        first_letter_caps = false;
+                }
+            }
+            ImGui::NextColumn();
+        }
+
+        ImGui::Columns(1);
+    }
+    ImGui::End();
+}
+
 void DrawPauseStatusWindow(bool& is_open) {
     if (!is_open)
         return;
 
     constexpr ImVec2 window_size = {600, 500};
-    ImGui::SetNextWindowSize(window_size, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowBgAlpha(0.9f);
 
-    if (ImGui::Begin("Pause Menu - Hotkeys", &is_open,
-                     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs)) {
-        ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or L2+R2+Options\n"
-                               "Stop the game with: F4 or L2+L2+Share/Back/Select\n"
-                               "Toggle fullscreen: F11 or L2+R2+R3\n"
-                               "Developer Tools: Ctrl + F10 or L2+R2+Square\n"
+    ImGuiWindowFlags flags =
+        ImGuiConfigFlags_NavEnableKeyboard | ImGuiWindowFlags_NoFocusOnAppearing;
+    ImGuiIO& io = ImGui::GetIO();
+
+    if (Input::ControllerComboPressedOnce({Btn::Up}) ||
+        Input::ControllerComboPressedOnce({Btn::Down}) ||
+        Input::ControllerComboPressedOnce({Btn::Left}) ||
+        Input::ControllerComboPressedOnce({Btn::Right})) {
+        should_focus = true;
+    }
+
+    if (should_focus)
+        ImGui::SetWindowFocus("Pause Menu - Hotkeys");
+
+    if (ImGui::Begin("Pause Menu - Hotkeys", &is_open, flags)) {
+        ImGui::TextUnformatted("Pause/Resume: F9 or L2+R2+Options\n"
+                               "Stop: F4 or L2+L2+Share/Back/Select\n"
+                               "Fullscreen: F11 or L2+R2+R3\n"
+                               "Developer Tools: Ctrl+F10 or L2+R2+Square\n"
                                "Show FPS: F10 or L2+R2+L3\n");
 
         ImGui::Spacing();
+        if (ImGui::Button("Return to Game")) {
+            Config::setLogFilter(std::string(filter_buf));
+            DebugState.ResumeGuestThreads();
+        }
+
         ImGui::Separator();
-        ImGui::TextDisabled("Tip: Use the keyboard or controller shortcuts above.");
+        ImGui::TextDisabled("Tip: Use keyboard or controller shortcuts above.");
 
         ImGui::Spacing();
         ImGui::SeparatorText("Network Status");
-
-        if (Config::getIsConnectedToNetwork()) {
+        if (Config::getIsConnectedToNetwork())
             ImGui::TextColored(ImVec4(0, 1, 0, 1), "Network: Connected");
-        } else {
+        else
             ImGui::TextColored(ImVec4(1, 0, 0, 1), "Network: Disconnected");
-        }
 
         static bool network_connected = Config::getIsConnectedToNetwork();
-        if (ImGui::Checkbox("Set Network Connected", &network_connected)) {
+        if (ImGui::Checkbox("Set Network Connected", &network_connected))
             Config::setIsConnectedToNetwork(network_connected);
-        }
 
         ImGui::Spacing();
         ImGui::SeparatorText("Edit Configurations");
@@ -501,21 +591,32 @@ void DrawPauseStatusWindow(bool& is_open) {
             Config::setPSNSignedIn(psn);
 
         float volume = Config::getVolumeLevel();
-        if (ImGui::SliderFloat("Volume", &volume, 0.0f, 3.0f)) {
+        if (ImGui::SliderFloat("Volume", &volume, 0.0f, 3.0f))
             Config::setVolumeLevel(volume);
-        }
 
         static const char* logTypes[] = {"sync", "async"};
         int logTypeIndex = 0;
-        for (int i = 0; i < IM_ARRAYSIZE(logTypes); i++) {
-            if (Config::getLogType() == logTypes[i]) {
+        for (int i = 0; i < IM_ARRAYSIZE(logTypes); i++)
+            if (Config::getLogType() == logTypes[i])
                 logTypeIndex = i;
-                break;
-            }
-        }
+
         if (ImGui::Combo("Log Type", &logTypeIndex, logTypes, IM_ARRAYSIZE(logTypes)))
             Config::setLogType(logTypes[logTypeIndex]);
 
+        ImGui::SeparatorText("Log Filter");
+        ImGui::TextDisabled("Triangle activates controller keyboard");
+        ImGui::TextDisabled("Restart the game to take effect");
+        if (filter_buf[0] == '\0') {
+            std::string current_filter = Config::getLogFilter();
+            strncpy(filter_buf, current_filter.c_str(), sizeof(filter_buf) - 1);
+        }
+        if (ImGui::InputText("##LogFilter", filter_buf, sizeof(filter_buf),
+                             ImGuiInputTextFlags_CallbackAlways, [](ImGuiInputTextCallbackData*) {
+                                 show_virtual_keyboard = true;
+                                 return 0;
+                             })) {
+            Config::setLogFilter(std::string(filter_buf));
+        }
         static const char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low", "Fast", "Default"};
         int readbackAccIndex = (int)Config::readbackSpeed();
         if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
@@ -527,6 +628,7 @@ void DrawPauseStatusWindow(bool& is_open) {
 
         if (ImGui::Button("Save")) {
             const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+            Config::setLogFilter(std::string(filter_buf));
             Config::save(config_dir / "config.toml");
             DebugState.ResumeGuestThreads();
         }
@@ -534,28 +636,28 @@ void DrawPauseStatusWindow(bool& is_open) {
 #ifdef ENABLE_QT_GUI
         if (g_MainWindow && g_MainWindow->isVisible()) {
             ImGui::SameLine(0.0f, 10.0f);
-            if (ImGui::Button("Restart Game")) {
+            if (ImGui::Button("Restart Game"))
                 g_MainWindow->RestartGame();
+
+            ImGui::SameLine(0.0f, 10.0f);
+            if (ImGui::Button("Restart Emulator")) {
+                SDL_Event event{};
+                event.type = SDL_EVENT_QUIT + 1;
+                SDL_PushEvent(&event);
             }
         }
+#endif
 
         ImGui::SameLine(0.0f, 10.0f);
-        if (ImGui::Button("Restart Emulator")) {
-            SDL_Event event;
-            SDL_memset(&event, 0, sizeof(event));
-            event.type = SDL_EVENT_QUIT + 1;
-            SDL_PushEvent(&event);
-        }
-#endif
-        ImGui::SameLine(0.0f, 10.0f);
         if (ImGui::Button("Quit Emulator")) {
-            SDL_Event event;
-            SDL_memset(&event, 0, sizeof(event));
+            SDL_Event event{};
             event.type = SDL_EVENT_QUIT;
             SDL_PushEvent(&event);
-        };
+        }
     }
     ImGui::End();
+    DrawVirtualKeyboard();
+    should_focus = false;
 }
 
 void L::Draw() {
@@ -707,10 +809,18 @@ void L::Draw() {
             Text("Press Escape or Circle/B button to cancel");
             Text("Press Enter or Cross/A button to quit");
             NewLine();
-            Text("Press Backspace or DpadUp button to Relaunch Emulator");
 
 #ifdef ENABLE_QT_GUI
+            Text("Press Backspace or DpadUp button to Relaunch Emulator");
+            if (IsKeyPressed(ImGuiKey_Backspace, false) ||
+                IsKeyPressed(ImGuiKey_GamepadDpadUp, false)) {
+                SDL_Event event;
+                SDL_memset(&event, 0, sizeof(event));
+                event.type = SDL_EVENT_QUIT + 1;
+                SDL_PushEvent(&event);
+            }
             if (g_MainWindow && g_MainWindow->isVisible()) {
+
                 Text("Press Space Bar or DpadDown button to Quick Restart Game");
 
                 if (IsKeyPressed(ImGuiKey_Space, false) ||
@@ -730,14 +840,6 @@ void L::Draw() {
                 SDL_Event event;
                 SDL_memset(&event, 0, sizeof(event));
                 event.type = SDL_EVENT_QUIT;
-                SDL_PushEvent(&event);
-            }
-
-            if (IsKeyPressed(ImGuiKey_Backspace, false) ||
-                IsKeyPressed(ImGuiKey_GamepadDpadUp, false)) {
-                SDL_Event event;
-                SDL_memset(&event, 0, sizeof(event));
-                event.type = SDL_EVENT_QUIT + 1;
                 SDL_PushEvent(&event);
             }
         }
