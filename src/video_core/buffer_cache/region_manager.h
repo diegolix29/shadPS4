@@ -99,17 +99,16 @@ public:
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
         } else if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable) {
-                UpdateProtection<enable, true>();
+            UpdateProtection<enable, true>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-                UpdateProtection<!enable, false>();
-            }
-            if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
-                for (size_t page = start_page; page != end_page && !enable; ++page) {
-                    ++flushes[page];
-                }
+            UpdateProtection<!enable, false>();
+        }
+        if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
+            for (size_t page = start_page; page != end_page && !enable; ++page) {
+                ++flushes[page];
             }
         }
-    
+    }
 
     /**
      * Loop over each page in the given range, turn off those bits and notify the tracker if
