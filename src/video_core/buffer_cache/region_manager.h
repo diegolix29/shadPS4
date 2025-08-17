@@ -98,22 +98,18 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
-            UpdateProtection<!enable, true>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
-            UpdateProtection<enable, true>();
+        } else if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable) {
+                UpdateProtection<enable, true>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-            UpdateProtection<enable, true>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
-            UpdateProtection<enable, true>();
-        }
-
-        if (Config::readbackSpeed() != Config::ReadbackSpeed::Fast) {
-            for (size_t page = start_page; page != end_page && !enable; ++page) {
-                ++flushes[page];
+                UpdateProtection<!enable, false>();
+            }
+            if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
+                for (size_t page = start_page; page != end_page && !enable; ++page) {
+                    ++flushes[page];
+                }
             }
         }
-    }
+    
 
     /**
      * Loop over each page in the given range, turn off those bits and notify the tracker if
@@ -141,18 +137,11 @@ public:
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
-                UpdateProtection<false, true>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
+            } else if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable &&
+                       Config::readbackSpeed() != Config::ReadbackSpeed::Unsafe) {
                 UpdateProtection<false, true>();
             } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-                UpdateProtection<false, true>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
-                UpdateProtection<false, true>();
-            } else {
-                for (size_t page = start_page; page != end_page; ++page) {
-                    ++flushes[page];
-                }
+                UpdateProtection<true, true>();
             }
         }
 
