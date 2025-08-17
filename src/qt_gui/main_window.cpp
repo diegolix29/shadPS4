@@ -92,6 +92,27 @@ bool MainWindow::Init() {
     this->show();
     // load game list
     LoadGameLists();
+
+    if (Config::getAutoRestartGame()) {
+        int argc = QCoreApplication::arguments().size();
+        if (argc > 1) {
+            QString lastGameArg = QCoreApplication::arguments().at(1);
+            if (!lastGameArg.isEmpty() && std::filesystem::exists(lastGameArg.toStdString())) {
+                StartEmulator(lastGameArg.toStdString());
+            }
+        } else {
+            std::vector<std::string> recents = Config::getRecentFiles();
+            if (!recents.empty() && std::filesystem::exists(recents[0])) {
+                StartEmulator(recents[0]);
+            }
+        }
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+
+        // Reset flag after use
+        Config::setAutoRestartGame(false);
+        Config::save(config_dir / "config.toml");
+    }
+
 #ifdef ENABLE_UPDATER
     // Check for update
     CheckUpdateMain(true);
@@ -838,7 +859,10 @@ void MainWindow::CreateConnects() {
 }
 
 void MainWindow::StartGame() {
-
+    if (isGameRunning) {
+        QMessageBox::critical(nullptr, tr("Run Game"), tr("Game is already running!"));
+        return;
+    }
     BackgroundMusicPlayer::getInstance().stopMusic();
     QString gamePath = "";
     int table_mode = Config::getTableMode();
@@ -885,6 +909,10 @@ void MainWindow::StartGame() {
 }
 
 void MainWindow::StartGameWithPath(const QString& gamePath) {
+    if (isGameRunning) {
+        QMessageBox::critical(nullptr, tr("Run Game"), tr("Game is already running!"));
+        return;
+    }
     if (gamePath.isEmpty()) {
         QMessageBox::warning(this, tr("Run Game"), tr("No game path provided."));
         return;
@@ -1278,6 +1306,10 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
     return QMainWindow::eventFilter(obj, event);
 }
 void MainWindow::StartEmulator(std::filesystem::path path) {
+    if (isGameRunning) {
+        QMessageBox::critical(nullptr, tr("Run Game"), tr("Game is already running!"));
+        return;
+    }
     emulator = std::make_unique<Core::Emulator>();
 
     std::thread([this, path]() {
@@ -1307,13 +1339,15 @@ void MainWindow::StopGame() {
 
 void MainWindow::RestartGame() {
     if (!isGameRunning) {
-        QMessageBox::information(this, tr("Restart Game"),
-                                 tr("No game is currently running to Restart"));
+        QMessageBox::information(this, tr("Stop Game"), tr("No game is currently running."));
         return;
     }
+    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+
+    Config::setAutoRestartGame(true);
+    Config::save(config_dir / "config.toml");
     if (emulator) {
-        emulator->Restart();
+        emulator->RestartEmulation();
         emulator.reset();
     }
-    isGameRunning = false;
 }

@@ -265,6 +265,9 @@ std::vector<std::string> getElfViewer();
 std::vector<std::string> getRecentFiles();
 std::string getEmulatorLanguage();
 
+bool getAutoRestartGame();
+void setAutoRestartGame(bool enable);
+
 void setDefaultValues();
 
 std::filesystem::path GetFoolproofKbmConfigFile(const std::string& game_id = "");
