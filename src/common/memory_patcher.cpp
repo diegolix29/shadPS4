@@ -28,6 +28,8 @@
 #include "core/file_format/psf.h"
 #include "memory_patcher.h"
 
+std::filesystem::path g_savedir;
+
 namespace MemoryPatcher {
 
 EXPORT uintptr_t g_eboot_address;
@@ -127,48 +129,50 @@ std::string convertValueToHex(const std::string type, const std::string valueStr
 
 std::atomic<bool> g_running = true;
 
-void BackupFilesInDirectory(const std::filesystem::path& directory) {
-    if (!std::filesystem::exists(directory))
+void BackupCUSAFolder(const std::filesystem::path& cusa_dir) {
+    if (!std::filesystem::exists(cusa_dir))
         return;
 
-    std::regex userdata_regex(R"(userdata\d{4})");
-
-    for (const auto& entry : std::filesystem::directory_iterator(directory)) {
-        if (entry.is_regular_file() &&
-            std::regex_match(entry.path().filename().string(), userdata_regex)) {
-            std::ifstream src(entry.path(), std::ios::binary);
-
-            if (!src.is_open()) {
-                std::cerr << "[ERROR] Failed to open file for backup: " << entry.path()
-                          << std::endl;
-                continue;
-            }
-
-            std::time_t now = std::time(nullptr);
-            char timestamp[20];
-            std::tm localTime;
+    std::time_t now = std::time(nullptr);
+    std::tm localTime;
 #ifdef _WIN32
-            localtime_s(&localTime, &now);
+    localtime_s(&localTime, &now);
 #else
-            localtime_r(&now, &localTime);
+    localtime_r(&now, &localTime);
 #endif
-            std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", &localTime);
 
-            std::filesystem::path backup_file =
-                entry.path().parent_path() / ("backup_" + std::string(timestamp) + "_" +
-                                              entry.path().filename().string() + ".bak");
+    char timestamp[20];
+    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", &localTime);
 
-            std::ofstream dst(backup_file, std::ios::binary);
+    std::string backupFolderName =
+        cusa_dir.filename().string() + "-" + std::string(timestamp) + "-bak";
+    std::filesystem::path backupDir = cusa_dir / backupFolderName;
 
-            if (!dst.is_open()) {
-                std::cerr << "[ERROR] Failed to create backup for file: " << entry.path()
-                          << std::endl;
-                continue;
+    if (std::filesystem::exists(backupDir)) {
+        // Already backed up today, just return
+        return;
+    }
+
+    try {
+        std::filesystem::create_directories(backupDir);
+
+        for (auto& entry : std::filesystem::recursive_directory_iterator(cusa_dir)) {
+            if (entry.path().string().find("-bak") != std::string::npos)
+                continue; // skip previous backups
+
+            auto relativePath = std::filesystem::relative(entry.path(), cusa_dir);
+            auto destPath = backupDir / relativePath;
+
+            if (entry.is_directory()) {
+                std::filesystem::create_directories(destPath);
+            } else if (entry.is_regular_file()) {
+                std::filesystem::copy_file(entry.path(), destPath,
+                                           std::filesystem::copy_options::overwrite_existing);
             }
-
-            dst << src.rdbuf();
-            std::cout << "[AUTO-BACKUP] Created: " << backup_file << std::endl;
         }
+        std::cout << "[AUTO-BACKUP] Created full backup: " << backupDir << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Backup failed: " << e.what() << std::endl;
     }
 }
 
@@ -207,17 +211,33 @@ void AutoBackupThread(const std::filesystem::path& save_dir) {
         std::this_thread::sleep_for(std::chrono::minutes(10));
 
         if (Config::getEnableAutoBackup()) {
-            BackupFilesInDirectory(save_dir);
+            BackupCUSAFolder(save_dir);
         }
     }
 }
 
 void OnGameLoaded() {
     if (g_game_serial == "CUSA03173") {
-        g_game_serial = "CUSA00207";
+        g_game_serial = "CUSA00207"; // still keep your Bloodborne remap
     }
     std::filesystem::path savedir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
                                     "savedata" / "1" / g_game_serial / "SPRJ0005";
+
+    std::filesystem::path cusa_dir =
+        Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "savedata" / "1" / g_game_serial;
+
+    if (!std::filesystem::exists(cusa_dir)) {
+        std::cerr << "[WARN] Save directory not found for " << g_game_serial << std::endl;
+        return;
+    }
+
+    if (Config::getEnableAutoBackup()) {
+        // Immediate backup on game load
+        BackupCUSAFolder(cusa_dir);
+
+        // Then periodic backups every 10 minutes
+        std::thread(AutoBackupThread, cusa_dir).detach();
+    }
 
     std::filesystem::path backupDir = savedir;
 

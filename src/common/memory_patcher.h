@@ -3,6 +3,7 @@
 
 #pragma once
 #include <cstring>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -51,3 +52,5 @@ static std::vector<int32_t> PatternToByte(const std::string& pattern);
 uintptr_t PatternScan(const std::string& signature);
 
 } // namespace MemoryPatcher
+
+extern std::filesystem::path g_savedir;
