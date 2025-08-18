@@ -3,13 +3,9 @@
 
 #pragma once
 
-#include <atomic>
 #include <filesystem>
 #include <thread>
-#include "common/elf_info.h"
-#ifdef ENABLE_QT_GUI
-#include <QString>
-#endif
+
 #include "common/singleton.h"
 #include "core/linker.h"
 #include "input/controller.h"
@@ -29,30 +25,16 @@ public:
     Emulator();
     ~Emulator();
 
-    void Run(std::filesystem::path file, const std::vector<std::string> args);
-    void StopEmulation();
-#ifdef ENABLE_QT_GUI
-    void RestartEmulation();
-#endif
-    void Restart();
-    void UpdatePlayTime(const std::string& serial) const;
-    static Emulator& GetInstance();
-    std::atomic<bool> is_running{false};
+    void Run(std::filesystem::path file, const std::vector<std::string> args = {});
+    void UpdatePlayTime(const std::string& serial);
 
 private:
     void LoadSystemModules(const std::string& game_serial);
-    Common::ElfInfo game_info;
-    std::unique_ptr<Frontend::WindowSDL> window = nullptr;
 
-#ifdef ENABLE_QT_GUI
-    QString lastEbootPath;
-    void saveLastEbootPath(const QString& path);
-    QString getLastEbootPath() const;
-#endif
-
-    Core::MemoryManager* memory = nullptr;
-    Input::GameController* controller = nullptr;
-    Core::Linker* linker = nullptr;
+    Core::MemoryManager* memory;
+    Input::GameController* controller;
+    Core::Linker* linker;
+    std::unique_ptr<Frontend::WindowSDL> window;
     std::chrono::steady_clock::time_point start_time;
 };
 

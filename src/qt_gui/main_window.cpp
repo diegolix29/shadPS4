@@ -1330,10 +1330,9 @@ void MainWindow::StopGame() {
         QMessageBox::information(this, tr("Stop Game"), tr("No game is currently running."));
         return;
     }
-    if (emulator) {
-        emulator->RestartEmulation();
-        emulator.reset();
-    }
+    SDL_Event quitEvent;
+    quitEvent.type = SDL_EVENT_QUIT + 1;
+    SDL_PushEvent(&quitEvent);
     isGameRunning = false;
 }
 
@@ -1346,8 +1345,7 @@ void MainWindow::RestartGame() {
 
     Config::setAutoRestartGame(true);
     Config::save(config_dir / "config.toml");
-    if (emulator) {
-        emulator->RestartEmulation();
-        emulator.reset();
-    }
+    SDL_Event quitEvent;
+    quitEvent.type = SDL_EVENT_QUIT + 1;
+    SDL_PushEvent(&quitEvent);
 }

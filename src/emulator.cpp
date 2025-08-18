@@ -1,4 +1,3 @@
-
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -7,20 +6,12 @@
 #include <fmt/core.h>
 #include <hwinfo/hwinfo.h>
 #include <magic_enum/magic_enum.hpp>
-#include "SDL3/SDL_events.h"
 
 #include "common/config.h"
 #include "common/debug.h"
 #include "common/logging/backend.h"
 #include "common/logging/log.h"
 #ifdef ENABLE_QT_GUI
-#include <QCoreApplication>
-#include <QDebug>
-#include <QFile>
-#include <QProcess>
-#include <QSettings>
-#include <QString>
-#include <QThread>
 #include <QtCore>
 #endif
 #include "common/assert.h"
@@ -69,26 +60,13 @@ Emulator::Emulator() {
 #endif
 }
 
-Emulator::~Emulator() {
-    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-    Config::saveMainWindow(config_dir / "config.toml");
-}
+Emulator::~Emulator() {}
 
 void Emulator::Run(std::filesystem::path file, const std::vector<std::string> args) {
-    if (is_running) {
-        LOG_ERROR(Loader, "Emulator is already running!");
-        return;
-    }
-
-    is_running = true;
     if (std::filesystem::is_directory(file)) {
         file /= "eboot.bin";
     }
 
-#ifdef ENABLE_QT_GUI
-    lastEbootPath = QString::fromStdString(file.string());
-    is_running = true;
-#endif
     const auto eboot_name = file.filename().string();
 
     auto game_folder = file.parent_path();
@@ -351,20 +329,9 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
     linker->Execute(args);
 
     window->InitTimers();
-
-    // Main loop
-    while (window->IsOpen() && is_running) {
+    while (window->IsOpen()) {
         window->WaitEvent();
     }
-
-    // Cleanup before exit
-    window.reset();
-    g_window = nullptr;
-
-    // Mark stopped
-    is_running = false;
-
-    LOG_INFO(Loader, "Emulator stopped normally.");
 
 #ifdef ENABLE_QT_GUI
     UpdatePlayTime(id);
@@ -373,80 +340,7 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
     std::quick_exit(0);
 }
 
-#ifdef ENABLE_QT_GUI
-void Emulator::saveLastEbootPath(const QString& path) {
-    lastEbootPath = path;
-}
-
-QString Emulator::getLastEbootPath() const {
-    return lastEbootPath;
-}
-
-Emulator& Emulator::GetInstance() {
-    static Emulator instance;
-    return instance;
-}
-
-void Emulator::StopEmulation() {
-    if (!is_running) {
-        return;
-    }
-    is_running = false;
-
-    // Push an SDL quit event to signal the window to close:
-    if (window) {
-        SDL_Event quitEvent;
-        quitEvent.type = SDL_EVENT_QUIT;
-        SDL_PushEvent(&quitEvent);
-    }
-
-    LOG_INFO(Loader, "StopEmulation called.");
-}
-void Emulator::RestartEmulation() {
-    if (!is_running) {
-        return;
-    }
-    is_running = false;
-
-    // Push an SDL quit event to signal the window to close:
-    if (window) {
-        SDL_Event quitEvent;
-        quitEvent.type = SDL_EVENT_QUIT + 1;
-        SDL_PushEvent(&quitEvent);
-    }
-
-    LOG_INFO(Loader, "StopEmulation called.");
-}
-#endif
-
-#ifdef ENABLE_QT_GUI
-void Emulator::Restart() {
-    if (!is_running) {
-        LOG_INFO(Loader, "Emulator is not running. Skipping restart.");
-        return;
-    }
-    LOG_INFO(Loader, "Restarting emulator...");
-
-    // Load config to get most recent game path
-    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-    auto config_path = config_dir / "config.toml";
-
-    LOG_INFO(Loader, "Restarting the emulator...");
-    const QString exePath = QCoreApplication::applicationFilePath();
-    const QString lastEboot = getLastEbootPath(); // <- use the saved path
-    bool success = QProcess::startDetached(exePath, QStringList() << lastEboot);
-
-    if (!success) {
-        LOG_ERROR(Loader, "Failed to restart emulator via startDetached.");
-        return;
-    }
-
-    LOG_INFO(Loader, "New emulator process started. Closing current SDL window...");
-    StopEmulation();
-}
-#endif
-
-void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
+void Emulator::LoadSystemModules(const std::string& game_serial) {
     constexpr std::array<SysModules, 10> ModulesToLoad{
         {{"libSceNgs2.sprx", &Libraries::Ngs2::RegisterlibSceNgs2},
          {"libSceUlt.sprx", nullptr},
@@ -492,7 +386,7 @@ void Core::Emulator::LoadSystemModules(const std::string& game_serial) {
 }
 
 #ifdef ENABLE_QT_GUI
-void Core::Emulator::UpdatePlayTime(const std::string& serial) const {
+void Emulator::UpdatePlayTime(const std::string& serial) {
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     QString filePath = QString::fromStdString((user_dir / "play_time.txt").string());
 
@@ -559,6 +453,6 @@ void Core::Emulator::UpdatePlayTime(const std::string& serial) const {
     }
     LOG_INFO(Loader, "Playing time for {}: {}", serial, playTimeSaved.toStdString());
 }
-
 #endif
+
 } // namespace Core
