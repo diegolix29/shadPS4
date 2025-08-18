@@ -98,11 +98,10 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe &&
-                   Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-            UpdateProtection<!enable, false>();
         } else if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable) {
             UpdateProtection<enable, true>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
+            UpdateProtection<!enable, false>();
         }
         if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
             for (size_t page = start_page; page != end_page && !enable; ++page) {
@@ -137,11 +136,11 @@ public:
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-                UpdateProtection<true, true>();
             } else if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable &&
                        Config::readbackSpeed() != Config::ReadbackSpeed::Unsafe) {
                 UpdateProtection<false, true>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
+                UpdateProtection<true, true>();
             }
         }
 

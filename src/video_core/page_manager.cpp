@@ -48,8 +48,7 @@ struct PageManager::Impl {
         u8 num_read_watchers{};
 
         Core::MemoryPermission WritePerm() const noexcept {
-            if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe &&
-                Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
+            if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
                 return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
                                          : Core::MemoryPermission::Read;
             } else {
@@ -69,8 +68,7 @@ struct PageManager::Impl {
 
         template <s32 delta, bool is_read = false>
         u8 AddDelta() {
-            if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe &&
-                Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
+            if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
                 if constexpr (delta == 1) {
                     return ++num_watchers;
                 } else if constexpr (delta == -1) {
