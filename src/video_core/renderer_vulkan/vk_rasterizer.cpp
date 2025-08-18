@@ -452,10 +452,9 @@ void Rasterizer::OnSubmit() {
         buffer_cache.ProcessFaultBuffer();
     }
     texture_cache.ProcessDownloadImages();
-    // buffer_cache.RunGarbageCollector();
     // texture_cache.RunGarbageCollector();
     buffer_cache.ProcessPreemptiveDownloads();
-    buffer_cache.RunGarbageCollector();
+    // buffer_cache.RunGarbageCollector();
 }
 
 void Rasterizer::CommitPendingGpuRanges() {
@@ -493,7 +492,6 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
         for (auto& range : mapped_ranges) {
             buffer_cache.SynchronizeBuffersInRange(range.lower(), range.upper() - range.lower());
         }
-        buffer_cache.MemoryBarrier();
     }
 
     fault_process_pending |= uses_dma;

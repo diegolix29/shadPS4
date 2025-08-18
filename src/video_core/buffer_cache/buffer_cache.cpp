@@ -810,15 +810,7 @@ void BufferCache::ProcessFaultBuffer() {
         .offset = 0,
         .size = FAULT_BUFFER_SIZE,
     };
-    const vk::BufferMemoryBarrier2 reset_post_barrier = {
-        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-        .buffer = fault_buffer.Handle(),
-        .offset = 0,
-        .size = FAULT_BUFFER_SIZE,
-    };
+
     const vk::BufferMemoryBarrier2 reset_post_barrier = {
         .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
         .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
