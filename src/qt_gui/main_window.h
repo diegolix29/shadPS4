@@ -38,6 +38,7 @@ public:
     void InstallDirectory();
     void StartGame();
     void StartGameWithPath(const QString&);
+    void PauseGame();
     bool showLabels;
     void StopGame();
     void RestartGame();
@@ -68,6 +69,7 @@ private:
     void UpdateToolbarButtons();
     QWidget* createButtonWithLabel(QPushButton* button, const QString& labelText, bool showLabel);
     void CreateActions();
+    void toggleFullscreen();
     void CreateRecentGameActions();
     void CreateDockWindows();
     void LoadGameLists();

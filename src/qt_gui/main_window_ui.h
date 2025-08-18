@@ -44,11 +44,13 @@ public:
     QWidget* centralWidget;
     QLineEdit* mw_searchbar;
     QPushButton* playButton;
+    QPushButton* pauseButton;
     QPushButton* stopButton;
     QPushButton* refreshButton;
     QPushButton* settingsButton;
     QPushButton* controllerButton;
     QPushButton* keyboardButton;
+    QPushButton* fullscreenButton;
     QPushButton* restartButton;
     QPushButton* updaterButton;
     QPushButton* configureHotkeysButton;
@@ -205,6 +207,10 @@ public:
         playButton->setFlat(true);
         playButton->setIcon(QIcon(":images/play_icon.png"));
         playButton->setIconSize(QSize(40, 40));
+        pauseButton = new QPushButton(centralWidget);
+        pauseButton->setFlat(true);
+        pauseButton->setIcon(QIcon(":images/pause_icon.png"));
+        pauseButton->setIconSize(QSize(40, 40));
         stopButton = new QPushButton(centralWidget);
         stopButton->setFlat(true);
         stopButton->setIcon(QIcon(":images/stop_icon.png"));
@@ -213,6 +219,10 @@ public:
         refreshButton->setFlat(true);
         refreshButton->setIcon(QIcon(":images/refreshlist_icon.png"));
         refreshButton->setIconSize(QSize(40, 40));
+        fullscreenButton = new QPushButton(centralWidget);
+        fullscreenButton->setFlat(true);
+        fullscreenButton->setIcon(QIcon(":images/fullscreen_icon.png"));
+        fullscreenButton->setIconSize(QSize(38, 38));
         settingsButton = new QPushButton(centralWidget);
         settingsButton->setFlat(true);
         settingsButton->setIcon(QIcon(":images/settings_icon.png"));
