@@ -175,8 +175,8 @@ void DebugStateImpl::PushRegsDump(uintptr_t base_addr, uintptr_t header_addr,
                 auto code = stage->Code();
                 (*dump)->stages[i] = PipelineShaderProgramDump{
                     .name = Vulkan::PipelineCache::GetShaderName(Shader::StageFromIndex(i),
-                                                                 info.shader_hash),
-                    .hash = info.shader_hash,
+                                                                 info->shader_hash),
+                    .hash = info->shader_hash,
                     .user_data = *stage,
                     .code = std::vector<u32>{code.begin(), code.end()},
                 };
@@ -200,8 +200,8 @@ void DebugStateImpl::PushRegsDumpCompute(uintptr_t base_addr, uintptr_t header_a
 
     const auto& info = AmdGpu::Liverpool::SearchBinaryInfo(cs.Address<u32*>());
     (*dump)->cs_data = PipelineComputerProgramDump{
-        .name = Vulkan::PipelineCache::GetShaderName(Shader::Stage::Compute, info.shader_hash),
-        .hash = info.shader_hash,
+        .name = Vulkan::PipelineCache::GetShaderName(Shader::Stage::Compute, info->shader_hash),
+        .hash = info->shader_hash,
         .cs_program = cs,
         .code = std::vector<u32>{cs.Code().begin(), cs.Code().end()},
     };

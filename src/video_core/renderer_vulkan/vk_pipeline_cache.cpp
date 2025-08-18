@@ -374,7 +374,7 @@ bool PipelineCache::RefreshGraphicsKey() {
         }
 
         const auto& bininfo = Liverpool::GetBinaryInfo(*pgm);
-        if (!bininfo.Valid()) {
+        if (!bininfo->Valid()) {
             LOG_WARNING(Render_Vulkan, "Invalid binary info structure!");
             key.stage_hashes[stage_out_idx] = 0;
             infos[stage_out_idx] = nullptr;
@@ -382,9 +382,9 @@ bool PipelineCache::RefreshGraphicsKey() {
         }
 
         if (Config::getShaderSkipsEnabled()) {
-            if (Config::ShouldSkipShader(bininfo.shader_hash)) {
+            if (Config::ShouldSkipShader(bininfo->shader_hash)) {
                 LOG_WARNING(Render_Vulkan, "Skipped graphics shader hash {:#x}.",
-                            bininfo.shader_hash);
+                            bininfo->shader_hash);
                 return false;
             }
         }
