@@ -110,7 +110,7 @@ struct Liverpool {
                 return info;
             }
         }
-        return nullptr; // <-- graceful: not found
+        return nullptr; 
     }
 
     struct ShaderProgram {
@@ -139,9 +139,13 @@ struct Liverpool {
         std::span<const u32> Code() const {
             const u32* code = Address<u32*>();
             const BinaryInfo* bininfo = SearchBinaryInfo(code);
+            if (!bininfo) {
+                return {};
+            }
             const u32 num_dwords = bininfo->length / sizeof(u32);
-            return std::span{code, num_dwords};
+            return {code, num_dwords};
         }
+
 
         [[nodiscard]] u32 NumVgprs() const {
             // Each increment allocates 4 registers, where 0 = 4 registers.
