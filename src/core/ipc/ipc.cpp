@@ -5,12 +5,6 @@
 
 #include <iostream>
 #include <string>
-#ifdef ENABLE_QT_GUI
-#include <QFile>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
-#endif
 
 #include "common/memory_patcher.h"
 #include "common/thread.h"
@@ -78,130 +72,42 @@ void IPC::Init() {
 }
 
 void IPC::InputLoop() {
-    auto next_str = [&]() -> std::string {
-        std::string line, full_line;
-        while (true) {
-            if (!std::getline(std::cin, line))
-                break; // handle EOF
-            if (!line.empty() && line.back() == '\\') {
-                line.pop_back(); // remove trailing '\'
-                full_line += line;
-            } else {
-                full_line += line;
-                break;
-            }
-        }
-        return full_line;
+    auto next_str = [&] -> const std::string& {
+        static std::string line_buffer;
+        do {
+            std::getline(std::cin, line_buffer, '\n');
+        } while (!line_buffer.empty() && line_buffer.back() == '\\');
+        return line_buffer;
     };
-
-    auto next_u64 = [&]() -> u64 {
-        auto str = next_str();
+    auto next_u64 = [&] -> u64 {
+        auto& str = next_str();
         return std::stoull(str, nullptr, 0);
     };
 
     while (true) {
-        std::string cmd = next_str();
+        auto& cmd = next_str();
         if (cmd.empty()) {
             continue;
         }
-
         if (cmd == "RUN") {
             run_semaphore.release();
         } else if (cmd == "START") {
             start_semaphore.release();
-        }
-#ifdef ENABLE_QT_GUI
-        else if (cmd == "LOAD_CHEATS") {
-            std::string activatedCheatsFile = m_cheatsDir + "/activated/cheats.json";
-
-            QFile file(QString::fromStdString(activatedCheatsFile));
-            if (!file.open(QIODevice::ReadOnly)) {
-                std::cerr << "IPC: Failed to open activated cheats file\n";
-                continue;
-            }
-
-            QByteArray jsonData = file.readAll();
-            file.close();
-
-            QJsonDocument doc = QJsonDocument::fromJson(jsonData);
-            if (!doc.isObject()) {
-                std::cerr << "IPC: Activated cheats file invalid JSON\n";
-                continue;
-            }
-
-            QJsonObject root = doc.object();
-            QJsonObject enabled = root["enabled"].toObject();
-
-            std::string gameKey = m_gameSerial + "_" + m_gameVersion;
-            QJsonObject gameEntry = enabled[QString::fromStdString(gameKey)].toObject();
-
-            for (auto it = gameEntry.begin(); it != gameEntry.end(); ++it) {
-                QJsonArray selectedCheats = it.value().toArray();
-
-                for (const QJsonValue& val : selectedCheats) {
-                    std::string cheatName = val.toString().toStdString();
-                    applyCheatByName(cheatName);
-                }
-            }
-        }
-#endif
-        else if (cmd == "PATCH_MEMORY") {
-        } else if (cmd == "CHEAT_ENABLE") {
+        } else if (cmd == "PATCH_MEMORY") {
+            MemoryPatcher::patchInfo entry;
+            entry.gameSerial = "*";
+            entry.modNameStr = next_str();
+            entry.offsetStr = next_str();
+            entry.valueStr = next_str();
+            entry.targetStr = next_str();
+            entry.sizeStr = next_str();
+            entry.isOffset = next_u64() != 0;
+            entry.littleEndian = next_u64() != 0;
+            entry.patchMask = static_cast<MemoryPatcher::PatchMask>(next_u64());
+            entry.maskOffset = static_cast<int>(next_u64());
+            MemoryPatcher::AddPatchToQueue(entry);
         } else {
             std::cerr << "UNKNOWN CMD: " << cmd << std::endl;
         }
     }
 }
-
-#ifdef ENABLE_QT_GUI
-void IPC::applyCheatByName(const std::string& cheatName) {
-    if (m_gameSerial.empty() || m_gameVersion.empty() || m_cheatsDir.empty()) {
-        std::cerr << "IPC: Game info or cheats dir not set, cannot apply cheat\n";
-        return;
-    }
-
-    std::string cheatFile =
-        m_cheatsDir + "/" + m_gameSerial + "_" + m_gameVersion + "_default.json";
-
-    QFile file(QString::fromStdString(cheatFile));
-    if (!file.open(QIODevice::ReadOnly)) {
-        std::cerr << "IPC: Failed to open cheat mod file: " << cheatFile << "\n";
-        return;
-    }
-
-    QByteArray data = file.readAll();
-    file.close();
-
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    if (!doc.isObject()) {
-        std::cerr << "IPC: Cheat mod file JSON invalid\n";
-        return;
-    }
-
-    QJsonObject root = doc.object();
-    QJsonArray mods = root["mods"].toArray();
-
-    for (const QJsonValue& modVal : mods) {
-        QJsonObject modObj = modVal.toObject();
-        if (modObj["name"].toString().toStdString() == cheatName) {
-            QJsonArray patches = modObj["patches"].toArray();
-
-            for (const QJsonValue& patchVal : patches) {
-                QJsonObject patch = patchVal.toObject();
-
-                std::string modNameStr = cheatName;
-                std::string offsetStr = patch["offset"].toString().toStdString();
-                std::string valueStr = patch["value"].toString().toStdString();
-                std::string targetStr = "";
-                std::string sizeStr = patch["size"].toString().toStdString();
-                bool isOffset = true;
-                bool littleEndian = patch["littleEndian"].toBool();
-
-                MemoryPatcher::PatchMemory(modNameStr, offsetStr, valueStr, targetStr, sizeStr,
-                                           isOffset, littleEndian);
-            }
-            break;
-        }
-    }
-}
-#endif

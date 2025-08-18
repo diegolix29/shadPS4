@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <string>
 #include "common/singleton.h"
 
 #include <semaphore>
@@ -15,10 +14,6 @@ class IPC {
 
     std::binary_semaphore run_semaphore{0};
     std::binary_semaphore start_semaphore{0};
-
-    std::string m_gameSerial;
-    std::string m_gameVersion;
-    std::string m_cheatsDir;
 
 public:
     static IPC& Instance() {
@@ -39,18 +34,6 @@ public:
         start_semaphore.acquire();
     }
 
-    void SetGameSerial(const std::string& serial) {
-        m_gameSerial = serial;
-    }
-    void SetGameVersion(const std::string& version) {
-        m_gameVersion = version;
-    }
-    void SetCheatsDir(const std::string& cheatsDir) {
-        m_cheatsDir = cheatsDir;
-    }
-
 private:
     [[noreturn]] void InputLoop();
-
-    void applyCheatByName(const std::string& cheatName);
 };
