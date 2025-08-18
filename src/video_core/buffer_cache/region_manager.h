@@ -98,15 +98,19 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable) {
-            UpdateProtection<enable, true>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
             UpdateProtection<!enable, false>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
+            UpdateProtection<!enable, false>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
+            UpdateProtection<!enable, false>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
+            UpdateProtection<enable, true>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
+            UpdateProtection<enable, true>();
         }
-        if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
-            for (size_t page = start_page; page != end_page && !enable; ++page) {
-                ++flushes[page];
-            }
+        for (size_t page = start_page; page != end_page && !enable; ++page) {
+            ++flushes[page];
         }
     }
 
@@ -136,11 +140,16 @@ public:
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
-            } else if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable &&
-                       Config::readbackSpeed() != Config::ReadbackSpeed::Unsafe) {
-                UpdateProtection<false, true>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
+                UpdateProtection<false, false>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
+                UpdateProtection<false, false>();
             } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-                UpdateProtection<true, true>();
+                UpdateProtection<true, false>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
+                UpdateProtection<false, true>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
+                UpdateProtection<false, true>();
             }
         }
 

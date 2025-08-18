@@ -204,7 +204,31 @@ void BackupSaveFile(const std::filesystem::path& savefile_path) {
     }
 }
 
-void ApplyPendingPatches();
+void AddPatchToQueue(patchInfo patchToAdd) {
+    if (patches_applied) {
+        PatchMemory(patchToAdd.modNameStr, patchToAdd.offsetStr, patchToAdd.valueStr,
+                    patchToAdd.targetStr, patchToAdd.sizeStr, patchToAdd.isOffset,
+                    patchToAdd.littleEndian, patchToAdd.patchMask, patchToAdd.maskOffset);
+        return;
+    }
+    pending_patches.push_back(patchToAdd);
+}
+
+void ApplyPendingPatches() {
+    patches_applied = true;
+    for (size_t i = 0; i < pending_patches.size(); ++i) {
+        const patchInfo& currentPatch = pending_patches[i];
+
+        if (currentPatch.gameSerial != "*" && currentPatch.gameSerial != g_game_serial)
+            continue;
+
+        PatchMemory(currentPatch.modNameStr, currentPatch.offsetStr, currentPatch.valueStr,
+                    currentPatch.targetStr, currentPatch.sizeStr, currentPatch.isOffset,
+                    currentPatch.littleEndian, currentPatch.patchMask, currentPatch.maskOffset);
+    }
+
+    pending_patches.clear();
+}
 
 void AutoBackupThread(const std::filesystem::path& save_dir) {
     while (g_running) {
@@ -312,7 +336,9 @@ void OnGameLoaded() {
                                 continue;
 
                             std::string currentPatchName = it->attribute("Name").value();
-                            {
+
+                            for (pugi::xml_node_iterator patchLineIt = patchList.children().begin();
+                                 patchLineIt != patchList.children().end(); ++patchLineIt) {
 
                                 std::string type = patchLineIt->attribute("Type").value();
                                 std::string address = patchLineIt->attribute("Address").value();
@@ -532,32 +558,6 @@ void OnGameLoaded() {
         ApplyPendingPatches();
     }
 #endif
-}
-
-void AddPatchToQueue(patchInfo patchToAdd) {
-    if (patches_applied) {
-        PatchMemory(patchToAdd.modNameStr, patchToAdd.offsetStr, patchToAdd.valueStr,
-                    patchToAdd.targetStr, patchToAdd.sizeStr, patchToAdd.isOffset,
-                    patchToAdd.littleEndian, patchToAdd.patchMask, patchToAdd.maskOffset);
-        return;
-    }
-    pending_patches.push_back(patchToAdd);
-}
-
-void ApplyPendingPatches() {
-    patches_applied = true;
-    for (size_t i = 0; i < pending_patches.size(); ++i) {
-        const patchInfo& currentPatch = pending_patches[i];
-
-        if (currentPatch.gameSerial != "*" && currentPatch.gameSerial != g_game_serial)
-            continue;
-
-        PatchMemory(currentPatch.modNameStr, currentPatch.offsetStr, currentPatch.valueStr,
-                    currentPatch.targetStr, currentPatch.sizeStr, currentPatch.isOffset,
-                    currentPatch.littleEndian, currentPatch.patchMask, currentPatch.maskOffset);
-    }
-
-    pending_patches.clear();
 }
 
 void PatchMemory(std::string modNameStr, std::string offsetStr, std::string valueStr,
