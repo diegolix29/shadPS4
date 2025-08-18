@@ -640,12 +640,29 @@ void DrawPauseStatusWindow(bool& is_open) {
             event.type = SDL_EVENT_QUIT + 1;
             SDL_PushEvent(&event);
         }
-        if (g_MainWindow && g_MainWindow->isVisible()) {
-            ImGui::SameLine(0.0f, 10.0f);
-            if (ImGui::Button("Restart Game"))
-                g_MainWindow->RestartGame();
+
+        ImGui::SameLine(0.0f, 10.0f);
+        if (ImGui::Button("Restart Game")) {
+            g_MainWindow->RestartGame();
         }
 
+        ImGui::SameLine(0.0f, 10.0f);
+        if (ImGui::Button("Save & Restart Game")) {
+            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+            Config::setLogFilter(std::string(filter_buf));
+            Config::save(config_dir / "config.toml");
+            g_MainWindow->RestartGame();
+        }
+
+        ImGui::SameLine(0.0f, 10.0f);
+        if (ImGui::Button("Save & Restart Emulator")) {
+            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+            Config::setLogFilter(std::string(filter_buf));
+            Config::save(config_dir / "config.toml");
+            SDL_Event event{};
+            event.type = SDL_EVENT_QUIT + 1;
+            SDL_PushEvent(&event);
+        }
 #endif
 
         ImGui::SameLine(0.0f, 10.0f);
@@ -812,6 +829,7 @@ void L::Draw() {
 
 #ifdef ENABLE_QT_GUI
             Text("Press Backspace or DpadUp button to Relaunch Emulator");
+            Text("Press Space Bar or DpadDown button to Restart Game");
             if (IsKeyPressed(ImGuiKey_Backspace, false) ||
                 IsKeyPressed(ImGuiKey_GamepadDpadUp, false)) {
                 SDL_Event event;
@@ -819,14 +837,9 @@ void L::Draw() {
                 event.type = SDL_EVENT_QUIT + 1;
                 SDL_PushEvent(&event);
             }
-            if (g_MainWindow && g_MainWindow->isVisible()) {
-
-                Text("Press Space Bar or DpadDown button to Quick Restart Game");
-
-                if (IsKeyPressed(ImGuiKey_Space, false) ||
-                    IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
-                    g_MainWindow->RestartGame();
-                }
+            if (IsKeyPressed(ImGuiKey_Space, false) ||
+                IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
+                g_MainWindow->RestartGame();
             }
 #endif
             // Common input handling
