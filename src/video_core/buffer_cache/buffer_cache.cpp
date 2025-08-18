@@ -701,6 +701,16 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
                                    AllFlags | vk::BufferUsageFlagBits::eShaderDeviceAddress, size);
     }();
     auto& new_buffer = slot_buffers[new_buffer_id];
+    boost::container::small_vector<vk::DeviceAddress, 128> bda_addrs;
+    const u64 start_page = overlap.begin >> CACHING_PAGEBITS;
+    const u64 size_pages = size >> CACHING_PAGEBITS;
+    bda_addrs.reserve(size_pages);
+    for (u64 i = 0; i < size_pages; ++i) {
+        vk::DeviceAddress addr = new_buffer.BufferDeviceAddress() + (i << CACHING_PAGEBITS);
+        bda_addrs.push_back(addr);
+    }
+    WriteDataBuffer(bda_pagetable_buffer, start_page * sizeof(vk::DeviceAddress), bda_addrs.data(),
+                    bda_addrs.size() * sizeof(vk::DeviceAddress));
     const size_t size_bytes = new_buffer.SizeBytes();
     const auto cmdbuf = scheduler.CommandBuffer();
     scheduler.EndRendering();
@@ -809,10 +819,25 @@ void BufferCache::ProcessFaultBuffer() {
         .offset = 0,
         .size = FAULT_BUFFER_SIZE,
     };
+    const vk::BufferMemoryBarrier2 reset_post_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+        .buffer = fault_buffer.Handle(),
+        .offset = 0,
+        .size = FAULT_BUFFER_SIZE,
+    };
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
         .bufferMemoryBarrierCount = 1,
         .pBufferMemoryBarriers = &reset_pre_barrier,
+    });
+    cmdbuf.fillBuffer(fault_buffer.buffer, 0, FAULT_BUFFER_SIZE, 0);
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &reset_post_barrier,
     });
     cmdbuf.fillBuffer(fault_buffer.buffer, 0, FAULT_BUFFER_SIZE, 0);
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
