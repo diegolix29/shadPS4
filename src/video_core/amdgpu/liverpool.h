@@ -110,7 +110,7 @@ struct Liverpool {
                 return info;
             }
         }
-        return nullptr; 
+        return nullptr;
     }
 
     struct ShaderProgram {
@@ -145,7 +145,6 @@ struct Liverpool {
             const u32 num_dwords = bininfo->length / sizeof(u32);
             return {code, num_dwords};
         }
-
 
         [[nodiscard]] u32 NumVgprs() const {
             // Each increment allocates 4 registers, where 0 = 4 registers.
