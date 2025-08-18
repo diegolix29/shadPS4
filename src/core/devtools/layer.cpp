@@ -686,6 +686,11 @@ void L::Draw() {
     }
 
     if (IsKeyPressed(ImGuiKey_F9, false)) {
+#ifdef ENABLE_QT_GUI
+        if (g_MainWindow && g_MainWindow->isVisible()) {
+            g_MainWindow->PauseGame();
+        }
+#else
         if (io.KeyCtrl && io.KeyAlt) {
             if (!DebugState.ShouldPauseInSubmit()) {
                 DebugState.RequestFrameDump(dump_frame_count);
@@ -702,6 +707,7 @@ void L::Draw() {
             }
             visibility_toggled = true;
         }
+#endif
     }
 
     if (IsKeyPressed(ImGuiKey_F10, false)) {
@@ -730,6 +736,11 @@ void L::Draw() {
 
     if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
         if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::Options})) {
+#ifdef ENABLE_QT_GUI
+            if (g_MainWindow && g_MainWindow->isVisible()) {
+                g_MainWindow->PauseGame();
+            }
+#else
             if (DebugState.IsGuestThreadsPaused()) {
                 DebugState.ResumeGuestThreads();
                 SDL_Log("Game resumed from Controller");
@@ -739,6 +750,7 @@ void L::Draw() {
                 SDL_Log("Game paused from Controller");
                 show_pause_status = true;
             }
+#endif
             visibility_toggled = true;
         }
     }

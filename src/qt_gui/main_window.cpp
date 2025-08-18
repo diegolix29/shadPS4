@@ -1382,7 +1382,7 @@ void MainWindow::StopGame() {
 
 void MainWindow::RestartGame() {
     if (!isGameRunning) {
-        QMessageBox::information(this, tr("Stop Game"), tr("No game is currently running."));
+        QMessageBox::information(this, tr("Restart Game"), tr("No game is currently running."));
         return;
     }
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
