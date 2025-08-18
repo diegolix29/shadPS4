@@ -6,10 +6,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
-#include <QString>
-#include <QThread>
-
-#include "common/memory_patcher.h"
+#include "qt_gui/sdl_event_wrapper.h"
 #endif
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_hints.h"
@@ -30,10 +27,6 @@
 #include "input/input_mouse.h"
 #include "sdl_window.h"
 #include "video_core/renderdoc.h"
-
-#ifdef ENABLE_QT_GUI
-#include "qt_gui/sdl_event_wrapper.h"
-#endif
 
 #ifdef __APPLE__
 #include "SDL3/SDL_metal.h"
