@@ -496,16 +496,14 @@ void WindowSDL::RelaunchEmulator() {
     }
 
 #elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
-    QString emulatorPath = QCoreApplication::applicationFilePath(); // Get current executable path
-    QString emulatorDir = QFileInfo(emulatorPath).absolutePath();   // Get working directory
+    QString emulatorPath = QCoreApplication::applicationFilePath();
     QString scriptFileName = "/tmp/relaunch.sh";
 
-    // Remove quotes around %1, keep quotes around %2 for safety
+    // Use full absolute path
     QString scriptContent = QStringLiteral("#!/bin/bash\n"
                                            "sleep 2\n"
-                                           "cd '%2'\n"
-                                           "./%1 &\n")
-                                .arg(QFileInfo(emulatorPath).fileName(), emulatorDir);
+                                           "exec \"%1\" \"$@\" &\n")
+                                .arg(emulatorPath);
 
     QFile scriptFile(scriptFileName);
     if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -513,12 +511,11 @@ void WindowSDL::RelaunchEmulator() {
         out << scriptContent;
         scriptFile.close();
 
-        // Make script executable AFTER closing the file
-        bool permSet = scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner |
-                                                 QFileDevice::WriteOwner);
-        if (!permSet) {
-            qWarning() << "Failed to set execute permissions on relaunch script";
-        }
+        // Give full rwx for owner, and rx for others (safe for /tmp usage)
+        scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner |
+                                  QFileDevice::WriteOwner | QFileDevice::ExeGroup |
+                                  QFileDevice::ReadGroup | QFileDevice::ExeOther |
+                                  QFileDevice::ReadOther);
 
         bool started = QProcess::startDetached("bash", QStringList() << scriptFileName);
         if (!started) {
