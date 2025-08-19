@@ -56,7 +56,6 @@ Don't be an idiot and test only the changed part expecting everything else to no
 bool leftjoystick_halfmode = false, rightjoystick_halfmode = false;
 std::pair<int, int> leftjoystick_deadzone, rightjoystick_deadzone, lefttrigger_deadzone,
     righttrigger_deadzone;
-
 std::list<std::pair<InputEvent, bool>> pressed_keys;
 std::list<InputID> toggled_keys;
 static std::vector<BindingConnection> connections;
@@ -726,7 +725,7 @@ bool HasUserHotkeyDefined(Input::HotkeyPad hotkey) {
     return false; // no real user binding found
 }
 
-bool ControllerComboPressedOnce(
+bool ControllerPressedOnce(
     std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons) {
     static std::unordered_map<u32, bool> combo_states;
 
@@ -747,9 +746,36 @@ bool ControllerComboPressedOnce(
 
     if (currentlyPressed && !wasPressed) {
         wasPressed = true;
-        return true; // Trigger only on new press
+        return true;
     } else if (!currentlyPressed) {
-        wasPressed = false; // Reset when released
+        wasPressed = false;
+    }
+    return false;
+}
+
+bool ControllerComboPressedOnce(Libraries::Pad::OrbisPadButtonDataOffset holdButton,
+                                Libraries::Pad::OrbisPadButtonDataOffset pressButton) {
+    static std::unordered_map<u32, bool> press_states;
+
+    auto* controller = ControllerOutput::GetController();
+    if (!controller) {
+        return false;
+    }
+
+    const auto& state = controller->GetLastState();
+    u32 pressedButtons = static_cast<u32>(state.buttonsState);
+
+    bool holdDown = (pressedButtons & static_cast<u32>(holdButton)) != 0;
+    bool pressDown = (pressedButtons & static_cast<u32>(pressButton)) != 0;
+
+    u32 comboKey = (static_cast<u32>(holdButton) << 16) | static_cast<u32>(pressButton);
+    bool& wasPressed = press_states[comboKey];
+
+    if (holdDown && pressDown && !wasPressed) {
+        wasPressed = true;
+        return true;
+    } else if (!pressDown) {
+        wasPressed = false;
     }
 
     return false;

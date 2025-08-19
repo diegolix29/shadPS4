@@ -109,8 +109,10 @@ public:
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
             UpdateProtection<enable, true>();
         }
-        for (size_t page = start_page; page != end_page && !enable; ++page) {
-            ++flushes[page];
+        if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
+            for (size_t page = start_page; page != end_page && !enable; ++page) {
+                ++flushes[page];
+            }
         }
     }
 

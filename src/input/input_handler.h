@@ -463,8 +463,9 @@ void LoadHotkeyInputs();
 bool HotkeyInputsPressed(std::vector<std::string> inputs);
 std::vector<std::string> GetHotkeyInputs(Input::HotkeyPad hotkey);
 void createHotkeyFile(std::filesystem::path hotkey_file);
-bool ControllerComboPressedOnce(
-    std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons);
+bool ControllerPressedOnce(std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons);
+bool ControllerComboPressedOnce(Libraries::Pad::OrbisPadButtonDataOffset holdButton,
+                                Libraries::Pad::OrbisPadButtonDataOffset pressButton);
 bool HasUserHotkeyDefined(Input::HotkeyPad hotkey);
 
 } // namespace Input

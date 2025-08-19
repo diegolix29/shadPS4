@@ -385,11 +385,11 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
                      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
                          ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse)) {
-        ImGui::TextUnformatted("Pause/Resume the emulator with: F9 or L2+R2+Options\n"
-                               "Stop the game with: F4 or L2+L2+Share/Back/Select\n"
-                               "Toggle fullscreen: F11 or L2+R2+R3\n"
-                               "Developer Tools: Ctrl + F10 or L2+R2+Square\n"
-                               "Show FPS: F10 or L2+R2+L3\n");
+        ImGui::TextUnformatted("Pause/Resume: F9 or Hold Touchpad+Cross/A\n"
+                               "Stop: F4 or Hold Touchpad+Triangle/X\n"
+                               "Fullscreen: F11 or Hold Touchpad+R2\n"
+                               "Developer Tools: Ctrl+F10 or Hold Touchpad+Square\n"
+                               "Show FPS: F10 or Hold Touchpad+L2\n");
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -517,10 +517,8 @@ void DrawPauseStatusWindow(bool& is_open) {
         ImGuiConfigFlags_NavEnableKeyboard | ImGuiWindowFlags_NoFocusOnAppearing;
     ImGuiIO& io = ImGui::GetIO();
 
-    if (Input::ControllerComboPressedOnce({Btn::Up}) ||
-        Input::ControllerComboPressedOnce({Btn::Down}) ||
-        Input::ControllerComboPressedOnce({Btn::Left}) ||
-        Input::ControllerComboPressedOnce({Btn::Right})) {
+    if (Input::ControllerPressedOnce({Btn::Up}) || Input::ControllerPressedOnce({Btn::Down}) ||
+        Input::ControllerPressedOnce({Btn::Left}) || Input::ControllerPressedOnce({Btn::Right})) {
         should_focus = true;
     }
 
@@ -528,11 +526,11 @@ void DrawPauseStatusWindow(bool& is_open) {
         ImGui::SetWindowFocus("Pause Menu - Hotkeys");
 
     if (ImGui::Begin("Pause Menu - Hotkeys", &is_open, flags)) {
-        ImGui::TextUnformatted("Pause/Resume: F9 or L2+R2+Options\n"
-                               "Stop: F4 or L2+L2+Share/Back/Select\n"
-                               "Fullscreen: F11 or L2+R2+R3\n"
-                               "Developer Tools: Ctrl+F10 or L2+R2+Square\n"
-                               "Show FPS: F10 or L2+R2+L3\n");
+        ImGui::TextUnformatted("Pause/Resume: F9 or Hold Touchpad+Cross/A\n"
+                               "Stop: F4 or Hold Touchpad+Circle/B\n"
+                               "Fullscreen: F11 or Hold Touchpad+R2\n"
+                               "Developer Tools: Ctrl+F10 or Hold Touchpad+Square\n"
+                               "Show FPS: F10 or Hold Touchpad+L2\n");
 
         ImGui::Spacing();
         if (ImGui::Button("Return to Game")) {
@@ -720,14 +718,14 @@ void L::Draw() {
     }
 
     if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad)) {
-        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::L3})) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::L2)) {
             show_simple_fps = !show_simple_fps;
             visibility_toggled = true;
         }
     }
 
     if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::FullscreenPad)) {
-        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::R3})) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R2)) {
             SDL_Event toggleFullscreenEvent;
             toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
             SDL_PushEvent(&toggleFullscreenEvent);
@@ -735,7 +733,7 @@ void L::Draw() {
     }
 
     if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
-        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::Options})) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
 #ifdef ENABLE_QT_GUI
             if (g_MainWindow && g_MainWindow->isVisible()) {
                 g_MainWindow->PauseGame();
@@ -756,13 +754,13 @@ void L::Draw() {
     }
 
     if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad)) {
-        if (Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::TouchPad})) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
             show_quit_window = true;
         }
     }
 
     const bool show_debug_menu_combo =
-        Input::ControllerComboPressedOnce({Btn::L2, Btn::R2, Btn::Square});
+        Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Square);
 
     if (show_debug_menu_combo) {
         DebugState.IsShowingDebugMenuBar() ^= true;
