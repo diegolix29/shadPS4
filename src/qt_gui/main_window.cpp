@@ -901,11 +901,6 @@ void MainWindow::CreateConnects() {
 }
 
 void MainWindow::StartGame() {
-    if (isGameRunning) {
-        QMessageBox::critical(nullptr, tr("Run Game"), tr("Game is already running!"));
-        return;
-    }
-    BackgroundMusicPlayer::getInstance().stopMusic();
     QString gamePath = "";
     int table_mode = Config::getTableMode();
     if (table_mode == 0) {
@@ -927,27 +922,41 @@ void MainWindow::StartGame() {
             gamePath = m_elf_viewer->m_elf_list[itemID];
         }
     }
-    if (gamePath != "") {
-        AddRecentFiles(gamePath);
-        const auto path = Common::FS::PathFromQString(gamePath);
-        if (!std::filesystem::exists(path)) {
-            QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Eboot.bin file not found")));
-            return;
-        }
-        // Stop any running game first
-        if (isGameRunning) {
-            StopGame();
-        }
 
-        lastGamePath = gamePath;
-        AddRecentFiles(gamePath);
+    if (gamePath.isEmpty())
+        return;
 
-        // Launch emulator in-process
-        StartEmulator(path);
-
-        isGameRunning = true;
-        UpdateToolbarButtons();
+    const auto path = Common::FS::PathFromQString(gamePath);
+    if (!std::filesystem::exists(path)) {
+        QMessageBox::critical(this, tr("Run Game"), tr("Eboot.bin file not found"));
+        return;
     }
+
+    if (isGameRunning) {
+        QMessageBox::StandardButton reply = QMessageBox::question(
+            this, tr("Switch Game"),
+            tr("A game is already running.\nDo you want to quit it and launch a new one?"),
+            QMessageBox::Yes | QMessageBox::No);
+
+        if (reply == QMessageBox::No)
+            return;
+
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        AddRecentFiles(gamePath);
+        Config::setAutoRestartGame(true);
+        Config::save(config_dir / "config.toml");
+
+        StopGame();
+        return;
+    }
+
+    AddRecentFiles(gamePath);
+
+    StartEmulator(path);
+
+    isGameRunning = true;
+
+    UpdateToolbarButtons();
 }
 
 void MainWindow::StartGameWithPath(const QString& gamePath) {
