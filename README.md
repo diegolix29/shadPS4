@@ -2,6 +2,8 @@
 SPDX-FileCopyrightText: 2024 shadPS4 Emulator Project
 SPDX-License-Identifier: GPL-2.0-or-later
 -->
+Discord server for talking about forks. https://discord.gg/jgpqB7gUxG 
+
 This repository has three branches with extra features based on the main Shad branch. They are experimental or self-added for convenience. They all share the following Bloodborne-specific enhancements:
 
 NOTE:     BBFORK IS THE ONLY ONE THAT I WILL UPDATE FROM NOW ON, ALSO IT WILL HAVE ALL THE FEATURES INTO EXPERIMENTAL TAB. 
