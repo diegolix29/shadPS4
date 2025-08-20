@@ -490,13 +490,16 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
         buffer_id = FindBuffer(device_addr, size);
     }
     Buffer& buffer = slot_buffers[buffer_id];
-
-    const bool defer_read_protect = true;
-
+    const bool defer_read_protect =
+        Config::readbackSpeed() != Config::ReadbackSpeed::Low;
     SynchronizeBuffer(buffer, device_addr, size, is_written && !defer_read_protect,
                       is_texel_buffer);
     if (is_written) {
-        gpu_modified_ranges.Add(device_addr, size);
+        if (defer_read_protect) {
+            gpu_modified_ranges_pending.Add(device_addr, size);
+        } else {
+            gpu_modified_ranges.Add(device_addr, size);
+        }
     }
     return {&buffer, buffer.Offset(device_addr)};
 }
@@ -697,16 +700,6 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
                                    AllFlags | vk::BufferUsageFlagBits::eShaderDeviceAddress, size);
     }();
     auto& new_buffer = slot_buffers[new_buffer_id];
-    boost::container::small_vector<vk::DeviceAddress, 128> bda_addrs;
-    const u64 start_page = overlap.begin >> CACHING_PAGEBITS;
-    const u64 size_pages = size >> CACHING_PAGEBITS;
-    bda_addrs.reserve(size_pages);
-    for (u64 i = 0; i < size_pages; ++i) {
-        vk::DeviceAddress addr = new_buffer.BufferDeviceAddress() + (i << CACHING_PAGEBITS);
-        bda_addrs.push_back(addr);
-    }
-    WriteDataBuffer(bda_pagetable_buffer, start_page * sizeof(vk::DeviceAddress), bda_addrs.data(),
-                    bda_addrs.size() * sizeof(vk::DeviceAddress));
     const size_t size_bytes = new_buffer.SizeBytes();
     const auto cmdbuf = scheduler.CommandBuffer();
     scheduler.EndRendering();
@@ -719,6 +712,10 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
 }
 
 void BufferCache::ProcessPreemptiveDownloads() {
+    if (Config::readbackSpeed() == Config::ReadbackSpeed::Low ||
+        Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
+        return;
+    }
     auto* memory = Core::Memory::Instance();
     preemptive_downloads.ForEach([this, memory](VAddr, VAddr, const PreemptiveDownload& download) {
         if (!scheduler.IsFree(download.done_tick)) {
@@ -806,7 +803,6 @@ void BufferCache::ProcessFaultBuffer() {
         .offset = 0,
         .size = FAULT_BUFFER_SIZE,
     };
-
     const vk::BufferMemoryBarrier2 reset_post_barrier = {
         .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
         .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
@@ -820,12 +816,6 @@ void BufferCache::ProcessFaultBuffer() {
         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
         .bufferMemoryBarrierCount = 1,
         .pBufferMemoryBarriers = &reset_pre_barrier,
-    });
-    cmdbuf.fillBuffer(fault_buffer.buffer, 0, FAULT_BUFFER_SIZE, 0);
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = 1,
-        .pBufferMemoryBarriers = &reset_post_barrier,
     });
     cmdbuf.fillBuffer(fault_buffer.buffer, 0, FAULT_BUFFER_SIZE, 0);
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
@@ -1132,25 +1122,6 @@ void BufferCache::CommitPendingGpuRanges() {
         preemptive_copies.clear();
         scheduler.Flush();
     }
-}
-
-void BufferCache::MemoryBarrier() {
-    // Vulkan doesn't know which buffer we access in a shader if we use
-    // BufferDeviceAddress. We need a full memory barrier.
-    // For now, we only read memory using BDA. If we want to write to it,
-    // we might need to change this.
-    scheduler.EndRendering();
-    const auto cmdbuf = scheduler.CommandBuffer();
-    vk::MemoryBarrier2 barrier = {
-        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
-        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
-    };
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .memoryBarrierCount = 1,
-        .pMemoryBarriers = &barrier,
-    });
 }
 
 void BufferCache::InlineDataBuffer(Buffer& buffer, VAddr address, const void* value,

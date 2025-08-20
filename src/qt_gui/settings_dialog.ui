@@ -2399,9 +2399,9 @@
 							<![CDATA[
 <b>Hint:</b><br/>
 Disable – Disable readbacks<br/>
-Unsafe – Fast Readbacks Speed - Only this won't let you Climb Trico on TLG - If day races dosent show brighness on Driveclub reload Event<br/>
-Low – Low readbacks Speed<br/>
-Fast – Fast readbacks Speed<br/>
+Unsafe – Fast Readbacks Speed - If day races dosent show brighness on Driveclub reload Event<br/>
+Low – Low readbacks Speed (Most Accurate)<br/>
+Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub reload Event<br/>
 Default – Normal Readbacks Speed<br/>
                 ]]>
 						</string>

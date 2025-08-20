@@ -143,7 +143,7 @@ public:
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
             } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
-                UpdateProtection<false, false>();
+                UpdateProtection<true, false>();
             } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
                 UpdateProtection<false, false>();
             } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
