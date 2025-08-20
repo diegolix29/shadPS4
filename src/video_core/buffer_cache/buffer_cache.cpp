@@ -491,7 +491,10 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
     }
     Buffer& buffer = slot_buffers[buffer_id];
 
-    SynchronizeBuffer(buffer, device_addr, size, is_written, is_texel_buffer);
+    const bool defer_read_protect = true;
+
+    SynchronizeBuffer(buffer, device_addr, size, is_written && !defer_read_protect,
+                      is_texel_buffer);
     if (is_written) {
         gpu_modified_ranges.Add(device_addr, size);
     }
@@ -716,10 +719,6 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
 }
 
 void BufferCache::ProcessPreemptiveDownloads() {
-    if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable ||
-        Config::ReadbackSpeed() == Config::ReadbackSpeed::Low) {
-        return;
-    }
     auto* memory = Core::Memory::Instance();
     preemptive_downloads.ForEach([this, memory](VAddr, VAddr, const PreemptiveDownload& download) {
         if (!scheduler.IsFree(download.done_tick)) {
@@ -807,6 +806,7 @@ void BufferCache::ProcessFaultBuffer() {
         .offset = 0,
         .size = FAULT_BUFFER_SIZE,
     };
+
     const vk::BufferMemoryBarrier2 reset_post_barrier = {
         .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
         .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
@@ -820,6 +820,12 @@ void BufferCache::ProcessFaultBuffer() {
         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
         .bufferMemoryBarrierCount = 1,
         .pBufferMemoryBarriers = &reset_pre_barrier,
+    });
+    cmdbuf.fillBuffer(fault_buffer.buffer, 0, FAULT_BUFFER_SIZE, 0);
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &reset_post_barrier,
     });
     cmdbuf.fillBuffer(fault_buffer.buffer, 0, FAULT_BUFFER_SIZE, 0);
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
@@ -1126,6 +1132,25 @@ void BufferCache::CommitPendingGpuRanges() {
         preemptive_copies.clear();
         scheduler.Flush();
     }
+}
+
+void BufferCache::MemoryBarrier() {
+    // Vulkan doesn't know which buffer we access in a shader if we use
+    // BufferDeviceAddress. We need a full memory barrier.
+    // For now, we only read memory using BDA. If we want to write to it,
+    // we might need to change this.
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    vk::MemoryBarrier2 barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .memoryBarrierCount = 1,
+        .pMemoryBarriers = &barrier,
+    });
 }
 
 void BufferCache::InlineDataBuffer(Buffer& buffer, VAddr address, const void* value,
