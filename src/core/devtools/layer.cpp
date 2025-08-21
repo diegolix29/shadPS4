@@ -643,18 +643,20 @@ void DrawPauseStatusWindow(bool& is_open) {
             event.type = SDL_EVENT_QUIT + 1;
             SDL_PushEvent(&event);
         }
+        if (g_MainWindow && g_MainWindow->isVisible()) {
 
-        ImGui::SameLine(0.0f, 10.0f);
-        if (ImGui::Button("Restart Game")) {
-            g_MainWindow->RestartGame();
-        }
+            ImGui::SameLine(0.0f, 10.0f);
+            if (ImGui::Button("Restart Game")) {
+                g_MainWindow->RestartGame();
+            }
 
-        ImGui::SameLine(0.0f, 10.0f);
-        if (ImGui::Button("Save & Restart Game")) {
-            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-            Config::setLogFilter(std::string(filter_buf));
-            Config::save(config_dir / "config.toml");
-            g_MainWindow->RestartGame();
+            ImGui::SameLine(0.0f, 10.0f);
+            if (ImGui::Button("Save & Restart Game")) {
+                const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+                Config::setLogFilter(std::string(filter_buf));
+                Config::save(config_dir / "config.toml");
+                g_MainWindow->RestartGame();
+            }
         }
 
         ImGui::SameLine(0.0f, 10.0f);
@@ -709,34 +711,34 @@ void L::Draw() {
             visibility_toggled = true;
         }
 #endif
-}
-
-if (IsKeyPressed(ImGuiKey_F10, false)) {
-    if (io.KeyCtrl) {
-        DebugState.IsShowingDebugMenuBar() ^= true;
-    } else {
-        show_simple_fps = !show_simple_fps;
     }
-    visibility_toggled = true;
-}
 
-if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad)) {
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::L2)) {
-        show_simple_fps = !show_simple_fps;
+    if (IsKeyPressed(ImGuiKey_F10, false)) {
+        if (io.KeyCtrl) {
+            DebugState.IsShowingDebugMenuBar() ^= true;
+        } else {
+            show_simple_fps = !show_simple_fps;
+        }
         visibility_toggled = true;
     }
-}
 
-if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::FullscreenPad)) {
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R2)) {
-        SDL_Event toggleFullscreenEvent;
-        toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
-        SDL_PushEvent(&toggleFullscreenEvent);
+    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad)) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::L2)) {
+            show_simple_fps = !show_simple_fps;
+            visibility_toggled = true;
+        }
     }
-}
 
-if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
+    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::FullscreenPad)) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R2)) {
+            SDL_Event toggleFullscreenEvent;
+            toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
+            SDL_PushEvent(&toggleFullscreenEvent);
+        }
+    }
+
+    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
 #ifdef ENABLE_QT_GUI
             g_MainWindow->PauseGame();
 #else
@@ -750,34 +752,35 @@ if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
                 show_pause_status = true;
             }
 #endif
+            visibility_toggled = true;
+        }
+    }
+    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad)) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
+            show_quit_window = true;
+        }
+    }
+
+    const bool show_debug_menu_combo =
+        Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Square);
+
+    if (show_debug_menu_combo) {
+        DebugState.IsShowingDebugMenuBar() ^= true;
         visibility_toggled = true;
     }
-}
-if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad)) {
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
-        show_quit_window = true;
+
+    if (!DebugState.IsGuestThreadsPaused()) {
+        const auto fn = DebugState.flip_frame_count.load();
+        frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
     }
-}
 
-const bool show_debug_menu_combo = Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Square);
-
-if (show_debug_menu_combo) {
-    DebugState.IsShowingDebugMenuBar() ^= true;
-    visibility_toggled = true;
-}
-
-if (!DebugState.IsGuestThreadsPaused()) {
-    const auto fn = DebugState.flip_frame_count.load();
-    frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
-}
-
-if (show_fullscreen_tip) {
-    fullscreen_tip_timer -= io.DeltaTime;
-    if (fullscreen_tip_timer <= 0.0f) {
-        show_fullscreen_tip = false;
-    } else {
-        DrawFullscreenTipWindow(show_fullscreen_tip, fullscreen_tip_timer);
-     }
+    if (show_fullscreen_tip) {
+        fullscreen_tip_timer -= io.DeltaTime;
+        if (fullscreen_tip_timer <= 0.0f) {
+            show_fullscreen_tip = false;
+        } else {
+            DrawFullscreenTipWindow(show_fullscreen_tip, fullscreen_tip_timer);
+        }
     }
 
     static bool showPauseHelpWindow = true;

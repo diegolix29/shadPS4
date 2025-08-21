@@ -1089,8 +1089,7 @@ void MainWindow::BootGame() {
         QStringList fileNames = dialog.selectedFiles();
 
         if (fileNames.size() > 1) {
-            QMessageBox::critical(nullptr, tr("Game Boot"),
-                                  tr("Only one file can be selected!"));
+            QMessageBox::critical(nullptr, tr("Game Boot"), tr("Only one file can be selected!"));
             return;
         }
 
@@ -1098,15 +1097,13 @@ void MainWindow::BootGame() {
         std::filesystem::path path = Common::FS::PathFromQString(gamePath);
 
         if (!std::filesystem::exists(path)) {
-            QMessageBox::critical(nullptr, tr("Run Game"),
-                                  tr("Eboot.bin file not found"));
+            QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
             return;
         }
 
         StartGameWithPath(gamePath);
     }
 }
-
 
 #ifdef ENABLE_QT_GUI
 
