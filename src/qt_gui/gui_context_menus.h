@@ -2,6 +2,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+#include <filesystem>
+#include <memory>
+#include <QFileDialog>
+#include <QInputDialog>
+#include <QObject>
+#include <QProcess>
+#include <QString>
+#include <signal.h>
 
 #include <QClipboard>
 #include <QDesktopServices>
@@ -48,6 +56,13 @@ public:
 
         // Setup menu.
         QMenu menu(widget);
+        qint64 detachedGamePid = -1;
+        bool isDetachedLaunch = false;
+
+        // Boot Game Detached
+        QAction* bootGameDetached = new QAction(tr("Boot Game Detached"), widget);
+        menu.addAction(bootGameDetached);
+        menu.addSeparator();
 
         // "Open Folder..." submenu
         QMenu* openFolderMenu = new QMenu(tr("Open Folder..."), widget);
@@ -129,6 +144,56 @@ public:
         auto selected = menu.exec(global_pos);
         if (!selected) {
             return;
+        }
+
+if (selected == bootGameDetached) {
+            QString gameDir;
+            Common::FS::PathToQString(gameDir, m_games[itemID].path);
+            QDir dir(gameDir);
+
+            QStringList elfFilters = {"*.elf", "*.oelf", "*.self"};
+            QStringList binFilters = {"*.bin"};
+
+            QStringList elfFiles = dir.entryList(elfFilters, QDir::Files);
+            QStringList binFiles = dir.entryList(binFilters, QDir::Files);
+
+            QString ebootPath;
+
+            if (!elfFiles.isEmpty()) {
+                QStringList allFiles;
+                for (const auto& file : elfFiles)
+                    allFiles << dir.filePath(file);
+                for (const auto& file : binFiles)
+                    allFiles << dir.filePath(file);
+
+                bool ok = false;
+                ebootPath =
+                    QInputDialog::getItem(widget, tr("Select ELF to Boot"),
+                                          tr("Choose ELF/self/bin file:"), allFiles, 0, false, &ok);
+                if (!ok || ebootPath.isEmpty())
+                    return;
+            } else if (!binFiles.isEmpty()) {
+                ebootPath = dir.filePath(binFiles.first());
+            } else {
+                QMessageBox::information(widget, tr("Boot Game Detached"),
+                                         tr("No executable files found in this game directory."));
+                return;
+            }
+
+            if (!QFile::exists(ebootPath)) {
+                QMessageBox::critical(widget, tr("Run Game"), tr("Selected file not found!"));
+                return;
+            }
+
+            QString exePath = QCoreApplication::applicationFilePath();
+
+            qint64 detachedGamePid = -1;
+            bool started = QProcess::startDetached(exePath, QStringList() << ebootPath, QString(),
+                                                   &detachedGamePid);
+            if (!started) {
+                QMessageBox::critical(widget, tr("Run Game"), tr("Failed to start emulator."));
+                return;
+            }
         }
 
         if (selected == openGameFolder) {

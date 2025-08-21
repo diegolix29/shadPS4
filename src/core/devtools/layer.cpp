@@ -535,9 +535,14 @@ void DrawPauseStatusWindow(bool& is_open) {
         ImGui::Spacing();
         if (ImGui::Button("Return to Game")) {
             Config::setLogFilter(std::string(filter_buf));
-            DebugState.ResumeGuestThreads();
+#ifdef ENABLE_QT_GUI
+            g_MainWindow->PauseGame();
+#else
+            if (DebugState.IsGuestThreadsPaused()) {
+                DebugState.ResumeGuestThreads();
+            }
+#endif
         }
-
         ImGui::Separator();
         ImGui::TextDisabled("Tip: Use keyboard or controller shortcuts above.");
 
@@ -686,7 +691,6 @@ void L::Draw() {
     if (IsKeyPressed(ImGuiKey_F9, false)) {
 #ifdef ENABLE_QT_GUI
         g_MainWindow->PauseGame();
-    }
 #else
         if (io.KeyCtrl && io.KeyAlt) {
             if (!DebugState.ShouldPauseInSubmit()) {
@@ -734,9 +738,7 @@ if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::FullscreenPad)) {
 if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
     if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
 #ifdef ENABLE_QT_GUI
-        if (g_MainWindow && g_MainWindow->isVisible()) {
             g_MainWindow->PauseGame();
-        }
 #else
             if (DebugState.IsGuestThreadsPaused()) {
                 DebugState.ResumeGuestThreads();
@@ -751,7 +753,6 @@ if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
         visibility_toggled = true;
     }
 }
-
 if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad)) {
     if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
         show_quit_window = true;
@@ -776,96 +777,98 @@ if (show_fullscreen_tip) {
         show_fullscreen_tip = false;
     } else {
         DrawFullscreenTipWindow(show_fullscreen_tip, fullscreen_tip_timer);
+     }
     }
-}
 
-static bool showPauseHelpWindow = true;
+    static bool showPauseHelpWindow = true;
 
-if (DebugState.IsGuestThreadsPaused()) {
-    DrawPauseStatusWindow(showPauseHelpWindow);
-}
+    if (DebugState.IsGuestThreadsPaused()) {
+        DrawPauseStatusWindow(showPauseHelpWindow);
+    }
 
-if (show_simple_fps) {
-    if (Begin("Video Info", nullptr,
-              ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
-                  ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
-        // Set window position to top left if it was toggled on
-        if (visibility_toggled) {
-            SetWindowPos("Video Info", {999999.0f, 0.0f}, ImGuiCond_Always);
-            visibility_toggled = false;
-        }
-        if (BeginPopupContextWindow()) {
+    if (show_simple_fps) {
+        if (Begin("Video Info", nullptr,
+                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
+                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
+            // Set window position to top left if it was toggled on
+            if (visibility_toggled) {
+                SetWindowPos("Video Info", {999999.0f, 0.0f}, ImGuiCond_Always);
+                visibility_toggled = false;
+            }
+            if (BeginPopupContextWindow()) {
 #define M(label, value)                                                                            \
     if (MenuItem(label, nullptr, fps_scale == value))                                              \
     fps_scale = value
-            M("0.5x", 0.5f);
-            M("1.0x", 1.0f);
-            M("1.5x", 1.5f);
-            M("2.0x", 2.0f);
-            M("2.5x", 2.5f);
-            EndPopup();
+                M("0.5x", 0.5f);
+                M("1.0x", 1.0f);
+                M("1.5x", 1.5f);
+                M("2.0x", 2.0f);
+                M("2.5x", 2.5f);
+                EndPopup();
 #undef M
+            }
+            KeepWindowInside();
+            SetWindowFontScale(fps_scale);
+            DrawSimple();
         }
-        KeepWindowInside();
-        SetWindowFontScale(fps_scale);
-        DrawSimple();
+        End();
     }
-    End();
-}
 
-if (DebugState.IsShowingDebugMenuBar()) {
-    PushFont(io.Fonts->Fonts[IMGUI_FONT_MONO]);
-    PushID("DevtoolsLayer");
-    DrawAdvanced();
-    PopID();
-    PopFont();
-}
+    if (DebugState.IsShowingDebugMenuBar()) {
+        PushFont(io.Fonts->Fonts[IMGUI_FONT_MONO]);
+        PushID("DevtoolsLayer");
+        DrawAdvanced();
+        PopID();
+        PopFont();
+    }
 
-if (show_quit_window) {
-    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (show_quit_window) {
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-    if (Begin("Quit Notification", nullptr,
-              ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
-                  ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
-        SetWindowFontScale(1.5f);
-        TextCentered("Are you sure you want to quit?");
-        NewLine();
-        Text("Press Escape or Circle/B button to cancel");
-        Text("Press Enter or Cross/A button to quit");
-        NewLine();
+        if (Begin("Quit Notification", nullptr,
+                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
+                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
+            SetWindowFontScale(1.5f);
+            TextCentered("Are you sure you want to quit?");
+            NewLine();
+            Text("Press Escape or Circle/B button to cancel");
+            Text("Press Enter or Cross/A button to quit");
+            NewLine();
 
 #ifdef ENABLE_QT_GUI
-        Text("Press Backspace or DpadUp button to Relaunch Emulator");
-        Text("Press Space Bar or DpadDown button to Restart Game");
-        if (IsKeyPressed(ImGuiKey_Backspace, false) ||
-            IsKeyPressed(ImGuiKey_GamepadDpadUp, false)) {
-            SDL_Event event;
-            SDL_memset(&event, 0, sizeof(event));
-            event.type = SDL_EVENT_QUIT + 1;
-            SDL_PushEvent(&event);
-        }
-        if (IsKeyPressed(ImGuiKey_Space, false) || IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
-            g_MainWindow->RestartGame();
-        }
+            Text("Press Backspace or DpadUp button to Relaunch Emulator");
+            Text("Press Space Bar or DpadDown button to Restart Game");
+            if (IsKeyPressed(ImGuiKey_Backspace, false) ||
+                IsKeyPressed(ImGuiKey_GamepadDpadUp, false)) {
+                SDL_Event event;
+                SDL_memset(&event, 0, sizeof(event));
+                event.type = SDL_EVENT_QUIT + 1;
+                SDL_PushEvent(&event);
+            }
+            if (IsKeyPressed(ImGuiKey_Space, false) ||
+                IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
+                g_MainWindow->RestartGame();
+            }
 #endif
-        // Common input handling
-        if (IsKeyPressed(ImGuiKey_Escape, false) ||
-            IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
-            show_quit_window = false;
-        }
+            // Common input handling
+            if (IsKeyPressed(ImGuiKey_Escape, false) ||
+                IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
+                show_quit_window = false;
+            }
 
-        if (IsKeyPressed(ImGuiKey_Enter, false) || IsKeyPressed(ImGuiKey_GamepadFaceDown, false)) {
-            SDL_Event event;
-            SDL_memset(&event, 0, sizeof(event));
-            event.type = SDL_EVENT_QUIT;
-            SDL_PushEvent(&event);
+            if (IsKeyPressed(ImGuiKey_Enter, false) ||
+                IsKeyPressed(ImGuiKey_GamepadFaceDown, false)) {
+                SDL_Event event;
+                SDL_memset(&event, 0, sizeof(event));
+                event.type = SDL_EVENT_QUIT;
+                SDL_PushEvent(&event);
+            }
         }
+        End();
     }
-    End();
-}
 
-PopID();
+    PopID();
 }
 
 void L::TextCentered(const std::string& text) {

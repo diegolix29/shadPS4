@@ -292,6 +292,21 @@ void MainWindow::AddUiWidgets() {
 void MainWindow::UpdateToolbarButtons() {
     // add toolbar widgets when game is running
     bool showLabels = ui->toggleLabelsAct->isChecked();
+    if (!isGameRunning) {
+        ui->playButton->setVisible(true);
+        ui->pauseButton->setVisible(false);
+
+        if (showLabels) {
+            QLabel* playButtonLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
+            QLabel* pauseButtonLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
+            if (playButtonLabel) {
+                playButtonLabel->setText(tr("Play"));
+                playButtonLabel->setVisible(true);
+                pauseButtonLabel->setVisible(false);
+            }
+        }
+        return;
+    }
 
     ui->playButton->setVisible(false);
     ui->pauseButton->setVisible(true);
@@ -313,7 +328,6 @@ void MainWindow::UpdateToolbarButtons() {
         }
         ui->pauseButton->setToolTip(tr("Pause"));
     }
-
     if (showLabels) {
         QLabel* pauseButtonLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
         if (pauseButtonLabel) {
@@ -969,44 +983,21 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
         return;
     }
 
+    AddRecentFiles(gamePath);
+
     const auto path = Common::FS::PathFromQString(gamePath);
     if (!std::filesystem::exists(path)) {
         QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
-
         return;
     }
 
-    if (gameProcess) {
-        gameProcess->deleteLater(); // Clean up any previous instance
+    QString exePath = QCoreApplication::applicationFilePath();
+    bool started =
+        QProcess::startDetached(exePath, QStringList() << gamePath, QString(), &detachedGamePid);
+    if (!started) {
+        QMessageBox::critical(this, tr("Run Game"), tr("Failed to start emulator."));
+        return;
     }
-    gameProcess = new QProcess(this);
-    QProcess* process = gameProcess;
-    process->setProcessChannelMode(QProcess::MergedChannels);
-
-    connect(process, &QProcess::readyRead, this, [this, process]() {
-        QByteArray output = process->readAll();
-        QStringList lines = QString(output).split('\n', Qt::SkipEmptyParts);
-        for (const QString& line : lines) {
-            qDebug() << "Emulator output:" << line;
-
-            if (line.trimmed() == ";GAME_STARTED") {
-                isGameRunning = true;
-                UpdateToolbarButtons();
-            } else if (line.trimmed() == ";GAME_STOPPED") {
-                isGameRunning = false;
-                UpdateToolbarButtons();
-            }
-        }
-    });
-
-    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
-            [this, process](int /*exitCode*/, QProcess::ExitStatus /*status*/) {
-                isGameRunning = false;
-                UpdateToolbarButtons();
-                process->deleteLater();
-            });
-
-    process->start(QCoreApplication::applicationFilePath(), QStringList() << gamePath);
 
     lastGamePath = gamePath;
     isGameRunning = true;
@@ -1092,25 +1083,30 @@ void MainWindow::SaveWindowState() const {
 void MainWindow::BootGame() {
     QFileDialog dialog;
     dialog.setFileMode(QFileDialog::ExistingFile);
-    dialog.setNameFilter(tr("ELF files (*.bin *.elf *.oelf)"));
+    dialog.setNameFilter(tr("ELF files (*.bin *.elf *.oelf *.self)"));
+
     if (dialog.exec()) {
         QStringList fileNames = dialog.selectedFiles();
-        int nFiles = fileNames.size();
 
-        if (nFiles > 1) {
+        if (fileNames.size() > 1) {
             QMessageBox::critical(nullptr, tr("Game Boot"),
-                                  QString(tr("Only one file can be selected!")));
-        } else {
-            std::filesystem::path path = Common::FS::PathFromQString(fileNames[0]);
-            if (!std::filesystem::exists(path)) {
-                QMessageBox::critical(nullptr, tr("Run Game"),
-                                      QString(tr("Eboot.bin file not found")));
-                return;
-            }
-            StartEmulator(path);
+                                  tr("Only one file can be selected!"));
+            return;
         }
+
+        QString gamePath = fileNames[0];
+        std::filesystem::path path = Common::FS::PathFromQString(gamePath);
+
+        if (!std::filesystem::exists(path)) {
+            QMessageBox::critical(nullptr, tr("Run Game"),
+                                  tr("Eboot.bin file not found"));
+            return;
+        }
+
+        StartGameWithPath(gamePath);
     }
 }
+
 
 #ifdef ENABLE_QT_GUI
 
@@ -1383,10 +1379,28 @@ void MainWindow::StopGame() {
         QMessageBox::information(this, tr("Stop Game"), tr("No game is currently running."));
         return;
     }
-    SDL_Event quitEvent;
-    quitEvent.type = SDL_EVENT_QUIT + 1;
-    SDL_PushEvent(&quitEvent);
-    isGameRunning = false;
+
+    if (detachedGamePid > 0) {
+        // Kill detached process
+#ifdef Q_OS_WIN
+        QProcess::execute("taskkill", {"/PID", QString::number(detachedGamePid), "/F", "/T"});
+#else
+        ::kill(detachedGamePid, SIGKILL);
+#endif
+        detachedGamePid = -1;
+        isGameRunning = false;
+
+        QMessageBox::information(this, tr("Stop Game"), tr("Game has been stopped successfully."));
+        UpdateToolbarButtons();
+    } else {
+        // In-process stop
+        isGameRunning = false;
+        UpdateToolbarButtons();
+
+        SDL_Event quitEvent;
+        quitEvent.type = SDL_EVENT_QUIT + 1;
+        SDL_PushEvent(&quitEvent);
+    }
 }
 
 void MainWindow::RestartGame() {
@@ -1394,11 +1408,41 @@ void MainWindow::RestartGame() {
         QMessageBox::information(this, tr("Restart Game"), tr("No game is currently running."));
         return;
     }
-    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
-    Config::setAutoRestartGame(true);
-    Config::save(config_dir / "config.toml");
-    SDL_Event quitEvent;
-    quitEvent.type = SDL_EVENT_QUIT + 1;
-    SDL_PushEvent(&quitEvent);
+    if (detachedGamePid > 0) {
+        // Restart detached process
+#ifdef Q_OS_WIN
+        QProcess::execute("taskkill", {"/PID", QString::number(detachedGamePid), "/F", "/T"});
+#else
+        ::kill(detachedGamePid, SIGKILL);
+#endif
+        detachedGamePid = -1;
+        isGameRunning = false;
+
+        if (lastGamePath.isEmpty()) {
+            QMessageBox::warning(this, tr("Restart Game"), tr("No recent game found."));
+            return;
+        }
+
+        const QString exePath = QCoreApplication::applicationFilePath();
+        qint64 newPid = -1;
+        bool started =
+            QProcess::startDetached(exePath, QStringList() << lastGamePath, QString(), &newPid);
+        if (started) {
+            detachedGamePid = newPid;
+            isGameRunning = true;
+        }
+
+        UpdateToolbarButtons();
+    } else {
+        // In-process restart
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+
+        Config::setAutoRestartGame(true);
+        Config::save(config_dir / "config.toml");
+
+        SDL_Event quitEvent;
+        quitEvent.type = SDL_EVENT_QUIT + 1;
+        SDL_PushEvent(&quitEvent);
+    }
 }

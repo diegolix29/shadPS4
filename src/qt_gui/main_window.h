@@ -43,6 +43,8 @@ public:
     void StopGame();
     void RestartGame();
     std::unique_ptr<Core::Emulator> emulator;
+    qint64 detachedGamePid = -1;
+    bool isDetachedLaunch = false;
 
 #ifdef ENABLE_QT_GUI
     QString getLastEbootPath();
