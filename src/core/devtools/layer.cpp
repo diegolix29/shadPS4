@@ -685,9 +685,8 @@ void L::Draw() {
 
     if (IsKeyPressed(ImGuiKey_F9, false)) {
 #ifdef ENABLE_QT_GUI
-        if (g_MainWindow && g_MainWindow->isVisible()) {
-            g_MainWindow->PauseGame();
-        }
+        g_MainWindow->PauseGame();
+    }
 #else
         if (io.KeyCtrl && io.KeyAlt) {
             if (!DebugState.ShouldPauseInSubmit()) {
@@ -706,38 +705,38 @@ void L::Draw() {
             visibility_toggled = true;
         }
 #endif
-    }
+}
 
-    if (IsKeyPressed(ImGuiKey_F10, false)) {
-        if (io.KeyCtrl) {
-            DebugState.IsShowingDebugMenuBar() ^= true;
-        } else {
-            show_simple_fps = !show_simple_fps;
-        }
+if (IsKeyPressed(ImGuiKey_F10, false)) {
+    if (io.KeyCtrl) {
+        DebugState.IsShowingDebugMenuBar() ^= true;
+    } else {
+        show_simple_fps = !show_simple_fps;
+    }
+    visibility_toggled = true;
+}
+
+if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad)) {
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::L2)) {
+        show_simple_fps = !show_simple_fps;
         visibility_toggled = true;
     }
+}
 
-    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad)) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::L2)) {
-            show_simple_fps = !show_simple_fps;
-            visibility_toggled = true;
-        }
+if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::FullscreenPad)) {
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R2)) {
+        SDL_Event toggleFullscreenEvent;
+        toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
+        SDL_PushEvent(&toggleFullscreenEvent);
     }
+}
 
-    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::FullscreenPad)) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R2)) {
-            SDL_Event toggleFullscreenEvent;
-            toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
-            SDL_PushEvent(&toggleFullscreenEvent);
-        }
-    }
-
-    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
+if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
 #ifdef ENABLE_QT_GUI
-            if (g_MainWindow && g_MainWindow->isVisible()) {
-                g_MainWindow->PauseGame();
-            }
+        if (g_MainWindow && g_MainWindow->isVisible()) {
+            g_MainWindow->PauseGame();
+        }
 #else
             if (DebugState.IsGuestThreadsPaused()) {
                 DebugState.ResumeGuestThreads();
@@ -749,127 +748,124 @@ void L::Draw() {
                 show_pause_status = true;
             }
 #endif
-            visibility_toggled = true;
-        }
-    }
-
-    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad)) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
-            show_quit_window = true;
-        }
-    }
-
-    const bool show_debug_menu_combo =
-        Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Square);
-
-    if (show_debug_menu_combo) {
-        DebugState.IsShowingDebugMenuBar() ^= true;
         visibility_toggled = true;
     }
+}
 
-    if (!DebugState.IsGuestThreadsPaused()) {
-        const auto fn = DebugState.flip_frame_count.load();
-        frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
+if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad)) {
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
+        show_quit_window = true;
     }
+}
 
-    if (show_fullscreen_tip) {
-        fullscreen_tip_timer -= io.DeltaTime;
-        if (fullscreen_tip_timer <= 0.0f) {
-            show_fullscreen_tip = false;
-        } else {
-            DrawFullscreenTipWindow(show_fullscreen_tip, fullscreen_tip_timer);
+const bool show_debug_menu_combo = Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Square);
+
+if (show_debug_menu_combo) {
+    DebugState.IsShowingDebugMenuBar() ^= true;
+    visibility_toggled = true;
+}
+
+if (!DebugState.IsGuestThreadsPaused()) {
+    const auto fn = DebugState.flip_frame_count.load();
+    frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
+}
+
+if (show_fullscreen_tip) {
+    fullscreen_tip_timer -= io.DeltaTime;
+    if (fullscreen_tip_timer <= 0.0f) {
+        show_fullscreen_tip = false;
+    } else {
+        DrawFullscreenTipWindow(show_fullscreen_tip, fullscreen_tip_timer);
+    }
+}
+
+static bool showPauseHelpWindow = true;
+
+if (DebugState.IsGuestThreadsPaused()) {
+    DrawPauseStatusWindow(showPauseHelpWindow);
+}
+
+if (show_simple_fps) {
+    if (Begin("Video Info", nullptr,
+              ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
+                  ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
+        // Set window position to top left if it was toggled on
+        if (visibility_toggled) {
+            SetWindowPos("Video Info", {999999.0f, 0.0f}, ImGuiCond_Always);
+            visibility_toggled = false;
         }
-    }
-
-    static bool showPauseHelpWindow = true;
-
-    if (DebugState.IsGuestThreadsPaused()) {
-        DrawPauseStatusWindow(showPauseHelpWindow);
-    }
-
-    if (show_simple_fps) {
-        if (Begin("Video Info", nullptr,
-                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
-                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
-            // Set window position to top left if it was toggled on
-            if (visibility_toggled) {
-                SetWindowPos("Video Info", {999999.0f, 0.0f}, ImGuiCond_Always);
-                visibility_toggled = false;
-            }
-            if (BeginPopupContextWindow()) {
+        if (BeginPopupContextWindow()) {
 #define M(label, value)                                                                            \
     if (MenuItem(label, nullptr, fps_scale == value))                                              \
     fps_scale = value
-                M("0.5x", 0.5f);
-                M("1.0x", 1.0f);
-                M("1.5x", 1.5f);
-                M("2.0x", 2.0f);
-                M("2.5x", 2.5f);
-                EndPopup();
+            M("0.5x", 0.5f);
+            M("1.0x", 1.0f);
+            M("1.5x", 1.5f);
+            M("2.0x", 2.0f);
+            M("2.5x", 2.5f);
+            EndPopup();
 #undef M
-            }
-            KeepWindowInside();
-            SetWindowFontScale(fps_scale);
-            DrawSimple();
         }
-        End();
+        KeepWindowInside();
+        SetWindowFontScale(fps_scale);
+        DrawSimple();
     }
+    End();
+}
 
-    if (DebugState.IsShowingDebugMenuBar()) {
-        PushFont(io.Fonts->Fonts[IMGUI_FONT_MONO]);
-        PushID("DevtoolsLayer");
-        DrawAdvanced();
-        PopID();
-        PopFont();
-    }
+if (DebugState.IsShowingDebugMenuBar()) {
+    PushFont(io.Fonts->Fonts[IMGUI_FONT_MONO]);
+    PushID("DevtoolsLayer");
+    DrawAdvanced();
+    PopID();
+    PopFont();
+}
 
-    if (show_quit_window) {
-        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+if (show_quit_window) {
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-        if (Begin("Quit Notification", nullptr,
-                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
-                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
-            SetWindowFontScale(1.5f);
-            TextCentered("Are you sure you want to quit?");
-            NewLine();
-            Text("Press Escape or Circle/B button to cancel");
-            Text("Press Enter or Cross/A button to quit");
-            NewLine();
+    if (Begin("Quit Notification", nullptr,
+              ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
+                  ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
+        SetWindowFontScale(1.5f);
+        TextCentered("Are you sure you want to quit?");
+        NewLine();
+        Text("Press Escape or Circle/B button to cancel");
+        Text("Press Enter or Cross/A button to quit");
+        NewLine();
 
 #ifdef ENABLE_QT_GUI
-            Text("Press Backspace or DpadUp button to Relaunch Emulator");
-            Text("Press Space Bar or DpadDown button to Restart Game");
-            if (IsKeyPressed(ImGuiKey_Backspace, false) ||
-                IsKeyPressed(ImGuiKey_GamepadDpadUp, false)) {
-                SDL_Event event;
-                SDL_memset(&event, 0, sizeof(event));
-                event.type = SDL_EVENT_QUIT + 1;
-                SDL_PushEvent(&event);
-            }
-            if (IsKeyPressed(ImGuiKey_Space, false) ||
-                IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
-                g_MainWindow->RestartGame();
-            }
-#endif
-            // Common input handling
-            if (IsKeyPressed(ImGuiKey_Escape, false) ||
-                IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
-                show_quit_window = false;
-            }
-
-            if (IsKeyPressed(ImGuiKey_Enter, false) ||
-                IsKeyPressed(ImGuiKey_GamepadFaceDown, false)) {
-                SDL_Event event;
-                SDL_memset(&event, 0, sizeof(event));
-                event.type = SDL_EVENT_QUIT;
-                SDL_PushEvent(&event);
-            }
+        Text("Press Backspace or DpadUp button to Relaunch Emulator");
+        Text("Press Space Bar or DpadDown button to Restart Game");
+        if (IsKeyPressed(ImGuiKey_Backspace, false) ||
+            IsKeyPressed(ImGuiKey_GamepadDpadUp, false)) {
+            SDL_Event event;
+            SDL_memset(&event, 0, sizeof(event));
+            event.type = SDL_EVENT_QUIT + 1;
+            SDL_PushEvent(&event);
         }
-        End();
-    }
+        if (IsKeyPressed(ImGuiKey_Space, false) || IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
+            g_MainWindow->RestartGame();
+        }
+#endif
+        // Common input handling
+        if (IsKeyPressed(ImGuiKey_Escape, false) ||
+            IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
+            show_quit_window = false;
+        }
 
-    PopID();
+        if (IsKeyPressed(ImGuiKey_Enter, false) || IsKeyPressed(ImGuiKey_GamepadFaceDown, false)) {
+            SDL_Event event;
+            SDL_memset(&event, 0, sizeof(event));
+            event.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&event);
+        }
+    }
+    End();
+}
+
+PopID();
 }
 
 void L::TextCentered(const std::string& text) {
