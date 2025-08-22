@@ -146,7 +146,7 @@ public:
             return;
         }
 
-if (selected == bootGameDetached) {
+        if (selected == bootGameDetached) {
             QString gameDir;
             Common::FS::PathToQString(gameDir, m_games[itemID].path);
             QDir dir(gameDir);
