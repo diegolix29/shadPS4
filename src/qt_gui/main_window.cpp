@@ -916,26 +916,60 @@ void MainWindow::CreateConnects() {
 
 void MainWindow::StartGame() {
     QString gamePath = "";
+    std::filesystem::path file;
     int table_mode = Config::getTableMode();
-    if (table_mode == 0) {
-        if (m_game_list_frame->currentItem()) {
-            int itemID = m_game_list_frame->currentItem()->row();
-            Common::FS::PathToQString(gamePath, m_game_info->m_games[itemID].path / "eboot.bin");
-            runningGameSerial = m_game_info->m_games[itemID].serial;
-        }
-    } else if (table_mode == 1) {
-        if (m_game_grid_frame->cellClicked) {
-            int itemID = (m_game_grid_frame->crtRow * m_game_grid_frame->columnCnt) +
-                         m_game_grid_frame->crtColumn;
-            Common::FS::PathToQString(gamePath, m_game_info->m_games[itemID].path / "eboot.bin");
-            runningGameSerial = m_game_info->m_games[itemID].serial;
-        }
-    } else {
-        if (m_elf_viewer->currentItem()) {
-            int itemID = m_elf_viewer->currentItem()->row();
-            gamePath = m_elf_viewer->m_elf_list[itemID];
+
+    if (table_mode == 0 && m_game_list_frame->currentItem()) {
+        int itemID = m_game_list_frame->currentItem()->row();
+        file = m_game_info->m_games[itemID].path;
+        runningGameSerial = m_game_info->m_games[itemID].serial;
+    } else if (table_mode == 1 && m_game_grid_frame->cellClicked) {
+        int itemID = (m_game_grid_frame->crtRow * m_game_grid_frame->columnCnt) +
+                     m_game_grid_frame->crtColumn;
+        file = m_game_info->m_games[itemID].path;
+        runningGameSerial = m_game_info->m_games[itemID].serial;
+    } else if (m_elf_viewer->currentItem()) {
+        int itemID = m_elf_viewer->currentItem()->row();
+        gamePath = m_elf_viewer->m_elf_list[itemID];
+    }
+
+    if (file.empty() && gamePath.isEmpty())
+        return;
+
+    bool ignorePatches = false;
+
+    if (!file.empty()) {
+        auto game_folder_name = file.filename().string();
+        auto base_folder = file;
+        auto update_folder = base_folder.parent_path() / (game_folder_name + "-UPDATE");
+
+        if (std::filesystem::is_directory(update_folder)) {
+            QMessageBox msgBox;
+            msgBox.setWindowTitle(tr("Choose Game Version"));
+            msgBox.setText(tr("An updated/patched version of this game was detected.\n"
+                              "Do you want to boot the base game or the updated one?"));
+
+            QPushButton* baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
+            QPushButton* updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
+            QPushButton* cancelBtn = msgBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
+
+            msgBox.setDefaultButton(updateBtn);
+            msgBox.exec();
+
+            QAbstractButton* clicked = msgBox.clickedButton();
+            if (clicked == baseBtn) {
+                file /= "eboot.bin";
+                ignorePatches = true;
+            } else if (clicked == updateBtn) {
+                file = update_folder / "eboot.bin";
+            } else {
+                return;
+            }
         }
     }
+
+    if (gamePath.isEmpty())
+        Common::FS::PathToQString(gamePath, file);
 
     if (gamePath.isEmpty())
         return;
@@ -961,15 +995,19 @@ void MainWindow::StartGame() {
         Config::save(config_dir / "config.toml");
 
         StopGame();
-        return;
     }
 
     AddRecentFiles(gamePath);
 
-    StartEmulator(path);
+    if (ignorePatches) {
+        Core::FileSys::MntPoints::ignore_game_patches = true;
+        StartEmulator(path);
+        Core::FileSys::MntPoints::ignore_game_patches = false;
+    } else {
+        StartEmulator(path);
+    }
 
     isGameRunning = true;
-
     UpdateToolbarButtons();
 }
 
