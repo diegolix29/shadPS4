@@ -2375,12 +2375,12 @@
 					</item>
 					<item>
 						<property name="text">
-							<string>Fast</string>
+							<string>Default</string>
 						</property>
 					</item>
 					<item>
 						<property name="text">
-							<string>Default</string>
+							<string>Fast</string>
 						</property>
 					</item>
 				</widget>

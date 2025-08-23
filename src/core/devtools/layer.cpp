@@ -620,7 +620,7 @@ void DrawPauseStatusWindow(bool& is_open) {
                              })) {
             Config::setLogFilter(std::string(filter_buf));
         }
-        static const char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low", "Fast", "Default"};
+        static const char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low", "Default", "Fast"};
         int readbackAccIndex = (int)Config::readbackSpeed();
         if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
                          IM_ARRAYSIZE(readbackAccuracyStrs)))

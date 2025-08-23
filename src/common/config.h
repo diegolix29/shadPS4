@@ -24,8 +24,8 @@ enum class ReadbackSpeed : u32 {
     Disable,
     Unsafe,
     Low,
-    Fast,
     Default,
+    Fast,
 };
 
 void load(const std::filesystem::path& path);
