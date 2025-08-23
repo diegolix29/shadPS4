@@ -950,7 +950,6 @@ void MainWindow::StartGame() {
         if (hasUpdate || hasMods) {
             QMessageBox msgBox;
 
-            // Frameless & no X button
             msgBox.setWindowFlag(Qt::WindowCloseButtonHint, false);
             QPushButton* baseBtn = nullptr;
             QPushButton* updateBtn = nullptr;
@@ -963,7 +962,7 @@ void MainWindow::StartGame() {
                 baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
                 updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
                 msgBox.setDefaultButton(updateBtn);
-                msgBox.setStandardButtons(QMessageBox::Cancel); // native Cancel
+                msgBox.setStandardButtons(QMessageBox::Cancel);
             } else if (!hasUpdate && hasMods) {
                 msgBox.setWindowTitle(tr("Mods Detected"));
                 msgBox.setText(tr("Mods detected, do you want to enable them?"));
@@ -971,7 +970,7 @@ void MainWindow::StartGame() {
                 yesBtn = msgBox.addButton(tr("Yes"), QMessageBox::AcceptRole);
                 noBtn = msgBox.addButton(tr("No"), QMessageBox::RejectRole);
                 msgBox.setDefaultButton(yesBtn);
-                msgBox.setStandardButtons(QMessageBox::Cancel); // native Cancel
+                msgBox.setStandardButtons(QMessageBox::Cancel); 
             } else if (hasUpdate && hasMods) {
                 msgBox.setWindowTitle(tr("Game Update Detected"));
                 msgBox.setText(tr("Game update detected, select to boot base game or update"));
@@ -983,33 +982,37 @@ void MainWindow::StartGame() {
                 QCheckBox* modsCheck = new QCheckBox(tr("Enable MODS"), &msgBox);
                 modsCheck->setChecked(true);
                 msgBox.setCheckBox(modsCheck);
-                msgBox.setStandardButtons(QMessageBox::Cancel); // native Cancel
+                msgBox.setStandardButtons(QMessageBox::Cancel); 
             }
 
             msgBox.exec();
 
             QAbstractButton* clicked = msgBox.clickedButton();
             if (hasUpdate && !hasMods) {
-                if (clicked == baseBtn)
+                if (clicked == baseBtn) {
                     file = base_folder / "eboot.bin";
-                else if (clicked == updateBtn)
+                    ignorePatches = true;
+                } else if (clicked == updateBtn) {
                     file = update_folder / "eboot.bin";
-                else
-                    return; // Cancel pressed
+                } else {
+                    return;
+                }
             } else if (!hasUpdate && hasMods) {
                 if (clicked == yesBtn)
                     Core::FileSys::MntPoints::enable_mods = true;
                 else if (clicked == noBtn)
                     Core::FileSys::MntPoints::enable_mods = false;
                 else
-                    return; // Cancel pressed
+                    return;
             } else if (hasUpdate && hasMods) {
-                if (clicked == baseBtn)
+                if (clicked == baseBtn) {
                     file = base_folder / "eboot.bin";
-                else if (clicked == updateBtn)
+                    ignorePatches = true;
+                } else if (clicked == updateBtn) {
                     file = update_folder / "eboot.bin";
-                else
-                    return; // Cancel pressed
+                } else {
+                    return;
+                }
 
                 Core::FileSys::MntPoints::enable_mods = msgBox.checkBox()->isChecked();
             }
