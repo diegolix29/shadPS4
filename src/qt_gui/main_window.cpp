@@ -942,28 +942,76 @@ void MainWindow::StartGame() {
         auto game_folder_name = file.filename().string();
         auto base_folder = file;
         auto update_folder = base_folder.parent_path() / (game_folder_name + "-UPDATE");
+        auto mods_folder = base_folder.parent_path() / (game_folder_name + "-MODS");
 
-        if (std::filesystem::is_directory(update_folder)) {
+        bool hasUpdate = std::filesystem::is_directory(update_folder);
+        bool hasMods = std::filesystem::exists(mods_folder);
+
+        if (hasUpdate || hasMods) {
             QMessageBox msgBox;
-            msgBox.setWindowTitle(tr("Choose Game Version"));
-            msgBox.setText(tr("An updated/patched version of this game was detected.\n"
-                              "Do you want to boot the base game or the updated one?"));
 
-            QPushButton* baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
-            QPushButton* updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
-            QPushButton* cancelBtn = msgBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
+            // Frameless & no X button
+            msgBox.setWindowFlag(Qt::WindowCloseButtonHint, false);
+            QPushButton* baseBtn = nullptr;
+            QPushButton* updateBtn = nullptr;
+            QPushButton* yesBtn = nullptr;
+            QPushButton* noBtn = nullptr;
 
-            msgBox.setDefaultButton(updateBtn);
+            if (hasUpdate && !hasMods) {
+                msgBox.setWindowTitle(tr("Game Update Detected"));
+                msgBox.setText(tr("Game update detected, select to boot base game or update"));
+                baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
+                updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
+                msgBox.setDefaultButton(updateBtn);
+                msgBox.setStandardButtons(QMessageBox::Cancel); // native Cancel
+            } else if (!hasUpdate && hasMods) {
+                msgBox.setWindowTitle(tr("Mods Detected"));
+                msgBox.setText(tr("Mods detected, do you want to enable them?"));
+
+                yesBtn = msgBox.addButton(tr("Yes"), QMessageBox::AcceptRole);
+                noBtn = msgBox.addButton(tr("No"), QMessageBox::RejectRole);
+                msgBox.setDefaultButton(yesBtn);
+                msgBox.setStandardButtons(QMessageBox::Cancel); // native Cancel
+            } else if (hasUpdate && hasMods) {
+                msgBox.setWindowTitle(tr("Game Update Detected"));
+                msgBox.setText(tr("Game update detected, select to boot base game or update"));
+
+                baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
+                updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
+                msgBox.setDefaultButton(updateBtn);
+
+                QCheckBox* modsCheck = new QCheckBox(tr("Enable MODS"), &msgBox);
+                modsCheck->setChecked(true);
+                msgBox.setCheckBox(modsCheck);
+                msgBox.setStandardButtons(QMessageBox::Cancel); // native Cancel
+            }
+
             msgBox.exec();
 
             QAbstractButton* clicked = msgBox.clickedButton();
-            if (clicked == baseBtn) {
-                file /= "eboot.bin";
-                ignorePatches = true;
-            } else if (clicked == updateBtn) {
-                file = update_folder / "eboot.bin";
-            } else {
-                return;
+            if (hasUpdate && !hasMods) {
+                if (clicked == baseBtn)
+                    file = base_folder / "eboot.bin";
+                else if (clicked == updateBtn)
+                    file = update_folder / "eboot.bin";
+                else
+                    return; // Cancel pressed
+            } else if (!hasUpdate && hasMods) {
+                if (clicked == yesBtn)
+                    Core::FileSys::MntPoints::enable_mods = true;
+                else if (clicked == noBtn)
+                    Core::FileSys::MntPoints::enable_mods = false;
+                else
+                    return; // Cancel pressed
+            } else if (hasUpdate && hasMods) {
+                if (clicked == baseBtn)
+                    file = base_folder / "eboot.bin";
+                else if (clicked == updateBtn)
+                    file = update_folder / "eboot.bin";
+                else
+                    return; // Cancel pressed
+
+                Core::FileSys::MntPoints::enable_mods = msgBox.checkBox()->isChecked();
             }
         }
     }

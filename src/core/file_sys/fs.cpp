@@ -11,6 +11,7 @@
 namespace Core::FileSys {
 
 bool MntPoints::ignore_game_patches = false;
+bool MntPoints::enable_mods = true;
 
 std::string RemoveTrailingSlashes(const std::string& path) {
     // Remove trailing slashes to make comparisons simpler.
@@ -44,7 +45,6 @@ void MntPoints::UnmountAll() {
 
 std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_read_only,
                                              bool force_base_path) {
-    // Evil games like Turok2 pass double slashes e.g /app0//game.kpf
     std::string corrected_path(path);
     size_t pos = corrected_path.find("//");
     while (pos != std::string::npos) {
@@ -53,39 +53,42 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
     }
 
     const MntPair* mount = GetMount(corrected_path);
-    if (!mount) {
+    if (!mount)
         return "";
-    }
 
-    if (is_read_only) {
+    if (is_read_only)
         *is_read_only = mount->read_only;
-    }
 
-    // Nothing to do if getting the mount itself.
     const auto corrected_path_sanitized = RemoveTrailingSlashes(corrected_path);
-    if (corrected_path_sanitized == mount->mount) {
+    if (corrected_path_sanitized == mount->mount)
         return mount->host_path;
-    }
 
-    // Remove device (e.g /app0) from path to retrieve relative path.
     const auto rel_path = std::string_view{corrected_path}.substr(mount->mount.size() + 1);
     std::filesystem::path host_path = mount->host_path / rel_path;
+
+    // Compute overlay folders
+    std::filesystem::path update_path = mount->host_path;
+    update_path += "-UPDATE";
+    update_path /= rel_path;
     std::filesystem::path patch_path = mount->host_path;
-    patch_path += "-UPDATE";
-    if (!std::filesystem::exists(patch_path)) {
-        patch_path = mount->host_path;
-        patch_path += "-patch";
-    }
+    patch_path += "-patch";
     patch_path /= rel_path;
+    std::filesystem::path mods_path = mount->host_path;
+    mods_path += "-MODS";
+    mods_path /= rel_path;
 
-    if ((corrected_path.starts_with("/app0") || corrected_path.starts_with("/hostapp")) &&
-        !force_base_path && !ignore_game_patches && std::filesystem::exists(patch_path)) {
-        return patch_path;
+    // Priority: MODS > PATCH > UPDATE > BASE
+    if (!force_base_path && !ignore_game_patches) {
+        if (enable_mods && std::filesystem::exists(mods_path))
+            return mods_path;
+        if (std::filesystem::exists(patch_path))
+            return patch_path;
+        if (std::filesystem::exists(update_path))
+            return update_path;
     }
 
-    if (!NeedsCaseInsensitiveSearch) {
+    if (!NeedsCaseInsensitiveSearch)
         return host_path;
-    }
 
     const auto search = [&](const auto host_path) {
         // If the path does not exist attempt to verify this.
