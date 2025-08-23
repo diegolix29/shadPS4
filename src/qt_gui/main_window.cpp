@@ -970,7 +970,7 @@ void MainWindow::StartGame() {
                 yesBtn = msgBox.addButton(tr("Yes"), QMessageBox::AcceptRole);
                 noBtn = msgBox.addButton(tr("No"), QMessageBox::RejectRole);
                 msgBox.setDefaultButton(yesBtn);
-                msgBox.setStandardButtons(QMessageBox::Cancel); 
+                msgBox.setStandardButtons(QMessageBox::Cancel);
             } else if (hasUpdate && hasMods) {
                 msgBox.setWindowTitle(tr("Game Update Detected"));
                 msgBox.setText(tr("Game update detected, select to boot base game or update"));
@@ -982,7 +982,7 @@ void MainWindow::StartGame() {
                 QCheckBox* modsCheck = new QCheckBox(tr("Enable MODS"), &msgBox);
                 modsCheck->setChecked(true);
                 msgBox.setCheckBox(modsCheck);
-                msgBox.setStandardButtons(QMessageBox::Cancel); 
+                msgBox.setStandardButtons(QMessageBox::Cancel);
             }
 
             msgBox.exec();
