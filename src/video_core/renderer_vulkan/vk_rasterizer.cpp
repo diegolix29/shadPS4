@@ -1098,6 +1098,7 @@ void Rasterizer::UpdateDynamicState(const GraphicsPipeline& pipeline) const {
 
     auto& dynamic_state = scheduler.GetDynamicState();
     dynamic_state.SetBlendConstants(liverpool->regs.blend_constants);
+    dynamic_state.SetColorWriteMasks(pipeline.GetWriteMasks());
 
     // Commit new dynamic state to the command buffer.
     dynamic_state.Commit(instance, scheduler.CommandBuffer());
