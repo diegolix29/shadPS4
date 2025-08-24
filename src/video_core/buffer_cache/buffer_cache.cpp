@@ -490,9 +490,8 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
         buffer_id = FindBuffer(device_addr, size);
     }
     Buffer& buffer = slot_buffers[buffer_id];
-
-    const bool defer_read_protect = true;
-
+    const bool defer_read_protect = Config::readbackSpeed() != Config::ReadbackSpeed::Low ||
+                                    Config::readbackSpeed() == Config::ReadbackSpeed::Disable;
     SynchronizeBuffer(buffer, device_addr, size, is_written && !defer_read_protect,
                       is_texel_buffer);
     if (is_written) {
@@ -713,6 +712,10 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
 }
 
 void BufferCache::ProcessPreemptiveDownloads() {
+    if (Config::readbackSpeed() == Config::ReadbackSpeed::Low ||
+        Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
+        return;
+    }
     auto* memory = Core::Memory::Instance();
     preemptive_downloads.ForEach([this, memory](VAddr, VAddr, const PreemptiveDownload& download) {
         if (!scheduler.IsFree(download.done_tick)) {

@@ -242,9 +242,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             UNREACHABLE_MSG("Wrong PM4 type {}", type);
             break;
         case 0:
-            LOG_ERROR(Lib_GnmDriver, "Continue hack Unsupported PM4 type 0");
-            dcb = NextPacket(dcb, header->type0.NumWords() + 1);
-            continue;
+            UNREACHABLE_MSG("Unimplemented PM4 type 0, base reg: {}, size: {}",
+                            header->type0.base.Value(), header->type0.NumWords());
+            break;
         case 2:
             // Type-2 packet are used for padding purposes
             dcb = NextPacket(dcb, 1);
@@ -697,11 +697,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             case PM4ItOpcode::CopyData: {
                 const auto* copy_data = reinterpret_cast<const PM4CmdCopyData*>(header);
                 LOG_DEBUG(Render,
-                          "unhandled IT_COPY_DATA src_sel = {}, dst_sel = {}, "
-                          "count_sel = {}, wr_confirm = {}, engine_sel = {}",
-                          u32(copy_data->src_sel.Value()), u32(copy_data->dst_sel.Value()),
-                          copy_data->count_sel.Value(), copy_data->wr_confirm.Value(),
-                          u32(copy_data->engine_sel.Value()));
+                            "unhandled IT_COPY_DATA src_sel = {}, dst_sel = {}, "
+                            "count_sel = {}, wr_confirm = {}, engine_sel = {}",
+                            u32(copy_data->src_sel.Value()), u32(copy_data->dst_sel.Value()),
+                            copy_data->count_sel.Value(), copy_data->wr_confirm.Value(),
+                            u32(copy_data->engine_sel.Value()));
                 break;
             }
             case PM4ItOpcode::MemSemaphore: {
@@ -780,11 +780,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             case PM4ItOpcode::StrmoutBufferUpdate: {
                 const auto* strmout = reinterpret_cast<const PM4CmdStrmoutBufferUpdate*>(header);
                 LOG_DEBUG(Render_Vulkan,
-                          "Unimplemented IT_STRMOUT_BUFFER_UPDATE, update_memory = {}, "
-                          "source_select = {}, buffer_select = {}",
-                          strmout->update_memory.Value(),
-                          magic_enum::enum_name(strmout->source_select.Value()),
-                          strmout->buffer_select.Value());
+                            "Unimplemented IT_STRMOUT_BUFFER_UPDATE, update_memory = {}, "
+                            "source_select = {}, buffer_select = {}",
+                            strmout->update_memory.Value(),
+                            magic_enum::enum_name(strmout->source_select.Value()),
+                            strmout->buffer_select.Value());
                 break;
             }
             case PM4ItOpcode::GetLodStats: {
@@ -986,7 +986,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
         }
         case PM4ItOpcode::SetQueueReg: {
             const auto* set_data = reinterpret_cast<const PM4CmdSetQueueReg*>(header);
-            LOG_WARNING(Render, "Encountered compute SetQueueReg: vqid = {}, reg_offset = {:#x}",
+            LOG_DEBUG(Render, "Encountered compute SetQueueReg: vqid = {}, reg_offset = {:#x}",
                         set_data->vqid.Value(), set_data->reg_offset.Value());
             break;
         }

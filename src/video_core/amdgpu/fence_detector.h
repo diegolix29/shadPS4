@@ -31,17 +31,18 @@ private:
     }
 
     void DetectFences(std::span<const u32> cmd) {
+        if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
+            return;
+        }
         while (!cmd.empty()) {
             const auto* header = reinterpret_cast<const PM4Header*>(cmd.data());
             const u32 type = header->type;
 
             switch (type) {
             default:
-                return;
+                UNREACHABLE_MSG("Wrong PM4 type {}", type);
             case 0:
-                LOG_ERROR(Lib_GnmDriver, "Continue hack Unsupported PM4 type 0");
-                cmd = NextPacket(cmd, header->type0.NumWords() + 1);
-                continue;
+                return;
             case 2:
                 cmd = NextPacket(cmd, 1);
                 break;
@@ -83,7 +84,7 @@ private:
                 }
                 case PM4ItOpcode::WriteData: {
                     const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
-                    // ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
+                    ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
                     const u32 data_size = (header->type3.count.Value() - 2) * 4;
                     if (data_size <= sizeof(u64) && write_data->wr_confirm) {
                         u64 value{};

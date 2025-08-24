@@ -501,7 +501,7 @@ struct Liverpool {
         }
 
         size_t GetDepthSliceSize() const {
-            // ASSERT(z_info.format != ZFormat::Invalid);
+            ASSERT(z_info.format != ZFormat::Invalid);
             const auto bpe = NumBits() >> 3; // in bytes
             return (depth_slice.tile_max + 1) * 64 * bpe * NumSamples();
         }
@@ -797,7 +797,6 @@ struct Liverpool {
             ReverseSubtract = 4,
         };
 
-        u32 raw;
         BitField<0, 5, BlendFactor> color_src_factor;
         BitField<5, 3, BlendFunc> color_func;
         BitField<8, 5, BlendFactor> color_dst_factor;
@@ -807,10 +806,6 @@ struct Liverpool {
         BitField<29, 1, u32> separate_alpha_blend;
         BitField<30, 1, u32> enable;
         BitField<31, 1, u32> disable_rop3;
-
-        bool operator==(const BlendControl& other) const {
-            return raw == other.raw;
-        }
     };
 
     union ColorControl {
@@ -927,7 +922,7 @@ struct Liverpool {
         INSERT_PADDING_WORDS(2);
 
         operator bool() const {
-            return base_address && info.format != DataFormat::FormatInvalid;
+            return info.format != DataFormat::FormatInvalid;
         }
 
         u32 Pitch() const {
