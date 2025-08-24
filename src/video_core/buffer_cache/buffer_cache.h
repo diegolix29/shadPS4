@@ -174,9 +174,6 @@ public:
     /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
     void CommitPendingGpuRanges();
 
-    /// Record memory barrier. Used for buffers when accessed via BDA.
-    void MemoryBarrier();
-
 private:
     template <typename Func>
     void ForEachBufferInRange(VAddr device_addr, u64 size, Func&& func) {
