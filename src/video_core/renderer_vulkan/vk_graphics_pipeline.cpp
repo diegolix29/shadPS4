@@ -167,9 +167,6 @@ GraphicsPipeline::GraphicsPipeline(
         dynamic_states.push_back(vk::DynamicState::eDepthBoundsTestEnable);
         dynamic_states.push_back(vk::DynamicState::eDepthBounds);
     }
-    if (instance.IsDynamicColorWriteMaskSupported()) {
-        dynamic_states.push_back(vk::DynamicState::eColorWriteMaskEXT);
-    }
     if (instance.IsVertexInputDynamicState()) {
         dynamic_states.push_back(vk::DynamicState::eVertexInputEXT);
     } else if (!vertex_bindings.empty()) {
@@ -290,11 +287,7 @@ GraphicsPipeline::GraphicsPipeline(
             .alphaBlendOp = control.separate_alpha_blend
                                 ? LiverpoolToVK::BlendOp(control.alpha_func)
                                 : color_blend,
-            .colorWriteMask =
-                instance.IsDynamicColorWriteMaskSupported()
-                    ? vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-                          vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-                    : key.write_masks[i],
+            .colorWriteMask = vk::ColorComponentFlags{key.write_masks[i]},
         };
 
         // On GCN GPU there is an additional mask which allows to control color components exported
