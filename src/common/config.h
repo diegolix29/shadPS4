@@ -267,6 +267,8 @@ std::string getEmulatorLanguage();
 
 bool getAutoRestartGame();
 void setAutoRestartGame(bool enable);
+bool getRestartWithBaseGame();
+void setRestartWithBaseGame(bool enable);
 
 void setDefaultValues();
 

@@ -66,6 +66,7 @@ static bool compatibilityData = false;
 static bool checkCompatibilityOnStartup = false;
 static bool isConnectedToNetwork = false;
 static bool autoRestartGame = false;
+static bool restartWithBaseGame = false;
 
 // Input
 static int cursorState = HideCursorState::Idle;
@@ -201,6 +202,13 @@ bool getAutoRestartGame() {
 
 void setAutoRestartGame(bool enable) {
     autoRestartGame = enable;
+}
+
+bool getRestartWithBaseGame() {
+    return restartWithBaseGame;
+}
+void setRestartWithBaseGame(bool enable) {
+    restartWithBaseGame = enable;
 }
 
 std::string getTrophyKey() {
@@ -973,6 +981,7 @@ void load(const std::filesystem::path& path) {
         const toml::value& general = data.at("General");
         enableAutoBackup = toml::find_or<bool>(general, "enableAutoBackup", false);
         autoRestartGame = toml::find_or<bool>(general, "autoRestartGame", false);
+        restartWithBaseGame = toml::find_or<bool>(general, "restartWithBaseGame", false);
         isNeo = toml::find_or<bool>(general, "isPS4Pro", false);
         isDevKit = toml::find_or<bool>(general, "isDevKit", false);
         isPSNSignedIn = toml::find_or<bool>(general, "isPSNSignedIn", false);
@@ -1287,6 +1296,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["allowHDR"] = isHDRAllowed;
     data["General"]["enableAutoBackup"] = enableAutoBackup;
     data["General"]["autoRestartGame"] = autoRestartGame;
+    data["General"]["restartWithBaseGame"] = restartWithBaseGame;
     data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled;
     data["GPU"]["memoryAlloc"] = memoryAlloc;
     data["Vulkan"]["gpuId"] = gpuId;
@@ -1434,6 +1444,7 @@ void setDefaultValues() {
     checkCompatibilityOnStartup = false;
     isConnectedToNetwork = false;
     autoRestartGame = false;
+    restartWithBaseGame = false;
 
     // Input
     cursorState = HideCursorState::Idle;

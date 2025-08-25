@@ -95,20 +95,33 @@ bool MainWindow::Init() {
 
     if (Config::getAutoRestartGame()) {
         int argc = QCoreApplication::arguments().size();
+        std::string gamePath;
+
         if (argc > 1) {
             QString lastGameArg = QCoreApplication::arguments().at(1);
             if (!lastGameArg.isEmpty() && std::filesystem::exists(lastGameArg.toStdString())) {
-                StartEmulator(lastGameArg.toStdString());
+                gamePath = lastGameArg.toStdString();
             }
         } else {
             std::vector<std::string> recents = Config::getRecentFiles();
             if (!recents.empty() && std::filesystem::exists(recents[0])) {
-                StartEmulator(recents[0]);
+                gamePath = recents[0];
             }
         }
+
+        if (!gamePath.empty()) {
+            if (Config::getRestartWithBaseGame()) {
+                Core::FileSys::MntPoints::ignore_game_patches = true;
+                StartEmulator(gamePath);
+                Core::FileSys::MntPoints::ignore_game_patches = false;
+
+            } else {
+                StartEmulator(gamePath);
+            }
+        }
+
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
-        // Reset flag after use
         Config::setAutoRestartGame(false);
         Config::save(config_dir / "config.toml");
     }
@@ -986,13 +999,18 @@ void MainWindow::StartGame() {
             }
 
             msgBox.exec();
+            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
             QAbstractButton* clicked = msgBox.clickedButton();
             if (hasUpdate && !hasMods) {
                 if (clicked == baseBtn) {
+                    Config::setRestartWithBaseGame(true);
+                    Config::save(config_dir / "config.toml");
                     file = base_folder / "eboot.bin";
                     ignorePatches = true;
                 } else if (clicked == updateBtn) {
+                    Config::setRestartWithBaseGame(false);
+                    Config::save(config_dir / "config.toml");
                     file = update_folder / "eboot.bin";
                 } else {
                     return;
@@ -1006,9 +1024,13 @@ void MainWindow::StartGame() {
                     return;
             } else if (hasUpdate && hasMods) {
                 if (clicked == baseBtn) {
+                    Config::setRestartWithBaseGame(true);
+                    Config::save(config_dir / "config.toml");
                     file = base_folder / "eboot.bin";
                     ignorePatches = true;
                 } else if (clicked == updateBtn) {
+                    Config::setRestartWithBaseGame(false);
+                    Config::save(config_dir / "config.toml");
                     file = update_folder / "eboot.bin";
                 } else {
                     return;
