@@ -165,7 +165,7 @@ public:
     /// Synchronizes all buffers in the specified range.
     void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
 
-    /// Synchronizes all buffers neede for DMA.
+    /// Synchronizes all buffers needed for DMA.
     void SynchronizeDmaBuffers();
 
     /// Runs the garbage collector.
@@ -173,7 +173,6 @@ public:
 
     /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
     void CommitPendingGpuRanges();
-
 
 private:
     template <typename Func>
