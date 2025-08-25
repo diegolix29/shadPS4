@@ -444,29 +444,32 @@ void DrawVirtualKeyboard() {
 
     static bool first_letter_caps = true;
     static bool caps_lock = false;
+    static bool shift_once = false;
+
+    auto push_to_box = [&]() {
+        // Keep the actual input box in sync every time we change filter_buf
+        Config::setLogFilter(std::string(filter_buf));
+    };
+    auto clear_all = [&]() {
+        filter_buf[0] = '\0';
+        first_letter_caps = true;
+        caps_lock = false;
+        shift_once = false;
+        push_to_box(); // <= this is the important missing piece
+    };
 
     ImGui::SetNextWindowSize(ImVec2(600, 300), ImGuiCond_Always);
     if (ImGui::Begin("Virtual Keyboard", &show_virtual_keyboard)) {
 
-        if (ImGui::Button("Close Keyboard")) {
-            show_virtual_keyboard = false;
-            Config::setLogFilter(std::string(filter_buf));
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Clear Text")) {
-            filter_buf[0] = '\0';
-            first_letter_caps = true;
-        }
+        static const char* keys_lower[] = {
+            "q", "w", "e", "r", "t", "y",  "u",     "i",    "o",    "p",    "a", "s",
+            "d", "f", "g", "h", "j", "k",  "l",     "z",    "x",    "c",    "v", "b",
+            "n", "m", ".", "*", ":", "*:", "SPACE", "BACK", "CAPS", "SHIFT"};
 
-        static const char* keys_lower[] = {"q", "w", "e",     "r",    "t",    "y", "u", "i",
-                                           "o", "p", "a",     "s",    "d",    "f", "g", "h",
-                                           "j", "k", "l",     "z",    "x",    "c", "v", "b",
-                                           "n", "m", "SPACE", "BACK", "CAPS", "*", "/", ":"};
-
-        static const char* keys_upper[] = {"Q", "W", "E",     "R",    "T",    "Y", "U", "I",
-                                           "O", "P", "A",     "S",    "D",    "F", "G", "H",
-                                           "J", "K", "L",     "Z",    "X",    "C", "V", "B",
-                                           "N", "M", "SPACE", "BACK", "CAPS", "*", "/", ":"};
+        static const char* keys_upper[] = {
+            "Q", "W", "E", "R", "T", "Y",  "U",     "I",    "O",    "P",    "A", "S",
+            "D", "F", "G", "H", "J", "K",  "L",     "Z",    "X",    "C",    "V", "B",
+            "N", "M", ".", "*", ":", "*:", "SPACE", "BACK", "CAPS", "SHIFT"};
 
         // Choose key set based on caps_lock or first_letter_caps
         const char** keys = (caps_lock || first_letter_caps) ? keys_upper : keys_lower;
@@ -487,21 +490,38 @@ void DrawVirtualKeyboard() {
                         first_letter_caps = true;
                 } else if (strcmp(key, "CAPS") == 0) {
                     caps_lock = !caps_lock;
+                } else if (strcmp(key, "SHIFT") == 0) {
+                    caps_lock = true;
+                    first_letter_caps = false;
+                } else if (strcmp(key, "*:") == 0) {
+                    strncat(filter_buf, "*:", sizeof(filter_buf) - strlen(filter_buf) - 1);
                 } else {
                     char c = key[0];
-                    // Determine actual case
                     if (!caps_lock && !first_letter_caps && isalpha(c))
                         c = tolower(c);
-                    strncat(filter_buf, &c, 1); // append character
+
+                    strncat(filter_buf, &c, 1); 
 
                     if (first_letter_caps)
                         first_letter_caps = false;
+
+                    if (caps_lock && strcmp(key, "CAPS") != 0)
+                        caps_lock = false;
                 }
             }
             ImGui::NextColumn();
         }
 
         ImGui::Columns(1);
+
+        if (ImGui::Button("Close Keyboard")) {
+            show_virtual_keyboard = false;
+            Config::setLogFilter(std::string(filter_buf));
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Clear Text")) {
+            clear_all();
+        }
     }
     ImGui::End();
 }
