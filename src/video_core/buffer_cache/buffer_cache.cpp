@@ -11,14 +11,13 @@
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/buffer_cache/memory_tracker.h"
+#include "video_core/host_shaders/fault_buffer_process_comp.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/texture_cache/texture_cache.h"
-
-#include "video_core/host_shaders/fault_buffer_process_comp.h"
 
 namespace VideoCore {
 
@@ -525,6 +524,7 @@ std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 si
 }
 
 bool BufferCache::IsRegionRegistered(VAddr addr, size_t size) {
+    // Check if we are missing some edge case here
     return buffer_ranges.Intersects(addr, size);
 }
 
@@ -948,8 +948,12 @@ bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32
         });
         TouchBuffer(buffer);
     }
-    if (is_texel_buffer) {
-        return SynchronizeBufferFromImage(buffer, device_addr, size);
+    if (is_texel_buffer || is_written) {
+        const bool synced = SynchronizeBufferFromImage(buffer, device_addr, size);
+        if (is_written) {
+            texture_cache.InvalidateMemoryFromGPU(device_addr, size);
+        }
+        return synced;
     }
     return false;
 }
@@ -996,6 +1000,9 @@ bool BufferCache::SynchronizeBufferFromImage(const Buffer& buffer, VAddr device_
     ASSERT_MSG(device_addr == image.info.guest_address,
                "Texel buffer aliases image subresources {:x} : {:x}", device_addr,
                image.info.guest_address);
+    if (!image.SafeToDownload()) {
+        return false;
+    }
     const u32 buf_offset = buffer.Offset(image.info.guest_address);
     boost::container::small_vector<vk::BufferImageCopy, 8> buffer_copies;
     u32 copy_size = 0;
@@ -1070,9 +1077,9 @@ void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is
     const VAddr device_addr_end = device_addr + size;
     ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
         RENDERER_TRACE;
-        const VAddr start = std::max(buffer.CpuAddr(), device_addr);
-        const VAddr end = std::min(buffer.CpuAddr() + buffer.SizeBytes(), device_addr_end);
-        const u32 size = static_cast<u32>(end - start);
+        VAddr start = std::max(buffer.CpuAddr(), device_addr);
+        VAddr end = std::min(buffer.CpuAddr() + buffer.SizeBytes(), device_addr_end);
+        u32 size = static_cast<u32>(end - start);
         SynchronizeBuffer(buffer, start, size, is_written, false);
     });
 }
@@ -1099,6 +1106,8 @@ void BufferCache::CommitPendingGpuRanges() {
         const u64 done_tick = scheduler.CurrentTick();
         const auto [staging, offset] = download_buffer.Map(total_size_bytes);
         download_buffer.Commit();
+        scheduler.EndRendering();
+        const auto cmdbuf = scheduler.CommandBuffer();
         for (auto it = preemptive_copies.begin(); it != preemptive_copies.end(); ++it) {
             const BufferId buffer_id = it.key();
             auto& copies = it.value();
@@ -1277,7 +1286,6 @@ void BufferCache::RunGarbageCollector() {
         }
         --max_deletions;
         Buffer& buffer = slot_buffers[buffer_id];
-        // InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes());
         DownloadBufferMemory<true>(buffer, buffer.CpuAddr(), buffer.SizeBytes(), true);
         DeleteBuffer(buffer_id);
     };

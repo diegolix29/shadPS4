@@ -463,8 +463,8 @@ void Rasterizer::OnSubmit() {
     }
     texture_cache.ProcessDownloadImages();
     texture_cache.RunGarbageCollector();
-    buffer_cache.ProcessPreemptiveDownloads();
     buffer_cache.RunGarbageCollector();
+    buffer_cache.ProcessPreemptiveDownloads();
 }
 
 void Rasterizer::CommitPendingGpuRanges() {

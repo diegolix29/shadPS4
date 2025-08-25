@@ -263,7 +263,7 @@ ImageId TextureCache::ResolveDepthOverlap(const ImageInfo& requested_info, Bindi
             // Perform a rendering pass to transfer the channels of source as samples in dest.
             blit_helper.BlitColorToMsDepth(cache_image, new_image);
         } else {
-            LOG_DEBUG(Render_Vulkan, "Unimplemented depth overlap copy");
+            LOG_WARNING(Render_Vulkan, "Unimplemented depth overlap copy");
         }
 
         // Free the cache image.
@@ -907,6 +907,7 @@ void TextureCache::RunGarbageCollector() {
     std::scoped_lock lock{mutex};
     bool pressured = false;
     bool aggresive = false;
+    bool downloaded = false;
     u64 ticks_to_destroy = 0;
     size_t num_deletions = 0;
 
@@ -934,6 +935,7 @@ void TextureCache::RunGarbageCollector() {
         }
         if (download) {
             DownloadImageMemory(image_id);
+            downloaded = true;
         }
         FreeImage(image_id);
         if (total_used_memory < critical_gc_memory) {
@@ -958,6 +960,13 @@ void TextureCache::RunGarbageCollector() {
         // If we are still over the critical limit, run an aggressive GC
         configure(true);
         lru_cache.ForEachItemBelow(gc_tick - ticks_to_destroy, clean_up);
+    }
+
+    if (downloaded) {
+        // We need to make downloads synchronous. It is possible that the contents
+        // of the image are requested before they are downloaded in which case
+        // outdated buffer cache contents are used instead.
+        scheduler.Finish();
     }
 }
 

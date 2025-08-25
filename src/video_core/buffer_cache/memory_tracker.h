@@ -9,7 +9,6 @@
 #include <vector>
 #include "common/debug.h"
 #include "common/types.h"
-#include "region_manager.h"
 #include "video_core/buffer_cache/region_manager.h"
 
 namespace VideoCore {
@@ -206,7 +205,6 @@ private:
     PageManager* tracker;
     std::deque<std::array<RegionManager, MANAGER_POOL_SIZE>> manager_pool;
     std::vector<RegionManager*> free_managers;
-    std::vector<RegionManager*> preempt_managers;
     std::array<RegionManager*, NUM_HIGH_PAGES> top_tier{};
 };
 
