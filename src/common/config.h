@@ -34,8 +34,6 @@ void saveMainWindow(const std::filesystem::path& path);
 
 float getRcasAttenuation();
 void setRcasAttenuation(float value);
-float getVolumeLevel();
-void setVolumeLevel(float value);
 std::string getTrophyKey();
 void setTrophyKey(std::string key);
 bool GetLoadGameSizeEnabled();
