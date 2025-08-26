@@ -138,7 +138,7 @@ TrophyUI::TrophyUI(const std::filesystem::path& trophyIconPath, const std::strin
         }
 
         // Set audio gain 20% higher since audio file itself is soft
-        SDL_SetAudioStreamGain(stream, Config::getVolumeLevel() / 100.0f * 1.2f);
+        SDL_SetAudioStreamGain(stream, Config::getVolumeSlider() / 100.0f * 1.2f);
         SDL_ResumeAudioStreamDevice(stream);
         SDL_free(audioBuf);
     }

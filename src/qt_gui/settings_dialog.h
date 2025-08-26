@@ -39,13 +39,14 @@ signals:
 private:
     void LoadValuesFromConfig();
     void UpdateSettings();
-    void ResetInstallFolders();
+    void SyncRealTimeWidgetstoConfig();
     void InitializeEmulatorLanguages();
     void OnLanguageChanged(int index);
     void OnCursorStateChanged(s16 index);
     void closeEvent(QCloseEvent* event) override;
     void OnRcasAttenuationChanged(int value);
     void OnRcasAttenuationSpinBoxChanged(double value);
+    void VolumeSliderChange(int value);
 
     std::unique_ptr<Ui::SettingsDialog> ui;
 

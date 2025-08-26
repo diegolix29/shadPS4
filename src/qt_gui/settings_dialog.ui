@@ -2174,7 +2174,7 @@
 						<item>
 							<widget class="QSlider" name="horizontalVolumeSlider">
 								<property name="maximum">
-									<number>1500</number>
+									<number>300</number>
 								</property>
 								<property name="value">
 									<number>100</number>
@@ -2248,6 +2248,15 @@
               </property>
             </widget>
           </item>
+
+			<item>
+				<widget class="QCheckBox" name="isMuteEnableCheckBox">
+					<property name="text">
+						<string>Mute Sound</string>
+					</property>
+				</widget>
+			</item>
+
 			<item>
 				<widget class="QCheckBox" name="SkipsCheckBox">
 					<property name="text">

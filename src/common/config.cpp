@@ -152,6 +152,8 @@ static bool isHDRAllowed = false;
 static bool enableAutoBackup = false;
 static bool showLabelsUnderIcons = true;
 static std::string updateChannel;
+static int volumeSlider = 100;
+static bool muteEnabled = false;
 
 // Settings
 u32 m_language = 1; // english
@@ -338,12 +340,20 @@ std::string getChooseHomeTab() {
     return chooseHomeTab;
 }
 
-float getVolumeLevel() {
-    return gameVolume;
+int getVolumeSlider() {
+    return volumeSlider;
 }
 
-void setVolumeLevel(float value) {
-    gameVolume = value;
+void setVolumeSlider(int volumeValue) {
+    volumeSlider = volumeValue;
+}
+
+bool isMuteEnabled() {
+    return muteEnabled;
+}
+
+void setMuteEnabled(bool enabled) {
+    muteEnabled = enabled;
 }
 
 bool getUseSpecialPad() {
@@ -982,6 +992,9 @@ void load(const std::filesystem::path& path) {
         enableAutoBackup = toml::find_or<bool>(general, "enableAutoBackup", false);
         autoRestartGame = toml::find_or<bool>(general, "autoRestartGame", false);
         restartWithBaseGame = toml::find_or<bool>(general, "restartWithBaseGame", false);
+        volumeSlider = toml::find_or<int>(general, "volumeSlider", volumeSlider);
+        muteEnabled = toml::find_or<bool>(general, "muteEnabled", muteEnabled);
+
         isNeo = toml::find_or<bool>(general, "isPS4Pro", false);
         isDevKit = toml::find_or<bool>(general, "isDevKit", false);
         isPSNSignedIn = toml::find_or<bool>(general, "isPSNSignedIn", false);
@@ -1247,6 +1260,9 @@ void save(const std::filesystem::path& path) {
         fmt::print("Saving new configuration file {}\n", fmt::UTF(path.u8string()));
     }
 
+    data["General"]["volumeSlider"] = volumeSlider;
+    data["General"]["muteEnabled"] = muteEnabled;
+
     data["General"]["isPS4Pro"] = isNeo;
     data["General"]["isDevKit"] = isDevKit;
     data["General"]["isPSNSignedIn"] = isPSNSignedIn;
@@ -1504,6 +1520,8 @@ void setDefaultValues() {
 
     // GUI
     load_game_size = true;
+    volumeSlider = 100;
+    muteEnabled = false;
 
     // Settings
     emulator_language = "en_US";

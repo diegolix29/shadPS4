@@ -613,9 +613,9 @@ void DrawPauseStatusWindow(bool& is_open) {
         if (ImGui::Checkbox("PSN Signed In", &psn))
             Config::setPSNSignedIn(psn);
 
-        float volume = Config::getVolumeLevel();
-        if (ImGui::SliderFloat("Volume", &volume, 0.0f, 3.0f))
-            Config::setVolumeLevel(volume);
+        float volume = Config::getVolumeSlider();
+        if (ImGui::SliderFloat("Volume", &volume, 0, 300))
+            Config::setVolumeSlider(volume);
 
         static const char* logTypes[] = {"sync", "async"};
         int logTypeIndex = 0;
@@ -756,6 +756,12 @@ void L::Draw() {
             SDL_PushEvent(&toggleFullscreenEvent);
         }
     }
+
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Right)) {
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::setMuteEnabled(true);
+        Config::save(config_dir / "config.toml");
+        }    
 
     if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
         if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {

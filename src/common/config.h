@@ -263,6 +263,11 @@ std::vector<std::string> getElfViewer();
 std::vector<std::string> getRecentFiles();
 std::string getEmulatorLanguage();
 
+int getVolumeSlider();
+void setVolumeSlider(int volumeValue);
+bool isMuteEnabled();
+void setMuteEnabled(bool enabled);
+
 bool getAutoRestartGame();
 void setAutoRestartGame(bool enable);
 bool getRestartWithBaseGame();
