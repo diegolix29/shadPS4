@@ -543,7 +543,6 @@ s32 PS4_SYSV_ABI sceAudioOutSetVolume(s32 handle, s32 flag, s32* vol) {
     return ORBIS_OK;
 }
 
-
 void AdjustVol() {
     if (audio == nullptr) {
         return;
