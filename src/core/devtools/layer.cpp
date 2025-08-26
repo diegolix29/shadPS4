@@ -372,6 +372,10 @@ void L::SetupSettings() {
 }
 
 void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
+    if (Config::getScreenTipDisable()) {
+        is_open = false;
+        return;
+    }
     if (!is_open)
         return;
 

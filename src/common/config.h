@@ -111,6 +111,8 @@ ReadbackSpeed readbackSpeed();
 void setReadbackSpeed(ReadbackSpeed mode);
 bool setReadbackLinearImages(bool enable);
 bool getReadbackLinearImages();
+bool isScreenTipDisable(bool enable);
+bool getScreenTipDisable();
 bool directMemoryAccess();
 void setDirectMemoryAccess(bool enable);
 bool dumpShaders();

@@ -67,6 +67,7 @@ static bool checkCompatibilityOnStartup = false;
 static bool isConnectedToNetwork = false;
 static bool autoRestartGame = false;
 static bool restartWithBaseGame = false;
+static bool screenTipDisable = false;
 
 // Input
 static int cursorState = HideCursorState::Idle;
@@ -414,6 +415,14 @@ bool setReadbackLinearImages(bool enable) {
 
 bool getReadbackLinearImages() {
     return readbackLinearImagesEnabled;
+}
+
+bool isScreenTipDisable(bool enable) {
+    return screenTipDisable = enable;
+}
+
+bool getScreenTipDisable() {
+    return screenTipDisable;
 }
 
 bool directMemoryAccess() {
@@ -992,6 +1001,7 @@ void load(const std::filesystem::path& path) {
         enableAutoBackup = toml::find_or<bool>(general, "enableAutoBackup", false);
         autoRestartGame = toml::find_or<bool>(general, "autoRestartGame", false);
         restartWithBaseGame = toml::find_or<bool>(general, "restartWithBaseGame", false);
+        screenTipDisable = toml::find_or<bool>(general, "screenTipDisable", false);
         volumeSlider = toml::find_or<int>(general, "volumeSlider", volumeSlider);
         muteEnabled = toml::find_or<bool>(general, "muteEnabled", muteEnabled);
 
@@ -1313,6 +1323,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["enableAutoBackup"] = enableAutoBackup;
     data["General"]["autoRestartGame"] = autoRestartGame;
     data["General"]["restartWithBaseGame"] = restartWithBaseGame;
+    data["General"]["screenTipDisable"] = screenTipDisable;
     data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled;
     data["GPU"]["memoryAlloc"] = memoryAlloc;
     data["Vulkan"]["gpuId"] = gpuId;
@@ -1461,6 +1472,7 @@ void setDefaultValues() {
     isConnectedToNetwork = false;
     autoRestartGame = false;
     restartWithBaseGame = false;
+    screenTipDisable = false;
 
     // Input
     cursorState = HideCursorState::Idle;
@@ -1494,6 +1506,7 @@ void setDefaultValues() {
     readbackSpeedMode = ReadbackSpeed::Default;
     shaderSkipsEnabled = false;
     readbackLinearImagesEnabled = false;
+    screenTipDisable = false;
     directMemoryAccessEnabled = false;
     shouldDumpShaders = false;
     shouldPatchShaders = false;
