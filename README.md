@@ -4,6 +4,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 -->
 Discord server for talking about forks. https://discord.gg/jgpqB7gUxG 
 
+“For the latest SHADPS4 and Diegolix fork updates, tips, tricks, and gameplay (including Bloodborne on PC), check out ProteinGaming on YouTube!” https://www.youtube.com/@ProteinGaming-97
+
+
 This repository has three branches with extra features based on the main Shad branch. They are experimental or self-added for convenience. They all share the following Bloodborne-specific enhancements:
 
 NOTE:     BBFORK IS THE ONLY ONE THAT I WILL UPDATE FROM NOW ON, ALSO IT WILL HAVE ALL THE FEATURES INTO EXPERIMENTAL TAB. 
