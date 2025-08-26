@@ -2250,14 +2250,6 @@
           </item>
 
 			<item>
-				<widget class="QCheckBox" name="isMuteEnableCheckBox">
-					<property name="text">
-						<string>Mute Sound</string>
-					</property>
-				</widget>
-			</item>
-
-			<item>
 				<widget class="QCheckBox" name="SkipsCheckBox">
 					<property name="text">
 						<string>Enable Shader Skips</string>

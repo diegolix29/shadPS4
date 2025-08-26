@@ -385,12 +385,15 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
                      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
                          ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse)) {
+
+        ImGui::SetWindowFontScale(1.5f);
         ImGui::TextUnformatted("Pause/Resume: F9 or Hold Touchpad+Cross/A\n"
                                "Stop: F4 or Hold Touchpad+Triangle/X\n"
                                "Fullscreen: F11 or Hold Touchpad+R2\n"
                                "Developer Tools: Ctrl+F10 or Hold Touchpad+Square\n"
-                               "Show FPS: F10 or Hold Touchpad+L2\n");
-
+                               "Show FPS: F10 or Hold Touchpad+L2\n"
+                               "Mute Game: Hold Touchpad+DpadRight\n");
+        ImGui::SetWindowFontScale(1.0f);
         ImGui::Spacing();
         ImGui::Separator();
 
@@ -500,7 +503,7 @@ void DrawVirtualKeyboard() {
                     if (!caps_lock && !first_letter_caps && isalpha(c))
                         c = tolower(c);
 
-                    strncat(filter_buf, &c, 1); 
+                    strncat(filter_buf, &c, 1);
 
                     if (first_letter_caps)
                         first_letter_caps = false;
@@ -546,13 +549,16 @@ void DrawPauseStatusWindow(bool& is_open) {
         ImGui::SetWindowFocus("Pause Menu - Hotkeys");
 
     if (ImGui::Begin("Pause Menu - Hotkeys", &is_open, flags)) {
+        ImGui::SetWindowFontScale(1.5f);
         ImGui::TextUnformatted("Pause/Resume: F9 or Hold Touchpad+Cross/A\n"
                                "Stop: F4 or Hold Touchpad+Circle/B\n"
                                "Fullscreen: F11 or Hold Touchpad+R2\n"
                                "Developer Tools: Ctrl+F10 or Hold Touchpad+Square\n"
-                               "Show FPS: F10 or Hold Touchpad+L2\n");
-
+                               "Show FPS: F10 or Hold Touchpad+L2\n"
+                               "Mute Game: Hold Touchpad+DpadRight\n");
+        ImGui::SetWindowFontScale(1.0f);
         ImGui::Spacing();
+
         if (ImGui::Button("Return to Game")) {
             Config::setLogFilter(std::string(filter_buf));
 #ifdef ENABLE_QT_GUI
@@ -613,10 +619,17 @@ void DrawPauseStatusWindow(bool& is_open) {
         if (ImGui::Checkbox("PSN Signed In", &psn))
             Config::setPSNSignedIn(psn);
 
-        float volume = Config::getVolumeSlider();
-        if (ImGui::SliderFloat("Volume", &volume, 0, 300))
-            Config::setVolumeSlider(volume);
+#ifdef ENABLE_QT_GUI
+        if (g_MainWindow && g_MainWindow->isVisible()) {
 
+            static bool mute = Config::isMuteEnabled();
+            if (ImGui::Checkbox("Mute", &mute)) {
+                if (g_MainWindow)
+                    g_MainWindow->ToggleMute();
+                mute = Config::isMuteEnabled();
+            }
+        }
+#endif
         static const char* logTypes[] = {"sync", "async"};
         int logTypeIndex = 0;
         for (int i = 0; i < IM_ARRAYSIZE(logTypes); i++)
@@ -757,11 +770,12 @@ void L::Draw() {
         }
     }
 
+#ifdef ENABLE_QT_GUI
     if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Right)) {
-        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-        Config::setMuteEnabled(true);
-        Config::save(config_dir / "config.toml");
-        }    
+        if (g_MainWindow)
+            g_MainWindow->ToggleMute();
+    }
+#endif
 
     if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
         if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {

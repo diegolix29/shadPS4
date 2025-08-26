@@ -29,6 +29,7 @@
 #include "common/scm_rev.h"
 #include "common/string_util.h"
 #include "control_settings.h"
+#include "core/libraries/audio/audioout.h"
 #include "game_install_dialog.h"
 #include "hotkeys.h"
 #include "kbm_gui.h"
@@ -293,7 +294,9 @@ void MainWindow::AddUiWidgets() {
 
     ui->toolBar->addWidget(searchSliderContainer);
     toolbarLayout->setSpacing(2);
-
+    ui->MuteBox = new QCheckBox(tr("Mute"), this);
+    ui->MuteBox->setChecked(Config::isMuteEnabled());
+    ui->toolBar->addWidget(ui->MuteBox);
     if (!showLabels) {
         toolbarLayout->addWidget(searchSliderContainer);
     }
@@ -323,6 +326,7 @@ void MainWindow::UpdateToolbarButtons() {
 
     ui->playButton->setVisible(false);
     ui->pauseButton->setVisible(true);
+    ui->MuteBox->setChecked(Config::isMuteEnabled());
 
     if (showLabels) {
         QLabel* playButtonLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
@@ -506,6 +510,10 @@ void MainWindow::CreateConnects() {
                 });
 
         settingsDialog->exec();
+    });
+    connect(ui->MuteBox, &QCheckBox::toggled, [&](bool checked) {
+        Config::setMuteEnabled(checked);
+        Libraries::AudioOut::AdjustVol();
     });
 
     connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
@@ -925,6 +933,15 @@ void MainWindow::CreateConnects() {
             isIconBlack = false;
         }
     });
+}
+
+void MainWindow::ToggleMute() {
+    bool newMute = !Config::isMuteEnabled();
+    Config::setMuteEnabled(newMute);
+
+    // Update the checkbox visually and trigger the slot
+    ui->MuteBox->setChecked(newMute);
+    emit ui->MuteBox->toggled(newMute);
 }
 
 void MainWindow::StartGame() {

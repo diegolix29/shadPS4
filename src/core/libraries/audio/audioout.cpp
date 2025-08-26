@@ -543,25 +543,18 @@ s32 PS4_SYSV_ABI sceAudioOutSetVolume(s32 handle, s32 flag, s32* vol) {
     return ORBIS_OK;
 }
 
+
 void AdjustVol() {
     if (audio == nullptr) {
         return;
     }
-
-    const bool isMuted = Config::isMuteEnabled();
 
     for (int i = 0; i < ports_out.size(); i++) {
         std::unique_lock lock{ports_out[i].mutex};
         if (!ports_out[i].IsOpen()) {
             continue;
         }
-
-        std::array<int, 8> finalVolume = ports_out[i].volume; // copy original
-        if (isMuted) {
-            finalVolume.fill(0); // set all channels to 0
-        }
-
-        ports_out[i].impl->SetVolume(finalVolume);
+        ports_out[i].impl->SetVolume(ports_out[i].volume);
     }
 }
 

@@ -54,6 +54,7 @@ public:
     QPushButton* restartButton;
     QPushButton* updaterButton;
     QPushButton* configureHotkeysButton;
+    QCheckBox* MuteBox;
 
     QWidget* sizeSliderContainer;
     QHBoxLayout* sizeSliderContainer_layout;
@@ -247,6 +248,10 @@ public:
         configureHotkeysButton->setFlat(true);
         configureHotkeysButton->setIcon(QIcon(":images/hotkeybutton.png"));
         configureHotkeysButton->setIconSize(QSize(50, 40));
+        MuteBox = new QCheckBox(centralWidget);
+        MuteBox->setObjectName("MuteBox");
+        MuteBox->setText("Mute");
+        MuteBox->setGeometry(QRect(500, 10, 60, 25));
         sizeSliderContainer = new QWidget(centralWidget);
         sizeSliderContainer->setObjectName("sizeSliderContainer");
         sizeSliderContainer->setGeometry(QRect(280, 10, 181, 31));
