@@ -416,6 +416,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->copyGPUBuffersCheckBox->installEventFilter(this);
 
         // Experimental
+        ui->isMuteEnableCheckBox->setChecked(Config::isMuteEnabled());
         ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
         ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
         connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this, [this](int value) {
@@ -814,6 +815,7 @@ void SettingsDialog::UpdateSettings() {
     }
     Config::setDevKitMode(ui->isDevKitCheckBox->isChecked());
     Config::setNeoMode(ui->isNeoModeCheckBox->isChecked());
+    Config::setMuteEnabled(ui->isMuteEnableCheckBox->isChecked());
     Config::setPlayBGM(ui->playBGMCheckBox->isChecked());
     Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
     Config::setEnableAutoBackup(ui->enableAutoBackupCheckBox->isChecked());
