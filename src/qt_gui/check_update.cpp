@@ -5,10 +5,12 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+
 #include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -38,50 +40,40 @@ CheckUpdate::CheckUpdate(const bool showMessage, QWidget* parent)
 CheckUpdate::~CheckUpdate() {}
 
 void CheckUpdate::CheckForUpdates(const bool showMessage) {
-    // QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
-    QUrl url("https://api.github.com/repos/diegolix29/shadPS4/releases");
+    QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
+
+    QUrl url;
+    if (updateChannel == "Revert") {
+        url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/actions/"
+                   "runs?branch=BBFork&status=success&per_page=4");
+    } else {
+        url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
+    }
 
     QNetworkRequest request(url);
+    QString githubToken = qgetenv("SHADPS4_TOKEN_REPO");
+    if (!githubToken.isEmpty())
+        request.setRawHeader("Authorization", "token " + githubToken.toUtf8());
+
     QNetworkReply* reply = networkManager->get(request);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, showMessage]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, showMessage, updateChannel]() {
         if (reply->error() != QNetworkReply::NoError) {
-            if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 403) {
-                QString response = reply->readAll();
-                if (response.startsWith("{\"message\":\"API rate limit exceeded for")) {
-                    QMessageBox::warning(
-                        this, tr("Auto Updater"),
-                        // clang-format off
-tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached this limit. Please try again later.").replace("\\n", "\n"));
-                    // clang-format on
-                } else {
-                    QMessageBox::warning(
-                        this, tr("Error"),
-                        QString(tr("Network error:") + "\n" + reply->errorString()));
-                }
-            } else {
-                QMessageBox::warning(this, tr("Error"),
-                                     QString(tr("Network error:") + "\n" + reply->errorString()));
-            }
+            QMessageBox::warning(this, tr("Error"),
+                                 QString(tr("Network error: %1")).arg(reply->errorString()));
             reply->deleteLater();
             return;
         }
 
         QByteArray response = reply->readAll();
         QJsonDocument jsonDoc(QJsonDocument::fromJson(response));
-
         if (jsonDoc.isNull()) {
             QMessageBox::warning(this, tr("Error"), tr("Failed to parse update information."));
             reply->deleteLater();
             return;
         }
 
-        QString downloadUrl;
-        QString latestVersion;
-        QString latestRev;
-        QString latestDate;
         QString platformString;
-
 #ifdef Q_OS_WIN
         platformString = "win64-qt";
 #elif defined(Q_OS_LINUX)
@@ -90,30 +82,139 @@ tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached 
         platformString = "macos-qt";
 #endif
 
-        QJsonObject jsonObj;
-        QString previousVersionTag;
-        QString previousCommitSha;
-        QString latestCommitSha;
+        if (updateChannel == "Revert") {
+            QJsonArray runs = jsonDoc.object()["workflow_runs"].toArray();
+            if (runs.size() <= 1) {
+                QMessageBox::warning(this, tr("Error"),
+                                     tr("Not enough successful workflow runs for Revert."));
+                reply->deleteLater();
+                return;
+            }
+
+            QVBoxLayout* layout = new QVBoxLayout(this);
+            QLabel* title = new QLabel("<h2>" + tr("Select a Revert Build") + "</h2>", this);
+            layout->addWidget(title);
+
+            QStringList revertNames = {"Revert-1", "Revert-2", "Revert-3"};
+            int count = 0;
+
+            for (int i = 1; i < runs.size() && count < 3; ++i) {
+                QJsonObject run = runs[i].toObject();
+                QString msg = run["head_commit"].toObject()["message"].toString();
+                QString sha = run["head_commit"].toObject()["id"].toString().left(7);
+
+                QPushButton* btn = new QPushButton(msg + " (" + sha + ")", this);
+
+                QString revertName = revertNames[count]; // fixed backend mapping
+                connect(btn, &QPushButton::clicked, this, [this, revertName, platformString]() {
+                    QUrl releasesUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
+                    QNetworkRequest releasesRequest(releasesUrl);
+
+                    QString githubToken = qgetenv("SHADPS4_TOKEN_REPO");
+                    if (!githubToken.isEmpty())
+                        releasesRequest.setRawHeader("Authorization",
+                                                     "token " + githubToken.toUtf8());
+
+                    QNetworkReply* releasesReply = networkManager->get(releasesRequest);
+                    connect(
+                        releasesReply, &QNetworkReply::finished, this,
+                        [this, releasesReply, revertName, platformString]() {
+                            if (releasesReply->error() != QNetworkReply::NoError) {
+                                QMessageBox::warning(
+                                    nullptr, tr("Error"),
+                                    tr("Network error: %1").arg(releasesReply->errorString()));
+                                releasesReply->deleteLater();
+                                return;
+                            }
+
+                            QJsonDocument releasesDoc =
+                                QJsonDocument::fromJson(releasesReply->readAll());
+                            QJsonArray releases = releasesDoc.array();
+                            QString downloadUrl;
+
+                            for (const QJsonValue& releaseVal : releases) {
+                                QJsonObject release = releaseVal.toObject();
+                                QString releaseTitle = release["name"].toString();
+                                if (releaseTitle.isEmpty())
+                                    releaseTitle = release["tag_name"].toString();
+
+                                if (!releaseTitle.contains(revertName))
+                                    continue;
+
+                                QJsonArray assets = release["assets"].toArray();
+                                for (const QJsonValue& assetVal : assets) {
+                                    QJsonObject asset = assetVal.toObject();
+                                    QString name = asset["name"].toString();
+                                    if (name.contains(platformString)) {
+                                        downloadUrl = asset["browser_download_url"].toString();
+                                        break;
+                                    }
+                                }
+                                if (!downloadUrl.isEmpty())
+                                    break;
+                            }
+
+                            if (downloadUrl.isEmpty()) {
+                                QMessageBox::warning(
+                                    nullptr, tr("Error"),
+                                    tr("No Qt asset found for this Revert release and platform."));
+                                releasesReply->deleteLater();
+                                return;
+                            }
+
+                            QNetworkRequest downloadRequest{QUrl(downloadUrl)};
+                            QString githubToken = qgetenv("SHADPS4_TOKEN_REPO");
+                            if (!githubToken.isEmpty())
+                                downloadRequest.setRawHeader("Authorization",
+                                                             "token " + githubToken.toUtf8());
+
+                            QNetworkReply* downloadReply = networkManager->get(downloadRequest);
+                            connect(downloadReply, &QNetworkReply::finished, this,
+                                    [this, downloadReply]() {
+                                        if (downloadReply->error() != QNetworkReply::NoError) {
+                                            QMessageBox::warning(
+                                                nullptr, tr("Error"),
+                                                tr("Network error: %1")
+                                                    .arg(downloadReply->errorString()));
+                                            downloadReply->deleteLater();
+                                            return;
+                                        }
+                                        DownloadUpdate(downloadReply->url().toString());
+                                        downloadReply->deleteLater();
+                                    });
+
+                            releasesReply->deleteLater();
+                        });
+                });
+
+                layout->addWidget(btn);
+                ++count;
+            }
+
+            setLayout(layout);
+            reply->deleteLater();
+            return;
+        }
 
         QJsonArray jsonArray = jsonDoc.array();
+        QString downloadUrl;
+        QString latestVersion;
+        QString latestRev;
+        QString latestDate;
+        QJsonObject jsonObj;
+
         for (const QJsonValue& value : jsonArray) {
             QJsonObject obj = value.toObject();
             QString tagName = obj["tag_name"].toString();
             if (tagName.startsWith("BBFork")) {
-                if (latestVersion.isEmpty()) {
-                    latestVersion = tagName;
-                    jsonObj = obj;
-                    latestCommitSha = obj["target_commitish"].toString();
-                } else {
-                    previousVersionTag = tagName;
-                    previousCommitSha = obj["target_commitish"].toString();
-                    break;
-                }
+                latestVersion = tagName;
+                jsonObj = obj;
+                break;
             }
         }
 
         if (latestVersion.isEmpty()) {
-            QMessageBox::warning(this, tr("Error"), tr("No releases found for update channel: "));
+            QMessageBox::warning(this, tr("Error"), tr("No releases found for update channel:"));
             reply->deleteLater();
             return;
         }
@@ -123,7 +224,6 @@ tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached 
 
         QJsonArray assets = jsonObj["assets"].toArray();
         bool found = false;
-
         for (const QJsonValue& assetValue : assets) {
             QJsonObject assetObj = assetValue.toObject();
             if (assetObj["name"].toString().contains(platformString)) {
@@ -156,6 +256,7 @@ tr("The Auto Updater allows up to 60 update checks per hour.\\nYou have reached 
         } else {
             setupUI(downloadUrl, latestDate, latestRev, currentDate, currentRev);
         }
+
         reply->deleteLater();
     });
 }

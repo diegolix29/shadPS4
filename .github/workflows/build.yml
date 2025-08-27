@@ -517,38 +517,41 @@ jobs:
 
     - name: Get current release information
       env:
-        GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
+       GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
-        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-        CURRENT_PUBLISHED_AT=$(echo "$releases" | jq -r 'map(select(.draft == false and .prerelease == false)) | sort_by(.published_at) | last | .published_at')
-        echo "Latest published release date: $CURRENT_PUBLISHED_AT"
-        echo "CURRENT_PUBLISHED_AT=$CURRENT_PUBLISHED_AT" >> $GITHUB_ENV
+       api_url="https://api.github.com/repos/${{ github.repository }}/releases"
+       releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
+       CURRENT_PUBLISHED_AT=$(echo "$releases" | jq -r 'map(select(.draft == false and .prerelease == false)) | sort_by(.published_at) | last | .published_at')
+       echo "Latest published release date: $CURRENT_PUBLISHED_AT"
+       echo "CURRENT_PUBLISHED_AT=$CURRENT_PUBLISHED_AT" >> $GITHUB_ENV
 
-    - name: Delete old BBFork-shadPS4 releases and tags
+    - name: Manage Revert Releases
       env:
-        GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
+       GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
-        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-        current_published_ts=$(date -u -d "$CURRENT_PUBLISHED_AT" +%s)
-        echo "Current release timestamp: $current_published_ts"
+       api_url="https://api.github.com/repos/${{ github.repository }}/releases"
+       releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
 
-        echo "$releases" | jq -c '.[] | select(.draft == false and .prerelease == false and (.tag_name | startswith("BBFork-shadPS4-")))' | while read -r release; do
-          release_date=$(echo "$release" | jq -r '.published_at')
-          release_id=$(echo "$release" | jq -r '.id')
-          release_tag=$(echo "$release" | jq -r '.tag_name')
+       # Extract BBFork releases only (non-draft, non-prerelease)
+       bbforks=$(echo "$releases" | jq -c '.[] | select(.draft==false and .prerelease==false and (.tag_name|startswith("BBFork-shadPS4-"))) | {id:.id, tag:.tag_name, published_at:.published_at}' | sort -r -k3)
 
-          release_date_ts=$(date -u -d "$release_date" +%s)
-
-          echo "Checking release: $release_tag from $release_date"
-
-          if [[ "$release_date_ts" -lt "$current_published_ts" ]]; then
-            echo "Deleting old release: $release_id ($release_tag)"
-            curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
-            curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$release_tag"
-            sleep 1
-          else
-            echo "Skipping release: $release_id (newer or same date)"
-          fi
-        done
+       # Rename them as Revert1, Revert2, Revert3 (newest = Revert1)
+       i=1
+       echo "$bbforks" | while read -r release; do
+         release_id=$(echo "$release" | jq -r '.id')
+       release_tag=$(echo "$release" | jq -r '.tag')
+       if [ $i -le 3 ]; then
+        new_tag="Revert$i-${release_tag#BBFork-shadPS4-}"
+        echo "Renaming $release_tag -> $new_tag"
+        curl -s -X PATCH -H "Authorization: token $GITHUB_TOKEN" \
+          -d "{\"tag_name\": \"$new_tag\", \"name\": \"$new_tag\"}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+        else
+        echo "Deleting old revert $release_tag"
+        curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+        curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+          "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$release_tag"
+        fi
+        i=$((i+1))
+          done

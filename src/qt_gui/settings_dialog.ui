@@ -401,10 +401,23 @@
                    <number>11</number>
                   </property>
                   <item>
-					  <widget class="QLabel" name="updateChannelLabel">
-						  <property name="text">
-							  <string>BBFork</string>
+					  <widget class="QComboBox" name="updateComboBox">
+						  <property name="sizePolicy">
+							  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+								  <horstretch>0</horstretch>
+								  <verstretch>0</verstretch>
+							  </sizepolicy>
 						  </property>
+						  <item>
+							  <property name="text">
+								  <string>Revert</string>
+							  </property>
+						  </item>
+						  <item>
+							  <property name="text">
+								  <string>BBFork</string>
+							  </property>
+						  </item>
 					  </widget>
 
 				  </item>
