@@ -203,15 +203,30 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
         QString latestDate;
         QJsonObject jsonObj;
 
+        QJsonObject newestBBFork;
+        QDateTime newestDate;
+
         for (const QJsonValue& value : jsonArray) {
             QJsonObject obj = value.toObject();
-            QString tagName = obj["tag_name"].toString();
-            if (tagName.startsWith("BBFork")) {
-                latestVersion = tagName;
-                jsonObj = obj;
-                break;
+            QString title = obj["name"].toString();
+            if (title.contains("BBFork")) {
+                QDateTime pubDate =
+                    QDateTime::fromString(obj["published_at"].toString(), Qt::ISODate);
+                if (!newestDate.isValid() || pubDate > newestDate) {
+                    newestDate = pubDate;
+                    newestBBFork = obj;
+                }
             }
         }
+
+        if (newestBBFork.isEmpty()) {
+            QMessageBox::warning(this, tr("Error"), tr("No BBFork release found."));
+            reply->deleteLater();
+            return;
+        }
+
+        jsonObj = newestBBFork;
+        latestVersion = jsonObj["tag_name"].toString();
 
         if (latestVersion.isEmpty()) {
             QMessageBox::warning(this, tr("Error"), tr("No releases found for update channel:"));
