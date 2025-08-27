@@ -1017,9 +1017,7 @@ void load(const std::filesystem::path& path) {
         logFilter = toml::find_or<std::string>(general, "logFilter", "");
         logType = toml::find_or<std::string>(general, "logType", "sync");
         userName = toml::find_or<std::string>(general, "userName", "shadPS4");
-        if (Common::g_is_release) {
-            updateChannel = toml::find_or<std::string>(general, "updateChannel", "Full-Souls");
-        } else if (!Common::g_is_release) {
+        if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
         }
         if (updateChannel == "Release") {
@@ -1035,6 +1033,9 @@ void load(const std::filesystem::path& path) {
             updateChannel = "BBFork";
         }
         if (updateChannel == "PartBB") {
+            updateChannel = "BBFork";
+        }
+        if (updateChannel == "Revert") {
             updateChannel = "BBFork";
         }
         isShowSplash = toml::find_or<bool>(general, "showSplash", true);

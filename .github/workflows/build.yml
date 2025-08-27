@@ -525,43 +525,24 @@ jobs:
        echo "Latest published release date: $CURRENT_PUBLISHED_AT"
        echo "CURRENT_PUBLISHED_AT=$CURRENT_PUBLISHED_AT" >> $GITHUB_ENV
 
-    - name: Manage Revert Releases
+    - name: Manage Revert Release Titles
       env:
        GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
 
-       # Get all BBFork releases (non-draft, non-prerelease), newest first
-       bbforks=$(echo "$releases" | jq -c '.[] | select(.draft==false and .prerelease==false and (.tag_name|startswith("BBFork-shadPS4-"))) | {id:.id, tag:.tag_name, published_at:.published_at}' | sort -r -k3)
+       bbforks=$(echo "$releases" | jq -c '[.[] | select(.draft==false and .prerelease==false and (.tag_name|startswith("BBFork-shadPS4-")))] | sort_by(.published_at) | reverse')
 
-       # Skip the newest one (keep it as BBFork)
-       newest=$(echo "$bbforks" | jq -r '.[0].tag')
-       echo "Newest BBFork release: $newest"
+       echo "$bbforks" | jq -c '.[1:][]' | nl -w1 -s' ' | while read -r index release; do
+        release_id=$(echo "$release" | jq -r '.id')
+        release_name=$(echo "$release" | jq -r '.name')
 
-       # Rename older ones to Revert-1, Revert-2, Revert-3
-       i=1
-       echo "$bbforks" | jq -c ".[1:][]" | while read -r release; do
-       release_id=$(echo "$release" | jq -r '.id')
-       release_tag=$(echo "$release" | jq -r '.tag')
-
+        i=$index
        if [ $i -le 3 ]; then
-        # Extract the original suffix after BBFork-shadPS4-
-        suffix=${release_tag#BBFork-shadPS4-}
-        new_tag="Revert-${i}-shadPS4-${suffix}"
-        echo "Renaming $release_tag -> $new_tag"
-
+        new_name="Revert-${i}-${release_name#BBFork-shadPS4-}"
         curl -s -X PATCH -H "Authorization: token $GITHUB_TOKEN" \
-          -d "{\"tag_name\": \"$new_tag\", \"name\": \"$new_tag\"}" \
+          -d "{\"name\": \"$new_name\"}" \
           "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
-       else
-        # Delete old Revert releases beyond 3
-        echo "Deleting old release $release_tag"
-        curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
-          "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
-        curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
-          "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$release_tag"
        fi
-
-       i=$((i+1))
        done
