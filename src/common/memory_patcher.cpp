@@ -242,19 +242,12 @@ void AutoBackupThread(const std::filesystem::path& save_dir) {
 
 void OnGameLoaded() {
     if (g_game_serial == "CUSA03173") {
-        g_game_serial = "CUSA00207"; // still keep your Bloodborne remap
+        g_game_serial = "CUSA00207";
     }
     std::filesystem::path savedir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
                                     "savedata" / "1" / g_game_serial / "SPRJ0005";
-
     std::filesystem::path cusa_dir =
         Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "savedata" / "1" / g_game_serial;
-
-    if (!std::filesystem::exists(cusa_dir)) {
-        std::cerr << "[WARN] Save directory not found for " << g_game_serial << std::endl;
-        return;
-    }
-
     if (Config::getEnableAutoBackup()) {
         // Immediate backup on game load
         BackupCUSAFolder(cusa_dir);
@@ -264,7 +257,6 @@ void OnGameLoaded() {
     }
 
     std::filesystem::path backupDir = savedir;
-
     std::time_t now = std::time(nullptr);
     std::tm localTime;
 
