@@ -527,22 +527,35 @@ jobs:
 
     - name: Manage Revert Release Titles
       env:
-       GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
+        GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
-       api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-       releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
+        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
+        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
 
-       bbforks=$(echo "$releases" | jq -c '[.[] | select(.draft==false and .prerelease==false and (.tag_name|startswith("BBFork-shadPS4-")))] | sort_by(.published_at) | reverse')
+        bbforks=$(echo "$releases" | jq -c '[.[] | select(.draft==false and .prerelease==false and (.tag_name|startswith("BBFork-shadPS4-")))] | sort_by(.published_at) | reverse')
 
-       echo "$bbforks" | jq -c '.[1:][]' | nl -w1 -s' ' | while read -r index release; do
-        release_id=$(echo "$release" | jq -r '.id')
-        release_name=$(echo "$release" | jq -r '.name')
+        echo "$bbforks" | jq -c '.[1:][]' | while read -r release; do
+          release_id=$(echo "$release" | jq -r '.id')
+          release_name=$(echo "$release" | jq -r '.name')
+          if [[ "$release_name" == Revert-3-* ]]; then
+            echo "Deleting old Revert-3: $release_name"
+            curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+          fi
+        done
 
-        i=$index
-       if [ $i -le 3 ]; then
-        new_name="Revert-${i}-${release_name#BBFork-shadPS4-}"
-        curl -s -X PATCH -H "Authorization: token $GITHUB_TOKEN" \
-          -d "{\"name\": \"$new_name\"}" \
-          "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
-       fi
-       done
+        echo "$bbforks" | jq -c '.[1:][]' | nl -w1 -s' ' | while read -r index release; do
+          release_id=$(echo "$release" | jq -r '.id')
+          release_name=$(echo "$release" | jq -r '.name')
+
+          clean_name=$(echo "$release_name" | sed -E 's/^Revert-[0-9]+-//')
+
+          i=$index
+          if [ $i -le 3 ]; then
+            new_name="Revert-${i}-${clean_name}"
+            echo "Renaming: $release_name -> $new_name"
+            curl -s -X PATCH -H "Authorization: token $GITHUB_TOKEN" \
+              -d "{\"name\": \"$new_name\"}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+          fi
+        done

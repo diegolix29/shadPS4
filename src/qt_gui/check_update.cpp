@@ -138,7 +138,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
                                 if (releaseTitle.isEmpty())
                                     releaseTitle = release["tag_name"].toString();
 
-                                if (!releaseTitle.contains(revertName))
+                                if (!releaseTitle.startsWith(revertName))
                                     continue;
 
                                 QJsonArray assets = release["assets"].toArray();
@@ -209,7 +209,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
         for (const QJsonValue& value : jsonArray) {
             QJsonObject obj = value.toObject();
             QString title = obj["name"].toString();
-            if (title.contains("BBFork")) {
+            if (title.startsWith("BBFork")) {
                 QDateTime pubDate =
                     QDateTime::fromString(obj["published_at"].toString(), Qt::ISODate);
                 if (!newestDate.isValid() || pubDate > newestDate) {
