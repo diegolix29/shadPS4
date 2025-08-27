@@ -485,7 +485,6 @@ jobs:
         for dir in */; do
           if [ -d "$dir" ]; then
             dir_name=${dir%/}
-            echo "Creating zip for $dir_name"
             (cd "$dir_name" && zip -r "../BBFork-${dir_name}.zip" .)
           fi
         done
@@ -498,8 +497,47 @@ jobs:
         api_url="https://api.github.com/repos/${{ github.repository }}/releases"
         latest_release_info=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url" | jq -r 'sort_by(.published_at) | last')
         last_release_tag=$(echo "$latest_release_info" | jq -r '.tag_name')
-        echo "Latest release tag: $last_release_tag"
         echo "last_release_tag=$last_release_tag" >> $GITHUB_ENV
+
+    - name: Manage Revert Release Titles
+      env:
+        GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
+      run: |
+        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
+        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
+
+        targets=$(echo "$releases" | jq -c '[.[] 
+          | select(.draft==false and .prerelease==false and 
+                   ((.name|startswith("BBFork-shadPS4-")) or (.name|startswith("Revert-")))) 
+          ] | sort_by(.published_at) | reverse')
+
+        echo "$targets" | jq -c '.[]' | while read -r release; do
+          release_id=$(echo "$release" | jq -r '.id')
+          release_name=$(echo "$release" | jq -r '.name')
+          if [[ "$release_name" == Revert-3-* ]]; then
+            curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+          fi
+        done
+
+        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
+        targets=$(echo "$releases" | jq -c '[.[] 
+          | select(.draft==false and .prerelease==false and 
+                   ((.name|startswith("BBFork-shadPS4-")) or (.name|startswith("Revert-")))) 
+          ] | sort_by(.published_at) | reverse')
+
+        echo "$targets" | jq -c '.[1:][]' | nl -w1 -s' ' | while read -r index release; do
+          release_id=$(echo "$release" | jq -r '.id')
+          release_name=$(echo "$release" | jq -r '.name')
+          clean_name=$(echo "$release_name" | sed -E 's/^(Revert-[0-9]+-|BBFork-)//')
+          i=$index
+          if [ $i -le 3 ]; then
+            new_name="Revert-${i}-${clean_name}"
+            curl -s -X PATCH -H "Authorization: token $GITHUB_TOKEN" \
+              -d "{\"name\": \"$new_name\"}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+          fi
+        done
 
     - name: Create release on GitHub
       id: create_release
@@ -511,48 +549,3 @@ jobs:
         tag: "BBFork-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
         body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }}](https://github.com/${{ github.repository }}/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
         artifacts: ./artifacts/BBFork-*.zip
-
-    - name: Get current release information
-      env:
-       GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
-      run: |
-       api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-       releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-       CURRENT_PUBLISHED_AT=$(echo "$releases" | jq -r 'map(select(.draft == false and .prerelease == false)) | sort_by(.published_at) | last | .published_at')
-       echo "Latest published release date: $CURRENT_PUBLISHED_AT"
-       echo "CURRENT_PUBLISHED_AT=$CURRENT_PUBLISHED_AT" >> $GITHUB_ENV
-
-    - name: Manage Revert Release Titles
-      env:
-        GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
-      run: |
-        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-
-        bbforks=$(echo "$releases" | jq -c '[.[] | select(.draft==false and .prerelease==false and (.tag_name|startswith("BBFork-shadPS4-")))] | sort_by(.published_at) | reverse')
-
-        echo "$bbforks" | jq -c '.[1:][]' | while read -r release; do
-          release_id=$(echo "$release" | jq -r '.id')
-          release_name=$(echo "$release" | jq -r '.name')
-          if [[ "$release_name" == Revert-3-* ]]; then
-            echo "Deleting old Revert-3: $release_name"
-            curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
-          fi
-        done
-
-        echo "$bbforks" | jq -c '.[1:][]' | nl -w1 -s' ' | while read -r index release; do
-          release_id=$(echo "$release" | jq -r '.id')
-          release_name=$(echo "$release" | jq -r '.name')
-
-          clean_name=$(echo "$release_name" | sed -E 's/^Revert-[0-9]+-//')
-
-          i=$index
-          if [ $i -le 3 ]; then
-            new_name="Revert-${i}-${clean_name}"
-            echo "Renaming: $release_name -> $new_name"
-            curl -s -X PATCH -H "Authorization: token $GITHUB_TOKEN" \
-              -d "{\"name\": \"$new_name\"}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
-          fi
-        done
