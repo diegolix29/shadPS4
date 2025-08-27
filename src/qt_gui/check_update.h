@@ -29,7 +29,6 @@ private:
                           const QString& downloadUrl, const QString& latestDate,
                           const QString& currentDate);
 
-
     QCheckBox* autoUpdateCheckBox;
     QPushButton* yesButton;
     QPushButton* noButton;
