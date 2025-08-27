@@ -29,7 +29,6 @@ private:
                           const QString& downloadUrl, const QString& latestDate,
                           const QString& currentDate);
 
-    void fetchRevertArtifacts(const QString& artifactsUrl);
 
     QCheckBox* autoUpdateCheckBox;
     QPushButton* yesButton;

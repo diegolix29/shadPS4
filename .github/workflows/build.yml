@@ -532,26 +532,36 @@ jobs:
        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
        releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
 
-       # Extract BBFork releases only (non-draft, non-prerelease)
+       # Get all BBFork releases (non-draft, non-prerelease), newest first
        bbforks=$(echo "$releases" | jq -c '.[] | select(.draft==false and .prerelease==false and (.tag_name|startswith("BBFork-shadPS4-"))) | {id:.id, tag:.tag_name, published_at:.published_at}' | sort -r -k3)
 
-       # Rename them as Revert1, Revert2, Revert3 (newest = Revert1)
+       # Skip the newest one (keep it as BBFork)
+       newest=$(echo "$bbforks" | jq -r '.[0].tag')
+       echo "Newest BBFork release: $newest"
+
+       # Rename older ones to Revert-1, Revert-2, Revert-3
        i=1
-       echo "$bbforks" | while read -r release; do
-         release_id=$(echo "$release" | jq -r '.id')
+       echo "$bbforks" | jq -c ".[1:][]" | while read -r release; do
+       release_id=$(echo "$release" | jq -r '.id')
        release_tag=$(echo "$release" | jq -r '.tag')
+
        if [ $i -le 3 ]; then
-        new_tag="Revert$i-${release_tag#BBFork-shadPS4-}"
+        # Extract the original suffix after BBFork-shadPS4-
+        suffix=${release_tag#BBFork-shadPS4-}
+        new_tag="Revert-${i}-shadPS4-${suffix}"
         echo "Renaming $release_tag -> $new_tag"
+
         curl -s -X PATCH -H "Authorization: token $GITHUB_TOKEN" \
           -d "{\"tag_name\": \"$new_tag\", \"name\": \"$new_tag\"}" \
           "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
-        else
-        echo "Deleting old revert $release_tag"
+       else
+        # Delete old Revert releases beyond 3
+        echo "Deleting old release $release_tag"
         curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
           "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
         curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
           "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$release_tag"
-        fi
-        i=$((i+1))
-          done
+       fi
+
+       i=$((i+1))
+       done

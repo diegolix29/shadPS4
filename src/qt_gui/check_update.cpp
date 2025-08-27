@@ -487,7 +487,7 @@ void CheckUpdate::DownloadUpdate(const QString& url) {
             QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
             "/Temp/temp_download_update";
 #else
-        QString tempDownloadPath = userPath + "/temp_download_update";
+    QString tempDownloadPath = userPath + "/temp_download_update";
 #endif
         QDir dir(tempDownloadPath);
         if (!dir.exists()) {
@@ -499,9 +499,16 @@ void CheckUpdate::DownloadUpdate(const QString& url) {
         if (file.open(QIODevice::WriteOnly)) {
             file.write(reply->readAll());
             file.close();
-            QMessageBox::information(this, tr("Download Complete"),
-                                     tr("The update has been downloaded, press OK to install."));
-            Install();
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle(tr("Download Complete"));
+            msgBox.setText(tr("The update has been downloaded."));
+            msgBox.setInformativeText(tr("Press OK to install or Cancel to exit."));
+            msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+            msgBox.setDefaultButton(QMessageBox::Ok);
+            int ret = msgBox.exec();
+            if (ret == QMessageBox::Ok) {
+                Install();
+            }
         } else {
             QMessageBox::warning(
                 this, tr("Error"),
