@@ -4,42 +4,56 @@
 #pragma once
 
 #include "common/types.h"
-#include "video_core/amdgpu/tiling.h"
 #include "video_core/buffer_cache/buffer.h"
 
 namespace VideoCore {
 
+class TextureCache;
 struct ImageInfo;
-class StreamBuffer;
+
+enum DetilerType : u32 {
+    Micro8,
+    Micro16,
+    Micro32,
+    Micro64,
+    Micro128,
+
+    Macro8,
+    Macro32,
+    Macro64,
+
+    Display_Micro64,
+
+    Max
+};
+
+struct DetilerContext {
+    vk::UniquePipeline pl;
+    vk::UniquePipelineLayout pl_layout;
+};
 
 class TileManager {
-    static constexpr size_t NUM_BPPS = 5;
-
 public:
     using ScratchBuffer = std::pair<vk::Buffer, VmaAllocation>;
-    using Result = std::pair<vk::Buffer, u32>;
 
-    explicit TileManager(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                         StreamBuffer& stream_buffer);
+    TileManager(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler);
     ~TileManager();
 
-    void TileImage(vk::Image in_image, std::span<vk::BufferImageCopy> buffer_copies,
-                   vk::Buffer out_buffer, u32 out_offset, const ImageInfo& info);
+    std::pair<vk::Buffer, u32> TryDetile(vk::Buffer in_buffer, u32 in_offset,
+                                         const ImageInfo& info);
 
-    Result DetileImage(vk::Buffer in_buffer, u32 in_offset, const ImageInfo& info);
+    ScratchBuffer AllocBuffer(u32 size, bool is_storage = false);
+    void Upload(ScratchBuffer buffer, const void* data, size_t size);
+    void FreeBuffer(ScratchBuffer buffer);
 
 private:
-    vk::Pipeline GetTilingPipeline(const ImageInfo& info, bool is_tiler);
-    ScratchBuffer GetScratchBuffer(u32 size);
+    const DetilerContext* GetDetiler(const ImageInfo& info) const;
 
 private:
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
-    StreamBuffer& stream_buffer;
     vk::UniqueDescriptorSetLayout desc_layout;
-    vk::UniquePipelineLayout pl_layout;
-    std::array<vk::UniquePipeline, AmdGpu::NUM_TILE_MODES * NUM_BPPS> detilers{};
-    std::array<vk::UniquePipeline, AmdGpu::NUM_TILE_MODES * NUM_BPPS> tilers{};
+    std::array<DetilerContext, DetilerType::Max> detilers;
 };
 
 } // namespace VideoCore
