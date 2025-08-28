@@ -1028,7 +1028,13 @@ void MainWindow::StartGame() {
                 } else if (clicked == updateBtn) {
                     Config::setRestartWithBaseGame(false);
                     Config::save(config_dir / "config.toml");
-                    file = update_folder / "eboot.bin";
+
+                    auto update_eboot = update_folder / "eboot.bin";
+                    if (std::filesystem::exists(update_eboot)) {
+                        file = update_eboot;
+                    } else {
+                        file = base_folder / "eboot.bin";
+                    }
                 } else {
                     return;
                 }
@@ -1048,7 +1054,13 @@ void MainWindow::StartGame() {
                 } else if (clicked == updateBtn) {
                     Config::setRestartWithBaseGame(false);
                     Config::save(config_dir / "config.toml");
-                    file = update_folder / "eboot.bin";
+
+                    auto update_eboot = update_folder / "eboot.bin";
+                    if (std::filesystem::exists(update_eboot)) {
+                        file = update_eboot;
+                    } else {
+                        file = base_folder / "eboot.bin";
+                    }
                 } else {
                     return;
                 }
