@@ -16,10 +16,43 @@
 namespace Shader::Backend::SPIRV {
 namespace {
 
+Id VsOutputAttrPointer(EmitContext& ctx, VsOutput output) {
+    switch (output) {
+    case VsOutput::ClipDist0:
+    case VsOutput::ClipDist1:
+    case VsOutput::ClipDist2:
+    case VsOutput::ClipDist3:
+    case VsOutput::ClipDist4:
+    case VsOutput::ClipDist5:
+    case VsOutput::ClipDist6:
+    case VsOutput::ClipDist7: {
+        const u32 index = u32(output) - u32(VsOutput::ClipDist0);
+        const Id clip_num{ctx.ConstU32(index)};
+        ASSERT_MSG(Sirit::ValidId(ctx.clip_distances), "Clip distance used but not defined");
+        return ctx.OpAccessChain(ctx.output_f32, ctx.clip_distances, clip_num);
+    }
+    case VsOutput::CullDist0:
+    case VsOutput::CullDist1:
+    case VsOutput::CullDist2:
+    case VsOutput::CullDist3:
+    case VsOutput::CullDist4:
+    case VsOutput::CullDist5:
+    case VsOutput::CullDist6:
+    case VsOutput::CullDist7: {
+        const u32 index = u32(output) - u32(VsOutput::CullDist0);
+        const Id cull_num{ctx.ConstU32(index)};
+        ASSERT_MSG(Sirit::ValidId(ctx.cull_distances), "Cull distance used but not defined");
+        return ctx.OpAccessChain(ctx.output_f32, ctx.cull_distances, cull_num);
+    }
+    default:
+        UNREACHABLE_MSG("Vertex output {}", u32(output));
+    }
+}
+
 Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, u32 element) {
     if (IR::IsParam(attr)) {
         const u32 attr_index{u32(attr) - u32(IR::Attribute::Param0)};
-        if (ctx.stage == Stage::Local) {
+        if (ctx.stage == Stage::Local && ctx.runtime_info.ls_info.links_with_tcs) {
             const auto component_ptr = ctx.TypePointer(spv::StorageClass::Output, ctx.F32[1]);
             return ctx.OpAccessChain(component_ptr, ctx.output_attr_array, ctx.ConstU32(attr_index),
                                      ctx.ConstU32(element));
@@ -43,14 +76,15 @@ Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, u32 element) {
         }
     }
     switch (attr) {
-    case IR::Attribute::Position0:
+    case IR::Attribute::Position0: {
         return ctx.OpAccessChain(ctx.output_f32, ctx.output_position, ctx.ConstU32(element));
-    case IR::Attribute::ClipDistance:
-        return ctx.OpAccessChain(ctx.output_f32, ctx.clip_distances, ctx.ConstU32(element));
-    case IR::Attribute::CullDistance:
-        return ctx.OpAccessChain(ctx.output_f32, ctx.cull_distances, ctx.ConstU32(element));
-    case IR::Attribute::RenderTargetId:
-        return ctx.output_layer;
+    }
+    case IR::Attribute::Position1:
+    case IR::Attribute::Position2:
+    case IR::Attribute::Position3: {
+        const u32 index = u32(attr) - u32(IR::Attribute::Position1);
+        return VsOutputAttrPointer(ctx, ctx.runtime_info.vs_info.outputs[index][element]);
+    }
     case IR::Attribute::Depth:
         return ctx.frag_depth;
     default:
@@ -60,9 +94,13 @@ Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, u32 element) {
 
 std::pair<Id, bool> OutputAttrComponentType(EmitContext& ctx, IR::Attribute attr) {
     if (IR::IsParam(attr)) {
-        const u32 index{u32(attr) - u32(IR::Attribute::Param0)};
-        const auto& info{ctx.output_params.at(index)};
-        return {info.component_type, info.is_integer};
+        if (ctx.stage == Stage::Local && ctx.runtime_info.ls_info.links_with_tcs) {
+            return {ctx.F32[1], false};
+        } else {
+            const u32 index{u32(attr) - u32(IR::Attribute::Param0)};
+            const auto& info{ctx.output_params.at(index)};
+            return {info.component_type, info.is_integer};
+        }
     }
     if (IR::IsMrt(attr)) {
         const u32 index{u32(attr) - u32(IR::Attribute::RenderTarget0)};
@@ -71,21 +109,16 @@ std::pair<Id, bool> OutputAttrComponentType(EmitContext& ctx, IR::Attribute attr
     }
     switch (attr) {
     case IR::Attribute::Position0:
-    case IR::Attribute::ClipDistance:
-    case IR::Attribute::CullDistance:
+    case IR::Attribute::Position1:
+    case IR::Attribute::Position2:
+    case IR::Attribute::Position3:
     case IR::Attribute::Depth:
         return {ctx.F32[1], false};
-    case IR::Attribute::RenderTargetId:
-    case IR::Attribute::ViewportId:
-        return {ctx.S32[1], true};
     default:
         throw NotImplementedException("Write attribute {}", attr);
     }
 }
 } // Anonymous namespace
-
-using PointerType = EmitContext::PointerType;
-using PointerSize = EmitContext::PointerSize;
 
 Id EmitGetUserData(EmitContext& ctx, IR::ScalarReg reg) {
     const u32 index = ctx.binding.user_data + ctx.info.ud_mask.Index(reg);
@@ -97,6 +130,41 @@ Id EmitGetUserData(EmitContext& ctx, IR::ScalarReg reg) {
     ctx.Name(ud_reg, fmt::format("ud_{}", u32(reg)));
     return ud_reg;
 }
+
+void EmitGetThreadBitScalarReg(EmitContext& ctx) {
+    UNREACHABLE_MSG("Unreachable instruction");
+}
+
+void EmitSetThreadBitScalarReg(EmitContext& ctx) {
+    UNREACHABLE_MSG("Unreachable instruction");
+}
+
+void EmitGetScalarRegister(EmitContext&) {
+    UNREACHABLE_MSG("Unreachable instruction");
+}
+
+void EmitSetScalarRegister(EmitContext&) {
+    UNREACHABLE_MSG("Unreachable instruction");
+}
+
+void EmitGetVectorRegister(EmitContext& ctx) {
+    UNREACHABLE_MSG("Unreachable instruction");
+}
+
+void EmitSetVectorRegister(EmitContext& ctx) {
+    UNREACHABLE_MSG("Unreachable instruction");
+}
+
+void EmitSetGotoVariable(EmitContext&) {
+    UNREACHABLE_MSG("Unreachable instruction");
+}
+
+void EmitGetGotoVariable(EmitContext&) {
+    UNREACHABLE_MSG("Unreachable instruction");
+}
+
+using PointerType = EmitContext::PointerType;
+using PointerSize = EmitContext::PointerSize;
 
 Id EmitReadConst(EmitContext& ctx, IR::Inst* inst, Id addr, Id offset) {
     const u32 flatbuf_off_dw = inst->Flags<u32>();
@@ -112,27 +180,39 @@ Id EmitReadConst(EmitContext& ctx, IR::Inst* inst, Id addr, Id offset) {
     }
 }
 
-Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
+template <PointerType type>
+Id ReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
     const auto& buffer = ctx.buffers[handle];
     if (const Id offset = buffer.Offset(PointerSize::B32); Sirit::ValidId(offset)) {
         index = ctx.OpIAdd(ctx.U32[1], index, offset);
     }
-    const auto [id, pointer_type] = buffer.Alias(PointerType::U32);
+    const auto [id, pointer_type] = buffer.Alias(type);
+    const auto value_type = type == PointerType::U32 ? ctx.U32[1] : ctx.F32[1];
     const Id ptr{ctx.OpAccessChain(pointer_type, id, ctx.u32_zero_value, index)};
-    const Id result{ctx.OpLoad(ctx.U32[1], ptr)};
+    const Id result{ctx.OpLoad(value_type, ptr)};
     if (const Id size = buffer.Size(PointerSize::B32); Sirit::ValidId(size)) {
         const Id in_bounds = ctx.OpULessThan(ctx.U1[1], index, size);
-        return ctx.OpSelect(ctx.U32[1], in_bounds, result, ctx.u32_zero_value);
+        return ctx.OpSelect(value_type, in_bounds, result, ctx.u32_zero_value);
     }
     return result;
 }
 
-static Id EmitGetAttributeForGeometry(EmitContext& ctx, IR::Attribute attr, u32 comp, u32 index) {
+Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
+    return ReadConstBuffer<PointerType::U32>(ctx, handle, index);
+}
+
+Id EmitReadStepRate(EmitContext& ctx, int rate_idx) {
+    const auto index{rate_idx == 0 ? PushData::Step0Index : PushData::Step1Index};
+    return ctx.OpLoad(
+        ctx.U32[1], ctx.OpAccessChain(ctx.TypePointer(spv::StorageClass::PushConstant, ctx.U32[1]),
+                                      ctx.push_data_block, ctx.ConstU32(index)));
+}
+
+static Id EmitGetAttributeForGeometry(EmitContext& ctx, IR::Attribute attr, u32 comp, Id index) {
     if (IR::IsPosition(attr)) {
         ASSERT(attr == IR::Attribute::Position0);
         const auto position_arr_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[4]);
-        const auto pointer{
-            ctx.OpAccessChain(position_arr_ptr, ctx.gl_in, ctx.ConstU32(index), ctx.ConstU32(0u))};
+        const auto pointer{ctx.OpAccessChain(position_arr_ptr, ctx.gl_in, index, ctx.ConstU32(0u))};
         const auto position_comp_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[1]);
         return ctx.OpLoad(ctx.F32[1],
                           ctx.OpAccessChain(position_comp_ptr, pointer, ctx.ConstU32(comp)));
@@ -142,7 +222,7 @@ static Id EmitGetAttributeForGeometry(EmitContext& ctx, IR::Attribute attr, u32 
         const u32 param_id{u32(attr) - u32(IR::Attribute::Param0)};
         const auto param = ctx.input_params.at(param_id).id;
         const auto param_arr_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[4]);
-        const auto pointer{ctx.OpAccessChain(param_arr_ptr, param, ctx.ConstU32(index))};
+        const auto pointer{ctx.OpAccessChain(param_arr_ptr, param, index)};
         const auto position_comp_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[1]);
         return ctx.OpLoad(ctx.F32[1],
                           ctx.OpAccessChain(position_comp_ptr, pointer, ctx.ConstU32(comp)));
@@ -150,7 +230,7 @@ static Id EmitGetAttributeForGeometry(EmitContext& ctx, IR::Attribute attr, u32 
     UNREACHABLE();
 }
 
-Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, u32 index) {
+Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, Id index) {
     if (ctx.info.l_stage == LogicalStage::Geometry) {
         return EmitGetAttributeForGeometry(ctx, attr, comp, index);
     } else if (ctx.info.l_stage == LogicalStage::TessellationControl ||
@@ -168,6 +248,18 @@ Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, u32 index) {
     if (IR::IsParam(attr)) {
         const u32 param_index{u32(attr) - u32(IR::Attribute::Param0)};
         const auto& param{ctx.input_params.at(param_index)};
+        if (param.buffer_handle >= 0) {
+            const auto step_rate = EmitReadStepRate(ctx, param.id.value);
+            const auto offset = ctx.OpIAdd(
+                ctx.U32[1],
+                ctx.OpIMul(
+                    ctx.U32[1],
+                    ctx.OpUDiv(ctx.U32[1], ctx.OpLoad(ctx.U32[1], ctx.instance_id), step_rate),
+                    ctx.ConstU32(param.num_components)),
+                ctx.ConstU32(comp));
+            return ReadConstBuffer<PointerType::F32>(ctx, param.buffer_handle, offset);
+        }
+
         Id result;
         if (param.is_loaded) {
             // Attribute is either default or manually interpolated. The id points to an already
@@ -213,6 +305,10 @@ Id EmitGetAttributeU32(EmitContext& ctx, IR::Attribute attr, u32 comp) {
         return ctx.OpLoad(ctx.U32[1], ctx.vertex_index);
     case IR::Attribute::InstanceId:
         return ctx.OpLoad(ctx.U32[1], ctx.instance_id);
+    case IR::Attribute::InstanceId0:
+        return EmitReadStepRate(ctx, 0);
+    case IR::Attribute::InstanceId1:
+        return EmitReadStepRate(ctx, 1);
     case IR::Attribute::WorkgroupIndex:
         return ctx.workgroup_index_id;
     case IR::Attribute::WorkgroupId:
@@ -254,10 +350,14 @@ Id EmitGetAttributeU32(EmitContext& ctx, IR::Attribute attr, u32 comp) {
 }
 
 void EmitSetAttribute(EmitContext& ctx, IR::Attribute attr, Id value, u32 element) {
+    if (attr == IR::Attribute::Position1) {
+        LOG_WARNING(Render_Vulkan, "Ignoring pos1 export");
+        return;
+    }
     const Id pointer{OutputAttrPointer(ctx, attr, element)};
-    const auto [component_type, is_integer]{OutputAttrComponentType(ctx, attr)};
-    if (is_integer) {
-        ctx.OpStore(pointer, ctx.OpBitcast(component_type, value));
+    const auto component_type{OutputAttrComponentType(ctx, attr)};
+    if (component_type.second) {
+        ctx.OpStore(pointer, ctx.OpBitcast(component_type.first, value));
     } else {
         ctx.OpStore(pointer, value);
     }
@@ -543,38 +643,6 @@ void EmitStoreBufferF32x4(EmitContext& ctx, IR::Inst* inst, u32 handle, Id addre
 
 void EmitStoreBufferFormatF32(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address, Id value) {
     UNREACHABLE_MSG("SPIR-V instruction");
-}
-
-void EmitGetThreadBitScalarReg(EmitContext& ctx) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitSetThreadBitScalarReg(EmitContext& ctx) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitGetScalarRegister(EmitContext&) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitSetScalarRegister(EmitContext&) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitGetVectorRegister(EmitContext& ctx) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitSetVectorRegister(EmitContext& ctx) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitSetGotoVariable(EmitContext&) {
-    UNREACHABLE_MSG("Unreachable instruction");
-}
-
-void EmitGetGotoVariable(EmitContext&) {
-    UNREACHABLE_MSG("Unreachable instruction");
 }
 
 } // namespace Shader::Backend::SPIRV

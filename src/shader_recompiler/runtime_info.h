@@ -42,6 +42,7 @@ constexpr u32 MaxStageTypes = static_cast<u32>(LogicalStage::NumLogicalStages);
 
 struct LocalRuntimeInfo {
     u32 ls_stride;
+    bool links_with_tcs;
 
     auto operator<=>(const LocalRuntimeInfo&) const noexcept = default;
 };
@@ -52,7 +53,7 @@ struct ExportRuntimeInfo {
     auto operator<=>(const ExportRuntimeInfo&) const noexcept = default;
 };
 
-enum class Output : u8 {
+enum class VsOutput : u8 {
     None,
     PointSprite,
     EdgeFlag,
@@ -77,16 +78,14 @@ enum class Output : u8 {
     ClipDist6,
     ClipDist7,
 };
-using OutputMap = std::array<Output, 4>;
+using VsOutputMap = std::array<VsOutput, 4>;
 
 struct VertexRuntimeInfo {
     u32 num_outputs;
-    std::array<OutputMap, 3> outputs;
+    std::array<VsOutputMap, 3> outputs;
     bool tess_emulated_primitive{};
     bool emulate_depth_negative_one_to_one{};
     bool clip_disable{};
-    u32 step_rate_0;
-    u32 step_rate_1;
     // Domain
     AmdGpu::TessellationType tess_type;
     AmdGpu::TessellationTopology tess_topology;
@@ -94,14 +93,11 @@ struct VertexRuntimeInfo {
     u32 hs_output_cp_stride{};
 
     bool operator==(const VertexRuntimeInfo& other) const noexcept {
-        return num_outputs == other.num_outputs && outputs == other.outputs &&
-               tess_emulated_primitive == other.tess_emulated_primitive &&
-               emulate_depth_negative_one_to_one == other.emulate_depth_negative_one_to_one &&
+        return emulate_depth_negative_one_to_one == other.emulate_depth_negative_one_to_one &&
                clip_disable == other.clip_disable && tess_type == other.tess_type &&
                tess_topology == other.tess_topology &&
                tess_partitioning == other.tess_partitioning &&
-               hs_output_cp_stride == other.hs_output_cp_stride &&
-               step_rate_0 == other.step_rate_0 && step_rate_1 == other.step_rate_1;
+               hs_output_cp_stride == other.hs_output_cp_stride;
     }
 
     void InitFromTessConstants(Shader::TessellationDataConstantBuffer& tess_constants) {
@@ -148,8 +144,6 @@ struct HullRuntimeInfo {
 static constexpr auto GsMaxOutputStreams = 4u;
 using GsOutputPrimTypes = std::array<AmdGpu::GsOutputPrimitiveType, GsMaxOutputStreams>;
 struct GeometryRuntimeInfo {
-    u32 num_outputs;
-    std::array<OutputMap, 3> outputs;
     u32 num_invocations{};
     u32 output_vertices{};
     u32 in_vertex_data_size{};
@@ -161,9 +155,8 @@ struct GeometryRuntimeInfo {
     u64 vs_copy_hash;
 
     bool operator==(const GeometryRuntimeInfo& other) const noexcept {
-        return num_outputs == other.num_outputs && outputs == other.outputs && num_invocations &&
-               other.num_invocations && output_vertices == other.output_vertices &&
-               in_primitive == other.in_primitive &&
+        return num_invocations && other.num_invocations &&
+               output_vertices == other.output_vertices && in_primitive == other.in_primitive &&
                std::ranges::equal(out_primitive, other.out_primitive);
     }
 };
@@ -181,9 +174,11 @@ struct PsColorBuffer {
     AmdGpu::NumberFormat num_format : 4;
     AmdGpu::NumberConversion num_conversion : 3;
     AmdGpu::Liverpool::ShaderExportFormat export_format : 4;
+    u32 needs_unorm_fixup : 1;
+    u32 pad : 20;
     AmdGpu::CompMapping swizzle;
 
-    bool operator==(const PsColorBuffer& other) const noexcept = default;
+    auto operator<=>(const PsColorBuffer&) const noexcept = default;
 };
 
 struct FragmentRuntimeInfo {
@@ -193,11 +188,11 @@ struct FragmentRuntimeInfo {
         bool is_flat;
         u8 default_value;
 
-        bool IsDefault() const {
+        [[nodiscard]] bool IsDefault() const {
             return is_default && !is_flat;
         }
 
-        bool operator==(const PsInput&) const noexcept = default;
+        auto operator<=>(const PsInput&) const noexcept = default;
     };
     AmdGpu::Liverpool::PsInput en_flags;
     AmdGpu::Liverpool::PsInput addr_flags;

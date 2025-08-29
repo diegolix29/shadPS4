@@ -134,7 +134,7 @@ public:
         return depth_range_unrestricted;
     }
 
-    /// Returns true when the extendedDynamicState3ColorWriteMask feature o
+    /// Returns true when the extendedDynamicState3ColorWriteMask feature of
     /// VK_EXT_extended_dynamic_state3 is supported.
     bool IsDynamicColorWriteMaskSupported() const {
         return dynamic_state_3 && dynamic_state_3_features.extendedDynamicState3ColorWriteMask;
@@ -455,8 +455,8 @@ private:
     bool amd_shader_explicit_vertex_parameter{};
     bool depth_clip_control{};
     bool depth_clip_enable{};
-    bool dynamic_state_3{};
     bool depth_range_unrestricted{};
+    bool dynamic_state_3{};
     bool vertex_input_dynamic_state{};
     bool robustness2{};
     bool list_restart{};

@@ -72,21 +72,12 @@ GraphicsPipeline::GraphicsPipeline(
 
     VertexInputs<vk::VertexInputAttributeDescription> vertex_attributes;
     VertexInputs<vk::VertexInputBindingDescription> vertex_bindings;
-    VertexInputs<vk::VertexInputBindingDivisorDescriptionEXT> divisors;
     VertexInputs<AmdGpu::Buffer> guest_buffers;
     if (!instance.IsVertexInputDynamicState()) {
-        const auto& vs_info = runtime_infos[u32(Shader::LogicalStage::Vertex)].vs_info;
-        GetVertexInputs(vertex_attributes, vertex_bindings, divisors, guest_buffers,
-                        vs_info.step_rate_0, vs_info.step_rate_1);
+        GetVertexInputs(vertex_attributes, vertex_bindings, guest_buffers);
     }
 
-    const vk::PipelineVertexInputDivisorStateCreateInfo divisor_state = {
-        .vertexBindingDivisorCount = static_cast<u32>(divisors.size()),
-        .pVertexBindingDivisors = divisors.data(),
-    };
-
     const vk::PipelineVertexInputStateCreateInfo vertex_input_info = {
-        .pNext = divisors.empty() ? nullptr : &divisor_state,
         .vertexBindingDescriptionCount = static_cast<u32>(vertex_bindings.size()),
         .pVertexBindingDescriptions = vertex_bindings.data(),
         .vertexAttributeDescriptionCount = static_cast<u32>(vertex_attributes.size()),
@@ -356,17 +347,19 @@ GraphicsPipeline::GraphicsPipeline(
 GraphicsPipeline::~GraphicsPipeline() = default;
 
 template <typename Attribute, typename Binding>
-void GraphicsPipeline::GetVertexInputs(
-    VertexInputs<Attribute>& attributes, VertexInputs<Binding>& bindings,
-    VertexInputs<vk::VertexInputBindingDivisorDescriptionEXT>& divisors,
-    VertexInputs<AmdGpu::Buffer>& guest_buffers, u32 step_rate_0, u32 step_rate_1) const {
-    using InstanceIdType = Shader::Gcn::VertexAttribute::InstanceIdType;
+void GraphicsPipeline::GetVertexInputs(VertexInputs<Attribute>& attributes,
+                                       VertexInputs<Binding>& bindings,
+                                       VertexInputs<AmdGpu::Buffer>& guest_buffers) const {
     if (!fetch_shader || fetch_shader->attributes.empty()) {
         return;
     }
     const auto& vs_info = GetStage(Shader::LogicalStage::Vertex);
     for (const auto& attrib : fetch_shader->attributes) {
-        const auto step_rate = attrib.GetStepRate();
+        if (attrib.UsesStepRates()) {
+            // Skip attribute binding as the data will be pulled by shader.
+            continue;
+        }
+
         const auto& buffer = attrib.GetSharp(vs_info);
         attributes.push_back(Attribute{
             .location = attrib.semantic,
@@ -377,19 +370,12 @@ void GraphicsPipeline::GetVertexInputs(
         bindings.push_back(Binding{
             .binding = attrib.semantic,
             .stride = buffer.GetStride(),
-            .inputRate = step_rate == InstanceIdType::None ? vk::VertexInputRate::eVertex
-                                                           : vk::VertexInputRate::eInstance,
+            .inputRate = attrib.GetStepRate() == Shader::Gcn::VertexAttribute::InstanceIdType::None
+                             ? vk::VertexInputRate::eVertex
+                             : vk::VertexInputRate::eInstance,
         });
-        const u32 divisor = step_rate == InstanceIdType::OverStepRate0
-                                ? step_rate_0
-                                : (step_rate == InstanceIdType::OverStepRate1 ? step_rate_1 : 1);
         if constexpr (std::is_same_v<Binding, vk::VertexInputBindingDescription2EXT>) {
-            bindings.back().divisor = divisor;
-        } else if (step_rate != InstanceIdType::None) {
-            divisors.push_back(vk::VertexInputBindingDivisorDescriptionEXT{
-                .binding = attrib.semantic,
-                .divisor = divisor,
-            });
+            bindings.back().divisor = 1;
         }
         guest_buffers.emplace_back(buffer);
     }
@@ -399,13 +385,11 @@ void GraphicsPipeline::GetVertexInputs(
 template void GraphicsPipeline::GetVertexInputs(
     VertexInputs<vk::VertexInputAttributeDescription>& attributes,
     VertexInputs<vk::VertexInputBindingDescription>& bindings,
-    VertexInputs<vk::VertexInputBindingDivisorDescriptionEXT>& divisors,
-    VertexInputs<AmdGpu::Buffer>& guest_buffers, u32 step_rate_0, u32 step_rate_1) const;
+    VertexInputs<AmdGpu::Buffer>& guest_buffers) const;
 template void GraphicsPipeline::GetVertexInputs(
     VertexInputs<vk::VertexInputAttributeDescription2EXT>& attributes,
     VertexInputs<vk::VertexInputBindingDescription2EXT>& bindings,
-    VertexInputs<vk::VertexInputBindingDivisorDescriptionEXT>& divisors,
-    VertexInputs<AmdGpu::Buffer>& guest_buffers, u32 step_rate_0, u32 step_rate_1) const;
+    VertexInputs<AmdGpu::Buffer>& guest_buffers) const;
 
 void GraphicsPipeline::BuildDescSetLayout() {
     boost::container::small_vector<vk::DescriptorSetLayoutBinding, 32> bindings;

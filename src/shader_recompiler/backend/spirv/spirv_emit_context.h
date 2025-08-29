@@ -245,7 +245,6 @@ public:
     boost::container::small_vector<Id, 16> interfaces;
 
     Id output_position{};
-    Id output_layer{};
     Id primitive_id{};
     Id vertex_index{};
     Id instance_id{};
@@ -362,6 +361,7 @@ public:
         u32 num_components;
         bool is_integer{};
         bool is_loaded{};
+        s32 buffer_handle{-1};
     };
     Id input_attr_array;
     Id output_attr_array;
@@ -383,7 +383,6 @@ private:
     void DefineArithmeticTypes();
     void DefineInterfaces();
     void DefineInputs();
-    void DefineVertexBlock();
     void DefineOutputs();
     void DefinePushDataBlock();
     void DefineBuffers();

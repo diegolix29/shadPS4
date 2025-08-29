@@ -84,16 +84,14 @@ public:
         return key.write_masks;
     }
 
-    u32 GetMrtMask() const {
+    auto GetMrtMask() const {
         return key.mrt_mask;
     }
 
     /// Gets the attributes and bindings for vertex inputs.
     template <typename Attribute, typename Binding>
     void GetVertexInputs(VertexInputs<Attribute>& attributes, VertexInputs<Binding>& bindings,
-                         VertexInputs<vk::VertexInputBindingDivisorDescriptionEXT>& divisors,
-                         VertexInputs<AmdGpu::Buffer>& guest_buffers, u32 step_rate_0,
-                         u32 step_rate_1) const;
+                         VertexInputs<AmdGpu::Buffer>& guest_buffers) const;
 
 private:
     void BuildDescSetLayout();
