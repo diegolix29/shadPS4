@@ -121,10 +121,17 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
     image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {});
     cmdbuf.copyImageToBuffer(image.image, vk::ImageLayout::eTransferSrcOptimal,
                              download_buffer.Handle(), image_download);
-    scheduler.DeferOperation([device_addr = image.info.guest_address, download, download_size] {
-        auto* memory = Core::Memory::Instance();
-        memory->TryWriteBacking(std::bit_cast<u8*>(device_addr), download, download_size);
-    });
+    scheduler.DeferOperation(
+        [device_addr = image.info.guest_address, download, download_size, cache = &buffer_cache] {
+            if (cache->IsRegionGpuModified(device_addr, download_size)) {
+                LOG_WARNING(Render_Vulkan, "Image {:x} was modified by GPU during download",
+                            device_addr);
+            }
+
+            auto* memory = Core::Memory::Instance();
+            memory->TryWriteBacking(std::bit_cast<u8*>(device_addr), download, download_size);
+            cache->InvalidateMemory(device_addr, download_size, false);
+        });
 }
 
 void TextureCache::MarkAsMaybeDirty(ImageId image_id, Image& image) {
@@ -400,6 +407,8 @@ ImageId TextureCache::ExpandImage(const ImageInfo& info, ImageId image_id) {
 
     TrackImage(new_image_id);
     new_image.flags &= ~ImageFlagBits::Dirty;
+    new_image.flags |= src_image.flags & ImageFlagBits::GpuModified;
+
     return new_image_id;
 }
 
@@ -538,8 +547,7 @@ ImageView& TextureCache::FindTexture(ImageId image_id, const BaseDesc& desc) {
     Image& image = slot_images[image_id];
     if (desc.type == BindingType::Storage) {
         image.flags |= ImageFlagBits::GpuModified;
-        if (Config::getReadbackLinearImages() && !image.info.props.is_tiled &&
-            image.info.guest_address != 0) {
+        if (Config::getReadbackLinearImages() && !image.info.props.is_tiled) {
             download_images.emplace(image_id);
         }
     }
@@ -627,7 +635,7 @@ void TextureCache::RefreshImage(Image& image, Vulkan::Scheduler* custom_schedule
         const auto addr = std::bit_cast<u8*>(image.info.guest_address);
         const u32 w = std::min(image.info.size.width, u32(8));
         const u32 h = std::min(image.info.size.height, u32(8));
-        const u32 size = w * h * image.info.num_bits >> (3 + image.info.props.is_block ? 4 : 0);
+        const u32 size = (w * h * image.info.num_bits) >> (3 + (image.info.props.is_block ? 4 : 0));
         const u64 hash = XXH3_64bits(addr, size);
         if (image.hash == hash) {
             image.flags &= ~ImageFlagBits::MaybeCpuDirty;
@@ -907,7 +915,6 @@ void TextureCache::RunGarbageCollector() {
     std::scoped_lock lock{mutex};
     bool pressured = false;
     bool aggresive = false;
-    bool downloaded = false;
     u64 ticks_to_destroy = 0;
     size_t num_deletions = 0;
 
@@ -935,7 +942,6 @@ void TextureCache::RunGarbageCollector() {
         }
         if (download) {
             DownloadImageMemory(image_id);
-            downloaded = true;
         }
         FreeImage(image_id);
         if (total_used_memory < critical_gc_memory) {
@@ -961,13 +967,6 @@ void TextureCache::RunGarbageCollector() {
         configure(true);
         lru_cache.ForEachItemBelow(gc_tick - ticks_to_destroy, clean_up);
     }
-
-    if (downloaded) {
-        // We need to make downloads synchronous. It is possible that the contents
-        // of the image are requested before they are downloaded in which case
-        // outdated buffer cache contents are used instead.
-        scheduler.Finish();
-    }
 }
 
 void TextureCache::TouchImage(const Image& image) {
@@ -991,13 +990,18 @@ void TextureCache::DeleteImage(ImageId image_id) {
         surface_metas.erase(meta_info.htile_addr);
     }
 
-    // Reclaim image and any image views it references.
-    scheduler.DeferOperation([this, image_id] {
-        Image& image = slot_images[image_id];
-        for (const ImageViewId image_view_id : image.image_view_ids) {
-            slot_image_views.erase(image_view_id);
+    std::vector<ImageViewId> image_view_ids;
+    image_view_ids.reserve(image.image_view_ids.size());
+    for (const ImageViewId id : image.image_view_ids) {
+        image_view_ids.push_back(id);
+    }
+
+    scheduler.DeferOperation([image_id, image_view_ids = std::move(image_view_ids),
+                              images = &slot_images, views = &slot_image_views] {
+        for (const ImageViewId view_id : image_view_ids) {
+            views->erase(view_id);
         }
-        slot_images.erase(image_id);
+        images->erase(image_id);
     });
 }
 

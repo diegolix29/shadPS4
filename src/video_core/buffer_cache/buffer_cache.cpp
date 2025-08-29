@@ -154,12 +154,14 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
 
 BufferCache::~BufferCache() = default;
 
-void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
+void BufferCache::InvalidateMemory(VAddr device_addr, u64 size, bool download) {
     if (!IsRegionRegistered(device_addr, size)) {
         return;
     }
-    memory_tracker->InvalidateRegion(
-        device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
+    if (download) {
+        memory_tracker->InvalidateRegion(
+            device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
+    }
 }
 
 void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
@@ -883,6 +885,7 @@ bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32
     size_t total_size_bytes = 0;
     VAddr buffer_start = buffer.CpuAddr();
     vk::Buffer src_buffer = VK_NULL_HANDLE;
+    TouchBuffer(buffer);
     memory_tracker->ForEachUploadRange(
         device_addr, size, is_written,
         [&](u64 device_addr_out, u64 range_size) {
@@ -928,7 +931,6 @@ bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32
             .bufferMemoryBarrierCount = 1,
             .pBufferMemoryBarriers = &post_barrier,
         });
-        TouchBuffer(buffer);
     }
     if (is_texel_buffer || is_written) {
         const bool synced = SynchronizeBufferFromImage(buffer, device_addr, size);

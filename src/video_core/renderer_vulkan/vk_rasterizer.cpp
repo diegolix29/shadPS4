@@ -1047,7 +1047,8 @@ bool Rasterizer::InvalidateMemory(VAddr addr, u64 size) {
         // Not GPU mapped memory, can skip invalidation logic entirely.
         return false;
     }
-    buffer_cache.InvalidateMemory(addr, size);
+    buffer_cache.InvalidateMemory(addr, size, true);
+
     texture_cache.InvalidateMemory(addr, size);
     return true;
 }
@@ -1081,7 +1082,8 @@ void Rasterizer::MapMemory(VAddr addr, u64 size) {
 }
 
 void Rasterizer::UnmapMemory(VAddr addr, u64 size) {
-    buffer_cache.InvalidateMemory(addr, size);
+    buffer_cache.InvalidateMemory(addr, size, true);
+
     texture_cache.UnmapMemory(addr, size);
     page_manager.OnGpuUnmap(addr, size);
     {
