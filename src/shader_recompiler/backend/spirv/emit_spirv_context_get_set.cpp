@@ -16,39 +16,6 @@
 namespace Shader::Backend::SPIRV {
 namespace {
 
-Id VsOutputAttrPointer(EmitContext& ctx, VsOutput output) {
-    switch (output) {
-    case VsOutput::ClipDist0:
-    case VsOutput::ClipDist1:
-    case VsOutput::ClipDist2:
-    case VsOutput::ClipDist3:
-    case VsOutput::ClipDist4:
-    case VsOutput::ClipDist5:
-    case VsOutput::ClipDist6:
-    case VsOutput::ClipDist7: {
-        const u32 index = u32(output) - u32(VsOutput::ClipDist0);
-        const Id clip_num{ctx.ConstU32(index)};
-        ASSERT_MSG(Sirit::ValidId(ctx.clip_distances), "Clip distance used but not defined");
-        return ctx.OpAccessChain(ctx.output_f32, ctx.clip_distances, clip_num);
-    }
-    case VsOutput::CullDist0:
-    case VsOutput::CullDist1:
-    case VsOutput::CullDist2:
-    case VsOutput::CullDist3:
-    case VsOutput::CullDist4:
-    case VsOutput::CullDist5:
-    case VsOutput::CullDist6:
-    case VsOutput::CullDist7: {
-        const u32 index = u32(output) - u32(VsOutput::CullDist0);
-        const Id cull_num{ctx.ConstU32(index)};
-        ASSERT_MSG(Sirit::ValidId(ctx.cull_distances), "Cull distance used but not defined");
-        return ctx.OpAccessChain(ctx.output_f32, ctx.cull_distances, cull_num);
-    }
-    default:
-        UNREACHABLE_MSG("Vertex output {}", u32(output));
-    }
-}
-
 Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, u32 element) {
     if (IR::IsParam(attr)) {
         const u32 attr_index{u32(attr) - u32(IR::Attribute::Param0)};
@@ -209,6 +176,10 @@ Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, u32 index) {
     case IR::Attribute::BaryCoordSmooth:
         return ctx.OpLoad(ctx.F32[1], ctx.OpAccessChain(ctx.input_f32, ctx.bary_coord_smooth,
                                                         ctx.ConstU32(comp)));
+    case IR::Attribute::BaryCoordSmoothCentroid:
+        return ctx.OpLoad(
+            ctx.F32[1],
+            ctx.OpAccessChain(ctx.input_f32, ctx.bary_coord_smooth_centroid, ctx.ConstU32(comp)));
     case IR::Attribute::BaryCoordSmoothSample:
         return ctx.OpLoad(ctx.F32[1], ctx.OpAccessChain(ctx.input_f32, ctx.bary_coord_smooth_sample,
                                                         ctx.ConstU32(comp)));
@@ -308,13 +279,12 @@ Id EmitGetPatch(EmitContext& ctx, IR::Patch patch) {
 }
 
 void EmitSetPatch(EmitContext& ctx, IR::Patch patch, Id value) {
-    const Id pointer = [&] {
+    const Id pointer{[&] {
         if (IR::IsGeneric(patch)) {
             const u32 index{IR::GenericPatchIndex(patch)};
             const Id element{ctx.ConstU32(IR::GenericPatchElement(patch))};
             return ctx.OpAccessChain(ctx.output_f32, ctx.patches.at(index), element);
         }
-
         switch (patch) {
         case IR::Patch::TessellationLodLeft:
         case IR::Patch::TessellationLodRight:
@@ -330,13 +300,9 @@ void EmitSetPatch(EmitContext& ctx, IR::Patch patch, Id value) {
         case IR::Patch::TessellationLodInteriorV:
             return ctx.OpAccessChain(ctx.output_f32, ctx.output_tess_level_inner, ctx.ConstU32(1u));
         default:
-#ifdef DEBUG
-            LOG_DEBUG("EmitSetPatch: Unexpected patch type {}", static_cast<u32>(patch));
-#endif
-            break;
+            UNREACHABLE_MSG("Patch {}", u32(patch));
         }
-    }();
-
+    }()};
     ctx.OpStore(pointer, value);
 }
 
