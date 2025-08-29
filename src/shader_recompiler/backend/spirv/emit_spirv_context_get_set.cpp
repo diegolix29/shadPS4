@@ -16,6 +16,39 @@
 namespace Shader::Backend::SPIRV {
 namespace {
 
+Id VsOutputAttrPointer(EmitContext& ctx, VsOutput output) {
+    switch (output) {
+    case VsOutput::ClipDist0:
+    case VsOutput::ClipDist1:
+    case VsOutput::ClipDist2:
+    case VsOutput::ClipDist3:
+    case VsOutput::ClipDist4:
+    case VsOutput::ClipDist5:
+    case VsOutput::ClipDist6:
+    case VsOutput::ClipDist7: {
+        const u32 index = u32(output) - u32(VsOutput::ClipDist0);
+        const Id clip_num{ctx.ConstU32(index)};
+        ASSERT_MSG(Sirit::ValidId(ctx.clip_distances), "Clip distance used but not defined");
+        return ctx.OpAccessChain(ctx.output_f32, ctx.clip_distances, clip_num);
+    }
+    case VsOutput::CullDist0:
+    case VsOutput::CullDist1:
+    case VsOutput::CullDist2:
+    case VsOutput::CullDist3:
+    case VsOutput::CullDist4:
+    case VsOutput::CullDist5:
+    case VsOutput::CullDist6:
+    case VsOutput::CullDist7: {
+        const u32 index = u32(output) - u32(VsOutput::CullDist0);
+        const Id cull_num{ctx.ConstU32(index)};
+        ASSERT_MSG(Sirit::ValidId(ctx.cull_distances), "Cull distance used but not defined");
+        return ctx.OpAccessChain(ctx.output_f32, ctx.cull_distances, cull_num);
+    }
+    default:
+        UNREACHABLE_MSG("Vertex output {}", u32(output));
+    }
+}
+
 Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, u32 element) {
     if (IR::IsParam(attr)) {
         const u32 attr_index{u32(attr) - u32(IR::Attribute::Param0)};
@@ -54,7 +87,7 @@ Id OutputAttrPointer(EmitContext& ctx, IR::Attribute attr, u32 element) {
     case IR::Attribute::Depth:
         return ctx.frag_depth;
     default:
-        throw NotImplementedException("Write attribute {}", attr);
+        UNREACHABLE_MSG("Write attribute {}", attr);
     }
 }
 
@@ -79,7 +112,7 @@ std::pair<Id, bool> OutputAttrComponentType(EmitContext& ctx, IR::Attribute attr
     case IR::Attribute::ViewportId:
         return {ctx.S32[1], true};
     default:
-        throw NotImplementedException("Write attribute {}", attr);
+        UNREACHABLE_MSG("Write attribute {}", attr);
     }
 }
 } // Anonymous namespace
@@ -127,81 +160,61 @@ Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
     return result;
 }
 
-static Id EmitGetAttributeForGeometry(EmitContext& ctx, IR::Attribute attr, u32 comp, u32 index) {
-    if (IR::IsPosition(attr)) {
-        ASSERT(attr == IR::Attribute::Position0);
-        const auto position_arr_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[4]);
-        const auto pointer{
-            ctx.OpAccessChain(position_arr_ptr, ctx.gl_in, ctx.ConstU32(index), ctx.ConstU32(0u))};
-        const auto position_comp_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[1]);
-        return ctx.OpLoad(ctx.F32[1],
-                          ctx.OpAccessChain(position_comp_ptr, pointer, ctx.ConstU32(comp)));
-    }
-
-    if (IR::IsParam(attr)) {
-        const u32 param_id{u32(attr) - u32(IR::Attribute::Param0)};
-        const auto param = ctx.input_params.at(param_id).id;
-        const auto param_arr_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[4]);
-        const auto pointer{ctx.OpAccessChain(param_arr_ptr, param, ctx.ConstU32(index))};
-        const auto position_comp_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[1]);
-        return ctx.OpLoad(ctx.F32[1],
-                          ctx.OpAccessChain(position_comp_ptr, pointer, ctx.ConstU32(comp)));
-    }
-    UNREACHABLE();
-}
-
 Id EmitGetAttribute(EmitContext& ctx, IR::Attribute attr, u32 comp, u32 index) {
-    if (ctx.info.l_stage == LogicalStage::Geometry) {
-        return EmitGetAttributeForGeometry(ctx, attr, comp, index);
-    } else if (ctx.info.l_stage == LogicalStage::TessellationControl ||
-               ctx.info.l_stage == LogicalStage::TessellationEval) {
-        if (IR::IsTessCoord(attr)) {
-            const u32 component = attr == IR::Attribute::TessellationEvaluationPointU ? 0 : 1;
-            const auto component_ptr = ctx.TypePointer(spv::StorageClass::Input, ctx.F32[1]);
-            const auto pointer{
-                ctx.OpAccessChain(component_ptr, ctx.tess_coord, ctx.ConstU32(component))};
-            return ctx.OpLoad(ctx.F32[1], pointer);
-        }
-        UNREACHABLE();
-    }
-
     if (IR::IsParam(attr)) {
         const u32 param_index{u32(attr) - u32(IR::Attribute::Param0)};
         const auto& param{ctx.input_params.at(param_index)};
-        Id result;
-        if (param.is_loaded) {
-            // Attribute is either default or manually interpolated. The id points to an already
-            // loaded vector.
-            result = ctx.OpCompositeExtract(param.component_type, param.id, comp);
-        } else if (param.num_components > 1) {
-            // Attribute is a vector and we need to access a specific component.
-            const Id pointer{ctx.OpAccessChain(param.pointer_type, param.id, ctx.ConstU32(comp))};
-            result = ctx.OpLoad(param.component_type, pointer);
-        } else {
-            // Attribute is a single float or interger, simply load it.
-            result = ctx.OpLoad(param.component_type, param.id);
-        }
-        if (param.is_integer) {
-            result = ctx.OpBitcast(ctx.F32[1], result);
-        }
-        return result;
+        const Id value = [&] {
+            if (param.is_array) {
+                ASSERT(param.num_components > 1);
+                if (param.is_loaded) {
+                    return ctx.OpCompositeExtract(param.component_type, param.id_array[index],
+                                                  comp);
+                } else {
+                    return ctx.OpLoad(param.component_type,
+                                      ctx.OpAccessChain(param.pointer_type, param.id,
+                                                        ctx.ConstU32(index), ctx.ConstU32(comp)));
+                }
+            } else {
+                ASSERT(!param.is_loaded);
+                if (param.num_components > 1) {
+                    return ctx.OpLoad(
+                        param.component_type,
+                        ctx.OpAccessChain(param.pointer_type, param.id, ctx.ConstU32(comp)));
+                } else {
+                    return ctx.OpLoad(param.component_type, param.id);
+                }
+            }
+        }();
+        return param.is_integer ? ctx.OpBitcast(ctx.F32[1], value) : value;
     }
-
+    if (IR::IsBarycentricCoord(attr) && ctx.profile.supports_fragment_shader_barycentric) {
+        ++comp;
+    }
     switch (attr) {
-    case IR::Attribute::FragCoord: {
-        const Id coord = ctx.OpLoad(
-            ctx.F32[1], ctx.OpAccessChain(ctx.input_f32, ctx.frag_coord, ctx.ConstU32(comp)));
-        if (comp == 3) {
-            return ctx.OpFDiv(ctx.F32[1], ctx.ConstF32(1.f), coord);
-        }
-        return coord;
-    }
+    case IR::Attribute::Position0:
+        ASSERT(ctx.l_stage == LogicalStage::Geometry);
+        return ctx.OpLoad(ctx.F32[1],
+                          ctx.OpAccessChain(ctx.input_f32, ctx.gl_in, ctx.ConstU32(index),
+                                            ctx.ConstU32(0U), ctx.ConstU32(comp)));
+    case IR::Attribute::FragCoord:
+        return ctx.OpLoad(ctx.F32[1],
+                          ctx.OpAccessChain(ctx.input_f32, ctx.frag_coord, ctx.ConstU32(comp)));
     case IR::Attribute::TessellationEvaluationPointU:
         return ctx.OpLoad(ctx.F32[1],
                           ctx.OpAccessChain(ctx.input_f32, ctx.tess_coord, ctx.u32_zero_value));
     case IR::Attribute::TessellationEvaluationPointV:
         return ctx.OpLoad(ctx.F32[1],
                           ctx.OpAccessChain(ctx.input_f32, ctx.tess_coord, ctx.ConstU32(1U)));
+    case IR::Attribute::BaryCoordSmooth:
+        return ctx.OpLoad(ctx.F32[1], ctx.OpAccessChain(ctx.input_f32, ctx.bary_coord_smooth,
+                                                        ctx.ConstU32(comp)));
+    case IR::Attribute::BaryCoordSmoothSample:
+        return ctx.OpLoad(ctx.F32[1], ctx.OpAccessChain(ctx.input_f32, ctx.bary_coord_smooth_sample,
+                                                        ctx.ConstU32(comp)));
+    case IR::Attribute::BaryCoordNoPersp:
+        return ctx.OpLoad(ctx.F32[1], ctx.OpAccessChain(ctx.input_f32, ctx.bary_coord_nopersp,
+                                                        ctx.ConstU32(comp)));
     default:
         UNREACHABLE_MSG("Read attribute {}", attr);
     }
