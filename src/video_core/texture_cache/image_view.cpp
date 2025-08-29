@@ -29,18 +29,19 @@ vk::ImageViewType ConvertImageViewType(AmdGpu::ImageType type) {
     }
 }
 
-bool IsViewTypeCompatible(AmdGpu::ImageType view_type, AmdGpu::ImageType image_type) {
+bool IsViewTypeCompatible(vk::ImageViewType view_type, vk::ImageType image_type) {
     switch (view_type) {
-    case AmdGpu::ImageType::Color1D:
-    case AmdGpu::ImageType::Color1DArray:
-        return image_type == AmdGpu::ImageType::Color1D;
-    case AmdGpu::ImageType::Color2D:
-    case AmdGpu::ImageType::Color2DArray:
-    case AmdGpu::ImageType::Color2DMsaa:
-    case AmdGpu::ImageType::Color2DMsaaArray:
-        return image_type == AmdGpu::ImageType::Color2D || image_type == AmdGpu::ImageType::Color3D;
-    case AmdGpu::ImageType::Color3D:
-        return image_type == AmdGpu::ImageType::Color3D;
+    case vk::ImageViewType::e1D:
+    case vk::ImageViewType::e1DArray:
+        return image_type == vk::ImageType::e1D;
+    case vk::ImageViewType::e2D:
+    case vk::ImageViewType::e2DArray:
+        return image_type == vk::ImageType::e2D || image_type == vk::ImageType::e3D;
+    case vk::ImageViewType::eCube:
+    case vk::ImageViewType::eCubeArray:
+        return image_type == vk::ImageType::e2D;
+    case vk::ImageViewType::e3D:
+        return image_type == vk::ImageType::e3D;
     default:
         UNREACHABLE();
     }
@@ -62,7 +63,7 @@ ImageViewInfo::ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageReso
     range.base.layer = image.base_array;
     range.extent.levels = image.NumViewLevels(desc.is_array);
     range.extent.layers = image.NumViewLayers(desc.is_array);
-    type = image.GetViewType(desc.is_array);
+    type = ConvertImageViewType(image.GetViewType(desc.is_array));
 
     if (!is_storage) {
         mapping = Vulkan::LiverpoolToVK::ComponentMapping(image.DstSelect());
@@ -72,7 +73,7 @@ ImageViewInfo::ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageReso
 ImageViewInfo::ImageViewInfo(const AmdGpu::Liverpool::ColorBuffer& col_buffer) noexcept {
     range.base.layer = col_buffer.view.slice_start;
     range.extent.layers = col_buffer.NumSlices() - range.base.layer;
-    type = range.extent.layers > 1 ? AmdGpu::ImageType::Color2DArray : AmdGpu::ImageType::Color2D;
+    type = range.extent.layers > 1 ? vk::ImageViewType::e2DArray : vk::ImageViewType::e2D;
     format =
         Vulkan::LiverpoolToVK::SurfaceFormat(col_buffer.GetDataFmt(), col_buffer.GetNumberFmt());
 }
@@ -85,7 +86,7 @@ ImageViewInfo::ImageViewInfo(const AmdGpu::Liverpool::DepthBuffer& depth_buffer,
     is_storage = ctl.depth_write_enable;
     range.base.layer = view.slice_start;
     range.extent.layers = view.NumSlices() - range.base.layer;
-    type = range.extent.layers > 1 ? AmdGpu::ImageType::Color2DArray : AmdGpu::ImageType::Color2D;
+    type = range.extent.layers > 1 ? vk::ImageViewType::e2DArray : vk::ImageViewType::e2D;
 }
 
 ImageView::ImageView(const Vulkan::Instance& instance, const ImageViewInfo& info_, Image& image,
@@ -112,7 +113,7 @@ ImageView::ImageView(const Vulkan::Instance& instance, const ImageViewInfo& info
     const vk::ImageViewCreateInfo image_view_ci = {
         .pNext = &usage_ci,
         .image = image.image,
-        .viewType = ConvertImageViewType(info.type),
+        .viewType = info.type,
         .format = instance.GetSupportedFormat(format, image.format_features),
         .components = info.mapping,
         .subresourceRange{
@@ -123,9 +124,9 @@ ImageView::ImageView(const Vulkan::Instance& instance, const ImageViewInfo& info
             .layerCount = info.range.extent.layers,
         },
     };
-    if (!IsViewTypeCompatible(info.type, image.info.type)) {
+    if (!IsViewTypeCompatible(image_view_ci.viewType, image.info.type)) {
         LOG_ERROR(Render_Vulkan, "image view type {} is incompatible with image type {}",
-                  vk::to_string(image_view_ci.viewType), vk::to_string(image_view_ci.viewType));
+                  vk::to_string(image_view_ci.viewType), vk::to_string(image.info.type));
     }
 
     auto [view_result, view] = instance.GetDevice().createImageViewUnique(image_view_ci);

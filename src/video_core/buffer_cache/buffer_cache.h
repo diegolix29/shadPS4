@@ -105,15 +105,17 @@ public:
 
     /// Retrieves a utility buffer optimized for specified memory usage.
     StreamBuffer& GetUtilityBuffer(MemoryUsage usage) noexcept {
-        if (usage == MemoryUsage::Stream) {
+        switch (usage) {
+        case MemoryUsage::Stream:
             return stream_buffer;
-        } else if (usage == MemoryUsage::Download) {
+        case MemoryUsage::Download:
             return download_buffer;
-        } else if (usage == MemoryUsage::DeviceLocal) {
-            return device_buffer;
-        } else {
+        case MemoryUsage::Upload:
             return staging_buffer;
+        case MemoryUsage::DeviceLocal:
+            return device_buffer;
         }
+        UNREACHABLE();
     }
 
     /// Invalidates any buffer in the logical page range.
@@ -165,7 +167,7 @@ public:
     /// Synchronizes all buffers in the specified range.
     void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
 
-    /// Synchronizes all buffers needed for DMA.
+    /// Synchronizes all buffers neede for DMA.
     void SynchronizeDmaBuffers();
 
     /// Runs the garbage collector.
@@ -204,13 +206,13 @@ private:
     template <bool insert>
     void ChangeRegister(BufferId buffer_id);
 
-    bool SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32 size, bool is_written,
+    void SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_written,
                            bool is_texel_buffer);
 
     vk::Buffer UploadCopies(const Buffer& buffer, std::span<vk::BufferCopy> copies,
                             size_t total_size_bytes);
 
-    bool SynchronizeBufferFromImage(const Buffer& buffer, VAddr device_addr, u32 size);
+    bool SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size);
 
     void InlineDataBuffer(Buffer& buffer, VAddr address, const void* value, u32 num_bytes);
 
