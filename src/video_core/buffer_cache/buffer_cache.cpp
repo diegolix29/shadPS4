@@ -491,7 +491,11 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
     }
     Buffer& buffer = slot_buffers[buffer_id];
 
-    const bool defer_read_protect = true;
+bool defer_read_protect = false;
+
+if (MemoryPatcher::g_game_serial == "CUSA00093", "CUSA00003") {
+        defer_read_protect = true;
+    }
 
     SynchronizeBuffer(buffer, device_addr, size, is_written && !defer_read_protect,
                       is_texel_buffer);
