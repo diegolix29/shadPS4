@@ -830,43 +830,6 @@ void save(const std::filesystem::path& path) {
     std::ofstream file(path, std::ios::binary);
     file << data;
     file.close();
-
-    saveMainWindow(path);
-}
-
-void saveMainWindow(const std::filesystem::path& path) {
-    toml::ordered_value data;
-
-    std::error_code error;
-    if (std::filesystem::exists(path, error)) {
-        try {
-            std::ifstream ifs;
-            ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-            ifs.open(path, std::ios_base::binary);
-            data = toml::parse<toml::ordered_type_config>(
-                ifs, std::string{fmt::UTF(path.filename().u8string()).data});
-        } catch (const std::exception& ex) {
-            fmt::print("Exception trying to parse config file. Exception: {}\n", ex.what());
-            return;
-        }
-    } else {
-        if (error) {
-            fmt::print("Filesystem error: {}\n", error.message());
-        }
-        fmt::print("Saving new configuration file {}\n", fmt::UTF(path.u8string()));
-    }
-
-    data["GUI"]["theme"] = mw_themes;
-    data["GUI"]["pkgDirs"] = m_pkg_viewer;
-    data["GUI"]["elfDirs"] = m_elf_viewer;
-    data["GUI"]["recentFiles"] = m_recent_files;
-
-    // Sorting of TOML sections
-    sortTomlSections(data);
-
-    std::ofstream file(path, std::ios::binary);
-    file << data;
-    file.close();
 }
 
 void setDefaultValues() {
