@@ -680,19 +680,41 @@ void DrawPauseStatusWindow(bool& is_open) {
             event.type = SDL_EVENT_QUIT + 1;
             SDL_PushEvent(&event);
         }
-        if (g_MainWindow && g_MainWindow->isVisible()) {
 
-            ImGui::SameLine(0.0f, 10.0f);
-            if (ImGui::Button("Restart Game")) {
+        ImGui::SameLine(0.0f, 10.0f);
+        if (ImGui::Button("Restart Game")) {
+            if (g_MainWindow && g_MainWindow->isVisible()) {
+
                 g_MainWindow->RestartGame();
-            }
-
-            ImGui::SameLine(0.0f, 10.0f);
-            if (ImGui::Button("Save & Restart Game")) {
+            } else {
                 const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-                Config::setLogFilter(std::string(filter_buf));
+
+                Config::setAutoRestartGame(true);
                 Config::save(config_dir / "config.toml");
+                SDL_Event event;
+                SDL_memset(&event, 0, sizeof(event));
+                event.type = SDL_EVENT_QUIT + 1;
+                SDL_PushEvent(&event);
+            }
+        }
+
+        ImGui::SameLine(0.0f, 10.0f);
+        if (ImGui::Button("Save & Restart Game")) {
+            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+            Config::setLogFilter(std::string(filter_buf));
+            Config::save(config_dir / "config.toml");
+            if (g_MainWindow && g_MainWindow->isVisible()) {
+
                 g_MainWindow->RestartGame();
+            } else {
+                const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+
+                Config::setAutoRestartGame(true);
+                Config::save(config_dir / "config.toml");
+                SDL_Event event;
+                SDL_memset(&event, 0, sizeof(event));
+                event.type = SDL_EVENT_QUIT + 1;
+                SDL_PushEvent(&event);
             }
         }
 
@@ -895,10 +917,21 @@ void L::Draw() {
             }
             if (IsKeyPressed(ImGuiKey_Space, false) ||
                 IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
-                g_MainWindow->RestartGame();
+                if (g_MainWindow && g_MainWindow->isVisible()) {
+
+                    g_MainWindow->RestartGame();
+                } else {
+                    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+
+                    Config::setAutoRestartGame(true);
+                    Config::save(config_dir / "config.toml");
+                    SDL_Event event;
+                    SDL_memset(&event, 0, sizeof(event));
+                    event.type = SDL_EVENT_QUIT + 1;
+                    SDL_PushEvent(&event);
+                }
             }
 #endif
-            // Common input handling
             if (IsKeyPressed(ImGuiKey_Escape, false) ||
                 IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
                 show_quit_window = false;

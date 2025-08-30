@@ -327,6 +327,31 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
         }).detach();
     }
 #endif
+    {
+        auto gamePath = std::filesystem::absolute(file).string();
+
+        std::vector<std::string> vec = Config::getRecentFiles();
+        if (!vec.empty()) {
+            if (gamePath == vec.at(0)) {
+            } else {
+                auto it = std::find(vec.begin(), vec.end(), gamePath);
+                if (it != vec.end()) {
+                    vec.erase(it);
+                }
+                vec.insert(vec.begin(), gamePath);
+            }
+        } else {
+            vec.insert(vec.begin(), gamePath);
+        }
+
+        if (vec.size() > 6) {
+            vec.pop_back();
+        }
+
+        Config::setRecentFiles(vec);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::saveMainWindow(config_dir / "config.toml");
+    }
 
     linker->Execute(args);
 

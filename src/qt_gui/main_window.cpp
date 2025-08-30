@@ -1547,7 +1547,6 @@ void MainWindow::RestartGame() {
     }
 
     if (detachedGamePid > 0) {
-        // Restart detached process
 #ifdef Q_OS_WIN
         QProcess::execute("taskkill", {"/PID", QString::number(detachedGamePid), "/F", "/T"});
 #else
@@ -1572,7 +1571,6 @@ void MainWindow::RestartGame() {
 
         UpdateToolbarButtons();
     } else {
-        // In-process restart
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
         Config::setAutoRestartGame(true);
