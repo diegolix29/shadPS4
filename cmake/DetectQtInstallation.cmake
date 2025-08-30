@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-file(GLOB QT_KITS LIST_DIRECTORIES true "C:/Qt/*/msvc*_64")
+file(GLOB QT_KITS LIST_DIRECTORIES true "D:/dev/qt/*/msvc*_64")
 list(SORT QT_KITS COMPARE NATURAL)
 list(REVERSE QT_KITS)
 if(QT_KITS)
