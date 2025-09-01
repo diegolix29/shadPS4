@@ -958,6 +958,8 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
 
             if (must_flush) {
                 buffer_cache.CommitPendingGpuRanges();
+                rasterizer->CommitPendingGpuRanges();
+
             } else {
                 // All GPU modified regions in the command list are patched with indirect
                 // dispatches. There is no needed to flush GPU data to CPU so avoiding
