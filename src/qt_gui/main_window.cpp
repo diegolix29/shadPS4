@@ -968,7 +968,7 @@ void MainWindow::StartGame() {
 
     bool ignorePatches = false;
 
-    if (!file.empty()) {
+if (!file.empty()) {
         auto game_folder_name = file.filename().string();
         auto base_folder = file;
         auto update_folder = base_folder.parent_path() / (game_folder_name + "-UPDATE");
@@ -985,28 +985,30 @@ void MainWindow::StartGame() {
             QPushButton* updateBtn = nullptr;
             QPushButton* yesBtn = nullptr;
             QPushButton* noBtn = nullptr;
+            QPushButton* detachedBtn = nullptr;
 
             if (hasUpdate && !hasMods) {
                 msgBox.setWindowTitle(tr("Game Update Detected"));
                 msgBox.setText(tr("Game update detected, select to boot base game or update"));
                 baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
                 updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
+                detachedBtn = msgBox.addButton(tr("Start Detached"), QMessageBox::DestructiveRole);
                 msgBox.setDefaultButton(updateBtn);
                 msgBox.setStandardButtons(QMessageBox::Cancel);
             } else if (!hasUpdate && hasMods) {
                 msgBox.setWindowTitle(tr("Mods Detected"));
                 msgBox.setText(tr("Mods detected, do you want to enable them?"));
-
                 yesBtn = msgBox.addButton(tr("Yes"), QMessageBox::AcceptRole);
                 noBtn = msgBox.addButton(tr("No"), QMessageBox::RejectRole);
+                detachedBtn = msgBox.addButton(tr("Start Detached"), QMessageBox::DestructiveRole);
                 msgBox.setDefaultButton(yesBtn);
                 msgBox.setStandardButtons(QMessageBox::Cancel);
             } else if (hasUpdate && hasMods) {
                 msgBox.setWindowTitle(tr("Game Update Detected"));
                 msgBox.setText(tr("Game update detected, select to boot base game or update"));
-
                 baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
                 updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
+                detachedBtn = msgBox.addButton(tr("Start Detached"), QMessageBox::DestructiveRole);
                 msgBox.setDefaultButton(updateBtn);
 
                 QCheckBox* modsCheck = new QCheckBox(tr("Enable MODS"), &msgBox);
@@ -1019,6 +1021,12 @@ void MainWindow::StartGame() {
             const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
             QAbstractButton* clicked = msgBox.clickedButton();
+            if (clicked == detachedBtn) {
+                QString gamePath;
+                Common::FS::PathToQString(gamePath, file);
+                StartGameWithPath(gamePath);
+                return;
+            }
             if (hasUpdate && !hasMods) {
                 if (clicked == baseBtn) {
                     Config::setRestartWithBaseGame(true);
@@ -1064,8 +1072,29 @@ void MainWindow::StartGame() {
                 } else {
                     return;
                 }
-
                 Core::FileSys::MntPoints::enable_mods = msgBox.checkBox()->isChecked();
+            }
+        } else {
+            QMessageBox msgBox;
+            msgBox.setWindowTitle(tr("Start Game"));
+            msgBox.setText(tr("Do you want to start the game normally or detached?"));
+
+            QPushButton* normalBtn = msgBox.addButton(tr("Normal Start"), QMessageBox::AcceptRole);
+            QPushButton* detachedBtn =
+                msgBox.addButton(tr("Start Detached"), QMessageBox::DestructiveRole);
+            msgBox.setDefaultButton(normalBtn);
+            msgBox.setStandardButtons(QMessageBox::Cancel);
+
+            msgBox.exec();
+            QAbstractButton* clicked = msgBox.clickedButton();
+
+            if (clicked == detachedBtn) {
+                QString gamePath;
+                Common::FS::PathToQString(gamePath, file);
+                StartGameWithPath(gamePath);
+                return;
+            } else if (clicked != normalBtn) {
+                return;
             }
         }
     }
