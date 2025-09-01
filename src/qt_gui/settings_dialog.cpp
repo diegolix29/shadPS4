@@ -430,6 +430,8 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             Config::setVolumeSlider(value);
             Libraries::AudioOut::AdjustVol();
         });
+        ui->separateLogFilesCheckbox->installEventFilter(this);
+        ui->enableLoggingCheckBox->installEventFilter(this);
     }
 }
 
@@ -561,10 +563,6 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "GPU", "copyGPUBuffers", false));
     ui->collectShaderCheckBox->setChecked(
         toml::find_or<bool>(data, "Debug", "CollectShader", false));
-    ui->readbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacks", false));
-    ui->enableLoggingCheckBox->setChecked(toml::find_or<bool>(data, "Debug", "logEnabled", true));
-    ui->readbackLinearImagesCheckBox->setChecked(
-        toml::find_or<bool>(data, "GPU", "readbackLinearImages", false));
     ui->enableCompatibilityCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "compatibilityEnabled", false));
     ui->checkCompatibilityOnStartupCheckBox->setChecked(
@@ -835,7 +833,6 @@ void SettingsDialog::UpdateSettings() {
     Config::setDevKitMode(ui->isDevKitCheckBox->isChecked());
     Config::setNeoMode(ui->isNeoModeCheckBox->isChecked());
     Config::setPlayBGM(ui->playBGMCheckBox->isChecked());
-    m_gui_settings->SetValue(gui::gl_playBackgroundMusic, ui->playBGMCheckBox->isChecked());
     Config::setLoggingEnabled(ui->enableLoggingCheckBox->isChecked());
     Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
     Config::setEnableAutoBackup(ui->enableAutoBackupCheckBox->isChecked());

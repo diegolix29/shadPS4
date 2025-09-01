@@ -104,6 +104,7 @@ static bool shouldDumpShaders = false;
 static bool shouldPatchShaders = false;
 static u32 vblankDivider = 1;
 static bool fpsColorState = false;
+static std::string config_version = Common::g_scm_rev;
 
 // Vulkan
 static s32 gpuId = -1;
@@ -1135,6 +1136,7 @@ void load(const std::filesystem::path& path) {
         vkGuestMarkers = toml::find_or<bool>(vk, "guestMarkers", vkGuestMarkers);
         rdocEnable = toml::find_or<bool>(vk, "rdocEnable", rdocEnable);
     }
+    std::string current_version = {};
 
     if (data.contains("Debug")) {
         const toml::value& debug = data.at("Debug");
