@@ -28,6 +28,8 @@ void setIsFullscreen(bool enable);
 std::string getFullscreenMode();
 bool getSeparateUpdateEnabled();
 void setFullscreenMode(std::string mode);
+std::string getPresentMode();
+void setPresentMode(std::string mode);
 u32 getWindowWidth();
 u32 getWindowHeight();
 void setWindowWidth(u32 width);
