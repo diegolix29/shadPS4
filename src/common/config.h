@@ -165,6 +165,8 @@ std::string getDefaultControllerID();
 void setDefaultControllerID(std::string id);
 bool getBackgroundControllerInput();
 void setBackgroundControllerInput(bool enable);
+bool getLoggingEnabled();
+void setLoggingEnabled(bool enable);
 
 // TODO
 bool GetLoadGameSizeEnabled();

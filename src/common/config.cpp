@@ -123,6 +123,8 @@ static bool shaderSkipsEnabled = false;
 static std::string memoryAlloc = "medium";
 static std::string audioBackend = "cubeb";
 static int audioVolume = 100;
+static bool isFpsColor = true;
+static bool logEnabled = true;
 
 // GUI
 static bool load_game_size = true;
@@ -191,6 +193,10 @@ void SetOverrideControllerColor(bool enable) {
 
 int* GetControllerCustomColor() {
     return controllerCustomColorRGB;
+}
+
+bool getLoggingEnabled() {
+    return logEnabled;
 }
 
 void SetControllerCustomColor(int r, int b, int g) {
@@ -445,6 +451,10 @@ bool fpsColor() {
     return fpsColorState;
 }
 
+bool isLoggingEnabled() {
+    return logEnabled;
+}
+
 u32 vblankDiv() {
     return vblankDivider;
 }
@@ -535,6 +545,10 @@ void setInternalScreenHeight(u32 height) {
 
 void setDebugDump(bool enable) {
     isDebugDump = enable;
+}
+
+void setLoggingEnabled(bool enable) {
+    logEnabled = enable;
 }
 
 void setCollectShaderForDebug(bool enable) {
@@ -1129,7 +1143,9 @@ void load(const std::filesystem::path& path) {
         isSeparateLogFilesEnabled =
             toml::find_or<bool>(debug, "isSeparateLogFilesEnabled", isSeparateLogFilesEnabled);
         isShaderDebug = toml::find_or<bool>(debug, "CollectShader", isShaderDebug);
-        setfpsColor(toml::find_or<bool>(debug, "FPSColor", fpsColor()));
+        isFpsColor = toml::find_or<bool>(debug, "FPSColor", isFpsColor);
+        logEnabled = toml::find_or<bool>(debug, "logEnabled", logEnabled);
+        current_version = toml::find_or<std::string>(debug, "ConfigVersion", current_version);
     }
 
     if (data.contains("GUI")) {
@@ -1341,7 +1357,9 @@ void save(const std::filesystem::path& path) {
     data["Debug"]["DebugDump"] = isDebugDump;
     data["Debug"]["CollectShader"] = isShaderDebug;
     data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled;
-    data["Debug"]["FPSColor"] = fpsColor();
+    data["Debug"]["FPSColor"] = isFpsColor;
+    data["Debug"]["logEnabled"] = logEnabled;
+    data["Debug"]["ConfigVersion"] = config_version;
     data["Keys"]["TrophyKey"] = trophyKey;
 
     std::vector<std::string> install_dirs;
@@ -1530,7 +1548,8 @@ void setDefaultValues() {
     isDebugDump = false;
     isShaderDebug = false;
     isSeparateLogFilesEnabled = false;
-    setfpsColor(true);
+    isFpsColor = true;
+    logEnabled = true;
 
     // GUI
     load_game_size = true;
