@@ -55,7 +55,6 @@ private:
     QString defaultTextEdit;
 
     int initialHeight;
-
     bool is_saving = false;
 };
 
