@@ -67,6 +67,7 @@ const QVector<int> languageIndexes = {21, 23, 14, 6, 18, 1, 12, 22, 2, 4,  25, 2
 QMap<QString, QString> channelMap;
 QMap<QString, QString> logTypeMap;
 QMap<QString, QString> screenModeMap;
+QMap<QString, QString> presentModeMap;
 QMap<QString, QString> chooseHomeTabMap;
 QMap<QString, QString> micMap;
 
@@ -104,6 +105,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     screenModeMap = {{tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
                      {tr("Windowed"), "Windowed"},
                      {tr("Fullscreen"), "Fullscreen"}};
+    presentModeMap = {{tr("Mailbox (Vsync)"), "Mailbox"},
+                      {tr("Fifo (Vsync)"), "Fifo"},
+                      {tr("Immediate (No Vsync)"), "Immediate"}};
     chooseHomeTabMap = {{tr("General"), "General"},   {tr("GUI"), "GUI"},
                         {tr("Graphics"), "Graphics"}, {tr("User"), "User"},
                         {tr("Input"), "Input"},       {tr("Paths"), "Paths"},
@@ -335,6 +339,21 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             }
         });
 
+        connect(ui->folderButton, &QPushButton::clicked, this, [this]() {
+            const auto dlc_folder_path = Config::getAddonInstallDir();
+            QString initial_path;
+            Common::FS::PathToQString(initial_path, dlc_folder_path);
+
+            QString dlc_folder_path_string =
+                QFileDialog::getExistingDirectory(this, tr("Select the DLC folder"), initial_path);
+
+            auto file_path = Common::FS::PathFromQString(dlc_folder_path_string);
+            if (!file_path.empty()) {
+                Config::setAddonInstallDir(file_path);
+                ui->currentDLCFolder->setText(dlc_folder_path_string);
+            }
+        });
+
         connect(ui->PortableUserButton, &QPushButton::clicked, this, []() {
             QString userDir;
             Common::FS::PathToQString(userDir, std::filesystem::current_path() / "user");
@@ -394,6 +413,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         // Graphics
         ui->graphicsAdapterGroupBox->installEventFilter(this);
         ui->windowSizeGroupBox->installEventFilter(this);
+        ui->presentModeGroupBox->installEventFilter(this);
         ui->heightDivider->installEventFilter(this);
         ui->dumpShadersCheckBox->installEventFilter(this);
         ui->nullGpuCheckBox->installEventFilter(this);
@@ -408,7 +428,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
         ui->saveDataGroupBox->installEventFilter(this);
         ui->currentSaveDataPath->installEventFilter(this);
+        ui->currentDLCFolder->installEventFilter(this);
         ui->browseButton->installEventFilter(this);
+        ui->folderButton->installEventFilter(this);
         ui->PortableUserFolderGroupBox->installEventFilter(this);
 
         // Debug
@@ -474,6 +496,11 @@ void SettingsDialog::LoadValuesFromConfig() {
     Common::FS::PathToQString(save_data_path_string, save_data_path);
     ui->currentSaveDataPath->setText(save_data_path_string);
 
+    const auto dlc_folder_path = Config::getAddonInstallDir();
+    QString dlc_folder_path_string;
+    Common::FS::PathToQString(dlc_folder_path_string, dlc_folder_path);
+    ui->currentDLCFolder->setText(dlc_folder_path_string);
+
     ui->consoleLanguageComboBox->setCurrentIndex(
         std::distance(languageIndexes.begin(),
                       std::find(languageIndexes.begin(), languageIndexes.end(),
@@ -534,6 +561,9 @@ void SettingsDialog::LoadValuesFromConfig() {
     QString translatedText_FullscreenMode =
         screenModeMap.key(QString::fromStdString(Config::getFullscreenMode()));
     ui->displayModeComboBox->setCurrentText(translatedText_FullscreenMode);
+    QString translatedText_PresentMode =
+        presentModeMap.key(QString::fromStdString(Config::getPresentMode()));
+    ui->presentModeComboBox->setCurrentText(translatedText_PresentMode);
     ui->gameSizeCheckBox->setChecked(toml::find_or<bool>(data, "GUI", "loadGameSizeEnabled", true));
     ui->showSplashCheckBox->setChecked(toml::find_or<bool>(data, "General", "showSplash", false));
     QString translatedText_logType = logTypeMap.key(QString::fromStdString(Config::getLogType()));
@@ -738,6 +768,11 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
     // Graphics
     if (elementName == "graphicsAdapterGroupBox") {
         text = tr("Graphics Device:\\nOn multiple GPU systems, select the GPU the emulator will use from the drop down list,\\nor select \"Auto Select\" to automatically determine it.");
+    } else if (elementName == "presentModeGroupBox") {
+        text = tr("Present Mode:\\nConfigures how video output will be presented to your screen.\\n\\n"
+                  "Mailbox: Frames synchronize with your screen's refresh rate. New frames will replace any pending frames. Reduces latency but may skip frames if running behind.\\n"
+                  "Fifo: Frames synchronize with your screen's refresh rate. New frames will be queued behind pending frames. Ensures all frames are presented but may increase latency.\\n"
+                  "Immediate: Frames immediately present to your screen when ready. May result in tearing.");
     } else if (elementName == "windowSizeGroupBox") {
         text = tr("Width/Height:\\nSets the size of the emulator window at launch, which can be resized during gameplay.\\nThis is different from the in-game resolution.");
     } else if (elementName == "heightDivider") {
@@ -757,6 +792,13 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
         text = tr("Remove:\\nRemove a folder from the list.");
     } else if (elementName == "PortableUserFolderGroupBox") {
         text = tr("Portable user folder:\\nStores shadPS4 settings and data that will be applied only to the shadPS4 build located in the current folder. Restart the app after creating the portable user folder to begin using it.");
+    }
+
+    // DLC Folder
+    if (elementName == "dlcFolderGroupBox" || elementName == "currentDLCFolder") {
+        text = tr("DLC Path:\\nThe folder where game DLC loaded from.");
+    } else if (elementName == "folderButton") {
+        text = tr("Browse:\\nBrowse for a folder to set as the DLC path.");
     }
 
     // Save Data
@@ -816,6 +858,8 @@ void SettingsDialog::UpdateSettings() {
                             "Windowed");
     Config::setFullscreenMode(
         screenModeMap.value(ui->displayModeComboBox->currentText()).toStdString());
+    Config::setPresentMode(
+        presentModeMap.value(ui->presentModeComboBox->currentText()).toStdString());
     Config::setIsMotionControlsEnabled(ui->motionControlsCheckBox->isChecked());
     Config::setBackgroundControllerInput(ui->backgroundControllerCheckBox->isChecked());
     Config::setisTrophyPopupDisabled(ui->disableTrophycheckBox->isChecked());

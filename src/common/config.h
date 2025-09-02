@@ -84,6 +84,8 @@ void SetControllerCustomColor(int r, int b, int g);
 u32 getScreenWidth();
 u32 getScreenHeight();
 void setFullscreenMode(std::string mode);
+std::string getPresentMode();
+void setPresentMode(std::string mode);
 u32 getWindowWidth();
 u32 getWindowHeight();
 void setWindowWidth(u32 width);
