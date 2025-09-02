@@ -968,7 +968,7 @@ void MainWindow::StartGame() {
 
     bool ignorePatches = false;
 
-if (!file.empty()) {
+    if (!file.empty()) {
         auto game_folder_name = file.filename().string();
         auto base_folder = file;
         auto update_folder = base_folder.parent_path() / (game_folder_name + "-UPDATE");

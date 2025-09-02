@@ -115,6 +115,7 @@ static bool vkCrashDiagnostic = false;
 static bool vkHostMarkers = false;
 static bool vkGuestMarkers = false;
 static bool rdocEnable = false;
+static std::string presentMode = "Mailbox";
 
 // Debug
 static bool isDebugDump = false;
