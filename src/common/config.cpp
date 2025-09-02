@@ -105,6 +105,8 @@ static bool shouldPatchShaders = false;
 static u32 vblankDivider = 1;
 static bool fpsColorState = false;
 static std::string config_version = Common::g_scm_rev;
+static bool fsrEnabled = true;
+static bool rcasEnabled = true;
 
 // Vulkan
 static s32 gpuId = -1;
@@ -323,6 +325,22 @@ u32 getInternalScreenHeight() {
 
 s32 getGpuId() {
     return gpuId;
+}
+
+bool getFsrEnabled() {
+    return fsrEnabled;
+}
+
+void setFsrEnabled(bool enable) {
+    fsrEnabled = enable;
+}
+
+bool getRcasEnabled() {
+    return rcasEnabled;
+}
+
+void setRcasEnabled(bool enable) {
+    rcasEnabled = enable;
 }
 
 float getRcasAttenuation() {
@@ -1100,6 +1118,8 @@ void load(const std::filesystem::path& path) {
 
         screenWidth = toml::find_or<int>(gpu, "screenWidth", screenWidth);
         screenHeight = toml::find_or<int>(gpu, "screenHeight", screenHeight);
+        fsrEnabled = toml::find_or<bool>(gpu, "fsrEnabled", fsrEnabled);
+        rcasEnabled = toml::find_or<bool>(gpu, "rcasEnabled", rcasEnabled);
         rcas_attenuation = toml::find_or<float>(gpu, "rcas_attenuation", 0.25f);
         isNullGpu = toml::find_or<bool>(gpu, "nullGpu", false);
         shouldCopyGPUBuffers = toml::find_or<bool>(gpu, "copyGPUBuffers", false);
@@ -1332,6 +1352,8 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["screenWidth"] = screenWidth;
     data["GPU"]["screenHeight"] = screenHeight;
     data["GPU"]["rcas_attenuation"] = rcas_attenuation;
+    data["GPU"]["fsrEnabled"] = fsrEnabled;
+    data["GPU"]["rcasEnabled"] = rcasEnabled;
     data["Input"]["micDevice"] = micDevice;
     data["Input"]["backgroundControllerInput"] = backgroundControllerInput;
     data["GPU"]["screenWidth"] = windowWidth;
@@ -1547,6 +1569,9 @@ void setDefaultValues() {
     fullscreenMode = "Windowed";
     presentMode = "Mailbox";
     isHDRAllowed = false;
+    fsrEnabled = true;
+    rcasEnabled = true;
+    rcas_attenuation = 250;
 
     // Vulkan
     gpuId = -1;

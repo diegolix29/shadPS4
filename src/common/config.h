@@ -173,8 +173,6 @@ bool getFsrEnabled();
 void setFsrEnabled(bool enable);
 bool getRcasEnabled();
 void setRcasEnabled(bool enable);
-int getRcasAttenuation();
-void setRcasAttenuation(int value);
 
 // TODO
 bool GetLoadGameSizeEnabled();

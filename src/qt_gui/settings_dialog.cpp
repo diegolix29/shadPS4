@@ -29,6 +29,9 @@
 #include "settings_dialog.h"
 #include "ui_settings_dialog.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
+#include "video_core/renderer_vulkan/vk_presenter.h"
+
+extern std::unique_ptr<Vulkan::Presenter> presenter;
 
 QStringList languageNames = {"Arabic",
                              "Czech",
@@ -88,18 +91,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Close)->setFocus();
 
-    float rcas_value = Config::getRcasAttenuation();
-    ui->rcasAttenuationSlider->setValue(static_cast<int>(rcas_value * 1000));
-    ui->rcasAttenuationSpinBox->setValue(rcas_value);
-
     // Connect signals and slots
-    connect(ui->rcasAttenuationSlider, &QSlider::valueChanged, this,
-            &SettingsDialog::OnRcasAttenuationChanged);
-    connect(ui->rcasAttenuationSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
-            &SettingsDialog::OnRcasAttenuationSpinBoxChanged);
-    connect(ui->enableAutoBackupCheckBox, &QCheckBox::stateChanged, this,
-            [](int state) { Config::setEnableAutoBackup(state == Qt::Checked); });
-
     channelMap = {{tr("Revert"), "Revert"}, {tr("BBFork"), "BBFork"}};
     logTypeMap = {{tr("async"), "async"}, {tr("sync"), "sync"}};
     screenModeMap = {{tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
@@ -293,6 +285,39 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     {
         connect(ui->hideCursorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
                 [this](s16 index) { OnCursorStateChanged(index); });
+    }
+
+    // GRAPHICS TAB
+    float rcas_value = Config::getRcasAttenuation();
+    ui->RCASSlider->setValue(static_cast<int>(rcas_value * 1000));
+    ui->RCASSpinBox->setValue(rcas_value);
+
+    connect(ui->RCASSlider, &QSlider::valueChanged, this,
+            &SettingsDialog::OnRcasAttenuationChanged);
+
+    connect(ui->RCASSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            &SettingsDialog::OnRcasAttenuationSpinBoxChanged);
+
+    connect(ui->FSRCheckBox, &QCheckBox::stateChanged, this,
+            [](int state) { Config::setFsrEnabled(state == Qt::Checked); });
+
+    connect(ui->RCASCheckBox, &QCheckBox::stateChanged, this,
+            [](int state) { Config::setRcasEnabled(state == Qt::Checked); });
+
+    if (presenter) {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
+        connect(ui->FSRCheckBox, &QCheckBox::stateChanged, this,
+                [this](int state) { presenter->GetFsrSettingsRef().enable = state; });
+
+        connect(ui->RCASCheckBox, &QCheckBox::stateChanged, this,
+                [this](int state) { presenter->GetFsrSettingsRef().use_rcas = state; });
+#else
+        connect(ui->FSRCheckBox, &QCheckBox::checkStateChanged, this,
+                [this](Qt::CheckState state) { presenter->GetFsrSettingsRef().enable = state; });
+
+        connect(ui->RCASCheckBox, &QCheckBox::checkStateChanged, this,
+                [this](Qt::CheckState state) { presenter->GetFsrSettingsRef().use_rcas = state; });
+#endif
     }
 
     // PATH TAB
@@ -598,8 +623,10 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->checkCompatibilityOnStartupCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
 
-    ui->rcasAttenuationSlider->setValue(static_cast<int>(Config::getRcasAttenuation() * 1000));
-    ui->rcasAttenuationSpinBox->setValue(Config::getRcasAttenuation());
+    ui->FSRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fsrEnabled", true));
+    ui->RCASCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "rcasEnabled", true));
+    ui->RCASSlider->setValue(toml::find_or<int>(data, "GPU", "rcasAttenuation", 500));
+    ui->RCASSpinBox->setValue(ui->RCASSlider->value() / 1000.0);
 
 #ifdef ENABLE_UPDATER
     ui->updateCheckBox->setChecked(toml::find_or<bool>(data, "General", "autoUpdate", false));
@@ -929,7 +956,9 @@ void SettingsDialog::UpdateSettings() {
     Config::setBackgroundImageOpacity(ui->backgroundImageOpacitySlider->value());
     emit BackgroundOpacityChanged(ui->backgroundImageOpacitySlider->value());
     Config::setShowBackgroundImage(ui->showBackgroundImageCheckBox->isChecked());
-    Config::setRcasAttenuation(ui->rcasAttenuationSpinBox->value());
+    Config::setFsrEnabled(ui->FSRCheckBox->isChecked());
+    Config::setRcasEnabled(ui->RCASCheckBox->isChecked());
+    Config::setRcasAttenuation(ui->RCASSpinBox->value());
 
     std::vector<Config::GameInstallDir> dirs_with_states;
     for (int i = 0; i < ui->gameFoldersListWidget->count(); i++) {
@@ -957,14 +986,20 @@ void SettingsDialog::UpdateSettings() {
 
 void SettingsDialog::OnRcasAttenuationChanged(int value) {
     float attenuation = static_cast<float>(value) / 1000.0f;
-    ui->rcasAttenuationSpinBox->setValue(attenuation);
+    ui->RCASSpinBox->setValue(attenuation);
     Config::setRcasAttenuation(attenuation);
+    if (presenter) {
+        presenter->GetFsrSettingsRef().rcas_attenuation = attenuation;
+    }
 }
 
 void SettingsDialog::OnRcasAttenuationSpinBoxChanged(double value) {
     int int_value = static_cast<int>(value * 1000);
-    ui->rcasAttenuationSlider->setValue(int_value);
+    ui->RCASSlider->setValue(int_value);
     Config::setRcasAttenuation(static_cast<float>(value));
+    if (presenter) {
+        presenter->GetFsrSettingsRef().rcas_attenuation = static_cast<float>(value);
+    }
 }
 
 void SettingsDialog::SyncRealTimeWidgetstoConfig() {
@@ -1008,5 +1043,11 @@ void SettingsDialog::SyncRealTimeWidgetstoConfig() {
         }
 
         Config::setAllGameInstallDirs(settings_install_dirs_config);
+    }
+    if (presenter) {
+        presenter->GetFsrSettingsRef().enable = Config::getFsrEnabled();
+        presenter->GetFsrSettingsRef().use_rcas = Config::getRcasEnabled();
+        presenter->GetFsrSettingsRef().rcas_attenuation =
+            static_cast<float>(Config::getRcasAttenuation());
     }
 }
