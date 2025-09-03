@@ -77,6 +77,7 @@ QMap<QString, QString> micMap;
 int backgroundImageOpacitySlider_backup;
 int bgm_volume_backup;
 int volume_slider_backup;
+int fps_backup;
 
 static std::vector<QString> m_physical_devices;
 
@@ -177,6 +178,8 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::Close)) {
                     ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
                     emit BackgroundOpacityChanged(backgroundImageOpacitySlider_backup);
+                    ui->fpsSlider->setValue(volume_slider_backup);
+                    Config::setFpsLimit(fps_backup);
                     ui->horizontalVolumeSlider->setValue(volume_slider_backup);
                     Config::setVolumeSlider(volume_slider_backup);
                     ui->BGMVolumeSlider->setValue(bgm_volume_backup);
@@ -303,7 +306,10 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     connect(ui->RCASCheckBox, &QCheckBox::stateChanged, this,
             [](int state) { Config::setRcasEnabled(state == Qt::Checked); });
-
+    connect(ui->fpsSlider, &QSlider::valueChanged, this, [this](int value) {
+        FPSChange(value);
+        Config::setFpsLimit(value);
+    });
     if (presenter) {
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
         connect(ui->FSRCheckBox, &QCheckBox::stateChanged, this,
@@ -490,6 +496,8 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
         Config::setVolumeSlider(volume_slider_backup);
         ui->BGMVolumeSlider->setValue(bgm_volume_backup);
         BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
+        ui->fpsSlider->setValue(fps_backup);
+        Config::setFpsLimit(fps_backup);
     }
     QDialog::closeEvent(event);
 }
@@ -580,7 +588,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     int gameVolume = Config::getVolumeSlider();
     ui->horizontalVolumeSlider->setValue(gameVolume);
     ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->sliderPosition()) + "%");
-
+    ui->fpsSlider->setValue(Config::getFpsLimit());
+    ui->fpsText->setText(QString::number(Config::getFpsLimit()) + "FPS");
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
     QString translatedText_FullscreenMode =
@@ -669,6 +678,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     backgroundImageOpacitySlider_backup = Config::getBackgroundImageOpacity();
     bgm_volume_backup = Config::getBGMvolume();
     volume_slider_backup = Config::getVolumeSlider();
+    fps_backup = Config::getFpsLimit();
 }
 
 void SettingsDialog::VolumeSliderChange(int value) {
@@ -729,6 +739,10 @@ void SettingsDialog::OnCursorStateChanged(s16 index) {
             ui->idleTimeoutGroupBox->hide();
         }
     }
+}
+
+void SettingsDialog::FPSChange(int value) {
+    ui->fpsText->setText(QString::number(ui->fpsSlider->sliderPosition()) + "FPS");
 }
 
 int SettingsDialog::exec() {
@@ -930,6 +944,7 @@ void SettingsDialog::UpdateSettings() {
         static_cast<Config::ReadbackSpeed>(ui->ReadbackSpeedComboBox->currentIndex()));
 
     Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
+    Config::setFpsLimit(ui->fpsSlider->value());
 
     Config::setMemoryAlloc(ui->MemoryComboBox->currentText().toStdString());
     Config::setLoadGameSizeEnabled(ui->gameSizeCheckBox->isChecked());

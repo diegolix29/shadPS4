@@ -161,6 +161,7 @@ static bool showLabelsUnderIcons = true;
 static std::string updateChannel;
 static int volumeSlider = 100;
 static bool muteEnabled = false;
+static u32 fpsLimit = 60;
 
 // Settings
 u32 m_language = 1; // english
@@ -207,6 +208,14 @@ void SetControllerCustomColor(int r, int b, int g) {
     controllerCustomColorRGB[0] = r;
     controllerCustomColorRGB[1] = b;
     controllerCustomColorRGB[2] = g;
+}
+
+u32 getFpsLimit() {
+    return fpsLimit;
+}
+
+void setFpsLimit(u32 fpsValue) {
+    fpsLimit = fpsValue;
 }
 
 bool getAutoRestartGame() {
@@ -1133,6 +1142,7 @@ void load(const std::filesystem::path& path) {
         shaderSkipsEnabled = toml::find_or<bool>(gpu, "shaderSkipsEnabled", true);
         memoryAlloc = toml::find_or<bool>(gpu, "memoryAlloc", "medium");
         windowWidth = toml::find_or<int>(gpu, "screenWidth", windowWidth);
+        fpsLimit = toml::find_or<int>(gpu, "fpsLimit", fpsLimit);
         windowHeight = toml::find_or<int>(gpu, "screenHeight", windowHeight);
         internalScreenWidth = toml::find_or<int>(gpu, "internalScreenWidth", internalScreenWidth);
         internalScreenHeight =
@@ -1356,6 +1366,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["rcasEnabled"] = rcasEnabled;
     data["Input"]["micDevice"] = micDevice;
     data["Input"]["backgroundControllerInput"] = backgroundControllerInput;
+    data["GPU"]["fpsLimit"] = fpsLimit;
     data["GPU"]["screenWidth"] = windowWidth;
     data["GPU"]["screenHeight"] = windowHeight;
     data["GPU"]["internalScreenWidth"] = internalScreenWidth;
@@ -1572,6 +1583,7 @@ void setDefaultValues() {
     fsrEnabled = true;
     rcasEnabled = true;
     rcas_attenuation = 250;
+    fpsLimit = 60;
 
     // Vulkan
     gpuId = -1;

@@ -294,13 +294,17 @@ void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_
 }
 
 void VideoOutDriver::PresentThread(std::stop_token token) {
-    static constexpr std::chrono::nanoseconds VblankPeriod{16666667};
-    const auto vblank_period = VblankPeriod / Config::vblankDiv();
+    int fps_cap_value;
+    if ((Config::vblankDiv() * 60) < Config::getFpsLimit()) {
+        fps_cap_value = 16666667 / Config::vblankDiv();
+    } else {
+        fps_cap_value = 1000000000 / Config::getFpsLimit();
+    }
+    const std::chrono::nanoseconds FpsCap{fps_cap_value};
 
     Common::SetCurrentThreadName("shadPS4:PresentThread");
-    Common::SetCurrentThreadRealtime(vblank_period);
-
-    Common::AccurateTimer timer{vblank_period};
+    Common::SetCurrentThreadRealtime(FpsCap);
+    Common::AccurateTimer timer{FpsCap};
 
     const auto receive_request = [this] -> Request {
         std::scoped_lock lk{mutex};

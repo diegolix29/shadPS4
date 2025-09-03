@@ -254,6 +254,9 @@ void setElfViewer(const std::vector<std::string>& elfList);
 void setRecentFiles(const std::vector<std::string>& recentFiles);
 void setEmulatorLanguage(std::string language);
 
+u32 getFpsLimit();
+void setFpsLimit(u32 fpsValue);
+
 u32 getMainWindowGeometryX();
 u32 getMainWindowGeometryY();
 u32 getMainWindowGeometryW();

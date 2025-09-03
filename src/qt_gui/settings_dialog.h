@@ -47,6 +47,7 @@ private:
     void OnRcasAttenuationChanged(int value);
     void OnRcasAttenuationSpinBoxChanged(double value);
     void VolumeSliderChange(int value);
+    void FPSChange(int value);
 
     std::unique_ptr<Ui::SettingsDialog> ui;
 
