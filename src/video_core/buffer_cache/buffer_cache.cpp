@@ -906,7 +906,7 @@ void BufferCache::ChangeRegister(BufferId buffer_id) {
     }
 }
 
-bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32 size,
+bool BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
                                     bool is_written, bool is_texel_buffer) {
     boost::container::small_vector<vk::BufferCopy, 4> copies;
     size_t total_size_bytes = 0;
@@ -998,7 +998,7 @@ vk::Buffer BufferCache::UploadCopies(const Buffer& buffer, std::span<vk::BufferC
     }
 }
 
-bool BufferCache::SynchronizeBufferFromImage(const Buffer& buffer, VAddr device_addr, u32 size) {
+bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size) {
     boost::container::small_vector<ImageId, 6> image_ids;
     texture_cache.ForEachImageInRegion(device_addr, size, [&](ImageId image_id, Image& image) {
         if (image.info.guest_address != device_addr) {
