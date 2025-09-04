@@ -290,7 +290,8 @@ void setRestartWithBaseGame(bool enable);
 
 void setDefaultValues();
 
-std::filesystem::path GetFoolproofKbmConfigFile(const std::string& game_id = "");
+constexpr std::string_view GetDefaultGlobalConfig();
+std::filesystem::path GetFoolproofInputConfigFile(const std::string& game_id = "");
 
 // settings
 u32 GetLanguage();

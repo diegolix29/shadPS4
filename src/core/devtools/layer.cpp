@@ -785,8 +785,6 @@ void L::Draw() {
     if (IsKeyPressed(ImGuiKey_F10, false)) {
         if (io.KeyCtrl) {
             DebugState.IsShowingDebugMenuBar() ^= true;
-        } else {
-            show_simple_fps = !show_simple_fps;
         }
         visibility_toggled = true;
     }

@@ -9,10 +9,6 @@
 #include "core/libraries/pad/pad.h"
 #include "input/controller.h"
 
-#define SDL_EVENT_TOGGLE_FULLSCREEN (SDL_EVENT_USER + 1)
-#define SDL_EVENT_TOGGLE_PAUSE (SDL_EVENT_USER + 2)
-#define SDL_EVENT_CHANGE_CONTROLLER (SDL_EVENT_USER + 3)
-
 struct SDL_Window;
 struct SDL_Gamepad;
 union SDL_Event;
@@ -111,7 +107,6 @@ private:
     SDL_Window* window{};
     bool is_shown{};
     bool is_open{true};
-    bool process_hotkeys{true};
 };
 
 } // namespace Frontend
