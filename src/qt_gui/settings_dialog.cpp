@@ -309,6 +309,8 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     connect(ui->fpsSlider, &QSlider::valueChanged, this, [this](int value) {
         FPSChange(value);
         Config::setFpsLimit(value);
+        connect(ui->fpsSpinBox, qOverload<int>(&QSpinBox::valueChanged), ui->fpsSlider,
+                &QSlider::setValue);
     });
     if (presenter) {
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
@@ -497,6 +499,8 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
         ui->BGMVolumeSlider->setValue(bgm_volume_backup);
         BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
         ui->fpsSlider->setValue(fps_backup);
+        ui->fpsSpinBox->setValue(fps_backup);
+
         Config::setFpsLimit(fps_backup);
     }
     QDialog::closeEvent(event);
@@ -589,7 +593,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->horizontalVolumeSlider->setValue(gameVolume);
     ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->sliderPosition()) + "%");
     ui->fpsSlider->setValue(Config::getFpsLimit());
-    ui->fpsText->setText(QString::number(Config::getFpsLimit()) + "FPS");
+    ui->fpsSpinBox->setValue(Config::getFpsLimit());
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
     QString translatedText_FullscreenMode =
@@ -742,7 +746,7 @@ void SettingsDialog::OnCursorStateChanged(s16 index) {
 }
 
 void SettingsDialog::FPSChange(int value) {
-    ui->fpsText->setText(QString::number(ui->fpsSlider->sliderPosition()) + "FPS");
+    ui->fpsSpinBox->setValue(ui->fpsSlider->value());
 }
 
 int SettingsDialog::exec() {
@@ -945,6 +949,7 @@ void SettingsDialog::UpdateSettings() {
 
     Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
     Config::setFpsLimit(ui->fpsSlider->value());
+    Config::setFpsLimit(ui->fpsSpinBox->value());
 
     Config::setMemoryAlloc(ui->MemoryComboBox->currentText().toStdString());
     Config::setLoadGameSizeEnabled(ui->gameSizeCheckBox->isChecked());

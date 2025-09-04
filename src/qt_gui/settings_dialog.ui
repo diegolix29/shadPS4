@@ -1281,35 +1281,32 @@
                   <item>
                    <layout class="QHBoxLayout" name="horizontalLayout_8">
                     <item>
-                     <widget class="QLineEdit" name="fpsText">
-                      <property name="sizePolicy">
-                       <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-                        <horstretch>0</horstretch>
-                        <verstretch>0</verstretch>
-                       </sizepolicy>
-                      </property>
-                      <property name="minimumSize">
-                       <size>
-                        <width>60</width>
-                        <height>0</height>
-                       </size>
-                      </property>
-                      <property name="maximumSize">
-                       <size>
-                        <width>60</width>
-                        <height>16777215</height>
-                       </size>
-                      </property>
-                      <property name="text">
-                       <string>60FPS</string>
-                      </property>
-                      <property name="alignment">
-                       <set>Qt::AlignmentFlag::AlignCenter</set>
-                      </property>
-                      <property name="readOnly">
-                       <bool>true</bool>
-                      </property>
-                     </widget>
+						<widget class="QSpinBox" name="fpsSpinBox">
+							<property name="minimum">
+								<number>30</number>
+							</property>
+							<property name="maximum">
+								<number>500</number>
+							</property>
+							<property name="value">
+								<number>60</number>
+							</property>
+							<property name="singleStep">
+								<number>1</number>
+							</property>
+							<property name="suffix">
+								<string> FPS</string>
+							</property>
+							<property name="alignment">
+								<set>Qt::AlignCenter</set>
+							</property>
+							<property name="minimumSize">
+								<size>
+									<width>80</width>
+									<height>0</height>
+								</size>
+							</property>
+						</widget>
                     </item>
                     <item>
                      <widget class="QSlider" name="fpsSlider">
