@@ -382,5 +382,4 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
     }
 }
 
-
 } // namespace Libraries::VideoOut
