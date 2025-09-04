@@ -306,11 +306,24 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     connect(ui->RCASCheckBox, &QCheckBox::stateChanged, this,
             [](int state) { Config::setRcasEnabled(state == Qt::Checked); });
+
+    ui->fpsLimiterCheckBox->setChecked(Config::fpsLimiterEnabled());
+    ui->fpsSpinBox->setEnabled(Config::fpsLimiterEnabled());
+    ui->fpsSlider->setEnabled(Config::fpsLimiterEnabled());
+
+    connect(ui->fpsLimiterCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
+        Config::setFpsLimiterEnabled(checked);
+        ui->fpsSpinBox->setEnabled(checked);
+        ui->fpsSlider->setEnabled(checked);
+    });
+
+    connect(ui->fpsSlider, &QSlider::valueChanged, ui->fpsSpinBox, &QSpinBox::setValue);
+    connect(ui->fpsSpinBox, qOverload<int>(&QSpinBox::valueChanged), ui->fpsSlider,
+            &QSlider::setValue);
+
     connect(ui->fpsSlider, &QSlider::valueChanged, this, [this](int value) {
         FPSChange(value);
         Config::setFpsLimit(value);
-        connect(ui->fpsSpinBox, qOverload<int>(&QSpinBox::valueChanged), ui->fpsSlider,
-                &QSlider::setValue);
     });
     if (presenter) {
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
@@ -594,6 +607,9 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->sliderPosition()) + "%");
     ui->fpsSlider->setValue(Config::getFpsLimit());
     ui->fpsSpinBox->setValue(Config::getFpsLimit());
+    ui->fpsLimiterCheckBox->setChecked(Config::fpsLimiterEnabled());
+    ui->fpsSpinBox->setEnabled(Config::fpsLimiterEnabled());
+    ui->fpsSlider->setEnabled(Config::fpsLimiterEnabled());
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
     QString translatedText_FullscreenMode =

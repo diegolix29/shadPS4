@@ -299,17 +299,20 @@ void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_
 }
 
 void VideoOutDriver::PresentThread(std::stop_token token) {
-    int fps_cap_value;
-    const auto fps_limit = Config::getFpsLimit();
     const auto vblank_div = Config::vblankDiv();
+    int fps_cap_value = 0;
 
-    if (fps_limit <= 0 || vblank_div <= 0) {
-        fps_cap_value = 0; // disable pacing
-    } else if ((vblank_div * 60) < fps_limit) {
-        fps_cap_value = 16666667 / vblank_div;
+    if (Config::fpsLimiterEnabled()) {
+        const auto fps_limit = Config::getFpsLimit();
+        if (fps_limit > 0) {
+            fps_cap_value = 1000000000 / fps_limit; // nanoseconds per frame
+        }
     } else {
-        fps_cap_value = 1000000000 / fps_limit;
+        if (vblank_div > 0) {
+            fps_cap_value = 16666667 / vblank_div; // fallback to vblank pacing
+        }
     }
+
     const std::chrono::nanoseconds FpsCap{fps_cap_value};
 
     Common::SetCurrentThreadName("shadPS4:PresentThread");
@@ -359,6 +362,7 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
 
         {
             // Needs lock here as can be concurrently read by `sceVideoOutGetVblankStatus`
+
             std::scoped_lock lock{main_port.vo_mutex};
             auto& vblank_status = main_port.vblank_status;
             vblank_status.count++;
@@ -377,5 +381,6 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
         timer.End();
     }
 }
+
 
 } // namespace Libraries::VideoOut

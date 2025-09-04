@@ -68,6 +68,7 @@ static bool isConnectedToNetwork = false;
 static bool autoRestartGame = false;
 static bool restartWithBaseGame = false;
 static bool screenTipDisable = false;
+static bool g_fpsLimiterEnabled = false;
 
 // Input
 static int cursorState = HideCursorState::Idle;
@@ -216,6 +217,14 @@ u32 getFpsLimit() {
 
 void setFpsLimit(u32 fpsValue) {
     fpsLimit = fpsValue;
+}
+
+bool fpsLimiterEnabled() {
+    return g_fpsLimiterEnabled;
+}
+
+void setFpsLimiterEnabled(bool enabled) {
+    g_fpsLimiterEnabled = enabled;
 }
 
 bool getAutoRestartGame() {
@@ -1143,6 +1152,8 @@ void load(const std::filesystem::path& path) {
         memoryAlloc = toml::find_or<bool>(gpu, "memoryAlloc", "medium");
         windowWidth = toml::find_or<int>(gpu, "screenWidth", windowWidth);
         fpsLimit = toml::find_or<int>(gpu, "fpsLimit", fpsLimit);
+        g_fpsLimiterEnabled = toml::find_or<bool>(gpu, "fpsLimiterEnabled", g_fpsLimiterEnabled);
+
         windowHeight = toml::find_or<int>(gpu, "screenHeight", windowHeight);
         internalScreenWidth = toml::find_or<int>(gpu, "internalScreenWidth", internalScreenWidth);
         internalScreenHeight =
@@ -1367,6 +1378,8 @@ void save(const std::filesystem::path& path) {
     data["Input"]["micDevice"] = micDevice;
     data["Input"]["backgroundControllerInput"] = backgroundControllerInput;
     data["GPU"]["fpsLimit"] = fpsLimit;
+    data["GPU"]["fpsLimiterEnabled"] = g_fpsLimiterEnabled;
+
     data["GPU"]["screenWidth"] = windowWidth;
     data["GPU"]["screenHeight"] = windowHeight;
     data["GPU"]["internalScreenWidth"] = internalScreenWidth;
@@ -1584,6 +1597,7 @@ void setDefaultValues() {
     rcasEnabled = true;
     rcas_attenuation = 250;
     fpsLimit = 60;
+    g_fpsLimiterEnabled = false;
 
     // Vulkan
     gpuId = -1;

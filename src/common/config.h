@@ -256,6 +256,8 @@ void setEmulatorLanguage(std::string language);
 
 u32 getFpsLimit();
 void setFpsLimit(u32 fpsValue);
+bool fpsLimiterEnabled();
+void setFpsLimiterEnabled(bool enabled);
 
 u32 getMainWindowGeometryX();
 u32 getMainWindowGeometryY();
