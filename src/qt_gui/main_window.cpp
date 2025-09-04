@@ -586,7 +586,7 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->configureHotkeysButton, &QPushButton::clicked, this, [this]() {
-        auto hotkeyDialog = new hotkeys(isGameRunning, this);
+        auto hotkeyDialog = new Hotkeys(isGameRunning, this);
         hotkeyDialog->exec();
     });
 

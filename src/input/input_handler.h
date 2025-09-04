@@ -497,5 +497,7 @@ enum HotkeyPad { FullscreenPad, PausePad, SimpleFpsPad, QuitPad, DebugMenuPad };
 bool UpdatePressedKeys(InputEvent event);
 
 void ActivateOutputsFromInputs();
-
+bool ControllerPressedOnce(std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons);
+bool ControllerComboPressedOnce(Libraries::Pad::OrbisPadButtonDataOffset holdButton,
+                                Libraries::Pad::OrbisPadButtonDataOffset pressButton);
 } // namespace Input

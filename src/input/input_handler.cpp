@@ -763,17 +763,6 @@ InputEvent BindingConnection::ProcessBinding() {
     return event; // All keys are active
 }
 
-bool HasUserHotkeyDefined(Input::HotkeyPad hotkey) {
-    const auto& inputs = GetHotkeyInputs(hotkey);
-    for (const auto& input : inputs) {
-        // Treat these strings as "no binding"
-        if (!input.empty() && input != "placeholder" && input != "unmapped" && input != "unused") {
-            return true; // user did define a real binding
-        }
-    }
-    return false; // no real user binding found
-}
-
 bool ControllerPressedOnce(
     std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons) {
     static std::unordered_map<u32, bool> combo_states;

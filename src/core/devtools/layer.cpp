@@ -789,19 +789,15 @@ void L::Draw() {
         visibility_toggled = true;
     }
 
-    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad)) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::L2)) {
-            show_simple_fps = !show_simple_fps;
-            visibility_toggled = true;
-        }
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::L2)) {
+        show_simple_fps = !show_simple_fps;
+        visibility_toggled = true;
     }
 
-    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::FullscreenPad)) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R2)) {
-            SDL_Event toggleFullscreenEvent;
-            toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
-            SDL_PushEvent(&toggleFullscreenEvent);
-        }
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R2)) {
+        SDL_Event toggleFullscreenEvent;
+        toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
+        SDL_PushEvent(&toggleFullscreenEvent);
     }
 
 #ifdef ENABLE_QT_GUI
@@ -811,28 +807,25 @@ void L::Draw() {
     }
 #endif
 
-    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad)) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
 #ifdef ENABLE_QT_GUI
-            g_MainWindow->PauseGame();
+        g_MainWindow->PauseGame();
 #else
-            if (DebugState.IsGuestThreadsPaused()) {
-                DebugState.ResumeGuestThreads();
-                SDL_Log("Game resumed from Controller");
-                show_pause_status = false;
-            } else {
-                DebugState.PauseGuestThreads();
-                SDL_Log("Game paused from Controller");
-                show_pause_status = true;
-            }
+        if (DebugState.IsGuestThreadsPaused()) {
+            DebugState.ResumeGuestThreads();
+            SDL_Log("Game resumed from Controller");
+            show_pause_status = false;
+        } else {
+            DebugState.PauseGuestThreads();
+            SDL_Log("Game paused from Controller");
+            show_pause_status = true;
+        }
 #endif
-            visibility_toggled = true;
-        }
+        visibility_toggled = true;
     }
-    if (!Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad)) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
-            show_quit_window = true;
-        }
+
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
+        show_quit_window = true;
     }
 
     const bool show_debug_menu_combo =
