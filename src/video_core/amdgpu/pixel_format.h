@@ -337,11 +337,7 @@ constexpr bool IsRgb(CompSwizzle swizzle) {
 }
 
 constexpr bool IsInteger(const NumberFormat nfmt) {
-    return nfmt == NumberFormat::Sint || nfmt == NumberFormat::Uint;
-}
-
-constexpr bool IsBlockCoded(DataFormat format) {
-    return format >= DataFormat::FormatBc1 && format <= DataFormat::FormatBc7;
+    return nfmt == AmdGpu::NumberFormat::Sint || nfmt == AmdGpu::NumberFormat::Uint;
 }
 
 constexpr bool IsFmask(DataFormat format) {
@@ -353,7 +349,6 @@ std::string_view NameOf(NumberFormat fmt);
 
 u32 NumComponents(DataFormat format);
 u32 NumBitsPerBlock(DataFormat format);
-u32 NumBitsPerElement(DataFormat format);
 
 } // namespace AmdGpu
 

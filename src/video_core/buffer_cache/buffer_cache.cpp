@@ -11,13 +11,14 @@
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/buffer_cache/memory_tracker.h"
-#include "video_core/host_shaders/fault_buffer_process_comp.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/texture_cache/texture_cache.h"
+
+#include "video_core/host_shaders/fault_buffer_process_comp.h"
 
 namespace VideoCore {
 
@@ -407,9 +408,7 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
         // Avoid using ObtainBuffer here as that might give us the stream buffer.
         const BufferId buffer_id = FindBuffer(src, num_bytes);
         auto& buffer = slot_buffers[buffer_id];
-        if (SynchronizeBuffer(buffer, src, num_bytes, false, true)) {
-            texture_cache.InvalidateMemoryFromGPU(dst, num_bytes);
-        }
+        SynchronizeBuffer(buffer, src, num_bytes, false, false);
         return buffer;
     }();
     auto& dst_buffer = [&] -> const Buffer& {
@@ -532,7 +531,6 @@ std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 si
 }
 
 bool BufferCache::IsRegionRegistered(VAddr addr, size_t size) {
-    // Check if we are missing some edge case here
     return buffer_ranges.Intersects(addr, size);
 }
 
@@ -708,16 +706,10 @@ BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
                                    AllFlags | vk::BufferUsageFlagBits::eShaderDeviceAddress, size);
     }();
     auto& new_buffer = slot_buffers[new_buffer_id];
-    boost::container::small_vector<vk::DeviceAddress, 128> bda_addrs;
-    const u64 start_page = overlap.begin >> CACHING_PAGEBITS;
-    const u64 size_pages = size >> CACHING_PAGEBITS;
-    bda_addrs.reserve(size_pages);
-    for (u64 i = 0; i < size_pages; ++i) {
-        vk::DeviceAddress addr = new_buffer.BufferDeviceAddress() + (i << CACHING_PAGEBITS);
-        bda_addrs.push_back(addr);
-    }
-    WriteDataBuffer(bda_pagetable_buffer, start_page * sizeof(vk::DeviceAddress), bda_addrs.data(),
-                    bda_addrs.size() * sizeof(vk::DeviceAddress));
+    const size_t size_bytes = new_buffer.SizeBytes();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    scheduler.EndRendering();
+    cmdbuf.fillBuffer(new_buffer.buffer, 0, size_bytes, 0);
     for (const BufferId overlap_id : overlap.ids) {
         JoinOverlap(new_buffer_id, overlap_id, !overlap.has_stream_leap);
     }
@@ -743,10 +735,8 @@ void BufferCache::ProcessPreemptiveDownloads() {
 
 void BufferCache::ProcessFaultBuffer() {
     // Run fault processing shader
-    static constexpr size_t StagingSize = MaxPageFaults * sizeof(u64);
-    const auto [mapped, offset] = download_buffer.Map(StagingSize);
-    std::memset(mapped, 0, StagingSize);
-    const vk::BufferMemoryBarrier2 fault_buffer_pre_barrier{
+    const auto [mapped, offset] = download_buffer.Map(MaxPageFaults * sizeof(u64));
+    vk::BufferMemoryBarrier2 fault_buffer_barrier{
         .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
         .srcAccessMask = vk::AccessFlagBits2::eShaderWrite,
         .dstStageMask = vk::PipelineStageFlagBits2::eComputeShader,
@@ -755,17 +745,27 @@ void BufferCache::ProcessFaultBuffer() {
         .offset = 0,
         .size = FAULT_BUFFER_SIZE,
     };
-    const vk::DescriptorBufferInfo fault_buffer_info{
+    vk::BufferMemoryBarrier2 download_barrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eComputeShader,
+        .dstAccessMask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite,
+        .buffer = download_buffer.Handle(),
+        .offset = offset,
+        .size = MaxPageFaults * sizeof(u64),
+    };
+    std::array<vk::BufferMemoryBarrier2, 2> barriers{fault_buffer_barrier, download_barrier};
+    vk::DescriptorBufferInfo fault_buffer_info{
         .buffer = fault_buffer.Handle(),
         .offset = 0,
         .range = FAULT_BUFFER_SIZE,
     };
-    const vk::DescriptorBufferInfo download_info{
+    vk::DescriptorBufferInfo download_info{
         .buffer = download_buffer.Handle(),
         .offset = offset,
-        .range = StagingSize,
+        .range = MaxPageFaults * sizeof(u64),
     };
-    const std::array<vk::WriteDescriptorSet, 2> writes{{
+    boost::container::small_vector<vk::WriteDescriptorSet, 2> writes{
         {
             .dstSet = VK_NULL_HANDLE,
             .dstBinding = 0,
@@ -782,14 +782,15 @@ void BufferCache::ProcessFaultBuffer() {
             .descriptorType = vk::DescriptorType::eStorageBuffer,
             .pBufferInfo = &download_info,
         },
-    }};
+    };
     download_buffer.Commit();
     scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
+    cmdbuf.fillBuffer(download_buffer.Handle(), offset, MaxPageFaults * sizeof(u64), 0);
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = 1U,
-        .pBufferMemoryBarriers = &fault_buffer_pre_barrier,
+        .bufferMemoryBarrierCount = 2,
+        .pBufferMemoryBarriers = barriers.data(),
     });
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, *fault_process_pipeline);
     cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eCompute, *fault_process_pipeline_layout, 0,
@@ -799,19 +800,34 @@ void BufferCache::ProcessFaultBuffer() {
     cmdbuf.dispatch(num_workgroups, 1, 1);
 
     // Reset fault buffer
-    const vk::BufferMemoryBarrier2 fault_buffer_post_barrier{
+    const vk::BufferMemoryBarrier2 reset_pre_barrier = {
         .srcStageMask = vk::PipelineStageFlagBits2::eComputeShader,
-        .srcAccessMask = vk::AccessFlagBits2::eShaderWrite | vk::AccessFlagBits2::eShaderRead,
-        .dstStageMask = vk::PipelineStageFlagBits2::eComputeShader,
-        .dstAccessMask = vk::AccessFlagBits2::eShaderWrite,
+        .srcAccessMask = vk::AccessFlagBits2::eShaderRead,
+        .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .buffer = fault_buffer.Handle(),
+        .offset = 0,
+        .size = FAULT_BUFFER_SIZE,
+    };
+    const vk::BufferMemoryBarrier2 reset_post_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
         .buffer = fault_buffer.Handle(),
         .offset = 0,
         .size = FAULT_BUFFER_SIZE,
     };
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = 1U,
-        .pBufferMemoryBarriers = &fault_buffer_post_barrier,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &reset_pre_barrier,
+    });
+    cmdbuf.fillBuffer(fault_buffer.buffer, 0, FAULT_BUFFER_SIZE, 0);
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &reset_post_barrier,
     });
 
     // Defer creating buffers
@@ -852,6 +868,11 @@ template <bool insert>
 void BufferCache::ChangeRegister(BufferId buffer_id) {
     Buffer& buffer = slot_buffers[buffer_id];
     const auto size = buffer.SizeBytes();
+    if constexpr (!insert) {
+        total_used_memory += Common::AlignUp(size, CACHING_PAGESIZE);
+    } else {
+        total_used_memory -= Common::AlignUp(size, CACHING_PAGESIZE);
+    }
     const VAddr device_addr_begin = buffer.CpuAddr();
     const VAddr device_addr_end = device_addr_begin + size;
     const u64 page_begin = device_addr_begin / CACHING_PAGESIZE;
@@ -938,12 +959,8 @@ bool BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size,
             .pBufferMemoryBarriers = &post_barrier,
         });
     }
-    if (is_texel_buffer || is_written) {
-        const bool synced = SynchronizeBufferFromImage(buffer, device_addr, size);
-        if (is_written) {
-            texture_cache.InvalidateMemoryFromGPU(device_addr, size);
-        }
-        return synced;
+    if (is_texel_buffer) {
+        return SynchronizeBufferFromImage(buffer, device_addr, size);
     }
     return false;
 }
@@ -981,85 +998,116 @@ vk::Buffer BufferCache::UploadCopies(const Buffer& buffer, std::span<vk::BufferC
     }
 }
 
-bool BufferCache::SynchronizeBufferFromImage(const Buffer& buffer, VAddr device_addr, u32 size) {
-    const ImageId image_id = texture_cache.FindImageFromRange(device_addr, size);
-    if (!image_id) {
+bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size) {
+    boost::container::small_vector<ImageId, 6> image_ids;
+    texture_cache.ForEachImageInRegion(device_addr, size, [&](ImageId image_id, Image& image) {
+        if (image.info.guest_address != device_addr) {
+            return;
+        }
+        // Only perform sync if image is:
+        // - GPU modified; otherwise there are no changes to synchronize.
+        // - Not CPU dirty; otherwise we could overwrite CPU changes with stale GPU changes.
+        // - Not GPU dirty; otherwise we could overwrite GPU changes with stale image data.
+        if (False(image.flags & ImageFlagBits::GpuModified) ||
+            True(image.flags & ImageFlagBits::Dirty)) {
+            return;
+        }
+        image_ids.push_back(image_id);
+    });
+    if (image_ids.empty()) {
         return false;
+    }
+    ImageId image_id{};
+    if (image_ids.size() == 1) {
+        // Sometimes image size might not exactly match with requested buffer size
+        // If we only found 1 candidate image use it without too many questions.
+        image_id = image_ids[0];
+    } else {
+        for (s32 i = 0; i < image_ids.size(); ++i) {
+            Image& image = texture_cache.GetImage(image_ids[i]);
+            if (image.info.guest_size == size) {
+                image_id = image_ids[i];
+                break;
+            }
+        }
+        if (!image_id) {
+            LOG_WARNING(Render_Vulkan,
+                        "Failed to find exact image match for copy addr={:#x}, size={:#x}",
+                        device_addr, size);
+            return false;
+        }
     }
     Image& image = texture_cache.GetImage(image_id);
     ASSERT_MSG(device_addr == image.info.guest_address,
                "Texel buffer aliases image subresources {:x} : {:x}", device_addr,
                image.info.guest_address);
-    if (!image.SafeToDownload()) {
-        return false;
-    }
-    const u32 buf_offset = buffer.Offset(image.info.guest_address);
-    boost::container::small_vector<vk::BufferImageCopy, 8> buffer_copies;
-    u32 copy_size = 0;
-    for (u32 mip = 0; mip < image.info.resources.levels; mip++) {
-        const auto& mip_info = image.info.mips_layout[mip];
-        const u32 width = std::max(image.info.size.width >> mip, 1u);
-        const u32 height = std::max(image.info.size.height >> mip, 1u);
-        const u32 depth = std::max(image.info.size.depth >> mip, 1u);
-        if (buf_offset + mip_info.offset + mip_info.size > buffer.SizeBytes()) {
+    boost::container::small_vector<vk::BufferImageCopy, 8> copies;
+    u32 offset = buffer.Offset(image.info.guest_address);
+    const u32 num_layers = image.info.resources.layers;
+    const u32 max_offset = offset + size;
+    for (u32 m = 0; m < image.info.resources.levels; m++) {
+        const u32 width = std::max(image.info.size.width >> m, 1u);
+        const u32 height = std::max(image.info.size.height >> m, 1u);
+        const u32 depth =
+            image.info.props.is_volume ? std::max(image.info.size.depth >> m, 1u) : 1u;
+        const auto [mip_size, mip_pitch, mip_height, mip_ofs] = image.info.mips_layout[m];
+        offset += mip_ofs;
+        if (offset + mip_size > max_offset) {
             break;
         }
-        buffer_copies.push_back(vk::BufferImageCopy{
-            .bufferOffset = mip_info.offset,
-            .bufferRowLength = mip_info.pitch,
-            .bufferImageHeight = mip_info.height,
+        copies.push_back({
+            .bufferOffset = offset,
+            .bufferRowLength = mip_pitch,
+            .bufferImageHeight = mip_height,
             .imageSubresource{
                 .aspectMask = image.aspect_mask & ~vk::ImageAspectFlagBits::eStencil,
-                .mipLevel = mip,
+                .mipLevel = m,
                 .baseArrayLayer = 0,
-                .layerCount = image.info.resources.layers,
+                .layerCount = num_layers,
             },
             .imageOffset = {0, 0, 0},
             .imageExtent = {width, height, depth},
         });
-        copy_size += mip_info.size;
     }
-    if (copy_size == 0) {
-        return false;
+    if (!copies.empty()) {
+        scheduler.EndRendering();
+        const vk::BufferMemoryBarrier2 pre_barrier = {
+            .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
+            .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .buffer = buffer.Handle(),
+            .offset = max_offset - size,
+            .size = size,
+        };
+        const vk::BufferMemoryBarrier2 post_barrier = {
+            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+            .buffer = buffer.Handle(),
+            .offset = max_offset - size,
+            .size = size,
+        };
+        auto barriers = image.GetBarriers(vk::ImageLayout::eTransferSrcOptimal,
+                                          vk::AccessFlagBits2::eTransferRead,
+                                          vk::PipelineStageFlagBits2::eTransfer, {});
+        const auto cmdbuf = scheduler.CommandBuffer();
+        cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+            .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+            .bufferMemoryBarrierCount = 1,
+            .pBufferMemoryBarriers = &pre_barrier,
+            .imageMemoryBarrierCount = static_cast<u32>(barriers.size()),
+            .pImageMemoryBarriers = barriers.data(),
+        });
+        cmdbuf.copyImageToBuffer(image.image, vk::ImageLayout::eTransferSrcOptimal, buffer.Handle(),
+                                 copies);
+        cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+            .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+            .bufferMemoryBarrierCount = 1,
+            .pBufferMemoryBarriers = &post_barrier,
+        });
     }
-    scheduler.EndRendering();
-    const vk::BufferMemoryBarrier2 pre_barrier = {
-        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
-        .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
-        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
-        .buffer = buffer.Handle(),
-        .offset = buf_offset,
-        .size = copy_size,
-    };
-    const vk::BufferMemoryBarrier2 post_barrier = {
-        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
-        .buffer = buffer.Handle(),
-        .offset = buf_offset,
-        .size = copy_size,
-    };
-    auto barriers =
-        image.GetBarriers(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead,
-                          vk::PipelineStageFlagBits2::eTransfer, {});
-    auto cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = 1,
-        .pBufferMemoryBarriers = &pre_barrier,
-        .imageMemoryBarrierCount = static_cast<u32>(barriers.size()),
-        .pImageMemoryBarriers = barriers.data(),
-    });
-    auto& tile_manager = texture_cache.GetTileManager();
-    tile_manager.TileImage(image.image, buffer_copies, buffer.Handle(), buf_offset, image.info);
-    cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = 1,
-        .pBufferMemoryBarriers = &post_barrier,
-    });
     return true;
 }
 
@@ -1067,9 +1115,9 @@ void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is
     const VAddr device_addr_end = device_addr + size;
     ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
         RENDERER_TRACE;
-        VAddr start = std::max(buffer.CpuAddr(), device_addr);
-        VAddr end = std::min(buffer.CpuAddr() + buffer.SizeBytes(), device_addr_end);
-        u32 size = static_cast<u32>(end - start);
+        const VAddr start = std::max(buffer.CpuAddr(), device_addr);
+        const VAddr end = std::min(buffer.CpuAddr() + buffer.SizeBytes(), device_addr_end);
+        const u32 size = static_cast<u32>(end - start);
         SynchronizeBuffer(buffer, start, size, is_written, false);
     });
 }
@@ -1096,8 +1144,6 @@ void BufferCache::CommitPendingGpuRanges() {
         const u64 done_tick = scheduler.CurrentTick();
         const auto [staging, offset] = download_buffer.Map(total_size_bytes);
         download_buffer.Commit();
-        scheduler.EndRendering();
-        const auto cmdbuf = scheduler.CommandBuffer();
         for (auto it = preemptive_copies.begin(); it != preemptive_copies.end(); ++it) {
             const BufferId buffer_id = it.key();
             auto& copies = it.value();
@@ -1276,6 +1322,7 @@ void BufferCache::RunGarbageCollector() {
         }
         --max_deletions;
         Buffer& buffer = slot_buffers[buffer_id];
+        // InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes());
         DownloadBufferMemory<true>(buffer, buffer.CpuAddr(), buffer.SizeBytes(), true);
         DeleteBuffer(buffer_id);
     };
