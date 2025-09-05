@@ -906,6 +906,9 @@ void Rasterizer::Resolve() {
             vk::ImageLayout::eTransferDstOptimal, region);
     }
 
+    mrt1_image.flags |= VideoCore::ImageFlagBits::GpuModified;
+    mrt1_image.flags &= ~VideoCore::ImageFlagBits::Dirty;
+
     ScopeMarkerEnd();
 }
 

@@ -28,7 +28,7 @@ enum class ReadbackSpeed : u32 {
     Fast,
 };
 
-void load(const std::filesystem::path& path);
+void load(const std::filesystem::path& path, bool is_game_specific = false);
 void save(const std::filesystem::path& path);
 void saveMainWindow(const std::filesystem::path& path);
 
