@@ -499,7 +499,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             Libraries::AudioOut::AdjustVol();
         });
         ui->separateLogFilesCheckbox->installEventFilter(this);
-        ui->enableLoggingCheckBox->installEventFilter(this);
+        ui->enableLoggingCheckBox->setChecked(Config::getLoggingEnabled());
     }
 }
 
