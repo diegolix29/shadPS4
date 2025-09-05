@@ -83,9 +83,11 @@ int fps_backup;
 static std::vector<QString> m_physical_devices;
 
 SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
-                               QWidget* parent)
-    : QDialog(parent), ui(new Ui::SettingsDialog) {
+                               std::shared_ptr<gui_settings> gui_settings, QWidget* parent)
+    : QDialog(parent), ui(new Ui::SettingsDialog), m_gui_settings(std::move(gui_settings)) {
     ui->setupUi(this);
+    setWindowFlags(windowFlags() & ~Qt::WindowCloseButtonHint);
+
     ui->tabWidgetSettings->setUsesScrollButtons(false);
 
     initialHeight = this->height();
@@ -167,25 +169,47 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     connect(ui->buttonBox, &QDialogButtonBox::clicked, this,
             [this, config_dir](QAbstractButton* button) {
-                if (button == ui->buttonBox->button(QDialogButtonBox::Apply)) {
+                if (button == ui->buttonBox->button(QDialogButtonBox::Save)) {
                     is_saving = true;
                     UpdateSettings();
                     Config::save(config_dir / "config.toml");
-                    QWidget::close();
+
+                    for (auto* widget : QApplication::topLevelWidgets()) {
+                        if (auto* dlg = qobject_cast<SettingsDialog*>(widget)) {
+                            dlg->close();
+                            dlg->deleteLater();
+                        }
+                    }
+
+                } else if (button == ui->buttonBox->button(QDialogButtonBox::Apply)) {
+                    UpdateSettings();
+                    Config::save(config_dir / "config.toml");
+
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)) {
                     Config::setDefaultValues();
                     Config::save(config_dir / "config.toml");
                     LoadValuesFromConfig();
+
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::Close)) {
                     ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
                     emit BackgroundOpacityChanged(backgroundImageOpacitySlider_backup);
-                    ui->fpsSlider->setValue(volume_slider_backup);
+
+                    ui->fpsSlider->setValue(fps_backup);
                     Config::setFpsLimit(fps_backup);
+
                     ui->horizontalVolumeSlider->setValue(volume_slider_backup);
                     Config::setVolumeSlider(volume_slider_backup);
+
                     ui->BGMVolumeSlider->setValue(bgm_volume_backup);
                     BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
+
                     SyncRealTimeWidgetstoConfig();
+                    for (auto* widget : QApplication::topLevelWidgets()) {
+                        if (auto* dlg = qobject_cast<SettingsDialog*>(widget)) {
+                            dlg->close();
+                            dlg->deleteLater();
+                        }
+                    }
                 }
                 if (Common::Log::IsActive()) {
                     Common::Log::Filter filter;
@@ -194,6 +218,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                 }
             });
 
+    ui->buttonBox->button(QDialogButtonBox::Save)->setText(tr("Save"));
     ui->buttonBox->button(QDialogButtonBox::Apply)->setText(tr("Apply"));
     ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)->setText(tr("Restore Defaults"));
     ui->buttonBox->button(QDialogButtonBox::Close)->setText(tr("Close"));

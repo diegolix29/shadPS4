@@ -2205,34 +2205,42 @@
                   <number>0</number>
                  </property>
                  <item>
-                  <layout class="QHBoxLayout" name="hLayoutLogFilter">
-                   <item>
-                    <widget class="QGroupBox" name="logFilter">
-                     <property name="title">
-                      <string>Log Filter</string>
-                     </property>
-                     <layout class="QVBoxLayout" name="logFilterLayout">
-                      <item>
-						  <widget class="QLineEdit" name="logFilterLineEdit"/>
-					  </item>
-					  <item>
-						  <widget class="QLabel" name="logFilterNoteLabel">
-							  <property name="text">
-								  <string>NOTE: Log Filter to *:Warning helps with performance. But might make some games not boot, test carefully. *:Critical will silent the console.</string>
-							  </property>
-							  <property name="wordWrap">
-								  <bool>true</bool>
-							  </property>
-							  <property name="styleSheet">
-								  <string notr="true">color: gray; font-size: 12px;</string>
-							  </property>
-						  </widget>
-					  </item>
-				  </layout>
-			  </widget>
-		    </item>
-	      </layout>
-            </item>
+					 <layout class="QHBoxLayout" name="hLayoutLogFilter">
+						 <item>
+							 <widget class="QGroupBox" name="logFilter">
+								 <property name="title">
+									 <string>Log Filter</string>
+								 </property>
+								 <layout class="QVBoxLayout" name="logFilterLayout">
+									 <item>
+										 <widget class="QLineEdit" name="logFilterLineEdit"/>
+									 </item>
+									 <item>
+										 <widget class="QLabel" name="logFilterNoteLabel">
+											 <property name="text">
+												 <string>NOTE: Log Filter to *:Warning helps with performance. But might make some games not boot, test carefully. *:Critical will silent the console.</string>
+											 </property>
+											 <property name="wordWrap">
+												 <bool>true</bool>
+											 </property>
+											 <property name="styleSheet">
+												 <string notr="true">color: gray; font-size: 12px;</string>
+											 </property>
+										 </widget>
+									 </item>
+									 <item>
+										 <widget class="QPushButton" name="logPresetsButton">
+											 <property name="text">
+												 <string>Load Presets...</string>
+											 </property>
+										 </widget>
+									 </item>
+								 </layout>
+							 </widget>
+						 </item>
+					 </layout>
+
+				 </item>
             </layout>
                </item>
                <item>
@@ -2627,8 +2635,8 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
   <item>
    <widget class="QDialogButtonBox" name="buttonBox">
     <property name="standardButtons">
-     <set>QDialogButtonBox::StandardButton::Apply|QDialogButtonBox::StandardButton::Close|QDialogButtonBox::StandardButton::RestoreDefaults</set>
-    </property>
+		<set>QDialogButtonBox::StandardButton::Apply|QDialogButtonBox::StandardButton::Close|QDialogButtonBox::StandardButton::RestoreDefaults|QDialogButtonBox::StandardButton::Save</set>
+	</property>
    </widget>
   </item>
   <item>

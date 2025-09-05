@@ -10,6 +10,7 @@
 #include <QDialog>
 #include <QGroupBox>
 #include <QPushButton>
+#include "gui_settings.h"
 
 #include "common/config.h"
 #include "common/path_util.h"
@@ -22,7 +23,8 @@ class SettingsDialog;
 class SettingsDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
+    explicit SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info = nullptr,
+                            std::shared_ptr<gui_settings> gui_settings = nullptr,
                             QWidget* parent = nullptr);
     ~SettingsDialog();
 
@@ -57,6 +59,7 @@ private:
 
     int initialHeight;
     bool is_saving = false;
+    std::shared_ptr<gui_settings> m_gui_settings;
 };
 
 #endif // ENABLE_QT_GUI

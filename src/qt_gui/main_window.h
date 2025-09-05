@@ -23,6 +23,7 @@
 #include "game_list_utils.h"
 #include "main_window_themes.h"
 #include "main_window_ui.h"
+#include "gui_settings.h"
 
 class GameListFrame;
 
@@ -118,7 +119,7 @@ private:
         std::make_shared<CompatibilityInfoClass>();
 
     QTranslator* translator;
-
+    std::shared_ptr<gui_settings> m_gui_settings;
     // Private member variable to store the currently loaded game path
     QString currentGameFilePath;
 

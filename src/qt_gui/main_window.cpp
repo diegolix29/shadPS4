@@ -48,6 +48,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     installEventFilter(this);
     setAttribute(Qt::WA_DeleteOnClose);
     g_MainWindow = this;
+    m_gui_settings = std::make_shared<gui_settings>();
+    ui->toggleLabelsAct->setChecked(
+        m_gui_settings->GetValue(gui::mw_showLabelsUnderIcons).toBool());
 }
 
 MainWindow::~MainWindow() {
@@ -480,8 +483,9 @@ void MainWindow::CreateConnects() {
     connect(m_game_list_frame.get(), &QTableWidget::cellDoubleClicked, this,
             &MainWindow::StartGame);
 
-    connect(ui->configureAct, &QAction::triggered, this, [this]() {
-        auto settingsDialog = new SettingsDialog(m_compat_info, this);
+  connect(ui->configureAct, &QAction::triggered, this, [this]() {
+        auto settingsDialog = new SettingsDialog(m_compat_info, m_gui_settings, this);
+        settingsDialog->exec(); 
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
@@ -517,8 +521,9 @@ void MainWindow::CreateConnects() {
         Libraries::AudioOut::AdjustVol();
     });
 
-    connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
-        auto settingsDialog = new SettingsDialog(m_compat_info, this);
+connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
+        auto settingsDialog = new SettingsDialog(m_compat_info, m_gui_settings, this);
+        settingsDialog->exec(); 
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
