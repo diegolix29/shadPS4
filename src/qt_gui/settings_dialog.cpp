@@ -90,6 +90,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     ui->tabWidgetSettings->setUsesScrollButtons(false);
 
+    // Add a small clear "x" button inside the Log Filter input
+    ui->logFilterLineEdit->setClearButtonEnabled(true);
+
     initialHeight = this->height();
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
