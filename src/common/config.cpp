@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <fstream>
@@ -152,7 +152,7 @@ static ConfigEntry<bool> readbackLinearImagesEnabled(false);
 static ConfigEntry<bool> directMemoryAccessEnabled(false);
 static ConfigEntry<bool> shouldDumpShaders(false);
 static ConfigEntry<bool> shouldPatchShaders(false);
-static ConfigEntry<u32> vblankDivider(1);
+static ConfigEntry<u32> vblankFrequency(60);
 static ConfigEntry<bool> isFullscreen(false);
 static ConfigEntry<std::string> fullscreenMode("Windowed");
 static ConfigEntry<std::string> presentMode("Mailbox");
@@ -563,8 +563,8 @@ bool isLoggingEnabled() {
     return logEnabled.get();
 }
 
-u32 vblankDiv() {
-    return vblankDivider.get();
+u32 vblankFreq() {
+    return vblankFrequency.get();
 }
 
 bool vkValidationEnabled() {
@@ -742,8 +742,8 @@ void setRdocEnabled(bool enable) {
     rdocEnable.base_value = enable;
 }
 
-void setVblankDiv(u32 value) {
-    vblankDivider.base_value = value;
+void setVblankFreq(u32 value) {
+    vblankFrequency.base_value = value;
 }
 
 void setIsFullscreen(bool enable) {
@@ -1235,7 +1235,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             toml::find_or<bool>(gpu, "directMemoryAccess", is_game_specific);
         shouldDumpShaders.setFromToml(gpu, "dumpShaders", is_game_specific);
         shouldPatchShaders.setFromToml(gpu, "patchShaders", is_game_specific);
-        vblankDivider.setFromToml(gpu, "vblankDivider", is_game_specific);
+        vblankFrequency.setFromToml(gpu, "vblankFrequency", is_game_specific);
         isFullscreen.setFromToml(gpu, "Fullscreen", is_game_specific);
         fullscreenMode.setFromToml(gpu, "FullscreenMode", is_game_specific);
         presentMode.setFromToml(gpu, "presentMode", is_game_specific);
@@ -1458,7 +1458,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.base_value;
     data["GPU"]["dumpShaders"] = shouldDumpShaders.base_value;
     data["GPU"]["patchShaders"] = shouldPatchShaders.base_value;
-    data["GPU"]["vblankDivider"] = vblankDivider.base_value;
+    data["GPU"]["vblankFrequency"] = vblankFrequency.base_value;
     data["GPU"]["Fullscreen"] = isFullscreen.base_value;
     data["GPU"]["FullscreenMode"] = fullscreenMode.base_value;
     data["GPU"]["presentMode"] = presentMode.base_value;
@@ -1653,7 +1653,7 @@ void setDefaultValues() {
     directMemoryAccessEnabled = false;
     shouldDumpShaders = false;
     shouldPatchShaders = false;
-    vblankDivider = 1;
+    vblankFrequency = 60;
     isFullscreen = false;
     fullscreenMode = "Windowed";
     presentMode = "Mailbox";
