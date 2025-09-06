@@ -970,10 +970,6 @@ Einzigartige Inputs können nicht öfters als einmal gebunden werden. Input-Dupl
       <translation>Fehler beim Erstellen der Verknüpfung!</translation>
     </message>
     <message>
-      <source>Install PKG</source>
-      <translation>PKG installieren</translation>
-    </message>
-    <message>
       <source>Game</source>
       <translation>Spiel</translation>
     </message>
@@ -1074,22 +1070,90 @@ Einzigartige Inputs können nicht öfters als einmal gebunden werden. Input-Dupl
     </message>
   </context>
   <context>
-    <name>InstallDirSelect</name>
+    <name>Hotkeys</name>
     <message>
-      <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - Wähle Ordner</translation>
+      <source>Customize Hotkeys</source>
+      <translation type="unfinished">Customize Hotkeys</translation>
     </message>
     <message>
-      <source>Select which directory you want to install to.</source>
-      <translation>Wählen Sie das Verzeichnis aus, in das Sie installieren möchten.</translation>
+      <source>Controller Hotkeys</source>
+      <translation type="unfinished">Controller Hotkeys</translation>
     </message>
     <message>
-      <source>Install All Queued to Selected Folder</source>
-      <translation>Installieren Sie alles aus der Warteschlange in den ausgewählten Ordner</translation>
+      <source>Show FPS Counter</source>
+      <translation type="unfinished">Show FPS Counter</translation>
     </message>
     <message>
-      <source>Delete PKG File on Install</source>
-      <translation>PKG-Datei beim Installieren löschen</translation>
+      <source>unmapped</source>
+      <translation type="unfinished">unmapped</translation>
+    </message>
+    <message>
+      <source>Quit Emulation</source>
+      <translation type="unfinished">Quit Emulation</translation>
+    </message>
+    <message>
+      <source>Reload Button Mappings</source>
+      <translation type="unfinished">Reload Button Mappings</translation>
+    </message>
+    <message>
+      <source>Toggle Fullscreen</source>
+      <translation type="unfinished">Toggle Fullscreen</translation>
+    </message>
+    <message>
+      <source>Toggle Pause</source>
+      <translation type="unfinished">Toggle Pause</translation>
+    </message>
+    <message>
+      <source>Keyboard Hotkeys</source>
+      <translation type="unfinished">Keyboard Hotkeys</translation>
+    </message>
+    <message>
+      <source>Renderdoc Capture (for debugging only)</source>
+      <translation type="unfinished">Renderdoc Capture (for debugging only)</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Joystick Emulation</source>
+      <translation type="unfinished">Toggle Mouse to Joystick Emulation</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Gyro Emulation</source>
+      <translation type="unfinished">Toggle Mouse to Gyro Emulation</translation>
+    </message>
+    <message>
+      <source>Tip: Up to three simultaneous inputs can be assigned for each hotkey</source>
+      <translation type="unfinished">Tip: Up to three simultaneous inputs can be assigned for each hotkey</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation type="unfinished">Save</translation>
+    </message>
+    <message>
+      <source>Apply</source>
+      <translation type="unfinished">Apply</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Restore Defaults</source>
+      <translation type="unfinished">Restore Defaults</translation>
+    </message>
+    <message>
+      <source>Unable to Save</source>
+      <translation type="unfinished">Unable to Save</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</source>
+      <translation type="unfinished">Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</translation>
+    </message>
+    <message>
+      <source>Waiting for inputs</source>
+      <translation type="unfinished">Waiting for inputs</translation>
     </message>
   </context>
   <context>
@@ -1322,10 +1386,6 @@ Einzigartige Inputs können nicht öfters als einmal gebunden werden. Input-Dupl
       <translation>Elf-Ordner öffnen/hinzufügen</translation>
     </message>
     <message>
-      <source>Install Packages (PKG)</source>
-      <translation>Pakete installieren (PKG)</translation>
-    </message>
-    <message>
       <source>Boot Game</source>
       <translation>Spiel starten</translation>
     </message>
@@ -1340,10 +1400,6 @@ Einzigartige Inputs können nicht öfters als einmal gebunden werden. Input-Dupl
     <message>
       <source>Configure...</source>
       <translation>Konfigurieren...</translation>
-    </message>
-    <message>
-      <source>Install application from a .pkg file</source>
-      <translation>Installiere Anwendung aus .pkg-Datei</translation>
     </message>
     <message>
       <source>Recent Games</source>
@@ -1420,10 +1476,6 @@ Einzigartige Inputs können nicht öfters als einmal gebunden werden. Input-Dupl
     <message>
       <source>No games found. Please add your games to your library first.</source>
       <translation>Keine Spiele gefunden. Bitte fügen Sie zuerst Ihre Spiele zu Ihrer Bibliothek hinzu.</translation>
-    </message>
-    <message>
-      <source>PKG Viewer</source>
-      <translation>PKG-Anschauer</translation>
     </message>
     <message>
       <source>Search...</source>
@@ -1530,84 +1582,12 @@ Einzigartige Inputs können nicht öfters als einmal gebunden werden. Input-Dupl
       <translation>Es kann nur eine Datei ausgewählt werden!</translation>
     </message>
     <message>
-      <source>PKG Extraction</source>
-      <translation>PKG-Extraktion</translation>
-    </message>
-    <message>
-      <source>Patch detected!</source>
-      <translation>Patch erkannt!</translation>
-    </message>
-    <message>
-      <source>PKG and Game versions match: </source>
-      <translation>PKG- und Spielversionen stimmen überein: </translation>
-    </message>
-    <message>
-      <source>Would you like to overwrite?</source>
-      <translation>Willst du überschreiben?</translation>
-    </message>
-    <message>
-      <source>PKG Version %1 is older than installed version: </source>
-      <translation>PKG-Version %1 ist älter als die installierte Version: </translation>
-    </message>
-    <message>
-      <source>Game is installed: </source>
-      <translation>Spiel ist installiert: </translation>
-    </message>
-    <message>
-      <source>Would you like to install Patch: </source>
-      <translation>Willst du den Patch installieren: </translation>
-    </message>
-    <message>
-      <source>DLC Installation</source>
-      <translation>DLC-Installation</translation>
-    </message>
-    <message>
-      <source>Would you like to install DLC: %1?</source>
-      <translation>Willst du das DLC installieren: %1?</translation>
-    </message>
-    <message>
-      <source>DLC already installed:</source>
-      <translation>DLC bereits installiert:</translation>
-    </message>
-    <message>
-      <source>Game already installed</source>
-      <translation>Spiel bereits installiert</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>PKG-FEHLER</translation>
-    </message>
-    <message>
-      <source>Extracting PKG %1/%2</source>
-      <translation>Extrahiere PKG %1/%2</translation>
-    </message>
-    <message>
-      <source>Extraction Finished</source>
-      <translation>Extraktion abgeschlossen</translation>
-    </message>
-    <message>
-      <source>Game successfully installed at %1</source>
-      <translation>Spiel erfolgreich installiert auf %1</translation>
-    </message>
-    <message>
-      <source>File doesn&apos;t appear to be a valid PKG file</source>
-      <translation>Die Datei scheint keine gültige PKG-Datei zu sein</translation>
-    </message>
-    <message>
       <source>Run Game</source>
       <translation>Spiel ausführen</translation>
     </message>
     <message>
       <source>Eboot.bin file not found</source>
       <translation>Eboot.bin Datei nicht gefunden</translation>
-    </message>
-    <message>
-      <source>PKG File (*.PKG *.pkg)</source>
-      <translation>PKG-Datei (*.PKG *.pkg)</translation>
-    </message>
-    <message>
-      <source>PKG is a patch or DLC, please install the game first!</source>
-      <translation>PKG ist ein Patch oder DLC, bitte installieren Sie zuerst das Spiel!</translation>
     </message>
     <message>
       <source>Game is already running!</source>
@@ -1660,73 +1640,6 @@ Einzigartige Inputs können nicht öfters als einmal gebunden werden. Input-Dupl
     <message>
       <source>Customize Hotkeys</source>
       <translation type="unfinished">Customize Hotkeys</translation>
-    </message>
-  </context>
-  <context>
-    <name>PKGViewer</name>
-    <message>
-      <source>Open Folder</source>
-      <translation>Ordner öffnen</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>PKG-FEHLER</translation>
-    </message>
-    <message>
-      <source>Name</source>
-      <translation>Name</translation>
-    </message>
-    <message>
-      <source>Serial</source>
-      <translation>Seriennummer</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>Installiert</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Größe</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Kategorie</translation>
-    </message>
-    <message>
-      <source>Type</source>
-      <translation>Typ</translation>
-    </message>
-    <message>
-      <source>App Ver</source>
-      <translation>App Ver</translation>
-    </message>
-    <message>
-      <source>FW</source>
-      <translation>FW</translation>
-    </message>
-    <message>
-      <source>Region</source>
-      <translation>Region</translation>
-    </message>
-    <message>
-      <source>Flags</source>
-      <translation>Markierungen</translation>
-    </message>
-    <message>
-      <source>Path</source>
-      <translation>Pfad</translation>
-    </message>
-    <message>
-      <source>File</source>
-      <translation>Datei</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>Unbekannt</translation>
-    </message>
-    <message>
-      <source>Package</source>
-      <translation>Paket</translation>
     </message>
   </context>
   <context>
@@ -2453,77 +2366,6 @@ Hinweis: Der Sound funktioniert nur in Qt-Versionen.</translation>
     <message>
       <source>Show Hidden Trophies</source>
       <translation>Verborgene Trophäen anzeigen</translation>
-    </message>
-  </context>
-  <context>
-    <name>hotkeys</name>
-    <message>
-      <source>Customize Hotkeys</source>
-      <translation type="unfinished">Customize Hotkeys</translation>
-    </message>
-    <message>
-      <source>Controller Hotkeys</source>
-      <translation type="unfinished">Controller Hotkeys</translation>
-    </message>
-    <message>
-      <source>Show FPS Counter</source>
-      <translation type="unfinished">Show FPS Counter</translation>
-    </message>
-    <message>
-      <source>unmapped</source>
-      <translation type="unfinished">unmapped</translation>
-    </message>
-    <message>
-      <source>Stop Emulator</source>
-      <translation type="unfinished">Stop Emulator</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen</source>
-      <translation type="unfinished">Toggle Fullscreen</translation>
-    </message>
-    <message>
-      <source>Toggle Pause</source>
-      <translation type="unfinished">Toggle Pause</translation>
-    </message>
-    <message>
-      <source>Keyboard Hotkeys</source>
-      <translation type="unfinished">Keyboard Hotkeys</translation>
-    </message>
-    <message>
-      <source>Show Fps Counter: F10</source>
-      <translation type="unfinished">Show Fps Counter: F10</translation>
-    </message>
-    <message>
-      <source>Stop Emulator: n/a</source>
-      <translation type="unfinished">Stop Emulator: n/a</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen: F11</source>
-      <translation type="unfinished">Toggle Fullscreen: F11</translation>
-    </message>
-    <message>
-      <source>Toggle Pause: F9</source>
-      <translation type="unfinished">Toggle Pause: F9</translation>
-    </message>
-    <message>
-      <source>Tip: Up to three inputs can be assigned for each function</source>
-      <translation type="unfinished">Tip: Up to three inputs can be assigned for each function</translation>
-    </message>
-    <message>
-      <source>Save</source>
-      <translation type="unfinished">Save</translation>
-    </message>
-    <message>
-      <source>Apply</source>
-      <translation type="unfinished">Apply</translation>
-    </message>
-    <message>
-      <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
-    </message>
-    <message>
-      <source>Press a button</source>
-      <translation type="unfinished">Press a button</translation>
     </message>
   </context>
 </TS>

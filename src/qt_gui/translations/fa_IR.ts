@@ -971,10 +971,6 @@
       <translation>مشکلی در هنگام ساخت میانبر بوجود آمد!</translation>
     </message>
     <message>
-      <source>Install PKG</source>
-      <translation>نصب PKG</translation>
-    </message>
-    <message>
       <source>Game</source>
       <translation>بازی</translation>
     </message>
@@ -1075,22 +1071,90 @@
     </message>
   </context>
   <context>
-    <name>InstallDirSelect</name>
+    <name>Hotkeys</name>
     <message>
-      <source>shadPS4 - Choose directory</source>
-      <translation>ShadPS4 - انتخاب محل نصب بازی</translation>
+      <source>Customize Hotkeys</source>
+      <translation type="unfinished">Customize Hotkeys</translation>
     </message>
     <message>
-      <source>Select which directory you want to install to.</source>
-      <translation>محلی را که می‌خواهید در آن نصب شود، انتخاب کنید.</translation>
+      <source>Controller Hotkeys</source>
+      <translation type="unfinished">Controller Hotkeys</translation>
     </message>
     <message>
-      <source>Install All Queued to Selected Folder</source>
-      <translation type="unfinished">Install All Queued to Selected Folder</translation>
+      <source>Show FPS Counter</source>
+      <translation type="unfinished">Show FPS Counter</translation>
     </message>
     <message>
-      <source>Delete PKG File on Install</source>
-      <translation type="unfinished">Delete PKG File on Install</translation>
+      <source>unmapped</source>
+      <translation type="unfinished">unmapped</translation>
+    </message>
+    <message>
+      <source>Quit Emulation</source>
+      <translation type="unfinished">Quit Emulation</translation>
+    </message>
+    <message>
+      <source>Reload Button Mappings</source>
+      <translation type="unfinished">Reload Button Mappings</translation>
+    </message>
+    <message>
+      <source>Toggle Fullscreen</source>
+      <translation type="unfinished">Toggle Fullscreen</translation>
+    </message>
+    <message>
+      <source>Toggle Pause</source>
+      <translation type="unfinished">Toggle Pause</translation>
+    </message>
+    <message>
+      <source>Keyboard Hotkeys</source>
+      <translation type="unfinished">Keyboard Hotkeys</translation>
+    </message>
+    <message>
+      <source>Renderdoc Capture (for debugging only)</source>
+      <translation type="unfinished">Renderdoc Capture (for debugging only)</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Joystick Emulation</source>
+      <translation type="unfinished">Toggle Mouse to Joystick Emulation</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Gyro Emulation</source>
+      <translation type="unfinished">Toggle Mouse to Gyro Emulation</translation>
+    </message>
+    <message>
+      <source>Tip: Up to three simultaneous inputs can be assigned for each hotkey</source>
+      <translation type="unfinished">Tip: Up to three simultaneous inputs can be assigned for each hotkey</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation type="unfinished">Save</translation>
+    </message>
+    <message>
+      <source>Apply</source>
+      <translation type="unfinished">Apply</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Restore Defaults</source>
+      <translation type="unfinished">Restore Defaults</translation>
+    </message>
+    <message>
+      <source>Unable to Save</source>
+      <translation type="unfinished">Unable to Save</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</source>
+      <translation type="unfinished">Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</translation>
+    </message>
+    <message>
+      <source>Waiting for inputs</source>
+      <translation type="unfinished">Waiting for inputs</translation>
     </message>
   </context>
   <context>
@@ -1323,10 +1387,6 @@
       <translation>ELF بازکردن/ساختن پوشه</translation>
     </message>
     <message>
-      <source>Install Packages (PKG)</source>
-      <translation>نصب بسته (PKG)</translation>
-    </message>
-    <message>
       <source>Boot Game</source>
       <translation>اجرای بازی</translation>
     </message>
@@ -1341,10 +1401,6 @@
     <message>
       <source>Configure...</source>
       <translation>...تنظیمات</translation>
-    </message>
-    <message>
-      <source>Install application from a .pkg file</source>
-      <translation>.PKG نصب بازی از فایل</translation>
     </message>
     <message>
       <source>Recent Games</source>
@@ -1421,10 +1477,6 @@
     <message>
       <source>No games found. Please add your games to your library first.</source>
       <translation type="unfinished">No games found. Please add your games to your library first.</translation>
-    </message>
-    <message>
-      <source>PKG Viewer</source>
-      <translation>PKG مشاهده گر</translation>
     </message>
     <message>
       <source>Search...</source>
@@ -1531,84 +1583,12 @@
       <translation>فقط یک فایل انتخاب کنید!</translation>
     </message>
     <message>
-      <source>PKG Extraction</source>
-      <translation>PKG استخراج فایل</translation>
-    </message>
-    <message>
-      <source>Patch detected!</source>
-      <translation>پچ شناسایی شد!</translation>
-    </message>
-    <message>
-      <source>PKG and Game versions match: </source>
-      <translation>و نسخه بازی همخوانی دارد PKG فایل:</translation>
-    </message>
-    <message>
-      <source>Would you like to overwrite?</source>
-      <translation>آیا مایل به جایگزینی فایل هستید؟</translation>
-    </message>
-    <message>
-      <source>PKG Version %1 is older than installed version: </source>
-      <translation>نسخه فایل PKG %1 قدیمی تر از نسخه نصب شده است:</translation>
-    </message>
-    <message>
-      <source>Game is installed: </source>
-      <translation>بازی نصب شد:</translation>
-    </message>
-    <message>
-      <source>Would you like to install Patch: </source>
-      <translation>آیا مایل به نصب پچ هستید:</translation>
-    </message>
-    <message>
-      <source>DLC Installation</source>
-      <translation>نصب DLC</translation>
-    </message>
-    <message>
-      <source>Would you like to install DLC: %1?</source>
-      <translation>آیا مایل به نصب DLC هستید: %1 </translation>
-    </message>
-    <message>
-      <source>DLC already installed:</source>
-      <translation>قبلا نصب شده DLC این:</translation>
-    </message>
-    <message>
-      <source>Game already installed</source>
-      <translation>این بازی قبلا نصب شده</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>PKG ارور فایل</translation>
-    </message>
-    <message>
-      <source>Extracting PKG %1/%2</source>
-      <translation>درحال استخراج PKG %1/%2</translation>
-    </message>
-    <message>
-      <source>Extraction Finished</source>
-      <translation>استخراج به پایان رسید</translation>
-    </message>
-    <message>
-      <source>Game successfully installed at %1</source>
-      <translation>بازی با موفقیت در %1 نصب شد</translation>
-    </message>
-    <message>
-      <source>File doesn&apos;t appear to be a valid PKG file</source>
-      <translation>  این فایل یک PKG درست به نظر نمی آید</translation>
-    </message>
-    <message>
       <source>Run Game</source>
       <translation type="unfinished">Run Game</translation>
     </message>
     <message>
       <source>Eboot.bin file not found</source>
       <translation type="unfinished">Eboot.bin file not found</translation>
-    </message>
-    <message>
-      <source>PKG File (*.PKG *.pkg)</source>
-      <translation type="unfinished">PKG File (*.PKG *.pkg)</translation>
-    </message>
-    <message>
-      <source>PKG is a patch or DLC, please install the game first!</source>
-      <translation type="unfinished">PKG is a patch or DLC, please install the game first!</translation>
     </message>
     <message>
       <source>Game is already running!</source>
@@ -1661,73 +1641,6 @@
     <message>
       <source>Customize Hotkeys</source>
       <translation type="unfinished">Customize Hotkeys</translation>
-    </message>
-  </context>
-  <context>
-    <name>PKGViewer</name>
-    <message>
-      <source>Open Folder</source>
-      <translation>بازکردن پوشه</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>PKG ارور فایل</translation>
-    </message>
-    <message>
-      <source>Name</source>
-      <translation>نام</translation>
-    </message>
-    <message>
-      <source>Serial</source>
-      <translation>سریال</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>اندازه</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation type="unfinished">Category</translation>
-    </message>
-    <message>
-      <source>Type</source>
-      <translation type="unfinished">Type</translation>
-    </message>
-    <message>
-      <source>App Ver</source>
-      <translation type="unfinished">App Ver</translation>
-    </message>
-    <message>
-      <source>FW</source>
-      <translation type="unfinished">FW</translation>
-    </message>
-    <message>
-      <source>Region</source>
-      <translation>منطقه</translation>
-    </message>
-    <message>
-      <source>Flags</source>
-      <translation type="unfinished">Flags</translation>
-    </message>
-    <message>
-      <source>Path</source>
-      <translation>مسیر</translation>
-    </message>
-    <message>
-      <source>File</source>
-      <translation>فایل</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>ناشناخته</translation>
-    </message>
-    <message>
-      <source>Package</source>
-      <translation type="unfinished">Package</translation>
     </message>
   </context>
   <context>
@@ -2450,77 +2363,6 @@
     <message>
       <source>Show Hidden Trophies</source>
       <translation>نمایش جوایز مخفی</translation>
-    </message>
-  </context>
-  <context>
-    <name>hotkeys</name>
-    <message>
-      <source>Customize Hotkeys</source>
-      <translation type="unfinished">Customize Hotkeys</translation>
-    </message>
-    <message>
-      <source>Controller Hotkeys</source>
-      <translation type="unfinished">Controller Hotkeys</translation>
-    </message>
-    <message>
-      <source>Show FPS Counter</source>
-      <translation type="unfinished">Show FPS Counter</translation>
-    </message>
-    <message>
-      <source>unmapped</source>
-      <translation type="unfinished">unmapped</translation>
-    </message>
-    <message>
-      <source>Stop Emulator</source>
-      <translation type="unfinished">Stop Emulator</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen</source>
-      <translation type="unfinished">Toggle Fullscreen</translation>
-    </message>
-    <message>
-      <source>Toggle Pause</source>
-      <translation type="unfinished">Toggle Pause</translation>
-    </message>
-    <message>
-      <source>Keyboard Hotkeys</source>
-      <translation type="unfinished">Keyboard Hotkeys</translation>
-    </message>
-    <message>
-      <source>Show Fps Counter: F10</source>
-      <translation type="unfinished">Show Fps Counter: F10</translation>
-    </message>
-    <message>
-      <source>Stop Emulator: n/a</source>
-      <translation type="unfinished">Stop Emulator: n/a</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen: F11</source>
-      <translation type="unfinished">Toggle Fullscreen: F11</translation>
-    </message>
-    <message>
-      <source>Toggle Pause: F9</source>
-      <translation type="unfinished">Toggle Pause: F9</translation>
-    </message>
-    <message>
-      <source>Tip: Up to three inputs can be assigned for each function</source>
-      <translation type="unfinished">Tip: Up to three inputs can be assigned for each function</translation>
-    </message>
-    <message>
-      <source>Save</source>
-      <translation type="unfinished">Save</translation>
-    </message>
-    <message>
-      <source>Apply</source>
-      <translation type="unfinished">Apply</translation>
-    </message>
-    <message>
-      <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
-    </message>
-    <message>
-      <source>Press a button</source>
-      <translation type="unfinished">Press a button</translation>
     </message>
   </context>
 </TS>

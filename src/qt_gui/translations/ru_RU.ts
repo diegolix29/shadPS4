@@ -971,10 +971,6 @@
       <translation>Ошибка создания ярлыка!</translation>
     </message>
     <message>
-      <source>Install PKG</source>
-      <translation>Установить PKG</translation>
-    </message>
-    <message>
       <source>Game</source>
       <translation>Игры</translation>
     </message>
@@ -1075,22 +1071,90 @@
     </message>
   </context>
   <context>
-    <name>InstallDirSelect</name>
+    <name>Hotkeys</name>
     <message>
-      <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - Выберите папку</translation>
+      <source>Customize Hotkeys</source>
+      <translation>Настроить горячие клавиши</translation>
     </message>
     <message>
-      <source>Select which directory you want to install to.</source>
-      <translation>Выберите папку, в которую вы хотите установить.</translation>
+      <source>Controller Hotkeys</source>
+      <translation>Горячие клавиши контроллера</translation>
     </message>
     <message>
-      <source>Install All Queued to Selected Folder</source>
-      <translation>Установить все из очереди в выбранную папку</translation>
+      <source>Show FPS Counter</source>
+      <translation>Показать счетчик FPS</translation>
     </message>
     <message>
-      <source>Delete PKG File on Install</source>
-      <translation>Удалить файл PKG при установке</translation>
+      <source>unmapped</source>
+      <translation>не назначено</translation>
+    </message>
+    <message>
+      <source>Quit Emulation</source>
+      <translation>Завершить эмуляцию</translation>
+    </message>
+    <message>
+      <source>Reload Button Mappings</source>
+      <translation>Перезагрузить назначения кнопок</translation>
+    </message>
+    <message>
+      <source>Toggle Fullscreen</source>
+      <translation>Переключить полноэкранный режим</translation>
+    </message>
+    <message>
+      <source>Toggle Pause</source>
+      <translation>Переключить паузу</translation>
+    </message>
+    <message>
+      <source>Keyboard Hotkeys</source>
+      <translation>Горячие клавиши клавиатуры</translation>
+    </message>
+    <message>
+      <source>Renderdoc Capture (for debugging only)</source>
+      <translation>Захват Renderdoc (только для отладки)</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Joystick Emulation</source>
+      <translation>Переключить мышь в эмуляцию джойстика</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Gyro Emulation</source>
+      <translation>Переключить мышь в эмуляцию гироскопа</translation>
+    </message>
+    <message>
+      <source>Tip: Up to three simultaneous inputs can be assigned for each hotkey</source>
+      <translation>Подсказка: для каждой горячей клавиши может быть назначено до трёх одновремённых вводов</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation>Сохранить</translation>
+    </message>
+    <message>
+      <source>Apply</source>
+      <translation>Применить</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>Отмена</translation>
+    </message>
+    <message>
+      <source>Restore Defaults</source>
+      <translation>По умолчанию</translation>
+    </message>
+    <message>
+      <source>Unable to Save</source>
+      <translation>Не удаётся сохранить</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</source>
+      <translation>Невозможно привязать уникальный ввод более одного раза. Дублированные вводы назначены на следующие кнопки:
+
+%1</translation>
+    </message>
+    <message>
+      <source>Waiting for inputs</source>
+      <translation>Ожидание ввода</translation>
     </message>
   </context>
   <context>
@@ -1323,10 +1387,6 @@
       <translation>Открыть/Добавить папку Elf</translation>
     </message>
     <message>
-      <source>Install Packages (PKG)</source>
-      <translation>Установить пакеты (PKG)</translation>
-    </message>
-    <message>
       <source>Boot Game</source>
       <translation>Запустить игру</translation>
     </message>
@@ -1341,10 +1401,6 @@
     <message>
       <source>Configure...</source>
       <translation>Настроить...</translation>
-    </message>
-    <message>
-      <source>Install application from a .pkg file</source>
-      <translation>Установить приложение из файла .pkg</translation>
     </message>
     <message>
       <source>Recent Games</source>
@@ -1421,10 +1477,6 @@
     <message>
       <source>No games found. Please add your games to your library first.</source>
       <translation>Не найдено ни одной игры. Пожалуйста, сначала добавьте игры в библиотеку.</translation>
-    </message>
-    <message>
-      <source>PKG Viewer</source>
-      <translation>Просмотр PKG</translation>
     </message>
     <message>
       <source>Search...</source>
@@ -1531,84 +1583,12 @@
       <translation>Можно выбрать только один файл!</translation>
     </message>
     <message>
-      <source>PKG Extraction</source>
-      <translation>Извлечение PKG</translation>
-    </message>
-    <message>
-      <source>Patch detected!</source>
-      <translation>Обнаружен патч!</translation>
-    </message>
-    <message>
-      <source>PKG and Game versions match: </source>
-      <translation>Версии PKG и игры совпадают: </translation>
-    </message>
-    <message>
-      <source>Would you like to overwrite?</source>
-      <translation>Хотите перезаписать?</translation>
-    </message>
-    <message>
-      <source>PKG Version %1 is older than installed version: </source>
-      <translation>Версия PKG %1 старше установленной версии: </translation>
-    </message>
-    <message>
-      <source>Game is installed: </source>
-      <translation>Игра установлена: </translation>
-    </message>
-    <message>
-      <source>Would you like to install Patch: </source>
-      <translation>Хотите установить патч: </translation>
-    </message>
-    <message>
-      <source>DLC Installation</source>
-      <translation>Установка DLC</translation>
-    </message>
-    <message>
-      <source>Would you like to install DLC: %1?</source>
-      <translation>Вы хотите установить DLC: %1?</translation>
-    </message>
-    <message>
-      <source>DLC already installed:</source>
-      <translation>DLC уже установлен:</translation>
-    </message>
-    <message>
-      <source>Game already installed</source>
-      <translation>Игра уже установлена</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>ОШИБКА PKG</translation>
-    </message>
-    <message>
-      <source>Extracting PKG %1/%2</source>
-      <translation>Извлечение PKG %1/%2</translation>
-    </message>
-    <message>
-      <source>Extraction Finished</source>
-      <translation>Извлечение завершено</translation>
-    </message>
-    <message>
-      <source>Game successfully installed at %1</source>
-      <translation>Игра успешно установлена в %1</translation>
-    </message>
-    <message>
-      <source>File doesn&apos;t appear to be a valid PKG file</source>
-      <translation>Файл не является допустимым файлом PKG</translation>
-    </message>
-    <message>
       <source>Run Game</source>
       <translation>Запустить игру</translation>
     </message>
     <message>
       <source>Eboot.bin file not found</source>
       <translation>Файл eboot.bin не найден</translation>
-    </message>
-    <message>
-      <source>PKG File (*.PKG *.pkg)</source>
-      <translation>Файл PKG (*.PKG *.pkg)</translation>
-    </message>
-    <message>
-      <source>PKG is a patch or DLC, please install the game first!</source>
-      <translation>Выбранный PKG является патчем или DLC, пожалуйста, сначала установите игру!</translation>
     </message>
     <message>
       <source>Game is already running!</source>
@@ -1661,73 +1641,6 @@
     <message>
       <source>Customize Hotkeys</source>
       <translation>Настроить горячие клавиши</translation>
-    </message>
-  </context>
-  <context>
-    <name>PKGViewer</name>
-    <message>
-      <source>Open Folder</source>
-      <translation>Открыть папку</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>ОШИБКА PKG</translation>
-    </message>
-    <message>
-      <source>Name</source>
-      <translation>Название</translation>
-    </message>
-    <message>
-      <source>Serial</source>
-      <translation>Серийный номер</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>Установлено</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Размер</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Категория</translation>
-    </message>
-    <message>
-      <source>Type</source>
-      <translation>Тип</translation>
-    </message>
-    <message>
-      <source>App Ver</source>
-      <translation>Версия приложения</translation>
-    </message>
-    <message>
-      <source>FW</source>
-      <translation>Прошивка</translation>
-    </message>
-    <message>
-      <source>Region</source>
-      <translation>Регион</translation>
-    </message>
-    <message>
-      <source>Flags</source>
-      <translation>Флаги</translation>
-    </message>
-    <message>
-      <source>Path</source>
-      <translation>Путь</translation>
-    </message>
-    <message>
-      <source>File</source>
-      <translation>Файл</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>Неизвестно</translation>
-    </message>
-    <message>
-      <source>Package</source>
-      <translation>Пакет</translation>
     </message>
   </context>
   <context>
@@ -2450,77 +2363,6 @@
     <message>
       <source>Show Hidden Trophies</source>
       <translation>Показать скрытые трофеи</translation>
-    </message>
-  </context>
-  <context>
-    <name>hotkeys</name>
-    <message>
-      <source>Customize Hotkeys</source>
-      <translation>Настроить горячие клавиши</translation>
-    </message>
-    <message>
-      <source>Controller Hotkeys</source>
-      <translation>Горячие клавиши контроллера</translation>
-    </message>
-    <message>
-      <source>Show FPS Counter</source>
-      <translation>Показать счетчик FPS</translation>
-    </message>
-    <message>
-      <source>unmapped</source>
-      <translation>не назначено</translation>
-    </message>
-    <message>
-      <source>Stop Emulator</source>
-      <translation>Остановить эмулятор</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen</source>
-      <translation>Полноэкранный режим</translation>
-    </message>
-    <message>
-      <source>Toggle Pause</source>
-      <translation>Пауза</translation>
-    </message>
-    <message>
-      <source>Keyboard Hotkeys</source>
-      <translation>Горячие клавиши клавиатуры</translation>
-    </message>
-    <message>
-      <source>Show Fps Counter: F10</source>
-      <translation>Показать счетчик FPS: F10</translation>
-    </message>
-    <message>
-      <source>Stop Emulator: n/a</source>
-      <translation>Остановить эмулятор: н/н</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen: F11</source>
-      <translation>Полноэкранный режим: F11</translation>
-    </message>
-    <message>
-      <source>Toggle Pause: F9</source>
-      <translation>Пауза: F9</translation>
-    </message>
-    <message>
-      <source>Tip: Up to three inputs can be assigned for each function</source>
-      <translation>Подсказка: для каждой функции может быть назначено до трёх вводов</translation>
-    </message>
-    <message>
-      <source>Save</source>
-      <translation>Сохранить</translation>
-    </message>
-    <message>
-      <source>Apply</source>
-      <translation>Применить</translation>
-    </message>
-    <message>
-      <source>Cancel</source>
-      <translation>Отмена</translation>
-    </message>
-    <message>
-      <source>Press a button</source>
-      <translation>Нажмите кнопку</translation>
     </message>
   </context>
 </TS>

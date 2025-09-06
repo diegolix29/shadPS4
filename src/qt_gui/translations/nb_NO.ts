@@ -971,10 +971,6 @@
       <translation>Feil ved opprettelse av snarvei!</translation>
     </message>
     <message>
-      <source>Install PKG</source>
-      <translation>Installer PKG</translation>
-    </message>
-    <message>
       <source>Game</source>
       <translation>Spill</translation>
     </message>
@@ -1075,22 +1071,90 @@
     </message>
   </context>
   <context>
-    <name>InstallDirSelect</name>
+    <name>Hotkeys</name>
     <message>
-      <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - Velg mappe</translation>
+      <source>Customize Hotkeys</source>
+      <translation>Tilpass hurtigtaster</translation>
     </message>
     <message>
-      <source>Select which directory you want to install to.</source>
-      <translation>Velg hvilken mappe du vil installere til.</translation>
+      <source>Controller Hotkeys</source>
+      <translation>Kontroller hurtigtaster</translation>
     </message>
     <message>
-      <source>Install All Queued to Selected Folder</source>
-      <translation>Installer alle i kø til den valgte mappa</translation>
+      <source>Show FPS Counter</source>
+      <translation>Vis FPS-teller</translation>
     </message>
     <message>
-      <source>Delete PKG File on Install</source>
-      <translation>Slett PKG-fila ved installering</translation>
+      <source>unmapped</source>
+      <translation>Ikke tildelt</translation>
+    </message>
+    <message>
+      <source>Quit Emulation</source>
+      <translation>Avslutt emulering</translation>
+    </message>
+    <message>
+      <source>Reload Button Mappings</source>
+      <translation>Last knappeoppsett på nytt</translation>
+    </message>
+    <message>
+      <source>Toggle Fullscreen</source>
+      <translation>Slå av/på fullskjerm</translation>
+    </message>
+    <message>
+      <source>Toggle Pause</source>
+      <translation>Sett av/på pause</translation>
+    </message>
+    <message>
+      <source>Keyboard Hotkeys</source>
+      <translation>Tastatur hurtigtaster</translation>
+    </message>
+    <message>
+      <source>Renderdoc Capture (for debugging only)</source>
+      <translation>RenderDoc opptak (kun for feilsøking)</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Joystick Emulation</source>
+      <translation>Slå av/på mus til styrespak emulering</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Gyro Emulation</source>
+      <translation>Slå av/på mus til gyro emulering</translation>
+    </message>
+    <message>
+      <source>Tip: Up to three simultaneous inputs can be assigned for each hotkey</source>
+      <translation>Tips: Opptil tre inndata kan tildeles hver funksjon.</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation>Lagre</translation>
+    </message>
+    <message>
+      <source>Apply</source>
+      <translation>Bruk</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>Avbryt</translation>
+    </message>
+    <message>
+      <source>Restore Defaults</source>
+      <translation>Gjenopprett standardinnstillinger</translation>
+    </message>
+    <message>
+      <source>Unable to Save</source>
+      <translation>Klarte ikke lagre</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</source>
+      <translation>Kan ikke tildele samme inndata mer enn én gang. Dupliserte inndata tildeles følgende taster:
+
+%1</translation>
+    </message>
+    <message>
+      <source>Waiting for inputs</source>
+      <translation>Venter på inndata</translation>
     </message>
   </context>
   <context>
@@ -1323,10 +1387,6 @@
       <translation>Åpne eller legg til Elf-mappe</translation>
     </message>
     <message>
-      <source>Install Packages (PKG)</source>
-      <translation>Installer pakker (PKG)</translation>
-    </message>
-    <message>
       <source>Boot Game</source>
       <translation>Start spill</translation>
     </message>
@@ -1341,10 +1401,6 @@
     <message>
       <source>Configure...</source>
       <translation>Sett opp …</translation>
-    </message>
-    <message>
-      <source>Install application from a .pkg file</source>
-      <translation>Installer fra en .pkg fil</translation>
     </message>
     <message>
       <source>Recent Games</source>
@@ -1421,10 +1477,6 @@
     <message>
       <source>No games found. Please add your games to your library first.</source>
       <translation>Fant ingen spill. Legg til spillene dine i biblioteket først.</translation>
-    </message>
-    <message>
-      <source>PKG Viewer</source>
-      <translation>PKG-viser</translation>
     </message>
     <message>
       <source>Search...</source>
@@ -1531,84 +1583,12 @@
       <translation>Kun én fil kan velges!</translation>
     </message>
     <message>
-      <source>PKG Extraction</source>
-      <translation>PKG-utpakking</translation>
-    </message>
-    <message>
-      <source>Patch detected!</source>
-      <translation>Programrettelse oppdaget!</translation>
-    </message>
-    <message>
-      <source>PKG and Game versions match: </source>
-      <translation>PKG og spillversjoner stemmer overens: </translation>
-    </message>
-    <message>
-      <source>Would you like to overwrite?</source>
-      <translation>Ønsker du å overskrive?</translation>
-    </message>
-    <message>
-      <source>PKG Version %1 is older than installed version: </source>
-      <translation>PKG-versjon %1 er eldre enn installert versjon: </translation>
-    </message>
-    <message>
-      <source>Game is installed: </source>
-      <translation>Spillet er installert: </translation>
-    </message>
-    <message>
-      <source>Would you like to install Patch: </source>
-      <translation>Ønsker du å installere programrettelsen: </translation>
-    </message>
-    <message>
-      <source>DLC Installation</source>
-      <translation>DLC installasjon</translation>
-    </message>
-    <message>
-      <source>Would you like to install DLC: %1?</source>
-      <translation>Ønsker du å installere DLC: %1?</translation>
-    </message>
-    <message>
-      <source>DLC already installed:</source>
-      <translation>DLC allerede installert:</translation>
-    </message>
-    <message>
-      <source>Game already installed</source>
-      <translation>Spillet er allerede installert</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>PKG FEIL</translation>
-    </message>
-    <message>
-      <source>Extracting PKG %1/%2</source>
-      <translation>Pakker ut PKG %1/%2</translation>
-    </message>
-    <message>
-      <source>Extraction Finished</source>
-      <translation>Utpakking fullført</translation>
-    </message>
-    <message>
-      <source>Game successfully installed at %1</source>
-      <translation>Spillet ble installert i %1</translation>
-    </message>
-    <message>
-      <source>File doesn&apos;t appear to be a valid PKG file</source>
-      <translation>Fila ser ikke ut til å være en gyldig PKG-fil</translation>
-    </message>
-    <message>
       <source>Run Game</source>
       <translation>Kjør spill</translation>
     </message>
     <message>
       <source>Eboot.bin file not found</source>
       <translation>Klarte ikke finne Eboot.bin-fila</translation>
-    </message>
-    <message>
-      <source>PKG File (*.PKG *.pkg)</source>
-      <translation>PKG-fil (*.PKG *.pkg)</translation>
-    </message>
-    <message>
-      <source>PKG is a patch or DLC, please install the game first!</source>
-      <translation>PKG er en programrettelse eller DLC. Installer spillet først!</translation>
     </message>
     <message>
       <source>Game is already running!</source>
@@ -1661,73 +1641,6 @@
     <message>
       <source>Customize Hotkeys</source>
       <translation>Tilpass hurtigtaster</translation>
-    </message>
-  </context>
-  <context>
-    <name>PKGViewer</name>
-    <message>
-      <source>Open Folder</source>
-      <translation>Åpne mappe</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>PKG FEIL</translation>
-    </message>
-    <message>
-      <source>Name</source>
-      <translation>Navn</translation>
-    </message>
-    <message>
-      <source>Serial</source>
-      <translation>Serienummer</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>Installert</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Størrelse</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Kategori</translation>
-    </message>
-    <message>
-      <source>Type</source>
-      <translation>Type</translation>
-    </message>
-    <message>
-      <source>App Ver</source>
-      <translation>Programversjon</translation>
-    </message>
-    <message>
-      <source>FW</source>
-      <translation>FV</translation>
-    </message>
-    <message>
-      <source>Region</source>
-      <translation>Region</translation>
-    </message>
-    <message>
-      <source>Flags</source>
-      <translation>Flagg</translation>
-    </message>
-    <message>
-      <source>Path</source>
-      <translation>Adresse</translation>
-    </message>
-    <message>
-      <source>File</source>
-      <translation>Fil</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>Ukjent</translation>
-    </message>
-    <message>
-      <source>Package</source>
-      <translation>Pakke</translation>
     </message>
   </context>
   <context>
@@ -2450,77 +2363,6 @@
     <message>
       <source>Show Hidden Trophies</source>
       <translation>Vis skjulte trofeer</translation>
-    </message>
-  </context>
-  <context>
-    <name>hotkeys</name>
-    <message>
-      <source>Customize Hotkeys</source>
-      <translation>Tilpass hurtigtaster</translation>
-    </message>
-    <message>
-      <source>Controller Hotkeys</source>
-      <translation>Kontroller hurtigtaster</translation>
-    </message>
-    <message>
-      <source>Show FPS Counter</source>
-      <translation>Vis FPS-teller</translation>
-    </message>
-    <message>
-      <source>unmapped</source>
-      <translation>Ikke tildelt</translation>
-    </message>
-    <message>
-      <source>Stop Emulator</source>
-      <translation>Stopp emulator</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen</source>
-      <translation>Slå av/på fullskjerm</translation>
-    </message>
-    <message>
-      <source>Toggle Pause</source>
-      <translation>Sett av/på pause</translation>
-    </message>
-    <message>
-      <source>Keyboard Hotkeys</source>
-      <translation>Tastatur hurtigtaster</translation>
-    </message>
-    <message>
-      <source>Show Fps Counter: F10</source>
-      <translation>Vis FPS-teller: F10</translation>
-    </message>
-    <message>
-      <source>Stop Emulator: n/a</source>
-      <translation>Stopp emulator: Ikke tilgjengelig</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen: F11</source>
-      <translation>Slå av/på fullskjerm: F11</translation>
-    </message>
-    <message>
-      <source>Toggle Pause: F9</source>
-      <translation>Sett av/på pause: F9</translation>
-    </message>
-    <message>
-      <source>Tip: Up to three inputs can be assigned for each function</source>
-      <translation>Tips: Opptil tre inndata kan tildeles hver funksjon.</translation>
-    </message>
-    <message>
-      <source>Save</source>
-      <translation>Lagre</translation>
-    </message>
-    <message>
-      <source>Apply</source>
-      <translation>Bruk</translation>
-    </message>
-    <message>
-      <source>Cancel</source>
-      <translation>Avbryt</translation>
-    </message>
-    <message>
-      <source>Press a button</source>
-      <translation>Trykk på en knapp</translation>
     </message>
   </context>
 </TS>

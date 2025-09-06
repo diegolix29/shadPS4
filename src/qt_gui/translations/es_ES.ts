@@ -971,10 +971,6 @@
       <translation>¡Error al crear el acceso directo!</translation>
     </message>
     <message>
-      <source>Install PKG</source>
-      <translation>Instalar PKG</translation>
-    </message>
-    <message>
       <source>Game</source>
       <translation>Juego</translation>
     </message>
@@ -1075,22 +1071,90 @@
     </message>
   </context>
   <context>
-    <name>InstallDirSelect</name>
+    <name>Hotkeys</name>
     <message>
-      <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - Elegir carpeta</translation>
+      <source>Customize Hotkeys</source>
+      <translation type="unfinished">Customize Hotkeys</translation>
     </message>
     <message>
-      <source>Select which directory you want to install to.</source>
-      <translation>Selecciona el directorio de instalación.</translation>
+      <source>Controller Hotkeys</source>
+      <translation type="unfinished">Controller Hotkeys</translation>
     </message>
     <message>
-      <source>Install All Queued to Selected Folder</source>
-      <translation>Instalar toda la cola en la carpeta seleccionada</translation>
+      <source>Show FPS Counter</source>
+      <translation type="unfinished">Show FPS Counter</translation>
     </message>
     <message>
-      <source>Delete PKG File on Install</source>
-      <translation>Eliminar archivo PKG tras la instalación</translation>
+      <source>unmapped</source>
+      <translation type="unfinished">unmapped</translation>
+    </message>
+    <message>
+      <source>Quit Emulation</source>
+      <translation type="unfinished">Quit Emulation</translation>
+    </message>
+    <message>
+      <source>Reload Button Mappings</source>
+      <translation type="unfinished">Reload Button Mappings</translation>
+    </message>
+    <message>
+      <source>Toggle Fullscreen</source>
+      <translation type="unfinished">Toggle Fullscreen</translation>
+    </message>
+    <message>
+      <source>Toggle Pause</source>
+      <translation type="unfinished">Toggle Pause</translation>
+    </message>
+    <message>
+      <source>Keyboard Hotkeys</source>
+      <translation type="unfinished">Keyboard Hotkeys</translation>
+    </message>
+    <message>
+      <source>Renderdoc Capture (for debugging only)</source>
+      <translation type="unfinished">Renderdoc Capture (for debugging only)</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Joystick Emulation</source>
+      <translation type="unfinished">Toggle Mouse to Joystick Emulation</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Gyro Emulation</source>
+      <translation type="unfinished">Toggle Mouse to Gyro Emulation</translation>
+    </message>
+    <message>
+      <source>Tip: Up to three simultaneous inputs can be assigned for each hotkey</source>
+      <translation type="unfinished">Tip: Up to three simultaneous inputs can be assigned for each hotkey</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation type="unfinished">Save</translation>
+    </message>
+    <message>
+      <source>Apply</source>
+      <translation type="unfinished">Apply</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Restore Defaults</source>
+      <translation type="unfinished">Restore Defaults</translation>
+    </message>
+    <message>
+      <source>Unable to Save</source>
+      <translation type="unfinished">Unable to Save</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</source>
+      <translation type="unfinished">Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</translation>
+    </message>
+    <message>
+      <source>Waiting for inputs</source>
+      <translation type="unfinished">Waiting for inputs</translation>
     </message>
   </context>
   <context>
@@ -1323,10 +1387,6 @@
       <translation>Abrir/Agregar carpeta Elf</translation>
     </message>
     <message>
-      <source>Install Packages (PKG)</source>
-      <translation>Instalar paquetes (PKG)</translation>
-    </message>
-    <message>
       <source>Boot Game</source>
       <translation>Iniciar juego</translation>
     </message>
@@ -1341,10 +1401,6 @@
     <message>
       <source>Configure...</source>
       <translation>Configurar...</translation>
-    </message>
-    <message>
-      <source>Install application from a .pkg file</source>
-      <translation>Instalar aplicación desde un archivo .pkg</translation>
     </message>
     <message>
       <source>Recent Games</source>
@@ -1421,10 +1477,6 @@
     <message>
       <source>No games found. Please add your games to your library first.</source>
       <translation>No se encontraron juegos. Por favor, añade tus juegos a tu biblioteca primero.</translation>
-    </message>
-    <message>
-      <source>PKG Viewer</source>
-      <translation>Vista PKG</translation>
     </message>
     <message>
       <source>Search...</source>
@@ -1531,84 +1583,12 @@
       <translation>¡Solo se puede seleccionar un archivo!</translation>
     </message>
     <message>
-      <source>PKG Extraction</source>
-      <translation>Extracción de PKG</translation>
-    </message>
-    <message>
-      <source>Patch detected!</source>
-      <translation>¡Actualización detectada!</translation>
-    </message>
-    <message>
-      <source>PKG and Game versions match: </source>
-      <translation>Las versiones de PKG y del juego coinciden: </translation>
-    </message>
-    <message>
-      <source>Would you like to overwrite?</source>
-      <translation>¿Desea sobrescribir?</translation>
-    </message>
-    <message>
-      <source>PKG Version %1 is older than installed version: </source>
-      <translation>La versión de PKG %1 es más antigua que la versión instalada: </translation>
-    </message>
-    <message>
-      <source>Game is installed: </source>
-      <translation>El juego está instalado: </translation>
-    </message>
-    <message>
-      <source>Would you like to install Patch: </source>
-      <translation>¿Desea instalar la actualización: </translation>
-    </message>
-    <message>
-      <source>DLC Installation</source>
-      <translation>Instalación de DLC</translation>
-    </message>
-    <message>
-      <source>Would you like to install DLC: %1?</source>
-      <translation>¿Desea instalar el DLC: %1?</translation>
-    </message>
-    <message>
-      <source>DLC already installed:</source>
-      <translation>DLC ya instalado:</translation>
-    </message>
-    <message>
-      <source>Game already installed</source>
-      <translation>Juego ya instalado</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>ERROR PKG</translation>
-    </message>
-    <message>
-      <source>Extracting PKG %1/%2</source>
-      <translation>Extrayendo PKG %1/%2</translation>
-    </message>
-    <message>
-      <source>Extraction Finished</source>
-      <translation>Extracción terminada</translation>
-    </message>
-    <message>
-      <source>Game successfully installed at %1</source>
-      <translation>Juego instalado exitosamente en %1</translation>
-    </message>
-    <message>
-      <source>File doesn&apos;t appear to be a valid PKG file</source>
-      <translation>El archivo parece no ser un archivo PKG válido</translation>
-    </message>
-    <message>
       <source>Run Game</source>
       <translation>Ejecutar juego</translation>
     </message>
     <message>
       <source>Eboot.bin file not found</source>
       <translation>Archivo Eboot.bin no encontrado</translation>
-    </message>
-    <message>
-      <source>PKG File (*.PKG *.pkg)</source>
-      <translation>Archivo PKG (*.PKG *.pkg)</translation>
-    </message>
-    <message>
-      <source>PKG is a patch or DLC, please install the game first!</source>
-      <translation>El archivo PKG es un parche o DLC, ¡debes instalar el juego primero!</translation>
     </message>
     <message>
       <source>Game is already running!</source>
@@ -1661,73 +1641,6 @@
     <message>
       <source>Customize Hotkeys</source>
       <translation>Personalizar Atajos</translation>
-    </message>
-  </context>
-  <context>
-    <name>PKGViewer</name>
-    <message>
-      <source>Open Folder</source>
-      <translation>Abrir Carpeta</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>ERROR PKG</translation>
-    </message>
-    <message>
-      <source>Name</source>
-      <translation>Nombre</translation>
-    </message>
-    <message>
-      <source>Serial</source>
-      <translation>Número de Serie</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>Instalado</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Tamaño</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Categoría</translation>
-    </message>
-    <message>
-      <source>Type</source>
-      <translation>Tipo</translation>
-    </message>
-    <message>
-      <source>App Ver</source>
-      <translation>Versión de la Aplicación</translation>
-    </message>
-    <message>
-      <source>FW</source>
-      <translation>FW</translation>
-    </message>
-    <message>
-      <source>Region</source>
-      <translation>Región</translation>
-    </message>
-    <message>
-      <source>Flags</source>
-      <translation>Etiquetas</translation>
-    </message>
-    <message>
-      <source>Path</source>
-      <translation>Ruta</translation>
-    </message>
-    <message>
-      <source>File</source>
-      <translation>Archivo</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>Desconocido</translation>
-    </message>
-    <message>
-      <source>Package</source>
-      <translation>Paquete</translation>
     </message>
   </context>
   <context>
@@ -2450,77 +2363,6 @@
     <message>
       <source>Show Hidden Trophies</source>
       <translation>Mostrar Trofeos Ocultos</translation>
-    </message>
-  </context>
-  <context>
-    <name>hotkeys</name>
-    <message>
-      <source>Customize Hotkeys</source>
-      <translation>Personalizar Atajos</translation>
-    </message>
-    <message>
-      <source>Controller Hotkeys</source>
-      <translation>Atajos de Mando</translation>
-    </message>
-    <message>
-      <source>Show FPS Counter</source>
-      <translation>Mostrar Contador de FPS</translation>
-    </message>
-    <message>
-      <source>unmapped</source>
-      <translation>sin vincular</translation>
-    </message>
-    <message>
-      <source>Stop Emulator</source>
-      <translation>Parar Emulador</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen</source>
-      <translation>Alternar Pantalla Completa</translation>
-    </message>
-    <message>
-      <source>Toggle Pause</source>
-      <translation>Alternar Pausa</translation>
-    </message>
-    <message>
-      <source>Keyboard Hotkeys</source>
-      <translation>Atajos de teclado</translation>
-    </message>
-    <message>
-      <source>Show Fps Counter: F10</source>
-      <translation>Mostrar Contador de Fps: F10</translation>
-    </message>
-    <message>
-      <source>Stop Emulator: n/a</source>
-      <translation>Parar emulador: n/a</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen: F11</source>
-      <translation>Alternar Pantalla Completa: F11</translation>
-    </message>
-    <message>
-      <source>Toggle Pause: F9</source>
-      <translation>Alternar Pausa: F9</translation>
-    </message>
-    <message>
-      <source>Tip: Up to three inputs can be assigned for each function</source>
-      <translation>Consejo: Se pueden asignar hasta tres entradas para cada función</translation>
-    </message>
-    <message>
-      <source>Save</source>
-      <translation>Guardar</translation>
-    </message>
-    <message>
-      <source>Apply</source>
-      <translation>Aplicar</translation>
-    </message>
-    <message>
-      <source>Cancel</source>
-      <translation>Cancelar</translation>
-    </message>
-    <message>
-      <source>Press a button</source>
-      <translation>Presiona un botón</translation>
     </message>
   </context>
 </TS>

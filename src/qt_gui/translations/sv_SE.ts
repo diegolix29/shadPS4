@@ -971,10 +971,6 @@
       <translation>Fel vid skapandet av genväg!</translation>
     </message>
     <message>
-      <source>Install PKG</source>
-      <translation>Installera PKG</translation>
-    </message>
-    <message>
       <source>Game</source>
       <translation>Spel</translation>
     </message>
@@ -1075,22 +1071,90 @@
     </message>
   </context>
   <context>
-    <name>InstallDirSelect</name>
+    <name>Hotkeys</name>
     <message>
-      <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - Välj katalog</translation>
+      <source>Customize Hotkeys</source>
+      <translation>Anpassa snabbtangenter</translation>
     </message>
     <message>
-      <source>Select which directory you want to install to.</source>
-      <translation>Välj vilken katalog som du vill installera till.</translation>
+      <source>Controller Hotkeys</source>
+      <translation>Snabbtangenter för kontroller</translation>
     </message>
     <message>
-      <source>Install All Queued to Selected Folder</source>
-      <translation>Installera alla köade till markerad mapp</translation>
+      <source>Show FPS Counter</source>
+      <translation>Visa bildfrekvensräknare</translation>
     </message>
     <message>
-      <source>Delete PKG File on Install</source>
-      <translation>Ta bort PKG-fil efter installation</translation>
+      <source>unmapped</source>
+      <translation>omappad</translation>
+    </message>
+    <message>
+      <source>Quit Emulation</source>
+      <translation>Avsluta emulering</translation>
+    </message>
+    <message>
+      <source>Reload Button Mappings</source>
+      <translation>Uppdatera knappmappningar</translation>
+    </message>
+    <message>
+      <source>Toggle Fullscreen</source>
+      <translation>Växla helskärm</translation>
+    </message>
+    <message>
+      <source>Toggle Pause</source>
+      <translation>Växla paus</translation>
+    </message>
+    <message>
+      <source>Keyboard Hotkeys</source>
+      <translation>Tangentbordsgenvägar</translation>
+    </message>
+    <message>
+      <source>Renderdoc Capture (for debugging only)</source>
+      <translation>Renderdoc-fångst (endast för felsökning)</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Joystick Emulation</source>
+      <translation>Växla mus- till styrspaksemulering</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Gyro Emulation</source>
+      <translation>Växla mus- till gyroemulering</translation>
+    </message>
+    <message>
+      <source>Tip: Up to three simultaneous inputs can be assigned for each hotkey</source>
+      <translation>Tips: Upp till tre samtidiga inmatningar kan tilldelas för varje snabbtangent</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation>Spara</translation>
+    </message>
+    <message>
+      <source>Apply</source>
+      <translation>Tillämpa</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>Avbryt</translation>
+    </message>
+    <message>
+      <source>Restore Defaults</source>
+      <translation>Återställ till standard</translation>
+    </message>
+    <message>
+      <source>Unable to Save</source>
+      <translation>Kunde inte spara</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</source>
+      <translation>Det går inte att binda samma unika inmatning mer än en gång. Dubbletter av inmatningar mappas till följande knappar:
+
+%1</translation>
+    </message>
+    <message>
+      <source>Waiting for inputs</source>
+      <translation>Väntar på inmatningar</translation>
     </message>
   </context>
   <context>
@@ -1323,10 +1387,6 @@
       <translation>Öppna/Lägg till Elf-mapp</translation>
     </message>
     <message>
-      <source>Install Packages (PKG)</source>
-      <translation>Installera paket (PKG)</translation>
-    </message>
-    <message>
       <source>Boot Game</source>
       <translation>Starta spel</translation>
     </message>
@@ -1341,10 +1401,6 @@
     <message>
       <source>Configure...</source>
       <translation>Konfigurera...</translation>
-    </message>
-    <message>
-      <source>Install application from a .pkg file</source>
-      <translation>Installera program från en .pkg-fil</translation>
     </message>
     <message>
       <source>Recent Games</source>
@@ -1421,10 +1477,6 @@
     <message>
       <source>No games found. Please add your games to your library first.</source>
       <translation>Inga spel hittades. Lägg till dina spel till biblioteket först.</translation>
-    </message>
-    <message>
-      <source>PKG Viewer</source>
-      <translation>PKG-visare</translation>
     </message>
     <message>
       <source>Search...</source>
@@ -1531,84 +1583,12 @@
       <translation>Endast en fil kan väljas!</translation>
     </message>
     <message>
-      <source>PKG Extraction</source>
-      <translation>PKG-extrahering</translation>
-    </message>
-    <message>
-      <source>Patch detected!</source>
-      <translation>Patch upptäcktes!</translation>
-    </message>
-    <message>
-      <source>PKG and Game versions match: </source>
-      <translation>PKG och spelversioner matchar: </translation>
-    </message>
-    <message>
-      <source>Would you like to overwrite?</source>
-      <translation>Vill du skriva över?</translation>
-    </message>
-    <message>
-      <source>PKG Version %1 is older than installed version: </source>
-      <translation>PKG-versionen %1 är äldre än installerad version: </translation>
-    </message>
-    <message>
-      <source>Game is installed: </source>
-      <translation>Spelet är installerat: </translation>
-    </message>
-    <message>
-      <source>Would you like to install Patch: </source>
-      <translation>Vill du installera patch: </translation>
-    </message>
-    <message>
-      <source>DLC Installation</source>
-      <translation>DLC-installation</translation>
-    </message>
-    <message>
-      <source>Would you like to install DLC: %1?</source>
-      <translation>Vill du installera DLC: %1?</translation>
-    </message>
-    <message>
-      <source>DLC already installed:</source>
-      <translation>DLC redan installerat:</translation>
-    </message>
-    <message>
-      <source>Game already installed</source>
-      <translation>Spelet redan installerat</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>PKG-FEL</translation>
-    </message>
-    <message>
-      <source>Extracting PKG %1/%2</source>
-      <translation>Extraherar PKG %1/%2</translation>
-    </message>
-    <message>
-      <source>Extraction Finished</source>
-      <translation>Extrahering färdig</translation>
-    </message>
-    <message>
-      <source>Game successfully installed at %1</source>
-      <translation>Spelet installerades i %1</translation>
-    </message>
-    <message>
-      <source>File doesn&apos;t appear to be a valid PKG file</source>
-      <translation>Filen verkar inte vara en giltig PKG-fil</translation>
-    </message>
-    <message>
       <source>Run Game</source>
       <translation>Kör spel</translation>
     </message>
     <message>
       <source>Eboot.bin file not found</source>
       <translation>Filen eboot.bin hittades inte</translation>
-    </message>
-    <message>
-      <source>PKG File (*.PKG *.pkg)</source>
-      <translation>PKG-fil (*.PKG *.pkg)</translation>
-    </message>
-    <message>
-      <source>PKG is a patch or DLC, please install the game first!</source>
-      <translation>PKG är en patch eller DLC. Installera spelet först!</translation>
     </message>
     <message>
       <source>Game is already running!</source>
@@ -1661,73 +1641,6 @@
     <message>
       <source>Customize Hotkeys</source>
       <translation>Anpassa snabbtangenter</translation>
-    </message>
-  </context>
-  <context>
-    <name>PKGViewer</name>
-    <message>
-      <source>Open Folder</source>
-      <translation>Öppna mapp</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>PKG-FEL</translation>
-    </message>
-    <message>
-      <source>Name</source>
-      <translation>Namn</translation>
-    </message>
-    <message>
-      <source>Serial</source>
-      <translation>Serienummer</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>Installerat</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Storlek</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Kategori</translation>
-    </message>
-    <message>
-      <source>Type</source>
-      <translation>Typ</translation>
-    </message>
-    <message>
-      <source>App Ver</source>
-      <translation>Appver</translation>
-    </message>
-    <message>
-      <source>FW</source>
-      <translation>FW</translation>
-    </message>
-    <message>
-      <source>Region</source>
-      <translation>Region</translation>
-    </message>
-    <message>
-      <source>Flags</source>
-      <translation>Flaggor</translation>
-    </message>
-    <message>
-      <source>Path</source>
-      <translation>Sökväg</translation>
-    </message>
-    <message>
-      <source>File</source>
-      <translation>Arkiv</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>Okänt</translation>
-    </message>
-    <message>
-      <source>Package</source>
-      <translation>Paket</translation>
     </message>
   </context>
   <context>
@@ -2450,77 +2363,6 @@
     <message>
       <source>Show Hidden Trophies</source>
       <translation>Visa dolda troféer</translation>
-    </message>
-  </context>
-  <context>
-    <name>hotkeys</name>
-    <message>
-      <source>Customize Hotkeys</source>
-      <translation>Anpassa snabbtangenter</translation>
-    </message>
-    <message>
-      <source>Controller Hotkeys</source>
-      <translation>Snabbtangenter för kontroller</translation>
-    </message>
-    <message>
-      <source>Show FPS Counter</source>
-      <translation>Visa FPS-räknare</translation>
-    </message>
-    <message>
-      <source>unmapped</source>
-      <translation>inte mappad</translation>
-    </message>
-    <message>
-      <source>Stop Emulator</source>
-      <translation>Stoppa emulator</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen</source>
-      <translation>Växla helskärm</translation>
-    </message>
-    <message>
-      <source>Toggle Pause</source>
-      <translation>Växla paus</translation>
-    </message>
-    <message>
-      <source>Keyboard Hotkeys</source>
-      <translation>Snabbtangenter för tangentbord</translation>
-    </message>
-    <message>
-      <source>Show Fps Counter: F10</source>
-      <translation>Visa FPS-räknare: F10</translation>
-    </message>
-    <message>
-      <source>Stop Emulator: n/a</source>
-      <translation>Stoppa emulator: inte tillgänglig</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen: F11</source>
-      <translation>Växla helskärm: F11</translation>
-    </message>
-    <message>
-      <source>Toggle Pause: F9</source>
-      <translation>Växla paus: F9</translation>
-    </message>
-    <message>
-      <source>Tip: Up to three inputs can be assigned for each function</source>
-      <translation>Tips: Upp till tre inmatningar kan tilldelas för varje funktion</translation>
-    </message>
-    <message>
-      <source>Save</source>
-      <translation>Spara</translation>
-    </message>
-    <message>
-      <source>Apply</source>
-      <translation>Tillämpa</translation>
-    </message>
-    <message>
-      <source>Cancel</source>
-      <translation>Avbryt</translation>
-    </message>
-    <message>
-      <source>Press a button</source>
-      <translation>Tryck en knapp</translation>
     </message>
   </context>
 </TS>

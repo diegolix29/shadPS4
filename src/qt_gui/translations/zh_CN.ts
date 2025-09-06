@@ -971,10 +971,6 @@
       <translation>创建快捷方式出错！</translation>
     </message>
     <message>
-      <source>Install PKG</source>
-      <translation>安装 PKG</translation>
-    </message>
-    <message>
       <source>Game</source>
       <translation>游戏</translation>
     </message>
@@ -1075,22 +1071,90 @@
     </message>
   </context>
   <context>
-    <name>InstallDirSelect</name>
+    <name>Hotkeys</name>
     <message>
-      <source>shadPS4 - Choose directory</source>
-      <translation>shadPS4 - 选择文件目录</translation>
+      <source>Customize Hotkeys</source>
+      <translation type="unfinished">Customize Hotkeys</translation>
     </message>
     <message>
-      <source>Select which directory you want to install to.</source>
-      <translation>选择您想要安装到的目录。</translation>
+      <source>Controller Hotkeys</source>
+      <translation type="unfinished">Controller Hotkeys</translation>
     </message>
     <message>
-      <source>Install All Queued to Selected Folder</source>
-      <translation>安装所有 PKG 到选定的文件夹</translation>
+      <source>Show FPS Counter</source>
+      <translation type="unfinished">Show FPS Counter</translation>
     </message>
     <message>
-      <source>Delete PKG File on Install</source>
-      <translation>安装后删除 PKG 文件</translation>
+      <source>unmapped</source>
+      <translation type="unfinished">unmapped</translation>
+    </message>
+    <message>
+      <source>Quit Emulation</source>
+      <translation type="unfinished">Quit Emulation</translation>
+    </message>
+    <message>
+      <source>Reload Button Mappings</source>
+      <translation type="unfinished">Reload Button Mappings</translation>
+    </message>
+    <message>
+      <source>Toggle Fullscreen</source>
+      <translation type="unfinished">Toggle Fullscreen</translation>
+    </message>
+    <message>
+      <source>Toggle Pause</source>
+      <translation type="unfinished">Toggle Pause</translation>
+    </message>
+    <message>
+      <source>Keyboard Hotkeys</source>
+      <translation type="unfinished">Keyboard Hotkeys</translation>
+    </message>
+    <message>
+      <source>Renderdoc Capture (for debugging only)</source>
+      <translation type="unfinished">Renderdoc Capture (for debugging only)</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Joystick Emulation</source>
+      <translation type="unfinished">Toggle Mouse to Joystick Emulation</translation>
+    </message>
+    <message>
+      <source>Toggle Mouse to Gyro Emulation</source>
+      <translation type="unfinished">Toggle Mouse to Gyro Emulation</translation>
+    </message>
+    <message>
+      <source>Tip: Up to three simultaneous inputs can be assigned for each hotkey</source>
+      <translation type="unfinished">Tip: Up to three simultaneous inputs can be assigned for each hotkey</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation type="unfinished">Save</translation>
+    </message>
+    <message>
+      <source>Apply</source>
+      <translation type="unfinished">Apply</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Restore Defaults</source>
+      <translation type="unfinished">Restore Defaults</translation>
+    </message>
+    <message>
+      <source>Unable to Save</source>
+      <translation type="unfinished">Unable to Save</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</source>
+      <translation type="unfinished">Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</translation>
+    </message>
+    <message>
+      <source>Waiting for inputs</source>
+      <translation type="unfinished">Waiting for inputs</translation>
     </message>
   </context>
   <context>
@@ -1323,10 +1387,6 @@
       <translation>打开/添加 Elf 文件夹</translation>
     </message>
     <message>
-      <source>Install Packages (PKG)</source>
-      <translation>安装 Packages (PKG)</translation>
-    </message>
-    <message>
       <source>Boot Game</source>
       <translation>启动游戏</translation>
     </message>
@@ -1341,10 +1401,6 @@
     <message>
       <source>Configure...</source>
       <translation>设置...</translation>
-    </message>
-    <message>
-      <source>Install application from a .pkg file</source>
-      <translation>从 .pkg 文件安装应用程序</translation>
     </message>
     <message>
       <source>Recent Games</source>
@@ -1421,10 +1477,6 @@
     <message>
       <source>No games found. Please add your games to your library first.</source>
       <translation>未找到游戏。请先将您的游戏添加到您的资料库。</translation>
-    </message>
-    <message>
-      <source>PKG Viewer</source>
-      <translation>PKG 查看器</translation>
     </message>
     <message>
       <source>Search...</source>
@@ -1531,84 +1583,12 @@
       <translation>只能选择一个文件！</translation>
     </message>
     <message>
-      <source>PKG Extraction</source>
-      <translation>PKG 解压</translation>
-    </message>
-    <message>
-      <source>Patch detected!</source>
-      <translation>检测到补丁！</translation>
-    </message>
-    <message>
-      <source>PKG and Game versions match: </source>
-      <translation>PKG 和游戏版本匹配：</translation>
-    </message>
-    <message>
-      <source>Would you like to overwrite?</source>
-      <translation>您想要覆盖吗？</translation>
-    </message>
-    <message>
-      <source>PKG Version %1 is older than installed version: </source>
-      <translation>PKG 版本 %1 比已安装版本更旧：</translation>
-    </message>
-    <message>
-      <source>Game is installed: </source>
-      <translation>游戏已安装：</translation>
-    </message>
-    <message>
-      <source>Would you like to install Patch: </source>
-      <translation>您想安装补丁吗：</translation>
-    </message>
-    <message>
-      <source>DLC Installation</source>
-      <translation>DLC 安装</translation>
-    </message>
-    <message>
-      <source>Would you like to install DLC: %1?</source>
-      <translation>您想安装 DLC：%1 吗？</translation>
-    </message>
-    <message>
-      <source>DLC already installed:</source>
-      <translation>DLC 已经安装：</translation>
-    </message>
-    <message>
-      <source>Game already installed</source>
-      <translation>游戏已经安装</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>PKG 错误</translation>
-    </message>
-    <message>
-      <source>Extracting PKG %1/%2</source>
-      <translation>正在解压 PKG %1/%2</translation>
-    </message>
-    <message>
-      <source>Extraction Finished</source>
-      <translation>解压完成</translation>
-    </message>
-    <message>
-      <source>Game successfully installed at %1</source>
-      <translation>游戏成功安装在 %1</translation>
-    </message>
-    <message>
-      <source>File doesn&apos;t appear to be a valid PKG file</source>
-      <translation>文件似乎不是有效的 PKG 文件</translation>
-    </message>
-    <message>
       <source>Run Game</source>
       <translation>运行游戏</translation>
     </message>
     <message>
       <source>Eboot.bin file not found</source>
       <translation>找不到 Eboot.bin 文件</translation>
-    </message>
-    <message>
-      <source>PKG File (*.PKG *.pkg)</source>
-      <translation>PKG 文件（*.PKG *.pkg）</translation>
-    </message>
-    <message>
-      <source>PKG is a patch or DLC, please install the game first!</source>
-      <translation>PKG是一个补丁或 DLC，请先安装游戏！</translation>
     </message>
     <message>
       <source>Game is already running!</source>
@@ -1661,73 +1641,6 @@
     <message>
       <source>Customize Hotkeys</source>
       <translation>自定义快捷键</translation>
-    </message>
-  </context>
-  <context>
-    <name>PKGViewer</name>
-    <message>
-      <source>Open Folder</source>
-      <translation>打开文件夹</translation>
-    </message>
-    <message>
-      <source>PKG ERROR</source>
-      <translation>PKG 错误</translation>
-    </message>
-    <message>
-      <source>Name</source>
-      <translation>名称</translation>
-    </message>
-    <message>
-      <source>Serial</source>
-      <translation>序列号</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>已安装</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>大小</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>分类</translation>
-    </message>
-    <message>
-      <source>Type</source>
-      <translation>类型</translation>
-    </message>
-    <message>
-      <source>App Ver</source>
-      <translation>版本</translation>
-    </message>
-    <message>
-      <source>FW</source>
-      <translation>固件</translation>
-    </message>
-    <message>
-      <source>Region</source>
-      <translation>区域</translation>
-    </message>
-    <message>
-      <source>Flags</source>
-      <translation>标志</translation>
-    </message>
-    <message>
-      <source>Path</source>
-      <translation>路径</translation>
-    </message>
-    <message>
-      <source>File</source>
-      <translation>文件</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>未知</translation>
-    </message>
-    <message>
-      <source>Package</source>
-      <translation>Package</translation>
     </message>
   </context>
   <context>
@@ -2450,77 +2363,6 @@
     <message>
       <source>Show Hidden Trophies</source>
       <translation>显示隐藏奖杯</translation>
-    </message>
-  </context>
-  <context>
-    <name>hotkeys</name>
-    <message>
-      <source>Customize Hotkeys</source>
-      <translation>自定义快捷键</translation>
-    </message>
-    <message>
-      <source>Controller Hotkeys</source>
-      <translation>控制器快捷键</translation>
-    </message>
-    <message>
-      <source>Show FPS Counter</source>
-      <translation>显示FPS计数器</translation>
-    </message>
-    <message>
-      <source>unmapped</source>
-      <translation>未映射</translation>
-    </message>
-    <message>
-      <source>Stop Emulator</source>
-      <translation>停止模拟器</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen</source>
-      <translation>全屏显示切换</translation>
-    </message>
-    <message>
-      <source>Toggle Pause</source>
-      <translation>切换暂停</translation>
-    </message>
-    <message>
-      <source>Keyboard Hotkeys</source>
-      <translation>键盘快捷键</translation>
-    </message>
-    <message>
-      <source>Show Fps Counter: F10</source>
-      <translation>显示FPS 计数器：F10</translation>
-    </message>
-    <message>
-      <source>Stop Emulator: n/a</source>
-      <translation>停止模拟器： 不可用</translation>
-    </message>
-    <message>
-      <source>Toggle Fullscreen: F11</source>
-      <translation>切换全屏： F11</translation>
-    </message>
-    <message>
-      <source>Toggle Pause: F9</source>
-      <translation>切换暂停：F9</translation>
-    </message>
-    <message>
-      <source>Tip: Up to three inputs can be assigned for each function</source>
-      <translation>提示：最多可以为每个功能分配三个输入</translation>
-    </message>
-    <message>
-      <source>Save</source>
-      <translation>保存</translation>
-    </message>
-    <message>
-      <source>Apply</source>
-      <translation>应用</translation>
-    </message>
-    <message>
-      <source>Cancel</source>
-      <translation>取消</translation>
-    </message>
-    <message>
-      <source>Press a button</source>
-      <translation>请按一个按键</translation>
     </message>
   </context>
 </TS>
