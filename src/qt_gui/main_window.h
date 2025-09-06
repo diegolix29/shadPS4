@@ -21,9 +21,9 @@
 #include "game_info.h"
 #include "game_list_frame.h"
 #include "game_list_utils.h"
+#include "gui_settings.h"
 #include "main_window_themes.h"
 #include "main_window_ui.h"
-#include "gui_settings.h"
 
 class GameListFrame;
 
