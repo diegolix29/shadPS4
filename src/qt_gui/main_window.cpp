@@ -483,9 +483,9 @@ void MainWindow::CreateConnects() {
     connect(m_game_list_frame.get(), &QTableWidget::cellDoubleClicked, this,
             &MainWindow::StartGame);
 
-  connect(ui->configureAct, &QAction::triggered, this, [this]() {
+    connect(ui->configureAct, &QAction::triggered, this, [this]() {
         auto settingsDialog = new SettingsDialog(m_compat_info, m_gui_settings, this);
-        settingsDialog->exec(); 
+        settingsDialog->exec();
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
@@ -521,9 +521,9 @@ void MainWindow::CreateConnects() {
         Libraries::AudioOut::AdjustVol();
     });
 
-connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
+    connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
         auto settingsDialog = new SettingsDialog(m_compat_info, m_gui_settings, this);
-        settingsDialog->exec(); 
+        settingsDialog->exec();
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
