@@ -425,7 +425,7 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::Text("Shader Skips: %s", Config::getShaderSkipsEnabled() ? "On" : "Off");
         ImGui::Text("Linear Readbacks: %s", Config::getReadbackLinearImages() ? "On" : "Off");
         ImGui::Text("DMA Access: %s", Config::directMemoryAccess() ? "On" : "Off");
-        ImGui::Text("VBlank Divider: %d", Config::vblankDiv());
+        ImGui::Text("VBlank Divider: %d", Config::vblankFreq());
         ImGui::Text("HDR Allowed: %s", Config::allowHDR() ? "Yes" : "No");
         ImGui::Text("Auto Backup: %s", Config::getEnableAutoBackup() ? "On" : "Off");
         ImGui::Text("PSN Signed In: %s", Config::getPSNSignedIn() ? "Yes" : "No");
@@ -617,9 +617,9 @@ void DrawPauseStatusWindow(bool& is_open) {
         if (ImGui::Checkbox("DMA Access", &dma))
             Config::setDirectMemoryAccess(dma);
 
-        int vblank = Config::vblankDiv();
-        if (ImGui::SliderInt("VBlank Divider", &vblank, 1, 100))
-            Config::setVblankDiv(vblank);
+        int vblank = Config::vblankFreq();
+        if (ImGui::SliderInt("VBlank Divider", &vblank, 1, 500))
+            Config::setVblankFreq(vblank);
 
         bool hdr = Config::allowHDR();
         if (ImGui::Checkbox("HDR Allowed", &hdr))

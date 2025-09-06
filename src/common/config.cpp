@@ -1212,7 +1212,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             toml::find_or<bool>(gpu, "directMemoryAccess", is_game_specific);
         shouldDumpShaders.setFromToml(gpu, "dumpShaders", is_game_specific);
         shouldPatchShaders.setFromToml(gpu, "patchShaders", is_game_specific);
-        vblankDivider.setFromToml(gpu, "vblankDivider", is_game_specific);
+        vblankFrequency.setFromToml(gpu, "vblankFrequency", is_game_specific);
         isFullscreen.setFromToml(gpu, "Fullscreen", is_game_specific);
         fullscreenMode.setFromToml(gpu, "FullscreenMode", is_game_specific);
         isHDRAllowed.setFromToml(gpu, "allowHDR", is_game_specific);

@@ -299,7 +299,6 @@ void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_
 }
 
 void VideoOutDriver::PresentThread(std::stop_token token) {
-    const auto vblank_div = Config::vblankDiv();
     int fps_cap_value = 0;
 
     if (Config::fpsLimiterEnabled()) {
@@ -308,8 +307,9 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
             fps_cap_value = 1000000000 / fps_limit; // nanoseconds per frame
         }
     } else {
-        if (vblank_div > 0) {
-            fps_cap_value = 16666667 / vblank_div; // fallback to vblank pacing
+        const auto vblank_freq = Config::vblankFreq();
+        if (vblank_freq > 0) {
+            fps_cap_value = 1000000000 / vblank_freq; // nanoseconds per vblank period
         }
     }
 

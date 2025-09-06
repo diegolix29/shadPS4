@@ -29,12 +29,8 @@ void FrameGraph::DrawFrameGraph() {
         return;
     }
 
-    float target_formula;
-    if ((Config::vblankDiv() * 60) < Config::getFpsLimit()) {
-        target_formula = 60.0f * (float)Config::vblankDiv();
-    } else {
-        target_formula = (float)Config::getFpsLimit();
-    }
+    float target_formula = std::min(static_cast<float>(Config::vblankFreq()),
+                                    static_cast<float>(Config::getFpsLimit()));
     float target_dt = 1.0f / target_formula;
     float cur_pos_x = pos.x + full_width;
     pos.y += FRAME_GRAPH_PADDING_Y;

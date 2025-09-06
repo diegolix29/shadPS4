@@ -1138,31 +1138,40 @@
                  <item>
                   <widget class="QGroupBox" name="heightDivider">
                    <property name="title">
-                    <string>Vblank Divider</string>
+                    <string>Vblank Frequency</string>
                    </property>
                    <layout class="QVBoxLayout" name="vblankLayout">
                     <item>
                      <widget class="QSpinBox" name="vblankSpinBox">
-                      <property name="frame">
-                       <bool>true</bool>
-                      </property>
-                      <property name="accelerated">
+						 <property name="frame">
+							 <bool>true</bool>
+						 </property>
+						 <property name="alignment">
+							 <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+						 </property>
+						 <property name="specialValueText">
+							 <string/>
+						 </property>
+						 <property name="accelerated">
                        <bool>true</bool>
                       </property>
                       <property name="correctionMode">
                        <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
                       </property>
                       <property name="keyboardTracking">
-                       <bool>false</bool>
-                      </property>
-                      <property name="minimum">
+						  <bool>false</bool>
+					  </property>
+					  <property name="suffix">
+						  <string>Hz</string>
+					  </property>
+					  <property name="minimum">
                        <number>1</number>
                       </property>
                       <property name="maximum">
                        <number>9999</number>
                       </property>
                       <property name="value">
-                       <number>1</number>
+                       <number>60</number>
                       </property>
                      </widget>
                     </item>
