@@ -80,6 +80,7 @@ path = [
     "src/shadps4.qrc",
     "src/shadps4.rc",
 	"src/qt_gui/translations/update_translation.sh",
+    "src/qt_gui/game_specific_dialog.ui",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "shadPS4 Emulator Project"
