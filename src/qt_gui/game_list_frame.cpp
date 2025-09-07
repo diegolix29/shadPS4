@@ -9,10 +9,12 @@
 #include "game_list_frame.h"
 #include "game_list_utils.h"
 
-GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
+GameListFrame::GameListFrame(std::shared_ptr<gui_settings> gui_settings,
+                             std::shared_ptr<GameInfoClass> game_info_get,
                              std::shared_ptr<CompatibilityInfoClass> compat_info_get,
                              QWidget* parent)
-    : QTableWidget(parent), m_game_info(game_info_get), m_compat_info(compat_info_get) {
+    : QTableWidget(parent), m_gui_settings(std::move(gui_settings)), m_game_info(game_info_get),
+      m_compat_info(compat_info_get) {
     icon_size = Config::getIconSize();
     this->setShowGrid(false);
     this->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -73,7 +75,8 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
         });
 
     connect(this, &QTableWidget::customContextMenuRequested, this, [=, this](const QPoint& pos) {
-        m_gui_context_menus.RequestGameMenu(pos, m_game_info->m_games, m_compat_info, this, true);
+        m_gui_context_menus.RequestGameMenu(pos, m_game_info->m_games, m_compat_info,
+                                            m_gui_settings, this, true);
     });
 
     connect(this, &QTableWidget::cellClicked, this, [=, this](int row, int column) {

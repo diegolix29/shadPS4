@@ -24,6 +24,7 @@
 #include "common/scm_rev.h"
 #include "compatibility_info.h"
 #include "game_info.h"
+#include "gui_settings.h"
 #include "trophy_viewer.h"
 
 #ifdef Q_OS_WIN
@@ -40,8 +41,11 @@ class GuiContextMenus : public QObject {
 public:
     void RequestGameMenu(const QPoint& pos, QVector<GameInfo>& m_games,
                          std::shared_ptr<CompatibilityInfoClass> m_compat_info,
-                         QTableWidget* widget, bool isList) {
+                         std::shared_ptr<gui_settings> settings, QTableWidget* widget,
+                         bool isList) {
         QPoint global_pos = widget->viewport()->mapToGlobal(pos);
+        std::shared_ptr<gui_settings> m_gui_settings = std::move(settings);
+
         int itemID = 0;
         if (isList) {
             itemID = widget->currentRow();
@@ -422,7 +426,7 @@ public:
 
             QString gameName = QString::fromStdString(m_games[itemID].name);
             TrophyViewer* trophyViewer =
-                new TrophyViewer(trophyPath, gameTrpPath, gameName, allTrophyGames);
+                new TrophyViewer(m_gui_settings, trophyPath, gameTrpPath, gameName, allTrophyGames);
             trophyViewer->show();
             connect(widget->parent(), &QWidget::destroyed, trophyViewer,
                     [trophyViewer]() { trophyViewer->deleteLater(); });

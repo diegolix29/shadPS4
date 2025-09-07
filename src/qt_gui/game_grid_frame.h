@@ -34,12 +34,14 @@ private:
     std::shared_ptr<GameInfoClass> m_game_info;
     std::shared_ptr<CompatibilityInfoClass> m_compat_info;
     std::shared_ptr<QVector<GameInfo>> m_games_shared;
+    std::shared_ptr<gui_settings> m_gui_settings;
     bool validCellSelected = false;
     int m_last_opacity = -1; // Track last opacity to avoid unnecessary recomputation
     std::filesystem::path m_current_game_path; // Track current game path to detect changes
 
 public:
-    explicit GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
+    explicit GameGridFrame(std::shared_ptr<gui_settings> gui_settings,
+                           std::shared_ptr<GameInfoClass> game_info_get,
                            std::shared_ptr<CompatibilityInfoClass> compat_info_get,
                            QWidget* parent = nullptr);
     void PopulateGameGrid(QVector<GameInfo> m_games, bool fromSearch);
