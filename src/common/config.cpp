@@ -450,6 +450,10 @@ bool getIsConnectedToNetwork() {
     return isConnectedToNetwork.get();
 }
 
+void setIsConnectedToNetwork(bool connected) {
+    isConnectedToNetwork.base_value = connected;
+}
+
 void setGpuId(s32 selectedGpuId) {
     gpuId.base_value = selectedGpuId;
 }
@@ -576,6 +580,10 @@ void setLanguage(u32 language) {
 
 void setNeoMode(bool enable) {
     isNeo.base_value = enable;
+}
+
+void setDevKitMode(bool enable) {
+    isDevKit.base_value = enable;
 }
 
 void setLogType(const string& type) {

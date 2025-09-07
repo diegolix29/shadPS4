@@ -17,6 +17,7 @@
 #include "compatibility_info.h"
 #include "game_info.h"
 #include "gui_settings.h"
+#include "qt_gui/game_specific_dialog.h"
 #include "trophy_viewer.h"
 
 #ifdef Q_OS_WIN
@@ -76,10 +77,24 @@ public:
         } else {
             toggleFavorite = new QAction(tr("Add to Favorites"), widget);
         }
+        QAction gameConfigConfigure(tr("Configure game-specific settings"), widget);
+        QAction gameConfigCreate(tr("Create game-specific settings from global settings"), widget);
+        QAction gameConfigDelete(tr("Delete game-specific settings"), widget);
         QAction createShortcut(tr("Create Shortcut"), widget);
         QAction openCheats(tr("Cheats / Patches"), widget);
         QAction openSfoViewer(tr("SFO Viewer"), widget);
         QAction openTrophyViewer(tr("Trophy Viewer"), widget);
+
+        if (std::filesystem::exists(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                                    (m_games[itemID].serial + ".toml"))) {
+            menu.addAction(&gameConfigConfigure);
+        } else {
+            menu.addAction(&gameConfigCreate);
+        }
+
+        if (std::filesystem::exists(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                                    (m_games[itemID].serial + ".toml")))
+            menu.addAction(&gameConfigDelete);
 
         menu.addAction(toggleFavorite);
         menu.addAction(&createShortcut);
@@ -385,6 +400,23 @@ public:
             trophyViewer->show();
             connect(widget->parent(), &QWidget::destroyed, trophyViewer,
                     [trophyViewer]() { trophyViewer->deleteLater(); });
+        }
+
+        if (selected == &gameConfigConfigure || selected == &gameConfigCreate) {
+            auto gameSettingsWindow = new GameSpecificDialog(m_gui_settings, m_compat_info, widget,
+                                                             m_games[itemID].serial);
+
+            gameSettingsWindow->exec();
+        }
+
+        if (selected == &gameConfigDelete) {
+            if (QMessageBox::Yes == QMessageBox::question(widget, tr("Confirm Deletion"),
+                                                          tr("Delete Game-specific settings?"),
+                                                          QMessageBox::Yes | QMessageBox::No)) {
+                std::filesystem::remove(
+                    Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                    (m_games[itemID].serial + ".toml"));
+            }
         }
 
         if (selected == &createShortcut) {

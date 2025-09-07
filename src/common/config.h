@@ -104,7 +104,8 @@ void setPSNSignedIn(bool sign); // no ui setting
 bool patchShaders();            // no set
 bool fpsColor();                // no set
 bool isNeoModeConsole();
-void setNeoMode(bool enable);  // no ui setting
+void setNeoMode(bool enable); // no ui setting
+void setDevKitMode(bool enable);
 bool isDevKitConsole();        // no set
 bool vkValidationGpuEnabled(); // no set
 bool getIsMotionControlsEnabled();
@@ -129,6 +130,7 @@ void setLoadGameSizeEnabled(bool enable);
 bool getCompatibilityEnabled();
 bool getCheckCompatibilityOnStartup();
 bool getIsConnectedToNetwork();
+void setIsConnectedToNetwork(bool connected);
 std::string getUserName();
 std::string getChooseHomeTab();
 bool GetUseUnifiedInputConfig();
