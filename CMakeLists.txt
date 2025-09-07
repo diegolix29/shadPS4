@@ -1069,7 +1069,7 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/control_settings.ui
            src/qt_gui/compatibility_info.cpp
            src/qt_gui/compatibility_info.h
-	   src/qt_gui/control_settings.cpp	   
+	       src/qt_gui/control_settings.cpp	   
            src/qt_gui/control_settings.h
            src/qt_gui/control_settings.ui
            src/qt_gui/kbm_gui.cpp	   
@@ -1077,7 +1077,7 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/kbm_gui.ui
            src/qt_gui/main_window_ui.h
            src/qt_gui/main_window.cpp
-           src/qt_gui/main_window.h
+           src/qt_gui/main_window.h 
            src/qt_gui/kbm_config_dialog.cpp
            src/qt_gui/kbm_config_dialog.h
            src/qt_gui/kbm_help_dialog.cpp
@@ -1092,6 +1092,9 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/game_grid_frame.h
            src/qt_gui/game_install_dialog.cpp
            src/qt_gui/game_install_dialog.h
+           src/qt_gui/game_specific_dialog.h
+           src/qt_gui/game_specific_dialog.cpp
+           src/qt_gui/game_specific_dialog.ui
            src/qt_gui/trophy_viewer.cpp
            src/qt_gui/trophy_viewer.h
            src/qt_gui/elf_viewer.cpp
