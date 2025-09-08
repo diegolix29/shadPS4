@@ -89,7 +89,6 @@ public:
     int UnregisterBuffers(VideoOutPort* port, s32 attributeIndex);
 
     bool SubmitFlip(VideoOutPort* port, s32 index, s64 flip_arg, bool is_eop = false);
-    void ProcessFlipQueue();
 
 private:
     struct Request {

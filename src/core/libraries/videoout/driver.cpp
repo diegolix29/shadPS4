@@ -44,7 +44,7 @@ VideoOutDriver::VideoOutDriver(u32 width, u32 height) {
     main_port.resolution.full_height = height;
     main_port.resolution.pane_width = width;
     main_port.resolution.pane_height = height;
-    present_thread = std::jthread([this](std::stop_token token) { PresentThread(token); });
+    present_thread = std::jthread([&](std::stop_token token) { PresentThread(token); });
 }
 
 VideoOutDriver::~VideoOutDriver() = default;
@@ -67,7 +67,7 @@ void VideoOutDriver::Close(s32 handle) {
     ASSERT(main_port.flip_events.empty());
 }
 
-VideoOutPort* VideoOutDriver::GetPort(s32 handle) {
+VideoOutPort* VideoOutDriver::GetPort(int handle) {
     if (handle != 1) [[unlikely]] {
         return nullptr;
     }
@@ -165,11 +165,6 @@ int VideoOutDriver::UnregisterBuffers(VideoOutPort* port, s32 attributeIndex) {
 }
 
 void VideoOutDriver::Flip(const Request& req) {
-    if (!req.frame) {
-        LOG_ERROR(Lib_VideoOut, "Flip: Cannot present null frame (index = {})", req.index);
-        return;
-    }
-
     // Present the frame.
     presenter->Present(req.frame);
 
@@ -192,11 +187,11 @@ void VideoOutDriver::Flip(const Request& req) {
     // Trigger flip events for the port.
     for (auto& event : port->flip_events) {
         if (event != nullptr) {
-            const u64 payload = (static_cast<u64>(OrbisVideoOutInternalEventId::Flip)) |
-                                (static_cast<u64>(req.flip_arg) << 16);
-            event->TriggerEvent(static_cast<u64>(OrbisVideoOutInternalEventId::Flip),
-                                Kernel::SceKernelEvent::Filter::VideoOut,
-                                reinterpret_cast<void*>(payload));
+            event->TriggerEvent(
+                static_cast<u64>(OrbisVideoOutInternalEventId::Flip),
+                Kernel::SceKernelEvent::Filter::VideoOut,
+                reinterpret_cast<void*>(static_cast<u64>(OrbisVideoOutInternalEventId::Flip) |
+                                        (req.flip_arg << 16)));
         }
     }
 
@@ -207,15 +202,6 @@ void VideoOutDriver::Flip(const Request& req) {
     }
     // save to prev buf index
     port->prev_index = req.index;
-}
-
-void VideoOutDriver::ProcessFlipQueue() {
-    std::scoped_lock lock{mutex};
-    while (!requests.empty()) {
-        Request req = requests.front();
-        requests.pop();
-        Flip(req);
-    }
 }
 
 void VideoOutDriver::DrawBlankFrame() {
@@ -234,16 +220,10 @@ bool VideoOutDriver::SubmitFlip(VideoOutPort* port, s32 index, s64 flip_arg,
                                 bool is_eop /*= false*/) {
     {
         std::unique_lock lock{port->port_mutex};
-
-        // wait until there is space in the flip queue
-        port->vo_cv.wait(lock, [&]() {
-            const auto num_bufs = port->NumRegisteredBuffers();
-            if (index == -1)
-                return true;
-            if (num_bufs == 0)
-                return true;
-            return port->flip_status.flip_pending_num < num_bufs;
-        });
+        if (index != -1 && port->flip_status.flip_pending_num >= port->NumRegisteredBuffers()) {
+            LOG_ERROR(Lib_VideoOut, "Flip queue is full");
+            return false;
+        }
 
         if (is_eop) {
             ++port->flip_status.gc_queue_num;
@@ -276,16 +256,6 @@ void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_
         const auto& buffer = port->buffer_slots[index];
         const auto& group = port->groups[buffer.group_index];
         frame = presenter->PrepareFrame(group, buffer.address_left, is_eop);
-    }
-
-    if (!frame) {
-        LOG_ERROR(Lib_VideoOut, "SubmitFlipInternal: Failed to prepare frame (index = {})", index);
-        std::unique_lock lock{port->port_mutex};
-        --port->flip_status.flip_pending_num;
-        if (is_eop) {
-            --port->flip_status.gc_queue_num;
-        }
-        return;
     }
 
     std::scoped_lock lock{mutex};
@@ -338,39 +308,34 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
             continue;
         }
 
-        Request request = receive_request();
-
-        if (request) {
-            Flip(request);
-            request.port->vo_cv.notify_all();
-            FRAME_END;
-        } else {
-            if (timer.GetTotalWait().count() > 0) {
-                bool port_open_snapshot = false;
-                {
-                    std::scoped_lock lock{main_port.vo_mutex};
-                    port_open_snapshot = main_port.is_open;
+        // Check if it's time to take a request.
+        auto& vblank_status = main_port.vblank_status;
+        if (vblank_status.count % (main_port.flip_rate + 1) == 0) {
+            const auto request = receive_request();
+            if (!request) {
+                if (timer.GetTotalWait().count() < 0) { // Dont draw too fast
+                    if (!main_port.is_open) {
+                        DrawBlankFrame();
+                    } else if (ImGui::Core::MustKeepDrawing()) {
+                        DrawLastFrame();
+                    }
                 }
-
-                if (!port_open_snapshot) {
-                    DrawBlankFrame();
-                } else if (ImGui::Core::MustKeepDrawing()) {
-                    DrawLastFrame();
-                }
+            } else {
+                Flip(request);
+                FRAME_END;
             }
         }
 
         {
             // Needs lock here as can be concurrently read by `sceVideoOutGetVblankStatus`
-
             std::scoped_lock lock{main_port.vo_mutex};
-            auto& vblank_status = main_port.vblank_status;
             vblank_status.count++;
             vblank_status.process_time = Libraries::Kernel::sceKernelGetProcessTime();
             vblank_status.tsc = Libraries::Kernel::sceKernelReadTsc();
             main_port.vblank_cv.notify_all();
         }
 
+        // Trigger flip events for the port.
         for (auto& event : main_port.vblank_events) {
             if (event != nullptr) {
                 event->TriggerEvent(static_cast<u64>(OrbisVideoOutInternalEventId::Vblank),
