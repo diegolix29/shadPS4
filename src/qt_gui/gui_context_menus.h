@@ -24,7 +24,6 @@
 #include "common/scm_rev.h"
 #include "compatibility_info.h"
 #include "game_info.h"
-#include "gui_settings.h"
 #include "qt_gui/game_specific_dialog.h"
 #include "trophy_viewer.h"
 
@@ -42,10 +41,8 @@ class GuiContextMenus : public QObject {
 public:
     void RequestGameMenu(const QPoint& pos, QVector<GameInfo>& m_games,
                          std::shared_ptr<CompatibilityInfoClass> m_compat_info,
-                         std::shared_ptr<gui_settings> settings, QTableWidget* widget,
-                         bool isList) {
+                         QTableWidget* widget, bool isList) {
         QPoint global_pos = widget->viewport()->mapToGlobal(pos);
-        std::shared_ptr<gui_settings> m_gui_settings = std::move(settings);
 
         int itemID = 0;
         if (isList) {
@@ -438,18 +435,17 @@ public:
 
                 allTrophyGames.append(gameInfo);
             }
-
             QString gameName = QString::fromStdString(m_games[itemID].name);
             TrophyViewer* trophyViewer =
-                new TrophyViewer(m_gui_settings, trophyPath, gameTrpPath, gameName, allTrophyGames);
+                new TrophyViewer(trophyPath, gameTrpPath, gameName, allTrophyGames);
             trophyViewer->show();
             connect(widget->parent(), &QWidget::destroyed, trophyViewer,
                     [trophyViewer]() { trophyViewer->deleteLater(); });
         }
 
         if (selected == &gameConfigConfigure || selected == &gameConfigCreate) {
-            auto gameSettingsWindow = new GameSpecificDialog(m_gui_settings, m_compat_info, widget,
-                                                             m_games[itemID].serial);
+            auto gameSettingsWindow =
+                new GameSpecificDialog(m_compat_info, widget, m_games[itemID].serial);
 
             gameSettingsWindow->exec();
         }

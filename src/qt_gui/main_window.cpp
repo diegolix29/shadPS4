@@ -48,9 +48,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     installEventFilter(this);
     setAttribute(Qt::WA_DeleteOnClose);
     g_MainWindow = this;
-    m_gui_settings = std::make_shared<gui_settings>();
-    ui->toggleLabelsAct->setChecked(
-        m_gui_settings->GetValue(gui::mw_showLabelsUnderIcons).toBool());
 }
 
 MainWindow::~MainWindow() {
@@ -368,9 +365,9 @@ void MainWindow::CreateDockWindows() {
     setCentralWidget(phCentralWidget);
 
     m_dock_widget.reset(new QDockWidget(tr("Game List"), this));
-    m_game_list_frame.reset(new GameListFrame(m_gui_settings, m_game_info, m_compat_info, this));
+    m_game_list_frame.reset(new GameListFrame(m_game_info, m_compat_info, this));
     m_game_list_frame->setObjectName("gamelist");
-    m_game_grid_frame.reset(new GameGridFrame(m_gui_settings, m_game_info, m_compat_info, this));
+    m_game_grid_frame.reset(new GameGridFrame(m_game_info, m_compat_info, this));
     m_game_grid_frame->setObjectName("gamegridlist");
     m_elf_viewer.reset(new ElfViewer(this));
     m_elf_viewer->setObjectName("elflist");
@@ -484,8 +481,7 @@ void MainWindow::CreateConnects() {
             &MainWindow::StartGame);
 
     connect(ui->configureAct, &QAction::triggered, this, [this]() {
-        auto settingsDialog = new SettingsDialog(m_compat_info, m_gui_settings, this);
-        settingsDialog->exec();
+        auto settingsDialog = new SettingsDialog(m_compat_info, this);
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
@@ -522,8 +518,7 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
-        auto settingsDialog = new SettingsDialog(m_compat_info, m_gui_settings, this);
-        settingsDialog->exec();
+        auto settingsDialog = new SettingsDialog(m_compat_info, this);
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
@@ -870,7 +865,7 @@ void MainWindow::CreateConnects() {
 
         QString gameName = QString::fromStdString(firstGame.name);
         TrophyViewer* trophyViewer =
-            new TrophyViewer(m_gui_settings, trophyPath, gameTrpPath, gameName, allTrophyGames);
+            new TrophyViewer(trophyPath, gameTrpPath, gameName, allTrophyGames);
         trophyViewer->show();
     });
 

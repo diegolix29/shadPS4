@@ -21,8 +21,7 @@
 class GameListFrame : public QTableWidget {
     Q_OBJECT
 public:
-    explicit GameListFrame(std::shared_ptr<gui_settings> gui_settings,
-                           std::shared_ptr<GameInfoClass> game_info_get,
+    explicit GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
                            std::shared_ptr<CompatibilityInfoClass> compat_info_get,
                            QWidget* parent = nullptr);
 Q_SIGNALS:
@@ -49,7 +48,6 @@ private:
     QTableWidgetItem* m_current_item = nullptr;
     int m_last_opacity = -1; // Track last opacity to avoid unnecessary recomputation
     std::filesystem::path m_current_game_path; // Track current game path to detect changes
-    std::shared_ptr<gui_settings> m_gui_settings;
 
 public:
     void PopulateGameList(bool isInitialPopulation = true);

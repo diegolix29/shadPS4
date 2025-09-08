@@ -26,7 +26,6 @@
 #include "background_music_player.h"
 #include "common/logging/backend.h"
 #include "common/logging/filter.h"
-#include "log_presets_dialog.h"
 #include "settings_dialog.h"
 #include "ui_settings_dialog.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -83,15 +82,10 @@ int fps_backup;
 static std::vector<QString> m_physical_devices;
 
 SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
-                               std::shared_ptr<gui_settings> gui_settings, QWidget* parent)
-    : QDialog(parent), ui(new Ui::SettingsDialog), m_gui_settings(std::move(gui_settings)) {
+                               QWidget* parent)
+    : QDialog(parent), ui(new Ui::SettingsDialog) {
     ui->setupUi(this);
-    setWindowFlags(windowFlags() & ~Qt::WindowCloseButtonHint);
-
     ui->tabWidgetSettings->setUsesScrollButtons(false);
-
-    // Add a small clear "x" button inside the Log Filter input
-    ui->logFilterLineEdit->setClearButtonEnabled(true);
 
     initialHeight = this->height();
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
@@ -176,13 +170,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                     is_saving = true;
                     UpdateSettings();
                     Config::save(config_dir / "config.toml");
-
-                    for (auto* widget : QApplication::topLevelWidgets()) {
-                        if (auto* dlg = qobject_cast<SettingsDialog*>(widget)) {
-                            dlg->close();
-                            dlg->deleteLater();
-                        }
-                    }
+                    QWidget::close();
 
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::Apply)) {
                     UpdateSettings();
@@ -452,14 +440,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             Common::FS::PathToQString(userPath,
                                       Common::FS::GetUserPath(Common::FS::PathType::LogDir));
             QDesktopServices::openUrl(QUrl::fromLocalFile(userPath));
-        });
-
-        // Log presets popup button
-        connect(ui->logPresetsButton, &QPushButton::clicked, this, [this]() {
-            auto dlg = new LogPresetsDialog(m_gui_settings, this);
-            connect(dlg, &LogPresetsDialog::PresetChosen, this,
-                    [this](const QString& filter) { ui->logFilterLineEdit->setText(filter); });
-            dlg->exec();
         });
     }
 

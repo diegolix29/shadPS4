@@ -5,12 +5,11 @@
 #include "game_grid_frame.h"
 #include "qt_gui/compatibility_info.h"
 
-GameGridFrame::GameGridFrame(std::shared_ptr<gui_settings> gui_settings,
-                             std::shared_ptr<GameInfoClass> game_info_get,
+GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
                              std::shared_ptr<CompatibilityInfoClass> compat_info_get,
                              QWidget* parent)
-    : QTableWidget(parent), m_gui_settings(std::move(gui_settings)), m_game_info(game_info_get),
-      m_compat_info(compat_info_get) {
+    : QTableWidget(parent), m_game_info(game_info_get), m_compat_info(compat_info_get) {
+
     icon_size = Config::getIconSizeGrid();
     windowWidth = parent->width();
     this->setShowGrid(false);
@@ -34,8 +33,7 @@ GameGridFrame::GameGridFrame(std::shared_ptr<gui_settings> gui_settings,
     connect(this->horizontalScrollBar(), &QScrollBar::valueChanged, this,
             &GameGridFrame::RefreshGridBackgroundImage);
     connect(this, &QTableWidget::customContextMenuRequested, this, [=, this](const QPoint& pos) {
-        m_gui_context_menus.RequestGameMenu(pos, m_game_info->m_games, m_compat_info,
-                                            m_gui_settings, this, false);
+        m_gui_context_menus.RequestGameMenu(pos, m_game_info->m_games, m_compat_info, this, false);
     });
 }
 

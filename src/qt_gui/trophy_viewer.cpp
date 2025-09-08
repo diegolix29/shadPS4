@@ -115,16 +115,14 @@ void TrophyViewer::updateTableFilters() {
     }
 }
 
-TrophyViewer::TrophyViewer(std::shared_ptr<gui_settings> gui_settings, QString trophyPath,
-                           QString gameTrpPath, QString gameName,
+TrophyViewer::TrophyViewer(QString trophyPath, QString gameTrpPath, QString gameName,
                            const QVector<TrophyGameInfo>& allTrophyGames)
-    : QMainWindow(), allTrophyGames_(allTrophyGames), currentGameName_(gameName),
-      m_gui_settings(std::move(gui_settings)) {
+    : QMainWindow(), allTrophyGames_(allTrophyGames), currentGameName_(gameName) {
     this->setWindowTitle(tr("Trophy Viewer") + " - " + currentGameName_);
     this->setAttribute(Qt::WA_DeleteOnClose);
     tabWidget = new QTabWidget(this);
 
-    auto lan = m_gui_settings->GetValue(gui::gen_guiLanguage).toString();
+    auto lan = Config::getEmulatorLanguage();
     if (lan == "en_US" || lan == "zh_CN" || lan == "zh_TW" || lan == "ja_JP" || lan == "ko_KR" ||
         lan == "lt_LT" || lan == "nb_NO" || lan == "nl_NL") {
         useEuropeanDateFormat = false;
@@ -508,7 +506,7 @@ void TrophyViewer::SetTableItem(QTableWidget* parent, int row, int column, QStri
     f.setBold(true);
     item->setFont(f);
 
-    Theme theme = static_cast<Theme>(m_gui_settings->GetValue(gui::gen_theme).toInt());
+    Theme theme = static_cast<Theme>(Config::getMainWindowTheme());
 
     if (theme == Theme::Light) {
         item->setForeground(QBrush(Qt::black));
