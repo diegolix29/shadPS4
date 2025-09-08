@@ -80,6 +80,7 @@ private:
         }
         return "Unknown";
     }
+
 protected:
     void resizeEvent(QResizeEvent* event) override;
 };

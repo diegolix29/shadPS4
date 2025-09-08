@@ -53,6 +53,7 @@ private:
     std::unique_ptr<Ui::SettingsDialog> ui;
 
     std::map<std::string, int> languages;
+    std::shared_ptr<CompatibilityInfoClass> compat_info;
 
     QString defaultTextEdit;
 

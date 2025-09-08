@@ -80,6 +80,8 @@ public:
     CompatibilityEntry GetCompatibilityInfo(const std::string& serial);
     const QString GetCompatStatusString(const CompatibilityStatus status);
     void ExtractCompatibilityInfo(QByteArray response);
+    QList<QString> LoadPresets() const;
+    void SavePresets(const QList<QString>& list);
 
 private:
     QNetworkAccessManager* m_network_manager;

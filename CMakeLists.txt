@@ -1097,6 +1097,8 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/game_specific_dialog.ui
            src/qt_gui/trophy_viewer.cpp
            src/qt_gui/trophy_viewer.h
+           src/qt_gui/log_presets_dialog.cpp
+           src/qt_gui/log_presets_dialog.h
            src/qt_gui/elf_viewer.cpp
            src/qt_gui/elf_viewer.h
            src/qt_gui/main_window_themes.cpp

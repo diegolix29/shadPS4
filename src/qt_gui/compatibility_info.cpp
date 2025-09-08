@@ -196,6 +196,21 @@ void CompatibilityInfoClass::ExtractCompatibilityInfo(QByteArray response) {
     return;
 }
 
+QList<QString> CompatibilityInfoClass::LoadPresets() const {
+    QSettings settings("shadPS4", "Emulator"); // app/org names
+    const auto var = settings.value(QStringLiteral("LogPresets/Keys"));
+    if (var.isValid()) {
+        return var.toStringList();
+    }
+    return {};
+}
+
+void CompatibilityInfoClass::SavePresets(const QList<QString>& list) {
+    QSettings settings("shadPS4", "Emulator");
+    settings.setValue(QStringLiteral("LogPresets/Keys"), list);
+    settings.sync(); // force flush to disk
+}
+
 const QString CompatibilityInfoClass::GetCompatStatusString(const CompatibilityStatus status) {
     switch (status) {
     case CompatibilityStatus::Unknown:

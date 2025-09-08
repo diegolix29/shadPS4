@@ -26,6 +26,7 @@
 #include "background_music_player.h"
 #include "common/logging/backend.h"
 #include "common/logging/filter.h"
+#include "log_presets_dialog.h"
 #include "settings_dialog.h"
 #include "ui_settings_dialog.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -83,7 +84,7 @@ static std::vector<QString> m_physical_devices;
 
 SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
                                QWidget* parent)
-    : QDialog(parent), ui(new Ui::SettingsDialog) {
+    : QDialog(parent), ui(new Ui::SettingsDialog), compat_info(std::move(m_compat_info)) {
     ui->setupUi(this);
     ui->tabWidgetSettings->setUsesScrollButtons(false);
 
@@ -375,6 +376,13 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         connect(ui->gameFoldersListWidget, &QListWidget::itemSelectionChanged, this, [this]() {
             ui->removeFolderButton->setEnabled(
                 !ui->gameFoldersListWidget->selectedItems().isEmpty());
+        });
+
+        connect(ui->logPresetsButton, &QPushButton::clicked, this, [this]() {
+            auto dlg = new LogPresetsDialog(compat_info, this);
+            connect(dlg, &LogPresetsDialog::PresetChosen, this,
+                    [this](const QString& filter) { ui->logFilterLineEdit->setText(filter); });
+            dlg->exec();
         });
 
         connect(ui->removeFolderButton, &QPushButton::clicked, this, [this]() {

@@ -9,6 +9,7 @@
 #include "common/config.h"
 #include "core/file_sys/fs.h"
 #include "core/libraries/audio/audioout.h"
+#include "log_presets_dialog.h"
 
 #include "common/path_util.h"
 #include "game_specific_dialog.h"
@@ -16,10 +17,9 @@
 
 GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> compat_info,
                                        QWidget* parent, const std::string& serial)
-    : QDialog(parent), ui(new Ui::GameSpecificDialog()),
-      m_compat_info(std::move(compat_info)), m_serial(serial) {
+    : QDialog(parent), ui(new Ui::GameSpecificDialog()), m_compat_info(std::move(compat_info)),
+      m_serial(serial) {
     ui->setupUi(this);
-    setWindowFlags(windowFlags() & ~Qt::WindowCloseButtonHint);
 
     m_config_path = std::filesystem::path(GetUserPath(Common::FS::PathType::CustomConfigs)) /
                     (serial + ".toml");
@@ -31,7 +31,12 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
         Config::save(m_config_path);
         accept();
     });
-
+    connect(ui->logPresetsButton, &QPushButton::clicked, this, [this]() {
+        auto dlg = new LogPresetsDialog(m_compat_info, this);
+        connect(dlg, &LogPresetsDialog::PresetChosen, this,
+                [this](const QString& filter) { ui->logFilterLineEdit->setText(filter); });
+        dlg->exec();
+    });
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
 }
 
