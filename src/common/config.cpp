@@ -63,8 +63,6 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
     return std::nullopt;
 }
 
-
-
 } // namespace toml
 
 namespace Config {
@@ -98,7 +96,6 @@ public:
         }
     }
 };
-
 
 // General
 static ConfigEntry<bool> isNeo(false);

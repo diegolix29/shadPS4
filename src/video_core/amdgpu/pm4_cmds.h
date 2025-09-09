@@ -949,8 +949,9 @@ struct PM4CmdReleaseMem {
             break;
         }
         case DataSelect::PerfCounter: {
-            *Address<u64>() = GetGpuPerfCounter();
-            *Address<u64*>() = Common::FencedRDTSC();
+            auto addr = Address<u64*>();
+            *addr++ = GetGpuPerfCounter();
+            *addr = Common::FencedRDTSC();
             break;
         }
         default: {
