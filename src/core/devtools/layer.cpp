@@ -431,6 +431,7 @@ void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
         ImGui::Text("PSN Signed In: %s", Config::getPSNSignedIn() ? "Yes" : "No");
         ImGui::Text("LogType: %s", Config::getLogType().c_str());
         ImGui::Text("Current Log Filter: %s", Config::getLogFilter().c_str());
+        ImGui::Text("Present Mode: %s", Config::getPresentMode().c_str());
 
         const char* readbackaccuStr = "Unknown";
         switch (Config::readbackSpeed()) {
@@ -628,6 +629,34 @@ void DrawPauseStatusWindow(bool& is_open) {
         bool autobackup = Config::getEnableAutoBackup();
         if (ImGui::Checkbox("Auto Backup", &autobackup))
             Config::setEnableAutoBackup(autobackup);
+        struct PresentModeOption {
+            const char* label; // What ImGui shows
+            const char* key;   // What Config stores
+        };
+
+        static const PresentModeOption presentModes[] = {
+            {"Mailbox (Vsync)", "Mailbox"},
+            {"Fifo (Vsync)", "Fifo"},
+            {"Immediate (No Vsync)", "Immediate"},
+        };
+
+        int presentModeIndex = 0;
+        for (int i = 0; i < IM_ARRAYSIZE(presentModes); i++) {
+            if (Config::getPresentMode() == presentModes[i].key) {
+                presentModeIndex = i;
+                break;
+            }
+        }
+
+        if (ImGui::Combo(
+                "Present Mode", &presentModeIndex,
+                [](void*, int idx, const char** out_text) {
+                    *out_text = presentModes[idx].label;
+                    return true;
+                },
+                nullptr, IM_ARRAYSIZE(presentModes))) {
+            Config::setPresentMode(presentModes[presentModeIndex].key);
+        }
 
         bool psn = Config::getPSNSignedIn();
         if (ImGui::Checkbox("PSN Signed In", &psn))
@@ -644,14 +673,30 @@ void DrawPauseStatusWindow(bool& is_open) {
             }
         }
 #endif
-        static const char* logTypes[] = {"sync", "async"};
-        int logTypeIndex = 0;
-        for (int i = 0; i < IM_ARRAYSIZE(logTypes); i++)
-            if (Config::getLogType() == logTypes[i])
-                logTypeIndex = i;
+        struct LogTypeOption {
+            const char* key;
+            const char* label;
+        };
 
-        if (ImGui::Combo("Log Type", &logTypeIndex, logTypes, IM_ARRAYSIZE(logTypes)))
-            Config::setLogType(logTypes[logTypeIndex]);
+        static const LogTypeOption logTypes[] = {{"sync", "sync"}, {"async", "async"}};
+
+        int logTypeIndex = 0;
+        for (int i = 0; i < IM_ARRAYSIZE(logTypes); i++) {
+            if (Config::getLogType() == logTypes[i].key) {
+                logTypeIndex = i;
+                break;
+            }
+        }
+
+        if (ImGui::Combo(
+                "Log Type", &logTypeIndex,
+                [](void*, int idx, const char** out_text) {
+                    *out_text = logTypes[idx].label;
+                    return true;
+                },
+                nullptr, IM_ARRAYSIZE(logTypes))) {
+            Config::setLogType(logTypes[logTypeIndex].key);
+        }
 
         ImGui::SeparatorText("Log Filter");
         ImGui::TextDisabled("Triangle activates controller keyboard");

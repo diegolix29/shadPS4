@@ -20,6 +20,9 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
     : QDialog(parent), ui(new Ui::GameSpecificDialog()), m_compat_info(std::move(compat_info)),
       m_serial(serial) {
     ui->setupUi(this);
+    connect(ui->fpsSlider, &QSlider::valueChanged, ui->fpsSpinBox, &QSpinBox::setValue);
+    connect(ui->fpsSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), ui->fpsSlider,
+            &QSlider::setValue);
 
     m_config_path = std::filesystem::path(GetUserPath(Common::FS::PathType::CustomConfigs)) /
                     (serial + ".toml");
@@ -59,12 +62,31 @@ void GameSpecificDialog::OnCursorStateChanged(s16 index) {
 }
 
 void GameSpecificDialog::LoadValuesFromConfig() {
-    if (!std::filesystem::exists(m_config_path)) {
+    if (!std::filesystem::exists(m_config_path))
+        return;
+
+    toml::value data;
+    try {
+        data = toml::parse(m_config_path);
+    } catch (const std::exception& e) {
         return;
     }
+    QMap<QString, QString> logTypeMap = {
+        {tr("async"), "async"},
+        {tr("sync"), "sync"},
+    };
 
-    const toml::value data = toml::parse(m_config_path);
+    QMap<QString, QString> presentModeMap = {
+        {tr("Mailbox (Vsync)"), "Mailbox"},
+        {tr("Fifo (Vsync)"), "Fifo"},
+        {tr("Immediate (No Vsync)"), "Immediate"},
+    };
 
+    QMap<QString, QString> screenModeMap = {
+        {tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
+        {tr("Windowed"), "Windowed"},
+        {tr("Fullscreen"), "Fullscreen"},
+    };
     // === General ===
     ui->enableAutoBackupCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "enableAutoBackup", false));
@@ -73,12 +95,12 @@ void GameSpecificDialog::LoadValuesFromConfig() {
 
     connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this, [this](int value) {
         VolumeSliderChange(value);
-        Config::setVolumeSlider(value);
         Libraries::AudioOut::AdjustVol();
     });
-    int gameVolume = Config::getVolumeSlider();
+    int gameVolume = toml::find_or<int>(data, "General", "volumeSlider", 100);
     ui->horizontalVolumeSlider->setValue(gameVolume);
-    ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->sliderPosition()) + "%");
+    ui->volumeText->setText(QString::number(gameVolume) + "%");
+
     ui->connectedNetworkCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isConnectedToNetwork", false));
     ui->isDevKitCheckBox->setChecked(toml::find_or<bool>(data, "General", "isDevKit", false));
@@ -89,34 +111,36 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
     ui->logFilterLineEdit->setText(
         QString::fromStdString(toml::find_or<std::string>(data, "General", "logFilter", "")));
-    ui->logTypeComboBox->setCurrentText(
-        QString::fromStdString(toml::find_or<std::string>(data, "General", "logType", "sync")));
+    const auto logValue =
+        QString::fromStdString(toml::find_or<std::string>(data, "General", "logType", "sync"));
+    const auto logText = logTypeMap.key(logValue, tr("sync"));
+    ui->logTypeComboBox->setCurrentText(logText);
     ui->screenTipBox->setChecked(toml::find_or<bool>(data, "General", "screenTipDisable", false));
     ui->showSplashCheckBox->setChecked(toml::find_or<bool>(data, "General", "showSplash", false));
-    QString side = QString::fromStdString(Config::sideTrophy());
+
+    QString side =
+        QString::fromStdString(toml::find_or<std::string>(data, "General", "sideTrophy", "right"));
+    ui->radioButton_Left->setChecked(side == "left");
+    ui->radioButton_Right->setChecked(side == "right");
+    ui->radioButton_Top->setChecked(side == "top");
+    ui->radioButton_Bottom->setChecked(side == "bottom");
+
+    ui->popUpDurationSpinBox->setValue(
+        toml::find_or<int>(data, "General", "trophyNotificationDuration", 5));
+
     connect(ui->OpenLogLocationButton, &QPushButton::clicked, this, []() {
         QString userPath;
         Common::FS::PathToQString(userPath, Common::FS::GetUserPath(Common::FS::PathType::LogDir));
         QDesktopServices::openUrl(QUrl::fromLocalFile(userPath));
     });
 
-    ui->radioButton_Left->setChecked(side == "left");
-    ui->radioButton_Right->setChecked(side == "right");
-    ui->radioButton_Top->setChecked(side == "top");
-    ui->radioButton_Bottom->setChecked(side == "bottom");
-
-    ui->popUpDurationSpinBox->setValue(Config::getTrophyNotificationDuration());
-
     // === Input ===
-
     ui->hideCursorComboBox->addItem(tr("Never"));
     ui->hideCursorComboBox->addItem(tr("Idle"));
     ui->hideCursorComboBox->addItem(tr("Always"));
 
-    {
-        connect(ui->hideCursorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-                [this](s16 index) { OnCursorStateChanged(index); });
-    }
+    connect(ui->hideCursorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            [this](s16 index) { OnCursorStateChanged(index); });
 
     ui->backgroundControllerCheckBox->setChecked(
         toml::find_or<bool>(data, "Input", "backgroundControllerInput", true));
@@ -129,7 +153,6 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "Input", "useSpecialPad", false));
     ui->useUnifiedInputConfigCheckBox->setChecked(
         toml::find_or<bool>(data, "Input", "useUnifiedInputConfig", true));
-    ui->showSplashCheckBox->setChecked(toml::find_or<bool>(data, "General", "showSplash", false));
 
     // === GPU ===
     ui->enableHDRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "allowHDR", false));
@@ -137,15 +160,21 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "GPU", "copyGPUBuffers", false));
     ui->DMACheckBox->setChecked(toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
     ui->dumpShadersCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "dumpShaders", false));
-    ui->fpsSpinBox->setValue(toml::find_or<int>(data, "GPU", "fpsLimit", 60));
+    const int fps = toml::find_or<int>(data, "GPU", "fpsLimit", 60);
+    ui->fpsSpinBox->setValue(fps);
     ui->fpsLimiterCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", true));
     ui->FSRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fsrEnabled", true));
-    ui->displayModeComboBox->setCurrentText(QString::fromStdString(
-        toml::find_or<std::string>(data, "GPU", "FullscreenMode", "Windowed")));
+    const auto screenValue = QString::fromStdString(
+        toml::find_or<std::string>(data, "GPU", "FullscreenMode", "Windowed"));
+    const auto screenText = screenModeMap.key(screenValue, tr("Windowed"));
+    ui->displayModeComboBox->setCurrentText(screenText);
     ui->MemoryComboBox->setCurrentText(
-        QString::fromStdString(toml::find_or<std::string>(data, "GPU", "memoryAlloc", "\u0001")));
-    ui->presentModeComboBox->setCurrentText(
-        QString::fromStdString(toml::find_or<std::string>(data, "GPU", "presentMode", "Mailbox")));
+        QString::fromStdString(toml::find_or<std::string>(data, "GPU", "memoryAlloc", "medium")));
+
+    const auto presentValue =
+        QString::fromStdString(toml::find_or<std::string>(data, "GPU", "presentMode", "Fifo"));
+    const auto presentText = presentModeMap.key(presentValue, tr("Fifo (Vsync)"));
+    ui->presentModeComboBox->setCurrentText(presentText);
     ui->RCASSpinBox->setValue(toml::find_or<double>(data, "GPU", "rcas_attenuation", 0.25));
     ui->RCASCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "rcasEnabled", true));
     ui->ReadbacksLinearCheckBox->setChecked(
@@ -159,7 +188,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     // === Vulkan ===
     ui->crashDiagnosticsCheckBox->setChecked(
         toml::find_or<bool>(data, "Vulkan", "crashDiagnostic", false));
-    ui->hostMarkersCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "guestMarkers", false));
+    ui->guestMarkersCheckBox->setChecked(
+        toml::find_or<bool>(data, "Vulkan", "guestMarkers", false));
     ui->hostMarkersCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "hostMarkers", false));
     ui->rdocCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "rdocEnable", false));
     ui->vkValidationCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "validation", false));
@@ -174,75 +204,76 @@ void GameSpecificDialog::LoadValuesFromConfig() {
 }
 
 void GameSpecificDialog::UpdateSettings() {
-    toml::value data;
+    QMap<QString, QString> logTypeMap;
 
-    // === General ===
-    data["General"]["enableAutoBackup"] = ui->enableAutoBackupCheckBox->isChecked();
-    data["General"]["enableDiscordRPC"] = ui->discordRPCCheckbox->isChecked();
-    data["General"]["volumeSlider"] = ui->horizontalVolumeSlider->value();
-    data["General"]["isConnectedToNetwork"] = ui->connectedNetworkCheckBox->isChecked();
-    data["General"]["isDevKit"] = ui->isDevKitCheckBox->isChecked();
-    data["General"]["isPS4Pro"] = ui->isNeoModeCheckBox->isChecked();
-    data["General"]["isPSNSignedIn"] = ui->isPSNSignedInCheckBox->isChecked();
-    data["General"]["logFilter"] = ui->logFilterLineEdit->text().toStdString();
-    data["General"]["logType"] = ui->logTypeComboBox->currentText().toStdString();
-    data["General"]["screenTipDisable"] = ui->screenTipBox->isChecked();
-    data["General"]["showSplash"] = ui->showSplashCheckBox->isChecked();
-    data["General"]["isTrophyPopupDisabled"] = ui->disableTrophycheckBox->isChecked();
-    data["General"]["trophyNotificationDuration"] = ui->popUpDurationSpinBox->value();
+    logTypeMap = {{tr("async"), "async"}, {tr("sync"), "sync"}};
+    QMap<QString, QString> presentModeMap;
+    presentModeMap = {{tr("Mailbox (Vsync)"), "Mailbox"},
+                      {tr("Fifo (Vsync)"), "Fifo"},
+                      {tr("Immediate (No Vsync)"), "Immediate"}};
+    QMap<QString, QString> screenModeMap;
 
-    if (ui->radioButton_Top->isChecked())
-        data["General"]["sideTrophy"] = "top";
-    else if (ui->radioButton_Left->isChecked())
-        data["General"]["sideTrophy"] = "left";
-    else if (ui->radioButton_Right->isChecked())
-        data["General"]["sideTrophy"] = "right";
-    else if (ui->radioButton_Bottom->isChecked())
-        data["General"]["sideTrophy"] = "bottom";
+    screenModeMap = {{tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
+                     {tr("Windowed"), "Windowed"},
+                     {tr("Fullscreen"), "Fullscreen"}};
+    Config::setIsFullscreen(screenModeMap.value(ui->displayModeComboBox->currentText()) !=
+                            "Windowed");
+    Config::setFullscreenMode(
+        screenModeMap.value(ui->displayModeComboBox->currentText()).toStdString());
+    Config::setPresentMode(
+        presentModeMap.value(ui->presentModeComboBox->currentText()).toStdString());
+    Config::setIsMotionControlsEnabled(ui->motionControlsCheckBox->isChecked());
+    Config::setBackgroundControllerInput(ui->backgroundControllerCheckBox->isChecked());
+    Config::setisTrophyPopupDisabled(ui->disableTrophycheckBox->isChecked());
+    Config::setTrophyNotificationDuration(ui->popUpDurationSpinBox->value());
 
-    // === Input ===
-    data["Input"]["cursorState"] = ui->hideCursorComboBox->currentIndex();
-    data["Input"]["cursorHideTimeout"] = ui->idleTimeoutSpinBox->value();
-    data["Input"]["backgroundControllerInput"] = ui->backgroundControllerCheckBox->isChecked();
-    data["Input"]["isMotionControlsEnabled"] = ui->motionControlsCheckBox->isChecked();
-    data["Input"]["specialPadClass"] = ui->specialPadClassSpinBox->value();
-    data["Input"]["useSpecialPad"] = ui->useSpecialPadCheckBox->isChecked();
-    data["Input"]["useUnifiedInputConfig"] = ui->useUnifiedInputConfigCheckBox->isChecked();
+    if (ui->radioButton_Top->isChecked()) {
+        Config::setSideTrophy("top");
+    } else if (ui->radioButton_Left->isChecked()) {
+        Config::setSideTrophy("left");
+    } else if (ui->radioButton_Right->isChecked()) {
+        Config::setSideTrophy("right");
+    } else if (ui->radioButton_Bottom->isChecked()) {
+        Config::setSideTrophy("bottom");
+    }
+    Config::setDevKitMode(ui->isDevKitCheckBox->isChecked());
+    Config::setNeoMode(ui->isNeoModeCheckBox->isChecked());
+    Config::setLoggingEnabled(ui->enableLoggingCheckBox->isChecked());
+    Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
+    Config::setEnableAutoBackup(ui->enableAutoBackupCheckBox->isChecked());
+    Config::setLogType(logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString());
+    Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());
+    Config::setCursorState(ui->hideCursorComboBox->currentIndex());
+    Config::setCursorHideTimeout(ui->idleTimeoutSpinBox->value());
+    Config::setEnableDiscordRPC(ui->discordRPCCheckbox->isChecked());
+    Config::setWindowWidth(ui->widthSpinBox->value());
+    Config::setWindowHeight(ui->heightSpinBox->value());
+    Config::setVblankFreq(ui->vblankSpinBox->value());
+    Config::setDumpShaders(ui->dumpShadersCheckBox->isChecked());
+    Config::setReadbackLinearImages(ui->ReadbacksLinearCheckBox->isChecked());
+    Config::setDirectMemoryAccess(ui->DMACheckBox->isChecked());
+    Config::isScreenTipDisable(ui->screenTipBox->isChecked());
+    Config::setReadbackSpeed(
+        static_cast<Config::ReadbackSpeed>(ui->ReadbackSpeedComboBox->currentIndex()));
 
-    // === GPU ===
-    data["GPU"]["allowHDR"] = ui->enableHDRCheckBox->isChecked();
-    data["GPU"]["directMemoryAccess"] = ui->DMACheckBox->isChecked();
-    data["GPU"]["dumpShaders"] = ui->dumpShadersCheckBox->isChecked();
-    data["GPU"]["fpsLimit"] = ui->fpsSpinBox->value();
-    data["GPU"]["fpsLimiterEnabled"] = ui->fpsLimiterCheckBox->isChecked();
-    data["GPU"]["fsrEnabled"] = ui->FSRCheckBox->isChecked();
-    data["GPU"]["FullscreenMode"] = ui->displayModeComboBox->currentText().toStdString();
-    data["GPU"]["memoryAlloc"] = ui->MemoryComboBox->currentText().toStdString();
-    data["GPU"]["presentMode"] = ui->presentModeComboBox->currentText().toStdString();
-    data["GPU"]["rcas_attenuation"] = ui->RCASSpinBox->value();
-    data["GPU"]["rcasEnabled"] = ui->RCASCheckBox->isChecked();
-    data["GPU"]["readbackLinearImages"] = ui->ReadbacksLinearCheckBox->isChecked();
-    data["GPU"]["readbackSpeed"] = ui->ReadbackSpeedComboBox->currentIndex();
-    data["GPU"]["screenWidth"] = ui->widthSpinBox->value();
-    data["GPU"]["screenHeight"] = ui->heightSpinBox->value();
-    data["GPU"]["shaderSkipsEnabled"] = ui->SkipsCheckBox->isChecked();
-    data["GPU"]["vblankDivider"] = ui->vblankSpinBox->value();
+    Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
+    Config::setFpsLimit(ui->fpsSlider->value());
+    Config::setFpsLimit(ui->fpsSpinBox->value());
 
-    // === Vulkan ===
-    data["Vulkan"]["validation"] = ui->vkValidationCheckBox->isChecked();
-    data["Vulkan"]["validation_sync"] = ui->vkSyncValidationCheckBox->isChecked();
-    data["Vulkan"]["rdocEnable"] = ui->rdocCheckBox->isChecked();
-    data["Vulkan"]["hostMarkers"] = ui->hostMarkersCheckBox->isChecked();
-    data["Vulkan"]["guestMarkers"] = ui->guestMarkersCheckBox->isChecked();
-    data["Vulkan"]["crashDiagnostic"] = ui->crashDiagnosticsCheckBox->isChecked();
+    Config::setMemoryAlloc(ui->MemoryComboBox->currentText().toStdString());
+    Config::setShowSplash(ui->showSplashCheckBox->isChecked());
+    Config::setDebugDump(ui->debugDump->isChecked());
+    Config::setVkValidation(ui->vkValidationCheckBox->isChecked());
+    Config::setVkSyncValidation(ui->vkSyncValidationCheckBox->isChecked());
+    Config::setRdocEnabled(ui->rdocCheckBox->isChecked());
+    Config::setVkHostMarkersEnabled(ui->hostMarkersCheckBox->isChecked());
+    Config::setVkGuestMarkersEnabled(ui->guestMarkersCheckBox->isChecked());
+    Config::setVkCrashDiagnosticEnabled(ui->crashDiagnosticsCheckBox->isChecked());
+    Config::setCollectShaderForDebug(ui->collectShaderCheckBox->isChecked());
+    Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
+    Config::setVolumeSlider(ui->horizontalVolumeSlider->value());
 
-    // === Debug ===
-    data["Debug"]["CollectShader"] = ui->collectShaderCheckBox->isChecked();
-    data["Debug"]["DebugDump"] = ui->debugDump->isChecked();
-    data["Debug"]["logEnabled"] = ui->enableLoggingCheckBox->isChecked();
-    data["GPU"]["copyGPUBuffers"] = ui->copyGPUBuffersCheckBox->isChecked();
-
-    // finally save to the per-game file
-    std::ofstream ofs(m_config_path);
-    ofs << data;
+    Config::setFsrEnabled(ui->FSRCheckBox->isChecked());
+    Config::setRcasEnabled(ui->RCASCheckBox->isChecked());
+    Config::setRcasAttenuation(ui->RCASSpinBox->value());
 }

@@ -27,7 +27,7 @@ std::filesystem::path find_fs_path_or(const basic_value<TC>& v, const K& ky,
         if (str.empty()) {
             return opt;
         }
-        std::u8string u8str{(char8_t*)&str.front(), (char8_t*)&str.back() + 1};
+        std::u8string u8str(reinterpret_cast<const char8_t*>(str.data()), str.size());
         return std::filesystem::path{u8str};
     } catch (...) {
         return opt;
@@ -44,32 +44,26 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
     if (it == tbl.end())
         return std::nullopt;
 
-    if constexpr (std::is_same_v<T, int>) {
-        if (it->second.is_integer()) {
-            return static_cast<int>(toml::get<int>(it->second));
-        }
-    } else if constexpr (std::is_same_v<T, unsigned int>) {
-        if (it->second.is_integer()) {
-            return static_cast<u32>(toml::get<unsigned int>(it->second));
-        }
-    } else if constexpr (std::is_same_v<T, double>) {
-        if (it->second.is_floating()) {
-            return toml::get<double>(it->second);
-        }
+    if constexpr (std::is_integral_v<T>) {
+        if (it->second.is_integer())
+            return static_cast<T>(it->second.as_integer());
+    } else if constexpr (std::is_floating_point_v<T>) {
+        if (it->second.is_floating())
+            return static_cast<T>(it->second.as_floating());
     } else if constexpr (std::is_same_v<T, std::string>) {
-        if (it->second.is_string()) {
-            return toml::get<std::string>(it->second);
-        }
+        if (it->second.is_string())
+            return it->second.as_string();
     } else if constexpr (std::is_same_v<T, bool>) {
-        if (it->second.is_boolean()) {
-            return toml::get<bool>(it->second);
-        }
+        if (it->second.is_boolean())
+            return it->second.as_boolean();
     } else {
         static_assert([] { return false; }(), "Unsupported type in get_optional<T>");
     }
 
     return std::nullopt;
 }
+
+
 
 } // namespace toml
 
@@ -80,25 +74,31 @@ class ConfigEntry {
 public:
     T base_value;
     optional<T> game_specific_value;
+
     ConfigEntry(const T& t = T()) : base_value(t), game_specific_value(nullopt) {}
-    ConfigEntry operator=(const T& t) {
+
+    ConfigEntry& operator=(const T& t) {
         base_value = t;
         return *this;
     }
-    const T get() const {
-        return game_specific_value.has_value() ? *game_specific_value : base_value;
+
+    const T& get() const {
+        return game_specific_value ? *game_specific_value : base_value;
     }
+
     void setFromToml(const toml::value& v, const std::string& key, bool is_game_specific = false) {
+        auto val = toml::get_optional<T>(v, key);
+        if (!val)
+            return; // don’t clear existing values if missing
+
         if (is_game_specific) {
-            game_specific_value = toml::get_optional<T>(v, key);
+            game_specific_value = *val;
         } else {
-            base_value = toml::get_optional<T>(v, key).value_or(base_value);
+            base_value = *val;
         }
     }
-    // operator T() {
-    //     return get();
-    // }
 };
+
 
 // General
 static ConfigEntry<bool> isNeo(false);
@@ -113,7 +113,7 @@ static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
 static bool isAlwaysShowChangelog = false;
-static std::string isSideTrophy = "right";
+static ConfigEntry<std::string> isSideTrophy("right");
 static ConfigEntry<bool> isConnectedToNetwork(false);
 static bool enableDiscordRPC = false;
 static bool checkCompatibilityOnStartup = false;
@@ -504,7 +504,7 @@ bool alwaysShowChangelog() {
 }
 
 string sideTrophy() {
-    return isSideTrophy;
+    return isSideTrophy.get();
 }
 
 bool nullGpu() {
@@ -757,7 +757,8 @@ void setFullscreenMode(string mode) {
     fullscreenMode.base_value = mode;
 }
 
-void setPresentMode(string mode) {
+void setPresentMode(const string& mode) {
+    presentMode.game_specific_value.reset(); // clear stale override
     presentMode.base_value = mode;
 }
 
@@ -806,6 +807,7 @@ void setDevKitMode(bool enable) {
 }
 
 void setLogType(const string& type) {
+    logType.game_specific_value.reset();
     logType.base_value = type;
 }
 
@@ -1143,8 +1145,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             toml::find_or<double>(general, "trophyNotificationDuration", 5.0);
         BGMvolume = toml::find_or<int>(general, "BGMvolume", 50);
         enableDiscordRPC = toml::find_or<bool>(general, "enableDiscordRPC", true);
-        logFilter.setFromToml(general, "logFilter", "");
-        logType.setFromToml(general, "logType", "sync");
+        logFilter.setFromToml(general, "logFilter", is_game_specific);
+        logType.setFromToml(general, "logType", is_game_specific);
         userName.setFromToml(general, "userName", "shadPS4");
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
@@ -1170,7 +1172,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isShowSplash.setFromToml(general, "showSplash", is_game_specific);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
         isAlwaysShowChangelog = toml::find_or<bool>(general, "alwaysShowChangelog", false);
-        isSideTrophy = toml::find_or<std::string>(general, "sideTrophy", "right");
+        isSideTrophy.setFromToml(general, "sideTrophy", is_game_specific);
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
@@ -1426,7 +1428,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["showSplash"] = isShowSplash.base_value;
     data["General"]["isPS4Pro"] = isNeo.base_value;
 
-    data["General"]["sideTrophy"] = isSideTrophy;
+    data["General"]["sideTrophy"] = isSideTrophy.base_value;
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
     data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
