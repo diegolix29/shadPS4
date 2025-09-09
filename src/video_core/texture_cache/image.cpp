@@ -14,30 +14,6 @@ namespace VideoCore {
 
 using namespace Vulkan;
 
-static bool IsBlockCompressedFormat(vk::Format format) {
-    switch (format) {
-    case vk::Format::eBc1RgbUnormBlock:
-    case vk::Format::eBc1RgbSrgbBlock:
-    case vk::Format::eBc1RgbaUnormBlock:
-    case vk::Format::eBc1RgbaSrgbBlock:
-    case vk::Format::eBc2UnormBlock:
-    case vk::Format::eBc2SrgbBlock:
-    case vk::Format::eBc3UnormBlock:
-    case vk::Format::eBc3SrgbBlock:
-    case vk::Format::eBc4UnormBlock:
-    case vk::Format::eBc4SnormBlock:
-    case vk::Format::eBc5UnormBlock:
-    case vk::Format::eBc5SnormBlock:
-    case vk::Format::eBc6HSfloatBlock:
-    case vk::Format::eBc6HUfloatBlock:
-    case vk::Format::eBc7UnormBlock:
-    case vk::Format::eBc7SrgbBlock:
-        return true;
-    default:
-        return false;
-    }
-}
-
 static vk::ImageUsageFlags ImageUsageFlags(const Vulkan::Instance* instance,
                                            const ImageInfo& info) {
     vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eTransferSrc |
@@ -48,13 +24,12 @@ static vk::ImageUsageFlags ImageUsageFlags(const Vulkan::Instance* instance,
             usage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
         } else {
             usage |= vk::ImageUsageFlagBits::eColorAttachment;
-
-            // In cases where an image is created as a render/depth target and cleared with compute,
-            // we cannot predict whether it will be used as a storage image. A proper solution would
-            // involve re-creating the resource with a new configuration and copying previous
-            // content into it. However, for now, we will set storage usage for all images (if the
-            // format allows), sacrificing a bit of performance. Note use of ExtendedUsage flag set
-            // by default.
+            if (instance->IsAttachmentFeedbackLoopLayoutSupported()) {
+                usage |= vk::ImageUsageFlagBits::eAttachmentFeedbackLoopEXT;
+            }
+            // Always create images with storage flag to avoid needing re-creation in case of e.g
+            // compute clears This sacrifices a bit of performance but is less work. ExtendedUsage
+            // flag is also used.
             usage |= vk::ImageUsageFlagBits::eStorage;
         }
     }
@@ -149,8 +124,7 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
         flags |= vk::ImageCreateFlagBits::e2DArrayCompatible;
     }
     // Not supported by MoltenVK.
-    if (IsBlockCompressedFormat(info.pixel_format) &&
-        instance->GetDriverID() != vk::DriverId::eMoltenvk) {
+    if (info.props.is_block && instance->GetDriverID() != vk::DriverId::eMoltenvk) {
         flags |= vk::ImageCreateFlagBits::eBlockTexelViewCompatible;
     }
 
@@ -470,7 +444,7 @@ void Image::CopyImageWithBuffer(Image& src_image, vk::Buffer buffer, u64 offset)
         .bufferMemoryBarrierCount = 1,
         .pBufferMemoryBarriers = &pre_copy_barrier,
     });
-    const u64 required_size = offset + info.pitch * info.size.height * info.size.depth;
+
     cmdbuf.copyImageToBuffer(src_image.image, vk::ImageLayout::eTransferSrcOptimal, buffer,
                              buffer_copies);
 

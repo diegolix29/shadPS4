@@ -173,9 +173,7 @@ void Translator::EmitPrologue(IR::Block* first_block) {
         }
         if (runtime_info.fs_info.addr_flags.ancillary_ena) {
             if (runtime_info.fs_info.en_flags.ancillary_ena) {
-                const auto mrt_index = ir.GetAttributeU32(IR::Attribute::RenderTargetIndex);
-                ir.SetVectorReg(dst_vreg++, ir.BitFieldInsert(ir.Imm32(0), mrt_index, ir.Imm32(16),
-                                                              ir.Imm32(11)));
+                ir.SetVectorReg(dst_vreg++, ir.GetAttributeU32(IR::Attribute::PackedAncillary));
             } else {
                 ir.SetVectorReg(dst_vreg++, ir.Imm32(0));
             }
@@ -336,14 +334,13 @@ T Translator::GetSrc(const InstOperand& operand) {
         break;
     case OperandField::Scc:
         if constexpr (is_float) {
-            //   UNREACHABLE();
+            UNREACHABLE();
         } else {
             value = ir.BitCast<IR::U32>(ir.GetScc());
         }
         break;
     default:
-        // UNREACHABLE();
-        return value;
+        UNREACHABLE();
     }
 
     if constexpr (is_float) {
@@ -470,7 +467,7 @@ void Translator::SetDst(const InstOperand& operand, const IR::U32F32& value) {
             result = ir.FPMul(result, ir.Imm32(operand.output_modifier.multiplier));
         }
         if (operand.output_modifier.clamp) {
-            result = ir.FPSaturate(value);
+            result = ir.FPSaturate(result);
         }
     }
 
@@ -500,7 +497,7 @@ void Translator::SetDst64(const InstOperand& operand, const IR::U64F64& value_ra
                 ir.FPMul(value_untyped, ir.Imm64(f64(operand.output_modifier.multiplier)));
         }
         if (operand.output_modifier.clamp) {
-            value_untyped = ir.FPSaturate(value_raw);
+            value_untyped = ir.FPSaturate(value_untyped);
         }
     }
 
