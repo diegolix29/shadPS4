@@ -2458,6 +2458,14 @@
           </item>
 
 			<item>
+				<widget class="QCheckBox" name="connectedNetworkCheckBox">
+					<property name="text">
+						<string>Connected to Network</string>
+					</property>
+				</widget>
+			</item>
+
+			<item>
 				<widget class="QCheckBox" name="screenTipBox">
 					<property name="text">
 						<string>Disable FullScreen Tip on Boot</string>

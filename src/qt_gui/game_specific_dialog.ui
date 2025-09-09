@@ -761,11 +761,7 @@
           <property name="text"><string>Use Unified Input Config</string></property>
         </widget>
       </item>
-      <item>
-        <widget class="QCheckBox" name="showSplashCheckBox">
-          <property name="text"><string>Show Splash</string></property>
-        </widget>
-      </item>
+
       <item>
         <widget class="QCheckBox" name="discordRPCCheckbox">
           <property name="text"><string>Enable Discord Rich Presence</string></property>

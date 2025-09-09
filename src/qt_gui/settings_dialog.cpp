@@ -84,7 +84,7 @@ static std::vector<QString> m_physical_devices;
 
 SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
                                QWidget* parent)
-    : QDialog(parent), ui(new Ui::SettingsDialog), compat_info(std::move(m_compat_info)) {
+    : QDialog(parent), ui(new Ui::SettingsDialog), compat_info(m_compat_info) {
     ui->setupUi(this);
     ui->tabWidgetSettings->setUsesScrollButtons(false);
 
@@ -535,6 +535,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         });
         ui->separateLogFilesCheckbox->installEventFilter(this);
         ui->enableLoggingCheckBox->setChecked(Config::getLoggingEnabled());
+        ui->connectedNetworkCheckBox->setChecked(Config::getIsConnectedToNetwork());
     }
 }
 
@@ -691,6 +692,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->RCASCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "rcasEnabled", true));
     ui->RCASSlider->setValue(toml::find_or<int>(data, "GPU", "rcasAttenuation", 500));
     ui->RCASSpinBox->setValue(ui->RCASSlider->value() / 1000.0);
+    ui->connectedNetworkCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "isConnectedToNetwork", false));
 
 #ifdef ENABLE_UPDATER
     ui->updateCheckBox->setChecked(toml::find_or<bool>(data, "General", "autoUpdate", false));
@@ -1042,6 +1045,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setFsrEnabled(ui->FSRCheckBox->isChecked());
     Config::setRcasEnabled(ui->RCASCheckBox->isChecked());
     Config::setRcasAttenuation(ui->RCASSpinBox->value());
+    Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
 
     std::vector<Config::GameInstallDir> dirs_with_states;
     for (int i = 0; i < ui->gameFoldersListWidget->count(); i++) {

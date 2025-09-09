@@ -35,10 +35,13 @@ std::filesystem::path find_fs_path_or(const basic_value<TC>& v, const K& ky,
 }
 
 // why is it so hard to avoid exceptions with this library
+template <typename>
+inline constexpr bool always_false_v = false;
 template <typename T>
 std::optional<T> get_optional(const toml::value& v, const std::string& key) {
     if (!v.is_table())
         return std::nullopt;
+
     const auto& tbl = v.as_table();
     auto it = tbl.find(key);
     if (it == tbl.end())
@@ -47,17 +50,25 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
     if constexpr (std::is_integral_v<T>) {
         if (it->second.is_integer())
             return static_cast<T>(it->second.as_integer());
+
     } else if constexpr (std::is_floating_point_v<T>) {
         if (it->second.is_floating())
             return static_cast<T>(it->second.as_floating());
+
     } else if constexpr (std::is_same_v<T, std::string>) {
         if (it->second.is_string())
             return it->second.as_string();
+
     } else if constexpr (std::is_same_v<T, bool>) {
         if (it->second.is_boolean())
             return it->second.as_boolean();
+
+    } else if constexpr (std::is_enum_v<T>) {
+        if (it->second.is_integer())
+            return static_cast<T>(it->second.as_integer());
+
     } else {
-        static_assert([] { return false; }(), "Unsupported type in get_optional<T>");
+        static_assert(always_false_v<T>, "Unsupported type in get_optional<T>");
     }
 
     return std::nullopt;
@@ -105,7 +116,7 @@ static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
 static ConfigEntry<std::string> logFilter("");
 static ConfigEntry<std::string> logType("sync");
-static ConfigEntry<std::string> userName("shadPS4");
+static ConfigEntry<string> userName("shadPS4");
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
@@ -115,8 +126,8 @@ static ConfigEntry<bool> isConnectedToNetwork(false);
 static bool enableDiscordRPC = false;
 static bool checkCompatibilityOnStartup = false;
 static bool compatibilityData = false;
-static ConfigEntry<bool> autoRestartGame(false);
-static ConfigEntry<bool> restartWithBaseGame(false);
+static bool autoRestartGame = false;
+static bool restartWithBaseGame = false;
 static ConfigEntry<bool> screenTipDisable(false);
 static ConfigEntry<bool> g_fpsLimiterEnabled(false);
 
@@ -156,7 +167,6 @@ static ConfigEntry<std::string> presentMode("Mailbox");
 static ConfigEntry<bool> isHDRAllowed(false);
 static ConfigEntry<bool> fsrEnabled(true);
 static ConfigEntry<bool> rcasEnabled(true);
-static ConfigEntry<int> rcasAttenuation(250);
 
 // Audio / BGM
 static bool playBGM = false;
@@ -291,18 +301,18 @@ void setFpsLimiterEnabled(bool enabled) {
 }
 
 bool getAutoRestartGame() {
-    return autoRestartGame.get();
+    return autoRestartGame;
 }
 
 void setAutoRestartGame(bool enable) {
-    autoRestartGame.base_value = enable;
+    autoRestartGame = enable;
 }
 
 bool getRestartWithBaseGame() {
-    return restartWithBaseGame.get();
+    return restartWithBaseGame;
 }
 void setRestartWithBaseGame(bool enable) {
-    restartWithBaseGame.base_value = enable;
+    restartWithBaseGame = enable;
 }
 
 string getTrophyKey() {
@@ -502,6 +512,14 @@ bool alwaysShowChangelog() {
 
 string sideTrophy() {
     return isSideTrophy.get();
+}
+
+u32 getScreenWidth() {
+    return screenWidth.get();
+}
+
+u32 getScreenHeight() {
+    return screenHeight.get();
 }
 
 bool nullGpu() {
@@ -817,7 +835,7 @@ void setSeparateLogFilesEnabled(bool enabled) {
 }
 
 void setUserName(const string& type) {
-    userName.base_value = type;
+    userName = type;
 }
 
 void setUpdateChannel(const std::string& type) {
@@ -1126,8 +1144,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
     if (data.contains("General")) {
         const toml::value& general = data.at("General");
         enableAutoBackup.setFromToml(general, "enableAutoBackup", false);
-        autoRestartGame.setFromToml(general, "autoRestartGame", false);
-        restartWithBaseGame.setFromToml(general, "restartWithBaseGame", false);
+        autoRestartGame = toml::find_or<bool>(general, "autoRestartGame", false);
+        restartWithBaseGame = toml::find_or<bool>(general, "restartWithBaseGame", false);
         screenTipDisable.setFromToml(general, "screenTipDisable", is_game_specific);
         volumeSlider.setFromToml(general, "volumeSlider", is_game_specific);
         muteEnabled.setFromToml(general, "muteEnabled", is_game_specific);
@@ -1136,15 +1154,13 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isDevKit.setFromToml(general, "isDevKit", is_game_specific);
         isPSNSignedIn.setFromToml(general, "isPSNSignedIn", is_game_specific);
         playBGM = toml::find_or<bool>(general, "playBGM", false);
-        isTrophyPopupDisabled =
-            toml::find_or<bool>(general, "isTrophyPopupDisabled", is_game_specific);
-        trophyNotificationDuration =
-            toml::find_or<double>(general, "trophyNotificationDuration", 5.0);
+        isTrophyPopupDisabled.setFromToml(general, "isTrophyPopupDisabled", is_game_specific);
+        trophyNotificationDuration.setFromToml(general, "trophyNotificationDuration",
+                                               is_game_specific);
         BGMvolume = toml::find_or<int>(general, "BGMvolume", 50);
         enableDiscordRPC = toml::find_or<bool>(general, "enableDiscordRPC", true);
         logFilter.setFromToml(general, "logFilter", is_game_specific);
         logType.setFromToml(general, "logType", is_game_specific);
-        userName.setFromToml(general, "userName", "shadPS4");
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
         }
@@ -1204,20 +1220,15 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         screenHeight.setFromToml(gpu, "screenHeight", is_game_specific);
         fsrEnabled.setFromToml(gpu, "fsrEnabled", is_game_specific);
         rcasEnabled.setFromToml(gpu, "rcasEnabled", is_game_specific);
-        rcas_attenuation = toml::find_or<float>(gpu, "rcas_attenuation", is_game_specific);
+        rcas_attenuation.setFromToml(gpu, "rcas_attenuation", is_game_specific);
         isNullGpu.setFromToml(gpu, "nullGpu", false);
-        shouldCopyGPUBuffers.setFromToml(gpu, "copyGPUBuffers", is_game_specific);
-        directMemoryAccessEnabled =
-            toml::find_or<bool>(gpu, "directMemoryAccess", is_game_specific);
         shouldDumpShaders.setFromToml(gpu, "dumpShaders", is_game_specific);
         shouldPatchShaders.setFromToml(gpu, "patchShaders", is_game_specific);
         vblankFrequency.setFromToml(gpu, "vblankFrequency", is_game_specific);
-        isFullscreen.setFromToml(gpu, "Fullscreen", is_game_specific);
-        fullscreenMode.setFromToml(gpu, "FullscreenMode", is_game_specific);
         isHDRAllowed.setFromToml(gpu, "allowHDR", is_game_specific);
         shaderSkipsEnabled.setFromToml(gpu, "shaderSkipsEnabled", is_game_specific);
         memoryAlloc.setFromToml(gpu, "memoryAlloc", is_game_specific);
-        windowWidth.setFromToml(gpu, "screenWidth", is_game_specific);
+        windowWidth.setFromToml(gpu, "windowWidth", is_game_specific);
         fpsLimit.setFromToml(gpu, "fpsLimit", is_game_specific);
         g_fpsLimiterEnabled.setFromToml(gpu, "fpsLimiterEnabled", is_game_specific);
 
@@ -1226,19 +1237,12 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         internalScreenHeight.setFromToml(gpu, "internalScreenHeight", is_game_specific);
         isNullGpu.setFromToml(gpu, "nullGpu", is_game_specific);
         shouldCopyGPUBuffers.setFromToml(gpu, "copyGPUBuffers", is_game_specific);
-        readbackSpeedMode = static_cast<ReadbackSpeed>(
-            toml::find_or<int>(gpu, "readbackSpeed", static_cast<int>(is_game_specific)));
-        readbackLinearImagesEnabled =
-            toml::find_or<bool>(gpu, "readbackLinearImages", is_game_specific);
-        directMemoryAccessEnabled =
-            toml::find_or<bool>(gpu, "directMemoryAccess", is_game_specific);
-        shouldDumpShaders.setFromToml(gpu, "dumpShaders", is_game_specific);
-        shouldPatchShaders.setFromToml(gpu, "patchShaders", is_game_specific);
-        vblankFrequency.setFromToml(gpu, "vblankFrequency", is_game_specific);
+        readbackSpeedMode.setFromToml(gpu, "readbackSpeed", static_cast<int>(is_game_specific));
+        readbackLinearImagesEnabled.setFromToml(gpu, "readbackLinearImages", is_game_specific);
+        directMemoryAccessEnabled.setFromToml(gpu, "directMemoryAccess", is_game_specific);
         isFullscreen.setFromToml(gpu, "Fullscreen", is_game_specific);
         fullscreenMode.setFromToml(gpu, "FullscreenMode", is_game_specific);
         presentMode.setFromToml(gpu, "presentMode", is_game_specific);
-        isHDRAllowed.setFromToml(gpu, "allowHDR", is_game_specific);
     }
 
     if (data.contains("Vulkan")) {
@@ -1419,7 +1423,6 @@ void save(const std::filesystem::path& path) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["logFilter"] = logFilter.base_value;
     data["General"]["logType"] = logType.base_value;
-    data["General"]["userName"] = userName.base_value;
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
@@ -1446,7 +1449,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["fpsLimit"] = fpsLimit.base_value;
     data["GPU"]["fpsLimiterEnabled"] = g_fpsLimiterEnabled.base_value;
 
-    data["GPU"]["screenWidth"] = windowWidth.base_value;
+    data["GPU"]["windowWidth"] = windowWidth.base_value;
     data["GPU"]["screenHeight"] = windowHeight.base_value;
     data["GPU"]["internalScreenWidth"] = internalScreenWidth.base_value;
     data["GPU"]["internalScreenHeight"] = internalScreenHeight.base_value;
@@ -1463,8 +1466,8 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["presentMode"] = presentMode.base_value;
     data["GPU"]["allowHDR"] = isHDRAllowed.base_value;
     data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
-    data["General"]["autoRestartGame"] = autoRestartGame.base_value;
-    data["General"]["restartWithBaseGame"] = restartWithBaseGame.base_value;
+    data["General"]["autoRestartGame"] = autoRestartGame;
+    data["General"]["restartWithBaseGame"] = restartWithBaseGame;
     data["General"]["screenTipDisable"] = screenTipDisable.base_value;
     data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled.base_value;
     data["GPU"]["memoryAlloc"] = memoryAlloc.base_value;
@@ -1600,8 +1603,6 @@ void setDefaultValues() {
     playBGM = false;
     BGMvolume = 50;
     enableDiscordRPC = true;
-    screenWidth = 1280;
-    screenHeight = 720;
     logFilter = "";
     logType = "sync";
     userName = "shadPS4";
@@ -1638,7 +1639,6 @@ void setDefaultValues() {
     isShowSplash = false;
     isAutoUpdate = false;
     isAlwaysShowChangelog = false;
-    isSideTrophy = "right";
     windowWidth = 1280;
     windowHeight = 720;
     internalScreenWidth = 1280;
