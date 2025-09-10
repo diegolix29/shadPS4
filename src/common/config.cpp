@@ -23,7 +23,7 @@ template <typename TC, typename K>
 std::filesystem::path find_fs_path_or(const basic_value<TC>& v, const K& ky,
                                       std::filesystem::path opt) {
     try {
-        auto str = find<string>(v, ky);
+        auto str = find<std::string>(v, ky);
         if (str.empty()) {
             return opt;
         }
@@ -35,40 +35,37 @@ std::filesystem::path find_fs_path_or(const basic_value<TC>& v, const K& ky,
 }
 
 // why is it so hard to avoid exceptions with this library
-template <typename>
-inline constexpr bool always_false_v = false;
 template <typename T>
 std::optional<T> get_optional(const toml::value& v, const std::string& key) {
     if (!v.is_table())
         return std::nullopt;
-
     const auto& tbl = v.as_table();
     auto it = tbl.find(key);
     if (it == tbl.end())
         return std::nullopt;
 
-    if constexpr (std::is_integral_v<T>) {
-        if (it->second.is_integer())
-            return static_cast<T>(it->second.as_integer());
-
-    } else if constexpr (std::is_floating_point_v<T>) {
-        if (it->second.is_floating())
-            return static_cast<T>(it->second.as_floating());
-
+    if constexpr (std::is_same_v<T, int>) {
+        if (it->second.is_integer()) {
+            return static_cast<int>(toml::get<int>(it->second));
+        }
+    } else if constexpr (std::is_same_v<T, unsigned int>) {
+        if (it->second.is_integer()) {
+            return static_cast<u32>(toml::get<unsigned int>(it->second));
+        }
+    } else if constexpr (std::is_same_v<T, double>) {
+        if (it->second.is_floating()) {
+            return toml::get<double>(it->second);
+        }
     } else if constexpr (std::is_same_v<T, std::string>) {
-        if (it->second.is_string())
-            return it->second.as_string();
-
+        if (it->second.is_string()) {
+            return toml::get<std::string>(it->second);
+        }
     } else if constexpr (std::is_same_v<T, bool>) {
-        if (it->second.is_boolean())
-            return it->second.as_boolean();
-
-    } else if constexpr (std::is_enum_v<T>) {
-        if (it->second.is_integer())
-            return static_cast<T>(it->second.as_integer());
-
+        if (it->second.is_boolean()) {
+            return toml::get<bool>(it->second);
+        }
     } else {
-        static_assert(always_false_v<T>, "Unsupported type in get_optional<T>");
+        static_assert([] { return false; }(), "Unsupported type in get_optional<T>");
     }
 
     return std::nullopt;
@@ -83,29 +80,24 @@ class ConfigEntry {
 public:
     T base_value;
     optional<T> game_specific_value;
-
     ConfigEntry(const T& t = T()) : base_value(t), game_specific_value(nullopt) {}
-
-    ConfigEntry& operator=(const T& t) {
+    ConfigEntry operator=(const T& t) {
         base_value = t;
         return *this;
     }
-
-    const T& get() const {
-        return game_specific_value ? *game_specific_value : base_value;
+    const T get() const {
+        return game_specific_value.has_value() ? *game_specific_value : base_value;
     }
-
     void setFromToml(const toml::value& v, const std::string& key, bool is_game_specific = false) {
-        auto val = toml::get_optional<T>(v, key);
-        if (!val)
-            return; // don’t clear existing values if missing
-
         if (is_game_specific) {
-            game_specific_value = *val;
+            game_specific_value = toml::get_optional<T>(v, key);
         } else {
-            base_value = *val;
+            base_value = toml::get_optional<T>(v, key).value_or(base_value);
         }
     }
+    // operator T() {
+    //     return get();
+    // }
 };
 
 // General
@@ -244,7 +236,7 @@ static ConfigEntry<u32> fpsLimit(60);
 u32 m_language = 1; // english
 
 // Keys
-static string trophyKey = "";
+static std::string trophyKey = "";
 
 bool allowHDR() {
     return isHDRAllowed.get();
@@ -315,11 +307,11 @@ void setRestartWithBaseGame(bool enable) {
     restartWithBaseGame = enable;
 }
 
-string getTrophyKey() {
+std::string getTrophyKey() {
     return trophyKey;
 }
 
-void setTrophyKey(string key) {
+void setTrophyKey(std::string key) {
     trophyKey = key;
 }
 
@@ -358,11 +350,11 @@ bool setShowLabelsUnderIcons() {
     return false;
 }
 
-string getFullscreenMode() {
+std::string getFullscreenMode() {
     return fullscreenMode.get();
 }
 
-string getPresentMode() {
+std::string getPresentMode() {
     return presentMode.get();
 }
 
@@ -390,7 +382,7 @@ int getCursorHideTimeout() {
     return cursorHideTimeout.get();
 }
 
-string getMicDevice() {
+std::string getMicDevice() {
     return micDevice.get();
 }
 
@@ -442,23 +434,23 @@ void setRcasAttenuation(float value) {
     rcas_attenuation.base_value = value;
 }
 
-string getLogFilter() {
+std::string getLogFilter() {
     return logFilter.get();
 }
 
-string getLogType() {
+std::string getLogType() {
     return logType.get();
 }
 
-string getUserName() {
+std::string getUserName() {
     return userName.get();
 }
 
-string getUpdateChannel() {
+std::string getUpdateChannel() {
     return updateChannel;
 }
 
-string getChooseHomeTab() {
+std::string getChooseHomeTab() {
     return chooseHomeTab;
 }
 
@@ -510,7 +502,7 @@ bool alwaysShowChangelog() {
     return isAlwaysShowChangelog;
 }
 
-string sideTrophy() {
+std::string sideTrophy() {
     return isSideTrophy.get();
 }
 
@@ -546,7 +538,7 @@ bool getReadbackLinearImages() {
     return readbackLinearImagesEnabled.get();
 }
 
-bool isScreenTipDisable(bool enable) {
+bool setScreenTipDisable(bool enable) {
     return screenTipDisable.base_value = enable;
 }
 
@@ -572,10 +564,6 @@ bool isRdocEnabled() {
 
 bool fpsColor() {
     return isFpsColor.get();
-}
-
-bool isLoggingEnabled() {
-    return logEnabled.get();
 }
 
 u32 vblankFreq() {
@@ -626,7 +614,7 @@ bool getCheckCompatibilityOnStartup() {
     return checkCompatibilityOnStartup;
 }
 
-string getAudioBackend() {
+std::string getAudioBackend() {
     return audioBackend.get();
 }
 
@@ -686,7 +674,7 @@ bool ShouldSkipShader(const u64& hash) {
                      hash) != current_skipped_shader_hashes.end();
 }
 
-void SetSkippedShaderHashes(const string& game_id) {
+void SetSkippedShaderHashes(const std::string& game_id) {
     current_skipped_shader_hashes.clear();
 
     auto it = all_skipped_shader_hashes.find(game_id);
@@ -717,7 +705,7 @@ void setAlwaysShowChangelog(bool enable) {
     isAlwaysShowChangelog = enable;
 }
 
-void setSideTrophy(string side) {
+void setSideTrophy(std::string side) {
     isSideTrophy = side;
 }
 
@@ -768,11 +756,11 @@ static void setShowLabelsUnderIcons(bool enable) {
     showLabelsUnderIcons = enable;
 }
 
-void setFullscreenMode(string mode) {
+void setFullscreenMode(std::string mode) {
     fullscreenMode.base_value = mode;
 }
 
-void setPresentMode(const string& mode) {
+void setPresentMode(const std::string& mode) {
     presentMode.game_specific_value.reset(); // clear stale override
     presentMode.base_value = mode;
 }
@@ -801,7 +789,7 @@ void setCursorHideTimeout(int newcursorHideTimeout) {
     cursorHideTimeout.base_value = newcursorHideTimeout;
 }
 
-void setMicDevice(string device) {
+void setMicDevice(std::string device) {
     micDevice.base_value = device;
 }
 
@@ -821,12 +809,12 @@ void setDevKitMode(bool enable) {
     isDevKit.base_value = enable;
 }
 
-void setLogType(const string& type) {
+void setLogType(const std::string& type) {
     logType.game_specific_value.reset();
     logType.base_value = type;
 }
 
-void setLogFilter(const string& type) {
+void setLogFilter(const std::string& type) {
     logFilter.base_value = type;
 }
 
@@ -834,8 +822,8 @@ void setSeparateLogFilesEnabled(bool enabled) {
     isSeparateLogFilesEnabled.base_value = enabled;
 }
 
-void setUserName(const string& type) {
-    userName = type;
+void setUserName(const std::string& type) {
+    userName.base_value = type;
 }
 
 void setUpdateChannel(const std::string& type) {
@@ -1051,7 +1039,7 @@ std::vector<std::string> getRecentFiles() {
     return m_recent_files;
 }
 
-string getEmulatorLanguage() {
+std::string getEmulatorLanguage() {
     return emulator_language;
 }
 
@@ -1095,15 +1083,15 @@ void setShaderSkipsEnabled(bool enable) {
     shaderSkipsEnabled.base_value = enable;
 }
 
-string getMemoryAlloc() {
+std::string getMemoryAlloc() {
     return memoryAlloc.get();
 }
 
-void setMemoryAlloc(string alloc) {
+void setMemoryAlloc(std::string alloc) {
     memoryAlloc = alloc;
 }
 
-string getDefaultControllerID() {
+std::string getDefaultControllerID() {
     return defaultControllerID.get();
 }
 
@@ -1161,6 +1149,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         enableDiscordRPC = toml::find_or<bool>(general, "enableDiscordRPC", true);
         logFilter.setFromToml(general, "logFilter", is_game_specific);
         logType.setFromToml(general, "logType", is_game_specific);
+        userName.setFromToml(general, "userName", is_game_specific);
+
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
         }
@@ -1189,8 +1179,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
-        isConnectedToNetwork =
-            toml::find_or<bool>(general, "isConnectedToNetwork", is_game_specific);
+        isConnectedToNetwork.setFromToml(general, "isConnectedToNetwork", is_game_specific);
         audioBackend.setFromToml(general, "backend", "cubeb");
         audioVolume.setFromToml(general, "volume", 100);
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", chooseHomeTab);
@@ -1220,7 +1209,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         screenHeight.setFromToml(gpu, "screenHeight", is_game_specific);
         fsrEnabled.setFromToml(gpu, "fsrEnabled", is_game_specific);
         rcasEnabled.setFromToml(gpu, "rcasEnabled", is_game_specific);
-        rcas_attenuation.setFromToml(gpu, "rcas_attenuation", is_game_specific);
+        rcas_attenuation = toml::find_or<float>(gpu, "rcas_attenuation", is_game_specific);
         isNullGpu.setFromToml(gpu, "nullGpu", false);
         shouldDumpShaders.setFromToml(gpu, "dumpShaders", is_game_specific);
         shouldPatchShaders.setFromToml(gpu, "patchShaders", is_game_specific);
@@ -1230,14 +1219,15 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         memoryAlloc.setFromToml(gpu, "memoryAlloc", is_game_specific);
         windowWidth.setFromToml(gpu, "windowWidth", is_game_specific);
         fpsLimit.setFromToml(gpu, "fpsLimit", is_game_specific);
-        g_fpsLimiterEnabled.setFromToml(gpu, "fpsLimiterEnabled", is_game_specific);
+        g_fpsLimiterEnabled.setFromToml(gpu, "g_fpsLimiterEnabled", is_game_specific);
 
         windowHeight.setFromToml(gpu, "screenHeight", is_game_specific);
         internalScreenWidth.setFromToml(gpu, "internalScreenWidth", is_game_specific);
         internalScreenHeight.setFromToml(gpu, "internalScreenHeight", is_game_specific);
         isNullGpu.setFromToml(gpu, "nullGpu", is_game_specific);
         shouldCopyGPUBuffers.setFromToml(gpu, "copyGPUBuffers", is_game_specific);
-        readbackSpeedMode.setFromToml(gpu, "readbackSpeed", static_cast<int>(is_game_specific));
+        readbackSpeedMode = static_cast<ReadbackSpeed>(
+            toml::find_or<int>(gpu, "readbackSpeed", static_cast<int>(is_game_specific)));
         readbackLinearImagesEnabled.setFromToml(gpu, "readbackLinearImages", is_game_specific);
         directMemoryAccessEnabled.setFromToml(gpu, "directMemoryAccess", is_game_specific);
         isFullscreen.setFromToml(gpu, "Fullscreen", is_game_specific);
@@ -1423,10 +1413,12 @@ void save(const std::filesystem::path& path) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["logFilter"] = logFilter.base_value;
     data["General"]["logType"] = logType.base_value;
+    data["General"]["userName"] = userName.base_value;
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
-    data["General"]["isPS4Pro"] = isNeo.base_value;
+    data["General"]["autoUpdate"] = isAutoUpdate;
+    data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
 
     data["General"]["sideTrophy"] = isSideTrophy.base_value;
     data["General"]["compatibilityEnabled"] = compatibilityData;
@@ -1447,7 +1439,7 @@ void save(const std::filesystem::path& path) {
     data["Input"]["micDevice"] = micDevice.base_value;
     data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
     data["GPU"]["fpsLimit"] = fpsLimit.base_value;
-    data["GPU"]["fpsLimiterEnabled"] = g_fpsLimiterEnabled.base_value;
+    data["GPU"]["g_fpsLimiterEnabled"] = g_fpsLimiterEnabled.base_value;
 
     data["GPU"]["windowWidth"] = windowWidth.base_value;
     data["GPU"]["screenHeight"] = windowHeight.base_value;
@@ -1648,7 +1640,6 @@ void setDefaultValues() {
     readbackSpeedMode = ReadbackSpeed::Default;
     shaderSkipsEnabled = false;
     readbackLinearImagesEnabled = false;
-    screenTipDisable = false;
     directMemoryAccessEnabled = false;
     shouldDumpShaders = false;
     shouldPatchShaders = false;

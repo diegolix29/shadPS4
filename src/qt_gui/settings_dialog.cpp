@@ -395,6 +395,12 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             }
         });
 
+        connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this, [this](int value) {
+            VolumeSliderChange(value);
+            Config::setVolumeSlider(value);
+            Libraries::AudioOut::AdjustVol();
+        });
+
         connect(ui->browseButton, &QPushButton::clicked, this, [this]() {
             const auto save_data_path = Config::GetSaveDataPath();
             QString initial_path;
@@ -526,16 +532,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->copyGPUBuffersCheckBox->installEventFilter(this);
 
         // Experimental
-        ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
-        ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
-        connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this, [this](int value) {
-            VolumeSliderChange(value);
-            Config::setVolumeSlider(value);
-            Libraries::AudioOut::AdjustVol();
-        });
+        ui->isDevKitCheckBox->installEventFilter(this);
+        ui->isNeoModeCheckBox->installEventFilter(this);
         ui->separateLogFilesCheckbox->installEventFilter(this);
-        ui->enableLoggingCheckBox->setChecked(Config::getLoggingEnabled());
-        ui->connectedNetworkCheckBox->setChecked(Config::getIsConnectedToNetwork());
     }
 }
 
@@ -620,7 +619,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->ReadbacksLinearCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "readbackLinearImages", false));
     ui->DMACheckBox->setChecked(toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
-    ui->screenTipBox->setChecked(Config::getScreenTipDisable());
+    ui->screenTipBox->setChecked(toml::find_or<bool>(data, "General", "screenTipDisable", false));
     ui->ReadbackSpeedComboBox->setCurrentIndex(static_cast<int>(Config::readbackSpeed()));
 
     ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));
@@ -644,8 +643,6 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->fpsSlider->setValue(Config::getFpsLimit());
     ui->fpsSpinBox->setValue(Config::getFpsLimit());
     ui->fpsLimiterCheckBox->setChecked(Config::fpsLimiterEnabled());
-    ui->fpsSpinBox->setEnabled(Config::fpsLimiterEnabled());
-    ui->fpsSlider->setEnabled(Config::fpsLimiterEnabled());
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
     QString translatedText_FullscreenMode =
@@ -685,6 +682,8 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "Debug", "CollectShader", false));
     ui->enableCompatibilityCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "compatibilityEnabled", false));
+    ui->enableLoggingCheckBox->setChecked(toml::find_or<bool>(data, "Debug", "logEnabled", true));
+
     ui->checkCompatibilityOnStartupCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
 
@@ -727,11 +726,14 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "Input", "isMotionControlsEnabled", true));
     ui->backgroundControllerCheckBox->setChecked(
         toml::find_or<bool>(data, "Input", "backgroundControllerInput", false));
+    ui->isDevKitCheckBox->setChecked(toml::find_or<bool>(data, "General", "isDevKit", false));
+
+    ui->isNeoModeCheckBox->setChecked(toml::find_or<bool>(data, "General", "isPS4Pro", false));
 
     ui->removeFolderButton->setEnabled(!ui->gameFoldersListWidget->selectedItems().isEmpty());
-    SyncRealTimeWidgetstoConfig();
     ui->backgroundImageOpacitySlider->setValue(Config::getBackgroundImageOpacity());
     ui->showBackgroundImageCheckBox->setChecked(Config::getShowBackgroundImage());
+    SyncRealTimeWidgetstoConfig();
 
     backgroundImageOpacitySlider_backup = Config::getBackgroundImageOpacity();
     bgm_volume_backup = Config::getBGMvolume();
@@ -1009,7 +1011,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setNullGpu(ui->nullGpuCheckBox->isChecked());
     Config::setReadbackLinearImages(ui->ReadbacksLinearCheckBox->isChecked());
     Config::setDirectMemoryAccess(ui->DMACheckBox->isChecked());
-    Config::isScreenTipDisable(ui->screenTipBox->isChecked());
+    Config::setScreenTipDisable(ui->screenTipBox->isChecked());
     Config::setReadbackSpeed(
         static_cast<Config::ReadbackSpeed>(ui->ReadbackSpeedComboBox->currentIndex()));
 
