@@ -113,7 +113,7 @@ ReadbackSpeed readbackSpeed();
 void setReadbackSpeed(ReadbackSpeed mode);
 bool setReadbackLinearImages(bool enable);
 bool getReadbackLinearImages();
-bool isScreenTipDisable(bool enable);
+bool setScreenTipDisable(bool enable);
 bool getScreenTipDisable();
 bool directMemoryAccess();
 void setDirectMemoryAccess(bool enable);
@@ -157,9 +157,7 @@ bool getPSNSignedIn();
 void setPSNSignedIn(bool sign); // no ui setting
 bool patchShaders();            // no set
 void setfpsColor(bool enable);
-bool isNeoModeConsole();
 void setNeoMode(bool enable);  // no ui setting
-bool isDevKitConsole();        // no set
 bool vkValidationGpuEnabled(); // no set
 bool getIsMotionControlsEnabled();
 void setIsMotionControlsEnabled(bool use);
