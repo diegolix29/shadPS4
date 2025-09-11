@@ -31,9 +31,6 @@ private:
     }
 
     void DetectFences(std::span<const u32> cmd) {
-        if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
-            return;
-        }
         while (!cmd.empty()) {
             const auto* header = reinterpret_cast<const PM4Header*>(cmd.data());
             const u32 type = header->type;
