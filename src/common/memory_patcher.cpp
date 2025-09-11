@@ -375,15 +375,14 @@ void OnGameLoaded() {
                 }
             }
 
-            ApplyPendingPatches();
             return;
         } else {
             LOG_ERROR(Loader, "couldnt patch parse xml : {}", result.description());
         }
 
-        ApplyPendingPatches();
         return;
     }
+    ApplyPendingPatches();
 
 #ifdef ENABLE_QT_GUI
     // We use the QT headers for the xml and json parsing, this define is only true on QT builds
