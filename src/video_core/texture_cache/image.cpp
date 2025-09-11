@@ -43,19 +43,20 @@ static vk::ImageUsageFlags ImageUsageFlags(const Vulkan::Instance* instance,
     vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eTransferSrc |
                                 vk::ImageUsageFlagBits::eTransferDst |
                                 vk::ImageUsageFlagBits::eSampled;
-    if (info.props.is_depth) {
-        usage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
-    } else {
-        if (!info.props.is_block) {
+    if (!info.props.is_block) {
+        if (info.props.is_depth) {
+            usage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+        } else {
             usage |= vk::ImageUsageFlagBits::eColorAttachment;
-            if (instance->IsAttachmentFeedbackLoopLayoutSupported()) {
-                usage |= vk::ImageUsageFlagBits::eAttachmentFeedbackLoopEXT;
-            }
+
+            // In cases where an image is created as a render/depth target and cleared with compute,
+            // we cannot predict whether it will be used as a storage image. A proper solution would
+            // involve re-creating the resource with a new configuration and copying previous
+            // content into it. However, for now, we will set storage usage for all images (if the
+            // format allows), sacrificing a bit of performance. Note use of ExtendedUsage flag set
+            // by default.
+            usage |= vk::ImageUsageFlagBits::eStorage;
         }
-        // Always create images with storage flag to avoid needing re-creation in case of e.g
-        // compute clears This sacrifices a bit of performance but is less work. ExtendedUsage flag
-        // is also used.
-        usage |= vk::ImageUsageFlagBits::eStorage;
     }
 
     return usage;
