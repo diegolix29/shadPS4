@@ -233,9 +233,9 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->fpsLimiterCheckBox->setChecked(toml::find<bool>(gpu, "fpsLimiterEnabled"));
         if (gpu.contains("fsrEnabled"))
             ui->FSRCheckBox->setChecked(toml::find<bool>(gpu, "fsrEnabled"));
-        if (gpu.contains("screenMode"))
+        if (gpu.contains("FullscreenMode"))
             ui->displayModeComboBox->setCurrentText(
-                QString::fromStdString(toml::find<std::string>(gpu, "screenMode")));
+                QString::fromStdString(toml::find<std::string>(gpu, "FullscreenMode")));
 
         if (gpu.contains("isFullscreen"))
             Config::setIsFullscreen(toml::find<bool>(gpu, "isFullscreen"));
@@ -255,8 +255,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->presentModeComboBox->setCurrentText(presentText);
         }
 
-        if (gpu.contains("rcas_attenuation"))
-            ui->RCASSpinBox->setValue(toml::find<double>(gpu, "rcas_attenuation"));
+        if (gpu.contains("rcasAttenuation"))
+            ui->RCASSpinBox->setValue(toml::find<double>(gpu, "rcasAttenuation"));
         if (gpu.contains("rcasEnabled"))
             ui->RCASCheckBox->setChecked(toml::find<bool>(gpu, "rcasEnabled"));
         if (gpu.contains("readbackLinearImages"))
@@ -423,7 +423,7 @@ void GameSpecificDialog::UpdateSettings() {
             screenModeMap.value(ui->displayModeComboBox->currentText()).toStdString();
 
         if (screen != Config::getFullscreenMode())
-            overrides["GPU"]["screenMode"] = screen;
+            overrides["GPU"]["FullscreenMode"] = screen;
 
         bool shouldFullscreen = (screen != "Windowed");
         if (shouldFullscreen != Config::getIsFullscreen())
@@ -441,7 +441,7 @@ void GameSpecificDialog::UpdateSettings() {
     }
 
     if (ui->RCASSpinBox->value() != Config::getRcasAttenuation())
-        overrides["GPU"]["rcas_attenuation"] = ui->RCASSpinBox->value();
+        overrides["GPU"]["rcasAttenuation"] = ui->RCASSpinBox->value();
 
     if (ui->RCASCheckBox->isChecked() != Config::getRcasEnabled())
         overrides["GPU"]["rcasEnabled"] = ui->RCASCheckBox->isChecked();
