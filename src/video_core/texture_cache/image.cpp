@@ -14,6 +14,30 @@ namespace VideoCore {
 
 using namespace Vulkan;
 
+static bool IsBlockCompressedFormat(vk::Format format) {
+    switch (format) {
+    case vk::Format::eBc1RgbUnormBlock:
+    case vk::Format::eBc1RgbSrgbBlock:
+    case vk::Format::eBc1RgbaUnormBlock:
+    case vk::Format::eBc1RgbaSrgbBlock:
+    case vk::Format::eBc2UnormBlock:
+    case vk::Format::eBc2SrgbBlock:
+    case vk::Format::eBc3UnormBlock:
+    case vk::Format::eBc3SrgbBlock:
+    case vk::Format::eBc4UnormBlock:
+    case vk::Format::eBc4SnormBlock:
+    case vk::Format::eBc5UnormBlock:
+    case vk::Format::eBc5SnormBlock:
+    case vk::Format::eBc6HSfloatBlock:
+    case vk::Format::eBc6HUfloatBlock:
+    case vk::Format::eBc7UnormBlock:
+    case vk::Format::eBc7SrgbBlock:
+        return true;
+    default:
+        return false;
+    }
+}
+
 static vk::ImageUsageFlags ImageUsageFlags(const Vulkan::Instance* instance,
                                            const ImageInfo& info) {
     vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eTransferSrc |
