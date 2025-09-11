@@ -309,9 +309,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     }
 
     // GRAPHICS TAB
-    float rcas_value = Config::getRcasAttenuation();
-    ui->RCASSlider->setValue(static_cast<int>(rcas_value * 1000));
-    ui->RCASSpinBox->setValue(rcas_value);
+    int v = Config::getRcasAttenuation();
+    ui->RCASSlider->setValue(v);
+    ui->RCASSpinBox->setValue(static_cast<double>(v) / 1000.0);
 
     connect(ui->RCASSlider, &QSlider::valueChanged, this,
             &SettingsDialog::OnRcasAttenuationChanged);
@@ -379,10 +379,10 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         });
 
         connect(ui->logPresetsButton, &QPushButton::clicked, this, [this]() {
-            auto dlg = new LogPresetsDialog(compat_info, this);
-            connect(dlg, &LogPresetsDialog::PresetChosen, this,
+            LogPresetsDialog dlg(compat_info, this);
+            connect(&dlg, &LogPresetsDialog::PresetChosen, this,
                     [this](const QString& filter) { ui->logFilterLineEdit->setText(filter); });
-            dlg->exec();
+            dlg.exec();
         });
 
         connect(ui->removeFolderButton, &QPushButton::clicked, this, [this]() {
@@ -1049,6 +1049,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setFsrEnabled(ui->FSRCheckBox->isChecked());
     Config::setRcasEnabled(ui->RCASCheckBox->isChecked());
     Config::setRcasAttenuation(ui->RCASSpinBox->value());
+    Config::setRcasAttenuation(ui->RCASSlider->value());
     Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
 
     std::vector<Config::GameInstallDir> dirs_with_states;
@@ -1076,18 +1077,22 @@ void SettingsDialog::UpdateSettings() {
 }
 
 void SettingsDialog::OnRcasAttenuationChanged(int value) {
-    float attenuation = static_cast<float>(value) / 1000.0f;
+    float attenuation = value / 1000.0f;
     ui->RCASSpinBox->setValue(attenuation);
-    Config::setRcasAttenuation(attenuation);
+
+    Config::setRcasAttenuation(value);
+
     if (presenter) {
         presenter->GetFsrSettingsRef().rcas_attenuation = attenuation;
     }
 }
 
 void SettingsDialog::OnRcasAttenuationSpinBoxChanged(double value) {
-    int int_value = static_cast<int>(value * 1000);
+    int int_value = static_cast<int>(value * 1000.0);
     ui->RCASSlider->setValue(int_value);
-    Config::setRcasAttenuation(static_cast<float>(value));
+
+    Config::setRcasAttenuation(int_value);
+
     if (presenter) {
         presenter->GetFsrSettingsRef().rcas_attenuation = static_cast<float>(value);
     }
@@ -1139,6 +1144,6 @@ void SettingsDialog::SyncRealTimeWidgetstoConfig() {
         presenter->GetFsrSettingsRef().enable = Config::getFsrEnabled();
         presenter->GetFsrSettingsRef().use_rcas = Config::getRcasEnabled();
         presenter->GetFsrSettingsRef().rcas_attenuation =
-            static_cast<float>(Config::getRcasAttenuation());
+            static_cast<int>(Config::getRcasAttenuation());
     }
 }

@@ -382,22 +382,28 @@
              <widget class="QDoubleSpinBox" name="RCASSpinBox">
               <property name="decimals">
                <number>3</number>
-              </property>
-              <property name="minimum">
-               <double>0.000000000000000</double>
-              </property>
-              <property name="maximum">
-               <double>3.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.001000000000000</double>
-              </property>
-             </widget>
+  </property>
+  <property name="minimum">
+   <double>0.000</double>
+  </property>
+  <property name="maximum">
+   <double>3.000</double>
+  </property>
+  <property name="singleStep">
+   <double>0.001</double>
+  </property>
+  <property name="value">
+   <double>0.250</double>
+  </property>
+ </widget>
             </item>
            </layout>
           </item>
           <item>
            <widget class="QSlider" name="RCASSlider">
+		     <property name="minimum">
+   <number>0</number>
+  </property>
             <property name="maximum">
              <number>3000</number>
             </property>
@@ -405,7 +411,7 @@
              <number>250</number>
             </property>
             <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
            </widget>
           </item>

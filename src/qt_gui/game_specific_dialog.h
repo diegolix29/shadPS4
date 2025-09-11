@@ -23,6 +23,8 @@ private:
     void UpdateSettings();
     void VolumeSliderChange(int value);
     void OnCursorStateChanged(s16 index);
+    void OnRcasAttenuationChanged(int value);
+    void OnRcasAttenuationSpinBoxChanged(double value);
     Ui::GameSpecificDialog* ui;
     std::shared_ptr<CompatibilityInfoClass> m_compat_info;
     std::string m_serial;

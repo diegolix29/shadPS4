@@ -32,8 +32,8 @@ void load(const std::filesystem::path& path, bool is_game_specific = false);
 void save(const std::filesystem::path& path);
 void saveMainWindow(const std::filesystem::path& path);
 
-float getRcasAttenuation();
-void setRcasAttenuation(float value);
+int getRcasAttenuation();
+void setRcasAttenuation(int value);
 std::string getTrophyKey();
 void setTrophyKey(std::string key);
 bool GetLoadGameSizeEnabled();

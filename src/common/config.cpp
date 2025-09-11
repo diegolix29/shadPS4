@@ -160,7 +160,6 @@ static ConfigEntry<bool> isHDRAllowed(false);
 static ConfigEntry<bool> fsrEnabled(true);
 static ConfigEntry<bool> rcasEnabled(true);
 static ConfigEntry<int> rcasAttenuation(250);
-
 // Audio / BGM
 static bool playBGM = false;
 static ConfigEntry<string> audioBackend("cubeb");
@@ -426,11 +425,11 @@ void setRcasEnabled(bool enable) {
     rcasEnabled.base_value = enable;
 }
 
-float getRcasAttenuation() {
+int getRcasAttenuation() {
     return rcasAttenuation.get();
 }
 
-void setRcasAttenuation(float value) {
+void setRcasAttenuation(int value) {
     rcasAttenuation.base_value = value;
 }
 

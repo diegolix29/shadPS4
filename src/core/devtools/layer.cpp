@@ -119,7 +119,10 @@ void L::DrawMenuBar() {
                     Checkbox("RCAS", &fsr.use_rcas);
                     BeginDisabled(!fsr.use_rcas);
                     {
-                        SliderFloat("RCAS Attenuation", &fsr.rcas_attenuation, 0.0, 3.0);
+                        float atten = fsr.rcas_attenuation / 1000.0f;
+                        if (SliderFloat("RCAS Attenuation", &atten, 0.0f, 3.0f)) {
+                            fsr.rcas_attenuation = static_cast<int>(atten * 1000.0f);
+                        }
                     }
                     EndDisabled();
                 }
@@ -575,7 +578,6 @@ void DrawPauseStatusWindow(bool& is_open) {
         ImGui::Spacing();
 
         if (ImGui::Button("Return to Game")) {
-            Config::setLogFilter(std::string(filter_buf));
 #ifdef ENABLE_QT_GUI
             g_MainWindow->PauseGame();
 #else
@@ -584,140 +586,164 @@ void DrawPauseStatusWindow(bool& is_open) {
             }
 #endif
         }
+
         ImGui::Separator();
         ImGui::TextDisabled("Tip: Use keyboard or controller shortcuts above.");
-
         ImGui::Spacing();
-        ImGui::SeparatorText("Network Status");
-        if (Config::getIsConnectedToNetwork())
-            ImGui::TextColored(ImVec4(0, 1, 0, 1), "Network: Connected");
-        else
-            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Network: Disconnected");
 
-        static bool network_connected = Config::getIsConnectedToNetwork();
-        if (ImGui::Checkbox("Set Network Connected", &network_connected))
-            Config::setIsConnectedToNetwork(network_connected);
+        if (ImGui::BeginTable("PauseMenuTable", 2, ImGuiTableFlags_SizingStretchProp)) {
+            ImGui::TableNextRow();
 
-        ImGui::Spacing();
-        ImGui::SeparatorText("Edit Configurations");
+            // LEFT COLUMN
 
-        if (ImGui::Checkbox("Show Fullscreen Tip", &show_fullscreen_tip)) {
-            if (show_fullscreen_tip)
-                fullscreen_tip_timer = 10.0f;
-        }
+            ImGui::TableSetColumnIndex(0);
 
-        bool ss = Config::getShaderSkipsEnabled();
-        if (ImGui::Checkbox("Shader Skips", &ss))
-            Config::setShaderSkipsEnabled(ss);
+            ImGui::SeparatorText("Network Status");
+            if (Config::getIsConnectedToNetwork())
+                ImGui::TextColored(ImVec4(0, 1, 0, 1), "Network: Connected");
+            else
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "Network: Disconnected");
 
-        bool lr = Config::getReadbackLinearImages();
-        if (ImGui::Checkbox("Linear Readbacks", &lr))
-            Config::setReadbackLinearImages(lr);
+            static bool network_connected = Config::getIsConnectedToNetwork();
+            if (ImGui::Checkbox("Set Network Connected", &network_connected))
+                Config::setIsConnectedToNetwork(network_connected);
 
-        bool dma = Config::directMemoryAccess();
-        if (ImGui::Checkbox("DMA Access", &dma))
-            Config::setDirectMemoryAccess(dma);
+            ImGui::SeparatorText("Graphics Settings");
+            {
+                bool hdr = Config::allowHDR();
+                if (ImGui::Checkbox("HDR Allowed", &hdr))
+                    Config::setAllowHDR(hdr);
 
-        int vblank = Config::vblankFreq();
-        if (ImGui::SliderInt("VBlank Frequency", &vblank, 1, 500))
-            Config::setVblankFreq(vblank);
+                bool psn = Config::getPSNSignedIn();
+                if (ImGui::Checkbox("PSN Signed In", &psn))
+                    Config::setPSNSignedIn(psn);
 
-        bool hdr = Config::allowHDR();
-        if (ImGui::Checkbox("HDR Allowed", &hdr))
-            Config::setAllowHDR(hdr);
+                int vblank = Config::vblankFreq();
+                if (ImGui::SliderInt("VBlank Freq", &vblank, 1, 500))
+                    Config::setVblankFreq(vblank);
 
-        bool autobackup = Config::getEnableAutoBackup();
-        if (ImGui::Checkbox("Auto Backup", &autobackup))
-            Config::setEnableAutoBackup(autobackup);
-        struct PresentModeOption {
-            const char* label; // What ImGui shows
-            const char* key;   // What Config stores
-        };
+                bool fsr_enabled = Config::getFsrEnabled();
+                if (ImGui::Checkbox("FSR Enabled", &fsr_enabled))
+                    Config::setFsrEnabled(fsr_enabled);
 
-        static const PresentModeOption presentModes[] = {
-            {"Mailbox (Vsync)", "Mailbox"},
-            {"Fifo (Vsync)", "Fifo"},
-            {"Immediate (No Vsync)", "Immediate"},
-        };
+                ImGui::BeginDisabled(!fsr_enabled);
+                {
+                    bool rcas_enabled = Config::getRcasEnabled();
+                    if (ImGui::Checkbox("RCAS", &rcas_enabled))
+                        Config::setRcasEnabled(rcas_enabled);
 
-        int presentModeIndex = 0;
-        for (int i = 0; i < IM_ARRAYSIZE(presentModes); i++) {
-            if (Config::getPresentMode() == presentModes[i].key) {
-                presentModeIndex = i;
-                break;
+                    ImGui::BeginDisabled(!rcas_enabled);
+                    {
+                        float atten = static_cast<float>(Config::getRcasAttenuation()) / 1000.0f;
+                        if (ImGui::SliderFloat("RCAS Attenuation", &atten, 0.0f, 3.0f)) {
+                            Config::setRcasAttenuation(static_cast<int>(atten * 1000.0f));
+                        }
+                    }
+
+                    static const char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low",
+                                                                 "Default", "Fast"};
+                    int readbackAccIndex = static_cast<int>(Config::readbackSpeed());
+                    if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
+                                     IM_ARRAYSIZE(readbackAccuracyStrs))) {
+                        Config::setReadbackSpeed(
+                            static_cast<Config::ReadbackSpeed>(readbackAccIndex));
+                    }
+                    ImGui::EndDisabled();
+                }
+                ImGui::EndDisabled();
             }
-        }
 
-        if (ImGui::Combo(
-                "Present Mode", &presentModeIndex,
-                [](void*, int idx, const char** out_text) {
-                    *out_text = presentModes[idx].label;
-                    return true;
-                },
-                nullptr, IM_ARRAYSIZE(presentModes))) {
-            Config::setPresentMode(presentModes[presentModeIndex].key);
-        }
+            // RIGHT COLUMN
 
-        bool psn = Config::getPSNSignedIn();
-        if (ImGui::Checkbox("PSN Signed In", &psn))
-            Config::setPSNSignedIn(psn);
+            ImGui::TableSetColumnIndex(1);
+
+            ImGui::SeparatorText("Logging");
+            {
+                static const char* logTypes[] = {"sync", "async"};
+                int logTypeIndex = (Config::getLogType() == "async") ? 1 : 0;
+                if (ImGui::Combo("Log Type", &logTypeIndex, logTypes, IM_ARRAYSIZE(logTypes)))
+                    Config::setLogType(logTypes[logTypeIndex]);
+
+                ImGui::SeparatorText("Log Filter");
+                ImGui::TextDisabled("Restart the game to take effect");
+                if (filter_buf[0] == '\0') {
+                    std::string current_filter = Config::getLogFilter();
+                    strncpy(filter_buf, current_filter.c_str(), sizeof(filter_buf) - 1);
+                }
+                if (ImGui::InputText("##LogFilter", filter_buf, sizeof(filter_buf),
+                                     ImGuiInputTextFlags_CallbackAlways,
+                                     [](ImGuiInputTextCallbackData*) {
+                                         show_virtual_keyboard = true;
+                                         return 0;
+                                     })) {
+                    Config::setLogFilter(std::string(filter_buf));
+                }
+            }
+
+            ImGui::SeparatorText("Toggles");
+            {
+                bool autobackup = Config::getEnableAutoBackup();
+                if (ImGui::Checkbox("Auto Backup", &autobackup))
+                    Config::setEnableAutoBackup(autobackup);
+
+                bool ss = Config::getShaderSkipsEnabled();
+                if (ImGui::Checkbox("Shader Skips", &ss))
+                    Config::setShaderSkipsEnabled(ss);
+
+                bool lr = Config::getReadbackLinearImages();
+                if (ImGui::Checkbox("Linear Readbacks", &lr))
+                    Config::setReadbackLinearImages(lr);
+
+                bool dma = Config::directMemoryAccess();
+                if (ImGui::Checkbox("DMA Access", &dma))
+                    Config::setDirectMemoryAccess(dma);
 
 #ifdef ENABLE_QT_GUI
-        if (g_MainWindow && g_MainWindow->isVisible()) {
-
-            static bool mute = Config::isMuteEnabled();
-            if (ImGui::Checkbox("Mute", &mute)) {
-                if (g_MainWindow)
-                    g_MainWindow->ToggleMute();
-                mute = Config::isMuteEnabled();
-            }
-        }
+                if (g_MainWindow && g_MainWindow->isVisible()) {
+                    static bool mute = Config::isMuteEnabled();
+                    if (ImGui::Checkbox("Mute", &mute)) {
+                        if (g_MainWindow)
+                            g_MainWindow->ToggleMute();
+                        mute = Config::isMuteEnabled();
+                    }
+                }
 #endif
-        struct LogTypeOption {
-            const char* key;
-            const char* label;
-        };
-
-        static const LogTypeOption logTypes[] = {{"sync", "sync"}, {"async", "async"}};
-
-        int logTypeIndex = 0;
-        for (int i = 0; i < IM_ARRAYSIZE(logTypes); i++) {
-            if (Config::getLogType() == logTypes[i].key) {
-                logTypeIndex = i;
-                break;
             }
-        }
 
-        if (ImGui::Combo(
-                "Log Type", &logTypeIndex,
-                [](void*, int idx, const char** out_text) {
-                    *out_text = logTypes[idx].label;
-                    return true;
-                },
-                nullptr, IM_ARRAYSIZE(logTypes))) {
-            Config::setLogType(logTypes[logTypeIndex].key);
-        }
+            ImGui::SeparatorText("Present Mode");
+            {
+                struct PresentModeOption {
+                    const char* label;
+                    const char* key;
+                };
 
-        ImGui::SeparatorText("Log Filter");
-        ImGui::TextDisabled("Triangle activates controller keyboard");
-        ImGui::TextDisabled("Restart the game to take effect");
-        if (filter_buf[0] == '\0') {
-            std::string current_filter = Config::getLogFilter();
-            strncpy(filter_buf, current_filter.c_str(), sizeof(filter_buf) - 1);
-        }
-        if (ImGui::InputText("##LogFilter", filter_buf, sizeof(filter_buf),
-                             ImGuiInputTextFlags_CallbackAlways, [](ImGuiInputTextCallbackData*) {
-                                 show_virtual_keyboard = true;
-                                 return 0;
-                             })) {
-            Config::setLogFilter(std::string(filter_buf));
-        }
-        static const char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low", "Default", "Fast"};
-        int readbackAccIndex = (int)Config::readbackSpeed();
-        if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
-                         IM_ARRAYSIZE(readbackAccuracyStrs)))
-            Config::setReadbackSpeed((Config::ReadbackSpeed)readbackAccIndex);
+                static const PresentModeOption presentModes[] = {
+                    {"Mailbox (Vsync)", "Mailbox"},
+                    {"Fifo (Vsync)", "Fifo"},
+                    {"Immediate (No Vsync)", "Immediate"},
+                };
 
+                int presentModeIndex = 0;
+                for (int i = 0; i < IM_ARRAYSIZE(presentModes); i++) {
+                    if (Config::getPresentMode() == presentModes[i].key) {
+                        presentModeIndex = i;
+                        break;
+                    }
+                }
+
+                if (ImGui::Combo(
+                        "Present Mode", &presentModeIndex,
+                        [](void*, int idx, const char** out_text) {
+                            *out_text = presentModes[idx].label;
+                            return true;
+                        },
+                        nullptr, IM_ARRAYSIZE(presentModes))) {
+                    Config::setPresentMode(presentModes[presentModeIndex].key);
+                }
+            }
+
+            ImGui::EndTable();
+        }
         ImGui::Spacing();
         ImGui::Separator();
 
