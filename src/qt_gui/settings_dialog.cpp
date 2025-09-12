@@ -309,15 +309,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     }
 
     // GRAPHICS TAB
-    int v = Config::getRcasAttenuation();
-    ui->RCASSlider->setValue(v);
-    ui->RCASSpinBox->setValue(static_cast<double>(v) / 1000.0);
-
-    connect(ui->RCASSlider, &QSlider::valueChanged, this,
-            &SettingsDialog::OnRcasAttenuationChanged);
-
-    connect(ui->RCASSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
-            &SettingsDialog::OnRcasAttenuationSpinBoxChanged);
 
     connect(ui->FSRCheckBox, &QCheckBox::stateChanged, this,
             [](int state) { Config::setFsrEnabled(state == Qt::Checked); });
@@ -343,7 +334,18 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         FPSChange(value);
         Config::setFpsLimit(value);
     });
+
+    connect(ui->RCASSlider, &QSlider::valueChanged, this,
+            &SettingsDialog::OnRcasAttenuationChanged);
+
+    connect(ui->RCASSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            &SettingsDialog::OnRcasAttenuationSpinBoxChanged);
+
     if (presenter) {
+        connect(ui->RCASSlider, &QSlider::valueChanged, this, [this](int value) {
+            presenter->GetFsrSettingsRef().rcas_attenuation = static_cast<float>(value / 1000.0f);
+        });
+
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
         connect(ui->FSRCheckBox, &QCheckBox::stateChanged, this,
                 [this](int state) { presenter->GetFsrSettingsRef().enable = state; });

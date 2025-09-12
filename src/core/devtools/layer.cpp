@@ -119,10 +119,7 @@ void L::DrawMenuBar() {
                     Checkbox("RCAS", &fsr.use_rcas);
                     BeginDisabled(!fsr.use_rcas);
                     {
-                        float atten = fsr.rcas_attenuation / 1000.0f;
-                        if (SliderFloat("RCAS Attenuation", &atten, 0.0f, 3.0f)) {
-                            fsr.rcas_attenuation = static_cast<int>(atten * 1000.0f);
-                        }
+                        SliderFloat("RCAS Attenuation", &fsr.rcas_attenuation, 0.0, 3.0);
                     }
                     EndDisabled();
                 }
@@ -634,9 +631,11 @@ void DrawPauseStatusWindow(bool& is_open) {
 
                     ImGui::BeginDisabled(!rcas_enabled);
                     {
-                        float atten = static_cast<float>(Config::getRcasAttenuation()) / 1000.0f;
-                        if (ImGui::SliderFloat("RCAS Attenuation", &atten, 0.0f, 3.0f)) {
-                            Config::setRcasAttenuation(static_cast<int>(atten * 1000.0f));
+                        auto& fsr = presenter->GetFsrSettingsRef();
+                        if (ImGui::SliderFloat("RCAS Attenuation", &fsr.rcas_attenuation, 0.0f,
+                                               3.0f, "%.2f")) {
+                            Config::setRcasAttenuation(
+                                static_cast<int>(fsr.rcas_attenuation * 1000.0f));
                         }
                     }
 
