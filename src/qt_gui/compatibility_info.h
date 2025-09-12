@@ -82,6 +82,8 @@ public:
     void ExtractCompatibilityInfo(QByteArray response);
     QList<QString> LoadPresets() const;
     void SavePresets(const QList<QString>& list);
+    QList<QString> LoadFavorites() const;
+    void SaveFavorites(const QList<QString>& list);
 
 private:
     QNetworkAccessManager* m_network_manager;

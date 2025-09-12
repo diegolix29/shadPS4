@@ -211,6 +211,21 @@ void CompatibilityInfoClass::SavePresets(const QList<QString>& list) {
     settings.sync(); // force flush to disk
 }
 
+QList<QString> CompatibilityInfoClass::LoadFavorites() const {
+    QSettings settings("shadPS4", "Emulator");
+    const auto var = settings.value(QStringLiteral("Favorites/Keys"));
+    if (var.isValid()) {
+        return var.toStringList();
+    }
+    return {};
+}
+
+void CompatibilityInfoClass::SaveFavorites(const QList<QString>& list) {
+    QSettings settings("shadPS4", "Emulator");
+    settings.setValue(QStringLiteral("Favorites/Keys"), list);
+    settings.sync();
+}
+
 const QString CompatibilityInfoClass::GetCompatStatusString(const CompatibilityStatus status) {
     switch (status) {
     case CompatibilityStatus::Unknown:

@@ -45,6 +45,14 @@ public:
     void PopulateGameGrid(QVector<GameInfo> m_games, bool fromSearch);
     bool IsValidCellSelected();
 
+    void SetGameConfigIcon(QWidget* parentWidget, QVector<GameInfo> m_games_, int gameCounter);
+
+    void SetFavoriteIcon(QWidget* parentWidget, QVector<GameInfo> m_games_, int gameCounter);
+
+    void SortByFavorite(QVector<GameInfo>* game_list);
+
+    bool CompareWithFavorite(GameInfo a, GameInfo b);
+
     bool cellClicked = false;
     int icon_size;
     int windowWidth;

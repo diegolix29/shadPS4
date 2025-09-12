@@ -33,6 +33,7 @@ public Q_SLOTS:
     void resizeEvent(QResizeEvent* event);
     void SortNameAscending(int columnIndex);
     void SortNameDescending(int columnIndex);
+    void ApplyLastSorting(bool isInitialPopulation);
     void PlayBackgroundMusic(QTableWidgetItem* item);
     void onCurrentCellChanged(int currentRow, int currentColumn, int previousRow,
                               int previousColumn);
@@ -45,6 +46,7 @@ private:
     QList<QAction*> m_columnActs;
     GameInfoClass* game_inf_get = nullptr;
     bool ListSortedAsc = true;
+    int sortColumn = 1;
     QTableWidgetItem* m_current_item = nullptr;
     int m_last_opacity = -1; // Track last opacity to avoid unnecessary recomputation
     std::filesystem::path m_current_game_path; // Track current game path to detect changes
@@ -52,6 +54,7 @@ private:
 public:
     void PopulateGameList(bool isInitialPopulation = true);
     void ResizeIcons(int iconSize);
+    void SetFavoriteIcon(int row, int column);
     QTableWidgetItem* GetCurrentItem();
     QImage backgroundImage;
     GameListUtils m_game_list_utils;
@@ -60,6 +63,7 @@ public:
     std::shared_ptr<CompatibilityInfoClass> m_compat_info;
 
     int icon_size;
+    std::string last_favorite;
 
     static float parseAsFloat(const std::string& str, const int& offset) {
         return std::stof(str.substr(0, str.size() - offset));
@@ -127,4 +131,5 @@ public:
             return false;
         }
     }
+    bool CompareWithFavorite(GameInfo a, GameInfo b, int columnIndex, bool ascending);
 };

@@ -39,12 +39,13 @@
 class GuiContextMenus : public QObject {
     Q_OBJECT
 public:
-    void RequestGameMenu(const QPoint& pos, QVector<GameInfo>& m_games,
-                         std::shared_ptr<CompatibilityInfoClass> m_compat_info,
-                         QTableWidget* widget, bool isList) {
+    int RequestGameMenu(const QPoint& pos, QVector<GameInfo>& m_games,
+                        std::shared_ptr<CompatibilityInfoClass> m_compat_info, QTableWidget* widget,
+                        bool isList) {
         QPoint global_pos = widget->viewport()->mapToGlobal(pos);
 
         int itemID = 0;
+        int changedFavorite = 0;
         if (isList) {
             itemID = widget->currentRow();
         } else {
@@ -53,7 +54,7 @@ public:
 
         // Do not show the menu if no item is selected
         if (itemID < 0 || itemID >= m_games.size()) {
-            return;
+            return changedFavorite;
         }
 
         // Setup menu.
@@ -80,6 +81,18 @@ public:
 
         menu.addMenu(openFolderMenu);
 
+        QString serialStr = QString::fromStdString(m_games[itemID].serial);
+
+        QList<QString> list = m_compat_info->LoadFavorites();
+        bool isFavorite = list.contains(serialStr);
+
+        QAction* toggleFavorite = nullptr;
+        if (isFavorite) {
+            toggleFavorite = new QAction(tr("Remove from Favorites"), widget);
+        } else {
+            toggleFavorite = new QAction(tr("Add to Favorites"), widget);
+        }
+
         QAction gameConfigConfigure(tr("Configure game-specific settings"), widget);
         QAction gameConfigCreate(tr("Create game-specific settings from global settings"), widget);
         QAction gameConfigDelete(tr("Delete game-specific settings"), widget);
@@ -99,6 +112,7 @@ public:
                                     (m_games[itemID].serial + ".toml")))
             menu.addAction(&gameConfigDelete);
 
+        menu.addAction(toggleFavorite);
         menu.addAction(&createShortcut);
         menu.addAction(&openCheats);
         menu.addAction(&openSfoViewer);
@@ -159,7 +173,7 @@ public:
         // Show menu.
         auto selected = menu.exec(global_pos);
         if (!selected) {
-            return;
+            return changedFavorite;
         }
 
         if (selected == bootGameDetached) {
@@ -187,18 +201,18 @@ public:
                     QInputDialog::getItem(widget, tr("Select ELF to Boot"),
                                           tr("Choose ELF/self/bin file:"), allFiles, 0, false, &ok);
                 if (!ok || ebootPath.isEmpty())
-                    return;
+                    return changedFavorite;
             } else if (!binFiles.isEmpty()) {
                 ebootPath = dir.filePath(binFiles.first());
             } else {
                 QMessageBox::information(widget, tr("Boot Game Detached"),
                                          tr("No executable files found in this game directory."));
-                return;
+                return changedFavorite;
             }
 
             if (!QFile::exists(ebootPath)) {
                 QMessageBox::critical(widget, tr("Run Game"), tr("Selected file not found!"));
-                return;
+                return changedFavorite;
             }
 
             QString exePath = QCoreApplication::applicationFilePath();
@@ -208,7 +222,7 @@ public:
                                                    &detachedGamePid);
             if (!started) {
                 QMessageBox::critical(widget, tr("Run Game"), tr("Failed to start emulator."));
-                return;
+                return changedFavorite;
             }
         }
 
@@ -380,6 +394,17 @@ public:
                 tableWidget->setWindowTitle(tr("SFO Viewer for ") + gameName);
                 tableWidget->show();
             }
+        }
+
+        if (selected == toggleFavorite) {
+            if (isFavorite) {
+                list.removeOne(serialStr);
+            } else {
+                list.append(serialStr);
+            }
+
+            m_compat_info->SaveFavorites(list);
+            changedFavorite = 1;
         }
 
         if (selected == &openCheats) {
@@ -683,6 +708,7 @@ public:
                     QUrl(url_issues + m_games[itemID].compatibility.issue_number));
             }
         }
+        return changedFavorite;
     }
 
     int GetRowIndex(QTreeWidget* treeWidget, QTreeWidgetItem* item) {
