@@ -210,10 +210,6 @@ struct Info {
     bool has_bitwise_xor{};
     bool has_image_gather{};
     bool has_image_query{};
-    bool has_perspective_interp{};
-    bool has_linear_interp{};
-    bool has_layer_output{};
-    bool has_viewport_index_output{};
     bool uses_buffer_atomic_float_min_max{};
     bool uses_image_atomic_float_min_max{};
     bool uses_lane_id{};
