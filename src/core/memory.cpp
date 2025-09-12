@@ -135,16 +135,25 @@ void MemoryManager::CopySparseMemory(VAddr virtual_addr, u8* dest, u64 size) {
     }
 }
 
-bool MemoryManager::TryWriteBacking(void* address, const void* data, u32 num_bytes) {
+bool MemoryManager::TryWriteBacking(void* address, const void* data, u32 size) {
     ASSERT_MSG(IsValidAddress(address), "Attempted to access invalid address {}",
                fmt::ptr(address));
-    const VAddr virtual_addr = std::bit_cast<VAddr>(address);
-    const auto& vma = FindVMA(virtual_addr)->second;
-    if (vma.type != VMAType::Direct) {
-        return false;
+    VAddr virtual_addr = std::bit_cast<VAddr>(address);
+    const u8* src_data = std::bit_cast<const u8*>(data);
+    auto vma = FindVMA(virtual_addr);
+    while (size) {
+        if (vma->second.type != VMAType::Direct) {
+            return false;
+        }
+        const u64 offset_in_vma = virtual_addr - vma->first;
+        u64 copy_size = std::min<u64>(vma->second.size - offset_in_vma, size);
+        u8* backing = impl.BackingBase() + vma->second.phys_base + offset_in_vma;
+        std::memcpy(backing, src_data, copy_size);
+        size -= copy_size;
+        virtual_addr += copy_size;
+        src_data += copy_size;
+        ++vma;
     }
-    u8* backing = impl.BackingBase() + vma.phys_base + (virtual_addr - vma.base);
-    memcpy(backing, data, num_bytes);
     return true;
 }
 
@@ -302,7 +311,7 @@ s32 MemoryManager::PoolCommit(VAddr virtual_addr, u64 size, MemoryProt prot) {
 
     // Perform the mapping
     void* out_addr = impl.Map(mapped_addr, size, alignment, -1, false);
-    TRACK_ALLOC(out_addr, size, "VMEM");
+    // TRACK_ALLOC(out_addr, size, "VMEM");
 
     if (IsValidGpuMapping(mapped_addr, size)) {
         rasterizer->MapMemory(mapped_addr, size);
@@ -319,6 +328,10 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
     // Certain games perform flexible mappings on loop to determine
     // the available flexible memory size. Questionable but we need to handle this.
     if (type == VMAType::Flexible && flexible_usage + size > total_flexible_size) {
+        LOG_ERROR(Kernel_Vmm,
+                  "Out of flexible memory, available flexible memory = {:#x}"
+                  " requested size = {:#x}",
+                  total_flexible_size - flexible_usage, size);
         return ORBIS_KERNEL_ERROR_ENOMEM;
     }
 
@@ -419,7 +432,7 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
         }
         *out_addr = impl.Map(mapped_addr, size, alignment, phys_addr, is_exec);
 
-        TRACK_ALLOC(*out_addr, size, "VMEM");
+        // TRACK_ALLOC(*out_addr, size, "VMEM");
     }
 
     return ORBIS_OK;
@@ -912,15 +925,10 @@ VAddr MemoryManager::SearchFree(VAddr virtual_addr, u64 size, u32 alignment) {
         virtual_addr = min_search_address;
     }
 
-    // If the requested address is beyond the maximum our code can handle, handle gracefully
+    // If the requested address is beyond the maximum our code can handle, throw an assert
     auto max_search_address = impl.UserVirtualBase() + impl.UserVirtualSize();
-
-    // Replace assertion with proper error handling for high memory addresses
-    if (virtual_addr > max_search_address) {
-        LOG_ERROR(Kernel_Vmm, "Input address {:#x} is out of bounds, max is {:#x}", virtual_addr,
-                  max_search_address);
-        return -1;
-    }
+    ASSERT_MSG(virtual_addr <= max_search_address, "Input address {:#x} is out of bounds",
+               virtual_addr);
 
     // Align up the virtual_addr first.
     virtual_addr = Common::AlignUp(virtual_addr, alignment);

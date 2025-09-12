@@ -8,7 +8,6 @@
 #include <string>
 #include <string_view>
 #include <unordered_set>
-
 #include "common/enum.h"
 #include "common/singleton.h"
 #include "common/types.h"
@@ -173,35 +172,19 @@ public:
 
     bool IsValidAddress(const void* addr) const noexcept {
         const VAddr virtual_addr = reinterpret_cast<VAddr>(addr);
-
-        // Check if address is within any of our defined memory regions
-        const VAddr system_managed_start =
-            static_cast<VAddr>(reinterpret_cast<uintptr_t>(impl.SystemManagedVirtualBase()));
-        const VAddr system_managed_end = system_managed_start + impl.SystemManagedVirtualSize();
-
-        const VAddr system_reserved_start =
-            static_cast<VAddr>(reinterpret_cast<uintptr_t>(impl.SystemReservedVirtualBase()));
-        const VAddr system_reserved_end = system_reserved_start + impl.SystemReservedVirtualSize();
-
-        const VAddr user_start =
-            static_cast<VAddr>(reinterpret_cast<uintptr_t>(impl.UserVirtualBase()));
-        const VAddr user_end = user_start + impl.UserVirtualSize();
-
-
-        // Check if address is in any valid region
-        return (virtual_addr >= system_managed_start && virtual_addr < system_managed_end) ||
-               (virtual_addr >= system_reserved_start && virtual_addr < system_reserved_end) ||
-               (virtual_addr >= user_start && virtual_addr < user_end);
+        const auto end_it = std::prev(vma_map.end());
+        const VAddr end_addr = end_it->first + end_it->second.size;
+        return virtual_addr >= vma_map.begin()->first && virtual_addr < end_addr;
     }
 
-
-        bool NeedsExtraMemory() {
+    bool NeedsExtraMemory() {
         static const std::unordered_set<std::string> extra_memory_games = {
             "CUSA03173", "CUSA00900", "CUSA00299", "CUSA00207",
             "CUSA03023", "CUSA00208", "CUSA01363"};
 
         return extra_memory_games.find(MemoryPatcher::g_game_serial) != extra_memory_games.end();
     }
+
     u64 ClampRangeSize(VAddr virtual_addr, u64 size);
 
     void SetPrtArea(u32 id, VAddr address, u64 size);
