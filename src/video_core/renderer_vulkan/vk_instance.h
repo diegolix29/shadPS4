@@ -114,11 +114,6 @@ public:
         return maintenance_8;
     }
 
-    /// Returns true if VK_EXT_attachment_feedback_loop_layout is supported
-    bool IsAttachmentFeedbackLoopLayoutSupported() const {
-        return attachment_feedback_loop;
-    }
-
     /// Returns true when VK_EXT_custom_border_color is supported
     bool IsCustomBorderColorSupported() const {
         return custom_border_color;
@@ -480,7 +475,6 @@ private:
     bool workgroup_memory_explicit_layout{};
     bool portability_subset{};
     bool maintenance_8{};
-    bool attachment_feedback_loop{};
     bool supports_memory_budget{};
     u64 total_memory_budget{};
     std::vector<size_t> valid_heaps;

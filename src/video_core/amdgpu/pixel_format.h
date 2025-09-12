@@ -102,7 +102,6 @@ enum class NumberConversion : u32 {
     Sint8ToSnormNz = 4,
     Sint16ToSnormNz = 5,
     Uint32ToUnorm = 6,
-    SrgbToNorm = 7,
 };
 
 union CompMapping {
@@ -220,8 +219,6 @@ constexpr NumberFormat RemapNumberFormat(const NumberFormat format, const DataFo
             return format;
         }
     }
-    case NumberFormat::Srgb:
-        return data_format == DataFormat::FormatBc6 ? NumberFormat::Unorm : format;
     case NumberFormat::Uscaled:
         return NumberFormat::Uint;
     case NumberFormat::Sscaled:
@@ -298,9 +295,6 @@ constexpr NumberConversion MapNumberConversion(const NumberFormat num_fmt,
             return NumberConversion::None;
         }
     }
-    case NumberFormat::Srgb:
-        return data_fmt == DataFormat::FormatBc6 ? NumberConversion::SrgbToNorm
-                                                 : NumberConversion::None;
     case NumberFormat::Uscaled:
         return NumberConversion::UintToUscaled;
     case NumberFormat::Sscaled:

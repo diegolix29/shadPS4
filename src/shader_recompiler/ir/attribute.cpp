@@ -160,12 +160,6 @@ std::string NameOf(Attribute attribute) {
         return "TessFactorsBufferBase";
     case Attribute::PointSize:
         return "PointSize";
-    case Attribute::StencilRef:
-        return "StencilRef";
-    case Attribute::SampleMask:
-        return "SampleMask";
-    case Attribute::PackedAncillary:
-        return "PackedAncillary";
     default:
         break;
     }

@@ -370,17 +370,12 @@ void EmitContext::DefineInputs() {
         if (info.loads.GetAny(IR::Attribute::FragCoord)) {
             frag_coord = DefineVariable(F32[4], spv::BuiltIn::FragCoord, spv::StorageClass::Input);
         }
+        if (info.stores.Get(IR::Attribute::Depth)) {
+            frag_depth = DefineVariable(F32[1], spv::BuiltIn::FragDepth, spv::StorageClass::Output);
+        }
         if (info.loads.Get(IR::Attribute::IsFrontFace)) {
             front_facing =
                 DefineVariable(U1[1], spv::BuiltIn::FrontFacing, spv::StorageClass::Input);
-        }
-        if (info.loads.GetAny(IR::Attribute::RenderTargetIndex)) {
-            output_layer = DefineVariable(U32[1], spv::BuiltIn::Layer, spv::StorageClass::Input);
-            Decorate(output_layer, spv::Decoration::Flat);
-        }
-        if (info.loads.Get(IR::Attribute::SampleIndex)) {
-            sample_index = DefineVariable(U32[1], spv::BuiltIn::SampleId, spv::StorageClass::Input);
-            Decorate(sample_index, spv::Decoration::Flat);
         }
         if (info.loads.GetAny(IR::Attribute::BaryCoordSmooth)) {
             if (profile.supports_amd_shader_explicit_vertex_parameter) {
@@ -565,11 +560,11 @@ void EmitContext::DefineVertexBlock() {
             DefineVariable(F32[1], spv::BuiltIn::PointSize, spv::StorageClass::Output);
     }
     if (info.stores.GetAny(IR::Attribute::RenderTargetIndex)) {
-        output_layer = DefineVariable(U32[1], spv::BuiltIn::Layer, spv::StorageClass::Output);
+        output_layer = DefineVariable(S32[1], spv::BuiltIn::Layer, spv::StorageClass::Output);
     }
     if (info.stores.GetAny(IR::Attribute::ViewportIndex)) {
         output_viewport_index =
-            DefineVariable(U32[1], spv::BuiltIn::ViewportIndex, spv::StorageClass::Output);
+            DefineVariable(S32[1], spv::BuiltIn::ViewportIndex, spv::StorageClass::Output);
     }
 }
 
@@ -651,13 +646,6 @@ void EmitContext::DefineOutputs() {
         break;
     }
     case LogicalStage::Fragment: {
-        if (info.stores.Get(IR::Attribute::Depth)) {
-            frag_depth = DefineVariable(F32[1], spv::BuiltIn::FragDepth, spv::StorageClass::Output);
-        }
-        if (info.stores.Get(IR::Attribute::SampleMask)) {
-            sample_mask = DefineVariable(TypeArray(U32[1], u32_one_value), spv::BuiltIn::SampleMask,
-                                         spv::StorageClass::Output);
-        }
         u32 num_render_targets = 0;
         for (u32 i = 0; i < IR::NumRenderTargets; i++) {
             const IR::Attribute mrt{IR::Attribute::RenderTarget0 + i};
