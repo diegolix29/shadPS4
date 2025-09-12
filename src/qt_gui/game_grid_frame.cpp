@@ -261,7 +261,7 @@ void GameGridFrame::SetFavoriteIcon(QWidget* parentWidget, QVector<GameInfo> m_g
 
     QLabel* label = new QLabel(parentWidget);
     label->setPixmap(QPixmap(":images/favorite_icon.png")
-                         .scaled(icon_size / 3.8, icon_size / 3.8, Qt::KeepAspectRatio,
+                         .scaled(icon_size / 5.5, icon_size / 5.5, Qt::KeepAspectRatio,
                                  Qt::SmoothTransformation));
     label->move(icon_size - icon_size / 4, 2);
     label->raise();
