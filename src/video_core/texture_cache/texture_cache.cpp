@@ -130,7 +130,7 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
 
             auto* memory = Core::Memory::Instance();
             memory->TryWriteBacking(std::bit_cast<u8*>(device_addr), download, download_size);
-            cache->InvalidateMemory(device_addr, download_size, false);
+            cache->InvalidateMemory(device_addr, download_size);
         });
 }
 

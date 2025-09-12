@@ -117,7 +117,7 @@ public:
     }
 
     /// Invalidates any buffer in the logical page range.
-    void InvalidateMemory(VAddr device_addr, u64 size, bool download);
+    void InvalidateMemory(VAddr device_addr, u64 size);
 
     /// Flushes any GPU modified buffer in the logical page range back to CPU memory.
     void ReadMemory(VAddr device_addr, u64 size, bool is_write = false);
@@ -165,7 +165,7 @@ public:
     /// Synchronizes all buffers in the specified range.
     void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
 
-    /// Synchronizes all buffers needed for DMA.
+    /// Synchronizes all buffers neede for DMA.
     void SynchronizeDmaBuffers();
 
     /// Runs the garbage collector.
@@ -204,7 +204,7 @@ private:
     template <bool insert>
     void ChangeRegister(BufferId buffer_id);
 
-    bool SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_written,
+    bool SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32 size, bool is_written,
                            bool is_texel_buffer);
 
     vk::Buffer UploadCopies(const Buffer& buffer, std::span<vk::BufferCopy> copies,

@@ -88,29 +88,30 @@ struct Liverpool {
         }
     };
 
-    static const BinaryInfo* SearchBinaryInfo(const u32* code, size_t search_limit_dw = 0x4000) {
+    static const BinaryInfo& SearchBinaryInfo(const u32* code, size_t search_limit = 0x2000) {
         constexpr u32 token_mov_vcchi = 0xBEEB03FF;
 
-        // Fast-path via first instruction (bounds-checked)
-        if (search_limit_dw >= 2 && code[0] == token_mov_vcchi) {
-            const u32 offset_dw = (code[1] + 1) * 2; // same logic as before
-            if (offset_dw < search_limit_dw) {
-                const auto* info = std::bit_cast<const BinaryInfo*>(code + offset_dw);
-                if (info && info->Valid()) {
-                    return info;
-                }
+        if (code[0] == token_mov_vcchi) {
+            const auto* info = std::bit_cast<const BinaryInfo*>(code + (code[1] + 1) * 2);
+            if (info->Valid()) {
+                return *info;
             }
         }
 
-        // Fallback: linear scan (bounds-checked)
-        const u32* const end = code + search_limit_dw;
+        // First instruction is not s_mov_b32 vcc_hi, #imm,
+        // which means we cannot get the binary info via said instruction.
+        // The easiest solution is to iterate through each dword and break
+        // on the first instance of the binary info.
+        constexpr size_t signature_size = sizeof(BinaryInfo::signature_ref) / sizeof(u8);
+        const u32* end = code + search_limit;
+
         for (const u32* it = code; it < end; ++it) {
-            const BinaryInfo* info = std::bit_cast<const BinaryInfo*>(it);
-            if (info && info->Valid()) {
-                return info;
+            if (const BinaryInfo* info = std::bit_cast<const BinaryInfo*>(it); info->Valid()) {
+                return *info;
             }
         }
-        return nullptr;
+
+        UNREACHABLE_MSG("Shader binary info not found.");
     }
 
     struct ShaderProgram {
@@ -144,12 +145,9 @@ struct Liverpool {
 
         std::span<const u32> Code() const {
             const u32* code = Address<u32*>();
-            const BinaryInfo* bininfo = SearchBinaryInfo(code);
-            if (!bininfo) {
-                return {};
-            }
-            const u32 num_dwords = bininfo->length / sizeof(u32);
-            return {code, num_dwords};
+            const BinaryInfo& bininfo = SearchBinaryInfo(code);
+            const u32 num_dwords = bininfo.length / sizeof(u32);
+            return std::span{code, num_dwords};
         }
 
         [[nodiscard]] u32 NumVgprs() const {
@@ -215,25 +213,24 @@ struct Liverpool {
 
         std::span<const u32> Code() const {
             const u32* code = Address<u32*>();
-            const BinaryInfo* bininfo = SearchBinaryInfo(code);
-            const u32 num_dwords = bininfo->length / sizeof(u32);
+            const BinaryInfo& bininfo = SearchBinaryInfo(code);
+            const u32 num_dwords = bininfo.length / sizeof(u32);
             return std::span{code, num_dwords};
         }
     };
 
     template <typename Shader>
-    static inline const BinaryInfo* GetBinaryInfo(const Shader& sh) {
+    static constexpr const BinaryInfo& GetBinaryInfo(const Shader& sh) {
         const auto* code = sh.template Address<u32*>();
         return SearchBinaryInfo(code);
     }
 
-    static inline Shader::ShaderParams GetParams(const auto& sh) {
-        const auto* bininfo = GetBinaryInfo(sh);
-        const auto code_span = sh.Code(); // already safe/empty if missing
+    static constexpr Shader::ShaderParams GetParams(const auto& sh) {
+        auto& bininfo = GetBinaryInfo(sh);
         return {
             .user_data = sh.user_data,
-            .code = code_span,
-            .hash = bininfo ? bininfo->shader_hash : 0ull, // 0 signals “unknown/missing”
+            .code = sh.Code(),
+            .hash = bininfo.shader_hash,
         };
     }
 
@@ -803,6 +800,7 @@ struct Liverpool {
             ReverseSubtract = 4,
         };
 
+        u32 raw;
         BitField<0, 5, BlendFactor> color_src_factor;
         BitField<5, 3, BlendFunc> color_func;
         BitField<8, 5, BlendFactor> color_dst_factor;
@@ -812,6 +810,10 @@ struct Liverpool {
         BitField<29, 1, u32> separate_alpha_blend;
         BitField<30, 1, u32> enable;
         BitField<31, 1, u32> disable_rop3;
+
+        bool operator==(const BlendControl& other) const {
+            return raw == other.raw;
+        }
     };
 
     union ColorControl {
@@ -928,7 +930,7 @@ struct Liverpool {
         INSERT_PADDING_WORDS(2);
 
         operator bool() const {
-            return info.format != DataFormat::FormatInvalid;
+            return base_address && info.format != DataFormat::FormatInvalid;
         }
 
         u32 Pitch() const {
