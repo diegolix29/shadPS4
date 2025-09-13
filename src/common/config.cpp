@@ -155,7 +155,7 @@ static ConfigEntry<bool> shouldPatchShaders(false);
 static ConfigEntry<u32> vblankFrequency(60);
 static ConfigEntry<bool> isFullscreen(false);
 static ConfigEntry<std::string> fullscreenMode("Windowed");
-static ConfigEntry<std::string> presentMode("Mailbox");
+static ConfigEntry<string> presentMode("Mailbox");
 static ConfigEntry<bool> isHDRAllowed(false);
 static ConfigEntry<bool> fsrEnabled(true);
 static ConfigEntry<bool> rcasEnabled(true);
@@ -346,8 +346,8 @@ bool getShowLabelsUnderIcons() {
     return showLabelsUnderIcons;
 }
 
-bool setShowLabelsUnderIcons() {
-    return false;
+void setShowLabelsUnderIcons(bool enable) {
+    showLabelsUnderIcons = enable;
 }
 
 std::string getFullscreenMode() {
@@ -752,16 +752,12 @@ void setVblankFreq(u32 value) {
 void setIsFullscreen(bool enable) {
     isFullscreen.base_value = enable;
 }
-static void setShowLabelsUnderIcons(bool enable) {
-    showLabelsUnderIcons = enable;
-}
 
 void setFullscreenMode(std::string mode) {
     fullscreenMode.base_value = mode;
 }
 
-void setPresentMode(const std::string& mode) {
-    presentMode.game_specific_value.reset(); // clear stale override
+void setPresentMode(const std::string mode) {
     presentMode.base_value = mode;
 }
 
@@ -1310,6 +1306,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         emulator_language = toml::find_or<std::string>(gui, "emulatorLanguage", "en_US");
         backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
         showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
+        showLabelsUnderIcons = toml::find_or<bool>(gui, "showLabelsUnderIcons", true);
+
     }
 
     if (data.contains("Settings")) {
@@ -1479,6 +1477,7 @@ void save(const std::filesystem::path& path) {
     data["Debug"]["FPSColor"] = isFpsColor.base_value;
     data["Debug"]["logEnabled"] = logEnabled.base_value;
     data["Keys"]["TrophyKey"] = trophyKey;
+    data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
 
     std::vector<std::string> install_dirs;
     std::vector<bool> install_dirs_enabled;
@@ -1575,6 +1574,7 @@ void saveMainWindow(const std::filesystem::path& path) {
     data["GUI"]["geometry_h"] = main_window_geometry_h;
     data["GUI"]["elfDirs"] = m_elf_viewer;
     data["GUI"]["recentFiles"] = m_recent_files;
+    data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
 
     // Sorting of TOML sections
     sortTomlSections(data);
@@ -1684,6 +1684,7 @@ void setDefaultValues() {
     checkCompatibilityOnStartup = false;
     backgroundImageOpacity = 50;
     showBackgroundImage = true;
+    showLabelsUnderIcons = true;
     audioBackend = "cubeb";
     audioVolume = 100;
 }

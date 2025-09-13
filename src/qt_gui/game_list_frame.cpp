@@ -324,8 +324,8 @@ void GameListFrame::SetFavoriteIcon(int row, int column) {
     QTableWidgetItem* item = new QTableWidgetItem();
     QImage scaledPixmap = QImage(":images/favorite_icon.png");
 
-    scaledPixmap = scaledPixmap.scaledToHeight(this->columnWidth(column) / 2.5);
-    scaledPixmap = scaledPixmap.scaledToWidth(this->columnWidth(column) / 2.5);
+    scaledPixmap = scaledPixmap.scaledToHeight(this->columnWidth(column) / 4.5);
+    scaledPixmap = scaledPixmap.scaledToWidth(this->columnWidth(column) / 4.5);
 
     QWidget* widget = new QWidget(this);
     QVBoxLayout* layout = new QVBoxLayout(widget);

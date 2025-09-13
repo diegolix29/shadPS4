@@ -2466,6 +2466,14 @@
 			</item>
 
 			<item>
+				<widget class="QCheckBox" name="isPSNSignedInCheckBox">
+					<property name="text">
+						<string>PSN Signed</string>
+					</property>
+				</widget>
+			</item>
+
+			<item>
 				<widget class="QCheckBox" name="screenTipBox">
 					<property name="text">
 						<string>Disable FullScreen Tip on Boot</string>

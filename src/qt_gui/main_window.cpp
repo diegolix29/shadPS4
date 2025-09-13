@@ -191,7 +191,7 @@ void MainWindow::PauseGame() {
 
 void MainWindow::toggleLabelsUnderIcons() {
     bool showLabels = ui->toggleLabelsAct->isChecked();
-    Config::setShowLabelsUnderIcons();
+    Config::setShowLabelsUnderIcons(showLabels);
     UpdateToolbarLabels();
     if (isGameRunning) {
         UpdateToolbarButtons();

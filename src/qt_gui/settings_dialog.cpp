@@ -537,6 +537,12 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->isDevKitCheckBox->installEventFilter(this);
         ui->isNeoModeCheckBox->installEventFilter(this);
         ui->separateLogFilesCheckbox->installEventFilter(this);
+        ui->DMACheckBox->installEventFilter(this);
+        ui->isDevKitCheckBox->installEventFilter(this);
+        ui->isNeoModeCheckBox->installEventFilter(this);
+        ui->connectedNetworkCheckBox->installEventFilter(this);
+        ui->isPSNSignedInCheckBox->installEventFilter(this);
+        ui->ReadbacksLinearCheckBox->installEventFilter(this);
     }
 }
 
@@ -700,6 +706,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->RCASSpinBox->setValue(ui->RCASSlider->value() / 1000.0);
     ui->connectedNetworkCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isConnectedToNetwork", false));
+    ui->isPSNSignedInCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "isPSNSignedIn", false));
 
 #ifdef ENABLE_UPDATER
     ui->updateCheckBox->setChecked(toml::find_or<bool>(data, "General", "autoUpdate", false));
@@ -950,7 +958,20 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
     } else if (elementName == "gameSizeCheckBox") {
         text = tr("Show Game Size In List:\\nThere is the size of the game in the list.");
     } else if (elementName == "motionControlsCheckBox") {
-        text = tr("Enable Motion Controls:\\nWhen enabled it will use the controller's motion control if supported."); }
+        text = tr("Enable Motion Controls:\\nWhen enabled it will use the controller's motion control if supported.");
+    } else if (elementName == "ReadbacksLinearCheckBox") {
+        text = tr("Enable Readback Linear Images:\\nEnables async downloading of GPU modified linear images.\\nMight fix issues in some games.");
+    } else if (elementName == "DMACheckBox") {
+        text = tr("Enable Direct Memory Access:\\nEnables arbitrary memory access from the GPU to CPU memory.");
+    } else if (elementName == "isNeoModeCheckBox") {
+        text = tr("Enable PS4 Neo Mode:\\nAdds support for PS4 Pro emulation and memory size. Currently causes instability in a large number of tested games.");
+    } else if (elementName == "isDevKitCheckBox") {
+        text = tr("Enable Devkit Console Mode:\\nAdds support for Devkit console memory size.");
+    } else if (elementName == "connectedNetworkCheckBox") {
+        text = tr("Set Network Connected to True:\\nForces games to detect an active network connection. Actual online capabilities are not yet supported.");
+    } else if (elementName == "isPSNSignedInCheckBox") {
+        text = tr("Set PSN Signed-in to True:\\nForces games to detect an active PSN sign-in. Actual PSN capabilities are not supported."); 
+    }
     // clang-format on
     ui->descriptionText->setText(text.replace("\\n", "\n"));
 }
@@ -1056,6 +1077,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setRcasAttenuation(ui->RCASSpinBox->value());
     Config::setRcasAttenuation(ui->RCASSlider->value());
     Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
+    Config::setPSNSignedIn(ui->isPSNSignedInCheckBox->isChecked());
 
     std::vector<Config::GameInstallDir> dirs_with_states;
     for (int i = 0; i < ui->gameFoldersListWidget->count(); i++) {
