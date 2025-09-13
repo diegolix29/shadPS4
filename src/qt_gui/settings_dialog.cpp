@@ -647,8 +647,6 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->fpsLimiterCheckBox->setChecked(Config::fpsLimiterEnabled());
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
-    std::string fullScreenMode =
-        toml::find_or<std::string>(data, "GPU", "FullscreenMode", "Windowed");
     QString translatedText_FullscreenMode =
         screenModeMap.key(QString::fromStdString(Config::getFullscreenMode()));
     ui->displayModeComboBox->setCurrentText(translatedText_FullscreenMode);
