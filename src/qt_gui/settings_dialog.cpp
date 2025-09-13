@@ -647,12 +647,17 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->fpsLimiterCheckBox->setChecked(Config::fpsLimiterEnabled());
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
+
+    std::string fullScreenMode =
+        toml::find_or<std::string>(data, "GPU", "fullscreenMode", "Windowed");
     QString translatedText_FullscreenMode =
-        screenModeMap.key(QString::fromStdString(Config::getFullscreenMode()));
+        screenModeMap.key(QString::fromStdString(fullScreenMode));
     ui->displayModeComboBox->setCurrentText(translatedText_FullscreenMode);
-    QString translatedText_PresentMode =
-        presentModeMap.key(QString::fromStdString(Config::getPresentMode()));
+
+    std::string presentMode = toml::find_or<std::string>(data, "GPU", "presentMode", "Mailbox");
+    QString translatedText_PresentMode = presentModeMap.key(QString::fromStdString(presentMode));
     ui->presentModeComboBox->setCurrentText(translatedText_PresentMode);
+
     ui->gameSizeCheckBox->setChecked(toml::find_or<bool>(data, "GUI", "loadGameSizeEnabled", true));
     ui->showSplashCheckBox->setChecked(toml::find_or<bool>(data, "General", "showSplash", false));
     QString translatedText_logType = logTypeMap.key(QString::fromStdString(Config::getLogType()));

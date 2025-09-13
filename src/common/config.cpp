@@ -162,7 +162,7 @@ static ConfigEntry<bool> rcasEnabled(true);
 
 // Audio / BGM
 static bool playBGM = false;
-static ConfigEntry<float> rcas_attenuation(0.25f);
+static ConfigEntry<float> rcasAttenuation(0.25f);
 static ConfigEntry<std::string> audioBackend("cubeb");
 static ConfigEntry<int> audioVolume(100);
 static int BGMvolume = 50;
@@ -1209,7 +1209,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         screenHeight.setFromToml(gpu, "screenHeight", is_game_specific);
         fsrEnabled.setFromToml(gpu, "fsrEnabled", is_game_specific);
         rcasEnabled.setFromToml(gpu, "rcasEnabled", is_game_specific);
-        rcas_attenuation = toml::find_or<float>(gpu, "rcas_attenuation", is_game_specific);
+        rcasAttenuation = toml::find_or<float>(gpu, "rcasAttenuation", is_game_specific);
         isNullGpu.setFromToml(gpu, "nullGpu", false);
         shouldDumpShaders.setFromToml(gpu, "dumpShaders", is_game_specific);
         shouldPatchShaders.setFromToml(gpu, "patchShaders", is_game_specific);
@@ -1433,7 +1433,7 @@ void save(const std::filesystem::path& path) {
     data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
     data["GPU"]["screenWidth"] = screenWidth.base_value;
     data["GPU"]["screenHeight"] = screenHeight.base_value;
-    data["GPU"]["rcas_attenuation"] = rcas_attenuation.base_value;
+    data["GPU"]["rcasAttenuation"] = rcasAttenuation.base_value;
     data["GPU"]["fsrEnabled"] = fsrEnabled.base_value;
     data["GPU"]["rcasEnabled"] = rcasEnabled.base_value;
     data["Input"]["micDevice"] = micDevice.base_value;
@@ -1650,7 +1650,7 @@ void setDefaultValues() {
     isHDRAllowed = false;
     fsrEnabled = true;
     rcasEnabled = true;
-    rcas_attenuation = 250;
+    rcasAttenuation = 250;
     fpsLimit = 60;
     g_fpsLimiterEnabled = false;
 
