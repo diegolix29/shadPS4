@@ -757,7 +757,7 @@ void setFullscreenMode(std::string mode) {
     fullscreenMode.base_value = mode;
 }
 
-void setPresentMode(const std::string mode) {
+void setPresentMode(std::string mode) {
     presentMode.base_value = mode;
 }
 
@@ -1226,8 +1226,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             toml::find_or<int>(gpu, "readbackSpeed", static_cast<int>(is_game_specific)));
         readbackLinearImagesEnabled.setFromToml(gpu, "readbackLinearImages", is_game_specific);
         directMemoryAccessEnabled.setFromToml(gpu, "directMemoryAccess", is_game_specific);
-        isFullscreen.setFromToml(gpu, "Fullscreen", is_game_specific);
-        fullscreenMode.setFromToml(gpu, "FullscreenMode", is_game_specific);
+        isFullscreen.setFromToml(gpu, "isFullscreen", is_game_specific);
+        fullscreenMode.setFromToml(gpu, "fullscreenMode", is_game_specific);
         presentMode.setFromToml(gpu, "presentMode", is_game_specific);
     }
 
@@ -1307,7 +1307,6 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
         showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
         showLabelsUnderIcons = toml::find_or<bool>(gui, "showLabelsUnderIcons", true);
-
     }
 
     if (data.contains("Settings")) {
@@ -1451,8 +1450,8 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["dumpShaders"] = shouldDumpShaders.base_value;
     data["GPU"]["patchShaders"] = shouldPatchShaders.base_value;
     data["GPU"]["vblankFrequency"] = vblankFrequency.base_value;
-    data["GPU"]["Fullscreen"] = isFullscreen.base_value;
-    data["GPU"]["FullscreenMode"] = fullscreenMode.base_value;
+    data["GPU"]["isFullscreen"] = isFullscreen.base_value;
+    data["GPU"]["fullscreenMode"] = fullscreenMode.base_value;
     data["GPU"]["presentMode"] = presentMode.base_value;
     data["GPU"]["allowHDR"] = isHDRAllowed.base_value;
     data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
