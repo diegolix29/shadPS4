@@ -153,118 +153,6 @@ jobs:
         name: shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         path: upload/
 
-  macos-sdl:
-    runs-on: macos-15
-    needs: get-info
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Setup latest Xcode
-      uses: maxim-lobanov/setup-xcode@v1
-      with:
-        xcode-version: latest
-
-    - name: Cache CMake Configuration
-      uses: actions/cache@v4 
-      env: 
-          cache-name: ${{ runner.os }}-sdl-cache-cmake-configuration
-      with: 
-          path: |  
-            ${{github.workspace}}/build 
-          key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }} 
-          restore-keys: | 
-            ${{ env.cache-name }}- 
-
-    - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.18
-      env:
-          cache-name: ${{runner.os}}-sdl-cache-cmake-build
-      with:
-        append-timestamp: false
-        create-symlink: true
-        key: ${{env.cache-name}}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
-        variant: sccache
-
-    - name: Configure CMake
-      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON  -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
-
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(sysctl -n hw.ncpu)
-
-    - name: Package and Upload macOS SDL artifact
-      run: |
-        mkdir upload
-        mv ${{github.workspace}}/build/shadps4 upload
-        mv ${{github.workspace}}/build/MoltenVK_icd.json upload
-        mv ${{github.workspace}}/build/libMoltenVK.dylib upload
-    - uses: actions/upload-artifact@v4
-      with:
-        name: shadps4-macos-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
-        path: upload/
-
-  macos-qt:
-    runs-on: macos-15
-    needs: get-info
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Setup latest Xcode
-      uses: maxim-lobanov/setup-xcode@v1
-      with:
-        xcode-version: latest
-
-    - name: Setup Qt
-      uses: jurplel/install-qt-action@v4
-      with:
-        version: 6.9.2
-        host: mac
-        target: desktop
-        arch: clang_64
-        archives: qtbase qttools
-        modules: qtmultimedia
-
-    - name: Cache CMake Configuration
-      uses: actions/cache@v4 
-      env: 
-          cache-name: ${{ runner.os }}-qt-cache-cmake-configuration
-      with: 
-          path: |  
-            ${{github.workspace}}/build 
-          key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }} 
-          restore-keys: | 
-            ${{ env.cache-name }}- 
-
-    - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.18
-      env:
-          cache-name: ${{runner.os}}-qt-cache-cmake-build
-      with:
-        append-timestamp: false
-        create-symlink: true
-        key: ${{env.cache-name}}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
-        variant: sccache
-
-    - name: Configure CMake
-      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DENABLE_QT_GUI=ON -DENABLE_UPDATER=ON  -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
-
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(sysctl -n hw.ncpu)
-
-    - name: Package and Upload macOS Qt artifact
-      run: |
-        mkdir upload
-        mv ${{github.workspace}}/build/shadps4.app upload
-        macdeployqt upload/shadps4.app
-        tar cf shadps4-macos-qt.tar.gz -C upload .
-    - uses: actions/upload-artifact@v4
-      with:
-        name: shadps4-macos-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
-        path: shadps4-macos-qt.tar.gz
-
   linux-sdl:
     runs-on: ubuntu-24.04
     needs: get-info
@@ -473,7 +361,7 @@ jobs:
         
   BBFork:
     if: github.ref == 'refs/heads/BBFork' && github.event_name == 'push'
-    needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
+    needs: [get-info, windows-sdl, windows-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts
