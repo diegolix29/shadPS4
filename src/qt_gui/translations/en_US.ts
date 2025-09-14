@@ -1671,24 +1671,12 @@
         <translation>Emulator Language</translation>
     </message>
     <message>
-        <source>Emulator</source>
-        <translation>Emulator</translation>
-    </message>
-    <message>
-        <source>Enable Separate Update Folder</source>
-        <translation>Enable Separate Update Folder</translation>
-    </message>
-    <message>
         <source>Default tab when opening settings</source>
         <translation>Default tab when opening settings</translation>
     </message>
     <message>
         <source>Show Game Size In List</source>
         <translation>Show Game Size In List</translation>
-    </message>
-    <message>
-        <source>Show Splash</source>
-        <translation>Show Splash</translation>
     </message>
     <message>
         <source>Enable Discord Rich Presence</source>
@@ -1879,10 +1867,6 @@
         <translation>Check for Updates</translation>
     </message>
     <message>
-        <source>GUI Settings</source>
-        <translation>GUI Settings</translation>
-    </message>
-    <message>
         <source>Title Music</source>
         <translation>Title Music</translation>
     </message>
@@ -1953,10 +1937,6 @@
     <message>
         <source>Emulator Language:\nSets the language of the emulator&apos;s user interface.</source>
         <translation>Emulator Language:\nSets the language of the emulator&apos;s user interface.</translation>
-    </message>
-    <message>
-        <source>Enable Separate Update Folder:\nEnables installing game updates into a separate folder for easy management.\nThis can be manually created by adding the extracted update to the game folder with the name &quot;CUSA00000-UPDATE&quot; where the CUSA ID matches the game&apos;s ID.</source>
-        <translation>Enable Separate Update Folder:\nEnables installing game updates into a separate folder for easy management.\nThis can be manually created by adding the extracted update to the game folder with the name &quot;CUSA00000-UPDATE&quot; where the CUSA ID matches the game&apos;s ID.</translation>
     </message>
     <message>
         <source>Show Splash Screen:\nShows the game&apos;s splash screen (a special image) while the game is starting.</source>
@@ -2371,10 +2351,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Hz</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Vblank Frequency:\nThe frame rate at which the emulator refreshes at (60hz is the baseline, whether the game runs at 30 or 60fps). Changing this may have adverse effects, such as increasing the game speed, or breaking critical game functionality that does not expect this to change!</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2387,15 +2363,55 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Enable PS4 Pro Mode</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Set &quot;PSN signed-in&quot; to True</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Set &quot;Network Connected&quot; to True</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Miscellaneous</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Frontend</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Experimental</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show Splash Screen When Launching Game</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>General Frontend Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable PS4 Neo Mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable Direct Memory Access:\nEnables arbitrary memory access from the GPU to CPU memory.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable PS4 Neo Mode:\nAdds support for PS4 Pro emulation and memory size. Currently causes instability in a large number of tested games.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable Devkit Console Mode:\nAdds support for Devkit console memory size.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Set Network Connected to True:\nForces games to detect an active network connection. Actual online capabilities are not yet supported.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Set PSN Signed-in to True:\nForces games to detect an active PSN sign-in. Actual PSN capabilities are not supported.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
