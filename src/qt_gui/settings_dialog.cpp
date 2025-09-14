@@ -736,9 +736,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     }
     ui->chooseHomeTabComboBox->setCurrentText(translatedText);
 
-    QStringList tabNames = {tr("General"), tr("GUI"),   tr("Graphics"),
-                            tr("User"),    tr("Input"), tr("Paths"),
-                            tr("Log"),     tr("Debug"), tr("Experimental")};
+    QStringList tabNames = {tr("General"), tr("GUI"),   tr("Graphics"), tr("User"),
+                            tr("Input"),   tr("Paths"), tr("Log"),      tr("Debug")};
     int indexTab = tabNames.indexOf(translatedText);
     if (indexTab == -1 || !ui->tabWidgetSettings->isTabVisible(indexTab) || is_newly_created)
         indexTab = 0;
