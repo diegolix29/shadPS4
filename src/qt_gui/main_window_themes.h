@@ -4,13 +4,31 @@
 #pragma once
 
 #include <QApplication>
+#include <QColor>
 #include <QLineEdit>
 #include <QWidget>
 
-enum class Theme : int { Dark, Light, Green, Blue, Violet, Gruvbox, TokyoNight, Oled };
+enum class Theme : int { Dark, Light, Green, Blue, Violet, Gruvbox, TokyoNight, Oled, Neon };
 
 class WindowThemes : public QObject {
     Q_OBJECT
-public Q_SLOTS:
+public:
+    explicit WindowThemes(QObject* parent = nullptr) : QObject(parent) {}
+
     void SetWindowTheme(Theme theme, QLineEdit* mw_searchbar);
+
+    QColor iconBaseColor() const {
+        return m_iconBaseColor;
+    }
+    QColor iconHoverColor() const {
+        return m_iconHoverColor;
+    }
+    QColor textColor() const {
+        return m_textColor;
+    }
+
+private:
+    QColor m_iconBaseColor{Qt::white};
+    QColor m_iconHoverColor{Qt::lightGray};
+    QColor m_textColor{Qt::white};
 };

@@ -6,6 +6,7 @@
 #include <algorithm> // std::transform
 #include <cctype>    // std::tolower
 
+#include <QColor>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -37,6 +38,7 @@ public Q_SLOTS:
     void PlayBackgroundMusic(QTableWidgetItem* item);
     void onCurrentCellChanged(int currentRow, int currentColumn, int previousRow,
                               int previousColumn);
+    void SetThemeColors(const QColor& textColor);
 
 private:
     void SetTableItem(int row, int column, QString itemStr);
@@ -50,6 +52,7 @@ private:
     QTableWidgetItem* m_current_item = nullptr;
     int m_last_opacity = -1; // Track last opacity to avoid unnecessary recomputation
     std::filesystem::path m_current_game_path; // Track current game path to detect changes
+    QColor m_textColor{Qt::white};
 
 public:
     void PopulateGameList(bool isInitialPopulation = true);

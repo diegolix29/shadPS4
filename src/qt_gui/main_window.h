@@ -80,13 +80,15 @@ private:
     void CreateConnects();
     void SetLastUsedTheme();
     void SetLastIconSizeBullet();
-    void SetUiIcons(bool isWhite);
+    QPixmap RecolorPixmap(const QIcon& icon, const QSize& size, const QColor& color);
+    void SetUiIcons(const QColor& baseColor, const QColor& hoverColor);
     void BootGame();
 
     void AddRecentFiles(QString filePath);
     void LoadTranslation();
     void PlayBackgroundMusic();
-    QIcon RecolorIcon(const QIcon& icon, bool isWhite);
+    QIcon RecolorIcon(const QIcon& icon, const QColor& baseColor, const QColor& hoverColor);
+    QMap<QPushButton*, QIcon> m_originalIcons;
     void StartEmulator(std::filesystem::path);
 
     bool isIconBlack = false;

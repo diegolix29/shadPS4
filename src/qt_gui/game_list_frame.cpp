@@ -437,20 +437,22 @@ void GameListFrame::SetTableItem(int row, int column, QString itemStr) {
     QVBoxLayout* layout = new QVBoxLayout(widget);
     QLabel* label = new QLabel(itemStr, widget);
 
-    label->setStyleSheet("color: white; font-size: 16px; font-weight: bold;");
+    QColor effectiveColor = m_textColor.isValid() ? m_textColor : Qt::white;
 
-    // Create shadow effect
+    label->setStyleSheet(
+        QString("color: %1; font-size: 16px; font-weight: bold;").arg(effectiveColor.name()));
+
     QGraphicsDropShadowEffect* shadowEffect = new QGraphicsDropShadowEffect();
-    shadowEffect->setBlurRadius(5);               // Set the blur radius of the shadow
-    shadowEffect->setColor(QColor(0, 0, 0, 160)); // Set the color and opacity of the shadow
-    shadowEffect->setOffset(2, 2);                // Set the offset of the shadow
-
-    label->setGraphicsEffect(shadowEffect); // Apply shadow effect to the QLabel
+    shadowEffect->setBlurRadius(5);
+    shadowEffect->setColor(QColor(0, 0, 0, 160));
+    shadowEffect->setOffset(2, 2);
+    label->setGraphicsEffect(shadowEffect);
 
     layout->addWidget(label);
     if (column != 8 && column != 1)
         layout->setAlignment(Qt::AlignCenter);
     widget->setLayout(layout);
+
     this->setItem(row, column, item);
     this->setCellWidget(row, column, widget);
 }
@@ -480,6 +482,16 @@ void GameListFrame::SetRegionFlag(int row, int column, QString itemStr) {
     widget->setLayout(layout);
     this->setItem(row, column, item);
     this->setCellWidget(row, column, widget);
+}
+
+void GameListFrame::SetThemeColors(const QColor& textColor) {
+    m_textColor = textColor;
+
+    QPalette pal = this->palette();
+    pal.setColor(QPalette::HighlightedText, Qt::black);
+    this->setPalette(pal);
+
+    PopulateGameList(false);
 }
 
 QString GameListFrame::GetPlayTime(const std::string& serial) {

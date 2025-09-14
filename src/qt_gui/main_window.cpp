@@ -94,6 +94,17 @@ bool MainWindow::Init() {
     this->show();
     // load game list
     LoadGameLists();
+    ui->playButton->installEventFilter(this);
+    ui->pauseButton->installEventFilter(this);
+    ui->stopButton->installEventFilter(this);
+    ui->refreshButton->installEventFilter(this);
+    ui->restartButton->installEventFilter(this);
+    ui->settingsButton->installEventFilter(this);
+    ui->fullscreenButton->installEventFilter(this);
+    ui->controllerButton->installEventFilter(this);
+    ui->keyboardButton->installEventFilter(this);
+    ui->updaterButton->installEventFilter(this);
+    ui->configureHotkeysButton->installEventFilter(this);
 
     if (Config::getAutoRestartGame()) {
         int argc = QCoreApplication::arguments().size();
@@ -178,6 +189,7 @@ void MainWindow::CreateActions() {
     m_theme_act_group->addAction(ui->setThemeGruvbox);
     m_theme_act_group->addAction(ui->setThemeTokyoNight);
     m_theme_act_group->addAction(ui->setThemeOled);
+    m_theme_act_group->addAction(ui->setThemeNeon);
 }
 
 void MainWindow::PauseGame() {
@@ -342,7 +354,9 @@ void MainWindow::UpdateToolbarButtons() {
         if (isIconBlack) {
             ui->pauseButton->setIcon(QIcon(":images/pause_icon.png"));
         } else {
-            ui->pauseButton->setIcon(RecolorIcon(QIcon(":images/pause_icon.png"), isWhite));
+            ui->pauseButton->setIcon(RecolorIcon(QIcon(":images/pause_icon.png"),
+                                                 m_window_themes.iconBaseColor(),
+                                                 m_window_themes.iconHoverColor()));
         }
         ui->pauseButton->setToolTip(tr("Pause"));
     }
@@ -367,6 +381,7 @@ void MainWindow::CreateDockWindows() {
     m_dock_widget.reset(new QDockWidget(tr("Game List"), this));
     m_game_list_frame.reset(new GameListFrame(m_game_info, m_compat_info, this));
     m_game_list_frame->setObjectName("gamelist");
+    m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     m_game_grid_frame.reset(new GameGridFrame(m_game_info, m_compat_info, this));
     m_game_grid_frame->setObjectName("gamegridlist");
     m_elf_viewer.reset(new ElfViewer(this));
@@ -868,69 +883,67 @@ void MainWindow::CreateConnects() {
     });
 
     // Themes
-    connect(ui->setThemeDark, &QAction::triggered, &m_window_themes, [this]() {
+    connect(ui->setThemeDark, &QAction::triggered, this, [this]() {
         m_window_themes.SetWindowTheme(Theme::Dark, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::Dark));
-        if (isIconBlack) {
-            SetUiIcons(false);
-            isIconBlack = false;
-        }
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     });
-    connect(ui->setThemeLight, &QAction::triggered, &m_window_themes, [this]() {
+
+    connect(ui->setThemeLight, &QAction::triggered, this, [this]() {
         m_window_themes.SetWindowTheme(Theme::Light, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::Light));
-        if (!isIconBlack) {
-            SetUiIcons(true);
-            isIconBlack = true;
-        }
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     });
-    connect(ui->setThemeGreen, &QAction::triggered, &m_window_themes, [this]() {
+
+    connect(ui->setThemeGreen, &QAction::triggered, this, [this]() {
         m_window_themes.SetWindowTheme(Theme::Green, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::Green));
-        if (isIconBlack) {
-            SetUiIcons(false);
-            isIconBlack = false;
-        }
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     });
-    connect(ui->setThemeBlue, &QAction::triggered, &m_window_themes, [this]() {
+
+    connect(ui->setThemeBlue, &QAction::triggered, this, [this]() {
         m_window_themes.SetWindowTheme(Theme::Blue, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::Blue));
-        if (isIconBlack) {
-            SetUiIcons(false);
-            isIconBlack = false;
-        }
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     });
-    connect(ui->setThemeViolet, &QAction::triggered, &m_window_themes, [this]() {
+
+    connect(ui->setThemeViolet, &QAction::triggered, this, [this]() {
         m_window_themes.SetWindowTheme(Theme::Violet, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::Violet));
-        if (isIconBlack) {
-            SetUiIcons(false);
-            isIconBlack = false;
-        }
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     });
-    connect(ui->setThemeGruvbox, &QAction::triggered, &m_window_themes, [this]() {
+
+    connect(ui->setThemeGruvbox, &QAction::triggered, this, [this]() {
         m_window_themes.SetWindowTheme(Theme::Gruvbox, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::Gruvbox));
-        if (isIconBlack) {
-            SetUiIcons(false);
-            isIconBlack = false;
-        }
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     });
-    connect(ui->setThemeTokyoNight, &QAction::triggered, &m_window_themes, [this]() {
+
+    connect(ui->setThemeTokyoNight, &QAction::triggered, this, [this]() {
         m_window_themes.SetWindowTheme(Theme::TokyoNight, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::TokyoNight));
-        if (isIconBlack) {
-            SetUiIcons(false);
-            isIconBlack = false;
-        }
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     });
-    connect(ui->setThemeOled, &QAction::triggered, &m_window_themes, [this]() {
+
+    connect(ui->setThemeOled, &QAction::triggered, this, [this]() {
         m_window_themes.SetWindowTheme(Theme::Oled, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::Oled));
-        if (isIconBlack) {
-            SetUiIcons(false);
-            isIconBlack = false;
-        }
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+    });
+
+    connect(ui->setThemeNeon, &QAction::triggered, this, [this]() {
+        m_window_themes.SetWindowTheme(Theme::Neon, ui->mw_searchbar);
+        Config::setMainWindowTheme(static_cast<int>(Theme::Neon));
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     });
 }
 
@@ -1289,46 +1302,50 @@ void MainWindow::InstallDirectory() {
 void MainWindow::SetLastUsedTheme() {
     Theme lastTheme = static_cast<Theme>(Config::getMainWindowTheme());
     m_window_themes.SetWindowTheme(lastTheme, ui->mw_searchbar);
+    auto applyTheme = [this]() {
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+
+        if (m_game_list_frame) {
+            m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        }
+    };
 
     switch (lastTheme) {
     case Theme::Light:
         ui->setThemeLight->setChecked(true);
-        isIconBlack = true;
+        applyTheme();
         break;
     case Theme::Dark:
         ui->setThemeDark->setChecked(true);
-        isIconBlack = false;
-        SetUiIcons(false);
+        applyTheme();
         break;
     case Theme::Green:
         ui->setThemeGreen->setChecked(true);
-        isIconBlack = false;
-        SetUiIcons(false);
+        applyTheme();
         break;
     case Theme::Blue:
         ui->setThemeBlue->setChecked(true);
-        isIconBlack = false;
-        SetUiIcons(false);
+        applyTheme();
         break;
     case Theme::Violet:
         ui->setThemeViolet->setChecked(true);
-        isIconBlack = false;
-        SetUiIcons(false);
+        applyTheme();
         break;
     case Theme::Gruvbox:
         ui->setThemeGruvbox->setChecked(true);
-        isIconBlack = false;
-        SetUiIcons(false);
+        applyTheme();
         break;
     case Theme::TokyoNight:
         ui->setThemeTokyoNight->setChecked(true);
-        isIconBlack = false;
-        SetUiIcons(false);
+        applyTheme();
         break;
     case Theme::Oled:
         ui->setThemeOled->setChecked(true);
-        isIconBlack = false;
-        SetUiIcons(false);
+        applyTheme();
+        break;
+    case Theme::Neon:
+        ui->setThemeNeon->setChecked(true);
+        applyTheme();
         break;
     }
 }
@@ -1370,48 +1387,128 @@ void MainWindow::SetLastIconSizeBullet() {
     }
 }
 
-QIcon MainWindow::RecolorIcon(const QIcon& icon, bool isWhite) {
-    QPixmap pixmap(icon.pixmap(icon.actualSize(QSize(120, 120))));
-    QColor clr(isWhite ? Qt::white : Qt::black);
-    QBitmap mask = pixmap.createMaskFromColor(clr, Qt::MaskOutColor);
-    pixmap.fill(QColor(isWhite ? Qt::black : Qt::white));
-    pixmap.setMask(mask);
-    return QIcon(pixmap);
+QPixmap MainWindow::RecolorPixmap(const QIcon& icon, const QSize& size, const QColor& color) {
+    QPixmap pixmap(size);
+    pixmap.fill(Qt::transparent);
+
+    QImage img = icon.pixmap(size).toImage().convertToFormat(QImage::Format_ARGB32);
+
+    for (int y = 0; y < img.height(); ++y) {
+        QRgb* line = reinterpret_cast<QRgb*>(img.scanLine(y));
+        for (int x = 0; x < img.width(); ++x) {
+            QColor px = QColor::fromRgba(line[x]);
+            if (px.alpha() > 0) {
+                QColor newColor = color;
+                newColor.setAlpha(px.alpha());
+                line[x] = newColor.rgba();
+            } else {
+                line[x] = qRgba(0, 0, 0, 0);
+            }
+        }
+    }
+
+    return QPixmap::fromImage(img);
 }
 
-void MainWindow::SetUiIcons(bool isWhite) {
-    ui->bootGameAct->setIcon(RecolorIcon(ui->bootGameAct->icon(), isWhite));
-    ui->shadFolderAct->setIcon(RecolorIcon(ui->shadFolderAct->icon(), isWhite));
-    ui->exitAct->setIcon(RecolorIcon(ui->exitAct->icon(), isWhite));
+QIcon MainWindow::RecolorIcon(const QIcon& icon, const QColor& baseColor,
+                              const QColor& hoverColor) {
+    QSize size = icon.actualSize(QSize(120, 120));
+    QIcon result;
+
+    // Normal
+    QPixmap normal = RecolorPixmap(icon, size, baseColor);
+    result.addPixmap(normal, QIcon::Normal, QIcon::Off);
+
+    // Hover (both Active and Selected states)
+    QPixmap hover = RecolorPixmap(icon, size, hoverColor);
+    result.addPixmap(hover, QIcon::Active, QIcon::Off);
+
+    // Disabled
+    QPixmap disabled = RecolorPixmap(icon, size, Qt::gray);
+    result.addPixmap(disabled, QIcon::Disabled, QIcon::Off);
+
+    return result;
+}
+
+void MainWindow::SetUiIcons(const QColor& baseColor, const QColor& hoverColor) {
+    auto recolor = [&](QPushButton* btn, const QString& path) {
+        if (!btn)
+            return;
+        QIcon original(path);
+        m_originalIcons[btn] = original; // keep pristine original
+        btn->setIcon(RecolorIcon(original, baseColor, hoverColor));
+    };
+
+    // --- Toolbar Buttons ---
+    recolor(ui->playButton, ":/images/play_icon.png");
+    recolor(ui->pauseButton, ":/images/pause_icon.png");
+    recolor(ui->stopButton, ":/images/stop_icon.png");
+    recolor(ui->refreshButton, ":/images/refreshlist_icon.png");
+    recolor(ui->restartButton, ":/images/restart_game_icon.png");
+    recolor(ui->settingsButton, ":/images/settings_icon.png");
+    recolor(ui->fullscreenButton, ":/images/fullscreen_icon.png");
+    recolor(ui->controllerButton, ":/images/controller_icon.png");
+    recolor(ui->keyboardButton, ":/images/keyboard_icon.png");
+    recolor(ui->updaterButton, ":/images/update_icon.png");
+    recolor(ui->configureHotkeysButton, ":/images/hotkeybutton.png");
+
+    // --- Menus / Actions (no QPushButton, but recolor directly) ---
+    if (ui->bootGameAct)
+        ui->bootGameAct->setIcon(
+            RecolorIcon(QIcon(":/images/play_icon.png"), baseColor, hoverColor));
+    if (ui->shadFolderAct)
+        ui->shadFolderAct->setIcon(
+            RecolorIcon(QIcon(":/images/folder_icon.png"), baseColor, hoverColor));
+    if (ui->exitAct)
+        ui->exitAct->setIcon(RecolorIcon(QIcon(":/images/exit_icon.png"), baseColor, hoverColor));
 #ifdef ENABLE_UPDATER
-    ui->updaterAct->setIcon(RecolorIcon(ui->updaterAct->icon(), isWhite));
+    if (ui->updaterAct)
+        ui->updaterAct->setIcon(
+            RecolorIcon(QIcon(":/images/update_icon.png"), baseColor, hoverColor));
 #endif
-    ui->downloadCheatsPatchesAct->setIcon(
-        RecolorIcon(ui->downloadCheatsPatchesAct->icon(), isWhite));
-    ui->dumpGameListAct->setIcon(RecolorIcon(ui->dumpGameListAct->icon(), isWhite));
-    ui->aboutAct->setIcon(RecolorIcon(ui->aboutAct->icon(), isWhite));
-    ui->setlistModeListAct->setIcon(RecolorIcon(ui->setlistModeListAct->icon(), isWhite));
-    ui->setlistModeGridAct->setIcon(RecolorIcon(ui->setlistModeGridAct->icon(), isWhite));
-    ui->gameInstallPathAct->setIcon(RecolorIcon(ui->gameInstallPathAct->icon(), isWhite));
-    ui->menuThemes->setIcon(RecolorIcon(ui->menuThemes->icon(), isWhite));
-    ui->menuGame_List_Icons->setIcon(RecolorIcon(ui->menuGame_List_Icons->icon(), isWhite));
-    ui->menuUtils->setIcon(RecolorIcon(ui->menuUtils->icon(), isWhite));
-    ui->playButton->setIcon(RecolorIcon(ui->playButton->icon(), isWhite));
-    ui->pauseButton->setIcon(RecolorIcon(ui->pauseButton->icon(), isWhite));
-    ui->stopButton->setIcon(RecolorIcon(ui->stopButton->icon(), isWhite));
-    ui->refreshButton->setIcon(RecolorIcon(ui->refreshButton->icon(), isWhite));
-    ui->restartButton->setIcon(RecolorIcon(ui->restartButton->icon(), isWhite));
-    ui->settingsButton->setIcon(RecolorIcon(ui->settingsButton->icon(), isWhite));
-    ui->fullscreenButton->setIcon(RecolorIcon(ui->fullscreenButton->icon(), isWhite));
-    ui->controllerButton->setIcon(RecolorIcon(ui->controllerButton->icon(), isWhite));
-    ui->keyboardButton->setIcon(RecolorIcon(ui->keyboardButton->icon(), isWhite));
-    ui->refreshGameListAct->setIcon(RecolorIcon(ui->refreshGameListAct->icon(), isWhite));
-    ui->updaterButton->setIcon(RecolorIcon(ui->updaterButton->icon(), isWhite));
-    ui->configureHotkeysButton->setIcon(RecolorIcon(ui->configureHotkeysButton->icon(), isWhite));
-    ui->menuGame_List_Mode->setIcon(RecolorIcon(ui->menuGame_List_Mode->icon(), isWhite));
-    ui->trophyViewerAct->setIcon(RecolorIcon(ui->trophyViewerAct->icon(), isWhite));
-    ui->configureAct->setIcon(RecolorIcon(ui->configureAct->icon(), isWhite));
-    ui->addElfFolderAct->setIcon(RecolorIcon(ui->addElfFolderAct->icon(), isWhite));
+    if (ui->downloadCheatsPatchesAct)
+        ui->downloadCheatsPatchesAct->setIcon(
+            RecolorIcon(QIcon(":/images/dump_icon.png"), baseColor, hoverColor));
+    if (ui->dumpGameListAct)
+        ui->dumpGameListAct->setIcon(
+            RecolorIcon(QIcon(":/images/dump_icon.png"), baseColor, hoverColor));
+    if (ui->aboutAct)
+        ui->aboutAct->setIcon(RecolorIcon(QIcon(":/images/about_icon.png"), baseColor, hoverColor));
+    if (ui->setlistModeListAct)
+        ui->setlistModeListAct->setIcon(
+            RecolorIcon(QIcon(":/images/list_icon.png"), baseColor, hoverColor));
+    if (ui->setlistModeGridAct)
+        ui->setlistModeGridAct->setIcon(
+            RecolorIcon(QIcon(":/images/grid_icon.png"), baseColor, hoverColor));
+    if (ui->gameInstallPathAct)
+        ui->gameInstallPathAct->setIcon(
+            RecolorIcon(QIcon(":/images/folder_icon.png"), baseColor, hoverColor));
+    if (ui->refreshGameListAct)
+        ui->refreshGameListAct->setIcon(
+            RecolorIcon(QIcon(":/images/refreshlist_icon.png"), baseColor, hoverColor));
+    if (ui->trophyViewerAct)
+        ui->trophyViewerAct->setIcon(
+            RecolorIcon(QIcon(":/images/trophy_icon.png"), baseColor, hoverColor));
+    if (ui->configureAct)
+        ui->configureAct->setIcon(
+            RecolorIcon(QIcon(":/images/settings_icon.png"), baseColor, hoverColor));
+    if (ui->addElfFolderAct)
+        ui->addElfFolderAct->setIcon(
+            RecolorIcon(QIcon(":/images/folder_icon.png"), baseColor, hoverColor));
+
+    // --- Menus themselves ---
+    if (ui->menuThemes)
+        ui->menuThemes->setIcon(
+            RecolorIcon(QIcon(":/images/themes_icon.png"), baseColor, hoverColor));
+    if (ui->menuGame_List_Icons)
+        ui->menuGame_List_Icons->setIcon(
+            RecolorIcon(QIcon(":/images/iconsize_icon.png"), baseColor, hoverColor));
+    if (ui->menuUtils)
+        ui->menuUtils->setIcon(
+            RecolorIcon(QIcon(":/images/utils_icon.png"), baseColor, hoverColor));
+    if (ui->menuGame_List_Mode)
+        ui->menuGame_List_Mode->setIcon(
+            RecolorIcon(QIcon(":/images/list_mode_icon.png"), baseColor, hoverColor));
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event) {
@@ -1507,18 +1604,23 @@ void MainWindow::OnLanguageChanged(const std::string& locale) {
 }
 
 bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
-    if (event->type() == QEvent::KeyPress) {
-        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-        if (keyEvent->key() == Qt::Key_Enter || keyEvent->key() == Qt::Key_Return) {
-            auto tblMode = Config::getTableMode();
-            if (tblMode != 2 && (tblMode != 1 || m_game_grid_frame->IsValidCellSelected())) {
-                StartGame();
+    if (QPushButton* btn = qobject_cast<QPushButton*>(obj)) {
+        auto it = m_originalIcons.find(btn);
+        if (it != m_originalIcons.end()) {
+            if (event->type() == QEvent::Enter) {
+                btn->setIcon(RecolorIcon(it.value(), m_window_themes.iconHoverColor(),
+                                         m_window_themes.iconHoverColor()));
+                return true;
+            } else if (event->type() == QEvent::Leave) {
+                btn->setIcon(RecolorIcon(it.value(), m_window_themes.iconBaseColor(),
+                                         m_window_themes.iconBaseColor()));
                 return true;
             }
         }
     }
     return QMainWindow::eventFilter(obj, event);
 }
+
 void MainWindow::StartEmulator(std::filesystem::path path) {
     if (isGameRunning) {
         QMessageBox::critical(nullptr, tr("Run Game"), tr("Game is already running!"));

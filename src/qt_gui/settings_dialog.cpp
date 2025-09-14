@@ -715,10 +715,12 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "alwaysShowChangelog", false));
 
     QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
-    ui->updateComboBox->setCurrentText(channelMap.key(
-        (updateChannel != "Full-Souls" && updateChannel != "BBFork" && updateChannel != "PRTBB")
-            ? (Common::g_is_release ? "Full-Souls" : "BBFork", "PRTBB")
-            : updateChannel));
+
+    if (updateChannel != "Full-Souls" && updateChannel != "BBFork" && updateChannel != "PRTBB") {
+        updateChannel = "Full-Souls";
+    }
+
+    ui->updateComboBox->setCurrentText(channelMap.key(updateChannel));
 
 #endif
 

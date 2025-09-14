@@ -41,6 +41,7 @@ public:
     QAction* setThemeGruvbox;
     QAction* setThemeTokyoNight;
     QAction* setThemeOled;
+    QAction* setThemeNeon;
     QWidget* centralWidget;
     QLineEdit* mw_searchbar;
     QPushButton* playButton;
@@ -188,6 +189,9 @@ public:
         setThemeOled = new QAction(MainWindow);
         setThemeOled->setObjectName("setThemeOled");
         setThemeOled->setCheckable(true);
+        setThemeNeon = new QAction(MainWindow);
+        setThemeNeon->setObjectName("setThemeNeon");
+        setThemeNeon->setCheckable(true);
         centralWidget = new QWidget(MainWindow);
         centralWidget->setObjectName("centralWidget");
         sizePolicy.setHeightForWidth(centralWidget->sizePolicy().hasHeightForWidth());
@@ -340,6 +344,7 @@ public:
         menuThemes->addAction(setThemeGruvbox);
         menuThemes->addAction(setThemeTokyoNight);
         menuThemes->addAction(setThemeOled);
+        menuThemes->addAction(setThemeNeon);
         menuGame_List_Icons->addAction(setIconSizeTinyAct);
         menuGame_List_Icons->addAction(setIconSizeSmallAct);
         menuGame_List_Icons->addAction(setIconSizeMediumAct);
@@ -431,6 +436,7 @@ public:
         setThemeGruvbox->setText("Gruvbox");
         setThemeTokyoNight->setText("Tokyo Night");
         setThemeOled->setText("OLED");
+        setThemeNeon->setText("Neon");
         toolBar->setWindowTitle(QCoreApplication::translate("MainWindow", "toolBar", nullptr));
         toggleLabelsAct->setText(
             QCoreApplication::translate("MainWindow", "Show Labels Under Icons"));
