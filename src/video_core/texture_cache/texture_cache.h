@@ -21,6 +21,10 @@ namespace Core::Libraries::VideoOut {
 struct BufferAttributeGroup;
 }
 
+namespace AmdGpu {
+struct Liverpool;
+}
+
 namespace VideoCore {
 
 class BufferCache;
@@ -89,7 +93,7 @@ public:
 
 public:
     TextureCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                 BufferCache& buffer_cache, PageManager& tracker);
+                 AmdGpu::Liverpool* liverpool, BufferCache& buffer_cache, PageManager& tracker);
     ~TextureCache();
 
     TileManager& GetTileManager() noexcept {
@@ -276,6 +280,9 @@ private:
     /// Copies image memory back to CPU.
     void DownloadImageMemory(ImageId image_id);
 
+    /// Thread function for copying downloaded images out to CPU memory.
+    void DownloadedImagesThread(const std::stop_token& token);
+
     /// Create an image from the given parameters
     [[nodiscard]] ImageId InsertImage(const ImageInfo& info, VAddr cpu_addr);
 
@@ -312,6 +319,7 @@ private:
 private:
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
+    AmdGpu::Liverpool* liverpool;
     BufferCache& buffer_cache;
     PageManager& tracker;
     BlitHelper blit_helper;
@@ -329,6 +337,17 @@ private:
     Common::LeastRecentlyUsedCache<ImageId, u64> lru_cache;
     PageTable page_table;
     std::mutex mutex;
+
+    struct DownloadedImage {
+        u64 tick;
+        VAddr device_addr;
+        void* download;
+        size_t download_size;
+    };
+    std::queue<DownloadedImage> downloaded_images_queue;
+    std::mutex downloaded_images_mutex;
+    std::condition_variable_any downloaded_images_cv;
+    std::jthread downloaded_images_thread;
 
     struct MetaDataInfo {
         enum class Type {
