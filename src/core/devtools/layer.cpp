@@ -639,8 +639,8 @@ void DrawPauseStatusWindow(bool& is_open) {
                         }
                     }
 
-                    static char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low", "Default",
-                                                           "Fast"};
+                    static const char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low",
+                                                                 "Default", "Fast"};
                     int readbackAccIndex = static_cast<int>(Config::readbackSpeed());
                     if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
                                      IM_ARRAYSIZE(readbackAccuracyStrs))) {

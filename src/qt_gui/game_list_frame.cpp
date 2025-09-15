@@ -42,7 +42,9 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
     this->setColumnWidth(6, 90);  // Size
     this->setColumnWidth(7, 90);  // Version
     this->setColumnWidth(8, 120); // Play Time
-    this->setColumnWidth(10, 90); // Favorite
+    this->setColumnWidth(2, 40);  // Favorite
+    this->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+
     QStringList headers;
     headers << tr("Icon") << tr("Name") << tr("Compatibility") << tr("Serial") << tr("Region")
             << tr("Firmware") << tr("Size") << tr("Version") << tr("Play Time") << tr("Path")
@@ -81,7 +83,7 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
             PopulateGameList(false);
         });
 
-    connect(this, &QTableWidget::customContextMenuRequested, this, [=](const QPoint& pos) {
+    connect(this, &QTableWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
         int changedFavorite = m_gui_context_menus.RequestGameMenu(pos, m_game_info->m_games,
                                                                   m_compat_info, this, true);
         PopulateGameList(false);
@@ -317,25 +319,25 @@ void GameListFrame::ResizeIcons(int iconSize) {
 void GameListFrame::SetFavoriteIcon(int row, int column) {
     QString serialStr = QString::fromStdString(m_game_info->m_games[row].serial);
 
-    // Load favorites from m_compat_info instead of m_gui_settings
     QList<QString> list = m_compat_info->LoadFavorites();
     bool isFavorite = list.contains(serialStr);
 
     QTableWidgetItem* item = new QTableWidgetItem();
-    QImage scaledPixmap = QImage(":images/favorite_icon.png");
 
-    scaledPixmap = scaledPixmap.scaledToHeight(this->columnWidth(column) / 4.5);
-    scaledPixmap = scaledPixmap.scaledToWidth(this->columnWidth(column) / 4.5);
+    const int iconSize = 40;
+    QPixmap pixmap(":images/favorite_icon.png");
+    pixmap = pixmap.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
     QWidget* widget = new QWidget(this);
     QVBoxLayout* layout = new QVBoxLayout(widget);
     QLabel* label = new QLabel(widget);
-    label->setPixmap(QPixmap::fromImage(scaledPixmap));
+    label->setPixmap(pixmap);
     label->setObjectName("favoriteIcon");
     label->setVisible(isFavorite);
 
     layout->setAlignment(Qt::AlignCenter);
     layout->addWidget(label);
+    layout->setContentsMargins(0, 0, 0, 0);
     widget->setLayout(layout);
 
     this->setItem(row, column, item);

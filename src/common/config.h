@@ -100,6 +100,9 @@ s32 getGpuId();
 bool allowHDR();
 bool getEnableAutoBackup();
 
+void setGuiStyle(const std::string& style);
+std::string getGuiStyle();
+
 bool debugDump();
 bool collectShadersForDebug();
 bool showSplash();

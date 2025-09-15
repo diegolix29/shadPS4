@@ -285,5 +285,67 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         m_textColor = QColor(255, 221, 51);     // Neon yellow text for contrast
 
         break;
+
+    case Theme::Shadlix:
+        mw_searchbar->setStyleSheet(
+            "QLineEdit {"
+            "background-color: #1a1033; color: #40e0d0; border: 1px solid #40e0d0; "
+            "border-radius: 6px; padding: 6px; "
+            "font-weight: bold; }"
+            "QLineEdit:focus {"
+            "border: 1px solid #9370db; }");
+
+        themePalette.setColor(QPalette::Window, QColor(26, 16, 51));
+        themePalette.setColor(QPalette::WindowText, QColor(147, 112, 219));
+        themePalette.setColor(QPalette::Base, QColor(40, 20, 70));
+        themePalette.setColor(QPalette::AlternateBase, QColor(60, 30, 100));
+        themePalette.setColor(QPalette::ToolTipBase, QColor(30, 20, 60));
+        themePalette.setColor(QPalette::ToolTipText, QColor(64, 224, 208));
+        themePalette.setColor(QPalette::Text, QColor(64, 224, 208));
+        themePalette.setColor(QPalette::Button, QColor(45, 25, 80));
+        themePalette.setColor(QPalette::ButtonText, QColor(64, 224, 208));
+        themePalette.setColor(QPalette::BrightText, QColor(255, 255, 255));
+        themePalette.setColor(QPalette::Link, QColor(0, 191, 255));
+        themePalette.setColor(QPalette::Highlight, QColor(147, 112, 219));
+        themePalette.setColor(QPalette::HighlightedText, Qt::black);
+
+        qApp->setPalette(themePalette);
+
+        m_iconBaseColor = QColor(64, 224, 208);
+        m_iconHoverColor = Qt::white;
+        m_textColor = m_iconBaseColor;
+
+        break;
+
+    case Theme::ShadlixCave:
+        mw_searchbar->setStyleSheet(
+            "QLineEdit {"
+            "background-color: #0D3924; color: #39C591; border: 1px solid #39C591; "
+            "border-radius: 6px; padding: 6px; "
+            "font-weight: bold; }"
+            "QLineEdit:focus {"
+            "border: 1px solid #00D6D6; }");
+
+        themePalette.setColor(QPalette::Window, QColor(27, 90, 63));
+        themePalette.setColor(QPalette::WindowText, QColor(207, 225, 216));
+        themePalette.setColor(QPalette::Base, QColor(22, 76, 50));
+        themePalette.setColor(QPalette::AlternateBase, QColor(40, 112, 85));
+        themePalette.setColor(QPalette::ToolTipBase, QColor(34, 99, 77));
+        themePalette.setColor(QPalette::ToolTipText, QColor(57, 202, 144));
+        themePalette.setColor(QPalette::Text, QColor(57, 202, 144));
+        themePalette.setColor(QPalette::Button, QColor(27, 86, 58));
+        themePalette.setColor(QPalette::ButtonText, QColor(57, 202, 144));
+        themePalette.setColor(QPalette::BrightText, QColor(0, 230, 189));
+        themePalette.setColor(QPalette::Link, QColor(0, 221, 198));
+        themePalette.setColor(QPalette::Highlight, QColor(0, 221, 198));
+        themePalette.setColor(QPalette::HighlightedText, QColor(207, 225, 216));
+
+        qApp->setPalette(themePalette);
+
+        m_iconBaseColor = QColor(57, 202, 144);
+        m_iconHoverColor = QColor(0, 221, 198);
+        m_textColor = QColor(207, 225, 216);
+
+        break;
     }
 }

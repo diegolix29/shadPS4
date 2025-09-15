@@ -122,6 +122,7 @@ static bool autoRestartGame = false;
 static bool restartWithBaseGame = false;
 static ConfigEntry<bool> screenTipDisable(false);
 static ConfigEntry<bool> g_fpsLimiterEnabled(false);
+static std::string guiStyle = "Fusion";
 
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
@@ -240,6 +241,14 @@ static std::string trophyKey = "";
 
 bool allowHDR() {
     return isHDRAllowed.get();
+}
+
+std::string getGuiStyle() {
+    return guiStyle;
+}
+
+void setGuiStyle(const std::string& style) {
+    guiStyle = style;
 }
 
 bool getEnableAutoBackup() {
@@ -1269,6 +1278,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         m_window_size_W = toml::find_or<int>(gui, "mw_width", 0);
         m_window_size_H = toml::find_or<int>(gui, "mw_height", 0);
         load_game_size = toml::find_or<bool>(gui, "loadGameSizeEnabled", load_game_size);
+        guiStyle = toml::find_or<std::string>(gui, "guiStyle", guiStyle);
 
         const auto install_dir_array =
             toml::find_or<std::vector<std::u8string>>(gui, "installDirs", {});
@@ -1574,6 +1584,7 @@ void saveMainWindow(const std::filesystem::path& path) {
     data["GUI"]["elfDirs"] = m_elf_viewer;
     data["GUI"]["recentFiles"] = m_recent_files;
     data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
+    data["GUI"]["guiStyle"] = guiStyle;
 
     // Sorting of TOML sections
     sortTomlSections(data);

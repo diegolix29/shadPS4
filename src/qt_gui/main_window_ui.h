@@ -42,6 +42,8 @@ public:
     QAction* setThemeTokyoNight;
     QAction* setThemeOled;
     QAction* setThemeNeon;
+    QAction* setThemeShadlix;
+    QAction* setThemeShadlixCave;
     QWidget* centralWidget;
     QLineEdit* mw_searchbar;
     QPushButton* playButton;
@@ -56,6 +58,7 @@ public:
     QPushButton* updaterButton;
     QPushButton* configureHotkeysButton;
     QCheckBox* MuteBox;
+    QComboBox* styleSelector = new QComboBox();
 
     QWidget* sizeSliderContainer;
     QHBoxLayout* sizeSliderContainer_layout;
@@ -192,6 +195,12 @@ public:
         setThemeNeon = new QAction(MainWindow);
         setThemeNeon->setObjectName("setThemeNeon");
         setThemeNeon->setCheckable(true);
+        setThemeShadlix = new QAction(MainWindow);
+        setThemeShadlix->setObjectName("setThemeShadlix");
+        setThemeShadlix->setCheckable(true);
+        setThemeShadlixCave = new QAction(MainWindow);
+        setThemeShadlixCave->setObjectName("setThemeShadlixCave");
+        setThemeShadlixCave->setCheckable(true);
         centralWidget = new QWidget(MainWindow);
         centralWidget->setObjectName("centralWidget");
         sizePolicy.setHeightForWidth(centralWidget->sizePolicy().hasHeightForWidth());
@@ -345,6 +354,8 @@ public:
         menuThemes->addAction(setThemeTokyoNight);
         menuThemes->addAction(setThemeOled);
         menuThemes->addAction(setThemeNeon);
+        menuThemes->addAction(setThemeShadlix);
+        menuThemes->addAction(setThemeShadlixCave);
         menuGame_List_Icons->addAction(setIconSizeTinyAct);
         menuGame_List_Icons->addAction(setIconSizeSmallAct);
         menuGame_List_Icons->addAction(setIconSizeMediumAct);
@@ -437,6 +448,8 @@ public:
         setThemeTokyoNight->setText("Tokyo Night");
         setThemeOled->setText("OLED");
         setThemeNeon->setText("Neon");
+        setThemeShadlix->setText("Shadlix");
+        setThemeShadlixCave->setText("ShadlixCave");
         toolBar->setWindowTitle(QCoreApplication::translate("MainWindow", "toolBar", nullptr));
         toggleLabelsAct->setText(
             QCoreApplication::translate("MainWindow", "Show Labels Under Icons"));

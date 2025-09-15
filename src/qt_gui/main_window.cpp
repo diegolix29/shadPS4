@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QProcess>
 #include <QString>
+#include <QStyleFactory>
 #include <signal.h>
 #include "emulator.h"
 
@@ -105,6 +106,11 @@ bool MainWindow::Init() {
     ui->keyboardButton->installEventFilter(this);
     ui->updaterButton->installEventFilter(this);
     ui->configureHotkeysButton->installEventFilter(this);
+    QString savedStyle = QString::fromStdString(Config::getGuiStyle());
+    if (!savedStyle.isEmpty() && QStyleFactory::keys().contains(savedStyle, Qt::CaseInsensitive)) {
+        QApplication::setStyle(QStyleFactory::create(savedStyle));
+        ui->styleSelector->setCurrentText(savedStyle);
+    }
 
     if (Config::getAutoRestartGame()) {
         int argc = QCoreApplication::arguments().size();
@@ -190,6 +196,8 @@ void MainWindow::CreateActions() {
     m_theme_act_group->addAction(ui->setThemeTokyoNight);
     m_theme_act_group->addAction(ui->setThemeOled);
     m_theme_act_group->addAction(ui->setThemeNeon);
+    m_theme_act_group->addAction(ui->setThemeShadlix);
+    m_theme_act_group->addAction(ui->setThemeShadlixCave);
 }
 
 void MainWindow::PauseGame() {
@@ -250,7 +258,7 @@ QWidget* createSpacer(QWidget* parent) {
 void MainWindow::AddUiWidgets() {
     // add toolbar widgets
 
-    QApplication::setStyle("Fusion");
+    QApplication::setStyle(QStyleFactory::create(QStyleFactory::keys().first()));
 
     bool showLabels = ui->toggleLabelsAct->isChecked();
     ui->toolBar->clear();
@@ -307,6 +315,26 @@ void MainWindow::AddUiWidgets() {
 
     ui->toolBar->addWidget(searchSliderContainer);
     toolbarLayout->setSpacing(2);
+    QLabel* styleLabel = new QLabel(tr("GUI Style Selector"), this);
+    styleLabel->setAlignment(Qt::AlignCenter);
+    ui->toolBar->addWidget(styleLabel);
+
+    ui->styleSelector->clear();
+    for (const QString& styleName : QStyleFactory::keys()) {
+        if (styleName != "windowsvista") {
+            ui->styleSelector->addItem(styleName);
+        }
+    }
+
+    QString savedStyle = QString::fromStdString(Config::getGuiStyle());
+    if (!savedStyle.isEmpty() && QStyleFactory::keys().contains(savedStyle, Qt::CaseInsensitive)) {
+        ui->styleSelector->setCurrentText(savedStyle);
+    } else {
+        ui->styleSelector->setCurrentText(QApplication::style()->objectName());
+    }
+
+    ui->toolBar->addWidget(ui->styleSelector);
+
     ui->MuteBox = new QCheckBox(tr("Mute"), this);
     ui->MuteBox->setChecked(Config::isMuteEnabled());
     ui->toolBar->addWidget(ui->MuteBox);
@@ -370,7 +398,21 @@ void MainWindow::UpdateToolbarButtons() {
 }
 
 void MainWindow::UpdateToolbarLabels() {
-    AddUiWidgets();
+    bool showLabels = ui->toggleLabelsAct->isChecked();
+
+    for (QPushButton* button :
+         {ui->playButton, ui->stopButton, ui->restartButton, ui->settingsButton,
+          ui->fullscreenButton, ui->controllerButton, ui->keyboardButton,
+          ui->configureHotkeysButton, ui->updaterButton, ui->refreshButton}) {
+        QLabel* label = button->parentWidget()->findChild<QLabel*>();
+        if (label)
+            label->setVisible(showLabels);
+    }
+
+    // Handle pause button label separately
+    QLabel* pauseLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
+    if (pauseLabel)
+        pauseLabel->setVisible(showLabels && isGameRunning);
 }
 
 void MainWindow::CreateDockWindows() {
@@ -527,6 +569,13 @@ void MainWindow::CreateConnects() {
 
         settingsDialog->exec();
     });
+    connect(ui->styleSelector, &QComboBox::currentTextChanged, [this](const QString& styleName) {
+        QApplication::setStyle(QStyleFactory::create(styleName));
+        Config::setGuiStyle(styleName.toStdString());
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::saveMainWindow(config_dir / "config.toml");
+    });
+
     connect(ui->MuteBox, &QCheckBox::toggled, [&](bool checked) {
         Config::setMuteEnabled(checked);
         Libraries::AudioOut::AdjustVol();
@@ -945,6 +994,18 @@ void MainWindow::CreateConnects() {
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     });
+    connect(ui->setThemeShadlix, &QAction::triggered, this, [this]() {
+        m_window_themes.SetWindowTheme(Theme::Shadlix, ui->mw_searchbar);
+        Config::setMainWindowTheme(static_cast<int>(Theme::Shadlix));
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+    });
+    connect(ui->setThemeShadlixCave, &QAction::triggered, this, [this]() {
+        m_window_themes.SetWindowTheme(Theme::ShadlixCave, ui->mw_searchbar);
+        Config::setMainWindowTheme(static_cast<int>(Theme::ShadlixCave));
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+    });
 }
 
 void MainWindow::ToggleMute() {
@@ -1345,6 +1406,14 @@ void MainWindow::SetLastUsedTheme() {
         break;
     case Theme::Neon:
         ui->setThemeNeon->setChecked(true);
+        applyTheme();
+        break;
+    case Theme::Shadlix:
+        ui->setThemeShadlix->setChecked(true);
+        applyTheme();
+        break;
+    case Theme::ShadlixCave:
+        ui->setThemeShadlixCave->setChecked(true);
         applyTheme();
         break;
     }
