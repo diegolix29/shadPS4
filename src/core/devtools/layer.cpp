@@ -48,8 +48,12 @@ static bool show_simple_fps = false;
 static bool visibility_toggled = false;
 static bool show_quit_window = false;
 
+static bool show_hotkeys_tip = true;
+static bool show_hotkeys_pause = true;
+static bool show_hotkeys_tip_manual = false;
 static bool show_fullscreen_tip = true;
 static float fullscreen_tip_timer = 10.0f;
+static bool fullscreen_tip_manual = false;
 
 static float fps_scale = 1.0f;
 static int dump_frame_count = 1;
@@ -381,77 +385,193 @@ void L::SetupSettings() {
     DockBuilderFinish(dock_id);
 }
 
-void DrawFullscreenTipWindow(bool& is_open, float& fullscreen_tip_timer) {
-    if (Config::getScreenTipDisable()) {
-        is_open = false;
-        return;
-    }
+void DrawFullscreenHotkeysWindow(bool& is_open) {
     if (!is_open)
         return;
 
-    constexpr ImVec2 window_pos = {10, 10};
-    constexpr ImVec2 window_size = {325, 375};
+    constexpr ImVec2 hotkeys_pos = {10, 10};
+    ImGui::SetNextWindowPos(hotkeys_pos, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.95f);
 
-    ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.9f);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
+                             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove;
 
-    if (ImGui::Begin("Fullscreen Tip", &is_open,
-                     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
-                         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
-                         ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse)) {
-
-        ImGui::SetWindowFontScale(1.5f);
-        ImGui::TextUnformatted("Pause/Resume: F9 or Hold Touchpad+Cross/A\n"
-                               "Stop: F4 or Hold Touchpad+Triangle/X\n"
-                               "Fullscreen: F11 or Hold Touchpad+R2\n"
-                               "Developer Tools: Ctrl+F10 or Hold Touchpad+Square\n"
-                               "Show FPS: F10 or Hold Touchpad+L2\n"
-                               "Mute Game: Hold Touchpad+DpadRight\n");
+    if (ImGui::Begin("Hotkeys", &is_open, flags)) {
         ImGui::SetWindowFontScale(1.0f);
-        ImGui::Spacing();
-        ImGui::Separator();
 
-        if (Config::getIsConnectedToNetwork()) {
-            ImGui::TextColored(ImVec4(0, 1, 0, 1), "Network: Connected");
-        } else {
-            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Network: Disconnected");
+        struct HotkeyItem {
+            const char* action;
+            const char* keys;
+        };
+
+        HotkeyItem hotkeys[] = {{"Pause/Resume", "F9 or Hold Share/Back+Cross/A"},
+                                {"Stop", "F4 or Share/Back+Triangle/Y"},
+                                {"Fullscreen", "F11 or Share/Back+R2"},
+                                {"Developer Tools", "Ctrl+F10 or Share/Back+Square/X"},
+                                {"Show FPS", "F10 or Share/Back+L2"},
+                                {"ShowCurrentSettings", "F3 or Share/Back+Circle/B"},
+                                {"Mute Game", "Share/Back+DpadRight"}};
+
+        for (const auto& hk : hotkeys) {
+            ImGui::Text("%s:", hk.action);
+            ImGui::SameLine();
+
+            ImVec2 textSize = ImGui::CalcTextSize(hk.keys);
+            ImGui::BeginGroup();
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Button));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+                                  ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,
+                                  ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+            ImGui::Button(hk.keys, ImVec2(textSize.x + 10, textSize.y + 4));
+            ImGui::PopStyleColor(3);
+            ImGui::EndGroup();
+
+            ImGui::SameLine();
         }
 
-        ImGui::TextDisabled("NOTE: CHEATS ARE WORKING NOW");
+        ImGui::NewLine();
+        ImGui::SetWindowFontScale(1.0f);
+    }
+    ImGui::End();
+}
 
-        ImGui::Spacing();
-        ImGui::SeparatorText("Current Config");
+void DrawFullscreenHotkeysPause(bool& is_open) {
+    if (!is_open)
+        return;
 
-        ImGui::Text("Shader Skips: %s", Config::getShaderSkipsEnabled() ? "On" : "Off");
-        ImGui::Text("Linear Readbacks: %s", Config::getReadbackLinearImages() ? "On" : "Off");
-        ImGui::Text("DMA Access: %s", Config::directMemoryAccess() ? "On" : "Off");
-        ImGui::Text("VBlank Frequency: %d", Config::vblankFreq());
-        ImGui::Text("HDR Allowed: %s", Config::allowHDR() ? "Yes" : "No");
-        ImGui::Text("Auto Backup: %s", Config::getEnableAutoBackup() ? "On" : "Off");
-        ImGui::Text("PSN Signed In: %s", Config::getPSNSignedIn() ? "Yes" : "No");
-        ImGui::Text("LogType: %s", Config::getLogType().c_str());
-        ImGui::Text("Current Log Filter: %s", Config::getLogFilter().c_str());
-        ImGui::Text("Present Mode: %s", Config::getPresentMode().c_str());
+    constexpr ImVec2 hotkeys_pos = {10, 10};
+    ImGui::SetNextWindowPos(hotkeys_pos, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.95f);
 
-        const char* readbackaccuStr = "Unknown";
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
+                             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove;
+
+    if (ImGui::Begin("Hotkeys", &is_open, flags)) {
+        ImGui::SetWindowFontScale(1.0f);
+
+        struct HotkeyItem {
+            const char* action;
+            const char* keys;
+        };
+
+        HotkeyItem hotkeys[] = {{"Pause/Resume", "F9 or Hold Share/Back+Cross/A"},
+                                {"Stop", "F4 or Share/Back+Triangle/Y"},
+                                {"Fullscreen", "F11 or Share/Back+R2"},
+                                {"Developer Tools", "Ctrl+F10 or Share/Back+Square/X"},
+                                {"Show FPS", "F10 or Share/Back+L2"},
+                                {"ShowCurrentSettings", "F3 or Share/Back+Circle/B"},
+                                {"Mute Game", "Share/Back+DpadRight"}};
+
+        for (const auto& hk : hotkeys) {
+            ImGui::Text("%s:", hk.action);
+            ImGui::SameLine();
+
+            ImVec2 textSize = ImGui::CalcTextSize(hk.keys);
+            ImGui::BeginGroup();
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Button));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+                                  ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,
+                                  ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+            ImGui::Button(hk.keys, ImVec2(textSize.x + 10, textSize.y + 4));
+            ImGui::PopStyleColor(3);
+            ImGui::EndGroup();
+
+            ImGui::SameLine();
+        }
+
+        ImGui::NewLine();
+        ImGui::SetWindowFontScale(1.0f);
+    }
+    ImGui::End();
+}
+
+void DrawFullscreenSettingsWindow(bool& is_open) {
+    if (!is_open)
+        return;
+    auto DrawYesNo = [](const char* label, bool value) {
+        ImGui::Text("%s:", label);
+        ImGui::SameLine();
+        ImGui::TextColored(value ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1), value ? "Yes" : "No");
+    };
+    constexpr ImVec2 settings_pos = {10, 50};
+    ImGui::SetNextWindowPos(settings_pos, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.95f);
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
+                             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove;
+
+    if (ImGui::Begin("Settings", &is_open, flags)) {
+        ImGui::SeparatorText("Network Status");
+        ImGui::Text("Network Status:");
+        ImGui::SameLine();
+        ImGui::TextColored(Config::getIsConnectedToNetwork() ? ImVec4(0, 1, 0, 1)
+                                                             : ImVec4(1, 0, 0, 1),
+                           Config::getIsConnectedToNetwork() ? "Connected" : "Disconnected");
+
+        DrawYesNo("PSN Signed In", Config::getPSNSignedIn());
+        ImGui::SeparatorText("Settings");
+
+        ImGui::Columns(3, nullptr, true);
+
+        DrawYesNo("HDR Allowed", Config::allowHDR());
+        DrawYesNo("FSR Enabled", Config::getFsrEnabled());
+        if (Config::getFsrEnabled()) {
+            DrawYesNo("RCAS Enabled", Config::getRcasEnabled());
+            ImGui::Text("RCAS Attenuation:");
+            ImGui::SameLine();
+            auto& fsr = presenter->GetFsrSettingsRef();
+            ImGui::Text("%.2f", fsr.rcas_attenuation);
+        }
+        ImGui::Text("VBlank Frequency:");
+        ImGui::SameLine();
+        ImGui::Text("%d", Config::vblankFreq());
+        ImGui::Text("Present Mode:");
+        ImGui::SameLine();
+        ImGui::Text("%s", Config::getPresentMode().c_str());
+        ImGui::NextColumn();
+
+        DrawYesNo("Linear Readbacks", Config::getReadbackLinearImages());
+        DrawYesNo("DMA Access", Config::directMemoryAccess());
+        const char* readbackStr = "Unknown";
         switch (Config::readbackSpeed()) {
         case Config::ReadbackSpeed::Disable:
-            readbackaccuStr = "Disable";
+            readbackStr = "Disable";
             break;
         case Config::ReadbackSpeed::Unsafe:
-            readbackaccuStr = "Unsafe";
+            readbackStr = "Unsafe";
             break;
         case Config::ReadbackSpeed::Low:
-            readbackaccuStr = "Low";
+            readbackStr = "Low";
             break;
         case Config::ReadbackSpeed::Fast:
-            readbackaccuStr = "Fast";
+            readbackStr = "Fast";
             break;
         case Config::ReadbackSpeed::Default:
-            readbackaccuStr = "Default";
+            readbackStr = "Default";
             break;
         }
-        ImGui::Text("Readbacks Speed: %s", readbackaccuStr);
+        ImGui::Text("Readbacks Speed:");
+        ImGui::SameLine();
+        ImGui::Text("%s", readbackStr);
+        ImGui::NextColumn();
+
+        DrawYesNo("Auto Backup", Config::getEnableAutoBackup());
+        DrawYesNo("Shader Skips", Config::getShaderSkipsEnabled());
+#ifdef ENABLE_QT_GUI
+        if (g_MainWindow && g_MainWindow->isVisible()) {
+            DrawYesNo("Mute", Config::isMuteEnabled());
+        }
+#endif
+        ImGui::Text("Log Type:");
+        ImGui::SameLine();
+        ImGui::Text("%s", Config::getLogType().c_str());
+        ImGui::Text("Log Filter:");
+        ImGui::SameLine();
+        ImGui::Text("%s", Config::getLogFilter().c_str());
+
+        ImGui::Columns(1);
     }
     ImGui::End();
 }
@@ -547,13 +667,12 @@ void DrawVirtualKeyboard() {
 void DrawPauseStatusWindow(bool& is_open) {
     if (!is_open)
         return;
-
     constexpr ImVec2 window_size = {600, 500};
     ImGui::SetNextWindowBgAlpha(0.9f);
-
-    ImGuiWindowFlags flags =
-        ImGuiConfigFlags_NavEnableKeyboard | ImGuiWindowFlags_NoFocusOnAppearing;
     ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    ImGuiWindowFlags windowFlags =
+        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoCollapse;
 
     if (Input::ControllerPressedOnce({Btn::Up}) || Input::ControllerPressedOnce({Btn::Down}) ||
         Input::ControllerPressedOnce({Btn::Left}) || Input::ControllerPressedOnce({Btn::Right})) {
@@ -561,16 +680,9 @@ void DrawPauseStatusWindow(bool& is_open) {
     }
 
     if (should_focus)
-        ImGui::SetWindowFocus("Pause Menu - Hotkeys");
+        ImGui::SetWindowFocus("Pause Menu");
 
-    if (ImGui::Begin("Pause Menu - Hotkeys", &is_open, flags)) {
-        ImGui::SetWindowFontScale(1.5f);
-        ImGui::TextUnformatted("Pause/Resume: F9 or Hold Touchpad+Cross/A\n"
-                               "Stop: F4 or Hold Touchpad+Circle/B\n"
-                               "Fullscreen: F11 or Hold Touchpad+R2\n"
-                               "Developer Tools: Ctrl+F10 or Hold Touchpad+Square\n"
-                               "Show FPS: F10 or Hold Touchpad+L2\n"
-                               "Mute Game: Hold Touchpad+DpadRight\n");
+    if (ImGui::Begin("Pause Menu", &is_open, windowFlags)) {
         ImGui::SetWindowFontScale(1.0f);
         ImGui::Spacing();
 
@@ -585,7 +697,7 @@ void DrawPauseStatusWindow(bool& is_open) {
         }
 
         ImGui::Separator();
-        ImGui::TextDisabled("Tip: Use keyboard or controller shortcuts above.");
+        ImGui::TextDisabled("Tip: Use keyboard or controller hotkeys above.");
         ImGui::Spacing();
 
         if (ImGui::BeginTable("PauseMenuTable", 2, ImGuiTableFlags_SizingStretchProp)) {
@@ -607,6 +719,11 @@ void DrawPauseStatusWindow(bool& is_open) {
 
             ImGui::SeparatorText("Graphics Settings");
             {
+                if (ImGui::Checkbox("Show Fullscreen Tip", &show_fullscreen_tip)) {
+                    if (show_fullscreen_tip)
+                        fullscreen_tip_timer = 10.0f;
+                }
+
                 bool hdr = Config::allowHDR();
                 if (ImGui::Checkbox("HDR Allowed", &hdr))
                     Config::setAllowHDR(hdr);
@@ -825,11 +942,21 @@ void L::Draw() {
     const auto io = GetIO();
     PushID("DevtoolsLayer");
 
+    if (IsKeyPressed(ImGuiKey_F3, false)) {
+        show_fullscreen_tip = !show_fullscreen_tip;
+        fullscreen_tip_manual = true;
+    }
+
     if (IsKeyPressed(ImGuiKey_F4, false)) {
-        show_quit_window = true;
+        show_quit_window = !show_quit_window;
     }
 
     if (IsKeyPressed(ImGuiKey_F9, false)) {
+        if (show_hotkeys_tip) {
+            show_hotkeys_pause = false;
+        } else {
+            show_hotkeys_pause = true;
+        }
 #ifdef ENABLE_QT_GUI
         g_MainWindow->PauseGame();
 #else
@@ -870,6 +997,11 @@ void L::Draw() {
         SDL_PushEvent(&toggleFullscreenEvent);
     }
 
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Circle)) {
+        show_fullscreen_tip = !show_fullscreen_tip;
+        fullscreen_tip_manual = true;
+    }
+
 #ifdef ENABLE_QT_GUI
     if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Right)) {
         if (g_MainWindow)
@@ -895,7 +1027,7 @@ void L::Draw() {
     }
 
     if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
-        show_quit_window = true;
+        show_quit_window = !show_quit_window;
     }
 
     const bool show_debug_menu_combo =
@@ -911,19 +1043,30 @@ void L::Draw() {
         frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
     }
 
-    if (show_fullscreen_tip) {
-        fullscreen_tip_timer -= io.DeltaTime;
-        if (fullscreen_tip_timer <= 0.0f) {
-            show_fullscreen_tip = false;
+    if (!fullscreen_tip_manual && !show_hotkeys_tip_manual) {
+        if (!Config::getScreenTipDisable()) {
+            fullscreen_tip_timer -= io.DeltaTime;
+            if (fullscreen_tip_timer <= 0.0f) {
+                show_hotkeys_tip = false;
+                show_fullscreen_tip = false;
+            }
         } else {
-            DrawFullscreenTipWindow(show_fullscreen_tip, fullscreen_tip_timer);
+            show_hotkeys_tip = false;
+            show_fullscreen_tip = false;
         }
     }
+
+    if (show_hotkeys_tip || show_hotkeys_tip_manual)
+        DrawFullscreenHotkeysWindow(show_hotkeys_tip);
+
+    if (show_fullscreen_tip || fullscreen_tip_manual)
+        DrawFullscreenSettingsWindow(show_fullscreen_tip);
 
     static bool showPauseHelpWindow = true;
 
     if (DebugState.IsGuestThreadsPaused()) {
         DrawPauseStatusWindow(showPauseHelpWindow);
+        DrawFullscreenHotkeysPause(show_hotkeys_pause);
     }
 
     if (show_simple_fps) {
