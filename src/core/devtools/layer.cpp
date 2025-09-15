@@ -736,6 +736,14 @@ void DrawPauseStatusWindow(bool& is_open) {
                 if (ImGui::SliderInt("VBlank Freq", &vblank, 1, 500))
                     Config::setVblankFreq(vblank);
 
+                static const char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low", "Default",
+                                                             "Fast"};
+                int readbackAccIndex = static_cast<int>(Config::readbackSpeed());
+                if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
+                                 IM_ARRAYSIZE(readbackAccuracyStrs))) {
+                    Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbackAccIndex));
+                }
+
                 bool fsr_enabled = Config::getFsrEnabled();
                 if (ImGui::Checkbox("FSR Enabled", &fsr_enabled))
                     Config::setFsrEnabled(fsr_enabled);
@@ -754,15 +762,6 @@ void DrawPauseStatusWindow(bool& is_open) {
                             Config::setRcasAttenuation(
                                 static_cast<int>(fsr.rcas_attenuation * 1000.0f));
                         }
-                    }
-
-                    static const char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low",
-                                                                 "Default", "Fast"};
-                    int readbackAccIndex = static_cast<int>(Config::readbackSpeed());
-                    if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
-                                     IM_ARRAYSIZE(readbackAccuracyStrs))) {
-                        Config::setReadbackSpeed(
-                            static_cast<Config::ReadbackSpeed>(readbackAccIndex));
                     }
                     ImGui::EndDisabled();
                 }
