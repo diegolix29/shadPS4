@@ -1232,7 +1232,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isNullGpu.setFromToml(gpu, "nullGpu", is_game_specific);
         shouldCopyGPUBuffers.setFromToml(gpu, "copyGPUBuffers", is_game_specific);
         readbackSpeedMode = static_cast<ReadbackSpeed>(
-            toml::find_or<int>(gpu, "readbackSpeed", static_cast<int>(is_game_specific)));
+            toml::find_or<int>(gpu, "readbackSpeedMode", static_cast<int>(is_game_specific)));
         readbackLinearImagesEnabled.setFromToml(gpu, "readbackLinearImages", is_game_specific);
         directMemoryAccessEnabled.setFromToml(gpu, "directMemoryAccess", is_game_specific);
         isFullscreen.setFromToml(gpu, "isFullscreen", is_game_specific);

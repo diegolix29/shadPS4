@@ -74,7 +74,7 @@ void GameSpecificDialog::OnRcasAttenuationChanged(int value) {
 }
 
 void GameSpecificDialog::OnRcasAttenuationSpinBoxChanged(double value) {
-    int int_value = static_cast<int>(value * 1000.0);
+    int int_value = static_cast<int>(std::lround(value * 1000.0));
     ui->RCASSlider->setValue(int_value);
 }
 
@@ -87,8 +87,10 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         VolumeSliderChange(value);
         Libraries::AudioOut::AdjustVol();
     });
+    ui->horizontalVolumeSlider->blockSignals(true);
     ui->horizontalVolumeSlider->setValue(Config::getVolumeSlider());
-    ui->volumeText->setText(QString::number(Config::getVolumeSlider()) + "%");
+    ui->horizontalVolumeSlider->blockSignals(false);
+    VolumeSliderChange(Config::getVolumeSlider());
 
     ui->connectedNetworkCheckBox->setChecked(Config::getIsConnectedToNetwork());
     ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
@@ -124,7 +126,11 @@ void GameSpecificDialog::LoadValuesFromConfig() {
 
     ui->backgroundControllerCheckBox->setChecked(Config::getBackgroundControllerInput());
     ui->idleTimeoutSpinBox->setValue(Config::getCursorHideTimeout());
-    ui->hideCursorComboBox->setCurrentIndex(Config::getCursorState());
+    int idx = Config::getCursorState();
+    if (idx >= 0 && idx < ui->hideCursorComboBox->count())
+        ui->hideCursorComboBox->setCurrentIndex(idx);
+    else
+        ui->hideCursorComboBox->setCurrentIndex(0);
     ui->motionControlsCheckBox->setChecked(Config::getIsMotionControlsEnabled());
     ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass());
     ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad());
@@ -166,9 +172,16 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     toml::value data;
     try {
         data = toml::parse(m_config_path);
-    } catch (const std::exception&) {
+    } catch (const std::exception& e) {
+        qWarning() << "Failed to parse config:" << QString::fromStdString(e.what());
         return;
     }
+
+    QMap<QString, QString> presentModeMap = {
+        {"Mailbox", tr("Mailbox (Vsync)")},
+        {"Fifo", tr("Fifo (Vsync)")},
+        {"Immediate", tr("Immediate (No Vsync)")},
+    };
 
     // General
     if (data.contains("General")) {
@@ -263,14 +276,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
                 QString::fromStdString(toml::find<std::string>(gpu, "memoryAlloc")));
         if (gpu.contains("presentMode")) {
             std::string present = toml::find<std::string>(gpu, "presentMode");
-            QMap<QString, QString> presentModeMap = {
-                {tr("Mailbox (Vsync)"), "Mailbox"},
-                {tr("Fifo (Vsync)"), "Fifo"},
-                {tr("Immediate (No Vsync)"), "Immediate"},
-            };
-            const auto presentText =
-                presentModeMap.key(QString::fromStdString(present), tr("Fifo (Vsync)"));
-            ui->presentModeComboBox->setCurrentText(presentText);
+            ui->presentModeComboBox->setCurrentText(
+                presentModeMap.value(QString::fromStdString(present)));
         }
 
         if (gpu.contains("rcasAttenuation")) {
@@ -282,8 +289,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->RCASCheckBox->setChecked(toml::find<bool>(gpu, "rcasEnabled"));
         if (gpu.contains("readbackLinearImages"))
             ui->ReadbacksLinearCheckBox->setChecked(toml::find<bool>(gpu, "readbackLinearImages"));
-        if (gpu.contains("readbackSpeed"))
-            ui->ReadbackSpeedComboBox->setCurrentIndex(toml::find<int>(gpu, "readbackSpeed"));
+        if (gpu.contains("readbackSpeedMode"))
+            ui->ReadbackSpeedComboBox->setCurrentIndex(toml::find<int>(gpu, "readbackSpeedMode"));
         if (gpu.contains("screenWidth"))
             ui->widthSpinBox->setValue(toml::find<int>(gpu, "screenWidth"));
         if (gpu.contains("screenHeight"))
@@ -331,9 +338,9 @@ void GameSpecificDialog::UpdateSettings() {
         {tr("sync"), "sync"},
     };
     QMap<QString, QString> presentModeMap = {
-        {tr("Mailbox (Vsync)"), "Mailbox"},
-        {tr("Fifo (Vsync)"), "Fifo"},
-        {tr("Immediate (No Vsync)"), "Immediate"},
+        {"Mailbox", tr("Mailbox (Vsync)")},
+        {"Fifo", tr("Fifo (Vsync)")},
+        {"Immediate", tr("Immediate (No Vsync)")},
     };
     QMap<QString, QString> screenModeMap = {
         {tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
@@ -454,19 +461,13 @@ void GameSpecificDialog::UpdateSettings() {
     if (ui->MemoryComboBox->currentText().toStdString() != Config::getMemoryAlloc())
         overrides["GPU"]["memoryAlloc"] = ui->MemoryComboBox->currentText().toStdString();
 
-    {
-        std::string present =
-            presentModeMap.value(ui->presentModeComboBox->currentText()).toStdString();
-        if (present != Config::getPresentMode())
-            overrides["GPU"]["presentMode"] = present;
-    }
+    QString key = presentModeMap.key(ui->presentModeComboBox->currentText(), "Fifo");
+    if (key.toStdString() != Config::getPresentMode())
+        overrides["GPU"]["presentMode"] = key.toStdString();
 
     {
         int current = Config::getRcasAttenuation();
-        int sliderVal = ui->RCASSlider->value();
-        int spinVal = static_cast<int>(ui->RCASSpinBox->value() * 1000.0);
-
-        int newVal = sliderVal;
+        int newVal = ui->RCASSlider->value();
 
         if (newVal != current)
             overrides["GPU"]["rcasAttenuation"] = newVal;
@@ -480,7 +481,7 @@ void GameSpecificDialog::UpdateSettings() {
 
     if (static_cast<Config::ReadbackSpeed>(ui->ReadbackSpeedComboBox->currentIndex()) !=
         Config::readbackSpeed()) {
-        overrides["GPU"]["readbackSpeed"] = ui->ReadbackSpeedComboBox->currentIndex();
+        overrides["GPU"]["readbackSpeedMode"] = ui->ReadbackSpeedComboBox->currentIndex();
     }
 
     if (ui->widthSpinBox->value() != Config::getScreenWidth())
@@ -524,17 +525,31 @@ void GameSpecificDialog::UpdateSettings() {
     if (ui->enableLoggingCheckBox->isChecked() != Config::getLoggingEnabled())
         overrides["Debug"]["logEnabled"] = ui->enableLoggingCheckBox->isChecked();
 
+    std::error_code ec;
     if (overrides.as_table().empty()) {
+        std::filesystem::remove(m_config_path, ec);
         return;
     }
-    std::error_code ec;
+
     std::filesystem::create_directories(m_config_path.parent_path(), ec);
 
-    std::ofstream ofs(m_config_path, std::ios::trunc);
-    if (!ofs) {
-        qWarning() << "Failed to open per-game config for writing:"
-                   << QString::fromStdString(m_config_path.string());
-        return;
+    std::filesystem::path tmp = m_config_path;
+    tmp += ".tmp";
+
+    {
+        std::ofstream ofs(tmp, std::ios::trunc);
+        if (!ofs || !(ofs << overrides)) {
+            qWarning() << "Failed to write per-game config to temp file:"
+                       << QString::fromStdString(tmp.string());
+            std::filesystem::remove(tmp, ec);
+            return;
+        }
     }
-    ofs << overrides;
+
+    std::filesystem::rename(tmp, m_config_path, ec);
+    if (ec) {
+        qWarning() << "Failed to move temp config into place:"
+                   << QString::fromStdString(ec.message());
+        std::filesystem::remove(tmp, ec);
+    }
 }
