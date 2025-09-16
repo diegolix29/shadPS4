@@ -1454,7 +1454,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["internalScreenHeight"] = internalScreenHeight.base_value;
     data["GPU"]["nullGpu"] = isNullGpu.base_value;
     data["GPU"]["copyGPUBuffers"] = shouldCopyGPUBuffers.base_value;
-    data["GPU"]["readbackSpeed"] = static_cast<int>(readbackSpeedMode.base_value);
+    data["GPU"]["readbackSpeedMode"] = static_cast<int>(readbackSpeedMode.base_value);
     data["GPU"]["readbackLinearImages"] = readbackLinearImagesEnabled.base_value;
     data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.base_value;
     data["GPU"]["dumpShaders"] = shouldDumpShaders.base_value;
