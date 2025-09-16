@@ -742,6 +742,8 @@ void DrawPauseStatusWindow(bool& is_open) {
                 if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
                                  IM_ARRAYSIZE(readbackAccuracyStrs))) {
                     Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbackAccIndex));
+                    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+                    Config::save(config_dir / "config.toml");
                 }
 
                 bool fsr_enabled = Config::getFsrEnabled();

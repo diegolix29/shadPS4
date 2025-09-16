@@ -1218,10 +1218,28 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isNullGpu.setFromToml(gpu, "nullGpu", false);
         shouldDumpShaders.setFromToml(gpu, "dumpShaders", is_game_specific);
         shouldPatchShaders.setFromToml(gpu, "patchShaders", is_game_specific);
-        vblankFrequency.setFromToml(gpu, "vblankFrequency", is_game_specific);
-        isHDRAllowed.setFromToml(gpu, "allowHDR", is_game_specific);
+        if (is_game_specific) {
+            if (auto opt = toml::get_optional<int>(gpu, "vblankFreq"))
+                vblankFrequency.game_specific_value = *opt;
+        } else {
+            if (auto opt = toml::get_optional<int>(gpu, "vblankFreq"))
+                vblankFrequency.base_value = *opt;
+        }
+        if (is_game_specific) {
+            if (auto opt = toml::get_optional<bool>(gpu, "allowHDR"))
+                isHDRAllowed.game_specific_value = *opt;
+        } else {
+            if (auto opt = toml::get_optional<bool>(gpu, "allowHDR"))
+                isHDRAllowed.base_value = *opt;
+        }
         shaderSkipsEnabled.setFromToml(gpu, "shaderSkipsEnabled", is_game_specific);
-        memoryAlloc.setFromToml(gpu, "memoryAlloc", is_game_specific);
+        if (is_game_specific) {
+            if (auto opt = toml::get_optional<std::string>(gpu, "memoryAlloc"))
+                memoryAlloc.game_specific_value = *opt;
+        } else {
+            if (auto opt = toml::get_optional<std::string>(gpu, "memoryAlloc"))
+                memoryAlloc.base_value = *opt;
+        }
         windowWidth.setFromToml(gpu, "windowWidth", is_game_specific);
         fpsLimit.setFromToml(gpu, "fpsLimit", is_game_specific);
         g_fpsLimiterEnabled.setFromToml(gpu, "g_fpsLimiterEnabled", is_game_specific);
@@ -1231,13 +1249,28 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         internalScreenHeight.setFromToml(gpu, "internalScreenHeight", is_game_specific);
         isNullGpu.setFromToml(gpu, "nullGpu", is_game_specific);
         shouldCopyGPUBuffers.setFromToml(gpu, "copyGPUBuffers", is_game_specific);
-        readbackSpeedMode = static_cast<ReadbackSpeed>(
-            toml::find_or<int>(gpu, "readbackSpeedMode", static_cast<int>(is_game_specific)));
+        if (is_game_specific) {
+            if (auto opt = toml::get_optional<int>(gpu, "readbackSpeedMode")) {
+                readbackSpeedMode.game_specific_value = static_cast<ReadbackSpeed>(*opt);
+            }
+        } else {
+            if (auto opt = toml::get_optional<int>(gpu, "readbackSpeedMode")) {
+                readbackSpeedMode.base_value = static_cast<ReadbackSpeed>(*opt);
+            }
+        }
         readbackLinearImagesEnabled.setFromToml(gpu, "readbackLinearImages", is_game_specific);
         directMemoryAccessEnabled.setFromToml(gpu, "directMemoryAccess", is_game_specific);
         isFullscreen.setFromToml(gpu, "isFullscreen", is_game_specific);
         fullscreenMode.setFromToml(gpu, "fullscreenMode", is_game_specific);
-        presentMode.setFromToml(gpu, "presentMode", is_game_specific);
+        if (is_game_specific) {
+            if (auto opt = toml::get_optional<std::string>(gpu, "presentMode")) {
+                presentMode.game_specific_value = *opt;
+            }
+        } else {
+            if (auto opt = toml::get_optional<std::string>(gpu, "presentMode")) {
+                presentMode.base_value = *opt;
+            }
+        }
     }
 
     if (data.contains("Vulkan")) {
