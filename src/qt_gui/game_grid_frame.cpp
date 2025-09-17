@@ -173,34 +173,83 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
 }
 
 void GameGridFrame::SetGridBackgroundImage(int row, int column) {
-    int itemID = (row * this->columnCount()) + column;
-    QWidget* item = this->cellWidget(row, column);
-    if (!item) {
-        // handle case where no item was clicked
-        return;
-    }
-
-    // If background images are hidden, clear the background image
     if (!Config::getShowBackgroundImage()) {
         backgroundImage = QImage();
-        m_last_opacity = -1;         // Reset opacity tracking when disabled
-        m_current_game_path.clear(); // Reset current game path
+        m_last_opacity = -1;
+        m_current_game_path.clear();
         RefreshGridBackgroundImage();
         return;
     }
 
-    const auto& game = (*m_games_shared)[itemID];
-    const int opacity = Config::getBackgroundImageOpacity();
+    QString customPath = QString::fromStdString(Config::getCustomBackgroundImage());
+    if (!customPath.isEmpty()) {
+        SetCustomBackgroundImage(customPath);
+        RefreshGridBackgroundImage();
+        return;
+    }
 
-    // Recompute if opacity changed or we switched to a different game
-    if (opacity != m_last_opacity || game.pic_path != m_current_game_path) {
-        QImage original_image(QString::fromStdString(game.pic_path.string()));
+    int itemID = (row * this->columnCount()) + column;
+    if (!m_games_shared || itemID < 0 || itemID >= m_games_shared->size()) {
+        return;
+    }
+
+    QString gamePic = QString::fromStdString((*m_games_shared)[itemID].pic_path.string());
+    if (!gamePic.isEmpty()) {
+        QImage original_image(gamePic);
         if (!original_image.isNull()) {
+            const int opacity = Config::getBackgroundImageOpacity();
             backgroundImage = m_game_list_utils.ChangeImageOpacity(
                 original_image, original_image.rect(), opacity / 100.0f);
+
             m_last_opacity = opacity;
-            m_current_game_path = game.pic_path;
+            m_current_game_path = gamePic.toStdString();
         }
+        RefreshGridBackgroundImage();
+    }
+}
+
+void GameGridFrame::SetCustomBackgroundImage(const QString& filePath) {
+    if (filePath.isEmpty()) {
+        backgroundImage = QImage();
+        m_last_opacity = -1;
+        m_current_game_path.clear();
+        Config::setCustomBackgroundImage("");
+        RefreshGridBackgroundImage();
+        return;
+    }
+
+    QImage original_image(filePath);
+    if (!original_image.isNull()) {
+        const int opacity = Config::getBackgroundImageOpacity();
+        backgroundImage = m_game_list_utils.ChangeImageOpacity(
+            original_image, original_image.rect(), opacity / 100.0f);
+
+        m_last_opacity = opacity;
+        m_current_game_path = filePath.toStdString();
+
+        Config::setCustomBackgroundImage(filePath.toStdString());
+    }
+
+    RefreshGridBackgroundImage();
+}
+
+void GameGridFrame::LoadBackgroundImage(const QString& filePath) {
+    if (filePath.isEmpty()) {
+        backgroundImage = QImage();
+        m_last_opacity = -1;
+        m_current_game_path.clear();
+        RefreshGridBackgroundImage();
+        return;
+    }
+
+    QImage original_image(filePath);
+    if (!original_image.isNull()) {
+        const int opacity = Config::getBackgroundImageOpacity();
+        backgroundImage = m_game_list_utils.ChangeImageOpacity(
+            original_image, original_image.rect(), opacity / 100.0f);
+
+        m_last_opacity = opacity;
+        m_current_game_path = filePath.toStdString();
     }
 
     RefreshGridBackgroundImage();

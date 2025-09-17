@@ -27,6 +27,9 @@ public:
     QAction* downloadCheatsPatchesAct;
     QAction* dumpGameListAct;
     QAction* trophyViewerAct;
+    QAction* setCustomBackgroundAct;
+    QAction* clearCustomBackgroundAct;
+
 #ifdef ENABLE_UPDATER
     QAction* updaterAct;
 #endif
@@ -116,6 +119,14 @@ public:
         toggleLabelsAct->setObjectName("toggleLabelsAct");
         toggleLabelsAct->setCheckable(true);
         toggleLabelsAct->setChecked(Config::getShowLabelsUnderIcons());
+
+        setCustomBackgroundAct = new QAction(MainWindow);
+        setCustomBackgroundAct->setObjectName("setCustomBackgroundAct");
+        setCustomBackgroundAct->setText("Set Custom Background...");
+
+        clearCustomBackgroundAct = new QAction(MainWindow);
+        clearCustomBackgroundAct->setObjectName("clearCustomBackgroundAct");
+        clearCustomBackgroundAct->setText("Clear Custom Background");
 
         setIconSizeTinyAct = new QAction(MainWindow);
         setIconSizeTinyAct->setObjectName("setIconSizeTinyAct");
@@ -367,6 +378,8 @@ public:
         menuSettings->addAction(gameInstallPathAct);
         menuSettings->addAction(configureHotkeys);
         menuSettings->addAction(menuUtils->menuAction());
+        menuSettings->addAction(clearCustomBackgroundAct);
+        menuSettings->addAction(setCustomBackgroundAct);
         menuUtils->addAction(downloadCheatsPatchesAct);
         menuUtils->addAction(dumpGameListAct);
         menuUtils->addAction(trophyViewerAct);
@@ -453,6 +466,11 @@ public:
         toolBar->setWindowTitle(QCoreApplication::translate("MainWindow", "toolBar", nullptr));
         toggleLabelsAct->setText(
             QCoreApplication::translate("MainWindow", "Show Labels Under Icons"));
+        setCustomBackgroundAct->setText(
+            QCoreApplication::translate("MainWindow", "Set Custom Background...", nullptr));
+        clearCustomBackgroundAct->setText(
+            QCoreApplication::translate("MainWindow", "Clear Custom Background", nullptr));
+
     } // retranslateUi
 };
 

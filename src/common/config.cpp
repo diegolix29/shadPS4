@@ -123,6 +123,7 @@ static bool restartWithBaseGame = false;
 static ConfigEntry<bool> screenTipDisable(false);
 static ConfigEntry<bool> g_fpsLimiterEnabled(false);
 static std::string guiStyle = "Fusion";
+static std::string g_customBackgroundImage;
 
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
@@ -241,6 +242,14 @@ static std::string trophyKey = "";
 
 bool allowHDR() {
     return isHDRAllowed.get();
+}
+
+std::string getCustomBackgroundImage() {
+    return g_customBackgroundImage;
+}
+
+void setCustomBackgroundImage(const std::string& path) {
+    g_customBackgroundImage = path;
 }
 
 std::string getGuiStyle() {
@@ -1284,6 +1293,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
     if (data.contains("GUI")) {
         const toml::value& gui = data.at("GUI");
 
+        g_customBackgroundImage = toml::find_or<std::string>(gui, "CustomBackgroundImage", "");
         load_game_size = toml::find_or<bool>(gui, "loadGameSizeEnabled", true);
         m_icon_size = toml::find_or<int>(gui, "iconSize", 0);
         m_icon_size_grid = toml::find_or<int>(gui, "iconSizeGrid", 0);
@@ -1534,6 +1544,7 @@ void save(const std::filesystem::path& path) {
     data["GUI"]["installDirsEnabled"] = install_dirs_enabled;
     data["GUI"]["saveDataPath"] = std::string{fmt::UTF(save_data_path.u8string()).data};
     data["GUI"]["loadGameSizeEnabled"] = load_game_size;
+    data["GUI"]["CustomBackgroundImage"] = g_customBackgroundImage;
 
     data["GUI"]["addonInstallDir"] =
         std::string{fmt::UTF(settings_addon_install_dir.u8string()).data};

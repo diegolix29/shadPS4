@@ -131,6 +131,9 @@ void SetSkippedShaderHashes(const std::string& game_id);
 void setMicDevice(std::string device);
 std::string getMicDevice();
 
+std::string getCustomBackgroundImage();
+void setCustomBackgroundImage(const std::string& path);
+
 void setDebugDump(bool enable);
 void setCollectShaderForDebug(bool enable);
 void setShowSplash(bool enable);

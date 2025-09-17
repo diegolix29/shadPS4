@@ -58,6 +58,7 @@ public:
     void PopulateGameList(bool isInitialPopulation = true);
     void ResizeIcons(int iconSize);
     void SetFavoriteIcon(int row, int column);
+    void ApplyCustomBackground();
     QTableWidgetItem* GetCurrentItem();
     QImage backgroundImage;
     GameListUtils m_game_list_utils;

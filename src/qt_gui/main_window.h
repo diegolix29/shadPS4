@@ -83,6 +83,8 @@ private:
     QPixmap RecolorPixmap(const QIcon& icon, const QSize& size, const QColor& color);
     void SetUiIcons(const QColor& baseColor, const QColor& hoverColor);
     void BootGame();
+    void onSetCustomBackground();
+    void onClearCustomBackground();
 
     void AddRecentFiles(QString filePath);
     void LoadTranslation();

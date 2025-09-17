@@ -515,6 +515,24 @@ void MainWindow::CheckUpdateMain(bool checkSave) {
 }
 #endif
 
+void MainWindow::onSetCustomBackground() {
+    QString file =
+        QFileDialog::getOpenFileName(this, tr("Select Background Image"), QDir::homePath(),
+                                     tr("Images (*.png *.jpg *.jpeg *.bmp)"));
+
+    if (!file.isEmpty()) {
+        if (m_game_grid_frame) {
+            m_game_grid_frame->SetCustomBackgroundImage(file);
+        }
+    }
+}
+
+void MainWindow::onClearCustomBackground() {
+    if (m_game_grid_frame) {
+        m_game_grid_frame->SetCustomBackgroundImage("");
+    }
+}
+
 void MainWindow::CreateConnects() {
     connect(this, &MainWindow::WindowResized, this, &MainWindow::HandleResize);
     connect(ui->mw_searchbar, &QLineEdit::textChanged, this, &MainWindow::SearchGameTable);
@@ -597,13 +615,38 @@ void MainWindow::CreateConnects() {
                 qApp->setStyleSheet(file.readAll());
             }
         } else {
-            qApp->setStyleSheet("");
+            qApp->setStyleSheet(""); // reset any QSS
             QApplication::setStyle(QStyleFactory::create(styleName));
         }
 
         Config::setGuiStyle(styleName.toStdString());
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         Config::saveMainWindow(config_dir / "config.toml");
+    });
+
+    connect(ui->setCustomBackgroundAct, &QAction::triggered, this, [this]() {
+        QString filePath =
+            QFileDialog::getOpenFileName(this, tr("Select Background Image"), QDir::homePath(),
+                                         tr("Images (*.png *.jpg *.jpeg *.bmp)"));
+
+        if (!filePath.isEmpty()) {
+            if (m_game_grid_frame) {
+                m_game_grid_frame->SetCustomBackgroundImage(filePath);
+            }
+        }
+        m_game_list_frame->ApplyCustomBackground();
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+
+        Config::save(config_dir / "config.toml");
+    });
+
+    connect(ui->clearCustomBackgroundAct, &QAction::triggered, this, [this]() {
+        if (m_game_grid_frame) {
+            m_game_grid_frame->SetCustomBackgroundImage("");
+        }
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+
+        Config::save(config_dir / "config.toml");
     });
 
     connect(ui->MuteBox, &QCheckBox::toggled, [&](bool checked) {
