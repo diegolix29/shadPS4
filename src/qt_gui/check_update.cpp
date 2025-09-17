@@ -339,8 +339,8 @@ void CheckUpdate::setupUI(const QString& downloadUrl, const QString& latestDate,
 
     // Don't show changelog button if:
     // The current version is a pre-release and the version to be downloaded is a release.
-    bool current_isWIP = currentRev.endsWith("WIP", Qt::CaseInsensitive);
-    bool latest_isWIP = latestRev.endsWith("WIP", Qt::CaseInsensitive);
+    bool current_isWIP = currentRev.endsWith("DUD", Qt::CaseInsensitive);
+    bool latest_isWIP = latestRev.endsWith("DUD", Qt::CaseInsensitive);
     if (current_isWIP && !latest_isWIP) {
     } else {
         QTextBrowser* textField = new QTextBrowser(this);
