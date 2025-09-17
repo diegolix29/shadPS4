@@ -141,8 +141,6 @@ static bool overrideControllerColor = false;
 static int controllerCustomColorRGB[3] = {0, 0, 255};
 
 // GPU
-static ConfigEntry<u32> screenWidth(1280);
-static ConfigEntry<u32> screenHeight(720);
 static ConfigEntry<u32> windowWidth(1280);
 static ConfigEntry<u32> windowHeight(720);
 static ConfigEntry<u32> internalScreenWidth(1280);
@@ -522,14 +520,6 @@ bool alwaysShowChangelog() {
 
 std::string sideTrophy() {
     return isSideTrophy.get();
-}
-
-u32 getScreenWidth() {
-    return screenWidth.get();
-}
-
-u32 getScreenHeight() {
-    return screenHeight.get();
 }
 
 bool nullGpu() {
@@ -1219,8 +1209,6 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
     if (data.contains("GPU")) {
         const toml::value& gpu = data.at("GPU");
 
-        screenWidth.setFromToml(gpu, "screenWidth", is_game_specific);
-        screenHeight.setFromToml(gpu, "screenHeight", is_game_specific);
         fsrEnabled.setFromToml(gpu, "fsrEnabled", is_game_specific);
         rcasEnabled.setFromToml(gpu, "rcasEnabled", is_game_specific);
         rcasAttenuation = toml::find_or<float>(gpu, "rcasAttenuation", is_game_specific);
@@ -1231,10 +1219,9 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isHDRAllowed.setFromToml(gpu, "allowHDR", is_game_specific);
         shaderSkipsEnabled.setFromToml(gpu, "shaderSkipsEnabled", is_game_specific);
         memoryAlloc.setFromToml(gpu, "memoryAlloc", is_game_specific);
-        windowWidth.setFromToml(gpu, "windowWidth", is_game_specific);
         fpsLimit.setFromToml(gpu, "fpsLimit", is_game_specific);
         g_fpsLimiterEnabled.setFromToml(gpu, "g_fpsLimiterEnabled", is_game_specific);
-
+        windowWidth.setFromToml(gpu, "windowWidth", is_game_specific);
         windowHeight.setFromToml(gpu, "screenHeight", is_game_specific);
         internalScreenWidth.setFromToml(gpu, "internalScreenWidth", is_game_specific);
         internalScreenHeight.setFromToml(gpu, "internalScreenHeight", is_game_specific);
@@ -1451,30 +1438,34 @@ void save(const std::filesystem::path& path) {
     data["General"]["showSplash"] = isShowSplash.base_value;
     data["General"]["autoUpdate"] = isAutoUpdate;
     data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
-
+    data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
+    data["General"]["autoRestartGame"] = autoRestartGame;
+    data["General"]["restartWithBaseGame"] = restartWithBaseGame;
+    data["General"]["screenTipDisable"] = screenTipDisable.base_value;
     data["General"]["sideTrophy"] = isSideTrophy.base_value;
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
     data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
     data["General"]["defaultControllerID"] = defaultControllerID.base_value;
+    data["General"]["backend"] = audioBackend.base_value;
+    data["General"]["volume"] = audioVolume.base_value;
+
     data["Input"]["cursorState"] = cursorState.base_value;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout.base_value;
     data["Input"]["useSpecialPad"] = useSpecialPad.base_value;
     data["Input"]["specialPadClass"] = specialPadClass.base_value;
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
     data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
-    data["GPU"]["screenWidth"] = screenWidth.base_value;
-    data["GPU"]["screenHeight"] = screenHeight.base_value;
+    data["Input"]["micDevice"] = micDevice.base_value;
+    data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
+
     data["GPU"]["rcasAttenuation"] = rcasAttenuation.base_value;
     data["GPU"]["fsrEnabled"] = fsrEnabled.base_value;
     data["GPU"]["rcasEnabled"] = rcasEnabled.base_value;
-    data["Input"]["micDevice"] = micDevice.base_value;
-    data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
     data["GPU"]["fpsLimit"] = fpsLimit.base_value;
     data["GPU"]["g_fpsLimiterEnabled"] = g_fpsLimiterEnabled.base_value;
-
     data["GPU"]["windowWidth"] = windowWidth.base_value;
-    data["GPU"]["screenHeight"] = windowHeight.base_value;
+    data["GPU"]["windowHeight"] = windowHeight.base_value;
     data["GPU"]["internalScreenWidth"] = internalScreenWidth.base_value;
     data["GPU"]["internalScreenHeight"] = internalScreenHeight.base_value;
     data["GPU"]["nullGpu"] = isNullGpu.base_value;
@@ -1489,10 +1480,6 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["fullscreenMode"] = fullscreenMode.base_value;
     data["GPU"]["presentMode"] = presentMode.base_value;
     data["GPU"]["allowHDR"] = isHDRAllowed.base_value;
-    data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
-    data["General"]["autoRestartGame"] = autoRestartGame;
-    data["General"]["restartWithBaseGame"] = restartWithBaseGame;
-    data["General"]["screenTipDisable"] = screenTipDisable.base_value;
     data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled.base_value;
     data["GPU"]["memoryAlloc"] = memoryAlloc.base_value;
     data["Vulkan"]["gpuId"] = gpuId.base_value;
@@ -1503,15 +1490,13 @@ void save(const std::filesystem::path& path) {
     data["Vulkan"]["hostMarkers"] = vkHostMarkers.base_value;
     data["Vulkan"]["guestMarkers"] = vkGuestMarkers.base_value;
     data["Vulkan"]["rdocEnable"] = rdocEnable.base_value;
-    data["General"]["backend"] = audioBackend.base_value;
-    data["General"]["volume"] = audioVolume.base_value;
+
     data["Debug"]["DebugDump"] = isDebugDump.base_value;
     data["Debug"]["CollectShader"] = isShaderDebug.base_value;
     data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled.base_value;
     data["Debug"]["FPSColor"] = isFpsColor.base_value;
     data["Debug"]["logEnabled"] = logEnabled.base_value;
     data["Keys"]["TrophyKey"] = trophyKey;
-    data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
 
     std::vector<std::string> install_dirs;
     std::vector<bool> install_dirs_enabled;
@@ -1545,7 +1530,7 @@ void save(const std::filesystem::path& path) {
     data["GUI"]["saveDataPath"] = std::string{fmt::UTF(save_data_path.u8string()).data};
     data["GUI"]["loadGameSizeEnabled"] = load_game_size;
     data["GUI"]["CustomBackgroundImage"] = g_customBackgroundImage;
-
+    data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
     data["GUI"]["addonInstallDir"] =
         std::string{fmt::UTF(settings_addon_install_dir.u8string()).data};
     data["GUI"]["emulatorLanguage"] = emulator_language;
@@ -1660,8 +1645,6 @@ void setDefaultValues() {
     backgroundControllerInput = false;
 
     // GPU
-    screenWidth = 1280;
-    screenHeight = 720;
     isDebugDump = false;
     isShaderDebug = false;
     isShowSplash = false;

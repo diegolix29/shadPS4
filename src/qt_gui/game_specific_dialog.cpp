@@ -150,8 +150,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->RCASCheckBox->setChecked(Config::getRcasEnabled());
     ui->ReadbacksLinearCheckBox->setChecked(Config::getReadbackLinearImages());
     ui->ReadbackSpeedComboBox->setCurrentIndex(static_cast<int>(Config::readbackSpeed()));
-    ui->widthSpinBox->setValue(Config::getScreenWidth());
-    ui->heightSpinBox->setValue(Config::getScreenHeight());
+    ui->widthSpinBox->setValue(Config::getWindowWidth());
+    ui->heightSpinBox->setValue(Config::getWindowHeight());
     ui->SkipsCheckBox->setChecked(Config::getShaderSkipsEnabled());
     ui->vblankSpinBox->setValue(Config::vblankFreq());
 
@@ -291,10 +291,10 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->ReadbacksLinearCheckBox->setChecked(toml::find<bool>(gpu, "readbackLinearImages"));
         if (gpu.contains("readbackSpeedMode"))
             ui->ReadbackSpeedComboBox->setCurrentIndex(toml::find<int>(gpu, "readbackSpeedMode"));
-        if (gpu.contains("screenWidth"))
-            ui->widthSpinBox->setValue(toml::find<int>(gpu, "screenWidth"));
-        if (gpu.contains("screenHeight"))
-            ui->heightSpinBox->setValue(toml::find<int>(gpu, "screenHeight"));
+        if (gpu.contains("windowWidth"))
+            ui->widthSpinBox->setValue(toml::find<int>(gpu, "windowWidth"));
+        if (gpu.contains("windowHeight"))
+            ui->heightSpinBox->setValue(toml::find<int>(gpu, "windowHeight"));
         if (gpu.contains("shaderSkipsEnabled"))
             ui->SkipsCheckBox->setChecked(toml::find<bool>(gpu, "shaderSkipsEnabled"));
         if (gpu.contains("vblankFrequency"))
@@ -484,11 +484,11 @@ void GameSpecificDialog::UpdateSettings() {
         overrides["GPU"]["readbackSpeedMode"] = ui->ReadbackSpeedComboBox->currentIndex();
     }
 
-    if (ui->widthSpinBox->value() != Config::getScreenWidth())
-        overrides["GPU"]["screenWidth"] = ui->widthSpinBox->value();
+    if (ui->widthSpinBox->value() != Config::getWindowWidth())
+        overrides["GPU"]["windowWidth"] = ui->widthSpinBox->value();
 
-    if (ui->heightSpinBox->value() != Config::getScreenHeight())
-        overrides["GPU"]["screenHeight"] = ui->heightSpinBox->value();
+    if (ui->heightSpinBox->value() != Config::getWindowHeight())
+        overrides["GPU"]["windowHeight"] = ui->heightSpinBox->value();
 
     if (ui->SkipsCheckBox->isChecked() != Config::getShaderSkipsEnabled())
         overrides["GPU"]["shaderSkipsEnabled"] = ui->SkipsCheckBox->isChecked();

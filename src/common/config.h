@@ -81,8 +81,6 @@ void SetOverrideControllerColor(bool enable);
 int* GetControllerCustomColor();
 void SetControllerCustomColor(int r, int b, int g);
 
-u32 getScreenWidth();
-u32 getScreenHeight();
 void setFullscreenMode(std::string mode);
 std::string getPresentMode();
 void setPresentMode(std::string mode);
@@ -146,8 +144,6 @@ void setEnableAutoBackup(bool enable);
 void setCopyGPUCmdBuffers(bool enable);
 void setDumpShaders(bool enable);
 void setGpuId(s32 selectedGpuId);
-void setScreenWidth(u32 width);
-void setScreenHeight(u32 height);
 void setIsFullscreen(bool enable);
 void setFullscreenMode(std::string mode);
 void setisTrophyPopupDisabled(bool disable);
