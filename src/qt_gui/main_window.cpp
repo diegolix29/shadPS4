@@ -320,15 +320,33 @@ void MainWindow::AddUiWidgets() {
     ui->toolBar->addWidget(styleLabel);
 
     ui->styleSelector->clear();
-    for (const QString& styleName : QStyleFactory::keys()) {
-        if (styleName != "windowsvista") {
+
+    QStringList styles = QStyleFactory::keys();
+    for (const QString& styleName : styles) {
+        if (styleName.compare("windowsvista", Qt::CaseInsensitive) != 0) {
             ui->styleSelector->addItem(styleName);
         }
     }
 
+    QDir qssDir(QString::fromStdString(
+        Common::FS::GetUserPath(Common::FS::PathType::CustomThemes).string()));
+    QStringList qssFiles = qssDir.entryList({"*.qss"}, QDir::Files);
+
+    for (const QString& qssFile : qssFiles) {
+        QString themeName = QFileInfo(qssFile).baseName() + " (QSS)";
+        int index = ui->styleSelector->count();
+        ui->styleSelector->addItem(themeName);
+        ui->styleSelector->setItemData(index, qssDir.absoluteFilePath(qssFile));
+    }
+
     QString savedStyle = QString::fromStdString(Config::getGuiStyle());
-    if (!savedStyle.isEmpty() && QStyleFactory::keys().contains(savedStyle, Qt::CaseInsensitive)) {
-        ui->styleSelector->setCurrentText(savedStyle);
+    if (!savedStyle.isEmpty()) {
+        int idx = ui->styleSelector->findText(savedStyle, Qt::MatchFixedString);
+        if (idx >= 0) {
+            ui->styleSelector->setCurrentIndex(idx);
+        } else {
+            ui->styleSelector->setCurrentText(QApplication::style()->objectName());
+        }
     } else {
         ui->styleSelector->setCurrentText(QApplication::style()->objectName());
     }
@@ -570,7 +588,19 @@ void MainWindow::CreateConnects() {
         settingsDialog->exec();
     });
     connect(ui->styleSelector, &QComboBox::currentTextChanged, [this](const QString& styleName) {
-        QApplication::setStyle(QStyleFactory::create(styleName));
+        int idx = ui->styleSelector->currentIndex();
+        QVariant data = ui->styleSelector->itemData(idx);
+
+        if (styleName.endsWith("(QSS)") && data.isValid()) {
+            QFile file(data.toString());
+            if (file.open(QFile::ReadOnly)) {
+                qApp->setStyleSheet(file.readAll());
+            }
+        } else {
+            qApp->setStyleSheet("");
+            QApplication::setStyle(QStyleFactory::create(styleName));
+        }
+
         Config::setGuiStyle(styleName.toStdString());
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         Config::saveMainWindow(config_dir / "config.toml");
