@@ -26,6 +26,7 @@ private:
     void OnCursorStateChanged(s16 index);
     void OnRcasAttenuationChanged(int value);
     void OnRcasAttenuationSpinBoxChanged(double value);
+    void PopulateAudioDevices();
     Ui::GameSpecificDialog* ui;
     std::shared_ptr<CompatibilityInfoClass> m_compat_info;
     std::string m_serial;

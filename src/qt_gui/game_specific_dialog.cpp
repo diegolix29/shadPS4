@@ -7,13 +7,18 @@
 
 #include <toml.hpp>
 #include "common/config.h"
+#include "common/logging/log.h"
+
 #include "core/file_sys/fs.h"
 #include "core/libraries/audio/audioout.h"
 #include "log_presets_dialog.h"
+#include "sdl_event_wrapper.h"
 
 #include "common/path_util.h"
 #include "game_specific_dialog.h"
 #include "ui_game_specific_dialog.h"
+
+#include <SDL3/SDL.h>
 
 GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> compat_info,
                                        QWidget* parent, const std::string& serial, bool is_running,
@@ -28,6 +33,7 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
     m_config_path = std::filesystem::path(GetUserPath(Common::FS::PathType::CustomConfigs)) /
                     (serial + ".toml");
 
+    PopulateAudioDevices();
     LoadValuesFromConfig();
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, [this]() {
@@ -183,6 +189,10 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         {"Fifo", tr("Fifo (Vsync)")},
         {"Immediate", tr("Immediate (No Vsync)")},
     };
+    ui->mainOutputDeviceComboBox->setCurrentText(QString::fromStdString(
+        toml::find_or<std::string>(data, "General", "mainOutputDevice", "")));
+    ui->padSpkOutputDeviceComboBox->setCurrentText(QString::fromStdString(
+        toml::find_or<std::string>(data, "General", "padSpkOutputDevice", "")));
 
     // General
     if (data.contains("General")) {
@@ -300,6 +310,24 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->SkipsCheckBox->setChecked(toml::find<bool>(gpu, "shaderSkipsEnabled"));
         if (gpu.contains("vblankFrequency"))
             ui->vblankSpinBox->setValue(toml::find<int>(gpu, "vblankFrequency"));
+    }
+
+    // Audio
+    if (data.contains("Audio")) {
+        const auto& audio = toml::find(data, "Audio");
+        if (audio.contains("mainOutputDevice"))
+            ui->mainOutputDeviceComboBox->setCurrentText(
+                QString::fromStdString(toml::find<std::string>(audio, "mainOutputDevice")));
+        else
+            ui->mainOutputDeviceComboBox->setCurrentText(
+                QString::fromStdString(Config::getMainOutputDevice()));
+
+        if (audio.contains("padSpkOutputDevice"))
+            ui->padSpkOutputDeviceComboBox->setCurrentText(
+                QString::fromStdString(toml::find<std::string>(audio, "padSpkOutputDevice")));
+        else
+            ui->padSpkOutputDeviceComboBox->setCurrentText(
+                QString::fromStdString(Config::getPadSpkOutputDevice()));
     }
 
     // Vulkan
@@ -424,6 +452,16 @@ void GameSpecificDialog::UpdateSettings() {
     if (ui->useUnifiedInputConfigCheckBox->isChecked() != Config::GetUseUnifiedInputConfig())
         overrides["Input"]["useUnifiedInputConfig"] =
             ui->useUnifiedInputConfigCheckBox->isChecked();
+
+    // Audio
+    if (ui->mainOutputDeviceComboBox->currentText().toStdString() != Config::getMainOutputDevice())
+        overrides["Audio"]["mainOutputDevice"] =
+            ui->mainOutputDeviceComboBox->currentText().toStdString();
+
+    if (ui->padSpkOutputDeviceComboBox->currentText().toStdString() !=
+        Config::getPadSpkOutputDevice())
+        overrides["Audio"]["padSpkOutputDevice"] =
+            ui->padSpkOutputDeviceComboBox->currentText().toStdString();
 
     //  GPU
     if (ui->enableHDRCheckBox->isChecked() != Config::allowHDR())
@@ -552,5 +590,31 @@ void GameSpecificDialog::UpdateSettings() {
         qWarning() << "Failed to move temp config into place:"
                    << QString::fromStdString(ec.message());
         std::filesystem::remove(tmp, ec);
+    }
+}
+
+void GameSpecificDialog::PopulateAudioDevices() {
+    ui->mainOutputDeviceComboBox->clear();
+    ui->padSpkOutputDeviceComboBox->clear();
+
+    // Add default option
+    ui->mainOutputDeviceComboBox->addItem(tr("Default Device"));
+    ui->padSpkOutputDeviceComboBox->addItem(tr("Default Device"));
+
+    // Enumerate playback devices (speakers) with SDL3
+    SDL_InitSubSystem(SDL_INIT_AUDIO);
+    int count = 0;
+    SDL_AudioDeviceID* devices = SDL_GetAudioPlaybackDevices(&count);
+    if (devices) {
+        for (int i = 0; i < count; ++i) {
+            SDL_AudioDeviceID devId = devices[i];
+            const char* name = SDL_GetAudioDeviceName(devId);
+            if (name) {
+                QString qname = QString::fromUtf8(name);
+                ui->mainOutputDeviceComboBox->addItem(qname);
+                ui->padSpkOutputDeviceComboBox->addItem(qname);
+            }
+        }
+        SDL_free(devices);
     }
 }
