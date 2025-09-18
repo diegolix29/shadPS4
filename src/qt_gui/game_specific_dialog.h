@@ -15,7 +15,8 @@ class GameSpecificDialog : public QDialog {
 
 public:
     explicit GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> compat_info,
-                                QWidget* parent, const std::string& serial);
+                                QWidget* parent, const std::string& serial, bool is_running,
+                                std::string gsc_serial);
     ~GameSpecificDialog();
 
 private:

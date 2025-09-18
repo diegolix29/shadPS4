@@ -11,6 +11,7 @@
 #include <fmt/format.h>
 
 #include "common/config.h"
+#include "common/logging/log.h"
 #include "common/scm_rev.h"
 #include "core/libraries/audio/audioout.h"
 #include "qt_gui/compatibility_info.h"
@@ -27,6 +28,7 @@
 #include "common/logging/backend.h"
 #include "common/logging/filter.h"
 #include "log_presets_dialog.h"
+#include "sdl_event_wrapper.h"
 #include "settings_dialog.h"
 #include "ui_settings_dialog.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -83,8 +85,9 @@ int fps_backup;
 static std::vector<QString> m_physical_devices;
 
 SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
-                               QWidget* parent)
-    : QDialog(parent), ui(new Ui::SettingsDialog), compat_info(m_compat_info) {
+                               QWidget* parent, bool is_running, std::string gsc_serial)
+    : QDialog(parent), ui(new Ui::SettingsDialog), compat_info(std::move(m_compat_info)),
+      is_game_running(is_running), gs_serial(std::move(gsc_serial)) {
     ui->setupUi(this);
     ui->tabWidgetSettings->setUsesScrollButtons(false);
 
@@ -158,6 +161,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     }
 
     InitializeEmulatorLanguages();
+    onAudioDeviceChange(true);
     LoadValuesFromConfig();
 
     defaultTextEdit = tr("Point your mouse at an option to display its description.");
@@ -544,6 +548,16 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->isPSNSignedInCheckBox->installEventFilter(this);
         ui->ReadbacksLinearCheckBox->installEventFilter(this);
     }
+
+    SdlEventWrapper::Wrapper::wrapperActive = true;
+    if (!is_game_running) {
+        SDL_InitSubSystem(SDL_INIT_EVENTS);
+        Polling = QtConcurrent::run(&SettingsDialog::pollSDLevents, this);
+    } else {
+        SdlEventWrapper::Wrapper* DeviceEventWrapper = SdlEventWrapper::Wrapper::GetInstance();
+        QObject::connect(DeviceEventWrapper, &SdlEventWrapper::Wrapper::audioDeviceChanged, this,
+                         &SettingsDialog::onAudioDeviceChange);
+    }
 }
 
 void SettingsDialog::closeEvent(QCloseEvent* event) {
@@ -558,6 +572,17 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
         ui->fpsSpinBox->setValue(fps_backup);
 
         Config::setFpsLimit(fps_backup);
+    }
+    SdlEventWrapper::Wrapper::wrapperActive = false;
+    if (!is_game_running) {
+        SDL_Event quitLoop{};
+        quitLoop.type = SDL_EVENT_QUIT;
+        SDL_PushEvent(&quitLoop);
+        Polling.waitForFinished();
+
+        SDL_QuitSubSystem(SDL_INIT_EVENTS);
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        SDL_Quit();
     }
     QDialog::closeEvent(event);
 }
@@ -696,6 +721,11 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->enableCompatibilityCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "compatibilityEnabled", false));
     ui->enableLoggingCheckBox->setChecked(toml::find_or<bool>(data, "Debug", "logEnabled", true));
+
+    ui->GenAudioComboBox->setCurrentText(QString::fromStdString(
+        toml::find_or<std::string>(data, "General", "mainOutputDevice", "")));
+    ui->DsAudioComboBox->setCurrentText(QString::fromStdString(
+        toml::find_or<std::string>(data, "General", "padSpkOutputDevice", "")));
 
     ui->checkCompatibilityOnStartupCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
@@ -1176,4 +1206,60 @@ void SettingsDialog::SyncRealTimeWidgetstoConfig() {
         presenter->GetFsrSettingsRef().rcasAttenuation =
             static_cast<int>(Config::getRcasAttenuation());
     }
+}
+
+void SettingsDialog::pollSDLevents() {
+    SDL_Event event;
+    while (SdlEventWrapper::Wrapper::wrapperActive) {
+
+        if (!SDL_WaitEvent(&event)) {
+            return;
+        }
+
+        if (event.type == SDL_EVENT_QUIT) {
+            return;
+        }
+
+        if (event.type == SDL_EVENT_AUDIO_DEVICE_ADDED) {
+            onAudioDeviceChange(true);
+        }
+
+        if (event.type == SDL_EVENT_AUDIO_DEVICE_REMOVED) {
+            onAudioDeviceChange(false);
+        }
+    }
+}
+
+void SettingsDialog::onAudioDeviceChange(bool isAdd) {
+    ui->GenAudioComboBox->clear();
+    ui->DsAudioComboBox->clear();
+
+    // prevent device list from refreshing too fast when game not running
+    if (!is_game_running && isAdd == false)
+        QThread::msleep(100);
+
+    int deviceCount;
+    QStringList deviceList;
+    SDL_AudioDeviceID* devices = SDL_GetAudioPlaybackDevices(&deviceCount);
+
+    if (!devices) {
+        LOG_ERROR(Lib_AudioOut, "Unable to retrieve audio device list {}", SDL_GetError());
+        return;
+    }
+
+    for (int i = 0; i < deviceCount; ++i) {
+        const char* name = SDL_GetAudioDeviceName(devices[i]);
+        std::string name_string = std::string(name);
+        deviceList.append(QString::fromStdString(name_string));
+    }
+
+    ui->GenAudioComboBox->addItem(tr("Default Device"), "Default Device");
+    ui->GenAudioComboBox->addItems(deviceList);
+    ui->GenAudioComboBox->setCurrentText(QString::fromStdString(Config::getMainOutputDevice()));
+
+    ui->DsAudioComboBox->addItem(tr("Default Device"), "Default Device");
+    ui->DsAudioComboBox->addItems(deviceList);
+    ui->DsAudioComboBox->setCurrentText(QString::fromStdString(Config::getPadSpkOutputDevice()));
+
+    SDL_free(devices);
 }

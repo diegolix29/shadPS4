@@ -135,6 +135,8 @@ static ConfigEntry<bool> useUnifiedInputConfig(true);
 static ConfigEntry<std::string> micDevice("Default Device");
 static ConfigEntry<std::string> defaultControllerID("");
 static ConfigEntry<bool> backgroundControllerInput(false);
+static ConfigEntry<string> mainOutputDevice("Default Device");
+static ConfigEntry<string> padSpkOutputDevice("Default Device");
 
 // Non-config runtime-only
 static bool overrideControllerColor = false;
@@ -240,6 +242,22 @@ static std::string trophyKey = "";
 
 bool allowHDR() {
     return isHDRAllowed.get();
+}
+
+std::string getMainOutputDevice() {
+    return mainOutputDevice.get();
+}
+
+std::string getPadSpkOutputDevice() {
+    return padSpkOutputDevice.get();
+}
+
+void setMainOutputDevice(std::string device) {
+    mainOutputDevice.base_value;
+}
+
+void setPadSpkOutputDevice(std::string device) {
+    padSpkOutputDevice.base_value;
 }
 
 std::string getCustomBackgroundImage() {
@@ -1197,13 +1215,17 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         cursorHideTimeout.setFromToml(input, "cursorHideTimeout", is_game_specific);
         useSpecialPad.setFromToml(input, "useSpecialPad", is_game_specific);
         specialPadClass.setFromToml(input, "specialPadClass", is_game_specific);
-        isMotionControlsEnabled =
-            toml::find_or<bool>(input, "isMotionControlsEnabled", is_game_specific);
-        useUnifiedInputConfig =
-            toml::find_or<bool>(input, "useUnifiedInputConfig", is_game_specific);
-        micDevice.setFromToml(input, "micDevice", is_game_specific);
-        backgroundControllerInput =
-            toml::find_or<bool>(input, "backgroundControllerInput", is_game_specific);
+        isMotionControlsEnabled.setFromToml(input, "isMotionControlsEnabled", is_game_specific);
+        useUnifiedInputConfig.setFromToml(input, "useUnifiedInputConfig", is_game_specific);
+        backgroundControllerInput.setFromToml(input, "backgroundControllerInput", is_game_specific);
+    }
+
+    if (data.contains("Audio")) {
+        const toml::value& audio = data.at("Audio");
+
+        micDevice.setFromToml(audio, "micDevice", is_game_specific);
+        mainOutputDevice.setFromToml(audio, "mainOutputDevice", is_game_specific);
+        padSpkOutputDevice.setFromToml(audio, "padSpkOutputDevice", is_game_specific);
     }
 
     if (data.contains("GPU")) {
@@ -1465,8 +1487,11 @@ void save(const std::filesystem::path& path) {
     data["Input"]["specialPadClass"] = specialPadClass.base_value;
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
     data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
-    data["Input"]["micDevice"] = micDevice.base_value;
     data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
+
+    data["Audio"]["micDevice"] = micDevice.base_value;
+    data["Audio"]["mainOutputDevice"] = mainOutputDevice.base_value;
+    data["Audio"]["padSpkOutputDevice"] = padSpkOutputDevice.base_value;
 
     data["GPU"]["rcasAttenuation"] = rcasAttenuation.base_value;
     data["GPU"]["fsrEnabled"] = fsrEnabled.base_value;
@@ -1652,6 +1677,8 @@ void setDefaultValues() {
     controllerCustomColorRGB[2] = 255;
     micDevice = "Default Device";
     backgroundControllerInput = false;
+    mainOutputDevice = "Default Device";
+    padSpkOutputDevice = "Default Device";
 
     // GPU
     isDebugDump = false;

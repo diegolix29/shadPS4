@@ -470,7 +470,7 @@ public:
 
         if (selected == &gameConfigConfigure || selected == &gameConfigCreate) {
             auto gameSettingsWindow =
-                new GameSpecificDialog(m_compat_info, widget, m_games[itemID].serial);
+                new GameSpecificDialog(m_compat_info, widget, m_games[itemID].serial, false, "");
 
             gameSettingsWindow->exec();
         }

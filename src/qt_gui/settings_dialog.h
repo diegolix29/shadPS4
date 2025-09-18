@@ -23,7 +23,8 @@ class SettingsDialog : public QDialog {
     Q_OBJECT
 public:
     explicit SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
-                            QWidget* parent = nullptr);
+                            QWidget* parent = nullptr, bool is_game_running = false,
+                            std::string gsc_serial = "");
     ~SettingsDialog();
 
     bool eventFilter(QObject* obj, QEvent* event) override;
@@ -40,6 +41,8 @@ private:
     void LoadValuesFromConfig();
     void UpdateSettings();
     void SyncRealTimeWidgetstoConfig();
+    void pollSDLevents();
+    void onAudioDeviceChange(bool isAdd);
     void InitializeEmulatorLanguages();
     void OnLanguageChanged(int index);
     void OnCursorStateChanged(s16 index);
@@ -58,7 +61,11 @@ private:
     QString defaultTextEdit;
 
     int initialHeight;
+    std::string gs_serial;
+
+    bool is_game_running = false;
     bool is_saving = false;
+    QFuture<void> Polling;
 };
 
 #endif // ENABLE_QT_GUI

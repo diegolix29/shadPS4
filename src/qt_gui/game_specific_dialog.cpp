@@ -16,7 +16,8 @@
 #include "ui_game_specific_dialog.h"
 
 GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> compat_info,
-                                       QWidget* parent, const std::string& serial)
+                                       QWidget* parent, const std::string& serial, bool is_running,
+                                       std::string gsc_serial)
     : QDialog(parent), ui(new Ui::GameSpecificDialog()), m_compat_info(std::move(compat_info)),
       m_serial(serial) {
     ui->setupUi(this);

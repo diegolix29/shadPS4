@@ -208,6 +208,11 @@ void setAudioVolume(int volume);
 void setSeparateUpdateEnabled(bool use);
 void setMemoryAlloc(std::string alloc);
 
+std::string getMainOutputDevice();
+void setMainOutputDevice(std::string device);
+std::string getPadSpkOutputDevice();
+void setPadSpkOutputDevice(std::string device);
+
 void setCursorState(s16 cursorState);
 void setCursorHideTimeout(int newcursorHideTimeout);
 void setTrophyNotificationDuration(double newTrophyNotificationDuration);
