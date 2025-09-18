@@ -759,8 +759,8 @@ void DrawPauseStatusWindow(bool& is_open) {
                     ImGui::BeginDisabled(!rcas_enabled);
                     {
                         auto& fsr = presenter->GetFsrSettingsRef();
-                        if (ImGui::SliderFloat("RCAS Attenuation", &fsr.rcasAttenuation, 0.0f,
-                                               3.0f, "%.2f")) {
+                        if (ImGui::SliderFloat("RCAS Attenuation", &fsr.rcasAttenuation, 0.0f, 3.0f,
+                                               "%.2f")) {
                             Config::setRcasAttenuation(
                                 static_cast<int>(fsr.rcasAttenuation * 1000.0f));
                         }

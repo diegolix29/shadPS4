@@ -299,10 +299,7 @@ GraphicsPipeline::GraphicsPipeline(
                                        "not equal to one, using shader fallback.");
 
             attachments[i].blendEnable = false;
-
-
         }
-
 
         attachments[i] = vk::PipelineColorBlendAttachmentState{
             .blendEnable = control.enable,
