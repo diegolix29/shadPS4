@@ -415,7 +415,7 @@ u32 getWindowHeight() {
 }
 
 u32 getInternalScreenWidth() {
-    return internalScreenHeight.get();
+    return internalScreenWidth.get();
 }
 
 u32 getInternalScreenHeight() {
@@ -1211,7 +1211,25 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         fsrEnabled.setFromToml(gpu, "fsrEnabled", is_game_specific);
         rcasEnabled.setFromToml(gpu, "rcasEnabled", is_game_specific);
-        rcasAttenuation = toml::find_or<float>(gpu, "rcasAttenuation", is_game_specific);
+        if (is_game_specific) {
+            if (auto opt = toml::get_optional<int>(gpu, "readbackSpeedMode")) {
+                readbackSpeedMode.game_specific_value = static_cast<ReadbackSpeed>(*opt);
+            }
+        } else {
+            if (auto opt = toml::get_optional<int>(gpu, "readbackSpeedMode")) {
+                readbackSpeedMode.base_value = static_cast<ReadbackSpeed>(*opt);
+            }
+        }
+        if (is_game_specific) {
+            if (auto opt = toml::get_optional<double>(gpu, "rcasAttenuation")) {
+                rcasAttenuation.game_specific_value = static_cast<float>(*opt);
+            }
+        } else {
+            if (auto opt = toml::get_optional<double>(gpu, "rcasAttenuation")) {
+                rcasAttenuation.base_value = static_cast<float>(*opt);
+            }
+        }
+
         isNullGpu.setFromToml(gpu, "nullGpu", false);
         shouldDumpShaders.setFromToml(gpu, "dumpShaders", is_game_specific);
         shouldPatchShaders.setFromToml(gpu, "patchShaders", is_game_specific);
@@ -1227,15 +1245,6 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         internalScreenHeight.setFromToml(gpu, "internalScreenHeight", is_game_specific);
         isNullGpu.setFromToml(gpu, "nullGpu", is_game_specific);
         shouldCopyGPUBuffers.setFromToml(gpu, "copyGPUBuffers", is_game_specific);
-        if (is_game_specific) {
-            if (auto opt = toml::get_optional<int>(gpu, "readbackSpeedMode")) {
-                readbackSpeedMode.game_specific_value = static_cast<ReadbackSpeed>(*opt);
-            }
-        } else {
-            if (auto opt = toml::get_optional<int>(gpu, "readbackSpeedMode")) {
-                readbackSpeedMode.base_value = static_cast<ReadbackSpeed>(*opt);
-            }
-        }
         readbackLinearImagesEnabled.setFromToml(gpu, "readbackLinearImages", is_game_specific);
         directMemoryAccessEnabled.setFromToml(gpu, "directMemoryAccess", is_game_specific);
         isFullscreen.setFromToml(gpu, "isFullscreen", is_game_specific);

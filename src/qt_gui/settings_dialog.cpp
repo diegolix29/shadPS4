@@ -343,7 +343,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     if (presenter) {
         connect(ui->RCASSlider, &QSlider::valueChanged, this, [this](int value) {
-            presenter->GetFsrSettingsRef().rcas_attenuation = static_cast<float>(value / 1000.0f);
+            presenter->GetFsrSettingsRef().rcasAttenuation = static_cast<float>(value / 1000.0f);
         });
 
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
@@ -1113,7 +1113,7 @@ void SettingsDialog::OnRcasAttenuationChanged(int value) {
     Config::setRcasAttenuation(value);
 
     if (presenter) {
-        presenter->GetFsrSettingsRef().rcas_attenuation = attenuation;
+        presenter->GetFsrSettingsRef().rcasAttenuation = attenuation;
     }
 }
 
@@ -1124,7 +1124,7 @@ void SettingsDialog::OnRcasAttenuationSpinBoxChanged(double value) {
     Config::setRcasAttenuation(int_value);
 
     if (presenter) {
-        presenter->GetFsrSettingsRef().rcas_attenuation = static_cast<float>(value);
+        presenter->GetFsrSettingsRef().rcasAttenuation = static_cast<float>(value);
     }
 }
 
@@ -1173,7 +1173,7 @@ void SettingsDialog::SyncRealTimeWidgetstoConfig() {
     if (presenter) {
         presenter->GetFsrSettingsRef().enable = Config::getFsrEnabled();
         presenter->GetFsrSettingsRef().use_rcas = Config::getRcasEnabled();
-        presenter->GetFsrSettingsRef().rcas_attenuation =
+        presenter->GetFsrSettingsRef().rcasAttenuation =
             static_cast<int>(Config::getRcasAttenuation());
     }
 }

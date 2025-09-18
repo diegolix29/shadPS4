@@ -123,7 +123,7 @@ void L::DrawMenuBar() {
                     Checkbox("RCAS", &fsr.use_rcas);
                     BeginDisabled(!fsr.use_rcas);
                     {
-                        SliderFloat("RCAS Attenuation", &fsr.rcas_attenuation, 0.0, 3.0);
+                        SliderFloat("RCAS Attenuation", &fsr.rcasAttenuation, 0.0, 3.0);
                     }
                     EndDisabled();
                 }
@@ -132,7 +132,7 @@ void L::DrawMenuBar() {
                 if (Button("Save")) {
                     Config::setFsrEnabled(fsr.enable);
                     Config::setRcasEnabled(fsr.use_rcas);
-                    Config::setRcasAttenuation(static_cast<int>(fsr.rcas_attenuation * 1000));
+                    Config::setRcasAttenuation(static_cast<int>(fsr.rcasAttenuation * 1000));
                     Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
                                  "config.toml");
                     CloseCurrentPopup();
@@ -522,7 +522,7 @@ void DrawFullscreenSettingsWindow(bool& is_open) {
             ImGui::Text("RCAS Attenuation:");
             ImGui::SameLine();
             auto& fsr = presenter->GetFsrSettingsRef();
-            ImGui::Text("%.2f", fsr.rcas_attenuation);
+            ImGui::Text("%.2f", fsr.rcasAttenuation);
         }
         ImGui::Text("VBlank Frequency:");
         ImGui::SameLine();
@@ -759,10 +759,10 @@ void DrawPauseStatusWindow(bool& is_open) {
                     ImGui::BeginDisabled(!rcas_enabled);
                     {
                         auto& fsr = presenter->GetFsrSettingsRef();
-                        if (ImGui::SliderFloat("RCAS Attenuation", &fsr.rcas_attenuation, 0.0f,
+                        if (ImGui::SliderFloat("RCAS Attenuation", &fsr.rcasAttenuation, 0.0f,
                                                3.0f, "%.2f")) {
                             Config::setRcasAttenuation(
-                                static_cast<int>(fsr.rcas_attenuation * 1000.0f));
+                                static_cast<int>(fsr.rcasAttenuation * 1000.0f));
                         }
                     }
                     ImGui::EndDisabled();
