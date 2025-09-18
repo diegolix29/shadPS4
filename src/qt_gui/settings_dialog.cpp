@@ -316,9 +316,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     connect(ui->RCASCheckBox, &QCheckBox::stateChanged, this,
             [](int state) { Config::setRcasEnabled(state == Qt::Checked); });
 
-    ui->fpsLimiterCheckBox->setChecked(Config::fpsLimiterEnabled());
-    ui->fpsSpinBox->setEnabled(Config::fpsLimiterEnabled());
-    ui->fpsSlider->setEnabled(Config::fpsLimiterEnabled());
+    ui->fpsLimiterCheckBox->setChecked(Config::isFpsLimiterEnabled());
+    ui->fpsSpinBox->setEnabled(Config::isFpsLimiterEnabled());
+    ui->fpsSlider->setEnabled(Config::isFpsLimiterEnabled());
 
     connect(ui->fpsLimiterCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
         Config::setFpsLimiterEnabled(checked);
@@ -650,7 +650,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->sliderPosition()) + "%");
     ui->fpsSlider->setValue(Config::getFpsLimit());
     ui->fpsSpinBox->setValue(Config::getFpsLimit());
-    ui->fpsLimiterCheckBox->setChecked(Config::fpsLimiterEnabled());
+    ui->fpsLimiterCheckBox->setChecked(Config::isFpsLimiterEnabled());
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
 
@@ -1048,6 +1048,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
     Config::setFpsLimit(ui->fpsSlider->value());
     Config::setFpsLimit(ui->fpsSpinBox->value());
+    Config::setFpsLimiterEnabled(ui->fpsLimiterCheckBox->isChecked());
 
     Config::setMemoryAlloc(ui->MemoryComboBox->currentText().toStdString());
     Config::setLoadGameSizeEnabled(ui->gameSizeCheckBox->isChecked());

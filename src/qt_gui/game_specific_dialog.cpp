@@ -141,7 +141,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->DMACheckBox->setChecked(Config::directMemoryAccess());
     ui->dumpShadersCheckBox->setChecked(Config::dumpShaders());
     ui->fpsSpinBox->setValue(Config::getFpsLimit());
-    ui->fpsLimiterCheckBox->setChecked(Config::fpsLimiterEnabled());
+    ui->fpsLimiterCheckBox->setChecked(Config::isFpsLimiterEnabled());
     ui->FSRCheckBox->setChecked(Config::getFsrEnabled());
     ui->displayModeComboBox->setCurrentText(QString::fromStdString(Config::getFullscreenMode()));
     ui->MemoryComboBox->setCurrentText(QString::fromStdString(Config::getMemoryAlloc()));
@@ -440,7 +440,7 @@ void GameSpecificDialog::UpdateSettings() {
     if (ui->fpsSpinBox->value() != Config::getFpsLimit())
         overrides["GPU"]["fpsLimit"] = ui->fpsSpinBox->value();
 
-    if (ui->fpsLimiterCheckBox->isChecked() != Config::fpsLimiterEnabled())
+    if (ui->fpsLimiterCheckBox->isChecked() != Config::isFpsLimiterEnabled())
         overrides["GPU"]["fpsLimiterEnabled"] = ui->fpsLimiterCheckBox->isChecked();
 
     if (ui->FSRCheckBox->isChecked() != Config::getFsrEnabled())

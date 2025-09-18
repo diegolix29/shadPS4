@@ -271,7 +271,7 @@ void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_
 void VideoOutDriver::PresentThread(std::stop_token token) {
     int fps_cap_value = 0;
 
-    if (Config::fpsLimiterEnabled()) {
+    if (Config::isFpsLimiterEnabled()) {
         const auto fps_limit = Config::getFpsLimit();
         if (fps_limit > 0) {
             fps_cap_value = 1000000000 / fps_limit; // nanoseconds per frame

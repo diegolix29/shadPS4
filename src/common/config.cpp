@@ -121,7 +121,7 @@ static bool compatibilityData = false;
 static bool autoRestartGame = false;
 static bool restartWithBaseGame = false;
 static ConfigEntry<bool> screenTipDisable(false);
-static ConfigEntry<bool> g_fpsLimiterEnabled(false);
+static ConfigEntry<bool> fpsLimiterEnabled(false);
 static std::string guiStyle = "Fusion";
 static std::string g_customBackgroundImage;
 
@@ -300,12 +300,12 @@ void setFpsLimit(u32 fpsValue) {
     fpsLimit.base_value = fpsValue;
 }
 
-bool fpsLimiterEnabled() {
-    return g_fpsLimiterEnabled.get();
+bool isFpsLimiterEnabled() {
+    return fpsLimiterEnabled.get();
 }
 
 void setFpsLimiterEnabled(bool enabled) {
-    g_fpsLimiterEnabled.base_value = enabled;
+    fpsLimiterEnabled.base_value = enabled;
 }
 
 bool getAutoRestartGame() {
@@ -1220,7 +1220,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         shaderSkipsEnabled.setFromToml(gpu, "shaderSkipsEnabled", is_game_specific);
         memoryAlloc.setFromToml(gpu, "memoryAlloc", is_game_specific);
         fpsLimit.setFromToml(gpu, "fpsLimit", is_game_specific);
-        g_fpsLimiterEnabled.setFromToml(gpu, "g_fpsLimiterEnabled", is_game_specific);
+        fpsLimiterEnabled.setFromToml(gpu, "fpsLimiterEnabled", is_game_specific);
         windowWidth.setFromToml(gpu, "windowWidth", is_game_specific);
         windowHeight.setFromToml(gpu, "screenHeight", is_game_specific);
         internalScreenWidth.setFromToml(gpu, "internalScreenWidth", is_game_specific);
@@ -1463,7 +1463,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["fsrEnabled"] = fsrEnabled.base_value;
     data["GPU"]["rcasEnabled"] = rcasEnabled.base_value;
     data["GPU"]["fpsLimit"] = fpsLimit.base_value;
-    data["GPU"]["g_fpsLimiterEnabled"] = g_fpsLimiterEnabled.base_value;
+    data["GPU"]["fpsLimiterEnabled"] = fpsLimiterEnabled.base_value;
     data["GPU"]["windowWidth"] = windowWidth.base_value;
     data["GPU"]["windowHeight"] = windowHeight.base_value;
     data["GPU"]["internalScreenWidth"] = internalScreenWidth.base_value;
@@ -1671,7 +1671,7 @@ void setDefaultValues() {
     rcasEnabled = true;
     rcasAttenuation = 250;
     fpsLimit = 60;
-    g_fpsLimiterEnabled = false;
+    fpsLimiterEnabled = false;
 
     // Vulkan
     gpuId = -1;
