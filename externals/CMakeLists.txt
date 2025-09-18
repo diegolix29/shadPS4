@@ -252,3 +252,8 @@ if (APPLE)
         add_subdirectory(epoll-shim)
     endif()
 endif()
+
+#windows only
+if (WIN32)
+add_subdirectory(ext-wepoll)
+endif()
