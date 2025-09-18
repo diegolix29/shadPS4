@@ -409,8 +409,8 @@ public:
         }
 
         if (selected == &gameConfigConfigure || selected == &gameConfigCreate) {
-            auto settingsWindow = new SettingsDialog(m_gui_settings, m_compat_info, widget, true,
-                                                     serialStr.toStdString());
+            auto settingsWindow = new SettingsDialog(m_gui_settings, m_compat_info, widget, false,
+                                                     true, serialStr.toStdString());
             settingsWindow->exec();
         }
 

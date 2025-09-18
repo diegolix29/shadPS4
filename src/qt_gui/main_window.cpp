@@ -410,7 +410,8 @@ void MainWindow::CreateConnects() {
             &MainWindow::StartGame);
 
     connect(ui->configureAct, &QAction::triggered, this, [this]() {
-        auto settingsDialog = new SettingsDialog(m_gui_settings, m_compat_info, this);
+        auto settingsDialog =
+            new SettingsDialog(m_gui_settings, m_compat_info, this, isGameRunning);
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
@@ -444,7 +445,8 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
-        auto settingsDialog = new SettingsDialog(m_gui_settings, m_compat_info, this);
+        auto settingsDialog =
+            new SettingsDialog(m_gui_settings, m_compat_info, this, isGameRunning);
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
