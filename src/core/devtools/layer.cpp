@@ -793,13 +793,9 @@ void DrawPauseStatusWindow(bool& is_open) {
 
     // === Return to Game ===
     if (ImGui::Button("Return to Game")) {
-#ifdef ENABLE_QT_GUI
-        if (g_MainWindow)
-            g_MainWindow->PauseGame();
-#else
-        if (DebugState.IsGuestThreadsPaused())
-            DebugState.ResumeGuestThreads();
-#endif
+        SDL_Event e;
+        e.type = SDL_EVENT_TOGGLE_PAUSE;
+        SDL_PushEvent(&e);
     }
 
     ImGui::Separator();
@@ -1004,67 +1000,6 @@ void DrawPauseStatusWindow(bool& is_open) {
         SDL_PushEvent(&event);
     }
 
-    ImGui::SameLine(0.0f, 10.0f);
-    if (ImGui::Button("Restart Game")) {
-        if (g_MainWindow && g_MainWindow->isVisible())
-            g_MainWindow->RestartGame();
-        else
-
-        {
-            Config::setAutoRestartGame(true);
-            Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
-            SDL_Event event{};
-            event.type = SDL_EVENT_QUIT + 1;
-            SDL_PushEvent(&event);
-        }
-    }
-    // Save & Restart Game popup
-    ImGui::SameLine(0.0f, 10.0f);
-    if (ImGui::Button("Save & Restart Game"))
-        ImGui::OpenPopup("Save Config As Restart Game");
-    if (ImGui::BeginPopupModal("Save Config As Restart Game", nullptr,
-                               ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Where do you want to save the changes?");
-        ImGui::Separator();
-
-        if (ImGui::Button("Global Config (config.toml)", ImVec2(250, 0))) {
-            SaveConfig(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
-            if (g_MainWindow && g_MainWindow->isVisible())
-                g_MainWindow->RestartGame();
-            else
-
-            {
-                Config::setAutoRestartGame(true);
-                SDL_Event event{};
-                event.type = SDL_EVENT_QUIT + 1;
-                SDL_PushEvent(&event);
-            }
-            ImGui::CloseCurrentPopup();
-        }
-
-        if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
-            if (g_MainWindow && !g_MainWindow->runningGameSerial.empty()) {
-                SaveConfigWithOverrides(
-                    Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
-                        (g_MainWindow->runningGameSerial + ".toml"),
-                    true);
-            }
-            if (g_MainWindow && g_MainWindow->isVisible())
-                g_MainWindow->RestartGame();
-            else {
-                Config::setAutoRestartGame(true);
-                SDL_Event event{};
-                event.type = SDL_EVENT_QUIT + 1;
-                SDL_PushEvent(&event);
-            }
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0)))
-            ImGui::CloseCurrentPopup();
-        ImGui::EndPopup();
-    }
-
     // Save & Restart Emulator popup
     ImGui::SameLine(0.0f, 10.0f);
     if (ImGui::Button("Save & Restart Emulator"))
@@ -1101,9 +1036,8 @@ void DrawPauseStatusWindow(bool& is_open) {
         ImGui::EndPopup();
     }
 
-    // Quit Emulator button
     ImGui::SameLine(0.0f, 10.0f);
-    if (ImGui::Button("Quit Emulator")) {
+    if (ImGui::Button("Stop Game")) {
         SDL_Event event{};
         event.type = SDL_EVENT_QUIT;
         SDL_PushEvent(&event);
@@ -1149,37 +1083,17 @@ void L::Draw() {
 
     if (!userPauseKeyboard) {
         if (IsKeyPressed(ImGuiKey_F9, false)) {
-#ifdef ENABLE_QT_GUI
-            g_MainWindow->PauseGame();
-#else
-            if (DebugState.IsGuestThreadsPaused()) {
-                DebugState.ResumeGuestThreads();
-                SDL_Log("Game resumed");
-                show_pause_status = false;
-            } else {
-                DebugState.PauseGuestThreads();
-                SDL_Log("Game paused");
-                show_pause_status = true;
-            }
-#endif
+            SDL_Event e;
+            e.type = SDL_EVENT_TOGGLE_PAUSE;
+            SDL_PushEvent(&e);
         }
     }
 
     if (!userPauseController) {
         if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
-#ifdef ENABLE_QT_GUI
-            g_MainWindow->PauseGame();
-#else
-            if (DebugState.IsGuestThreadsPaused()) {
-                DebugState.ResumeGuestThreads();
-                SDL_Log("Game resumed");
-                show_pause_status = false;
-            } else {
-                DebugState.PauseGuestThreads();
-                SDL_Log("Game paused");
-                show_pause_status = true;
-            }
-#endif
+            SDL_Event e;
+            e.type = SDL_EVENT_TOGGLE_PAUSE;
+            SDL_PushEvent(&e);
         }
     }
 
@@ -1342,27 +1256,12 @@ void L::Draw() {
 
 #ifdef ENABLE_QT_GUI
             Text("Press Backspace or DpadUp button to Relaunch Emulator");
-            Text("Press Space Bar or DpadDown button to Restart Game");
             if (IsKeyPressed(ImGuiKey_Backspace, false) ||
                 IsKeyPressed(ImGuiKey_GamepadDpadUp, false)) {
                 SDL_Event event;
                 SDL_memset(&event, 0, sizeof(event));
                 event.type = SDL_EVENT_QUIT + 1;
                 SDL_PushEvent(&event);
-            }
-            if (IsKeyPressed(ImGuiKey_Space, false) ||
-                IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
-                if (g_MainWindow && g_MainWindow->isVisible()) {
-                    g_MainWindow->RestartGame();
-                } else {
-                    const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-                    Config::setAutoRestartGame(true);
-                    Config::save(config_dir / "config.toml");
-                    SDL_Event event;
-                    SDL_memset(&event, 0, sizeof(event));
-                    event.type = SDL_EVENT_QUIT + 1;
-                    SDL_PushEvent(&event);
-                }
             }
 #endif
             if (IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {

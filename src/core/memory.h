@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstring>
 #include <map>
 #include <mutex>
 #include <string>
@@ -234,6 +235,14 @@ public:
 
         // If we reach this point and size to validate is not positive, then this mapping is valid.
         return size_to_validate <= 0;
+    }
+
+    void ReadBytes(VAddr addr, uint8_t* buffer, size_t size) {
+        std::memcpy(buffer, reinterpret_cast<void*>(addr), size);
+    }
+
+    void WriteBytes(VAddr addr, const uint8_t* data, size_t size) {
+        std::memcpy(reinterpret_cast<void*>(addr), data, size);
     }
 
     u64 ClampRangeSize(VAddr virtual_addr, u64 size);

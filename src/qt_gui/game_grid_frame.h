@@ -8,6 +8,7 @@
 
 #include "background_music_player.h"
 #include "common/config.h"
+#include "core/ipc/ipc_client.h"
 #include "game_info.h"
 #include "game_list_utils.h"
 #include "gui_context_menus.h"
@@ -37,11 +38,12 @@ private:
     bool validCellSelected = false;
     int m_last_opacity = -1; // Track last opacity to avoid unnecessary recomputation
     std::filesystem::path m_current_game_path; // Track current game path to detect changes
+    std::shared_ptr<IpcClient> m_ipc_client;
 
 public:
     explicit GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
                            std::shared_ptr<CompatibilityInfoClass> compat_info_get,
-                           QWidget* parent = nullptr);
+                           std::shared_ptr<IpcClient> ipc_client, QWidget* parent = nullptr);
     void PopulateGameGrid(QVector<GameInfo> m_games, bool fromSearch);
     bool IsValidCellSelected();
 

@@ -105,7 +105,8 @@ bool getEnableAutoBackup();
 
 void setGuiStyle(const std::string& style);
 std::string getGuiStyle();
-
+bool getGameRunning();
+void setGameRunning(bool running);
 bool debugDump();
 bool collectShadersForDebug();
 bool showSplash();

@@ -18,6 +18,29 @@ CompatibilityInfoClass::CompatibilityInfoClass()
 };
 CompatibilityInfoClass::~CompatibilityInfoClass() = default;
 
+void CompatibilityInfoClass::SetCompatibilityInfo(const std::string& serial,
+                                                  const CompatibilityEntry& entry) {
+    QJsonObject compatObj = m_compatibility_database[QString::fromStdString(serial)].toObject();
+
+    // Serialize enabled cheats
+    QJsonObject cheatsObj;
+    for (auto it = entry.enabledCheats.begin(); it != entry.enabledCheats.end(); ++it) {
+        cheatsObj[it.key()] = it.value();
+    }
+
+    compatObj["enabledCheats"] = cheatsObj;
+
+    m_compatibility_database[QString::fromStdString(serial)] = compatObj;
+
+    // Optionally, save to disk
+    QFile file(m_compatibility_filename);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        QJsonDocument doc(m_compatibility_database);
+        file.write(doc.toJson());
+        file.close();
+    }
+}
+
 void CompatibilityInfoClass::UpdateCompatibilityDatabase(QWidget* parent, bool forced) {
     if (!forced && LoadCompatibilityFile())
         return;

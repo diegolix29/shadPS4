@@ -10,6 +10,7 @@
 #include "common/memory_patcher.h"
 #include "core/debugger.h"
 #include "core/file_sys/fs.h"
+#include "core/ipc/ipc_client.h"
 #include "emulator.h"
 #include "game_install_dialog.h"
 #include "main_window.h"
@@ -17,6 +18,8 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+#include <input/input_handler.h>
+std::shared_ptr<IpcClient> m_ipc_client;
 
 // Custom message handler to ignore Qt logs
 void customMessageHandler(QtMsgType, const QMessageLogContext&, const QString&) {}
@@ -224,10 +227,61 @@ int main(int argc, char* argv[]) {
     if (waitPid.has_value()) {
         Core::Debugger::WaitForPid(waitPid.value());
     }
-
     Core::Emulator* emulator = Common::Singleton<Core::Emulator>::Instance();
     emulator->executableName = argv[0];
     emulator->waitForDebuggerBeforeRun = waitForDebugger;
+
+    const bool ipc_enabled = qEnvironmentVariableIsSet("SHADPS4_ENABLE_IPC");
+    const bool mods_enabled = qEnvironmentVariableIsSet("SHADPS4_ENABLE_MODS") &&
+                              qEnvironmentVariable("SHADPS4_ENABLE_MODS") == "1";
+    Core::FileSys::MntPoints::enable_mods = mods_enabled;
+    const bool ignorePatches = qEnvironmentVariableIsSet("SHADPS4_BASE_GAME") &&
+                               qEnvironmentVariable("SHADPS4_BASE_GAME") == "1";
+    Core::FileSys::MntPoints::ignore_game_patches = ignorePatches;
+    if (ipc_enabled) {
+        std::cout << ";#IPC_ENABLED\n";
+        std::cout << ";ENABLE_MEMORY_PATCH\n";
+        std::cout << ";ENABLE_EMU_CONTROL\n";
+        std::cout << ";#IPC_END\n";
+        std::cout.flush();
+
+        std::thread([emulator]() {
+            std::string cmd;
+            while (std::getline(std::cin, cmd)) {
+                if (cmd == "PATCH_MEMORY") {
+                    std::string modName, offset, value, target, size, isOffset, littleEndian, mask,
+                        maskOffset;
+                    std::getline(std::cin, modName);
+                    std::getline(std::cin, offset);
+                    std::getline(std::cin, value);
+                    std::getline(std::cin, target);
+                    std::getline(std::cin, size);
+                    std::getline(std::cin, isOffset);
+                    std::getline(std::cin, littleEndian);
+                    std::getline(std::cin, mask);
+                    std::getline(std::cin, maskOffset);
+
+                    MemoryPatcher::ApplyRuntimePatch(modName, offset, value, target, size,
+                                                     isOffset == "1", littleEndian == "1",
+                                                     std::stoi(mask), std::stoi(maskOffset));
+                } else if (cmd == "PAUSE" || cmd == "RESUME") {
+                    SDL_Event e;
+                    e.type = SDL_EVENT_TOGGLE_PAUSE;
+                    SDL_PushEvent(&e);
+                } else if (cmd == "STOP") {
+                    if (!Config::getGameRunning())
+                        return;
+
+                    m_ipc_client->stopGame();
+                    Config::setGameRunning(false);
+                } else if (cmd == "RESTART") {
+                    if (!Config::getGameRunning())
+                        return;
+                    m_ipc_client->restartGame();
+                }
+            }
+        }).detach();
+    }
 
     // Process game path or ID if provided
     if (has_game_argument) {

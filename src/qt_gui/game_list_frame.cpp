@@ -14,8 +14,9 @@
 
 GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
                              std::shared_ptr<CompatibilityInfoClass> compat_info_get,
-                             QWidget* parent)
-    : QTableWidget(parent), m_game_info(game_info_get), m_compat_info(compat_info_get) {
+                             std::shared_ptr<IpcClient> ipc_client, QWidget* parent)
+    : QTableWidget(parent), m_game_info(game_info_get), m_compat_info(compat_info_get),
+      m_ipc_client(ipc_client) {
     icon_size = Config::getIconSize();
     last_favorite = "";
     this->setShowGrid(false);
@@ -87,7 +88,7 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
 
     connect(this, &QTableWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
         int changedFavorite = m_gui_context_menus.RequestGameMenu(
-            pos, m_game_info->m_games, m_compat_info, this, true,
+            pos, m_game_info->m_games, m_compat_info, m_ipc_client, this, true,
             [mw = QPointer<MainWindow>(qobject_cast<MainWindow*>(this->window()))](
                 const QStringList& args) {
                 if (mw)
