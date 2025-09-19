@@ -1,0 +1,65 @@
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+#ifdef ENABLE_QT_GUI
+
+#pragma once
+
+#include <functional>
+
+#include <QFileInfo>
+#include <QProcess>
+
+#include "common/memory_patcher.h"
+
+class IpcClient : public QObject {
+    Q_OBJECT
+public:
+    explicit IpcClient(QObject* parent = nullptr);
+    void startGame(const QFileInfo& exe, const QStringList& args,
+                   const QString& workDir = QString());
+    void stopGame();
+    void restartGame();
+    void pauseGame();
+    void resumeGame();
+    void stopEmulator();
+    void restartEmulator();
+    void toggleFullscreen();
+    void sendMemoryPatches(std::string modNameStr, std::string offsetStr, std::string valueStr,
+                           std::string targetStr, std::string sizeStr, bool isOffset,
+                           bool littleEndian,
+                           MemoryPatcher::PatchMask patchMask = MemoryPatcher::PatchMask::None,
+                           int maskOffset = 0);
+    std::function<void()> gameClosedFunc;
+    std::function<void()> startGameFunc;
+    std::function<void()> restartEmulatorFunc;
+
+    QString lastGamePath;
+    QStringList lastGameArgs;
+    QStringList lastArgs;
+    QString lastWorkDir;
+
+    enum ParsingState { normal, args_counter, args };
+    std::vector<std::string> parsedArgs;
+    std::unordered_map<std::string, bool> supportedCapabilities{
+        {"memory_patch", false},
+        {"emu_control", false},
+    };
+    static std::shared_ptr<IpcClient> GetInstance();
+    static void SetInstance(std::shared_ptr<IpcClient> instance);
+
+private:
+    void onStderr();
+    void onStdout();
+    void onProcessClosed();
+    void writeLine(const QString& text);
+
+    QProcess* process = nullptr;
+    QByteArray buffer;
+    bool pendingRestart = false;
+
+    ParsingState parsingState;
+    int argsCounter;
+};
+inline static std::shared_ptr<IpcClient> s_instance = nullptr;
+
+#endif

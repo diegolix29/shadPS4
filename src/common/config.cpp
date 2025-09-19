@@ -251,7 +251,15 @@ static std::string updateChannel;
 static ConfigEntry<int> volumeSlider(100);
 static ConfigEntry<bool> muteEnabled(false);
 static ConfigEntry<u32> fpsLimit(60);
+static bool isGameRunning = false;
 
+bool getGameRunning() {
+    return isGameRunning;
+}
+
+void setGameRunning(bool running) {
+    isGameRunning = running;
+}
 // Settings
 u32 m_language = 1; // english
 

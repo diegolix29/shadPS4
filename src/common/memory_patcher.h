@@ -43,12 +43,30 @@ std::string convertValueToHex(const std::string type, const std::string valueStr
 
 void OnGameLoaded();
 void AddPatchToQueue(patchInfo patchToAdd);
-
+void ApplyRuntimePatch(const std::string& modNameStr, const std::string& offsetStr,
+                       const std::string& valueStr, const std::string& targetStr,
+                       const std::string& sizeStr, bool isOffset, bool littleEndian, int patchMask,
+                       int maskOffset);
 void PatchMemory(std::string modNameStr, std::string offsetStr, std::string valueStr,
                  std::string targetStr, std::string sizeStr, bool isOffset, bool littleEndian,
                  PatchMask patchMask = PatchMask::None, int maskOffset = 0);
 
 static std::vector<int32_t> PatternToByte(const std::string& pattern);
 uintptr_t PatternScan(const std::string& signature);
+
+struct PendingPatch {
+    std::string modName;
+    std::string address;
+    std::string value;
+    std::string target;
+    std::string size;
+    bool littleEndian = false;
+    PatchMask mask = PatchMask::None;
+    int maskOffset = 0;
+};
+
+std::string convertValueToHex(std::string type, std::string valueStr);
+
+std::vector<PendingPatch> readPatches(std::string gameSerial, std::string appVersion);
 
 } // namespace MemoryPatcher

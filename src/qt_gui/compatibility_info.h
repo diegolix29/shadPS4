@@ -48,6 +48,7 @@ struct CompatibilityEntry {
     QDateTime last_tested;
     QString url;
     QString issue_number;
+    QMap<QString, bool> enabledCheats;
 };
 
 class CompatibilityInfoClass : public QObject {
@@ -77,6 +78,7 @@ public:
 
     CompatibilityInfoClass();
     ~CompatibilityInfoClass();
+    void SetCompatibilityInfo(const std::string& serial, const CompatibilityEntry& entry);
     void UpdateCompatibilityDatabase(QWidget* parent = nullptr, bool forced = false);
     bool LoadCompatibilityFile();
     CompatibilityEntry GetCompatibilityInfo(const std::string& serial);

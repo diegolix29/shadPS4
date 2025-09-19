@@ -13,6 +13,7 @@
 #include "compatibility_info.h"
 #include "core/file_format/psf.h"
 #include "core/file_sys/fs.h"
+#include "core/ipc/ipc_client.h"
 #include "elf_viewer.h"
 #include "emulator.h"
 #include "game_grid_frame.h"
@@ -49,8 +50,11 @@ public:
     void ToggleMute();
     std::string runningGameSerial = "";
 
-    QString lastGamePath;
     QString getLastEbootPath();
+    QString lastGamePath;
+    QStringList lastGameArgs;
+    static QProcess* emulatorProcess;
+    std::shared_ptr<IpcClient> m_ipc_client;
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
@@ -92,6 +96,8 @@ private:
     QIcon RecolorIcon(const QIcon& icon, const QColor& baseColor, const QColor& hoverColor);
     QMap<QPushButton*, QIcon> m_originalIcons;
     void StartEmulator(std::filesystem::path, QStringList args = {});
+
+    void RunGame();
 
     bool isIconBlack = false;
     bool isTableList = true;

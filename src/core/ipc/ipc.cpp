@@ -70,10 +70,7 @@ void IPC::Init() {
         this->InputLoop();
     });
 
-    std::string currentPid = std::to_string(Core::Debugger::GetCurrentPid());
-
     std::cerr << ";#IPC_ENABLED\n";
-    std::cerr << ";PID\n" << currentPid << "\n";
     std::cerr << ";ENABLE_MEMORY_PATCH\n";
     std::cerr << ";ENABLE_EMU_CONTROL\n";
     std::cerr << ";#IPC_END\n";

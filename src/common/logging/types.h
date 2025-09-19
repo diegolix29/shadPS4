@@ -122,7 +122,8 @@ enum class Class : u8 {
     Loader,                  ///< ROM loader
     Input,                   ///< Input emulation
     Tty,                     ///< Debug output from emu
-    Count                    ///< Total number of logging classes
+    IPC,
+    Count ///< Total number of logging classes
 };
 
 } // namespace Common::Log

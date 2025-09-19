@@ -318,6 +318,14 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                 [this](s16 index) { OnCursorStateChanged(index); });
     }
 
+    // Audio Device (general)
+    connect(ui->GenAudioComboBox, &QComboBox::currentTextChanged, this,
+            [this](const QString& device) { Config::setMainOutputDevice(device.toStdString()); });
+
+    // Audio Device (DS4 speaker)
+    connect(ui->DsAudioComboBox, &QComboBox::currentTextChanged, this,
+            [this](const QString& device) { Config::setPadSpkOutputDevice(device.toStdString()); });
+
     // GRAPHICS TAB
 
     connect(ui->FSRCheckBox, &QCheckBox::stateChanged, this,
@@ -711,10 +719,7 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
         quitLoop.type = SDL_EVENT_QUIT;
         SDL_PushEvent(&quitLoop);
         Polling.waitForFinished();
-
         SDL_QuitSubSystem(SDL_INIT_EVENTS);
-        SDL_QuitSubSystem(SDL_INIT_AUDIO);
-        SDL_Quit();
     }
     QDialog::closeEvent(event);
 }

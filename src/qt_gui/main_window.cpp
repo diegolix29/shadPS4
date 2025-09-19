@@ -31,6 +31,7 @@
 #include "common/string_util.h"
 #include "control_settings.h"
 #include "core/ipc/ipc.h"
+
 #include "core/libraries/audio/audioout.h"
 #include "version_dialog.h"
 
@@ -45,13 +46,15 @@
 #include "common/discord_rpc_handler.h"
 #endif
 MainWindow* g_MainWindow = nullptr;
-QWidget* gameWindow = nullptr;
+QProcess* MainWindow::emulatorProcess = nullptr;
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     installEventFilter(this);
     setAttribute(Qt::WA_DeleteOnClose);
     g_MainWindow = this;
+    m_ipc_client = std::make_shared<IpcClient>(this);
+    IpcClient::SetInstance(m_ipc_client);
 }
 
 MainWindow::~MainWindow() {
@@ -318,20 +321,11 @@ void MainWindow::CreateActions() {
     m_theme_act_group->addAction(ui->setThemeShadlixCave);
 }
 
-void MainWindow::PauseGame() {
-    SDL_Event event;
-    SDL_memset(&event, 0, sizeof(event));
-    event.type = SDL_EVENT_TOGGLE_PAUSE;
-    is_paused = !is_paused;
-    UpdateToolbarButtons();
-    SDL_PushEvent(&event);
-}
-
 void MainWindow::toggleLabelsUnderIcons() {
     bool showLabels = ui->toggleLabelsAct->isChecked();
     Config::setShowLabelsUnderIcons(showLabels);
     UpdateToolbarLabels();
-    if (isGameRunning) {
+    if (Config::getGameRunning()) {
         UpdateToolbarButtons();
     }
 }
@@ -482,53 +476,57 @@ void MainWindow::AddUiWidgets() {
 }
 
 void MainWindow::UpdateToolbarButtons() {
-    // add toolbar widgets when game is running
     bool showLabels = ui->toggleLabelsAct->isChecked();
-    if (!isGameRunning) {
-        ui->playButton->setVisible(true);
-        ui->pauseButton->setVisible(false);
 
+    // When a game is running:
+    if (Config::getGameRunning()) {
+        ui->playButton->setVisible(false); // Hide Play
+        ui->pauseButton->setVisible(true); // Show Pause
+
+        ui->MuteBox->setChecked(Config::isMuteEnabled());
+
+        // Update pause button icon & tooltip
+        if (is_paused) {
+            ui->pauseButton->setIcon(ui->playButton->icon());
+            ui->pauseButton->setToolTip(tr("Resume"));
+        } else {
+            if (isIconBlack) {
+                ui->pauseButton->setIcon(QIcon(":images/pause_icon.png"));
+            } else {
+                ui->pauseButton->setIcon(RecolorIcon(QIcon(":images/pause_icon.png"),
+                                                     m_window_themes.iconBaseColor(),
+                                                     m_window_themes.iconHoverColor()));
+            }
+            ui->pauseButton->setToolTip(tr("Pause"));
+        }
+
+        // Update labels if shown
         if (showLabels) {
-            QLabel* playButtonLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
-            QLabel* pauseButtonLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
-            if (playButtonLabel) {
-                playButtonLabel->setText(tr("Play"));
-                playButtonLabel->setVisible(true);
-                pauseButtonLabel->setVisible(false);
+            QLabel* playLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
+            QLabel* pauseLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
+            if (playLabel)
+                playLabel->setVisible(false);
+            if (pauseLabel) {
+                pauseLabel->setText(is_paused ? tr("Resume") : tr("Pause"));
+                pauseLabel->setVisible(true);
             }
         }
         return;
     }
 
-    ui->playButton->setVisible(false);
-    ui->pauseButton->setVisible(true);
-    ui->MuteBox->setChecked(Config::isMuteEnabled());
+    // When game is not running:
+    ui->playButton->setVisible(true);
+    ui->pauseButton->setVisible(false);
 
     if (showLabels) {
-        QLabel* playButtonLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
-        if (playButtonLabel)
-            playButtonLabel->setVisible(false);
-    }
-
-    if (is_paused) {
-        ui->pauseButton->setIcon(ui->playButton->icon());
-        ui->pauseButton->setToolTip(tr("Resume"));
-    } else {
-        if (isIconBlack) {
-            ui->pauseButton->setIcon(QIcon(":images/pause_icon.png"));
-        } else {
-            ui->pauseButton->setIcon(RecolorIcon(QIcon(":images/pause_icon.png"),
-                                                 m_window_themes.iconBaseColor(),
-                                                 m_window_themes.iconHoverColor()));
+        QLabel* playLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
+        QLabel* pauseLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
+        if (playLabel) {
+            playLabel->setText(tr("Play"));
+            playLabel->setVisible(true);
         }
-        ui->pauseButton->setToolTip(tr("Pause"));
-    }
-    if (showLabels) {
-        QLabel* pauseButtonLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
-        if (pauseButtonLabel) {
-            pauseButtonLabel->setText(is_paused ? tr("Resume") : tr("Pause"));
-            pauseButtonLabel->setVisible(true);
-        }
+        if (pauseLabel)
+            pauseLabel->setVisible(false);
     }
 }
 
@@ -547,7 +545,7 @@ void MainWindow::UpdateToolbarLabels() {
     // Handle pause button label separately
     QLabel* pauseLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
     if (pauseLabel)
-        pauseLabel->setVisible(showLabels && isGameRunning);
+        pauseLabel->setVisible(showLabels && Config::getGameRunning());
 }
 
 void MainWindow::CreateDockWindows() {
@@ -556,10 +554,10 @@ void MainWindow::CreateDockWindows() {
     setCentralWidget(phCentralWidget);
 
     m_dock_widget.reset(new QDockWidget(tr("Game List"), this));
-    m_game_list_frame.reset(new GameListFrame(m_game_info, m_compat_info, this));
+    m_game_list_frame.reset(new GameListFrame(m_game_info, m_compat_info, m_ipc_client, this));
     m_game_list_frame->setObjectName("gamelist");
     m_game_list_frame->SetThemeColors(m_window_themes.textColor());
-    m_game_grid_frame.reset(new GameGridFrame(m_game_info, m_compat_info, this));
+    m_game_grid_frame.reset(new GameGridFrame(m_game_info, m_compat_info, m_ipc_client, this));
     m_game_grid_frame->setObjectName("gamegridlist");
     m_elf_viewer.reset(new ElfViewer(this));
     m_elf_viewer->setObjectName("elflist");
@@ -681,7 +679,7 @@ void MainWindow::CreateConnects() {
         QDesktopServices::openUrl(QUrl::fromLocalFile(userPath));
     });
 
-    connect(ui->playButton, &QPushButton::clicked, this, &MainWindow::StartGame);
+    connect(ui->playButton, &QPushButton::clicked, this, [this]() { StartGameWithArgs({}); });
     connect(ui->stopButton, &QPushButton::clicked, this, &MainWindow::StopGame);
     connect(ui->pauseButton, &QPushButton::clicked, this, &MainWindow::PauseGame);
     connect(ui->restartButton, &QPushButton::clicked, this, &MainWindow::RestartGame);
@@ -691,7 +689,7 @@ void MainWindow::CreateConnects() {
             &MainWindow::StartGame);
 
     connect(ui->configureAct, &QAction::triggered, this, [this]() {
-        auto settingsDialog = new SettingsDialog(m_compat_info, this, isGameRunning);
+        auto settingsDialog = new SettingsDialog(m_compat_info, this, Config::getGameRunning());
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
@@ -774,7 +772,7 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
-        auto settingsDialog = new SettingsDialog(m_compat_info, this, isGameRunning);
+        auto settingsDialog = new SettingsDialog(m_compat_info, this, Config::getGameRunning());
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
@@ -808,12 +806,13 @@ void MainWindow::CreateConnects() {
 
     connect(ui->controllerButton, &QPushButton::clicked, this, [this]() {
         ControlSettings* remapWindow =
-            new ControlSettings(m_game_info, isGameRunning, runningGameSerial, this);
+            new ControlSettings(m_game_info, Config::getGameRunning(), runningGameSerial, this);
         remapWindow->exec();
     });
 
     connect(ui->keyboardButton, &QPushButton::clicked, this, [this]() {
-        auto kbmWindow = new KBMSettings(m_game_info, isGameRunning, runningGameSerial, this);
+        auto kbmWindow =
+            new KBMSettings(m_game_info, Config::getGameRunning(), runningGameSerial, this);
         kbmWindow->exec();
     });
 
@@ -847,12 +846,12 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->configureHotkeys, &QAction::triggered, this, [this]() {
-        auto hotkeyDialog = new Hotkeys(isGameRunning, this);
+        auto hotkeyDialog = new Hotkeys(Config::getGameRunning(), this);
         hotkeyDialog->exec();
     });
 
     connect(ui->configureHotkeysButton, &QPushButton::clicked, this, [this]() {
-        auto hotkeyDialog = new Hotkeys(isGameRunning, this);
+        auto hotkeyDialog = new Hotkeys(Config::getGameRunning(), this);
         hotkeyDialog->exec();
     });
 
@@ -990,13 +989,18 @@ void MainWindow::CreateConnects() {
             };
 
             for (const GameInfo& game : m_game_info->m_games) {
-                QString empty = "";
+                QString gameName = QString::fromStdString(game.name);
                 QString gameSerial = QString::fromStdString(game.serial);
                 QString gameVersion = QString::fromStdString(game.version);
+                QString gameSize = QString::fromStdString(game.size);
+                QPixmap gameImage; // empty pixmap
 
-                CheatsPatches* cheatsPatches =
-                    new CheatsPatches(empty, empty, empty, empty, empty, nullptr);
-                connect(cheatsPatches, &CheatsPatches::downloadFinished, onDownloadFinished);
+                std::shared_ptr<CheatsPatches> cheatsPatches = std::make_shared<CheatsPatches>(
+                    gameName, gameSerial, m_ipc_client, gameVersion, gameSize, gameImage);
+
+                // connect the signal properly
+                connect(cheatsPatches.get(), &CheatsPatches::downloadFinished, &eventLoop,
+                        [onDownloadFinished]() { onDownloadFinished(); });
 
                 pendingDownloads += 3;
 
@@ -1004,15 +1008,17 @@ void MainWindow::CreateConnects() {
                 cheatsPatches->downloadCheats("GoldHEN", gameSerial, gameVersion, false);
                 cheatsPatches->downloadCheats("shadPS4", gameSerial, gameVersion, false);
             }
-            eventLoop.exec();
+
+            if (pendingDownloads > 0)
+                eventLoop.exec();
 
             QMessageBox::information(
                 nullptr, tr("Download Complete"),
                 tr("You have downloaded cheats for all the games you have installed."));
-
             panelDialog->accept();
         });
-        connect(downloadAllPatchesButton, &QPushButton::clicked, [panelDialog]() {
+
+        connect(downloadAllPatchesButton, &QPushButton::clicked, [this, panelDialog]() {
             QEventLoop eventLoop;
             int pendingDownloads = 0;
 
@@ -1023,20 +1029,25 @@ void MainWindow::CreateConnects() {
             };
 
             QString empty = "";
-            CheatsPatches* cheatsPatches =
-                new CheatsPatches(empty, empty, empty, empty, empty, nullptr);
-            connect(cheatsPatches, &CheatsPatches::downloadFinished, onDownloadFinished);
+            QPixmap emptyImage;
+            auto cheatsPatches = std::make_shared<CheatsPatches>(empty, empty, m_ipc_client, empty,
+                                                                 empty, emptyImage);
+
+            connect(cheatsPatches.get(), &CheatsPatches::downloadFinished, &eventLoop,
+                    [onDownloadFinished]() { onDownloadFinished(); });
 
             pendingDownloads += 2;
 
             cheatsPatches->downloadPatches("GoldHEN", false);
             cheatsPatches->downloadPatches("shadPS4", false);
 
-            eventLoop.exec();
-            QMessageBox::information(
-                nullptr, tr("Download Complete"),
-                QString(tr("Patches Downloaded Successfully!") + "\n" +
-                        tr("All Patches available for all games have been downloaded.")));
+            if (pendingDownloads > 0)
+                eventLoop.exec();
+
+            QMessageBox::information(nullptr, tr("Download Complete"),
+                                     tr("Patches Downloaded Successfully!\nAll patches available "
+                                        "for all games have been downloaded."));
+
             cheatsPatches->createFilesJson("GoldHEN");
             cheatsPatches->createFilesJson("shadPS4");
             panelDialog->accept();
@@ -1379,7 +1390,6 @@ void MainWindow::StartGameWithArgs(QStringList args) {
             }
         }
     }
-
     if (gamePath.isEmpty())
         Common::FS::PathToQString(gamePath, file);
 
@@ -1387,7 +1397,6 @@ void MainWindow::StartGameWithArgs(QStringList args) {
         return;
 
     std::filesystem::path path = Common::FS::PathFromQString(gamePath);
-
     std::filesystem::path launchPath = path;
 
     if (path.filename() == "eboot.bin") {
@@ -1405,53 +1414,76 @@ void MainWindow::StartGameWithArgs(QStringList args) {
         }
     }
 
-    if (isGameRunning) {
-        QMessageBox::StandardButton reply = QMessageBox::question(
-            this, tr("Switch Game"),
-            tr("A game is already running.\nDo you want to quit it and launch a new one?"),
-            QMessageBox::Yes | QMessageBox::No);
+    if (gamePath.isEmpty())
+        Common::FS::PathToQString(gamePath, file);
 
-        if (reply == QMessageBox::No)
-            return;
+    if (gamePath.isEmpty())
+        return;
 
-        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-        AddRecentFiles(gamePath);
-        Config::setAutoRestartGame(true);
-        Config::save(config_dir / "config.toml");
+    if (path.filename() == "eboot.bin") {
+        const auto parentDir = path.parent_path();
+        for (auto& entry : std::filesystem::directory_iterator(parentDir)) {
+            if (!entry.is_regular_file())
+                continue;
 
-        StopGame();
-    }
-    if (isGameRunning && IPC::Instance().IsEnabled()) {
-        if (launchPath != currentlyRunningElf) {
-            std::vector<std::string> args;
-            args.push_back(Common::FS::PathToUTF8String(launchPath));
-            IPC::Instance().SendRestart(args);
-            statusBar->showMessage(tr("Restarting with ELF: ") +
-                                   QString::fromStdString(launchPath.string()));
-            currentlyRunningElf = launchPath;
-            return;
-        } else {
-            statusBar->showMessage(tr("Game already running"));
-            return;
+            auto ext = entry.path().extension().string();
+            if ((ext == ".elf" || ext == ".self" || ext == ".oelf") &&
+                entry.path().filename() != "eboot.bin") {
+                launchPath = entry.path();
+                break;
+            }
         }
     }
 
-    currentlyRunningElf = launchPath;
-    AddRecentFiles(QString::fromStdString(launchPath.string()));
+    if (file.empty())
+        return;
+
+    Common::FS::PathToQString(gamePath, file);
+
+    if (Config::getGameRunning()) {
+        m_ipc_client->stopGame();
+        QThread::sleep(1);
+    }
+
+    QStringList fullArgs = args;
+    fullArgs << QString::fromStdString(launchPath.string());
+
+    if (!std::filesystem::exists(launchPath)) {
+        QMessageBox::critical(this, tr("shadPS4"), tr("Invalid launch path."));
+        return;
+    }
 
     if (ignorePatches) {
         Core::FileSys::MntPoints::ignore_game_patches = true;
-        StartEmulator(launchPath, args);
-        Core::FileSys::MntPoints::ignore_game_patches = false;
-    } else {
-        StartEmulator(launchPath, args);
     }
 
-    isGameRunning = true;
+    m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), fullArgs,
+                            QString::fromStdString(launchPath.parent_path().string()));
+
+    if (ignorePatches) {
+        Core::FileSys::MntPoints::ignore_game_patches = false;
+    }
+
+    Config::setGameRunning(true);
+
+    if (!m_ipc_client || !Config::getGameRunning()) {
+        QMessageBox::critical(this, tr("shadPS4"), tr("Failed to start game process."));
+        return;
+    }
+
+    m_ipc_client->gameClosedFunc = [this]() {
+        QMetaObject::invokeMethod(this, [this]() {
+            Config::setGameRunning(false);
+            UpdateToolbarButtons();
+        });
+    };
+
+    lastGamePath = QString::fromStdString(launchPath.string());
     UpdateToolbarButtons();
 }
 
 void MainWindow::StartGameWithPath(const QString& gamePath) {
+
     if (gamePath.isEmpty()) {
         QMessageBox::warning(this, tr("Run Game"), tr("No game path provided."));
         return;
@@ -1465,29 +1497,19 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
         return;
     }
 
-    if (isGameRunning) {
-        QMessageBox::StandardButton reply = QMessageBox::question(
-            this, tr("Switch Game"),
-            tr("A game is already running.\nDo you want to quit it and launch a new one?"),
-            QMessageBox::Yes | QMessageBox::No);
-
-        if (reply == QMessageBox::No)
-            return;
-
-        StopGame();
-    }
-
+    emulatorProcess = new QProcess(this);
     QString exePath = QCoreApplication::applicationFilePath();
-    bool started =
-        QProcess::startDetached(exePath, QStringList() << gamePath, QString(), &detachedGamePid);
-    if (!started) {
-        QMessageBox::critical(this, tr("Run Game"), tr("Failed to start emulator."));
-        return;
-    }
+    emulatorProcess->setProcessChannelMode(QProcess::ForwardedChannels);
+
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert("SHADPS4_ENABLE_IPC", "true");
+    emulatorProcess->setProcessEnvironment(env);
+
+    // Pass the full eboot path to the child process
+    emulatorProcess->start(exePath, QStringList() << gamePath);
 
     lastGamePath = gamePath;
-    isGameRunning = true;
-
+    Config::setGameRunning(true);
     UpdateToolbarButtons();
 }
 
@@ -1957,96 +1979,56 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
 }
 
 void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
-    if (isGameRunning) {
-        QMessageBox::critical(nullptr, tr("Run Game"), tr("Game is already running!"));
+    if (Config::getGameRunning()) {
         return;
     }
-    emulator = std::make_unique<Core::Emulator>();
 
-    std::vector<std::string> stdArgs;
-    stdArgs.reserve(args.size());
-    for (const auto& a : args) {
-        stdArgs.push_back(a.toStdString());
+    if (!m_ipc_client) {
+        m_ipc_client = std::make_shared<IpcClient>(this);
+
+        m_ipc_client->gameClosedFunc = [this]() {
+            Config::setGameRunning(false);
+            UpdateToolbarButtons();
+        };
     }
 
-    std::thread([this, path, stdArgs]() {
-        emulator->Run(path, stdArgs);
-        QMetaObject::invokeMethod(this, [this]() {
-            isGameRunning = false;
-            UpdateToolbarButtons();
-        });
-    }).detach();
+    QString gamePath;
+    Common::FS::PathToQString(gamePath, path);
 
-    isGameRunning = true;
+    QFileInfo exeInfo(gamePath);
+    QString workDir = exeInfo.absolutePath();
+
+    m_ipc_client->startGame(exeInfo, args, workDir);
+
+    lastGamePath = gamePath;
+    lastGameArgs = args;
+    Config::setGameRunning(true);
     UpdateToolbarButtons();
 }
 
 void MainWindow::StopGame() {
-    if (!isGameRunning) {
-        QMessageBox::information(this, tr("Stop Game"), tr("No game is currently running."));
+    if (!Config::getGameRunning())
         return;
-    }
 
-    if (detachedGamePid > 0) {
-        // Kill detached process
-#ifdef Q_OS_WIN
-        QProcess::execute("taskkill", {"/PID", QString::number(detachedGamePid), "/F", "/T"});
-#else
-        ::kill(detachedGamePid, SIGKILL);
-#endif
-        detachedGamePid = -1;
-        isGameRunning = false;
+    m_ipc_client->stopGame();
+    Config::setGameRunning(false);
+    is_paused = false;
+    UpdateToolbarButtons();
+}
 
-        UpdateToolbarButtons();
+void MainWindow::PauseGame() {
+    if (is_paused) {
+        m_ipc_client->resumeGame();
+        is_paused = false;
     } else {
-        // In-process stop
-        isGameRunning = false;
-        UpdateToolbarButtons();
-
-        SDL_Event quitEvent;
-        quitEvent.type = SDL_EVENT_QUIT + 1;
-        SDL_PushEvent(&quitEvent);
+        m_ipc_client->pauseGame();
+        is_paused = true;
     }
+    UpdateToolbarButtons();
 }
 
 void MainWindow::RestartGame() {
-    if (!isGameRunning) {
-        QMessageBox::information(this, tr("Restart Game"), tr("No game is currently running."));
+    if (!Config::getGameRunning())
         return;
-    }
-
-    if (detachedGamePid > 0) {
-#ifdef Q_OS_WIN
-        QProcess::execute("taskkill", {"/PID", QString::number(detachedGamePid), "/F", "/T"});
-#else
-        ::kill(detachedGamePid, SIGKILL);
-#endif
-        detachedGamePid = -1;
-        isGameRunning = false;
-
-        if (lastGamePath.isEmpty()) {
-            QMessageBox::warning(this, tr("Restart Game"), tr("No recent game found."));
-            return;
-        }
-
-        const QString exePath = QCoreApplication::applicationFilePath();
-        qint64 newPid = -1;
-        bool started =
-            QProcess::startDetached(exePath, QStringList() << lastGamePath, QString(), &newPid);
-        if (started) {
-            detachedGamePid = newPid;
-            isGameRunning = true;
-        }
-
-        UpdateToolbarButtons();
-    } else {
-        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-
-        Config::setAutoRestartGame(true);
-        Config::save(config_dir / "config.toml");
-
-        SDL_Event quitEvent;
-        quitEvent.type = SDL_EVENT_QUIT + 1;
-        SDL_PushEvent(&quitEvent);
-    }
+    m_ipc_client->restartGame();
 }
