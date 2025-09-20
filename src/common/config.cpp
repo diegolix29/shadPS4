@@ -441,7 +441,7 @@ void setVkGuestMarkersEnabled(bool enable) {
 }
 
 bool getSeparateUpdateEnabled() {
-    return separateupdatefolder;
+    return separateupdatefolder.get();
 }
 
 bool getCompatibilityEnabled() {
@@ -992,7 +992,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
     data["General"]["defaultControllerID"] = defaultControllerID.base_value;
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
-    data["General"]["separateUpdateEnabled"] = separateupdatefolder;
+    data["General"]["separateUpdateEnabled"] = separateupdatefolder.base_value;
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
     data["Input"]["cursorState"] = cursorState.base_value;
