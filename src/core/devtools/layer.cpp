@@ -153,12 +153,43 @@ void L::DrawMenuBar() {
                 EndDisabled();
 
                 if (Button("Save")) {
-                    Config::setFsrEnabled(fsr.enable);
-                    Config::setRcasEnabled(fsr.use_rcas);
-                    Config::setRcasAttenuation(static_cast<int>(fsr.rcasAttenuation * 1000));
-                    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
-                                 "config.toml");
-                    CloseCurrentPopup();
+
+                    ImGui::OpenPopup("Save Config As"); // <-- trigger popup
+                }
+
+                if (ImGui::BeginPopupModal("Save Config As", nullptr,
+                                           ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Where do you want to save the changes?");
+                    ImGui::Separator();
+
+                    if (ImGui::Button("Global Config (config.toml)", ImVec2(250, 0))) {
+                        Config::setFsrEnabled(fsr.enable);
+                        Config::setRcasEnabled(fsr.use_rcas);
+                        Config::setRcasAttenuation(static_cast<int>(fsr.rcasAttenuation * 1000));
+
+                        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
+                                     "config.toml");
+                        ImGui::CloseCurrentPopup();
+                    }
+
+                    if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
+                        Config::setFsrEnabled(fsr.enable);
+                        Config::setRcasEnabled(fsr.use_rcas);
+                        Config::setRcasAttenuation(static_cast<int>(fsr.rcasAttenuation * 1000));
+                        std::string id;
+
+                        Config::save(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                                     (id + ".toml"));
+
+                        ImGui::CloseCurrentPopup();
+                    }
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                        ImGui::CloseCurrentPopup();
+                    }
+
+                    ImGui::EndPopup();
                 }
 
                 ImGui::EndMenu();
@@ -419,7 +450,7 @@ void DrawFullscreenHotkeysWindow(bool& is_open) {
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
                              ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove;
 
-    if (ImGui::Begin("Hotkeys", &is_open, flags)) {
+    if (ImGui::Begin("HotkeysBoot", &is_open, flags)) {
         ImGui::SetWindowFontScale(1.0f);
 
         struct HotkeyItem {
@@ -479,7 +510,7 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
                              ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove;
 
-    if (ImGui::Begin("Hotkeys", &is_open, flags)) {
+    if (ImGui::Begin("HotkeysPause", &is_open, flags)) {
         ImGui::SetWindowFontScale(1.0f);
 
         struct HotkeyItem {
@@ -986,7 +1017,6 @@ void L::Draw() {
 
     if (IsKeyPressed(ImGuiKey_F3, false)) {
         show_fullscreen_tip = !show_fullscreen_tip;
-        fullscreen_tip_manual = true;
     }
 
     const bool userQuitKeyboard =
@@ -995,7 +1025,7 @@ void L::Draw() {
         Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad, Input::HotkeyInputType::Controller);
 
     if (!userQuitController) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R3)) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Square)) {
             Overlay::ToggleQuitWindow();
             visibility_toggled = true;
         }
@@ -1120,7 +1150,19 @@ void L::Draw() {
         frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
     }
 
-    if (!fullscreen_tip_manual && !show_hotkeys_tip_manual) {
+    if (!fullscreen_tip_manual) {
+        if (!Config::getScreenTipDisable()) {
+            fullscreen_tip_timer -= io.DeltaTime;
+            if (fullscreen_tip_timer <= 0.0f) {
+                show_fullscreen_tip = false;
+                fullscreen_tip_timer = 10.0f;
+            }
+        } else {
+            show_fullscreen_tip = false;
+        }
+    }
+
+    if (!show_hotkeys_tip_manual) {
         if (!Config::getScreenTipDisable()) {
             fullscreen_tip_timer -= io.DeltaTime;
             if (fullscreen_tip_timer <= 0.0f) {
