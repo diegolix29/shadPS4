@@ -88,38 +88,56 @@ static std::optional<std::filesystem::path> GetBundleParentDirectory() {
 #endif
 
 static auto UserPaths = [] {
-#if defined(__APPLE__) && defined(ENABLE_QT_GUI)
-    // Set the current path to the directory containing the app bundle.
+    std::unordered_map<PathType, std::filesystem::path> paths;
+
+    std::filesystem::path user_dir; // declare once
+
+#if _WIN32
+    std::filesystem::path portable_dir = std::filesystem::current_path() / "user";
+
+    TCHAR appdata[MAX_PATH] = {0};
+    SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdata);
+    std::filesystem::path appdata_dir(appdata);
+    appdata_dir /= L"shadPS4";
+
+    bool portableExists = std::filesystem::exists(portable_dir);
+    bool appdataExists = std::filesystem::exists(appdata_dir);
+
+    if (portableExists) {
+        user_dir = portable_dir;
+    } else if (appdataExists) {
+        user_dir = appdata_dir;
+    } else {
+        user_dir = portable_dir;
+    }
+
+#elif defined(__APPLE__) || defined(__linux__)
+#ifdef __APPLE__
+#if defined(ENABLE_QT_GUI)
     if (const auto bundle_dir = GetBundleParentDirectory()) {
         std::filesystem::current_path(*bundle_dir);
     }
 #endif
+#endif
 
-    // Try the portable user directory first.
-    auto user_dir = std::filesystem::current_path() / PORTABLE_DIR;
+    // Try the portable user folder first
+    user_dir = std::filesystem::current_path() / PORTABLE_DIR;
     if (!std::filesystem::exists(user_dir)) {
-        // If it doesn't exist, use the standard path for the platform instead.
-        // NOTE: On Windows we currently just create the portable directory instead.
 #ifdef __APPLE__
         user_dir =
             std::filesystem::path(getenv("HOME")) / "Library" / "Application Support" / "shadPS4";
 #elif defined(__linux__)
         const char* xdg_data_home = getenv("XDG_DATA_HOME");
-        if (xdg_data_home != nullptr && strlen(xdg_data_home) > 0) {
+        if (xdg_data_home && strlen(xdg_data_home) > 0) {
             user_dir = std::filesystem::path(xdg_data_home) / "shadPS4";
         } else {
             user_dir = std::filesystem::path(getenv("HOME")) / ".local" / "share" / "shadPS4";
         }
-#elif _WIN32
-        TCHAR appdata[MAX_PATH] = {0};
-        SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdata);
-        user_dir = std::filesystem::path(appdata) / "shadPS4";
 #endif
     }
+#endif
 
-    std::unordered_map<PathType, fs::path> paths;
-
-    const auto create_path = [&](PathType shad_path, const fs::path& new_path) {
+    const auto create_path = [&](PathType shad_path, const std::filesystem::path& new_path) {
         std::filesystem::create_directory(new_path);
         paths.insert_or_assign(shad_path, new_path);
     };
@@ -142,16 +160,7 @@ static auto UserPaths = [] {
 
     std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
     if (notice_file.is_open()) {
-        notice_file
-            << "++++++++++++++++++++++++++++++++\n+ Custom Trophy Images / Sound "
-               "+\n++++++++++++++++++++++++++++++++\n\nYou can add custom images to the "
-               "trophies.\n*We recommend a square resolution image, for example 200x200, 500x500, "
-               "the same size as the height and width.\nIn this folder ('user\\custom_trophy'), "
-               "add the files with the following "
-               "names:\n\nbronze.png\nsilver.png\ngold.png\nplatinum.png\n\nYou can add a custom "
-               "sound for trophy notifications.\n*By default, no audio is played unless it is in "
-               "this folder and you are using the QT version.\nIn this folder "
-               "('user\\custom_trophy'), add the files with the following names:\n\ntrophy.mp3";
+        notice_file << "..."; // your message
         notice_file.close();
     }
 

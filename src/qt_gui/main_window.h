@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
-#ifdef ENABLE_QT_GUI
 #include <QActionGroup>
 #include <QDragEnterEvent>
 #include <QProcess>
 #include <QTranslator>
-#endif
 #include "background_music_player.h"
 #include "cheats_patches.h"
 #include "common/config.h"
@@ -35,7 +33,9 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
     bool Init();
+    void UserPath();
     void InstallDirectory();
+    void ApplyLastUsedStyle();
     void StartGame();
     void StartGameWithPath(const QString&);
     void PauseGame();
@@ -47,11 +47,9 @@ public:
     bool isDetachedLaunch = false;
     void ToggleMute();
 
-#ifdef ENABLE_QT_GUI
-    QString getLastEbootPath();
     QString lastGamePath;
-    QProcess* gameProcess = nullptr;
-#endif
+    QString getLastEbootPath();
+
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
     void SaveWindowState() const;

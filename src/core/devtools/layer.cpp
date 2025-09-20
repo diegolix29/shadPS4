@@ -3,8 +3,10 @@
 
 #include "layer.h"
 
+#include <chrono>
 #include <SDL3/SDL_events.h>
 #include <emulator.h>
+
 #include <imgui.h>
 #include "SDL3/SDL_events.h"
 
@@ -46,6 +48,7 @@ using L = ::Core::Devtools::Layer;
 
 static bool show_simple_fps = false;
 static bool visibility_toggled = false;
+static bool show_pause_status = false;
 static bool show_quit_window = false;
 
 static bool show_hotkeys_tip = true;
@@ -54,6 +57,26 @@ static bool show_hotkeys_tip_manual = false;
 static bool show_fullscreen_tip = true;
 static float fullscreen_tip_timer = 10.0f;
 static bool fullscreen_tip_manual = false;
+
+namespace Overlay {
+
+void ToggleSimpleFps() {
+    show_simple_fps = !show_simple_fps;
+    visibility_toggled = true;
+}
+
+void ToggleQuitWindow() {
+    show_quit_window = !show_quit_window;
+}
+
+void TogglePauseWindow() {
+    if (show_hotkeys_tip) {
+        show_hotkeys_pause = false;
+    } else {
+        show_hotkeys_pause = true;
+    }
+}
+} // namespace Overlay
 
 static float fps_scale = 1.0f;
 static int dump_frame_count = 1;
@@ -405,19 +428,28 @@ void DrawFullscreenHotkeysWindow(bool& is_open) {
         };
 
         HotkeyItem hotkeys[] = {{"Pause/Resume", "F9 or Hold Share/Back+Cross/A"},
-                                {"Stop", "F4 or Share/Back+Triangle/Y"},
+                                {"Stop", "ESC or Share/Back+Square/Y"},
                                 {"Fullscreen", "F11 or Share/Back+R2"},
-                                {"Developer Tools", "Ctrl+F10 or Share/Back+Square/X"},
+                                {"Developer Tools", "Ctrl+F10 or Share/Back+Circle/X"},
                                 {"Show FPS", "F10 or Share/Back+L2"},
-                                {"ShowCurrentSettings", "F3 or Share/Back+Circle/B"},
+                                {"ShowCurrentSettings", "F3 or Share/Back+Triangle/B"},
                                 {"Mute Game", "Share/Back+DpadRight"}};
 
+        float window_width = ImGui::GetContentRegionAvail().x;
+        float x = 0;
+
         for (const auto& hk : hotkeys) {
+            ImVec2 textSize = ImGui::CalcTextSize(hk.keys);
+
+            // If not enough space, move to next line
+            if (x + textSize.x + 80 > window_width) { // 80 for action text + padding
+                ImGui::NewLine();
+                x = 0;
+            }
+
             ImGui::Text("%s:", hk.action);
             ImGui::SameLine();
 
-            ImVec2 textSize = ImGui::CalcTextSize(hk.keys);
-            ImGui::BeginGroup();
             ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Button));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
                                   ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
@@ -425,8 +457,8 @@ void DrawFullscreenHotkeysWindow(bool& is_open) {
                                   ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
             ImGui::Button(hk.keys, ImVec2(textSize.x + 10, textSize.y + 4));
             ImGui::PopStyleColor(3);
-            ImGui::EndGroup();
 
+            x += textSize.x + 80; // advance x for next item
             ImGui::SameLine();
         }
 
@@ -456,19 +488,28 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
         };
 
         HotkeyItem hotkeys[] = {{"Pause/Resume", "F9 or Hold Share/Back+Cross/A"},
-                                {"Stop", "F4 or Share/Back+Triangle/Y"},
+                                {"Stop", "ESC or Share/Back+Square/Y"},
                                 {"Fullscreen", "F11 or Share/Back+R2"},
-                                {"Developer Tools", "Ctrl+F10 or Share/Back+Square/X"},
+                                {"Developer Tools", "Ctrl+F10 or Share/Back+Circle/X"},
                                 {"Show FPS", "F10 or Share/Back+L2"},
-                                {"ShowCurrentSettings", "F3 or Share/Back+Circle/B"},
+                                {"ShowCurrentSettings", "F3 or Share/Back+Triangle/B"},
                                 {"Mute Game", "Share/Back+DpadRight"}};
 
+        float window_width = ImGui::GetContentRegionAvail().x;
+        float x = 0;
+
         for (const auto& hk : hotkeys) {
+            ImVec2 textSize = ImGui::CalcTextSize(hk.keys);
+
+            // If not enough space, move to next line
+            if (x + textSize.x + 80 > window_width) { // 80 for action text + padding
+                ImGui::NewLine();
+                x = 0;
+            }
+
             ImGui::Text("%s:", hk.action);
             ImGui::SameLine();
 
-            ImVec2 textSize = ImGui::CalcTextSize(hk.keys);
-            ImGui::BeginGroup();
             ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Button));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
                                   ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
@@ -476,8 +517,8 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
                                   ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
             ImGui::Button(hk.keys, ImVec2(textSize.x + 10, textSize.y + 4));
             ImGui::PopStyleColor(3);
-            ImGui::EndGroup();
 
+            x += textSize.x + 80; // advance x for next item
             ImGui::SameLine();
         }
 
@@ -948,36 +989,64 @@ void L::Draw() {
         fullscreen_tip_manual = true;
     }
 
-    if (IsKeyPressed(ImGuiKey_F4, false)) {
-        show_quit_window = !show_quit_window;
+    const bool userQuitKeyboard =
+        Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad, Input::HotkeyInputType::Keyboard);
+    const bool userQuitController =
+        Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad, Input::HotkeyInputType::Controller);
+
+    if (!userQuitController) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R3)) {
+            Overlay::ToggleQuitWindow();
+            visibility_toggled = true;
+        }
     }
 
-    if (IsKeyPressed(ImGuiKey_F9, false)) {
-        if (show_hotkeys_tip) {
-            show_hotkeys_pause = false;
-        } else {
-            show_hotkeys_pause = true;
+    if (!userQuitKeyboard) {
+        if (IsKeyPressed(ImGuiKey_Escape, false)) {
+            Overlay::ToggleQuitWindow();
+            visibility_toggled = true;
         }
+    }
+
+    const bool userPauseKeyboard =
+        Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad, Input::HotkeyInputType::Keyboard);
+    const bool userPauseController =
+        Input::HasUserHotkeyDefined(Input::HotkeyPad::PausePad, Input::HotkeyInputType::Controller);
+
+    if (!userPauseKeyboard) {
+        if (IsKeyPressed(ImGuiKey_F9, false)) {
 #ifdef ENABLE_QT_GUI
-        g_MainWindow->PauseGame();
+            g_MainWindow->PauseGame();
 #else
-        if (io.KeyCtrl && io.KeyAlt) {
-            if (!DebugState.ShouldPauseInSubmit()) {
-                DebugState.RequestFrameDump(dump_frame_count);
-            }
-        } else {
             if (DebugState.IsGuestThreadsPaused()) {
                 DebugState.ResumeGuestThreads();
-                SDL_Log("Game resumed from Keyboard");
+                SDL_Log("Game resumed");
                 show_pause_status = false;
             } else {
                 DebugState.PauseGuestThreads();
-                SDL_Log("Game paused from Keyboard");
+                SDL_Log("Game paused");
                 show_pause_status = true;
             }
-            visibility_toggled = true;
-        }
 #endif
+        }
+    }
+
+    if (!userPauseController) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
+#ifdef ENABLE_QT_GUI
+            g_MainWindow->PauseGame();
+#else
+            if (DebugState.IsGuestThreadsPaused()) {
+                DebugState.ResumeGuestThreads();
+                SDL_Log("Game resumed");
+                show_pause_status = false;
+            } else {
+                DebugState.PauseGuestThreads();
+                SDL_Log("Game paused");
+                show_pause_status = true;
+            }
+#endif
+        }
     }
 
     if (IsKeyPressed(ImGuiKey_F10, false)) {
@@ -987,18 +1056,47 @@ void L::Draw() {
         visibility_toggled = true;
     }
 
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::L2)) {
-        show_simple_fps = !show_simple_fps;
-        visibility_toggled = true;
+    const bool userFpsKeyboard = Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad,
+                                                             Input::HotkeyInputType::Keyboard);
+    const bool userFpsController = Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad,
+                                                               Input::HotkeyInputType::Controller);
+
+    if (!userFpsController) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::L2)) {
+            show_simple_fps = !show_simple_fps;
+            visibility_toggled = true;
+        }
     }
 
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R2)) {
-        SDL_Event toggleFullscreenEvent;
-        toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
-        SDL_PushEvent(&toggleFullscreenEvent);
+    if (!userFpsKeyboard) {
+        if (IsKeyPressed(ImGuiKey_F10, false)) {
+            show_simple_fps = !show_simple_fps;
+            visibility_toggled = true;
+        }
     }
 
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Circle)) {
+    const bool userFullscreenKeyboard = Input::HasUserHotkeyDefined(
+        Input::HotkeyPad::FullscreenPad, Input::HotkeyInputType::Keyboard);
+    const bool userFullscreenController = Input::HasUserHotkeyDefined(
+        Input::HotkeyPad::FullscreenPad, Input::HotkeyInputType::Controller);
+
+    if (!userFullscreenController) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R2)) {
+            SDL_Event toggleFullscreenEvent;
+            toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
+            SDL_PushEvent(&toggleFullscreenEvent);
+        }
+    }
+
+    if (!userFullscreenKeyboard) {
+        if (IsKeyPressed(ImGuiKey_F11, false)) {
+            SDL_Event toggleFullscreenEvent;
+            toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
+            SDL_PushEvent(&toggleFullscreenEvent);
+        }
+    }
+
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
         show_fullscreen_tip = !show_fullscreen_tip;
         fullscreen_tip_manual = true;
     }
@@ -1010,30 +1108,8 @@ void L::Draw() {
     }
 #endif
 
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
-#ifdef ENABLE_QT_GUI
-        g_MainWindow->PauseGame();
-#else
-        if (DebugState.IsGuestThreadsPaused()) {
-            DebugState.ResumeGuestThreads();
-            SDL_Log("Game resumed from Controller");
-            show_pause_status = false;
-        } else {
-            DebugState.PauseGuestThreads();
-            SDL_Log("Game paused from Controller");
-            show_pause_status = true;
-        }
-#endif
-        visibility_toggled = true;
-    }
-
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
-        show_quit_window = !show_quit_window;
-    }
-
     const bool show_debug_menu_combo =
-        Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Square);
-
+        Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Circle);
     if (show_debug_menu_combo) {
         DebugState.IsShowingDebugMenuBar() ^= true;
         visibility_toggled = true;
@@ -1049,11 +1125,10 @@ void L::Draw() {
             fullscreen_tip_timer -= io.DeltaTime;
             if (fullscreen_tip_timer <= 0.0f) {
                 show_hotkeys_tip = false;
-                show_fullscreen_tip = false;
+                fullscreen_tip_timer = 10.0f;
             }
         } else {
             show_hotkeys_tip = false;
-            show_fullscreen_tip = false;
         }
     }
 
@@ -1074,7 +1149,6 @@ void L::Draw() {
         if (Begin("Video Info", nullptr,
                   ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
                       ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
-            // Set window position to top left if it was toggled on
             if (visibility_toggled) {
                 SetWindowPos("Video Info", {999999.0f, 0.0f}, ImGuiCond_Always);
                 visibility_toggled = false;
@@ -1133,11 +1207,9 @@ void L::Draw() {
             if (IsKeyPressed(ImGuiKey_Space, false) ||
                 IsKeyPressed(ImGuiKey_GamepadDpadDown, false)) {
                 if (g_MainWindow && g_MainWindow->isVisible()) {
-
                     g_MainWindow->RestartGame();
                 } else {
                     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-
                     Config::setAutoRestartGame(true);
                     Config::save(config_dir / "config.toml");
                     SDL_Event event;
@@ -1147,8 +1219,7 @@ void L::Draw() {
                 }
             }
 #endif
-            if (IsKeyPressed(ImGuiKey_Escape, false) ||
-                IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
+            if (IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
                 show_quit_window = false;
             }
 
@@ -1174,16 +1245,3 @@ void L::TextCentered(const std::string& text) {
     ImGui::SameLine(text_indentation);
     ImGui::Text("%s", text.c_str());
 }
-
-namespace Overlay {
-
-void ToggleSimpleFps() {
-    show_simple_fps = !show_simple_fps;
-    visibility_toggled = true;
-}
-
-void ToggleQuitWindow() {
-    show_quit_window = !show_quit_window;
-}
-
-} // namespace Overlay

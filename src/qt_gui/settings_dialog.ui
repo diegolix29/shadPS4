@@ -11,7 +11,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>970</width>
+    <width>1300</width>
     <height>750</height>
    </rect>
   </property>
@@ -2040,7 +2040,7 @@
         <item>
          <widget class="QGroupBox" name="PortableUserFolderGroupBox">
           <property name="title">
-           <string>Portable User Folder</string>
+           <string>User Folder Location</string>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_2">
            <item>
@@ -2067,7 +2067,7 @@
                 </sizepolicy>
                </property>
                <property name="text">
-                <string>Create Portable User Folder from Common User Folder</string>
+                <string>Create Portable User Folder from Global AppData Folder</string>
                </property>
               </widget>
              </item>
@@ -2084,7 +2084,62 @@
                </property>
               </spacer>
              </item>
-            </layout>
+
+				<item>
+					<widget class="QPushButton" name="GlobalUserButton">
+						<property name="sizePolicy">
+							<sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+								<horstretch>0</horstretch>
+								<verstretch>0</verstretch>
+							</sizepolicy>
+						</property>
+						<property name="text">
+							<string>Move Portable User folder to Appdata folder</string>
+						</property>
+					</widget>
+				</item>
+				<item>
+					<spacer name="horizontalSpacer_51">
+						<property name="orientation">
+							<enum>Qt::Orientation::Horizontal</enum>
+						</property>
+						<property name="sizeHint" stdset="0">
+							<size>
+								<width>40</width>
+								<height>20</height>
+							</size>
+						</property>
+					</spacer>
+				</item>
+
+				<item>
+					<widget class="QPushButton" name="CreateUserButton">
+						<property name="sizePolicy">
+							<sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+								<horstretch>0</horstretch>
+								<verstretch>0</verstretch>
+							</sizepolicy>
+						</property>
+						<property name="text">
+							<string>Generate Portable folder Only</string>
+						</property>
+					</widget>
+				</item>
+				<item>
+					<spacer name="horizontalSpacer_51">
+						<property name="orientation">
+							<enum>Qt::Orientation::Horizontal</enum>
+						</property>
+						<property name="sizeHint" stdset="0">
+							<size>
+								<width>40</width>
+								<height>20</height>
+							</size>
+						</property>
+					</spacer>
+				</item>
+
+			</layout>
            </item>
           </layout>
          </widget>

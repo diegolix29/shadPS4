@@ -263,7 +263,8 @@ u32 getFpsLimit();
 void setFpsLimit(u32 fpsValue);
 bool isFpsLimiterEnabled();
 void setFpsLimiterEnabled(bool enabled);
-
+bool getFirstBootHandled();
+void setFirstBootHandled(bool handled);
 u32 getMainWindowGeometryX();
 u32 getMainWindowGeometryY();
 u32 getMainWindowGeometryW();

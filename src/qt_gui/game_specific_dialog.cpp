@@ -40,7 +40,6 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
         UpdateSettings();
         accept();
     });
-
     connect(ui->RCASSlider, &QSlider::valueChanged, this,
             &GameSpecificDialog::OnRcasAttenuationChanged);
 
@@ -75,14 +74,22 @@ void GameSpecificDialog::OnCursorStateChanged(s16 index) {
     }
 }
 
-void GameSpecificDialog::OnRcasAttenuationChanged(int value) {
-    double attenuation = value / 1000.0;
-    ui->RCASSpinBox->setValue(attenuation);
+void GameSpecificDialog::OnRcasAttenuationChanged(int sliderValue) {
+    ui->RCASSpinBox->blockSignals(true);
+    ui->RCASSpinBox->setValue(sliderValue / 1000.0);
+    ui->RCASSpinBox->blockSignals(false);
+
+    Config::setRcasAttenuation(static_cast<float>(sliderValue));
 }
 
-void GameSpecificDialog::OnRcasAttenuationSpinBoxChanged(double value) {
-    int int_value = static_cast<int>(std::lround(value * 1000.0));
-    ui->RCASSlider->setValue(int_value);
+void GameSpecificDialog::OnRcasAttenuationSpinBoxChanged(double spinValue) {
+    int intValue = static_cast<int>(std::lround(spinValue * 1000.0));
+
+    ui->RCASSlider->blockSignals(true);
+    ui->RCASSlider->setValue(intValue);
+    ui->RCASSlider->blockSignals(false);
+
+    Config::setRcasAttenuation(static_cast<float>(intValue));
 }
 
 void GameSpecificDialog::LoadValuesFromConfig() {
@@ -153,7 +160,10 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->displayModeComboBox->setCurrentText(QString::fromStdString(Config::getFullscreenMode()));
     ui->MemoryComboBox->setCurrentText(QString::fromStdString(Config::getMemoryAlloc()));
     ui->presentModeComboBox->setCurrentText(QString::fromStdString(Config::getPresentMode()));
-    ui->RCASSpinBox->setValue(Config::getRcasAttenuation());
+    ui->RCASSlider->setMinimum(0);
+    ui->RCASSlider->setMaximum(3000);
+    ui->RCASSlider->setValue(Config::getRcasAttenuation());
+    ui->RCASSpinBox->setValue(ui->RCASSlider->value() / 1000.0);
     ui->RCASCheckBox->setChecked(Config::getRcasEnabled());
     ui->ReadbacksLinearCheckBox->setChecked(Config::getReadbackLinearImages());
     ui->ReadbackSpeedComboBox->setCurrentIndex(static_cast<int>(Config::readbackSpeed()));
@@ -292,10 +302,13 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         }
 
         if (gpu.contains("rcasAttenuation")) {
-            int v = toml::find<int>(gpu, "rcasAttenuation");
-            ui->RCASSlider->setValue(v);
-            ui->RCASSpinBox->setValue(v / 1000.0);
+            double value = toml::find<double>(gpu, "rcasAttenuation");
+
+            ui->RCASSlider->setValue(static_cast<int>(std::lround(value)));
+            ui->RCASSpinBox->setValue(value / 1000.0);
+            Config::setRcasAttenuation(static_cast<float>(value));
         }
+
         if (gpu.contains("rcasEnabled"))
             ui->RCASCheckBox->setChecked(toml::find<bool>(gpu, "rcasEnabled"));
         if (gpu.contains("readbackLinearImages"))
@@ -505,11 +518,11 @@ void GameSpecificDialog::UpdateSettings() {
         overrides["GPU"]["presentMode"] = key.toStdString();
 
     {
-        int current = Config::getRcasAttenuation();
+        int current = static_cast<int>(Config::getRcasAttenuation());
         int newVal = ui->RCASSlider->value();
 
         if (newVal != current)
-            overrides["GPU"]["rcasAttenuation"] = newVal;
+            overrides["GPU"]["rcasAttenuation"] = static_cast<double>(newVal);
     }
 
     if (ui->RCASCheckBox->isChecked() != Config::getRcasEnabled())

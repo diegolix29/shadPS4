@@ -819,6 +819,48 @@ bool ControllerComboPressedOnce(Libraries::Pad::OrbisPadButtonDataOffset holdBut
     return false;
 }
 
+bool HasUserHotkeyDefined(HotkeyPad pad, HotkeyInputType type) {
+    const ControllerOutput* target_output = nullptr;
+
+    switch (pad) {
+    case HotkeyPad::SimpleFpsPad:
+        target_output = &*std::ranges::find(output_array, ControllerOutput(HOTKEY_SIMPLE_FPS));
+        break;
+    case HotkeyPad::FullscreenPad:
+        target_output = &*std::ranges::find(output_array, ControllerOutput(HOTKEY_FULLSCREEN));
+        break;
+    case HotkeyPad::PausePad:
+        target_output = &*std::ranges::find(output_array, ControllerOutput(HOTKEY_PAUSE));
+        break;
+    case HotkeyPad::QuitPad:
+        target_output = &*std::ranges::find(output_array, ControllerOutput(HOTKEY_QUIT));
+        break;
+    default:
+        return false;
+    }
+
+    for (const auto& conn : connections) {
+        if (conn.output == target_output) {
+            if (type == HotkeyInputType::Any) {
+                return true;
+            }
+            if (type == HotkeyInputType::Keyboard &&
+                (conn.binding.keys[0].type == InputType::KeyboardMouse ||
+                 conn.binding.keys[1].type == InputType::KeyboardMouse ||
+                 conn.binding.keys[2].type == InputType::KeyboardMouse)) {
+                return true;
+            }
+            if (type == HotkeyInputType::Controller &&
+                (conn.binding.keys[0].type == InputType::Controller ||
+                 conn.binding.keys[1].type == InputType::Controller ||
+                 conn.binding.keys[2].type == InputType::Controller)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void ActivateOutputsFromInputs() {
     // Reset values and flags
     for (auto& it : pressed_keys) {

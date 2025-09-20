@@ -8,6 +8,10 @@
 #include <QHoverEvent>
 #include <QMessageBox>
 #include <SDL3/SDL.h>
+#ifdef _WIN32
+#include <Shlobj.h>
+#include <windows.h>
+#endif
 #include <fmt/format.h>
 
 #include "common/config.h"
@@ -267,8 +271,10 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         connect(ui->enableCompatibilityCheckBox, &QCheckBox::checkStateChanged, this,
                 [this, m_compat_info](Qt::CheckState state) {
 #endif
-                    Config::setCompatibilityEnabled(state);
-                    if (state) {
+                    bool enabled = (state == Qt::Checked);
+                    Config::setCompatibilityEnabled(enabled);
+
+                    if (enabled && m_compat_info) {
                         m_compat_info->LoadCompatibilityFile();
                     }
                     emit CompatibilityChanged();
@@ -347,7 +353,8 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     if (presenter) {
         connect(ui->RCASSlider, &QSlider::valueChanged, this, [this](int value) {
-            presenter->GetFsrSettingsRef().rcasAttenuation = static_cast<float>(value / 1000.0f);
+            presenter->GetFsrSettingsRef().rcasAttenuation =
+                static_cast<float>(ui->RCASSpinBox->value());
         });
 
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
@@ -438,18 +445,125 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         });
 
         connect(ui->PortableUserButton, &QPushButton::clicked, this, []() {
-            QString userDir;
-            Common::FS::PathToQString(userDir, std::filesystem::current_path() / "user");
-            if (std::filesystem::exists(std::filesystem::current_path() / "user")) {
-                QMessageBox::information(NULL, tr("Cannot create portable user folder"),
-                                         tr("%1 already exists").arg(userDir));
-            } else {
-                std::filesystem::copy(Common::FS::GetUserPath(Common::FS::PathType::UserDir),
-                                      std::filesystem::current_path() / "user",
-                                      std::filesystem::copy_options::recursive);
-                QMessageBox::information(NULL, tr("Portable user folder created"),
-                                         tr("%1 successfully created.").arg(userDir));
+            auto portable_dir = std::filesystem::current_path() / "user";
+            QString userDirQString;
+            Common::FS::PathToQString(userDirQString, portable_dir);
+
+            std::filesystem::path global_dir;
+#if _WIN32
+            TCHAR appdata[MAX_PATH] = {0};
+            SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdata);
+            global_dir = std::filesystem::path(appdata) / "shadPS4";
+#elif __APPLE__
+    global_dir = std::filesystem::path(getenv("HOME")) / "Library" / "Application Support" / "shadPS4";
+#else
+    const char* xdg_data_home = getenv("XDG_DATA_HOME");
+    if (xdg_data_home && *xdg_data_home)
+        global_dir = std::filesystem::path(xdg_data_home) / "shadPS4";
+    else
+        global_dir = std::filesystem::path(getenv("HOME")) / ".local" / "share" / "shadPS4";
+#endif
+
+            if (std::filesystem::exists(portable_dir)) {
+                QMessageBox::StandardButton reply = QMessageBox::question(
+                    nullptr, tr("Portable folder exists"),
+                    tr("%1 already exists. Overwrite with global folder data?").arg(userDirQString),
+                    QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::Yes && std::filesystem::exists(global_dir)) {
+                    std::filesystem::copy(global_dir, portable_dir,
+                                          std::filesystem::copy_options::recursive |
+                                              std::filesystem::copy_options::overwrite_existing);
+                    std::filesystem::remove_all(global_dir);
+                    QMessageBox::information(nullptr, tr("Portable User Folder Updated"),
+                                             tr("Portable folder overwritten with global data."));
+                }
+                return;
             }
+
+            if (std::filesystem::exists(global_dir)) {
+                std::filesystem::copy(global_dir, portable_dir,
+                                      std::filesystem::copy_options::recursive);
+                std::filesystem::remove_all(global_dir);
+                QMessageBox::information(
+                    nullptr, tr("Portable User Folder Created"),
+                    tr("Moved data from global folder to:\n%1").arg(userDirQString));
+            } else {
+                std::filesystem::create_directories(portable_dir);
+                QMessageBox::information(
+                    nullptr, tr("Portable User Folder Created"),
+                    tr("%1 successfully created - Relaunch Emulator to Activate")
+                        .arg(userDirQString));
+            }
+        });
+
+        connect(ui->GlobalUserButton, &QPushButton::clicked, this, []() {
+            std::filesystem::path global_dir;
+#if _WIN32
+            TCHAR appdata[MAX_PATH] = {0};
+            SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdata);
+            global_dir = std::filesystem::path(appdata) / "shadPS4";
+#elif __APPLE__
+    global_dir = std::filesystem::path(getenv("HOME")) / "Library" / "Application Support" / "shadPS4";
+#else
+    const char* xdg_data_home = getenv("XDG_DATA_HOME");
+    if (xdg_data_home && *xdg_data_home)
+        global_dir = std::filesystem::path(xdg_data_home) / "shadPS4";
+    else
+        global_dir = std::filesystem::path(getenv("HOME")) / ".local" / "share" / "shadPS4";
+#endif
+
+            auto portable_dir = std::filesystem::current_path() / "user";
+            QString userDirQString;
+            Common::FS::PathToQString(userDirQString, global_dir);
+
+            if (std::filesystem::exists(global_dir)) {
+                QMessageBox::StandardButton reply = QMessageBox::question(
+                    nullptr, tr("Global folder exists"),
+                    tr("%1 already exists. Overwrite with portable folder data?")
+                        .arg(userDirQString),
+                    QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::Yes && std::filesystem::exists(portable_dir)) {
+                    std::filesystem::copy(portable_dir, global_dir,
+                                          std::filesystem::copy_options::recursive |
+                                              std::filesystem::copy_options::overwrite_existing);
+                    std::filesystem::remove_all(portable_dir);
+                    QMessageBox::information(nullptr, tr("Global User Folder Updated"),
+                                             tr("Global folder overwritten with portable data."));
+                }
+                return;
+            }
+
+            if (std::filesystem::exists(portable_dir)) {
+                std::filesystem::copy(portable_dir, global_dir,
+                                      std::filesystem::copy_options::recursive);
+                std::filesystem::remove_all(portable_dir);
+                QMessageBox::information(
+                    nullptr, tr("Global User Folder Created"),
+                    tr("Moved data from portable folder to:\n%1").arg(userDirQString));
+            } else {
+                std::filesystem::create_directories(global_dir);
+                QMessageBox::information(
+                    nullptr, tr("Global User Folder Created"),
+                    tr("%1 successfully created - Relaunch Emulator to Activate")
+                        .arg(userDirQString));
+            }
+        });
+
+        connect(ui->CreateUserButton, &QPushButton::clicked, this, []() {
+            auto portable_dir = std::filesystem::current_path() / "user";
+            QString userDirQString;
+            Common::FS::PathToQString(userDirQString, portable_dir);
+
+            if (std::filesystem::exists(portable_dir)) {
+                QMessageBox::information(nullptr, tr("Cannot create portable user folder"),
+                                         tr("%1 already exists").arg(userDirQString));
+                return;
+            }
+
+            std::filesystem::create_directories(portable_dir);
+            QMessageBox::information(
+                nullptr, tr("Portable user folder created"),
+                tr("%1 successfully created - Relaunch Emulator to Configure").arg(userDirQString));
         });
     }
 
@@ -732,7 +846,9 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     ui->FSRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fsrEnabled", true));
     ui->RCASCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "rcasEnabled", true));
-    ui->RCASSlider->setValue(toml::find_or<int>(data, "GPU", "rcasAttenuation", 500));
+    ui->RCASSlider->setMinimum(0);
+    ui->RCASSlider->setMaximum(3000);
+    ui->RCASSlider->setValue(Config::getRcasAttenuation());
     ui->RCASSpinBox->setValue(ui->RCASSlider->value() / 1000.0);
     ui->connectedNetworkCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isConnectedToNetwork", false));
@@ -1136,26 +1252,28 @@ void SettingsDialog::UpdateSettings() {
     BackgroundMusicPlayer::getInstance().setVolume(ui->BGMVolumeSlider->value());
 }
 
-void SettingsDialog::OnRcasAttenuationChanged(int value) {
-    float attenuation = value / 1000.0f;
+void SettingsDialog::OnRcasAttenuationChanged(int sliderValue) {
+    float attenuation = sliderValue / 1000.0f;
+
+    ui->RCASSpinBox->blockSignals(true);
     ui->RCASSpinBox->setValue(attenuation);
+    ui->RCASSpinBox->blockSignals(false);
 
-    Config::setRcasAttenuation(value);
-
-    if (presenter) {
+    Config::setRcasAttenuation(sliderValue);
+    if (presenter)
         presenter->GetFsrSettingsRef().rcasAttenuation = attenuation;
-    }
 }
 
-void SettingsDialog::OnRcasAttenuationSpinBoxChanged(double value) {
-    int int_value = static_cast<int>(value * 1000.0);
-    ui->RCASSlider->setValue(int_value);
+void SettingsDialog::OnRcasAttenuationSpinBoxChanged(double spinValue) {
+    int intValue = static_cast<int>(std::lround(spinValue * 1000.0));
 
-    Config::setRcasAttenuation(int_value);
+    ui->RCASSlider->blockSignals(true);
+    ui->RCASSlider->setValue(intValue);
+    ui->RCASSlider->blockSignals(false);
 
-    if (presenter) {
-        presenter->GetFsrSettingsRef().rcasAttenuation = static_cast<float>(value);
-    }
+    Config::setRcasAttenuation(intValue);
+    if (presenter)
+        presenter->GetFsrSettingsRef().rcasAttenuation = static_cast<float>(spinValue);
 }
 
 void SettingsDialog::SyncRealTimeWidgetstoConfig() {

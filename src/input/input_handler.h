@@ -492,11 +492,18 @@ public:
 
 enum HotkeyPad { FullscreenPad, PausePad, SimpleFpsPad, QuitPad, DebugMenuPad };
 
+enum class HotkeyInputType {
+    Any,       // current behavior
+    Keyboard,  // only check if user defined a keyboard binding
+    Controller // only check if user defined a controller binding
+};
+
 // Updates the list of pressed keys with the given input.
 // Returns whether the list was updated or not.
 bool UpdatePressedKeys(InputEvent event);
 
 void ActivateOutputsFromInputs();
+bool HasUserHotkeyDefined(HotkeyPad pad, HotkeyInputType type = HotkeyInputType::Any);
 bool ControllerPressedOnce(std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons);
 bool ControllerComboPressedOnce(Libraries::Pad::OrbisPadButtonDataOffset holdButton,
                                 Libraries::Pad::OrbisPadButtonDataOffset pressButton);

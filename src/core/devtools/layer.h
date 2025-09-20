@@ -30,5 +30,5 @@ namespace Overlay {
 
 void ToggleSimpleFps();
 void ToggleQuitWindow();
-
+void TogglePauseWindow();
 } // namespace Overlay

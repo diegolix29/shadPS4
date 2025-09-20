@@ -124,6 +124,7 @@ static ConfigEntry<bool> screenTipDisable(false);
 static ConfigEntry<bool> fpsLimiterEnabled(false);
 static std::string guiStyle = "Fusion";
 static std::string g_customBackgroundImage;
+static ConfigEntry<bool> firstBootHandled(false);
 
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
@@ -242,6 +243,14 @@ static std::string trophyKey = "";
 
 bool allowHDR() {
     return isHDRAllowed.get();
+}
+
+bool getFirstBootHandled() {
+    return firstBootHandled.get();
+}
+
+void setFirstBootHandled(bool handled) {
+    firstBootHandled.base_value = handled;
 }
 
 std::string getMainOutputDevice() {
@@ -1202,6 +1211,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         checkCompatibilityOnStartup =
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
         isConnectedToNetwork.setFromToml(general, "isConnectedToNetwork", is_game_specific);
+        firstBootHandled.setFromToml(general, "firstBootHandled", is_game_specific);
         audioBackend.setFromToml(general, "backend", "cubeb");
         audioVolume.setFromToml(general, "volume", 100);
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", chooseHomeTab);
@@ -1262,7 +1272,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         fpsLimit.setFromToml(gpu, "fpsLimit", is_game_specific);
         fpsLimiterEnabled.setFromToml(gpu, "fpsLimiterEnabled", is_game_specific);
         windowWidth.setFromToml(gpu, "windowWidth", is_game_specific);
-        windowHeight.setFromToml(gpu, "screenHeight", is_game_specific);
+        windowHeight.setFromToml(gpu, "windowHeight", is_game_specific);
         internalScreenWidth.setFromToml(gpu, "internalScreenWidth", is_game_specific);
         internalScreenHeight.setFromToml(gpu, "internalScreenHeight", is_game_specific);
         isNullGpu.setFromToml(gpu, "nullGpu", is_game_specific);
@@ -1477,6 +1487,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
     data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
+    data["General"]["firstBootHandled"] = firstBootHandled.base_value;
     data["General"]["defaultControllerID"] = defaultControllerID.base_value;
     data["General"]["backend"] = audioBackend.base_value;
     data["General"]["volume"] = audioVolume.base_value;
@@ -1660,6 +1671,7 @@ void setDefaultValues() {
     compatibilityData = false;
     checkCompatibilityOnStartup = false;
     isConnectedToNetwork = false;
+    firstBootHandled = false;
     autoRestartGame = false;
     restartWithBaseGame = false;
     screenTipDisable = false;
