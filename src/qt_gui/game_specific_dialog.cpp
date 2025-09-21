@@ -302,8 +302,12 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         }
 
         if (gpu.contains("rcasAttenuation")) {
-            double value = toml::find<double>(gpu, "rcasAttenuation");
-
+            double value = 0.0;
+            try {
+                value = toml::find<double>(gpu, "rcasAttenuation");
+            } catch (...) {
+                value = static_cast<double>(toml::find<int>(gpu, "rcasAttenuation"));
+            }
             ui->RCASSlider->setValue(static_cast<int>(std::lround(value)));
             ui->RCASSpinBox->setValue(value / 1000.0);
             Config::setRcasAttenuation(static_cast<float>(value));

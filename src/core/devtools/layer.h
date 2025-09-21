@@ -3,6 +3,7 @@
 
 #pragma once
 #include <string>
+#include <filesystem>
 
 #include "imgui/imgui_layer.h"
 
@@ -18,7 +19,7 @@ class Layer final : public ImGui::Layer {
 
 public:
     static void SetupSettings();
-
+    void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = false);
     void Draw() override;
     bool show_pause_status = false;
     void TextCentered(const std::string& text);

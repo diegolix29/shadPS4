@@ -46,6 +46,7 @@ public:
     qint64 detachedGamePid = -1;
     bool isDetachedLaunch = false;
     void ToggleMute();
+    std::string runningGameSerial = "";
 
     QString lastGamePath;
     QString getLastEbootPath();
@@ -96,7 +97,6 @@ private:
     bool isGameRunning = false;
     bool isWhite = false;
     bool is_paused = false;
-    std::string runningGameSerial = "";
 
     QActionGroup* m_icon_size_act_group = nullptr;
     QActionGroup* m_list_mode_act_group = nullptr;

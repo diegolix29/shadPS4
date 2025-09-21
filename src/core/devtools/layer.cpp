@@ -31,7 +31,13 @@
 #include "widget/memory_map.h"
 #include "widget/module_list.h"
 #include "widget/shader_list.h"
+ 
+#include <fstream>
+#include <QDesktopServices>
+#include <QDialogButtonBox>
 
+#include <toml.hpp>
+#include <SDL3/SDL.h>
 extern std::unique_ptr<Vulkan::Presenter> presenter;
 using Btn = Libraries::Pad::OrbisPadButtonDataOffset;
 
@@ -54,9 +60,10 @@ static bool show_quit_window = false;
 static bool show_hotkeys_tip = true;
 static bool show_hotkeys_pause = true;
 static bool show_hotkeys_tip_manual = false;
+static bool fullscreen_tip_manual = false;
 static bool show_fullscreen_tip = true;
 static float fullscreen_tip_timer = 10.0f;
-static bool fullscreen_tip_manual = false;
+static float hotkeys_tip_timer = 10.0f;
 
 namespace Overlay {
 
@@ -153,43 +160,12 @@ void L::DrawMenuBar() {
                 EndDisabled();
 
                 if (Button("Save")) {
-
-                    ImGui::OpenPopup("Save Config As"); // <-- trigger popup
-                }
-
-                if (ImGui::BeginPopupModal("Save Config As", nullptr,
-                                           ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Where do you want to save the changes?");
-                    ImGui::Separator();
-
-                    if (ImGui::Button("Global Config (config.toml)", ImVec2(250, 0))) {
-                        Config::setFsrEnabled(fsr.enable);
-                        Config::setRcasEnabled(fsr.use_rcas);
-                        Config::setRcasAttenuation(static_cast<int>(fsr.rcasAttenuation * 1000));
-
-                        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
-                                     "config.toml");
-                        ImGui::CloseCurrentPopup();
-                    }
-
-                    if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
-                        Config::setFsrEnabled(fsr.enable);
-                        Config::setRcasEnabled(fsr.use_rcas);
-                        Config::setRcasAttenuation(static_cast<int>(fsr.rcasAttenuation * 1000));
-                        std::string id;
-
-                        Config::save(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
-                                     (id + ".toml"));
-
-                        ImGui::CloseCurrentPopup();
-                    }
-
-                    ImGui::SameLine();
-                    if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-                        ImGui::CloseCurrentPopup();
-                    }
-
-                    ImGui::EndPopup();
+                    Config::setFsrEnabled(fsr.enable);
+                    Config::setRcasEnabled(fsr.use_rcas);
+                    Config::setRcasAttenuation(static_cast<int>(fsr.rcasAttenuation * 1000));
+                    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
+                                 "config.toml");
+                    CloseCurrentPopup();
                 }
 
                 ImGui::EndMenu();
@@ -558,6 +534,57 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
     }
     ImGui::End();
 }
+
+void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = false) {
+    if (!perGame) {
+        Config::save(path);
+        return;
+    }
+
+    toml::value overrides = toml::table{};
+
+    if (g_MainWindow && !g_MainWindow->runningGameSerial.empty()) {
+        // General settings
+        overrides["General"]["logFilter"] = Config::getLogFilter();
+        overrides["General"]["enableAutoBackup"] = Config::getEnableAutoBackup();
+        overrides["General"]["isPSNSignedIn"] = Config::getPSNSignedIn();
+#ifdef ENABLE_QT_GUI
+        overrides["General"]["mute"] = Config::isMuteEnabled();
+#endif
+        overrides["General"]["isConnectedToNetwork"] = Config::getIsConnectedToNetwork();
+
+        // GPU / Graphics settings
+        overrides["GPU"]["allowHDR"] = Config::allowHDR();
+        overrides["GPU"]["vblankFrequency"] = Config::vblankFreq();
+        overrides["GPU"]["fsrEnabled"] = Config::getFsrEnabled();
+        overrides["GPU"]["rcasEnabled"] = Config::getRcasEnabled();
+        overrides["GPU"]["rcasAttenuation"] = Config::getRcasAttenuation();
+        overrides["GPU"]["readbackLinearImages"] = Config::getReadbackLinearImages();
+        overrides["GPU"]["shaderSkipsEnabled"] = Config::getShaderSkipsEnabled();
+        overrides["GPU"]["directMemoryAccess"] = Config::directMemoryAccess();
+        overrides["GPU"]["readbackSpeed"] = static_cast<int>(Config::readbackSpeed());
+        overrides["GPU"]["presentMode"] = Config::getPresentMode();
+
+        // Logging
+        overrides["Logging"]["logType"] = Config::getLogType();
+
+        // Ensure folder exists
+        std::filesystem::create_directories(path.parent_path());
+
+        std::filesystem::path tmp = path;
+
+        std::ofstream ofs(tmp, std::ios::trunc);
+        if (ofs && (ofs << overrides)) {
+            std::error_code ec;
+            std::filesystem::rename(tmp, path, ec);
+            if (ec)
+                std::filesystem::remove(tmp, ec);
+        }
+    }
+}
+
+
+
 
 void DrawFullscreenSettingsWindow(bool& is_open) {
     if (!is_open)
@@ -936,11 +963,40 @@ void DrawPauseStatusWindow(bool& is_open) {
         ImGui::Spacing();
         ImGui::Separator();
 
+// === Save ===
         if (ImGui::Button("Save")) {
-            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-            Config::setLogFilter(std::string(filter_buf));
-            Config::save(config_dir / "config.toml");
-            DebugState.ResumeGuestThreads();
+            ImGui::OpenPopup("Save Config As");
+        }
+
+        if (ImGui::BeginPopupModal("Save Config As", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Where do you want to save the changes?");
+            ImGui::Separator();
+
+            if (ImGui::Button("Global Config (config.toml)", ImVec2(250, 0))) {
+                Config::setLogFilter(std::string(filter_buf));
+                Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
+                             "config.toml");
+                DebugState.ResumeGuestThreads();
+                ImGui::CloseCurrentPopup();
+            }
+
+            if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
+                if (g_MainWindow && !g_MainWindow->runningGameSerial.empty()) {
+                    SaveConfigWithOverrides(
+                        Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                            (g_MainWindow->runningGameSerial + ".toml"),
+                        true);
+                    DebugState.ResumeGuestThreads();
+                }
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
         }
 
 #ifdef ENABLE_QT_GUI
@@ -954,50 +1010,118 @@ void DrawPauseStatusWindow(bool& is_open) {
         ImGui::SameLine(0.0f, 10.0f);
         if (ImGui::Button("Restart Game")) {
             if (g_MainWindow && g_MainWindow->isVisible()) {
-
                 g_MainWindow->RestartGame();
             } else {
-                const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-
                 Config::setAutoRestartGame(true);
-                Config::save(config_dir / "config.toml");
-                SDL_Event event;
-                SDL_memset(&event, 0, sizeof(event));
+                Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
+                             "config.toml");
+                SDL_Event event{};
                 event.type = SDL_EVENT_QUIT + 1;
                 SDL_PushEvent(&event);
             }
         }
 
+        // === Save & Restart Game ===
         ImGui::SameLine(0.0f, 10.0f);
         if (ImGui::Button("Save & Restart Game")) {
-            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-            Config::setLogFilter(std::string(filter_buf));
-            Config::save(config_dir / "config.toml");
-            if (g_MainWindow && g_MainWindow->isVisible()) {
+            ImGui::OpenPopup("Save Config As Restart Game");
+        }
 
-                g_MainWindow->RestartGame();
-            } else {
-                const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        if (ImGui::BeginPopupModal("Save Config As Restart Game", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Where do you want to save the changes?");
+            ImGui::Separator();
 
-                Config::setAutoRestartGame(true);
-                Config::save(config_dir / "config.toml");
-                SDL_Event event;
-                SDL_memset(&event, 0, sizeof(event));
+            if (ImGui::Button("Global Config (config.toml)", ImVec2(250, 0))) {
+                Config::setLogFilter(std::string(filter_buf));
+                Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
+                             "config.toml");
+                ImGui::CloseCurrentPopup();
+
+                if (g_MainWindow && g_MainWindow->isVisible()) {
+                    g_MainWindow->RestartGame();
+                } else {
+                    Config::setAutoRestartGame(true);
+                    SDL_Event event{};
+                    event.type = SDL_EVENT_QUIT + 1;
+                    SDL_PushEvent(&event);
+                }
+            }
+
+            if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
+                if (g_MainWindow && !g_MainWindow->runningGameSerial.empty()) {
+                    SaveConfigWithOverrides(
+                        Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                            (g_MainWindow->runningGameSerial + ".toml"),
+                        true);
+                }
+                ImGui::CloseCurrentPopup();
+
+                if (g_MainWindow && g_MainWindow->isVisible()) {
+                    g_MainWindow->RestartGame();
+                } else {
+                    Config::setAutoRestartGame(true);
+                    SDL_Event event{};
+                    event.type = SDL_EVENT_QUIT + 1;
+                    SDL_PushEvent(&event);
+                }
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
+        }
+
+        // === Save & Restart Emulator ===
+        ImGui::SameLine(0.0f, 10.0f);
+        if (ImGui::Button("Save & Restart Emulator")) {
+            ImGui::OpenPopup("Save Config As Restart Emulator");
+        }
+
+        if (ImGui::BeginPopupModal("Save Config As Restart Emulator", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Where do you want to save the changes?");
+            ImGui::Separator();
+
+            if (ImGui::Button("Global Config (config.toml)", ImVec2(250, 0))) {
+                Config::setLogFilter(std::string(filter_buf));
+                Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
+                             "config.toml");
+                ImGui::CloseCurrentPopup();
+
+                SDL_Event event{};
                 event.type = SDL_EVENT_QUIT + 1;
                 SDL_PushEvent(&event);
             }
-        }
 
-        ImGui::SameLine(0.0f, 10.0f);
-        if (ImGui::Button("Save & Restart Emulator")) {
-            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-            Config::setLogFilter(std::string(filter_buf));
-            Config::save(config_dir / "config.toml");
-            SDL_Event event{};
-            event.type = SDL_EVENT_QUIT + 1;
-            SDL_PushEvent(&event);
+            if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
+                if (g_MainWindow && !g_MainWindow->runningGameSerial.empty()) {
+                    SaveConfigWithOverrides(
+                        Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                            (g_MainWindow->runningGameSerial + ".toml"),
+                        true);
+                }
+                ImGui::CloseCurrentPopup();
+
+                SDL_Event event{};
+                event.type = SDL_EVENT_QUIT + 1;
+                SDL_PushEvent(&event);
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
         }
 #endif
+
+
+
 
         ImGui::SameLine(0.0f, 10.0f);
         if (ImGui::Button("Quit Emulator")) {
@@ -1150,7 +1274,7 @@ void L::Draw() {
         frame_graph.AddFrame(fn, DebugState.FrameDeltaTime);
     }
 
-    if (!fullscreen_tip_manual) {
+if (!fullscreen_tip_manual) {
         if (!Config::getScreenTipDisable()) {
             fullscreen_tip_timer -= io.DeltaTime;
             if (fullscreen_tip_timer <= 0.0f) {
@@ -1164,10 +1288,10 @@ void L::Draw() {
 
     if (!show_hotkeys_tip_manual) {
         if (!Config::getScreenTipDisable()) {
-            fullscreen_tip_timer -= io.DeltaTime;
-            if (fullscreen_tip_timer <= 0.0f) {
+            hotkeys_tip_timer -= io.DeltaTime;
+            if (hotkeys_tip_timer <= 0.0f) {
                 show_hotkeys_tip = false;
-                fullscreen_tip_timer = 10.0f;
+                hotkeys_tip_timer = 10.0f;
             }
         } else {
             show_hotkeys_tip = false;
