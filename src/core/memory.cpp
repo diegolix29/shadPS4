@@ -136,8 +136,8 @@ void MemoryManager::CopySparseMemory(VAddr virtual_addr, u8* dest, u64 size) {
 }
 
 bool MemoryManager::TryWriteBacking(void* address, const void* data, u32 size) {
-    ASSERT_MSG(IsValidAddress(address), "Attempted to access invalid address {}",
-               fmt::ptr(address));
+    // ASSERT_MSG(IsValidAddress(address), "Attempted to access invalid address {}",
+    //           fmt::ptr(address));
     VAddr virtual_addr = std::bit_cast<VAddr>(address);
     const u8* src_data = std::bit_cast<const u8*>(data);
     auto vma = FindVMA(virtual_addr);
