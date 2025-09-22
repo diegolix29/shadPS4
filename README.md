@@ -6,6 +6,7 @@ Discord server for talking about forks. https://discord.gg/jgpqB7gUxG
 
 “For the latest SHADPS4 and Diegolix fork updates, tips, tricks, and gameplay (including Bloodborne on PC), check out ProteinGaming on YouTube!” https://www.youtube.com/@ProteinGaming-97
 
+<img width="1280" height="755" alt="image" src="https://github.com/user-attachments/assets/ca6749a6-5649-40cf-91ef-23219dcc3331" />
 
 This repository has three branches with extra features based on the main Shad branch. They are experimental or self-added for convenience. They all share the following Bloodborne-specific enhancements:
 
