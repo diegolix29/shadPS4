@@ -1023,7 +1023,7 @@ void SettingsDialog::UpdateSettings(bool game_specific) {
     Config::setFsrEnabled(ui->FSRCheckBox->isChecked(), game_specific);
     Config::setRcasEnabled(ui->RCASCheckBox->isChecked(), game_specific);
     Config::setRcasAttenuation(ui->RCASSlider->value(), game_specific);
-    Config::setSeparateUpdateEnabled(ui->separateUpdatesCheckBox->isChecked(), game_specific);
+    Config::setSeparateUpdateEnabled(ui->separateUpdatesCheckBox->isChecked());
     Config::setShowSplash(ui->showSplashCheckBox->isChecked(), game_specific);
     Config::setDebugDump(ui->debugDump->isChecked(), game_specific);
     Config::setSeparateLogFilesEnabled(ui->separateLogFilesCheckbox->isChecked(), game_specific);
