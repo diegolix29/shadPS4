@@ -166,10 +166,6 @@ std::tuple<u32, u32, bool> AjmAt9Decoder::ProcessData(std::span<u8>& in_buf,
     default:
         UNREACHABLE();
     }
-    if (MemoryPatcher::g_game_serial == "CUSA01715" ||
-        MemoryPatcher::g_game_serial == "CUSA01623") {
-        return {0, 0};
-    }
 
     ASSERT_MSG(ret == At9Status::ERR_SUCCESS, "Atrac9Decode failed ret = {:#x}", ret);
 
