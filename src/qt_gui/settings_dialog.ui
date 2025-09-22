@@ -210,7 +210,6 @@
                    </property>
                   </widget>
                  </item>
-                 <item>
                <item>
                 <widget class="QCheckBox" name="showSplashCheckBox">
                  <property name="text">
