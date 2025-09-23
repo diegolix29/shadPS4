@@ -219,6 +219,8 @@ public:
 
     bool TryWriteBacking(void* address, const void* data, u32 num_bytes);
 
+    void ApplyMemoryAllocConfig();
+
     void SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1, bool use_extended_mem2);
 
     PAddr PoolExpand(PAddr search_start, PAddr search_end, u64 size, u64 alignment);
@@ -264,6 +266,10 @@ public:
     void NameVirtualRange(VAddr virtual_addr, u64 size, std::string_view name);
 
     void InvalidateMemory(VAddr addr, u64 size) const;
+    AddressSpace impl;
+    DMemMap dmem_map;
+    FMemMap fmem_map;
+    VMAMap vma_map;
 
 private:
     VMAHandle FindVMA(VAddr target) {
@@ -322,10 +328,6 @@ private:
     s32 UnmapMemoryImpl(VAddr virtual_addr, u64 size);
 
 private:
-    AddressSpace impl;
-    DMemMap dmem_map;
-    FMemMap fmem_map;
-    VMAMap vma_map;
     std::mutex mutex;
     u64 total_direct_size{};
     u64 total_flexible_size{};

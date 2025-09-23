@@ -27,7 +27,7 @@ asm(".zerofill SYSTEM_RESERVED,SYSTEM_RESERVED,__SYSTEM_RESERVED,0x7C0004000");
 
 namespace Core {
 
-static constexpr size_t BackingSize = ORBIS_KERNEL_TOTAL_MEM_DEV_PRO;
+static inline size_t BackingSize = ORBIS_KERNEL_TOTAL_MEM_DEV_PRO;
 
 #ifdef _WIN32
 
