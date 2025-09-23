@@ -6,11 +6,11 @@
 #include "common/bit_field.h"
 #include "common/types.h"
 
-constexpr u64 ORBIS_KERNEL_TOTAL_MEM = 5248_MB;
-constexpr u64 ORBIS_KERNEL_TOTAL_MEM_PRO = 5888_MB;
-constexpr u64 ORBIS_KERNEL_TOTAL_MEM_DEV = 6656_MB;
+inline u64 ORBIS_KERNEL_TOTAL_MEM = 5248_MB;
+inline u64 ORBIS_KERNEL_TOTAL_MEM_PRO = 5888_MB;
+inline u64 ORBIS_KERNEL_TOTAL_MEM_DEV = 6656_MB;
 // TODO: This value needs confirmation
-constexpr u64 ORBIS_KERNEL_TOTAL_MEM_DEV_PRO = 7936_MB;
+inline u64 ORBIS_KERNEL_TOTAL_MEM_DEV_PRO = 7936_MB;
 
 constexpr u64 ORBIS_FLEXIBLE_MEMORY_BASE = 64_MB;
 constexpr u64 ORBIS_FLEXIBLE_MEMORY_SIZE = 512_MB;
