@@ -30,7 +30,9 @@
 #include "common/scm_rev.h"
 #include "common/string_util.h"
 #include "control_settings.h"
+#include "core/ipc/ipc.h"
 #include "core/libraries/audio/audioout.h"
+
 #include "game_install_dialog.h"
 #include "hotkeys.h"
 #include "input/input_handler.h"
@@ -1208,6 +1210,8 @@ void MainWindow::StartGame() {
     QString gamePath = "";
     std::filesystem::path file;
     int table_mode = Config::getTableMode();
+    QString normalizedPath = lastGamePath;
+    normalizedPath.replace("\\", "/");
 
     if (table_mode == 0 && m_game_list_frame->currentItem()) {
         int itemID = m_game_list_frame->currentItem()->row();
@@ -1365,10 +1369,23 @@ void MainWindow::StartGame() {
     if (gamePath.isEmpty())
         return;
 
-    const auto path = Common::FS::PathFromQString(gamePath);
-    if (!std::filesystem::exists(path)) {
-        QMessageBox::critical(this, tr("Run Game"), tr("Eboot.bin file not found"));
-        return;
+    std::filesystem::path path = Common::FS::PathFromQString(gamePath);
+
+    std::filesystem::path launchPath = path;
+
+    if (path.filename() == "eboot.bin") {
+        const auto parentDir = path.parent_path();
+        for (auto& entry : std::filesystem::directory_iterator(parentDir)) {
+            if (!entry.is_regular_file())
+                continue;
+
+            auto ext = entry.path().extension().string();
+            if ((ext == ".elf" || ext == ".self" || ext == ".oelf") &&
+                entry.path().filename() != "eboot.bin") {
+                launchPath = entry.path();
+                break;
+            }
+        }
     }
 
     if (isGameRunning) {
@@ -1387,15 +1404,30 @@ void MainWindow::StartGame() {
 
         StopGame();
     }
+    if (isGameRunning && IPC::Instance().IsEnabled()) {
+        if (launchPath != currentlyRunningElf) {
+            std::vector<std::string> args;
+            args.push_back(Common::FS::PathToUTF8String(launchPath));
+            IPC::Instance().SendRestart(args);
+            statusBar->showMessage(tr("Restarting with ELF: ") +
+                                   QString::fromStdString(launchPath.string()));
+            currentlyRunningElf = launchPath;
+            return;
+        } else {
+            statusBar->showMessage(tr("Game already running"));
+            return;
+        }
+    }
 
-    AddRecentFiles(gamePath);
+    currentlyRunningElf = launchPath;
+    AddRecentFiles(QString::fromStdString(launchPath.string()));
 
     if (ignorePatches) {
         Core::FileSys::MntPoints::ignore_game_patches = true;
-        StartEmulator(path);
+        StartEmulator(launchPath);
         Core::FileSys::MntPoints::ignore_game_patches = false;
     } else {
-        StartEmulator(path);
+        StartEmulator(launchPath);
     }
 
     isGameRunning = true;
