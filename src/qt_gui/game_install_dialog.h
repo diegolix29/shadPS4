@@ -22,6 +22,7 @@ private slots:
 
 private:
     QWidget* SetupGamesDirectory();
+    QWidget* SetupSysModulesDirectory();
     QWidget* SetupAddonsDirectory();
     QWidget* SetupDialogActions();
     void Save();
@@ -29,4 +30,5 @@ private:
 private:
     QLineEdit* m_gamesDirectory;
     QLineEdit* m_addonsDirectory;
+    QLineEdit* m_sysModulesDirectory;
 };

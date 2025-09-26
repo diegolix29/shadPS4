@@ -118,6 +118,7 @@ static ConfigEntry<bool> isConnectedToNetwork(false);
 static bool enableDiscordRPC = false;
 static bool checkCompatibilityOnStartup = false;
 static bool compatibilityData = false;
+static std::filesystem::path sys_modules_path = {};
 static bool autoRestartGame = false;
 static bool restartWithBaseGame = false;
 static ConfigEntry<bool> screenTipDisable(false);
@@ -317,6 +318,17 @@ void SetControllerCustomColor(int r, int b, int g) {
     controllerCustomColorRGB[0] = r;
     controllerCustomColorRGB[1] = b;
     controllerCustomColorRGB[2] = g;
+}
+
+std::filesystem::path getSysModulesPath() {
+    if (sys_modules_path.empty()) {
+        return Common::FS::GetUserPath(Common::FS::PathType::SysModuleDir);
+    }
+    return sys_modules_path;
+}
+
+void setSysModulesPath(const std::filesystem::path& path) {
+    sys_modules_path = path;
 }
 
 u32 getFpsLimit() {
@@ -1216,6 +1228,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         audioVolume.setFromToml(general, "volume", 100);
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", chooseHomeTab);
         defaultControllerID.setFromToml(general, "defaultControllerID", "");
+        sys_modules_path = toml::find_fs_path_or(general, "sysModulesPath", sys_modules_path);
     }
 
     if (data.contains("Input")) {
@@ -1486,6 +1499,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["sideTrophy"] = isSideTrophy.base_value;
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
+    data["General"]["sysModulesPath"] = string{fmt::UTF(sys_modules_path.u8string()).data};
     data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
     data["General"]["firstBootHandled"] = firstBootHandled.base_value;
     data["General"]["defaultControllerID"] = defaultControllerID.base_value;

@@ -220,6 +220,8 @@ void setBackButtonBehavior(const std::string& type);
 void setUseSpecialPad(bool use);
 void setSpecialPadClass(int type);
 void setIsMotionControlsEnabled(bool use);
+std::filesystem::path getSysModulesPath();
+void setSysModulesPath(const std::filesystem::path& path);
 
 void setLogType(const std::string& type);
 void setLogFilter(const std::string& type);
