@@ -19,6 +19,7 @@ GameInstallDialog::GameInstallDialog() : m_gamesDirectory(nullptr) {
 
     layout->addWidget(SetupGamesDirectory());
     layout->addWidget(SetupAddonsDirectory());
+    layout->addWidget(SetupSysModulesDirectory());
     layout->addStretch();
     layout->addWidget(SetupDialogActions());
 
@@ -69,6 +70,32 @@ QWidget* GameInstallDialog::SetupGamesDirectory() {
     return group;
 }
 
+QWidget* GameInstallDialog::SetupSysModulesDirectory() {
+    auto group = new QGroupBox(tr("Directory for system modules"));
+    auto layout = new QHBoxLayout(group);
+
+    // Input field.
+    m_sysModulesDirectory = new QLineEdit();
+    QString sysModulesDir;
+    Common::FS::PathToQString(sysModulesDir, Config::getSysModulesPath());
+    m_sysModulesDirectory->setText(sysModulesDir);
+    m_sysModulesDirectory->setMinimumWidth(400);
+
+    layout->addWidget(m_sysModulesDirectory);
+
+    // Browse button.
+    auto browse = new QPushButton(tr("Browse"));
+    connect(browse, &QPushButton::clicked, [this]() {
+        auto path = QFileDialog::getExistingDirectory(this, tr("Directory for system modules"));
+        if (!path.isEmpty()) {
+            m_sysModulesDirectory->setText(QDir::toNativeSeparators(path));
+        }
+    });
+    layout->addWidget(browse);
+
+    return group;
+}
+
 QWidget* GameInstallDialog::SetupAddonsDirectory() {
     auto group = new QGroupBox(tr("Directory to install DLC"));
     auto layout = new QHBoxLayout(group);
@@ -105,11 +132,17 @@ void GameInstallDialog::Save() {
     // Check games directory.
     auto gamesDirectory = m_gamesDirectory->text();
     auto addonsDirectory = m_addonsDirectory->text();
+    auto sysModulesDirectory = m_sysModulesDirectory->text();
 
     if (gamesDirectory.isEmpty() || !QDir(gamesDirectory).exists() ||
         !QDir::isAbsolutePath(gamesDirectory)) {
         QMessageBox::critical(this, tr("Error"),
                               "The value for location to install games is not valid.");
+        return;
+    }
+
+    if (sysModulesDirectory.isEmpty() || !QDir::isAbsolutePath(sysModulesDirectory)) {
+        QMessageBox::critical(this, tr("Error"), "If not set default place will be used");
         return;
     }
 
@@ -128,6 +161,7 @@ void GameInstallDialog::Save() {
     }
     Config::addGameInstallDir(Common::FS::PathFromQString(gamesDirectory));
     Config::setAddonInstallDir(Common::FS::PathFromQString(addonsDirectory));
+    Config::setSysModulesPath(Common::FS::PathFromQString(sysModulesDirectory));
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::save(config_dir / "config.toml");
     accept();

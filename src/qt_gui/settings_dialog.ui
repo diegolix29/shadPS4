@@ -459,7 +459,7 @@
 				  <property name="title">
 					  <string>Audio Device (general)</string>
 				  </property>
-				  <layout class="QVBoxLayout" name="verticalLayout_8">
+				  <layout class="QVBoxLayout" name="verticalLayout_81">
 					  <item>
 						  <widget class="QComboBox" name="GenAudioComboBox"/>
 					  </item>
@@ -2037,6 +2037,34 @@
           </layout>
          </widget>
         </item>
+<item>
+   <widget class="QGroupBox" name="SysModulesFolderGroupBox_2">
+	   <property name="title">
+		   <string>SysModules Folder</string>
+	   </property>
+	   <layout class="QVBoxLayout" name="SysModulesFolderGroupBox">
+		   <item>
+			   <layout class="QHBoxLayout" name="horizontalLayout_117">
+				   <item>
+					   <widget class="QLineEdit" name="currentSysModulesPath">
+						   <property name="readOnly">
+							   <bool>true</bool>
+						   </property>
+					   </widget>
+				   </item>
+				   <item>
+					   <widget class="QPushButton" name="browseSysModulesButton">
+						   <property name="text">
+							   <string>Browse</string>
+						   </property>
+					   </widget>
+				   </item>
+			   </layout>
+		   </item>
+	   </layout>
+   </widget>
+</item>
+
         <item>
          <widget class="QGroupBox" name="PortableUserFolderGroupBox">
           <property name="title">
@@ -2099,7 +2127,7 @@
 					</widget>
 				</item>
 				<item>
-					<spacer name="horizontalSpacer_51">
+					<spacer name="horizontalSpacer_52">
 						<property name="orientation">
 							<enum>Qt::Orientation::Horizontal</enum>
 						</property>

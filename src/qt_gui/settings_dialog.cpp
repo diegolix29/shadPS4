@@ -429,6 +429,21 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             }
         });
 
+        connect(ui->browseSysModulesButton, &QPushButton::clicked, this, [this]() {
+            const auto sysModulesPath = Config::getSysModulesPath();
+            QString initial_path;
+            Common::FS::PathToQString(initial_path, sysModulesPath);
+
+            QString sysModulesPathString = QFileDialog::getExistingDirectory(
+                this, tr("Select the System Modules folder"), initial_path);
+
+            auto file_path = Common::FS::PathFromQString(sysModulesPathString);
+            if (!file_path.empty()) {
+                Config::setSysModulesPath(file_path);
+                ui->currentSysModulesPath->setText(sysModulesPathString);
+            }
+        });
+
         connect(ui->folderButton, &QPushButton::clicked, this, [this]() {
             const auto dlc_folder_path = Config::getAddonInstallDir();
             QString initial_path;
@@ -629,6 +644,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->saveDataGroupBox->installEventFilter(this);
         ui->currentSaveDataPath->installEventFilter(this);
         ui->currentDLCFolder->installEventFilter(this);
+        ui->currentSysModulesPath->installEventFilter(this);
         ui->browseButton->installEventFilter(this);
         ui->folderButton->installEventFilter(this);
         ui->PortableUserFolderGroupBox->installEventFilter(this);
@@ -732,6 +748,11 @@ void SettingsDialog::LoadValuesFromConfig() {
     QString dlc_folder_path_string;
     Common::FS::PathToQString(dlc_folder_path_string, dlc_folder_path);
     ui->currentDLCFolder->setText(dlc_folder_path_string);
+
+    const auto sys_modules_path = Config::getSysModulesPath();
+    QString sys_modules_path_string;
+    Common::FS::PathToQString(sys_modules_path_string, sys_modules_path);
+    ui->currentSysModulesPath->setText(sys_modules_path_string);
 
     ui->consoleLanguageComboBox->setCurrentIndex(
         std::distance(languageIndexes.begin(),
@@ -1210,6 +1231,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setCollectShaderForDebug(ui->collectShaderCheckBox->isChecked());
     Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
     Config::setVolumeSlider(ui->horizontalVolumeSlider->value());
+    Config::setSysModulesPath(Common::FS::PathFromQString(ui->currentSysModulesPath->text()));
 
     Config::setAutoUpdate(ui->updateCheckBox->isChecked());
     Config::setAlwaysShowChangelog(ui->changelogCheckBox->isChecked());
