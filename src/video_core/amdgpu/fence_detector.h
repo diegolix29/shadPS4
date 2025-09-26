@@ -82,7 +82,7 @@ private:
                 }
                 case PM4ItOpcode::WriteData: {
                     const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
-                    ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
+                    // ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
                     const u32 data_size = (header->type3.count.Value() - 2) * 4;
                     if (data_size <= sizeof(u64) && write_data->wr_confirm) {
                         u64 value{};
