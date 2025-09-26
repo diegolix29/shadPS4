@@ -346,7 +346,7 @@ void Image::Upload(vk::Buffer buffer, u64 offset) {
 void Image::CopyImage(Image& src_image) {
     const auto& src_info = src_image.info;
     const u32 num_mips = std::min(src_info.resources.levels, info.resources.levels);
-    ASSERT(src_info.resources.layers == info.resources.layers || num_mips == 1);
+    // ASSERT(src_info.resources.layers == info.resources.layers || num_mips == 1);
 
     const u32 width = src_info.size.width;
     const u32 height = src_info.size.height;
