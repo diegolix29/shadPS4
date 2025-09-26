@@ -37,9 +37,10 @@ private:
 
             switch (type) {
             default:
-                UNREACHABLE_MSG("Wrong PM4 type {}", type);
             case 0:
-                return;
+                LOG_ERROR(Lib_GnmDriver, "Continue hack Unsupported PM4 type 0");
+                cmd = NextPacket(cmd, header->type0.NumWords() + 1);
+                continue;
             case 2:
                 cmd = NextPacket(cmd, 1);
                 break;
