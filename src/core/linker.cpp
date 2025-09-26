@@ -54,7 +54,7 @@ Linker::Linker() : memory{Memory::Instance()} {}
 
 Linker::~Linker() = default;
 
-void Linker::Execute(const std::vector<std::string> args) {
+void Linker::Execute(const std::vector<std::string>& args) {
     if (Config::debugDump()) {
         DebugDump();
     }
@@ -114,7 +114,7 @@ void Linker::Execute(const std::vector<std::string> args) {
                                                                  0, "SceKernelInternalMemory");
     ASSERT_MSG(ret == 0, "Unable to perform sceKernelInternalMemory mapping");
 
-    main_thread.Run([this, module, args](std::stop_token) {
+    main_thread.Run([this, module, &args](std::stop_token) {
         Common::SetCurrentThreadName("GAME_MainThread");
         if (auto& ipc = IPC::Instance()) {
             ipc.WaitForStart();
@@ -139,9 +139,9 @@ void Linker::Execute(const std::vector<std::string> args) {
         params.argc = 1;
         params.argv[0] = "eboot.bin";
         if (!args.empty()) {
-            params.argc = args.size() + 1;
-            for (int i = 0; i < args.size() && i < 32; i++) {
-                params.argv[i + 1] = args[i].c_str();
+            params.argc = args.size();
+            for (int i = 0; i < args.size() && i < 33; i++) {
+                params.argv[i] = args[i].c_str();
             }
         }
         params.entry_addr = module->GetEntryAddress();
