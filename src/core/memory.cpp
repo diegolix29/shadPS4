@@ -35,33 +35,21 @@ MemoryManager::MemoryManager() {
 
 MemoryManager::~MemoryManager() = default;
 
-void MemoryManager::ApplyMemoryAllocConfig() {
-    const auto mem_alloc = Config::getMemoryAlloc();
-    double factor = 1.0;
-
-    if (mem_alloc == "low")
-        factor = 0.5;
-    else if (mem_alloc == "medium")
-        factor = 1.5;
-    else if (mem_alloc == "high")
-        factor = 2.0;
-    else if (mem_alloc == "max")
-        factor = 4.0;
-
-    ORBIS_KERNEL_TOTAL_MEM = static_cast<u64>(5248_MB * factor);
-    ORBIS_KERNEL_TOTAL_MEM_PRO = static_cast<u64>(5888_MB * factor);
-    ORBIS_KERNEL_TOTAL_MEM_DEV = static_cast<u64>(6656_MB * factor);
-    ORBIS_KERNEL_TOTAL_MEM_DEV_PRO = static_cast<u64>(7936_MB * factor);
-
-    LOG_INFO(Kernel_Vmm,
-             "Memory config applied: factor = {}, total_mem = {:#x}, total_mem_pro = {:#x}", factor,
-             ORBIS_KERNEL_TOTAL_MEM, ORBIS_KERNEL_TOTAL_MEM_PRO);
-}
-
 void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1,
                                        bool use_extended_mem2) {
     const bool is_neo = ::Libraries::Kernel::sceKernelIsNeoMode();
     auto total_size = is_neo ? ORBIS_KERNEL_TOTAL_MEM_PRO : ORBIS_KERNEL_TOTAL_MEM;
+    if (Config::getMemoryAlloc() == "low") {
+        const auto old_size = total_size;
+        total_size -= 1_GB;
+    } else if (Config::getMemoryAlloc() == "high") {
+        const auto old_size = total_size;
+        total_size += 1_GB;
+    } else if (Config::getMemoryAlloc() == "max") {
+        const auto old_size = total_size;
+        total_size += 5_GB;
+    }
+
     if (Config::isDevKitConsole()) {
         total_size = is_neo ? ORBIS_KERNEL_TOTAL_MEM_DEV_PRO : ORBIS_KERNEL_TOTAL_MEM_DEV;
     }
