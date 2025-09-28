@@ -42,17 +42,13 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
     if (Config::isDevKitConsole()) {
         total_size = is_neo ? ORBIS_KERNEL_TOTAL_MEM_DEV_PRO : ORBIS_KERNEL_TOTAL_MEM_DEV;
     }
-    if (Config::getMemoryAlloc() == "low") {
-        const auto old_size = total_size;
-        total_size -= 1_GB;
-    } else if (Config::getMemoryAlloc() == "high") {
-        const auto old_size = total_size;
-        total_size += 3_GB;
-    } else if (Config::getMemoryAlloc() == "max") {
-        const auto old_size = total_size;
-        total_size += 5_GB;
+    s32 extra_dmem = Config::getExtraDmemInMbytes();
+    if (Config::getExtraDmemInMbytes() != 0) {
+        LOG_WARNING(Kernel_Vmm,
+                    "extraDmemInMbytes is {} MB! Old Direct Size: {:#x} -> New Direct Size: {:#x}",
+                    extra_dmem, total_size, total_size + extra_dmem * 1_MB);
+        total_size += extra_dmem * 1_MB;
     }
-
     if (!use_extended_mem1 && is_neo) {
         total_size -= 256_MB;
     }
@@ -69,7 +65,7 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
 
     // Insert an area that covers the flexible memory physical address block.
     // Note that this should never be called after flexible memory allocations have been made.
-    const auto remaining_physical_space = ORBIS_KERNEL_TOTAL_MEM_DEV_PRO - total_direct_size;
+    const auto remaining_physical_space = total_size - total_direct_size;
     fmem_map.clear();
     fmem_map.emplace(total_direct_size,
                      FlexibleMemoryArea{total_direct_size, remaining_physical_space});
@@ -101,8 +97,8 @@ u64 MemoryManager::ClampRangeSize(VAddr virtual_addr, u64 size) {
     clamped_size = std::min(clamped_size, size);
 
     if (size != clamped_size) {
-        LOG_DEBUG(Kernel_Vmm, "Clamped requested buffer range addr={:#x}, size={:#x} to {:#x}",
-                  virtual_addr, size, clamped_size);
+        LOG_WARNING(Kernel_Vmm, "Clamped requested buffer range addr={:#x}, size={:#x} to {:#x}",
+                    virtual_addr, size, clamped_size);
     }
     return clamped_size;
 }
@@ -141,25 +137,16 @@ void MemoryManager::CopySparseMemory(VAddr virtual_addr, u8* dest, u64 size) {
     }
 }
 
-bool MemoryManager::TryWriteBacking(void* address, const void* data, u32 size) {
-    // ASSERT_MSG(IsValidAddress(address), "Attempted to access invalid address {}",
-    //           fmt::ptr(address));
-    VAddr virtual_addr = std::bit_cast<VAddr>(address);
-    const u8* src_data = std::bit_cast<const u8*>(data);
-    auto vma = FindVMA(virtual_addr);
-    while (size) {
-        if (vma->second.type != VMAType::Direct) {
-            return false;
-        }
-        const u64 offset_in_vma = virtual_addr - vma->first;
-        u64 copy_size = std::min<u64>(vma->second.size - offset_in_vma, size);
-        u8* backing = impl.BackingBase() + vma->second.phys_base + offset_in_vma;
-        std::memcpy(backing, src_data, copy_size);
-        size -= copy_size;
-        virtual_addr += copy_size;
-        src_data += copy_size;
-        ++vma;
+bool MemoryManager::TryWriteBacking(void* address, const void* data, u32 num_bytes) {
+    ASSERT_MSG(IsValidAddress(address), "Attempted to access invalid address {}",
+               fmt::ptr(address));
+    const VAddr virtual_addr = std::bit_cast<VAddr>(address);
+    const auto& vma = FindVMA(virtual_addr)->second;
+    if (!HasPhysicalBacking(vma)) {
+        return false;
     }
+    u8* backing = impl.BackingBase() + vma.phys_base + (virtual_addr - vma.base);
+    memcpy(backing, data, num_bytes);
     return true;
 }
 
@@ -360,8 +347,8 @@ s32 MemoryManager::PoolCommit(VAddr virtual_addr, u64 size, MemoryProt prot, s32
     MergeAdjacent(dmem_map, new_dmem_handle);
 
     // Perform the mapping
-    void* out_addr = impl.Map(mapped_addr, size, alignment, -1, false);
-    // TRACK_ALLOC(out_addr, size, "VMEM");
+    void* out_addr = impl.Map(mapped_addr, size, alignment, new_vma.phys_base, false);
+    TRACK_ALLOC(out_addr, size, "VMEM");
 
     if (IsValidGpuMapping(mapped_addr, size)) {
         rasterizer->MapMemory(mapped_addr, size);
@@ -542,7 +529,7 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
         }
         *out_addr = impl.Map(mapped_addr, size, alignment, phys_addr, is_exec);
 
-        // TRACK_ALLOC(*out_addr, size, "VMEM");
+        TRACK_ALLOC(*out_addr, size, "VMEM");
     }
 
     return ORBIS_OK;
@@ -591,7 +578,7 @@ s32 MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, u64 size, Memory
     impl.MapFile(mapped_addr, size_aligned, phys_addr, std::bit_cast<u32>(prot), handle);
 
     if (prot >= MemoryProt::GpuRead) {
-        // ASSERT_MSG(false, "Files cannot be mapped to GPU memory");
+        ASSERT_MSG(false, "Files cannot be mapped to GPU memory");
     }
 
     // Add virtual memory area

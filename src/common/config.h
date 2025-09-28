@@ -161,6 +161,8 @@ bool patchShaders();            // no set
 void setfpsColor(bool enable);
 void setNeoMode(bool enable);  // no ui setting
 bool vkValidationGpuEnabled(); // no set
+int getExtraDmemInMbytes();
+void setExtraDmemInMbytes(int value);
 bool getIsMotionControlsEnabled();
 void setIsMotionControlsEnabled(bool use);
 std::string getDefaultControllerID();
