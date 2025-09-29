@@ -32,7 +32,8 @@ namespace Core {
 enum class MemoryProt : u32 {
     NoAccess = 0,
     CpuRead = 1,
-    CpuReadWrite = 2,
+    CpuWrite = 2,
+    CpuReadWrite = 3,
     CpuExec = 4,
     GpuRead = 16,
     GpuWrite = 32,
@@ -241,7 +242,7 @@ public:
 
     s32 Protect(VAddr addr, u64 size, MemoryProt prot);
 
-    s64 ProtectBytes(VAddr addr, VirtualMemoryArea vma_base, u64 size, MemoryProt prot);
+    s64 ProtectBytes(VAddr addr, VirtualMemoryArea& vma_base, u64 size, MemoryProt prot);
 
     s32 VirtualQuery(VAddr addr, s32 flags, ::Libraries::Kernel::OrbisVirtualQueryInfo* info);
 
