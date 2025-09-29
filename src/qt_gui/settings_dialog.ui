@@ -2747,45 +2747,29 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
 			</item>
 
 			<item>
-            <widget class="QGroupBox" name="groupBox_2">
-              <property name="title">
-                <string>Memory Allocation</string>
-              </property>
+				<widget class="QGroupBox" name="groupBox_2">
+					<property name="title">
+						<string>Memory Allocation</string>
+					</property>
+					<layout class="QVBoxLayout" name="groupBox_2_layout">
+						<item>
+							<widget class="QSpinBox" name="MemorySpinBox">
+								<property name="minimum">
+									<number>1</number>
+								</property>
+								<property name="maximum">
+									<number>9999</number>
+								</property>
+								<property name="value">
+									<number>512</number>
+								</property>
+							</widget>
+						</item>
+					</layout>
+				</widget>
+			</item>
 
-              <layout class="QVBoxLayout" name="groupBox_2_layout">
-                <item>
-                  <widget class="QComboBox" name="MemoryComboBox">
-                    <property name="currentText">
-                      <string>medium</string>
-                    </property>
-                    <item>
-                      <property name="text">
-                        <string>low</string>
-                      </property>
-                    </item>
-                    <item>
-                      <property name="text">
-                        <string>medium</string>
-                      </property>
-                    </item>
-                    <item>
-                      <property name="text">
-                        <string>high</string>
-                      </property>
-                    </item>
-                    <item>
-                      <property name="text">
-                        <string>max</string>
-                      </property>
-                    </item>
-                  </widget>
-                </item>
-              </layout>
-
-            </widget>
-          </item>
-
-        </layout>
+		</layout>
       </widget>
     </widget>
    </widget>

@@ -139,6 +139,7 @@ static ConfigEntry<std::string> defaultControllerID("");
 static ConfigEntry<bool> backgroundControllerInput(false);
 static ConfigEntry<string> mainOutputDevice("Default Device");
 static ConfigEntry<string> padSpkOutputDevice("Default Device");
+static ConfigEntry<int> extraDmemInMbytes(0);
 
 // Non-config runtime-only
 static bool overrideControllerColor = false;
@@ -167,7 +168,6 @@ static ConfigEntry<bool> rcasEnabled(true);
 // Audio / BGM
 static bool playBGM = false;
 static ConfigEntry<float> rcasAttenuation(0.25f);
-static ConfigEntry<std::string> audioBackend("cubeb");
 static ConfigEntry<int> audioVolume(100);
 static int BGMvolume = 50;
 
@@ -246,6 +246,14 @@ bool allowHDR() {
     return isHDRAllowed.get();
 }
 
+int getExtraDmemInMbytes() {
+    return extraDmemInMbytes.get();
+}
+
+void setExtraDmemInMbytes(int value) {
+    extraDmemInMbytes.base_value = value;
+}
+
 bool getFirstBootHandled() {
     return firstBootHandled.get();
 }
@@ -263,11 +271,11 @@ std::string getPadSpkOutputDevice() {
 }
 
 void setMainOutputDevice(std::string device) {
-    mainOutputDevice.base_value;
+    mainOutputDevice.base_value = device;
 }
 
 void setPadSpkOutputDevice(std::string device) {
-    padSpkOutputDevice.base_value;
+    padSpkOutputDevice.base_value = device;
 }
 
 std::string getCustomBackgroundImage() {
@@ -659,10 +667,6 @@ bool getCompatibilityEnabled() {
 
 bool getCheckCompatibilityOnStartup() {
     return checkCompatibilityOnStartup;
-}
-
-std::string getAudioBackend() {
-    return audioBackend.get();
 }
 
 int getAudioVolume() {
@@ -1126,14 +1130,6 @@ void setShaderSkipsEnabled(bool enable) {
     shaderSkipsEnabled.base_value = enable;
 }
 
-std::string getMemoryAlloc() {
-    return memoryAlloc.get();
-}
-
-void setMemoryAlloc(std::string alloc) {
-    memoryAlloc = alloc;
-}
-
 std::string getDefaultControllerID() {
     return defaultControllerID.get();
 }
@@ -1180,7 +1176,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         screenTipDisable.setFromToml(general, "screenTipDisable", is_game_specific);
         volumeSlider.setFromToml(general, "volumeSlider", is_game_specific);
         muteEnabled.setFromToml(general, "muteEnabled", is_game_specific);
-
+        extraDmemInMbytes.setFromToml(general, "extraDmemInMbytes", is_game_specific);
         isNeo.setFromToml(general, "isPS4Pro", is_game_specific);
         isDevKit.setFromToml(general, "isDevKit", is_game_specific);
         isPSNSignedIn.setFromToml(general, "isPSNSignedIn", is_game_specific);
@@ -1224,7 +1220,6 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
         isConnectedToNetwork.setFromToml(general, "isConnectedToNetwork", is_game_specific);
         firstBootHandled.setFromToml(general, "firstBootHandled", is_game_specific);
-        audioBackend.setFromToml(general, "backend", "cubeb");
         audioVolume.setFromToml(general, "volume", 100);
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", chooseHomeTab);
         defaultControllerID.setFromToml(general, "defaultControllerID", "");
@@ -1478,6 +1473,7 @@ void save(const std::filesystem::path& path) {
 
     data["General"]["isPS4Pro"] = isNeo.base_value;
     data["General"]["isDevKit"] = isDevKit.base_value;
+    data["General"]["extraDmemInMbytes"] = extraDmemInMbytes.base_value;
     data["General"]["isPSNSignedIn"] = isPSNSignedIn.base_value;
     data["General"]["isTrophyPopupDisabled"] = isTrophyPopupDisabled.base_value;
     data["General"]["trophyNotificationDuration"] = trophyNotificationDuration.base_value;
@@ -1503,7 +1499,6 @@ void save(const std::filesystem::path& path) {
     data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
     data["General"]["firstBootHandled"] = firstBootHandled.base_value;
     data["General"]["defaultControllerID"] = defaultControllerID.base_value;
-    data["General"]["backend"] = audioBackend.base_value;
     data["General"]["volume"] = audioVolume.base_value;
 
     data["Input"]["cursorState"] = cursorState.base_value;
@@ -1668,6 +1663,7 @@ void setDefaultValues() {
     // General
     isNeo = false;
     isDevKit = false;
+    extraDmemInMbytes = 1;
     isPSNSignedIn = false;
     isTrophyPopupDisabled = false;
     trophyNotificationDuration = 6.0;
@@ -1678,7 +1674,6 @@ void setDefaultValues() {
     logFilter = "";
     logType = "sync";
     userName = "shadPS4";
-    memoryAlloc = "medium";
     chooseHomeTab = "General";
     isShowSplash = false;
     isSideTrophy = "right";
@@ -1718,7 +1713,7 @@ void setDefaultValues() {
     internalScreenHeight = 720;
     isNullGpu = false;
     shouldCopyGPUBuffers = false;
-    readbackSpeedMode = ReadbackSpeed::Default;
+    readbackSpeedMode = ReadbackSpeed::Disable;
     shaderSkipsEnabled = false;
     readbackLinearImagesEnabled = false;
     directMemoryAccessEnabled = false;
@@ -1766,7 +1761,6 @@ void setDefaultValues() {
     backgroundImageOpacity = 50;
     showBackgroundImage = true;
     showLabelsUnderIcons = true;
-    audioBackend = "cubeb";
     audioVolume = 100;
 }
 

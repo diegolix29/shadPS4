@@ -57,7 +57,6 @@ bool getPSNSignedIn();
 bool getShaderSkipsEnabled();
 std::string getAudioBackend();
 int getAudioVolume();
-std::string getMemoryAlloc();
 
 std::string getLogFilter();
 std::string getLogType();
@@ -70,7 +69,6 @@ u16 rightDeadZone();
 s16 getCursorState();
 int getCursorHideTimeout();
 double getTrophyNotificationDuration();
-std::string getBackButtonBehavior();
 bool getUseSpecialPad();
 int getSpecialPadClass();
 bool getIsMotionControlsEnabled();
@@ -205,10 +203,8 @@ void setShowBackgroundImage(bool show);
 void setPSNSignedIn(bool sign);
 void setShaderSkipsEnabled(bool enable);
 
-void setAudioBackend(std::string backend);
 void setAudioVolume(int volume);
 void setSeparateUpdateEnabled(bool use);
-void setMemoryAlloc(std::string alloc);
 
 std::string getMainOutputDevice();
 void setMainOutputDevice(std::string device);
@@ -218,7 +214,6 @@ void setPadSpkOutputDevice(std::string device);
 void setCursorState(s16 cursorState);
 void setCursorHideTimeout(int newcursorHideTimeout);
 void setTrophyNotificationDuration(double newTrophyNotificationDuration);
-void setBackButtonBehavior(const std::string& type);
 void setUseSpecialPad(bool use);
 void setSpecialPadClass(int type);
 void setIsMotionControlsEnabled(bool use);
