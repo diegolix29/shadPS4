@@ -343,7 +343,6 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
         return;
     }
 
-    const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, true);
     buffer_cache.GetPendingGpuModifiedRanges().Subtract(address + offset, size);
 
     if (!BindResources(pipeline)) {
