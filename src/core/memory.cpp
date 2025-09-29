@@ -39,17 +39,6 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
                                        bool use_extended_mem2) {
     const bool is_neo = ::Libraries::Kernel::sceKernelIsNeoMode();
     auto total_size = is_neo ? ORBIS_KERNEL_TOTAL_MEM_PRO : ORBIS_KERNEL_TOTAL_MEM;
-    if (Config::getMemoryAlloc() == "low") {
-        const auto old_size = total_size;
-        total_size -= 1_GB;
-    } else if (Config::getMemoryAlloc() == "high") {
-        const auto old_size = total_size;
-        total_size += 1_GB;
-    } else if (Config::getMemoryAlloc() == "max") {
-        const auto old_size = total_size;
-        total_size += 5_GB;
-    }
-
     if (Config::isDevKitConsole()) {
         total_size = is_neo ? ORBIS_KERNEL_TOTAL_MEM_DEV_PRO : ORBIS_KERNEL_TOTAL_MEM_DEV;
     }

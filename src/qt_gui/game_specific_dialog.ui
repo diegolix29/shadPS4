@@ -1490,43 +1490,30 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
           </property>
          </widget>
         </item>
-        <item>
- <widget class="QGroupBox" name="groupBox_2">
-  <property name="title"><string>Memory Allocation</string></property>
-  <layout class="QVBoxLayout" name="groupBox_2_layout">
-   <item>
-    <widget class="QComboBox" name="MemoryComboBox">
-     <property name="currentText"><string>low</string></property>
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>300</width>
-       <height>30</height>
-      </size>
-     </property>
-     <item>
-      <property name="text"><string>low</string></property>
-     </item>
-     <item>
-      <property name="text"><string>medium</string></property>
-     </item>
-     <item>
-      <property name="text"><string>high</string></property>
-     </item>
-     <item>
-      <property name="text"><string>max</string></property>
-             </item>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-       </layout>
+		   <item>
+			   <widget class="QGroupBox" name="groupBox_2">
+				   <property name="title">
+					   <string>Memory Allocation</string>
+				   </property>
+				   <layout class="QVBoxLayout" name="groupBox_2_layout">
+					   <item>
+						   <widget class="QSpinBox" name="MemorySpinBox">
+							   <property name="minimum">
+								   <number>1</number>
+							   </property>
+							   <property name="maximum">
+								   <number>9999</number>
+							   </property>
+							   <property name="value">
+								   <number>512</number>
+							   </property>
+						   </widget>
+					   </item>
+				   </layout>
+			   </widget>
+		   </item>
+
+	   </layout>
       </widget>
      </widget>
     </widget>

@@ -721,8 +721,10 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     std::filesystem::path userdir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     std::error_code error;
-    if (!std::filesystem::exists(userdir / "config.toml", error)) {
+    if (std::filesystem::exists(userdir / "config.toml", error)) {
         Config::load(userdir / "config.toml");
+    } else {
+        // no config file; nothing to load
         return;
     }
 
@@ -791,8 +793,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->ReadbackSpeedComboBox->setCurrentIndex(static_cast<int>(Config::readbackSpeed()));
 
     ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));
-    ui->MemoryComboBox->setCurrentText(
-        QString::fromStdString(toml::find_or<std::string>(data, "GPU", "memoryAlloc", "")));
+    ui->MemorySpinBox->setValue(
+        toml::find_or<int>(data, "General", "extraDmemInMbytes", Config::getExtraDmemInMbytes()));
     ui->disableTrophycheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
     ui->popUpDurationSpinBox->setValue(Config::getTrophyNotificationDuration());
@@ -1217,7 +1219,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setFpsLimit(ui->fpsSpinBox->value());
     Config::setFpsLimiterEnabled(ui->fpsLimiterCheckBox->isChecked());
 
-    Config::setMemoryAlloc(ui->MemoryComboBox->currentText().toStdString());
+    Config::setExtraDmemInMbytes(ui->MemorySpinBox->value());
     Config::setLoadGameSizeEnabled(ui->gameSizeCheckBox->isChecked());
     Config::setShowSplash(ui->showSplashCheckBox->isChecked());
     Config::setDebugDump(ui->debugDump->isChecked());

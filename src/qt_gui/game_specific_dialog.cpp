@@ -158,7 +158,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->fpsLimiterCheckBox->setChecked(Config::isFpsLimiterEnabled());
     ui->FSRCheckBox->setChecked(Config::getFsrEnabled());
     ui->displayModeComboBox->setCurrentText(QString::fromStdString(Config::getFullscreenMode()));
-    ui->MemoryComboBox->setCurrentText(QString::fromStdString(Config::getMemoryAlloc()));
+    ui->MemorySpinBox->setValue(Config::getExtraDmemInMbytes());
     ui->presentModeComboBox->setCurrentText(QString::fromStdString(Config::getPresentMode()));
     ui->RCASSlider->setMinimum(0);
     ui->RCASSlider->setMaximum(3000);
@@ -216,6 +216,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->horizontalVolumeSlider->setValue(vol);
             ui->volumeText->setText(QString::number(vol) + "%");
         }
+        if (gen.contains("extraDmemInMbytes"))
+            ui->MemorySpinBox->setValue(toml::find<int>(gen, "extraDmemInMbytes"));
         if (gen.contains("isConnectedToNetwork"))
             ui->connectedNetworkCheckBox->setChecked(toml::find<bool>(gen, "isConnectedToNetwork"));
         if (gen.contains("isDevKit"))
@@ -292,9 +294,6 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         if (gpu.contains("isFullscreen"))
             Config::setIsFullscreen(toml::find<bool>(gpu, "isFullscreen"));
 
-        if (gpu.contains("memoryAlloc"))
-            ui->MemoryComboBox->setCurrentText(
-                QString::fromStdString(toml::find<std::string>(gpu, "memoryAlloc")));
         if (gpu.contains("presentMode")) {
             std::string present = toml::find<std::string>(gpu, "presentMode");
             ui->presentModeComboBox->setCurrentText(
@@ -446,6 +445,9 @@ void GameSpecificDialog::UpdateSettings() {
     if (ui->popUpDurationSpinBox->value() != Config::getTrophyNotificationDuration())
         overrides["General"]["trophyNotificationDuration"] = ui->popUpDurationSpinBox->value();
 
+    if (ui->MemorySpinBox->value() != Config::getExtraDmemInMbytes())
+        overrides["General"]["extraDmemInMbytes"] = ui->MemorySpinBox->value();
+
     //  Input
     if (ui->backgroundControllerCheckBox->isChecked() != Config::getBackgroundControllerInput())
         overrides["Input"]["backgroundControllerInput"] =
@@ -513,9 +515,6 @@ void GameSpecificDialog::UpdateSettings() {
         if (shouldFullscreen != Config::getIsFullscreen())
             overrides["GPU"]["isFullscreen"] = shouldFullscreen;
     }
-
-    if (ui->MemoryComboBox->currentText().toStdString() != Config::getMemoryAlloc())
-        overrides["GPU"]["memoryAlloc"] = ui->MemoryComboBox->currentText().toStdString();
 
     QString key = presentModeMap.key(ui->presentModeComboBox->currentText(), "Fifo");
     if (key.toStdString() != Config::getPresentMode())
