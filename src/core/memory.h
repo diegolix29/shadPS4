@@ -7,13 +7,11 @@
 #include <mutex>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include "common/enum.h"
 #include "common/singleton.h"
 #include "common/types.h"
 #include "core/address_space.h"
 #include "core/libraries/kernel/memory.h"
-#include "src/common/memory_patcher.h"
 
 namespace Vulkan {
 class Rasterizer;
@@ -264,10 +262,6 @@ public:
     s32 GetMemoryPoolStats(::Libraries::Kernel::OrbisKernelMemoryPoolBlockStats* stats);
 
     void InvalidateMemory(VAddr addr, u64 size) const;
-    AddressSpace impl;
-    DMemMap dmem_map;
-    FMemMap fmem_map;
-    VMAMap vma_map;
 
 private:
     VMAHandle FindVMA(VAddr target) {
@@ -326,6 +320,10 @@ private:
     s32 UnmapMemoryImpl(VAddr virtual_addr, u64 size);
 
 private:
+    AddressSpace impl;
+    DMemMap dmem_map;
+    FMemMap fmem_map;
+    VMAMap vma_map;
     std::mutex mutex;
     u64 total_direct_size{};
     u64 total_flexible_size{};

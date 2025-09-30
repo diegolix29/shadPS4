@@ -14,7 +14,6 @@
 #include "core/libraries/libs.h"
 #include "core/linker.h"
 #include "core/memory.h"
-#include "src/common/memory_patcher.h"
 
 namespace Libraries::Kernel {
 
@@ -64,10 +63,10 @@ s32 PS4_SYSV_ABI sceKernelAllocateDirectMemory(s64 searchStart, s64 searchEnd, u
 
     *physAddrOut = static_cast<s64>(phys_addr);
 
-    LOG_DEBUG(Kernel_Vmm,
-              "searchStart = {:#x}, searchEnd = {:#x}, len = {:#x}, "
-              "alignment = {:#x}, memoryType = {:#x}, physAddrOut = {:#x}",
-              searchStart, searchEnd, len, alignment, memoryType, phys_addr);
+    LOG_INFO(Kernel_Vmm,
+             "searchStart = {:#x}, searchEnd = {:#x}, len = {:#x}, "
+             "alignment = {:#x}, memoryType = {:#x}, physAddrOut = {:#x}",
+             searchStart, searchEnd, len, alignment, memoryType, phys_addr);
 
     return ORBIS_OK;
 }
@@ -124,7 +123,7 @@ s32 PS4_SYSV_ABI sceKernelAvailableDirectMemorySize(u64 searchStart, u64 searchE
 
 s32 PS4_SYSV_ABI sceKernelVirtualQuery(const void* addr, s32 flags, OrbisVirtualQueryInfo* info,
                                        u64 infoSize) {
-    LOG_DEBUG(Kernel_Vmm, "called addr = {}, flags = {:#x}", fmt::ptr(addr), flags);
+    LOG_INFO(Kernel_Vmm, "called addr = {}, flags = {:#x}", fmt::ptr(addr), flags);
     auto* memory = Core::Memory::Instance();
     return memory->VirtualQuery(std::bit_cast<VAddr>(addr), flags, info);
 }
@@ -201,7 +200,7 @@ s32 PS4_SYSV_ABI sceKernelMapNamedDirectMemory(void** addr, u64 len, s32 prot, s
     const auto ret = memory->MapMemory(addr, in_addr, len, mem_prot, map_flags,
                                        Core::VMAType::Direct, name, false, phys_addr, alignment);
 
-    LOG_DEBUG(Kernel_Vmm, "out_addr = {}", fmt::ptr(*addr));
+    LOG_INFO(Kernel_Vmm, "out_addr = {}", fmt::ptr(*addr));
     return ret;
 }
 
@@ -707,7 +706,7 @@ s32 PS4_SYSV_ABI sceKernelConfiguredFlexibleMemorySize(u64* sizeOut) {
 }
 
 s32 PS4_SYSV_ABI sceKernelMunmap(void* addr, u64 len) {
-    LOG_DEBUG(Kernel_Vmm, "addr = {}, len = {:#x}", fmt::ptr(addr), len);
+    LOG_INFO(Kernel_Vmm, "addr = {}, len = {:#x}", fmt::ptr(addr), len);
     if (len == 0) {
         return ORBIS_KERNEL_ERROR_EINVAL;
     }

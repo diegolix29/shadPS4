@@ -8,6 +8,7 @@
 #include "common/scope_exit.h"
 #include "common/types.h"
 #include "core/memory.h"
+#include "src/common/memory_patcher.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/buffer_cache/memory_tracker.h"
