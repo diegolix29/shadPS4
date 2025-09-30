@@ -98,6 +98,8 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
         }
     }
 
+    std::filesystem::path eboot_name = std::filesystem::relative(file, game_folder);
+
     // Applications expect to be run from /app0 so mount the file's parent path as app0.
     auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
     mnt->Mount(game_folder, "/app0", true);
@@ -305,10 +307,11 @@ void Emulator::Run(std::filesystem::path file, const std::vector<std::string> ar
     Libraries::InitHLELibs(&linker->GetHLESymbols());
 
     // Load the module with the linker
-    const auto eboot_path = mnt->GetHostPath("/app0/" + eboot_name);
+    auto guest_eboot_path = "/app0/" + eboot_name.generic_string();
+    const auto eboot_path = mnt->GetHostPath(guest_eboot_path);
     if (linker->LoadModule(eboot_path) == -1) {
         LOG_CRITICAL(Loader, "Failed to load game's eboot.bin: {}",
-                     std::filesystem::absolute(eboot_path).string());
+                     Common::FS::PathToUTF8String(std::filesystem::absolute(eboot_path)));
         std::quick_exit(0);
     }
 
