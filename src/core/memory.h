@@ -7,13 +7,11 @@
 #include <mutex>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include "common/enum.h"
 #include "common/singleton.h"
 #include "common/types.h"
 #include "core/address_space.h"
 #include "core/libraries/kernel/memory.h"
-#include "src/common/memory_patcher.h"
 
 namespace Vulkan {
 class Rasterizer;
