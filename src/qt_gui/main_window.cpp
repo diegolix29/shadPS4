@@ -838,12 +838,12 @@ void MainWindow::CreateConnects() {
 
     connect(ui->versionAct, &QAction::triggered, this, [this]() {
         auto versionDialog = new VersionDialog(m_compat_info, this);
-        versionDialog->exec();
+        versionDialog->show();
     });
 
     connect(ui->versionButton, &QPushButton::clicked, this, [this]() {
         auto versionDialog = new VersionDialog(m_compat_info, this);
-        versionDialog->exec();
+        versionDialog->show();
     });
 
     connect(ui->configureHotkeys, &QAction::triggered, this, [this]() {

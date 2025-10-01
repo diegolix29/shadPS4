@@ -452,8 +452,6 @@ void CheatsPatches::onSaveButtonClicked() {
     } else {
         QMessageBox::information(this, tr("Success"), tr("Options saved successfully."));
     }
-
-    QWidget::close();
 }
 
 QCheckBox* CheatsPatches::findCheckBoxByName(const QString& name) {
