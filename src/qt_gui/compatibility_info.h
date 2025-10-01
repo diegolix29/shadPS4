@@ -53,6 +53,8 @@ struct CompatibilityEntry {
 class CompatibilityInfoClass : public QObject {
     Q_OBJECT
 public:
+    std::shared_ptr<CompatibilityInfoClass> m_compat_info;
+
     // Please think of a better alternative
     inline static const std::unordered_map<QString, CompatibilityStatus> LabelToCompatStatus = {
         {QStringLiteral("status-unknown"), CompatibilityStatus::Unknown},
@@ -84,9 +86,47 @@ public:
     void SavePresets(const QList<QString>& list);
     QList<QString> LoadFavorites() const;
     void SaveFavorites(const QList<QString>& list);
+    std::string GetShadPath() const {
+
+        if (m_shadPath.empty()) {
+            QSettings settings("shadPS4", "Emulator");
+            QString path = settings.value("ShadPath", "").toString();
+            return path.toStdString();
+        }
+        return m_shadPath;
+    }
+
+    void SetShadPath(const std::string& path) {
+        m_shadPath = path;
+
+        // Persist to disk
+        QSettings settings("shadPS4", "Emulator");
+        settings.setValue("ShadPath", QString::fromStdString(path));
+        settings.sync();
+    }
+
+    std::string GetSelectedShadExePath() const {
+        if (m_selectedShadExePath.empty()) {
+            QSettings settings("shadPS4", "Emulator");
+            QString path = settings.value("SelectedShadExePath", "").toString();
+            return path.toStdString();
+        }
+        return m_selectedShadExePath;
+    }
+
+    void SetSelectedShadExePath(const std::string& path) {
+        m_selectedShadExePath = path;
+
+        // Persist to disk
+        QSettings settings("shadPS4", "Emulator");
+        settings.setValue("SelectedShadExePath", QString::fromStdString(path));
+        settings.sync();
+    }
 
 private:
     QNetworkAccessManager* m_network_manager;
     QString m_compatibility_filename;
     QJsonObject m_compatibility_database;
+    std::string m_shadPath;
+    std::string m_selectedShadExePath;
 };

@@ -10,6 +10,7 @@
 #ifdef __APPLE__
 #include <CoreFoundation/CFBundle.h>
 #include <dlfcn.h>
+#include <mach-o/dyld.h>
 #include <sys/param.h>
 #endif
 
@@ -22,6 +23,7 @@
 #else
 // This is the maximum number of UTF-8 code units permissible in all other OSes' file paths
 #define MAX_PATH 1024
+#include <unistd.h>
 #endif
 #endif
 
@@ -186,6 +188,34 @@ bool ValidatePath(const fs::path& path) {
 #endif
 
     return true;
+}
+
+std::filesystem::path GetExecutablePath() {
+#if defined(_WIN32)
+    wchar_t buffer[MAX_PATH];
+    DWORD size = GetModuleFileNameW(NULL, buffer, MAX_PATH);
+    if (size == 0 || size == MAX_PATH) {
+        return {};
+    }
+    return std::filesystem::path(buffer);
+#elif defined(__APPLE__)
+    char buffer[PATH_MAX];
+    uint32_t size = sizeof(buffer);
+    if (_NSGetExecutablePath(buffer, &size) == 0) {
+        return std::filesystem::path(buffer);
+    }
+    return {};
+#elif defined(__linux__)
+    char buffer[PATH_MAX];
+    ssize_t size = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
+    if (size == -1) {
+        return {};
+    }
+    buffer[size] = '\0';
+    return std::filesystem::path(buffer);
+#else
+    return {};
+#endif
 }
 
 std::string PathToUTF8String(const std::filesystem::path& path) {
