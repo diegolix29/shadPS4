@@ -346,7 +346,7 @@ s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, u32 arg, void** u
     Platform::IrqC::Instance()->RegisterOnce(
         Platform::InterruptId::GfxFlip, [=](Platform::InterruptId irq) {
             ASSERT_MSG(irq == Platform::InterruptId::GfxFlip, "Unexpected IRQ");
-            if (port->is_mode_changing) {
+            if (port->is_hdr) {
                 LOG_WARNING(Lib_VideoOut, "Ignoring flip IRQ during mode change");
                 return;
             }
