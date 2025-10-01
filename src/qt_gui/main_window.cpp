@@ -32,6 +32,7 @@
 #include "control_settings.h"
 #include "core/ipc/ipc.h"
 #include "core/libraries/audio/audioout.h"
+#include "version_dialog.h"
 
 #include "game_install_dialog.h"
 #include "hotkeys.h"
@@ -111,6 +112,7 @@ bool MainWindow::Init() {
     ui->controllerButton->installEventFilter(this);
     ui->keyboardButton->installEventFilter(this);
     ui->updaterButton->installEventFilter(this);
+    ui->versionButton->installEventFilter(this);
     ui->configureHotkeysButton->installEventFilter(this);
     QString savedStyle = QString::fromStdString(Config::getGuiStyle());
     if (!savedStyle.isEmpty()) {
@@ -409,6 +411,7 @@ void MainWindow::AddUiWidgets() {
     }
     ui->toolBar->addWidget(
         createButtonWithLabel(ui->refreshButton, tr("Refresh List"), showLabels));
+    ui->toolBar->addWidget(createButtonWithLabel(ui->versionButton, tr("Version"), showLabels));
 
     ui->toolBar->addWidget(createSpacer(this));
     QBoxLayout* toolbarLayout = new QBoxLayout(QBoxLayout::TopToBottom);
@@ -534,7 +537,7 @@ void MainWindow::UpdateToolbarLabels() {
 
     for (QPushButton* button :
          {ui->playButton, ui->stopButton, ui->restartButton, ui->settingsButton,
-          ui->fullscreenButton, ui->controllerButton, ui->keyboardButton,
+          ui->fullscreenButton, ui->controllerButton, ui->keyboardButton, ui->versionButton,
           ui->configureHotkeysButton, ui->updaterButton, ui->refreshButton}) {
         QLabel* label = button->parentWidget()->findChild<QLabel*>();
         if (label)
@@ -831,6 +834,16 @@ void MainWindow::CreateConnects() {
     connect(ui->aboutAct, &QAction::triggered, this, [this]() {
         auto aboutDialog = new AboutDialog(this);
         aboutDialog->exec();
+    });
+
+    connect(ui->versionAct, &QAction::triggered, this, [this]() {
+        auto versionDialog = new VersionDialog(m_compat_info, this);
+        versionDialog->exec();
+    });
+
+    connect(ui->versionButton, &QPushButton::clicked, this, [this]() {
+        auto versionDialog = new VersionDialog(m_compat_info, this);
+        versionDialog->exec();
     });
 
     connect(ui->configureHotkeys, &QAction::triggered, this, [this]() {
@@ -1764,6 +1777,7 @@ void MainWindow::SetUiIcons(const QColor& baseColor, const QColor& hoverColor) {
     recolor(ui->controllerButton, ":/images/controller_icon.png");
     recolor(ui->keyboardButton, ":/images/keyboard_icon.png");
     recolor(ui->updaterButton, ":/images/update_icon.png");
+    recolor(ui->versionButton, ":/images/utils_icon.png");
     recolor(ui->configureHotkeysButton, ":/images/hotkeybutton.png");
 
     // --- Menus / Actions (no QPushButton, but recolor directly) ---
@@ -1788,6 +1802,9 @@ void MainWindow::SetUiIcons(const QColor& baseColor, const QColor& hoverColor) {
             RecolorIcon(QIcon(":/images/dump_icon.png"), baseColor, hoverColor));
     if (ui->aboutAct)
         ui->aboutAct->setIcon(RecolorIcon(QIcon(":/images/about_icon.png"), baseColor, hoverColor));
+    if (ui->versionAct)
+        ui->versionAct->setIcon(
+            RecolorIcon(QIcon(":/images/play_icon.png"), baseColor, hoverColor));
     if (ui->setlistModeListAct)
         ui->setlistModeListAct->setIcon(
             RecolorIcon(QIcon(":/images/list_icon.png"), baseColor, hoverColor));

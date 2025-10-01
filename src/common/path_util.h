@@ -101,6 +101,13 @@ constexpr auto LOG_FILE = "shad_log.txt";
  */
 void SetUserPath(PathType user_path, const std::filesystem::path& new_path);
 
+/**
+ * Gets the full path to the currently running executable.
+ *
+ * @returns The filesystem path of the executable, or empty if unavailable.
+ */
+[[nodiscard]] std::filesystem::path GetExecutablePath();
+
 #ifdef ENABLE_QT_GUI
 /**
  * Converts an std::filesystem::path to a QString.

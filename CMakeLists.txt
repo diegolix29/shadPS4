@@ -1120,6 +1120,9 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/hotkeys.h
            src/qt_gui/hotkeys.cpp
            src/qt_gui/hotkeys.ui
+           src/qt_gui/version_dialog.cpp
+           src/qt_gui/version_dialog.h
+           src/qt_gui/version_dialog.ui
            ${EMULATOR}
            ${RESOURCE_FILES}
            ${TRANSLATIONS}

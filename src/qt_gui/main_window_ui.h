@@ -34,6 +34,7 @@ public:
     QAction* updaterAct;
 #endif
     QAction* aboutAct;
+    QAction* versionAct;
     QAction* configureAct;
     QAction* configureHotkeys;
     QAction* setThemeDark;
@@ -59,6 +60,7 @@ public:
     QPushButton* fullscreenButton;
     QPushButton* restartButton;
     QPushButton* updaterButton;
+    QPushButton* versionButton;
     QPushButton* configureHotkeysButton;
     QCheckBox* MuteBox;
     QComboBox* styleSelector = new QComboBox();
@@ -172,6 +174,9 @@ public:
         aboutAct = new QAction(MainWindow);
         aboutAct->setObjectName("aboutAct");
         aboutAct->setIcon(QIcon(":images/about_icon.png"));
+        versionAct = new QAction(MainWindow);
+        versionAct->setObjectName("versionAct");
+        versionAct->setIcon(QIcon(":images/play_icon.png"));
         configureAct = new QAction(MainWindow);
         configureAct->setObjectName("configureAct");
         configureAct->setIcon(QIcon(":images/settings_icon.png"));
@@ -268,6 +273,10 @@ public:
         updaterButton->setFlat(true);
         updaterButton->setIcon(QIcon(":images/update_icon.png"));
         updaterButton->setIconSize(QSize(40, 40));
+        versionButton = new QPushButton(centralWidget);
+        versionButton->setFlat(true);
+        versionButton->setIcon(QIcon(":images/utils_icon.png"));
+        versionButton->setIconSize(QSize(40, 40));
         configureHotkeysButton = new QPushButton(centralWidget);
         configureHotkeysButton->setFlat(true);
         configureHotkeysButton->setIcon(QIcon(":images/hotkeybutton.png"));
@@ -388,6 +397,8 @@ public:
 #endif
         menuHelp->addAction(aboutAct);
 
+        menuHelp->addAction(versionAct);
+
         retranslateUi(MainWindow);
 
         QMetaObject::connectSlotsByName(MainWindow);
@@ -403,6 +414,7 @@ public:
             QCoreApplication::translate("MainWindow", "Check for Updates", nullptr));
 #endif
         aboutAct->setText(QCoreApplication::translate("MainWindow", "About shadPS4", nullptr));
+        versionAct->setText(QCoreApplication::translate("MainWindow", "Version shadPS4", nullptr));
         configureAct->setText(QCoreApplication::translate("MainWindow", "Configure...", nullptr));
         configureHotkeys->setText(
             QCoreApplication::translate("MainWindow", "Customize Hotkeys", nullptr));
