@@ -3,6 +3,7 @@
 
 #include "common/path_util.h"
 #include "game_grid_frame.h"
+#include "main_window.h"
 #include "qt_gui/compatibility_info.h"
 
 GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
@@ -33,7 +34,13 @@ GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
     connect(this->horizontalScrollBar(), &QScrollBar::valueChanged, this,
             &GameGridFrame::RefreshGridBackgroundImage);
     connect(this, &QTableWidget::customContextMenuRequested, this, [=, this](const QPoint& pos) {
-        m_gui_context_menus.RequestGameMenu(pos, m_game_info->m_games, m_compat_info, this, false);
+        int changedFavorite = m_gui_context_menus.RequestGameMenu(
+            pos, m_game_info->m_games, m_compat_info, this, true,
+            [mw = QPointer<MainWindow>(qobject_cast<MainWindow*>(this->window()))](
+                const QStringList& args) {
+                if (mw)
+                    mw->StartGameWithArgs(args);
+            });
         PopulateGameGrid(m_game_info->m_games, false);
     });
 }

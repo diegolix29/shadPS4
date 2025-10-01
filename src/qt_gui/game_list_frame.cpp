@@ -9,6 +9,7 @@
 #include "game_grid_frame.h"
 #include "game_list_frame.h"
 #include "game_list_utils.h"
+#include "main_window.h"
 #include "qt_gui/compatibility_info.h"
 
 GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
@@ -85,8 +86,13 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
         });
 
     connect(this, &QTableWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
-        int changedFavorite = m_gui_context_menus.RequestGameMenu(pos, m_game_info->m_games,
-                                                                  m_compat_info, this, true);
+        int changedFavorite = m_gui_context_menus.RequestGameMenu(
+            pos, m_game_info->m_games, m_compat_info, this, true,
+            [mw = QPointer<MainWindow>(qobject_cast<MainWindow*>(this->window()))](
+                const QStringList& args) {
+                if (mw)
+                    mw->StartGameWithArgs(args);
+            });
         PopulateGameList(false);
     });
 

@@ -37,6 +37,7 @@ public:
     void InstallDirectory();
     void ApplyLastUsedStyle();
     void StartGame();
+    void StartGameWithArgs(QStringList args);
     void StartGameWithPath(const QString&);
     void PauseGame();
     bool showLabels;
@@ -90,7 +91,7 @@ private:
     void PlayBackgroundMusic();
     QIcon RecolorIcon(const QIcon& icon, const QColor& baseColor, const QColor& hoverColor);
     QMap<QPushButton*, QIcon> m_originalIcons;
-    void StartEmulator(std::filesystem::path);
+    void StartEmulator(std::filesystem::path, QStringList args = {});
 
     bool isIconBlack = false;
     bool isTableList = true;

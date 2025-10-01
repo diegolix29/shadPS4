@@ -3,6 +3,7 @@
 
 #pragma once
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <QFileDialog>
 #include <QInputDialog>
@@ -41,7 +42,7 @@ class GuiContextMenus : public QObject {
 public:
     int RequestGameMenu(const QPoint& pos, QVector<GameInfo>& m_games,
                         std::shared_ptr<CompatibilityInfoClass> m_compat_info, QTableWidget* widget,
-                        bool isList) {
+                        bool isList, std::function<void(QStringList)> launch_func) {
         QPoint global_pos = widget->viewport()->mapToGlobal(pos);
 
         int itemID = 0;
@@ -59,6 +60,15 @@ public:
 
         // Setup menu.
         QMenu menu(widget);
+
+        QMenu* launchMenu = new QMenu(tr("Launch..."), widget);
+        QAction* launchNormally =
+            new QAction(tr("Launch with game specific configs (default)"), widget);
+        QAction* launchWithGlobalConfig = new QAction(tr("Launch with global config only"), widget);
+
+        launchMenu->addAction(launchNormally);
+        launchMenu->addAction(launchWithGlobalConfig);
+
         qint64 detachedGamePid = -1;
         bool isDetachedLaunch = false;
 
@@ -79,6 +89,7 @@ public:
         openFolderMenu->addAction(openSaveDataFolder);
         openFolderMenu->addAction(openLogFolder);
 
+        menu.addMenu(launchMenu);
         menu.addMenu(openFolderMenu);
 
         QString serialStr = QString::fromStdString(m_games[itemID].serial);
@@ -174,6 +185,13 @@ public:
         auto selected = menu.exec(global_pos);
         if (!selected) {
             return changedFavorite;
+        }
+
+        if (selected == launchNormally) {
+            launch_func({});
+        }
+        if (selected == launchWithGlobalConfig) {
+            launch_func({"--config-global"});
         }
 
         if (selected == bootGameDetached) {

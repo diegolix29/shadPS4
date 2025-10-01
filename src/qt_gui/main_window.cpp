@@ -1220,6 +1220,10 @@ void MainWindow::ToggleMute() {
 }
 
 void MainWindow::StartGame() {
+    StartGameWithArgs({});
+}
+
+void MainWindow::StartGameWithArgs(QStringList args) {
     QString gamePath = "";
     std::filesystem::path file;
     int table_mode = Config::getTableMode();
@@ -1437,10 +1441,10 @@ void MainWindow::StartGame() {
 
     if (ignorePatches) {
         Core::FileSys::MntPoints::ignore_game_patches = true;
-        StartEmulator(launchPath);
+        StartEmulator(launchPath, args);
         Core::FileSys::MntPoints::ignore_game_patches = false;
     } else {
-        StartEmulator(launchPath);
+        StartEmulator(launchPath, args);
     }
 
     isGameRunning = true;
@@ -1952,16 +1956,21 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
     return QMainWindow::eventFilter(obj, event);
 }
 
-void MainWindow::StartEmulator(std::filesystem::path path) {
+void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
     if (isGameRunning) {
         QMessageBox::critical(nullptr, tr("Run Game"), tr("Game is already running!"));
         return;
     }
     emulator = std::make_unique<Core::Emulator>();
 
-    std::thread([this, path]() {
-        emulator->Run(path, {});
-        // notify main window when done
+    std::vector<std::string> stdArgs;
+    stdArgs.reserve(args.size());
+    for (const auto& a : args) {
+        stdArgs.push_back(a.toStdString());
+    }
+
+    std::thread([this, path, stdArgs]() {
+        emulator->Run(path, stdArgs);
         QMetaObject::invokeMethod(this, [this]() {
             isGameRunning = false;
             UpdateToolbarButtons();
