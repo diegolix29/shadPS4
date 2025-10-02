@@ -191,6 +191,7 @@ static int BGMvolume = 50;
 // Vulkan
 static ConfigEntry<s32> gpuId(-1);
 static ConfigEntry<bool> vkValidation(false);
+static ConfigEntry<bool> vkValidationCore(true);
 static ConfigEntry<bool> vkValidationSync(false);
 static ConfigEntry<bool> vkValidationGpu(false);
 static ConfigEntry<bool> vkCrashDiagnostic(false);
@@ -258,6 +259,10 @@ u32 m_language = 1; // english
 
 // Keys
 static std::string trophyKey = "";
+
+bool vkValidationCoreEnabled() {
+    return vkValidationCore.get();
+}
 
 bool allowHDR() {
     return isHDRAllowed.get();
@@ -1321,6 +1326,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         const toml::value& vk = data.at("Vulkan");
 
         gpuId.setFromToml(vk, "gpuId", is_game_specific);
+        vkValidationCore.setFromToml(vk, "validation_core", is_game_specific);
         vkValidation.setFromToml(vk, "validation", is_game_specific);
         vkValidationSync.setFromToml(vk, "validation_sync", is_game_specific);
         vkValidationGpu.setFromToml(vk, "validation_gpu", is_game_specific);
@@ -1555,6 +1561,7 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["memoryAlloc"] = memoryAlloc.base_value;
     data["Vulkan"]["gpuId"] = gpuId.base_value;
     data["Vulkan"]["validation"] = vkValidation.base_value;
+    data["Vulkan"]["validation_core"] = vkValidationCore.base_value;
     data["Vulkan"]["validation_sync"] = vkValidationSync.base_value;
     data["Vulkan"]["validation_gpu"] = vkValidationGpu.base_value;
     data["Vulkan"]["crashDiagnostic"] = vkCrashDiagnostic.base_value;

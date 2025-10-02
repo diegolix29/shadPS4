@@ -236,6 +236,7 @@ void setVkSyncValidation(bool enable);
 void setRdocEnabled(bool enable);
 
 bool vkValidationEnabled();
+bool vkValidationCoreEnabled();
 bool vkValidationSyncEnabled();
 bool vkValidationGpuEnabled();
 bool getVkCrashDiagnosticEnabled();
