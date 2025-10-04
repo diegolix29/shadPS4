@@ -309,7 +309,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             }
             ui->RCASSlider->setValue(static_cast<int>(std::lround(value)));
             ui->RCASSpinBox->setValue(value / 1000.0);
-            Config::setRcasAttenuation(static_cast<float>(value));
+            Config::setRcasAttenuation(static_cast<int>(value));
         }
 
         if (gpu.contains("rcasEnabled"))

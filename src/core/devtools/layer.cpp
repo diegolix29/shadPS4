@@ -846,7 +846,6 @@ void DrawPauseStatusWindow(bool& is_open) {
         if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
                          IM_ARRAYSIZE(readbackAccuracyStrs))) {
             Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbackAccIndex));
-            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         }
 
         bool fsr_enabled = Config::getFsrEnabled();
@@ -861,8 +860,14 @@ void DrawPauseStatusWindow(bool& is_open) {
         ImGui::BeginDisabled(!rcas_enabled);
         if (presenter) {
             auto& fsr = presenter->GetFsrSettingsRef();
-            if (ImGui::SliderFloat("RCAS Attenuation", &fsr.rcasAttenuation, 0.0f, 3.0f, "%.2f"))
-                Config::setRcasAttenuation(static_cast<int>(fsr.rcasAttenuation * 1000.0f));
+
+            static float rcas_float = static_cast<float>(Config::getRcasAttenuation()) / 1000.0f;
+
+            if (ImGui::SliderFloat("RCAS Attenuation", &rcas_float, 0.0f, 3.0f, "%.2f")) {
+                fsr.rcasAttenuation = rcas_float;
+
+                Config::setRcasAttenuation(static_cast<int>(rcas_float * 1000));
+            }
         }
         ImGui::EndDisabled();
         ImGui::EndDisabled();

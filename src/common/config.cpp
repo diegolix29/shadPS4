@@ -184,8 +184,7 @@ static ConfigEntry<bool> rcasEnabled(true);
 
 // Audio / BGM
 static bool playBGM = false;
-static ConfigEntry<float> rcasAttenuation(0.25f);
-static ConfigEntry<int> audioVolume(100);
+static ConfigEntry<int> rcasAttenuation(250);
 static int BGMvolume = 50;
 
 // Vulkan
@@ -204,7 +203,6 @@ static ConfigEntry<bool> isDebugDump(false);
 static ConfigEntry<bool> isShaderDebug(false);
 static ConfigEntry<bool> isSeparateLogFilesEnabled(false);
 static ConfigEntry<bool> shaderSkipsEnabled(false);
-static ConfigEntry<std::string> memoryAlloc("medium");
 static ConfigEntry<bool> isFpsColor(true);
 static ConfigEntry<bool> fpsColorState(false);
 static ConfigEntry<bool> logEnabled(true);
@@ -435,7 +433,7 @@ void setShowLabelsUnderIcons(bool enable) {
     showLabelsUnderIcons = enable;
 }
 
-std::string getFullscreenMode() {
+string getFullscreenMode() {
     return fullscreenMode.get();
 }
 
@@ -691,10 +689,6 @@ bool getCheckCompatibilityOnStartup() {
     return checkCompatibilityOnStartup;
 }
 
-int getAudioVolume() {
-    return audioVolume.get();
-}
-
 void setfpsColor(bool enable) {
     fpsColorState = enable;
 }
@@ -826,7 +820,7 @@ void setIsFullscreen(bool enable) {
     isFullscreen.base_value = enable;
 }
 
-void setFullscreenMode(std::string mode) {
+void setFullscreenMode(string mode) {
     fullscreenMode.base_value = mode;
 }
 
@@ -927,10 +921,6 @@ void setMainWindowGeometry(u32 x, u32 y, u32 w, u32 h) {
     main_window_geometry_y = y;
     main_window_geometry_w = w;
     main_window_geometry_h = h;
-}
-
-void setAudioVolume(int volume) {
-    audioVolume.base_value = volume;
 }
 
 bool addGameInstallDir(const std::filesystem::path& dir, bool enabled) {
@@ -1242,7 +1232,6 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
         isConnectedToNetwork.setFromToml(general, "isConnectedToNetwork", is_game_specific);
         firstBootHandled.setFromToml(general, "firstBootHandled", is_game_specific);
-        audioVolume.setFromToml(general, "volume", 100);
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", chooseHomeTab);
         defaultControllerID.setFromToml(general, "defaultControllerID", "");
         sys_modules_path = toml::find_fs_path_or(general, "sysModulesPath", sys_modules_path);
@@ -1298,19 +1287,18 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         vblankFrequency.setFromToml(gpu, "vblankFrequency", is_game_specific);
         isHDRAllowed.setFromToml(gpu, "allowHDR", is_game_specific);
         shaderSkipsEnabled.setFromToml(gpu, "shaderSkipsEnabled", is_game_specific);
-        memoryAlloc.setFromToml(gpu, "memoryAlloc", is_game_specific);
         fpsLimit.setFromToml(gpu, "fpsLimit", is_game_specific);
         fpsLimiterEnabled.setFromToml(gpu, "fpsLimiterEnabled", is_game_specific);
-        windowWidth.setFromToml(gpu, "windowWidth", is_game_specific);
-        windowHeight.setFromToml(gpu, "windowHeight", is_game_specific);
+        windowWidth.setFromToml(gpu, "screenWidth", is_game_specific);
+        windowHeight.setFromToml(gpu, "screenHeight", is_game_specific);
         internalScreenWidth.setFromToml(gpu, "internalScreenWidth", is_game_specific);
         internalScreenHeight.setFromToml(gpu, "internalScreenHeight", is_game_specific);
         isNullGpu.setFromToml(gpu, "nullGpu", is_game_specific);
         shouldCopyGPUBuffers.setFromToml(gpu, "copyGPUBuffers", is_game_specific);
         readbackLinearImagesEnabled.setFromToml(gpu, "readbackLinearImages", is_game_specific);
         directMemoryAccessEnabled.setFromToml(gpu, "directMemoryAccess", is_game_specific);
-        isFullscreen.setFromToml(gpu, "isFullscreen", is_game_specific);
-        fullscreenMode.setFromToml(gpu, "fullscreenMode", is_game_specific);
+        isFullscreen.setFromToml(gpu, "Fullscreen", is_game_specific);
+        fullscreenMode.setFromToml(gpu, "FullscreenMode", is_game_specific);
         if (is_game_specific) {
             if (auto opt = toml::get_optional<std::string>(gpu, "presentMode")) {
                 presentMode.game_specific_value = *opt;
@@ -1354,53 +1342,50 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         g_customBackgroundImage = toml::find_or<std::string>(gui, "CustomBackgroundImage", "");
         load_game_size = toml::find_or<bool>(gui, "loadGameSizeEnabled", true);
-        m_icon_size = toml::find_or<int>(gui, "iconSize", 0);
-        m_icon_size_grid = toml::find_or<int>(gui, "iconSizeGrid", 0);
+
+        m_icon_size = toml::find_or<int>(gui, "iconSize", 36);
+        m_icon_size_grid = toml::find_or<int>(gui, "iconSizeGrid", 69);
         m_slider_pos = toml::find_or<int>(gui, "sliderPos", 0);
         m_slider_pos_grid = toml::find_or<int>(gui, "sliderPosGrid", 0);
+
         mw_themes = toml::find_or<int>(gui, "theme", 0);
-        m_window_size_W = toml::find_or<int>(gui, "mw_width", 0);
-        m_window_size_H = toml::find_or<int>(gui, "mw_height", 0);
-        load_game_size = toml::find_or<bool>(gui, "loadGameSizeEnabled", load_game_size);
-        guiStyle = toml::find_or<std::string>(gui, "guiStyle", guiStyle);
+        guiStyle = toml::find_or<std::string>(gui, "guiStyle", "");
+
+        m_window_size_W = toml::find_or<int>(gui, "mw_width", 1280);
+        m_window_size_H = toml::find_or<int>(gui, "mw_height", 720);
+        main_window_geometry_x = toml::find_or<int>(gui, "geometry_x", 0);
+        main_window_geometry_y = toml::find_or<int>(gui, "geometry_y", 0);
+        main_window_geometry_w = toml::find_or<int>(gui, "geometry_w", 1280);
+        main_window_geometry_h = toml::find_or<int>(gui, "geometry_h", 720);
+
+        m_table_mode = toml::find_or<int>(gui, "gameTableMode", 0);
+
+        backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
+        showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
+        showLabelsUnderIcons = toml::find_or<bool>(gui, "showLabelsUnderIcons", true);
 
         const auto install_dir_array =
             toml::find_or<std::vector<std::u8string>>(gui, "installDirs", {});
-
         try {
             install_dirs_enabled = toml::find<std::vector<bool>>(gui, "installDirsEnabled");
         } catch (...) {
-            // If it does not exist, assume that all are enabled.
             install_dirs_enabled.resize(install_dir_array.size(), true);
         }
-
         if (install_dirs_enabled.size() < install_dir_array.size()) {
             install_dirs_enabled.resize(install_dir_array.size(), true);
         }
-
         settings_install_dirs.clear();
         for (size_t i = 0; i < install_dir_array.size(); i++) {
             settings_install_dirs.push_back(
                 {std::filesystem::path{install_dir_array[i]}, install_dirs_enabled[i]});
         }
 
+        settings_addon_install_dir =
+            toml::find_fs_path_or(gui, "addonInstallDir", std::filesystem::path{});
         save_data_path = toml::find_fs_path_or(gui, "saveDataPath", save_data_path);
 
-        settings_addon_install_dir =
-            toml::find_fs_path_or(gui, "addonInstallDir", settings_addon_install_dir);
-
-        settings_addon_install_dir = toml::find_fs_path_or(gui, "addonInstallDir", {});
-        main_window_geometry_x = toml::find_or<int>(gui, "geometry_x", 0);
-        main_window_geometry_y = toml::find_or<int>(gui, "geometry_y", 0);
-        main_window_geometry_w = toml::find_or<int>(gui, "geometry_w", 0);
-        main_window_geometry_h = toml::find_or<int>(gui, "geometry_h", 0);
         m_elf_viewer = toml::find_or<std::vector<std::string>>(gui, "elfDirs", {});
         m_recent_files = toml::find_or<std::vector<std::string>>(gui, "recentFiles", {});
-        m_table_mode = toml::find_or<int>(gui, "gameTableMode", 0);
-        emulator_language = toml::find_or<std::string>(gui, "emulatorLanguage", "en_US");
-        backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
-        showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
-        showLabelsUnderIcons = toml::find_or<bool>(gui, "showLabelsUnderIcons", true);
     }
 
     if (data.contains("Settings")) {
@@ -1522,7 +1507,6 @@ void save(const std::filesystem::path& path) {
     data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
     data["General"]["firstBootHandled"] = firstBootHandled.base_value;
     data["General"]["defaultControllerID"] = defaultControllerID.base_value;
-    data["General"]["volume"] = audioVolume.base_value;
 
     data["Input"]["cursorState"] = cursorState.base_value;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout.base_value;
@@ -1541,8 +1525,8 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["rcasEnabled"] = rcasEnabled.base_value;
     data["GPU"]["fpsLimit"] = fpsLimit.base_value;
     data["GPU"]["fpsLimiterEnabled"] = fpsLimiterEnabled.base_value;
-    data["GPU"]["windowWidth"] = windowWidth.base_value;
-    data["GPU"]["windowHeight"] = windowHeight.base_value;
+    data["GPU"]["screenWidth"] = windowWidth.base_value;
+    data["GPU"]["screenHeight"] = windowHeight.base_value;
     data["GPU"]["internalScreenWidth"] = internalScreenWidth.base_value;
     data["GPU"]["internalScreenHeight"] = internalScreenHeight.base_value;
     data["GPU"]["nullGpu"] = isNullGpu.base_value;
@@ -1553,12 +1537,11 @@ void save(const std::filesystem::path& path) {
     data["GPU"]["dumpShaders"] = shouldDumpShaders.base_value;
     data["GPU"]["patchShaders"] = shouldPatchShaders.base_value;
     data["GPU"]["vblankFrequency"] = vblankFrequency.base_value;
-    data["GPU"]["isFullscreen"] = isFullscreen.base_value;
-    data["GPU"]["fullscreenMode"] = fullscreenMode.base_value;
+    data["GPU"]["Fullscreen"] = isFullscreen.base_value;
+    data["GPU"]["FullscreenMode"] = fullscreenMode.base_value;
     data["GPU"]["presentMode"] = presentMode.base_value;
     data["GPU"]["allowHDR"] = isHDRAllowed.base_value;
     data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled.base_value;
-    data["GPU"]["memoryAlloc"] = memoryAlloc.base_value;
     data["Vulkan"]["gpuId"] = gpuId.base_value;
     data["Vulkan"]["validation"] = vkValidation.base_value;
     data["Vulkan"]["validation_core"] = vkValidationCore.base_value;
@@ -1611,7 +1594,6 @@ void save(const std::filesystem::path& path) {
     data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
     data["GUI"]["addonInstallDir"] =
         std::string{fmt::UTF(settings_addon_install_dir.u8string()).data};
-    data["GUI"]["emulatorLanguage"] = emulator_language;
     data["GUI"]["backgroundImageOpacity"] = backgroundImageOpacity;
     data["GUI"]["showBackgroundImage"] = showBackgroundImage;
     data["Settings"]["consoleLanguage"] = m_language;
@@ -1785,7 +1767,6 @@ void setDefaultValues() {
     backgroundImageOpacity = 50;
     showBackgroundImage = true;
     showLabelsUnderIcons = true;
-    audioVolume = 100;
 }
 
 constexpr std::string_view GetDefaultGlobalConfig() {
