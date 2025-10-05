@@ -761,8 +761,17 @@ void SettingsDialog::LoadValuesFromConfig() {
                       std::find(languageIndexes.begin(), languageIndexes.end(),
                                 toml::find_or<int>(data, "Settings", "consoleLanguage", 6))) %
         languageIndexes.size());
-    ui->emulatorLanguageComboBox->setCurrentIndex(
-        languages[toml::find_or<std::string>(data, "GUI", "emulatorLanguage", "en_US")]);
+    {
+        std::string locale = toml::find_or<std::string>(data, "GUI", "emulatorLanguage", "en_US");
+        int index = 0;
+        if (languages.contains(locale)) {
+            index = languages[locale];
+        } else {
+            index = 0; // fallback to English (first in list)
+        }
+        ui->emulatorLanguageComboBox->setCurrentIndex(index);
+    }
+
     ui->hideCursorComboBox->setCurrentIndex(toml::find_or<int>(data, "Input", "cursorState", 1));
     OnCursorStateChanged(toml::find_or<int>(data, "Input", "cursorState", 1));
     ui->idleTimeoutSpinBox->setValue(toml::find_or<int>(data, "Input", "cursorHideTimeout", 5));
@@ -970,9 +979,11 @@ void SettingsDialog::OnLanguageChanged(int index) {
     if (index == -1)
         return;
 
-    ui->retranslateUi(this);
+    QString locale = ui->emulatorLanguageComboBox->itemData(index).toString();
 
-    emit LanguageChanged(ui->emulatorLanguageComboBox->itemData(index).toString().toStdString());
+    emit LanguageChanged(locale.toStdString());
+
+    QTimer::singleShot(0, this, [this]() { ui->retranslateUi(this); });
 }
 
 void SettingsDialog::OnCursorStateChanged(s16 index) {

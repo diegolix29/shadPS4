@@ -1359,6 +1359,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         main_window_geometry_h = toml::find_or<int>(gui, "geometry_h", 720);
 
         m_table_mode = toml::find_or<int>(gui, "gameTableMode", 0);
+        emulator_language = toml::find_or<std::string>(gui, "emulatorLanguage", "en_US");
 
         backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
         showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
@@ -1424,8 +1425,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
 void sortTomlSections(toml::ordered_value& data) {
     toml::ordered_value ordered_data;
-    std::vector<std::string> section_order = {"General", "Input", "GPU", "Vulkan",
-                                              "Debug",   "Keys",  "GUI", "Settings"};
+    std::vector<std::string> section_order = {"General", "Input", "Audio", "GPU",     "Vulkan",
+                                              "Debug",   "Keys",  "GUI",   "Settings"};
     section_order.insert(section_order.begin() + 8, "ShaderSkip");
 
     for (const auto& section : section_order) {
@@ -1596,6 +1597,7 @@ void save(const std::filesystem::path& path) {
         std::string{fmt::UTF(settings_addon_install_dir.u8string()).data};
     data["GUI"]["backgroundImageOpacity"] = backgroundImageOpacity;
     data["GUI"]["showBackgroundImage"] = showBackgroundImage;
+    data["GUI"]["emulatorLanguage"] = emulator_language;
     data["Settings"]["consoleLanguage"] = m_language;
     toml::value shader_skip_data;
     for (const auto& [game_id, hashes] : all_skipped_shader_hashes) {
