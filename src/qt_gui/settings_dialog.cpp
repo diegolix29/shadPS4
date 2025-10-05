@@ -605,8 +605,19 @@ void SettingsDialog::LoadValuesFromConfig() {
         Common::FS::PathToQString(dlc_folder_path_string, dlc_folder_path);
         ui->currentDLCFolder->setText(dlc_folder_path_string);
 
-        ui->emulatorLanguageComboBox->setCurrentIndex(
-            languages[m_gui_settings->GetValue(gui::gen_guiLanguage).toString().toStdString()]);
+        {
+            std::string savedLocale =
+                m_gui_settings->GetValue(gui::gen_guiLanguage).toString().toStdString();
+            int index = 0;
+
+            if (languages.contains(savedLocale)) {
+                index = languages[savedLocale];
+            } else {
+                index = 0;
+            }
+
+            ui->emulatorLanguageComboBox->setCurrentIndex(index);
+        }
 
         ui->playBGMCheckBox->setChecked(
             m_gui_settings->GetValue(gui::gl_playBackgroundMusic).toBool());
@@ -816,9 +827,11 @@ void SettingsDialog::OnLanguageChanged(int index) {
     if (index == -1)
         return;
 
-    ui->retranslateUi(this);
+    QString locale = ui->emulatorLanguageComboBox->itemData(index).toString();
 
-    emit LanguageChanged(ui->emulatorLanguageComboBox->itemData(index).toString());
+    emit LanguageChanged(locale);
+
+    QTimer::singleShot(0, this, [this]() { ui->retranslateUi(this); });
 }
 
 void SettingsDialog::OnCursorStateChanged(s16 index) {
