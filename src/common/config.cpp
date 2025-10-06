@@ -169,7 +169,7 @@ static ConfigEntry<u32> internalScreenWidth(1280);
 static ConfigEntry<u32> internalScreenHeight(720);
 static ConfigEntry<bool> isNullGpu(false);
 static ConfigEntry<bool> shouldCopyGPUBuffers(false);
-static ConfigEntry<ReadbackSpeed> readbackSpeedMode(ReadbackSpeed::Default);
+static ConfigEntry<ReadbackSpeed> readbackSpeedMode(ReadbackSpeed::Disable);
 static ConfigEntry<bool> readbackLinearImagesEnabled(false);
 static ConfigEntry<bool> directMemoryAccessEnabled(false);
 static ConfigEntry<bool> shouldDumpShaders(false);
