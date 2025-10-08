@@ -11,8 +11,8 @@
 #include "common/types.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/buffer_cache/range_set.h"
-#include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/multi_level_page_table.h"
+#include "video_core/renderer_vulkan/vk_scheduler.h"
 
 namespace AmdGpu {
 struct Liverpool;
@@ -130,8 +130,7 @@ public:
 
     /// Obtains a buffer for the specified region.
     std::pair<Buffer*, u32> ObtainBuffer(VAddr gpu_addr, u32 size, bool is_written,
-                                         bool is_texel_buffer = false,
-                                         BufferId buffer_id = {});
+                                         bool is_texel_buffer = false, BufferId buffer_id = {});
 
     /// Attempts to obtain a buffer without modifying the cache contents.
     std::pair<Buffer*, u32> ObtainBufferForImage(VAddr gpu_addr, u32 size);
@@ -184,7 +183,8 @@ private:
 
     void DownloadMemory(VAddr device_addr, u64 size);
 
-    void DownloadMemoryWithTransfer(std::span<vk::BufferCopy> copies, u32 total_size_bytes, u64 wait_tick);
+    void DownloadMemoryWithTransfer(std::span<vk::BufferCopy> copies, u32 total_size_bytes,
+                                    u64 wait_tick);
 
     [[nodiscard]] OverlapResult ResolveOverlaps(VAddr device_addr, u32 wanted_size);
 

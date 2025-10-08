@@ -6,8 +6,8 @@
 #include <mutex>
 
 #include "common/config.h"
-#include "common/div_ceil.h"
 #include "common/debug.h"
+#include "common/div_ceil.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/region_definitions.h"
 #include "video_core/page_manager.h"

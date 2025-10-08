@@ -90,8 +90,8 @@ void Initialize(const ::Vulkan::Instance& instance, const Frontend::WindowSDL& w
         .instance = instance.GetInstance(),
         .physical_device = instance.GetPhysicalDevice(),
         .device = instance.GetDevice(),
-        .queue_family = instance.GetPresentQueueFamilyIndex(),
-        .queue = instance.GetPresentQueue(),
+        .queue_family = instance.GetGraphicsQueueFamilyIndex(),
+        .queue = instance.GetGraphicsAndPresentQueue(),
         .image_count = image_count,
         .min_allocation_size = 1024 * 1024,
         .pipeline_rendering_create_info{

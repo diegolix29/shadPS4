@@ -340,8 +340,7 @@ struct DynamicState {
 
 class Scheduler {
 public:
-    explicit Scheduler(const Instance& instance,
-                       vk::Queue queue = VK_NULL_HANDLE,
+    explicit Scheduler(const Instance& instance, vk::Queue queue = VK_NULL_HANDLE,
                        std::mutex* submit_mutex = nullptr);
     ~Scheduler();
 

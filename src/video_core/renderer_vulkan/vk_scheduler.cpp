@@ -10,8 +10,8 @@
 namespace Vulkan {
 
 Scheduler::Scheduler(const Instance& instance, vk::Queue queue_, std::mutex* submit_mutex_)
-    : instance{instance}, master_semaphore{instance},
-      command_pool{instance, &master_semaphore}, queue{queue_}, submit_mutex{submit_mutex_} {
+    : instance{instance}, master_semaphore{instance}, command_pool{instance, &master_semaphore},
+      queue{queue_}, submit_mutex{submit_mutex_} {
 #if TRACY_GPU_ENABLED
     profiler_scope = reinterpret_cast<tracy::VkCtxScope*>(std::malloc(sizeof(tracy::VkCtxScope)));
 #endif

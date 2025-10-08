@@ -169,17 +169,19 @@ void BufferCache::ReadMemory(VAddr device_addr, u64 size) {
 void BufferCache::DownloadMemory(VAddr device_addr, u64 size) {
     boost::container::small_vector<vk::BufferCopy, 4> copies;
     u64 total_size_bytes = 0;
-    gpu_modified_ranges.ForEachInRange(device_addr, size, [&](VAddr start, VAddr end, u64 write_tick) {
-        const u64 new_size = end - start;
-        copies.push_back(vk::BufferCopy{
-            .srcOffset = start,
-            .dstOffset = total_size_bytes,
-            .size = new_size,
-        });
-        constexpr u64 align = 64ULL;
-        constexpr u64 mask = ~(align - 1ULL);
-        total_size_bytes += (new_size + align - 1) & mask;
-    });
+    u64 wait_tick = 1;
+    gpu_modified_ranges.ForEachInRange(device_addr, size,
+                                       [&](VAddr start, VAddr end, u64 write_tick) {
+                                           const u64 new_size = end - start;
+                                           copies.push_back(vk::BufferCopy{
+                                               .srcOffset = start,
+                                               .dstOffset = total_size_bytes,
+                                               .size = new_size,
+                                           });
+                                           constexpr u64 align = 64ULL;
+                                           constexpr u64 mask = ~(align - 1ULL);
+                                           total_size_bytes += (new_size + align - 1) & mask;
+                                       });
     if (total_size_bytes == 0) {
         return;
     }
@@ -187,7 +189,11 @@ void BufferCache::DownloadMemory(VAddr device_addr, u64 size) {
     DownloadMemoryWithTransfer(copies, total_size_bytes, wait_tick);
 }
 
-void BufferCache::DownloadMemoryWithTransfer(std::span<vk::BufferCopy> copies, u32 total_size_bytes, u64 wait_tick) {
+void BufferCache::DownloadMemoryWithTransfer(std::span<vk::BufferCopy> copies, u32 total_size_bytes,
+                                             u64 wait_tick) {
+
+    const auto [download, offset] = download_buffer.Map(total_size_bytes);
+
     const auto cmdbuf = transfer_scheduler.CommandBuffer();
     for (auto& copy : copies) {
         const auto buffer_id = page_table[copy.srcOffset >> CACHING_PAGEBITS].buffer_id;
@@ -779,7 +785,7 @@ void BufferCache::Unregister(BufferId buffer_id) {
 template <bool insert>
 void BufferCache::ChangeRegister(BufferId buffer_id) {
     Buffer& buffer = slot_buffers[buffer_id];
-    const auto size = buffer.SizeBytes();    
+    const auto size = buffer.SizeBytes();
     const VAddr device_addr = buffer.CpuAddr();
     const u64 page_begin = device_addr / CACHING_PAGESIZE;
     const u64 page_end = Common::DivCeil(device_addr + size, CACHING_PAGESIZE);
@@ -1093,7 +1099,7 @@ void BufferCache::RunGarbageCollector() {
         --max_deletions;
         Buffer& buffer = slot_buffers[buffer_id];
         // InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes());
-        //DownloadBufferMemory<true>(buffer, buffer.CpuAddr(), buffer.SizeBytes(), true);
+        // DownloadBufferMemory<true>(buffer, buffer.CpuAddr(), buffer.SizeBytes(), true);
         DeleteBuffer(buffer_id);
     };
 }
