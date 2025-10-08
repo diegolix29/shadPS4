@@ -677,6 +677,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->connectedNetworkCheckBox->installEventFilter(this);
         ui->isPSNSignedInCheckBox->installEventFilter(this);
         ui->ReadbacksLinearCheckBox->installEventFilter(this);
+        ui->ReadbackSpeedComboBox->installEventFilter(this);
     }
 
     SdlEventWrapper::Wrapper::wrapperActive = true;
@@ -1171,6 +1172,9 @@ bool SettingsDialog::eventFilter(QObject* obj, QEvent* event) {
             }
             return true;
         }
+    }
+    if (obj == ui->ReadbackSpeedComboBox && event->type() == QEvent::Wheel) {
+        return true;
     }
     return QDialog::eventFilter(obj, event);
 }

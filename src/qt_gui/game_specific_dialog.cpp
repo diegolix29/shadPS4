@@ -54,9 +54,18 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
     });
 
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
+    ui->ReadbackSpeedComboBox->installEventFilter(this);
 }
 
 GameSpecificDialog::~GameSpecificDialog() = default;
+
+bool GameSpecificDialog::eventFilter(QObject* obj, QEvent* event) {
+    if (obj == ui->ReadbackSpeedComboBox && event->type() == QEvent::Wheel) {
+        // Ignore the wheel event
+        return true;
+    }
+    return QDialog::eventFilter(obj, event);
+}
 
 void GameSpecificDialog::VolumeSliderChange(int value) {
     ui->volumeText->setText(QString::number(value) + "%");
