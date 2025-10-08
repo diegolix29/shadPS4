@@ -23,6 +23,7 @@ private:
     void LoadValuesFromConfig();
     void UpdateSettings();
     void VolumeSliderChange(int value);
+    bool eventFilter(QObject* obj, QEvent* event);
     void OnCursorStateChanged(s16 index);
     void OnRcasAttenuationChanged(int value);
     void OnRcasAttenuationSpinBoxChanged(double value);
