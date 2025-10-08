@@ -405,6 +405,7 @@ public:
     void DeferOperation(Common::UniqueFunction<void>&& func) {
         pending_ops.emplace(std::move(func), CurrentTick());
     }
+    std::mutex* submit_mutex;
 
 private:
     void AllocateWorkerCommandBuffers();
@@ -417,7 +418,6 @@ private:
     CommandPool command_pool;
     DynamicState dynamic_state;
     vk::Queue queue;
-    std::mutex* submit_mutex;
     vk::CommandBuffer current_cmdbuf;
     std::condition_variable_any event_cv;
     struct PendingOp {

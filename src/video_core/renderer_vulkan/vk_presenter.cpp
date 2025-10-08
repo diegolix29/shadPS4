@@ -606,6 +606,8 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
     scheduler.Flush(info);
 
     // Present to swapchain.
+    std::scoped_lock submit_lock{*scheduler.submit_mutex};
+
     if (!swapchain.Present()) {
         swapchain.Recreate(window.GetWidth(), window.GetHeight());
     }

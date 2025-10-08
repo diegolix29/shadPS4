@@ -361,19 +361,22 @@ bool Instance::CreateDevice() {
     for (std::size_t i = 0; i < family_properties.size(); i++) {
         const u32 index = static_cast<u32>(i);
         const auto flags = family_properties[i].queueFlags;
-        if ((flags & (vk::QueueFlagBits::eTransfer | vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute)) == vk::QueueFlagBits::eTransfer) {
+        if ((flags & (vk::QueueFlagBits::eTransfer | vk::QueueFlagBits::eGraphics |
+                      vk::QueueFlagBits::eCompute)) == vk::QueueFlagBits::eTransfer) {
             transfer_family_found = true;
             transfer_family_index = index;
             break;
         }
     }
 
-    // If no dedicated transfer queue family, check for a compute queue family that supports transfer
+    // If no dedicated transfer queue family, check for a compute queue family that supports
+    // transfer
     if (!transfer_family_found) {
         for (std::size_t i = 0; i < family_properties.size(); i++) {
             const u32 index = static_cast<u32>(i);
             const auto flags = family_properties[i].queueFlags;
-            if ((flags & (vk::QueueFlagBits::eTransfer | vk::QueueFlagBits::eGraphics)) == vk::QueueFlagBits::eTransfer) {
+            if ((flags & (vk::QueueFlagBits::eTransfer | vk::QueueFlagBits::eGraphics)) ==
+                vk::QueueFlagBits::eTransfer) {
                 transfer_family_found = true;
                 transfer_family_index = index;
                 break;

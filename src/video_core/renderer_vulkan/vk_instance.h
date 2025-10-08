@@ -3,9 +3,9 @@
 
 #pragma once
 
+#include <mutex>
 #include <span>
 #include <unordered_map>
-#include <mutex>
 
 #include "video_core/renderer_vulkan/vk_platform.h"
 

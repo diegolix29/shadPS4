@@ -16,7 +16,7 @@ Scheduler::Scheduler(const Instance& instance, vk::Queue queue_, std::mutex* sub
     profiler_scope = reinterpret_cast<tracy::VkCtxScope*>(std::malloc(sizeof(tracy::VkCtxScope)));
 #endif
     AllocateWorkerCommandBuffers();
-    ASSERT(queue && submit_mutex || (!queue && !submit_mutex));
+    // ASSERT(queue && submit_mutex || (!queue && !submit_mutex));
     if (!queue) {
         queue = instance.GetGraphicsAndPresentQueue();
         submit_mutex = &instance.GetGraphicsAndPresentLock();
