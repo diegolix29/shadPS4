@@ -531,67 +531,65 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
 }
 #ifdef ENABLE_QT_GUI
 
-void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = false) {
-    if (!perGame) {
-        Config::save(path);
-        return;
-    }
+void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = false,
+                             const std::string& gameSerial = "") {
+
+    std::string serial = gameSerial;
 
     toml::value overrides = toml::table{};
 
-    if (g_MainWindow && !g_MainWindow->runningGameSerial.empty()) {
-        // General settings
-        overrides["General"]["logFilter"] = Config::getLogFilter();
-        overrides["General"]["enableAutoBackup"] = Config::getEnableAutoBackup();
-        overrides["General"]["isPSNSignedIn"] = Config::getPSNSignedIn();
-        overrides["General"]["muteEnabled"] = Config::isMuteEnabled();
-        overrides["General"]["isConnectedToNetwork"] = Config::getIsConnectedToNetwork();
+    // General settings
+    overrides["General"]["logFilter"] = Config::getLogFilter();
+    overrides["General"]["enableAutoBackup"] = Config::getEnableAutoBackup();
+    overrides["General"]["isPSNSignedIn"] = Config::getPSNSignedIn();
+    overrides["General"]["muteEnabled"] = Config::isMuteEnabled();
+    overrides["General"]["isConnectedToNetwork"] = Config::getIsConnectedToNetwork();
 
-        // GPU / Graphics settings
-        overrides["GPU"]["allowHDR"] = Config::allowHDR();
-        overrides["GPU"]["vblankFrequency"] = Config::vblankFreq();
-        overrides["GPU"]["fsrEnabled"] = Config::getFsrEnabled();
-        overrides["GPU"]["rcasEnabled"] = Config::getRcasEnabled();
-        overrides["GPU"]["rcasAttenuation"] = Config::getRcasAttenuation();
-        overrides["GPU"]["readbackLinearImages"] = Config::getReadbackLinearImages();
-        overrides["GPU"]["shaderSkipsEnabled"] = Config::getShaderSkipsEnabled();
-        overrides["GPU"]["directMemoryAccessEnabled"] = Config::directMemoryAccess();
-        overrides["GPU"]["readbackSpeedMode"] = static_cast<int>(Config::readbackSpeed());
-        overrides["GPU"]["presentMode"] = Config::getPresentMode();
+    // GPU / Graphics settings
+    overrides["GPU"]["allowHDR"] = Config::allowHDR();
+    overrides["GPU"]["vblankFrequency"] = Config::vblankFreq();
+    overrides["GPU"]["fsrEnabled"] = Config::getFsrEnabled();
+    overrides["GPU"]["rcasEnabled"] = Config::getRcasEnabled();
+    overrides["GPU"]["rcasAttenuation"] = Config::getRcasAttenuation();
+    overrides["GPU"]["readbackLinearImages"] = Config::getReadbackLinearImages();
+    overrides["GPU"]["shaderSkipsEnabled"] = Config::getShaderSkipsEnabled();
+    overrides["GPU"]["directMemoryAccessEnabled"] = Config::directMemoryAccess();
+    overrides["GPU"]["readbackSpeedMode"] = static_cast<int>(Config::readbackSpeed());
+    overrides["GPU"]["presentMode"] = Config::getPresentMode();
 
-        // Logging
-        overrides["Logging"]["logType"] = Config::getLogType();
+    // Logging
+    overrides["Logging"]["logType"] = Config::getLogType();
 
-        // Ensure folder exists
-        std::filesystem::create_directories(path.parent_path());
+    // Ensure folder exists
+    std::filesystem::create_directories(path.parent_path());
 
-        std::filesystem::path tmp = path;
-
-        std::ofstream ofs(tmp, std::ios::trunc);
-        if (ofs && (ofs << overrides)) {
-            std::error_code ec;
-            std::filesystem::rename(tmp, path, ec);
-            if (ec)
-                std::filesystem::remove(tmp, ec);
-        }
+    std::ofstream ofs(path, std::ios::trunc);
+    if (ofs && (ofs << overrides)) {
+        ofs.close();
     }
+
+    // Save per-game config
+    Config::save(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (serial + ".toml"));
 }
+
 #endif
 
 void DrawFullscreenSettingsWindow(bool& is_open) {
     if (!is_open)
         return;
+
     auto DrawYesNo = [](const char* label, bool value) {
         ImGui::Text("%s:", label);
         ImGui::SameLine();
         ImGui::TextColored(value ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1), value ? "Yes" : "No");
     };
+
     constexpr ImVec2 settings_pos = {10, 50};
-    ImGui::SetNextWindowPos(settings_pos, ImGuiCond_Always);
+    ImGui::SetNextWindowPos(settings_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowBgAlpha(0.95f);
 
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
-                             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove;
+    ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_None;
 
     if (ImGui::Begin("Settings", &is_open, flags)) {
         ImGui::SeparatorText("Network Status");
@@ -771,8 +769,8 @@ void DrawPauseStatusWindow(bool& is_open) {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    ImGuiWindowFlags windowFlags =
-        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoCollapse;
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoFocusOnAppearing |
+                                   ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 
     // Controller focus logic
     if (Input::ControllerPressedOnce({Btn::Up}) || Input::ControllerPressedOnce({Btn::Down}) ||
@@ -791,8 +789,13 @@ void DrawPauseStatusWindow(bool& is_open) {
     ImGui::SetWindowFontScale(1.0f);
     ImGui::Spacing();
 
-    // === Return to Game ===
-    if (ImGui::Button("Return to Game")) {
+    ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize("PAUSE MENU").x) * 0.5f);
+    ImGui::Text("PAUSE MENU");
+    ImGui::Separator();
+
+    ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+    if (ImGui::Button("Return to Game", ImVec2(200, 0))) {
         SDL_Event e;
         e.type = SDL_EVENT_TOGGLE_PAUSE;
         SDL_PushEvent(&e);
@@ -957,15 +960,14 @@ void DrawPauseStatusWindow(bool& is_open) {
     ImGui::Spacing();
     ImGui::Separator();
 
-    // === Save / Restart / Quit buttons ===
     auto SaveConfig = [&](const std::filesystem::path& path) {
         Config::setLogFilter(std::string(filter_buf));
         Config::save(path);
     };
 
-    // Save popup
     if (ImGui::Button("Save"))
         ImGui::OpenPopup("Save Config As");
+
     if (ImGui::BeginPopupModal("Save Config As", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Where do you want to save the changes?");
         ImGui::Separator();
@@ -977,7 +979,7 @@ void DrawPauseStatusWindow(bool& is_open) {
 
 #ifdef ENABLE_QT_GUI
         if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
-            if (g_MainWindow && !g_MainWindow->runningGameSerial.empty()) {
+            if (g_MainWindow->runningGameSerial.empty()) {
                 SaveConfigWithOverrides(
                     Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
                         (g_MainWindow->runningGameSerial + ".toml"),

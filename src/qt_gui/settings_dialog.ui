@@ -2479,8 +2479,8 @@
           </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_experimental">
-			
-            <item>
+
+			<item>
 				<widget class="QGroupBox" name="gameVolumeGroup">
 					<property name="title">
 						<string>Game Volume</string>
@@ -2506,7 +2506,7 @@
 							<widget class="QLineEdit" name="volumeText">
 								<property name="text">
 									<string>300%</string>
-             </property>
+								</property>
              <property name="alignment">
               <set>Qt::AlignmentFlag::AlignCenter</set>
              </property>

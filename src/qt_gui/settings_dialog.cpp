@@ -89,9 +89,11 @@ int fps_backup;
 static std::vector<QString> m_physical_devices;
 
 SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
-                               QWidget* parent, bool is_running, std::string gsc_serial)
+                               std::shared_ptr<IpcClient> ipc_client, QWidget* parent,
+                               bool is_running, bool is_specific, std::string gsc_serial)
     : QDialog(parent), ui(new Ui::SettingsDialog), compat_info(std::move(m_compat_info)),
-      is_game_running(is_running), gs_serial(std::move(gsc_serial)) {
+      m_ipc_client(std::move(ipc_client)), is_game_running(is_running),
+      gs_serial(std::move(gsc_serial)) {
     ui->setupUi(this);
     ui->tabWidgetSettings->setUsesScrollButtons(false);
 
@@ -359,24 +361,22 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     connect(ui->RCASSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             &SettingsDialog::OnRcasAttenuationSpinBoxChanged);
 
-    if (presenter) {
-        connect(ui->RCASSlider, &QSlider::valueChanged, this, [this](int value) {
-            presenter->GetFsrSettingsRef().rcasAttenuation =
-                static_cast<float>(ui->RCASSpinBox->value());
-        });
+    if (Config::getGameRunning()) {
+        connect(ui->RCASSlider, &QSlider::valueChanged, this,
+                [this](int value) { m_ipc_client->setRcasAttenuation(value); });
 
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
         connect(ui->FSRCheckBox, &QCheckBox::stateChanged, this,
-                [this](int state) { presenter->GetFsrSettingsRef().enable = state; });
+                [this](int state) { m_ipc_client->setFsr(state); });
 
         connect(ui->RCASCheckBox, &QCheckBox::stateChanged, this,
-                [this](int state) { presenter->GetFsrSettingsRef().use_rcas = state; });
+                [this](int state) { m_ipc_client->setRcas(state); });
 #else
         connect(ui->FSRCheckBox, &QCheckBox::checkStateChanged, this,
-                [this](Qt::CheckState state) { presenter->GetFsrSettingsRef().enable = state; });
+                [this](Qt::CheckState state) { m_ipc_client->setFsr(state); });
 
         connect(ui->RCASCheckBox, &QCheckBox::checkStateChanged, this,
-                [this](Qt::CheckState state) { presenter->GetFsrSettingsRef().use_rcas = state; });
+                [this](Qt::CheckState state) { m_ipc_client->setRcas(state); });
 #endif
     }
 
@@ -418,8 +418,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
         connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this, [this](int value) {
             VolumeSliderChange(value);
-            Config::setVolumeSlider(value);
-            Libraries::AudioOut::AdjustVol();
+
+            if (Config::getGameRunning())
+                m_ipc_client->adjustVol(value);
         });
 
         connect(ui->browseButton, &QPushButton::clicked, this, [this]() {
@@ -875,8 +876,8 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "compatibilityEnabled", false));
     ui->enableLoggingCheckBox->setChecked(toml::find_or<bool>(data, "Debug", "logEnabled", true));
 
-    ui->GenAudioComboBox->setCurrentText(QString::fromStdString(
-        toml::find_or<std::string>(data, "Audio", "mainOutputDevice", "")));
+    ui->GenAudioComboBox->setCurrentText(
+        QString::fromStdString(toml::find_or<std::string>(data, "Audio", "mainOutputDevice", "")));
     ui->DsAudioComboBox->setCurrentText(QString::fromStdString(
         toml::find_or<std::string>(data, "Audio", "padSpkOutputDevice", "")));
 
@@ -1364,11 +1365,11 @@ void SettingsDialog::SyncRealTimeWidgetstoConfig() {
 
         Config::setAllGameInstallDirs(settings_install_dirs_config);
     }
-    if (presenter) {
-        presenter->GetFsrSettingsRef().enable = Config::getFsrEnabled();
-        presenter->GetFsrSettingsRef().use_rcas = Config::getRcasEnabled();
-        presenter->GetFsrSettingsRef().rcasAttenuation =
-            static_cast<int>(Config::getRcasAttenuation());
+
+    if (Config::getGameRunning() && m_ipc_client) {
+        m_ipc_client->setFsr(Config::getFsrEnabled());
+        m_ipc_client->setRcas(Config::getRcasEnabled());
+        m_ipc_client->setRcasAttenuation(static_cast<int>(Config::getRcasAttenuation()));
     }
 }
 

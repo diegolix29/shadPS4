@@ -33,6 +33,7 @@ signals:
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
+    std::string GetRunningGameSerial() const;
     bool Init();
     void UserPath();
     void InstallDirectory();
@@ -96,8 +97,6 @@ private:
     QIcon RecolorIcon(const QIcon& icon, const QColor& baseColor, const QColor& hoverColor);
     QMap<QPushButton*, QIcon> m_originalIcons;
     void StartEmulator(std::filesystem::path, QStringList args = {});
-
-    void RunGame();
 
     bool isIconBlack = false;
     bool isTableList = true;

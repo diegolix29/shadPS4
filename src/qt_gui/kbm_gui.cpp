@@ -17,10 +17,11 @@
 #include "ui_kbm_gui.h"
 
 HelpDialog* HelpWindow;
-KBMSettings::KBMSettings(std::shared_ptr<GameInfoClass> game_info_get, bool isGameRunning,
+KBMSettings::KBMSettings(std::shared_ptr<GameInfoClass> game_info_get,
+                         std::shared_ptr<IpcClient> ipc_client, bool isGameRunning,
                          std::string GameRunningSerial, QWidget* parent)
-    : QDialog(parent), m_game_info(game_info_get), GameRunning(isGameRunning),
-      RunningGameSerial(GameRunningSerial), ui(new Ui::KBMSettings) {
+    : QDialog(parent), m_game_info(game_info_get), m_ipc_client(ipc_client),
+      GameRunning(isGameRunning), RunningGameSerial(GameRunningSerial), ui(new Ui::KBMSettings) {
 
     ui->setupUi(this);
     ui->PerGameCheckBox->setChecked(!Config::GetUseUnifiedInputConfig());
@@ -342,8 +343,8 @@ QString(tr("Cannot bind any unique input more than once. Duplicate inputs mapped
     Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
 
     if (GameRunning) {
-        Config::GetUseUnifiedInputConfig() ? Input::ParseInputConfig("default")
-                                           : Input::ParseInputConfig(RunningGameSerial);
+        Config::GetUseUnifiedInputConfig() ? m_ipc_client->reloadInputs("default")
+                                           : m_ipc_client->reloadInputs(RunningGameSerial);
     }
 
     if (close_on_save)

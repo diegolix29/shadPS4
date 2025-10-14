@@ -5,6 +5,7 @@
 #include <QFuture>
 #include <QTimer>
 #include <SDL3/SDL_gamepad.h>
+#include "core/ipc/ipc_client.h"
 
 #ifdef _WIN32
 #define LCTRL_KEY 29
@@ -24,7 +25,8 @@ class Hotkeys : public QDialog {
     Q_OBJECT
 
 public:
-    explicit Hotkeys(bool GameRunning, QWidget* parent = nullptr);
+    explicit Hotkeys(std::shared_ptr<IpcClient> ipc_client, bool GameRunning,
+                     QWidget* parent = nullptr);
     ~Hotkeys();
 
 private Q_SLOTS:
@@ -43,6 +45,8 @@ private:
     void CheckGamePad();
     void SetMapping(QString input);
     void Cleanup();
+
+    std::shared_ptr<IpcClient> m_ipc_client;
 
     bool GameRunning;
     bool EnablePadMapping = false;

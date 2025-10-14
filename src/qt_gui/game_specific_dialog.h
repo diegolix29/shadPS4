@@ -4,6 +4,7 @@
 #pragma once
 #include <memory>
 #include <QDialog>
+#include "core/ipc/ipc_client.h"
 #include "qt_gui/compatibility_info.h"
 
 namespace Ui {
@@ -15,8 +16,9 @@ class GameSpecificDialog : public QDialog {
 
 public:
     explicit GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> compat_info,
-                                QWidget* parent, const std::string& serial, bool is_running,
-                                std::string gsc_serial);
+                                std::shared_ptr<IpcClient> ipc_client, QWidget* parent = nullptr,
+                                const std::string& serial = "", bool is_running = false,
+                                std::string gsc_serial = {});
     ~GameSpecificDialog();
 
 private:
@@ -30,6 +32,8 @@ private:
     void PopulateAudioDevices();
     Ui::GameSpecificDialog* ui;
     std::shared_ptr<CompatibilityInfoClass> m_compat_info;
+    std::shared_ptr<IpcClient> m_ipc_client;
+
     std::string m_serial;
     std::filesystem::path m_config_path;
 

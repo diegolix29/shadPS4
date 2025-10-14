@@ -1,19 +1,23 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "iostream"
-#include "system_error"
-#include "unordered_map"
-
+#include <thread>
 #include "common/config.h"
 #include "common/logging/backend.h"
 #include "common/memory_patcher.h"
 #include "core/debugger.h"
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc_client.h"
+#include "core/libraries/audio/audioout.h"
 #include "emulator.h"
 #include "game_install_dialog.h"
+#include "iostream"
 #include "main_window.h"
+#include "system_error"
+#include "unordered_map"
+#include "video_core/renderer_vulkan/vk_presenter.h"
+
+extern std::unique_ptr<Vulkan::Presenter> presenter;
 
 #ifdef _WIN32
 #include <windows.h>
@@ -245,7 +249,20 @@ int main(int argc, char* argv[]) {
         std::cout << ";#IPC_END\n";
         std::cout.flush();
 
-        std::thread([emulator]() {
+        auto next_str = [&]() -> const std::string& {
+            static std::string line_buffer;
+            do {
+                std::getline(std::cin, line_buffer);
+            } while (!line_buffer.empty() && line_buffer.back() == '\\');
+            return line_buffer;
+        };
+
+        auto next_u64 = [&]() -> u64 {
+            auto& str = next_str();
+            return std::stoull(str, nullptr, 0);
+        };
+
+        std::thread([emulator, ipc_client = m_ipc_client, &next_str, &next_u64]() {
             std::string cmd;
             while (std::getline(std::cin, cmd)) {
                 if (cmd == "PATCH_MEMORY") {
@@ -268,16 +285,44 @@ int main(int argc, char* argv[]) {
                     SDL_Event e;
                     e.type = SDL_EVENT_TOGGLE_PAUSE;
                     SDL_PushEvent(&e);
+                } else if (cmd == "ADJUST_VOLUME") {
+                    int value = static_cast<int>(std::stoull(next_str(), nullptr, 0));
+                    Config::setVolumeSlider(value);
+                    Libraries::AudioOut::AdjustVol();
+                } else if (cmd == "SET_FSR") {
+                    bool use_fsr = std::stoull(next_str(), nullptr, 0) != 0;
+                    if (presenter)
+                        presenter->GetFsrSettingsRef().enable = use_fsr;
+                } else if (cmd == "SET_RCAS") {
+                    bool use_rcas = std::stoull(next_str(), nullptr, 0) != 0;
+                    if (presenter)
+                        presenter->GetFsrSettingsRef().use_rcas = use_rcas;
+                } else if (cmd == "SET_RCAS_ATTENUATION") {
+                    int value = static_cast<int>(std::stoull(next_str(), nullptr, 0));
+                    if (presenter)
+                        presenter->GetFsrSettingsRef().rcasAttenuation =
+                            static_cast<float>(value / 1000.0f);
+                } else if (cmd == "RELOAD_INPUTS") {
+                    std::string config = next_str();
+                    Input::ParseInputConfig(config);
+                } else if (cmd == "SET_ACTIVE_CONTROLLER") {
+                    std::string active_controller = next_str();
+                    GamepadSelect::SetSelectedGamepad(active_controller);
+                    SDL_Event checkGamepad;
+                    SDL_memset(&checkGamepad, 0, sizeof(checkGamepad));
+                    checkGamepad.type = SDL_EVENT_CHANGE_CONTROLLER;
+                    SDL_PushEvent(&checkGamepad);
                 } else if (cmd == "STOP") {
                     if (!Config::getGameRunning())
-                        return;
-
-                    m_ipc_client->stopGame();
+                        continue;
+                    if (ipc_client)
+                        ipc_client->stopGame();
                     Config::setGameRunning(false);
                 } else if (cmd == "RESTART") {
                     if (!Config::getGameRunning())
-                        return;
-                    m_ipc_client->restartGame();
+                        continue;
+                    if (ipc_client)
+                        ipc_client->restartGame();
                 }
             }
         }).detach();

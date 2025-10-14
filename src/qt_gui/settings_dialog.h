@@ -13,6 +13,7 @@
 
 #include "common/config.h"
 #include "common/path_util.h"
+#include "core/ipc/ipc_client.h"
 #include "qt_gui/compatibility_info.h"
 
 namespace Ui {
@@ -23,7 +24,8 @@ class SettingsDialog : public QDialog {
     Q_OBJECT
 public:
     explicit SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_info,
-                            QWidget* parent = nullptr, bool is_game_running = false,
+                            std::shared_ptr<IpcClient> ipc_client, QWidget* parent = nullptr,
+                            bool is_game_running = false, bool is_game_specific = false,
                             std::string gsc_serial = "");
     ~SettingsDialog();
 
@@ -57,6 +59,7 @@ private:
 
     std::map<std::string, int> languages;
     std::shared_ptr<CompatibilityInfoClass> compat_info;
+    std::shared_ptr<IpcClient> m_ipc_client;
 
     QString defaultTextEdit;
 

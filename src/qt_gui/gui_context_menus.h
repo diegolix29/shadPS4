@@ -489,8 +489,8 @@ public:
         }
 
         if (selected == &gameConfigConfigure || selected == &gameConfigCreate) {
-            auto gameSettingsWindow =
-                new GameSpecificDialog(m_compat_info, widget, m_games[itemID].serial, false, "");
+            auto gameSettingsWindow = new GameSpecificDialog(m_compat_info, m_ipc_client, widget,
+                                                             m_games[itemID].serial, false, "");
 
             gameSettingsWindow->exec();
         }

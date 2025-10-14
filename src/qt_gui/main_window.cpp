@@ -37,6 +37,7 @@
 
 #include "game_install_dialog.h"
 #include "hotkeys.h"
+#include "input/controller.h"
 #include "input/input_handler.h"
 #include "kbm_gui.h"
 #include "main_window.h"
@@ -63,6 +64,10 @@ MainWindow::~MainWindow() {
     Config::saveMainWindow(config_dir / "config.toml");
     if (g_MainWindow == this)
         g_MainWindow = nullptr;
+}
+
+std::string MainWindow::GetRunningGameSerial() const {
+    return runningGameSerial;
 }
 
 bool MainWindow::Init() {
@@ -464,13 +469,6 @@ void MainWindow::AddUiWidgets() {
 
     ui->toolBar->addWidget(ui->styleSelector);
 
-    ui->MuteBox = new QCheckBox(tr("Mute"), this);
-    ui->MuteBox->setChecked(Config::isMuteEnabled());
-    ui->toolBar->addWidget(ui->MuteBox);
-    if (!showLabels) {
-        toolbarLayout->addWidget(searchSliderContainer);
-    }
-
     ui->playButton->setVisible(true);
     ui->pauseButton->setVisible(false);
 }
@@ -482,8 +480,6 @@ void MainWindow::UpdateToolbarButtons() {
     if (Config::getGameRunning()) {
         ui->playButton->setVisible(false); // Hide Play
         ui->pauseButton->setVisible(true); // Show Pause
-
-        ui->MuteBox->setChecked(Config::isMuteEnabled());
 
         // Update pause button icon & tooltip
         if (is_paused) {
@@ -689,7 +685,8 @@ void MainWindow::CreateConnects() {
             &MainWindow::StartGame);
 
     connect(ui->configureAct, &QAction::triggered, this, [this]() {
-        auto settingsDialog = new SettingsDialog(m_compat_info, this, Config::getGameRunning());
+        auto settingsDialog =
+            new SettingsDialog(m_compat_info, m_ipc_client, this, Config::getGameRunning());
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
@@ -766,13 +763,9 @@ void MainWindow::CreateConnects() {
         Config::save(config_dir / "config.toml");
     });
 
-    connect(ui->MuteBox, &QCheckBox::toggled, [&](bool checked) {
-        Config::setMuteEnabled(checked);
-        Libraries::AudioOut::AdjustVol();
-    });
-
     connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
-        auto settingsDialog = new SettingsDialog(m_compat_info, this, Config::getGameRunning());
+        auto settingsDialog =
+            new SettingsDialog(m_compat_info, m_ipc_client, this, Config::getGameRunning());
 
         connect(settingsDialog, &SettingsDialog::LanguageChanged, this,
                 &MainWindow::OnLanguageChanged);
@@ -805,14 +798,14 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->controllerButton, &QPushButton::clicked, this, [this]() {
-        ControlSettings* remapWindow =
-            new ControlSettings(m_game_info, Config::getGameRunning(), runningGameSerial, this);
+        ControlSettings* remapWindow = new ControlSettings(
+            m_game_info, m_ipc_client, Config::getGameRunning(), runningGameSerial, this);
         remapWindow->exec();
     });
 
     connect(ui->keyboardButton, &QPushButton::clicked, this, [this]() {
-        auto kbmWindow =
-            new KBMSettings(m_game_info, Config::getGameRunning(), runningGameSerial, this);
+        auto kbmWindow = new KBMSettings(m_game_info, m_ipc_client, Config::getGameRunning(),
+                                         runningGameSerial, this);
         kbmWindow->exec();
     });
 
@@ -846,12 +839,12 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->configureHotkeys, &QAction::triggered, this, [this]() {
-        auto hotkeyDialog = new Hotkeys(Config::getGameRunning(), this);
+        auto hotkeyDialog = new Hotkeys(m_ipc_client, Config::getGameRunning(), this);
         hotkeyDialog->exec();
     });
 
     connect(ui->configureHotkeysButton, &QPushButton::clicked, this, [this]() {
-        auto hotkeyDialog = new Hotkeys(Config::getGameRunning(), this);
+        auto hotkeyDialog = new Hotkeys(m_ipc_client, Config::getGameRunning(), this);
         hotkeyDialog->exec();
     });
 
@@ -1225,9 +1218,18 @@ void MainWindow::ToggleMute() {
     bool newMute = !Config::isMuteEnabled();
     Config::setMuteEnabled(newMute);
 
-    // Update the checkbox visually and trigger the slot
-    ui->MuteBox->setChecked(newMute);
-    emit ui->MuteBox->toggled(newMute);
+    // Apply mute immediately (local or IPC)
+    if (Config::getGameRunning()) {
+        if (m_ipc_client) {
+            m_ipc_client->adjustVol(Config::getVolumeSlider());
+        } else if (auto ipc = IpcClient::GetInstance()) {
+            ipc->adjustVol(Config::getVolumeSlider());
+        } else {
+            Libraries::AudioOut::AdjustVol(); // fallback (if same process)
+        }
+    } else {
+        Libraries::AudioOut::AdjustVol(); // GUI-only case
+    }
 }
 
 void MainWindow::StartGame() {
@@ -1999,6 +2001,7 @@ void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
     QString workDir = exeInfo.absolutePath();
 
     m_ipc_client->startGame(exeInfo, args, workDir);
+    m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
 
     lastGamePath = gamePath;
     lastGameArgs = args;

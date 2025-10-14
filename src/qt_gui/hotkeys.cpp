@@ -16,8 +16,8 @@
 #include "sdl_event_wrapper.h"
 #include "ui_hotkeys.h"
 
-Hotkeys::Hotkeys(bool isGameRunning, QWidget* parent)
-    : QDialog(parent), GameRunning(isGameRunning), ui(new Ui::Hotkeys) {
+Hotkeys::Hotkeys(std::shared_ptr<IpcClient> ipc_client, bool isGameRunning, QWidget* parent)
+    : QDialog(parent), m_ipc_client(ipc_client), GameRunning(isGameRunning), ui(new Ui::Hotkeys) {
 
     ui->setupUi(this);
 
@@ -243,7 +243,7 @@ void Hotkeys::SaveHotkeys(bool CloseOnSave) {
 
     // this also parses global hotkeys
     if (GameRunning)
-        Input::ParseInputConfig("default");
+        m_ipc_client->reloadInputs("default");
 
     if (CloseOnSave)
         QWidget::close();

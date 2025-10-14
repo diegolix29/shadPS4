@@ -21,10 +21,11 @@
 #include <SDL3/SDL.h>
 
 GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> compat_info,
-                                       QWidget* parent, const std::string& serial, bool is_running,
+                                       std::shared_ptr<IpcClient> ipc_client, QWidget* parent,
+                                       const std::string& serial, bool is_running,
                                        std::string gsc_serial)
     : QDialog(parent), ui(new Ui::GameSpecificDialog()), m_compat_info(std::move(compat_info)),
-      m_serial(serial) {
+      m_ipc_client(ipc_client), m_serial(serial) {
     ui->setupUi(this);
     connect(ui->fpsSlider, &QSlider::valueChanged, ui->fpsSpinBox, &QSpinBox::setValue);
     connect(ui->fpsSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), ui->fpsSlider,
@@ -109,7 +110,9 @@ void GameSpecificDialog::LoadValuesFromConfig() {
 
     connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this, [this](int value) {
         VolumeSliderChange(value);
-        Libraries::AudioOut::AdjustVol();
+
+        if (Config::getGameRunning())
+            m_ipc_client->adjustVol(value);
     });
     ui->horizontalVolumeSlider->blockSignals(true);
     ui->horizontalVolumeSlider->setValue(Config::getVolumeSlider());
