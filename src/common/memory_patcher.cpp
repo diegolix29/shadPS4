@@ -241,13 +241,16 @@ void AutoBackupThread(const std::filesystem::path& save_dir) {
 }
 
 void OnGameLoaded() {
+    std::string save_cusa = g_game_serial;
     if (g_game_serial == "CUSA03173") {
-        g_game_serial = "CUSA00207";
+        save_cusa = "CUSA00207";
     }
+
     std::filesystem::path savedir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
-                                    "savedata" / "1" / g_game_serial / "SPRJ0005";
+                                    "savedata" / "1" / save_cusa / "SPRJ0005";
     std::filesystem::path cusa_dir =
-        Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "savedata" / "1" / g_game_serial;
+        Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "savedata" / "1" / save_cusa;
+
     if (Config::getEnableAutoBackup()) {
         // Immediate backup on game load
         BackupCUSAFolder(cusa_dir);
@@ -278,9 +281,7 @@ void OnGameLoaded() {
 
     std::ifstream src(savedir / "userdata0010", std::ios::binary);
     std::ofstream dest(backupFile, std::ios::binary);
-
     dest << src.rdbuf();
-
     src.close();
     dest.close();
 
@@ -292,6 +293,7 @@ void OnGameLoaded() {
         savefile1.seekp(0x204E);
         savefile1.put(0x1);
         savefile1.close();
+
         if (Config::getEnableAutoBackup()) {
             std::thread(AutoBackupThread, savedir).detach();
         }

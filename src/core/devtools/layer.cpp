@@ -534,8 +534,6 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
 void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = false,
                              const std::string& gameSerial = "") {
 
-    std::string serial = gameSerial;
-
     toml::value overrides = toml::table{};
 
     // General settings
@@ -567,9 +565,6 @@ void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = f
     if (ofs && (ofs << overrides)) {
         ofs.close();
     }
-
-    // Save per-game config
-    Config::save(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (serial + ".toml"));
 }
 
 #endif
@@ -982,7 +977,7 @@ void DrawPauseStatusWindow(bool& is_open) {
             if (g_MainWindow->runningGameSerial.empty()) {
                 SaveConfigWithOverrides(
                     Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
-                        (g_MainWindow->runningGameSerial + ".toml"),
+                        (MemoryPatcher::g_game_serial + ".toml"),
                     true);
             }
             ImGui::CloseCurrentPopup();
