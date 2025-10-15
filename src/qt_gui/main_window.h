@@ -40,7 +40,6 @@ public:
     void ApplyLastUsedStyle();
     void StartGame();
     void StartGameWithArgs(QStringList args);
-    void StartGameWithPath(const QString&);
     void PauseGame();
     bool showLabels;
     void StopGame();

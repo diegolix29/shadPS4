@@ -1283,26 +1283,26 @@ void MainWindow::StartGameWithArgs(QStringList args) {
 
             if (hasUpdate && !hasMods) {
                 msgBox.setWindowTitle(tr("Game Update Detected"));
-                msgBox.setText(tr("Game update detected, select to boot base game or update"));
+                msgBox.setText(tr(R"(Game update detected, 
+select to boot Base game or Update)"));
                 baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
                 updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
-                detachedBtn = msgBox.addButton(tr("Start Detached"), QMessageBox::DestructiveRole);
                 msgBox.setDefaultButton(updateBtn);
                 msgBox.setStandardButtons(QMessageBox::Cancel);
             } else if (!hasUpdate && hasMods) {
                 msgBox.setWindowTitle(tr("Mods Detected"));
-                msgBox.setText(tr("Mods detected, do you want to enable them?"));
+                msgBox.setText(tr(R"("Mods detected, 
+do you want to enable them?)"));
                 yesBtn = msgBox.addButton(tr("Yes"), QMessageBox::AcceptRole);
                 noBtn = msgBox.addButton(tr("No"), QMessageBox::RejectRole);
-                detachedBtn = msgBox.addButton(tr("Start Detached"), QMessageBox::DestructiveRole);
                 msgBox.setDefaultButton(yesBtn);
                 msgBox.setStandardButtons(QMessageBox::Cancel);
             } else if (hasUpdate && hasMods) {
                 msgBox.setWindowTitle(tr("Game Update Detected"));
-                msgBox.setText(tr("Game update detected, select to boot base game or update"));
+                msgBox.setText(tr(R"(Game update detected, 
+select to boot Base game or Update)"));
                 baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
                 updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
-                detachedBtn = msgBox.addButton(tr("Start Detached"), QMessageBox::DestructiveRole);
                 msgBox.setDefaultButton(updateBtn);
 
                 QCheckBox* modsCheck = new QCheckBox(tr("Enable MODS"), &msgBox);
@@ -1315,12 +1315,6 @@ void MainWindow::StartGameWithArgs(QStringList args) {
             const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
             QAbstractButton* clicked = msgBox.clickedButton();
-            if (clicked == detachedBtn) {
-                QString gamePath;
-                Common::FS::PathToQString(gamePath, file);
-                StartGameWithPath(gamePath);
-                return;
-            }
             if (hasUpdate && !hasMods) {
                 if (clicked == baseBtn) {
                     Config::setRestartWithBaseGame(true);
@@ -1367,28 +1361,6 @@ void MainWindow::StartGameWithArgs(QStringList args) {
                     return;
                 }
                 Core::FileSys::MntPoints::enable_mods = msgBox.checkBox()->isChecked();
-            }
-        } else {
-            QMessageBox msgBox;
-            msgBox.setWindowTitle(tr("Start Game"));
-            msgBox.setText(tr("Do you want to start the game normally or detached?"));
-
-            QPushButton* normalBtn = msgBox.addButton(tr("Normal Start"), QMessageBox::AcceptRole);
-            QPushButton* detachedBtn =
-                msgBox.addButton(tr("Start Detached"), QMessageBox::DestructiveRole);
-            msgBox.setDefaultButton(normalBtn);
-            msgBox.setStandardButtons(QMessageBox::Cancel);
-
-            msgBox.exec();
-            QAbstractButton* clicked = msgBox.clickedButton();
-
-            if (clicked == detachedBtn) {
-                QString gamePath;
-                Common::FS::PathToQString(gamePath, file);
-                StartGameWithPath(gamePath);
-                return;
-            } else if (clicked != normalBtn) {
-                return;
             }
         }
     }
@@ -1466,6 +1438,7 @@ void MainWindow::StartGameWithArgs(QStringList args) {
     }
 
     Config::setGameRunning(true);
+    m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
 
     if (!m_ipc_client || !Config::getGameRunning()) {
         QMessageBox::critical(this, tr("shadPS4"), tr("Failed to start game process."));
@@ -1480,37 +1453,6 @@ void MainWindow::StartGameWithArgs(QStringList args) {
     };
 
     lastGamePath = QString::fromStdString(launchPath.string());
-    UpdateToolbarButtons();
-}
-
-void MainWindow::StartGameWithPath(const QString& gamePath) {
-
-    if (gamePath.isEmpty()) {
-        QMessageBox::warning(this, tr("Run Game"), tr("No game path provided."));
-        return;
-    }
-
-    AddRecentFiles(gamePath);
-
-    const auto path = Common::FS::PathFromQString(gamePath);
-    if (!std::filesystem::exists(path)) {
-        QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
-        return;
-    }
-
-    emulatorProcess = new QProcess(this);
-    QString exePath = QCoreApplication::applicationFilePath();
-    emulatorProcess->setProcessChannelMode(QProcess::ForwardedChannels);
-
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert("SHADPS4_ENABLE_IPC", "true");
-    emulatorProcess->setProcessEnvironment(env);
-
-    // Pass the full eboot path to the child process
-    emulatorProcess->start(exePath, QStringList() << gamePath);
-
-    lastGamePath = gamePath;
-    Config::setGameRunning(true);
     UpdateToolbarButtons();
 }
 
@@ -1594,24 +1536,49 @@ void MainWindow::BootGame() {
     dialog.setFileMode(QFileDialog::ExistingFile);
     dialog.setNameFilter(tr("ELF files (*.bin *.elf *.oelf *.self)"));
 
-    if (dialog.exec()) {
-        QStringList fileNames = dialog.selectedFiles();
+    if (!dialog.exec())
+        return;
 
-        if (fileNames.size() > 1) {
-            QMessageBox::critical(nullptr, tr("Game Boot"), tr("Only one file can be selected!"));
-            return;
-        }
-
-        QString gamePath = fileNames[0];
-        std::filesystem::path path = Common::FS::PathFromQString(gamePath);
-
-        if (!std::filesystem::exists(path)) {
-            QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
-            return;
-        }
-
-        StartGameWithPath(gamePath);
+    QStringList fileNames = dialog.selectedFiles();
+    if (fileNames.size() != 1) {
+        QMessageBox::critical(nullptr, tr("Game Boot"), tr("Only one file can be selected!"));
+        return;
     }
+
+    QString gamePath = fileNames[0];
+    std::filesystem::path path = Common::FS::PathFromQString(gamePath);
+
+    if (!std::filesystem::exists(path)) {
+        QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
+        return;
+    }
+
+    if (Config::getGameRunning()) {
+        QMessageBox::information(nullptr, tr("Game Boot"), tr("A game is already running."));
+        return;
+    }
+
+    if (!m_ipc_client) {
+        m_ipc_client = std::make_shared<IpcClient>(this);
+
+        m_ipc_client->gameClosedFunc = [this]() {
+            Config::setGameRunning(false);
+            UpdateToolbarButtons();
+        };
+    }
+
+    QFileInfo exeInfo(gamePath);
+    QString workDir = exeInfo.absolutePath();
+
+    // Use empty args if none are provided
+    QStringList args; // <-- declare empty args list
+    m_ipc_client->startGame(exeInfo, args, workDir);
+    m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+
+    lastGamePath = gamePath;
+    lastGameArgs = args;
+    Config::setGameRunning(true);
+    UpdateToolbarButtons();
 }
 
 #ifdef ENABLE_QT_GUI
@@ -1998,8 +1965,8 @@ void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
 
     QFileInfo exeInfo(gamePath);
     QString workDir = exeInfo.absolutePath();
-
-    m_ipc_client->startGame(exeInfo, args, workDir);
+    QString exeDir = QCoreApplication::applicationDirPath();
+    m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), args, exeDir);
     m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
 
     lastGamePath = gamePath;

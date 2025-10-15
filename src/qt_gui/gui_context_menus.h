@@ -75,8 +75,8 @@ public:
         bool isDetachedLaunch = false;
 
         // Boot Game Detached
-        QAction* bootGameDetached = new QAction(tr("Boot Game Detached"), widget);
-        menu.addAction(bootGameDetached);
+        QAction* openCustomConfigFolder = new QAction(tr("Open Custom Configuration Folder"), widget);
+        menu.addAction(openCustomConfigFolder);
         menu.addSeparator();
 
         // "Open Folder..." submenu
@@ -196,54 +196,27 @@ public:
             launch_func({"--config-global"});
         }
 
-        if (selected == bootGameDetached) {
-            QString gameDir;
-            Common::FS::PathToQString(gameDir, m_games[itemID].path);
-            QDir dir(gameDir);
+        if (selected == openCustomConfigFolder) { // you can rename this to openCustomConfig if desired
+            QString configPath;
+            Common::FS::PathToQString(configPath,
+                                      Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs));
 
-            QStringList elfFilters = {"*.elf", "*.oelf", "*.self"};
-            QStringList binFilters = {"*.bin"};
+#if defined(Q_OS_WIN)
+            QProcess::startDetached("explorer", {configPath.replace("/", "\\")});
 
-            QStringList elfFiles = dir.entryList(elfFilters, QDir::Files);
-            QStringList binFiles = dir.entryList(binFilters, QDir::Files);
+#elif defined(Q_OS_MAC)
+            QProcess::startDetached("open", {configPath});
 
-            QString ebootPath;
-
-            if (!elfFiles.isEmpty()) {
-                QStringList allFiles;
-                for (const auto& file : elfFiles)
-                    allFiles << dir.filePath(file);
-                for (const auto& file : binFiles)
-                    allFiles << dir.filePath(file);
-
-                bool ok = false;
-                ebootPath =
-                    QInputDialog::getItem(widget, tr("Select ELF to Boot"),
-                                          tr("Choose ELF/self/bin file:"), allFiles, 0, false, &ok);
-                if (!ok || ebootPath.isEmpty())
-                    return changedFavorite;
-            } else if (!binFiles.isEmpty()) {
-                ebootPath = dir.filePath(binFiles.first());
-            } else {
-                QMessageBox::information(widget, tr("Boot Game Detached"),
-                                         tr("No executable files found in this game directory."));
-                return changedFavorite;
+#elif defined(Q_OS_LINUX)
+            if (!QProcess::startDetached("xdg-open", {configPath})) {
+                // fallback if xdg-open fails
+                QMessageBox::warning(nullptr, tr("Open Folder"),
+                                     tr("Failed to open Custom Configuration folder."));
             }
 
-            if (!QFile::exists(ebootPath)) {
-                QMessageBox::critical(widget, tr("Run Game"), tr("Selected file not found!"));
-                return changedFavorite;
-            }
-
-            QString exePath = QCoreApplication::applicationFilePath();
-
-            qint64 detachedGamePid = -1;
-            bool started = QProcess::startDetached(exePath, QStringList() << ebootPath, QString(),
-                                                   &detachedGamePid);
-            if (!started) {
-                QMessageBox::critical(widget, tr("Run Game"), tr("Failed to start emulator."));
-                return changedFavorite;
-            }
+#else
+            QDesktopServices::openUrl(QUrl::fromLocalFile(configPath));
+#endif
         }
 
         if (selected == openGameFolder) {
