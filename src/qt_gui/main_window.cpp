@@ -1458,9 +1458,8 @@ void MainWindow::StartGameWithArgs(QStringList args) {
     if (ignorePatches) {
         Core::FileSys::MntPoints::ignore_game_patches = true;
     }
-
-    m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), fullArgs,
-                            QString::fromStdString(launchPath.parent_path().string()));
+    QString exeDir = QCoreApplication::applicationDirPath();
+    m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), fullArgs, exeDir);
 
     if (ignorePatches) {
         Core::FileSys::MntPoints::ignore_game_patches = false;
