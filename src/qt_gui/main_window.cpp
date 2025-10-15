@@ -1430,8 +1430,8 @@ select to boot Base game or Update)"));
     if (ignorePatches) {
         Core::FileSys::MntPoints::ignore_game_patches = true;
     }
-    QString exeDir = QCoreApplication::applicationDirPath();
-    m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), fullArgs, exeDir);
+    QString workDir = QDir::currentPath();
+    m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), fullArgs, workDir);
 
     if (ignorePatches) {
         Core::FileSys::MntPoints::ignore_game_patches = false;

@@ -74,10 +74,10 @@ public:
         qint64 detachedGamePid = -1;
         bool isDetachedLaunch = false;
 
-        // Boot Game Detached
-        QAction* openCustomConfigFolder = new QAction(tr("Open Custom Configuration Folder"), widget);
-        menu.addAction(openCustomConfigFolder);
-        menu.addSeparator();
+        // Configuration submenu
+        QMenu* customConfigMenu = new QMenu(tr("Custom Configuration..."), widget);
+        QAction* openCustomConfigFolder =
+            new QAction(tr("Open Custom Configuration Folder"), widget);
 
         // "Open Folder..." submenu
         QMenu* openFolderMenu = new QMenu(tr("Open Folder..."), widget);
@@ -116,14 +116,19 @@ public:
 
         if (std::filesystem::exists(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
                                     (m_games[itemID].serial + ".toml"))) {
-            menu.addAction(&gameConfigConfigure);
+            customConfigMenu->addAction(&gameConfigConfigure);
         } else {
-            menu.addAction(&gameConfigCreate);
+            customConfigMenu->addAction(&gameConfigCreate);
         }
 
         if (std::filesystem::exists(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
-                                    (m_games[itemID].serial + ".toml")))
-            menu.addAction(&gameConfigDelete);
+                                    (m_games[itemID].serial + ".toml"))) {
+            customConfigMenu->addAction(&gameConfigDelete);
+        }
+
+        customConfigMenu->addSeparator();
+        customConfigMenu->addAction(openCustomConfigFolder);
+        menu.addMenu(customConfigMenu);
 
         menu.addAction(toggleFavorite);
         menu.addAction(&createShortcut);
@@ -196,7 +201,7 @@ public:
             launch_func({"--config-global"});
         }
 
-        if (selected == openCustomConfigFolder) { // you can rename this to openCustomConfig if desired
+        if (selected == openCustomConfigFolder) {
             QString configPath;
             Common::FS::PathToQString(configPath,
                                       Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs));
@@ -209,7 +214,6 @@ public:
 
 #elif defined(Q_OS_LINUX)
             if (!QProcess::startDetached("xdg-open", {configPath})) {
-                // fallback if xdg-open fails
                 QMessageBox::warning(nullptr, tr("Open Folder"),
                                      tr("Failed to open Custom Configuration folder."));
             }
