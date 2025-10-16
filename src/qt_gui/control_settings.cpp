@@ -8,7 +8,7 @@
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "control_settings.h"
-#include "input/input_handler.h"
+#include "input/controller.h"
 #include "ui_control_settings.h"
 
 ControlSettings::ControlSettings(std::shared_ptr<GameInfoClass> game_info_get,
@@ -20,12 +20,8 @@ ControlSettings::ControlSettings(std::shared_ptr<GameInfoClass> game_info_get,
 
     ui->setupUi(this);
 
-    if (!GameRunning) {
-        SDL_InitSubSystem(SDL_INIT_GAMEPAD);
-        SDL_InitSubSystem(SDL_INIT_EVENTS);
-    } else {
-        SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
-    }
+    SDL_InitSubSystem(SDL_INIT_GAMEPAD);
+    SDL_InitSubSystem(SDL_INIT_EVENTS);
 
     AddBoxItems();
     SetUIValuestoMappings();
@@ -90,10 +86,14 @@ ControlSettings::ControlSettings(std::shared_ptr<GameInfoClass> game_info_get,
         SetUIValuestoMappings();
     });
 
-    connect(ui->LeftDeadzoneSlider, &QSlider::valueChanged, this,
-            [this](int value) { ui->LeftDeadzoneValue->setText(QString::number(value)); });
-    connect(ui->RightDeadzoneSlider, &QSlider::valueChanged, this,
-            [this](int value) { ui->RightDeadzoneValue->setText(QString::number(value)); });
+    connect(ui->LeftDeadzoneMinSlider, &QSlider::valueChanged, this,
+            [this](int value) { ui->LeftDeadzoneMinValue->setText(QString::number(value)); });
+    connect(ui->LeftDeadzoneMaxSlider, &QSlider::valueChanged, this,
+            [this](int value) { ui->LeftDeadzoneMaxValue->setText(QString::number(value)); });
+    connect(ui->RightDeadzoneMinSlider, &QSlider::valueChanged, this,
+            [this](int value) { ui->RightDeadzoneMinValue->setText(QString::number(value)); });
+    connect(ui->RightDeadzoneMaxSlider, &QSlider::valueChanged, this,
+            [this](int value) { ui->RightDeadzoneMaxValue->setText(QString::number(value)); });
 
     connect(ui->RSlider, &QSlider::valueChanged, this, [this](int value) {
         QString RedValue = QString("%1").arg(value, 3, 10, QChar('0'));
@@ -145,9 +145,7 @@ ControlSettings::ControlSettings(std::shared_ptr<GameInfoClass> game_info_get,
     QObject::connect(RemapWrapper, &SdlEventWrapper::Wrapper::SDLEvent, this,
                      &ControlSettings::processSDLEvents);
 
-    if (!GameRunning) {
-        Polling = QtConcurrent::run(&ControlSettings::pollSDLEvents, this);
-    }
+    Polling = QtConcurrent::run(&ControlSettings::pollSDLEvents, this);
 }
 
 void ControlSettings::SaveControllerConfig(bool CloseOnSave) {
@@ -289,11 +287,15 @@ void ControlSettings::SaveControllerConfig(bool CloseOnSave) {
     lines.push_back("");
     lines.push_back("# Range of deadzones: 1 (almost none) to 127 (max)");
 
-    std::string deadzonevalue = std::to_string(ui->LeftDeadzoneSlider->value());
-    lines.push_back("analog_deadzone = leftjoystick, " + deadzonevalue + ", 127");
+    std::string deadzone_min_value = std::to_string(ui->LeftDeadzoneMinSlider->value());
+    std::string deadzone_max_value = std::to_string(ui->LeftDeadzoneMaxSlider->value());
+    lines.push_back("analog_deadzone = leftjoystick, " + deadzone_min_value + ", " +
+                    deadzone_max_value);
 
-    deadzonevalue = std::to_string(ui->RightDeadzoneSlider->value());
-    lines.push_back("analog_deadzone = rightjoystick, " + deadzonevalue + ", 127");
+    deadzone_min_value = std::to_string(ui->RightDeadzoneMinSlider->value());
+    deadzone_max_value = std::to_string(ui->RightDeadzoneMaxSlider->value());
+    lines.push_back("analog_deadzone = rightjoystick, " + deadzone_min_value + ", " +
+                    deadzone_max_value);
 
     lines.push_back("");
     std::string OverrideLB = ui->LightbarCheckBox->isChecked() ? "true" : "false";
@@ -389,8 +391,10 @@ void ControlSettings::SetDefault() {
     ui->RStickLeftButton->setText("axis_right_x");
     ui->RStickRightButton->setText("axis_right_x");
 
-    ui->LeftDeadzoneSlider->setValue(2);
-    ui->RightDeadzoneSlider->setValue(2);
+    ui->LeftDeadzoneMinSlider->setValue(2);
+    ui->LeftDeadzoneMaxSlider->setValue(127);
+    ui->RightDeadzoneMinSlider->setValue(2);
+    ui->RightDeadzoneMaxSlider->setValue(127);
 
     ui->RSlider->setValue(0);
     ui->GSlider->setValue(0);
@@ -529,24 +533,42 @@ void ControlSettings::SetUIValuestoMappings() {
         if (input_string.contains("leftjoystick")) {
             std::size_t comma_pos = line.find(',');
             if (comma_pos != std::string::npos) {
-                int deadzonevalue = std::stoi(line.substr(comma_pos + 1));
-                ui->LeftDeadzoneSlider->setValue(deadzonevalue);
-                ui->LeftDeadzoneValue->setText(QString::number(deadzonevalue));
+                std::string deadzone_values = line.substr(comma_pos + 1);
+                std::size_t comma_pos2 = deadzone_values.find(',');
+                if (comma_pos2 != std::string::npos) {
+                    int deadzone_min_value = std::stoi(deadzone_values.substr(0, comma_pos2));
+                    int deadzone_max_value = std::stoi(deadzone_values.substr(comma_pos2 + 1));
+                    ui->LeftDeadzoneMinSlider->setValue(deadzone_min_value);
+                    ui->LeftDeadzoneMaxSlider->setValue(deadzone_max_value);
+                    ui->LeftDeadzoneMinValue->setText(QString::number(deadzone_min_value));
+                    ui->LeftDeadzoneMaxValue->setText(QString::number(deadzone_max_value));
+                }
             } else {
-                ui->LeftDeadzoneSlider->setValue(2);
-                ui->LeftDeadzoneValue->setText("2");
+                ui->LeftDeadzoneMinSlider->setValue(2);
+                ui->LeftDeadzoneMaxSlider->setValue(127);
+                ui->LeftDeadzoneMinValue->setText("2");
+                ui->LeftDeadzoneMaxValue->setText("127");
             }
         }
 
         if (input_string.contains("rightjoystick")) {
             std::size_t comma_pos = line.find(',');
             if (comma_pos != std::string::npos) {
-                int deadzonevalue = std::stoi(line.substr(comma_pos + 1));
-                ui->RightDeadzoneSlider->setValue(deadzonevalue);
-                ui->RightDeadzoneValue->setText(QString::number(deadzonevalue));
+                std::string deadzone_values = line.substr(comma_pos + 1);
+                std::size_t comma_pos2 = deadzone_values.find(',');
+                if (comma_pos2 != std::string::npos) {
+                    int deadzone_min_value = std::stoi(deadzone_values.substr(0, comma_pos2));
+                    int deadzone_max_value = std::stoi(deadzone_values.substr(comma_pos2 + 1));
+                    ui->RightDeadzoneMinSlider->setValue(deadzone_min_value);
+                    ui->RightDeadzoneMaxSlider->setValue(deadzone_max_value);
+                    ui->RightDeadzoneMinValue->setText(QString::number(deadzone_min_value));
+                    ui->RightDeadzoneMaxValue->setText(QString::number(deadzone_max_value));
+                }
             } else {
-                ui->RightDeadzoneSlider->setValue(2);
-                ui->RightDeadzoneValue->setText("2");
+                ui->RightDeadzoneMinSlider->setValue(2);
+                ui->RightDeadzoneMaxSlider->setValue(127);
+                ui->RightDeadzoneMinValue->setText("2");
+                ui->RightDeadzoneMaxValue->setText("127");
             }
         }
 
@@ -672,10 +694,11 @@ void ControlSettings::ActiveControllerChanged(int value) {
         gamepad = nullptr;
     }
 
-    gamepad = SDL_OpenGamepad(gamepads[value]);
-
-    if (!gamepad) {
-        LOG_ERROR(Input, "Failed to open gamepad: {}", SDL_GetError());
+    if (gamepads && value != -1) {
+        gamepad = SDL_OpenGamepad(gamepads[value]);
+        if (!gamepad) {
+            LOG_ERROR(Input, "Failed to open gamepad {}: {}", value, SDL_GetError());
+        }
     }
 }
 
@@ -697,21 +720,6 @@ void ControlSettings::CheckGamePad() {
     int activeIndex = GamepadSelect::GetIndexfromGUID(gamepads, gamepad_count,
                                                       GamepadSelect::GetSelectedGamepad());
 
-    if (!GameRunning) {
-        if (activeIndex != -1) {
-            gamepad = SDL_OpenGamepad(gamepads[activeIndex]);
-        } else if (defaultIndex != -1) {
-            gamepad = SDL_OpenGamepad(gamepads[defaultIndex]);
-        } else {
-            LOG_INFO(Input, "Got {} gamepads. Opening the first one.", gamepad_count);
-            gamepad = SDL_OpenGamepad(gamepads[0]);
-        }
-
-        if (!gamepad) {
-            LOG_ERROR(Input, "Failed to open gamepad: {}", SDL_GetError());
-        }
-    }
-
     if (!gamepads || gamepad_count == 0) {
         ui->ActiveGamepadBox->addItem("No gamepads detected");
         ui->ActiveGamepadBox->setCurrentIndex(0);
@@ -721,6 +729,19 @@ void ControlSettings::CheckGamePad() {
             QString name = SDL_GetGamepadNameForID(gamepads[i]);
             ui->ActiveGamepadBox->addItem(QString("%1: %2").arg(QString::number(i + 1), name));
         }
+    }
+
+    if (activeIndex != -1) {
+        gamepad = SDL_OpenGamepad(gamepads[activeIndex]);
+    } else if (defaultIndex != -1) {
+        gamepad = SDL_OpenGamepad(gamepads[defaultIndex]);
+    } else {
+        LOG_INFO(Input, "Got {} gamepads. Opening the first one.", gamepad_count);
+        gamepad = SDL_OpenGamepad(gamepads[0]);
+    }
+
+    if (!gamepad) {
+        LOG_ERROR(Input, "Failed to open gamepad: {}", SDL_GetError());
     }
 
     if (defaultIndex != -1) {
@@ -987,7 +1008,7 @@ void ControlSettings::processSDLEvents(int Type, int Input, int Value) {
         }
     }
 
-    if (Type == SDL_EVENT_GAMEPAD_ADDED || SDL_EVENT_GAMEPAD_REMOVED) {
+    if (Type == SDL_EVENT_GAMEPAD_ADDED || Type == SDL_EVENT_GAMEPAD_REMOVED) {
         ui->ActiveGamepadBox->clear();
         CheckGamePad();
     }
@@ -1016,25 +1037,20 @@ void ControlSettings::Cleanup() {
         gamepad = nullptr;
     }
 
-    SDL_free(gamepads);
+    if (gamepads)
+        SDL_free(gamepads);
 
-    if (!GameRunning) {
-        SDL_Event quitLoop{};
-        quitLoop.type = SDL_EVENT_QUIT;
-        SDL_PushEvent(&quitLoop);
-        Polling.waitForFinished();
+    SDL_Event quitLoop{};
+    quitLoop.type = SDL_EVENT_QUIT;
+    SDL_PushEvent(&quitLoop);
+    Polling.waitForFinished();
 
-        SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
-        SDL_QuitSubSystem(SDL_INIT_EVENTS);
-        SDL_Quit();
+    SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
+    SDL_QuitSubSystem(SDL_INIT_EVENTS);
+    SDL_Quit();
+
+    if (GameRunning) {
         m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
-    } else {
-        if (!Config::getBackgroundControllerInput()) {
-            SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "0");
-        }
-        SDL_Event checkGamepad{};
-        checkGamepad.type = SDL_EVENT_CHANGE_CONTROLLER;
-        SDL_PushEvent(&checkGamepad);
     }
 }
 
