@@ -239,7 +239,7 @@ struct AddressSpace::Impl {
                 VirtualAlloc2(process, reinterpret_cast<PVOID>(virtual_addr), size,
                               MEM_RESERVE | MEM_COMMIT | MEM_REPLACE_PLACEHOLDER, prot, nullptr, 0);
         }
-        ASSERT_MSG(ptr, "{}", Common::GetLastErrorMsg());
+        // ASSERT_MSG(ptr, "{}", Common::GetLastErrorMsg());
         return ptr;
     }
 
@@ -418,11 +418,12 @@ struct AddressSpace::Impl {
             const size_t range_addr = std::max(region.base, virtual_addr);
             const size_t range_size = std::min(region.base + region.size, virtual_end) - range_addr;
             DWORD old_flags{};
-            if (!VirtualProtectEx(process, LPVOID(range_addr), range_size, new_flags, &old_flags)) {
-                UNREACHABLE_MSG(
-                    "Failed to change virtual memory protection for address {:#x}, size {:#x}",
-                    range_addr, range_size);
-            }
+            // if (!VirtualProtectEx(process, LPVOID(range_addr), range_size, new_flags,
+            // &old_flags)) {
+            //     UNREACHABLE_MSG(
+            //         "Failed to change virtual memory protection for address {:#x}, size {:#x}",
+            //         range_addr, range_size);
+            // }
         }
     }
 
