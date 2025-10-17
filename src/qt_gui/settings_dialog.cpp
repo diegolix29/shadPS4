@@ -384,7 +384,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     {
         connect(ui->addFolderButton, &QPushButton::clicked, this, [this]() {
             QString file_path_string =
-                QFileDialog::getExistingDirectory(this, tr("Directory to install games"));
+                QFileDialog::getExistingDirectory(this, tr("Games directories"));
             auto file_path = Common::FS::PathFromQString(file_path_string);
             if (!file_path.empty() && Config::addGameDirectories(file_path, true)) {
                 QListWidgetItem* item = new QListWidgetItem(file_path_string);
@@ -732,7 +732,6 @@ void SettingsDialog::LoadValuesFromConfig() {
     if (std::filesystem::exists(userdir / "config.toml", error)) {
         Config::load(userdir / "config.toml");
     } else {
-        // no config file; nothing to load
         return;
     }
 
@@ -834,7 +833,7 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
 
     std::string fullScreenMode =
-        toml::find_or<std::string>(data, "GPU", "fullscreenMode", "Windowed");
+        toml::find_or<std::string>(data, "GPU", "FullscreenMode", "Windowed");
     QString translatedText_FullscreenMode =
         screenModeMap.key(QString::fromStdString(fullScreenMode));
     ui->displayModeComboBox->setCurrentText(translatedText_FullscreenMode);
@@ -1331,28 +1330,28 @@ void SettingsDialog::SyncRealTimeWidgetstoConfig() {
 
     if (data.contains("GUI")) {
         const toml::value& gui = data.at("GUI");
-        const auto install_dir_array =
-            toml::find_or<std::vector<std::u8string>>(gui, "installDirs", {});
+        const auto directories_array =
+            toml::find_or<std::vector<std::u8string>>(gui, "Directories", {});
 
-        std::vector<bool> install_dirs_enabled;
+        std::vector<bool> directories_enabled;
         try {
-            install_dirs_enabled = Config::getGameDirectoriesEnabled();
+            directories_enabled = Config::getGameDirectoriesEnabled();
         } catch (...) {
             // If it does not exist, assume that all are enabled.
-            install_dirs_enabled.resize(install_dir_array.size(), true);
+            directories_enabled.resize(directories_array.size(), true);
         }
 
-        if (install_dirs_enabled.size() < install_dir_array.size()) {
-            install_dirs_enabled.resize(install_dir_array.size(), true);
+        if (directories_enabled.size() < directories_array.size()) {
+            directories_enabled.resize(directories_array.size(), true);
         }
 
-        std::vector<Config::GameDirectories> settings_install_dirs_config;
+        std::vector<Config::GameDirectories> settings_directories_config;
 
-        for (size_t i = 0; i < install_dir_array.size(); i++) {
-            std::filesystem::path dir = install_dir_array[i];
-            bool enabled = install_dirs_enabled[i];
+        for (size_t i = 0; i < directories_array.size(); i++) {
+            std::filesystem::path dir = directories_array[i];
+            bool enabled = directories_enabled[i];
 
-            settings_install_dirs_config.push_back({dir, enabled});
+            settings_directories_config.push_back({dir, enabled});
 
             QString path_string;
             Common::FS::PathToQString(path_string, dir);
@@ -1363,7 +1362,7 @@ void SettingsDialog::SyncRealTimeWidgetstoConfig() {
             ui->gameFoldersListWidget->addItem(item);
         }
 
-        Config::setAllGameDirectories(settings_install_dirs_config);
+        Config::setAllGameDirectories(settings_directories_config);
     }
 
     if (Config::getGameRunning() && m_ipc_client) {

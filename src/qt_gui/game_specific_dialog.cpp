@@ -300,9 +300,9 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->fpsLimiterCheckBox->setChecked(toml::find<bool>(gpu, "fpsLimiterEnabled"));
         if (gpu.contains("fsrEnabled"))
             ui->FSRCheckBox->setChecked(toml::find<bool>(gpu, "fsrEnabled"));
-        if (gpu.contains("fullscreenMode"))
+        if (gpu.contains("FullscreenMode"))
             ui->displayModeComboBox->setCurrentText(
-                QString::fromStdString(toml::find<std::string>(gpu, "fullscreenMode")));
+                QString::fromStdString(toml::find<std::string>(gpu, "FullscreenMode")));
 
         if (gpu.contains("isFullscreen"))
             Config::setIsFullscreen(toml::find<bool>(gpu, "isFullscreen"));
@@ -522,7 +522,7 @@ void GameSpecificDialog::UpdateSettings() {
             screenModeMap.value(ui->displayModeComboBox->currentText()).toStdString();
 
         if (screen != Config::getFullscreenMode())
-            overrides["GPU"]["fullscreenMode"] = screen;
+            overrides["GPU"]["FullscreenMode"] = screen;
 
         bool shouldFullscreen = (screen != "Windowed");
         if (shouldFullscreen != Config::getIsFullscreen())
