@@ -526,18 +526,25 @@ void MainWindow::UpdateToolbarButtons() {
         ui->playButton->setVisible(false); // Hide Play
         ui->pauseButton->setVisible(true); // Show Pause
 
-        // Update pause button icon & tooltip
         if (is_paused) {
             ui->pauseButton->setIcon(ui->playButton->icon());
             ui->pauseButton->setToolTip(tr("Resume"));
         } else {
-            if (isIconBlack) {
-                ui->pauseButton->setIcon(QIcon(":images/pause_icon.png"));
+            QColor baseColor;
+            QColor hoverColor;
+
+            if (Config::getEnableColorFilter()) {
+                baseColor = m_window_themes.iconBaseColor();
+                hoverColor = m_window_themes.iconHoverColor();
             } else {
-                ui->pauseButton->setIcon(RecolorIcon(QIcon(":images/pause_icon.png"),
-                                                     m_window_themes.iconBaseColor(),
-                                                     m_window_themes.iconHoverColor()));
+                baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
+                                ? Qt::black
+                                : Qt::white;
+                hoverColor = baseColor;
             }
+
+            ui->pauseButton->setIcon(
+                RecolorIcon(QIcon(":images/pause_icon.png"), baseColor, hoverColor));
             ui->pauseButton->setToolTip(tr("Pause"));
         }
 
