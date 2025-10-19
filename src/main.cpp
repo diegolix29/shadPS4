@@ -21,6 +21,32 @@
 #include <windows.h>
 #endif
 
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include <filesystem>
+#include <functional>
+#include <iostream>
+#include <optional>
+#include <string>
+#include <system_error>
+#include <unordered_map>
+#include <vector>
+
+#include <fmt/core.h>
+#include "common/config.h"
+#include "common/logging/backend.h"
+#include "common/memory_patcher.h"
+#include "common/path_util.h"
+#include "core/debugger.h"
+#include "core/file_sys/fs.h"
+#include "core/ipc/ipc.h"
+#include "emulator.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
@@ -36,6 +62,11 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> game_args{};
     std::optional<std::filesystem::path> game_folder;
 
+    // Emulator args
+    bool has_emulator_argument = false;
+    std::string emulator_path;
+    std::vector<std::string> emulator_args{};
+
     bool waitForDebugger = false;
     std::optional<int> waitPid;
 
@@ -50,6 +81,7 @@ int main(int argc, char* argv[]) {
                     " -- ...                         Parameters passed to the game ELF. "
                     "Needs to be at the end of the line, and everything after \"--\" is a "
                     "game argument.\n"
+                    "  -e, --emulator <path>         Specify emulator executable path\n"
                     "  -p, --patch <patch_file>      Apply specified patch file\n"
                     "  -i, --ignore-game-patch       Disable automatic loading of game patch\n"
                     "  -f, --fullscreen <true|false> Specify window initial fullscreen "
@@ -83,6 +115,18 @@ int main(int argc, char* argv[]) {
          }},
         {"--game", [&](int& i) { arg_map["-g"](i); }},
 
+        {"-e",
+         [&](int& i) {
+             if (i + 1 < argc) {
+                 emulator_path = argv[++i];
+                 has_emulator_argument = true;
+             } else {
+                 std::cerr << "Error: Missing argument for -e/--emulator\n";
+                 exit(1);
+             }
+         }},
+        {"--emulator", [&](int& i) { arg_map["-e"](i); }},
+
         {"-p",
          [&](int& i) {
              if (i + 1 < argc) {
@@ -93,8 +137,10 @@ int main(int argc, char* argv[]) {
              }
          }},
         {"--patch", [&](int& i) { arg_map["-p"](i); }},
+
         {"-i", [&](int&) { Core::FileSys::MntPoints::ignore_game_patches = true; }},
         {"--ignore-game-patch", [&](int& i) { arg_map["-i"](i); }},
+
         {"-f",
          [&](int& i) {
              if (++i >= argc) {
@@ -112,97 +158,96 @@ int main(int argc, char* argv[]) {
                      << "Error: Invalid argument for -f/--fullscreen. Use 'true' or 'false'.\n";
                  exit(1);
              }
-             // Set fullscreen mode without saving it to config file
              Config::setIsFullscreen(is_fullscreen);
          }},
         {"--fullscreen", [&](int& i) { arg_map["-f"](i); }},
+
         {"--add-game-folder",
          [&](int& i) {
              if (++i >= argc) {
                  std::cerr << "Error: Missing argument for --add-game-folder\n";
                  exit(1);
              }
-             std::string config_dir(argv[i]);
-             std::filesystem::path config_path = std::filesystem::path(config_dir);
+             std::filesystem::path config_path(argv[i]);
              std::error_code discard;
              if (!std::filesystem::exists(config_path, discard)) {
-                 std::cerr << "Error: File does not exist: " << config_path << "\n";
+                 std::cerr << "Error: Directory does not exist: " << config_path << "\n";
                  exit(1);
              }
-
              Config::addGameDirectories(config_path);
-             Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+             Config::save(user_dir / "config.toml");
              std::cout << "Game folder successfully saved.\n";
              exit(0);
          }},
+
         {"--set-addon-folder",
          [&](int& i) {
              if (++i >= argc) {
-                 std::cerr << "Error: Missing argument for --add-addon-folder\n";
+                 std::cerr << "Error: Missing argument for --set-addon-folder\n";
                  exit(1);
              }
-             std::string config_dir(argv[i]);
-             std::filesystem::path config_path = std::filesystem::path(config_dir);
+             std::filesystem::path config_path(argv[i]);
              std::error_code discard;
              if (!std::filesystem::exists(config_path, discard)) {
-                 std::cerr << "Error: File does not exist: " << config_path << "\n";
+                 std::cerr << "Error: Directory does not exist: " << config_path << "\n";
                  exit(1);
              }
-
              Config::setAddonDirectories(config_path);
-             Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+             Config::save(user_dir / "config.toml");
              std::cout << "Addon folder successfully saved.\n";
              exit(0);
          }},
-        {"--log-append", [&](int& i) { Common::Log::SetAppend(); }},
-        {"--config-clean", [&](int& i) { Config::setConfigMode(Config::ConfigMode::Clean); }},
-        {"--config-global", [&](int& i) { Config::setConfigMode(Config::ConfigMode::Global); }},
+
+        {"--log-append", [&](int&) { Common::Log::SetAppend(); }},
+        {"--config-clean", [&](int&) { Config::setConfigMode(Config::ConfigMode::Clean); }},
+        {"--config-global", [&](int&) { Config::setConfigMode(Config::ConfigMode::Global); }},
+
         {"--override-root",
          [&](int& i) {
              if (++i >= argc) {
                  std::cerr << "Error: Missing argument for --override-root\n";
                  exit(1);
              }
-             std::string folder_str{argv[i]};
-             std::filesystem::path folder{folder_str};
+             std::filesystem::path folder(argv[i]);
              if (!std::filesystem::exists(folder) || !std::filesystem::is_directory(folder)) {
-                 std::cerr << "Error: Folder does not exist: " << folder_str << "\n";
+                 std::cerr << "Error: Folder does not exist: " << folder << "\n";
                  exit(1);
              }
              game_folder = folder;
          }},
-        {"--wait-for-debugger", [&](int& i) { waitForDebugger = true; }},
-        {"--wait-for-pid", [&](int& i) {
+
+        {"--wait-for-debugger", [&](int&) { waitForDebugger = true; }},
+        {"--wait-for-pid",
+         [&](int& i) {
              if (++i >= argc) {
                  std::cerr << "Error: Missing argument for --wait-for-pid\n";
                  exit(1);
              }
              waitPid = std::stoi(argv[i]);
-         }}};
+         }},
+    };
 
     if (argc == 1) {
-        int dummy = 0; // one does not simply pass 0 directly
+        int dummy = 0;
         arg_map.at("-h")(dummy);
         return -1;
     }
 
-    // Parse command-line arguments using the map
+    // Parse command-line arguments
     for (int i = 1; i < argc; ++i) {
         std::string cur_arg = argv[i];
         auto it = arg_map.find(cur_arg);
         if (it != arg_map.end()) {
-            it->second(i); // Call the associated lambda function
+            it->second(i);
         } else if (i == argc - 1 && !has_game_argument) {
-            // Assume the last argument is the game file if not specified via -g/--game
             game_path = argv[i];
             has_game_argument = true;
         } else if (std::string(argv[i]) == "--") {
-            if (i + 1 == argc) {
-                std::cerr << "Warning: -- is set, but no game arguments are added!\n";
-                break;
-            }
-            for (int j = i + 1; j < argc; j++) {
-                game_args.push_back(argv[j]);
+            for (int j = i + 1; j < argc; ++j) {
+                if (has_emulator_argument)
+                    emulator_args.push_back(argv[j]);
+                else
+                    game_args.push_back(argv[j]);
             }
             break;
         } else if (i + 1 < argc && std::string(argv[i + 1]) == "--") {
@@ -212,27 +257,21 @@ int main(int argc, char* argv[]) {
             }
             break;
         } else {
-            std::cerr << "Unknown argument: " << cur_arg << ", see --help for info.\n";
+            std::cerr << "Unknown argument: " << cur_arg << "\n";
         }
     }
 
-    // If no game directory is set and no command line argument, prompt for it
-    if (Config::getGameDirectories().empty()) {
-        std::cerr << "Warning: No game folder set, please set it by calling shadps4"
-                     " with the --add-game-folder <folder_name> argument\n";
+    // If emulator path is provided but no game path, treat emulator as game
+    if (has_emulator_argument && !has_game_argument) {
+        game_path = emulator_path;
+        has_game_argument = true;
+        for (const auto& arg : emulator_args)
+            game_args.push_back(arg);
     }
 
-    if (!has_game_argument) {
-        std::cerr << "Error: Please provide a game path or ID.\n";
-        exit(1);
-    }
-
-    // Check if the game path or ID exists
+    // Validate game path
     std::filesystem::path eboot_path(game_path);
-
-    // Check if the provided path is a valid file
     if (!std::filesystem::exists(eboot_path)) {
-        // If not a file, treat it as a game ID and search in install directories recursively
         bool game_found = false;
         const int max_depth = 5;
         for (const auto& install_dir : Config::getGameDirectories()) {
@@ -243,7 +282,7 @@ int main(int argc, char* argv[]) {
             }
         }
         if (!game_found) {
-            std::cerr << "Error: Game ID or file path not found: " << game_path << std::endl;
+            std::cerr << "Error: Game ID or file path not found: " << game_path << "\n";
             return 1;
         }
     }
@@ -252,7 +291,7 @@ int main(int argc, char* argv[]) {
         Core::Debugger::WaitForPid(waitPid.value());
     }
 
-    // Run the emulator with the resolved eboot path
+    // Run the emulator
     Core::Emulator* emulator = Common::Singleton<Core::Emulator>::Instance();
     emulator->executableName = argv[0];
     emulator->waitForDebuggerBeforeRun = waitForDebugger;

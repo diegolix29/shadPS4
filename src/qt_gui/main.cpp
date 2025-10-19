@@ -28,6 +28,10 @@ std::shared_ptr<IpcClient> m_ipc_client;
 // Custom message handler to ignore Qt logs
 void customMessageHandler(QtMsgType, const QMessageLogContext&, const QString&) {}
 
+void StopProgram() {
+    exit(0);
+}
+
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
@@ -49,6 +53,14 @@ int main(int argc, char* argv[]) {
 
     bool waitForDebugger = false;
     std::optional<int> waitPid;
+
+    Core::Emulator* emulator = Common::Singleton<Core::Emulator>::Instance();
+    emulator->executableName = argv[0];
+    emulator->waitForDebuggerBeforeRun = waitForDebugger;
+
+    bool has_emulator_argument = false;
+    QStringList emulator_args{};
+    std::string emulator_path;
 
     // Map of argument strings to lambda functions
     std::unordered_map<std::string, std::function<void(int&)>> arg_map = {
@@ -98,6 +110,18 @@ int main(int argc, char* argv[]) {
              }
          }},
         {"--game", [&](int& i) { arg_map["-g"](i); }},
+
+        {"-e",
+         [&](int& i) {
+             if (i + 1 < argc) {
+                 emulator_path = argv[++i];
+                 has_emulator_argument = true;
+             } else {
+                 std::cerr << "Error: Missing argument for -e/--emulator\n";
+                 exit(1);
+             }
+         }},
+        {"--emulator", [&](int& i) { arg_map["-e"](i); }},
 
         {"-p",
          [&](int& i) {
@@ -194,7 +218,10 @@ int main(int argc, char* argv[]) {
                 break;
             }
             for (int j = i + 1; j < argc; j++) {
-                game_args.push_back(argv[j]);
+                if (has_emulator_argument)
+                    emulator_args.push_back(argv[j]);
+                else
+                    game_args.push_back(argv[j]);
             }
             break;
         } else if (i + 1 < argc && std::string(argv[i + 1]) == "--") {
@@ -206,6 +233,19 @@ int main(int argc, char* argv[]) {
             std::cerr << "Unknown argument: " << cur_arg << ", see --help for info.\n";
             return 1;
         }
+    }
+    if (has_emulator_argument && !has_game_argument) {
+        // Treat the emulator path as the game path
+        game_path = emulator_path;
+        has_game_argument = true;
+
+        // Forward emulator args to game args
+        for (const auto& arg : emulator_args) {
+            game_args.push_back(arg.toStdString());
+        }
+
+        // So that the second block behaves as if -g was used
+        has_command_line_argument = true;
     }
 
     // If no game directories are set and no command line argument, prompt for it
@@ -231,9 +271,6 @@ int main(int argc, char* argv[]) {
     if (waitPid.has_value()) {
         Core::Debugger::WaitForPid(waitPid.value());
     }
-    Core::Emulator* emulator = Common::Singleton<Core::Emulator>::Instance();
-    emulator->executableName = argv[0];
-    emulator->waitForDebuggerBeforeRun = waitForDebugger;
 
     const bool ipc_enabled = qEnvironmentVariableIsSet("SHADPS4_ENABLE_IPC");
     const bool mods_enabled = qEnvironmentVariableIsSet("SHADPS4_ENABLE_MODS") &&
