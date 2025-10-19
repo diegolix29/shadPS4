@@ -36,6 +36,7 @@ public:
     std::string GetRunningGameSerial() const;
     bool Init();
     void UserPath();
+    void toggleColorFilter();
     void Directories();
     void ApplyLastUsedStyle();
     void StartGame();

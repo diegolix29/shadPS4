@@ -49,6 +49,9 @@ void setLoadGameSizeEnabled(bool enable);
 bool getIsFullscreen();
 bool getShowLabelsUnderIcons();
 void setShowLabelsUnderIcons(bool enable);
+bool getEnableColorFilter();
+void setEnableColorFilter(bool enable);
+
 std::string getFullscreenMode();
 bool isNeoModeConsole();
 bool isDevKitConsole();

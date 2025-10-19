@@ -20,6 +20,7 @@ public:
     QAction* setIconSizeMediumAct;
     QAction* setIconSizeLargeAct;
     QAction* toggleLabelsAct;
+    QAction* toggleColorFilterAct;
     QAction* setlistModeListAct;
     QAction* setlistModeGridAct;
     QAction* setlistElfAct;
@@ -121,6 +122,11 @@ public:
         toggleLabelsAct->setObjectName("toggleLabelsAct");
         toggleLabelsAct->setCheckable(true);
         toggleLabelsAct->setChecked(Config::getShowLabelsUnderIcons());
+
+        toggleColorFilterAct = new QAction(MainWindow);
+        toggleColorFilterAct->setObjectName("toggleColorFilterAct");
+        toggleColorFilterAct->setCheckable(true);
+        toggleColorFilterAct->setChecked(Config::getEnableColorFilter());
 
         setCustomBackgroundAct = new QAction(MainWindow);
         setCustomBackgroundAct->setObjectName("setCustomBackgroundAct");
@@ -364,6 +370,7 @@ public:
         menuView->addAction(menuGame_List_Mode->menuAction());
         menuView->addAction(menuGame_List_Icons->menuAction());
         menuView->addAction(toggleLabelsAct);
+        menuView->addAction(toggleColorFilterAct);
         menuView->addAction(menuThemes->menuAction());
         menuThemes->addAction(setThemeDark);
         menuThemes->addAction(setThemeLight);
@@ -482,6 +489,8 @@ public:
             QCoreApplication::translate("MainWindow", "Set Custom Background...", nullptr));
         clearCustomBackgroundAct->setText(
             QCoreApplication::translate("MainWindow", "Clear Custom Background", nullptr));
+        toggleColorFilterAct->setText(
+            QCoreApplication::translate("MainWindow", "Enable Theme Colors"));
 
     } // retranslateUi
 };

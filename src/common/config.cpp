@@ -247,6 +247,7 @@ static int backgroundImageOpacity = 50;
 static bool showBackgroundImage = true;
 static ConfigEntry<bool> enableAutoBackup(false);
 static bool showLabelsUnderIcons = true;
+static bool enableColorFilter = true;
 static std::string updateChannel;
 static ConfigEntry<int> volumeSlider(100);
 static ConfigEntry<bool> muteEnabled(false);
@@ -439,6 +440,14 @@ bool getShowLabelsUnderIcons() {
 
 void setShowLabelsUnderIcons(bool enable) {
     showLabelsUnderIcons = enable;
+}
+
+bool getEnableColorFilter() {
+    return enableColorFilter;
+}
+
+void setEnableColorFilter(bool enable) {
+    enableColorFilter = enable;
 }
 
 string getFullscreenMode() {
@@ -1372,6 +1381,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
         showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
         showLabelsUnderIcons = toml::find_or<bool>(gui, "showLabelsUnderIcons", true);
+        enableColorFilter = toml::find_or<bool>(gui, "enableColorFilter", true);
 
         const auto directories_array =
             toml::find_or<std::vector<std::u8string>>(gui, "Directories", {});
@@ -1601,6 +1611,7 @@ void save(const std::filesystem::path& path) {
     data["GUI"]["loadGameSizeEnabled"] = load_game_size;
     data["GUI"]["CustomBackgroundImage"] = g_customBackgroundImage;
     data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
+    data["GUI"]["enableColorFilter"] = enableColorFilter;
     data["GUI"]["addonDirectories"] =
         std::string{fmt::UTF(settings_addon_directories.u8string()).data};
     data["GUI"]["backgroundImageOpacity"] = backgroundImageOpacity;
@@ -1665,6 +1676,7 @@ void saveMainWindow(const std::filesystem::path& path) {
     data["GUI"]["elfDirs"] = m_elf_viewer;
     data["GUI"]["recentFiles"] = m_recent_files;
     data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
+    data["GUI"]["enableColorFilter"] = enableColorFilter;
     data["GUI"]["guiStyle"] = guiStyle;
 
     // Sorting of TOML sections
@@ -1777,6 +1789,7 @@ void setDefaultValues() {
     backgroundImageOpacity = 50;
     showBackgroundImage = true;
     showLabelsUnderIcons = true;
+    enableColorFilter = true;
 }
 
 constexpr std::string_view GetDefaultGlobalConfig() {
