@@ -3,7 +3,6 @@
 
 #include <boost/container/small_vector.hpp>
 #include "common/assert.h"
-#include "common/config.h"
 #include "common/debug.h"
 #include "common/div_ceil.h"
 #include "common/range_lock.h"
@@ -42,19 +41,14 @@ constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
-        u8 num_watchers{};
         u8 num_write_watchers{};
+        // At the moment only buffer cache can request read watchers.
+        // And buffers cannot overlap, thus only 1 can exist per page.
         u8 num_read_watchers{};
 
         Core::MemoryPermission WritePerm() const noexcept {
-            if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe ||
-                Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-                return num_watchers == 0 ? Core::MemoryPermission::Write
-                                         : Core::MemoryPermission::Read;
-            } else {
-                return num_write_watchers == 0 ? Core::MemoryPermission::Write
-                                               : Core::MemoryPermission::None;
-            }
+            return num_write_watchers == 0 ? Core::MemoryPermission::Write
+                                           : Core::MemoryPermission::None;
         }
 
         Core::MemoryPermission ReadPerm() const noexcept {
@@ -66,39 +60,25 @@ struct PageManager::Impl {
             return ReadPerm() | WritePerm();
         }
 
-        template <s32 delta, bool is_read = false>
+        template <s32 delta, bool is_read>
         u8 AddDelta() {
-            if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe ||
-                Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
+            if constexpr (is_read) {
                 if constexpr (delta == 1) {
-                    return ++num_watchers;
-                } else if constexpr (delta == -1) {
-                    ASSERT_MSG(num_watchers > 0, "Not enough watchers");
-                    return --num_watchers;
+                    return ++num_read_watchers;
+                } else if (delta == -1) {
+                    ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
+                    return --num_read_watchers;
                 } else {
-                    return num_watchers;
+                    return num_read_watchers;
                 }
             } else {
-                if constexpr (is_read) {
-                    if constexpr (delta == 1) {
-                        ASSERT_MSG(num_read_watchers < 1, "num_read_watchers overflow");
-                        return ++num_read_watchers;
-                    } else if constexpr (delta == -1) {
-                        ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
-                        return --num_read_watchers;
-                    } else {
-                        return num_read_watchers;
-                    }
+                if constexpr (delta == 1) {
+                    return ++num_write_watchers;
+                } else if (delta == -1) {
+                    ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
+                    return --num_write_watchers;
                 } else {
-                    if constexpr (delta == 1) {
-                        ASSERT_MSG(num_write_watchers < 127, "num_write_watchers overflow");
-                        return ++num_write_watchers;
-                    } else if constexpr (delta == -1) {
-                        ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
-                        return --num_write_watchers;
-                    } else {
-                        return num_write_watchers;
-                    }
+                    return num_write_watchers;
                 }
             }
         }
@@ -268,11 +248,9 @@ struct PageManager::Impl {
         // Iterate requested pages
         const u64 aligned_addr = page << PAGE_BITS;
         const u64 aligned_end = page_end << PAGE_BITS;
-        if (!rasterizer->IsMapped(aligned_addr, aligned_end - aligned_addr)) {
-            LOG_WARNING(Render,
-                        "Tracking memory region {:#x} - {:#x} which is not fully GPU mapped.",
-                        aligned_addr, aligned_end);
-        }
+        ASSERT_MSG(rasterizer->IsMapped(aligned_addr, aligned_end - aligned_addr),
+                   "Attempted to track non-GPU memory at address {:#x}, size {:#x}.", aligned_addr,
+                   aligned_end - aligned_addr);
 
         for (; page != page_end; ++page) {
             PageState& state = cached_pages[page];
