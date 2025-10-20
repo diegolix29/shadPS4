@@ -562,6 +562,15 @@ QString GameListFrame::GetPlayTime(const std::string& serial) {
     return playTime;
 }
 
+void GameListFrame::keyPressEvent(QKeyEvent* event) {
+    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && currentRow() >= 0) {
+        emit cellDoubleClicked(currentRow(), currentColumn());
+        event->accept();
+        return;
+    }
+    QTableWidget::keyPressEvent(event);
+}
+
 QTableWidgetItem* GameListFrame::GetCurrentItem() {
     return m_current_item;
 }

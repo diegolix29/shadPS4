@@ -332,6 +332,15 @@ void GameGridFrame::SortByFavorite(QVector<GameInfo>* game_list) {
     });
 }
 
+void GameGridFrame::keyPressEvent(QKeyEvent* event) {
+    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && validCellSelected) {
+        emit cellDoubleClicked(crtRow, crtColumn);
+        event->accept();
+        return;
+    }
+    QTableWidget::keyPressEvent(event);
+}
+
 bool GameGridFrame::CompareWithFavorite(GameInfo a, GameInfo b) {
     QString serialStr_a = QString::fromStdString(a.serial);
     QString serialStr_b = QString::fromStdString(b.serial);

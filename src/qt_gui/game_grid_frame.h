@@ -39,6 +39,7 @@ private:
     int m_last_opacity = -1; // Track last opacity to avoid unnecessary recomputation
     std::filesystem::path m_current_game_path; // Track current game path to detect changes
     std::shared_ptr<IpcClient> m_ipc_client;
+    void keyPressEvent(QKeyEvent* event);
 
 public:
     explicit GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,

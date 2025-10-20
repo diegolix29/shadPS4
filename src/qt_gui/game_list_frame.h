@@ -39,6 +39,7 @@ public Q_SLOTS:
     void onCurrentCellChanged(int currentRow, int currentColumn, int previousRow,
                               int previousColumn);
     void SetThemeColors(const QColor& textColor);
+    void keyPressEvent(QKeyEvent* event);
 
 private:
     void SetTableItem(int row, int column, QString itemStr);
