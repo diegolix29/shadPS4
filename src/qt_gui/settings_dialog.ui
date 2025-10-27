@@ -2768,6 +2768,28 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
 					</layout>
 				</widget>
 			</item>
+			<item>
+				<widget class="QLabel" name="label_23">
+					<property name="font">
+						<font>
+							<pointsize>11</pointsize>
+							<bold>true</bold>
+						</font>
+					</property>
+					<property name="textFormat">
+						<enum>Qt::RichText</enum>
+					</property>
+					<property name="text">
+						<string>
+							&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+							Extra Memory Allocation, you can set it from 1–9999. It adds that amount of memory to the emulator for usage and enables resolutions above 1440p.
+						</string>
+					</property>
+					<property name="wordWrap">
+						<bool>true</bool>
+					</property>
+				</widget>
+			</item>
 
 		</layout>
       </widget>

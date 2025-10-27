@@ -209,6 +209,7 @@ static ConfigEntry<bool> logEnabled(true);
 
 // Shader skips (runtime, not saved)
 std::unordered_map<std::string, std::vector<std::string>> all_skipped_shader_hashes = {
+    {"CUSA16195", {"5f8eaca5", "5469af28"}},
     {"CUSA00018",
      {"f5874f2a8d7f2037", "f5874f2a65f418f9", "25593f798d7f2037", "25593f7965f418f9",
       "2537adba98213a66", "fe36adba8c8b5626"}},
