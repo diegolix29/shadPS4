@@ -14,7 +14,8 @@
 
 IpcClient::IpcClient(QObject* parent) : QObject(parent) {}
 
-void IpcClient::startGame(const QFileInfo& exe, const QStringList& args, const QString& workDir) {
+void IpcClient::startGame(const QFileInfo& exe, const QStringList& args, const QString& workDir,
+                          bool disable_ipc) {
     lastGamePath = exe.absoluteFilePath();
     lastArgs = args;
     lastWorkDir = workDir.isEmpty() ? exe.absolutePath() : workDir;
@@ -32,7 +33,9 @@ void IpcClient::startGame(const QFileInfo& exe, const QStringList& args, const Q
     process->setProcessChannelMode(QProcess::SeparateChannels);
 
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert("SHADPS4_ENABLE_IPC", "true");
+    if (!disable_ipc) {
+        env.insert("SHADPS4_ENABLE_IPC", "true");
+    }
     env.insert("SHADPS4_ENABLE_MODS", Core::FileSys::MntPoints::enable_mods ? "1" : "0");
     env.insert("SHADPS4_BASE_GAME", Core::FileSys::MntPoints::ignore_game_patches ? "1" : "0");
 
@@ -40,6 +43,10 @@ void IpcClient::startGame(const QFileInfo& exe, const QStringList& args, const Q
 
     process->setWorkingDirectory(workDir.isEmpty() ? exe.absolutePath() : workDir);
     process->start(exe.absoluteFilePath(), args, QIODevice::ReadWrite);
+}
+
+void IpcClient::startGame() {
+    writeLine("START");
 }
 
 void IpcClient::pauseGame() {
