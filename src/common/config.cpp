@@ -1692,7 +1692,7 @@ void setDefaultValues() {
     // General
     isNeo = false;
     isDevKit = false;
-    extraDmemInMbytes = 1;
+    extraDmemInMbytes = 0;
     isPSNSignedIn = false;
     isTrophyPopupDisabled = false;
     trophyNotificationDuration = 6.0;

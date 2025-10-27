@@ -72,17 +72,21 @@ public:
                 game.region = GameListUtils::GetRegion(content_id->at(0)).toStdString();
             }
             if (const auto fw_int_opt = psf.GetInteger("SYSTEM_VER"); fw_int_opt.has_value()) {
-                auto fw_int = *fw_int_opt;
+                uint32_t fw_int = *fw_int_opt;
                 if (fw_int == 0) {
                     game.fw = "0.00";
                 } else {
-                    QString fw = QString::number(fw_int, 16);
-                    QString fw_ = fw.length() > 7
-                                      ? QString::number(fw_int, 16).left(3).insert(2, '.')
-                                      : fw.left(3).insert(1, '.');
-                    game.fw = fw_.toStdString();
+                    u8 major_bcd = (fw_int >> 24) & 0xFF;
+                    u8 minor_bcd = (fw_int >> 16) & 0xFF;
+
+                    int major = ((major_bcd >> 4) * 10) + (major_bcd & 0xF);
+                    int minor = ((minor_bcd >> 4) * 10) + (minor_bcd & 0xF);
+
+                    QString fw = QString("%1.%2").arg(major).arg(minor, 2, 10, QChar('0'));
+                    game.fw = fw.toStdString();
                 }
             }
+
             if (auto app_ver = psf.GetString("APP_VER"); app_ver.has_value()) {
                 game.version = *app_ver;
             }

@@ -2755,7 +2755,7 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
 						<item>
 							<widget class="QSpinBox" name="MemorySpinBox">
 								<property name="minimum">
-									<number>1</number>
+									<number>0</number>
 								</property>
 								<property name="maximum">
 									<number>9999</number>
