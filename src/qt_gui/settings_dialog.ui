@@ -138,7 +138,7 @@
                  <item>
                   <widget class="QCheckBox" name="showSplashCheckBox">
                    <property name="text">
-                    <string>Show Splash</string>
+                    <string>Show Splash Screen</string>
                    </property>
                   </widget>
                  </item>
