@@ -245,7 +245,3 @@ endif()
 if (WIN32)
 add_subdirectory(ext-wepoll)
 endif()
-
-#nlohmann json 
-set(JSON_BuildTests OFF CACHE INTERNAL "")
-add_subdirectory(json)

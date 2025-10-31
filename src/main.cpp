@@ -86,14 +86,13 @@ int main(int argc, char* argv[]) {
         {"-p",
          [&](int& i) {
              if (i + 1 < argc) {
-                 MemoryPatcher::patch_file = argv[++i];
+                 MemoryPatcher::patchFile = argv[++i];
              } else {
                  std::cerr << "Error: Missing argument for -p/--patch\n";
                  exit(1);
              }
          }},
         {"--patch", [&](int& i) { arg_map["-p"](i); }},
-
         {"-i", [&](int&) { Core::FileSys::MntPoints::ignore_game_patches = true; }},
         {"--ignore-game-patch", [&](int& i) { arg_map["-i"](i); }},
         {"-f",
