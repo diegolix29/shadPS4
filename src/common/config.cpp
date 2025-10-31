@@ -203,6 +203,7 @@ static ConfigEntry<bool> isFpsColor(true);
 static ConfigEntry<bool> logEnabled(true);
 
 // GUI
+static ConfigEntry<int> usbDeviceBackend(UsbBackendType::Real);
 static bool load_game_size = true;
 static std::vector<GameInstallDir> settings_install_dirs = {};
 std::vector<bool> install_dirs_enabled = {};
@@ -227,6 +228,14 @@ std::filesystem::path getSysModulesPath() {
         return Common::FS::GetUserPath(Common::FS::PathType::SysModuleDir);
     }
     return sys_modules_path;
+}
+
+int getUsbDeviceBackend() {
+    return usbDeviceBackend.get();
+}
+
+void setUsbDeviceBackend(int value) {
+    usbDeviceBackend.set(value);
 }
 
 void setSysModulesPath(const std::filesystem::path& path) {
@@ -894,6 +903,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isMotionControlsEnabled.setFromToml(input, "isMotionControlsEnabled", is_game_specific);
         useUnifiedInputConfig.setFromToml(input, "useUnifiedInputConfig", is_game_specific);
         backgroundControllerInput.setFromToml(input, "backgroundControllerInput", is_game_specific);
+        usbDeviceBackend.setFromToml(input, "usbDeviceBackend", is_game_specific);
     }
 
     if (data.contains("Audio")) {
@@ -1079,6 +1089,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
                                          is_game_specific);
     backgroundControllerInput.setTomlValue(data, "Input", "backgroundControllerInput",
                                            is_game_specific);
+    usbDeviceBackend.setTomlValue(data, "Input", "usbDeviceBackend", is_game_specific);
 
     micDevice.setTomlValue(data, "Audio", "micDevice", is_game_specific);
     mainOutputDevice.setTomlValue(data, "Audio", "mainOutputDevice", is_game_specific);
@@ -1214,6 +1225,7 @@ void setDefaultValues(bool is_game_specific) {
     cursorHideTimeout.set(5, is_game_specific);
     isMotionControlsEnabled.set(true, is_game_specific);
     backgroundControllerInput.set(false, is_game_specific);
+    usbDeviceBackend.set(UsbBackendType::Real, is_game_specific);
 
     // GS - Audio
     micDevice.set("Default Device", is_game_specific);
