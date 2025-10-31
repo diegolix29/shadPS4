@@ -185,6 +185,10 @@ void setFsrEnabled(bool enable);
 bool getRcasEnabled();
 void setRcasEnabled(bool enable);
 
+enum UsbBackendType : int { Real, SkylandersPortal, InfinityBase, DimensionsToypad };
+int getUsbDeviceBackend();
+void setUsbDeviceBackend(int value, bool is_game_specific = false);
+
 // TODO
 bool GetLoadGameSizeEnabled();
 std::filesystem::path GetSaveDataPath();
