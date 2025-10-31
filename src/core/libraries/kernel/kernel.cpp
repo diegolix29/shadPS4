@@ -1,4 +1,5 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <thread>
@@ -23,7 +24,6 @@
 #include "core/libraries/kernel/process.h"
 #include "core/libraries/kernel/threads.h"
 #include "core/libraries/kernel/threads/exception.h"
-#include "core/libraries/kernel/threads/pthread.h"
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/network/sys_net.h"
@@ -36,6 +36,7 @@
 #include <common/singleton.h>
 #include <core/libraries/network/net_error.h>
 #include <core/libraries/network/sockets.h>
+#include <core/linker.h>
 #include "aio.h"
 
 namespace Libraries::Kernel {
@@ -47,6 +48,8 @@ static std::mutex m_asio_req;
 static std::condition_variable_any cv_asio_req;
 static std::atomic<u32> asio_requests;
 static std::jthread service_thread;
+
+Core::EntryParams entry_params{};
 
 void KernelSignalRequest() {
     std::unique_lock lock{m_asio_req};
@@ -254,14 +257,12 @@ const char** PS4_SYSV_ABI getargv() {
     return entry_params.argv;
 }
 
-s32 PS4_SYSV_ABI get_authinfo(int pid, AuthInfoData* p2) {
-    LOG_WARNING(Lib_Kernel, "(STUBBED) called, pid: {}", pid);
-    if ((pid != 0) && (pid != GLOBAL_PID)) {
+s32 PS4_SYSV_ABI get_authinfo(u64 tid, AuthInfoData* p2) {
+    LOG_WARNING(Lib_Kernel, "(STUBBED) called, pid: {:#x}", tid);
+    if (g_curthread->tid != tid) {
         *Kernel::__Error() = POSIX_ESRCH;
         return -1;
     }
-
-    *p2 = {};
     p2->caps[0] = 0x2000000000000000;
     return ORBIS_OK;
 }
@@ -337,6 +338,8 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
 
     LIB_FUNCTION("4oXYe9Xmk0Q", "libkernel", 1, "libkernel", sceKernelGetGPI);
     LIB_FUNCTION("ca7v6Cxulzs", "libkernel", 1, "libkernel", sceKernelSetGPO);
+    LIB_FUNCTION("iKJMWrAumPE", "libkernel", 1, "libkernel", getargc);
+    LIB_FUNCTION("FJmglmTMdr4", "libkernel", 1, "libkernel", getargv);
 }
 
 } // namespace Libraries::Kernel

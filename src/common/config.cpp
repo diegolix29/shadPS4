@@ -157,6 +157,7 @@ static ConfigEntry<bool> backgroundControllerInput(false);
 static ConfigEntry<string> mainOutputDevice("Default Device");
 static ConfigEntry<string> padSpkOutputDevice("Default Device");
 static ConfigEntry<int> extraDmemInMbytes(0);
+static ConfigEntry<int> usbDeviceBackend(UsbBackendType::Real);
 
 // Non-config runtime-only
 static bool overrideControllerColor = false;
@@ -282,6 +283,14 @@ int getExtraDmemInMbytes() {
 
 void setExtraDmemInMbytes(int value) {
     extraDmemInMbytes.base_value = value;
+}
+
+int getUsbDeviceBackend() {
+    return usbDeviceBackend.get();
+}
+
+void setUsbDeviceBackend(int value) {
+    usbDeviceBackend.base_value = value;
 }
 
 bool getFirstBootHandled() {
@@ -1265,6 +1274,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isMotionControlsEnabled.setFromToml(input, "isMotionControlsEnabled", is_game_specific);
         useUnifiedInputConfig.setFromToml(input, "useUnifiedInputConfig", is_game_specific);
         backgroundControllerInput.setFromToml(input, "backgroundControllerInput", is_game_specific);
+        usbDeviceBackend.setFromToml(input, "usbDeviceBackend", is_game_specific);
     }
 
     if (data.contains("Audio")) {
@@ -1535,6 +1545,7 @@ void save(const std::filesystem::path& path) {
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
     data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
     data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
+    data["Input"]["usbDeviceBackend"] = usbDeviceBackend.base_value;
 
     data["Audio"]["micDevice"] = micDevice.base_value;
     data["Audio"]["mainOutputDevice"] = mainOutputDevice.base_value;
