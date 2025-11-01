@@ -184,6 +184,8 @@ bool getFsrEnabled();
 void setFsrEnabled(bool enable);
 bool getRcasEnabled();
 void setRcasEnabled(bool enable);
+bool getLoadAutoPatches();
+void setLoadAutoPatches(bool enable);
 
 enum UsbBackendType : int { Real, SkylandersPortal, InfinityBase, DimensionsToypad };
 int getUsbDeviceBackend();

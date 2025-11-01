@@ -255,6 +255,7 @@ static ConfigEntry<int> volumeSlider(100);
 static ConfigEntry<bool> muteEnabled(false);
 static ConfigEntry<u32> fpsLimit(60);
 static bool isGameRunning = false;
+static bool load_auto_patches = true;
 
 bool getGameRunning() {
     return isGameRunning;
@@ -283,6 +284,13 @@ int getExtraDmemInMbytes() {
 
 void setExtraDmemInMbytes(int value) {
     extraDmemInMbytes.base_value = value;
+}
+
+bool getLoadAutoPatches() {
+    return load_auto_patches;
+}
+void setLoadAutoPatches(bool enable) {
+    load_auto_patches = enable;
 }
 
 int getUsbDeviceBackend() {

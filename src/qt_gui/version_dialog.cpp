@@ -282,13 +282,16 @@ void VersionDialog::InstallSelectedVersion() {
             QString apiUrl;
             QString platform;
 
+            bool fetchSDL = ui->sdlBuildCheckBox->isChecked();
+
 #ifdef Q_OS_WIN
-            platform = "win64-qt";
+            platform = fetchSDL ? "win64-sdl" : "win64-qt";
 #elif defined(Q_OS_LINUX)
-            platform = "linux-qt";
+            platform = fetchSDL ? "linux-sdl" : "linux-qt";
 #elif defined(Q_OS_MAC)
-            platform = "macos-qt";
+            platform = fetchSDL ? "macos-sdl" : "macos-qt";
 #endif
+
             if (versionName == "Pre-release") {
                 apiUrl = "https://api.github.com/repos/shadps4-emu/shadPS4/releases";
             } else {

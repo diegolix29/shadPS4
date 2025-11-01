@@ -190,6 +190,17 @@
 									<item>
 										<layout class="QVBoxLayout" name="verticalLayout_11">
 											<item>
+												<widget class="QCheckBox" name="sdlBuildCheckBox">
+													<property name="text">
+														<string>Fetch SDL builds instead of Qt builds</string>
+													</property>
+													<property name="checked">
+														<bool>false</bool>
+													</property>
+												</widget>
+											</item>
+
+											<item>
 												<widget class="QCheckBox" name="updatePreCheckBox">
 													<property name="text">
 														<string>Check for pre-release updates at startup</string>
