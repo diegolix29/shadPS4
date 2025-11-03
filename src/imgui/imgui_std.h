@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <imgui.h>
+#include "common/types.h"
 
 #include "imgui_internal.h"
 
@@ -12,6 +13,7 @@
 
 #define IMGUI_FONT_TEXT 0
 #define IMGUI_FONT_MONO 1
+#define IMGUI_FONT_TEXT_BIG 2
 
 namespace ImGui {
 

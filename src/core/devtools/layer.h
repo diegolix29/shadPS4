@@ -23,6 +23,7 @@ public:
     void Draw() override;
     bool show_pause_status = false;
     void TextCentered(const std::string& text);
+    static void DrawNullGpuNotice();
 };
 
 } // namespace Core::Devtools
