@@ -5,7 +5,7 @@
 #pragma once
 
 #include <functional>
-
+#include <QColor>
 #include <QFileInfo>
 #include <QProcess>
 
@@ -13,6 +13,10 @@
 
 class IpcClient : public QObject {
     Q_OBJECT
+
+signals:
+    void LogEntrySent(QString entry, QColor textColor);
+
 public:
     explicit IpcClient(QObject* parent = nullptr);
     void startGame(const QFileInfo& exe, const QStringList& args,

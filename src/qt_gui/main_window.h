@@ -76,8 +76,9 @@ private:
     void CreateActions();
     void toggleFullscreen();
     void CreateRecentGameActions();
-    void CreateDockWindows();
+    void CreateDockWindows(bool newDock);
     void LoadGameLists();
+    void PrintLog(QString entry, QColor textColor);
 
 #ifdef ENABLE_UPDATER
     void CheckUpdateMain(bool checkSave);

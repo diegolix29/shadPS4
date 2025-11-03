@@ -1323,7 +1323,7 @@ target_include_directories(shadps4 PRIVATE ${IMGUI_RESOURCES_INCLUDE})
 
 if (ENABLE_QT_GUI)
     set_target_properties(shadps4 PROPERTIES
-#       WIN32_EXECUTABLE ON
+        WIN32_EXECUTABLE ON
         MACOSX_BUNDLE ON
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/dist/MacOSBundleInfo.plist.in"
         MACOSX_BUNDLE_ICON_FILE "shadPS4.icns"
