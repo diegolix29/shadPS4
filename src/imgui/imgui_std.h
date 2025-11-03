@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "common/types.h"
+
 #include <cmath>
 #include <imgui.h>
 #include "common/types.h"
