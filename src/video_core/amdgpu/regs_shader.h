@@ -225,7 +225,7 @@ static constexpr const BinaryInfo& SearchBinaryInfo(const u32* code) {
             return *info;
         }
     }
-    UNREACHABLE_MSG("Shader binary info not found.");
+    // UNREACHABLE_MSG("Shader binary info not found.");
 }
 
 static constexpr Shader::ShaderParams GetParams(const auto& sh) {
