@@ -6,8 +6,8 @@
 #include <shared_mutex>
 #include <boost/container/small_vector.hpp>
 #include <tsl/robin_map.h>
-
 #include "common/enum.h"
+
 #include "common/lru_cache.h"
 #include "common/slot_vector.h"
 #include "common/types.h"
@@ -37,15 +37,6 @@ static constexpr BufferId NULL_BUFFER_ID{0};
 class TextureCache;
 class MemoryTracker;
 class PageManager;
-
-enum class ObtainBufferFlags {
-    None = 0,
-    IsWritten = 1 << 0,
-    IsTexelBuffer = 1 << 1,
-    IgnoreStreamBuffer = 1 << 2,
-    InvalidateTextureCache = 1 << 3,
-};
-DECLARE_ENUM_FLAG_OPERATORS(ObtainBufferFlags)
 
 class BufferCache {
 public:
@@ -113,11 +104,10 @@ public:
         return slot_buffers[id];
     }
 
-        /// Retrieves GPU modified ranges since last CPU fence that haven't been read protected yet.
+    /// Retrieves GPU modified ranges since last CPU fence that haven't been read protected yet.
     [[nodiscard]] RangeSet& GetPendingGpuModifiedRanges() {
         return gpu_modified_ranges_pending;
     }
-
 
     /// Retrieves a utility buffer optimized for specified memory usage.
     StreamBuffer& GetUtilityBuffer(MemoryUsage usage) noexcept {
@@ -138,7 +128,7 @@ public:
     /// Flushes any GPU modified buffer in the logical page range back to CPU memory.
     void ReadMemory(VAddr device_addr, u64 size, bool is_write = false);
 
-    /// Flushes GPU modified ranges of the uncovered part of the edge pages of an image.
+        /// Flushes GPU modified ranges of the uncovered part of the edge pages of an image.
     void ReadEdgeImagePages(const Image& image);
 
     /// Binds host vertex buffers for the current draw.
@@ -154,9 +144,8 @@ public:
     void CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds);
 
     /// Obtains a buffer for the specified region.
-    [[nodiscard]] std::pair<Buffer*, u32> ObtainBuffer(
-        VAddr gpu_addr, u32 size, ObtainBufferFlags flags = ObtainBufferFlags::None,
-        BufferId buffer_id = {});
+    std::pair<Buffer*, u32> ObtainBuffer(VAddr gpu_addr, u32 size, bool is_written,
+                                         bool is_texel_buffer = false, BufferId buffer_id = {});
 
     /// Attempts to obtain a buffer without modifying the cache contents.
     [[nodiscard]] std::pair<Buffer*, u32> ObtainBufferForImage(VAddr gpu_addr, u32 size);
@@ -179,23 +168,17 @@ public:
     /// Processes the fault buffer.
     void ProcessFaultBuffer();
 
-    
     /// Processes ready preemptive downloads not consumed by the guest.
     void ProcessPreemptiveDownloads();
 
     /// Synchronizes all buffers in the specified range.
     void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
-
-    /// Synchronizes all buffers neede for DMA.
-    void SynchronizeDmaBuffers();
-
     /// Record memory barrier. Used for buffers when accessed via BDA.
     void MemoryBarrier();
 
     /// Runs the garbage collector.
     void RunGarbageCollector();
 
-    
     /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
     void CommitPendingGpuRanges();
 
@@ -213,9 +196,9 @@ private:
         return !buffer_id || slot_buffers[buffer_id].is_deleted;
     }
 
-
     template <bool async>
     void DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size, bool is_write);
+
     [[nodiscard]] OverlapResult ResolveOverlaps(VAddr device_addr, u32 wanted_size);
 
     void JoinOverlap(BufferId new_buffer_id, BufferId overlap_id, bool accumulate_stream_score);

@@ -95,10 +95,9 @@ static bool ExecuteCopyShaderHLE(const Shader::Info& info, const AmdGpu::Compute
 
         // Obtain buffers for the total source and destination ranges.
         const auto [src_buf, src_buf_offset] = buffer_cache.ObtainBuffer(
-            src_buf_sharp.base_address + src_offset_min, src_offset_max - src_offset_min);
+            src_buf_sharp.base_address + src_offset_min, src_offset_max - src_offset_min, false);
         const auto [dst_buf, dst_buf_offset] = buffer_cache.ObtainBuffer(
-            dst_buf_sharp.base_address + dst_offset_min, dst_offset_max - dst_offset_min,
-            VideoCore::ObtainBufferFlags::IgnoreStreamBuffer);
+            dst_buf_sharp.base_address + dst_offset_min, dst_offset_max - dst_offset_min, true);
 
         // Apply found buffer base.
         const auto vk_copies = std::span{copies}.subspan(batch_start, batch_end - batch_start);
@@ -125,7 +124,6 @@ static bool ExecuteCopyShaderHLE(const Shader::Info& info, const AmdGpu::Compute
         const u32 size = (end + 1) * buf_stride;
         buffer_cache.MarkRegionAsGpuModified(dst_addr, size);
     }
-
     return true;
 }
 
