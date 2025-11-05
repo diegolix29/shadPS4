@@ -23,9 +23,9 @@ static constexpr u64 NumFramesBeforeRemoval = 32;
 
 TextureCache::TextureCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
                            AmdGpu::Liverpool* liverpool_, BufferCache& buffer_cache_,
-                           PageManager& tracker_)
+                           PageManager& page_manager_)
     : instance{instance_}, scheduler{scheduler_}, liverpool{liverpool_},
-      buffer_cache{buffer_cache_}, tracker{tracker_}, blit_helper{instance, scheduler},
+      buffer_cache{buffer_cache_}, page_manager{page_manager_}, blit_helper{instance, scheduler},
       tile_manager{instance, scheduler, buffer_cache.GetUtilityBuffer(MemoryUsage::Stream)} {
     // Create basic null image at fixed image ID.
     const auto null_id = GetNullImage(vk::Format::eR8G8B8A8Unorm);
@@ -99,36 +99,49 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
         return;
     }
     auto& download_buffer = buffer_cache.GetUtilityBuffer(MemoryUsage::Download);
-    const u32 download_size = image.info.pitch * image.info.size.height *
-                              image.info.resources.layers * (image.info.num_bits / 8);
-    ASSERT(download_size <= image.info.guest_size);
-    const auto [download, offset] = download_buffer.Map(download_size);
-    download_buffer.Commit();
-    const vk::BufferImageCopy image_download = {
-        .bufferOffset = offset,
-        .bufferRowLength = image.info.pitch,
-        .bufferImageHeight = image.info.size.height,
-        .imageSubresource =
-            {
-                .aspectMask = image.info.props.is_depth ? vk::ImageAspectFlagBits::eDepth
-                                                        : vk::ImageAspectFlagBits::eColor,
-                .mipLevel = 0,
+    const auto image_addr = image.info.guest_address;
+    const auto image_size = image.info.guest_size;
+    const auto image_mips = image.info.resources.levels;
+    u32 copy_size = 0;
+    boost::container::small_vector<vk::BufferImageCopy, 8> buffer_copies;
+    for (u32 mip = 0; mip < image_mips; ++mip) {
+        const u32 width = std::max(image.info.size.width >> mip, 1u);
+        const u32 height = std::max(image.info.size.height >> mip, 1u);
+        const u32 depth =
+            image.info.props.is_volume ? std::max(image.info.size.depth >> mip, 1u) : 1u;
+
+        const auto [mip_size, mip_pitch, mip_height, mip_offset] = image.info.mips_layout[mip];
+        const u32 extent_width = mip_pitch ? std::min(mip_pitch, width) : width;
+        const u32 extent_height = mip_height ? std::min(mip_height, height) : height;
+        buffer_copies.push_back(vk::BufferImageCopy{
+            .bufferOffset = mip_offset,
+            .bufferRowLength = mip_pitch,
+            .bufferImageHeight = mip_height,
+            .imageSubresource{
+                .aspectMask = image.aspect_mask & ~vk::ImageAspectFlagBits::eStencil,
+                .mipLevel = mip,
                 .baseArrayLayer = 0,
                 .layerCount = image.info.resources.layers,
             },
-        .imageOffset = {0, 0, 0},
-        .imageExtent = {image.info.size.width, image.info.size.height, 1},
-    };
+            .imageOffset = {0, 0, 0},
+            .imageExtent = {extent_width, extent_height, depth},
+        });
+        copy_size += mip_size;
+    }
+    if (buffer_copies.empty()) {
+        return;
+    }
+    StreamBufferMapping mapping(download_buffer, image_size);
+    download_buffer.Commit();
     scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
     image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {});
-    cmdbuf.copyImageToBuffer(image.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
-                             download_buffer.Handle(), image_download);
-
+    tile_manager.TileImage(image, buffer_copies, mapping.Buffer()->Handle(), mapping.Offset(),
+                           copy_size);
     {
         std::unique_lock lock(downloaded_images_mutex);
-        downloaded_images_queue.emplace(scheduler.CurrentTick(), image.info.guest_address, download,
-                                        download_size);
+        downloaded_images_queue.emplace(scheduler.CurrentTick(), image_addr, mapping.Data(),
+                                        image_size);
         downloaded_images_cv.notify_one();
     }
 }
@@ -151,6 +164,7 @@ void TextureCache::DownloadedImagesThread(const std::stop_token& token) {
         scheduler.GetMasterSemaphore()->Wait(image.tick);
         memory->TryWriteBacking(std::bit_cast<u8*>(image.device_addr), image.download,
                                 image.download_size);
+        buffer_cache.InvalidateMemory(image.device_addr, image.download_size, true);
     }
 }
 
@@ -205,6 +219,13 @@ void TextureCache::InvalidateMemoryFromGPU(VAddr address, size_t max_size) {
         }
         // Ensure image is reuploaded when accessed again.
         image.flags |= ImageFlagBits::GpuDirty;
+    });
+}
+
+void TextureCache::MarkAsMaybeReused(VAddr addr, size_t size) {
+    std::scoped_lock lock{mutex};
+    ForEachImageInRegion(addr, size, [&](ImageId image_id, Image& image) {
+        image.flags |= ImageFlagBits::MaybeReused;
     });
 }
 
@@ -783,7 +804,7 @@ void TextureCache::TrackImage(ImageId image_id) {
         // Re-track the whole image
         image.track_addr = image_begin;
         image.track_addr_end = image_end;
-        tracker.UpdatePageWatchers<1>(image_begin, image.info.guest_size);
+        page_manager.UpdatePageWatchers<1>(image_begin, image.info.guest_size);
     } else {
         if (image_begin < image.track_addr) {
             TrackImageHead(image_id);
@@ -806,7 +827,7 @@ void TextureCache::TrackImageHead(ImageId image_id) {
     ASSERT(image.track_addr != 0 && image_begin < image.track_addr);
     const auto size = image.track_addr - image_begin;
     image.track_addr = image_begin;
-    tracker.UpdatePageWatchers<1>(image_begin, size);
+    page_manager.UpdatePageWatchers<1>(image_begin, size);
 }
 
 void TextureCache::TrackImageTail(ImageId image_id) {
@@ -822,7 +843,7 @@ void TextureCache::TrackImageTail(ImageId image_id) {
     const auto addr = image.track_addr_end;
     const auto size = image_end - image.track_addr_end;
     image.track_addr_end = image_end;
-    tracker.UpdatePageWatchers<1>(addr, size);
+    page_manager.UpdatePageWatchers<1>(addr, size);
 }
 
 void TextureCache::UntrackImage(ImageId image_id) {
@@ -835,7 +856,7 @@ void TextureCache::UntrackImage(ImageId image_id) {
     image.track_addr = 0;
     image.track_addr_end = 0;
     if (size != 0) {
-        tracker.UpdatePageWatchers<false>(addr, size);
+        page_manager.UpdatePageWatchers<false>(addr, size);
     }
 }
 
@@ -845,7 +866,7 @@ void TextureCache::UntrackImageHead(ImageId image_id) {
     if (!image.IsTracked() || image_begin < image.track_addr) {
         return;
     }
-    const auto addr = tracker.GetNextPageAddr(image_begin);
+    const auto addr = page_manager.GetNextPageAddr(image_begin);
     const auto size = addr - image_begin;
     image.track_addr = addr;
     if (image.track_addr == image.track_addr_end) {
@@ -854,7 +875,7 @@ void TextureCache::UntrackImageHead(ImageId image_id) {
         // Cehck its hash later.
         MarkAsMaybeDirty(image_id, image);
     }
-    tracker.UpdatePageWatchers<false>(image_begin, size);
+    page_manager.UpdatePageWatchers<false>(image_begin, size);
 }
 
 void TextureCache::UntrackImageTail(ImageId image_id) {
@@ -864,7 +885,7 @@ void TextureCache::UntrackImageTail(ImageId image_id) {
         return;
     }
     ASSERT(image.track_addr_end != 0);
-    const auto addr = tracker.GetPageAddr(image_end);
+    const auto addr = page_manager.GetPageAddr(image_end);
     const auto size = image_end - addr;
     image.track_addr_end = addr;
     if (image.track_addr == image.track_addr_end) {
@@ -873,7 +894,7 @@ void TextureCache::UntrackImageTail(ImageId image_id) {
         // Cehck its hash later.
         MarkAsMaybeDirty(image_id, image);
     }
-    tracker.UpdatePageWatchers<false>(addr, size);
+    page_manager.UpdatePageWatchers<false>(addr, size);
 }
 
 void TextureCache::RunGarbageCollector() {
@@ -943,10 +964,12 @@ void TextureCache::RunGarbageCollector() {
     }
 }
 
-void TextureCache::TouchImage(const Image& image) {
+void TextureCache::TouchImage(Image& image) {
     lru_cache.Touch(image.lru_id, gc_tick);
-}
 
+    // Image is still valid
+    image.flags &= ~ImageFlagBits::MaybeReused;
+}
 void TextureCache::DeleteImage(ImageId image_id) {
     Image& image = slot_images[image_id];
     ASSERT_MSG(!image.IsTracked(), "Image was not untracked");

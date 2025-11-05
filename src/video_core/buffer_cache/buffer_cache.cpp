@@ -156,19 +156,17 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
 
 BufferCache::~BufferCache() = default;
 
-void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
+void BufferCache::InvalidateMemory(VAddr device_addr, u64 size, bool download) {
     if (!IsRegionRegistered(device_addr, size)) {
         return;
     }
-    memory_tracker->InvalidateRegion(
-        device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
-}
-
-void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
-    liverpool->SendCommand<true>([this, device_addr, size, is_write] {
-        Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
-        DownloadBufferMemory<false>(buffer, device_addr, size, is_write);
-    });
+    if (download) {
+        memory_tracker->InvalidateRegion(
+            device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
+    } else {
+        memory_tracker->InvalidateRegion(device_addr, size);
+        gpu_modified_ranges.Subtract(device_addr, size);
+    }
 }
 
 template <bool async>
@@ -235,6 +233,13 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
             write_data();
         }
     }
+}
+
+void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
+    liverpool->SendCommand<true>([this, device_addr, size, is_write] {
+        Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
+        DownloadBufferMemory<false>(buffer, device_addr, size, is_write);
+    });
 }
 
 void BufferCache::BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline) {
@@ -504,7 +509,7 @@ std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 si
     }
     // If some buffer within was GPU modified create a full buffer to avoid losing GPU data.
     if (IsRegionGpuModified(gpu_addr, size)) {
-        return ObtainBuffer(gpu_addr, size, false, false);
+        return ObtainBuffer(gpu_addr, size, false);
     }
     // In all other cases, just do a CPU copy to the staging buffer.
     const auto [data, offset] = staging_buffer.Map(size, 16);
@@ -530,6 +535,12 @@ bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
     gpu_modified_ranges_pending.ForEachInRange(page_addr, PageManager::PAGE_SIZE,
                                                [&](VAddr, VAddr) { modified = true; });
     return modified;
+}
+
+void BufferCache::MarkRegionAsGpuModified(VAddr addr, size_t size) {
+    gpu_modified_ranges.Add(addr, size);
+    memory_tracker->MarkRegionAsGpuModified(addr, size);
+    texture_cache.MarkAsMaybeReused(addr, size);
 }
 
 BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {
@@ -889,6 +900,7 @@ bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32
     size_t total_size_bytes = 0;
     VAddr buffer_start = buffer.CpuAddr();
     vk::Buffer src_buffer = VK_NULL_HANDLE;
+    TouchBuffer(buffer);
     memory_tracker->ForEachUploadRange(
         device_addr, size, is_written,
         [&](u64 device_addr_out, u64 range_size) {
@@ -934,7 +946,6 @@ bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32
             .bufferMemoryBarrierCount = 1,
             .pBufferMemoryBarriers = &post_barrier,
         });
-        TouchBuffer(buffer);
     }
     if (is_texel_buffer) {
         return SynchronizeBufferFromImage(buffer, device_addr, size);
@@ -1194,7 +1205,7 @@ void BufferCache::RunGarbageCollector() {
         }
         --max_deletions;
         Buffer& buffer = slot_buffers[buffer_id];
-        // InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes());
+        InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes(), true);
         DownloadBufferMemory<true>(buffer, buffer.CpuAddr(), buffer.SizeBytes(), true);
         DeleteBuffer(buffer_id);
     };

@@ -117,6 +117,13 @@ static bool ExecuteCopyShaderHLE(const Shader::Info& info, const AmdGpu::Compute
         vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eAllCommands,
         vk::DependencyFlagBits::eByRegion, WRITE_BARRIER, {}, {});
 
+    // Mark destination regions as GPU modified.
+    for (u32 i = 0; i < cs_program.dim_x; i++) {
+        const auto& [dst_idx, src_idx, end] = ctl_buf[i];
+        const VAddr dst_addr = dst_buf_sharp.base_address + (dst_idx * buf_stride);
+        const u32 size = (end + 1) * buf_stride;
+        buffer_cache.MarkRegionAsGpuModified(dst_addr, size);
+    }
     return true;
 }
 

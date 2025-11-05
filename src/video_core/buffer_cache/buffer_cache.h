@@ -6,6 +6,7 @@
 #include <shared_mutex>
 #include <boost/container/small_vector.hpp>
 #include <tsl/robin_map.h>
+#include "common/enum.h"
 
 #include "common/lru_cache.h"
 #include "common/slot_vector.h"
@@ -13,6 +14,7 @@
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/buffer_cache/range_set.h"
 #include "video_core/multi_level_page_table.h"
+#include "video_core/texture_cache/image.h"
 
 namespace AmdGpu {
 struct Liverpool;
@@ -117,7 +119,7 @@ public:
     }
 
     /// Invalidates any buffer in the logical page range.
-    void InvalidateMemory(VAddr device_addr, u64 size);
+    void InvalidateMemory(VAddr device_addr, u64 size, bool download);
 
     /// Flushes any GPU modified buffer in the logical page range back to CPU memory.
     void ReadMemory(VAddr device_addr, u64 size, bool is_write = false);
@@ -149,6 +151,8 @@ public:
 
     /// Return true when a CPU region is modified from the GPU
     bool IsRegionGpuModified(VAddr addr, size_t size);
+
+    void MarkRegionAsGpuModified(VAddr addr, size_t size);
 
     /// Return buffer id for the specified region
     BufferId FindBuffer(VAddr device_addr, u32 size);

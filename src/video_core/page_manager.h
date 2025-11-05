@@ -52,6 +52,10 @@ public:
         return Common::AlignUp(addr + 1, PAGE_SIZE);
     }
 
+    static constexpr size_t GetPageSize() {
+        return PAGE_SIZE;
+    }
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;
