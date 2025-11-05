@@ -53,8 +53,12 @@ public:
     static constexpr s64 DEFAULT_CRITICAL_GC_MEMORY = 2_GB;
     static constexpr s64 TARGET_GC_THRESHOLD = 8_GB;
 
+    struct PageData {
+        BufferId buffer_id{};
+    };
+
     struct Traits {
-        using Entry = BufferId;
+        using Entry = PageData;
         static constexpr size_t AddressSpaceBits = 40;
         static constexpr size_t FirstLevelBits = 16;
         static constexpr size_t PageBits = CACHING_PAGEBITS;
@@ -124,6 +128,9 @@ public:
     /// Flushes any GPU modified buffer in the logical page range back to CPU memory.
     void ReadMemory(VAddr device_addr, u64 size, bool is_write = false);
 
+    /// Flushes GPU modified ranges of the uncovered part of the edge pages of an image.
+    void ReadEdgeImagePages(const Image& image);
+
     /// Binds host vertex buffers for the current draw.
     void BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline);
 
@@ -141,17 +148,18 @@ public:
                                          bool is_texel_buffer = false, BufferId buffer_id = {});
 
     /// Attempts to obtain a buffer without modifying the cache contents.
-    std::pair<Buffer*, u32> ObtainBufferForImage(VAddr gpu_addr, u32 size);
+    [[nodiscard]] std::pair<Buffer*, u32> ObtainBufferForImage(VAddr gpu_addr, u32 size);
 
     /// Return true when a region is registered on the cache
-    bool IsRegionRegistered(VAddr addr, size_t size);
+    [[nodiscard]] bool IsRegionRegistered(VAddr addr, size_t size);
 
     /// Return true when a CPU region is modified from the CPU
-    bool IsRegionCpuModified(VAddr addr, size_t size);
+    [[nodiscard]] bool IsRegionCpuModified(VAddr addr, size_t size);
 
     /// Return true when a CPU region is modified from the GPU
-    bool IsRegionGpuModified(VAddr addr, size_t size);
+    [[nodiscard]] bool IsRegionGpuModified(VAddr addr, size_t size);
 
+    /// Mark region as modified from the GPU
     void MarkRegionAsGpuModified(VAddr addr, size_t size);
 
     /// Return buffer id for the specified region
@@ -165,9 +173,8 @@ public:
 
     /// Synchronizes all buffers in the specified range.
     void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
-
-    /// Synchronizes all buffers neede for DMA.
-    void SynchronizeDmaBuffers();
+    /// Record memory barrier. Used for buffers when accessed via BDA.
+    void MemoryBarrier();
 
     /// Runs the garbage collector.
     void RunGarbageCollector();

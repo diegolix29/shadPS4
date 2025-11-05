@@ -500,7 +500,7 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
 
 std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 size) {
     // Check if any buffer contains the full requested range.
-    const BufferId buffer_id = page_table[gpu_addr >> CACHING_PAGEBITS];
+    const BufferId buffer_id = page_table[gpu_addr >> CACHING_PAGEBITS].buffer_id;
     if (buffer_id) {
         if (Buffer& buffer = slot_buffers[buffer_id]; buffer.IsInBounds(gpu_addr, size)) {
             SynchronizeBuffer(buffer, gpu_addr, size, false, false);
@@ -548,7 +548,7 @@ BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {
         return NULL_BUFFER_ID;
     }
     const u64 page = device_addr >> CACHING_PAGEBITS;
-    const BufferId buffer_id = page_table[page];
+    const BufferId buffer_id = page_table[page].buffer_id;
     if (!buffer_id) {
         return CreateBuffer(device_addr, size);
     }
@@ -594,7 +594,7 @@ BufferCache::OverlapResult BufferCache::ResolveOverlaps(VAddr device_addr, u32 w
     }
     for (; device_addr >> CACHING_PAGEBITS < Common::DivCeil(end, CACHING_PAGESIZE);
          device_addr += CACHING_PAGESIZE) {
-        const BufferId overlap_id = page_table[device_addr >> CACHING_PAGEBITS];
+        const BufferId overlap_id = page_table[device_addr >> CACHING_PAGEBITS].buffer_id;
         if (!overlap_id) {
             continue;
         }
@@ -868,9 +868,9 @@ void BufferCache::ChangeRegister(BufferId buffer_id) {
     const u64 size_pages = page_end - page_begin;
     for (u64 page = page_begin; page != page_end; ++page) {
         if constexpr (insert) {
-            page_table[page] = buffer_id;
+            page_table[page].buffer_id = buffer_id;
         } else {
-            page_table[page] = BufferId{};
+            page_table[page].buffer_id = BufferId{};
         }
     }
     if constexpr (insert) {
@@ -1039,12 +1039,26 @@ void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is
         SynchronizeBuffer(buffer, start, size, is_written, false);
     });
 }
+void BufferCache::MemoryBarrier() {
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    vk::MemoryBarrier2 barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .memoryBarrierCount = 1,
+        .pMemoryBarriers = &barrier,
+    });
+}
 
 void BufferCache::CommitPendingGpuRanges() {
     size_t total_size_bytes = 0;
     gpu_modified_ranges_pending.ForEach([&](VAddr begin, VAddr end) {
         memory_tracker->ForEachPreemptiveFlushPage(begin, end - begin, [&](VAddr page_addr) {
-            const BufferId buffer_id = page_table[page_addr >> CACHING_PAGEBITS];
+            const BufferId buffer_id = page_table[page_addr >> CACHING_PAGEBITS].buffer_id;
             const Buffer& buffer = slot_buffers[buffer_id];
             const VAddr start_addr = std::max(page_addr, begin);
             const VAddr end_addr = std::min(page_addr + PageManager::PAGE_SIZE, end);
