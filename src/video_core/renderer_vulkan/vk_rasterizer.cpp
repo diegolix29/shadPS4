@@ -260,12 +260,12 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
     }
 
     const auto& [buffer, base] =
-        buffer_cache.ObtainBuffer(arg_address + offset, stride * max_count, false);
+        buffer_cache.ObtainBuffer(arg_address + offset, stride * max_count);
 
-    const VideoCore::Buffer* count_buffer{};
+    VideoCore::Buffer* count_buffer{};
     u32 count_base{};
     if (count_address != 0) {
-        std::tie(count_buffer, count_base) = buffer_cache.ObtainBuffer(count_address, 4, false);
+        std::tie(count_buffer, count_base) = buffer_cache.ObtainBuffer(count_address, 4);
     }
 
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
@@ -342,12 +342,11 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
         return;
     }
 
-    const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, true);
-    buffer_cache.GetPendingGpuModifiedRanges().Subtract(address + offset, size);
-
     if (!BindResources(pipeline)) {
         return;
     }
+
+    const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size);
 
     scheduler.EndRendering();
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
@@ -378,9 +377,9 @@ void Rasterizer::OnSubmit() {
     texture_cache.ProcessDownloadImages();
     texture_cache.RunGarbageCollector();
     buffer_cache.ProcessPreemptiveDownloads();
+
     buffer_cache.RunGarbageCollector();
 }
-
 void Rasterizer::CommitPendingGpuRanges() {
     buffer_cache.CommitPendingGpuRanges();
 }
@@ -412,10 +411,14 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
 
     if (uses_dma) {
         // We only use fault buffer for DMA right now.
-        Common::RecursiveSharedLock lock{mapped_ranges_mutex};
-        for (auto& range : mapped_ranges) {
-            buffer_cache.SynchronizeBuffersInRange(range.lower(), range.upper() - range.lower());
+        {
+            Common::RecursiveSharedLock lock{mapped_ranges_mutex};
+            for (auto& range : mapped_ranges) {
+                buffer_cache.SynchronizeBuffersInRange(range.lower(),
+                                                       range.upper() - range.lower());
+            }
         }
+        buffer_cache.MemoryBarrier();
     }
 
     fault_process_pending |= uses_dma;
@@ -575,8 +578,15 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
                 buffer_infos.emplace_back(null_buffer.Handle(), 0, VK_WHOLE_SIZE);
             }
         } else {
-            const auto [vk_buffer, offset] = buffer_cache.ObtainBuffer(
-                vsharp.base_address, size, desc.is_written, desc.is_formatted, buffer_id);
+            VideoCore::ObtainBufferFlags flags = {};
+            if (desc.is_written) {
+                flags |= VideoCore::ObtainBufferFlags::IsWritten;
+            }
+            if (desc.is_formatted) {
+                flags |= VideoCore::ObtainBufferFlags::IsTexelBuffer;
+            }
+            const auto [vk_buffer, offset] =
+                buffer_cache.ObtainBuffer(vsharp.base_address, size, flags, buffer_id);
             const u32 offset_aligned = Common::AlignDown(offset, alignment);
             const u32 adjust = offset - offset_aligned;
             ASSERT(adjust % 4 == 0);
