@@ -638,6 +638,7 @@ ReadbackSpeed readbackSpeed() {
 
 void setReadbackSpeed(ReadbackSpeed mode) {
     readbackSpeedMode.base_value = mode;
+    readbackSpeedMode.game_specific_value = mode;
 }
 
 bool setReadbackLinearImages(bool enable) {

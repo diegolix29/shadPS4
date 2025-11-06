@@ -15,6 +15,7 @@
 #ifdef ENABLE_QT_GUI
 #include "qt_gui/main_window.h"
 #endif
+#include "common/memory_patcher.h"
 
 #include "common/config.h"
 #include "common/singleton.h"
@@ -529,11 +530,9 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
     }
     ImGui::End();
 }
-#ifdef ENABLE_QT_GUI
 
 void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = false,
                              const std::string& gameSerial = "") {
-
     toml::value overrides = toml::table{};
 
     // General settings
@@ -542,8 +541,10 @@ void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = f
     overrides["General"]["isPSNSignedIn"] = Config::getPSNSignedIn();
     overrides["General"]["muteEnabled"] = Config::isMuteEnabled();
     overrides["General"]["isConnectedToNetwork"] = Config::getIsConnectedToNetwork();
+    overrides["General"]["isDevKit"] = Config::isDevKitConsole();
+    overrides["General"]["isPS4Pro"] = Config::isNeoModeConsole();
+    overrides["General"]["extraDmemInMbytes"] = Config::getExtraDmemInMbytes();
 
-    // GPU / Graphics settings
     overrides["GPU"]["allowHDR"] = Config::allowHDR();
     overrides["GPU"]["vblankFrequency"] = Config::vblankFreq();
     overrides["GPU"]["fsrEnabled"] = Config::getFsrEnabled();
@@ -555,10 +556,8 @@ void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = f
     overrides["GPU"]["readbackSpeedMode"] = static_cast<int>(Config::readbackSpeed());
     overrides["GPU"]["presentMode"] = Config::getPresentMode();
 
-    // Logging
     overrides["Logging"]["logType"] = Config::getLogType();
 
-    // Ensure folder exists
     std::filesystem::create_directories(path.parent_path());
 
     std::ofstream ofs(path, std::ios::trunc);
@@ -566,8 +565,6 @@ void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = f
         ofs.close();
     }
 }
-
-#endif
 
 void DrawFullscreenSettingsWindow(bool& is_open) {
     if (!is_open)
@@ -835,11 +832,40 @@ void DrawPauseStatusWindow(bool& is_open) {
         if (ImGui::SliderInt("VBlank Freq", &vblank, 1, 500))
             Config::setVblankFreq(vblank);
 
-        static const char* readbackAccuracyStrs[] = {"Disable", "Unsafe", "Low", "Default", "Fast"};
-        int readbackAccIndex = static_cast<int>(Config::readbackSpeed());
-        if (ImGui::Combo("Readbacks Speed", &readbackAccIndex, readbackAccuracyStrs,
-                         IM_ARRAYSIZE(readbackAccuracyStrs))) {
-            Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbackAccIndex));
+        // === Editable Readback Speed ===
+        ImGui::SeparatorText("Readback Speed");
+
+        static const char* readbackOptions[] = {"Disable", "Unsafe", "Low", "Default", "Fast"};
+
+        static int readbackIndex = static_cast<int>(Config::readbackSpeed());
+        if (ImGui::Combo("Readback Speed", &readbackIndex, readbackOptions,
+                         IM_ARRAYSIZE(readbackOptions))) {
+            Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbackIndex));
+        }
+
+        // === System Mode Toggles ===
+        ImGui::SeparatorText("System Modes");
+
+        static bool is_devkit = Config::isDevKitConsole();
+        if (ImGui::Checkbox("Devkit Mode", &is_devkit)) {
+            Config::setDevKitMode(is_devkit);
+        }
+
+        static bool is_neo = Config::isNeoModeConsole();
+        if (ImGui::Checkbox("PS4 Pro (Neo) Mode", &is_neo)) {
+            Config::setNeoMode(is_neo);
+        }
+
+        // === Extra Memory Spinner ===
+        int extra_memory = Config::getExtraDmemInMbytes();
+        if (ImGui::InputInt("Extra Memory (MB)", &extra_memory, 500, 1000)) {
+            // Clamp between 0 and 9999
+            if (extra_memory < 0)
+                extra_memory = 0;
+            if (extra_memory > 9999)
+                extra_memory = 9999;
+
+            Config::setExtraDmemInMbytes(extra_memory);
         }
 
         bool fsr_enabled = Config::getFsrEnabled();
@@ -859,7 +885,6 @@ void DrawPauseStatusWindow(bool& is_open) {
 
             if (ImGui::SliderFloat("RCAS Attenuation", &rcas_float, 0.0f, 3.0f, "%.2f")) {
                 fsr.rcasAttenuation = rcas_float;
-
                 Config::setRcasAttenuation(static_cast<int>(rcas_float * 1000));
             }
         }
@@ -972,9 +997,8 @@ void DrawPauseStatusWindow(bool& is_open) {
             ImGui::CloseCurrentPopup();
         }
 
-#ifdef ENABLE_QT_GUI
         if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
-            if (g_MainWindow->runningGameSerial.empty()) {
+            if (!MemoryPatcher::g_game_serial.empty()) {
                 SaveConfigWithOverrides(
                     Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
                         (MemoryPatcher::g_game_serial + ".toml"),
@@ -982,6 +1006,7 @@ void DrawPauseStatusWindow(bool& is_open) {
             }
             ImGui::CloseCurrentPopup();
         }
+
         ImGui::SameLine();
         if (ImGui::Button("Cancel", ImVec2(120, 0)))
             ImGui::CloseCurrentPopup();
@@ -997,10 +1022,10 @@ void DrawPauseStatusWindow(bool& is_open) {
         SDL_PushEvent(&event);
     }
 
-    // Save & Restart Emulator popup
     ImGui::SameLine(0.0f, 10.0f);
     if (ImGui::Button("Save & Restart Emulator"))
         ImGui::OpenPopup("Save Config As Restart Emulator");
+
     if (ImGui::BeginPopupModal("Save Config As Restart Emulator", nullptr,
                                ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Where do you want to save the changes?");
@@ -1015,10 +1040,10 @@ void DrawPauseStatusWindow(bool& is_open) {
         }
 
         if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
-            if (g_MainWindow && !g_MainWindow->runningGameSerial.empty()) {
+            if (!MemoryPatcher::g_game_serial.empty()) {
                 SaveConfigWithOverrides(
                     Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
-                        (g_MainWindow->runningGameSerial + ".toml"),
+                        (MemoryPatcher::g_game_serial + ".toml"),
                     true);
             }
             SDL_Event event{};
@@ -1026,10 +1051,11 @@ void DrawPauseStatusWindow(bool& is_open) {
             SDL_PushEvent(&event);
             ImGui::CloseCurrentPopup();
         }
+
         ImGui::SameLine();
         if (ImGui::Button("Cancel", ImVec2(120, 0)))
             ImGui::CloseCurrentPopup();
-#endif
+
         ImGui::EndPopup();
     }
 
