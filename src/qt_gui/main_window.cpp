@@ -442,23 +442,27 @@ void MainWindow::AddUiWidgets() {
     ui->toolBar->addWidget(
         createButtonWithLabel(ui->configureHotkeysButton, tr("Hotkeys"), showLabels));
     ui->toolBar->addWidget(createButtonWithLabel(ui->updaterButton, tr("Update"), showLabels));
+
     QFrame* line = new QFrame(this);
     line->setFrameShape(QFrame::VLine);
     line->setFrameShadow(QFrame::Sunken);
     line->setMinimumWidth(2);
     ui->toolBar->addWidget(line);
     ui->toolBar->addWidget(createSpacer(this));
+
     if (showLabels) {
         QLabel* pauseButtonLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
         if (pauseButtonLabel) {
             pauseButtonLabel->setVisible(false);
         }
     }
+
     ui->toolBar->addWidget(
         createButtonWithLabel(ui->refreshButton, tr("Refresh List"), showLabels));
     ui->toolBar->addWidget(createButtonWithLabel(ui->versionButton, tr("Version"), showLabels));
 
     ui->toolBar->addWidget(createSpacer(this));
+
     QBoxLayout* toolbarLayout = new QBoxLayout(QBoxLayout::TopToBottom);
     toolbarLayout->setSpacing(2);
     toolbarLayout->setContentsMargins(2, 2, 2, 2);
@@ -474,12 +478,7 @@ void MainWindow::AddUiWidgets() {
     searchSliderLayout->addWidget(ui->mw_searchbar);
 
     searchSliderContainer->setLayout(searchSliderLayout);
-
     ui->toolBar->addWidget(searchSliderContainer);
-    toolbarLayout->setSpacing(2);
-    QLabel* styleLabel = new QLabel(tr("GUI Style Selector"), this);
-    styleLabel->setAlignment(Qt::AlignCenter);
-    ui->toolBar->addWidget(styleLabel);
 
     ui->styleSelector->clear();
 
@@ -513,7 +512,22 @@ void MainWindow::AddUiWidgets() {
         ui->styleSelector->setCurrentText(QApplication::style()->objectName());
     }
 
-    ui->toolBar->addWidget(ui->styleSelector);
+    QWidget* styleAndLogContainer = new QWidget(this);
+    QVBoxLayout* styleAndLogLayout = new QVBoxLayout(styleAndLogContainer);
+    styleAndLogLayout->setContentsMargins(0, 0, 0, 0);
+    styleAndLogLayout->setSpacing(4);
+
+    QLabel* styleLabel = new QLabel(tr("GUI Style Selector"), this);
+    styleLabel->setAlignment(Qt::AlignCenter);
+
+    styleAndLogLayout->addWidget(styleLabel);
+    styleAndLogLayout->addWidget(ui->styleSelector);
+    styleAndLogLayout->addWidget(ui->toggleLogButton);
+    styleAndLogLayout->setAlignment(Qt::AlignVCenter);
+
+    styleAndLogContainer->setLayout(styleAndLogLayout);
+
+    ui->toolBar->addWidget(styleAndLogContainer);
 
     ui->playButton->setVisible(true);
     ui->pauseButton->setVisible(false);
@@ -655,7 +669,6 @@ void MainWindow::CreateDockWindows(bool newDock) {
     ui->logDisplay->setMinimumHeight(0);
 
     ui->splitter->addWidget(ui->logDisplay);
-    ui->splitter->addWidget(ui->toggleLogButton);
 
     QList<int> defaultSizes = {800, 200, 50};
     QList<int> sizes = m_compat_info->LoadDockWidgetSizes();

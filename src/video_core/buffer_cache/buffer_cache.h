@@ -6,8 +6,8 @@
 #include <shared_mutex>
 #include <boost/container/small_vector.hpp>
 #include <tsl/robin_map.h>
-#include "common/enum.h"
 
+#include "common/enum.h"
 #include "common/lru_cache.h"
 #include "common/slot_vector.h"
 #include "common/types.h"
@@ -37,6 +37,15 @@ static constexpr BufferId NULL_BUFFER_ID{0};
 class TextureCache;
 class MemoryTracker;
 class PageManager;
+
+enum class ObtainBufferFlags {
+    None = 0,
+    IsWritten = 1 << 0,
+    IsTexelBuffer = 1 << 1,
+    IgnoreStreamBuffer = 1 << 2,
+    InvalidateTextureCache = 1 << 3,
+};
+DECLARE_ENUM_FLAG_OPERATORS(ObtainBufferFlags)
 
 class BufferCache {
 public:
@@ -144,8 +153,9 @@ public:
     void CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds);
 
     /// Obtains a buffer for the specified region.
-    std::pair<Buffer*, u32> ObtainBuffer(VAddr gpu_addr, u32 size, bool is_written,
-                                         bool is_texel_buffer = false, BufferId buffer_id = {});
+    [[nodiscard]] std::pair<Buffer*, u32> ObtainBuffer(
+        VAddr gpu_addr, u32 size, ObtainBufferFlags flags = ObtainBufferFlags::None,
+        BufferId buffer_id = {});
 
     /// Attempts to obtain a buffer without modifying the cache contents.
     [[nodiscard]] std::pair<Buffer*, u32> ObtainBufferForImage(VAddr gpu_addr, u32 size);
@@ -173,6 +183,10 @@ public:
 
     /// Synchronizes all buffers in the specified range.
     void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
+
+    /// Synchronizes all buffers neede for DMA.
+    void SynchronizeDmaBuffers();
+
     /// Record memory barrier. Used for buffers when accessed via BDA.
     void MemoryBarrier();
 
@@ -198,7 +212,6 @@ private:
 
     template <bool async>
     void DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size, bool is_write);
-
     [[nodiscard]] OverlapResult ResolveOverlaps(VAddr device_addr, u32 wanted_size);
 
     void JoinOverlap(BufferId new_buffer_id, BufferId overlap_id, bool accumulate_stream_score);

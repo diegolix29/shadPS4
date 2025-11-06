@@ -163,107 +163,104 @@ std::filesystem::path VersionDialog::GetActualExecutablePath() {
 
 void VersionDialog::DownloadListVersion() {
     QNetworkAccessManager* manager = new QNetworkAccessManager(this);
-    QUrl url("https://api.github.com/repos/shadps4-emu/shadPS4/tags");
-    QNetworkRequest request(url);
-    QNetworkReply* reply = manager->get(request);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        if (reply->error() == QNetworkReply::NoError) {
-            QByteArray response = reply->readAll();
-            QJsonDocument doc = QJsonDocument::fromJson(response);
+    const QString mainRepoUrl = "https://api.github.com/repos/shadps4-emu/shadPS4/tags";
+
+    const QString forkRepoUrl = "https://api.github.com/repos/diegolix29/shadPS4/releases";
+
+    QNetworkReply* mainReply = manager->get(QNetworkRequest(QUrl(mainRepoUrl)));
+    QNetworkReply* forkReply = manager->get(QNetworkRequest(QUrl(forkRepoUrl)));
+
+    auto processReplies = [this, mainReply, forkReply]() {
+        if (!mainReply->isFinished() || !forkReply->isFinished())
+            return;
+
+        QList<QJsonObject> mainTags;
+        QList<QJsonObject> forkReleases;
+
+        if (mainReply->error() == QNetworkReply::NoError) {
+            QJsonDocument doc = QJsonDocument::fromJson(mainReply->readAll());
             if (doc.isArray()) {
-                QJsonArray tags = doc.array();
-                ui->downloadTreeWidget->clear();
-
-                QTreeWidgetItem* preReleaseItem = nullptr;
-                QList<QTreeWidgetItem*> otherItems;
-                bool foundPreRelease = false;
-
-                //  > v.0.5.0
-                auto isVersionGreaterThan_0_5_0 = [](const QString& tagName) -> bool {
-                    QRegularExpression versionRegex(R"(v\.?(\d+)\.(\d+)\.(\d+))");
-                    QRegularExpressionMatch match = versionRegex.match(tagName);
-                    if (match.hasMatch()) {
-                        int major = match.captured(1).toInt();
-                        int minor = match.captured(2).toInt();
-                        int patch = match.captured(3).toInt();
-
-                        if (major > 0)
-                            return true;
-                        if (major == 0 && minor >= 5)
-                            return true;
-                        if (major == 0 && minor == 5 && patch > 0)
-                            return true;
-                    }
-                    return false;
-                };
-
-                for (const QJsonValue& value : tags) {
-                    QJsonObject tagObj = value.toObject();
-                    QString tagName = tagObj["name"].toString();
-
-                    if (tagName.startsWith("Pre-release", Qt::CaseInsensitive)) {
-                        if (!foundPreRelease) {
-                            preReleaseItem = new QTreeWidgetItem();
-                            preReleaseItem->setText(0, "Pre-release");
-                            foundPreRelease = true;
-                        }
-                        continue;
-                    }
-                    if (!isVersionGreaterThan_0_5_0(tagName)) {
-                        continue;
-                    }
-
-                    QTreeWidgetItem* item = new QTreeWidgetItem();
-                    item->setText(0, tagName);
-                    otherItems.append(item);
-                }
-
-                // If you didn't find Pre-release, add it manually
-                if (!foundPreRelease) {
-                    preReleaseItem = new QTreeWidgetItem();
-                    preReleaseItem->setText(0, "Pre-release");
-                }
-
-                // Add Pre-release first
-                if (preReleaseItem) {
-                    ui->downloadTreeWidget->addTopLevelItem(preReleaseItem);
-                }
-
-                // Add the others
-                for (QTreeWidgetItem* item : otherItems) {
-                    ui->downloadTreeWidget->addTopLevelItem(item);
-                }
-
-                // Assemble the current list
-                QStringList versionList;
-                for (int i = 0; i < ui->downloadTreeWidget->topLevelItemCount(); ++i) {
-                    QTreeWidgetItem* item = ui->downloadTreeWidget->topLevelItem(i);
-                    if (item)
-                        versionList.append(item->text(0));
-                }
-
-                QStringList cachedVersions = LoadDownloadCache();
-                if (cachedVersions == versionList) {
-                    QMessageBox::information(this, tr("Version list update"),
-                                             tr("No news, the version list is already updated."));
-                } else {
-                    SaveDownloadCache(versionList);
-                    QMessageBox::information(
-                        this, tr("Version list update"),
-                        tr("The latest versions have been added to the list for download."));
-                }
-
-                // selects a version in downloadTreeWidget calls the download stream
-                InstallSelectedVersion();
+                for (const QJsonValue& val : doc.array())
+                    mainTags.append(val.toObject());
             }
-        } else {
-            QMessageBox::warning(this, tr("Error"),
-                                 tr("Error accessing GitHub API") +
-                                     QString(":\n%1").arg(reply->errorString()));
         }
-        reply->deleteLater();
-    });
+
+        if (forkReply->error() == QNetworkReply::NoError) {
+            QJsonDocument doc = QJsonDocument::fromJson(forkReply->readAll());
+            if (doc.isArray()) {
+                for (const QJsonValue& val : doc.array())
+                    forkReleases.append(val.toObject());
+            }
+        }
+
+        mainReply->deleteLater();
+        forkReply->deleteLater();
+
+        ui->downloadTreeWidget->clear();
+
+        QList<QTreeWidgetItem*> mainItems;
+        QList<QTreeWidgetItem*> forkItems;
+
+        for (const QJsonObject& tagObj : mainTags) {
+            QString tagName = tagObj["name"].toString();
+            if (tagName.isEmpty())
+                continue;
+
+            QTreeWidgetItem* item = new QTreeWidgetItem();
+            item->setText(0, tagName);
+            item->setText(1, "[Official]");
+            mainItems.append(item);
+        }
+
+        for (const QJsonObject& releaseObj : forkReleases) {
+            QString name = releaseObj["tag_name"].toString();
+            if (name.isEmpty())
+                name = releaseObj["name"].toString();
+            if (name.isEmpty())
+                continue;
+
+            QTreeWidgetItem* item = new QTreeWidgetItem();
+            item->setText(0, name);
+            item->setText(1, "[Fork]");
+            forkItems.append(item);
+        }
+
+        auto sortItems = [](QList<QTreeWidgetItem*>& items) {
+            std::sort(items.begin(), items.end(), [](QTreeWidgetItem* a, QTreeWidgetItem* b) {
+                return a->text(0) > b->text(0);
+            });
+        };
+        sortItems(mainItems);
+        sortItems(forkItems);
+
+        QTreeWidgetItem* mainHeader = new QTreeWidgetItem(QStringList() << "Official Releases");
+        for (auto* item : mainItems)
+            mainHeader->addChild(item);
+        ui->downloadTreeWidget->addTopLevelItem(mainHeader);
+
+        QTreeWidgetItem* forkHeader = new QTreeWidgetItem(QStringList() << "Fork Releases");
+        for (auto* item : forkItems)
+            forkHeader->addChild(item);
+        ui->downloadTreeWidget->addTopLevelItem(forkHeader);
+
+        ui->downloadTreeWidget->expandAll();
+
+        QMessageBox::information(this, tr("Version list update"),
+                                 tr("Fetched official tags and fork releases successfully."));
+
+        QStringList allTags;
+        for (auto* item : mainItems)
+            allTags << item->text(0);
+        for (auto* item : forkItems)
+            allTags << item->text(0);
+        SaveDownloadCache(allTags);
+
+        InstallSelectedVersion();
+    };
+
+    connect(mainReply, &QNetworkReply::finished, this, processReplies);
+    connect(forkReply, &QNetworkReply::finished, this, processReplies);
 }
 
 void VersionDialog::InstallSelectedVersion() {
@@ -292,15 +289,22 @@ void VersionDialog::InstallSelectedVersion() {
             platform = fetchSDL ? "macos-sdl" : "macos-qt";
 #endif
 
-            if (versionName == "Pre-release") {
-                apiUrl = "https://api.github.com/repos/shadps4-emu/shadPS4/releases";
-            } else {
-                apiUrl = QString("https://api.github.com/repos/shadps4-emu/"
-                                 "shadPS4/releases/tags/%1")
+            QString sourceType = item->text(1);
+
+            if (sourceType.contains("Fork", Qt::CaseInsensitive)) {
+                apiUrl = QString("https://api.github.com/repos/diegolix29/shadPS4/releases/tags/%1")
                              .arg(versionName);
+            } else {
+                if (versionName == "Pre-release") {
+                    apiUrl = "https://api.github.com/repos/shadps4-emu/shadPS4/releases";
+                } else {
+                    apiUrl =
+                        QString("https://api.github.com/repos/shadps4-emu/shadPS4/releases/tags/%1")
+                            .arg(versionName);
+                }
             }
 
-            { // Menssage yes/no
+            {
                 QMessageBox::StandardButton reply;
                 reply = QMessageBox::question(this, tr("Download"),
                                               tr("Do you want to download the version:") +
@@ -405,12 +409,10 @@ void VersionDialog::InstallSelectedVersion() {
 
                         QString releaseName = release["name"].toString();
 
-                        // Remove "shadPS4 " from the beginning, if it exists
                         if (releaseName.startsWith("shadps4 ", Qt::CaseInsensitive)) {
                             releaseName = releaseName.mid(8);
                         }
 
-                        // Remove "codename" if it exists
                         releaseName.replace(QRegularExpression("\\b[Cc]odename\\s+"), "");
 
                         QString folderName;
@@ -463,7 +465,7 @@ void VersionDialog::InstallSelectedVersion() {
                         if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
                             QTextStream out(&scriptFile);
 #ifdef Q_OS_WIN
-                            scriptFile.write("\xEF\xBB\xBF"); // BOM
+                            scriptFile.write("\xEF\xBB\xBF");
 #endif
                             out << scriptContent;
                             scriptFile.close();
@@ -501,8 +503,8 @@ void VersionDialog::LoadinstalledList() {
         return;
 
     ui->installedTreeWidget->clear();
-    ui->installedTreeWidget->setColumnCount(4);        // 4 = FullPath
-    ui->installedTreeWidget->setColumnHidden(3, true); // FullPath invisible
+    ui->installedTreeWidget->setColumnCount(4);
+    ui->installedTreeWidget->setColumnHidden(3, true);
 
     QStringList folders = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 
@@ -537,11 +539,10 @@ void VersionDialog::LoadinstalledList() {
         return a.first[2] > b.first[2];     // patch
     });
 
-    // add (Pre-release, Test Build...)
     for (const QString& folder : otherDirs) {
         QTreeWidgetItem* item = new QTreeWidgetItem(ui->installedTreeWidget);
         QString fullPath = QDir(path).filePath(folder);
-        item->setText(3, fullPath); // FullPath invisible column
+        item->setText(3, fullPath);
 
         if (folder.startsWith("Pre-release-shadPS4")) {
             QStringList parts = folder.split('-');
@@ -591,7 +592,7 @@ void VersionDialog::LoadinstalledList() {
     QString currentExePath = QString::fromStdString(m_compat_info->GetSelectedShadExePath());
     for (int i = 0; i < ui->installedTreeWidget->topLevelItemCount(); ++i) {
         QTreeWidgetItem* item = ui->installedTreeWidget->topLevelItem(i);
-        QString fullPath = item->text(3); // invisible column
+        QString fullPath = item->text(3);
         if (!fullPath.isEmpty() && fullPath == currentExePath) {
             ui->installedTreeWidget->setCurrentItem(item);
             break;
@@ -601,13 +602,13 @@ void VersionDialog::LoadinstalledList() {
     connect(ui->installedTreeWidget, &QTreeWidget::itemSelectionChanged, this, [this]() {
         QTreeWidgetItem* selectedItem = ui->installedTreeWidget->currentItem();
         if (selectedItem) {
-            QString exePath = selectedItem->text(3); // invisible full path
+            QString exePath = selectedItem->text(3);
             if (!exePath.isEmpty())
                 m_compat_info->SetSelectedShadExePath(exePath.toStdString());
         }
     });
 
-    ui->installedTreeWidget->resizeColumnToContents(1); // 1 = Name
+    ui->installedTreeWidget->resizeColumnToContents(1);
     ui->installedTreeWidget->setColumnWidth(1, ui->installedTreeWidget->columnWidth(1) + 50);
 }
 
