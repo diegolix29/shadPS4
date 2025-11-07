@@ -806,7 +806,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (cond_exec->command.Value() != 0) {
                     LOG_DEBUG(Render, "IT_COND_EXEC used a reserved command");
                 }
-                const auto skip = *cond_exec->Address() == false;
+                const bool skip = (*cond_exec->Address() == false);
                 if (skip) {
                     dcb = NextPacket(dcb,
                                      header->type3.NumWords() + 1 + cond_exec->exec_count.Value());
@@ -814,10 +814,13 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 }
                 break;
             }
+
             default:
-                UNREACHABLE_MSG("Unknown PM4 type 3 opcode {:#x} with count {}",
-                                static_cast<u32>(opcode), count);
+                // UNREACHABLE_MSG("Unknown PM4 type 3 opcode {:#x} with count {}",
+                //                 static_cast<u32>(opcode), count);
+                break;
             }
+
             dcb = NextPacket(dcb, header->type3.NumWords() + 1);
             break;
         }
