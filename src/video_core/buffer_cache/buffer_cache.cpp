@@ -156,18 +156,14 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
 
 BufferCache::~BufferCache() = default;
 
-void BufferCache::InvalidateMemory(VAddr device_addr, u64 size, bool download) {
+void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
     if (!IsRegionRegistered(device_addr, size)) {
         return;
     }
-    if (download) {
-        memory_tracker->InvalidateRegion(
-            device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
-    } else {
-        memory_tracker->InvalidateRegion(device_addr, size);
-        gpu_modified_ranges.Subtract(device_addr, size);
-    }
+    memory_tracker->InvalidateRegion(
+        device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
 }
+
 template <bool async>
 void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size, bool is_write) {
     boost::container::small_vector<vk::BufferCopy, 1> copies;
@@ -1276,7 +1272,7 @@ void BufferCache::RunGarbageCollector() {
         }
         --max_deletions;
         Buffer& buffer = slot_buffers[buffer_id];
-        InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes(), true);
+        InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes());
 
         DownloadBufferMemory<true>(buffer, buffer.CpuAddr(), buffer.SizeBytes(), true);
         DeleteBuffer(buffer_id);

@@ -164,7 +164,7 @@ void TextureCache::DownloadedImagesThread(const std::stop_token& token) {
         scheduler.GetMasterSemaphore()->Wait(image.tick);
         memory->TryWriteBacking(std::bit_cast<u8*>(image.device_addr), image.download,
                                 image.download_size);
-        buffer_cache.InvalidateMemory(image.device_addr, image.download_size, false);
+        buffer_cache.InvalidateMemory(image.device_addr, image.download_size);
     }
 }
 
