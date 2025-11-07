@@ -70,7 +70,6 @@ public:
     QPushButton* updaterButton;
     QPushButton* versionButton;
     QPushButton* configureHotkeysButton;
-    QCheckBox* MuteBox;
     QComboBox* styleSelector = new QComboBox();
 
     QWidget* sizeSliderContainer;
@@ -294,10 +293,6 @@ public:
         configureHotkeysButton->setFlat(true);
         configureHotkeysButton->setIcon(QIcon(":images/hotkeybutton.png"));
         configureHotkeysButton->setIconSize(QSize(50, 40));
-        MuteBox = new QCheckBox(centralWidget);
-        MuteBox->setObjectName("MuteBox");
-        MuteBox->setText("Mute");
-        MuteBox->setGeometry(QRect(500, 10, 60, 25));
         sizeSliderContainer = new QWidget(centralWidget);
         sizeSliderContainer->setObjectName("sizeSliderContainer");
         sizeSliderContainer->setGeometry(QRect(280, 10, 181, 31));

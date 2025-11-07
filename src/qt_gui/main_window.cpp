@@ -514,15 +514,21 @@ void MainWindow::AddUiWidgets() {
 
     QWidget* styleAndLogContainer = new QWidget(this);
     QVBoxLayout* styleAndLogLayout = new QVBoxLayout(styleAndLogContainer);
-    styleAndLogLayout->setContentsMargins(0, 0, 0, 0);
+    styleAndLogLayout->setContentsMargins(2, 2, 2, 2);
     styleAndLogLayout->setSpacing(4);
 
-    QLabel* styleLabel = new QLabel(tr("GUI Style Selector"), this);
-    styleLabel->setAlignment(Qt::AlignCenter);
+    QHBoxLayout* styleRowLayout = new QHBoxLayout();
+    styleRowLayout->setContentsMargins(0, 0, 0, 0);
+    styleRowLayout->setSpacing(6);
 
-    styleAndLogLayout->addWidget(styleLabel);
-    styleAndLogLayout->addWidget(ui->styleSelector);
-    styleAndLogLayout->addWidget(ui->toggleLogButton);
+    QLabel* styleLabel = new QLabel(tr("GUI Style:"), this);
+    styleLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+
+    styleRowLayout->addWidget(styleLabel);
+    styleRowLayout->addWidget(ui->styleSelector, 0);
+
+    styleAndLogLayout->addLayout(styleRowLayout);
+    styleAndLogLayout->addWidget(ui->toggleLogButton, 0, Qt::AlignCenter);
     styleAndLogLayout->setAlignment(Qt::AlignVCenter);
 
     styleAndLogContainer->setLayout(styleAndLogLayout);
