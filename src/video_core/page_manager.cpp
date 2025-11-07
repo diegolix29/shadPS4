@@ -3,7 +3,6 @@
 
 #include <boost/container/small_vector.hpp>
 #include "common/assert.h"
-#include "common/config.h"
 #include "common/debug.h"
 #include "common/div_ceil.h"
 #include "common/range_lock.h"
@@ -42,19 +41,14 @@ constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
-        u8 num_watchers{};
-        u8 num_write_watchers{};
-        u8 num_read_watchers{};
+        u8 num_write_watchers : 7;
+        // At the moment only buffer cache can request read watchers.
+        // And buffers cannot overlap, thus only 1 can exist per page.
+        u8 num_read_watchers : 1;
 
         Core::MemoryPermission WritePerm() const noexcept {
-            if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe ||
-                Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-                return num_watchers == 0 ? Core::MemoryPermission::Write
-                                         : Core::MemoryPermission::Read;
-            } else {
-                return num_write_watchers == 0 ? Core::MemoryPermission::Write
-                                               : Core::MemoryPermission::None;
-            }
+            return num_write_watchers == 0 ? Core::MemoryPermission::ReadWrite
+                                           : Core::MemoryPermission::None;
         }
 
         Core::MemoryPermission ReadPerm() const noexcept {
@@ -66,39 +60,25 @@ struct PageManager::Impl {
             return ReadPerm() | WritePerm();
         }
 
-        template <s32 delta, bool is_read = false>
+        template <s32 delta, bool is_read>
         u8 AddDelta() {
-            if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe ||
-                Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
+            if constexpr (is_read) {
                 if constexpr (delta == 1) {
-                    return ++num_watchers;
-                } else if constexpr (delta == -1) {
-                    ASSERT_MSG(num_watchers > 0, "Not enough watchers");
-                    return --num_watchers;
+                    return ++num_read_watchers;
+                } else if (delta == -1) {
+                    ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
+                    return --num_read_watchers;
                 } else {
-                    return num_watchers;
+                    return num_read_watchers;
                 }
             } else {
-                if constexpr (is_read) {
-                    if constexpr (delta == 1) {
-                        ASSERT_MSG(num_read_watchers < 1, "num_read_watchers overflow");
-                        return ++num_read_watchers;
-                    } else if constexpr (delta == -1) {
-                        ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
-                        return --num_read_watchers;
-                    } else {
-                        return num_read_watchers;
-                    }
+                if constexpr (delta == 1) {
+                    return ++num_write_watchers;
+                } else if (delta == -1) {
+                    ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
+                    return --num_write_watchers;
                 } else {
-                    if constexpr (delta == 1) {
-                        ASSERT_MSG(num_write_watchers < 127, "num_write_watchers overflow");
-                        return ++num_write_watchers;
-                    } else if constexpr (delta == -1) {
-                        ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
-                        return --num_write_watchers;
-                    } else {
-                        return num_write_watchers;
-                    }
+                    return num_write_watchers;
                 }
             }
         }
@@ -143,7 +123,7 @@ struct PageManager::Impl {
     }
 
     void Protect(VAddr address, size_t size, Core::MemoryPermission perms) {
-        bool allow_write = True(perms & Core::MemoryPermission::Write);
+        bool allow_write = True(perms & Core::MemoryPermission::ReadWrite);
         uffdio_writeprotect wp;
         wp.range.start = address;
         wp.range.len = size;
@@ -222,8 +202,8 @@ struct PageManager::Impl {
         RENDERER_TRACE;
         auto* memory = Core::Memory::Instance();
         auto& impl = memory->GetAddressSpace();
-        ASSERT_MSG(perms != Core::MemoryPermission::Write,
-                   "Attempted to protect region as write-only which is not a valid permission");
+        // ASSERT_MSG(perms != Core::MemoryPermission::ReadWrite,
+        //            "Attempted to protect region as write-only which is not a valid permission");
         impl.Protect(address, size, perms);
     }
 
@@ -245,73 +225,132 @@ struct PageManager::Impl {
         size_t page = addr >> PAGE_BITS;
         const u64 page_end = Common::DivCeil(addr + size, PAGE_SIZE);
 
+        // Acquire locks for the range of pages
         const auto lock_start = locks.begin() + (page / PAGES_PER_LOCK);
         const auto lock_end = locks.begin() + Common::DivCeil(page_end, PAGES_PER_LOCK);
         Common::RangeLockGuard lk(lock_start, lock_end);
 
         auto perms = cached_pages[page].Perms();
-        u64 range_begin = page;
+        u64 range_begin = 0;
         u64 range_bytes = 0;
         u64 potential_range_bytes = 0;
 
         const auto release_pending = [&] {
             if (range_bytes > 0) {
                 RENDERER_TRACE;
+                // Perform pending (un)protect action
                 Protect(range_begin << PAGE_BITS, range_bytes, perms);
                 range_bytes = 0;
                 potential_range_bytes = 0;
             }
         };
 
+        // Iterate requested pages
+        const u64 aligned_addr = page << PAGE_BITS;
+        const u64 aligned_end = page_end << PAGE_BITS;
+        ASSERT_MSG(rasterizer->IsMapped(aligned_addr, aligned_end - aligned_addr),
+                   "Attempted to track non-GPU memory at address {:#x}, size {:#x}.", aligned_addr,
+                   aligned_end - aligned_addr);
+
         for (; page != page_end; ++page) {
             PageState& state = cached_pages[page];
-            const u8 new_count = state.AddDelta<track ? 1 : -1, is_read>();
-            const auto new_perms = state.Perms();
 
-            if (new_perms != perms) [[unlikely]] {
+            // Apply the change to the page state
+            const u8 new_count = state.AddDelta<track ? 1 : -1, is_read>();
+
+            if (auto new_perms = state.Perms(); new_perms != perms) [[unlikely]] {
+                // If the protection changed add pending (un)protect action
                 release_pending();
                 perms = new_perms;
             } else if (range_bytes != 0) {
+                // If the protection did not change, extend the potential range
                 potential_range_bytes += PAGE_SIZE;
             }
 
+            // Only start a new range if the page must be (un)protected
             if ((new_count == 0 && !track) || (new_count == 1 && track)) {
                 if (range_bytes == 0) {
+                    // Start a new potential range
                     range_begin = page;
                     potential_range_bytes = PAGE_SIZE;
                 }
+                // Extend current range up to potential range
                 range_bytes = potential_range_bytes;
             }
         }
 
+        // Add pending (un)protect action
         release_pending();
     }
 
     template <bool track, bool is_read>
     void UpdatePageWatchersForRegion(VAddr base_addr, RegionBits& mask) {
         RENDERER_TRACE;
-
         auto start_range = mask.FirstRange();
         auto end_range = mask.LastRange();
 
         if (start_range.second == end_range.second) {
+            // if all pages are contiguous, use the regular UpdatePageWatchers
             const VAddr start_addr = base_addr + (start_range.first << PAGE_BITS);
             const u64 size = (start_range.second - start_range.first) << PAGE_BITS;
             return UpdatePageWatchers<track, is_read>(start_addr, size);
         }
 
-        for (auto range : mask) {
-            const size_t start_page = range.first;
-            const size_t end_page = range.second;
+        size_t base_page = (base_addr >> PAGE_BITS);
+        ASSERT(base_page % PAGES_PER_LOCK == 0);
+        std::scoped_lock lk(locks[base_page / PAGES_PER_LOCK]);
+        auto perms = cached_pages[base_page + start_range.first].Perms();
+        u64 range_begin = 0;
+        u64 range_bytes = 0;
+        u64 potential_range_bytes = 0;
 
-            if (start_page == end_page)
+        const auto release_pending = [&] {
+            if (range_bytes > 0) {
+                RENDERER_TRACE;
+                // Perform pending (un)protect action
+                Protect((range_begin << PAGE_BITS), range_bytes, perms);
+                range_bytes = 0;
+                potential_range_bytes = 0;
+            }
+        };
+
+        // Iterate pages
+        for (size_t page = start_range.first; page < end_range.second; ++page) {
+            PageState& state = cached_pages[base_page + page];
+            const bool update = mask.Get(page);
+
+            // Apply the change to the page state
+            const u8 new_count =
+                update ? state.AddDelta<track ? 1 : -1, is_read>() : state.AddDelta<0, is_read>();
+
+            if (auto new_perms = state.Perms(); new_perms != perms) [[unlikely]] {
+                // If the protection changed add pending (un)protect action
+                release_pending();
+                perms = new_perms;
+            } else if (range_bytes != 0) {
+                // If the protection did not change, extend the potential range
+                potential_range_bytes += PAGE_SIZE;
+            }
+
+            // If the page is not being updated, skip it
+            if (!update) {
                 continue;
+            }
 
-            const VAddr start_addr = base_addr + (start_page << PAGE_BITS);
-            const u64 size = (end_page - start_page) << PAGE_BITS;
-
-            UpdatePageWatchers<track, is_read>(start_addr, size);
+            // If the page must be (un)protected
+            if ((new_count == 0 && !track) || (new_count == 1 && track)) {
+                if (range_bytes == 0) {
+                    // Start a new potential range
+                    range_begin = base_page + page;
+                    potential_range_bytes = PAGE_SIZE;
+                }
+                // Extend current rango up to potential range
+                range_bytes = potential_range_bytes;
+            }
         }
+
+        // Add pending (un)protect action
+        release_pending();
     }
 
     std::array<PageState, NUM_ADDRESS_PAGES> cached_pages{};
