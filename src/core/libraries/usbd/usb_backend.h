@@ -124,6 +124,36 @@ protected:
 
 class UsbRealBackend : public UsbBackend {
 public:
+    static UsbDevice* CreateFakeUsbDevice(libusb_context* ctx) {
+        UsbDevice* fake = static_cast<UsbDevice*>(calloc(1, sizeof(UsbDevice)));
+        if (!fake)
+            return nullptr;
+
+        fake->refcnt = 1;
+        fake->ctx = ctx;
+        fake->parent_dev = nullptr;
+        fake->bus_number = 0;
+        fake->port_number = 0;
+        fake->device_address = 0;
+        fake->speed = LIBUSB_SPEED_FULL;
+        fake->attached = 1;
+
+        libusb_device_descriptor* d =
+            static_cast<libusb_device_descriptor*>(calloc(1, sizeof(libusb_device_descriptor)));
+        if (d) {
+            d->idVendor = 0x054C;
+            d->idProduct = 0x05C4;
+            d->bMaxPacketSize0 = 64;
+            d->bLength = sizeof(libusb_device_descriptor);
+            d->bDescriptorType = LIBUSB_DT_DEVICE;
+            fake->device_descriptor = *d;
+            free(d);
+        } else {
+        }
+
+        return fake;
+    }
+
     s32 Init() override {
         return libusb_init(&g_libusb_context);
     }
@@ -132,17 +162,42 @@ public:
     }
 
     s64 GetDeviceList(libusb_device*** list) override {
-        return libusb_get_device_list(g_libusb_context, list);
+        if (!list)
+            return LIBUSB_ERROR_INVALID_PARAM;
+
+        libusb_device** arr = static_cast<libusb_device**>(calloc(2, sizeof(libusb_device*)));
+        if (!arr)
+            return LIBUSB_ERROR_NO_MEM;
+
+        libusb_device* dev =
+            reinterpret_cast<libusb_device*>(CreateFakeUsbDevice(g_libusb_context));
+        arr[0] = dev;
+        arr[1] = nullptr;
+
+        *list = arr;
+
+        return 1;
     }
-    void FreeDeviceList(libusb_device** list, s32 unref_devices) override {
-        libusb_free_device_list(list, unref_devices);
+
+    void FreeDeviceList(libusb_device** list, int unref_devices) override {
+        if (!list)
+            return;
+
+        free(list);
     }
 
     s32 GetConfiguration(libusb_device_handle* dev, s32* config) override {
-        return libusb_get_configuration(dev, config);
+        if (config)
+            *config = 1;
+        return LIBUSB_SUCCESS;
     }
+
     s32 GetDeviceDescriptor(libusb_device* dev, libusb_device_descriptor* desc) override {
-        return libusb_get_device_descriptor(dev, desc);
+        if (!dev || !desc)
+            return LIBUSB_ERROR_INVALID_PARAM;
+        UsbDevice* udev = reinterpret_cast<UsbDevice*>(dev);
+        *desc = udev->device_descriptor;
+        return LIBUSB_SUCCESS;
     }
     s32 GetActiveConfigDescriptor(libusb_device* dev, libusb_config_descriptor** config) override {
         return libusb_get_active_config_descriptor(dev, config);
@@ -162,15 +217,55 @@ public:
         return libusb_get_device_address(dev);
     }
     s32 GetMaxPacketSize(libusb_device* dev, u8 endpoint) override {
-        return libusb_get_max_packet_size(dev, endpoint);
+        libusb_device_descriptor desc;
+        int r = GetDeviceDescriptor(dev, &desc);
+        if (r != LIBUSB_SUCCESS)
+            return LIBUSB_ERROR_OTHER;
+        return desc.bMaxPacketSize0;
     }
 
     s32 OpenDevice(libusb_device* dev, libusb_device_handle** dev_handle) override {
-        return libusb_open(dev, dev_handle);
+        if (!dev || !dev_handle)
+            return LIBUSB_ERROR_INVALID_PARAM;
+
+        UsbDeviceHandle* _dev_handle =
+            static_cast<UsbDeviceHandle*>(calloc(1, sizeof(UsbDeviceHandle)));
+        if (!_dev_handle) {
+            return LIBUSB_ERROR_NO_MEM;
+        }
+
+#if defined(_WIN32)
+        InitializeCriticalSection(&_dev_handle->lock);
+#else
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+        pthread_mutex_init(&_dev_handle->lock, &attr);
+        pthread_mutexattr_destroy(&attr);
+#endif
+
+        _dev_handle->claimed_interfaces = 0;
+        _dev_handle->dev = dev;
+        _dev_handle->auto_detach_kernel_driver = 0;
+
+        *dev_handle = reinterpret_cast<libusb_device_handle*>(_dev_handle);
+        return LIBUSB_SUCCESS;
     }
+
     void CloseDevice(libusb_device_handle* dev_handle) override {
-        libusb_close(dev_handle);
+        if (!dev_handle)
+            return;
+        UsbDeviceHandle* h = reinterpret_cast<UsbDeviceHandle*>(dev_handle);
+
+#if defined(_WIN32)
+        DeleteCriticalSection(&h->lock);
+#else
+        pthread_mutex_destroy(&h->lock);
+#endif
+
+        free(h);
     }
+
     libusb_device* GetDevice(libusb_device_handle* dev_handle) override {
         return libusb_get_device(dev_handle);
     }
@@ -269,34 +364,22 @@ public:
     }
 
 protected:
-    libusb_context* g_libusb_context = nullptr;
+    libusb_context* g_libusb_context;
     bool s_has_removed_driver = false;
 };
 
 class UsbEmulatedBackend : public UsbRealBackend {
 public:
     s64 GetDeviceList(libusb_device*** list) override {
-        auto** fake = static_cast<libusb_device**>(calloc(2, sizeof(libusb_device*)));
-        fake[0] = GetDevice(nullptr);
-        fake[1] = nullptr;
-        *list = fake;
+        if (!list)
+            return LIBUSB_ERROR_INVALID_PARAM;
 
+        static libusb_device* fake_dev =
+            reinterpret_cast<libusb_device*>(CreateFakeUsbDevice(g_libusb_context));
+        static libusb_device* devs[] = {fake_dev, nullptr};
+
+        *list = devs;
         return 1;
-    }
-    void FreeDeviceList(libusb_device** list, s32 unref_devices) override {
-        if (!list) {
-            return;
-        }
-
-        if (unref_devices) {
-            int i = 0;
-            libusb_device* dev;
-
-            while ((dev = list[i++]) != nullptr) {
-                free(dev);
-            }
-        }
-        free(list);
     }
 
     s32 GetConfiguration(libusb_device_handle* dev, s32* config) override {
@@ -312,7 +395,7 @@ public:
         const auto endpoint_descs = FillEndpointDescriptorPair();
         const auto interface_desc = FillInterfaceDescriptor(endpoint_descs);
 
-        const auto interface = static_cast<libusb_interface*>(calloc(1, sizeof(libusb_interface*)));
+        const auto interface = static_cast<libusb_interface*>(calloc(1, sizeof(libusb_interface)));
         interface->altsetting = interface_desc;
         interface->num_altsetting = 1;
 
@@ -350,7 +433,7 @@ public:
     }
 
     s32 OpenDevice(libusb_device* dev, libusb_device_handle** dev_handle) override {
-        auto* _dev_handle = static_cast<UsbDeviceHandle*>(calloc(1, sizeof(libusb_device_handle*)));
+        auto* _dev_handle = static_cast<UsbDeviceHandle*>(calloc(1, sizeof(UsbDeviceHandle)));
         if (!_dev_handle) {
             return LIBUSB_ERROR_NO_MEM;
         }
@@ -363,16 +446,10 @@ public:
         free(dev_handle);
     }
     libusb_device* GetDevice(libusb_device_handle* dev_handle) override {
-        const auto desc = FillDeviceDescriptor();
-        ASSERT(desc);
-
-        const auto fake = static_cast<UsbDevice*>(calloc(1, sizeof(UsbDevice*)));
-        fake->bus_number = 0;
-        fake->port_number = 0;
-        fake->device_address = 0;
-        fake->device_descriptor = *desc;
-        fake->ctx = g_libusb_context;
-        return reinterpret_cast<libusb_device*>(fake);
+        if (!dev_handle)
+            return nullptr;
+        UsbDeviceHandle* handle = reinterpret_cast<UsbDeviceHandle*>(dev_handle);
+        return handle->dev;
     }
 
     s32 SetConfiguration(libusb_device_handle* dev_handle, s32 configuration) override {
