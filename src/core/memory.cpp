@@ -562,7 +562,8 @@ s32 MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, u64 size, Memory
         return ORBIS_KERNEL_ERROR_EBADF;
     }
 
-    if (file->type != Core::FileSys::FileType::Regular) {
+    if (file->type == Core::FileSys::FileType::Directory ||
+        file->type == Core::FileSys::FileType::Socket) {
         LOG_WARNING(Kernel_Vmm, "Unsupported file type for mmap, fd {}", fd);
         return ORBIS_KERNEL_ERROR_EBADF;
     }
@@ -572,18 +573,14 @@ s32 MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, u64 size, Memory
         prot |= MemoryProt::CpuRead;
     }
 
-    const auto handle = file->f.GetFileMapping();
-
-    if (False(file->f.GetAccessMode() & Common::FS::FileAccessMode::Write) ||
-        False(file->f.GetAccessMode() & Common::FS::FileAccessMode::Append)) {
-        // If the file does not have write access, ensure prot does not contain write permissions.
-        // On real hardware, these mappings succeed, but the memory cannot be written to.
-        prot &= ~MemoryProt::CpuWrite;
+    if (False(file->f.GetAccessMode() & Common::FS::FileAccessMode::Write)) {
+        LOG_WARNING(Kernel_Vmm, "Mapping read-only file with write prot, fd {}", fd);
     }
+    const auto handle = file->f.GetFileMapping();
 
     impl.MapFile(mapped_addr, size, phys_addr, std::bit_cast<u32>(prot), handle);
 
-    if (prot >= MemoryProt::GpuRead) {
+    if (True(prot & MemoryProt::GpuRead)) {
         // On real hardware, GPU file mmaps cause a full system crash due to an internal error.
         ASSERT_MSG(false, "Files cannot be mapped to GPU memory");
     }
