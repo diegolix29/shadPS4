@@ -17,6 +17,7 @@ pkgs.mkShell {
     pkgs.alsa-lib
     pkgs.libpulseaudio
     pkgs.openal
+    pkgs.openssl
     pkgs.zlib
     pkgs.libedit
     pkgs.udev
@@ -24,6 +25,9 @@ pkgs.mkShell {
     pkgs.SDL2
     pkgs.jack2
     pkgs.sndio
+    pkgs.qt6.qtbase
+    pkgs.qt6.qttools
+    pkgs.qt6.qtmultimedia
 
     pkgs.vulkan-headers
     pkgs.vulkan-utility-libraries
@@ -40,12 +44,16 @@ pkgs.mkShell {
     pkgs.xorg.xcbutilwm
     pkgs.sdl3
     pkgs.stb
+    pkgs.qt6.qtwayland
     pkgs.wayland-protocols
     pkgs.libpng
   ];
 
   shellHook = ''
     echo "Entering shadPS4 dev shell"
+    export QT_QPA_PLATFORM="wayland"
+    export QT_PLUGIN_PATH="${pkgs.qt6.qtwayland}/lib/qt-6/plugins:${pkgs.qt6.qtbase}/lib/qt-6/plugins"
+    export QML2_IMPORT_PATH="${pkgs.qt6.qtbase}/lib/qt-6/qml"
     export CMAKE_PREFIX_PATH="${pkgs.vulkan-headers}:$CMAKE_PREFIX_PATH"
 
     # OpenGL
