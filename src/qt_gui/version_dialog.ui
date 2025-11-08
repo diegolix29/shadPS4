@@ -8,8 +8,8 @@
 			<rect>
 				<x>0</x>
 				<y>0</y>
-				<width>780</width>
-				<height>511</height>
+				<width>850</width>
+				<height>550</height>
 			</rect>
 		</property>
 		<property name="windowTitle">
@@ -25,8 +25,8 @@
 				<rect>
 					<x>0</x>
 					<y>0</y>
-					<width>781</width>
-					<height>511</height>
+					<width>850</width>
+					<height>550</height>
 				</rect>
 			</property>
 			<property name="sizePolicy">
@@ -84,7 +84,7 @@
 
 					<!-- Installed / Download Layout -->
 					<item>
-						<layout class="QHBoxLayout" name="horizontalLayout_8">
+						<layout class="QHBoxLayout" name="horizontalLayout_8" stretch="6,3">
 
 							<!-- Installed versions -->
 							<item>
@@ -111,6 +111,21 @@
 											<column>
 												<property name="text">
 													<string>Date</string>
+												</property>
+											</column>
+											<column>
+												<property name="text">
+													<string>Repo</string>
+												</property>
+											</column>
+											<column>
+												<property name="text">
+													<string>Type</string>
+												</property>
+											</column>
+											<column>
+												<property name="text">
+													<string>Full Path</string>
 												</property>
 											</column>
 										</widget>
@@ -170,13 +185,6 @@
 												</widget>
 											</item>
 										</layout>
-									</item>
-									<item>
-										<widget class="QPushButton" name="checkVersionDownloadButton">
-											<property name="text">
-												<string>Check Versions</string>
-											</property>
-										</widget>
 									</item>
 									<item>
 										<widget class="QTreeWidget" name="downloadTreeWidget">

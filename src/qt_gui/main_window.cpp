@@ -526,13 +526,24 @@ void MainWindow::AddUiWidgets() {
 
     styleRowLayout->addWidget(styleLabel);
     styleRowLayout->addWidget(ui->styleSelector, 0);
+    styleRowLayout->addStretch();
 
     styleAndLogLayout->addLayout(styleRowLayout);
-    styleAndLogLayout->addWidget(ui->toggleLogButton, 0, Qt::AlignCenter);
-    styleAndLogLayout->setAlignment(Qt::AlignVCenter);
+
+    QHBoxLayout* logButtonRow = new QHBoxLayout();
+    logButtonRow->setContentsMargins(0, 0, 0, 0);
+    logButtonRow->setSpacing(0);
+
+    QSpacerItem* offsetSpacer = new QSpacerItem(styleLabel->sizeHint().width(), 0,
+                                                QSizePolicy::Fixed, QSizePolicy::Minimum);
+
+    logButtonRow->addItem(offsetSpacer);
+    logButtonRow->addWidget(ui->toggleLogButton, 0, Qt::AlignHCenter);
+    logButtonRow->addStretch();
+
+    styleAndLogLayout->addLayout(logButtonRow);
 
     styleAndLogContainer->setLayout(styleAndLogLayout);
-
     ui->toolBar->addWidget(styleAndLogContainer);
 
     ui->playButton->setVisible(true);

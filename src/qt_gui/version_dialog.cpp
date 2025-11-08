@@ -6,7 +6,6 @@
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QJsonObject>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -31,12 +30,7 @@ VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info
 
     LoadinstalledList();
 
-    QStringList cachedVersions = LoadDownloadCache();
-    if (!cachedVersions.isEmpty()) {
-        PopulateDownloadTree(cachedVersions);
-    } else {
-        DownloadListVersion();
-    }
+    DownloadListVersion();
 
     connect(ui->browse_shad_path, &QPushButton::clicked, this, [this]() {
         QString initial_path = QString::fromStdString(m_compat_info->GetShadPath());
@@ -85,8 +79,16 @@ VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info
 
         folderName = folderName.trimmed();
 
+        QString uiChoice = QInputDialog::getItem(this, tr("UI type"), tr("Select UI type:"),
+                                                 QStringList{tr("Qt"), tr("SDL")}, 0, false, &ok);
+        if (!ok)
+            return;
+
+        QString uiSuffix = (uiChoice.compare("SDL", Qt::CaseInsensitive) == 0) ? "SDL" : "QT";
+        QString finalFolderName = QString("%1_%2_%3").arg(folderName, QString("Custom"), uiSuffix);
+
         QString basePath = QString::fromStdString(m_compat_info->GetShadPath());
-        QString newFolderPath = QDir(basePath).filePath(folderName);
+        QString newFolderPath = QDir(basePath).filePath(finalFolderName);
 
         QDir dir;
         if (dir.exists(newFolderPath)) {
@@ -119,8 +121,7 @@ VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info
             return;
         }
 
-        // Get the actual path of the invisible column folder
-        QString fullPath = selectedItem->text(3);
+        QString fullPath = selectedItem->text(5);
         if (fullPath.isEmpty()) {
             QMessageBox::critical(this, tr("Error"), tr("Failed to determine the folder path."));
             return;
@@ -143,9 +144,6 @@ VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info
             LoadinstalledList();
         }
     });
-
-    connect(ui->checkVersionDownloadButton, &QPushButton::clicked, this,
-            [this]() { DownloadListVersion(); });
 };
 
 VersionDialog::~VersionDialog() {
@@ -165,7 +163,6 @@ void VersionDialog::DownloadListVersion() {
     QNetworkAccessManager* manager = new QNetworkAccessManager(this);
 
     const QString mainRepoUrl = "https://api.github.com/repos/shadps4-emu/shadPS4/tags";
-
     const QString forkRepoUrl = "https://api.github.com/repos/diegolix29/shadPS4/releases";
 
     QNetworkReply* mainReply = manager->get(QNetworkRequest(QUrl(mainRepoUrl)));
@@ -201,10 +198,13 @@ void VersionDialog::DownloadListVersion() {
 
         QList<QTreeWidgetItem*> mainItems;
         QList<QTreeWidgetItem*> forkItems;
+        QTreeWidgetItem* forkPreReleaseItem = nullptr;
 
         for (const QJsonObject& tagObj : mainTags) {
             QString tagName = tagObj["name"].toString();
             if (tagName.isEmpty())
+                continue;
+            if (tagName.contains("Pre-release", Qt::CaseInsensitive))
                 continue;
 
             QTreeWidgetItem* item = new QTreeWidgetItem();
@@ -214,11 +214,22 @@ void VersionDialog::DownloadListVersion() {
         }
 
         for (const QJsonObject& releaseObj : forkReleases) {
+            bool isPrerelease = releaseObj["prerelease"].toBool();
             QString name = releaseObj["tag_name"].toString();
             if (name.isEmpty())
                 name = releaseObj["name"].toString();
             if (name.isEmpty())
                 continue;
+
+            if (isPrerelease) {
+                if (!forkPreReleaseItem) {
+                    forkPreReleaseItem = new QTreeWidgetItem();
+                    forkPreReleaseItem->setText(0, name);
+                    forkPreReleaseItem->setText(1, "[Fork Pre-release]");
+                    forkPreReleaseItem->setData(0, Qt::UserRole, QVariant::fromValue(releaseObj));
+                }
+                continue;
+            }
 
             QTreeWidgetItem* item = new QTreeWidgetItem();
             item->setText(0, name);
@@ -234,6 +245,10 @@ void VersionDialog::DownloadListVersion() {
         sortItems(mainItems);
         sortItems(forkItems);
 
+        if (forkPreReleaseItem) {
+            ui->downloadTreeWidget->addTopLevelItem(forkPreReleaseItem);
+        }
+
         QTreeWidgetItem* mainHeader = new QTreeWidgetItem(QStringList() << "Official Releases");
         for (auto* item : mainItems)
             mainHeader->addChild(item);
@@ -244,16 +259,16 @@ void VersionDialog::DownloadListVersion() {
             forkHeader->addChild(item);
         ui->downloadTreeWidget->addTopLevelItem(forkHeader);
 
-        ui->downloadTreeWidget->expandAll();
-
-        QMessageBox::information(this, tr("Version list update"),
-                                 tr("Fetched official tags and fork releases successfully."));
+        ui->downloadTreeWidget->collapseAll();
 
         QStringList allTags;
         for (auto* item : mainItems)
             allTags << item->text(0);
         for (auto* item : forkItems)
             allTags << item->text(0);
+        if (forkPreReleaseItem)
+            allTags.prepend(forkPreReleaseItem->text(0));
+
         SaveDownloadCache(allTags);
 
         InstallSelectedVersion();
@@ -291,12 +306,15 @@ void VersionDialog::InstallSelectedVersion() {
 
             QString sourceType = item->text(1);
 
+            QString sourceLabel =
+                sourceType.contains("Fork", Qt::CaseInsensitive) ? "Fork" : "Official";
+
             if (sourceType.contains("Fork", Qt::CaseInsensitive)) {
                 apiUrl = QString("https://api.github.com/repos/diegolix29/shadPS4/releases/tags/%1")
                              .arg(versionName);
             } else {
                 if (versionName == "Pre-release") {
-                    apiUrl = "https://api.github.com/repos/shadps4-emu/shadPS4/releases";
+                    apiUrl = "https://api.github.com/repos/diegolix29/shadPS4/releases";
                 } else {
                     apiUrl =
                         QString("https://api.github.com/repos/shadps4-emu/shadPS4/releases/tags/%1")
@@ -318,181 +336,188 @@ void VersionDialog::InstallSelectedVersion() {
             QNetworkRequest request(apiUrl);
             QNetworkReply* reply = manager->get(request);
 
-            connect(reply, &QNetworkReply::finished, this, [this, reply, platform, versionName]() {
-                if (reply->error() != QNetworkReply::NoError) {
-                    QMessageBox::warning(this, tr("Error"), reply->errorString());
-                    reply->deleteLater();
-                    return;
-                }
+            connect(
+                reply, &QNetworkReply::finished, this,
+                [this, reply, platform, versionName, sourceLabel]() {
+                    if (reply->error() != QNetworkReply::NoError) {
+                        QMessageBox::warning(this, tr("Error"), reply->errorString());
+                        reply->deleteLater();
+                        return;
+                    }
 
-                QByteArray response = reply->readAll();
-                QJsonDocument doc = QJsonDocument::fromJson(response);
+                    QByteArray response = reply->readAll();
+                    QJsonDocument doc = QJsonDocument::fromJson(response);
 
-                QJsonArray assets;
-                QJsonObject release;
+                    QJsonArray assets;
+                    QJsonObject release;
 
-                if (versionName == "Pre-release") {
-                    QJsonArray releases = doc.array();
-                    for (const QJsonValue& val : releases) {
+                    if (versionName == "Pre-release") {
+                        QJsonArray releases = doc.array();
+                        for (const QJsonValue& val : releases) {
+                            QJsonObject obj = val.toObject();
+                            if (obj["prerelease"].toBool()) {
+                                release = obj;
+                                assets = obj["assets"].toArray();
+                                break;
+                            }
+                        }
+                    } else {
+                        release = doc.object();
+                        assets = release["assets"].toArray();
+                    }
+
+                    QString downloadUrl;
+                    for (const QJsonValue& val : assets) {
                         QJsonObject obj = val.toObject();
-                        if (obj["prerelease"].toBool()) {
-                            release = obj;
-                            assets = obj["assets"].toArray();
+                        QString name = obj["name"].toString();
+                        if (name.contains(platform)) {
+                            downloadUrl = obj["browser_download_url"].toString();
                             break;
                         }
                     }
-                } else {
-                    release = doc.object();
-                    assets = release["assets"].toArray();
-                }
 
-                QString downloadUrl;
-                for (const QJsonValue& val : assets) {
-                    QJsonObject obj = val.toObject();
-                    QString name = obj["name"].toString();
-                    if (name.contains(platform)) {
-                        downloadUrl = obj["browser_download_url"].toString();
-                        break;
+                    if (downloadUrl.isEmpty()) {
+                        QMessageBox::warning(this, tr("Error"),
+                                             tr("No files available for this platform."));
+                        reply->deleteLater();
+                        return;
                     }
-                }
 
-                if (downloadUrl.isEmpty()) {
-                    QMessageBox::warning(this, tr("Error"),
-                                         tr("No files available for this platform."));
-                    reply->deleteLater();
-                    return;
-                }
+                    QString userPath = QString::fromStdString(m_compat_info->GetShadPath());
+                    QString fileName = "temp_download_update.zip";
+                    QString destinationPath = userPath + "/" + fileName;
 
-                QString userPath = QString::fromStdString(m_compat_info->GetShadPath());
-                QString fileName = "temp_download_update.zip";
-                QString destinationPath = userPath + "/" + fileName;
+                    QNetworkAccessManager* downloadManager = new QNetworkAccessManager(this);
+                    QNetworkRequest downloadRequest(downloadUrl);
+                    QNetworkReply* downloadReply = downloadManager->get(downloadRequest);
 
-                QNetworkAccessManager* downloadManager = new QNetworkAccessManager(this);
-                QNetworkRequest downloadRequest(downloadUrl);
-                QNetworkReply* downloadReply = downloadManager->get(downloadRequest);
+                    QDialog* progressDialog = new QDialog(this);
+                    progressDialog->setWindowTitle(tr("Downloading %1").arg(versionName));
+                    progressDialog->setFixedSize(400, 80);
+                    QVBoxLayout* layout = new QVBoxLayout(progressDialog);
+                    QProgressBar* progressBar = new QProgressBar(progressDialog);
+                    progressBar->setRange(0, 100);
+                    layout->addWidget(progressBar);
+                    progressDialog->setLayout(layout);
+                    progressDialog->show();
 
-                QDialog* progressDialog = new QDialog(this);
-                progressDialog->setWindowTitle(tr("Downloading %1").arg(versionName));
-                progressDialog->setFixedSize(400, 80);
-                QVBoxLayout* layout = new QVBoxLayout(progressDialog);
-                QProgressBar* progressBar = new QProgressBar(progressDialog);
-                progressBar->setRange(0, 100);
-                layout->addWidget(progressBar);
-                progressDialog->setLayout(layout);
-                progressDialog->show();
+                    connect(downloadReply, &QNetworkReply::downloadProgress, this,
+                            [progressBar](qint64 bytesReceived, qint64 bytesTotal) {
+                                if (bytesTotal > 0)
+                                    progressBar->setValue(
+                                        static_cast<int>((bytesReceived * 100) / bytesTotal));
+                            });
 
-                connect(downloadReply, &QNetworkReply::downloadProgress, this,
-                        [progressBar](qint64 bytesReceived, qint64 bytesTotal) {
-                            if (bytesTotal > 0)
-                                progressBar->setValue(
-                                    static_cast<int>((bytesReceived * 100) / bytesTotal));
-                        });
-
-                QFile* file = new QFile(destinationPath);
-                if (!file->open(QIODevice::WriteOnly)) {
-                    QMessageBox::warning(this, tr("Error"), tr("Could not save file."));
-                    file->deleteLater();
-                    downloadReply->deleteLater();
-                    return;
-                }
-
-                connect(downloadReply, &QNetworkReply::readyRead, this,
-                        [file, downloadReply]() { file->write(downloadReply->readAll()); });
-
-                connect(
-                    downloadReply, &QNetworkReply::finished, this,
-                    [this, file, downloadReply, progressDialog, release, userPath, versionName]() {
-                        file->flush();
-                        file->close();
+                    QFile* file = new QFile(destinationPath);
+                    if (!file->open(QIODevice::WriteOnly)) {
+                        QMessageBox::warning(this, tr("Error"), tr("Could not save file."));
                         file->deleteLater();
                         downloadReply->deleteLater();
+                        return;
+                    }
 
-                        QString releaseName = release["name"].toString();
+                    connect(downloadReply, &QNetworkReply::readyRead, this,
+                            [file, downloadReply]() { file->write(downloadReply->readAll()); });
 
-                        if (releaseName.startsWith("shadps4 ", Qt::CaseInsensitive)) {
-                            releaseName = releaseName.mid(8);
-                        }
+                    connect(
+                        downloadReply, &QNetworkReply::finished, this,
+                        [this, file, downloadReply, progressDialog, release, userPath, versionName,
+                         sourceLabel]() {
+                            file->flush();
+                            file->close();
+                            file->deleteLater();
+                            downloadReply->deleteLater();
 
-                        releaseName.replace(QRegularExpression("\\b[Cc]odename\\s+"), "");
+                            QString releaseName = release["name"].toString();
 
-                        QString folderName;
-                        if (versionName == "Pre-release") {
-                            folderName = release["tag_name"].toString();
-                        } else {
-                            QString datePart = release["published_at"].toString().left(10);
-                            folderName = QString("%1 - %2").arg(releaseName, datePart);
-                        }
+                            if (releaseName.startsWith("shadps4 ", Qt::CaseInsensitive)) {
+                                releaseName = releaseName.mid(8);
+                            }
 
-                        QString destFolder = QDir(userPath).filePath(folderName);
+                            releaseName.replace(QRegularExpression("\\b[Cc]odename\\s+"), "");
 
-                        // extract ZIP
-                        QString scriptFilePath;
-                        QString scriptContent;
-                        QStringList args;
-                        QString process;
+                            QString folderName;
+                            if (versionName == "Pre-release") {
+                                folderName = release["tag_name"].toString();
+                            } else {
+                                QString datePart = release["published_at"].toString().left(10);
+                                folderName = QString("%1 - %2").arg(releaseName, datePart);
+                            }
+
+                            bool fetchSDL = ui->sdlBuildCheckBox->isChecked();
+                            QString uiSuffix = fetchSDL ? "SDL" : "QT";
+                            QString suffix = QString("_%1_%2").arg(sourceLabel, uiSuffix);
+
+                            folderName += suffix;
+
+                            QString destFolder = QDir(userPath).filePath(folderName);
+
+                            QString scriptFilePath;
+                            QString scriptContent;
+                            QStringList args;
+                            QString process;
 
 #ifdef Q_OS_WIN
-                        scriptFilePath = userPath + "/extract_update.ps1";
-                        scriptContent = QString("New-Item -ItemType Directory -Path \"%1\" "
-                                                "-Force\n"
-                                                "Expand-Archive -Path \"%2\" "
-                                                "-DestinationPath \"%1\" -Force\n"
-                                                "Remove-Item -Force \"%2\"\n"
-                                                "Remove-Item -Force \"%3\"\n"
-                                                "cls\n")
-                                            .arg(destFolder)
-                                            .arg(userPath + "/temp_download_update.zip")
-                                            .arg(scriptFilePath);
-                        process = "powershell.exe";
-                        args << "-ExecutionPolicy" << "Bypass" << "-File" << scriptFilePath;
+                            scriptFilePath = userPath + "/extract_update.ps1";
+                            scriptContent = QString("New-Item -ItemType Directory -Path \"%1\" "
+                                                    "-Force\n"
+                                                    "Expand-Archive -Path \"%2\" "
+                                                    "-DestinationPath \"%1\" -Force\n"
+                                                    "Remove-Item -Force \"%2\"\n"
+                                                    "Remove-Item -Force \"%3\"\n"
+                                                    "cls\n")
+                                                .arg(destFolder)
+                                                .arg(userPath + "/temp_download_update.zip")
+                                                .arg(scriptFilePath);
+                            process = "powershell.exe";
+                            args << "-ExecutionPolicy" << "Bypass" << "-File" << scriptFilePath;
 #elif defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
-                    scriptFilePath = userPath + "/extract_update.sh";
-                    scriptContent = QString(
-                                        "#!/bin/bash\n"
-                                        "mkdir -p \"%1\"\n"
-                                        "unzip -o \"%2\" -d \"%1\"\n"
-                                        "rm \"%2\"\n"
-                                        "rm \"%3\"\n"
-                                        "clear\n")
-                                        .arg(destFolder)
-                                        .arg(userPath + "/temp_download_update.zip")
-                                        .arg(scriptFilePath);
-                    process = "bash";
-                    args << scriptFilePath;
+                            scriptFilePath = userPath + "/extract_update.sh";
+                            scriptContent = QString("#!/bin/bash\n"
+                                                    "mkdir -p \"%1\"\n"
+                                                    "unzip -o \"%2\" -d \"%1\"\n"
+                                                    "rm \"%2\"\n"
+                                                    "rm \"%3\"\n"
+                                                    "clear\n")
+                                                .arg(destFolder)
+                                                .arg(userPath + "/temp_download_update.zip")
+                                                .arg(scriptFilePath);
+                            process = "bash";
+                            args << scriptFilePath;
 #endif
 
-                        QFile scriptFile(scriptFilePath);
-                        if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                            QTextStream out(&scriptFile);
+                            QFile scriptFile(scriptFilePath);
+                            if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                                QTextStream out(&scriptFile);
 #ifdef Q_OS_WIN
-                            scriptFile.write("\xEF\xBB\xBF");
+                                scriptFile.write("\xEF\xBB\xBF");
 #endif
-                            out << scriptContent;
-                            scriptFile.close();
+                                out << scriptContent;
+                                scriptFile.close();
 #if defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
-                            scriptFile.setPermissions(QFile::ExeUser | QFile::ReadUser |
-                                                      QFile::WriteUser);
+                                scriptFile.setPermissions(QFile::ExeUser | QFile::ReadUser |
+                                                          QFile::WriteUser);
 #endif
-                            QProcess::startDetached(process, args);
+                                QProcess::startDetached(process, args);
 
-                            QTimer::singleShot(
-                                4000, this, [this, folderName, progressDialog, versionName]() {
-                                    progressDialog->close();
-                                    progressDialog->deleteLater();
-                                    QMessageBox::information(
-                                        this, tr("Download"),
-                                        tr("Version %1 has been downloaded").arg(versionName));
-                                    VersionDialog::LoadinstalledList();
-                                });
+                                QTimer::singleShot(
+                                    4000, this, [this, folderName, progressDialog, versionName]() {
+                                        progressDialog->close();
+                                        progressDialog->deleteLater();
+                                        QMessageBox::information(
+                                            this, tr("Download"),
+                                            tr("Version %1 has been downloaded").arg(versionName));
+                                        VersionDialog::LoadinstalledList();
+                                    });
 
-                        } else {
-                            QMessageBox::warning(this, tr("Error"),
-                                                 tr("Failed to create zip extraction script:") +
-                                                     QString("\n%1").arg(scriptFilePath));
-                        }
-                    });
-                reply->deleteLater();
-            });
+                            } else {
+                                QMessageBox::warning(this, tr("Error"),
+                                                     tr("Failed to create zip extraction script:") +
+                                                         QString("\n%1").arg(scriptFilePath));
+                            }
+                        });
+                    reply->deleteLater();
+                });
         });
 }
 
@@ -503,8 +528,7 @@ void VersionDialog::LoadinstalledList() {
         return;
 
     ui->installedTreeWidget->clear();
-    ui->installedTreeWidget->setColumnCount(4);
-    ui->installedTreeWidget->setColumnHidden(3, true);
+    ui->installedTreeWidget->setColumnCount(6);
 
     QStringList folders = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 
@@ -539,13 +563,39 @@ void VersionDialog::LoadinstalledList() {
         return a.first[2] > b.first[2];     // patch
     });
 
+    auto extractSuffixes = [](const QString& folder, QString& outSource, QString& outUI,
+                              QString& outBase) {
+        outSource = "";
+        outUI = "";
+        outBase = folder;
+        QRegularExpression suffRegex("_(Official|Fork|Custom)_(QT|SDL)$",
+                                     QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch m = suffRegex.match(folder);
+        if (m.hasMatch()) {
+            outSource = m.captured(1);
+            outUI = (m.captured(2).compare("SDL", Qt::CaseInsensitive) == 0) ? "SDL" : "Qt";
+            outBase = folder.left(folder.length() - m.captured(0).length());
+            return;
+        }
+        if (folder.endsWith("_SDL", Qt::CaseInsensitive)) {
+            outUI = "SDL";
+            outBase = folder.left(folder.length() - 4);
+        } else if (folder.endsWith("_QT")) {
+            outUI = "Qt";
+            outBase = folder.left(folder.length() - 3);
+        }
+    };
+
     for (const QString& folder : otherDirs) {
         QTreeWidgetItem* item = new QTreeWidgetItem(ui->installedTreeWidget);
         QString fullPath = QDir(path).filePath(folder);
-        item->setText(3, fullPath);
+        item->setText(5, fullPath);
 
-        if (folder.startsWith("Pre-release-shadPS4")) {
-            QStringList parts = folder.split('-');
+        QString sourceLabel, uiLabel, baseName;
+        extractSuffixes(folder, sourceLabel, uiLabel, baseName);
+
+        if (baseName.startsWith("Pre-release-shadPS4")) {
+            QStringList parts = baseName.split('-');
             item->setText(0, "Pre-release"); // Version
             QString shortHash;
             if (parts.size() >= 7) {
@@ -560,39 +610,48 @@ void VersionDialog::LoadinstalledList() {
             } else {
                 item->setText(2, "");
             }
-        } else if (folder.contains(" - ")) {
-            QStringList parts = folder.split(" - ");
+        } else if (baseName.contains(" - ")) {
+            QStringList parts = baseName.split(" - ");
             item->setText(0, parts.value(0));
             item->setText(1, parts.value(1));
             item->setText(2, parts.value(2));
         } else {
-            item->setText(0, folder); // only Version
+            item->setText(0, baseName); // only Version
             item->setText(1, "");
             item->setText(2, "");
         }
+
+        item->setText(3, sourceLabel);
+        item->setText(4, uiLabel);
     }
 
     // add versions
     for (const auto& pair : versionedDirs) {
         QTreeWidgetItem* item = new QTreeWidgetItem(ui->installedTreeWidget);
         QString fullPath = QDir(path).filePath(pair.second);
-        item->setText(3, fullPath); // FullPath invisible column
+        item->setText(5, fullPath);
 
-        if (pair.second.contains(" - ")) {
-            QStringList parts = pair.second.split(" - ");
+        QString sourceLabel, uiLabel, baseName;
+        extractSuffixes(pair.second, sourceLabel, uiLabel, baseName);
+
+        if (baseName.contains(" - ")) {
+            QStringList parts = baseName.split(" - ");
             item->setText(0, parts.value(0)); // Version
             item->setText(1, parts.value(1)); // Name
             item->setText(2, parts.value(2)); // Date
         } else {
-            item->setText(0, pair.second); // only Version
+            item->setText(0, baseName); // only Version
             item->setText(1, "");
             item->setText(2, "");
         }
+
+        item->setText(3, sourceLabel);
+        item->setText(4, uiLabel);
     }
     QString currentExePath = QString::fromStdString(m_compat_info->GetSelectedShadExePath());
     for (int i = 0; i < ui->installedTreeWidget->topLevelItemCount(); ++i) {
         QTreeWidgetItem* item = ui->installedTreeWidget->topLevelItem(i);
-        QString fullPath = item->text(3);
+        QString fullPath = item->text(5);
         if (!fullPath.isEmpty() && fullPath == currentExePath) {
             ui->installedTreeWidget->setCurrentItem(item);
             break;
@@ -602,7 +661,7 @@ void VersionDialog::LoadinstalledList() {
     connect(ui->installedTreeWidget, &QTreeWidget::itemSelectionChanged, this, [this]() {
         QTreeWidgetItem* selectedItem = ui->installedTreeWidget->currentItem();
         if (selectedItem) {
-            QString exePath = selectedItem->text(3);
+            QString exePath = selectedItem->text(5);
             if (!exePath.isEmpty())
                 m_compat_info->SetSelectedShadExePath(exePath.toStdString());
         }
@@ -648,7 +707,8 @@ void VersionDialog::PopulateDownloadTree(const QStringList& versions) {
         if (tagName.startsWith("Pre-release", Qt::CaseInsensitive)) {
             if (!foundPreRelease) {
                 preReleaseItem = new QTreeWidgetItem();
-                preReleaseItem->setText(0, "Pre-release");
+                preReleaseItem->setText(0, tagName);
+                preReleaseItem->setText(1, "[Fork Pre-release]");
                 foundPreRelease = true;
             }
             continue;
@@ -661,14 +721,13 @@ void VersionDialog::PopulateDownloadTree(const QStringList& versions) {
     if (!foundPreRelease) {
         preReleaseItem = new QTreeWidgetItem();
         preReleaseItem->setText(0, "Pre-release");
+        preReleaseItem->setText(1, "");
     }
 
     if (preReleaseItem)
         ui->downloadTreeWidget->addTopLevelItem(preReleaseItem);
     for (QTreeWidgetItem* item : otherItems)
         ui->downloadTreeWidget->addTopLevelItem(item);
-
-    InstallSelectedVersion();
 }
 
 void VersionDialog::InstallSelectedVersionExe() {
@@ -678,7 +737,7 @@ void VersionDialog::InstallSelectedVersionExe() {
         return;
     }
 
-    QString fullPath = selectedItem->text(3); // version folder path
+    QString fullPath = selectedItem->text(5);
     if (fullPath.isEmpty()) {
         QMessageBox::critical(this, tr("Error"), tr("Invalid version path."));
         return;
@@ -693,10 +752,8 @@ void VersionDialog::InstallSelectedVersionExe() {
 
     QString destExe = QString::fromStdString(exePath.string());
 
-    // The new source exe comes from the version folder
     QDir versionDir(fullPath);
 #ifdef Q_OS_LINUX
-    // look for .AppImage in the version folder
     QStringList candidates = versionDir.entryList(QStringList() << "*.AppImage", QDir::Files);
     if (candidates.isEmpty()) {
         QMessageBox::critical(this, tr("Error"),
