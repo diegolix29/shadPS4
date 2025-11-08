@@ -4,10 +4,23 @@
 #include <algorithm>
 #include <codecvt>
 #include <fstream>
+#include <iostream>
+#include <regex>
 #include <sstream>
 #include <string>
-#include <nlohmann/json.hpp>
+#include <thread>
 #include <pugixml.hpp>
+#ifdef ENABLE_QT_GUI
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QListView>
+#include <QMessageBox>
+#include <QString>
+#include <QXmlStreamReader>
+#endif
 #include "common/config.h"
 #include "common/elf_info.h"
 #include "common/logging/log.h"
@@ -15,12 +28,14 @@
 #include "core/file_format/psf.h"
 #include "memory_patcher.h"
 
+std::filesystem::path g_savedir;
+
 namespace MemoryPatcher {
 
 EXPORT uintptr_t g_eboot_address;
 uint64_t g_eboot_image_size;
 std::string g_game_serial;
-std::string patch_file;
+std::string patchFile;
 bool patches_applied = false;
 std::vector<patchInfo> pending_patches;
 
@@ -112,106 +127,81 @@ std::string convertValueToHex(const std::string type, const std::string valueStr
     return result;
 }
 
-void ApplyPendingPatches();
+std::atomic<bool> g_running = true;
 
-void ApplyPatchesFromXML(std::filesystem::path path) {
-    pugi::xml_document doc;
-    pugi::xml_parse_result result = doc.load_file(path.c_str());
+void BackupCUSAFolder(const std::filesystem::path& cusa_dir) {
+    if (!std::filesystem::exists(cusa_dir))
+        return;
 
-    auto* param_sfo = Common::Singleton<PSF>::Instance();
-    auto app_version = param_sfo->GetString("APP_VER").value_or("Unknown version");
+    std::time_t now = std::time(nullptr);
+    std::tm localTime;
+#ifdef _WIN32
+    localtime_s(&localTime, &now);
+#else
+    localtime_r(&now, &localTime);
+#endif
 
-    if (result) {
-        auto patchXML = doc.child("Patch");
-        for (pugi::xml_node_iterator it = patchXML.children().begin();
-             it != patchXML.children().end(); ++it) {
+    char timestamp[20];
+    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", &localTime);
 
-            if (std::string(it->name()) == "Metadata") {
-                if (std::string(it->attribute("isEnabled").value()) == "true") {
-                    std::string currentPatchName = it->attribute("Name").value();
-                    std::string metadataAppVer = it->attribute("AppVer").value();
-                    bool versionMatches = metadataAppVer == app_version;
+    std::string backupFolderName =
+        cusa_dir.filename().string() + "-" + std::string(timestamp) + "-bak";
+    std::filesystem::path backupDir = cusa_dir / backupFolderName;
 
-                    auto patchList = it->first_child();
-                    for (pugi::xml_node_iterator patchLineIt = patchList.children().begin();
-                         patchLineIt != patchList.children().end(); ++patchLineIt) {
+    if (std::filesystem::exists(backupDir)) {
+        // Already backed up today, just return
+        return;
+    }
 
-                        std::string type = patchLineIt->attribute("Type").value();
-                        if (!versionMatches && type != "mask" && type != "mask_jump32")
-                            continue;
+    try {
+        std::filesystem::create_directories(backupDir);
 
-                        std::string address = patchLineIt->attribute("Address").value();
-                        std::string patchValue = patchLineIt->attribute("Value").value();
-                        std::string maskOffsetStr = patchLineIt->attribute("Offset").value();
-                        std::string targetStr = "";
-                        std::string sizeStr = "";
-                        if (type == "mask_jump32") {
-                            targetStr = patchLineIt->attribute("Target").value();
-                            sizeStr = patchLineIt->attribute("Size").value();
-                        } else {
-                            patchValue = convertValueToHex(type, patchValue);
-                        }
+        for (auto& entry : std::filesystem::recursive_directory_iterator(cusa_dir)) {
+            if (entry.path().string().find("-bak") != std::string::npos)
+                continue; // skip previous backups
 
-                        bool littleEndian = false;
-                        if (type == "bytes16" || type == "bytes32" || type == "bytes64") {
-                            littleEndian = true;
-                        }
+            auto relativePath = std::filesystem::relative(entry.path(), cusa_dir);
+            auto destPath = backupDir / relativePath;
 
-                        MemoryPatcher::PatchMask patchMask = MemoryPatcher::PatchMask::None;
-                        int maskOffsetValue = 0;
-
-                        if (type == "mask")
-                            patchMask = MemoryPatcher::PatchMask::Mask;
-
-                        if (type == "mask_jump32")
-                            patchMask = MemoryPatcher::PatchMask::Mask_Jump32;
-
-                        if ((type == "mask" || type == "mask_jump32") && !maskOffsetStr.empty()) {
-                            maskOffsetValue = std::stoi(maskOffsetStr, 0, 10);
-                        }
-
-                        MemoryPatcher::PatchMemory(currentPatchName, address, patchValue, targetStr,
-                                                   sizeStr, false, littleEndian, patchMask,
-                                                   maskOffsetValue);
-                    }
-                }
+            if (entry.is_directory()) {
+                std::filesystem::create_directories(destPath);
+            } else if (entry.is_regular_file()) {
+                std::filesystem::copy_file(entry.path(), destPath,
+                                           std::filesystem::copy_options::overwrite_existing);
             }
         }
-    } else {
-        LOG_ERROR(Loader, "Could not parse patch XML: {}", result.description());
+        std::cout << "[AUTO-BACKUP] Created full backup: " << backupDir << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Backup failed: " << e.what() << std::endl;
     }
 }
 
-void OnGameLoaded() {
-    std::filesystem::path patch_dir = Common::FS::GetUserPath(Common::FS::PathType::PatchesDir);
-    if (!patch_file.empty()) {
+void BackupSaveFile(const std::filesystem::path& savefile_path) {
+    if (!std::filesystem::exists(savefile_path))
+        return;
 
-        auto file_path = (patch_dir / patch_file).native();
-        if (std::filesystem::exists(patch_file)) {
-            ApplyPatchesFromXML(patch_file);
-        } else {
-            ApplyPatchesFromXML(file_path);
-        }
-    } else if (Config::getLoadAutoPatches()) {
-        for (auto const& repo : std::filesystem::directory_iterator(patch_dir)) {
-            if (!repo.is_directory()) {
-                continue;
-            }
-            std::ifstream json_file{repo.path() / "files.json"};
-            nlohmann::json available_patches = nlohmann::json::parse(json_file);
-            std::filesystem::path game_patch_file;
-            for (auto const& [filename, serials] : available_patches.items()) {
-                if (std::find(serials.begin(), serials.end(), g_game_serial) != serials.end()) {
-                    game_patch_file = repo.path() / filename;
-                    break;
-                }
-            }
-            if (std::filesystem::exists(game_patch_file)) {
-                ApplyPatchesFromXML(game_patch_file);
-            }
-        }
+    std::time_t now = std::time(nullptr);
+    char timestamp[20];
+    std::tm localTime;
+#ifdef _WIN32
+    localtime_s(&localTime, &now);
+#else
+    localtime_r(&now, &localTime);
+#endif
+    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", &localTime);
+
+    std::filesystem::path backup_file =
+        savefile_path.parent_path() / ("backup_" + std::string(timestamp) + ".bak");
+
+    std::ifstream src(savefile_path, std::ios::binary);
+    std::ofstream dst(backup_file, std::ios::binary);
+
+    if (src.is_open() && dst.is_open()) {
+        dst << src.rdbuf();
+        std::cout << "[AUTO-BACKUP] Created: " << backup_file << std::endl;
+    } else {
+        std::cerr << "[ERROR] Backup failed!" << std::endl;
     }
-    ApplyPendingPatches();
 }
 
 void AddPatchToQueue(patchInfo patchToAdd) {
@@ -238,6 +228,299 @@ void ApplyPendingPatches() {
     }
 
     pending_patches.clear();
+}
+
+void OnGameLoaded() {
+    std::string save_cusa = g_game_serial;
+    if (g_game_serial == "CUSA03173") {
+        save_cusa = "CUSA00207";
+    }
+
+    std::filesystem::path savedir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
+                                    "savedata" / "1" / save_cusa / "SPRJ0005";
+    std::filesystem::path cusa_dir =
+        Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "savedata" / "1" / save_cusa;
+
+    std::filesystem::path backupDir = savedir;
+    std::time_t now = std::time(nullptr);
+    std::tm localTime;
+
+#ifdef _WIN32
+    localtime_s(&localTime, &now);
+#else
+    localtime_r(&now, &localTime);
+#endif
+
+    std::ostringstream dateStream;
+    dateStream << std::put_time(&localTime, "%Y-%m-%d");
+    std::string dateString = dateStream.str();
+
+    std::filesystem::path backupFile = backupDir / (dateString + "_userdata_backup.bak");
+
+    if (std::filesystem::exists(backupFile)) {
+        std::filesystem::remove(backupFile);
+    }
+
+    std::ifstream src(savedir / "userdata0010", std::ios::binary);
+    std::ofstream dest(backupFile, std::ios::binary);
+    dest << src.rdbuf();
+    src.close();
+    dest.close();
+
+    if (g_game_serial == "CUSA03173" || g_game_serial == "CUSA00900" ||
+        g_game_serial == "CUSA00299" || g_game_serial == "CUSA00207") {
+
+        std::ofstream savefile1;
+        savefile1.open(savedir / "userdata0010", std::ios::in | std::ios::out | std::ios::binary);
+        savefile1.seekp(0x204E);
+        savefile1.put(0x1);
+        savefile1.close();
+    }
+
+    if (!patchFile.empty()) {
+        std::filesystem::path patchDir = Common::FS::GetUserPath(Common::FS::PathType::PatchesDir);
+
+        auto filePath = (patchDir / patchFile).native();
+
+        pugi::xml_document doc;
+        pugi::xml_parse_result result = doc.load_file(filePath.c_str());
+
+        auto* param_sfo = Common::Singleton<PSF>::Instance();
+        auto app_version = param_sfo->GetString("APP_VER").value_or("Unknown version");
+
+        if (result) {
+            auto patchXML = doc.child("Patch");
+            for (pugi::xml_node_iterator it = patchXML.children().begin();
+                 it != patchXML.children().end(); ++it) {
+
+                if (std::string(it->name()) == "Metadata") {
+                    if (std::string(it->attribute("isEnabled").value()) == "true") {
+                        std::string currentPatchName = it->attribute("Name").value();
+                        std::string metadataAppVer = it->attribute("AppVer").value();
+                        bool versionMatches = metadataAppVer == app_version;
+
+                        auto patchList = it->first_child();
+                        for (pugi::xml_node_iterator patchLineIt = patchList.children().begin();
+                             patchLineIt != patchList.children().end(); ++patchLineIt) {
+
+                            std::string type = patchLineIt->attribute("Type").value();
+                            if (!versionMatches && type != "mask" && type != "mask_jump32")
+                                continue;
+
+                            std::string address = patchLineIt->attribute("Address").value();
+                            std::string patchValue = patchLineIt->attribute("Value").value();
+                            std::string maskOffsetStr = patchLineIt->attribute("Offset").value();
+                            std::string targetStr = "";
+                            std::string sizeStr = "";
+                            if (type == "mask_jump32") {
+                                targetStr = patchLineIt->attribute("Target").value();
+                                sizeStr = patchLineIt->attribute("Size").value();
+                            } else {
+                                patchValue = convertValueToHex(type, patchValue);
+                            }
+
+                            bool littleEndian = false;
+                            if (type == "bytes16" || type == "bytes32" || type == "bytes64") {
+                                littleEndian = true;
+                            }
+
+                            MemoryPatcher::PatchMask patchMask = MemoryPatcher::PatchMask::None;
+                            int maskOffsetValue = 0;
+
+                            if (type == "mask")
+                                patchMask = MemoryPatcher::PatchMask::Mask;
+
+                            if (type == "mask_jump32")
+                                patchMask = MemoryPatcher::PatchMask::Mask_Jump32;
+
+                            if ((type == "mask" || type == "mask_jump32") &&
+                                !maskOffsetStr.empty()) {
+                                maskOffsetValue = std::stoi(maskOffsetStr, 0, 10);
+                            }
+
+                            MemoryPatcher::PatchMemory(currentPatchName, address, patchValue,
+                                                       targetStr, sizeStr, false, littleEndian,
+                                                       patchMask, maskOffsetValue);
+                        }
+                    }
+                }
+            }
+
+            return;
+        } else {
+            LOG_ERROR(Loader, "couldnt patch parse xml : {}", result.description());
+        }
+
+        return;
+    }
+    ApplyPendingPatches();
+
+#ifdef ENABLE_QT_GUI
+    // We use the QT headers for the xml and json parsing, this define is only true on QT builds
+    QString patchDir;
+    Common::FS::PathToQString(patchDir, Common::FS::GetUserPath(Common::FS::PathType::PatchesDir));
+    QDir dir(patchDir);
+    QStringList folders = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    for (const QString& folder : folders) {
+        QString filesJsonPath = patchDir + "/" + folder + "/files.json";
+
+        QFile jsonFile(filesJsonPath);
+        if (!jsonFile.open(QIODevice::ReadOnly)) {
+            LOG_ERROR(Loader, "Unable to open files.json for reading in repository {}",
+                      folder.toStdString());
+            continue;
+        }
+
+        QByteArray jsonData = jsonFile.readAll();
+        jsonFile.close();
+
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
+        QJsonObject jsonObject = jsonDoc.object();
+
+        QString selectedFileName;
+        QString serial = QString::fromStdString(g_game_serial);
+
+        for (auto it = jsonObject.constBegin(); it != jsonObject.constEnd(); ++it) {
+            QString filePath = it.key();
+            QJsonArray idsArray = it.value().toArray();
+
+            if (idsArray.contains(QJsonValue(serial))) {
+                selectedFileName = filePath;
+                break;
+            }
+        }
+
+        if (selectedFileName.isEmpty()) {
+            LOG_ERROR(Loader, "No patch file found for the current serial in repository {}",
+                      folder.toStdString());
+            continue;
+        }
+
+        QString filePath = patchDir + "/" + folder + "/" + selectedFileName;
+        QFile file(filePath);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            LOG_ERROR(Loader, "Unable to open the file for reading.");
+            continue;
+        }
+
+        QByteArray xmlData = file.readAll();
+        file.close();
+
+        QString newXmlData;
+
+        QXmlStreamReader xmlReader(xmlData);
+
+        bool isEnabled = false;
+        std::string currentPatchName;
+
+        auto* param_sfo = Common::Singleton<PSF>::Instance();
+        auto app_version = param_sfo->GetString("APP_VER").value_or("Unknown version");
+        bool versionMatches = true;
+
+        while (!xmlReader.atEnd()) {
+            xmlReader.readNext();
+
+            if (xmlReader.isStartElement()) {
+                QJsonArray patchLines;
+                if (xmlReader.name() == QStringLiteral("Metadata")) {
+                    QString name = xmlReader.attributes().value("Name").toString();
+                    currentPatchName = name.toStdString();
+
+                    QString appVer = xmlReader.attributes().value("AppVer").toString();
+
+                    // Check and update the isEnabled attribute
+                    isEnabled = false;
+                    for (const QXmlStreamAttribute& attr : xmlReader.attributes()) {
+                        if (attr.name() == QStringLiteral("isEnabled")) {
+                            isEnabled = (attr.value().toString() == "true");
+                        }
+                    }
+                    versionMatches = (appVer.toStdString() == app_version);
+
+                } else if (xmlReader.name() == QStringLiteral("PatchList")) {
+                    QJsonArray linesArray;
+                    while (!xmlReader.atEnd() &&
+                           !(xmlReader.tokenType() == QXmlStreamReader::EndElement &&
+                             xmlReader.name() == QStringLiteral("PatchList"))) {
+                        xmlReader.readNext();
+                        if (xmlReader.tokenType() == QXmlStreamReader::StartElement &&
+                            xmlReader.name() == QStringLiteral("Line")) {
+                            QXmlStreamAttributes attributes = xmlReader.attributes();
+                            QJsonObject lineObject;
+                            lineObject["Type"] = attributes.value("Type").toString();
+                            lineObject["Address"] = attributes.value("Address").toString();
+                            lineObject["Value"] = attributes.value("Value").toString();
+                            lineObject["Offset"] = attributes.value("Offset").toString();
+                            if (lineObject["Type"].toString() == "mask_jump32") {
+                                lineObject["Target"] = attributes.value("Target").toString();
+                                lineObject["Size"] = attributes.value("Size").toString();
+                            }
+                            linesArray.append(lineObject);
+                        }
+                    }
+
+                    patchLines = linesArray;
+                    if (isEnabled) {
+                        foreach (const QJsonValue& value, patchLines) {
+                            QJsonObject lineObject = value.toObject();
+                            QString type = lineObject["Type"].toString();
+
+                            if ((type != "mask" && type != "mask_jump32") && !versionMatches)
+                                continue;
+
+                            QString address = lineObject["Address"].toString();
+                            QString patchValue = lineObject["Value"].toString();
+                            QString maskOffsetStr = lineObject["Offset"].toString();
+
+                            QString targetStr;
+                            QString sizeStr;
+
+                            if (type == "mask_jump32") {
+                                targetStr = lineObject["Target"].toString();
+                                sizeStr = lineObject["Size"].toString();
+                            } else {
+                                patchValue = QString::fromStdString(convertValueToHex(
+                                    type.toStdString(), patchValue.toStdString()));
+                            }
+
+                            bool littleEndian = false;
+
+                            if (type == "bytes16" || type == "bytes32" || type == "bytes64")
+                                littleEndian = true;
+
+                            MemoryPatcher::PatchMask patchMask = MemoryPatcher::PatchMask::None;
+                            int maskOffsetValue = 0;
+
+                            if (type == "mask")
+                                patchMask = MemoryPatcher::PatchMask::Mask;
+
+                            if (type == "mask_jump32")
+                                patchMask = MemoryPatcher::PatchMask::Mask_Jump32;
+
+                            if ((type == "mask" || type == "mask_jump32") &&
+                                !maskOffsetStr.toStdString().empty()) {
+                                maskOffsetValue = std::stoi(maskOffsetStr.toStdString(), 0, 10);
+                            }
+
+                            MemoryPatcher::PatchMemory(
+                                currentPatchName, address.toStdString(), patchValue.toStdString(),
+                                targetStr.toStdString(), sizeStr.toStdString(), false, littleEndian,
+                                patchMask, maskOffsetValue);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (xmlReader.hasError()) {
+            LOG_ERROR(Loader, "Failed to parse XML for {}", g_game_serial);
+        } else {
+            LOG_INFO(Loader, "Patches loaded successfully, repository: {}", folder.toStdString());
+        }
+        ApplyPendingPatches();
+    }
+#endif
 }
 
 void PatchMemory(std::string modNameStr, std::string offsetStr, std::string valueStr,
@@ -404,6 +687,159 @@ uintptr_t PatternScan(const std::string& signature) {
     }
 
     return 0;
+}
+
+std::vector<PendingPatch> readPatches(std::string gameSerial, std::string appVersion) {
+#ifdef USE_QT_GUI
+    std::vector<PendingPatch> pending;
+
+    QString patchDir = QString::fromStdString(
+        Common::FS::PathToUTF8String(Common::FS::GetUserPath(Common::FS::PathType::PatchesDir)));
+    QDir dir(patchDir);
+    QStringList folders = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    for (const QString& folder : folders) {
+        QString filesJsonPath = patchDir + "/" + folder + "/files.json";
+
+        QFile jsonFile(filesJsonPath);
+        if (!jsonFile.open(QIODevice::ReadOnly)) {
+            LOG_ERROR(Loader, "Unable to open files.json for reading in repository {}",
+                      folder.toStdString());
+            continue;
+        }
+
+        const QByteArray jsonData = jsonFile.readAll();
+        jsonFile.close();
+
+        const QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
+        const QJsonObject jsonObject = jsonDoc.object();
+
+        QString selectedFileName;
+        const QString serial = QString::fromStdString(gameSerial);
+
+        for (auto it = jsonObject.constBegin(); it != jsonObject.constEnd(); ++it) {
+            const QString filePath = it.key();
+            const QJsonArray idsArray = it.value().toArray();
+            if (idsArray.contains(QJsonValue(serial))) {
+                selectedFileName = filePath;
+                break;
+            }
+        }
+
+        if (selectedFileName.isEmpty()) {
+            LOG_ERROR(Loader, "No patch file found for serial {}", gameSerial);
+            continue;
+        }
+
+        const QString filePath = patchDir + "/" + folder + "/" + selectedFileName;
+        QFile file(filePath);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            LOG_ERROR(Loader, "Unable to open the file for reading: {}", filePath.toStdString());
+            continue;
+        }
+
+        const QByteArray xmlData = file.readAll();
+        file.close();
+
+        QXmlStreamReader xmlReader(xmlData);
+        bool isEnabled = false;
+        std::string currentPatchName;
+        bool versionMatches = true;
+
+        while (!xmlReader.atEnd()) {
+            xmlReader.readNext();
+            if (!xmlReader.isStartElement())
+                continue;
+
+            if (xmlReader.name() == QStringLiteral("Metadata")) {
+                QString name = xmlReader.attributes().value("Name").toString();
+                currentPatchName = name.toStdString();
+
+                const QString appVer = xmlReader.attributes().value("AppVer").toString();
+                isEnabled = false;
+                for (const QXmlStreamAttribute& attr : xmlReader.attributes()) {
+                    if (attr.name() == QStringLiteral("isEnabled")) {
+                        isEnabled = (attr.value().toString() == "true");
+                    }
+                }
+                versionMatches = (appVer.toStdString() == appVersion);
+            } else if (xmlReader.name() == QStringLiteral("PatchList")) {
+                while (!xmlReader.atEnd() &&
+                       !(xmlReader.tokenType() == QXmlStreamReader::EndElement &&
+                         xmlReader.name() == QStringLiteral("PatchList"))) {
+                    xmlReader.readNext();
+                    if (xmlReader.tokenType() != QXmlStreamReader::StartElement ||
+                        xmlReader.name() != QStringLiteral("Line")) {
+                        continue;
+                    }
+
+                    const QXmlStreamAttributes a = xmlReader.attributes();
+                    const QString type = a.value("Type").toString();
+                    const QString addr = a.value("Address").toString();
+                    QString val = a.value("Value").toString();
+                    const QString offStr = a.value("Offset").toString();
+                    const QString tgt =
+                        (type == "mask_jump32") ? a.value("Target").toString() : QString{};
+                    const QString sz =
+                        (type == "mask_jump32") ? a.value("Size").toString() : QString{};
+
+                    if (!isEnabled)
+                        continue;
+                    if ((type != "mask" && type != "mask_jump32") && !versionMatches)
+                        continue;
+
+                    PendingPatch pp;
+                    pp.modName = currentPatchName;
+                    pp.address = addr.toStdString();
+
+                    if (type == "mask" || type == "mask_jump32") {
+                        if (!offStr.toStdString().empty()) {
+                            pp.maskOffset = std::stoi(offStr.toStdString(), nullptr, 10);
+                        }
+                        pp.mask = (type == "mask") ? MemoryPatcher::PatchMask::Mask
+                                                   : MemoryPatcher::PatchMask::Mask_Jump32;
+                        pp.value = val.toStdString();
+                        pp.target = tgt.toStdString();
+                        pp.size = sz.toStdString();
+                    } else {
+                        pp.value = convertValueToHex(type.toStdString(), val.toStdString());
+                        pp.target.clear();
+                        pp.size.clear();
+                        pp.mask = MemoryPatcher::PatchMask::None;
+                        pp.maskOffset = 0;
+                    }
+
+                    pp.littleEndian = (type == "bytes16" || type == "bytes32" || type == "bytes64");
+                    pending.emplace_back(std::move(pp));
+                }
+            }
+        }
+
+        if (xmlReader.hasError()) {
+            LOG_ERROR(Loader, "Failed to parse XML for {}", gameSerial);
+        } else {
+            LOG_INFO(Loader, "Patches parsed successfully, repository: {}", folder.toStdString());
+        }
+    }
+
+    return pending;
+#else
+    // SDL / headless build fallback (no Qt)
+    LOG_WARNING(Loader, "readPatches skipped (Qt not available in SDL build)");
+    return {};
+#endif
+}
+
+void ApplyRuntimePatch(const std::string& modNameStr, const std::string& offsetStr,
+                       const std::string& valueStr, const std::string& targetStr,
+                       const std::string& sizeStr, bool isOffset, bool littleEndian, int patchMask,
+                       int maskOffset) {
+    LOG_INFO(Loader, "IPC runtime patch received: {}", modNameStr);
+
+    PatchMask maskType = static_cast<PatchMask>(patchMask);
+
+    PatchMemory(modNameStr, offsetStr, valueStr, targetStr, sizeStr, isOffset, littleEndian,
+                maskType, maskOffset);
 }
 
 } // namespace MemoryPatcher

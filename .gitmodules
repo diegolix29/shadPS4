@@ -110,9 +110,6 @@
 	path = externals/MoltenVK
 	url = https://github.com/shadPS4-emu/ext-MoltenVK.git
 	shallow = true
-[submodule "externals/json"]
-	path = externals/json
-	url = https://github.com/nlohmann/json.git
 [submodule "externals/sdl3_mixer"]
 	path = externals/sdl3_mixer
 	url = https://github.com/libsdl-org/SDL_mixer

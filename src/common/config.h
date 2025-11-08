@@ -103,6 +103,8 @@ double getTrophyNotificationDuration();
 void setTrophyNotificationDuration(double newTrophyNotificationDuration,
                                    bool is_game_specific = false);
 int getCursorHideTimeout();
+void setCursorHideTimeout(int newcursorHideTimeout);
+
 std::string getMainOutputDevice();
 void setMainOutputDevice(std::string device, bool is_game_specific = false);
 std::string getPadSpkOutputDevice();
@@ -126,7 +128,8 @@ bool isNeoModeConsole();
 void setNeoMode(bool enable, bool is_game_specific = false);
 bool isDevKitConsole();
 void setDevKitConsole(bool enable, bool is_game_specific = false);
-
+bool vkValidationCoreEnabled(); // no set
+bool vkValidationGpuEnabled();  // no set
 int getExtraDmemInMbytes();
 void setExtraDmemInMbytes(int value, bool is_game_specific = false);
 bool getIsMotionControlsEnabled();
@@ -146,6 +149,8 @@ void setRcasAttenuation(int value, bool is_game_specific = false);
 bool getIsConnectedToNetwork();
 void setConnectedToNetwork(bool enable, bool is_game_specific = false);
 void setUserName(const std::string& name, bool is_game_specific = false);
+void setChooseHomeTab(const std::string& type, bool is_game_specific = false);
+
 std::filesystem::path getSysModulesPath();
 void setSysModulesPath(const std::filesystem::path& path);
 bool getLoadAutoPatches();
@@ -156,8 +161,13 @@ int getUsbDeviceBackend();
 void setUsbDeviceBackend(int value, bool is_game_specific = false);
 
 // TODO
+bool GetLoadGameSizeEnabled();
 std::filesystem::path GetSaveDataPath();
+void setLoadGameSizeEnabled(bool enable);
+bool getCompatibilityEnabled();
+bool getCheckCompatibilityOnStartup();
 std::string getUserName();
+std::string getChooseHomeTab();
 bool GetUseUnifiedInputConfig();
 void SetUseUnifiedInputConfig(bool use);
 bool GetOverrideControllerColor();
@@ -167,6 +177,8 @@ void SetControllerCustomColor(int r, int b, int g);
 void setGameInstallDirs(const std::vector<std::filesystem::path>& dirs_config);
 void setAllGameInstallDirs(const std::vector<GameInstallDir>& dirs_config);
 void setSaveDataPath(const std::filesystem::path& path);
+void setCompatibilityEnabled(bool use);
+void setCheckCompatibilityOnStartup(bool use);
 // Gui
 bool addGameInstallDir(const std::filesystem::path& dir, bool enabled = true);
 void removeGameInstallDir(const std::filesystem::path& dir);
