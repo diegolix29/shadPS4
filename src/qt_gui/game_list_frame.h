@@ -38,6 +38,7 @@ public Q_SLOTS:
     void PlayBackgroundMusic(QTableWidgetItem* item);
     void onCurrentCellChanged(int currentRow, int currentColumn, int previousRow,
                               int previousColumn);
+    void ApplyHiddenColumns();
     void SetThemeColors(const QColor& textColor);
     void keyPressEvent(QKeyEvent* event);
 

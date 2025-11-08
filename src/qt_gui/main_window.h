@@ -37,6 +37,7 @@ public:
     bool Init();
     void UserPath();
     void toggleColorFilter();
+    void StartGameWithPath(const QString& gamePath);
     void Directories();
     void ApplyLastUsedStyle();
     void StartGame();

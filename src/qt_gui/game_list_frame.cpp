@@ -31,6 +31,29 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
     this->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     this->verticalHeader()->setVisible(false);
     this->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(this->horizontalHeader(), &QHeaderView::customContextMenuRequested, this,
+            [this](const QPoint& pos) {
+                QMenu menu(this);
+                for (int i = 0; i < this->columnCount(); ++i) {
+                    QString headerText = this->horizontalHeaderItem(i)->text();
+                    QAction* action = menu.addAction(headerText);
+                    action->setCheckable(true);
+                    action->setChecked(!this->isColumnHidden(i));
+
+                    connect(action, &QAction::toggled, this, [this, i](bool visible) {
+                        this->setColumnHidden(i, !visible);
+                        QList<int> hiddenCols;
+                        for (int j = 0; j < this->columnCount(); ++j) {
+                            if (this->isColumnHidden(j)) {
+                                hiddenCols.append(j);
+                            }
+                        }
+                        m_compat_info->SaveHiddenColumns(hiddenCols);
+                    });
+                }
+                menu.exec(this->horizontalHeader()->mapToGlobal(pos));
+            });
+
     this->horizontalHeader()->setHighlightSections(false);
     this->horizontalHeader()->setSortIndicatorShown(true);
     this->horizontalHeader()->setStretchLastSection(true);
@@ -44,21 +67,25 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
     this->setColumnWidth(6, 90);  // Size
     this->setColumnWidth(7, 90);  // Version
     this->setColumnWidth(8, 120); // Play Time
-    this->setColumnWidth(2, 40);  // Favorite
-    this->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+    this->setColumnWidth(10, 40); // Favorite
 
     QStringList headers;
     headers << tr("Icon") << tr("Name") << tr("Compatibility") << tr("Serial") << tr("Region")
             << tr("Firmware") << tr("Size") << tr("Version") << tr("Play Time") << tr("Path")
             << tr("Favorite");
     this->setHorizontalHeaderLabels(headers);
-    this->horizontalHeader()->setSortIndicatorShown(true);
+
     this->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     this->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
     this->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
     this->horizontalHeader()->setSectionResizeMode(9, QHeaderView::Stretch);
     this->horizontalHeader()->setSectionResizeMode(10, QHeaderView::Fixed);
     PopulateGameList();
+    QList<int> hiddenCols = m_compat_info->LoadHiddenColumns();
+    for (int col : hiddenCols) {
+        if (col >= 0 && col < this->columnCount())
+            this->setColumnHidden(col, true);
+    }
     ApplyCustomBackground();
 
     connect(this, &QTableWidget::currentCellChanged, this, &GameListFrame::onCurrentCellChanged);
@@ -118,6 +145,11 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
 
             m_compat_info->SaveFavorites(list);
             PopulateGameList(false);
+            QList<int> hiddenCols = m_compat_info->LoadHiddenColumns();
+            for (int col : hiddenCols) {
+                if (col >= 0 && col < this->columnCount())
+                    this->setColumnHidden(col, true);
+            }
         }
     });
 }
@@ -133,6 +165,19 @@ void GameListFrame::onCurrentCellChanged(int currentRow, int currentColumn, int 
     PlayBackgroundMusic(item);
 }
 
+void GameListFrame::ApplyHiddenColumns() {
+    QList<int> hiddenCols = m_compat_info->LoadHiddenColumns();
+    for (int col = 0; col < this->columnCount(); ++col) {
+        bool hiddenByConfig = false;
+        if (col == 2)
+            hiddenByConfig = !Config::getCompatibilityEnabled();
+        if (col == 6)
+            hiddenByConfig = !Config::GetLoadGameSizeEnabled();
+
+        this->setColumnHidden(col, hiddenByConfig || hiddenCols.contains(col));
+    }
+}
+
 void GameListFrame::PlayBackgroundMusic(QTableWidgetItem* item) {
     if (!item || !Config::getPlayBGM()) {
         BackgroundMusicPlayer::getInstance().stopMusic();
@@ -145,9 +190,7 @@ void GameListFrame::PlayBackgroundMusic(QTableWidgetItem* item) {
 
 void GameListFrame::PopulateGameList(bool isInitialPopulation) {
     this->m_current_item = nullptr;
-    // Do not show status column if it is not enabled
-    this->setColumnHidden(2, !Config::getCompatibilityEnabled());
-    this->setColumnHidden(6, !Config::GetLoadGameSizeEnabled());
+    ApplyHiddenColumns();
 
     this->setRowCount(m_game_info->m_games.size());
     ResizeIcons(icon_size);

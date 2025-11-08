@@ -139,6 +139,26 @@ CompatibilityEntry CompatibilityInfoClass::GetCompatibilityInfo(const std::strin
                               0};
 }
 
+QList<int> CompatibilityInfoClass::LoadHiddenColumns() const {
+    QSettings settings("shadPS4", "Emulator");
+    QStringList strList = settings.value(QStringLiteral("MainWindow/hiddenColumns")).toStringList();
+    QList<int> hiddenCols;
+    for (const QString& s : strList) {
+        hiddenCols.append(s.toInt());
+    }
+    return hiddenCols;
+}
+
+void CompatibilityInfoClass::SaveHiddenColumns(const QList<int>& hiddenColumns) {
+    QSettings settings("shadPS4", "Emulator");
+    QStringList strList;
+    for (int col : hiddenColumns) {
+        strList.append(QString::number(col));
+    }
+    settings.setValue(QStringLiteral("MainWindow/hiddenColumns"), strList);
+    settings.sync();
+}
+
 bool CompatibilityInfoClass::LoadCompatibilityFile() {
     // Returns true if compatibility is loaded succescfully
     QFileInfo check_file(m_compatibility_filename);

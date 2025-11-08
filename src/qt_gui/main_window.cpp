@@ -161,40 +161,6 @@ bool MainWindow::Init() {
             }
         }
     }
-
-    if (Config::getAutoRestartGame()) {
-        int argc = QCoreApplication::arguments().size();
-        std::string gamePath;
-
-        if (argc > 1) {
-            QString lastGameArg = QCoreApplication::arguments().at(1);
-            if (!lastGameArg.isEmpty() && std::filesystem::exists(lastGameArg.toStdString())) {
-                gamePath = lastGameArg.toStdString();
-            }
-        } else {
-            std::vector<std::string> recents = Config::getRecentFiles();
-            if (!recents.empty() && std::filesystem::exists(recents[0])) {
-                gamePath = recents[0];
-            }
-        }
-
-        if (!gamePath.empty()) {
-            if (Config::getRestartWithBaseGame()) {
-                Core::FileSys::MntPoints::ignore_game_patches = true;
-                StartEmulator(gamePath);
-                Core::FileSys::MntPoints::ignore_game_patches = false;
-
-            } else {
-                StartEmulator(gamePath);
-            }
-        }
-
-        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-
-        Config::setAutoRestartGame(false);
-        Config::save(config_dir / "config.toml");
-    }
-
 #ifdef ENABLE_UPDATER
     // Check for update
     CheckUpdateMain(true);
@@ -1777,13 +1743,13 @@ void MainWindow::BootGame() {
         };
     }
 
-    QFileInfo exeInfo(gamePath);
-    QString workDir = exeInfo.absolutePath();
+    QStringList args;
+    args << gamePath;
 
-    // Use empty args if none are provided
-    QStringList args; // <-- declare empty args list
-    m_ipc_client->startGame(exeInfo, args, workDir);
-    m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+    QFileInfo exeInfo(QCoreApplication::applicationFilePath());
+    QString workDir = QFileInfo(gamePath).absolutePath();
+
+    StartGameWithPath(gamePath);
 
     lastGamePath = gamePath;
     lastGameArgs = args;
@@ -1797,6 +1763,42 @@ QString MainWindow::getLastEbootPath() {
     return QString();
 }
 #endif
+
+void MainWindow::StartGameWithPath(const QString& gamePath) {
+    if (gamePath.isEmpty()) {
+        QMessageBox::warning(this, tr("Run Game"), tr("No game path provided."));
+        return;
+    }
+
+    AddRecentFiles(gamePath);
+
+    const auto path = Common::FS::PathFromQString(gamePath);
+    if (!std::filesystem::exists(path)) {
+        QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
+        return;
+    }
+
+    emulatorProcess = new QProcess(this);
+    QString exePath = QCoreApplication::applicationFilePath();
+    emulatorProcess->setProcessChannelMode(QProcess::ForwardedChannels);
+
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert("SHADPS4_ENABLE_IPC", "true");
+    emulatorProcess->setProcessEnvironment(env);
+
+    emulatorProcess->start(exePath, QStringList() << gamePath);
+
+    lastGamePath = gamePath;
+    Config::setGameRunning(true);
+    UpdateToolbarButtons();
+
+    connect(emulatorProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
+            [this](int, QProcess::ExitStatus) {
+                Config::setGameRunning(false);
+                UpdateToolbarButtons();
+                emulatorProcess->deleteLater();
+            });
+}
 
 void MainWindow::Directories() {
     GameDirectoryDialog dlg;

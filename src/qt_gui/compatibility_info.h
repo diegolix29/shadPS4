@@ -88,6 +88,8 @@ public:
     void SavePresets(const QList<QString>& list);
     QList<QString> LoadFavorites() const;
     void SaveFavorites(const QList<QString>& list);
+    QList<int> LoadHiddenColumns() const;
+    void SaveHiddenColumns(const QList<int>& hiddenColumns);
     int LoadDisplayMode() const;
     void SaveDisplayMode(int mode);
     std::string GetShadPath() const {
