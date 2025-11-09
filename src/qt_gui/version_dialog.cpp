@@ -25,6 +25,13 @@
 VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info, QWidget* parent)
     : QDialog(parent), ui(new Ui::VersionDialog), m_compat_info(std::move(compat_info)) {
     ui->setupUi(this);
+    ui->installedTreeWidget->setSortingEnabled(true);
+    ui->installedTreeWidget->header()->setSortIndicatorShown(true);
+    ui->installedTreeWidget->header()->setSectionsClickable(true);
+
+    ui->downloadTreeWidget->setSortingEnabled(true);
+    ui->downloadTreeWidget->header()->setSortIndicatorShown(true);
+    ui->downloadTreeWidget->header()->setSectionsClickable(true);
 
     ui->currentShadPath->setText(QString::fromStdString(m_compat_info->GetShadPath()));
 
