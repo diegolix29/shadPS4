@@ -73,9 +73,15 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
     std::filesystem::path patch_path = mount->host_path;
     patch_path += "-patch";
     patch_path /= rel_path;
-    std::filesystem::path mods_path = mount->host_path;
-    mods_path += "-MODS";
-    mods_path /= rel_path;
+    std::filesystem::path mods_path;
+
+    if (!MntPoints::manual_mods_path.empty()) {
+        mods_path = MntPoints::manual_mods_path / rel_path;
+    } else {
+        mods_path = mount->host_path;
+        mods_path += "-MODS";
+        mods_path /= rel_path;
+    }
 
     // Priority: MODS > PATCH > UPDATE > BASE
     if (!force_base_path && !ignore_game_patches) {

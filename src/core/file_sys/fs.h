@@ -43,6 +43,7 @@ public:
                bool read_only = false);
     void Unmount(const std::filesystem::path& host_folder, const std::string& guest_folder);
     void UnmountAll();
+    inline static std::filesystem::path manual_mods_path;
 
     std::filesystem::path GetHostPath(std::string_view guest_directory,
                                       bool* is_read_only = nullptr, bool force_base_path = false);

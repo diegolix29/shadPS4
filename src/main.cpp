@@ -45,6 +45,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> game_args{};
     std::vector<std::string> emulator_args{};
     std::optional<std::filesystem::path> game_folder;
+    std::optional<std::filesystem::path> mods_folder;
     std::optional<int> waitPid;
 
     std::unordered_map<std::string, std::function<void(int&)>> arg_map = {
@@ -57,6 +58,7 @@ int main(int argc, char* argv[]) {
                           "version name\n"
                           "  -d                            Alias for '-e default'\n"
                           "  -p, --patch <file>            Apply specified patch file\n"
+                          "  -mf, --mods-folder <folder>   Specify mods folder path\n"
                           "  -i, --ignore-game-patch       Disable automatic game patch loading\n"
                           "  -f, --fullscreen <true|false> Set initial fullscreen state (does not "
                           "overwrite config)\n"
@@ -141,6 +143,23 @@ int main(int argc, char* argv[]) {
         {"--patch", [&](int& i) { arg_map["-p"](i); }},
         {"-i", [&](int&) { Core::FileSys::MntPoints::ignore_game_patches = true; }},
         {"--ignore-game-patch", [&](int& i) { arg_map["-i"](i); }},
+        {"-mf",
+         [&](int& i) {
+             if (i + 1 < argc) {
+                 std::filesystem::path dir(argv[++i]);
+                 if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir)) {
+                     std::cerr << "Error: Invalid mods folder: " << dir << "\n";
+                     exit(1);
+                 }
+                 Core::FileSys::MntPoints::enable_mods = true;
+                 Core::FileSys::MntPoints::manual_mods_path = dir;
+                 std::cout << "Mods folder set: " << dir << "\n";
+             } else {
+                 std::cerr << "Error: Missing argument for -mf/--mods-folder\n";
+                 exit(1);
+             }
+         }},
+        {"--mods-folder", [&](int& i) { arg_map["-mf"](i); }},
 
         {"--config-clean", [&](int&) { Config::setConfigMode(Config::ConfigMode::Clean); }},
         {"--config-global", [&](int&) { Config::setConfigMode(Config::ConfigMode::Global); }},
@@ -235,6 +254,21 @@ int main(int argc, char* argv[]) {
             std::cerr << "Error: Game not found: " << game_path << "\n";
             return 1;
         }
+    }
+
+    if (!mods_folder.has_value()) {
+        auto base_folder = eboot_path.parent_path();
+        auto parent = base_folder.parent_path();
+        auto game_folder_name = base_folder.filename().string();
+        auto auto_mods_folder = parent / (game_folder_name + "-MODS");
+        if (std::filesystem::exists(auto_mods_folder) &&
+            std::filesystem::is_directory(auto_mods_folder)) {
+            mods_folder = auto_mods_folder;
+            Core::FileSys::MntPoints::enable_mods = true;
+            std::cout << "Auto-detected mods folder: " << auto_mods_folder << "\n";
+        }
+    } else {
+        std::cout << "Using manually specified mods folder: " << mods_folder->string() << "\n";
     }
 
     if (waitPid)

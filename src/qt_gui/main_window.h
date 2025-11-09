@@ -98,7 +98,6 @@ private:
     void PlayBackgroundMusic();
     QIcon RecolorIcon(const QIcon& icon, const QColor& baseColor, const QColor& hoverColor);
     QMap<QPushButton*, QIcon> m_originalIcons;
-    void StartEmulator(std::filesystem::path, QStringList args = {});
 
     bool isIconBlack = false;
     bool isTableList = true;

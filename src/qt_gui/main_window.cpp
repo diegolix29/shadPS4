@@ -2135,7 +2135,6 @@ void MainWindow::CreateRecentGameActions() {
             QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Eboot.bin file not found")));
             return;
         }
-        StartEmulator(gamePath);
     });
 }
 
@@ -2193,35 +2192,6 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
     return QMainWindow::eventFilter(obj, event);
 }
 
-void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
-    if (Config::getGameRunning()) {
-        return;
-    }
-
-    if (!m_ipc_client) {
-        m_ipc_client = std::make_shared<IpcClient>(this);
-
-        m_ipc_client->gameClosedFunc = [this]() {
-            Config::setGameRunning(false);
-            UpdateToolbarButtons();
-        };
-    }
-
-    QString gamePath;
-    Common::FS::PathToQString(gamePath, path);
-
-    QFileInfo exeInfo(gamePath);
-    QString workDir = exeInfo.absolutePath();
-    QString exeDir = QCoreApplication::applicationDirPath();
-    m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), args, exeDir);
-    m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
-
-    lastGamePath = gamePath;
-    lastGameArgs = args;
-    Config::setGameRunning(true);
-    UpdateToolbarButtons();
-}
-
 void MainWindow::StopGame() {
     if (!Config::getGameRunning())
         return;
@@ -2244,7 +2214,35 @@ void MainWindow::PauseGame() {
 }
 
 void MainWindow::RestartGame() {
-    if (!Config::getGameRunning())
+    if (!Config::getGameRunning()) {
+        QMessageBox::information(this, tr("Restart Game"), tr("No game is currently running."));
         return;
-    m_ipc_client->restartGame();
+    }
+
+    if (!m_ipc_client) {
+        QMessageBox::critical(this, tr("Restart Game"), tr("IPC client not initialized."));
+        return;
+    }
+
+    if (!Config::getRestartWithBaseGame()) {
+        m_ipc_client->restartGame();
+        return;
+    }
+
+    if (lastGamePath.isEmpty()) {
+        QMessageBox::critical(this, tr("Restart Game"), tr("Cannot restart: no stored game path."));
+        return;
+    }
+
+    LOG_INFO(IPC, "Restarting current game with base game dialog...");
+
+    Config::setGameRunning(false);
+    m_ipc_client->stopGame();
+
+    QTimer::singleShot(500, [this]() {
+        LOG_INFO(IPC, "Restart delay done, relaunching game...");
+
+        QStringList args = lastGameArgs;
+        StartGameWithArgs(args);
+    });
 }
