@@ -1712,49 +1712,28 @@ void MainWindow::BootGame() {
     dialog.setFileMode(QFileDialog::ExistingFile);
     dialog.setNameFilter(tr("ELF files (*.bin *.elf *.oelf *.self)"));
 
-    if (!dialog.exec())
-        return;
+    if (dialog.exec()) {
+        QStringList fileNames = dialog.selectedFiles();
 
-    QStringList fileNames = dialog.selectedFiles();
-    if (fileNames.size() != 1) {
-        QMessageBox::critical(nullptr, tr("Game Boot"), tr("Only one file can be selected!"));
-        return;
+        if (fileNames.size() > 1) {
+            QMessageBox::critical(nullptr, tr("Game Boot"), tr("Only one file can be selected!"));
+            return;
+        }
+
+        QString gamePath = fileNames[0];
+        std::filesystem::path path = Common::FS::PathFromQString(gamePath);
+
+        if (!std::filesystem::exists(path)) {
+            QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
+            return;
+        }
+
+        StartGameWithPath(gamePath);
+
+        lastGamePath = gamePath;
+        Config::setGameRunning(true);
+        UpdateToolbarButtons();
     }
-
-    QString gamePath = fileNames[0];
-    std::filesystem::path path = Common::FS::PathFromQString(gamePath);
-
-    if (!std::filesystem::exists(path)) {
-        QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
-        return;
-    }
-
-    if (Config::getGameRunning()) {
-        QMessageBox::information(nullptr, tr("Game Boot"), tr("A game is already running."));
-        return;
-    }
-
-    if (!m_ipc_client) {
-        m_ipc_client = std::make_shared<IpcClient>(this);
-
-        m_ipc_client->gameClosedFunc = [this]() {
-            Config::setGameRunning(false);
-            UpdateToolbarButtons();
-        };
-    }
-
-    QStringList args;
-    args << gamePath;
-
-    QFileInfo exeInfo(QCoreApplication::applicationFilePath());
-    QString workDir = QFileInfo(gamePath).absolutePath();
-
-    StartGameWithPath(gamePath);
-
-    lastGamePath = gamePath;
-    lastGameArgs = args;
-    Config::setGameRunning(true);
-    UpdateToolbarButtons();
 }
 
 #ifdef ENABLE_QT_GUI

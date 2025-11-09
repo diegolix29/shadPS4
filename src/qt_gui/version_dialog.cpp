@@ -198,13 +198,10 @@ void VersionDialog::DownloadListVersion() {
 
         QList<QTreeWidgetItem*> mainItems;
         QList<QTreeWidgetItem*> forkItems;
-        QTreeWidgetItem* forkPreReleaseItem = nullptr;
 
         for (const QJsonObject& tagObj : mainTags) {
             QString tagName = tagObj["name"].toString();
             if (tagName.isEmpty())
-                continue;
-            if (tagName.contains("Pre-release", Qt::CaseInsensitive))
                 continue;
 
             QTreeWidgetItem* item = new QTreeWidgetItem();
@@ -221,16 +218,6 @@ void VersionDialog::DownloadListVersion() {
             if (name.isEmpty())
                 continue;
 
-            if (isPrerelease) {
-                if (!forkPreReleaseItem) {
-                    forkPreReleaseItem = new QTreeWidgetItem();
-                    forkPreReleaseItem->setText(0, name);
-                    forkPreReleaseItem->setText(1, "[Fork Pre-release]");
-                    forkPreReleaseItem->setData(0, Qt::UserRole, QVariant::fromValue(releaseObj));
-                }
-                continue;
-            }
-
             QTreeWidgetItem* item = new QTreeWidgetItem();
             item->setText(0, name);
             item->setText(1, "[Fork]");
@@ -244,10 +231,6 @@ void VersionDialog::DownloadListVersion() {
         };
         sortItems(mainItems);
         sortItems(forkItems);
-
-        if (forkPreReleaseItem) {
-            ui->downloadTreeWidget->addTopLevelItem(forkPreReleaseItem);
-        }
 
         QTreeWidgetItem* mainHeader = new QTreeWidgetItem(QStringList() << "Official Releases");
         for (auto* item : mainItems)
@@ -266,8 +249,6 @@ void VersionDialog::DownloadListVersion() {
             allTags << item->text(0);
         for (auto* item : forkItems)
             allTags << item->text(0);
-        if (forkPreReleaseItem)
-            allTags.prepend(forkPreReleaseItem->text(0));
 
         SaveDownloadCache(allTags);
 
@@ -794,9 +775,26 @@ void VersionDialog::InstallSelectedVersionExe() {
         tr("Switched to version: %1\nPrevious executable was backed up as .bak")
             .arg(selectedItem->text(0)));
 
-    if (QMessageBox::question(this, tr("Run Version"), tr("Do you want to run this version now?"),
-                              QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
-        QProcess::startDetached(destExe);
+    QString uiType = selectedItem->text(4);
+
+    if (uiType.compare("Qt", Qt::CaseInsensitive) == 0) {
+        if (QMessageBox::question(
+                this, tr("Run Version"),
+                tr("Qt version installed successfully.\n\nDo you want to run it now?"),
+                QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
+            QProcess::startDetached(destExe);
+        }
+    } else if (uiType.compare("SDL", Qt::CaseInsensitive) == 0) {
+        QMessageBox::information(
+            this, tr("SDL Version Installed"),
+            tr("SDL version installed successfully.\n\nUse *Boot Game Detached* "
+               "(Right Click on Game) to launch games."));
+    } else {
+        if (QMessageBox::question(this, tr("Run Version"),
+                                  tr("Do you want to run this version now?"),
+                                  QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
+            QProcess::startDetached(destExe);
+        }
     }
 }
 

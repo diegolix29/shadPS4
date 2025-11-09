@@ -74,6 +74,10 @@ public:
         qint64 detachedGamePid = -1;
         bool isDetachedLaunch = false;
 
+        QAction* bootGameDetached = new QAction(tr("Boot Game Detached"), widget);
+        menu.addAction(bootGameDetached);
+        menu.addSeparator();
+
         // Configuration submenu
         QMenu* customConfigMenu = new QMenu(tr("Custom Configuration..."), widget);
         QAction* openCustomConfigFolder =
@@ -200,27 +204,81 @@ public:
         if (selected == launchWithGlobalConfig) {
             launch_func({"--config-global"});
         }
+        if (selected == bootGameDetached) {
+            QString gameDir;
+            Common::FS::PathToQString(gameDir, m_games[itemID].path);
+            QDir dir(gameDir);
 
-        if (selected == openCustomConfigFolder) {
-            QString configPath;
-            Common::FS::PathToQString(configPath,
-                                      Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs));
+            QStringList elfFilters = {"*.elf", "*.oelf", "*.self"};
+            QStringList binFilters = {"*.bin"};
+            QStringList elfFiles = dir.entryList(elfFilters, QDir::Files);
+            QStringList binFiles = dir.entryList(binFilters, QDir::Files);
 
-#if defined(Q_OS_WIN)
-            QProcess::startDetached("explorer", {configPath.replace("/", "\\")});
+            QString ebootPath;
 
-#elif defined(Q_OS_MAC)
-            QProcess::startDetached("open", {configPath});
+            if (!elfFiles.isEmpty()) {
+                QStringList allFiles;
+                for (const auto& file : elfFiles)
+                    allFiles << dir.filePath(file);
+                for (const auto& file : binFiles)
+                    allFiles << dir.filePath(file);
 
-#elif defined(Q_OS_LINUX)
-            if (!QProcess::startDetached("xdg-open", {configPath})) {
-                QMessageBox::warning(nullptr, tr("Open Folder"),
-                                     tr("Failed to open Custom Configuration folder."));
+                bool ok = false;
+                ebootPath =
+                    QInputDialog::getItem(widget, tr("Select ELF to Boot"),
+                                          tr("Choose ELF/self/bin file:"), allFiles, 0, false, &ok);
+                if (!ok || ebootPath.isEmpty())
+                    return changedFavorite;
+            } else if (!binFiles.isEmpty()) {
+                ebootPath = dir.filePath(binFiles.first());
+            } else {
+                QMessageBox::information(widget, tr("Boot Game Detached"),
+                                         tr("No executable files found in this game directory."));
+                return changedFavorite;
             }
 
+            QString exePath = QCoreApplication::applicationFilePath();
+            QStringList args;
+
+            args << "-e" << ebootPath;
+
+            QStringList originalArgs = QCoreApplication::arguments();
+
+            for (int i = 1; i < originalArgs.size(); ++i) {
+                const QString& arg = originalArgs.at(i);
+                if (arg == "-e" || arg == "-g")
+                    continue;
+                args << arg;
+            }
+
+            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+
+            QStringList envKeys = {"SHADPS4_ENABLE_IPC", "SHADPS4_ENABLE_MODS",
+                                   "SHADPS4_BASE_GAME",  "SHADPS4_LOG_LEVEL",
+                                   "SHADPS4_DEBUG",      "SHADPS4_OVERRIDE_CONFIG"};
+
+            for (const QString& key : envKeys) {
+                if (qEnvironmentVariableIsSet(key.toUtf8().constData())) {
+                    env.insert(key, qEnvironmentVariable(key.toUtf8().constData()));
+                }
+            }
+
+            QProcess process;
+            process.setProcessEnvironment(env);
+
+            bool started = false;
+
+#if defined(Q_OS_WIN)
+            started = QProcess::startDetached(exePath, args, QString(), nullptr);
+#elif defined(Q_OS_MAC)
+            started = QProcess::startDetached("open", QStringList() << exePath << "--args" << args);
 #else
-            QDesktopServices::openUrl(QUrl::fromLocalFile(configPath));
+            started = QProcess::startDetached(exePath, args, QString(), nullptr);
 #endif
+
+            if (!started) {
+                QMessageBox::critical(widget, tr("Error"), tr("Failed to launch game detached!"));
+            }
         }
 
         if (selected == openGameFolder) {
