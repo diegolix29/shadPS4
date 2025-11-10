@@ -492,7 +492,7 @@ jobs:
         
   BBFork:
     if: github.ref == 'refs/heads/BBFork' && github.event_name == 'push'
-    needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
+    needs: [get-info, windows-sdl, windows-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts
@@ -503,7 +503,6 @@ jobs:
     - name: Make SDL artifacts executable
       run: |
         chmod -R a+x ./artifacts/shadps4-linux-sdl-*
-        chmod -R a+x ./artifacts/shadps4-macos-sdl-*
 
     - name: Compress individual directories as BBFork-<platform>.zip
       run: |
