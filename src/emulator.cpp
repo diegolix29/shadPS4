@@ -185,6 +185,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
             forceGlobal = true;
         }
     }
+    game_info.game_folder = game_folder;
 
     if (forceGlobal) {
         // load global config only
