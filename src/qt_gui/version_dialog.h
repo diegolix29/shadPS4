@@ -26,7 +26,8 @@ private:
     std::shared_ptr<CompatibilityInfoClass> m_compat_info;
 
     static std::filesystem::path GetActualExecutablePath();
-
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
     void LoadinstalledList();
     QStringList LoadDownloadCache();
     void SaveDownloadCache(const QStringList& versions);

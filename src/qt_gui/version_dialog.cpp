@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QDir>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QJsonArray>
@@ -25,6 +27,8 @@
 VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info, QWidget* parent)
     : QDialog(parent), ui(new Ui::VersionDialog), m_compat_info(std::move(compat_info)) {
     ui->setupUi(this);
+    setAcceptDrops(true);
+
     ui->installedTreeWidget->setSortingEnabled(true);
     ui->installedTreeWidget->header()->setSortIndicatorShown(true);
     ui->installedTreeWidget->header()->setSectionsClickable(true);
@@ -803,6 +807,76 @@ void VersionDialog::InstallSelectedVersionExe() {
             QProcess::startDetached(destExe);
         }
     }
+}
+
+void VersionDialog::dragEnterEvent(QDragEnterEvent* event) {
+    if (event->mimeData()->hasUrls()) {
+        const QList<QUrl> urls = event->mimeData()->urls();
+        if (!urls.isEmpty()) {
+            QString file = urls.first().toLocalFile();
+#ifdef Q_OS_WIN
+            if (file.endsWith(".exe", Qt::CaseInsensitive))
+                event->acceptProposedAction();
+#elif defined(Q_OS_LINUX)
+            if (file.endsWith(".AppImage", Qt::CaseInsensitive))
+                event->acceptProposedAction();
+#elif defined(Q_OS_MACOS)
+            event->acceptProposedAction();
+#endif
+        }
+    }
+}
+
+void VersionDialog::dropEvent(QDropEvent* event) {
+    const QList<QUrl> urls = event->mimeData()->urls();
+    if (urls.isEmpty())
+        return;
+
+    QString exePath = urls.first().toLocalFile();
+    if (exePath.isEmpty())
+        return;
+
+    bool ok;
+    QString folderName = QInputDialog::getText(
+        this, tr("Version name"), tr("Enter the name of this version as it appears in the list."),
+        QLineEdit::Normal, "", &ok);
+    if (!ok || folderName.trimmed().isEmpty())
+        return;
+
+    folderName = folderName.trimmed();
+
+    QString uiChoice = QInputDialog::getItem(this, tr("UI type"), tr("Select UI type:"),
+                                             QStringList{tr("Qt"), tr("SDL")}, 0, false, &ok);
+    if (!ok)
+        return;
+
+    QString uiSuffix = (uiChoice.compare("SDL", Qt::CaseInsensitive) == 0) ? "SDL" : "QT";
+    QString finalFolderName = QString("%1_%2_%3").arg(folderName, QString("Custom"), uiSuffix);
+
+    QString basePath = QString::fromStdString(m_compat_info->GetShadPath());
+    QString newFolderPath = QDir(basePath).filePath(finalFolderName);
+
+    QDir dir;
+    if (dir.exists(newFolderPath)) {
+        QMessageBox::warning(this, tr("Error"), tr("A folder with that name already exists."));
+        return;
+    }
+
+    if (!dir.mkpath(newFolderPath)) {
+        QMessageBox::critical(this, tr("Error"), tr("Failed to create folder."));
+        return;
+    }
+
+    QFileInfo exeInfo(exePath);
+    QString targetFilePath = QDir(newFolderPath).filePath(exeInfo.fileName());
+
+    if (!QFile::copy(exePath, targetFilePath)) {
+        QMessageBox::critical(this, tr("Error"), tr("Failed to copy executable."));
+        return;
+    }
+
+    QMessageBox::information(this, tr("Success"), tr("Version added successfully."));
+    LoadinstalledList();
 }
 
 void VersionDialog::RestoreOriginalExe() {
