@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <filesystem>
 #include <thread>
 #include "common/config.h"
 #include "common/logging/backend.h"
@@ -13,9 +14,11 @@
 #include "game_directory_dialog.h"
 #include "iostream"
 #include "main_window.h"
+#include "qt_gui/compatibility_info.h"
 #include "system_error"
 #include "unordered_map"
 #include "video_core/renderer_vulkan/vk_presenter.h"
+#include "welcome_dialog.h"
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
 
@@ -306,6 +309,13 @@ int main(int argc, char* argv[]) {
             std::cout << "Using manually specified mods folder: " << mods_folder->string() << "\n";
         }
     }
+    auto compatInfo = std::make_shared<CompatibilityInfoClass>();
+
+    WelcomeDialog welcomeDlg(compatInfo);
+
+    if (!compatInfo->GetSkipWelcome()) {
+        welcomeDlg.exec();
+    }
 
     // If no game directories are set and no command line argument, prompt for it
     if (Config::getGameDirectoriesEnabled().empty() && !has_command_line_argument) {
@@ -313,13 +323,45 @@ int main(int argc, char* argv[]) {
         dlg.exec();
     }
 
-    // Ignore Qt logs
     qInstallMessageHandler(customMessageHandler);
 
-    // Initialize the main window
     MainWindow* m_main_window = new MainWindow(nullptr);
+
     if ((has_command_line_argument && show_gui) || !has_command_line_argument) {
         m_main_window->Init();
+
+        auto portable_dir = std::filesystem::current_path() / "user";
+        std::filesystem::path global_dir;
+
+#if _WIN32
+        TCHAR appdata[MAX_PATH] = {0};
+        SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdata);
+        global_dir = std::filesystem::path(appdata) / "shadPS4";
+#elif __APPLE__
+        global_dir =
+            std::filesystem::path(getenv("HOME")) / "Library" / "Application Support" / "shadPS4";
+#else
+        const char* xdg_data_home = getenv("XDG_DATA_HOME");
+        if (xdg_data_home && *xdg_data_home)
+            global_dir = std::filesystem::path(xdg_data_home) / "shadPS4";
+        else
+            global_dir = std::filesystem::path(getenv("HOME")) / ".local" / "share" / "shadPS4";
+#endif
+
+        if (welcomeDlg.m_userMadeChoice) {
+            if (welcomeDlg.m_portableChosen) {
+                if (std::filesystem::exists(global_dir)) {
+                    std::filesystem::remove_all(global_dir);
+                    std::cout
+                        << "[Main] Residual Global folder removed after switching to Portable\n";
+                }
+            } else {
+                if (std::filesystem::exists(portable_dir)) {
+                    std::filesystem::remove_all(portable_dir);
+                    std::cout << "[Main] Portable folder removed because Global was chosen\n";
+                }
+            }
+        }
     }
 
     if (has_command_line_argument && !has_game_argument) {

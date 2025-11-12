@@ -309,6 +309,17 @@ void CompatibilityInfoClass::SaveShowLogSetting(bool show) {
     settings.sync();
 }
 
+void CompatibilityInfoClass::SetSkipWelcome(bool skip) {
+    QSettings settings("shadPS4", "Emulator");
+    settings.setValue("skip_welcome", skip);
+    settings.sync();
+}
+
+bool CompatibilityInfoClass::GetSkipWelcome() const {
+    QSettings settings("shadPS4", "Emulator");
+    return settings.value("skip_welcome", false).toBool();
+}
+
 const QString CompatibilityInfoClass::GetCompatStatusString(const CompatibilityStatus status) {
     switch (status) {
     case CompatibilityStatus::Unknown:

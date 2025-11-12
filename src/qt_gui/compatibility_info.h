@@ -116,6 +116,10 @@ public:
     bool LoadShowLogSetting() const;
     void SaveShowLogSetting(bool show);
 
+    void SetSkipWelcome(bool skip);
+
+    bool GetSkipWelcome() const;
+
     std::string GetSelectedShadExePath() const {
         if (m_selectedShadExePath.empty()) {
             QSettings settings("shadPS4", "Emulator");

@@ -43,6 +43,7 @@ public:
 #endif
     QAction* aboutAct;
     QAction* versionAct;
+    QAction* welcomeAct;
     QAction* configureAct;
     QAction* configureHotkeys;
     QAction* setThemeDark;
@@ -189,6 +190,9 @@ public:
         versionAct = new QAction(MainWindow);
         versionAct->setObjectName("versionAct");
         versionAct->setIcon(QIcon(":images/play_icon.png"));
+        welcomeAct = new QAction(MainWindow);
+        welcomeAct->setObjectName("welcomeAct");
+        welcomeAct->setIcon(QIcon(":images/shadps4.ico"));
         configureAct = new QAction(MainWindow);
         configureAct->setObjectName("configureAct");
         configureAct->setIcon(QIcon(":images/settings_icon.png"));
@@ -407,6 +411,7 @@ public:
         menuHelp->addAction(aboutAct);
 
         menuHelp->addAction(versionAct);
+        menuHelp->addAction(welcomeAct);
 
         retranslateUi(MainWindow);
 
@@ -424,6 +429,8 @@ public:
 #endif
         aboutAct->setText(QCoreApplication::translate("MainWindow", "About shadPS4", nullptr));
         versionAct->setText(QCoreApplication::translate("MainWindow", "Version shadPS4", nullptr));
+        welcomeAct->setText(
+            QCoreApplication::translate("MainWindow", "Show Welcome On Launch", nullptr));
         configureAct->setText(QCoreApplication::translate("MainWindow", "Configure...", nullptr));
         configureHotkeys->setText(
             QCoreApplication::translate("MainWindow", "Customize Hotkeys", nullptr));

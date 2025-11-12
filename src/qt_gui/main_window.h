@@ -35,7 +35,6 @@ public:
     ~MainWindow();
     std::string GetRunningGameSerial() const;
     bool Init();
-    void UserPath();
     void toggleColorFilter();
     void StartGameWithPath(const QString& gamePath);
     void Directories();
@@ -51,6 +50,7 @@ public:
     bool isDetachedLaunch = false;
     void ToggleMute();
     std::string runningGameSerial = "";
+    bool m_showWelcomeOnLaunch = true;
 
     QString getLastEbootPath();
     QString lastGamePath;
@@ -90,6 +90,7 @@ private:
     QPixmap RecolorPixmap(const QIcon& icon, const QSize& size, const QColor& color);
     void SetUiIcons(const QColor& baseColor, const QColor& hoverColor);
     void BootGame();
+    void toggleWelcomeScreenOnLaunch(bool enabled);
     void onSetCustomBackground();
     void onClearCustomBackground();
 
