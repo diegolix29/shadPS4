@@ -313,7 +313,7 @@ int main(int argc, char* argv[]) {
 
     WelcomeDialog welcomeDlg(compatInfo);
 
-    if (!compatInfo->GetSkipWelcome()) {
+    if (!has_command_line_argument && !compatInfo->GetSkipWelcome()) {
         welcomeDlg.exec();
     }
 
@@ -384,7 +384,9 @@ int main(int argc, char* argv[]) {
         Core::FileSys::MntPoints::enable_mods = mods_env_enabled;
     }
 
-    Core::FileSys::MntPoints::ignore_game_patches = ignorePatches;
+    if (qEnvironmentVariableIsSet("SHADPS4_BASE_GAME")) {
+        Core::FileSys::MntPoints::ignore_game_patches = ignorePatches;
+    }
 
     if (ipc_enabled) {
         std::cout << ";#IPC_ENABLED\n";
