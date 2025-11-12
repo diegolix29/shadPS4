@@ -100,6 +100,9 @@ constexpr auto LOG_FILE = "shad_log.txt";
  * @param new_path New filesystem path
  */
 void SetUserPath(PathType user_path, const std::filesystem::path& new_path);
+// Manual reset when portable/global mode changes
+void ResetUserPaths(bool portable_mode);
+void InitUserPaths(bool portable_mode);
 
 /**
  * Gets the full path to the currently running executable.

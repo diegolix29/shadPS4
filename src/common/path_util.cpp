@@ -28,6 +28,8 @@
 #endif
 
 #ifdef ENABLE_QT_GUI
+#include <QCoreApplication>
+#include <QSettings>
 #include <QString>
 #endif
 
@@ -89,59 +91,51 @@ static std::optional<std::filesystem::path> GetBundleParentDirectory() {
 }
 #endif
 
-static auto UserPaths = [] {
-    std::unordered_map<PathType, std::filesystem::path> paths;
+namespace {
+static bool g_userPathsInitialized = false;
+static std::unordered_map<PathType, std::filesystem::path> g_userPaths;
+} // namespace
 
-    std::filesystem::path user_dir; // declare once
+void InitUserPaths(bool portable_mode) {
+    if (g_userPathsInitialized)
+        return;
+
+    g_userPaths.clear();
+
+    std::filesystem::path user_dir;
 
 #if _WIN32
-    std::filesystem::path portable_dir = std::filesystem::current_path() / "user";
+    std::filesystem::path exe_dir = GetExecutablePath().parent_path();
+    std::filesystem::path portable_dir = exe_dir / "user";
 
     TCHAR appdata[MAX_PATH] = {0};
     SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdata);
-    std::filesystem::path appdata_dir(appdata);
-    appdata_dir /= L"shadPS4";
+    std::filesystem::path global_dir(appdata);
+    global_dir /= L"shadPS4";
 
-    bool portableExists = std::filesystem::exists(portable_dir);
-    bool appdataExists = std::filesystem::exists(appdata_dir);
-
-    if (portableExists) {
-        user_dir = portable_dir;
-    } else if (appdataExists) {
-        user_dir = appdata_dir;
-    } else {
-        user_dir = portable_dir;
-    }
+    user_dir = portable_mode ? portable_dir : global_dir;
 
 #elif defined(__APPLE__) || defined(__linux__)
-#ifdef __APPLE__
-#if defined(ENABLE_QT_GUI)
-    if (const auto bundle_dir = GetBundleParentDirectory()) {
-        std::filesystem::current_path(*bundle_dir);
-    }
-#endif
-#endif
-
-    // Try the portable user folder first
-    user_dir = std::filesystem::current_path() / PORTABLE_DIR;
-    if (!std::filesystem::exists(user_dir)) {
+    if (portable_mode) {
+        user_dir = std::filesystem::current_path() / PORTABLE_DIR;
+    } else {
 #ifdef __APPLE__
         user_dir =
             std::filesystem::path(getenv("HOME")) / "Library" / "Application Support" / "shadPS4";
-#elif defined(__linux__)
+#else
         const char* xdg_data_home = getenv("XDG_DATA_HOME");
-        if (xdg_data_home && strlen(xdg_data_home) > 0) {
+        if (xdg_data_home && *xdg_data_home)
             user_dir = std::filesystem::path(xdg_data_home) / "shadPS4";
-        } else {
+        else
             user_dir = std::filesystem::path(getenv("HOME")) / ".local" / "share" / "shadPS4";
-        }
 #endif
     }
 #endif
 
-    const auto create_path = [&](PathType shad_path, const std::filesystem::path& new_path) {
-        std::filesystem::create_directory(new_path);
-        paths.insert_or_assign(shad_path, new_path);
+    const auto create_path = [&](PathType type, const std::filesystem::path& path) {
+        std::error_code ec;
+        std::filesystem::create_directories(path, ec);
+        g_userPaths[type] = path;
     };
 
     create_path(PathType::UserDir, user_dir);
@@ -160,14 +154,27 @@ static auto UserPaths = [] {
     create_path(PathType::CustomConfigs, user_dir / CUSTOM_CONFIGS);
     create_path(PathType::CustomThemes, user_dir / CUSTOM_THEMES);
 
-    std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
-    if (notice_file.is_open()) {
-        notice_file << "..."; // your message
-        notice_file.close();
-    }
+    g_userPathsInitialized = true;
+}
 
-    return paths;
-}();
+// Manual reset when portable/global mode changes
+void ResetUserPaths(bool portable_mode) {
+    g_userPaths.clear();
+    g_userPathsInitialized = false;
+    InitUserPaths(portable_mode);
+}
+
+const fs::path& GetUserPath(PathType type) {
+    if (!g_userPathsInitialized) {
+        static fs::path empty_path{};
+        return empty_path;
+    }
+    return g_userPaths.at(type);
+}
+
+void SetUserPath(PathType type, const fs::path& new_path) {
+    g_userPaths[type] = new_path;
+}
 
 bool ValidatePath(const fs::path& path) {
     if (path.empty()) {
@@ -223,22 +230,8 @@ std::string PathToUTF8String(const std::filesystem::path& path) {
     return std::string{u8_string.begin(), u8_string.end()};
 }
 
-const fs::path& GetUserPath(PathType shad_path) {
-    return UserPaths.at(shad_path);
-}
-
 std::string GetUserPathString(PathType shad_path) {
     return PathToUTF8String(GetUserPath(shad_path));
-}
-
-void SetUserPath(PathType shad_path, const fs::path& new_path) {
-    if (!std::filesystem::is_directory(new_path)) {
-        LOG_ERROR(Common_Filesystem, "Filesystem object at new_path={} is not a directory",
-                  PathToUTF8String(new_path));
-        return;
-    }
-
-    UserPaths.insert_or_assign(shad_path, new_path);
 }
 
 std::optional<fs::path> FindGameByID(const fs::path& dir, const std::string& game_id,

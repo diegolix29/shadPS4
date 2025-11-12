@@ -90,9 +90,6 @@ bool MainWindow::Init() {
     SetLastIconSizeBullet();
     toggleColorFilter();
 
-    if (!Config::getFirstBootHandled()) {
-        UserPath();
-    } // show ui
     setMinimumSize(720, 405);
     std::string window_title = "";
     std::string remote_url(Common::g_scm_remote_url);
@@ -185,107 +182,6 @@ bool MainWindow::Init() {
 #endif
 
     return true;
-}
-
-void MainWindow::UserPath() {
-    std::filesystem::path portable_dir = std::filesystem::current_path() / "user";
-    std::filesystem::path global_dir;
-
-#if _WIN32
-    if (auto* appdata = getenv("APPDATA")) {
-        global_dir = std::filesystem::path(appdata) / "shadPS4";
-    } else {
-        TCHAR appdataPath[MAX_PATH] = {0};
-        SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdataPath);
-        global_dir = std::filesystem::path(appdataPath) / "shadPS4";
-    }
-#elif defined(__APPLE__)
-    global_dir =
-        std::filesystem::path(getenv("HOME")) / "Library" / "Application Support" / "shadPS4";
-#else
-    const char* xdg_data_home = getenv("XDG_DATA_HOME");
-    if (xdg_data_home && strlen(xdg_data_home) > 0) {
-        global_dir = std::filesystem::path(xdg_data_home) / "shadPS4";
-    } else {
-        global_dir = std::filesystem::path(getenv("HOME")) / ".local" / "share" / "shadPS4";
-    }
-#endif
-
-    bool portableExists = std::filesystem::exists(portable_dir);
-    bool globalExists = std::filesystem::exists(global_dir);
-
-    std::filesystem::path user_dir;
-
-#ifdef ENABLE_QT_GUI
-    if (!Config::getFirstBootHandled()) {
-        if (globalExists && !portableExists) {
-            auto copyResponse = QMessageBox::question(
-                this, tr("Copy Global Folder?"),
-                tr("A global user folder exists.\n"
-                   "Do you want to copy it next to the executable for portable use?"),
-                QMessageBox::Yes | QMessageBox::No);
-
-            if (copyResponse == QMessageBox::Yes) {
-                std::filesystem::copy(global_dir, portable_dir,
-                                      std::filesystem::copy_options::recursive);
-                user_dir = portable_dir;
-                QMessageBox::information(
-                    this, tr("Portable user folder created"),
-                    tr("Global folder copied to portable folder successfully."));
-            } else {
-                auto useGlobal =
-                    QMessageBox::question(this, tr("Choose User Folder"),
-                                          tr("Do you want to use the global folder as-is?\n"
-                                             "Yes = Use global\nNo = Create empty portable folder"),
-                                          QMessageBox::Yes | QMessageBox::No);
-
-                if (useGlobal == QMessageBox::Yes) {
-                    user_dir = global_dir;
-                } else {
-                    std::filesystem::create_directories(portable_dir);
-                    user_dir = portable_dir;
-                    QMessageBox::information(
-                        this, tr("Portable user folder created"),
-                        tr("%1 successfully created - Relaunch Emulator to Configure")
-                            .arg(QString::fromStdString(portable_dir.string())));
-                }
-            }
-        } else if (portableExists) {
-            user_dir = portable_dir;
-        } else if (globalExists) {
-            user_dir = global_dir;
-        } else {
-            std::filesystem::create_directories(portable_dir);
-            user_dir = portable_dir;
-            QMessageBox::information(this, tr("Portable user folder created"),
-                                     tr("%1 successfully created - Relaunch Emulator to Configure")
-                                         .arg(QString::fromStdString(portable_dir.string())));
-        }
-        Config::setFirstBootHandled(true);
-        auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-        Config::save(config_dir / "config.toml");
-    } else {
-        if (portableExists)
-            user_dir = portable_dir;
-        else if (globalExists)
-            user_dir = global_dir;
-        else {
-            std::filesystem::create_directories(portable_dir);
-            user_dir = portable_dir;
-        }
-    }
-#else
-    if (portableExists)
-        user_dir = portable_dir;
-    else if (globalExists)
-        user_dir = global_dir;
-    else {
-        std::filesystem::create_directories(portable_dir);
-        user_dir = portable_dir;
-    }
-#endif
-
-    Common::FS::SetUserPath(Common::FS::PathType::UserDir, user_dir);
 }
 
 void MainWindow::toggleColorFilter() {
@@ -1166,7 +1062,6 @@ void MainWindow::CreateConnects() {
 
     // Package install.
     connect(ui->bootGameAct, &QAction::triggered, this, &MainWindow::BootGame);
-    connect(ui->gameInstallPathAct, &QAction::triggered, this, &MainWindow::Directories);
 
     // elf viewer
     connect(ui->addElfFolderAct, &QAction::triggered, m_elf_viewer.data(),
