@@ -351,14 +351,53 @@ int main(int argc, char* argv[]) {
         if (welcomeDlg.m_userMadeChoice) {
             if (welcomeDlg.m_portableChosen) {
                 if (std::filesystem::exists(global_dir)) {
-                    std::filesystem::remove_all(global_dir);
-                    std::cout
-                        << "[Main] Residual Global folder removed after switching to Portable\n";
+                    QMessageBox confirm;
+                    confirm.setIcon(QMessageBox::Warning);
+                    confirm.setWindowTitle(QObject::tr("Confirm Folder Deletion"));
+                    confirm.setText(QObject::tr("You selected *Portable Mode*.\n\nA Global "
+                                                "configuration folder already exists:\n%1\n\n"
+                                                "Do you want to delete it to avoid conflicts?")
+                                        .arg(QString::fromStdString(global_dir.string())));
+                    confirm.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+                    confirm.setDefaultButton(QMessageBox::No);
+
+                    if (confirm.exec() == QMessageBox::Yes) {
+                        try {
+                            std::filesystem::remove_all(global_dir);
+                            std::cout << "[Main] Global folder deleted after user confirmation "
+                                         "(Portable selected)\n";
+                        } catch (const std::exception& e) {
+                            std::cerr << "[Main] Failed to delete Global folder: " << e.what()
+                                      << '\n';
+                        }
+                    } else {
+                        std::cout << "[Main] User canceled Global folder deletion.\n";
+                    }
                 }
             } else {
                 if (std::filesystem::exists(portable_dir)) {
-                    std::filesystem::remove_all(portable_dir);
-                    std::cout << "[Main] Portable folder removed because Global was chosen\n";
+                    QMessageBox confirm;
+                    confirm.setIcon(QMessageBox::Warning);
+                    confirm.setWindowTitle(QObject::tr("Confirm Folder Deletion"));
+                    confirm.setText(QObject::tr("You selected *Global Mode*.\n\nA Portable user "
+                                                "folder already exists:\n%1\n\n"
+                                                "Do you want to delete it to avoid conflicts?")
+                                        .arg(QString::fromStdString(portable_dir.string())));
+                    confirm.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+                    confirm.setDefaultButton(QMessageBox::No);
+
+                    if (confirm.exec() == QMessageBox::Yes) {
+                        try {
+                            std::filesystem::remove_all(portable_dir);
+                            std::cout << "[Main] Portable folder deleted after user confirmation "
+                                         "(Global selected)\n";
+                        } catch (const std::exception& e) {
+                            std::cerr << "[Main] Failed to delete Portable folder: " << e.what()
+                                      << '\n';
+                        }
+                    } else {
+                        std::cout << "[Main] User canceled Portable folder deletion.\n";
+                    }
                 }
             }
         }
