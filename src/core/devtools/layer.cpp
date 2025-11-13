@@ -6,6 +6,7 @@
 #include <chrono>
 #include <fstream>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_video.h>
 #include <emulator.h>
 
 #include <SDL3/SDL.h>
@@ -27,6 +28,8 @@
 #include "imgui_internal.h"
 #include "input/input_handler.h"
 #include "options.h"
+#include "sdl_window.h"
+
 #include "video_core/renderer_vulkan/vk_presenter.h"
 #include "widget/frame_dump.h"
 #include "widget/frame_graph.h"
@@ -35,6 +38,8 @@
 #include "widget/shader_list.h"
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
+extern Frontend::WindowSDL* g_window;
+
 using Btn = Libraries::Pad::OrbisPadButtonDataOffset;
 
 std::string current_filter = Config::getLogFilter();
@@ -60,6 +65,7 @@ static bool fullscreen_tip_manual = false;
 static bool show_fullscreen_tip = true;
 static float fullscreen_tip_timer = 10.0f;
 static float hotkeys_tip_timer = 10.0f;
+static int quit_menu_selection = 0;
 
 namespace Overlay {
 
@@ -69,7 +75,11 @@ void ToggleSimpleFps() {
 }
 
 void ToggleQuitWindow() {
+
     show_quit_window = !show_quit_window;
+    if (show_quit_window) {
+        quit_menu_selection = 0; // Reset to first option when opening
+    }
 }
 
 void TogglePauseWindow() {
@@ -1263,52 +1273,100 @@ void L::Draw() {
         PopFont();
     }
 
+    int menu_count = 3;
+
+    const char* options[] = {
+        "Exit Game",
+        "Minimize Game",
+        "Cancel",
+    };
+
     if (show_quit_window) {
+
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-        if (Begin("Quit Notification", nullptr,
-                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
-                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
-            SetWindowFontScale(1.5f);
-            TextCentered("Are you sure you want to quit?");
-            NewLine();
-            Text("Press Escape or Circle/B button to cancel");
-            Text("Press Enter or Cross/A button to quit");
-            NewLine();
+        // Dim background
+        ImDrawList* draw_list = ImGui::GetForegroundDrawList();
+        ImVec2 viewport_size = ImGui::GetMainViewport()->Size;
+        draw_list->AddRectFilled(ImVec2(0, 0), viewport_size, IM_COL32(0, 0, 0, 80));
 
-#ifdef ENABLE_QT_GUI
-            Text("Press Backspace or DpadUp button to Relaunch Emulator");
-            if (IsKeyPressed(ImGuiKey_Backspace, false) ||
-                IsKeyPressed(ImGuiKey_GamepadDpadUp, false)) {
-                SDL_Event event;
-                SDL_memset(&event, 0, sizeof(event));
-                event.type = SDL_EVENT_QUIT + 1;
-                SDL_PushEvent(&event);
+        if (ImGui::Begin("Controller Exit Menu", nullptr,
+                         ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
+                             ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
+
+            ImGui::SetWindowFontScale(1.5f);
+            TextCentered("Select an option:");
+            ImGui::NewLine();
+
+            // Navigation
+            if (ImGui::IsKeyPressed(ImGuiKey_DownArrow, true) ||
+                ImGui::IsKeyPressed(ImGuiKey_GamepadDpadDown, true) ||
+                ImGui::IsKeyPressed(ImGuiKey_GamepadLStickDown, true)) {
+                quit_menu_selection = (quit_menu_selection + 1) % menu_count;
             }
-#endif
-            if (IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
+
+            if (ImGui::IsKeyPressed(ImGuiKey_UpArrow, true) ||
+                ImGui::IsKeyPressed(ImGuiKey_GamepadDpadUp, true) ||
+                ImGui::IsKeyPressed(ImGuiKey_GamepadLStickUp, true)) {
+                quit_menu_selection = (quit_menu_selection + menu_count - 1) % menu_count;
+            }
+
+            // Draw menu items
+            for (int i = 0; i < menu_count; i++) {
+                if (i == quit_menu_selection) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 0, 1));
+                    TextCentered((std::string("> ") + options[i] + " <").c_str());
+                    ImGui::PopStyleColor();
+                } else {
+                    TextCentered(options[i]);
+                }
+            }
+
+            ImGui::NewLine();
+            ImGui::SetWindowFontScale(1.0f);
+
+            TextCentered("Use D-pad/Stick to navigate");
+            TextCentered("Press Cross/A to select, Circle/B to cancel");
+
+            // Confirm selection (Enter / Cross)
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter, false) ||
+                ImGui::IsKeyPressed(ImGuiKey_GamepadFaceDown, false)) {
+
+                if (quit_menu_selection == 0) {
+                    SDL_Event event;
+                    SDL_memset(&event, 0, sizeof(event));
+                    event.type = SDL_EVENT_QUIT;
+                    SDL_PushEvent(&event);
+                }
+
+                else if (quit_menu_selection == 1) {
+                    if (g_window && g_window->GetSDLWindow())
+                        SDL_MinimizeWindow(g_window->GetSDLWindow());
+                    show_quit_window = false;
+                }
+
+                else if (quit_menu_selection == 2) {
+                    show_quit_window = false;
+                }
+            }
+
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
+                ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
                 show_quit_window = false;
             }
 
-            if (IsKeyPressed(ImGuiKey_Enter, false) ||
-                IsKeyPressed(ImGuiKey_GamepadFaceDown, false)) {
-                SDL_Event event;
-                SDL_memset(&event, 0, sizeof(event));
-                event.type = SDL_EVENT_QUIT;
-                SDL_PushEvent(&event);
-            }
+            ImGui::End();
         }
-        End();
     }
-
     PopID();
 }
-void L::TextCentered(const std::string& text) {
-    float window_width = GetWindowSize().x;
-    float text_width = CalcTextSize(text.c_str()).x;
-    float text_indentation = (window_width - text_width) * 0.5f;
 
-    SameLine(text_indentation);
-    Text("%s", text.c_str());
+void L::TextCentered(const std::string& text) {
+    ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
+    float windowWidth = ImGui::GetWindowSize().x;
+    float cursorX = (windowWidth - textSize.x) * 0.5f;
+
+    ImGui::SetCursorPosX(cursorX);
+    ImGui::TextUnformatted(text.c_str());
 }

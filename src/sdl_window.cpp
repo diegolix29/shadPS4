@@ -596,6 +596,15 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
         SDL_AddTimer(33, wheelOffCallback, (void*)copy);
     }
 
+    if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+        event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
+        SDL_Event quit_event;
+        SDL_memset(&quit_event, 0, sizeof(quit_event));
+        quit_event.type = SDL_EVENT_QUIT_DIALOG;
+        SDL_PushEvent(&quit_event);
+        return;
+    }
+
     // add/remove it from the list
     bool inputs_changed = Input::UpdatePressedKeys(input_event);
 

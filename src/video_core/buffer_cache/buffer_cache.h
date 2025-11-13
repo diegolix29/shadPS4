@@ -5,6 +5,7 @@
 
 #include <shared_mutex>
 #include <boost/container/small_vector.hpp>
+#include <queue>
 #include <tsl/robin_map.h>
 
 #include "common/enum.h"
@@ -195,6 +196,19 @@ public:
 
     /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
     void CommitPendingGpuRanges();
+    void EnqueueForGc(std::function<void()> fn);
+    void RunGarbageCollectorAsync();
+    mutable std::mutex gc_mutex;
+    std::queue<std::function<void()>> gc_queue;
+    u64 GetTriggerGcMemory() const {
+        return trigger_gc_memory;
+    }
+    u64 GetPressureGcMemory() const {
+        return pressure_gc_memory;
+    }
+    u64 GetCriticalGcMemory() const {
+        return critical_gc_memory;
+    }
 
 private:
     template <typename Func>
@@ -258,6 +272,7 @@ private:
     Common::SlotVector<Buffer> slot_buffers;
     u64 total_used_memory = 0;
     u64 trigger_gc_memory = 0;
+    u64 pressure_gc_memory = 0;
     u64 critical_gc_memory = 0;
     u64 gc_tick = 0;
     Common::LeastRecentlyUsedCache<BufferId, u64> lru_cache;

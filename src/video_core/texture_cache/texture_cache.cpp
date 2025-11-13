@@ -901,66 +901,68 @@ void TextureCache::RunGarbageCollector() {
     SCOPE_EXIT {
         ++gc_tick;
     };
+
     if (instance.CanReportMemoryUsage()) {
         total_used_memory = instance.GetDeviceMemoryUsage();
     }
+
     if (total_used_memory < trigger_gc_memory) {
         return;
     }
-    std::scoped_lock lock{mutex};
-    bool pressured = false;
-    bool aggresive = false;
-    u64 ticks_to_destroy = 0;
-    size_t num_deletions = 0;
 
-    const auto configure = [&](bool allow_aggressive) {
-        pressured = total_used_memory >= pressure_gc_memory;
-        aggresive = allow_aggressive && total_used_memory >= critical_gc_memory;
-        ticks_to_destroy = aggresive ? 160 : pressured ? 80 : 16;
-        ticks_to_destroy = std::min(ticks_to_destroy, gc_tick);
-        num_deletions = aggresive ? 40 : pressured ? 20 : 10;
-    };
+    std::scoped_lock lock{mutex};
+    bool pressured = total_used_memory >= pressure_gc_memory;
+    bool aggressive = total_used_memory >= critical_gc_memory;
+
+    u64 ticks_to_destroy = std::min<u64>(aggressive ? 160 : pressured ? 80 : 16, gc_tick);
+    size_t num_deletions = aggressive ? 40 : pressured ? 20 : 10;
+    num_deletions = std::min(num_deletions, static_cast<size_t>(32));
+
     const auto clean_up = [&](ImageId image_id) {
-        if (num_deletions == 0) {
+        if (num_deletions == 0)
             return true;
-        }
+
         --num_deletions;
         auto& image = slot_images[image_id];
         const bool download = image.SafeToDownload();
         const bool tiled = image.info.IsTiled();
-        if (tiled && download) {
-            // This is a workaround for now. We can't handle non-linear image downloads.
+
+        if (tiled && download)
             return false;
-        }
-        if (download && !pressured) {
+
+        if (download && !pressured)
             return false;
-        }
-        if (download) {
+
+        if (download)
             DownloadImageMemory(image_id);
-        }
-        FreeImage(image_id);
-        if (total_used_memory < critical_gc_memory) {
-            if (aggresive) {
-                num_deletions >>= 2;
-                aggresive = false;
-                return false;
-            }
-            if (pressured && total_used_memory < pressure_gc_memory) {
-                num_deletions >>= 1;
-                pressured = false;
-            }
-        }
+
+        EnqueueForGc([this, image_id]() { FreeImage(image_id); });
         return false;
     };
 
-    // Try to remove anything old enough and not high priority.
-    configure(false);
     lru_cache.ForEachItemBelow(gc_tick - ticks_to_destroy, clean_up);
 
     if (total_used_memory >= critical_gc_memory) {
-        // If we are still over the critical limit, run an aggressive GC
-        configure(true);
-        lru_cache.ForEachItemBelow(gc_tick - ticks_to_destroy, clean_up);
+        lru_cache.ForEachItemBelow(gc_tick - (ticks_to_destroy / 2), clean_up);
+    }
+
+    RunGarbageCollectorAsync();
+}
+
+void TextureCache::EnqueueForGc(std::function<void()> fn) {
+    std::scoped_lock lock(gc_mutex);
+    gc_queue.push(std::move(fn));
+}
+
+void TextureCache::RunGarbageCollectorAsync() {
+    std::queue<std::function<void()>> local;
+    {
+        std::scoped_lock lock(gc_mutex);
+        std::swap(local, gc_queue);
+    }
+    while (!local.empty()) {
+        local.front()();
+        local.pop();
     }
 }
 

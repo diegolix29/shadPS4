@@ -377,11 +377,16 @@ void Rasterizer::OnSubmit() {
         buffer_cache.ProcessFaultBuffer();
     }
     texture_cache.ProcessDownloadImages();
-    texture_cache.RunGarbageCollector();
     buffer_cache.ProcessPreemptiveDownloads();
 
-    buffer_cache.RunGarbageCollector();
+    const u64 used_mem = instance.GetDeviceMemoryUsage();
+    const u64 trigger = texture_cache.GetTriggerGcMemory();
+    if (used_mem > trigger) {
+        texture_cache.RunGarbageCollectorAsync();
+        buffer_cache.RunGarbageCollectorAsync();
+    }
 }
+
 void Rasterizer::CommitPendingGpuRanges() {
     buffer_cache.CommitPendingGpuRanges();
 }

@@ -1261,26 +1261,66 @@ void BufferCache::RunGarbageCollector() {
     SCOPE_EXIT {
         ++gc_tick;
     };
+
     if (instance.CanReportMemoryUsage()) {
         total_used_memory = instance.GetDeviceMemoryUsage();
     }
+
     if (total_used_memory < trigger_gc_memory) {
         return;
     }
+
     const bool aggressive = total_used_memory >= critical_gc_memory;
     const u64 ticks_to_destroy = std::min<u64>(aggressive ? 80 : 160, gc_tick);
-    int max_deletions = aggressive ? 64 : 32;
-    const auto clean_up = [&](BufferId buffer_id) {
-        if (max_deletions == 0) {
-            return;
-        }
-        --max_deletions;
-        Buffer& buffer = slot_buffers[buffer_id];
-        InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes(), true);
 
-        DownloadBufferMemory<true>(buffer, buffer.CpuAddr(), buffer.SizeBytes(), true);
-        DeleteBuffer(buffer_id);
+    static constexpr int MAX_DELETIONS_PER_FRAME = 32;
+    int max_deletions = aggressive ? 64 : 32;
+    max_deletions = std::min(max_deletions, MAX_DELETIONS_PER_FRAME);
+
+    const auto clean_up = [&](BufferId buffer_id) {
+        if (max_deletions == 0)
+            return true;
+
+        --max_deletions;
+        if (IsBufferInvalid(buffer_id))
+            return false;
+
+        EnqueueForGc([this, buffer_id]() {
+            if (IsBufferInvalid(buffer_id))
+                return;
+
+            scheduler.DeferOperation([this, buffer_id] { DeleteBuffer(buffer_id); });
+        });
+
+        return false;
     };
+
+    lru_cache.ForEachItemBelow(gc_tick - ticks_to_destroy, clean_up);
+
+    if (total_used_memory >= critical_gc_memory) {
+        max_deletions = 32;
+        lru_cache.ForEachItemBelow(gc_tick - (ticks_to_destroy / 2), clean_up);
+    }
+
+    RunGarbageCollectorAsync();
+}
+
+void BufferCache::EnqueueForGc(std::function<void()> fn) {
+    std::scoped_lock lock(gc_mutex);
+    gc_queue.push(std::move(fn));
+}
+
+void BufferCache::RunGarbageCollectorAsync() {
+    std::queue<std::function<void()>> local;
+    {
+        std::scoped_lock lock(gc_mutex);
+        std::swap(local, gc_queue);
+    }
+
+    while (!local.empty()) {
+        local.front()();
+        local.pop();
+    }
 }
 
 void BufferCache::TouchBuffer(const Buffer& buffer) {
