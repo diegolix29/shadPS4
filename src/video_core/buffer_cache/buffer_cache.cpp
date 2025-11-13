@@ -358,10 +358,6 @@ bool BufferCache::IsRegionRegistered(VAddr addr, size_t size) {
     return buffer_ranges.Intersects(addr, size);
 }
 
-bool BufferCache::IsRegionCpuModified(VAddr addr, size_t size) {
-    return memory_tracker->IsRegionCpuModified(addr, size);
-}
-
 bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
     return memory_tracker->IsRegionGpuModified(addr, size);
 }

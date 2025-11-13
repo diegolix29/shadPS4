@@ -15,6 +15,7 @@
 namespace VideoCore {
 
 static constexpr size_t MaxPageFaults = 1024;
+static constexpr size_t PageFaultAreaSize = MaxPageFaults * sizeof(u64);
 
 FaultManager::FaultManager(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler_,
                            BufferCache& buffer_cache_, u32 caching_pagebits, u64 caching_num_pages_)
@@ -23,7 +24,7 @@ FaultManager::FaultManager(const Vulkan::Instance& instance, Vulkan::Scheduler& 
       fault_buffer_size{caching_num_pages_ / 8},
       fault_buffer{instance, scheduler, MemoryUsage::DeviceLocal, 0, AllFlags, fault_buffer_size},
       download_buffer{instance, scheduler, MemoryUsage::Download,
-                      0,        AllFlags,  MaxPendingFaults * MaxPageFaults * sizeof(u64)} {
+                      0,        AllFlags,  MaxPendingFaults * PageFaultAreaSize} {
     const auto device = instance.GetDevice();
     Vulkan::SetObjectName(device, fault_buffer.Handle(), "Fault Buffer");
 
@@ -78,19 +79,15 @@ FaultManager::FaultManager(const Vulkan::Instance& instance, Vulkan::Scheduler& 
 }
 
 void FaultManager::ProcessFaultBuffer() {
-    // Wait for current area
     if (u64 wait_tick = fault_areas[current_area]; !scheduler.IsFree(wait_tick)) {
         scheduler.Wait(wait_tick);
         scheduler.PopPendingOperations();
     }
 
-    // Prepare receiving buffer for fault pages
-    const u32 faults_size = MaxPageFaults * sizeof(u64);
-    const u32 offset = current_area * faults_size;
+    const u32 offset = current_area * PageFaultAreaSize;
     u8* mapped = download_buffer.mapped_data.data() + offset;
-    std::memset(mapped, 0, faults_size);
+    std::memset(mapped, 0, PageFaultAreaSize);
 
-    // Dispatch fault parsing shader
     const vk::BufferMemoryBarrier2 per_barrier = {
         .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
         .srcAccessMask = vk::AccessFlagBits2::eShaderWrite,
@@ -117,7 +114,7 @@ void FaultManager::ProcessFaultBuffer() {
     const vk::DescriptorBufferInfo download_info = {
         .buffer = download_buffer.Handle(),
         .offset = offset,
-        .range = MaxPageFaults * sizeof(u64),
+        .range = PageFaultAreaSize,
     };
     const std::array<vk::WriteDescriptorSet, 2> writes = {{
         {
@@ -158,10 +155,9 @@ void FaultManager::ProcessFaultBuffer() {
         .pBufferMemoryBarriers = &post_barrier,
     });
 
-    // Defer creating buffers
     scheduler.DeferOperation([this, mapped, area = current_area] {
         RangeSet fault_ranges;
-        const u64* fault_buf = std::bit_cast<const u64*>(mapped);
+        const u64* fault_buf = reinterpret_cast<const u64*>(mapped);
         const u32 fault_count = fault_buf[0];
         for (u32 i = 1; i <= fault_count; ++i) {
             fault_ranges.Add(fault_buf[i], caching_pagesize);
@@ -175,7 +171,6 @@ void FaultManager::ProcessFaultBuffer() {
         fault_areas[area] = 0;
     });
 
-    // Advance to next area
     fault_areas[current_area++] = scheduler.CurrentTick();
     current_area %= MaxPendingFaults;
 }

@@ -6,7 +6,7 @@
 #include <memory>
 #include "common/alignment.h"
 #include "common/types.h"
-#include "video_core/buffer_cache//region_definitions.h"
+#include "video_core/buffer_cache/region_definitions.h"
 
 namespace Vulkan {
 class Rasterizer;
@@ -16,12 +16,8 @@ namespace VideoCore {
 
 class PageManager {
     // Use the same page size as the tracker.
-    static constexpr size_t PAGE_BITS = TRACKER_PAGE_BITS;
-    static constexpr size_t PAGE_SIZE = TRACKER_BYTES_PER_PAGE;
-
-    // Keep the lock granularity the same as region granularity. (since each regions has
-    // itself a lock)
-    static constexpr size_t PAGES_PER_LOCK = NUM_PAGES_PER_REGION;
+    static constexpr size_t PAGE_BITS = 12;
+    static constexpr size_t PAGE_SIZE = 1ULL << PAGE_BITS;
 
 public:
     explicit PageManager(Vulkan::Rasterizer* rasterizer);
@@ -39,7 +35,7 @@ public:
 
     /// Updates watches in the pages touching the specified region using a mask.
     template <bool track, bool is_read = false>
-    void UpdatePageWatchersForRegion(VAddr base_addr, RegionBits& mask) const;
+    void UpdatePageWatchersForRegion(VAddr base_addr, const Bounds& bounds, RegionBits& mask) const;
 
     /// Returns page aligned address.
     static constexpr VAddr GetPageAddr(VAddr addr) {
