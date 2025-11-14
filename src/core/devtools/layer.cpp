@@ -73,12 +73,21 @@ void ToggleSimpleFps() {
     show_simple_fps = !show_simple_fps;
     visibility_toggled = true;
 }
-
 void ToggleQuitWindow() {
 
     show_quit_window = !show_quit_window;
+
     if (show_quit_window) {
-        quit_menu_selection = 0; // Reset to first option when opening
+        quit_menu_selection = 0;
+
+        if (!DebugState.IsGuestThreadsPaused()) {
+            DebugState.PauseGuestThreads();
+        }
+
+    } else {
+        if (DebugState.IsGuestThreadsPaused()) {
+            DebugState.ResumeGuestThreads();
+        }
     }
 }
 
@@ -774,9 +783,14 @@ void DrawPauseStatusWindow(bool& is_open) {
     ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoFocusOnAppearing |
                                    ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 
-    // Controller focus logic
     if (Input::ControllerPressedOnce({Btn::Up}) || Input::ControllerPressedOnce({Btn::Down}) ||
-        Input::ControllerPressedOnce({Btn::Left}) || Input::ControllerPressedOnce({Btn::Right})) {
+        Input::ControllerPressedOnce({Btn::Left}) || Input::ControllerPressedOnce({Btn::Right}) ||
+
+        ImGui::IsKeyPressed(ImGuiKey_GamepadLStickUp, false) ||
+        ImGui::IsKeyPressed(ImGuiKey_GamepadLStickDown, false) ||
+        ImGui::IsKeyPressed(ImGuiKey_GamepadLStickLeft, false) ||
+        ImGui::IsKeyPressed(ImGuiKey_GamepadLStickRight, false)) {
+
         should_focus = true;
     }
 
@@ -1233,7 +1247,7 @@ void L::Draw() {
 
     static bool showPauseHelpWindow = true;
 
-    if (DebugState.IsGuestThreadsPaused()) {
+    if (!show_quit_window && DebugState.IsGuestThreadsPaused()) {
         DrawPauseStatusWindow(showPauseHelpWindow);
         DrawFullscreenHotkeysPause(show_hotkeys_pause);
     }
