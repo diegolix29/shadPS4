@@ -3,9 +3,9 @@
 #pragma once
 
 #if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
-    #include <xmmintrin.h>
+#include <xmmintrin.h>
 #else
-    typedef float __m128 __attribute__((vector_size(16)));
+typedef float __m128 __attribute__((vector_size(16)));
 #endif
 #include "common/types.h"
 
