@@ -44,6 +44,7 @@ public:
     QAction* aboutAct;
     QAction* versionAct;
     QAction* welcomeAct;
+    QAction* pauseOnUnfocusAct;
     QAction* configureAct;
     QAction* configureHotkeys;
     QAction* setThemeDark;
@@ -130,6 +131,11 @@ public:
         toggleLabelsAct->setCheckable(true);
         toggleLabelsAct->setChecked(Config::getShowLabelsUnderIcons());
 
+        pauseOnUnfocusAct = new QAction(MainWindow);
+        pauseOnUnfocusAct->setObjectName("pauseOnUnfocusAct");
+        pauseOnUnfocusAct->setCheckable(true);
+        pauseOnUnfocusAct->setText("Pause Game When Unfocused");
+
         toggleColorFilterAct = new QAction(MainWindow);
         toggleColorFilterAct->setObjectName("toggleColorFilterAct");
         toggleColorFilterAct->setCheckable(true);
@@ -192,7 +198,7 @@ public:
         versionAct->setIcon(QIcon(":images/play_icon.png"));
         welcomeAct = new QAction(MainWindow);
         welcomeAct->setObjectName("welcomeAct");
-        welcomeAct->setIcon(QIcon(":images/shadps4.ico"));
+        welcomeAct->setCheckable(true);
         configureAct = new QAction(MainWindow);
         configureAct->setObjectName("configureAct");
         configureAct->setIcon(QIcon(":images/settings_icon.png"));
@@ -402,6 +408,7 @@ public:
         menuSettings->addAction(menuUtils->menuAction());
         menuSettings->addAction(clearCustomBackgroundAct);
         menuSettings->addAction(setCustomBackgroundAct);
+        menuSettings->addAction(pauseOnUnfocusAct);
         menuUtils->addAction(downloadCheatsPatchesAct);
         menuUtils->addAction(dumpGameListAct);
         menuUtils->addAction(trophyViewerAct);

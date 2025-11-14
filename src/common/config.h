@@ -275,7 +275,8 @@ void setMainWindowHeight(u32 height);
 void setElfViewer(const std::vector<std::string>& elfList);
 void setRecentFiles(const std::vector<std::string>& recentFiles);
 void setEmulatorLanguage(std::string language);
-
+bool getPauseOnUnfocus();
+void setPauseOnUnfocus(bool enable);
 u32 getFpsLimit();
 void setFpsLimit(u32 fpsValue);
 bool isFpsLimiterEnabled();

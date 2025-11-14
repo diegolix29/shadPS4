@@ -31,6 +31,7 @@
 #ifdef __APPLE__
 #include "SDL3/SDL_metal.h"
 #endif
+static bool pause_due_to_focus_loss = false;
 
 namespace Input {
 
@@ -381,6 +382,28 @@ void WindowSDL::WaitEvent() {
         return;
     }
     switch (event.type) {
+    case SDL_EVENT_WINDOW_FOCUS_LOST: {
+        if (Config::getPauseOnUnfocus()) {
+
+        if (!DebugState.IsGuestThreadsPaused()) {
+            DebugState.PauseGuestThreads();
+            pause_due_to_focus_loss = true;
+            LOG_INFO(Frontend, "Window unfocused Pausing game");
+        }
+        }
+        break;
+    }
+    case SDL_EVENT_WINDOW_FOCUS_GAINED: {
+        if (Config::getPauseOnUnfocus()) {
+
+        if (pause_due_to_focus_loss) {
+            DebugState.ResumeGuestThreads();
+            pause_due_to_focus_loss = false;
+            LOG_INFO(Frontend, "Window focused Resuming game");
+        }
+        }
+        break;
+    }
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_MAXIMIZED:
     case SDL_EVENT_WINDOW_RESTORED:

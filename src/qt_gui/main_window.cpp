@@ -557,6 +557,9 @@ void MainWindow::CreateDockWindows(bool newDock) {
     ui->welcomeAct->setCheckable(true);
     ui->welcomeAct->setChecked(!m_compat_info->GetSkipWelcome());
 
+    ui->pauseOnUnfocusAct->setCheckable(true);
+    ui->pauseOnUnfocusAct->setChecked(Config::getPauseOnUnfocus());
+
     ui->splitter->setSizes(sizes);
     ui->splitter->setCollapsible(0, false);
     ui->splitter->setCollapsible(1, false);
@@ -828,8 +831,13 @@ void MainWindow::CreateConnects() {
         auto versionDialog = new VersionDialog(m_compat_info, this);
         versionDialog->show();
     });
-    connect(ui->welcomeAct, &QAction::toggled, this, [this](bool checked) {
-        m_compat_info->SetSkipWelcome(!checked); // if checked, skip = false
+    connect(ui->welcomeAct, &QAction::toggled, this,
+            [this](bool checked) { m_compat_info->SetSkipWelcome(!checked); });
+
+    connect(ui->pauseOnUnfocusAct, &QAction::toggled, this, [](bool checked) {
+        Config::setPauseOnUnfocus(checked);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::saveMainWindow(config_dir / "config.toml");
     });
 
     connect(ui->versionButton, &QPushButton::clicked, this, [this]() {

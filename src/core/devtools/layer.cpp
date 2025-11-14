@@ -1098,6 +1098,13 @@ void DrawPauseStatusWindow(bool& is_open) {
 void L::Draw() {
     const auto io = GetIO();
     PushID("DevtoolsLayer");
+    static bool showPauseHelpWindow = true;
+    if (Config::getPauseOnUnfocus()) {
+
+        if (!(SDL_GetWindowFlags(g_window->GetSDLWindow()) & SDL_WINDOW_INPUT_FOCUS)) {
+            DrawPauseStatusWindow(showPauseHelpWindow);
+        }
+    }
 
     if (IsKeyPressed(ImGuiKey_F3, false)) {
         show_fullscreen_tip = !show_fullscreen_tip;
@@ -1245,8 +1252,6 @@ void L::Draw() {
     if (show_fullscreen_tip || fullscreen_tip_manual)
         DrawFullscreenSettingsWindow(show_fullscreen_tip);
 
-    static bool showPauseHelpWindow = true;
-
     if (!show_quit_window && DebugState.IsGuestThreadsPaused()) {
         DrawPauseStatusWindow(showPauseHelpWindow);
         DrawFullscreenHotkeysPause(show_hotkeys_pause);
@@ -1347,29 +1352,32 @@ void L::Draw() {
             if (ImGui::IsKeyPressed(ImGuiKey_Enter, false) ||
                 ImGui::IsKeyPressed(ImGuiKey_GamepadFaceDown, false)) {
 
-                if (quit_menu_selection == 0) {
-                    SDL_Event event;
+                switch (quit_menu_selection) {
+                case 0: {
+                    SDL_Event event{};
                     SDL_memset(&event, 0, sizeof(event));
                     event.type = SDL_EVENT_QUIT;
                     SDL_PushEvent(&event);
+                    break;
                 }
 
-                else if (quit_menu_selection == 1) {
+                case 1: {
                     if (g_window && g_window->GetSDLWindow())
                         SDL_MinimizeWindow(g_window->GetSDLWindow());
                     show_quit_window = false;
+                    break;
                 }
 
-                else if (quit_menu_selection == 2) {
-                    show_quit_window = false;
+                case 2: {
+                    Overlay::ToggleQuitWindow();
+                    break;
+                }
                 }
             }
-
             if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
                 ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
-                show_quit_window = false;
+                Overlay::ToggleQuitWindow();
             }
-
             ImGui::End();
         }
     }

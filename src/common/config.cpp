@@ -129,6 +129,7 @@ static ConfigEntry<string> userName("shadPS4");
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
+static bool g_pauseOnUnfocus = false;
 static bool isAlwaysShowChangelog = false;
 static ConfigEntry<std::string> isSideTrophy("right");
 static ConfigEntry<bool> isConnectedToNetwork(false);
@@ -269,6 +270,13 @@ u32 m_language = 1; // english
 
 // Keys
 static std::string trophyKey = "";
+
+bool getPauseOnUnfocus() {
+    return g_pauseOnUnfocus;
+}
+void setPauseOnUnfocus(bool enable) {
+    g_pauseOnUnfocus = enable;
+}
 
 bool vkValidationCoreEnabled() {
     return vkValidationCore.get();
@@ -1261,6 +1269,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         }
         isShowSplash.setFromToml(general, "showSplash", is_game_specific);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
+        g_pauseOnUnfocus = toml::find_or<bool>(general, "g_pauseOnUnfocus", false);
         isAlwaysShowChangelog = toml::find_or<bool>(general, "alwaysShowChangelog", false);
         isSideTrophy.setFromToml(general, "sideTrophy", is_game_specific);
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
@@ -1534,6 +1543,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
     data["General"]["autoUpdate"] = isAutoUpdate;
+    data["General"]["g_pauseOnUnfocus"] = g_pauseOnUnfocus;
     data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
     data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
     data["General"]["autoRestartGame"] = autoRestartGame;
@@ -1755,6 +1765,7 @@ void setDefaultValues() {
     isShaderDebug = false;
     isShowSplash = false;
     isAutoUpdate = false;
+    g_pauseOnUnfocus = false;
     isAlwaysShowChangelog = false;
     windowWidth = 1280;
     windowHeight = 720;
