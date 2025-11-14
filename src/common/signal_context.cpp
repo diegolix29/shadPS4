@@ -15,16 +15,21 @@ namespace Common {
 
 void* GetXmmPointer(void* ctx, u8 index) {
 #if defined(_WIN32)
-#define CASE(index)                                                                                \
-    case index:                                                                                    \
+    #define CASE(index) case index: \
         return (void*)(&((EXCEPTION_POINTERS*)ctx)->ContextRecord->Xmm##index.Low)
 #elif defined(__APPLE__)
-#define CASE(index)                                                                                \
-    case index:                                                                                    \
-        return (void*)(&((ucontext_t*)ctx)->uc_mcontext->__fs.__fpu_xmm##index);
+    #if defined(ARCH_X86_64)
+        #define CASE(index) case index: \
+            return (void*)(&((ucontext_t*)ctx)->uc_mcontext->__fs.__fpu_xmm##index);
+    #elif defined(ARCH_ARM64)
+        static uint8_t dummy_xmm_regs[16 * 16] = {};
+        #define CASE(index) case index: \
+            return (void*)(&dummy_xmm_regs[(index) * 16]);
+    #else
+        #error "Unsupported Apple CPU arch"
+    #endif
 #else
-#define CASE(index)                                                                                \
-    case index:                                                                                    \
+    #define CASE(index) case index: \
         return (void*)(&((ucontext_t*)ctx)->uc_mcontext.fpregs->_xmm[index].element[0])
 #endif
     switch (index) {
@@ -56,7 +61,11 @@ void* GetRip(void* ctx) {
 #if defined(_WIN32)
     return (void*)((EXCEPTION_POINTERS*)ctx)->ContextRecord->Rip;
 #elif defined(__APPLE__)
-    return (void*)((ucontext_t*)ctx)->uc_mcontext->__ss.__rip;
+    #if defined(ARCH_X86_64)
+        return (void*)((ucontext_t*)ctx)->uc_mcontext->__ss.__rip;
+    #elif defined(ARCH_ARM64)
+        return (void*)((ucontext_t*)ctx)->uc_mcontext->__ss.__pc;
+    #endif
 #else
     return (void*)((ucontext_t*)ctx)->uc_mcontext.gregs[REG_RIP];
 #endif
@@ -66,7 +75,11 @@ void IncrementRip(void* ctx, u64 length) {
 #if defined(_WIN32)
     ((EXCEPTION_POINTERS*)ctx)->ContextRecord->Rip += length;
 #elif defined(__APPLE__)
-    ((ucontext_t*)ctx)->uc_mcontext->__ss.__rip += length;
+    #if defined(ARCH_X86_64)
+        ((ucontext_t*)ctx)->uc_mcontext->__ss.__rip += length;
+    #elif defined(ARCH_ARM64)
+        ((ucontext_t*)ctx)->uc_mcontext->__ss.__pc += length;
+    #endif
 #else
     ((ucontext_t*)ctx)->uc_mcontext.gregs[REG_RIP] += length;
 #endif
