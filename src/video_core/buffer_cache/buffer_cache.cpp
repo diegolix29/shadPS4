@@ -1004,7 +1004,7 @@ bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32
             .pBufferMemoryBarriers = &post_barrier,
         });
     }
-    if (is_texel_buffer) {
+    if (is_texel_buffer && !is_written) {
         return SynchronizeBufferFromImage(buffer, device_addr, size);
     }
     return false;
