@@ -110,3 +110,5 @@
 	path = externals/MoltenVK
 	url = https://github.com/KhronosGroup/MoltenVK.git
 	shallow = true
+[submodule "ext-MoltenVK"]
+	url = https://github.com/shadPS4-emu/ext-MoltenVK.git
