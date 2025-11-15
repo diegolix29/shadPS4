@@ -318,12 +318,11 @@ int main(int argc, char* argv[]) {
             std::cout << "Using manually specified mods folder: " << mods_folder->string() << "\n";
         }
     }
-    auto compatInfo = std::make_shared<CompatibilityInfoClass>();
 
-    WelcomeDialog welcomeDlg(compatInfo, &m_window_themes);
+    WelcomeDialog welcomeDlg(&m_window_themes);
     m_window_themes.ApplyThemeToDialog(&welcomeDlg);
 
-    if (!has_command_line_argument && !compatInfo->GetSkipWelcome()) {
+    if (!has_command_line_argument && Config::getShowWelcomeDialog()) {
         welcomeDlg.exec();
     }
 

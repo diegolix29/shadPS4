@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QPixmap>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QUrl>
 #include <QVBoxLayout>
 #include "common/path_util.h"
@@ -31,18 +32,18 @@ namespace fs = std::filesystem;
 #include "main_window_themes.h"
 extern WindowThemes m_window_themes;
 
-WelcomeDialog::WelcomeDialog(std::shared_ptr<CompatibilityInfoClass> compat, WindowThemes* themes,
-                             QWidget* parent)
-    : QDialog(parent), m_themes(themes), m_compat_info(compat) {
+WelcomeDialog::WelcomeDialog(WindowThemes* themes, QWidget* parent)
+    : QDialog(parent), m_themes(themes) {
     Theme th = static_cast<Theme>(Config::getMainWindowTheme());
 
     m_window_themes.SetWindowTheme(th, nullptr);
     m_window_themes.ApplyThemeToDialog(this);
     SetupUI();
     ApplyTheme();
-    setWindowTitle("Welcome to BBFork Build by Diegolix");
+    setWindowTitle("Welcome to BBFork Build - shadPs4");
     setWindowIcon(QIcon(":images/shadps4.ico"));
-    setFixedSize(600, 400);
+    resize(700, 600);
+    setMinimumSize(600, 550);
 }
 
 void WelcomeDialog::ApplyTheme() {
@@ -80,21 +81,19 @@ void WelcomeDialog::ApplyTheme() {
 void WelcomeDialog::SetupUI() {
     auto* mainLayout = new QVBoxLayout(this);
 
-    mainLayout->setAlignment(Qt::AlignCenter);
-
     auto* logo = new QLabel();
     logo->setPixmap(QPixmap(":images/shadps4.png")
                         .scaled(96, 96, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     logo->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(logo);
 
-    auto* title = new QLabel("<h2>BBFork Build by Diegolix - Welcome</h2>");
+    auto* title = new QLabel("<h2>BBFork Build by Diegolix - Welcome</h2>"
+                             "<b>Included Features & Hacks:</b><br>");
     title->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(title);
 
-    auto* desc =
-        new QLabel("<b>Included Features & Hacks:</b><br>"
-                   "<ul>"
+    auto* descLabel =
+        new QLabel("<ul>"
                    "<li>A sound hack that prevents Bloodborne from losing audio. (originally made "
                    "by rainvmaker)</li>"
                    "<li>Automatic backups via a checkbox in the Graphics tab in Settings.</li>"
@@ -102,28 +101,36 @@ void WelcomeDialog::SetupUI() {
                    "<i>(Do not use this with the \"Copy Buffer\" checkbox under the Debug tab in "
                    "Settings.)</i></li>"
                    "<li>Several Hotkeys.</li>"
-                   "<li>Water Flickering Hack(BloodBorne).</li>"
+                   "<li>Water Flickering Hack(Bloodborne).</li>"
                    "<li>READBACKS OPTIMIZATION (Smooth no extra stutters anymore) Fast and Unsafe "
-                   "are for BloodBorne.</li>"
+                   "are for Bloodborne.</li>"
                    "<li>Restart and Stop buttons working as the QTLauncher.</li>"
                    "<li>Keyboard and mouse custom button mapping for FromSoftware games.</li>"
                    "<li>An Experimental tab with all new features and both isDevKit and Neo Mode "
                    "(PS4 Pro Mode) checkboxes in Settings.</li>"
                    "<li>Safe Tiling and USB PRs developed for main Shad.</li>"
                    "</ul>"
-                   "<br>"
-                   "Please select your installation type:<br>"
-                   "<b>Portable</b> — creates a <code>user</code> folder next to the executable "
-                   "(recommended).<br>"
-                   "<b>Global</b> — stores data in AppData.");
+                   "<br>");
+    descLabel->setWordWrap(true);
 
-    desc->setAlignment(Qt::AlignCenter);
-    desc->setWordWrap(true);
-    mainLayout->addWidget(desc);
+    auto* scroll = new QScrollArea();
+    scroll->setWidget(descLabel);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setMinimumHeight(200);
+    scroll->setStyleSheet("background: transparent;");
+    scroll->viewport()->setStyleSheet("background: transparent;");
+
+    mainLayout->addWidget(scroll);
 
     mainLayout->addSpacing(10);
 
-    auto* installLabel = new QLabel("Select your preferred installation type:");
+    auto* installLabel =
+        new QLabel("Please select your installation type:<br>"
+                   "<b>Portable</b> — creates a <code>user</code> folder next to the executable "
+                   "(recommended).<br>"
+                   "<b>Global</b> — stores data in AppData.<br>"
+                   "Select your preferred installation type:");
     installLabel->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(installLabel);
 
@@ -141,23 +148,16 @@ void WelcomeDialog::SetupUI() {
     m_skipCheck = new QCheckBox("Don't show this screen again");
     m_skipCheck->setChecked(false);
     mainLayout->addWidget(m_skipCheck, 0, Qt::AlignLeft);
-    connect(m_skipCheck, &QCheckBox::stateChanged, this, [this](int state) {
-        Q_UNUSED(state);
-        m_skipNextLaunch = m_skipCheck->isChecked(); // store the state internally too
-        if (m_compat_info)
-            m_compat_info->SetSkipWelcome(m_skipNextLaunch);
-
-        qDebug() << "[WelcomeDialog] skip_welcome updated to:" << m_skipNextLaunch;
-    });
+    connect(m_skipCheck, &QCheckBox::stateChanged, this,
+            [this](int) { m_skipNextLaunch = m_skipCheck->isChecked(); });
 
     QPushButton* updateButton = new QPushButton(tr("Close"), this);
     updateButton->setEnabled(true);
     updateButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     mainLayout->addWidget(updateButton, 0, Qt::AlignLeft);
     connect(updateButton, &QPushButton::clicked, this, [this]() {
-        if (m_compat_info)
-            m_compat_info->SetSkipWelcome(m_skipNextLaunch);
-
+        Config::setShowWelcomeDialog(!m_skipNextLaunch); // save the choice
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
         accept();
     });
     auto* footer = new QHBoxLayout();
@@ -211,8 +211,8 @@ void WelcomeDialog::SetupUI() {
         QMessageBox::information(this, tr("Portable Folder Set"),
                                  tr("Portable Folder Successfully Set"));
 
-        Common::FS::SetUserPath(Common::FS::PathType::UserDir, portable_dir);
-
+        Config::setShowWelcomeDialog(false); // don’t show next launch
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
         accept();
     });
 
@@ -255,8 +255,8 @@ void WelcomeDialog::SetupUI() {
         QMessageBox::information(this, tr("Global Folder Set"),
                                  tr("Global Folder Successfully Set"));
 
-        Common::FS::SetUserPath(Common::FS::PathType::UserDir, global_dir);
-
+        Config::setShowWelcomeDialog(false); // don’t show next launch
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
         accept();
     });
 }

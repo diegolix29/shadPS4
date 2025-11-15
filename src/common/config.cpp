@@ -130,6 +130,7 @@ static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
 static ConfigEntry<bool> pauseOnUnfocus(false);
+static bool showWelcomeDialog = true;
 static bool isAlwaysShowChangelog = false;
 static ConfigEntry<std::string> isSideTrophy("right");
 static ConfigEntry<bool> isConnectedToNetwork(false);
@@ -270,6 +271,14 @@ u32 m_language = 1; // english
 
 // Keys
 static std::string trophyKey = "";
+
+bool getShowWelcomeDialog() {
+    return showWelcomeDialog;
+}
+
+void setShowWelcomeDialog(bool enable) {
+    showWelcomeDialog = enable;
+}
 
 bool getPauseOnUnfocus() {
     return pauseOnUnfocus.get();
@@ -1270,6 +1279,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isShowSplash.setFromToml(general, "showSplash", is_game_specific);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
         pauseOnUnfocus.setFromToml(general, "pauseOnUnfocus", is_game_specific);
+        showWelcomeDialog = toml::find_or<bool>(general, "showWelcomeDialog", true);
 
         isAlwaysShowChangelog = toml::find_or<bool>(general, "alwaysShowChangelog", false);
         isSideTrophy.setFromToml(general, "sideTrophy", is_game_specific);
@@ -1545,6 +1555,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["showSplash"] = isShowSplash.base_value;
     data["General"]["autoUpdate"] = isAutoUpdate;
     data["General"]["pauseOnUnfocus"] = pauseOnUnfocus.base_value;
+    data["General"]["showWelcomeDialog"] = showWelcomeDialog;
     data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
     data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
     data["General"]["autoRestartGame"] = autoRestartGame;
@@ -1723,6 +1734,7 @@ void setDefaultValues() {
     // General
     isNeo = false;
     isDevKit = false;
+    showWelcomeDialog = true;
     extraDmemInMbytes = 0;
     isPSNSignedIn = false;
     isTrophyPopupDisabled = false;

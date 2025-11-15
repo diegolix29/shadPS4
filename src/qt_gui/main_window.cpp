@@ -493,19 +493,24 @@ void MainWindow::UpdateToolbarLabels() {
 }
 
 void MainWindow::CreateDockWindows(bool newDock) {
-    if (!centralWidget())
-        setCentralWidget(new QWidget(this));
+    QWidget* phCentralWidget = new QWidget(this);
+    setCentralWidget(phCentralWidget);
 
     QWidget* dockContents = new QWidget(this);
     QVBoxLayout* dockLayout = new QVBoxLayout(dockContents);
+
     ui->splitter = new QSplitter(Qt::Vertical);
     ui->logDisplay = new QTextEdit(ui->splitter);
+    ui->logDisplay->setText(tr("Game Log"));
+    ui->logDisplay->setReadOnly(true);
 
     if (newDock) {
         m_dock_widget.reset(new QDockWidget(tr("Game List"), this));
         m_game_list_frame.reset(new GameListFrame(m_game_info, m_compat_info, m_ipc_client, this));
+
         m_game_list_frame->setObjectName("gamelist");
         m_game_grid_frame.reset(new GameGridFrame(m_game_info, m_compat_info, m_ipc_client, this));
+
         m_game_grid_frame->setObjectName("gamegridlist");
         m_elf_viewer.reset(new ElfViewer(this));
         m_elf_viewer->setObjectName("elflist");
@@ -529,9 +534,11 @@ void MainWindow::CreateDockWindows(bool newDock) {
         m_game_list_frame->hide();
         m_elf_viewer->hide();
         m_game_grid_frame->show();
-        if (!newDock && m_game_grid_frame->item(0, 0) == nullptr) {
-            m_game_grid_frame->clearContents();
-            m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
+        if (!newDock) {
+            if (m_game_grid_frame->item(0, 0) == nullptr) {
+                m_game_grid_frame->clearContents();
+                m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
+            }
         }
         ui->splitter->addWidget(m_game_grid_frame.data());
         ui->sizeSlider->setSliderPosition(slider_pos);
@@ -544,9 +551,9 @@ void MainWindow::CreateDockWindows(bool newDock) {
         isTableList = false;
     }
 
-    ui->logDisplay->setStyleSheet("QTextEdit { background-color: black; }");
-    ui->logDisplay->setMinimumHeight(0);
-
+    QPalette logPalette = ui->logDisplay->palette();
+    logPalette.setColor(QPalette::Base, Qt::black);
+    ui->logDisplay->setPalette(logPalette);
     ui->splitter->addWidget(ui->logDisplay);
 
     QList<int> defaultSizes = {800, 200, 50};
@@ -554,20 +561,19 @@ void MainWindow::CreateDockWindows(bool newDock) {
     if (sizes.isEmpty() || sizes.size() < 3 || sizes[1] == 0)
         sizes = defaultSizes;
 
-    ui->welcomeAct->setCheckable(true);
-    ui->welcomeAct->setChecked(!m_compat_info->GetSkipWelcome());
-
-    ui->pauseOnUnfocusAct->setCheckable(true);
-    ui->pauseOnUnfocusAct->setChecked(Config::getPauseOnUnfocus());
-
     ui->splitter->setSizes(sizes);
     ui->splitter->setCollapsible(0, false);
     ui->splitter->setCollapsible(1, false);
-    ui->splitter->setCollapsible(2, false);
 
     dockLayout->addWidget(ui->splitter);
     dockContents->setLayout(dockLayout);
     m_dock_widget->setWidget(dockContents);
+
+    ui->welcomeAct->setCheckable(true);
+    ui->welcomeAct->setChecked(Config::getShowWelcomeDialog());
+
+    ui->pauseOnUnfocusAct->setCheckable(true);
+    ui->pauseOnUnfocusAct->setChecked(Config::getPauseOnUnfocus());
 
     m_dock_widget->setAllowedAreas(Qt::AllDockWidgetAreas);
     m_dock_widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -621,8 +627,9 @@ void MainWindow::CheckUpdateMain(bool checkSave) {
 #endif
 
 void MainWindow::toggleWelcomeScreenOnLaunch(bool enabled) {
-    m_compat_info->SetSkipWelcome(!enabled);
+    Config::setShowWelcomeDialog(enabled);
     ui->welcomeAct->setChecked(enabled);
+    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
 }
 
 void MainWindow::onSetCustomBackground() {
@@ -650,8 +657,8 @@ void MainWindow::CreateConnects() {
     connect(ui->refreshGameListAct, &QAction::triggered, this, &MainWindow::RefreshGameTable);
     connect(ui->refreshButton, &QPushButton::clicked, this, &MainWindow::RefreshGameTable);
     connect(ui->showGameListAct, &QAction::triggered, this, &MainWindow::ShowGameList);
-    connect(ui->toggleLabelsAct, &QAction::toggled, this, &MainWindow::toggleLabelsUnderIcons);
-    connect(ui->toggleColorFilterAct, &QAction::toggled, this, &MainWindow::toggleColorFilter);
+    connect(ui->toggleLabelsAct, &QAction::triggered, this, &MainWindow::toggleLabelsUnderIcons);
+    connect(ui->toggleColorFilterAct, &QAction::triggered, this, &MainWindow::toggleColorFilter);
     connect(ui->fullscreenButton, &QPushButton::clicked, this, &MainWindow::toggleFullscreen);
 
     connect(ui->sizeSlider, &QSlider::valueChanged, this, [this](int value) {
@@ -831,10 +838,12 @@ void MainWindow::CreateConnects() {
         auto versionDialog = new VersionDialog(m_compat_info, this);
         versionDialog->show();
     });
-    connect(ui->welcomeAct, &QAction::toggled, this,
-            [this](bool checked) { m_compat_info->SetSkipWelcome(!checked); });
+    connect(ui->welcomeAct, &QAction::triggered, this, [this](bool checked) {
+        Config::setShowWelcomeDialog(checked);
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+    });
 
-    connect(ui->pauseOnUnfocusAct, &QAction::toggled, this, [](bool checked) {
+    connect(ui->pauseOnUnfocusAct, &QAction::triggered, this, [this](bool checked) {
         Config::setPauseOnUnfocus(checked);
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         Config::saveMainWindow(config_dir / "config.toml");

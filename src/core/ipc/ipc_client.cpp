@@ -182,13 +182,11 @@ void IpcClient::onStderr() {
 
 void IpcClient::onStdout() {
     QColor color;
-    QString entry;
-
     QByteArray data = process->readAllStandardOutput();
     QString dataString = QString::fromUtf8(data);
-    QStringList lines = dataString.split('\n');
+    QStringList entries = dataString.split('\n');
 
-    for (QString& entry : lines) {
+    for (QString& entry : entries) {
         if (entry.contains("<Warning>")) {
             color = Qt::yellow;
         } else if (entry.contains("<Error>")) {
@@ -205,9 +203,10 @@ void IpcClient::onStdout() {
 
         QRegularExpression ansiRegex(
             R"(\x1B\[[0-9;]*[mK])"); // ANSI escape codes from UNIX terminals
+        entry = entry.replace(ansiRegex, "");
 
         if (!entry.isEmpty())
-            emit LogEntrySent(entry.replace(ansiRegex, "").trimmed(), color);
+            emit LogEntrySent(entry.trimmed(), color);
     }
 }
 
