@@ -143,6 +143,12 @@ int main(int argc, char* argv[]) {
         {"--patch", [&](int& i) { arg_map["-p"](i); }},
         {"-i", [&](int&) { Core::FileSys::MntPoints::ignore_game_patches = true; }},
         {"--ignore-game-patch", [&](int& i) { arg_map["-i"](i); }},
+        {"-im",
+         [&](int&) {
+             Core::FileSys::MntPoints::enable_mods = false;
+             Core::FileSys::MntPoints::manual_mods_path.clear();
+         }},
+        {"--ignore-mods-path", [&](int& i) { arg_map["-im"](i); }},
         {"-mf",
          [&](int& i) {
              if (i + 1 < argc) {
@@ -269,6 +275,11 @@ int main(int argc, char* argv[]) {
         }
     } else {
         std::cout << "Using manually specified mods folder: " << mods_folder->string() << "\n";
+    }
+
+    if (!Core::FileSys::MntPoints::enable_mods) {
+        mods_folder.reset();
+        Core::FileSys::MntPoints::manual_mods_path.clear();
     }
 
     if (waitPid)

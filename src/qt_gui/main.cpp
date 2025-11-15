@@ -47,6 +47,7 @@ int main(int argc, char* argv[]) {
     // Load configurations and initialize Qt application
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
+    bool ignore_mods_path = false;
 
     bool has_command_line_argument = argc > 1;
     bool show_gui = false, has_game_argument = false;
@@ -139,6 +140,12 @@ int main(int argc, char* argv[]) {
         {"--patch", [&](int& i) { arg_map["-p"](i); }},
         {"-i", [&](int&) { Core::FileSys::MntPoints::ignore_game_patches = true; }},
         {"--ignore-game-patch", [&](int& i) { arg_map["-i"](i); }},
+        {"-im",
+         [&](int&) {
+             ignore_mods_path = true;
+             Core::FileSys::MntPoints::enable_mods = false;
+         }},
+        {"--ignore-mods-path", [&](int& i) { arg_map["-im"](i); }},
         {"-mf",
          [&](int& i) {
              if (i + 1 < argc) {
@@ -425,6 +432,11 @@ int main(int argc, char* argv[]) {
 
     if (qEnvironmentVariableIsSet("SHADPS4_BASE_GAME")) {
         Core::FileSys::MntPoints::ignore_game_patches = ignorePatches;
+    }
+
+    if (ignore_mods_path) {
+        Core::FileSys::MntPoints::enable_mods = false;
+        Core::FileSys::MntPoints::manual_mods_path.clear();
     }
 
     if (ipc_enabled) {
