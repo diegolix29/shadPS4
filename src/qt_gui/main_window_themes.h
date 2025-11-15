@@ -28,6 +28,7 @@ public:
     explicit WindowThemes(QObject* parent = nullptr) : QObject(parent) {}
 
     void SetWindowTheme(Theme theme, QLineEdit* mw_searchbar);
+    void ApplyThemeToDialog(QDialog* dialog);
 
     QColor iconBaseColor() const {
         return m_iconBaseColor;

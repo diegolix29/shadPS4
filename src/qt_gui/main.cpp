@@ -14,6 +14,7 @@
 #include "game_directory_dialog.h"
 #include "iostream"
 #include "main_window.h"
+#include "main_window_themes.h"
 #include "qt_gui/compatibility_info.h"
 #include "system_error"
 #include "unordered_map"
@@ -21,6 +22,7 @@
 #include "welcome_dialog.h"
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
+WindowThemes m_window_themes;
 
 #ifdef _WIN32
 #include <windows.h>
@@ -318,7 +320,8 @@ int main(int argc, char* argv[]) {
     }
     auto compatInfo = std::make_shared<CompatibilityInfoClass>();
 
-    WelcomeDialog welcomeDlg(compatInfo);
+    WelcomeDialog welcomeDlg(compatInfo, &m_window_themes);
+    m_window_themes.ApplyThemeToDialog(&welcomeDlg);
 
     if (!has_command_line_argument && !compatInfo->GetSkipWelcome()) {
         welcomeDlg.exec();

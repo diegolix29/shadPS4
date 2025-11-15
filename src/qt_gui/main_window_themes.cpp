@@ -1,20 +1,22 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <QLabel>
+#include <QProgressDialog>
+#include <QPushButton>
 #include "main_window_themes.h"
 
 void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
     QPalette themePalette;
-
     qApp->setStyleSheet("");
+    auto setSearchbar = [&](QString css) {
+        if (mw_searchbar)
+            mw_searchbar->setStyleSheet(css);
+    };
     switch (theme) {
     case Theme::Dark:
-        mw_searchbar->setStyleSheet(
-            "QLineEdit {"
-            "background-color: #1e1e1e; color: #ffffff; border: 1px solid #ffffff; "
-            "border-radius: 4px; padding: 5px; }"
-            "QLineEdit:focus {"
-            "border: 1px solid #2A82DA; }");
+        setSearchbar("QLineEdit { background-color:#1e1e1e; color:white; border:1px solid white; }"
+                     "QLineEdit:focus { border:1px solid #2A82DA; }");
         themePalette.setColor(QPalette::Window, QColor(50, 50, 50));
         themePalette.setColor(QPalette::WindowText, Qt::white);
         themePalette.setColor(QPalette::Base, QColor(20, 20, 20));
@@ -38,12 +40,8 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         break;
 
     case Theme::Light:
-        mw_searchbar->setStyleSheet(
-            "QLineEdit {"
-            "background-color: #ffffff; color: #000000; border: 1px solid #000000; "
-            "border-radius: 4px; padding: 5px; }"
-            "QLineEdit:focus {"
-            "border: 1px solid #2A82DA; }");
+        setSearchbar("QLineEdit { background-color:#ffffff; color:black; border:1px solid black; }"
+                     "QLineEdit:focus { border:1px solid #2A82DA; }");
         themePalette.setColor(QPalette::Window, QColor(240, 240, 240));          // Light gray
         themePalette.setColor(QPalette::WindowText, Qt::black);                  // Black
         themePalette.setColor(QPalette::Base, QColor(230, 230, 230, 80));        // Grayish
@@ -66,12 +64,8 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         break;
 
     case Theme::Green:
-        mw_searchbar->setStyleSheet(
-            "QLineEdit {"
-            "background-color: #192819; color: #ffffff; border: 1px solid #ffffff; "
-            "border-radius: 4px; padding: 5px; }"
-            "QLineEdit:focus {"
-            "border: 1px solid #2A82DA; }");
+        setSearchbar("QLineEdit { background-color:#192819; color:white; border:1px solid white; }"
+                     "QLineEdit:focus { border:1px solid #2A82DA; }");
         themePalette.setColor(QPalette::Window, QColor(53, 69, 53)); // Dark green background
         themePalette.setColor(QPalette::WindowText, Qt::white);      // White text
         themePalette.setColor(QPalette::Base, QColor(25, 40, 25));   // Darker green base
@@ -97,12 +91,8 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         break;
 
     case Theme::Blue:
-        mw_searchbar->setStyleSheet(
-            "QLineEdit {"
-            "background-color: #14283c; color: #ffffff; border: 1px solid #ffffff; "
-            "border-radius: 4px; padding: 5px; }"
-            "QLineEdit:focus {"
-            "border: 1px solid #2A82DA; }");
+        setSearchbar("QLineEdit { background-color:#14283c; color:white; border:1px solid white; }"
+                     "QLineEdit:focus { border:1px solid #2A82DA; }");
         themePalette.setColor(QPalette::Window, QColor(40, 60, 90)); // Dark blue background
         themePalette.setColor(QPalette::WindowText, Qt::white);      // White text
         themePalette.setColor(QPalette::Base, QColor(20, 40, 60));   // Darker blue base
@@ -128,12 +118,8 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         break;
 
     case Theme::Violet:
-        mw_searchbar->setStyleSheet(
-            "QLineEdit {"
-            "background-color: #501e5a; color: #ffffff; border: 1px solid #ffffff; "
-            "border-radius: 4px; padding: 5px; }"
-            "QLineEdit:focus {"
-            "border: 1px solid #2A82DA; }");
+        setSearchbar("QLineEdit { background-color:#501e5a; color:white; border:1px solid white; }"
+                     "QLineEdit:focus { border:1px solid #2A82DA; }");
         themePalette.setColor(QPalette::Window, QColor(100, 50, 120)); // Violet background
         themePalette.setColor(QPalette::WindowText, Qt::white);        // White text
         themePalette.setColor(QPalette::Base, QColor(80, 30, 90));     // Darker violet base
@@ -159,12 +145,9 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         break;
 
     case Theme::Gruvbox:
-        mw_searchbar->setStyleSheet(
-            "QLineEdit {"
-            "background-color: #1d2021; color: #f9f5d7; border: 1px solid #f9f5d7; "
-            "border-radius: 4px; padding: 5px; }"
-            "QLineEdit:focus {"
-            "border: 1px solid #83A598; }");
+        setSearchbar(
+            "QLineEdit { background-color:#1d2021; color:#f9f5d7; border:1px solid #f9f5d7; }"
+            "QLineEdit:focus { border:1px solid #2A82DA; }");
         themePalette.setColor(QPalette::Window, QColor(29, 32, 33));
         themePalette.setColor(QPalette::WindowText, QColor(249, 245, 215));
         themePalette.setColor(QPalette::Base, QColor(29, 32, 33));
@@ -188,12 +171,9 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         break;
 
     case Theme::TokyoNight:
-        mw_searchbar->setStyleSheet(
-            "QLineEdit {"
-            "background-color: #1a1b26; color: #9d7cd8; border: 1px solid #9d7cd8; "
-            "border-radius: 4px; padding: 5px; }"
-            "QLineEdit:focus {"
-            "border: 1px solid #7aa2f7; }");
+        setSearchbar(
+            "QLineEdit { background-color:#1a1b26; color:#9d7cd8; border:1px solid #9d7cd8; }"
+            "QLineEdit:focus { border:1px solid #2A82DA; }");
         themePalette.setColor(QPalette::Window, QColor(31, 35, 53));
         themePalette.setColor(QPalette::WindowText, QColor(192, 202, 245));
         themePalette.setColor(QPalette::Base, QColor(25, 28, 39));
@@ -217,8 +197,8 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         break;
 
     case Theme::Oled:
-        mw_searchbar->setStyleSheet("QLineEdit:focus {"
-                                    "border: 1px solid #2A82DA; }");
+        setSearchbar("QLineEdit { background-color:#000000; color:white; border:1px solid white; }"
+                     "QLineEdit:focus { border:1px solid #2A82DA; }");
         themePalette.setColor(QPalette::Window, Qt::black);
         themePalette.setColor(QPalette::WindowText, Qt::white);
         themePalette.setColor(QPalette::Base, Qt::black);
@@ -242,14 +222,9 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         break;
 
     case Theme::Neon:
-        mw_searchbar->setStyleSheet(
-            "QLineEdit {"
-            "background-color: #0d0d0d; color: #39ff14; border: 1px solid #39ff14; "
-            "border-radius: 6px; padding: 6px; "
-            "font-weight: bold; }"
-            "QLineEdit:focus {"
-            "border: 1px solid #ff00ff; }");
-
+        setSearchbar("QLineEdit { background-color:#0d0d0d; color:39ff14; border:1px solid "
+                     "#39ff14; border-radius: 6px; padding: 6px; font-weight: bold; }"
+                     "QLineEdit:focus { border:1px solid #ff00ff; }");
         themePalette.setColor(QPalette::Window, QColor(10, 10, 15));       // Deep dark
         themePalette.setColor(QPalette::WindowText, QColor(255, 20, 147)); // Neon pink
 
@@ -287,14 +262,9 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         break;
 
     case Theme::Shadlix:
-        mw_searchbar->setStyleSheet(
-            "QLineEdit {"
-            "background-color: #1a1033; color: #40e0d0; border: 1px solid #40e0d0; "
-            "border-radius: 6px; padding: 6px; "
-            "font-weight: bold; }"
-            "QLineEdit:focus {"
-            "border: 1px solid #9370db; }");
-
+        setSearchbar(
+            "QLineEdit { background-color:#1a1033; color:#40e0d0; border:1px solid #40e0d0; }"
+            "QLineEdit:focus { border:1px solid #2A82DA; }");
         themePalette.setColor(QPalette::Window, QColor(26, 16, 51));
         themePalette.setColor(QPalette::WindowText, QColor(147, 112, 219));
         themePalette.setColor(QPalette::Base, QColor(40, 20, 70));
@@ -318,14 +288,9 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         break;
 
     case Theme::ShadlixCave:
-        mw_searchbar->setStyleSheet(
-            "QLineEdit {"
-            "background-color: #0D3924; color: #39C591; border: 1px solid #39C591; "
-            "border-radius: 6px; padding: 6px; "
-            "font-weight: bold; }"
-            "QLineEdit:focus {"
-            "border: 1px solid #00D6D6; }");
-
+        setSearchbar(
+            "QLineEdit { background-color:#0D3924; color:#39C591; border:1px solid #39C591; }"
+            "QLineEdit:focus { border:1px solid #2A82DA; }");
         themePalette.setColor(QPalette::Window, QColor(27, 90, 63));
         themePalette.setColor(QPalette::WindowText, QColor(207, 225, 216));
         themePalette.setColor(QPalette::Base, QColor(22, 76, 50));
@@ -347,5 +312,29 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
         m_textColor = QColor(207, 225, 216);
 
         break;
+    }
+}
+
+void WindowThemes::ApplyThemeToDialog(QDialog* dialog) {
+    dialog->setPalette(qApp->palette());
+    dialog->setStyleSheet(qApp->styleSheet());
+
+    QList<QLabel*> labels = dialog->findChildren<QLabel*>();
+    for (auto* lbl : labels)
+        lbl->setStyleSheet("color: " + m_textColor.name() + ";");
+
+    QList<QPushButton*> buttons = dialog->findChildren<QPushButton*>();
+    for (auto* btn : buttons) {
+        btn->setStyleSheet(QString("color:%1; background-color:%2;")
+                               .arg(m_textColor.name())
+                               .arg(qApp->palette().button().color().name()));
+    }
+
+    QList<QLineEdit*> edits = dialog->findChildren<QLineEdit*>();
+    for (auto* edit : edits) {
+        edit->setStyleSheet(
+            QString("color:%1; background-color:%2; border-radius:4px; padding:4px;")
+                .arg(m_textColor.name())
+                .arg(qApp->palette().base().color().name()));
     }
 }

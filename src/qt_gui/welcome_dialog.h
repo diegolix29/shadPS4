@@ -7,6 +7,7 @@
 #include <QCoreApplication>
 #include <QDialog>
 #include <QSettings>
+#include "main_window_themes.h"
 #include "qt_gui/compatibility_info.h"
 
 class QPushButton;
@@ -14,8 +15,8 @@ class QPushButton;
 class WelcomeDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit WelcomeDialog(std::shared_ptr<CompatibilityInfoClass> compat_info,
-                           QWidget* parent = nullptr);
+    WelcomeDialog(std::shared_ptr<CompatibilityInfoClass> compat, WindowThemes* themes,
+                  QWidget* parent = nullptr);
 
     bool skipOnNextLaunch() const {
         return m_skipNextLaunch;
@@ -34,4 +35,6 @@ private:
     bool m_skipNextLaunch = false;
     std::shared_ptr<CompatibilityInfoClass> m_compat_info;
     void SetupUI();
+    WindowThemes* m_themes = nullptr;
+    void ApplyTheme();
 };

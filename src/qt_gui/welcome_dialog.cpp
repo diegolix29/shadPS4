@@ -28,13 +28,53 @@ namespace fs = std::filesystem;
 #include <windows.h>
 #endif
 #include <fmt/format.h>
+#include "main_window_themes.h"
+extern WindowThemes m_window_themes;
 
-WelcomeDialog::WelcomeDialog(std::shared_ptr<CompatibilityInfoClass> compat_info, QWidget* parent)
-    : QDialog(parent), m_compat_info(std::move(compat_info)) {
+WelcomeDialog::WelcomeDialog(std::shared_ptr<CompatibilityInfoClass> compat, WindowThemes* themes,
+                             QWidget* parent)
+    : QDialog(parent), m_themes(themes), m_compat_info(compat) {
+    Theme th = static_cast<Theme>(Config::getMainWindowTheme());
+
+    m_window_themes.SetWindowTheme(th, nullptr);
+    m_window_themes.ApplyThemeToDialog(this);
     SetupUI();
-    setWindowTitle("Welcome to ShadPS4-BBFork!");
+    ApplyTheme();
+    setWindowTitle("Welcome to BBFork Build by Diegolix");
     setWindowIcon(QIcon(":images/shadps4.ico"));
     setFixedSize(600, 400);
+}
+
+void WelcomeDialog::ApplyTheme() {
+    if (!m_themes)
+        return;
+
+    QString textColor = m_themes->textColor().name();
+    QString baseColor = m_themes->iconBaseColor().name();
+    QString hoverColor = m_themes->iconHoverColor().name();
+    for (auto* label : findChildren<QLabel*>()) {
+        label->setStyleSheet(QString("color: %1;").arg(textColor));
+    }
+    QString buttonStyle = QString(R"(
+        QPushButton {
+            background-color: %1;
+            color: %2;
+            border-radius: 5px;
+            padding: 6px 12px;
+        }
+        QPushButton:hover {
+            background-color: %3;
+        }
+    )")
+                              .arg(baseColor, textColor, hoverColor);
+
+    for (auto* button : findChildren<QPushButton*>()) {
+        button->setStyleSheet(buttonStyle);
+    }
+    for (auto* check : findChildren<QCheckBox*>()) {
+        check->setStyleSheet(QString("color: %1;").arg(textColor));
+    }
+    setAutoFillBackground(true);
 }
 
 void WelcomeDialog::SetupUI() {
@@ -48,7 +88,7 @@ void WelcomeDialog::SetupUI() {
     logo->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(logo);
 
-    auto* title = new QLabel("<h2>Welcome to ShadPS4-BBFork!</h2>");
+    auto* title = new QLabel("<h2>BBFork Build by Diegolix - Welcome</h2>");
     title->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(title);
 
@@ -61,7 +101,6 @@ void WelcomeDialog::SetupUI() {
                    "<li>A PM4 Type 0 hack to avoid related issues. "
                    "<i>(Do not use this with the \"Copy Buffer\" checkbox under the Debug tab in "
                    "Settings.)</i></li>"
-                   "<li>An RCAS bar in Settings to adjust FSR sharpness.</li>"
                    "<li>Several Hotkeys.</li>"
                    "<li>Water Flickering Hack(BloodBorne).</li>"
                    "<li>READBACKS OPTIMIZATION (Smooth no extra stutters anymore) Fast and Unsafe "
@@ -111,8 +150,8 @@ void WelcomeDialog::SetupUI() {
         qDebug() << "[WelcomeDialog] skip_welcome updated to:" << m_skipNextLaunch;
     });
 
-    QPushButton* updateButton = new QPushButton(tr("Update"), this);
-    updateButton->setEnabled(true); // initially grayed out
+    QPushButton* updateButton = new QPushButton(tr("Close"), this);
+    updateButton->setEnabled(true);
     updateButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     mainLayout->addWidget(updateButton, 0, Qt::AlignLeft);
     connect(updateButton, &QPushButton::clicked, this, [this]() {
