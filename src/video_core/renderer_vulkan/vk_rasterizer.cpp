@@ -392,9 +392,13 @@ void Rasterizer::CommitPendingGpuRanges() {
 }
 
 bool Rasterizer::BindResources(const Pipeline* pipeline) {
-    if (IsComputeImageCopy(pipeline) || IsComputeMetaClear(pipeline) ||
-        IsComputeImageClear(pipeline)) {
-        return false;
+    if (pipeline->IsCompute()) {
+        if (IsComputeImageCopy(pipeline))
+            return false;
+        if (IsComputeMetaClear(pipeline))
+            return false;
+        if (IsComputeImageClear(pipeline))
+            return false;
     }
 
     set_writes.clear();
@@ -404,21 +408,21 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
 
     bool uses_dma = false;
 
-    // Bind resource buffers and textures.
     Shader::Backend::Bindings binding{};
     push_data = MakeUserData(liverpool->regs);
+
     for (const auto* stage : pipeline->GetStages()) {
-        if (!stage) {
+        if (!stage)
             continue;
-        }
+
         stage->PushUd(binding, push_data);
         BindBuffers(*stage, binding, push_data);
         BindTextures(*stage, binding);
+
         uses_dma |= stage->uses_dma;
     }
 
     if (uses_dma) {
-        // We only use fault buffer for DMA right now.
         {
             Common::RecursiveSharedLock lock{mapped_ranges_mutex};
             for (auto& range : mapped_ranges) {
@@ -426,100 +430,97 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
                                                        range.upper() - range.lower());
             }
         }
+
         buffer_cache.MemoryBarrier();
     }
 
     fault_process_pending |= uses_dma;
-
     return true;
 }
 
 bool Rasterizer::IsComputeMetaClear(const Pipeline* pipeline) {
-    if (!pipeline->IsCompute()) {
+    if (!pipeline->IsCompute())
         return false;
-    }
 
-    // Most of the time when a metadata is updated with a shader it gets cleared. It means
-    // we can skip the whole dispatch and update the tracked state instead. Also, it is not
-    // intended to be consumed and in such rare cases (e.g. HTile introspection, CRAA) we
-    // will need its full emulation anyways.
     const auto& info = pipeline->GetStage(Shader::LogicalStage::Compute);
 
-    // Assume if a shader reads metadata, it is a copy shader.
+    bool found_write_meta = false;
+    VAddr write_addr = 0;
+
     for (const auto& desc : info.buffers) {
-        const VAddr address = desc.GetSharp(info).base_address;
-        if (!desc.IsSpecial() && !desc.is_written && texture_cache.IsMeta(address)) {
+        const VAddr addr = desc.GetSharp(info).base_address;
+
+        if (desc.IsSpecial() || addr == 0)
+            continue;
+
+        const bool is_meta = texture_cache.IsMeta(addr);
+
+        if (!desc.is_written && is_meta)
             return false;
+
+        if (desc.is_written && is_meta) {
+            found_write_meta = true;
+            write_addr = addr;
         }
     }
 
-    // Metadata surfaces are tiled and thus need address calculation to be written properly.
-    // If a shader wants to encode HTILE, for example, from a depth image it will have to compute
-    // proper tile address from dispatch invocation id. This address calculation contains an xor
-    // operation so use it as a heuristic for metadata writes that are probably not clears.
-    if (!info.has_bitwise_xor) {
-        // Assume if a shader writes metadata without address calculation, it is a clear shader.
-        for (const auto& desc : info.buffers) {
-            const VAddr address = desc.GetSharp(info).base_address;
-            if (!desc.IsSpecial() && desc.is_written && texture_cache.ClearMeta(address)) {
-                // Assume all slices were updates
-                LOG_TRACE(Render_Vulkan, "Metadata update skipped");
-                return true;
-            }
-        }
+    if (!found_write_meta)
+        return false;
+
+    if (info.has_bitwise_xor)
+        return false;
+
+    if (texture_cache.ClearMeta(write_addr)) {
+        LOG_TRACE(Render_Vulkan, "Metadata update skipped");
+        return true;
     }
+
     return false;
 }
 
 bool Rasterizer::IsComputeImageCopy(const Pipeline* pipeline) {
-    if (!pipeline->IsCompute()) {
+    if (!pipeline->IsCompute())
         return false;
-    }
 
-    // Ensure shader only has 2 bound buffers
     const auto& cs_pgm = liverpool->GetCsRegs();
     const auto& info = pipeline->GetStage(Shader::LogicalStage::Compute);
-    if (cs_pgm.num_thread_x.full != 64 || info.buffers.size() != 2 || !info.images.empty()) {
-        return false;
-    }
 
-    // Those 2 buffers must both be formatted. One must be source and another destination.
+    if (cs_pgm.num_thread_x.full != 64 || info.buffers.size() != 2 || !info.images.empty())
+        return false;
+
     const auto& desc0 = info.buffers[0];
     const auto& desc1 = info.buffers[1];
-    if (!desc0.is_formatted || !desc1.is_formatted || desc0.is_written == desc1.is_written) {
-        return false;
-    }
 
-    // Buffers must have the same size and each thread of the dispatch must copy 1 dword of data
+    if (!desc0.is_formatted || !desc1.is_formatted || desc0.is_written == desc1.is_written)
+        return false;
+
     const AmdGpu::Buffer buf0 = desc0.GetSharp(info);
     const AmdGpu::Buffer buf1 = desc1.GetSharp(info);
-    if (buf0.GetSize() != buf1.GetSize() || cs_pgm.dim_x != (buf0.GetSize() / 256)) {
-        return false;
-    }
 
-    // Find images the buffer alias
-    const auto image0_id = texture_cache.FindImageFromRange(buf0.base_address, buf0.GetSize());
-    if (!image0_id) {
+    if (buf0.GetSize() != buf1.GetSize() || cs_pgm.dim_x != (buf0.GetSize() / 256))
         return false;
-    }
+
+    const auto image0_id = texture_cache.FindImageFromRange(buf0.base_address, buf0.GetSize());
+    if (!image0_id)
+        return false;
+
     const auto image1_id =
         texture_cache.FindImageFromRange(buf1.base_address, buf1.GetSize(), false);
-    if (!image1_id) {
+    if (!image1_id)
         return false;
-    }
 
-    // Image copy must be valid
     VideoCore::Image& image0 = texture_cache.GetImage(image0_id);
     VideoCore::Image& image1 = texture_cache.GetImage(image1_id);
+
     if (image0.info.guest_size != image1.info.guest_size ||
         image0.info.pitch != image1.info.pitch || image0.info.guest_size != buf0.GetSize() ||
         image0.info.num_bits != image1.info.num_bits) {
         return false;
     }
 
-    // Perform image copy
     VideoCore::Image& src_image = desc0.is_written ? image1 : image0;
     VideoCore::Image& dst_image = desc0.is_written ? image0 : image1;
+
     if (instance.IsMaintenance8Supported() ||
         src_image.info.props.is_depth == dst_image.info.props.is_depth) {
         dst_image.CopyImage(src_image);
@@ -528,57 +529,50 @@ bool Rasterizer::IsComputeImageCopy(const Pipeline* pipeline) {
             buffer_cache.GetUtilityBuffer(VideoCore::MemoryUsage::DeviceLocal);
         dst_image.CopyImageWithBuffer(src_image, copy_buffer.Handle(), 0);
     }
+
     dst_image.flags |= VideoCore::ImageFlagBits::GpuModified;
     dst_image.flags &= ~VideoCore::ImageFlagBits::Dirty;
     return true;
 }
 
 bool Rasterizer::IsComputeImageClear(const Pipeline* pipeline) {
-    if (!pipeline->IsCompute()) {
+    if (!pipeline->IsCompute())
         return false;
-    }
 
-    // Ensure shader only has 2 bound buffers
     const auto& cs_pgm = liverpool->GetCsRegs();
     const auto& info = pipeline->GetStage(Shader::LogicalStage::Compute);
-    if (cs_pgm.num_thread_x.full != 64 || info.buffers.size() != 2 || !info.images.empty()) {
-        return false;
-    }
 
-    // From those 2 buffers, first must hold the clear vector and second the image being cleared
+    if (cs_pgm.num_thread_x.full != 64 || info.buffers.size() != 2 || !info.images.empty())
+        return false;
+
     const auto& desc0 = info.buffers[0];
     const auto& desc1 = info.buffers[1];
-    if (desc0.is_formatted || !desc1.is_formatted || desc0.is_written || !desc1.is_written) {
-        return false;
-    }
 
-    // First buffer must have size of vec4 and second the size of a single layer
+    if (desc0.is_formatted || !desc1.is_formatted || desc0.is_written || !desc1.is_written)
+        return false;
+
     const AmdGpu::Buffer buf0 = desc0.GetSharp(info);
     const AmdGpu::Buffer buf1 = desc1.GetSharp(info);
-    const u32 buf1_bpp = AmdGpu::NumBitsPerBlock(buf1.GetDataFmt());
-    if (buf0.GetSize() != 16 || (cs_pgm.dim_x * 128ULL * (buf1_bpp / 8)) != buf1.GetSize()) {
-        return false;
-    }
 
-    // Find image the buffer alias
+    const u32 buf1_bpp = AmdGpu::NumBitsPerBlock(buf1.GetDataFmt());
+    if (buf0.GetSize() != 16 || (cs_pgm.dim_x * 128ULL * (buf1_bpp / 8)) != buf1.GetSize())
+        return false;
+
     const auto image1_id =
         texture_cache.FindImageFromRange(buf1.base_address, buf1.GetSize(), false);
-    if (!image1_id) {
+    if (!image1_id)
         return false;
-    }
 
-    // Image clear must be valid
     VideoCore::Image& image1 = texture_cache.GetImage(image1_id);
     if (image1.info.guest_size != buf1.GetSize() || image1.info.num_bits != buf1_bpp ||
         image1.info.props.is_depth) {
         return false;
     }
 
-    // Perform image clear
     const float* values = reinterpret_cast<float*>(buf0.base_address);
     const vk::ClearValue clear = {
-        .color = {.float32 = std::array<float, 4>{values[0], values[1], values[2], values[3]}},
-    };
+        .color = {.float32 = std::array<float, 4>{values[0], values[1], values[2], values[3]}}};
+
     const VideoCore::SubresourceRange range = {
         .base =
             {
@@ -587,6 +581,7 @@ bool Rasterizer::IsComputeImageClear(const Pipeline* pipeline) {
             },
         .extent = image1.info.resources,
     };
+
     image1.Clear(clear, range);
     image1.flags |= VideoCore::ImageFlagBits::GpuModified;
     image1.flags &= ~VideoCore::ImageFlagBits::Dirty;
