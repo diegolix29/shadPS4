@@ -177,8 +177,8 @@ public:
     /// Synchronizes all buffers in the specified range.
     void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
 
-    /// Synchronizes all buffers neede for DMA.
-    void SynchronizeDmaBuffers();
+    /// Record memory barrier. Used for buffers when accessed via BDA.
+    void MemoryBarrier();
 
     /// Runs the garbage collector.
     void RunGarbageCollector();
