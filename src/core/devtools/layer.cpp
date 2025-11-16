@@ -66,6 +66,7 @@ static bool show_fullscreen_tip = true;
 static float fullscreen_tip_timer = 10.0f;
 static float hotkeys_tip_timer = 10.0f;
 static int quit_menu_selection = 0;
+static bool showTrophyViewer = false;
 
 namespace Overlay {
 
@@ -119,6 +120,15 @@ static std::string help_text =
 #include "help.txt"
     ;
 // clang-format on
+
+void L::TextCentered(const std::string& text) {
+    ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
+    float windowWidth = ImGui::GetWindowSize().x;
+    float cursorX = (windowWidth - textSize.x) * 0.5f;
+
+    ImGui::SetCursorPosX(cursorX);
+    ImGui::TextUnformatted(text.c_str());
+}
 
 void L::DrawMenuBar() {
     const auto& ctx = *GImGui;
@@ -455,7 +465,8 @@ void DrawFullscreenHotkeysWindow(bool& is_open) {
                                 {"Developer Tools", "Ctrl+F10 or Share/Back+Circle/B"},
                                 {"Show FPS", "F10 or Share/Back+L2"},
                                 {"ShowCurrentSettings", "F3 or Share/Back+Triangle/X"},
-                                {"Mute Game", "Share/Back+DpadRight"}};
+                                {"Mute Game", "F1 or Share/Back+DpadRight"},
+                                {"View Trophies", "F2 or Share/Back+DpadLeft"}};
 
         float window_width = ImGui::GetContentRegionAvail().x;
         float x = 0;
@@ -515,7 +526,8 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
                                 {"Developer Tools", "Ctrl+F10 or Share/Back+Circle/B"},
                                 {"Show FPS", "F10 or Share/Back+L2"},
                                 {"ShowCurrentSettings", "F3 or Share/Back+Triangle/X"},
-                                {"Mute Game", "Share/Back+DpadRight"}};
+                                {"Mute Game", "F1 or Share/Back+DpadRight"},
+                                {"View Trophies", "F2 or Share/Back+DpadLeft"}};
 
         float window_width = ImGui::GetContentRegionAvail().x;
         float x = 0;
@@ -550,8 +562,8 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
     ImGui::End();
 }
 
-void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = false,
-                             const std::string& gameSerial = "") {
+void L::SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = false,
+                                const std::string& gameSerial = "") {
     toml::value overrides = toml::table{};
 
     // General settings
@@ -764,7 +776,7 @@ void DrawVirtualKeyboard() {
     ImGui::End();
 }
 
-void DrawPauseStatusWindow(bool& is_open) {
+void L::DrawPauseStatusWindow(bool& is_open) {
     if (!is_open)
         return;
 
@@ -784,13 +796,7 @@ void DrawPauseStatusWindow(bool& is_open) {
                                    ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 
     if (Input::ControllerPressedOnce({Btn::Up}) || Input::ControllerPressedOnce({Btn::Down}) ||
-        Input::ControllerPressedOnce({Btn::Left}) || Input::ControllerPressedOnce({Btn::Right}) ||
-
-        ImGui::IsKeyPressed(ImGuiKey_GamepadLStickUp, false) ||
-        ImGui::IsKeyPressed(ImGuiKey_GamepadLStickDown, false) ||
-        ImGui::IsKeyPressed(ImGuiKey_GamepadLStickLeft, false) ||
-        ImGui::IsKeyPressed(ImGuiKey_GamepadLStickRight, false)) {
-
+        Input::ControllerPressedOnce({Btn::Left}) || Input::ControllerPressedOnce({Btn::Right})) {
         should_focus = true;
     }
 
@@ -817,11 +823,225 @@ void DrawPauseStatusWindow(bool& is_open) {
         SDL_PushEvent(&e);
     }
 
+    ImGui::SameLine();
+
+    if (ImGui::Button("Trophy Viewer", ImVec2(200, 0))) {
+        ImGui::OpenPopup("Quick Trophy List Viewer");
+    }
+
+    static ImVec2 trophy_pos = ImVec2(200, 200);
+    static ImVec2 trophy_size = ImVec2(600, 400);
+    static float move_speed = 0.8f;
+    static float resize_speed = 0.8f;
+
+    bool using_controller = ImGui::IsKeyDown(ImGuiKey_GamepadL1);
+
+    if (using_controller) {
+        float lx = 0, ly = 0;
+
+        if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickRight))
+            lx = 1;
+        if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickLeft))
+            lx = -1;
+        if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickDown))
+            ly = 1;
+        if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickUp))
+            ly = -1;
+
+        trophy_pos.x += lx * move_speed;
+        trophy_pos.y += ly * move_speed;
+
+        float rx = 0, ry = 0;
+
+        if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickRight))
+            rx = 1;
+        if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickLeft))
+            rx = -1;
+        if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickDown))
+            ry = 1;
+        if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickUp))
+            ry = -1;
+
+        trophy_size.x = ImClamp(trophy_size.x + rx * resize_speed, 300.0f, 3000.0f);
+        trophy_size.y = ImClamp(trophy_size.y + ry * resize_speed, 300.0f, 3000.0f);
+    }
+
+    ImGui::SetNextWindowPos(trophy_pos,
+                            using_controller ? ImGuiCond_Always : ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(trophy_size,
+                             using_controller ? ImGuiCond_Always : ImGuiCond_FirstUseEver);
+
+    if (ImGui::BeginPopupModal("Quick Trophy List Viewer", nullptr,
+                               ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar)) {
+
+        if (!using_controller) {
+            trophy_pos = ImGui::GetWindowPos();
+            trophy_size = ImGui::GetWindowSize();
+        } else {
+            ImGui::SetNextWindowPos(trophy_pos, ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowSize(trophy_size, ImGuiCond_FirstUseEver);
+        }
+
+        std::string gameSerial = MemoryPatcher::g_game_serial;
+
+        int unlockedCount = 0;
+        int totalCount = 0;
+
+        if (gameSerial.empty()) {
+            ImGui::Text("No game loaded.");
+        } else {
+            std::filesystem::path metaDir =
+                Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / gameSerial /
+                "TrophyFiles";
+
+            if (!std::filesystem::exists(metaDir)) {
+                ImGui::Text("No trophy data found for this game.");
+            } else {
+                // First pass: count trophies
+                for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
+                    if (!dirEntry.is_directory())
+                        continue;
+
+                    std::string xmlPath = (dirEntry.path() / "Xml/TROP.XML").string();
+                    if (!std::filesystem::exists(xmlPath))
+                        continue;
+
+#ifdef ENABLE_QT_GUI
+                    QFile file(QString::fromStdString(xmlPath));
+                    if (!file.open(QFile::ReadOnly | QFile::Text))
+                        continue;
+
+                    QXmlStreamReader reader(&file);
+
+                    while (!reader.atEnd() && !reader.hasError()) {
+                        reader.readNext();
+                        if (reader.isStartElement() && reader.name().toString() == "trophy") {
+                            totalCount++;
+                            if (reader.attributes().hasAttribute("unlockstate") &&
+                                reader.attributes().value("unlockstate").toString() == "true") {
+                                unlockedCount++;
+                            }
+                        }
+                    }
+#endif
+                }
+
+                // Display the big title with the counter
+                ImGui::SetWindowFontScale(2.5f);
+#ifdef ENABLE_QT_GUI
+                TextCentered(("Trophies (" + std::to_string(unlockedCount) + "/" +
+                              std::to_string(totalCount) + ")")
+                                 .c_str());
+#else
+                TextCentered("SDL build can read trophy XML, use QT");
+#endif
+                ImGui::SetWindowFontScale(1.5f);
+                ImGui::Separator();
+
+                // Second pass: fill in the actual table content
+                for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
+                    if (!dirEntry.is_directory())
+                        continue;
+
+                    std::string xmlPath = (dirEntry.path() / "Xml/TROP.XML").string();
+                    if (!std::filesystem::exists(xmlPath))
+                        continue;
+
+#ifdef ENABLE_QT_GUI
+                    QFile file(QString::fromStdString(xmlPath));
+                    if (!file.open(QFile::ReadOnly | QFile::Text))
+                        continue;
+
+                    QXmlStreamReader reader(&file);
+
+                    ImGui::BeginChild(dirEntry.path().filename().string().c_str(), ImVec2(0, 0),
+                                      true, ImGuiWindowFlags_None);
+
+                    if (ImGui::BeginTable("TrophyTable", 2, ImGuiTableFlags_BordersInnerV)) {
+                        ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+                        ImGui::TableSetupColumn("Trophy Name", ImGuiTableColumnFlags_WidthStretch);
+
+                        ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+
+                        // Headers centered
+                        ImGui::TableSetColumnIndex(0);
+                        const char* statusHeader = "Status";
+                        float statusHeaderOffset =
+                            (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusHeader).x) * 0.5f;
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusHeaderOffset);
+                        ImGui::TextUnformatted(statusHeader);
+
+                        ImGui::TableSetColumnIndex(1);
+                        const char* nameHeader = "Trophy Name";
+                        float nameHeaderOffset =
+                            (ImGui::GetColumnWidth() - ImGui::CalcTextSize(nameHeader).x) * 0.5f;
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameHeaderOffset);
+                        ImGui::TextUnformatted(nameHeader);
+
+                        while (!reader.atEnd() && !reader.hasError()) {
+                            reader.readNext();
+                            if (reader.isStartElement() && reader.name().toString() == "trophy") {
+                                QString trophyName;
+                                bool unlocked = false;
+
+                                if (reader.attributes().hasAttribute("unlockstate") &&
+                                    reader.attributes().value("unlockstate").toString() == "true") {
+                                    unlocked = true;
+                                }
+
+                                while (!(reader.isEndElement() &&
+                                         reader.name().toString() == "trophy")) {
+                                    reader.readNext();
+                                    if (reader.isStartElement() &&
+                                        reader.name().toString() == "name") {
+                                        trophyName = reader.readElementText();
+                                    }
+                                }
+
+                                // Table row
+                                ImGui::TableNextRow();
+
+                                ImGui::TableSetColumnIndex(0);
+                                ImGui::PushStyleColor(ImGuiCol_Text, unlocked ? ImVec4(0, 1, 0, 1)
+                                                                              : ImVec4(1, 0, 0, 1));
+                                ImGui::SetWindowFontScale(1.0f);
+                                const char* statusText = unlocked ? "[O]" : "[X]";
+                                float statusOffset =
+                                    (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusText).x) *
+                                    0.5f;
+                                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusOffset);
+                                ImGui::TextUnformatted(statusText);
+                                ImGui::PopStyleColor();
+
+                                ImGui::TableSetColumnIndex(1);
+                                std::string nameStr = trophyName.toStdString();
+                                float nameOffset = (ImGui::GetColumnWidth() -
+                                                    ImGui::CalcTextSize(nameStr.c_str()).x) *
+                                                   0.5f;
+                                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameOffset);
+                                ImGui::TextUnformatted(nameStr.c_str());
+                            }
+                        }
+
+                        ImGui::EndTable();
+                    }
+
+                    ImGui::EndChild();
+#endif
+                }
+            }
+        }
+        if (ImGui::Button("Close")) {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+
     ImGui::Separator();
     ImGui::TextDisabled("Tip: Use keyboard or controller hotkeys above.");
     ImGui::Spacing();
 
-    // === Table Layout ===
     if (ImGui::BeginTable("PauseMenuTable", 2, ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableNextRow();
 
@@ -856,7 +1076,6 @@ void DrawPauseStatusWindow(bool& is_open) {
         if (ImGui::SliderInt("VBlank Freq", &vblank, 1, 500))
             Config::setVblankFreq(vblank);
 
-        // === Editable Readback Speed ===
         ImGui::SeparatorText("Readback Speed");
 
         static const char* readbackOptions[] = {"Disable", "Unsafe", "Low", "Default", "Fast"};
@@ -867,7 +1086,6 @@ void DrawPauseStatusWindow(bool& is_open) {
             Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbackIndex));
         }
 
-        // === System Mode Toggles ===
         ImGui::SeparatorText("System Modes");
 
         static bool is_devkit = Config::isDevKitConsole();
@@ -880,7 +1098,6 @@ void DrawPauseStatusWindow(bool& is_open) {
             Config::setNeoMode(is_neo);
         }
 
-        // === Extra Memory Spinner ===
         int extra_memory = Config::getExtraDmemInMbytes();
         if (ImGui::InputInt("Extra Memory (MB)", &extra_memory, 500, 1000)) {
             // Clamp between 0 and 9999
@@ -1111,6 +1328,14 @@ void L::Draw() {
         fullscreen_tip_manual = true;
     }
 
+    if (IsKeyPressed(ImGuiKey_F2, false)) {
+        showTrophyViewer = !showTrophyViewer;
+    }
+
+    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Left)) {
+        showTrophyViewer = !showTrophyViewer;
+    }
+
     const bool userQuitKeyboard =
         Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad, Input::HotkeyInputType::Keyboard);
     const bool userQuitController =
@@ -1205,6 +1430,10 @@ void L::Draw() {
 
 #ifdef ENABLE_QT_GUI
     if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Right)) {
+        if (g_MainWindow)
+            g_MainWindow->ToggleMute();
+    }
+    if (IsKeyPressed(ImGuiKey_F1, false)) {
         if (g_MainWindow)
             g_MainWindow->ToggleMute();
     }
@@ -1381,14 +1610,241 @@ void L::Draw() {
             ImGui::End();
         }
     }
+
+    if (showTrophyViewer) {
+        ImGuiIO& io = ImGui::GetIO();
+        static bool trophy_focus = false;
+        static ImVec2 trophy_pos = ImVec2(200, 200);
+        static ImVec2 trophy_size = ImVec2(600, 400);
+        static float move_speed = 1.0f;
+        static float resize_speed = 1.0f;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+        bool using_controller = ImGui::IsKeyDown(ImGuiKey_GamepadL1);
+
+        if (Input::ControllerPressedOnce({Btn::Up}) || Input::ControllerPressedOnce({Btn::Down})) {
+            trophy_focus = true;
+            ImGui::SetWindowFocus("Trophy Viewer");
+        }
+        if (!trophy_focus && using_controller) {
+            ImGui::ClearActiveID();
+        }
+
+        if (using_controller) {
+            float lx = 0, ly = 0;
+
+            if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickRight))
+                lx = 1;
+            if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickLeft))
+                lx = -1;
+            if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickDown))
+                ly = 1;
+            if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickUp))
+                ly = -1;
+
+            trophy_pos.x += lx * move_speed;
+            trophy_pos.y += ly * move_speed;
+
+            float rx = 0, ry = 0;
+
+            if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickRight))
+                rx = 1;
+            if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickLeft))
+                rx = -1;
+            if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickDown))
+                ry = 1;
+            if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickUp))
+                ry = -1;
+
+            trophy_size.x = ImClamp(trophy_size.x + rx * resize_speed, 300.0f, 3000.0f);
+            trophy_size.y = ImClamp(trophy_size.y + ry * resize_speed, 300.0f, 3000.0f);
+        }
+
+        ImGui::SetNextWindowPos(trophy_pos,
+                                using_controller ? ImGuiCond_Always : ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(trophy_size,
+                                 using_controller ? ImGuiCond_Always : ImGuiCond_FirstUseEver);
+
+        ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar |
+                                       ImGuiWindowFlags_NoFocusOnAppearing |
+                                       ImGuiWindowFlags_NoTitleBar;
+
+        if (ImGui::Begin("Quick Trophy List Viewer", nullptr,
+                         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar)) {
+
+            if (!using_controller) {
+                trophy_pos = ImGui::GetWindowPos();
+                trophy_size = ImGui::GetWindowSize();
+            } else {
+                ImGui::SetNextWindowPos(trophy_pos, ImGuiCond_FirstUseEver);
+                ImGui::SetNextWindowSize(trophy_size, ImGuiCond_FirstUseEver);
+            }
+
+            std::string gameSerial = MemoryPatcher::g_game_serial;
+
+            int unlockedCount = 0;
+            int totalCount = 0;
+
+            if (gameSerial.empty()) {
+                ImGui::Text("No game loaded.");
+            } else {
+                std::filesystem::path metaDir =
+                    Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / gameSerial /
+                    "TrophyFiles";
+
+                if (!std::filesystem::exists(metaDir)) {
+                    ImGui::Text("No trophy data found for this game.");
+                } else {
+                    // First pass: count trophies
+                    for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
+                        if (!dirEntry.is_directory())
+                            continue;
+
+                        std::string xmlPath = (dirEntry.path() / "Xml/TROP.XML").string();
+                        if (!std::filesystem::exists(xmlPath))
+                            continue;
+
+#ifdef ENABLE_QT_GUI
+                        QFile file(QString::fromStdString(xmlPath));
+                        if (!file.open(QFile::ReadOnly | QFile::Text))
+                            continue;
+
+                        QXmlStreamReader reader(&file);
+
+                        while (!reader.atEnd() && !reader.hasError()) {
+                            reader.readNext();
+                            if (reader.isStartElement() && reader.name().toString() == "trophy") {
+                                totalCount++;
+                                if (reader.attributes().hasAttribute("unlockstate") &&
+                                    reader.attributes().value("unlockstate").toString() == "true") {
+                                    unlockedCount++;
+                                }
+                            }
+                        }
+#endif
+                    }
+
+                    // Display the big title with the counter
+                    ImGui::SetWindowFontScale(2.5f);
+#ifdef ENABLE_QT_GUI
+                    TextCentered(("Trophies (" + std::to_string(unlockedCount) + "/" +
+                                  std::to_string(totalCount) + ")")
+                                     .c_str());
+#else
+                    TextCentered("SDL build can read trophy XML, use QT");
+#endif
+                    ImGui::SetWindowFontScale(1.5f);
+                    ImGui::Separator();
+
+                    // Second pass: fill in the actual table content
+                    for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
+                        if (!dirEntry.is_directory())
+                            continue;
+
+                        std::string xmlPath = (dirEntry.path() / "Xml/TROP.XML").string();
+                        if (!std::filesystem::exists(xmlPath))
+                            continue;
+
+#ifdef ENABLE_QT_GUI
+                        QFile file(QString::fromStdString(xmlPath));
+                        if (!file.open(QFile::ReadOnly | QFile::Text))
+                            continue;
+
+                        QXmlStreamReader reader(&file);
+
+                        ImGui::BeginChild(dirEntry.path().filename().string().c_str(), ImVec2(0, 0),
+                                          true, ImGuiWindowFlags_None);
+
+                        if (ImGui::BeginTable("TrophyTable", 2, ImGuiTableFlags_BordersInnerV)) {
+                            ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed,
+                                                    80.0f);
+                            ImGui::TableSetupColumn("Trophy Name",
+                                                    ImGuiTableColumnFlags_WidthStretch);
+
+                            ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+
+                            // Headers centered
+                            ImGui::TableSetColumnIndex(0);
+                            const char* statusHeader = "Status";
+                            float statusHeaderOffset =
+                                (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusHeader).x) *
+                                0.5f;
+                            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusHeaderOffset);
+                            ImGui::TextUnformatted(statusHeader);
+
+                            ImGui::TableSetColumnIndex(1);
+                            const char* nameHeader = "Trophy Name";
+                            float nameHeaderOffset =
+                                (ImGui::GetColumnWidth() - ImGui::CalcTextSize(nameHeader).x) *
+                                0.5f;
+                            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameHeaderOffset);
+                            ImGui::TextUnformatted(nameHeader);
+
+                            while (!reader.atEnd() && !reader.hasError()) {
+                                reader.readNext();
+                                if (reader.isStartElement() &&
+                                    reader.name().toString() == "trophy") {
+                                    QString trophyName;
+                                    bool unlocked = false;
+
+                                    if (reader.attributes().hasAttribute("unlockstate") &&
+                                        reader.attributes().value("unlockstate").toString() ==
+                                            "true") {
+                                        unlocked = true;
+                                    }
+
+                                    while (!(reader.isEndElement() &&
+                                             reader.name().toString() == "trophy")) {
+                                        reader.readNext();
+                                        if (reader.isStartElement() &&
+                                            reader.name().toString() == "name") {
+                                            trophyName = reader.readElementText();
+                                        }
+                                    }
+
+                                    // Table row
+                                    ImGui::TableNextRow();
+
+                                    ImGui::TableSetColumnIndex(0);
+                                    ImGui::PushStyleColor(ImGuiCol_Text, unlocked
+                                                                             ? ImVec4(0, 1, 0, 1)
+                                                                             : ImVec4(1, 0, 0, 1));
+                                    ImGui::SetWindowFontScale(1.0f);
+                                    const char* statusText = unlocked ? "[O]" : "[X]";
+                                    float statusOffset = (ImGui::GetColumnWidth() -
+                                                          ImGui::CalcTextSize(statusText).x) *
+                                                         0.5f;
+                                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusOffset);
+                                    ImGui::TextUnformatted(statusText);
+                                    ImGui::PopStyleColor();
+
+                                    ImGui::TableSetColumnIndex(1);
+                                    std::string nameStr = trophyName.toStdString();
+                                    float nameOffset = (ImGui::GetColumnWidth() -
+                                                        ImGui::CalcTextSize(nameStr.c_str()).x) *
+                                                       0.5f;
+                                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameOffset);
+                                    ImGui::TextUnformatted(nameStr.c_str());
+                                }
+                            }
+
+                            ImGui::EndTable();
+                        }
+
+                        ImGui::EndChild();
+#endif
+                    }
+                }
+            }
+
+            if (ImGui::Button("Close")) {
+                showTrophyViewer = false;
+                trophy_focus = false;
+            }
+
+            ImGui::End();
+        }
+    }
+
     PopID();
-}
-
-void L::TextCentered(const std::string& text) {
-    ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
-    float windowWidth = ImGui::GetWindowSize().x;
-    float cursorX = (windowWidth - textSize.x) * 0.5f;
-
-    ImGui::SetCursorPosX(cursorX);
-    ImGui::TextUnformatted(text.c_str());
 }

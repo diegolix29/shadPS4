@@ -19,8 +19,10 @@ class Layer final : public ImGui::Layer {
 
 public:
     static void SetupSettings();
-    void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame = false);
-    void Draw() override;
+    void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame,
+                                 const std::string& gameSerial);
+    void Draw();
+    void DrawPauseStatusWindow(bool& is_open);
     bool show_pause_status = false;
     void TextCentered(const std::string& text);
     static void DrawNullGpuNotice();
