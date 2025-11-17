@@ -106,6 +106,7 @@ void GameSpecificDialog::OnRcasAttenuationSpinBoxChanged(double spinValue) {
 void GameSpecificDialog::LoadValuesFromConfig() {
 
     ui->enableAutoBackupCheckBox->setChecked(Config::getEnableAutoBackup());
+    ui->HotkeysCheckBox->setChecked(Config::DisableHardcodedHotkeys());
     ui->discordRPCCheckbox->setChecked(Config::getEnableDiscordRPC());
 
     connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this, [this](int value) {
@@ -222,6 +223,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         const auto& gen = toml::find(data, "General");
         if (gen.contains("enableAutoBackup"))
             ui->enableAutoBackupCheckBox->setChecked(toml::find<bool>(gen, "enableAutoBackup"));
+        if (gen.contains("DisableHardcodedHotkeys"))
+            ui->HotkeysCheckBox->setChecked(toml::find<bool>(gen, "DisableHardcodedHotkeys"));
         if (gen.contains("enableDiscordRPC"))
             ui->discordRPCCheckbox->setChecked(toml::find<bool>(gen, "enableDiscordRPC"));
         if (gen.contains("volumeSlider")) {
@@ -412,6 +415,9 @@ void GameSpecificDialog::UpdateSettings() {
 
     if (ui->discordRPCCheckbox->isChecked() != Config::getEnableDiscordRPC())
         overrides["General"]["enableDiscordRPC"] = ui->discordRPCCheckbox->isChecked();
+
+    if (ui->HotkeysCheckBox->isChecked() != Config::DisableHardcodedHotkeys())
+        overrides["General"]["setDisableHardcodedHotkeys"] = ui->HotkeysCheckBox->isChecked();
 
     if (ui->horizontalVolumeSlider->value() != Config::getVolumeSlider())
         overrides["General"]["volumeSlider"] = ui->horizontalVolumeSlider->value();

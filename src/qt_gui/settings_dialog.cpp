@@ -681,6 +681,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->isNeoModeCheckBox->installEventFilter(this);
         ui->separateLogFilesCheckbox->installEventFilter(this);
         ui->DMACheckBox->installEventFilter(this);
+        ui->HotkeysCheckBox->installEventFilter(this);
         ui->isDevKitCheckBox->installEventFilter(this);
         ui->isNeoModeCheckBox->installEventFilter(this);
         ui->connectedNetworkCheckBox->installEventFilter(this);
@@ -805,6 +806,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->ReadbacksLinearCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "readbackLinearImages", false));
     ui->DMACheckBox->setChecked(toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
+    ui->HotkeysCheckBox->setChecked(toml::find_or<bool>(data, "General", "DisableHardcodedHotkeys", false));
     ui->screenTipBox->setChecked(toml::find_or<bool>(data, "General", "screenTipDisable", false));
     ui->ReadbackSpeedComboBox->setCurrentIndex(static_cast<int>(Config::readbackSpeed()));
 
@@ -1232,6 +1234,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setNullGpu(ui->nullGpuCheckBox->isChecked());
     Config::setReadbackLinearImages(ui->ReadbacksLinearCheckBox->isChecked());
     Config::setDirectMemoryAccess(ui->DMACheckBox->isChecked());
+    Config::setDisableHardcodedHotkeys(ui->HotkeysCheckBox->isChecked());
     Config::setScreenTipDisable(ui->screenTipBox->isChecked());
     Config::setReadbackSpeed(
         static_cast<Config::ReadbackSpeed>(ui->ReadbackSpeedComboBox->currentIndex()));

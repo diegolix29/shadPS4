@@ -1315,6 +1315,8 @@ void L::DrawPauseStatusWindow(bool& is_open) {
 void L::Draw() {
     const auto io = GetIO();
     PushID("DevtoolsLayer");
+    const bool blockHardcoded = Config::DisableHardcodedHotkeys();
+
     static bool showPauseHelpWindow = true;
     if (Config::getPauseOnUnfocus()) {
 
@@ -1323,17 +1325,22 @@ void L::Draw() {
         }
     }
 
-    if (IsKeyPressed(ImGuiKey_F3, false)) {
-        show_fullscreen_tip = !show_fullscreen_tip;
-        fullscreen_tip_manual = true;
+    if (!blockHardcoded) {
+        if (IsKeyPressed(ImGuiKey_F3, false)) {
+            show_fullscreen_tip = !show_fullscreen_tip;
+            fullscreen_tip_manual = true;
+        }
     }
 
-    if (IsKeyPressed(ImGuiKey_F2, false)) {
-        showTrophyViewer = !showTrophyViewer;
+    if (!blockHardcoded) {
+        if (IsKeyPressed(ImGuiKey_F2, false)) {
+            showTrophyViewer = !showTrophyViewer;
+        }
     }
-
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Left)) {
-        showTrophyViewer = !showTrophyViewer;
+    if (!blockHardcoded) {
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Left)) {
+            showTrophyViewer = !showTrophyViewer;
+        }
     }
 
     const bool userQuitKeyboard =
@@ -1422,28 +1429,35 @@ void L::Draw() {
             SDL_PushEvent(&toggleFullscreenEvent);
         }
     }
+    if (!blockHardcoded) {
 
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
-        show_fullscreen_tip = !show_fullscreen_tip;
-        fullscreen_tip_manual = true;
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
+            show_fullscreen_tip = !show_fullscreen_tip;
+            fullscreen_tip_manual = true;
+        }
     }
 
 #ifdef ENABLE_QT_GUI
-    if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Right)) {
-        if (g_MainWindow)
-            g_MainWindow->ToggleMute();
-    }
-    if (IsKeyPressed(ImGuiKey_F1, false)) {
-        if (g_MainWindow)
-            g_MainWindow->ToggleMute();
+    if (!blockHardcoded) {
+
+        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Right)) {
+            if (g_MainWindow)
+                g_MainWindow->ToggleMute();
+        }
+        if (IsKeyPressed(ImGuiKey_F1, false)) {
+            if (g_MainWindow)
+                g_MainWindow->ToggleMute();
+        }
     }
 #endif
+    if (!blockHardcoded) {
 
-    const bool show_debug_menu_combo =
-        Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Circle);
-    if (show_debug_menu_combo) {
-        DebugState.IsShowingDebugMenuBar() ^= true;
-        visibility_toggled = true;
+        const bool show_debug_menu_combo =
+            Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Circle);
+        if (show_debug_menu_combo) {
+            DebugState.IsShowingDebugMenuBar() ^= true;
+            visibility_toggled = true;
+        }
     }
 
     if (!DebugState.IsGuestThreadsPaused()) {
@@ -1624,7 +1638,7 @@ void L::Draw() {
 
         if (Input::ControllerPressedOnce({Btn::Up}) || Input::ControllerPressedOnce({Btn::Down})) {
             trophy_focus = true;
-            ImGui::SetWindowFocus("Trophy Viewer");
+            ImGui::SetWindowFocus("Quick Trophy List Viewer");
         }
         if (!trophy_focus && using_controller) {
             ImGui::ClearActiveID();
@@ -1669,8 +1683,7 @@ void L::Draw() {
                                        ImGuiWindowFlags_NoFocusOnAppearing |
                                        ImGuiWindowFlags_NoTitleBar;
 
-        if (ImGui::Begin("Quick Trophy List Viewer", nullptr,
-                         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar)) {
+        if (ImGui::Begin("Quick Trophy List Viewer", nullptr, windowFlags)) {
 
             if (!using_controller) {
                 trophy_pos = ImGui::GetWindowPos();
@@ -1724,7 +1737,6 @@ void L::Draw() {
 #endif
                     }
 
-                    // Display the big title with the counter
                     ImGui::SetWindowFontScale(2.5f);
 #ifdef ENABLE_QT_GUI
                     TextCentered(("Trophies (" + std::to_string(unlockedCount) + "/" +
@@ -1736,7 +1748,6 @@ void L::Draw() {
                     ImGui::SetWindowFontScale(1.5f);
                     ImGui::Separator();
 
-                    // Second pass: fill in the actual table content
                     for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
                         if (!dirEntry.is_directory())
                             continue;
@@ -1763,7 +1774,6 @@ void L::Draw() {
 
                             ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
 
-                            // Headers centered
                             ImGui::TableSetColumnIndex(0);
                             const char* statusHeader = "Status";
                             float statusHeaderOffset =
@@ -1802,7 +1812,6 @@ void L::Draw() {
                                         }
                                     }
 
-                                    // Table row
                                     ImGui::TableNextRow();
 
                                     ImGui::TableSetColumnIndex(0);

@@ -313,6 +313,8 @@ bool getAutoRestartGame();
 void setAutoRestartGame(bool enable);
 bool getRestartWithBaseGame();
 void setRestartWithBaseGame(bool enable);
+bool DisableHardcodedHotkeys();
+void setDisableHardcodedHotkeys(bool disable);
 
 void setDefaultValues();
 

@@ -2626,6 +2626,14 @@
 				</property>
 			</widget>
 		</item>
+			
+		<item>
+			<widget class="QCheckBox" name="HotkeysCheckBox">
+				<property name="text">
+					<string>Disable Hardcoded Hotkeys</string>
+				</property>
+			</widget>
+		</item>
 
 		<item>
 			<widget class="QLabel" name="label_23">

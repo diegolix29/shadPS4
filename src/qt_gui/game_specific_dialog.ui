@@ -1333,7 +1333,16 @@
         <item>
          <widget class="QCheckBox" name="screenTipBox">
           <property name="text">
-           <string>Disable FullScreen Tip on Boot</string>
+           <string>Disable FullScreen Tip on Boot
+		   </string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="HotkeysCheckBox">
+          <property name="text">
+           <string>Disable Hardcoded Hotkeys
+		   </string>
           </property>
          </widget>
         </item>
@@ -1360,7 +1369,7 @@
 		Driveclub slowdowns,
 		and COD Ghost boot to main menu and some stages.&lt;br/&gt;		
         
-						</string>
+			</string>
           </property>
           <property name="wordWrap">
            <bool>true</bool>

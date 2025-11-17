@@ -131,6 +131,7 @@ static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
 static ConfigEntry<bool> pauseOnUnfocus(false);
 static bool showWelcomeDialog = true;
+static ConfigEntry<bool> disable_hardcoded_hotkeys(false);
 static bool isAlwaysShowChangelog = false;
 static ConfigEntry<std::string> isSideTrophy("right");
 static ConfigEntry<bool> isConnectedToNetwork(false);
@@ -639,6 +640,14 @@ bool alwaysShowChangelog() {
 
 std::string sideTrophy() {
     return isSideTrophy.get();
+}
+
+bool DisableHardcodedHotkeys() {
+    return disable_hardcoded_hotkeys.get();
+}
+
+void setDisableHardcodedHotkeys(bool disable) {
+    disable_hardcoded_hotkeys.base_value = disable;
 }
 
 bool nullGpu() {
@@ -1282,6 +1291,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         showWelcomeDialog = toml::find_or<bool>(general, "showWelcomeDialog", true);
 
         isAlwaysShowChangelog = toml::find_or<bool>(general, "alwaysShowChangelog", false);
+        disable_hardcoded_hotkeys.setFromToml(general, "DisableHardcodedHotkeys", is_game_specific);
         isSideTrophy.setFromToml(general, "sideTrophy", is_game_specific);
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
@@ -1557,6 +1567,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["pauseOnUnfocus"] = pauseOnUnfocus.base_value;
     data["General"]["showWelcomeDialog"] = showWelcomeDialog;
     data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
+    data["General"]["DisableHardcodedHotkeys"] = disable_hardcoded_hotkeys.base_value;
     data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
     data["General"]["autoRestartGame"] = autoRestartGame;
     data["General"]["restartWithBaseGame"] = restartWithBaseGame;
@@ -1743,6 +1754,7 @@ void setDefaultValues() {
     playBGM = false;
     BGMvolume = 50;
     enableDiscordRPC = true;
+    disable_hardcoded_hotkeys = false;
     logFilter = "";
     logType = "sync";
     userName = "shadPS4";
