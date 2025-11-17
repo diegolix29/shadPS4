@@ -29,6 +29,7 @@ enum class PathType {
     CustomTrophy,   // Where custom files for trophies are stored.
     CustomConfigs,  // Where custom files for different games are stored.
     CustomThemes,   // Where custom themes for emulator are stored.
+    ModsFolder,     // Where mods for games are stored.
 };
 
 constexpr auto PORTABLE_DIR = "user";
@@ -48,6 +49,7 @@ constexpr auto METADATA_DIR = "game_data";
 constexpr auto CUSTOM_TROPHY = "custom_trophy";
 constexpr auto CUSTOM_CONFIGS = "custom_configs";
 constexpr auto CUSTOM_THEMES = "custom_themes";
+constexpr auto MODS_FOLDER = "mods_folder";
 
 // Filenames
 constexpr auto LOG_FILE = "shad_log.txt";

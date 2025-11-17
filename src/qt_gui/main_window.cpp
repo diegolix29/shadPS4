@@ -11,6 +11,7 @@
 #include <QStyleFactory>
 #include <signal.h>
 #include "emulator.h"
+#include "mod_manager_dialog.h"
 
 #include "SDL3/SDL_events.h"
 
@@ -127,6 +128,7 @@ bool MainWindow::Init() {
         ui->updaterButton->installEventFilter(this);
         ui->configureHotkeysButton->installEventFilter(this);
         ui->versionButton->installEventFilter(this);
+        ui->modManagerButton->installEventFilter(this);
     }
 
     if (!Config::getEnableColorFilter()) {
@@ -142,6 +144,7 @@ bool MainWindow::Init() {
         ui->updaterButton->removeEventFilter(this);
         ui->configureHotkeysButton->removeEventFilter(this);
         ui->versionButton->removeEventFilter(this);
+        ui->modManagerButton->removeEventFilter(this);
     }
 
     QString savedStyle = QString::fromStdString(Config::getGuiStyle());
@@ -322,6 +325,8 @@ void MainWindow::AddUiWidgets() {
     ui->toolBar->addWidget(
         createButtonWithLabel(ui->refreshButton, tr("Refresh List"), showLabels));
     ui->toolBar->addWidget(createButtonWithLabel(ui->versionButton, tr("Version"), showLabels));
+    ui->toolBar->addWidget(
+        createButtonWithLabel(ui->modManagerButton, tr("Mods Manager"), showLabels));
 
     ui->toolBar->addWidget(createSpacer(this));
 
@@ -478,7 +483,7 @@ void MainWindow::UpdateToolbarLabels() {
     for (QPushButton* button :
          {ui->playButton, ui->stopButton, ui->restartButton, ui->settingsButton,
           ui->fullscreenButton, ui->controllerButton, ui->keyboardButton, ui->versionButton,
-          ui->configureHotkeysButton, ui->updaterButton, ui->refreshButton}) {
+          ui->configureHotkeysButton, ui->updaterButton, ui->refreshButton, ui->modManagerButton}) {
         QLabel* label = button->parentWidget()->findChild<QLabel*>();
         if (label)
             label->setVisible(showLabels);
@@ -852,6 +857,36 @@ void MainWindow::CreateConnects() {
     connect(ui->versionButton, &QPushButton::clicked, this, [this]() {
         auto versionDialog = new VersionDialog(m_compat_info, this);
         versionDialog->show();
+    });
+    connect(ui->modManagerButton, &QPushButton::clicked, this, [this]() {
+        if (m_game_info->m_games.empty()) {
+            QMessageBox::warning(this, tr("Mod Manager"), tr("No game selected."));
+            return;
+        }
+        int selectedIndex = -1;
+        if (isTableList) {
+            QTableWidgetItem* current = m_game_list_frame->GetCurrentItem();
+            if (!current) {
+                QMessageBox::warning(this, tr("Mod Manager"), tr("No game selected."));
+                return;
+            }
+            selectedIndex = current->row();
+        } else {
+            if (!m_game_grid_frame->IsValidCellSelected()) {
+                QMessageBox::warning(this, tr("Mod Manager"), tr("No game selected."));
+                return;
+            }
+            selectedIndex = m_game_grid_frame->crtRow;
+        }
+        if (selectedIndex < 0 || selectedIndex >= m_game_info->m_games.size()) {
+            QMessageBox::warning(this, tr("Mod Manager"), tr("Invalid game index."));
+            return;
+        }
+        const GameInfo& game = m_game_info->m_games[selectedIndex];
+        QString gamePathQString;
+        Common::FS::PathToQString(gamePathQString, game.path);
+        auto dlg = new ModManagerDialog(gamePathQString, QString::fromStdString(game.serial), this);
+        dlg->show();
     });
 
     connect(ui->configureHotkeys, &QAction::triggered, this, [this]() {
@@ -1919,6 +1954,7 @@ void MainWindow::SetUiIcons(const QColor& baseColor, const QColor& hoverColor) {
     recolor(ui->keyboardButton, ":/images/keyboard_icon.png");
     recolor(ui->updaterButton, ":/images/update_icon.png");
     recolor(ui->versionButton, ":/images/utils_icon.png");
+    recolor(ui->modManagerButton, ":images/folder_icon.png");
     recolor(ui->configureHotkeysButton, ":/images/hotkeybutton.png");
 
     // --- Menus / Actions (no QPushButton, but recolor directly) ---

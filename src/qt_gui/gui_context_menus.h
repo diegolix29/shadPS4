@@ -89,11 +89,13 @@ public:
         QAction* openUpdateFolder = new QAction(tr("Open Update Folder"), widget);
         QAction* openSaveDataFolder = new QAction(tr("Open Save Data Folder"), widget);
         QAction* openLogFolder = new QAction(tr("Open Log Folder"), widget);
+        QAction* openModsFolder = new QAction(tr("Open Mods Folder"), widget);
 
         openFolderMenu->addAction(openGameFolder);
         openFolderMenu->addAction(openUpdateFolder);
         openFolderMenu->addAction(openSaveDataFolder);
         openFolderMenu->addAction(openLogFolder);
+        openFolderMenu->addAction(openModsFolder);
 
         menu.addMenu(launchMenu);
         menu.addMenu(openFolderMenu);
@@ -360,6 +362,24 @@ public:
                     if (msgBox.clickedButton() == openFolderButton) {
                         QDesktopServices::openUrl(QUrl::fromLocalFile(logPath));
                     }
+                }
+            }
+        }
+
+        if (selected == openModsFolder) {
+            QString modsPath;
+            Common::FS::PathToQString(modsPath, m_games[itemID].path);
+            modsPath += "-MODS";
+            if (std::filesystem::exists(Common::FS::PathFromQString(modsPath))) {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(modsPath));
+            } else {
+                Common::FS::PathToQString(modsPath, m_games[itemID].path);
+                modsPath += "-MODS";
+                if (std::filesystem::exists(Common::FS::PathFromQString(modsPath))) {
+                    QDesktopServices::openUrl(QUrl::fromLocalFile(modsPath));
+                } else {
+                    QMessageBox::critical(nullptr, tr("Error"),
+                                          QString(tr("This game has no update folder to open!")));
                 }
             }
         }

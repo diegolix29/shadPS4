@@ -806,7 +806,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->ReadbacksLinearCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "readbackLinearImages", false));
     ui->DMACheckBox->setChecked(toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
-    ui->HotkeysCheckBox->setChecked(toml::find_or<bool>(data, "General", "DisableHardcodedHotkeys", false));
+    ui->HotkeysCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "DisableHardcodedHotkeys", false));
     ui->screenTipBox->setChecked(toml::find_or<bool>(data, "General", "screenTipDisable", false));
     ui->ReadbackSpeedComboBox->setCurrentIndex(static_cast<int>(Config::readbackSpeed()));
 

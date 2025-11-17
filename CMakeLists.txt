@@ -1150,6 +1150,8 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/version_dialog.ui
            src/qt_gui/welcome_dialog.h
            src/qt_gui/welcome_dialog.cpp
+           src/qt_gui/mod_manager_dialog.cpp
+           src/qt_gui/mod_manager_dialog.h
            ${EMULATOR}
            ${RESOURCE_FILES}
            ${TRANSLATIONS}

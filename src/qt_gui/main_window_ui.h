@@ -71,6 +71,7 @@ public:
     QPushButton* restartButton;
     QPushButton* updaterButton;
     QPushButton* versionButton;
+    QPushButton* modManagerButton;
     QPushButton* configureHotkeysButton;
     QComboBox* styleSelector = new QComboBox();
 
@@ -299,6 +300,10 @@ public:
         versionButton->setFlat(true);
         versionButton->setIcon(QIcon(":images/utils_icon.png"));
         versionButton->setIconSize(QSize(40, 40));
+        modManagerButton = new QPushButton(centralWidget);
+        modManagerButton->setFlat(true);
+        modManagerButton->setIcon(QIcon(":images/folder_icon.png"));
+        modManagerButton->setIconSize(QSize(40, 40));
         configureHotkeysButton = new QPushButton(centralWidget);
         configureHotkeysButton->setFlat(true);
         configureHotkeysButton->setIcon(QIcon(":images/hotkeybutton.png"));
