@@ -98,7 +98,9 @@ void Scheduler::AllocateWorkerCommandBuffers() {
     };
 
     current_cmdbuf = command_pool.Commit();
-    Check(current_cmdbuf.begin(begin_info));
+    auto begin_result = current_cmdbuf.begin(begin_info);
+    ASSERT_MSG(begin_result == vk::Result::eSuccess, "Failed to begin command buffer: {}",
+               vk::to_string(begin_result));
 
     // Invalidate dynamic state so it gets applied to the new command buffer.
     dynamic_state.Invalidate();
@@ -126,7 +128,9 @@ void Scheduler::SubmitExecution(SubmitInfo& info) {
 #endif
 
     EndRendering();
-    Check(current_cmdbuf.end());
+    auto end_result = current_cmdbuf.end();
+    ASSERT_MSG(end_result == vk::Result::eSuccess, "Failed to end command buffer: {}",
+               vk::to_string(end_result));
 
     const vk::Semaphore timeline = master_semaphore.Handle();
     info.AddSignal(timeline, signal_value);
