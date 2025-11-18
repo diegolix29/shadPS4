@@ -171,6 +171,9 @@ public:
     /// Processes the fault buffer.
     void ProcessFaultBuffer();
 
+    /// Record memory barrier. Used for buffers when accessed via BDA.
+    void MemoryBarrier();
+
     /// Processes ready preemptive downloads not consumed by the guest.
     void ProcessPreemptiveDownloads();
 
