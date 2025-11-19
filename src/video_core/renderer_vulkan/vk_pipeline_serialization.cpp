@@ -31,7 +31,7 @@ struct Archive {
         offset = container.size();
     }
 
-    size_t SizeBytes() const {
+    [[nodiscard]] size_t SizeBytes() const {
         return container.size();
     }
 
@@ -40,7 +40,7 @@ struct Archive {
     }
 
     void Advance(size_t size) {
-        assert((offset + size) < container.size());
+        ASSERT(offset + size <= container.size());
         offset += size;
     }
 
@@ -49,7 +49,7 @@ struct Archive {
         return std::move(container);
     }
 
-    bool IsEoS() const {
+    [[nodiscard]] bool IsEoS() const {
         return offset >= container.size();
     }
 
@@ -71,7 +71,7 @@ struct Writer {
     }
 
     template <typename T>
-    void Write(T value) {
+    void Write(const T& value) {
         const auto size = sizeof(value);
         Write(&value, size);
     }
@@ -93,7 +93,7 @@ struct Writer {
 struct Reader {
     template <typename T>
     void Read(T* ptr, size_t size) {
-        assert((ar.offset + size) < ar.container.size());
+        ASSERT(ar.offset + size <= ar.container.size());
         std::memcpy(reinterpret_cast<void*>(ptr), ar.CurrPtr(), size);
         ar.Advance(size);
     }
@@ -140,7 +140,7 @@ void RegisterPipelineData(const ComputePipelineKey& key,
     sdata.Serialize(ar);
 
     Storage::DataBase::Instance().Save(Storage::BlobType::PipelineKey,
-                                       fmt::format("{:#018x}", key.value), ar.TakeOff());
+                                       fmt::format("c_{:#018x}", key.value), ar.TakeOff());
 }
 
 void RegisterPipelineData(const GraphicsPipelineKey& key, u64 hash,
@@ -159,7 +159,7 @@ void RegisterPipelineData(const GraphicsPipelineKey& key, u64 hash,
     sdata.Serialize(ar);
 
     Storage::DataBase::Instance().Save(Storage::BlobType::PipelineKey,
-                                       fmt::format("{:#018x}", hash), ar.TakeOff());
+                                       fmt::format("g_{:#018x}", hash), ar.TakeOff());
 }
 
 void RegisterShaderMeta(const Shader::Info& info,
@@ -208,7 +208,6 @@ bool LoadShaderMeta(Serialization::Archive& ar, Shader::Info& info,
 
     u64 perm_hash_ar{};
     meta.Read(perm_hash_ar);
-    assert(perm_hash == perm_hash_ar);
     meta.Read(perm_idx);
     meta.Read(spec_hash);
 
@@ -238,10 +237,12 @@ bool ComputePipelineKey::Deserialize(Serialization::Archive& ar) {
 }
 
 void ComputePipeline::SerializationSupport::Serialize(Serialization::Archive& ar) const {
+    // Nothing here yet
     return;
 }
 
 bool ComputePipeline::SerializationSupport::Deserialize(Serialization::Archive& ar) {
+    // Nothing here yet
     return true;
 }
 
@@ -272,11 +273,14 @@ bool PipelineCache::LoadComputePipeline(Serialization::Archive& ar) {
     }
 
     const auto [it, is_new] = compute_pipelines.try_emplace(compute_key);
-    assert(is_new);
+    ASSERT(is_new);
 
     it.value() =
         std::make_unique<ComputePipeline>(instance, scheduler, desc_heap, profile, *pipeline_cache,
                                           compute_key, *infos[0], modules[0], sdata, true);
+
+    infos.fill(0);
+    modules.fill(nullptr);
 
     return true;
 }
@@ -352,7 +356,7 @@ bool PipelineCache::LoadGraphicsPipeline(Serialization::Archive& ar) {
     }
 
     const auto [it, is_new] = graphics_pipelines.try_emplace(graphics_key);
-    assert(is_new);
+    ASSERT(is_new);
 
     it.value() = std::make_unique<GraphicsPipeline>(
         instance, scheduler, desc_heap, profile, graphics_key, *pipeline_cache, infos,
@@ -384,20 +388,28 @@ bool PipelineCache::LoadPipelineStage(Serialization::Archive& ar, size_t stage) 
         return false;
     }
 
-    const auto module = CompileSPV(spv, instance.GetDevice());
+    // Permutation hash depends on shader variation index. To prevent collisions, we need insert it
+    // at the exact position rather than append
+
+    vk::ShaderModule module{};
 
     auto [it_pgm, new_program] = program_cache.try_emplace(program->info.pgm_hash);
     if (new_program) {
-        program->InsertPermut(module, spec_hash, perm_idx);
+        module = CompileSPV(spv, instance.GetDevice());
         it_pgm.value() = std::move(program);
     } else {
-        // Make sure the permutation doesn't exist yet
         const auto& it =
             std::ranges::find(it_pgm.value()->modules, spec_hash, &Program::Module::spec_hash);
-        assert(it == it_pgm.value()->modules.end());
-        it_pgm.value()->InsertPermut(module, spec_hash,
-                                     perm_idx); // need to insert to prevent collisions
+        if (it != it_pgm.value()->modules.end()) {
+            // If the permutation is already preloaded, make sure it has the same permutation index
+            const auto idx = std::distance(it_pgm.value()->modules.begin(), it);
+            ASSERT(perm_idx == idx);
+            module = it->module;
+        } else {
+            module = CompileSPV(spv, instance.GetDevice());
+        }
     }
+    it_pgm.value()->InsertPermut(module, spec_hash, perm_idx);
 
     infos[stage] = &it_pgm.value()->info;
     modules[stage] = module;
@@ -505,7 +517,11 @@ u64 Shader::Gcn::FetchShaderData::Hash() const {
     for (const auto& attrib : attributes) {
         XXH64_update(state, &attrib, sizeof(attrib));
     }
-    return XXH64_digest(state);
+
+    const u64 hash = XXH64_digest(state);
+    XXH64_freeState(state);
+
+    return hash;
 }
 
 u64 StageSpecialization::Hash() const {
@@ -532,6 +548,7 @@ u64 StageSpecialization::Hash() const {
     }
 
     u64 hash = XXH64_digest(state);
+    XXH64_freeState(state);
 
     if (fetch_shader_data) {
         hash = HashCombine(hash, fetch_shader_data->Hash());

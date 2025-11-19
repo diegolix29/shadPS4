@@ -866,7 +866,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->vkSyncValidationCheckBox->setChecked(
         toml::find_or<bool>(data, "Vulkan", "validation_sync", false));
     ui->rdocCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "rdocEnable", false));
-    ui->cacheCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "pipelineCacheEnable", false));
+    ui->cacheCheckBox->setChecked(
+        toml::find_or<bool>(data, "Vulkan", "pipelineCacheEnable", false));
     ui->crashDiagnosticsCheckBox->setChecked(
         toml::find_or<bool>(data, "Vulkan", "crashDiagnostic", false));
     ui->guestMarkersCheckBox->setChecked(
