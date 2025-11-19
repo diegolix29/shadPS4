@@ -18,7 +18,7 @@ namespace MemoryPatcher {
 extern EXPORT uintptr_t g_eboot_address;
 extern uint64_t g_eboot_image_size;
 extern std::string g_game_serial;
-extern std::string patchFile;
+extern std::string patch_file;
 
 enum PatchMask : uint8_t {
     None,
@@ -64,9 +64,5 @@ struct PendingPatch {
     PatchMask mask = PatchMask::None;
     int maskOffset = 0;
 };
-
-std::string convertValueToHex(std::string type, std::string valueStr);
-
-std::vector<PendingPatch> readPatches(std::string gameSerial, std::string appVersion);
 
 } // namespace MemoryPatcher

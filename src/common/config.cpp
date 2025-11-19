@@ -112,6 +112,18 @@ public:
             base_value = toml::get_optional<T>(v, key).value_or(base_value);
         }
     }
+    void set(const T value, bool is_game_specific = false) {
+        is_game_specific ? game_specific_value = value : base_value = value;
+    }
+    void setTomlValue(toml::ordered_value& data, const std::string& header, const std::string& key,
+                      bool is_game_specific = false) {
+        if (is_game_specific) {
+            data[header][key] = game_specific_value.value_or(base_value);
+            game_specific_value = std::nullopt;
+        } else {
+            data[header][key] = base_value;
+        }
+    }
     // operator T() {
     //     return get();
     // }
@@ -188,7 +200,7 @@ static ConfigEntry<bool> rcasEnabled(true);
 
 // Audio / BGM
 static bool playBGM = false;
-static ConfigEntry<int> rcasAttenuation(250);
+static ConfigEntry<int> rcas_attenuation(250);
 static int BGMvolume = 50;
 
 // Vulkan
@@ -215,8 +227,8 @@ static ConfigEntry<bool> logEnabled(true);
 std::unordered_map<std::string, std::vector<std::string>> all_skipped_shader_hashes = {
     {"CUSA16195", {"5f8eaca5", "5469af28"}},
     {"CUSA00018",
-     {"7b9fc304d5a8f0de","f5874f2a8d7f2037", "f5874f2a65f418f9", "25593f798d7f2037", "25593f7965f418f9",
-      "2537adba98213a66", "fe36adba8c8b5626"}},
+     {"7b9fc304d5a8f0de", "f5874f2a8d7f2037", "f5874f2a65f418f9", "25593f798d7f2037",
+      "25593f7965f418f9", "2537adba98213a66", "fe36adba8c8b5626"}},
     {"CUSA00093", {"b5a945a8"}},
     {"Default", {"7ee03d3f", "1635154C", "43e07e56", "c7e25f41"}},
     {"CUSA07478", {"3ae1c2c7"}},
@@ -563,11 +575,11 @@ void setRcasEnabled(bool enable) {
 }
 
 int getRcasAttenuation() {
-    return rcasAttenuation.get();
+    return rcas_attenuation.get();
 }
 
 void setRcasAttenuation(int value) {
-    rcasAttenuation.base_value = value;
+    rcas_attenuation.base_value = value;
 }
 
 std::string getLogFilter() {
@@ -594,8 +606,8 @@ int getVolumeSlider() {
     return volumeSlider.get();
 }
 
-void setVolumeSlider(int volumeValue) {
-    volumeSlider.base_value = volumeValue;
+void setVolumeSlider(int volumeValue, bool is_game_specific) {
+    volumeSlider.set(volumeValue, is_game_specific);
 }
 
 bool isMuteEnabled() {
@@ -1339,12 +1351,12 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             }
         }
         if (is_game_specific) {
-            if (auto opt = toml::get_optional<double>(gpu, "rcasAttenuation")) {
-                rcasAttenuation.game_specific_value = static_cast<float>(*opt);
+            if (auto opt = toml::get_optional<double>(gpu, "rcas_attenuation")) {
+                rcas_attenuation.game_specific_value = static_cast<float>(*opt);
             }
         } else {
-            if (auto opt = toml::get_optional<double>(gpu, "rcasAttenuation")) {
-                rcasAttenuation.base_value = static_cast<float>(*opt);
+            if (auto opt = toml::get_optional<double>(gpu, "rcas_attenuation")) {
+                rcas_attenuation.base_value = static_cast<float>(*opt);
             }
         }
 
@@ -1593,7 +1605,7 @@ void save(const std::filesystem::path& path) {
     data["Audio"]["mainOutputDevice"] = mainOutputDevice.base_value;
     data["Audio"]["padSpkOutputDevice"] = padSpkOutputDevice.base_value;
 
-    data["GPU"]["rcasAttenuation"] = rcasAttenuation.base_value;
+    data["GPU"]["rcas_attenuation"] = rcas_attenuation.base_value;
     data["GPU"]["fsrEnabled"] = fsrEnabled.base_value;
     data["GPU"]["rcasEnabled"] = rcasEnabled.base_value;
     data["GPU"]["fpsLimit"] = fpsLimit.base_value;
@@ -1811,7 +1823,7 @@ void setDefaultValues() {
     isHDRAllowed = false;
     fsrEnabled = true;
     rcasEnabled = true;
-    rcasAttenuation = 250;
+    rcas_attenuation = 250;
     fpsLimit = 60;
     fpsLimiterEnabled = false;
 

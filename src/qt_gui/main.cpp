@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
         {"-p",
          [&](int& i) {
              if (i + 1 < argc) {
-                 MemoryPatcher::patchFile = argv[++i];
+                 MemoryPatcher::patch_file = argv[++i];
              } else {
                  std::cerr << "Error: Missing argument for -p\n";
                  exit(1);
@@ -486,7 +486,7 @@ int main(int argc, char* argv[]) {
                     SDL_PushEvent(&e);
                 } else if (cmd == "ADJUST_VOLUME") {
                     int value = static_cast<int>(std::stoull(next_str(), nullptr, 0));
-                    Config::setVolumeSlider(value);
+                    Config::setVolumeSlider(value, true);
                     Libraries::AudioOut::AdjustVol();
                 } else if (cmd == "SET_FSR") {
                     bool use_fsr = std::stoull(next_str(), nullptr, 0) != 0;
@@ -499,7 +499,7 @@ int main(int argc, char* argv[]) {
                 } else if (cmd == "SET_RCAS_ATTENUATION") {
                     int value = static_cast<int>(std::stoull(next_str(), nullptr, 0));
                     if (presenter)
-                        presenter->GetFsrSettingsRef().rcasAttenuation =
+                        presenter->GetFsrSettingsRef().rcas_attenuation =
                             static_cast<float>(value / 1000.0f);
                 } else if (cmd == "RELOAD_INPUTS") {
                     std::string config = next_str();

@@ -305,7 +305,7 @@ std::vector<std::string> getRecentFiles();
 std::string getEmulatorLanguage();
 
 int getVolumeSlider();
-void setVolumeSlider(int volumeValue);
+void setVolumeSlider(int volumeValue, bool is_game_specific);
 bool isMuteEnabled();
 void setMuteEnabled(bool enabled);
 

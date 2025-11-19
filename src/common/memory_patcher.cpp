@@ -35,7 +35,8 @@ namespace MemoryPatcher {
 EXPORT uintptr_t g_eboot_address;
 uint64_t g_eboot_image_size;
 std::string g_game_serial;
-std::string patchFile;
+std::string patch_file;
+
 bool patches_applied = false;
 std::vector<patchInfo> pending_patches;
 
@@ -299,10 +300,10 @@ void OnGameLoaded() {
         }
     }
 
-    if (!patchFile.empty()) {
+    if (!patch_file.empty()) {
         std::filesystem::path patchDir = Common::FS::GetUserPath(Common::FS::PathType::PatchesDir);
 
-        auto filePath = (patchDir / patchFile).native();
+        auto filePath = (patchDir / patch_file).native();
 
         pugi::xml_document doc;
         pugi::xml_parse_result result = doc.load_file(filePath.c_str());

@@ -16,10 +16,6 @@
 #include "common/logging/backend.h"
 #include "common/logging/log.h"
 #include "core/ipc/ipc.h"
-#ifdef ENABLE_QT_GUI
-#include <QtCore>
-#endif
-#include "common/assert.h"
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"
 #endif
@@ -178,23 +174,10 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         game_info.splash_path = pic1_path;
     }
 
-    bool forceGlobal = false;
-
-    for (const auto& arg : args) {
-        if (arg == "--config-global") {
-            forceGlobal = true;
-        }
-    }
     game_info.game_folder = game_folder;
 
-    if (forceGlobal) {
-        // load global config only
-        Config::load(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", true);
-    } else {
-        // default: try game-specific first, fallback to global
-        Config::load(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (id + ".toml"),
-                     true);
-    }
+    Config::load(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (id + ".toml"),
+                 true);
 
     // Initialize logging as soon as possible
     if (!id.empty() && Config::getSeparateLogFilesEnabled()) {
@@ -387,8 +370,6 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
 #endif
 
-    // Start the timer (Play Time)
-#ifdef ENABLE_QT_GUI
     if (!id.empty()) {
         start_time = std::chrono::steady_clock::now();
 
@@ -400,7 +381,6 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
             }
         }).detach();
     }
-#endif
 
     args.insert(args.begin(), eboot_name.generic_string());
     linker->Execute(args);
@@ -410,9 +390,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         window->WaitEvent();
     }
 
-#ifdef ENABLE_QT_GUI
     UpdatePlayTime(id);
-#endif
 
     std::quick_exit(0);
 }
@@ -435,9 +413,9 @@ void Emulator::Restart(std::filesystem::path eboot_path,
         args.push_back("--ignore-game-patch");
     }
 
-    if (!MemoryPatcher::patchFile.empty()) {
+    if (!MemoryPatcher::patch_file.empty()) {
         args.push_back("--patch");
-        args.push_back(MemoryPatcher::patchFile);
+        args.push_back(MemoryPatcher::patch_file);
     }
 
     args.push_back("--wait-for-pid");

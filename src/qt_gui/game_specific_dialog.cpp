@@ -316,12 +316,12 @@ void GameSpecificDialog::LoadValuesFromConfig() {
                 presentModeMap.value(QString::fromStdString(present)));
         }
 
-        if (gpu.contains("rcasAttenuation")) {
+        if (gpu.contains("rcas_attenuation")) {
             double value = 0.0;
             try {
-                value = toml::find<double>(gpu, "rcasAttenuation");
+                value = toml::find<double>(gpu, "rcas_attenuation");
             } catch (...) {
-                value = static_cast<double>(toml::find<int>(gpu, "rcasAttenuation"));
+                value = static_cast<double>(toml::find<int>(gpu, "rcas_attenuation"));
             }
             ui->RCASSlider->setValue(static_cast<int>(std::lround(value)));
             ui->RCASSpinBox->setValue(value / 1000.0);
@@ -544,7 +544,7 @@ void GameSpecificDialog::UpdateSettings() {
         int newVal = ui->RCASSlider->value();
 
         if (newVal != current)
-            overrides["GPU"]["rcasAttenuation"] = static_cast<double>(newVal);
+            overrides["GPU"]["rcas_attenuation"] = static_cast<double>(newVal);
     }
 
     if (ui->RCASCheckBox->isChecked() != Config::getRcasEnabled())

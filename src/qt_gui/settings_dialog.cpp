@@ -200,7 +200,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                     Config::setFpsLimit(fps_backup);
 
                     ui->horizontalVolumeSlider->setValue(volume_slider_backup);
-                    Config::setVolumeSlider(volume_slider_backup);
+                    Config::setVolumeSlider(volume_slider_backup, true);
 
                     ui->BGMVolumeSlider->setValue(bgm_volume_backup);
                     BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
@@ -707,7 +707,7 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
         ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
         emit BackgroundOpacityChanged(backgroundImageOpacitySlider_backup);
         ui->horizontalVolumeSlider->setValue(volume_slider_backup);
-        Config::setVolumeSlider(volume_slider_backup);
+        Config::setVolumeSlider(volume_slider_backup, true);
         ui->BGMVolumeSlider->setValue(bgm_volume_backup);
         BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
         ui->fpsSlider->setValue(fps_backup);
@@ -1258,7 +1258,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setVkCrashDiagnosticEnabled(ui->crashDiagnosticsCheckBox->isChecked());
     Config::setCollectShaderForDebug(ui->collectShaderCheckBox->isChecked());
     Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
-    Config::setVolumeSlider(ui->horizontalVolumeSlider->value());
+    Config::setVolumeSlider(ui->horizontalVolumeSlider->value(), true);
     Config::setSysModulesPath(Common::FS::PathFromQString(ui->currentSysModulesPath->text()));
 
     Config::setAutoUpdate(ui->updateCheckBox->isChecked());
@@ -1311,7 +1311,7 @@ void SettingsDialog::OnRcasAttenuationChanged(int sliderValue) {
 
     Config::setRcasAttenuation(sliderValue);
     if (presenter)
-        presenter->GetFsrSettingsRef().rcasAttenuation = attenuation;
+        presenter->GetFsrSettingsRef().rcas_attenuation = attenuation;
 }
 
 void SettingsDialog::OnRcasAttenuationSpinBoxChanged(double spinValue) {
@@ -1323,7 +1323,7 @@ void SettingsDialog::OnRcasAttenuationSpinBoxChanged(double spinValue) {
 
     Config::setRcasAttenuation(intValue);
     if (presenter)
-        presenter->GetFsrSettingsRef().rcasAttenuation = static_cast<float>(spinValue);
+        presenter->GetFsrSettingsRef().rcas_attenuation = static_cast<float>(spinValue);
 }
 
 void SettingsDialog::SyncRealTimeWidgetstoConfig() {
