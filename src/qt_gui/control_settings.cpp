@@ -19,6 +19,7 @@ ControlSettings::ControlSettings(std::shared_ptr<GameInfoClass> game_info_get,
       ui(new Ui::ControlSettings) {
 
     ui->setupUi(this);
+    this->setFixedWidth(this->width());
 
     SDL_InitSubSystem(SDL_INIT_GAMEPAD);
     SDL_InitSubSystem(SDL_INIT_EVENTS);

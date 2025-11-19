@@ -137,7 +137,9 @@ static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
 static ConfigEntry<std::string> logFilter("");
 static ConfigEntry<std::string> logType("sync");
-static ConfigEntry<string> userName("shadPS4");
+// static ConfigEntry<string> userName("shadPS4");
+static std::array<std::string, 4> userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
+
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
@@ -162,8 +164,8 @@ static ConfigEntry<bool> firstBootHandled(false);
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
 static ConfigEntry<int> cursorHideTimeout(5);
-static ConfigEntry<bool> useSpecialPad(false);
-static ConfigEntry<int> specialPadClass(1);
+static ConfigEntry<bool> useSpecialPads[4] = {false, false, false, false};
+static ConfigEntry<int> specialPadClasses[4] = {1, 1, 1, 1};
 static ConfigEntry<bool> isMotionControlsEnabled(true);
 static ConfigEntry<bool> useUnifiedInputConfig(true);
 static ConfigEntry<std::string> micDevice("Default Device");
@@ -600,7 +602,7 @@ std::string getLogType() {
 }
 
 std::string getUserName() {
-    return userName.get();
+    return userNames[0];
 }
 
 std::string getUpdateChannel() {
@@ -627,12 +629,16 @@ void setMuteEnabled(bool enabled) {
     muteEnabled.base_value = enabled;
 }
 
-bool getUseSpecialPad() {
-    return useSpecialPad.get();
+bool getUseSpecialPad(int pad) {
+    if (pad < 1 || pad > 4)
+        return false;
+    return useSpecialPads[pad - 1].get();
 }
 
-int getSpecialPadClass() {
-    return specialPadClass.get();
+int getSpecialPadClass(int pad) {
+    if (pad < 1 || pad > 4)
+        return 1;
+    return specialPadClasses[pad - 1].get();
 }
 
 bool getIsMotionControlsEnabled() {
@@ -968,8 +974,8 @@ void setSeparateLogFilesEnabled(bool enabled) {
     isSeparateLogFilesEnabled.base_value = enabled;
 }
 
-void setUserName(const std::string& type) {
-    userName.base_value = type;
+void setUserName(const std::string& name) {
+    userNames[0] = name;
 }
 
 void setUpdateChannel(const std::string& type) {
@@ -979,12 +985,16 @@ void setChooseHomeTab(const std::string& type) {
     chooseHomeTab = type;
 }
 
-void setUseSpecialPad(bool use) {
-    useSpecialPad.base_value = use;
+void setUseSpecialPad(int pad, bool use, bool is_game_specific) {
+    if (pad < 1 || pad > 4)
+        return;
+    useSpecialPads[pad - 1].set(use, is_game_specific);
 }
 
-void setSpecialPadClass(int type) {
-    specialPadClass.base_value = type;
+void setSpecialPadClass(int pad, int type, bool is_game_specific) {
+    if (pad < 1 || pad > 4)
+        return;
+    specialPadClasses[pad - 1].set(type, is_game_specific);
 }
 
 void setIsMotionControlsEnabled(bool use) {
@@ -1283,7 +1293,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         enableDiscordRPC = toml::find_or<bool>(general, "enableDiscordRPC", true);
         logFilter.setFromToml(general, "logFilter", is_game_specific);
         logType.setFromToml(general, "logType", is_game_specific);
-        userName.setFromToml(general, "userName", is_game_specific);
+        // userName.setFromToml(general, "userName", is_game_specific);
 
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
@@ -1329,8 +1339,13 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         cursorState.setFromToml(input, "cursorState", is_game_specific);
         cursorHideTimeout.setFromToml(input, "cursorHideTimeout", is_game_specific);
-        useSpecialPad.setFromToml(input, "useSpecialPad", is_game_specific);
-        specialPadClass.setFromToml(input, "specialPadClass", is_game_specific);
+        for (int p = 1; p <= 4; p++) {
+            std::string useKey = "useSpecialPad" + std::to_string(p);
+            std::string classKey = "specialPadClass" + std::to_string(p);
+
+            useSpecialPads[p - 1].setFromToml(input, useKey, is_game_specific);
+            specialPadClasses[p - 1].setFromToml(input, classKey, is_game_specific);
+        }
         isMotionControlsEnabled.setFromToml(input, "isMotionControlsEnabled", is_game_specific);
         useUnifiedInputConfig.setFromToml(input, "useUnifiedInputConfig", is_game_specific);
         backgroundControllerInput.setFromToml(input, "backgroundControllerInput", is_game_specific);
@@ -1581,7 +1596,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["logFilter"] = logFilter.base_value;
     data["General"]["logType"] = logType.base_value;
-    data["General"]["userName"] = userName.base_value;
+    // data["General"]["userName"] = userNames;
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
@@ -1604,8 +1619,13 @@ void save(const std::filesystem::path& path) {
 
     data["Input"]["cursorState"] = cursorState.base_value;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout.base_value;
-    data["Input"]["useSpecialPad"] = useSpecialPad.base_value;
-    data["Input"]["specialPadClass"] = specialPadClass.base_value;
+    for (int p = 1; p <= 4; p++) {
+        std::string useKey = "useSpecialPad" + std::to_string(p);
+        std::string classKey = "specialPadClass" + std::to_string(p);
+
+        useSpecialPads[p - 1].setTomlValue(data, "Input", useKey, false);
+        specialPadClasses[p - 1].setTomlValue(data, "Input", classKey, false);
+    }
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
     data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
     data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
@@ -1780,7 +1800,7 @@ void setDefaultValues() {
     disable_hardcoded_hotkeys = false;
     logFilter = "";
     logType = "sync";
-    userName = "shadPS4";
+    userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
     chooseHomeTab = "General";
     isShowSplash = false;
     isSideTrophy = "right";
@@ -1795,8 +1815,14 @@ void setDefaultValues() {
     // Input
     cursorState = HideCursorState::Idle;
     cursorHideTimeout = 5;
-    useSpecialPad = false;
-    specialPadClass = 1;
+    useSpecialPads[0] = false;
+    useSpecialPads[1] = false;
+    useSpecialPads[2] = false;
+    useSpecialPads[3] = false;
+    specialPadClasses[0] = 1;
+    specialPadClasses[1] = 1;
+    specialPadClasses[2] = 1;
+    specialPadClasses[3] = 1;
     isMotionControlsEnabled = true;
     useUnifiedInputConfig = true;
     overrideControllerColor = false;

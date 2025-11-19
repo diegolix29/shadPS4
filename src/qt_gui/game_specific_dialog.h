@@ -25,6 +25,7 @@ private:
     void LoadValuesFromConfig();
     void UpdateSettings();
     void VolumeSliderChange(int value);
+    void OnPadSelectionChanged(int index);
     bool eventFilter(QObject* obj, QEvent* event);
     void OnCursorStateChanged(s16 index);
     void OnRcasAttenuationChanged(int value);

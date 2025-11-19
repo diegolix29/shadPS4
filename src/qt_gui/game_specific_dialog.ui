@@ -776,35 +776,90 @@
          </layout>
         </item>
         <item>
-<layout class="QHBoxLayout" name="inputTabHLayoutBottom">
-  <property name="topMargin"><number>0</number></property>
+			<layout class="QHBoxLayout" name="inputTabHLayoutBottom">
+				<property name="topMargin">
+					<number>0</number>
+				</property>
 
-  <item>
-    <widget class="QSpinBox" name="specialPadClassSpinBox">
-      <property name="value"><number>1</number></property>
-    </widget>
-  </item>
+				<item>
+					<widget class="QGroupBox" name="specialPadGroupBox">
+						<property name="title">
+							<string>Special Pad Settings</string>
+						</property>
 
-  <item>
-    <layout class="QVBoxLayout" name="inputOptionsVLayout">
-      <item>
-        <widget class="QCheckBox" name="useSpecialPadCheckBox">
-          <property name="text"><string>Use Special Pad</string></property>
-        </widget>
-      </item>
-      <item>
-        <widget class="QCheckBox" name="useUnifiedInputConfigCheckBox">
-          <property name="text"><string>Use Unified Input Config</string></property>
-        </widget>
-      </item>
+						<layout class="QHBoxLayout" name="specialPadLayout">
 
-      <item>
-        <widget class="QCheckBox" name="discordRPCCheckbox">
-          <property name="text"><string>Enable Discord Rich Presence</string></property>
-        </widget>
-      </item>
-    </layout>
-  </item>
+							<item>
+								<widget class="QComboBox" name="padSelectorComboBox">
+									<item>
+										<property name="text">
+											<string>Pad 1</string>
+										</property>
+									</item>
+									<item>
+										<property name="text">
+											<string>Pad 2</string>
+										</property>
+									</item>
+									<item>
+										<property name="text">
+											<string>Pad 3</string>
+										</property>
+									</item>
+									<item>
+										<property name="text">
+											<string>Pad 4</string>
+										</property>
+									</item>
+								</widget>
+							</item>
+
+							<item>
+								<widget class="QSpinBox" name="specialPadClassSpinBox">
+									<property name="minimum">
+										<number>1</number>
+									</property>
+									<property name="maximum">
+										<number>4</number>
+									</property>
+									<property name="value">
+										<number>1</number>
+									</property>
+								</widget>
+							</item>
+
+							<item>
+								<widget class="QCheckBox" name="useSpecialPadCheckBox">
+									<property name="text">
+										<string>Use Special Pad</string>
+									</property>
+								</widget>
+							</item>
+
+						</layout>
+					</widget>
+				</item>
+
+				<item>
+					<layout class="QVBoxLayout" name="inputOptionsVLayout">
+
+						<item>
+							<widget class="QCheckBox" name="useUnifiedInputConfigCheckBox">
+								<property name="text">
+									<string>Use Unified Input Config</string>
+								</property>
+							</widget>
+						</item>
+
+						<item>
+							<widget class="QCheckBox" name="discordRPCCheckbox">
+								<property name="text">
+									<string>Enable Discord Rich Presence</string>
+								</property>
+							</widget>
+						</item>
+					</layout>
+				</item>
 
   <item>
     <layout class="QVBoxLayout" name="vLayoutTrophy">
