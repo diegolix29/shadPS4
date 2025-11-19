@@ -1158,6 +1158,13 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="cacheCheckBox">
+        <property name="text">
+         <string>Enable Shader Cache</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

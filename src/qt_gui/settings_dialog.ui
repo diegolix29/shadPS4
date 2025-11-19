@@ -2395,6 +2395,13 @@
 													 </property>
 												 </widget>
 											 </item>
+											 <item>
+												 <widget class="QCheckBox" name="cacheCheckBox">
+													 <property name="text">
+														 <string>Enable Shader Cache</string>
+													 </property>
+												 </widget>
+											 </item>
 										 </layout>
 									 </widget>
 								 </item>
@@ -2636,7 +2643,7 @@
 		</item>
 
 		<item>
-			<widget class="QLabel" name="label_23">
+			<widget class="QLabel" name="label_231">
 				<property name="font">
 					<font>
 						<pointsize>11</pointsize>
@@ -2777,7 +2784,7 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
 				</widget>
 			</item>
 			<item>
-				<widget class="QLabel" name="label_23">
+				<widget class="QLabel" name="label_232">
 					<property name="font">
 						<font>
 							<pointsize>11</pointsize>

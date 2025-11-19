@@ -160,6 +160,7 @@ static auto UserPaths = [] {
     create_path(PathType::CustomConfigs, user_dir / CUSTOM_CONFIGS);
     create_path(PathType::CustomThemes, user_dir / CUSTOM_THEMES);
     create_path(PathType::ModsFolder, user_dir / MODS_FOLDER);
+    create_path(PathType::CacheDir, user_dir / CACHE_DIR);
 
     std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
     if (notice_file.is_open()) {

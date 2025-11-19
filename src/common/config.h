@@ -289,6 +289,8 @@ u32 getMainWindowGeometryX();
 u32 getMainWindowGeometryY();
 u32 getMainWindowGeometryW();
 u32 getMainWindowGeometryH();
+bool isPipelineCacheEnabled();
+void setPipelineCacheEnabled(bool enable, bool is_game_specific = false);
 const std::vector<std::filesystem::path> getGameDirectories();
 const std::vector<bool> getGameDirectoriesEnabled();
 std::filesystem::path getAddonDirectory();
