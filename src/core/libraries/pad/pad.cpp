@@ -29,10 +29,17 @@ int PS4_SYSV_ABI scePadConnectPort() {
 int PS4_SYSV_ABI scePadDeviceClassGetExtendedInformation(
     s32 handle, OrbisPadDeviceClassExtendedInformation* pExtInfo) {
     LOG_ERROR(Lib_Pad, "(STUBBED) called");
-    std::memset(pExtInfo, 0, sizeof(OrbisPadDeviceClassExtendedInformation));
-    if (Config::getUseSpecialPad()) {
-        pExtInfo->deviceClass = (OrbisPadDeviceClass)Config::getSpecialPadClass();
+
+    std::memset(pExtInfo, 0, sizeof(*pExtInfo));
+
+    int pad = handle;
+
+    if (Config::getUseSpecialPad(pad)) {
+        pExtInfo->deviceClass = (OrbisPadDeviceClass)Config::getSpecialPadClass(pad);
+    } else {
+        pExtInfo->deviceClass = OrbisPadDeviceClass::Standard;
     }
+
     return ORBIS_OK;
 }
 
@@ -94,31 +101,36 @@ int PS4_SYSV_ABI scePadGetCapability() {
 
 int PS4_SYSV_ABI scePadGetControllerInformation(s32 handle, OrbisPadControllerInformation* pInfo) {
     LOG_DEBUG(Lib_Pad, "called handle = {}", handle);
-    if (handle < 0) {
-        pInfo->touchPadInfo.pixelDensity = 1;
-        pInfo->touchPadInfo.resolution.x = 1920;
-        pInfo->touchPadInfo.resolution.y = 950;
-        pInfo->stickInfo.deadZoneLeft = 1;
-        pInfo->stickInfo.deadZoneRight = 1;
-        pInfo->connectionType = ORBIS_PAD_PORT_TYPE_STANDARD;
-        pInfo->connectedCount = 1;
-        pInfo->connected = false;
-        pInfo->deviceClass = OrbisPadDeviceClass::Standard;
-        return ORBIS_OK;
-    }
+
+    std::memset(pInfo, 0, sizeof(*pInfo));
+
     pInfo->touchPadInfo.pixelDensity = 1;
     pInfo->touchPadInfo.resolution.x = 1920;
     pInfo->touchPadInfo.resolution.y = 950;
     pInfo->stickInfo.deadZoneLeft = 1;
     pInfo->stickInfo.deadZoneRight = 1;
-    pInfo->connectionType = ORBIS_PAD_PORT_TYPE_STANDARD;
-    pInfo->connectedCount = 1;
-    pInfo->connected = true;
-    pInfo->deviceClass = OrbisPadDeviceClass::Standard;
-    if (Config::getUseSpecialPad()) {
-        pInfo->connectionType = ORBIS_PAD_PORT_TYPE_SPECIAL;
-        pInfo->deviceClass = (OrbisPadDeviceClass)Config::getSpecialPadClass();
+
+    int pad = handle;
+
+    if (pad < 0) {
+        pInfo->connected = false;
+        pInfo->connectionType = ORBIS_PAD_PORT_TYPE_STANDARD;
+        pInfo->deviceClass = OrbisPadDeviceClass::Standard;
+        pInfo->connectedCount = 1;
+        return ORBIS_OK;
     }
+
+    pInfo->connected = true;
+    pInfo->connectedCount = 1;
+
+    pInfo->connectionType = ORBIS_PAD_PORT_TYPE_STANDARD;
+    pInfo->deviceClass = OrbisPadDeviceClass::Standard;
+
+    if (Config::getUseSpecialPad(pad)) {
+        pInfo->connectionType = ORBIS_PAD_PORT_TYPE_SPECIAL;
+        pInfo->deviceClass = (OrbisPadDeviceClass)Config::getSpecialPadClass(pad);
+    }
+
     return ORBIS_OK;
 }
 
@@ -257,37 +269,47 @@ int PS4_SYSV_ABI scePadMbusTerm() {
 }
 
 int PS4_SYSV_ABI scePadOpen(s32 userId, s32 type, s32 index, const OrbisPadOpenParam* pParam) {
-    if (!g_initialized) {
+    if (!g_initialized)
         return ORBIS_PAD_ERROR_NOT_INITIALIZED;
-    }
-    if (userId == -1) {
+
+    if (userId == -1)
         return ORBIS_PAD_ERROR_DEVICE_NO_HANDLE;
-    }
-    if (Config::getUseSpecialPad()) {
+
+    bool useSpecial = Config::getUseSpecialPad(index);
+
+    if (useSpecial) {
         if (type != ORBIS_PAD_PORT_TYPE_SPECIAL)
             return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
     } else {
         if (type != ORBIS_PAD_PORT_TYPE_STANDARD && type != ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL)
             return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
     }
-    LOG_INFO(Lib_Pad, "(DUMMY) called user_id = {} type = {} index = {}", userId, type, index);
+
+    LOG_INFO(Lib_Pad, "open user={} type={} index={}", userId, type, index);
+
     g_opened = true;
+
     scePadResetLightBar(userId);
     scePadResetOrientation(userId);
-    return 1; // dummy
+
+    return userId;
 }
 
 int PS4_SYSV_ABI scePadOpenExt(s32 userId, s32 type, s32 index,
                                const OrbisPadOpenExtParam* pParam) {
     LOG_DEBUG(Lib_Pad, "(STUBBED) called");
-    if (Config::getUseSpecialPad()) {
+
+    bool useSpecial = Config::getUseSpecialPad(index);
+
+    if (useSpecial) {
         if (type != ORBIS_PAD_PORT_TYPE_SPECIAL)
             return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
     } else {
         if (type != ORBIS_PAD_PORT_TYPE_STANDARD && type != ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL)
             return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
     }
-    return 1; // dummy
+
+    return userId;
 }
 
 int PS4_SYSV_ABI scePadOpenExt2() {
