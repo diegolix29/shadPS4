@@ -188,40 +188,43 @@ PAddr MemoryManager::PoolExpand(PAddr search_start, PAddr search_end, u64 size, 
 PAddr MemoryManager::Allocate(PAddr search_start, PAddr search_end, u64 size, u64 alignment,
                               s32 memory_type) {
     std::scoped_lock lk{mutex};
-    alignment = alignment > 0 ? alignment : 16_KB;
+    alignment = alignment ? alignment : 16_KB;
 
-    auto dmem_area = FindDmemArea(search_start);
-    auto mapping_start = search_start > dmem_area->second.base
-                             ? Common::AlignUp(search_start, alignment)
-                             : Common::AlignUp(dmem_area->second.base, alignment);
-    auto mapping_end = mapping_start + size;
+    auto it = FindDmemArea(search_start);
+    if (it == dmem_map.end())
+        return 0;
 
-    // Find the first free, large enough dmem area in the range.
-    while (dmem_area->second.dma_type != DMAType::Free ||
-           dmem_area->second.GetEnd() < mapping_end) {
-        // The current dmem_area isn't suitable, move to the next one.
-        dmem_area++;
-        if (dmem_area == dmem_map.end()) {
+    for (; it != dmem_map.end(); ++it) {
+        auto& area = it->second;
+
+        // Stop if outside search range
+        if (area.base >= search_end)
             break;
+
+        // only free areas with default memory type equal to 0
+        if (!(area.memory_type == 0 && area.dma_type == DMAType::Free))
+            continue;
+
+        PAddr aligned_base = Common::AlignUp(std::max(search_start, area.base), alignment);
+
+        if (aligned_base + size > area.GetEnd())
+            continue;
+
+        auto carve_it = CarveDmemArea(aligned_base, size);
+        if (carve_it == dmem_map.end()) {
+            LOG_ERROR(Kernel_Vmm, "CarveDmemArea failed at {:#x} size={:#x}", aligned_base, size);
+            return 0;
         }
 
-        // Update local variables based on the new dmem_area
-        mapping_start = Common::AlignUp(dmem_area->second.base, alignment);
-        mapping_end = mapping_start + size;
+        auto& new_area = carve_it->second;
+        new_area.memory_type = memory_type;
+        new_area.dma_type = DMAType::Allocated;
+
+        return aligned_base;
     }
 
-    if (dmem_area == dmem_map.end()) {
-        // There are no suitable mappings in this range
-        LOG_ERROR(Kernel_Vmm, "Unable to find free direct memory area: size = {:#x}", size);
-        return -1;
-    }
-
-    // Add the allocated region to the list and commit its pages.
-    auto& area = CarveDmemArea(mapping_start, size)->second;
-    area.memory_type = memory_type;
-    area.dma_type = DMAType::Allocated;
-    MergeAdjacent(dmem_map, dmem_area);
-    return mapping_start;
+    LOG_ERROR(Kernel_Vmm, "Unable to find free direct memory area: size = {:#x}", size);
+    return 0;
 }
 
 void MemoryManager::Free(PAddr phys_addr, u64 size) {
