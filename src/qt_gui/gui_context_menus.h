@@ -167,12 +167,14 @@ public:
         QAction* deleteSaveData = new QAction(tr("Delete Save Data"), widget);
         QAction* deleteDLC = new QAction(tr("Delete DLC"), widget);
         QAction* deleteTrophy = new QAction(tr("Delete Trophy"), widget);
+        QAction* deleteShaderCache = new QAction(tr("Delete Shader Cache"), widget);
 
         deleteMenu->addAction(deleteGame);
         deleteMenu->addAction(deleteUpdate);
         deleteMenu->addAction(deleteSaveData);
         deleteMenu->addAction(deleteDLC);
         deleteMenu->addAction(deleteTrophy);
+        deleteMenu->addAction(deleteShaderCache);
 
         menu.addMenu(deleteMenu);
 
@@ -560,6 +562,16 @@ public:
             }
         }
 
+        if (selected == openCustomConfigFolder) {
+            QString customCfgPath;
+            Common::FS::PathToQString(customCfgPath,
+                                      Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs));
+
+            QDir(customCfgPath).mkpath(customCfgPath);
+
+            QDesktopServices::openUrl(QUrl::fromLocalFile(customCfgPath));
+        }
+
         if (selected == &createShortcut) {
             QString targetPath;
             Common::FS::PathToQString(targetPath, m_games[itemID].path);
@@ -668,9 +680,11 @@ public:
         }
 
         if (selected == deleteGame || selected == deleteUpdate || selected == deleteDLC ||
-            selected == deleteSaveData || selected == deleteTrophy) {
+            selected == deleteSaveData || selected == deleteTrophy ||
+            selected == deleteShaderCache) {
             bool error = false;
-            QString folder_path, game_update_path, dlc_path, save_data_path, trophy_data_path;
+            QString folder_path, game_update_path, dlc_path, save_data_path, trophy_data_path,
+                shader_cache_path;
             Common::FS::PathToQString(folder_path, m_games[itemID].path);
             game_update_path = folder_path + "-UPDATE";
             if (!std::filesystem::exists(Common::FS::PathFromQString(game_update_path))) {
@@ -685,6 +699,10 @@ public:
             Common::FS::PathToQString(trophy_data_path,
                                       Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) /
                                           m_games[itemID].serial / "TrophyFiles");
+
+            Common::FS::PathToQString(shader_cache_path,
+                                      Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
+                                          m_games[itemID].serial);
 
             QString message_type;
 
@@ -727,6 +745,16 @@ public:
                 } else {
                     folder_path = trophy_data_path;
                     message_type = tr("Trophy");
+                }
+            } else if (selected == deleteShaderCache) {
+                if (!std::filesystem::exists(Common::FS::PathFromQString(shader_cache_path))) {
+                    QMessageBox::critical(
+                        nullptr, tr("Error"),
+                        QString(tr("This game does not have any saved Shader Cache to delete!")));
+                    error = true;
+                } else {
+                    folder_path = shader_cache_path;
+                    message_type = tr("Shader Cache");
                 }
             }
             if (!error) {
