@@ -185,6 +185,8 @@ bool getRcasEnabled();
 void setRcasEnabled(bool enable);
 bool getLoadAutoPatches();
 void setLoadAutoPatches(bool enable);
+bool isPipelineCacheArchived();
+void setPipelineCacheArchived(bool enable, bool is_game_specific = false);
 
 enum UsbBackendType : int { Real, SkylandersPortal, InfinityBase, DimensionsToypad };
 int getUsbDeviceBackend();

@@ -238,6 +238,7 @@ static ConfigEntry<bool> vkHostMarkers(false);
 static ConfigEntry<bool> vkGuestMarkers(false);
 static ConfigEntry<bool> rdocEnable(false);
 static ConfigEntry<bool> pipelineCacheEnable(false);
+static ConfigEntry<bool> pipelineCacheArchive(false);
 
 // Debug
 static ConfigEntry<bool> isDebugDump(false);
@@ -312,6 +313,14 @@ static std::string trophyKey = "";
 
 bool getShowWelcomeDialog() {
     return showWelcomeDialog;
+}
+
+bool isPipelineCacheArchived() {
+    return pipelineCacheArchive.get();
+}
+
+void setPipelineCacheArchived(bool enable, bool is_game_specific) {
+    pipelineCacheArchive.set(enable, is_game_specific);
 }
 
 bool isPipelineCacheEnabled() {
@@ -1454,6 +1463,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         vkGuestMarkers.setFromToml(vk, "guestMarkers", is_game_specific);
         rdocEnable.setFromToml(vk, "rdocEnable", is_game_specific);
         pipelineCacheEnable.setFromToml(vk, "pipelineCacheEnable", is_game_specific);
+        pipelineCacheArchive.setFromToml(vk, "pipelineCacheArchive", is_game_specific);
     }
     string current_version = {};
 
@@ -1695,6 +1705,7 @@ void save(const std::filesystem::path& path) {
     data["Vulkan"]["guestMarkers"] = vkGuestMarkers.base_value;
     data["Vulkan"]["rdocEnable"] = rdocEnable.base_value;
     data["Vulkan"]["pipelineCacheEnable"] = pipelineCacheEnable.base_value;
+    data["Vulkan"]["pipelineCacheArchive"] = pipelineCacheArchive.base_value;
 
     data["Debug"]["DebugDump"] = isDebugDump.base_value;
     data["Debug"]["CollectShader"] = isShaderDebug.base_value;
@@ -1902,6 +1913,7 @@ void setDefaultValues() {
     vkGuestMarkers = false;
     rdocEnable = false;
     pipelineCacheEnable = false;
+    pipelineCacheArchive = false;
 
     // Debug
     isDebugDump = false;
