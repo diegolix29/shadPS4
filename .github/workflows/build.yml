@@ -173,7 +173,7 @@ jobs:
       with: 
           path: |  
             ${{github.workspace}}/build 
-          key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt cmake/**') }}
+          key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }} 
           restore-keys: | 
             ${{ env.cache-name }}- 
 
@@ -184,7 +184,7 @@ jobs:
       with:
         append-timestamp: false
         create-symlink: true
-        key: ${{env.cache-name}}-${{ hashFiles('**/CMakeLists.txt cmake/**') }}
+        key: ${{env.cache-name}}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
         variant: sccache
 
     - name: Configure CMake
@@ -234,7 +234,7 @@ jobs:
       with: 
           path: |  
             ${{github.workspace}}/build 
-          key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt cmake/**') }} 
+          key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }} 
           restore-keys: | 
             ${{ env.cache-name }}- 
 
@@ -245,7 +245,7 @@ jobs:
       with:
         append-timestamp: false
         create-symlink: true
-        key: ${{env.cache-name}}-${{ hashFiles('**/CMakeLists.txt cmake/**') }}
+        key: ${{env.cache-name}}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
         variant: sccache
 
     - name: Configure CMake

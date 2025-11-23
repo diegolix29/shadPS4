@@ -5,14 +5,10 @@
 
 #include <cstring>
 #include <map>
-#include <unordered_set>
-
 #include <mutex>
 #include <string>
 #include <string_view>
-#include "common/config.h"
 #include "common/enum.h"
-#include "common/memory_patcher.h"
 #include "common/singleton.h"
 #include "common/types.h"
 #include "core/address_space.h"
@@ -245,8 +241,8 @@ public:
         std::memcpy(buffer, reinterpret_cast<void*>(addr), size);
     }
 
-    void WriteBytes(VAddr addr, std::initializer_list<uint8_t> bytes) {
-        std::memcpy(reinterpret_cast<void*>(addr), bytes.begin(), bytes.size());
+    void WriteBytes(VAddr addr, const uint8_t* data, size_t size) {
+        std::memcpy(reinterpret_cast<void*>(addr), data, size);
     }
 
     u64 ClampRangeSize(VAddr virtual_addr, u64 size);
