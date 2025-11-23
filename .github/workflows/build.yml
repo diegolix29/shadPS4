@@ -451,7 +451,7 @@ jobs:
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
 
   pre-release:
-    if: github.ref == 'refs/heads/main' && github.repository == 'diegolix29/shadPS4' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/mainQT' && github.repository == 'diegolix29/shadPS4' && github.event_name == 'push'
     needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt]
     runs-on: ubuntu-latest
     steps:
