@@ -8,6 +8,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
+#include <QProcess>
 #include <QPushButton>
 #include <QVBoxLayout>
 
@@ -207,6 +208,108 @@ QString ModManagerDialog::resolveOriginalFile(const QString& rel) const {
     return QString();
 }
 
+bool ModManagerDialog::needsDvdrootPrefix(const QString& modName) const {
+    if (!(gameSerial == "CUSA03173" || gameSerial == "CUSA00900" || gameSerial == "CUSA00299" ||
+          gameSerial == "CUSA00207"))
+        return false;
+
+    static const QSet<QString> bloodborneRootFolders = {
+        "action", "chr",    "event", "facegen", "map",   "menu",     "movie",
+        "msg",    "mtd",    "obj",   "other",   "param", "paramdef", "parts",
+        "remo",   "script", "sfx",   "shader",  "sound"};
+
+    QString modRoot = availablePath + "/" + modName;
+
+    QDir dir(modRoot);
+    for (const QString& entry : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        if (bloodborneRootFolders.contains(entry))
+            return true;
+        if (entry == "dvdroot_ps4")
+            return false;
+    }
+
+    return false;
+}
+
+bool ModManagerDialog::ExtractArchive(const QString& archivePath, const QString& outputPath) {
+    QFileInfo info(archivePath);
+    QString ext = info.suffix().toLower();
+
+#ifdef _WIN32
+    if (ext == "zip") {
+        int result =
+            QProcess::execute("powershell.exe", {"-NoProfile", "-Command",
+                                                 "Expand-Archive -LiteralPath \"" + archivePath +
+                                                     "\" "
+                                                     "-DestinationPath \"" +
+                                                     outputPath + "\" -Force"});
+        return (result == 0);
+    }
+
+    {
+        QStringList args;
+        args << "x" << archivePath << QString("-o%1").arg(outputPath) << "-y";
+
+        int result = QProcess::execute("7z", args);
+        if (result == 0)
+            return true;
+    }
+
+    return false;
+
+#elif __APPLE__
+
+    if (ext == "zip") {
+        int result = QProcess::execute("unzip", {"-o", archivePath, "-d", outputPath});
+        return (result == 0);
+    }
+
+    if (ext == "tar" || ext == "gz" || ext == "tgz") {
+        int result = QProcess::execute("tar", {"-xf", archivePath, "-C", outputPath});
+        return (result == 0);
+    }
+
+    {
+        QStringList args;
+        args << "x" << archivePath << QString("-o%1").arg(outputPath) << "-y";
+
+        int result = QProcess::execute("7z", args);
+        if (result == 0)
+            return true;
+    }
+
+    return false;
+
+#else
+
+    if (ext == "zip") {
+        int result = QProcess::execute("unzip", {"-o", archivePath, "-d", outputPath});
+        if (result == 0)
+            return true;
+    }
+
+    if (ext == "tar" || ext == "gz" || ext == "tgz") {
+        int result = QProcess::execute("tar", {"-xf", archivePath, "-C", outputPath});
+        if (result == 0)
+            return true;
+    }
+
+    {
+        QStringList args;
+        args << "x" << archivePath << QString("-o%1").arg(outputPath) << "-y";
+
+        if (QProcess::execute("7z", args) == 0)
+            return true;
+
+        // Try unrar
+        if (QProcess::execute("unrar", args) == 0)
+            return true;
+    }
+
+    return false;
+#endif
+}
+
 void ModManagerDialog::installMod(const QString& modName) {
     QString src = availablePath + "/" + modName;
     if (!QDir(src).exists())
@@ -220,10 +323,15 @@ void ModManagerDialog::installMod(const QString& modName) {
         it.next();
         if (!it.fileInfo().isFile())
             continue;
-
         QString rel = QDir(src).relativeFilePath(it.filePath());
 
         QString gameFile = resolveOriginalFile(rel);
+
+        if (needsDvdrootPrefix(modName)) {
+            if (!rel.startsWith("dvdroot_ps4/")) {
+                rel = "dvdroot_ps4/" + rel;
+            }
+        }
 
         QString destPath = overlayRoot + "/" + rel;
         QDir().mkpath(QFileInfo(destPath).absolutePath());
@@ -293,30 +401,53 @@ void ModManagerDialog::activateSelected() {
 }
 
 void ModManagerDialog::installModFromDisk() {
-    QString dir = QFileDialog::getExistingDirectory(this, "Select Mod Folder");
-    if (dir.isEmpty())
+    QString path =
+        QFileDialog::getOpenFileName(this, "Select Mod Folder or Archive", QString(),
+                                     "Mods (*.zip *.rar *.7z *.tar *.gz *.tgz);;All Files (*.*)");
+
+    if (path.isEmpty())
         return;
 
-    QFileInfo info(dir);
-    QString modName = info.fileName();
+    QFileInfo info(path);
 
+    if (info.isFile()) {
+        QString modName = info.baseName();
+        QString dst = availablePath + "/" + modName;
+
+        if (QDir(dst).exists()) {
+            QMessageBox::warning(this, "Mod Exists", "This mod already exists.");
+            return;
+        }
+
+        QDir().mkpath(dst);
+
+        if (!ExtractArchive(path, dst)) {
+            QMessageBox::critical(this, "Extraction Failed", "Could not extract the archive.");
+            return;
+        }
+
+        scanAvailableMods();
+        return;
+    }
+
+    QString modName = info.fileName();
     QString dst = availablePath + "/" + modName;
 
     if (QDir(dst).exists()) {
-        QMessageBox::warning(this, "Mod Exists", "This mod already exists in Available.");
+        QMessageBox::warning(this, "Mod Exists", "This mod already exists.");
         return;
     }
 
     QDir().mkpath(dst);
 
-    QDirIterator it(dir, QDirIterator::Subdirectories);
+    QDirIterator it(path, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         it.next();
 
         if (!it.fileInfo().isFile())
             continue;
 
-        QString rel = QDir(dir).relativeFilePath(it.filePath());
+        QString rel = QDir(path).relativeFilePath(it.filePath());
         QString outFile = dst + "/" + rel;
 
         QDir().mkpath(QFileInfo(outFile).absolutePath());

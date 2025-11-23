@@ -35,6 +35,9 @@ private:
 
     QString resolveOriginalFile(const QString& rel) const;
 
+    bool needsDvdrootPrefix(const QString& modName) const;
+    bool ExtractArchive(const QString& archivePath, const QString& outputPath);
+
     QString gameSerial;
     QString gamePath;
     QSet<QString> greyedOutMods;
