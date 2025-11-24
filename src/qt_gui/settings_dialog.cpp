@@ -621,7 +621,12 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->updateCompatibilityButton->installEventFilter(this);
 
         // User
-        ui->userName->installEventFilter(this);
+        auto names = Config::getUserNames();
+        ui->userName1LineEdit->installEventFilter(this);
+        ui->userName2LineEdit->installEventFilter(this);
+        ui->userName3LineEdit->installEventFilter(this);
+        ui->userName4LineEdit->installEventFilter(this);
+
         ui->disableTrophycheckBox->installEventFilter(this);
         ui->OpenCustomTrophyLocationButton->installEventFilter(this);
         ui->label_Trophy->installEventFilter(this);
@@ -854,8 +859,12 @@ void SettingsDialog::LoadValuesFromConfig() {
     }
     ui->logFilterLineEdit->setText(
         QString::fromStdString(toml::find_or<std::string>(data, "General", "logFilter", "")));
-    ui->userNameLineEdit->setText(
-        QString::fromStdString(toml::find_or<std::string>(data, "General", "userName", "shadPS4")));
+    auto names = Config::getUserNames();
+    ui->userName1LineEdit->setText(QString::fromStdString(names[0]));
+    ui->userName2LineEdit->setText(QString::fromStdString(names[1]));
+    ui->userName3LineEdit->setText(QString::fromStdString(names[2]));
+    ui->userName4LineEdit->setText(QString::fromStdString(names[3]));
+
     ui->trophyKeyLineEdit->setText(
         QString::fromStdString(toml::find_or<std::string>(data, "Keys", "TrophyKey", "")));
     ui->trophyKeyLineEdit->setEchoMode(QLineEdit::Password);
@@ -1223,7 +1232,10 @@ void SettingsDialog::UpdateSettings() {
     Config::setLogType(logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString());
     Config::setMicDevice(ui->micComboBox->currentData().toString().toStdString());
     Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());
-    Config::setUserName(ui->userNameLineEdit->text().toStdString());
+    Config::setUserName(0, ui->userName1LineEdit->text().toStdString());
+    Config::setUserName(1, ui->userName2LineEdit->text().toStdString());
+    Config::setUserName(2, ui->userName3LineEdit->text().toStdString());
+    Config::setUserName(3, ui->userName4LineEdit->text().toStdString());
     Config::setTrophyKey(ui->trophyKeyLineEdit->text().toStdString());
     Config::setCursorState(ui->hideCursorComboBox->currentIndex());
     Config::setCursorHideTimeout(ui->idleTimeoutSpinBox->value());

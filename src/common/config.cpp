@@ -47,7 +47,7 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
 
     if constexpr (std::is_same_v<T, int>) {
         if (it->second.is_integer()) {
-            return static_cast<int>(toml::get<int>(it->second));
+            return static_cast<s32>(toml::get<int>(it->second));
         }
     } else if constexpr (std::is_same_v<T, unsigned int>) {
         if (it->second.is_integer()) {
@@ -55,15 +55,32 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         }
     } else if constexpr (std::is_same_v<T, double>) {
         if (it->second.is_floating()) {
-            return toml::get<double>(it->second);
+            return toml::get<T>(it->second);
         }
     } else if constexpr (std::is_same_v<T, std::string>) {
         if (it->second.is_string()) {
-            return toml::get<std::string>(it->second);
+            return toml::get<T>(it->second);
         }
     } else if constexpr (std::is_same_v<T, bool>) {
         if (it->second.is_boolean()) {
-            return toml::get<bool>(it->second);
+            return toml::get<T>(it->second);
+        }
+    } else if constexpr (std::is_same_v<T, std::array<string, 4>>) {
+        if (it->second.is_array()) {
+            const auto& arr = it->second.as_array();
+            if (arr.size() != 4)
+                return std::nullopt;
+
+            std::array<string, 4> out{};
+
+            for (size_t i = 0; i < 4; i++) {
+                if (!arr[i].is_string())
+                    return std::nullopt;
+
+                out[i] = arr[i].as_string();
+            }
+
+            return out;
         }
     } else {
         static_assert([] { return false; }(), "Unsupported type in get_optional<T>");
@@ -115,6 +132,9 @@ public:
     void set(const T value, bool is_game_specific = false) {
         is_game_specific ? game_specific_value = value : base_value = value;
     }
+    void setDefault(bool is_game_specific = false) {
+        is_game_specific ? game_specific_value = default_value : base_value = default_value;
+    }
     void setTomlValue(toml::ordered_value& data, const std::string& header, const std::string& key,
                       bool is_game_specific = false) {
         if (is_game_specific) {
@@ -128,7 +148,6 @@ public:
     //     return get();
     // }
 };
-
 // General
 static ConfigEntry<bool> isNeo(false);
 static ConfigEntry<bool> isDevKit(false);
@@ -137,9 +156,12 @@ static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
 static ConfigEntry<std::string> logFilter("");
 static ConfigEntry<std::string> logType("sync");
-// static ConfigEntry<string> userName("shadPS4");
-static std::array<std::string, 4> userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
-
+static ConfigEntry<std::array<std::string, 4>> userNames({
+    "shadPS4",
+    "shadps4-2",
+    "shadPS4-3",
+    "shadPS4-4",
+});
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
@@ -601,8 +623,12 @@ std::string getLogType() {
     return logType.get();
 }
 
-std::string getUserName() {
-    return userNames[0];
+string getUserName(int id) {
+    return userNames.get()[id];
+}
+
+std::array<string, 4> const getUserNames() {
+    return userNames.get();
 }
 
 std::string getUpdateChannel() {
@@ -974,8 +1000,10 @@ void setSeparateLogFilesEnabled(bool enabled) {
     isSeparateLogFilesEnabled.base_value = enabled;
 }
 
-void setUserName(const std::string& name) {
-    userNames[0] = name;
+void setUserName(int id, const std::string& name) {
+    auto arr = userNames.get();
+    arr[id] = name;
+    userNames.set(arr);
 }
 
 void setUpdateChannel(const std::string& type) {
@@ -1293,7 +1321,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         enableDiscordRPC = toml::find_or<bool>(general, "enableDiscordRPC", true);
         logFilter.setFromToml(general, "logFilter", is_game_specific);
         logType.setFromToml(general, "logType", is_game_specific);
-        // userName.setFromToml(general, "userName", is_game_specific);
+        userNames.setFromToml(general, "userName", is_game_specific);
 
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
@@ -1596,7 +1624,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["logFilter"] = logFilter.base_value;
     data["General"]["logType"] = logType.base_value;
-    // data["General"]["userName"] = userNames;
+    data["General"]["userName"] = userNames.base_value;
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;

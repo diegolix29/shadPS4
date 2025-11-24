@@ -441,8 +441,11 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
             // Needs lock here as can be concurrently read by `sceVideoOutGetVblankStatus`
             std::scoped_lock lock{main_port.vo_mutex};
             vblank_status.count++;
-            vblank_status.process_time = Libraries::Kernel::sceKernelGetProcessTime();
-            vblank_status.tsc = Libraries::Kernel::sceKernelReadTsc();
+            if (main_port.flip_rate == 0 ||
+                (vblank_status.count - 1) % (main_port.flip_rate + 1) == 0) {
+                vblank_status.process_time = Libraries::Kernel::sceKernelGetProcessTime();
+                vblank_status.tsc = Libraries::Kernel::sceKernelReadTsc();
+            }
             main_port.vblank_cv.notify_all();
         }
 

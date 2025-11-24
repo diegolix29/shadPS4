@@ -1095,7 +1095,7 @@ void BufferCache::RunGarbageCollector() {
 
     if (total_used_memory >= critical_gc_memory) {
         max_deletions = 32;
-        lru_cache.ForEachItemBelow(gc_tick - (ticks_to_destroy / 2), clean_up);
+        lru_cache.ForEachItemBelow(gc_tick - ticks_to_destroy, clean_up);
     }
 
     RunGarbageCollectorAsync();

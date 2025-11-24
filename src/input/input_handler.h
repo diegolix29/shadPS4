@@ -137,6 +137,7 @@ const std::map<std::string, u32> string_to_cbutton_map = {
     // this is only for input
     {"back", SDL_GAMEPAD_BUTTON_BACK},
     {"share", SDL_GAMEPAD_BUTTON_BACK},
+    {"home", SDL_GAMEPAD_BUTTON_GUIDE},
     {"lpaddle_high", SDL_GAMEPAD_BUTTON_LEFT_PADDLE1},
     {"lpaddle_low", SDL_GAMEPAD_BUTTON_LEFT_PADDLE2},
     {"rpaddle_high", SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1},
@@ -426,8 +427,8 @@ class ControllerOutput {
 public:
     static void GetGetGamepadIndexFromSDLJoystickID(const SDL_JoystickID id) {}
     static void LinkJoystickAxes();
-    static GameController* GetController() {
-        return controller;
+    static GameController* GetController(u8 id) {
+        return controllers.GetController(id);
     }
     u32 button;
     u32 axis;
@@ -589,8 +590,9 @@ enum class HotkeyInputType {
 bool UpdatePressedKeys(InputEvent event);
 
 void ActivateOutputsFromInputs();
-bool HasUserHotkeyDefined(HotkeyPad pad, HotkeyInputType type = HotkeyInputType::Any);
-bool ControllerPressedOnce(std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons);
-bool ControllerComboPressedOnce(Libraries::Pad::OrbisPadButtonDataOffset holdButton,
+bool HasUserHotkeyDefined(int controller_index, HotkeyPad pad, HotkeyInputType type);
+bool ControllerComboPressedOnce(u8 gamepad_id, Libraries::Pad::OrbisPadButtonDataOffset holdButton,
                                 Libraries::Pad::OrbisPadButtonDataOffset pressButton);
+bool ControllerPressedOnce(u8 gamepad_id,
+                           std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons);
 } // namespace Input

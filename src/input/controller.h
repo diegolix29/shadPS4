@@ -131,8 +131,13 @@ public:
         }
         return controllers[i];
     }
+    GameController* GetController(u8 id) const {
+        if (id >= controllers.size())
+            return nullptr;
+        return controllers[id];
+    }
     static void TryOpenSDLControllers(GameControllers& controllers);
-    static u8 GetGamepadIndexFromJoystickId(SDL_JoystickID id);
+    static u8 GetGamepadIndexFromJoystickId(SDL_JoystickID id, const GameControllers& ctrls);
 };
 
 } // namespace Input

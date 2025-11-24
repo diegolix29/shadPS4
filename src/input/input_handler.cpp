@@ -107,6 +107,8 @@ static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
         return OPBDO::TouchPad;
     case SDL_GAMEPAD_BUTTON_BACK:
         return OPBDO::TouchPad;
+    case SDL_GAMEPAD_BUTTON_GUIDE:
+        return OPBDO::Home;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
         return OPBDO::L1;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
@@ -476,13 +478,18 @@ InputEvent InputBinding::GetInputEventFromSDLEvent(const SDL_Event& e) {
         return InputEvent(InputType::KeyboardMouse, GetMouseWheelEvent(e),
                           e.type == SDL_EVENT_MOUSE_WHEEL, 0);
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-    case SDL_EVENT_GAMEPAD_BUTTON_UP:
-        gamepad = GameControllers::GetGamepadIndexFromJoystickId(e.gbutton.which) + 1;
+    case SDL_EVENT_GAMEPAD_BUTTON_UP: {
+        const auto& ctrls = *Common::Singleton<GameControllers>::Instance();
+        gamepad = GameControllers::GetGamepadIndexFromJoystickId(e.gbutton.which, ctrls) + 1;
         return InputEvent({InputType::Controller, (u32)e.gbutton.button, gamepad}, e.gbutton.down,
                           0);
-    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-        gamepad = GameControllers::GetGamepadIndexFromJoystickId(e.gaxis.which) + 1;
+    }
+
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+        const auto& ctrls = *Common::Singleton<GameControllers>::Instance();
+        gamepad = GameControllers::GetGamepadIndexFromJoystickId(e.gaxis.which, ctrls) + 1;
         return InputEvent({InputType::Axis, (u32)e.gaxis.axis, gamepad}, true, e.gaxis.value / 256);
+    }
     default:
         return InputEvent();
     }
@@ -552,7 +559,7 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
     old_button_state = new_button_state;
     old_param = *new_param;
     if (button != SDL_GAMEPAD_BUTTON_INVALID) {
-        auto controller = controllers[0];
+        auto controller = controllers[gamepad_index];
         switch (button) {
         case SDL_GAMEPAD_BUTTON_TOUCHPAD_LEFT:
             controller->SetTouchpadState(0, new_button_state, 0.25f, 0.5f);
@@ -785,15 +792,12 @@ InputEvent BindingConnection::ProcessBinding() {
 }
 
 bool ControllerPressedOnce(
-    std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons) {
+    u8 gamepad_id, std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons) {
     static std::unordered_map<u32, bool> combo_states;
-
-    auto* controller = ControllerOutput::GetController();
-    if (!controller) {
+    auto* controllers = ControllerOutput::GetController(gamepad_id);
+    if (!controllers)
         return false;
-    }
-
-    const auto& state = controller->GetLastState();
+    const auto& state = controllers->GetLastState();
     u32 comboMask = 0;
     for (auto button : buttons) {
         comboMask |= static_cast<u32>(button);
@@ -812,15 +816,13 @@ bool ControllerPressedOnce(
     return false;
 }
 
-bool ControllerComboPressedOnce(Libraries::Pad::OrbisPadButtonDataOffset holdButton,
+bool ControllerComboPressedOnce(u8 gamepad_id, Libraries::Pad::OrbisPadButtonDataOffset holdButton,
                                 Libraries::Pad::OrbisPadButtonDataOffset pressButton) {
     static std::unordered_map<u32, bool> press_states;
-
-    auto* controller = ControllerOutput::GetController();
+    auto* controller = ControllerOutput::GetController(gamepad_id);
     if (!controller) {
         return false;
     }
-
     const auto& state = controller->GetLastState();
     u32 pressedButtons = static_cast<u32>(state.buttonsState);
 
@@ -840,43 +842,43 @@ bool ControllerComboPressedOnce(Libraries::Pad::OrbisPadButtonDataOffset holdBut
     return false;
 }
 
-bool HasUserHotkeyDefined(HotkeyPad pad, HotkeyInputType type) {
-    const ControllerOutput* target_output = nullptr;
-
+bool HasUserHotkeyDefined(int controller_index, HotkeyPad pad, HotkeyInputType type) {
+    if (controller_index < 0 || controller_index >= output_arrays.size())
+        return false;
+    const ControllerAllOutputs& controller = output_arrays[controller_index];
+    int hotkey_index = -1;
     switch (pad) {
     case HotkeyPad::SimpleFpsPad:
-        target_output = &*std::ranges::find(output_array, ControllerOutput(HOTKEY_SIMPLE_FPS));
+        hotkey_index = 26;
         break;
     case HotkeyPad::FullscreenPad:
-        target_output = &*std::ranges::find(output_array, ControllerOutput(HOTKEY_FULLSCREEN));
+        hotkey_index = 24;
         break;
     case HotkeyPad::PausePad:
-        target_output = &*std::ranges::find(output_array, ControllerOutput(HOTKEY_PAUSE));
+        hotkey_index = 25;
         break;
     case HotkeyPad::QuitPad:
-        target_output = &*std::ranges::find(output_array, ControllerOutput(HOTKEY_QUIT));
+        hotkey_index = 27;
         break;
     default:
         return false;
     }
 
+    const ControllerOutput* target_output = &controller.data[hotkey_index];
     for (const auto& conn : connections) {
         if (conn.output == target_output) {
-            if (type == HotkeyInputType::Any) {
+            if (type == HotkeyInputType::Any)
                 return true;
-            }
             if (type == HotkeyInputType::Keyboard &&
                 (conn.binding.keys[0].type == InputType::KeyboardMouse ||
                  conn.binding.keys[1].type == InputType::KeyboardMouse ||
-                 conn.binding.keys[2].type == InputType::KeyboardMouse)) {
+                 conn.binding.keys[2].type == InputType::KeyboardMouse))
                 return true;
-            }
             if (type == HotkeyInputType::Controller &&
                 (conn.binding.keys[0].type == InputType::Controller ||
                  conn.binding.keys[1].type == InputType::Controller ||
-                 conn.binding.keys[2].type == InputType::Controller)) {
+                 conn.binding.keys[2].type == InputType::Controller))
                 return true;
-            }
         }
     }
     return false;

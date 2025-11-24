@@ -70,7 +70,8 @@ int getAudioVolume();
 
 std::string getLogFilter();
 std::string getLogType();
-std::string getUserName();
+std::string getUserName(int id);
+std::array<std::string, 4> const getUserNames();
 std::string getUpdateChannel();
 std::string getChooseHomeTab();
 
@@ -205,7 +206,7 @@ bool GetOverrideControllerColor();
 void SetOverrideControllerColor(bool enable);
 int* GetControllerCustomColor();
 void SetControllerCustomColor(int r, int b, int g);
-void setUserName(const std::string& type);
+void setUserName(int id, const std::string& name);
 void setUpdateChannel(const std::string& type);
 void setChooseHomeTab(const std::string& type);
 void setGameDirectories(const std::vector<std::filesystem::path>& dirs_config);
@@ -219,7 +220,6 @@ void setPSNSignedIn(bool sign);
 void setShaderSkipsEnabled(bool enable);
 
 void setAudioVolume(int volume);
-void setSeparateUpdateEnabled(bool use);
 
 std::string getMainOutputDevice();
 void setMainOutputDevice(std::string device);

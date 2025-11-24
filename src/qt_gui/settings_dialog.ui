@@ -1437,16 +1437,75 @@
           <item>
            <layout class="QHBoxLayout" name="hLayoutUserName">
             <item>
-             <widget class="QGroupBox" name="userName">
-              <property name="title">
-               <string>Username</string>
-              </property>
-              <layout class="QVBoxLayout" name="userNameLayout">
-               <item>
-                <widget class="QLineEdit" name="userNameLineEdit"/>
-               </item>
-              </layout>
-             </widget>
+				<widget class="QGroupBox" name="userNamesGroup">
+					<property name="title">
+						<string>Usernames</string>
+					</property>
+
+					<layout class="QVBoxLayout" name="userNamesLayout">
+
+						<item>
+							<layout class="QHBoxLayout" name="user1Layout">
+								<item>
+									<widget class="QLabel" name="labelUser1">
+										<property name="text">
+											<string>Player 1</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLineEdit" name="userName1LineEdit"/>
+								</item>
+							</layout>
+						</item>
+
+						<item>
+							<layout class="QHBoxLayout" name="user2Layout">
+								<item>
+									<widget class="QLabel" name="labelUser2">
+										<property name="text">
+											<string>Player 2</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLineEdit" name="userName2LineEdit"/>
+								</item>
+							</layout>
+						</item>
+
+						<item>
+							<layout class="QHBoxLayout" name="user3Layout">
+								<item>
+									<widget class="QLabel" name="labelUser3">
+										<property name="text">
+											<string>Player 3</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLineEdit" name="userName3LineEdit"/>
+								</item>
+							</layout>
+						</item>
+
+						<item>
+							<layout class="QHBoxLayout" name="user4Layout">
+								<item>
+									<widget class="QLabel" name="labelUser4">
+										<property name="text">
+											<string>Player 4</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLineEdit" name="userName4LineEdit"/>
+								</item>
+							</layout>
+						</item>
+
+					</layout>
+				</widget>
             </item>
            </layout>
           </item>

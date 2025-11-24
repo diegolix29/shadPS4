@@ -62,6 +62,8 @@ static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
         return OrbisPadButtonDataOffset::TouchPad;
     case SDL_GAMEPAD_BUTTON_BACK:
         return OrbisPadButtonDataOffset::TouchPad;
+    case SDL_GAMEPAD_BUTTON_GUIDE:
+        return OrbisPadButtonDataOffset::None;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
         return OrbisPadButtonDataOffset::L1;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
@@ -231,7 +233,7 @@ void WindowSDL::WaitEvent() {
         break;
     case SDL_EVENT_GAMEPAD_SENSOR_UPDATE: {
         int controller_id =
-            Input::GameControllers::GetGamepadIndexFromJoystickId(event.gsensor.which);
+            Input::GameControllers::GetGamepadIndexFromJoystickId(event.gsensor.which, controllers);
         switch ((SDL_SensorType)event.gsensor.sensor) {
         case SDL_SENSOR_GYRO:
             controllers[controller_id]->Gyro(0, event.gsensor.data);
@@ -461,21 +463,42 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
     // the touchpad button shouldn't be rebound to anything else,
     // as it would break the entire touchpad handling
     // You can still bind other things to it though
+    // the touchpad button shouldn't be rebound...
     if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
-        controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gbutton.which)]
+        controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gbutton.which,
+                                                                          controllers)]
             ->CheckButton(0, OrbisPadButtonDataOffset::TouchPad, input_down);
         return;
+    }
+
+    if (event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
+        int idx = Input::GameControllers::GetGamepadIndexFromJoystickId(event->gbutton.which,
+                                                                        controllers);
+        controllers[idx]->CheckButton(0, OrbisPadButtonDataOffset::Home, input_down);
+        const bool blockHardcoded = Config::DisableHardcodedHotkeys();
+        if (blockHardcoded) {
+
+            if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+                SDL_Event quit_event;
+                SDL_memset(&quit_event, 0, sizeof(quit_event));
+                quit_event.type = SDL_EVENT_QUIT_DIALOG;
+                SDL_PushEvent(&quit_event);
+            }
+            return;
+        }
     }
 
     switch (event->type) {
     case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
         switch ((SDL_SensorType)event->gsensor.sensor) {
         case SDL_SENSOR_GYRO:
-            controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gsensor.which)]
+            controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gsensor.which,
+                                                                              controllers)]
                 ->Gyro(0, event->gsensor.data);
             break;
         case SDL_SENSOR_ACCEL:
-            controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gsensor.which)]
+            controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gsensor.which,
+                                                                              controllers)]
                 ->Acceleration(0, event->gsensor.data);
             break;
         default:
@@ -485,7 +508,8 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
     case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
     case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
     case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
-        controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gtouchpad.which)]
+        controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gtouchpad.which,
+                                                                          controllers)]
             ->SetTouchpadState(event->gtouchpad.finger,
                                event->type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP, event->gtouchpad.x,
                                event->gtouchpad.y);

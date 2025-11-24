@@ -380,10 +380,14 @@ u32 GameController::Poll() {
     return 100;
 }
 
-u8 GameControllers::GetGamepadIndexFromJoystickId(SDL_JoystickID id) {
-    s32 index = SDL_GetGamepadPlayerIndex(SDL_GetGamepadFromID(id));
-    LOG_TRACE(Input, "Gamepad index: {}", index);
-    return index;
+u8 GameControllers::GetGamepadIndexFromJoystickId(SDL_JoystickID id, const GameControllers& ctrls) {
+    for (int i = 0; i < 4; i++) {
+        if (ctrls.controllers[i]->m_sdl_gamepad &&
+            SDL_GetGamepadID(ctrls.controllers[i]->m_sdl_gamepad) == id) {
+            return i;
+        }
+    }
+    return 0; // fallback
 }
 
 } // namespace Input
