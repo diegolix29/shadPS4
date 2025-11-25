@@ -47,7 +47,7 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
 
     if constexpr (std::is_same_v<T, int>) {
         if (it->second.is_integer()) {
-            return static_cast<s32>(toml::get<int>(it->second));
+            return static_cast<int>(toml::get<int>(it->second));
         }
     } else if constexpr (std::is_same_v<T, unsigned int>) {
         if (it->second.is_integer()) {
@@ -55,15 +55,15 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         }
     } else if constexpr (std::is_same_v<T, double>) {
         if (it->second.is_floating()) {
-            return toml::get<T>(it->second);
+            return toml::get<double>(it->second);
         }
     } else if constexpr (std::is_same_v<T, std::string>) {
         if (it->second.is_string()) {
-            return toml::get<T>(it->second);
+            return toml::get<std::string>(it->second);
         }
     } else if constexpr (std::is_same_v<T, bool>) {
         if (it->second.is_boolean()) {
-            return toml::get<T>(it->second);
+            return toml::get<bool>(it->second);
         }
     } else if constexpr (std::is_same_v<T, std::array<string, 4>>) {
         if (it->second.is_array()) {
@@ -167,7 +167,8 @@ static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
 static ConfigEntry<bool> pauseOnUnfocus(false);
 static bool showWelcomeDialog = true;
-static ConfigEntry<bool> disable_hardcoded_hotkeys(false);
+static ConfigEntry<bool> isDisableHardcodedHotkeys(false);
+static ConfigEntry<bool> homeButtonHotkey(false);
 static bool isAlwaysShowChangelog = false;
 static ConfigEntry<std::string> isSideTrophy("right");
 static ConfigEntry<bool> isConnectedToNetwork(false);
@@ -238,7 +239,7 @@ static ConfigEntry<bool> vkHostMarkers(false);
 static ConfigEntry<bool> vkGuestMarkers(false);
 static ConfigEntry<bool> rdocEnable(false);
 static ConfigEntry<bool> pipelineCacheEnable(false);
-static ConfigEntry<bool> pipelineCacheArchive(false);
+static ConfigEntry<bool> pipelineCacheArchive(true);
 
 // Debug
 static ConfigEntry<bool> isDebugDump(false);
@@ -705,11 +706,19 @@ std::string sideTrophy() {
 }
 
 bool DisableHardcodedHotkeys() {
-    return disable_hardcoded_hotkeys.get();
+    return isDisableHardcodedHotkeys.get();
 }
 
 void setDisableHardcodedHotkeys(bool disable) {
-    disable_hardcoded_hotkeys.base_value = disable;
+    isDisableHardcodedHotkeys.base_value = disable;
+}
+
+bool UseHomeButtonForHotkeys() {
+    return homeButtonHotkey.get();
+}
+
+void setUseHomeButtonForHotkeys(bool disable) {
+    homeButtonHotkey.base_value = disable;
 }
 
 bool nullGpu() {
@@ -1359,7 +1368,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         showWelcomeDialog = toml::find_or<bool>(general, "showWelcomeDialog", true);
 
         isAlwaysShowChangelog = toml::find_or<bool>(general, "alwaysShowChangelog", false);
-        disable_hardcoded_hotkeys.setFromToml(general, "DisableHardcodedHotkeys", is_game_specific);
+        isDisableHardcodedHotkeys.setFromToml(general, "DisableHardcodedHotkeys", is_game_specific);
+        homeButtonHotkey.setFromToml(general, "UseHomeButtonForHotkeys", is_game_specific);
         isSideTrophy.setFromToml(general, "sideTrophy", is_game_specific);
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
@@ -1642,7 +1652,8 @@ void save(const std::filesystem::path& path) {
     data["General"]["pauseOnUnfocus"] = pauseOnUnfocus.base_value;
     data["General"]["showWelcomeDialog"] = showWelcomeDialog;
     data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
-    data["General"]["DisableHardcodedHotkeys"] = disable_hardcoded_hotkeys.base_value;
+    data["General"]["DisableHardcodedHotkeys"] = isDisableHardcodedHotkeys.base_value;
+    data["General"]["UseHomeButtonForHotkeys"] = homeButtonHotkey.base_value;
     data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
     data["General"]["autoRestartGame"] = autoRestartGame;
     data["General"]["restartWithBaseGame"] = restartWithBaseGame;
@@ -1836,7 +1847,8 @@ void setDefaultValues() {
     playBGM = false;
     BGMvolume = 50;
     enableDiscordRPC = true;
-    disable_hardcoded_hotkeys = false;
+    isDisableHardcodedHotkeys = false;
+    homeButtonHotkey = false;
     logFilter = "";
     logType = "sync";
     userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
@@ -1913,7 +1925,7 @@ void setDefaultValues() {
     vkGuestMarkers = false;
     rdocEnable = false;
     pipelineCacheEnable = false;
-    pipelineCacheArchive = false;
+    pipelineCacheArchive = true;
 
     // Debug
     isDebugDump = false;

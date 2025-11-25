@@ -950,6 +950,9 @@ void ControlSettings::processSDLEvents(int Type, int Input, int Value) {
             case SDL_GAMEPAD_BUTTON_START:
                 pressedButtons.insert(12, "options");
                 break;
+            case SDL_GAMEPAD_BUTTON_GUIDE:
+                pressedButtons.insert(212, "home");
+                break;
             default:
                 break;
             }

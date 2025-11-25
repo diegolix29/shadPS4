@@ -841,6 +841,9 @@ void Hotkeys::processSDLEvents(int Type, int Input, int Value) {
             case SDL_GAMEPAD_BUTTON_BACK:
                 pressedButtons.insert(11, "back");
                 break;
+            case SDL_GAMEPAD_BUTTON_GUIDE:
+                pressedButtons.insert(21, "home");
+                break;
             case SDL_GAMEPAD_BUTTON_START:
                 pressedButtons.insert(12, "options");
                 break;

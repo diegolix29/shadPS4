@@ -63,7 +63,7 @@ static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
     case SDL_GAMEPAD_BUTTON_BACK:
         return OrbisPadButtonDataOffset::TouchPad;
     case SDL_GAMEPAD_BUTTON_GUIDE:
-        return OrbisPadButtonDataOffset::None;
+        return OrbisPadButtonDataOffset::Home;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
         return OrbisPadButtonDataOffset::L1;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
@@ -437,15 +437,6 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
         SDL_AddTimer(33, wheelOffCallback, (void*)copy);
     }
 
-    if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-        event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
-        SDL_Event quit_event;
-        SDL_memset(&quit_event, 0, sizeof(quit_event));
-        quit_event.type = SDL_EVENT_QUIT_DIALOG;
-        SDL_PushEvent(&quit_event);
-        return;
-    }
-
     // add/remove it from the list
     bool inputs_changed = Input::UpdatePressedKeys(input_event);
 
@@ -456,75 +447,69 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
 }
 
 void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
-    bool input_down = event->type == SDL_EVENT_GAMEPAD_AXIS_MOTION ||
-                      event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+    bool input_down = false;
+    if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN)
+        input_down = true;
+    else if (event->type == SDL_EVENT_GAMEPAD_BUTTON_UP)
+        input_down = false;
+
     Input::InputEvent input_event = Input::InputBinding::GetInputEventFromSDLEvent(*event);
 
-    // the touchpad button shouldn't be rebound to anything else,
-    // as it would break the entire touchpad handling
-    // You can still bind other things to it though
-    // the touchpad button shouldn't be rebound...
-    if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
-        controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gbutton.which,
-                                                                          controllers)]
-            ->CheckButton(0, OrbisPadButtonDataOffset::TouchPad, input_down);
-        return;
-    }
-
-    if (event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
+    if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ||
+        event->type == SDL_EVENT_GAMEPAD_BUTTON_UP) {
         int idx = Input::GameControllers::GetGamepadIndexFromJoystickId(event->gbutton.which,
                                                                         controllers);
-        controllers[idx]->CheckButton(0, OrbisPadButtonDataOffset::Home, input_down);
-        const bool blockHardcoded = Config::DisableHardcodedHotkeys();
-        if (blockHardcoded) {
 
-            if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-                SDL_Event quit_event;
-                SDL_memset(&quit_event, 0, sizeof(quit_event));
+        if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
+            controllers[idx]->CheckButton(0, OrbisPadButtonDataOffset::TouchPad, input_down);
+            return;
+        }
+
+        if (event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
+            controllers[idx]->CheckButton(0, OrbisPadButtonDataOffset::Home, input_down);
+
+            if (Config::DisableHardcodedHotkeys() && event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+                SDL_Event quit_event{};
                 quit_event.type = SDL_EVENT_QUIT_DIALOG;
                 SDL_PushEvent(&quit_event);
             }
-            return;
         }
     }
 
     switch (event->type) {
-    case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
+    case SDL_EVENT_GAMEPAD_SENSOR_UPDATE: {
+        int idx = Input::GameControllers::GetGamepadIndexFromJoystickId(event->gsensor.which,
+                                                                        controllers);
         switch ((SDL_SensorType)event->gsensor.sensor) {
         case SDL_SENSOR_GYRO:
-            controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gsensor.which,
-                                                                              controllers)]
-                ->Gyro(0, event->gsensor.data);
+            controllers[idx]->Gyro(0, event->gsensor.data);
             break;
         case SDL_SENSOR_ACCEL:
-            controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gsensor.which,
-                                                                              controllers)]
-                ->Acceleration(0, event->gsensor.data);
+            controllers[idx]->Acceleration(0, event->gsensor.data);
             break;
         default:
             break;
         }
         return;
+    }
     case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
     case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
-        controllers[Input::GameControllers::GetGamepadIndexFromJoystickId(event->gtouchpad.which,
-                                                                          controllers)]
-            ->SetTouchpadState(event->gtouchpad.finger,
-                               event->type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP, event->gtouchpad.x,
-                               event->gtouchpad.y);
+    case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION: {
+        int idx = Input::GameControllers::GetGamepadIndexFromJoystickId(event->gtouchpad.which,
+                                                                        controllers);
+        controllers[idx]->SetTouchpadState(event->gtouchpad.finger,
+                                           event->type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP,
+                                           event->gtouchpad.x, event->gtouchpad.y);
         return;
+    }
     default:
         break;
     }
 
-    // add/remove it from the list
+    // Standard input handling
     bool inputs_changed = Input::UpdatePressedKeys(input_event);
-
-    if (inputs_changed) {
-        // update bindings
+    if (inputs_changed)
         Input::ActivateOutputsFromInputs();
-    }
 }
 
 } // namespace Frontend
