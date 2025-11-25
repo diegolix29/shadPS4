@@ -115,6 +115,9 @@ public:
     void set(const T value, bool is_game_specific = false) {
         is_game_specific ? game_specific_value = value : base_value = value;
     }
+    void setDefault(bool is_game_specific = false) {
+        is_game_specific ? game_specific_value = default_value : base_value = default_value;
+    }
     void setTomlValue(toml::ordered_value& data, const std::string& header, const std::string& key,
                       bool is_game_specific = false) {
         if (is_game_specific) {
@@ -128,7 +131,6 @@ public:
     //     return get();
     // }
 };
-
 // General
 static ConfigEntry<bool> isNeo(false);
 static ConfigEntry<bool> isDevKit(false);
@@ -137,15 +139,14 @@ static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
 static ConfigEntry<std::string> logFilter("");
 static ConfigEntry<std::string> logType("sync");
-// static ConfigEntry<string> userName("shadPS4");
-static std::array<std::string, 4> userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
-
+static ConfigEntry<string> userName("shadPS4");
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
 static ConfigEntry<bool> pauseOnUnfocus(false);
 static bool showWelcomeDialog = true;
-static ConfigEntry<bool> disable_hardcoded_hotkeys(false);
+static ConfigEntry<bool> isDisableHardcodedHotkeys(false);
+static ConfigEntry<bool> homeButtonHotkey(false);
 static bool isAlwaysShowChangelog = false;
 static ConfigEntry<std::string> isSideTrophy("right");
 static ConfigEntry<bool> isConnectedToNetwork(false);
@@ -216,7 +217,7 @@ static ConfigEntry<bool> vkHostMarkers(false);
 static ConfigEntry<bool> vkGuestMarkers(false);
 static ConfigEntry<bool> rdocEnable(false);
 static ConfigEntry<bool> pipelineCacheEnable(false);
-static ConfigEntry<bool> pipelineCacheArchive(false);
+static ConfigEntry<bool> pipelineCacheArchive(true);
 
 // Debug
 static ConfigEntry<bool> isDebugDump(false);
@@ -611,7 +612,7 @@ std::string getLogType() {
 }
 
 std::string getUserName() {
-    return userNames[0];
+    return userName.get();
 }
 
 std::string getUpdateChannel() {
@@ -679,11 +680,19 @@ std::string sideTrophy() {
 }
 
 bool DisableHardcodedHotkeys() {
-    return disable_hardcoded_hotkeys.get();
+    return isDisableHardcodedHotkeys.get();
 }
 
 void setDisableHardcodedHotkeys(bool disable) {
-    disable_hardcoded_hotkeys.base_value = disable;
+    isDisableHardcodedHotkeys.base_value = disable;
+}
+
+bool UseHomeButtonForHotkeys() {
+    return homeButtonHotkey.get();
+}
+
+void setUseHomeButtonForHotkeys(bool disable) {
+    homeButtonHotkey.base_value = disable;
 }
 
 bool nullGpu() {
@@ -984,7 +993,7 @@ void setSeparateLogFilesEnabled(bool enabled) {
 }
 
 void setUserName(const std::string& name) {
-    userNames[0] = name;
+    userName.base_value = name;
 }
 
 void setUpdateChannel(const std::string& type) {
@@ -1302,7 +1311,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         enableDiscordRPC = toml::find_or<bool>(general, "enableDiscordRPC", true);
         logFilter.setFromToml(general, "logFilter", is_game_specific);
         logType.setFromToml(general, "logType", is_game_specific);
-        // userName.setFromToml(general, "userName", is_game_specific);
+        userName.setFromToml(general, "userName", is_game_specific);
 
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
@@ -1331,7 +1340,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         showWelcomeDialog = toml::find_or<bool>(general, "showWelcomeDialog", true);
 
         isAlwaysShowChangelog = toml::find_or<bool>(general, "alwaysShowChangelog", false);
-        disable_hardcoded_hotkeys.setFromToml(general, "DisableHardcodedHotkeys", is_game_specific);
+        isDisableHardcodedHotkeys.setFromToml(general, "DisableHardcodedHotkeys", is_game_specific);
+        homeButtonHotkey.setFromToml(general, "UseHomeButtonForHotkeys", is_game_specific);
         isSideTrophy.setFromToml(general, "sideTrophy", is_game_specific);
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
@@ -1606,7 +1616,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["logFilter"] = logFilter.base_value;
     data["General"]["logType"] = logType.base_value;
-    // data["General"]["userName"] = userNames;
+    data["General"]["userName"] = userName.base_value;
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
@@ -1614,7 +1624,8 @@ void save(const std::filesystem::path& path) {
     data["General"]["pauseOnUnfocus"] = pauseOnUnfocus.base_value;
     data["General"]["showWelcomeDialog"] = showWelcomeDialog;
     data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
-    data["General"]["DisableHardcodedHotkeys"] = disable_hardcoded_hotkeys.base_value;
+    data["General"]["DisableHardcodedHotkeys"] = isDisableHardcodedHotkeys.base_value;
+    data["General"]["UseHomeButtonForHotkeys"] = homeButtonHotkey.base_value;
     data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
     data["General"]["autoRestartGame"] = autoRestartGame;
     data["General"]["restartWithBaseGame"] = restartWithBaseGame;
@@ -1808,10 +1819,10 @@ void setDefaultValues() {
     playBGM = false;
     BGMvolume = 50;
     enableDiscordRPC = true;
-    disable_hardcoded_hotkeys = false;
+    isDisableHardcodedHotkeys = false;
     logFilter = "";
     logType = "sync";
-    userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
+    userName = "shadPS4";
     chooseHomeTab = "General";
     isShowSplash = false;
     isSideTrophy = "right";
@@ -1885,7 +1896,7 @@ void setDefaultValues() {
     vkGuestMarkers = false;
     rdocEnable = false;
     pipelineCacheEnable = false;
-    pipelineCacheArchive = false;
+    pipelineCacheArchive = true;
 
     // Debug
     isDebugDump = false;

@@ -149,6 +149,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad(player));
     ui->enableAutoBackupCheckBox->setChecked(Config::getEnableAutoBackup());
     ui->HotkeysCheckBox->setChecked(Config::DisableHardcodedHotkeys());
+    ui->HomeHotkeysCheckBox->setChecked(Config::UseHomeButtonForHotkeys());
     ui->discordRPCCheckbox->setChecked(Config::getEnableDiscordRPC());
 
     connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, this, [this](int value) {
@@ -266,6 +267,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->enableAutoBackupCheckBox->setChecked(toml::find<bool>(gen, "enableAutoBackup"));
         if (gen.contains("DisableHardcodedHotkeys"))
             ui->HotkeysCheckBox->setChecked(toml::find<bool>(gen, "DisableHardcodedHotkeys"));
+        if (gen.contains("UseHomeButtonForHotkeys"))
+            ui->HomeHotkeysCheckBox->setChecked(toml::find<bool>(gen, "UseHomeButtonForHotkeys"));
         if (gen.contains("enableDiscordRPC"))
             ui->discordRPCCheckbox->setChecked(toml::find<bool>(gen, "enableDiscordRPC"));
         if (gen.contains("volumeSlider")) {
@@ -472,6 +475,8 @@ void GameSpecificDialog::UpdateSettings() {
 
     if (ui->HotkeysCheckBox->isChecked() != Config::DisableHardcodedHotkeys())
         overrides["General"]["DisableHardcodedHotkeys"] = ui->HotkeysCheckBox->isChecked();
+    if (ui->HomeHotkeysCheckBox->isChecked() != Config::DisableHardcodedHotkeys())
+        overrides["General"]["UseHomeButtonForHotkeys"] = ui->HomeHotkeysCheckBox->isChecked();
 
     if (ui->horizontalVolumeSlider->value() != Config::getVolumeSlider())
         overrides["General"]["volumeSlider"] = ui->horizontalVolumeSlider->value();

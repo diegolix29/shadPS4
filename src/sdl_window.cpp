@@ -63,6 +63,8 @@ static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
         return OPBDO::TouchPad;
     case SDL_GAMEPAD_BUTTON_BACK:
         return OPBDO::TouchPad;
+    case SDL_GAMEPAD_BUTTON_GUIDE:
+        return OPBDO::Home;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
         return OPBDO::L1;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
@@ -614,15 +616,6 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
         SDL_AddTimer(33, wheelOffCallback, (void*)copy);
     }
 
-    if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-        event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
-        SDL_Event quit_event;
-        SDL_memset(&quit_event, 0, sizeof(quit_event));
-        quit_event.type = SDL_EVENT_QUIT_DIALOG;
-        SDL_PushEvent(&quit_event);
-        return;
-    }
-
     // add/remove it from the list
     bool inputs_changed = Input::UpdatePressedKeys(input_event);
 
@@ -640,18 +633,33 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
     // the touchpad button shouldn't be rebound to anything else,
     // as it would break the entire touchpad handling
     // You can still bind other things to it though
-    if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
-        controller->CheckButton(0, OrbisPadButtonDataOffset::TouchPad, input_down);
-        return;
+    if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ||
+        event->type == SDL_EVENT_GAMEPAD_BUTTON_UP) {
+        if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
+            controller->CheckButton(0, OrbisPadButtonDataOffset::TouchPad, input_down);
+            return;
+        }
+
+        if (event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
+            controller->CheckButton(0, OrbisPadButtonDataOffset::Home, input_down);
+        }
+    }
+
+    if (Config::DisableHardcodedHotkeys()) {
+        if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+            event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
+            SDL_Event quit_event{};
+            quit_event.type = SDL_EVENT_QUIT_DIALOG;
+            SDL_PushEvent(&quit_event);
+        }
     }
 
     // add/remove it from the list
     bool inputs_changed = Input::UpdatePressedKeys(input_event);
-
-    if (inputs_changed) {
+    if (inputs_changed)
         // update bindings
+
         Input::ActivateOutputsFromInputs();
-    }
 }
 
 } // namespace Frontend

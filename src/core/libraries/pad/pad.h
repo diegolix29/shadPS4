@@ -143,6 +143,7 @@ enum class OrbisPadButtonDataOffset : u32 {
     Square = 0x8000,
     TouchPad = 0x100000,
     Intercepted = 0x80000000,
+    Home = 0x00010000,
 };
 DECLARE_ENUM_FLAG_OPERATORS(OrbisPadButtonDataOffset)
 

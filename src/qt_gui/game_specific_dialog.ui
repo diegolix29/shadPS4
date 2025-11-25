@@ -1409,6 +1409,14 @@
          </widget>
         </item>
         <item>
+         <widget class="QCheckBox" name="HomeHotkeysCheckBox">
+          <property name="text">
+           <string> Enable PS/Home/Guide button for Hotkeys
+		   </string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QCheckBox" name="SkipsCheckBox">
           <property name="text">
            <string>Enable Shader Skips</string>
@@ -1446,7 +1454,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="label_23">
+         <widget class="QLabel" name="label_231">
           <property name="font">
            <font>
             <pointsize>11</pointsize>

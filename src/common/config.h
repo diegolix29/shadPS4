@@ -317,6 +317,8 @@ bool getRestartWithBaseGame();
 void setRestartWithBaseGame(bool enable);
 bool DisableHardcodedHotkeys();
 void setDisableHardcodedHotkeys(bool disable);
+bool UseHomeButtonForHotkeys();
+void setUseHomeButtonForHotkeys(bool disable);
 
 void setDefaultValues();
 
