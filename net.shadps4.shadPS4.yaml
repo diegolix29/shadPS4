@@ -85,5 +85,5 @@ modules:
         x-checker-data:
           type: json
           url: https://api.github.com/repos/diegolix29/shadPS4/releases
-          tag-query: '[.[] | select(.prerelease == true)] | first | .tag_name // "BBFork"'
-          version-query: '[.[] | select(.prerelease == true)] | first | .tag_name // "BBFork"'
+          tag-query: '[.[] | select(.prerelease == true)] | first | .tag_name // "BBFMultiPlayers"'
+          version-query: '[.[] | select(.prerelease == true)] | first | .tag_name // "BBFMultiPlayers"'
