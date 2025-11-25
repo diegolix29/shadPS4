@@ -108,7 +108,7 @@ static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
     case SDL_GAMEPAD_BUTTON_BACK:
         return OPBDO::TouchPad;
     case SDL_GAMEPAD_BUTTON_GUIDE:
-        return OPBDO::Home;
+        return OPBDO::TouchPad;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
         return OPBDO::L1;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
@@ -423,6 +423,7 @@ void ParseInputConfig(const std::string game_id = "") {
     while (std::getline(global_config_stream, line)) {
         ProcessLine();
     }
+    lineCount = 0;
     while (std::getline(config_stream, line)) {
         ProcessLine();
     }
@@ -616,8 +617,9 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             SetMouseGyroRollMode(new_button_state);
             break;
         default: // is a normal key (hopefully)
-            controllers[gamepad_index]->CheckButton(0, SDLGamepadToOrbisButton(button),
-                                                    new_button_state);
+            controller->CheckButton(0, SDLGamepadToOrbisButton(button),
+
+                                    new_button_state);
             break;
         }
     } else if (axis != SDL_GAMEPAD_AXIS_INVALID && positive_axis) {

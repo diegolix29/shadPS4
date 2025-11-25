@@ -127,7 +127,7 @@ public:
     virtual ~GameControllers() = default;
     GameController* operator[](const size_t& i) const {
         if (i > 3) {
-            UNREACHABLE_MSG("Index out of bounds for GameControllers!");
+            UNREACHABLE_MSG("Index {} is out of bounds for GameControllers!", i);
         }
         return controllers[i];
     }
@@ -143,6 +143,7 @@ public:
 } // namespace Input
 
 namespace GamepadSelect {
+std::optional<u8> GetControllerIndexFromUserID(s32 user_id);
 
 int GetIndexfromGUID(SDL_JoystickID* gamepadIDs, int gamepadCount, std::string GUID);
 std::string GetGUIDString(SDL_JoystickID* gamepadIDs, int index);

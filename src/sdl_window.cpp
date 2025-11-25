@@ -386,7 +386,9 @@ void WindowSDL::RelaunchEmulator() {
 }
 
 void WindowSDL::InitTimers() {
-    SDL_AddTimer(100, &PollController, controllers[0]);
+    for (int i = 0; i < 4; i++) {
+        SDL_AddTimer(250, &PollController, controllers[i]);
+    }
     SDL_AddTimer(33, Input::MousePolling, (void*)controllers[0]);
 }
 
