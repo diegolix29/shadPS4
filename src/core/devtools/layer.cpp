@@ -1317,6 +1317,8 @@ void L::Draw() {
     const auto io = GetIO();
     PushID("DevtoolsLayer");
     const bool blockHardcoded = Config::DisableHardcodedHotkeys();
+    const bool useHomeButtonForHotkeys = Config::UseHomeButtonForHotkeys();
+    Btn modifierButton = useHomeButtonForHotkeys ? Btn::Home : Btn::TouchPad;
 
     static bool showPauseHelpWindow = true;
     if (Config::getPauseOnUnfocus()) {
@@ -1339,7 +1341,7 @@ void L::Draw() {
         }
     }
     if (!blockHardcoded) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Left)) {
+        if (Input::ControllerComboPressedOnce(modifierButton, Btn::Left)) {
             showTrophyViewer = !showTrophyViewer;
         }
     }
@@ -1349,8 +1351,8 @@ void L::Draw() {
     const bool userQuitController =
         Input::HasUserHotkeyDefined(Input::HotkeyPad::QuitPad, Input::HotkeyInputType::Controller);
 
-    if (!userQuitController) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Square)) {
+    if (!userQuitController && !blockHardcoded) {
+        if (Input::ControllerComboPressedOnce(modifierButton, Btn::Square)) {
             Overlay::ToggleQuitWindow();
             visibility_toggled = true;
         }
@@ -1376,8 +1378,8 @@ void L::Draw() {
         }
     }
 
-    if (!userPauseController) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Cross)) {
+    if (!userPauseController && !blockHardcoded) {
+        if (Input::ControllerComboPressedOnce(modifierButton, Btn::Cross)) {
             SDL_Event e;
             e.type = SDL_EVENT_TOGGLE_PAUSE;
             SDL_PushEvent(&e);
@@ -1396,8 +1398,8 @@ void L::Draw() {
     const bool userFpsController = Input::HasUserHotkeyDefined(Input::HotkeyPad::SimpleFpsPad,
                                                                Input::HotkeyInputType::Controller);
 
-    if (!userFpsController) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::L2)) {
+    if (!userFpsController && !blockHardcoded) {
+        if (Input::ControllerComboPressedOnce(modifierButton, Btn::L2)) {
             show_simple_fps = !show_simple_fps;
             visibility_toggled = true;
         }
@@ -1415,8 +1417,8 @@ void L::Draw() {
     const bool userFullscreenController = Input::HasUserHotkeyDefined(
         Input::HotkeyPad::FullscreenPad, Input::HotkeyInputType::Controller);
 
-    if (!userFullscreenController) {
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::R2)) {
+    if (!userFullscreenController && !blockHardcoded) {
+        if (Input::ControllerComboPressedOnce(modifierButton, Btn::R2)) {
             SDL_Event toggleFullscreenEvent;
             toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
             SDL_PushEvent(&toggleFullscreenEvent);
@@ -1432,7 +1434,7 @@ void L::Draw() {
     }
     if (!blockHardcoded) {
 
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Triangle)) {
+        if (Input::ControllerComboPressedOnce(modifierButton, Btn::Down)) {
             show_fullscreen_tip = !show_fullscreen_tip;
             fullscreen_tip_manual = true;
         }
@@ -1441,7 +1443,7 @@ void L::Draw() {
 #ifdef ENABLE_QT_GUI
     if (!blockHardcoded) {
 
-        if (Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Right)) {
+        if (Input::ControllerComboPressedOnce(modifierButton, Btn::Right)) {
             if (g_MainWindow)
                 g_MainWindow->ToggleMute();
         }
@@ -1454,7 +1456,7 @@ void L::Draw() {
     if (!blockHardcoded) {
 
         const bool show_debug_menu_combo =
-            Input::ControllerComboPressedOnce(Btn::TouchPad, Btn::Circle);
+            Input::ControllerComboPressedOnce(modifierButton, Btn::Up);
         if (show_debug_menu_combo) {
             DebugState.IsShowingDebugMenuBar() ^= true;
             visibility_toggled = true;

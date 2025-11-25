@@ -149,6 +149,8 @@ static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
         return OPBDO::TouchPad;
     case SDL_GAMEPAD_BUTTON_BACK:
         return OPBDO::TouchPad;
+    case SDL_GAMEPAD_BUTTON_GUIDE:
+        return OPBDO::None;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
         return OPBDO::L1;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:

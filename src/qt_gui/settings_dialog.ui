@@ -2641,6 +2641,14 @@
 				</property>
 			</widget>
 		</item>
+			
+		<item>
+			<widget class="QCheckBox" name="HomeHotkeysCheckBox">
+				<property name="text">
+					<string>Enable PS/Home/Guide button for Hotkeys</string>
+				</property>
+			</widget>
+		</item>
 
 		<item>
 			<widget class="QLabel" name="label_231">
