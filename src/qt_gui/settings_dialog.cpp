@@ -671,6 +671,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->vkSyncValidationCheckBox->installEventFilter(this);
         ui->rdocCheckBox->installEventFilter(this);
         ui->cacheCheckBox->installEventFilter(this);
+        ui->cacheArchiveCheckBox->installEventFilter(this);
         ui->crashDiagnosticsCheckBox->installEventFilter(this);
         ui->guestMarkersCheckBox->installEventFilter(this);
         ui->hostMarkersCheckBox->installEventFilter(this);
@@ -871,6 +872,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->rdocCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "rdocEnable", false));
     ui->cacheCheckBox->setChecked(
         toml::find_or<bool>(data, "Vulkan", "pipelineCacheEnable", false));
+    ui->cacheArchiveCheckBox->setChecked(
+        toml::find_or<bool>(data, "Vulkan", "pipelineCacheArchive", false));
     ui->crashDiagnosticsCheckBox->setChecked(
         toml::find_or<bool>(data, "Vulkan", "crashDiagnostic", false));
     ui->guestMarkersCheckBox->setChecked(
@@ -1261,6 +1264,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setVkSyncValidation(ui->vkSyncValidationCheckBox->isChecked());
     Config::setRdocEnabled(ui->rdocCheckBox->isChecked());
     Config::setPipelineCacheEnabled(ui->cacheCheckBox->isChecked());
+    Config::setPipelineCacheArchived(ui->cacheArchiveCheckBox->isChecked());
     Config::setVkHostMarkersEnabled(ui->hostMarkersCheckBox->isChecked());
     Config::setVkGuestMarkersEnabled(ui->guestMarkersCheckBox->isChecked());
     Config::setVkCrashDiagnosticEnabled(ui->crashDiagnosticsCheckBox->isChecked());
