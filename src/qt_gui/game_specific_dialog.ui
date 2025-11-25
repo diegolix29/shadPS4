@@ -1392,31 +1392,31 @@
           </property>
          </widget>
         </item>
-        <item>
-         <widget class="QCheckBox" name="screenTipBox">
-          <property name="text">
-           <string>Disable FullScreen Tip on Boot
-		   </string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="HotkeysCheckBox">
-          <property name="text">
-           <string>Disable Hardcoded Hotkeys
-		   </string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="HomeHotkeysCheckBox">
-          <property name="text">
-           <string> Enable PS/Home/Guide button for Hotkeys
-		   </string>
-          </property>
-         </widget>
-        </item>
-        <item>
+		   <item>
+			   <widget class="QCheckBox" name="screenTipBox">
+				   <property name="text">
+					   <string>Disable FullScreen Tip on Boot</string>
+				   </property>
+			   </widget>
+		   </item>
+
+		   <item>
+			   <widget class="QCheckBox" name="HotkeysCheckBox">
+				   <property name="text">
+					   <string>Disable Hardcoded Hotkeys</string>
+				   </property>
+			   </widget>
+		   </item>
+
+		   <item>
+			   <widget class="QCheckBox" name="HomeHotkeysCheckBox">
+				   <property name="text">
+					   <string>Enable PS/Home/Guide button for Hotkeys</string>
+				   </property>
+			   </widget>
+		   </item>
+
+		   <item>
          <widget class="QCheckBox" name="SkipsCheckBox">
           <property name="text">
            <string>Enable Shader Skips</string>
