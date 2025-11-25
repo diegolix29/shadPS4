@@ -2461,6 +2461,13 @@
 													 </property>
 												 </widget>
 											 </item>
+											 <item>
+												 <widget class="QCheckBox" name="cacheArchiveCheckBox">
+													 <property name="text">
+														 <string>Enable Cache Archive</string>
+													 </property>
+												 </widget>
+											 </item>
 										 </layout>
 									 </widget>
 								 </item>

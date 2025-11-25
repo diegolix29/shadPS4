@@ -231,7 +231,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->guestMarkersCheckBox->setChecked(Config::getVkGuestMarkersEnabled());
     ui->hostMarkersCheckBox->setChecked(Config::getVkHostMarkersEnabled());
     ui->rdocCheckBox->setChecked(Config::isRdocEnabled());
-    ui->cacheCheckBox->setChecked(Config::isRdocEnabled());
+    ui->cacheCheckBox->setChecked(Config::isPipelineCacheEnabled());
+    ui->cacheArchiveCheckBox->setChecked(Config::isPipelineCacheArchived());
     ui->vkValidationCheckBox->setChecked(Config::vkValidationEnabled());
     ui->vkSyncValidationCheckBox->setChecked(Config::vkValidationSyncEnabled());
 
@@ -430,6 +431,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->rdocCheckBox->setChecked(toml::find<bool>(vk, "rdocEnable"));
         if (vk.contains("pipelineCacheEnable"))
             ui->cacheCheckBox->setChecked(toml::find<bool>(vk, "pipelineCacheEnable"));
+        if (vk.contains("pipelineCacheArchive"))
+            ui->cacheArchiveCheckBox->setChecked(toml::find<bool>(vk, "pipelineCacheArchive"));
         if (vk.contains("validation"))
             ui->vkValidationCheckBox->setChecked(toml::find<bool>(vk, "validation"));
         if (vk.contains("validation_sync"))
@@ -654,8 +657,11 @@ void GameSpecificDialog::UpdateSettings() {
     if (ui->hostMarkersCheckBox->isChecked() != Config::getVkHostMarkersEnabled())
         overrides["Vulkan"]["hostMarkers"] = ui->hostMarkersCheckBox->isChecked();
 
-    if (ui->cacheCheckBox->isChecked() != Config::getVkHostMarkersEnabled())
+    if (ui->cacheCheckBox->isChecked() != Config::isPipelineCacheEnabled())
         overrides["Vulkan"]["pipelineCacheEnable"] = ui->cacheCheckBox->isChecked();
+
+    if (ui->cacheArchiveCheckBox->isChecked() != Config::isPipelineCacheArchived())
+        overrides["Vulkan"]["pipelineCacheArchive"] = ui->cacheArchiveCheckBox->isChecked();
 
     if (ui->rdocCheckBox->isChecked() != Config::isRdocEnabled())
         overrides["Vulkan"]["rdocEnable"] = ui->rdocCheckBox->isChecked();
