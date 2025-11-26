@@ -25,22 +25,35 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
                                        const std::string& serial, bool is_running,
                                        std::string gsc_serial)
     : QDialog(parent), ui(new Ui::GameSpecificDialog()), m_compat_info(std::move(compat_info)),
-      m_ipc_client(ipc_client), m_serial(serial) {
+      m_ipc_client(ipc_client), m_serial(serial), m_lastPadIndex(0) {
     ui->setupUi(this);
+
     connect(ui->fpsSlider, &QSlider::valueChanged, ui->fpsSpinBox, &QSpinBox::setValue);
+
     connect(ui->fpsSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), ui->fpsSlider,
             &QSlider::setValue);
 
     m_config_path = std::filesystem::path(GetUserPath(Common::FS::PathType::CustomConfigs)) /
                     (serial + ".toml");
 
+    ui->padSelectorComboBox->clear();
+    ui->padSelectorComboBox->addItem("Pad 1");
+    ui->padSelectorComboBox->addItem("Pad 2");
+    ui->padSelectorComboBox->addItem("Pad 3");
+    ui->padSelectorComboBox->addItem("Pad 4");
+    ui->padSelectorComboBox->setCurrentIndex(0);
+
     PopulateAudioDevices();
     LoadValuesFromConfig();
+
+    connect(ui->padSelectorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &GameSpecificDialog::OnPadSelectionChanged);
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, [this]() {
         UpdateSettings();
         accept();
     });
+
     connect(ui->RCASSlider, &QSlider::valueChanged, this,
             &GameSpecificDialog::OnRcasAttenuationChanged);
 
@@ -55,11 +68,9 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
     });
 
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
+
     ui->ReadbackSpeedComboBox->installEventFilter(this);
     ui->MemorySpinBox->installEventFilter(this);
-
-    connect(ui->padSelectorComboBox, &QComboBox::currentIndexChanged, this,
-            &GameSpecificDialog::OnPadSelectionChanged);
 }
 
 GameSpecificDialog::~GameSpecificDialog() = default;
@@ -84,12 +95,12 @@ void GameSpecificDialog::OnPadSelectionChanged(int index) {
         if (in.contains(classKey))
             ui->specialPadClassSpinBox->setValue(toml::find<int>(in, classKey));
         else
-            ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass());
+            ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass(player));
 
         if (in.contains(useKey))
             ui->useSpecialPadCheckBox->setChecked(toml::find<bool>(in, useKey));
         else
-            ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad());
+            ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad(player));
     }
 }
 
@@ -136,7 +147,9 @@ void GameSpecificDialog::OnRcasAttenuationSpinBoxChanged(double spinValue) {
 }
 
 void GameSpecificDialog::LoadValuesFromConfig() {
-
+    int player = ui->padSelectorComboBox->currentIndex() + 1;
+    ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass(player));
+    ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad(player));
     ui->enableAutoBackupCheckBox->setChecked(Config::getEnableAutoBackup());
     ui->HotkeysCheckBox->setChecked(Config::DisableHardcodedHotkeys());
     ui->HomeHotkeysCheckBox->setChecked(Config::UseHomeButtonForHotkeys());
@@ -193,13 +206,6 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     else
         ui->hideCursorComboBox->setCurrentIndex(0);
     ui->motionControlsCheckBox->setChecked(Config::getIsMotionControlsEnabled());
-    {
-        int p = ui->padSelectorComboBox->currentIndex() + 1;
-
-        ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass());
-        ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad());
-    }
-
     ui->useUnifiedInputConfigCheckBox->setChecked(Config::GetUseUnifiedInputConfig());
 
     ui->enableHDRCheckBox->setChecked(Config::allowHDR());
@@ -319,10 +325,21 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->hideCursorComboBox->setCurrentIndex(toml::find<int>(in, "cursorState"));
         if (in.contains("isMotionControlsEnabled"))
             ui->motionControlsCheckBox->setChecked(toml::find<bool>(in, "isMotionControlsEnabled"));
-        if (in.contains("specialPadClass"))
-            ui->specialPadClassSpinBox->setValue(toml::find<int>(in, "specialPadClass"));
-        if (in.contains("useSpecialPad"))
-            ui->useSpecialPadCheckBox->setChecked(toml::find<bool>(in, "useSpecialPad"));
+        for (int p = 1; p <= 4; ++p) {
+            std::string classKey = fmt::format("specialPadClass{}", p);
+            std::string useKey = fmt::format("useSpecialPad{}", p);
+
+            if (in.contains(classKey))
+                Config::setSpecialPadClass(p, toml::find<int>(in, classKey), true);
+
+            if (in.contains(useKey))
+                Config::setUseSpecialPad(p, toml::find<bool>(in, useKey), true);
+        }
+
+        int player = ui->padSelectorComboBox->currentIndex() + 1;
+        ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass(player));
+        ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad(player));
+
         if (in.contains("useUnifiedInputConfig"))
             ui->useUnifiedInputConfigCheckBox->setChecked(
                 toml::find<bool>(in, "useUnifiedInputConfig"));
@@ -463,7 +480,7 @@ void GameSpecificDialog::UpdateSettings() {
         overrides["General"]["enableDiscordRPC"] = ui->discordRPCCheckbox->isChecked();
 
     if (ui->HotkeysCheckBox->isChecked() != Config::DisableHardcodedHotkeys())
-        overrides["General"]["setDisableHardcodedHotkeys"] = ui->HotkeysCheckBox->isChecked();
+        overrides["General"]["DisableHardcodedHotkeys"] = ui->HotkeysCheckBox->isChecked();
 
     if (ui->HomeHotkeysCheckBox->isChecked() != Config::UseHomeButtonForHotkeys())
         overrides["General"]["UseHomeButtonForHotkeys"] = ui->HomeHotkeysCheckBox->isChecked();
@@ -530,22 +547,25 @@ void GameSpecificDialog::UpdateSettings() {
     if (ui->motionControlsCheckBox->isChecked() != Config::getIsMotionControlsEnabled())
         overrides["Input"]["isMotionControlsEnabled"] = ui->motionControlsCheckBox->isChecked();
 
-    int p = ui->padSelectorComboBox->currentIndex() + 1;
+    for (int p = 1; p <= 4; ++p) {
+        std::string classKey = "specialPadClass" + std::to_string(p);
+        std::string useKey = "useSpecialPad" + std::to_string(p);
 
-    std::string classKey = "specialPadClass" + std::to_string(p);
-    std::string useKey = "useSpecialPad" + std::to_string(p);
+        if (p == ui->padSelectorComboBox->currentIndex() + 1) {
+            int newClass = ui->specialPadClassSpinBox->value();
+            bool newUse = ui->useSpecialPadCheckBox->isChecked();
 
-    int newClass = ui->specialPadClassSpinBox->value();
-    bool newUse = ui->useSpecialPadCheckBox->isChecked();
+            if (newClass != Config::getSpecialPadClass(p))
+                overrides["Input"][classKey] = newClass;
 
-    if (newClass != Config::getSpecialPadClass())
-        overrides["Input"][classKey] = newClass;
+            if (newUse != Config::getUseSpecialPad(p))
+                overrides["Input"][useKey] = newUse;
 
-    if (newUse != Config::getUseSpecialPad())
-        overrides["Input"][useKey] = newUse;
-
-    if (ui->useSpecialPadCheckBox->isChecked() != Config::getUseSpecialPad())
-        overrides["Input"]["useSpecialPad"] = ui->useSpecialPadCheckBox->isChecked();
+        } else {
+            overrides["Input"][classKey] = Config::getSpecialPadClass(p);
+            overrides["Input"][useKey] = Config::getUseSpecialPad(p);
+        }
+    }
 
     if (ui->useUnifiedInputConfigCheckBox->isChecked() != Config::GetUseUnifiedInputConfig())
         overrides["Input"]["useUnifiedInputConfig"] =

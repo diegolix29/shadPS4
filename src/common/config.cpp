@@ -179,8 +179,8 @@ static ConfigEntry<bool> useUnifiedInputConfig(true);
 static ConfigEntry<std::string> micDevice("Default Device");
 static ConfigEntry<std::string> defaultControllerID("");
 static ConfigEntry<bool> backgroundControllerInput(false);
-static ConfigEntry<bool> useSpecialPad(false);
-static ConfigEntry<int> specialPadClass(1);
+static ConfigEntry<bool> useSpecialPads[4] = {false, false, false, false};
+static ConfigEntry<int> specialPadClasses[4] = {1, 1, 1, 1};
 static ConfigEntry<string> mainOutputDevice("Default Device");
 static ConfigEntry<string> padSpkOutputDevice("Default Device");
 static ConfigEntry<int> extraDmemInMbytes(0);
@@ -658,20 +658,28 @@ void setMuteEnabled(bool enabled) {
     muteEnabled.base_value = enabled;
 }
 
-bool getUseSpecialPad() {
-    return useSpecialPad.get();
+bool getUseSpecialPad(int pad) {
+    if (pad < 1 || pad > 4)
+        return false;
+    return useSpecialPads[pad - 1].get();
 }
 
-int getSpecialPadClass() {
-    return specialPadClass.get();
+int getSpecialPadClass(int pad) {
+    if (pad < 1 || pad > 4)
+        return 1;
+    return specialPadClasses[pad - 1].get();
 }
 
-void setUseSpecialPad(bool use) {
-    useSpecialPad.base_value = use;
+void setUseSpecialPad(int pad, bool use, bool is_game_specific) {
+    if (pad < 1 || pad > 4)
+        return;
+    useSpecialPads[pad - 1].set(use, is_game_specific);
 }
 
-void setSpecialPadClass(int type) {
-    specialPadClass.base_value = type;
+void setSpecialPadClass(int pad, int type, bool is_game_specific) {
+    if (pad < 1 || pad > 4)
+        return;
+    specialPadClasses[pad - 1].set(type, is_game_specific);
 }
 
 bool getIsMotionControlsEnabled() {
@@ -1370,8 +1378,13 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         cursorState.setFromToml(input, "cursorState", is_game_specific);
         cursorHideTimeout.setFromToml(input, "cursorHideTimeout", is_game_specific);
         cursorHideTimeout.setFromToml(input, "cursorHideTimeout", is_game_specific);
-        useSpecialPad.setFromToml(input, "useSpecialPad", is_game_specific);
-        specialPadClass.setFromToml(input, "specialPadClass", is_game_specific);
+        for (int p = 1; p <= 4; p++) {
+            std::string useKey = "useSpecialPad" + std::to_string(p);
+            std::string classKey = "specialPadClass" + std::to_string(p);
+
+            useSpecialPads[p - 1].setFromToml(input, useKey, false);
+            specialPadClasses[p - 1].setFromToml(input, classKey, false);
+        }
         isMotionControlsEnabled.setFromToml(input, "isMotionControlsEnabled", is_game_specific);
         useUnifiedInputConfig.setFromToml(input, "useUnifiedInputConfig", is_game_specific);
         backgroundControllerInput.setFromToml(input, "backgroundControllerInput", is_game_specific);
@@ -1647,8 +1660,13 @@ void save(const std::filesystem::path& path) {
 
     data["Input"]["cursorState"] = cursorState.base_value;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout.base_value;
-    data["Input"]["useSpecialPad"] = useSpecialPad.base_value;
-    data["Input"]["specialPadClass"] = specialPadClass.base_value;
+    for (int p = 1; p <= 4; p++) {
+        std::string useKey = "useSpecialPad" + std::to_string(p);
+        std::string classKey = "specialPadClass" + std::to_string(p);
+
+        useSpecialPads[p - 1].setTomlValue(data, "Input", useKey, false);
+        specialPadClasses[p - 1].setTomlValue(data, "Input", classKey, false);
+    }
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
     data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
     data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
@@ -1840,8 +1858,6 @@ void setDefaultValues() {
     // Input
     cursorState = HideCursorState::Idle;
     cursorHideTimeout = 5;
-    useSpecialPad = false;
-    specialPadClass = 1;
     isMotionControlsEnabled = true;
     useUnifiedInputConfig = true;
     overrideControllerColor = false;
@@ -2041,10 +2057,10 @@ std::filesystem::path GetFoolproofInputConfigFile(const std::string& game_id) {
     if (game_id == "global" && !std::filesystem::exists(config_file)) {
         if (!std::filesystem::exists(config_file)) {
             const auto global_config = GetDefaultGlobalConfig();
-            std::ofstream global_config_stream(config_file);
-            if (global_config_stream) {
-                global_config_stream << global_config;
-            }
+            // std::ofstream global_config_stream(config_file);
+            // if (global_config_stream) {
+            //     global_config_stream << global_config;
+            //  }
         }
     }
 

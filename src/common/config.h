@@ -160,10 +160,10 @@ void setPlayBGM(bool enable);
 void setBGMvolume(int volume);
 void setEnableDiscordRPC(bool enable);
 void setLanguage(u32 language);
-void setUseSpecialPad(bool use);
-bool getUseSpecialPad();
-void setSpecialPadClass(int type);
-int getSpecialPadClass();
+void setUseSpecialPad(int pad, bool use, bool is_game_specific);
+bool getUseSpecialPad(int pad);
+void setSpecialPadClass(int pad, int type, bool is_game_specific);
+int getSpecialPadClass(int pad);
 bool getPSNSignedIn();
 void setPSNSignedIn(bool sign); // no ui setting
 bool patchShaders();            // no set
@@ -233,8 +233,6 @@ void setPadSpkOutputDevice(std::string device);
 void setCursorState(s16 cursorState);
 void setCursorHideTimeout(int newcursorHideTimeout);
 void setTrophyNotificationDuration(double newTrophyNotificationDuration);
-void setUseSpecialPad(bool use);
-void setSpecialPadClass(int type);
 void setIsMotionControlsEnabled(bool use);
 std::filesystem::path getSysModulesPath();
 void setSysModulesPath(const std::filesystem::path& path);

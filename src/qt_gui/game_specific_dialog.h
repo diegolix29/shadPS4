@@ -38,6 +38,9 @@ private:
 
     std::string m_serial;
     std::filesystem::path m_config_path;
+    std::array<int, 4> m_specialPadClass;
+    std::array<bool, 4> m_useSpecialPad;
+    int m_lastPadIndex = 0;
 
     // backups if you want cancel/restore logic like SettingsDialog
     int fps_backup{};
