@@ -160,10 +160,10 @@ void setPlayBGM(bool enable);
 void setBGMvolume(int volume);
 void setEnableDiscordRPC(bool enable);
 void setLanguage(u32 language);
-bool getUseSpecialPad(int p);
-int getSpecialPadClass(int p);
-void setUseSpecialPad(int p, bool v, bool is_game_specific);
-void setSpecialPadClass(int p, int v, bool is_game_specific);
+void setUseSpecialPad(bool use);
+bool getUseSpecialPad();
+void setSpecialPadClass(int type);
+int getSpecialPadClass();
 bool getPSNSignedIn();
 void setPSNSignedIn(bool sign); // no ui setting
 bool patchShaders();            // no set
@@ -210,6 +210,7 @@ void SetOverrideControllerColor(bool enable);
 int* GetControllerCustomColor();
 void SetControllerCustomColor(int r, int b, int g);
 void setUserName(int id, const std::string& name);
+
 void setUpdateChannel(const std::string& type);
 void setChooseHomeTab(const std::string& type);
 void setGameDirectories(const std::vector<std::filesystem::path>& dirs_config);

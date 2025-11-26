@@ -84,12 +84,12 @@ void GameSpecificDialog::OnPadSelectionChanged(int index) {
         if (in.contains(classKey))
             ui->specialPadClassSpinBox->setValue(toml::find<int>(in, classKey));
         else
-            ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass(player));
+            ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass());
 
         if (in.contains(useKey))
             ui->useSpecialPadCheckBox->setChecked(toml::find<bool>(in, useKey));
         else
-            ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad(player));
+            ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad());
     }
 }
 
@@ -196,8 +196,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     {
         int p = ui->padSelectorComboBox->currentIndex() + 1;
 
-        ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass(p));
-        ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad(p));
+        ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass());
+        ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad());
     }
 
     ui->useUnifiedInputConfigCheckBox->setChecked(Config::GetUseUnifiedInputConfig());
@@ -538,13 +538,13 @@ void GameSpecificDialog::UpdateSettings() {
     int newClass = ui->specialPadClassSpinBox->value();
     bool newUse = ui->useSpecialPadCheckBox->isChecked();
 
-    if (newClass != Config::getSpecialPadClass(p))
+    if (newClass != Config::getSpecialPadClass())
         overrides["Input"][classKey] = newClass;
 
-    if (newUse != Config::getUseSpecialPad(p))
+    if (newUse != Config::getUseSpecialPad())
         overrides["Input"][useKey] = newUse;
 
-    if (ui->useSpecialPadCheckBox->isChecked() != Config::getUseSpecialPad(p))
+    if (ui->useSpecialPadCheckBox->isChecked() != Config::getUseSpecialPad())
         overrides["Input"]["useSpecialPad"] = ui->useSpecialPadCheckBox->isChecked();
 
     if (ui->useUnifiedInputConfigCheckBox->isChecked() != Config::GetUseUnifiedInputConfig())

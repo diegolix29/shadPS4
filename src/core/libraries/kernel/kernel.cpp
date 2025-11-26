@@ -24,6 +24,7 @@
 #include "core/libraries/kernel/process.h"
 #include "core/libraries/kernel/threads.h"
 #include "core/libraries/kernel/threads/exception.h"
+#include "core/libraries/kernel/threads/pthread.h"
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/network/sys_net.h"
@@ -276,6 +277,8 @@ s32 PS4_SYSV_ABI get_authinfo(s32 pid, AuthInfoData* p2) {
         *Kernel::__Error() = POSIX_ESRCH;
         return -1;
     }
+
+    *p2 = {};
     p2->caps[0] = 0x2000000000000000;
     return ORBIS_OK;
 }

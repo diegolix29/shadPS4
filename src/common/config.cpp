@@ -47,7 +47,7 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
 
     if constexpr (std::is_same_v<T, int>) {
         if (it->second.is_integer()) {
-            return static_cast<int>(toml::get<int>(it->second));
+            return static_cast<s32>(toml::get<int>(it->second));
         }
     } else if constexpr (std::is_same_v<T, unsigned int>) {
         if (it->second.is_integer()) {
@@ -55,32 +55,19 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         }
     } else if constexpr (std::is_same_v<T, double>) {
         if (it->second.is_floating()) {
-            return toml::get<double>(it->second);
+            return toml::get<T>(it->second);
         }
     } else if constexpr (std::is_same_v<T, std::string>) {
         if (it->second.is_string()) {
-            return toml::get<std::string>(it->second);
+            return toml::get<T>(it->second);
         }
     } else if constexpr (std::is_same_v<T, bool>) {
         if (it->second.is_boolean()) {
-            return toml::get<bool>(it->second);
+            return toml::get<T>(it->second);
         }
     } else if constexpr (std::is_same_v<T, std::array<string, 4>>) {
         if (it->second.is_array()) {
-            const auto& arr = it->second.as_array();
-            if (arr.size() != 4)
-                return std::nullopt;
-
-            std::array<string, 4> out{};
-
-            for (size_t i = 0; i < 4; i++) {
-                if (!arr[i].is_string())
-                    return std::nullopt;
-
-                out[i] = arr[i].as_string();
-            }
-
-            return out;
+            return toml::get<T>(it->second);
         }
     } else {
         static_assert([] { return false; }(), "Unsupported type in get_optional<T>");
@@ -187,13 +174,13 @@ static ConfigEntry<bool> firstBootHandled(false);
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
 static ConfigEntry<int> cursorHideTimeout(5);
-static ConfigEntry<std::array<bool, 4>> useSpecialPads({false, false, false, false});
-static ConfigEntry<std::array<int, 4>> specialPadClasses({1, 1, 1, 1});
 static ConfigEntry<bool> isMotionControlsEnabled(true);
 static ConfigEntry<bool> useUnifiedInputConfig(true);
 static ConfigEntry<std::string> micDevice("Default Device");
 static ConfigEntry<std::string> defaultControllerID("");
 static ConfigEntry<bool> backgroundControllerInput(false);
+static ConfigEntry<bool> useSpecialPad(false);
+static ConfigEntry<int> specialPadClass(1);
 static ConfigEntry<string> mainOutputDevice("Default Device");
 static ConfigEntry<string> padSpkOutputDevice("Default Device");
 static ConfigEntry<int> extraDmemInMbytes(0);
@@ -220,12 +207,12 @@ static ConfigEntry<bool> isFullscreen(false);
 static ConfigEntry<std::string> fullscreenMode("Windowed");
 static ConfigEntry<string> presentMode("Mailbox");
 static ConfigEntry<bool> isHDRAllowed(false);
-static ConfigEntry<bool> fsrEnabled(false);
+static ConfigEntry<bool> fsrEnabled(true);
 static ConfigEntry<bool> rcasEnabled(true);
 
 // Audio / BGM
 static bool playBGM = false;
-static ConfigEntry<int> rcas_attenuation(250);
+static ConfigEntry<int> rcasAttenuation(250);
 static int BGMvolume = 50;
 
 // Vulkan
@@ -618,11 +605,11 @@ void setRcasEnabled(bool enable) {
 }
 
 int getRcasAttenuation() {
-    return rcas_attenuation.get();
+    return rcasAttenuation.get();
 }
 
 void setRcasAttenuation(int value) {
-    rcas_attenuation.base_value = value;
+    rcasAttenuation.base_value = value;
 }
 
 std::string getLogFilter() {
@@ -635,6 +622,12 @@ std::string getLogType() {
 
 string getUserName(int id) {
     return userNames.get()[id];
+}
+
+void setUserName(int id, string name) {
+    auto temp = userNames.get();
+    temp[id] = name;
+    userNames.set(temp);
 }
 
 std::array<string, 4> const getUserNames() {
@@ -665,32 +658,20 @@ void setMuteEnabled(bool enabled) {
     muteEnabled.base_value = enabled;
 }
 
-bool getUseSpecialPad(int p) {
-    if (p < 1 || p > 4)
-        return false;
-    return useSpecialPads.get()[p - 1];
+bool getUseSpecialPad() {
+    return useSpecialPad.get();
 }
 
-int getSpecialPadClass(int p) {
-    if (p < 1 || p > 4)
-        return 1;
-    return specialPadClasses.get()[p - 1];
+int getSpecialPadClass() {
+    return specialPadClass.get();
 }
 
-void setUseSpecialPad(int p, bool v, bool is_game_specific) {
-    if (p < 1 || p > 4)
-        return;
-    auto arr = useSpecialPads.get();
-    arr[p - 1] = v;
-    useSpecialPads.set(arr, is_game_specific);
+void setUseSpecialPad(bool use) {
+    useSpecialPad.base_value = use;
 }
 
-void setSpecialPadClass(int p, int v, bool is_game_specific) {
-    if (p < 1 || p > 4)
-        return;
-    auto arr = specialPadClasses.get();
-    arr[p - 1] = v;
-    specialPadClasses.set(arr, is_game_specific);
+void setSpecialPadClass(int type) {
+    specialPadClass.base_value = type;
 }
 
 bool getIsMotionControlsEnabled() {
@@ -1033,13 +1014,11 @@ void setLogFilter(const std::string& type) {
 void setSeparateLogFilesEnabled(bool enabled) {
     isSeparateLogFilesEnabled.base_value = enabled;
 }
-
 void setUserName(int id, const std::string& name) {
     auto arr = userNames.get();
     arr[id] = name;
     userNames.set(arr);
 }
-
 void setUpdateChannel(const std::string& type) {
     updateChannel = type;
 }
@@ -1343,7 +1322,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         enableDiscordRPC = toml::find_or<bool>(general, "enableDiscordRPC", true);
         logFilter.setFromToml(general, "logFilter", is_game_specific);
         logType.setFromToml(general, "logType", is_game_specific);
-        userNames.setFromToml(general, "userName", is_game_specific);
+        userNames.setFromToml(general, "userNames", is_game_specific);
 
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
@@ -1390,23 +1369,9 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         cursorState.setFromToml(input, "cursorState", is_game_specific);
         cursorHideTimeout.setFromToml(input, "cursorHideTimeout", is_game_specific);
-        for (int p = 1; p <= 4; p++) {
-            std::string useKey = "useSpecialPad" + std::to_string(p);
-            std::string classKey = "specialPadClass" + std::to_string(p);
-
-            auto useArr = useSpecialPads.get();
-            auto classArr = specialPadClasses.get();
-
-            if (input.contains(useKey))
-                useArr[p - 1] = toml::find<bool>(input, useKey);
-
-            if (input.contains(classKey))
-                classArr[p - 1] = toml::find<int>(input, classKey);
-
-            useSpecialPads.set(useArr, is_game_specific);
-            specialPadClasses.set(classArr, is_game_specific);
-        }
-
+        cursorHideTimeout.setFromToml(input, "cursorHideTimeout", is_game_specific);
+        useSpecialPad.setFromToml(input, "useSpecialPad", is_game_specific);
+        specialPadClass.setFromToml(input, "specialPadClass", is_game_specific);
         isMotionControlsEnabled.setFromToml(input, "isMotionControlsEnabled", is_game_specific);
         useUnifiedInputConfig.setFromToml(input, "useUnifiedInputConfig", is_game_specific);
         backgroundControllerInput.setFromToml(input, "backgroundControllerInput", is_game_specific);
@@ -1436,12 +1401,12 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             }
         }
         if (is_game_specific) {
-            if (auto opt = toml::get_optional<double>(gpu, "rcas_attenuation")) {
-                rcas_attenuation.game_specific_value = static_cast<float>(*opt);
+            if (auto opt = toml::get_optional<double>(gpu, "rcasAttenuation")) {
+                rcasAttenuation.game_specific_value = static_cast<float>(*opt);
             }
         } else {
-            if (auto opt = toml::get_optional<double>(gpu, "rcas_attenuation")) {
-                rcas_attenuation.base_value = static_cast<float>(*opt);
+            if (auto opt = toml::get_optional<double>(gpu, "rcasAttenuation")) {
+                rcasAttenuation.base_value = static_cast<float>(*opt);
             }
         }
 
@@ -1658,7 +1623,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["logFilter"] = logFilter.base_value;
     data["General"]["logType"] = logType.base_value;
-    data["General"]["userName"] = userNames.base_value;
+    data["General"]["userNames"] = userNames.base_value;
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
@@ -1682,13 +1647,8 @@ void save(const std::filesystem::path& path) {
 
     data["Input"]["cursorState"] = cursorState.base_value;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout.base_value;
-    for (int p = 1; p <= 4; p++) {
-        std::string useKey = "useSpecialPad" + std::to_string(p);
-        std::string classKey = "specialPadClass" + std::to_string(p);
-
-        data["Input"][useKey] = useSpecialPads.base_value[p - 1];
-        data["Input"][classKey] = specialPadClasses.base_value[p - 1];
-    }
+    data["Input"]["useSpecialPad"] = useSpecialPad.base_value;
+    data["Input"]["specialPadClass"] = specialPadClass.base_value;
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
     data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
     data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
@@ -1698,7 +1658,7 @@ void save(const std::filesystem::path& path) {
     data["Audio"]["mainOutputDevice"] = mainOutputDevice.base_value;
     data["Audio"]["padSpkOutputDevice"] = padSpkOutputDevice.base_value;
 
-    data["GPU"]["rcas_attenuation"] = rcas_attenuation.base_value;
+    data["GPU"]["rcasAttenuation"] = rcasAttenuation.base_value;
     data["GPU"]["fsrEnabled"] = fsrEnabled.base_value;
     data["GPU"]["rcasEnabled"] = rcasEnabled.base_value;
     data["GPU"]["fpsLimit"] = fpsLimit.base_value;
@@ -1880,8 +1840,8 @@ void setDefaultValues() {
     // Input
     cursorState = HideCursorState::Idle;
     cursorHideTimeout = 5;
-    useSpecialPads = {false, false, false, false};
-    specialPadClasses = {1, 1, 1, 1};
+    useSpecialPad = false;
+    specialPadClass = 1;
     isMotionControlsEnabled = true;
     useUnifiedInputConfig = true;
     overrideControllerColor = false;
@@ -1919,7 +1879,7 @@ void setDefaultValues() {
     isHDRAllowed = false;
     fsrEnabled = true;
     rcasEnabled = true;
-    rcas_attenuation = 250;
+    rcasAttenuation = 250;
     fpsLimit = 60;
     fpsLimiterEnabled = false;
 

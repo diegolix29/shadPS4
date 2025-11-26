@@ -167,7 +167,7 @@ void IPC::InputLoop() {
         } else if (cmd == "SET_RCAS_ATTENUATION") {
             int value = static_cast<int>(next_u64());
             if (presenter) {
-                presenter->GetFsrSettingsRef().rcas_attenuation =
+                presenter->GetFsrSettingsRef().rcasAttenuation =
                     static_cast<float>(value / 1000.0f);
             }
         } else if (cmd == "USB_LOAD_FIGURE") {

@@ -445,6 +445,8 @@ int main(int argc, char* argv[]) {
         std::cout << ";#IPC_ENABLED\n";
         std::cout << ";ENABLE_MEMORY_PATCH\n";
         std::cout << ";ENABLE_EMU_CONTROL\n";
+        std::cout << ";SET_ACTIVE_PAD\n";
+        std::cout << ";SET_ACTIVE_CONTROLLER\n";
         std::cout << ";#IPC_END\n";
         std::cout.flush();
 
@@ -499,18 +501,44 @@ int main(int argc, char* argv[]) {
                 } else if (cmd == "SET_RCAS_ATTENUATION") {
                     int value = static_cast<int>(std::stoull(next_str(), nullptr, 0));
                     if (presenter)
-                        presenter->GetFsrSettingsRef().rcas_attenuation =
+                        presenter->GetFsrSettingsRef().rcasAttenuation =
                             static_cast<float>(value / 1000.0f);
                 } else if (cmd == "RELOAD_INPUTS") {
                     std::string config = next_str();
                     Input::ParseInputConfig(config);
-                } else if (cmd == "SET_ACTIVE_CONTROLLER") {
-                    std::string active_controller = next_str();
-                    GamepadSelect::SetSelectedGamepad(active_controller);
+
+                    // -----------------------------------
+                    // NEW: SET_ACTIVE_PAD
+                    // -----------------------------------
+                } else if (cmd == "SET_ACTIVE_PAD") {
+                    int padIndex = static_cast<int>(std::stoull(next_str(), nullptr, 0));
+
+                    try {
+                        std::string active_controller = next_str();
+                        GamepadSelect::SetSelectedGamepad(active_controller);
+                    } catch (...) {
+                        std::cerr
+                            << "[IPC] SET_ACTIVE_PAD: cannot call GamepadSelect::SetActivePad\n";
+                    }
+
                     SDL_Event checkGamepad;
                     SDL_memset(&checkGamepad, 0, sizeof(checkGamepad));
                     checkGamepad.type = SDL_EVENT_CHANGE_CONTROLLER;
                     SDL_PushEvent(&checkGamepad);
+
+                    // -----------------------------------
+                    // EXISTING SET_ACTIVE_CONTROLLER BLOCK
+                    // You MUST keep this or delete it entirely
+                    // -----------------------------------
+                } else if (cmd == "SET_ACTIVE_CONTROLLER") {
+                    std::string guid = next_str();
+                    GamepadSelect::SetSelectedGamepad(guid);
+
+                    SDL_Event checkGamepad;
+                    SDL_memset(&checkGamepad, 0, sizeof(checkGamepad));
+                    checkGamepad.type = SDL_EVENT_CHANGE_CONTROLLER;
+                    SDL_PushEvent(&checkGamepad);
+
                 } else if (cmd == "STOP") {
                     if (!Config::getGameRunning())
                         continue;

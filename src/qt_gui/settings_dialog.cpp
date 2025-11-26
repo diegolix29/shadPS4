@@ -1335,7 +1335,7 @@ void SettingsDialog::OnRcasAttenuationChanged(int sliderValue) {
 
     Config::setRcasAttenuation(sliderValue);
     if (presenter)
-        presenter->GetFsrSettingsRef().rcas_attenuation = attenuation;
+        presenter->GetFsrSettingsRef().rcasAttenuation = attenuation;
 }
 
 void SettingsDialog::OnRcasAttenuationSpinBoxChanged(double spinValue) {
@@ -1347,7 +1347,7 @@ void SettingsDialog::OnRcasAttenuationSpinBoxChanged(double spinValue) {
 
     Config::setRcasAttenuation(intValue);
     if (presenter)
-        presenter->GetFsrSettingsRef().rcas_attenuation = static_cast<float>(spinValue);
+        presenter->GetFsrSettingsRef().rcasAttenuation = static_cast<float>(spinValue);
 }
 
 void SettingsDialog::SyncRealTimeWidgetstoConfig() {

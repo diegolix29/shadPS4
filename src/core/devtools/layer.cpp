@@ -178,7 +178,7 @@ void L::DrawMenuBar() {
                     Checkbox("RCAS", &fsr.use_rcas);
                     BeginDisabled(!fsr.use_rcas);
                     {
-                        SliderFloat("RCAS Attenuation", &fsr.rcas_attenuation, 0.0, 3.0);
+                        SliderFloat("RCAS Attenuation", &fsr.rcasAttenuation, 0.0, 3.0);
                     }
                     EndDisabled();
                 }
@@ -187,7 +187,7 @@ void L::DrawMenuBar() {
                 if (Button("Save")) {
                     Config::setFsrEnabled(fsr.enable);
                     Config::setRcasEnabled(fsr.use_rcas);
-                    Config::setRcasAttenuation(static_cast<int>(fsr.rcas_attenuation * 1000));
+                    Config::setRcasAttenuation(static_cast<int>(fsr.rcasAttenuation * 1000));
                     Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
                                  "config.toml");
                     CloseCurrentPopup();
@@ -580,7 +580,7 @@ void L::SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame 
     overrides["GPU"]["vblankFrequency"] = Config::vblankFreq();
     overrides["GPU"]["fsrEnabled"] = Config::getFsrEnabled();
     overrides["GPU"]["rcasEnabled"] = Config::getRcasEnabled();
-    overrides["GPU"]["rcas_attenuation"] = Config::getRcasAttenuation();
+    overrides["GPU"]["rcasAttenuation"] = Config::getRcasAttenuation();
     overrides["GPU"]["readbackLinearImages"] = Config::getReadbackLinearImages();
     overrides["GPU"]["shaderSkipsEnabled"] = Config::getShaderSkipsEnabled();
     overrides["GPU"]["directMemoryAccessEnabled"] = Config::directMemoryAccess();
@@ -634,7 +634,7 @@ void DrawFullscreenSettingsWindow(bool& is_open) {
             ImGui::Text("RCAS Attenuation:");
             ImGui::SameLine();
             auto& fsr = presenter->GetFsrSettingsRef();
-            ImGui::Text("%.2f", fsr.rcas_attenuation);
+            ImGui::Text("%.2f", fsr.rcasAttenuation);
         }
         ImGui::Text("VBlank Frequency:");
         ImGui::SameLine();
@@ -1127,7 +1127,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
             static float rcas_float = static_cast<float>(Config::getRcasAttenuation()) / 1000.0f;
 
             if (ImGui::SliderFloat("RCAS Attenuation", &rcas_float, 0.0f, 3.0f, "%.2f")) {
-                fsr.rcas_attenuation = rcas_float;
+                fsr.rcasAttenuation = rcas_float;
                 Config::setRcasAttenuation(static_cast<int>(rcas_float * 1000));
             }
         }

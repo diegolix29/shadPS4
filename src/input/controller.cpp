@@ -102,6 +102,11 @@ void GameController::Axis(int id, Input::Axis axis, int value) {
 
     state.time = Libraries::Kernel::sceKernelGetProcessTime();
     int axis_id = static_cast<int>(axis);
+    if (std::abs(state.axes[axis_id] - value) > 120) {
+        LOG_DEBUG(Input, "Keyboard axis change detected");
+        axis_smoothing_ticks[axis_id] = GameController::max_smoothing_ticks;
+        axis_smoothing_values[axis_id] = state.axes[axis_id];
+    }
     state.axes[axis_id] = value;
 
     if (axis == Input::Axis::TriggerLeft) {

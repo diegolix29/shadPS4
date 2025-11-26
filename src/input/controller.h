@@ -92,6 +92,9 @@ public:
     float accel_poll_rate;
     u32 user_id = -1; // ORBIS_USER_SERVICE_USER_ID_INVALID
     SDL_Gamepad* m_sdl_gamepad = nullptr;
+    static constexpr int max_smoothing_ticks = 2;
+    int axis_smoothing_ticks[static_cast<int>(Input::Axis::AxisMax)]{0};
+    int axis_smoothing_values[static_cast<int>(Input::Axis::AxisMax)]{0};
 
 private:
     struct StateInternal {
