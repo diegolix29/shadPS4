@@ -2,1660 +2,1685 @@
 <!-- SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
      SPDX-License-Identifier: GPL-2.0-or-later -->
 <ui version="4.0">
- <class>GameSpecificDialog</class>
- <widget class="QDialog" name="GameSpecificDialog">
-  <property name="windowModality">
-   <enum>Qt::WindowModality::WindowModal</enum>
-  </property>
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>1118</width>
-    <height>750</height>
-   </rect>
-  </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
-  <property name="font">
-   <font>
-    <pointsize>11</pointsize>
-    <bold>false</bold>
-   </font>
-  </property>
-  <property name="windowTitle">
-   <string>Settings</string>
-  </property>
-  <property name="windowIcon">
-   <iconset resource="../shadps4.qrc">
-    <normaloff>:/images/shadps4.ico</normaloff>:/images/shadps4.ico</iconset>
-  </property>
-  <property name="sizeGripEnabled">
-   <bool>false</bool>
-  </property>
-  <property name="modal">
-   <bool>false</bool>
-  </property>
-  <layout class="QVBoxLayout" name="settingsDialogLayout">
-   <item>
-    <widget class="QTabWidget" name="tabWidgetSettings">
-     <property name="enabled">
-      <bool>true</bool>
-     </property>
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="baseSize">
-      <size>
-       <width>0</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="currentIndex">
-      <number>0</number>
-     </property>
-<widget class="QScrollArea" name="graphicsTab">
- <property name="widgetResizable">
-  <bool>true</bool>
- </property>
- <attribute name="title">
-  <string>Graphics</string>
- </attribute>
- <widget class="QWidget" name="graphicsTabLayout">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>1115</width>
-    <height>472</height>
-   </rect>
-  </property>
-  <layout class="QVBoxLayout" name="graphicsTabVLayout" stretch="0,0">
-   <item>
-    <layout class="QHBoxLayout" name="graphicsTabHLayout" stretch="0,1,1">
-     <item>
-      <layout class="QVBoxLayout" name="graphicsTabLayoutLeft">
-       <item>
-        <widget class="QWidget" name="widgetgraphicsBottom" native="true">
-         <layout class="QVBoxLayout" name="widgetgraphicsBottomVLayout">
-          <property name="leftMargin">
-           <number>0</number>
-          </property>
-          <property name="topMargin">
-           <number>0</number>
-          </property>
-          <property name="rightMargin">
-           <number>0</number>
-          </property>
-          <property name="bottomMargin">
-           <number>0</number>
-          </property>
-          <item>
-           <widget class="QCheckBox" name="enableHDRCheckBox">
-            <property name="text">
-             <string>Enable HDR</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="enableAutoBackupCheckBox">
-            <property name="text">
-             <string>Enable Auto Backups</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="connectedNetworkCheckBox">
-            <property name="text">
-             <string>Connected to Network</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="showSplashCheckBox">
-            <property name="text">
-             <string>Show Splash Screen</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QGroupBox" name="presentModeGroupBox">
-            <property name="title">
-             <string>Present Mode</string>
-            </property>
-            <layout class="QVBoxLayout" name="presentModeLayout">
-             <item>
-              <widget class="QComboBox" name="presentModeComboBox">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <item>
-                <property name="text">
-                 <string>Mailbox (Vsync)</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Fifo (Vsync)</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Immediate (No Vsync)</string>
-                </property>
-               </item>
-              </widget>
-             </item>
-            </layout>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QVBoxLayout" name="graphicsTabLayoutMiddle">
-       <item>
-        <widget class="QGroupBox" name="displayOptionsGroupBox">
-         <property name="title">
-          <string>Video</string>
-         </property>
-         <layout class="QVBoxLayout" name="layoutResolution">
-          <property name="spacing">
-           <number>6</number>
-          </property>
-          <property name="leftMargin">
-           <number>12</number>
-          </property>
-          <item>
-           <widget class="QGroupBox" name="displayModeGroupBox">
-            <property name="title">
-             <string>Display Mode</string>
-            </property>
-            <layout class="QVBoxLayout" name="displayModeLayout">
-             <item>
-              <widget class="QGroupBox" name="windowSizeGroupBox">
-               <property name="title">
-                <string>Window Size</string>
-               </property>
-               <layout class="QHBoxLayout" name="resLayout">
-                <item>
-                 <widget class="QLabel" name="widthLabel">
-                  <property name="text">
-                   <string>W:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QSpinBox" name="widthSpinBox">
-                  <property name="accelerated">
-                   <bool>true</bool>
-                  </property>
-                  <property name="correctionMode">
-                   <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
-                  </property>
-                  <property name="keyboardTracking">
-                   <bool>false</bool>
-                  </property>
-                  <property name="minimum">
-                   <number>0</number>
-                  </property>
-                  <property name="maximum">
-                   <number>9999</number>
-                  </property>
-                  <property name="value">
-                   <number>1280</number>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="heightLabel">
-                  <property name="text">
-                   <string>H:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QSpinBox" name="heightSpinBox">
-                  <property name="frame">
-                   <bool>true</bool>
-                  </property>
-                  <property name="accelerated">
-                   <bool>true</bool>
-                  </property>
-                  <property name="correctionMode">
-                   <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
-                  </property>
-                  <property name="keyboardTracking">
-                   <bool>false</bool>
-                  </property>
-                  <property name="minimum">
-                   <number>0</number>
-                  </property>
-                  <property name="maximum">
-                   <number>9999</number>
-                  </property>
-                  <property name="value">
-                   <number>720</number>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-             </item>
-             <item>
-              <widget class="QComboBox" name="displayModeComboBox">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <item>
-                <property name="text">
-                 <string>Windowed</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Fullscreen</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Fullscreen (Borderless)</string>
-                </property>
-               </item>
-              </widget>
-             </item>
-            </layout>
-           </widget>
-          </item>
-          <item>
-           <layout class="QHBoxLayout" name="windowSizeLayout">
-            <item>
-             <widget class="QGroupBox" name="heightDivider">
-              <property name="title">
-               <string>Vblank Frequency</string>
-              </property>
-              <layout class="QVBoxLayout" name="vblankLayout">
-               <item>
-                <widget class="QSpinBox" name="vblankSpinBox">
-                 <property name="frame">
-                  <bool>true</bool>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
-                 </property>
-                 <property name="specialValueText">
-                  <string/>
-                 </property>
-                 <property name="accelerated">
-                  <bool>true</bool>
-                 </property>
-                 <property name="correctionMode">
-                  <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
-                 </property>
-                 <property name="keyboardTracking">
-                  <bool>false</bool>
-                 </property>
-                 <property name="suffix">
-                  <string>Hz</string>
-                 </property>
-                 <property name="minimum">
-                  <number>60</number>
-                 </property>
-                 <property name="maximum">
-                  <number>9999</number>
-                 </property>
-                 <property name="value">
-                  <number>60</number>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </widget>
-            </item>
-           </layout>
-          </item>
-          <item>
-           <layout class="QHBoxLayout"/>
-          </item>
-         </layout>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QVBoxLayout" name="graphicsTabLayoutRight">
-       <property name="rightMargin">
-        <number>12</number>
-       </property>
-       <property name="bottomMargin">
-        <number>12</number>
-       </property>
-       <item>
-        <widget class="QGroupBox" name="FSRGroupBox">
-         <property name="title">
-          <string>FSR Settings</string>
-         </property>
-         <layout class="QVBoxLayout" name="verticalLayout_5">
-          <item>
-           <widget class="QCheckBox" name="FSRCheckBox">
-            <property name="text">
-             <string>Enable FSR</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="RCASCheckBox">
-            <property name="text">
-             <string>Enable RCAS (sharpening)</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_10">
-            <item>
-             <widget class="QLabel" name="RCASAtenLabel">
-              <property name="font">
-               <font>
-                <pointsize>9</pointsize>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>RCAS Attenuation:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QDoubleSpinBox" name="RCASSpinBox">
-              <property name="decimals">
-               <number>3</number>
-  </property>
-  <property name="minimum">
-   <double>0.000</double>
-  </property>
-  <property name="maximum">
-   <double>3.000</double>
-  </property>
-  <property name="singleStep">
-   <double>0.001</double>
-  </property>
-  <property name="value">
-   <double>0.250</double>
-  </property>
- </widget>
-            </item>
-           </layout>
-          </item>
-          <item>
-           <widget class="QSlider" name="RCASSlider">
-		     <property name="minimum">
-   <number>0</number>
-  </property>
-            <property name="maximum">
-             <number>3000</number>
-            </property>
-            <property name="value">
-             <number>250</number>
-            </property>
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item>
-        <widget class="QGroupBox" name="fpsLimitGroupBox">
-         <property name="title">
-          <string>FPS Limit</string>
-         </property>
-         <layout class="QVBoxLayout" name="verticalLayout_8">
-          <item>
-           <widget class="QCheckBox" name="fpsLimiterCheckBox">
-            <property name="text">
-             <string>Enable FPS Limiter</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_8">
-            <item>
-             <widget class="QSpinBox" name="fpsSpinBox">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignmentFlag::AlignCenter</set>
-              </property>
-              <property name="suffix">
-               <string> FPS</string>
-              </property>
-              <property name="minimum">
-               <number>30</number>
-              </property>
-              <property name="maximum">
-               <number>500</number>
-              </property>
-              <property name="singleStep">
-               <number>1</number>
-              </property>
-              <property name="value">
-               <number>60</number>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QSlider" name="fpsSlider">
-              <property name="minimum">
-               <number>30</number>
-              </property>
-              <property name="maximum">
-               <number>500</number>
-              </property>
-              <property name="value">
-               <number>60</number>
-              </property>
-              <property name="orientation">
-               <enum>Qt::Orientation::Horizontal</enum>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item>
-        <spacer name="AdvancedSpacer">
-         <property name="orientation">
-          <enum>Qt::Orientation::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-      </layout>
-     </item>
-    </layout>
-   </item>
-
-   <item>
-    <widget class="QGroupBox" name="GenAudioGroupBox">
-     <property name="title">
-      <string>Audio Device (general)</string>
-     </property>
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_11">
-      <item>
-       <widget class="QComboBox" name="mainOutputDeviceComboBox"/>
-      </item>
-     </layout>
-    </widget>
-   </item>
-
-   <item>
-    <widget class="QGroupBox" name="DsSpeakerGroupBox">
-     <property name="title">
-      <string>Audio Device (DS4 speaker)</string>
-     </property>
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_9">
-      <item>
-       <widget class="QComboBox" name="padSpkOutputDeviceComboBox"/>
-      </item>
-     </layout>
-    </widget>
-   </item>
-
-
-  </layout>
- </widget>
-</widget>
-
-
-	      <widget class="QScrollArea" name="inputTab">
-      <property name="widgetResizable">
-       <bool>true</bool>
-      </property>
-      <attribute name="title">
-       <string>Input</string>
-      </attribute>
-      <widget class="QWidget" name="inputTabContents">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>946</width>
-         <height>536</height>
-        </rect>
-       </property>
-       <layout class="QVBoxLayout" name="inputTabVLayout" stretch="0,0">
-        <item>
-         <layout class="QHBoxLayout" name="inputTabHLayoutTop" stretch="1,1">
-          <item>
-           <layout class="QVBoxLayout" name="cursorTabLayoutLeft">
-            <property name="spacing">
-             <number>6</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item alignment="Qt::AlignmentFlag::AlignTop">
-             <widget class="QGroupBox" name="cursorGroupBox">
-              <property name="title">
-               <string>Cursor</string>
-              </property>
-              <layout class="QGridLayout" name="gridLayout_2">
-               <property name="topMargin">
-                <number>11</number>
-               </property>
-               <property name="bottomMargin">
-                <number>11</number>
-               </property>
-               <item row="0" column="0">
-                <widget class="QGroupBox" name="hideCursorGroupBox">
-                 <property name="enabled">
-                  <bool>true</bool>
-                 </property>
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="title">
-                  <string>Hide Cursor</string>
-                 </property>
-                 <layout class="QVBoxLayout" name="hideCursorLayout">
-                  <property name="spacing">
-                   <number>7</number>
-                  </property>
-                  <property name="bottomMargin">
-                   <number>11</number>
-                  </property>
-                  <item>
-                   <widget class="QComboBox" name="hideCursorComboBox"/>
-                  </item>
-                 </layout>
-                </widget>
-               </item>
-               <item row="1" column="0">
-                <widget class="QGroupBox" name="idleTimeoutGroupBox">
-                 <property name="enabled">
-                  <bool>true</bool>
-                 </property>
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="minimumSize">
-                  <size>
-                   <width>0</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="title">
-                  <string>Hide Cursor Idle Timeout</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
-                 </property>
-                 <property name="flat">
-                  <bool>false</bool>
-                 </property>
-                 <layout class="QHBoxLayout" name="IdleTimeoutLayout" stretch="0,0">
-                  <property name="spacing">
-                   <number>6</number>
-                  </property>
-                  <property name="leftMargin">
-                   <number>70</number>
-                  </property>
-                  <property name="topMargin">
-                   <number>5</number>
-                  </property>
-                  <property name="rightMargin">
-                   <number>5</number>
-                  </property>
-                  <property name="bottomMargin">
-                   <number>5</number>
-                  </property>
-                  <item>
-                   <widget class="QSpinBox" name="idleTimeoutSpinBox">
-                    <property name="enabled">
-                     <bool>true</bool>
-                    </property>
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="minimumSize">
-                     <size>
-                      <width>0</width>
-                      <height>0</height>
-                     </size>
-                    </property>
-                    <property name="maximumSize">
-                     <size>
-                      <width>16777215</width>
-                      <height>16777215</height>
-                     </size>
-                    </property>
-                    <property name="layoutDirection">
-                     <enum>Qt::LayoutDirection::LeftToRight</enum>
-                    </property>
-                    <property name="wrapping">
-                     <bool>false</bool>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignmentFlag::AlignCenter</set>
-                    </property>
-                    <property name="buttonSymbols">
-                     <enum>QAbstractSpinBox::ButtonSymbols::UpDownArrows</enum>
-                    </property>
-                    <property name="suffix">
-                     <string notr="true"/>
-                    </property>
-                    <property name="maximum">
-                     <number>3600</number>
-                    </property>
-                    <property name="value">
-                     <number>5</number>
-                    </property>
-                    <property name="displayIntegerBase">
-                     <number>10</number>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QLabel" name="idleTimeoutDurationLabel">
-                    <property name="text">
-                     <string>s</string>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </widget>
-               </item>
-              </layout>
-             </widget>
-            </item>
-           </layout>
-          </item>
-          <item>
-           <layout class="QVBoxLayout" name="ControllerTabLayoutMiddle">
-            <item>
-             <widget class="QGroupBox" name="ControllerGroupBox">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="title">
-               <string>Controller</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
-              </property>
-              <property name="flat">
-               <bool>false</bool>
-              </property>
-              <layout class="QVBoxLayout" name="ControllerLayout">
-               <property name="spacing">
-                <number>0</number>
-               </property>
-               <property name="topMargin">
-
-                <number>11</number>
-               </property>
-               <property name="bottomMargin">
-                <number>11</number>
-               </property>
-                 <item>
-				   <widget class="QCheckBox" name="motionControlsCheckBox">
-					   <property name="sizePolicy">
-						   <sizepolicy hsizetype="Minimum" vsizetype="Maximum">
-							  <horstretch>0</horstretch>
-							 <verstretch>0</verstretch>
-						   </sizepolicy>
-					     </property>
-					   <property name="text">
-					    <string>Enable Motion Controls</string>
-					   </property>
-				      </widget>
-			         </item>
-			        <item>
-				      <widget class="QCheckBox" name="backgroundControllerCheckBox">
-					   <property name="text">
-				      <string>Enable Background Controller Input</string>
-					 </property>
-				   </widget>
-			     </item>
-		      </layout>
-	        </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </item>
-        <item>
-			<layout class="QHBoxLayout" name="inputTabHLayoutBottom">
-				<property name="topMargin">
-					<number>0</number>
-				</property>
-
-				<item>
-					<widget class="QGroupBox" name="specialPadGroupBox">
-						<property name="title">
-							<string>Special Pad Settings</string>
-						</property>
-
-						<layout class="QHBoxLayout" name="specialPadLayout">
-
-							<item>
-								<widget class="QComboBox" name="padSelectorComboBox">
-									<item>
-										<property name="text">
-											<string>Pad 1</string>
-										</property>
-									</item>
-									<item>
-										<property name="text">
-											<string>Pad 2</string>
-										</property>
-									</item>
-									<item>
-										<property name="text">
-											<string>Pad 3</string>
-										</property>
-									</item>
-									<item>
-										<property name="text">
-											<string>Pad 4</string>
-										</property>
-									</item>
-								</widget>
-							</item>
-
-							<item>
-								<widget class="QSpinBox" name="specialPadClassSpinBox">
-									<property name="minimum">
-										<number>1</number>
-									</property>
-									<property name="maximum">
-										<number>4</number>
-									</property>
-									<property name="value">
-										<number>1</number>
-									</property>
-								</widget>
-							</item>
-
-							<item>
-								<widget class="QCheckBox" name="useSpecialPadCheckBox">
-									<property name="text">
-										<string>Use Special Pad</string>
-									</property>
-								</widget>
-							</item>
-
-						</layout>
-					</widget>
-				</item>
-
-				<item>
-					<layout class="QVBoxLayout" name="inputOptionsVLayout">
-
-						<item>
-							<widget class="QCheckBox" name="useUnifiedInputConfigCheckBox">
-								<property name="text">
-									<string>Use Unified Input Config</string>
-								</property>
-							</widget>
-						</item>
-
-						<item>
-							<widget class="QCheckBox" name="discordRPCCheckbox">
-								<property name="text">
-									<string>Enable Discord Rich Presence</string>
-								</property>
-							</widget>
-						</item>
-					</layout>
-				</item>
-
-  <item>
-    <layout class="QVBoxLayout" name="vLayoutTrophy">
-    <property name="spacing">
-     <number>6</number>
-    </property>
-    <property name="leftMargin">
-     <number>0</number>
-    </property>
-    <property name="bottomMargin">
-     <number>50</number>
-    </property>
-    <item>
-     <layout class="QHBoxLayout" name="hLayoutTrophy">
-      <item>
-       <widget class="QGroupBox" name="trophyGroupBox">
-        <property name="title">
-         <string>Trophy</string>
-        </property>
-        <layout class="QVBoxLayout" name="userNameLayout_2">
-         <item>
-          <widget class="QCheckBox" name="disableTrophycheckBox">
-           <property name="text">
-            <string>Disable Trophy Notification</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_SidePopUps">
-           <property name="bottomMargin">
-            <number>0</number>
-           </property>
-           <item>
-            <widget class="QLabel" name="label_SidePopUps">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="text">
-              <string>Trophy Notification Position</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QRadioButton" name="radioButton_Left">
-             <property name="text">
-              <string>Left</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QRadioButton" name="radioButton_Right">
-             <property name="text">
-              <string>Right</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QRadioButton" name="radioButton_Top">
-             <property name="text">
-              <string>Top</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QRadioButton" name="radioButton_Bottom">
-             <property name="text">
-              <string>Bottom</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_PopUpsDuration">
-           <property name="bottomMargin">
-            <number>0</number>
-           </property>
-           <item>
-            <widget class="QLabel" name="label_PopUpDuration">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="text">
-              <string>Notification Duration</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QDoubleSpinBox" name="popUpDurationSpinBox"/>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_4">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </widget>
-      </item>
-     </layout>
-    </item>
-   </layout>
-  </item>
-  
-         </layout>
-        </item>
-       </layout>
-      </widget>
-     </widget>
-	 
-	 
-	 
-     <widget class="QScrollArea" name="logTab">
-      <property name="widgetResizable">
-       <bool>true</bool>
-      </property>
-      <attribute name="title">
-       <string>Log</string>
-      </attribute>
-      <widget class="QWidget" name="logTabContents">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>1094</width>
-         <height>299</height>
-        </rect>
-       </property>
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <layout class="QVBoxLayout" name="logTabVLayout" stretch="0">
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_log">
-          <property name="leftMargin">
-           <number>0</number>
-          </property>
-          <property name="topMargin">
-           <number>0</number>
-          </property>
-          <item>
-           <layout class="QVBoxLayout" name="loggerTabLayoutRight">
-            <item>
-             <widget class="QGroupBox" name="loggerGroupBox">
-              <property name="title">
-               <string>Logger</string>
-              </property>
-              <layout class="QVBoxLayout" name="loggerLayout">
-               <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_12">
-                 <property name="topMargin">
-                  <number>0</number>
-                 </property>
-                 <item>
-                  <layout class="QVBoxLayout" name="verticalLayout_7">
-                   <property name="topMargin">
-                    <number>0</number>
-                   </property>
-                   <item>
-                    <widget class="QCheckBox" name="enableLoggingCheckBox">
-                     <property name="text">
-                      <string>Enable Logging</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QCheckBox" name="isPSNSignedInCheckBox">
-                     <property name="text">
-                      <string>PSN Signed</string>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </item>
-                 <item>
- <widget class="QGroupBox" name="logTypeGroupBox">
-  <property name="title"><string>Log Type</string></property>
-  <layout class="QVBoxLayout" name="logTypeBoxLayout">
-   <item>
-    <widget class="QComboBox" name="logTypeComboBox">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>300</width>
-       <height>30</height>
-      </size>
-     </property>
-     <item>
-      <property name="text"><string>async</string></property>
-     </item>
-     <item>
-      <property name="text"><string>sync</string></property>
-                      </item>
-                     </widget>
-                    </item>
-                   </layout>
-                  </widget>
-                 </item>
-                </layout>
-               </item>
-               <item>
-                <layout class="QVBoxLayout" name="vLayoutLogFilter">
-                 <property name="spacing">
-                  <number>6</number>
-                 </property>
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <item>
-                  <layout class="QHBoxLayout" name="hLayoutLogFilter">
-                   <item>
-                    <widget class="QGroupBox" name="logFilter">
-                     <property name="title">
-                      <string>Log Filter</string>
-                     </property>
-                     <layout class="QVBoxLayout" name="logFilterLayout">
-                      <item>
-                       <widget class="QLineEdit" name="logFilterLineEdit"/>
-                      </item>
-                      <item>
-                       <widget class="QPushButton" name="logPresetsButton">
-                        <property name="text">
-                         <string>Load Presets...</string>
-                        </property>
-                       </widget>
-                      </item>
-                     </layout>
-                    </widget>
-                   </item>
-                  </layout>
-                 </item>
-                </layout>
-               </item>
-               <item>
-                <widget class="QPushButton" name="OpenLogLocationButton">
-                 <property name="text">
-                  <string>Open Log Location</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </item>
-       </layout>
-      </widget>
-     </widget>
-	 
-<widget class="QScrollArea" name="debugTab">
- <property name="widgetResizable">
-  <bool>true</bool>
- </property>
- <attribute name="title">
-  <string>Debug</string>
- </attribute>
- <widget class="QWidget" name="debugTabContents">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>1094</width>
-    <height>486</height>
-   </rect>
-  </property>
-  <layout class="QHBoxLayout" name="debugTabHLayout" stretch="1,1">
-   <item>
-    <widget class="QGroupBox" name="debugTabGroupBox">
-     <property name="enabled">
-      <bool>true</bool>
-     </property>
-     <property name="title">
-      <string>General</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
-     </property>
-     <layout class="QVBoxLayout" name="debugTabLayout">
-      <property name="spacing">
-       <number>6</number>
-      </property>
-      <property name="leftMargin">
-       <number>12</number>
-      </property>
-      <property name="topMargin">
-       <number>12</number>
-      </property>
-      <property name="rightMargin">
-       <number>12</number>
-      </property>
-      <property name="bottomMargin">
-       <number>12</number>
-      </property>
-      <item>
-       <widget class="QCheckBox" name="dumpShadersCheckBox">
-        <property name="text">
-         <string>Enable Shaders Dumping</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="debugDump">
-        <property name="text">
-         <string>Enable Debug Dumping</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="vkValidationCheckBox">
-        <property name="text">
-         <string>Enable Vulkan Validation Layers</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="vkSyncValidationCheckBox">
-        <property name="text">
-         <string>Enable Vulkan Synchronization Validation</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="rdocCheckBox">
-        <property name="text">
-         <string>Enable RenderDoc Debugging</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="cacheCheckBox">
-        <property name="text">
-         <string>Enable Shader Cache</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="cacheArchiveCheckBox">
-        <property name="text">
-         <string>Enable Cache Archive</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-   
-<widget class="QGroupBox" name="advancedGroupBox">
- <property name="sizePolicy">
-  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-   <horstretch>0</horstretch>
-   <verstretch>0</verstretch>
-  </sizepolicy>
- </property>
- <property name="title">
-  <string>Advanced</string>
- </property>
- <property name="alignment">
-  <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
- </property>
- <layout class="QVBoxLayout" name="advancedLayout">
-  <property name="spacing">
-   <number>6</number>
-  </property>
-  <property name="leftMargin">
-   <number>12</number>
-  </property>
-  <property name="topMargin">
-   <number>12</number>
-  </property>
-  <property name="rightMargin">
-   <number>12</number>
-  </property>
-  <property name="bottomMargin">
-   <number>12</number>
-  </property>
-  <item>
-   <widget class="QCheckBox" name="collectShaderCheckBox">
-    <property name="text">
-     <string>Collect Shaders</string>
-    </property>
-   </widget>
-  </item>
-  <item>
-   <widget class="QCheckBox" name="crashDiagnosticsCheckBox">
-    <property name="text">
-     <string>Enable Crash Diagnostics</string>
-    </property>
-   </widget>
-  </item>
-  <item>
-   <widget class="QCheckBox" name="copyGPUBuffersCheckBox">
-    <property name="text">
-     <string>Copy GPU Buffers</string>
-    </property>
-   </widget>
-  </item>
-  <item>
-   <widget class="QCheckBox" name="hostMarkersCheckBox">
-    <property name="text">
-     <string>Host Debug Markers</string>
-    </property>
-   </widget>
-  </item>
-  <item>
-   <widget class="QCheckBox" name="guestMarkersCheckBox">
-    <property name="text">
-     <string>Guest Debug Markers</string>
-    </property>
-   </widget>
-  </item>
- </layout>
-</widget>
-
-   </item>
-  </layout>
- </widget>
-</widget>
-
-
-     <widget class="QScrollArea" name="experimentalTab">
-      <property name="widgetResizable">
-       <bool>true</bool>
-      </property>
-      <attribute name="title">
-       <string>Experimental</string>
-      </attribute>
-      <widget class="QWidget" name="experimentalTabContents">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>1080</width>
-         <height>856</height>
-        </rect>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_experimental">
-	   
-        <item>
-				<widget class="QGroupBox" name="gameVolumeGroup">
-					<property name="title">
-						<string>Game Volume</string>
+	<class>GameSpecificDialog</class>
+	<widget class="QDialog" name="GameSpecificDialog">
+		<property name="windowModality">
+			<enum>Qt::WindowModality::WindowModal</enum>
+		</property>
+		<property name="geometry">
+			<rect>
+				<x>0</x>
+				<y>0</y>
+				<width>1118</width>
+				<height>750</height>
+			</rect>
+		</property>
+		<property name="sizePolicy">
+			<sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+				<horstretch>0</horstretch>
+				<verstretch>0</verstretch>
+			</sizepolicy>
+		</property>
+		<property name="font">
+			<font>
+				<pointsize>11</pointsize>
+				<bold>false</bold>
+			</font>
+		</property>
+		<property name="windowTitle">
+			<string>Settings</string>
+		</property>
+		<property name="windowIcon">
+			<iconset resource="../shadps4.qrc">
+				<normaloff>:/images/shadps4.ico</normaloff>:/images/shadps4.ico
+			</iconset>
+		</property>
+		<property name="sizeGripEnabled">
+			<bool>false</bool>
+		</property>
+		<property name="modal">
+			<bool>false</bool>
+		</property>
+		<layout class="QVBoxLayout" name="settingsDialogLayout">
+			<item>
+				<widget class="QTabWidget" name="tabWidgetSettings">
+					<property name="enabled">
+						<bool>true</bool>
 					</property>
-					<layout class="QHBoxLayout" name="volumeLayout">
-						<item>
-							<widget class="QSlider" name="horizontalVolumeSlider">
-								<property name="maximum">
-									<number>300</number>
-								</property>
-								<property name="value">
-									<number>100</number>
-								</property>
-								<property name="sliderPosition">
-									<number>100</number>
-								</property>
-								<property name="orientation">
-									<enum>Qt::Horizontal</enum>
-								</property>
-							</widget>
-						</item>
-						<item>
-							<widget class="QLineEdit" name="volumeText">
-								<property name="text">
-									<string>300%</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignmentFlag::AlignCenter</set>
-             </property>
-             <property name="readOnly">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-		
-        <item>
-         <widget class="QCheckBox" name="isDevKitCheckBox">
-          <property name="text">
-           <string>Enable DevKit Mode</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_22">
-          <property name="font">
-           <font>
-            <pointsize>11</pointsize>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string notr="true">
-							
-        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
-        Enable this for High Resolution Patches&lt;br/&gt;
-        Can cause issues on other games.&lt;br/&gt;
-        Disable if you cant boot other games.
-        
-						</string>
-          </property>
-          <property name="wordWrap">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="isNeoModeCheckBox">
-          <property name="text">
-           <string>Enable Neo Mode</string>
-          </property>
-         </widget>
-        </item>
-		   <item>
-			   <widget class="QCheckBox" name="screenTipBox">
-				   <property name="text">
-					   <string>Disable FullScreen Tip on Boot</string>
-				   </property>
-			   </widget>
-		   </item>
+					<property name="sizePolicy">
+						<sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+							<horstretch>0</horstretch>
+							<verstretch>0</verstretch>
+						</sizepolicy>
+					</property>
+					<property name="baseSize">
+						<size>
+							<width>0</width>
+							<height>0</height>
+						</size>
+					</property>
+					<property name="currentIndex">
+						<number>0</number>
+					</property>
+					<widget class="QScrollArea" name="graphicsTab">
+						<property name="widgetResizable">
+							<bool>true</bool>
+						</property>
+						<attribute name="title">
+							<string>Graphics</string>
+						</attribute>
+						<widget class="QWidget" name="graphicsTabLayout">
+							<property name="geometry">
+								<rect>
+									<x>0</x>
+									<y>0</y>
+									<width>1115</width>
+									<height>472</height>
+								</rect>
+							</property>
+							<layout class="QVBoxLayout" name="graphicsTabVLayout" stretch="0,0">
+								<item>
+									<layout class="QHBoxLayout" name="graphicsTabHLayout" stretch="0,1,1">
+										<item>
+											<layout class="QVBoxLayout" name="graphicsTabLayoutLeft">
+												<item>
+													<widget class="QWidget" name="widgetgraphicsBottom" native="true">
+														<layout class="QVBoxLayout" name="widgetgraphicsBottomVLayout">
+															<property name="leftMargin">
+																<number>0</number>
+															</property>
+															<property name="topMargin">
+																<number>0</number>
+															</property>
+															<property name="rightMargin">
+																<number>0</number>
+															</property>
+															<property name="bottomMargin">
+																<number>0</number>
+															</property>
+															<item>
+																<widget class="QCheckBox" name="enableHDRCheckBox">
+																	<property name="text">
+																		<string>Enable HDR</string>
+																	</property>
+																</widget>
+															</item>
+															<item>
+																<widget class="QCheckBox" name="enableAutoBackupCheckBox">
+																	<property name="text">
+																		<string>Enable Auto Backups</string>
+																	</property>
+																</widget>
+															</item>
+															<item>
+																<widget class="QCheckBox" name="connectedNetworkCheckBox">
+																	<property name="text">
+																		<string>Connected to Network</string>
+																	</property>
+																</widget>
+															</item>
+															<item>
+																<widget class="QCheckBox" name="showSplashCheckBox">
+																	<property name="text">
+																		<string>Show Splash Screen</string>
+																	</property>
+																</widget>
+															</item>
+															<item>
+																<widget class="QGroupBox" name="presentModeGroupBox">
+																	<property name="title">
+																		<string>Present Mode</string>
+																	</property>
+																	<layout class="QVBoxLayout" name="presentModeLayout">
+																		<item>
+																			<widget class="QComboBox" name="presentModeComboBox">
+																				<property name="sizePolicy">
+																					<sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+																						<horstretch>0</horstretch>
+																						<verstretch>0</verstretch>
+																					</sizepolicy>
+																				</property>
+																				<item>
+																					<property name="text">
+																						<string>Mailbox (Vsync)</string>
+																					</property>
+																				</item>
+																				<item>
+																					<property name="text">
+																						<string>Fifo (Vsync)</string>
+																					</property>
+																				</item>
+																				<item>
+																					<property name="text">
+																						<string>Immediate (No Vsync)</string>
+																					</property>
+																				</item>
+																			</widget>
+																		</item>
+																	</layout>
+																</widget>
+															</item>
+														</layout>
+													</widget>
+												</item>
+											</layout>
+										</item>
+										<item>
+											<layout class="QVBoxLayout" name="graphicsTabLayoutMiddle">
+												<item>
+													<widget class="QGroupBox" name="displayOptionsGroupBox">
+														<property name="title">
+															<string>Video</string>
+														</property>
+														<layout class="QVBoxLayout" name="layoutResolution">
+															<property name="spacing">
+																<number>6</number>
+															</property>
+															<property name="leftMargin">
+																<number>12</number>
+															</property>
+															<item>
+																<widget class="QGroupBox" name="displayModeGroupBox">
+																	<property name="title">
+																		<string>Display Mode</string>
+																	</property>
+																	<layout class="QVBoxLayout" name="displayModeLayout">
+																		<item>
+																			<widget class="QGroupBox" name="windowSizeGroupBox">
+																				<property name="title">
+																					<string>Window Size</string>
+																				</property>
+																				<layout class="QHBoxLayout" name="resLayout">
+																					<item>
+																						<widget class="QLabel" name="widthLabel">
+																							<property name="text">
+																								<string>W:</string>
+																							</property>
+																						</widget>
+																					</item>
+																					<item>
+																						<widget class="QSpinBox" name="widthSpinBox">
+																							<property name="accelerated">
+																								<bool>true</bool>
+																							</property>
+																							<property name="correctionMode">
+																								<enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+																							</property>
+																							<property name="keyboardTracking">
+																								<bool>false</bool>
+																							</property>
+																							<property name="minimum">
+																								<number>0</number>
+																							</property>
+																							<property name="maximum">
+																								<number>9999</number>
+																							</property>
+																							<property name="value">
+																								<number>1280</number>
+																							</property>
+																						</widget>
+																					</item>
+																					<item>
+																						<widget class="QLabel" name="heightLabel">
+																							<property name="text">
+																								<string>H:</string>
+																							</property>
+																						</widget>
+																					</item>
+																					<item>
+																						<widget class="QSpinBox" name="heightSpinBox">
+																							<property name="frame">
+																								<bool>true</bool>
+																							</property>
+																							<property name="accelerated">
+																								<bool>true</bool>
+																							</property>
+																							<property name="correctionMode">
+																								<enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+																							</property>
+																							<property name="keyboardTracking">
+																								<bool>false</bool>
+																							</property>
+																							<property name="minimum">
+																								<number>0</number>
+																							</property>
+																							<property name="maximum">
+																								<number>9999</number>
+																							</property>
+																							<property name="value">
+																								<number>720</number>
+																							</property>
+																						</widget>
+																					</item>
+																				</layout>
+																			</widget>
+																		</item>
+																		<item>
+																			<widget class="QComboBox" name="displayModeComboBox">
+																				<property name="sizePolicy">
+																					<sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+																						<horstretch>0</horstretch>
+																						<verstretch>0</verstretch>
+																					</sizepolicy>
+																				</property>
+																				<item>
+																					<property name="text">
+																						<string>Windowed</string>
+																					</property>
+																				</item>
+																				<item>
+																					<property name="text">
+																						<string>Fullscreen</string>
+																					</property>
+																				</item>
+																				<item>
+																					<property name="text">
+																						<string>Fullscreen (Borderless)</string>
+																					</property>
+																				</item>
+																			</widget>
+																		</item>
+																	</layout>
+																</widget>
+															</item>
+															<item>
+																<layout class="QHBoxLayout" name="windowSizeLayout">
+																	<item>
+																		<widget class="QGroupBox" name="heightDivider">
+																			<property name="title">
+																				<string>Vblank Frequency</string>
+																			</property>
+																			<layout class="QVBoxLayout" name="vblankLayout">
+																				<item>
+																					<widget class="QSpinBox" name="vblankSpinBox">
+																						<property name="frame">
+																							<bool>true</bool>
+																						</property>
+																						<property name="alignment">
+																							<set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+																						</property>
+																						<property name="specialValueText">
+																							<string/>
+																						</property>
+																						<property name="accelerated">
+																							<bool>true</bool>
+																						</property>
+																						<property name="correctionMode">
+																							<enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+																						</property>
+																						<property name="keyboardTracking">
+																							<bool>false</bool>
+																						</property>
+																						<property name="suffix">
+																							<string>Hz</string>
+																						</property>
+																						<property name="minimum">
+																							<number>60</number>
+																						</property>
+																						<property name="maximum">
+																							<number>9999</number>
+																						</property>
+																						<property name="value">
+																							<number>60</number>
+																						</property>
+																					</widget>
+																				</item>
+																			</layout>
+																		</widget>
+																	</item>
+																</layout>
+															</item>
+															<item>
+																<layout class="QHBoxLayout"/>
+															</item>
+														</layout>
+													</widget>
+												</item>
+											</layout>
+										</item>
+										<item>
+											<layout class="QVBoxLayout" name="graphicsTabLayoutRight">
+												<property name="rightMargin">
+													<number>12</number>
+												</property>
+												<property name="bottomMargin">
+													<number>12</number>
+												</property>
+												<item>
+													<widget class="QGroupBox" name="FSRGroupBox">
+														<property name="title">
+															<string>FSR Settings</string>
+														</property>
+														<layout class="QVBoxLayout" name="verticalLayout_5">
+															<item>
+																<widget class="QCheckBox" name="FSRCheckBox">
+																	<property name="text">
+																		<string>Enable FSR</string>
+																	</property>
+																</widget>
+															</item>
+															<item>
+																<widget class="QCheckBox" name="RCASCheckBox">
+																	<property name="text">
+																		<string>Enable RCAS (sharpening)</string>
+																	</property>
+																</widget>
+															</item>
+															<item>
+																<layout class="QHBoxLayout" name="horizontalLayout_10">
+																	<item>
+																		<widget class="QLabel" name="RCASAtenLabel">
+																			<property name="font">
+																				<font>
+																					<pointsize>9</pointsize>
+																					<bold>false</bold>
+																				</font>
+																			</property>
+																			<property name="text">
+																				<string>RCAS Attenuation:</string>
+																			</property>
+																		</widget>
+																	</item>
+																	<item>
+																		<widget class="QDoubleSpinBox" name="RCASSpinBox">
+																			<property name="decimals">
+																				<number>3</number>
+																			</property>
+																			<property name="minimum">
+																				<double>0.000</double>
+																			</property>
+																			<property name="maximum">
+																				<double>3.000</double>
+																			</property>
+																			<property name="singleStep">
+																				<double>0.001</double>
+																			</property>
+																			<property name="value">
+																				<double>0.250</double>
+																			</property>
+																		</widget>
+																	</item>
+																</layout>
+															</item>
+															<item>
+																<widget class="QSlider" name="RCASSlider">
+																	<property name="minimum">
+																		<number>0</number>
+																	</property>
+																	<property name="maximum">
+																		<number>3000</number>
+																	</property>
+																	<property name="value">
+																		<number>250</number>
+																	</property>
+																	<property name="orientation">
+																		<enum>Qt::Horizontal</enum>
+																	</property>
+																</widget>
+															</item>
+														</layout>
+													</widget>
+												</item>
+												<item>
+													<widget class="QGroupBox" name="fpsLimitGroupBox">
+														<property name="title">
+															<string>FPS Limit</string>
+														</property>
+														<layout class="QVBoxLayout" name="verticalLayout_8">
+															<item>
+																<widget class="QCheckBox" name="fpsLimiterCheckBox">
+																	<property name="text">
+																		<string>Enable FPS Limiter</string>
+																	</property>
+																</widget>
+															</item>
+															<item>
+																<layout class="QHBoxLayout" name="horizontalLayout_8">
+																	<item>
+																		<widget class="QSpinBox" name="fpsSpinBox">
+																			<property name="minimumSize">
+																				<size>
+																					<width>80</width>
+																					<height>0</height>
+																				</size>
+																			</property>
+																			<property name="alignment">
+																				<set>Qt::AlignmentFlag::AlignCenter</set>
+																			</property>
+																			<property name="suffix">
+																				<string> FPS</string>
+																			</property>
+																			<property name="minimum">
+																				<number>30</number>
+																			</property>
+																			<property name="maximum">
+																				<number>500</number>
+																			</property>
+																			<property name="singleStep">
+																				<number>1</number>
+																			</property>
+																			<property name="value">
+																				<number>60</number>
+																			</property>
+																		</widget>
+																	</item>
+																	<item>
+																		<widget class="QSlider" name="fpsSlider">
+																			<property name="minimum">
+																				<number>30</number>
+																			</property>
+																			<property name="maximum">
+																				<number>500</number>
+																			</property>
+																			<property name="value">
+																				<number>60</number>
+																			</property>
+																			<property name="orientation">
+																				<enum>Qt::Orientation::Horizontal</enum>
+																			</property>
+																		</widget>
+																	</item>
+																</layout>
+															</item>
+														</layout>
+													</widget>
+												</item>
+												<item>
+													<spacer name="AdvancedSpacer">
+														<property name="orientation">
+															<enum>Qt::Orientation::Vertical</enum>
+														</property>
+														<property name="sizeHint" stdset="0">
+															<size>
+																<width>20</width>
+																<height>40</height>
+															</size>
+														</property>
+													</spacer>
+												</item>
+											</layout>
+										</item>
+									</layout>
+								</item>
 
-		   <item>
-			   <widget class="QCheckBox" name="HotkeysCheckBox">
-				   <property name="text">
-					   <string>Disable Hardcoded Hotkeys</string>
-				   </property>
-			   </widget>
-		   </item>
+								<item>
+									<widget class="QGroupBox" name="GenAudioGroupBox">
+										<property name="title">
+											<string>Audio Device (general)</string>
+										</property>
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<layout class="QVBoxLayout" name="verticalLayout_11">
+											<item>
+												<widget class="QComboBox" name="mainOutputDeviceComboBox"/>
+											</item>
+										</layout>
+									</widget>
+								</item>
 
-		   <item>
-			   <widget class="QCheckBox" name="HomeHotkeysCheckBox">
-				   <property name="text">
-					   <string>Enable PS/Home/Guide button for Hotkeys</string>
-				   </property>
-			   </widget>
-		   </item>
+								<item>
+									<widget class="QGroupBox" name="DsSpeakerGroupBox">
+										<property name="title">
+											<string>Audio Device (DS4 speaker)</string>
+										</property>
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<layout class="QVBoxLayout" name="verticalLayout_9">
+											<item>
+												<widget class="QComboBox" name="padSpkOutputDeviceComboBox"/>
+											</item>
+										</layout>
+									</widget>
+								</item>
 
-		   <item>
-         <widget class="QCheckBox" name="SkipsCheckBox">
-          <property name="text">
-           <string>Enable Shader Skips</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_4">
-          <property name="font">
-           <font>
-            <pointsize>11</pointsize>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string notr="true">
-							
-        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
-        Helps inFamous crash on binaryinfo crash,
-		Driveclub slowdowns,
-		and COD Ghost boot to main menu and some stages.&lt;br/&gt;		
-        
-			</string>
-          </property>
-          <property name="wordWrap">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="DMACheckBox">
-          <property name="text">
-           <string>Enable DMA</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_23">
-          <property name="font">
-           <font>
-            <pointsize>11</pointsize>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string notr="true">
-						
-        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
-        DMA implementation,
-        Disable this for TLG, disabling help with random crashes.&lt;br/&gt;
-        
-					</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="ReadbacksLinearCheckBox">
-          <property name="text">
-           <string>LinearImage Readbacks</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_211">
-          <property name="font">
-           <font>
-            <pointsize>11</pointsize>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string notr="true">
-							
-        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
-        Linear Readbacks for Postprocessing, helps TLG
-		Disable for Elden Ring.
-        Disable if encounter issues
-		Enable if you get Driver restart on DRIVECLUB&lt;br/&gt;       
-        
-						</string>
-          </property>
-         </widget>
-        </item>
-<item>
- <widget class="QLabel" name="label_readbacks_speed_title">
-  <property name="font">
-   <font>
-    <pointsize>11</pointsize>
-    <bold>true</bold>
-   </font>
-  </property>
-  <property name="text">
-   <string>Readbacks Speed</string>
-  </property>
- </widget>
-</item>
-<item>
- <widget class="QComboBox" name="ReadbackSpeedComboBox">
-  <property name="toolTip">
-   <string>Select the readbacks speed mode</string>
-  </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>300</width>
-    <height>30</height>
-   </size>
-  </property>
-  <item>
-   <property name="text"><string>Disable</string></property>
-  </item>
-  <item>
-   <property name="text"><string>Unsafe</string></property>
-  </item>
-  <item>
-   <property name="text"><string>Low</string></property>
-  </item>
-  <item>
-   <property name="text"><string>Default</string></property>
-  </item>
-  <item>
-   <property name="text"><string>Fast</string></property>
-  </item>
- </widget>
-</item>
-<item>
- <widget class="QLabel" name="label_readbacksaccuracy_hint">
-          <property name="font">
-           <font>
-            <pointsize>11</pointsize>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string notr="true">
-							
-&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
-Disable – Disable readbacks&lt;br/&gt;
-Unsafe – Old Fast Readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
-Low – Low readbacks Speed (Most Accurate)&lt;br/&gt;
-Default – Normal Readbacks Speed&lt;br/&gt;
-Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
-                
-						</string>
-          </property>
-         </widget>
-        </item>
-		   <item>
-			   <widget class="QGroupBox" name="groupBox_2">
-				   <property name="title">
-					   <string>Memory Allocation</string>
-				   </property>
-				   <layout class="QVBoxLayout" name="groupBox_2_layout">
-					   <item>
-						   <widget class="QSpinBox" name="MemorySpinBox">
-							   <property name="minimum">
-								   <number>0</number>
-							   </property>
-							   <property name="maximum">
-								   <number>9999</number>
-							   </property>
-							   <property name="value">
-								   <number>512</number>
-							   </property>
-						   </widget>
-					   </item>
-				   </layout>
-			   </widget>
-		   </item>
-		   <item>
-			   <widget class="QLabel" name="label_23">
-				   <property name="font">
-					   <font>
-						   <pointsize>11</pointsize>
-						   <bold>true</bold>
-					   </font>
-				   </property>
-				   <property name="textFormat">
-					   <enum>Qt::RichText</enum>
-				   </property>
-				   <property name="text">
-					   <string>
-						   &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
-						   Extra Memory Allocation, you can set it from 1–9999. It adds that amount of memory to the emulator for usage and enables resolutions above 1440p.
-					   </string>
-				   </property>
-				   <property name="wordWrap">
-					   <bool>true</bool>
-				   </property>
-			   </widget>
-		   </item>
 
-	   </layout>
-   </widget>
-</widget>
-</widget>
-</item>
-<item>
-<widget class="QDialogButtonBox" name="buttonBox">
-     <property name="standardButtons">
-      <set>QDialogButtonBox::StandardButton::Apply|QDialogButtonBox::StandardButton::Close|QDialogButtonBox::StandardButton::RestoreDefaults|QDialogButtonBox::StandardButton::Save</set>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QTextEdit" name="descriptionText">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>16777215</width>
-       <height>170</height>
-      </size>
-     </property>
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-  </layout>
- </widget>
- <resources>
-  <include location="../shadps4.qrc"/>
- </resources>
- <connections/>
+							</layout>
+						</widget>
+					</widget>
+
+
+					<widget class="QScrollArea" name="inputTab">
+						<property name="widgetResizable">
+							<bool>true</bool>
+						</property>
+						<attribute name="title">
+							<string>Input</string>
+						</attribute>
+						<widget class="QWidget" name="inputTabContents">
+							<property name="geometry">
+								<rect>
+									<x>0</x>
+									<y>0</y>
+									<width>946</width>
+									<height>536</height>
+								</rect>
+							</property>
+							<layout class="QVBoxLayout" name="inputTabVLayout" stretch="0,0">
+								<item>
+									<layout class="QHBoxLayout" name="inputTabHLayoutTop" stretch="1,1">
+										<item>
+											<layout class="QVBoxLayout" name="cursorTabLayoutLeft">
+												<property name="spacing">
+													<number>6</number>
+												</property>
+												<property name="bottomMargin">
+													<number>0</number>
+												</property>
+												<item alignment="Qt::AlignmentFlag::AlignTop">
+													<widget class="QGroupBox" name="cursorGroupBox">
+														<property name="title">
+															<string>Cursor</string>
+														</property>
+														<layout class="QGridLayout" name="gridLayout_2">
+															<property name="topMargin">
+																<number>11</number>
+															</property>
+															<property name="bottomMargin">
+																<number>11</number>
+															</property>
+															<item row="0" column="0">
+																<widget class="QGroupBox" name="hideCursorGroupBox">
+																	<property name="enabled">
+																		<bool>true</bool>
+																	</property>
+																	<property name="sizePolicy">
+																		<sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+																			<horstretch>0</horstretch>
+																			<verstretch>0</verstretch>
+																		</sizepolicy>
+																	</property>
+																	<property name="title">
+																		<string>Hide Cursor</string>
+																	</property>
+																	<layout class="QVBoxLayout" name="hideCursorLayout">
+																		<property name="spacing">
+																			<number>7</number>
+																		</property>
+																		<property name="bottomMargin">
+																			<number>11</number>
+																		</property>
+																		<item>
+																			<widget class="QComboBox" name="hideCursorComboBox"/>
+																		</item>
+																	</layout>
+																</widget>
+															</item>
+															<item row="1" column="0">
+																<widget class="QGroupBox" name="idleTimeoutGroupBox">
+																	<property name="enabled">
+																		<bool>true</bool>
+																	</property>
+																	<property name="sizePolicy">
+																		<sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+																			<horstretch>0</horstretch>
+																			<verstretch>0</verstretch>
+																		</sizepolicy>
+																	</property>
+																	<property name="minimumSize">
+																		<size>
+																			<width>0</width>
+																			<height>0</height>
+																		</size>
+																	</property>
+																	<property name="title">
+																		<string>Hide Cursor Idle Timeout</string>
+																	</property>
+																	<property name="alignment">
+																		<set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+																	</property>
+																	<property name="flat">
+																		<bool>false</bool>
+																	</property>
+																	<layout class="QHBoxLayout" name="IdleTimeoutLayout" stretch="0,0">
+																		<property name="spacing">
+																			<number>6</number>
+																		</property>
+																		<property name="leftMargin">
+																			<number>70</number>
+																		</property>
+																		<property name="topMargin">
+																			<number>5</number>
+																		</property>
+																		<property name="rightMargin">
+																			<number>5</number>
+																		</property>
+																		<property name="bottomMargin">
+																			<number>5</number>
+																		</property>
+																		<item>
+																			<widget class="QSpinBox" name="idleTimeoutSpinBox">
+																				<property name="enabled">
+																					<bool>true</bool>
+																				</property>
+																				<property name="sizePolicy">
+																					<sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+																						<horstretch>0</horstretch>
+																						<verstretch>0</verstretch>
+																					</sizepolicy>
+																				</property>
+																				<property name="minimumSize">
+																					<size>
+																						<width>0</width>
+																						<height>0</height>
+																					</size>
+																				</property>
+																				<property name="maximumSize">
+																					<size>
+																						<width>16777215</width>
+																						<height>16777215</height>
+																					</size>
+																				</property>
+																				<property name="layoutDirection">
+																					<enum>Qt::LayoutDirection::LeftToRight</enum>
+																				</property>
+																				<property name="wrapping">
+																					<bool>false</bool>
+																				</property>
+																				<property name="alignment">
+																					<set>Qt::AlignmentFlag::AlignCenter</set>
+																				</property>
+																				<property name="buttonSymbols">
+																					<enum>QAbstractSpinBox::ButtonSymbols::UpDownArrows</enum>
+																				</property>
+																				<property name="suffix">
+																					<string notr="true"/>
+																				</property>
+																				<property name="maximum">
+																					<number>3600</number>
+																				</property>
+																				<property name="value">
+																					<number>5</number>
+																				</property>
+																				<property name="displayIntegerBase">
+																					<number>10</number>
+																				</property>
+																			</widget>
+																		</item>
+																		<item>
+																			<widget class="QLabel" name="idleTimeoutDurationLabel">
+																				<property name="text">
+																					<string>s</string>
+																				</property>
+																			</widget>
+																		</item>
+																	</layout>
+																</widget>
+															</item>
+														</layout>
+													</widget>
+												</item>
+											</layout>
+										</item>
+										<item>
+											<layout class="QVBoxLayout" name="ControllerTabLayoutMiddle">
+												<item>
+													<widget class="QGroupBox" name="ControllerGroupBox">
+														<property name="sizePolicy">
+															<sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+																<horstretch>0</horstretch>
+																<verstretch>0</verstretch>
+															</sizepolicy>
+														</property>
+														<property name="title">
+															<string>Controller</string>
+														</property>
+														<property name="alignment">
+															<set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+														</property>
+														<property name="flat">
+															<bool>false</bool>
+														</property>
+														<layout class="QVBoxLayout" name="ControllerLayout">
+															<property name="spacing">
+																<number>0</number>
+															</property>
+															<property name="topMargin">
+
+																<number>11</number>
+															</property>
+															<property name="bottomMargin">
+																<number>11</number>
+															</property>
+															<item>
+																<widget class="QCheckBox" name="motionControlsCheckBox">
+																	<property name="sizePolicy">
+																		<sizepolicy hsizetype="Minimum" vsizetype="Maximum">
+																			<horstretch>0</horstretch>
+																			<verstretch>0</verstretch>
+																		</sizepolicy>
+																	</property>
+																	<property name="text">
+																		<string>Enable Motion Controls</string>
+																	</property>
+																</widget>
+															</item>
+															<item>
+																<widget class="QCheckBox" name="backgroundControllerCheckBox">
+																	<property name="text">
+																		<string>Enable Background Controller Input</string>
+																	</property>
+																</widget>
+															</item>
+														</layout>
+													</widget>
+												</item>
+											</layout>
+										</item>
+									</layout>
+								</item>
+								<item>
+									<layout class="QHBoxLayout" name="inputTabHLayoutBottom">
+										<property name="topMargin">
+											<number>0</number>
+										</property>
+
+										<!-- LEFT SIDE (Special Pad Settings) -->
+										<item>
+											<widget class="QWidget">
+												<property name="sizePolicy">
+													<sizepolicy hsizetype="Expanding" vsizetype="Preferred"/>
+												</property>
+
+												<layout class="QVBoxLayout" name="leftSideInputLayout">
+													<item>
+														<widget class="QGroupBox" name="specialPadGroupBox">
+															<property name="sizePolicy">
+																<sizepolicy hsizetype="Expanding" vsizetype="Preferred"/>
+															</property>
+															<property name="title">
+																<string>Special Pad Settings</string>
+															</property>
+
+															<layout class="QHBoxLayout" name="specialPadLayout">
+																<item>
+																	<widget class="QComboBox" name="padSelectorComboBox">
+																		<item>
+																			<property name="text">
+																				<string>Pad 1</string>
+																			</property>
+																		</item>
+																		<item>
+																			<property name="text">
+																				<string>Pad 2</string>
+																			</property>
+																		</item>
+																		<item>
+																			<property name="text">
+																				<string>Pad 3</string>
+																			</property>
+																		</item>
+																		<item>
+																			<property name="text">
+																				<string>Pad 4</string>
+																			</property>
+																		</item>
+																	</widget>
+																</item>
+
+																<item>
+																	<widget class="QSpinBox" name="specialPadClassSpinBox">
+																		<property name="minimum">
+																			<number>1</number>
+																		</property>
+																		<property name="maximum">
+																			<number>4</number>
+																		</property>
+																		<property name="value">
+																			<number>1</number>
+																		</property>
+																	</widget>
+																</item>
+
+																<item>
+																	<widget class="QCheckBox" name="useSpecialPadCheckBox">
+																		<property name="text">
+																			<string>Use Special Pad</string>
+																		</property>
+																	</widget>
+																</item>
+															</layout>
+														</widget>
+													</item>
+												</layout>
+											</widget>
+										</item>
+
+										<!-- MIDDLE OPTIONS -->
+										<item>
+											<layout class="QVBoxLayout" name="inputOptionsVLayout">
+												<item>
+													<widget class="QCheckBox" name="useUnifiedInputConfigCheckBox">
+														<property name="text">
+															<string>Use Unified Input Config</string>
+														</property>
+													</widget>
+												</item>
+
+												<item>
+													<widget class="QCheckBox" name="discordRPCCheckbox">
+														<property name="text">
+															<string>Enable Discord Rich Presence</string>
+														</property>
+													</widget>
+												</item>
+											</layout>
+										</item>
+
+										<!-- TROPHY AREA (RIGHT SIDE) -->
+										<item>
+											<layout class="QVBoxLayout" name="vLayoutTrophy">
+												<property name="spacing">
+													<number>6</number>
+												</property>
+												<property name="leftMargin">
+													<number>0</number>
+												</property>
+												<property name="bottomMargin">
+													<number>5</number>
+												</property>
+
+												<item>
+													<layout class="QHBoxLayout" name="hLayoutTrophy">
+														<item>
+															<widget class="QGroupBox" name="trophyGroupBox">
+																<property name="title">
+																	<string>Trophy</string>
+																</property>
+																<property name="sizePolicy">
+																	<sizepolicy hsizetype="Minimum" vsizetype="Preferred"/>
+																</property>
+
+																<layout class="QVBoxLayout" name="trophyLayout">
+
+																	<item>
+																		<widget class="QCheckBox" name="disableTrophycheckBox">
+																			<property name="text">
+																				<string>Disable Trophy Notification</string>
+																			</property>
+																		</widget>
+																	</item>
+
+																	<item>
+																		<layout class="QHBoxLayout" name="horizontalLayout_SidePopUps">
+																			<item>
+																				<widget class="QLabel" name="label_SidePopUps">
+																					<property name="text">
+																						<string>Trophy Notification Position</string>
+																					</property>
+																				</widget>
+																			</item>
+
+																			<item>
+																				<widget class="QRadioButton" name="radioButton_Left">
+																					<property name="text">
+																						<string>Left</string>
+																					</property>
+																				</widget>
+																			</item>
+																			<item>
+																				<widget class="QRadioButton" name="radioButton_Right">
+																					<property name="text">
+																						<string>Right</string>
+																					</property>
+																				</widget>
+																			</item>
+																			<item>
+																				<widget class="QRadioButton" name="radioButton_Top">
+																					<property name="text">
+																						<string>Top</string>
+																					</property>
+																				</widget>
+																			</item>
+																			<item>
+																				<widget class="QRadioButton" name="radioButton_Bottom">
+																					<property name="text">
+																						<string>Bottom</string>
+																					</property>
+																				</widget>
+																			</item>
+																		</layout>
+																	</item>
+
+																	<item>
+																		<layout class="QHBoxLayout" name="horizontalLayout_PopUpsDuration">
+																			<item>
+																				<widget class="QLabel" name="label_PopUpDuration">
+																					<property name="text">
+																						<string>Notification Duration</string>
+																					</property>
+																				</widget>
+																			</item>
+
+																			<item>
+																				<widget class="QDoubleSpinBox" name="popUpDurationSpinBox"/>
+																			</item>
+
+																			<item>
+																				<spacer name="horizontalSpacer_4">
+																					<property name="orientation">
+																						<enum>Qt::Horizontal</enum>
+																					</property>
+																					<property name="sizeHint" stdset="0">
+																						<size>
+																							<width>40</width>
+																							<height>20</height>
+																						</size>
+																					</property>
+																				</spacer>
+																			</item>
+																		</layout>
+																	</item>
+
+																</layout>
+															</widget>
+														</item>
+													</layout>
+												</item>
+											</layout>
+										</item>
+
+									</layout>
+								</item>
+
+							</layout>
+						</widget>
+					</widget>
+
+
+
+					<widget class="QScrollArea" name="logTab">
+						<property name="widgetResizable">
+							<bool>true</bool>
+						</property>
+						<attribute name="title">
+							<string>Log</string>
+						</attribute>
+						<widget class="QWidget" name="logTabContents">
+							<property name="geometry">
+								<rect>
+									<x>0</x>
+									<y>0</y>
+									<width>1094</width>
+									<height>299</height>
+								</rect>
+							</property>
+							<property name="sizePolicy">
+								<sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+									<horstretch>0</horstretch>
+									<verstretch>0</verstretch>
+								</sizepolicy>
+							</property>
+							<layout class="QVBoxLayout" name="logTabVLayout" stretch="0">
+								<item>
+									<layout class="QHBoxLayout" name="horizontalLayout_log">
+										<property name="leftMargin">
+											<number>0</number>
+										</property>
+										<property name="topMargin">
+											<number>0</number>
+										</property>
+										<item>
+											<layout class="QVBoxLayout" name="loggerTabLayoutRight">
+												<item>
+													<widget class="QGroupBox" name="loggerGroupBox">
+														<property name="title">
+															<string>Logger</string>
+														</property>
+														<layout class="QVBoxLayout" name="loggerLayout">
+															<item>
+																<layout class="QHBoxLayout" name="horizontalLayout_12">
+																	<property name="topMargin">
+																		<number>0</number>
+																	</property>
+																	<item>
+																		<layout class="QVBoxLayout" name="verticalLayout_7">
+																			<property name="topMargin">
+																				<number>0</number>
+																			</property>
+																			<item>
+																				<widget class="QCheckBox" name="enableLoggingCheckBox">
+																					<property name="text">
+																						<string>Enable Logging</string>
+																					</property>
+																				</widget>
+																			</item>
+																			<item>
+																				<widget class="QCheckBox" name="isPSNSignedInCheckBox">
+																					<property name="text">
+																						<string>PSN Signed</string>
+																					</property>
+																				</widget>
+																			</item>
+																		</layout>
+																	</item>
+																	<item>
+																		<widget class="QGroupBox" name="logTypeGroupBox">
+																			<property name="title">
+																				<string>Log Type</string>
+																			</property>
+																			<layout class="QVBoxLayout" name="logTypeBoxLayout">
+																				<item>
+																					<widget class="QComboBox" name="logTypeComboBox">
+																						<property name="sizePolicy">
+																							<sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+																								<horstretch>0</horstretch>
+																								<verstretch>0</verstretch>
+																							</sizepolicy>
+																						</property>
+																						<property name="maximumSize">
+																							<size>
+																								<width>300</width>
+																								<height>30</height>
+																							</size>
+																						</property>
+																						<item>
+																							<property name="text">
+																								<string>async</string>
+																							</property>
+																						</item>
+																						<item>
+																							<property name="text">
+																								<string>sync</string>
+																							</property>
+																						</item>
+																					</widget>
+																				</item>
+																			</layout>
+																		</widget>
+																	</item>
+																</layout>
+															</item>
+															<item>
+																<layout class="QVBoxLayout" name="vLayoutLogFilter">
+																	<property name="spacing">
+																		<number>6</number>
+																	</property>
+																	<property name="leftMargin">
+																		<number>0</number>
+																	</property>
+																	<item>
+																		<layout class="QHBoxLayout" name="hLayoutLogFilter">
+																			<item>
+																				<widget class="QGroupBox" name="logFilter">
+																					<property name="title">
+																						<string>Log Filter</string>
+																					</property>
+																					<layout class="QVBoxLayout" name="logFilterLayout">
+																						<item>
+																							<widget class="QLineEdit" name="logFilterLineEdit"/>
+																						</item>
+																						<item>
+																							<widget class="QPushButton" name="logPresetsButton">
+																								<property name="text">
+																									<string>Load Presets...</string>
+																								</property>
+																							</widget>
+																						</item>
+																					</layout>
+																				</widget>
+																			</item>
+																		</layout>
+																	</item>
+																</layout>
+															</item>
+															<item>
+																<widget class="QPushButton" name="OpenLogLocationButton">
+																	<property name="text">
+																		<string>Open Log Location</string>
+																	</property>
+																</widget>
+															</item>
+														</layout>
+													</widget>
+												</item>
+											</layout>
+										</item>
+									</layout>
+								</item>
+							</layout>
+						</widget>
+					</widget>
+
+					<widget class="QScrollArea" name="debugTab">
+						<property name="widgetResizable">
+							<bool>true</bool>
+						</property>
+						<attribute name="title">
+							<string>Debug</string>
+						</attribute>
+						<widget class="QWidget" name="debugTabContents">
+							<property name="geometry">
+								<rect>
+									<x>0</x>
+									<y>0</y>
+									<width>1094</width>
+									<height>486</height>
+								</rect>
+							</property>
+							<layout class="QHBoxLayout" name="debugTabHLayout" stretch="1,1">
+								<item>
+									<widget class="QGroupBox" name="debugTabGroupBox">
+										<property name="enabled">
+											<bool>true</bool>
+										</property>
+										<property name="title">
+											<string>General</string>
+										</property>
+										<property name="alignment">
+											<set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+										</property>
+										<layout class="QVBoxLayout" name="debugTabLayout">
+											<property name="spacing">
+												<number>6</number>
+											</property>
+											<property name="leftMargin">
+												<number>12</number>
+											</property>
+											<property name="topMargin">
+												<number>12</number>
+											</property>
+											<property name="rightMargin">
+												<number>12</number>
+											</property>
+											<property name="bottomMargin">
+												<number>12</number>
+											</property>
+											<item>
+												<widget class="QCheckBox" name="dumpShadersCheckBox">
+													<property name="text">
+														<string>Enable Shaders Dumping</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="debugDump">
+													<property name="text">
+														<string>Enable Debug Dumping</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="vkValidationCheckBox">
+													<property name="text">
+														<string>Enable Vulkan Validation Layers</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="vkSyncValidationCheckBox">
+													<property name="text">
+														<string>Enable Vulkan Synchronization Validation</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="rdocCheckBox">
+													<property name="text">
+														<string>Enable RenderDoc Debugging</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="cacheCheckBox">
+													<property name="text">
+														<string>Enable Shader Cache</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="cacheArchiveCheckBox">
+													<property name="text">
+														<string>Enable Cache Archive</string>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+								<item>
+
+									<widget class="QGroupBox" name="advancedGroupBox">
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<property name="title">
+											<string>Advanced</string>
+										</property>
+										<property name="alignment">
+											<set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+										</property>
+										<layout class="QVBoxLayout" name="advancedLayout">
+											<property name="spacing">
+												<number>6</number>
+											</property>
+											<property name="leftMargin">
+												<number>12</number>
+											</property>
+											<property name="topMargin">
+												<number>12</number>
+											</property>
+											<property name="rightMargin">
+												<number>12</number>
+											</property>
+											<property name="bottomMargin">
+												<number>12</number>
+											</property>
+											<item>
+												<widget class="QCheckBox" name="collectShaderCheckBox">
+													<property name="text">
+														<string>Collect Shaders</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="crashDiagnosticsCheckBox">
+													<property name="text">
+														<string>Enable Crash Diagnostics</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="copyGPUBuffersCheckBox">
+													<property name="text">
+														<string>Copy GPU Buffers</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="hostMarkersCheckBox">
+													<property name="text">
+														<string>Host Debug Markers</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="guestMarkersCheckBox">
+													<property name="text">
+														<string>Guest Debug Markers</string>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+
+								</item>
+							</layout>
+						</widget>
+					</widget>
+
+
+					<widget class="QScrollArea" name="experimentalTab">
+						<property name="widgetResizable">
+							<bool>true</bool>
+						</property>
+						<attribute name="title">
+							<string>Experimental</string>
+						</attribute>
+						<widget class="QWidget" name="experimentalTabContents">
+							<property name="geometry">
+								<rect>
+									<x>0</x>
+									<y>0</y>
+									<width>1080</width>
+									<height>856</height>
+								</rect>
+							</property>
+							<layout class="QVBoxLayout" name="verticalLayout_experimental">
+
+								<item>
+									<widget class="QGroupBox" name="gameVolumeGroup">
+										<property name="title">
+											<string>Game Volume</string>
+										</property>
+										<layout class="QHBoxLayout" name="volumeLayout">
+											<item>
+												<widget class="QSlider" name="horizontalVolumeSlider">
+													<property name="maximum">
+														<number>300</number>
+													</property>
+													<property name="value">
+														<number>100</number>
+													</property>
+													<property name="sliderPosition">
+														<number>100</number>
+													</property>
+													<property name="orientation">
+														<enum>Qt::Horizontal</enum>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QLineEdit" name="volumeText">
+													<property name="text">
+														<string>300%</string>
+													</property>
+													<property name="alignment">
+														<set>Qt::AlignmentFlag::AlignCenter</set>
+													</property>
+													<property name="readOnly">
+														<bool>true</bool>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+
+								<item>
+									<widget class="QCheckBox" name="isDevKitCheckBox">
+										<property name="text">
+											<string>Enable DevKit Mode</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLabel" name="label_22">
+										<property name="font">
+											<font>
+												<pointsize>11</pointsize>
+												<bold>true</bold>
+											</font>
+										</property>
+										<property name="text">
+											<string notr="true">
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Enable this for High Resolution Patches&lt;br/&gt;
+												Can cause issues on other games.&lt;br/&gt;
+												Disable if you cant boot other games.
+
+											</string>
+										</property>
+										<property name="wordWrap">
+											<bool>true</bool>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QCheckBox" name="isNeoModeCheckBox">
+										<property name="text">
+											<string>Enable Neo Mode</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QCheckBox" name="screenTipBox">
+										<property name="text">
+											<string>Disable FullScreen Tip on Boot</string>
+										</property>
+									</widget>
+								</item>
+
+								<item>
+									<widget class="QCheckBox" name="HotkeysCheckBox">
+										<property name="text">
+											<string>Disable Hardcoded Hotkeys</string>
+										</property>
+									</widget>
+								</item>
+
+								<item>
+									<widget class="QCheckBox" name="HomeHotkeysCheckBox">
+										<property name="text">
+											<string>Enable PS/Home/Guide button for Hotkeys</string>
+										</property>
+									</widget>
+								</item>
+
+								<item>
+									<widget class="QCheckBox" name="SkipsCheckBox">
+										<property name="text">
+											<string>Enable Shader Skips</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLabel" name="label_4">
+										<property name="font">
+											<font>
+												<pointsize>11</pointsize>
+												<bold>true</bold>
+											</font>
+										</property>
+										<property name="text">
+											<string notr="true">
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Helps inFamous crash on binaryinfo crash,
+												Driveclub slowdowns,
+												and COD Ghost boot to main menu and some stages.&lt;br/&gt;
+
+											</string>
+										</property>
+										<property name="wordWrap">
+											<bool>true</bool>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QCheckBox" name="DMACheckBox">
+										<property name="text">
+											<string>Enable DMA</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLabel" name="label_23">
+										<property name="font">
+											<font>
+												<pointsize>11</pointsize>
+												<bold>true</bold>
+											</font>
+										</property>
+										<property name="text">
+											<string notr="true">
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												DMA implementation,
+												Disable this for TLG, disabling help with random crashes.&lt;br/&gt;
+
+											</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QCheckBox" name="ReadbacksLinearCheckBox">
+										<property name="text">
+											<string>LinearImage Readbacks</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLabel" name="label_211">
+										<property name="font">
+											<font>
+												<pointsize>11</pointsize>
+												<bold>true</bold>
+											</font>
+										</property>
+										<property name="text">
+											<string notr="true">
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Linear Readbacks for Postprocessing, helps TLG
+												Disable for Elden Ring.
+												Disable if encounter issues
+												Enable if you get Driver restart on DRIVECLUB&lt;br/&gt;
+
+											</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLabel" name="label_readbacks_speed_title">
+										<property name="font">
+											<font>
+												<pointsize>11</pointsize>
+												<bold>true</bold>
+											</font>
+										</property>
+										<property name="text">
+											<string>Readbacks Speed</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QComboBox" name="ReadbackSpeedComboBox">
+										<property name="toolTip">
+											<string>Select the readbacks speed mode</string>
+										</property>
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<property name="maximumSize">
+											<size>
+												<width>300</width>
+												<height>30</height>
+											</size>
+										</property>
+										<item>
+											<property name="text">
+												<string>Disable</string>
+											</property>
+										</item>
+										<item>
+											<property name="text">
+												<string>Unsafe</string>
+											</property>
+										</item>
+										<item>
+											<property name="text">
+												<string>Low</string>
+											</property>
+										</item>
+										<item>
+											<property name="text">
+												<string>Default</string>
+											</property>
+										</item>
+										<item>
+											<property name="text">
+												<string>Fast</string>
+											</property>
+										</item>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLabel" name="label_readbacksaccuracy_hint">
+										<property name="font">
+											<font>
+												<pointsize>11</pointsize>
+												<bold>true</bold>
+											</font>
+										</property>
+										<property name="text">
+											<string notr="true">
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Disable – Disable readbacks&lt;br/&gt;
+												Unsafe – Old Fast Readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
+												Low – Low readbacks Speed (Most Accurate)&lt;br/&gt;
+												Default – Normal Readbacks Speed&lt;br/&gt;
+												Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
+
+											</string>
+										</property>
+									</widget>
+								</item>
+								<item>
+									<widget class="QGroupBox" name="groupBox_2">
+										<property name="title">
+											<string>Memory Allocation</string>
+										</property>
+										<layout class="QVBoxLayout" name="groupBox_2_layout">
+											<item>
+												<widget class="QSpinBox" name="MemorySpinBox">
+													<property name="minimum">
+														<number>0</number>
+													</property>
+													<property name="maximum">
+														<number>9999</number>
+													</property>
+													<property name="value">
+														<number>512</number>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+								<item>
+									<widget class="QLabel" name="label_23">
+										<property name="font">
+											<font>
+												<pointsize>11</pointsize>
+												<bold>true</bold>
+											</font>
+										</property>
+										<property name="textFormat">
+											<enum>Qt::RichText</enum>
+										</property>
+										<property name="text">
+											<string>
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Extra Memory Allocation, you can set it from 1–9999. It adds that amount of memory to the emulator for usage and enables resolutions above 1440p.
+											</string>
+										</property>
+										<property name="wordWrap">
+											<bool>true</bool>
+										</property>
+									</widget>
+								</item>
+
+							</layout>
+						</widget>
+					</widget>
+				</widget>
+			</item>
+			<item>
+				<widget class="QDialogButtonBox" name="buttonBox">
+					<property name="standardButtons">
+						<set>QDialogButtonBox::StandardButton::Apply|QDialogButtonBox::StandardButton::Close|QDialogButtonBox::StandardButton::RestoreDefaults|QDialogButtonBox::StandardButton::Save</set>
+					</property>
+				</widget>
+			</item>
+			<item>
+				<widget class="QTextEdit" name="descriptionText">
+					<property name="sizePolicy">
+						<sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+							<horstretch>0</horstretch>
+							<verstretch>0</verstretch>
+						</sizepolicy>
+					</property>
+					<property name="maximumSize">
+						<size>
+							<width>16777215</width>
+							<height>170</height>
+						</size>
+					</property>
+					<property name="readOnly">
+						<bool>true</bool>
+					</property>
+				</widget>
+			</item>
+		</layout>
+	</widget>
+	<resources>
+		<include location="../shadps4.qrc"/>
+	</resources>
+	<connections/>
 </ui>

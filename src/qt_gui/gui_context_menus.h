@@ -702,7 +702,7 @@ public:
 
             Common::FS::PathToQString(shader_cache_path,
                                       Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
-                                          m_games[itemID].serial);
+                                          (m_games[itemID].serial + ".zip"));
 
             QString message_type;
 
@@ -757,16 +757,23 @@ public:
                     message_type = tr("Shader Cache");
                 }
             }
+
             if (!error) {
                 QString gameName = QString::fromStdString(m_games[itemID].name);
-                QDir dir(folder_path);
-                QMessageBox::StandardButton reply = QMessageBox::question(
-                    nullptr, QString(tr("Delete %1")).arg(message_type),
-                    QString(tr("Are you sure you want to delete %1's %2 directory?"))
-                        .arg(gameName, message_type),
-                    QMessageBox::Yes | QMessageBox::No);
+                QMessageBox::StandardButton reply =
+                    QMessageBox::question(nullptr, QString(tr("Delete %1")).arg(message_type),
+                                          QString(tr("Are you sure you want to delete %1's %2?"))
+                                              .arg(gameName, message_type),
+                                          QMessageBox::Yes | QMessageBox::No);
+
                 if (reply == QMessageBox::Yes) {
-                    dir.removeRecursively();
+                    QFileInfo pathInfo(folder_path);
+                    if (pathInfo.isDir()) {
+                        QDir(folder_path).removeRecursively();
+                    } else if (pathInfo.isFile()) {
+                        QFile::remove(folder_path);
+                    }
+
                     if (selected == deleteGame) {
                         widget->removeRow(itemID);
                         m_games.removeAt(itemID);

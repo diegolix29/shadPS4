@@ -80,6 +80,7 @@ u16 rightDeadZone();
 s16 getCursorState();
 int getCursorHideTimeout();
 double getTrophyNotificationDuration();
+
 bool getIsMotionControlsEnabled();
 bool GetUseUnifiedInputConfig();
 void SetUseUnifiedInputConfig(bool use);
@@ -159,10 +160,10 @@ void setPlayBGM(bool enable);
 void setBGMvolume(int volume);
 void setEnableDiscordRPC(bool enable);
 void setLanguage(u32 language);
-void setUseSpecialPad(int pad, bool use, bool is_game_specific);
-bool getUseSpecialPad(int pad);
-void setSpecialPadClass(int pad, int type, bool is_game_specific);
-int getSpecialPadClass(int pad);
+bool getUseSpecialPad(int p);
+int getSpecialPadClass(int p);
+void setUseSpecialPad(int p, bool v, bool is_game_specific);
+void setSpecialPadClass(int p, int v, bool is_game_specific);
 bool getPSNSignedIn();
 void setPSNSignedIn(bool sign); // no ui setting
 bool patchShaders();            // no set

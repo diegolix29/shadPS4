@@ -473,7 +473,7 @@ public:
             QCoreApplication::translate("MainWindow", "Grid View", nullptr));
         setlistElfAct->setText(QCoreApplication::translate("MainWindow", "Elf Viewer", nullptr));
         gameInstallPathAct->setText(
-            QCoreApplication::translate("MainWindow", "Game Install Directory", nullptr));
+            QCoreApplication::translate("MainWindow", "Games Directory", nullptr));
         downloadCheatsPatchesAct->setText(
             QCoreApplication::translate("MainWindow", "Download Cheats/Patches", nullptr));
         dumpGameListAct->setText(

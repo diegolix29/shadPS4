@@ -1125,6 +1125,7 @@ void MainWindow::CreateConnects() {
 
     // Package install.
     connect(ui->bootGameAct, &QAction::triggered, this, &MainWindow::BootGame);
+    connect(ui->gameInstallPathAct, &QAction::triggered, this, &MainWindow::Directories);
 
     // elf viewer
     connect(ui->addElfFolderAct, &QAction::triggered, m_elf_viewer.data(),

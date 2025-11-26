@@ -187,8 +187,8 @@ static ConfigEntry<bool> firstBootHandled(false);
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
 static ConfigEntry<int> cursorHideTimeout(5);
-static ConfigEntry<bool> useSpecialPads[4] = {false, false, false, false};
-static ConfigEntry<int> specialPadClasses[4] = {1, 1, 1, 1};
+static ConfigEntry<std::array<bool, 4>> useSpecialPads({false, false, false, false});
+static ConfigEntry<std::array<int, 4>> specialPadClasses({1, 1, 1, 1});
 static ConfigEntry<bool> isMotionControlsEnabled(true);
 static ConfigEntry<bool> useUnifiedInputConfig(true);
 static ConfigEntry<std::string> micDevice("Default Device");
@@ -665,16 +665,32 @@ void setMuteEnabled(bool enabled) {
     muteEnabled.base_value = enabled;
 }
 
-bool getUseSpecialPad(int pad) {
-    if (pad < 1 || pad > 4)
+bool getUseSpecialPad(int p) {
+    if (p < 1 || p > 4)
         return false;
-    return useSpecialPads[pad - 1].get();
+    return useSpecialPads.get()[p - 1];
 }
 
-int getSpecialPadClass(int pad) {
-    if (pad < 1 || pad > 4)
+int getSpecialPadClass(int p) {
+    if (p < 1 || p > 4)
         return 1;
-    return specialPadClasses[pad - 1].get();
+    return specialPadClasses.get()[p - 1];
+}
+
+void setUseSpecialPad(int p, bool v, bool is_game_specific) {
+    if (p < 1 || p > 4)
+        return;
+    auto arr = useSpecialPads.get();
+    arr[p - 1] = v;
+    useSpecialPads.set(arr, is_game_specific);
+}
+
+void setSpecialPadClass(int p, int v, bool is_game_specific) {
+    if (p < 1 || p > 4)
+        return;
+    auto arr = specialPadClasses.get();
+    arr[p - 1] = v;
+    specialPadClasses.set(arr, is_game_specific);
 }
 
 bool getIsMotionControlsEnabled() {
@@ -1031,18 +1047,6 @@ void setChooseHomeTab(const std::string& type) {
     chooseHomeTab = type;
 }
 
-void setUseSpecialPad(int pad, bool use, bool is_game_specific) {
-    if (pad < 1 || pad > 4)
-        return;
-    useSpecialPads[pad - 1].set(use, is_game_specific);
-}
-
-void setSpecialPadClass(int pad, int type, bool is_game_specific) {
-    if (pad < 1 || pad > 4)
-        return;
-    specialPadClasses[pad - 1].set(type, is_game_specific);
-}
-
 void setIsMotionControlsEnabled(bool use) {
     isMotionControlsEnabled.base_value = use;
 }
@@ -1390,9 +1394,19 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             std::string useKey = "useSpecialPad" + std::to_string(p);
             std::string classKey = "specialPadClass" + std::to_string(p);
 
-            useSpecialPads[p - 1].setFromToml(input, useKey, is_game_specific);
-            specialPadClasses[p - 1].setFromToml(input, classKey, is_game_specific);
+            auto useArr = useSpecialPads.get();
+            auto classArr = specialPadClasses.get();
+
+            if (input.contains(useKey))
+                useArr[p - 1] = toml::find<bool>(input, useKey);
+
+            if (input.contains(classKey))
+                classArr[p - 1] = toml::find<int>(input, classKey);
+
+            useSpecialPads.set(useArr, is_game_specific);
+            specialPadClasses.set(classArr, is_game_specific);
         }
+
         isMotionControlsEnabled.setFromToml(input, "isMotionControlsEnabled", is_game_specific);
         useUnifiedInputConfig.setFromToml(input, "useUnifiedInputConfig", is_game_specific);
         backgroundControllerInput.setFromToml(input, "backgroundControllerInput", is_game_specific);
@@ -1672,8 +1686,8 @@ void save(const std::filesystem::path& path) {
         std::string useKey = "useSpecialPad" + std::to_string(p);
         std::string classKey = "specialPadClass" + std::to_string(p);
 
-        useSpecialPads[p - 1].setTomlValue(data, "Input", useKey, false);
-        specialPadClasses[p - 1].setTomlValue(data, "Input", classKey, false);
+        data["Input"][useKey] = useSpecialPads.base_value[p - 1];
+        data["Input"][classKey] = specialPadClasses.base_value[p - 1];
     }
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
     data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
@@ -1866,14 +1880,8 @@ void setDefaultValues() {
     // Input
     cursorState = HideCursorState::Idle;
     cursorHideTimeout = 5;
-    useSpecialPads[0] = false;
-    useSpecialPads[1] = false;
-    useSpecialPads[2] = false;
-    useSpecialPads[3] = false;
-    specialPadClasses[0] = 1;
-    specialPadClasses[1] = 1;
-    specialPadClasses[2] = 1;
-    specialPadClasses[3] = 1;
+    useSpecialPads = {false, false, false, false};
+    specialPadClasses = {1, 1, 1, 1};
     isMotionControlsEnabled = true;
     useUnifiedInputConfig = true;
     overrideControllerColor = false;
