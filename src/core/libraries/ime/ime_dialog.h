@@ -37,7 +37,9 @@ int PS4_SYSV_ABI sceImeDialogGetCurrentStarState();
 int PS4_SYSV_ABI sceImeDialogGetPanelPositionAndForm();
 Error PS4_SYSV_ABI sceImeDialogGetPanelSize(const OrbisImeDialogParam* param, u32* width,
                                             u32* height);
-int PS4_SYSV_ABI sceImeDialogGetPanelSizeExtended();
+Error PS4_SYSV_ABI sceImeDialogGetPanelSizeExtended(const OrbisImeDialogParam* param,
+                                                    const OrbisImeParamExtended* extended,
+                                                    u32* width, u32* height);
 Error PS4_SYSV_ABI sceImeDialogGetResult(OrbisImeDialogResult* result);
 OrbisImeDialogStatus PS4_SYSV_ABI sceImeDialogGetStatus();
 Error PS4_SYSV_ABI sceImeDialogInit(OrbisImeDialogParam* param, OrbisImeParamExtended* extended);

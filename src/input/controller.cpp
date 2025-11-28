@@ -158,6 +158,16 @@ void GameController::CalculateOrientation(Libraries::Pad::OrbisFVector3& acceler
                                           float deltaTime,
                                           Libraries::Pad::OrbisFQuaternion& lastOrientation,
                                           Libraries::Pad::OrbisFQuaternion& orientation) {
+    constexpr float MAX_DELTA_TIME = 0.1f;
+    if (deltaTime > MAX_DELTA_TIME) {
+        deltaTime = MAX_DELTA_TIME;
+    }
+
+    if (deltaTime <= 0.0f || deltaTime < 0.0001f) {
+        orientation = lastOrientation;
+        return;
+    }
+
     Libraries::Pad::OrbisFQuaternion q = lastOrientation;
     Libraries::Pad::OrbisFQuaternion ω = {angularVelocity.x, angularVelocity.y, angularVelocity.z,
                                           0.0f};
@@ -175,10 +185,56 @@ void GameController::CalculateOrientation(Libraries::Pad::OrbisFVector3& acceler
     q.w += qDot.w * deltaTime;
 
     float norm = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
-    q.x /= norm;
-    q.y /= norm;
-    q.z /= norm;
-    q.w /= norm;
+    if (norm > 0.0001f) {
+        q.x /= norm;
+        q.y /= norm;
+        q.z /= norm;
+        q.w /= norm;
+    } else {
+        q = {0.0f, 0.0f, 0.0f, 1.0f};
+    }
+
+    constexpr float ACCEL_CORRECTION_WEIGHT = 0.02f;
+
+    float accelNorm = std::sqrt(acceleration.x * acceleration.x + acceleration.y * acceleration.y +
+                                acceleration.z * acceleration.z);
+
+    if (accelNorm > 0.5f && accelNorm < 1.5f) {
+        float accelX = acceleration.x / accelNorm;
+        float accelY = acceleration.y / accelNorm;
+        float accelZ = acceleration.z / accelNorm;
+
+        constexpr float gravityX = 0.0f;
+        constexpr float gravityY = -1.0f;
+        constexpr float gravityZ = 0.0f;
+
+        float predX = (1 - 2 * q.y * q.y - 2 * q.z * q.z) * gravityX +
+                      (2 * q.x * q.y + 2 * q.w * q.z) * gravityY +
+                      (2 * q.x * q.z - 2 * q.w * q.y) * gravityZ;
+        float predY = (2 * q.x * q.y - 2 * q.w * q.z) * gravityX +
+                      (1 - 2 * q.x * q.x - 2 * q.z * q.z) * gravityY +
+                      (2 * q.y * q.z + 2 * q.w * q.x) * gravityZ;
+        float predZ = (2 * q.x * q.z + 2 * q.w * q.y) * gravityX +
+                      (2 * q.y * q.z - 2 * q.w * q.x) * gravityY +
+                      (1 - 2 * q.x * q.x - 2 * q.y * q.y) * gravityZ;
+
+        float errorX = accelY * predZ - accelZ * predY;
+        float errorY = accelZ * predX - accelX * predZ;
+        float errorZ = accelX * predY - accelY * predX;
+
+        float correctionScale = ACCEL_CORRECTION_WEIGHT * deltaTime;
+        q.x += correctionScale * errorX;
+        q.y += correctionScale * errorY;
+        q.z += correctionScale * errorZ;
+
+        norm = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+        if (norm > 0.0001f) {
+            q.x /= norm;
+            q.y /= norm;
+            q.z /= norm;
+            q.w /= norm;
+        }
+    }
 
     orientation.x = q.x;
     orientation.y = q.y;

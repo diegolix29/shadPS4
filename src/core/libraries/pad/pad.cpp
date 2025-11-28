@@ -357,15 +357,23 @@ int PS4_SYSV_ABI scePadRead(s32 handle, OrbisPadData* pData, s32 num) {
             const auto gyro_poll_rate = controller->accel_poll_rate;
             if (gyro_poll_rate != 0.0f) {
                 auto now = std::chrono::steady_clock::now();
-                float deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(
-                                      now - controller->GetLastUpdate())
-                                      .count() /
-                                  1000000.0f;
+                auto lastUpdate = controller->GetLastUpdate();
+
+                if (lastUpdate == std::chrono::steady_clock::time_point{}) {
+                    controller->SetLastUpdate(now);
+                    lastUpdate = now;
+                }
+
+                float deltaTime =
+                    std::chrono::duration_cast<std::chrono::microseconds>(now - lastUpdate)
+                        .count() /
+                    1000000.0f;
                 controller->SetLastUpdate(now);
                 Libraries::Pad::OrbisFQuaternion lastOrientation = controller->GetLastOrientation();
                 Libraries::Pad::OrbisFQuaternion outputOrientation = {0.0f, 0.0f, 0.0f, 1.0f};
-                GameController::CalculateOrientation(pData->acceleration, pData->angularVelocity,
-                                                     deltaTime, lastOrientation, outputOrientation);
+                GameController::CalculateOrientation(pData[i].acceleration,
+                                                     pData[i].angularVelocity, deltaTime,
+                                                     lastOrientation, outputOrientation);
                 pData[i].orientation = outputOrientation;
                 controller->SetLastOrientation(outputOrientation);
             }
@@ -486,9 +494,14 @@ int PS4_SYSV_ABI scePadReadState(s32 handle, OrbisPadData* pData) {
     pData->orientation = {0.0f, 0.0f, 0.0f, 1.0f};
 
     auto now = std::chrono::steady_clock::now();
+    auto lastUpdate = controller->GetLastUpdate();
+
+    if (lastUpdate == std::chrono::steady_clock::time_point{}) {
+        controller->SetLastUpdate(now);
+        lastUpdate = now;
+    }
     float deltaTime =
-        std::chrono::duration_cast<std::chrono::microseconds>(now - controller->GetLastUpdate())
-            .count() /
+        std::chrono::duration_cast<std::chrono::microseconds>(now - lastUpdate).count() /
         1000000.0f;
     controller->SetLastUpdate(now);
     Libraries::Pad::OrbisFQuaternion lastOrientation = controller->GetLastOrientation();
