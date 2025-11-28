@@ -281,9 +281,11 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->updaterGroupBox->setVisible(false);
 #endif
         connect(ui->updateCompatibilityButton, &QPushButton::clicked, this,
-                [this, parent, m_compat_info]() {
-                    m_compat_info->UpdateCompatibilityDatabase(this, true);
-                    emit CompatibilityChanged();
+                [this, compat_info = this->compat_info]() {
+                    if (compat_info) {
+                        compat_info->UpdateCompatibilityDatabase(this, true);
+                        emit CompatibilityChanged();
+                    }
                 });
 
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
