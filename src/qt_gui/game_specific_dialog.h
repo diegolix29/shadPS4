@@ -21,8 +21,6 @@ public:
                                 std::string gsc_serial = {});
     ~GameSpecificDialog();
 
-    void OnPadSelectionChanged(int index);
-
 private:
     void LoadValuesFromConfig();
     void UpdateSettings();
@@ -35,6 +33,7 @@ private:
     Ui::GameSpecificDialog* ui;
     std::shared_ptr<CompatibilityInfoClass> m_compat_info;
     std::shared_ptr<IpcClient> m_ipc_client;
+    QCheckBox* specialPadChecks[4][4];
 
     std::string m_serial;
     std::filesystem::path m_config_path;

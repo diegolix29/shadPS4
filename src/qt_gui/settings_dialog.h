@@ -60,6 +60,7 @@ private:
     std::map<std::string, int> languages;
     std::shared_ptr<CompatibilityInfoClass> compat_info;
     std::shared_ptr<IpcClient> m_ipc_client;
+    QCheckBox* specialPadChecks[4][4];
 
     QString defaultTextEdit;
 

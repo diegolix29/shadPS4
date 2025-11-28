@@ -36,18 +36,28 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
     m_config_path = std::filesystem::path(GetUserPath(Common::FS::PathType::CustomConfigs)) /
                     (serial + ".toml");
 
-    ui->padSelectorComboBox->clear();
-    ui->padSelectorComboBox->addItem("Pad 1");
-    ui->padSelectorComboBox->addItem("Pad 2");
-    ui->padSelectorComboBox->addItem("Pad 3");
-    ui->padSelectorComboBox->addItem("Pad 4");
-    ui->padSelectorComboBox->setCurrentIndex(0);
+    specialPadChecks[0][0] = ui->spc1_p1;
+    specialPadChecks[0][1] = ui->spc1_p2;
+    specialPadChecks[0][2] = ui->spc1_p3;
+    specialPadChecks[0][3] = ui->spc1_p4;
+
+    specialPadChecks[1][0] = ui->spc2_p1;
+    specialPadChecks[1][1] = ui->spc2_p2;
+    specialPadChecks[1][2] = ui->spc2_p3;
+    specialPadChecks[1][3] = ui->spc2_p4;
+
+    specialPadChecks[2][0] = ui->spc3_p1;
+    specialPadChecks[2][1] = ui->spc3_p2;
+    specialPadChecks[2][2] = ui->spc3_p3;
+    specialPadChecks[2][3] = ui->spc3_p4;
+
+    specialPadChecks[3][0] = ui->spc4_p1;
+    specialPadChecks[3][1] = ui->spc4_p2;
+    specialPadChecks[3][2] = ui->spc4_p3;
+    specialPadChecks[3][3] = ui->spc4_p4;
 
     PopulateAudioDevices();
     LoadValuesFromConfig();
-
-    connect(ui->padSelectorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-            &GameSpecificDialog::OnPadSelectionChanged);
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, [this]() {
         UpdateSettings();
@@ -74,35 +84,6 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
 }
 
 GameSpecificDialog::~GameSpecificDialog() = default;
-
-void GameSpecificDialog::OnPadSelectionChanged(int index) {
-    int player = index + 1;
-
-    toml::value data;
-    if (std::filesystem::exists(m_config_path)) {
-        try {
-            data = toml::parse(m_config_path);
-        } catch (...) {
-        }
-    }
-
-    if (data.contains("Input")) {
-        const auto& in = toml::find(data, "Input");
-
-        std::string classKey = "specialPadClass" + std::to_string(player);
-        std::string useKey = "useSpecialPad" + std::to_string(player);
-
-        if (in.contains(classKey))
-            ui->specialPadClassSpinBox->setValue(toml::find<int>(in, classKey));
-        else
-            ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass(player));
-
-        if (in.contains(useKey))
-            ui->useSpecialPadCheckBox->setChecked(toml::find<bool>(in, useKey));
-        else
-            ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad(player));
-    }
-}
 
 bool GameSpecificDialog::eventFilter(QObject* obj, QEvent* event) {
     if ((obj == ui->ReadbackSpeedComboBox || obj == ui->MemorySpinBox) &&
@@ -147,9 +128,7 @@ void GameSpecificDialog::OnRcasAttenuationSpinBoxChanged(double spinValue) {
 }
 
 void GameSpecificDialog::LoadValuesFromConfig() {
-    int player = ui->padSelectorComboBox->currentIndex() + 1;
-    ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass(player));
-    ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad(player));
+
     ui->enableAutoBackupCheckBox->setChecked(Config::getEnableAutoBackup());
     ui->HotkeysCheckBox->setChecked(Config::DisableHardcodedHotkeys());
     ui->HomeHotkeysCheckBox->setChecked(Config::UseHomeButtonForHotkeys());
@@ -335,11 +314,18 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             if (in.contains(useKey))
                 Config::setUseSpecialPad(p, toml::find<bool>(in, useKey), true);
         }
+        for (int p = 1; p <= 4; ++p) {
+            int cls = Config::getSpecialPadClass(p);
+            bool use = Config::getUseSpecialPad(p);
 
-        int player = ui->padSelectorComboBox->currentIndex() + 1;
-        ui->specialPadClassSpinBox->setValue(Config::getSpecialPadClass(player));
-        ui->useSpecialPadCheckBox->setChecked(Config::getUseSpecialPad(player));
+            for (int c = 1; c <= 4; ++c) {
+                specialPadChecks[c - 1][p - 1]->setChecked(false);
+            }
 
+            if (use && cls >= 1 && cls <= 4) {
+                specialPadChecks[cls - 1][p - 1]->setChecked(true);
+            }
+        }
         if (in.contains("useUnifiedInputConfig"))
             ui->useUnifiedInputConfigCheckBox->setChecked(
                 toml::find<bool>(in, "useUnifiedInputConfig"));
@@ -548,23 +534,27 @@ void GameSpecificDialog::UpdateSettings() {
         overrides["Input"]["isMotionControlsEnabled"] = ui->motionControlsCheckBox->isChecked();
 
     for (int p = 1; p <= 4; ++p) {
-        std::string classKey = "specialPadClass" + std::to_string(p);
-        std::string useKey = "useSpecialPad" + std::to_string(p);
+        int assignedClass = 0;
 
-        if (p == ui->padSelectorComboBox->currentIndex() + 1) {
-            int newClass = ui->specialPadClassSpinBox->value();
-            bool newUse = ui->useSpecialPadCheckBox->isChecked();
-
-            if (newClass != Config::getSpecialPadClass(p))
-                overrides["Input"][classKey] = newClass;
-
-            if (newUse != Config::getUseSpecialPad(p))
-                overrides["Input"][useKey] = newUse;
-
-        } else {
-            overrides["Input"][classKey] = Config::getSpecialPadClass(p);
-            overrides["Input"][useKey] = Config::getUseSpecialPad(p);
+        // Check each class row for this pad
+        for (int c = 1; c <= 4; ++c) {
+            if (specialPadChecks[c - 1][p - 1]->isChecked()) {
+                assignedClass = c;
+                break;
+            }
         }
+
+        std::string classKey = fmt::format("specialPadClass{}", p);
+        std::string useKey = fmt::format("useSpecialPad{}", p);
+
+        bool use = assignedClass != 0;
+
+        // Save differences only
+        if (assignedClass != Config::getSpecialPadClass(p))
+            overrides["Input"][classKey] = assignedClass;
+
+        if (use != Config::getUseSpecialPad(p))
+            overrides["Input"][useKey] = use;
     }
 
     if (ui->useUnifiedInputConfigCheckBox->isChecked() != Config::GetUseUnifiedInputConfig())

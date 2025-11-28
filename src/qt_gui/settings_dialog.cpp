@@ -147,6 +147,26 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     ui->hideCursorComboBox->addItem(tr("Idle"));
     ui->hideCursorComboBox->addItem(tr("Always"));
 
+    specialPadChecks[0][0] = ui->spc1_p1;
+    specialPadChecks[0][1] = ui->spc1_p2;
+    specialPadChecks[0][2] = ui->spc1_p3;
+    specialPadChecks[0][3] = ui->spc1_p4;
+
+    specialPadChecks[1][0] = ui->spc2_p1;
+    specialPadChecks[1][1] = ui->spc2_p2;
+    specialPadChecks[1][2] = ui->spc2_p3;
+    specialPadChecks[1][3] = ui->spc2_p4;
+
+    specialPadChecks[2][0] = ui->spc3_p1;
+    specialPadChecks[2][1] = ui->spc3_p2;
+    specialPadChecks[2][2] = ui->spc3_p3;
+    specialPadChecks[2][3] = ui->spc3_p4;
+
+    specialPadChecks[3][0] = ui->spc4_p1;
+    specialPadChecks[3][1] = ui->spc4_p2;
+    specialPadChecks[3][2] = ui->spc4_p3;
+    specialPadChecks[3][3] = ui->spc4_p4;
+
     ui->micComboBox->addItem(micMap.key("None"), "None");
     ui->micComboBox->addItem(micMap.key("Default Device"), "Default Device");
     SDL_InitSubSystem(SDL_INIT_AUDIO);
@@ -929,6 +949,33 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->updateComboBox->setCurrentText(channelMap.key(updateChannel));
 
 #endif
+    // Load special pad settings
+    if (data.contains("Input")) {
+        const auto& in = toml::find(data, "Input");
+
+        for (int p = 1; p <= 4; ++p) {
+            std::string classKey = fmt::format("specialPadClass{}", p);
+            std::string useKey = fmt::format("useSpecialPad{}", p);
+
+            if (in.contains(classKey))
+                Config::setSpecialPadClass(p, toml::find<int>(in, classKey), true);
+
+            if (in.contains(useKey))
+                Config::setUseSpecialPad(p, toml::find<bool>(in, useKey), true);
+        }
+
+        // Update UI matrix
+        for (int p = 1; p <= 4; ++p) {
+            int cls = Config::getSpecialPadClass(p);
+            bool use = Config::getUseSpecialPad(p);
+
+            for (int c = 1; c <= 4; ++c)
+                specialPadChecks[c - 1][p - 1]->setChecked(false);
+
+            if (use && cls >= 1 && cls <= 4)
+                specialPadChecks[cls - 1][p - 1]->setChecked(true);
+        }
+    }
 
     std::string chooseHomeTab =
         toml::find_or<std::string>(data, "General", "chooseHomeTab", "General");
@@ -1312,6 +1359,20 @@ void SettingsDialog::UpdateSettings() {
         dirs_with_states.push_back({path, enabled});
     }
     Config::setAllGameDirectories(dirs_with_states);
+    for (int p = 1; p <= 4; ++p) {
+        int cls = 0;
+
+        for (int c = 1; c <= 4; ++c) {
+            if (specialPadChecks[c - 1][p - 1]->isChecked()) {
+                cls = c;
+                break;
+            }
+        }
+
+        Config::setSpecialPadClass(p, cls, true);
+
+        Config::setUseSpecialPad(p, cls != 0, true);
+    }
 
 #ifdef ENABLE_DISCORD_RPC
     auto* rpc = Common::Singleton<DiscordRPCHandler::RPC>::Instance();
