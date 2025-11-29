@@ -64,7 +64,7 @@ if (NOT TARGET SDL3::SDL3)
 endif()
 
 # SDL3_mixer
-if (NOT TARGET SDL3_mixer::SDL3_mixer)
+if (NOT TARGET SDL3_Mixer::SDL3_Mixer)
     set(SDLMIXER_FLAC OFF)
     set(SDLMIXER_OGG OFF)
     set(SDLMIXER_MOD OFF)
@@ -152,7 +152,7 @@ endif()
 # sirit
 add_subdirectory(sirit)
 if (WIN32)
-    target_compile_options(sirit PRIVATE "-Wno-error=unused-command-line-argument")
+    target_compile_options(sirit PUBLIC "-Wno-error=unused-command-line-argument")
 endif()
 
 # half
