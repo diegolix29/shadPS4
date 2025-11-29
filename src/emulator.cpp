@@ -46,6 +46,7 @@
 #include "core/linker.h"
 #include "core/memory.h"
 #include "emulator.h"
+#include "video_core/cache_storage.h"
 #include "video_core/renderdoc.h"
 
 #ifdef _WIN32
@@ -395,6 +396,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
 #ifdef ENABLE_QT_GUI
     UpdatePlayTime(id);
+    Storage::DataBase::Instance().Close();
 #endif
 
     std::quick_exit(0);
