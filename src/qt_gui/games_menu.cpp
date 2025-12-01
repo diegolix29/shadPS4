@@ -141,36 +141,39 @@ void BigPictureWidget::onHotkeysClicked() {
 }
 
 void BigPictureWidget::layoutTiles() {
-    int viewportW = m_scroll->viewport()->width();
+    const int baseW = 420;
+    const int baseH = 420;
+    const int spacing = 10;
+
     int viewportH = m_scroll->viewport()->height();
-    if (viewportW <= 0)
-        viewportW = width();
     if (viewportH <= 0)
         viewportH = height();
 
-    const int baseH = viewportH * 0.4;
-    const int baseW = baseH;
-
-    const int spacing = baseW / 6;
-
     int containerH = viewportH;
-    int centerY = (containerH - baseH) / 2;
 
-    int leftPadding = viewportW / 2 - baseW / 2;
-    int rightPadding = leftPadding;
+    int centerY = (containerH - baseH);
+    if (centerY < 0)
+        centerY = +400;
 
+    int leftPadding = 1500;
     int x = leftPadding;
+
     for (int i = 0; i < m_tiles.size(); i++) {
         QWidget* tile = m_tiles[i];
 
         QRect geom(x, centerY, baseW, baseH);
         tile->setGeometry(geom);
+        tile->updateGeometry();
+        tile->update();
+
         tile->setProperty("baseGeom", geom);
 
         x += baseW + spacing;
     }
 
-    m_container->setMinimumSize(x - spacing + rightPadding, containerH);
+    int rightPadding = 1500;
+
+    m_container->setMinimumSize(x - spacing + rightPadding, containerH + 850);
 }
 
 void BigPictureWidget::applyTheme() {
