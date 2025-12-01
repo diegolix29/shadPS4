@@ -203,7 +203,8 @@ bool MainWindow::Init() {
 
             auto dlg =
                 new ModManagerDialog(gamePathQString, QString::fromStdString(game.serial), this);
-            dlg->show();
+            dlg->exec();
+            restoreBigPictureFocus();
         });
 
     connect(m_bigPicture.get(), &BigPictureWidget::openHotkeysRequested, this,
@@ -274,8 +275,8 @@ void MainWindow::restoreBigPictureFocus() {
 }
 
 void MainWindow::openHotkeysWindow() {
-    auto hotkeyDialog = new Hotkeys(m_ipc_client, Config::getGameRunning(), this);
-    hotkeyDialog->exec();
+    Hotkeys dlg(m_ipc_client, Config::getGameRunning(), this);
+    dlg.exec();
     restoreBigPictureFocus();
 }
 

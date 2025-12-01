@@ -24,6 +24,43 @@ class QGraphicsOpacityEffect;
 class QPropertyAnimation;
 class QPushButton;
 
+class HotkeysOverlay : public QWidget {
+    Q_OBJECT
+public:
+    explicit HotkeysOverlay(QWidget* parent = nullptr) : QWidget(parent) {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_NoSystemBackground);
+        setAttribute(Qt::WA_TranslucentBackground);
+        setFocusPolicy(Qt::NoFocus);
+
+        m_layout = new QHBoxLayout(this);
+        m_layout->setContentsMargins(8, 0, 8, 0);
+        m_layout->setSpacing(12);
+        m_layout->setAlignment(Qt::AlignCenter);
+    }
+
+    void setHotkeys(const std::vector<std::pair<QString, QString>>& hotkeys) {
+        QLayoutItem* child;
+        while ((child = m_layout->takeAt(0)) != nullptr) {
+            delete child->widget();
+            delete child;
+        }
+
+        for (const auto& hk : hotkeys) {
+            QLabel* lbl = new QLabel(QString("%1: %2").arg(hk.first, hk.second), this);
+            lbl->setStyleSheet("color: white; background-color: rgba(0,0,0,160); "
+                               "padding: 4px 8px; border-radius: 6px; font-size: 14px;");
+            m_layout->addWidget(lbl);
+        }
+
+        m_layout->setAlignment(Qt::AlignCenter);
+        updateGeometry();
+    }
+
+private:
+    QHBoxLayout* m_layout;
+};
+
 class AnimatedTile : public QWidget {
     Q_OBJECT
 public:
@@ -168,6 +205,7 @@ public:
 private:
     void buildUi();
     void layoutTiles();
+    void showEvent(QShowEvent* ev) override;
     void onModsClicked();
     void onHotkeysClicked();
     QWidget* buildTile(const GameInfo& g);
@@ -192,6 +230,10 @@ private:
     QPushButton* m_btnMods = nullptr;
     QPushButton* m_btnQuit = nullptr;
     WindowThemes m_window_themes;
+    enum class FocusMode { Tiles, Buttons };
+
+    FocusMode m_focusMode = FocusMode::Tiles;
+    HotkeysOverlay* m_hotkeysOverlay = nullptr;
 
     std::vector<QWidget*> m_tiles;
     int m_selectedIndex = 0;

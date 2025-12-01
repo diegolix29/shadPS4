@@ -64,12 +64,6 @@ void BigPictureWidget::buildUi() {
         tile->installEventFilter(this);
         m_tiles.push_back(tile);
     }
-    QTimer::singleShot(0, this, [this]() {
-        layoutTiles();
-        highlightSelectedTile();
-        centerSelectedTileAnimated();
-        updateDepthEffect();
-    });
 
     m_scroll->setWidget(m_container);
 
@@ -90,6 +84,23 @@ void BigPictureWidget::buildUi() {
     m_scroll->raise();
 
     layout->addWidget(m_scroll);
+    m_scroll->viewport()->setFocusPolicy(Qt::NoFocus);
+
+    m_hotkeysOverlay = new HotkeysOverlay(this);
+    m_hotkeysOverlay->setHotkeys({{"Arrow Left/Right", "Navigate Games/Buttons"},
+                                  {"Arrow Down", "Focus on Buttons"},
+                                  {"Arrow Up", "Focus on Games"},
+                                  {"Enter/Space", "Select/Play"},
+                                  {"Press - P - ", "Play Highlighted Game"},
+                                  {"Press - M - ", "Mods Manager"},
+                                  {"Press - G - ", "Games Settings"},
+                                  {"Press - S - ", "Global Settings"},
+                                  {"Press - H - ", "Hotkeys Setup"},
+                                  {"Esc", "Exit"}});
+    m_hotkeysOverlay->setFixedHeight(36);
+    m_hotkeysOverlay->setStyleSheet("background: rgba(0,0,0,120);");
+    m_hotkeysOverlay->raise();
+    m_hotkeysOverlay->show();
 
     m_bottomBar = new QWidget(this);
     QHBoxLayout* bottomLayout = new QHBoxLayout(m_bottomBar);
@@ -141,39 +152,36 @@ void BigPictureWidget::onHotkeysClicked() {
 }
 
 void BigPictureWidget::layoutTiles() {
-    const int baseW = 420;
-    const int baseH = 420;
-    const int spacing = 10;
-
+    int viewportW = m_scroll->viewport()->width();
     int viewportH = m_scroll->viewport()->height();
+    if (viewportW <= 0)
+        viewportW = width();
     if (viewportH <= 0)
         viewportH = height();
 
+    const int baseH = viewportH * 0.4;
+    const int baseW = baseH;
+
+    const int spacing = baseW / 6;
+
     int containerH = viewportH;
+    int centerY = (containerH - baseH) / 2;
 
-    int centerY = (containerH - baseH);
-    if (centerY < 0)
-        centerY = +400;
+    int leftPadding = viewportW / 2 - baseW / 2;
+    int rightPadding = leftPadding;
 
-    int leftPadding = 1500;
     int x = leftPadding;
-
     for (int i = 0; i < m_tiles.size(); i++) {
         QWidget* tile = m_tiles[i];
 
         QRect geom(x, centerY, baseW, baseH);
         tile->setGeometry(geom);
-        tile->updateGeometry();
-        tile->update();
-
         tile->setProperty("baseGeom", geom);
 
         x += baseW + spacing;
     }
 
-    int rightPadding = 1500;
-
-    m_container->setMinimumSize(x - spacing + rightPadding, containerH + 850);
+    m_container->setMinimumSize(x - spacing + rightPadding, containerH);
 }
 
 void BigPictureWidget::applyTheme() {
@@ -242,6 +250,7 @@ QWidget* BigPictureWidget::buildTile(const GameInfo& g) {
     tile->setGraphicsEffect(nullptr);
     tile->setStyleSheet("background: transparent;");
     tile->setProperty("scale", 1.0);
+    tile->setFocusPolicy(Qt::StrongFocus);
 
     QVBoxLayout* v = new QVBoxLayout(tile);
     v->setSpacing(10);
@@ -449,7 +458,7 @@ void BigPictureWidget::highlightSelectedTile() {
         viewportH = height();
 
     const qreal zoomFactor = std::min(1.8, viewportH / 500.0);
-    const qreal sideScale = 0.4;
+    const qreal sideScale = 0.6;
     const int baseDelta = viewportH / 40;
 
     int selected = m_selectedIndex;
@@ -474,9 +483,12 @@ void BigPictureWidget::highlightSelectedTile() {
             animateWidgetGeometry(tile, zoomed, duration);
 
             if (cover) {
-                int margin = 12;
-                QSize targetCoverSize(std::max(10, zoomed.width() - 2 * margin),
-                                      std::max(10, zoomed.height() - 2 * margin - 40));
+                const int margin = 12;
+
+                int targetSize =
+                    std::max(10, std::min(zoomed.width(), zoomed.height()) - 2 * margin - 40);
+                QSize targetCoverSize(targetSize, targetSize);
+
                 animateLabelSize(cover, targetCoverSize, duration);
                 cover->setScaledContents(true);
             }
@@ -486,9 +498,9 @@ void BigPictureWidget::highlightSelectedTile() {
                                 "border: none; border-radius: 12px;");
 
             int indexDist = std::abs(i - selected);
-            int push = baseDelta + (baseDelta / 2) * (indexDist - 1);
-
-            int delta = int(baseGeom.width() * ((zoomFactor) / 3.5));
+            int baseDeltaReduced = baseDelta / 2;
+            int delta = int(baseGeom.width() * ((zoomFactor) / 5.0));
+            int push = baseDeltaReduced * (indexDist > 0 ? indexDist : 0);
             int shiftX = (i < selected) ? -(delta + push) : (delta + push);
 
             int scaledW = int(baseGeom.width() * sideScale);
@@ -507,8 +519,11 @@ void BigPictureWidget::highlightSelectedTile() {
 
             if (cover) {
                 const int margin = 12;
-                QSize desiredCover(std::max(10, target.width() - 2 * margin),
-                                   std::max(10, target.height() - 2 * margin - 40));
+
+                int targetSize =
+                    std::max(10, std::min(target.width(), target.height()) - 2 * margin - 40);
+                QSize desiredCover(targetSize, targetSize);
+
                 animateLabelSize(cover, desiredCover, duration);
                 cover->setScaledContents(true);
             }
@@ -575,6 +590,26 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
         hideFull();
         return;
     }
+    if (e->key() == Qt::Key_S) {
+        onGlobalConfigClicked();
+        return;
+    }
+    if (e->key() == Qt::Key_P) {
+        onPlayClicked();
+        return;
+    }
+    if (e->key() == Qt::Key_G) {
+        onGameConfigClicked();
+        return;
+    }
+    if (e->key() == Qt::Key_M) {
+        onModsClicked();
+        return;
+    }
+    if (e->key() == Qt::Key_H) {
+        onHotkeysClicked();
+        return;
+    }
 
     if (e->key() == Qt::Key_Right) {
         if (m_selectedIndex + 1 < (int)m_tiles.size()) {
@@ -603,12 +638,10 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
     }
 
     if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_Space) {
-        QWidget* fw = focusWidget();
-        if (fw) {
+        if (m_focusMode == FocusMode::Buttons) {
+            QWidget* fw = focusWidget();
             if (QPushButton* btn = qobject_cast<QPushButton*>(fw)) {
                 btn->click();
-            } else if (std::find(m_tiles.begin(), m_tiles.end(), fw) != m_tiles.end()) {
-                onPlayClicked();
             }
         } else {
             onPlayClicked();
@@ -618,21 +651,17 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
     }
 
     if (e->key() == Qt::Key_Down) {
+        m_focusMode = FocusMode::Buttons;
+
         m_btnPlay->setFocus();
-        e->accept();
-        return;
-    }
 
-    if (e->key() == Qt::Key_Up) {
-        this->setFocus();
-        ensureSelectionValid();
-        highlightSelectedTile();
-        centerSelectedTileAnimated();
-        e->accept();
-        return;
+        if (m_focusMode == FocusMode::Buttons) {
+            e->accept();
+            return;
+        }
+    } else {
+        m_focusMode = FocusMode::Tiles;
     }
-
-    QWidget::keyPressEvent(e);
 }
 
 void BigPictureWidget::centerSelectedTileAnimated() {
@@ -709,6 +738,17 @@ void BigPictureWidget::handleGamepadButton(GamepadButton btn) {
     }
 }
 
+void BigPictureWidget::showEvent(QShowEvent* ev) {
+    QWidget::showEvent(ev);
+
+    QTimer::singleShot(0, this, [this]() {
+        layoutTiles();
+        highlightSelectedTile();
+        centerSelectedTileAnimated();
+        updateDepthEffect();
+    });
+}
+
 void BigPictureWidget::onQuitClicked() {
     hideFull();
 }
@@ -716,16 +756,25 @@ void BigPictureWidget::onQuitClicked() {
 void BigPictureWidget::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
 
-    m_background->setGeometry(rect());
-    m_dim->setGeometry(rect());
-
     m_background->lower();
     m_dim->raise();
     m_scroll->raise();
     m_bottomBar->raise();
 
-    layoutTiles();
+    if (m_hotkeysOverlay) {
+        int margin = 8;
+        QRect bottomGeom = m_bottomBar->geometry();
 
+        int overlayWidth = bottomGeom.width();
+        int overlayHeight = m_hotkeysOverlay->height();
+        int overlayX = bottomGeom.x();
+        int overlayY = bottomGeom.y() - overlayHeight - margin;
+
+        m_hotkeysOverlay->setGeometry(overlayX, overlayY, overlayWidth, overlayHeight);
+        m_hotkeysOverlay->raise();
+    }
+
+    layoutTiles();
     updateBackground(m_selectedIndex);
     highlightSelectedTile();
     centerSelectedTileAnimated();

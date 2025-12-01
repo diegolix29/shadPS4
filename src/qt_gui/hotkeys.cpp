@@ -396,8 +396,11 @@ bool Hotkeys::eventFilter(QObject* obj, QEvent* event) {
             if (EnableKBMapping || EnablePadMapping) {
                 SetMapping("unmapped");
                 CheckMapping(MappingButton);
+                return true;
+            } else {
+                this->close();
+                return true;
             }
-            return true;
         } else {
             if (EnableKBMapping) {
 
