@@ -141,39 +141,36 @@ void BigPictureWidget::onHotkeysClicked() {
 }
 
 void BigPictureWidget::layoutTiles() {
-    const int baseW = 420;
-    const int baseH = 420;
-    const int spacing = 10;
-
+    int viewportW = m_scroll->viewport()->width();
     int viewportH = m_scroll->viewport()->height();
+    if (viewportW <= 0)
+        viewportW = width();
     if (viewportH <= 0)
         viewportH = height();
 
+    const int baseH = viewportH * 0.4;
+    const int baseW = baseH;
+
+    const int spacing = baseW / 6;
+
     int containerH = viewportH;
+    int centerY = (containerH - baseH) / 2;
 
-    int centerY = (containerH - baseH);
-    if (centerY < 0)
-        centerY = +400;
+    int leftPadding = viewportW / 2 - baseW / 2;
+    int rightPadding = leftPadding;
 
-    int leftPadding = 1500;
     int x = leftPadding;
-
     for (int i = 0; i < m_tiles.size(); i++) {
         QWidget* tile = m_tiles[i];
 
         QRect geom(x, centerY, baseW, baseH);
         tile->setGeometry(geom);
-        tile->updateGeometry();
-        tile->update();
-
         tile->setProperty("baseGeom", geom);
 
         x += baseW + spacing;
     }
 
-    int rightPadding = 1500;
-
-    m_container->setMinimumSize(x - spacing + rightPadding, containerH + 850);
+    m_container->setMinimumSize(x - spacing + rightPadding, containerH);
 }
 
 void BigPictureWidget::applyTheme() {
@@ -398,10 +395,11 @@ void BigPictureWidget::updateDepthEffect() {
     int viewportCenter =
         m_scroll->horizontalScrollBar()->value() + m_scroll->viewport()->width() / 2;
 
-    const float maxScale = 1.30f;
-    const float minScale = 1.00f;
-    const float influence = 400.0f;
-    const int liftPx = 40;
+    const float maxScale = 1.2 + (height() / 1200.0f);
+    const float minScale = 0.8;
+    const float influence = width() / 3.0f;
+    const int liftPx = height() / 20;
+
     const int duration = 220;
 
     for (int i = 0; i < m_tiles.size(); i++) {
@@ -439,16 +437,19 @@ void BigPictureWidget::updateDepthEffect() {
 }
 
 void BigPictureWidget::highlightSelectedTile() {
-    const qreal zoomFactor = 1.8;
-    const int duration = 260;
-
     if (m_tiles.empty())
         return;
+    const int duration = 260;
+
+    int viewportH = m_scroll->viewport()->height();
+    if (viewportH <= 0)
+        viewportH = height();
+
+    const qreal zoomFactor = std::min(1.8, viewportH / 500.0);
+    const qreal sideScale = 0.4;
+    const int baseDelta = viewportH / 40;
 
     int selected = m_selectedIndex;
-
-    const int baseDelta = 20;
-    const qreal sideScale = 0.80;
 
     for (int i = 0; i < m_tiles.size(); i++) {
         QWidget* tile = m_tiles[i];
