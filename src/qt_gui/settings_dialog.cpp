@@ -824,8 +824,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     // First options is auto selection -1, so gpuId on the GUI will always have to subtract 1
     // when setting and add 1 when getting to select the correct gpu in Qt
     ui->graphicsAdapterBox->setCurrentIndex(toml::find_or<int>(data, "Vulkan", "gpuId", -1) + 1);
-    ui->widthSpinBox->setValue(toml::find_or<int>(data, "GPU", "windowWidth", 1280));
-    ui->heightSpinBox->setValue(toml::find_or<int>(data, "GPU", "windowHeight", 720));
+    ui->widthSpinBox->setValue(toml::find_or<int>(data, "GPU", "screenWidth", 1280));
+    ui->heightSpinBox->setValue(toml::find_or<int>(data, "GPU", "screenHeight", 720));
     ui->vblankSpinBox->setValue(toml::find_or<int>(data, "GPU", "vblankFrequency", 60));
     ui->dumpShadersCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "dumpShaders", false));
     ui->nullGpuCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "nullGpu", false));
