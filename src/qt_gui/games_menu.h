@@ -26,41 +26,34 @@ class QPushButton;
 
 class AnimatedTile : public QWidget {
     Q_OBJECT
-    Q_PROPERTY(qreal scale READ scale WRITE setScale)
-
 public:
-    explicit AnimatedTile(QWidget* parent = nullptr) : QWidget(parent), m_scale(1.0) {
+    explicit AnimatedTile(QWidget* parent = nullptr) : QWidget(parent) {
         setAttribute(Qt::WA_TranslucentBackground);
-        setAttribute(Qt::WA_NoSystemBackground, true);
         setContentsMargins(0, 0, 0, 0);
+
+        m_content = new QWidget(this);
+        m_content->setObjectName("tile_content");
+        m_content->setAttribute(Qt::WA_TranslucentBackground);
+        m_content->setContentsMargins(0, 0, 0, 0);
+
+        QVBoxLayout* l = new QVBoxLayout(m_content);
+        l->setSpacing(10);
+        l->setContentsMargins(0, 0, 0, 0);
     }
 
-    qreal scale() const {
-        return m_scale;
-    }
-    void setScale(qreal s) {
-        if (!qFuzzyCompare(s, m_scale)) {
-            m_scale = s;
-            update();
-        }
+    QWidget* content() const {
+        return m_content;
     }
 
 protected:
-    void paintEvent(QPaintEvent* e) override {
-        Q_UNUSED(e);
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing);
-        p.setRenderHint(QPainter::SmoothPixmapTransform);
-
-        p.translate(width() / 2, height() / 2);
-        p.scale(m_scale, m_scale);
-        p.translate(-width() / 2, -height() / 2);
-
-        QWidget::render(&p);
+    void resizeEvent(QResizeEvent* ev) override {
+        QWidget::resizeEvent(ev);
+        if (m_content)
+            m_content->setGeometry(rect());
     }
 
 private:
-    qreal m_scale;
+    QWidget* m_content = nullptr;
 };
 
 class ScrollingLabel : public QLabel {
@@ -144,6 +137,8 @@ public:
     void showFull();
     void hideFull();
 
+    void updateDepthEffect();
+
     enum class GamepadButton { Left, Right, South, East, West, North };
     std::shared_ptr<GameInfoClass> m_gameInfo;
     std::shared_ptr<CompatibilityInfoClass> m_compatInfo;
@@ -201,6 +196,7 @@ private:
     std::vector<QWidget*> m_tiles;
     int m_selectedIndex = 0;
     bool m_visible = false;
+    bool m_navigationLocked = false;
 
     QGraphicsOpacityEffect* m_opacity = nullptr;
     QPropertyAnimation* m_fadeIn = nullptr;

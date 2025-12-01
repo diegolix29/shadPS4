@@ -68,6 +68,7 @@ void BigPictureWidget::buildUi() {
         layoutTiles();
         highlightSelectedTile();
         centerSelectedTileAnimated();
+        updateDepthEffect();
     });
 
     m_scroll->setWidget(m_container);
@@ -138,8 +139,9 @@ void BigPictureWidget::onModsClicked() {
 void BigPictureWidget::onHotkeysClicked() {
     emit openHotkeysRequested();
 }
+
 void BigPictureWidget::layoutTiles() {
-    const int baseW = 300;
+    const int baseW = 420;
     const int baseH = 420;
     const int spacing = 10;
 
@@ -153,19 +155,25 @@ void BigPictureWidget::layoutTiles() {
     if (centerY < 0)
         centerY = +400;
 
-    int x = +500;
+    int leftPadding = 1500;
+    int x = leftPadding;
 
     for (int i = 0; i < m_tiles.size(); i++) {
         QWidget* tile = m_tiles[i];
 
         QRect geom(x, centerY, baseW, baseH);
         tile->setGeometry(geom);
+        tile->updateGeometry();
+        tile->update();
+
         tile->setProperty("baseGeom", geom);
 
         x += baseW + spacing;
     }
 
-    m_container->setFixedSize(x - spacing, containerH + 850);
+    int rightPadding = 1500;
+
+    m_container->setMinimumSize(x - spacing + rightPadding, containerH + 850);
 }
 
 void BigPictureWidget::applyTheme() {
@@ -204,34 +212,58 @@ void BigPictureWidget::applyTheme() {
     setAutoFillBackground(true);
 }
 
+QPixmap LoadGameIcon(const GameInfo& game, int size) {
+    QPixmap source;
+
+    if (!game.icon.isNull()) {
+        source = QPixmap::fromImage(game.icon);
+    } else if (!game.icon_path.empty()) {
+        QString iconPath;
+        Common::FS::PathToQString(iconPath, game.icon_path);
+        source.load(iconPath);
+    } else {
+        source.load(":/images/default_game_icon.png");
+    }
+
+    if (source.isNull())
+        return QPixmap();
+
+    return source.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+}
+
 QWidget* BigPictureWidget::buildTile(const GameInfo& g) {
     AnimatedTile* tile = new AnimatedTile(m_container);
 
-    tile->setFixedSize(300, 450);
+    tile->setMinimumSize(300, 300);
+    tile->setAttribute(Qt::WA_TranslucentBackground);
+    tile->setContentsMargins(0, 0, 0, 0);
+    tile->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+
+    tile->setGraphicsEffect(nullptr);
+    tile->setStyleSheet("background: transparent;");
+    tile->setProperty("scale", 1.0);
 
     QVBoxLayout* v = new QVBoxLayout(tile);
     v->setSpacing(10);
     v->setContentsMargins(0, 0, 0, 0);
+    v->setAlignment(Qt::AlignHCenter);
 
     QLabel* cover = new QLabel(tile);
-    cover->setFixedSize(280, 280);
+    cover->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    cover->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     cover->setAlignment(Qt::AlignCenter);
     cover->setScaledContents(true);
 
-    if (!g.pic_path.empty()) {
-        QString path;
-        Common::FS::PathToQString(path, g.pic_path);
-        cover->setPixmap(QPixmap(path));
-    }
+    QPixmap iconPixmap = LoadGameIcon(g, 512);
+    cover->setPixmap(iconPixmap);
 
     ScrollingLabel* title = new ScrollingLabel(tile);
     title->setText(QString::fromStdString(g.name));
     title->setAlignment(Qt::AlignCenter);
     title->setStyleSheet("color: white; font-size: 18px;"
                          "padding-left: 8px; padding-right: 8px;");
-
-    title->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     title->setFixedHeight(40);
+    title->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
     title->setWordWrap(false);
     QTimer::singleShot(0, title, [title]() { title->startScrollIfNeeded(); });
 
@@ -291,6 +323,11 @@ void BigPictureWidget::buildAnimations() {
     m_scrollAnim = new QPropertyAnimation(m_scroll->horizontalScrollBar(), "value", this);
     m_scrollAnim->setDuration(300);
     m_scrollAnim->setEasingCurve(QEasingCurve::OutCubic);
+
+    connect(m_scrollAnim, &QPropertyAnimation::finished, this, [this]() {
+        m_navigationLocked = false;
+        emit centered();
+    });
 }
 
 void BigPictureWidget::toggle() {
@@ -304,11 +341,8 @@ void BigPictureWidget::showFull() {
     if (m_visible)
         return;
 
-    QWidget* top = parentWidget();
-    if (top)
-        setGeometry(top->geometry());
-    else
-        setGeometry(QApplication::primaryScreen()->geometry());
+    setWindowFlag(Qt::FramelessWindowHint);
+    setWindowState(Qt::WindowFullScreen);
 
     show();
     raise();
@@ -318,7 +352,6 @@ void BigPictureWidget::showFull() {
     updateBackground(m_selectedIndex);
     highlightSelectedTile();
     centerSelectedTileAnimated();
-
     m_fadeIn->start();
     m_visible = true;
 }
@@ -329,38 +362,152 @@ void BigPictureWidget::hideFull() {
     m_fadeOut->start();
 }
 
+static void animateWidgetGeometry(QWidget* w, const QRect& endGeom, int duration = 220) {
+    if (!w)
+        return;
+    auto* anim = new QPropertyAnimation(w, "geometry");
+    anim->setDuration(duration);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    anim->setStartValue(w->geometry());
+    anim->setEndValue(endGeom);
+    anim->start(QPropertyAnimation::DeleteWhenStopped);
+}
+
+static void animateLabelSize(QLabel* lbl, const QSize& endSize, int duration = 220) {
+    if (!lbl)
+        return;
+    auto* animW = new QPropertyAnimation(lbl, "maximumWidth");
+    animW->setDuration(duration);
+    animW->setEasingCurve(QEasingCurve::OutCubic);
+    animW->setStartValue(lbl->maximumWidth() > 0 ? lbl->maximumWidth() : lbl->width());
+    animW->setEndValue(endSize.width());
+    animW->start(QPropertyAnimation::DeleteWhenStopped);
+
+    auto* animH = new QPropertyAnimation(lbl, "maximumHeight");
+    animH->setDuration(duration);
+    animH->setEasingCurve(QEasingCurve::OutCubic);
+    animH->setStartValue(lbl->maximumHeight() > 0 ? lbl->maximumHeight() : lbl->height());
+    animH->setEndValue(endSize.height());
+    animH->start(QPropertyAnimation::DeleteWhenStopped);
+}
+
+void BigPictureWidget::updateDepthEffect() {
+    if (!m_visible)
+        return;
+
+    int viewportCenter =
+        m_scroll->horizontalScrollBar()->value() + m_scroll->viewport()->width() / 2;
+
+    const float maxScale = 1.30f;
+    const float minScale = 1.00f;
+    const float influence = 400.0f;
+    const int liftPx = 40;
+    const int duration = 220;
+
+    for (int i = 0; i < m_tiles.size(); i++) {
+        QWidget* tile = m_tiles[i];
+
+        QRect base = tile->property("baseGeom").toRect();
+        int tileCenter = base.center().x();
+
+        int dist = std::abs(tileCenter - viewportCenter);
+
+        float t = 1.0f - std::min(1.0f, float(dist) / influence);
+        float scale = minScale + (maxScale - minScale) * t;
+
+        int newW = int(base.width() * scale);
+        int newH = int(base.height() * scale);
+
+        int dx = (newW - base.width()) / 2;
+        int dy = (newH - base.height()) / 2;
+
+        int lift = int(liftPx * t);
+
+        QRect newRect(base.x() - dx, base.y() - dy - lift, newW, newH);
+
+        const int threshold = 2;
+        QRect cur = tile->geometry();
+        if (std::abs(cur.x() - newRect.x()) > threshold ||
+            std::abs(cur.y() - newRect.y()) > threshold ||
+            std::abs(cur.width() - newRect.width()) > threshold ||
+            std::abs(cur.height() - newRect.height()) > threshold) {
+            animateWidgetGeometry(tile, newRect, duration);
+        } else {
+            tile->setGeometry(newRect);
+        }
+    }
+}
+
 void BigPictureWidget::highlightSelectedTile() {
-    const qreal zoomFactor = 1.25;
+    const qreal zoomFactor = 1.8;
+    const int duration = 260;
 
     if (m_tiles.empty())
         return;
 
     int selected = m_selectedIndex;
-    QRect selectedBase = m_tiles[selected]->property("baseGeom").toRect();
-    QSize zoomedSize(selectedBase.width() * zoomFactor, selectedBase.height() * zoomFactor);
-    int extraWidth = (zoomedSize.width() - selectedBase.width()) / 2;
+
+    const int baseDelta = 20;
+    const qreal sideScale = 0.80;
 
     for (int i = 0; i < m_tiles.size(); i++) {
         QWidget* tile = m_tiles[i];
         QRect baseGeom = tile->property("baseGeom").toRect();
+
+        QLabel* cover = tile->findChild<QLabel*>();
 
         if (i == selected) {
             tile->raise();
             tile->setStyleSheet("background-color: rgba(34,34,34,180);"
                                 "border: 3px solid #57a1ff; border-radius: 14px;");
 
-            zoomSelectedTile(tile, baseGeom, zoomFactor);
+            int newW = int(baseGeom.width() * zoomFactor);
+            int newH = int(baseGeom.height() * zoomFactor);
+            int dx = (newW - baseGeom.width()) / 2;
+            int dy = (newH - baseGeom.height()) / 2;
+            QRect zoomed(baseGeom.x() - dx, baseGeom.y() - dy, newW, newH);
+
+            animateWidgetGeometry(tile, zoomed, duration);
+
+            if (cover) {
+                int margin = 12;
+                QSize targetCoverSize(std::max(10, zoomed.width() - 2 * margin),
+                                      std::max(10, zoomed.height() - 2 * margin - 40));
+                animateLabelSize(cover, targetCoverSize, duration);
+                cover->setScaledContents(true);
+            }
+
         } else {
             tile->setStyleSheet("background-color: rgba(34,34,34,180);"
                                 "border: none; border-radius: 12px;");
 
-            int shiftX = 0;
-            if (i < selected)
-                shiftX = -extraWidth;
-            if (i > selected)
-                shiftX = extraWidth;
+            int indexDist = std::abs(i - selected);
+            int push = baseDelta + (baseDelta / 2) * (indexDist - 1);
 
-            tile->setGeometry(baseGeom.translated(shiftX, 0));
+            int delta = int(baseGeom.width() * ((zoomFactor) / 3.5));
+            int shiftX = (i < selected) ? -(delta + push) : (delta + push);
+
+            int scaledW = int(baseGeom.width() * sideScale);
+            int scaledH = int(baseGeom.height() * sideScale);
+            int dx = (scaledW - baseGeom.width()) / 2;
+            int dy = (scaledH - baseGeom.height()) / 2;
+
+            int downShift = 8 * indexDist;
+
+            QRect target = baseGeom.translated(shiftX, downShift);
+            target.setX(target.x() - dx);
+            target.setY(target.y() - dy);
+            target.setSize(QSize(scaledW, scaledH));
+
+            animateWidgetGeometry(tile, target, duration);
+
+            if (cover) {
+                const int margin = 12;
+                QSize desiredCover(std::max(10, target.width() - 2 * margin),
+                                   std::max(10, target.height() - 2 * margin - 40));
+                animateLabelSize(cover, desiredCover, duration);
+                cover->setScaledContents(true);
+            }
         }
     }
 }
@@ -414,6 +561,12 @@ bool BigPictureWidget::eventFilter(QObject* obj, QEvent* ev) {
 }
 
 void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
+
+    if (m_navigationLocked) {
+        e->accept();
+        return;
+    }
+
     if (e->key() == Qt::Key_Escape) {
         hideFull();
         return;
@@ -421,6 +574,8 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
 
     if (e->key() == Qt::Key_Right) {
         if (m_selectedIndex + 1 < (int)m_tiles.size()) {
+            m_navigationLocked = true;
+
             m_selectedIndex++;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
@@ -432,6 +587,8 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
 
     if (e->key() == Qt::Key_Left) {
         if (m_selectedIndex > 0) {
+            m_navigationLocked = true;
+
             m_selectedIndex--;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
@@ -478,20 +635,26 @@ void BigPictureWidget::centerSelectedTileAnimated() {
     if (!m_scroll || m_selectedIndex < 0 || m_selectedIndex >= (int)m_tiles.size())
         return;
 
-    QWidget* tile = m_tiles[m_selectedIndex];
-    QRect baseGeom = tile->property("baseGeom").toRect();
+    QRect baseGeom = m_tiles[m_selectedIndex]->property("baseGeom").toRect();
 
     int viewportW = m_scroll->viewport()->width();
-
     int centerX = baseGeom.center().x();
 
     int target = centerX - viewportW / 2;
     target = std::clamp(target, 0, m_scroll->horizontalScrollBar()->maximum());
 
-    m_scrollAnim->stop();
-    m_scrollAnim->setStartValue(m_scroll->horizontalScrollBar()->value());
-    m_scrollAnim->setEndValue(target);
-    m_scrollAnim->start();
+    m_navigationLocked = true;
+
+    int currentValue = m_scroll->horizontalScrollBar()->value();
+
+    if (m_scrollAnim->state() == QAbstractAnimation::Running) {
+        m_scrollAnim->setEndValue(target);
+    } else {
+        m_scrollAnim->stop();
+        m_scrollAnim->setStartValue(currentValue);
+        m_scrollAnim->setEndValue(target);
+        m_scrollAnim->start();
+    }
 }
 
 void BigPictureWidget::ensureSelectionValid() {
@@ -560,8 +723,7 @@ void BigPictureWidget::resizeEvent(QResizeEvent* e) {
     layoutTiles();
 
     updateBackground(m_selectedIndex);
-    for (auto* tile : m_tiles)
-        tile->setProperty("baseGeom", tile->geometry());
     highlightSelectedTile();
     centerSelectedTileAnimated();
+    updateDepthEffect();
 }
