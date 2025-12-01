@@ -5,6 +5,10 @@
 
 #include <string>
 
+#ifdef ENABLE_QT_GUI
+#include <QObject> // <-- REQUIRED for QObject + Q_OBJECT
+#endif
+
 #include "common/types.h"
 #include "core/libraries/pad/pad.h"
 #include "input/controller.h"
@@ -28,22 +32,21 @@ enum class WindowSystemType : u8 {
 };
 
 struct WindowSystemInfo {
-    // Connection to a display server. This is used on X11 and Wayland platforms.
     void* display_connection = nullptr;
-
-    // Render surface. This is a pointer to the native window handle, which depends
-    // on the platform. e.g. HWND for Windows, Window for X11. If the surface is
-    // set to nullptr, the video backend will run in headless mode.
     void* render_surface = nullptr;
-
-    // Scale of the render surface. For hidpi systems, this will be >1.
     float render_surface_scale = 1.0f;
-
-    // Window system type. Determines which GL context or Vulkan WSI is used.
     WindowSystemType type = WindowSystemType::Headless;
 };
 
-class WindowSDL {
+class WindowSDL
+#ifdef ENABLE_QT_GUI
+    : public QObject
+#endif
+{
+#ifdef ENABLE_QT_GUI
+    Q_OBJECT
+#endif
+
     int keyboard_grab = 0;
 
 public:
@@ -54,19 +57,15 @@ public:
     s32 GetWidth() const {
         return width;
     }
-
     s32 GetHeight() const {
         return height;
     }
-
     bool IsOpen() const {
         return is_open;
     }
-
-    [[nodiscard]] SDL_Window* GetSDLWindow() const {
+    SDL_Window* GetSDLWindow() const {
         return window;
     }
-
     WindowSystemInfo GetWindowInfo() const {
         return window_info;
     }
@@ -76,6 +75,14 @@ public:
 
     void RequestKeyboard();
     void ReleaseKeyboard();
+
+#ifdef ENABLE_QT_GUI
+signals:
+    void gamepadButtonPressed(int button);
+    void GamepadButtonPressed(int button);
+    void gamepadButtonReleased(int button);
+    void gamepadAxisChanged(int axis, float value);
+#endif
 
 private:
     void OnResize();

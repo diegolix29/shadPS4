@@ -338,3 +338,33 @@ void WindowThemes::ApplyThemeToDialog(QDialog* dialog) {
                 .arg(qApp->palette().base().color().name()));
     }
 }
+
+void WindowThemes::ApplyThemeToWidget(QWidget* widget) {
+    if (!widget)
+        return;
+
+    widget->setPalette(qApp->palette());
+    widget->setStyleSheet(qApp->styleSheet());
+
+    // Labels
+    QList<QLabel*> labels = widget->findChildren<QLabel*>();
+    for (auto* lbl : labels)
+        lbl->setStyleSheet("color: " + m_textColor.name() + ";");
+
+    // Buttons
+    QList<QPushButton*> buttons = widget->findChildren<QPushButton*>();
+    for (auto* btn : buttons) {
+        btn->setStyleSheet(QString("color:%1; background-color:%2;")
+                               .arg(m_textColor.name())
+                               .arg(qApp->palette().button().color().name()));
+    }
+
+    // LineEdits
+    QList<QLineEdit*> edits = widget->findChildren<QLineEdit*>();
+    for (auto* edit : edits) {
+        edit->setStyleSheet(
+            QString("color:%1; background-color:%2; border-radius:4px; padding:4px;")
+                .arg(m_textColor.name())
+                .arg(qApp->palette().base().color().name()));
+    }
+}

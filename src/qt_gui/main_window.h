@@ -20,6 +20,7 @@
 #include "game_info.h"
 #include "game_list_frame.h"
 #include "game_list_utils.h"
+#include "games_menu.h"
 #include "main_window_themes.h"
 #include "main_window_ui.h"
 
@@ -35,12 +36,17 @@ public:
     ~MainWindow();
     std::string GetRunningGameSerial() const;
     bool Init();
+    void openSettingsWindow();
+    void forwardGamepadButton(int sdlButton);
+    void restoreBigPictureFocus();
+    void openHotkeysWindow();
+    void StartGameByIndex(int index, QStringList args);
     void toggleColorFilter();
     void StartGameWithPath(const QString& gamePath);
     void Directories();
     void ApplyLastUsedStyle();
     void StartGame();
-    void StartGameWithArgs(QStringList args);
+    void StartGameWithArgs(QStringList args, int forcedIndex = -1);
     void PauseGame();
     bool showLabels;
     void StopGame();
@@ -57,6 +63,8 @@ public:
     QStringList lastGameArgs;
     static QProcess* emulatorProcess;
     std::shared_ptr<IpcClient> m_ipc_client;
+    std::unique_ptr<BigPictureWidget> m_bigPicture;
+    std::shared_ptr<GameInfoClass> m_game_info = std::make_shared<GameInfoClass>();
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
@@ -124,7 +132,6 @@ private:
     PSF psf;
     std::filesystem::path currentlyRunningElf;
 
-    std::shared_ptr<GameInfoClass> m_game_info = std::make_shared<GameInfoClass>();
     std::shared_ptr<CompatibilityInfoClass> m_compat_info =
         std::make_shared<CompatibilityInfoClass>();
 

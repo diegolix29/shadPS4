@@ -9,6 +9,7 @@
 #include <system_error>
 #include <unordered_map>
 #include <vector>
+#include <SDL3/SDL_messagebox.h>
 
 #include <fmt/core.h>
 #include "common/config.h"
@@ -216,6 +217,10 @@ int main(int argc, char* argv[]) {
     };
 
     if (argc == 1) {
+        if (!SDL_ShowSimpleMessageBox(
+                SDL_MESSAGEBOX_INFORMATION, "shadPS4",
+                "This is a CLI application. Please use the QTLauncher for a GUI.", nullptr))
+            std::cerr << "Could not display SDL message box! Error: " << SDL_GetError() << "\n";
         int dummy = 0;
         arg_map.at("-h")(dummy);
         return -1;

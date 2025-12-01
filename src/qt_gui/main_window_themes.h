@@ -30,6 +30,8 @@ public:
     void SetWindowTheme(Theme theme, QLineEdit* mw_searchbar);
     void ApplyThemeToDialog(QDialog* dialog);
 
+    void ApplyThemeToWidget(QWidget* widget);
+
     QColor iconBaseColor() const {
         return m_iconBaseColor;
     }

@@ -44,6 +44,7 @@ public:
     QAction* aboutAct;
     QAction* versionAct;
     QAction* welcomeAct;
+    QAction* bigPictureAct;
     QAction* pauseOnUnfocusAct;
     QAction* configureAct;
     QAction* configureHotkeys;
@@ -71,6 +72,7 @@ public:
     QPushButton* restartButton;
     QPushButton* updaterButton;
     QPushButton* versionButton;
+    QPushButton* bigPictureButton;
     QPushButton* modManagerButton;
     QPushButton* configureHotkeysButton;
     QComboBox* styleSelector = new QComboBox();
@@ -200,6 +202,10 @@ public:
         welcomeAct = new QAction(MainWindow);
         welcomeAct->setObjectName("welcomeAct");
         welcomeAct->setCheckable(true);
+        bigPictureAct = new QAction(MainWindow);
+        bigPictureAct->setObjectName("Open Games Menu");
+        bigPictureAct->setIcon(QIcon(":images/controller_icon.png"));
+        bigPictureAct->setCheckable(true);
         configureAct = new QAction(MainWindow);
         configureAct->setObjectName("configureAct");
         configureAct->setIcon(QIcon(":images/settings_icon.png"));
@@ -300,6 +306,10 @@ public:
         versionButton->setFlat(true);
         versionButton->setIcon(QIcon(":images/utils_icon.png"));
         versionButton->setIconSize(QSize(40, 40));
+        bigPictureButton = new QPushButton(centralWidget);
+        bigPictureButton->setFlat(true);
+        bigPictureButton->setIcon(QIcon(":images/controller_icon.png"));
+        bigPictureButton->setIconSize(QSize(40, 40));
         modManagerButton = new QPushButton(centralWidget);
         modManagerButton->setFlat(true);
         modManagerButton->setIcon(QIcon(":images/folder_icon.png"));
@@ -406,6 +416,7 @@ public:
         menuGame_List_Icons->addAction(setIconSizeLargeAct);
         menuGame_List_Mode->addAction(setlistModeListAct);
         menuGame_List_Mode->addAction(setlistModeGridAct);
+        menuGame_List_Mode->addAction(bigPictureAct);
         menuGame_List_Mode->addAction(setlistElfAct);
         menuSettings->addAction(configureAct);
         menuSettings->addAction(gameInstallPathAct);
@@ -443,6 +454,8 @@ public:
         versionAct->setText(QCoreApplication::translate("MainWindow", "Version shadPS4", nullptr));
         welcomeAct->setText(
             QCoreApplication::translate("MainWindow", "Show Welcome On Launch", nullptr));
+        bigPictureAct->setText(
+            QCoreApplication::translate("MainWindow", "Open Games Menu", nullptr));
         configureAct->setText(QCoreApplication::translate("MainWindow", "Configure...", nullptr));
         configureHotkeys->setText(
             QCoreApplication::translate("MainWindow", "Customize Hotkeys", nullptr));

@@ -128,6 +128,7 @@ bool MainWindow::Init() {
         ui->updaterButton->installEventFilter(this);
         ui->configureHotkeysButton->installEventFilter(this);
         ui->versionButton->installEventFilter(this);
+        ui->bigPictureButton->installEventFilter(this);
         ui->modManagerButton->installEventFilter(this);
     }
 
@@ -144,6 +145,7 @@ bool MainWindow::Init() {
         ui->updaterButton->removeEventFilter(this);
         ui->configureHotkeysButton->removeEventFilter(this);
         ui->versionButton->removeEventFilter(this);
+        ui->bigPictureButton->removeEventFilter(this);
         ui->modManagerButton->removeEventFilter(this);
     }
 
@@ -184,7 +186,107 @@ bool MainWindow::Init() {
     }
 #endif
 
+    m_bigPicture =
+        std::make_unique<BigPictureWidget>(m_game_info, m_compat_info, m_ipc_client, nullptr, this);
+
+    connect(
+        m_bigPicture.get(), &BigPictureWidget::openModsManagerRequested, this, [this](int index) {
+            if (index < 0 || index >= m_game_info->m_games.size()) {
+                QMessageBox::warning(this, tr("Mod Manager"), tr("Invalid game index."));
+                return;
+            }
+
+            const GameInfo& game = m_game_info->m_games[index];
+
+            QString gamePathQString;
+            Common::FS::PathToQString(gamePathQString, game.path);
+
+            auto dlg =
+                new ModManagerDialog(gamePathQString, QString::fromStdString(game.serial), this);
+            dlg->show();
+        });
+
+    connect(m_bigPicture.get(), &BigPictureWidget::openHotkeysRequested, this,
+            &MainWindow::openHotkeysWindow);
+
+    connect(m_bigPicture.get(), &BigPictureWidget::launchGameRequested, this,
+            [this](int index) { StartGameByIndex(index, {}); });
+
+    connect(m_bigPicture.get(), &BigPictureWidget::globalConfigRequested, this,
+            &MainWindow::openSettingsWindow);
+
+    connect(m_bigPicture.get(), &BigPictureWidget::gameConfigRequested, this, [this](int index) {
+        auto& g = m_game_info->m_games[index];
+        auto dlg = new GameSpecificDialog(m_compat_info, m_ipc_client, this, g.serial, false, "");
+        dlg->exec();
+        restoreBigPictureFocus();
+    });
+
     return true;
+}
+
+void MainWindow::openSettingsWindow() {
+    SettingsDialog dlg(m_compat_info, m_ipc_client, this);
+    dlg.exec();
+    restoreBigPictureFocus();
+}
+
+void MainWindow::forwardGamepadButton(int button) {
+    if (!m_bigPicture || !m_bigPicture->isVisible())
+        return;
+
+    using GPB = BigPictureWidget::GamepadButton;
+    GPB b;
+
+    switch (button) {
+    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
+        b = GPB::Left;
+        break;
+    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
+        b = GPB::Right;
+        break;
+    case SDL_GAMEPAD_BUTTON_SOUTH:
+        b = GPB::South;
+        break;
+    case SDL_GAMEPAD_BUTTON_EAST:
+        b = GPB::East;
+        break;
+    case SDL_GAMEPAD_BUTTON_NORTH:
+        b = GPB::North;
+        break;
+    case SDL_GAMEPAD_BUTTON_WEST:
+        b = GPB::West;
+        break;
+    default:
+        return;
+    }
+
+    m_bigPicture->handleGamepadButton(b);
+}
+
+void MainWindow::restoreBigPictureFocus() {
+    if (g_MainWindow && m_bigPicture->isVisible()) {
+        m_bigPicture->show();
+        m_bigPicture->raise();
+        m_bigPicture->activateWindow();
+        m_bigPicture->setFocus(Qt::OtherFocusReason);
+    }
+}
+
+void MainWindow::openHotkeysWindow() {
+    auto hotkeyDialog = new Hotkeys(m_ipc_client, Config::getGameRunning(), this);
+    hotkeyDialog->exec();
+    restoreBigPictureFocus();
+}
+
+void MainWindow::StartGameByIndex(int index, QStringList args) {
+    if (index < 0 || index >= m_game_info->m_games.size())
+        return;
+
+    lastGamePath = QString::fromStdString(m_game_info->m_games[index].path.string());
+    runningGameSerial = m_game_info->m_games[index].serial;
+
+    StartGameWithArgs(args, index);
 }
 
 void MainWindow::toggleColorFilter() {
@@ -247,10 +349,9 @@ void MainWindow::toggleLabelsUnderIcons() {
 }
 
 void MainWindow::toggleFullscreen() {
-    SDL_Event event;
-    SDL_memset(&event, 0, sizeof(event));
-    event.type = SDL_EVENT_TOGGLE_FULLSCREEN;
-    SDL_PushEvent(&event);
+    SDL_Event toggleFullscreenEvent;
+    toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
+    SDL_PushEvent(&toggleFullscreenEvent);
 }
 
 QWidget* MainWindow::createButtonWithLabel(QPushButton* button, const QString& labelText,
@@ -327,6 +428,10 @@ void MainWindow::AddUiWidgets() {
     ui->toolBar->addWidget(createButtonWithLabel(ui->versionButton, tr("Version"), showLabels));
     ui->toolBar->addWidget(
         createButtonWithLabel(ui->modManagerButton, tr("Mods Manager"), showLabels));
+    ui->toolBar->addWidget(createSpacer(this));
+
+    ui->toolBar->addWidget(
+        createButtonWithLabel(ui->bigPictureButton, tr("Games Menu"), showLabels));
 
     ui->toolBar->addWidget(createSpacer(this));
 
@@ -483,6 +588,7 @@ void MainWindow::UpdateToolbarLabels() {
     for (QPushButton* button :
          {ui->playButton, ui->stopButton, ui->restartButton, ui->settingsButton,
           ui->fullscreenButton, ui->controllerButton, ui->keyboardButton, ui->versionButton,
+          ui->fullscreenButton, ui->controllerButton, ui->keyboardButton, ui->bigPictureButton,
           ui->configureHotkeysButton, ui->updaterButton, ui->refreshButton, ui->modManagerButton}) {
         QLabel* label = button->parentWidget()->findChild<QLabel*>();
         if (label)
@@ -665,6 +771,7 @@ void MainWindow::CreateConnects() {
     connect(ui->toggleLabelsAct, &QAction::triggered, this, &MainWindow::toggleLabelsUnderIcons);
     connect(ui->toggleColorFilterAct, &QAction::triggered, this, &MainWindow::toggleColorFilter);
     connect(ui->fullscreenButton, &QPushButton::clicked, this, &MainWindow::toggleFullscreen);
+    connect(ui->bigPictureAct, &QAction::triggered, this, [this]() { m_bigPicture->toggle(); });
 
     connect(ui->sizeSlider, &QSlider::valueChanged, this, [this](int value) {
         if (isTableList) {
@@ -858,6 +965,8 @@ void MainWindow::CreateConnects() {
         auto versionDialog = new VersionDialog(m_compat_info, this);
         versionDialog->show();
     });
+    connect(ui->bigPictureButton, &QPushButton::clicked, this,
+            [this]() { m_bigPicture->toggle(); });
     connect(ui->modManagerButton, &QPushButton::clicked, this, [this]() {
         if (m_game_info->m_games.empty()) {
             QMessageBox::warning(this, tr("Mod Manager"), tr("No game selected."));
@@ -1369,25 +1478,29 @@ void MainWindow::StartGame() {
     StartGameWithArgs({});
 }
 
-void MainWindow::StartGameWithArgs(QStringList args) {
-    QString gamePath = "";
+void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
+    QString gamePath;
     std::filesystem::path file;
-    int table_mode = Config::getTableMode();
-    QString normalizedPath = lastGamePath;
-    normalizedPath.replace("\\", "/");
 
-    if (table_mode == 0 && m_game_list_frame->currentItem()) {
-        int itemID = m_game_list_frame->currentItem()->row();
-        file = m_game_info->m_games[itemID].path;
-        runningGameSerial = m_game_info->m_games[itemID].serial;
-    } else if (table_mode == 1 && m_game_grid_frame->cellClicked) {
-        int itemID = (m_game_grid_frame->crtRow * m_game_grid_frame->columnCnt) +
+    if (forcedIndex != -1) {
+        file = m_game_info->m_games[forcedIndex].path;
+        runningGameSerial = m_game_info->m_games[forcedIndex].serial;
+    } else {
+        int table_mode = Config::getTableMode();
+
+        if (table_mode == 0 && m_game_list_frame->currentItem()) {
+            int id = m_game_list_frame->currentItem()->row();
+            file = m_game_info->m_games[id].path;
+            runningGameSerial = m_game_info->m_games[id].serial;
+        } else if (table_mode == 1 && m_game_grid_frame->cellClicked) {
+            int id = m_game_grid_frame->crtRow * m_game_grid_frame->columnCnt +
                      m_game_grid_frame->crtColumn;
-        file = m_game_info->m_games[itemID].path;
-        runningGameSerial = m_game_info->m_games[itemID].serial;
-    } else if (m_elf_viewer->currentItem()) {
-        int itemID = m_elf_viewer->currentItem()->row();
-        gamePath = m_elf_viewer->m_elf_list[itemID];
+            file = m_game_info->m_games[id].path;
+            runningGameSerial = m_game_info->m_games[id].serial;
+        } else if (m_elf_viewer->currentItem()) {
+            int id = m_elf_viewer->currentItem()->row();
+            gamePath = m_elf_viewer->m_elf_list[id];
+        }
     }
 
     if (file.empty() && gamePath.isEmpty())
@@ -1955,6 +2068,7 @@ void MainWindow::SetUiIcons(const QColor& baseColor, const QColor& hoverColor) {
     recolor(ui->keyboardButton, ":/images/keyboard_icon.png");
     recolor(ui->updaterButton, ":/images/update_icon.png");
     recolor(ui->versionButton, ":/images/utils_icon.png");
+    recolor(ui->bigPictureButton, ":/images/controller_icon.png");
     recolor(ui->modManagerButton, ":images/folder_icon.png");
     recolor(ui->configureHotkeysButton, ":/images/hotkeybutton.png");
 
