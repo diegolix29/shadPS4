@@ -54,7 +54,8 @@ void BigPictureWidget::buildUi() {
 
     m_scroll->setStyleSheet("background: transparent;");
     m_scroll->viewport()->setStyleSheet("background: transparent;");
-
+    m_scrollBarHidden = false;
+    setFocusPolicy(Qt::StrongFocus);
     m_container = new QWidget(m_scroll);
 
     for (int i = 0; i < m_gameInfo->m_games.size(); i++) {
@@ -91,6 +92,7 @@ void BigPictureWidget::buildUi() {
                                   {"Arrow Down", "Focus on Buttons"},
                                   {"Arrow Up", "Focus on Games"},
                                   {"Enter/Space", "Select/Play"},
+                                  {"Shift+Arow Up", "Hide/Show Games and Buttons"},
                                   {"Press - P - ", "Play Highlighted Game"},
                                   {"Press - M - ", "Mods Manager"},
                                   {"Press - G - ", "Games Settings"},
@@ -106,6 +108,8 @@ void BigPictureWidget::buildUi() {
     QHBoxLayout* bottomLayout = new QHBoxLayout(m_bottomBar);
     bottomLayout->setContentsMargins(8, 8, 8, 8);
     bottomLayout->setSpacing(12);
+    m_bottomBarHidden = false;
+    setFocusPolicy(Qt::StrongFocus);
 
     m_btnGlobalCfg = new QPushButton(tr("Settings"), m_bottomBar);
     m_btnGameCfg = new QPushButton(tr("Game Settings"), m_bottomBar);
@@ -580,6 +584,21 @@ bool BigPictureWidget::eventFilter(QObject* obj, QEvent* ev) {
 }
 
 void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
+    if (e->key() == Qt::Key_Up && e->modifiers().testFlag(Qt::ShiftModifier)) {
+        m_scrollBarHidden = !m_scrollBarHidden;
+        m_bottomBarHidden = !m_bottomBarHidden;
+
+        m_scroll->setVisible(!m_scrollBarHidden);
+
+        m_bottomBar->setVisible(!m_bottomBarHidden);
+        layoutTiles();
+        highlightSelectedTile();
+        centerSelectedTileAnimated();
+        updateDepthEffect();
+
+        e->accept();
+        return;
+    }
 
     if (m_navigationLocked) {
         e->accept();

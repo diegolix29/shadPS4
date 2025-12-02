@@ -33,32 +33,56 @@ public:
         setAttribute(Qt::WA_TranslucentBackground);
         setFocusPolicy(Qt::NoFocus);
 
-        m_layout = new QHBoxLayout(this);
-        m_layout->setContentsMargins(8, 0, 8, 0);
-        m_layout->setSpacing(12);
-        m_layout->setAlignment(Qt::AlignCenter);
+        m_mainLayout = new QVBoxLayout(this);
+        m_mainLayout->setContentsMargins(8, 0, 8, 0);
+        m_mainLayout->setSpacing(4);
+        m_mainLayout->setAlignment(Qt::AlignCenter);
+
+        m_topRow = new QHBoxLayout();
+        m_bottomRow = new QHBoxLayout();
+
+        m_topRow->setSpacing(12);
+        m_topRow->setAlignment(Qt::AlignCenter);
+
+        m_bottomRow->setSpacing(12);
+        m_bottomRow->setAlignment(Qt::AlignCenter);
+
+        m_mainLayout->addLayout(m_topRow);
+        m_mainLayout->addLayout(m_bottomRow);
     }
 
     void setHotkeys(const std::vector<std::pair<QString, QString>>& hotkeys) {
-        QLayoutItem* child;
-        while ((child = m_layout->takeAt(0)) != nullptr) {
-            delete child->widget();
-            delete child;
-        }
+        auto clearRow = [](QLayout* layout) {
+            QLayoutItem* child;
+            while ((child = layout->takeAt(0))) {
+                delete child->widget();
+                delete child;
+            }
+        };
+
+        clearRow(m_topRow);
+        clearRow(m_bottomRow);
 
         for (const auto& hk : hotkeys) {
+
             QLabel* lbl = new QLabel(QString("%1: %2").arg(hk.first, hk.second), this);
             lbl->setStyleSheet("color: white; background-color: rgba(0,0,0,160); "
                                "padding: 4px 8px; border-radius: 6px; font-size: 14px;");
-            m_layout->addWidget(lbl);
+
+            if (hk.first.startsWith("Press")) {
+                m_topRow->addWidget(lbl);
+            } else {
+                m_bottomRow->addWidget(lbl);
+            }
         }
 
-        m_layout->setAlignment(Qt::AlignCenter);
         updateGeometry();
     }
 
 private:
-    QHBoxLayout* m_layout;
+    QVBoxLayout* m_mainLayout;
+    QHBoxLayout* m_topRow;
+    QHBoxLayout* m_bottomRow;
 };
 
 class AnimatedTile : public QWidget {
@@ -239,6 +263,8 @@ private:
     int m_selectedIndex = 0;
     bool m_visible = false;
     bool m_navigationLocked = false;
+    bool m_scrollBarHidden = false;
+    bool m_bottomBarHidden = false;
 
     QGraphicsOpacityEffect* m_opacity = nullptr;
     QPropertyAnimation* m_fadeIn = nullptr;
