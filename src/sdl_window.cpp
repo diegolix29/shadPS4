@@ -314,6 +314,11 @@ void WindowSDL::WaitEvent() {
             }
         }
         break;
+    case SDL_EVENT_MOUSE_TO_TOUCHPAD:
+        SDL_SetWindowRelativeMouseMode(this->GetSDLWindow(),
+                                       Input::ToggleMouseModeTo(Input::MouseMode::Touchpad));
+        SDL_SetWindowRelativeMouseMode(this->GetSDLWindow(), false);
+        break;
     case SDL_EVENT_RDOC_CAPTURE:
         VideoCore::TriggerCapture();
         break;

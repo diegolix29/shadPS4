@@ -40,6 +40,10 @@
 #define SDL_EVENT_MOUSE_WHEEL_OFF SDL_EVENT_USER + 10
 #define SDL_EVENT_ADD_VIRTUAL_USER SDL_EVENT_USER + 11
 #define SDL_EVENT_REMOVE_VIRTUAL_USER SDL_EVENT_USER + 12
+#define SDL_EVENT_MOUSE_TO_TOUCHPAD SDL_EVENT_USER + 8
+#define SDL_EVENT_RDOC_CAPTURE SDL_EVENT_USER + 9
+#define SDL_EVENT_QUIT_DIALOG SDL_EVENT_USER + 10
+#define SDL_EVENT_MOUSE_WHEEL_OFF SDL_EVENT_USER + 11
 
 #define LEFTJOYSTICK_HALFMODE 0x00010000
 #define RIGHTJOYSTICK_HALFMODE 0x00020000
@@ -58,6 +62,8 @@
 #define HOTKEY_RENDERDOC 0xf0000008
 #define HOTKEY_ADD_VIRTUAL_USER 0xf0000009
 #define HOTKEY_REMOVE_VIRTUAL_USER 0xf000000a
+#define HOTKEY_TOGGLE_MOUSE_TO_TOUCHPAD 0xf0000008
+#define HOTKEY_RENDERDOC 0xf0000009
 
 #define SDL_UNMAPPED UINT32_MAX - 1
 
@@ -150,6 +156,7 @@ const std::map<std::string, u32> string_to_cbutton_map = {
     {"hotkey_reload_inputs", HOTKEY_RELOAD_INPUTS},
     {"hotkey_toggle_mouse_to_joystick", HOTKEY_TOGGLE_MOUSE_TO_JOYSTICK},
     {"hotkey_toggle_mouse_to_gyro", HOTKEY_TOGGLE_MOUSE_TO_GYRO},
+    {"hotkey_toggle_mouse_to_touchpad", HOTKEY_TOGGLE_MOUSE_TO_TOUCHPAD},
     {"hotkey_renderdoc_capture", HOTKEY_RENDERDOC},
     {"hotkey_add_virtual_user", HOTKEY_ADD_VIRTUAL_USER},
     {"hotkey_remove_virtual_user", HOTKEY_REMOVE_VIRTUAL_USER},

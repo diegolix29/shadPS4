@@ -61,6 +61,55 @@ std::list<std::pair<InputEvent, bool>> pressed_keys;
 std::list<InputID> toggled_keys;
 static std::vector<BindingConnection> connections;
 
+auto output_array = std::array{
+    // Important: these have to be the first, or else they will update in the wrong order
+    ControllerOutput(LEFTJOYSTICK_HALFMODE),
+    ControllerOutput(RIGHTJOYSTICK_HALFMODE),
+    ControllerOutput(KEY_TOGGLE),
+    ControllerOutput(MOUSE_GYRO_ROLL_MODE),
+
+    // Button mappings
+    ControllerOutput(SDL_GAMEPAD_BUTTON_NORTH),           // Triangle
+    ControllerOutput(SDL_GAMEPAD_BUTTON_EAST),            // Circle
+    ControllerOutput(SDL_GAMEPAD_BUTTON_SOUTH),           // Cross
+    ControllerOutput(SDL_GAMEPAD_BUTTON_WEST),            // Square
+    ControllerOutput(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER),   // L1
+    ControllerOutput(SDL_GAMEPAD_BUTTON_LEFT_STICK),      // L3
+    ControllerOutput(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER),  // R1
+    ControllerOutput(SDL_GAMEPAD_BUTTON_RIGHT_STICK),     // R3
+    ControllerOutput(SDL_GAMEPAD_BUTTON_START),           // Options
+    ControllerOutput(SDL_GAMEPAD_BUTTON_TOUCHPAD_LEFT),   // TouchPad
+    ControllerOutput(SDL_GAMEPAD_BUTTON_TOUCHPAD_CENTER), // TouchPad
+    ControllerOutput(SDL_GAMEPAD_BUTTON_TOUCHPAD_RIGHT),  // TouchPad
+    ControllerOutput(SDL_GAMEPAD_BUTTON_DPAD_UP),         // Up
+    ControllerOutput(SDL_GAMEPAD_BUTTON_DPAD_DOWN),       // Down
+    ControllerOutput(SDL_GAMEPAD_BUTTON_DPAD_LEFT),       // Left
+    ControllerOutput(SDL_GAMEPAD_BUTTON_DPAD_RIGHT),      // Right
+
+    // Axis mappings
+    // ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_LEFTX, false),
+    // ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_LEFTY, false),
+    // ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_RIGHTX, false),
+    // ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_RIGHTY, false),
+    ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_LEFTX),
+    ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_LEFTY),
+    ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_RIGHTX),
+    ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_RIGHTY),
+
+    ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_LEFT_TRIGGER),
+    ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER),
+
+    ControllerOutput(HOTKEY_FULLSCREEN),
+    ControllerOutput(HOTKEY_PAUSE),
+    ControllerOutput(HOTKEY_SIMPLE_FPS),
+    ControllerOutput(HOTKEY_QUIT),
+    ControllerOutput(HOTKEY_RELOAD_INPUTS),
+    ControllerOutput(HOTKEY_TOGGLE_MOUSE_TO_JOYSTICK),
+    ControllerOutput(HOTKEY_TOGGLE_MOUSE_TO_GYRO),
+    ControllerOutput(HOTKEY_TOGGLE_MOUSE_TO_TOUCHPAD),
+    ControllerOutput(HOTKEY_RENDERDOC),
+
+    ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_INVALID),
 std::array<ControllerAllOutputs, 4> output_arrays = {
     ControllerAllOutputs(0),
     ControllerAllOutputs(1),
@@ -598,6 +647,9 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
         case HOTKEY_TOGGLE_MOUSE_TO_GYRO:
             PushSDLEvent(SDL_EVENT_MOUSE_TO_GYRO);
             break;
+        case HOTKEY_TOGGLE_MOUSE_TO_TOUCHPAD:
+            PushSDLEvent(SDL_EVENT_MOUSE_TO_TOUCHPAD);
+            break;
         case HOTKEY_RENDERDOC:
             PushSDLEvent(SDL_EVENT_RDOC_CAPTURE);
             break;
@@ -906,6 +958,13 @@ void ActivateOutputsFromInputs() {
                 it.output->AddUpdate(it.ProcessBinding());
             }
         }
+    // Check for input blockers
+    ApplyMouseInputBlockers();
+
+    // Iterate over all inputs, and update their respecive outputs accordingly
+    for (auto& it : connections) {
+        it.output->AddUpdate(it.ProcessBinding());
+    }
 
         // Update all outputs
         for (auto& it : output_arrays[i].data) {
