@@ -16,10 +16,12 @@ public:
                               QWidget* parent = nullptr);
 
     void activateSelected();
+    QStringList detectModConflicts(const QString& modInstallPath, const QString& incomingRootPath);
     void installModFromDisk();
     void removeAvailableMod();
     void deactivateSelected();
     QString resolveOriginalFolderForRestore(const QString& rel) const;
+    QString normalizeExtractedMod(const QString& modPath);
     void restoreMod(const QString& modName);
     void activateAll();
     void deactivateAll();

@@ -384,12 +384,33 @@ void ModManagerDialog::activateSelected() {
     auto items = listAvailable->selectedItems();
     for (auto* item : items) {
         QString modName = item->text();
+        QString src = availablePath + "/" + modName;
+
+        QStringList conflicts = detectModConflicts(overlayRoot, src);
+
+        if (!conflicts.isEmpty()) {
+            QString msg = "The following files already exist in another active mod:\n\n";
+            for (const QString& c : conflicts) {
+                QString owner = findModThatContainsFile(c);
+                if (!owner.isEmpty())
+                    greyedOutMods.insert(owner);
+                msg += QString("%1 (owned by mod: %2)\n").arg(c, owner);
+                greyedOutMods.insert(owner);
+            }
+
+            msg += "\nActivating this mod will overwrite them. Continue?";
+            QMessageBox::StandardButton reply =
+                QMessageBox::warning(this, "Mod Conflict Detected", msg,
+                                     QMessageBox::Cancel | QMessageBox::Ok, QMessageBox::Cancel);
+            if (reply == QMessageBox::Cancel)
+                continue;
+
+            updateModListUI();
+        }
 
         installMod(modName);
 
-        QString src = availablePath + "/" + modName;
         QString dst = activePath + "/" + modName;
-
         if (QDir(dst).exists())
             QDir(dst).removeRecursively();
 
@@ -400,37 +421,54 @@ void ModManagerDialog::activateSelected() {
     }
 }
 
+QStringList ModManagerDialog::detectModConflicts(const QString& modInstallPath,
+                                                 const QString& incomingRootPath) {
+    QStringList conflicts;
+
+    QDir incoming(incomingRootPath);
+    QDir base(modInstallPath);
+
+    QDirIterator it(incomingRootPath, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        if (!it.fileInfo().isFile())
+            continue;
+
+        QString rel = incoming.relativeFilePath(it.filePath());
+        if (needsDvdrootPrefix(QFileInfo(incomingRootPath).fileName()) &&
+            !rel.startsWith("dvdroot_ps4/")) {
+            rel = "dvdroot_ps4/" + rel;
+        }
+        QString targetFile = modInstallPath + "/" + rel;
+
+        if (QFile::exists(targetFile))
+            conflicts << rel;
+    }
+
+    return conflicts;
+}
+
 void ModManagerDialog::installModFromDisk() {
-    QString path =
-        QFileDialog::getOpenFileName(this, "Select Mod Folder or Archive", QString(),
-                                     "Mods (*.zip *.rar *.7z *.tar *.gz *.tgz);;All Files (*.*)");
+    QString path;
+    QMessageBox::StandardButton choice = QMessageBox::question(
+        this, "Select Mod", "Do you want to select a folder instead of an archive?",
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+
+    if (choice == QMessageBox::Yes) {
+        path = QFileDialog::getExistingDirectory(this, "Select Mod Folder", QString(),
+                                                 QFileDialog::ShowDirsOnly |
+                                                     QFileDialog::DontResolveSymlinks);
+    } else {
+        path = QFileDialog::getOpenFileName(
+            this, "Select Mod Archive", QString(),
+            "Mods (*.zip *.rar *.7z *.tar *.gz *.tgz);;All Files (*.*)");
+    }
 
     if (path.isEmpty())
         return;
 
     QFileInfo info(path);
-
-    if (info.isFile()) {
-        QString modName = info.baseName();
-        QString dst = availablePath + "/" + modName;
-
-        if (QDir(dst).exists()) {
-            QMessageBox::warning(this, "Mod Exists", "This mod already exists.");
-            return;
-        }
-
-        QDir().mkpath(dst);
-
-        if (!ExtractArchive(path, dst)) {
-            QMessageBox::critical(this, "Extraction Failed", "Could not extract the archive.");
-            return;
-        }
-
-        scanAvailableMods();
-        return;
-    }
-
-    QString modName = info.fileName();
+    QString modName = info.baseName();
     QString dst = availablePath + "/" + modName;
 
     if (QDir(dst).exists()) {
@@ -438,21 +476,37 @@ void ModManagerDialog::installModFromDisk() {
         return;
     }
 
-    QDir().mkpath(dst);
+    if (info.isDir()) {
+        QDir().mkpath(dst);
+        QDirIterator it(path, QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            it.next();
+            if (!it.fileInfo().isFile())
+                continue;
 
-    QDirIterator it(path, QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        it.next();
+            QString rel = QDir(path).relativeFilePath(it.filePath());
+            QString outFile = dst + "/" + rel;
 
-        if (!it.fileInfo().isFile())
-            continue;
+            QDir().mkpath(QFileInfo(outFile).absolutePath());
+            QFile::copy(it.filePath(), outFile);
+        }
 
-        QString rel = QDir(path).relativeFilePath(it.filePath());
-        QString outFile = dst + "/" + rel;
-
-        QDir().mkpath(QFileInfo(outFile).absolutePath());
-        QFile::copy(it.filePath(), outFile);
+        normalizeExtractedMod(dst);
+        scanAvailableMods();
+        return;
     }
+
+    QString tempExtract = availablePath + "/.__tmp_extract_" + modName;
+    QDir().mkpath(tempExtract);
+
+    if (!ExtractArchive(path, tempExtract)) {
+        QMessageBox::warning(this, "Extraction Failed", "Unable to extract the mod archive.");
+        QDir(tempExtract).removeRecursively();
+        return;
+    }
+
+    normalizeExtractedMod(tempExtract);
+    QDir().rename(tempExtract, dst);
 
     scanAvailableMods();
 }
@@ -515,6 +569,78 @@ QString ModManagerDialog::resolveOriginalFolderForRestore(const QString& rel) co
 
     return gamePath + "/" + rel;
 }
+QString ModManagerDialog::normalizeExtractedMod(const QString& modPath) {
+    QDir root(modPath);
+
+    static const QSet<QString> gameRoots = {"dvdroot_ps4", "action", "chr",   "event",    "facegen",
+                                            "map",         "menu",   "movie", "msg",      "mtd",
+                                            "obj",         "other",  "param", "paramdef", "parts",
+                                            "remo",        "script", "sfx",   "shader",   "sound"};
+
+    while (true) {
+        QStringList entries = root.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+        if (entries.isEmpty())
+            break;
+
+        if (entries.contains("dvdroot_ps4")) {
+            break;
+        }
+
+        bool hasGameRoots = false;
+        for (const QString& e : entries) {
+            if (gameRoots.contains(e)) {
+                hasGameRoots = true;
+                break;
+            }
+        }
+
+        if (hasGameRoots) {
+            if (needsDvdrootPrefix(QFileInfo(modPath).fileName())) {
+                QString dvdroot = modPath + "/dvdroot_ps4";
+                QDir().mkpath(dvdroot);
+
+                for (const QString& e : entries) {
+                    QString s = modPath + "/" + e;
+                    QString t = dvdroot + "/" + e;
+                    QFileInfo fi(s);
+                    if (fi.isDir())
+                        QDir().rename(s, t);
+                    else
+                        QFile::rename(s, t);
+                }
+            }
+            break;
+        }
+
+        if (entries.size() == 1) {
+            QString wrapper = modPath + "/" + entries.first();
+            QDir wrapperDir(wrapper);
+            if (!wrapperDir.exists())
+                break;
+
+            for (const QString& e : wrapperDir.entryList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
+                QString s = wrapper + "/" + e;
+                QString t = modPath + "/" + e;
+                QFileInfo fi(s);
+                if (fi.isDir())
+                    QDir().rename(s, t);
+                else
+                    QFile::rename(s, t);
+            }
+            wrapperDir.removeRecursively();
+        } else {
+            for (const QString& e : entries) {
+                QString s = modPath + "/" + e;
+                QString t = modPath + "/" + e;
+                Q_UNUSED(t);
+            }
+            break;
+        }
+    }
+
+    return modPath;
+}
 
 void ModManagerDialog::restoreMod(const QString& modName) {
     QString modBackupRoot = backupsRoot + "/" + modName;
@@ -522,41 +648,35 @@ void ModManagerDialog::restoreMod(const QString& modName) {
         return;
 
     QString activeModPath = activePath + "/" + modName;
-    {
-        QDirIterator modIt(activeModPath, QDirIterator::Subdirectories);
-        while (modIt.hasNext()) {
-            modIt.next();
 
-            if (!modIt.fileInfo().isFile())
-                continue;
+    QDirIterator modIt(activeModPath, QDirIterator::Subdirectories);
+    while (modIt.hasNext()) {
+        modIt.next();
+        if (!modIt.fileInfo().isFile())
+            continue;
 
-            QString rel = QDir(activeModPath).relativeFilePath(modIt.filePath());
-            QString overlayFile = overlayRoot + "/" + rel;
-
-            if (QFile::exists(overlayFile)) {
-                QFile::remove(overlayFile);
-            }
-        }
+        QString rel = QDir(activeModPath).relativeFilePath(modIt.filePath());
+        QString overlayFile = overlayRoot + "/" + rel;
+        if (QFile::exists(overlayFile))
+            QFile::remove(overlayFile);
     }
 
-    {
-        QDirIterator backupIt(modBackupRoot, QDirIterator::Subdirectories);
-        while (backupIt.hasNext()) {
-            backupIt.next();
+    QDirIterator backupIt(modBackupRoot, QDirIterator::Subdirectories);
+    while (backupIt.hasNext()) {
+        backupIt.next();
+        if (!backupIt.fileInfo().isFile())
+            continue;
 
-            if (!backupIt.fileInfo().isFile())
-                continue;
+        QString rel = QDir(modBackupRoot).relativeFilePath(backupIt.filePath());
+        QString restorePath = overlayRoot + "/" + rel;
 
-            QString rel = QDir(modBackupRoot).relativeFilePath(backupIt.filePath());
-            QString restorePath = resolveOriginalFolderForRestore(rel);
+        QDir().mkpath(QFileInfo(restorePath).absolutePath());
 
-            QDir().mkpath(QFileInfo(restorePath).absolutePath());
+        if (QFile::exists(restorePath))
+            QFile::remove(restorePath);
 
-            if (QFile::exists(restorePath))
-                QFile::remove(restorePath);
-
-            QFile::copy(backupIt.filePath(), restorePath);
-        }
+        QFile::copy(backupIt.filePath(), restorePath);
     }
+
     QDir(modBackupRoot).removeRecursively();
 }
