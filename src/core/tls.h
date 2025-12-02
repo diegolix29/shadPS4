@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -38,6 +38,9 @@ u32 GetTcbKey();
 
 /// Sets the data pointer to the TCB block.
 void SetTcbBase(void* image_address);
+
+/// Retrieves Tcb structure for the calling thread.
+Tcb* GetTcbBase();
 
 /// Makes sure TLS is initialized for the thread before entering guest.
 void EnsureThreadInitialized();
