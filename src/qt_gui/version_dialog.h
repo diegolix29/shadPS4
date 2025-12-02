@@ -33,5 +33,6 @@ private:
     void SaveDownloadCache(const QStringList& versions);
     void PopulateDownloadTree(const QStringList& versions);
     void InstallSelectedVersionExe();
+    void UninstallQtVersion();
     void RestoreOriginalExe();
 };

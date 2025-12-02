@@ -62,6 +62,7 @@ VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info
     connect(ui->restoreExeButton, &QPushButton::clicked, this, [this]() { RestoreOriginalExe(); });
     connect(ui->installVersionButton, &QPushButton::clicked, this,
             [this]() { InstallSelectedVersionExe(); });
+    connect(ui->uninstallQtButton, &QPushButton::clicked, this, &VersionDialog::UninstallQtVersion);
 
     connect(ui->addCustomVersionButton, &QPushButton::clicked, this, [this]() {
         QString exePath;
@@ -742,9 +743,12 @@ void VersionDialog::InstallSelectedVersionExe() {
         return;
     }
 
-    QString destExe = QString::fromStdString(exePath.string());
+    QString uiType = selectedItem->text(4);
+    QString nameColumn = selectedItem->text(1).trimmed();
+    QString destExe;
 
     QDir versionDir(fullPath);
+
 #ifdef Q_OS_LINUX
     QStringList candidates = versionDir.entryList(QStringList() << "*.AppImage", QDir::Files);
     if (candidates.isEmpty()) {
@@ -758,17 +762,40 @@ void VersionDialog::InstallSelectedVersionExe() {
         QDir(fullPath).filePath(QString::fromStdString(exePath.filename().string()));
 #endif
 
-    QString backupExe = destExe + ".bak";
+    if (uiType.compare("Qt", Qt::CaseInsensitive) == 0) {
+        QString finalExeName = nameColumn.isEmpty() ? QFileInfo(sourceExe).fileName() : nameColumn;
 
-    if (QFile::exists(destExe)) {
-        if (QFile::exists(backupExe)) {
-            QFile::remove(backupExe);
+#ifdef Q_OS_WIN
+        if (!finalExeName.endsWith(".exe", Qt::CaseInsensitive))
+            finalExeName += ".exe";
+#elif defined(Q_OS_LINUX)
+        if (!finalExeName.endsWith(".AppImage", Qt::CaseInsensitive))
+            finalExeName += ".AppImage";
+#elif defined(Q_OS_MACOS)
+        if (!finalExeName.endsWith(".app", Qt::CaseInsensitive))
+            finalExeName += ".app";
+#endif
+
+        destExe = QDir(QFileInfo(QString::fromStdString(exePath.string())).absolutePath())
+                      .filePath(finalExeName);
+
+        if (QFile::exists(destExe)) {
+            QFile::remove(destExe);
         }
-        if (!QFile::rename(destExe, backupExe)) {
-            QMessageBox::critical(this, tr("Error"),
-                                  tr("Failed to backup current executable:\n%1").arg(destExe));
-            return;
+    } else if (uiType.compare("SDL", Qt::CaseInsensitive) == 0) {
+        destExe = QString::fromStdString(exePath.string());
+        QString backupExe = destExe + ".bak";
+        if (QFile::exists(destExe)) {
+            if (QFile::exists(backupExe))
+                QFile::remove(backupExe);
+            if (!QFile::rename(destExe, backupExe)) {
+                QMessageBox::critical(this, tr("Error"),
+                                      tr("Failed to backup current executable:\n%1").arg(destExe));
+                return;
+            }
         }
+    } else {
+        destExe = QString::fromStdString(exePath.string());
     }
 
     if (!QFile::copy(sourceExe, destExe)) {
@@ -781,31 +808,77 @@ void VersionDialog::InstallSelectedVersionExe() {
 
     m_compat_info->SetSelectedShadExePath(destExe.toStdString());
 
-    QMessageBox::information(
-        this, tr("Success"),
-        tr("Switched to version: %1\nPrevious executable was backed up as .bak")
-            .arg(selectedItem->text(0)));
+    QMessageBox::information(this, tr("Success"),
+                             tr("Version installed successfully:\n%1").arg(destExe));
 
-    QString uiType = selectedItem->text(4);
-
+    // Auto-run for QT
     if (uiType.compare("Qt", Qt::CaseInsensitive) == 0) {
-        if (QMessageBox::question(
-                this, tr("Run Version"),
-                tr("Qt version installed successfully.\n\nDo you want to run it now?"),
-                QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
-            QProcess::startDetached(destExe);
-        }
+        QProcess::startDetached(destExe);
     } else if (uiType.compare("SDL", Qt::CaseInsensitive) == 0) {
         QMessageBox::information(
             this, tr("SDL Version Installed"),
-            tr("SDL version installed successfully.\n\nUse *Boot Game Detached* "
-               "(Right Click on Game) to launch games."));
+            tr("SDL version installed successfully.\n\n"
+               "Use *Boot Game Detached* (Right Click on Game) to launch games.\n"
+               "Click the restore button after use.\n\n"
+               "Notice: SDL installation requires the current GUI to be open to run games.\n"
+               "Restore BBFork before closing Emulator."));
     } else {
         if (QMessageBox::question(this, tr("Run Version"),
                                   tr("Do you want to run this version now?"),
                                   QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
             QProcess::startDetached(destExe);
         }
+    }
+}
+
+void VersionDialog::UninstallQtVersion() {
+    QTreeWidgetItem* selectedItem = ui->installedTreeWidget->currentItem();
+    if (!selectedItem) {
+        QMessageBox::warning(this, tr("Notice"), tr("No version selected."));
+        return;
+    }
+
+    QString uiType = selectedItem->text(4);
+    if (uiType.compare("Qt", Qt::CaseInsensitive) != 0) {
+        QMessageBox::information(this, tr("Notice"), tr("Selected version is not a Qt build."));
+        return;
+    }
+
+    QString nameColumn = selectedItem->text(1).trimmed();
+    if (nameColumn.isEmpty()) {
+        QMessageBox::critical(this, tr("Error"), tr("Cannot determine executable name."));
+        return;
+    }
+
+    std::filesystem::path exePath = GetActualExecutablePath();
+    QString exeDir = QFileInfo(QString::fromStdString(exePath.string())).absolutePath();
+
+#ifdef Q_OS_WIN
+    QString exeFile = nameColumn + ".exe";
+#elif defined(Q_OS_LINUX)
+    QString exeFile = nameColumn + ".AppImage";
+#elif defined(Q_OS_MACOS)
+    QString exeFile = nameColumn + ".app";
+#endif
+
+    QString fullExePath = QDir(exeDir).filePath(exeFile);
+
+    if (!QFile::exists(fullExePath)) {
+        QMessageBox::information(this, tr("Notice"),
+                                 tr("Qt executable not found:\n%1").arg(fullExePath));
+        return;
+    }
+
+    if (QMessageBox::question(this, tr("Uninstall Qt Version"),
+                              tr("Are you sure you want to delete:\n%1 ?").arg(fullExePath),
+                              QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
+        if (!QFile::remove(fullExePath)) {
+            QMessageBox::critical(this, tr("Error"), tr("Failed to delete:\n%1").arg(fullExePath));
+            return;
+        }
+        QMessageBox::information(this, tr("Uninstalled"),
+                                 tr("Qt version removed:\n%1").arg(fullExePath));
+        LoadinstalledList();
     }
 }
 
