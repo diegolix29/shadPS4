@@ -203,7 +203,7 @@ public:
         welcomeAct->setObjectName("welcomeAct");
         welcomeAct->setCheckable(true);
         bigPictureAct = new QAction(MainWindow);
-        bigPictureAct->setObjectName("Open Games Menu");
+        bigPictureAct->setObjectName("Boot on Games Menu");
         bigPictureAct->setIcon(QIcon(":images/controller_icon.png"));
         bigPictureAct->setCheckable(true);
         configureAct = new QAction(MainWindow);
@@ -455,7 +455,7 @@ public:
         welcomeAct->setText(
             QCoreApplication::translate("MainWindow", "Show Welcome On Launch", nullptr));
         bigPictureAct->setText(
-            QCoreApplication::translate("MainWindow", "Open Games Menu", nullptr));
+            QCoreApplication::translate("MainWindow", "Boot on Games Menu", nullptr));
         configureAct->setText(QCoreApplication::translate("MainWindow", "Configure...", nullptr));
         configureHotkeys->setText(
             QCoreApplication::translate("MainWindow", "Customize Hotkeys", nullptr));

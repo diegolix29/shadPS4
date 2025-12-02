@@ -311,8 +311,8 @@ void setVolumeSlider(int volumeValue, bool is_game_specific);
 bool isMuteEnabled();
 void setMuteEnabled(bool enabled);
 
-bool getAutoRestartGame();
-void setAutoRestartGame(bool enable);
+bool GamesMenuUI();
+void setGamesMenuUI(bool enable);
 bool getRestartWithBaseGame();
 void setRestartWithBaseGame(bool enable);
 bool DisableHardcodedHotkeys();

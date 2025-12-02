@@ -115,6 +115,8 @@ bool MainWindow::Init() {
     // load game list
     LoadGameLists();
 
+    m_bigPicture =
+        std::make_unique<BigPictureWidget>(m_game_info, m_compat_info, m_ipc_client, nullptr, this);
     if (Config::getEnableColorFilter()) {
         ui->playButton->installEventFilter(this);
         ui->pauseButton->installEventFilter(this);
@@ -186,9 +188,6 @@ bool MainWindow::Init() {
     }
 #endif
 
-    m_bigPicture =
-        std::make_unique<BigPictureWidget>(m_game_info, m_compat_info, m_ipc_client, nullptr, this);
-
     connect(
         m_bigPicture.get(), &BigPictureWidget::openModsManagerRequested, this, [this](int index) {
             if (index < 0 || index >= m_game_info->m_games.size()) {
@@ -222,7 +221,9 @@ bool MainWindow::Init() {
         dlg->exec();
         restoreBigPictureFocus();
     });
-
+    if (Config::GamesMenuUI()) {
+        m_bigPicture->toggle();
+    }
     return true;
 }
 
@@ -684,6 +685,9 @@ void MainWindow::CreateDockWindows(bool newDock) {
     ui->welcomeAct->setCheckable(true);
     ui->welcomeAct->setChecked(Config::getShowWelcomeDialog());
 
+    ui->bigPictureAct->setCheckable(true);
+    ui->bigPictureAct->setChecked(Config::GamesMenuUI());
+
     ui->pauseOnUnfocusAct->setCheckable(true);
     ui->pauseOnUnfocusAct->setChecked(Config::getPauseOnUnfocus());
 
@@ -772,7 +776,6 @@ void MainWindow::CreateConnects() {
     connect(ui->toggleLabelsAct, &QAction::triggered, this, &MainWindow::toggleLabelsUnderIcons);
     connect(ui->toggleColorFilterAct, &QAction::triggered, this, &MainWindow::toggleColorFilter);
     connect(ui->fullscreenButton, &QPushButton::clicked, this, &MainWindow::toggleFullscreen);
-    connect(ui->bigPictureAct, &QAction::triggered, this, [this]() { m_bigPicture->toggle(); });
 
     connect(ui->sizeSlider, &QSlider::valueChanged, this, [this](int value) {
         if (isTableList) {
@@ -953,6 +956,11 @@ void MainWindow::CreateConnects() {
     });
     connect(ui->welcomeAct, &QAction::triggered, this, [this](bool checked) {
         Config::setShowWelcomeDialog(checked);
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+    });
+
+    connect(ui->bigPictureAct, &QAction::triggered, this, [this](bool checked) {
+        Config::setGamesMenuUI(checked); // update your config
         Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
     });
 

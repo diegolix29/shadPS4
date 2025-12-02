@@ -163,7 +163,7 @@ static bool enableDiscordRPC = false;
 static bool checkCompatibilityOnStartup = false;
 static bool compatibilityData = false;
 static std::filesystem::path sys_modules_path = {};
-static bool autoRestartGame = false;
+static bool bootGamesMenu = false;
 static bool restartWithBaseGame = false;
 static ConfigEntry<bool> screenTipDisable(false);
 static ConfigEntry<bool> fpsLimiterEnabled(false);
@@ -462,12 +462,12 @@ void setFpsLimiterEnabled(bool enabled) {
     fpsLimiterEnabled.base_value = enabled;
 }
 
-bool getAutoRestartGame() {
-    return autoRestartGame;
+bool GamesMenuUI() {
+    return bootGamesMenu;
 }
 
-void setAutoRestartGame(bool enable) {
-    autoRestartGame = enable;
+void setGamesMenuUI(bool enable) {
+    bootGamesMenu = enable;
 }
 
 bool getRestartWithBaseGame() {
@@ -1313,7 +1313,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
     if (data.contains("General")) {
         const toml::value& general = data.at("General");
         enableAutoBackup.setFromToml(general, "enableAutoBackup", false);
-        autoRestartGame = toml::find_or<bool>(general, "autoRestartGame", false);
+        bootGamesMenu = toml::find_or<bool>(general, "GamesMenuUI", false);
         restartWithBaseGame = toml::find_or<bool>(general, "restartWithBaseGame", false);
         screenTipDisable.setFromToml(general, "screenTipDisable", is_game_specific);
         volumeSlider.setFromToml(general, "volumeSlider", is_game_specific);
@@ -1647,7 +1647,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["DisableHardcodedHotkeys"] = isDisableHardcodedHotkeys.base_value;
     data["General"]["UseHomeButtonForHotkeys"] = homeButtonHotkey.base_value;
     data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
-    data["General"]["autoRestartGame"] = autoRestartGame;
+    data["General"]["GamesMenuUI"] = bootGamesMenu;
     data["General"]["restartWithBaseGame"] = restartWithBaseGame;
     data["General"]["screenTipDisable"] = screenTipDisable.base_value;
     data["General"]["sideTrophy"] = isSideTrophy.base_value;
@@ -1851,7 +1851,7 @@ void setDefaultValues() {
     checkCompatibilityOnStartup = false;
     isConnectedToNetwork = false;
     firstBootHandled = false;
-    autoRestartGame = false;
+    bootGamesMenu = false;
     restartWithBaseGame = false;
     screenTipDisable = false;
 
