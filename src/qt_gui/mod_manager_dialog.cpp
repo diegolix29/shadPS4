@@ -45,7 +45,18 @@ ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameS
     QDir().mkpath(backupsRoot);
     QDir().mkpath(overlayRoot);
 
-    auto* layout = new QHBoxLayout(this);
+    auto* mainLayout = new QVBoxLayout(this);
+
+    QLabel* lblGameTitle = new QLabel(QString("Game: %1").arg(gameSerial), this);
+    lblGameTitle->setAlignment(Qt::AlignCenter);
+    QFont font = lblGameTitle->font();
+    font.setPointSize(14);
+    font.setBold(true);
+    lblGameTitle->setFont(font);
+    mainLayout->addWidget(lblGameTitle);
+
+    auto* layout = new QHBoxLayout();
+    mainLayout->addLayout(layout);
 
     listAvailable = new QListWidget(this);
     listActive = new QListWidget(this);
@@ -450,24 +461,43 @@ QStringList ModManagerDialog::detectModConflicts(const QString& modInstallPath,
 
 void ModManagerDialog::installModFromDisk() {
     QString path;
-    QMessageBox::StandardButton choice = QMessageBox::question(
-        this, "Select Mod", "Do you want to select a folder instead of an archive?",
-        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
 
-    if (choice == QMessageBox::Yes) {
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Select Mod");
+    msgBox.setText("Are you installing a folder or an archive?");
+    QPushButton* folderBtn = msgBox.addButton("Folder", QMessageBox::AcceptRole);
+    QPushButton* archiveBtn = msgBox.addButton("Archive", QMessageBox::AcceptRole);
+
+    msgBox.exec();
+
+    if (msgBox.clickedButton() == folderBtn) {
         path = QFileDialog::getExistingDirectory(this, "Select Mod Folder", QString(),
                                                  QFileDialog::ShowDirsOnly |
                                                      QFileDialog::DontResolveSymlinks);
-    } else {
+    } else if (msgBox.clickedButton() == archiveBtn) {
         path = QFileDialog::getOpenFileName(
             this, "Select Mod Archive", QString(),
             "Mods (*.zip *.rar *.7z *.tar *.gz *.tgz);;All Files (*.*)");
+    } else {
+        return;
     }
 
     if (path.isEmpty())
         return;
 
     QFileInfo info(path);
+
+#ifdef _WIN32
+    if (info.suffix().toLower() == "rar") {
+        QMessageBox::information(
+            this, "RAR Not Supported",
+            "RAR archives are not supported for mod installation on Windows.\n"
+            "Please unpack the RAR archive manually and install the mod as a folder, "
+            "or use a different supported archive format (ZIP, 7Z, TAR, GZ, TGZ).");
+        return;
+    }
+#endif
+
     QString modName = info.baseName();
     QString dst = availablePath + "/" + modName;
 
