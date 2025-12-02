@@ -238,7 +238,7 @@ Emulator hotkeys:
     These are regarded as normal bindings, but they are put in a special config named global.ini by default, which is a config that is always loaded alongside the main config (If you want to, you can use this to set some common bindings that'll be in effect for every game, then put only the game specific bindings in their respective files). This doesn't mean you can't add them to the normal configs, you can absolutely make game specific emulator hokeys as well.
     'hotkey_pause', 'hotkey_fullscreen', 'hotkey_show_fps',
     'hotkey_quit', 'hotkey_reload_inputs', 'hotkey_toggle_mouse_to_joystick',
-    'hotkey_toggle_mouse_to_gyro', 'hotkey_renderdoc_capture'
+    'hotkey_toggle_mouse_to_gyro','hotkey_toggle_mouse_to_touchpad', 'hotkey_renderdoc_capture'
 
 'leftjoystick_halfmode' and 'rightjoystick_halfmode' = <key>;
     These are a pair of input modifiers that change the way keyboard button-bound axes work. By default, those push the joystick to the max in their respective direction, but if their respective 'joystick_halfmode' modifier value is true, they only push it... halfway. With this, you can change from run to walk in games like Bloodborne.
