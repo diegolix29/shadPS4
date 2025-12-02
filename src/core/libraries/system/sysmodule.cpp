@@ -6,7 +6,6 @@
 #include <magic_enum/magic_enum.hpp>
 
 #include "common/logging/log.h"
-#include "core/libraries/app_content/app_content.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/kernel/process.h"
 #include "core/libraries/libs.h"
@@ -87,17 +86,6 @@ int PS4_SYSV_ABI sceSysmoduleIsLoadedInternal(OrbisSysModuleInternal id) {
 
 int PS4_SYSV_ABI sceSysmoduleLoadModule(OrbisSysModule id) {
     LOG_ERROR(Lib_SysModule, "(DUMMY) called module = {}", magic_enum::enum_name(id));
-
-    if (id == OrbisSysModule::ORBIS_SYSMODULE_APP_CONTENT) {
-
-        static bool app_content_initialized = false;
-        if (!app_content_initialized) {
-            LOG_INFO(Lib_SysModule, "Auto-initializing AppContent for DLC detection");
-            AppContent::sceAppContentInitialize(nullptr, nullptr);
-            app_content_initialized = true;
-        }
-    }
-
     return ORBIS_OK;
 }
 
