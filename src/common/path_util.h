@@ -31,6 +31,7 @@ enum class PathType {
     CustomThemes,   // Where custom themes for emulator are stored.
     ModsFolder,     // Where mods for games are stored.
     CacheDir,       // Where pipeline and shader cache is stored.
+    CustomAudios,   // Where custom audios are stored.
 };
 
 constexpr auto PORTABLE_DIR = "user";
@@ -52,6 +53,7 @@ constexpr auto CUSTOM_CONFIGS = "custom_configs";
 constexpr auto CUSTOM_THEMES = "custom_themes";
 constexpr auto MODS_FOLDER = "mods_folder";
 constexpr auto CACHE_DIR = "cache";
+constexpr auto AUDIO_DIR = "custom_audios";
 
 // Filenames
 constexpr auto LOG_FILE = "shad_log.txt";

@@ -1341,6 +1341,8 @@ cmrc_add_resource_library(embedded-resources
         ALIAS res::embedded
         NAMESPACE res
         src/images/trophy.wav
+        src/images/bgm.mp3
+        src/images/tick.mp3
         src/images/bronze.png
         src/images/gold.png
         src/images/platinum.png

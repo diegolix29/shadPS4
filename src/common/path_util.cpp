@@ -161,11 +161,50 @@ static auto UserPaths = [] {
     create_path(PathType::CustomThemes, user_dir / CUSTOM_THEMES);
     create_path(PathType::ModsFolder, user_dir / MODS_FOLDER);
     create_path(PathType::CacheDir, user_dir / CACHE_DIR);
+    create_path(PathType::CustomAudios, user_dir / AUDIO_DIR);
 
     std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
     if (notice_file.is_open()) {
-        notice_file << "..."; // your message
+        notice_file
+            // clang-format off
+<< "++++++++++++++++++++++++++++++++\n"
+"+ Custom Trophy Images / Sound +\n"
+"++++++++++++++++++++++++++++++++\n\n"
+
+"You can add custom images to the trophies.\n"
+"*We recommend a square resolution image, for example 200x200, 500x500, the same size as the height and width.\n"
+"In this folder ('user\\custom_trophy'), add the files with the following names:\n\n"
+"bronze.png\n"
+"silver.png\n"
+"gold.png\n"
+"platinum.png\n\n"
+
+"You can add a custom sound for trophy notifications.\n"
+"*By default, no audio is played unless it is in this folder and you are using the QT version.\n"
+"In this folder ('user\\custom_trophy'), add the files with the following names:\n\n"
+
+"trophy.wav OR trophy.mp3";
+        // clang-format on
         notice_file.close();
+    }
+
+    std::ofstream audio_file(user_dir / AUDIO_DIR / "Notice.txt");
+    if (audio_file.is_open()) {
+        audio_file
+            // clang-format off
+<< "++++++++++++++++++++++++++++++++\n"
+"+ Custom Audios / Sounds +\n"
+"++++++++++++++++++++++++++++++++\n\n"
+
+"You can add custom sounds to the games menu.\n"
+"For the background music and tick movement navigation.\n"
+"It has sound built in but if you add.\n"
+"In this folder ('user\\custom_audios'), the files with the following names:\n"
+"bgm.wav and tick.wav OR bgm.mp3 and tick.mp3.\n"
+"bgm for Background music, and tick for movement navigation.\n"
+"You can use custom audios for the games menu.";
+        // clang-format on
+        audio_file.close();
     }
 
     return paths;

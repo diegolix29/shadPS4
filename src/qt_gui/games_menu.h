@@ -5,6 +5,8 @@
 
 #include <memory>
 #include <vector>
+#include <QAudioOutput>
+#include <QMediaPlayer>
 #include <QPainter>
 #include <QPointer>
 #include <QPropertyAnimation>
@@ -195,6 +197,7 @@ public:
     ~BigPictureWidget();
 
     void toggle();
+    void playNavSound();
     void showFull();
     void hideFull();
 
@@ -255,6 +258,10 @@ private:
     QPushButton* m_btnQuit = nullptr;
     WindowThemes m_window_themes;
     enum class FocusMode { Tiles, Buttons };
+    QMediaPlayer* m_player = nullptr;
+    QAudioOutput* m_audioOutput = nullptr;
+    QMediaPlayer* m_uiSound = nullptr;
+    QAudioOutput* m_uiOutput = nullptr;
 
     FocusMode m_focusMode = FocusMode::Tiles;
     HotkeysOverlay* m_hotkeysOverlay = nullptr;

@@ -16,9 +16,12 @@
 #include <QStyle>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <cmrc/cmrc.hpp>
+#include "common/logging/log.h"
 #include "common/path_util.h"
 #include "game_info.h"
 #include "games_menu.h"
+CMRC_DECLARE(res);
 
 BigPictureWidget::BigPictureWidget(std::shared_ptr<GameInfoClass> gameInfo,
                                    std::shared_ptr<CompatibilityInfoClass> compatInfo,
@@ -31,6 +34,93 @@ BigPictureWidget::BigPictureWidget(std::shared_ptr<GameInfoClass> gameInfo,
     setAutoFillBackground(false);
     setAttribute(Qt::WA_TranslucentBackground, true);
     buildUi();
+    auto resource = cmrc::res::get_filesystem();
+
+    m_player = new QMediaPlayer(this);
+    m_audioOutput = new QAudioOutput(this);
+    m_player->setAudioOutput(m_audioOutput);
+
+    float vol = static_cast<float>(Config::getVolumeSlider() / 100.f);
+    m_audioOutput->setVolume(vol / 2);
+
+    auto basePath = Common::FS::GetUserPath(Common::FS::PathType::CustomAudios);
+    std::filesystem::path bgmMp3 = basePath / "bgm.mp3";
+    std::filesystem::path bgmWav = basePath / "bgm.wav";
+
+    QString file;
+    bool customFound = false;
+
+    if (std::filesystem::exists(bgmWav)) {
+        file = QString::fromStdString(bgmWav.string());
+        customFound = true;
+    } else if (std::filesystem::exists(bgmMp3)) {
+        file = QString::fromStdString(bgmMp3.string());
+        customFound = true;
+    }
+
+    if (customFound) {
+        m_player->setSource(QUrl::fromLocalFile(file));
+        m_player->setLoops(QMediaPlayer::Infinite);
+    } else {
+        try {
+            if (resource.exists("src/images/bgm.mp3")) {
+                auto resFile = resource.open("src/images/bgm.mp3");
+
+                QString tempPath =
+                    QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/bgm.mp3";
+
+                QFile temp(tempPath);
+                if (temp.open(QIODevice::WriteOnly)) {
+                    temp.write(reinterpret_cast<const char*>(resFile.begin()), resFile.size());
+                    temp.close();
+
+                    m_player->setSource(QUrl::fromLocalFile(tempPath));
+                    m_player->setLoops(QMediaPlayer::Infinite);
+                }
+            }
+        } catch (...) {
+        }
+    }
+    m_uiSound = new QMediaPlayer(this);
+    m_uiOutput = new QAudioOutput(this);
+
+    m_uiSound->setAudioOutput(m_uiOutput);
+    m_uiOutput->setVolume(0.25f);
+    std::filesystem::path tickWav = basePath / "tick.wav";
+    std::filesystem::path tickMp3 = basePath / "tick.mp3";
+
+    QString tickFile;
+    bool customTickFound = false;
+
+    if (std::filesystem::exists(tickWav)) {
+        tickFile = QString::fromStdString(tickWav.string());
+        customTickFound = true;
+    } else if (std::filesystem::exists(tickMp3)) {
+        tickFile = QString::fromStdString(tickMp3.string());
+        customTickFound = true;
+    }
+
+    if (customTickFound) {
+        m_uiSound->setSource(QUrl::fromLocalFile(tickFile));
+    } else {
+        try {
+            if (resource.exists("src/images/tick.mp3")) {
+                auto resFile = resource.open("src/images/tick.mp3");
+
+                QString tempTick =
+                    QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/ui_tick.mp3";
+
+                QFile temp(tempTick);
+                if (temp.open(QIODevice::WriteOnly)) {
+                    temp.write(reinterpret_cast<const char*>(resFile.begin()), resFile.size());
+                    temp.close();
+                    m_uiSound->setSource(QUrl::fromLocalFile(tempTick));
+                }
+            }
+        } catch (...) {
+        }
+    }
+
     buildAnimations();
     Theme th = static_cast<Theme>(Config::getMainWindowTheme());
     m_window_themes.SetWindowTheme(th, nullptr);
@@ -350,6 +440,14 @@ void BigPictureWidget::toggle() {
         showFull();
 }
 
+void BigPictureWidget::playNavSound() {
+    if (!m_uiSound)
+        return;
+
+    m_uiSound->stop(); // restart if already playing
+    m_uiSound->play();
+}
+
 void BigPictureWidget::showFull() {
     if (m_visible)
         return;
@@ -367,11 +465,16 @@ void BigPictureWidget::showFull() {
     centerSelectedTileAnimated();
     m_fadeIn->start();
     m_visible = true;
+
+    if (m_player && m_player->source().isValid()) {
+        m_player->play();
+    }
 }
 
 void BigPictureWidget::hideFull() {
-    if (!m_visible)
-        return;
+    if (m_player)
+        m_player->stop();
+
     m_fadeOut->start();
 }
 
@@ -633,7 +736,7 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
     if (e->key() == Qt::Key_Right) {
         if (m_selectedIndex + 1 < (int)m_tiles.size()) {
             m_navigationLocked = true;
-
+            playNavSound();
             m_selectedIndex++;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
@@ -646,7 +749,7 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
     if (e->key() == Qt::Key_Left) {
         if (m_selectedIndex > 0) {
             m_navigationLocked = true;
-
+            playNavSound();
             m_selectedIndex--;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
@@ -718,6 +821,8 @@ void BigPictureWidget::ensureSelectionValid() {
 
 void BigPictureWidget::onPlayClicked() {
     ensureSelectionValid();
+    if (m_player)
+        m_player->stop();
     if (m_selectedIndex >= 0 && m_selectedIndex < (int)m_tiles.size()) {
         emit launchGameRequested(m_selectedIndex);
     }
