@@ -195,6 +195,7 @@ public:
                      std::shared_ptr<IpcClient> ipcClient, WindowThemes* themes = nullptr,
                      QWidget* parent = nullptr);
     ~BigPictureWidget();
+    enum class FocusMode { Tiles, Buttons };
 
     void toggle();
     void playNavSound();
@@ -225,6 +226,7 @@ private slots:
     void onGlobalConfigClicked();
     void onGameConfigClicked();
     void onQuitClicked();
+    void focusInEvent(QFocusEvent* event) override;
 
 public:
     void handleGamepadButton(GamepadButton btn);
@@ -259,7 +261,6 @@ private:
     QPushButton* m_btnMods = nullptr;
     QPushButton* m_btnQuit = nullptr;
     WindowThemes m_window_themes;
-    enum class FocusMode { Tiles, Buttons };
     QMediaPlayer* m_player = nullptr;
     QAudioOutput* m_audioOutput = nullptr;
     QMediaPlayer* m_uiSound = nullptr;

@@ -76,6 +76,7 @@ path = [
     "src/images/trophy.wav",
     "src/images/bgm.mp3",
     "src/images/tick.mp3",
+    "src/images/play.mp3",
     "src/images/hotkey.png",
     "src/images/hotkeybutton.png",
     "src/images/favorite_icon.png",

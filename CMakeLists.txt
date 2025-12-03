@@ -1343,6 +1343,7 @@ cmrc_add_resource_library(embedded-resources
         src/images/trophy.wav
         src/images/bgm.mp3
         src/images/tick.mp3
+        src/images/play.mp3
         src/images/bronze.png
         src/images/gold.png
         src/images/platinum.png

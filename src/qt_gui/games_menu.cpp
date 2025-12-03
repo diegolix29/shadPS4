@@ -120,6 +120,45 @@ BigPictureWidget::BigPictureWidget(std::shared_ptr<GameInfoClass> gameInfo,
         } catch (...) {
         }
     }
+    m_playSound = new QMediaPlayer(this);
+    m_playOutput = new QAudioOutput(this);
+    m_playSound->setAudioOutput(m_playOutput);
+    m_playOutput->setVolume(0.45f);
+
+    std::filesystem::path playWav = basePath / "play.wav";
+    std::filesystem::path playMp3 = basePath / "play.mp3";
+
+    QString playFile;
+    bool customPlayFound = false;
+
+    if (std::filesystem::exists(playWav)) {
+        playFile = QString::fromStdString(playWav.string());
+        customPlayFound = true;
+    } else if (std::filesystem::exists(playMp3)) {
+        playFile = QString::fromStdString(playMp3.string());
+        customPlayFound = true;
+    }
+
+    if (customPlayFound) {
+        m_playSound->setSource(QUrl::fromLocalFile(playFile));
+    } else {
+        try {
+            if (resource.exists("src/images/play.mp3")) {
+                auto resFile = resource.open("src/images/play.mp3");
+
+                QString tempPlay =
+                    QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/ui_play.mp3";
+
+                QFile f(tempPlay);
+                if (f.open(QIODevice::WriteOnly)) {
+                    f.write(reinterpret_cast<const char*>(resFile.begin()), resFile.size());
+                    f.close();
+                    m_playSound->setSource(QUrl::fromLocalFile(tempPlay));
+                }
+            }
+        } catch (...) {
+        }
+    }
 
     buildAnimations();
     Theme th = static_cast<Theme>(Config::getMainWindowTheme());
@@ -839,6 +878,18 @@ void BigPictureWidget::onPlayClicked() {
     ensureSelectionValid();
     if (m_player)
         m_player->stop();
+
+    if (m_playSound) {
+        m_playSound->stop();
+        m_playSound->play();
+    }
+
+    m_scrollBarHidden = !m_scrollBarHidden;
+    m_bottomBarHidden = !m_bottomBarHidden;
+
+    m_scroll->setVisible(!m_scrollBarHidden);
+    m_bottomBar->setVisible(!m_bottomBarHidden);
+
     if (m_selectedIndex >= 0 && m_selectedIndex < (int)m_tiles.size()) {
         emit launchGameRequested(m_selectedIndex);
     }
@@ -902,6 +953,23 @@ void BigPictureWidget::showEvent(QShowEvent* ev) {
 
 void BigPictureWidget::onQuitClicked() {
     hideFull();
+}
+
+void BigPictureWidget::focusInEvent(QFocusEvent* event) {
+    QWidget::focusInEvent(event);
+
+    if (!Config::getGameRunning()) {
+        return;
+    }
+
+    m_scrollBarHidden = !m_scrollBarHidden;
+    m_bottomBarHidden = !m_bottomBarHidden;
+
+    m_scroll->setVisible(!m_scrollBarHidden);
+
+    m_bottomBar->setVisible(!m_bottomBarHidden);
+    if (m_player)
+        m_player->play();
 }
 
 void BigPictureWidget::resizeEvent(QResizeEvent* e) {

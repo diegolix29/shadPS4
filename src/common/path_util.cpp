@@ -197,11 +197,11 @@ static auto UserPaths = [] {
 "++++++++++++++++++++++++++++++++\n\n"
 
 "You can add custom sounds to the games menu.\n"
-"For the background music and tick movement navigation.\n"
+"For the background music / tick movement navigation / start game sound.\n"
 "It has sound built in but if you add.\n"
 "In this folder ('user\\custom_audios'), the files with the following names:\n"
-"bgm.wav and tick.wav OR bgm.mp3 and tick.mp3.\n"
-"bgm for Background music, and tick for movement navigation.\n"
+"bgm.wav/tick.wav - bgm.mp3/tick.mp3 - play.wav/play.mp3.\n"
+"bgm for Background music, tick for movement navigation and play for start game sound.\n"
 "You can use custom audios for the games menu.";
         // clang-format on
         audio_file.close();
