@@ -7,7 +7,7 @@ on: [push, pull_request]
 
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: false
 
 env:
   BUILD_TYPE: Release
@@ -153,6 +153,45 @@ jobs:
         name: shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         path: upload/
 
+  windows-arm64:
+    runs-on: windows-2025
+    needs: get-info
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Cache CMake Configuration
+        uses: actions/cache@v4
+        env:
+          cache-name: ${{ runner.os }}-arm64-ninja-cache-cmake-configuration
+        with:
+          path: ${{github.workspace}}/build
+          key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: ${{ env.cache-name }}-
+
+      - name: Configure CMake for ARM64
+        run: cmake --fresh -G Ninja -B ${{github.workspace}}/build-arm64 `
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} `
+          -DCMAKE_SYSTEM_PROCESSOR=ARM64 `
+          -DCMAKE_C_COMPILER=clang-cl `
+          -DCMAKE_CXX_COMPILER=clang-cl `
+          -DCMAKE_C_FLAGS="/arch:ARM64" `
+          -DCMAKE_CXX_FLAGS="/arch:ARM64" `
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache `
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DZLIB_COMPAT=1 `
+          -DDISABLE_X86=ON
+
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build-arm64 --config ${{env.BUILD_TYPE}} --parallel $env:NUMBER_OF_PROCESSORS
+
+      - name: Upload Windows ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadps4-win-arm64-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
+          path: ${{github.workspace}}/build/shadPS4.exe
+            
   macos-sdl:
     runs-on: macos-15
     needs: get-info
