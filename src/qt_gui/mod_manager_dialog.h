@@ -28,6 +28,7 @@ public:
 
 private:
     void scanAvailableMods();
+    void cleanupOverlayRootIfEmpty();
     void scanActiveMods();
     void installMod(const QString& modName);
     void uninstallMod(const QString& modName);

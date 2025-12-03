@@ -31,6 +31,7 @@ ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameS
     } else {
         overlayRoot = gamePath + "-MODS";
     }
+    cleanupOverlayRootIfEmpty();
 
     QString modsRoot;
     Common::FS::PathToQString(modsRoot, Common::FS::GetUserPath(Common::FS::PathType::ModsFolder));
@@ -43,7 +44,6 @@ ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameS
     QDir().mkpath(availablePath);
     QDir().mkpath(activePath);
     QDir().mkpath(backupsRoot);
-    QDir().mkpath(overlayRoot);
 
     auto* mainLayout = new QVBoxLayout(this);
 
@@ -136,6 +136,18 @@ void ModManagerDialog::scanAvailableMods() {
     QDir dir(availablePath);
     for (const QString& mod : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
         listAvailable->addItem(mod);
+    }
+}
+
+void ModManagerDialog::cleanupOverlayRootIfEmpty() {
+    QDir overlayDir(overlayRoot);
+    if (!overlayDir.exists())
+        return;
+
+    // Check if there are any files or subfolders
+    QStringList entries = overlayDir.entryList(QDir::AllEntries | QDir::NoDotAndDotDot);
+    if (entries.isEmpty()) {
+        overlayDir.removeRecursively();
     }
 }
 
@@ -374,6 +386,9 @@ void ModManagerDialog::installMod(const QString& modName) {
         if (!QFile::copy(it.filePath(), destPath)) {
             qWarning() << "Failed to copy mod file" << it.filePath() << "to" << destPath;
         }
+    }
+    if (!QDir(overlayRoot).exists()) {
+        QDir().mkpath(overlayRoot);
     }
 
     QString activeModDir = activePath + "/" + modName;
