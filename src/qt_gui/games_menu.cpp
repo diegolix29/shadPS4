@@ -445,8 +445,9 @@ void BigPictureWidget::toggle() {
 void BigPictureWidget::playNavSound() {
     if (!m_uiSound)
         return;
-
-    m_uiSound->stop(); // restart if already playing
+    if (!m_visible)
+        return;
+    m_uiSound->stop();
     m_uiSound->play();
 }
 

@@ -264,6 +264,8 @@ private:
     QAudioOutput* m_audioOutput = nullptr;
     QMediaPlayer* m_uiSound = nullptr;
     QAudioOutput* m_uiOutput = nullptr;
+    QMediaPlayer* m_playSound = nullptr;
+    QAudioOutput* m_playOutput = nullptr;
 
     FocusMode m_focusMode = FocusMode::Tiles;
     HotkeysOverlay* m_hotkeysOverlay = nullptr;
