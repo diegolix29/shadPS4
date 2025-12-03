@@ -82,7 +82,11 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
     ui->ReadbackSpeedComboBox->installEventFilter(this);
     ui->MemorySpinBox->installEventFilter(this);
 }
-
+static QMap<QString, QString> screenModeMap = {
+    {"Fullscreen (Borderless)", "Fullscreen (Borderless)"},
+    {"Windowed", "Windowed"},
+    {"Fullscreen", "Fullscreen"},
+};
 GameSpecificDialog::~GameSpecificDialog() = default;
 
 bool GameSpecificDialog::eventFilter(QObject* obj, QEvent* event) {
@@ -352,8 +356,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->displayModeComboBox->setCurrentText(
                 QString::fromStdString(toml::find<std::string>(gpu, "FullscreenMode")));
 
-        if (gpu.contains("isFullscreen"))
-            Config::setIsFullscreen(toml::find<bool>(gpu, "isFullscreen"));
+        if (gpu.contains("Fullscreen"))
+            Config::setIsFullscreen(toml::find<bool>(gpu, "Fullscreen"));
 
         if (gpu.contains("presentMode")) {
             std::string present = toml::find<std::string>(gpu, "presentMode");
@@ -451,11 +455,6 @@ void GameSpecificDialog::UpdateSettings() {
         {"Mailbox", tr("Mailbox (Vsync)")},
         {"Fifo", tr("Fifo (Vsync)")},
         {"Immediate", tr("Immediate (No Vsync)")},
-    };
-    QMap<QString, QString> screenModeMap = {
-        {tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
-        {tr("Windowed"), "Windowed"},
-        {tr("Fullscreen"), "Fullscreen"},
     };
 
     //  General
@@ -594,15 +593,15 @@ void GameSpecificDialog::UpdateSettings() {
         overrides["GPU"]["fsrEnabled"] = ui->FSRCheckBox->isChecked();
 
     {
-        std::string screen =
-            screenModeMap.value(ui->displayModeComboBox->currentText()).toStdString();
+        QString comboText = ui->displayModeComboBox->currentText();
+        std::string screen = screenModeMap.value(comboText, "Windowed").toStdString();
 
         if (screen != Config::getFullscreenMode())
             overrides["GPU"]["FullscreenMode"] = screen;
 
         bool shouldFullscreen = (screen != "Windowed");
         if (shouldFullscreen != Config::getIsFullscreen())
-            overrides["GPU"]["isFullscreen"] = shouldFullscreen;
+            overrides["GPU"]["Fullscreen"] = (screen != "Windowed");
     }
 
     QString key = presentModeMap.key(ui->presentModeComboBox->currentText(), "Fifo");
