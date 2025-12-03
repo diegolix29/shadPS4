@@ -18,6 +18,17 @@ endif()
 
 project(shadPS4 CXX C ASM ${ADDITIONAL_LANGUAGES})
 
+# Prevent MSVC runtime from being applied to ASM (fixes MultiThreadedDLL ASM error)
+if (MSVC)
+    # Ensure runtime is defined for C and C++
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY_C "MultiThreadedDLL")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY_CXX "MultiThreadedDLL")
+
+    # Stop CMake from applying it to ASM (the actual cause of the error)
+    unset(CMAKE_MSVC_RUNTIME_LIBRARY_ASM)
+endif()
+
 # Forcing PIE makes sure that the base address is high enough so that it doesn't clash with the PS4 memory.
 if(UNIX AND NOT APPLE)
     set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
