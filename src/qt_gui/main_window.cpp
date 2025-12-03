@@ -718,7 +718,9 @@ void MainWindow::CreateConnects() {
     });
 
     // Package install.
-    connect(ui->bootInstallPkgAct, &QAction::triggered, this, &MainWindow::InstallPkg);
+    connect(ui->bootInstallPkgAct, &QAction::triggered, this, [this]() {
+        this->InstallPkg();
+    });
     connect(ui->bootGameAct, &QAction::triggered, this, &MainWindow::BootGame);
     connect(ui->gameInstallPathAct, &QAction::triggered, this, &MainWindow::InstallDirectory);
 

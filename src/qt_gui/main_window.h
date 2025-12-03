@@ -41,6 +41,7 @@ public:
     void StartGame();
     void PauseGame();
     bool showLabels;
+    void InstallPkg();
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
@@ -72,7 +73,6 @@ private:
     void SetLastUsedTheme();
     void SetLastIconSizeBullet();
     void SetUiIcons(bool isWhite);
-    void InstallPkg();
     void BootGame();
     void AddRecentFiles(QString filePath);
     void LoadTranslation();
