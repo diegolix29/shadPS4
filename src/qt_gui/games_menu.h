@@ -229,6 +229,8 @@ private slots:
 public:
     void handleGamepadButton(GamepadButton btn);
 
+    void toggleBackgroundMusic();
+
 private:
     void buildUi();
     void layoutTiles();

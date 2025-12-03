@@ -182,7 +182,9 @@ void BigPictureWidget::buildUi() {
                                   {"Arrow Down", "Focus on Buttons"},
                                   {"Arrow Up", "Focus on Games"},
                                   {"Enter/Space", "Select/Play"},
-                                  {"Shift+Arow Up", "Hide/Show Games and Buttons"},
+                                  {"Shift + Arrow Up", "Hide/Show Games and Buttons"},
+                                  {"Shift + N", "Mute Background Music"},
+                                  {"Press - R - ", "Stop/Play Background Music"},
                                   {"Press - P - ", "Play Highlighted Game"},
                                   {"Press - M - ", "Mods Manager"},
                                   {"Press - G - ", "Games Settings"},
@@ -732,11 +734,14 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
         onHotkeysClicked();
         return;
     }
+    if (e->key() == Qt::Key_R) {
+        toggleBackgroundMusic();
+        return;
+    }
 
     if (e->key() == Qt::Key_Right) {
         if (m_selectedIndex + 1 < (int)m_tiles.size()) {
             m_navigationLocked = true;
-            playNavSound();
             m_selectedIndex++;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
@@ -749,7 +754,6 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
     if (e->key() == Qt::Key_Left) {
         if (m_selectedIndex > 0) {
             m_navigationLocked = true;
-            playNavSound();
             m_selectedIndex--;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
@@ -772,6 +776,16 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
         return;
     }
 
+    if (e->key() == Qt::Key_N && e->modifiers().testFlag(Qt::ShiftModifier)) {
+        if (m_audioOutput) {
+            bool nowMuted = !m_audioOutput->isMuted();
+            m_audioOutput->setMuted(nowMuted);
+        }
+
+        e->accept();
+        return;
+    }
+
     if (e->key() == Qt::Key_Down) {
         m_focusMode = FocusMode::Buttons;
 
@@ -789,6 +803,7 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
 void BigPictureWidget::centerSelectedTileAnimated() {
     if (!m_scroll || m_selectedIndex < 0 || m_selectedIndex >= (int)m_tiles.size())
         return;
+    playNavSound();
 
     QRect baseGeom = m_tiles[m_selectedIndex]->property("baseGeom").toRect();
 
@@ -859,6 +874,17 @@ void BigPictureWidget::handleGamepadButton(GamepadButton btn) {
         break;
     default:
         break;
+    }
+}
+
+void BigPictureWidget::toggleBackgroundMusic() {
+    if (!m_player)
+        return;
+
+    if (m_player->playbackState() == QMediaPlayer::PlayingState) {
+        m_player->stop();
+    } else {
+        m_player->play();
     }
 }
 
