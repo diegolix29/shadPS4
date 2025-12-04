@@ -954,22 +954,64 @@ void VersionDialog::dropEvent(QDropEvent* event) {
 
 void VersionDialog::InstallPkgWithV7() {
     if (m_compat_info->GetShadPath().empty()) {
-        QMessageBox::warning(this, tr("Select the extractor folder"),
+        QMessageBox::warning(this, tr("Setup Required"),
                              tr("First you need to choose a location to save the "
-                                "versions in\n'Path to save versions'"));
-        return;
+                                "versions in (Path to save versions)."));
+
+        QString initial_path = QString::fromStdString(m_compat_info->GetShadPath());
+        QString shad_folder_path_string =
+            QFileDialog::getExistingDirectory(this, tr("Select the shadPS4 folder"), initial_path);
+
+        auto folder_path = Common::FS::PathFromQString(shad_folder_path_string);
+
+        if (folder_path.empty()) {
+            return;
+        }
+
+        m_compat_info->SetShadPath(shad_folder_path_string.toStdString());
+        ui->currentShadPath->setText(shad_folder_path_string);
     }
 
     const QString targetReleasePrefix = "V7-shadPS4";
-    QString platform;
+    QString userPath = QString::fromStdString(m_compat_info->GetShadPath());
+    QString installerFolder = QDir(userPath).filePath("PKG_Installer_v7");
+    QString installerExe;
 
 #ifdef Q_OS_WIN
-    platform = "win64-qt";
+    installerExe = QDir(installerFolder).filePath("extractor.exe");
+    QString platform = "win64-qt";
 #elif defined(Q_OS_LINUX)
-    platform = "linux-qt";
+    installerExe = QDir(installerFolder).filePath("extractor");
+    QString platform = "linux-qt";
 #elif defined(Q_OS_MAC)
-    platform = "macos-qt";
+    installerExe = QDir(installerFolder).filePath("extractor");
+    QString platform = "macos-qt";
 #endif
+
+    if (QFile::exists(installerExe)) {
+        QProcess::startDetached(installerExe, QStringList() << "--install-pkg");
+
+        QMessageBox infoBox(this);
+        infoBox.setWindowTitle(tr("PKG Installer Running"));
+        infoBox.setIcon(QMessageBox::Information);
+        infoBox.setText(tr("The existing PKG Installer has been launched with the "
+                           "installation argument.\n"
+                           "Please tap OK after your installation is complete.\n\n"
+                           "The app will close the installer process automatically."));
+        infoBox.setStandardButtons(QMessageBox::Ok);
+
+        connect(&infoBox, &QMessageBox::accepted, this, []() {
+#ifdef Q_OS_WIN
+            QProcess::startDetached("taskkill", QStringList() << "/IM" << "extractor.exe" << "/F");
+#elif defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
+                    QProcess::startDetached("pkill", QStringList() << "extractor");
+#endif
+        });
+
+        infoBox.exec();
+        this->close();
+        return;
+    }
 
     const QString forkRepoUrl = "https://api.github.com/repos/diegolix29/shadPS4/releases";
 
