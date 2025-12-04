@@ -1154,11 +1154,13 @@ void VersionDialog::InstallPkgWithV7() {
                     QString shScript = QString("#!/bin/bash\n"
                                                "mkdir -p \"%1\"\n"
                                                "unzip -o \"%2\" -d \"%1\"\n"
-                                               "mv -f \"%1/shadps4\" \"%1/extractor\"\n"
-                                               "chmod +x \"%1/extractor\" 2>/dev/null || true\n"
-                                               "nohup \"%1/extractor\" --install-pkg &\n")
+                                               "cd \"%1\"\n"
+                                               "mv -f Shadps4-qt.AppImage extractor\n"
+                                               "chmod +x extractor 2>/dev/null || true\n"
+                                               "nohup ./extractor --install-pkg &\n")
                                            .arg(installerFolder)
                                            .arg(destinationPath);
+
                     QString shFile = userPath + "/run_pkg_installer.sh";
                     QFile f(shFile);
                     if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
