@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
              }
          }},
 
-{"--install-pkg", [&](int&) { install_pkg_mode = true; }},
+        {"--install-pkg", [&](int&) { install_pkg_mode = true; }},
 
         {"--patch", [&](int& i) { arg_map["-p"](i); }},
         {"-f",
@@ -176,13 +176,12 @@ int main(int argc, char* argv[]) {
     if ((has_command_line_argument && show_gui) || !has_command_line_argument) {
         m_main_window->Init();
     }
-    // If launched with --install-pkg, trigger InstallPkg() 
+    // If launched with --install-pkg, trigger InstallPkg()
     if (install_pkg_mode) {
         m_main_window->show();
         QTimer::singleShot(0, m_main_window, &MainWindow::InstallPkg);
         return a.exec();
     }
-
 
     if (has_command_line_argument && !has_game_argument) {
         std::cerr << "Error: Please provide a game path or ID.\n";

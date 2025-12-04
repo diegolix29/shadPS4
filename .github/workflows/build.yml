@@ -161,122 +161,6 @@ jobs:
         name: shadps4-win64-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         path: upload/
 
-  macos-sdl:
-    runs-on: macos-15
-    needs: get-info
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - name: Explicitly Update All Submodules
-      run: |
-          git submodule update --init --recursive
-    - name: Setup latest Xcode
-      uses: maxim-lobanov/setup-xcode@v1
-      with:
-        xcode-version: latest
-
-    - name: Cache CMake Configuration
-      uses: actions/cache@v4 
-      env: 
-          cache-name: ${{ runner.os }}-sdl-cache-cmake-configuration
-      with: 
-          path: |  
-            ${{github.workspace}}/build 
-          key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }} 
-          restore-keys: | 
-            ${{ env.cache-name }}- 
-
-    - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.17
-      env:
-          cache-name: ${{runner.os}}-sdl-cache-cmake-build
-      with:
-        append-timestamp: false
-        create-symlink: true
-        key: ${{env.cache-name}}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
-        variant: sccache
-
-    - name: Configure CMake
-      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
-
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(sysctl -n hw.ncpu)
-
-    - name: Package and Upload macOS SDL artifact
-      run: |
-        mkdir upload
-        mv ${{github.workspace}}/build/shadps4 upload
-        cp ${{github.workspace}}/build/externals/MoltenVK/libMoltenVK.dylib upload
-        tar cf shadps4-macos-sdl.tar.gz -C upload .
-    - uses: actions/upload-artifact@v4
-      with:
-        name: shadps4-macos-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
-        path: shadps4-macos-sdl.tar.gz
-
-  macos-qt:
-    runs-on: macos-15
-    needs: get-info
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - name: Explicitly Update All Submodules
-      run: |
-          git submodule update --init --recursive
-    - name: Setup latest Xcode
-      uses: maxim-lobanov/setup-xcode@v1
-      with:
-        xcode-version: latest
-
-    - name: Setup Qt
-      uses: jurplel/install-qt-action@v4
-      with:
-        version: 6.9.0
-        host: mac
-        target: desktop
-        arch: clang_64
-        archives: qtbase qttools
-        modules: qtmultimedia
-        
-    - name: Cache CMake Configuration
-      uses: actions/cache@v4 
-      env: 
-          cache-name: ${{ runner.os }}-qt-cache-cmake-configuration
-      with: 
-          path: |  
-            ${{github.workspace}}/build 
-          key: ${{ env.cache-name }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }} 
-          restore-keys: | 
-            ${{ env.cache-name }}- 
-
-    - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.17
-      env:
-          cache-name: ${{runner.os}}-qt-cache-cmake-build
-      with:
-        append-timestamp: false
-        create-symlink: true
-        key: ${{env.cache-name}}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}
-        variant: sccache
-
-    - name: Configure CMake
-      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DENABLE_QT_GUI=ON -DENABLE_UPDATER=ON -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
-
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(sysctl -n hw.ncpu)
-
-    - name: Package and Upload macOS Qt artifact
-      run: |
-        mkdir upload
-        mv ${{github.workspace}}/build/shadps4.app upload
-        macdeployqt upload/shadps4.app
-        tar cf shadps4-macos-qt.tar.gz -C upload .
-    - uses: actions/upload-artifact@v4
-      with:
-        name: shadps4-macos-qt-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
-        path: shadps4-macos-qt.tar.gz
-
   linux-sdl:
     runs-on: ubuntu-24.04
     needs: get-info
@@ -452,9 +336,9 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
 
-  pre-release:
-    if: github.ref == 'refs/heads/main' && github.repository == 'shadps4-emu/shadPS4' && github.event_name == 'push'
-    needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt]
+  V7:
+    if: github.ref == 'refs/heads/V7' && github.repository == 'diegolix29/shadPS4' && github.event_name == 'push'
+    needs: [get-info, windows-sdl, windows-qt, linux-sdl, linux-qt]
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts
@@ -482,13 +366,13 @@ jobs:
         latest_release_info=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url/releases/latest")
         echo "last_release_tag=$(echo "$latest_release_info" | jq -r '.tag_name')" >> $GITHUB_ENV
 
-    - name: Create Pre-Release on GitHub
+    - name: Create V7 on GitHub
       id: create_release
       uses: ncipollo/release-action@v1
       with:
         token: ${{ secrets.SHADPS4_TOKEN_REPO }}
-        name: "Pre-release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
-        tag: "Pre-release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        name: "V7-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        tag: "V7-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
         draft: false
         prerelease: true
         body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.shorthash }}](https://github.com/shadps4-emu/shadPS4/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
@@ -524,15 +408,15 @@ jobs:
 
           # Check if release already exists and get ID
           release_id=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$REPO/releases/tags/Pre-release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}" | jq -r '.id')
+            "https://api.github.com/repos/$REPO/releases/tags/V7-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}" | jq -r '.id')
 
           if [[ "$release_id" == "null" ]]; then
             echo "Creating release in $REPO for $filename"
             release_id=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               -d '{
-                "tag_name": "Pre-release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}",
-                "name": "Pre-release-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}",
+                "tag_name": "V7-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}",
+                "name": "V7-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}",
                 "draft": false,
                 "prerelease": true,
                 "body": "Commit: [${{ needs.get-info.outputs.fullhash }}](https://github.com/shadps4-emu/shadPS4/commit/${{ needs.get-info.outputs.fullhash }})"
@@ -547,7 +431,7 @@ jobs:
           curl -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$file" "$upload_url"
         done
         
-    - name: Get current pre-release information
+    - name: Get current V7 information
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       run: |
@@ -556,7 +440,7 @@ jobs:
         # Get all releases (sorted by date)
         releases=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url")
         
-        # Capture the most recent pre-release (assuming the first one is the latest)
+        # Capture the most recent V7 (assuming the first one is the latest)
         current_release=$(echo "$releases" | jq -c '.[] | select(.prerelease == true) | .published_at' | sort -r | head -n 1)
         
         # Remove extra quotes from captured date
@@ -565,41 +449,3 @@ jobs:
         # Export the current published_at to be available for the next step
         echo "CURRENT_PUBLISHED_AT=$current_release" >> $GITHUB_ENV
     
-    - name: Delete old pre-releases and tags
-      env:
-        GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
-      run: |
-        api_url="https://api.github.com/repos/${{ github.repository }}/releases"
-        
-        # Get current pre-releases
-        releases=$(curl -H "Authorization: token $GITHUB_TOKEN" "$api_url")
-                
-        # Remove extra quotes from captured date
-        CURRENT_PUBLISHED_AT=$(echo $CURRENT_PUBLISHED_AT | tr -d '"')
-        
-        # Convert CURRENT_PUBLISHED_AT para timestamp Unix
-        current_published_ts=$(date -d "$CURRENT_PUBLISHED_AT" +%s)
-        
-        # Identify pre-releases
-        echo "$releases" | jq -c '.[] | select(.prerelease == true)' | while read -r release; do
-          release_date=$(echo "$release" | jq -r '.published_at')
-          release_id=$(echo "$release" | jq -r '.id')
-          release_tag=$(echo "$release" | jq -r '.tag_name')
-          
-          # Remove extra quotes from captured date
-          release_date=$(echo $release_date | tr -d '"')
-          
-          # Convert release_date para timestamp Unix
-          release_date_ts=$(date -d "$release_date" +%s)
-                    
-          # Compare timestamps and delete old pre-releases
-          if [[ "$release_date_ts" -lt "$current_published_ts" ]]; then
-            echo "Deleting old pre-release: $release_id from $release_date with tag: $release_tag"
-            # Delete the pre-release
-            curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "$api_url/$release_id"
-            # Delete the tag
-            curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$release_tag"
-          else
-            echo "Skipping pre-release: $release_id (newer or same date)"
-          fi
-        done
