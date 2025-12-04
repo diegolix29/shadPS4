@@ -513,6 +513,7 @@ void MainWindow::AddUiWidgets() {
 
     logButtonRow->addItem(offsetSpacer);
     logButtonRow->addWidget(ui->toggleLogButton, 0, Qt::AlignHCenter);
+    logButtonRow->addWidget(ui->installPkgButton, 0, Qt::AlignHCenter);
     logButtonRow->addStretch();
 
     styleAndLogLayout->addLayout(logButtonRow);
@@ -701,6 +702,7 @@ void MainWindow::CreateDockWindows(bool newDock) {
     bool showLog = m_compat_info->LoadShowLogSetting();
     ui->logDisplay->setVisible(showLog);
     ui->toggleLogButton->setText(showLog ? tr("Hide Log") : tr("Show Log"));
+    ui->installPkgButton->setText(tr("Install PKG"));
 
     disconnect(ui->toggleLogButton, nullptr, nullptr, nullptr);
 
@@ -883,6 +885,11 @@ void MainWindow::CreateConnects() {
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
         Config::save(config_dir / "config.toml");
+    });
+
+    connect(ui->installPkgButton, &QPushButton::clicked, this, [this]() {
+        auto versionDialog = new VersionDialog(m_compat_info, this);
+        versionDialog->InstallPkgWithV7();
     });
 
     connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {

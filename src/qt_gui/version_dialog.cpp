@@ -63,7 +63,7 @@ VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info
     connect(ui->installVersionButton, &QPushButton::clicked, this,
             [this]() { InstallSelectedVersionExe(); });
     connect(ui->uninstallQtButton, &QPushButton::clicked, this, &VersionDialog::UninstallQtVersion);
-
+    connect(ui->installPkgButton, &QPushButton::clicked, this, [this]() { InstallPkgWithV7(); });
     connect(ui->addCustomVersionButton, &QPushButton::clicked, this, [this]() {
         QString exePath;
 
@@ -950,6 +950,209 @@ void VersionDialog::dropEvent(QDropEvent* event) {
 
     QMessageBox::information(this, tr("Success"), tr("Version added successfully."));
     LoadinstalledList();
+}
+
+void VersionDialog::InstallPkgWithV7() {
+    if (m_compat_info->GetShadPath().empty()) {
+        QMessageBox::warning(this, tr("Select the extractor folder"),
+                             tr("First you need to choose a location to save the "
+                                "versions in\n'Path to save versions'"));
+        return;
+    }
+
+    const QString targetReleasePrefix = "V7-shadPS4";
+    QString platform;
+
+#ifdef Q_OS_WIN
+    platform = "win64-qt";
+#elif defined(Q_OS_LINUX)
+    platform = "linux-qt";
+#elif defined(Q_OS_MAC)
+    platform = "macos-qt";
+#endif
+
+    const QString forkRepoUrl = "https://api.github.com/repos/diegolix29/shadPS4/releases";
+
+    QMessageBox::StandardButton reply =
+        QMessageBox::question(this, tr("PKG Installer Download"),
+                              tr("To run the PKG installer, we need to download the %1 build (%2 "
+                                 ")in BBFork Repository.\n\nDo you want to proceed?")
+                                  .arg(platform)
+                                  .arg(targetReleasePrefix),
+                              QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::No)
+        return;
+
+    QNetworkAccessManager* manager = new QNetworkAccessManager(this);
+    QNetworkReply* apiReply = manager->get(QNetworkRequest(QUrl(forkRepoUrl)));
+
+    connect(
+        apiReply, &QNetworkReply::finished, this,
+        [this, apiReply, platform, targetReleasePrefix]() {
+            if (apiReply->error() != QNetworkReply::NoError) {
+                QMessageBox::warning(this, tr("Error"),
+                                     tr("Failed to fetch release info: ") +
+                                         apiReply->errorString());
+                apiReply->deleteLater();
+                return;
+            }
+
+            QJsonDocument doc = QJsonDocument::fromJson(apiReply->readAll());
+            QJsonArray releases = doc.array();
+            QString downloadUrl;
+
+            for (const QJsonValue& releaseVal : releases) {
+                QJsonObject releaseObj = releaseVal.toObject();
+                if (releaseObj["tag_name"].toString().startsWith(targetReleasePrefix)) {
+                    QJsonArray assets = releaseObj["assets"].toArray();
+                    for (const QJsonValue& assetVal : assets) {
+                        QJsonObject assetObj = assetVal.toObject();
+                        QString name = assetObj["name"].toString();
+                        if (name.contains(platform)) {
+                            downloadUrl = assetObj["browser_download_url"].toString();
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            apiReply->deleteLater();
+
+            if (downloadUrl.isEmpty()) {
+                QMessageBox::critical(
+                    this, tr("Error"),
+                    tr("Installation files not found for release '%1' or platform %2.")
+                        .arg(targetReleasePrefix)
+                        .arg(platform));
+                return;
+            }
+
+            QString userPath = QString::fromStdString(m_compat_info->GetShadPath());
+            QString downloadFileName = "temp_pkg_installer.zip";
+            const QString destinationPath = userPath + "/" + downloadFileName;
+            QString installerFolder = QDir(userPath).filePath("PKG_Installer_v7");
+
+            QDir(installerFolder).removeRecursively();
+            QFile::remove(destinationPath);
+
+            QNetworkAccessManager* downloadManager = new QNetworkAccessManager(this);
+            QNetworkReply* downloadReply = downloadManager->get(QNetworkRequest(QUrl(downloadUrl)));
+
+            QDialog* progressDialog = new QDialog(this);
+            progressDialog->setWindowTitle(
+                tr("Downloading PKG Installer (%1)").arg(targetReleasePrefix));
+            progressDialog->setFixedSize(400, 80);
+            QVBoxLayout* layout = new QVBoxLayout(progressDialog);
+            QProgressBar* progressBar = new QProgressBar(progressDialog);
+            progressBar->setRange(0, 100);
+            layout->addWidget(progressBar);
+            progressDialog->setLayout(layout);
+            progressDialog->show();
+
+            connect(downloadReply, &QNetworkReply::downloadProgress, this,
+                    [progressBar](qint64 bytesReceived, qint64 bytesTotal) {
+                        if (bytesTotal > 0)
+                            progressBar->setValue(
+                                static_cast<int>((bytesReceived * 100) / bytesTotal));
+                    });
+
+            QFile* file = new QFile(destinationPath);
+            if (!file->open(QIODevice::WriteOnly)) {
+                QMessageBox::warning(this, tr("Error"),
+                                     tr("Could not save temporary download file."));
+                file->deleteLater();
+                downloadReply->deleteLater();
+                progressDialog->close();
+                return;
+            }
+
+            connect(downloadReply, &QNetworkReply::readyRead, this,
+                    [file, downloadReply]() { file->write(downloadReply->readAll()); });
+
+            connect(
+                downloadReply, &QNetworkReply::finished, this,
+                [this, file, downloadReply, progressDialog, installerFolder, destinationPath,
+                 userPath]() mutable {
+                    file->flush();
+                    file->close();
+                    file->deleteLater();
+                    downloadReply->deleteLater();
+                    progressDialog->close();
+                    progressDialog->deleteLater();
+
+                    if (downloadReply->error() != QNetworkReply::NoError) {
+                        QMessageBox::critical(this, tr("Download Failed"),
+                                              downloadReply->errorString());
+                        QFile::remove(destinationPath);
+                        return;
+                    }
+
+#ifdef Q_OS_WIN
+                    QString psScript =
+                        QString("New-Item -ItemType Directory -Path \"%1\" -Force\n"
+                                "Expand-Archive -Path \"%2\" -DestinationPath \"%1\" -Force\n"
+                                "Move-Item -Path \"%1/shadps4.exe\" -Destination "
+                                "\"%1/extractor.exe\" -Force\n"
+                                "Start-Process -FilePath \"%1/extractor.exe\" -ArgumentList "
+                                "\"--install-pkg\"\n")
+                            .arg(installerFolder)
+                            .arg(destinationPath);
+                    QString psFile = userPath + "/run_pkg_installer.ps1";
+                    QFile f(psFile);
+                    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                        QTextStream out(&f);
+                        f.write("\xEF\xBB\xBF");
+                        out << psScript;
+                        f.close();
+                    }
+                    QProcess::startDetached("powershell.exe", QStringList()
+                                                                  << "-ExecutionPolicy" << "Bypass"
+                                                                  << "-File" << psFile);
+#else
+                    QString shScript = QString("#!/bin/bash\n"
+                                               "mkdir -p \"%1\"\n"
+                                               "unzip -o \"%2\" -d \"%1\"\n"
+                                               "mv -f \"%1/shadps4\" \"%1/extractor\"\n"
+                                               "chmod +x \"%1/extractor\" 2>/dev/null || true\n"
+                                               "nohup \"%1/extractor\" --install-pkg &\n")
+                                           .arg(installerFolder)
+                                           .arg(destinationPath);
+                    QString shFile = userPath + "/run_pkg_installer.sh";
+                    QFile f(shFile);
+                    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                        QTextStream out(&f);
+                        out << shScript;
+                        f.close();
+                        f.setPermissions(QFile::ExeUser | QFile::ReadUser | QFile::WriteUser);
+                    }
+                    QProcess::startDetached("/bin/bash", QStringList() << shFile);
+#endif
+
+                    QMessageBox infoBox(this);
+                    infoBox.setWindowTitle(tr("PKG Installer Running"));
+                    infoBox.setIcon(QMessageBox::Information);
+                    infoBox.setText(tr("PKG installer is being called on the downloaded build.\n"
+                                       "Please tap OK after your installation.\n\n"
+                                       "The app and temporary downloaded build will be close and "
+                                       "erased automatically."));
+                    infoBox.setStandardButtons(QMessageBox::Ok);
+
+                    connect(&infoBox, &QMessageBox::accepted, this,
+                            [installerFolder, destinationPath]() {
+#ifdef Q_OS_WIN
+                                QProcess::startDetached(
+                                    "taskkill", QStringList() << "/IM" << "extractor.exe" << "/F");
+#elif defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
+                                        QProcess::startDetached("pkill", QStringList() << "extractor");
+#endif
+                                QDir(installerFolder).removeRecursively();
+                                QFile::remove(destinationPath);
+                            });
+
+                    infoBox.exec();
+                    this->close();
+                });
+        });
 }
 
 void VersionDialog::RestoreOriginalExe() {

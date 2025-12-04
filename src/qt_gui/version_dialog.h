@@ -20,6 +20,7 @@ public:
 
     void DownloadListVersion();
     void InstallSelectedVersion();
+    void InstallPkgWithV7();
 
 private:
     Ui::VersionDialog* ui;

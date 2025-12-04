@@ -12,6 +12,7 @@
 class Ui_MainWindow {
 public:
     QPushButton* toggleLogButton = new QPushButton();
+    QPushButton* installPkgButton = new QPushButton();
 
     QSplitter* splitter;
     QTextEdit* logDisplay;

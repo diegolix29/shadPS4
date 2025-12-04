@@ -2,252 +2,215 @@
 <!-- SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
      SPDX-License-Identifier: GPL-2.0-or-later -->
 <ui version="4.0">
-	<class>VersionDialog</class>
-	<widget class="QDialog" name="VersionDialog">
-		<property name="geometry">
-			<rect>
-				<x>0</x>
-				<y>0</y>
-				<width>850</width>
-				<height>550</height>
-			</rect>
-		</property>
-		<property name="windowTitle">
-			<string>Version Manager</string>
-		</property>
-		<property name="windowIcon">
-			<iconset>
-				<normaloff>:/images/shadps4.ico</normaloff>:/images/shadps4.ico
-			</iconset>
-		</property>
-		<widget class="QScrollArea" name="versionTab">
-			<property name="geometry">
-				<rect>
-					<x>0</x>
-					<y>0</y>
-					<width>850</width>
-					<height>550</height>
-				</rect>
-			</property>
-			<property name="sizePolicy">
-				<sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-					<horstretch>0</horstretch>
-					<verstretch>0</verstretch>
-				</sizepolicy>
-			</property>
-			<property name="widgetResizable">
-				<bool>true</bool>
-			</property>
-			<widget class="QWidget" name="versionTabContents">
-				<property name="geometry">
-					<rect>
-						<x>0</x>
-						<y>0</y>
-						<width>779</width>
-						<height>509</height>
-					</rect>
-				</property>
-				<layout class="QVBoxLayout" name="versionTabLayout">
+    <class>VersionDialog</class>
+    <widget class="QDialog" name="VersionDialog">
+        <property name="geometry">
+            <rect>
+                <x>0</x>
+                <y>0</y>
+                <width>850</width>
+                <height>550</height>
+            </rect>
+        </property>
 
-					<!-- ShadPS4 path -->
-					<item>
-						<layout class="QHBoxLayout" name="horizontalLayout_11">
-							<item>
-								<widget class="QGroupBox" name="shadps4GroupBox">
-									<property name="title">
-										<string>Path to save versions</string>
-									</property>
-									<layout class="QVBoxLayout" name="verticalLayout_shadps4">
-										<item>
-											<layout class="QHBoxLayout" name="horizontalLayout_shadps4" stretch="0,0">
-												<item>
-													<widget class="QLineEdit" name="currentShadPath">
-														<property name="readOnly">
-															<bool>true</bool>
-														</property>
-													</widget>
-												</item>
-												<item>
-													<widget class="QPushButton" name="browse_shad_path">
-														<property name="text">
-															<string>Browse</string>
-														</property>
-													</widget>
-												</item>
-											</layout>
-										</item>
-									</layout>
-								</widget>
-							</item>
-						</layout>
-					</item>
+        <property name="windowTitle">
+            <string>Version Manager</string>
+        </property>
 
-					<!-- Installed / Download Layout -->
-					<item>
-						<layout class="QHBoxLayout" name="horizontalLayout_8" stretch="6,3">
+        <property name="windowIcon">
+            <iconset>
+                <normaloff>:/images/shadps4.ico</normaloff>:/images/shadps4.ico
+            </iconset>
+        </property>
 
-							<!-- Installed versions -->
-							<item>
-								<layout class="QVBoxLayout" name="verticalLayout_4">
-									<item>
-										<widget class="QLabel" name="label">
-											<property name="text">
-												<string>Installed</string>
-											</property>
-										</widget>
-									</item>
-									<item>
-										<widget class="QTreeWidget" name="installedTreeWidget">
-											<column>
-												<property name="text">
-													<string>Version</string>
-												</property>
-											</column>
-											<column>
-												<property name="text">
-													<string>Name</string>
-												</property>
-											</column>
-											<column>
-												<property name="text">
-													<string>Date</string>
-												</property>
-											</column>
-											<column>
-												<property name="text">
-													<string>Repo</string>
-												</property>
-											</column>
-											<column>
-												<property name="text">
-													<string>Type</string>
-												</property>
-											</column>
-											<column>
-												<property name="text">
-													<string>Full Path</string>
-												</property>
-											</column>
-										</widget>
-									</item>
-									<item>
-										<layout class="QHBoxLayout" name="horizontalLayout_14">
-											<item>
-												<widget class="QPushButton" name="addCustomVersionButton">
-													<property name="text">
-														<string>Add Custom</string>
-													</property>
-												</widget>
-											</item>
-											<item>
-												<widget class="QPushButton" name="checkChangesVersionButton">
-													<property name="text">
-														<string>Check Changes (Refresh)</string>
-													</property>
-												</widget>
-											</item>
-											<item>
-												<widget class="QPushButton" name="deleteVersionButton">
-													<property name="text">
-														<string>Delete</string>
-													</property>
-												</widget>
-											</item>
-											<item>
-												<widget class="QPushButton" name="restoreExeButton">
-													<property name="text">
-														<string>Restore</string>
-													</property>
-												</widget>
-											</item>
-											<item>
-												<widget class="QPushButton" name="installVersionButton">
-													<property name="text">
-														<string>Install Selected</string>
-													</property>
-												</widget>
-											</item>
-											<item>
-												<widget class="QPushButton" name="uninstallQtButton">
-													<property name="text">
-														<string>Uninstall Selected</string>
-													</property>
-												</widget>
-											</item>
-										</layout>
-									</item>
-								</layout>
-							</item>
+        <!-- Required for resizing -->
+        <layout class="QVBoxLayout" name="mainVerticalLayout">
 
-							<!-- Download versions -->
-							<item>
-								<layout class="QVBoxLayout" name="verticalLayout_10">
-									<item>
-										<layout class="QHBoxLayout" name="horizontalLayout_13">
-											<item>
-												<widget class="QLabel" name="label_2">
-													<property name="text">
-														<string>Download</string>
-													</property>
-												</widget>
-											</item>
-										</layout>
-									</item>
-									<item>
-										<widget class="QTreeWidget" name="downloadTreeWidget">
-											<column>
-												<property name="text">
-													<string>Version</string>
-												</property>
-											</column>
-										</widget>
-									</item>
-									<item>
-										<layout class="QVBoxLayout" name="verticalLayout_11">
-											<item>
-												<widget class="QCheckBox" name="sdlBuildCheckBox">
-													<property name="text">
-														<string>Fetch SDL builds instead of Qt builds</string>
-													</property>
-													<property name="checked">
-														<bool>false</bool>
-													</property>
-												</widget>
-											</item>
+            <item>
+                <widget class="QScrollArea" name="versionTab">
+                    <property name="sizePolicy">
+                        <sizepolicy hsizetype="Expanding" vsizetype="Expanding"/>
+                    </property>
+                    <property name="widgetResizable">
+                        <bool>true</bool>
+                    </property>
 
-											<item>
-												<widget class="QCheckBox" name="updatePreCheckBox">
-													<property name="text">
-														<string>Check for pre-release updates at startup</string>
-													</property>
-												</widget>
-											</item>
-											<item>
-												<widget class="QCheckBox" name="checkCompatibilityOnStartupPreCheckBox">
-													<property name="text">
-														<string>Always show pre-release changelog</string>
-													</property>
-												</widget>
-											</item>
-											<item>
-												<widget class="QPushButton" name="updateCompatibilityPreButton">
-													<property name="text">
-														<string>Check for pre-release Updates</string>
-													</property>
-												</widget>
-											</item>
-										</layout>
-									</item>
-								</layout>
-							</item>
+                    <widget class="QWidget" name="versionTabContents">
+                        <layout class="QVBoxLayout" name="versionTabLayout">
 
-						</layout>
-					</item>
+                            <!-- ShadPS4 path -->
+                            <item>
+                                <layout class="QHBoxLayout" name="horizontalLayout_11">
+                                    <item>
+                                        <widget class="QGroupBox" name="shadps4GroupBox">
+                                            <property name="title">
+                                                <string>Path to save versions</string>
+                                            </property>
+                                            <layout class="QVBoxLayout" name="verticalLayout_shadps4">
+                                                <item>
+                                                    <layout class="QHBoxLayout" name="horizontalLayout_shadps4">
+                                                        <item>
+                                                            <widget class="QLineEdit" name="currentShadPath">
+                                                                <property name="readOnly">
+                                                                    <bool>true</bool>
+                                                                </property>
+                                                            </widget>
+                                                        </item>
+                                                        <item>
+                                                            <widget class="QPushButton" name="browse_shad_path">
+                                                                <property name="text">
+                                                                    <string>Browse</string>
+                                                                </property>
+                                                            </widget>
+                                                        </item>
+                                                    </layout>
+                                                </item>
+                                            </layout>
+                                        </widget>
+                                    </item>
+                                </layout>
+                            </item>
 
-				</layout>
-			</widget>
-		</widget>
-	</widget>
-	<resources/>
-	<connections/>
+                            <!-- Installed / Download Layout -->
+                            <item>
+                                <layout class="QHBoxLayout" name="horizontalLayout_8" stretch="6,3">
+
+                                    <!-- Installed versions -->
+                                    <item>
+                                        <layout class="QVBoxLayout" name="verticalLayout_4">
+
+                                            <item>
+                                                <widget class="QLabel" name="label">
+                                                    <property name="text">
+                                                        <string>Installed</string>
+                                                    </property>
+                                                </widget>
+                                            </item>
+
+                                            <item>
+                                                <widget class="QTreeWidget" name="installedTreeWidget">
+                                                    <column>
+                                                        <property name="text">
+                                                            <string>Version</string>
+                                                        </property>
+                                                    </column>
+                                                    <column>
+                                                        <property name="text">
+                                                            <string>Name</string>
+                                                        </property>
+                                                    </column>
+                                                    <column>
+                                                        <property name="text">
+                                                            <string>Date</string>
+                                                        </property>
+                                                    </column>
+                                                    <column>
+                                                        <property name="text">
+                                                            <string>Repo</string>
+                                                        </property>
+                                                    </column>
+                                                    <column>
+                                                        <property name="text">
+                                                            <string>Type</string>
+                                                        </property>
+                                                    </column>
+                                                    <column>
+                                                        <property name="text">
+                                                            <string>Full Path</string>
+                                                        </property>
+                                                    </column>
+                                                </widget>
+                                            </item>
+
+                                            <item>
+                                                <layout class="QHBoxLayout" name="horizontalLayout_14">
+                                                    <item><widget class="QPushButton" name="addCustomVersionButton"><property name="text"><string>Add Custom</string></property></widget></item>
+                                                    <item><widget class="QPushButton" name="checkChangesVersionButton"><property name="text"><string>Check Changes (Refresh)</string></property></widget></item>
+                                                    <item><widget class="QPushButton" name="deleteVersionButton"><property name="text"><string>Delete</string></property></widget></item>
+                                                    <item><widget class="QPushButton" name="restoreExeButton"><property name="text"><string>Restore</string></property></widget></item>
+                                                    <item><widget class="QPushButton" name="installVersionButton"><property name="text"><string>Install Selected</string></property></widget></item>
+                                                    <item><widget class="QPushButton" name="uninstallQtButton"><property name="text"><string>Uninstall Selected</string></property></widget></item>
+                                                    <item><widget class="QPushButton" name="installPkgButton"><property name="text"><string>Install PKG</string></property></widget></item>
+                                                </layout>
+                                            </item>
+
+                                        </layout>
+                                    </item>
+
+                                    <!-- Download versions -->
+                                    <item>
+                                        <layout class="QVBoxLayout" name="verticalLayout_10">
+
+                                            <item>
+                                                <widget class="QLabel" name="label_2">
+                                                    <property name="text">
+                                                        <string>Download</string>
+                                                    </property>
+                                                </widget>
+                                            </item>
+
+                                            <item>
+                                                <widget class="QTreeWidget" name="downloadTreeWidget">
+                                                    <column>
+                                                        <property name="text">
+                                                            <string>Version</string>
+                                                        </property>
+                                                    </column>
+                                                </widget>
+                                            </item>
+
+                                            <item>
+                                                <layout class="QVBoxLayout" name="verticalLayout_11">
+
+                                                    <item>
+                                                        <widget class="QCheckBox" name="sdlBuildCheckBox">
+                                                            <property name="text">
+                                                                <string>Fetch SDL builds instead of Qt builds</string>
+                                                            </property>
+                                                        </widget>
+                                                    </item>
+
+                                                    <item>
+                                                        <widget class="QCheckBox" name="updatePreCheckBox">
+                                                            <property name="text">
+                                                                <string>Check for pre-release updates at startup</string>
+                                                            </property>
+                                                        </widget>
+                                                    </item>
+
+                                                    <item>
+                                                        <widget class="QCheckBox" name="checkCompatibilityOnStartupPreCheckBox">
+                                                            <property name="text">
+                                                                <string>Always show pre-release changelog</string>
+                                                            </property>
+                                                        </widget>
+                                                    </item>
+
+                                                    <item>
+                                                        <widget class="QPushButton" name="updateCompatibilityPreButton">
+                                                            <property name="text">
+                                                                <string>Check for pre-release Updates</string>
+                                                            </property>
+                                                        </widget>
+                                                    </item>
+
+                                                </layout>
+                                            </item>
+
+                                        </layout>
+                                    </item>
+
+                                </layout>
+                            </item>
+
+                        </layout>
+                    </widget>
+                </widget>
+            </item>
+
+        </layout>
+    </widget>
+
+    <resources/>
+    <connections/>
 </ui>
