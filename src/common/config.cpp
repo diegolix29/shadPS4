@@ -1720,7 +1720,6 @@ void save(const std::filesystem::path& path) {
     std::vector<std::string> directories;
     std::vector<bool> directories_enabled;
 
-    // temporary structure for ordering
     struct DirEntry {
         std::string path_str;
         bool enabled;
@@ -1732,7 +1731,6 @@ void save(const std::filesystem::path& path) {
             {std::string{fmt::UTF(dirInfo.path.u8string()).data}, dirInfo.enabled});
     }
 
-    // Sort directories alphabetically
     std::sort(sorted_dirs.begin(), sorted_dirs.end(), [](const DirEntry& a, const DirEntry& b) {
         return std::lexicographical_compare(
             a.path_str.begin(), a.path_str.end(), b.path_str.begin(), b.path_str.end(),
@@ -1746,13 +1744,16 @@ void save(const std::filesystem::path& path) {
 
     data["GUI"]["Directories"] = directories;
     data["GUI"]["DirectoriesEnabled"] = directories_enabled;
+    data["GUI"]["installDirs"] = directories;
+    data["GUI"]["installDirsEnabled"] = directories_enabled;
+    std::string addon_dir_str = std::string{fmt::UTF(settings_addon_directories.u8string()).data};
+    data["GUI"]["addonDirectories"] = addon_dir_str;
+    data["GUI"]["addonInstallDir"] = addon_dir_str;
     data["GUI"]["saveDataPath"] = std::string{fmt::UTF(save_data_path.u8string()).data};
     data["GUI"]["loadGameSizeEnabled"] = load_game_size;
     data["GUI"]["CustomBackgroundImage"] = g_customBackgroundImage;
     data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
     data["GUI"]["enableColorFilter"] = enableColorFilter;
-    data["GUI"]["addonDirectories"] =
-        std::string{fmt::UTF(settings_addon_directories.u8string()).data};
     data["GUI"]["backgroundImageOpacity"] = backgroundImageOpacity;
     data["GUI"]["showBackgroundImage"] = showBackgroundImage;
     data["GUI"]["emulatorLanguage"] = emulator_language;
