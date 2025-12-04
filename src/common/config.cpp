@@ -1744,11 +1744,11 @@ void save(const std::filesystem::path& path) {
 
     data["GUI"]["Directories"] = directories;
     data["GUI"]["DirectoriesEnabled"] = directories_enabled;
-    data["GUI"]["installDirs"] = directories;
-    data["GUI"]["installDirsEnabled"] = directories_enabled;
+    data["GUI"]["installDirs"] = std::vector<std::string>(directories);
+    data["GUI"]["installDirsEnabled"] = std::vector<bool>(directories_enabled);
     std::string addon_dir_str = std::string{fmt::UTF(settings_addon_directories.u8string()).data};
     data["GUI"]["addonDirectories"] = addon_dir_str;
-    data["GUI"]["addonInstallDir"] = addon_dir_str;
+    data["GUI"]["addonInstallDir"] = std::string(addon_dir_str);
     data["GUI"]["saveDataPath"] = std::string{fmt::UTF(save_data_path.u8string()).data};
     data["GUI"]["loadGameSizeEnabled"] = load_game_size;
     data["GUI"]["CustomBackgroundImage"] = g_customBackgroundImage;
