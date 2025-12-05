@@ -20,7 +20,9 @@
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "game_info.h"
+#include "game_list_frame.h"
 #include "games_menu.h"
+
 CMRC_DECLARE(res);
 
 BigPictureWidget::BigPictureWidget(std::shared_ptr<GameInfoClass> gameInfo,
@@ -785,6 +787,8 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
             m_selectedIndex++;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
+            UpdateCurrentGameAudio();
+
             centerSelectedTileAnimated();
         }
         e->accept();
@@ -797,6 +801,8 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
             m_selectedIndex--;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
+            UpdateCurrentGameAudio();
+
             centerSelectedTileAnimated();
         }
         e->accept();
@@ -940,9 +946,40 @@ void BigPictureWidget::toggleBackgroundMusic() {
     }
 }
 
+void BigPictureWidget::UpdateCurrentGameAudio() {
+    if (m_selectedIndex < 0 || m_selectedIndex >= m_gameInfo->m_games.size() ||
+        !Config::getPlayBGM()) {
+        BackgroundMusicPlayer::getInstance().stopMusic();
+        if (m_audioOutput)
+            m_audioOutput->setMuted(false);
+        return;
+    }
+
+    const auto& game = m_gameInfo->m_games[m_selectedIndex];
+
+    bool fileExists = !game.snd0_path.empty() && std::filesystem::exists(game.snd0_path);
+
+    if (fileExists) {
+        QString snd0path;
+        Common::FS::PathToQString(snd0path, game.snd0_path);
+
+        BackgroundMusicPlayer::getInstance().playMusic(snd0path);
+
+        if (m_audioOutput) {
+            m_audioOutput->setMuted(true);
+        }
+    } else {
+        BackgroundMusicPlayer::getInstance().stopMusic();
+
+        if (m_audioOutput) {
+            m_audioOutput->setMuted(false);
+        }
+    }
+}
+
 void BigPictureWidget::showEvent(QShowEvent* ev) {
     QWidget::showEvent(ev);
-
+    UpdateCurrentGameAudio();
     QTimer::singleShot(0, this, [this]() {
         layoutTiles();
         highlightSelectedTile();

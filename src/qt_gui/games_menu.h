@@ -236,6 +236,7 @@ public:
 private:
     void buildUi();
     void layoutTiles();
+    void UpdateCurrentGameAudio();
     void showEvent(QShowEvent* ev) override;
     void onModsClicked();
     void onHotkeysClicked();
