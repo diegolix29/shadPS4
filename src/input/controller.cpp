@@ -12,6 +12,7 @@
 #include "input/controller.h"
 
 static std::string SelectedGamepad = "";
+static std::mutex SelectedGamepadMutex;
 
 namespace Input {
 
@@ -103,7 +104,7 @@ void GameController::Axis(int id, Input::Axis axis, int value) {
     state.time = Libraries::Kernel::sceKernelGetProcessTime();
     int axis_id = static_cast<int>(axis);
     if (std::abs(state.axes[axis_id] - value) > 120) {
-        LOG_DEBUG(Input, "Keyboard axis change detected");
+        LOG_DEBUG(Input, "Gamepad axis change detected");
         axis_smoothing_ticks[axis_id] = GameController::max_smoothing_ticks;
         axis_smoothing_values[axis_id] = state.axes[axis_id];
     }
@@ -356,7 +357,12 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
             AddUserServiceEvent({OrbisUserServiceEventType::Login, 1});
         }
     }
+
+    if (new_joysticks) {
+        SDL_free(new_joysticks);
+    }
 }
+
 u8 GameController::GetTouchCount() {
     std::scoped_lock lock{m_mutex};
     return m_touch_count;
@@ -494,10 +500,12 @@ std::string GetGUIDString(SDL_JoystickID* gamepadIDs, int index) {
 }
 
 std::string GetSelectedGamepad() {
+    std::scoped_lock lock(SelectedGamepadMutex);
     return SelectedGamepad;
 }
 
 void SetSelectedGamepad(std::string GUID) {
+    std::scoped_lock lock(SelectedGamepadMutex);
     SelectedGamepad = GUID;
 }
 
