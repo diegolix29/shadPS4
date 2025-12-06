@@ -36,7 +36,7 @@ WelcomeDialog::WelcomeDialog(WindowThemes* themes, QWidget* parent)
     : QDialog(parent), m_themes(themes) {
     Theme th = static_cast<Theme>(Config::getMainWindowTheme());
 
-    m_window_themes.SetWindowTheme(th, nullptr);
+    m_window_themes.SetWindowTheme(th, nullptr, nullptr, nullptr);
     m_window_themes.ApplyThemeToDialog(this);
     SetupUI();
     ApplyTheme();

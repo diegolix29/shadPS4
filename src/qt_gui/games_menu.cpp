@@ -164,7 +164,7 @@ BigPictureWidget::BigPictureWidget(std::shared_ptr<GameInfoClass> gameInfo,
 
     buildAnimations();
     Theme th = static_cast<Theme>(Config::getMainWindowTheme());
-    m_window_themes.SetWindowTheme(th, nullptr);
+    m_window_themes.SetWindowTheme(th, nullptr, nullptr, nullptr);
     m_window_themes.ApplyThemeToWidget(this);
     applyTheme();
 }
@@ -232,8 +232,8 @@ void BigPictureWidget::buildUi() {
                                   {"Press - S - ", "Global Settings"},
                                   {"Press - H - ", "Hotkeys Setup"},
                                   {"Esc", "Exit"}});
-    m_hotkeysOverlay->setFixedHeight(36);
-    m_hotkeysOverlay->setStyleSheet("background: rgba(0,0,0,120);");
+    m_hotkeysOverlay->setMinimumHeight(46);
+    m_hotkeysOverlay->setStyleSheet("background: rgba(0,0,0,120); padding: 6px 12px;");
     m_hotkeysOverlay->raise();
     m_hotkeysOverlay->show();
 

@@ -4,8 +4,14 @@
 #pragma once
 #include <QActionGroup>
 #include <QDragEnterEvent>
+#include <QEasingCurve>
+#include <QGraphicsOpacityEffect>
+#include <QParallelAnimationGroup>
 #include <QProcess>
+#include <QPropertyAnimation>
+#include <QPushButton>
 #include <QTranslator>
+
 #include "background_music_player.h"
 #include "cheats_patches.h"
 #include "common/config.h"
@@ -23,6 +29,48 @@
 #include "games_menu.h"
 #include "main_window_themes.h"
 #include "main_window_ui.h"
+
+class HoverAnimator : public QObject {
+    Q_OBJECT
+public:
+    HoverAnimator(QWidget* target) : QObject(target), m_target(target) {
+        if (m_target) {
+            m_target->installEventFilter(this);
+            m_target->setAttribute(Qt::WA_Hover);
+        }
+    }
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override {
+        if (obj == m_target) {
+            if (event->type() == QEvent::Enter) {
+                animate(1.5);
+                return true;
+            } else if (event->type() == QEvent::Leave) {
+                animate(1.0);
+                return true;
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+
+private:
+    void animate(qreal endScale) {
+        if (auto btn = qobject_cast<QPushButton*>(m_target)) {
+            QPropertyAnimation* anim = new QPropertyAnimation(btn, "iconSize", this);
+            anim->setDuration(150);
+            anim->setStartValue(btn->iconSize());
+
+            int base = 32;
+            int target = static_cast<int>(base * endScale);
+
+            anim->setEndValue(QSize(target, target));
+            anim->setEasingCurve(QEasingCurve::OutQuad);
+            anim->start(QAbstractAnimation::DeleteWhenStopped);
+        }
+    }
+    QWidget* m_target;
+};
 
 class GameListFrame;
 
@@ -118,15 +166,15 @@ private:
     QActionGroup* m_list_mode_act_group = nullptr;
     QActionGroup* m_theme_act_group = nullptr;
     QActionGroup* m_recent_files_group = nullptr;
-    // Dockable widget frames
+
     WindowThemes m_window_themes;
     GameListUtils m_game_list_utils;
     QScopedPointer<QDockWidget> m_dock_widget;
-    // Game Lists
+
     QScopedPointer<GameListFrame> m_game_list_frame;
     QScopedPointer<GameGridFrame> m_game_grid_frame;
     QScopedPointer<ElfViewer> m_elf_viewer;
-    // Status Bar.
+
     QScopedPointer<QStatusBar> statusBar;
 
     PSF psf;
@@ -136,19 +184,15 @@ private:
         std::make_shared<CompatibilityInfoClass>();
 
     QTranslator* translator;
-
-    // Private member variable to store the currently loaded game path
     QString currentGameFilePath;
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
-
     void dragEnterEvent(QDragEnterEvent* event1) override {
         if (event1->mimeData()->hasUrls()) {
             event1->acceptProposedAction();
         }
     }
-
     void resizeEvent(QResizeEvent* event) override;
     bool use_for_all_queued = false;
 };

@@ -19,6 +19,10 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
       m_ipc_client(ipc_client) {
     icon_size = Config::getIconSize();
     last_favorite = "";
+
+    // Protection: Ensure this widget has a specific name so we can target it strictly if needed
+    this->setObjectName("GameListFrame");
+
     this->setShowGrid(false);
     this->setEditTriggers(QAbstractItemView::NoEditTriggers);
     this->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -408,6 +412,9 @@ void GameListFrame::SetFavoriteIcon(int row, int column) {
     pixmap = pixmap.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
     QWidget* widget = new QWidget(this);
+    widget->setAttribute(Qt::WA_TranslucentBackground);
+    widget->setStyleSheet("background: transparent;");
+
     QVBoxLayout* layout = new QVBoxLayout(widget);
     QLabel* label = new QLabel(widget);
     label->setPixmap(pixmap);
@@ -430,9 +437,12 @@ void GameListFrame::SetFavoriteIcon(int row, int column) {
 void GameListFrame::SetCompatibilityItem(int row, int column, CompatibilityEntry entry) {
     QTableWidgetItem* item = new QTableWidgetItem();
     QWidget* widget = new QWidget(this);
-    QGridLayout* layout = new QGridLayout(widget);
+    widget->setAttribute(Qt::WA_TranslucentBackground);
 
-    widget->setStyleSheet("QToolTip {background-color: black; color: white;}");
+    widget->setStyleSheet(
+        "background: transparent; QToolTip {background-color: black; color: white;}");
+
+    QGridLayout* layout = new QGridLayout(widget);
 
     QColor color;
     QString status_explanation;
@@ -491,7 +501,8 @@ void GameListFrame::SetCompatibilityItem(int row, int column, CompatibilityEntry
     QLabel* label = new QLabel(m_compat_info->GetCompatStatusString(entry.status), widget);
     this->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
 
-    label->setStyleSheet("color: white; font-size: 16px; font-weight: bold;");
+    label->setStyleSheet(
+        "color: white; font-size: 16px; font-weight: bold; background: transparent;");
 
     // Create shadow effect
     QGraphicsDropShadowEffect* shadowEffect = new QGraphicsDropShadowEffect();
@@ -515,13 +526,17 @@ void GameListFrame::SetCompatibilityItem(int row, int column, CompatibilityEntry
 void GameListFrame::SetTableItem(int row, int column, QString itemStr) {
     QTableWidgetItem* item = new QTableWidgetItem();
     QWidget* widget = new QWidget(this);
+    widget->setAttribute(Qt::WA_TranslucentBackground);
+    widget->setStyleSheet("background: transparent;");
+
     QVBoxLayout* layout = new QVBoxLayout(widget);
     QLabel* label = new QLabel(itemStr, widget);
 
     QColor effectiveColor = m_textColor.isValid() ? m_textColor : Qt::white;
 
     label->setStyleSheet(
-        QString("color: %1; font-size: 16px; font-weight: bold;").arg(effectiveColor.name()));
+        QString("color: %1; font-size: 16px; font-weight: bold; background: transparent;")
+            .arg(effectiveColor.name()));
 
     QGraphicsDropShadowEffect* shadowEffect = new QGraphicsDropShadowEffect();
     shadowEffect->setBlurRadius(5);
@@ -554,10 +569,16 @@ void GameListFrame::SetRegionFlag(int row, int column, QString itemStr) {
     } else {
         scaledPixmap = QImage(":images/flag_unk.png");
     }
+
     QWidget* widget = new QWidget(this);
+    widget->setAttribute(Qt::WA_TranslucentBackground);
+    widget->setStyleSheet("background: transparent;");
+
     QVBoxLayout* layout = new QVBoxLayout(widget);
     QLabel* label = new QLabel(widget);
     label->setPixmap(QPixmap::fromImage(scaledPixmap));
+    label->setStyleSheet("background: transparent;");
+
     layout->setAlignment(Qt::AlignCenter);
     layout->addWidget(label);
     widget->setLayout(layout);

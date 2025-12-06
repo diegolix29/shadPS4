@@ -3,12 +3,14 @@
 
 #pragma once
 
-#include <QApplication>
 #include <QColor>
-#include <QLineEdit>
-#include <QWidget>
+#include <QString>
 
-enum class Theme : int {
+class QLineEdit;
+class QDialog;
+class QWidget;
+
+enum class Theme {
     Dark,
     Light,
     Green,
@@ -22,14 +24,13 @@ enum class Theme : int {
     ShadlixCave
 };
 
-class WindowThemes : public QObject {
-    Q_OBJECT
+class WindowThemes {
 public:
-    explicit WindowThemes(QObject* parent = nullptr) : QObject(parent) {}
+    // Updated signature to accept listWidget and gridWidget again
+    void SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, QWidget* listWidget,
+                        QWidget* gridWidget, bool applyGlobalStylesheet = true);
 
-    void SetWindowTheme(Theme theme, QLineEdit* mw_searchbar);
     void ApplyThemeToDialog(QDialog* dialog);
-
     void ApplyThemeToWidget(QWidget* widget);
 
     QColor iconBaseColor() const {
@@ -43,7 +44,7 @@ public:
     }
 
 private:
-    QColor m_iconBaseColor{Qt::white};
-    QColor m_iconHoverColor{Qt::lightGray};
-    QColor m_textColor{Qt::white};
+    QColor m_iconBaseColor;
+    QColor m_iconHoverColor;
+    QColor m_textColor;
 };

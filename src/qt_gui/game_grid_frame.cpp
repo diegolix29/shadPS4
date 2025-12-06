@@ -14,6 +14,10 @@ GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
 
     icon_size = Config::getIconSizeGrid();
     windowWidth = parent->width();
+
+    // Ensure the Table itself is protected/transparent for background images
+    this->setObjectName("GameGridFrame");
+
     this->setShowGrid(false);
     this->setEditTriggers(QAbstractItemView::NoEditTriggers);
     this->setSelectionBehavior(QAbstractItemView::SelectItems);
@@ -40,7 +44,7 @@ GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
             [mw = QPointer<MainWindow>(qobject_cast<MainWindow*>(this->window()))](
                 const QStringList& args) {
                 if (mw)
-                    mw->StartGameWithArgs(args);
+                    mw.data()->StartGameWithArgs(args);
             });
         PopulateGameGrid(m_game_info->m_games, false);
     });
@@ -107,6 +111,9 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
     icon_size = Config::getIconSizeGrid(); // update icon size for resize event.
 
     int gamesPerRow = windowWidth / (icon_size + 20); // 2 x cell widget border size.
+    if (gamesPerRow < 1)
+        gamesPerRow = 1; // Safety check
+
     int row = 0;
     int gameCounter = 0;
     int rowCount = m_games_.size() / gamesPerRow;
@@ -119,10 +126,17 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
     this->setRowCount(rowCount);
     for (int i = 0; i < m_games_.size(); i++) {
         QWidget* widget = new QWidget();
+
+        // --- CRITICAL FIX 1: Make cell containers transparent ---
+        widget->setAttribute(Qt::WA_TranslucentBackground);
+        // --------------------------------------------------------
+
         QVBoxLayout* layout = new QVBoxLayout();
 
         QWidget* image_container = new QWidget();
         image_container->setFixedSize(icon_size, icon_size);
+        // Make image container transparent too
+        image_container->setAttribute(Qt::WA_TranslucentBackground);
 
         QLabel* image_label = new QLabel(image_container);
         QImage icon = m_games_[gameCounter].icon.scaled(
@@ -140,8 +154,11 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
 
         // Resizing of font-size.
         float fontSize = (Config::getIconSizeGrid() / 5.5f);
+        // Note: 'color: white' is hardcoded here. Ideally, this should use theme text color.
+        // For now, we leave it as is to avoid breaking existing logic unless requested.
         QString styleSheet =
-            QString("color: white; font-weight: bold; font-size: %1px;").arg(fontSize);
+            QString("color: white; font-weight: bold; font-size: %1px; background: transparent;")
+                .arg(fontSize);
         name_label->setStyleSheet(styleSheet);
 
         QGraphicsDropShadowEffect* shadowEffect = new QGraphicsDropShadowEffect();
@@ -155,13 +172,20 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
                                                      m_games_[gameCounter].version + ", " +
                                                      m_games_[gameCounter].region + ")");
         widget->setToolTip(tooltipText);
-        QString tooltipStyle = QString("QToolTip {"
+
+        // --- CRITICAL FIX 2: Ensure background-color is transparent in stylesheet ---
+        // We append "background-color: transparent;" to ensure the tooltip style
+        // doesn't accidentally fill the widget background.
+        QString tooltipStyle = QString("QWidget { background-color: transparent; }"
+                                       "QToolTip {"
                                        "background-color: #ffffff;"
                                        "color: #000000;"
                                        "border: 1px solid #000000;"
                                        "padding: 2px;"
                                        "font-size: 12px; }");
         widget->setStyleSheet(tooltipStyle);
+        // ----------------------------------------------------------------------------
+
         this->setCellWidget(row, column, widget);
 
         column++;
@@ -264,7 +288,10 @@ void GameGridFrame::LoadBackgroundImage(const QString& filePath) {
 }
 
 void GameGridFrame::RefreshGridBackgroundImage() {
-    QPalette palette;
+    // --- CRITICAL FIX 3: Copy Current Palette instead of creating new one ---
+    // This preserves the Theme Colors (Dark/Blue/Green/etc.)
+    QPalette palette = this->palette();
+
     if (!backgroundImage.isNull() && Config::getShowBackgroundImage()) {
         QSize widgetSize = size();
         QPixmap scaledPixmap =
@@ -276,10 +303,16 @@ void GameGridFrame::RefreshGridBackgroundImage() {
         finalPixmap.fill(Qt::transparent);
         QPainter painter(&finalPixmap);
         painter.drawPixmap(x, y, scaledPixmap);
+
         palette.setBrush(QPalette::Base, QBrush(finalPixmap));
+    } else {
+        // Fallback: Clear the brush so transparency works and shows window bg
+        palette.setBrush(QPalette::Base, QBrush(Qt::NoBrush));
     }
+
     QColor transparentColor = QColor(135, 206, 235, 40);
     palette.setColor(QPalette::Highlight, transparentColor);
+
     this->setPalette(palette);
 }
 
