@@ -691,15 +691,26 @@ void BufferCache::ProcessPreemptiveDownloads() {
         return;
     }
     auto* memory = Core::Memory::Instance();
-    preemptive_downloads.ForEach([this, memory](VAddr, VAddr, const PreemptiveDownload& download) {
+
+    std::vector<std::pair<VAddr, u64>> processed_ranges;
+
+    preemptive_downloads.ForEach([this, memory, &processed_ranges](
+                                     VAddr begin, VAddr end, const PreemptiveDownload& download) {
         if (!scheduler.IsFree(download.done_tick)) {
             return false;
         }
         memory->TryWriteBacking(std::bit_cast<u8*>(download.device_addr), download.staging,
                                 download.size);
+
+        processed_ranges.emplace_back(begin, end - begin);
         return true;
     });
+
+    for (const auto& [addr, size] : processed_ranges) {
+        preemptive_downloads.Subtract(addr, size);
+    }
 }
+
 void BufferCache::ProcessFaultBuffer() {
     fault_manager.ProcessFaultBuffer();
 }
@@ -1015,10 +1026,6 @@ void BufferCache::RunGarbageCollector() {
     SCOPE_EXIT {
         ++gc_tick;
     };
-
-    if (instance.CanReportMemoryUsage()) {
-        total_used_memory = instance.GetDeviceMemoryUsage();
-    }
 
     if (total_used_memory < trigger_gc_memory) {
         return;

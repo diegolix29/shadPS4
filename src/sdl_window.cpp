@@ -161,12 +161,17 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     }
 }
 
-WindowSDL::~WindowSDL() = default;
+WindowSDL::~WindowSDL() {
+    if (window) {
+        SDL_DestroyWindow(window);
+    }
+}
 SDL_Event* e = nullptr;
 
 void WindowSDL::WaitEvent() {
     // Called on main thread
-    SDL_Event& event = *(e = new SDL_Event[200]{0});
+    SDL_Event event;
+    SDL_memset(&event, 0, sizeof(SDL_Event));
 
     if (!SDL_WaitEvent(&event)) {
         return;
@@ -428,8 +433,10 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
 
     // if it's a wheel event, make a timer that turns it off after a set time
     if (event->type == SDL_EVENT_MOUSE_WHEEL) {
-        const SDL_Event* copy = new SDL_Event(*event);
-        SDL_AddTimer(33, wheelOffCallback, (void*)copy);
+        SDL_Event* copy = new SDL_Event(*event);
+        if (!SDL_AddTimer(33, wheelOffCallback, (void*)copy)) {
+            delete copy;
+        }
     }
 
     // add/remove it from the list

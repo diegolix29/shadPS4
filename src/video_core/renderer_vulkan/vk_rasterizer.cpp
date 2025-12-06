@@ -379,11 +379,15 @@ void Rasterizer::OnSubmit() {
     texture_cache.ProcessDownloadImages();
     buffer_cache.ProcessPreemptiveDownloads();
 
-    const u64 used_mem = instance.GetDeviceMemoryUsage();
-    const u64 trigger = texture_cache.GetTriggerGcMemory();
-    if (used_mem > trigger) {
-        texture_cache.RunGarbageCollectorAsync();
-        buffer_cache.RunGarbageCollectorAsync();
+    static u64 gc_timer = 0;
+    if (++gc_timer > 60) {
+        gc_timer = 0;
+        const u64 used_mem = instance.GetDeviceMemoryUsage();
+        const u64 trigger = texture_cache.GetTriggerGcMemory();
+        if (used_mem > trigger) {
+            texture_cache.RunGarbageCollectorAsync();
+            buffer_cache.RunGarbageCollectorAsync();
+        }
     }
 }
 

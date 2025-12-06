@@ -141,6 +141,8 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
     tile_manager.TileImage(image, buffer_copies, mapping.Buffer()->Handle(), mapping.Offset(),
                            copy_size);
 
+    scheduler.Finish();
+
     const u32 write_size = static_cast<u32>(std::min<u64>(copy_size, image_size));
 
     std::vector<u8> download_data;
