@@ -39,6 +39,7 @@ void load(const std::filesystem::path& path, bool is_game_specific = false);
 void save(const std::filesystem::path& path);
 void saveMainWindow(const std::filesystem::path& path);
 
+bool getSeparateUpdateEnabled();
 int getRcasAttenuation();
 void setRcasAttenuation(int value);
 std::string getTrophyKey();
@@ -74,6 +75,7 @@ std::string getUserName(int id);
 std::array<std::string, 4> const getUserNames();
 std::string getUpdateChannel();
 std::string getChooseHomeTab();
+void setSeparateUpdateEnabled(bool use);
 
 u16 leftDeadZone();
 u16 rightDeadZone();

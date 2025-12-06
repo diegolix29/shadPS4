@@ -631,6 +631,8 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->showSplashCheckBox->installEventFilter(this);
         ui->discordRPCCheckbox->installEventFilter(this);
         ui->gameVolumeGroup->installEventFilter(this);
+        ui->separateUpdatesCheckBox->installEventFilter(this);
+
 #ifdef ENABLE_UPDATER
         ui->updaterGroupBox->installEventFilter(this);
 #endif
@@ -835,6 +837,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
     ui->ReadbacksLinearCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "readbackLinearImages", false));
+    ui->separateUpdatesCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "separateUpdateEnabled", false));
     ui->DMACheckBox->setChecked(toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
     ui->HotkeysCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "DisableHardcodedHotkeys", false));
@@ -1303,6 +1307,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setVblankFreq(ui->vblankSpinBox->value());
     Config::setDumpShaders(ui->dumpShadersCheckBox->isChecked());
     Config::setNullGpu(ui->nullGpuCheckBox->isChecked());
+    Config::setSeparateUpdateEnabled(ui->separateUpdatesCheckBox->isChecked());
     Config::setReadbackLinearImages(ui->ReadbacksLinearCheckBox->isChecked());
     Config::setDirectMemoryAccess(ui->DMACheckBox->isChecked());
     Config::setDisableHardcodedHotkeys(ui->HotkeysCheckBox->isChecked());

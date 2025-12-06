@@ -437,23 +437,6 @@ void MainWindow::AddUiWidgets() {
 
     ui->toolBar->addWidget(createSpacer(this));
 
-    QBoxLayout* toolbarLayout = new QBoxLayout(QBoxLayout::TopToBottom);
-    toolbarLayout->setSpacing(2);
-    toolbarLayout->setContentsMargins(2, 2, 2, 2);
-    ui->sizeSliderContainer->setFixedWidth(150);
-
-    QWidget* searchSliderContainer = new QWidget(this);
-    QBoxLayout* searchSliderLayout = new QBoxLayout(QBoxLayout::TopToBottom);
-    searchSliderLayout->setContentsMargins(0, 0, 6, 6);
-    searchSliderLayout->setSpacing(2);
-    ui->mw_searchbar->setFixedWidth(150);
-
-    searchSliderLayout->addWidget(ui->sizeSliderContainer);
-    searchSliderLayout->addWidget(ui->mw_searchbar);
-
-    searchSliderContainer->setLayout(searchSliderLayout);
-    ui->toolBar->addWidget(searchSliderContainer);
-
     ui->styleSelector->clear();
 
     QStringList styles = QStyleFactory::keys();
@@ -489,24 +472,18 @@ void MainWindow::AddUiWidgets() {
     QWidget* styleAndLogContainer = new QWidget(this);
     QVBoxLayout* styleAndLogLayout = new QVBoxLayout(styleAndLogContainer);
     styleAndLogLayout->setContentsMargins(2, 2, 2, 2);
-    styleAndLogLayout->setSpacing(4);
 
     QHBoxLayout* styleRowLayout = new QHBoxLayout();
-    styleRowLayout->setContentsMargins(0, 0, 0, 0);
-    styleRowLayout->setSpacing(6);
 
     QLabel* styleLabel = new QLabel(tr("GUI Style:"), this);
     styleLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
 
     styleRowLayout->addWidget(styleLabel);
     styleRowLayout->addWidget(ui->styleSelector, 0);
-    styleRowLayout->addStretch();
 
     styleAndLogLayout->addLayout(styleRowLayout);
 
     QHBoxLayout* logButtonRow = new QHBoxLayout();
-    logButtonRow->setContentsMargins(0, 0, 0, 0);
-    logButtonRow->setSpacing(0);
 
     QSpacerItem* offsetSpacer = new QSpacerItem(styleLabel->sizeHint().width(), 0,
                                                 QSizePolicy::Fixed, QSizePolicy::Minimum);
@@ -514,12 +491,38 @@ void MainWindow::AddUiWidgets() {
     logButtonRow->addItem(offsetSpacer);
     logButtonRow->addWidget(ui->toggleLogButton, 0, Qt::AlignHCenter);
     logButtonRow->addWidget(ui->installPkgButton, 0, Qt::AlignHCenter);
-    logButtonRow->addStretch();
 
     styleAndLogLayout->addLayout(logButtonRow);
 
     styleAndLogContainer->setLayout(styleAndLogLayout);
     ui->toolBar->addWidget(styleAndLogContainer);
+    ui->toolBar->addWidget(createSpacer(this));
+
+    QFrame* searchSeparator = new QFrame(this);
+    searchSeparator->setFrameShape(QFrame::VLine);
+    searchSeparator->setFrameShadow(QFrame::Sunken);
+    searchSeparator->setLineWidth(1);
+    searchSeparator->setMidLineWidth(1);
+    ui->toolBar->addWidget(searchSeparator);
+
+    ui->toolBar->addWidget(createSpacer(this));
+
+    QBoxLayout* toolbarLayout = new QBoxLayout(QBoxLayout::TopToBottom);
+    toolbarLayout->setSpacing(2);
+    toolbarLayout->setContentsMargins(2, 2, 2, 2);
+    ui->sizeSliderContainer->setFixedWidth(150);
+
+    QWidget* searchSliderContainer = new QWidget(this);
+    QBoxLayout* searchSliderLayout = new QBoxLayout(QBoxLayout::TopToBottom);
+    searchSliderLayout->setContentsMargins(0, 0, 6, 6);
+    searchSliderLayout->setSpacing(2);
+    ui->mw_searchbar->setFixedWidth(150);
+
+    searchSliderLayout->addWidget(ui->sizeSliderContainer);
+    searchSliderLayout->addWidget(ui->mw_searchbar);
+
+    searchSliderContainer->setLayout(searchSliderLayout);
+    ui->toolBar->addWidget(searchSliderContainer);
 
     ui->playButton->setVisible(true);
     ui->pauseButton->setVisible(false);
