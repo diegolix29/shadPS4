@@ -999,14 +999,18 @@ void BigPictureWidget::focusInEvent(QFocusEvent* event) {
         return;
     }
 
-    m_scrollBarHidden = !m_scrollBarHidden;
-    m_bottomBarHidden = !m_bottomBarHidden;
+    if (m_scrollBarHidden) {
+        m_scrollBarHidden = false;
+        m_bottomBarHidden = false;
 
-    m_scroll->setVisible(!m_scrollBarHidden);
+        m_scroll->setVisible(true);
+        m_bottomBar->setVisible(true);
 
-    m_bottomBar->setVisible(!m_bottomBarHidden);
-    if (m_player)
-        m_player->play();
+        if (m_player) {
+            m_player->play();
+        }
+        UpdateCurrentGameAudio();
+    }
 }
 
 void BigPictureWidget::resizeEvent(QResizeEvent* e) {

@@ -1693,6 +1693,8 @@ select to boot Base game or Update)"));
         Core::FileSys::MntPoints::ignore_game_patches = true;
     }
     QString workDir = QDir::currentPath();
+    BackgroundMusicPlayer::getInstance().stopMusic();
+
     m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), fullArgs, workDir);
 
     if (ignorePatches) {
@@ -1844,6 +1846,7 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
         QMessageBox::critical(nullptr, tr("Run Game"), tr("Eboot.bin file not found"));
         return;
     }
+    BackgroundMusicPlayer::getInstance().stopMusic();
 
     emulatorProcess = new QProcess(this);
     QString exePath = QCoreApplication::applicationFilePath();
