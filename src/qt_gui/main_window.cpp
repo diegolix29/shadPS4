@@ -1344,8 +1344,7 @@ void MainWindow::CreateConnects() {
             [=]() { applyColorTheme(Theme::Shadlix); });
     connect(ui->setThemeShadlixCave, &QAction::triggered, this,
             [=]() { applyColorTheme(Theme::ShadlixCave); });
-    connect(ui->setThemeQSS, &QAction::triggered, this,
-            [=]() { applyColorTheme(Theme::QSS); });
+    connect(ui->setThemeQSS, &QAction::triggered, this, [=]() { applyColorTheme(Theme::QSS); });
 
     QObject::connect(m_ipc_client.get(), &IpcClient::LogEntrySent, this, &MainWindow::PrintLog);
 }

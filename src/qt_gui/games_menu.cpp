@@ -383,7 +383,6 @@ QWidget* BigPictureWidget::buildTile(const GameInfo& g) {
     tile->setAttribute(Qt::WA_TranslucentBackground);
     tile->setContentsMargins(0, 0, 0, 0);
     tile->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-
     tile->setGraphicsEffect(nullptr);
     tile->setStyleSheet("background: transparent;");
     tile->setProperty("scale", 1.0);
@@ -395,26 +394,30 @@ QWidget* BigPictureWidget::buildTile(const GameInfo& g) {
     v->setAlignment(Qt::AlignHCenter);
 
     QLabel* cover = new QLabel(tile);
-    cover->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
     cover->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     cover->setAlignment(Qt::AlignCenter);
     cover->setScaledContents(true);
-
-    QPixmap iconPixmap = LoadGameIcon(g, 512);
-    cover->setPixmap(iconPixmap);
+    cover->setPixmap(LoadGameIcon(g, 512));
 
     ScrollingLabel* title = new ScrollingLabel(tile);
     title->setText(QString::fromStdString(g.name));
     title->setAlignment(Qt::AlignCenter);
-    title->setStyleSheet("color: white; font-size: 18px;"
-                         "padding-left: 8px; padding-right: 8px;");
+    title->setStyleSheet("color: white; font-size: 18px; padding-left: 8px; padding-right: 8px;");
     title->setFixedHeight(40);
     title->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
     title->setWordWrap(false);
-    QTimer::singleShot(0, title, [title]() { title->startScrollIfNeeded(); });
+
+    ScrollingLabel* cusa = new ScrollingLabel(tile);
+    cusa->setText(QString::fromStdString(g.serial));
+    cusa->setAlignment(Qt::AlignCenter);
+    cusa->setStyleSheet("color: white; font-size: 18px; padding-left: 8px; padding-right: 8px;");
+    cusa->setFixedHeight(40);
+    cusa->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+    cusa->setWordWrap(false);
 
     v->addWidget(cover);
     v->addWidget(title);
+    v->addWidget(cusa);
 
     return tile;
 }
