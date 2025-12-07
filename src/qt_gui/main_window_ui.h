@@ -60,6 +60,7 @@ public:
     QAction* setThemeNeon;
     QAction* setThemeShadlix;
     QAction* setThemeShadlixCave;
+    QAction* setThemeQSS;
     QWidget* centralWidget;
     QLineEdit* mw_searchbar;
     QPushButton* playButton;
@@ -247,6 +248,9 @@ public:
         setThemeShadlixCave = new QAction(MainWindow);
         setThemeShadlixCave->setObjectName("setThemeShadlixCave");
         setThemeShadlixCave->setCheckable(true);
+        setThemeQSS = new QAction(MainWindow);
+        setThemeQSS->setObjectName("setThemeQSS");
+        setThemeQSS->setCheckable(true);
         centralWidget = new QWidget(MainWindow);
         centralWidget->setObjectName("centralWidget");
         sizePolicy.setHeightForWidth(centralWidget->sizePolicy().hasHeightForWidth());
@@ -411,6 +415,7 @@ public:
         menuThemes->addAction(setThemeNeon);
         menuThemes->addAction(setThemeShadlix);
         menuThemes->addAction(setThemeShadlixCave);
+        menuThemes->addAction(setThemeQSS);
         menuGame_List_Icons->addAction(setIconSizeTinyAct);
         menuGame_List_Icons->addAction(setIconSizeSmallAct);
         menuGame_List_Icons->addAction(setIconSizeMediumAct);
@@ -517,6 +522,7 @@ public:
         setThemeNeon->setText("Neon");
         setThemeShadlix->setText("Shadlix");
         setThemeShadlixCave->setText("ShadlixCave");
+        setThemeQSS->setText("QSS");
         toolBar->setWindowTitle(QCoreApplication::translate("MainWindow", "toolBar", nullptr));
         toggleLabelsAct->setText(
             QCoreApplication::translate("MainWindow", "Show Labels Under Icons"));

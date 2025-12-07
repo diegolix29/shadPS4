@@ -338,6 +338,7 @@ void MainWindow::CreateActions() {
     m_theme_act_group->addAction(ui->setThemeNeon);
     m_theme_act_group->addAction(ui->setThemeShadlix);
     m_theme_act_group->addAction(ui->setThemeShadlixCave);
+    m_theme_act_group->addAction(ui->setThemeQSS);
 }
 
 void MainWindow::toggleLabelsUnderIcons() {
@@ -1343,6 +1344,8 @@ void MainWindow::CreateConnects() {
             [=]() { applyColorTheme(Theme::Shadlix); });
     connect(ui->setThemeShadlixCave, &QAction::triggered, this,
             [=]() { applyColorTheme(Theme::ShadlixCave); });
+    connect(ui->setThemeQSS, &QAction::triggered, this,
+            [=]() { applyColorTheme(Theme::QSS); });
 
     QObject::connect(m_ipc_client.get(), &IpcClient::LogEntrySent, this, &MainWindow::PrintLog);
 }
@@ -1829,6 +1832,9 @@ void MainWindow::SetLastUsedTheme() {
         break;
     case Theme::ShadlixCave:
         ui->setThemeShadlixCave->setChecked(true);
+        break;
+    case Theme::QSS:
+        ui->setThemeQSS->setChecked(true);
         break;
     }
 }

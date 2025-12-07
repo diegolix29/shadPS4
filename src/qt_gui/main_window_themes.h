@@ -21,7 +21,8 @@ enum class Theme {
     Oled,
     Neon,
     Shadlix,
-    ShadlixCave
+    ShadlixCave,
+    QSS
 };
 
 class WindowThemes {
