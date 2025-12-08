@@ -232,7 +232,7 @@ void BigPictureWidget::buildUi() {
                                   {"Press - S - ", "Global Settings"},
                                   {"Press - H - ", "Hotkeys Setup"},
                                   {"Esc", "Exit"}});
-    m_hotkeysOverlay->setMinimumHeight(46);
+    m_hotkeysOverlay->setMinimumHeight(50);
     m_hotkeysOverlay->setStyleSheet("background: rgba(0,0,0,120); padding: 6px 12px;");
     m_hotkeysOverlay->raise();
     m_hotkeysOverlay->show();
