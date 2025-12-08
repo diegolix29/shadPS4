@@ -70,6 +70,7 @@ int main(int argc, char* argv[]) {
                           "overwrite config)\n"
                           "  -s, --show-gui                Show GUI mode\n"
                           "  -I, --no-ipc                  Disable IPC subsystem\n"
+                          "  --show-fps                    Enable FPS counter display at startup\n"
                           "  --add-game-folder <folder>    Add a new game folder to config\n"
                           "  --set-addon-folder <folder>   Set the addon folder in config\n"
                           "  --log-append                  Append logs instead of overwriting\n"
@@ -212,14 +213,16 @@ int main(int argc, char* argv[]) {
              game_folder = folder;
          }},
 
-        {"--wait-for-debugger", [&](int&) { waitForDebugger = true; }},
+        {"--wait-for-debugger", [&](int& i) { waitForDebugger = true; }},
         {"--wait-for-pid",
          [&](int& i) {
-             if (++i >= argc)
-                 exit((std::cerr << "Error: Missing argument for --wait-for-pid\n", 1));
+             if (++i >= argc) {
+                 std::cerr << "Error: Missing argument for --wait-for-pid\n";
+                 exit(1);
+             }
              waitPid = std::stoi(argv[i]);
          }},
-    };
+        {"--show-fps", [&](int& i) { Config::setShowFpsCounter(true); }}};
 
     if (argc == 1) {
         if (!SDL_ShowSimpleMessageBox(

@@ -235,6 +235,7 @@ static ConfigEntry<bool> isShaderDebug(false);
 static ConfigEntry<bool> isSeparateLogFilesEnabled(false);
 static ConfigEntry<bool> shaderSkipsEnabled(false);
 static ConfigEntry<bool> isFpsColor(true);
+static ConfigEntry<bool> showFpsCounter(false);
 static ConfigEntry<bool> fpsColorState(false);
 static ConfigEntry<bool> logEnabled(true);
 
@@ -786,6 +787,14 @@ bool isRdocEnabled() {
 
 bool fpsColor() {
     return isFpsColor.get();
+}
+
+bool getShowFpsCounter() {
+    return showFpsCounter.get();
+}
+
+void setShowFpsCounter(bool enable, bool is_game_specific) {
+    showFpsCounter.set(enable, is_game_specific);
 }
 
 u32 vblankFreq() {
@@ -1487,6 +1496,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             toml::find_or<bool>(debug, "isSeparateLogFilesEnabled", is_game_specific);
         isShaderDebug.setFromToml(debug, "CollectShader", is_game_specific);
         isFpsColor.setFromToml(debug, "FPSColor", is_game_specific);
+        showFpsCounter.setFromToml(debug, "showFpsCounter", is_game_specific);
         logEnabled.setFromToml(debug, "logEnabled", is_game_specific);
         current_version = toml::find_or<std::string>(debug, "ConfigVersion", current_version);
     }
@@ -1725,6 +1735,7 @@ void save(const std::filesystem::path& path) {
     data["Debug"]["CollectShader"] = isShaderDebug.base_value;
     data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled.base_value;
     data["Debug"]["FPSColor"] = isFpsColor.base_value;
+    data["Debug"]["showFpsCounter"] = showFpsCounter.base_value;
     data["Debug"]["logEnabled"] = logEnabled.base_value;
     data["Keys"]["TrophyKey"] = trophyKey;
 

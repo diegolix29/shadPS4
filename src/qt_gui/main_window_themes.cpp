@@ -340,6 +340,9 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
             setSearchbar("QLineEdit { background-color:#0D3924; color:#39C591; border:1px solid "
                          "#39C591; } QLineEdit:focus { border:1px solid #2A82DA; }");
             break;
+
+        case Theme::QSS:
+            break;
         }
     }
 

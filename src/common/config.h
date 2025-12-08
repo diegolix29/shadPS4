@@ -52,6 +52,8 @@ bool getShowLabelsUnderIcons();
 void setShowLabelsUnderIcons(bool enable);
 bool getEnableColorFilter();
 void setEnableColorFilter(bool enable);
+bool getShowFpsCounter();
+void setShowFpsCounter(bool enable, bool is_game_specific = false);
 
 std::string getFullscreenMode();
 bool isNeoModeConsole();
