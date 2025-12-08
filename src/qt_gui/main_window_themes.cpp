@@ -15,11 +15,15 @@
 
 QString GetOSSpecificWindowStyle(const QString& windowBg) {
 #ifdef Q_OS_WIN
-
     return QString("QMainWindow { background-color: %1; border: none; }").arg(windowBg);
 #else
     return QString("QMainWindow { background-color: transparent !important; border: none; }");
 #endif
+}
+
+static bool IsCyberpunkQssLoaded() {
+    const QString style = qApp->styleSheet();
+    return style.contains("Cyberpunk", Qt::CaseInsensitive);
 }
 
 QString GenerateUnifiedStylesheet(const QString& windowBg, const QString& textColor,
@@ -38,7 +42,6 @@ QString GenerateUnifiedStylesheet(const QString& windowBg, const QString& textCo
         QTableWidget, QListWidget, QListView, 
         QTableWidget > QWidget, QListWidget > QWidget, QListView > QWidget {
             background-color: transparent !important;
-            /* FIX: Removed 'background: transparent' so we don't wipe images */
             border: none;
             color: %2;
             gridline-color: %8;
@@ -48,7 +51,6 @@ QString GenerateUnifiedStylesheet(const QString& windowBg, const QString& textCo
         }
 
         QTableWidget::item, QListWidget::item, QListView::item {
-            /* FIX: Removed 'background: transparent' */
             background-color: transparent !important;
             border: none;
         }
@@ -65,14 +67,11 @@ QString GenerateUnifiedStylesheet(const QString& windowBg, const QString& textCo
         QScrollBar::handle:vertical { background: %8; border-radius: 6px; margin: 2px; }
 
         /* --- GLOBAL WIDGETS --- */
-        /* Force container backgrounds to transparent to reveal underlying gradient/image */
         QDialog, QStackedWidget, QScrollArea, QFrame { 
-            /* FIX: Removed 'background: transparent !important;' */
             background-color: transparent !important;
             color: %2; 
         }
         
-        /* Stop child widgets from overriding the background back to opaque grey */
         QWidget { 
             color: %2; 
             background-color: transparent; 
@@ -112,7 +111,8 @@ QString GenerateUnifiedStylesheet(const QString& windowBg, const QString& textCo
         .arg(windowBg, textColor, toolbarBg, accentColor, inputBg, borderColor, selectionColor,
              gridColor, osRootStyle);
 }
-void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
+
+void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QString& qssPath) {
     QString wBg, txt, toolBg, accent, hov, inp, border, sel, grid;
 
     auto setSearchbar = [&](QString css) {
@@ -123,205 +123,224 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
     if (theme == Theme::QSS) {
         wBg = "#0a0a0f";
         txt = "#d9d9d9";
-        toolBg = "#3a3a3a";
-        accent = "#83a598";
-        hov = "#4d4d4d";
-        inp = "#1d1d1d";
-        border = "#39ff14";
-        sel = "#83a598";
-        grid = "#39ff14";
+        toolBg = "#14141e";
+        hov = "#1d1d28";
+        inp = "#0f0f15";
+        QString searchQss = "QLineEdit { "
+                            "background-color:#1d1d1d; "
+                            "color:#83a598; "
+                            "border:1px solid #83a598; "
+                            "border-radius:6px; "
+                            "} "
+                            "QLineEdit:focus { border:1px solid #39ff14; }";
 
-        int r = QRandomGenerator::global()->bounded(256);
-        int g = QRandomGenerator::global()->bounded(256);
-        int b = QRandomGenerator::global()->bounded(256);
-        m_iconBaseColor = QColor(r, g, b);
+        setSearchbar(searchQss);
 
-        int r2 = QRandomGenerator::global()->bounded(256);
-        int g2 = QRandomGenerator::global()->bounded(256);
-        int b2 = QRandomGenerator::global()->bounded(256);
-        m_iconHoverColor = QColor(r2, g2, b2);
+        QColor base = QColor("#83a598");
 
-        m_textColor = m_iconBaseColor;
+        bool isCyberpunk = false;
+        if (!qssPath.isEmpty()) {
+            isCyberpunk = qssPath.contains("cyberpunk", Qt::CaseInsensitive);
+        } else {
+            isCyberpunk = IsCyberpunkQssLoaded();
+        }
 
-        setSearchbar("");
+        if (isCyberpunk) {
+            base = QColor(190, 160, 20);
+            accent = base.lighter(125).name();
+            border = base.darker(130).name();
+        }
+
+        if (accent.isEmpty())
+            accent = base.lighter(125).name();
+        if (border.isEmpty())
+            border = base.darker(130).name();
+        sel = base.name();
+        grid = border;
+
+        m_iconBaseColor = base;
+
         QString unifiedCss =
             GenerateUnifiedStylesheet(wBg, txt, toolBg, accent, hov, inp, border, sel, grid);
+
         qApp->setStyleSheet(unifiedCss);
 
-        return;
-    }
+    } else {
+        qApp->setStyleSheet("");
 
-    qApp->setStyleSheet("");
+        switch (theme) {
+        case Theme::Dark:
+            wBg = "#323232";
+            txt = "#ffffff";
+            toolBg = "#353535";
+            accent = "#2A82DA";
+            hov = "#353535";
+            inp = "#141414";
+            border = "#535353";
+            sel = "#2A82DA";
+            grid = "#535353";
+            m_iconBaseColor = QColor(200, 200, 200);
+            setSearchbar(
+                "QLineEdit { background-color:#1e1e1e; color:white; border:1px solid white; } "
+                "QLineEdit:focus { border:1px solid #2A82DA; }");
+            break;
 
-    switch (theme) {
-    case Theme::Dark:
-        wBg = "#323232";
-        txt = "#ffffff";
-        toolBg = "#353535";
-        accent = "#2A82DA";
-        hov = "#353535";
-        inp = "#141414";
-        border = "#535353";
-        sel = "#2A82DA";
-        grid = "#535353";
-        m_iconBaseColor = QColor(200, 200, 200);
-        setSearchbar("QLineEdit { background-color:#1e1e1e; color:white; border:1px solid white; } "
-                     "QLineEdit:focus { border:1px solid #2A82DA; }");
-        break;
+        case Theme::Light:
+            wBg = "#f0f0f0";
+            txt = "#000000";
+            toolBg = "#e6e6e6";
+            accent = "#2A82DA";
+            hov = "#505050";
+            inp = "#e6e6e6";
+            border = "#cccccc";
+            sel = "#2A82DA";
+            grid = "#cccccc";
+            m_iconBaseColor = Qt::black;
+            setSearchbar(
+                "QLineEdit { background-color:#ffffff; color:black; border:1px solid black; } "
+                "QLineEdit:focus { border:1px solid #2A82DA; }");
+            break;
 
-    case Theme::Light:
-        wBg = "#f0f0f0";
-        txt = "#000000";
-        toolBg = "#e6e6e6";
-        accent = "#2A82DA";
-        hov = "#505050";
-        inp = "#e6e6e6";
-        border = "#cccccc";
-        sel = "#2A82DA";
-        grid = "#cccccc";
-        m_iconBaseColor = Qt::black;
-        setSearchbar("QLineEdit { background-color:#ffffff; color:black; border:1px solid black; } "
-                     "QLineEdit:focus { border:1px solid #2A82DA; }");
-        break;
+        case Theme::Green:
+            wBg = "#354535";
+            txt = "#ffffff";
+            toolBg = "#354535";
+            accent = "#2A82DA";
+            hov = "#2A82DA";
+            inp = "#192819";
+            border = "#354535";
+            sel = "#2A82DA";
+            grid = "#354535";
+            m_iconBaseColor = QColor(144, 238, 144);
+            setSearchbar(
+                "QLineEdit { background-color:#192819; color:white; border:1px solid white; } "
+                "QLineEdit:focus { border:1px solid #2A82DA; }");
+            break;
 
-    case Theme::Green:
-        wBg = "#354535";
-        txt = "#ffffff";
-        toolBg = "#354535";
-        accent = "#2A82DA";
-        hov = "#2A82DA";
-        inp = "#192819";
-        border = "#354535";
-        sel = "#2A82DA";
-        grid = "#354535";
-        m_iconBaseColor = QColor(144, 238, 144);
-        setSearchbar("QLineEdit { background-color:#192819; color:white; border:1px solid white; } "
-                     "QLineEdit:focus { border:1px solid #2A82DA; }");
-        break;
+        case Theme::Blue:
+            wBg = "#283c5a";
+            txt = "#ffffff";
+            toolBg = "#283c5a";
+            accent = "#2A82DA";
+            hov = "#2A82DA";
+            inp = "#14283c";
+            border = "#283c5a";
+            sel = "#2A82DA";
+            grid = "#283c5a";
+            m_iconBaseColor = QColor(100, 149, 237);
+            setSearchbar(
+                "QLineEdit { background-color:#14283c; color:white; border:1px solid white; } "
+                "QLineEdit:focus { border:1px solid #2A82DA; }");
+            break;
 
-    case Theme::Blue:
-        wBg = "#283c5a";
-        txt = "#ffffff";
-        toolBg = "#283c5a";
-        accent = "#2A82DA";
-        hov = "#2A82DA";
-        inp = "#14283c";
-        border = "#283c5a";
-        sel = "#2A82DA";
-        grid = "#283c5a";
-        m_iconBaseColor = QColor(100, 149, 237);
-        setSearchbar("QLineEdit { background-color:#14283c; color:white; border:1px solid white; } "
-                     "QLineEdit:focus { border:1px solid #2A82DA; }");
-        break;
+        case Theme::Violet:
+            wBg = "#643278";
+            txt = "#ffffff";
+            toolBg = "#643278";
+            accent = "#2A82DA";
+            hov = "#2A82DA";
+            inp = "#501e5a";
+            border = "#643278";
+            sel = "#2A82DA";
+            grid = "#643278";
+            m_iconBaseColor = QColor(186, 85, 211);
+            setSearchbar(
+                "QLineEdit { background-color:#501e5a; color:white; border:1px solid white; } "
+                "QLineEdit:focus { border:1px solid #2A82DA; }");
+            break;
 
-    case Theme::Violet:
-        wBg = "#643278";
-        txt = "#ffffff";
-        toolBg = "#643278";
-        accent = "#2A82DA";
-        hov = "#2A82DA";
-        inp = "#501e5a";
-        border = "#643278";
-        sel = "#2A82DA";
-        grid = "#643278";
-        m_iconBaseColor = QColor(186, 85, 211);
-        setSearchbar("QLineEdit { background-color:#501e5a; color:white; border:1px solid white; } "
-                     "QLineEdit:focus { border:1px solid #2A82DA; }");
-        break;
+        case Theme::Gruvbox:
+            wBg = "#1d2021";
+            txt = "#f9f5d7";
+            toolBg = "#282828";
+            accent = "#83a598";
+            hov = "#3c3836";
+            inp = "#1d2021";
+            border = "#50482f";
+            sel = "#83a598";
+            grid = "#50482f";
+            m_iconBaseColor = QColor(250, 189, 47);
+            setSearchbar("QLineEdit { background-color:#1d2021; color:#f9f5d7; border:1px solid "
+                         "#f9f5d7; } QLineEdit:focus { border:1px solid #2A82DA; }");
+            break;
 
-    case Theme::Gruvbox:
-        wBg = "#1d2021";
-        txt = "#f9f5d7";
-        toolBg = "#282828";
-        accent = "#83a598";
-        hov = "#3c3836";
-        inp = "#1d2021";
-        border = "#50482f";
-        sel = "#83a598";
-        grid = "#50482f";
-        m_iconBaseColor = QColor(250, 189, 47);
-        setSearchbar("QLineEdit { background-color:#1d2021; color:#f9f5d7; border:1px solid "
-                     "#f9f5d7; } QLineEdit:focus { border:1px solid #2A82DA; }");
-        break;
+        case Theme::TokyoNight:
+            wBg = "#1f2335";
+            txt = "#c0caf5";
+            toolBg = "#1f2335";
+            accent = "#7aa2f7";
+            hov = "#292e42";
+            inp = "#1a1b26";
+            border = "#24283b";
+            sel = "#7aa2f7";
+            grid = "#24283b";
+            m_iconBaseColor = QColor(122, 162, 247);
+            setSearchbar("QLineEdit { background-color:#1a1b26; color:#9d7cd8; border:1px solid "
+                         "#9d7cd8; } QLineEdit:focus { border:1px solid #2A82DA; }");
+            break;
 
-    case Theme::TokyoNight:
-        wBg = "#1f2335";
-        txt = "#c0caf5";
-        toolBg = "#1f2335";
-        accent = "#7aa2f7";
-        hov = "#292e42";
-        inp = "#1a1b26";
-        border = "#24283b";
-        sel = "#7aa2f7";
-        grid = "#24283b";
-        m_iconBaseColor = QColor(122, 162, 247);
-        setSearchbar("QLineEdit { background-color:#1a1b26; color:#9d7cd8; border:1px solid "
-                     "#9d7cd8; } QLineEdit:focus { border:1px solid #2A82DA; }");
-        break;
+        case Theme::Oled:
+            wBg = "#000000";
+            txt = "#ffffff";
+            toolBg = "#000000";
+            accent = "#2A82DA";
+            hov = "#1a1a1a";
+            inp = "#000000";
+            border = "#333333";
+            sel = "#2A82DA";
+            grid = "#333333";
+            m_iconBaseColor = Qt::white;
+            setSearchbar(
+                "QLineEdit { background-color:#000000; color:white; border:1px solid white; } "
+                "QLineEdit:focus { border:1px solid #2A82DA; }");
+            break;
 
-    case Theme::Oled:
-        wBg = "#000000";
-        txt = "#ffffff";
-        toolBg = "#000000";
-        accent = "#2A82DA";
-        hov = "#1a1a1a";
-        inp = "#000000";
-        border = "#333333";
-        sel = "#2A82DA";
-        grid = "#333333";
-        m_iconBaseColor = Qt::white;
-        setSearchbar("QLineEdit { background-color:#000000; color:white; border:1px solid white; } "
-                     "QLineEdit:focus { border:1px solid #2A82DA; }");
-        break;
+        case Theme::Neon:
+            wBg = "#0a0a0f";
+            txt = "#39ff14";
+            toolBg = "#14141e";
+            accent = "#ffff33";
+            hov = "#ff00ff";
+            inp = "#0d0d0d";
+            border = "#39ff14";
+            sel = "#ffff33";
+            grid = "#39ff14";
+            m_iconBaseColor = QColor(0, 255, 255);
+            setSearchbar("QLineEdit { background-color:#0d0d0d; color:#39ff14; border:1px solid "
+                         "#39ff14; border-radius: 6px; padding: 6px; font-weight: bold; } "
+                         "QLineEdit:focus { border:1px solid #ff00ff; }");
+            break;
 
-    case Theme::Neon:
-        wBg = "#0a0a0f";
-        txt = "#39ff14";
-        toolBg = "#14141e";
-        accent = "#ffff33";
-        hov = "#ff00ff";
-        inp = "#0d0d0d";
-        border = "#39ff14";
-        sel = "#ffff33";
-        grid = "#39ff14";
-        m_iconBaseColor = QColor(0, 255, 255);
-        setSearchbar("QLineEdit { background-color:#0d0d0d; color:#39ff14; border:1px solid "
-                     "#39ff14; border-radius: 6px; padding: 6px; font-weight: bold; } "
-                     "QLineEdit:focus { border:1px solid #ff00ff; }");
-        break;
+        case Theme::Shadlix:
+            wBg = "#1a1033";
+            txt = "#9370db";
+            toolBg = "#2d1950";
+            accent = "#9370db";
+            hov = "#40e0d0";
+            inp = "#1a1033";
+            border = "#40e0d0";
+            sel = "#9370db";
+            grid = "#40e0d0";
+            m_iconBaseColor = QColor(64, 224, 208);
+            setSearchbar("QLineEdit { background-color:#1a1033; color:#40e0d0; border:1px solid "
+                         "#40e0d0; } QLineEdit:focus { border:1px solid #2A82DA; }");
+            break;
 
-    case Theme::Shadlix:
-        wBg = "#1a1033";
-        txt = "#9370db";
-        toolBg = "#2d1950";
-        accent = "#9370db";
-        hov = "#40e0d0";
-        inp = "#1a1033";
-        border = "#40e0d0";
-        sel = "#9370db";
-        grid = "#40e0d0";
-        m_iconBaseColor = QColor(64, 224, 208);
-        setSearchbar("QLineEdit { background-color:#1a1033; color:#40e0d0; border:1px solid "
-                     "#40e0d0; } QLineEdit:focus { border:1px solid #2A82DA; }");
-        break;
-
-    case Theme::ShadlixCave:
-        wBg = "#1b5a3f";
-        txt = "#cfe1d8";
-        toolBg = "#1b563a";
-        accent = "#00ddc6";
-        hov = "#22634d";
-        inp = "#0d3924";
-        border = "#39c591";
-        sel = "#00ddc6";
-        grid = "#39c591";
-        m_iconBaseColor = QColor(57, 202, 144);
-        setSearchbar("QLineEdit { background-color:#0D3924; color:#39C591; border:1px solid "
-                     "#39C591; } QLineEdit:focus { border:1px solid #2A82DA; }");
-        break;
-
-    case Theme::QSS:
-        break;
+        case Theme::ShadlixCave:
+            wBg = "#1b5a3f";
+            txt = "#cfe1d8";
+            toolBg = "#1b563a";
+            accent = "#00ddc6";
+            hov = "#22634d";
+            inp = "#0d3924";
+            border = "#39c591";
+            sel = "#00ddc6";
+            grid = "#39c591";
+            m_iconBaseColor = QColor(57, 202, 144);
+            setSearchbar("QLineEdit { background-color:#0D3924; color:#39C591; border:1px solid "
+                         "#39C591; } QLineEdit:focus { border:1px solid #2A82DA; }");
+            break;
+        }
     }
 
     QPalette themePalette;
@@ -337,11 +356,30 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
     themePalette.setColor(QPalette::Link, QColor(accent));
     qApp->setPalette(themePalette);
 
-    m_iconHoverColor = m_iconBaseColor.lighter(150);
-    if (theme == Theme::Light) {
-        m_iconHoverColor = QColor(80, 80, 80);
+    if (theme == Theme::QSS) {
+        m_iconHoverColor = m_iconBaseColor.lighter(140);
+
+        bool isCyberpunk = false;
+        if (!qssPath.isEmpty()) {
+            isCyberpunk = qssPath.contains("cyberpunk", Qt::CaseInsensitive);
+        } else {
+            isCyberpunk = IsCyberpunkQssLoaded();
+        }
+
+        if (isCyberpunk) {
+            m_iconHoverColor = QColor(190, 160, 20);
+            m_textColor = m_iconBaseColor;
+        } else {
+            m_textColor = m_iconBaseColor;
+        }
+
+    } else {
+        m_iconHoverColor = m_iconBaseColor.lighter(150);
+        if (theme == Theme::Light) {
+            m_iconHoverColor = QColor(80, 80, 80);
+        }
+        m_textColor = m_iconBaseColor;
     }
-    m_textColor = m_iconBaseColor;
 }
 
 void WindowThemes::ApplyThemeToDialog(QDialog* dialog) {

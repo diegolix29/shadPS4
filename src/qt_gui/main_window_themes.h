@@ -31,7 +31,8 @@ class WindowThemes : public QObject {
 public:
     explicit WindowThemes(QObject* parent = nullptr) : QObject(parent) {}
 
-    void SetWindowTheme(Theme theme, QLineEdit* mw_searchbar);
+    void SetWindowTheme(Theme theme, QLineEdit* mw_searchbar = nullptr,
+                               const QString& qssPath = "");
     void ApplyThemeToDialog(QDialog* dialog);
 
     void ApplyThemeToWidget(QWidget* widget);
@@ -45,6 +46,7 @@ public:
     QColor textColor() const {
         return m_textColor;
     }
+    bool m_isCyberpunkQss = false;
 
 private:
     QColor m_iconBaseColor{Qt::white};

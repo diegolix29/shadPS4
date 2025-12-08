@@ -87,7 +87,6 @@ bool MainWindow::Init() {
     CreateDockWindows(true);
     CreateConnects();
     SetLastUsedTheme();
-    ApplyLastUsedStyle();
     SetLastIconSizeBullet();
     toggleColorFilter();
 
@@ -303,18 +302,15 @@ void MainWindow::toggleColorFilter() {
     if (enableFilter) {
         baseColor = m_window_themes.iconBaseColor();
         hoverColor = m_window_themes.iconHoverColor();
-        if (m_game_list_frame)
-            m_game_list_frame->SetThemeColors(m_window_themes.textColor());
-    } else {
-        baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light)) ? Qt::black
-                                                                                     : Qt::white;
+    } else
         hoverColor = baseColor;
-        if (m_game_list_frame)
-            m_game_list_frame->SetThemeColors(baseColor);
-    }
 
     SetUiIcons(baseColor, hoverColor);
 
+    if (m_game_list_frame)
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+    if (m_game_cinematic_frame)
+        m_game_cinematic_frame->update();
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::saveMainWindow(config_dir / "config.toml");
 }
@@ -890,11 +886,15 @@ void MainWindow::CreateConnects() {
 
         settingsDialog->exec();
     });
+
     connect(ui->styleSelector, &QComboBox::currentTextChanged, [this](const QString& styleName) {
         int idx = ui->styleSelector->currentIndex();
         QVariant data = ui->styleSelector->itemData(idx);
 
         if (styleName.endsWith("(QSS)") && data.isValid()) {
+            m_window_themes.SetWindowTheme(Theme::QSS, ui->mw_searchbar, data.toString());
+            Config::setMainWindowTheme(static_cast<int>(Theme::QSS));
+            ui->setThemeQSS->setChecked(true);
             QFile file(data.toString());
             if (file.open(QFile::ReadOnly)) {
                 qApp->setStyleSheet(file.readAll());
@@ -906,6 +906,8 @@ void MainWindow::CreateConnects() {
             QApplication::setStyle(QStyleFactory::create(styleName));
             Config::setGuiStyle(styleName.toStdString());
         }
+        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         Config::saveMainWindow(config_dir / "config.toml");
     });
@@ -1015,7 +1017,7 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->bigPictureAct, &QAction::triggered, this, [this](bool checked) {
-        Config::setGamesMenuUI(checked); // update your config
+        Config::setGamesMenuUI(checked);
         Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
     });
 
@@ -1376,6 +1378,7 @@ void MainWindow::CreateConnects() {
         Config::setMainWindowTheme(static_cast<int>(Theme::Dark));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1390,6 +1393,7 @@ void MainWindow::CreateConnects() {
         Config::setMainWindowTheme(static_cast<int>(Theme::Light));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1404,6 +1408,7 @@ void MainWindow::CreateConnects() {
         Config::setMainWindowTheme(static_cast<int>(Theme::Green));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1418,6 +1423,7 @@ void MainWindow::CreateConnects() {
         Config::setMainWindowTheme(static_cast<int>(Theme::Blue));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1426,12 +1432,12 @@ void MainWindow::CreateConnects() {
             m_game_list_frame->SetThemeColors(baseColor);
         }
     });
-
     connect(ui->setThemeViolet, &QAction::triggered, this, [this]() {
         m_window_themes.SetWindowTheme(Theme::Violet, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::Violet));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1440,12 +1446,12 @@ void MainWindow::CreateConnects() {
             m_game_list_frame->SetThemeColors(baseColor);
         }
     });
-
     connect(ui->setThemeGruvbox, &QAction::triggered, this, [this]() {
         m_window_themes.SetWindowTheme(Theme::Gruvbox, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::Gruvbox));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1460,6 +1466,7 @@ void MainWindow::CreateConnects() {
         Config::setMainWindowTheme(static_cast<int>(Theme::TokyoNight));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1474,6 +1481,7 @@ void MainWindow::CreateConnects() {
         Config::setMainWindowTheme(static_cast<int>(Theme::Oled));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1488,6 +1496,7 @@ void MainWindow::CreateConnects() {
         Config::setMainWindowTheme(static_cast<int>(Theme::Neon));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1501,6 +1510,7 @@ void MainWindow::CreateConnects() {
         Config::setMainWindowTheme(static_cast<int>(Theme::Shadlix));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1514,6 +1524,7 @@ void MainWindow::CreateConnects() {
         Config::setMainWindowTheme(static_cast<int>(Theme::ShadlixCave));
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        ApplyLastUsedStyle();
         if (!Config::getEnableColorFilter()) {
             QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
                                    ? Qt::black
@@ -1523,19 +1534,25 @@ void MainWindow::CreateConnects() {
         }
     });
     connect(ui->setThemeQSS, &QAction::triggered, this, [this]() {
-        m_window_themes.SetWindowTheme(Theme::QSS, ui->mw_searchbar);
+        QString savedStyle = QString::fromStdString(Config::getGuiStyle());
+        m_window_themes.SetWindowTheme(Theme::QSS, ui->mw_searchbar, savedStyle);
         Config::setMainWindowTheme(static_cast<int>(Theme::QSS));
+        int idx = ui->styleSelector->findData(savedStyle);
+        if (idx >= 0) {
+            if (ui->styleSelector->currentIndex() == idx) {
+                QFile file(savedStyle);
+                if (file.open(QFile::ReadOnly)) {
+                    qApp->setStyleSheet(file.readAll());
+                    file.close();
+                }
+            }
+            ui->styleSelector->setCurrentIndex(idx);
+        }
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
         m_game_list_frame->SetThemeColors(m_window_themes.textColor());
         if (!Config::getEnableColorFilter()) {
-            QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
-                                   ? Qt::black
-                                   : Qt::white;
-            SetUiIcons(baseColor, baseColor);
-            m_game_list_frame->SetThemeColors(baseColor);
         }
     });
-
     QObject::connect(m_ipc_client.get(), &IpcClient::LogEntrySent, this, &MainWindow::PrintLog);
 }
 
@@ -1973,9 +1990,11 @@ void MainWindow::ApplyLastUsedStyle() {
 
 void MainWindow::SetLastUsedTheme() {
     Theme lastTheme = static_cast<Theme>(Config::getMainWindowTheme());
-    m_window_themes.SetWindowTheme(lastTheme, ui->mw_searchbar);
 
-    // --- UPDATED LAMBDA ---
+    QString savedStylePath = QString::fromStdString(Config::getGuiStyle());
+
+    m_window_themes.SetWindowTheme(lastTheme, ui->mw_searchbar, savedStylePath);
+
     auto applyTheme = [this]() {
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
 
@@ -1983,13 +2002,7 @@ void MainWindow::SetLastUsedTheme() {
             m_game_list_frame->SetThemeColors(m_window_themes.textColor());
         }
 
-        // ADD THIS: Ensure Cinematic frame gets the update
-        // (You might need to add a SetThemeColors method to GameCinematicFrame class if you haven't
-        // yet,
-        //  or just ensure it repaints).
         if (m_game_cinematic_frame) {
-            // If you added a method to pass text color to cinematic frame, call it here.
-            // If not, forcing a repaint is usually enough if it uses palette():
             m_game_cinematic_frame->update();
         }
     };
@@ -2120,19 +2133,16 @@ void MainWindow::SetLastIconSizeBullet() {
 }
 
 QPixmap MainWindow::RecolorPixmap(const QIcon& icon, const QSize& size, const QColor& color) {
-    QPixmap pixmap(size);
-    pixmap.fill(Qt::transparent);
-
-    QImage img = icon.pixmap(size).toImage().convertToFormat(QImage::Format_ARGB32);
-
+    QPixmap pixmap = icon.pixmap(size);
+    if (pixmap.isNull())
+        return QPixmap(size);
+    QImage img = pixmap.toImage().convertToFormat(QImage::Format_ARGB32);
     for (int y = 0; y < img.height(); ++y) {
         QRgb* line = reinterpret_cast<QRgb*>(img.scanLine(y));
         for (int x = 0; x < img.width(); ++x) {
-            QColor px = QColor::fromRgba(line[x]);
-            if (px.alpha() > 0) {
-                QColor newColor = color;
-                newColor.setAlpha(px.alpha());
-                line[x] = newColor.rgba();
+            int alpha = qAlpha(line[x]);
+            if (alpha > 5) {
+                line[x] = qRgba(color.red(), color.green(), color.blue(), alpha);
             } else {
                 line[x] = qRgba(0, 0, 0, 0);
             }
@@ -2171,7 +2181,6 @@ void MainWindow::SetUiIcons(const QColor& baseColor, const QColor& hoverColor) {
         btn->setIcon(RecolorIcon(original, baseColor, hoverColor));
     };
 
-    // --- Toolbar Buttons ---
     recolor(ui->playButton, ":/images/play_icon.png");
     recolor(ui->pauseButton, ":/images/pause_icon.png");
     recolor(ui->stopButton, ":/images/stop_icon.png");
@@ -2187,7 +2196,6 @@ void MainWindow::SetUiIcons(const QColor& baseColor, const QColor& hoverColor) {
     recolor(ui->modManagerButton, ":images/folder_icon.png");
     recolor(ui->configureHotkeysButton, ":/images/hotkeybutton.png");
 
-    // --- Menus / Actions (no QPushButton, but recolor directly) ---
     if (ui->bootGameAct)
         ui->bootGameAct->setIcon(
             RecolorIcon(QIcon(":/images/play_icon.png"), baseColor, hoverColor));
@@ -2234,7 +2242,6 @@ void MainWindow::SetUiIcons(const QColor& baseColor, const QColor& hoverColor) {
         ui->addElfFolderAct->setIcon(
             RecolorIcon(QIcon(":/images/folder_icon.png"), baseColor, hoverColor));
 
-    // --- Menus themselves ---
     if (ui->menuThemes)
         ui->menuThemes->setIcon(
             RecolorIcon(QIcon(":/images/themes_icon.png"), baseColor, hoverColor));
@@ -2288,7 +2295,7 @@ void MainWindow::AddRecentFiles(QString filePath) {
     Config::setRecentFiles(vec);
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::saveMainWindow(config_dir / "config.toml");
-    CreateRecentGameActions(); // Refresh the QActions.
+    CreateRecentGameActions();
 }
 
 void MainWindow::CreateRecentGameActions() {
@@ -2304,7 +2311,7 @@ void MainWindow::CreateRecentGameActions() {
 
     connect(m_recent_files_group, &QActionGroup::triggered, this, [this](QAction* action) {
         auto gamePath = Common::FS::PathFromQString(action->text());
-        AddRecentFiles(action->text()); // Update the list.
+        AddRecentFiles(action->text());
         if (!std::filesystem::exists(gamePath)) {
             QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Eboot.bin file not found")));
             return;

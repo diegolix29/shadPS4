@@ -291,7 +291,7 @@ public:
         fullscreenButton = new QPushButton(centralWidget);
         fullscreenButton->setFlat(true);
         fullscreenButton->setIcon(QIcon(":images/fullscreen_icon.png"));
-        fullscreenButton->setIconSize(QSize(38, 38));
+        fullscreenButton->setIconSize(QSize(40, 40));
         settingsButton = new QPushButton(centralWidget);
         settingsButton->setFlat(true);
         settingsButton->setIcon(QIcon(":images/settings_icon.png"));
@@ -299,11 +299,11 @@ public:
         controllerButton = new QPushButton(centralWidget);
         controllerButton->setFlat(true);
         controllerButton->setIcon(QIcon(":images/controller_icon.png"));
-        controllerButton->setIconSize(QSize(55, 48));
+        controllerButton->setIconSize(QSize(40, 40));
         keyboardButton = new QPushButton(centralWidget);
         keyboardButton->setFlat(true);
         keyboardButton->setIcon(QIcon(":images/keyboard_icon.png"));
-        keyboardButton->setIconSize(QSize(50, 50));
+        keyboardButton->setIconSize(QSize(40, 40));
         restartButton = new QPushButton(centralWidget);
         restartButton->setFlat(true);
         restartButton->setIcon(QIcon(":images/restart_game_icon.png"));
@@ -327,7 +327,7 @@ public:
         configureHotkeysButton = new QPushButton(centralWidget);
         configureHotkeysButton->setFlat(true);
         configureHotkeysButton->setIcon(QIcon(":images/hotkeybutton.png"));
-        configureHotkeysButton->setIconSize(QSize(50, 40));
+        configureHotkeysButton->setIconSize(QSize(40, 40));
         sizeSliderContainer = new QWidget(centralWidget);
         sizeSliderContainer->setObjectName("sizeSliderContainer");
         sizeSliderContainer->setGeometry(QRect(280, 10, 181, 31));
