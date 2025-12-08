@@ -114,9 +114,9 @@ bool MainWindow::Init() {
     this->show();
     // load game list
     LoadGameLists();
-
     m_bigPicture =
         std::make_unique<BigPictureWidget>(m_game_info, m_compat_info, m_ipc_client, nullptr, this);
+
     if (Config::getEnableColorFilter()) {
         ui->playButton->installEventFilter(this);
         ui->pauseButton->installEventFilter(this);
@@ -187,6 +187,8 @@ bool MainWindow::Init() {
         rpc->setStatusIdling();
     }
 #endif
+    connect(m_game_cinematic_frame.get(), &GameCinematicFrame::launchGameRequested, this,
+            [this](int index) { StartGameByIndex(index, {}); });
 
     connect(
         m_bigPicture.get(), &BigPictureWidget::openModsManagerRequested, this, [this](int index) {
@@ -295,17 +297,24 @@ void MainWindow::toggleColorFilter() {
     bool enableFilter = ui->toggleColorFilterAct->isChecked();
     Config::setEnableColorFilter(enableFilter);
 
+    QColor baseColor;
+    QColor hoverColor;
+
     if (enableFilter) {
-        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
-        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        baseColor = m_window_themes.iconBaseColor();
+        hoverColor = m_window_themes.iconHoverColor();
+        if (m_game_list_frame)
+            m_game_list_frame->SetThemeColors(m_window_themes.textColor());
     } else {
-        QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
-                               ? Qt::black
-                               : Qt::white;
-        QColor hoverColor = baseColor;
-        SetUiIcons(baseColor, hoverColor);
-        m_game_list_frame->SetThemeColors(baseColor);
+        baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light)) ? Qt::black
+                                                                                     : Qt::white;
+        hoverColor = baseColor;
+        if (m_game_list_frame)
+            m_game_list_frame->SetThemeColors(baseColor);
     }
+
+    SetUiIcons(baseColor, hoverColor);
+
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::saveMainWindow(config_dir / "config.toml");
 }
@@ -323,7 +332,9 @@ void MainWindow::CreateActions() {
     m_list_mode_act_group->addAction(ui->setlistModeListAct);
     m_list_mode_act_group->addAction(ui->setlistModeGridAct);
     m_list_mode_act_group->addAction(ui->setlistElfAct);
-
+    if (ui->setlistModeCinematicAct) {
+        m_list_mode_act_group->addAction(ui->setlistModeCinematicAct);
+    }
     // create action group for themes
     m_theme_act_group = new QActionGroup(this);
     m_theme_act_group->addAction(ui->setThemeDark);
@@ -625,13 +636,17 @@ void MainWindow::CreateDockWindows(bool newDock) {
     if (newDock) {
         m_dock_widget.reset(new QDockWidget(tr("Game List"), this));
         m_game_list_frame.reset(new GameListFrame(m_game_info, m_compat_info, m_ipc_client, this));
-
         m_game_list_frame->setObjectName("gamelist");
-        m_game_grid_frame.reset(new GameGridFrame(m_game_info, m_compat_info, m_ipc_client, this));
 
+        m_game_grid_frame.reset(new GameGridFrame(m_game_info, m_compat_info, m_ipc_client, this));
         m_game_grid_frame->setObjectName("gamegridlist");
+
         m_elf_viewer.reset(new ElfViewer(this));
         m_elf_viewer->setObjectName("elflist");
+
+        m_game_cinematic_frame.reset(
+            new GameCinematicFrame(m_game_info, m_compat_info, m_ipc_client, this));
+        m_game_cinematic_frame->setObjectName("cinematiclist");
     }
 
     int table_mode = Config::getTableMode();
@@ -640,17 +655,24 @@ void MainWindow::CreateDockWindows(bool newDock) {
     if (table_mode == 0) {
         m_game_grid_frame->hide();
         m_elf_viewer->hide();
+        m_game_cinematic_frame->hide();
+
         m_game_list_frame->show();
         if (!newDock) {
             m_game_list_frame->clearContents();
             m_game_list_frame->PopulateGameList();
         }
         ui->splitter->addWidget(m_game_list_frame.data());
+
+        ui->sizeSlider->setEnabled(true);
         ui->sizeSlider->setSliderPosition(slider_pos);
         isTableList = true;
+
     } else if (table_mode == 1) {
         m_game_list_frame->hide();
         m_elf_viewer->hide();
+        m_game_cinematic_frame->hide();
+
         m_game_grid_frame->show();
         if (!newDock) {
             if (m_game_grid_frame->item(0, 0) == nullptr) {
@@ -659,13 +681,34 @@ void MainWindow::CreateDockWindows(bool newDock) {
             }
         }
         ui->splitter->addWidget(m_game_grid_frame.data());
+
+        ui->sizeSlider->setEnabled(true);
         ui->sizeSlider->setSliderPosition(slider_pos);
         isTableList = false;
-    } else {
+
+    } else if (table_mode == 2) {
         m_game_list_frame->hide();
         m_game_grid_frame->hide();
+        m_game_cinematic_frame->hide();
+
         m_elf_viewer->show();
         ui->splitter->addWidget(m_elf_viewer.data());
+
+        ui->sizeSlider->setEnabled(false);
+        isTableList = false;
+
+    } else if (table_mode == 3) {
+        m_game_list_frame->hide();
+        m_game_grid_frame->hide();
+        m_elf_viewer->hide();
+
+        m_game_cinematic_frame->show();
+        if (!newDock) {
+            m_game_cinematic_frame->PopulateGameList();
+        }
+        ui->splitter->addWidget(m_game_cinematic_frame.get());
+
+        ui->sizeSlider->setEnabled(false);
         isTableList = false;
     }
 
@@ -731,6 +774,9 @@ void MainWindow::LoadGameLists() {
     m_game_info->GetGameInfo(this);
     if (isTableList) {
         m_game_list_frame->PopulateGameList();
+    } else if (Config::getTableMode() == 3) {
+        // NEW: Populate Cinematic
+        m_game_cinematic_frame->PopulateGameList();
     } else {
         m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
     }
@@ -824,8 +870,6 @@ void MainWindow::CreateConnects() {
                 &MainWindow::RefreshGameTable);
 
         connect(settingsDialog, &SettingsDialog::accepted, this, &MainWindow::RefreshGameTable);
-        connect(settingsDialog, &SettingsDialog::rejected, this, &MainWindow::RefreshGameTable);
-        connect(settingsDialog, &SettingsDialog::close, this, &MainWindow::RefreshGameTable);
 
         connect(settingsDialog, &SettingsDialog::BackgroundOpacityChanged, this,
                 [this](int opacity) {
@@ -1131,6 +1175,18 @@ void MainWindow::CreateConnects() {
 
         Config::setTableMode(2); // ELF Viewer
         CreateDockWindows(false);
+        SetLastIconSizeBullet();
+    });
+    connect(ui->setlistModeCinematicAct, &QAction::triggered, m_dock_widget.data(), [this]() {
+        ui->sizeSlider->setEnabled(true);
+        BackgroundMusicPlayer::getInstance().stopMusic();
+
+        const QList<int> sizes = ui->splitter->sizes();
+        m_compat_info->SaveDockWidgetSizes(sizes);
+
+        Config::setTableMode(3);
+        CreateDockWindows(false);
+        ui->mw_searchbar->setText("");
         SetLastIconSizeBullet();
     });
 
@@ -1483,7 +1539,6 @@ void MainWindow::CreateConnects() {
     QObject::connect(m_ipc_client.get(), &IpcClient::LogEntrySent, this, &MainWindow::PrintLog);
 }
 
-
 void MainWindow::PrintLog(QString entry, QColor textColor) {
     ui->logDisplay->setTextColor(textColor);
     ui->logDisplay->append(entry);
@@ -1802,6 +1857,10 @@ void MainWindow::ConfigureGuiFromSettings() {
         ui->setlistModeGridAct->setChecked(true);
     } else if (Config::getTableMode() == 2) {
         ui->setlistElfAct->setChecked(true);
+    } else if (Config::getTableMode() == 3) {
+        // NEW
+        if (ui->setlistModeCinematicAct)
+            ui->setlistModeCinematicAct->setChecked(true);
     }
     BackgroundMusicPlayer::getInstance().setVolume(Config::getBGMvolume());
 }
@@ -1915,11 +1974,23 @@ void MainWindow::ApplyLastUsedStyle() {
 void MainWindow::SetLastUsedTheme() {
     Theme lastTheme = static_cast<Theme>(Config::getMainWindowTheme());
     m_window_themes.SetWindowTheme(lastTheme, ui->mw_searchbar);
+
+    // --- UPDATED LAMBDA ---
     auto applyTheme = [this]() {
         SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
 
         if (m_game_list_frame) {
             m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        }
+
+        // ADD THIS: Ensure Cinematic frame gets the update
+        // (You might need to add a SetThemeColors method to GameCinematicFrame class if you haven't
+        // yet,
+        //  or just ensure it repaints).
+        if (m_game_cinematic_frame) {
+            // If you added a method to pass text color to cinematic frame, call it here.
+            // If not, forcing a repaint is usually enough if it uses palette():
+            m_game_cinematic_frame->update();
         }
     };
 
@@ -2185,11 +2256,17 @@ void MainWindow::resizeEvent(QResizeEvent* event) {
 
 void MainWindow::HandleResize(QResizeEvent* event) {
     if (isTableList) {
-        m_game_list_frame->RefreshListBackgroundImage();
+        if (m_game_list_frame)
+            m_game_list_frame->RefreshListBackgroundImage();
+    } else if (Config::getTableMode() == 3) {
+        if (m_game_cinematic_frame)
+            m_game_cinematic_frame->RefreshBackground();
     } else {
-        m_game_grid_frame->windowWidth = this->width();
-        m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
-        m_game_grid_frame->RefreshGridBackgroundImage();
+        if (m_game_grid_frame) {
+            m_game_grid_frame->windowWidth = this->width();
+            m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
+            m_game_grid_frame->RefreshGridBackgroundImage();
+        }
     }
 }
 

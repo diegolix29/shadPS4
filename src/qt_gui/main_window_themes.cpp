@@ -13,7 +13,6 @@
 #include <common/path_util.h>
 #include "main_window_themes.h"
 
-
 QString GetOSSpecificWindowStyle(const QString& windowBg) {
 #ifdef Q_OS_WIN
 
@@ -110,15 +109,8 @@ QString GenerateUnifiedStylesheet(const QString& windowBg, const QString& textCo
         QSlider::groove:horizontal { border: 1px solid %6; height: 4px; background: %5; }
         QSlider::handle:horizontal { background: %4; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
     )")
-        .arg(windowBg,
-             textColor,
-             toolbarBg,
-             accentColor,
-             inputBg,
-             borderColor,
-             selectionColor,
-             gridColor,
-             osRootStyle);
+        .arg(windowBg, textColor, toolbarBg, accentColor, inputBg, borderColor, selectionColor,
+             gridColor, osRootStyle);
 }
 void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar) {
     QString wBg, txt, toolBg, accent, hov, inp, border, sel, grid;
