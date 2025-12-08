@@ -3,14 +3,15 @@
 
 #pragma once
 
+#include <QApplication>
 #include <QColor>
-#include <QString>
-
+#include <QLineEdit>
+#include <QWidget>
 class QLineEdit;
 class QDialog;
 class QWidget;
 
-enum class Theme {
+enum class Theme : int {
     Dark,
     Light,
     Green,
@@ -25,13 +26,14 @@ enum class Theme {
     QSS
 };
 
-class WindowThemes {
+class WindowThemes : public QObject {
+    Q_OBJECT
 public:
-    // Updated signature to accept listWidget and gridWidget again
-    void SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, QWidget* listWidget,
-                        QWidget* gridWidget, bool applyGlobalStylesheet = true);
+    explicit WindowThemes(QObject* parent = nullptr) : QObject(parent) {}
 
+    void SetWindowTheme(Theme theme, QLineEdit* mw_searchbar);
     void ApplyThemeToDialog(QDialog* dialog);
+
     void ApplyThemeToWidget(QWidget* widget);
 
     QColor iconBaseColor() const {
@@ -45,7 +47,7 @@ public:
     }
 
 private:
-    QColor m_iconBaseColor;
-    QColor m_iconHoverColor;
-    QColor m_textColor;
+    QColor m_iconBaseColor{Qt::white};
+    QColor m_iconHoverColor{Qt::lightGray};
+    QColor m_textColor{Qt::white};
 };

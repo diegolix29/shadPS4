@@ -164,7 +164,7 @@ BigPictureWidget::BigPictureWidget(std::shared_ptr<GameInfoClass> gameInfo,
 
     buildAnimations();
     Theme th = static_cast<Theme>(Config::getMainWindowTheme());
-    m_window_themes.SetWindowTheme(th, nullptr, nullptr, nullptr);
+    m_window_themes.SetWindowTheme(th, nullptr);
     m_window_themes.ApplyThemeToWidget(this);
     applyTheme();
 }
