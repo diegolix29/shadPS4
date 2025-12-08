@@ -22,6 +22,7 @@
 #include "core/ipc/ipc_client.h"
 #include "elf_viewer.h"
 #include "emulator.h"
+#include "game_cinematic_frame.h"
 #include "game_grid_frame.h"
 #include "game_info.h"
 #include "game_list_frame.h"
@@ -174,6 +175,7 @@ private:
     QScopedPointer<GameListFrame> m_game_list_frame;
     QScopedPointer<GameGridFrame> m_game_grid_frame;
     QScopedPointer<ElfViewer> m_elf_viewer;
+    std::unique_ptr<GameCinematicFrame> m_game_cinematic_frame;
 
     QScopedPointer<QStatusBar> statusBar;
 

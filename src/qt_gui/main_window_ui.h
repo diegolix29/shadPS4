@@ -31,6 +31,7 @@ public:
     QAction* toggleColorFilterAct;
     QAction* setlistModeListAct;
     QAction* setlistModeGridAct;
+    QAction* setlistModeCinematicAct;
     QAction* setlistElfAct;
     QAction* gameInstallPathAct;
     QAction* downloadCheatsPatchesAct;
@@ -174,6 +175,10 @@ public:
         setlistModeGridAct->setObjectName("setlistModeGridAct");
         setlistModeGridAct->setIcon(QIcon(":images/grid_icon.png"));
         setlistModeGridAct->setCheckable(true);
+        setlistModeCinematicAct = new QAction(MainWindow);
+        setlistModeCinematicAct->setObjectName("setlistModeCinematicAct");
+        setlistModeCinematicAct->setIcon(QIcon(":images/dump_icon.png"));
+        setlistModeCinematicAct->setCheckable(true);
         setlistElfAct = new QAction(MainWindow);
         setlistElfAct->setObjectName("setlistElfAct");
         setlistElfAct->setCheckable(true);
@@ -422,6 +427,7 @@ public:
         menuGame_List_Icons->addAction(setIconSizeLargeAct);
         menuGame_List_Mode->addAction(setlistModeListAct);
         menuGame_List_Mode->addAction(setlistModeGridAct);
+        menuGame_List_Mode->addAction(setlistModeCinematicAct);
         menuGame_List_Mode->addAction(bigPictureAct);
         menuGame_List_Mode->addAction(setlistElfAct);
         menuSettings->addAction(configureAct);
@@ -490,6 +496,8 @@ public:
             QCoreApplication::translate("MainWindow", "List View", nullptr));
         setlistModeGridAct->setText(
             QCoreApplication::translate("MainWindow", "Grid View", nullptr));
+        setlistModeCinematicAct->setText(
+            QCoreApplication::translate("MainWindow", "Cinema View", nullptr));
         setlistElfAct->setText(QCoreApplication::translate("MainWindow", "Elf Viewer", nullptr));
         gameInstallPathAct->setText(
             QCoreApplication::translate("MainWindow", "Games Directory", nullptr));
