@@ -65,11 +65,11 @@ BigPictureWidget::BigPictureWidget(std::shared_ptr<GameInfoClass> gameInfo,
         m_player->setLoops(QMediaPlayer::Infinite);
     } else {
         try {
-            if (resource.exists("src/images/bgm.mp3")) {
-                auto resFile = resource.open("src/images/bgm.mp3");
+            if (resource.exists("src/images/bgm.wav")) {
+                auto resFile = resource.open("src/images/bgm.wav");
 
                 QString tempPath =
-                    QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/bgm.mp3";
+                    QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/bgm.wav";
 
                 QFile temp(tempPath);
                 if (temp.open(QIODevice::WriteOnly)) {
