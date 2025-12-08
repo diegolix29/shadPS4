@@ -32,7 +32,7 @@ public:
     explicit WindowThemes(QObject* parent = nullptr) : QObject(parent) {}
 
     void SetWindowTheme(Theme theme, QLineEdit* mw_searchbar = nullptr,
-                               const QString& qssPath = "");
+                        const QString& qssPath = "");
     void ApplyThemeToDialog(QDialog* dialog);
 
     void ApplyThemeToWidget(QWidget* widget);
