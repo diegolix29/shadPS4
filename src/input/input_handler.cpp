@@ -69,9 +69,9 @@ std::array<ControllerAllOutputs, 4> output_arrays = {
 };
 
 void ControllerOutput::LinkJoystickAxes() {
-    for (int i = 17; i < 23; i += 2) {
-        output_arrays[i].data = output_arrays[i + 1].data;
-    }
+    //   for (int i = 17; i < 23; i += 2) {
+    //        output_arrays[i].data = output_arrays[i + 1].data;
+    //   }
 }
 
 static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
