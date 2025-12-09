@@ -5,11 +5,13 @@
 #include <QDirIterator>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFontDatabase>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QProcess>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QVBoxLayout>
 
 #include "common/path_util.h"
@@ -186,21 +188,28 @@ void ModManagerDialog::scanActiveMods() {
 }
 
 bool ModManagerDialog::modMatchesGame(const std::filesystem::path& modPath) const {
-    std::filesystem::path basePath = gamePath.toStdString();
-    if (!std::filesystem::exists(gamePath.toStdString()))
+    const std::filesystem::path basePath{gamePath.toStdString()};
+
+    std::error_code ec;
+    if (!std::filesystem::exists(basePath, ec))
         return false;
 
-    for (auto& entry : std::filesystem::recursive_directory_iterator(modPath)) {
-        if (!entry.is_regular_file())
+    std::filesystem::recursive_directory_iterator it(
+        modPath, std::filesystem::directory_options::skip_permission_denied, ec);
+
+    for (const auto& entry : it) {
+        if (ec)
             continue;
 
-        std::filesystem::path relative = std::filesystem::relative(entry.path(), modPath);
+        if (!entry.is_regular_file(ec))
+            continue;
 
-        std::filesystem::path expected = basePath / relative;
+        const std::filesystem::path rel = entry.path().lexically_relative(modPath);
+        if (rel.empty())
+            continue;
 
-        if (std::filesystem::exists(expected)) {
+        if (std::filesystem::exists(basePath / rel, ec))
             return true;
-        }
     }
 
     return false;
@@ -425,10 +434,7 @@ void ModManagerDialog::activateSelected() {
             }
 
             msg += "\nActivating this mod will overwrite them. Continue?";
-            QMessageBox::StandardButton reply =
-                QMessageBox::warning(this, "Mod Conflict Detected", msg,
-                                     QMessageBox::Cancel | QMessageBox::Ok, QMessageBox::Cancel);
-            if (reply == QMessageBox::Cancel)
+            if (!showScrollableConflictDialog(msg))
                 continue;
 
             updateModListUI();
@@ -685,6 +691,46 @@ QString ModManagerDialog::normalizeExtractedMod(const QString& modPath) {
     }
 
     return modPath;
+}
+
+bool ModManagerDialog::showScrollableConflictDialog(const QString& text) {
+    QDialog dlg(this);
+    dlg.setWindowTitle("Mod Conflict Detected");
+    dlg.setModal(true);
+    dlg.setMinimumSize(600, 400);
+    dlg.setMaximumSize(800, 600);
+
+    auto* layout = new QVBoxLayout(&dlg);
+
+    QLabel* label = new QLabel(text);
+    label->setWordWrap(true);
+    label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    label->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
+    QFont mono = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    mono.setPointSize(9);
+    label->setFont(mono);
+
+    auto* scroll = new QScrollArea();
+    scroll->setWidget(label);
+    scroll->setWidgetResizable(true);
+
+    layout->addWidget(scroll);
+
+    auto* btnLayout = new QHBoxLayout();
+    QPushButton* okBtn = new QPushButton("OK");
+    QPushButton* cancelBtn = new QPushButton("Cancel");
+
+    btnLayout->addStretch();
+    btnLayout->addWidget(cancelBtn);
+    btnLayout->addWidget(okBtn);
+
+    layout->addLayout(btnLayout);
+
+    QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+    QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+
+    return dlg.exec() == QDialog::Accepted;
 }
 
 void ModManagerDialog::restoreMod(const QString& modName) {

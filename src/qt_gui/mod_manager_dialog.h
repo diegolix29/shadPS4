@@ -25,6 +25,7 @@ public:
     void restoreMod(const QString& modName);
     void activateAll();
     void deactivateAll();
+    bool showScrollableConflictDialog(const QString& text);
 
 private:
     void scanAvailableMods();
