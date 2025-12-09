@@ -180,8 +180,7 @@ void GameCinematicFrame::PopulateGameList() {
 }
 
 void GameCinematicFrame::RefreshBackground() {
-    QPalette palette = this->palette();
-
+    QPalette palette;
     if (!backgroundImage.isNull() && Config::getShowBackgroundImage()) {
         QSize widgetSize = size();
         QPixmap scaledPixmap =
@@ -193,15 +192,10 @@ void GameCinematicFrame::RefreshBackground() {
         finalPixmap.fill(Qt::transparent);
         QPainter painter(&finalPixmap);
         painter.drawPixmap(x, y, scaledPixmap);
-
         palette.setBrush(QPalette::Base, QBrush(finalPixmap));
-    } else {
-        palette.setBrush(QPalette::Base, QBrush(Qt::NoBrush));
     }
-
     QColor transparentColor = QColor(135, 206, 235, 40);
     palette.setColor(QPalette::Highlight, transparentColor);
-
     this->setPalette(palette);
 }
 
@@ -313,6 +307,7 @@ void GameCinematicFrame::mouseDoubleClickEvent(QMouseEvent* event) {
 
 void GameCinematicFrame::paintEvent(QPaintEvent*) {
     QPainter p(this);
+    RefreshBackground();
     p.setRenderHint(QPainter::SmoothPixmapTransform);
 
     if (!m_background.isNull()) {
