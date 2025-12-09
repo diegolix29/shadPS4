@@ -11,6 +11,7 @@
 #include <QSysInfo>
 #include <QTableWidget>
 #include <common/path_util.h>
+#include "common/config.h"
 #include "main_window_themes.h"
 
 QString GetOSSpecificWindowStyle(const QString& windowBg) {
@@ -160,10 +161,11 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
 
         m_iconBaseColor = base;
 
-        QString unifiedCss =
-            GenerateUnifiedStylesheet(wBg, txt, toolBg, accent, hov, inp, border, sel, grid);
-
-        qApp->setStyleSheet(unifiedCss);
+        if (Config::getEnableColorFilter()) {
+            QString unifiedCss =
+                GenerateUnifiedStylesheet(wBg, txt, toolBg, accent, hov, inp, border, sel, grid);
+            qApp->setStyleSheet(unifiedCss);
+        }
 
     } else {
         qApp->setStyleSheet("");
@@ -386,6 +388,9 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
 }
 
 void WindowThemes::ApplyThemeToDialog(QDialog* dialog) {
+    if (!Config::getEnableColorFilter()) {
+        return;
+    }
     dialog->setPalette(qApp->palette());
 
     if (!qApp->styleSheet().isEmpty()) {
@@ -415,6 +420,10 @@ void WindowThemes::ApplyThemeToDialog(QDialog* dialog) {
 void WindowThemes::ApplyThemeToWidget(QWidget* widget) {
     if (!widget)
         return;
+
+    if (!Config::getEnableColorFilter()) {
+        return;
+    }
 
     widget->setPalette(qApp->palette());
     if (!qApp->styleSheet().isEmpty()) {

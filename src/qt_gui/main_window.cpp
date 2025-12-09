@@ -302,15 +302,26 @@ void MainWindow::toggleColorFilter() {
     if (enableFilter) {
         baseColor = m_window_themes.iconBaseColor();
         hoverColor = m_window_themes.iconHoverColor();
-    } else
+    } else {
+
+        bool isLightTheme = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light));
+        baseColor = isLightTheme ? Qt::black : Qt::white;
         hoverColor = baseColor;
+    }
 
     SetUiIcons(baseColor, hoverColor);
 
-    if (m_game_list_frame)
-        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+    if (m_game_list_frame) {
+        if (enableFilter) {
+            m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        } else {
+            m_game_list_frame->SetThemeColors(baseColor);
+        }
+    }
+
     if (m_game_cinematic_frame)
         m_game_cinematic_frame->update();
+
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::saveMainWindow(config_dir / "config.toml");
 }
@@ -906,8 +917,22 @@ void MainWindow::CreateConnects() {
             QApplication::setStyle(QStyleFactory::create(styleName));
             Config::setGuiStyle(styleName.toStdString());
         }
-        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
-        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+
+        if (Config::getEnableColorFilter()) {
+            SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+            if (m_game_list_frame) {
+                m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+            }
+        } else {
+            QColor baseColor = (Config::getMainWindowTheme() == static_cast<int>(Theme::Light))
+                                   ? Qt::black
+                                   : Qt::white;
+            SetUiIcons(baseColor, baseColor);
+            if (m_game_list_frame) {
+                m_game_list_frame->SetThemeColors(baseColor);
+            }
+        }
+
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         Config::saveMainWindow(config_dir / "config.toml");
     });
@@ -1537,6 +1562,7 @@ void MainWindow::CreateConnects() {
         QString savedStyle = QString::fromStdString(Config::getGuiStyle());
         m_window_themes.SetWindowTheme(Theme::QSS, ui->mw_searchbar, savedStyle);
         Config::setMainWindowTheme(static_cast<int>(Theme::QSS));
+
         int idx = ui->styleSelector->findData(savedStyle);
         if (idx >= 0) {
             if (ui->styleSelector->currentIndex() == idx) {
@@ -1548,9 +1574,14 @@ void MainWindow::CreateConnects() {
             }
             ui->styleSelector->setCurrentIndex(idx);
         }
-        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
-        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
-        if (!Config::getEnableColorFilter()) {
+
+        if (Config::getEnableColorFilter()) {
+            SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+            m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        } else {
+            QColor standardColor = Qt::white;
+            SetUiIcons(standardColor, standardColor);
+            m_game_list_frame->SetThemeColors(standardColor);
         }
     });
     QObject::connect(m_ipc_client.get(), &IpcClient::LogEntrySent, this, &MainWindow::PrintLog);
@@ -1990,16 +2021,27 @@ void MainWindow::ApplyLastUsedStyle() {
 
 void MainWindow::SetLastUsedTheme() {
     Theme lastTheme = static_cast<Theme>(Config::getMainWindowTheme());
-
     QString savedStylePath = QString::fromStdString(Config::getGuiStyle());
 
+    // Calculate the colors, but don't apply them yet
     m_window_themes.SetWindowTheme(lastTheme, ui->mw_searchbar, savedStylePath);
 
-    auto applyTheme = [this]() {
-        SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
+    auto applyTheme = [this, lastTheme]() {
+        // Check if filter is enabled
+        if (Config::getEnableColorFilter()) {
+            SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
 
-        if (m_game_list_frame) {
-            m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+            if (m_game_list_frame) {
+                m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+            }
+        } else {
+            // If filter disabled, force standard colors
+            QColor baseColor = (lastTheme == Theme::Light) ? Qt::black : Qt::white;
+            SetUiIcons(baseColor, baseColor);
+
+            if (m_game_list_frame) {
+                m_game_list_frame->SetThemeColors(baseColor);
+            }
         }
 
         if (m_game_cinematic_frame) {
@@ -2011,86 +2053,50 @@ void MainWindow::SetLastUsedTheme() {
     case Theme::Light:
         ui->setThemeLight->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::Dark:
         ui->setThemeDark->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::Green:
         ui->setThemeGreen->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::Blue:
         ui->setThemeBlue->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::Violet:
         ui->setThemeViolet->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::Gruvbox:
         ui->setThemeGruvbox->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::TokyoNight:
         ui->setThemeTokyoNight->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::Oled:
         ui->setThemeOled->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::Neon:
         ui->setThemeNeon->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::Shadlix:
         ui->setThemeShadlix->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::ShadlixCave:
         ui->setThemeShadlixCave->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     case Theme::QSS:
         ui->setThemeQSS->setChecked(true);
         applyTheme();
-        if (Config::getEnableColorFilter()) {
-            toggleColorFilter();
-        }
         break;
     }
 }
