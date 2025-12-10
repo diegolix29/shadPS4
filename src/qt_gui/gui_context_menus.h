@@ -211,77 +211,41 @@ public:
         if (selected == bootGameDetached) {
             QString gameDir;
             Common::FS::PathToQString(gameDir, m_games[itemID].path);
-            QDir dir(gameDir);
 
-            QStringList elfFilters = {"*.elf", "*.oelf", "*.self"};
-            QStringList binFilters = {"*.bin"};
-            QStringList elfFiles = dir.entryList(elfFilters, QDir::Files);
-            QStringList binFiles = dir.entryList(binFilters, QDir::Files);
-
-            QString ebootPath;
-
-            if (!elfFiles.isEmpty()) {
-                QStringList allFiles;
-                for (const auto& file : elfFiles)
-                    allFiles << dir.filePath(file);
-                for (const auto& file : binFiles)
-                    allFiles << dir.filePath(file);
-
-                bool ok = false;
-                ebootPath =
-                    QInputDialog::getItem(widget, tr("Select ELF to Boot"),
-                                          tr("Choose ELF/self/bin file:"), allFiles, 0, false, &ok);
-                if (!ok || ebootPath.isEmpty())
-                    return changedFavorite;
-            } else if (!binFiles.isEmpty()) {
-                ebootPath = dir.filePath(binFiles.first());
-            } else {
-                QMessageBox::information(widget, tr("Boot Game Detached"),
-                                         tr("No executable files found in this game directory."));
+            if (gameDir.isEmpty()) {
+                QMessageBox::warning(widget, tr("Boot Game Detached"), tr("Invalid game path."));
                 return changedFavorite;
             }
 
+            BackgroundMusicPlayer::getInstance().stopMusic();
+
             QString exePath = QCoreApplication::applicationFilePath();
-            QStringList args;
+            QString emulatorExePath = QString::fromStdString(Config::getVersionPath());
 
-            args << "-e" << ebootPath;
-
-            QStringList originalArgs = QCoreApplication::arguments();
-
-            for (int i = 1; i < originalArgs.size(); ++i) {
-                const QString& arg = originalArgs.at(i);
-                if (arg == "-e" || arg == "-g")
-                    continue;
-                args << arg;
+            if (emulatorExePath.isEmpty() || !QFile::exists(emulatorExePath)) {
+                emulatorExePath = exePath;
             }
+
+            QStringList args;
+            args << gameDir;
 
             QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-
-            QStringList envKeys = {"SHADPS4_ENABLE_IPC", "SHADPS4_ENABLE_MODS",
-                                   "SHADPS4_BASE_GAME",  "SHADPS4_LOG_LEVEL",
-                                   "SHADPS4_DEBUG",      "SHADPS4_OVERRIDE_CONFIG"};
-
-            for (const QString& key : envKeys) {
-                if (qEnvironmentVariableIsSet(key.toUtf8().constData())) {
-                    env.insert(key, qEnvironmentVariable(key.toUtf8().constData()));
-                }
-            }
-
-            QProcess process;
-            process.setProcessEnvironment(env);
+            env.insert("SHADPS4_ENABLE_IPC", "true");
 
             bool started = false;
 
 #if defined(Q_OS_WIN)
-            started = QProcess::startDetached(exePath, args, QString(), nullptr);
+            started = QProcess::startDetached(emulatorExePath, args, QString(), nullptr);
 #elif defined(Q_OS_MAC)
-            started = QProcess::startDetached("open", QStringList() << exePath << "--args" << args);
+            started = QProcess::startDetached("open", QStringList()
+                                                          << emulatorExePath << "--args" << args);
 #else
-            started = QProcess::startDetached(exePath, args, QString(), nullptr);
+            started = QProcess::startDetached(emulatorExePath, args, QString(), nullptr);
 #endif
 
             if (!started) {
-                QMessageBox::critical(widget, tr("Error"), tr("Failed to launch game detached!"));
+                QMessageBox::critical(widget, tr("Error"),
+                                      tr("Failed to launch game in detached mode."));
             }
         }
 
