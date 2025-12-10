@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <filesystem>
@@ -165,7 +165,6 @@ bool MainWindow::Init() {
         }
     }
 #ifdef ENABLE_UPDATER
-    // Check for update
     CheckUpdateMain(true);
 #endif
 
@@ -285,8 +284,7 @@ void MainWindow::openHotkeysWindow() {
 void MainWindow::StartGameByIndex(int index, QStringList args) {
     if (index < 0 || index >= m_game_info->m_games.size())
         return;
-
-    lastGamePath = QString::fromStdString(m_game_info->m_games[index].path.string());
+    lastGamePath = m_game_info->m_games[index].path;
     runningGameSerial = m_game_info->m_games[index].serial;
 
     StartGameWithArgs(args, index);
@@ -503,11 +501,15 @@ void MainWindow::AddUiWidgets() {
     styleAndLogLayout->addLayout(styleRowLayout);
 
     QHBoxLayout* logButtonRow = new QHBoxLayout();
+    ui->launcherBox = new QCheckBox(tr("Use Selected QT Version"), this);
+    ui->launcherBox->setToolTip(tr("Let you Boot Game with selected Version"));
+    ui->launcherBox->setChecked(Config::getBootLauncher());
 
     QSpacerItem* offsetSpacer = new QSpacerItem(styleLabel->sizeHint().width(), 0,
                                                 QSizePolicy::Fixed, QSizePolicy::Minimum);
 
     logButtonRow->addItem(offsetSpacer);
+    logButtonRow->addWidget(ui->launcherBox, 0, Qt::AlignLeft);
     logButtonRow->addWidget(ui->toggleLogButton, 0, Qt::AlignHCenter);
     logButtonRow->addWidget(ui->installPkgButton, 0, Qt::AlignHCenter);
 
@@ -550,10 +552,9 @@ void MainWindow::AddUiWidgets() {
 void MainWindow::UpdateToolbarButtons() {
     bool showLabels = ui->toggleLabelsAct->isChecked();
 
-    // When a game is running:
     if (Config::getGameRunning()) {
-        ui->playButton->setVisible(false); // Hide Play
-        ui->pauseButton->setVisible(true); // Show Pause
+        ui->playButton->setVisible(false);
+        ui->pauseButton->setVisible(true);
 
         if (is_paused) {
             ui->pauseButton->setIcon(ui->playButton->icon());
@@ -577,7 +578,6 @@ void MainWindow::UpdateToolbarButtons() {
             ui->pauseButton->setToolTip(tr("Pause"));
         }
 
-        // Update labels if shown
         if (showLabels) {
             QLabel* playLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
             QLabel* pauseLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
@@ -591,7 +591,6 @@ void MainWindow::UpdateToolbarButtons() {
         return;
     }
 
-    // When game is not running:
     ui->playButton->setVisible(true);
     ui->pauseButton->setVisible(false);
 
@@ -620,7 +619,6 @@ void MainWindow::UpdateToolbarLabels() {
             label->setVisible(showLabels);
     }
 
-    // Handle pause button label separately
     QLabel* pauseLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
     if (pauseLabel)
         pauseLabel->setVisible(showLabels && Config::getGameRunning());
@@ -769,20 +767,16 @@ void MainWindow::CreateDockWindows(bool newDock) {
 }
 
 void MainWindow::LoadGameLists() {
-    // Load compatibility database
     if (Config::getCompatibilityEnabled())
         m_compat_info->LoadCompatibilityFile();
 
-    // Update compatibility database
     if (Config::getCheckCompatibilityOnStartup())
         m_compat_info->UpdateCompatibilityDatabase(this);
 
-    // Get game info from game folders.
     m_game_info->GetGameInfo(this);
     if (isTableList) {
         m_game_list_frame->PopulateGameList();
     } else if (Config::getTableMode() == 3) {
-        // NEW: Populate Cinematic
         m_game_cinematic_frame->PopulateGameList();
     } else {
         m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
@@ -839,7 +833,7 @@ void MainWindow::CreateConnects() {
     connect(ui->sizeSlider, &QSlider::valueChanged, this, [this](int value) {
         if (isTableList) {
             m_game_list_frame->icon_size =
-                48 + value; // 48 is the minimum icon size to use due to text disappearing.
+                48 + value;
             m_game_list_frame->ResizeIcons(48 + value);
             Config::setIconSize(48 + value);
             Config::setSliderPosition(value);
@@ -980,6 +974,12 @@ void MainWindow::CreateConnects() {
         versionDialog->InstallPkgWithV7();
     });
 
+    connect(ui->launcherBox, &QCheckBox::clicked, this, [this](bool checked) {
+        Config::setBootLauncher(checked);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml");
+    });
+
     connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
         auto settingsDialog =
             new SettingsDialog(m_compat_info, m_ipc_client, this, Config::getGameRunning());
@@ -1027,13 +1027,11 @@ void MainWindow::CreateConnects() {
     });
 
 #ifdef ENABLE_UPDATER
-    // Help menu
     connect(ui->updaterAct, &QAction::triggered, this, [this]() {
         auto checkUpdate = new CheckUpdate(true);
         checkUpdate->exec();
     });
 
-    // Toolbar button
     connect(ui->updaterButton, &QPushButton::clicked, this, [this]() {
         auto checkUpdate = new CheckUpdate(true);
         checkUpdate->exec();
@@ -1115,7 +1113,7 @@ void MainWindow::CreateConnects() {
     connect(ui->setIconSizeTinyAct, &QAction::triggered, this, [this]() {
         if (isTableList) {
             m_game_list_frame->icon_size =
-                36; // 36 is the minimum icon size to use due to text disappearing.
+                36;
             ui->sizeSlider->setValue(0); // icone_size - 36
             Config::setIconSize(36);
             Config::setSliderPosition(0);
@@ -1177,7 +1175,6 @@ void MainWindow::CreateConnects() {
             m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
         }
     });
-    // List
     connect(ui->setlistModeListAct, &QAction::triggered, m_dock_widget.data(), [this]() {
         ui->sizeSlider->setEnabled(true);
         BackgroundMusicPlayer::getInstance().stopMusic();
@@ -1185,13 +1182,12 @@ void MainWindow::CreateConnects() {
         const QList<int> sizes = ui->splitter->sizes();
         m_compat_info->SaveDockWidgetSizes(sizes);
 
-        Config::setTableMode(0); // List
+        Config::setTableMode(0);
         CreateDockWindows(false);
         ui->mw_searchbar->setText("");
         SetLastIconSizeBullet();
     });
 
-    // Grid
     connect(ui->setlistModeGridAct, &QAction::triggered, m_dock_widget.data(), [this]() {
         ui->sizeSlider->setEnabled(true);
         BackgroundMusicPlayer::getInstance().stopMusic();
@@ -1199,13 +1195,12 @@ void MainWindow::CreateConnects() {
         const QList<int> sizes = ui->splitter->sizes();
         m_compat_info->SaveDockWidgetSizes(sizes);
 
-        Config::setTableMode(1); // Grid
+        Config::setTableMode(1);
         CreateDockWindows(false);
         ui->mw_searchbar->setText("");
         SetLastIconSizeBullet();
     });
 
-    // ELF Viewer
     connect(ui->setlistElfAct, &QAction::triggered, m_dock_widget.data(), [this]() {
         ui->sizeSlider->setEnabled(false);
         BackgroundMusicPlayer::getInstance().stopMusic();
@@ -1213,7 +1208,7 @@ void MainWindow::CreateConnects() {
         const QList<int> sizes = ui->splitter->sizes();
         m_compat_info->SaveDockWidgetSizes(sizes);
 
-        Config::setTableMode(2); // ELF Viewer
+        Config::setTableMode(2);
         CreateDockWindows(false);
         SetLastIconSizeBullet();
     });
@@ -1230,7 +1225,6 @@ void MainWindow::CreateConnects() {
         SetLastIconSizeBullet();
     });
 
-    // Cheats/Patches Download.
     connect(ui->downloadCheatsPatchesAct, &QAction::triggered, this, [this]() {
         QDialog* panelDialog = new QDialog(this);
         QVBoxLayout* layout = new QVBoxLayout(panelDialog);
@@ -1321,7 +1315,6 @@ void MainWindow::CreateConnects() {
         panelDialog->exec();
     });
 
-    // Dump game list.
     connect(ui->dumpGameListAct, &QAction::triggered, this, [&] {
         QString filePath = qApp->applicationDirPath().append("/GameList.txt");
         QFile file(filePath);
@@ -1348,15 +1341,12 @@ void MainWindow::CreateConnects() {
         }
     });
 
-    // Package install.
     connect(ui->bootGameAct, &QAction::triggered, this, &MainWindow::BootGame);
     connect(ui->gameInstallPathAct, &QAction::triggered, this, &MainWindow::Directories);
 
-    // elf viewer
     connect(ui->addElfFolderAct, &QAction::triggered, m_elf_viewer.data(),
             &ElfViewer::OpenElfFolder);
 
-    // Trophy Viewer
     connect(ui->trophyViewerAct, &QAction::triggered, this, [this]() {
         if (m_game_info->m_games.empty()) {
             QMessageBox::information(
@@ -1817,9 +1807,44 @@ select to boot Base game or Update)"));
     }
     QString workDir = QDir::currentPath();
     BackgroundMusicPlayer::getInstance().stopMusic();
+    if (Config::getBootLauncher()) {
 
-    m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), fullArgs, workDir);
+        std::filesystem::path path = Common::FS::PathFromQString(gamePath);
 
+        StartEmulator(path, args);
+    } else if (Config::getSdlInstalled()) {
+        QString emulatorExePath = QString::fromStdString(Config::getVersionPath());
+        QStringList final_args = args;
+        final_args.prepend(QString::fromStdString(launchPath.string()));
+        final_args.prepend("--game");
+
+        if (ignorePatches) {
+            Core::FileSys::MntPoints::ignore_game_patches = true;
+        }
+
+        BackgroundMusicPlayer::getInstance().stopMusic();
+
+        bool started = false;
+
+#if defined(Q_OS_WIN)
+        started = QProcess::startDetached(emulatorExePath, final_args, QString(), nullptr);
+#elif defined(Q_OS_MAC)
+        QStringList macArgs;
+        macArgs << emulatorExePath << "--args";
+        macArgs.append(final_args);
+        started = QProcess::startDetached("open", macArgs, QString(), nullptr);
+#else
+        started = QProcess::startDetached(emulatorExePath, final_args, QString(), nullptr);
+#endif
+
+        if (!started) {
+            QMessageBox::critical(this, tr("Error"), tr("Failed to launch game in detached mode."));
+        }
+    } else {
+
+        m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), fullArgs,
+                                workDir);
+    }
     if (ignorePatches) {
         Core::FileSys::MntPoints::ignore_game_patches = false;
     }
@@ -1839,7 +1864,7 @@ select to boot Base game or Update)"));
         });
     };
 
-    lastGamePath = QString::fromStdString(launchPath.string());
+    lastGamePath = launchPath;
     UpdateToolbarButtons();
 }
 
@@ -1947,7 +1972,7 @@ void MainWindow::BootGame() {
 
         StartGameWithPath(gamePath);
 
-        lastGamePath = gamePath;
+        lastGamePath = gamePath.toStdString();
         Config::setGameRunning(true);
         UpdateToolbarButtons();
     }
@@ -1974,7 +1999,6 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
         return;
     }
     BackgroundMusicPlayer::getInstance().stopMusic();
-
     emulatorProcess = new QProcess(this);
     QString exePath = QCoreApplication::applicationFilePath();
     emulatorProcess->setProcessChannelMode(QProcess::ForwardedChannels);
@@ -1982,25 +2006,67 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert("SHADPS4_ENABLE_IPC", "true");
     emulatorProcess->setProcessEnvironment(env);
+    QString emulatorExePath = QString::fromStdString(Config::getVersionPath());
 
-    emulatorProcess->start(exePath, QStringList() << gamePath);
+    if (emulatorExePath.isEmpty() || !QFile::exists(emulatorExePath)) {
+        emulatorExePath = exePath;
+    }
 
-    lastGamePath = gamePath;
+    QStringList final_args;
+
+    final_args << "--game";
+
+    final_args << gamePath;
+
+    StartEmulator(path, final_args);
+
     Config::setGameRunning(true);
+    m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
     UpdateToolbarButtons();
 
-    connect(emulatorProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
-            [this](int, QProcess::ExitStatus) {
-                Config::setGameRunning(false);
-                UpdateToolbarButtons();
-                emulatorProcess->deleteLater();
-            });
+    if (!m_ipc_client || !Config::getGameRunning()) {
+        QMessageBox::critical(this, tr("shadPS4"), tr("Failed to start game process."));
+        return;
+    }
+
+    m_ipc_client->gameClosedFunc = [this]() {
+        QMetaObject::invokeMethod(this, [this]() {
+            Config::setGameRunning(false);
+            UpdateToolbarButtons();
+        });
+    };
 }
 
 void MainWindow::Directories() {
     GameDirectoryDialog dlg;
     dlg.exec();
     RefreshGameTable();
+}
+
+void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
+    if (Config::getGameRunning()) {
+        QMessageBox::critical(nullptr, tr("Run Game"), QString(tr("Game is already running!")));
+        return;
+    }
+
+    QString selectedVersion = QString::fromStdString(Config::getVersionPath());
+    QFileInfo fileInfo(selectedVersion);
+    if (!fileInfo.exists()) {
+        QMessageBox::critical(nullptr, "shadPS4",
+                              QString(tr("Could not find the emulator executable")));
+        return;
+    }
+
+    QStringList final_args{"--game", QString::fromStdWString(path.wstring())};
+
+    final_args.append(args);
+
+    Config::setGameRunning(true);
+    lastGamePath = path;
+
+    QString workDir = QDir::currentPath();
+    m_ipc_client->startGame(fileInfo, final_args, workDir, false);
+    m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
 }
 
 void MainWindow::ApplyLastUsedStyle() {
@@ -2413,7 +2479,7 @@ void MainWindow::RestartGame() {
         return;
     }
 
-    if (lastGamePath.isEmpty()) {
+    if (lastGamePath.empty()) {
         QMessageBox::critical(this, tr("Restart Game"), tr("Cannot restart: no stored game path."));
         return;
     }

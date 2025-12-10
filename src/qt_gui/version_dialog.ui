@@ -63,6 +63,13 @@
                                                                 </property>
                                                             </widget>
                                                         </item>
+                                                        <item>
+                                                            <widget class="QPushButton" name="clear_shad_path">
+                                                                <property name="text">
+                                                                    <string>Clear</string>
+                                                                </property>
+                                                            </widget>
+                                                        </item>
                                                     </layout>
                                                 </item>
                                             </layout>
@@ -126,9 +133,7 @@
                                                 <layout class="QHBoxLayout" name="horizontalLayout_14">
                                                     <item><widget class="QPushButton" name="addCustomVersionButton"><property name="text"><string>Add Custom</string></property></widget></item>
                                                     <item><widget class="QPushButton" name="checkChangesVersionButton"><property name="text"><string>Check Changes (Refresh)</string></property></widget></item>
-                                                    <item><widget class="QPushButton" name="deleteVersionButton"><property name="text"><string>Delete</string></property></widget></item>
-                                                    <item><widget class="QPushButton" name="restoreExeButton"><property name="text"><string>Restore</string></property></widget></item>
-                                                    <item><widget class="QPushButton" name="installVersionButton"><property name="text"><string>Install Selected</string></property></widget></item>
+                                                    <item><widget class="QPushButton" name="deleteVersionButton"><property name="text"><string>Delete</string></property></widget></item>                                                    <item><widget class="QPushButton" name="installVersionButton"><property name="text"><string>Install Selected</string></property></widget></item>
                                                     <item><widget class="QPushButton" name="uninstallQtButton"><property name="text"><string>Uninstall Selected</string></property></widget></item>
                                                     <item><widget class="QPushButton" name="installPkgButton"><property name="text"><string>Install PKG</string></property></widget></item>
                                                 </layout>
@@ -166,30 +171,6 @@
                                                         <widget class="QCheckBox" name="sdlBuildCheckBox">
                                                             <property name="text">
                                                                 <string>Fetch SDL builds instead of Qt builds</string>
-                                                            </property>
-                                                        </widget>
-                                                    </item>
-
-                                                    <item>
-                                                        <widget class="QCheckBox" name="updatePreCheckBox">
-                                                            <property name="text">
-                                                                <string>Check for pre-release updates at startup</string>
-                                                            </property>
-                                                        </widget>
-                                                    </item>
-
-                                                    <item>
-                                                        <widget class="QCheckBox" name="checkCompatibilityOnStartupPreCheckBox">
-                                                            <property name="text">
-                                                                <string>Always show pre-release changelog</string>
-                                                            </property>
-                                                        </widget>
-                                                    </item>
-
-                                                    <item>
-                                                        <widget class="QPushButton" name="updateCompatibilityPreButton">
-                                                            <property name="text">
-                                                                <string>Check for pre-release Updates</string>
                                                             </property>
                                                         </widget>
                                                     </item>

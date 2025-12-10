@@ -171,6 +171,7 @@ static ConfigEntry<bool> fpsLimiterEnabled(false);
 static std::string guiStyle = "Fusion";
 static std::string g_customBackgroundImage;
 static ConfigEntry<bool> firstBootHandled(false);
+static std::string version_path;
 
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
@@ -239,7 +240,6 @@ static ConfigEntry<bool> showFpsCounter(false);
 static ConfigEntry<bool> fpsColorState(false);
 static ConfigEntry<bool> logEnabled(true);
 
-// Shader skips (runtime, not saved)
 std::unordered_map<std::string, std::vector<std::string>> all_skipped_shader_hashes = {
     {"CUSA16195", {"5f8eaca5", "5469af28"}},
     {"CUSA00018",
@@ -286,7 +286,9 @@ static ConfigEntry<int> volumeSlider(100);
 static ConfigEntry<bool> muteEnabled(false);
 static ConfigEntry<u32> fpsLimit(60);
 static bool isGameRunning = false;
+static bool isSDL = false;
 static bool load_auto_patches = true;
+static bool launcher_boot = false;
 
 bool getGameRunning() {
     return isGameRunning;
@@ -294,6 +296,14 @@ bool getGameRunning() {
 
 void setGameRunning(bool running) {
     isGameRunning = running;
+}
+
+bool getSdlInstalled() {
+    return isSDL;
+}
+
+void setSdlInstalled(bool use) {
+    isSDL = use;
 }
 // Settings
 u32 m_language = 1; // english
@@ -401,6 +411,22 @@ std::string getGuiStyle() {
 
 void setGuiStyle(const std::string& style) {
     guiStyle = style;
+}
+
+void setVersionPath(const std::string& path) {
+    version_path = path;
+}
+
+std::string getVersionPath() {
+    return version_path;
+}
+
+bool getBootLauncher() {
+    return launcher_boot;
+}
+
+void setBootLauncher(bool enabled) {
+    launcher_boot = enabled;
 }
 
 bool getEnableAutoBackup() {
@@ -1514,6 +1540,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         mw_themes = toml::find_or<int>(gui, "theme", 0);
         guiStyle = toml::find_or<std::string>(gui, "guiStyle", "");
+        version_path = toml::find_or<std::string>(gui, "version_path", "");
 
         m_window_size_W = toml::find_or<int>(gui, "mw_width", 1280);
         m_window_size_H = toml::find_or<int>(gui, "mw_height", 720);
@@ -1529,6 +1556,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
         showLabelsUnderIcons = toml::find_or<bool>(gui, "showLabelsUnderIcons", true);
         enableColorFilter = toml::find_or<bool>(gui, "enableColorFilter", true);
+        launcher_boot = toml::find_or<bool>(gui, "launcher_boot", false);
 
         const auto directories_array =
             toml::find_or<std::vector<std::u8string>>(gui, "Directories", {});
@@ -1575,7 +1603,6 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         }
     }
 
-    // Check if the loaded language is in the allowed list
     const std::vector<std::string> allowed_languages = {
         "ar_SA", "da_DK", "de_DE", "el_GR", "en_US", "es_ES", "fa_IR", "fi_FI", "fr_FR", "hu_HU",
         "id_ID", "it_IT", "ja_JP", "ko_KR", "lt_LT", "nb_NO", "nl_NL", "pl_PL", "pt_BR", "pt_PT",
@@ -1583,7 +1610,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
     if (std::find(allowed_languages.begin(), allowed_languages.end(), emulator_language) ==
         allowed_languages.end()) {
-        emulator_language = "en_US"; // Default to en_US if not in the list
+        emulator_language = "en_US";
         save(path);
     }
 }
@@ -1791,7 +1818,6 @@ void save(const std::filesystem::path& path) {
 
     data["ShaderSkip"] = shader_skip_data;
 
-    // Sorting of TOML sections
     sortTomlSections(data);
 
     std::ofstream file(path, std::ios::binary);
@@ -1839,9 +1865,10 @@ void saveMainWindow(const std::filesystem::path& path) {
     data["GUI"]["recentFiles"] = m_recent_files;
     data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
     data["GUI"]["enableColorFilter"] = enableColorFilter;
+    data["GUI"]["launcher_boot"] = launcher_boot;
     data["GUI"]["guiStyle"] = guiStyle;
+    data["GUI"]["version_path"] = version_path;
 
-    // Sorting of TOML sections
     sortTomlSections(data);
 
     std::ofstream file(path, std::ios::binary);
@@ -1957,6 +1984,7 @@ void setDefaultValues() {
     showBackgroundImage = true;
     showLabelsUnderIcons = true;
     enableColorFilter = true;
+    launcher_boot = false;
 }
 
 constexpr std::string_view GetDefaultGlobalConfig() {

@@ -79,6 +79,7 @@ public:
     QPushButton* modManagerButton;
     QPushButton* configureHotkeysButton;
     QComboBox* styleSelector = new QComboBox();
+    QCheckBox* launcherBox;
 
     QWidget* sizeSliderContainer;
     QHBoxLayout* sizeSliderContainer_layout;

@@ -112,6 +112,12 @@ bool getEnableAutoBackup();
 
 void setGuiStyle(const std::string& style);
 std::string getGuiStyle();
+std::string getVersionPath();
+void setVersionPath(const std::string& path);
+bool getBootLauncher();
+void setBootLauncher(bool enabled);
+bool getSdlInstalled();
+void setSdlInstalled(bool use);
 bool getGameRunning();
 void setGameRunning(bool running);
 bool debugDump();

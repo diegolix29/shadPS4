@@ -81,6 +81,7 @@ signals:
     void WindowResized(QResizeEvent* event);
 
 public:
+    void StartEmulator(std::filesystem::path path, QStringList args);
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
     std::string GetRunningGameSerial() const;
@@ -108,7 +109,7 @@ public:
     bool m_showWelcomeOnLaunch = true;
 
     QString getLastEbootPath();
-    QString lastGamePath;
+    std::filesystem::path lastGamePath;
     QStringList lastGameArgs;
     static QProcess* emulatorProcess;
     std::shared_ptr<IpcClient> m_ipc_client;
