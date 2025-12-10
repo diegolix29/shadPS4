@@ -501,7 +501,7 @@ void MainWindow::AddUiWidgets() {
     styleAndLogLayout->addLayout(styleRowLayout);
 
     QHBoxLayout* logButtonRow = new QHBoxLayout();
-    ui->launcherBox = new QCheckBox(tr("Use Selected QT Version"), this);
+    ui->launcherBox = new QCheckBox(tr("Use Selected Version"), this);
     ui->launcherBox->setToolTip(tr("Let you Boot Game with selected Version"));
     ui->launcherBox->setChecked(Config::getBootLauncher());
 
@@ -759,6 +759,7 @@ void MainWindow::CreateDockWindows(bool newDock) {
     disconnect(ui->toggleLogButton, nullptr, nullptr, nullptr);
 
     connect(ui->toggleLogButton, &QPushButton::clicked, this, [this]() {
+
         bool visible = ui->logDisplay->isVisible();
         ui->logDisplay->setVisible(!visible);
         ui->toggleLogButton->setText(visible ? tr("Show Log") : tr("Hide Log"));
@@ -832,8 +833,7 @@ void MainWindow::CreateConnects() {
 
     connect(ui->sizeSlider, &QSlider::valueChanged, this, [this](int value) {
         if (isTableList) {
-            m_game_list_frame->icon_size =
-                48 + value;
+            m_game_list_frame->icon_size = 48 + value;
             m_game_list_frame->ResizeIcons(48 + value);
             Config::setIconSize(48 + value);
             Config::setSliderPosition(value);
@@ -1112,8 +1112,7 @@ void MainWindow::CreateConnects() {
 
     connect(ui->setIconSizeTinyAct, &QAction::triggered, this, [this]() {
         if (isTableList) {
-            m_game_list_frame->icon_size =
-                36;
+            m_game_list_frame->icon_size = 36;
             ui->sizeSlider->setValue(0); // icone_size - 36
             Config::setIconSize(36);
             Config::setSliderPosition(0);
@@ -1602,6 +1601,21 @@ void MainWindow::ToggleMute() {
         Libraries::AudioOut::AdjustVol();
     }
 }
+void MainWindow::autoCheckLauncherBox() {
+    QString emulatorExePath = QString::fromStdString(Config::getVersionPath());
+    bool isPathValid = QFile::exists(emulatorExePath);
+
+    if (isPathValid && Config::getBootLauncher()) {
+        ui->launcherBox->setChecked(true);
+    } else if (isPathValid && !Config::getBootLauncher()) {
+        ui->launcherBox->setChecked(false);
+    } else {
+        ui->launcherBox->setChecked(false);
+        Config::setBootLauncher(false);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml");
+    }
+}
 
 void MainWindow::StartGame() {
     StartGameWithArgs({});
@@ -1807,12 +1821,11 @@ select to boot Base game or Update)"));
     }
     QString workDir = QDir::currentPath();
     BackgroundMusicPlayer::getInstance().stopMusic();
-    if (Config::getBootLauncher()) {
+    if (Config::getBootLauncher() && Config::getQTInstalled()) {
+        QString emulatorExePath = QString::fromStdString(Config::getVersionPath());
 
-        std::filesystem::path path = Common::FS::PathFromQString(gamePath);
-
-        StartEmulator(path, args);
-    } else if (Config::getSdlInstalled()) {
+        m_ipc_client->startGame(QFileInfo(emulatorExePath), fullArgs, workDir);
+    } else if (Config::getBootLauncher() && Config::getSdlInstalled()) {
         QString emulatorExePath = QString::fromStdString(Config::getVersionPath());
         QStringList final_args = args;
         final_args.prepend(QString::fromStdString(launchPath.string()));
@@ -1848,14 +1861,10 @@ select to boot Base game or Update)"));
     if (ignorePatches) {
         Core::FileSys::MntPoints::ignore_game_patches = false;
     }
-
     Config::setGameRunning(true);
+
     m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
 
-    if (!m_ipc_client || !Config::getGameRunning()) {
-        QMessageBox::critical(this, tr("shadPS4"), tr("Failed to start game process."));
-        return;
-    }
 
     m_ipc_client->gameClosedFunc = [this]() {
         QMetaObject::invokeMethod(this, [this]() {
@@ -2443,13 +2452,22 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
 }
 
 void MainWindow::StopGame() {
+#ifdef Q_OS_WIN
+    QProcess::startDetached("taskkill", QStringList() << "/IM" << "shadps4-sdl.exe" << "/F");
+#elif defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
+    QProcess::startDetached("pkill", QStringList() << "shadps4-sdl");
+#endif
     if (!Config::getGameRunning())
         return;
+
+
 
     m_ipc_client->stopGame();
     Config::setGameRunning(false);
     is_paused = false;
     UpdateToolbarButtons();
+
+
 }
 
 void MainWindow::PauseGame() {

@@ -105,6 +105,7 @@ public:
     qint64 detachedGamePid = -1;
     bool isDetachedLaunch = false;
     void ToggleMute();
+    void autoCheckLauncherBox();
     std::string runningGameSerial = "";
     bool m_showWelcomeOnLaunch = true;
 

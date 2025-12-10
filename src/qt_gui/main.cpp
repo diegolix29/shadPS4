@@ -30,7 +30,6 @@ WindowThemes m_window_themes;
 #include <input/input_handler.h>
 std::shared_ptr<IpcClient> m_ipc_client;
 
-// Custom message handler to ignore Qt logs
 void customMessageHandler(QtMsgType, const QMessageLogContext&, const QString&) {}
 
 void StopProgram() {
@@ -46,7 +45,6 @@ int main(int argc, char* argv[]) {
 
     QApplication::setDesktopFileName("net.shadps4.shadPS4");
 
-    // Load configurations and initialize Qt application
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
     bool ignore_mods_path = false;
@@ -69,7 +67,6 @@ int main(int argc, char* argv[]) {
     QStringList emulator_args{};
     std::string emulator_path;
 
-    // Map of argument strings to lambda functions
     std::unordered_map<std::string, std::function<void(int&)>> arg_map = {
         {"-h",
          [&](int&) {
@@ -101,7 +98,7 @@ int main(int argc, char* argv[]) {
                     "  -h, --help                    Display this help message\n";
              exit(0);
          }},
-        {"--help", [&](int& i) { arg_map["-h"](i); }}, // Redirect --help to -h
+        {"--help", [&](int& i) { arg_map["-h"](i); }},
 
         {"-s", [&](int&) { show_gui = true; }},
         {"--show-gui", [&](int& i) { arg_map["-s"](i); }},
@@ -184,7 +181,6 @@ int main(int argc, char* argv[]) {
                      << "Error: Invalid argument for -f/--fullscreen. Use 'true' or 'false'.\n";
                  exit(1);
              }
-             // Set fullscreen mode without saving it to config file
              Config::setIsFullscreen(is_fullscreen);
          }},
         {"--fullscreen", [&](int& i) { arg_map["-f"](i); }},
@@ -233,7 +229,6 @@ int main(int argc, char* argv[]) {
              waitPid = std::stoi(argv[i]);
          }}};
 
-    // Parse command-line arguments using the map
     for (int i = 1; i < argc; ++i) {
         std::string cur_arg = argv[i];
         auto it = arg_map.find(cur_arg);
@@ -271,20 +266,16 @@ int main(int argc, char* argv[]) {
         }
     }
     if (has_emulator_argument && !has_game_argument) {
-        // Treat the emulator path as the game path
         game_path = emulator_path;
         has_game_argument = true;
 
-        // Forward emulator args to game args
         for (const auto& arg : emulator_args) {
             game_args.push_back(arg.toStdString());
         }
 
-        // So that the second block behaves as if -g was used
         has_command_line_argument = true;
     }
 
-    // Auto-detect or use manually specified MODS folder
     if (has_game_argument) {
         std::filesystem::path eboot_path(game_path);
         if (!std::filesystem::exists(eboot_path)) {
@@ -506,10 +497,6 @@ int main(int argc, char* argv[]) {
                 } else if (cmd == "RELOAD_INPUTS") {
                     std::string config = next_str();
                     Input::ParseInputConfig(config);
-
-                    // -----------------------------------
-                    // NEW: SET_ACTIVE_PAD
-                    // -----------------------------------
                 } else if (cmd == "SET_ACTIVE_PAD") {
                     int padIndex = static_cast<int>(std::stoull(next_str(), nullptr, 0));
 
@@ -526,10 +513,6 @@ int main(int argc, char* argv[]) {
                     checkGamepad.type = SDL_EVENT_CHANGE_CONTROLLER;
                     SDL_PushEvent(&checkGamepad);
 
-                    // -----------------------------------
-                    // EXISTING SET_ACTIVE_CONTROLLER BLOCK
-                    // You MUST keep this or delete it entirely
-                    // -----------------------------------
                 } else if (cmd == "SET_ACTIVE_CONTROLLER") {
                     std::string guid = next_str();
                     GamepadSelect::SetSelectedGamepad(guid);
@@ -555,13 +538,10 @@ int main(int argc, char* argv[]) {
         }).detach();
     }
 
-    // Process game path or ID if provided
     if (has_game_argument) {
         std::filesystem::path game_file_path(game_path);
 
-        // Check if the provided path is a valid file
         if (!std::filesystem::exists(game_file_path)) {
-            // If not a file, treat it as a game ID and search in install directories recursively
             bool game_found = false;
             const int max_depth = 5;
             for (const auto& install_dir : Config::getGameDirectories()) {
@@ -577,14 +557,12 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Run the emulator with the resolved game path
         emulator->Run(game_file_path.string(), game_args, game_folder);
         if (!show_gui) {
-            return 0; // Exit after running the emulator without showing the GUI
+            return 0;
         }
     }
 
-    // Show the main window and run the Qt application
     m_main_window->show();
     return a.exec();
 }

@@ -118,6 +118,8 @@ bool getBootLauncher();
 void setBootLauncher(bool enabled);
 bool getSdlInstalled();
 void setSdlInstalled(bool use);
+bool getQTInstalled();
+void setQTInstalled(bool use);
 bool getGameRunning();
 void setGameRunning(bool running);
 bool debugDump();

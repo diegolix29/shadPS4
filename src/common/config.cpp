@@ -287,6 +287,7 @@ static ConfigEntry<bool> muteEnabled(false);
 static ConfigEntry<u32> fpsLimit(60);
 static bool isGameRunning = false;
 static bool isSDL = false;
+static bool isQT = false;
 static bool load_auto_patches = true;
 static bool launcher_boot = false;
 
@@ -305,6 +306,14 @@ bool getSdlInstalled() {
 void setSdlInstalled(bool use) {
     isSDL = use;
 }
+bool getQTInstalled() {
+    return isQT;
+}
+
+void setQTInstalled(bool use) {
+    isQT = use;
+}
+
 // Settings
 u32 m_language = 1; // english
 
@@ -1557,6 +1566,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         showLabelsUnderIcons = toml::find_or<bool>(gui, "showLabelsUnderIcons", true);
         enableColorFilter = toml::find_or<bool>(gui, "enableColorFilter", true);
         launcher_boot = toml::find_or<bool>(gui, "launcher_boot", false);
+        isQT = toml::find_or<bool>(gui, "isQT", false);
+        isSDL = toml::find_or<bool>(gui, "isSDL", false);
 
         const auto directories_array =
             toml::find_or<std::vector<std::u8string>>(gui, "Directories", {});
@@ -1806,6 +1817,8 @@ void save(const std::filesystem::path& path) {
     data["GUI"]["backgroundImageOpacity"] = backgroundImageOpacity;
     data["GUI"]["showBackgroundImage"] = showBackgroundImage;
     data["GUI"]["emulatorLanguage"] = emulator_language;
+    data["GUI"]["isQT"] = isQT;
+    data["GUI"]["isSDL"] = isSDL;
     data["Settings"]["consoleLanguage"] = m_language;
     toml::value shader_skip_data;
     for (const auto& [game_id, hashes] : all_skipped_shader_hashes) {
@@ -1973,6 +1986,8 @@ void setDefaultValues() {
     load_game_size = true;
     volumeSlider = 100;
     muteEnabled = false;
+    isQT = false;
+    isSDL = false;
 
     // Settings
     emulator_language = "en_US";
