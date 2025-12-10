@@ -72,4 +72,4 @@ private:
     QFuture<void> Polling;
 };
 
-#endif // ENABLE_QT_GUI
+#endif

@@ -131,7 +131,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         }
     }
 
-    // Add list of available GPUs
     ui->graphicsAdapterBox->addItem(tr("Auto Select")); // -1, auto selection
     for (const auto& device : m_physical_devices) {
         ui->graphicsAdapterBox->addItem(device);
@@ -248,7 +247,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     connect(ui->tabWidgetSettings, &QTabWidget::currentChanged, this,
             [this]() { ui->buttonBox->button(QDialogButtonBox::Close)->setFocus(); });
 
-    // GENERAL TAB
     {
 #ifdef ENABLE_UPDATER
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
@@ -305,7 +303,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                 });
     }
 
-    // Gui TAB
     {
         connect(ui->backgroundImageOpacitySlider, &QSlider::valueChanged, this,
                 [this](int value) { emit BackgroundOpacityChanged(value); });
@@ -326,7 +323,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         });
     }
 
-    // User TAB
     {
         connect(ui->OpenCustomTrophyLocationButton, &QPushButton::clicked, this, []() {
             QString userPath;
@@ -336,28 +332,30 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         });
     }
 
-    // Input TAB
     {
         connect(ui->hideCursorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
                 [this](s16 index) { OnCursorStateChanged(index); });
     }
 
-    // Audio Device (general)
     connect(ui->GenAudioComboBox, &QComboBox::currentTextChanged, this,
             [this](const QString& device) { Config::setMainOutputDevice(device.toStdString()); });
 
-    // Audio Device (DS4 speaker)
     connect(ui->DsAudioComboBox, &QComboBox::currentTextChanged, this,
             [this](const QString& device) { Config::setPadSpkOutputDevice(device.toStdString()); });
 
-    // GRAPHICS TAB
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
     connect(ui->FSRCheckBox, &QCheckBox::stateChanged, this,
             [](int state) { Config::setFsrEnabled(state == Qt::Checked); });
 
     connect(ui->RCASCheckBox, &QCheckBox::stateChanged, this,
             [](int state) { Config::setRcasEnabled(state == Qt::Checked); });
+#else
+    connect(ui->FSRCheckBox, &QCheckBox::checkStateChanged, this,
+            [](int state) { Config::setFsrEnabled(state == Qt::Checked); });
 
+    connect(ui->RCASCheckBox, &QCheckBox::checkStateChanged, this,
+            [](int state) { Config::setRcasEnabled(state == Qt::Checked); });
+#endif
     ui->fpsLimiterCheckBox->setChecked(Config::isFpsLimiterEnabled());
     ui->fpsSpinBox->setEnabled(Config::isFpsLimiterEnabled());
     ui->fpsSlider->setEnabled(Config::isFpsLimiterEnabled());

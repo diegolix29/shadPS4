@@ -151,8 +151,14 @@ void WelcomeDialog::SetupUI() {
     m_skipCheck = new QCheckBox("Don't show this screen again");
     m_skipCheck->setChecked(false);
     mainLayout->addWidget(m_skipCheck, 0, Qt::AlignLeft);
+
+#if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
     connect(m_skipCheck, &QCheckBox::stateChanged, this,
             [this](int) { m_skipNextLaunch = m_skipCheck->isChecked(); });
+#else
+    connect(m_skipCheck, &QCheckBox::checkStateChanged, this,
+            [this](int) { m_skipNextLaunch = m_skipCheck->isChecked(); });
+#endif
 
     QPushButton* updateButton = new QPushButton(tr("Close"), this);
     updateButton->setEnabled(true);
@@ -172,7 +178,6 @@ void WelcomeDialog::SetupUI() {
     footer->addWidget(discord);
     mainLayout->addLayout(footer);
 
-    // --- Portable button ---
     connect(portableBtn, &QPushButton::clicked, this, [this]() {
         m_portableChosen = true;
         m_userMadeChoice = true;
@@ -210,7 +215,6 @@ void WelcomeDialog::SetupUI() {
                     fs::create_directories(portable_dir);
             }
         }
-        // If no global detected, do nothing (portable folder auto-created)
         QMessageBox::information(this, tr("Portable Folder Set"),
                                  tr("Portable Folder Successfully Set"));
 
@@ -219,7 +223,6 @@ void WelcomeDialog::SetupUI() {
         accept();
     });
 
-    // --- Global button ---
     connect(globalBtn, &QPushButton::clicked, this, [this]() {
         m_portableChosen = false;
         m_userMadeChoice = true;
@@ -241,14 +244,11 @@ void WelcomeDialog::SetupUI() {
 #endif
 
         if (fs::exists(global_dir)) {
-            // Global exists → erase newly created portable folder
             if (fs::exists(portable_dir))
                 fs::remove_all(portable_dir);
         } else {
-            // Global doesn't exist → create it
             fs::create_directories(global_dir);
 
-            // If portable exists, move it into global
             if (fs::exists(portable_dir)) {
                 fs::copy(portable_dir, global_dir, fs::copy_options::recursive);
                 fs::remove_all(portable_dir);

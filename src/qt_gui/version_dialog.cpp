@@ -77,7 +77,7 @@ VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info
     connect(ui->addCustomVersionButton, &QPushButton::clicked, this, [this]() {
         QString exePath;
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
         exePath = QFileDialog::getOpenFileName(this, tr("Select executable"), QDir::rootPath(),
                                                tr("Executable (*.exe)"));
 #elif defined(Q_OS_LINUX)
@@ -173,7 +173,7 @@ VersionDialog::~VersionDialog() {
 }
 
 std::filesystem::path VersionDialog::GetActualExecutablePath() {
-#ifdef defined(Q_OS_LINUX)
+#if defined(Q_OS_LINUX)
     if (const char* appimageEnv = std::getenv("APPIMAGE")) {
         return std::filesystem::path(appimageEnv);
     }
@@ -299,7 +299,7 @@ void VersionDialog::InstallSelectedVersion() {
             QString platform;
             bool fetchSDL = ui->sdlBuildCheckBox->isChecked();
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
             platform = fetchSDL ? "win64-sdl" : "win64-qt";
 #elif defined(Q_OS_LINUX)
             platform = fetchSDL ? "linux-sdl" : "linux-qt";
@@ -445,7 +445,7 @@ void VersionDialog::InstallSelectedVersion() {
                             QString scriptFilePath, scriptContent, process;
                             QStringList args;
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
                             scriptFilePath = userPath + "/extract_update.ps1";
                             scriptContent =
                                 QString(
@@ -499,7 +499,7 @@ void VersionDialog::InstallSelectedVersion() {
                             QFile scriptFile(scriptFilePath);
                             if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
                                 QTextStream out(&scriptFile);
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
                                 scriptFile.write("\xEF\xBB\xBF");
 #endif
                                 out << scriptContent;
@@ -517,7 +517,7 @@ void VersionDialog::InstallSelectedVersion() {
                                         progressDialog->deleteLater();
 
                                         QString executableName;
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
                                         executableName = "shadps4.exe";
 #elif defined(Q_OS_LINUX)
                                         executableName = fetchSDL ? "shadps4-sdl" : "shadps4";
@@ -631,7 +631,7 @@ void VersionDialog::LoadinstalledList() {
         QString exeName;
         bool isSDL = (uiType.compare("SDL", Qt::CaseInsensitive) == 0);
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
         exeName = isSDL ? "shadps4-sdl.exe" : "shadps4.exe";
 #elif defined(Q_OS_LINUX)
         if (isSDL) {
@@ -832,7 +832,7 @@ void VersionDialog::InstallSelectedVersionExe() {
     QDir versionDir(fullPath);
     QString executableName;
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
     executableName = "shadps4.exe";
 #elif defined(Q_OS_LINUX)
     if (isSDL) {
@@ -857,16 +857,16 @@ void VersionDialog::InstallSelectedVersionExe() {
         QString source;
         QString target;
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
         source = versionDir.filePath("shadps4.exe");
         target = versionDir.filePath("shadps4-sdl.exe");
 #endif
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX)
         source = versionDir.filePath("Shadps4-sdl.exe");
         target = versionDir.filePath("shadps4-sdl.exe");
 #endif
 
-#ifdef Q_OS_MAC
+#if defined(Q_OS_MAC)
         source = versionDir.filePath("shadps4");
         target = versionDir.filePath("shadps4-sdl");
 #endif
@@ -890,7 +890,7 @@ void VersionDialog::InstallSelectedVersionExe() {
 
     if (!QFile::exists(finalExeToRun)) {
         QStringList filters;
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
         filters << "*.exe";
 #elif defined(Q_OS_LINUX)
         filters << "*.AppImage" << "shadps4*";
@@ -948,7 +948,7 @@ void VersionDialog::UninstallSelectedVersion() {
     QDir versionDir(versionFolderPath);
     QString exeName;
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
     exeName = "shadps4.exe";
 #elif defined(Q_OS_LINUX)
     if (isSDL) {
@@ -965,7 +965,7 @@ void VersionDialog::UninstallSelectedVersion() {
 
     if (!QFile::exists(fullExePath)) {
         QStringList filters;
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
         filters << "*.exe";
 #elif defined(Q_OS_LINUX)
         filters << "*.AppImage" << "shadps4*";
@@ -1020,7 +1020,7 @@ void VersionDialog::dragEnterEvent(QDragEnterEvent* event) {
         const QList<QUrl> urls = event->mimeData()->urls();
         if (!urls.isEmpty()) {
             QString file = urls.first().toLocalFile();
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
             if (file.endsWith(".exe", Qt::CaseInsensitive))
                 event->acceptProposedAction();
 #elif defined(Q_OS_LINUX)
@@ -1110,7 +1110,7 @@ void VersionDialog::InstallPkgWithV7() {
     QString installerFolder = QDir(userPath).filePath("PKG_Installer_v7");
     QString installerExe;
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
     installerExe = QDir(installerFolder).filePath("extractor.exe");
     QString platform = "win64-qt";
 #elif defined(Q_OS_LINUX)
@@ -1134,7 +1134,7 @@ void VersionDialog::InstallPkgWithV7() {
         infoBox.setStandardButtons(QMessageBox::Ok);
 
         connect(&infoBox, &QMessageBox::accepted, this, []() {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
             QProcess::startDetached("taskkill", QStringList() << "/IM" << "extractor.exe" << "/F");
 #elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
                     QProcess::startDetached("pkill", QStringList() << "extractor");
@@ -1262,7 +1262,7 @@ void VersionDialog::InstallPkgWithV7() {
                         return;
                     }
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
                     QString psScript =
                         QString("New-Item -ItemType Directory -Path \"%1\" -Force\n"
                                 "Expand-Archive -Path \"%2\" -DestinationPath \"%1\" -Force\n"
@@ -1316,7 +1316,7 @@ void VersionDialog::InstallPkgWithV7() {
 
                     connect(&infoBox, &QMessageBox::accepted, this,
                             [installerFolder, destinationPath]() {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
                                 QProcess::startDetached(
                                     "taskkill", QStringList() << "/IM" << "extractor.exe" << "/F");
 #elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)

@@ -87,6 +87,7 @@ bool MainWindow::Init() {
     CreateDockWindows(true);
     CreateConnects();
     SetLastUsedTheme();
+    ApplyLastUsedStyle();
     SetLastIconSizeBullet();
     toggleColorFilter();
 
@@ -759,7 +760,6 @@ void MainWindow::CreateDockWindows(bool newDock) {
     disconnect(ui->toggleLogButton, nullptr, nullptr, nullptr);
 
     connect(ui->toggleLogButton, &QPushButton::clicked, this, [this]() {
-
         bool visible = ui->logDisplay->isVisible();
         ui->logDisplay->setVisible(!visible);
         ui->toggleLogButton->setText(visible ? tr("Show Log") : tr("Hide Log"));
@@ -1865,7 +1865,6 @@ select to boot Base game or Update)"));
 
     m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
 
-
     m_ipc_client->gameClosedFunc = [this]() {
         QMetaObject::invokeMethod(this, [this]() {
             Config::setGameRunning(false);
@@ -2460,14 +2459,10 @@ void MainWindow::StopGame() {
     if (!Config::getGameRunning())
         return;
 
-
-
     m_ipc_client->stopGame();
     Config::setGameRunning(false);
     is_paused = false;
     UpdateToolbarButtons();
-
-
 }
 
 void MainWindow::PauseGame() {
