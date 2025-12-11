@@ -6,11 +6,15 @@
 #include <QDragEnterEvent>
 #include <QEasingCurve>
 #include <QGraphicsOpacityEffect>
+#include <QLayout>
 #include <QParallelAnimationGroup>
 #include <QProcess>
 #include <QPropertyAnimation>
 #include <QPushButton>
+#include <QRect>
 #include <QTranslator>
+#include <QVector>
+#include <QWidgetItem>
 
 #include "background_music_player.h"
 #include "cheats_patches.h"
@@ -30,6 +34,61 @@
 #include "games_menu.h"
 #include "main_window_themes.h"
 #include "main_window_ui.h"
+
+class QFlowLayout : public QLayout {
+public:
+    explicit QFlowLayout(QWidget* parent, int margin = -1, int hSpacing = -1, int vSpacing = -1);
+    explicit QFlowLayout(int margin = -1, int hSpacing = -1, int vSpacing = -1);
+    ~QFlowLayout() override;
+
+    void addItem(QLayoutItem* item) override;
+    int horizontalSpacing() const;
+    int verticalSpacing() const;
+    Qt::Orientations expandingDirections() const override;
+    bool hasHeightForWidth() const override;
+    int heightForWidth(int width) const override;
+    int count() const override;
+    QLayoutItem* itemAt(int index) const override;
+    QSize minimumSize() const override;
+    void setGeometry(const QRect& rect) override;
+    QSize sizeHint() const override;
+    QLayoutItem* takeAt(int index) override;
+
+private:
+    int doLayout(const QRect& rect, bool testOnly) const;
+    int smartSpacing(QStyle::PixelMetric pm) const;
+
+    QVector<QLayoutItem*> m_itemList;
+    int m_hSpace = -1;
+    int m_vSpace = -1;
+};
+
+class FlowContainer : public QWidget {
+public:
+    using QWidget::QWidget;
+
+    bool hasHeightForWidth() const override {
+        return layout() && layout()->hasHeightForWidth();
+    }
+
+    int heightForWidth(int w) const override {
+        return layout()->heightForWidth(w);
+    }
+
+    QSize sizeHint() const override {
+        return layout()->sizeHint();
+    }
+
+    QSize minimumSizeHint() const override {
+        return layout()->minimumSize();
+    }
+    void resizeEvent(QResizeEvent* event) override {
+        QWidget::resizeEvent(event);
+        if (layout()) {
+            layout()->invalidate(); // Triggers a re-layout.
+        }
+    }
+};
 
 class HoverAnimator : public QObject {
     Q_OBJECT
