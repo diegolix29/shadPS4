@@ -4,9 +4,11 @@
 #pragma once
 
 #include <filesystem>
+#include <map>
+#include <string>
+#include <unordered_map>
 #include <vector>
 #include "common/types.h"
-
 namespace Config {
 
 enum class ConfigMode {
@@ -54,7 +56,8 @@ bool getEnableColorFilter();
 void setEnableColorFilter(bool enable);
 bool getShowFpsCounter();
 void setShowFpsCounter(bool enable, bool is_game_specific = false);
-
+bool getToolbarWidgetVisibility(const std::string& name, bool default_value);
+void setToolbarWidgetVisibility(const std::string& name, bool is_visible);
 std::string getFullscreenMode();
 bool isNeoModeConsole();
 bool isDevKitConsole();

@@ -429,6 +429,14 @@ void MainWindow::toggleToolbarWidgetVisibility(bool checked) {
     if (container) {
         container->setVisible(checked);
 
+        if (!container->objectName().isEmpty()) {
+            Config::setToolbarWidgetVisibility(container->objectName().toStdString(), checked);
+        } else {
+        }
+
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::saveMainWindow(config_dir / "config.toml");
+
         if (ui->toolBar->widgetForAction(ui->toolBar->toggleViewAction()) &&
             ui->toolBar->widgetForAction(ui->toolBar->toggleViewAction())->parentWidget()) {
             ui->toolBar->widgetForAction(ui->toolBar->toggleViewAction())
@@ -736,7 +744,13 @@ void MainWindow::AddUiWidgets() {
     ui->sizeSliderContainer->setFixedWidth(130);
     ui->mw_searchbar->setFixedWidth(125);
     ui->styleSelector->setFixedWidth(125);
-
+    for (QWidget* container : m_toolbarContainers) {
+        if (!container->objectName().isEmpty()) {
+            bool visible =
+                Config::getToolbarWidgetVisibility(container->objectName().toStdString(), true);
+            container->setVisible(visible);
+        }
+    }
     ui->toolBar->addWidget(toolbarContainer);
 
     ui->playButton->setVisible(true);

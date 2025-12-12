@@ -290,6 +290,18 @@ static bool isSDL = false;
 static bool isQT = false;
 static bool load_auto_patches = true;
 static bool launcher_boot = false;
+std::unordered_map<std::string, bool> toolbar_visibility_settings;
+
+bool getToolbarWidgetVisibility(const std::string& name, bool default_value) {
+    if (toolbar_visibility_settings.count(name)) {
+        return toolbar_visibility_settings.at(name);
+    }
+    return default_value;
+}
+
+void setToolbarWidgetVisibility(const std::string& name, bool is_visible) {
+    toolbar_visibility_settings[name] = is_visible;
+}
 
 bool getGameRunning() {
     return isGameRunning;
@@ -1569,6 +1581,15 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isQT = toml::find_or<bool>(gui, "isQT", false);
         isSDL = toml::find_or<bool>(gui, "isSDL", false);
 
+        toolbar_visibility_settings.clear();
+        if (gui.contains("ToolbarVisibility") && gui.at("ToolbarVisibility").is_table()) {
+            for (const auto& [key, value] : gui.at("ToolbarVisibility").as_table()) {
+                if (value.is_boolean()) {
+                    toolbar_visibility_settings[key] = toml::get<bool>(value);
+                }
+            }
+        }
+
         const auto directories_array =
             toml::find_or<std::vector<std::u8string>>(gui, "Directories", {});
         try {
@@ -1881,6 +1902,11 @@ void saveMainWindow(const std::filesystem::path& path) {
     data["GUI"]["launcher_boot"] = launcher_boot;
     data["GUI"]["guiStyle"] = guiStyle;
     data["GUI"]["version_path"] = version_path;
+    toml::value toolbar_map = toml::table{};
+    for (const auto& [name, visible] : toolbar_visibility_settings) {
+        toolbar_map[name] = visible;
+    }
+    data["GUI"]["ToolbarVisibility"] = toolbar_map;
 
     sortTomlSections(data);
 
