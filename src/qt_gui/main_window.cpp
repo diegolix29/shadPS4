@@ -664,12 +664,27 @@ void MainWindow::AddUiWidgets() {
     ui->toolBar->clear();
 
     QWidget* toolbarContainer = new QWidget(this);
-    QFlowLayout* flowLayout = new QFlowLayout(toolbarContainer, 5, 5, 5);
+    QFlowLayout* flowLayout = new QFlowLayout(toolbarContainer, 5, 0, 5);
     toolbarContainer->setLayout(flowLayout);
 
+    ui->playButton->setObjectName("playButton");
+    ui->pauseButton->setObjectName("pauseButton");
+    ui->stopButton->setObjectName("stopButton");
+    ui->restartButton->setObjectName("restartButton");
+    ui->settingsButton->setObjectName("settingsButton");
+    ui->fullscreenButton->setObjectName("fullscreenButton");
+    ui->controllerButton->setObjectName("controllerButton");
+    ui->keyboardButton->setObjectName("keyboardButton");
+    ui->configureHotkeysButton->setObjectName("configureHotkeysButton");
+    ui->refreshButton->setObjectName("refreshButton");
+    ui->updaterButton->setObjectName("updaterButton");
+    ui->versionButton->setObjectName("versionButton");
+    ui->modManagerButton->setObjectName("modManagerButton");
+    ui->bigPictureButton->setObjectName("bigPictureButton");
     auto addToolbarWidget = [this, flowLayout, createButtonWithLabel_wrapped,
                              showLabels](QPushButton* button, const QString& text) {
         QWidget* container = createButtonWithLabel_wrapped(button, text, showLabels);
+        container->setObjectName(button->objectName() + "Container");
         flowLayout->addWidget(container);
         m_toolbarContainers.append(container);
     };
@@ -719,12 +734,13 @@ void MainWindow::AddUiWidgets() {
     styleLayout->addWidget(ui->styleSelector);
 
     ui->launcherBox = new QCheckBox(tr("Use Selected Version"), this);
+    ui->FlowBox = new QCheckBox(tr(""), this);
     ui->launcherBox->setToolTip(tr("Let you Boot Game with selected Version"));
     ui->launcherBox->setChecked(Config::getBootLauncher());
 
     ui->toggleLogButton->setObjectName("ToggleLogButton");
     ui->installPkgButton->setObjectName("InstallPkgButton");
-    ui->installPkgButton->setObjectName("InstallPkgButton");
+    ui->launcherBox->setObjectName("launcherBox");
     searchSliderContainer->setObjectName("searchSliderContainer");
     styleContainer->setObjectName("styleContainer");
 
@@ -739,11 +755,17 @@ void MainWindow::AddUiWidgets() {
     flowLayout->addWidget(ui->installPkgButton);
     flowLayout->addWidget(ui->toggleLogButton);
     flowLayout->addWidget(ui->launcherBox);
+    flowLayout->addWidget(ui->FlowBox);
+    ui->FlowBox->setVisible(true);
+    ui->FlowBox->setChecked(true);
+    ui->FlowBox->setEnabled(false);
+    ui->FlowBox->setToolTip(tr("This Enables Flow of Icons So its always ON"));
 
     m_toolbarContainers.append(ui->launcherBox);
     ui->sizeSliderContainer->setFixedWidth(130);
     ui->mw_searchbar->setFixedWidth(125);
     ui->styleSelector->setFixedWidth(125);
+
     for (QWidget* container : m_toolbarContainers) {
         if (!container->objectName().isEmpty()) {
             bool visible =

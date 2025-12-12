@@ -80,6 +80,7 @@ public:
     QPushButton* configureHotkeysButton;
     QComboBox* styleSelector = new QComboBox();
     QCheckBox* launcherBox;
+    QCheckBox* FlowBox;
 
     QWidget* sizeSliderContainer;
     QHBoxLayout* sizeSliderContainer_layout;
