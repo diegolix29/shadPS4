@@ -34,6 +34,7 @@
 #include "games_menu.h"
 #include "main_window_themes.h"
 #include "main_window_ui.h"
+#include "sdl_window.h"
 
 class QFlowLayout : public QLayout {
 public:
@@ -146,6 +147,9 @@ public:
     std::string GetRunningGameSerial() const;
     bool Init();
     void openSettingsWindow();
+    void createToolbarContextMenu(const QPoint& pos);
+    void contextMenuEvent(QContextMenuEvent* event) override;
+    void toggleToolbarWidgetVisibility(bool checked);
     void forwardGamepadButton(int sdlButton);
     void restoreBigPictureFocus();
     void openHotkeysWindow();
@@ -198,6 +202,7 @@ private:
     void CreateDockWindows(bool newDock);
     void LoadGameLists();
     void PrintLog(QString entry, QColor textColor);
+    QList<QWidget*> m_toolbarContainers;
 
 #ifdef ENABLE_UPDATER
     void CheckUpdateMain(bool checkSave);
@@ -237,6 +242,7 @@ private:
     QScopedPointer<GameGridFrame> m_game_grid_frame;
     QScopedPointer<ElfViewer> m_elf_viewer;
     std::unique_ptr<GameCinematicFrame> m_game_cinematic_frame;
+    std::unique_ptr<Frontend::WindowSDL> m_sdlWindow;
 
     QScopedPointer<QStatusBar> statusBar;
 

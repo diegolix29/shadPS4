@@ -6,7 +6,7 @@
 #include <string>
 
 #ifdef ENABLE_QT_GUI
-#include <QObject> // <-- REQUIRED for QObject + Q_OBJECT
+#include <QObject>
 #endif
 
 #include "common/types.h"
@@ -91,7 +91,6 @@ private:
     void CheckHotkeys();
     void RelaunchEmulator();
 
-private:
     s32 width;
     s32 height;
     Input::GameControllers controllers{};

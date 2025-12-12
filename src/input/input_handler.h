@@ -41,6 +41,7 @@
 #define SDL_EVENT_ADD_VIRTUAL_USER SDL_EVENT_USER + 11
 #define SDL_EVENT_REMOVE_VIRTUAL_USER SDL_EVENT_USER + 12
 #define SDL_EVENT_MOUSE_TO_TOUCHPAD SDL_EVENT_USER + 13
+#define SDL_EVENT_KILL_EMULATOR SDL_EVENT_USER + 14
 
 #define LEFTJOYSTICK_HALFMODE 0x00010000
 #define RIGHTJOYSTICK_HALFMODE 0x00020000
@@ -156,6 +157,7 @@ const std::map<std::string, u32> string_to_cbutton_map = {
     {"hotkey_renderdoc_capture", HOTKEY_RENDERDOC},
     {"hotkey_add_virtual_user", HOTKEY_ADD_VIRTUAL_USER},
     {"hotkey_remove_virtual_user", HOTKEY_REMOVE_VIRTUAL_USER},
+    {"hotkey_kill_emulator", SDL_EVENT_KILL_EMULATOR},
 };
 
 const std::map<std::string, AxisMapping> string_to_axis_map = {
@@ -523,7 +525,7 @@ public:
 
 class ControllerAllOutputs {
 public:
-    static constexpr u64 output_count = 38;
+    static constexpr u64 output_count = 39;
     std::array<ControllerOutput, output_count> data = {
         // Important: these have to be the first, or else they will update in the wrong order
         ControllerOutput(LEFTJOYSTICK_HALFMODE),
@@ -573,6 +575,7 @@ public:
         ControllerOutput(HOTKEY_RENDERDOC),
         ControllerOutput(HOTKEY_ADD_VIRTUAL_USER),
         ControllerOutput(HOTKEY_REMOVE_VIRTUAL_USER),
+        ControllerOutput(SDL_EVENT_KILL_EMULATOR),
 
         ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_INVALID),
     };

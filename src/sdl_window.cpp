@@ -242,6 +242,15 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_QUIT:
         is_open = false;
         break;
+    case SDL_EVENT_KILL_EMULATOR:
+#ifdef Q_OS_WIN
+        QProcess::startDetached("taskkill", QStringList() << "/IM" << "shadPS4.exe" << "/F");
+#elif defined(Q_OS_LINUX)
+        QProcess::startDetached("pkill", QStringList() << "Shadps4-qt");
+#elif defined(Q_OS_MACOS)
+        QProcess::startDetached("pkill", QStringList() << "shadps4");
+#endif
+        break;
     case SDL_EVENT_QUIT + 1:
         is_open = false;
         RelaunchEmulator();

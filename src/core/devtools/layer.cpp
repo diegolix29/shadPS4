@@ -1263,12 +1263,21 @@ void L::DrawPauseStatusWindow(bool& is_open) {
         ImGui::EndPopup();
     }
 
-    // Restart / Quit buttons
     ImGui::SameLine(0.0f, 10.0f);
     if (ImGui::Button("Restart Emulator")) {
         SDL_Event event{};
         event.type = SDL_EVENT_QUIT + 1;
         SDL_PushEvent(&event);
+    }
+    ImGui::SameLine(0.0f, 10.0f);
+    if (ImGui::Button("Quit Emulator", ImVec2(180, 0))) {
+#ifdef Q_OS_WIN
+        QProcess::startDetached("taskkill", QStringList() << "/IM" << "shadPS4.exe" << "/F");
+#elif defined(Q_OS_LINUX)
+        QProcess::startDetached("pkill", QStringList() << "Shadps4-qt");
+#elif defined(Q_OS_MACOS)
+        QProcess::startDetached("pkill", QStringList() << "shadps4");
+#endif
     }
 
     ImGui::SameLine(0.0f, 10.0f);
@@ -1546,11 +1555,12 @@ void L::Draw() {
         PopFont();
     }
 
-    int menu_count = 3;
+    int menu_count = 4;
 
     const char* options[] = {
         "Exit Game",
         "Minimize Game",
+        "Quit Emulator",
         "Cancel",
     };
 
@@ -1621,8 +1631,19 @@ void L::Draw() {
                     show_quit_window = false;
                     break;
                 }
-
                 case 2: {
+#ifdef Q_OS_WIN
+                    QProcess::startDetached("taskkill", QStringList()
+                                                            << "/IM" << "shadPS4.exe" << "/F");
+#elif defined(Q_OS_LINUX)
+                    QProcess::startDetached("pkill", QStringList() << "Shadps4-qt");
+#elif defined(Q_OS_MACOS)
+                    QProcess::startDetached("pkill", QStringList() << "shadps4");
+#endif
+                    break;
+                }
+
+                case 3: {
                     Overlay::ToggleQuitWindow();
                     break;
                 }

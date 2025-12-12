@@ -345,7 +345,6 @@ bool MainWindow::Init() {
 #endif
     connect(m_game_cinematic_frame.get(), &GameCinematicFrame::launchGameRequested, this,
             [this](int index) { StartGameByIndex(index, {}); });
-
     connect(
         m_bigPicture.get(), &BigPictureWidget::openModsManagerRequested, this, [this](int index) {
             if (index < 0 || index >= m_game_info->m_games.size()) {
@@ -389,6 +388,56 @@ void MainWindow::openSettingsWindow() {
     SettingsDialog dlg(m_compat_info, m_ipc_client, this);
     dlg.exec();
     restoreBigPictureFocus();
+}
+
+void MainWindow::createToolbarContextMenu(const QPoint& pos) {
+    QMenu menu(this);
+    menu.setTitle(tr("Customize Toolbar"));
+
+    for (QWidget* container : m_toolbarContainers) {
+        QLabel* label = container->property("buttonLabel").value<QLabel*>();
+        QString name = label ? label->text() : container->objectName();
+        if (name.isEmpty()) {
+
+            if (qobject_cast<QFrame*>(container)) {
+                name = tr("Separator");
+            } else if (qobject_cast<QCheckBox*>(container)) {
+                name = qobject_cast<QCheckBox*>(container)->text();
+            } else if (qobject_cast<QComboBox*>(container->parentWidget())) {
+                name = tr("Style/Search/Size");
+            } else {
+                name = tr("Unknown Widget");
+            }
+        }
+
+        QAction* action = menu.addAction(name);
+        action->setCheckable(true);
+        action->setChecked(container->isVisible());
+        action->setData(QVariant::fromValue(container));
+        connect(action, &QAction::toggled, this, &MainWindow::toggleToolbarWidgetVisibility);
+    }
+
+    menu.exec(pos);
+}
+
+void MainWindow::toggleToolbarWidgetVisibility(bool checked) {
+    QAction* action = qobject_cast<QAction*>(sender());
+    if (!action)
+        return;
+
+    QWidget* container = action->data().value<QWidget*>();
+    if (container) {
+        container->setVisible(checked);
+
+        if (ui->toolBar->widgetForAction(ui->toolBar->toggleViewAction()) &&
+            ui->toolBar->widgetForAction(ui->toolBar->toggleViewAction())->parentWidget()) {
+            ui->toolBar->widgetForAction(ui->toolBar->toggleViewAction())
+                ->parentWidget()
+                ->layout()
+                ->invalidate();
+        }
+        ui->toolBar->updateGeometry();
+    }
 }
 
 void MainWindow::forwardGamepadButton(int button) {
@@ -562,6 +611,7 @@ QWidget* createSpacer(QWidget* parent) {
 }
 
 void MainWindow::AddUiWidgets() {
+    m_toolbarContainers.clear();
     auto createButtonWithLabel_wrapped = [this](QPushButton* button,
                                                 const QString& labelText) -> QWidget* {
         FlowContainer* container = new FlowContainer(this);
@@ -591,6 +641,7 @@ void MainWindow::AddUiWidgets() {
         QWidget* spacer = new QWidget(this);
         spacer->setFixedWidth(5);
         spacer->setFixedHeight(5);
+        spacer->setObjectName("ToolbarSpacer");
         return spacer;
     };
 
@@ -599,6 +650,7 @@ void MainWindow::AddUiWidgets() {
         line->setFrameShape(QFrame::VLine);
         line->setFrameShadow(QFrame::Sunken);
         line->setMinimumWidth(2);
+        line->setObjectName("ToolbarVLine");
         return line;
     };
 
@@ -614,43 +666,38 @@ void MainWindow::AddUiWidgets() {
     QFlowLayout* flowLayout = new QFlowLayout(iconFlowContainer, 5, 5, 5);
     iconFlowContainer->setLayout(flowLayout);
 
-    auto addToolbarWidget = [flowLayout, createButtonWithLabel_wrapped](QPushButton* btn,
-                                                                        const QString& text) {
-        flowLayout->addWidget(createButtonWithLabel_wrapped(btn, text));
+    auto addToolbarWidget = [flowLayout, createButtonWithLabel_wrapped, this](QPushButton* btn,
+                                                                              const QString& text) {
+        QWidget* container = createButtonWithLabel_wrapped(btn, text);
+        flowLayout->addWidget(container);
+        m_toolbarContainers.append(container);
     };
 
     ui->launcherBox = new QCheckBox(tr("Use Selected Version"), this);
     ui->launcherBox->setToolTip(tr("Let you Boot Game with selected Version"));
     ui->launcherBox->setChecked(Config::getBootLauncher());
+    ui->toggleLogButton->setObjectName("ToggleLogButton");
+    ui->installPkgButton->setObjectName("InstallPkgButton");
 
-    flowLayout->addWidget(createSpacer_wrapped());
     addToolbarWidget(ui->playButton, tr("Play"));
     addToolbarWidget(ui->pauseButton, tr("Pause"));
     addToolbarWidget(ui->stopButton, tr("Stop"));
     addToolbarWidget(ui->restartButton, tr("Restart"));
-    flowLayout->addWidget(createSpacer_wrapped());
 
     addToolbarWidget(ui->settingsButton, tr("Settings"));
     addToolbarWidget(ui->fullscreenButton, tr("Full Screen"));
-    flowLayout->addWidget(createSpacer_wrapped());
 
     addToolbarWidget(ui->controllerButton, tr("Controllers"));
     addToolbarWidget(ui->keyboardButton, tr("Keyboard"));
-    flowLayout->addWidget(createSpacer_wrapped());
 
     addToolbarWidget(ui->configureHotkeysButton, tr("Hotkeys"));
     addToolbarWidget(ui->updaterButton, tr("Update"));
 
-    flowLayout->addWidget(createVLine());
-    flowLayout->addWidget(createSpacer_wrapped());
-
     addToolbarWidget(ui->refreshButton, tr("Refresh List"));
     addToolbarWidget(ui->versionButton, tr("Version"));
     addToolbarWidget(ui->modManagerButton, tr("Mods Manager"));
-    flowLayout->addWidget(createSpacer_wrapped());
 
     addToolbarWidget(ui->bigPictureButton, tr("Games Menu"));
-    flowLayout->addWidget(createSpacer_wrapped());
 
     if (showLabels) {
         QLabel* pauseButtonLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
@@ -672,16 +719,20 @@ void MainWindow::AddUiWidgets() {
     extraButtonsLayout->setSpacing(2);
 
     QWidget* styleContainer = new QWidget(this);
+    styleContainer->setObjectName("styleContainer");
     QVBoxLayout* styleLayout = new QVBoxLayout(styleContainer);
-    flowLayout->setContentsMargins(0, 0, 0, 0);
-    flowLayout->setSpacing(2);
+    styleLayout->setContentsMargins(0, 0, 0, 0);
+    styleLayout->setSpacing(2);
 
     QLabel* styleLabel = new QLabel(tr("GUI Style:"), this);
     styleLayout->addWidget(styleLabel);
     styleLayout->addWidget(ui->styleSelector);
-    flowLayout->addWidget(createSpacer_wrapped());
+
+    m_toolbarContainers.append(styleContainer);
+    flowLayout->addWidget(styleContainer);
 
     QWidget* searchSliderContainer = new QWidget(this);
+    searchSliderContainer->setObjectName("searchSliderContainer");
     QVBoxLayout* searchSliderLayout = new QVBoxLayout(searchSliderContainer);
     searchSliderLayout->setContentsMargins(0, 0, 0, 0);
     searchSliderLayout->setSpacing(2);
@@ -692,7 +743,20 @@ void MainWindow::AddUiWidgets() {
 
     searchSliderLayout->addWidget(ui->sizeSliderContainer);
     searchSliderLayout->addWidget(ui->mw_searchbar);
-    flowLayout->addWidget(createSpacer_wrapped());
+
+    m_toolbarContainers.append(searchSliderContainer);
+    flowLayout->addWidget(searchSliderContainer);
+
+    flowLayout->addWidget(extraButtonsContainer);
+
+    m_toolbarContainers.append(ui->toggleLogButton);
+    flowLayout->addWidget(ui->toggleLogButton);
+
+    m_toolbarContainers.append(ui->installPkgButton);
+    flowLayout->addWidget(ui->installPkgButton);
+
+    m_toolbarContainers.append(ui->launcherBox);
+    flowLayout->addWidget(ui->launcherBox);
 
     QWidget* toolbarWrapper = new QWidget(this);
     QHBoxLayout* toolbarLayout = new QHBoxLayout(toolbarWrapper);
@@ -700,13 +764,6 @@ void MainWindow::AddUiWidgets() {
     toolbarLayout->setSpacing(6);
 
     toolbarLayout->addWidget(iconFlowContainer, 1);
-    flowLayout->addWidget(styleContainer);
-    flowLayout->addWidget(searchSliderContainer);
-    flowLayout->addWidget(extraButtonsContainer);
-
-    flowLayout->addWidget(ui->toggleLogButton);
-    flowLayout->addWidget(ui->installPkgButton);
-    flowLayout->addWidget(ui->launcherBox);
 
     ui->toolBar->addWidget(toolbarWrapper);
 
@@ -739,10 +796,8 @@ void MainWindow::AddUiWidgets() {
         ui->styleSelector->setCurrentText(QApplication::style()->objectName());
     }
 }
-
 void MainWindow::UpdateToolbarButtons() {
     bool showLabels = ui->toggleLabelsAct->isChecked();
-
     if (Config::getGameRunning()) {
         ui->playButton->setVisible(false);
         ui->pauseButton->setVisible(true);
@@ -815,6 +870,16 @@ void MainWindow::UpdateToolbarLabels() {
         pauseLabel->setVisible(showLabels && Config::getGameRunning());
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::saveMainWindow(config_dir / "config.toml");
+}
+
+void MainWindow::contextMenuEvent(QContextMenuEvent* event) {
+    if (ui->toolBar->geometry().contains(event->pos())) {
+
+        createToolbarContextMenu(event->globalPos());
+        event->accept();
+        return;
+    }
+    QMainWindow::contextMenuEvent(event);
 }
 
 void MainWindow::CreateDockWindows(bool newDock) {
