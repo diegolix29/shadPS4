@@ -246,7 +246,7 @@ bool MainWindow::Init() {
     SetLastIconSizeBullet();
     toggleColorFilter();
 
-    setMinimumSize(640, 435);
+    setMinimumSize(590, 455);
     std::string window_title = "";
     std::string remote_url(Common::g_scm_remote_url);
     std::string remote_host = Common::GetRemoteNameFromLink();
@@ -612,12 +612,11 @@ QWidget* createSpacer(QWidget* parent) {
 
 void MainWindow::AddUiWidgets() {
     m_toolbarContainers.clear();
-    auto createButtonWithLabel_wrapped = [this](QPushButton* button,
-                                                const QString& labelText) -> QWidget* {
-        FlowContainer* container = new FlowContainer(this);
-        QVBoxLayout* layout = new QVBoxLayout(container);
-        container->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
+    auto createButtonWithLabel_wrapped = [this](QPushButton* button, const QString& labelText,
+                                                bool showLabel) -> QWidget* {
+        QWidget* container = new QWidget(this);
+        QVBoxLayout* layout = new QVBoxLayout(container);
         layout->setAlignment(Qt::AlignCenter | Qt::AlignBottom);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(button);
@@ -634,6 +633,7 @@ void MainWindow::AddUiWidgets() {
 
         container->setLayout(layout);
         container->setProperty("buttonLabel", QVariant::fromValue(label));
+        container->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
         return container;
     };
 
@@ -641,7 +641,6 @@ void MainWindow::AddUiWidgets() {
         QWidget* spacer = new QWidget(this);
         spacer->setFixedWidth(5);
         spacer->setFixedHeight(5);
-        spacer->setObjectName("ToolbarSpacer");
         return spacer;
     };
 
@@ -650,34 +649,22 @@ void MainWindow::AddUiWidgets() {
         line->setFrameShape(QFrame::VLine);
         line->setFrameShadow(QFrame::Sunken);
         line->setMinimumWidth(2);
-        line->setObjectName("ToolbarVLine");
         return line;
     };
 
     bool showLabels = ui->toggleLabelsAct->isChecked();
-    ui->toolBar->setMovable(true);
-    ui->toolBar->setFloatable(true);
-    ui->toolBar->updateGeometry();
-    ui->toolBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::MinimumExpanding);
+    ui->toolBar->clear();
 
-    FlowContainer* iconFlowContainer = new FlowContainer(this);
-    iconFlowContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::MinimumExpanding);
+    QWidget* toolbarContainer = new QWidget(this);
+    QFlowLayout* flowLayout = new QFlowLayout(toolbarContainer, 5, 5, 5);
+    toolbarContainer->setLayout(flowLayout);
 
-    QFlowLayout* flowLayout = new QFlowLayout(iconFlowContainer, 5, 5, 5);
-    iconFlowContainer->setLayout(flowLayout);
-
-    auto addToolbarWidget = [flowLayout, createButtonWithLabel_wrapped, this](QPushButton* btn,
-                                                                              const QString& text) {
-        QWidget* container = createButtonWithLabel_wrapped(btn, text);
+    auto addToolbarWidget = [this, flowLayout, createButtonWithLabel_wrapped,
+                             showLabels](QPushButton* button, const QString& text) {
+        QWidget* container = createButtonWithLabel_wrapped(button, text, showLabels);
         flowLayout->addWidget(container);
         m_toolbarContainers.append(container);
     };
-
-    ui->launcherBox = new QCheckBox(tr("Use Selected Version"), this);
-    ui->launcherBox->setToolTip(tr("Let you Boot Game with selected Version"));
-    ui->launcherBox->setChecked(Config::getBootLauncher());
-    ui->toggleLogButton->setObjectName("ToggleLogButton");
-    ui->installPkgButton->setObjectName("InstallPkgButton");
 
     addToolbarWidget(ui->playButton, tr("Play"));
     addToolbarWidget(ui->pauseButton, tr("Pause"));
@@ -700,81 +687,66 @@ void MainWindow::AddUiWidgets() {
     addToolbarWidget(ui->bigPictureButton, tr("Games Menu"));
 
     if (showLabels) {
-        QLabel* pauseButtonLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
-        if (pauseButtonLabel)
-            pauseButtonLabel->setVisible(false);
+        QLabel* label = ui->pauseButton->parentWidget()->findChild<QLabel*>();
+        if (label)
+            label->setVisible(false);
     }
 
-    FlowContainer* fixedRightContainer = new FlowContainer(this);
-    QVBoxLayout* rightLayout = new QVBoxLayout(fixedRightContainer);
-    rightLayout->setContentsMargins(0, 0, 0, 0);
+    QWidget* searchSliderContainer = new QWidget(this);
+    QVBoxLayout* searchSliderLayout = new QVBoxLayout(searchSliderContainer);
+    searchSliderLayout->setContentsMargins(0, 0, 6, 6);
+    searchSliderLayout->setSpacing(2);
 
-    FlowContainer* styleAndLogContainer = new FlowContainer(this);
-    QVBoxLayout* styleAndLogLayout = new QVBoxLayout(styleAndLogContainer);
-    styleAndLogLayout->setContentsMargins(2, 2, 2, 2);
+    searchSliderLayout->addWidget(ui->sizeSliderContainer);
+    searchSliderLayout->addWidget(ui->mw_searchbar);
 
-    FlowContainer* extraButtonsContainer = new FlowContainer(this);
-    QVBoxLayout* extraButtonsLayout = new QVBoxLayout(extraButtonsContainer);
-    extraButtonsLayout->setContentsMargins(0, 0, 0, 0);
-    extraButtonsLayout->setSpacing(2);
+    searchSliderContainer->setLayout(searchSliderLayout);
 
     QWidget* styleContainer = new QWidget(this);
-    styleContainer->setObjectName("styleContainer");
     QVBoxLayout* styleLayout = new QVBoxLayout(styleContainer);
-    styleLayout->setContentsMargins(0, 0, 0, 0);
-    styleLayout->setSpacing(2);
+    styleLayout->setContentsMargins(2, 2, 2, 2);
 
     QLabel* styleLabel = new QLabel(tr("GUI Style:"), this);
     styleLayout->addWidget(styleLabel);
     styleLayout->addWidget(ui->styleSelector);
 
-    m_toolbarContainers.append(styleContainer);
-    flowLayout->addWidget(styleContainer);
+    ui->launcherBox = new QCheckBox(tr("Use Selected Version"), this);
+    ui->launcherBox->setToolTip(tr("Let you Boot Game with selected Version"));
+    ui->launcherBox->setChecked(Config::getBootLauncher());
 
-    QWidget* searchSliderContainer = new QWidget(this);
+    ui->toggleLogButton->setObjectName("ToggleLogButton");
+    ui->installPkgButton->setObjectName("InstallPkgButton");
+    ui->installPkgButton->setObjectName("InstallPkgButton");
     searchSliderContainer->setObjectName("searchSliderContainer");
-    QVBoxLayout* searchSliderLayout = new QVBoxLayout(searchSliderContainer);
-    searchSliderLayout->setContentsMargins(0, 0, 0, 0);
-    searchSliderLayout->setSpacing(2);
+    styleContainer->setObjectName("styleContainer");
 
+    m_toolbarContainers.append(ui->installPkgButton);
+    m_toolbarContainers.append(ui->toggleLogButton);
+    m_toolbarContainers.append(styleContainer);
+    m_toolbarContainers.append(searchSliderContainer);
+
+    flowLayout->addWidget(styleContainer);
+    flowLayout->addWidget(searchSliderContainer);
+
+    flowLayout->addWidget(ui->installPkgButton);
+    flowLayout->addWidget(ui->toggleLogButton);
+    flowLayout->addWidget(ui->launcherBox);
+
+    m_toolbarContainers.append(ui->launcherBox);
     ui->sizeSliderContainer->setFixedWidth(130);
     ui->mw_searchbar->setFixedWidth(125);
     ui->styleSelector->setFixedWidth(125);
 
-    searchSliderLayout->addWidget(ui->sizeSliderContainer);
-    searchSliderLayout->addWidget(ui->mw_searchbar);
-
-    m_toolbarContainers.append(searchSliderContainer);
-    flowLayout->addWidget(searchSliderContainer);
-
-    flowLayout->addWidget(extraButtonsContainer);
-
-    m_toolbarContainers.append(ui->toggleLogButton);
-    flowLayout->addWidget(ui->toggleLogButton);
-
-    m_toolbarContainers.append(ui->installPkgButton);
-    flowLayout->addWidget(ui->installPkgButton);
-
-    m_toolbarContainers.append(ui->launcherBox);
-    flowLayout->addWidget(ui->launcherBox);
-
-    QWidget* toolbarWrapper = new QWidget(this);
-    QHBoxLayout* toolbarLayout = new QHBoxLayout(toolbarWrapper);
-    toolbarLayout->setContentsMargins(0, 0, 0, 0);
-    toolbarLayout->setSpacing(6);
-
-    toolbarLayout->addWidget(iconFlowContainer, 1);
-
-    ui->toolBar->addWidget(toolbarWrapper);
+    ui->toolBar->addWidget(toolbarContainer);
 
     ui->playButton->setVisible(true);
     ui->pauseButton->setVisible(false);
 
     ui->styleSelector->clear();
     QStringList styles = QStyleFactory::keys();
-    for (const QString& s : styles)
-        if (s.compare("windowsvista", Qt::CaseInsensitive) != 0)
-            ui->styleSelector->addItem(s);
+    for (const QString& styleName : styles)
+        if (styleName.compare("windowsvista", Qt::CaseInsensitive) != 0)
+            ui->styleSelector->addItem(styleName);
 
     QDir qssDir(QString::fromStdString(
         Common::FS::GetUserPath(Common::FS::PathType::CustomThemes).string()));
@@ -796,6 +768,7 @@ void MainWindow::AddUiWidgets() {
         ui->styleSelector->setCurrentText(QApplication::style()->objectName());
     }
 }
+
 void MainWindow::UpdateToolbarButtons() {
     bool showLabels = ui->toggleLabelsAct->isChecked();
     if (Config::getGameRunning()) {
