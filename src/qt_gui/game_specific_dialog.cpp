@@ -292,8 +292,16 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->radioButton_Top->setChecked(side == "top");
             ui->radioButton_Bottom->setChecked(side == "bottom");
         }
-        if (gen.contains("trophyNotificationDuration"))
-            ui->popUpDurationSpinBox->setValue(toml::find<int>(gen, "trophyNotificationDuration"));
+        if (gen.contains("trophyNotificationDuration")) {
+            int duration = 0;
+            try {
+                duration = toml::find<int>(gen, "trophyNotificationDuration");
+            } catch (...) {
+                duration = static_cast<int>(toml::find<double>(gen, "trophyNotificationDuration"));
+            }
+
+            ui->popUpDurationSpinBox->setValue(duration);
+        }
     }
 
     // Input
