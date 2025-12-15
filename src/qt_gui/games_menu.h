@@ -92,7 +92,14 @@ public:
         }
 
         for (const auto& hk : hotkeys) {
-            QLabel* lbl = new QLabel(QString("%1: %2").arg(hk.first, hk.second), this);
+            QString text;
+            if (hk.first.isEmpty()) {
+                text = "";
+            } else {
+                text = QString("%1: %2").arg(hk.first, hk.second);
+            }
+
+            QLabel* lbl = new QLabel(text, this);
 
             if (m_orientation == Qt::Vertical) {
                 lbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);

@@ -18,6 +18,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QParallelAnimationGroup>
+#include <QPixmap>
 #include <QPropertyAnimation>
 #include <QPushButton>
 #include <QResizeEvent>
@@ -124,6 +125,13 @@ void HubMenuWidget::buildVerticalSidebar() {
         QWidget* tile = buildVerticalMenuItem(item);
         m_sidebarLayout->addWidget(tile);
         m_sidebarLayout->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+        QLabel* iconLabel = tile->findChild<QLabel*>();
+        if (iconLabel && item.id == "emulator_home") {
+            iconLabel->setCursor(Qt::PointingHandCursor);
+            iconLabel->installEventFilter(this);
+            iconLabel->setProperty("isShadIcon", true);
+        }
     }
 }
 
@@ -173,7 +181,13 @@ void HubMenuWidget::buildUi() {
 
     m_sidebarContainer = new QWidget(this);
     m_sidebarContainer->setFixedWidth(400);
+    m_sidebarContainer->setFocusPolicy(Qt::StrongFocus);
+    m_sidebarContainer->setAttribute(Qt::WA_TransparentForMouseEvents, false);
 
+    for (auto* child : m_sidebarContainer->findChildren<QWidget*>()) {
+        child->setFocusPolicy(Qt::StrongFocus);
+        child->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+    }
     m_sidebarLayout = new QVBoxLayout(m_sidebarContainer);
     m_sidebarLayout->setContentsMargins(0, 40, 0, 0);
     m_sidebarLayout->setSpacing(20);
@@ -241,17 +255,26 @@ void HubMenuWidget::buildUi() {
         m_hotkeysOverlay->layout()->setAlignment(Qt::AlignTop | Qt::AlignRight);
     }
 
-    m_hotkeysOverlay->setHotkeys({{"Arrow Up/Down", "Navigate Games/Buttons"},
+    m_hotkeysOverlay->setHotkeys({{"", ""},
+                                  {"Arrow Up/Down", "Navigate Games/Buttons"},
                                   {"Arrow Right", "Focus on Buttons"},
                                   {"Arrow Left", "Focus on Games"},
                                   {"Enter/Space", "Select/Play"},
                                   {"Backspace", "Hide/Show Games and Buttons"},
+                                  {"", ""},
+                                  {"", ""},
+                                  {"", ""},
+                                  {"", ""},
+                                  {"", ""},
+                                  {"", ""},
+                                  {"", ""},
+                                  {"", ""},
                                   {"Press - P - ", "Play Highlighted Game"},
                                   {"Press - M - ", "Mods Manager"},
                                   {"Press - G - ", "Games Settings"},
                                   {"Press - S - ", "Global Settings"},
                                   {"Press - H - ", "Hotkeys Setup"},
-                                  {"Esc", "Exit"}});
+                                  {"Esc/Click on Fork Icon", "Exit"}});
     m_hotkeysOverlay->setStyleSheet("QLabel { font-size: 20px; color: white; }");
     m_hotkeysOverlay->show();
     m_background->raise();
@@ -712,41 +735,46 @@ void HubMenuWidget::setDimVisible(bool visible) {
 }
 
 bool HubMenuWidget::eventFilter(QObject* obj, QEvent* ev) {
+    QLabel* lbl = qobject_cast<QLabel*>(obj);
+    if (lbl && ev->type() == QEvent::MouseButtonRelease) {
+        if (lbl->property("isShadIcon").toBool()) {
+            hideFull();
+            return true;
+        }
+    }
+
     QWidget* tile = qobject_cast<QWidget*>(obj);
-    if (!tile)
-        return QWidget::eventFilter(obj, ev);
+    if (tile) {
+        int index = tile->property("game_index").toInt();
 
-    int index = tile->property("game_index").toInt();
-    if (obj == m_actionsMenu || m_actionsMenu->isAncestorOf(qobject_cast<QWidget*>(obj))) {
-        if (ev->type() == QEvent::KeyPress) {
-            auto* keyEv = static_cast<QKeyEvent*>(ev);
-
-            if (keyEv->key() == Qt::Key_Left) {
-                m_focusArea = FocusArea::Games;
-
-                m_actionsMenu->clearFocus();
-                setFocus(Qt::OtherFocusReason);
-
-                highlightSelectedGame();
-                return true;
+        if (obj == m_actionsMenu || m_actionsMenu->isAncestorOf(tile)) {
+            if (ev->type() == QEvent::KeyPress) {
+                auto* keyEv = static_cast<QKeyEvent*>(ev);
+                if (keyEv->key() == Qt::Key_Left) {
+                    m_focusArea = FocusArea::Games;
+                    m_actionsMenu->clearFocus();
+                    setFocus(Qt::OtherFocusReason);
+                    highlightSelectedGame();
+                    return true;
+                }
             }
         }
-    }
 
-    if (ev->type() == QEvent::MouseButtonRelease) {
-        if (m_selectedIndex != index) {
-            m_selectedIndex = index;
-            highlightSelectedGame();
-            requestCenterSelectedGame();
+        if (ev->type() == QEvent::MouseButtonRelease) {
+            if (m_selectedIndex != index) {
+                m_selectedIndex = index;
+                highlightSelectedGame();
+                requestCenterSelectedGame();
+            }
+            setFocus();
+            return true;
         }
-        setFocus();
-        return true;
-    }
 
-    if (ev->type() == QEvent::MouseButtonDblClick) {
-        m_selectedIndex = index;
-        onLaunchClicked();
-        return true;
+        if (ev->type() == QEvent::MouseButtonDblClick) {
+            m_selectedIndex = index;
+            onLaunchClicked();
+            return true;
+        }
     }
 
     return QWidget::eventFilter(obj, ev);
