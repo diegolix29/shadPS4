@@ -38,9 +38,161 @@
 #include <wrl/client.h>
 #endif
 
+enum class GameAction {
+    LaunchDefault,
+    LaunchGlobalConfig,
+    BootDetached,
+
+    OpenGameFolder,
+    OpenUpdateFolder,
+    OpenSaveFolder,
+    OpenLogFolder,
+    OpenModsFolder,
+
+    ToggleFavorite,
+    CreateShortcut,
+
+    OpenCheats,
+    OpenSfoViewer,
+    OpenTrophyViewer,
+
+    ConfigureGame,
+    CreateGameConfig,
+    DeleteGameConfig,
+
+    CopyName,
+    CopySerial,
+    CopyVersion,
+    CopySize,
+    CopyAll,
+
+    DeleteGame,
+    DeleteUpdate,
+    DeleteDLC,
+    DeleteSaveData,
+    DeleteTrophy,
+    DeleteShaderCache,
+
+    UpdateCompatibility,
+    ViewCompatibilityReport,
+    SubmitCompatibilityReport
+};
+
 class GuiContextMenus : public QObject {
     Q_OBJECT
 public:
+    inline int ExecuteGameAction(GameAction action, int itemID, QVector<GameInfo>& m_games,
+                                 std::shared_ptr<CompatibilityInfoClass> m_compat_info,
+                                 std::shared_ptr<IpcClient> m_ipc_client, QTableWidget* widget,
+                                 std::function<void(QStringList)> launch_func) {
+        if (itemID < 0 || itemID >= m_games.size())
+            return 0;
+
+        int changedFavorite = 0;
+        auto& game = m_games[itemID];
+
+        switch (action) {
+        case GameAction::LaunchDefault:
+            launch_func({});
+            break;
+
+        case GameAction::LaunchGlobalConfig:
+            launch_func({"--config-global"});
+            break;
+
+        case GameAction::OpenGameFolder: {
+            QString path;
+            Common::FS::PathToQString(path, game.path);
+            QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+            break;
+        }
+
+        case GameAction::OpenModsFolder: {
+            QString modsPath;
+            Common::FS::PathToQString(modsPath, game.path);
+            modsPath += "-MODS";
+
+            if (std::filesystem::exists(Common::FS::PathFromQString(modsPath))) {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(modsPath));
+            } else {
+                QMessageBox::information(
+                    nullptr, tr("Mods Folder"),
+                    QString(tr("Mods folder not found. Expected path: %1")).arg(modsPath));
+            }
+            break;
+        }
+
+        case GameAction::OpenUpdateFolder: {
+            QString updatePath;
+            Common::FS::PathToQString(updatePath, game.path);
+            QString updatePath1 = updatePath + "-UPDATE";
+            QString updatePath2 = updatePath + "-patch";
+
+            if (std::filesystem::exists(Common::FS::PathFromQString(updatePath1))) {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(updatePath1));
+            } else if (std::filesystem::exists(Common::FS::PathFromQString(updatePath2))) {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(updatePath2));
+            } else {
+                QMessageBox::information(nullptr, tr("Update Folder"),
+                                         QString(tr("Update folder not found for this game.")));
+            }
+            break;
+        }
+
+        case GameAction::ToggleFavorite: {
+            QString serial = QString::fromStdString(game.serial);
+            QList<QString> favs = m_compat_info->LoadFavorites();
+            if (favs.contains(serial))
+                favs.removeOne(serial);
+            else
+                favs.append(serial);
+
+            m_compat_info->SaveFavorites(favs);
+            changedFavorite = 1;
+            break;
+        }
+
+        case GameAction::CopyName:
+            QGuiApplication::clipboard()->setText(QString::fromStdString(game.name));
+            break;
+
+        case GameAction::CopySerial:
+            QGuiApplication::clipboard()->setText(QString::fromStdString(game.serial));
+            break;
+
+        case GameAction::CopyAll: {
+            QString txt = QString("Name:%1 | Serial:%2 | Version:%3")
+                              .arg(QString::fromStdString(game.name))
+                              .arg(QString::fromStdString(game.serial))
+                              .arg(QString::fromStdString(game.version));
+            QGuiApplication::clipboard()->setText(txt);
+            break;
+        }
+
+        case GameAction::DeleteShaderCache: {
+            QString shaderPath;
+            Common::FS::PathToQString(shaderPath,
+                                      Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
+                                          (game.serial + ".zip"));
+            if (QFile::exists(shaderPath))
+                QFile::remove(shaderPath);
+            break;
+        }
+
+        default:
+            break;
+        }
+
+        return changedFavorite;
+    }
+
+    int TriggerGameAction(GameAction action, int itemID, QVector<GameInfo>& games,
+                          std::shared_ptr<CompatibilityInfoClass> compat,
+                          std::shared_ptr<IpcClient> ipc, QTableWidget* widget,
+                          std::function<void(QStringList)> launch_func) {
+        return ExecuteGameAction(action, itemID, games, compat, ipc, widget, launch_func);
+    }
+
     int RequestGameMenu(const QPoint& pos, QVector<GameInfo>& m_games,
                         std::shared_ptr<CompatibilityInfoClass> m_compat_info,
                         std::shared_ptr<IpcClient> m_ipc_client, QTableWidget* widget, bool isList,
@@ -60,7 +212,6 @@ public:
             return changedFavorite;
         }
 
-        // Setup menu.
         QMenu menu(widget);
 
         QMenu* launchMenu = new QMenu(tr("Launch..."), widget);
@@ -78,12 +229,10 @@ public:
         menu.addAction(bootGameDetached);
         menu.addSeparator();
 
-        // Configuration submenu
         QMenu* customConfigMenu = new QMenu(tr("Custom Configuration..."), widget);
         QAction* openCustomConfigFolder =
             new QAction(tr("Open Custom Configuration Folder"), widget);
 
-        // "Open Folder..." submenu
         QMenu* openFolderMenu = new QMenu(tr("Open Folder..."), widget);
         QAction* openGameFolder = new QAction(tr("Open Game Folder"), widget);
         QAction* openUpdateFolder = new QAction(tr("Open Update Folder"), widget);
@@ -142,7 +291,6 @@ public:
         menu.addAction(&openSfoViewer);
         menu.addAction(&openTrophyViewer);
 
-        // "Copy" submenu.
         QMenu* copyMenu = new QMenu(tr("Copy info..."), widget);
         QAction* copyName = new QAction(tr("Copy Name"), widget);
         QAction* copySerial = new QAction(tr("Copy Serial"), widget);
@@ -160,7 +308,6 @@ public:
 
         menu.addMenu(copyMenu);
 
-        // "Delete..." submenu.
         QMenu* deleteMenu = new QMenu(tr("Delete..."), widget);
         QAction* deleteGame = new QAction(tr("Delete Game"), widget);
         QAction* deleteUpdate = new QAction(tr("Delete Update"), widget);
@@ -178,7 +325,6 @@ public:
 
         menu.addMenu(deleteMenu);
 
-        // Compatibility submenu.
         QMenu* compatibilityMenu = new QMenu(tr("Compatibility..."), widget);
         QAction* updateCompatibility = new QAction(tr("Update database"), widget);
         QAction* viewCompatibilityReport = new QAction(tr("View report"), widget);
@@ -196,17 +342,18 @@ public:
         viewCompatibilityReport->setEnabled(m_games[itemID].compatibility.status !=
                                             CompatibilityStatus::Unknown);
 
-        // Show menu.
         auto selected = menu.exec(global_pos);
         if (!selected) {
             return changedFavorite;
         }
 
         if (selected == launchNormally) {
-            launch_func({});
+            ExecuteGameAction(GameAction::LaunchDefault, itemID, m_games, m_compat_info,
+                              m_ipc_client, widget, launch_func);
         }
         if (selected == launchWithGlobalConfig) {
-            launch_func({"--config-global"});
+            ExecuteGameAction(GameAction::LaunchDefault, itemID, m_games, m_compat_info,
+                              m_ipc_client, widget, launch_func);
         }
         if (selected == bootGameDetached) {
             QString gameDir;

@@ -67,7 +67,6 @@ void CheatsPatches::setupUI() {
 
     QHBoxLayout* mainLayout = new QHBoxLayout(this);
 
-    // Create the game info group box
     QGroupBox* gameInfoGroupBox = new QGroupBox();
     QVBoxLayout* gameInfoLayout = new QVBoxLayout(gameInfoGroupBox);
     gameInfoLayout->setAlignment(Qt::AlignTop);
@@ -101,23 +100,19 @@ void CheatsPatches::setupUI() {
         gameInfoLayout->addWidget(gameSizeLabel);
     }
 
-    // Add a text area for instructions and 'Patch' descriptions
     instructionsTextEdit = new QTextEdit();
     instructionsTextEdit->setText(defaultTextEdit_MSG);
     instructionsTextEdit->setReadOnly(true);
     instructionsTextEdit->setFixedHeight(290);
     gameInfoLayout->addWidget(instructionsTextEdit);
 
-    // Create the tab widget
     QTabWidget* tabWidget = new QTabWidget();
     QWidget* cheatsTab = new QWidget();
     QWidget* patchesTab = new QWidget();
 
-    // Layouts for the tabs
     QVBoxLayout* cheatsLayout = new QVBoxLayout();
     QVBoxLayout* patchesLayout = new QVBoxLayout();
 
-    // Setup the cheats tab
     QGroupBox* cheatsGroupBox = new QGroupBox();
     rightLayout = new QVBoxLayout(cheatsGroupBox);
     rightLayout->setAlignment(Qt::AlignTop);
@@ -129,25 +124,21 @@ void CheatsPatches::setupUI() {
     scrollArea->setMinimumHeight(490);
     cheatsLayout->addWidget(scrollArea);
 
-    // QListView
     listView_selectFile = new QListView();
     listView_selectFile->setSelectionMode(QAbstractItemView::SingleSelection);
     listView_selectFile->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
-    // Add QListView to layout
     QVBoxLayout* fileListLayout = new QVBoxLayout();
     fileListLayout->addWidget(new QLabel(tr("Select Cheat File:")));
     fileListLayout->addWidget(listView_selectFile);
     cheatsLayout->addLayout(fileListLayout, 2);
 
-    // Call the method to fill the list of cheat files
     populateFileListCheats();
 
     QLabel* repositoryLabel = new QLabel(tr("Repository:"));
     repositoryLabel->setAlignment(Qt::AlignLeft);
     repositoryLabel->setAlignment(Qt::AlignVCenter);
 
-    // Add a combo box and a download button
     QHBoxLayout* controlLayout = new QHBoxLayout();
     controlLayout->addWidget(repositoryLabel);
     controlLayout->setAlignment(Qt::AlignLeft);
@@ -208,7 +199,6 @@ void CheatsPatches::setupUI() {
     cheatsLayout->addLayout(controlLayout);
     cheatsTab->setLayout(cheatsLayout);
 
-    // Setup the patches tab
     QGroupBox* patchesGroupBox = new QGroupBox();
     patchesGroupBoxLayout = new QVBoxLayout(patchesGroupBox);
     patchesGroupBoxLayout->setAlignment(Qt::AlignTop);
@@ -220,12 +210,10 @@ void CheatsPatches::setupUI() {
     patchesScrollArea->setMinimumHeight(490);
     patchesLayout->addWidget(patchesScrollArea);
 
-    // List of files in patchesListView
     patchesListView = new QListView();
     patchesListView->setSelectionMode(QAbstractItemView::SingleSelection);
     patchesListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
-    // Add new label "Select Patch File:" above the QListView
     QVBoxLayout* patchFileListLayout = new QVBoxLayout();
     patchFileListLayout->addWidget(new QLabel(tr("Select Patch File:")));
     patchFileListLayout->addWidget(patchesListView);
@@ -241,7 +229,6 @@ void CheatsPatches::setupUI() {
     patchesRepositoryLabel->setAlignment(Qt::AlignVCenter);
     patchesControlLayout->addWidget(patchesRepositoryLabel);
 
-    // Add the combo box with options
     patchesComboBox = new QComboBox();
     patchesComboBox->addItem("shadPS4", "shadPS4");
     patchesComboBox->addItem("GoldHEN", "GoldHEN");
@@ -315,8 +302,16 @@ void CheatsPatches::setupUI() {
     setLayout(mainLayout);
 }
 
+void CheatsPatches::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Escape) {
+        QWidget::close();
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
+}
+
 void CheatsPatches::onSaveButtonClicked() {
-    // Get the name of the selected folder in the patchesListView
     QString selectedPatchName;
     QModelIndexList selectedIndexes = patchesListView->selectionModel()->selectedIndexes();
     if (selectedIndexes.isEmpty()) {
@@ -590,12 +585,6 @@ void CheatsPatches::downloadCheats(const QString& source, const QString& gameSer
         reply->deleteLater();
         emit downloadFinished();
     });
-
-    // connect(reply, &QNetworkReply::errorOccurred, [=](QNetworkReply::NetworkError code) {
-    //     if (showMessageBox)
-    //         QMessageBox::warning(this, "Download Error",
-    //                              QString("Error in response: %1").arg(reply->errorString()));
-    // });
 }
 
 void CheatsPatches::populateFileListPatches() {
@@ -746,7 +735,6 @@ void CheatsPatches::downloadPatches(const QString repository, const bool showMes
                 QMessageBox::information(this, tr("Download Complete"),
                                          QString(DownloadComplete_MSG));
             }
-            // Create the files.json file with the identification of which file to open
             createFilesJson(repository);
             populateFileListPatches();
             compatibleVersionNotice(repository);
@@ -932,7 +920,6 @@ void CheatsPatches::addCheatsToLayout(const QJsonArray& modsArray, const QJsonAr
             cheat.memoryMods.append(memoryMod);
         }
 
-        // Check for the presence of 'hint' field
         cheat.hasHint = modObject.contains("hint");
 
         m_cheats[modName] = cheat;
@@ -951,7 +938,6 @@ void CheatsPatches::addCheatsToLayout(const QJsonArray& modsArray, const QJsonAr
                 maxWidthButton = buttonWidth;
             }
 
-            // Create a horizontal layout for buttons
             QHBoxLayout* buttonLayout = new QHBoxLayout();
             buttonLayout->setContentsMargins(0, 0, 0, 0);
             buttonLayout->addWidget(cheatButton);
@@ -963,7 +949,6 @@ void CheatsPatches::addCheatsToLayout(const QJsonArray& modsArray, const QJsonAr
         }
     }
 
-    // Set minimum and fixed size for all buttons + 20
     for (int i = 0; i < rightLayout->count(); ++i) {
         QLayoutItem* layoutItem = rightLayout->itemAt(i);
         QWidget* widget = layoutItem->widget();
@@ -991,7 +976,6 @@ void CheatsPatches::addCheatsToLayout(const QJsonArray& modsArray, const QJsonAr
         }
     }
 
-    // Set credits label
     QLabel* creditsLabel = new QLabel();
     QString creditsText = tr("Author: ");
     if (!creditsArray.isEmpty()) {
@@ -1070,7 +1054,6 @@ void CheatsPatches::addPatchesToLayout(const QString& filePath) {
     }
     QString folderPath = filePath.section(" | ", 1, 1);
 
-    // Clear existing layout items
     QLayoutItem* item;
     while ((item = patchesGroupBoxLayout->takeAt(0)) != nullptr) {
         delete item->widget();
@@ -1104,12 +1087,10 @@ void CheatsPatches::addPatchesToLayout(const QString& filePath) {
 
     bool patchAdded = false;
 
-    // Iterate over each entry in the JSON file
     for (auto it = jsonObject.constBegin(); it != jsonObject.constEnd(); ++it) {
         QString xmlFileName = it.key();
         QJsonArray idsArray = it.value().toArray();
 
-        // Check if the serial is in the ID list
         if (idsArray.contains(QJsonValue(m_gameSerial))) {
             QString xmlFilePath = dir.filePath(xmlFileName);
             QFile xmlFile(xmlFilePath);
@@ -1198,8 +1179,6 @@ void CheatsPatches::addPatchesToLayout(const QString& filePath) {
         }
     }
 
-    // Remove the item from the list view if no patches were added
-    // (the game has patches, but not for the current version)
     if (!patchAdded) {
         QStringListModel* model = qobject_cast<QStringListModel*>(patchesListView->model());
         if (model) {
@@ -1260,7 +1239,6 @@ void CheatsPatches::applyCheat(const QString& modName, bool enabled) {
         if (!Config::getGameRunning())
             return;
 
-        // Determine if the hint field is present
         bool isHintPresent = m_cheats[modName].hasHint;
 
         m_ipc_client->sendMemoryPatches(modNameStr, offsetStr, valueStr, "", "", !isHintPresent,
@@ -1333,7 +1311,6 @@ bool CheatsPatches::eventFilter(QObject* obj, QEvent* event) {
             return true;
         }
     }
-    // Pass the event on to base class
     return QWidget::eventFilter(obj, event);
 }
 

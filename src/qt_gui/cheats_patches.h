@@ -45,14 +45,12 @@ signals:
     void downloadFinished();
 
 private:
-    // UI Setup and Event Handlers
     void setupUI();
     void onSaveButtonClicked();
     QCheckBox* findCheckBoxByName(const QString& name);
-    bool eventFilter(QObject* obj, QEvent* event);
+    bool eventFilter(QObject* obj, QEvent* event) override;
     void onPatchCheckBoxHovered(QCheckBox* checkBox, bool hovered);
-
-    // Cheat and Patch Management
+    void keyPressEvent(QKeyEvent* event) override;
     void populateFileListCheats();
     void populateFileListPatches();
 
@@ -65,10 +63,8 @@ private:
     void uncheckAllCheatCheckBoxes();
     void updateNoteTextEdit(const QString& patchName);
 
-    // Network Manager
     QNetworkAccessManager* manager;
 
-    // Patch Info Structures
     struct MemoryMod {
         QString offset;
         QString on;
@@ -90,7 +86,6 @@ private:
         QString serial;
     };
 
-    // Members
     QString m_gameName;
     QString m_gameSerial;
     QString m_gameVersion;
@@ -102,7 +97,6 @@ private:
     QVector<QCheckBox*> m_cheatCheckBoxes;
     std::shared_ptr<IpcClient> m_ipc_client;
 
-    // UI Elements
     QVBoxLayout* rightLayout;
     QVBoxLayout* patchesGroupBoxLayout;
     QGroupBox* patchesGroupBox;
@@ -113,11 +107,10 @@ private:
     QComboBox* patchesComboBox;
     QListView* patchesListView;
 
-    // Strings
     QString defaultTextEdit_MSG;
     QString CheatsNotFound_MSG;
     QString CheatsDownloadedSuccessfully_MSG;
     QString DownloadComplete_MSG;
 };
 
-#endif // CHEATS_PATCHES_H
+#endif

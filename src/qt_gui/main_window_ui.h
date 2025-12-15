@@ -76,6 +76,7 @@ public:
     QPushButton* updaterButton;
     QPushButton* versionButton;
     QPushButton* bigPictureButton;
+    QPushButton* hubMenuButton;
     QPushButton* modManagerButton;
     QPushButton* configureHotkeysButton;
     QComboBox* styleSelector = new QComboBox();
@@ -320,8 +321,12 @@ public:
         versionButton->setIconSize(QSize(40, 40));
         bigPictureButton = new QPushButton(centralWidget);
         bigPictureButton->setFlat(true);
-        bigPictureButton->setIcon(QIcon(":images/controller_icon.png"));
+        bigPictureButton->setIcon(QIcon(":images/games_icon.png"));
         bigPictureButton->setIconSize(QSize(40, 40));
+        hubMenuButton = new QPushButton(centralWidget);
+        hubMenuButton->setFlat(true);
+        hubMenuButton->setIcon(QIcon(":images/hub_icon.png"));
+        hubMenuButton->setIconSize(QSize(40, 40));
         modManagerButton = new QPushButton(centralWidget);
         modManagerButton->setFlat(true);
         modManagerButton->setIcon(QIcon(":images/folder_icon.png"));

@@ -40,5 +40,7 @@
         <file>images/hotkeybutton.png</file>
         <file>images/favorite_icon.png</file>
         <file>images/game_settings.png</file>
+        <file>images/hub_icon.png</file>
+        <file>images/games_icon.png</file>
     </qresource>
 </RCC>

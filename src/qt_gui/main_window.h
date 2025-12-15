@@ -32,6 +32,7 @@
 #include "game_list_frame.h"
 #include "game_list_utils.h"
 #include "games_menu.h"
+#include "hub_menu_widget.h"
 #include "main_window_themes.h"
 #include "main_window_ui.h"
 #include "sdl_window.h"
@@ -146,15 +147,22 @@ public:
     ~MainWindow();
     std::string GetRunningGameSerial() const;
     bool Init();
+    void onHubMenuOpenFolderRequested(int index);
+    void onDeleteShaderCacheRequested(int index);
     void openSettingsWindow();
     void createToolbarContextMenu(const QPoint& pos);
     void contextMenuEvent(QContextMenuEvent* event) override;
     void toggleToolbarWidgetVisibility(bool checked);
     void forwardGamepadButton(int sdlButton);
     void restoreBigPictureFocus();
+    void restoreHubFocus();
     void openHotkeysWindow();
     void StartGameByIndex(int index, QStringList args);
     void toggleColorFilter();
+    void onHubMenuLaunchGameRequested(int index);
+    void onHubMenuGameConfigRequested(int index);
+    void onHubMenuOpenModsManagerRequested(int index);
+    void onOpenCheatsRequested(int index);
     void StartGameWithPath(const QString& gamePath);
     void Directories();
     void ApplyLastUsedStyle();
@@ -178,6 +186,7 @@ public:
     static QProcess* emulatorProcess;
     std::shared_ptr<IpcClient> m_ipc_client;
     std::unique_ptr<BigPictureWidget> m_bigPicture;
+    std::unique_ptr<HubMenuWidget> m_hubMenu;
     std::shared_ptr<GameInfoClass> m_game_info = std::make_shared<GameInfoClass>();
 
 private Q_SLOTS:
@@ -228,6 +237,7 @@ private:
     bool isGameRunning = false;
     bool isWhite = false;
     bool is_paused = false;
+    bool m_isRepopulatingStyleSelector = false;
 
     QActionGroup* m_icon_size_act_group = nullptr;
     QActionGroup* m_list_mode_act_group = nullptr;

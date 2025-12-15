@@ -34,7 +34,6 @@ BigPictureWidget::BigPictureWidget(std::shared_ptr<GameInfoClass> gameInfo,
     setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
     setAttribute(Qt::WA_DeleteOnClose, false);
     setAutoFillBackground(false);
-    setAttribute(Qt::WA_TranslucentBackground, true);
     buildUi();
     auto resource = cmrc::res::get_filesystem();
 
@@ -175,18 +174,18 @@ void BigPictureWidget::buildUi() {
     QVBoxLayout* layout = new QVBoxLayout(this);
     layout->setContentsMargins(24, 24, 24, 24);
     layout->setSpacing(12);
-
     m_scroll = new QScrollArea(this);
     m_scroll->setWidgetResizable(true);
     m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_scroll->setFrameShape(QFrame::HLine);
     m_scroll->setFrameShadow(QFrame::Sunken);
-
     m_scroll->setStyleSheet("background: transparent;");
     m_scroll->viewport()->setStyleSheet("background: transparent;");
     m_scrollBarHidden = false;
+
     setFocusPolicy(Qt::StrongFocus);
+
     m_container = new QWidget(m_scroll);
 
     for (int i = 0; i < m_gameInfo->m_games.size(); i++) {
@@ -198,51 +197,25 @@ void BigPictureWidget::buildUi() {
     }
 
     m_scroll->setWidget(m_container);
+    m_scroll->viewport()->setFocusPolicy(Qt::NoFocus);
 
     m_background = new QLabel(this);
     m_background->setScaledContents(true);
     m_background->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
-    m_background->setGeometry(rect());
-    m_background->lower();
 
-    m_dim = new QLabel(this);
-    m_dim->setAttribute(Qt::WA_TransparentForMouseEvents);
-    m_dim->setStyleSheet("background-color: rgba(0,0,0,140);");
-    m_dim->setGeometry(rect());
-    m_dim->lower();
-    m_background->raise();
-    m_background->lower();
-    m_dim->raise();
-    m_scroll->raise();
+    m_dim = new QWidget(this);
+    m_dim->setStyleSheet("background-color: rgba(0, 0, 0, 0);");
+
+    m_dimFade = new QPropertyAnimation(m_dimOpacity, "opacity", this);
+    m_dimFade->setDuration(220);
 
     layout->addWidget(m_scroll);
-    m_scroll->viewport()->setFocusPolicy(Qt::NoFocus);
-
-    m_hotkeysOverlay = new HotkeysOverlay(this);
-    m_hotkeysOverlay->setHotkeys({{"Arrow Left/Right", "Navigate Games/Buttons"},
-                                  {"Arrow Down", "Focus on Buttons"},
-                                  {"Arrow Up", "Focus on Games"},
-                                  {"Enter/Space", "Select/Play"},
-                                  {"Shift + Arrow Up", "Hide/Show Games and Buttons"},
-                                  {"Shift + N", "Mute Background Music"},
-                                  {"Press - R - ", "Stop/Play Background Music"},
-                                  {"Press - P - ", "Play Highlighted Game"},
-                                  {"Press - M - ", "Mods Manager"},
-                                  {"Press - G - ", "Games Settings"},
-                                  {"Press - S - ", "Global Settings"},
-                                  {"Press - H - ", "Hotkeys Setup"},
-                                  {"Esc", "Exit"}});
-    m_hotkeysOverlay->setMinimumHeight(50);
-    m_hotkeysOverlay->setStyleSheet("background: rgba(0,0,0,120); padding: 6px 12px;");
-    m_hotkeysOverlay->raise();
-    m_hotkeysOverlay->show();
 
     m_bottomBar = new QWidget(this);
     QHBoxLayout* bottomLayout = new QHBoxLayout(m_bottomBar);
     bottomLayout->setContentsMargins(8, 8, 8, 8);
     bottomLayout->setSpacing(12);
     m_bottomBarHidden = false;
-    setFocusPolicy(Qt::StrongFocus);
 
     m_btnGlobalCfg = new QPushButton(tr("Settings"), m_bottomBar);
     m_btnGameCfg = new QPushButton(tr("Game Settings"), m_bottomBar);
@@ -262,12 +235,45 @@ void BigPictureWidget::buildUi() {
 
     layout->addWidget(m_bottomBar);
 
+    m_hotkeysOverlay = new HotkeysOverlay(Qt::Horizontal, this);
+    m_hotkeysOverlay->setHotkeys({{"Arrow Left/Right", "Navigate Games/Buttons"},
+                                  {"Arrow Down", "Focus on Buttons"},
+                                  {"Arrow Up", "Focus on Games"},
+                                  {"Enter/Space", "Select/Play"},
+                                  {"Shift + Arrow Up", "Hide/Show Games and Buttons"},
+                                  {"Shift + N", "Mute Background Music"},
+                                  {"Press - R - ", "Stop/Play Background Music"},
+                                  {"Press - P - ", "Play Highlighted Game"},
+                                  {"Press - M - ", "Mods Manager"},
+                                  {"Press - G - ", "Games Settings"},
+                                  {"Press - S - ", "Global Settings"},
+                                  {"Press - H - ", "Hotkeys Setup"},
+                                  {"Esc", "Exit"}});
+    m_hotkeysOverlay->setMinimumHeight(50);
+    m_hotkeysOverlay->setStyleSheet("background: rgba(0,0,0,120); padding: 6px 12px;");
+    m_hotkeysOverlay->show();
+
+    m_background->lower();
+    m_dim->raise();
+    m_scroll->raise();
+    m_bottomBar->raise();
+    m_hotkeysOverlay->raise();
+
     connect(m_btnPlay, &QPushButton::clicked, this, &BigPictureWidget::onPlayClicked);
     connect(m_btnHotkeys, &QPushButton::clicked, this, &BigPictureWidget::onHotkeysClicked);
     connect(m_btnMods, &QPushButton::clicked, this, &BigPictureWidget::onModsClicked);
     connect(m_btnQuit, &QPushButton::clicked, this, &BigPictureWidget::onQuitClicked);
     connect(m_btnGameCfg, &QPushButton::clicked, this, &BigPictureWidget::onGameConfigClicked);
     connect(m_btnGlobalCfg, &QPushButton::clicked, this, &BigPictureWidget::onGlobalConfigClicked);
+
+    const QList<QPushButton*> buttons = {
+        m_btnGlobalCfg, m_btnGameCfg, m_btnMods, m_btnHotkeys, m_btnPlay, m_btnQuit,
+    };
+
+    for (auto* btn : buttons) {
+        if (btn)
+            btn->installEventFilter(this);
+    }
 
     if (!m_tiles.empty()) {
         m_selectedIndex = 0;
@@ -286,6 +292,58 @@ void BigPictureWidget::onModsClicked() {
 
 void BigPictureWidget::onHotkeysClicked() {
     emit openHotkeysRequested();
+}
+
+void BigPictureWidget::setDimVisible(bool visible) {
+    if (m_dimFade) {
+        m_dimFade->stop();
+    }
+
+    int targetAlpha = visible ? 140 : 0;
+
+    QColor themeColor = this->palette().color(QPalette::Window);
+    int r = themeColor.red();
+    int g = themeColor.green();
+    int b = themeColor.blue();
+
+    QPropertyAnimation* alphaAnimation = new QPropertyAnimation(m_dim, "alphaChannel", this);
+    alphaAnimation->setDuration(220);
+    alphaAnimation->setEasingCurve(QEasingCurve::OutQuad);
+
+    int startAlpha = 0;
+    QString currentStyle = m_dim->styleSheet();
+    if (currentStyle.contains(QString("rgba(%1, %2, %3, 0)").arg(r).arg(g).arg(b))) {
+        startAlpha = 0;
+    } else if (visible) {
+        startAlpha = 0;
+    } else {
+        startAlpha = 140;
+    }
+
+    alphaAnimation->setStartValue(startAlpha);
+    alphaAnimation->setEndValue(targetAlpha);
+
+    QObject::connect(
+        alphaAnimation, &QPropertyAnimation::valueChanged, m_dim,
+        [this, r, g, b](const QVariant& value) {
+            int alpha = value.toInt();
+            m_dim->setStyleSheet(
+                QString("background-color: rgba(%1, %2, %3, %4);").arg(r).arg(g).arg(b).arg(alpha));
+        });
+
+    QObject::connect(alphaAnimation, &QPropertyAnimation::finished, alphaAnimation,
+                     &QObject::deleteLater);
+
+    QObject::connect(alphaAnimation, &QPropertyAnimation::finished, m_dim,
+                     [this, r, g, b, targetAlpha] {
+                         m_dim->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+                                                  .arg(r)
+                                                  .arg(g)
+                                                  .arg(b)
+                                                  .arg(targetAlpha));
+                     });
+
+    alphaAnimation->start();
 }
 
 void BigPictureWidget::layoutTiles() {
@@ -443,6 +501,8 @@ void BigPictureWidget::updateBackground(int index) {
             m_dim->setGeometry(rect());
             m_dim->raise();
             m_scroll->raise();
+            m_bottomBar->raise();
+            m_hotkeysOverlay->raise();
         }
     } else {
         m_background->clear();
@@ -510,6 +570,7 @@ void BigPictureWidget::showFull() {
     updateBackground(m_selectedIndex);
     highlightSelectedTile();
     centerSelectedTileAnimated();
+    setDimVisible(true);
     m_fadeIn->start();
     m_visible = true;
 
@@ -521,7 +582,7 @@ void BigPictureWidget::showFull() {
 void BigPictureWidget::hideFull() {
     if (m_player)
         m_player->stop();
-
+    setDimVisible(false);
     m_fadeOut->start();
 }
 
@@ -626,7 +687,7 @@ void BigPictureWidget::highlightSelectedTile() {
         if (i == selected) {
             tile->raise();
             tile->setStyleSheet("background-color: rgba(34,34,34,180);"
-                                "border: 3px solid #57a1ff; border-radius: 14px;");
+                                "border: none; border-radius: 14px;");
 
             int newW = int(baseGeom.width() * zoomFactor);
             int newH = int(baseGeom.height() * zoomFactor);
@@ -706,28 +767,51 @@ void BigPictureWidget::zoomSelectedTile(QWidget* tile, const QRect& baseGeom, qr
 bool BigPictureWidget::eventFilter(QObject* obj, QEvent* ev) {
 
     QWidget* tile = qobject_cast<QWidget*>(obj);
-    if (!tile)
-        return QWidget::eventFilter(obj, ev);
 
-    int index = tile->property("game_index").toInt();
+    if (tile && tile->property("game_index").isValid()) {
+        int index = tile->property("game_index").toInt();
 
-    if (ev->type() == QEvent::MouseButtonRelease) {
+        if (ev->type() == QEvent::MouseButtonRelease) {
+            if (m_selectedIndex != index) {
+                m_selectedIndex = index;
+                updateBackground(index);
+                highlightSelectedTile();
+                centerSelectedTileAnimated();
+                setDimVisible(true);
+            }
 
-        if (m_selectedIndex != index) {
-            m_selectedIndex = index;
-            updateBackground(index);
-            highlightSelectedTile();
-            centerSelectedTileAnimated();
+            setFocus();
+            return true;
         }
 
-        setFocus();
-        return true;
+        if (ev->type() == QEvent::MouseButtonDblClick) {
+            m_selectedIndex = index;
+            onPlayClicked();
+            return true;
+        }
     }
 
-    if (ev->type() == QEvent::MouseButtonDblClick) {
-        m_selectedIndex = index;
-        onPlayClicked();
-        return true;
+    if (QPushButton* btn = qobject_cast<QPushButton*>(obj)) {
+        if (ev->type() == QEvent::KeyPress) {
+            auto* e = static_cast<QKeyEvent*>(ev);
+
+            switch (e->key()) {
+            case Qt::Key_Up:
+                m_focusMode = FocusMode::Tiles;
+                setFocus(Qt::OtherFocusReason);
+                highlightSelectedTile();
+                return true;
+
+            case Qt::Key_Return:
+            case Qt::Key_Enter:
+            case Qt::Key_Space:
+                btn->click();
+                return true;
+
+            default:
+                break;
+            }
+        }
     }
 
     return QWidget::eventFilter(obj, ev);
@@ -790,6 +874,7 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
             m_selectedIndex++;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
+            setDimVisible(true);
             UpdateCurrentGameAudio();
 
             centerSelectedTileAnimated();
@@ -804,6 +889,7 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
             m_selectedIndex--;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
+            setDimVisible(true);
             UpdateCurrentGameAudio();
 
             centerSelectedTileAnimated();
@@ -836,17 +922,24 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
     }
 
     if (e->key() == Qt::Key_Down) {
+
         m_focusMode = FocusMode::Buttons;
+        m_btnPlay->setFocus(Qt::OtherFocusReason);
+        e->accept();
+        return;
+    }
 
-        m_btnPlay->setFocus();
-
+    if (e->key() == Qt::Key_Up) {
         if (m_focusMode == FocusMode::Buttons) {
+            m_focusMode = FocusMode::Tiles;
+            setFocus(Qt::OtherFocusReason);
+            highlightSelectedTile();
             e->accept();
             return;
         }
-    } else {
-        m_focusMode = FocusMode::Tiles;
     }
+
+    QWidget::keyPressEvent(e);
 }
 
 void BigPictureWidget::centerSelectedTileAnimated() {
@@ -988,6 +1081,7 @@ void BigPictureWidget::showEvent(QShowEvent* ev) {
         highlightSelectedTile();
         centerSelectedTileAnimated();
         updateDepthEffect();
+        setDimVisible(true);
     });
 }
 
@@ -1018,8 +1112,11 @@ void BigPictureWidget::focusInEvent(QFocusEvent* event) {
 
 void BigPictureWidget::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
+    if (m_dim)
+        m_dim->setGeometry(rect());
 
-    m_background->lower();
+    if (m_background)
+        m_background->setGeometry(rect());
     m_dim->raise();
     m_scroll->raise();
     m_bottomBar->raise();
@@ -1036,6 +1133,7 @@ void BigPictureWidget::resizeEvent(QResizeEvent* e) {
         m_hotkeysOverlay->setGeometry(overlayX, overlayY, overlayWidth, overlayHeight);
         m_hotkeysOverlay->raise();
     }
+    m_hotkeysOverlay->raise();
 
     layoutTiles();
     updateBackground(m_selectedIndex);

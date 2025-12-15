@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -10,6 +10,7 @@
 #include <QPainter>
 #include <QPointer>
 #include <QPropertyAnimation>
+#include <QStyleOption>
 #include <QWidget>
 #include "main_window_themes.h"
 
@@ -21,7 +22,6 @@ class QLabel;
 class QScrollArea;
 class QHBoxLayout;
 class QVBoxLayout;
-class QWidget;
 class QGraphicsOpacityEffect;
 class QPropertyAnimation;
 class QPushButton;
@@ -29,62 +29,96 @@ class QPushButton;
 class HotkeysOverlay : public QWidget {
     Q_OBJECT
 public:
-    explicit HotkeysOverlay(QWidget* parent = nullptr) : QWidget(parent) {
+    explicit HotkeysOverlay(Qt::Orientation orientation, QWidget* parent = nullptr)
+        : QWidget(parent), m_orientation(orientation) {
+
         setAttribute(Qt::WA_TransparentForMouseEvents);
         setAttribute(Qt::WA_NoSystemBackground);
         setAttribute(Qt::WA_TranslucentBackground);
+        setAttribute(Qt::WA_StyledBackground, true);
         setFocusPolicy(Qt::NoFocus);
 
         m_mainLayout = new QVBoxLayout(this);
-        m_mainLayout->setContentsMargins(8, 0, 8, 0);
-        m_mainLayout->setSpacing(4);
-        m_mainLayout->setAlignment(Qt::AlignCenter);
 
-        m_topRow = new QHBoxLayout();
-        m_bottomRow = new QHBoxLayout();
+        m_mainLayout->setContentsMargins(0, 0, 0, 0);
+        m_mainLayout->setSpacing(2);
 
-        m_topRow->setSpacing(12);
-        m_topRow->setAlignment(Qt::AlignCenter);
+        if (m_orientation == Qt::Vertical) {
+            m_mainLayout->setAlignment(Qt::AlignRight | Qt::AlignTop);
+            m_topRow = nullptr;
+            m_bottomRow = nullptr;
+        } else {
+            m_mainLayout->setAlignment(Qt::AlignCenter);
 
-        m_bottomRow->setSpacing(12);
-        m_bottomRow->setAlignment(Qt::AlignCenter);
+            m_topRow = new QHBoxLayout();
+            m_bottomRow = new QHBoxLayout();
 
-        m_mainLayout->addLayout(m_topRow);
-        m_mainLayout->addLayout(m_bottomRow);
+            m_topRow->setSpacing(12);
+            m_topRow->setAlignment(Qt::AlignCenter);
+
+            m_bottomRow->setSpacing(12);
+            m_bottomRow->setAlignment(Qt::AlignCenter);
+
+            m_mainLayout->addLayout(m_topRow);
+            m_mainLayout->addLayout(m_bottomRow);
+        }
+    }
+
+    void paintEvent(QPaintEvent*) override {
+        QStyleOption opt;
+        opt.initFrom(this);
+        QPainter p(this);
+        style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
     }
 
     void setHotkeys(const std::vector<std::pair<QString, QString>>& hotkeys) {
-        auto clearRow = [](QLayout* layout) {
+
+        auto clearLayout = [](QLayout* layout) {
+            if (!layout)
+                return;
             QLayoutItem* child;
             while ((child = layout->takeAt(0))) {
-                delete child->widget();
+                if (child->widget())
+                    delete child->widget();
                 delete child;
             }
         };
 
-        clearRow(m_topRow);
-        clearRow(m_bottomRow);
+        if (m_orientation == Qt::Vertical) {
+            clearLayout(m_mainLayout);
+        } else {
+            clearLayout(m_topRow);
+            clearLayout(m_bottomRow);
+        }
 
         for (const auto& hk : hotkeys) {
-
             QLabel* lbl = new QLabel(QString("%1: %2").arg(hk.first, hk.second), this);
-            lbl->setStyleSheet("color: white; background-color: rgba(0,0,0,160); "
-                               "padding: 4px 8px; border-radius: 6px; font-size: 14px;");
 
-            if (hk.first.startsWith("Press")) {
-                m_topRow->addWidget(lbl);
+            if (m_orientation == Qt::Vertical) {
+                lbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+                m_mainLayout->addWidget(lbl);
             } else {
-                m_bottomRow->addWidget(lbl);
+                lbl->setAlignment(Qt::AlignCenter);
+                if (hk.first.startsWith("Press")) {
+                    if (m_topRow)
+                        m_topRow->addWidget(lbl);
+                } else {
+                    if (m_bottomRow)
+                        m_bottomRow->addWidget(lbl);
+                }
             }
         }
 
+        m_mainLayout->activate();
+        adjustSize();
         updateGeometry();
     }
 
 private:
+    Qt::Orientation m_orientation;
     QVBoxLayout* m_mainLayout;
-    QHBoxLayout* m_topRow;
-    QHBoxLayout* m_bottomRow;
+    QHBoxLayout* m_topRow = nullptr;
+    QHBoxLayout* m_bottomRow = nullptr;
 };
 
 class AnimatedTile : public QWidget {
@@ -240,6 +274,7 @@ private:
     void showEvent(QShowEvent* ev) override;
     void onModsClicked();
     void onHotkeysClicked();
+    void setDimVisible(bool visible);
     QWidget* buildTile(const GameInfo& g);
     void buildAnimations();
     void updateBackground(int index);
@@ -250,7 +285,7 @@ private:
     WindowThemes* m_themes = nullptr;
     void applyTheme();
     QLabel* m_background = nullptr;
-    QLabel* m_dim = nullptr;
+    QWidget* m_dim = nullptr;
     QScrollArea* m_scroll = nullptr;
     QWidget* m_container = nullptr;
     QHBoxLayout* m_hbox = nullptr;
@@ -278,7 +313,9 @@ private:
     bool m_navigationLocked = false;
     bool m_scrollBarHidden = false;
     bool m_bottomBarHidden = false;
-
+    bool m_overlayVisible = false;
+    QGraphicsOpacityEffect* m_dimOpacity = nullptr;
+    QPropertyAnimation* m_dimFade = nullptr;
     QGraphicsOpacityEffect* m_opacity = nullptr;
     QPropertyAnimation* m_fadeIn = nullptr;
     QPropertyAnimation* m_fadeOut = nullptr;
