@@ -242,6 +242,7 @@ bool MainWindow::Init() {
     CreateDockWindows(true);
     CreateConnects();
     SetLastUsedTheme();
+    ApplyLastUsedStyle();
     SetLastIconSizeBullet();
     toggleColorFilter();
 
@@ -1303,9 +1304,54 @@ void MainWindow::CreateConnects() {
         int idx = ui->styleSelector->currentIndex();
         QVariant data = ui->styleSelector->itemData(idx);
 
-        if (styleName.endsWith("(QSS)") && data.isValid()) {
-            m_game_list_frame->SetThemeColors(m_window_themes.textColor());
+        Theme lastKnownTheme = static_cast<Theme>(Config::getMainWindowTheme());
+        Theme themeToReload = lastKnownTheme;
 
+        if (styleName.endsWith("(QSS)") && data.isValid()) {
+
+            QString qssFilePath = data.toString();
+            QFileInfo qssFileInfo(qssFilePath);
+            QString qssBaseName = qssFileInfo.baseName();
+
+            bool isCyberpunk = qssBaseName.contains("Cyberpunk", Qt::CaseInsensitive);
+
+            if (isCyberpunk) {
+                m_window_themes.SetWindowTheme(Theme::QSS, ui->mw_searchbar, data.toString());
+                Config::setMainWindowTheme(static_cast<int>(Theme::QSS));
+                ui->setThemeQSS->setChecked(true);
+            } else if (lastKnownTheme == Theme::QSS) {
+
+                if (ui->setThemeDark->isChecked())
+                    themeToReload = Theme::Dark;
+                else if (ui->setThemeLight->isChecked())
+                    themeToReload = Theme::Light;
+                else if (ui->setThemeGreen->isChecked())
+                    themeToReload = Theme::Green;
+                else if (ui->setThemeBlue->isChecked())
+                    themeToReload = Theme::Blue;
+                else if (ui->setThemeViolet->isChecked())
+                    themeToReload = Theme::Violet;
+                else if (ui->setThemeGruvbox->isChecked())
+                    themeToReload = Theme::Gruvbox;
+                else if (ui->setThemeTokyoNight->isChecked())
+                    themeToReload = Theme::TokyoNight;
+                else if (ui->setThemeOled->isChecked())
+                    themeToReload = Theme::Oled;
+                else if (ui->setThemeNeon->isChecked())
+                    themeToReload = Theme::Neon;
+                else if (ui->setThemeShadlix->isChecked())
+                    themeToReload = Theme::Shadlix;
+                else if (ui->setThemeShadlixCave->isChecked())
+                    themeToReload = Theme::ShadlixCave;
+
+                if (themeToReload == Theme::QSS) {
+                    themeToReload = Theme::Dark;
+                }
+
+                m_window_themes.SetWindowTheme(themeToReload, ui->mw_searchbar);
+                Config::setMainWindowTheme(static_cast<int>(themeToReload));
+                ui->setThemeQSS->setChecked(false);
+            }
             QFile file(data.toString());
             if (file.open(QFile::ReadOnly)) {
                 qApp->setStyleSheet(file.readAll());
@@ -1319,7 +1365,6 @@ void MainWindow::CreateConnects() {
             Config::setGuiStyle(styleName.toStdString());
             qApp->setStyleSheet("");
         }
-
         if (Config::getEnableColorFilter()) {
             SetUiIcons(m_window_themes.iconBaseColor(), m_window_themes.iconHoverColor());
             if (m_game_list_frame) {
@@ -1334,9 +1379,11 @@ void MainWindow::CreateConnects() {
                 m_game_list_frame->SetThemeColors(baseColor);
             }
         }
+        m_game_list_frame->SetThemeColors(m_window_themes.textColor());
 
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         Config::saveMainWindow(config_dir / "config.toml");
+
         if (isTableList) {
             if (m_game_list_frame)
                 m_game_list_frame->RefreshListBackgroundImage();
@@ -1348,6 +1395,7 @@ void MainWindow::CreateConnects() {
                 m_game_grid_frame->RefreshGridBackgroundImage();
         }
     });
+
     connect(ui->setCustomBackgroundAct, &QAction::triggered, this, [this]() {
         QString filePath =
             QFileDialog::getOpenFileName(this, tr("Select Background Image"), QDir::homePath(),
