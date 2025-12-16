@@ -250,9 +250,8 @@ void HubMenuWidget::buildUi() {
     });
 
     m_hotkeysOverlay = new HotkeysOverlay(Qt::Vertical, m_actionsMenu);
-
-    m_hotkeysOverlay->setHotkeys({{"", ""},
-                                  {"Arrow Up/Down", "Navigate Games/Buttons"},
+    m_hotkeysOverlay->setTitle("Hotkeys & Navigation Keys");
+    m_hotkeysOverlay->setHotkeys({{"Arrow Up/Down", "Navigate Games/Buttons"},
                                   {"Arrow Right", "Focus on Buttons"},
                                   {"Arrow Left", "Focus on Games"},
                                   {"Enter/Space", "Select/Play"},
@@ -292,7 +291,7 @@ void HubMenuWidget::positionActionsMenu() {
     int viewportWidth = m_scroll->viewport()->width();
     int viewportHeight = m_scroll->viewport()->height();
 
-    int fixed_x = 600;
+    int fixed_x = 580;
     int fixed_y = (viewportHeight - m_actionsMenu->height()) / 2;
 
     int finalX = std::clamp(fixed_x, 0, viewportWidth - m_actionsMenu->width());
@@ -360,7 +359,7 @@ void HubMenuWidget::buildGameList() {
         tile->setProperty("game_index", entry.index);
         tile->installEventFilter(this);
 
-        int startX = (m_gameContainer->width() - tile->width()) / 2;
+        int startX = (m_gameContainer->width() - tile->width()) / 2 + 100;
         tile->move(startX, y);
         tile->show();
 

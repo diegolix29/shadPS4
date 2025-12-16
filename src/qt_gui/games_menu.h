@@ -37,14 +37,19 @@ public:
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_StyledBackground, true);
         setFocusPolicy(Qt::NoFocus);
-
         m_mainLayout = new QVBoxLayout(this);
-
         m_mainLayout->setContentsMargins(0, 0, 0, 0);
         m_mainLayout->setSpacing(2);
 
+        m_titleLabel = new QLabel(this);
+        m_titleLabel->setStyleSheet(
+            "color: white; font-size: 24px; font-weight: bold; padding: 6px 12px;");
+        m_titleLabel->setText("Hotkeys & Navigation Keys");
+        m_titleLabel->setAlignment(Qt::AlignCenter);
+        m_mainLayout->addWidget(m_titleLabel);
+
         if (m_orientation == Qt::Vertical) {
-            m_mainLayout->setAlignment(Qt::AlignRight | Qt::AlignTop);
+            m_mainLayout->setAlignment(Qt::AlignCenter);
             m_topRow = nullptr;
             m_bottomRow = nullptr;
         } else {
@@ -53,10 +58,8 @@ public:
             m_topRow = new QHBoxLayout();
             m_bottomRow = new QHBoxLayout();
 
-            m_topRow->setSpacing(12);
             m_topRow->setAlignment(Qt::AlignCenter);
 
-            m_bottomRow->setSpacing(12);
             m_bottomRow->setAlignment(Qt::AlignCenter);
 
             m_mainLayout->addLayout(m_topRow);
@@ -71,8 +74,13 @@ public:
         style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
     }
 
-    void setHotkeys(const std::vector<std::pair<QString, QString>>& hotkeys) {
+    void setTitle(const QString& title) {
+        if (!m_titleLabel)
+            return;
 
+        m_titleLabel->setText(title);
+    }
+    void setHotkeys(const std::vector<std::pair<QString, QString>>& hotkeys) {
         auto clearLayout = [](QLayout* layout) {
             if (!layout)
                 return;
@@ -85,12 +93,16 @@ public:
         };
 
         if (m_orientation == Qt::Vertical) {
-            clearLayout(m_mainLayout);
+            QLayoutItem* child;
+            while ((child = m_mainLayout->takeAt(1))) {
+                if (child->widget())
+                    delete child->widget();
+                delete child;
+            }
         } else {
             clearLayout(m_topRow);
             clearLayout(m_bottomRow);
         }
-
         for (const auto& hk : hotkeys) {
             QString text;
             if (hk.first.isEmpty()) {
@@ -102,7 +114,7 @@ public:
             QLabel* lbl = new QLabel(text, this);
 
             if (m_orientation == Qt::Vertical) {
-                lbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+                lbl->setAlignment(Qt::AlignCenter);
                 m_mainLayout->addWidget(lbl);
             } else {
                 lbl->setAlignment(Qt::AlignCenter);
@@ -124,6 +136,7 @@ public:
 private:
     Qt::Orientation m_orientation;
     QVBoxLayout* m_mainLayout;
+    QLabel* m_titleLabel = nullptr;
     QHBoxLayout* m_topRow = nullptr;
     QHBoxLayout* m_bottomRow = nullptr;
 };
