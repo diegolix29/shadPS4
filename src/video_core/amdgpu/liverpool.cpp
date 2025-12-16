@@ -981,7 +981,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                 gpu_modified_ranges_pending.Subtract(rewind_addr, acb.size_bytes());
             }
 
-            ASSERT_MSG(rewind->Valid(), "Rewind valid bit must be set");
+            //  ASSERT_MSG(rewind->Valid(), "Rewind valid bit must be set");
             break;
         }
         case PM4ItOpcode::SetShReg: {

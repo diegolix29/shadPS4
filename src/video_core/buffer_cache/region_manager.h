@@ -99,7 +99,7 @@ public:
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-            UpdateProtection<!enable, false>();
+            UpdateProtection<enable, true>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
             UpdateProtection<!enable, false>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
