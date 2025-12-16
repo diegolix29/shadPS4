@@ -39,8 +39,14 @@ public:
             btn->setFocusPolicy(Qt::NoFocus);
         }
 
-        auto* mainHLayout = new QHBoxLayout(this);
-        mainHLayout->setContentsMargins(20, 20, 20, 20);
+        auto* rootLayout = new QVBoxLayout(this);
+        rootLayout->setContentsMargins(20, 20, 20, 20);
+        rootLayout->setSpacing(16);
+
+        auto* mainHLayout = new QHBoxLayout();
+        mainHLayout->setSpacing(20);
+        mainHLayout->setAlignment(Qt::AlignTop);
+        mainHLayout->setContentsMargins(0, 0, 0, 0);
         mainHLayout->setSpacing(20);
         mainHLayout->setAlignment(Qt::AlignTop);
 
@@ -88,9 +94,17 @@ public:
         mainHLayout->addLayout(column1, 1);
         mainHLayout->addLayout(column2, 1);
         mainHLayout->addStretch();
+        rootLayout->addLayout(mainHLayout);
 
         setFocusPolicy(Qt::StrongFocus);
         setFocusProxy(m_launchBtn);
+        auto* sep = new QFrame(this);
+        sep->setFrameShape(QFrame::HLine);
+        sep->setStyleSheet("color: rgba(255,255,255,40);");
+
+        rootLayout->addSpacing(8);
+        rootLayout->addWidget(sep);
+        rootLayout->addSpacing(8);
 
         const QList<QPushButton*> buttons = {
             m_launchBtn,           m_openFolderBtn, m_openModsFolderBtn,

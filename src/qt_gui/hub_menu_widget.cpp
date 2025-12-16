@@ -5,7 +5,6 @@
 #include "common/logging/log.h"
 #include "gui_context_menus.h"
 #include "hub_menu_widget.h"
-#include "main_window.h"
 
 #include <QApplication>
 
@@ -199,7 +198,8 @@ void HubMenuWidget::buildUi() {
     m_actionsMenu = new VerticalGameActionsMenu(m_scroll->viewport());
     m_actionsMenu->setStyleSheet("background-color: rgba(0, 0, 0, 180);"
                                  "border-left: 1px solid #57a1ff;");
-    m_actionsMenu->setFixedSize(400, 240);
+    m_actionsMenu->setFixedWidth(420);
+    m_actionsMenu->setFixedHeight(600);
     m_actionsMenu->hide();
     m_actionsMenu->installEventFilter(this);
 
@@ -249,12 +249,7 @@ void HubMenuWidget::buildUi() {
         highlightSelectedGame();
     });
 
-    m_hotkeysOverlay = new HotkeysOverlay(Qt::Vertical, this);
-
-    if (m_hotkeysOverlay->layout()) {
-        m_hotkeysOverlay->layout()->setSizeConstraint(QLayout::SetFixedSize);
-        m_hotkeysOverlay->layout()->setAlignment(Qt::AlignTop | Qt::AlignRight);
-    }
+    m_hotkeysOverlay = new HotkeysOverlay(Qt::Vertical, m_actionsMenu);
 
     m_hotkeysOverlay->setHotkeys({{"", ""},
                                   {"Arrow Up/Down", "Navigate Games/Buttons"},
@@ -262,28 +257,21 @@ void HubMenuWidget::buildUi() {
                                   {"Arrow Left", "Focus on Games"},
                                   {"Enter/Space", "Select/Play"},
                                   {"Backspace", "Hide/Show Games and Buttons"},
-                                  {"", ""},
-                                  {"", ""},
-                                  {"", ""},
-                                  {"", ""},
-                                  {"", ""},
-                                  {"", ""},
-                                  {"", ""},
-                                  {"", ""},
                                   {"Press - P - ", "Play Highlighted Game"},
                                   {"Press - M - ", "Mods Manager"},
                                   {"Press - G - ", "Games Settings"},
                                   {"Press - S - ", "Global Settings"},
                                   {"Press - H - ", "Hotkeys Setup"},
                                   {"Esc/Click on Fork Icon", "Exit"}});
-    m_hotkeysOverlay->setStyleSheet("QLabel { font-size: 20px; color: white; }");
-    m_hotkeysOverlay->show();
+    m_hotkeysOverlay->setStyleSheet("background: none; padding: 6px 12px;");
     m_background->raise();
     m_background->lower();
     m_dim->raise();
     m_scroll->raise();
-    m_hotkeysOverlay->raise();
     buildGameList();
+    if (auto* root = qobject_cast<QVBoxLayout*>(m_actionsMenu->layout())) {
+        root->addWidget(m_hotkeysOverlay);
+    }
 }
 
 void HubMenuWidget::positionActionsMenu() {
@@ -321,7 +309,6 @@ void HubMenuWidget::positionActionsMenu() {
     m_actionsMenu->move(startPos);
     eff->setOpacity(0.0);
     m_actionsMenu->show();
-    m_actionsMenu->raise();
 
     QParallelAnimationGroup* group = new QParallelAnimationGroup(m_actionsMenu);
 
@@ -351,9 +338,6 @@ void HubMenuWidget::setMinimalUi(bool hide) {
 
     if (m_actionsMenu)
         m_actionsMenu->setVisible(!hide && m_menuVisible);
-
-    if (m_hotkeysOverlay)
-        m_hotkeysOverlay->setVisible(!hide);
 
     if (m_dim)
         m_dim->setVisible(!hide);
@@ -482,7 +466,6 @@ void HubMenuWidget::applyTheme() {
         m_dim->setGeometry(rect());
         m_dim->raise();
     }
-    m_hotkeysOverlay->raise();
 }
 
 void HubMenuWidget::buildAnimations() {
@@ -894,7 +877,6 @@ void HubMenuWidget::updateBackground(int gameIndex) {
     } else {
         m_background->clear();
     }
-    m_hotkeysOverlay->raise();
 }
 
 void HubMenuWidget::resizeEvent(QResizeEvent* e) {
@@ -904,21 +886,6 @@ void HubMenuWidget::resizeEvent(QResizeEvent* e) {
     m_dim->setGeometry(rect());
     m_dim->raise();
     m_scroll->raise();
-
-    if (m_hotkeysOverlay) {
-        int screenMargin = 80;
-
-        QSize tightSize = m_hotkeysOverlay->sizeHint();
-        int overlayHeight = tightSize.height();
-        int overlayWidth = tightSize.width();
-
-        int overlayX = width() - overlayWidth - screenMargin;
-
-        int overlayY = (height() - overlayHeight) / 2;
-
-        m_hotkeysOverlay->setGeometry(overlayX, overlayY, overlayWidth, overlayHeight);
-        m_hotkeysOverlay->raise();
-    }
 
     highlightSelectedGame();
     updateBackground(m_selectedIndex);
