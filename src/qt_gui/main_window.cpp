@@ -405,6 +405,8 @@ bool MainWindow::Init() {
     if (Config::GamesMenuUI()) {
         m_bigPicture->toggle();
     }
+    ApplyLastUsedStyle();
+
     return true;
 }
 
