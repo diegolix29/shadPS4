@@ -47,6 +47,7 @@ public:
     QAction* versionAct;
     QAction* welcomeAct;
     QAction* bigPictureAct;
+    QAction* hubMenuAct;
     QAction* pauseOnUnfocusAct;
     QAction* configureAct;
     QAction* configureHotkeys;
@@ -214,8 +215,12 @@ public:
         welcomeAct->setCheckable(true);
         bigPictureAct = new QAction(MainWindow);
         bigPictureAct->setObjectName("Boot on Games Menu");
-        bigPictureAct->setIcon(QIcon(":images/controller_icon.png"));
+        bigPictureAct->setIcon(QIcon(":images/games_icon.png"));
         bigPictureAct->setCheckable(true);
+        hubMenuAct = new QAction(MainWindow);
+        hubMenuAct->setObjectName("Boot on Games Menu");
+        hubMenuAct->setIcon(QIcon(":images/hub_icon.png"));
+        hubMenuAct->setCheckable(true);
         configureAct = new QAction(MainWindow);
         configureAct->setObjectName("configureAct");
         configureAct->setIcon(QIcon(":images/settings_icon.png"));
@@ -436,6 +441,7 @@ public:
         menuGame_List_Mode->addAction(setlistModeGridAct);
         menuGame_List_Mode->addAction(setlistModeCinematicAct);
         menuGame_List_Mode->addAction(bigPictureAct);
+        menuGame_List_Mode->addAction(hubMenuAct);
         menuGame_List_Mode->addAction(setlistElfAct);
         menuSettings->addAction(configureAct);
         menuSettings->addAction(gameInstallPathAct);
@@ -474,7 +480,8 @@ public:
         welcomeAct->setText(
             QCoreApplication::translate("MainWindow", "Show Welcome On Launch", nullptr));
         bigPictureAct->setText(
-            QCoreApplication::translate("MainWindow", "Boot on Games Menu", nullptr));
+            QCoreApplication::translate("MainWindow", "Boot on Big Picture", nullptr));
+        hubMenuAct->setText(QCoreApplication::translate("MainWindow", "Boot on GameHub", nullptr));
         configureAct->setText(QCoreApplication::translate("MainWindow", "Configure...", nullptr));
         configureHotkeys->setText(
             QCoreApplication::translate("MainWindow", "Customize Hotkeys", nullptr));

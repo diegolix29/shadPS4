@@ -171,6 +171,7 @@ public:
     void PauseGame();
     bool showLabels;
     void StopGame();
+    void keyPressEvent(QKeyEvent* event) override;
     void RestartGame();
     std::unique_ptr<Core::Emulator> emulator;
     qint64 detachedGamePid = -1;

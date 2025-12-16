@@ -242,7 +242,6 @@ bool MainWindow::Init() {
     CreateDockWindows(true);
     CreateConnects();
     SetLastUsedTheme();
-    ApplyLastUsedStyle();
     SetLastIconSizeBullet();
     toggleColorFilter();
 
@@ -404,6 +403,9 @@ bool MainWindow::Init() {
     });
     if (Config::GamesMenuUI()) {
         m_bigPicture->toggle();
+    }
+    if (Config::HubMenuUI()) {
+        m_hubMenu->toggle();
     }
     ApplyLastUsedStyle();
 
@@ -897,6 +899,10 @@ void MainWindow::AddUiWidgets() {
     ui->sizeSliderContainer->setFixedWidth(130);
     ui->mw_searchbar->setFixedWidth(125);
     ui->styleSelector->setFixedWidth(125);
+
+    ui->styleSelector->setFocusPolicy(Qt::ClickFocus);
+    ui->launcherBox->setFocusPolicy(Qt::ClickFocus);
+    ui->sizeSlider->setFocusPolicy(Qt::ClickFocus);
 
     for (QWidget* container : m_toolbarContainers) {
         if (!container->objectName().isEmpty()) {
@@ -1508,6 +1514,11 @@ void MainWindow::CreateConnects() {
 
     connect(ui->bigPictureAct, &QAction::triggered, this, [this](bool checked) {
         Config::setGamesMenuUI(checked);
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+    });
+
+    connect(ui->hubMenuAct, &QAction::triggered, this, [this](bool checked) {
+        Config::setHubMenuUI(checked);
         Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
     });
 
@@ -2832,6 +2843,32 @@ void MainWindow::PauseGame() {
         is_paused = true;
     }
     UpdateToolbarButtons();
+}
+
+void MainWindow::keyPressEvent(QKeyEvent* event) {
+
+    if (ui->mw_searchbar && ui->mw_searchbar->hasFocus()) {
+        QMainWindow::keyPressEvent(event);
+        return;
+    }
+
+    if (event->key() == Qt::Key_H || event->key() == Qt::Key_F1) {
+        if (m_hubMenu) {
+            m_hubMenu->toggle();
+        }
+        event->accept();
+        return;
+    }
+
+    if (event->key() == Qt::Key_B || event->key() == Qt::Key_F2) {
+        if (m_bigPicture) {
+            m_bigPicture->toggle();
+        }
+        event->accept();
+        return;
+    }
+
+    QMainWindow::keyPressEvent(event);
 }
 
 void MainWindow::RestartGame() {

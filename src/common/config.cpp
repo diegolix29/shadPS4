@@ -164,6 +164,7 @@ static bool checkCompatibilityOnStartup = false;
 static bool compatibilityData = false;
 static std::filesystem::path sys_modules_path = {};
 static bool bootGamesMenu = false;
+static bool bootHubMenu = false;
 static bool restartWithBaseGame = false;
 static bool separateupdatefolder = false;
 static ConfigEntry<bool> screenTipDisable(false);
@@ -517,6 +518,14 @@ bool GamesMenuUI() {
 
 void setGamesMenuUI(bool enable) {
     bootGamesMenu = enable;
+}
+
+bool HubMenuUI() {
+    return bootHubMenu;
+}
+
+void setHubMenuUI(bool enable) {
+    bootHubMenu = enable;
 }
 
 bool getRestartWithBaseGame() {
@@ -1379,6 +1388,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         const toml::value& general = data.at("General");
         enableAutoBackup.setFromToml(general, "enableAutoBackup", false);
         bootGamesMenu = toml::find_or<bool>(general, "GamesMenuUI", false);
+        bootHubMenu = toml::find_or<bool>(general, "HubMenuUI", false);
         restartWithBaseGame = toml::find_or<bool>(general, "restartWithBaseGame", false);
         separateupdatefolder = toml::find_or<bool>(general, "separateUpdateEnabled", false);
         screenTipDisable.setFromToml(general, "screenTipDisable", is_game_specific);
@@ -1727,6 +1737,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["UseHomeButtonForHotkeys"] = homeButtonHotkey.base_value;
     data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
     data["General"]["GamesMenuUI"] = bootGamesMenu;
+    data["General"]["HubMenuUI"] = bootHubMenu;
     data["General"]["restartWithBaseGame"] = restartWithBaseGame;
     data["General"]["separateUpdateEnabled"] = separateupdatefolder;
     data["General"]["screenTipDisable"] = screenTipDisable.base_value;
@@ -1941,6 +1952,7 @@ void setDefaultValues() {
     isConnectedToNetwork = false;
     firstBootHandled = false;
     bootGamesMenu = false;
+    bootHubMenu = false;
     restartWithBaseGame = false;
     separateupdatefolder = false;
     screenTipDisable = false;

@@ -328,6 +328,8 @@ void setMuteEnabled(bool enabled);
 
 bool GamesMenuUI();
 void setGamesMenuUI(bool enable);
+bool HubMenuUI();
+void setHubMenuUI(bool enable);
 bool getRestartWithBaseGame();
 void setRestartWithBaseGame(bool enable);
 bool DisableHardcodedHotkeys();
