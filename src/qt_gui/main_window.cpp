@@ -369,13 +369,13 @@ bool MainWindow::Init() {
     connect(m_bigPicture.get(), &BigPictureWidget::openHotkeysRequested, this,
             &MainWindow::openHotkeysWindow);
 
-    connect(m_bigPicture.get(), &BigPictureWidget::launchGameRequested, this,
+    connect(m_bigPicture.get(), &BigPictureWidget::launchRequestedFromGameMenu, this,
             [this](int index) { StartGameByIndex(index, {}); });
 
     connect(m_bigPicture.get(), &BigPictureWidget::globalConfigRequested, this,
             &MainWindow::openSettingsWindow);
 
-    connect(m_hubMenu.get(), &HubMenuWidget::launchGameRequested, this,
+    connect(m_hubMenu.get(), &HubMenuWidget::launchRequestedFromHub, this,
             &MainWindow::onHubMenuLaunchGameRequested);
 
     connect(m_hubMenu.get(), &HubMenuWidget::globalConfigRequested, this,

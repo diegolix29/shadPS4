@@ -5,6 +5,7 @@
 #include "common/logging/log.h"
 #include "gui_context_menus.h"
 #include "hub_menu_widget.h"
+#include "main_window.h"
 
 #include <QApplication>
 
@@ -143,9 +144,9 @@ void HubMenuWidget::executeGameAction(GameAction action) {
 
     GuiContextMenus ctx;
 
-    ctx.ExecuteGameAction(action, m_selectedIndex, m_gameInfo->m_games, m_compatInfo, m_ipcClient,
-                          nullptr,
-                          [this](QStringList args) { emit launchGameRequested(m_selectedIndex); });
+    ctx.ExecuteGameAction(
+        action, m_selectedIndex, m_gameInfo->m_games, m_compatInfo, m_ipcClient, nullptr,
+        [this](QStringList args) { emit launchRequestedFromHub(m_selectedIndex); });
 
     highlightSelectedGame();
 }
@@ -783,11 +784,15 @@ bool HubMenuWidget::eventFilter(QObject* obj, QEvent* ev) {
 void HubMenuWidget::onLaunchClicked() {
     ensureSelectionValid();
     setMinimalUi(!m_hideUi);
+
     if (m_selectedIndex >= 0 && m_selectedIndex < (int)m_games.size()) {
         if (m_player)
             m_player->stop();
 
-        emit launchGameRequested(m_selectedIndex);
+        emit launchRequestedFromHub(m_selectedIndex);
+    }
+    if (!Config::getGameRunning()) {
+        setMinimalUi(!m_hideUi);
     }
 }
 

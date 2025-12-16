@@ -250,7 +250,7 @@ public:
     std::shared_ptr<CompatibilityInfoClass> m_compatInfo;
     std::shared_ptr<IpcClient> m_ipcClient;
 signals:
-    void launchGameRequested(int index);
+    void launchRequestedFromGameMenu(int index);
     void openModsManagerRequested(int index);
     void openHotkeysRequested();
     void globalConfigRequested();
@@ -273,6 +273,7 @@ public:
     void handleGamepadButton(GamepadButton btn);
 
     void toggleBackgroundMusic();
+    void setMinimalUi(bool hide);
 
 private:
     void buildUi();
@@ -310,6 +311,7 @@ private:
     QAudioOutput* m_uiOutput = nullptr;
     QMediaPlayer* m_playSound = nullptr;
     QAudioOutput* m_playOutput = nullptr;
+    bool m_hideUi = false;
 
     FocusMode m_focusMode = FocusMode::Tiles;
     HotkeysOverlay* m_hotkeysOverlay = nullptr;

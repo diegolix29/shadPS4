@@ -667,6 +667,7 @@ void BigPictureWidget::highlightSelectedTile() {
     if (m_tiles.empty())
         return;
     const int duration = 260;
+    setDimVisible(true);
 
     int viewportH = m_scroll->viewport()->height();
     if (viewportH <= 0)
@@ -777,7 +778,6 @@ bool BigPictureWidget::eventFilter(QObject* obj, QEvent* ev) {
                 updateBackground(index);
                 highlightSelectedTile();
                 centerSelectedTileAnimated();
-                setDimVisible(true);
             }
 
             setFocus();
@@ -817,14 +817,39 @@ bool BigPictureWidget::eventFilter(QObject* obj, QEvent* ev) {
     return QWidget::eventFilter(obj, ev);
 }
 
+void BigPictureWidget::setMinimalUi(bool hide) {
+    m_hideUi = hide;
+
+    m_scrollBarHidden = hide;
+    m_bottomBarHidden = hide;
+
+    if (m_scroll)
+        m_scroll->setVisible(!hide);
+
+    if (m_bottomBar)
+        m_bottomBar->setVisible(!hide);
+
+    if (m_hotkeysOverlay)
+        m_hotkeysOverlay->setVisible(!hide);
+
+    if (hide) {
+        m_dim->lower();
+    } else {
+        m_dim->raise();
+
+        if (m_scroll)
+            m_scroll->raise();
+        if (m_bottomBar)
+            m_bottomBar->raise();
+        if (m_hotkeysOverlay)
+            m_hotkeysOverlay->raise();
+    }
+}
+
 void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
     if (e->key() == Qt::Key_Up && e->modifiers().testFlag(Qt::ShiftModifier)) {
-        m_scrollBarHidden = !m_scrollBarHidden;
-        m_bottomBarHidden = !m_bottomBarHidden;
+        setMinimalUi(!m_hideUi);
 
-        m_scroll->setVisible(!m_scrollBarHidden);
-
-        m_bottomBar->setVisible(!m_bottomBarHidden);
         layoutTiles();
         highlightSelectedTile();
         centerSelectedTileAnimated();
@@ -874,7 +899,6 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
             m_selectedIndex++;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
-            setDimVisible(true);
             UpdateCurrentGameAudio();
 
             centerSelectedTileAnimated();
@@ -889,7 +913,6 @@ void BigPictureWidget::keyPressEvent(QKeyEvent* e) {
             m_selectedIndex--;
             updateBackground(m_selectedIndex);
             highlightSelectedTile();
-            setDimVisible(true);
             UpdateCurrentGameAudio();
 
             centerSelectedTileAnimated();
@@ -978,6 +1001,8 @@ void BigPictureWidget::ensureSelectionValid() {
 
 void BigPictureWidget::onPlayClicked() {
     ensureSelectionValid();
+    setMinimalUi(!m_hideUi);
+
     if (m_player)
         m_player->stop();
 
@@ -986,14 +1011,11 @@ void BigPictureWidget::onPlayClicked() {
         m_playSound->play();
     }
 
-    m_scrollBarHidden = !m_scrollBarHidden;
-    m_bottomBarHidden = !m_bottomBarHidden;
-
-    m_scroll->setVisible(!m_scrollBarHidden);
-    m_bottomBar->setVisible(!m_bottomBarHidden);
-
     if (m_selectedIndex >= 0 && m_selectedIndex < (int)m_tiles.size()) {
-        emit launchGameRequested(m_selectedIndex);
+        emit launchRequestedFromGameMenu(m_selectedIndex);
+    }
+    if (!Config::getGameRunning()) {
+        setMinimalUi(!m_hideUi);
     }
 }
 
@@ -1096,18 +1118,11 @@ void BigPictureWidget::focusInEvent(QFocusEvent* event) {
         return;
     }
 
-    if (m_scrollBarHidden) {
-        m_scrollBarHidden = false;
-        m_bottomBarHidden = false;
-
-        m_scroll->setVisible(true);
-        m_bottomBar->setVisible(true);
-
-        if (m_player) {
-            m_player->play();
-        }
-        UpdateCurrentGameAudio();
+    if (m_player) {
+        m_player->play();
     }
+    UpdateCurrentGameAudio();
+    setMinimalUi(!m_hideUi);
 }
 
 void BigPictureWidget::resizeEvent(QResizeEvent* e) {

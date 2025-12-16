@@ -243,7 +243,7 @@ public:
     ~HubMenuWidget() override;
 
 signals:
-    void launchGameRequested(int gameIndex);
+    void launchRequestedFromHub(int gameIndex);
     void openFolderRequested(int gameIndex);
     void deleteShadersRequested(int gameIndex);
 
@@ -256,11 +256,11 @@ public slots:
     void showFull();
     void hideFull();
     void toggle();
+    void setMinimalUi(bool hide);
 
 protected:
     void buildUi();
     void positionActionsMenu();
-    void setMinimalUi(bool hide);
     void focusInEvent(QFocusEvent* event) override;
     void buildAnimations();
     void applyTheme();
