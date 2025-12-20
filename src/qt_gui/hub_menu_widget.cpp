@@ -87,22 +87,21 @@ HubMenuWidget::~HubMenuWidget() = default;
 
 QWidget* HubMenuWidget::buildVerticalMenuItem(const VerticalMenuItem& item) {
     QWidget* tile = new QWidget(this);
-    tile->setFixedWidth(450);
+    tile->setMinimumWidth(450);
     tile->setMinimumHeight(450);
     tile->setObjectName("VerticalSidebarTile");
 
     QHBoxLayout* layout = new QHBoxLayout(tile);
-    layout->setContentsMargins(212, 12, 12, 12);
+    layout->setContentsMargins(112, 12, 12, 12);
     layout->setSpacing(14);
     layout->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     tile->setStyleSheet("background-color: transparent;");
     QLabel* iconLabel = new QLabel(tile);
-    iconLabel->setFixedSize(180, 180);
+    iconLabel->setMinimumSize(180, 180);
     iconLabel->setAlignment(Qt::AlignCenter);
     iconLabel->setPixmap(item.icon.pixmap(196, 196));
 
     layout->addWidget(iconLabel);
-    layout->addStretch();
 
     tile->setLayout(layout);
 
@@ -177,7 +176,6 @@ void HubMenuWidget::buildUi() {
 
     m_gameContainer = new QWidget(m_scroll);
     m_scroll->setWidget(m_gameContainer);
-    m_gameContainer->move(-500, 0);
 
     m_sidebarContainer = new QWidget(this);
     m_sidebarContainer->setFixedWidth(400);
@@ -198,8 +196,8 @@ void HubMenuWidget::buildUi() {
     m_actionsMenu = new VerticalGameActionsMenu(m_scroll->viewport());
     m_actionsMenu->setStyleSheet("background-color: rgba(0, 0, 0, 180);"
                                  "border-left: 1px solid #57a1ff;");
-    m_actionsMenu->setFixedWidth(420);
-    m_actionsMenu->setFixedHeight(600);
+    m_actionsMenu->setMinimumWidth(420);
+    m_actionsMenu->setMinimumHeight(800);
     m_actionsMenu->hide();
     m_actionsMenu->installEventFilter(this);
 
@@ -268,6 +266,7 @@ void HubMenuWidget::buildUi() {
     m_dim->raise();
     m_scroll->raise();
     buildGameList();
+
     if (auto* root = qobject_cast<QVBoxLayout*>(m_actionsMenu->layout())) {
         root->addWidget(m_hotkeysOverlay);
     }
@@ -291,7 +290,7 @@ void HubMenuWidget::positionActionsMenu() {
     int viewportWidth = m_scroll->viewport()->width();
     int viewportHeight = m_scroll->viewport()->height();
 
-    int fixed_x = 580;
+    int fixed_x = 800;
     int fixed_y = (viewportHeight - m_actionsMenu->height()) / 2;
 
     int finalX = std::clamp(fixed_x, 0, viewportWidth - m_actionsMenu->width());
@@ -350,30 +349,51 @@ void HubMenuWidget::setMinimalUi(bool hide) {
 
 void HubMenuWidget::buildGameList() {
     int y = 650;
-    int spacing = 200;
+    int spacing = 150;
 
     for (auto& entry : m_games) {
         const auto& g = m_gameInfo->m_games[entry.index];
+
         QWidget* tile = buildGameTile(g);
         tile->setParent(m_gameContainer);
         tile->setProperty("game_index", entry.index);
         tile->installEventFilter(this);
 
-        int startX = (m_gameContainer->width() - tile->width()) / 2 + 100;
-        tile->move(startX, y);
+        tile->resize(900, 300);
+        tile->move(0, y);
+
+        tile->setProperty("baseGeom", tile->geometry());
+
         tile->show();
 
         entry.tile_widget = tile;
         entry.icon_widget = tile->findChild<QWidget*>("game_icon_container");
-        tile->setProperty("baseGeom", tile->geometry());
 
-        y += tile->height() + spacing;
+        y += 300 + spacing;
     }
 
-    if (!m_games.empty()) {
-        QWidget* lastTile = m_games.back().tile_widget;
-        int totalHeight = lastTile->y() + lastTile->height();
-        m_gameContainer->setMinimumHeight(totalHeight + 50);
+    m_gameContainer->setMinimumHeight(y + 1000);
+}
+
+void HubMenuWidget::repositionGameTiles() {
+    if (!m_gameContainer || !m_sidebarContainer)
+        return;
+
+    int windowWidth = this->width();
+    int sidebarWidth = m_sidebarContainer->width();
+
+    for (auto& entry : m_games) {
+        QWidget* tile = entry.tile_widget;
+        if (!tile)
+            continue;
+
+        int currentW = tile->width();
+
+        int x = (windowWidth / 2) - sidebarWidth - (currentW / 2);
+
+        QRect finalGeom = tile->geometry();
+        finalGeom.moveLeft(x);
+        tile->setGeometry(finalGeom);
     }
 }
 
@@ -388,11 +408,9 @@ static QPixmap LoadShadIcon(int size) {
 QWidget* HubMenuWidget::buildGameTile(const GameInfo& g) {
     AnimatedTile* tile = new AnimatedTile(m_gameContainer);
     tile->setAttribute(Qt::WA_TranslucentBackground);
-    tile->setContentsMargins(0, 0, 0, 0);
     tile->setStyleSheet("background: transparent;");
 
-    tile->setMinimumHeight(300);
-    tile->setMaximumHeight(450);
+    tile->resize(900, 300);
 
     QHBoxLayout* h = new QHBoxLayout(tile);
     h->setSpacing(35);
@@ -400,49 +418,34 @@ QWidget* HubMenuWidget::buildGameTile(const GameInfo& g) {
 
     QWidget* iconContainer = new QWidget(tile);
     iconContainer->setObjectName("game_icon_container");
-
-    iconContainer->setFixedSize(250, 250);
-    iconContainer->setAttribute(Qt::WA_TranslucentBackground);
+    iconContainer->setMinimumSize(250, 250);
 
     QLabel* cover = new QLabel(iconContainer);
     cover->setScaledContents(true);
-
-    cover->setFixedSize(250, 250);
+    cover->setMinimumSize(250, 250);
 
     bool hasGameIcon = !g.icon.isNull() || !g.icon_path.empty();
-
-    if (hasGameIcon) {
-        cover->setPixmap(LoadGameIcon(g, 250));
-    } else {
-        cover->setPixmap(LoadShadIcon(540));
-        cover->setAlignment(Qt::AlignCenter);
-    }
-
+    cover->setPixmap(hasGameIcon ? LoadGameIcon(g, 250) : LoadShadIcon(540));
     cover->move(0, 0);
 
     h->addWidget(iconContainer);
 
     QVBoxLayout* textLayout = new QVBoxLayout();
-    textLayout->setAlignment(Qt::AlignVCenter);
-
     ScrollingLabel* title = new ScrollingLabel(tile);
     title->setText(QString::fromStdString(g.name));
-
     title->setStyleSheet("color: white; font-size: 52px; font-weight: bold;");
     title->setFixedHeight(65);
 
     QLabel* cusa = new QLabel(tile);
     cusa->setText(QString::fromStdString(g.serial));
-
     cusa->setStyleSheet("color: lightgray; font-size: 26px;");
-    cusa->setFixedHeight(35);
 
     textLayout->addWidget(title);
     textLayout->addWidget(cusa);
     textLayout->addStretch();
-
     h->addLayout(textLayout);
     h->addStretch();
+
     return tile;
 }
 
@@ -532,31 +535,58 @@ void HubMenuWidget::centerSelectedGameAnimated() {
     }
 }
 
+static QRect scaleFromCenter(const QRect& base, qreal scale) {
+    QPoint center = base.center();
+
+    int newW = int(base.width() * scale);
+    int newH = int(base.height() * scale);
+
+    QRect r;
+    r.setSize(QSize(newW, newH));
+    r.moveCenter(center);
+
+    return r;
+}
+
 void HubMenuWidget::highlightSelectedGame() {
     if (m_games.empty())
         return;
 
-    setDimVisible(true);
-
-    raise();
-    setFocus();
-
-    ensureSelectionValid();
-
-    requestCenterSelectedGame();
-    m_fadeIn->start();
-    m_menuVisible = true;
-    updateBackground(m_selectedIndex);
+    int windowWidth = this->width();
+    int sidebarWidth = m_sidebarContainer ? m_sidebarContainer->width() : 0;
 
     for (int i = 0; i < (int)m_games.size(); ++i) {
         QWidget* tile = m_games[i].tile_widget;
         if (!tile)
             continue;
 
-        QRect base = tile->property("baseGeom").toRect();
-        if (!base.isValid())
-            continue;
+        bool isSelected = (i == m_selectedIndex);
+        qreal scale = isSelected ? 1.2 : 1.6;
+
+        tile->setMinimumSize(0, 0);
+        tile->setMaximumSize(16777215, 16777215);
+
+        QRect baseRect = tile->property("baseGeom").toRect();
+
+        int targetW = baseRect.width() * scale;
+        int targetH = baseRect.height() * scale;
+
+        int targetX = (windowWidth / 2) - sidebarWidth - (targetW / 2);
+
+        int heightDiff = targetH - baseRect.height();
+        int targetY = baseRect.y() - (heightDiff / 2);
+
+        QRect targetRect(targetX, targetY, targetW, targetH);
+
+        QPropertyAnimation* anim = new QPropertyAnimation(tile, "geometry");
+        anim->setDuration(250);
+        anim->setStartValue(tile->geometry());
+        anim->setEndValue(targetRect);
+        anim->setEasingCurve(QEasingCurve::OutBack);
+        anim->start(QAbstractAnimation::DeleteWhenStopped);
     }
+
+    updateBackground(m_selectedIndex);
 }
 
 void HubMenuWidget::keyPressEvent(QKeyEvent* e) {
@@ -885,22 +915,10 @@ void HubMenuWidget::resizeEvent(QResizeEvent* e) {
     m_dim->setGeometry(rect());
     m_dim->raise();
     m_scroll->raise();
+    repositionGameTiles();
 
-    highlightSelectedGame();
     updateBackground(m_selectedIndex);
     requestCenterSelectedGame();
-}
-static QRect enlargedFromBase(const QRect& base, qreal scale) {
-    if (!base.isValid())
-        return base;
-
-    int newWidth = int(base.width() * scale);
-    int newHeight = int(base.height() * scale);
-
-    int dx = (newWidth - base.width()) / 2;
-    int dy = (newHeight - base.height()) / 2;
-
-    return QRect(base.topLeft() - QPoint(dx, dy), QSize(newWidth, newHeight));
 }
 
 void HubMenuWidget::requestCenterSelectedGame() {

@@ -293,6 +293,8 @@ protected:
     QWidget* buildGameTile(const GameInfo& g);
     void buildGameList();
 
+    void repositionGameTiles();
+
     void buildVerticalSidebar();
     QWidget* buildVerticalMenuItem(const VerticalMenuItem& item);
 

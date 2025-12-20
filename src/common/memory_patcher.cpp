@@ -177,34 +177,6 @@ void BackupCUSAFolder(const std::filesystem::path& cusa_dir) {
     }
 }
 
-void BackupSaveFile(const std::filesystem::path& savefile_path) {
-    if (!std::filesystem::exists(savefile_path))
-        return;
-
-    std::time_t now = std::time(nullptr);
-    char timestamp[20];
-    std::tm localTime;
-#ifdef _WIN32
-    localtime_s(&localTime, &now);
-#else
-    localtime_r(&now, &localTime);
-#endif
-    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d", &localTime);
-
-    std::filesystem::path backup_file =
-        savefile_path.parent_path() / ("backup_" + std::string(timestamp) + ".bak");
-
-    std::ifstream src(savefile_path, std::ios::binary);
-    std::ofstream dst(backup_file, std::ios::binary);
-
-    if (src.is_open() && dst.is_open()) {
-        dst << src.rdbuf();
-        std::cout << "[AUTO-BACKUP] Created: " << backup_file << std::endl;
-    } else {
-        std::cerr << "[ERROR] Backup failed!" << std::endl;
-    }
-}
-
 void AddPatchToQueue(patchInfo patchToAdd) {
     if (patches_applied) {
         PatchMemory(patchToAdd.modNameStr, patchToAdd.offsetStr, patchToAdd.valueStr,
@@ -270,22 +242,6 @@ void OnGameLoaded() {
     localtime_r(&now, &localTime);
 #endif
 
-    std::ostringstream dateStream;
-    dateStream << std::put_time(&localTime, "%Y-%m-%d");
-    std::string dateString = dateStream.str();
-
-    std::filesystem::path backupFile = backupDir / (dateString + "_userdata_backup.bak");
-
-    if (std::filesystem::exists(backupFile)) {
-        std::filesystem::remove(backupFile);
-    }
-
-    std::ifstream src(savedir / "userdata0010", std::ios::binary);
-    std::ofstream dest(backupFile, std::ios::binary);
-    dest << src.rdbuf();
-    src.close();
-    dest.close();
-
     if (g_game_serial == "CUSA03173" || g_game_serial == "CUSA00900" ||
         g_game_serial == "CUSA00299" || g_game_serial == "CUSA00207") {
 
@@ -299,7 +255,6 @@ void OnGameLoaded() {
             std::thread(AutoBackupThread, savedir).detach();
         }
     }
-
     if (!patch_file.empty()) {
         std::filesystem::path patchDir = Common::FS::GetUserPath(Common::FS::PathType::PatchesDir);
 
