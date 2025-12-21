@@ -310,7 +310,8 @@ private:
     std::shared_ptr<CompatibilityInfoClass> m_compatInfo;
     std::shared_ptr<IpcClient> m_ipcClient;
     WindowThemes* m_themes = nullptr;
-
+    QSize calculateTileSize() const;
+    int m_baseTileSize = 350;
     QLabel* m_background = nullptr;
     QWidget* m_dim = nullptr;
     QScrollArea* m_scroll = nullptr;
