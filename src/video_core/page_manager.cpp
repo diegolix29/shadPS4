@@ -49,8 +49,9 @@ struct PageManager::Impl {
 
         bool IsFastPathGame() const noexcept {
             const auto& serial = MemoryPatcher::g_game_serial;
-            return (serial == "CUSA03173" || serial == "CUSA00900" || serial == "CUSA00299" ||
-                    serial == "CUSA00207");
+            return (serial == "CUSA03173" || serial == "CUSA00900" || serial == "CUSA00208" ||
+                    serial == "CUSA01363" || serial == "CUSA01322" || serial == "CUSA003027" ||
+                    serial == "CUSA00299" || serial == "CUSA00207");
         }
 
         Core::MemoryPermission WritePerm() const noexcept {

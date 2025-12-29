@@ -243,7 +243,10 @@ void OnGameLoaded() {
 #endif
 
     if (g_game_serial == "CUSA03173" || g_game_serial == "CUSA00900" ||
-        g_game_serial == "CUSA00299" || g_game_serial == "CUSA00207") {
+        g_game_serial == "CUSA00299" || g_game_serial == "CUSA00207" ||
+        g_game_serial == "CUSA00208" || g_game_serial == "CUSA01363" ||
+        g_game_serial == "CUSA003027" || g_game_serial == "CUSA01322" ||
+        g_game_serial == "CUSA003027") {
 
         std::ofstream savefile1;
         savefile1.open(savedir / "userdata0010", std::ios::in | std::ios::out | std::ios::binary);
