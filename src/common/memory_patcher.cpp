@@ -219,20 +219,24 @@ void OnGameLoaded() {
         save_cusa = "CUSA00207";
     }
 
-    std::filesystem::path savedir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
-                                    "savedata" / "1" / save_cusa / "SPRJ0005";
-    std::filesystem::path cusa_dir =
+    std::filesystem::path dfsavedir = Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
+                                      "savedata" / "1" / save_cusa / "SPRJ0005";
+
+    std::filesystem::path cussavedir = Config::GetSaveDataPath() / "1" / save_cusa / "SPRJ0005";
+
+    std::filesystem::path resolvedSaveDir = dfsavedir;
+    std::filesystem::path resolvedCusaDir =
         Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "savedata" / "1" / save_cusa;
 
-    if (Config::getEnableAutoBackup()) {
-        // Immediate backup on game load
-        BackupCUSAFolder(cusa_dir);
-
-        // Then periodic backups every 10 minutes
-        std::thread(AutoBackupThread, cusa_dir).detach();
+    if (!Config::GetSaveDataPath().empty()) {
+        resolvedSaveDir = cussavedir;
+        resolvedCusaDir = Config::GetSaveDataPath() / "1" / save_cusa;
     }
 
-    std::filesystem::path backupDir = savedir;
+    if (Config::getEnableAutoBackup()) {
+        BackupCUSAFolder(resolvedCusaDir);
+        std::thread(AutoBackupThread, resolvedCusaDir).detach();
+    }
     std::time_t now = std::time(nullptr);
     std::tm localTime;
 
@@ -241,23 +245,25 @@ void OnGameLoaded() {
 #else
     localtime_r(&now, &localTime);
 #endif
-
     if (g_game_serial == "CUSA03173" || g_game_serial == "CUSA00900" ||
         g_game_serial == "CUSA00299" || g_game_serial == "CUSA00207" ||
         g_game_serial == "CUSA00208" || g_game_serial == "CUSA01363" ||
-        g_game_serial == "CUSA003027" || g_game_serial == "CUSA01322" ||
-        g_game_serial == "CUSA003027") {
+        g_game_serial == "CUSA003027" || g_game_serial == "CUSA01322") {
 
-        std::ofstream savefile1;
-        savefile1.open(savedir / "userdata0010", std::ios::in | std::ios::out | std::ios::binary);
-        savefile1.seekp(0x204E);
-        savefile1.put(0x1);
-        savefile1.close();
+        std::ofstream savefile1(resolvedSaveDir / "userdata0010",
+                                std::ios::in | std::ios::out | std::ios::binary);
+
+        if (savefile1) {
+            savefile1.seekp(0x204E);
+            savefile1.put(0x1);
+            savefile1.close();
+        }
 
         if (Config::getEnableAutoBackup()) {
-            std::thread(AutoBackupThread, savedir).detach();
+            std::thread(AutoBackupThread, resolvedSaveDir).detach();
         }
     }
+
     if (!patch_file.empty()) {
         std::filesystem::path patchDir = Common::FS::GetUserPath(Common::FS::PathType::PatchesDir);
 
