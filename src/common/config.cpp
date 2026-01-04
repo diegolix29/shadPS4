@@ -249,6 +249,7 @@ std::unordered_map<std::string, std::vector<std::string>> all_skipped_shader_has
     {"CUSA00093", {"b5a945a8"}},
     {"Default", {"7ee03d3f", "1635154C", "43e07e56", "c7e25f41"}},
     {"CUSA07478", {"3ae1c2c7"}},
+    {"CUSA01715", {"319670e069252276"}},
     {"CUSA00605", {"27c81bac", "c31d0698", "c7e25f41", "43e07e56"}},
     {"CUSA08809",
      {"9be5b74e", "61a44417", "2a8576db", "b33e9db6", "d0019dd9", "d94ec720", "8fb484ae", "2e27c82",
