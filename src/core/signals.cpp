@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/arch.h"
@@ -41,14 +41,6 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
 }
 
 #else
-
-static std::string GetThreadName() {
-    char name[256];
-    if (pthread_getname_np(pthread_self(), name, sizeof(name)) != 0) {
-        return "<unknown name>";
-    }
-    return std::string{name};
-}
 
 static std::string DisassembleInstruction(void* code_address) {
     char buffer[256] = "<unable to decode>";
