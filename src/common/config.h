@@ -27,8 +27,6 @@ void load(const std::filesystem::path& path, bool is_game_specific = false);
 void save(const std::filesystem::path& path, bool is_game_specific = false);
 void resetGameSpecificValue(std::string entry);
 
-bool getGameRunning();
-void setGameRunning(bool running);
 int getVolumeSlider();
 void setVolumeSlider(int volumeValue, bool is_game_specific = false);
 std::string getTrophyKey();

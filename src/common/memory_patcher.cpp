@@ -25,6 +25,7 @@
 #include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
+#include "core/emulator_state.h"
 #include "core/file_format/psf.h"
 #include "memory_patcher.h"
 
