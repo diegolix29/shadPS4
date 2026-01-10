@@ -16,12 +16,12 @@
 #ifdef ENABLE_QT_GUI
 #include "qt_gui/main_window.h"
 #endif
-#include "common/memory_patcher.h"
-
 #include "common/config.h"
+#include "common/memory_patcher.h"
 #include "common/singleton.h"
 #include "common/types.h"
 #include "core/debug_state.h"
+#include "core/emulator_state.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/videoout/video_out.h"
 #include "imgui/imgui_std.h"
@@ -352,14 +352,10 @@ void L::DrawAdvanced() {
 
 void L::DrawSimple() {
     const float frameRate = DebugState.Framerate;
-    if (Config::fpsColor()) {
-        if (frameRate < 10) {
-            PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // Red
-        } else if (frameRate >= 10 && frameRate < 20) {
-            PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f)); // Orange
-        } else {
-            PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f)); // White
-        }
+    if (frameRate < 10) {
+        PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // Red
+    } else if (frameRate >= 10 && frameRate < 20) {
+        PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f)); // Orange
     } else {
         PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f)); // White
     }

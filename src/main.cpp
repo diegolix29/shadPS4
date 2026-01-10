@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <vector>
 #include <SDL3/SDL_messagebox.h>
+#include <core/emulator_state.h>
+
 #include "functional"
 #include "iostream"
 #include "string"
@@ -36,6 +38,9 @@ int main(int argc, char* argv[]) {
 #endif
 
     IPC::Instance().Init();
+    // Init emulator state
+    std::shared_ptr<EmulatorState> m_emu_state = std::make_shared<EmulatorState>();
+    EmulatorState::SetInstance(m_emu_state);
 
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");

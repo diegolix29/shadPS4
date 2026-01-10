@@ -199,8 +199,7 @@ bool getFsrEnabled();
 void setFsrEnabled(bool enable);
 bool getRcasEnabled();
 void setRcasEnabled(bool enable);
-bool getLoadAutoPatches();
-void setLoadAutoPatches(bool enable);
+
 bool isPipelineCacheArchived();
 void setPipelineCacheArchived(bool enable, bool is_game_specific = false);
 

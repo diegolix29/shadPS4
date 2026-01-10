@@ -236,7 +236,6 @@ static ConfigEntry<bool> isDebugDump(false);
 static ConfigEntry<bool> isShaderDebug(false);
 static ConfigEntry<bool> isSeparateLogFilesEnabled(false);
 static ConfigEntry<bool> shaderSkipsEnabled(false);
-static ConfigEntry<bool> isFpsColor(true);
 static ConfigEntry<bool> showFpsCounter(false);
 static ConfigEntry<bool> fpsColorState(false);
 static ConfigEntry<bool> logEnabled(true);
@@ -290,7 +289,6 @@ static ConfigEntry<u32> fpsLimit(60);
 static bool isGameRunning = false;
 static bool isSDL = false;
 static bool isQT = false;
-static bool load_auto_patches = true;
 static bool launcher_boot = false;
 std::unordered_map<std::string, bool> toolbar_visibility_settings;
 
@@ -379,13 +377,6 @@ int getExtraDmemInMbytes() {
 
 void setExtraDmemInMbytes(int value) {
     extraDmemInMbytes.base_value = value;
-}
-
-bool getLoadAutoPatches() {
-    return load_auto_patches;
-}
-void setLoadAutoPatches(bool enable) {
-    load_auto_patches = enable;
 }
 
 int getUsbDeviceBackend() {
@@ -840,10 +831,6 @@ bool patchShaders() {
 
 bool isRdocEnabled() {
     return rdocEnable.get();
-}
-
-bool fpsColor() {
-    return isFpsColor.get();
 }
 
 bool getShowFpsCounter() {
@@ -1553,7 +1540,6 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isSeparateLogFilesEnabled =
             toml::find_or<bool>(debug, "isSeparateLogFilesEnabled", is_game_specific);
         isShaderDebug.setFromToml(debug, "CollectShader", is_game_specific);
-        isFpsColor.setFromToml(debug, "FPSColor", is_game_specific);
         showFpsCounter.setFromToml(debug, "showFpsCounter", is_game_specific);
         logEnabled.setFromToml(debug, "logEnabled", is_game_specific);
         current_version = toml::find_or<std::string>(debug, "ConfigVersion", current_version);
@@ -1805,7 +1791,6 @@ void save(const std::filesystem::path& path) {
     data["Debug"]["DebugDump"] = isDebugDump.base_value;
     data["Debug"]["CollectShader"] = isShaderDebug.base_value;
     data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled.base_value;
-    data["Debug"]["FPSColor"] = isFpsColor.base_value;
     data["Debug"]["showFpsCounter"] = showFpsCounter.base_value;
     data["Debug"]["logEnabled"] = logEnabled.base_value;
     data["Keys"]["TrophyKey"] = trophyKey;
@@ -2018,7 +2003,6 @@ void setDefaultValues() {
     isDebugDump = false;
     isShaderDebug = false;
     isSeparateLogFilesEnabled = false;
-    isFpsColor = true;
     logEnabled = true;
 
     // GUI

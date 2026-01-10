@@ -3,6 +3,8 @@
 
 #include <filesystem>
 #include <thread>
+#include <core/emulator_state.h>
+
 #include "common/config.h"
 #include "common/logging/backend.h"
 #include "common/memory_patcher.h"
@@ -44,6 +46,10 @@ int main(int argc, char* argv[]) {
     QApplication a(argc, argv);
 
     QApplication::setDesktopFileName("net.shadps4.shadPS4");
+
+    // Init emulator state
+    std::shared_ptr<EmulatorState> m_emu_state = std::make_shared<EmulatorState>();
+    EmulatorState::SetInstance(m_emu_state);
 
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
