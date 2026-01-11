@@ -41,6 +41,7 @@
 #include "core/libraries/np/np_sns_facebook_dialog.h"
 #include "core/libraries/np/np_trophy.h"
 #include "core/libraries/np/np_web_api.h"
+#include "core/libraries/np/np_web_api2.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/playgo/playgo.h"
 #include "core/libraries/playgo/playgo_dialog.h"
@@ -101,6 +102,7 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
     Libraries::Np::NpScore::RegisterLib(sym);
     Libraries::Np::NpTrophy::RegisterLib(sym);
     Libraries::Np::NpWebApi::RegisterLib(sym);
+    Libraries::Np::NpWebApi2::RegisterLib(sym);
     Libraries::Np::NpProfileDialog::RegisterLib(sym);
     Libraries::Np::NpSnsFacebookDialog::RegisterLib(sym);
     Libraries::Np::NpAuth::RegisterLib(sym);
@@ -118,13 +120,13 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
     Libraries::ErrorDialog::RegisterLib(sym);
     Libraries::ImeDialog::RegisterLib(sym);
     Libraries::AvPlayer::RegisterLib(sym);
-    Libraries::Vdec2::RegisterLib(sym);
+    Libraries::Videodec::RegisterLib(sym);
+    Libraries::Videodec2::RegisterLib(sym);
     Libraries::Audio3d::RegisterLib(sym);
     Libraries::Ime::RegisterLib(sym);
     Libraries::GameLiveStreaming::RegisterLib(sym);
     Libraries::SharePlay::RegisterLib(sym);
     Libraries::Remoteplay::RegisterLib(sym);
-    Libraries::Videodec::RegisterLib(sym);
     Libraries::RazorCpu::RegisterLib(sym);
     Libraries::Move::RegisterLib(sym);
     Libraries::Fiber::RegisterLib(sym);
