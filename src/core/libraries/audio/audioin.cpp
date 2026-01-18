@@ -92,7 +92,7 @@ int PS4_SYSV_ABI sceAudioInGetRerouteCount() {
 }
 
 int PS4_SYSV_ABI sceAudioInGetSilentState() {
-    LOG_ERROR(Lib_AudioIn, "(STUBBED) called");
+    //LOG_ERROR(Lib_AudioIn, "(STUBBED) called");
     return ORBIS_OK;
 }
 

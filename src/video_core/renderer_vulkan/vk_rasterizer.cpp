@@ -331,7 +331,7 @@ void Rasterizer::DispatchDirect() {
     ResetBindings();
 }
 
-void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
+void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_gpu) {
     RENDERER_TRACE;
 
     scheduler.PopPendingOperations();
@@ -346,7 +346,15 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
         return;
     }
 
-    const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, false);
+    const auto [buffer, base] = [&] -> std::pair<VideoCore::Buffer*, u32> {
+        if (on_gpu) {
+            auto buffer_id = buffer_cache.FindBuffer(address + offset, size);
+            auto& buffer = buffer_cache.GetBuffer(buffer_id);
+            return {&buffer, buffer.Offset(address + offset)};
+        } else {
+            return buffer_cache.ObtainBuffer(address + offset, size, false);
+        }
+    }();
 
     scheduler.EndRendering();
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
@@ -377,6 +385,10 @@ void Rasterizer::OnSubmit() {
     texture_cache.ProcessDownloadImages();
     texture_cache.RunGarbageCollector();
     buffer_cache.RunGarbageCollector();
+}
+
+void Rasterizer::CommitPendingGpuRanges() {
+    buffer_cache.CommitPendingGpuRanges();
 }
 
 bool Rasterizer::BindResources(const Pipeline* pipeline) {

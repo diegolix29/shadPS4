@@ -10,7 +10,7 @@
 namespace Libraries::Np::NpSnsFacebookDialog {
 
 Libraries::CommonDialog::Status PS4_SYSV_ABI sceNpSnsFacebookDialogUpdateStatus() {
-    LOG_ERROR(Lib_NpSnsFacebookDialog, "(STUBBED) called");
+    //LOG_ERROR(Lib_NpSnsFacebookDialog, "(STUBBED) called");
     return Libraries::CommonDialog::Status::NONE;
 }
 

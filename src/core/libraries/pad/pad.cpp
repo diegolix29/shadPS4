@@ -139,7 +139,7 @@ int PS4_SYSV_ABI scePadGetDeviceInfo() {
 
 int PS4_SYSV_ABI scePadGetExtControllerInformation(s32 handle,
                                                    OrbisPadExtendedControllerInformation* pInfo) {
-    LOG_INFO(Lib_Pad, "called handle = {}", handle);
+    //LOG_INFO(Lib_Pad, "called handle = {}", handle);
 
     pInfo->padType1 = 0;
     pInfo->padType2 = 0;

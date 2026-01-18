@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include "common/alignment.h"
-#include "common/debug.h"
 #include "common/scope_exit.h"
 #include "core/memory.h"
 #include "video_core/amdgpu/liverpool.h"
@@ -77,8 +76,12 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
     if (!IsRegionRegistered(device_addr, size)) {
         return;
     }
-    memory_tracker->InvalidateRegion(
-        device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
+    if (Config::readbacks()) {
+        memory_tracker->InvalidateRegion(
+            device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
+    } else {
+        memory_tracker->MarkRegionAsCpuModified(device_addr, size);
+    }
 }
 
 void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
@@ -114,6 +117,7 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
     if (total_size_bytes == 0) {
         return;
     }
+    LOG_WARNING(Render, "Flushing memory addr={:#x}, size={:#x}", device_addr, size);
     const auto [download, offset] = download_buffer.Map(total_size_bytes);
     for (auto& copy : copies) {
         // Modify copies to have the staging offset in mind
@@ -265,10 +269,12 @@ void BufferCache::FillBuffer(VAddr address, u32 num_bytes, u32 value, bool is_gd
     ASSERT_MSG(address % 4 == 0, "GDS offset must be dword aligned");
     if (!is_gds) {
         texture_cache.ClearMeta(address);
-        if (!IsRegionGpuModified(address, num_bytes)) {
+        if (!memory_tracker->IsRegionGpuModified(address, num_bytes)) {
             u32* buffer = std::bit_cast<u32*>(address);
             std::fill(buffer, buffer + num_bytes / sizeof(u32), value);
             return;
+        } else {
+            LOG_WARNING(Render, "Gpu modified rewind?");
         }
     }
     Buffer* buffer = [&] {
@@ -306,11 +312,8 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
         if (dst_gds) {
             return gds_buffer;
         }
-        const auto buffer_id = FindBuffer(dst, num_bytes);
-        auto& buffer = slot_buffers[buffer_id];
-        SynchronizeBuffer(buffer, dst, num_bytes, true, true);
-        gpu_modified_ranges.Add(dst, num_bytes);
-        return buffer;
+        const auto [buffer, _] = ObtainBuffer(dst, num_bytes, true);
+        return *buffer;
     }();
     const vk::BufferCopy region = {
         .srcOffset = src_buffer.Offset(src),
@@ -383,9 +386,9 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
         buffer_id = FindBuffer(device_addr, size);
     }
     Buffer& buffer = slot_buffers[buffer_id];
-    SynchronizeBuffer(buffer, device_addr, size, is_written, is_texel_buffer);
+    SynchronizeBuffer(buffer, device_addr, size, /*is_written*/false, is_texel_buffer);
     if (is_written) {
-        gpu_modified_ranges.Add(device_addr, size);
+        gpu_modified_ranges_pending.Add(device_addr, size);
     }
     return {&buffer, buffer.Offset(device_addr)};
 }
@@ -420,7 +423,14 @@ bool BufferCache::IsRegionCpuModified(VAddr addr, size_t size) {
 }
 
 bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
-    return memory_tracker->IsRegionGpuModified(addr, size);
+    if (memory_tracker->IsRegionGpuModified(addr, size)) {
+        return true;
+    }
+    const VAddr page_addr = PageManager::GetPageAddr(addr);
+    bool modified = false;
+    gpu_modified_ranges_pending.ForEachInRange(page_addr, PageManager::PAGE_SIZE,
+                                               [&](VAddr, VAddr) { modified = true; });
+    return modified;
 }
 
 BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {
@@ -766,15 +776,23 @@ bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, 
     return true;
 }
 
-void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size) {
+void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written) {
     const VAddr device_addr_end = device_addr + size;
     ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
-        RENDERER_TRACE;
         VAddr start = std::max(buffer.CpuAddr(), device_addr);
         VAddr end = std::min(buffer.CpuAddr() + buffer.SizeBytes(), device_addr_end);
         u32 size = static_cast<u32>(end - start);
-        SynchronizeBuffer(buffer, start, size, false, false);
+        SynchronizeBuffer(buffer, start, size, is_written, false);
     });
+}
+
+void BufferCache::CommitPendingGpuRanges() {
+    size_t total_size_bytes = 0;
+    gpu_modified_ranges_pending.ForEach([&](VAddr begin, VAddr end) {
+        SynchronizeBuffersInRange(begin, end - begin, true);
+    });
+    gpu_modified_ranges.m_ranges_set += gpu_modified_ranges_pending.m_ranges_set;
+    gpu_modified_ranges_pending.Clear();
 }
 
 void BufferCache::WriteDataBuffer(Buffer& buffer, VAddr address, const void* value, u32 num_bytes) {

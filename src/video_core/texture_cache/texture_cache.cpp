@@ -273,7 +273,7 @@ ImageId TextureCache::ResolveDepthOverlap(const ImageInfo& requested_info, Bindi
                 cache_image.info.pixel_format, new_info.pixel_format, cache_image.GetImage(),
                 new_image.GetImage());
         } else {
-            LOG_WARNING(Render_Vulkan, "Unimplemented depth overlap copy");
+            //LOG_WARNING(Render_Vulkan, "Unimplemented depth overlap copy");
         }
 
         // Free the cache image.

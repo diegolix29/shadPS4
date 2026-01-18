@@ -92,6 +92,11 @@ public:
         return slot_buffers[id];
     }
 
+    /// Retrieves GPU modified ranges since last CPU fence that haven't been read protected yet.
+    [[nodiscard]] RangeSet& GetPendingGpuModifiedRanges() {
+        return gpu_modified_ranges_pending;
+    }
+
     /// Retrieves a utility buffer optimized for specified memory usage.
     StreamBuffer& GetUtilityBuffer(MemoryUsage usage) noexcept {
         if (usage == MemoryUsage::Stream) {
@@ -147,13 +152,16 @@ public:
     void ProcessFaultBuffer();
 
     /// Synchronizes all buffers in the specified range.
-    void SynchronizeBuffersInRange(VAddr device_addr, u64 size);
+    void SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is_written = false);
 
     /// Synchronizes all buffers neede for DMA.
     void SynchronizeDmaBuffers();
 
     /// Runs the garbage collector.
     void RunGarbageCollector();
+
+    /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
+    void CommitPendingGpuRanges();
 
 private:
     template <typename Func>
@@ -219,6 +227,7 @@ private:
     u64 gc_tick = 0;
     Common::LeastRecentlyUsedCache<BufferId, u64> lru_cache;
     RangeSet gpu_modified_ranges;
+    RangeSet gpu_modified_ranges_pending;
     SplitRangeMap<BufferId> buffer_ranges;
     PageTable page_table;
 };
