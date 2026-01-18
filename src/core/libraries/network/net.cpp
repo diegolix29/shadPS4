@@ -655,10 +655,17 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
 
         switch (file->type) {
         case Core::FileSys::FileType::Socket: {
+            auto native_handle = file->socket->Native();
+            if (!native_handle) {
+                // P2P socket, cannot be added to epoll
+                LOG_ERROR(Lib_Net, "P2P socket cannot be added to epoll (unimplemented)");
+                *sceNetErrnoLoc() = ORBIS_NET_EBADF;
+                return ORBIS_NET_ERROR_EBADF;
+            }
+
             epoll_event native_event = {.events = ConvertEpollEventsIn(event->events),
                                         .data = {.fd = id}};
-            ASSERT(epoll_ctl(epoll->epoll_fd, EPOLL_CTL_ADD, *file->socket->Native(),
-                             &native_event) == 0);
+            ASSERT(epoll_ctl(epoll->epoll_fd, EPOLL_CTL_ADD, *native_handle, &native_event) == 0);
             epoll->events.emplace_back(id, *event);
             break;
         }
