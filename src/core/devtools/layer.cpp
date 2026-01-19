@@ -67,7 +67,21 @@ static float fullscreen_tip_timer = 10.0f;
 static float hotkeys_tip_timer = 10.0f;
 static int quit_menu_selection = 0;
 static bool showTrophyViewer = false;
+struct CachedTrophy {
+    std::string name;
+    bool unlocked;
+};
 
+struct CachedTrophyFile {
+    std::string id;
+    std::vector<CachedTrophy> trophies;
+};
+
+struct TrophyGameData {
+    std::vector<CachedTrophyFile> files;
+    int totalCount = 0;
+    int unlockedCount = 0;
+};
 namespace Overlay {
 
 void ToggleSimpleFps() {
@@ -782,12 +796,14 @@ void L::DrawPauseStatusWindow(bool& is_open) {
     if (!is_open)
         return;
     u8 pad = 0;
-    // Static variables for UI state
+
     static bool should_focus = false;
     static char filter_buf[256] = {0};
     static bool show_virtual_keyboard = false;
     static bool show_fullscreen_tip = true;
     static float fullscreen_tip_timer = 0.0f;
+    static TrophyGameData cachedTrophies;
+    static bool dataLoaded = false;
 
     constexpr ImVec2 window_size = {600, 500};
     ImGui::SetNextWindowBgAlpha(0.9f);
@@ -831,6 +847,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
 
     if (ImGui::Button("Trophy Viewer", ImVec2(200, 0))) {
         ImGui::OpenPopup("Quick Trophy List Viewer");
+        dataLoaded = false;
     }
 
     static ImVec2 trophy_pos = ImVec2(200, 200);
@@ -875,8 +892,68 @@ void L::DrawPauseStatusWindow(bool& is_open) {
     ImGui::SetNextWindowSize(trophy_size,
                              using_controller ? ImGuiCond_Always : ImGuiCond_FirstUseEver);
 
-    if (ImGui::BeginPopupModal("Quick Trophy List Viewer", nullptr,
+if (ImGui::BeginPopupModal("Quick Trophy List Viewer", nullptr,
                                ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar)) {
+
+        if (!dataLoaded) {
+            cachedTrophies = TrophyGameData();
+            std::string gameSerial = MemoryPatcher::g_game_serial;
+
+            if (!gameSerial.empty()) {
+                std::filesystem::path metaDir =
+                    Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / gameSerial /
+                    "TrophyFiles";
+
+                if (std::filesystem::exists(metaDir)) {
+                    for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
+                        if (!dirEntry.is_directory())
+                            continue;
+
+                        std::string xmlPath = (dirEntry.path() / "Xml/TROP.XML").string();
+                        if (!std::filesystem::exists(xmlPath))
+                            continue;
+
+#ifdef ENABLE_QT_GUI
+                        QFile file(QString::fromStdString(xmlPath));
+                        if (file.open(QFile::ReadOnly | QFile::Text)) {
+                            CachedTrophyFile currentFile;
+                            currentFile.id = dirEntry.path().filename().string();
+
+                            QXmlStreamReader reader(&file);
+                            while (!reader.atEnd() && !reader.hasError()) {
+                                reader.readNext();
+                                if (reader.isStartElement() &&
+                                    reader.name().toString() == "trophy") {
+                                    CachedTrophy t;
+                                    t.unlocked = false;
+                                    cachedTrophies.totalCount++;
+
+                                    if (reader.attributes().hasAttribute("unlockstate") &&
+                                        reader.attributes().value("unlockstate").toString() ==
+                                            "true") {
+                                        t.unlocked = true;
+                                        cachedTrophies.unlockedCount++;
+                                    }
+
+                                    while (!(reader.isEndElement() &&
+                                             reader.name().toString() == "trophy")) {
+                                        reader.readNext();
+                                        if (reader.isStartElement() &&
+                                            reader.name().toString() == "name") {
+                                            t.name = reader.readElementText().toStdString();
+                                        }
+                                    }
+                                    currentFile.trophies.push_back(t);
+                                }
+                            }
+                            cachedTrophies.files.push_back(currentFile);
+                        }
+#endif
+                    }
+                }
+            }
+            dataLoaded = true;
+        }
 
         if (!using_controller) {
             trophy_pos = ImGui::GetWindowPos();
@@ -886,155 +963,74 @@ void L::DrawPauseStatusWindow(bool& is_open) {
             ImGui::SetNextWindowSize(trophy_size, ImGuiCond_FirstUseEver);
         }
 
-        std::string gameSerial = MemoryPatcher::g_game_serial;
-
-        int unlockedCount = 0;
-        int totalCount = 0;
-
-        if (gameSerial.empty()) {
-            ImGui::Text("No game loaded.");
-        } else {
-            std::filesystem::path metaDir =
-                Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / gameSerial /
-                "TrophyFiles";
-
-            if (!std::filesystem::exists(metaDir)) {
-                ImGui::Text("No trophy data found for this game.");
-            } else {
-                // First pass: count trophies
-                for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
-                    if (!dirEntry.is_directory())
-                        continue;
-
-                    std::string xmlPath = (dirEntry.path() / "Xml/TROP.XML").string();
-                    if (!std::filesystem::exists(xmlPath))
-                        continue;
-
+        ImGui::SetWindowFontScale(2.5f);
 #ifdef ENABLE_QT_GUI
-                    QFile file(QString::fromStdString(xmlPath));
-                    if (!file.open(QFile::ReadOnly | QFile::Text))
-                        continue;
-
-                    QXmlStreamReader reader(&file);
-
-                    while (!reader.atEnd() && !reader.hasError()) {
-                        reader.readNext();
-                        if (reader.isStartElement() && reader.name().toString() == "trophy") {
-                            totalCount++;
-                            if (reader.attributes().hasAttribute("unlockstate") &&
-                                reader.attributes().value("unlockstate").toString() == "true") {
-                                unlockedCount++;
-                            }
-                        }
-                    }
-#endif
-                }
-
-                // Display the big title with the counter
-                ImGui::SetWindowFontScale(2.5f);
-#ifdef ENABLE_QT_GUI
-                TextCentered(("Trophies (" + std::to_string(unlockedCount) + "/" +
-                              std::to_string(totalCount) + ")")
-                                 .c_str());
+        TextCentered(("Trophies (" + std::to_string(cachedTrophies.unlockedCount) + "/" +
+                      std::to_string(cachedTrophies.totalCount) + ")")
+                         .c_str());
 #else
-                TextCentered("SDL build can read trophy XML, use QT");
+        TextCentered("SDL build can't read trophy XML, use QT");
 #endif
-                ImGui::SetWindowFontScale(1.5f);
-                ImGui::Separator();
-
-                // Second pass: fill in the actual table content
-                for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
-                    if (!dirEntry.is_directory())
-                        continue;
-
-                    std::string xmlPath = (dirEntry.path() / "Xml/TROP.XML").string();
-                    if (!std::filesystem::exists(xmlPath))
-                        continue;
+        ImGui::SetWindowFontScale(1.5f);
+        ImGui::Separator();
 
 #ifdef ENABLE_QT_GUI
-                    QFile file(QString::fromStdString(xmlPath));
-                    if (!file.open(QFile::ReadOnly | QFile::Text))
-                        continue;
+        if (cachedTrophies.files.empty()) {
+            ImGui::Text("No trophy data found for this game.");
+        } else {
+            for (const auto& fileData : cachedTrophies.files) {
 
-                    QXmlStreamReader reader(&file);
+                ImGui::BeginChild(fileData.id.c_str(), ImVec2(0, 0), true, ImGuiWindowFlags_None);
 
-                    ImGui::BeginChild(dirEntry.path().filename().string().c_str(), ImVec2(0, 0),
-                                      true, ImGuiWindowFlags_None);
+                if (ImGui::BeginTable("TrophyTable", 2, ImGuiTableFlags_BordersInnerV)) {
+                    ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+                    ImGui::TableSetupColumn("Trophy Name", ImGuiTableColumnFlags_WidthStretch);
 
-                    if (ImGui::BeginTable("TrophyTable", 2, ImGuiTableFlags_BordersInnerV)) {
-                        ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-                        ImGui::TableSetupColumn("Trophy Name", ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
 
-                        ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+                    ImGui::TableSetColumnIndex(0);
+                    const char* statusHeader = "Status";
+                    float statusHeaderOffset =
+                        (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusHeader).x) * 0.5f;
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusHeaderOffset);
+                    ImGui::TextUnformatted(statusHeader);
 
-                        // Headers centered
+                    ImGui::TableSetColumnIndex(1);
+                    const char* nameHeader = "Trophy Name";
+                    float nameHeaderOffset =
+                        (ImGui::GetColumnWidth() - ImGui::CalcTextSize(nameHeader).x) * 0.5f;
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameHeaderOffset);
+                    ImGui::TextUnformatted(nameHeader);
+
+                    for (const auto& trophy : fileData.trophies) {
+                        ImGui::TableNextRow();
+
                         ImGui::TableSetColumnIndex(0);
-                        const char* statusHeader = "Status";
-                        float statusHeaderOffset =
-                            (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusHeader).x) * 0.5f;
-                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusHeaderOffset);
-                        ImGui::TextUnformatted(statusHeader);
+                        ImGui::PushStyleColor(ImGuiCol_Text, trophy.unlocked ? ImVec4(0, 1, 0, 1)
+                                                                             : ImVec4(1, 0, 0, 1));
+                        ImGui::SetWindowFontScale(1.0f);
+
+                        const char* statusText = trophy.unlocked ? "[O]" : "[X]";
+                        float statusOffset =
+                            (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusText).x) * 0.5f;
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusOffset);
+                        ImGui::TextUnformatted(statusText);
+                        ImGui::PopStyleColor();
 
                         ImGui::TableSetColumnIndex(1);
-                        const char* nameHeader = "Trophy Name";
-                        float nameHeaderOffset =
-                            (ImGui::GetColumnWidth() - ImGui::CalcTextSize(nameHeader).x) * 0.5f;
-                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameHeaderOffset);
-                        ImGui::TextUnformatted(nameHeader);
-
-                        while (!reader.atEnd() && !reader.hasError()) {
-                            reader.readNext();
-                            if (reader.isStartElement() && reader.name().toString() == "trophy") {
-                                QString trophyName;
-                                bool unlocked = false;
-
-                                if (reader.attributes().hasAttribute("unlockstate") &&
-                                    reader.attributes().value("unlockstate").toString() == "true") {
-                                    unlocked = true;
-                                }
-
-                                while (!(reader.isEndElement() &&
-                                         reader.name().toString() == "trophy")) {
-                                    reader.readNext();
-                                    if (reader.isStartElement() &&
-                                        reader.name().toString() == "name") {
-                                        trophyName = reader.readElementText();
-                                    }
-                                }
-
-                                // Table row
-                                ImGui::TableNextRow();
-
-                                ImGui::TableSetColumnIndex(0);
-                                ImGui::PushStyleColor(ImGuiCol_Text, unlocked ? ImVec4(0, 1, 0, 1)
-                                                                              : ImVec4(1, 0, 0, 1));
-                                ImGui::SetWindowFontScale(1.0f);
-                                const char* statusText = unlocked ? "[O]" : "[X]";
-                                float statusOffset =
-                                    (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusText).x) *
-                                    0.5f;
-                                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusOffset);
-                                ImGui::TextUnformatted(statusText);
-                                ImGui::PopStyleColor();
-
-                                ImGui::TableSetColumnIndex(1);
-                                std::string nameStr = trophyName.toStdString();
-                                float nameOffset = (ImGui::GetColumnWidth() -
-                                                    ImGui::CalcTextSize(nameStr.c_str()).x) *
-                                                   0.5f;
-                                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameOffset);
-                                ImGui::TextUnformatted(nameStr.c_str());
-                            }
-                        }
-
-                        ImGui::EndTable();
+                        float nameOffset =
+                            (ImGui::GetColumnWidth() - ImGui::CalcTextSize(trophy.name.c_str()).x) *
+                            0.5f;
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameOffset);
+                        ImGui::TextUnformatted(trophy.name.c_str());
                     }
-
-                    ImGui::EndChild();
-#endif
+                    ImGui::EndTable();
                 }
+                ImGui::EndChild();
             }
         }
+#endif
+
         if (ImGui::Button("Close")) {
             ImGui::CloseCurrentPopup();
         }
@@ -1049,7 +1045,6 @@ void L::DrawPauseStatusWindow(bool& is_open) {
     if (ImGui::BeginTable("PauseMenuTable", 2, ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableNextRow();
 
-        // LEFT COLUMN
         ImGui::TableSetColumnIndex(0);
 
         ImGui::SeparatorText("Network Status");
@@ -1104,7 +1099,6 @@ void L::DrawPauseStatusWindow(bool& is_open) {
 
         int extra_memory = Config::getExtraDmemInMbytes();
         if (ImGui::InputInt("Extra Memory (MB)", &extra_memory, 500, 1000)) {
-            // Clamp between 0 and 9999
             if (extra_memory < 0)
                 extra_memory = 0;
             if (extra_memory > 9999)
@@ -1136,7 +1130,6 @@ void L::DrawPauseStatusWindow(bool& is_open) {
         ImGui::EndDisabled();
         ImGui::EndDisabled();
 
-        // RIGHT COLUMN
         ImGui::TableSetColumnIndex(1);
 
         ImGui::SeparatorText("Logging");
