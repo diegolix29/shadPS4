@@ -79,12 +79,11 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size, bool download) {
     if (!IsRegionRegistered(device_addr, size)) {
         return;
     }
-    if (download) {
+    if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable) {
         memory_tracker->InvalidateRegion(
             device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
     } else {
-        memory_tracker->InvalidateRegion(device_addr, size);
-        gpu_modified_ranges.Subtract(device_addr, size);
+        memory_tracker->MarkRegionAsCpuModified(device_addr, size);
     }
 }
 template <bool async>
@@ -154,6 +153,13 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
 }
 
 void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
+    // if write tick == current_tick -> send flush request
+
+    const u64 page = device_addr >> CACHING_PAGEBITS;
+    const BufferId buffer_id = page_table[page].buffer_id;
+    const Buffer& buffer = slot_buffers[buffer_id];
+    ASSERT(buffer.IsInBounds(device_addr, size));
+
     liverpool->SendCommand<true>([this, device_addr, size, is_write] {
         Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
         DownloadBufferMemory<false>(buffer, device_addr, size, is_write);
@@ -331,18 +337,29 @@ void BufferCache::BindIndexBuffer(u32 index_offset) {
 
 void BufferCache::FillBuffer(VAddr address, u32 num_bytes, u32 value, bool is_gds) {
     ASSERT_MSG(address % 4 == 0, "GDS offset must be dword aligned");
+
     if (!is_gds) {
         texture_cache.ClearMeta(address);
-        if (!IsRegionGpuModified(address, num_bytes)) {
+
+        const bool use_alt_gpu_check = MemoryPatcher::g_game_serial == "CUSA00093" ||
+                                       MemoryPatcher::g_game_serial == "CUSA00003";
+
+        const bool gpu_modified = use_alt_gpu_check
+                                      ? IsRegionGpuModified(address, num_bytes)
+                                      : memory_tracker->IsRegionGpuModified(address, num_bytes);
+
+        if (!gpu_modified) {
             u32* buffer = std::bit_cast<u32*>(address);
             std::fill(buffer, buffer + num_bytes / sizeof(u32), value);
             return;
         }
     }
+
     Buffer* buffer = [&] {
         if (is_gds) {
             return &gds_buffer;
         }
+
         const auto [buffer, offset] =
             ObtainBuffer(address, num_bytes, ObtainBufferFlags::IsWritten);
         return buffer;
@@ -377,7 +394,7 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
         if (dst_gds) {
             return gds_buffer;
         }
-        const auto [buffer, offset] = ObtainBuffer(
+        const auto [buffer, _] = ObtainBuffer(
             dst, num_bytes, ObtainBufferFlags::IsWritten | ObtainBufferFlags::IsTexelBuffer);
         return *buffer;
     }();
@@ -458,21 +475,9 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size,
         buffer_id = FindBuffer(device_addr, size);
     }
     Buffer& buffer = slot_buffers[buffer_id];
-    bool defer_read_protect = false;
-
-    if (MemoryPatcher::g_game_serial == "CUSA00093" ||
-        MemoryPatcher::g_game_serial == "CUSA00003") {
-        defer_read_protect = true;
-    }
-
-    SynchronizeBuffer(buffer, device_addr, size, is_written && !defer_read_protect,
-                      is_texel_buffer);
+    SynchronizeBuffer(buffer, device_addr, size, /*is_written*/ false, is_texel_buffer);
     if (is_written) {
-        if (defer_read_protect) {
-            gpu_modified_ranges_pending.Add(device_addr, size);
-        } else {
-            gpu_modified_ranges.Add(device_addr, size);
-        }
+        gpu_modified_ranges_pending.Add(device_addr, size);
     }
     return {&buffer, buffer.Offset(device_addr)};
 }
@@ -898,24 +903,10 @@ void BufferCache::SynchronizeBuffersInRange(VAddr device_addr, u64 size, bool is
     const VAddr device_addr_end = device_addr + size;
     ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
         RENDERER_TRACE;
-        const VAddr start = std::max(buffer.CpuAddr(), device_addr);
-        const VAddr end = std::min(buffer.CpuAddr() + buffer.SizeBytes(), device_addr_end);
-        const u32 size = static_cast<u32>(end - start);
+        VAddr start = std::max(buffer.CpuAddr(), device_addr);
+        VAddr end = std::min(buffer.CpuAddr() + buffer.SizeBytes(), device_addr_end);
+        u32 size = static_cast<u32>(end - start);
         SynchronizeBuffer(buffer, start, size, is_written, false);
-    });
-}
-void BufferCache::MemoryBarrier() {
-    scheduler.EndRendering();
-    const auto cmdbuf = scheduler.CommandBuffer();
-    vk::MemoryBarrier2 barrier = {
-        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
-        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
-    };
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .memoryBarrierCount = 1,
-        .pMemoryBarriers = &barrier,
     });
 }
 
@@ -964,6 +955,21 @@ void BufferCache::CommitPendingGpuRanges() {
         preemptive_copies.clear();
         scheduler.Flush();
     }
+}
+
+void BufferCache::MemoryBarrier() {
+    scheduler.EndRendering();
+    const auto cmdbuf = scheduler.CommandBuffer();
+    vk::MemoryBarrier2 barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+    };
+    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .memoryBarrierCount = 1,
+        .pMemoryBarriers = &barrier,
+    });
 }
 
 void BufferCache::WriteDataBuffer(Buffer& buffer, VAddr address, const void* value, u32 num_bytes) {

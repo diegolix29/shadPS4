@@ -4,24 +4,24 @@
 #pragma once
 
 #include <cstring>
+#include "common/assert.h"
 #include "common/bit_field.h"
-#include "common/rdtsc.h"
 #include "common/types.h"
-#include "core/platform.h"
+#include "common/uint128.h"
+#include "core/libraries/gnmdriver/gnmdriver.h"
+#include "core/libraries/kernel/time.h"
 #include "video_core/amdgpu/pm4_opcodes.h"
 
 namespace AmdGpu {
 
-/// This enum defines the Shader types supported in PM4 type 3 header
 enum class PM4ShaderType : u32 {
-    ShaderGraphics = 0, ///< Graphics shader
-    ShaderCompute = 1   ///< Compute shader
+    ShaderGraphics = 0,
+    ShaderCompute = 1,
 };
 
-/// This enum defines the predicate value supported in PM4 type 3 header
 enum class PM4Predicate : u32 {
-    PredDisable = 0, ///< Predicate disabled
-    PredEnable = 1   ///< Predicate enabled
+    PredDisable = 0,
+    PredEnable = 1,
 };
 
 union PM4Type0Header {
@@ -276,15 +276,13 @@ struct PM4CmdStrmoutBufferUpdate {
     template <typename T = u64>
     T DstAddress() const {
         ASSERT(update_memory.Value() == 1);
-        return reinterpret_cast<T>(
-            static_cast<uintptr_t>(dst_address_lo.Value() | (u64(dst_address_hi & 0xFFFF) << 32)));
+        return reinterpret_cast<T>(dst_address_lo.Value() | u64(dst_address_hi & 0xFFFF) << 32);
     }
 
     template <typename T = u64>
     T SrcAddress() const {
         ASSERT(source_select.Value() == SourceSelect::SrcAddress);
-        return reinterpret_cast<T>(
-            static_cast<uintptr_t>(src_address_lo.Value() | (u64(src_address_hi & 0xFFFF) << 32)));
+        return reinterpret_cast<T>(src_address_lo.Value() | u64(src_address_hi & 0xFFFF) << 32);
     }
 };
 
@@ -343,6 +341,16 @@ static u64 GetGpuClock64() {
     auto duration = now.time_since_epoch();
     auto ticks = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
     return static_cast<u64>(ticks);
+}
+
+static u64 GetGpuPerfCounter() {
+    const auto cpu_freq = Libraries::Kernel::sceKernelGetTscFrequency();
+    const auto gpu_freq = Libraries::GnmDriver::sceGnmGetGpuCoreClockFrequency();
+
+    const auto cpu_cycles = Libraries::Kernel::sceKernelReadTsc();
+    const auto gpu_cycles = Common::MultiplyAndDivide64(cpu_cycles, gpu_freq, cpu_freq);
+
+    return gpu_cycles;
 }
 
 // VGT_EVENT_INITIATOR.EVENT_TYPE
@@ -444,13 +452,8 @@ struct PM4CmdEventWriteEop {
     u32 data_hi; ///< Value that will be written to memory when event occurs
 
     template <typename T>
-    T Address() const {
-        uintptr_t value = static_cast<uintptr_t>((u64(address_hi) << 32) | address_lo);
-        if constexpr (std::is_pointer_v<T>) {
-            return reinterpret_cast<T>(value);
-        } else {
-            return static_cast<T>(value);
-        }
+    T* Address() const {
+        return reinterpret_cast<T*>(address_lo | u64(address_hi) << 32);
     }
 
     u32 DataDWord() const {
@@ -461,8 +464,8 @@ struct PM4CmdEventWriteEop {
         return data_lo | u64(data_hi) << 32;
     }
 
-    void SignalFence(auto&& write_mem) const {
-        u32* address = Address<u32*>();
+    void SignalFence(auto&& write_mem, auto&& signal_irq) const {
+        u32* address = Address<u32>();
         switch (data_sel.Value()) {
         case DataSelect::None: {
             break;
@@ -480,7 +483,7 @@ struct PM4CmdEventWriteEop {
             break;
         }
         case DataSelect::PerfCounter: {
-            write_mem(address, Common::FencedRDTSC(), sizeof(u64));
+            write_mem(address, GetGpuPerfCounter(), sizeof(u64));
             break;
         }
         default: {
@@ -497,7 +500,7 @@ struct PM4CmdEventWriteEop {
             ASSERT(data_sel == DataSelect::None);
             [[fallthrough]];
         case InterruptSelect::IrqWhenWriteConfirm: {
-            Platform::IrqC::Instance()->Signal(Platform::InterruptId::GfxEop);
+            signal_irq();
             break;
         }
         default: {
@@ -739,7 +742,7 @@ struct PM4CmdWriteData {
 
     template <typename T>
     T Address() const {
-        return reinterpret_cast<T>(static_cast<uintptr_t>(addr64));
+        return reinterpret_cast<T>(addr64);
     }
 };
 
@@ -770,7 +773,7 @@ struct PM4CmdEventWriteEos {
 
     template <typename T = u32*>
     T Address() const {
-        return reinterpret_cast<T>(static_cast<uintptr_t>(address_lo | (u64(address_hi) << 32)));
+        return reinterpret_cast<T>(address_lo | u64(address_hi) << 32);
     }
 
     u32 DataDWord() const {
@@ -829,7 +832,7 @@ struct PM4DumpConstRam {
 
     template <typename T>
     T Address() const {
-        return reinterpret_cast<T>(static_cast<uintptr_t>((u64(addr_hi) << 32u) | addr_lo));
+        return reinterpret_cast<T>((u64(addr_hi) << 32u) | addr_lo);
     }
 
     [[nodiscard]] u32 Offset() const {
@@ -881,7 +884,7 @@ struct PM4CmdIndirectBuffer {
 
     template <typename T>
     T* Address() const {
-        return reinterpret_cast<T*>(static_cast<uintptr_t>((u64(ibase_hi) << 32u) | ibase_lo));
+        return reinterpret_cast<T*>((u64(ibase_hi) << 32u) | ibase_lo);
     }
 };
 
@@ -917,8 +920,8 @@ struct PM4CmdReleaseMem {
     u32 data_hi;
 
     template <typename T>
-    T Address() const {
-        return reinterpret_cast<T>(static_cast<uintptr_t>(address_lo | (u64(address_hi) << 32)));
+    T* Address() const {
+        return reinterpret_cast<T*>(address_lo | u64(address_hi) << 32);
     }
 
     u32 DataDWord() const {
@@ -929,22 +932,22 @@ struct PM4CmdReleaseMem {
         return data_lo | u64(data_hi) << 32;
     }
 
-    void SignalFence(Platform::InterruptId irq_id) const {
+    void SignalFence(auto&& signal_irq) const {
         switch (data_sel.Value()) {
         case DataSelect::Data32Low: {
-            *Address<u32*>() = DataDWord();
+            *Address<u32>() = DataDWord();
             break;
         }
         case DataSelect::Data64: {
-            *Address<u64*>() = DataQWord();
+            *Address<u64>() = DataQWord();
             break;
         }
         case DataSelect::GpuClock64: {
-            *Address<u64*>() = GetGpuClock64();
+            *Address<u64>() = GetGpuClock64();
             break;
         }
         case DataSelect::PerfCounter: {
-            *Address<u64*>() = Common::FencedRDTSC();
+            *Address<u64>() = GetGpuPerfCounter();
             break;
         }
         default: {
@@ -960,7 +963,7 @@ struct PM4CmdReleaseMem {
         case InterruptSelect::IrqUndocumented:
             [[fallthrough]];
         case InterruptSelect::IrqWhenWriteConfirm: {
-            Platform::IrqC::Instance()->Signal(irq_id);
+            signal_irq();
             break;
         }
         default: {
@@ -990,14 +993,7 @@ struct PM4CmdSetBase {
     T Address() const {
         ASSERT(base_index == BaseIndex::DisplayListPatchTable ||
                base_index == BaseIndex::DrawIndexIndirPatchTable);
-
-        uintptr_t value = static_cast<uintptr_t>(address0 | (u64(address1 & 0xffff) << 32u));
-
-        if constexpr (std::is_pointer_v<T>) {
-            return reinterpret_cast<T>(value);
-        } else {
-            return static_cast<T>(value);
-        }
+        return reinterpret_cast<T>(address0 | (u64(address1 & 0xffff) << 32u));
     }
 };
 
@@ -1198,45 +1194,6 @@ struct PM4CmdCondExec {
     bool* Address() const {
         return std::bit_cast<bool*>(u64(bool_addr_hi.Value()) << 32 | u64(bool_addr_lo.Value())
                                                                           << 2);
-    }
-};
-
-enum class Predication : u32 {
-    DrawIfNotVisible = 0,
-    DrawIfVisible = 1,
-};
-
-enum class PredicationHint : u32 {
-    Wait = 0,
-    Draw = 1,
-};
-
-enum class PredicateOperation : u32 {
-    Clear = 0,
-    Zpass = 1,
-    PrimCount = 2,
-    // other values are reserved
-};
-
-struct PM4CmdSetPredication {
-    PM4Type3Header header;
-    union {
-        BitField<4, 28, u32> start_address_lo;
-        u32 raw1;
-    };
-    union {
-        BitField<0, 8, u32> start_address_hi;
-        BitField<8, 1, Predication> action;
-        BitField<12, 1, PredicationHint> hint;
-        BitField<16, 3, PredicateOperation> pred_op;
-        BitField<31, 1, u32> continue_bit;
-        u32 raw2;
-    };
-
-    template <typename T = u64>
-    T Address() const {
-        return std::bit_cast<T>(u64(start_address_lo.Value()) << 4 | u64(start_address_hi.Value())
-                                                                         << 32);
     }
 };
 

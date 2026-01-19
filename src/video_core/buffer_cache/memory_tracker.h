@@ -91,26 +91,19 @@ public:
 
     /// Removes all protection from a page and ensures GPU data has been flushed if requested
     void InvalidateRegion(VAddr cpu_addr, u64 size, auto&& on_flush) noexcept {
-        IteratePages<false>(
-            cpu_addr, size, [&on_flush](RegionManager* manager, u64 offset, size_t size) {
-                const bool should_flush = [&] {
-                    // Perform both the GPU modification check and CPU state change with the lock
-                    // in case we are racing with GPU thread trying to mark the page as GPU
-                    // modified. If we need to flush the flush function is going to perform CPU
-                    // state change.
-                    std::scoped_lock lk{manager->lock};
-                    if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable &&
-                        manager->template IsRegionModified<Type::GPU>(offset, size)) {
-                        return true;
-                    }
-                    manager->template ChangeRegionState<Type::CPU, true>(
-                        manager->GetCpuAddr() + offset, size);
-                    return false;
-                }();
-                if (should_flush) {
-                    on_flush();
-                }
-            });
+        IteratePages<false>(cpu_addr, size,
+                            [&on_flush](RegionManager* manager, u64 offset, size_t size) {
+                                manager->lock.lock();
+                                if (manager->template IsRegionModified<Type::GPU>(offset, size)) {
+                                    manager->lock.unlock();
+                                    on_flush();
+                                } else {
+
+                                    manager->template ChangeRegionState<Type::CPU, true>(
+                                        manager->GetCpuAddr() + offset, size);
+                                    manager->lock.unlock();
+                                }
+                            });
     }
 
     /// Removes all protection from a page (lose any non downloaded GPU modifications)

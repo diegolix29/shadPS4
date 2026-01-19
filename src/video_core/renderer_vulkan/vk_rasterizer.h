@@ -47,7 +47,7 @@ public:
                       VAddr count_address);
 
     void DispatchDirect();
-    void DispatchIndirect(VAddr address, u32 offset, u32 size);
+    void DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_gpu);
 
     void ScopeMarkerBegin(const std::string_view& str, bool from_guest = false);
     void ScopeMarkerEnd(bool from_guest = false);

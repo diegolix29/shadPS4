@@ -331,7 +331,7 @@ void Rasterizer::DispatchDirect() {
     ResetBindings();
 }
 
-void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
+void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_gpu) {
     RENDERER_TRACE;
 
     scheduler.PopPendingOperations();
@@ -350,7 +350,6 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
         buffer_cache.ObtainBuffer(address + offset, size, VideoCore::ObtainBufferFlags::IsWritten);
     buffer_cache.GetPendingGpuModifiedRanges().Subtract(address + offset, size);
     scheduler.EndRendering();
-
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
 
     const auto cmdbuf = scheduler.CommandBuffer();

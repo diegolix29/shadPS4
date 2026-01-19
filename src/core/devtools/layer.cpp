@@ -892,7 +892,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
     ImGui::SetNextWindowSize(trophy_size,
                              using_controller ? ImGuiCond_Always : ImGuiCond_FirstUseEver);
 
-if (ImGui::BeginPopupModal("Quick Trophy List Viewer", nullptr,
+    if (ImGui::BeginPopupModal("Quick Trophy List Viewer", nullptr,
                                ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar)) {
 
         if (!dataLoaded) {
