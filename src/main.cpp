@@ -31,6 +31,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+#include <common/key_manager.h>
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
@@ -44,7 +45,17 @@ int main(int argc, char* argv[]) {
 
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
+    // temp copy the trophy key from old config to key manager if exists
+    auto key_manager = KeyManager::GetInstance();
+    if (key_manager->GetAllKeys().TrophyKeySet.ReleaseTrophyKey.empty()) {
+        if (!Config::getTrophyKey().empty()) {
 
+            key_manager->SetAllKeys(
+                {.TrophyKeySet = {.ReleaseTrophyKey =
+                                      KeyManager::HexStringToBytes(Config::getTrophyKey())}});
+            key_manager->SaveToFile();
+        }
+    }
     bool has_game_argument = false;
     bool has_emulator_argument = false;
     bool show_gui = false;
