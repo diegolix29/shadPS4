@@ -130,7 +130,7 @@ enum class Class : u8 {
     Tty,                     ///< Debug output from emu
     KeyManager,              ///< Key management system
     IPC,
-    Count                    ///< Total number of logging classes
+    Count ///< Total number of logging classes
 };
 
 } // namespace Common::Log

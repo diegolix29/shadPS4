@@ -190,9 +190,11 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     onAudioDeviceChange(true);
     LoadValuesFromConfig();
 
+    // Apply modern styling using theme colors
     WindowThemes themes;
     themes.ApplyThemeToDialog(this);
 
+    // Get current theme colors
     QPalette palette = qApp->palette();
     QString windowBg = palette.window().color().name();
     QString textColor = palette.text().color().name();
@@ -201,6 +203,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     QString borderColor = palette.mid().color().name();
     QString baseColor = palette.base().color().name();
 
+    // Additional modern styling for dialogs using theme colors
     QString modernDialogStyle =
         QString(R"(
         QDialog {
@@ -335,18 +338,20 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         }
         
         QSlider::groove:horizontal {
-            height: 6px;
+            height: 8px;
             background: %3;
-            border-radius: 3px;
+            border: 1px solid %9;
+            border-radius: 4px;
+            margin: 2px 0;
         }
         
         QSlider::handle:horizontal {
             background: %7;
             border: 2px solid %7;
-            width: 18px;
-            height: 18px;
-            border-radius: 9px;
-            margin: -6px 0;
+            width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            margin: -8px 0;
         }
         
         QSlider::handle:horizontal:hover {
