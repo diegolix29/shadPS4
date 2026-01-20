@@ -228,18 +228,20 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
         }
         
         QSlider::groove:horizontal {
-            height: 6px;
+            height: 8px;
             background: %3;
-            border-radius: 3px;
+            border: 1px solid %9;
+            border-radius: 4px;
+            margin: 2px 0;
         }
         
         QSlider::handle:horizontal {
             background: %7;
             border: 2px solid %7;
-            width: 18px;
-            height: 18px;
-            border-radius: 9px;
-            margin: -6px 0;
+            width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            margin: -8px 0;
         }
         
         QSlider::handle:horizontal:hover {
