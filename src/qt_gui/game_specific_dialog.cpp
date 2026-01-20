@@ -71,7 +71,8 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
     QString borderColor = palette.mid().color().name();
     QString baseColor = palette.base().color().name();
 
-    QString modernGameDialogStyle = QString(R"(
+    QString modernGameDialogStyle =
+        QString(R"(
         QDialog {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                 stop:0 %1, stop:1 %2);
@@ -312,31 +313,24 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
             background: rgba(%14, 0.3);
         }
     )")
-                                        .arg(
-                                            QString("rgba(%1, %2, %3, 0.95)")
-                                                .arg(palette.window().color().red())
-                                                .arg(palette.window().color().green())
-                                                .arg(palette.window().color().blue()),
-                                            QString("rgba(%1, %2, %3, 0.95)")
-                                                .arg(palette.window().color().red() * 0.7)
-                                                .arg(palette.window().color().green() * 0.7)
-                                                .arg(palette.window().color().blue() * 0.7),
-                                            borderColor,
-                                            baseColor,
-                                            buttonBg,
-                                            textColor,
-                                            accentColor,
-                                            palette.midlight().color().name(),
-                                            palette.shadow().color().name(),
-                                            palette.alternateBase().color().name(),
-                                            palette.highlight().color().lighter(120).name(),
-                                            palette.highlight().color().darker(120).name(),
-                                            palette.shadow().color().name(),
-                                            QString("%1, %2, %3")
-                                                .arg(palette.highlight().color().red())
-                                                .arg(palette.highlight().color().green())
-                                                .arg(palette.highlight().color().blue()),
-                                            palette.base().color().lighter(110).name());
+            .arg(QString("rgba(%1, %2, %3, 0.95)")
+                     .arg(palette.window().color().red())
+                     .arg(palette.window().color().green())
+                     .arg(palette.window().color().blue()),
+                 QString("rgba(%1, %2, %3, 0.95)")
+                     .arg(palette.window().color().red() * 0.7)
+                     .arg(palette.window().color().green() * 0.7)
+                     .arg(palette.window().color().blue() * 0.7),
+                 borderColor, baseColor, buttonBg, textColor, accentColor,
+                 palette.midlight().color().name(), palette.shadow().color().name(),
+                 palette.alternateBase().color().name(),
+                 palette.highlight().color().lighter(120).name(),
+                 palette.highlight().color().darker(120).name(), palette.shadow().color().name(),
+                 QString("%1, %2, %3")
+                     .arg(palette.highlight().color().red())
+                     .arg(palette.highlight().color().green())
+                     .arg(palette.highlight().color().blue()),
+                 palette.base().color().lighter(110).name());
 
     this->setStyleSheet(this->styleSheet() + modernGameDialogStyle);
 

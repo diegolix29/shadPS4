@@ -129,9 +129,8 @@ enum class Class : u8 {
     Input,                   ///< Input emulation
     Tty,                     ///< Debug output from emu
     KeyManager,              ///< Key management system
-    Count                    ///< Total number of logging classes
     IPC,
-    Count ///< Total number of logging classes
+    Count                    ///< Total number of logging classes
 };
 
 } // namespace Common::Log

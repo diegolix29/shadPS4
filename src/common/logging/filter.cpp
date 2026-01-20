@@ -161,7 +161,6 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     CLS(Input)                                                                                     \
     CLS(Tty)                                                                                       \
     CLS(KeyManager)                                                                                \
-    CLS(Loader)
     CLS(Loader)                                                                                    \
     CLS(IPC)
 
