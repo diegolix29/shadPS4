@@ -32,6 +32,7 @@
 #include "common/logging/backend.h"
 #include "common/logging/filter.h"
 #include "log_presets_dialog.h"
+#include "main_window_themes.h"
 #include "sdl_event_wrapper.h"
 #include "settings_dialog.h"
 #include "ui_settings_dialog.h"
@@ -188,6 +189,243 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     InitializeEmulatorLanguages();
     onAudioDeviceChange(true);
     LoadValuesFromConfig();
+
+    WindowThemes themes;
+    themes.ApplyThemeToDialog(this);
+
+    QPalette palette = qApp->palette();
+    QString windowBg = palette.window().color().name();
+    QString textColor = palette.text().color().name();
+    QString buttonBg = palette.button().color().name();
+    QString accentColor = palette.highlight().color().name();
+    QString borderColor = palette.mid().color().name();
+    QString baseColor = palette.base().color().name();
+
+    QString modernDialogStyle = QString(R"(
+        QDialog {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 %1, stop:1 %2);
+            border-radius: 12px;
+        }
+        
+        QTabWidget::pane {
+            border: 1px solid %3;
+            background: %4;
+            border-radius: 8px;
+            padding: 4px;
+        }
+        
+        QTabWidget::tab-bar {
+            alignment: center;
+        }
+        
+        QTabBar::tab {
+            background: %5;
+            color: %6;
+            padding: 12px 24px;
+            margin-right: 4px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            border: 1px solid %3;
+            font-weight: 500;
+            min-width: 100px;
+        }
+        
+        QTabBar::tab:selected {
+            background: %7;
+            border-color: %7;
+        }
+        
+        QTabBar::tab:hover:!selected {
+            background: %8;
+            border-color: %9;
+        }
+        
+        QGroupBox {
+            background: %10;
+            border: 1px solid %3;
+            border-radius: 8px;
+            margin-top: 12px;
+            padding-top: 8px;
+            font-weight: 600;
+            color: %6;
+        }
+        
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 12px;
+            padding: 0 8px 0 8px;
+            background: transparent;
+        }
+        
+        QPushButton {
+            background: %7;
+            border: 1px solid %7;
+            border-radius: 6px;
+            color: white;
+            padding: 8px 16px;
+            font-weight: 500;
+            min-width: 80px;
+        }
+        
+        QPushButton:hover {
+            background: %11;
+            border-color: %11;
+        }
+        
+        QPushButton:pressed {
+            background: %12;
+        }
+        
+        QPushButton:disabled {
+            background: %13;
+            border-color: %3;
+            color: rgba(255, 255, 255, 0.4);
+        }
+        
+        QCheckBox {
+            spacing: 8px;
+            color: %6;
+        }
+        
+        QCheckBox::indicator {
+            width: 18px;
+            height: 18px;
+            border: 2px solid %3;
+            border-radius: 4px;
+            background: %5;
+        }
+        
+        QCheckBox::indicator:hover {
+            border-color: %7;
+            background: rgba(%14, 0.1);
+        }
+        
+        QCheckBox::indicator:checked {
+            background: %7;
+            border-color: %7;
+        }
+        
+        QComboBox {
+            background: %5;
+            border: 1px solid %3;
+            border-radius: 6px;
+            padding: 6px 12px;
+            color: %6;
+            min-height: 20px;
+        }
+        
+        QComboBox:hover {
+            border-color: %7;
+            background: %8;
+        }
+        
+        QComboBox::drop-down {
+            border: none;
+            width: 20px;
+        }
+        
+        QComboBox QAbstractItemView {
+            background: %4;
+            border: 1px solid %3;
+            border-radius: 6px;
+            color: %6;
+            selection-background-color: %7;
+        }
+        
+        QSlider::groove:horizontal {
+            height: 6px;
+            background: %3;
+            border-radius: 3px;
+        }
+        
+        QSlider::handle:horizontal {
+            background: %7;
+            border: 2px solid %7;
+            width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            margin: -6px 0;
+        }
+        
+        QSlider::handle:horizontal:hover {
+            background: %11;
+            border-color: %11;
+        }
+        
+        QSpinBox, QDoubleSpinBox {
+            background: %5;
+            border: 1px solid %3;
+            border-radius: 6px;
+            padding: 6px 12px;
+            color: %6;
+        }
+        
+        QSpinBox:hover, QDoubleSpinBox:hover {
+            border-color: %7;
+            background: %8;
+        }
+        
+        QLineEdit {
+            background: %5;
+            border: 1px solid %3;
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: %6;
+        }
+        
+        QLineEdit:hover {
+            border-color: %7;
+            background: %8;
+        }
+        
+        QLineEdit:focus {
+            border-color: %7;
+            background: %15;
+        }
+        
+        QLabel {
+            color: %6;
+        }
+        
+        QScrollArea {
+            background: transparent;
+            border: none;
+        }
+        
+        QDialogButtonBox {
+            background: %4;
+            border-top: 1px solid %3;
+            padding: 12px;
+        }
+    )")
+                                    .arg(
+                                        QString("rgba(%1, %2, %3, 0.95)")
+                                            .arg(palette.window().color().red())
+                                            .arg(palette.window().color().green())
+                                            .arg(palette.window().color().blue()),
+                                        QString("rgba(%1, %2, %3, 0.95)")
+                                            .arg(palette.window().color().red() * 0.7)
+                                            .arg(palette.window().color().green() * 0.7)
+                                            .arg(palette.window().color().blue() * 0.7),
+                                        borderColor,
+                                        baseColor,
+                                        buttonBg,
+                                        textColor,
+                                        accentColor,
+                                        palette.midlight().color().name(),
+                                        palette.shadow().color().name(),
+                                        palette.alternateBase().color().name(),
+                                        palette.highlight().color().lighter(120).name(),
+                                        palette.highlight().color().darker(120).name(),
+                                        palette.shadow().color().name(),
+                                        QString("%1, %2, %3")
+                                            .arg(palette.highlight().color().red())
+                                            .arg(palette.highlight().color().green())
+                                            .arg(palette.highlight().color().blue()),
+                                        palette.base().color().lighter(110).name());
+
+    this->setStyleSheet(this->styleSheet() + modernDialogStyle);
 
     defaultTextEdit = tr("Point your mouse at an option to display its description.");
     ui->descriptionText->setText(defaultTextEdit);
