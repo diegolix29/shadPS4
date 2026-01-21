@@ -460,7 +460,7 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
 
 std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size,
                                                   ObtainBufferFlags flags, BufferId buffer_id) {
-    // For read-only buffers use device local stream buffer to reduce renderpass breaks.
+
     const bool is_written = (flags & ObtainBufferFlags::IsWritten) != ObtainBufferFlags{};
     const bool is_texel_buffer = (flags & ObtainBufferFlags::IsTexelBuffer) != ObtainBufferFlags{};
     const bool skip_stream_buffer =
@@ -471,14 +471,27 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size,
         const u64 offset = stream_buffer.Copy(device_addr, size, instance.UniformMinAlignment());
         return {&stream_buffer, offset};
     }
+
     if (IsBufferInvalid(buffer_id)) {
         buffer_id = FindBuffer(device_addr, size);
     }
+
     Buffer& buffer = slot_buffers[buffer_id];
-    SynchronizeBuffer(buffer, device_addr, size, /*is_written*/ false, is_texel_buffer);
+
+    const bool defer_write_protect =
+        MemoryPatcher::g_game_serial == "CUSA00093" || MemoryPatcher::g_game_serial == "CUSA00003";
+
+    SynchronizeBuffer(buffer, device_addr, size, is_written && !defer_write_protect,
+                      is_texel_buffer);
+
     if (is_written) {
-        gpu_modified_ranges_pending.Add(device_addr, size);
+        if (defer_write_protect) {
+            gpu_modified_ranges_pending.Add(device_addr, size);
+        } else {
+            gpu_modified_ranges.Add(device_addr, size);
+        }
     }
+
     return {&buffer, buffer.Offset(device_addr)};
 }
 
@@ -764,21 +777,17 @@ void BufferCache::ChangeRegister(BufferId buffer_id) {
         buffer_ranges.Subtract(buffer.CpuAddr(), buffer.SizeBytes());
     }
 }
-bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32 size,
-                                    bool is_written, bool is_texel_buffer) {
+bool BufferCache::SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_written,
+                                    bool is_texel_buffer) {
     boost::container::small_vector<vk::BufferCopy, 4> copies;
     size_t total_size_bytes = 0;
     VAddr buffer_start = buffer.CpuAddr();
     vk::Buffer src_buffer = VK_NULL_HANDLE;
-    TouchBuffer(buffer);
     memory_tracker->ForEachUploadRange(
         device_addr, size, is_written,
         [&](u64 device_addr_out, u64 range_size) {
-            gpu_modified_ranges_pending.ForEachNotInRange(
-                device_addr_out, range_size, [&](VAddr range_addr, u32 range_size) {
-                    copies.emplace_back(total_size_bytes, range_addr - buffer_start, range_size);
-                    total_size_bytes += range_size;
-                });
+            copies.emplace_back(total_size_bytes, device_addr_out - buffer_start, range_size);
+            total_size_bytes += range_size;
         },
         [&] { src_buffer = UploadCopies(buffer, copies, total_size_bytes); });
 
@@ -816,6 +825,7 @@ bool BufferCache::SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32
             .bufferMemoryBarrierCount = 1,
             .pBufferMemoryBarriers = &post_barrier,
         });
+        TouchBuffer(buffer);
     }
     if (is_texel_buffer && !is_written) {
         return SynchronizeBufferFromImage(buffer, device_addr, size);

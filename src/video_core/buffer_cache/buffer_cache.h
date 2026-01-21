@@ -228,7 +228,7 @@ private:
     template <bool insert>
     void ChangeRegister(BufferId buffer_id);
 
-    bool SynchronizeBuffer(const Buffer& buffer, VAddr device_addr, u32 size, bool is_written,
+    bool SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_written,
                            bool is_texel_buffer);
 
     vk::Buffer UploadCopies(const Buffer& buffer, std::span<vk::BufferCopy> copies,
