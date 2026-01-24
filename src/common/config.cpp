@@ -142,6 +142,7 @@ static ConfigEntry<string> userName("shadPS4");
 static ConfigEntry<bool> isShowSplash(false);
 static ConfigEntry<string> isSideTrophy("right");
 static ConfigEntry<bool> isConnectedToNetwork(false);
+static ConfigEntry<string> httpHostOverride("localhost");
 static bool enableDiscordRPC = false;
 static std::filesystem::path sys_modules_path = {};
 
@@ -238,6 +239,10 @@ std::filesystem::path getSysModulesPath() {
         return Common::FS::GetUserPath(Common::FS::PathType::SysModuleDir);
     }
     return sys_modules_path;
+}
+
+string GetHttpHostOverride() {
+    return httpHostOverride.get();
 }
 
 void setSysModulesPath(const std::filesystem::path& path) {
@@ -896,6 +901,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isSideTrophy.setFromToml(general, "sideTrophy", is_game_specific);
 
         isConnectedToNetwork.setFromToml(general, "isConnectedToNetwork", is_game_specific);
+        httpHostOverride.setFromToml(general, "httpHostOverride", is_game_specific);
         defaultControllerID.setFromToml(general, "defaultControllerID", is_game_specific);
         sys_modules_path = toml::find_fs_path_or(general, "sysModulesPath", sys_modules_path);
     }
@@ -1088,6 +1094,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     }
     isPSNSignedIn.setTomlValue(data, "General", "isPSNSignedIn", is_game_specific);
     isConnectedToNetwork.setTomlValue(data, "General", "isConnectedToNetwork", is_game_specific);
+    httpHostOverride.setTomlValue(data, "General", "httpHostOverride", is_game_specific);
 
     cursorState.setTomlValue(data, "Input", "cursorState", is_game_specific);
     cursorHideTimeout.setTomlValue(data, "Input", "cursorHideTimeout", is_game_specific);
@@ -1209,6 +1216,7 @@ void setDefaultValues(bool is_game_specific) {
         isDevKit.set(false, is_game_specific);
         isPSNSignedIn.set(false, is_game_specific);
         isConnectedToNetwork.set(false, is_game_specific);
+        httpHostOverride.set("localhost", is_game_specific);
         directMemoryAccessEnabled.set(false, is_game_specific);
         extraDmemInMbytes.set(0, is_game_specific);
     }

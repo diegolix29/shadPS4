@@ -1552,6 +1552,7 @@ int PS4_SYSV_ABI sceHttpWaitRequest() {
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     g_isConnectedToNetwork = Config::getIsConnectedToNetwork();
+    host_override = Config::GetHttpHostOverride();
 
     LIB_FUNCTION("hvG6GfBMXg8", "libSceHttp", 1, "libSceHttp", sceHttpAbortRequest);
     LIB_FUNCTION("JKl06ZIAl6A", "libSceHttp", 1, "libSceHttp", sceHttpAbortRequestForce);
