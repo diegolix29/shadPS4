@@ -430,6 +430,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
     ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
     ui->isPSNSignedInCheckBox->setChecked(Config::getPSNSignedIn());
+    ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
     ui->disableTrophycheckBox->setChecked(Config::getisTrophyPopupDisabled());
     ui->logFilterLineEdit->setText(QString::fromStdString(Config::getLogFilter()));
     ui->logTypeComboBox->setCurrentText(QString::fromStdString(Config::getLogType()));
@@ -550,6 +551,9 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->isNeoModeCheckBox->setChecked(toml::find<bool>(gen, "isPS4Pro"));
         if (gen.contains("isPSNSignedIn"))
             ui->isPSNSignedInCheckBox->setChecked(toml::find<bool>(gen, "isPSNSignedIn"));
+        if (gen.contains("httpHostOverride"))
+            ui->httpHostOverrideLineEdit->setText(
+                QString::fromStdString(toml::find<std::string>(gen, "httpHostOverride")));
         if (gen.contains("isTrophyPopupDisabled"))
             ui->disableTrophycheckBox->setChecked(toml::find<bool>(gen, "isTrophyPopupDisabled"));
         if (gen.contains("logFilter"))
@@ -769,6 +773,10 @@ void GameSpecificDialog::UpdateSettings() {
 
     if (ui->isPSNSignedInCheckBox->isChecked() != Config::getPSNSignedIn())
         overrides["General"]["isPSNSignedIn"] = ui->isPSNSignedInCheckBox->isChecked();
+
+    if (ui->httpHostOverrideLineEdit->text().toStdString() != Config::GetHttpHostOverride())
+        overrides["General"]["httpHostOverride"] =
+            ui->httpHostOverrideLineEdit->text().toStdString();
 
     if (ui->disableTrophycheckBox->isChecked() != Config::getisTrophyPopupDisabled())
         overrides["General"]["isTrophyPopupDisabled"] = ui->disableTrophycheckBox->isChecked();

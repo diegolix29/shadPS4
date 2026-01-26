@@ -173,6 +173,7 @@ static std::string guiStyle = "Fusion";
 static std::string g_customBackgroundImage;
 static ConfigEntry<bool> firstBootHandled(false);
 static std::string version_path;
+static ConfigEntry<string> httpHostOverride("localhost");
 
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
@@ -324,6 +325,14 @@ bool getQTInstalled() {
 
 void setQTInstalled(bool use) {
     isQT = use;
+}
+
+string GetHttpHostOverride() {
+    return httpHostOverride.get();
+}
+
+void SetHttpHostOverride(const std::string& host) {
+    httpHostOverride.base_value = host;
 }
 
 // Settings
@@ -1430,6 +1439,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         checkCompatibilityOnStartup =
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
         isConnectedToNetwork.setFromToml(general, "isConnectedToNetwork", is_game_specific);
+        httpHostOverride.setFromToml(general, "httpHostOverride", is_game_specific);
         firstBootHandled.setFromToml(general, "firstBootHandled", is_game_specific);
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", chooseHomeTab);
         defaultControllerID.setFromToml(general, "defaultControllerID", "");
@@ -1733,6 +1743,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
     data["General"]["sysModulesPath"] = string{fmt::UTF(sys_modules_path.u8string()).data};
     data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
+    data["General"]["localhost"] = httpHostOverride.base_value;
     data["General"]["firstBootHandled"] = firstBootHandled.base_value;
     data["General"]["defaultControllerID"] = defaultControllerID.base_value;
 

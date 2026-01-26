@@ -271,7 +271,8 @@ void setVkHostMarkersEnabled(bool enable);
 void setVkGuestMarkersEnabled(bool enable);
 void setNeoMode(bool enable);
 void setDevKitMode(bool enable);
-
+std::string GetHttpHostOverride();
+void SetHttpHostOverride(const std::string& host);
 // Gui
 void setMainWindowGeometry(u32 x, u32 y, u32 w, u32 h);
 bool addGameDirectories(const std::filesystem::path& dir, bool enabled = true);

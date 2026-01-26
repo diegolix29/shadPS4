@@ -1166,15 +1166,6 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
 
     ui->FSRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fsrEnabled", true));
-    ui->RCASCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "rcasEnabled", true));
-    ui->RCASSlider->setMinimum(0);
-    ui->RCASSlider->setMaximum(3000);
-    ui->RCASSlider->setValue(Config::getRcasAttenuation());
-    ui->RCASSpinBox->setValue(ui->RCASSlider->value() / 1000.0);
-    ui->connectedNetworkCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "isConnectedToNetwork", false));
-    ui->isPSNSignedInCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "isPSNSignedIn", false));
 
 #ifdef ENABLE_UPDATER
     ui->updateCheckBox->setChecked(toml::find_or<bool>(data, "General", "autoUpdate", false));
@@ -1590,6 +1581,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setRcasAttenuation(ui->RCASSlider->value());
     Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
     Config::setPSNSignedIn(ui->isPSNSignedInCheckBox->isChecked());
+    Config::SetHttpHostOverride(ui->httpHostOverrideLineEdit->text().toStdString());
 
     std::vector<Config::GameDirectories> dirs_with_states;
     for (int i = 0; i < ui->gameFoldersListWidget->count(); i++) {

@@ -1440,6 +1440,23 @@
 								</item>
 
 								<item>
+									<widget class="QGroupBox" name="httpHostGroup">
+										<property name="title">
+											<string>HTTP Host Override</string>
+										</property>
+										<layout class="QHBoxLayout" name="httpHostLayout">
+											<item>
+												<widget class="QLineEdit" name="httpHostOverrideLineEdit">
+													<property name="placeholderText">
+														<string>localhost</string>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+
+								<item>
 									<widget class="QCheckBox" name="isDevKitCheckBox">
 										<property name="text">
 											<string>Enable DevKit Mode</string>
