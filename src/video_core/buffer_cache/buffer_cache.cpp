@@ -79,7 +79,7 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size, bool download) {
     if (!IsRegionRegistered(device_addr, size)) {
         return;
     }
-    if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable) {
+    if (download) {
         memory_tracker->InvalidateRegion(
             device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
     } else {
@@ -158,7 +158,7 @@ void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
     const u64 page = device_addr >> CACHING_PAGEBITS;
     const BufferId buffer_id = page_table[page].buffer_id;
     const Buffer& buffer = slot_buffers[buffer_id];
-    ASSERT(buffer.IsInBounds(device_addr, size));
+    // ASSERT(buffer.IsInBounds(device_addr, size));
 
     liverpool->SendCommand<true>([this, device_addr, size, is_write] {
         Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];

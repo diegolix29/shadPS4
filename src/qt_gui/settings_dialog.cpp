@@ -1232,6 +1232,8 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     ui->isNeoModeCheckBox->setChecked(toml::find_or<bool>(data, "General", "isPS4Pro", false));
 
+    ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
+
     ui->removeFolderButton->setEnabled(!ui->gameFoldersListWidget->selectedItems().isEmpty());
     ui->backgroundImageOpacitySlider->setValue(Config::getBackgroundImageOpacity());
     ui->showBackgroundImageCheckBox->setChecked(Config::getShowBackgroundImage());

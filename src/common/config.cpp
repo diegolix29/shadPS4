@@ -1743,7 +1743,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
     data["General"]["sysModulesPath"] = string{fmt::UTF(sys_modules_path.u8string()).data};
     data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
-    data["General"]["localhost"] = httpHostOverride.base_value;
+    data["General"]["httpHostOverride"] = httpHostOverride.base_value;
     data["General"]["firstBootHandled"] = firstBootHandled.base_value;
     data["General"]["defaultControllerID"] = defaultControllerID.base_value;
 
