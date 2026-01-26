@@ -102,7 +102,7 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
     switch (stage) {
     case Stage::Local: {
         BuildCommon(regs.ls_program);
-        Shader::TessellationDataConstantBuffer tess_constants;
+        Shader::TessellationDataConstantBuffer tess_constants{};
         const auto* hull_info = infos[u32(Shader::LogicalStage::TessellationControl)];
         hull_info->ReadTessConstantBuffer(tess_constants);
         info.ls_info.ls_stride = tess_constants.ls_stride;
@@ -200,6 +200,10 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
         for (u32 i = 0; i < Shader::MaxColorBuffers; i++) {
             info.fs_info.color_buffers[i] = graphics_key.color_buffers[i];
         }
+        info.fs_info.clip_distance_emulation =
+            regs.vs_output_control.clip_distance_enable &&
+            !regs.stage_enable.IsStageEnabled(static_cast<u32>(Stage::Local)) &&
+            profile.needs_clip_distance_emulation;
         break;
     }
     case Stage::Compute: {
@@ -267,6 +271,7 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
                               instance.GetDriverID() == vk::DriverId::eMoltenvk,
         .needs_buffer_offsets = instance.StorageMinAlignment() > 4,
         .needs_unorm_fixup = instance.GetDriverID() == vk::DriverId::eMoltenvk,
+        .needs_clip_distance_emulation = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
     };
 
     WarmUp();
