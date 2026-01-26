@@ -2765,7 +2765,7 @@
         <b>Hint:</b><br/>
         Enable this for High Resolution Patches<br/>
         Can cause issues on other games.<br/>
-        Disable if you cant boot other games.
+        Disable if you can't boot other games.
         ]]>
 											</string>
 										</property>
@@ -2829,8 +2829,8 @@
 											<string notr="true">
 												<![CDATA[
         <b>Hint:</b><br/>
-        Helps inFamous crash on binaryinfo crash,
-		Driveclub slowdowns,
+        Helps inFamous crash on binaryinfo crash,<br/>
+		Driveclub slowdowns,<br/>
 		and COD Ghost boot to main menu and some stages.<br/>		
         ]]>
 											</string>
@@ -2874,8 +2874,8 @@
 											<string notr="true">
 												<![CDATA[
         <b>Hint:</b><br/>
-        DMA implementation,
-        Disable this for TLG, disabling help with random crashes.<br/>
+        DMA implementation.<br/>
+        Disable this for TLG; disabling helps with random crashes.<br/>
         ]]>
 											</string>
 										</property>
@@ -2901,10 +2901,10 @@
 											<string notr="true">
 												<![CDATA[
         <b>Hint:</b><br/>
-        Linear Readbacks for Postprocessing, helps TLG
-		Disable for Elden Ring.
-        Disable if encounter issues
-		Enable if you get Driver restart on DRIVECLUB<br/>       
+        Linear Readbacks for Postprocessing, helps TLG.<br/>
+		Disable for Elden Ring.<br/>
+        Disable if you encounter issues.<br/>
+		Enable if you get driver restart on DRIVECLUB.<br/>       
         ]]>
 											</string>
 										</property>

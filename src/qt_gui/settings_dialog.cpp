@@ -1234,6 +1234,11 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
 
+    ui->connectedNetworkCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "isConnectedToNetwork", false));
+    ui->isPSNSignedInCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "isPSNSignedIn", false));
+
     ui->removeFolderButton->setEnabled(!ui->gameFoldersListWidget->selectedItems().isEmpty());
     ui->backgroundImageOpacitySlider->setValue(Config::getBackgroundImageOpacity());
     ui->showBackgroundImageCheckBox->setChecked(Config::getShowBackgroundImage());
