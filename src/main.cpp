@@ -29,9 +29,22 @@
 #include "emulator.h"
 
 #ifdef _WIN32
+#include <shellapi.h>
 #include <windows.h>
 #endif
 #include <common/key_manager.h>
+
+static void OpenURL(const char* url) {
+#ifdef _WIN32
+    ShellExecuteA(nullptr, "open", url, nullptr, nullptr, SW_SHOWNORMAL);
+#elif defined(__APPLE__)
+    std::string cmd = std::string("open ") + url;
+    std::system(cmd.c_str());
+#else
+    std::string cmd = std::string("xdg-open ") + url;
+    std::system(cmd.c_str());
+#endif
+}
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
@@ -241,13 +254,31 @@ int main(int argc, char* argv[]) {
         {"--show-fps", [&](int& i) { Config::setShowFpsCounter(true); }}};
 
     if (argc == 1) {
-        if (!SDL_ShowSimpleMessageBox(
-                SDL_MESSAGEBOX_INFORMATION, "shadPS4",
-                "This is a CLI application. Please use the QTLauncher for a GUI: "
-                "https://github.com/shadps4-emu/shadps4-qtlauncher/releases",
-                nullptr))
+        const char* repo_url = "https://github.com/diegolix29/shadPS4/releases";
+
+        const SDL_MessageBoxButtonData buttons[] = {
+            {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "OK"}, {0, 1, "Open Repo"}};
+
+        const SDL_MessageBoxData messageboxdata = {SDL_MESSAGEBOX_INFORMATION,
+                                                   nullptr,
+                                                   "shadPS4",
+                                                   "This is a CLI application.\n\n"
+                                                   "Use QTLauncher or BBFork version to use it.\n\n"
+                                                   "Or use the QT BBFork for a GUI.",
+                                                   SDL_arraysize(buttons),
+                                                   buttons,
+                                                   nullptr};
+
+        int buttonid = -1;
+        if (SDL_ShowMessageBox(&messageboxdata, &buttonid) < 0) {
             std::cerr << "Could not display SDL message box! Error: " << SDL_GetError() << "\n";
-        int dummy = 0; // one does not simply pass 0 directly
+        }
+
+        if (buttonid == 1) {
+            OpenURL(repo_url);
+        }
+
+        int dummy = 0;
         arg_map.at("-h")(dummy);
         return -1;
     }
