@@ -1092,9 +1092,13 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             if (rasterizer) {
                 rasterizer->CommitPendingGpuRanges();
             }
-            release_mem->SignalFence([pipe_id = queue.pipe_id] {
-                Platform::IrqC::Instance()->Signal(static_cast<Platform::InterruptId>(pipe_id));
-            });
+            release_mem->SignalFence(
+                [pipe_id = queue.pipe_id] {
+                    Platform::IrqC::Instance()->Signal(static_cast<Platform::InterruptId>(pipe_id));
+                },
+                [this](VAddr dst, u16 gds_index, u16 num_dwords) {
+                    rasterizer->CopyBuffer(dst, gds_index, num_dwords * sizeof(u32), false, true);
+                });
             break;
         }
         case PM4ItOpcode::EventWrite: {
