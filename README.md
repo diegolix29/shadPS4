@@ -92,6 +92,11 @@ This project began for fun. Given our limited free time, it may take some time b
 
 # Building
 
+## Docker
+
+For building shadPS4 in a containerized environment using Docker and VSCode, check the instructions here:  
+[**Docker Build Instructions**](https://github.com/shadps4-emu/shadPS4/blob/main/documents/building-docker.md)
+
 > [!IMPORTANT]
 > If you want to use shadPS4 to play your games, you don't have to follow the build instructions, you can simply download the emulator from either the [**release tab**](https://github.com/shadps4-emu/shadPS4/releases) or the [**action tab**](https://github.com/shadps4-emu/shadPS4/actions).
 
