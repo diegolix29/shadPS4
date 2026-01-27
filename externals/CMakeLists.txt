@@ -208,7 +208,6 @@ add_subdirectory(tracy)
 
 # pugixml
 if (NOT TARGET pugixml::pugixml)
-    option(PUGIXML_NO_EXCEPTIONS "" ON)
     add_subdirectory(pugixml)
 endif()
 

@@ -13,16 +13,17 @@ namespace Shader {
 
 IR::BlockList GenerateBlocks(const IR::AbstractSyntaxList& syntax_list) {
     size_t num_syntax_blocks{};
-    for (const auto& [_, type] : syntax_list) {
-        if (type == IR::AbstractSyntaxNode::Type::Block) {
+    for (const auto& node : syntax_list) {
+        if (node.type == IR::AbstractSyntaxNode::Type::Block) {
             ++num_syntax_blocks;
         }
     }
-    IR::BlockList blocks{};
+    IR::BlockList blocks;
     blocks.reserve(num_syntax_blocks);
-    for (const auto& [data, type] : syntax_list) {
-        if (type == IR::AbstractSyntaxNode::Type::Block) {
-            blocks.push_back(data.block);
+    u32 order_index{};
+    for (const auto& node : syntax_list) {
+        if (node.type == IR::AbstractSyntaxNode::Type::Block) {
+            blocks.push_back(node.data.block);
         }
     }
     return blocks;
@@ -58,10 +59,6 @@ IR::Program TranslateProgram(const std::span<const u32>& code, Pools& pools, Inf
         Shader::Gcn::BuildASL(pools.inst_pool, pools.block_pool, cfg, info, runtime_info, profile);
     program.blocks = GenerateBlocks(program.syntax_list);
     program.post_order_blocks = Shader::IR::PostOrder(program.syntax_list.front());
-
-    // On NVIDIA GPUs HW interpolation of clip distance values seems broken, and we need to emulate
-    // it with expensive discard in PS.
-    Shader::InjectClipDistanceAttributes(program, runtime_info);
 
     // Run optimization passes
     if (!profile.support_float64) {
