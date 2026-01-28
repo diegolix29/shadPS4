@@ -67,6 +67,7 @@ static float fullscreen_tip_timer = 10.0f;
 static float hotkeys_tip_timer = 10.0f;
 static int quit_menu_selection = 0;
 static bool showTrophyViewer = false;
+
 struct CachedTrophy {
     std::string name;
     bool unlocked;
@@ -82,6 +83,45 @@ struct TrophyGameData {
     int totalCount = 0;
     int unlockedCount = 0;
 };
+
+static void SetupTheme() {
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowRounding = 8.0f;
+    style.FrameRounding = 4.0f;
+    style.PopupRounding = 4.0f;
+    style.ScrollbarRounding = 4.0f;
+    style.GrabRounding = 4.0f;
+    style.TabRounding = 4.0f;
+    style.WindowPadding = ImVec2(10, 10);
+    style.FramePadding = ImVec2(8, 6);
+    style.ItemSpacing = ImVec2(8, 6);
+
+    ImVec4* colors = style.Colors;
+    colors[ImGuiCol_Text] = ImVec4(0.95f, 0.96f, 0.98f, 1.00f);
+    colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+    colors[ImGuiCol_WindowBg] = ImVec4(0.10f, 0.10f, 0.12f, 0.98f);
+    colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.10f, 0.98f);
+    colors[ImGuiCol_Border] = ImVec4(0.20f, 0.22f, 0.25f, 0.50f);
+    colors[ImGuiCol_FrameBg] = ImVec4(0.16f, 0.18f, 0.22f, 1.00f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.22f, 0.24f, 0.30f, 1.00f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.25f, 0.28f, 0.35f, 1.00f);
+    colors[ImGuiCol_TitleBg] = ImVec4(0.08f, 0.08f, 0.10f, 1.00f);
+    colors[ImGuiCol_TitleBgActive] = ImVec4(0.08f, 0.08f, 0.10f, 1.00f);
+    colors[ImGuiCol_MenuBarBg] = ImVec4(0.08f, 0.08f, 0.10f, 1.00f);
+    colors[ImGuiCol_CheckMark] = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
+    colors[ImGuiCol_SliderGrab] = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
+    colors[ImGuiCol_SliderGrabActive] = ImVec4(0.36f, 0.69f, 1.00f, 1.00f);
+    colors[ImGuiCol_Button] = ImVec4(0.20f, 0.22f, 0.27f, 1.00f);
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.06f, 0.53f, 0.98f, 1.00f);
+    colors[ImGuiCol_Header] = ImVec4(0.20f, 0.22f, 0.27f, 1.00f);
+    colors[ImGuiCol_HeaderHovered] = ImVec4(0.26f, 0.59f, 0.98f, 0.80f);
+    colors[ImGuiCol_HeaderActive] = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
+    colors[ImGuiCol_Tab] = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
+    colors[ImGuiCol_TabHovered] = ImVec4(0.26f, 0.59f, 0.98f, 0.80f);
+    colors[ImGuiCol_TabActive] = ImVec4(0.20f, 0.22f, 0.27f, 1.00f);
+}
+
 namespace Overlay {
 
 void ToggleSimpleFps() {
@@ -366,14 +406,20 @@ void L::DrawAdvanced() {
 
 void L::DrawSimple() {
     const float frameRate = DebugState.Framerate;
-    if (frameRate < 10) {
+
+    if (frameRate < 10.0f) {
         PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // Red
-    } else if (frameRate >= 10 && frameRate < 20) {
+    } else if (frameRate < 30.0f) {
         PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f)); // Orange
+    } else if (frameRate <= 60.0f) {
+        PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f)); // Green
     } else {
-        PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f)); // White
+        PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.7f, 1.0f, 1.0f)); // Light blue
     }
-    Text("%d FPS (%.1f ms)", static_cast<int>(std::round(frameRate)), 1000.0f / frameRate);
+
+    const float ms = frameRate > 0.0f ? (1000.0f / frameRate) : 0.0f;
+    Text("%d FPS (%.1f ms)", static_cast<int>(std::round(frameRate)), ms);
+
     PopStyleColor();
 }
 
@@ -462,57 +508,39 @@ void DrawFullscreenHotkeysWindow(bool& is_open) {
 
     constexpr ImVec2 hotkeys_pos = {10, 10};
     ImGui::SetNextWindowPos(hotkeys_pos, ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGui::SetNextWindowBgAlpha(0.90f);
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
                              ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove;
 
     if (ImGui::Begin("HotkeysBoot", &is_open, flags)) {
         ImGui::SetWindowFontScale(1.0f);
+        ImGui::SeparatorText("Controls");
 
         struct HotkeyItem {
             const char* action;
             const char* keys;
         };
 
-        HotkeyItem hotkeys[] = {{"Pause/Resume", "F9 or Hold PSButton/HOME+Cross/A"},
-                                {"Stop", "ESC or PSButton/HOME+Square/Y"},
-                                {"Fullscreen", "F11 or PSButton/HOME+R2"},
-                                {"Developer Tools", "Ctrl+F10 or PSButton/HOME+Circle/B"},
-                                {"Show FPS", "F10 or PSButton/HOME+L2"},
-                                {"ShowCurrentSettings", "F3 or PSButton/HOME+Triangle/X"},
-                                {"Mute Game", "F1 or PSButton/HOME+DpadRight"},
-                                {"View Trophies", "F2 or PSButton/HOME+DpadLeft"}};
+        HotkeyItem hotkeys[] = {{"Pause/Resume", "F9 or Share/PS/GUIDE+Cross/A"},
+                                {"Stop", "ESC or Share/PS/GUIDE+Square/Y"},
+                                {"Fullscreen", "F11 or Share/PS/GUIDE+R2"},
+                                {"Developer Tools", "Ctrl+F10 or Share/PS/GUIDE+Circle/B"},
+                                {"Show FShare/PS/GUIDE", "F10 or Share/PS/GUIDE+L2"},
+                                {"Settings", "F3 or Share/PS/GUIDE+Triangle/X"},
+                                {"Mute Game", "F1 or Share/PS/GUIDE+Right"},
+                                {"View Trophies", "F2 or Share/PS/GUIDE+Left"}};
 
-        float window_width = ImGui::GetContentRegionAvail().x;
-        float x = 0;
-
-        for (const auto& hk : hotkeys) {
-            ImVec2 textSize = ImGui::CalcTextSize(hk.keys);
-
-            // If not enough space, move to next line
-            if (x + textSize.x + 80 > window_width) { // 80 for action text + padding
-                ImGui::NewLine();
-                x = 0;
+        if (ImGui::BeginTable("HotkeysTable", 2)) {
+            for (const auto& hk : hotkeys) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), "%s", hk.action);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(hk.keys);
             }
-
-            ImGui::Text("%s:", hk.action);
-            ImGui::SameLine();
-
-            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Button));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                                  ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-                                  ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-            ImGui::Button(hk.keys, ImVec2(textSize.x + 10, textSize.y + 4));
-            ImGui::PopStyleColor(3);
-
-            x += textSize.x + 80; // advance x for next item
-            ImGui::SameLine();
+            ImGui::EndTable();
         }
-
-        ImGui::NewLine();
-        ImGui::SetWindowFontScale(1.0f);
     }
     ImGui::End();
 }
@@ -523,57 +551,39 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
 
     constexpr ImVec2 hotkeys_pos = {10, 10};
     ImGui::SetNextWindowPos(hotkeys_pos, ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGui::SetNextWindowBgAlpha(0.90f);
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
                              ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove;
 
     if (ImGui::Begin("HotkeysPause", &is_open, flags)) {
         ImGui::SetWindowFontScale(1.0f);
+        ImGui::SeparatorText("Pause Controls");
 
         struct HotkeyItem {
             const char* action;
             const char* keys;
         };
 
-        HotkeyItem hotkeys[] = {{"Pause/Resume", "F9 or Hold PSButton/HOME+Cross/A"},
-                                {"Stop", "ESC or PSButton/HOME+Square/Y"},
-                                {"Fullscreen", "F11 or PSButton/HOME+R2"},
-                                {"Developer Tools", "Ctrl+F10 or PSButton/HOME+Circle/B"},
-                                {"Show FPS", "F10 or PSButton/HOME+L2"},
-                                {"ShowCurrentSettings", "F3 or PSButton/HOME+Triangle/X"},
-                                {"Mute Game", "F1 or PSButton/HOME+DpadRight"},
-                                {"View Trophies", "F2 or PSButton/HOME+DpadLeft"}};
+        HotkeyItem hotkeys[] = {{"Pause/Resume", "F9 or Share/PS/GUIDE+Cross/A"},
+                                {"Stop", "ESC or Share/PS/GUIDE+Square/Y"},
+                                {"Fullscreen", "F11 or Share/PS/GUIDE+R2"},
+                                {"Developer Tools", "Ctrl+F10 or Share/PS/GUIDE+Circle/B"},
+                                {"Show FShare/PS/GUIDE", "F10 or Share/PS/GUIDE+L2"},
+                                {"Settings", "F3 or Share/PS/GUIDE+Triangle/X"},
+                                {"Mute Game", "F1 or Share/PS/GUIDE+Right"},
+                                {"View Trophies", "F2 or Share/PS/GUIDE+Left"}};
 
-        float window_width = ImGui::GetContentRegionAvail().x;
-        float x = 0;
-
-        for (const auto& hk : hotkeys) {
-            ImVec2 textSize = ImGui::CalcTextSize(hk.keys);
-
-            // If not enough space, move to next line
-            if (x + textSize.x + 80 > window_width) { // 80 for action text + padding
-                ImGui::NewLine();
-                x = 0;
+        if (ImGui::BeginTable("HotkeysPauseTable", 2)) {
+            for (const auto& hk : hotkeys) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), "%s", hk.action);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(hk.keys);
             }
-
-            ImGui::Text("%s:", hk.action);
-            ImGui::SameLine();
-
-            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Button));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                                  ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-                                  ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-            ImGui::Button(hk.keys, ImVec2(textSize.x + 10, textSize.y + 4));
-            ImGui::PopStyleColor(3);
-
-            x += textSize.x + 80; // advance x for next item
-            ImGui::SameLine();
+            ImGui::EndTable();
         }
-
-        ImGui::NewLine();
-        ImGui::SetWindowFontScale(1.0f);
     }
     ImGui::End();
 }
@@ -582,7 +592,6 @@ void L::SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame 
                                 const std::string& gameSerial = "") {
     toml::value overrides = toml::table{};
 
-    // General settings
     overrides["General"]["logFilter"] = Config::getLogFilter();
     overrides["General"]["enableAutoBackup"] = Config::getEnableAutoBackup();
     overrides["General"]["isPSNSignedIn"] = Config::getPSNSignedIn();
@@ -623,83 +632,69 @@ void DrawFullscreenSettingsWindow(bool& is_open) {
         ImGui::TextColored(value ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1), value ? "Yes" : "No");
     };
 
-    constexpr ImVec2 settings_pos = {10, 50};
+    constexpr ImVec2 settings_pos = {10, 300};
     ImGui::SetNextWindowPos(settings_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowBgAlpha(0.95f);
 
-    ImGuiWindowFlags flags =
-        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_None;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs;
 
     if (ImGui::Begin("Settings", &is_open, flags)) {
-        ImGui::SeparatorText("Network Status");
-        ImGui::Text("Network Status:");
+        ImGui::SeparatorText("Status");
+        ImGui::Text("Network:");
         ImGui::SameLine();
         ImGui::TextColored(Config::getIsConnectedToNetwork() ? ImVec4(0, 1, 0, 1)
                                                              : ImVec4(1, 0, 0, 1),
                            Config::getIsConnectedToNetwork() ? "Connected" : "Disconnected");
 
-        DrawYesNo("PSN Signed In", Config::getPSNSignedIn());
-        ImGui::SeparatorText("Settings");
+        DrawYesNo("PSN", Config::getPSNSignedIn());
+        ImGui::SeparatorText("Configuration");
 
-        ImGui::Columns(3, nullptr, true);
+        if (ImGui::BeginTable("SettingsGrid", 2, ImGuiTableFlags_BordersInnerV)) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
 
-        DrawYesNo("HDR Allowed", Config::allowHDR());
-        DrawYesNo("FSR Enabled", Config::getFsrEnabled());
-        if (Config::getFsrEnabled()) {
-            DrawYesNo("RCAS Enabled", Config::getRcasEnabled());
-            ImGui::Text("RCAS Attenuation:");
-            ImGui::SameLine();
-            auto& fsr = presenter->GetFsrSettingsRef();
-            ImGui::Text("%.2f", fsr.rcasAttenuation);
+            DrawYesNo("HDR Allowed", Config::allowHDR());
+            DrawYesNo("FSR Enabled", Config::getFsrEnabled());
+            if (Config::getFsrEnabled()) {
+                DrawYesNo("RCAS", Config::getRcasEnabled());
+                ImGui::Text("RCAS Sharpness: %.2f", presenter->GetFsrSettingsRef().rcasAttenuation);
+            }
+            ImGui::Text("VBlank: %d Hz", Config::vblankFreq());
+            ImGui::Text("Present: %s", Config::getPresentMode().c_str());
+
+            ImGui::TableSetColumnIndex(1);
+
+            DrawYesNo("Linear Readbacks", Config::getReadbackLinearImages());
+            DrawYesNo("DMA Access", Config::directMemoryAccess());
+
+            const char* readbackStr = "Unknown";
+            switch (Config::readbackSpeed()) {
+            case Config::ReadbackSpeed::Disable:
+                readbackStr = "Disable";
+                break;
+            case Config::ReadbackSpeed::Unsafe:
+                readbackStr = "Unsafe";
+                break;
+            case Config::ReadbackSpeed::Low:
+                readbackStr = "Low";
+                break;
+            case Config::ReadbackSpeed::Fast:
+                readbackStr = "Fast";
+                break;
+            case Config::ReadbackSpeed::Default:
+                readbackStr = "Default";
+                break;
+            }
+            ImGui::Text("Readback: %s", readbackStr);
+            DrawYesNo("Auto Backup", Config::getEnableAutoBackup());
+            DrawYesNo("Shader Skips", Config::getShaderSkipsEnabled());
+
+            ImGui::EndTable();
         }
-        ImGui::Text("VBlank Frequency:");
-        ImGui::SameLine();
-        ImGui::Text("%d", Config::vblankFreq());
-        ImGui::Text("Present Mode:");
-        ImGui::SameLine();
-        ImGui::Text("%s", Config::getPresentMode().c_str());
-        ImGui::NextColumn();
 
-        DrawYesNo("Linear Readbacks", Config::getReadbackLinearImages());
-        DrawYesNo("DMA Access", Config::directMemoryAccess());
-        const char* readbackStr = "Unknown";
-        switch (Config::readbackSpeed()) {
-        case Config::ReadbackSpeed::Disable:
-            readbackStr = "Disable";
-            break;
-        case Config::ReadbackSpeed::Unsafe:
-            readbackStr = "Unsafe";
-            break;
-        case Config::ReadbackSpeed::Low:
-            readbackStr = "Low";
-            break;
-        case Config::ReadbackSpeed::Fast:
-            readbackStr = "Fast";
-            break;
-        case Config::ReadbackSpeed::Default:
-            readbackStr = "Default";
-            break;
-        }
-        ImGui::Text("Readbacks Speed:");
-        ImGui::SameLine();
-        ImGui::Text("%s", readbackStr);
-        ImGui::NextColumn();
-
-        DrawYesNo("Auto Backup", Config::getEnableAutoBackup());
-        DrawYesNo("Shader Skips", Config::getShaderSkipsEnabled());
-#ifdef ENABLE_QT_GUI
-        if (g_MainWindow && g_MainWindow->isVisible()) {
-            DrawYesNo("Mute", Config::isMuteEnabled());
-        }
-#endif
-        ImGui::Text("Log Type:");
-        ImGui::SameLine();
-        ImGui::Text("%s", Config::getLogType().c_str());
-        ImGui::Text("Log Filter:");
-        ImGui::SameLine();
-        ImGui::Text("%s", Config::getLogFilter().c_str());
-
-        ImGui::Columns(1);
+        ImGui::Separator();
+        ImGui::TextDisabled("Log Type: %s | Filter: %s", Config::getLogType().c_str(),
+                            Config::getLogFilter().c_str());
     }
     ImGui::End();
 }
@@ -710,22 +705,21 @@ void DrawVirtualKeyboard() {
 
     static bool first_letter_caps = true;
     static bool caps_lock = false;
-    static bool shift_once = false;
 
-    auto push_to_box = [&]() {
-        // Keep the actual input box in sync every time we change filter_buf
-        Config::setLogFilter(std::string(filter_buf));
-    };
+    auto push_to_box = [&]() { Config::setLogFilter(std::string(filter_buf)); };
     auto clear_all = [&]() {
         filter_buf[0] = '\0';
         first_letter_caps = true;
         caps_lock = false;
-        shift_once = false;
-        push_to_box(); // <= this is the important missing piece
+        push_to_box();
     };
 
-    ImGui::SetNextWindowSize(ImVec2(600, 300), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(600, 300), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Virtual Keyboard", &show_virtual_keyboard)) {
+
+        ImGui::SetNextItemWidth(-1);
+        ImGui::InputText("##Display", filter_buf, sizeof(filter_buf), ImGuiInputTextFlags_ReadOnly);
+        ImGui::Spacing();
 
         static const char* keys_lower[] = {
             "q", "w", "e", "r", "t", "y",  "u",     "i",    "o",    "p",    "a", "s",
@@ -737,55 +731,56 @@ void DrawVirtualKeyboard() {
             "D", "F", "G", "H", "J", "K",  "L",     "Z",    "X",    "C",    "V", "B",
             "N", "M", ".", "*", ":", "*:", "SPACE", "BACK", "CAPS", "SHIFT"};
 
-        // Choose key set based on caps_lock or first_letter_caps
         const char** keys = (caps_lock || first_letter_caps) ? keys_upper : keys_lower;
 
         int columns = 10;
-        ImGui::Columns(columns, nullptr, false);
-        for (int i = 0; i < IM_ARRAYSIZE(keys_lower); i++) {
-            const char* key = keys[i];
+        if (ImGui::BeginTable("KeyGrid", columns)) {
+            for (int i = 0; i < IM_ARRAYSIZE(keys_lower); i++) {
+                ImGui::TableNextColumn();
+                const char* key = keys[i];
 
-            if (ImGui::Button(key, ImVec2(40, 40))) {
-                if (strcmp(key, "SPACE") == 0) {
-                    strncat(filter_buf, " ", sizeof(filter_buf) - strlen(filter_buf) - 1);
-                } else if (strcmp(key, "BACK") == 0) {
-                    int len = strlen(filter_buf);
-                    if (len > 0)
-                        filter_buf[len - 1] = '\0';
-                    if (strlen(filter_buf) == 0)
-                        first_letter_caps = true;
-                } else if (strcmp(key, "CAPS") == 0) {
-                    caps_lock = !caps_lock;
-                } else if (strcmp(key, "SHIFT") == 0) {
-                    caps_lock = true;
-                    first_letter_caps = false;
-                } else if (strcmp(key, "*:") == 0) {
-                    strncat(filter_buf, "*:", sizeof(filter_buf) - strlen(filter_buf) - 1);
-                } else {
-                    char c = key[0];
-                    if (!caps_lock && !first_letter_caps && isalpha(c))
-                        c = tolower(c);
-
-                    strncat(filter_buf, &c, 1);
-
-                    if (first_letter_caps)
+                if (ImGui::Button(key, ImVec2(-FLT_MIN, 40))) {
+                    if (strcmp(key, "SPACE") == 0) {
+                        strncat(filter_buf, " ", sizeof(filter_buf) - strlen(filter_buf) - 1);
+                    } else if (strcmp(key, "BACK") == 0) {
+                        int len = strlen(filter_buf);
+                        if (len > 0)
+                            filter_buf[len - 1] = '\0';
+                        if (strlen(filter_buf) == 0)
+                            first_letter_caps = true;
+                    } else if (strcmp(key, "CAPS") == 0) {
+                        caps_lock = !caps_lock;
+                    } else if (strcmp(key, "SHIFT") == 0) {
+                        caps_lock = true;
                         first_letter_caps = false;
+                    } else if (strcmp(key, "*:") == 0) {
+                        strncat(filter_buf, "*:", sizeof(filter_buf) - strlen(filter_buf) - 1);
+                    } else {
+                        char c = key[0];
+                        if (!caps_lock && !first_letter_caps && isalpha(c))
+                            c = tolower(c);
 
-                    if (caps_lock && strcmp(key, "CAPS") != 0)
-                        caps_lock = false;
+                        strncat(filter_buf, &c, 1);
+
+                        if (first_letter_caps)
+                            first_letter_caps = false;
+
+                        if (caps_lock && strcmp(key, "CAPS") != 0)
+                            caps_lock = false;
+                    }
+                    push_to_box();
                 }
             }
-            ImGui::NextColumn();
+            ImGui::EndTable();
         }
 
-        ImGui::Columns(1);
-
-        if (ImGui::Button("Close Keyboard")) {
+        ImGui::Separator();
+        if (ImGui::Button("Close Keyboard", ImVec2(150, 40))) {
             show_virtual_keyboard = false;
             Config::setLogFilter(std::string(filter_buf));
         }
         ImGui::SameLine();
-        if (ImGui::Button("Clear Text")) {
+        if (ImGui::Button("Clear Text", ImVec2(150, 40))) {
             clear_all();
         }
     }
@@ -798,15 +793,13 @@ void L::DrawPauseStatusWindow(bool& is_open) {
     u8 pad = 0;
 
     static bool should_focus = false;
-    static char filter_buf[256] = {0};
-    static bool show_virtual_keyboard = false;
-    static bool show_fullscreen_tip = true;
-    static float fullscreen_tip_timer = 0.0f;
     static TrophyGameData cachedTrophies;
     static bool dataLoaded = false;
 
-    constexpr ImVec2 window_size = {600, 500};
-    ImGui::SetNextWindowBgAlpha(0.9f);
+    constexpr ImVec2 window_size = {700, 600};
+    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGui::SetNextWindowSize(window_size, ImGuiCond_FirstUseEver);
+
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
@@ -831,23 +824,66 @@ void L::DrawPauseStatusWindow(bool& is_open) {
     ImGui::SetWindowFontScale(1.0f);
     ImGui::Spacing();
 
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize("PAUSE MENU").x) * 0.5f);
-    ImGui::Text("PAUSE MENU");
+    ImGui::PushFont(io.Fonts->Fonts[0]);
+    ImGui::SetWindowFontScale(1.5f);
+    L::TextCentered("GAME PAUSED");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopFont();
     ImGui::Separator();
-
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-    if (ImGui::Button("Return to Game", ImVec2(200, 0))) {
+    if (ImGui::BeginTable("StatusBar", 3)) {
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        if (Config::getIsConnectedToNetwork())
+            ImGui::TextColored(ImVec4(0, 1, 0, 1), "Network: Connected");
+        else
+            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Network: Offline");
+
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("FPS: %.0f", DebugState.Framerate);
+
+        ImGui::TableSetColumnIndex(2);
+        if (Config::getPSNSignedIn())
+            ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "PSN: Online");
+        else
+            ImGui::TextDisabled("PSN: Offline");
+        ImGui::EndTable();
+    }
+    ImGui::Dummy(ImVec2(0.0f, 10.0f));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+    float btnWidth = 160.0f;
+    float btnHeight = 40.0f;
+    float totalWidth = btnWidth * 4.0f + ImGui::GetStyle().ItemSpacing.x * 3.0f;
+    float centerPos = (ImGui::GetContentRegionAvail().x - totalWidth) * 0.5f;
+
+    ImGui::SetCursorPosX(centerPos);
+    if (ImGui::Button("Resume Game", ImVec2(btnWidth, btnHeight))) {
         SDL_Event e;
         e.type = SDL_EVENT_TOGGLE_PAUSE;
         SDL_PushEvent(&e);
     }
-
     ImGui::SameLine();
 
-    if (ImGui::Button("Trophy Viewer", ImVec2(200, 0))) {
+    if (ImGui::Button("View Trophies", ImVec2(btnWidth, btnHeight))) {
         ImGui::OpenPopup("Quick Trophy List Viewer");
         dataLoaded = false;
+    }
+    ImGui::SameLine();
+
+    if (ImGui::Button("Restart Emulator", ImVec2(btnWidth, btnHeight))) {
+        SDL_Event event{};
+        event.type = SDL_EVENT_QUIT + 1;
+        SDL_PushEvent(&event);
+    }
+    ImGui::SameLine();
+
+    if (ImGui::Button("Stop & Quit", ImVec2(btnWidth, btnHeight))) {
+        SDL_Event event{};
+        event.type = SDL_EVENT_QUIT;
+        SDL_PushEvent(&event);
     }
 
     static ImVec2 trophy_pos = ImVec2(200, 200);
@@ -859,7 +895,6 @@ void L::DrawPauseStatusWindow(bool& is_open) {
 
     if (using_controller) {
         float lx = 0, ly = 0;
-
         if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickRight))
             lx = 1;
         if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickLeft))
@@ -868,12 +903,10 @@ void L::DrawPauseStatusWindow(bool& is_open) {
             ly = 1;
         if (ImGui::IsKeyDown(ImGuiKey_GamepadLStickUp))
             ly = -1;
-
         trophy_pos.x += lx * move_speed;
         trophy_pos.y += ly * move_speed;
 
         float rx = 0, ry = 0;
-
         if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickRight))
             rx = 1;
         if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickLeft))
@@ -882,7 +915,6 @@ void L::DrawPauseStatusWindow(bool& is_open) {
             ry = 1;
         if (ImGui::IsKeyDown(ImGuiKey_GamepadRStickUp))
             ry = -1;
-
         trophy_size.x = ImClamp(trophy_size.x + rx * resize_speed, 300.0f, 3000.0f);
         trophy_size.y = ImClamp(trophy_size.y + ry * resize_speed, 300.0f, 3000.0f);
     }
@@ -963,7 +995,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
             ImGui::SetNextWindowSize(trophy_size, ImGuiCond_FirstUseEver);
         }
 
-        ImGui::SetWindowFontScale(2.5f);
+        ImGui::SetWindowFontScale(1.5f);
 #ifdef ENABLE_QT_GUI
         TextCentered(("Trophies (" + std::to_string(cachedTrophies.unlockedCount) + "/" +
                       std::to_string(cachedTrophies.totalCount) + ")")
@@ -971,251 +1003,215 @@ void L::DrawPauseStatusWindow(bool& is_open) {
 #else
         TextCentered("SDL build can't read trophy XML, use QT");
 #endif
-        ImGui::SetWindowFontScale(1.5f);
+        ImGui::SetWindowFontScale(1.0f);
         ImGui::Separator();
 
 #ifdef ENABLE_QT_GUI
         if (cachedTrophies.files.empty()) {
             ImGui::Text("No trophy data found for this game.");
         } else {
+            ImGui::BeginChild("TrophyList", ImVec2(0, -40), true);
             for (const auto& fileData : cachedTrophies.files) {
+                if (ImGui::CollapsingHeader(fileData.id.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+                    if (ImGui::BeginTable("TrophyTable", 2,
+                                          ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV)) {
+                        ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 60.0f);
+                        ImGui::TableSetupColumn("Trophy Name", ImGuiTableColumnFlags_WidthStretch);
 
-                ImGui::BeginChild(fileData.id.c_str(), ImVec2(0, 0), true, ImGuiWindowFlags_None);
+                        for (const auto& trophy : fileData.trophies) {
+                            ImGui::TableNextRow();
 
-                if (ImGui::BeginTable("TrophyTable", 2, ImGuiTableFlags_BordersInnerV)) {
-                    ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-                    ImGui::TableSetupColumn("Trophy Name", ImGuiTableColumnFlags_WidthStretch);
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::PushStyleColor(ImGuiCol_Text, trophy.unlocked
+                                                                     ? ImVec4(0, 1, 0, 1)
+                                                                     : ImVec4(0.5, 0.5, 0.5, 1));
+                            const char* statusText = trophy.unlocked ? "[O]" : "[ ]";
+                            float statusOffset =
+                                (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusText).x) *
+                                0.5f;
+                            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusOffset);
+                            ImGui::TextUnformatted(statusText);
+                            ImGui::PopStyleColor();
 
-                    ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
-
-                    ImGui::TableSetColumnIndex(0);
-                    const char* statusHeader = "Status";
-                    float statusHeaderOffset =
-                        (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusHeader).x) * 0.5f;
-                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusHeaderOffset);
-                    ImGui::TextUnformatted(statusHeader);
-
-                    ImGui::TableSetColumnIndex(1);
-                    const char* nameHeader = "Trophy Name";
-                    float nameHeaderOffset =
-                        (ImGui::GetColumnWidth() - ImGui::CalcTextSize(nameHeader).x) * 0.5f;
-                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameHeaderOffset);
-                    ImGui::TextUnformatted(nameHeader);
-
-                    for (const auto& trophy : fileData.trophies) {
-                        ImGui::TableNextRow();
-
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::PushStyleColor(ImGuiCol_Text, trophy.unlocked ? ImVec4(0, 1, 0, 1)
-                                                                             : ImVec4(1, 0, 0, 1));
-                        ImGui::SetWindowFontScale(1.0f);
-
-                        const char* statusText = trophy.unlocked ? "[O]" : "[X]";
-                        float statusOffset =
-                            (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusText).x) * 0.5f;
-                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusOffset);
-                        ImGui::TextUnformatted(statusText);
-                        ImGui::PopStyleColor();
-
-                        ImGui::TableSetColumnIndex(1);
-                        float nameOffset =
-                            (ImGui::GetColumnWidth() - ImGui::CalcTextSize(trophy.name.c_str()).x) *
-                            0.5f;
-                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameOffset);
-                        ImGui::TextUnformatted(trophy.name.c_str());
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::TextUnformatted(trophy.name.c_str());
+                        }
+                        ImGui::EndTable();
                     }
-                    ImGui::EndTable();
                 }
-                ImGui::EndChild();
             }
+            ImGui::EndChild();
         }
 #endif
 
-        if (ImGui::Button("Close")) {
+        if (ImGui::Button("Close", ImVec2(120, 0))) {
             ImGui::CloseCurrentPopup();
         }
 
         ImGui::EndPopup();
     }
 
+    ImGui::Dummy(ImVec2(0.0f, 15.0f));
     ImGui::Separator();
-    ImGui::TextDisabled("Tip: Use keyboard or controller hotkeys above.");
-    ImGui::Spacing();
 
-    if (ImGui::BeginTable("PauseMenuTable", 2, ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableNextRow();
+    if (ImGui::BeginTabBar("PauseTabs")) {
 
-        ImGui::TableSetColumnIndex(0);
+        if (ImGui::BeginTabItem("System")) {
+            ImGui::Spacing();
 
-        ImGui::SeparatorText("Network Status");
-        if (Config::getIsConnectedToNetwork())
-            ImGui::TextColored(ImVec4(0, 1, 0, 1), "Network: Connected");
-        else
-            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Network: Disconnected");
+            static bool network_connected = Config::getIsConnectedToNetwork();
+            if (ImGui::Checkbox("Connect Network", &network_connected))
+                Config::setIsConnectedToNetwork(network_connected);
 
-        static bool network_connected = Config::getIsConnectedToNetwork();
-        if (ImGui::Checkbox("Set Network Connected", &network_connected))
-            Config::setIsConnectedToNetwork(network_connected);
+            bool psn = Config::getPSNSignedIn();
+            if (ImGui::Checkbox("PSN Signed In", &psn))
+                Config::setPSNSignedIn(psn);
 
-        ImGui::SeparatorText("Graphics Settings");
-        if (ImGui::Checkbox("Show Fullscreen Tip", &show_fullscreen_tip)) {
-            if (show_fullscreen_tip)
-                fullscreen_tip_timer = 10.0f;
-        }
+            bool autobackup = Config::getEnableAutoBackup();
+            if (ImGui::Checkbox("Auto Backup", &autobackup))
+                Config::setEnableAutoBackup(autobackup);
 
-        bool hdr = Config::allowHDR();
-        if (ImGui::Checkbox("HDR Allowed", &hdr))
-            Config::setAllowHDR(hdr);
-
-        bool psn = Config::getPSNSignedIn();
-        if (ImGui::Checkbox("PSN Signed In", &psn))
-            Config::setPSNSignedIn(psn);
-
-        int vblank = Config::vblankFreq();
-        if (ImGui::SliderInt("VBlank Freq", &vblank, 1, 500))
-            Config::setVblankFreq(vblank);
-
-        ImGui::SeparatorText("Readback Speed");
-
-        static const char* readbackOptions[] = {"Disable", "Unsafe", "Low", "Default", "Fast"};
-
-        static int readbackIndex = static_cast<int>(Config::readbackSpeed());
-        if (ImGui::Combo("Readback Speed", &readbackIndex, readbackOptions,
-                         IM_ARRAYSIZE(readbackOptions))) {
-            Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbackIndex));
-        }
-
-        ImGui::SeparatorText("System Modes");
-
-        static bool is_devkit = Config::isDevKitConsole();
-        if (ImGui::Checkbox("Devkit Mode", &is_devkit)) {
-            Config::setDevKitMode(is_devkit);
-        }
-
-        static bool is_neo = Config::isNeoModeConsole();
-        if (ImGui::Checkbox("PS4 Pro (Neo) Mode", &is_neo)) {
-            Config::setNeoMode(is_neo);
-        }
-
-        int extra_memory = Config::getExtraDmemInMbytes();
-        if (ImGui::InputInt("Extra Memory (MB)", &extra_memory, 500, 1000)) {
-            if (extra_memory < 0)
-                extra_memory = 0;
-            if (extra_memory > 9999)
-                extra_memory = 9999;
-
-            Config::setExtraDmemInMbytes(extra_memory);
-        }
-
-        bool fsr_enabled = Config::getFsrEnabled();
-        if (ImGui::Checkbox("FSR Enabled", &fsr_enabled))
-            Config::setFsrEnabled(fsr_enabled);
-
-        ImGui::BeginDisabled(!fsr_enabled);
-        bool rcas_enabled = Config::getRcasEnabled();
-        if (ImGui::Checkbox("RCAS", &rcas_enabled))
-            Config::setRcasEnabled(rcas_enabled);
-
-        ImGui::BeginDisabled(!rcas_enabled);
-        if (presenter) {
-            auto& fsr = presenter->GetFsrSettingsRef();
-
-            static float rcas_float = static_cast<float>(Config::getRcasAttenuation()) / 1000.0f;
-
-            if (ImGui::SliderFloat("RCAS Attenuation", &rcas_float, 0.0f, 3.0f, "%.2f")) {
-                fsr.rcasAttenuation = rcas_float;
-                Config::setRcasAttenuation(static_cast<int>(rcas_float * 1000));
+            ImGui::SeparatorText("Console Mode");
+            static bool is_devkit = Config::isDevKitConsole();
+            if (ImGui::Checkbox("Devkit Mode", &is_devkit)) {
+                Config::setDevKitMode(is_devkit);
             }
-        }
-        ImGui::EndDisabled();
-        ImGui::EndDisabled();
 
-        ImGui::TableSetColumnIndex(1);
-
-        ImGui::SeparatorText("Logging");
-        static const char* logTypes[] = {"sync", "async"};
-        int logTypeIndex = (Config::getLogType() == "async") ? 1 : 0;
-        if (ImGui::Combo("Log Type", &logTypeIndex, logTypes, IM_ARRAYSIZE(logTypes)))
-            Config::setLogType(logTypes[logTypeIndex]);
-
-        ImGui::SeparatorText("Log Filter");
-        ImGui::TextDisabled("Restart the game to take effect");
-        if (filter_buf[0] == '\0') {
-            std::string current_filter = Config::getLogFilter();
-            strncpy(filter_buf, current_filter.c_str(), sizeof(filter_buf) - 1);
-        }
-        if (ImGui::InputText("##LogFilter", filter_buf, sizeof(filter_buf),
-                             ImGuiInputTextFlags_CallbackAlways, [](ImGuiInputTextCallbackData*) {
-                                 show_virtual_keyboard = true;
-                                 return 0;
-                             })) {
-            Config::setLogFilter(std::string(filter_buf));
-        }
-
-        ImGui::SeparatorText("Toggles");
-        bool autobackup = Config::getEnableAutoBackup();
-        if (ImGui::Checkbox("Auto Backup", &autobackup))
-            Config::setEnableAutoBackup(autobackup);
-
-        bool ss = Config::getShaderSkipsEnabled();
-        if (ImGui::Checkbox("Shader Skips", &ss))
-            Config::setShaderSkipsEnabled(ss);
-
-        bool lr = Config::getReadbackLinearImages();
-        if (ImGui::Checkbox("Linear Readbacks", &lr))
-            Config::setReadbackLinearImages(lr);
-
-        bool dma = Config::directMemoryAccess();
-        if (ImGui::Checkbox("DMA Access", &dma))
-            Config::setDirectMemoryAccess(dma);
-
-#ifdef ENABLE_QT_GUI
-        if (g_MainWindow && g_MainWindow->isVisible()) {
-            static bool mute = Config::isMuteEnabled();
-            if (ImGui::Checkbox("Mute", &mute)) {
-                if (g_MainWindow)
-                    g_MainWindow->ToggleMute();
-                mute = Config::isMuteEnabled();
+            static bool is_neo = Config::isNeoModeConsole();
+            if (ImGui::Checkbox("PS4 Pro (Neo) Mode", &is_neo)) {
+                Config::setNeoMode(is_neo);
             }
+            ImGui::EndTabItem();
         }
-#endif
 
-        ImGui::SeparatorText("Present Mode");
-        struct PresentModeOption {
-            const char* label;
-            const char* key;
-        };
-        static const PresentModeOption presentModes[] = {
-            {"Mailbox (Vsync)", "Mailbox"},
-            {"Fifo (Vsync)", "Fifo"},
-            {"Immediate (No Vsync)", "Immediate"},
-        };
-        int presentModeIndex = 0;
-        for (int i = 0; i < IM_ARRAYSIZE(presentModes); i++) {
-            if (Config::getPresentMode() == presentModes[i].key) {
-                presentModeIndex = i;
-                break;
+        if (ImGui::BeginTabItem("Graphics")) {
+            ImGui::Spacing();
+            if (ImGui::Checkbox("Show Tips", &show_fullscreen_tip)) {
+                if (show_fullscreen_tip)
+                    fullscreen_tip_timer = 10.0f;
             }
-        }
-        if (ImGui::Combo(
-                "Present Mode", &presentModeIndex,
-                [](void*, int idx, const char** out_text) {
-                    static const PresentModeOption presentModesLocal[] = {
-                        {"Mailbox (Vsync)", "Mailbox"},
-                        {"Fifo (Vsync)", "Fifo"},
-                        {"Immediate (No Vsync)", "Immediate"},
-                    };
-                    *out_text = presentModesLocal[idx].label;
-                    return true;
-                },
-                nullptr, IM_ARRAYSIZE(presentModes))) {
-            Config::setPresentMode(presentModes[presentModeIndex].key);
+
+            bool hdr = Config::allowHDR();
+            if (ImGui::Checkbox("HDR Allowed", &hdr))
+                Config::setAllowHDR(hdr);
+
+            int vblank = Config::vblankFreq();
+            if (ImGui::SliderInt("VBlank Freq", &vblank, 1, 120))
+                Config::setVblankFreq(vblank);
+
+            ImGui::SeparatorText("Upscaling");
+            bool fsr_enabled = Config::getFsrEnabled();
+            if (ImGui::Checkbox("FSR Enabled", &fsr_enabled))
+                Config::setFsrEnabled(fsr_enabled);
+
+            ImGui::BeginDisabled(!fsr_enabled);
+            bool rcas_enabled = Config::getRcasEnabled();
+            if (ImGui::Checkbox("RCAS", &rcas_enabled))
+                Config::setRcasEnabled(rcas_enabled);
+
+            ImGui::BeginDisabled(!rcas_enabled);
+            if (presenter) {
+                auto& fsr = presenter->GetFsrSettingsRef();
+                static float rcas_float =
+                    static_cast<float>(Config::getRcasAttenuation()) / 1000.0f;
+                if (ImGui::SliderFloat("Sharpness", &rcas_float, 0.0f, 3.0f, "%.2f")) {
+                    fsr.rcasAttenuation = rcas_float;
+                    Config::setRcasAttenuation(static_cast<int>(rcas_float * 1000));
+                }
+            }
+            ImGui::EndDisabled();
+            ImGui::EndDisabled();
+
+            ImGui::SeparatorText("Present Mode");
+            struct PresentModeOption {
+                const char* label;
+                const char* key;
+            };
+            static const PresentModeOption presentModes[] = {
+                {"Mailbox (Vsync)", "Mailbox"},
+                {"Fifo (Vsync)", "Fifo"},
+                {"Immediate (No Vsync)", "Immediate"},
+            };
+            int presentModeIndex = 0;
+            for (int i = 0; i < IM_ARRAYSIZE(presentModes); i++) {
+                if (Config::getPresentMode() == presentModes[i].key) {
+                    presentModeIndex = i;
+                    break;
+                }
+            }
+            if (ImGui::Combo(
+                    "Mode", &presentModeIndex,
+                    [](void*, int idx, const char** out_text) {
+                        static const PresentModeOption presentModesLocal[] = {
+                            {"Mailbox (Vsync)", "Mailbox"},
+                            {"Fifo (Vsync)", "Fifo"},
+                            {"Immediate (No Vsync)", "Immediate"},
+                        };
+                        *out_text = presentModesLocal[idx].label;
+                        return true;
+                    },
+                    nullptr, IM_ARRAYSIZE(presentModes))) {
+                Config::setPresentMode(presentModes[presentModeIndex].key);
+            }
+
+            ImGui::EndTabItem();
         }
 
-        ImGui::EndTable();
+        if (ImGui::BeginTabItem("Advanced")) {
+            ImGui::Spacing();
+            ImGui::SeparatorText("Readbacks");
+            static const char* readbackOptions[] = {"Disable", "Unsafe", "Low", "Default", "Fast"};
+            static int readbackIndex = static_cast<int>(Config::readbackSpeed());
+            if (ImGui::Combo("Speed", &readbackIndex, readbackOptions,
+                             IM_ARRAYSIZE(readbackOptions))) {
+                Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbackIndex));
+            }
+            bool lr = Config::getReadbackLinearImages();
+            if (ImGui::Checkbox("Linear Readbacks", &lr))
+                Config::setReadbackLinearImages(lr);
+
+            bool dma = Config::directMemoryAccess();
+            if (ImGui::Checkbox("DMA Access", &dma))
+                Config::setDirectMemoryAccess(dma);
+
+            ImGui::SeparatorText("Memory");
+            int extra_memory = Config::getExtraDmemInMbytes();
+            if (ImGui::InputInt("Extra Mem (MB)", &extra_memory, 128, 512)) {
+                if (extra_memory < 0)
+                    extra_memory = 0;
+                if (extra_memory > 9999)
+                    extra_memory = 9999;
+                Config::setExtraDmemInMbytes(extra_memory);
+            }
+            bool ss = Config::getShaderSkipsEnabled();
+            if (ImGui::Checkbox("Shader Skips", &ss))
+                Config::setShaderSkipsEnabled(ss);
+
+            ImGui::SeparatorText("Logging");
+            static const char* logTypes[] = {"sync", "async"};
+            int logTypeIndex = (Config::getLogType() == "async") ? 1 : 0;
+            if (ImGui::Combo("Log Type", &logTypeIndex, logTypes, IM_ARRAYSIZE(logTypes)))
+                Config::setLogType(logTypes[logTypeIndex]);
+
+            if (filter_buf[0] == '\0') {
+                std::string current_filter = Config::getLogFilter();
+                strncpy(filter_buf, current_filter.c_str(), sizeof(filter_buf) - 1);
+            }
+            if (ImGui::InputText("Log Filter", filter_buf, sizeof(filter_buf),
+                                 ImGuiInputTextFlags_CallbackAlways,
+                                 [](ImGuiInputTextCallbackData*) {
+                                     show_virtual_keyboard = true;
+                                     return 0;
+                                 })) {
+                Config::setLogFilter(std::string(filter_buf));
+            }
+
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
     }
 
-    ImGui::Spacing();
+    ImGui::Dummy(ImVec2(0, 10));
     ImGui::Separator();
 
     auto SaveConfig = [&](const std::filesystem::path& path) {
@@ -1223,19 +1219,19 @@ void L::DrawPauseStatusWindow(bool& is_open) {
         Config::save(path);
     };
 
-    if (ImGui::Button("Save"))
+    if (ImGui::Button("Save Config...", ImVec2(150, 0)))
         ImGui::OpenPopup("Save Config As");
 
     if (ImGui::BeginPopupModal("Save Config As", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Where do you want to save the changes?");
         ImGui::Separator();
 
-        if (ImGui::Button("Global Config (config.toml)", ImVec2(250, 0))) {
+        if (ImGui::Button("Global Config (config.toml)", ImVec2(250, 40))) {
             SaveConfig(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
             ImGui::CloseCurrentPopup();
         }
 
-        if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
+        if (ImGui::Button("Per-Game Config", ImVec2(250, 40))) {
             if (!MemoryPatcher::g_game_serial.empty()) {
                 SaveConfigWithOverrides(
                     Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
@@ -1246,31 +1242,14 @@ void L::DrawPauseStatusWindow(bool& is_open) {
         }
 
         ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+        if (ImGui::Button("Cancel", ImVec2(120, 40)))
             ImGui::CloseCurrentPopup();
 
         ImGui::EndPopup();
     }
 
-    ImGui::SameLine(0.0f, 10.0f);
-    if (ImGui::Button("Restart Emulator")) {
-        SDL_Event event{};
-        event.type = SDL_EVENT_QUIT + 1;
-        SDL_PushEvent(&event);
-    }
-    ImGui::SameLine(0.0f, 10.0f);
-    if (ImGui::Button("Quit Emulator", ImVec2(180, 0))) {
-#ifdef Q_OS_WIN
-        QProcess::startDetached("taskkill", QStringList() << "/IM" << "shadPS4.exe" << "/F");
-#elif defined(Q_OS_LINUX)
-        QProcess::startDetached("pkill", QStringList() << "Shadps4-qt");
-#elif defined(Q_OS_MACOS)
-        QProcess::startDetached("pkill", QStringList() << "shadps4");
-#endif
-    }
-
-    ImGui::SameLine(0.0f, 10.0f);
-    if (ImGui::Button("Save & Restart Emulator"))
+    ImGui::SameLine();
+    if (ImGui::Button("Save & Restart", ImVec2(150, 0)))
         ImGui::OpenPopup("Save Config As Restart Emulator");
 
     if (ImGui::BeginPopupModal("Save Config As Restart Emulator", nullptr,
@@ -1278,7 +1257,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
         ImGui::Text("Where do you want to save the changes?");
         ImGui::Separator();
 
-        if (ImGui::Button("Global Config (config.toml)", ImVec2(250, 0))) {
+        if (ImGui::Button("Global Config (config.toml)", ImVec2(250, 40))) {
             SaveConfig(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
             SDL_Event event{};
             event.type = SDL_EVENT_QUIT + 1;
@@ -1286,7 +1265,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
             ImGui::CloseCurrentPopup();
         }
 
-        if (ImGui::Button("Per-Game Config", ImVec2(250, 0))) {
+        if (ImGui::Button("Per-Game Config", ImVec2(250, 40))) {
             if (!MemoryPatcher::g_game_serial.empty()) {
                 SaveConfigWithOverrides(
                     Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
@@ -1300,17 +1279,10 @@ void L::DrawPauseStatusWindow(bool& is_open) {
         }
 
         ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+        if (ImGui::Button("Cancel", ImVec2(120, 40)))
             ImGui::CloseCurrentPopup();
 
         ImGui::EndPopup();
-    }
-
-    ImGui::SameLine(0.0f, 10.0f);
-    if (ImGui::Button("Stop Game")) {
-        SDL_Event event{};
-        event.type = SDL_EVENT_QUIT;
-        SDL_PushEvent(&event);
     }
 
     ImGui::End();
@@ -1319,6 +1291,12 @@ void L::DrawPauseStatusWindow(bool& is_open) {
 }
 
 void L::Draw() {
+    static bool theme_applied = false;
+    if (!theme_applied) {
+        SetupTheme();
+        theme_applied = true;
+    }
+
     u8 pad = 0;
     const auto io = GetIO();
     PushID("DevtoolsLayer");
@@ -1558,20 +1536,21 @@ void L::Draw() {
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-        // Dim background
         ImDrawList* draw_list = ImGui::GetForegroundDrawList();
         ImVec2 viewport_size = ImGui::GetMainViewport()->Size;
-        draw_list->AddRectFilled(ImVec2(0, 0), viewport_size, IM_COL32(0, 0, 0, 80));
+        draw_list->AddRectFilled(ImVec2(0, 0), viewport_size, IM_COL32(0, 0, 0, 160));
 
+        ImGui::SetNextWindowSize(ImVec2(400, 0));
         if (ImGui::Begin("Controller Exit Menu", nullptr,
                          ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
                              ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
 
             ImGui::SetWindowFontScale(1.5f);
-            TextCentered("Select an option:");
-            ImGui::NewLine();
+            L::TextCentered("QUIT MENU");
+            ImGui::SetWindowFontScale(1.0f);
+            ImGui::Separator();
+            ImGui::Spacing();
 
-            // Navigation
             if (ImGui::IsKeyPressed(ImGuiKey_DownArrow, true) ||
                 ImGui::IsKeyPressed(ImGuiKey_GamepadDpadDown, true) ||
                 ImGui::IsKeyPressed(ImGuiKey_GamepadLStickDown, true)) {
@@ -1584,24 +1563,28 @@ void L::Draw() {
                 quit_menu_selection = (quit_menu_selection + menu_count - 1) % menu_count;
             }
 
-            // Draw menu items
             for (int i = 0; i < menu_count; i++) {
                 if (i == quit_menu_selection) {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 0, 1));
-                    TextCentered((std::string("> ") + options[i] + " <").c_str());
-                    ImGui::PopStyleColor();
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.5f, 0.9f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+                    if (ImGui::Button(options[i], ImVec2(-1, 45))) {
+                    }
+                    ImGui::PopStyleColor(2);
                 } else {
-                    TextCentered(options[i]);
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.18f, 1.0f));
+                    if (ImGui::Button(options[i], ImVec2(-1, 45))) {
+                        quit_menu_selection = i;
+                    }
+                    ImGui::PopStyleColor();
                 }
             }
 
-            ImGui::NewLine();
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::SetWindowFontScale(0.9f);
+            L::TextCentered("Press Cross/A to Select | Triangle/Y to Cancel");
             ImGui::SetWindowFontScale(1.0f);
 
-            TextCentered("Use D-pad/Stick to navigate");
-            TextCentered("Press Cross/A to select, Triangle/Y to cancel");
-
-            // Confirm selection (Enter / Cross)
             if (ImGui::IsKeyPressed(ImGuiKey_Enter, false) ||
                 ImGui::IsKeyPressed(ImGuiKey_GamepadFaceDown, false)) {
 
@@ -1653,6 +1636,9 @@ void L::Draw() {
         static ImVec2 trophy_size = ImVec2(600, 400);
         static float move_speed = 1.0f;
         static float resize_speed = 1.0f;
+        static TrophyGameData cachedTrophies;
+        static bool dataLoaded = false;
+
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
         bool using_controller = ImGui::IsKeyDown(ImGuiKey_GamepadL1);
@@ -1715,160 +1701,120 @@ void L::Draw() {
                 ImGui::SetNextWindowSize(trophy_size, ImGuiCond_FirstUseEver);
             }
 
-            std::string gameSerial = MemoryPatcher::g_game_serial;
+            if (!dataLoaded) {
+                cachedTrophies = TrophyGameData();
+                std::string gameSerial = MemoryPatcher::g_game_serial;
 
-            int unlockedCount = 0;
-            int totalCount = 0;
+                if (!gameSerial.empty()) {
+                    std::filesystem::path metaDir =
+                        Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / gameSerial /
+                        "TrophyFiles";
 
-            if (gameSerial.empty()) {
-                ImGui::Text("No game loaded.");
-            } else {
-                std::filesystem::path metaDir =
-                    Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / gameSerial /
-                    "TrophyFiles";
+                    if (std::filesystem::exists(metaDir)) {
+                        for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
+                            if (!dirEntry.is_directory())
+                                continue;
 
-                if (!std::filesystem::exists(metaDir)) {
-                    ImGui::Text("No trophy data found for this game.");
-                } else {
-                    // First pass: count trophies
-                    for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
-                        if (!dirEntry.is_directory())
-                            continue;
-
-                        std::string xmlPath = (dirEntry.path() / "Xml/TROP.XML").string();
-                        if (!std::filesystem::exists(xmlPath))
-                            continue;
+                            std::string xmlPath = (dirEntry.path() / "Xml/TROP.XML").string();
+                            if (!std::filesystem::exists(xmlPath))
+                                continue;
 
 #ifdef ENABLE_QT_GUI
-                        QFile file(QString::fromStdString(xmlPath));
-                        if (!file.open(QFile::ReadOnly | QFile::Text))
-                            continue;
+                            QFile file(QString::fromStdString(xmlPath));
+                            if (file.open(QFile::ReadOnly | QFile::Text)) {
+                                CachedTrophyFile currentFile;
+                                currentFile.id = dirEntry.path().filename().string();
 
-                        QXmlStreamReader reader(&file);
+                                QXmlStreamReader reader(&file);
+                                while (!reader.atEnd() && !reader.hasError()) {
+                                    reader.readNext();
+                                    if (reader.isStartElement() &&
+                                        reader.name().toString() == "trophy") {
+                                        CachedTrophy t;
+                                        t.unlocked = false;
+                                        cachedTrophies.totalCount++;
 
-                        while (!reader.atEnd() && !reader.hasError()) {
-                            reader.readNext();
-                            if (reader.isStartElement() && reader.name().toString() == "trophy") {
-                                totalCount++;
-                                if (reader.attributes().hasAttribute("unlockstate") &&
-                                    reader.attributes().value("unlockstate").toString() == "true") {
-                                    unlockedCount++;
+                                        if (reader.attributes().hasAttribute("unlockstate") &&
+                                            reader.attributes().value("unlockstate").toString() ==
+                                                "true") {
+                                            t.unlocked = true;
+                                            cachedTrophies.unlockedCount++;
+                                        }
+
+                                        while (!(reader.isEndElement() &&
+                                                 reader.name().toString() == "trophy")) {
+                                            reader.readNext();
+                                            if (reader.isStartElement() &&
+                                                reader.name().toString() == "name") {
+                                                t.name = reader.readElementText().toStdString();
+                                            }
+                                        }
+                                        currentFile.trophies.push_back(t);
+                                    }
                                 }
+                                cachedTrophies.files.push_back(currentFile);
                             }
+#endif
                         }
-#endif
                     }
+                }
+                dataLoaded = true;
+            }
 
-                    ImGui::SetWindowFontScale(2.5f);
+            ImGui::SetWindowFontScale(1.5f);
 #ifdef ENABLE_QT_GUI
-                    TextCentered(("Trophies (" + std::to_string(unlockedCount) + "/" +
-                                  std::to_string(totalCount) + ")")
-                                     .c_str());
+            L::TextCentered(("Trophies (" + std::to_string(cachedTrophies.unlockedCount) + "/" +
+                             std::to_string(cachedTrophies.totalCount) + ")")
+                                .c_str());
 #else
-                    TextCentered("SDL build can read trophy XML, use QT");
+            L::TextCentered("SDL build can't read trophy XML, use QT");
 #endif
-                    ImGui::SetWindowFontScale(1.5f);
-                    ImGui::Separator();
-
-                    for (auto& dirEntry : std::filesystem::directory_iterator(metaDir)) {
-                        if (!dirEntry.is_directory())
-                            continue;
-
-                        std::string xmlPath = (dirEntry.path() / "Xml/TROP.XML").string();
-                        if (!std::filesystem::exists(xmlPath))
-                            continue;
+            ImGui::SetWindowFontScale(1.0f);
+            ImGui::Separator();
 
 #ifdef ENABLE_QT_GUI
-                        QFile file(QString::fromStdString(xmlPath));
-                        if (!file.open(QFile::ReadOnly | QFile::Text))
-                            continue;
-
-                        QXmlStreamReader reader(&file);
-
-                        ImGui::BeginChild(dirEntry.path().filename().string().c_str(), ImVec2(0, 0),
-                                          true, ImGuiWindowFlags_None);
-
-                        if (ImGui::BeginTable("TrophyTable", 2, ImGuiTableFlags_BordersInnerV)) {
+            if (cachedTrophies.files.empty()) {
+                ImGui::Text("No trophy data found.");
+            } else {
+                ImGui::BeginChild("TrophyListFull", ImVec2(0, -40), true);
+                for (const auto& fileData : cachedTrophies.files) {
+                    if (ImGui::CollapsingHeader(fileData.id.c_str(),
+                                                ImGuiTreeNodeFlags_DefaultOpen)) {
+                        if (ImGui::BeginTable("TrophyTableFull", 2,
+                                              ImGuiTableFlags_RowBg |
+                                                  ImGuiTableFlags_BordersInnerV)) {
                             ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed,
-                                                    80.0f);
+                                                    60.0f);
                             ImGui::TableSetupColumn("Trophy Name",
                                                     ImGuiTableColumnFlags_WidthStretch);
 
-                            ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+                            for (const auto& trophy : fileData.trophies) {
+                                ImGui::TableNextRow();
 
-                            ImGui::TableSetColumnIndex(0);
-                            const char* statusHeader = "Status";
-                            float statusHeaderOffset =
-                                (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusHeader).x) *
-                                0.5f;
-                            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusHeaderOffset);
-                            ImGui::TextUnformatted(statusHeader);
+                                ImGui::TableSetColumnIndex(0);
+                                ImGui::PushStyleColor(ImGuiCol_Text,
+                                                      trophy.unlocked ? ImVec4(0, 1, 0, 1)
+                                                                      : ImVec4(0.5, 0.5, 0.5, 1));
+                                const char* statusText = trophy.unlocked ? "[O]" : "[ ]";
+                                float statusOffset =
+                                    (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusText).x) *
+                                    0.5f;
+                                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusOffset);
+                                ImGui::TextUnformatted(statusText);
+                                ImGui::PopStyleColor();
 
-                            ImGui::TableSetColumnIndex(1);
-                            const char* nameHeader = "Trophy Name";
-                            float nameHeaderOffset =
-                                (ImGui::GetColumnWidth() - ImGui::CalcTextSize(nameHeader).x) *
-                                0.5f;
-                            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameHeaderOffset);
-                            ImGui::TextUnformatted(nameHeader);
-
-                            while (!reader.atEnd() && !reader.hasError()) {
-                                reader.readNext();
-                                if (reader.isStartElement() &&
-                                    reader.name().toString() == "trophy") {
-                                    QString trophyName;
-                                    bool unlocked = false;
-
-                                    if (reader.attributes().hasAttribute("unlockstate") &&
-                                        reader.attributes().value("unlockstate").toString() ==
-                                            "true") {
-                                        unlocked = true;
-                                    }
-
-                                    while (!(reader.isEndElement() &&
-                                             reader.name().toString() == "trophy")) {
-                                        reader.readNext();
-                                        if (reader.isStartElement() &&
-                                            reader.name().toString() == "name") {
-                                            trophyName = reader.readElementText();
-                                        }
-                                    }
-
-                                    ImGui::TableNextRow();
-
-                                    ImGui::TableSetColumnIndex(0);
-                                    ImGui::PushStyleColor(ImGuiCol_Text, unlocked
-                                                                             ? ImVec4(0, 1, 0, 1)
-                                                                             : ImVec4(1, 0, 0, 1));
-                                    ImGui::SetWindowFontScale(1.0f);
-                                    const char* statusText = unlocked ? "[O]" : "[X]";
-                                    float statusOffset = (ImGui::GetColumnWidth() -
-                                                          ImGui::CalcTextSize(statusText).x) *
-                                                         0.5f;
-                                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusOffset);
-                                    ImGui::TextUnformatted(statusText);
-                                    ImGui::PopStyleColor();
-
-                                    ImGui::TableSetColumnIndex(1);
-                                    std::string nameStr = trophyName.toStdString();
-                                    float nameOffset = (ImGui::GetColumnWidth() -
-                                                        ImGui::CalcTextSize(nameStr.c_str()).x) *
-                                                       0.5f;
-                                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + nameOffset);
-                                    ImGui::TextUnformatted(nameStr.c_str());
-                                }
+                                ImGui::TableSetColumnIndex(1);
+                                ImGui::TextUnformatted(trophy.name.c_str());
                             }
-
                             ImGui::EndTable();
                         }
-
-                        ImGui::EndChild();
-#endif
                     }
                 }
+                ImGui::EndChild();
             }
+#endif
 
-            if (ImGui::Button("Close")) {
+            if (ImGui::Button("Close", ImVec2(120, 0))) {
                 showTrophyViewer = false;
                 trophy_focus = false;
             }
