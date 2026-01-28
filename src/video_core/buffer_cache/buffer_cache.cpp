@@ -79,7 +79,7 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size, bool download) {
     if (!IsRegionRegistered(device_addr, size)) {
         return;
     }
-    if (download) {
+    if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable) {
         memory_tracker->InvalidateRegion(
             device_addr, size, [this, device_addr, size] { ReadMemory(device_addr, size, true); });
     } else {
