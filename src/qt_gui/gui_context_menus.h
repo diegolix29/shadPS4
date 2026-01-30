@@ -170,12 +170,24 @@ public:
         }
 
         case GameAction::DeleteShaderCache: {
-            QString shaderPath;
-            Common::FS::PathToQString(shaderPath,
+            QString shaderZipPath;
+            Common::FS::PathToQString(shaderZipPath,
                                       Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
                                           (game.serial + ".zip"));
-            if (QFile::exists(shaderPath))
-                QFile::remove(shaderPath);
+            QString shaderDirPath;
+            Common::FS::PathToQString(shaderDirPath,
+                                      Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
+                                          game.serial);
+
+            // Delete Zip if exists
+            if (QFile::exists(shaderZipPath))
+                QFile::remove(shaderZipPath);
+
+            // Delete Folder if exists
+            QDir shaderDir(shaderDirPath);
+            if (shaderDir.exists()) {
+                shaderDir.removeRecursively();
+            }
             break;
         }
 
@@ -795,7 +807,7 @@ public:
             selected == deleteShaderCache) {
             bool error = false;
             QString folder_path, game_update_path, dlc_path, save_data_path, trophy_data_path,
-                shader_cache_path;
+                shader_cache_zip_path, shader_cache_dir_path;
             Common::FS::PathToQString(folder_path, m_games[itemID].path);
             game_update_path = folder_path + "-UPDATE";
             if (!std::filesystem::exists(Common::FS::PathFromQString(game_update_path))) {
@@ -811,9 +823,12 @@ public:
                                       Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) /
                                           m_games[itemID].serial / "TrophyFiles");
 
-            Common::FS::PathToQString(shader_cache_path,
+            Common::FS::PathToQString(shader_cache_zip_path,
                                       Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
                                           (m_games[itemID].serial + ".zip"));
+            Common::FS::PathToQString(shader_cache_dir_path,
+                                      Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
+                                          m_games[itemID].serial);
 
             QString message_type;
 
@@ -858,13 +873,18 @@ public:
                     message_type = tr("Trophy");
                 }
             } else if (selected == deleteShaderCache) {
-                if (!std::filesystem::exists(Common::FS::PathFromQString(shader_cache_path))) {
+                bool zip_exists =
+                    std::filesystem::exists(Common::FS::PathFromQString(shader_cache_zip_path));
+                bool dir_exists =
+                    std::filesystem::exists(Common::FS::PathFromQString(shader_cache_dir_path));
+
+                if (!zip_exists && !dir_exists) {
                     QMessageBox::critical(
                         nullptr, tr("Error"),
                         QString(tr("This game does not have any saved Shader Cache to delete!")));
                     error = true;
                 } else {
-                    folder_path = shader_cache_path;
+                    folder_path = dir_exists ? shader_cache_dir_path : shader_cache_zip_path;
                     message_type = tr("Shader Cache");
                 }
             }
@@ -878,6 +898,21 @@ public:
                                           QMessageBox::Yes | QMessageBox::No);
 
                 if (reply == QMessageBox::Yes) {
+
+                    if (selected == deleteShaderCache) {
+                        QString other_path = (folder_path == shader_cache_zip_path)
+                                                 ? shader_cache_dir_path
+                                                 : shader_cache_zip_path;
+                        if (std::filesystem::exists(Common::FS::PathFromQString(other_path))) {
+                            QFileInfo otherInfo(other_path);
+                            if (otherInfo.isDir()) {
+                                QDir(other_path).removeRecursively();
+                            } else {
+                                QFile::remove(other_path);
+                            }
+                        }
+                    }
+
                     QFileInfo pathInfo(folder_path);
                     if (pathInfo.isDir()) {
                         QDir(folder_path).removeRecursively();
