@@ -42,6 +42,7 @@
 #include "core/libraries/np/np_signaling.h"
 #include "core/libraries/np/np_sns_facebook_dialog.h"
 #include "core/libraries/np/np_trophy.h"
+#include "core/libraries/np/np_tus.h"
 #include "core/libraries/np/np_web_api.h"
 #include "core/libraries/np/np_web_api2.h"
 #include "core/libraries/pad/pad.h"
@@ -108,6 +109,7 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
     Libraries::Np::NpAuth::RegisterLib(sym);
     Libraries::Np::NpParty::RegisterLib(sym);
     Libraries::Np::NpPartner::RegisterLib(sym);
+    Libraries::Np::NpTus::RegisterLib(sym);
     Libraries::Np::NpSignaling::RegisterLib(sym);
     Libraries::ScreenShot::RegisterLib(sym);
     Libraries::AppContent::RegisterLib(sym);
