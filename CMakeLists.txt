@@ -765,6 +765,7 @@ set(COMMON src/common/logging/backend.cpp
            src/common/slot_vector.h
            src/common/spin_lock.cpp
            src/common/spin_lock.h
+           src/common/stb_write.cpp
            src/common/stb.cpp
            src/common/stb.h
            src/common/string_literal.h
@@ -1004,6 +1005,8 @@ set(VIDEO_CORE src/video_core/amdgpu/cb_db_extent.h
                src/video_core/amdgpu/pixel_format.cpp
                src/video_core/amdgpu/pixel_format.h
                src/video_core/amdgpu/pm4_cmds.h
+                          src/video_core/screenshot.h
+           src/video_core/screenshot.cpp
                src/video_core/amdgpu/pm4_opcodes.h
                src/video_core/amdgpu/regs_color.h
                src/video_core/amdgpu/regs_depth.h

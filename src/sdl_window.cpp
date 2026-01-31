@@ -28,6 +28,7 @@
 #include "input/input_mouse.h"
 #include "sdl_window.h"
 #include "video_core/renderdoc.h"
+#include "video_core/screenshot.h"
 
 #ifdef __APPLE__
 #include "SDL3/SDL_metal.h"
@@ -324,6 +325,10 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_RDOC_CAPTURE:
         VideoCore::TriggerCapture();
         break;
+    case SDL_EVENT_SCREENSHOT:
+        VideoCore::TriggerScreenshot();
+        break;
+
     default:
         break;
     }

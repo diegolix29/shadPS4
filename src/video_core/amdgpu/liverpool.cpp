@@ -18,6 +18,7 @@
 #include "video_core/amdgpu/pm4_cmds.h"
 #include "video_core/renderdoc.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
+#include "video_core/screenshot.h"
 
 namespace AmdGpu {
 
@@ -105,7 +106,11 @@ void Liverpool::Process(std::stop_token stoken) {
         }
 
         VideoCore::StartCapture();
-
+        if (VideoCore::ConsumeScreenshotRequest()) {
+            if (rasterizer) {
+                VideoCore::CaptureScreenshot(*rasterizer, {});
+            }
+        }
         curr_qid = -1;
 
         while (num_submits || num_commands) {

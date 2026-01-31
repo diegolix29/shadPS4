@@ -34,6 +34,10 @@ public:
         return scheduler;
     }
 
+    [[nodiscard]] const Instance& GetInstance() const noexcept {
+        return instance;
+    }
+
     [[nodiscard]] VideoCore::BufferCache& GetBufferCache() noexcept {
         return buffer_cache;
     }
@@ -74,6 +78,7 @@ public:
     PipelineCache& GetPipelineCache() {
         return pipeline_cache;
     }
+    VideoCore::ImageId GetCurrentColorBuffer(u32 index = 0) const;
 
     template <typename Func>
     void ForEachMappedRangeInRange(VAddr addr, u64 size, Func&& func) {

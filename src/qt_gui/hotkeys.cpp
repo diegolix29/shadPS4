@@ -35,9 +35,10 @@ Hotkeys::Hotkeys(std::shared_ptr<IpcClient> ipc_client, bool isGameRunning, QWid
     PadButtonsList = {ui->fpsButtonPad, ui->quitButtonPad, ui->fullscreenButtonPad,
                       ui->pauseButtonPad, ui->reloadButtonPad};
 
-    KBButtonsList = {ui->fpsButtonKB,         ui->quitButtonKB,    ui->fullscreenButtonKB,
-                     ui->pauseButtonKB,       ui->reloadButtonKB,  ui->renderdocButton,
-                     ui->mouseJoystickButton, ui->mouseGyroButton, ui->mouseTouchpadButton};
+    KBButtonsList = {ui->fpsButtonKB,        ui->quitButtonKB,        ui->fullscreenButtonKB,
+                     ui->pauseButtonKB,      ui->reloadButtonKB,      ui->renderdocButton,
+                     ui->screenshotButton,   ui->mouseJoystickButton, ui->mouseGyroButton,
+                     ui->mouseTouchpadButton};
 
     connect(ui->buttonBox, &QDialogButtonBox::clicked, this, [this](QAbstractButton* button) {
         if (button == ui->buttonBox->button(QDialogButtonBox::Save)) {
@@ -108,9 +109,10 @@ void Hotkeys::SetDefault() {
     PadButtonsList = {ui->fpsButtonPad, ui->quitButtonPad, ui->fullscreenButtonPad,
                       ui->pauseButtonPad, ui->reloadButtonPad};
 
-    KBButtonsList = {ui->fpsButtonKB,         ui->quitButtonKB,    ui->fullscreenButtonKB,
-                     ui->pauseButtonKB,       ui->reloadButtonKB,  ui->renderdocButton,
-                     ui->mouseJoystickButton, ui->mouseGyroButton, ui->mouseTouchpadButton};
+    KBButtonsList = {ui->fpsButtonKB,        ui->quitButtonKB,        ui->fullscreenButtonKB,
+                     ui->pauseButtonKB,      ui->reloadButtonKB,      ui->renderdocButton,
+                     ui->screenshotButton,   ui->mouseJoystickButton, ui->mouseGyroButton,
+                     ui->mouseTouchpadButton};
 
     ui->fpsButtonPad->setText("unmapped");
     ui->quitButtonPad->setText("unmapped");
@@ -125,6 +127,7 @@ void Hotkeys::SetDefault() {
     ui->reloadButtonKB->setText("f8");
 
     ui->renderdocButton->setText("f12");
+    ui->screenshotButton->setText("f5");
     ui->mouseJoystickButton->setText("f7");
     ui->mouseGyroButton->setText("f6");
     ui->mouseTouchpadButton->setText("f1");
@@ -165,6 +168,7 @@ void Hotkeys::SaveHotkeys(bool CloseOnSave) {
     lines.push_back("");
 
     add_mapping(ui->renderdocButton->text(), "hotkey_renderdoc_capture");
+    add_mapping(ui->screenshotButton->text(), "hotkey_screenshot");
     add_mapping(ui->mouseJoystickButton->text(), "hotkey_toggle_mouse_to_joystick");
     add_mapping(ui->mouseGyroButton->text(), "hotkey_toggle_mouse_to_gyro");
     add_mapping(ui->mouseTouchpadButton->text(), "hotkey_toggle_mouse_to_touchpad");
@@ -298,6 +302,8 @@ void Hotkeys::LoadHotkeys() {
                 : ui->reloadButtonKB->setText(QString::fromStdString(input_string));
         } else if (output_string.contains("hotkey_renderdoc_capture")) {
             ui->renderdocButton->setText(QString::fromStdString(input_string));
+        } else if (output_string.contains("hotkey_screenshot")) {
+            ui->screenshotButton->setText(QString::fromStdString(input_string));
         } else if (output_string.contains("hotkey_toggle_mouse_to_joystick")) {
             ui->mouseJoystickButton->setText(QString::fromStdString(input_string));
         } else if (output_string.contains("hotkey_toggle_mouse_to_gyro")) {

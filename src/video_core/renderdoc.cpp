@@ -16,6 +16,26 @@
 #include <filesystem>
 
 namespace VideoCore {
+enum class ScreenshotState {
+    Idle,
+    Triggered,
+};
+
+static ScreenshotState screenshot_state{ScreenshotState::Idle};
+
+void TriggerScreenshot() {
+    if (screenshot_state == ScreenshotState::Idle) {
+        screenshot_state = ScreenshotState::Triggered;
+    }
+}
+
+bool ConsumeScreenshotRequest() {
+    if (screenshot_state == ScreenshotState::Triggered) {
+        screenshot_state = ScreenshotState::Idle;
+        return true;
+    }
+    return false;
+}
 
 enum class CaptureState {
     Idle,

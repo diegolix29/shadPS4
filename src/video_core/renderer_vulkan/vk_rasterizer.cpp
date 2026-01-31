@@ -46,6 +46,14 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
 
 Rasterizer::~Rasterizer() = default;
 
+// Get the current color buffer image for screenshot capture
+VideoCore::ImageId Rasterizer::GetCurrentColorBuffer(u32 index) const {
+    if (index < AmdGpu::NUM_COLOR_BUFFERS) {
+        return cb_descs[index].first;
+    }
+    return VideoCore::ImageId{};
+}
+
 void Rasterizer::CpSync() {
     scheduler.EndRendering();
     auto cmdbuf = scheduler.CommandBuffer();
