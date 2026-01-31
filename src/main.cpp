@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
 
     // ---- Apply flags ----
     if (patchFile)
-        MemoryPatcher::patch_file = *patchFile;
+        MemoryPatcher::patchFile = *patchFile;
 
     if (ignoreGamePatch)
         Core::FileSys::MntPoints::ignore_game_patches = true;
