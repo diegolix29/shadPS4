@@ -91,11 +91,13 @@ static void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
             //                DisassembleInstruction(code_address));
         }
         break;
-    case SIGUSR1: { // Sleep thread until signal is received
+    case SIGUSR1: { // Pause thread
         sigset_t sigset;
         sigemptyset(&sigset);
-        sigaddset(&sigset, SIGUSR1);
+        sigaddset(&sigset, SIGUSR2);
         sigwait(&sigset, &sig);
+    } break;
+    case SIGUSR2: { // Resume thread
     } break;
     default:
         break;
@@ -121,6 +123,8 @@ SignalDispatch::SignalDispatch() {
                "Failed to register illegal instruction signal handler.");
     ASSERT_MSG(sigaction(SIGUSR1, &action, nullptr) == 0,
                "Failed to register sleep signal handler.");
+    ASSERT_MSG(sigaction(SIGUSR2, &action, nullptr) == 0,
+               "Failed to register resume signal handler.");
 #endif
 }
 
@@ -138,6 +142,9 @@ SignalDispatch::~SignalDispatch() {
                "Failed to remove access violation signal handler.");
     ASSERT_MSG(sigaction(SIGILL, &action, nullptr) == 0,
                "Failed to remove illegal instruction signal handler.");
+    ASSERT_MSG(sigaction(SIGUSR1, &action, nullptr) == 0, "Failed to remove sleep signal handler.");
+    ASSERT_MSG(sigaction(SIGUSR2, &action, nullptr) == 0,
+               "Failed to remove resume signal handler.");
 #endif
 }
 

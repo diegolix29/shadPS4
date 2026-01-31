@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdlib>
 #include <thread>
 
 #include "aio.h"
@@ -312,10 +313,20 @@ s32 PS4_SYSV_ABI sceKernelAioInitializeParam() {
     return ORBIS_OK;
 }
 
+void CleanupAio() {
+    if (id_state) {
+        free(id_state);
+        id_state = nullptr;
+    }
+}
+
 void RegisterAio(Core::Loader::SymbolsResolver* sym) {
     id_index = 1;
     id_state = (int*)malloc(sizeof(int) * MAX_QUEUE);
     memset(id_state, 0, sizeof(sizeof(int) * MAX_QUEUE));
+
+    // Register cleanup function to be called at program exit
+    std::atexit(CleanupAio);
 
     LIB_FUNCTION("fR521KIGgb8", "libkernel", 1, "libkernel", sceKernelAioCancelRequest);
     LIB_FUNCTION("3Lca1XBrQdY", "libkernel", 1, "libkernel", sceKernelAioCancelRequests);

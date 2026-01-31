@@ -43,7 +43,7 @@ static void ResumeThread(ThreadID id) {
     ResumeThread(handle);
     CloseHandle(handle);
 #else
-    pthread_kill(id, SIGUSR1);
+    pthread_kill(id, SIGUSR2);
 #endif
 }
 
