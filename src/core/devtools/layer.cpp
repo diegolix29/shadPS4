@@ -312,7 +312,7 @@ void L::DrawAdvanced() {
 
     if (!DebugState.debug_message_popup.empty()) {
         if (debug_popup_timing > 0.0f) {
-            debug_popup_timing -= io.DeltaTime;
+            debug_popup_timing -= DebugState.IsGuestThreadsPaused() ? 0.0f : io.DeltaTime;
             if (Begin("##devtools_msg", nullptr,
                       ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
                           ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove)) {
@@ -928,7 +928,9 @@ void L::DrawPauseStatusWindow(bool& is_open) {
                                ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar)) {
 
         if (!dataLoaded) {
-            cachedTrophies = TrophyGameData();
+            cachedTrophies.files.clear();
+            cachedTrophies.totalCount = 0;
+            cachedTrophies.unlockedCount = 0;
             std::string gameSerial = MemoryPatcher::g_game_serial;
 
             if (!gameSerial.empty()) {
@@ -1454,7 +1456,7 @@ void L::Draw() {
 
     if (!fullscreen_tip_manual) {
         if (!Config::getScreenTipDisable()) {
-            fullscreen_tip_timer -= io.DeltaTime;
+            fullscreen_tip_timer -= DebugState.IsGuestThreadsPaused() ? 0.0f : io.DeltaTime;
             if (fullscreen_tip_timer <= 0.0f) {
                 show_fullscreen_tip = false;
                 fullscreen_tip_timer = 10.0f;
@@ -1466,7 +1468,7 @@ void L::Draw() {
 
     if (!show_hotkeys_tip_manual) {
         if (!Config::getScreenTipDisable()) {
-            hotkeys_tip_timer -= io.DeltaTime;
+            hotkeys_tip_timer -= DebugState.IsGuestThreadsPaused() ? 0.0f : io.DeltaTime;
             if (hotkeys_tip_timer <= 0.0f) {
                 show_hotkeys_tip = false;
                 hotkeys_tip_timer = 10.0f;
@@ -1696,13 +1698,12 @@ void L::Draw() {
             if (!using_controller) {
                 trophy_pos = ImGui::GetWindowPos();
                 trophy_size = ImGui::GetWindowSize();
-            } else {
-                ImGui::SetNextWindowPos(trophy_pos, ImGuiCond_FirstUseEver);
-                ImGui::SetNextWindowSize(trophy_size, ImGuiCond_FirstUseEver);
             }
 
             if (!dataLoaded) {
-                cachedTrophies = TrophyGameData();
+                cachedTrophies.files.clear();
+                cachedTrophies.totalCount = 0;
+                cachedTrophies.unlockedCount = 0;
                 std::string gameSerial = MemoryPatcher::g_game_serial;
 
                 if (!gameSerial.empty()) {
