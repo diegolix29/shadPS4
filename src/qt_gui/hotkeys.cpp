@@ -32,8 +32,8 @@ Hotkeys::Hotkeys(std::shared_ptr<IpcClient> ipc_client, bool isGameRunning, QWid
     CheckGamePad();
     installEventFilter(this);
 
-    PadButtonsList = {ui->fpsButtonPad, ui->quitButtonPad, ui->fullscreenButtonPad,
-                      ui->pauseButtonPad, ui->reloadButtonPad};
+    PadButtonsList = {ui->fpsButtonPad,   ui->quitButtonPad,   ui->fullscreenButtonPad,
+                      ui->pauseButtonPad, ui->reloadButtonPad, ui->screenshotButtonPad};
 
     KBButtonsList = {ui->fpsButtonKB,        ui->quitButtonKB,        ui->fullscreenButtonKB,
                      ui->pauseButtonKB,      ui->reloadButtonKB,      ui->renderdocButton,
@@ -106,8 +106,8 @@ void Hotkeys::EnableMappingButtons() {
 
 void Hotkeys::SetDefault() {
 
-    PadButtonsList = {ui->fpsButtonPad, ui->quitButtonPad, ui->fullscreenButtonPad,
-                      ui->pauseButtonPad, ui->reloadButtonPad};
+    PadButtonsList = {ui->fpsButtonPad,   ui->quitButtonPad,   ui->fullscreenButtonPad,
+                      ui->pauseButtonPad, ui->reloadButtonPad, ui->screenshotButtonPad};
 
     KBButtonsList = {ui->fpsButtonKB,        ui->quitButtonKB,        ui->fullscreenButtonKB,
                      ui->pauseButtonKB,      ui->reloadButtonKB,      ui->renderdocButton,
@@ -119,6 +119,7 @@ void Hotkeys::SetDefault() {
     ui->fullscreenButtonPad->setText("unmapped");
     ui->pauseButtonPad->setText("unmapped");
     ui->reloadButtonPad->setText("unmapped");
+    ui->screenshotButtonPad->setText("unmapped");
 
     ui->fpsButtonKB->setText("f10");
     ui->quitButtonKB->setText("lctrl, lshift, end");
@@ -167,8 +168,11 @@ void Hotkeys::SaveHotkeys(bool CloseOnSave) {
     add_mapping(ui->reloadButtonKB->text(), "hotkey_reload_inputs");
     lines.push_back("");
 
-    add_mapping(ui->renderdocButton->text(), "hotkey_renderdoc_capture");
+    add_mapping(ui->screenshotButtonPad->text(), "hotkey_screenshot");
     add_mapping(ui->screenshotButton->text(), "hotkey_screenshot");
+    lines.push_back("");
+
+    add_mapping(ui->renderdocButton->text(), "hotkey_renderdoc_capture");
     add_mapping(ui->mouseJoystickButton->text(), "hotkey_toggle_mouse_to_joystick");
     add_mapping(ui->mouseGyroButton->text(), "hotkey_toggle_mouse_to_gyro");
     add_mapping(ui->mouseTouchpadButton->text(), "hotkey_toggle_mouse_to_touchpad");
@@ -303,7 +307,9 @@ void Hotkeys::LoadHotkeys() {
         } else if (output_string.contains("hotkey_renderdoc_capture")) {
             ui->renderdocButton->setText(QString::fromStdString(input_string));
         } else if (output_string.contains("hotkey_screenshot")) {
-            ui->screenshotButton->setText(QString::fromStdString(input_string));
+            controllerInputDetected
+                ? ui->screenshotButtonPad->setText(QString::fromStdString(input_string))
+                : ui->screenshotButton->setText(QString::fromStdString(input_string));
         } else if (output_string.contains("hotkey_toggle_mouse_to_joystick")) {
             ui->mouseJoystickButton->setText(QString::fromStdString(input_string));
         } else if (output_string.contains("hotkey_toggle_mouse_to_gyro")) {
