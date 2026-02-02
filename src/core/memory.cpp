@@ -656,18 +656,43 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
 
 s32 MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, u64 size, MemoryProt prot,
                            MemoryMapFlags flags, s32 fd, s64 phys_addr) {
-    uintptr_t handle = 0;
-    std::scoped_lock lk{unmap_mutex};
+    VAddr mapped_addr = (virtual_addr == 0) ? impl.SystemManagedVirtualBase() : virtual_addr;
+    ASSERT_MSG(IsValidMapping(mapped_addr, size), "Attempted to access invalid address {:#x}",
+               mapped_addr);
+
+    mutex.lock();
+
+    // Find first free area to map the file.
+    if (False(flags & MemoryMapFlags::Fixed)) {
+        mapped_addr = SearchFree(mapped_addr, size, 1);
+        if (mapped_addr == -1) {
+            // No suitable memory areas to map to
+            mutex.unlock();
+            return ORBIS_KERNEL_ERROR_ENOMEM;
+        }
+    }
+
+    if (True(flags & MemoryMapFlags::Fixed)) {
+        const auto& vma = FindVMA(mapped_addr)->second;
+        const u64 remaining_size = vma.base + vma.size - virtual_addr;
+        ASSERT_MSG(!vma.IsMapped() && remaining_size >= size,
+                   "Memory region {:#x} to {:#x} isn't free enough to map region {:#x} to {:#x}",
+                   vma.base, vma.base + vma.size, virtual_addr, virtual_addr + size);
+    }
+
     // Get the file to map
     auto* h = Common::Singleton<Core::FileSys::HandleTable>::Instance();
     auto file = h->GetFile(fd);
     if (file == nullptr) {
         LOG_WARNING(Kernel_Vmm, "Invalid file for mmap, fd {}", fd);
+        mutex.unlock();
         return ORBIS_KERNEL_ERROR_EBADF;
     }
 
-    if (file->type != Core::FileSys::FileType::Regular) {
+    if (file->type == Core::FileSys::FileType::Directory ||
+        file->type == Core::FileSys::FileType::Socket) {
         LOG_WARNING(Kernel_Vmm, "Unsupported file type for mmap, fd {}", fd);
+        mutex.unlock();
         return ORBIS_KERNEL_ERROR_EBADF;
     }
 
@@ -676,62 +701,31 @@ s32 MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, u64 size, Memory
         prot |= MemoryProt::CpuRead;
     }
 
-    handle = file->f.GetFileMapping();
-
-    if (False(file->f.GetAccessMode() & Common::FS::FileAccessMode::Write) ||
-        False(file->f.GetAccessMode() & Common::FS::FileAccessMode::Append)) {
-        // If the file does not have write access, ensure prot does not contain write
-        // permissions. On real hardware, these mappings succeed, but the memory cannot be
-        // written to.
-        prot &= ~MemoryProt::CpuWrite;
+    if (False(file->f.GetAccessMode() & Common::FS::FileAccessMode::Write)) {
+        LOG_WARNING(Kernel_Vmm, "Mapping read-only file with write prot, fd {}", fd);
     }
+    const auto handle = file->f.GetFileMapping();
 
-    if (prot >= MemoryProt::GpuRead) {
+    impl.MapFile(mapped_addr, size, phys_addr, std::bit_cast<u32>(prot), handle);
+
+    if (True(prot & MemoryProt::GpuRead)) {
         // On real hardware, GPU file mmaps cause a full system crash due to an internal error.
-        ASSERT_MSG(false, "Files cannot be mapped to GPU memory");
+        //  ASSERT_MSG(false, "Files cannot be mapped to GPU memory");
     }
-
     if (True(prot & MemoryProt::CpuExec)) {
         // On real hardware, execute permissions are silently removed.
         prot &= ~MemoryProt::CpuExec;
     }
 
-    if (True(flags & MemoryMapFlags::Fixed) && False(flags & MemoryMapFlags::NoOverwrite)) {
-        ASSERT_MSG(IsValidMapping(virtual_addr, size), "Attempted to access invalid address {:#x}",
-                   virtual_addr);
-        auto vma = FindVMA(virtual_addr)->second;
-
-        auto remaining_size = vma.base + vma.size - virtual_addr;
-        if (!vma.IsFree() || remaining_size < size) {
-            LOG_ERROR(Kernel_Vmm, "Unable to map {:#x} bytes at address {:#x}", size, virtual_addr);
-            return ORBIS_KERNEL_ERROR_ENOMEM;
-        }
-    } else if (False(flags & MemoryMapFlags::Fixed)) {
-        virtual_addr = virtual_addr == 0 ? DEFAULT_MAPPING_BASE : virtual_addr;
-        virtual_addr = SearchFree(virtual_addr, size, 16_KB);
-        if (virtual_addr == -1) {
-            // No suitable memory areas to map to
-            return ORBIS_KERNEL_ERROR_ENOMEM;
-        }
-    }
-
-    // Perform early GPU unmap to avoid potential deadlocks
-    if (IsValidGpuMapping(virtual_addr, size)) {
-        rasterizer->UnmapMemory(virtual_addr, size);
-    }
-
-    // Aquire writer lock
-    std::scoped_lock lk2{mutex};
-
-    // Update VMA map and map to address space.
-    auto new_vma_handle = CreateArea(virtual_addr, size, prot, flags, VMAType::File, "anon", 0);
-
-    auto& new_vma = new_vma_handle->second;
+    // Add virtual memory area
+    auto& new_vma = CarveVMA(mapped_addr, size)->second;
+    new_vma.disallow_merge = True(flags & MemoryMapFlags::NoCoalesce);
+    new_vma.prot = prot;
+    new_vma.name = "File";
     new_vma.fd = fd;
-    auto mapped_addr = new_vma.base;
-    bool is_exec = True(prot & MemoryProt::CpuExec);
+    new_vma.type = VMAType::File;
 
-    impl.MapFile(mapped_addr, size, phys_addr, std::bit_cast<u32>(prot), handle);
+    mutex.unlock();
 
     *out_addr = std::bit_cast<void*>(mapped_addr);
     return ORBIS_OK;

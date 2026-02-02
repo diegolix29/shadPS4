@@ -848,9 +848,14 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
     FIBER_ENTER(acb_task_name[vqid]);
     auto& queue = asc_queues[{vqid}];
 
-    boost::container::small_vector<const PM4Header*, 4> indirect_patches;
+    struct IndirectPatch {
+        const PM4Header* header;
+        VAddr indirect_addr;
+    };
+    boost::container::small_vector<IndirectPatch, 4> indirect_patches;
 
     auto base_addr = reinterpret_cast<VAddr>(acb.data());
+    size_t acb_size = acb.size_bytes();
     while (!acb.empty()) {
         ProcessCommands();
 
@@ -939,8 +944,18 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                         dma_data->src_sel == DmaDataSrc::MemoryUsingL2) &&
                        (dma_data->dst_sel == DmaDataDst::Memory ||
                         dma_data->dst_sel == DmaDataDst::MemoryUsingL2)) {
-                rasterizer->CopyBuffer(dma_data->DstAddress<VAddr>(), dma_data->SrcAddress<VAddr>(),
-                                       dma_data->NumBytes(), false, false);
+                const u32 num_bytes = dma_data->NumBytes();
+                const VAddr src_addr = dma_data->SrcAddress<VAddr>();
+                const VAddr dst_addr = dma_data->DstAddress<VAddr>();
+                const PM4Header* header =
+                    reinterpret_cast<const PM4Header*>(dst_addr - sizeof(PM4Header));
+                if (dst_addr >= base_addr && dst_addr < base_addr + acb_size &&
+                    num_bytes == sizeof(PM4CmdDispatchIndirect::GroupDimensions) &&
+                    header->type == 3 && header->type3.opcode == PM4ItOpcode::DispatchDirect) {
+                    indirect_patches.emplace_back(header, src_addr);
+                } else {
+                    rasterizer->CopyBuffer(dst_addr, src_addr, num_bytes, false, false);
+                }
             } else {
                 UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
                                 u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -973,7 +988,8 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                         must_flush = true;
                         return;
                     }
-                    indirect_patches.push_back(header);
+                    // FIX: Use emplace_back and provide the 'begin' address as the second argument
+                    indirect_patches.emplace_back(header, begin);
                 });
 
             if (must_flush) {
@@ -1014,10 +1030,10 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
         }
         case PM4ItOpcode::DispatchDirect: {
             const auto* dispatch_direct = reinterpret_cast<const PM4CmdDispatchDirect*>(header);
-            if (std::ranges::contains(indirect_patches, header)) {
-                const VAddr ib_address = reinterpret_cast<VAddr>(header) + sizeof(PM4Header);
+            if (auto it = std::ranges::find(indirect_patches, header, &IndirectPatch::header);
+                it != indirect_patches.end()) {
                 const auto size = sizeof(PM4CmdDispatchIndirect::GroupDimensions);
-                rasterizer->DispatchIndirect(ib_address, 0, size, true);
+                rasterizer->DispatchIndirect(it->indirect_addr, 0, size, true);
                 break;
             }
             auto& cs_program = GetCsRegs();
@@ -1094,9 +1110,6 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
         }
         case PM4ItOpcode::ReleaseMem: {
             const auto* release_mem = reinterpret_cast<const PM4CmdReleaseMem*>(header);
-            if (rasterizer) {
-                rasterizer->CommitPendingGpuRanges();
-            }
             release_mem->SignalFence(
                 [pipe_id = queue.pipe_id] {
                     Platform::IrqC::Instance()->Signal(static_cast<Platform::InterruptId>(pipe_id));
