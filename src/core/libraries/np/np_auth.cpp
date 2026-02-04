@@ -17,8 +17,6 @@ static bool g_signed_in = false;
 static s32 g_active_auth_requests = 0;
 static std::mutex g_auth_request_mutex;
 
-const char* g_dummy_auth_code = "DUMMY-CODE";
-
 // Internal types for storing request-related information
 enum class NpAuthRequestState {
     None = 0,
@@ -123,9 +121,11 @@ s32 GetAuthorizationCode(s32 req_id, const OrbisNpAuthGetAuthorizationCodeParame
 
     LOG_ERROR(Lib_NpAuth, "(STUBBED) called, req_id = {:#x}, async = {}", req_id, request.async);
 
-    std::memcpy(auth_code, g_dummy_auth_code, sizeof(OrbisNpAuthorizationCode));
-    // Not sure about the fifth argument
-    *issuer_id = std::strlen(g_dummy_auth_code);
+    // Not sure what values are expected here, so zeroing these for now.
+    std::memset(auth_code, 0, sizeof(OrbisNpAuthorizationCode));
+    if (issuer_id != nullptr) {
+        *issuer_id = 0;
+    }
     return ORBIS_OK;
 }
 
