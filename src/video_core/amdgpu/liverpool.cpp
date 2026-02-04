@@ -856,6 +856,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
 
     auto base_addr = reinterpret_cast<VAddr>(acb.data());
     size_t acb_size = acb.size_bytes();
+
     while (!acb.empty()) {
         ProcessCommands();
 
@@ -953,9 +954,8 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                     num_bytes == sizeof(PM4CmdDispatchIndirect::GroupDimensions) &&
                     header->type == 3 && header->type3.opcode == PM4ItOpcode::DispatchDirect) {
                     indirect_patches.emplace_back(header, src_addr);
-                } else {
-                    rasterizer->CopyBuffer(dst_addr, src_addr, num_bytes, false, false);
                 }
+                rasterizer->CopyBuffer(dst_addr, src_addr, num_bytes, false, false);
             } else {
                 UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
                                 u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -1110,6 +1110,9 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
         }
         case PM4ItOpcode::ReleaseMem: {
             const auto* release_mem = reinterpret_cast<const PM4CmdReleaseMem*>(header);
+            if (rasterizer) {
+                rasterizer->CommitPendingGpuRanges();
+            }
             release_mem->SignalFence(
                 [pipe_id = queue.pipe_id] {
                     Platform::IrqC::Instance()->Signal(static_cast<Platform::InterruptId>(pipe_id));
