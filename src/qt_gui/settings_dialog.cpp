@@ -1099,7 +1099,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->BGMVolumeSlider->setValue(toml::find_or<int>(data, "General", "BGMvolume", 50));
     int gameVolume = Config::getVolumeSlider();
     ui->horizontalVolumeSlider->setValue(gameVolume);
-    ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->sliderPosition()) + "%");
+    QCoreApplication::processEvents();
+    ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->value()) + "%");
     ui->fpsSlider->setValue(Config::getFpsLimit());
     ui->fpsSpinBox->setValue(Config::getFpsLimit());
     ui->fpsLimiterCheckBox->setChecked(Config::isFpsLimiterEnabled());
@@ -1448,7 +1449,7 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
     } else if (elementName == "micComboBox") {
         text = tr("Microphone:\\nNone: Does not use the microphone.\\nDefault Device: Will use the default device defined in the system.\\nOr manually choose the microphone to be used from the list.");
     } else if (elementName == "volumeSliderElement") {
-        text = tr("Volume:\\nAdjust volume for games on a global level, range goes from 0-500% with the default being 100%.");
+        text = tr("Volume:\\nAdjust volume for games on a global level, range goes from 0-300% with the default being 100%.");
     } else if (elementName == "chooseHomeTabGroupBox") {
         text = tr("Default tab when opening settings:\\nChoose which tab will open, the default is General.");
     } else if (elementName == "gameSizeCheckBox") {

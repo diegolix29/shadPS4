@@ -325,6 +325,7 @@ int getVolumeSlider();
 void setVolumeSlider(int volumeValue, bool is_game_specific);
 bool isMuteEnabled();
 void setMuteEnabled(bool enabled);
+bool hasCustomMuteHotkey();
 
 bool GamesMenuUI();
 void setGamesMenuUI(bool enable);

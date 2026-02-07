@@ -332,20 +332,6 @@ int PS4_SYSV_ABI sceAudioInGetRerouteCount() {
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceAudioInGetSilentState() {
-    LOG_DEBUG(Lib_AudioIn, "(STUBBED) called");
-    return ORBIS_OK;
-}
-
-int PS4_SYSV_ABI sceAudioInHqOpen(Libraries::UserService::OrbisUserServiceUserId userId, u32 type,
-                                  u32 index, u32 len, u32 freq, u32 param) {
-    int result = audio->AudioInOpen(type, len, freq, param);
-    if (result < 0) {
-        LOG_ERROR(Lib_AudioIn, "Error returned  {:#x}", result);
-    }
-    return result;
-}
-
 int PS4_SYSV_ABI sceAudioInHqOpenEx() {
     LOG_ERROR(Lib_AudioIn, "(STUBBED) called");
     return ORBIS_OK;

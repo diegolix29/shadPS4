@@ -63,10 +63,9 @@
 #define HOTKEY_REMOVE_VIRTUAL_USER 0xf000000a
 #define HOTKEY_TOGGLE_MOUSE_TO_TOUCHPAD 0xf000000b
 #define HOTKEY_SCREENSHOT 0xf000000c
-#define HOTKEY_TOGGLE_MOUSE_TO_TOUCHPAD 0xf0000008
-#define HOTKEY_RENDERDOC 0xf0000009
-#define HOTKEY_VOLUME_UP 0xf000000a
-#define HOTKEY_VOLUME_DOWN 0xf000000b
+#define HOTKEY_VOLUME_UP 0xf000000d
+#define HOTKEY_VOLUME_DOWN 0xf000000f
+#define HOTKEY_VOLUME_MUTE 0xf000000e
 
 #define SDL_UNMAPPED UINT32_MAX - 1
 
@@ -167,6 +166,7 @@ const std::map<std::string, u32> string_to_cbutton_map = {
     {"hotkey_screenshot", HOTKEY_SCREENSHOT},
     {"hotkey_volume_up", HOTKEY_VOLUME_UP},
     {"hotkey_volume_down", HOTKEY_VOLUME_DOWN},
+    {"hotkey_volume_mute", HOTKEY_VOLUME_MUTE},
 };
 
 const std::map<std::string, AxisMapping> string_to_axis_map = {
@@ -534,7 +534,7 @@ public:
 
 class ControllerAllOutputs {
 public:
-    static constexpr u64 output_count = 40;
+    static constexpr u64 output_count = 43;
     std::array<ControllerOutput, output_count> data = {
         // Important: these have to be the first, or else they will update in the wrong order
         ControllerOutput(LEFTJOYSTICK_HALFMODE),
@@ -585,6 +585,9 @@ public:
         ControllerOutput(HOTKEY_ADD_VIRTUAL_USER),
         ControllerOutput(HOTKEY_REMOVE_VIRTUAL_USER),
         ControllerOutput(HOTKEY_SCREENSHOT),
+        ControllerOutput(HOTKEY_VOLUME_UP),
+        ControllerOutput(HOTKEY_VOLUME_DOWN),
+        ControllerOutput(HOTKEY_VOLUME_MUTE),
         ControllerOutput(SDL_EVENT_KILL_EMULATOR),
 
         ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_INVALID),

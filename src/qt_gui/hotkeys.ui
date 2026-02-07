@@ -225,6 +225,81 @@
 									</widget>
 								</item>
 								<item>
+									<widget class="QGroupBox" name="volumeUpGroupboxPad">
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<property name="title">
+											<string>Volume Up</string>
+										</property>
+										<layout class="QVBoxLayout" name="verticalLayout_16">
+											<item>
+												<widget class="QPushButton" name="volumeUpButtonPad">
+													<property name="focusPolicy">
+														<enum>Qt::FocusPolicy::NoFocus</enum>
+													</property>
+													<property name="text">
+														<string>unmapped</string>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+								<item>
+									<widget class="QGroupBox" name="volumeDownGroupboxPad">
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<property name="title">
+											<string>Volume Down</string>
+										</property>
+										<layout class="QVBoxLayout" name="verticalLayout_17">
+											<item>
+												<widget class="QPushButton" name="volumeDownButtonPad">
+													<property name="focusPolicy">
+														<enum>Qt::FocusPolicy::NoFocus</enum>
+													</property>
+													<property name="text">
+														<string>unmapped</string>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+								<item>
+									<widget class="QGroupBox" name="volumeMuteGroupboxPad">
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<property name="title">
+											<string>Volume Mute</string>
+										</property>
+										<layout class="QVBoxLayout" name="verticalLayout_18">
+											<item>
+												<widget class="QPushButton" name="volumeMuteButtonPad">
+													<property name="focusPolicy">
+														<enum>Qt::FocusPolicy::NoFocus</enum>
+													</property>
+													<property name="text">
+														<string>unmapped</string>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+								<item>
 									<spacer name="horizontalSpacer_2">
 										<property name="orientation">
 											<enum>Qt::Orientation::Horizontal</enum>
@@ -431,6 +506,81 @@
 										<layout class="QVBoxLayout" name="verticalLayout_13">
 											<item>
 												<widget class="QPushButton" name="screenshotButton">
+													<property name="focusPolicy">
+														<enum>Qt::FocusPolicy::NoFocus</enum>
+													</property>
+													<property name="text">
+														<string>unmapped</string>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+								<item>
+									<widget class="QGroupBox" name="volumeUpGroupbox">
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<property name="title">
+											<string>Volume Up</string>
+										</property>
+										<layout class="QVBoxLayout" name="verticalLayout_19">
+											<item>
+												<widget class="QPushButton" name="volumeUpButtonKB">
+													<property name="focusPolicy">
+														<enum>Qt::FocusPolicy::NoFocus</enum>
+													</property>
+													<property name="text">
+														<string>unmapped</string>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+								<item>
+									<widget class="QGroupBox" name="volumeDownGroupbox">
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<property name="title">
+											<string>Volume Down</string>
+										</property>
+										<layout class="QVBoxLayout" name="verticalLayout_20">
+											<item>
+												<widget class="QPushButton" name="volumeDownButtonKB">
+													<property name="focusPolicy">
+														<enum>Qt::FocusPolicy::NoFocus</enum>
+													</property>
+													<property name="text">
+														<string>unmapped</string>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+								<item>
+									<widget class="QGroupBox" name="volumeMuteGroupbox">
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<property name="title">
+											<string>Volume Mute</string>
+										</property>
+										<layout class="QVBoxLayout" name="verticalLayout_21">
+											<item>
+												<widget class="QPushButton" name="volumeMuteButtonKB">
 													<property name="focusPolicy">
 														<enum>Qt::FocusPolicy::NoFocus</enum>
 													</property>

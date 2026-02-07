@@ -613,10 +613,19 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             PushSDLEvent(SDL_EVENT_REMOVE_VIRTUAL_USER);
             break;
         case HOTKEY_VOLUME_UP:
-            Config::setVolumeSlider(Config::getVolumeSlider() + 10, true);
+            if (new_button_state) {
+                Config::setVolumeSlider(Config::getVolumeSlider() + 10, true);
+            }
             break;
         case HOTKEY_VOLUME_DOWN:
-            Config::setVolumeSlider(Config::getVolumeSlider() - 10, true);
+            if (new_button_state) {
+                Config::setVolumeSlider(Config::getVolumeSlider() - 10, true);
+            }
+            break;
+        case HOTKEY_VOLUME_MUTE:
+            if (new_button_state) {
+                Config::setMuteEnabled(!Config::isMuteEnabled());
+            }
             break;
         case HOTKEY_QUIT:
             PushSDLEvent(SDL_EVENT_QUIT_DIALOG);

@@ -32,13 +32,15 @@ Hotkeys::Hotkeys(std::shared_ptr<IpcClient> ipc_client, bool isGameRunning, QWid
     CheckGamePad();
     installEventFilter(this);
 
-    PadButtonsList = {ui->fpsButtonPad,   ui->quitButtonPad,   ui->fullscreenButtonPad,
-                      ui->pauseButtonPad, ui->reloadButtonPad, ui->screenshotButtonPad};
+    PadButtonsList = {ui->fpsButtonPad,      ui->quitButtonPad,       ui->fullscreenButtonPad,
+                      ui->pauseButtonPad,    ui->reloadButtonPad,     ui->screenshotButtonPad,
+                      ui->volumeUpButtonPad, ui->volumeDownButtonPad, ui->volumeMuteButtonPad};
 
-    KBButtonsList = {ui->fpsButtonKB,        ui->quitButtonKB,        ui->fullscreenButtonKB,
-                     ui->pauseButtonKB,      ui->reloadButtonKB,      ui->renderdocButton,
-                     ui->screenshotButton,   ui->mouseJoystickButton, ui->mouseGyroButton,
-                     ui->mouseTouchpadButton};
+    KBButtonsList = {ui->fpsButtonKB,         ui->quitButtonKB,        ui->fullscreenButtonKB,
+                     ui->pauseButtonKB,       ui->reloadButtonKB,      ui->renderdocButton,
+                     ui->screenshotButton,    ui->mouseJoystickButton, ui->mouseGyroButton,
+                     ui->mouseTouchpadButton, ui->volumeUpButtonKB,    ui->volumeDownButtonKB,
+                     ui->volumeMuteButtonKB};
 
     connect(ui->buttonBox, &QDialogButtonBox::clicked, this, [this](QAbstractButton* button) {
         if (button == ui->buttonBox->button(QDialogButtonBox::Save)) {
@@ -106,13 +108,15 @@ void Hotkeys::EnableMappingButtons() {
 
 void Hotkeys::SetDefault() {
 
-    PadButtonsList = {ui->fpsButtonPad,   ui->quitButtonPad,   ui->fullscreenButtonPad,
-                      ui->pauseButtonPad, ui->reloadButtonPad, ui->screenshotButtonPad};
+    PadButtonsList = {ui->fpsButtonPad,      ui->quitButtonPad,       ui->fullscreenButtonPad,
+                      ui->pauseButtonPad,    ui->reloadButtonPad,     ui->screenshotButtonPad,
+                      ui->volumeUpButtonPad, ui->volumeDownButtonPad, ui->volumeMuteButtonPad};
 
-    KBButtonsList = {ui->fpsButtonKB,        ui->quitButtonKB,        ui->fullscreenButtonKB,
-                     ui->pauseButtonKB,      ui->reloadButtonKB,      ui->renderdocButton,
-                     ui->screenshotButton,   ui->mouseJoystickButton, ui->mouseGyroButton,
-                     ui->mouseTouchpadButton};
+    KBButtonsList = {ui->fpsButtonKB,         ui->quitButtonKB,        ui->fullscreenButtonKB,
+                     ui->pauseButtonKB,       ui->reloadButtonKB,      ui->renderdocButton,
+                     ui->screenshotButton,    ui->mouseJoystickButton, ui->mouseGyroButton,
+                     ui->mouseTouchpadButton, ui->volumeUpButtonKB,    ui->volumeDownButtonKB,
+                     ui->volumeMuteButtonKB};
 
     ui->fpsButtonPad->setText("unmapped");
     ui->quitButtonPad->setText("unmapped");
@@ -120,6 +124,9 @@ void Hotkeys::SetDefault() {
     ui->pauseButtonPad->setText("unmapped");
     ui->reloadButtonPad->setText("unmapped");
     ui->screenshotButtonPad->setText("unmapped");
+    ui->volumeUpButtonPad->setText("unmapped");
+    ui->volumeDownButtonPad->setText("unmapped");
+    ui->volumeMuteButtonPad->setText("unmapped");
 
     ui->fpsButtonKB->setText("f10");
     ui->quitButtonKB->setText("lctrl, lshift, end");
@@ -132,6 +139,9 @@ void Hotkeys::SetDefault() {
     ui->mouseJoystickButton->setText("f7");
     ui->mouseGyroButton->setText("f6");
     ui->mouseTouchpadButton->setText("f1");
+    ui->volumeUpButtonKB->setText("=");
+    ui->volumeDownButtonKB->setText("-");
+    ui->volumeMuteButtonKB->setText("m");
 }
 
 void Hotkeys::SaveHotkeys(bool CloseOnSave) {
@@ -170,6 +180,18 @@ void Hotkeys::SaveHotkeys(bool CloseOnSave) {
 
     add_mapping(ui->screenshotButtonPad->text(), "hotkey_screenshot");
     add_mapping(ui->screenshotButton->text(), "hotkey_screenshot");
+    lines.push_back("");
+
+    add_mapping(ui->volumeUpButtonPad->text(), "hotkey_volume_up");
+    add_mapping(ui->volumeUpButtonKB->text(), "hotkey_volume_up");
+    lines.push_back("");
+
+    add_mapping(ui->volumeDownButtonPad->text(), "hotkey_volume_down");
+    add_mapping(ui->volumeDownButtonKB->text(), "hotkey_volume_down");
+    lines.push_back("");
+
+    add_mapping(ui->volumeMuteButtonPad->text(), "hotkey_volume_mute");
+    add_mapping(ui->volumeMuteButtonKB->text(), "hotkey_volume_mute");
     lines.push_back("");
 
     add_mapping(ui->renderdocButton->text(), "hotkey_renderdoc_capture");
@@ -316,6 +338,18 @@ void Hotkeys::LoadHotkeys() {
             ui->mouseGyroButton->setText(QString::fromStdString(input_string));
         } else if (output_string.contains("hotkey_toggle_mouse_to_touchpad")) {
             ui->mouseTouchpadButton->setText(QString::fromStdString(input_string));
+        } else if (output_string.contains("hotkey_volume_up")) {
+            controllerInputDetected
+                ? ui->volumeUpButtonPad->setText(QString::fromStdString(input_string))
+                : ui->volumeUpButtonKB->setText(QString::fromStdString(input_string));
+        } else if (output_string.contains("hotkey_volume_down")) {
+            controllerInputDetected
+                ? ui->volumeDownButtonPad->setText(QString::fromStdString(input_string))
+                : ui->volumeDownButtonKB->setText(QString::fromStdString(input_string));
+        } else if (output_string.contains("hotkey_volume_mute")) {
+            controllerInputDetected
+                ? ui->volumeMuteButtonPad->setText(QString::fromStdString(input_string))
+                : ui->volumeMuteButtonKB->setText(QString::fromStdString(input_string));
         }
     }
 
@@ -352,6 +386,19 @@ void Hotkeys::CheckGamePad() {
 
         if (!h_gamepad) {
             LOG_ERROR(Input, "Failed to open gamepad: {}", SDL_GetError());
+        }
+    } else {
+        if (activeIndex != -1) {
+            h_gamepad = SDL_OpenGamepad(h_gamepads[activeIndex]);
+        } else if (defaultIndex != -1) {
+            h_gamepad = SDL_OpenGamepad(h_gamepads[defaultIndex]);
+        } else if (gamepad_count > 0) {
+            LOG_INFO(Input, "Game running, opening first gamepad for hotkey mapping");
+            h_gamepad = SDL_OpenGamepad(h_gamepads[0]);
+        }
+
+        if (!h_gamepad) {
+            LOG_ERROR(Input, "Failed to open gamepad during game: {}", SDL_GetError());
         }
     }
 }

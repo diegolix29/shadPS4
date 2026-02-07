@@ -144,6 +144,10 @@ public:
         // Combine with global volume slider
         float total_gain = max_channel_gain * (Config::getVolumeSlider() / 100.0f);
 
+        if (Config::isMuteEnabled()) {
+            total_gain = 0.0f;
+        }
+
         std::lock_guard<std::mutex> lock(volume_mutex);
         if (SDL_SetAudioStreamGain(stream, total_gain)) {
             current_gain.store(total_gain);
@@ -172,6 +176,12 @@ private:
             last_volume_check_time = current_time;
 
             float config_volume = Config::getVolumeSlider() / 100.0f;
+
+            // Apply mute if enabled
+            if (Config::isMuteEnabled()) {
+                config_volume = 0.0f;
+            }
+
             float stored_gain = current_gain.load();
 
             if (std::abs(config_volume - stored_gain) > 0.001f) {

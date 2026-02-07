@@ -1433,7 +1433,7 @@ void L::Draw() {
             if (g_MainWindow)
                 g_MainWindow->ToggleMute();
         }
-        if (IsKeyPressed(ImGuiKey_F1, false)) {
+        if (IsKeyPressed(ImGuiKey_F1, false) && !Config::hasCustomMuteHotkey()) {
             if (g_MainWindow)
                 g_MainWindow->ToggleMute();
         }

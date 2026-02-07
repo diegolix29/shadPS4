@@ -725,6 +725,32 @@ void setMuteEnabled(bool enabled) {
     muteEnabled.base_value = enabled;
 }
 
+bool hasCustomMuteHotkey() {
+    auto hotkey_file = GetFoolproofInputConfigFile("global");
+    std::ifstream file(hotkey_file);
+    std::string line;
+
+    while (std::getline(file, line)) {
+        std::size_t comment_pos = line.find('#');
+        if (comment_pos != std::string::npos) {
+            line = line.substr(0, comment_pos);
+        }
+        line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
+        if (line.empty())
+            continue;
+
+        if (line.find("hotkey_volume_mute") != std::string::npos) {
+            std::size_t equal_pos = line.find('=');
+            if (equal_pos != std::string::npos) {
+                std::string value = line.substr(equal_pos + 1);
+                value.erase(std::remove_if(value.begin(), value.end(), ::isspace), value.end());
+                return value != "unmapped" && !value.empty();
+            }
+        }
+    }
+    return false;
+}
+
 bool getUseSpecialPad(int pad) {
     if (pad < 1 || pad > 4)
         return false;
