@@ -1203,6 +1203,8 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/welcome_dialog.cpp
            src/qt_gui/mod_manager_dialog.cpp
            src/qt_gui/mod_manager_dialog.h
+           src/qt_gui/mod_tracker.cpp
+           src/qt_gui/mod_tracker.h
            ${EMULATOR}
            ${RESOURCE_FILES}
            ${TRANSLATIONS}

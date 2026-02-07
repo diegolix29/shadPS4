@@ -4,9 +4,12 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
 #include <QDialog>
 #include <QListWidget>
 #include <QString>
+
+#include "mod_tracker.h"
 
 class ModManagerDialog : public QDialog {
     Q_OBJECT
@@ -33,6 +36,8 @@ private:
     void scanActiveMods();
     void installMod(const QString& modName);
     void uninstallMod(const QString& modName);
+    void copyModToOverlayAndTrack(const QString& modName);
+    void cleanupEmptyDirectories(const QString& path);
     bool modMatchesGame(const std::filesystem::path& modPath) const;
     QString findModThatContainsFile(const QString& relPath) const;
     void updateModListUI();
@@ -54,4 +59,6 @@ private:
 
     QListWidget* listAvailable;
     QListWidget* listActive;
+
+    std::unique_ptr<ModTracker> modTracker;
 };

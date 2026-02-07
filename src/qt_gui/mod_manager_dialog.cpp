@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+#include <memory>
+#include <QDebug>
 #include <QDir>
 #include <QDirIterator>
 #include <QFileDialog>
@@ -17,6 +20,7 @@
 #include "common/path_util.h"
 #include "core/file_sys/fs.h"
 #include "mod_manager_dialog.h"
+#include "mod_tracker.h"
 
 ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameSerial,
                                    QWidget* parent)
@@ -46,6 +50,10 @@ ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameS
     QDir().mkpath(availablePath);
     QDir().mkpath(activePath);
     QDir().mkpath(backupsRoot);
+
+    // Initialize ModTracker
+    modTracker = std::make_unique<ModTracker>(gameSerial, modsRoot);
+    modTracker->loadFromFile();
 
     auto* mainLayout = new QVBoxLayout(this);
 
@@ -347,6 +355,32 @@ void ModManagerDialog::installMod(const QString& modName) {
     if (!QDir(src).exists())
         return;
 
+    // NOTE: installMod should ONLY extract to Available folder
+    // The actual copying to overlay and tracking happens in activateSelected
+    // This function should NOT copy files to overlay or track them
+
+    qDebug() << "Mod" << modName << "installed to Available folder only";
+    qDebug() << "Files will be copied to overlay and tracked when mod is activated";
+}
+
+void ModManagerDialog::copyModToOverlayAndTrack(const QString& modName) {
+    QString src =
+        availablePath + "/" + modName; // Files are still in availablePath during activation
+    if (!QDir(src).exists()) {
+        qWarning() << "Mod source not found:" << modName;
+        return;
+    }
+
+    // Create ModInfo for tracking FIRST
+    ModInfo modInfo;
+    modInfo.name = modName;
+    modInfo.gameSerial = gameSerial;
+    modInfo.installedAt = QDateTime::currentDateTime();
+    modInfo.isActive = false; // Will be set to true in activateSelected
+
+    // Add mod to tracker before adding files
+    modTracker->addMod(modInfo);
+
     QString modBackupRoot = backupsRoot + "/" + modName;
     QDir().mkpath(modBackupRoot);
 
@@ -357,8 +391,6 @@ void ModManagerDialog::installMod(const QString& modName) {
             continue;
         QString rel = QDir(src).relativeFilePath(it.filePath());
 
-        QString gameFile = resolveOriginalFile(rel);
-
         if (needsDvdrootPrefix(modName)) {
             if (!rel.startsWith("dvdroot_ps4/")) {
                 rel = "dvdroot_ps4/" + rel;
@@ -368,6 +400,32 @@ void ModManagerDialog::installMod(const QString& modName) {
         QString destPath = overlayRoot + "/" + rel;
         QDir().mkpath(QFileInfo(destPath).absolutePath());
 
+        QString backupFile;
+        QString originalFile;
+
+        // Check if file already exists in overlayRoot (this is what we need to backup)
+        if (QFile::exists(destPath)) {
+            backupFile = modBackupRoot + "/" + rel;
+            QDir().mkpath(QFileInfo(backupFile).absolutePath());
+
+            // If backup already exists, timestamp it
+            if (QFile::exists(backupFile)) {
+                QString stamped =
+                    backupFile + "." + QString::number(QDateTime::currentSecsSinceEpoch());
+                QFile::rename(backupFile, stamped);
+            }
+
+            // Backup the existing overlay file
+            if (QFile::copy(destPath, backupFile)) {
+                qDebug() << "Backed up existing overlay file:" << destPath << "->" << backupFile;
+            } else {
+                qWarning() << "Failed to backup overlay file:" << destPath;
+            }
+        }
+
+        // Find the original game file for reference (but don't backup it)
+        originalFile = resolveOriginalFile(rel);
+
         if (QFile::exists(destPath)) {
             QString owner = findModThatContainsFile(rel);
             if (!owner.isEmpty() && owner != modName) {
@@ -376,33 +434,26 @@ void ModManagerDialog::installMod(const QString& modName) {
             }
         }
 
-        if (!gameFile.isEmpty()) {
-            QString backupFile = modBackupRoot + "/" + rel;
-            QDir().mkpath(QFileInfo(backupFile).absolutePath());
-
-            if (QFile::exists(backupFile)) {
-                QString stamped =
-                    backupFile + "." + QString::number(QDateTime::currentSecsSinceEpoch());
-                QFile::rename(backupFile, stamped);
-            }
-
-            QFile::copy(gameFile, backupFile);
-        }
-
         if (QFile::exists(destPath))
             QFile::remove(destPath);
 
         if (!QFile::copy(it.filePath(), destPath)) {
             qWarning() << "Failed to copy mod file" << it.filePath() << "to" << destPath;
         }
+
+        // Track this file in ModTracker (now the mod exists)
+        modTracker->addFileToMod(modName, rel, originalFile, backupFile);
     }
+
+    // Save the updated mod info with all files
+    modTracker->saveToFile();
+
     if (!QDir(overlayRoot).exists()) {
         QDir().mkpath(overlayRoot);
     }
 
-    QString activeModDir = activePath + "/" + modName;
-    if (!QDir(activeModDir).exists())
-        QDir().mkpath(activeModDir);
+    qDebug() << "Mod" << modName << "copied to overlay and tracked with"
+             << modTracker->getModFiles(modName).size() << "files";
 }
 
 void ModManagerDialog::uninstallMod(const QString& modName) {
@@ -411,6 +462,10 @@ void ModManagerDialog::uninstallMod(const QString& modName) {
     if (QDir(path).exists()) {
         QDir(path).removeRecursively();
     }
+
+    // Remove mod from tracker
+    modTracker->removeMod(modName);
+    modTracker->saveToFile();
 
     scanAvailableMods();
 }
@@ -421,32 +476,38 @@ void ModManagerDialog::activateSelected() {
         QString modName = item->text();
         QString src = availablePath + "/" + modName;
 
-        QStringList conflicts = detectModConflicts(overlayRoot, src);
+        // Use ModTracker for better conflict detection
+        QSet<QString> conflictingMods = modTracker->findConflictingMods(modName);
 
-        if (!conflicts.isEmpty()) {
-            QString msg = "The following files already exist in another active mod:\n\n";
-            for (const QString& c : conflicts) {
-                QString owner = findModThatContainsFile(c);
-                if (!owner.isEmpty())
-                    greyedOutMods.insert(owner);
-                msg += QString("%1 (owned by mod: %2)\n").arg(c, owner);
-                greyedOutMods.insert(owner);
+        if (!conflictingMods.isEmpty()) {
+            QString msg = "This mod conflicts with the following active mods:\n\n";
+            for (const QString& conflictingMod : conflictingMods) {
+                ModInfo conflictInfo = modTracker->getMod(conflictingMod);
+                if (conflictInfo.isActive) {
+                    msg += QString("- %1\n").arg(conflictingMod);
+                    greyedOutMods.insert(conflictingMod);
+                }
             }
 
-            msg += "\nActivating this mod will overwrite them. Continue?";
+            msg += "\nActivating this mod will overwrite conflicting files. Continue?";
             if (!showScrollableConflictDialog(msg))
                 continue;
 
             updateModListUI();
         }
 
-        installMod(modName);
+        // Copy files to overlay and track them BEFORE renaming
+        copyModToOverlayAndTrack(modName);
 
         QString dst = activePath + "/" + modName;
         if (QDir(dst).exists())
             QDir(dst).removeRecursively();
 
         QFile::rename(src, dst);
+
+        // Mark mod as active in tracker
+        modTracker->setModActive(modName, true);
+        modTracker->saveToFile();
 
         listActive->addItem(modName);
         delete listAvailable->takeItem(listAvailable->row(item));
@@ -581,6 +642,7 @@ void ModManagerDialog::deactivateSelected() {
     for (auto* item : items) {
         QString modName = item->text();
 
+        // Restore files BEFORE marking mod as inactive
         restoreMod(modName);
 
         QSet<QString> modsToUnblock = greyedOutMods;
@@ -596,8 +658,57 @@ void ModManagerDialog::deactivateSelected() {
 
         QFile::rename(src, dst);
 
+        // Mark mod as inactive AFTER file operations are complete
+        modTracker->setModActive(modName, false);
+        modTracker->saveToFile();
+
         listAvailable->addItem(modName);
         delete listActive->takeItem(listActive->row(item));
+    }
+}
+
+void ModManagerDialog::cleanupEmptyDirectories(const QString& path) {
+    QDir dir(path);
+    if (!dir.exists()) {
+        return;
+    }
+
+    // First, collect all directories to avoid modifying the directory while iterating
+    QStringList allDirs;
+    QDirIterator it(path, QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        allDirs.append(it.filePath());
+    }
+
+    // Sort in reverse order to process subdirectories first
+    std::sort(allDirs.begin(), allDirs.end(), std::greater<QString>());
+
+    int removedDirs = 0;
+    for (const QString& dirPath : allDirs) {
+        QDir currentDir(dirPath);
+
+        // Check if directory is empty (no files and no subdirectories)
+        if (currentDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot).isEmpty()) {
+            if (currentDir.rmdir(dirPath)) {
+                qDebug() << "Removed empty directory:" << dirPath;
+                removedDirs++;
+            } else {
+                qWarning() << "Failed to remove empty directory:" << dirPath;
+            }
+        }
+    }
+
+    // Finally, check if the root overlay directory itself is empty
+    if (dir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot).isEmpty()) {
+        if (dir.rmdir(path)) {
+            qDebug() << "Removed empty overlay root directory:" << path;
+            removedDirs++;
+        }
+    }
+
+    if (removedDirs > 0) {
+        qDebug() << "Cleaned up" << removedDirs << "empty directories from" << path;
     }
 }
 
@@ -734,40 +845,163 @@ bool ModManagerDialog::showScrollableConflictDialog(const QString& text) {
 }
 
 void ModManagerDialog::restoreMod(const QString& modName) {
-    QString modBackupRoot = backupsRoot + "/" + modName;
-    if (!QDir(modBackupRoot).exists())
+    qDebug() << "Starting restoreMod for:" << modName;
+
+    ModInfo modInfo = modTracker->getMod(modName);
+    if (modInfo.name.isEmpty()) {
+        qDebug() << "Mod not found in tracker, using fallback method for:" << modName;
+
+        QString modBackupRoot = backupsRoot + "/" + modName;
+        if (!QDir(modBackupRoot).exists()) {
+            QMessageBox::warning(
+                this, "Mod Deactivation Warning",
+                QString("No backup data found for mod '%1'.\nFiles may not be properly restored.")
+                    .arg(modName));
+            return;
+        }
+
+        QString activeModPath = activePath + "/" + modName;
+        int filesRemoved = 0;
+        int filesRestored = 0;
+
+        QDirIterator modIt(activeModPath, QDirIterator::Subdirectories);
+        while (modIt.hasNext()) {
+            modIt.next();
+            if (!modIt.fileInfo().isFile())
+                continue;
+
+            QString rel = QDir(activeModPath).relativeFilePath(modIt.filePath());
+            QString overlayFile = overlayRoot + "/" + rel;
+            if (QFile::exists(overlayFile)) {
+                qDebug() << "Removing overlay file (fallback):" << overlayFile;
+                if (QFile::remove(overlayFile)) {
+                    filesRemoved++;
+                }
+            }
+        }
+
+        QDirIterator backupIt(modBackupRoot, QDirIterator::Subdirectories);
+        while (backupIt.hasNext()) {
+            backupIt.next();
+            if (!backupIt.fileInfo().isFile())
+                continue;
+
+            QString rel = QDir(modBackupRoot).relativeFilePath(backupIt.filePath());
+            QString restorePath = overlayRoot + "/" + rel;
+
+            QDir().mkpath(QFileInfo(restorePath).absolutePath());
+
+            if (QFile::exists(restorePath))
+                QFile::remove(restorePath);
+
+            if (QFile::copy(backupIt.filePath(), restorePath)) {
+                filesRestored++;
+            }
+        }
+
+        QDir(modBackupRoot).removeRecursively();
+
+        QMessageBox::information(
+            this, "Mod Deactivation Complete",
+            QString("Mod '%1' deactivated (fallback method).\n%2 files removed, %3 files restored.")
+                .arg(modName)
+                .arg(filesRemoved)
+                .arg(filesRestored));
         return;
-
-    QString activeModPath = activePath + "/" + modName;
-
-    QDirIterator modIt(activeModPath, QDirIterator::Subdirectories);
-    while (modIt.hasNext()) {
-        modIt.next();
-        if (!modIt.fileInfo().isFile())
-            continue;
-
-        QString rel = QDir(activeModPath).relativeFilePath(modIt.filePath());
-        QString overlayFile = overlayRoot + "/" + rel;
-        if (QFile::exists(overlayFile))
-            QFile::remove(overlayFile);
     }
 
-    QDirIterator backupIt(modBackupRoot, QDirIterator::Subdirectories);
-    while (backupIt.hasNext()) {
-        backupIt.next();
-        if (!backupIt.fileInfo().isFile())
-            continue;
+    QStringList modFiles = modTracker->getModFiles(modName);
+    qDebug() << "Mod files to process:" << modFiles.size();
 
-        QString rel = QDir(modBackupRoot).relativeFilePath(backupIt.filePath());
-        QString restorePath = overlayRoot + "/" + rel;
-
-        QDir().mkpath(QFileInfo(restorePath).absolutePath());
-
-        if (QFile::exists(restorePath))
-            QFile::remove(restorePath);
-
-        QFile::copy(backupIt.filePath(), restorePath);
+    if (modFiles.isEmpty()) {
+        QMessageBox::warning(this, "Mod Deactivation Warning",
+                             QString("No files found in tracker for mod '%1'.\nThe mod may not "
+                                     "have been properly installed."));
+        return;
     }
 
-    QDir(modBackupRoot).removeRecursively();
+    int filesRemoved = 0;
+    int filesRestored = 0;
+    int filesKeptForOtherMods = 0;
+    QStringList errors;
+
+    for (const QString& relativePath : modFiles) {
+        QString overlayFile = overlayRoot + "/" + relativePath;
+        qDebug() << "Processing file:" << relativePath << "->" << overlayFile;
+
+        QStringList otherModsNeedingFile;
+        QList<ModInfo> allActiveMods = modTracker->getActiveMods();
+        qDebug() << "Current active mods count:" << allActiveMods.size();
+
+        for (const ModInfo& otherMod : allActiveMods) {
+            if (otherMod.name != modName && otherMod.files.contains(relativePath)) {
+                otherModsNeedingFile.append(otherMod.name);
+                qDebug() << "File needed by other mod:" << otherMod.name;
+            }
+        }
+
+        if (otherModsNeedingFile.isEmpty()) {
+            qDebug() << "No other mods need file, removing/restoring:" << relativePath;
+            ModFileInfo fileInfo = modInfo.fileDetails.value(relativePath);
+            if (!fileInfo.backupPath.isEmpty() && QFile::exists(fileInfo.backupPath)) {
+                QDir().mkpath(QFileInfo(overlayFile).absolutePath());
+                if (QFile::exists(overlayFile)) {
+                    qDebug() << "Removing overlay file before restore:" << overlayFile;
+                    QFile::remove(overlayFile);
+                }
+                if (QFile::copy(fileInfo.backupPath, overlayFile)) {
+                    filesRestored++;
+                    qDebug() << "Restored from backup:" << fileInfo.backupPath;
+                } else {
+                    errors.append(QString("Failed to restore %1 from backup").arg(relativePath));
+                }
+            } else {
+                if (QFile::exists(overlayFile)) {
+                    qDebug() << "Removing overlay file (no backup):" << overlayFile;
+                    if (QFile::remove(overlayFile)) {
+                        filesRemoved++;
+                    } else {
+                        errors.append(QString("Failed to remove %1").arg(relativePath));
+                    }
+                }
+            }
+        } else {
+            qDebug() << "File needed by other mods, keeping:" << relativePath;
+            filesKeptForOtherMods++;
+            ModInfo nextMod = modTracker->getMod(otherModsNeedingFile.first());
+            QString modSourcePath = activePath + "/" + nextMod.name + "/" + relativePath;
+            QString nextModBackupPath = backupsRoot + "/" + nextMod.name + "/" + relativePath;
+
+            bool fileUpdated = false;
+            if (QFile::exists(modSourcePath)) {
+                QDir().mkpath(QFileInfo(overlayFile).absolutePath());
+                if (QFile::exists(overlayFile)) {
+                    QFile::remove(overlayFile);
+                }
+                if (QFile::copy(modSourcePath, overlayFile)) {
+                    fileUpdated = true;
+                }
+            } else if (!nextModBackupPath.isEmpty() && QFile::exists(nextModBackupPath)) {
+                QDir().mkpath(QFileInfo(overlayFile).absolutePath());
+                if (QFile::exists(overlayFile)) {
+                    QFile::remove(overlayFile);
+                }
+                if (QFile::copy(nextModBackupPath, overlayFile)) {
+                    fileUpdated = true;
+                }
+            }
+
+            if (!fileUpdated) {
+                errors.append(QString("Failed to update %1 for mod %2")
+                                  .arg(relativePath, otherModsNeedingFile.first()));
+            }
+        }
+    }
+
+    QString modBackupRoot = backupsRoot + "/" + modName;
+    if (QDir(modBackupRoot).exists()) {
+        QDir(modBackupRoot).removeRecursively();
+    }
+
+    cleanupEmptyDirectories(overlayRoot);
 }
