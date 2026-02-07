@@ -3,18 +3,35 @@
 
 #include <algorithm>
 #include <memory>
-#include <QDebug>
+#include <QApplication>
+#include <QButtonGroup>
+#include <QComboBox>
+#include <QDesktopServices>
 #include <QDir>
 #include <QDirIterator>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
+#include <QJsonDocument>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
+#include <QPainter>
+#include <QPixmap>
 #include <QProcess>
+#include <QProxyStyle>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QScrollArea>
+#include <QSplitter>
+#include <QStyleOption>
+#include <QTextEdit>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
+#include <QUrl>
 #include <QVBoxLayout>
 
 #include "common/path_util.h"
@@ -24,9 +41,15 @@
 
 ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameSerial,
                                    QWidget* parent)
-    : QDialog(parent), gamePath(gamePath), gameSerial(gameSerial) {
-    setWindowTitle("Mod Manager");
-    setMinimumSize(600, 380);
+    : QDialog(parent), gamePath(gamePath), gameSerial(gameSerial), currentSortIndex(0),
+      isGridView(true), searchBox(nullptr), sortComboBox(nullptr), gridViewBtn(nullptr),
+      listViewBtn(nullptr), refreshBtn(nullptr), closeBtn(nullptr), installModBtn(nullptr),
+      uninstallModBtn(nullptr), titleLabel(nullptr), modListWidget(nullptr), modScrollArea(nullptr),
+      modListContainer(nullptr), modListLayout(nullptr), viewModeGroup(nullptr),
+      listAvailable(nullptr), listActive(nullptr) {
+    setWindowTitle(QString("Browse %1 Mods").arg(gameSerial));
+    setMinimumSize(900, 700);
+    resize(1200, 800);
 
     QString baseGamePath = gamePath;
     QString updatePath = gamePath + "-UPDATE";
@@ -51,73 +74,205 @@ ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameS
     QDir().mkpath(activePath);
     QDir().mkpath(backupsRoot);
 
-    // Initialize ModTracker
     modTracker = std::make_unique<ModTracker>(gameSerial, modsRoot);
     modTracker->loadFromFile();
 
-    auto* mainLayout = new QVBoxLayout(this);
-
-    QLabel* lblGameTitle = new QLabel(QString("Game: %1").arg(gameSerial), this);
-    lblGameTitle->setAlignment(Qt::AlignCenter);
-    QFont font = lblGameTitle->font();
-    font.setPointSize(14);
-    font.setBold(true);
-    lblGameTitle->setFont(font);
-    mainLayout->addWidget(lblGameTitle);
-
-    auto* layout = new QHBoxLayout();
-    mainLayout->addLayout(layout);
-
-    listAvailable = new QListWidget(this);
-    listActive = new QListWidget(this);
-
-    auto* leftColumn = new QVBoxLayout();
-    auto* lblAvailable = new QLabel("Available Mods");
-    lblAvailable->setAlignment(Qt::AlignCenter);
-
-    leftColumn->addWidget(lblAvailable);
-    leftColumn->addWidget(listAvailable);
-
-    auto* rightColumn = new QVBoxLayout();
-    auto* lblActive = new QLabel("Active Mods");
-    lblActive->setAlignment(Qt::AlignCenter);
-
-    rightColumn->addWidget(lblActive);
-    rightColumn->addWidget(listActive);
-
-    auto* buttons = new QVBoxLayout();
-    auto* btnAdd = new QPushButton(">");
-    auto* btnRemove = new QPushButton("<");
-    auto* btnAddAll = new QPushButton(">>");
-    auto* btnRemoveAll = new QPushButton("<<");
-    auto* btnClose = new QPushButton("Close");
-    auto* btnInstall = new QPushButton("Install Mod");
-    auto* btnUninstall = new QPushButton("Uninstall Mod");
-
-    leftColumn->addWidget(btnInstall);
-    leftColumn->addWidget(btnUninstall);
-
-    buttons->addWidget(btnAdd);
-    buttons->addWidget(btnRemove);
-    buttons->addWidget(btnAddAll);
-    buttons->addWidget(btnRemoveAll);
-    buttons->addStretch();
-    buttons->addWidget(btnClose);
-
-    layout->addLayout(leftColumn);
-    layout->addLayout(buttons);
-    layout->addLayout(rightColumn);
-
+    setupUI();
+    applyDarkTheme();
     scanAvailableMods();
     scanActiveMods();
-    connect(btnInstall, &QPushButton::clicked, this, &ModManagerDialog::installModFromDisk);
-    connect(btnUninstall, &QPushButton::clicked, this, &ModManagerDialog::removeAvailableMod);
+    updateModDisplay();
+}
 
-    connect(btnAdd, &QPushButton::clicked, this, &ModManagerDialog::activateSelected);
-    connect(btnRemove, &QPushButton::clicked, this, &ModManagerDialog::deactivateSelected);
-    connect(btnAddAll, &QPushButton::clicked, this, &ModManagerDialog::activateAll);
-    connect(btnRemoveAll, &QPushButton::clicked, this, &ModManagerDialog::deactivateAll);
-    connect(btnClose, &QPushButton::clicked, this, &QDialog::close);
+void ModManagerDialog::setupUI() {
+    auto* mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(10, 10, 10, 10);
+    mainLayout->setSpacing(10);
+
+    setupHeader();
+    mainLayout->addWidget(titleLabel);
+
+    setupModList();
+    mainLayout->addWidget(modScrollArea);
+}
+
+void ModManagerDialog::setupHeader() {
+    auto* titleContainer = new QWidget(this);
+    auto* titleLayout = new QVBoxLayout(titleContainer);
+
+    auto* titleLabel = new QLabel(QString("Browse %1 Mods").arg(gameSerial), this);
+    titleLabel->setAlignment(Qt::AlignCenter);
+    QFont font = titleLabel->font();
+    font.setPointSize(18);
+    font.setBold(true);
+    titleLabel->setFont(font);
+
+    auto* headerLayout = new QHBoxLayout();
+    searchBox = new QLineEdit(this);
+    searchBox->setPlaceholderText("Search mods...");
+    searchBox->setMinimumWidth(300);
+    searchBox->setClearButtonEnabled(true);
+    sortComboBox = new QComboBox(this);
+    sortComboBox->addItem("Date Added", Qt::DescendingOrder);
+    sortComboBox->addItem("Name", Qt::AscendingOrder);
+    sortComboBox->addItem("Author", Qt::AscendingOrder);
+    sortComboBox->addItem("Size", Qt::DescendingOrder);
+    sortComboBox->setMinimumWidth(120);
+    gridViewBtn = new QPushButton("Grid", this);
+    gridViewBtn->setCheckable(true);
+    gridViewBtn->setChecked(true);
+
+    listViewBtn = new QPushButton("List", this);
+    listViewBtn->setCheckable(true);
+
+    viewModeGroup = new QButtonGroup(this);
+    viewModeGroup->addButton(gridViewBtn, 0);
+    viewModeGroup->addButton(listViewBtn, 1);
+    viewModeGroup->setExclusive(true);
+    refreshBtn = new QPushButton("Refresh", this);
+    installModBtn = new QPushButton("Install Mod", this);
+    closeBtn = new QPushButton("Close", this);
+
+    headerLayout->addWidget(searchBox);
+    headerLayout->addWidget(sortComboBox);
+    headerLayout->addWidget(gridViewBtn);
+    headerLayout->addWidget(listViewBtn);
+    headerLayout->addStretch();
+    headerLayout->addWidget(refreshBtn);
+    auto* openFolderBtn = new QPushButton("Open Folder");
+    openFolderBtn->setStyleSheet(R"(
+        QPushButton {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #404040;
+            border-color: #0078d4;
+        }
+    )");
+
+    connect(openFolderBtn, &QPushButton::clicked, this, [this]() {
+        QString folderPath = availablePath;
+        if (!QDir(folderPath).exists()) {
+            QDir().mkpath(folderPath);
+        }
+        QUrl url = QUrl::fromLocalFile(folderPath);
+        if (!QDesktopServices::openUrl(url)) {
+            QMessageBox::warning(this, "Error", "Could not open the mods folder.");
+        }
+    });
+
+    headerLayout->addWidget(openFolderBtn);
+    headerLayout->addWidget(installModBtn);
+    headerLayout->addWidget(closeBtn);
+
+    connect(searchBox, &QLineEdit::textChanged, this, &ModManagerDialog::onSearchTextChanged);
+    connect(sortComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &ModManagerDialog::onSortOrderChanged);
+    connect(viewModeGroup, QOverload<int>::of(&QButtonGroup::idClicked), this,
+            &ModManagerDialog::onViewModeChanged);
+    connect(refreshBtn, &QPushButton::clicked, this, &ModManagerDialog::onRefreshMods);
+    connect(installModBtn, &QPushButton::clicked, this, &ModManagerDialog::installModFromDisk);
+    connect(closeBtn, &QPushButton::clicked, this, &QDialog::close);
+
+    titleLayout->addWidget(titleLabel);
+    titleLayout->addLayout(headerLayout);
+
+    this->titleLabel = titleContainer;
+}
+
+void ModManagerDialog::setupModList() {
+    modScrollArea = new QScrollArea(this);
+    modScrollArea->setWidgetResizable(true);
+    modScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    modScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+    modListContainer = new QWidget(this);
+    modListLayout = new QVBoxLayout(modListContainer);
+    modListLayout->setSpacing(10);
+    modListLayout->setAlignment(Qt::AlignTop);
+
+    modScrollArea->setWidget(modListContainer);
+}
+
+void ModManagerDialog::setupFooter() {}
+
+void ModManagerDialog::applyDarkTheme() {
+    QString darkStyle = R"(
+        QDialog {
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+        QLineEdit {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            padding: 6px;
+            selection-background-color: #0078d4;
+        }
+        QComboBox {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            padding: 6px;
+        }
+        QComboBox::drop-down {
+            border: none;
+            width: 20px;
+        }
+        QComboBox::down-arrow {
+            image: none;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid #ffffff;
+        }
+        QPushButton {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #404040;
+            border-color: #0078d4;
+        }
+        QPushButton:checked {
+            background-color: #0078d4;
+            border-color: #0078d4;
+        }
+        QScrollArea {
+            background-color: #1e1e1e;
+            border: 1px solid #404040;
+            border-radius: 4px;
+        }
+        QListWidget {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            border: 1px solid #404040;
+            border-radius: 4px;
+        }
+        QListWidget::item {
+            background-color: #2d2d2d;
+            border-bottom: 1px solid #404040;
+            padding: 8px;
+        }
+        QListWidget::item:selected {
+            background-color: #0078d4;
+        }
+        QListWidget::item:hover {
+            background-color: #404040;
+        }
+    )";
+
+    setStyleSheet(darkStyle);
 }
 
 QString ModManagerDialog::findModThatContainsFile(const QString& relPath) const {
@@ -130,23 +285,505 @@ QString ModManagerDialog::findModThatContainsFile(const QString& relPath) const 
     return "";
 }
 
-void ModManagerDialog::updateModListUI() {
-    for (int i = 0; i < listActive->count(); i++) {
-        QListWidgetItem* it = listActive->item(i);
-        QString name = it->text();
-        bool blocked = greyedOutMods.contains(name);
+void ModManagerDialog::onSearchTextChanged(const QString& text) {
+    if (!searchBox)
+        return;
+    currentSearchText = text.toLower();
+    filterMods();
+    updateModDisplay();
+}
 
-        it->setFlags(blocked ? Qt::NoItemFlags : Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+void ModManagerDialog::onSortOrderChanged(int index) {
+    if (!sortComboBox)
+        return;
+    currentSortIndex = index;
+    sortMods();
+    updateModDisplay();
+}
+
+void ModManagerDialog::onViewModeChanged() {
+    if (!viewModeGroup)
+        return;
+    isGridView = (viewModeGroup->checkedId() == 0);
+    updateModDisplay();
+}
+
+void ModManagerDialog::onModItemClicked(QListWidgetItem* item) {
+    Q_UNUSED(item);
+}
+
+void ModManagerDialog::onModItemDoubleClicked(QListWidgetItem* item) {
+    onToggleModActive(item);
+}
+
+void ModManagerDialog::onToggleModActive(QListWidgetItem* item) {
+    if (!item || !modTracker)
+        return;
+
+    QString modName = item->data(Qt::UserRole).toString();
+    ModInfo modInfo = modTracker->getMod(modName);
+
+    if (modInfo.isActive) {
+        deactivateSelected();
+    } else {
+        activateSelected();
     }
 }
 
-void ModManagerDialog::scanAvailableMods() {
-    listAvailable->clear();
+void ModManagerDialog::onRefreshMods() {
+    greyedOutMods.clear();
 
-    QDir dir(availablePath);
-    for (const QString& mod : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        listAvailable->addItem(mod);
+    scanAvailableMods();
+    scanActiveMods();
+    filterMods();
+    sortMods();
+    updateModDisplay();
+}
+
+void ModManagerDialog::updateModDisplay() {
+    if (!modListLayout || !modListContainer) {
+        return;
     }
+
+    greyedOutMods.clear();
+    while (QLayoutItem* item = modListLayout->takeAt(0)) {
+        if (item->widget()) {
+            item->widget()->hide();
+            item->widget()->setParent(nullptr);
+            item->widget()->deleteLater();
+        }
+        if (item->layout()) {
+            while (QLayoutItem* nestedItem = item->layout()->takeAt(0)) {
+                if (nestedItem->widget()) {
+                    nestedItem->widget()->hide();
+                    nestedItem->widget()->setParent(nullptr);
+                    nestedItem->widget()->deleteLater();
+                }
+                delete nestedItem;
+            }
+        }
+        delete item;
+    }
+    modListContainer->hide();
+    QApplication::processEvents();
+
+    if (isGridView) {
+        auto* gridLayout = new QGridLayout();
+        gridLayout->setSpacing(10);
+        gridLayout->setContentsMargins(5, 5, 5, 5);
+        int columns = 3;
+        int row = 0, col = 0;
+
+        for (const ModInfo& modInfo : filteredMods) {
+            auto* modWidget = createModItem(modInfo);
+            if (modWidget) {
+                gridLayout->addWidget(modWidget, row, col);
+
+                col++;
+                if (col >= columns) {
+                    col = 0;
+                    row++;
+                }
+            }
+        }
+
+        modListLayout->addLayout(gridLayout);
+    } else {
+        for (const ModInfo& modInfo : filteredMods) {
+            auto* modWidget = createModListItem(modInfo);
+            if (modWidget) {
+                modListLayout->addWidget(modWidget);
+            }
+        }
+    }
+
+    modListLayout->addStretch();
+    modListContainer->show();
+    modListContainer->updateGeometry();
+    modListContainer->repaint();
+}
+
+void ModManagerDialog::filterMods() {
+    filteredMods.clear();
+
+    for (const ModInfo& modInfo : allMods) {
+        bool matches = true;
+
+        if (!currentSearchText.isEmpty()) {
+            matches = modInfo.name.toLower().contains(currentSearchText) ||
+                      modInfo.author.toLower().contains(currentSearchText) ||
+                      modInfo.description.toLower().contains(currentSearchText);
+        }
+
+        if (matches) {
+            filteredMods.append(modInfo);
+        }
+    }
+}
+
+void ModManagerDialog::sortMods() {
+    if (filteredMods.isEmpty())
+        return;
+
+    std::sort(filteredMods.begin(), filteredMods.end(), [this](const ModInfo& a, const ModInfo& b) {
+        switch (currentSortIndex) {
+        case 0:
+            return a.installedAt > b.installedAt;
+        case 1:
+            return a.name.toLower() < b.name.toLower();
+        case 2:
+            return a.author.toLower() < b.author.toLower();
+        case 3:
+            return getModSizeString(a.name) > getModSizeString(b.name);
+        default:
+            return a.name.toLower() < b.name.toLower();
+        }
+    });
+}
+
+QWidget* ModManagerDialog::createModItem(const ModInfo& modInfo) {
+    auto* widget = new QWidget();
+    widget->setMinimumSize(320, 260);
+    widget->setMaximumSize(380, 280);
+    widget->setStyleSheet(R"(
+        QWidget {
+            background-color: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        QWidget:hover {
+            border-color: #0078d4;
+        }
+    )");
+
+    auto* layout = new QVBoxLayout(widget);
+    layout->setSpacing(4);
+    auto* titleLabel = new QLabel(modInfo.name);
+    titleLabel->setStyleSheet("QLabel { font-weight: bold; font-size: 14px; color: #ffffff; }");
+    titleLabel->setWordWrap(true);
+    titleLabel->setMinimumHeight(30);
+    titleLabel->setMaximumHeight(40);
+    auto* authorLabel =
+        new QLabel(QString("by %1").arg(modInfo.author.isEmpty() ? "Unknown" : modInfo.author));
+    authorLabel->setStyleSheet("QLabel { color: #cccccc; font-size: 11px; }");
+    authorLabel->setMinimumHeight(15);
+    auto* typeLabel = new QLabel(getModTypeString(modInfo.name));
+    typeLabel->setStyleSheet("QLabel { color: #4CAF50; font-size: 10px; font-weight: bold; }");
+    typeLabel->setWordWrap(true);
+    typeLabel->setMinimumHeight(25);
+    typeLabel->setMaximumHeight(35);
+    auto* sizeLabel = new QLabel(getModSizeString(modInfo.name));
+    sizeLabel->setStyleSheet("QLabel { color: #888888; font-size: 10px; }");
+    sizeLabel->setMinimumHeight(15);
+    auto* statusLabel = new QLabel(modInfo.isActive ? "Active" : "Inactive");
+    statusLabel->setStyleSheet(
+        modInfo.isActive ? "QLabel { color: #4CAF50; font-size: 10px; font-weight: bold; }"
+                         : "QLabel { color: #ff9800; font-size: 10px; font-weight: bold; }");
+    statusLabel->setMinimumHeight(15);
+    auto* buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(6);
+
+    auto* previewBtn = new QPushButton("Details");
+    previewBtn->setStyleSheet(R"(
+        QPushButton {
+            background-color: #0078d4;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 10px;
+            min-height: 20px;
+        }
+        QPushButton:hover {
+            background-color: #106ebe;
+        }
+    )");
+
+    auto* downloadBtn = new QPushButton(modInfo.isActive ? "Deactivate" : "Activate");
+    downloadBtn->setStyleSheet(modInfo.isActive ? R"(
+        QPushButton {
+            background-color: #f44336;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 10px;
+            min-height: 20px;
+        }
+        QPushButton:hover {
+            background-color: #d32f2f;
+        }
+    )"
+                                                : R"(
+        QPushButton {
+            background-color: #4CAF50;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 10px;
+            min-height: 20px;
+        }
+        QPushButton:hover {
+            background-color: #45a049;
+        }
+    )");
+
+    buttonLayout->addWidget(previewBtn);
+    buttonLayout->addWidget(downloadBtn);
+    buttonLayout->addStretch();
+    connect(downloadBtn, &QPushButton::clicked, this, [this, modInfo]() {
+        if (modInfo.isActive) {
+            deactivateModByName(modInfo.name);
+        } else {
+            activateModByName(modInfo.name);
+        }
+    });
+    connect(previewBtn, &QPushButton::clicked, this,
+            [this, modInfo]() { showModDetails(modInfo.name); });
+    layout->addWidget(titleLabel);
+    layout->addWidget(authorLabel);
+    layout->addWidget(typeLabel);
+    layout->addWidget(sizeLabel);
+    layout->addWidget(statusLabel);
+    layout->addLayout(buttonLayout);
+    widget->setProperty("modName", modInfo.name);
+
+    return widget;
+}
+
+QWidget* ModManagerDialog::createModListItem(const ModInfo& modInfo) {
+    auto* widget = new QWidget();
+    widget->setMinimumHeight(60);
+    widget->setMaximumHeight(80);
+    widget->setStyleSheet(R"(
+        QWidget {
+            background-color: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            padding: 8px;
+            margin: 2px;
+        }
+        QWidget:hover {
+            border-color: #0078d4;
+        }
+    )");
+
+    auto* layout = new QHBoxLayout(widget);
+    auto* titleLabel = new QLabel(modInfo.name);
+    titleLabel->setStyleSheet("QLabel { font-weight: bold; font-size: 14px; color: #ffffff; }");
+    titleLabel->setWordWrap(true);
+    titleLabel->setMinimumWidth(200);
+    titleLabel->setMaximumWidth(250);
+    auto* authorLabel =
+        new QLabel(QString("by %1").arg(modInfo.author.isEmpty() ? "Unknown" : modInfo.author));
+    authorLabel->setStyleSheet("QLabel { color: #cccccc; font-size: 12px; }");
+    authorLabel->setMinimumWidth(120);
+    authorLabel->setMaximumWidth(150);
+    auto* typeLabel = new QLabel(getModTypeString(modInfo.name));
+    typeLabel->setStyleSheet("QLabel { color: #4CAF50; font-size: 11px; font-weight: bold; }");
+    typeLabel->setMinimumWidth(100);
+    typeLabel->setMaximumWidth(150);
+    auto* sizeLabel = new QLabel(getModSizeString(modInfo.name));
+    sizeLabel->setStyleSheet("QLabel { color: #888888; font-size: 11px; }");
+    sizeLabel->setMinimumWidth(60);
+    sizeLabel->setMaximumWidth(80);
+    auto* statusLabel = new QLabel(modInfo.isActive ? "Active" : "Inactive");
+    statusLabel->setStyleSheet(
+        modInfo.isActive ? "QLabel { color: #4CAF50; font-size: 11px; font-weight: bold; }"
+                         : "QLabel { color: #ff9800; font-size: 11px; font-weight: bold; }");
+    statusLabel->setMinimumWidth(60);
+    statusLabel->setMaximumWidth(80);
+    auto* previewBtn = new QPushButton("Details");
+    previewBtn->setStyleSheet(R"(
+        QPushButton {
+            background-color: #0078d4;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        QPushButton:hover {
+            background-color: #106ebe;
+        }
+    )");
+
+    auto* downloadBtn = new QPushButton(modInfo.isActive ? "Deactivate" : "Activate");
+    downloadBtn->setStyleSheet(modInfo.isActive ? R"(
+        QPushButton {
+            background-color: #f44336;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        QPushButton:hover {
+            background-color: #d32f2f;
+        }
+    )"
+                                                : R"(
+        QPushButton {
+            background-color: #4CAF50;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        QPushButton:hover {
+            background-color: #45a049;
+        }
+    )");
+
+    connect(downloadBtn, &QPushButton::clicked, this, [this, modInfo]() {
+        if (modInfo.isActive) {
+            deactivateModByName(modInfo.name);
+        } else {
+            activateModByName(modInfo.name);
+        }
+    });
+    connect(previewBtn, &QPushButton::clicked, this,
+            [this, modInfo]() { showModDetails(modInfo.name); });
+
+    layout->addWidget(previewBtn);
+    layout->addWidget(downloadBtn);
+    layout->addStretch();
+    widget->setProperty("modName", modInfo.name);
+
+    return widget;
+}
+
+QPixmap ModManagerDialog::getModThumbnail(const QString& modName) const {
+    if (modName.isEmpty()) {
+        return QPixmap();
+    }
+
+    QString modPath = availablePath + "/" + modName;
+    QStringList possibleNames = {"thumbnail.png", "preview.png", "image.png", "screenshot.png",
+                                 "cover.jpg"};
+
+    for (const QString& name : possibleNames) {
+        QString imagePath = modPath + "/" + name;
+        if (QFile::exists(imagePath)) {
+            QPixmap pixmap(imagePath);
+            if (!pixmap.isNull()) {
+                return pixmap;
+            }
+        }
+    }
+
+    QPixmap pixmap(280, 120);
+    pixmap.fill(QColor(64, 64, 64));
+    return pixmap;
+}
+
+QString ModManagerDialog::getModSizeString(const QString& modName) const {
+    if (modName.isEmpty()) {
+        return "0 B";
+    }
+
+    QString modPath = availablePath + "/" + modName;
+    if (!QDir(modPath).exists()) {
+        modPath = activePath + "/" + modName;
+        if (!QDir(modPath).exists()) {
+            return "0 B";
+        }
+    }
+
+    qint64 totalSize = 0;
+
+    QDirIterator it(modPath, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        if (it.fileInfo().isFile()) {
+            totalSize += it.fileInfo().size();
+        }
+    }
+
+    if (totalSize < 1024) {
+        return QString("%1 B").arg(totalSize);
+    } else if (totalSize < 1024 * 1024) {
+        return QString("%1 KB").arg(totalSize / 1024.0, 0, 'f', 1);
+    } else if (totalSize < 1024 * 1024 * 1024) {
+        return QString("%1 MB").arg(totalSize / (1024.0 * 1024.0), 0, 'f', 1);
+    } else {
+        return QString("%1 GB").arg(totalSize / (1024.0 * 1024.0 * 1024.0), 0, 'f', 1);
+    }
+}
+
+QString ModManagerDialog::getModTypeString(const QString& modName) const {
+    if (modName.isEmpty()) {
+        return "General";
+    }
+
+    QString modPath = availablePath + "/" + modName;
+    if (!QDir(modPath).exists()) {
+        modPath = activePath + "/" + modName;
+        if (!QDir(modPath).exists()) {
+            return "General";
+        }
+    }
+
+    QDir modDir(modPath);
+
+    QString basePath = modPath;
+    if (modDir.exists("dvdroot_ps4")) {
+        basePath = modPath + "/dvdroot_ps4";
+        modDir = QDir(basePath);
+    }
+
+    QStringList folders = modDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    if (folders.isEmpty()) {
+        return "Empty";
+    }
+
+    QStringList modFolders;
+    for (const QString& folder : folders) {
+        QString folderPath = basePath + "/" + folder;
+        QDir folderDir(folderPath);
+        QStringList files = folderDir.entryList(QDir::Files);
+        if (!files.isEmpty()) {
+            modFolders.append(folder);
+            if (modFolders.size() >= 3) {
+                break;
+            }
+        }
+    }
+
+    if (modFolders.isEmpty()) {
+        return "No files";
+    }
+
+    return modFolders.join(", ");
+}
+
+void ModManagerDialog::scanAvailableMods() {
+    if (!modTracker) {
+        return;
+    }
+
+    allMods.clear();
+    QDir dir(availablePath);
+    QStringList modFolders = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    for (const QString& modName : modFolders) {
+        ModInfo modInfo = modTracker->getMod(modName);
+        if (modInfo.name.isEmpty()) {
+            modInfo.name = modName;
+            modInfo.gameSerial = gameSerial;
+            modInfo.installedAt = QDateTime::currentDateTime();
+            modInfo.isActive = false;
+            modInfo.author = "Unknown";
+            modInfo.description = "";
+            modInfo.version = "1.0";
+        }
+
+        allMods.append(modInfo);
+    }
+    filteredMods = allMods;
 }
 
 void ModManagerDialog::cleanupOverlayRootIfEmpty() {
@@ -154,7 +791,6 @@ void ModManagerDialog::cleanupOverlayRootIfEmpty() {
     if (!overlayDir.exists())
         return;
 
-    // Check if there are any files or subfolders
     QStringList entries = overlayDir.entryList(QDir::AllEntries | QDir::NoDotAndDotDot);
     if (entries.isEmpty()) {
         overlayDir.removeRecursively();
@@ -162,37 +798,182 @@ void ModManagerDialog::cleanupOverlayRootIfEmpty() {
 }
 
 void ModManagerDialog::activateAll() {
-    QList<QString> allMods;
-    for (int i = 0; i < listAvailable->count(); i++)
-        allMods.append(listAvailable->item(i)->text());
+    for (const ModInfo& modInfo : allMods) {
+        if (!modInfo.isActive) {
+            QString modName = modInfo.name;
+            QString src = availablePath + "/" + modName;
+            QString dst = activePath + "/" + modName;
 
-    for (const QString& name : allMods) {
-        installMod(name);
-        listActive->addItem(name);
+            if (QDir(src).exists()) {
+                copyModToOverlayAndTrack(modName);
+
+                if (QDir(dst).exists())
+                    QDir(dst).removeRecursively();
+
+                QFile::rename(src, dst);
+
+                modTracker->setModActive(modName, true);
+                modTracker->saveToFile();
+            }
+        }
     }
 
-    listAvailable->clear();
+    scanAvailableMods();
+    scanActiveMods();
+    filterMods();
+    sortMods();
+    updateModDisplay();
 }
 
 void ModManagerDialog::deactivateAll() {
-    QList<QString> allMods;
-    for (int i = 0; i < listActive->count(); i++)
-        allMods.append(listActive->item(i)->text());
-
-    for (const QString& name : allMods) {
-        uninstallMod(name);
-        listAvailable->addItem(name);
+    QList<ModInfo> activeMods;
+    for (const ModInfo& modInfo : allMods) {
+        if (modInfo.isActive) {
+            activeMods.append(modInfo);
+        }
     }
 
-    listActive->clear();
+    for (const ModInfo& modInfo : activeMods) {
+        QString modName = modInfo.name;
+
+        restoreMod(modName);
+
+        QSet<QString> modsToUnblock = greyedOutMods;
+        for (const QString& m : modsToUnblock)
+            greyedOutMods.remove(m);
+
+        QString src = activePath + "/" + modName;
+        QString dst = availablePath + "/" + modName;
+
+        if (QDir(dst).exists())
+            QDir(dst).removeRecursively();
+
+        QFile::rename(src, dst);
+
+        modTracker->setModActive(modName, false);
+        modTracker->saveToFile();
+    }
+
+    scanAvailableMods();
+    scanActiveMods();
+    filterMods();
+    sortMods();
+    updateModDisplay();
+}
+
+void ModManagerDialog::activateModByName(const QString& modName) {
+    QString src = availablePath + "/" + modName;
+    QString dst = activePath + "/" + modName;
+
+    if (!QDir(src).exists()) {
+        QMessageBox::warning(this, "Mod Not Found",
+                             QString("Mod '%1' not found in Available folder.").arg(modName));
+        return;
+    }
+
+    QSet<QString> conflictingMods = modTracker->findConflictingMods(modName);
+    QStringList activeConflicts;
+    for (const QString& conflictingMod : conflictingMods) {
+        ModInfo conflictInfo = modTracker->getMod(conflictingMod);
+        if (conflictInfo.isActive) {
+            activeConflicts.append(conflictingMod);
+        }
+    }
+
+    if (!activeConflicts.isEmpty()) {
+        QString msg = "This mod conflicts with following active mods:\n\n";
+        for (const QString& conflictingMod : activeConflicts) {
+            msg += QString("- %1\n").arg(conflictingMod);
+            greyedOutMods.insert(conflictingMod);
+        }
+
+        msg += "\nActivating this mod will overwrite conflicting files. Continue?";
+        if (!showScrollableConflictDialog(msg))
+            return;
+    }
+
+    copyModToOverlayAndTrack(modName);
+
+    if (QDir(dst).exists())
+        QDir(dst).removeRecursively();
+
+    QFile::rename(src, dst);
+
+    modTracker->setModActive(modName, true);
+    modTracker->saveToFile();
+
+    scanAvailableMods();
+    scanActiveMods();
+    filterMods();
+    sortMods();
+    updateModDisplay();
+}
+
+void ModManagerDialog::deactivateModByName(const QString& modName) {
+    QString src = activePath + "/" + modName;
+    QString dst = availablePath + "/" + modName;
+
+    if (!QDir(src).exists()) {
+        QMessageBox::warning(this, "Mod Not Found",
+                             QString("Mod '%1' not found in Active folder.").arg(modName));
+        return;
+    }
+
+    restoreMod(modName);
+
+    QSet<QString> modsToUnblock = greyedOutMods;
+    for (const QString& m : modsToUnblock)
+        greyedOutMods.remove(m);
+
+    if (QDir(dst).exists())
+        QDir(dst).removeRecursively();
+
+    QFile::rename(src, dst);
+
+    modTracker->setModActive(modName, false);
+    modTracker->saveToFile();
+
+    scanAvailableMods();
+    scanActiveMods();
+    filterMods();
+    sortMods();
+    updateModDisplay();
 }
 
 void ModManagerDialog::scanActiveMods() {
-    listActive->clear();
+    if (!modTracker) {
+        return;
+    }
 
     QDir dir(activePath);
-    for (const QString& mod : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
-        listActive->addItem(mod);
+    QStringList modFolders = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    for (const QString& modName : modFolders) {
+        ModInfo modInfo = modTracker->getMod(modName);
+        if (modInfo.name.isEmpty()) {
+            modInfo.name = modName;
+            modInfo.gameSerial = gameSerial;
+            modInfo.installedAt = QDateTime::currentDateTime();
+            modInfo.isActive = true;
+            modInfo.author = "Unknown";
+            modInfo.description = "";
+            modInfo.version = "1.0";
+        }
+
+        bool found = false;
+        for (const ModInfo& existingMod : allMods) {
+            if (existingMod.name == modInfo.name) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            allMods.append(modInfo);
+        }
+    }
+
+    filteredMods = allMods;
 }
 
 bool ModManagerDialog::modMatchesGame(const std::filesystem::path& modPath) const {
@@ -226,7 +1007,6 @@ bool ModManagerDialog::modMatchesGame(const std::filesystem::path& modPath) cons
 QString ModManagerDialog::resolveOriginalFile(const QString& rel) const {
     QStringList searchOrder;
 
-    // 1. manual_mods_path
     if (!Core::FileSys::MntPoints::manual_mods_path.empty()) {
         searchOrder << QString::fromStdString(Core::FileSys::MntPoints::manual_mods_path.string());
     }
@@ -341,7 +1121,6 @@ bool ModManagerDialog::ExtractArchive(const QString& archivePath, const QString&
         if (QProcess::execute("7z", args) == 0)
             return true;
 
-        // Try unrar
         if (QProcess::execute("unrar", args) == 0)
             return true;
     }
@@ -354,31 +1133,20 @@ void ModManagerDialog::installMod(const QString& modName) {
     QString src = availablePath + "/" + modName;
     if (!QDir(src).exists())
         return;
-
-    // NOTE: installMod should ONLY extract to Available folder
-    // The actual copying to overlay and tracking happens in activateSelected
-    // This function should NOT copy files to overlay or track them
-
-    qDebug() << "Mod" << modName << "installed to Available folder only";
-    qDebug() << "Files will be copied to overlay and tracked when mod is activated";
 }
 
 void ModManagerDialog::copyModToOverlayAndTrack(const QString& modName) {
-    QString src =
-        availablePath + "/" + modName; // Files are still in availablePath during activation
+    QString src = availablePath + "/" + modName;
     if (!QDir(src).exists()) {
-        qWarning() << "Mod source not found:" << modName;
         return;
     }
 
-    // Create ModInfo for tracking FIRST
     ModInfo modInfo;
     modInfo.name = modName;
     modInfo.gameSerial = gameSerial;
     modInfo.installedAt = QDateTime::currentDateTime();
-    modInfo.isActive = false; // Will be set to true in activateSelected
+    modInfo.isActive = false;
 
-    // Add mod to tracker before adding files
     modTracker->addMod(modInfo);
 
     QString modBackupRoot = backupsRoot + "/" + modName;
@@ -403,34 +1171,28 @@ void ModManagerDialog::copyModToOverlayAndTrack(const QString& modName) {
         QString backupFile;
         QString originalFile;
 
-        // Check if file already exists in overlayRoot (this is what we need to backup)
         if (QFile::exists(destPath)) {
             backupFile = modBackupRoot + "/" + rel;
             QDir().mkpath(QFileInfo(backupFile).absolutePath());
 
-            // If backup already exists, timestamp it
             if (QFile::exists(backupFile)) {
                 QString stamped =
                     backupFile + "." + QString::number(QDateTime::currentSecsSinceEpoch());
                 QFile::rename(backupFile, stamped);
             }
 
-            // Backup the existing overlay file
             if (QFile::copy(destPath, backupFile)) {
-                qDebug() << "Backed up existing overlay file:" << destPath << "->" << backupFile;
             } else {
-                qWarning() << "Failed to backup overlay file:" << destPath;
             }
         }
 
-        // Find the original game file for reference (but don't backup it)
         originalFile = resolveOriginalFile(rel);
 
         if (QFile::exists(destPath)) {
             QString owner = findModThatContainsFile(rel);
             if (!owner.isEmpty() && owner != modName) {
                 greyedOutMods.insert(owner);
-                updateModListUI();
+                updateModDisplay();
             }
         }
 
@@ -438,22 +1200,16 @@ void ModManagerDialog::copyModToOverlayAndTrack(const QString& modName) {
             QFile::remove(destPath);
 
         if (!QFile::copy(it.filePath(), destPath)) {
-            qWarning() << "Failed to copy mod file" << it.filePath() << "to" << destPath;
         }
 
-        // Track this file in ModTracker (now the mod exists)
         modTracker->addFileToMod(modName, rel, originalFile, backupFile);
     }
 
-    // Save the updated mod info with all files
     modTracker->saveToFile();
 
     if (!QDir(overlayRoot).exists()) {
         QDir().mkpath(overlayRoot);
     }
-
-    qDebug() << "Mod" << modName << "copied to overlay and tracked with"
-             << modTracker->getModFiles(modName).size() << "files";
 }
 
 void ModManagerDialog::uninstallMod(const QString& modName) {
@@ -463,7 +1219,6 @@ void ModManagerDialog::uninstallMod(const QString& modName) {
         QDir(path).removeRecursively();
     }
 
-    // Remove mod from tracker
     modTracker->removeMod(modName);
     modTracker->saveToFile();
 
@@ -471,47 +1226,7 @@ void ModManagerDialog::uninstallMod(const QString& modName) {
 }
 
 void ModManagerDialog::activateSelected() {
-    auto items = listAvailable->selectedItems();
-    for (auto* item : items) {
-        QString modName = item->text();
-        QString src = availablePath + "/" + modName;
-
-        // Use ModTracker for better conflict detection
-        QSet<QString> conflictingMods = modTracker->findConflictingMods(modName);
-
-        if (!conflictingMods.isEmpty()) {
-            QString msg = "This mod conflicts with the following active mods:\n\n";
-            for (const QString& conflictingMod : conflictingMods) {
-                ModInfo conflictInfo = modTracker->getMod(conflictingMod);
-                if (conflictInfo.isActive) {
-                    msg += QString("- %1\n").arg(conflictingMod);
-                    greyedOutMods.insert(conflictingMod);
-                }
-            }
-
-            msg += "\nActivating this mod will overwrite conflicting files. Continue?";
-            if (!showScrollableConflictDialog(msg))
-                continue;
-
-            updateModListUI();
-        }
-
-        // Copy files to overlay and track them BEFORE renaming
-        copyModToOverlayAndTrack(modName);
-
-        QString dst = activePath + "/" + modName;
-        if (QDir(dst).exists())
-            QDir(dst).removeRecursively();
-
-        QFile::rename(src, dst);
-
-        // Mark mod as active in tracker
-        modTracker->setModActive(modName, true);
-        modTracker->saveToFile();
-
-        listActive->addItem(modName);
-        delete listAvailable->takeItem(listAvailable->row(item));
-    }
+    activateAll();
 }
 
 QStringList ModManagerDialog::detectModConflicts(const QString& modInstallPath,
@@ -605,6 +1320,7 @@ void ModManagerDialog::installModFromDisk() {
 
         normalizeExtractedMod(dst);
         scanAvailableMods();
+        updateModDisplay();
         return;
     }
 
@@ -621,50 +1337,16 @@ void ModManagerDialog::installModFromDisk() {
     QDir().rename(tempExtract, dst);
 
     scanAvailableMods();
+    updateModDisplay();
 }
 
 void ModManagerDialog::removeAvailableMod() {
-    auto items = listAvailable->selectedItems();
-    if (items.isEmpty())
-        return;
-
-    QString modName = items.first()->text();
-    QString modPath = availablePath + "/" + modName;
-
-    QDir dir(modPath);
-    dir.removeRecursively();
-
-    scanAvailableMods();
+    QMessageBox::information(this, "Remove Mod",
+                             "Remove functionality needs to be adapted for the new UI system.");
 }
 
 void ModManagerDialog::deactivateSelected() {
-    auto items = listActive->selectedItems();
-    for (auto* item : items) {
-        QString modName = item->text();
-
-        // Restore files BEFORE marking mod as inactive
-        restoreMod(modName);
-
-        QSet<QString> modsToUnblock = greyedOutMods;
-        for (const QString& m : modsToUnblock)
-            greyedOutMods.remove(m);
-
-        updateModListUI();
-        QString src = activePath + "/" + modName;
-        QString dst = availablePath + "/" + modName;
-
-        if (QDir(dst).exists())
-            QDir(dst).removeRecursively();
-
-        QFile::rename(src, dst);
-
-        // Mark mod as inactive AFTER file operations are complete
-        modTracker->setModActive(modName, false);
-        modTracker->saveToFile();
-
-        listAvailable->addItem(modName);
-        delete listActive->takeItem(listActive->row(item));
-    }
+    deactivateAll();
 }
 
 void ModManagerDialog::cleanupEmptyDirectories(const QString& path) {
@@ -673,7 +1355,6 @@ void ModManagerDialog::cleanupEmptyDirectories(const QString& path) {
         return;
     }
 
-    // First, collect all directories to avoid modifying the directory while iterating
     QStringList allDirs;
     QDirIterator it(path, QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
     while (it.hasNext()) {
@@ -681,34 +1362,27 @@ void ModManagerDialog::cleanupEmptyDirectories(const QString& path) {
         allDirs.append(it.filePath());
     }
 
-    // Sort in reverse order to process subdirectories first
     std::sort(allDirs.begin(), allDirs.end(), std::greater<QString>());
 
     int removedDirs = 0;
     for (const QString& dirPath : allDirs) {
         QDir currentDir(dirPath);
 
-        // Check if directory is empty (no files and no subdirectories)
         if (currentDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot).isEmpty()) {
             if (currentDir.rmdir(dirPath)) {
-                qDebug() << "Removed empty directory:" << dirPath;
                 removedDirs++;
             } else {
-                qWarning() << "Failed to remove empty directory:" << dirPath;
             }
         }
     }
 
-    // Finally, check if the root overlay directory itself is empty
     if (dir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot).isEmpty()) {
         if (dir.rmdir(path)) {
-            qDebug() << "Removed empty overlay root directory:" << path;
             removedDirs++;
         }
     }
 
     if (removedDirs > 0) {
-        qDebug() << "Cleaned up" << removedDirs << "empty directories from" << path;
     }
 }
 
@@ -845,11 +1519,9 @@ bool ModManagerDialog::showScrollableConflictDialog(const QString& text) {
 }
 
 void ModManagerDialog::restoreMod(const QString& modName) {
-    qDebug() << "Starting restoreMod for:" << modName;
 
     ModInfo modInfo = modTracker->getMod(modName);
     if (modInfo.name.isEmpty()) {
-        qDebug() << "Mod not found in tracker, using fallback method for:" << modName;
 
         QString modBackupRoot = backupsRoot + "/" + modName;
         if (!QDir(modBackupRoot).exists()) {
@@ -873,7 +1545,6 @@ void ModManagerDialog::restoreMod(const QString& modName) {
             QString rel = QDir(activeModPath).relativeFilePath(modIt.filePath());
             QString overlayFile = overlayRoot + "/" + rel;
             if (QFile::exists(overlayFile)) {
-                qDebug() << "Removing overlay file (fallback):" << overlayFile;
                 if (QFile::remove(overlayFile)) {
                     filesRemoved++;
                 }
@@ -911,7 +1582,6 @@ void ModManagerDialog::restoreMod(const QString& modName) {
     }
 
     QStringList modFiles = modTracker->getModFiles(modName);
-    qDebug() << "Mod files to process:" << modFiles.size();
 
     if (modFiles.isEmpty()) {
         QMessageBox::warning(this, "Mod Deactivation Warning",
@@ -927,37 +1597,30 @@ void ModManagerDialog::restoreMod(const QString& modName) {
 
     for (const QString& relativePath : modFiles) {
         QString overlayFile = overlayRoot + "/" + relativePath;
-        qDebug() << "Processing file:" << relativePath << "->" << overlayFile;
 
         QStringList otherModsNeedingFile;
         QList<ModInfo> allActiveMods = modTracker->getActiveMods();
-        qDebug() << "Current active mods count:" << allActiveMods.size();
 
         for (const ModInfo& otherMod : allActiveMods) {
             if (otherMod.name != modName && otherMod.files.contains(relativePath)) {
                 otherModsNeedingFile.append(otherMod.name);
-                qDebug() << "File needed by other mod:" << otherMod.name;
             }
         }
 
         if (otherModsNeedingFile.isEmpty()) {
-            qDebug() << "No other mods need file, removing/restoring:" << relativePath;
             ModFileInfo fileInfo = modInfo.fileDetails.value(relativePath);
             if (!fileInfo.backupPath.isEmpty() && QFile::exists(fileInfo.backupPath)) {
                 QDir().mkpath(QFileInfo(overlayFile).absolutePath());
                 if (QFile::exists(overlayFile)) {
-                    qDebug() << "Removing overlay file before restore:" << overlayFile;
                     QFile::remove(overlayFile);
                 }
                 if (QFile::copy(fileInfo.backupPath, overlayFile)) {
                     filesRestored++;
-                    qDebug() << "Restored from backup:" << fileInfo.backupPath;
                 } else {
                     errors.append(QString("Failed to restore %1 from backup").arg(relativePath));
                 }
             } else {
                 if (QFile::exists(overlayFile)) {
-                    qDebug() << "Removing overlay file (no backup):" << overlayFile;
                     if (QFile::remove(overlayFile)) {
                         filesRemoved++;
                     } else {
@@ -966,7 +1629,6 @@ void ModManagerDialog::restoreMod(const QString& modName) {
                 }
             }
         } else {
-            qDebug() << "File needed by other mods, keeping:" << relativePath;
             filesKeptForOtherMods++;
             ModInfo nextMod = modTracker->getMod(otherModsNeedingFile.first());
             QString modSourcePath = activePath + "/" + nextMod.name + "/" + relativePath;
@@ -1004,4 +1666,176 @@ void ModManagerDialog::restoreMod(const QString& modName) {
     }
 
     cleanupEmptyDirectories(overlayRoot);
+}
+
+void ModManagerDialog::showModDetails(const QString& modName) {
+    QDialog detailsDialog(this);
+    detailsDialog.setWindowTitle(QString("%1 - Details").arg(modName));
+    detailsDialog.setModal(true);
+    detailsDialog.setMinimumSize(800, 600);
+    detailsDialog.resize(1000, 700);
+
+    auto* mainLayout = new QVBoxLayout(&detailsDialog);
+    mainLayout->setContentsMargins(15, 15, 15, 15);
+    mainLayout->setSpacing(10);
+
+    auto* titleLabel = new QLabel(QString("<h2>%1</h2>").arg(modName));
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setStyleSheet("QLabel { color: #ffffff; font-weight: bold; margin-bottom: 10px; }");
+
+    auto* contentSplitter = new QSplitter(Qt::Horizontal);
+
+    auto* leftWidget = new QWidget();
+    auto* leftLayout = new QVBoxLayout(leftWidget);
+
+    auto* fileLabel = new QLabel("File Structure:");
+    fileLabel->setStyleSheet("QLabel { color: #ffffff; font-weight: bold; font-size: 14px; }");
+
+    auto* fileTree = new QTreeWidget();
+    fileTree->setHeaderLabels({"Path", "Size", "Type"});
+    fileTree->setStyleSheet(R"(
+        QTreeWidget {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            selection-background-color: #0078d4;
+        }
+        QTreeWidget::item {
+            height: 24px;
+        }
+        QTreeWidget::item:selected {
+            background-color: #0078d4;
+        }
+    )");
+
+    QString modPath = availablePath + "/" + modName;
+    if (!QDir(modPath).exists()) {
+        modPath = activePath + "/" + modName;
+    }
+
+    QString basePath = modPath;
+    QDir modDir(modPath);
+    if (modDir.exists("dvdroot_ps4")) {
+        basePath = modPath + "/dvdroot_ps4";
+        modDir = QDir(basePath);
+    }
+
+    QTreeWidgetItem* rootItem = new QTreeWidgetItem(fileTree, {modName, "", "Folder"});
+    rootItem->setIcon(0, QIcon(":/icons/folder.png"));
+    populateFileTree(rootItem, basePath, "");
+    rootItem->setExpanded(true);
+
+    fileTree->resizeColumnToContents(0);
+    fileTree->resizeColumnToContents(1);
+    fileTree->resizeColumnToContents(2);
+
+    leftLayout->addWidget(fileLabel);
+    leftLayout->addWidget(fileTree);
+
+    auto* rightWidget = new QWidget();
+    auto* rightLayout = new QVBoxLayout(rightWidget);
+
+    auto* infoLabel = new QLabel("Mod Information:");
+    infoLabel->setStyleSheet("QLabel { color: #ffffff; font-weight: bold; font-size: 14px; }");
+
+    auto* modInfoText = new QTextEdit();
+    modInfoText->setReadOnly(true);
+    modInfoText->setMaximumHeight(200);
+    modInfoText->setStyleSheet(R"(
+        QTextEdit {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            padding: 8px;
+        }
+    )");
+
+    ModInfo modInfo = modTracker->getMod(modName);
+    QString infoText = QString("Name: %1\n").arg(modName);
+    infoText += QString("Author: %1\n").arg(modInfo.author.isEmpty() ? "Unknown" : modInfo.author);
+    infoText += QString("Version: %1\n").arg(modInfo.version);
+    infoText += QString("Size: %1\n").arg(getModSizeString(modName));
+    infoText += QString("Status: %1\n").arg(modInfo.isActive ? "Active" : "Inactive");
+    infoText += QString("Installed: %1").arg(modInfo.installedAt.toString("yyyy-MM-dd hh:mm"));
+
+    modInfoText->setPlainText(infoText);
+
+    rightLayout->addWidget(infoLabel);
+    rightLayout->addWidget(modInfoText);
+    rightLayout->addStretch();
+
+    contentSplitter->addWidget(leftWidget);
+    contentSplitter->addWidget(rightWidget);
+    contentSplitter->setStretchFactor(0, 2);
+    contentSplitter->setStretchFactor(1, 1);
+
+    auto* closeBtn = new QPushButton("Close");
+    closeBtn->setStyleSheet(R"(
+        QPushButton {
+            background-color: #f44336;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #d32f2f;
+        }
+    )");
+
+    connect(closeBtn, &QPushButton::clicked, &detailsDialog, &QDialog::accept);
+
+    mainLayout->addWidget(titleLabel);
+    mainLayout->addWidget(contentSplitter);
+    mainLayout->addWidget(closeBtn);
+
+    detailsDialog.setStyleSheet(R"(
+        QDialog {
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+    )");
+
+    detailsDialog.exec();
+}
+
+void ModManagerDialog::populateFileTree(QTreeWidgetItem* parentItem, const QString& basePath,
+                                        const QString& relativePath) {
+    QString fullPath = basePath + "/" + relativePath;
+    QDir dir(fullPath);
+
+    QStringList entries = dir.entryList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
+    std::sort(entries.begin(), entries.end());
+
+    for (const QString& entry : entries) {
+        QString entryPath = fullPath + "/" + entry;
+        QString entryRelativePath = relativePath.isEmpty() ? entry : relativePath + "/" + entry;
+        QFileInfo fileInfo(entryPath);
+
+        QTreeWidgetItem* item = new QTreeWidgetItem(parentItem, {entry, "", ""});
+
+        if (fileInfo.isDir()) {
+            item->setIcon(0, QIcon(":/icons/folder.png"));
+            item->setText(2, "Folder");
+            populateFileTree(item, basePath, entryRelativePath);
+        } else {
+            item->setIcon(0, QIcon(":/icons/file.png"));
+            item->setText(1, QString("%1 B").arg(fileInfo.size()));
+
+            QString extension = fileInfo.suffix().toLower();
+            if (extension == "png" || extension == "jpg" || extension == "jpeg" ||
+                extension == "bmp") {
+                item->setText(2, "Image");
+            } else if (extension == "txt" || extension == "json" || extension == "xml") {
+                item->setText(2, "Text");
+            } else if (extension == "bin" || extension == "dat") {
+                item->setText(2, "Binary");
+            } else {
+                item->setText(2, "File");
+            }
+        }
+    }
 }

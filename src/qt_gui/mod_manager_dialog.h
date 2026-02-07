@@ -5,9 +5,26 @@
 
 #include <filesystem>
 #include <memory>
+#include <QButtonGroup>
+#include <QCheckBox>
+#include <QComboBox>
 #include <QDialog>
+#include <QFrame>
+#include <QGridLayout>
+#include <QHBoxLayout>
+#include <QIcon>
+#include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
+#include <QListWidgetItem>
+#include <QPixmap>
+#include <QProgressBar>
+#include <QPushButton>
+#include <QScrollArea>
+#include <QStackedWidget>
 #include <QString>
+#include <QTreeWidgetItem>
+#include <QVBoxLayout>
 
 #include "mod_tracker.h"
 
@@ -28,9 +45,36 @@ public:
     void restoreMod(const QString& modName);
     void activateAll();
     void deactivateAll();
+    void activateModByName(const QString& modName);
+    void deactivateModByName(const QString& modName);
+    void showModDetails(const QString& modName);
+    void populateFileTree(QTreeWidgetItem* parentItem, const QString& basePath,
+                          const QString& relativePath);
+    QWidget* createModItem(const ModInfo& modInfo);
+    QWidget* createModListItem(const ModInfo& modInfo);
     bool showScrollableConflictDialog(const QString& text);
 
+private slots:
+    void onSearchTextChanged(const QString& text);
+    void onSortOrderChanged(int index);
+    void onViewModeChanged();
+    void onModItemClicked(QListWidgetItem* item);
+    void onModItemDoubleClicked(QListWidgetItem* item);
+    void onToggleModActive(QListWidgetItem* item);
+    void onRefreshMods();
+
 private:
+    void setupUI();
+    void setupHeader();
+    void setupModList();
+    void setupFooter();
+    void applyDarkTheme();
+    void updateModDisplay();
+    void filterMods();
+    void sortMods();
+    QPixmap getModThumbnail(const QString& modName) const;
+    QString getModSizeString(const QString& modName) const;
+    QString getModTypeString(const QString& modName) const;
     void scanAvailableMods();
     void cleanupOverlayRootIfEmpty();
     void scanActiveMods();
@@ -40,7 +84,6 @@ private:
     void cleanupEmptyDirectories(const QString& path);
     bool modMatchesGame(const std::filesystem::path& modPath) const;
     QString findModThatContainsFile(const QString& relPath) const;
-    void updateModListUI();
 
     QString resolveOriginalFile(const QString& rel) const;
 
@@ -56,6 +99,28 @@ private:
     QString backupsRoot;
     QString activePath;
     QString overlayRoot;
+
+    QLineEdit* searchBox;
+    QComboBox* sortComboBox;
+    QPushButton* gridViewBtn;
+    QPushButton* listViewBtn;
+    QPushButton* refreshBtn;
+    QPushButton* closeBtn;
+    QPushButton* installModBtn;
+    QPushButton* uninstallModBtn;
+    QWidget* titleLabel;
+
+    QListWidget* modListWidget;
+    QScrollArea* modScrollArea;
+    QWidget* modListContainer;
+    QVBoxLayout* modListLayout;
+
+    QButtonGroup* viewModeGroup;
+    QList<ModInfo> allMods;
+    QList<ModInfo> filteredMods;
+    QString currentSearchText;
+    int currentSortIndex;
+    bool isGridView;
 
     QListWidget* listAvailable;
     QListWidget* listActive;
