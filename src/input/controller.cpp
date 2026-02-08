@@ -70,15 +70,15 @@ State GameController::GetLastState() const {
 
 void GameController::AddState(const State& state) {
     if (m_states_num >= MAX_STATES) {
-        m_states_num = MAX_STATES - 1;
         m_first_state = (m_first_state + 1) % MAX_STATES;
+    } else {
+        m_states_num++;
     }
 
-    const u32 index = (m_first_state + m_states_num) % MAX_STATES;
+    const u32 index = (m_first_state + m_states_num - 1) % MAX_STATES;
     m_states[index] = state;
     m_last_state = state;
     m_private[index].obtained = false;
-    m_states_num++;
 }
 
 void GameController::CheckButton(int id, Libraries::Pad::OrbisPadButtonDataOffset button,
@@ -298,8 +298,8 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
             }
             if (!still_connected) {
                 AddUserServiceEvent({OrbisUserServiceEventType::Logout, i + 1});
-                SDL_CloseGamepad(pad);
                 controllers[i]->m_sdl_gamepad = nullptr;
+                SDL_CloseGamepad(pad);
                 controllers[i]->user_id = -1;
                 slot_taken[i] = false;
             } else {

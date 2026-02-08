@@ -27,6 +27,8 @@
 #include "input/input_handler.h"
 #include "input/input_mouse.h"
 #include "sdl_window.h"
+
+static std::mutex virtual_user_mutex;
 #include "video_core/renderdoc.h"
 #include "video_core/screenshot.h"
 
@@ -294,7 +296,8 @@ void WindowSDL::WaitEvent() {
         SDL_SetWindowRelativeMouseMode(this->GetSDLWindow(),
                                        Input::ToggleMouseModeTo(Input::MouseMode::Gyro));
         break;
-    case SDL_EVENT_ADD_VIRTUAL_USER:
+    case SDL_EVENT_ADD_VIRTUAL_USER: {
+        std::scoped_lock lock(virtual_user_mutex);
         for (int i = 0; i < 4; i++) {
             if (controllers[i]->user_id == -1) {
                 controllers[i]->user_id = i + 1;
@@ -304,16 +307,19 @@ void WindowSDL::WaitEvent() {
                 break;
             }
         }
-        break;
+    } break;
     case SDL_EVENT_REMOVE_VIRTUAL_USER:
         LOG_INFO(Input, "Remove user");
-        for (int i = 3; i >= 0; i--) {
-            if (controllers[i]->user_id != -1) {
-                Libraries::UserService::AddUserServiceEvent(
-                    {Libraries::UserService::OrbisUserServiceEventType::Logout,
-                     (s32)controllers[i]->user_id});
-                controllers[i]->user_id = -1;
-                break;
+        {
+            std::scoped_lock lock(virtual_user_mutex);
+            for (int i = 3; i >= 0; i--) {
+                if (controllers[i]->user_id != -1) {
+                    Libraries::UserService::AddUserServiceEvent(
+                        {Libraries::UserService::OrbisUserServiceEventType::Logout,
+                         (s32)controllers[i]->user_id});
+                    controllers[i]->user_id = -1;
+                    break;
+                }
             }
         }
         break;

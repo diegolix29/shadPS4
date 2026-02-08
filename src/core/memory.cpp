@@ -142,6 +142,7 @@ bool MemoryManager::TryWriteBacking(void* address, const void* data, u64 size) {
                virtual_addr);
 
     std::vector<VirtualMemoryArea> vmas_to_write;
+    vmas_to_write.reserve(16);  // Reserve space for typical operations
     auto current_vma = FindVMA(virtual_addr);
     while (current_vma->second.Overlaps(virtual_addr, size)) {
         if (!HasPhysicalBacking(current_vma->second)) {
@@ -170,6 +171,7 @@ bool MemoryManager::TryWriteBacking(void* address, const void* data, u64 size) {
             size -= copy_size;
         }
     }
+    vmas_to_write.clear();  // Clear vector to prevent memory accumulation
 
     return true;
 }
@@ -267,6 +269,7 @@ s32 MemoryManager::Free(PAddr phys_addr, u64 size, bool is_checked) {
     std::scoped_lock lk{unmap_mutex};
     // If this is a checked free, then all direct memory in range must be allocated.
     std::vector<std::pair<PAddr, u64>> free_list;
+    free_list.reserve(32);  // Reserve space for free operations
     u64 remaining_size = size;
     auto phys_handle = FindDmemArea(phys_addr);
     for (; phys_handle != dmem_map.end(); phys_handle++) {
@@ -298,6 +301,7 @@ s32 MemoryManager::Free(PAddr phys_addr, u64 size, bool is_checked) {
 
     // Release any dmem mappings that reference this physical block.
     std::vector<std::pair<VAddr, u64>> remove_list;
+    remove_list.reserve(64);  // Reserve space for unmap operations
     for (const auto& [addr, mapping] : vma_map) {
         if (mapping.type != VMAType::Direct) {
             continue;
@@ -330,6 +334,7 @@ s32 MemoryManager::Free(PAddr phys_addr, u64 size, bool is_checked) {
         LOG_INFO(Kernel_Vmm, "Unmapping direct mapping {:#x} with size {:#x}", addr, size);
         UnmapMemoryImpl(addr, size);
     }
+    remove_list.clear();  // Clear vector to prevent memory accumulation
 
     // Unmap all dmem areas within this area.
     for (auto& [phys_addr, size] : free_list) {
@@ -342,6 +347,7 @@ s32 MemoryManager::Free(PAddr phys_addr, u64 size, bool is_checked) {
         // Merge the new dmem_area with dmem_map
         MergeAdjacent(dmem_map, dmem_handle);
     }
+    free_list.clear();  // Clear vector to prevent memory accumulation
 
     return ORBIS_OK;
 }
