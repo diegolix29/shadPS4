@@ -75,7 +75,11 @@ Emulator::Emulator() {
 #endif
 }
 
-Emulator::~Emulator() {}
+Emulator::~Emulator() {
+    if (controllers) {
+        controllers->Cleanup();
+    }
+}
 
 s32 ReadCompiledSdkVersion(const std::filesystem::path& file) {
     Core::Loader::Elf elf;

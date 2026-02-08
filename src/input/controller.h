@@ -127,6 +127,13 @@ public:
     GameControllers()
         : controllers({new GameController(), new GameController(), new GameController(),
                        new GameController()}) {};
+    
+    void Cleanup() {
+        for (auto* controller : controllers) {
+            delete controller;
+        }
+    }
+    
     virtual ~GameControllers() = default;
     GameController* operator[](const size_t& i) const {
         ASSERT_MSG(i < controllers.size(), "Out of range controller index {}", i);

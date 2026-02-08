@@ -466,6 +466,14 @@ public:
     ControllerOutput(const ControllerOutput& o) : button(o.button), axis(o.axis) {
         new_param = new s16(*o.new_param);
     }
+    ControllerOutput& operator=(const ControllerOutput& o) {
+        if (this != &o) {
+            button = o.button;
+            axis = o.axis;
+            *new_param = *o.new_param;
+        }
+        return *this;
+    }
     ~ControllerOutput() {
         delete new_param;
     }
