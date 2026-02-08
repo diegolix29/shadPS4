@@ -184,7 +184,7 @@ std::optional<int> parseInt(const std::string& s) {
 };
 
 void ParseInputConfig(const std::string game_id = "") {
-    std::string game_id_or_default = Config::GetUseUnifiedInputConfig() ? "default" : game_id;
+    std::string game_id_or_default = game_id.empty() ? "default" : game_id;
     const auto config_file = Config::GetInputConfigFile(game_id_or_default);
     const auto global_config_file = Config::GetInputConfigFile("global");
 
@@ -386,14 +386,19 @@ void ParseInputConfig(const std::string game_id = "") {
         auto button_it = string_to_cbutton_map.find(output_string);
         auto hotkey_it = string_to_hotkey_map.find(output_string);
         auto axis_it = string_to_axis_map.find(output_string);
+        // Determine which gamepad to check (default to 0 if not specified)
+        int target_gamepad_index = std::clamp(output_gamepad_id - 1, 0, 3);
+
         if (button_it != string_to_cbutton_map.end()) {
             // todo add new shit here
             connection = BindingConnection(
-                binding, &*std::ranges::find(output_array, ControllerOutput(button_it->second)));
+                binding, &*std::ranges::find(output_arrays[target_gamepad_index].data,
+                                             ControllerOutput(button_it->second)));
             connections.insert(connections.end(), connection);
         } else if (hotkey_it != string_to_hotkey_map.end()) {
             connection = BindingConnection(
-                binding, &*std::ranges::find(output_array, ControllerOutput(hotkey_it->second)));
+                binding, &*std::ranges::find(output_arrays[target_gamepad_index].data,
+                                             ControllerOutput(hotkey_it->second)));
             connections.insert(connections.end(), connection);
         } else if (axis_it != string_to_axis_map.end()) {
             // todo add new shit here

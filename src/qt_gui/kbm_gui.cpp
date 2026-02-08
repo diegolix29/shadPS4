@@ -252,7 +252,7 @@ void KBMSettings::SaveKBMConfig(bool close_on_save) {
     lines.push_back(output_string + " = " + input_string);
 
     lines.push_back("");
-    const auto config_file = Config::GetFoolproofInputConfigFile(config_id);
+    const auto config_file = Config::GetInputConfigFile(config_id);
     std::fstream file(config_file);
     int lineCount = 0;
     std::string line;
@@ -394,7 +394,7 @@ void KBMSettings::SetDefault() {
 }
 
 void KBMSettings::SetUIValuestoMappings(std::string config_id) {
-    const auto config_file = Config::GetFoolproofInputConfigFile(config_id);
+    const auto config_file = Config::GetInputConfigFile(config_id);
     std::ifstream file(config_file);
 
     int lineCount = 0;

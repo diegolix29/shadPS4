@@ -341,7 +341,7 @@ void setUseHomeButtonForHotkeys(bool disable);
 void setDefaultValues();
 
 constexpr std::string_view GetDefaultGlobalConfig();
-std::filesystem::path GetFoolproofInputConfigFile(const std::string& game_id = "");
+std::filesystem::path GetInputConfigFile(const std::string& game_id = "");
 
 // settings
 u32 GetLanguage();

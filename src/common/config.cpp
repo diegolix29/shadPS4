@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <fstream>
+#include <map>
 #include <optional>
 #include <string>
 #include <fmt/core.h>
-#include <fmt/xchar.h> // for wstring support
+#include <fmt/xchar.h>
 #include <toml.hpp>
 
 #include "common/assert.h"
@@ -14,6 +15,7 @@
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "common/scm_rev.h"
+#include "input/input_handler.h"
 
 using std::nullopt;
 using std::optional;
@@ -726,7 +728,7 @@ void setMuteEnabled(bool enabled) {
 }
 
 bool hasCustomMuteHotkey() {
-    auto hotkey_file = GetFoolproofInputConfigFile("global");
+    auto hotkey_file = GetInputConfigFile("global");
     std::ifstream file(hotkey_file);
     std::string line;
 
@@ -2066,18 +2068,6 @@ constexpr std::string_view GetDefaultGlobalConfig() {
     return R"(# Anything put here will be loaded for all games,
 # alongside the game's config or default.ini depending on your preference.
 
-hotkey_renderdoc_capture = f12
-hotkey_fullscreen = f11
-hotkey_show_fps = f10
-hotkey_pause = f9
-hotkey_reload_inputs = f8
-hotkey_toggle_mouse_to_joystick = f7
-hotkey_toggle_mouse_to_gyro = f6
-hotkey_toggle_mouse_to_touchpad = delete
-hotkey_quit = lctrl, lshift, end
-
-hotkey_volume_up = kpplus
-hotkey_volume_down = kpminus
 )";
 }
 
@@ -2155,7 +2145,7 @@ analog_deadzone = rightjoystick, 2, 127
 override_controller_color = false, 0, 0, 255
 )";
 }
-std::filesystem::path GetFoolproofInputConfigFile(const std::string& game_id) {
+std::filesystem::path GetInputConfigFile(const std::string& game_id) {
     // Read configuration file of the game, and if it doesn't exist, generate it from default
     // If that doesn't exist either, generate that from getDefaultConfig() and try again
     // If even the folder is missing, we start with that.
@@ -2184,14 +2174,46 @@ std::filesystem::path GetFoolproofInputConfigFile(const std::string& game_id) {
         return default_config_file;
     }
 
-    // Create global config if it doesn't exist yet
     if (game_id == "global" && !std::filesystem::exists(config_file)) {
         if (!std::filesystem::exists(config_file)) {
             const auto global_config = GetDefaultGlobalConfig();
-            // std::ofstream global_config_stream(config_file);
-            // if (global_config_stream) {
-            //     global_config_stream << global_config;
-            //  }
+            std::ofstream global_config_stream(config_file);
+            if (global_config_stream) {
+                global_config_stream << global_config;
+            }
+        }
+    }
+    if (game_id == "global") {
+        std::map<string, string> default_bindings_to_add = {
+            {"hotkey_renderdoc_capture", "f12"},
+            {"hotkey_fullscreen", "f11"},
+            {"hotkey_show_fps", "f10"},
+            {"hotkey_pause", "f9"},
+            {"hotkey_reload_inputs", "f8"},
+            {"hotkey_toggle_mouse_to_joystick", "f7"},
+            {"hotkey_toggle_mouse_to_gyro", "f6"},
+            {"hotkey_toggle_mouse_to_touchpad", "delete"},
+            {"hotkey_quit", "lctrl, lshift, end"},
+            {"hotkey_volume_up", "kpplus"},
+            {"hotkey_volume_down", "kpminus"},
+        };
+        std::ifstream global_in(config_file);
+        string line;
+        while (std::getline(global_in, line)) {
+            line.erase(std::remove_if(line.begin(), line.end(),
+                                      [](unsigned char c) { return std::isspace(c); }),
+                       line.end());
+            std::size_t equal_pos = line.find('=');
+            if (equal_pos == std::string::npos) {
+                continue;
+            }
+            std::string output_string = line.substr(0, equal_pos);
+            default_bindings_to_add.erase(output_string);
+        }
+        global_in.close();
+        std::ofstream global_out(config_file, std::ios::app);
+        for (auto const& b : default_bindings_to_add) {
+            global_out << b.first << " = " << b.second << "\n";
         }
     }
 

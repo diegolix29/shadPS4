@@ -1499,7 +1499,7 @@ s32 PS4_SYSV_ABI readDataInternal(s64 requestId, void* pData, u64 size) {
 
             int32_t httpReqId = getHttpRequestIdFromRequest(request);
             int32_t httpRead =
-                Libraries::Http::sceHttpReadData(httpReqId, (u8*)pData + offset, remainingSize);
+                Libraries::Http::sceHttpReadData(httpReqId, (char*)pData + offset, remainingSize);
 
             if (httpRead < 0)
                 httpRead = 0;
