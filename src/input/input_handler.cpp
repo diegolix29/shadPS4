@@ -23,6 +23,7 @@
 #include "common/io_file.h"
 #include "common/path_util.h"
 #include "common/singleton.h"
+#include "core/devtools/layer.h"
 #include "input/controller.h"
 #include "input/input_mouse.h"
 
@@ -625,16 +626,19 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
         case HOTKEY_VOLUME_UP:
             if (new_button_state) {
                 Config::setVolumeSlider(Config::getVolumeSlider() + 10, true);
+                Overlay::ShowVolume();
             }
             break;
         case HOTKEY_VOLUME_DOWN:
             if (new_button_state) {
                 Config::setVolumeSlider(Config::getVolumeSlider() - 10, true);
+                Overlay::ShowVolume();
             }
             break;
         case HOTKEY_VOLUME_MUTE:
             if (new_button_state) {
                 Config::setMuteEnabled(!Config::isMuteEnabled());
+                Overlay::ShowVolume();
             }
             break;
         case HOTKEY_QUIT:

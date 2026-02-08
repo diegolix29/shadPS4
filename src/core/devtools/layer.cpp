@@ -49,6 +49,9 @@ static char filter_buf[256] = "";
 static bool show_virtual_keyboard = false;
 static bool should_focus = false;
 
+static bool show_volume = false;
+static float volume_start_time;
+
 using namespace ImGui;
 using namespace ::Core::Devtools;
 using L = ::Core::Devtools::Layer;
@@ -144,6 +147,15 @@ void ToggleQuitWindow() {
             DebugState.ResumeGuestThreads();
         }
     }
+}
+
+void ShowVolume() {
+    if (!show_volume) {
+        volume_start_time = ImGui::GetTime();
+    } else {
+        volume_start_time = ImGui::GetTime() - 0.3f;
+    }
+    show_volume = true;
 }
 
 void TogglePauseWindow() {
@@ -1823,6 +1835,89 @@ void L::Draw() {
             ImGui::End();
         }
     }
+
+    if (show_volume) {
+        float current_time = ImGui::GetTime();
+        float elapsed_time = current_time - volume_start_time;
+        const float animation_duration = 0.3f;
+        const float display_duration = 3.0f;
+        
+        if (elapsed_time >= display_duration) {
+            show_volume = false;
+        } else {
+            float anim_progress = std::min(elapsed_time / animation_duration, 1.0f);
+            
+            const ImVec2 popup_size = ImVec2(200.0f, 60.0f);
+            
+            const ImVec2 base_pos = ImVec2(
+                ImGui::GetMainViewport()->WorkPos.x + (ImGui::GetMainViewport()->WorkSize.x - popup_size.x) * 0.5f,
+                ImGui::GetMainViewport()->WorkPos.y + ImGui::GetMainViewport()->WorkSize.y - popup_size.y - 20.0f
+            );
+            
+            const float y_offset = -20.0f * anim_progress;
+            const ImVec2 popup_pos = ImVec2(base_pos.x, base_pos.y + y_offset);
+            
+            SetNextWindowPos(popup_pos, ImGuiCond_Always);
+            SetNextWindowSize(popup_size, ImGuiCond_Always);
+            
+            if (ImGui::Begin("Volume Window", &show_volume,
+                             ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
+                                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking |
+                                 ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar)) {
+                
+                const float alpha = std::min(anim_progress * 3.0f, 1.0f);
+                const ImU32 bg_color = IM_COL32(20, 20, 20, static_cast<ImU32>(alpha * 200));
+                const ImU32 border_color = IM_COL32(100, 100, 100, static_cast<ImU32>(alpha * 255));
+                const ImU32 text_color = IM_COL32(255, 255, 255, static_cast<ImU32>(alpha * 255));
+                const ImU32 mute_color = IM_COL32(255, 100, 100, static_cast<ImU32>(alpha * 255));
+                
+                ImDrawList* draw_list = GetWindowDrawList();
+                const ImVec2 window_min = GetWindowPos();
+                const ImVec2 window_max = ImVec2(window_min.x + popup_size.x, window_min.y + popup_size.y);
+                
+                draw_list->AddRectFilled(window_min, window_max, bg_color, 8.0f);
+                draw_list->AddRect(window_min, window_max, border_color, 8.0f, 0, 2.0f);
+                
+                const int volume = Config::getVolumeSlider();
+                const bool is_muted = Config::isMuteEnabled();
+                
+                const ImVec2 text_size = ImGui::CalcTextSize(
+                    is_muted ? "Muted" : "Volume");
+                const ImVec2 text_pos = ImVec2(
+                    window_min.x + (popup_size.x - text_size.x) * 0.5f,
+                    window_min.y + (popup_size.y - text_size.y) * 0.5f - 10.0f
+                );
+                
+                if (is_muted) {
+                    draw_list->AddText(text_pos, mute_color, "Muted");
+                } else {
+                    char volume_text[32];
+                    snprintf(volume_text, sizeof(volume_text), "%d%%", volume);
+                    draw_list->AddText(text_pos, text_color, volume_text);
+                }
+                
+                const float bar_width = 140.0f;
+                const float bar_height = 6.0f;
+                const float bar_x = window_min.x + (popup_size.x - bar_width) * 0.5f;
+                const float bar_y = window_min.y + popup_size.y - 25.0f;
+                
+                const ImVec2 bar_bg_min = ImVec2(bar_x, bar_y);
+                const ImVec2 bar_bg_max = ImVec2(bar_x + bar_width, bar_y + bar_height);
+                draw_list->AddRectFilled(bar_bg_min, bar_bg_max, IM_COL32(60, 60, 60, static_cast<ImU32>(alpha * 255)), 3.0f);
+                
+                if (!is_muted && volume > 0) {
+                    const float fill_width = (static_cast<float>(volume) / 300.0f) * bar_width;
+                    const ImVec2 bar_fill_min = ImVec2(bar_x, bar_y);
+                    const ImVec2 bar_fill_max = ImVec2(bar_x + fill_width, bar_y + bar_height);
+                    draw_list->AddRectFilled(bar_fill_min, bar_fill_max, IM_COL32(100, 200, 100, static_cast<ImU32>(alpha * 255)), 3.0f);
+                }
+                
+                draw_list->AddRect(bar_bg_min, bar_bg_max, IM_COL32(120, 120, 120, static_cast<ImU32>(alpha * 255)), 3.0f, 0, 1.0f);
+            }
+            End();
+        }
+    }
+
 
     PopID();
 }

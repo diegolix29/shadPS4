@@ -36,4 +36,5 @@ void ToggleSimpleFps();
 void SetSimpleFps(bool enabled);
 void ToggleQuitWindow();
 void TogglePauseWindow();
+void ShowVolume();
 } // namespace Overlay
