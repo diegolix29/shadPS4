@@ -426,7 +426,7 @@ public:
 
     /// Returns the total memory budget available to the device.
     [[nodiscard]] u64 GetTotalMemoryBudget() const {
-        return 2_GB;
+        return 4_GB; // PS4 VRAM limit for testing
     }
 
     /// Determines if a format is supported for a set of feature flags.

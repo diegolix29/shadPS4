@@ -1043,6 +1043,10 @@ void BufferCache::RunGarbageCollector() {
         ++gc_tick;
     };
 
+    if (instance.CanReportMemoryUsage()) {
+        total_used_memory = instance.GetDeviceMemoryUsage();
+    }
+
     if (total_used_memory < trigger_gc_memory) {
         return;
     }
@@ -1066,7 +1070,9 @@ void BufferCache::RunGarbageCollector() {
             if (IsBufferInvalid(buffer_id))
                 return;
 
-            scheduler.DeferOperation([this, buffer_id] { DeleteBuffer(buffer_id); });
+            scheduler.DeferOperation([this, buffer_id] { 
+                DeleteBuffer(buffer_id); 
+            });
         });
 
         return false;
@@ -1077,6 +1083,11 @@ void BufferCache::RunGarbageCollector() {
     if (total_used_memory >= critical_gc_memory) {
         max_deletions = 32;
         lru_cache.ForEachItemBelow(gc_tick - ticks_to_destroy, clean_up);
+    }
+
+    // Only force VRAM flush in extreme cases to avoid FPS drops
+    if (aggressive && total_used_memory >= critical_gc_memory * 2) {
+        scheduler.Finish();
     }
 
     RunGarbageCollectorAsync();
@@ -1098,6 +1109,11 @@ void BufferCache::RunGarbageCollectorAsync() {
         local.front()();
         local.pop();
     }
+
+    // Update memory usage after cleanup
+    if (instance.CanReportMemoryUsage()) {
+        total_used_memory = instance.GetDeviceMemoryUsage();
+    }
 }
 
 void BufferCache::TouchBuffer(const Buffer& buffer) {
@@ -1107,7 +1123,12 @@ void BufferCache::TouchBuffer(const Buffer& buffer) {
 void BufferCache::DeleteBuffer(BufferId buffer_id) {
     Buffer& buffer = slot_buffers[buffer_id];
     Unregister(buffer_id);
-    scheduler.DeferOperation([this, buffer_id] { slot_buffers.erase(buffer_id); });
+    
+    // Ensure all GPU operations complete before deletion
+    scheduler.DeferOperation([this, buffer_id] { 
+        slot_buffers.erase(buffer_id); 
+    });
+    
     buffer.is_deleted = true;
 }
 

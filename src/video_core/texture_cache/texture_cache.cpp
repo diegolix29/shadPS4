@@ -934,6 +934,11 @@ void TextureCache::RunGarbageCollector() {
         lru_cache.ForEachItemBelow(gc_tick - (ticks_to_destroy / 2), clean_up);
     }
 
+    // Only force VRAM flush in extreme cases to avoid FPS drops
+    if (aggressive && total_used_memory >= critical_gc_memory * 2) {
+        scheduler.Finish();
+    }
+
     RunGarbageCollectorAsync();
 }
 
@@ -951,6 +956,11 @@ void TextureCache::RunGarbageCollectorAsync() {
     while (!local.empty()) {
         local.front()();
         local.pop();
+    }
+
+    // Update memory usage after cleanup to ensure accurate tracking
+    if (instance.CanReportMemoryUsage()) {
+        total_used_memory = instance.GetDeviceMemoryUsage();
     }
 }
 
