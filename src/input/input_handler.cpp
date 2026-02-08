@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "input_handler.h"
@@ -155,6 +155,8 @@ InputBinding GetBindingFromString(std::string& line) {
             input = InputID(InputType::Axis, string_to_axis_map.at(t).axis);
         } else if (string_to_cbutton_map.find(t) != string_to_cbutton_map.end()) {
             input = InputID(InputType::Controller, string_to_cbutton_map.at(t));
+        } else if (string_to_hotkey_map.find(t) != string_to_hotkey_map.end()) {
+            input = InputID(InputType::Controller, string_to_hotkey_map.at(t));
         } else {
             // Invalid token found; return default binding
             LOG_DEBUG(Input, "Invalid token found: {}", t);
@@ -183,8 +185,8 @@ std::optional<int> parseInt(const std::string& s) {
 
 void ParseInputConfig(const std::string game_id = "") {
     std::string game_id_or_default = Config::GetUseUnifiedInputConfig() ? "default" : game_id;
-    const auto config_file = Config::GetFoolproofInputConfigFile(game_id_or_default);
-    const auto global_config_file = Config::GetFoolproofInputConfigFile("global");
+    const auto config_file = Config::GetInputConfigFile(game_id_or_default);
+    const auto global_config_file = Config::GetInputConfigFile("global");
 
     // we reset these here so in case the user fucks up or doesn't include some of these,
     // we can fall back to default
@@ -375,21 +377,24 @@ void ParseInputConfig(const std::string game_id = "") {
 
         // normal cases
         InputBinding binding = GetBindingFromString(input_string);
-        BindingConnection connection(InputID(), nullptr);
-        auto button_it = string_to_cbutton_map.find(output_string);
-        auto axis_it = string_to_axis_map.find(output_string);
         if (binding.IsEmpty()) {
             LOG_WARNING(Input, "Invalid format at line: {}, data: \"{}\", skipping line.",
                         lineCount, line);
             return;
         }
+        BindingConnection connection(InputID(), nullptr);
+        auto button_it = string_to_cbutton_map.find(output_string);
+        auto hotkey_it = string_to_hotkey_map.find(output_string);
+        auto axis_it = string_to_axis_map.find(output_string);
         if (button_it != string_to_cbutton_map.end()) {
             // todo add new shit here
             connection = BindingConnection(
-                binding,
-                &*std::ranges::find(output_arrays[std::clamp(output_gamepad_id - 1, 0, 3)].data,
-                                    ControllerOutput(button_it->second)));
-
+                binding, &*std::ranges::find(output_array, ControllerOutput(button_it->second)));
+            connections.insert(connections.end(), connection);
+        } else if (hotkey_it != string_to_hotkey_map.end()) {
+            connection = BindingConnection(
+                binding, &*std::ranges::find(output_array, ControllerOutput(hotkey_it->second)));
+            connections.insert(connections.end(), connection);
         } else if (axis_it != string_to_axis_map.end()) {
             // todo add new shit here
             int value_to_set = binding.keys[2].type == InputType::Axis ? 0 : axis_it->second.value;
