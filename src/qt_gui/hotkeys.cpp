@@ -167,7 +167,7 @@ void Hotkeys::SaveHotkeys(bool CloseOnSave) {
     add_mapping(ui->mouseJoystickButton->text(), "hotkey_toggle_mouse_to_joystick");
     add_mapping(ui->mouseGyroButton->text(), "hotkey_toggle_mouse_to_gyro");
 
-    auto hotkey_file = Config::GetFoolproofInputConfigFile("global");
+    auto hotkey_file = Config::GetInputConfigFile("global");
     std::fstream file(hotkey_file);
     int lineCount = 0;
     std::string line;
@@ -250,7 +250,7 @@ void Hotkeys::SaveHotkeys(bool CloseOnSave) {
 }
 
 void Hotkeys::LoadHotkeys() {
-    auto hotkey_file = Config::GetFoolproofInputConfigFile("global");
+    auto hotkey_file = Config::GetInputConfigFile("global");
     std::ifstream file(hotkey_file);
     int lineCount = 0;
     std::string line = "";

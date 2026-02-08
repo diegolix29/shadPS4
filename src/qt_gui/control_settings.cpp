@@ -177,7 +177,7 @@ void ControlSettings::SaveControllerConfig(bool CloseOnSave) {
     config_id = (ui->ProfileComboBox->currentText() == tr("Common Config"))
                     ? "default"
                     : ui->ProfileComboBox->currentText().toStdString();
-    const auto config_file = Config::GetFoolproofInputConfigFile(config_id);
+    const auto config_file = Config::GetInputConfigFile(config_id);
 
     int lineCount = 0;
     std::string line;
@@ -412,7 +412,7 @@ void ControlSettings::SetUIValuestoMappings() {
                     ? "default"
                     : ui->ProfileComboBox->currentText().toStdString();
 
-    const auto config_file = Config::GetFoolproofInputConfigFile(config_id);
+    const auto config_file = Config::GetInputConfigFile(config_id);
     std::ifstream file(config_file);
 
     bool CrossExists = false, CircleExists = false, SquareExists = false, TriangleExists = false,
