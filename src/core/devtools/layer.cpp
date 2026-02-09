@@ -30,6 +30,8 @@
 #include "options.h"
 #include "sdl_window.h"
 
+#include "core/file_sys/fs.h"
+#include "core/ipc/ipc.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
 #include "widget/frame_dump.h"
 #include "widget/frame_graph.h"
@@ -868,7 +870,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
 
     float btnWidth = 160.0f;
     float btnHeight = 40.0f;
-    float totalWidth = btnWidth * 4.0f + ImGui::GetStyle().ItemSpacing.x * 3.0f;
+    float totalWidth = btnWidth * 5.0f + ImGui::GetStyle().ItemSpacing.x * 4.0f;
     float centerPos = (ImGui::GetContentRegionAvail().x - totalWidth) * 0.5f;
 
     ImGui::SetCursorPosX(centerPos);
@@ -882,6 +884,14 @@ void L::DrawPauseStatusWindow(bool& is_open) {
     if (ImGui::Button("View Trophies", ImVec2(btnWidth, btnHeight))) {
         ImGui::OpenPopup("Quick Trophy List Viewer");
         dataLoaded = false;
+    }
+    ImGui::SameLine();
+
+    if (ImGui::Button("Restart Game", ImVec2(btnWidth, btnHeight))) {
+        auto mnt = Common::Singleton<FileSys::MntPoints>::Instance();
+        auto eboot_path = mnt->GetHostPath("/app0/eboot.bin");
+        auto emulator = Common::Singleton<Emulator>::Instance();
+        emulator->Restart(eboot_path, {});
     }
     ImGui::SameLine();
 
