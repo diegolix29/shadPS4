@@ -731,7 +731,7 @@ u64 Instance::GetDeviceMemoryUsage() const {
     for (const size_t heap : valid_heaps) {
         total_usage += memory_budget_props.heapUsage[heap];
     }
-    
+
     const u64 ps4_vram_limit = 4_GB;
     return std::min(total_usage, ps4_vram_limit);
 }

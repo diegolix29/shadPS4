@@ -1070,9 +1070,7 @@ void BufferCache::RunGarbageCollector() {
             if (IsBufferInvalid(buffer_id))
                 return;
 
-            scheduler.DeferOperation([this, buffer_id] { 
-                DeleteBuffer(buffer_id); 
-            });
+            scheduler.DeferOperation([this, buffer_id] { DeleteBuffer(buffer_id); });
         });
 
         return false;
@@ -1123,12 +1121,10 @@ void BufferCache::TouchBuffer(const Buffer& buffer) {
 void BufferCache::DeleteBuffer(BufferId buffer_id) {
     Buffer& buffer = slot_buffers[buffer_id];
     Unregister(buffer_id);
-    
+
     // Ensure all GPU operations complete before deletion
-    scheduler.DeferOperation([this, buffer_id] { 
-        slot_buffers.erase(buffer_id); 
-    });
-    
+    scheduler.DeferOperation([this, buffer_id] { slot_buffers.erase(buffer_id); });
+
     buffer.is_deleted = true;
 }
 
