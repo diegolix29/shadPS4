@@ -96,7 +96,6 @@ public:
 
         last_output_time.store(current_time, std::memory_order_release);
     }
-
     void SetVolume(const std::array<int, 8>& ch_volumes) override {
         if (!stream) [[unlikely]] {
             return;
@@ -110,20 +109,20 @@ public:
             max_channel_gain = std::max(max_channel_gain, channel_gain);
         }
 
-        const float slider_gain = Config::getVolumeSlider() * 0.01f; // Faster than /100.0f
-        const float total_gain = max_channel_gain * slider_gain;
+        const float slider_gain = Config::getVolumeSlider() * 0.01f;
+        float total_gain = max_channel_gain * slider_gain;
+
+        if (Config::isMuteEnabled()) {
+            total_gain = 0.0f;
+        }
 
         const float current = current_gain.load(std::memory_order_acquire);
         if (std::abs(total_gain - current) < VOLUME_EPSILON) {
             return;
         }
 
-        // Apply volume change
-        if (Config::isMuteEnabled()) {
-            total_gain = 0.0f;
-        }
-
         std::lock_guard<std::mutex> lock(volume_mutex);
+
         if (SDL_SetAudioStreamGain(stream, total_gain)) {
             current_gain.store(total_gain, std::memory_order_release);
             LOG_DEBUG(Lib_AudioOut,
@@ -132,10 +131,6 @@ public:
         } else {
             LOG_ERROR(Lib_AudioOut, "Failed to set audio stream gain: {}", SDL_GetError());
         }
-    }
-
-    u64 GetLastOutputTime() const {
-        return last_output_time.load(std::memory_order_acquire);
     }
 
 private:
@@ -206,19 +201,17 @@ private:
 
         last_volume_check_time = current_time;
 
-            float config_volume = Config::getVolumeSlider() / 100.0f;
+        float config_volume = Config::getVolumeSlider() * 0.01f;
 
-            // Apply mute if enabled
-            if (Config::isMuteEnabled()) {
-                config_volume = 0.0f;
-            }
+        if (Config::isMuteEnabled()) {
+            config_volume = 0.0f;
+        }
 
-            float stored_gain = current_gain.load();
-        const float config_volume = Config::getVolumeSlider() * 0.01f;
         const float stored_gain = current_gain.load(std::memory_order_acquire);
 
-        // Only update if the difference is significant
         if (std::abs(config_volume - stored_gain) > VOLUME_EPSILON) {
+            std::lock_guard<std::mutex> lock(volume_mutex);
+
             if (SDL_SetAudioStreamGain(stream, config_volume)) {
                 current_gain.store(config_volume, std::memory_order_release);
                 LOG_DEBUG(Lib_AudioOut, "Updated audio gain to {:.3f}", config_volume);
@@ -600,6 +593,7 @@ private:
 
     // Volume management
     alignas(64) std::atomic<float> current_gain{1.0f};
+    std::mutex volume_mutex;
 
     // SDL audio stream
     SDL_AudioStream* stream{nullptr};
