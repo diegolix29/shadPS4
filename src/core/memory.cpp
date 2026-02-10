@@ -1,5 +1,4 @@
-
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/alignment.h"
@@ -71,7 +70,7 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
 }
 
 u64 MemoryManager::ClampRangeSize(VAddr virtual_addr, u64 size) {
-    static constexpr u64 MinSizeToClamp = 3_GB;
+    static constexpr u64 MinSizeToClamp = 1_GB;
     // Dont bother with clamping if the size is small so we dont pay a map lookup on every buffer.
     if (size < MinSizeToClamp) {
         return size;
@@ -353,7 +352,8 @@ s32 MemoryManager::Free(PAddr phys_addr, u64 size, bool is_checked) {
 }
 
 s32 MemoryManager::PoolCommit(VAddr virtual_addr, u64 size, MemoryProt prot, s32 mtype) {
-    std::scoped_lock lk{mutex, unmap_mutex};
+    std::scoped_lock lk{unmap_mutex};
+    std::unique_lock lk2{mutex};
     ASSERT_MSG(IsValidMapping(virtual_addr, size), "Attempted to access invalid address {:#x}",
                virtual_addr);
 
@@ -438,6 +438,7 @@ s32 MemoryManager::PoolCommit(VAddr virtual_addr, u64 size, MemoryProt prot, s32
     // Merge this VMA with similar nearby areas
     MergeAdjacent(vma_map, new_vma_handle);
 
+    lk2.unlock();
     if (IsValidGpuMapping(mapped_addr, size)) {
         rasterizer->MapMemory(mapped_addr, size);
     }
@@ -558,7 +559,7 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
     }
 
     // Acquire writer lock.
-    std::scoped_lock lk2{mutex};
+    std::unique_lock lk2{mutex};
 
     // Create VMA representing this mapping.
     auto new_vma_handle = CreateArea(virtual_addr, size, prot, flags, type, name, alignment);
@@ -653,6 +654,8 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
             // Tracy memory tracking breaks from merging memory areas. Disabled for now.
             // TRACK_ALLOC(mapped_addr, size, "VMEM");
         }
+
+        lk2.unlock();
 
         // If this is not a reservation, then map to GPU and address space
         if (IsValidGpuMapping(mapped_addr, size)) {
