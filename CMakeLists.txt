@@ -646,6 +646,7 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_partner.cpp
             src/core/libraries/np/np_partner.h
             src/core/libraries/np/np_signaling.cpp
+            src/core/libraries/np/object_manager.h
 )
 
 set(ZLIB_LIB src/core/libraries/zlib/zlib.cpp
