@@ -184,6 +184,7 @@ static ConfigEntry<bool> isMotionControlsEnabled(true);
 static ConfigEntry<bool> useUnifiedInputConfig(true);
 static ConfigEntry<std::string> micDevice("Default Device");
 static ConfigEntry<std::string> defaultControllerID("");
+static ConfigEntry<std::string> activeControllerID("");
 static ConfigEntry<bool> backgroundControllerInput(false);
 static ConfigEntry<bool> useSpecialPads[4] = {false, false, false, false};
 static ConfigEntry<int> specialPadClasses[4] = {1, 1, 1, 1};
@@ -1366,7 +1367,6 @@ void setPSNSignedIn(bool sign) {
 bool getShaderSkipsEnabled() {
     return shaderSkipsEnabled.get();
 }
-
 void setShaderSkipsEnabled(bool enable) {
     shaderSkipsEnabled.base_value = enable;
 }
@@ -1377,6 +1377,14 @@ std::string getDefaultControllerID() {
 
 void setDefaultControllerID(std::string id) {
     defaultControllerID = id;
+}
+
+std::string getActiveControllerID() {
+    return activeControllerID.get();
+}
+
+void setActiveControllerID(std::string id) {
+    activeControllerID = id;
 }
 
 bool getBackgroundControllerInput() {
@@ -1471,6 +1479,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         firstBootHandled.setFromToml(general, "firstBootHandled", is_game_specific);
         chooseHomeTab = toml::find_or<std::string>(general, "chooseHomeTab", chooseHomeTab);
         defaultControllerID.setFromToml(general, "defaultControllerID", "");
+        activeControllerID.setFromToml(general, "activeControllerID", "");
         sys_modules_path = toml::find_fs_path_or(general, "sysModulesPath", sys_modules_path);
     }
 
@@ -1506,6 +1515,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         fsrEnabled.setFromToml(gpu, "fsrEnabled", is_game_specific);
         rcasEnabled.setFromToml(gpu, "rcasEnabled", is_game_specific);
+        rcasAttenuation.setFromToml(gpu, "rcasAttenuation", is_game_specific);
+
         if (is_game_specific) {
             if (auto opt = toml::get_optional<int>(gpu, "readbackSpeedMode")) {
                 readbackSpeedMode.game_specific_value = static_cast<ReadbackSpeed>(*opt);
@@ -1774,6 +1785,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["httpHostOverride"] = httpHostOverride.base_value;
     data["General"]["firstBootHandled"] = firstBootHandled.base_value;
     data["General"]["defaultControllerID"] = defaultControllerID.base_value;
+    data["General"]["activeControllerID"] = activeControllerID.base_value;
 
     data["Input"]["cursorState"] = cursorState.base_value;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout.base_value;

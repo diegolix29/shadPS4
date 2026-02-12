@@ -134,6 +134,12 @@ Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_
     ImGui::Layer::AddLayer(Common::Singleton<Core::Devtools::Layer>::Instance());
 }
 
+void Presenter::UpdateFsrSettingsFromConfig() {
+    fsr_settings.enable = Config::getFsrEnabled();
+    fsr_settings.use_rcas = Config::getRcasEnabled();
+    fsr_settings.rcasAttenuation = static_cast<float>(Config::getRcasAttenuation() / 1000.f);
+}
+
 Presenter::~Presenter() {
     ImGui::Layer::RemoveLayer(Common::Singleton<Core::Devtools::Layer>::Instance());
     draw_scheduler.Finish();

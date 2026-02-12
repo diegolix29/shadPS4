@@ -50,6 +50,7 @@ class Rasterizer;
 class Presenter {
 public:
     Presenter(Frontend::WindowSDL& window, AmdGpu::Liverpool* liverpool);
+    void UpdateFsrSettingsFromConfig();
     ~Presenter();
 
     HostPasses::PostProcessingPass::Settings& GetPPSettingsRef() {

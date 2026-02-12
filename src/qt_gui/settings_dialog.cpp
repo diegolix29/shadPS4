@@ -1167,6 +1167,10 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
 
     ui->FSRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fsrEnabled", true));
+    ui->RCASCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "rcasEnabled", true));
+
+    ui->RCASSlider->setValue(Config::getRcasAttenuation());
+    ui->RCASSpinBox->setValue(Config::getRcasAttenuation() / 1000.0);
 
 #ifdef ENABLE_UPDATER
     ui->updateCheckBox->setChecked(toml::find_or<bool>(data, "General", "autoUpdate", false));
@@ -1585,8 +1589,12 @@ void SettingsDialog::UpdateSettings() {
     Config::setShowBackgroundImage(ui->showBackgroundImageCheckBox->isChecked());
     Config::setFsrEnabled(ui->FSRCheckBox->isChecked());
     Config::setRcasEnabled(ui->RCASCheckBox->isChecked());
-    Config::setRcasAttenuation(ui->RCASSpinBox->value());
     Config::setRcasAttenuation(ui->RCASSlider->value());
+
+    // Update presenter with new FSR settings so game uses them immediately
+    if (presenter) {
+        presenter->UpdateFsrSettingsFromConfig();
+    }
     Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
     Config::setPSNSignedIn(ui->isPSNSignedInCheckBox->isChecked());
     Config::SetHttpHostOverride(ui->httpHostOverrideLineEdit->text().toStdString());

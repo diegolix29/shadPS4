@@ -240,6 +240,16 @@ void L::DrawMenuBar() {
             }
             if (BeginMenu("FSR")) {
                 auto& fsr = presenter->GetFsrSettingsRef();
+
+                static bool first_open = true;
+                if (first_open) {
+                    fsr.enable = Config::getFsrEnabled();
+                    fsr.use_rcas = Config::getRcasEnabled();
+                    fsr.rcasAttenuation =
+                        static_cast<float>(Config::getRcasAttenuation()) / 1000.0f;
+                    first_open = false;
+                }
+
                 Checkbox("FSR Enabled", &fsr.enable);
                 BeginDisabled(!fsr.enable);
                 {
@@ -258,6 +268,7 @@ void L::DrawMenuBar() {
                     Config::setRcasAttenuation(static_cast<int>(fsr.rcasAttenuation * 1000));
                     Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
                                  "config.toml");
+                    first_open = true;
                     CloseCurrentPopup();
                 }
 
