@@ -80,9 +80,14 @@ static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
     }
 }
 
-static Uint32 SDLCALL PollController(void* userdata, SDL_TimerID timer_id, Uint32 interval) {
+std::mutex motion_control_mutex;
+float gyro_buf[3] = {0.0f, 0.0f, 0.0f}, accel_buf[3] = {0.0f, 9.81f, 0.0f};
+static Uint32 SDLCALL PollGyroAndAccel(void* userdata, SDL_TimerID timer_id, Uint32 interval) {
     auto* controller = reinterpret_cast<Input::GameController*>(userdata);
-    return controller->Poll();
+    std::scoped_lock l{motion_control_mutex};
+    controller->Gyro(0, gyro_buf);
+    controller->Acceleration(0, accel_buf);
+    return 4;
 }
 
 WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controllers_,
@@ -405,7 +410,7 @@ void WindowSDL::RelaunchEmulator() {
 
 void WindowSDL::InitTimers() {
     for (int i = 0; i < 4; i++) {
-        SDL_AddTimer(250, &PollController, controllers[i]);
+        SDL_AddTimer(250, &PollGyroAndAccel, controllers[i]);
     }
     SDL_AddTimer(33, Input::MousePolling, (void*)controllers[0]);
 }

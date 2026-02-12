@@ -310,10 +310,10 @@ int PS4_SYSV_ABI scePadOpen(Libraries::UserService::OrbisUserServiceUserId userI
 
     if (Config::getUseSpecialPad(pad)) {
         if (type != ORBIS_PAD_PORT_TYPE_SPECIAL)
-            return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
+            return ORBIS_PAD_ERROR_INVALID_HANDLE;
     } else {
         if (type != ORBIS_PAD_PORT_TYPE_STANDARD && type != ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL)
-            return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
+            return ORBIS_PAD_ERROR_INVALID_HANDLE;
     }
     LOG_INFO(Lib_Pad, "(DUMMY) called user_id = {} type = {} index = {}", userId, type, index);
     g_openHandles.insert(userId);
@@ -334,10 +334,10 @@ int PS4_SYSV_ABI scePadOpenExt(Libraries::UserService::OrbisUserServiceUserId us
 
     if (Config::getUseSpecialPad(pad)) {
         if (type != ORBIS_PAD_PORT_TYPE_SPECIAL)
-            return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
+            return ORBIS_PAD_ERROR_INVALID_HANDLE;
     } else {
         if (type != ORBIS_PAD_PORT_TYPE_STANDARD && type != ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL)
-            return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
+            return ORBIS_PAD_ERROR_INVALID_HANDLE;
     }
     return userId;
 }
@@ -354,11 +354,14 @@ int PS4_SYSV_ABI scePadOutputReport() {
 
 int PS4_SYSV_ABI scePadRead(s32 handle, OrbisPadData* pData, s32 num) {
     LOG_TRACE(Lib_Pad, "called");
+    if (handle < 1) {
+        return ORBIS_PAD_ERROR_INVALID_HANDLE;
+    }
     auto controller_id = GamepadSelect::GetControllerIndexFromUserID(handle);
     auto& controllers = *Common::Singleton<Input::GameControllers>::Instance();
     auto controller = controllers[*controller_id];
     if (!controller) {
-        return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
+        return ORBIS_PAD_ERROR_INVALID_HANDLE;
     }
     int connected_count = 0;
     bool connected = false;
@@ -486,7 +489,7 @@ int PS4_SYSV_ABI scePadReadState(s32 handle, OrbisPadData* pData) {
     auto const& controller = controllers[*controller_id];
 
     if (!controller) {
-        return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
+        return ORBIS_PAD_ERROR_INVALID_HANDLE;
     }
 
     int connectedCount = 0;

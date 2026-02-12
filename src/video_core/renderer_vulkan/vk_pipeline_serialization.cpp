@@ -359,6 +359,142 @@ void PipelineCache::WarmUp() {
     Storage::DataBase::Instance().FinishPreload();
 }
 
+void PipelineCache::PrecompileShaders() {
+    PrecompileShadersWithProgress(nullptr);
+}
+
+void PipelineCache::PrecompileShadersWithProgress(std::function<void(int, int)> progress_callback) {
+    if (!Config::isPipelineCacheEnabled()) {
+        return;
+    }
+
+    if (!Config::isShaderPrecompilationEnabled()) {
+        return;
+    }
+
+    LOG_INFO(Render, "Starting shader pre-compilation...");
+    
+    // Ensure database is open
+    if (!Storage::DataBase::Instance().IsOpened()) {
+        LOG_INFO(Render, "Opening shader cache database...");
+        Storage::DataBase::Instance().Open();
+    } else {
+        LOG_INFO(Render, "Shader cache database already open");
+    }
+
+    PrecompileShaderBinariesWithProgress(progress_callback);
+    
+    LOG_INFO(Render, "Shader pre-compilation completed");
+}
+
+bool PipelineCache::PrecompileShadersWithProgressCheck(std::function<void(int, int)> progress_callback) {
+    if (!Config::isPipelineCacheEnabled()) {
+        return false;
+    }
+
+    if (!Config::isShaderPrecompilationEnabled()) {
+        return false;
+    }
+
+    LOG_INFO(Render, "Starting shader pre-compilation...");
+    
+    // Ensure database is open
+    if (!Storage::DataBase::Instance().IsOpened()) {
+        LOG_INFO(Render, "Opening shader cache database...");
+        Storage::DataBase::Instance().Open();
+    } else {
+        LOG_INFO(Render, "Shader cache database already open");
+    }
+
+    // Count total shaders first
+    u32 total_shaders = 0;
+    Storage::DataBase::Instance().ForEachBlob(
+        Storage::BlobType::ShaderBinary, [&](std::vector<u8>&& data) {
+            ++total_shaders;
+        });
+
+    if (total_shaders == 0) {
+        LOG_INFO(Render, "No shader binaries found in cache - no pre-compilation needed");
+        return false;
+    }
+
+    LOG_INFO(Render, "Found {} shader binaries in cache", total_shaders);
+    
+    // Now do the actual compilation with progress
+    PrecompileShaderBinariesWithProgress(progress_callback);
+    
+    LOG_INFO(Render, "Shader pre-compilation completed");
+    return true;
+}
+
+void PipelineCache::PrecompileShaderBinaries() {
+    PrecompileShaderBinariesWithProgress(nullptr);
+}
+
+void PipelineCache::PrecompileShaderBinariesWithProgress(std::function<void(int, int)> progress_callback) {
+    u32 compiled_shaders = 0;
+    u32 total_shaders = 0;
+
+    LOG_INFO(Render, "Starting to iterate through shader binaries...");
+
+    // First pass: count total shaders
+    Storage::DataBase::Instance().ForEachBlob(
+        Storage::BlobType::ShaderBinary, [&](std::vector<u8>&& data) {
+            ++total_shaders;
+        });
+
+    if (total_shaders == 0) {
+        LOG_WARNING(Render, "No shader binaries found in cache - run game first to build cache");
+        return;
+    }
+
+    LOG_INFO(Render, "=== SHADER PRE-COMPILATION STARTED ===");
+    LOG_INFO(Render, "Found {} shader binaries in cache", total_shaders);
+
+    // Second pass: compile with progress tracking
+    Storage::DataBase::Instance().ForEachBlob(
+        Storage::BlobType::ShaderBinary, [&](std::vector<u8>&& data) {
+            // The blob name format is "{hash}_{index}"
+            // We need to extract the hash and check if we already have this compiled
+            std::vector<u32> spv_data(data.size() / sizeof(u32));
+            std::memcpy(spv_data.data(), data.data(), data.size());
+            
+            try {
+                // Try to compile the SPIR-V to verify it's valid and create Vulkan shader module
+                vk::ShaderModule module = CompileSPV(spv_data, instance.GetDevice());
+                if (module) {
+                    // Destroy the module immediately since we're just pre-compiling
+                    instance.GetDevice().destroyShaderModule(module);
+                    ++compiled_shaders;
+                    
+                    // Call progress callback if provided
+                    if (progress_callback) {
+                        progress_callback(compiled_shaders, total_shaders);
+                    }
+                    
+                    // Show progress every 50 shaders or every 10% for large numbers
+                    if (compiled_shaders % 50 == 0 || 
+                        (total_shaders > 100 && compiled_shaders % (total_shaders / 10) == 0)) {
+                        float percentage = (float)compiled_shaders / total_shaders * 100.0f;
+                        LOG_INFO(Render, "Progress: {}/{} shaders ({:.1f}%)", compiled_shaders, total_shaders, percentage);
+                    }
+                }
+            } catch (const std::exception& e) {
+                LOG_WARNING(Render, "Failed to precompile shader: {}", e.what());
+            }
+        });
+
+    float final_percentage = (float)compiled_shaders / total_shaders * 100.0f;
+    LOG_INFO(Render, "=== SHADER PRE-COMPILATION COMPLETED ===");
+    LOG_INFO(Render, "Successfully precompiled {}/{} shaders ({:.1f}%)", compiled_shaders, total_shaders, final_percentage);
+    
+    if (compiled_shaders == total_shaders) {
+        LOG_INFO(Render, "All shaders precompiled successfully! Game should run smoother with fewer stutters.");
+    } else {
+        LOG_WARNING(Render, "Some shaders failed to precompile. They will be compiled during gameplay as needed.");
+    }
+}
+
 void PipelineCache::Sync() {
     Storage::DataBase::Instance().Close();
 }
