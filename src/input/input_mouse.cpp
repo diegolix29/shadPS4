@@ -104,7 +104,7 @@ void EmulateTouchpad(GameController* controller, u32 interval) {
     controller->SetTouchpadState(0, (mouse_buttons & SDL_BUTTON_LMASK) != 0,
                                  std::clamp(x / g_window->GetWidth(), 0.0f, 1.0f),
                                  std::clamp(y / g_window->GetHeight(), 0.0f, 1.0f));
-    controller->Button(0, Libraries::Pad::OrbisPadButtonDataOffset::TouchPad,
+    controller->CheckButton(0, Libraries::Pad::OrbisPadButtonDataOffset::TouchPad,
                        (mouse_buttons & SDL_BUTTON_RMASK) != 0);
 }
 
