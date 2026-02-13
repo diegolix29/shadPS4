@@ -233,7 +233,7 @@ static ConfigEntry<bool> vkHostMarkers(false);
 static ConfigEntry<bool> vkGuestMarkers(false);
 static ConfigEntry<bool> rdocEnable(false);
 static ConfigEntry<bool> pipelineCacheEnable(false);
-static ConfigEntry<bool> pipelineCacheArchive(true);
+static ConfigEntry<bool> pipelineCacheArchive(false);
 static ConfigEntry<bool> shaderPrecompilationEnable(true);
 static ConfigEntry<bool> shaderCompilationOverlayEnable(true);
 
@@ -297,12 +297,24 @@ static bool isSDL = false;
 static bool isQT = false;
 static bool launcher_boot = false;
 std::unordered_map<std::string, bool> toolbar_visibility_settings;
+static std::filesystem::path fonts_path = {};
 
 bool getToolbarWidgetVisibility(const std::string& name, bool default_value) {
     if (toolbar_visibility_settings.count(name)) {
         return toolbar_visibility_settings.at(name);
     }
     return default_value;
+}
+
+std::filesystem::path getFontsPath() {
+    if (fonts_path.empty()) {
+        return Common::FS::GetUserPath(Common::FS::PathType::FontsDir);
+    }
+    return fonts_path;
+}
+
+void setFontsPath(const std::filesystem::path& path) {
+    fonts_path = path;
 }
 
 void setToolbarWidgetVisibility(const std::string& name, bool is_visible) {
@@ -364,14 +376,6 @@ bool isPipelineCacheEnabled() {
 
 void setPipelineCacheEnabled(bool enable, bool is_game_specific) {
     pipelineCacheEnable.set(enable, is_game_specific);
-}
-
-bool isShaderPrecompilationEnabled() {
-    return shaderPrecompilationEnable.get();
-}
-
-void setShaderPrecompilationEnabled(bool enable, bool is_game_specific) {
-    shaderPrecompilationEnable.set(enable, is_game_specific);
 }
 
 bool isShaderCompilationOverlayEnabled() {
@@ -1499,6 +1503,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         defaultControllerID.setFromToml(general, "defaultControllerID", "");
         activeControllerID.setFromToml(general, "activeControllerID", "");
         sys_modules_path = toml::find_fs_path_or(general, "sysModulesPath", sys_modules_path);
+        fonts_path = toml::find_fs_path_or(general, "fontsPath", fonts_path);
     }
 
     if (data.contains("Input")) {
@@ -1802,6 +1807,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
     data["General"]["sysModulesPath"] = string{fmt::UTF(sys_modules_path.u8string()).data};
+    data["General"]["fontsPath"] = string{fmt::UTF(fonts_path.u8string()).data};
     data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
     data["General"]["httpHostOverride"] = httpHostOverride.base_value;
     data["General"]["firstBootHandled"] = firstBootHandled.base_value;

@@ -1175,8 +1175,7 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     ui->FSRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fsrEnabled", true));
     ui->RCASCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "rcasEnabled", true));
-    ui->shaderOverlayCheckBox->setChecked(
-        Config::isShaderCompilationOverlayEnabled());
+    ui->shaderOverlayCheckBox->setChecked(Config::isShaderCompilationOverlayEnabled());
 
     ui->RCASSlider->setValue(Config::getRcasAttenuation());
     ui->RCASSpinBox->setValue(Config::getRcasAttenuation() / 1000.0);
