@@ -120,9 +120,6 @@ private:
     bool RefreshGraphicsKey();
     bool RefreshGraphicsStages();
     bool RefreshComputeKey();
-    void PrecompileShaderBinaries();
-    void PrecompileShaderBinariesWithProgress(
-        std::function<void(int, int)> progress_callback = nullptr);
 
     void DumpShader(std::span<const u32> code, u64 hash, Shader::Stage stage, size_t perm_idx,
                     std::string_view ext);

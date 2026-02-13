@@ -8,23 +8,25 @@
 #include "core/debug_state.h"
 #include "core/devtools/layer.h"
 
+#include "video_core/renderer_vulkan/vk_presenter.h"
+
 #include "core/libraries/system/systemservice.h"
+#include "imgui/imgui_layer.h"
 #include "imgui/renderer/imgui_core.h"
 #include "imgui/renderer/imgui_impl_vulkan.h"
-#include "imgui/imgui_layer.h"
 #include "imgui/shader_compilation_overlay.h"
 #include "sdl_window.h"
 #include "video_core/renderer_vulkan/host_passes/fsr_pass.h"
-#include "video_core/renderer_vulkan/vk_presenter.h"
-#include "video_core/renderer_vulkan/vk_rasterizer.h"
+
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
+#include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/texture_cache/image.h"
 
+#include <chrono>
+#include <thread>
 #include <imgui.h>
 #include <vk_mem_alloc.h>
-#include <thread>
-#include <chrono>
 
 namespace Vulkan {
 
@@ -143,23 +145,21 @@ Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_
     shader_compilation_overlay = std::make_unique<ImGui::ShaderCompilationOverlay>();
     ImGui::Layer::AddLayer(shader_compilation_overlay.get());
     shader_compilation_overlay->SetVisible(false);
-    
+
     // Set up runtime compilation callback
-    rasterizer->GetPipelineCache().SetRuntimeCompilationCallback(
-        [this](bool is_compiling) {
-            LOG_INFO(Render_Vulkan, "Runtime compilation callback: is_compiling = {}", is_compiling);
-            ShowRuntimeCompilationOverlay(is_compiling);
-            int current = rasterizer->GetPipelineCache().runtime_compilation_current.load();
-            int total = rasterizer->GetPipelineCache().runtime_compilation_total.load();
-            UpdateRuntimeCompilationProgress(current, total);
-        });
+    rasterizer->GetPipelineCache().SetRuntimeCompilationCallback([this](bool is_compiling) {
+        LOG_INFO(Render_Vulkan, "Runtime compilation callback: is_compiling = {}", is_compiling);
+        ShowRuntimeCompilationOverlay(is_compiling);
+        int current = rasterizer->GetPipelineCache().runtime_compilation_current.load();
+        int total = rasterizer->GetPipelineCache().runtime_compilation_total.load();
+        UpdateRuntimeCompilationProgress(current, total);
+    });
 }
 
 void Presenter::UpdateFsrSettingsFromConfig() {
     fsr_settings.enable = Config::getFsrEnabled();
     fsr_settings.use_rcas = Config::getRcasEnabled();
     fsr_settings.rcasAttenuation = static_cast<float>(Config::getRcasAttenuation() / 1000.f);
-
 }
 
 void Presenter::ShowRuntimeCompilationOverlay(bool show) {
