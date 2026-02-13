@@ -213,17 +213,13 @@ set(EMULATOR_VERSION_PATCH "1")
 
 set_source_files_properties(src/shadps4.rc PROPERTIES COMPILE_DEFINITIONS "EMULATOR_VERSION_MAJOR=${EMULATOR_VERSION_MAJOR};EMULATOR_VERSION_MINOR=${EMULATOR_VERSION_MINOR};EMULATOR_VERSION_PATCH=${EMULATOR_VERSION_PATCH}")
 
-set(APP_VERSION "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH} WIP")
+set_source_files_properties(src/shadps4.rc PROPERTIES COMPILE_DEFINITIONS "EMULATOR_VERSION_MAJOR=${EMULATOR_VERSION_MAJOR};EMULATOR_VERSION_MINOR=${EMULATOR_VERSION_MINOR};EMULATOR_VERSION_PATCH=${EMULATOR_VERSION_PATCH}")
+
+set(APP_VERSION "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH} DMC")
 set(APP_IS_RELEASE false)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/common/scm_rev.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/src/common/scm_rev.cpp" @ONLY)
 
-message("-- end git things, remote: ${GIT_REMOTE_NAME}, branch: ${GIT_BRANCH}, link: ${GIT_REMOTE_URL}")
-
-string(TOLOWER "${GIT_REMOTE_URL}" GIT_REMOTE_URL_LOWER)
-if(NOT (GIT_REMOTE_URL_LOWER MATCHES "shadps4-emu/shadps4" AND (GIT_BRANCH STREQUAL "main" OR "$ENV{GITHUB_REF}" MATCHES "refs/tags/")))
-    message(STATUS "not main, disabling auto update")
-    set(ENABLE_UPDATER OFF)
-endif()
+message("end git things, remote: ${GIT_REMOTE_NAME}, branch: ${GIT_BRANCH}")
 
 if(WIN32 AND ENABLE_QT_GUI AND NOT CMAKE_PREFIX_PATH)
     include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/DetectQtInstallation.cmake")
@@ -1284,7 +1280,24 @@ endif()
 
 if (APPLE)
     # Include MoltenVK, along with an ICD file so it can be found by the system Vulkan loader if used for loading layers.
+        # Include MoltenVK, along with an ICD file so it can be found by the system Vulkan loader if used for loading layers.
+    if (ENABLE_QT_GUI)
+        set(MVK_BUNDLE_PATH "Resources/vulkan/icd.d")
+        set_property(TARGET shadps4 APPEND PROPERTY BUILD_RPATH "@executable_path/../${MVK_BUNDLE_PATH}")
+        set(MVK_DST ${CMAKE_CURRENT_BINARY_DIR}/shadps4.app/Contents/${MVK_BUNDLE_PATH})
+
+        add_custom_command(
+            OUTPUT ${MVK_DST}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${MVK_DST})
+    else()
+        set_property(TARGET shadps4 APPEND PROPERTY BUILD_RPATH "@executable_path")
+        set(MVK_DST ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+
+    set(MVK_DYLIB_SRC ${CMAKE_CURRENT_BINARY_DIR}/externals/MoltenVK/MoltenVK/libMoltenVK.dylib)
+    set(MVK_DYLIB_DST ${MVK_DST}/libMoltenVK.dylib)
     set_property(TARGET shadps4 APPEND PROPERTY BUILD_RPATH "@executable_path")
+
     set(MVK_DST ${CMAKE_CURRENT_BINARY_DIR})
     set(MVK_DYLIB_SRC ${CMAKE_CURRENT_BINARY_DIR}/externals/MoltenVK/MoltenVK/libMoltenVK.dylib)
     set(MVK_DYLIB_DST ${MVK_DST}/libMoltenVK.dylib)
@@ -1385,7 +1398,10 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeRC.cmake")
 cmrc_add_resource_library(embedded-resources
         ALIAS res::embedded
         NAMESPACE res
-	src/images/trophy.wav
+        src/images/trophy.wav
+        src/images/bgm.wav
+        src/images/tick.mp3
+        src/images/play.mp3
         src/images/bronze.png
         src/images/gold.png
         src/images/platinum.png

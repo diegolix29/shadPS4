@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include "imgui_layer.h"
-#include <string>
-#include <chrono>
 #include <atomic>
+#include <chrono>
 #include <mutex>
+#include <string>
+#include "imgui_layer.h"
 
 namespace ImGui {
 
@@ -30,7 +30,7 @@ private:
     float m_animation_time = 0.0f;
     std::chrono::steady_clock::time_point m_start_time;
     std::mutex m_status_mutex;
-    
+
     void DrawSpinningCircle(float radius, float progress);
 };
 
