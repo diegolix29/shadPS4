@@ -156,6 +156,8 @@ void setChooseHomeTab(const std::string& type, bool is_game_specific = false);
 
 std::filesystem::path getSysModulesPath();
 void setSysModulesPath(const std::filesystem::path& path);
+std::filesystem::path getFontsPath();
+void setFontsPath(const std::filesystem::path& path);
 
 enum UsbBackendType : int { Real, SkylandersPortal, InfinityBase, DimensionsToypad };
 int getUsbDeviceBackend();
