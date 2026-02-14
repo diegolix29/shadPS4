@@ -586,12 +586,12 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
         DebugState.CollectShader(name, info.l_stage, module, spv, code,
                                  patch ? *patch : std::span<const u32>{}, is_patched);
     }
-    
+
     // Only track runtime compilation completion if we were tracking
     if (should_track) {
         DecrementRuntimeCompilationCount();
     }
-    
+
     return module;
 }
 
@@ -723,8 +723,9 @@ void PipelineCache::IncrementRuntimeCompilationCount() {
     int old_count = runtime_compilation_count.fetch_add(1);
     runtime_compilation_current.fetch_add(1);
     runtime_compilation_total.fetch_add(1);
-    LOG_INFO(Render_Vulkan, "Runtime compilation count: {} -> {}, current: {}, total: {}", 
-             old_count, old_count + 1, runtime_compilation_current.load(), runtime_compilation_total.load());
+    LOG_INFO(Render_Vulkan, "Runtime compilation count: {} -> {}, current: {}, total: {}",
+             old_count, old_count + 1, runtime_compilation_current.load(),
+             runtime_compilation_total.load());
     if (old_count == 0 && runtime_compilation_callback) {
         runtime_compilation_callback(true); // Show overlay
     }
@@ -732,8 +733,9 @@ void PipelineCache::IncrementRuntimeCompilationCount() {
 
 void PipelineCache::DecrementRuntimeCompilationCount() {
     int new_count = runtime_compilation_count.fetch_sub(1) - 1;
-    LOG_INFO(Render_Vulkan, "Runtime compilation count: {} -> {}, current: {}, total: {}", 
-             new_count + 1, new_count, runtime_compilation_current.load(), runtime_compilation_total.load());
+    LOG_INFO(Render_Vulkan, "Runtime compilation count: {} -> {}, current: {}, total: {}",
+             new_count + 1, new_count, runtime_compilation_current.load(),
+             runtime_compilation_total.load());
     if (new_count == 0 && runtime_compilation_callback) {
         // Use weak_ptr pattern to avoid accessing destroyed objects
         auto callback_copy = runtime_compilation_callback;
@@ -759,8 +761,8 @@ void PipelineCache::UpdateRuntimeCompilationProgress() {
         // Call the progress callback with current/total info
         // Since the callback only takes bool, we need to use a different approach
         // We'll update the overlay directly if we have access to it
-        LOG_INFO(Render_Vulkan, "Runtime compilation progress: {}/{} ({}%)", 
-                 current, total, total > 0 ? (current * 100) / total : 0);
+        LOG_INFO(Render_Vulkan, "Runtime compilation progress: {}/{} ({}%)", current, total,
+                 total > 0 ? (current * 100) / total : 0);
     }
 }
 } // namespace Vulkan

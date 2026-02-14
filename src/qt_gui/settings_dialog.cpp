@@ -15,6 +15,7 @@
 #include <fmt/format.h>
 
 #include "common/config.h"
+#include "common/key_manager.h"
 #include "common/logging/log.h"
 #include "common/scm_rev.h"
 #include "core/libraries/audio/audioout.h"
@@ -1541,7 +1542,15 @@ void SettingsDialog::UpdateSettings() {
     Config::setUserName(1, ui->userName2LineEdit->text().toStdString());
     Config::setUserName(2, ui->userName3LineEdit->text().toStdString());
     Config::setUserName(3, ui->userName4LineEdit->text().toStdString());
-    Config::setTrophyKey(ui->trophyKeyLineEdit->text().toStdString());
+
+    std::string trophyKey = ui->trophyKeyLineEdit->text().toStdString();
+    Config::setTrophyKey(trophyKey);
+
+    auto key_manager = KeyManager::GetInstance();
+    auto keys = key_manager->GetAllKeys();
+    keys.TrophyKeySet.ReleaseTrophyKey = KeyManager::HexStringToBytes(trophyKey);
+    key_manager->SetAllKeys(keys);
+    key_manager->SaveToFile();
     Config::setCursorState(ui->hideCursorComboBox->currentIndex());
     Config::setCursorHideTimeout(ui->idleTimeoutSpinBox->value());
     Config::setGpuId(ui->graphicsAdapterBox->currentIndex() - 1);

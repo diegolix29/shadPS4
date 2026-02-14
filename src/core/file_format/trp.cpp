@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/aes.h"
+#include "common/config.h"
 #include "common/key_manager.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
@@ -50,8 +51,23 @@ bool TRP::Extract(const std::filesystem::path& trophyPath, const std::string tit
         return false;
     }
 
-    const auto& user_key_vec =
-        KeyManager::GetInstance()->GetAllKeys().TrophyKeySet.ReleaseTrophyKey;
+    // Try to get trophy key from KeyManager first, then fallback to TOML config
+    std::vector<u8> user_key_vec;
+    auto key_manager = KeyManager::GetInstance();
+    user_key_vec = key_manager->GetAllKeys().TrophyKeySet.ReleaseTrophyKey;
+
+    // If KeyManager doesn't have the key, try to get it from TOML config
+    if (user_key_vec.size() != 16) {
+        std::string toml_key = Config::getTrophyKey();
+        if (!toml_key.empty()) {
+            try {
+                user_key_vec = KeyManager::HexStringToBytes(toml_key);
+                LOG_INFO(Common_Filesystem, "Using trophy key from TOML config as fallback");
+            } catch (const std::exception& e) {
+                LOG_ERROR(Common_Filesystem, "Failed to parse trophy key from TOML: {}", e.what());
+            }
+        }
+    }
 
     if (user_key_vec.size() != 16) {
         LOG_INFO(Common_Filesystem, "Trophy decryption key is not specified");
