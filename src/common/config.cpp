@@ -298,6 +298,7 @@ static bool isQT = false;
 static bool launcher_boot = false;
 std::unordered_map<std::string, bool> toolbar_visibility_settings;
 static std::filesystem::path fonts_path = {};
+static ConfigEntry<bool> isIdenticalLogGrouped(true);
 
 bool getToolbarWidgetVisibility(const std::string& name, bool default_value) {
     if (toolbar_visibility_settings.count(name)) {
@@ -342,6 +343,14 @@ bool getQTInstalled() {
 
 void setQTInstalled(bool use) {
     isQT = use;
+}
+
+bool groupIdenticalLogs() {
+    return isIdenticalLogGrouped.get();
+}
+
+void setIdenticalLogGrouped(bool enable, bool is_game_specific) {
+    isIdenticalLogGrouped.set(enable, is_game_specific);
 }
 
 string GetHttpHostOverride() {
@@ -1461,6 +1470,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         enableDiscordRPC = toml::find_or<bool>(general, "enableDiscordRPC", true);
         logFilter.setFromToml(general, "logFilter", is_game_specific);
         logType.setFromToml(general, "logType", is_game_specific);
+        isIdenticalLogGrouped.setFromToml(general, "isIdenticalLogGrouped", is_game_specific);
         userNames.setFromToml(general, "userNames", is_game_specific);
 
         if (!Common::g_is_release) {

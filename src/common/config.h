@@ -73,6 +73,8 @@ bool getPSNSignedIn();
 bool getShaderSkipsEnabled();
 std::string getAudioBackend();
 int getAudioVolume();
+bool groupIdenticalLogs();
+void setGroupIdenticalLogs(bool enable, bool is_game_specific = false);
 
 std::string getLogFilter();
 std::string getLogType();
