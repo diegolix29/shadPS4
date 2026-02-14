@@ -2115,7 +2115,7 @@ constexpr std::string_view GetDefaultGlobalConfig() {
 }
 
 constexpr std::string_view GetDefaultInputConfig() {
-    return R"(#Feeling lost? Check out the Help section!
+    return R"(#Feeling lost? Check out the Help section!!
 
 # Keyboard bindings
 

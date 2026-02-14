@@ -453,7 +453,7 @@ void VersionDialog::InstallSelectedVersion() {
                                     "Expand-Archive -Path \"%2\" -DestinationPath \"%1\" -Force\n"
                                     "Remove-Item -Force \"%2\"\n"
                                     "Remove-Item -Force \"%3\"\n"
-                                    "cls\n")
+                                    "Write-Output \"EXTRACTION_COMPLETE\"\n")
                                     .arg(destFolder, userPath + "/temp_download_update.zip",
                                          scriptFilePath);
                             process = "powershell.exe";
@@ -462,17 +462,42 @@ void VersionDialog::InstallSelectedVersion() {
                             scriptFilePath = userPath + "/extract_update.sh";
                             scriptContent =
                                 QString("#!/bin/bash\n"
+                                        "set -e  # Exit on any error\n"
                                         "mkdir -p \"%1\"\n"
+                                        "echo \"Extracting archive...\"\n"
                                         "if command -v unzip &> /dev/null; then\n"
-                                        "    unzip -o \"%2\" -d \"%1\"\n"
+                                        "    if unzip -o \"%2\" -d \"%1\" 2>/dev/null; then\n"
+                                        "        echo \"ZIP extraction successful\"\n"
+                                        "    elif command -v 7z &> /dev/null; then\n"
+                                        "        echo \"Trying 7z extraction...\"\n"
+                                        "        7z x \"%2\" -o\"%1\" -y\n"
+                                        "    else\n"
+                                        "        echo \"Error: Neither unzip nor 7z available\"\n"
+                                        "        exit 1\n"
+                                        "    fi\n"
                                         "elif command -v 7z &> /dev/null; then\n"
-                                        "    7z x \"%2\" -o\"%1\" -y\n"
+                                        "    echo \"Using 7z extraction...\"\n"
+                                        "    7z x \"%2\" -o\"%1\" -y\n"
+                                        "else\n"
+                                        "    echo \"Error: No archive extraction tool available\"\n"
+                                        "    exit 1\n"
                                         "fi\n"
-                                        "chmod +x \"%1\"/*.AppImage 2>/dev/null || true\n"
-                                        "chmod +x \"%1\"/shadps4* 2>/dev/null || true\n"
-                                        "rm \"%2\"\n"
-                                        "rm \"%3\"\n"
-                                        "clear\n")
+                                        "echo \"Extracting tar.gz files if any...\"\n"
+                                        "find \"%1\" -name \"*.tar.gz\" -exec tar -xzf {} -C "
+                                        "\"%1\" \\; 2>/dev/null || true\n"
+                                        "find \"%1\" -name \"*.tgz\" -exec tar -xzf {} -C \"%1\" "
+                                        "\\; 2>/dev/null || true\n"
+                                        "echo \"Setting executable permissions...\"\n"
+                                        "find \"%1\" -name \"*.AppImage\" -exec chmod +x {} \\; "
+                                        "2>/dev/null || true\n"
+                                        "find \"%1\" -name \"shadps4*\" -type f -executable -exec "
+                                        "chmod +x {} \\; 2>/dev/null || true\n"
+                                        "find \"%1\" -name \"*shadps4*\" -type f -exec chmod +x {} "
+                                        "\\; 2>/dev/null || true\n"
+                                        "echo \"Cleaning up...\"\n"
+                                        "rm -f \"%2\"\n"
+                                        "rm -f \"%3\"\n"
+                                        "echo \"Extraction complete\"\n")
                                     .arg(destFolder, userPath + "/temp_download_update.zip",
                                          scriptFilePath);
                             process = "bash";
@@ -508,46 +533,150 @@ void VersionDialog::InstallSelectedVersion() {
                                 scriptFile.setPermissions(QFile::ExeUser | QFile::ReadUser |
                                                           QFile::WriteUser);
 #endif
-                                QProcess::startDetached(process, args);
+                                QProcess* extractionProcess = new QProcess(this);
+                                extractionProcess->start(process, args);
 
-                                QTimer::singleShot(
-                                    4000, this,
-                                    [this, destFolder, progressDialog, versionName, fetchSDL]() {
-                                        progressDialog->close();
-                                        progressDialog->deleteLater();
+                                QTimer* completionTimer = new QTimer(this);
+                                completionTimer->setSingleShot(false);
+                                completionTimer->setInterval(1000);
 
-                                        QString executableName;
+                                QTimer* timeoutTimer = new QTimer(this);
+                                timeoutTimer->setSingleShot(true);
+                                timeoutTimer->setInterval(30000);
+
+                                connect(
+                                    completionTimer, &QTimer::timeout, this,
+                                    [this, extractionProcess, destFolder, progressDialog,
+                                     versionName, fetchSDL, completionTimer, timeoutTimer]() {
+                                        if (extractionProcess->state() == QProcess::NotRunning) {
+                                            completionTimer->stop();
+                                            timeoutTimer->stop();
+
+                                            if (extractionProcess->exitCode() == 0) {
+                                                progressDialog->close();
+                                                progressDialog->deleteLater();
+
+                                                QString executableName;
 #if defined(Q_OS_WIN)
-                                        executableName = "shadps4.exe";
+                                                executableName = "shadps4.exe";
 #elif defined(Q_OS_LINUX)
-                                        executableName = fetchSDL ? "shadps4-sdl" : "shadps4";
-                                        QDir dir(destFolder);
-                                        QStringList filters;
-                                        filters << "*.AppImage" << "shadps4*";
-                                        QStringList files =
-                                            dir.entryList(filters, QDir::Files | QDir::Executable);
-                                        if (!files.isEmpty())
-                                            executableName = files.first();
-#elif defined(Q_OS_MAC)
-                                        executableName = "shadps4.app";
-#endif
-                                        QString finalExePath =
-                                            QDir(destFolder).filePath(executableName);
+                                                QDir dir(destFolder);
+                                                QStringList possibleNames;
 
-                                        if (QFile::exists(finalExePath)) {
-                                            QMessageBox::information(
-                                                this, tr("Download Complete"),
-                                                tr("Version %1 Downloaded please Install"
-                                                   "it.\nPath: %2")
-                                                    .arg(versionName, finalExePath));
-                                        } else {
-                                            QMessageBox::warning(
-                                                this, tr("Error"),
-                                                tr("Executable not found after extraction:\n%1")
-                                                    .arg(finalExePath));
+                                                if (fetchSDL) {
+                                                    possibleNames << "shadps4-sdl" << "Shadps4-sdl"
+                                                                  << "shadps4-sdl.AppImage";
+                                                } else {
+                                                    possibleNames << "shadps4" << "Shadps4"
+                                                                  << "shadps4.AppImage"
+                                                                  << "Shadps4.AppImage";
+                                                }
+
+                                                QStringList appImages = dir.entryList(
+                                                    QStringList() << "*.AppImage", QDir::Files);
+                                                for (const QString& appImage : appImages) {
+                                                    if (appImage.contains("shadps4",
+                                                                          Qt::CaseInsensitive)) {
+                                                        executableName = appImage;
+                                                        break;
+                                                    }
+                                                }
+
+                                                if (executableName.isEmpty()) {
+                                                    for (const QString& possibleName :
+                                                         possibleNames) {
+                                                        QString candidatePath =
+                                                            dir.filePath(possibleName);
+                                                        if (QFile::exists(candidatePath)) {
+                                                            QFileInfo fileInfo(candidatePath);
+                                                            if (fileInfo.isExecutable() ||
+                                                                possibleName.endsWith(
+                                                                    ".AppImage")) {
+                                                                executableName = possibleName;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                if (executableName.isEmpty()) {
+                                                    QStringList allFiles =
+                                                        dir.entryList(QDir::Files);
+                                                    for (const QString& file : allFiles) {
+                                                        if (file.contains("shadps4",
+                                                                          Qt::CaseInsensitive)) {
+                                                            QString filePath = dir.filePath(file);
+                                                            QFileInfo fileInfo(filePath);
+                                                            if (fileInfo.isExecutable() ||
+                                                                file.endsWith(".AppImage")) {
+                                                                executableName = file;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+#elif defined(Q_OS_MAC)
+                                                executableName = "shadps4.app";
+#endif
+                                                QString finalExePath =
+                                                    QDir(destFolder).filePath(executableName);
+
+                                                if (QFile::exists(finalExePath)) {
+                                                    QMessageBox::information(
+                                                        this, tr("Download Complete"),
+                                                        tr("Version %1 Downloaded please Install"
+                                                           "it.\nPath: %2")
+                                                            .arg(versionName, finalExePath));
+                                                } else {
+                                                    QMessageBox::warning(this, tr("Error"),
+                                                                         tr("Executable not found "
+                                                                            "after extraction:\n%1")
+                                                                             .arg(finalExePath));
+                                                }
+                                                LoadinstalledList();
+                                            } else {
+                                                progressDialog->close();
+                                                progressDialog->deleteLater();
+                                                QMessageBox::critical(
+                                                    this, tr("Extraction Failed"),
+                                                    tr("The extraction process failed with exit "
+                                                       "code %1.\n"
+                                                       "Please check if you have sufficient disk "
+                                                       "space "
+                                                       "and the necessary extraction tools "
+                                                       "installed.")
+                                                        .arg(extractionProcess->exitCode()));
+                                            }
+
+                                            extractionProcess->deleteLater();
+                                            completionTimer->deleteLater();
+                                            timeoutTimer->deleteLater();
                                         }
-                                        LoadinstalledList();
                                     });
+
+                                connect(timeoutTimer, &QTimer::timeout, this,
+                                        [this, extractionProcess, progressDialog, completionTimer,
+                                         timeoutTimer]() {
+                                            extractionProcess->kill();
+                                            completionTimer->stop();
+
+                                            progressDialog->close();
+                                            progressDialog->deleteLater();
+                                            QMessageBox::critical(
+                                                this, tr("Extraction Timeout"),
+                                                tr("The extraction process timed out after 30 "
+                                                   "seconds.\n"
+                                                   "This may be due to a large file size or slow "
+                                                   "storage.\n"
+                                                   "Please check the extraction folder manually."));
+
+                                            extractionProcess->deleteLater();
+                                            completionTimer->deleteLater();
+                                            timeoutTimer->deleteLater();
+                                        });
+
+                                completionTimer->start();
+                                timeoutTimer->start();
                             }
                         });
                     reply->deleteLater();
@@ -1284,15 +1413,51 @@ void VersionDialog::InstallPkgWithV7() {
                                                                   << "-ExecutionPolicy" << "Bypass"
                                                                   << "-File" << psFile);
 #else
-                    QString shScript = QString("#!/bin/bash\n"
-                                               "mkdir -p \"%1\"\n"
-                                               "unzip -o \"%2\" -d \"%1\"\n"
-                                               "cd \"%1\"\n"
-                                               "mv -f Shadps4-qt.AppImage extractor\n"
-                                               "chmod +x extractor 2>/dev/null || true\n"
-                                               "nohup ./extractor --install-pkg &\n")
-                                           .arg(installerFolder)
-                                           .arg(destinationPath);
+                    QString shScript =
+                        QString(
+                            "#!/bin/bash\n"
+                            "set -e  # Exit on any error\n"
+                            "mkdir -p \"%1\"\n"
+                            "echo \"Extracting PKG installer...\"\n"
+                            "if command -v unzip &> /dev/null; then\n"
+                            "    unzip -o \"%2\" -d \"%1\" 2>/dev/null || {\n"
+                            "        if command -v 7z &> /dev/null; then\n"
+                            "            7z x \"%2\" -o\"%1\" -y\n"
+                            "        else\n"
+                            "            echo \"Error: Neither unzip nor 7z available\"\n"
+                            "            exit 1\n"
+                            "        fi\n"
+                            "    }\n"
+                            "elif command -v 7z &> /dev/null; then\n"
+                            "    7z x \"%2\" -o\"%1\" -y\n"
+                            "else\n"
+                            "    echo \"Error: No archive extraction tool available\"\n"
+                            "    exit 1\n"
+                            "fi\n"
+                            "cd \"%1\"\n"
+                            "echo \"Looking for executable to rename...\"\n"
+                            "FOUND_EXEC=\"\"\n"
+                            "for exec_pattern in \"Shadps4-qt.AppImage\" \"shadps4-qt.AppImage\" "
+                            "\"Shadps4-qt\" \"shadps4-qt\" \"*.AppImage\"; do\n"
+                            "    if compgen -G \"$exec_pattern\" > /dev/null; then\n"
+                            "        FOUND_EXEC=$(ls $exec_pattern 2>/dev/null | head -1)\n"
+                            "        break\n"
+                            "    fi\n"
+                            "done\n"
+                            "if [ -n \"$FOUND_EXEC\" ]; then\n"
+                            "    echo \"Found executable: $FOUND_EXEC\"\n"
+                            "    mv -f \"$FOUND_EXEC\" extractor\n"
+                            "    chmod +x extractor 2>/dev/null || true\n"
+                            "    echo \"Starting PKG installer...\"\n"
+                            "    nohup ./extractor --install-pkg &\n"
+                            "else\n"
+                            "    echo \"Error: No suitable executable found in extraction\"\n"
+                            "    echo \"Contents:\"\n"
+                            "    ls -la\n"
+                            "    exit 1\n"
+                            "fi\n")
+                            .arg(installerFolder)
+                            .arg(destinationPath);
 
                     QString shFile = userPath + "/run_pkg_installer.sh";
                     QFile f(shFile);
