@@ -305,15 +305,12 @@ void PipelineCache::WarmUp() {
     std::vector<u8> profile_data{};
     Storage::DataBase::Instance().Load(Storage::BlobType::ShaderProfile, "profile", profile_data);
     if (profile_data.empty()) {
-        LOG_INFO(Render, "No existing cache profile found, creating new cache");
+        Storage::DataBase::Instance().FinishPreload();
 
         profile_data.resize(sizeof(profile));
         std::memcpy(profile_data.data(), &profile, sizeof(profile));
         Storage::DataBase::Instance().Save(Storage::BlobType::ShaderProfile, "profile",
                                            std::move(profile_data));
-
-        // Only call FinishPreload after we have data to save
-        Storage::DataBase::Instance().FinishPreload();
         return;
     }
     if (std::memcmp(profile_data.data(), &profile, sizeof(profile)) != 0) {

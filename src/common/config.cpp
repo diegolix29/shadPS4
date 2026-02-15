@@ -234,8 +234,7 @@ static ConfigEntry<bool> vkGuestMarkers(false);
 static ConfigEntry<bool> rdocEnable(false);
 static ConfigEntry<bool> pipelineCacheEnable(false);
 static ConfigEntry<bool> pipelineCacheArchive(false);
-static ConfigEntry<bool> shaderPrecompilationEnable(true);
-static ConfigEntry<bool> shaderCompilationOverlayEnable(true);
+static ConfigEntry<bool> shaderCompilationOverlayEnable(false);
 
 // Debug
 static ConfigEntry<bool> isDebugDump(false);
@@ -1612,7 +1611,6 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         rdocEnable.setFromToml(vk, "rdocEnable", is_game_specific);
         pipelineCacheEnable.setFromToml(vk, "pipelineCacheEnable", is_game_specific);
         pipelineCacheArchive.setFromToml(vk, "pipelineCacheArchive", is_game_specific);
-        shaderPrecompilationEnable.setFromToml(vk, "shaderPrecompilationEnable", is_game_specific);
         shaderCompilationOverlayEnable.setFromToml(vk, "shaderCompilationOverlayEnable",
                                                    is_game_specific);
     }
@@ -1875,7 +1873,6 @@ void save(const std::filesystem::path& path) {
     data["Vulkan"]["rdocEnable"] = rdocEnable.base_value;
     data["Vulkan"]["pipelineCacheEnable"] = pipelineCacheEnable.base_value;
     data["Vulkan"]["pipelineCacheArchive"] = pipelineCacheArchive.base_value;
-    data["Vulkan"]["shaderPrecompilationEnable"] = shaderPrecompilationEnable.base_value;
     data["Vulkan"]["shaderCompilationOverlayEnable"] = shaderCompilationOverlayEnable.base_value;
 
     data["Debug"]["DebugDump"] = isDebugDump.base_value;
@@ -2088,7 +2085,6 @@ void setDefaultValues() {
     rdocEnable = false;
     pipelineCacheEnable = false;
     pipelineCacheArchive = false;
-    shaderPrecompilationEnable = false;
     shaderCompilationOverlayEnable = false;
 
     // Debug
