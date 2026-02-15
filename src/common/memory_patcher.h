@@ -26,6 +26,14 @@ enum PatchMask : uint8_t {
     Mask_Jump32,
 };
 
+inline bool IsSpecialCusa() {
+    const std::string_view serial{MemoryPatcher::g_game_serial};
+
+    return serial == "CUSA00035" || serial == "CUSA00785" || serial == "CUSA00076" ||
+           serial == "CUSA00552" || serial == "CUSA00556" || serial == "CUSA00557" ||
+           serial == "CUSA00554";
+}
+
 struct patchInfo {
     std::string gameSerial;
     std::string modNameStr;

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/memory_patcher.h"
 #include "shader_recompiler/frontend/control_flow_graph.h"
 #include "shader_recompiler/info.h"
 #include "shader_recompiler/ir/basic_block.h"
@@ -498,8 +499,13 @@ void PatchBufferSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors&
         // buffer_load_format_xyz v[8:10], v1, s[32:35], 0 ...
         // is used to define an inline buffer resource
         std::array<u64, 2> raw;
-        // Keep relative address, we'll do fixup of the address at buffer fetch later
-        raw[0] = (handle->Arg(0).U32() | u64(handle->Arg(1).U32()) << 32);
+
+        if (MemoryPatcher::IsSpecialCusa()) {
+            raw[0] = info.pgm_base + (handle->Arg(0).U32() | (u64(handle->Arg(1).U32()) << 32));
+        } else {
+            raw[0] = handle->Arg(0).U32() | (u64(handle->Arg(1).U32()) << 32);
+        }
+
         raw[1] = handle->Arg(2).U32() | u64(handle->Arg(3).U32()) << 32;
         const auto buffer = std::bit_cast<AmdGpu::Buffer>(raw);
         buffer_binding = descriptors.Add(BufferResource{
