@@ -1262,11 +1262,16 @@ void VersionDialog::InstallPkgWithV7() {
                            "The app will close the installer process automatically."));
         infoBox.setStandardButtons(QMessageBox::Ok);
 
-        connect(&infoBox, &QMessageBox::accepted, this, []() {
+        connect(&infoBox, &QMessageBox::accepted, this, [installerFolder]() {
 #if defined(Q_OS_WIN)
             QProcess::startDetached("taskkill", QStringList() << "/IM" << "extractor.exe" << "/F");
 #elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
-                    QProcess::startDetached("pkill", QStringList() << "extractor");
+            QString script = QString(
+                "#!/bin/bash\n"
+                "ps aux | grep '%1' | grep -v grep | awk '{print $2}' | xargs -r kill -9 2>/dev/null || true\n"
+                "ps aux | grep 'extractor' | grep -v grep | awk '{print $2}' | xargs -r kill -9 2>/dev/null || true\n"
+            ).arg(QDir(installerFolder).path());
+            QProcess::startDetached("/bin/bash", QStringList() << "-c" << script);
 #endif
         });
 
