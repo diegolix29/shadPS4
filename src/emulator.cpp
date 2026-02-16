@@ -265,6 +265,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     LOG_INFO(Config, "Vulkan hostMarkers: {}", Config::getVkHostMarkersEnabled());
     LOG_INFO(Config, "Vulkan guestMarkers: {}", Config::getVkGuestMarkersEnabled());
     LOG_INFO(Config, "Vulkan rdocEnable: {}", Config::isRdocEnabled());
+    LOG_INFO(Config, "Vulkan shaderCompilationOverlay: {}", Config::isShaderCompilationOverlayEnabled());
 
     hwinfo::Memory ram;
     hwinfo::OS os;

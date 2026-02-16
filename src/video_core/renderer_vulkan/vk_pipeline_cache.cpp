@@ -559,7 +559,6 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
     DumpShader(code, info.pgm_hash, info.stage, perm_idx, "bin");
 
     bool should_track = Config::isShaderCompilationOverlayEnabled();
-    LOG_INFO(Render_Vulkan, "Shader compilation overlay enabled: {}", should_track);
     if (should_track) {
         IncrementRuntimeCompilationCount();
     }
