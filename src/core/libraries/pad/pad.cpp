@@ -498,21 +498,12 @@ int PS4_SYSV_ABI scePadReadState(s32 handle, OrbisPadData* pData) {
     controller->ReadState(&state, &isConnected, &connectedCount);
     pData->buttons = state.buttonsState;
 
-    auto getAxisValue = [&state, &controller](Input::Axis a) {
-        auto i = static_cast<int>(a);
-        if (controller->axis_smoothing_ticks[i] > 0) {
-            --controller->axis_smoothing_ticks[i];
-            return (state.axes[i] + controller->axis_smoothing_values[i]) / 2;
-        }
-        return state.axes[i];
-    };
-
-    pData->leftStick.x = getAxisValue(Input::Axis::LeftX);
-    pData->leftStick.y = getAxisValue(Input::Axis::LeftY);
-    pData->rightStick.x = getAxisValue(Input::Axis::RightX);
-    pData->rightStick.y = getAxisValue(Input::Axis::RightY);
-    pData->analogButtons.l2 = getAxisValue(Input::Axis::TriggerLeft);
-    pData->analogButtons.r2 = getAxisValue(Input::Axis::TriggerRight);
+    pData->leftStick.x = state.axes[static_cast<int>(Input::Axis::LeftX)];
+    pData->leftStick.y = state.axes[static_cast<int>(Input::Axis::LeftY)];
+    pData->rightStick.x = state.axes[static_cast<int>(Input::Axis::RightX)];
+    pData->rightStick.y = state.axes[static_cast<int>(Input::Axis::RightY)];
+    pData->analogButtons.l2 = state.axes[static_cast<int>(Input::Axis::TriggerLeft)];
+    pData->analogButtons.r2 = state.axes[static_cast<int>(Input::Axis::TriggerRight)];
 
     pData->acceleration.x = state.acceleration.x * 0.098f;
     pData->acceleration.y = state.acceleration.y * 0.098f;

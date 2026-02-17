@@ -95,38 +95,72 @@ void GameController::CheckButton(int id, Libraries::Pad::OrbisPadButtonDataOffse
     AddState(state);
 }
 
-void GameController::Axis(int id, Input::Axis axis, int value) {
-    using Libraries::Pad::OrbisPadButtonDataOffset;
-
+void GameController::Axis(Input::Axis axis, int value, bool smooth) {
     std::scoped_lock lock{m_mutex};
     auto state = GetLastState();
-
     state.time = Libraries::Kernel::sceKernelGetProcessTime();
-    int axis_id = static_cast<int>(axis);
-    if (std::abs(state.axes[axis_id] - value) > 120) {
-        LOG_DEBUG(Input, "Gamepad axis change detected");
-        axis_smoothing_ticks[axis_id] = GameController::max_smoothing_ticks;
-        axis_smoothing_values[axis_id] = state.axes[axis_id];
-    }
-    state.axes[axis_id] = value;
 
-    if (axis == Input::Axis::TriggerLeft) {
-        if (value > 0) {
-            state.buttonsState |= OrbisPadButtonDataOffset::L2;
-        } else {
-            state.buttonsState &= ~OrbisPadButtonDataOffset::L2;
-        }
-    }
+    auto const i = static_cast<size_t>(axis);
 
-    if (axis == Input::Axis::TriggerRight) {
+    state.axes[i] = axis_smoothing_end_values[i];
+
+    axis_smoothing_start_times[i] = state.time;
+    axis_smoothing_start_values[i] = state.axes[i];
+    axis_smoothing_end_values[i] = value;
+    axis_smoothing_flags[i] = smooth;
+
+    const auto toggle = [&](const auto button) {
         if (value > 0) {
-            state.buttonsState |= OrbisPadButtonDataOffset::R2;
+            state.buttonsState |= button;
         } else {
-            state.buttonsState &= ~OrbisPadButtonDataOffset::R2;
+            state.buttonsState &= ~button;
         }
+    };
+
+    switch (axis) {
+    case Input::Axis::TriggerLeft:
+        toggle(Libraries::Pad::OrbisPadButtonDataOffset::L2);
+        break;
+    case Input::Axis::TriggerRight:
+        toggle(Libraries::Pad::OrbisPadButtonDataOffset::R2);
+        break;
+    default:
+        break;
     }
 
     AddState(state);
+}
+
+void GameController::UpdateAxisSmoothing() {
+    std::scoped_lock lock{m_mutex};
+    auto state = GetLastState();
+    state.time = Libraries::Kernel::sceKernelGetProcessTime();
+    bool state_changed = false;
+
+    for (size_t i = 0; i < static_cast<size_t>(Input::Axis::AxisMax); i++) {
+        if (!axis_smoothing_flags[i] ||
+            std::abs(state.axes[i] - axis_smoothing_end_values[i]) < 8) {
+            if (state.axes[i] != axis_smoothing_end_values[i]) {
+                state.axes[i] = axis_smoothing_end_values[i];
+                state_changed = true;
+            }
+            continue;
+        }
+        auto now = state.time;
+        f32 t =
+            std::clamp((now - axis_smoothing_start_times[i]) / f32{axis_smoothing_time}, 0.f, 1.f);
+        s32 new_val =
+            s32(axis_smoothing_start_values[i] * (1 - t) + axis_smoothing_end_values[i] * t);
+
+        if (state.axes[i] != new_val) {
+            state.axes[i] = new_val;
+            state_changed = true;
+        }
+    }
+
+    if (state_changed) {
+        AddState(state);
+    }
 }
 
 void GameController::Gyro(int id, const float gyro[3]) {
