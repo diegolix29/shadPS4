@@ -587,9 +587,10 @@ s32 PS4_SYSV_ABI sceUserServiceGetLoginUserIdList(OrbisUserServiceLoginUserIdLis
     }
     // TODO only first user, do the others as well
     auto controllers = *Common::Singleton<Input::GameControllers>::Instance();
+    auto playerEnabledStates = Config::getPlayerEnabledStates();
     int li = 0;
     for (int ci = 0; ci < 4; ci++) {
-        if (controllers[ci]->user_id != -1) {
+        if (controllers[ci]->user_id != -1 && playerEnabledStates[ci]) {
             userIdList->user_id[li++] = controllers[ci]->user_id;
         }
     }

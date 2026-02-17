@@ -7,8 +7,11 @@
 
 #include <memory>
 #include <span>
+#include <QComboBox>
 #include <QDialog>
 #include <QGroupBox>
+#include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
 
 #include "common/config.h"
@@ -53,7 +56,10 @@ private:
     void OnRcasAttenuationSpinBoxChanged(double value);
     void VolumeSliderChange(int value);
     void FPSChange(int value);
+    void OnCpuCoreModeChanged(int index);
+    void OnCustomCpuCoresChanged(const QString& text);
     void setDefaultValues();
+    void OnToggleDescriptionClicked();
 
     std::unique_ptr<Ui::SettingsDialog> ui;
 
@@ -63,6 +69,8 @@ private:
     QCheckBox* specialPadChecks[4][4];
 
     QString defaultTextEdit;
+
+    bool is_description_visible = true;
 
     int initialHeight;
     std::string gs_serial;

@@ -5,6 +5,8 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <thread>
+#include <vector>
 #include <fmt/core.h>
 #include <fmt/xchar.h>
 #include <toml.hpp>
@@ -15,6 +17,7 @@
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "common/scm_rev.h"
+#include "common/thread.h"
 #include "input/input_handler.h"
 
 using std::nullopt;
@@ -71,8 +74,20 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         if (it->second.is_array()) {
             return toml::get<T>(it->second);
         }
+    } else if constexpr (std::is_same_v<T, std::array<bool, 4>>) {
+        if (it->second.is_array()) {
+            return toml::get<T>(it->second);
+        }
+    } else if constexpr (std::is_same_v<T, Common::CpuCoreMode>) {
+        if (it->second.is_integer()) {
+            return static_cast<Common::CpuCoreMode>(toml::get<int>(it->second));
+        }
+    } else if constexpr (std::is_same_v<T, std::vector<int>>) {
+        if (it->second.is_array()) {
+            return toml::get<T>(it->second);
+        }
     } else {
-        static_assert([] { return false; }(), "Unsupported type in get_optional<T>");
+        static_assert(false, "Unsupported type in get_optional<T>");
     }
 
     return std::nullopt;
@@ -151,6 +166,7 @@ static ConfigEntry<std::array<std::string, 4>> userNames({
     "shadPS4-3",
     "shadPS4-4",
 });
+static ConfigEntry<std::array<bool, 4>> playerEnabledStates({true, true, true, true});
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
@@ -235,6 +251,10 @@ static ConfigEntry<bool> rdocEnable(false);
 static ConfigEntry<bool> pipelineCacheEnable(false);
 static ConfigEntry<bool> pipelineCacheArchive(false);
 static ConfigEntry<bool> shaderCompilationOverlayEnable(false);
+
+// CPU
+static ConfigEntry<Common::CpuCoreMode> cpuCoreMode(Common::CpuCoreMode::All);
+static std::vector<u32> customCpuCores = {};
 
 // Debug
 static ConfigEntry<bool> isDebugDump(false);
@@ -733,6 +753,31 @@ void setUserName(int id, string name) {
 
 std::array<string, 4> const getUserNames() {
     return userNames.get();
+}
+
+bool isPlayerEnabled(int player_id) {
+    if (player_id < 1 || player_id > 4) {
+        return false;
+    }
+    auto states = playerEnabledStates.get();
+    return states[player_id - 1];
+}
+
+void setPlayerEnabled(int player_id, bool enabled) {
+    if (player_id < 1 || player_id > 4) {
+        return;
+    }
+    auto states = playerEnabledStates.get();
+    states[player_id - 1] = enabled;
+    playerEnabledStates.set(states);
+}
+
+std::array<bool, 4> getPlayerEnabledStates() {
+    return playerEnabledStates.get();
+}
+
+void setPlayerEnabledStates(const std::array<bool, 4>& states) {
+    playerEnabledStates.set(states);
 }
 
 std::string getUpdateChannel() {
@@ -1472,6 +1517,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         logType.setFromToml(general, "logType", is_game_specific);
         isIdenticalLogGrouped.setFromToml(general, "isIdenticalLogGrouped", is_game_specific);
         userNames.setFromToml(general, "userNames", is_game_specific);
+        playerEnabledStates.setFromToml(general, "playerEnabledStates", is_game_specific);
 
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
@@ -1514,6 +1560,17 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         activeControllerID.setFromToml(general, "activeControllerID", "");
         sys_modules_path = toml::find_fs_path_or(general, "sysModulesPath", sys_modules_path);
         fonts_path = toml::find_fs_path_or(general, "fontsPath", fonts_path);
+
+        // CPU configuration
+        cpuCoreMode.setFromToml(general, "cpuCoreMode", is_game_specific);
+        if (auto opt = toml::get_optional<std::vector<int>>(general, "customCpuCores")) {
+            customCpuCores.clear();
+            for (int core : *opt) {
+                if (core >= 0) {
+                    customCpuCores.push_back(static_cast<u32>(core));
+                }
+            }
+        }
     }
 
     if (data.contains("Input")) {
@@ -1797,6 +1854,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["logFilter"] = logFilter.base_value;
     data["General"]["logType"] = logType.base_value;
     data["General"]["userNames"] = userNames.base_value;
+    data["General"]["playerEnabledStates"] = playerEnabledStates.base_value;
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
@@ -1822,6 +1880,12 @@ void save(const std::filesystem::path& path) {
     data["General"]["firstBootHandled"] = firstBootHandled.base_value;
     data["General"]["defaultControllerID"] = defaultControllerID.base_value;
     data["General"]["activeControllerID"] = activeControllerID.base_value;
+    data["General"]["cpuCoreMode"] = static_cast<int>(cpuCoreMode.base_value);
+    std::vector<int> custom_cores_int;
+    for (u32 core : customCpuCores) {
+        custom_cores_int.push_back(static_cast<int>(core));
+    }
+    data["General"]["customCpuCores"] = custom_cores_int;
 
     data["Input"]["cursorState"] = cursorState.base_value;
     data["Input"]["cursorHideTimeout"] = cursorHideTimeout.base_value;
@@ -2018,6 +2082,7 @@ void setDefaultValues() {
     logFilter = "";
     logType = "sync";
     userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
+    playerEnabledStates = {true, true, true, true};
     chooseHomeTab = "General";
     isShowSplash = false;
     isSideTrophy = "right";
@@ -2030,6 +2095,10 @@ void setDefaultValues() {
     restartWithBaseGame = false;
     separateupdatefolder = false;
     screenTipDisable = false;
+
+    // CPU configuration
+    cpuCoreMode = Common::CpuCoreMode::All;
+    customCpuCores.clear();
 
     // Input
     cursorState = HideCursorState::Idle;
@@ -2272,6 +2341,54 @@ std::filesystem::path GetInputConfigFile(const std::string& game_id) {
         std::filesystem::copy(default_config_file, config_file);
     }
     return config_file;
+}
+
+// CPU configuration functions
+Common::CpuCoreMode getCpuCoreMode() {
+    return cpuCoreMode.get();
+}
+
+void setCpuCoreMode(Common::CpuCoreMode mode) {
+    cpuCoreMode.base_value = mode;
+}
+
+std::vector<u32> getCustomCpuCores() {
+    return customCpuCores;
+}
+
+void setCustomCpuCores(const std::vector<u32>& cores) {
+    customCpuCores = cores;
+}
+
+std::vector<u32> getEffectiveCpuCores() {
+    const auto mode = getCpuCoreMode();
+
+    switch (mode) {
+    case Common::CpuCoreMode::All: {
+        // Return all available cores
+        std::vector<u32> all_cores;
+        const auto num_cores = std::thread::hardware_concurrency();
+        for (u32 i = 0; i < num_cores; ++i) {
+            all_cores.push_back(i);
+        }
+        return all_cores;
+    }
+    case Common::CpuCoreMode::Efficient: {
+        // For simplicity, return half the cores (typically efficient cores)
+        // In a real implementation, this would detect actual efficient cores
+        const auto num_cores = std::thread::hardware_concurrency();
+        const auto efficient_count = num_cores / 2;
+        std::vector<u32> efficient_cores;
+        for (u32 i = efficient_count; i < num_cores; ++i) {
+            efficient_cores.push_back(i);
+        }
+        return efficient_cores;
+    }
+    case Common::CpuCoreMode::Custom:
+        return getCustomCpuCores();
+    default:
+        return {};
+    }
 }
 
 } // namespace Config

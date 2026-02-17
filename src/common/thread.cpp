@@ -6,6 +6,7 @@
 #include <ctime>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "core/libraries/kernel/threads/pthread.h"
 
@@ -264,6 +265,33 @@ std::string GetCurrentThreadName() {
         return "<unknown name>";
     }
     return std::string{name};
+#endif
+}
+
+void SetThreadAffinity(const std::vector<u32>& core_ids) {
+    if (core_ids.empty()) {
+        return;
+    }
+
+#ifdef _WIN32
+    HANDLE thread = GetCurrentThread();
+    DWORD_PTR affinity_mask = 0;
+    for (u32 core_id : core_ids) {
+        affinity_mask |= (1ULL << core_id);
+    }
+    SetThreadAffinityMask(thread, affinity_mask);
+#elif defined(__linux__)
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    for (u32 core_id : core_ids) {
+        CPU_SET(core_id, &cpuset);
+    }
+    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+#elif defined(__APPLE__)
+    // macOS doesn't have direct thread affinity control
+    // We can use thread_policy_set but it's more complex
+    // For now, we'll skip implementation on macOS
+    LOG_INFO(Common, "Thread affinity not implemented for macOS");
 #endif
 }
 

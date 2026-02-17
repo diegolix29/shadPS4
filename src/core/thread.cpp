@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/alignment.h"
+#include "common/config.h"
 #include "core/libraries/kernel/threads/pthread.h"
 #include "thread.h"
 #ifdef _WIN64
@@ -12,6 +13,9 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <xmmintrin.h>
+#ifdef __FreeBSD__
+#define cpu_set_t cpuset_t
+#endif
 #endif
 
 namespace Core {
@@ -64,7 +68,24 @@ int NativeThread::Create(ThreadFunc func, void* arg, const ::Libraries::Kernel::
     pthread_attr_t pattr;
     pthread_attr_init(&pattr);
     pthread_attr_setstack(&pattr, attr->stackaddr_attr, attr->stacksize_attr);
-    return pthread_create(pthr, &pattr, (PthreadFunc)func, arg);
+    int result = pthread_create(pthr, &pattr, (PthreadFunc)func, arg);
+
+    // Set CPU affinity after thread creation
+    if (result == 0) {
+        const auto effective_cores = Config::getEffectiveCpuCores();
+        if (!effective_cores.empty()) {
+#if defined(__linux__) || defined(__FreeBSD__)
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            for (u32 core_id : effective_cores) {
+                CPU_SET(core_id, &cpuset);
+            }
+            pthread_setaffinity_np(*pthr, sizeof(cpuset), &cpuset);
+#endif
+        }
+    }
+
+    return result;
 #else
     CLIENT_ID clientId{};
     INITIAL_TEB teb{};
@@ -76,8 +97,22 @@ int NativeThread::Create(ThreadFunc func, void* arg, const ::Libraries::Kernel::
     InitializeTeb(&teb, attr);
     InitializeContext(&ctx, func, arg, attr);
 
-    return NtCreateThread(&native_handle, THREAD_ALL_ACCESS, nullptr, GetCurrentProcess(),
-                          &clientId, &ctx, &teb, false);
+    int result = NtCreateThread(&native_handle, THREAD_ALL_ACCESS, nullptr, GetCurrentProcess(),
+                                &clientId, &ctx, &teb, false);
+
+    // Set CPU affinity after thread creation
+    if (result == 0) {
+        const auto effective_cores = Config::getEffectiveCpuCores();
+        if (!effective_cores.empty()) {
+            DWORD_PTR affinity_mask = 0;
+            for (u32 core_id : effective_cores) {
+                affinity_mask |= (1ULL << core_id);
+            }
+            SetThreadAffinityMask(native_handle, affinity_mask);
+        }
+    }
+
+    return result;
 #endif
 }
 

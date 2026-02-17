@@ -824,6 +824,43 @@
 																	</widget>
 																</widget>
 															</item>
+															<item>
+																<widget class="QGroupBox" name="cpuSettingsGroupBox">
+																	<property name="title">
+																		<string>CPU Configuration</string>
+																	</property>
+																	<layout class="QVBoxLayout" name="cpuSettingsLayout">
+																		<property name="spacing">
+																			<number>6</number>
+																		</property>
+																		<property name="leftMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="topMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="rightMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="bottomMargin">
+																			<number>9</number>
+																		</property>
+																		<item>
+																			<widget class="QComboBox" name="cpuCoreModeComboBox"/>
+																		</item>
+																		<item>
+																			<widget class="QLabel" name="cpuCoresLabel">
+																				<property name="text">
+																					<string>Custom CPU Cores (comma-separated):</string>
+																				</property>
+																			</widget>
+																		</item>
+																		<item>
+																			<widget class="QLineEdit" name="customCpuCoresLineEdit"/>
+																		</item>
+																	</layout>
+																</widget>
+															</item>
 														</layout>
 													</widget>
 												</item>
@@ -1449,9 +1486,9 @@
 									<height>536</height>
 								</rect>
 							</property>
-							<layout class="QVBoxLayout" name="userTabVLayout" stretch="0,0,1">
+							<layout class="QVBoxLayout" name="userTabVLayout" stretch="0,1">
 								<item>
-									<layout class="QHBoxLayout" name="horizontalLayout_2">
+									<layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1">
 										<property name="leftMargin">
 											<number>0</number>
 										</property>
@@ -1534,37 +1571,205 @@
 											</layout>
 										</item>
 										<item>
-											<spacer name="horizontalSpacer_2">
-												<property name="orientation">
-													<enum>Qt::Orientation::Horizontal</enum>
-												</property>
-												<property name="sizeHint" stdset="0">
-													<size>
-														<width>40</width>
-														<height>40</height>
-													</size>
-												</property>
-											</spacer>
-										</item>
-									</layout>
-								</item>
-								<item>
-									<layout class="QVBoxLayout" name="vLayoutTrophy">
-										<property name="spacing">
-											<number>6</number>
-										</property>
-										<property name="leftMargin">
-											<number>0</number>
-										</property>
-										<property name="bottomMargin">
-											<number>50</number>
-										</property>
-										<item>
-											<layout class="QHBoxLayout" name="hLayoutTrophy">
+											<layout class="QVBoxLayout" name="playerSettingsLayout">
+												<item>
+													<widget class="QGroupBox" name="playerEnableGroupBox">
+														<property name="title">
+															<string>Player Enable/Disable</string>
+														</property>
+														<property name="sizePolicy">
+															<sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+																<horstretch>0</horstretch>
+																<verstretch>0</verstretch>
+															</sizepolicy>
+														</property>
+														<layout class="QGridLayout" name="playerEnableGridLayout">
+															<item row="0" column="0">
+																<widget class="QLabel">
+																	<property name="text">
+																		<string>Enable Players:</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="0" column="1">
+																<widget class="QCheckBox" name="enablePlayer1CheckBox">
+																	<property name="text">
+																		<string>Player 1</string>
+																	</property>
+																	<property name="checked">
+																		<bool>true</bool>
+																	</property>
+																</widget>
+															</item>
+															<item row="0" column="2">
+																<widget class="QCheckBox" name="enablePlayer2CheckBox">
+																	<property name="text">
+																		<string>Player 2</string>
+																	</property>
+																	<property name="checked">
+																		<bool>true</bool>
+																	</property>
+																</widget>
+															</item>
+															<item row="1" column="1">
+																<widget class="QCheckBox" name="enablePlayer3CheckBox">
+																	<property name="text">
+																		<string>Player 3</string>
+																	</property>
+																	<property name="checked">
+																		<bool>true</bool>
+																	</property>
+																</widget>
+															</item>
+															<item row="1" column="2">
+																<widget class="QCheckBox" name="enablePlayer4CheckBox">
+																	<property name="text">
+																		<string>Player 4</string>
+																	</property>
+																	<property name="checked">
+																		<bool>true</bool>
+																	</property>
+																</widget>
+															</item>
+														</layout>
+													</widget>
+												</item>
+												<item>
+													<widget class="QGroupBox" name="specialPadGroupBox">
+														<property name="title">
+															<string>Special Pad Settings</string>
+														</property>
+														<property name="sizePolicy">
+															<sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+																<horstretch>0</horstretch>
+																<verstretch>0</verstretch>
+															</sizepolicy>
+														</property>
+														<layout class="QGridLayout" name="specialPadGridLayout">
+															<item row="0" column="0">
+																<widget class="QLabel">
+																	<property name="text">
+																		<string></string>
+																	</property>
+																</widget>
+															</item>
+															<item row="0" column="1">
+																<widget class="QLabel">
+																	<property name="text">
+																		<string>Player 1</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="0" column="2">
+																<widget class="QLabel">
+																	<property name="text">
+																		<string>Player 2</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="0" column="3">
+																<widget class="QLabel">
+																	<property name="text">
+																		<string>Player 3</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="0" column="4">
+																<widget class="QLabel">
+																	<property name="text">
+																		<string>Player 4</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="1" column="0">
+																<widget class="QLabel">
+																	<property name="text">
+																		<string>Special Class 1</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="2" column="0">
+																<widget class="QLabel">
+																	<property name="text">
+																		<string>Special Class 2</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="3" column="0">
+																<widget class="QLabel">
+																	<property name="text">
+																		<string>Special Class 3</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="4" column="0">
+																<widget class="QLabel">
+																	<property name="text">
+																		<string>Special Class 4</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="1" column="1">
+																<widget class="QCheckBox" name="spc1_p1"/>
+															</item>
+															<item row="1" column="2">
+																<widget class="QCheckBox" name="spc1_p2"/>
+															</item>
+															<item row="1" column="3">
+																<widget class="QCheckBox" name="spc1_p3"/>
+															</item>
+															<item row="1" column="4">
+																<widget class="QCheckBox" name="spc1_p4"/>
+															</item>
+															<item row="2" column="1">
+																<widget class="QCheckBox" name="spc2_p1"/>
+															</item>
+															<item row="2" column="2">
+																<widget class="QCheckBox" name="spc2_p2"/>
+															</item>
+															<item row="2" column="3">
+																<widget class="QCheckBox" name="spc2_p3"/>
+															</item>
+															<item row="2" column="4">
+																<widget class="QCheckBox" name="spc2_p4"/>
+															</item>
+															<item row="3" column="1">
+																<widget class="QCheckBox" name="spc3_p1"/>
+															</item>
+															<item row="3" column="2">
+																<widget class="QCheckBox" name="spc3_p2"/>
+															</item>
+															<item row="3" column="3">
+																<widget class="QCheckBox" name="spc3_p3"/>
+															</item>
+															<item row="3" column="4">
+																<widget class="QCheckBox" name="spc3_p4"/>
+															</item>
+															<item row="4" column="1">
+																<widget class="QCheckBox" name="spc4_p1"/>
+															</item>
+															<item row="4" column="2">
+																<widget class="QCheckBox" name="spc4_p2"/>
+															</item>
+															<item row="4" column="3">
+																<widget class="QCheckBox" name="spc4_p3"/>
+															</item>
+															<item row="4" column="4">
+																<widget class="QCheckBox" name="spc4_p4"/>
+															</item>
+														</layout>
+													</widget>
+												</item>
 												<item>
 													<widget class="QGroupBox" name="trophyGroupBox">
 														<property name="title">
 															<string>Trophy</string>
+														</property>
+														<property name="sizePolicy">
+															<sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+																<horstretch>0</horstretch>
+																<verstretch>0</verstretch>
+															</sizepolicy>
 														</property>
 														<layout class="QVBoxLayout" name="userNameLayout_2">
 															<item>
@@ -1697,19 +1902,6 @@
 															</item>
 														</layout>
 													</widget>
-												</item>
-												<item>
-													<spacer name="horizontalSpacer_3">
-														<property name="orientation">
-															<enum>Qt::Orientation::Horizontal</enum>
-														</property>
-														<property name="sizeHint" stdset="0">
-															<size>
-																<width>40</width>
-																<height>20</height>
-															</size>
-														</property>
-													</spacer>
 												</item>
 											</layout>
 										</item>
@@ -1968,126 +2160,6 @@
 											<number>0</number>
 										</property>
 
-										<item>
-											<widget class="QGroupBox" name="specialPadGroupBox">
-												<property name="title">
-													<string>Special Pad Settings</string>
-												</property>
-
-												<layout class="QGridLayout" name="specialPadGridLayout">
-
-													<item row="0" column="1">
-														<widget class="QLabel">
-															<property name="text">
-																<string>Player 1</string>
-															</property>
-														</widget>
-													</item>
-													<item row="0" column="2">
-														<widget class="QLabel">
-															<property name="text">
-																<string>Player 2</string>
-															</property>
-														</widget>
-													</item>
-													<item row="0" column="3">
-														<widget class="QLabel">
-															<property name="text">
-																<string>Player 3</string>
-															</property>
-														</widget>
-													</item>
-													<item row="0" column="4">
-														<widget class="QLabel">
-															<property name="text">
-																<string>Player 4</string>
-															</property>
-														</widget>
-													</item>
-
-													<item row="1" column="0">
-														<widget class="QLabel">
-															<property name="text">
-																<string>Special Class 1</string>
-															</property>
-														</widget>
-													</item>
-													<item row="2" column="0">
-														<widget class="QLabel">
-															<property name="text">
-																<string>Special Class 2</string>
-															</property>
-														</widget>
-													</item>
-													<item row="3" column="0">
-														<widget class="QLabel">
-															<property name="text">
-																<string>Special Class 3</string>
-															</property>
-														</widget>
-													</item>
-													<item row="4" column="0">
-														<widget class="QLabel">
-															<property name="text">
-																<string>Special Class 4</string>
-															</property>
-														</widget>
-													</item>
-
-													<item row="1" column="1">
-														<widget class="QCheckBox" name="spc1_p1"/>
-													</item>
-													<item row="1" column="2">
-														<widget class="QCheckBox" name="spc1_p2"/>
-													</item>
-													<item row="1" column="3">
-														<widget class="QCheckBox" name="spc1_p3"/>
-													</item>
-													<item row="1" column="4">
-														<widget class="QCheckBox" name="spc1_p4"/>
-													</item>
-
-													<item row="2" column="1">
-														<widget class="QCheckBox" name="spc2_p1"/>
-													</item>
-													<item row="2" column="2">
-														<widget class="QCheckBox" name="spc2_p2"/>
-													</item>
-													<item row="2" column="3">
-														<widget class="QCheckBox" name="spc2_p3"/>
-													</item>
-													<item row="2" column="4">
-														<widget class="QCheckBox" name="spc2_p4"/>
-													</item>
-
-													<item row="3" column="1">
-														<widget class="QCheckBox" name="spc3_p1"/>
-													</item>
-													<item row="3" column="2">
-														<widget class="QCheckBox" name="spc3_p2"/>
-													</item>
-													<item row="3" column="3">
-														<widget class="QCheckBox" name="spc3_p3"/>
-													</item>
-													<item row="3" column="4">
-														<widget class="QCheckBox" name="spc3_p4"/>
-													</item>
-
-													<item row="4" column="1">
-														<widget class="QCheckBox" name="spc4_p1"/>
-													</item>
-													<item row="4" column="2">
-														<widget class="QCheckBox" name="spc4_p2"/>
-													</item>
-													<item row="4" column="3">
-														<widget class="QCheckBox" name="spc4_p3"/>
-													</item>
-													<item row="4" column="4">
-														<widget class="QCheckBox" name="spc4_p4"/>
-													</item>
-												</layout>
-											</widget>
-										</item>
 							   		   <item>
 											<layout class="QHBoxLayout" name="micTabLayoutLeft">
 												<item>
@@ -3048,11 +3120,22 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
 				</widget>
 			</item>
 			<item>
-				<widget class="QDialogButtonBox" name="buttonBox">
-					<property name="standardButtons">
-						<set>QDialogButtonBox::StandardButton::Apply|QDialogButtonBox::StandardButton::Close|QDialogButtonBox::StandardButton::RestoreDefaults|QDialogButtonBox::StandardButton::Save</set>
-					</property>
-				</widget>
+				<layout class="QHBoxLayout" name="buttonLayout">
+					<item>
+						<widget class="QDialogButtonBox" name="buttonBox">
+							<property name="standardButtons">
+								<set>QDialogButtonBox::StandardButton::Apply|QDialogButtonBox::StandardButton::Close|QDialogButtonBox::StandardButton::RestoreDefaults|QDialogButtonBox::StandardButton::Save</set>
+							</property>
+						</widget>
+					</item>
+					<item>
+						<widget class="QPushButton" name="toggleDescriptionButton">
+							<property name="text">
+								<string>Hide Description</string>
+							</property>
+						</widget>
+					</item>
+				</layout>
 			</item>
 			<item>
 				<widget class="QTextEdit" name="descriptionText">

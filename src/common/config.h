@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "common/thread.h"
 #include "common/types.h"
 namespace Config {
 
@@ -197,11 +198,18 @@ std::string getActiveControllerID();
 void setActiveControllerID(std::string id);
 bool getBackgroundControllerInput();
 void setBackgroundControllerInput(bool enable);
+
+bool isPlayerEnabled(int player_id);
+void setPlayerEnabled(int player_id, bool enabled);
+std::array<bool, 4> getPlayerEnabledStates();
+void setPlayerEnabledStates(const std::array<bool, 4>& states);
+
 bool getLoggingEnabled();
 void setLoggingEnabled(bool enable);
 bool getFsrEnabled();
 void setFsrEnabled(bool enable);
 bool getRcasEnabled();
+
 void setRcasEnabled(bool enable);
 
 bool isPipelineCacheArchived();
@@ -345,6 +353,13 @@ bool DisableHardcodedHotkeys();
 void setDisableHardcodedHotkeys(bool disable);
 bool UseHomeButtonForHotkeys();
 void setUseHomeButtonForHotkeys(bool disable);
+
+// CPU configuration
+Common::CpuCoreMode getCpuCoreMode();
+void setCpuCoreMode(Common::CpuCoreMode mode);
+std::vector<u32> getCustomCpuCores();
+void setCustomCpuCores(const std::vector<u32>& cores);
+std::vector<u32> getEffectiveCpuCores();
 
 void setDefaultValues();
 

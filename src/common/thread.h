@@ -18,6 +18,12 @@ enum class ThreadPriority : u32 {
     Critical = 4,
 };
 
+enum class CpuCoreMode : u32 {
+    All = 0,
+    Efficient = 1,
+    Custom = 2,
+};
+
 void SetCurrentThreadRealtime(std::chrono::nanoseconds period_ns);
 
 void SetCurrentThreadPriority(ThreadPriority new_priority);
@@ -25,6 +31,8 @@ void SetCurrentThreadPriority(ThreadPriority new_priority);
 void SetCurrentThreadName(const char* name);
 
 void SetThreadName(void* thread, const char* name);
+
+void SetThreadAffinity(const std::vector<u32>& core_ids);
 
 bool AccurateSleep(std::chrono::nanoseconds duration, std::chrono::nanoseconds* remaining,
                    bool interruptible);

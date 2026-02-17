@@ -485,6 +485,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     connect(ui->tabWidgetSettings, &QTabWidget::currentChanged, this,
             [this]() { ui->buttonBox->button(QDialogButtonBox::Close)->setFocus(); });
 
+    connect(ui->toggleDescriptionButton, &QPushButton::clicked, this,
+            &SettingsDialog::OnToggleDescriptionClicked);
+
     {
 #ifdef ENABLE_UPDATER
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
@@ -894,6 +897,11 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->userName3LineEdit->installEventFilter(this);
         ui->userName4LineEdit->installEventFilter(this);
 
+        ui->enablePlayer1CheckBox->installEventFilter(this);
+        ui->enablePlayer2CheckBox->installEventFilter(this);
+        ui->enablePlayer3CheckBox->installEventFilter(this);
+        ui->enablePlayer4CheckBox->installEventFilter(this);
+
         ui->disableTrophycheckBox->installEventFilter(this);
         ui->OpenCustomTrophyLocationButton->installEventFilter(this);
         ui->label_Trophy->installEventFilter(this);
@@ -1053,6 +1061,19 @@ void SettingsDialog::LoadValuesFromConfig() {
             index = 0; // fallback to English (first in list)
         }
         ui->emulatorLanguageComboBox->setCurrentIndex(index);
+
+        // Load CPU configuration
+        auto cpuMode = Config::getCpuCoreMode();
+        ui->cpuCoreModeComboBox->setCurrentIndex(static_cast<int>(cpuMode));
+
+        auto customCores = Config::getCustomCpuCores();
+        QString customCoresStr;
+        for (size_t i = 0; i < customCores.size(); ++i) {
+            if (i > 0)
+                customCoresStr += ",";
+            customCoresStr += QString::number(customCores[i]);
+        }
+        ui->customCpuCoresLineEdit->setText(customCoresStr);
     }
 
     ui->hideCursorComboBox->setCurrentIndex(toml::find_or<int>(data, "Input", "cursorState", 1));
@@ -1138,6 +1159,12 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->userName2LineEdit->setText(QString::fromStdString(names[1]));
     ui->userName3LineEdit->setText(QString::fromStdString(names[2]));
     ui->userName4LineEdit->setText(QString::fromStdString(names[3]));
+
+    auto playerStates = Config::getPlayerEnabledStates();
+    ui->enablePlayer1CheckBox->setChecked(playerStates[0]);
+    ui->enablePlayer2CheckBox->setChecked(playerStates[1]);
+    ui->enablePlayer3CheckBox->setChecked(playerStates[2]);
+    ui->enablePlayer4CheckBox->setChecked(playerStates[3]);
 
     ui->trophyKeyLineEdit->setText(
         QString::fromStdString(toml::find_or<std::string>(data, "Keys", "TrophyKey", "")));
@@ -1301,6 +1328,17 @@ void SettingsDialog::InitializeEmulatorLanguages() {
 
     connect(ui->emulatorLanguageComboBox, &QComboBox::currentIndexChanged, this,
             &SettingsDialog::OnLanguageChanged);
+
+    ui->cpuCoreModeComboBox->addItem(tr("All Cores"), static_cast<int>(Common::CpuCoreMode::All));
+    ui->cpuCoreModeComboBox->addItem(tr("Efficient Cores"),
+                                     static_cast<int>(Common::CpuCoreMode::Efficient));
+    ui->cpuCoreModeComboBox->addItem(tr("Custom Cores"),
+                                     static_cast<int>(Common::CpuCoreMode::Custom));
+
+    connect(ui->cpuCoreModeComboBox, &QComboBox::currentIndexChanged, this,
+            &SettingsDialog::OnCpuCoreModeChanged);
+    connect(ui->customCpuCoresLineEdit, &QLineEdit::textChanged, this,
+            &SettingsDialog::OnCustomCpuCoresChanged);
 }
 
 void SettingsDialog::OnLanguageChanged(int index) {
@@ -1313,6 +1351,19 @@ void SettingsDialog::OnLanguageChanged(int index) {
 
     QTimer::singleShot(0, this, [this]() { ui->retranslateUi(this); });
 }
+
+void SettingsDialog::OnCpuCoreModeChanged(int index) {
+    if (index == -1)
+        return;
+    auto cpuMode = static_cast<Common::CpuCoreMode>(index);
+    Config::setCpuCoreMode(cpuMode);
+
+    bool isCustomMode = (cpuMode == Common::CpuCoreMode::Custom);
+    ui->customCpuCoresLineEdit->setEnabled(isCustomMode);
+    ui->cpuCoresLabel->setEnabled(isCustomMode);
+}
+
+void SettingsDialog::OnCustomCpuCoresChanged(const QString& text) {}
 
 void SettingsDialog::OnCursorStateChanged(s16 index) {
     if (index == -1)
@@ -1337,19 +1388,23 @@ int SettingsDialog::exec() {
 SettingsDialog::~SettingsDialog() {}
 
 void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
+
     QString text;
 
     // clang-format off
     // General
     if (elementName == "consoleLanguageGroupBox") {
-        text = tr("Console Language:\\nSets the language that the PS4 game uses.\\nIt's recommended to set this to a language the game supports, which will vary by region.");
+        text = tr("Console Language:\nSets the language that PS4 game uses.\nIt's recommended to set this to a language that the game supports, which will vary by region.");
     } else if (elementName == "emulatorLanguageGroupBox") {
-        text = tr("Emulator Language:\\nSets the language of the emulator's user interface.");
+        text = tr("Emulator Language:\nSets the language of the emulator's user interface.");
+    } else if (elementName == "cpuSettingsGroupBox") {
+        text = tr("CPU Configuration:\nConfigure CPU core usage for better performance or compatibility.\n\nAll Cores: Use all available CPU cores (default).\nEfficient Cores: Use only efficient/power-saving CPU cores.\nCustom Cores: Manually specify which CPU cores to use (comma-separated numbers).\n\nNote: Changes require emulator restart to take effect.");
     } else if (elementName == "showSplashCheckBox") {
-        text = tr("Show Splash Screen:\\nShows the game's splash screen (a special image) while the game is starting.");
+        text = tr("Show Splash Screen:\nShows the game's splash screen (a special image) while the game is starting.");
     } else if (elementName == "discordRPCCheckbox") {
-        text = tr("Enable Discord Rich Presence:\\nDisplays the emulator icon and relevant information on your Discord profile.");
+        text = tr("Enable Discord Rich Presence:\nDisplays the emulator icon and relevant information on your Discord profile.");
     } else if (elementName == "userName") {
+        text = tr("Username:\nSets the PS4's account username, which may be displayed by some games.");
         text = tr("Username:\\nSets the PS4's account username, which may be displayed by some games.");
     } else if (elementName == "label_Trophy" || elementName == "trophyKeyLineEdit") {
         text = tr("Trophy Key:\\nKey used to decrypt trophies. Must be obtained from your jailbroken console.\\nMust contain only hex characters.");
@@ -1543,6 +1598,13 @@ void SettingsDialog::UpdateSettings() {
     Config::setUserName(2, ui->userName3LineEdit->text().toStdString());
     Config::setUserName(3, ui->userName4LineEdit->text().toStdString());
 
+    std::array<bool, 4> playerStates;
+    playerStates[0] = ui->enablePlayer1CheckBox->isChecked();
+    playerStates[1] = ui->enablePlayer2CheckBox->isChecked();
+    playerStates[2] = ui->enablePlayer3CheckBox->isChecked();
+    playerStates[3] = ui->enablePlayer4CheckBox->isChecked();
+    Config::setPlayerEnabledStates(playerStates);
+
     std::string trophyKey = ui->trophyKeyLineEdit->text().toStdString();
     Config::setTrophyKey(trophyKey);
 
@@ -1556,6 +1618,27 @@ void SettingsDialog::UpdateSettings() {
     Config::setGpuId(ui->graphicsAdapterBox->currentIndex() - 1);
     Config::setBGMvolume(ui->BGMVolumeSlider->value());
     Config::setLanguage(languageIndexes[ui->consoleLanguageComboBox->currentIndex()]);
+
+    // Save CPU configuration
+    auto cpuModeIndex = ui->cpuCoreModeComboBox->currentIndex();
+    if (cpuModeIndex >= 0 && cpuModeIndex <= 2) {
+        Config::setCpuCoreMode(static_cast<Common::CpuCoreMode>(cpuModeIndex));
+    }
+
+    // Parse custom CPU cores
+    auto customCoresStr = ui->customCpuCoresLineEdit->text().trimmed();
+    if (!customCoresStr.isEmpty()) {
+        auto customCoresList = customCoresStr.split(',', Qt::SkipEmptyParts);
+        std::vector<u32> customCores;
+        for (const auto& coreStr : customCoresList) {
+            bool ok;
+            u32 core = coreStr.toUInt(&ok);
+            if (ok) {
+                customCores.push_back(core);
+            }
+        }
+        Config::setCustomCpuCores(customCores);
+    }
     Config::setEnableDiscordRPC(ui->discordRPCCheckbox->isChecked());
     Config::setWindowWidth(ui->widthSpinBox->value());
     Config::setWindowHeight(ui->heightSpinBox->value());
@@ -1782,4 +1865,16 @@ void SettingsDialog::onAudioDeviceChange(bool isAdd) {
     ui->DsAudioComboBox->setCurrentText(QString::fromStdString(Config::getPadSpkOutputDevice()));
 
     SDL_free(devices);
+}
+
+void SettingsDialog::OnToggleDescriptionClicked() {
+    is_description_visible = !is_description_visible;
+
+    if (is_description_visible) {
+        ui->descriptionText->show();
+        ui->toggleDescriptionButton->setText(tr("Hide Description"));
+    } else {
+        ui->descriptionText->hide();
+        ui->toggleDescriptionButton->setText(tr("Show Description"));
+    }
 }
