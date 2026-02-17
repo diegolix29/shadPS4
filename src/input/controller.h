@@ -163,4 +163,3 @@ std::string GetSelectedGamepad();
 void SetSelectedGamepad(std::string GUID);
 
 } // namespace GamepadSelect
-

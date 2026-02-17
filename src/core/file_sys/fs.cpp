@@ -56,8 +56,9 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
         return "";
 
     const std::optional<MntPair> mount = GetMount(corrected_path);
-    if (!mount)
+    if (!mount) {
         return "";
+    }
 
     if (is_read_only)
         *is_read_only = mount->read_only;
