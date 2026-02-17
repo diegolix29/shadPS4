@@ -1,13 +1,15 @@
 //  SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 //  SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <vk_mem_alloc.h>
 #include "common/assert.h"
 #include "common/config.h"
 #include "video_core/host_shaders/fsr_comp.h"
 #include "video_core/renderer_vulkan/host_passes/fsr_pass.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
+
+#include <vk_mem_alloc.h>
+
 #define A_CPU
 #include "core/debug_state.h"
 #include "video_core/host_shaders/fsr/ffx_a.h"
