@@ -87,7 +87,14 @@ static Uint32 SDLCALL PollGyroAndAccel(void* userdata, SDL_TimerID timer_id, Uin
     std::scoped_lock l{motion_control_mutex};
     controller->Gyro(0, gyro_buf);
     controller->Acceleration(0, accel_buf);
-    return 4;
+    return interval;
+}
+
+static Uint32 SDLCALL UpdateAxisSmoothingTimer(void* userdata, SDL_TimerID timer_id,
+                                               Uint32 interval) {
+    auto* controller = reinterpret_cast<Input::GameController*>(userdata);
+    controller->UpdateAxisSmoothing();
+    return interval;
 }
 
 WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controllers_,
@@ -411,6 +418,7 @@ void WindowSDL::RelaunchEmulator() {
 void WindowSDL::InitTimers() {
     for (int i = 0; i < 4; i++) {
         SDL_AddTimer(250, &PollGyroAndAccel, controllers[i]);
+        SDL_AddTimer(16, &UpdateAxisSmoothingTimer, controllers[i]);
     }
     SDL_AddTimer(33, Input::MousePolling, (void*)controllers[0]);
 }

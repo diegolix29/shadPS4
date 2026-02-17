@@ -683,20 +683,20 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             break;
         case Axis::TriggerLeft:
             ApplyDeadzone(new_param, lefttrigger_deadzone);
-            controllers[gamepad_index]->Axis(0, c_axis, GetAxis(0x0, 0x7f, *new_param));
+            controllers[gamepad_index]->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
             controllers[gamepad_index]->CheckButton(0, OrbisPadButtonDataOffset::L2,
                                                     *new_param > 0x20);
             return;
         case Axis::TriggerRight:
             ApplyDeadzone(new_param, righttrigger_deadzone);
-            controllers[gamepad_index]->Axis(0, c_axis, GetAxis(0x0, 0x7f, *new_param));
+            controllers[gamepad_index]->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
             controllers[gamepad_index]->CheckButton(0, OrbisPadButtonDataOffset::R2,
                                                     *new_param > 0x20);
             return;
         default:
             break;
         }
-        controllers[gamepad_index]->Axis(0, c_axis, GetAxis(-0x80, 0x7f, *new_param * multiplier));
+        controllers[gamepad_index]->Axis(c_axis, GetAxis(-0x80, 0x7f, *new_param * multiplier));
     }
 }
 

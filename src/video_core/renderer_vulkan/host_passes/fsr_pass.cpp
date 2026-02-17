@@ -1,13 +1,13 @@
 //  SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 //  SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <vk_mem_alloc.h>
 #include "common/assert.h"
 #include "common/config.h"
 #include "video_core/host_shaders/fsr_comp.h"
 #include "video_core/renderer_vulkan/host_passes/fsr_pass.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
-
 #define A_CPU
 #include "core/debug_state.h"
 #include "video_core/host_shaders/fsr/ffx_a.h"
@@ -406,6 +406,23 @@ void FsrPass::ResizeAndInvalidate(u32 width, u32 height) {
 
 void FsrPass::CreateImages(Img& img) const {
     img.dirty = false;
+
+    img.intermediary_image_view.reset();
+    img.output_image_view.reset();
+
+    if (img.intermediary_image) {
+        vmaDestroyImage(img.intermediary_image.allocator, img.intermediary_image.image,
+                        img.intermediary_image.allocation);
+        img.intermediary_image.image = VK_NULL_HANDLE;
+        img.intermediary_image.allocation = VK_NULL_HANDLE;
+    }
+
+    if (img.output_image) {
+        vmaDestroyImage(img.output_image.allocator, img.output_image.image,
+                        img.output_image.allocation);
+        img.output_image.image = VK_NULL_HANDLE;
+        img.output_image.allocation = VK_NULL_HANDLE;
+    }
 
     vk::ImageCreateInfo image_create_info{
         .imageType = vk::ImageType::e2D,

@@ -7,7 +7,6 @@
 #include <mutex>
 #include <optional>
 #include <string>
-#include <optional>
 #include <vector>
 #include <tsl/robin_map.h>
 #include "common/io_file.h"
