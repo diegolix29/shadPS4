@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <optional>
 #include <vector>
