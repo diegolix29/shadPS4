@@ -7,6 +7,7 @@
 #include <SDL3/SDL_gamepad.h>
 #include "SDL3/SDL_joystick.h"
 #include "common/assert.h"
+#include "common/logging/log.h"
 #include "common/types.h"
 #include "core/libraries/pad/pad.h"
 
@@ -133,15 +134,15 @@ public:
             delete controller;
         }
     }
-
     virtual ~GameControllers() = default;
     GameController* operator[](const size_t& i) const {
-        ASSERT_MSG(i < controllers.size(), "Out of range controller index {}", i);
-        if (i >= controllers.size())
+        if (i >= controllers.size()) {
+            LOG_ERROR(Input, "Index {} is out of bounds for GameControllers! Returning nullptr.",
+                      i);
             return nullptr;
+        }
         return controllers[i];
     }
-
     GameController* GetController(u8 id) const {
         if (id >= controllers.size())
             return nullptr;
@@ -162,3 +163,4 @@ std::string GetSelectedGamepad();
 void SetSelectedGamepad(std::string GUID);
 
 } // namespace GamepadSelect
+
