@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#define _GNU_SOURCE
 #include "common/alignment.h"
 #include "common/config.h"
 #include "core/libraries/kernel/threads/pthread.h"
@@ -75,13 +76,36 @@ int NativeThread::Create(ThreadFunc func, void* arg, const ::Libraries::Kernel::
         const auto effective_cores = Config::getEffectiveCpuCores();
         if (!effective_cores.empty()) {
 #if defined(__linux__) || defined(__FreeBSD__)
+            LOG_DEBUG(Core, "Setting CPU affinity for thread, cores count: {}",
+                      effective_cores.size());
             cpu_set_t cpuset;
             CPU_ZERO(&cpuset);
+
+            const auto num_cores = std::thread::hardware_concurrency();
             for (u32 core_id : effective_cores) {
+                if (core_id >= num_cores) {
+                    LOG_ERROR(Core, "Core ID {} exceeds available cores {}, skipping", core_id,
+                              num_cores);
+                    continue;
+                }
                 CPU_SET(core_id, &cpuset);
+                LOG_DEBUG(Core, "Adding core {} to affinity set", core_id);
             }
-            pthread_setaffinity_np(*pthr, sizeof(cpuset), &cpuset);
+
+            if (CPU_COUNT(&cpuset) > 0) {
+                int affinity_result = pthread_setaffinity_np(*pthr, sizeof(cpuset), &cpuset);
+                if (affinity_result != 0) {
+                    LOG_ERROR(Core, "Failed to set CPU affinity: {}", strerror(affinity_result));
+                } else {
+                    LOG_DEBUG(Core, "CPU affinity set successfully for {} cores",
+                              CPU_COUNT(&cpuset));
+                }
+            } else {
+                LOG_ERROR(Core, "No valid CPU cores to set affinity");
+            }
 #endif
+        } else {
+            LOG_DEBUG(Core, "No effective CPU cores configured, skipping affinity");
         }
     }
 

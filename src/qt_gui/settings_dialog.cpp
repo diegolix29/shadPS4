@@ -430,6 +430,12 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     defaultTextEdit = tr("Point your mouse at an option to display its description.");
     ui->descriptionText->setText(defaultTextEdit);
 
+    is_description_visible = Config::getDescriptionVisible();
+    if (!is_description_visible) {
+        ui->descriptionText->hide();
+        ui->toggleDescriptionButton->setText(tr("Show Description"));
+    }
+
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
 
     connect(ui->buttonBox, &QDialogButtonBox::clicked, this,
@@ -1877,4 +1883,7 @@ void SettingsDialog::OnToggleDescriptionClicked() {
         ui->descriptionText->hide();
         ui->toggleDescriptionButton->setText(tr("Show Description"));
     }
+
+    // Save the setting to config
+    Config::setDescriptionVisible(is_description_visible);
 }

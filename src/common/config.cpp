@@ -305,6 +305,7 @@ std::vector<std::string> m_recent_files;
 std::string emulator_language = "en_US";
 static int backgroundImageOpacity = 50;
 static bool showBackgroundImage = true;
+static bool descriptionVisible = true;
 static ConfigEntry<bool> enableAutoBackup(false);
 static bool showLabelsUnderIcons = true;
 static bool enableColorFilter = true;
@@ -1432,6 +1433,14 @@ void setShowBackgroundImage(bool show) {
     showBackgroundImage = show;
 }
 
+bool getDescriptionVisible() {
+    return descriptionVisible;
+}
+
+void setDescriptionVisible(bool visible) {
+    descriptionVisible = visible;
+}
+
 bool getPSNSignedIn() {
     return isPSNSignedIn.get();
 }
@@ -1713,6 +1722,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
         showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
+        descriptionVisible = toml::find_or<bool>(gui, "descriptionVisible", true);
         showLabelsUnderIcons = toml::find_or<bool>(gui, "showLabelsUnderIcons", true);
         enableColorFilter = toml::find_or<bool>(gui, "enableColorFilter", true);
         launcher_boot = toml::find_or<bool>(gui, "launcher_boot", false);
@@ -1986,6 +1996,7 @@ void save(const std::filesystem::path& path) {
     data["GUI"]["enableColorFilter"] = enableColorFilter;
     data["GUI"]["backgroundImageOpacity"] = backgroundImageOpacity;
     data["GUI"]["showBackgroundImage"] = showBackgroundImage;
+    data["GUI"]["descriptionVisible"] = descriptionVisible;
     data["GUI"]["emulatorLanguage"] = emulator_language;
     data["GUI"]["isQT"] = isQT;
     data["GUI"]["isSDL"] = isSDL;
@@ -2178,6 +2189,7 @@ void setDefaultValues() {
     checkCompatibilityOnStartup = false;
     backgroundImageOpacity = 50;
     showBackgroundImage = true;
+    descriptionVisible = true;
     showLabelsUnderIcons = true;
     enableColorFilter = true;
     launcher_boot = false;

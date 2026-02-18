@@ -246,6 +246,8 @@ void setCompatibilityEnabled(bool use);
 void setCheckCompatibilityOnStartup(bool use);
 void setBackgroundImageOpacity(int opacity);
 void setShowBackgroundImage(bool show);
+void setDescriptionVisible(bool visible);
+bool getDescriptionVisible();
 void setPSNSignedIn(bool sign);
 void setShaderSkipsEnabled(bool enable);
 
