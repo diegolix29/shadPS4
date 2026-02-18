@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#define _GNU_SOURCE
 #include "common/alignment.h"
 #include "common/config.h"
 #include "core/libraries/kernel/threads/pthread.h"
@@ -11,6 +10,7 @@
 #include "common/ntapi.h"
 #else
 #include <csignal>
+#include <thread>
 #include <pthread.h>
 #include <unistd.h>
 #include <xmmintrin.h>
