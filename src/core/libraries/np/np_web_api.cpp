@@ -9,9 +9,24 @@
 #include "core/libraries/np/np_web_api_error.h"
 #include "core/libraries/np/np_web_api_internal.h"
 
+#include <cstring>
+#include <map>
+#include <mutex>
+#include <string>
 #include <magic_enum/magic_enum.hpp>
 
 namespace Libraries::Np::NpWebApi {
+
+enum LocalMockRequestType { REQ_INVALID, REQ_BLOCK_LIST, REQ_FRIEND_LIST };
+
+static std::map<LocalMockRequestType, std::string> g_mock_templates{
+    {REQ_BLOCK_LIST, "{\"totalResults\": 0, \"blockList\": []}"},
+    {REQ_FRIEND_LIST, "{\"totalResults\": 0, \"friendList\": []}"},
+};
+
+static std::map<s64, LocalMockRequestType> g_active_mock_requests;
+static std::mutex g_mock_mutex;
+static s64 g_mock_request_id_counter = 0;
 
 static bool g_is_initialized = false;
 static s32 g_active_library_contexts = 0;
@@ -132,6 +147,14 @@ s32 PS4_SYSV_ABI sceNpWebApiAbortHandle(s32 libCtxId, s32 handleId) {
 
 s32 PS4_SYSV_ABI sceNpWebApiAbortRequest(s64 requestId) {
     LOG_INFO(Lib_NpWebApi, "called requestId = {:#x}", requestId);
+
+    {
+        std::lock_guard<std::mutex> lock(g_mock_mutex);
+        if (g_active_mock_requests.count(requestId)) {
+            return ORBIS_OK;
+        }
+    }
+
     return abortRequest(requestId);
 }
 
@@ -244,6 +267,25 @@ s32 PS4_SYSV_ABI sceNpWebApiCreateRequest(s32 titleUserCtxId, const char* pApiGr
         return ORBIS_NP_WEBAPI_ERROR_INVALID_ARGUMENT;
     }
 
+    LocalMockRequestType type = REQ_INVALID;
+    if (std::strstr(pPath, "blockList") != nullptr) {
+        type = REQ_BLOCK_LIST;
+    } else if (std::strstr(pPath, "friendList") != nullptr) {
+        type = REQ_FRIEND_LIST;
+    }
+
+    if (type != REQ_INVALID) {
+        std::lock_guard<std::mutex> lock(g_mock_mutex);
+        s64 request_id = ++g_mock_request_id_counter;
+        if (pRequestId)
+            *pRequestId = request_id;
+        g_active_mock_requests[request_id] = type;
+
+        LOG_INFO(Lib_NpWebApi, "Mocked request created (ID: {:#x}) for path: '{}'", request_id,
+                 pPath);
+        return ORBIS_OK;
+    }
+
     if (pContentParameter != nullptr && pContentParameter->contentLength != 0 &&
         pContentParameter->pContentType == nullptr) {
         return ORBIS_NP_WEBAPI_ERROR_INVALID_CONTENT_PARAMETER;
@@ -279,6 +321,15 @@ s32 PS4_SYSV_ABI sceNpWebApiDeleteHandle(s32 libCtxId, s32 handleId) {
 
 s32 PS4_SYSV_ABI sceNpWebApiDeleteRequest(s64 requestId) {
     LOG_INFO(Lib_NpWebApi, "called requestId = {:#x}", requestId);
+
+    {
+        std::lock_guard<std::mutex> lock(g_mock_mutex);
+        if (g_active_mock_requests.erase(requestId)) {
+            LOG_INFO(Lib_NpWebApi, "Mocked request deleted: {:#x}", requestId);
+            return ORBIS_OK;
+        }
+    }
+
     return deleteRequest(requestId);
 }
 
@@ -316,7 +367,16 @@ s32 PS4_SYSV_ABI sceNpWebApiGetHttpResponseHeaderValueLength(s64 requestId, cons
 
 s32 PS4_SYSV_ABI sceNpWebApiGetHttpStatusCode(s64 requestId, s32* out_status_code) {
     LOG_ERROR(Lib_NpWebApi, "called : requestId = {:#x}", requestId);
-    // On newer SDKs, NULL output pointer is invalid
+
+    {
+        std::lock_guard<std::mutex> lock(g_mock_mutex);
+        if (g_active_mock_requests.count(requestId)) {
+            if (out_status_code)
+                *out_status_code = 200;
+            return ORBIS_OK;
+        }
+    }
+
     if (getCompiledSdkVersion() > Common::ElfInfo::FW_10 && out_status_code == nullptr)
         return ORBIS_NP_WEBAPI_ERROR_INVALID_ARGUMENT;
     s32 returncode = getHttpStatusCodeInternal(requestId, out_status_code);
@@ -387,6 +447,25 @@ s32 PS4_SYSV_ABI sceNpWebApiIntCreateRequest(
     if (pApiGroup == nullptr || pPath == nullptr ||
         method > OrbisNpWebApiHttpMethod::ORBIS_NP_WEBAPI_HTTP_METHOD_PATCH) {
         return ORBIS_NP_WEBAPI_ERROR_INVALID_ARGUMENT;
+    }
+
+    LocalMockRequestType type = REQ_INVALID;
+    if (std::strstr(pPath, "blockList") != nullptr) {
+        type = REQ_BLOCK_LIST;
+    } else if (std::strstr(pPath, "friendList") != nullptr) {
+        type = REQ_FRIEND_LIST;
+    }
+
+    if (type != REQ_INVALID) {
+        std::lock_guard<std::mutex> lock(g_mock_mutex);
+        s64 request_id = ++g_mock_request_id_counter;
+        if (pRequestId)
+            *pRequestId = request_id;
+        g_active_mock_requests[request_id] = type;
+
+        LOG_INFO(Lib_NpWebApi, "Mocked IntRequest created (ID: {:#x}) for path: '{}'", request_id,
+                 pPath);
+        return ORBIS_OK;
     }
 
     if (pContentParameter != nullptr && pContentParameter->contentLength != 0 &&
@@ -467,6 +546,20 @@ s32 PS4_SYSV_ABI sceNpWebApiReadData(s64 requestId, void* pData, u64 size) {
     if (pData == nullptr || size == 0)
         return ORBIS_NP_WEBAPI_ERROR_INVALID_ARGUMENT;
 
+    {
+        std::lock_guard<std::mutex> lock(g_mock_mutex);
+        auto it = g_active_mock_requests.find(requestId);
+        if (it != g_active_mock_requests.end()) {
+            auto tpl = g_mock_templates.find(it->second);
+            if (tpl != g_mock_templates.end()) {
+                u64 to_copy = std::min(size, static_cast<u64>(tpl->second.size()));
+                std::memcpy(pData, tpl->second.data(), to_copy);
+                return static_cast<s32>(to_copy);
+            }
+            return 0;
+        }
+    }
+
     return readDataInternal(requestId, pData, size);
 }
 
@@ -484,6 +577,12 @@ s32 PS4_SYSV_ABI sceNpWebApiSendMultipartRequest(s64 requestId, s32 partIndex, c
                                                  u64 dataSize) {
     if (partIndex <= 0 || pData == nullptr || dataSize == 0) {
         return ORBIS_NP_WEBAPI_ERROR_INVALID_ARGUMENT;
+    }
+    {
+        std::lock_guard<std::mutex> lock(g_mock_mutex);
+        if (g_active_mock_requests.count(requestId)) {
+            return ORBIS_OK;
+        }
     }
 
     LOG_INFO(Lib_NpWebApi,
@@ -510,6 +609,15 @@ sceNpWebApiSendMultipartRequest2(s64 requestId, s32 partIndex, const void* pData
 s32 PS4_SYSV_ABI sceNpWebApiSendRequest(s64 requestId, const void* pData, u64 dataSize) {
     LOG_INFO(Lib_NpWebApi, "called, requestId = {:#x}, pData = {}, dataSize = {:#x}", requestId,
              fmt::ptr(pData), dataSize);
+
+    // Check for mock
+    {
+        std::lock_guard<std::mutex> lock(g_mock_mutex);
+        if (g_active_mock_requests.count(requestId)) {
+            return ORBIS_OK;
+        }
+    }
+
     return sendRequest(requestId, 0, pData, dataSize, 0, nullptr);
 }
 
