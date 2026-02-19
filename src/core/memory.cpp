@@ -385,8 +385,18 @@ s32 MemoryManager::PoolCommit(VAddr virtual_addr, u64 size, MemoryProt prot, s32
         pool_budget -= size;
     }
 
-    if (True(prot & MemoryProt::CpuWrite)) {
+    const bool has_read = True(prot & MemoryProt::CpuRead);
+    const bool has_write = True(prot & MemoryProt::CpuWrite);
+    const bool is_exec = True(prot & MemoryProt::CpuExec);
+
+    if (has_write) {
         // On PS4, read is appended to write mappings.
+        prot |= MemoryProt::CpuRead;
+    }
+
+    // Only add read permission to executable memory if it doesn't already have read access
+    // This is needed for instructions like vmovdqu that read from executable memory
+    if (is_exec && !has_read) {
         prot |= MemoryProt::CpuRead;
     }
 
@@ -473,8 +483,18 @@ MemoryManager::VMAHandle MemoryManager::CreateArea(VAddr virtual_addr, u64 size,
     const auto new_vma_handle = CarveVMA(virtual_addr, size);
     auto& new_vma = new_vma_handle->second;
     const bool is_exec = True(prot & MemoryProt::CpuExec);
-    if (True(prot & MemoryProt::CpuWrite)) {
+    const bool has_read = True(prot & MemoryProt::CpuRead);
+    const bool has_write = True(prot & MemoryProt::CpuWrite);
+    
+    if (has_write) {
         // On PS4, read is appended to write mappings.
+        prot |= MemoryProt::CpuRead;
+    }
+    
+    // Only add read permission to executable memory if it doesn't already have read access
+    // This is needed for instructions like vmovdqu that read from executable memory
+    if (is_exec && !has_read) {
+        LOG_DEBUG(Kernel_Vmm, "CreateArea: Adding read permission to executable memory at addr={:#x}, size={:#x}, name='{}'", virtual_addr, size, name);
         prot |= MemoryProt::CpuRead;
     }
 
@@ -710,6 +730,11 @@ s32 MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, u64 size, Memory
 
     if (True(prot & MemoryProt::CpuWrite)) {
         // On PS4, read is appended to write mappings.
+        prot |= MemoryProt::CpuRead;
+    }
+
+    if (True(prot & MemoryProt::CpuExec)) {
+        // On PS4, executable memory must also be readable for instructions like vmovdqu
         prot |= MemoryProt::CpuRead;
     }
 
@@ -967,8 +992,18 @@ s64 MemoryManager::ProtectBytes(VAddr addr, VirtualMemoryArea& vma_base, u64 siz
         return adjusted_size;
     }
 
-    if (True(prot & MemoryProt::CpuWrite)) {
+    const bool has_read = True(prot & MemoryProt::CpuRead);
+    const bool has_write = True(prot & MemoryProt::CpuWrite);
+    const bool is_exec = True(prot & MemoryProt::CpuExec);
+
+    if (has_write) {
         // On PS4, read is appended to write mappings.
+        prot |= MemoryProt::CpuRead;
+    }
+
+    // Only add read permission to executable memory if it doesn't already have read access
+    // This is needed for instructions like vmovdqu that read from executable memory
+    if (is_exec && !has_read) {
         prot |= MemoryProt::CpuRead;
     }
 
