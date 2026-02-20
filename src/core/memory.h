@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <cstring>
 #include <map>
 #include <mutex>
 #include <string>
@@ -158,9 +157,11 @@ struct VirtualMemoryArea {
 class MemoryManager {
     using PhysMap = std::map<PAddr, PhysicalMemoryArea>;
     using PhysHandle = PhysMap::iterator;
+    using PhysConstHandle = PhysMap::const_iterator;
 
     using VMAMap = std::map<VAddr, VirtualMemoryArea>;
     using VMAHandle = VMAMap::iterator;
+    using VMAConstHandle = VMAMap::const_iterator;
 
 public:
     explicit MemoryManager();
@@ -182,8 +183,17 @@ public:
         return total_flexible_size;
     }
 
+    u64 GetUsedFlexibleSize() const {
+        return flexible_mapped_usage;
+    }
+
     u64 GetAvailableFlexibleSize() const {
-        return total_flexible_size - flexible_usage;
+        const u64 used = GetUsedFlexibleSize();
+        return used < total_flexible_size ? total_flexible_size - used : 0;
+    }
+
+    bool IsFlexibleRegionConfigured() const {
+        return flexible_virtual_end > flexible_virtual_base;
     }
 
     VAddr SystemReservedVirtualBase() noexcept {
@@ -231,14 +241,6 @@ public:
 
         // If we reach this point and size to validate is not positive, then this mapping is valid.
         return size_to_validate <= 0;
-    }
-
-    void ReadBytes(VAddr addr, uint8_t* buffer, size_t size) {
-        std::memcpy(buffer, reinterpret_cast<void*>(addr), size);
-    }
-
-    void WriteBytes(VAddr addr, const uint8_t* data, size_t size) {
-        std::memcpy(reinterpret_cast<void*>(addr), data, size);
     }
 
     u64 ClampRangeSize(VAddr virtual_addr, u64 size);
@@ -297,20 +299,31 @@ public:
 
     void InvalidateMemory(VAddr addr, u64 size) const;
 
+    void RecalculateFlexibleUsageForDebug();
+
 private:
     VMAHandle FindVMA(VAddr target) {
+        return std::prev(vma_map.upper_bound(target));
+    }
+    VMAConstHandle FindVMA(VAddr target) const {
         return std::prev(vma_map.upper_bound(target));
     }
 
     PhysHandle FindDmemArea(PAddr target) {
         return std::prev(dmem_map.upper_bound(target));
     }
+    PhysConstHandle FindDmemArea(PAddr target) const {
+        return std::prev(dmem_map.upper_bound(target));
+    }
 
     PhysHandle FindFmemArea(PAddr target) {
         return std::prev(fmem_map.upper_bound(target));
     }
+    PhysConstHandle FindFmemArea(PAddr target) const {
+        return std::prev(fmem_map.upper_bound(target));
+    }
 
-    bool HasPhysicalBacking(VirtualMemoryArea vma) {
+    bool HasPhysicalBacking(const VirtualMemoryArea& vma) const {
         return vma.type == VMAType::Direct || vma.type == VMAType::Flexible ||
                vma.type == VMAType::Pooled;
     }
@@ -336,6 +349,16 @@ private:
 
     s32 UnmapMemoryImpl(VAddr virtual_addr, u64 size);
 
+    bool IsFlexibleCountedVmaType(VMAType type) const;
+
+    bool IsFlexibleCommittedVma(const VirtualMemoryArea& vma) const;
+
+    u64 GetFlexibleMappedBytesInRangeLocked(VAddr virtual_addr, u64 size) const;
+
+    void AdjustFlexibleMappedUsageLocked(u64 mapped_before, u64 mapped_after);
+
+    void RecalculateFlexibleMappedUsageLocked();
+
 private:
     AddressSpace impl;
     PhysMap dmem_map;
@@ -346,6 +369,9 @@ private:
     u64 total_direct_size{};
     u64 total_flexible_size{};
     u64 flexible_usage{};
+    VAddr flexible_virtual_base{};
+    VAddr flexible_virtual_end{};
+    u64 flexible_mapped_usage{};
     u64 pool_budget{};
     s32 sdk_version{};
     Vulkan::Rasterizer* rasterizer{};
