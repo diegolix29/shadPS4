@@ -420,7 +420,7 @@ void WindowSDL::InitTimers() {
         SDL_AddTimer(250, &PollGyroAndAccel, controllers[i]);
         SDL_AddTimer(16, &UpdateAxisSmoothingTimer, controllers[i]);
     }
-    SDL_AddTimer(33, Input::MousePolling, (void*)controllers[0]);
+    SDL_AddTimer(33, Input::MousePolling, (void*)Input::ControllerOutput::GetController(0));
 }
 
 void WindowSDL::RequestKeyboard() {
@@ -496,12 +496,12 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
                                                                         controllers);
 
         if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
-            controllers[idx]->CheckButton(0, OrbisPadButtonDataOffset::TouchPad, input_down);
+            controllers[idx]->CheckButton(idx, OrbisPadButtonDataOffset::TouchPad, input_down);
             return;
         }
 
         if (event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
-            controllers[idx]->CheckButton(0, OrbisPadButtonDataOffset::Home, input_down);
+            controllers[idx]->CheckButton(idx, OrbisPadButtonDataOffset::Home, input_down);
 
             if (Config::DisableHardcodedHotkeys() && event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                 SDL_Event quit_event{};
@@ -519,10 +519,10 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
                                                                         controllers);
         switch ((SDL_SensorType)event->gsensor.sensor) {
         case SDL_SENSOR_GYRO:
-            controllers[idx]->Gyro(0, event->gsensor.data);
+            controllers[idx]->Gyro(idx, event->gsensor.data);
             break;
         case SDL_SENSOR_ACCEL:
-            controllers[idx]->Acceleration(0, event->gsensor.data);
+            controllers[idx]->Acceleration(idx, event->gsensor.data);
             break;
         default:
             break;
