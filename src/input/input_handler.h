@@ -96,9 +96,9 @@ public:
         return type != o.type || sdl_id != o.sdl_id || gamepad_id != o.gamepad_id;
     }
     bool operator<=(const InputID& o) const {
+        return type <= o.type && sdl_id <= o.sdl_id;
         return std::tie(gamepad_id, type, sdl_id) <= std::tie(o.gamepad_id, o.type, o.sdl_id);
     }
-
     bool IsValid() const {
         return *this != InputID();
     }
@@ -349,18 +349,20 @@ class InputBinding {
 public:
     InputID keys[3];
     InputBinding(InputID k1 = InputID(), InputID k2 = InputID(), InputID k3 = InputID()) {
+        // we format the keys so comparing them will be very fast, because we will only have to
+        // compare 3 sorted elements, where the only possible duplicate item is 0
+
         // duplicate entries get changed to one original, one null
         if (k1 == k2 && k1 != InputID()) {
-            k3 = InputID();
+            k2 = InputID();
         }
         if (k1 == k3 && k1 != InputID()) {
             k3 = InputID();
         }
-        if (k2 == k3 && k2 != InputID()) {
-            k3 = InputID();
+        if (k3 == k2 && k2 != InputID()) {
+            k2 = InputID();
         }
-
-        // sort k1, k2, k3 into keys[0..2]
+        // this sorts them
         if (k1 <= k2 && k1 <= k3) {
             keys[0] = k1;
             if (k2 <= k3) {
@@ -386,11 +388,10 @@ public:
                 keys[2] = k2;
             } else {
                 keys[1] = k2;
-                keys[2] = k1;
+                keys[3] = k1;
             }
         }
     }
-
     // copy ctor
     InputBinding(const InputBinding& o) {
         keys[0] = o.keys[0];

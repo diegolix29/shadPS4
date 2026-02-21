@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "input_handler.h"
@@ -23,7 +23,6 @@
 #include "common/io_file.h"
 #include "common/path_util.h"
 #include "common/singleton.h"
-#include "core/devtools/layer.h"
 #include "input/controller.h"
 #include "input/input_mouse.h"
 
@@ -70,9 +69,10 @@ std::array<ControllerAllOutputs, 4> output_arrays = {
 };
 
 void ControllerOutput::LinkJoystickAxes() {
-    //   for (int i = 17; i < 23; i += 2) {
-    //        output_arrays[i].data = output_arrays[i + 1].data;
-    //   }
+    // for (int i = 17; i < 23; i += 2) {
+    //     delete output_array[i].new_param;
+    //     output_array[i].new_param = output_array[i + 1].new_param;
+    // }
 }
 
 static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
@@ -156,8 +156,6 @@ InputBinding GetBindingFromString(std::string& line) {
             input = InputID(InputType::Axis, string_to_axis_map.at(t).axis);
         } else if (string_to_cbutton_map.find(t) != string_to_cbutton_map.end()) {
             input = InputID(InputType::Controller, string_to_cbutton_map.at(t));
-        } else if (string_to_hotkey_map.find(t) != string_to_hotkey_map.end()) {
-            input = InputID(InputType::Controller, string_to_hotkey_map.at(t));
         } else {
             // Invalid token found; return default binding
             LOG_DEBUG(Input, "Invalid token found: {}", t);
@@ -185,9 +183,9 @@ std::optional<int> parseInt(const std::string& s) {
 };
 
 void ParseInputConfig(const std::string game_id = "") {
-    std::string game_id_or_default = game_id.empty() ? "default" : game_id;
-    const auto config_file = Config::GetInputConfigFile(game_id_or_default);
-    const auto global_config_file = Config::GetInputConfigFile("global");
+    std::string game_id_or_default = Config::GetUseUnifiedInputConfig() ? "default" : game_id;
+    const auto config_file = Config::GetFoolproofInputConfigFile(game_id_or_default);
+    const auto global_config_file = Config::GetFoolproofInputConfigFile("global");
 
     // we reset these here so in case the user fucks up or doesn't include some of these,
     // we can fall back to default
@@ -378,29 +376,21 @@ void ParseInputConfig(const std::string game_id = "") {
 
         // normal cases
         InputBinding binding = GetBindingFromString(input_string);
+        BindingConnection connection(InputID(), nullptr);
+        auto button_it = string_to_cbutton_map.find(output_string);
+        auto axis_it = string_to_axis_map.find(output_string);
         if (binding.IsEmpty()) {
             LOG_WARNING(Input, "Invalid format at line: {}, data: \"{}\", skipping line.",
                         lineCount, line);
             return;
         }
-        BindingConnection connection(InputID(), nullptr);
-        auto button_it = string_to_cbutton_map.find(output_string);
-        auto hotkey_it = string_to_hotkey_map.find(output_string);
-        auto axis_it = string_to_axis_map.find(output_string);
-        // Determine which gamepad to check (default to 0 if not specified)
-        int target_gamepad_index = std::clamp(output_gamepad_id - 1, 0, 3);
-
         if (button_it != string_to_cbutton_map.end()) {
             // todo add new shit here
             connection = BindingConnection(
-                binding, &*std::ranges::find(output_arrays[target_gamepad_index].data,
-                                             ControllerOutput(button_it->second)));
-            connections.insert(connections.end(), connection);
-        } else if (hotkey_it != string_to_hotkey_map.end()) {
-            connection = BindingConnection(
-                binding, &*std::ranges::find(output_arrays[target_gamepad_index].data,
-                                             ControllerOutput(hotkey_it->second)));
-            connections.insert(connections.end(), connection);
+                binding,
+                &*std::ranges::find(output_arrays[std::clamp(output_gamepad_id - 1, 0, 3)].data,
+                                    ControllerOutput(button_it->second)));
+
         } else if (axis_it != string_to_axis_map.end()) {
             // todo add new shit here
             int value_to_set = binding.keys[2].type == InputType::Axis ? 0 : axis_it->second.value;
@@ -590,9 +580,6 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
         case RIGHTJOYSTICK_HALFMODE:
             rightjoystick_halfmode = new_button_state;
             break;
-        case HOTKEY_RELOAD_INPUTS:
-            ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
-            break;
         case HOTKEY_FULLSCREEN:
             PushSDLEvent(SDL_EVENT_TOGGLE_FULLSCREEN);
             break;
@@ -601,6 +588,9 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             break;
         case HOTKEY_SIMPLE_FPS:
             PushSDLEvent(SDL_EVENT_TOGGLE_SIMPLE_FPS);
+            break;
+        case HOTKEY_RELOAD_INPUTS:
+            PushSDLEvent(SDL_EVENT_RELOAD_INPUTS);
             break;
         case HOTKEY_TOGGLE_MOUSE_TO_JOYSTICK:
             PushSDLEvent(SDL_EVENT_MOUSE_TO_JOYSTICK);
@@ -614,32 +604,11 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
         case HOTKEY_RENDERDOC:
             PushSDLEvent(SDL_EVENT_RDOC_CAPTURE);
             break;
-        case HOTKEY_SCREENSHOT:
-            PushSDLEvent(SDL_EVENT_SCREENSHOT);
-            break;
         case HOTKEY_ADD_VIRTUAL_USER:
             PushSDLEvent(SDL_EVENT_ADD_VIRTUAL_USER);
             break;
         case HOTKEY_REMOVE_VIRTUAL_USER:
             PushSDLEvent(SDL_EVENT_REMOVE_VIRTUAL_USER);
-            break;
-        case HOTKEY_VOLUME_UP:
-            if (new_button_state) {
-                Config::setVolumeSlider(Config::getVolumeSlider() + 10, true);
-                Overlay::ShowVolume();
-            }
-            break;
-        case HOTKEY_VOLUME_DOWN:
-            if (new_button_state) {
-                Config::setVolumeSlider(Config::getVolumeSlider() - 10, true);
-                Overlay::ShowVolume();
-            }
-            break;
-        case HOTKEY_VOLUME_MUTE:
-            if (new_button_state) {
-                Config::setMuteEnabled(!Config::isMuteEnabled());
-                Overlay::ShowVolume();
-            }
             break;
         case HOTKEY_QUIT:
             PushSDLEvent(SDL_EVENT_QUIT_DIALOG);
@@ -683,20 +652,20 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             break;
         case Axis::TriggerLeft:
             ApplyDeadzone(new_param, lefttrigger_deadzone);
-            controllers[gamepad_index]->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
-            controllers[gamepad_index]->CheckButton(gamepad_index, OrbisPadButtonDataOffset::L2,
+            controllers[gamepad_index]->Axis(0, c_axis, GetAxis(0x0, 0x7f, *new_param));
+            controllers[gamepad_index]->CheckButton(0, OrbisPadButtonDataOffset::L2,
                                                     *new_param > 0x20);
             return;
         case Axis::TriggerRight:
             ApplyDeadzone(new_param, righttrigger_deadzone);
-            controllers[gamepad_index]->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
-            controllers[gamepad_index]->CheckButton(gamepad_index, OrbisPadButtonDataOffset::R2,
+            controllers[gamepad_index]->Axis(0, c_axis, GetAxis(0x0, 0x7f, *new_param));
+            controllers[gamepad_index]->CheckButton(0, OrbisPadButtonDataOffset::R2,
                                                     *new_param > 0x20);
             return;
         default:
             break;
         }
-        controllers[gamepad_index]->Axis(c_axis, GetAxis(-0x80, 0x7f, *new_param * multiplier));
+        controllers[gamepad_index]->Axis(0, c_axis, GetAxis(-0x80, 0x7f, *new_param * multiplier));
     }
 }
 

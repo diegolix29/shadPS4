@@ -12,7 +12,6 @@
 #include "input/controller.h"
 
 static std::string SelectedGamepad = "";
-static std::mutex SelectedGamepadMutex;
 
 namespace Input {
 
@@ -70,15 +69,15 @@ State GameController::GetLastState() const {
 
 void GameController::AddState(const State& state) {
     if (m_states_num >= MAX_STATES) {
+        m_states_num = MAX_STATES - 1;
         m_first_state = (m_first_state + 1) % MAX_STATES;
-    } else {
-        m_states_num++;
     }
 
-    const u32 index = (m_first_state + m_states_num - 1) % MAX_STATES;
+    const u32 index = (m_first_state + m_states_num) % MAX_STATES;
     m_states[index] = state;
     m_last_state = state;
     m_private[index].obtained = false;
+    m_states_num++;
 }
 
 void GameController::CheckButton(int id, Libraries::Pad::OrbisPadButtonDataOffset button,
@@ -95,72 +94,38 @@ void GameController::CheckButton(int id, Libraries::Pad::OrbisPadButtonDataOffse
     AddState(state);
 }
 
-void GameController::Axis(Input::Axis axis, int value, bool smooth) {
+void GameController::Axis(int id, Input::Axis axis, int value) {
+    using Libraries::Pad::OrbisPadButtonDataOffset;
+
     std::scoped_lock lock{m_mutex};
     auto state = GetLastState();
+
     state.time = Libraries::Kernel::sceKernelGetProcessTime();
+    int axis_id = static_cast<int>(axis);
+    if (std::abs(state.axes[axis_id] - value) > 120) {
+        LOG_DEBUG(Input, "Keyboard axis change detected");
+        axis_smoothing_ticks[axis_id] = GameController::max_smoothing_ticks;
+        axis_smoothing_values[axis_id] = state.axes[axis_id];
+    }
+    state.axes[axis_id] = value;
 
-    auto const i = static_cast<size_t>(axis);
-
-    state.axes[i] = axis_smoothing_end_values[i];
-
-    axis_smoothing_start_times[i] = state.time;
-    axis_smoothing_start_values[i] = state.axes[i];
-    axis_smoothing_end_values[i] = value;
-    axis_smoothing_flags[i] = smooth;
-
-    const auto toggle = [&](const auto button) {
+    if (axis == Input::Axis::TriggerLeft) {
         if (value > 0) {
-            state.buttonsState |= button;
+            state.buttonsState |= OrbisPadButtonDataOffset::L2;
         } else {
-            state.buttonsState &= ~button;
+            state.buttonsState &= ~OrbisPadButtonDataOffset::L2;
         }
-    };
+    }
 
-    switch (axis) {
-    case Input::Axis::TriggerLeft:
-        toggle(Libraries::Pad::OrbisPadButtonDataOffset::L2);
-        break;
-    case Input::Axis::TriggerRight:
-        toggle(Libraries::Pad::OrbisPadButtonDataOffset::R2);
-        break;
-    default:
-        break;
+    if (axis == Input::Axis::TriggerRight) {
+        if (value > 0) {
+            state.buttonsState |= OrbisPadButtonDataOffset::R2;
+        } else {
+            state.buttonsState &= ~OrbisPadButtonDataOffset::R2;
+        }
     }
 
     AddState(state);
-}
-
-void GameController::UpdateAxisSmoothing() {
-    std::scoped_lock lock{m_mutex};
-    auto state = GetLastState();
-    state.time = Libraries::Kernel::sceKernelGetProcessTime();
-    bool state_changed = false;
-
-    for (size_t i = 0; i < static_cast<size_t>(Input::Axis::AxisMax); i++) {
-        if (!axis_smoothing_flags[i] ||
-            std::abs(state.axes[i] - axis_smoothing_end_values[i]) < 8) {
-            if (state.axes[i] != axis_smoothing_end_values[i]) {
-                state.axes[i] = axis_smoothing_end_values[i];
-                state_changed = true;
-            }
-            continue;
-        }
-        auto now = state.time;
-        f32 t =
-            std::clamp((now - axis_smoothing_start_times[i]) / f32{axis_smoothing_time}, 0.f, 1.f);
-        s32 new_val =
-            s32(axis_smoothing_start_values[i] * (1 - t) + axis_smoothing_end_values[i] * t);
-
-        if (state.axes[i] != new_val) {
-            state.axes[i] = new_val;
-            state_changed = true;
-        }
-    }
-
-    if (state_changed) {
-        AddState(state);
-    }
 }
 
 void GameController::Gyro(int id, const float gyro[3]) {
@@ -332,8 +297,8 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
             }
             if (!still_connected) {
                 AddUserServiceEvent({OrbisUserServiceEventType::Logout, i + 1});
-                controllers[i]->m_sdl_gamepad = nullptr;
                 SDL_CloseGamepad(pad);
+                controllers[i]->m_sdl_gamepad = nullptr;
                 controllers[i]->user_id = -1;
                 slot_taken[i] = false;
             } else {
@@ -391,12 +356,7 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
             AddUserServiceEvent({OrbisUserServiceEventType::Login, 1});
         }
     }
-
-    if (new_joysticks) {
-        SDL_free(new_joysticks);
-    }
 }
-
 u8 GameController::GetTouchCount() {
     std::scoped_lock lock{m_mutex};
     return m_touch_count;
@@ -534,12 +494,10 @@ std::string GetGUIDString(SDL_JoystickID* gamepadIDs, int index) {
 }
 
 std::string GetSelectedGamepad() {
-    std::scoped_lock lock(SelectedGamepadMutex);
     return SelectedGamepad;
 }
 
 void SetSelectedGamepad(std::string GUID) {
-    std::scoped_lock lock(SelectedGamepadMutex);
     SelectedGamepad = GUID;
 }
 
