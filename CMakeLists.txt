@@ -131,7 +131,7 @@ execute_process(
 
 # If there's no upstream set or the command failed, check remote.pushDefault
 if (GIT_REMOTE_RESULT OR GIT_REMOTE_NAME STREQUAL "")
-  message("check default push")
+  message(STATUS "check default push")
   execute_process(
     COMMAND git config --get remote.pushDefault
     OUTPUT_VARIABLE GIT_REMOTE_NAME
@@ -139,30 +139,30 @@ if (GIT_REMOTE_RESULT OR GIT_REMOTE_NAME STREQUAL "")
     ERROR_QUIET
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
-  message("got remote: ${GIT_REMOTE_NAME}")
+  message(STATUS "got remote: ${GIT_REMOTE_NAME}")
 endif()
 
 # If running in GitHub Actions and the above fails
 if (GIT_REMOTE_RESULT OR GIT_REMOTE_NAME STREQUAL "")
-  message("check github")
+  message(STATUS "check github")
   set(GIT_REMOTE_NAME "origin")
 
   # Retrieve environment variables
   if (DEFINED ENV{GITHUB_HEAD_REF} AND NOT "$ENV{GITHUB_HEAD_REF}" STREQUAL "")
-    message("github head ref: $ENV{GITHUB_HEAD_REF}")
+    message(STATUS "github head ref: $ENV{GITHUB_HEAD_REF}")
     set(GITHUB_HEAD_REF "$ENV{GITHUB_HEAD_REF}")
   else()
     set(GITHUB_HEAD_REF "")
   endif()
 
   if (DEFINED ENV{GITHUB_REF} AND NOT "$ENV{GITHUB_REF}" STREQUAL "")
-    message("github ref: $ENV{GITHUB_REF}")
+    message(STATUS "github ref: $ENV{GITHUB_REF}")
     string(REGEX REPLACE "^refs/[^/]*/" "" GITHUB_BRANCH "$ENV{GITHUB_REF}")
     string(REGEX MATCH "refs/pull/([0-9]+)/merge" MATCHED_REF "$ENV{GITHUB_REF}")
     if (MATCHED_REF)
       set(PR_NUMBER "${CMAKE_MATCH_1}")
       set(GITHUB_BRANCH "")
-      message("PR number: ${PR_NUMBER}")
+      message(STATUS "PR number: ${PR_NUMBER}")
     else()
       set(PR_NUMBER "")
     endif()
@@ -184,7 +184,7 @@ if (GIT_REMOTE_RESULT OR GIT_REMOTE_NAME STREQUAL "")
   elseif ("${PR_NUMBER}" STREQUAL "" AND NOT "${GITHUB_REF}" STREQUAL "")
     set(GIT_BRANCH "${GITHUB_REF}")
   elseif("${GIT_BRANCH}" STREQUAL "")
-    message("couldn't find branch")
+    message(STATUS "couldn't find branch")
     set(GIT_BRANCH "detached-head")
   endif()
 else()
@@ -193,13 +193,13 @@ else()
   if (INDEX GREATER -1)
     string(SUBSTRING "${GIT_REMOTE_NAME}" 0 "${INDEX}" GIT_REMOTE_NAME)
   elseif("${GIT_REMOTE_NAME}" STREQUAL "")
-    message("reset to origin")
+    message(STATUS "reset to origin")
     set(GIT_REMOTE_NAME "origin")
   endif()
 endif()
 
 # Get remote link
-message("getting remote link")
+message(STATUS "getting remote link")
 execute_process(
   COMMAND git config --get remote.${GIT_REMOTE_NAME}.url
   OUTPUT_VARIABLE GIT_REMOTE_URL
@@ -213,11 +213,17 @@ set(EMULATOR_VERSION_PATCH "1")
 
 set_source_files_properties(src/shadps4.rc PROPERTIES COMPILE_DEFINITIONS "EMULATOR_VERSION_MAJOR=${EMULATOR_VERSION_MAJOR};EMULATOR_VERSION_MINOR=${EMULATOR_VERSION_MINOR};EMULATOR_VERSION_PATCH=${EMULATOR_VERSION_PATCH}")
 
-set(APP_VERSION "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH} DMC")
+set(APP_VERSION "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH} WIP")
 set(APP_IS_RELEASE false)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/common/scm_rev.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/src/common/scm_rev.cpp" @ONLY)
 
-message("end git things, remote: ${GIT_REMOTE_NAME}, branch: ${GIT_BRANCH}")
+message("-- end git things, remote: ${GIT_REMOTE_NAME}, branch: ${GIT_BRANCH}, link: ${GIT_REMOTE_URL}")
+
+string(TOLOWER "${GIT_REMOTE_URL}" GIT_REMOTE_URL_LOWER)
+if(NOT (GIT_REMOTE_URL_LOWER MATCHES "shadps4-emu/shadps4" AND (GIT_BRANCH STREQUAL "main" OR "$ENV{GITHUB_REF}" MATCHES "refs/tags/")))
+    message(STATUS "not main, disabling auto update")
+    set(ENABLE_UPDATER OFF)
+endif()
 
 if(WIN32 AND ENABLE_QT_GUI AND NOT CMAKE_PREFIX_PATH)
     include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/DetectQtInstallation.cmake")
@@ -231,11 +237,8 @@ find_package(fmt 10.2.0 CONFIG)
 find_package(glslang 15 CONFIG)
 find_package(half 1.12.0 MODULE)
 find_package(magic_enum 0.9.7 CONFIG)
-find_package(miniz 3.1 CONFIG)
-find_package(nlohmann_json 3.12 CONFIG)
 find_package(PNG 1.6 MODULE)
 find_package(OpenAL CONFIG)
-
 find_package(RenderDoc 1.6.0 MODULE)
 find_package(SDL3_mixer 2.8.1 CONFIG)
 if (SDL3_mixer_FOUND)
@@ -295,12 +298,12 @@ endif()
 
 set(AJM_LIB src/core/libraries/ajm/ajm.cpp
             src/core/libraries/ajm/ajm.h
+            src/core/libraries/ajm/ajm_aac.cpp
+            src/core/libraries/ajm/ajm_aac.h
             src/core/libraries/ajm/ajm_at9.cpp
             src/core/libraries/ajm/ajm_at9.h
             src/core/libraries/ajm/ajm_batch.cpp
             src/core/libraries/ajm/ajm_batch.h
-            src/core/libraries/ajm/ajm_aac.cpp
-            src/core/libraries/ajm/ajm_aac.h
             src/core/libraries/ajm/ajm_context.cpp
             src/core/libraries/ajm/ajm_context.h
             src/core/libraries/ajm/ajm_error.h
@@ -552,7 +555,7 @@ set(PAD_LIB src/core/libraries/pad/pad.cpp
             src/core/libraries/pad/pad_errors.h
 )
 
-set(SYSTEM_GESTURE_LIB 
+set(SYSTEM_GESTURE_LIB
             src/core/libraries/system_gesture/system_gesture.cpp
             src/core/libraries/system_gesture/system_gesture.h
 )
@@ -733,6 +736,7 @@ set(COMMON src/common/logging/backend.cpp
            src/common/arch.h
            src/common/assert.cpp
            src/common/assert.h
+           src/common/bit_array.h
            src/common/bit_field.h
            src/common/bounded_threadsafe_queue.h
            src/common/concepts.h
@@ -758,6 +762,7 @@ set(COMMON src/common/logging/backend.cpp
            src/common/path_util.h
            src/common/object_pool.h
            src/common/polyfill_thread.h
+           src/common/range_lock.h
            src/common/rdtsc.cpp
            src/common/rdtsc.h
            src/common/recursive_lock.cpp
@@ -844,7 +849,7 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_sys/fs.h
          src/core/ipc/ipc.cpp
          src/core/ipc/ipc.h
-         src/core/ipc/ipc_client.h
+                  src/core/ipc/ipc_client.h
          src/core/ipc/ipc_client.cpp
          src/core/loader/dwarf.cpp
          src/core/loader/dwarf.h
@@ -1011,11 +1016,12 @@ set(SHADER_RECOMPILER src/shader_recompiler/profile.h
 
 set(VIDEO_CORE src/video_core/amdgpu/cb_db_extent.h
                src/video_core/amdgpu/liverpool.cpp
+               src/video_core/amdgpu/liverpool.h
                src/video_core/amdgpu/pixel_format.cpp
                src/video_core/amdgpu/pixel_format.h
                src/video_core/amdgpu/pm4_cmds.h
-                          src/video_core/screenshot.h
-           src/video_core/screenshot.cpp
+               src/video_core/screenshot.h
+               src/video_core/screenshot.cpp
                src/video_core/amdgpu/pm4_opcodes.h
                src/video_core/amdgpu/regs_color.h
                src/video_core/amdgpu/regs_depth.h
@@ -1038,6 +1044,8 @@ set(VIDEO_CORE src/video_core/amdgpu/cb_db_extent.h
                src/video_core/buffer_cache/memory_tracker.h
                src/video_core/buffer_cache/range_set.h
                src/video_core/buffer_cache/word_manager.h
+               src/video_core/buffer_cache/region_definitions.h
+               src/video_core/buffer_cache/region_manager.h
                src/video_core/renderer_vulkan/liverpool_to_vk.cpp
                src/video_core/renderer_vulkan/liverpool_to_vk.h
                src/video_core/renderer_vulkan/vk_common.cpp
@@ -1106,7 +1114,7 @@ set(IMGUI src/imgui/imgui_config.h
           src/imgui/imgui_layer.h
           src/imgui/imgui_std.h
           src/imgui/imgui_texture.h
-                    src/imgui/shader_compilation_overlay.h
+          src/imgui/shader_compilation_overlay.h
           src/imgui/shader_compilation_overlay.cpp
           src/imgui/renderer/imgui_core.cpp
           src/imgui/renderer/imgui_core.h
@@ -1189,12 +1197,12 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/game_specific_dialog.ui
            src/qt_gui/trophy_viewer.cpp
            src/qt_gui/trophy_viewer.h
-           src/qt_gui/log_presets_dialog.cpp
-           src/qt_gui/log_presets_dialog.h
            src/qt_gui/elf_viewer.cpp
            src/qt_gui/elf_viewer.h
            src/qt_gui/main_window_themes.cpp
            src/qt_gui/main_window_themes.h
+           src/qt_gui/log_presets_dialog.cpp
+           src/qt_gui/log_presets_dialog.h
            src/qt_gui/settings_dialog.cpp
            src/qt_gui/settings_dialog.h
            src/qt_gui/settings_dialog.ui
@@ -1213,7 +1221,6 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/mod_manager_dialog.h
            src/qt_gui/mod_tracker.cpp
            src/qt_gui/mod_tracker.h
-
            ${EMULATOR}
            ${RESOURCE_FILES}
            ${TRANSLATIONS}
@@ -1256,7 +1263,8 @@ create_target_directory_groups(shadps4)
 
 target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui gcn half::half ZLIB::ZLIB PNG::PNG)
 target_link_libraries(shadps4 PRIVATE Boost::headers GPUOpen::VulkanMemoryAllocator LibAtrac9 sirit Vulkan::Headers xxHash::xxhash Zydis::Zydis glslang::glslang SDL3::SDL3 SDL3_mixer::SDL3_mixer pugixml::pugixml)
-target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 Cpp_Httplib)
+target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib)
+
 target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config.h")
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
 
