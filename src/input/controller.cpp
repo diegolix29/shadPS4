@@ -487,7 +487,8 @@ u8 GameControllers::GetGamepadIndexFromJoystickId(SDL_JoystickID id, const GameC
             return i;
         }
     }
-    return 0; // fallback
+    LOG_WARNING(Input, "Gamepad with joystick ID {} not found, returning 0 as fallback", id);
+    return 0; // fallback - should ideally handle this case better
 }
 
 } // namespace Input
@@ -523,7 +524,7 @@ int GetIndexfromGUID(SDL_JoystickID* gamepadIDs, int gamepadCount, std::string G
             return i;
         }
     }
-    return -1;
+    return 0;
 }
 
 std::string GetGUIDString(SDL_JoystickID* gamepadIDs, int index) {

@@ -62,10 +62,10 @@ std::list<InputID> toggled_keys;
 static std::vector<BindingConnection> connections;
 
 std::array<ControllerAllOutputs, 4> output_arrays = {
-    ControllerAllOutputs(0),
     ControllerAllOutputs(1),
     ControllerAllOutputs(2),
     ControllerAllOutputs(3),
+    ControllerAllOutputs(4),
 };
 
 void ControllerOutput::LinkJoystickAxes() {

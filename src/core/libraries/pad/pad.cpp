@@ -19,11 +19,9 @@ static std::set<s32> g_openHandles;
 
 static inline int HandleToIndex(s32 handle) {
     // If handle is UserID (0-3)
-    if (handle < 0 || handle > 3)
-        return -1;
+    if (handle < 1 || handle > 4)
 
-    // Return +1 so Handle 0 becomes Pad 1 for your config
-    return handle;
+        return handle + 1;
 }
 
 int PS4_SYSV_ABI scePadClose(s32 handle) {
