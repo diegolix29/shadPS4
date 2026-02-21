@@ -17,7 +17,7 @@ using Input::GameController;
 static bool g_initialized = false;
 static std::set<s32> g_openHandles;
 
-static inline int PadHandleToIndex(s32 handle) {
+static inline int HandleToIndex(s32 handle) {
     // If handle is UserID (0-3)
     if (handle < 0 || handle > 3)
         return -1;
@@ -49,7 +49,7 @@ int PS4_SYSV_ABI scePadDeviceClassGetExtendedInformation(
     s32 handle, OrbisPadDeviceClassExtendedInformation* pExtInfo) {
     LOG_ERROR(Lib_Pad, "(STUBBED) called");
     std::memset(pExtInfo, 0, sizeof(OrbisPadDeviceClassExtendedInformation));
-    int pad = PadHandleToIndex(handle);
+    int pad = HandleToIndex(handle);
     if (pad != -1 && Config::getUseSpecialPad(pad)) {
         pExtInfo->deviceClass = (OrbisPadDeviceClass)Config::getSpecialPadClass(pad);
     }
@@ -114,7 +114,7 @@ int PS4_SYSV_ABI scePadGetCapability() {
 
 int PS4_SYSV_ABI scePadGetControllerInformation(s32 handle, OrbisPadControllerInformation* pInfo) {
     LOG_DEBUG(Lib_Pad, "called handle = {}", handle);
-    int pad = PadHandleToIndex(handle);
+    int pad = HandleToIndex(handle);
     if (pad == -1) {
         pInfo->connected = false;
         pInfo->deviceClass = OrbisPadDeviceClass::Standard;
@@ -192,7 +192,7 @@ int PS4_SYSV_ABI scePadGetHandle(s32 userId, s32 type, s32 index) {
         return ORBIS_PAD_ERROR_NOT_INITIALIZED;
     }
 
-    if (userId == -1 || g_openHandles.empty()) {
+    if ((HandleToIndex)(userId) == -1 || g_openHandles.empty()) {
         return ORBIS_PAD_ERROR_DEVICE_NO_HANDLE;
     }
 
@@ -291,7 +291,7 @@ int PS4_SYSV_ABI scePadMbusTerm() {
 }
 
 int PS4_SYSV_ABI scePadOpen(s32 userId, s32 type, s32 index, const OrbisPadOpenParam* pParam) {
-    int pad = PadHandleToIndex(userId);
+    int pad = HandleToIndex(userId);
     if (pad == -1)
         return ORBIS_PAD_ERROR_DEVICE_NO_HANDLE;
     if (!g_initialized) {
@@ -316,7 +316,7 @@ int PS4_SYSV_ABI scePadOpen(s32 userId, s32 type, s32 index, const OrbisPadOpenP
 
 int PS4_SYSV_ABI scePadOpenExt(s32 userId, s32 type, s32 index,
                                const OrbisPadOpenExtParam* pParam) {
-    int pad = PadHandleToIndex(userId);
+    int pad = HandleToIndex(userId);
 
     LOG_ERROR(Lib_Pad, "(STUBBED) called");
     if (Config::getUseSpecialPad(pad)) {
@@ -479,7 +479,7 @@ int PS4_SYSV_ABI scePadReadState(s32 handle, OrbisPadData* pData) {
     auto const& controller = controllers[*controller_id];
 
     if (!controller) {
-        return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
+        return ORBIS_PAD_ERROR_INVALID_HANDLE;
     }
 
     int connectedCount = 0;
@@ -528,7 +528,7 @@ int PS4_SYSV_ABI scePadReadState(s32 handle, OrbisPadData* pData) {
     pData->touchData.touchNum =
         (state.touchpad[0].state ? 1 : 0) + (state.touchpad[1].state ? 1 : 0);
 
-    if (handle == 1) {
+    if (Config::getUseSpecialPad(*controller_id)) {
         if (controller->GetTouchCount() >= 127) {
             controller->SetTouchCount(0);
         }

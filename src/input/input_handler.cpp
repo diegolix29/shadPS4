@@ -184,8 +184,8 @@ std::optional<int> parseInt(const std::string& s) {
 
 void ParseInputConfig(const std::string game_id = "") {
     std::string game_id_or_default = Config::GetUseUnifiedInputConfig() ? "default" : game_id;
-    const auto config_file = Config::GetFoolproofInputConfigFile(game_id_or_default);
-    const auto global_config_file = Config::GetFoolproofInputConfigFile("global");
+    const auto config_file = Config::GetInputConfigFile(game_id_or_default);
+    const auto global_config_file = Config::GetInputConfigFile("global");
 
     // we reset these here so in case the user fucks up or doesn't include some of these,
     // we can fall back to default
@@ -652,20 +652,20 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             break;
         case Axis::TriggerLeft:
             ApplyDeadzone(new_param, lefttrigger_deadzone);
-            controllers[gamepad_index]->Axis(0, c_axis, GetAxis(0x0, 0x7f, *new_param));
-            controllers[gamepad_index]->CheckButton(0, OrbisPadButtonDataOffset::L2,
+            controllers[gamepad_index]->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
+            controllers[gamepad_index]->CheckButton(gamepad_index, OrbisPadButtonDataOffset::L2,
                                                     *new_param > 0x20);
             return;
         case Axis::TriggerRight:
             ApplyDeadzone(new_param, righttrigger_deadzone);
-            controllers[gamepad_index]->Axis(0, c_axis, GetAxis(0x0, 0x7f, *new_param));
-            controllers[gamepad_index]->CheckButton(0, OrbisPadButtonDataOffset::R2,
+            controllers[gamepad_index]->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
+            controllers[gamepad_index]->CheckButton(gamepad_index, OrbisPadButtonDataOffset::R2,
                                                     *new_param > 0x20);
             return;
         default:
             break;
         }
-        controllers[gamepad_index]->Axis(0, c_axis, GetAxis(-0x80, 0x7f, *new_param * multiplier));
+        controllers[gamepad_index]->Axis(c_axis, GetAxis(-0x80, 0x7f, *new_param * multiplier));
     }
 }
 
