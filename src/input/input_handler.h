@@ -23,6 +23,7 @@
 #define SDL_MOUSE_WHEEL_DOWN SDL_EVENT_MOUSE_WHEEL + 4
 #define SDL_MOUSE_WHEEL_LEFT SDL_EVENT_MOUSE_WHEEL + 5
 #define SDL_MOUSE_WHEEL_RIGHT SDL_EVENT_MOUSE_WHEEL + 7
+#define SDL_DUAL_MOUSE_BUTTONS SDL_EVENT_MOUSE_WHEEL + 8
 
 #define SDL_GAMEPAD_BUTTON_TOUCHPAD_LEFT SDL_GAMEPAD_BUTTON_COUNT + 1
 #define SDL_GAMEPAD_BUTTON_TOUCHPAD_CENTER SDL_GAMEPAD_BUTTON_COUNT + 2
@@ -96,7 +97,6 @@ public:
         return type != o.type || sdl_id != o.sdl_id || gamepad_id != o.gamepad_id;
     }
     bool operator<=(const InputID& o) const {
-        return type <= o.type && sdl_id <= o.sdl_id;
         return std::tie(gamepad_id, type, sdl_id) <= std::tie(o.gamepad_id, o.type, o.sdl_id);
     }
     bool IsValid() const {

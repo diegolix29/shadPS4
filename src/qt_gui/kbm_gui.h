@@ -65,6 +65,10 @@ private:
     QPushButton* MappingButton;
     QList<QPushButton*> ButtonsList;
     std::string config_id;
+
+    QTimer* escapeTapTimer = nullptr;
+    int escapeTapCount = 0;
+
     const std::vector<std::string> ControllerInputs = {
         "cross",        "circle",    "square",      "triangle",    "l1",
         "r1",           "l2",        "r2",          "l3",
