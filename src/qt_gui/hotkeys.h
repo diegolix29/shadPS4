@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include <QFuture>
+#include <QMouseEvent>
 #include <QTimer>
 #include <SDL3/SDL_gamepad.h>
 #include "core/ipc/ipc_client.h"
@@ -66,6 +67,9 @@ private:
     QMap<int, QString> pressedButtons;
     QList<QPushButton*> PadButtonsList;
     QList<QPushButton*> KBButtonsList;
+
+    QTimer* escapeTapTimer = nullptr;
+    int escapeTapCount = 0;
     QFuture<void> Polling;
 
     Ui::Hotkeys* ui;

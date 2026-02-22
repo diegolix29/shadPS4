@@ -62,6 +62,10 @@ std::list<std::pair<InputEvent, bool>> pressed_keys;
 std::list<InputID> toggled_keys;
 static std::vector<BindingConnection> connections;
 
+static bool left_mouse_pressed = false;
+static bool right_mouse_pressed = false;
+static bool dual_mouse_buttons_active = false;
+
 std::array<ControllerAllOutputs, 4> output_arrays = {
     ControllerAllOutputs(1),
     ControllerAllOutputs(2),
@@ -482,9 +486,22 @@ InputEvent InputBinding::GetInputEventFromSDLEvent(const SDL_Event& e) {
     case SDL_EVENT_KEY_UP:
         return InputEvent(InputType::KeyboardMouse, e.key.key, e.key.down, 0);
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    case SDL_EVENT_MOUSE_BUTTON_UP:
+    case SDL_EVENT_MOUSE_BUTTON_UP: {
+        if (e.button.button == SDL_BUTTON_LEFT) {
+            left_mouse_pressed = e.button.down;
+        } else if (e.button.button == SDL_BUTTON_RIGHT) {
+            right_mouse_pressed = e.button.down;
+        }
+
+        bool both_pressed = left_mouse_pressed && right_mouse_pressed;
+        if (both_pressed != dual_mouse_buttons_active) {
+            dual_mouse_buttons_active = both_pressed;
+            return InputEvent(InputType::KeyboardMouse, SDL_DUAL_MOUSE_BUTTONS, both_pressed, 0);
+        }
+
         return InputEvent(InputType::KeyboardMouse, static_cast<u32>(e.button.button),
                           e.button.down, 0);
+    }
     case SDL_EVENT_MOUSE_WHEEL:
     case SDL_EVENT_MOUSE_WHEEL_OFF:
         return InputEvent(InputType::KeyboardMouse, GetMouseWheelEvent(e),
@@ -493,13 +510,12 @@ InputEvent InputBinding::GetInputEventFromSDLEvent(const SDL_Event& e) {
     case SDL_EVENT_GAMEPAD_BUTTON_UP: {
         const auto& ctrls = *Common::Singleton<GameControllers>::Instance();
         gamepad = GameControllers::GetGamepadIndexFromJoystickId(e.gbutton.which, ctrls) + 1;
-        
-        // Debug logging for GUIDE button
+
         if (e.gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
             LOG_ERROR(Input, "GUIDE button event: button={}, down={}, gamepad={}", e.gbutton.button,
                       e.gbutton.down, gamepad);
         }
-        
+
         return InputEvent({InputType::Controller, (u32)e.gbutton.button, gamepad}, e.gbutton.down,
                           0);
     }
@@ -711,11 +727,7 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
 // Updates the list of pressed keys with the given input.
 // Returns whether the list was updated or not.
 bool UpdatePressedKeys(InputEvent event) {
-    // Debug logging for GUIDE button
-    if (event.input.type == InputType::Controller && event.input.sdl_id == SDL_GAMEPAD_BUTTON_GUIDE) {
-        LOG_ERROR(Input, "GUIDE button in UpdatePressedKeys: active={}", event.active);
-    }
-    
+
     // Skip invalid inputs
     InputID input = event.input;
     if (input.sdl_id == SDL_UNMAPPED) {
@@ -935,10 +947,10 @@ bool HasUserHotkeyDefined(int controller_index, HotkeyPad pad, HotkeyInputType t
 
 void ActivateOutputsFromInputs() {
 
-    // Debug: Check if GUIDE button is in pressed_keys
     bool guide_pressed = false;
     for (const auto& key : pressed_keys) {
-        if (key.first.input.type == InputType::Controller && key.first.input.sdl_id == SDL_GAMEPAD_BUTTON_GUIDE) {
+        if (key.first.input.type == InputType::Controller &&
+            key.first.input.sdl_id == SDL_GAMEPAD_BUTTON_GUIDE) {
             guide_pressed = true;
             LOG_ERROR(Input, "GUIDE button found in pressed_keys: active={}", key.second);
             break;

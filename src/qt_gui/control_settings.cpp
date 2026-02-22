@@ -885,14 +885,56 @@ void ControlSettings::SetMapping(QString input) {
 
 // use QT events instead of SDL to override default event closing the window with escape
 bool ControlSettings::eventFilter(QObject* obj, QEvent* event) {
-    if (event->type() == QEvent::KeyPress && EnableButtonMapping) {
+    if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->key() == Qt::Key_Escape) {
-            SetMapping("unmapped");
-            return true;
+            if (!EnableButtonMapping && !EnableAxisMapping) {
+                this->close();
+                return true;
+            }
+            // When mapping is active, don't handle here - let it fall through
+            // Note: control_settings only supports gamepad mapping, not keyboard
         }
     }
     return QDialog::eventFilter(obj, event);
+}
+
+void ControlSettings::mousePressEvent(QMouseEvent* event) {
+    if (EnableButtonMapping) {
+        static bool left_pressed = false;
+        static bool right_pressed = false;
+
+        if (event->button() == Qt::LeftButton) {
+            left_pressed = true;
+        } else if (event->button() == Qt::RightButton) {
+            right_pressed = true;
+        }
+
+        // Check if both mouse buttons are pressed
+        if (left_pressed && right_pressed) {
+            SetMapping("dualmousebuttons");
+            left_pressed = false;
+            right_pressed = false;
+            return;
+        }
+    }
+    QDialog::mousePressEvent(event);
+}
+
+void ControlSettings::mouseReleaseEvent(QMouseEvent* event) {
+    if (EnableButtonMapping) {
+        if (event->button() == Qt::LeftButton || event->button() == Qt::RightButton) {
+            static bool left_pressed = false;
+            static bool right_pressed = false;
+
+            if (event->button() == Qt::LeftButton) {
+                left_pressed = false;
+            } else if (event->button() == Qt::RightButton) {
+                right_pressed = false;
+            }
+        }
+    }
+    QDialog::mouseReleaseEvent(event);
 }
 
 void ControlSettings::processSDLEvents(int Type, int Input, int Value) {

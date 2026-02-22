@@ -484,8 +484,11 @@ void KBMSettings::SetUIValuestoMappings(std::string config_id) {
             } else if (output_string.contains("mouse_movement_params")) {
                 std::size_t comma_pos = line.find(',');
                 if (comma_pos != std::string::npos) {
-                    std::string DOstring = line.substr(equal_pos + 1, comma_pos);
-                    float DOffsetValue = std::stof(DOstring) * 100.0;
+                    const std::string old_locale = std::setlocale(LC_NUMERIC, nullptr);
+                    // Set locale to use a dot as a decimal separator
+                    std::setlocale(LC_NUMERIC, "C");
+                    std::string DOstring = line.substr(equal_pos + 1, comma_pos - (equal_pos + 1));
+                    float DOffsetValue = std::stof(DOstring) * 100.f;
                     int DOffsetInt = static_cast<int>(DOffsetValue);
                     ui->DeadzoneOffsetSlider->setValue(DOffsetInt);
                     QString LabelValue = QString::number(DOffsetInt / 100.0, 'f', 2);
@@ -508,6 +511,7 @@ void KBMSettings::SetUIValuestoMappings(std::string config_id) {
                         LabelValue = QString::number(SOffsetInt / 1000.0, 'f', 3);
                         ui->SpeedOffsetLabel->setText(LabelValue);
                     }
+                    std::setlocale(LC_NUMERIC, old_locale.c_str());
                 }
             }
         }
@@ -610,6 +614,16 @@ auto GetModifiedButton = [](Qt::KeyboardModifiers modifier, const std::string& m
 };
 
 bool KBMSettings::eventFilter(QObject* obj, QEvent* event) {
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_Escape) {
+            if (!EnableMapping) {
+                this->close();
+                return true;
+            }
+            // When mapping is active, continue to mapping logic below
+        }
+    }
     if (event->type() == QEvent::Close) {
         if (HelpWindowOpen) {
             HelpWindow->close();
@@ -623,6 +637,32 @@ bool KBMSettings::eventFilter(QObject* obj, QEvent* event) {
 
             if (keyEvent->isAutoRepeat())
                 return true;
+
+            if (keyEvent->key() == Qt::Key_Escape) {
+                if (!escapeTapTimer) {
+                    escapeTapTimer = new QTimer(this);
+                    escapeTapTimer->setSingleShot(true);
+                    escapeTapTimer->setInterval(300);
+                    connect(escapeTapTimer, &QTimer::timeout, [this]() {
+                        if (escapeTapCount == 1) {
+                            pressedKeys.insert(130, "escape");
+                        }
+                        escapeTapCount = 0;
+                    });
+                }
+
+                escapeTapCount++;
+                escapeTapTimer->start();
+
+                if (escapeTapCount == 2) {
+                    pressedKeys.clear();
+                    SetMapping("unmapped");
+                    escapeTapCount = 0;
+                    return true;
+                }
+
+                return true;
+            }
 
             if (pressedKeys.size() >= 3) {
                 return true;
@@ -953,10 +993,6 @@ bool KBMSettings::eventFilter(QObject* obj, QEvent* event) {
                 pressedKeys.insert(124, "right");
                 break;
 
-                // cancel mapping
-            case Qt::Key_Escape:
-                SetMapping("unmapped");
-                break;
             default:
                 break;
             }
@@ -982,11 +1018,8 @@ bool KBMSettings::eventFilter(QObject* obj, QEvent* event) {
                 case Qt::XButton2:
                     pressedKeys.insert(129, "sidebuttonforward");
                     break;
-
-                    // default case
                 default:
                     break;
-                    // bottom text
                 }
                 return true;
             }

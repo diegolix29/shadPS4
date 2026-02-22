@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 #include <QDialog>
+#include <QMouseEvent>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gamepad.h>
 #include "core/ipc/ipc_client.h"
@@ -39,6 +40,8 @@ private:
     std::shared_ptr<IpcClient> m_ipc_client;
 
     bool eventFilter(QObject* obj, QEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void AddBoxItems();
     void SetUIValuestoMappings();
     void GetGameTitle();

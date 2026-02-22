@@ -80,12 +80,9 @@ VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info
 #if defined(Q_OS_WIN)
         exePath = QFileDialog::getOpenFileName(this, tr("Select executable"), QDir::rootPath(),
                                                tr("Executable (*.exe)"));
-#elif defined(Q_OS_LINUX)
-    exePath = QFileDialog::getOpenFileName(this, tr("Select executable"), QDir::rootPath(),
-                                         tr("Executable (*.AppImage)"));
-#elif defined(Q_OS_MAC)
-    exePath = QFileDialog::getOpenFileName(this, tr("Select executable"), QDir::rootPath(),
-                                         tr("Executable (*.*)"));
+#elif defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
+        exePath = QFileDialog::getOpenFileName(this, tr("Select executable"), QDir::rootPath(),
+                                               "Executable (*)");
 #endif
 
         if (exePath.isEmpty())
