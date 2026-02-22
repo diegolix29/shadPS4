@@ -493,6 +493,13 @@ InputEvent InputBinding::GetInputEventFromSDLEvent(const SDL_Event& e) {
     case SDL_EVENT_GAMEPAD_BUTTON_UP: {
         const auto& ctrls = *Common::Singleton<GameControllers>::Instance();
         gamepad = GameControllers::GetGamepadIndexFromJoystickId(e.gbutton.which, ctrls) + 1;
+        
+        // Debug logging for GUIDE button
+        if (e.gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
+            LOG_ERROR(Input, "GUIDE button event: button={}, down={}, gamepad={}", e.gbutton.button,
+                      e.gbutton.down, gamepad);
+        }
+        
         return InputEvent({InputType::Controller, (u32)e.gbutton.button, gamepad}, e.gbutton.down,
                           0);
     }
@@ -704,6 +711,11 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
 // Updates the list of pressed keys with the given input.
 // Returns whether the list was updated or not.
 bool UpdatePressedKeys(InputEvent event) {
+    // Debug logging for GUIDE button
+    if (event.input.type == InputType::Controller && event.input.sdl_id == SDL_GAMEPAD_BUTTON_GUIDE) {
+        LOG_ERROR(Input, "GUIDE button in UpdatePressedKeys: active={}", event.active);
+    }
+    
     // Skip invalid inputs
     InputID input = event.input;
     if (input.sdl_id == SDL_UNMAPPED) {
@@ -922,6 +934,19 @@ bool HasUserHotkeyDefined(int controller_index, HotkeyPad pad, HotkeyInputType t
 }
 
 void ActivateOutputsFromInputs() {
+
+    // Debug: Check if GUIDE button is in pressed_keys
+    bool guide_pressed = false;
+    for (const auto& key : pressed_keys) {
+        if (key.first.input.type == InputType::Controller && key.first.input.sdl_id == SDL_GAMEPAD_BUTTON_GUIDE) {
+            guide_pressed = true;
+            LOG_ERROR(Input, "GUIDE button found in pressed_keys: active={}", key.second);
+            break;
+        }
+    }
+    if (!guide_pressed) {
+        LOG_ERROR(Input, "GUIDE button NOT found in pressed_keys");
+    }
 
     // todo find a better solution
     for (int i = 0; i < 4; i++) {

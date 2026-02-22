@@ -508,6 +508,7 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
                 quit_event.type = SDL_EVENT_QUIT_DIALOG;
                 SDL_PushEvent(&quit_event);
             }
+            return;
         }
     }
 

@@ -79,7 +79,7 @@ private:
         "pad_down",
 
         "pad_left",     "pad_right", "axis_left_x", "axis_left_y", "axis_right_x",
-        "axis_right_y", "back"};
+        "axis_right_y", "back",      "home"};
 
 protected:
     void closeEvent(QCloseEvent* event) override {
