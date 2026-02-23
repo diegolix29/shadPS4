@@ -87,7 +87,8 @@ enum class FileType {
     Device,
     Socket,
     Epoll,
-    Resolver
+    Resolver,
+    Equeue
 };
 
 struct File {
