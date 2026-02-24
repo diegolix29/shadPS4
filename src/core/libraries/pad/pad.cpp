@@ -477,7 +477,7 @@ int PS4_SYSV_ABI scePadReadState(s32 handle, OrbisPadData* pData) {
     auto const& controller = controllers[*controller_id];
 
     if (!controller) {
-        return ORBIS_PAD_ERROR_INVALID_HANDLE;
+        return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
     }
 
     int connectedCount = 0;

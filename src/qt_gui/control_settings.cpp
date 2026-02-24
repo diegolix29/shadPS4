@@ -689,7 +689,7 @@ void ControlSettings::ActiveControllerChanged(int value) {
     GamepadSelect::SetSelectedGamepad(GUID);
     Config::setActiveControllerID(GUID);
     Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
-
+    
     QString qGUID = QString::fromStdString(GUID).right(16);
     ui->ActiveGamepadLabel->setText("ID: " + qGUID);
 
@@ -721,8 +721,8 @@ void ControlSettings::CheckGamePad() {
     QString defaultGUID = "";
     int defaultIndex =
         GamepadSelect::GetIndexfromGUID(gamepads, gamepad_count, Config::getDefaultControllerID());
-    int activeIndex =
-        GamepadSelect::GetIndexfromGUID(gamepads, gamepad_count, Config::getActiveControllerID());
+    int activeIndex = GamepadSelect::GetIndexfromGUID(gamepads, gamepad_count,
+                                                      Config::getActiveControllerID());
 
     if (!gamepads || gamepad_count == 0) {
         ui->ActiveGamepadBox->addItem("No gamepads detected");
@@ -765,8 +765,7 @@ void ControlSettings::CheckGamePad() {
         ui->ActiveGamepadBox->setCurrentIndex(activeIndex);
         GamepadSelect::SetSelectedGamepad(GamepadSelect::GetGUIDString(gamepads, activeIndex));
     } else if (defaultIndex != -1) {
-        QString GUID =
-            QString::fromStdString(GamepadSelect::GetGUIDString(gamepads, defaultIndex)).right(16);
+        QString GUID = QString::fromStdString(GamepadSelect::GetGUIDString(gamepads, defaultIndex)).right(16);
         ui->ActiveGamepadLabel->setText("ID: " + GUID);
         ui->ActiveGamepadBox->setCurrentIndex(defaultIndex);
         GamepadSelect::SetSelectedGamepad(GamepadSelect::GetGUIDString(gamepads, defaultIndex));

@@ -27,10 +27,6 @@ using Shader::LogicalStage;
 using Shader::Output;
 using Shader::Stage;
 
-std::atomic<int> PipelineCache::runtime_compilation_count{0};
-std::atomic<int> PipelineCache::runtime_compilation_current{0};
-std::atomic<int> PipelineCache::runtime_compilation_total{0};
-
 constexpr static auto SpirvVersion1_6 = 0x00010600U;
 
 constexpr static std::array DescriptorHeapSizes = {
@@ -325,7 +321,7 @@ const ComputePipeline* PipelineCache::GetComputePipeline() {
     const auto [it, is_new] = compute_pipelines.try_emplace(compute_key);
     if (is_new) {
         const auto pipeline_hash = std::hash<ComputePipelineKey>{}(compute_key);
-        LOG_INFO(Render, "Shader pre-compilation completed");
+        LOG_INFO(Render_Vulkan, "Compiling compute pipeline {:#x}", pipeline_hash);
 
         ComputePipeline::SerializationSupport sdata{};
         it.value() = std::make_unique<ComputePipeline>(instance, scheduler, desc_heap, profile,
@@ -558,11 +554,6 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
              perm_idx != 0 ? "(permutation)" : "");
     DumpShader(code, info.pgm_hash, info.stage, perm_idx, "bin");
 
-    bool should_track = Config::isShaderCompilationOverlayEnabled();
-    if (should_track) {
-        IncrementRuntimeCompilationCount();
-    }
-
     const std::string stage_name = fmt::format("{}", info.stage);
     const auto ir_program = Shader::TranslateProgram(code, pools, info, runtime_info, profile);
     auto spv = Shader::Backend::SPIRV::EmitSPIRV(profile, runtime_info, ir_program, binding);
@@ -585,12 +576,6 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
         DebugState.CollectShader(name, info.l_stage, module, spv, code,
                                  patch ? *patch : std::span<const u32>{}, is_patched);
     }
-
-    // Only track runtime compilation completion if we were tracking
-    if (should_track) {
-        DecrementRuntimeCompilationCount();
-    }
-
     return module;
 }
 
@@ -712,56 +697,5 @@ std::optional<std::vector<u32>> PipelineCache::GetShaderPatch(u64 hash, Shader::
     std::vector<u32> code(file.GetSize() / sizeof(u32));
     file.Read(code);
     return code;
-}
-
-void PipelineCache::SetRuntimeCompilationCallback(std::function<void(bool)> callback) {
-    runtime_compilation_callback = callback;
-}
-
-void PipelineCache::IncrementRuntimeCompilationCount() {
-    int old_count = runtime_compilation_count.fetch_add(1);
-    runtime_compilation_current.fetch_add(1);
-    runtime_compilation_total.fetch_add(1);
-    LOG_INFO(Render_Vulkan, "Runtime compilation count: {} -> {}, current: {}, total: {}",
-             old_count, old_count + 1, runtime_compilation_current.load(),
-             runtime_compilation_total.load());
-    if (old_count == 0 && runtime_compilation_callback) {
-        runtime_compilation_callback(true); // Show overlay
-    }
-}
-
-void PipelineCache::DecrementRuntimeCompilationCount() {
-    int new_count = runtime_compilation_count.fetch_sub(1) - 1;
-    LOG_INFO(Render_Vulkan, "Runtime compilation count: {} -> {}, current: {}, total: {}",
-             new_count + 1, new_count, runtime_compilation_current.load(),
-             runtime_compilation_total.load());
-    if (new_count == 0 && runtime_compilation_callback) {
-        // Use weak_ptr pattern to avoid accessing destroyed objects
-        auto callback_copy = runtime_compilation_callback;
-        std::thread([callback_copy]() {
-            // Sleep for 2 seconds before hiding overlay
-            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-            try {
-                if (callback_copy) {
-                    callback_copy(false); // Hide overlay after delay
-                }
-            } catch (...) {
-                // Log error but don't crash if callback is invalid
-                LOG_ERROR(Render_Vulkan, "Failed to execute runtime compilation callback");
-            }
-        }).detach();
-    }
-}
-
-void PipelineCache::UpdateRuntimeCompilationProgress() {
-    if (runtime_compilation_callback) {
-        int current = runtime_compilation_current.load();
-        int total = runtime_compilation_total.load();
-        // Call the progress callback with current/total info
-        // Since the callback only takes bool, we need to use a different approach
-        // We'll update the overlay directly if we have access to it
-        LOG_INFO(Render_Vulkan, "Runtime compilation progress: {}/{} ({}%)", current, total,
-                 total > 0 ? (current * 100) / total : 0);
-    }
 }
 } // namespace Vulkan

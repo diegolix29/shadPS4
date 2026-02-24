@@ -495,7 +495,6 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->cacheArchiveCheckBox->setChecked(Config::isPipelineCacheArchived());
     ui->vkValidationCheckBox->setChecked(Config::vkValidationEnabled());
     ui->vkSyncValidationCheckBox->setChecked(Config::vkValidationSyncEnabled());
-    ui->shaderOverlayCheckBox->setChecked(Config::isShaderCompilationOverlayEnabled());
 
     ui->collectShaderCheckBox->setChecked(Config::collectShadersForDebug());
     ui->debugDump->setChecked(Config::debugDump());
@@ -638,7 +637,6 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->fpsLimiterCheckBox->setChecked(toml::find<bool>(gpu, "fpsLimiterEnabled"));
         if (gpu.contains("fsrEnabled"))
             ui->FSRCheckBox->setChecked(toml::find<bool>(gpu, "fsrEnabled"));
-
         if (gpu.contains("FullscreenMode"))
             ui->displayModeComboBox->setCurrentText(
                 QString::fromStdString(toml::find<std::string>(gpu, "FullscreenMode")));
@@ -708,9 +706,6 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->hostMarkersCheckBox->setChecked(toml::find<bool>(vk, "hostMarkers"));
         if (vk.contains("rdocEnable"))
             ui->rdocCheckBox->setChecked(toml::find<bool>(vk, "rdocEnable"));
-        if (vk.contains("shaderCompilationOverlayEnable"))
-            ui->shaderOverlayCheckBox->setChecked(
-                toml::find<bool>(vk, "shaderCompilationOverlayEnable"));
         if (vk.contains("pipelineCacheEnable"))
             ui->cacheCheckBox->setChecked(toml::find<bool>(vk, "pipelineCacheEnable"));
         if (vk.contains("pipelineCacheArchive"))
@@ -884,10 +879,6 @@ void GameSpecificDialog::UpdateSettings() {
 
     if (ui->FSRCheckBox->isChecked() != Config::getFsrEnabled())
         overrides["GPU"]["fsrEnabled"] = ui->FSRCheckBox->isChecked();
-
-    if (ui->shaderOverlayCheckBox->isChecked() != Config::isShaderCompilationOverlayEnabled())
-        overrides["Vulkan"]["shaderCompilationOverlayEnable"] =
-            ui->shaderOverlayCheckBox->isChecked();
 
     {
         QString comboText = ui->displayModeComboBox->currentText();

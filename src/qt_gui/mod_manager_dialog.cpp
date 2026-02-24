@@ -1030,8 +1030,7 @@ QString ModManagerDialog::resolveOriginalFile(const QString& rel) const {
 
 bool ModManagerDialog::needsDvdrootPrefix(const QString& modName) const {
     if (!(gameSerial == "CUSA03173" || gameSerial == "CUSA00900" || gameSerial == "CUSA00299" ||
-          gameSerial == "CUSA00207" || gameSerial == "CUSA00208" || gameSerial == "CUSA003027" ||
-          gameSerial == "CUSA01322" || gameSerial == "CUSA01363" || gameSerial == "CUSA03014" ||
+          gameSerial == "CUSA00207" || gameSerial == "CUSA00208"|| gameSerial == "CUSA003027"|| gameSerial == "CUSA01322" || gameSerial == "CUSA01363" || gameSerial == "CUSA03014" ||
           gameSerial == "CUSA03023"))
         return false;
 

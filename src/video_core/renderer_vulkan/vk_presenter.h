@@ -4,13 +4,7 @@
 #pragma once
 
 #include <condition_variable>
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <vector>
-#include <queue>
 
-#include <imgui/shader_compilation_overlay.h>
 #include "core/libraries/videoout/buffer.h"
 #include "imgui/imgui_texture.h"
 #include "video_core/renderer_vulkan/host_passes/fsr_pass.h"
@@ -104,11 +98,8 @@ public:
 
     Frame* PrepareBlankFrame(bool present_thread);
 
-    void Present(Frame* frame, bool is_reusing_frame = false, bool is_last_frame = false);
+    void Present(Frame* frame, bool is_reusing_frame = false);
     Frame* PrepareLastFrame();
-
-    void ShowRuntimeCompilationOverlay(bool show);
-    void UpdateRuntimeCompilationProgress(int current, int total);
 
 private:
     Frame* GetRenderFrame();
@@ -144,7 +135,6 @@ private:
     std::condition_variable_any frame_cv;
     std::optional<ImGui::RefCountedTexture> splash_img;
     std::vector<VAddr> vo_buffers_addr;
-    std::unique_ptr<ImGui::ShaderCompilationOverlay> shader_compilation_overlay;
-    std::mutex overlay_mutex;
 };
+
 } // namespace Vulkan

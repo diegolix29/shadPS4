@@ -596,24 +596,17 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     connect(ui->RCASCheckBox, &QCheckBox::stateChanged, this,
             [](int state) { Config::setRcasEnabled(state == Qt::Checked); });
-
-    connect(ui->shaderOverlayCheckBox, &QCheckBox::stateChanged, this,
-            [](int state) { Config::setShaderCompilationOverlayEnabled(state == Qt::Checked); });
 #else
     connect(ui->FSRCheckBox, &QCheckBox::checkStateChanged, this,
-            [](Qt::CheckState state) { Config::setFsrEnabled(state == Qt::Checked); });
+            [](int state) { Config::setFsrEnabled(state == Qt::Checked); });
 
     connect(ui->RCASCheckBox, &QCheckBox::checkStateChanged, this,
-            [](Qt::CheckState state) { Config::setRcasEnabled(state == Qt::Checked); });
-
-    connect(ui->shaderOverlayCheckBox, &QCheckBox::checkStateChanged, this,
-            [](Qt::CheckState state) {
-                Config::setShaderCompilationOverlayEnabled(state == Qt::Checked);
-            });
+            [](int state) { Config::setRcasEnabled(state == Qt::Checked); });
 #endif
     ui->fpsLimiterCheckBox->setChecked(Config::isFpsLimiterEnabled());
     ui->fpsSpinBox->setEnabled(Config::isFpsLimiterEnabled());
     ui->fpsSlider->setEnabled(Config::isFpsLimiterEnabled());
+
     connect(ui->fpsLimiterCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
         Config::setFpsLimiterEnabled(checked);
         ui->fpsSpinBox->setEnabled(checked);
@@ -1209,7 +1202,6 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     ui->FSRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fsrEnabled", true));
     ui->RCASCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "rcasEnabled", true));
-    ui->shaderOverlayCheckBox->setChecked(Config::isShaderCompilationOverlayEnabled());
 
     ui->RCASSlider->setValue(Config::getRcasAttenuation());
     ui->RCASSpinBox->setValue(Config::getRcasAttenuation() / 1000.0);
@@ -1680,6 +1672,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setVkCrashDiagnosticEnabled(ui->crashDiagnosticsCheckBox->isChecked());
     Config::setCollectShaderForDebug(ui->collectShaderCheckBox->isChecked());
     Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
+    Config::setVolumeSlider(ui->horizontalVolumeSlider->value(), true);
     Config::setSysModulesPath(Common::FS::PathFromQString(ui->currentSysModulesPath->text()));
 
     Config::setAutoUpdate(ui->updateCheckBox->isChecked());
@@ -1694,7 +1687,6 @@ void SettingsDialog::UpdateSettings() {
     Config::setShowBackgroundImage(ui->showBackgroundImageCheckBox->isChecked());
     Config::setFsrEnabled(ui->FSRCheckBox->isChecked());
     Config::setRcasEnabled(ui->RCASCheckBox->isChecked());
-    Config::setShaderCompilationOverlayEnabled(ui->shaderOverlayCheckBox->isChecked());
     Config::setRcasAttenuation(ui->RCASSlider->value());
 
     // Update presenter with new FSR settings so game uses them immediately

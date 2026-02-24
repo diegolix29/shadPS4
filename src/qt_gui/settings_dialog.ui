@@ -1356,22 +1356,6 @@
 													</widget>
 												</item>
 												<item>
-													<widget class="QGroupBox" name="shaderOverlayGroupBox">
-														<property name="title">
-															<string>Shader Options</string>
-														</property>
-														<layout class="QVBoxLayout" name="verticalLayout_9">
-															<item>
-																<widget class="QCheckBox" name="shaderOverlayCheckBox">
-																	<property name="text">
-																		<string>Show shader compilation overlay during gameplay</string>
-																	</property>
-																</widget>
-															</item>
-														</layout>
-													</widget>
-												</item>
-												<item>
 													<widget class="QGroupBox" name="fpsLimitGroupBox">
 														<property name="title">
 															<string>FPS Limit</string>

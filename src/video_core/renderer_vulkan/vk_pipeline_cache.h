@@ -3,17 +3,8 @@
 
 #pragma once
 
-#include <atomic>
-#include <functional>
-#include <mutex>
-#include <shared_mutex>
-#include <span>
-#include <string>
-#include <string_view>
-#include <tuple>
-#include <unordered_map>
 #include <variant>
-#include <vector>
+#include <tsl/robin_map.h>
 #include "shader_recompiler/profile.h"
 #include "shader_recompiler/recompiler.h"
 #include "shader_recompiler/specialization.h"
@@ -79,17 +70,7 @@ public:
     ~PipelineCache();
 
     void WarmUp();
-    void PrecompileShaders();
-    void PrecompileShadersWithProgress(std::function<void(int, int)> progress_callback = nullptr);
-    bool PrecompileShadersWithProgressCheck(
-        std::function<void(int, int)> progress_callback = nullptr);
     void Sync();
-
-    // Runtime compilation tracking
-    void SetRuntimeCompilationCallback(std::function<void(bool)> callback);
-    void IncrementRuntimeCompilationCount();
-    void DecrementRuntimeCompilationCount();
-    void UpdateRuntimeCompilationProgress();
 
     bool LoadComputePipeline(Serialization::Archive& ar);
     bool LoadGraphicsPipeline(Serialization::Archive& ar);
@@ -109,9 +90,7 @@ public:
 
     static std::string GetShaderName(Shader::Stage stage, u64 hash,
                                      std::optional<size_t> perm = {});
-    static std::atomic<int> runtime_compilation_count;
-    static std::atomic<int> runtime_compilation_current;
-    static std::atomic<int> runtime_compilation_total;
+
     auto& GetProfile() const {
         return profile;
     }
@@ -148,10 +127,6 @@ private:
     tsl::robin_map<GraphicsPipelineKey, std::unique_ptr<GraphicsPipeline>> graphics_pipelines;
     std::array<Shader::RuntimeInfo, MaxShaderStages> runtime_infos{};
     std::array<const Shader::Info*, MaxShaderStages> infos{};
-
-    // Runtime compilation tracking
-    std::function<void(bool)> runtime_compilation_callback;
-
     std::array<vk::ShaderModule, MaxShaderStages> modules{};
     std::optional<Shader::Gcn::FetchShaderData> fetch_shader{};
     GraphicsPipelineKey graphics_key{};
