@@ -32,6 +32,8 @@ namespace fs = std::filesystem;
 #include "main_window_themes.h"
 extern WindowThemes m_window_themes;
 
+using namespace Common::FS;
+
 WelcomeDialog::WelcomeDialog(WindowThemes* themes, QWidget* parent)
     : QDialog(parent), m_themes(themes) {
     Theme th = static_cast<Theme>(Config::getMainWindowTheme());
@@ -92,28 +94,32 @@ void WelcomeDialog::SetupUI() {
     title->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(title);
 
-    auto* descLabel =
-        new QLabel("<ul>"
-                   "<li>A sound hack that prevents Bloodborne from losing audio. (originally made "
-                   "by rainvmaker)</li>"
-                   "<li>Automatic backups via a checkbox in the Graphics tab in Settings.</li>"
-                   "<li>NEW Games Menu button to trigger Big Picture Mode.</li>"
-                   "<li>NEW Cinematic Frame View for games like a Netflix Viewer.</li>"
-                   "<li>NEW PKG button to install Games if you have them Packed.</li>"
-                   "<li>A PM4 Type 0 hack to avoid related issues. "
-                   "<i>(Do not use this with the \"Copy Buffer\" checkbox under the Debug tab in "
-                   "Settings.)</i></li>"
-                   "<li>Several NEW Hotkeys like Mute sound - and Trophy viewer while ingame.</li>"
-                   "<li>Water Flickering Hack(Bloodborne).</li>"
-                   "<li>READBACKS OPTIMIZATION (Smooth no extra stutters anymore) Fast and Unsafe "
-                   "are for Bloodborne.</li>"
-                   "<li>Restart and Stop buttons working as the QTLauncher.</li>"
-                   "<li>Keyboard and mouse custom button mapping for FromSoftware games.</li>"
-                   "<li>An Experimental tab with all new features and both isDevKit and Neo Mode "
-                   "(PS4 Pro Mode) checkboxes in Settings.</li>"
-                   "<li>Safe Tiling and USB PRs developed for main Shad.</li>"
-                   "</ul>"
-                   "<br>");
+    auto* descLabel = new QLabel(
+        "<ul>"
+        "<li>Reworked GUI icons can hidden and show individually.</li>"
+        "<li>Cinema Games View (Netflix Style).</li>"
+        "<li>Gamehub and BigPicture Modes on Gui with auto start on each of them.</li>"
+        "<li>Reworked Settings Visuals Pause Menu ingame with access to all Settings per game.</li>"
+        "<li>A Sound hack that prevents Bloodborne from losing audio. (originally made "
+        "by rainvmaker)</li>"
+        "<li>Automatic backups via a checkbox in the Graphics tab in Settings.</li>"
+        "<li>NEW Games Menu button to trigger Big Picture Mode.</li>"
+        "<li>NEW Cinematic Frame View for games like a Netflix Viewer.</li>"
+        "<li>NEW PKG button to install Games if you have them Packed.</li>"
+        "<li>A PM4 Type 0 hack to avoid related issues. "
+        "<i>(Do not use this with the \"Copy Buffer\" checkbox under the Debug tab in "
+        "Settings.)</i></li>"
+        "<li>Several NEW Hotkeys like Mute sound - and Trophy viewer while ingame.</li>"
+        "<li>Water Flickering Hack(Bloodborne).</li>"
+        "<li>READBACKS OPTIMIZATION (Smooth no extra stutters anymore) Fast and Unsafe "
+        "are for Bloodborne.</li>"
+        "<li>Restart and Stop buttons working as the QTLauncher.</li>"
+        "<li>Keyboard and mouse custom button mapping for FromSoftware games.</li>"
+        "<li>An Experimental tab with all new features and both isDevKit and Neo Mode "
+        "(PS4 Pro Mode) checkboxes in Settings.</li>"
+        "<li>Safe Tiling and USB PRs developed for main Shad.</li>"
+        "</ul>"
+        "<br>");
     descLabel->setWordWrap(true);
 
     auto* scroll = new QScrollArea();
@@ -165,8 +171,7 @@ void WelcomeDialog::SetupUI() {
     updateButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     mainLayout->addWidget(updateButton, 0, Qt::AlignLeft);
     connect(updateButton, &QPushButton::clicked, this, [this]() {
-        Config::setShowWelcomeDialog(!m_skipNextLaunch); // save the choice
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        Config::setShowWelcomeDialog(!m_skipNextLaunch);
         accept();
     });
     auto* footer = new QHBoxLayout();
@@ -182,44 +187,62 @@ void WelcomeDialog::SetupUI() {
         m_portableChosen = true;
         m_userMadeChoice = true;
 
-        auto portable_dir = fs::current_path() / "user";
-        fs::path global_dir;
-#if _WIN32
-        TCHAR appdata[MAX_PATH] = {0};
-        SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdata);
-        global_dir = fs::path(appdata) / "shadPS4";
-#elif __APPLE__
-    global_dir = fs::path(getenv("HOME")) / "Library" / "Application Support" / "shadPS4";
-#else
-    const char* xdg_data_home = getenv("XDG_DATA_HOME");
-    if (xdg_data_home && *xdg_data_home)
-        global_dir = fs::path(xdg_data_home) / "shadPS4";
-    else
-        global_dir = fs::path(getenv("HOME")) / ".local" / "share" / "shadPS4";
-#endif
+        auto portable_dir = Common::FS::GetPortablePath();
+        auto global_dir = Common::FS::GetGlobalPath();
+        bool has_existing_config = false;
 
-        if (fs::exists(global_dir)) {
-            QMessageBox::StandardButton reply = QMessageBox::question(
-                this, tr("Global folder detected"),
-                tr("Global folder already exists.\n\nMove its content to portable and erase "
-                   "global?\n"
-                   "Click No to just create a new user folder and leave global intact."),
-                QMessageBox::Yes | QMessageBox::No);
-            if (reply == QMessageBox::Yes) {
-                if (fs::exists(portable_dir))
-                    fs::remove_all(portable_dir);
-                fs::copy(global_dir, portable_dir, fs::copy_options::recursive);
-                fs::remove_all(global_dir);
+        if (std::filesystem::exists(global_dir)) {
+            auto global_config_path = global_dir / "config.toml";
+            if (std::filesystem::exists(global_config_path)) {
+                has_existing_config = true;
+                QMessageBox::StandardButton reply = QMessageBox::question(
+                    this, tr("Global folder detected"),
+                    tr("Global folder with configuration already exists.\n\nMove its content to "
+                       "portable?\n"
+                       "Click No to just create a new portable folder and leave global intact."),
+                    QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::Yes) {
+                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
+
+                    if (std::filesystem::exists(portable_dir))
+                        std::filesystem::remove_all(portable_dir);
+                    std::filesystem::copy(global_dir, portable_dir,
+                                          std::filesystem::copy_options::recursive);
+                    std::filesystem::remove_all(global_dir);
+                } else {
+                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
+                }
             } else {
-                if (!fs::exists(portable_dir))
-                    fs::create_directories(portable_dir);
+                QMessageBox::StandardButton reply = QMessageBox::question(
+                    this, tr("Global folder detected"),
+                    tr("Global folder already exists.\n\nMove its content to portable?\n"
+                       "Click No to just create a new portable folder and leave global intact."),
+                    QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::Yes) {
+                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
+
+                    if (std::filesystem::exists(portable_dir))
+                        std::filesystem::remove_all(portable_dir);
+                    std::filesystem::copy(global_dir, portable_dir,
+                                          std::filesystem::copy_options::recursive);
+                    std::filesystem::remove_all(global_dir);
+                } else {
+                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
+                }
             }
+        } else {
+            Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
         }
+
         QMessageBox::information(this, tr("Portable Folder Set"),
                                  tr("Portable Folder Successfully Set"));
 
-        Config::setShowWelcomeDialog(false); // don’t show next launch
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        Config::setShowWelcomeDialog(false);
+
+        if (!has_existing_config) {
+            Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        }
+
         accept();
     });
 
@@ -227,39 +250,77 @@ void WelcomeDialog::SetupUI() {
         m_portableChosen = false;
         m_userMadeChoice = true;
 
-        auto portable_dir = fs::current_path() / "user";
-        fs::path global_dir;
-#if _WIN32
-        TCHAR appdata[MAX_PATH] = {0};
-        SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdata);
-        global_dir = fs::path(appdata) / "shadPS4";
-#elif __APPLE__
-    global_dir = fs::path(getenv("HOME")) / "Library" / "Application Support" / "shadPS4";
-#else
-    const char* xdg_data_home = getenv("XDG_DATA_HOME");
-    if (xdg_data_home && *xdg_data_home)
-        global_dir = fs::path(xdg_data_home) / "shadPS4";
-    else
-        global_dir = fs::path(getenv("HOME")) / ".local" / "share" / "shadPS4";
-#endif
+        auto portable_dir = Common::FS::GetPortablePath();
+        auto global_dir = Common::FS::GetGlobalPath();
+        bool has_existing_config = false;
 
-        if (fs::exists(global_dir)) {
-            if (fs::exists(portable_dir))
-                fs::remove_all(portable_dir);
-        } else {
-            fs::create_directories(global_dir);
+        if (std::filesystem::exists(portable_dir)) {
+            auto portable_config_path = portable_dir / "config.toml";
+            if (std::filesystem::exists(portable_config_path)) {
+                has_existing_config = true;
+                QMessageBox::StandardButton reply = QMessageBox::question(
+                    this, tr("Portable folder detected"),
+                    tr("Portable folder with configuration already exists.\n\nMove its content to "
+                       "global?\n"
+                       "Click No to just create a new global folder and leave portable intact."),
+                    QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::Yes) {
+                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
 
-            if (fs::exists(portable_dir)) {
-                fs::copy(portable_dir, global_dir, fs::copy_options::recursive);
-                fs::remove_all(portable_dir);
+                    std::filesystem::copy(portable_dir, global_dir,
+                                          std::filesystem::copy_options::recursive);
+                    std::filesystem::remove_all(portable_dir);
+                } else {
+                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+                }
+            } else {
+                QMessageBox::StandardButton reply = QMessageBox::question(
+                    this, tr("Portable folder detected"),
+                    tr("Portable folder already exists.\n\nMove its content to global?\n"
+                       "Click No to just create a new global folder and leave portable intact."),
+                    QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::Yes) {
+                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+
+                    std::filesystem::copy(portable_dir, global_dir,
+                                          std::filesystem::copy_options::recursive);
+                    std::filesystem::remove_all(portable_dir);
+                } else {
+                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+                }
             }
+        } else if (std::filesystem::exists(global_dir)) {
+            auto config_path = global_dir / "config.toml";
+            if (std::filesystem::exists(config_path)) {
+                has_existing_config = true;
+                Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+            } else {
+                QMessageBox::StandardButton reply =
+                    QMessageBox::question(this, tr("Global folder detected"),
+                                          tr("Global folder already exists.\n\nThis folder will be "
+                                             "used for the BBFork build.\n"
+                                             "A new configuration file will be created for this "
+                                             "fork.\n\nContinue with Global mode?"),
+                                          QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::Yes) {
+                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+                } else {
+                    return;
+                }
+            }
+        } else {
+            Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
         }
 
         QMessageBox::information(this, tr("Global Folder Set"),
                                  tr("Global Folder Successfully Set"));
 
-        Config::setShowWelcomeDialog(false); // don’t show next launch
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        Config::setShowWelcomeDialog(false);
+
+        if (!has_existing_config) {
+            Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        }
+
         accept();
     });
 }

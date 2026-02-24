@@ -35,6 +35,8 @@ enum class PathType {
     FontsDir,       // Where dumped system fonts are stored.
 };
 
+enum class PathInitState { Uninitialized, Portable, Global };
+
 constexpr auto PORTABLE_DIR = "user";
 
 // Sub-directories contained within a user data directory
@@ -148,5 +150,15 @@ void PathToQString(QString& result, const std::filesystem::path& path);
 [[nodiscard]] std::optional<std::filesystem::path> FindGameByID(const std::filesystem::path& dir,
                                                                 const std::string& game_id,
                                                                 int max_depth);
+
+void InitializeUserPaths(PathInitState state);
+
+[[nodiscard]] PathInitState GetUserPathInitState();
+
+[[nodiscard]] bool IsUserPathsInitialized();
+
+[[nodiscard]] std::filesystem::path GetPortablePath();
+
+[[nodiscard]] std::filesystem::path GetGlobalPath();
 
 } // namespace Common::FS

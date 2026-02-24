@@ -92,124 +92,34 @@ static std::optional<std::filesystem::path> GetBundleParentDirectory() {
 static auto UserPaths = [] {
     std::unordered_map<PathType, std::filesystem::path> paths;
 
-    std::filesystem::path user_dir; // declare once
-
-#if _WIN32
-    std::filesystem::path portable_dir = std::filesystem::current_path() / "user";
-
-    TCHAR appdata[MAX_PATH] = {0};
-    SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdata);
-    std::filesystem::path appdata_dir(appdata);
-    appdata_dir /= L"shadPS4";
-
-    bool portableExists = std::filesystem::exists(portable_dir);
-    bool appdataExists = std::filesystem::exists(appdata_dir);
-
-    if (portableExists) {
-        user_dir = portable_dir;
-    } else if (appdataExists) {
-        user_dir = appdata_dir;
-    } else {
-        user_dir = portable_dir;
-    }
-
-#elif defined(__APPLE__) || defined(__linux__)
-#ifdef __APPLE__
-#if defined(ENABLE_QT_GUI)
-    if (const auto bundle_dir = GetBundleParentDirectory()) {
-        std::filesystem::current_path(*bundle_dir);
-    }
-#endif
-#endif
-
-    // Try the portable user folder first
-    user_dir = std::filesystem::current_path() / PORTABLE_DIR;
-    if (!std::filesystem::exists(user_dir)) {
-#ifdef __APPLE__
-        user_dir =
-            std::filesystem::path(getenv("HOME")) / "Library" / "Application Support" / "shadPS4";
-#elif defined(__linux__)
-        const char* xdg_data_home = getenv("XDG_DATA_HOME");
-        if (xdg_data_home && strlen(xdg_data_home) > 0) {
-            user_dir = std::filesystem::path(xdg_data_home) / "shadPS4";
-        } else {
-            user_dir = std::filesystem::path(getenv("HOME")) / ".local" / "share" / "shadPS4";
-        }
-#endif
-    }
-#endif
-
     const auto create_path = [&](PathType shad_path, const std::filesystem::path& new_path) {
-        std::filesystem::create_directory(new_path);
         paths.insert_or_assign(shad_path, new_path);
     };
 
-    create_path(PathType::UserDir, user_dir);
-    create_path(PathType::LogDir, user_dir / LOG_DIR);
-    create_path(PathType::ScreenshotsDir, user_dir / SCREENSHOTS_DIR);
-    create_path(PathType::ShaderDir, user_dir / SHADER_DIR);
-    create_path(PathType::GameDataDir, user_dir / GAMEDATA_DIR);
-    create_path(PathType::TempDataDir, user_dir / TEMPDATA_DIR);
-    create_path(PathType::SysModuleDir, user_dir / SYSMODULES_DIR);
-    create_path(PathType::DownloadDir, user_dir / DOWNLOAD_DIR);
-    create_path(PathType::CapturesDir, user_dir / CAPTURES_DIR);
-    create_path(PathType::CheatsDir, user_dir / CHEATS_DIR);
-    create_path(PathType::PatchesDir, user_dir / PATCHES_DIR);
-    create_path(PathType::MetaDataDir, user_dir / METADATA_DIR);
-    create_path(PathType::CustomTrophy, user_dir / CUSTOM_TROPHY);
-    create_path(PathType::CustomConfigs, user_dir / CUSTOM_CONFIGS);
-    create_path(PathType::CustomThemes, user_dir / CUSTOM_THEMES);
-    create_path(PathType::ModsFolder, user_dir / MODS_FOLDER);
-    create_path(PathType::CacheDir, user_dir / CACHE_DIR);
-    create_path(PathType::CustomAudios, user_dir / AUDIO_DIR);
-    create_path(PathType::FontsDir, user_dir / FONTS_DIR);
-
-    std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
-    if (notice_file.is_open()) {
-        notice_file
-            // clang-format off
-<< "++++++++++++++++++++++++++++++++\n"
-"+ Custom Trophy Images / Sound +\n"
-"++++++++++++++++++++++++++++++++\n\n"
-
-"You can add custom images to the trophies.\n"
-"*We recommend a square resolution image, for example 200x200, 500x500, the same size as the height and width.\n"
-"In this folder ('user\\custom_trophy'), add the files with the following names:\n\n"
-"bronze.png\n"
-"silver.png\n"
-"gold.png\n"
-"platinum.png\n\n"
-
-"You can add a custom sound for trophy notifications.\n"
-"*By default, no audio is played unless it is in this folder and you are using the QT version.\n"
-"In this folder ('user\\custom_trophy'), add the files with the following names:\n\n"
-
-"trophy.wav OR trophy.mp3";
-        // clang-format on
-        notice_file.close();
-    }
-
-    std::ofstream audio_file(user_dir / AUDIO_DIR / "Notice.txt");
-    if (audio_file.is_open()) {
-        audio_file
-            // clang-format off
-<< "++++++++++++++++++++++++++++++++\n"
-"+ Custom Audios / Sounds +\n"
-"++++++++++++++++++++++++++++++++\n\n"
-
-"You can add custom sounds to the games menu.\n"
-"For the background music / tick movement navigation / start game sound.\n"
-"It has sound built in but if you add.\n"
-"In this folder ('user\\custom_audios'), the files with the following names:\n"
-"bgm.wav/tick.wav - bgm.mp3/tick.mp3 - play.wav/play.mp3.\n"
-"bgm for Background music, tick for movement navigation and play for start game sound.\n"
-"You can use custom audios for the games menu.";
-        // clang-format on
-        audio_file.close();
-    }
+    create_path(PathType::UserDir, "");
+    create_path(PathType::LogDir, "");
+    create_path(PathType::ScreenshotsDir, "");
+    create_path(PathType::ShaderDir, "");
+    create_path(PathType::GameDataDir, "");
+    create_path(PathType::TempDataDir, "");
+    create_path(PathType::SysModuleDir, "");
+    create_path(PathType::DownloadDir, "");
+    create_path(PathType::CapturesDir, "");
+    create_path(PathType::CheatsDir, "");
+    create_path(PathType::PatchesDir, "");
+    create_path(PathType::MetaDataDir, "");
+    create_path(PathType::CustomTrophy, "");
+    create_path(PathType::CustomConfigs, "");
+    create_path(PathType::CustomThemes, "");
+    create_path(PathType::ModsFolder, "");
+    create_path(PathType::CacheDir, "");
+    create_path(PathType::CustomAudios, "");
+    create_path(PathType::FontsDir, "");
 
     return paths;
 }();
+
+static PathInitState current_init_state = PathInitState::Uninitialized;
 
 bool ValidatePath(const fs::path& path) {
     if (path.empty()) {
@@ -266,6 +176,25 @@ std::string PathToUTF8String(const std::filesystem::path& path) {
 }
 
 const fs::path& GetUserPath(PathType shad_path) {
+    if (!IsUserPathsInitialized()) {
+        auto portable_dir = GetPortablePath();
+        auto global_dir = GetGlobalPath();
+
+        bool portableExists = std::filesystem::exists(portable_dir);
+        bool globalExists = std::filesystem::exists(global_dir);
+
+        PathInitState detected_state;
+        if (portableExists) {
+            detected_state = PathInitState::Portable;
+        } else if (globalExists) {
+            detected_state = PathInitState::Global;
+        } else {
+            detected_state = PathInitState::Portable;
+        }
+
+        InitializeUserPaths(detected_state);
+    }
+
     return UserPaths.at(shad_path);
 }
 
@@ -309,6 +238,153 @@ std::optional<fs::path> FindGameByID(const fs::path& dir, const std::string& gam
     }
 
     return std::nullopt;
+}
+
+std::filesystem::path GetPortablePath() {
+    return std::filesystem::current_path() / PORTABLE_DIR;
+}
+
+std::filesystem::path GetGlobalPath() {
+#if _WIN32
+    TCHAR appdata[MAX_PATH] = {0};
+    SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, appdata);
+    return std::filesystem::path(appdata) / L"shadPS4";
+#elif __APPLE__
+    return std::filesystem::path(getenv("HOME")) / "Library" / "Application Support" / "shadPS4";
+#elif defined(__linux__)
+    const char* xdg_data_home = getenv("XDG_DATA_HOME");
+    if (xdg_data_home && strlen(xdg_data_home) > 0) {
+        return std::filesystem::path(xdg_data_home) / "shadPS4";
+    } else {
+        return std::filesystem::path(getenv("HOME")) / ".local" / "share" / "shadPS4";
+    }
+#else
+    return std::filesystem::current_path() / PORTABLE_DIR;
+#endif
+}
+
+void InitializeUserPaths(PathInitState state) {
+    if (current_init_state != PathInitState::Uninitialized) {
+        return;
+    }
+
+    std::filesystem::path user_dir;
+
+    if (state == PathInitState::Portable) {
+        user_dir = GetPortablePath();
+    } else if (state == PathInitState::Global) {
+        user_dir = GetGlobalPath();
+    } else {
+        return;
+    }
+
+    current_init_state = state;
+
+    const auto create_path = [&](PathType shad_path, const std::filesystem::path& new_path) {
+        std::filesystem::create_directories(new_path);
+        UserPaths.insert_or_assign(shad_path, new_path);
+    };
+
+    // Only create directories if they don't already exist
+    if (!std::filesystem::exists(user_dir)) {
+        create_path(PathType::UserDir, user_dir);
+        create_path(PathType::LogDir, user_dir / LOG_DIR);
+        create_path(PathType::ScreenshotsDir, user_dir / SCREENSHOTS_DIR);
+        create_path(PathType::ShaderDir, user_dir / SHADER_DIR);
+        create_path(PathType::GameDataDir, user_dir / GAMEDATA_DIR);
+        create_path(PathType::TempDataDir, user_dir / TEMPDATA_DIR);
+        create_path(PathType::SysModuleDir, user_dir / SYSMODULES_DIR);
+        create_path(PathType::DownloadDir, user_dir / DOWNLOAD_DIR);
+        create_path(PathType::CapturesDir, user_dir / CAPTURES_DIR);
+        create_path(PathType::CheatsDir, user_dir / CHEATS_DIR);
+        create_path(PathType::PatchesDir, user_dir / PATCHES_DIR);
+        create_path(PathType::MetaDataDir, user_dir / METADATA_DIR);
+        create_path(PathType::CustomTrophy, user_dir / CUSTOM_TROPHY);
+        create_path(PathType::CustomConfigs, user_dir / CUSTOM_CONFIGS);
+        create_path(PathType::CustomThemes, user_dir / CUSTOM_THEMES);
+        create_path(PathType::ModsFolder, user_dir / MODS_FOLDER);
+        create_path(PathType::CacheDir, user_dir / CACHE_DIR);
+        create_path(PathType::CustomAudios, user_dir / AUDIO_DIR);
+        create_path(PathType::FontsDir, user_dir / FONTS_DIR);
+
+        // Only create notice files if they don't exist
+        if (!std::filesystem::exists(user_dir / CUSTOM_TROPHY / "Notice.txt")) {
+            std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
+            if (notice_file.is_open()) {
+                notice_file
+                    // clang-format off
+    << "++++++++++++++++++++++++++++++++\n"
+    "+ Custom Trophy Images / Sound +\n"
+    "++++++++++++++++++++++++++++++++\n\n"
+
+    "You can add custom images to the trophies.\n"
+    "*We recommend a square resolution image, for example 200x200, 500x500, same size as the height and width.\n"
+    "In this folder ('user\\custom_trophy'), add the files with the following names:\n\n"
+    "bronze.png\n"
+    "silver.png\n"
+    "gold.png\n"
+    "platinum.png\n\n"
+
+    "You can add a custom sound for trophy notifications.\n"
+    "*By default, no audio is played unless it is in this folder and you are using the QT version.\n"
+    "In this folder ('user\\custom_trophy'), add the files with the following names:\n\n"
+
+    "trophy.wav OR trophy.mp3";
+                // clang-format on
+                notice_file.close();
+            }
+        }
+
+        if (!std::filesystem::exists(user_dir / AUDIO_DIR / "Notice.txt")) {
+            std::ofstream audio_file(user_dir / AUDIO_DIR / "Notice.txt");
+            if (audio_file.is_open()) {
+                audio_file
+                    // clang-format off
+    << "++++++++++++++++++++++++++++++++\n"
+    "+ Custom Audios / Sounds +\n"
+    "++++++++++++++++++++++++++++++++\n\n"
+
+    "You can add custom sounds to the games menu.\n"
+    "For the background music / tick movement navigation / start game sound.\n"
+    "It has sound built in but if you add.\n"
+    "In this folder ('user\\custom_audios'), the files with the following names:\n"
+    "bgm.wav/tick.wav - bgm.mp3/tick.mp3 - play.wav/play.mp3.\n"
+    "bgm for Background music, tick for movement navigation and play for start game sound.\n"
+    "You can use custom audios for the games menu.";
+                // clang-format on
+                audio_file.close();
+            }
+        }
+    } else {
+        // Directory already exists, just set the paths without creating new files
+        UserPaths.insert_or_assign(PathType::UserDir, user_dir);
+        UserPaths.insert_or_assign(PathType::LogDir, user_dir / LOG_DIR);
+        UserPaths.insert_or_assign(PathType::ScreenshotsDir, user_dir / SCREENSHOTS_DIR);
+        UserPaths.insert_or_assign(PathType::ShaderDir, user_dir / SHADER_DIR);
+        UserPaths.insert_or_assign(PathType::GameDataDir, user_dir / GAMEDATA_DIR);
+        UserPaths.insert_or_assign(PathType::TempDataDir, user_dir / TEMPDATA_DIR);
+        UserPaths.insert_or_assign(PathType::SysModuleDir, user_dir / SYSMODULES_DIR);
+        UserPaths.insert_or_assign(PathType::DownloadDir, user_dir / DOWNLOAD_DIR);
+        UserPaths.insert_or_assign(PathType::CapturesDir, user_dir / CAPTURES_DIR);
+        UserPaths.insert_or_assign(PathType::CheatsDir, user_dir / CHEATS_DIR);
+        UserPaths.insert_or_assign(PathType::PatchesDir, user_dir / PATCHES_DIR);
+        UserPaths.insert_or_assign(PathType::MetaDataDir, user_dir / METADATA_DIR);
+        UserPaths.insert_or_assign(PathType::CustomTrophy, user_dir / CUSTOM_TROPHY);
+        UserPaths.insert_or_assign(PathType::CustomConfigs, user_dir / CUSTOM_CONFIGS);
+        UserPaths.insert_or_assign(PathType::CustomThemes, user_dir / CUSTOM_THEMES);
+        UserPaths.insert_or_assign(PathType::ModsFolder, user_dir / MODS_FOLDER);
+        UserPaths.insert_or_assign(PathType::CacheDir, user_dir / CACHE_DIR);
+        UserPaths.insert_or_assign(PathType::CustomAudios, user_dir / AUDIO_DIR);
+        UserPaths.insert_or_assign(PathType::FontsDir, user_dir / FONTS_DIR);
+    }
+}
+
+PathInitState GetUserPathInitState() {
+    return current_init_state;
+}
+
+bool IsUserPathsInitialized() {
+    return current_init_state != PathInitState::Uninitialized;
 }
 
 #ifdef ENABLE_QT_GUI

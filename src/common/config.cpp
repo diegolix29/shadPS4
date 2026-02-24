@@ -1725,8 +1725,12 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             }
         }
 
+        std::vector<std::filesystem::path> merged_directories;
+        std::vector<bool> merged_directories_enabled;
+
         const auto directories_array =
             toml::find_or<std::vector<std::u8string>>(gui, "Directories", {});
+
         try {
             directories_enabled = toml::find<std::vector<bool>>(gui, "DirectoriesEnabled");
         } catch (...) {
@@ -1735,14 +1739,57 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         if (directories_enabled.size() < directories_array.size()) {
             directories_enabled.resize(directories_array.size(), true);
         }
-        settings_directories.clear();
+
         for (size_t i = 0; i < directories_array.size(); i++) {
-            settings_directories.push_back(
-                {std::filesystem::path{directories_array[i]}, directories_enabled[i]});
+            merged_directories.push_back(std::filesystem::path{directories_array[i]});
+            merged_directories_enabled.push_back(
+                i < directories_enabled.size() ? directories_enabled[i] : true);
         }
 
-        settings_addon_directories =
+        const auto install_dirs_array =
+            toml::find_or<std::vector<std::u8string>>(gui, "installDirs", {});
+
+        std::vector<bool> install_dirs_enabled;
+        try {
+            install_dirs_enabled = toml::find<std::vector<bool>>(gui, "installDirsEnabled");
+        } catch (...) {
+            install_dirs_enabled.resize(install_dirs_array.size(), true);
+        }
+        if (install_dirs_enabled.size() < install_dirs_array.size()) {
+            install_dirs_enabled.resize(install_dirs_array.size(), true);
+        }
+
+        for (size_t i = 0; i < install_dirs_array.size(); i++) {
+            std::filesystem::path new_dir = std::filesystem::path{install_dirs_array[i]};
+            bool already_exists = false;
+            for (const auto& existing_dir : merged_directories) {
+                if (existing_dir == new_dir) {
+                    already_exists = true;
+                    break;
+                }
+            }
+            if (!already_exists) {
+                merged_directories.push_back(new_dir);
+                merged_directories_enabled.push_back(
+                    i < install_dirs_enabled.size() ? install_dirs_enabled[i] : true);
+            }
+        }
+
+        settings_directories.clear();
+        for (size_t i = 0; i < merged_directories.size(); i++) {
+            settings_directories.push_back({merged_directories[i], merged_directories_enabled[i]});
+        }
+
+        std::filesystem::path addon_dir1 =
             toml::find_fs_path_or(gui, "addonDirectories", std::filesystem::path{});
+        std::filesystem::path addon_dir2 =
+            toml::find_fs_path_or(gui, "addonInstallDir", std::filesystem::path{});
+
+        if (!addon_dir1.empty()) {
+            settings_addon_directories = addon_dir1;
+        } else if (!addon_dir2.empty()) {
+            settings_addon_directories = addon_dir2;
+        }
         save_data_path = toml::find_fs_path_or(gui, "saveDataPath", save_data_path);
 
         m_elf_viewer = toml::find_or<std::vector<std::string>>(gui, "elfDirs", {});
