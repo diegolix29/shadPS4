@@ -6,6 +6,7 @@
 #include <QCheckBox>
 #include <QCoreApplication>
 #include <QDialog>
+#include <QMessageBox>
 #include <QSettings>
 #include "common/config.h"
 #include "main_window_themes.h"
@@ -33,6 +34,10 @@ private:
     QCheckBox* m_skipCheck = nullptr;
     bool m_skipNextLaunch = false;
     void SetupUI();
-    WindowThemes* m_themes = nullptr;
     void ApplyTheme();
+    QMessageBox::StandardButton showThemedMessageBox(
+        QMessageBox::Icon icon, const QString& title, const QString& text,
+        QMessageBox::StandardButtons buttons,
+        QMessageBox::StandardButton defaultButton = QMessageBox::NoButton);
+    WindowThemes* m_themes = nullptr;
 };

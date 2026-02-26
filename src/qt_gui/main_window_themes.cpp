@@ -353,6 +353,24 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
     themePalette.setColor(QPalette::Link, QColor(accent));
     qApp->setPalette(themePalette);
 
+    QString menuCss = QString(R"(
+        QMenuBar { background-color: %1; color: %2; border-bottom: 1px solid %3; }
+        QMenuBar::item:selected { background-color: %4; color: white; }
+        QMenu { background-color: %5; color: %2; border: 1px solid %3; }
+        QMenu::item:selected { background-color: %4; color: white; }
+        QMenu::separator { height: 1px; background-color: %3; }
+    )")
+                          .arg(toolBg, txt, border, accent, inp);
+
+    QString existingCss = qApp->styleSheet();
+    if (existingCss.isEmpty()) {
+        qApp->setStyleSheet(menuCss);
+    } else {
+        qApp->setStyleSheet(existingCss + "\n" + menuCss);
+    }
+
+    qApp->setStyleSheet(qApp->styleSheet());
+
     m_iconHoverColor = m_iconBaseColor.lighter(150);
     if (theme == Theme::Light) {
         m_iconHoverColor = QColor(80, 80, 80);

@@ -80,6 +80,48 @@ void WelcomeDialog::ApplyTheme() {
     setAutoFillBackground(true);
 }
 
+QMessageBox::StandardButton WelcomeDialog::showThemedMessageBox(
+    QMessageBox::Icon icon, const QString& title, const QString& text,
+    QMessageBox::StandardButtons buttons, QMessageBox::StandardButton defaultButton) {
+    QMessageBox msgBox(icon, title, text, buttons, this);
+    msgBox.setDefaultButton(defaultButton);
+
+    if (m_themes && Config::getEnableColorFilter()) {
+        msgBox.setPalette(qApp->palette());
+        if (!qApp->styleSheet().isEmpty()) {
+            msgBox.setStyleSheet(qApp->styleSheet());
+        }
+
+        QString textColor = m_themes->textColor().name();
+        QString buttonStyle = QString(R"(
+            QPushButton {
+                background-color: %1;
+                color: %2;
+                border-radius: 5px;
+                padding: 6px 12px;
+                border: 1px solid %3;
+            }
+            QPushButton:hover {
+                background-color: %4;
+            }
+        )")
+                                  .arg(qApp->palette().button().color().name())
+                                  .arg(textColor)
+                                  .arg(qApp->palette().button().color().darker(150).name())
+                                  .arg(m_themes->iconHoverColor().name());
+
+        for (auto* button : msgBox.findChildren<QPushButton*>()) {
+            button->setStyleSheet(buttonStyle);
+        }
+
+        for (auto* label : msgBox.findChildren<QLabel*>()) {
+            label->setStyleSheet(QString("color: %1; background: transparent;").arg(textColor));
+        }
+    }
+
+    return static_cast<QMessageBox::StandardButton>(msgBox.exec());
+}
+
 void WelcomeDialog::SetupUI() {
     auto* mainLayout = new QVBoxLayout(this);
 
@@ -195,8 +237,8 @@ void WelcomeDialog::SetupUI() {
             auto global_config_path = global_dir / "config.toml";
             if (std::filesystem::exists(global_config_path)) {
                 has_existing_config = true;
-                QMessageBox::StandardButton reply = QMessageBox::question(
-                    this, tr("Global folder detected"),
+                QMessageBox::StandardButton reply = showThemedMessageBox(
+                    QMessageBox::Question, tr("Global folder detected"),
                     tr("Global folder with configuration already exists.\n\nMove its content to "
                        "portable?\n"
                        "Click No to just create a new portable folder and leave global intact."),
@@ -213,8 +255,8 @@ void WelcomeDialog::SetupUI() {
                     Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
                 }
             } else {
-                QMessageBox::StandardButton reply = QMessageBox::question(
-                    this, tr("Global folder detected"),
+                QMessageBox::StandardButton reply = showThemedMessageBox(
+                    QMessageBox::Question, tr("Global folder detected"),
                     tr("Global folder already exists.\n\nMove its content to portable?\n"
                        "Click No to just create a new portable folder and leave global intact."),
                     QMessageBox::Yes | QMessageBox::No);
@@ -234,8 +276,8 @@ void WelcomeDialog::SetupUI() {
             Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
         }
 
-        QMessageBox::information(this, tr("Portable Folder Set"),
-                                 tr("Portable Folder Successfully Set"));
+        showThemedMessageBox(QMessageBox::Information, tr("Portable Folder Set"),
+                             tr("Portable Folder Successfully Set"), QMessageBox::Ok);
 
         Config::setShowWelcomeDialog(false);
 
@@ -258,8 +300,8 @@ void WelcomeDialog::SetupUI() {
             auto portable_config_path = portable_dir / "config.toml";
             if (std::filesystem::exists(portable_config_path)) {
                 has_existing_config = true;
-                QMessageBox::StandardButton reply = QMessageBox::question(
-                    this, tr("Portable folder detected"),
+                QMessageBox::StandardButton reply = showThemedMessageBox(
+                    QMessageBox::Question, tr("Portable folder detected"),
                     tr("Portable folder with configuration already exists.\n\nMove its content to "
                        "global?\n"
                        "Click No to just create a new global folder and leave portable intact."),
@@ -274,8 +316,8 @@ void WelcomeDialog::SetupUI() {
                     Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
                 }
             } else {
-                QMessageBox::StandardButton reply = QMessageBox::question(
-                    this, tr("Portable folder detected"),
+                QMessageBox::StandardButton reply = showThemedMessageBox(
+                    QMessageBox::Question, tr("Portable folder detected"),
                     tr("Portable folder already exists.\n\nMove its content to global?\n"
                        "Click No to just create a new global folder and leave portable intact."),
                     QMessageBox::Yes | QMessageBox::No);
@@ -296,12 +338,12 @@ void WelcomeDialog::SetupUI() {
                 Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
             } else {
                 QMessageBox::StandardButton reply =
-                    QMessageBox::question(this, tr("Global folder detected"),
-                                          tr("Global folder already exists.\n\nThis folder will be "
-                                             "used for the BBFork build.\n"
-                                             "A new configuration file will be created for this "
-                                             "fork.\n\nContinue with Global mode?"),
-                                          QMessageBox::Yes | QMessageBox::No);
+                    showThemedMessageBox(QMessageBox::Question, tr("Global folder detected"),
+                                         tr("Global folder already exists.\n\nThis folder will be "
+                                            "used for the BBFork build.\n"
+                                            "A new configuration file will be created for this "
+                                            "fork.\n\nContinue with Global mode?"),
+                                         QMessageBox::Yes | QMessageBox::No);
                 if (reply == QMessageBox::Yes) {
                     Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
                 } else {
@@ -312,8 +354,8 @@ void WelcomeDialog::SetupUI() {
             Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
         }
 
-        QMessageBox::information(this, tr("Global Folder Set"),
-                                 tr("Global Folder Successfully Set"));
+        showThemedMessageBox(QMessageBox::Information, tr("Global Folder Set"),
+                             tr("Global Folder Successfully Set"), QMessageBox::Ok);
 
         Config::setShowWelcomeDialog(false);
 
