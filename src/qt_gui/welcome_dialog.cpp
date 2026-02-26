@@ -214,6 +214,8 @@ void WelcomeDialog::SetupUI() {
     mainLayout->addWidget(updateButton, 0, Qt::AlignLeft);
     connect(updateButton, &QPushButton::clicked, this, [this]() {
         Config::setShowWelcomeDialog(!m_skipNextLaunch);
+        // Save the config immediately to ensure checkbox state persists
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
         accept();
     });
     auto* footer = new QHBoxLayout();
