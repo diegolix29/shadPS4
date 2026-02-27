@@ -316,7 +316,8 @@ void GameListFrame::SetListBackgroundImage(QTableWidgetItem* item) {
     RefreshListBackgroundImage();
 }
 
-bool GameListFrame::CompareWithFavorite(GameInfo a, GameInfo b, int columnIndex, bool ascending) {
+bool GameListFrame::CompareWithFavorite(const GameInfo& a, const GameInfo& b, int columnIndex,
+                                        bool ascending) {
     QString serialStr_a = QString::fromStdString(a.serial);
     QString serialStr_b = QString::fromStdString(b.serial);
 

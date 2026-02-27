@@ -374,7 +374,7 @@ void GameGridFrame::keyPressEvent(QKeyEvent* event) {
     QTableWidget::keyPressEvent(event);
 }
 
-bool GameGridFrame::CompareWithFavorite(GameInfo a, GameInfo b) {
+bool GameGridFrame::CompareWithFavorite(const GameInfo& a, const GameInfo& b) {
     QString serialStr_a = QString::fromStdString(a.serial);
     QString serialStr_b = QString::fromStdString(b.serial);
 

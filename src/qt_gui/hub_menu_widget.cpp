@@ -1006,7 +1006,7 @@ void HubMenuWidget::resizeEvent(QResizeEvent* e) {
         scale = 0.5f;
 
     int sidebarWidth = static_cast<int>(width() * 0.22f);
-    m_sidebarContainer->setFixedWidth(qBound(270, sidebarWidth, 200));
+    m_sidebarContainer->setFixedWidth(qBound(200, sidebarWidth, 270));
 
     buildVerticalSidebar();
     repositionGameTiles();

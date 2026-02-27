@@ -213,6 +213,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     g_MainWindow = this;
     m_ipc_client = std::make_shared<IpcClient>(this);
     IpcClient::SetInstance(m_ipc_client);
+    initializeGamepad();
 }
 
 MainWindow::~MainWindow() {
@@ -567,39 +568,6 @@ void MainWindow::toggleToolbarWidgetVisibility(bool checked) {
         }
         ui->toolBar->updateGeometry();
     }
-}
-
-void MainWindow::forwardGamepadButton(int button) {
-    if (!m_bigPicture || !m_bigPicture->isVisible())
-        return;
-
-    using GPB = BigPictureWidget::GamepadButton;
-    GPB b;
-
-    switch (button) {
-    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
-        b = GPB::Left;
-        break;
-    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
-        b = GPB::Right;
-        break;
-    case SDL_GAMEPAD_BUTTON_SOUTH:
-        b = GPB::South;
-        break;
-    case SDL_GAMEPAD_BUTTON_EAST:
-        b = GPB::East;
-        break;
-    case SDL_GAMEPAD_BUTTON_NORTH:
-        b = GPB::North;
-        break;
-    case SDL_GAMEPAD_BUTTON_WEST:
-        b = GPB::West;
-        break;
-    default:
-        return;
-    }
-
-    m_bigPicture->handleGamepadButton(b);
 }
 
 void MainWindow::restoreBigPictureFocus() {
@@ -2023,95 +1991,36 @@ void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
         bool hasMods = std::filesystem::exists(mods_folder);
 
         if (hasUpdate || hasMods) {
-            QMessageBox msgBox;
-
-            msgBox.setWindowFlag(Qt::WindowCloseButtonHint, false);
-            QPushButton* baseBtn = nullptr;
-            QPushButton* updateBtn = nullptr;
-            QPushButton* yesBtn = nullptr;
-            QPushButton* noBtn = nullptr;
-            QPushButton* detachedBtn = nullptr;
-
-            if (hasUpdate && !hasMods) {
-                msgBox.setWindowTitle(tr("Game Update Detected"));
-                msgBox.setText(tr(R"(Game update detected, 
-select to boot Base game or Update)"));
-                baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
-                updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
-                msgBox.setDefaultButton(updateBtn);
-                msgBox.setStandardButtons(QMessageBox::Cancel);
-            } else if (!hasUpdate && hasMods) {
-                msgBox.setWindowTitle(tr("Mods Detected"));
-                msgBox.setText(tr(R"("Mods detected, 
-do you want to enable them?)"));
-                yesBtn = msgBox.addButton(tr("Yes"), QMessageBox::AcceptRole);
-                noBtn = msgBox.addButton(tr("No"), QMessageBox::RejectRole);
-                msgBox.setDefaultButton(yesBtn);
-                msgBox.setStandardButtons(QMessageBox::Cancel);
-            } else if (hasUpdate && hasMods) {
-                msgBox.setWindowTitle(tr("Game Update Detected"));
-                msgBox.setText(tr(R"(Game update detected, 
-select to boot Base game or Update)"));
-                baseBtn = msgBox.addButton(tr("Base Game"), QMessageBox::AcceptRole);
-                updateBtn = msgBox.addButton(tr("Updated Game"), QMessageBox::YesRole);
-                msgBox.setDefaultButton(updateBtn);
-
-                QCheckBox* modsCheck = new QCheckBox(tr("Enable MODS"), &msgBox);
-                modsCheck->setChecked(true);
-                msgBox.setCheckBox(modsCheck);
-                msgBox.setStandardButtons(QMessageBox::Cancel);
+            if (!runningGameSerial.empty()) {
+                Config::load(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                                 (runningGameSerial + ".toml"),
+                             true);
             }
 
-            msgBox.exec();
-            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+            bool enableMods = Config::getEnableMods();
+            bool enableUpdates = Config::getEnableUpdates();
 
-            QAbstractButton* clicked = msgBox.clickedButton();
-            if (hasUpdate && !hasMods) {
-                if (clicked == baseBtn) {
-                    Config::setRestartWithBaseGame(true);
-                    Config::save(config_dir / "config.toml");
-                    file = base_folder / "eboot.bin";
-                    ignorePatches = true;
-                } else if (clicked == updateBtn) {
-                    Config::setRestartWithBaseGame(false);
-                    Config::save(config_dir / "config.toml");
+            if (hasUpdate && enableUpdates) {
+                Config::setRestartWithBaseGame(false);
+                const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+                Config::save(config_dir / "config.toml");
 
-                    auto update_eboot = update_folder / "eboot.bin";
-                    if (std::filesystem::exists(update_eboot)) {
-                        file = update_eboot;
-                    } else {
-                        file = base_folder / "eboot.bin";
-                    }
+                auto update_eboot = update_folder / "eboot.bin";
+                if (std::filesystem::exists(update_eboot)) {
+                    file = update_eboot;
                 } else {
-                    return;
-                }
-            } else if (!hasUpdate && hasMods) {
-                if (clicked == yesBtn)
-                    Core::FileSys::MntPoints::enable_mods = true;
-                else if (clicked == noBtn)
-                    Core::FileSys::MntPoints::enable_mods = false;
-                else
-                    return;
-            } else if (hasUpdate && hasMods) {
-                if (clicked == baseBtn) {
-                    Config::setRestartWithBaseGame(true);
-                    Config::save(config_dir / "config.toml");
                     file = base_folder / "eboot.bin";
-                    ignorePatches = true;
-                } else if (clicked == updateBtn) {
-                    Config::setRestartWithBaseGame(false);
-                    Config::save(config_dir / "config.toml");
-
-                    auto update_eboot = update_folder / "eboot.bin";
-                    if (std::filesystem::exists(update_eboot)) {
-                        file = update_eboot;
-                    } else {
-                        file = base_folder / "eboot.bin";
-                    }
-                } else {
-                    return;
                 }
-                Core::FileSys::MntPoints::enable_mods = msgBox.checkBox()->isChecked();
+            } else if (hasUpdate && !enableUpdates) {
+                Config::setRestartWithBaseGame(true);
+                const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+                Config::save(config_dir / "config.toml");
+                file = base_folder / "eboot.bin";
+                ignorePatches = true;
+            }
+
+            if (hasMods) {
+                Core::FileSys::MntPoints::enable_mods = enableMods;
             }
         }
     }
@@ -2903,4 +2812,399 @@ void MainWindow::RestartGame() {
         QStringList args = lastGameArgs;
         StartGameWithArgs(args);
     });
+}
+
+void MainWindow::initializeGamepad() {
+
+    if (SDL_Init(SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK) < 0) {
+        return;
+    }
+
+    SDL_JoystickID* gamepads = SDL_GetGamepads(NULL);
+    int initialCount = 0;
+    if (gamepads) {
+        for (int i = 0; gamepads[i] != 0; ++i) {
+            initialCount++;
+        }
+        SDL_free(gamepads);
+    }
+
+    SDL_JoystickID* joysticks = SDL_GetJoysticks(NULL);
+    int joystickCount = 0;
+    if (joysticks) {
+        for (int i = 0; joysticks[i] != 0; ++i) {
+            joystickCount++;
+        }
+        SDL_free(joysticks);
+    }
+
+    m_gamepadTimer = new QTimer(this);
+    connect(m_gamepadTimer, &QTimer::timeout, this, &MainWindow::handleGamepadEvents);
+    m_gamepadTimer->start(50);
+
+    m_gamepadInitialized = true;
+}
+
+void MainWindow::handleGamepadEvents() {
+    if (!m_gamepadInitialized)
+        return;
+
+    if (Config::getGameRunning()) {
+        return;
+    }
+
+    // Don't process gamepad GUI navigation if main window is not focused
+    if (!isActiveWindow()) {
+        return;
+    }
+
+    try {
+        SDL_UpdateGamepads();
+
+        SDL_JoystickID* gamepads = SDL_GetGamepads(NULL);
+        int numGamepads = 0;
+        if (gamepads) {
+            for (int i = 0; gamepads[i] != 0; ++i) {
+                numGamepads++;
+            }
+            SDL_free(gamepads);
+        }
+
+        if (m_usingJoystickFallback) {
+            if (numGamepads == 0) {
+                m_usingJoystickFallback = false;
+                m_gamepadFailed = false;
+                qDebug() << "Gamepad disconnected, resetting fallback state";
+            } else {
+                handleJoystickInput();
+                return;
+            }
+        }
+
+        if (!m_gamepad && !m_gamepadFailed && numGamepads > 0) {
+            qDebug() << "Found" << numGamepads << "gamepad(s), attempting to open first one...";
+
+            m_gamepad = SDL_OpenGamepad(0);
+            if (m_gamepad) {
+                qDebug() << "Gamepad connected:" << SDL_GetGamepadName(m_gamepad);
+                m_gamepadFailed = false;
+            } else {
+                qDebug() << "Failed to open gamepad:" << SDL_GetError();
+                qDebug() << "Switching to joystick fallback mode";
+                m_gamepadFailed = true;
+                m_usingJoystickFallback = true;
+                return;
+            }
+        }
+
+        if (m_gamepad && numGamepads == 0) {
+            qDebug() << "Gamepad disconnected";
+            SDL_CloseGamepad(m_gamepad);
+            m_gamepad = nullptr;
+            m_gamepadFailed = false;
+            m_usingJoystickFallback = false;
+            return;
+        }
+
+        if (!m_gamepad && !m_usingJoystickFallback) {
+            return;
+        }
+
+        if (m_usingJoystickFallback) {
+            handleJoystickInput();
+            return;
+        }
+
+        static int lastNavigationTime = 0;
+        int currentTime = SDL_GetTicks();
+        const int navigationDelay = 200;
+
+        if (currentTime - lastNavigationTime > navigationDelay) {
+            if (SDL_GetGamepadButton(m_gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP)) {
+                navigateGamesUp();
+                lastNavigationTime = currentTime;
+            } else if (SDL_GetGamepadButton(m_gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN)) {
+                navigateGamesDown();
+                lastNavigationTime = currentTime;
+            } else if (SDL_GetGamepadButton(m_gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT)) {
+                navigateGamesLeft();
+                lastNavigationTime = currentTime;
+            } else if (SDL_GetGamepadButton(m_gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT)) {
+                navigateGamesRight();
+                lastNavigationTime = currentTime;
+            }
+        }
+
+        static bool lastAState = false;
+        static bool lastBState = false;
+        static bool lastStartState = false;
+
+        bool currentAState = SDL_GetGamepadButton(m_gamepad, SDL_GAMEPAD_BUTTON_SOUTH);
+        bool currentBState = SDL_GetGamepadButton(m_gamepad, SDL_GAMEPAD_BUTTON_EAST);
+        bool currentStartState = SDL_GetGamepadButton(m_gamepad, SDL_GAMEPAD_BUTTON_START);
+
+        if (currentAState && !lastAState) {
+            if (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr &&
+                ui->playButton->isEnabled()) {
+                StartGame();
+            }
+        }
+
+        if (currentBState && !lastBState) {
+            if (ui->stopButton->isEnabled()) {
+                StopGame();
+            }
+        }
+
+        if (currentStartState && !lastStartState) {
+            if (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr &&
+                ui->playButton->isEnabled()) {
+                StartGame();
+            }
+        }
+
+        lastAState = currentAState;
+        lastBState = currentBState;
+        lastStartState = currentStartState;
+    } catch (const std::exception& e) {
+    } catch (...) {
+    }
+}
+
+void MainWindow::handleJoystickInput() {
+    if (Config::getGameRunning()) {
+        return;
+    }
+
+    // Don't process joystick GUI navigation if main window is not focused
+    if (!isActiveWindow()) {
+        return;
+    }
+
+    static SDL_Joystick* joystick = nullptr;
+    static bool joystickInitialized = false;
+
+    if (!joystickInitialized) {
+        SDL_JoystickID* joysticks = SDL_GetJoysticks(NULL);
+        int joystickCount = 0;
+        if (joysticks) {
+            for (int i = 0; joysticks[i] != 0; ++i) {
+                joystickCount++;
+            }
+            SDL_free(joysticks);
+        }
+
+        if (joystickCount > 0) {
+            joystick = SDL_OpenJoystick(0);
+            if (joystick) {
+                joystickInitialized = true;
+            } else {
+                SDL_JoystickID* joystickIDs = SDL_GetJoysticks(NULL);
+                if (joystickIDs && joystickIDs[0] != 0) {
+                    joystick = SDL_OpenJoystick(joystickIDs[0]);
+                    if (joystick) {
+                        joystickInitialized = true;
+                    } else {
+                    }
+                }
+                SDL_free(joystickIDs);
+
+                if (!joystickInitialized) {
+                    return;
+                }
+            }
+        } else {
+            return;
+        }
+    }
+
+    if (!joystick)
+        return;
+
+    SDL_UpdateJoysticks();
+
+    static int lastNavigationTime = 0;
+    int currentTime = SDL_GetTicks();
+    const int navigationDelay = 200;
+
+    if (currentTime - lastNavigationTime > navigationDelay) {
+        if (SDL_GetNumJoystickHats(joystick) > 0) {
+            Uint8 hat = SDL_GetJoystickHat(joystick, 0);
+            if (hat & SDL_HAT_UP) {
+                qDebug() << "Joystick D-pad UP detected";
+                navigateGamesUp();
+                lastNavigationTime = currentTime;
+            } else if (hat & SDL_HAT_DOWN) {
+                qDebug() << "Joystick D-pad DOWN detected";
+                navigateGamesDown();
+                lastNavigationTime = currentTime;
+            } else if (hat & SDL_HAT_LEFT) {
+                qDebug() << "Joystick D-pad LEFT detected";
+                navigateGamesLeft();
+                lastNavigationTime = currentTime;
+            } else if (hat & SDL_HAT_RIGHT) {
+                qDebug() << "Joystick D-pad RIGHT detected";
+                navigateGamesRight();
+                lastNavigationTime = currentTime;
+            }
+        }
+
+        if (SDL_GetNumJoystickAxes(joystick) >= 2) {
+            Sint16 axisX = SDL_GetJoystickAxis(joystick, 0);
+            Sint16 axisY = SDL_GetJoystickAxis(joystick, 1);
+
+            const int deadZone = 16384;
+            if (axisY < -deadZone) {
+                qDebug() << "Joystick axis UP detected:" << axisY;
+                navigateGamesUp();
+                lastNavigationTime = currentTime;
+            } else if (axisY > deadZone) {
+                qDebug() << "Joystick axis DOWN detected:" << axisY;
+                navigateGamesDown();
+                lastNavigationTime = currentTime;
+            } else if (axisX < -deadZone) {
+                qDebug() << "Joystick axis LEFT detected:" << axisX;
+                navigateGamesLeft();
+                lastNavigationTime = currentTime;
+            } else if (axisX > deadZone) {
+                qDebug() << "Joystick axis RIGHT detected:" << axisX;
+                navigateGamesRight();
+                lastNavigationTime = currentTime;
+            }
+        }
+    }
+
+    static bool lastButton0State = false;
+    static bool lastButton1State = false;
+    static bool lastButton7State = false;
+
+    if (SDL_GetNumJoystickButtons(joystick) > 0) {
+        bool currentButton0State = SDL_GetJoystickButton(joystick, 0);
+        bool currentButton1State = SDL_GetJoystickButton(joystick, 1);
+        bool currentButton7State = SDL_GetJoystickButton(joystick, 7);
+
+        if (currentButton0State && !lastButton0State) {
+            qDebug() << "Joystick button 0 (A) pressed";
+            if (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr &&
+                ui->playButton->isEnabled()) {
+                StartGame();
+            }
+        }
+
+        if (currentButton1State && !lastButton1State) {
+            qDebug() << "Joystick button 1 (B) pressed";
+            if (ui->stopButton->isEnabled()) {
+                StopGame();
+            }
+        }
+
+        if (currentButton7State && !lastButton7State) {
+            qDebug() << "Joystick button 7 (Start) pressed";
+            if (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr &&
+                ui->playButton->isEnabled()) {
+                StartGame();
+            }
+        }
+
+        lastButton0State = currentButton0State;
+        lastButton1State = currentButton1State;
+        lastButton7State = currentButton7State;
+    }
+}
+
+void MainWindow::navigateGamesUp() {
+    if (isTableList && m_game_list_frame) {
+        int currentRow = m_game_list_frame->currentRow();
+        if (currentRow > 0) {
+            m_game_list_frame->selectRow(currentRow - 1);
+        } else {
+            int rowCount = m_game_list_frame->rowCount();
+            if (rowCount > 0) {
+                m_game_list_frame->selectRow(rowCount - 1);
+            }
+        }
+    } else if (!isTableList && m_game_grid_frame) {
+        int currentRow = m_game_grid_frame->currentRow();
+        int currentColumn = m_game_grid_frame->currentColumn();
+        int columnCount = m_game_grid_frame->columnCount();
+
+        if (currentRow > 0) {
+            m_game_grid_frame->setCurrentCell(currentRow - 1, currentColumn);
+        } else {
+            int rowCount = m_game_grid_frame->rowCount();
+            if (rowCount > 0) {
+                m_game_grid_frame->setCurrentCell(rowCount - 1, currentColumn);
+            }
+        }
+    }
+}
+
+void MainWindow::navigateGamesDown() {
+    if (isTableList && m_game_list_frame) {
+        int currentRow = m_game_list_frame->currentRow();
+        int rowCount = m_game_list_frame->rowCount();
+        if (currentRow < rowCount - 1) {
+            m_game_list_frame->selectRow(currentRow + 1);
+        } else {
+            if (rowCount > 0) {
+                m_game_list_frame->selectRow(0);
+            }
+        }
+    } else if (!isTableList && m_game_grid_frame) {
+        int currentRow = m_game_grid_frame->currentRow();
+        int currentColumn = m_game_grid_frame->currentColumn();
+        int rowCount = m_game_grid_frame->rowCount();
+
+        if (currentRow < rowCount - 1) {
+            m_game_grid_frame->setCurrentCell(currentRow + 1, currentColumn);
+        } else {
+            if (rowCount > 0) {
+                m_game_grid_frame->setCurrentCell(0, currentColumn);
+            }
+        }
+    }
+}
+
+void MainWindow::navigateGamesLeft() {
+    if (isTableList && m_game_list_frame) {
+        navigateGamesUp();
+    } else if (!isTableList && m_game_grid_frame) {
+        int currentRow = m_game_grid_frame->currentRow();
+        int currentColumn = m_game_grid_frame->currentColumn();
+        int columnCount = m_game_grid_frame->columnCount();
+
+        if (currentColumn > 0) {
+            m_game_grid_frame->setCurrentCell(currentRow, currentColumn - 1);
+        } else {
+            if (currentRow > 0) {
+                m_game_grid_frame->setCurrentCell(currentRow - 1, columnCount - 1);
+            } else {
+                int rowCount = m_game_grid_frame->rowCount();
+                if (rowCount > 0) {
+                    m_game_grid_frame->setCurrentCell(rowCount - 1, columnCount - 1);
+                }
+            }
+        }
+    }
+}
+
+void MainWindow::navigateGamesRight() {
+    if (isTableList && m_game_list_frame) {
+        navigateGamesDown();
+    } else if (!isTableList && m_game_grid_frame) {
+        int currentRow = m_game_grid_frame->currentRow();
+        int currentColumn = m_game_grid_frame->currentColumn();
+        int columnCount = m_game_grid_frame->columnCount();
+        int rowCount = m_game_grid_frame->rowCount();
+
+        if (currentColumn < columnCount - 1) {
+            m_game_grid_frame->setCurrentCell(currentRow, currentColumn + 1);
+        } else {
+            if (currentRow < rowCount - 1) {
+                m_game_grid_frame->setCurrentCell(currentRow + 1, 0);
+            } else {
+                m_game_grid_frame->setCurrentCell(0, 0);
+            }
+        }
+    }
 }

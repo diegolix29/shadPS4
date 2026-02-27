@@ -107,8 +107,6 @@ public:
 
         // Persist to disk
         QSettings settings("shadPS4", "Emulator");
-        settings.setValue("ShadPath", QString::fromStdString(path));
-        settings.sync();
     }
     QList<int> LoadDockWidgetSizes();
     void SaveDockWidgetSizes(const QList<int>& sizes);
@@ -116,26 +114,12 @@ public:
     bool LoadShowLogSetting() const;
     void SaveShowLogSetting(bool show);
 
-    void SetSkipWelcome(bool skip);
-
-    bool GetSkipWelcome() const;
-
     std::string GetSelectedShadExePath() const {
-        if (m_selectedShadExePath.empty()) {
-            QSettings settings("shadPS4", "Emulator");
-            QString path = settings.value("SelectedShadExePath", "").toString();
-            return path.toStdString();
-        }
         return m_selectedShadExePath;
     }
 
     void SetSelectedShadExePath(const std::string& path) {
         m_selectedShadExePath = path;
-
-        // Persist to disk
-        QSettings settings("shadPS4", "Emulator");
-        settings.setValue("SelectedShadExePath", QString::fromStdString(path));
-        settings.sync();
     }
 
 private:

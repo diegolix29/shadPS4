@@ -22,11 +22,6 @@ public:
         return m_skipNextLaunch;
     }
 
-    static bool Early_ShouldSkipWelcome() {
-        QSettings settings(QCoreApplication::applicationDirPath() + "/startup.ini",
-                           QSettings::IniFormat);
-        return settings.value("skip_welcome", false).toBool();
-    }
     bool m_portableChosen = false;
     bool m_userMadeChoice = false;
 

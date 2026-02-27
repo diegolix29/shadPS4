@@ -719,11 +719,15 @@ void VersionDialog::LoadinstalledList() {
     std::sort(otherDirs.begin(), otherDirs.end());
 
     std::sort(versionedDirs.begin(), versionedDirs.end(), [](const auto& a, const auto& b) {
-        if (a.first[0] != b.first[0])
-            return a.first[0] > b.first[0]; // major
-        if (a.first[1] != b.first[1])
-            return a.first[1] > b.first[1]; // minor
-        return a.first[2] > b.first[2];     // patch
+        if (a.first.size() != b.first.size()) {
+            return a.first.size() > b.first.size();
+        }
+        for (size_t i = 0; i < a.first.size() && i < b.first.size(); ++i) {
+            if (a.first[i] != b.first[i]) {
+                return a.first[i] > b.first[i];
+            }
+        }
+        return false;
     });
 
     auto extractSuffixes = [](const QString& folder, QString& outSource, QString& outUI,

@@ -66,7 +66,7 @@ void GameInfoClass::GetGameInfo(QWidget* parent) {
     futureWatcher.setFuture(QtConcurrent::map(m_games, game_util.GetFolderSize));
     connect(&futureWatcher, &QFutureWatcher<void>::finished, [&]() {
         dialog.reset();
-        std::sort(m_games.begin(), m_games.end(), CompareStrings);
+        std::sort(m_games.begin(), m_games.end(), GameInfoClass::CompareStrings);
     });
     connect(&dialog, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
     dialog.setRange(0, m_games.size());

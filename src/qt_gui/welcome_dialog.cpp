@@ -214,7 +214,6 @@ void WelcomeDialog::SetupUI() {
     mainLayout->addWidget(updateButton, 0, Qt::AlignLeft);
     connect(updateButton, &QPushButton::clicked, this, [this]() {
         Config::setShowWelcomeDialog(!m_skipNextLaunch);
-        // Save the config immediately to ensure checkbox state persists
         Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
         accept();
     });
@@ -246,13 +245,21 @@ void WelcomeDialog::SetupUI() {
                        "Click No to just create a new portable folder and leave global intact."),
                     QMessageBox::Yes | QMessageBox::No);
                 if (reply == QMessageBox::Yes) {
-                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
+                    try {
+                        if (std::filesystem::exists(portable_dir)) {
+                            std::filesystem::remove_all(portable_dir);
+                        }
 
-                    if (std::filesystem::exists(portable_dir))
-                        std::filesystem::remove_all(portable_dir);
-                    std::filesystem::copy(global_dir, portable_dir,
-                                          std::filesystem::copy_options::recursive);
-                    std::filesystem::remove_all(global_dir);
+                        std::filesystem::rename(global_dir, portable_dir);
+
+                        Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
+                    } catch (const std::filesystem::filesystem_error& e) {
+                        showThemedMessageBox(
+                            QMessageBox::Critical, tr("Move Failed"),
+                            tr("Failed to move global folder to portable: %1").arg(e.what()),
+                            QMessageBox::Ok);
+                        Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
+                    }
                 } else {
                     Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
                 }
@@ -263,13 +270,23 @@ void WelcomeDialog::SetupUI() {
                        "Click No to just create a new portable folder and leave global intact."),
                     QMessageBox::Yes | QMessageBox::No);
                 if (reply == QMessageBox::Yes) {
-                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
+                    try {
+                        if (std::filesystem::exists(portable_dir)) {
+                            std::filesystem::remove_all(portable_dir);
+                        }
 
-                    if (std::filesystem::exists(portable_dir))
-                        std::filesystem::remove_all(portable_dir);
-                    std::filesystem::copy(global_dir, portable_dir,
-                                          std::filesystem::copy_options::recursive);
-                    std::filesystem::remove_all(global_dir);
+                        std::filesystem::rename(global_dir, portable_dir);
+
+                        has_existing_config = true;
+
+                        Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
+                    } catch (const std::filesystem::filesystem_error& e) {
+                        showThemedMessageBox(
+                            QMessageBox::Critical, tr("Move Failed"),
+                            tr("Failed to move global folder to portable: %1").arg(e.what()),
+                            QMessageBox::Ok);
+                        Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
+                    }
                 } else {
                     Common::FS::InitializeUserPaths(Common::FS::PathInitState::Portable);
                 }
@@ -283,9 +300,13 @@ void WelcomeDialog::SetupUI() {
 
         Config::setShowWelcomeDialog(false);
 
-        if (!has_existing_config) {
-            Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        const auto new_user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        const auto config_path = new_user_dir / "config.toml";
+        if (std::filesystem::exists(config_path)) {
+            Config::load(config_path);
         }
+
+        Config::save(config_path);
 
         accept();
     });
@@ -309,11 +330,21 @@ void WelcomeDialog::SetupUI() {
                        "Click No to just create a new global folder and leave portable intact."),
                     QMessageBox::Yes | QMessageBox::No);
                 if (reply == QMessageBox::Yes) {
-                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+                    try {
+                        if (std::filesystem::exists(global_dir)) {
+                            std::filesystem::remove_all(global_dir);
+                        }
 
-                    std::filesystem::copy(portable_dir, global_dir,
-                                          std::filesystem::copy_options::recursive);
-                    std::filesystem::remove_all(portable_dir);
+                        std::filesystem::rename(portable_dir, global_dir);
+
+                        Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+                    } catch (const std::filesystem::filesystem_error& e) {
+                        showThemedMessageBox(
+                            QMessageBox::Critical, tr("Move Failed"),
+                            tr("Failed to move portable folder to global: %1").arg(e.what()),
+                            QMessageBox::Ok);
+                        Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+                    }
                 } else {
                     Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
                 }
@@ -324,11 +355,23 @@ void WelcomeDialog::SetupUI() {
                        "Click No to just create a new global folder and leave portable intact."),
                     QMessageBox::Yes | QMessageBox::No);
                 if (reply == QMessageBox::Yes) {
-                    Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+                    try {
+                        if (std::filesystem::exists(global_dir)) {
+                            std::filesystem::remove_all(global_dir);
+                        }
 
-                    std::filesystem::copy(portable_dir, global_dir,
-                                          std::filesystem::copy_options::recursive);
-                    std::filesystem::remove_all(portable_dir);
+                        std::filesystem::rename(portable_dir, global_dir);
+
+                        has_existing_config = true;
+
+                        Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+                    } catch (const std::filesystem::filesystem_error& e) {
+                        showThemedMessageBox(
+                            QMessageBox::Critical, tr("Move Failed"),
+                            tr("Failed to move portable folder to global: %1").arg(e.what()),
+                            QMessageBox::Ok);
+                        Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
+                    }
                 } else {
                     Common::FS::InitializeUserPaths(Common::FS::PathInitState::Global);
                 }
@@ -361,9 +404,13 @@ void WelcomeDialog::SetupUI() {
 
         Config::setShowWelcomeDialog(false);
 
-        if (!has_existing_config) {
-            Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        const auto new_user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        const auto config_path = new_user_dir / "config.toml";
+        if (std::filesystem::exists(config_path)) {
+            Config::load(config_path);
         }
+
+        Config::save(config_path);
 
         accept();
     });

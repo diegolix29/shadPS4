@@ -160,13 +160,8 @@ static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
 static ConfigEntry<std::string> logFilter("");
 static ConfigEntry<std::string> logType("sync");
-static ConfigEntry<std::array<std::string, 4>> userNames({
-    "shadPS4",
-    "shadps4-2",
-    "shadPS4-3",
-    "shadPS4-4",
-});
-static ConfigEntry<std::array<bool, 4>> playerEnabledStates({true, true, true, true});
+static ConfigEntry<std::array<std::string, 4>> userNames({"shadPS4"});
+static ConfigEntry<std::array<bool, 4>> playerEnabledStates({true});
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
@@ -192,6 +187,8 @@ static std::string g_customBackgroundImage;
 static ConfigEntry<bool> firstBootHandled(false);
 static std::string version_path;
 static ConfigEntry<string> httpHostOverride("localhost");
+static ConfigEntry<bool> enableMods(true);
+static ConfigEntry<bool> enableUpdates(true);
 
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
@@ -438,14 +435,6 @@ int getUsbDeviceBackend() {
 
 void setUsbDeviceBackend(int value) {
     usbDeviceBackend.base_value = value;
-}
-
-bool getFirstBootHandled() {
-    return firstBootHandled.get();
-}
-
-void setFirstBootHandled(bool handled) {
-    firstBootHandled.base_value = handled;
 }
 
 std::string getMainOutputDevice() {
@@ -886,6 +875,22 @@ bool UseHomeButtonForHotkeys() {
 
 void setUseHomeButtonForHotkeys(bool disable) {
     homeButtonHotkey.base_value = disable;
+}
+
+bool getEnableMods() {
+    return enableMods.get();
+}
+
+void setEnableMods(bool enable) {
+    enableMods.base_value = enable;
+}
+
+bool getEnableUpdates() {
+    return enableUpdates.get();
+}
+
+void setEnableUpdates(bool enable) {
+    enableUpdates.base_value = enable;
 }
 
 bool nullGpu() {
@@ -1547,6 +1552,10 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isDisableHardcodedHotkeys.setFromToml(general, "DisableHardcodedHotkeys", is_game_specific);
         homeButtonHotkey.setFromToml(general, "UseHomeButtonForHotkeys", is_game_specific);
         isSideTrophy.setFromToml(general, "sideTrophy", is_game_specific);
+
+        enableMods.setFromToml(general, "enableMods", is_game_specific);
+        enableUpdates.setFromToml(general, "enableUpdates", is_game_specific);
+
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
@@ -1912,6 +1921,8 @@ void save(const std::filesystem::path& path) {
     data["General"]["GamesMenuUI"] = bootGamesMenu;
     data["General"]["HubMenuUI"] = bootHubMenu;
     data["General"]["restartWithBaseGame"] = restartWithBaseGame;
+    data["General"]["enableMods"] = enableMods.base_value;
+    data["General"]["enableUpdates"] = enableUpdates.base_value;
     data["General"]["separateUpdateEnabled"] = separateupdatefolder;
     data["General"]["screenTipDisable"] = screenTipDisable.base_value;
     data["General"]["sideTrophy"] = isSideTrophy.base_value;
@@ -2126,7 +2137,7 @@ void setDefaultValues() {
     logFilter = "";
     logType = "sync";
     userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
-    playerEnabledStates = {true, true, true, true};
+    playerEnabledStates = {true, false, false, false};
     chooseHomeTab = "General";
     isShowSplash = false;
     isSideTrophy = "right";
@@ -2134,6 +2145,8 @@ void setDefaultValues() {
     checkCompatibilityOnStartup = false;
     isConnectedToNetwork = false;
     firstBootHandled = false;
+    enableMods = true;
+    enableUpdates = true;
     bootGamesMenu = false;
     bootHubMenu = false;
     restartWithBaseGame = false;

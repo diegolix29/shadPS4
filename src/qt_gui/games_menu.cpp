@@ -1028,31 +1028,6 @@ void BigPictureWidget::onGameConfigClicked() {
     emit gameConfigRequested(m_selectedIndex);
 }
 
-void BigPictureWidget::handleGamepadButton(GamepadButton btn) {
-    switch (btn) {
-    case GamepadButton::Left:
-        keyPressEvent(new QKeyEvent(QEvent::KeyPress, Qt::Key_Left, Qt::NoModifier));
-        break;
-    case GamepadButton::Right:
-        keyPressEvent(new QKeyEvent(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier));
-        break;
-    case GamepadButton::South:
-        onPlayClicked();
-        break;
-    case GamepadButton::East:
-        hideFull();
-        break;
-    case GamepadButton::West:
-        onHotkeysClicked();
-        break;
-    case GamepadButton::North:
-        onGameConfigClicked();
-        break;
-    default:
-        break;
-    }
-}
-
 void BigPictureWidget::toggleBackgroundMusic() {
     if (!m_player)
         return;

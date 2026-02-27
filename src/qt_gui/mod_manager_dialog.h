@@ -74,6 +74,7 @@ private:
     void sortMods();
     QPixmap getModThumbnail(const QString& modName) const;
     QString getModSizeString(const QString& modName) const;
+    qint64 getModSizeBytes(const QString& modName) const;
     QString getModTypeString(const QString& modName) const;
     void scanAvailableMods();
     void cleanupOverlayRootIfEmpty();

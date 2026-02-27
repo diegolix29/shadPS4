@@ -433,8 +433,11 @@ void ModManagerDialog::sortMods() {
             return a.name.toLower() < b.name.toLower();
         case 2:
             return a.author.toLower() < b.author.toLower();
-        case 3:
-            return getModSizeString(a.name) > getModSizeString(b.name);
+        case 3: {
+            qint64 sizeA = getModSizeBytes(a.name);
+            qint64 sizeB = getModSizeBytes(b.name);
+            return sizeA > sizeB;
+        }
         default:
             return a.name.toLower() < b.name.toLower();
         }
@@ -693,15 +696,7 @@ QString ModManagerDialog::getModSizeString(const QString& modName) const {
         }
     }
 
-    qint64 totalSize = 0;
-
-    QDirIterator it(modPath, QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        it.next();
-        if (it.fileInfo().isFile()) {
-            totalSize += it.fileInfo().size();
-        }
-    }
+    qint64 totalSize = getModSizeBytes(modName);
 
     if (totalSize < 1024) {
         return QString("%1 B").arg(totalSize);
@@ -712,6 +707,32 @@ QString ModManagerDialog::getModSizeString(const QString& modName) const {
     } else {
         return QString("%1 GB").arg(totalSize / (1024.0 * 1024.0 * 1024.0), 0, 'f', 1);
     }
+}
+
+qint64 ModManagerDialog::getModSizeBytes(const QString& modName) const {
+    if (modName.isEmpty()) {
+        return 0;
+    }
+
+    QString modPath = availablePath + "/" + modName;
+    if (!QDir(modPath).exists()) {
+        modPath = activePath + "/" + modName;
+        if (!QDir(modPath).exists()) {
+            return 0;
+        }
+    }
+
+    qint64 totalSize = 0;
+
+    QDirIterator it(modPath, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        if (it.fileInfo().isFile()) {
+            totalSize += it.fileInfo().size();
+        }
+    }
+
+    return totalSize;
 }
 
 QString ModManagerDialog::getModTypeString(const QString& modName) const {

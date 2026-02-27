@@ -177,22 +177,28 @@ std::string PathToUTF8String(const std::filesystem::path& path) {
 
 const fs::path& GetUserPath(PathType shad_path) {
     if (!IsUserPathsInitialized()) {
-        auto portable_dir = GetPortablePath();
-        auto global_dir = GetGlobalPath();
+        static std::filesystem::path fallback_path = std::filesystem::current_path() / "user";
+        UserPaths.insert_or_assign(PathType::UserDir, fallback_path);
+        UserPaths.insert_or_assign(PathType::LogDir, fallback_path / LOG_DIR);
+        UserPaths.insert_or_assign(PathType::ScreenshotsDir, fallback_path / SCREENSHOTS_DIR);
+        UserPaths.insert_or_assign(PathType::ShaderDir, fallback_path / SHADER_DIR);
+        UserPaths.insert_or_assign(PathType::GameDataDir, fallback_path / GAMEDATA_DIR);
+        UserPaths.insert_or_assign(PathType::TempDataDir, fallback_path / TEMPDATA_DIR);
+        UserPaths.insert_or_assign(PathType::SysModuleDir, fallback_path / SYSMODULES_DIR);
+        UserPaths.insert_or_assign(PathType::DownloadDir, fallback_path / DOWNLOAD_DIR);
+        UserPaths.insert_or_assign(PathType::CapturesDir, fallback_path / CAPTURES_DIR);
+        UserPaths.insert_or_assign(PathType::CheatsDir, fallback_path / CHEATS_DIR);
+        UserPaths.insert_or_assign(PathType::PatchesDir, fallback_path / PATCHES_DIR);
+        UserPaths.insert_or_assign(PathType::MetaDataDir, fallback_path / METADATA_DIR);
+        UserPaths.insert_or_assign(PathType::CustomTrophy, fallback_path / CUSTOM_TROPHY);
+        UserPaths.insert_or_assign(PathType::CustomConfigs, fallback_path / CUSTOM_CONFIGS);
+        UserPaths.insert_or_assign(PathType::CustomThemes, fallback_path / CUSTOM_THEMES);
+        UserPaths.insert_or_assign(PathType::ModsFolder, fallback_path / MODS_FOLDER);
+        UserPaths.insert_or_assign(PathType::CacheDir, fallback_path / CACHE_DIR);
+        UserPaths.insert_or_assign(PathType::CustomAudios, fallback_path / AUDIO_DIR);
+        UserPaths.insert_or_assign(PathType::FontsDir, fallback_path / FONTS_DIR);
 
-        bool portableExists = std::filesystem::exists(portable_dir);
-        bool globalExists = std::filesystem::exists(global_dir);
-
-        PathInitState detected_state;
-        if (portableExists) {
-            detected_state = PathInitState::Portable;
-        } else if (globalExists) {
-            detected_state = PathInitState::Global;
-        } else {
-            detected_state = PathInitState::Portable;
-        }
-
-        InitializeUserPaths(detected_state);
+        current_init_state = PathInitState::Portable;
     }
 
     return UserPaths.at(shad_path);
@@ -265,7 +271,7 @@ std::filesystem::path GetGlobalPath() {
 
 void InitializeUserPaths(PathInitState state) {
     if (current_init_state != PathInitState::Uninitialized) {
-        return;
+        UserPaths.clear();
     }
 
     std::filesystem::path user_dir;

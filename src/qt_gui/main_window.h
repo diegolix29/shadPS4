@@ -37,6 +37,9 @@
 #include "main_window_ui.h"
 #include "sdl_window.h"
 
+#define SDL_ENABLE_GAMEPAD
+#include <SDL3/SDL.h>
+
 class QFlowLayout : public QLayout {
 public:
     explicit QFlowLayout(QWidget* parent, int margin = -1, int hSpacing = -1, int vSpacing = -1);
@@ -265,6 +268,23 @@ private:
 
     QTranslator* translator;
     QString currentGameFilePath;
+
+    // Gamepad support
+    SDL_Gamepad* m_gamepad = nullptr;
+    QTimer* m_gamepadTimer = nullptr;
+    bool m_gamepadInitialized = false;
+    bool m_gamepadFailed = false;
+    bool m_usingJoystickFallback = false;
+
+    // Gamepad methods
+    void initializeGamepad();
+    void cleanupGamepad();
+    void handleGamepadEvents();
+    void handleJoystickInput();
+    void navigateGamesUp();
+    void navigateGamesDown();
+    void navigateGamesLeft();
+    void navigateGamesRight();
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;

@@ -54,7 +54,7 @@ public:
 
     void SortByFavorite(QVector<GameInfo>* game_list);
 
-    bool CompareWithFavorite(GameInfo a, GameInfo b);
+    bool CompareWithFavorite(const GameInfo& a, const GameInfo& b);
 
     void SetCustomBackgroundImage(const QString& filePath);
 

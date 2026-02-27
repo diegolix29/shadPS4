@@ -30,6 +30,9 @@
 #include "qt_gui/game_list_frame.h"
 #include "qt_gui/main_window_themes.h"
 
+#define SDL_ENABLE_GAMEPAD
+#include <SDL3/SDL.h>
+
 class VerticalGameActionsMenu : public QWidget {
     Q_OBJECT
 
@@ -271,6 +274,7 @@ public slots:
     void hideFull();
     void toggle();
     void setMinimalUi(bool hide);
+    void keyPressEvent(QKeyEvent* e) override;
 
 protected:
     void buildUi();
@@ -286,7 +290,6 @@ protected:
 
     void resizeEvent(QResizeEvent* e) override;
     void requestCenterSelectedGame();
-    void keyPressEvent(QKeyEvent* e) override;
     void showEvent(QShowEvent* ev) override;
     bool eventFilter(QObject* obj, QEvent* ev) override;
 

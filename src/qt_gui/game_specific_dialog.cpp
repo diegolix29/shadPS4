@@ -496,12 +496,16 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->vkValidationCheckBox->setChecked(Config::vkValidationEnabled());
     ui->vkSyncValidationCheckBox->setChecked(Config::vkValidationSyncEnabled());
 
+    ui->enableModsCheckBox->setChecked(Config::getEnableMods());
+    ui->enableUpdatesCheckBox->setChecked(Config::getEnableUpdates());
+
     ui->collectShaderCheckBox->setChecked(Config::collectShadersForDebug());
     ui->debugDump->setChecked(Config::debugDump());
     ui->enableLoggingCheckBox->setChecked(Config::getLoggingEnabled());
 
-    if (!std::filesystem::exists(m_config_path))
+    if (!std::filesystem::exists(m_config_path)) {
         return;
+    }
 
     toml::value data;
     try {
@@ -803,10 +807,15 @@ void GameSpecificDialog::UpdateSettings() {
     if (ui->popUpDurationSpinBox->value() != Config::getTrophyNotificationDuration())
         overrides["General"]["trophyNotificationDuration"] = ui->popUpDurationSpinBox->value();
 
+    if (ui->enableModsCheckBox->isChecked() != Config::getEnableMods())
+        overrides["General"]["enableMods"] = ui->enableModsCheckBox->isChecked();
+
+    if (ui->enableUpdatesCheckBox->isChecked() != Config::getEnableUpdates())
+        overrides["General"]["enableUpdates"] = ui->enableUpdatesCheckBox->isChecked();
+
     if (ui->MemorySpinBox->value() != Config::getExtraDmemInMbytes())
         overrides["General"]["extraDmemInMbytes"] = ui->MemorySpinBox->value();
 
-    //  Input
     if (ui->backgroundControllerCheckBox->isChecked() != Config::getBackgroundControllerInput())
         overrides["Input"]["backgroundControllerInput"] =
             ui->backgroundControllerCheckBox->isChecked();
@@ -823,7 +832,6 @@ void GameSpecificDialog::UpdateSettings() {
     for (int p = 1; p <= 4; ++p) {
         int assignedClass = 0;
 
-        // Check each class row for this pad
         for (int c = 1; c <= 4; ++c) {
             if (specialPadChecks[c - 1][p - 1]->isChecked()) {
                 assignedClass = c;
@@ -836,7 +844,6 @@ void GameSpecificDialog::UpdateSettings() {
 
         bool use = assignedClass != 0;
 
-        // Save differences only
         if (assignedClass != Config::getSpecialPadClass(p))
             overrides["Input"][classKey] = assignedClass;
 
@@ -848,7 +855,6 @@ void GameSpecificDialog::UpdateSettings() {
         overrides["Input"]["useUnifiedInputConfig"] =
             ui->useUnifiedInputConfigCheckBox->isChecked();
 
-    // Audio
     if (ui->mainOutputDeviceComboBox->currentText().toStdString() != Config::getMainOutputDevice())
         overrides["Audio"]["mainOutputDevice"] =
             ui->mainOutputDeviceComboBox->currentText().toStdString();
@@ -858,7 +864,6 @@ void GameSpecificDialog::UpdateSettings() {
         overrides["Audio"]["padSpkOutputDevice"] =
             ui->padSpkOutputDeviceComboBox->currentText().toStdString();
 
-    //  GPU
     if (ui->enableHDRCheckBox->isChecked() != Config::allowHDR())
         overrides["GPU"]["allowHDR"] = ui->enableHDRCheckBox->isChecked();
 
@@ -927,7 +932,6 @@ void GameSpecificDialog::UpdateSettings() {
     if (ui->vblankSpinBox->value() != Config::vblankFreq())
         overrides["GPU"]["vblankFrequency"] = ui->vblankSpinBox->value();
 
-    // Vulkan
     if (ui->crashDiagnosticsCheckBox->isChecked() != Config::getVkCrashDiagnosticEnabled())
         overrides["Vulkan"]["crashDiagnostic"] = ui->crashDiagnosticsCheckBox->isChecked();
 
@@ -952,7 +956,6 @@ void GameSpecificDialog::UpdateSettings() {
     if (ui->vkSyncValidationCheckBox->isChecked() != Config::vkValidationSyncEnabled())
         overrides["Vulkan"]["validation_sync"] = ui->vkSyncValidationCheckBox->isChecked();
 
-    // Debug
     if (ui->collectShaderCheckBox->isChecked() != Config::collectShadersForDebug())
         overrides["Debug"]["CollectShader"] = ui->collectShaderCheckBox->isChecked();
 
@@ -995,11 +998,9 @@ void GameSpecificDialog::PopulateAudioDevices() {
     ui->mainOutputDeviceComboBox->clear();
     ui->padSpkOutputDeviceComboBox->clear();
 
-    // Add default option
     ui->mainOutputDeviceComboBox->addItem(tr("Default Device"));
     ui->padSpkOutputDeviceComboBox->addItem(tr("Default Device"));
 
-    // Enumerate playback devices (speakers) with SDL3
     SDL_InitSubSystem(SDL_INIT_AUDIO);
     int count = 0;
     SDL_AudioDeviceID* devices = SDL_GetAudioPlaybackDevices(&count);

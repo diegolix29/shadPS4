@@ -14,6 +14,9 @@
 #include <QWidget>
 #include "main_window_themes.h"
 
+#define SDL_ENABLE_GAMEPAD
+#include <SDL3/SDL.h>
+
 class GameInfoClass;
 class CompatibilityInfoClass;
 class IpcClient;
@@ -257,8 +260,8 @@ public:
     void hideFull();
 
     void updateDepthEffect();
+    void keyPressEvent(QKeyEvent* e) override;
 
-    enum class GamepadButton { Left, Right, South, East, West, North };
     std::shared_ptr<GameInfoClass> m_gameInfo;
     std::shared_ptr<CompatibilityInfoClass> m_compatInfo;
     std::shared_ptr<IpcClient> m_ipcClient;
@@ -272,7 +275,6 @@ signals:
 
 protected:
     bool eventFilter(QObject* obj, QEvent* ev) override;
-    void keyPressEvent(QKeyEvent* e) override;
     void resizeEvent(QResizeEvent* e) override;
 
 private slots:
@@ -283,8 +285,6 @@ private slots:
     void focusInEvent(QFocusEvent* event) override;
 
 public:
-    void handleGamepadButton(GamepadButton btn);
-
     void toggleBackgroundMusic();
     void setMinimalUi(bool hide);
 

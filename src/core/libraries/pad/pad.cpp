@@ -339,6 +339,9 @@ int PS4_SYSV_ABI scePadOutputReport() {
 
 int PS4_SYSV_ABI scePadRead(s32 handle, OrbisPadData* pData, s32 num) {
     LOG_TRACE(Lib_Pad, "called");
+    if (handle < 1) {
+        return ORBIS_PAD_ERROR_INVALID_HANDLE;
+    }
     auto controller_id = GamepadSelect::GetControllerIndexFromUserID(handle);
     auto& controllers = *Common::Singleton<Input::GameControllers>::Instance();
     auto controller = controllers[*controller_id];
@@ -472,6 +475,9 @@ int PS4_SYSV_ABI scePadReadHistory() {
 
 int PS4_SYSV_ABI scePadReadState(s32 handle, OrbisPadData* pData) {
     LOG_TRACE(Lib_Pad, "called");
+    if (handle < 1) {
+        return ORBIS_PAD_ERROR_INVALID_HANDLE;
+    }
     auto controller_id = GamepadSelect::GetControllerIndexFromUserID(handle);
     auto controllers = *Common::Singleton<Input::GameControllers>::Instance();
     auto const& controller = controllers[*controller_id];

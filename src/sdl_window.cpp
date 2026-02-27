@@ -291,9 +291,9 @@ void WindowSDL::WaitEvent() {
             DebugState.PauseGuestThreads();
         }
         break;
-    case SDL_EVENT_CHANGE_CONTROLLER:
-        UNREACHABLE_MSG("todo");
-        break;
+    // case SDL_EVENT_CHANGE_CONTROLLER:
+    //     UNREACHABLE_MSG("todo");
+    //     break;
     case SDL_EVENT_TOGGLE_SIMPLE_FPS:
         Overlay::ToggleSimpleFps();
         break;

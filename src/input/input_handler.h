@@ -412,9 +412,8 @@ public:
         return (keys[0].IsValid() ? 1 : 0) + (keys[1].IsValid() ? 1 : 0) +
                (keys[2].IsValid() ? 1 : 0);
     }
-    // Sorts by the amount of non zero keys - left side is 'bigger' here
     bool operator<(const InputBinding& other) const {
-        return KeyCount() > other.KeyCount();
+        return KeyCount() < other.KeyCount();
     }
     inline bool IsEmpty() {
         return !(keys[0].IsValid() || keys[1].IsValid() || keys[2].IsValid());
@@ -524,12 +523,15 @@ public:
         if (output->IsButton() &&
             (other.output->IsAxis() && (other.output->axis != SDL_GAMEPAD_AXIS_LEFT_TRIGGER &&
                                         other.output->axis != SDL_GAMEPAD_AXIS_RIGHT_TRIGGER))) {
-            return true;
+            return true; // button < axis
         }
-        if (binding < other.binding) {
-            return true;
+        if (other.output->IsButton() &&
+            (output->IsAxis() && (output->axis != SDL_GAMEPAD_AXIS_LEFT_TRIGGER &&
+                                  output->axis != SDL_GAMEPAD_AXIS_RIGHT_TRIGGER))) {
+            return false; // axis > button
         }
-        return false;
+        // Both are buttons or both are axes, compare by binding
+        return binding < other.binding;
     }
     bool HasGamepadInput() {
         for (auto& key : binding.keys) {

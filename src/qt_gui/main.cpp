@@ -51,6 +51,27 @@ int main(int argc, char* argv[]) {
     std::shared_ptr<EmulatorState> m_emu_state = std::make_shared<EmulatorState>();
     EmulatorState::SetInstance(m_emu_state);
 
+    // Initialize paths properly before loading config
+    // This ensures we load from the correct global or portable path
+    if (!Common::FS::IsUserPathsInitialized()) {
+        auto portable_dir = Common::FS::GetPortablePath();
+        auto global_dir = Common::FS::GetGlobalPath();
+
+        bool portableExists = std::filesystem::exists(portable_dir);
+        bool globalExists = std::filesystem::exists(global_dir);
+
+        Common::FS::PathInitState detected_state;
+        if (portableExists) {
+            detected_state = Common::FS::PathInitState::Portable;
+        } else if (globalExists) {
+            detected_state = Common::FS::PathInitState::Global;
+        } else {
+            detected_state = Common::FS::PathInitState::Portable;
+        }
+
+        Common::FS::InitializeUserPaths(detected_state);
+    }
+
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
     bool ignore_mods_path = false;

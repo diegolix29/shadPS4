@@ -32,7 +32,7 @@ public:
         }
     }
 
-    static bool CompareStrings(GameInfo& a, GameInfo& b) {
+    static bool CompareStrings(const GameInfo& a, const GameInfo& b) {
         std::string name_a = a.name, name_b = b.name;
         std::transform(name_a.begin(), name_a.end(), name_a.begin(), ::tolower);
         std::transform(name_b.begin(), name_b.end(), name_b.begin(), ::tolower);

@@ -312,8 +312,6 @@ u32 getFpsLimit();
 void setFpsLimit(u32 fpsValue);
 bool isFpsLimiterEnabled();
 void setFpsLimiterEnabled(bool enabled);
-bool getFirstBootHandled();
-void setFirstBootHandled(bool handled);
 u32 getMainWindowGeometryX();
 u32 getMainWindowGeometryY();
 u32 getMainWindowGeometryW();
@@ -354,7 +352,11 @@ void setDisableHardcodedHotkeys(bool disable);
 bool UseHomeButtonForHotkeys();
 void setUseHomeButtonForHotkeys(bool disable);
 
-// CPU configuration
+bool getEnableMods();
+void setEnableMods(bool enable);
+bool getEnableUpdates();
+void setEnableUpdates(bool enable);
+
 Common::CpuCoreMode getCpuCoreMode();
 void setCpuCoreMode(Common::CpuCoreMode mode);
 std::vector<u32> getCustomCpuCores();

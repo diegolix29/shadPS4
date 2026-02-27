@@ -81,7 +81,7 @@ public:
         return (size[size.size() - 2] == 'G') ? num * 1024 : num;
     }
 
-    static bool CompareStringsAscending(GameInfo a, GameInfo b, int columnIndex) {
+    static bool CompareStringsAscending(const GameInfo& a, const GameInfo& b, int columnIndex) {
         switch (columnIndex) {
         case 1: {
             std::string name_a = a.name, name_b = b.name;
@@ -110,7 +110,7 @@ public:
         }
     }
 
-    static bool CompareStringsDescending(GameInfo a, GameInfo b, int columnIndex) {
+    static bool CompareStringsDescending(const GameInfo& a, const GameInfo& b, int columnIndex) {
         switch (columnIndex) {
         case 1: {
             std::string name_a = a.name, name_b = b.name;
@@ -138,5 +138,5 @@ public:
             return false;
         }
     }
-    bool CompareWithFavorite(GameInfo a, GameInfo b, int columnIndex, bool ascending);
+    bool CompareWithFavorite(const GameInfo& a, const GameInfo& b, int columnIndex, bool ascending);
 };

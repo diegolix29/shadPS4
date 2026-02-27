@@ -4,7 +4,6 @@
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QProgressDialog>
-#include <QSettings>
 #include <QTimer>
 #include <QVariant>
 
@@ -307,17 +306,6 @@ void CompatibilityInfoClass::SaveShowLogSetting(bool show) {
     QSettings settings("shadPS4", "Emulator");
     settings.setValue(QStringLiteral("MainWindow/showLog"), show);
     settings.sync();
-}
-
-void CompatibilityInfoClass::SetSkipWelcome(bool skip) {
-    QSettings settings("shadPS4", "Emulator");
-    settings.setValue("skip_welcome", skip);
-    settings.sync();
-}
-
-bool CompatibilityInfoClass::GetSkipWelcome() const {
-    QSettings settings("shadPS4", "Emulator");
-    return settings.value("skip_welcome", false).toBool();
 }
 
 const QString CompatibilityInfoClass::GetCompatStatusString(const CompatibilityStatus status) {
