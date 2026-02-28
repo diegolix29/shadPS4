@@ -2869,6 +2869,11 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     liverpool = std::make_unique<AmdGpu::Liverpool>();
     presenter = std::make_unique<Vulkan::Presenter>(*g_window, liverpool.get());
 
+    // Auto-enable any patch shaders that exist in the patch folder
+    if (Config::collectShadersForDebug() && Config::patchShaders()) {
+        DebugState.AutoEnablePatchShaders();
+    }
+
     const s32 result = sceKernelGetCompiledSdkVersion(&sdk_version);
     if (result != ORBIS_OK) {
         sdk_version = 0;

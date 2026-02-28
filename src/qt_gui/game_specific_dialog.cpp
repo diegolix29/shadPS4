@@ -500,6 +500,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->enableUpdatesCheckBox->setChecked(Config::getEnableUpdates());
 
     ui->collectShaderCheckBox->setChecked(Config::collectShadersForDebug());
+    ui->patchShadersCheckBox->setChecked(Config::patchShaders());
     ui->debugDump->setChecked(Config::debugDump());
     ui->enableLoggingCheckBox->setChecked(Config::getLoggingEnabled());
 
@@ -730,6 +731,12 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         if (dbg.contains("logEnabled"))
             ui->enableLoggingCheckBox->setChecked(toml::find<bool>(dbg, "logEnabled"));
     }
+
+    if (data.contains("GPU")) {
+        const auto& gpu = toml::find(data, "GPU");
+        if (gpu.contains("patchShaders"))
+            ui->patchShadersCheckBox->setChecked(toml::find<bool>(gpu, "patchShaders"));
+    }
 }
 
 void GameSpecificDialog::UpdateSettings() {
@@ -958,6 +965,9 @@ void GameSpecificDialog::UpdateSettings() {
 
     if (ui->collectShaderCheckBox->isChecked() != Config::collectShadersForDebug())
         overrides["Debug"]["CollectShader"] = ui->collectShaderCheckBox->isChecked();
+
+    if (ui->patchShadersCheckBox->isChecked() != Config::patchShaders())
+        overrides["GPU"]["patchShaders"] = ui->patchShadersCheckBox->isChecked();
 
     if (ui->debugDump->isChecked() != Config::debugDump())
         overrides["Debug"]["DebugDump"] = ui->debugDump->isChecked();

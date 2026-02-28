@@ -27,6 +27,7 @@
 #include "common/polyfill_thread.h"
 #include "common/scm_rev.h"
 #include "common/singleton.h"
+#include "core/debug_state.h"
 #include "core/debugger.h"
 #include "core/devtools/widget/module_list.h"
 #include "core/emulator_state.h"

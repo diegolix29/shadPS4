@@ -1,10 +1,13 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <filesystem>
 #include <imgui.h>
 
 #include "common/assert.h"
+#include "common/io_file.h"
 #include "common/native_clock.h"
+#include "common/path_util.h"
 #include "common/singleton.h"
 #include "core/signals.h"
 #include "debug_state.h"
@@ -13,6 +16,12 @@
 #include "libraries/system/msgdialog.h"
 #include "video_core/amdgpu/pm4_cmds.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
+#include "video_core/renderer_vulkan/vk_rasterizer.h"
+
+#include <fmt/core.h>
+#include "video_core/renderer_vulkan/vk_presenter.h"
+
+extern std::unique_ptr<Vulkan::Presenter> presenter;
 
 using namespace DebugStateType;
 
@@ -211,7 +220,78 @@ void DebugStateImpl::CollectShader(const std::string& name, Shader::LogicalStage
                                    vk::ShaderModule module, std::span<const u32> spv,
                                    std::span<const u32> raw_code, std::span<const u32> patch_spv,
                                    bool is_patched) {
+    using namespace Common::FS;
+
+    // Check if there's a patch file for this shader
+    std::vector<u32> patch_data;
+    bool has_patch_file = false;
+
+    const auto patch_dir = GetUserPath(Common::FS::PathType::ShaderDir) / "patch";
+    if (std::filesystem::exists(patch_dir)) {
+        const auto patch_file = patch_dir / (name + ".spv");
+        if (std::filesystem::exists(patch_file)) {
+            Common::FS::IOFile file{patch_file, Common::FS::FileAccessMode::Read};
+            patch_data.resize(file.GetSize() / sizeof(u32));
+            file.Read(patch_data);
+            has_patch_file = !patch_data.empty();
+        }
+    }
+
+    // Use patch from file if available, otherwise use the provided patch
+    const auto& final_patch_spv = has_patch_file ? patch_data : patch_spv;
+    const auto final_is_patched = is_patched || has_patch_file;
+
     shader_dump_list.emplace_back(name, l_stage, module, std::vector<u32>{spv.begin(), spv.end()},
                                   std::vector<u32>{raw_code.begin(), raw_code.end()},
-                                  std::vector<u32>{patch_spv.begin(), patch_spv.end()}, is_patched);
+                                  std::vector<u32>{final_patch_spv.begin(), final_patch_spv.end()},
+                                  final_is_patched);
+
+    // Auto-enable if patch file exists and shader patching is enabled
+    if (has_patch_file && Config::patchShaders()) {
+        auto& shader = shader_dump_list.back();
+        shader.is_patched = true;
+        ShowDebugMessage(fmt::format("Auto-enabled patch for shader: {}", name));
+
+        // Reload the shader with patch applied
+        if (presenter) {
+            auto& cache = presenter->GetRasterizer().GetPipelineCache();
+            if (const auto m = cache.ReplaceShader(shader.module, shader.patch_spv); m) {
+                shader.module = *m;
+            }
+        }
+    }
+}
+
+void DebugStateImpl::AutoEnablePatchShaders() {
+    using namespace Common::FS;
+    const auto patch_dir = GetUserPath(Common::FS::PathType::ShaderDir) / "patch";
+
+    if (!std::filesystem::exists(patch_dir)) {
+        return;
+    }
+
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(patch_dir, ec)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".spv") {
+            const auto shader_name = entry.path().stem().string();
+
+            // Find matching shader in the dump list and enable patch
+            for (auto& shader : shader_dump_list) {
+                if (shader.name == shader_name && !shader.patch_spv.empty()) {
+                    shader.is_patched = true;
+                    ShowDebugMessage(fmt::format("Auto-enabled patch for shader: {}", shader_name));
+
+                    // Reload the shader with patch applied
+                    if (presenter) {
+                        auto& cache = presenter->GetRasterizer().GetPipelineCache();
+                        if (const auto m = cache.ReplaceShader(shader.module, shader.patch_spv);
+                            m) {
+                            shader.module = *m;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
 }

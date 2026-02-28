@@ -170,6 +170,7 @@ void setAllowHDR(bool enable);
 void setEnableAutoBackup(bool enable);
 void setCopyGPUCmdBuffers(bool enable);
 void setDumpShaders(bool enable);
+void setPatchShaders(bool enable);
 void setGpuId(s32 selectedGpuId);
 void setIsFullscreen(bool enable);
 void setFullscreenMode(std::string mode);

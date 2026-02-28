@@ -955,6 +955,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->guestMarkersCheckBox->installEventFilter(this);
         ui->hostMarkersCheckBox->installEventFilter(this);
         ui->collectShaderCheckBox->installEventFilter(this);
+        ui->patchShadersCheckBox->installEventFilter(this);
         ui->copyGPUBuffersCheckBox->installEventFilter(this);
 
         // Experimental
@@ -1181,19 +1182,6 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "Vulkan", "pipelineCacheArchive", false));
     ui->crashDiagnosticsCheckBox->setChecked(
         toml::find_or<bool>(data, "Vulkan", "crashDiagnostic", false));
-    ui->guestMarkersCheckBox->setChecked(
-        toml::find_or<bool>(data, "Vulkan", "guestMarkers", false));
-    ui->hostMarkersCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "hostMarkers", false));
-    ui->copyGPUBuffersCheckBox->setChecked(
-        toml::find_or<bool>(data, "GPU", "copyGPUBuffers", false));
-    ui->collectShaderCheckBox->setChecked(
-        toml::find_or<bool>(data, "Debug", "CollectShader", false));
-    ui->enableCompatibilityCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "compatibilityEnabled", false));
-    ui->enableLoggingCheckBox->setChecked(toml::find_or<bool>(data, "Debug", "logEnabled", true));
-
-    ui->GenAudioComboBox->setCurrentText(
-        QString::fromStdString(toml::find_or<std::string>(data, "Audio", "mainOutputDevice", "")));
     ui->DsAudioComboBox->setCurrentText(QString::fromStdString(
         toml::find_or<std::string>(data, "Audio", "padSpkOutputDevice", "")));
 
@@ -1506,6 +1494,8 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
         text = tr("Copy GPU Buffers:\\nGets around race conditions involving GPU submits.\\nMay or may not help with PM4 type 0 crashes.");
     } else if (elementName == "collectShaderCheckBox") {
         text = tr("Collect Shaders:\\nYou need this enabled to edit shaders with the debug menu (Ctrl + F10).");
+    } else if (elementName == "patchShadersCheckBox") {
+        text = tr("Enable Shader Patching:\\nAutomatically enables and loads shader patches from the shader/patch folder.\\nPatches will be applied on launch without requiring manual activation via debug menu.");
     } else if (elementName == "separateLogFilesCheckbox") {
         text = tr("Separate Log Files:\\nWrites a separate logfile for each game.");
     } else if (elementName == "enableLoggingCheckBox") {
@@ -1671,6 +1661,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setVkGuestMarkersEnabled(ui->guestMarkersCheckBox->isChecked());
     Config::setVkCrashDiagnosticEnabled(ui->crashDiagnosticsCheckBox->isChecked());
     Config::setCollectShaderForDebug(ui->collectShaderCheckBox->isChecked());
+    Config::setPatchShaders(ui->patchShadersCheckBox->isChecked());
     Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
     Config::setVolumeSlider(ui->horizontalVolumeSlider->value(), true);
     Config::setSysModulesPath(Common::FS::PathFromQString(ui->currentSysModulesPath->text()));

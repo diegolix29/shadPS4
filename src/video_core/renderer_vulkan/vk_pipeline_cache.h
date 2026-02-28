@@ -88,6 +88,8 @@ public:
     std::optional<vk::ShaderModule> ReplaceShader(vk::ShaderModule module,
                                                   std::span<const u32> spv_code);
 
+    void ReloadAllPatches();
+
     static std::string GetShaderName(Shader::Stage stage, u64 hash,
                                      std::optional<size_t> perm = {});
 

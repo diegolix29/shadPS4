@@ -511,11 +511,6 @@ InputEvent InputBinding::GetInputEventFromSDLEvent(const SDL_Event& e) {
         const auto& ctrls = *Common::Singleton<GameControllers>::Instance();
         gamepad = GameControllers::GetGamepadIndexFromJoystickId(e.gbutton.which, ctrls) + 1;
 
-        if (e.gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
-            LOG_ERROR(Input, "GUIDE button event: button={}, down={}, gamepad={}", e.gbutton.button,
-                      e.gbutton.down, gamepad);
-        }
-
         return InputEvent({InputType::Controller, (u32)e.gbutton.button, gamepad}, e.gbutton.down,
                           0);
     }
@@ -952,14 +947,9 @@ void ActivateOutputsFromInputs() {
         if (key.first.input.type == InputType::Controller &&
             key.first.input.sdl_id == SDL_GAMEPAD_BUTTON_GUIDE) {
             guide_pressed = true;
-            LOG_ERROR(Input, "GUIDE button found in pressed_keys: active={}", key.second);
             break;
         }
     }
-    if (!guide_pressed) {
-        LOG_ERROR(Input, "GUIDE button NOT found in pressed_keys");
-    }
-
     // todo find a better solution
     for (int i = 0; i < 4; i++) {
 

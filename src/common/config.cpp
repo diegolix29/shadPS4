@@ -1109,6 +1109,10 @@ void setDumpShaders(bool enable) {
     shouldDumpShaders.base_value = enable;
 }
 
+void setPatchShaders(bool enable) {
+    shouldPatchShaders.base_value = enable;
+}
+
 void setVkValidation(bool enable) {
     vkValidation.base_value = enable;
 }

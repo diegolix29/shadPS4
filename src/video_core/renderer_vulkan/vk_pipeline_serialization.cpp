@@ -270,9 +270,18 @@ bool PipelineCache::LoadPipelineStage(Serialization::Archive& ar, size_t stage) 
 
     vk::ShaderModule module{};
 
+    // Check for patches even when loading from cache
+    auto patch = GetShaderPatch(program->info.pgm_hash, program->info.stage, perm_idx, "spv");
+    const bool use_patch = patch && Config::patchShaders();
+
+    if (use_patch) {
+        module = CompileSPV(*patch, instance.GetDevice());
+    } else {
+        module = CompileSPV(spv, instance.GetDevice());
+    }
+
     auto [it_pgm, new_program] = program_cache.try_emplace(program->info.pgm_hash);
     if (new_program) {
-        module = CompileSPV(spv, instance.GetDevice());
         it_pgm.value() = std::move(program);
     } else {
         const auto& it = std::ranges::find(it_pgm.value()->modules, spec, &Program::Module::spec);
@@ -283,7 +292,12 @@ bool PipelineCache::LoadPipelineStage(Serialization::Archive& ar, size_t stage) 
                        perm_idx, idx, program->info.stage, program->info.pgm_hash);
             module = it->module;
         } else {
-            module = CompileSPV(spv, instance.GetDevice());
+            if (use_patch) {
+                // Use patch instead of cached SPIR-V
+                module = CompileSPV(*patch, instance.GetDevice());
+            } else {
+                module = CompileSPV(spv, instance.GetDevice());
+            }
         }
     }
     it_pgm.value()->InsertPermut(module, std::move(spec), perm_idx);

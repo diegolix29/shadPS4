@@ -230,6 +230,8 @@ public:
                        std::span<const u32> raw_code, std::span<const u32> patch_spv,
                        bool is_patched);
 
+    void AutoEnablePatchShaders();
+
 private:
     std::optional<RegDump*> GetRegDump(uintptr_t base_addr, uintptr_t header_addr);
 };

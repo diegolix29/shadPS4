@@ -622,6 +622,17 @@ PipelineCache::Result PipelineCache::GetProgram(Stage stage, LogicalStage l_stag
         module = it->module;
         perm_idx = std::distance(program->modules.begin(), it);
         perm_hash = HashCombine(params.hash, perm_idx);
+
+        // Check for patches even on cached shaders
+        if (Config::patchShaders()) {
+            auto patch = GetShaderPatch(info.pgm_hash, info.stage, perm_idx, "spv");
+            if (patch) {
+                const auto& d = instance.GetDevice();
+                d.destroyShaderModule(module);
+                module = CompileSPV(*patch, d);
+                it->module = module;
+            }
+        }
     }
     return std::make_tuple(&program->info, module,
                            program->modules[perm_idx].spec.fetch_shader_data, perm_hash);
@@ -677,6 +688,52 @@ void PipelineCache::DumpShader(std::span<const u32> code, u64 hash, Shader::Stag
     const auto filename = fmt::format("{}.{}", GetShaderName(stage, hash, perm_idx), ext);
     const auto file = IOFile{dump_dir / filename, FileAccessMode::Create};
     file.WriteSpan(code);
+}
+
+void PipelineCache::ReloadAllPatches() {
+    if (!Config::patchShaders()) {
+        return;
+    }
+
+    LOG_INFO(Render_Vulkan, "Checking for shader patches to reload...");
+
+    size_t patches_reloaded = 0;
+
+    // Iterate through all cached programs and check for patches
+    for (const auto& [hash, program] : program_cache) {
+        for (size_t i = 0; i < program->modules.size(); ++i) {
+            auto& module = program->modules[i];
+            auto patch = GetShaderPatch(hash, program->info.stage, i, "spv");
+            if (patch) {
+                LOG_INFO(Loader, "Reloading patch for cached {} shader {:#x}", program->info.stage,
+                         hash);
+                const auto& d = instance.GetDevice();
+                d.destroyShaderModule(module.module);
+                module.module = CompileSPV(*patch, d);
+
+                // Invalidate related pipelines to force recreation
+                if (module_related_pipelines.contains(module.module)) {
+                    auto& pipeline_keys = module_related_pipelines[module.module];
+                    for (auto& key : pipeline_keys) {
+                        if (std::holds_alternative<GraphicsPipelineKey>(key)) {
+                            auto& graphics_key = std::get<GraphicsPipelineKey>(key);
+                            graphics_pipelines.erase(graphics_key);
+                        } else if (std::holds_alternative<ComputePipelineKey>(key)) {
+                            auto& compute_key = std::get<ComputePipelineKey>(key);
+                            compute_pipelines.erase(compute_key);
+                        }
+                    }
+                }
+                patches_reloaded++;
+            }
+        }
+    }
+
+    if (patches_reloaded > 0) {
+        LOG_INFO(Render_Vulkan, "Successfully reloaded {} shader patches", patches_reloaded);
+    } else {
+        LOG_INFO(Render_Vulkan, "No shader patches found to reload");
+    }
 }
 
 std::optional<std::vector<u32>> PipelineCache::GetShaderPatch(u64 hash, Shader::Stage stage,
