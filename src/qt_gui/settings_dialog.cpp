@@ -450,6 +450,26 @@ SettingsDialog::SettingsDialog(std::shared_ptr<gui_settings> gui_settings,
 #endif
     }
 
+    // Readbacks spin box connection
+    connect(ui->readbacksSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int value) {
+        QString labelText;
+        switch (value) {
+        case 0:
+            labelText = tr("Disable");
+            break;
+        case 1:
+            labelText = tr("Low");
+            break;
+        case 2:
+            labelText = tr("High");
+            break;
+        default:
+            labelText = tr("Disable");
+            break;
+        }
+        ui->readbacksValueLabel->setText(labelText);
+    });
+
     // Descriptions
     {
         // General
@@ -522,7 +542,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<gui_settings> gui_settings,
         ui->hostMarkersCheckBox->installEventFilter(this);
         ui->collectShaderCheckBox->installEventFilter(this);
         ui->copyGPUBuffersCheckBox->installEventFilter(this);
-        ui->readbacksCheckBox->installEventFilter(this);
+        ui->readbacksSpinBox->installEventFilter(this);
         ui->readbackLinearImagesCheckBox->installEventFilter(this);
         ui->dumpShadersCheckBox->installEventFilter(this);
         ui->dmaCheckBox->installEventFilter(this);
@@ -671,7 +691,26 @@ void SettingsDialog::LoadValuesFromConfig() {
         ui->micComboBox->setCurrentIndex(0);
     }
 
-    ui->readbacksCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "readbacks", false));
+    ui->readbacksSpinBox->setValue(toml::find_or<int>(data, "GPU", "readbacksMode", 0));
+    
+    // Update the readbacks value label
+    int readbacksValue = ui->readbacksSpinBox->value();
+    QString labelText;
+    switch (readbacksValue) {
+    case 0:
+        labelText = tr("Disable");
+        break;
+    case 1:
+        labelText = tr("Low");
+        break;
+    case 2:
+        labelText = tr("High");
+        break;
+    default:
+        labelText = tr("Disable");
+        break;
+    }
+    ui->readbacksValueLabel->setText(labelText);
     ui->readbackLinearImagesCheckBox->setChecked(
         toml::find_or<bool>(data, "GPU", "readbackLinearImages", false));
     ui->dmaCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
@@ -960,8 +999,8 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
         text = tr("Copy GPU Buffers:\\nGets around race conditions involving GPU submits.\\nMay or may not help with PM4 type 0 crashes.");
     } else if (elementName == "collectShaderCheckBox") {
         text = tr("Collect Shaders:\\nYou need this enabled to edit shaders with the debug menu (Ctrl + F10).");
-    } else if (elementName == "readbacksCheckBox") {
-        text = tr("Enable Readbacks:\\nEnable GPU memory readbacks and writebacks.\\nThis is required for proper behavior in some games.\\nMight cause stability and/or performance issues.");
+    } else if (elementName == "readbacksSpinBox") {
+        text = tr("Readbacks:\nEnable GPU memory readbacks and writebacks.\n0 = Disable, 1 = Low, 2 = High\nThis is required for proper behavior in some games.\nMight cause stability and/or performance issues.");
     } else if (elementName == "readbackLinearImagesCheckBox") {
         text = tr("Enable Readback Linear Images:\\nEnables async downloading of GPU modified linear images.\\nMight fix issues in some games.");
     } else if (elementName == "separateLogFilesCheckbox") {
@@ -1013,7 +1052,7 @@ bool SettingsDialog::eventFilter(QObject* obj, QEvent* event) {
 
 void SettingsDialog::UpdateSettings(bool is_specific) {
     // Entries with game-specific settings, needs the game-specific arg
-    Config::setReadbacks(ui->readbacksCheckBox->isChecked(), is_specific);
+    Config::setReadbacksMode(ui->readbacksSpinBox->value(), is_specific);
     Config::setReadbackLinearImages(ui->readbackLinearImagesCheckBox->isChecked(), is_specific);
     Config::setDirectMemoryAccess(ui->dmaCheckBox->isChecked(), is_specific);
     Config::setDevKitConsole(ui->devkitCheckBox->isChecked(), is_specific);

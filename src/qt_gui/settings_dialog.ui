@@ -2474,11 +2474,35 @@
                 <number>9</number>
                </property>
                <item>
-                <widget class="QCheckBox" name="readbacksCheckBox">
-                 <property name="text">
-                  <string>Enable Readbacks</string>
-                 </property>
-                </widget>
+                <layout class="QHBoxLayout" name="readbacksLayout">
+                 <item>
+                  <widget class="QLabel" name="readbacksLabel">
+                   <property name="text">
+                    <string>Readbacks:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QSpinBox" name="readbacksSpinBox">
+                   <property name="minimum">
+                    <number>0</number>
+                   </property>
+                   <property name="maximum">
+                    <number>2</number>
+                   </property>
+                   <property name="value">
+                    <number>0</number>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="readbacksValueLabel">
+                   <property name="text">
+                    <string>Disable</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
                </item>
                <item>
                 <widget class="QCheckBox" name="readbackLinearImagesCheckBox">
