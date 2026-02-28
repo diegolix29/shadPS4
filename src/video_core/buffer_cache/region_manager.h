@@ -95,7 +95,7 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::getReadbacksMode() == Config::GpuReadbacksMode::High) {
+        } else if (Config::readbacks()) {
             UpdateProtection<enable, true>();
         }
     }
@@ -126,7 +126,7 @@ public:
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
-            } else if (Config::getReadbacksMode() != Config::GpuReadbacksMode::Disabled) {
+            } else if (Config::readbacks()) {
                 UpdateProtection<false, true>();
             }
         }
