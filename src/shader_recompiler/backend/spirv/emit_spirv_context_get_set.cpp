@@ -77,7 +77,11 @@ Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
     }
     const auto [id, pointer_type] = buffer.Alias(PointerType::U32);
     const Id ptr{ctx.OpAccessChain(pointer_type, id, ctx.u32_zero_value, index)};
-    const Id result{ctx.OpLoad(ctx.U32[1], ptr)};
+    Id result{ctx.OpLoad(ctx.U32[1], ptr)};
+    if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0x5b8c6e5f && handle == 0) {
+        const Id is_six = ctx.OpIEqual(ctx.U1[1], index, ctx.ConstU32(6u));
+        result = ctx.OpSelect(ctx.U32[1], is_six, ctx.u32_zero_value, result);
+    }
     if (const Id size = buffer.Size(PointerSize::B32); Sirit::ValidId(size)) {
         const Id in_bounds = ctx.OpULessThan(ctx.U1[1], index, size);
         return ctx.OpSelect(ctx.U32[1], in_bounds, result, ctx.u32_zero_value);
