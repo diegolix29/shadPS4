@@ -25,8 +25,8 @@ enum HideCursorState : int { Never, Idle, Always };
 
 enum GpuReadbacksMode : int {
     Disabled,
-    Relaxed,
-    Precised,
+    Low,
+    High,
 };
 
 void load(const std::filesystem::path& path, bool is_game_specific = false);

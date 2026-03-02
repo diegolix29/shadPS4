@@ -95,7 +95,7 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::getReadbacksMode() == Config::GpuReadbacksMode::Precised) {
+        } else if (Config::getReadbacksMode() == Config::GpuReadbacksMode::High) {
             UpdateProtection<enable, true>();
         }
     }
