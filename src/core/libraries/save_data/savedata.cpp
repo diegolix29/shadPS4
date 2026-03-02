@@ -328,26 +328,34 @@ static void initialize() {
 static bool match(std::string_view str, std::string_view pattern) {
     auto str_it = str.begin();
     auto pat_it = pattern.begin();
+
     while (str_it != str.end() && pat_it != pattern.end()) {
-        if (*pat_it == '%') { // 0 or more wildcard
-            for (auto str_wild_it = str_it; str_wild_it < str.end(); ++str_wild_it) {
+
+        if (*pat_it == '%') {
+            for (auto str_wild_it = str_it; str_wild_it <= str.end(); ++str_wild_it) {
                 if (match({str_wild_it, str.end()}, {pat_it + 1, pattern.end()})) {
                     return true;
                 }
             }
             return false;
         }
-        if (*pat_it == '_') { // 1 character wildcard
+
+        if (*pat_it == '_') {
             ++str_it;
             ++pat_it;
             continue;
         }
-        if (*pat_it != *str_it) {
+
+        if (*pat_it != *str_it)
             return false;
-        }
+
         ++str_it;
         ++pat_it;
     }
+
+    while (pat_it != pattern.end() && *pat_it == '%')
+        ++pat_it;
+
     return str_it == str.end() && pat_it == pattern.end();
 }
 
