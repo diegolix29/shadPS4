@@ -434,7 +434,7 @@ int main(int argc, char* argv[]) {
                     SDL_PushEvent(&e);
                 } else if (cmd == "ADJUST_VOLUME") {
                     int value = static_cast<int>(std::stoull(next_str(), nullptr, 0));
-                    Config::setVolumeSlider(value, true);
+                    Config::setVolumeSlider(value);
                     Libraries::AudioOut::AdjustVol();
                 } else if (cmd == "SET_FSR") {
                     bool use_fsr = std::stoull(next_str(), nullptr, 0) != 0;

@@ -390,16 +390,16 @@ bool isPipelineCacheArchived() {
     return pipelineCacheArchive.get();
 }
 
-void setPipelineCacheArchived(bool enable, bool is_game_specific) {
-    pipelineCacheArchive.set(enable, is_game_specific);
+void setPipelineCacheArchived(bool enable) {
+    pipelineCacheArchive.base_value = enable;
 }
 
 bool isPipelineCacheEnabled() {
     return pipelineCacheEnable.get();
 }
 
-void setPipelineCacheEnabled(bool enable, bool is_game_specific) {
-    pipelineCacheEnable.set(enable, is_game_specific);
+void setPipelineCacheEnabled(bool enable) {
+    pipelineCacheEnable.base_value = enable;
 }
 
 void setShowWelcomeDialog(bool enable) {
@@ -771,8 +771,8 @@ int getVolumeSlider() {
     return volumeSlider.get();
 }
 
-void setVolumeSlider(int volumeValue, bool is_game_specific) {
-    volumeSlider.set(volumeValue, is_game_specific);
+void setVolumeSlider(int volumeValue) {
+    volumeSlider.base_value = volumeValue;
 }
 
 bool isMuteEnabled() {
@@ -821,16 +821,16 @@ int getSpecialPadClass(int pad) {
     return specialPadClasses[pad - 1].get();
 }
 
-void setUseSpecialPad(int pad, bool use, bool is_game_specific) {
+void setUseSpecialPad(int pad, bool use) {
     if (pad < 1 || pad > 4)
         return;
-    useSpecialPads[pad - 1].set(use, is_game_specific);
+    useSpecialPads[pad - 1].base_value = use;
 }
 
-void setSpecialPadClass(int pad, int type, bool is_game_specific) {
+void setSpecialPadClass(int pad, int type) {
     if (pad < 1 || pad > 4)
         return;
-    specialPadClasses[pad - 1].set(type, is_game_specific);
+    specialPadClasses[pad - 1].base_value = type;
 }
 
 bool getIsMotionControlsEnabled() {

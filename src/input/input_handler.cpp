@@ -644,13 +644,13 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             break;
         case HOTKEY_VOLUME_UP:
             if (new_button_state) {
-                Config::setVolumeSlider(Config::getVolumeSlider() + 10, true);
+                Config::setVolumeSlider(Config::getVolumeSlider() + 10);
                 Overlay::ShowVolume();
             }
             break;
         case HOTKEY_VOLUME_DOWN:
             if (new_button_state) {
-                Config::setVolumeSlider(Config::getVolumeSlider() - 10, true);
+                Config::setVolumeSlider(Config::getVolumeSlider() - 10);
                 Overlay::ShowVolume();
             }
             break;

@@ -463,7 +463,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                     Config::setFpsLimit(fps_backup);
 
                     ui->horizontalVolumeSlider->setValue(volume_slider_backup);
-                    Config::setVolumeSlider(volume_slider_backup, true);
+                    Config::setVolumeSlider(volume_slider_backup);
 
                     ui->BGMVolumeSlider->setValue(bgm_volume_backup);
                     BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
@@ -990,7 +990,7 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
         ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
         emit BackgroundOpacityChanged(backgroundImageOpacitySlider_backup);
         ui->horizontalVolumeSlider->setValue(volume_slider_backup);
-        Config::setVolumeSlider(volume_slider_backup, true);
+        Config::setVolumeSlider(volume_slider_backup);
         ui->BGMVolumeSlider->setValue(bgm_volume_backup);
         BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
         ui->fpsSlider->setValue(fps_backup);
@@ -1217,10 +1217,10 @@ void SettingsDialog::LoadValuesFromConfig() {
             std::string useKey = fmt::format("useSpecialPad{}", p);
 
             if (in.contains(classKey))
-                Config::setSpecialPadClass(p, toml::find<int>(in, classKey), true);
+                Config::setSpecialPadClass(p, toml::find<int>(in, classKey));
 
             if (in.contains(useKey))
-                Config::setUseSpecialPad(p, toml::find<bool>(in, useKey), true);
+                Config::setUseSpecialPad(p, toml::find<bool>(in, useKey));
         }
 
         // Update UI matrix
@@ -1663,7 +1663,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setCollectShaderForDebug(ui->collectShaderCheckBox->isChecked());
     Config::setPatchShaders(ui->patchShadersCheckBox->isChecked());
     Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
-    Config::setVolumeSlider(ui->horizontalVolumeSlider->value(), true);
+    Config::setVolumeSlider(ui->horizontalVolumeSlider->value());
     Config::setSysModulesPath(Common::FS::PathFromQString(ui->currentSysModulesPath->text()));
 
     Config::setAutoUpdate(ui->updateCheckBox->isChecked());
@@ -1708,9 +1708,9 @@ void SettingsDialog::UpdateSettings() {
             }
         }
 
-        Config::setSpecialPadClass(p, cls, true);
+        Config::setSpecialPadClass(p, cls);
 
-        Config::setUseSpecialPad(p, cls != 0, true);
+        Config::setUseSpecialPad(p, cls != 0);
     }
 
 #ifdef ENABLE_DISCORD_RPC

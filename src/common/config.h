@@ -179,9 +179,9 @@ void setPlayBGM(bool enable);
 void setBGMvolume(int volume);
 void setEnableDiscordRPC(bool enable);
 void setLanguage(u32 language);
-void setUseSpecialPad(int pad, bool use, bool is_game_specific);
+void setUseSpecialPad(int pad, bool use);
 bool getUseSpecialPad(int pad);
-void setSpecialPadClass(int pad, int type, bool is_game_specific);
+void setSpecialPadClass(int pad, int type);
 int getSpecialPadClass(int pad);
 bool getPSNSignedIn();
 void setPSNSignedIn(bool sign); // no ui setting
@@ -214,11 +214,11 @@ bool getRcasEnabled();
 void setRcasEnabled(bool enable);
 
 bool isPipelineCacheArchived();
-void setPipelineCacheArchived(bool enable, bool is_game_specific = false);
+void setPipelineCacheArchived(bool enable);
 
 enum UsbBackendType : int { Real, SkylandersPortal, InfinityBase, DimensionsToypad };
 int getUsbDeviceBackend();
-void setUsbDeviceBackend(int value, bool is_game_specific = false);
+void setUsbDeviceBackend(int value);
 
 // TODO
 bool GetLoadGameSizeEnabled();
@@ -318,7 +318,7 @@ u32 getMainWindowGeometryY();
 u32 getMainWindowGeometryW();
 u32 getMainWindowGeometryH();
 bool isPipelineCacheEnabled();
-void setPipelineCacheEnabled(bool enable, bool is_game_specific = false);
+void setPipelineCacheEnabled(bool enable);
 const std::vector<std::filesystem::path> getGameDirectories();
 const std::vector<bool> getGameDirectoriesEnabled();
 std::filesystem::path getAddonDirectory();
@@ -337,7 +337,7 @@ std::vector<std::string> getRecentFiles();
 std::string getEmulatorLanguage();
 
 int getVolumeSlider();
-void setVolumeSlider(int volumeValue, bool is_game_specific);
+void setVolumeSlider(int volumeValue);
 bool isMuteEnabled();
 void setMuteEnabled(bool enabled);
 bool hasCustomMuteHotkey();

@@ -603,10 +603,10 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             std::string useKey = fmt::format("useSpecialPad{}", p);
 
             if (in.contains(classKey))
-                Config::setSpecialPadClass(p, toml::find<int>(in, classKey), true);
+                Config::setSpecialPadClass(p, toml::find<int>(in, classKey));
 
             if (in.contains(useKey))
-                Config::setUseSpecialPad(p, toml::find<bool>(in, useKey), true);
+                Config::setUseSpecialPad(p, toml::find<bool>(in, useKey));
         }
         for (int p = 1; p <= 4; ++p) {
             int cls = Config::getSpecialPadClass(p);

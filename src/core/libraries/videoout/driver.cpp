@@ -350,17 +350,23 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
 
     if (Config::isFpsLimiterEnabled()) {
         const auto fps_limit = static_cast<int64_t>(Config::getFpsLimit());
+        LOG_INFO(Lib_VideoOut, "PresentThread: FPS limiter enabled, fps_limit = {}", fps_limit);
         if (fps_limit > 0) {
             fps_cap_value_ns = kNanosPerSec / fps_limit; // nanoseconds per frame
         } else {
             // If fps_limit is 0 (invalid), fall back to vblank frequency below.
+            LOG_INFO(Lib_VideoOut,
+                     "PresentThread: FPS limiter has invalid value (0), falling back to vblank");
             fps_cap_value_ns = 0;
         }
+    } else {
+        LOG_INFO(Lib_VideoOut, "PresentThread: FPS limiter disabled, using vblank frequency");
     }
 
     if (fps_cap_value_ns == 0) {
         // Either limiter disabled or limiter produced 0 (or invalid fps). Use vblank frequency.
         const auto vblank_freq = static_cast<int64_t>(Config::vblankFreq());
+        LOG_INFO(Lib_VideoOut, "PresentThread: Using vblank_freq = {}", vblank_freq);
         if (vblank_freq > 0) {
             fps_cap_value_ns = kNanosPerSec / vblank_freq; // nanoseconds per vblank
         } else {
@@ -368,6 +374,9 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
             fps_cap_value_ns = 1'000'000LL;
         }
     }
+
+    LOG_INFO(Lib_VideoOut, "PresentThread: fps_cap_value_ns = {} ns ({} FPS)", fps_cap_value_ns,
+             fps_cap_value_ns > 0 ? 1'000'000'000LL / fps_cap_value_ns : 0);
 
     // Ensure at least 1 ns to avoid zero-duration timers.
     if (fps_cap_value_ns <= 0) {
