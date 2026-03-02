@@ -451,24 +451,25 @@ SettingsDialog::SettingsDialog(std::shared_ptr<gui_settings> gui_settings,
     }
 
     // Readbacks spin box connection
-    connect(ui->readbacksSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int value) {
-        QString labelText;
-        switch (value) {
-        case 0:
-            labelText = tr("Disable");
-            break;
-        case 1:
-            labelText = tr("Low");
-            break;
-        case 2:
-            labelText = tr("High");
-            break;
-        default:
-            labelText = tr("Disable");
-            break;
-        }
-        ui->readbacksValueLabel->setText(labelText);
-    });
+    connect(ui->readbacksSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
+            [this](int value) {
+                QString labelText;
+                switch (value) {
+                case 0:
+                    labelText = tr("Disable");
+                    break;
+                case 1:
+                    labelText = tr("Low");
+                    break;
+                case 2:
+                    labelText = tr("High");
+                    break;
+                default:
+                    labelText = tr("Disable");
+                    break;
+                }
+                ui->readbacksValueLabel->setText(labelText);
+            });
 
     // Descriptions
     {
@@ -692,7 +693,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     }
 
     ui->readbacksSpinBox->setValue(toml::find_or<int>(data, "GPU", "readbacksMode", 0));
-    
+
     // Update the readbacks value label
     int readbacksValue = ui->readbacksSpinBox->value();
     QString labelText;
