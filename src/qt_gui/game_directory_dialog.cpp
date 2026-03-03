@@ -157,6 +157,6 @@ void GameDirectoryDialog::Save() {
     Config::setAddonDirectories(Common::FS::PathFromQString(addonsDirectory));
     Config::setSysModulesPath(Common::FS::PathFromQString(sysModulesDirectory));
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-    Config::save(config_dir / "config.toml");
+    Config::save(config_dir / "config.toml", false);
     accept();
 }

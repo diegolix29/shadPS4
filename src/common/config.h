@@ -39,7 +39,7 @@ enum class ReadbackSpeed : u32 {
 };
 
 void load(const std::filesystem::path& path, bool is_game_specific = false);
-void save(const std::filesystem::path& path);
+void save(const std::filesystem::path& path, bool is_game_specific = false);
 void saveMainWindow(const std::filesystem::path& path);
 
 bool getSeparateUpdateEnabled();
@@ -56,7 +56,7 @@ void setShowLabelsUnderIcons(bool enable);
 bool getEnableColorFilter();
 void setEnableColorFilter(bool enable);
 bool getShowFpsCounter();
-void setShowFpsCounter(bool enable, bool is_game_specific = false);
+void setShowFpsCounter(bool enable);
 bool getToolbarWidgetVisibility(const std::string& name, bool default_value);
 void setToolbarWidgetVisibility(const std::string& name, bool is_visible);
 std::string getFullscreenMode();

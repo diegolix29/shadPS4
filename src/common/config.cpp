@@ -178,7 +178,8 @@ static bool compatibilityData = false;
 static std::filesystem::path sys_modules_path = {};
 static bool bootGamesMenu = false;
 static bool bootHubMenu = false;
-static bool restartWithBaseGame = false;
+static ConfigEntry<bool> restartWithBaseGame(false);
+
 static bool separateupdatefolder = false;
 static ConfigEntry<bool> screenTipDisable(false);
 static ConfigEntry<bool> fpsLimiterEnabled(false);
@@ -563,10 +564,10 @@ void setHubMenuUI(bool enable) {
 }
 
 bool getRestartWithBaseGame() {
-    return restartWithBaseGame;
+    return restartWithBaseGame.get();
 }
 void setRestartWithBaseGame(bool enable) {
-    restartWithBaseGame = enable;
+    restartWithBaseGame.base_value = enable;
 }
 
 bool getSeparateUpdateEnabled() {
@@ -907,7 +908,6 @@ ReadbackSpeed readbackSpeed() {
 
 void setReadbackSpeed(ReadbackSpeed mode) {
     readbackSpeedMode.base_value = mode;
-    readbackSpeedMode.game_specific_value = mode;
 }
 
 bool setReadbackLinearImages(bool enable) {
@@ -946,8 +946,8 @@ bool getShowFpsCounter() {
     return showFpsCounter.get();
 }
 
-void setShowFpsCounter(bool enable, bool is_game_specific) {
-    showFpsCounter.set(enable, is_game_specific);
+void setShowFpsCounter(bool enable) {
+    showFpsCounter.base_value = enable;
 }
 
 u32 vblankFreq() {
@@ -1505,7 +1505,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         enableAutoBackup.setFromToml(general, "enableAutoBackup", false);
         bootGamesMenu = toml::find_or<bool>(general, "GamesMenuUI", false);
         bootHubMenu = toml::find_or<bool>(general, "HubMenuUI", false);
-        restartWithBaseGame = toml::find_or<bool>(general, "restartWithBaseGame", false);
+        restartWithBaseGame.setFromToml(general, "restartWithBaseGame", is_game_specific);
         separateupdatefolder = toml::find_or<bool>(general, "separateUpdateEnabled", false);
         screenTipDisable.setFromToml(general, "screenTipDisable", is_game_specific);
         volumeSlider.setFromToml(general, "volumeSlider", is_game_specific);
@@ -1874,7 +1874,7 @@ void sortTomlSections(toml::ordered_value& data) {
     data = ordered_data;
 }
 
-void save(const std::filesystem::path& path) {
+void save(const std::filesystem::path& path, bool is_game_specific) {
     toml::ordered_value data;
 
     std::error_code error;
@@ -1924,7 +1924,7 @@ void save(const std::filesystem::path& path) {
     data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
     data["General"]["GamesMenuUI"] = bootGamesMenu;
     data["General"]["HubMenuUI"] = bootHubMenu;
-    data["General"]["restartWithBaseGame"] = restartWithBaseGame;
+    data["General"]["restartWithBaseGame"] = restartWithBaseGame.base_value;
     data["General"]["enableMods"] = enableMods.base_value;
     data["General"]["enableUpdates"] = enableUpdates.base_value;
     data["General"]["separateUpdateEnabled"] = separateupdatefolder;
@@ -2127,7 +2127,6 @@ void setDefaultValues() {
     // General
     isNeo = false;
     isDevKit = false;
-    showWelcomeDialog = true;
     extraDmemInMbytes = 0;
     isPSNSignedIn = false;
     isTrophyPopupDisabled = false;

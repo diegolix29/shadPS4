@@ -126,7 +126,7 @@ ControlSettings::ControlSettings(std::shared_ptr<GameInfoClass> game_info_get,
             GamepadSelect::GetGUIDString(gamepads, ui->ActiveGamepadBox->currentIndex());
         ui->DefaultGamepadLabel->setText(tr("ID: ") + QString::fromStdString(GUID).right(16));
         Config::setDefaultControllerID(GUID);
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
         QMessageBox::information(this, tr("Default Controller Selected"),
                                  tr("Active controller set as default"));
     });
@@ -135,7 +135,7 @@ ControlSettings::ControlSettings(std::shared_ptr<GameInfoClass> game_info_get,
         ui->DefaultGamepadName->setText(tr("No default selected"));
         ui->DefaultGamepadLabel->setText(tr("n/a"));
         Config::setDefaultControllerID("");
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
         QMessageBox::information(this, tr("Default Controller Removed"),
                                  tr("Default controller setting removed"));
     });
@@ -351,7 +351,7 @@ void ControlSettings::SaveControllerConfig(bool CloseOnSave) {
     Config::SetOverrideControllerColor(ui->LightbarCheckBox->isChecked());
     Config::SetControllerCustomColor(ui->RSlider->value(), ui->GSlider->value(),
                                      ui->BSlider->value());
-    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
 
     if (GameRunning) {
         Config::GetUseUnifiedInputConfig() ? m_ipc_client->reloadInputs("default")
@@ -688,7 +688,7 @@ void ControlSettings::ActiveControllerChanged(int value) {
     std::string GUID = GamepadSelect::GetGUIDString(gamepads, value);
     GamepadSelect::SetSelectedGamepad(GUID);
     Config::setActiveControllerID(GUID);
-    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
 
     QString qGUID = QString::fromStdString(GUID).right(16);
     ui->ActiveGamepadLabel->setText("ID: " + qGUID);
