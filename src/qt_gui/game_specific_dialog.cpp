@@ -432,6 +432,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->logTypeComboBox->setCurrentText(QString::fromStdString(Config::getLogType()));
     ui->screenTipBox->setChecked(Config::getScreenTipDisable());
     ui->showSplashCheckBox->setChecked(Config::showSplash());
+    ui->restartWithBaseGameCheckBox->setChecked(Config::getRestartWithBaseGame());
 
     QString side = QString::fromStdString(Config::sideTrophy());
     ui->radioButton_Left->setChecked(side == "left");
@@ -567,6 +568,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->screenTipBox->setChecked(toml::find<bool>(gen, "screenTipDisable"));
         if (gen.contains("showSplash"))
             ui->showSplashCheckBox->setChecked(toml::find<bool>(gen, "showSplash"));
+        if (gen.contains("restartWithBaseGame"))
+            ui->restartWithBaseGameCheckBox->setChecked(toml::find<bool>(gen, "restartWithBaseGame"));
         if (gen.contains("sideTrophy")) {
             QString side = QString::fromStdString(toml::find<std::string>(gen, "sideTrophy"));
             ui->radioButton_Left->setChecked(side == "left");
@@ -799,6 +802,9 @@ void GameSpecificDialog::UpdateSettings() {
 
     if (ui->showSplashCheckBox->isChecked() != Config::showSplash())
         overrides["General"]["showSplash"] = ui->showSplashCheckBox->isChecked();
+
+    if (ui->restartWithBaseGameCheckBox->isChecked() != Config::getRestartWithBaseGame())
+        overrides["General"]["restartWithBaseGame"] = ui->restartWithBaseGameCheckBox->isChecked();
 
     // Trophy
     std::string side = Config::sideTrophy();

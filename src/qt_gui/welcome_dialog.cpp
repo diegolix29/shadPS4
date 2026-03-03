@@ -214,7 +214,7 @@ void WelcomeDialog::SetupUI() {
     mainLayout->addWidget(updateButton, 0, Qt::AlignLeft);
     connect(updateButton, &QPushButton::clicked, this, [this]() {
         Config::setShowWelcomeDialog(!m_skipNextLaunch);
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
         accept();
     });
     auto* footer = new QHBoxLayout();
@@ -306,7 +306,7 @@ void WelcomeDialog::SetupUI() {
             Config::load(config_path);
         }
 
-        Config::save(config_path);
+        Config::save(config_path, false);
 
         accept();
     });
@@ -410,7 +410,7 @@ void WelcomeDialog::SetupUI() {
             Config::load(config_path);
         }
 
-        Config::save(config_path);
+        Config::save(config_path, false);
 
         accept();
     });

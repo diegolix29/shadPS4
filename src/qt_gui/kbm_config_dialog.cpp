@@ -48,7 +48,7 @@ EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
     // Connect checkbox signal
     connect(unifiedInputCheckBox, &QCheckBox::toggled, this, [](bool checked) {
         Config::SetUseUnifiedInputConfig(!checked);
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
     // Create Save, Cancel, and Help buttons
     QPushButton* saveButton = new QPushButton("Save", this);

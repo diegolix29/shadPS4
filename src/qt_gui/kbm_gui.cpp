@@ -340,7 +340,7 @@ QString(tr("Cannot bind any unique input more than once. Duplicate inputs mapped
     output_file.close();
 
     Config::SetUseUnifiedInputConfig(!ui->PerGameCheckBox->isChecked());
-    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
 
     if (GameRunning) {
         Config::GetUseUnifiedInputConfig() ? m_ipc_client->reloadInputs("default")

@@ -18,6 +18,7 @@
 #include "common/key_manager.h"
 #include "common/logging/log.h"
 #include "common/scm_rev.h"
+#include "core/emulator_state.h"
 #include "core/libraries/audio/audioout.h"
 #include "qt_gui/compatibility_info.h"
 #ifdef ENABLE_DISCORD_RPC
@@ -443,17 +444,25 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                 if (button == ui->buttonBox->button(QDialogButtonBox::Save)) {
                     is_saving = true;
                     UpdateSettings();
-                    Config::save(config_dir / "config.toml");
+                    if (!EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
+                        Config::save(config_dir / "config.toml", false);
+                    }
                     QWidget::close();
 
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::Apply)) {
                     UpdateSettings();
-                    Config::save(config_dir / "config.toml");
+                    if (!EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
+                        Config::save(config_dir / "config.toml", false);
+                    }
 
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)) {
-                    Config::setDefaultValues();
-                    Config::save(config_dir / "config.toml");
-                    LoadValuesFromConfig();
+                    if (!EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
+                        Config::setDefaultValues();
+                        if (!EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
+                            Config::save(config_dir / "config.toml", false);
+                        }
+                        LoadValuesFromConfig();
+                    }
 
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::Close)) {
                     ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
@@ -1109,14 +1118,15 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->HomeHotkeysCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "UseHomeButtonForHotkeys", false));
     ui->screenTipBox->setChecked(toml::find_or<bool>(data, "General", "screenTipDisable", false));
-    ui->ReadbackSpeedComboBox->setCurrentIndex(static_cast<int>(Config::readbackSpeed()));
+    ui->ReadbackSpeedComboBox->setCurrentIndex(
+        toml::find_or<int>(data, "GPU", "readbackSpeedMode", 0));
 
     ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));
-    ui->MemorySpinBox->setValue(
-        toml::find_or<int>(data, "General", "extraDmemInMbytes", Config::getExtraDmemInMbytes()));
+    ui->MemorySpinBox->setValue(toml::find_or<int>(data, "General", "extraDmemInMbytes", 0));
     ui->disableTrophycheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
-    ui->popUpDurationSpinBox->setValue(Config::getTrophyNotificationDuration());
+    ui->popUpDurationSpinBox->setValue(
+        toml::find_or<double>(data, "General", "trophyNotificationDuration", 6.0));
 
     QString side = QString::fromStdString(Config::sideTrophy());
 
@@ -1126,12 +1136,12 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->radioButton_Bottom->setChecked(side == "bottom");
 
     ui->BGMVolumeSlider->setValue(toml::find_or<int>(data, "General", "BGMvolume", 50));
-    int gameVolume = Config::getVolumeSlider();
+    int gameVolume = toml::find_or<int>(data, "General", "volumeSlider", 50);
     ui->horizontalVolumeSlider->setValue(gameVolume);
     QCoreApplication::processEvents();
     ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->value()) + "%");
-    ui->fpsSlider->setValue(Config::getFpsLimit());
-    ui->fpsSpinBox->setValue(Config::getFpsLimit());
+    ui->fpsSlider->setValue(toml::find_or<int>(data, "GPU", "fpsLimit", 60));
+    ui->fpsSpinBox->setValue(toml::find_or<int>(data, "GPU", "fpsLimit", 60));
     ui->fpsLimiterCheckBox->setChecked(Config::isFpsLimiterEnabled());
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
@@ -1148,7 +1158,8 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     ui->gameSizeCheckBox->setChecked(toml::find_or<bool>(data, "GUI", "loadGameSizeEnabled", true));
     ui->showSplashCheckBox->setChecked(toml::find_or<bool>(data, "General", "showSplash", false));
-    QString translatedText_logType = logTypeMap.key(QString::fromStdString(Config::getLogType()));
+    QString translatedText_logType = logTypeMap.key(
+        QString::fromStdString(toml::find_or<std::string>(data, "General", "logType", "sync")));
     if (!translatedText_logType.isEmpty()) {
         ui->logTypeComboBox->setCurrentText(translatedText_logType);
     }
@@ -1551,6 +1562,10 @@ bool SettingsDialog::eventFilter(QObject* obj, QEvent* event) {
 }
 
 void SettingsDialog::UpdateSettings() {
+    // Don't update global settings if per-game config is active
+    if (EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
+        return;
+    }
 
     Config::setIsFullscreen(screenModeMap.value(ui->displayModeComboBox->currentText()) !=
                             "Windowed");

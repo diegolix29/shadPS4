@@ -34,6 +34,7 @@
 #include "common/scm_rev.h"
 #include "common/string_util.h"
 #include "control_settings.h"
+#include "core/emulator_state.h"
 #include "core/ipc/ipc.h"
 
 #include "core/libraries/audio/audioout.h"
@@ -1171,7 +1172,7 @@ void MainWindow::CheckUpdateMain(bool checkSave) {
 void MainWindow::toggleWelcomeScreenOnLaunch(bool enabled) {
     Config::setShowWelcomeDialog(enabled);
     ui->welcomeAct->setChecked(enabled);
-    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
 }
 
 void MainWindow::onSetCustomBackground() {
@@ -1385,7 +1386,7 @@ void MainWindow::CreateConnects() {
         m_game_list_frame->ApplyCustomBackground();
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
-        Config::save(config_dir / "config.toml");
+        Config::save(config_dir / "config.toml", false);
     });
 
     connect(ui->clearCustomBackgroundAct, &QAction::triggered, this, [this]() {
@@ -1394,7 +1395,7 @@ void MainWindow::CreateConnects() {
         }
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 
-        Config::save(config_dir / "config.toml");
+        Config::save(config_dir / "config.toml", false);
     });
 
     connect(ui->installPkgButton, &QPushButton::clicked, this, [this]() {
@@ -1405,7 +1406,7 @@ void MainWindow::CreateConnects() {
     connect(ui->launcherBox, &QCheckBox::clicked, this, [this](bool checked) {
         Config::setBootLauncher(checked);
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-        Config::save(config_dir / "config.toml");
+        Config::save(config_dir / "config.toml", false);
     });
 
     connect(ui->settingsButton, &QPushButton::clicked, this, [this]() {
@@ -1477,17 +1478,17 @@ void MainWindow::CreateConnects() {
     });
     connect(ui->welcomeAct, &QAction::triggered, this, [this](bool checked) {
         Config::setShowWelcomeDialog(checked);
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
 
     connect(ui->bigPictureAct, &QAction::triggered, this, [this](bool checked) {
         Config::setGamesMenuUI(checked);
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
 
     connect(ui->hubMenuAct, &QAction::triggered, this, [this](bool checked) {
         Config::setHubMenuUI(checked);
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml");
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
 
     connect(ui->pauseOnUnfocusAct, &QAction::triggered, this, [this](bool checked) {
@@ -1943,7 +1944,7 @@ void MainWindow::autoCheckLauncherBox() {
         ui->launcherBox->setChecked(false);
         Config::setBootLauncher(false);
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-        Config::save(config_dir / "config.toml");
+        Config::save(config_dir / "config.toml", false);
     }
 }
 
@@ -1990,21 +1991,25 @@ void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
         bool hasUpdate = std::filesystem::is_directory(update_folder);
         bool hasMods = std::filesystem::exists(mods_folder);
 
-        if (hasUpdate || hasMods) {
-            if (!runningGameSerial.empty()) {
-                Config::load(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
-                                 (runningGameSerial + ".toml"),
-                             true);
-            }
+        if (!runningGameSerial.empty()) {
+            const auto game_config_path =
+                Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                (runningGameSerial + ".toml");
+            Config::load(game_config_path, true);
 
+            if (std::filesystem::exists(game_config_path)) {
+                EmulatorState::GetInstance()->SetGameSpecifigConfigUsed(true);
+            } else {
+                EmulatorState::GetInstance()->SetGameSpecifigConfigUsed(false);
+            }
+        }
+
+        if (hasUpdate || hasMods) {
             bool enableMods = Config::getEnableMods();
             bool enableUpdates = Config::getEnableUpdates();
 
             if (hasUpdate && enableUpdates) {
                 Config::setRestartWithBaseGame(false);
-                const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-                Config::save(config_dir / "config.toml");
-
                 auto update_eboot = update_folder / "eboot.bin";
                 if (std::filesystem::exists(update_eboot)) {
                     file = update_eboot;
@@ -2013,8 +2018,6 @@ void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
                 }
             } else if (hasUpdate && !enableUpdates) {
                 Config::setRestartWithBaseGame(true);
-                const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-                Config::save(config_dir / "config.toml");
                 file = base_folder / "eboot.bin";
                 ignorePatches = true;
             }
