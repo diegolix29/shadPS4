@@ -215,6 +215,7 @@ bool IsImageAtomicInstruction(const IR::Inst& inst) {
     case IR::Opcode::ImageAtomicOr32:
     case IR::Opcode::ImageAtomicXor32:
     case IR::Opcode::ImageAtomicExchange32:
+    case IR::Opcode::ImageAtomicCmpSwap32:
         return true;
     default:
         return false;
