@@ -52,7 +52,7 @@ class BufferCache {
 public:
     static constexpr u32 CACHING_PAGEBITS = 13;
     static constexpr u64 CACHING_PAGESIZE = u64{1} << CACHING_PAGEBITS;
-    static constexpr u64 DEVICE_PAGESIZE = 32_KB;
+    static constexpr u64 DEVICE_PAGESIZE = 16_KB;
     static constexpr u64 CACHING_NUMPAGES = u64{1} << (40 - CACHING_PAGEBITS);
     static constexpr u64 BDA_PAGETABLE_SIZE = CACHING_NUMPAGES * sizeof(vk::DeviceAddress);
 

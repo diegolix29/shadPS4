@@ -37,9 +37,6 @@
 #include "main_window_ui.h"
 #include "sdl_window.h"
 
-#define SDL_ENABLE_GAMEPAD
-#include <SDL3/SDL.h>
-
 class QFlowLayout : public QLayout {
 public:
     explicit QFlowLayout(QWidget* parent, int margin = -1, int hSpacing = -1, int vSpacing = -1);

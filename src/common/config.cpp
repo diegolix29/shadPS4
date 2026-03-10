@@ -160,8 +160,13 @@ static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
 static ConfigEntry<std::string> logFilter("");
 static ConfigEntry<std::string> logType("sync");
-static ConfigEntry<std::array<std::string, 4>> userNames({"shadPS4"});
-static ConfigEntry<std::array<bool, 4>> playerEnabledStates({true});
+static ConfigEntry<std::array<std::string, 4>> userNames({
+    "shadPS4",
+    "shadps4-2",
+    "shadPS4-3",
+    "shadPS4-4",
+});
+static ConfigEntry<std::array<bool, 4>> playerEnabledStates({true, true, true, true});
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
@@ -2140,7 +2145,7 @@ void setDefaultValues() {
     logFilter = "";
     logType = "sync";
     userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
-    playerEnabledStates = {true, false, false, false};
+    playerEnabledStates = {true, true, true, true};
     chooseHomeTab = "General";
     isShowSplash = false;
     isSideTrophy = "right";
