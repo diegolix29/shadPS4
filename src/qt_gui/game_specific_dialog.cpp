@@ -740,7 +740,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
 }
 
 void GameSpecificDialog::UpdateSettings() {
-    toml::value overrides = toml::table{};
+    Config::setGameSpecificContext(true);
 
     QMap<QString, QString> logTypeMap = {
         {tr("async"), "async"},
@@ -752,256 +752,96 @@ void GameSpecificDialog::UpdateSettings() {
         {"Immediate", tr("Immediate (No Vsync)")},
     };
 
-    //  General
-    if (ui->enableAutoBackupCheckBox->isChecked() != Config::getEnableAutoBackup())
-        overrides["General"]["enableAutoBackup"] = ui->enableAutoBackupCheckBox->isChecked();
-
-    if (ui->discordRPCCheckbox->isChecked() != Config::getEnableDiscordRPC())
-        overrides["General"]["enableDiscordRPC"] = ui->discordRPCCheckbox->isChecked();
-
-    if (ui->HotkeysCheckBox->isChecked() != Config::DisableHardcodedHotkeys())
-        overrides["General"]["DisableHardcodedHotkeys"] = ui->HotkeysCheckBox->isChecked();
-
-    if (ui->HomeHotkeysCheckBox->isChecked() != Config::UseHomeButtonForHotkeys())
-        overrides["General"]["UseHomeButtonForHotkeys"] = ui->HomeHotkeysCheckBox->isChecked();
-
-    if (ui->horizontalVolumeSlider->value() != Config::getVolumeSlider())
-        overrides["General"]["volumeSlider"] = ui->horizontalVolumeSlider->value();
-
-    if (ui->connectedNetworkCheckBox->isChecked() != Config::getIsConnectedToNetwork())
-        overrides["General"]["isConnectedToNetwork"] = ui->connectedNetworkCheckBox->isChecked();
-
-    if (ui->isDevKitCheckBox->isChecked() != Config::isDevKitConsole())
-        overrides["General"]["isDevKit"] = ui->isDevKitCheckBox->isChecked();
-
-    if (ui->isNeoModeCheckBox->isChecked() != Config::isNeoModeConsole())
-        overrides["General"]["isPS4Pro"] = ui->isNeoModeCheckBox->isChecked();
-
-    if (ui->isPSNSignedInCheckBox->isChecked() != Config::getPSNSignedIn())
-        overrides["General"]["isPSNSignedIn"] = ui->isPSNSignedInCheckBox->isChecked();
-
-    if (ui->httpHostOverrideLineEdit->text().toStdString() != Config::GetHttpHostOverride())
-        overrides["General"]["httpHostOverride"] =
-            ui->httpHostOverrideLineEdit->text().toStdString();
-
-    if (ui->disableTrophycheckBox->isChecked() != Config::getisTrophyPopupDisabled())
-        overrides["General"]["isTrophyPopupDisabled"] = ui->disableTrophycheckBox->isChecked();
-
-    if (ui->logFilterLineEdit->text().toStdString() != Config::getLogFilter())
-        overrides["General"]["logFilter"] = ui->logFilterLineEdit->text().toStdString();
-
-    if (logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString() != Config::getLogType())
-        overrides["General"]["logType"] =
-            logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString();
-
-    if (ui->screenTipBox->isChecked() != Config::getScreenTipDisable())
-        overrides["General"]["screenTipDisable"] = ui->screenTipBox->isChecked();
-
-    if (ui->showSplashCheckBox->isChecked() != Config::showSplash())
-        overrides["General"]["showSplash"] = ui->showSplashCheckBox->isChecked();
-
-    // Trophy
-    std::string side = Config::sideTrophy();
-    if (ui->radioButton_Top->isChecked() && side != "top")
-        overrides["General"]["sideTrophy"] = "top";
-    else if (ui->radioButton_Left->isChecked() && side != "left")
-        overrides["General"]["sideTrophy"] = "left";
-    else if (ui->radioButton_Right->isChecked() && side != "right")
-        overrides["General"]["sideTrophy"] = "right";
-    else if (ui->radioButton_Bottom->isChecked() && side != "bottom")
-        overrides["General"]["sideTrophy"] = "bottom";
-
-    if (ui->popUpDurationSpinBox->value() != Config::getTrophyNotificationDuration())
-        overrides["General"]["trophyNotificationDuration"] = ui->popUpDurationSpinBox->value();
-
-    if (ui->enableModsCheckBox->isChecked() != Config::getEnableMods())
-        overrides["General"]["enableMods"] = ui->enableModsCheckBox->isChecked();
-
-    if (ui->enableUpdatesCheckBox->isChecked() != Config::getEnableUpdates())
-        overrides["General"]["enableUpdates"] = ui->enableUpdatesCheckBox->isChecked();
-
-    if (ui->MemorySpinBox->value() != Config::getExtraDmemInMbytes())
-        overrides["General"]["extraDmemInMbytes"] = ui->MemorySpinBox->value();
-
-    if (ui->backgroundControllerCheckBox->isChecked() != Config::getBackgroundControllerInput())
-        overrides["Input"]["backgroundControllerInput"] =
-            ui->backgroundControllerCheckBox->isChecked();
-
-    if (ui->idleTimeoutSpinBox->value() != Config::getCursorHideTimeout())
-        overrides["Input"]["cursorHideTimeout"] = ui->idleTimeoutSpinBox->value();
-
-    if (ui->hideCursorComboBox->currentIndex() != Config::getCursorState())
-        overrides["Input"]["cursorState"] = ui->hideCursorComboBox->currentIndex();
-
-    if (ui->motionControlsCheckBox->isChecked() != Config::getIsMotionControlsEnabled())
-        overrides["Input"]["isMotionControlsEnabled"] = ui->motionControlsCheckBox->isChecked();
+    Config::setEnableAutoBackup(ui->enableAutoBackupCheckBox->isChecked());
+    Config::setEnableDiscordRPC(ui->discordRPCCheckbox->isChecked());
+    Config::setDisableHardcodedHotkeys(ui->HotkeysCheckBox->isChecked());
+    Config::setUseHomeButtonForHotkeys(ui->HomeHotkeysCheckBox->isChecked());
+    Config::setVolumeSlider(ui->horizontalVolumeSlider->value());
+    Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
+    Config::setDevKitMode(ui->isDevKitCheckBox->isChecked());
+    Config::setNeoMode(ui->isNeoModeCheckBox->isChecked());
+    Config::setPSNSignedIn(ui->isPSNSignedInCheckBox->isChecked());
+    Config::SetHttpHostOverride(ui->httpHostOverrideLineEdit->text().toStdString());
+    Config::setisTrophyPopupDisabled(ui->disableTrophycheckBox->isChecked());
+    Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());
+    Config::setLogType(logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString());
+    Config::setScreenTipDisable(ui->screenTipBox->isChecked());
+    Config::setShowSplash(ui->showSplashCheckBox->isChecked());
+    Config::setTrophyNotificationDuration(ui->popUpDurationSpinBox->value());
+    Config::setEnableMods(ui->enableModsCheckBox->isChecked());
+    Config::setEnableUpdates(ui->enableUpdatesCheckBox->isChecked());
+    Config::setExtraDmemInMbytes(ui->MemorySpinBox->value());
+    Config::setBackgroundControllerInput(ui->backgroundControllerCheckBox->isChecked());
+    Config::setCursorHideTimeout(ui->idleTimeoutSpinBox->value());
+    Config::setCursorState(ui->hideCursorComboBox->currentIndex());
+    Config::setIsMotionControlsEnabled(ui->motionControlsCheckBox->isChecked());
+    Config::SetUseUnifiedInputConfig(ui->useUnifiedInputConfigCheckBox->isChecked());
+    Config::setMainOutputDevice(ui->mainOutputDeviceComboBox->currentText().toStdString());
+    Config::setPadSpkOutputDevice(ui->padSpkOutputDeviceComboBox->currentText().toStdString());
+    Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
+    Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
+    Config::setDirectMemoryAccess(ui->DMACheckBox->isChecked());
+    Config::setDumpShaders(ui->dumpShadersCheckBox->isChecked());
+    Config::setFpsLimit(ui->fpsSpinBox->value());
+    Config::setFpsLimiterEnabled(ui->fpsLimiterCheckBox->isChecked());
+    Config::setFsrEnabled(ui->FSRCheckBox->isChecked());
+    Config::setRcasAttenuation(ui->RCASSlider->value());
+    Config::setRcasEnabled(ui->RCASCheckBox->isChecked());
+    Config::setReadbackLinearImages(ui->ReadbacksLinearCheckBox->isChecked());
+    Config::setReadbackSpeed(
+        static_cast<Config::ReadbackSpeed>(ui->ReadbackSpeedComboBox->currentIndex()));
+    Config::setWindowWidth(ui->widthSpinBox->value());
+    Config::setWindowHeight(ui->heightSpinBox->value());
+    Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
+    Config::setVblankFreq(ui->vblankSpinBox->value());
+    Config::setVkCrashDiagnosticEnabled(ui->crashDiagnosticsCheckBox->isChecked());
+    Config::setVkGuestMarkersEnabled(ui->guestMarkersCheckBox->isChecked());
+    Config::setVkHostMarkersEnabled(ui->hostMarkersCheckBox->isChecked());
+    Config::setPipelineCacheEnabled(ui->cacheCheckBox->isChecked());
+    Config::setPipelineCacheArchived(ui->cacheArchiveCheckBox->isChecked());
+    Config::setVkValidation(ui->vkValidationCheckBox->isChecked());
+    Config::setVkSyncValidation(ui->vkSyncValidationCheckBox->isChecked());
+    Config::setRdocEnabled(ui->rdocCheckBox->isChecked());
+    Config::setCollectShaderForDebug(ui->collectShaderCheckBox->isChecked());
+    Config::setPatchShaders(ui->patchShadersCheckBox->isChecked());
+    Config::setDebugDump(ui->debugDump->isChecked());
+    Config::setLoggingEnabled(ui->enableLoggingCheckBox->isChecked());
 
     for (int p = 1; p <= 4; ++p) {
         int assignedClass = 0;
-
         for (int c = 1; c <= 4; ++c) {
             if (specialPadChecks[c - 1][p - 1]->isChecked()) {
                 assignedClass = c;
                 break;
             }
         }
-
-        std::string classKey = fmt::format("specialPadClass{}", p);
-        std::string useKey = fmt::format("useSpecialPad{}", p);
-
-        bool use = assignedClass != 0;
-
-        if (assignedClass != Config::getSpecialPadClass(p))
-            overrides["Input"][classKey] = assignedClass;
-
-        if (use != Config::getUseSpecialPad(p))
-            overrides["Input"][useKey] = use;
+        Config::setSpecialPadClass(p, assignedClass);
+        Config::setUseSpecialPad(p, assignedClass != 0);
     }
-
-    if (ui->useUnifiedInputConfigCheckBox->isChecked() != Config::GetUseUnifiedInputConfig())
-        overrides["Input"]["useUnifiedInputConfig"] =
-            ui->useUnifiedInputConfigCheckBox->isChecked();
-
-    if (ui->mainOutputDeviceComboBox->currentText().toStdString() != Config::getMainOutputDevice())
-        overrides["Audio"]["mainOutputDevice"] =
-            ui->mainOutputDeviceComboBox->currentText().toStdString();
-
-    if (ui->padSpkOutputDeviceComboBox->currentText().toStdString() !=
-        Config::getPadSpkOutputDevice())
-        overrides["Audio"]["padSpkOutputDevice"] =
-            ui->padSpkOutputDeviceComboBox->currentText().toStdString();
-
-    if (ui->enableHDRCheckBox->isChecked() != Config::allowHDR())
-        overrides["GPU"]["allowHDR"] = ui->enableHDRCheckBox->isChecked();
-
-    if (ui->copyGPUBuffersCheckBox->isChecked() != Config::copyGPUCmdBuffers())
-        overrides["GPU"]["copyGPUBuffers"] = ui->copyGPUBuffersCheckBox->isChecked();
-
-    if (ui->DMACheckBox->isChecked() != Config::directMemoryAccess())
-        overrides["GPU"]["directMemoryAccess"] = ui->DMACheckBox->isChecked();
-
-    if (ui->dumpShadersCheckBox->isChecked() != Config::dumpShaders())
-        overrides["GPU"]["dumpShaders"] = ui->dumpShadersCheckBox->isChecked();
-
-    if (ui->fpsSpinBox->value() != Config::getFpsLimit())
-        overrides["GPU"]["fpsLimit"] = ui->fpsSpinBox->value();
-
-    if (ui->fpsLimiterCheckBox->isChecked() != Config::isFpsLimiterEnabled())
-        overrides["GPU"]["fpsLimiterEnabled"] = ui->fpsLimiterCheckBox->isChecked();
-
-    if (ui->FSRCheckBox->isChecked() != Config::getFsrEnabled())
-        overrides["GPU"]["fsrEnabled"] = ui->FSRCheckBox->isChecked();
 
     {
         QString comboText = ui->displayModeComboBox->currentText();
         std::string screen = screenModeMap.value(comboText, "Windowed").toStdString();
-
-        if (screen != Config::getFullscreenMode())
-            overrides["GPU"]["FullscreenMode"] = screen;
-
-        bool shouldFullscreen = (screen != "Windowed");
-        if (shouldFullscreen != Config::getIsFullscreen())
-            overrides["GPU"]["Fullscreen"] = (screen != "Windowed");
+        Config::setFullscreenMode(screen);
+        Config::setIsFullscreen(screen != "Windowed");
     }
 
     QString key = presentModeMap.key(ui->presentModeComboBox->currentText(), "Fifo");
-    if (key.toStdString() != Config::getPresentMode())
-        overrides["GPU"]["presentMode"] = key.toStdString();
+    Config::setPresentMode(key.toStdString());
 
-    {
-        int current = Config::getRcasAttenuation();
-        int newVal = ui->RCASSlider->value();
-
-        if (newVal != current)
-            overrides["GPU"]["rcasAttenuation"] = static_cast<double>(newVal);
+    if (ui->radioButton_Top->isChecked()) {
+        Config::setSideTrophy("top");
+    } else if (ui->radioButton_Left->isChecked()) {
+        Config::setSideTrophy("left");
+    } else if (ui->radioButton_Right->isChecked()) {
+        Config::setSideTrophy("right");
+    } else if (ui->radioButton_Bottom->isChecked()) {
+        Config::setSideTrophy("bottom");
     }
 
-    if (ui->RCASCheckBox->isChecked() != Config::getRcasEnabled())
-        overrides["GPU"]["rcasEnabled"] = ui->RCASCheckBox->isChecked();
+    Config::save(m_config_path, true);
 
-    if (ui->ReadbacksLinearCheckBox->isChecked() != Config::getReadbackLinearImages())
-        overrides["GPU"]["readbackLinearImages"] = ui->ReadbacksLinearCheckBox->isChecked();
-
-    if (static_cast<Config::ReadbackSpeed>(ui->ReadbackSpeedComboBox->currentIndex()) !=
-        Config::readbackSpeed()) {
-        overrides["GPU"]["readbackSpeedMode"] = ui->ReadbackSpeedComboBox->currentIndex();
-    }
-
-    if (ui->widthSpinBox->value() != Config::getWindowWidth())
-        overrides["GPU"]["windowWidth"] = ui->widthSpinBox->value();
-
-    if (ui->heightSpinBox->value() != Config::getWindowHeight())
-        overrides["GPU"]["windowHeight"] = ui->heightSpinBox->value();
-
-    if (ui->SkipsCheckBox->isChecked() != Config::getShaderSkipsEnabled())
-        overrides["GPU"]["shaderSkipsEnabled"] = ui->SkipsCheckBox->isChecked();
-
-    if (ui->vblankSpinBox->value() != Config::vblankFreq())
-        overrides["GPU"]["vblankFrequency"] = ui->vblankSpinBox->value();
-
-    if (ui->crashDiagnosticsCheckBox->isChecked() != Config::getVkCrashDiagnosticEnabled())
-        overrides["Vulkan"]["crashDiagnostic"] = ui->crashDiagnosticsCheckBox->isChecked();
-
-    if (ui->guestMarkersCheckBox->isChecked() != Config::getVkGuestMarkersEnabled())
-        overrides["Vulkan"]["guestMarkers"] = ui->guestMarkersCheckBox->isChecked();
-
-    if (ui->hostMarkersCheckBox->isChecked() != Config::getVkHostMarkersEnabled())
-        overrides["Vulkan"]["hostMarkers"] = ui->hostMarkersCheckBox->isChecked();
-
-    if (ui->cacheCheckBox->isChecked() != Config::isPipelineCacheEnabled())
-        overrides["Vulkan"]["pipelineCacheEnable"] = ui->cacheCheckBox->isChecked();
-
-    if (ui->cacheArchiveCheckBox->isChecked() != Config::isPipelineCacheArchived())
-        overrides["Vulkan"]["pipelineCacheArchive"] = ui->cacheArchiveCheckBox->isChecked();
-
-    if (ui->rdocCheckBox->isChecked() != Config::isRdocEnabled())
-        overrides["Vulkan"]["rdocEnable"] = ui->rdocCheckBox->isChecked();
-
-    if (ui->vkValidationCheckBox->isChecked() != Config::vkValidationEnabled())
-        overrides["Vulkan"]["validation"] = ui->vkValidationCheckBox->isChecked();
-
-    if (ui->vkSyncValidationCheckBox->isChecked() != Config::vkValidationSyncEnabled())
-        overrides["Vulkan"]["validation_sync"] = ui->vkSyncValidationCheckBox->isChecked();
-
-    if (ui->collectShaderCheckBox->isChecked() != Config::collectShadersForDebug())
-        overrides["Debug"]["CollectShader"] = ui->collectShaderCheckBox->isChecked();
-
-    if (ui->patchShadersCheckBox->isChecked() != Config::patchShaders())
-        overrides["GPU"]["patchShaders"] = ui->patchShadersCheckBox->isChecked();
-
-    if (ui->debugDump->isChecked() != Config::debugDump())
-        overrides["Debug"]["DebugDump"] = ui->debugDump->isChecked();
-
-    if (ui->enableLoggingCheckBox->isChecked() != Config::getLoggingEnabled())
-        overrides["Debug"]["logEnabled"] = ui->enableLoggingCheckBox->isChecked();
-
-    std::error_code ec;
-    if (overrides.as_table().empty()) {
-        std::filesystem::remove(m_config_path, ec);
-        return;
-    }
-
-    std::filesystem::create_directories(m_config_path.parent_path(), ec);
-
-    std::filesystem::path tmp = m_config_path;
-    tmp += ".tmp";
-
-    {
-        std::ofstream ofs(tmp, std::ios::trunc);
-        if (!ofs || !(ofs << overrides)) {
-            qWarning() << "Failed to write per-game config to temp file:"
-                       << QString::fromStdString(tmp.string());
-            std::filesystem::remove(tmp, ec);
-            return;
-        }
-    }
-
-    std::filesystem::rename(tmp, m_config_path, ec);
-    if (ec) {
-        qWarning() << "Failed to move temp config into place:"
-                   << QString::fromStdString(ec.message());
-        std::filesystem::remove(tmp, ec);
-    }
+    Config::setGameSpecificContext(false);
 }
 
 void GameSpecificDialog::PopulateAudioDevices() {

@@ -364,7 +364,7 @@ public:
                               m_ipc_client, widget, launch_func);
         }
         if (selected == launchWithGlobalConfig) {
-            ExecuteGameAction(GameAction::LaunchDefault, itemID, m_games, m_compat_info,
+            ExecuteGameAction(GameAction::LaunchGlobalConfig, itemID, m_games, m_compat_info,
                               m_ipc_client, widget, launch_func);
         }
         if (selected == bootGameDetached) {

@@ -98,9 +98,18 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
 namespace Config {
 
 ConfigMode config_mode = ConfigMode::Default;
+bool is_game_specific_context = false;
 
 void setConfigMode(ConfigMode mode) {
     config_mode = mode;
+}
+
+void setGameSpecificContext(bool is_game_specific) {
+    is_game_specific_context = is_game_specific;
+}
+
+bool isGameSpecificContext() {
+    return is_game_specific_context;
 }
 
 template <typename T>
@@ -541,7 +550,7 @@ u32 getFpsLimit() {
 }
 
 void setFpsLimit(u32 fpsValue) {
-    fpsLimit.base_value = fpsValue;
+    fpsLimit.set(fpsValue, is_game_specific_context);
 }
 
 bool isFpsLimiterEnabled() {
@@ -549,7 +558,7 @@ bool isFpsLimiterEnabled() {
 }
 
 void setFpsLimiterEnabled(bool enabled) {
-    fpsLimiterEnabled.base_value = enabled;
+    fpsLimiterEnabled.set(enabled, is_game_specific_context);
 }
 
 bool GamesMenuUI() {
@@ -699,7 +708,7 @@ bool getFsrEnabled() {
 }
 
 void setFsrEnabled(bool enable) {
-    fsrEnabled.base_value = enable;
+    fsrEnabled.set(enable, is_game_specific_context);
 }
 
 bool getRcasEnabled() {
@@ -707,7 +716,7 @@ bool getRcasEnabled() {
 }
 
 void setRcasEnabled(bool enable) {
-    rcasEnabled.base_value = enable;
+    rcasEnabled.set(enable, is_game_specific_context);
 }
 
 int getRcasAttenuation() {
@@ -715,7 +724,7 @@ int getRcasAttenuation() {
 }
 
 void setRcasAttenuation(int value) {
-    rcasAttenuation.base_value = value;
+    rcasAttenuation.set(value, is_game_specific_context);
 }
 
 std::string getLogFilter() {
@@ -778,7 +787,7 @@ int getVolumeSlider() {
 }
 
 void setVolumeSlider(int volumeValue) {
-    volumeSlider.base_value = volumeValue;
+    volumeSlider.set(volumeValue, is_game_specific_context);
 }
 
 bool isMuteEnabled() {
@@ -1040,7 +1049,7 @@ void setDebugDump(bool enable) {
 }
 
 void setLoggingEnabled(bool enable) {
-    logEnabled.base_value = enable;
+    logEnabled.set(enable, is_game_specific_context);
 }
 
 void setCollectShaderForDebug(bool enable) {

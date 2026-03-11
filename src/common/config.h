@@ -18,6 +18,8 @@ enum class ConfigMode {
     Clean,
 };
 void setConfigMode(ConfigMode mode);
+void setGameSpecificContext(bool is_game_specific);
+bool isGameSpecificContext();
 
 struct GameDirectories {
     std::filesystem::path path;

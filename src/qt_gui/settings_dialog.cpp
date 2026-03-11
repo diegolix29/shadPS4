@@ -444,16 +444,14 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                 if (button == ui->buttonBox->button(QDialogButtonBox::Save)) {
                     is_saving = true;
                     UpdateSettings();
-                    if (!EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
-                        Config::save(config_dir / "config.toml", false);
-                    }
+                    // Settings dialog always saves to global config
+                    Config::save(config_dir / "config.toml", false);
                     QWidget::close();
 
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::Apply)) {
                     UpdateSettings();
-                    if (!EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
-                        Config::save(config_dir / "config.toml", false);
-                    }
+                    // Settings dialog always saves to global config
+                    Config::save(config_dir / "config.toml", false);
 
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)) {
                     if (!EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
@@ -1181,6 +1179,7 @@ void SettingsDialog::LoadValuesFromConfig() {
         QString::fromStdString(toml::find_or<std::string>(data, "Keys", "TrophyKey", "")));
     ui->trophyKeyLineEdit->setEchoMode(QLineEdit::Password);
     ui->debugDump->setChecked(toml::find_or<bool>(data, "Debug", "DebugDump", false));
+    ui->enableLoggingCheckBox->setChecked(toml::find_or<bool>(data, "Debug", "logEnabled", true));
     ui->separateLogFilesCheckbox->setChecked(
         toml::find_or<bool>(data, "Debug", "isSeparateLogFilesEnabled", false));
     ui->vkValidationCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "validation", false));
@@ -1562,10 +1561,8 @@ bool SettingsDialog::eventFilter(QObject* obj, QEvent* event) {
 }
 
 void SettingsDialog::UpdateSettings() {
-    // Don't update global settings if per-game config is active
-    if (EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
-        return;
-    }
+    // Settings dialog is always for global settings
+    Config::setGameSpecificContext(false);
 
     Config::setIsFullscreen(screenModeMap.value(ui->displayModeComboBox->currentText()) !=
                             "Windowed");
