@@ -77,12 +77,12 @@ int main(int argc, char* argv[]) {
     bool no_ipc = false;
     bool waitForDebugger = false;
 
-    std::string game_path;
-    std::string emulator_path;
-    std::vector<std::string> game_args{};
-    std::vector<std::string> emulator_args{};
-    std::optional<std::filesystem::path> game_folder;
-    std::optional<std::filesystem::path> mods_folder;
+    std::string gamePath;
+    std::string emulatorPath;
+    std::vector<std::string> gameArgs{};
+    std::vector<std::string> emulatorArgs{};
+    std::optional<std::filesystem::path> gameFolder;
+    std::optional<std::filesystem::path> modsFolder;
     std::optional<int> waitPid;
 
     std::unordered_map<std::string, std::function<void(int&)>> arg_map = {
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
         {"-g",
          [&](int& i) {
              if (i + 1 < argc) {
-                 game_path = argv[++i];
+                 gamePath = argv[++i];
                  has_game_argument = true;
              } else {
                  std::cerr << "Error: Missing argument for -g/--game\n";
@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
         {"-e",
          [&](int& i) {
              if (i + 1 < argc) {
-                 emulator_path = argv[++i];
+                 emulatorPath = argv[++i];
                  has_emulator_argument = true;
              } else {
                  std::cerr << "Error: Missing argument for -e/--emulator\n";
@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
         {"--emulator", [&](int& i) { arg_map["-e"](i); }},
         {"-d",
          [&](int&) {
-             emulator_path = "default";
+             emulatorPath = "default";
              has_emulator_argument = true;
          }},
 
@@ -241,7 +241,7 @@ int main(int argc, char* argv[]) {
              std::filesystem::path folder(argv[i]);
              if (!std::filesystem::exists(folder) || !std::filesystem::is_directory(folder))
                  exit((std::cerr << "Error: Invalid folder: " << folder << "\n", 1));
-             game_folder = folder;
+             gameFolder = folder;
          }},
 
         {"--wait-for-debugger", [&](int& i) { waitForDebugger = true; }},
@@ -292,10 +292,10 @@ int main(int argc, char* argv[]) {
             it->second(i);
         } else if (std::string(argv[i]) == "--") {
             for (int j = i + 1; j < argc; ++j)
-                (has_emulator_argument ? emulator_args : game_args).push_back(argv[j]);
+                (has_emulator_argument ? emulatorArgs : gameArgs).push_back(argv[j]);
             break;
         } else if (i == argc - 1 && !has_game_argument) {
-            game_path = argv[i];
+            gamePath = argv[i];
             has_game_argument = true;
         } else {
             std::cerr << "Unknown argument: " << cur_arg << "\n";
@@ -311,46 +311,46 @@ int main(int argc, char* argv[]) {
     }
 
     if (has_emulator_argument && !has_game_argument) {
-        game_path = emulator_path;
+        gamePath = emulatorPath;
         has_game_argument = true;
-        for (const auto& a : emulator_args)
-            game_args.push_back(a);
+        for (const auto& a : emulatorArgs)
+            gameArgs.push_back(a);
     }
 
-    std::filesystem::path eboot_path(game_path);
-    if (!std::filesystem::exists(eboot_path)) {
+    std::filesystem::path ebootPath(gamePath);
+    if (!std::filesystem::exists(ebootPath)) {
         bool found = false;
         const int max_depth = 5;
         for (const auto& dir : Config::getGameDirectories()) {
-            if (auto found_path = Common::FS::FindGameByID(dir, game_path, max_depth)) {
-                eboot_path = *found_path;
+            if (auto found_path = Common::FS::FindGameByID(dir, gamePath, max_depth)) {
+                ebootPath = *found_path;
                 found = true;
                 break;
             }
         }
         if (!found) {
-            std::cerr << "Error: Game not found: " << game_path << "\n";
+            std::cerr << "Error: Game not found: " << gamePath << "\n";
             return 1;
         }
     }
 
-    if (!mods_folder.has_value()) {
-        auto base_folder = eboot_path.parent_path();
+    if (!modsFolder.has_value()) {
+        auto base_folder = ebootPath.parent_path();
         auto parent = base_folder.parent_path();
         auto game_folder_name = base_folder.filename().string();
         auto auto_mods_folder = parent / (game_folder_name + "-MODS");
         if (std::filesystem::exists(auto_mods_folder) &&
             std::filesystem::is_directory(auto_mods_folder)) {
-            mods_folder = auto_mods_folder;
+            modsFolder = auto_mods_folder;
             Core::FileSys::MntPoints::enable_mods = true;
             std::cout << "Auto-detected mods folder: " << auto_mods_folder << "\n";
         }
     } else {
-        std::cout << "Using manually specified mods folder: " << mods_folder->string() << "\n";
+        std::cout << "Using manually specified mods folder: " << modsFolder->string() << "\n";
     }
 
     if (!Core::FileSys::MntPoints::enable_mods) {
-        mods_folder.reset();
+        modsFolder.reset();
         Core::FileSys::MntPoints::manual_mods_path.clear();
     }
 
@@ -360,7 +360,7 @@ int main(int argc, char* argv[]) {
     Core::Emulator* emulator = Common::Singleton<Core::Emulator>::Instance();
     emulator->executableName = argv[0];
     emulator->waitForDebuggerBeforeRun = waitForDebugger;
-    emulator->Run(eboot_path, game_args, game_folder);
+    emulator->Run(ebootPath, gameArgs, gameFolder);
 
     return 0;
 }

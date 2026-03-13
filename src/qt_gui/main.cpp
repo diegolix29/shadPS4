@@ -79,9 +79,10 @@ int main(int argc, char* argv[]) {
     bool has_command_line_argument = argc > 1;
     bool show_gui = false, has_game_argument = false;
     std::string game_path;
-    std::vector<std::string> game_args{};
-    std::optional<std::filesystem::path> game_folder;
-    std::optional<std::filesystem::path> mods_folder;
+    std::vector<std::string> game_arg{};
+
+    std::optional<std::filesystem::path> gameFolder;
+    std::optional<std::filesystem::path> modsFolder;
 
     bool waitForDebugger = false;
     std::optional<int> waitPid;
@@ -182,7 +183,7 @@ int main(int argc, char* argv[]) {
                  }
                  Core::FileSys::MntPoints::enable_mods = true;
                  Core::FileSys::MntPoints::manual_mods_path = dir;
-                 mods_folder = dir;
+                 modsFolder = dir;
                  std::cout << "Mods folder set: " << dir << "\n";
              } else {
                  std::cerr << "Error: Missing argument for -mf/--mods-folder\n";
@@ -245,7 +246,7 @@ int main(int argc, char* argv[]) {
                  std::cerr << "Error: Folder does not exist: " << folder_str << "\n";
                  exit(1);
              }
-             game_folder = folder;
+             gameFolder = folder;
          }},
         {"--wait-for-debugger", [&](int& i) { waitForDebugger = true; }},
         {"--wait-for-pid", [&](int& i) {
@@ -279,7 +280,7 @@ int main(int argc, char* argv[]) {
                 if (has_emulator_argument)
                     emulator_args.push_back(argv[j]);
                 else
-                    game_args.push_back(argv[j]);
+                    game_arg.push_back(argv[j]);
             }
             break;
         } else if (i + 1 < argc && std::string(argv[i + 1]) == "--") {
@@ -297,7 +298,7 @@ int main(int argc, char* argv[]) {
         has_game_argument = true;
 
         for (const auto& arg : emulator_args) {
-            game_args.push_back(arg.toStdString());
+            game_arg.push_back(arg.toStdString());
         }
 
         has_command_line_argument = true;
@@ -321,19 +322,19 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        if (!mods_folder.has_value()) {
+        if (!modsFolder.has_value()) {
             auto base_folder = eboot_path.parent_path();
             auto parent = base_folder.parent_path();
             auto game_folder_name = base_folder.filename().string();
             auto auto_mods_folder = parent / (game_folder_name + "-MODS");
             if (std::filesystem::exists(auto_mods_folder) &&
                 std::filesystem::is_directory(auto_mods_folder)) {
-                mods_folder = auto_mods_folder;
+                modsFolder = auto_mods_folder;
                 Core::FileSys::MntPoints::enable_mods = true;
                 std::cout << "Auto-detected mods folder: " << auto_mods_folder << "\n";
             }
         } else {
-            std::cout << "Using manually specified mods folder: " << mods_folder->string() << "\n";
+            std::cout << "Using manually specified mods folder: " << modsFolder->string() << "\n";
         }
     }
 
@@ -374,7 +375,7 @@ int main(int argc, char* argv[]) {
     const bool ignorePatches = qEnvironmentVariableIsSet("SHADPS4_BASE_GAME") &&
                                qEnvironmentVariable("SHADPS4_BASE_GAME") == "1";
 
-    if (!mods_folder.has_value()) {
+    if (!modsFolder.has_value()) {
         Core::FileSys::MntPoints::enable_mods = mods_env_enabled;
     }
 
@@ -512,7 +513,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        emulator->Run(game_file_path.string(), game_args, game_folder);
+        emulator->Run(game_file_path.string(), game_arg, gameFolder);
         if (!show_gui) {
             return 0;
         }
