@@ -194,7 +194,7 @@ static bool bootGamesMenu = false;
 static bool bootHubMenu = false;
 static ConfigEntry<bool> restartWithBaseGame(false);
 
-static bool separateupdatefolder = false;
+static ConfigEntry<bool> separateupdatefolder(false);
 static ConfigEntry<bool> screenTipDisable(false);
 static ConfigEntry<bool> fpsLimiterEnabled(false);
 static std::string guiStyle = "Fusion";
@@ -580,16 +580,17 @@ void setHubMenuUI(bool enable) {
 bool getRestartWithBaseGame() {
     return restartWithBaseGame.get();
 }
+
 void setRestartWithBaseGame(bool enable) {
     restartWithBaseGame.base_value = enable;
 }
 
 bool getSeparateUpdateEnabled() {
-    return separateupdatefolder;
+    return separateupdatefolder.get();
 }
 
 void setSeparateUpdateEnabled(bool use) {
-    separateupdatefolder = use;
+    separateupdatefolder.set(use, is_game_specific_context);
 }
 
 std::string getTrophyKey() {
@@ -1520,7 +1521,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         bootGamesMenu = toml::find_or<bool>(general, "GamesMenuUI", false);
         bootHubMenu = toml::find_or<bool>(general, "HubMenuUI", false);
         restartWithBaseGame.setFromToml(general, "restartWithBaseGame", is_game_specific);
-        separateupdatefolder = toml::find_or<bool>(general, "separateUpdateEnabled", false);
+        separateupdatefolder.setFromToml(general, "separateUpdateEnabled", is_game_specific);
         screenTipDisable.setFromToml(general, "screenTipDisable", is_game_specific);
         volumeSlider.setFromToml(general, "volumeSlider", is_game_specific);
         muteEnabled.setFromToml(general, "muteEnabled", is_game_specific);
@@ -1941,7 +1942,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["General"]["restartWithBaseGame"] = restartWithBaseGame.base_value;
     data["General"]["enableMods"] = enableMods.base_value;
     data["General"]["enableUpdates"] = enableUpdates.base_value;
-    data["General"]["separateUpdateEnabled"] = separateupdatefolder;
+    data["General"]["separateUpdateEnabled"] = separateupdatefolder.base_value;
     data["General"]["screenTipDisable"] = screenTipDisable.base_value;
     data["General"]["sideTrophy"] = isSideTrophy.base_value;
     data["General"]["compatibilityEnabled"] = compatibilityData;
@@ -2159,20 +2160,6 @@ void setDefaultValues() {
     isShowSplash = false;
     isSideTrophy = "right";
     compatibilityData = false;
-    checkCompatibilityOnStartup = false;
-    isConnectedToNetwork = false;
-    firstBootHandled = false;
-    enableMods = true;
-    enableUpdates = true;
-    bootGamesMenu = false;
-    bootHubMenu = false;
-    restartWithBaseGame = false;
-    separateupdatefolder = false;
-    screenTipDisable = false;
-
-    // CPU configuration
-    cpuCoreMode = Common::CpuCoreMode::All;
-    customCpuCores.clear();
 
     // Input
     cursorState = HideCursorState::Idle;
