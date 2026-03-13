@@ -301,6 +301,14 @@ int main(int argc, char* argv[]) {
             std::cerr << "Unknown argument: " << cur_arg << "\n";
         }
     }
+    if (!gameArgs.empty()) {
+        if (gameArgs.front() == "--") {
+            gameArgs.erase(gameArgs.begin());
+        } else {
+            std::cerr << "Error: unhandled flags\n";
+            return 1;
+        }
+    }
 
     if (has_emulator_argument && !has_game_argument) {
         game_path = emulator_path;
