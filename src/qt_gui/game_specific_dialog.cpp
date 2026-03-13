@@ -456,6 +456,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             [this](s16 index) { OnCursorStateChanged(index); });
 
     ui->backgroundControllerCheckBox->setChecked(Config::getBackgroundControllerInput());
+    ui->disableKeyboardBindingsCheckBox->setChecked(Config::getKeyboardBindingsDisabled());
     ui->idleTimeoutSpinBox->setValue(Config::getCursorHideTimeout());
     int idx = Config::getCursorState();
     if (idx >= 0 && idx < ui->hideCursorComboBox->count())
@@ -592,6 +593,9 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         if (in.contains("backgroundControllerInput"))
             ui->backgroundControllerCheckBox->setChecked(
                 toml::find<bool>(in, "backgroundControllerInput"));
+        if (in.contains("isKeyboardBindingsDisabled"))
+            ui->disableKeyboardBindingsCheckBox->setChecked(
+                toml::find<bool>(in, "isKeyboardBindingsDisabled"));
         if (in.contains("cursorHideTimeout"))
             ui->idleTimeoutSpinBox->setValue(toml::find<int>(in, "cursorHideTimeout"));
         if (in.contains("cursorState"))
@@ -772,6 +776,7 @@ void GameSpecificDialog::UpdateSettings() {
     Config::setEnableUpdates(ui->enableUpdatesCheckBox->isChecked());
     Config::setExtraDmemInMbytes(ui->MemorySpinBox->value());
     Config::setBackgroundControllerInput(ui->backgroundControllerCheckBox->isChecked());
+    Config::setKeyboardBindingsDisabled(ui->disableKeyboardBindingsCheckBox->isChecked());
     Config::setCursorHideTimeout(ui->idleTimeoutSpinBox->value());
     Config::setCursorState(ui->hideCursorComboBox->currentIndex());
     Config::setIsMotionControlsEnabled(ui->motionControlsCheckBox->isChecked());

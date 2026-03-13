@@ -202,6 +202,9 @@ void setActiveControllerID(std::string id);
 bool getBackgroundControllerInput();
 void setBackgroundControllerInput(bool enable);
 
+bool getKeyboardBindingsDisabled();
+void setKeyboardBindingsDisabled(bool disable);
+
 bool isPlayerEnabled(int player_id);
 void setPlayerEnabled(int player_id, bool enabled);
 std::array<bool, 4> getPlayerEnabledStates();

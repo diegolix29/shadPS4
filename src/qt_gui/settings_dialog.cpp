@@ -917,12 +917,20 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->hideCursorGroupBox->installEventFilter(this);
         ui->idleTimeoutGroupBox->installEventFilter(this);
         ui->backgroundControllerCheckBox->installEventFilter(this);
+        ui->disableKeyboardBindingsCheckBox->installEventFilter(this);
         ui->motionControlsCheckBox->installEventFilter(this);
         ui->micComboBox->installEventFilter(this);
 
         // Graphics
         ui->graphicsAdapterGroupBox->installEventFilter(this);
         ui->windowSizeGroupBox->installEventFilter(this);
+        ui->presentModeGroupBox->installEventFilter(this);
+        ui->heightDivider->installEventFilter(this);
+        ui->nullGpuCheckBox->installEventFilter(this);
+        ui->enableHDRCheckBox->installEventFilter(this);
+        ui->chooseHomeTabGroupBox->installEventFilter(this);
+        ui->gameSizeCheckBox->installEventFilter(this);
+        ui->enableAutoBackupCheckBox->installEventFilter(this);
         ui->presentModeGroupBox->installEventFilter(this);
         ui->heightDivider->installEventFilter(this);
         ui->nullGpuCheckBox->installEventFilter(this);
@@ -1086,6 +1094,12 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->hideCursorComboBox->setCurrentIndex(toml::find_or<int>(data, "Input", "cursorState", 1));
     OnCursorStateChanged(toml::find_or<int>(data, "Input", "cursorState", 1));
     ui->idleTimeoutSpinBox->setValue(toml::find_or<int>(data, "Input", "cursorHideTimeout", 5));
+    ui->motionControlsCheckBox->setChecked(
+        toml::find_or<bool>(data, "Input", "isMotionControlsEnabled", true));
+    ui->backgroundControllerCheckBox->setChecked(
+        toml::find_or<bool>(data, "Input", "backgroundControllerInput", false));
+    ui->disableKeyboardBindingsCheckBox->setChecked(
+        toml::find_or<bool>(data, "Input", "isKeyboardBindingsDisabled", false));
 
     QString micValue = QString::fromStdString(Config::getMicDevice());
     int micIndex = ui->micComboBox->findData(micValue);
@@ -1572,6 +1586,7 @@ void SettingsDialog::UpdateSettings() {
         presentModeMap.value(ui->presentModeComboBox->currentText()).toStdString());
     Config::setIsMotionControlsEnabled(ui->motionControlsCheckBox->isChecked());
     Config::setBackgroundControllerInput(ui->backgroundControllerCheckBox->isChecked());
+    Config::setKeyboardBindingsDisabled(ui->disableKeyboardBindingsCheckBox->isChecked());
     Config::setisTrophyPopupDisabled(ui->disableTrophycheckBox->isChecked());
     Config::setTrophyNotificationDuration(ui->popUpDurationSpinBox->value());
 

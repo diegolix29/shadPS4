@@ -214,6 +214,7 @@ static ConfigEntry<std::string> micDevice("Default Device");
 static ConfigEntry<std::string> defaultControllerID("");
 static ConfigEntry<std::string> activeControllerID("");
 static ConfigEntry<bool> backgroundControllerInput(false);
+static ConfigEntry<bool> isKeyboardBindingsDisabled(false);
 static ConfigEntry<bool> useSpecialPads[4] = {false, false, false, false};
 static ConfigEntry<int> specialPadClasses[4] = {1, 1, 1, 1};
 static ConfigEntry<string> mainOutputDevice("Default Device");
@@ -1493,6 +1494,14 @@ void setBackgroundControllerInput(bool enable) {
     backgroundControllerInput = enable;
 }
 
+bool getKeyboardBindingsDisabled() {
+    return isKeyboardBindingsDisabled.get();
+}
+
+void setKeyboardBindingsDisabled(bool disable) {
+    isKeyboardBindingsDisabled.set(disable, is_game_specific_context);
+}
+
 void load(const std::filesystem::path& path, bool is_game_specific) {
     // If the configuration file does not exist, create it and return, unless it is game specific
     std::error_code error;
@@ -1615,6 +1624,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isMotionControlsEnabled.setFromToml(input, "isMotionControlsEnabled", is_game_specific);
         useUnifiedInputConfig.setFromToml(input, "useUnifiedInputConfig", is_game_specific);
         backgroundControllerInput.setFromToml(input, "backgroundControllerInput", is_game_specific);
+        isKeyboardBindingsDisabled.setFromToml(input, "isKeyboardBindingsDisabled",
+                                               is_game_specific);
         usbDeviceBackend.setFromToml(input, "usbDeviceBackend", is_game_specific);
     }
 
@@ -1973,6 +1984,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
     data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
     data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
+    data["Input"]["isKeyboardBindingsDisabled"] = isKeyboardBindingsDisabled.base_value;
     data["Input"]["usbDeviceBackend"] = usbDeviceBackend.base_value;
 
     data["Audio"]["micDevice"] = micDevice.base_value;
@@ -2172,6 +2184,7 @@ void setDefaultValues() {
     controllerCustomColorRGB[2] = 255;
     micDevice = "Default Device";
     backgroundControllerInput = false;
+    isKeyboardBindingsDisabled = false;
     mainOutputDevice = "Default Device";
     padSpkOutputDevice = "Default Device";
 

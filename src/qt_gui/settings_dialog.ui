@@ -2131,6 +2131,13 @@
 																	</property>
 																</widget>
 															</item>
+															<item>
+																<widget class="QCheckBox" name="disableKeyboardBindingsCheckBox">
+																	<property name="text">
+																		<string>Disable Keyboard Bindings</string>
+																	</property>
+																</widget>
+															</item>
 														</layout>
 													</widget>
 												</item>

@@ -484,6 +484,9 @@ InputEvent InputBinding::GetInputEventFromSDLEvent(const SDL_Event& e) {
     switch (e.type) {
     case SDL_EVENT_KEY_DOWN:
     case SDL_EVENT_KEY_UP:
+        if (Config::getKeyboardBindingsDisabled()) {
+            return InputEvent();
+        }
         return InputEvent(InputType::KeyboardMouse, e.key.key, e.key.down, 0);
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_BUTTON_UP: {
