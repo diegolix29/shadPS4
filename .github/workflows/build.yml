@@ -85,7 +85,7 @@ jobs:
             ${{ env.cache-name }}-
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.19
+      uses: hendrikmuhs/ccache-action@v1.2.21
       env:
           cache-name: ${{ runner.os }}-sdl-cache-cmake-build
       with:
@@ -134,7 +134,7 @@ jobs:
             ${{ env.cache-name }}-
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.19
+      uses: hendrikmuhs/ccache-action@v1.2.21
       env:
           cache-name: ${{ runner.os }}-qt-cache-cmake-build
       with:
@@ -187,7 +187,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.19
+      uses: hendrikmuhs/ccache-action@v1.2.21
       env:
           cache-name: ${{runner.os}}-sdl-cache-cmake-build
       with:
@@ -248,7 +248,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.19
+      uses: hendrikmuhs/ccache-action@v1.2.21
       env:
           cache-name: ${{runner.os}}-qt-cache-cmake-build
       with:
