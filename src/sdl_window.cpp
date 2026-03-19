@@ -141,6 +141,7 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
             window, Config::getFullscreenMode() == "Fullscreen" ? displayMode : NULL);
     }
     SDL_SetWindowFullscreen(window, Config::getIsFullscreen());
+    SDL_SyncWindow(window);
 
     SDL_InitSubSystem(SDL_INIT_GAMEPAD);
 
