@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <ranges>
 #include "common/assert.h"
+#include "common/memory_patcher.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
@@ -187,14 +189,24 @@ ImageView& Image::FindView(const ImageViewInfo& view_info, bool ensure_guest_sam
     if (ensure_guest_samples && backing->num_samples > 1 != info.num_samples > 1) {
         SetBackingSamples(info.num_samples);
     }
+
+    ImageViewInfo clamped_view_info = view_info;
+    if (MemoryPatcher::g_game_serial == "CUSA01968" ||
+        MemoryPatcher::g_game_serial == "CUSA01936") {
+        clamped_view_info.range = ClampSubresourceRange(view_info.range, info.resources);
+        if (clamped_view_info.range != view_info.range) {
+            LOG_WARNING(Render_Vulkan, "Clamped invalid image view range in FindView");
+        }
+    }
+
     const auto& view_infos = backing->image_view_infos;
-    const auto it = std::ranges::find(view_infos, view_info);
+    const auto it = std::ranges::find(view_infos, clamped_view_info);
     if (it != view_infos.end()) {
         const auto view_id = backing->image_view_ids[std::distance(view_infos.begin(), it)];
         return (*slot_image_views)[view_id];
     }
-    const auto view_id = slot_image_views->insert(*instance, view_info, *this);
-    backing->image_view_infos.emplace_back(view_info);
+    const auto view_id = slot_image_views->insert(*instance, clamped_view_info, *this);
+    backing->image_view_infos.emplace_back(clamped_view_info);
     backing->image_view_ids.emplace_back(view_id);
     return (*slot_image_views)[view_id];
 }
@@ -204,6 +216,15 @@ Image::Barriers Image::GetBarriers(vk::ImageLayout dst_layout, vk::AccessFlags2 
                                    std::optional<SubresourceRange> subres_range) {
     auto& last_state = backing->state;
     auto& subresource_states = backing->subresource_states;
+
+    if (subres_range && (MemoryPatcher::g_game_serial == "CUSA01968" ||
+                         MemoryPatcher::g_game_serial == "CUSA01936")) {
+        SubresourceRange original_range = *subres_range;
+        *subres_range = ClampSubresourceRange(*subres_range, info.resources);
+        if (*subres_range != original_range) {
+            LOG_WARNING(Render_Vulkan, "Clamped invalid subresource range in GetBarriers");
+        }
+    }
 
     const bool needs_partial_transition =
         subres_range &&
@@ -236,7 +257,13 @@ Image::Barriers Image::GetBarriers(vk::ImageLayout dst_layout, vk::AccessFlags2 
                 // NOTE: these loops may produce a lot of small barriers.
                 // If this becomes a problem, we can optimize it by merging adjacent barriers.
                 const auto subres_idx = mip * info.resources.layers + layer;
-                // ASSERT(subres_idx < subresource_states.size());
+                if (subres_idx >= subresource_states.size()) {
+                    LOG_WARNING(Render_Vulkan,
+                                "Skipping out-of-range subresource barrier: mip={}, layer={}, "
+                                "idx={}, size={}",
+                                mip, layer, subres_idx, subresource_states.size());
+                    continue;
+                }
                 auto& state = subresource_states[subres_idx];
 
                 if (state.layout != dst_layout || state.access_mask != dst_mask ||
@@ -694,12 +721,24 @@ void Image::CopyMip(Image& src_image, u32 mip, u32 slice) {
 
 void Image::Resolve(Image& src_image, const VideoCore::SubresourceRange& mrt0_range,
                     const VideoCore::SubresourceRange& mrt1_range) {
+    VideoCore::SubresourceRange clamped_mrt0_range = mrt0_range;
+    VideoCore::SubresourceRange clamped_mrt1_range = mrt1_range;
+    if (MemoryPatcher::g_game_serial == "CUSA01968" ||
+        MemoryPatcher::g_game_serial == "CUSA01936") {
+        clamped_mrt0_range = ClampSubresourceRange(mrt0_range, src_image.info.resources);
+        clamped_mrt1_range = ClampSubresourceRange(mrt1_range, info.resources);
+        if (clamped_mrt0_range != mrt0_range || clamped_mrt1_range != mrt1_range) {
+            LOG_WARNING(Render_Vulkan, "Clamped invalid resolve ranges");
+        }
+    }
+
     SetBackingSamples(1, false);
     scheduler->EndRendering();
 
     src_image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead,
-                      mrt0_range);
-    Transit(vk::ImageLayout::eTransferDstOptimal, vk::AccessFlagBits2::eTransferWrite, mrt1_range);
+                      clamped_mrt0_range);
+    Transit(vk::ImageLayout::eTransferDstOptimal, vk::AccessFlagBits2::eTransferWrite,
+            clamped_mrt1_range);
 
     const auto [src_layers, dst_layers] = SanitizeCopyLayers(src_image.info, info, 1);
     if (src_image.backing->num_samples == 1) {
@@ -707,14 +746,14 @@ void Image::Resolve(Image& src_image, const VideoCore::SubresourceRange& mrt0_ra
             .srcSubresource{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .mipLevel = 0,
-                .baseArrayLayer = mrt0_range.base.layer,
+                .baseArrayLayer = clamped_mrt0_range.base.layer,
                 .layerCount = src_layers,
             },
             .srcOffset = {0, 0, 0},
             .dstSubresource{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .mipLevel = 0,
-                .baseArrayLayer = mrt1_range.base.layer,
+                .baseArrayLayer = clamped_mrt1_range.base.layer,
                 .layerCount = dst_layers,
             },
             .dstOffset = {0, 0, 0},
@@ -728,14 +767,14 @@ void Image::Resolve(Image& src_image, const VideoCore::SubresourceRange& mrt0_ra
             .srcSubresource{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .mipLevel = 0,
-                .baseArrayLayer = mrt0_range.base.layer,
+                .baseArrayLayer = clamped_mrt0_range.base.layer,
                 .layerCount = src_layers,
             },
             .srcOffset = {0, 0, 0},
             .dstSubresource{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .mipLevel = 0,
-                .baseArrayLayer = mrt1_range.base.layer,
+                .baseArrayLayer = clamped_mrt1_range.base.layer,
                 .layerCount = dst_layers,
             },
             .dstOffset = {0, 0, 0},
@@ -751,12 +790,21 @@ void Image::Resolve(Image& src_image, const VideoCore::SubresourceRange& mrt0_ra
 }
 
 void Image::Clear(const vk::ClearValue& clear_value, const VideoCore::SubresourceRange& range) {
+    VideoCore::SubresourceRange clamped_range = range;
+    if (MemoryPatcher::g_game_serial == "CUSA01968" ||
+        MemoryPatcher::g_game_serial == "CUSA01936") {
+        clamped_range = ClampSubresourceRange(range, info.resources);
+        if (clamped_range != range) {
+            LOG_WARNING(Render_Vulkan, "Clamped invalid clear range");
+        }
+    }
+
     const vk::ImageSubresourceRange vk_range = {
         .aspectMask = vk::ImageAspectFlagBits::eColor,
-        .baseMipLevel = range.base.level,
-        .levelCount = range.extent.levels,
-        .baseArrayLayer = range.base.layer,
-        .layerCount = range.extent.layers,
+        .baseMipLevel = clamped_range.base.level,
+        .levelCount = clamped_range.extent.levels,
+        .baseArrayLayer = clamped_range.base.layer,
+        .layerCount = clamped_range.extent.layers,
     };
     scheduler->EndRendering();
     Transit(vk::ImageLayout::eTransferDstOptimal, vk::AccessFlagBits2::eTransferWrite, {});

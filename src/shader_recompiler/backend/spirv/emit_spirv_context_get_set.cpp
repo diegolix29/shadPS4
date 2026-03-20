@@ -3,6 +3,7 @@
 
 #include "common/assert.h"
 #include "common/config.h"
+#include "common/memory_patcher.h"
 #include "shader_recompiler/backend/spirv/emit_spirv_bounds.h"
 #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
 #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
@@ -81,6 +82,14 @@ Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
     if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0x5b8c6e5f && handle == 0) {
         const Id is_six = ctx.OpIEqual(ctx.U1[1], index, ctx.ConstU32(6u));
         result = ctx.OpSelect(ctx.U32[1], is_six, ctx.u32_zero_value, result);
+    }
+    if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xa298398bULL && handle == 0) {
+        const Id logical_index = index;
+        if (MemoryPatcher::g_game_serial == "CUSA01968" ||
+            MemoryPatcher::g_game_serial == "CUSA01936") {
+            const Id is_five = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(5u));
+            result = ctx.OpSelect(ctx.U32[1], is_five, ctx.u32_zero_value, result);
+        }
     }
     if (const Id size = buffer.Size(PointerSize::B32); Sirit::ValidId(size)) {
         const Id in_bounds = ctx.OpULessThan(ctx.U1[1], index, size);
