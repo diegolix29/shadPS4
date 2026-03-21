@@ -117,6 +117,10 @@ git_describe(GIT_DESC --always --long --dirty)
 git_branch_name(GIT_BRANCH)
 string(TIMESTAMP BUILD_DATE "%Y-%m-%d %H:%M:%S")
 
+# Override with mock values for testing
+set(GIT_BRANCH "merk1k-bb-server")
+set(GIT_DESC "77f69dd")
+
 message("start git things")
 
 # Try to get the upstream remote and branch
@@ -148,28 +152,10 @@ if (GIT_REMOTE_RESULT OR GIT_REMOTE_NAME STREQUAL "")
   set(GIT_REMOTE_NAME "origin")
 
   # Retrieve environment variables
-  if (DEFINED ENV{GITHUB_HEAD_REF} AND NOT "$ENV{GITHUB_HEAD_REF}" STREQUAL "")
-    message(STATUS "github head ref: $ENV{GITHUB_HEAD_REF}")
-    set(GITHUB_HEAD_REF "$ENV{GITHUB_HEAD_REF}")
-  else()
-    set(GITHUB_HEAD_REF "")
-  endif()
-
-  if (DEFINED ENV{GITHUB_REF} AND NOT "$ENV{GITHUB_REF}" STREQUAL "")
-    message(STATUS "github ref: $ENV{GITHUB_REF}")
-    string(REGEX REPLACE "^refs/[^/]*/" "" GITHUB_BRANCH "$ENV{GITHUB_REF}")
-    string(REGEX MATCH "refs/pull/([0-9]+)/merge" MATCHED_REF "$ENV{GITHUB_REF}")
-    if (MATCHED_REF)
-      set(PR_NUMBER "${CMAKE_MATCH_1}")
-      set(GITHUB_BRANCH "")
-      message(STATUS "PR number: ${PR_NUMBER}")
-    else()
-      set(PR_NUMBER "")
-    endif()
-  else()
-    set(GITHUB_BRANCH "")
-    set(PR_NUMBER "")
-  endif()
+  # Mock for testing - override with our values
+  set(GITHUB_HEAD_REF "main")
+  set(GITHUB_REF "refs/heads/main")
+  set(GIT_BRANCH "Kalaposfos13/merk1k-bb-server")
 
   if (NOT "${PR_NUMBER}" STREQUAL "" AND NOT "${GITHUB_HEAD_REF}" STREQUAL "")
     set(GIT_BRANCH "pr-${PR_NUMBER}-${GITHUB_HEAD_REF}")
@@ -200,10 +186,13 @@ endif()
 
 # Get remote link
 message(STATUS "getting remote link")
+# Mock remote URL for testing
+set(GIT_REMOTE_URL "https://github.com/Kalaposfos13/merk1k-bb-server.git")
 execute_process(
-  COMMAND git config --get remote.${GIT_REMOTE_NAME}.url
-  OUTPUT_VARIABLE GIT_REMOTE_URL
+  COMMAND git config --get remote.merk1k-bb-server.url
+  OUTPUT_VARIABLE GIT_REMOTE_URL_REAL
   OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET
 )
 
 # Set Version
@@ -213,11 +202,10 @@ set(EMULATOR_VERSION_PATCH "1")
 
 set_source_files_properties(src/shadps4.rc PROPERTIES COMPILE_DEFINITIONS "EMULATOR_VERSION_MAJOR=${EMULATOR_VERSION_MAJOR};EMULATOR_VERSION_MINOR=${EMULATOR_VERSION_MINOR};EMULATOR_VERSION_PATCH=${EMULATOR_VERSION_PATCH}")
 
-set(APP_VERSION "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH} DMC")
+set(APP_VERSION "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH} WIP")
+set(GIT_DESC "77f69dd")
 set(APP_IS_RELEASE false)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/common/scm_rev.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/src/common/scm_rev.cpp" @ONLY)
-
-message("-- end git things, remote: ${GIT_REMOTE_NAME}, branch: ${GIT_BRANCH}, link: ${GIT_REMOTE_URL}")
 
 
 if(WIN32 AND ENABLE_QT_GUI AND NOT CMAKE_PREFIX_PATH)

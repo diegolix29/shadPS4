@@ -169,12 +169,7 @@ static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
 static ConfigEntry<std::string> logFilter("");
 static ConfigEntry<std::string> logType("sync");
-static ConfigEntry<std::array<std::string, 4>> userNames({
-    "shadPS4",
-    "shadps4-2",
-    "shadPS4-3",
-    "shadPS4-4",
-});
+static ConfigEntry<std::string> userName("shadPS4");
 static ConfigEntry<std::array<bool, 4>> playerEnabledStates({true, true, true, true});
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
@@ -737,18 +732,37 @@ std::string getLogType() {
     return logType.get();
 }
 
+string getUserName() {
+    return userName.get();
+}
+
 string getUserName(int id) {
-    return userNames.get()[id];
+    string baseName = userName.get();
+    if (id == 0) {
+        return baseName;
+    } else {
+        return baseName + "-" + std::to_string(id + 1);
+    }
+}
+
+void setUserName(string name) {
+    userName.set(name);
 }
 
 void setUserName(int id, string name) {
-    auto temp = userNames.get();
-    temp[id] = name;
-    userNames.set(temp);
+    if (id == 0) {
+        userName.set(name);
+    }
 }
 
 std::array<string, 4> const getUserNames() {
-    return userNames.get();
+    std::array<string, 4> names;
+    string baseName = userName.get();
+    names[0] = baseName;
+    names[1] = baseName + "-2";
+    names[2] = baseName + "-3";
+    names[3] = baseName + "-4";
+    return names;
 }
 
 bool isPlayerEnabled(int player_id) {
@@ -1213,14 +1227,21 @@ void setLogFilter(const std::string& type) {
 void setSeparateLogFilesEnabled(bool enabled) {
     isSeparateLogFilesEnabled.base_value = enabled;
 }
-void setUserName(int id, const std::string& name) {
-    auto arr = userNames.get();
-    arr[id] = name;
-    userNames.set(arr);
+
+void setUserName(const std::string& name) {
+    userName.set(name);
 }
+
+void setUserName(int id, const std::string& name) {
+    if (id == 0) {
+        userName.set(name);
+    }
+}
+
 void setUpdateChannel(const std::string& type) {
     updateChannel = type;
 }
+
 void setChooseHomeTab(const std::string& type) {
     chooseHomeTab = type;
 }
@@ -1547,8 +1568,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         logFilter.setFromToml(general, "logFilter", is_game_specific);
         logType.setFromToml(general, "logType", is_game_specific);
         isIdenticalLogGrouped.setFromToml(general, "isIdenticalLogGrouped", is_game_specific);
-        userNames.setFromToml(general, "userNames", is_game_specific);
-        playerEnabledStates.setFromToml(general, "playerEnabledStates", is_game_specific);
+        userName.setFromToml(general, "userName", false);
+        playerEnabledStates.setFromToml(general, "playerEnabledStates", false);
 
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
@@ -1936,8 +1957,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["logFilter"] = logFilter.base_value;
     data["General"]["logType"] = logType.base_value;
-    data["General"]["userNames"] = userNames.base_value;
-    data["General"]["playerEnabledStates"] = playerEnabledStates.base_value;
+    userName.setTomlValue(data, "General", "userName", false);
+    playerEnabledStates.setTomlValue(data, "General", "playerEnabledStates", false);
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
@@ -2166,7 +2187,7 @@ void setDefaultValues() {
     homeButtonHotkey = false;
     logFilter = "";
     logType = "sync";
-    userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
+    userName = "shadPS4";
     playerEnabledStates = {true, true, true, true};
     chooseHomeTab = "General";
     isShowSplash = false;

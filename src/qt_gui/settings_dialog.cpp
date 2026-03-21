@@ -501,6 +501,12 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     connect(ui->toggleDescriptionButton, &QPushButton::clicked, this,
             &SettingsDialog::OnToggleDescriptionClicked);
 
+    connect(ui->userName1LineEdit, &QLineEdit::textChanged, this, [this](const QString& text) {
+        ui->userName2LineEdit->setText(text + "-2");
+        ui->userName3LineEdit->setText(text + "-3");
+        ui->userName4LineEdit->setText(text + "-4");
+    });
+
     {
 #ifdef ENABLE_UPDATER
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
@@ -1177,11 +1183,11 @@ void SettingsDialog::LoadValuesFromConfig() {
     }
     ui->logFilterLineEdit->setText(
         QString::fromStdString(toml::find_or<std::string>(data, "General", "logFilter", "")));
-    auto names = Config::getUserNames();
-    ui->userName1LineEdit->setText(QString::fromStdString(names[0]));
-    ui->userName2LineEdit->setText(QString::fromStdString(names[1]));
-    ui->userName3LineEdit->setText(QString::fromStdString(names[2]));
-    ui->userName4LineEdit->setText(QString::fromStdString(names[3]));
+    auto baseUserName = Config::getUserName();
+    ui->userName1LineEdit->setText(QString::fromStdString(baseUserName));
+    ui->userName2LineEdit->setText(QString::fromStdString(baseUserName + "-2"));
+    ui->userName3LineEdit->setText(QString::fromStdString(baseUserName + "-3"));
+    ui->userName4LineEdit->setText(QString::fromStdString(baseUserName + "-4"));
 
     auto playerStates = Config::getPlayerEnabledStates();
     ui->enablePlayer1CheckBox->setChecked(playerStates[0]);
@@ -1608,10 +1614,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setLogType(logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString());
     Config::setMicDevice(ui->micComboBox->currentData().toString().toStdString());
     Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());
-    Config::setUserName(0, ui->userName1LineEdit->text().toStdString());
-    Config::setUserName(1, ui->userName2LineEdit->text().toStdString());
-    Config::setUserName(2, ui->userName3LineEdit->text().toStdString());
-    Config::setUserName(3, ui->userName4LineEdit->text().toStdString());
+    Config::setUserName(ui->userName1LineEdit->text().toStdString());
 
     std::array<bool, 4> playerStates;
     playerStates[0] = ui->enablePlayer1CheckBox->isChecked();
