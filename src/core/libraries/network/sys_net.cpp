@@ -362,12 +362,14 @@ int PS4_SYSV_ABI sys_sendto(OrbisNetId s, const void* buf, u64 len, int flags,
         LOG_ERROR(Lib_Net, "socket id is invalid = {}", s);
         return -1;
     }
-    LOG_DEBUG(Lib_Net, "s = {} ({}), len = {}, flags = {:#x}", s, file->m_guest_name, len, flags);
+    LOG_DEBUG(Lib_Net, "sys_sendto: s={} ({}) len={} flags={:#x} addr={:p}", s, file->m_guest_name,
+              len, flags, static_cast<const void*>(addr));
     int returncode = file->socket->SendPacket(buf, len, flags, addr, addrlen);
     if (returncode >= 0) {
         return returncode;
     }
-    LOG_ERROR(Lib_Net, "error code returned: {}", (u32)*Libraries::Kernel::__Error());
+    LOG_ERROR(Lib_Net, "sys_sendto FAILED: s={} ({}) len={} orbis_error={}", s, file->m_guest_name,
+              len, (u32)*Libraries::Kernel::__Error());
     return -1;
 }
 
