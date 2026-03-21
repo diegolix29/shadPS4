@@ -80,15 +80,44 @@ Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
     const Id ptr{ctx.OpAccessChain(pointer_type, id, ctx.u32_zero_value, index)};
     Id result{ctx.OpLoad(ctx.U32[1], ptr)};
     if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0x5b8c6e5f && handle == 0) {
-        const Id is_six = ctx.OpIEqual(ctx.U1[1], index, ctx.ConstU32(6u));
-        result = ctx.OpSelect(ctx.U32[1], is_six, ctx.u32_zero_value, result);
+        if (MemoryPatcher::g_game_serial == "CUSA14209" ||
+            MemoryPatcher::g_game_serial == "CUSA14204") {
+            const Id is_six = ctx.OpIEqual(ctx.U1[1], index, ctx.ConstU32(6u));
+            result = ctx.OpSelect(ctx.U32[1], is_six, ctx.u32_zero_value, result);
+        }
     }
     if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xa298398bULL && handle == 0) {
         const Id logical_index = index;
         if (MemoryPatcher::g_game_serial == "CUSA01968" ||
-            MemoryPatcher::g_game_serial == "CUSA01936") {
+            MemoryPatcher::g_game_serial == "CUSA01936" ||
+            MemoryPatcher::g_game_serial == "CUSA14209" ||
+            MemoryPatcher::g_game_serial == "CUSA14204") {
             const Id is_five = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(5u));
             result = ctx.OpSelect(ctx.U32[1], is_five, ctx.u32_zero_value, result);
+        }
+    }
+    if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xffe52ec0369553e4ULL && handle == 0) {
+        const Id logical_index = index;
+        if (MemoryPatcher::g_game_serial == "CUSA14209" ||
+            MemoryPatcher::g_game_serial == "CUSA14204") {
+            const Id is_five = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(5u));
+            result = ctx.OpSelect(ctx.U32[1], is_five, ctx.u32_zero_value, result);
+        }
+    }
+    if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xe115097cULL && handle == 4) {
+        const Id logical_index = index;
+        if (MemoryPatcher::g_game_serial == "CUSA14209" ||
+            MemoryPatcher::g_game_serial == "CUSA14204") {
+            const Id one_float_bits = ctx.ConstU32(0x3f800000u);
+            const Id zero_float_bits = ctx.ConstU32(0x00000000u);
+            const Id is_zero = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(0u));
+            const Id is_one = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(1u));
+            const Id is_two = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(2u));
+            const Id is_three = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(3u));
+            result = ctx.OpSelect(ctx.U32[1], is_zero, one_float_bits, result);
+            result = ctx.OpSelect(ctx.U32[1], is_one, zero_float_bits, result);
+            result = ctx.OpSelect(ctx.U32[1], is_two, one_float_bits, result);
+            result = ctx.OpSelect(ctx.U32[1], is_three, zero_float_bits, result);
         }
     }
     if (const Id size = buffer.Size(PointerSize::B32); Sirit::ValidId(size)) {
