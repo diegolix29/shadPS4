@@ -57,7 +57,7 @@
 #include "core/libraries/system/commondialog.h"
 #include "core/libraries/system/msgdialog.h"
 #include "core/libraries/system/posix.h"
-#include "core/libraries/system/sysmodule.h"
+#include "core/libraries/sysmodule/sysmodule.h"
 #include "core/libraries/system/systemservice.h"
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/system_gesture/system_gesture.h"
@@ -119,7 +119,8 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
     Libraries::ErrorDialog::RegisterLib(sym);
     Libraries::ImeDialog::RegisterLib(sym);
     Libraries::AvPlayer::RegisterLib(sym);
-    Libraries::Vdec2::RegisterLib(sym);
+    Libraries::Videodec::RegisterLib(sym);
+    Libraries::Videodec2::RegisterLib(sym);
     Libraries::Audio3d::RegisterLib(sym);
     Libraries::Ime::RegisterLib(sym);
     Libraries::GameLiveStreaming::RegisterLib(sym);
