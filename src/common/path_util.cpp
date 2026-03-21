@@ -291,97 +291,72 @@ void InitializeUserPaths(PathInitState state) {
         UserPaths.insert_or_assign(shad_path, new_path);
     };
 
-    // Only create directories if they don't already exist
-    if (!std::filesystem::exists(user_dir)) {
-        create_path(PathType::UserDir, user_dir);
-        create_path(PathType::LogDir, user_dir / LOG_DIR);
-        create_path(PathType::ScreenshotsDir, user_dir / SCREENSHOTS_DIR);
-        create_path(PathType::ShaderDir, user_dir / SHADER_DIR);
-        create_path(PathType::GameDataDir, user_dir / GAMEDATA_DIR);
-        create_path(PathType::TempDataDir, user_dir / TEMPDATA_DIR);
-        create_path(PathType::SysModuleDir, user_dir / SYSMODULES_DIR);
-        create_path(PathType::DownloadDir, user_dir / DOWNLOAD_DIR);
-        create_path(PathType::CapturesDir, user_dir / CAPTURES_DIR);
-        create_path(PathType::CheatsDir, user_dir / CHEATS_DIR);
-        create_path(PathType::PatchesDir, user_dir / PATCHES_DIR);
-        create_path(PathType::MetaDataDir, user_dir / METADATA_DIR);
-        create_path(PathType::CustomTrophy, user_dir / CUSTOM_TROPHY);
-        create_path(PathType::CustomConfigs, user_dir / CUSTOM_CONFIGS);
-        create_path(PathType::CustomThemes, user_dir / CUSTOM_THEMES);
-        create_path(PathType::ModsFolder, user_dir / MODS_FOLDER);
-        create_path(PathType::CacheDir, user_dir / CACHE_DIR);
-        create_path(PathType::CustomAudios, user_dir / AUDIO_DIR);
-        create_path(PathType::FontsDir, user_dir / FONTS_DIR);
+    create_path(PathType::UserDir, user_dir);
+    create_path(PathType::LogDir, user_dir / LOG_DIR);
+    create_path(PathType::ScreenshotsDir, user_dir / SCREENSHOTS_DIR);
+    create_path(PathType::ShaderDir, user_dir / SHADER_DIR);
+    create_path(PathType::GameDataDir, user_dir / GAMEDATA_DIR);
+    create_path(PathType::TempDataDir, user_dir / TEMPDATA_DIR);
+    create_path(PathType::SysModuleDir, user_dir / SYSMODULES_DIR);
+    create_path(PathType::DownloadDir, user_dir / DOWNLOAD_DIR);
+    create_path(PathType::CapturesDir, user_dir / CAPTURES_DIR);
+    create_path(PathType::CheatsDir, user_dir / CHEATS_DIR);
+    create_path(PathType::PatchesDir, user_dir / PATCHES_DIR);
+    create_path(PathType::MetaDataDir, user_dir / METADATA_DIR);
+    create_path(PathType::CustomTrophy, user_dir / CUSTOM_TROPHY);
+    create_path(PathType::CustomConfigs, user_dir / CUSTOM_CONFIGS);
+    create_path(PathType::CustomThemes, user_dir / CUSTOM_THEMES);
+    create_path(PathType::ModsFolder, user_dir / MODS_FOLDER);
+    create_path(PathType::CacheDir, user_dir / CACHE_DIR);
+    create_path(PathType::CustomAudios, user_dir / AUDIO_DIR);
+    create_path(PathType::FontsDir, user_dir / FONTS_DIR);
 
-        // Only create notice files if they don't exist
-        if (!std::filesystem::exists(user_dir / CUSTOM_TROPHY / "Notice.txt")) {
-            std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
-            if (notice_file.is_open()) {
-                notice_file
-                    // clang-format off
-    << "++++++++++++++++++++++++++++++++\n"
-    "+ Custom Trophy Images / Sound +\n"
-    "++++++++++++++++++++++++++++++++\n\n"
+    if (!std::filesystem::exists(user_dir / CUSTOM_TROPHY / "Notice.txt")) {
+        std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
+        if (notice_file.is_open()) {
+            notice_file
+                // clang-format off
+<< "++++++++++++++++++++++++++++++++\n"
+"+ Custom Trophy Images / Sound +\n"
+"++++++++++++++++++++++++++++++++\n\n"
 
-    "You can add custom images to the trophies.\n"
-    "*We recommend a square resolution image, for example 200x200, 500x500, same size as the height and width.\n"
-    "In this folder ('user\\custom_trophy'), add the files with the following names:\n\n"
-    "bronze.png\n"
-    "silver.png\n"
-    "gold.png\n"
-    "platinum.png\n\n"
+"You can add custom images to the trophies.\n"
+"*We recommend a square resolution image, for example 200x200, 500x500, same size as the height and width.\n"
+"In this folder ('user\\custom_trophy'), add the files with the following names:\n\n"
+"bronze.png\n"
+"silver.png\n"
+"gold.png\n"
+"platinum.png\n\n"
 
-    "You can add a custom sound for trophy notifications.\n"
-    "*By default, no audio is played unless it is in this folder and you are using the QT version.\n"
-    "In this folder ('user\\custom_trophy'), add the files with the following names:\n\n"
+"You can add a custom sound for trophy notifications.\n"
+"*By default, no audio is played unless it is in this folder and you are using the QT version.\n"
+"In this folder ('user\\custom_trophy'), add the files with the following names:\n\n"
 
-    "trophy.wav OR trophy.mp3";
-                // clang-format on
-                notice_file.close();
-            }
+"trophy.wav OR trophy.mp3";
+            // clang-format on
+            notice_file.close();
         }
+    }
 
-        if (!std::filesystem::exists(user_dir / AUDIO_DIR / "Notice.txt")) {
-            std::ofstream audio_file(user_dir / AUDIO_DIR / "Notice.txt");
-            if (audio_file.is_open()) {
-                audio_file
-                    // clang-format off
-    << "++++++++++++++++++++++++++++++++\n"
-    "+ Custom Audios / Sounds +\n"
-    "++++++++++++++++++++++++++++++++\n\n"
+    if (!std::filesystem::exists(user_dir / AUDIO_DIR / "Notice.txt")) {
+        std::ofstream audio_file(user_dir / AUDIO_DIR / "Notice.txt");
+        if (audio_file.is_open()) {
+            audio_file
+                // clang-format off
+<< "++++++++++++++++++++++++++++++++\n"
+"+ Custom Audios / Sounds +\n"
+"++++++++++++++++++++++++++++++++\n\n"
 
-    "You can add custom sounds to the games menu.\n"
-    "For the background music / tick movement navigation / start game sound.\n"
-    "It has sound built in but if you add.\n"
-    "In this folder ('user\\custom_audios'), the files with the following names:\n"
-    "bgm.wav/tick.wav - bgm.mp3/tick.mp3 - play.wav/play.mp3.\n"
-    "bgm for Background music, tick for movement navigation and play for start game sound.\n"
-    "You can use custom audios for the games menu.";
-                // clang-format on
-                audio_file.close();
-            }
+"You can add custom sounds to the games menu.\n"
+"For the background music / tick movement navigation / start game sound.\n"
+"It has sound built in but if you add.\n"
+"In this folder ('user\\custom_audios'), the files with the following names:\n"
+"bgm.wav/tick.wav - bgm.mp3/tick.mp3 - play.wav/play.mp3.\n"
+"bgm for Background music, tick for movement navigation and play for start game sound.\n"
+"You can use custom audios for the games menu.";
+            // clang-format on
+            audio_file.close();
         }
-    } else {
-        // Directory already exists, just set the paths without creating new files
-        UserPaths.insert_or_assign(PathType::UserDir, user_dir);
-        UserPaths.insert_or_assign(PathType::LogDir, user_dir / LOG_DIR);
-        UserPaths.insert_or_assign(PathType::ScreenshotsDir, user_dir / SCREENSHOTS_DIR);
-        UserPaths.insert_or_assign(PathType::ShaderDir, user_dir / SHADER_DIR);
-        UserPaths.insert_or_assign(PathType::GameDataDir, user_dir / GAMEDATA_DIR);
-        UserPaths.insert_or_assign(PathType::TempDataDir, user_dir / TEMPDATA_DIR);
-        UserPaths.insert_or_assign(PathType::SysModuleDir, user_dir / SYSMODULES_DIR);
-        UserPaths.insert_or_assign(PathType::DownloadDir, user_dir / DOWNLOAD_DIR);
-        UserPaths.insert_or_assign(PathType::CapturesDir, user_dir / CAPTURES_DIR);
-        UserPaths.insert_or_assign(PathType::CheatsDir, user_dir / CHEATS_DIR);
-        UserPaths.insert_or_assign(PathType::PatchesDir, user_dir / PATCHES_DIR);
-        UserPaths.insert_or_assign(PathType::MetaDataDir, user_dir / METADATA_DIR);
-        UserPaths.insert_or_assign(PathType::CustomTrophy, user_dir / CUSTOM_TROPHY);
-        UserPaths.insert_or_assign(PathType::CustomConfigs, user_dir / CUSTOM_CONFIGS);
-        UserPaths.insert_or_assign(PathType::CustomThemes, user_dir / CUSTOM_THEMES);
-        UserPaths.insert_or_assign(PathType::ModsFolder, user_dir / MODS_FOLDER);
-        UserPaths.insert_or_assign(PathType::CacheDir, user_dir / CACHE_DIR);
-        UserPaths.insert_or_assign(PathType::CustomAudios, user_dir / AUDIO_DIR);
-        UserPaths.insert_or_assign(PathType::FontsDir, user_dir / FONTS_DIR);
     }
 }
 
