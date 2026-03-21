@@ -89,25 +89,23 @@ Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
     if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xa298398bULL && handle == 0) {
         const Id logical_index = index;
         if (MemoryPatcher::g_game_serial == "CUSA01968" ||
-            MemoryPatcher::g_game_serial == "CUSA01936" ||
-            MemoryPatcher::g_game_serial == "CUSA14209" ||
-            MemoryPatcher::g_game_serial == "CUSA14204") {
+            MemoryPatcher::g_game_serial == "CUSA01936") {
             const Id is_five = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(5u));
             result = ctx.OpSelect(ctx.U32[1], is_five, ctx.u32_zero_value, result);
         }
     }
     if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xffe52ec0369553e4ULL && handle == 0) {
         const Id logical_index = index;
-        if (MemoryPatcher::g_game_serial == "CUSA14209" ||
-            MemoryPatcher::g_game_serial == "CUSA14204") {
+        if (MemoryPatcher::g_game_serial == "CUSA00222" ||
+            MemoryPatcher::g_game_serial == "CUSA00264") {
             const Id is_five = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(5u));
             result = ctx.OpSelect(ctx.U32[1], is_five, ctx.u32_zero_value, result);
         }
     }
     if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xe115097cULL && handle == 4) {
         const Id logical_index = index;
-        if (MemoryPatcher::g_game_serial == "CUSA14209" ||
-            MemoryPatcher::g_game_serial == "CUSA14204") {
+        if (MemoryPatcher::g_game_serial == "CUSA06534" ||
+            MemoryPatcher::g_game_serial == "CUSA06536") {
             const Id one_float_bits = ctx.ConstU32(0x3f800000u);
             const Id zero_float_bits = ctx.ConstU32(0x00000000u);
             const Id is_zero = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(0u));

@@ -10,8 +10,8 @@ namespace Shader::Backend::SPIRV {
 
 static bool IsUfc3ColorGradingWorkaround(const EmitContext& ctx, u32 handle) {
     return ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xe115097cULL &&
-           (MemoryPatcher::g_game_serial == "CUSA14209" ||
-            MemoryPatcher::g_game_serial == "CUSA14204") &&
+           (MemoryPatcher::g_game_serial == "CUSA06534" ||
+            MemoryPatcher::g_game_serial == "CUSA06536") &&
            (ctx.images[handle & 0xFFFF].view_type == AmdGpu::ImageType::Color3D) &&
            !ctx.images[handle & 0xFFFF].is_storage;
 }
