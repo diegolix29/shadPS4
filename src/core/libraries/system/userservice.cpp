@@ -16,7 +16,7 @@
 
 namespace Libraries::UserService {
 
-static std::queue<OrbisUserServiceEvent> user_service_event_queue;
+std::queue<OrbisUserServiceEvent> user_service_event_queue = {};
 
 int PS4_SYSV_ABI sceUserServiceInitializeForShellCore() {
     LOG_ERROR(Lib_UserService, "(STUBBED) called");
@@ -113,7 +113,6 @@ int PS4_SYSV_ABI sceUserServiceGetDiscPlayerFlag() {
     return ORBIS_OK;
 }
 
-std::queue<OrbisUserServiceEvent> user_service_event_queue = {};
 
 void AddUserServiceEvent(const OrbisUserServiceEvent e) {
     LOG_DEBUG(Lib_UserService, "Event added to queue: {} {}", (u8)e.event, e.userId);

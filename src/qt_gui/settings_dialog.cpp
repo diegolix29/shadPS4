@@ -1167,7 +1167,9 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->value()) + "%");
     ui->fpsSlider->setValue(toml::find_or<int>(data, "GPU", "fpsLimit", 60));
     ui->fpsSpinBox->setValue(toml::find_or<int>(data, "GPU", "fpsLimit", 60));
-    ui->fpsLimiterCheckBox->setChecked(Config::isFpsLimiterEnabled());
+    ui->fpsLimiterCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", false));
+    ui->fpsSpinBox->setEnabled(toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", false));
+    ui->fpsSlider->setEnabled(toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", false));
     ui->discordRPCCheckbox->setChecked(
         toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
 
@@ -1221,6 +1223,14 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "Vulkan", "crashDiagnostic", false));
     ui->DsAudioComboBox->setCurrentText(QString::fromStdString(
         toml::find_or<std::string>(data, "Audio", "padSpkOutputDevice", "")));
+    
+    // Load audio backend
+    int audioBackendValue = toml::find_or<int>(data, "Audio", "audioBackend", 0);
+    ui->AudioBackendComboBox->setCurrentIndex(audioBackendValue);
+    
+    // Load main output device
+    ui->GenAudioComboBox->setCurrentText(QString::fromStdString(
+        toml::find_or<std::string>(data, "Audio", "mainOutputDevice", "Default Device")));
 
     ui->checkCompatibilityOnStartupCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
@@ -1588,9 +1598,6 @@ bool SettingsDialog::eventFilter(QObject* obj, QEvent* event) {
 }
 
 void SettingsDialog::UpdateSettings() {
-    // Settings dialog is always for global settings
-    Config::setGameSpecificContext(false);
-
     Config::setIsFullscreen(screenModeMap.value(ui->displayModeComboBox->currentText()) !=
                             "Windowed");
     Config::setFullscreenMode(
@@ -1622,6 +1629,39 @@ void SettingsDialog::UpdateSettings() {
     Config::setMicDevice(ui->micComboBox->currentData().toString().toStdString());
     Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());
     Config::setUserName(ui->userName1LineEdit->text().toStdString());
+    
+    // Save audio backend directly to config.toml
+    std::filesystem::path config_path = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml";
+    try {
+        toml::value data;
+        std::error_code error;
+        // Always create a base data structure
+        if (std::filesystem::exists(config_path, error)) {
+            std::ifstream ifs;
+            ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+            ifs.open(config_path, std::ios_base::binary);
+            data = toml::parse(ifs);
+        } else {
+            data = toml::table();
+        }
+        
+        // Set audio backend directly
+        int backendValue = (ui->AudioBackendComboBox->currentIndex() == 1) ? 1 : 0; // SDL=0, OpenAL=1
+        
+        // Ensure Audio section exists
+        if (!data.contains("Audio")) {
+            data["Audio"] = toml::table();
+        }
+        data["Audio"]["audioBackend"] = backendValue;
+        
+        // Save back to file
+        std::ofstream ofs(config_path, std::ios::binary);
+        ofs << data;
+    } catch (const std::exception& ex) {
+        // Silent fail - audio backend is not critical
+    }
+    Config::setMainOutputDevice(ui->GenAudioComboBox->currentText().toStdString());
+    Config::setPadSpkOutputDevice(ui->DsAudioComboBox->currentText().toStdString());
 
     std::array<bool, 4> playerStates;
     playerStates[0] = ui->enablePlayer1CheckBox->isChecked();
@@ -1681,7 +1721,6 @@ void SettingsDialog::UpdateSettings() {
 
     Config::setShaderSkipsEnabled(ui->SkipsCheckBox->isChecked());
     Config::setFpsLimit(ui->fpsSlider->value());
-    Config::setFpsLimit(ui->fpsSpinBox->value());
     Config::setFpsLimiterEnabled(ui->fpsLimiterCheckBox->isChecked());
 
     Config::setExtraDmemInMbytes(ui->MemorySpinBox->value());

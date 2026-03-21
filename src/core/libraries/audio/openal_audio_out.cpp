@@ -11,8 +11,8 @@
 #include <AL/alc.h>
 #include <alext.h>
 #include <queue>
+#include "common/config.h"
 #include "common/logging/log.h"
-#include "common/config.cpp"
 #include "core/libraries/audio/audioout.h"
 #include "core/libraries/audio/audioout_backend.h"
 #include "core/libraries/audio/openal_manager.h"

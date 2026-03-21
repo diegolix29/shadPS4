@@ -504,6 +504,36 @@
 								</item>
 
 								<item>
+									<widget class="QGroupBox" name="AudioBackendGroupBox">
+										<property name="title">
+											<string>Audio Backend</string>
+										</property>
+										<property name="sizePolicy">
+											<sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+												<horstretch>0</horstretch>
+												<verstretch>0</verstretch>
+											</sizepolicy>
+										</property>
+										<layout class="QVBoxLayout" name="verticalLayout_82">
+											<item>
+												<widget class="QComboBox" name="AudioBackendComboBox">
+													<item>
+														<property name="text">
+															<string>SDL</string>
+														</property>
+													</item>
+													<item>
+														<property name="text">
+															<string>OpenAL</string>
+														</property>
+													</item>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+
+								<item>
 									<widget class="QGroupBox" name="GenAudioGroupBox">
 										<property name="title">
 											<string>Audio Device (general)</string>

@@ -32,7 +32,7 @@ enum HideCursorState : u32 {
     Always,
 };
 
-enum class AudioBackend : u32 { OpenAL, SDL };
+enum class AudioBackend : u32 { SDL, OpenAL };
 
 enum class ReadbackSpeed : u32 {
     Disable,
