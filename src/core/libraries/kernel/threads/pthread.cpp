@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/assert.h"
@@ -13,12 +13,6 @@
 #include "core/memory.h"
 
 namespace Libraries::Kernel {
-
-constexpr int PthreadInheritSched = 4;
-
-constexpr int ORBIS_KERNEL_PRIO_FIFO_DEFAULT = 700;
-constexpr int ORBIS_KERNEL_PRIO_FIFO_HIGHEST = 256;
-constexpr int ORBIS_KERNEL_PRIO_FIFO_LOWEST = 767;
 
 extern PthreadAttr PthreadAttrDefault;
 
@@ -205,10 +199,17 @@ static void RunThread(void* arg) {
     g_curthread = curthread;
     Common::SetCurrentThreadName(curthread->name.c_str());
     DebugState.AddCurrentThreadToGuestList();
+    Core::InitializeTLS();
+
+    curthread->native_thr.Initialize();
+
+    // Clear the stack before running the guest thread
+    if (False(g_curthread->attr.flags & PthreadAttrFlags::StackUser)) {
+        ClearStack();
+    }
 
     /* Run the current thread's start routine with argument: */
-    curthread->native_thr.Initialize();
-    void* ret = Core::ExecuteGuest(curthread->start_routine, curthread->arg);
+    void* ret = curthread->start_routine(curthread->arg);
 
     /* Remove thread from tracking */
     DebugState.RemoveCurrentThreadFromGuestList();
@@ -231,7 +232,7 @@ int PS4_SYSV_ABI posix_pthread_create_name_np(PthreadT* thread, const PthreadAtt
         new_thread->attr = *(*attr);
         new_thread->attr.cpusetsize = 0;
     }
-    if (new_thread->attr.sched_inherit == PthreadInheritSched) {
+    if (curthread != nullptr && new_thread->attr.sched_inherit == PthreadInheritSched) {
         if (True(curthread->attr.flags & PthreadAttrFlags::ScopeSystem)) {
             new_thread->attr.flags |= PthreadAttrFlags::ScopeSystem;
         } else {
@@ -241,7 +242,7 @@ int PS4_SYSV_ABI posix_pthread_create_name_np(PthreadT* thread, const PthreadAtt
         new_thread->attr.sched_policy = curthread->attr.sched_policy;
     }
 
-    static int TidCounter = 1;
+    static std::atomic<int> TidCounter = 1;
     new_thread->tid = ++TidCounter;
 
     if (new_thread->attr.stackaddr_attr == nullptr) {
@@ -325,6 +326,7 @@ PthreadT PS4_SYSV_ABI posix_pthread_self() {
 }
 
 void PS4_SYSV_ABI posix_pthread_set_name_np(PthreadT thread, const char* name) {
+    LOG_INFO(Kernel_Pthread, "called, new name: {}", name);
     Common::SetCurrentThreadName(name);
 }
 
@@ -663,6 +665,7 @@ void RegisterThread(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("Z4QosVuAsA0", "libkernel", 1, "libkernel", posix_pthread_once);
     LIB_FUNCTION("EotR8a3ASf4", "libkernel", 1, "libkernel", posix_pthread_self);
     LIB_FUNCTION("OxhIB8LB-PQ", "libkernel", 1, "libkernel", posix_pthread_create);
+    LIB_FUNCTION("Jmi+9w9u0E4", "libkernel", 1, "libkernel", posix_pthread_create_name_np);
     LIB_FUNCTION("lZzFeSxPl08", "libkernel", 1, "libkernel", posix_pthread_setcancelstate);
     LIB_FUNCTION("CBNtXOoef-E", "libkernel", 1, "libkernel", posix_sched_get_priority_max);
     LIB_FUNCTION("m0iS6jNsXds", "libkernel", 1, "libkernel", posix_sched_get_priority_min);

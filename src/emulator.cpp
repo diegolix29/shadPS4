@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <filesystem>
@@ -14,6 +14,7 @@
 #include "common/debug.h"
 #include "common/logging/backend.h"
 #include "common/logging/log.h"
+#include "common/thread.h"
 #include "core/ipc/ipc.h"
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"
@@ -27,17 +28,13 @@
 #include "common/singleton.h"
 #include "core/debugger.h"
 #include "core/devtools/widget/module_list.h"
+#include "core/emulator_state.h"
 #include "core/file_format/psf.h"
 #include "core/file_format/trp.h"
 #include "core/file_sys/fs.h"
-#include "core/libraries/disc_map/disc_map.h"
-#include "core/libraries/font/font.h"
-#include "core/libraries/font/fontft.h"
-#include "core/libraries/libc_internal/libc_internal.h"
+#include "core/libraries/kernel/kernel.h"
 #include "core/libraries/libs.h"
-#include "core/libraries/ngs2/ngs2.h"
 #include "core/libraries/np/np_trophy.h"
-#include "core/libraries/rtc/rtc.h"
 #include "core/libraries/save_data/save_backup.h"
 #include "core/linker.h"
 #include "core/memory.h"
@@ -73,8 +70,28 @@ Emulator::Emulator() {
 
 Emulator::~Emulator() {}
 
+s32 ReadCompiledSdkVersion(const std::filesystem::path& file) {
+    Core::Loader::Elf elf;
+    elf.Open(file);
+    if (!elf.IsElfFile()) {
+        return 0;
+    }
+    const auto elf_pheader = elf.GetProgramHeader();
+    auto i_procparam = std::find_if(elf_pheader.begin(), elf_pheader.end(), [](const auto& entry) {
+        return entry.p_type == PT_SCE_PROCPARAM;
+    });
+
+    if (i_procparam != elf_pheader.end()) {
+        Core::OrbisProcParam param{};
+        elf.LoadSegment(u64(&param), i_procparam->p_offset, i_procparam->p_filesz);
+        return param.sdk_version;
+    }
+    return 0;
+}
+
 void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
                    std::optional<std::filesystem::path> p_game_folder) {
+    Common::SetCurrentThreadName("shadPS4:Main");
     if (waitForDebuggerBeforeRun) {
         Debugger::WaitForDebuggerAttach();
     }
@@ -160,6 +177,9 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         }
     }
 
+    auto guest_eboot_path = "/app0/" + eboot_name.generic_string();
+    const auto eboot_path = mnt->GetHostPath(guest_eboot_path);
+
     auto& game_info = Common::ElfInfo::Instance();
     game_info.initialized = true;
     game_info.game_serial = id;
@@ -167,7 +187,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     game_info.app_ver = app_version;
     game_info.firmware_ver = fw_version & 0xFFF00000;
     game_info.raw_firmware_ver = fw_version;
-    game_info.sdk_ver = sdk_version;
+    game_info.sdk_ver = ReadCompiledSdkVersion(eboot_path);
     game_info.psf_attributes = psf_attributes;
 
     const auto pic1_path = mnt->GetHostPath("/app0/sce_sys/pic1.png");
@@ -179,6 +199,13 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     Config::load(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (id + ".toml"),
                  true);
+
+    if (std::filesystem::exists(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                                (id + ".toml"))) {
+        EmulatorState::GetInstance()->SetGameSpecifigConfigUsed(true);
+    } else {
+        EmulatorState::GetInstance()->SetGameSpecifigConfigUsed(false);
+    }
 
     // Initialize logging as soon as possible
     if (!id.empty() && Config::getSeparateLogFilesEnabled()) {
@@ -204,12 +231,13 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     LOG_INFO(Config, "Game-specific config exists: {}", has_game_config);
 
     LOG_INFO(Config, "General LogType: {}", Config::getLogType());
+    LOG_INFO(Config, "General isIdenticalLogGrouped: {}", Config::groupIdenticalLogs());
     LOG_INFO(Config, "General isNeo: {}", Config::isNeoModeConsole());
     LOG_INFO(Config, "General isDevKit: {}", Config::isDevKitConsole());
     LOG_INFO(Config, "General isConnectedToNetwork: {}", Config::getIsConnectedToNetwork());
     LOG_INFO(Config, "General isPsnSignedIn: {}", Config::getPSNSignedIn());
     LOG_INFO(Config, "GPU isNullGpu: {}", Config::nullGpu());
-    LOG_INFO(Config, "GPU readbacks: {}", Config::readbacks());
+    LOG_INFO(Config, "GPU readbacksMode: {}", Config::getReadbacksMode());
     LOG_INFO(Config, "GPU readbackLinearImages: {}", Config::readbackLinearImages());
     LOG_INFO(Config, "GPU directMemoryAccess: {}", Config::directMemoryAccess());
     LOG_INFO(Config, "GPU shouldDumpShaders: {}", Config::dumpShaders());
@@ -239,7 +267,8 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     if (param_sfo_exists) {
         LOG_INFO(Loader, "Game id: {} Title: {}", id, title);
         LOG_INFO(Loader, "Fw: {:#x} App Version: {}", fw_version, app_version);
-        LOG_INFO(Loader, "Compiled SDK version: {:#x}", sdk_version);
+        LOG_INFO(Loader, "param.sfo SDK version: {:#x}", sdk_version);
+        LOG_INFO(Loader, "eboot SDK version: {:#x}", game_info.sdk_ver);
         LOG_INFO(Loader, "PSVR Supported: {}", (bool)psf_attributes.support_ps_vr.Value());
         LOG_INFO(Loader, "PSVR Required: {}", (bool)psf_attributes.require_ps_vr.Value());
     }
@@ -304,11 +333,8 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     g_window = window.get();
 
-    const auto& mount_data_dir = Common::FS::GetUserPath(Common::FS::PathType::GameDataDir) / id;
-    if (!std::filesystem::exists(mount_data_dir)) {
-        std::filesystem::create_directory(mount_data_dir);
-    }
-    mnt->Mount(mount_data_dir, "/data"); // should just exist, manually create with game serial
+    const auto& mount_data_dir = Common::FS::GetUserPath(Common::FS::PathType::GameDataDir);
+    mnt->Mount(mount_data_dir, "/data");
 
     // Mounting temp folders
     const auto& mount_temp_dir = Common::FS::GetUserPath(Common::FS::PathType::TempDataDir) / id;
@@ -333,28 +359,43 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
     VideoCore::SetOutputDir(mount_captures_dir, id);
 
+    // Mount system fonts
+    const auto& fonts_dir = Config::getFontsPath();
+    if (!std::filesystem::exists(fonts_dir)) {
+        std::filesystem::create_directory(fonts_dir);
+    }
+
+    // Fonts are mounted into the sandboxed system directory, construct the appropriate path.
+    const char* sandbox_root = Libraries::Kernel::sceKernelGetFsSandboxRandomWord();
+    std::string guest_font_dir = "/";
+    guest_font_dir.append(sandbox_root).append("/common/font");
+    const auto& host_font_dir = fonts_dir / "font";
+    if (!std::filesystem::exists(host_font_dir)) {
+        std::filesystem::create_directory(host_font_dir);
+    }
+    mnt->Mount(host_font_dir, guest_font_dir);
+
+    // There is a second font directory, mount that too.
+    guest_font_dir.append("2");
+    const auto& host_font2_dir = fonts_dir / "font2";
+    if (!std::filesystem::exists(host_font2_dir)) {
+        std::filesystem::create_directory(host_font2_dir);
+    }
+    mnt->Mount(host_font2_dir, guest_font_dir);
+
+    if (std::filesystem::is_empty(host_font_dir) || std::filesystem::is_empty(host_font2_dir)) {
+        LOG_WARNING(Loader, "No dumped system fonts, expect missing text or instability");
+    }
+
     // Initialize kernel and library facilities.
     Libraries::InitHLELibs(&linker->GetHLESymbols());
 
     // Load the module with the linker
-    auto guest_eboot_path = "/app0/" + eboot_name.generic_string();
-    const auto eboot_path = mnt->GetHostPath(guest_eboot_path);
     if (linker->LoadModule(eboot_path) == -1) {
         LOG_CRITICAL(Loader, "Failed to load game's eboot.bin: {}",
                      Common::FS::PathToUTF8String(std::filesystem::absolute(eboot_path)));
         std::quick_exit(0);
     }
-
-    // check if we have system modules to load
-    LoadSystemModules(game_info.game_serial);
-
-    // Load all prx from game's sce_module folder
-    mnt->IterateDirectory("/app0/sce_module", [this](const auto& path, const auto is_file) {
-        if (is_file) {
-            LOG_INFO(Loader, "Loading {}", fmt::UTF(path.u8string()));
-            linker->LoadModule(path);
-        }
-    });
 
 #ifdef ENABLE_DISCORD_RPC
     // Discord RPC
@@ -494,49 +535,6 @@ void Emulator::Restart(std::filesystem::path eboot_path,
 #endif
 
     std::quick_exit(0);
-}
-
-void Emulator::LoadSystemModules(const std::string& game_serial) {
-    constexpr auto ModulesToLoad = std::to_array<SysModules>(
-        {{"libSceNgs2.sprx", &Libraries::Ngs2::RegisterLib},
-         {"libSceUlt.sprx", nullptr},
-         {"libSceJson.sprx", nullptr},
-         {"libSceJson2.sprx", nullptr},
-         {"libSceLibcInternal.sprx", &Libraries::LibcInternal::RegisterLib},
-         {"libSceCesCs.sprx", nullptr},
-         {"libSceFont.sprx", &Libraries::Font::RegisterlibSceFont},
-         {"libSceFontFt.sprx", &Libraries::FontFt::RegisterlibSceFontFt},
-         {"libSceFreeTypeOt.sprx", nullptr}});
-
-    std::vector<std::filesystem::path> found_modules;
-    const auto& sys_module_path = Config::getSysModulesPath();
-    for (const auto& entry : std::filesystem::directory_iterator(sys_module_path)) {
-        found_modules.push_back(entry.path());
-    }
-    for (const auto& [module_name, init_func] : ModulesToLoad) {
-        const auto it = std::ranges::find_if(
-            found_modules, [&](const auto& path) { return path.filename() == module_name; });
-        if (it != found_modules.end()) {
-            LOG_INFO(Loader, "Loading {}", it->string());
-            if (linker->LoadModule(*it) != -1) {
-                continue;
-            }
-        }
-        if (init_func) {
-            LOG_INFO(Loader, "Can't Load {} switching to HLE", module_name);
-            init_func(&linker->GetHLESymbols());
-        } else {
-            LOG_INFO(Loader, "No HLE available for {} module", module_name);
-        }
-    }
-    if (!game_serial.empty() && std::filesystem::exists(sys_module_path / game_serial)) {
-        for (const auto& entry :
-             std::filesystem::directory_iterator(sys_module_path / game_serial)) {
-            LOG_INFO(Loader, "Loading {} from game serial file {}", entry.path().string(),
-                     game_serial);
-            linker->LoadModule(entry.path());
-        }
-    }
 }
 
 void Emulator::UpdatePlayTime(const std::string& serial) {

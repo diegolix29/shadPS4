@@ -1,4 +1,4 @@
-//  SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+//  SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 //  SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "ipc.h"
@@ -14,6 +14,7 @@
 #include "common/types.h"
 #include "core/debug_state.h"
 #include "core/debugger.h"
+#include "core/emulator_state.h"
 #include "core/libraries/audio/audioout.h"
 #include "input/input_handler.h"
 #include "sdl_window.h"
@@ -71,7 +72,7 @@ void IPC::Init() {
         return;
     }
 
-    Config::setLoadAutoPatches(false);
+    EmulatorState::GetInstance()->SetAutoPatchesLoadEnabled(false);
 
     input_thread = std::jthread([this] {
         Common::SetCurrentThreadName("IPC Read thread");
@@ -173,12 +174,18 @@ void IPC::InputLoop() {
         } else if (cmd == "USB_LOAD_FIGURE") {
             const auto ref = Libraries::Usbd::usb_backend->GetImplRef();
             if (ref) {
-                ref->LoadFigure(next_str(), next_u64(), next_u64());
+                std::string file_name = next_str();
+                const u8 pad = next_u64();
+                const u8 slot = next_u64();
+                ref->LoadFigure(file_name, pad, slot);
             }
         } else if (cmd == "USB_REMOVE_FIGURE") {
             const auto ref = Libraries::Usbd::usb_backend->GetImplRef();
             if (ref) {
-                ref->RemoveFigure(next_u64(), next_u64(), next_u64() != 0);
+                const u8 pad = next_u64();
+                const u8 slot = next_u64();
+                bool full_remove = next_u64() != 0;
+                ref->RemoveFigure(pad, slot, full_remove);
             }
         } else if (cmd == "USB_MOVE_FIGURE") {
             const auto ref = Libraries::Usbd::usb_backend->GetImplRef();

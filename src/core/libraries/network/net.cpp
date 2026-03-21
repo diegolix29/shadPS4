@@ -655,10 +655,17 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
 
         switch (file->type) {
         case Core::FileSys::FileType::Socket: {
+            auto native_handle = file->socket->Native();
+            if (!native_handle) {
+                // P2P socket, cannot be added to epoll
+                LOG_ERROR(Lib_Net, "P2P socket cannot be added to epoll (unimplemented)");
+                *sceNetErrnoLoc() = ORBIS_NET_EBADF;
+                return ORBIS_NET_ERROR_EBADF;
+            }
+
             epoll_event native_event = {.events = ConvertEpollEventsIn(event->events),
                                         .data = {.fd = id}};
-            ASSERT(epoll_ctl(epoll->epoll_fd, EPOLL_CTL_ADD, *file->socket->Native(),
-                             &native_event) == 0);
+            ASSERT(epoll_ctl(epoll->epoll_fd, EPOLL_CTL_ADD, *native_handle, &native_event) == 0);
             epoll->events.emplace_back(id, *event);
             break;
         }
@@ -696,10 +703,17 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
 
         switch (file->type) {
         case Core::FileSys::FileType::Socket: {
+            auto native_handle = file->socket->Native();
+            if (!native_handle) {
+                // P2P socket, cannot be modified in epoll
+                LOG_ERROR(Lib_Net, "P2P socket cannot be modified in epoll (unimplemented)");
+                *sceNetErrnoLoc() = ORBIS_NET_EBADF;
+                return ORBIS_NET_ERROR_EBADF;
+            }
+
             epoll_event native_event = {.events = ConvertEpollEventsIn(event->events),
                                         .data = {.fd = id}};
-            ASSERT(epoll_ctl(epoll->epoll_fd, EPOLL_CTL_MOD, *file->socket->Native(),
-                             &native_event) == 0);
+            ASSERT(epoll_ctl(epoll->epoll_fd, EPOLL_CTL_MOD, *native_handle, &native_event) == 0);
             *it = {id, *event};
             break;
         }
@@ -731,8 +745,15 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
 
         switch (file->type) {
         case Core::FileSys::FileType::Socket: {
-            ASSERT(epoll_ctl(epoll->epoll_fd, EPOLL_CTL_DEL, *file->socket->Native(), nullptr) ==
-                   0);
+            auto native_handle = file->socket->Native();
+            if (!native_handle) {
+                // P2P socket, cannot be removed from epoll
+                LOG_ERROR(Lib_Net, "P2P socket cannot be removed from epoll (unimplemented)");
+                *sceNetErrnoLoc() = ORBIS_NET_EBADF;
+                return ORBIS_NET_ERROR_EBADF;
+            }
+
+            ASSERT(epoll_ctl(epoll->epoll_fd, EPOLL_CTL_DEL, *native_handle, nullptr) == 0);
             epoll->events.erase(it);
             break;
         }
@@ -782,6 +803,7 @@ int PS4_SYSV_ABI sceNetEpollDestroy(OrbisNetId epollid) {
     LOG_DEBUG(Lib_Net, "called, epollid = {} ({})", epollid, file->epoll->name);
 
     file->epoll->Destroy();
+    FDTable::Instance()->DeleteHandle(epollid);
 
     return ORBIS_OK;
 }
@@ -865,6 +887,10 @@ int PS4_SYSV_ABI sceNetEpollWait(OrbisNetId epollid, OrbisNetEpollEvent* events,
             }
 
             file->resolver->Resolve();
+            if (file->resolver->resolution_error != ORBIS_OK) {
+                // Resolution failed, shouldn't appear.
+                continue;
+            }
 
             const auto it =
                 std::ranges::find_if(epoll->events, [&](auto& el) { return el.first == rid; });
@@ -1357,7 +1383,8 @@ int PS4_SYSV_ABI sceNetResolverConnectDestroy() {
 }
 
 int PS4_SYSV_ABI sceNetResolverCreate(const char* name, int poolid, int flags) {
-    LOG_INFO(Lib_Net, "name = {}, poolid = {}, flags = {}", name, poolid, flags);
+    const char* safe_name = name ? name : "";
+    LOG_INFO(Lib_Net, "name = {}, poolid = {}, flags = {}", safe_name, poolid, flags);
 
     if (flags != 0) {
         *sceNetErrnoLoc() = ORBIS_NET_EINVAL;
@@ -1368,8 +1395,8 @@ int PS4_SYSV_ABI sceNetResolverCreate(const char* name, int poolid, int flags) {
     auto* resolver = FDTable::Instance()->GetFile(fd);
     resolver->is_opened = true;
     resolver->type = Core::FileSys::FileType::Resolver;
-    resolver->resolver = std::make_shared<Resolver>(name, poolid, flags);
-    resolver->m_guest_name = name;
+    resolver->resolver = std::make_shared<Resolver>(safe_name, poolid, flags);
+    resolver->m_guest_name = safe_name;
     return fd;
 }
 
@@ -1379,8 +1406,21 @@ int PS4_SYSV_ABI sceNetResolverDestroy(OrbisNetId resolverid) {
 }
 
 int PS4_SYSV_ABI sceNetResolverGetError(OrbisNetId resolverid, s32* status) {
-    LOG_ERROR(Lib_Net, "(STUBBED) called rid = {}", resolverid);
-    *status = 0;
+    if (!status) {
+        LOG_ERROR(Lib_Net, "status == nullptr");
+        *sceNetErrnoLoc() = ORBIS_NET_EINVAL;
+        return ORBIS_NET_ERROR_EINVAL;
+    }
+
+    auto file = FDTable::Instance()->GetResolver(resolverid);
+    if (!file) {
+        LOG_ERROR(Lib_Net, "invalid resolverid {}", resolverid);
+        *sceNetErrnoLoc() = ORBIS_NET_EBADF;
+        return ORBIS_NET_ERROR_EBADF;
+    }
+
+    *status = file->resolver->resolution_error;
+    LOG_INFO(Lib_Net, "called rid = {}, error = {:#x}", resolverid, static_cast<u32>(*status));
     return ORBIS_OK;
 }
 
@@ -1402,8 +1442,15 @@ int PS4_SYSV_ABI sceNetResolverStartNtoa(OrbisNetId resolverid, const char* host
 
     auto file = FDTable::Instance()->GetResolver(resolverid);
     if (!file) {
+        LOG_ERROR(Lib_Net, "invalid resolverid {}", resolverid);
         *sceNetErrnoLoc() = ORBIS_NET_EBADF;
         return ORBIS_NET_ERROR_EBADF;
+    }
+
+    if (!Config::getIsConnectedToNetwork()) {
+        *sceNetErrnoLoc() = ORBIS_NET_RESOLVER_ENODNS;
+        file->resolver->resolution_error = ORBIS_NET_ERROR_RESOLVER_ENODNS;
+        return ORBIS_NET_ERROR_RESOLVER_ENODNS;
     }
 
     if ((flags & ORBIS_NET_RESOLVER_ASYNC) != 0) {

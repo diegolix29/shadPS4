@@ -30,6 +30,8 @@ private:
 namespace Overlay {
 
 void ToggleSimpleFps();
+void SetSimpleFps(bool enabled);
 void ToggleQuitWindow();
+void ShowVolume();
 
 } // namespace Overlay

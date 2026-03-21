@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+# SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # Version 3.24 needed for FetchContent OVERRIDE_FIND_PACKAGE
@@ -202,8 +202,8 @@ execute_process(
 
 # Set Version
 set(EMULATOR_VERSION_MAJOR "0")
-set(EMULATOR_VERSION_MINOR "12")
-set(EMULATOR_VERSION_PATCH "6")
+set(EMULATOR_VERSION_MINOR "15")
+set(EMULATOR_VERSION_PATCH "1")
 
 set_source_files_properties(src/shadps4.rc PROPERTIES COMPILE_DEFINITIONS "EMULATOR_VERSION_MAJOR=${EMULATOR_VERSION_MAJOR};EMULATOR_VERSION_MINOR=${EMULATOR_VERSION_MINOR};EMULATOR_VERSION_PATCH=${EMULATOR_VERSION_PATCH}")
 
@@ -221,12 +221,16 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(Boost 1.84.0 CONFIG)
+find_package(CLI11 2.6.1 CONFIG)
 find_package(FFmpeg 5.1.2 MODULE)
 find_package(fmt 10.2.0 CONFIG)
 find_package(glslang 15 CONFIG)
 find_package(half 1.12.0 MODULE)
 find_package(magic_enum 0.9.7 CONFIG)
+find_package(miniz 3.1 CONFIG)
+find_package(nlohmann_json 3.12 CONFIG)
 find_package(PNG 1.6 MODULE)
+find_package(OpenAL CONFIG)
 find_package(RenderDoc 1.6.0 MODULE)
 find_package(SDL3_mixer 2.8.1 CONFIG)
 if (SDL3_mixer_FOUND)
@@ -262,6 +266,8 @@ include_directories(src)
 
 set(AJM_LIB src/core/libraries/ajm/ajm.cpp
             src/core/libraries/ajm/ajm.h
+            src/core/libraries/ajm/ajm_aac.cpp
+            src/core/libraries/ajm/ajm_aac.h
             src/core/libraries/ajm/ajm_at9.cpp
             src/core/libraries/ajm/ajm_at9.h
             src/core/libraries/ajm/ajm_batch.cpp
@@ -279,15 +285,16 @@ set(AJM_LIB src/core/libraries/ajm/ajm.cpp
 
 set(AUDIO_LIB src/core/libraries/audio/audioin.cpp
               src/core/libraries/audio/audioin.h
-              src/core/libraries/audio/sdl_in.h
-              src/core/libraries/audio/sdl_in.cpp
+              src/core/libraries/audio/audioin_backend.h
+              src/core/libraries/audio/audioin_error.h
+              src/core/libraries/audio/sdl_audio_in.cpp
               src/core/libraries/voice/voice.cpp
               src/core/libraries/voice/voice.h
               src/core/libraries/audio/audioout.cpp
               src/core/libraries/audio/audioout.h
               src/core/libraries/audio/audioout_backend.h
               src/core/libraries/audio/audioout_error.h
-              src/core/libraries/audio/sdl_audio.cpp
+              src/core/libraries/audio/sdl_audio_out.cpp
               src/core/libraries/ngs2/ngs2.cpp
               src/core/libraries/ngs2/ngs2.h
 )
@@ -407,9 +414,12 @@ set(SYSTEM_LIBS src/core/libraries/system/commondialog.cpp
                 src/core/libraries/save_data/dialog/savedatadialog.h
                 src/core/libraries/save_data/dialog/savedatadialog_ui.cpp
                 src/core/libraries/save_data/dialog/savedatadialog_ui.h
-                src/core/libraries/system/sysmodule.cpp
-                src/core/libraries/system/sysmodule.h
-                src/core/libraries/system/system_error.h
+                src/core/libraries/sysmodule/sysmodule.cpp
+                src/core/libraries/sysmodule/sysmodule.h
+                src/core/libraries/sysmodule/sysmodule_internal.cpp
+                src/core/libraries/sysmodule/sysmodule_internal.h
+                src/core/libraries/sysmodule/sysmodule_error.h
+                src/core/libraries/sysmodule/sysmodule_table.h
                 src/core/libraries/system/systemservice.cpp
                 src/core/libraries/system/systemservice.h
                 src/core/libraries/system/systemservice_error.h
@@ -422,6 +432,8 @@ set(SYSTEM_LIBS src/core/libraries/system/commondialog.cpp
                 src/core/libraries/rtc/rtc.cpp
                 src/core/libraries/rtc/rtc.h
                 src/core/libraries/rtc/rtc_error.h
+                src/core/libraries/rudp/rudp.cpp
+                src/core/libraries/rudp/rudp.h
                 src/core/libraries/disc_map/disc_map.cpp
                 src/core/libraries/disc_map/disc_map.h
                 src/core/libraries/disc_map/disc_map_codes.h
@@ -490,6 +502,8 @@ set(HLE_LIBC_INTERNAL_LIB src/core/libraries/libc_internal/libc_internal.cpp
                  src/core/libraries/libc_internal/libc_internal_str.h
                  src/core/libraries/libc_internal/libc_internal_math.cpp
                  src/core/libraries/libc_internal/libc_internal_math.h
+                 src/core/libraries/libc_internal/libc_internal_threads.cpp
+                 src/core/libraries/libc_internal/libc_internal_threads.h
                  src/core/libraries/libc_internal/printf.h
 )
 
@@ -520,6 +534,9 @@ set(SYSTEM_GESTURE_LIB
 set(PNG_LIB src/core/libraries/libpng/pngdec.cpp
             src/core/libraries/libpng/pngdec.h
             src/core/libraries/libpng/pngdec_error.h
+            src/core/libraries/libpng/pngenc.cpp
+            src/core/libraries/libpng/pngenc.h
+            src/core/libraries/libpng/pngenc_error.h
 )
 
 set(JPEG_LIB src/core/libraries/jpeg/jpeg_error.h
@@ -577,14 +594,23 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_commerce.h
             src/core/libraries/np/np_manager.cpp
             src/core/libraries/np/np_manager.h
+            src/core/libraries/np/np_matching2.cpp
+            src/core/libraries/np/np_matching2.h
             src/core/libraries/np/np_score.cpp
             src/core/libraries/np/np_score.h
             src/core/libraries/np/np_trophy.cpp
             src/core/libraries/np/np_trophy.h
+            src/core/libraries/np/np_tus.cpp
+            src/core/libraries/np/np_tus.h
             src/core/libraries/np/trophy_ui.cpp
             src/core/libraries/np/trophy_ui.h
             src/core/libraries/np/np_web_api.cpp
             src/core/libraries/np/np_web_api.h
+            src/core/libraries/np/np_web_api_error.h
+            src/core/libraries/np/np_web_api_internal.cpp
+            src/core/libraries/np/np_web_api_internal.h
+            src/core/libraries/np/np_web_api2.cpp
+            src/core/libraries/np/np_web_api2.h
             src/core/libraries/np/np_party.cpp
             src/core/libraries/np/np_party.h
             src/core/libraries/np/np_auth.cpp
@@ -593,6 +619,9 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_profile_dialog.h
             src/core/libraries/np/np_sns_facebook_dialog.cpp
             src/core/libraries/np/np_sns_facebook_dialog.h
+            src/core/libraries/np/np_partner.cpp
+            src/core/libraries/np/np_partner.h
+            src/core/libraries/np/object_manager.h
             src/core/libraries/np/np_signaling.cpp
             src/core/libraries/np/np_signaling.h
 )
@@ -740,6 +769,8 @@ set(COMMON src/common/logging/backend.cpp
            src/common/memory_patcher.cpp
            ${CMAKE_CURRENT_BINARY_DIR}/src/common/scm_rev.cpp
            src/common/scm_rev.h
+           src/common/key_manager.cpp
+           src/common/key_manager.h
 )
 
 if (ENABLE_DISCORD_RPC)
@@ -783,6 +814,8 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_format/playgo_chunk.h
          src/core/file_format/trp.cpp
          src/core/file_format/trp.h
+         src/core/file_format/npbind.cpp
+         src/core/file_format/npbind.h
          src/core/file_sys/fs.cpp
          src/core/file_sys/fs.h
          src/core/ipc/ipc.cpp
@@ -838,6 +871,8 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/thread.h
          src/core/tls.cpp
          src/core/tls.h
+         src/core/emulator_state.cpp
+         src/core/emulator_state.h
 )
 
 if (ARCHITECTURE STREQUAL "x86_64")
@@ -906,6 +941,7 @@ set(SHADER_RECOMPILER src/shader_recompiler/profile.h
                       src/shader_recompiler/ir/passes/flatten_extended_userdata_pass.cpp
                       src/shader_recompiler/ir/passes/hull_shader_transform.cpp
                       src/shader_recompiler/ir/passes/identity_removal_pass.cpp
+                      src/shader_recompiler/ir/passes/inject_clip_distance_attributes.cpp
                       src/shader_recompiler/ir/passes/ir_passes.h
                       src/shader_recompiler/ir/passes/lower_buffer_format_to_raw.cpp
                       src/shader_recompiler/ir/passes/lower_fp64_to_fp32.cpp
@@ -1087,7 +1123,7 @@ create_target_directory_groups(shadps4)
 
 target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui gcn half::half ZLIB::ZLIB PNG::PNG)
 target_link_libraries(shadps4 PRIVATE Boost::headers GPUOpen::VulkanMemoryAllocator LibAtrac9 sirit Vulkan::Headers xxHash::xxhash Zydis::Zydis glslang::glslang SDL3::SDL3 SDL3_mixer::SDL3_mixer pugixml::pugixml)
-target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz Cpp_Httplib)
+target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib)
 
 target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config.h")
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")

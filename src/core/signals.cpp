@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/arch.h"
 #include "common/assert.h"
 #include "common/decoder.h"
 #include "common/signal_context.h"
+#include "core/libraries/kernel/threads/exception.h"
 #include "core/signals.h"
 
 #ifdef _WIN32
@@ -15,6 +16,13 @@
 #ifdef ARCH_X86_64
 #include <Zydis/Formatter.h>
 #endif
+#endif
+
+#ifndef _WIN32
+namespace Libraries::Kernel {
+void SigactionHandler(int native_signum, siginfo_t* inf, ucontext_t* raw_context);
+extern std::array<OrbisKernelExceptionHandler, 32> Handlers;
+} // namespace Libraries::Kernel
 #endif
 
 namespace Core {
@@ -33,6 +41,10 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     case EXCEPTION_ILLEGAL_INSTRUCTION:
         handled = signals->DispatchIllegalInstruction(pExp);
         break;
+    case DBG_PRINTEXCEPTION_C:
+    case DBG_PRINTEXCEPTION_WIDE_C:
+        // Used by OutputDebugString functions.
+        return EXCEPTION_CONTINUE_EXECUTION;
     default:
         break;
     }
@@ -41,14 +53,6 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
 }
 
 #else
-
-static std::string GetThreadName() {
-    char name[256];
-    if (pthread_getname_np(pthread_self(), name, sizeof(name)) != 0) {
-        return "<unknown name>";
-    }
-    return std::string{name};
-}
 
 static std::string DisassembleInstruction(void* code_address) {
     char buffer[256] = "<unable to decode>";
@@ -70,7 +74,7 @@ static std::string DisassembleInstruction(void* code_address) {
     return buffer;
 }
 
-static void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
+void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
     const auto* signals = Signals::Instance();
 
     auto* code_address = Common::GetRip(raw_context);
@@ -80,27 +84,38 @@ static void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
     case SIGBUS: {
         const bool is_write = Common::IsWriteError(raw_context);
         if (!signals->DispatchAccessViolation(raw_context, info->si_addr)) {
-            UNREACHABLE_MSG(
-                "Unhandled access violation in thread '{}' at code address {}: {} address {}",
-                GetThreadName(), fmt::ptr(code_address), is_write ? "Write to" : "Read from",
-                fmt::ptr(info->si_addr));
+            // If the guest has installed a custom signal handler, and the access violation didn't
+            // come from HLE memory tracking, pass the signal on
+            if (Libraries::Kernel::Handlers[Libraries::Kernel::NativeToOrbisSignal(sig)]) {
+                Libraries::Kernel::SigactionHandler(sig, info,
+                                                    reinterpret_cast<ucontext_t*>(raw_context));
+                return;
+            }
+            UNREACHABLE_MSG("Unhandled access violation at code address {}: {} address {}",
+                            fmt::ptr(code_address), is_write ? "Write to" : "Read from",
+                            fmt::ptr(info->si_addr));
         }
         break;
     }
     case SIGILL:
         if (!signals->DispatchIllegalInstruction(raw_context)) {
-            UNREACHABLE_MSG("Unhandled illegal instruction in thread '{}' at code address {}: {}",
-                            GetThreadName(), fmt::ptr(code_address),
-                            DisassembleInstruction(code_address));
+            if (Libraries::Kernel::Handlers[Libraries::Kernel::NativeToOrbisSignal(sig)]) {
+                Libraries::Kernel::SigactionHandler(sig, info,
+                                                    reinterpret_cast<ucontext_t*>(raw_context));
+                return;
+            }
+            UNREACHABLE_MSG("Unhandled illegal instruction at code address {}: {}",
+                            fmt::ptr(code_address), DisassembleInstruction(code_address));
         }
         break;
-    case SIGUSR1: { // Sleep thread until signal is received
-        sigset_t sigset;
-        sigemptyset(&sigset);
-        sigaddset(&sigset, SIGUSR1);
-        sigwait(&sigset, &sig);
-    } break;
     default:
+        if (sig == SIGSLEEP) {
+            // Sleep thread until signal is received again
+            sigset_t sigset;
+            sigemptyset(&sigset);
+            sigaddset(&sigset, SIGSLEEP);
+            sigwait(&sigset, &sig);
+        }
         break;
     }
 }
@@ -122,7 +137,7 @@ SignalDispatch::SignalDispatch() {
                "Failed to register access violation signal handler.");
     ASSERT_MSG(sigaction(SIGILL, &action, nullptr) == 0,
                "Failed to register illegal instruction signal handler.");
-    ASSERT_MSG(sigaction(SIGUSR1, &action, nullptr) == 0,
+    ASSERT_MSG(sigaction(SIGSLEEP, &action, nullptr) == 0,
                "Failed to register sleep signal handler.");
 #endif
 }
