@@ -634,8 +634,6 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_web_api.cpp
             src/core/libraries/np/np_web_api.h
             src/core/libraries/np/np_web_api_error.h
-            src/core/libraries/np/np_web_api_internal.cpp
-            src/core/libraries/np/np_web_api_internal.h
             src/core/libraries/np/np_web_api2.cpp
             src/core/libraries/np/np_web_api2.h
             src/core/libraries/np/np_party.cpp
@@ -650,6 +648,8 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_partner.h
             src/core/libraries/np/np_signaling.cpp
             src/core/libraries/np/object_manager.h
+            src/core/libraries/np/np_signaling.cpp
+            src/core/libraries/np/np_signaling.h
 )
 
 set(ZLIB_LIB src/core/libraries/zlib/zlib.cpp
