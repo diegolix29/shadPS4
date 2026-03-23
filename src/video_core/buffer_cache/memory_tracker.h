@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -11,7 +11,6 @@
 
 #include "common/debug.h"
 #include "common/types.h"
-#include "core/emulator_settings.h"
 #include "video_core/buffer_cache/region_manager.h"
 
 namespace VideoCore {
@@ -74,7 +73,7 @@ public:
                     // modified. If we need to flush the flush function is going to perform CPU
                     // state change.
                     std::scoped_lock lk{manager->lock};
-                    if (EmulatorSettings.GetReadbacksMode() != GpuReadbacksMode::Disabled &&
+                    if (Config::getReadbacksMode() != Config::GpuReadbacksMode::Disabled &&
                         manager->template IsRegionModified<Type::GPU>(offset, size)) {
                         return true;
                     }

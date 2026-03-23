@@ -1,11 +1,11 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // Based on imgui_impl_sdl3.cpp from Dear ImGui repository
 
 #include <imgui.h>
+#include "common/config.h"
 #include "core/debug_state.h"
-#include "core/emulator_settings.h"
 #include "core/memory.h"
 #include "imgui_impl_sdl3.h"
 #include "input/controller.h"
@@ -396,7 +396,7 @@ bool ProcessEvent(const SDL_Event* event) {
         if (mouse_pos.x != bd->prev_mouse_pos.x || mouse_pos.y != bd->prev_mouse_pos.y) {
             bd->prev_mouse_pos.x = mouse_pos.x;
             bd->prev_mouse_pos.y = mouse_pos.y;
-            if (EmulatorSettings.GetCursorState() == HideCursorState::Idle) {
+            if (Config::getCursorState() == Config::HideCursorState::Idle) {
                 bd->lastCursorMoveTime = bd->time;
             }
         }
@@ -656,16 +656,16 @@ static void UpdateMouseCursor() {
         return;
     SdlData* bd = GetBackendData();
 
-    s16 cursorState = EmulatorSettings.GetCursorState();
+    s16 cursorState = Config::getCursorState();
     ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
     if (io.MouseDrawCursor || imgui_cursor == ImGuiMouseCursor_None ||
-        cursorState == HideCursorState::Always) {
+        cursorState == Config::HideCursorState::Always) {
         // Hide OS mouse cursor if imgui is drawing it or if it wants no cursor
         SDL_HideCursor();
 
-    } else if (cursorState == HideCursorState::Idle &&
+    } else if (cursorState == Config::HideCursorState::Idle &&
                bd->time - bd->lastCursorMoveTime >=
-                   EmulatorSettings.GetCursorHideTimeout() * SDL_GetPerformanceFrequency()) {
+                   Config::getCursorHideTimeout() * SDL_GetPerformanceFrequency()) {
 
         bool wasCursorVisible = SDL_CursorVisible();
         SDL_HideCursor();

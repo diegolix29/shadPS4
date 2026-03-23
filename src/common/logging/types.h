@@ -132,7 +132,6 @@ enum class Class : u8 {
     Input,                   ///< Input emulation
     Tty,                     ///< Debug output from emu
     KeyManager,              ///< Key management system
-    EmuSettings,             /// Emulator settings system
     Count                    ///< Total number of logging classes
 };
 
