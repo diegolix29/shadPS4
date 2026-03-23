@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <memory>
 #include <mutex>
 #include <core/libraries/system/userservice.h>
 #include "common/types.h"
