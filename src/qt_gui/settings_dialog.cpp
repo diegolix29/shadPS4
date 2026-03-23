@@ -600,6 +600,13 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     connect(ui->GenAudioComboBox, &QComboBox::currentTextChanged, this,
             [this](const QString& device) { Config::setMainOutputDevice(device.toStdString()); });
 
+    connect(ui->AudioBackendComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            [this](int index) { 
+                Config::AudioBackend backend =
+                    (index == 1) ? Config::AudioBackend::OpenAL : Config::AudioBackend::SDL;
+                Config::setAudioBackend(backend);
+            });
+
     connect(ui->DsAudioComboBox, &QComboBox::currentTextChanged, this,
             [this](const QString& device) { Config::setPadSpkOutputDevice(device.toStdString()); });
 
@@ -1882,6 +1889,10 @@ void SettingsDialog::onAudioDeviceChange(bool isAdd) {
     ui->DsAudioComboBox->addItem(tr("Default Device"), "Default Device");
     ui->DsAudioComboBox->addItems(deviceList);
     ui->DsAudioComboBox->setCurrentText(QString::fromStdString(Config::getPadSpkOutputDevice()));
+
+    // Set audio backend
+    Config::AudioBackend backend = Config::getAudioBackend();
+    ui->AudioBackendComboBox->setCurrentIndex((backend == Config::AudioBackend::OpenAL) ? 1 : 0);
 
     SDL_free(devices);
 }

@@ -32,6 +32,8 @@ enum HideCursorState : u32 {
     Always,
 };
 
+enum class AudioBackend : u32 { OpenAL, SDL };
+
 enum class ReadbackSpeed : u32 {
     Disable,
     Unsafe,
@@ -74,7 +76,8 @@ int getBackgroundImageOpacity();
 bool getShowBackgroundImage();
 bool getPSNSignedIn();
 bool getShaderSkipsEnabled();
-std::string getAudioBackend();
+AudioBackend getAudioBackend();
+void setAudioBackend(AudioBackend backend);
 int getAudioVolume();
 bool groupIdenticalLogs();
 void setGroupIdenticalLogs(bool enable, bool is_game_specific = false);

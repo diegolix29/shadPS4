@@ -82,9 +82,14 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         if (it->second.is_integer()) {
             return static_cast<Common::CpuCoreMode>(toml::get<int>(it->second));
         }
+
     } else if constexpr (std::is_same_v<T, std::vector<int>>) {
         if (it->second.is_array()) {
             return toml::get<T>(it->second);
+        }
+    } else if constexpr (std::is_same_v<T, Config::AudioBackend>) {
+        if (it->second.is_integer()) {
+            return static_cast<Config::AudioBackend>(toml::get<int>(it->second));
         }
     } else {
         static_assert(false, "Unsupported type in get_optional<T>");
@@ -206,6 +211,7 @@ static ConfigEntry<int> cursorHideTimeout(5);
 static ConfigEntry<bool> isMotionControlsEnabled(true);
 static ConfigEntry<bool> useUnifiedInputConfig(true);
 static ConfigEntry<std::string> micDevice("Default Device");
+static ConfigEntry<AudioBackend> audioBackend(AudioBackend::SDL);
 static ConfigEntry<std::string> defaultControllerID("");
 static ConfigEntry<std::string> activeControllerID("");
 static ConfigEntry<bool> backgroundControllerInput(false);
@@ -674,6 +680,14 @@ int getCursorHideTimeout() {
 
 std::string getMicDevice() {
     return micDevice.get();
+}
+
+AudioBackend getAudioBackend() {
+    return audioBackend.get();
+}
+
+void setAudioBackend(AudioBackend backend) {
+    audioBackend.set(backend, is_game_specific_context);
 }
 
 double getTrophyNotificationDuration() {
@@ -1654,6 +1668,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         const toml::value& audio = data.at("Audio");
 
         micDevice.setFromToml(audio, "micDevice", is_game_specific);
+        audioBackend.setFromToml(audio, "audioBackend", is_game_specific);
         mainOutputDevice.setFromToml(audio, "mainOutputDevice", is_game_specific);
         padSpkOutputDevice.setFromToml(audio, "padSpkOutputDevice", is_game_specific);
     }
@@ -2009,6 +2024,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["Input"]["usbDeviceBackend"] = usbDeviceBackend.base_value;
 
     data["Audio"]["micDevice"] = micDevice.base_value;
+    data["Audio"]["audioBackend"] = static_cast<int>(audioBackend.base_value);
     data["Audio"]["mainOutputDevice"] = mainOutputDevice.base_value;
     data["Audio"]["padSpkOutputDevice"] = padSpkOutputDevice.base_value;
 
@@ -2204,6 +2220,7 @@ void setDefaultValues() {
     controllerCustomColorRGB[1] = 0;
     controllerCustomColorRGB[2] = 255;
     micDevice = "Default Device";
+    audioBackend = AudioBackend::SDL;
     backgroundControllerInput = false;
     isKeyboardBindingsDisabled = false;
     mainOutputDevice = "Default Device";

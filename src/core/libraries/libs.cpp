@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/config.h"
 #include "core/libraries/ajm/ajm.h"
 #include "core/libraries/app_content/app_content.h"
 #include "core/libraries/audio/audioin.h"
@@ -123,7 +124,7 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
     Libraries::AvPlayer::RegisterLib(sym);
     Libraries::Videodec::RegisterLib(sym);
     Libraries::Videodec2::RegisterLib(sym);
-    if (EmulatorSettings.GetAudioBackend() == AudioBackend::OpenAL) {
+    if (Config::getAudioBackend() == Config::AudioBackend::OpenAL) {
         Libraries::Audio3dOpenAL::RegisterLib(sym);
     } else {
         Libraries::Audio3d::RegisterLib(sym);

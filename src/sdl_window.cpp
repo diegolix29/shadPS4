@@ -314,7 +314,7 @@ void WindowSDL::WaitEvent() {
         for (int i = 0; i < 4; i++) {
             if (controllers[i]->user_id == -1) {
                 controllers[i]->user_id = i + 1;
-                Libraries::UserService::AddUserServiceEvent(
+                Libraries::UserService::OrbisUserServiceEvent(
                     {Libraries::UserService::OrbisUserServiceEventType::Login,
                      (s32)controllers[i]->user_id});
                 break;
@@ -327,7 +327,7 @@ void WindowSDL::WaitEvent() {
             std::scoped_lock lock(virtual_user_mutex);
             for (int i = 3; i >= 0; i--) {
                 if (controllers[i]->user_id != -1) {
-                    Libraries::UserService::AddUserServiceEvent(
+                    Libraries::UserService::OrbisUserServiceEvent(
                         {Libraries::UserService::OrbisUserServiceEventType::Logout,
                          (s32)controllers[i]->user_id});
                     controllers[i]->user_id = -1;

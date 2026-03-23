@@ -16,6 +16,8 @@
 
 namespace Libraries::UserService {
 
+static std::queue<OrbisUserServiceEvent> user_service_event_queue;
+
 int PS4_SYSV_ABI sceUserServiceInitializeForShellCore() {
     LOG_ERROR(Lib_UserService, "(STUBBED) called");
     return ORBIS_OK;
