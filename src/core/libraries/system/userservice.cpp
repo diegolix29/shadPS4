@@ -7,6 +7,7 @@
 #include "common/logging/log.h"
 
 #include "common/singleton.h"
+#include <queue>
 #include "core/libraries/libs.h"
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/system/userservice_error.h"

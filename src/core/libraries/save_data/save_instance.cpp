@@ -9,6 +9,7 @@
 #include "common/config.h"
 #include "common/path_util.h"
 #include "common/singleton.h"
+#include "core/emulator_settings.h"
 #include "core/file_sys/fs.h"
 #include "save_backup.h"
 #include "save_instance.h"
