@@ -1139,6 +1139,8 @@ set(INPUT src/input/controller.cpp
 
 set(EMULATOR src/emulator.cpp
              src/emulator.h
+             src/core/emulator_settings.cpp
+             src/core/emulator_settings.h
              src/sdl_window.h
              src/sdl_window.cpp
 )

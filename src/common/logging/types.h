@@ -131,7 +131,6 @@ enum class Class : u8 {
     Loader,                  ///< ROM loader
     Input,                   ///< Input emulation
     Tty,                     ///< Debug output from emu
-    KeyManager,              ///< Key management system
     IPC,
     Count ///< Total number of logging classes
 };

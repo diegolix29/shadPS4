@@ -68,7 +68,6 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     CLS(Common)                                                                                    \
     SUB(Common, Filesystem)                                                                        \
     SUB(Common, Memory)                                                                            \
-    CLS(KeyManager)                                                                                \
     CLS(Core)                                                                                      \
     SUB(Core, Linker)                                                                              \
     SUB(Core, Devices)                                                                             \
