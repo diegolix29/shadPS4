@@ -97,6 +97,7 @@ static auto UserPaths = [] {
     };
 
     create_path(PathType::UserDir, "");
+    create_path(PathType::HomeDir, "");
     create_path(PathType::LogDir, "");
     create_path(PathType::ScreenshotsDir, "");
     create_path(PathType::ShaderDir, "");
@@ -179,6 +180,7 @@ const fs::path& GetUserPath(PathType shad_path) {
     if (!IsUserPathsInitialized()) {
         static std::filesystem::path fallback_path = std::filesystem::current_path() / "user";
         UserPaths.insert_or_assign(PathType::UserDir, fallback_path);
+        UserPaths.insert_or_assign(PathType::HomeDir, fallback_path / HOME_DIR);
         UserPaths.insert_or_assign(PathType::LogDir, fallback_path / LOG_DIR);
         UserPaths.insert_or_assign(PathType::ScreenshotsDir, fallback_path / SCREENSHOTS_DIR);
         UserPaths.insert_or_assign(PathType::ShaderDir, fallback_path / SHADER_DIR);
@@ -292,6 +294,7 @@ void InitializeUserPaths(PathInitState state) {
     };
 
     create_path(PathType::UserDir, user_dir);
+    create_path(PathType::HomeDir, user_dir / HOME_DIR);
     create_path(PathType::LogDir, user_dir / LOG_DIR);
     create_path(PathType::ScreenshotsDir, user_dir / SCREENSHOTS_DIR);
     create_path(PathType::ShaderDir, user_dir / SHADER_DIR);

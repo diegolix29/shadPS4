@@ -15,6 +15,7 @@ namespace Common::FS {
 
 enum class PathType {
     UserDir,        // Where shadPS4 stores its data.
+    HomeDir,        // Where user home directories and save data are stored.
     LogDir,         // Where log files are stored.
     ScreenshotsDir, // Where screenshots are stored.
     ShaderDir,      // Where shaders are stored.
@@ -40,6 +41,7 @@ enum class PathInitState { Uninitialized, Portable, Global };
 constexpr auto PORTABLE_DIR = "user";
 
 // Sub-directories contained within a user data directory
+constexpr auto HOME_DIR = "home";
 constexpr auto LOG_DIR = "log";
 constexpr auto SCREENSHOTS_DIR = "screenshots";
 constexpr auto SHADER_DIR = "shader";

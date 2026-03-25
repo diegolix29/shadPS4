@@ -188,7 +188,7 @@ const std::vector<bool> EmulatorSettingsImpl::GetGameInstallDirsEnabled() {
 
 std::filesystem::path EmulatorSettingsImpl::GetHomeDir() {
     if (m_general.home_dir.value.empty()) {
-        return Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        return Common::FS::GetUserPath(Common::FS::PathType::HomeDir);
     }
     return m_general.home_dir.value;
 }
