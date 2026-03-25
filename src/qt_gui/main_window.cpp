@@ -1029,7 +1029,7 @@ void MainWindow::CreateDockWindows(bool newDock) {
     }
 
     int table_mode = Config::getTableMode();
-    int slider_pos = 0;
+    int slider_pos = isTableList ? Config::getSliderPosition() : Config::getSliderPositionGrid();
 
     if (table_mode == 0) {
         m_game_grid_frame->hide();
