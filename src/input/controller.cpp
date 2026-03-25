@@ -331,7 +331,7 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
                 }
             }
             if (!still_connected) {
-                OrbisUserServiceEvent({OrbisUserServiceEventType::Logout, i + 1});
+                AddUserServiceEvent({OrbisUserServiceEventType::Logout, i + 1});
                 controllers[i]->m_sdl_gamepad = nullptr;
                 SDL_CloseGamepad(pad);
                 controllers[i]->user_id = -1;
@@ -360,7 +360,7 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
                 c->user_id = i + 1;
                 slot_taken[i] = true;
                 c->player_index = i;
-                OrbisUserServiceEvent({OrbisUserServiceEventType::Login, i + 1});
+                AddUserServiceEvent({OrbisUserServiceEventType::Login, i + 1});
 
                 if (SDL_SetGamepadSensorEnabled(c->m_sdl_gamepad, SDL_SENSOR_GYRO, true)) {
                     c->gyro_poll_rate =
@@ -388,7 +388,7 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
         is_first_check = false;
         if (controller_count == 0) {
             controllers[0]->user_id = 1;
-            OrbisUserServiceEvent({OrbisUserServiceEventType::Login, 1});
+            AddUserServiceEvent({OrbisUserServiceEventType::Login, 1});
         }
     }
 
