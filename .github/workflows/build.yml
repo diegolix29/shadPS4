@@ -113,7 +113,7 @@ jobs:
         submodules: recursive
 
     - name: Setup Qt
-      uses: jurplel/install-qt-action@v4
+      uses: jurplel/install-qt-action@v4.3.0
       with:
         version: 6.9.3
         host: windows
@@ -227,7 +227,7 @@ jobs:
         xcode-version: latest
 
     - name: Setup Qt
-      uses: jurplel/install-qt-action@v4
+      uses: jurplel/install-qt-action@v4.3.0
       with:
         version: 6.9.3
         host: mac
@@ -291,7 +291,7 @@ jobs:
       run: sudo apt-get update && sudo apt install -y libx11-dev libxext-dev libwayland-dev libdecor-0-dev libxkbcommon-dev libglfw3-dev libgles2-mesa-dev libfuse2 clang-19 mold build-essential libasound2-dev libpulse-dev libopenal-dev libudev-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev
 
     - name: Install Qt
-      uses: jurplel/install-qt-action@v4
+      uses: jurplel/install-qt-action@v4.3.0
       with:
         version: 6.9.3
         arch: linux_gcc_64
@@ -312,7 +312,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.19
+      uses: hendrikmuhs/ccache-action@v1.2.21
       env:
           cache-name: ${{ runner.os }}-sdl-cache-cmake-build
       with:
@@ -372,7 +372,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.19
+      uses: hendrikmuhs/ccache-action@v1.2.21
       env:
           cache-name: ${{ runner.os }}-qt-cache-cmake-build
       with:
@@ -419,7 +419,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.19
+      uses: hendrikmuhs/ccache-action@v1.2.21
       env:
           cache-name: ${{ runner.os }}-sdl-gcc-cache-cmake-build
       with:
@@ -454,7 +454,7 @@ jobs:
             ${{ env.cache-name }}- 
 
     - name: Cache CMake Build
-      uses: hendrikmuhs/ccache-action@v1.2.19
+      uses: hendrikmuhs/ccache-action@v1.2.21
       env:
           cache-name: ${{ runner.os }}-qt-gcc-cache-cmake-build
       with:
