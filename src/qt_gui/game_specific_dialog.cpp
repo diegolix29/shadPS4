@@ -895,8 +895,9 @@ void GameSpecificDialog::UpdateSettings() {
             ui->padSpkOutputDeviceComboBox->currentText().toStdString();
 
     // Audio backend override
-    Config::AudioBackend selectedBackend = (ui->AudioBackendComboBox->currentIndex() == 1) 
-        ? Config::AudioBackend::OpenAL : Config::AudioBackend::SDL;
+    Config::AudioBackend selectedBackend = (ui->AudioBackendComboBox->currentIndex() == 1)
+                                               ? Config::AudioBackend::OpenAL
+                                               : Config::AudioBackend::SDL;
     if (selectedBackend != Config::getAudioBackend())
         overrides["Audio"]["audioBackend"] = static_cast<int>(selectedBackend);
 

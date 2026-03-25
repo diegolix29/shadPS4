@@ -501,12 +501,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     connect(ui->toggleDescriptionButton, &QPushButton::clicked, this,
             &SettingsDialog::OnToggleDescriptionClicked);
 
-    connect(ui->userName1LineEdit, &QLineEdit::textChanged, this, [this](const QString& text) {
-        ui->userName2LineEdit->setText(text + "-2");
-        ui->userName3LineEdit->setText(text + "-3");
-        ui->userName4LineEdit->setText(text + "-4");
-    });
-
     {
 #ifdef ENABLE_UPDATER
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
@@ -601,7 +595,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             [this](const QString& device) { Config::setMainOutputDevice(device.toStdString()); });
 
     connect(ui->AudioBackendComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-            [this](int index) { 
+            [this](int index) {
                 Config::AudioBackend backend =
                     (index == 1) ? Config::AudioBackend::OpenAL : Config::AudioBackend::SDL;
                 Config::setAudioBackend(backend);
@@ -1167,7 +1161,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->value()) + "%");
     ui->fpsSlider->setValue(toml::find_or<int>(data, "GPU", "fpsLimit", 60));
     ui->fpsSpinBox->setValue(toml::find_or<int>(data, "GPU", "fpsLimit", 60));
-    ui->fpsLimiterCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", false));
+    ui->fpsLimiterCheckBox->setChecked(
+        toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", false));
     ui->fpsSpinBox->setEnabled(toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", false));
     ui->fpsSlider->setEnabled(toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", false));
     ui->discordRPCCheckbox->setChecked(
@@ -1192,11 +1187,11 @@ void SettingsDialog::LoadValuesFromConfig() {
     }
     ui->logFilterLineEdit->setText(
         QString::fromStdString(toml::find_or<std::string>(data, "General", "logFilter", "")));
-    auto baseUserName = Config::getUserName();
-    ui->userName1LineEdit->setText(QString::fromStdString(baseUserName));
-    ui->userName2LineEdit->setText(QString::fromStdString(baseUserName + "-2"));
-    ui->userName3LineEdit->setText(QString::fromStdString(baseUserName + "-3"));
-    ui->userName4LineEdit->setText(QString::fromStdString(baseUserName + "-4"));
+    auto names = Config::getUserNames();
+    ui->userName1LineEdit->setText(QString::fromStdString(names[0]));
+    ui->userName2LineEdit->setText(QString::fromStdString(names[1]));
+    ui->userName3LineEdit->setText(QString::fromStdString(names[2]));
+    ui->userName4LineEdit->setText(QString::fromStdString(names[3]));
 
     auto playerStates = Config::getPlayerEnabledStates();
     ui->enablePlayer1CheckBox->setChecked(playerStates[0]);
@@ -1223,11 +1218,11 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "Vulkan", "crashDiagnostic", false));
     ui->DsAudioComboBox->setCurrentText(QString::fromStdString(
         toml::find_or<std::string>(data, "Audio", "padSpkOutputDevice", "")));
-    
+
     // Load audio backend
     int audioBackendValue = toml::find_or<int>(data, "Audio", "audioBackend", 0);
     ui->AudioBackendComboBox->setCurrentIndex(audioBackendValue);
-    
+
     // Load main output device
     ui->GenAudioComboBox->setCurrentText(QString::fromStdString(
         toml::find_or<std::string>(data, "Audio", "mainOutputDevice", "Default Device")));
@@ -1628,10 +1623,14 @@ void SettingsDialog::UpdateSettings() {
     Config::setLogType(logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString());
     Config::setMicDevice(ui->micComboBox->currentData().toString().toStdString());
     Config::setLogFilter(ui->logFilterLineEdit->text().toStdString());
-    Config::setUserName(ui->userName1LineEdit->text().toStdString());
-    
+    Config::setUserName(0, ui->userName1LineEdit->text().toStdString());
+    Config::setUserName(1, ui->userName2LineEdit->text().toStdString());
+    Config::setUserName(2, ui->userName3LineEdit->text().toStdString());
+    Config::setUserName(3, ui->userName4LineEdit->text().toStdString());
+
     // Save audio backend directly to config.toml
-    std::filesystem::path config_path = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml";
+    std::filesystem::path config_path =
+        Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml";
     try {
         toml::value data;
         std::error_code error;
@@ -1644,16 +1643,17 @@ void SettingsDialog::UpdateSettings() {
         } else {
             data = toml::table();
         }
-        
+
         // Set audio backend directly
-        int backendValue = (ui->AudioBackendComboBox->currentIndex() == 1) ? 1 : 0; // SDL=0, OpenAL=1
-        
+        int backendValue =
+            (ui->AudioBackendComboBox->currentIndex() == 1) ? 1 : 0; // SDL=0, OpenAL=1
+
         // Ensure Audio section exists
         if (!data.contains("Audio")) {
             data["Audio"] = toml::table();
         }
         data["Audio"]["audioBackend"] = backendValue;
-        
+
         // Save back to file
         std::ofstream ofs(config_path, std::ios::binary);
         ofs << data;
