@@ -11,7 +11,7 @@ jobs:
     name: "Update Translation"
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - name: Set execution permissions for the script
         run: chmod +x ./.github/workflows/scripts/update_translation.sh
