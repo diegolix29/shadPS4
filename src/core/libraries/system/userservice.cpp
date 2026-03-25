@@ -6,8 +6,8 @@
 #include "common/config.h"
 #include "common/logging/log.h"
 
-#include "common/singleton.h"
 #include <queue>
+#include "common/singleton.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/system/userservice_error.h"
@@ -112,7 +112,6 @@ int PS4_SYSV_ABI sceUserServiceGetDiscPlayerFlag() {
     LOG_ERROR(Lib_UserService, "(STUBBED) called");
     return ORBIS_OK;
 }
-
 
 void AddUserServiceEvent(const OrbisUserServiceEvent e) {
     LOG_DEBUG(Lib_UserService, "Event added to queue: {} {}", (u8)e.event, e.userId);
