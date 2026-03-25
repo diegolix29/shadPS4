@@ -68,6 +68,18 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         if (it->second.is_boolean()) {
             return toml::get<bool>(it->second);
         }
+    } else if constexpr (std::is_same_v<T, std::vector<int>>) {
+        if (it->second.is_array()) {
+            return toml::get<std::vector<int>>(it->second);
+        }
+    } else if constexpr (std::is_same_v<T, std::array<std::string, 4>>) {
+        if (it->second.is_array()) {
+            return toml::get<std::array<std::string, 4>>(it->second);
+        }
+    } else if constexpr (std::is_same_v<T, std::array<bool, 4>>) {
+        if (it->second.is_array()) {
+            return toml::get<std::array<bool, 4>>(it->second);
+        }
     } else {
         static_assert([] { return false; }(), "Unsupported type in get_optional<T>");
     }
@@ -497,8 +509,49 @@ bool EmulatorSettingsImpl::TransferSettings() {
         setFromToml(s.connected_to_network, general, "isConnectedToNetwork");
         setFromToml(s.sys_modules_dir, general, "sysModulesPath");
         setFromToml(s.font_dir, general, "fontsPath");
-        // setFromToml(, general, "userName");
-        // setFromToml(s.defaultControllerID, general, "defaultControllerID");
+
+        // Additional settings from config.cpp
+        setFromToml(s.enable_auto_backup, general, "enableAutoBackup");
+        setFromToml(s.restart_with_base_game, general, "restartWithBaseGame");
+        setFromToml(s.separate_update_enabled, general, "separateUpdateEnabled");
+        setFromToml(s.screen_tip_disable, general, "screenTipDisable");
+        setFromToml(s.mute_enabled, general, "muteEnabled");
+        setFromToml(s.play_bgm, general, "playBGM");
+        if (auto opt = toml::get_optional<int>(general, "BGMvolume")) {
+            s.bgm_volume.value = *opt;
+        }
+        setFromToml(s.pause_on_unfocus, general, "pauseOnUnfocus");
+        setFromToml(s.disable_hardcoded_hotkeys, general, "DisableHardcodedHotkeys");
+        setFromToml(s.use_home_button_for_hotkeys, general, "UseHomeButtonForHotkeys");
+        setFromToml(s.enable_mods, general, "enableMods");
+        setFromToml(s.enable_updates, general, "enableUpdates");
+        setFromToml(s.http_host_override, general, "httpHostOverride");
+        setFromToml(s.cpu_core_mode, general, "cpuCoreMode");
+        if (auto opt = toml::get_optional<std::vector<int>>(general, "customCpuCores")) {
+            s.custom_cpu_cores.value = *opt;
+        }
+
+        // Array settings
+        if (auto opt = toml::get_optional<std::array<std::string, 4>>(general, "userNames")) {
+            s.user_names.value = *opt;
+        }
+        if (auto opt = toml::get_optional<std::array<bool, 4>>(general, "playerEnabledStates")) {
+            s.player_enabled_states.value = *opt;
+        }
+
+        // String settings
+        if (auto opt = toml::get_optional<std::string>(general, "updateChannel")) {
+            s.update_channel.value = *opt;
+        }
+
+        // Additional missing settings
+        setFromToml(s.compatibility_enabled, general, "compatibilityEnabled");
+        setFromToml(s.check_compatibility_on_startup, general, "checkCompatibilityOnStartup");
+        setFromToml(s.first_boot_handled, general, "firstBootHandled");
+        setFromToml(s.choose_home_tab, general, "chooseHomeTab");
+        setFromToml(s.auto_update, general, "autoUpdate");
+        setFromToml(s.show_welcome_dialog, general, "showWelcomeDialog");
+        setFromToml(s.always_show_changelog, general, "alwaysShowChangelog");
     }
 
     if (og_data.contains("Input")) {
@@ -512,7 +565,10 @@ bool EmulatorSettingsImpl::TransferSettings() {
         setFromToml(s.motion_controls_enabled, input, "isMotionControlsEnabled");
         setFromToml(s.use_unified_input_config, input, "useUnifiedInputConfig");
         setFromToml(s.background_controller_input, input, "backgroundControllerInput");
+        setFromToml(s.keyboard_bindings_disabled, input, "isKeyboardBindingsDisabled");
         setFromToml(s.usb_device_backend, input, "usbDeviceBackend");
+        setFromToml(s.camera_id, input, "cameraId");
+        setFromToml(s.default_controller_id, input, "defaultControllerID");
     }
 
     if (og_data.contains("Audio")) {
@@ -522,6 +578,10 @@ bool EmulatorSettingsImpl::TransferSettings() {
         setFromToml(s.sdl_mic_device, audio, "micDevice");
         setFromToml(s.sdl_main_output_device, audio, "mainOutputDevice");
         setFromToml(s.sdl_padSpk_output_device, audio, "padSpkOutputDevice");
+        setFromToml(s.openal_mic_device, audio, "openalMicDevice");
+        setFromToml(s.openal_main_output_device, audio, "openalMainOutputDevice");
+        setFromToml(s.openal_padSpk_output_device, audio, "openalPadSpkOutputDevice");
+        setFromToml(s.audio_backend, audio, "audioBackend");
     }
 
     if (og_data.contains("GPU")) {
@@ -573,6 +633,9 @@ bool EmulatorSettingsImpl::TransferSettings() {
         setFromToml(s.debug_dump, debug, "DebugDump");
         setFromToml(s.separate_logging_enabled, debug, "isSeparateLogFilesEnabled");
         setFromToml(s.shader_collect, debug, "CollectShader");
+        setFromToml(s.shader_debug, debug, "isShaderDebug");
+        setFromToml(s.shader_skips_enabled, debug, "shaderSkipsEnabled");
+        setFromToml(s.fps_color_state, debug, "fpsColorState");
         setFromToml(s.log_enabled, debug, "logEnabled");
         setFromToml(m_general.show_fps_counter, debug, "showFpsCounter");
     }
@@ -580,6 +643,7 @@ bool EmulatorSettingsImpl::TransferSettings() {
     if (og_data.contains("Settings")) {
         const toml::value& settings = og_data.at("Settings");
         auto& s = m_general;
+
         setFromToml(s.console_language, settings, "consoleLanguage");
     }
 
