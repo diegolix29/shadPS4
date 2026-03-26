@@ -260,7 +260,12 @@ bool EmulatorSettingsImpl::Save(const std::string& serial) {
     try {
         if (!serial.empty()) {
             const auto cfgDir = Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs);
-            std::filesystem::create_directories(cfgDir);
+            std::error_code ec;
+            std::filesystem::create_directories(cfgDir, ec);
+            if (ec) {
+                LOG_ERROR(Config, "Failed to create CustomConfigs directory: {}", cfgDir.string());
+                return false;
+            }
             const auto path = cfgDir / (serial + ".json");
 
             json j = json::object();
@@ -301,6 +306,16 @@ bool EmulatorSettingsImpl::Save(const std::string& serial) {
             // ── Global config.json ─────────────────────────────────────
             const auto path =
                 Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.json";
+
+            const auto parentDir = path.parent_path();
+            if (!parentDir.empty() && !std::filesystem::exists(parentDir)) {
+                std::error_code ec;
+                std::filesystem::create_directories(parentDir, ec);
+                if (ec) {
+                    LOG_ERROR(Config, "Failed to create parent directory: {}", parentDir.string());
+                    return false;
+                }
+            }
 
             SetConfigVersion(Common::g_scm_rev);
 

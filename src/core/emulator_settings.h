@@ -781,7 +781,16 @@ public:
     SETTING_FORWARD_BOOL(m_debug, ShaderSkipsEnabled, shader_skips_enabled)
     SETTING_FORWARD_BOOL(m_debug, FpsColorState, fps_color_state)
     SETTING_FORWARD_BOOL(m_debug, LogEnabled, log_enabled)
-    SETTING_FORWARD(m_debug, ConfigVersion, config_version)
+
+    std::string GetConfigVersion() const {
+        return m_debug.config_version.get();
+    }
+    void SetConfigVersion(const std::string& version) {
+        m_debug.config_version.value = version;
+    }
+    void SetConfigVersion(const char* version) {
+        m_debug.config_version.value = std::string(version);
+    }
 
     // GPU Settings
     SETTING_FORWARD_BOOL(m_gpu, NullGPU, null_gpu)

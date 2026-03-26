@@ -115,6 +115,7 @@ static auto UserPaths = [] {
     create_path(PathType::CacheDir, "");
     create_path(PathType::CustomAudios, "");
     create_path(PathType::FontsDir, "");
+    create_path(PathType::HomeDir, "");
 
     return paths;
 }();
@@ -176,6 +177,10 @@ std::string PathToUTF8String(const std::filesystem::path& path) {
 }
 
 const fs::path& GetUserPath(PathType shad_path) {
+    if (UserPaths.contains(shad_path)) {
+        return UserPaths.at(shad_path);
+    }
+
     if (!IsUserPathsInitialized()) {
         static std::filesystem::path fallback_path = std::filesystem::current_path() / "user";
         UserPaths.insert_or_assign(PathType::UserDir, fallback_path);
@@ -197,6 +202,7 @@ const fs::path& GetUserPath(PathType shad_path) {
         UserPaths.insert_or_assign(PathType::CacheDir, fallback_path / CACHE_DIR);
         UserPaths.insert_or_assign(PathType::CustomAudios, fallback_path / AUDIO_DIR);
         UserPaths.insert_or_assign(PathType::FontsDir, fallback_path / FONTS_DIR);
+        UserPaths.insert_or_assign(PathType::HomeDir, fallback_path / HOME_DIR);
 
         current_init_state = PathInitState::Portable;
     }
@@ -310,6 +316,7 @@ void InitializeUserPaths(PathInitState state) {
     create_path(PathType::CacheDir, user_dir / CACHE_DIR);
     create_path(PathType::CustomAudios, user_dir / AUDIO_DIR);
     create_path(PathType::FontsDir, user_dir / FONTS_DIR);
+    create_path(PathType::HomeDir, user_dir / HOME_DIR);
 
     if (!std::filesystem::exists(user_dir / CUSTOM_TROPHY / "Notice.txt")) {
         std::ofstream notice_file(user_dir / CUSTOM_TROPHY / "Notice.txt");
