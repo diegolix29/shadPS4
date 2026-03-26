@@ -168,7 +168,11 @@ public:
         }
 
         const float slider_gain = Config::getVolumeSlider() * 0.01f;
-        const float total_gain = max_channel_gain * slider_gain;
+        float total_gain = max_channel_gain * slider_gain;
+
+        if (Config::isMuteEnabled()) {
+            total_gain = 0.0f;
+        }
 
         const float current = current_gain.load(std::memory_order_acquire);
         if (std::abs(total_gain - current) < VOLUME_EPSILON) {
@@ -255,7 +259,11 @@ private:
         }
 
         // Initialize current gain
-        current_gain.store(Config::getVolumeSlider() * 0.01f, std::memory_order_relaxed);
+        float initial_gain = Config::getVolumeSlider() * 0.01f;
+        if (Config::isMuteEnabled()) {
+            initial_gain = 0.0f;
+        }
+        current_gain.store(initial_gain, std::memory_order_relaxed);
         alSourcef(source, AL_GAIN, current_gain.load(std::memory_order_relaxed));
 
         // Prime buffers with silence
@@ -332,7 +340,12 @@ private:
 
         last_volume_check_time = current_time;
 
-        const float config_volume = Config::getVolumeSlider() * 0.01f;
+        float config_volume = Config::getVolumeSlider() * 0.01f;
+
+        if (Config::isMuteEnabled()) {
+            config_volume = 0.0f;
+        }
+
         const float stored_gain = current_gain.load(std::memory_order_acquire);
 
         if (std::abs(config_volume - stored_gain) > VOLUME_EPSILON) {
