@@ -1,7 +1,6 @@
-// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <cstring>
 #include <span>
 #include <thread>
 #include <vector>
@@ -9,13 +8,13 @@
 #include <magic_enum/magic_enum.hpp>
 
 #include "common/assert.h"
+#include "common/config.h"
 #include "common/cstring.h"
 #include "common/elf_info.h"
 #include "common/enum.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "common/string_util.h"
-#include "core/emulator_settings.h"
 #include "core/file_format/psf.h"
 #include "core/file_sys/fs.h"
 #include "core/libraries/error_codes.h"
@@ -442,8 +441,7 @@ static Error saveDataMount(const OrbisSaveDataMount2* mount_info,
             LOG_INFO(Lib_SaveData, "called with invalid block size");
         }
 
-        const auto root_save =
-            EmulatorSettings.GetHomeDir() / std::to_string(mount_info->userId) / "savedata";
+        const auto root_save = Config::GetSaveDataPath();
         fs::create_directories(root_save);
         const auto available = fs::space(root_save).available;
 
@@ -491,9 +489,7 @@ static Error Umount(const OrbisSaveDataMountPoint* mountPoint, bool call_backup 
         return Error::PARAMETER;
     }
     LOG_DEBUG(Lib_SaveData, "Umount mountPoint:{}", mountPoint->data.to_view());
-
-    std::string mount_point_str = mountPoint->data.to_string();
-
+    const std::string_view mount_point_str{mountPoint->data};
     for (auto& instance : g_mount_slots) {
         if (instance.has_value()) {
             const auto& slot_name = instance->GetMountPoint();

@@ -5,6 +5,7 @@
 #include "common/key_manager.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
+#include "core/file_format/npbind.h"
 #include "core/file_format/trp.h"
 
 static void DecryptEFSM(std::span<const u8, 16> trophyKey, std::span<const u8, 16> NPcommID,
@@ -42,10 +43,8 @@ static void hexToBytes(const char* hex, unsigned char* dst) {
     }
 }
 
-bool TRP::Extract(const std::filesystem::path& trophyPath, int index, std::string npCommId,
-                  const std::filesystem::path& outputPath) {
-    std::filesystem::path gameSysDir =
-        trophyPath / "sce_sys/trophy/" / std::format("trophy{:02d}.trp", index);
+bool TRP::Extract(const std::filesystem::path& trophyPath, const std::string titleId) {
+    std::filesystem::path gameSysDir = trophyPath / "sce_sys/trophy/";
     if (!std::filesystem::exists(gameSysDir)) {
         LOG_WARNING(Common_Filesystem, "Game trophy directory doesn't exist");
         return false;
@@ -62,82 +61,117 @@ bool TRP::Extract(const std::filesystem::path& trophyPath, int index, std::strin
     std::array<u8, 16> user_key{};
     std::copy(user_key_vec.begin(), user_key_vec.end(), user_key.begin());
 
+    // Load npbind.dat using the new class
+    std::filesystem::path npbindPath = trophyPath / "sce_sys/npbind.dat";
+    NPBindFile npbind;
+    if (!npbind.Load(npbindPath.string())) {
+        LOG_WARNING(Common_Filesystem, "Failed to load npbind.dat file");
+    }
+
+    auto npCommIds = npbind.GetNpCommIds();
+    if (npCommIds.empty()) {
+        LOG_WARNING(Common_Filesystem, "No NPComm IDs found in npbind.dat");
+    }
+
     bool success = true;
     int trpFileIndex = 0;
 
     try {
-        const auto& it = gameSysDir;
-        if (it.extension() != ".trp") {
-            return false;
-        }
-        Common::FS::IOFile file(it, Common::FS::FileAccessMode::Read);
-        if (!file.IsOpen()) {
-            LOG_ERROR(Common_Filesystem, "Unable to open trophy file: {}", it.string());
-            return false;
-        }
-
-        TrpHeader header;
-        if (!file.Read(header)) {
-            LOG_ERROR(Common_Filesystem, "Failed to read TRP header from {}", it.string());
-            return false;
-        }
-
-        if (header.magic != TRP_MAGIC) {
-            LOG_ERROR(Common_Filesystem, "Wrong trophy magic number in {}", it.string());
-            return false;
-        }
-
-        s64 seekPos = sizeof(TrpHeader);
-        // Create output directories
-        if (!std::filesystem::create_directories(outputPath / "Icons") ||
-            !std::filesystem::create_directories(outputPath / "Xml")) {
-            LOG_ERROR(Common_Filesystem, "Failed to create output directories for {}", npCommId);
-            return false;
-        }
-
-        // Process each entry in the TRP file
-        for (int i = 0; i < header.entry_num; i++) {
-            if (!file.Seek(seekPos)) {
-                LOG_ERROR(Common_Filesystem, "Failed to seek to TRP entry offset");
-                success = false;
-                break;
-            }
-            seekPos += static_cast<s64>(header.entry_size);
-
-            TrpEntry entry;
-            if (!file.Read(entry)) {
-                LOG_ERROR(Common_Filesystem, "Failed to read TRP entry");
-                success = false;
-                break;
+        // Process each TRP file in the trophy directory
+        for (const auto& it : std::filesystem::directory_iterator(gameSysDir)) {
+            if (!it.is_regular_file() || it.path().extension() != ".trp") {
+                continue; // Skip non-TRP files
             }
 
-            std::string_view name(entry.entry_name);
+            // Get NPCommID for this TRP file (if available)
+            std::string npCommId;
+            if (trpFileIndex < static_cast<int>(npCommIds.size())) {
+                npCommId = npCommIds[trpFileIndex];
+                LOG_DEBUG(Common_Filesystem, "Using NPCommID: {} for {}", npCommId,
+                          it.path().filename().string());
+            } else {
+                LOG_WARNING(Common_Filesystem, "No NPCommID found for TRP file index {}",
+                            trpFileIndex);
+            }
 
-            if (entry.flag == ENTRY_FLAG_PNG) {
-                if (!ProcessPngEntry(file, entry, outputPath, name)) {
+            Common::FS::IOFile file(it.path(), Common::FS::FileAccessMode::Read);
+            if (!file.IsOpen()) {
+                LOG_ERROR(Common_Filesystem, "Unable to open trophy file: {}", it.path().string());
+                success = false;
+                continue;
+            }
+
+            TrpHeader header;
+            if (!file.Read(header)) {
+                LOG_ERROR(Common_Filesystem, "Failed to read TRP header from {}",
+                          it.path().string());
+                success = false;
+                continue;
+            }
+
+            if (header.magic != TRP_MAGIC) {
+                LOG_ERROR(Common_Filesystem, "Wrong trophy magic number in {}", it.path().string());
+                success = false;
+                continue;
+            }
+
+            s64 seekPos = sizeof(TrpHeader);
+            std::filesystem::path trpFilesPath(
+                Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / titleId /
+                "TrophyFiles" / it.path().stem());
+
+            // Create output directories
+            if (!std::filesystem::create_directories(trpFilesPath / "Icons") ||
+                !std::filesystem::create_directories(trpFilesPath / "Xml")) {
+                LOG_ERROR(Common_Filesystem, "Failed to create output directories for {}", titleId);
+                success = false;
+                continue;
+            }
+
+            // Process each entry in the TRP file
+            for (int i = 0; i < header.entry_num; i++) {
+                if (!file.Seek(seekPos)) {
+                    LOG_ERROR(Common_Filesystem, "Failed to seek to TRP entry offset");
                     success = false;
-                    // Continue with next entry
+                    break;
                 }
-            } else if (entry.flag == ENTRY_FLAG_ENCRYPTED_XML) {
-                // Check if we have a valid NPCommID for decryption
-                if (npCommId.size() >= 12 && npCommId[0] == 'N' && npCommId[1] == 'P') {
-                    if (!ProcessEncryptedXmlEntry(file, entry, outputPath, name, user_key,
-                                                  npCommId)) {
+                seekPos += static_cast<s64>(header.entry_size);
+
+                TrpEntry entry;
+                if (!file.Read(entry)) {
+                    LOG_ERROR(Common_Filesystem, "Failed to read TRP entry");
+                    success = false;
+                    break;
+                }
+
+                std::string_view name(entry.entry_name);
+
+                if (entry.flag == ENTRY_FLAG_PNG) {
+                    if (!ProcessPngEntry(file, entry, trpFilesPath, name)) {
                         success = false;
                         // Continue with next entry
                     }
+                } else if (entry.flag == ENTRY_FLAG_ENCRYPTED_XML) {
+                    // Check if we have a valid NPCommID for decryption
+                    if (npCommId.size() >= 12 && npCommId[0] == 'N' && npCommId[1] == 'P') {
+                        if (!ProcessEncryptedXmlEntry(file, entry, trpFilesPath, name, user_key,
+                                                      npCommId)) {
+                            success = false;
+                            // Continue with next entry
+                        }
+                    } else {
+                        LOG_WARNING(Common_Filesystem,
+                                    "Skipping encrypted XML entry - invalid NPCommID");
+                        // Skip this entry but continue
+                    }
                 } else {
-                    LOG_WARNING(Common_Filesystem,
-                                "Skipping encrypted XML entry - invalid NPCommID");
-                    // Skip this entry but continue
+                    LOG_DEBUG(Common_Filesystem, "Unknown entry flag: {} for {}",
+                              static_cast<unsigned int>(entry.flag), name);
                 }
-            } else {
-                LOG_DEBUG(Common_Filesystem, "Unknown entry flag: {} for {}",
-                          static_cast<unsigned int>(entry.flag), name);
             }
+
             trpFileIndex++;
         }
-
     } catch (const std::filesystem::filesystem_error& e) {
         LOG_CRITICAL(Common_Filesystem, "Filesystem error during trophy extraction: {}", e.what());
         return false;
@@ -148,7 +182,7 @@ bool TRP::Extract(const std::filesystem::path& trophyPath, int index, std::strin
 
     if (success) {
         LOG_INFO(Common_Filesystem, "Successfully extracted {} trophy files for {}", trpFileIndex,
-                 npCommId);
+                 titleId);
     }
 
     return success;
