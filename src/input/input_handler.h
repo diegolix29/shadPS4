@@ -36,12 +36,12 @@
 #define SDL_EVENT_RELOAD_INPUTS SDL_EVENT_USER + 5
 #define SDL_EVENT_MOUSE_TO_JOYSTICK SDL_EVENT_USER + 6
 #define SDL_EVENT_MOUSE_TO_GYRO SDL_EVENT_USER + 7
-#define SDL_EVENT_RDOC_CAPTURE SDL_EVENT_USER + 8
+#define SDL_EVENT_MOUSE_TO_TOUCHPAD SDL_EVENT_USER + 8
 #define SDL_EVENT_QUIT_DIALOG SDL_EVENT_USER + 9
 #define SDL_EVENT_MOUSE_WHEEL_OFF SDL_EVENT_USER + 10
 #define SDL_EVENT_ADD_VIRTUAL_USER SDL_EVENT_USER + 11
 #define SDL_EVENT_REMOVE_VIRTUAL_USER SDL_EVENT_USER + 12
-#define SDL_EVENT_MOUSE_TO_TOUCHPAD SDL_EVENT_USER + 13
+#define SDL_EVENT_RDOC_CAPTURE SDL_EVENT_USER + 13
 #define SDL_EVENT_KILL_EMULATOR SDL_EVENT_USER + 14
 #define SDL_EVENT_SCREENSHOT SDL_EVENT_USER + 15
 
@@ -59,14 +59,14 @@
 #define HOTKEY_RELOAD_INPUTS 0xf0000005
 #define HOTKEY_TOGGLE_MOUSE_TO_JOYSTICK 0xf0000006
 #define HOTKEY_TOGGLE_MOUSE_TO_GYRO 0xf0000007
-#define HOTKEY_RENDERDOC 0xf0000008
-#define HOTKEY_ADD_VIRTUAL_USER 0xf0000009
-#define HOTKEY_REMOVE_VIRTUAL_USER 0xf000000a
-#define HOTKEY_TOGGLE_MOUSE_TO_TOUCHPAD 0xf000000b
-#define HOTKEY_SCREENSHOT 0xf000000c
-#define HOTKEY_VOLUME_UP 0xf000000d
-#define HOTKEY_VOLUME_DOWN 0xf000000f
+#define HOTKEY_TOGGLE_MOUSE_TO_TOUCHPAD 0xf0000008
+#define HOTKEY_RENDERDOC 0xf0000009
+#define HOTKEY_VOLUME_UP 0xf000000a
+#define HOTKEY_VOLUME_DOWN 0xf000000b
+#define HOTKEY_ADD_VIRTUAL_USER 0xf000000c
+#define HOTKEY_REMOVE_VIRTUAL_USER 0xf000000d
 #define HOTKEY_VOLUME_MUTE 0xf000000e
+#define HOTKEY_SCREENSHOT 0xf000000f
 
 #define SDL_UNMAPPED UINT32_MAX - 1
 
@@ -96,8 +96,9 @@ public:
     bool operator!=(const InputID& o) const {
         return type != o.type || sdl_id != o.sdl_id || gamepad_id != o.gamepad_id;
     }
-    bool operator<=(const InputID& o) const {
-        return std::tie(gamepad_id, type, sdl_id) <= std::tie(o.gamepad_id, o.type, o.sdl_id);
+    auto operator<=>(const InputID& o) const {
+        return std::tie(gamepad_id, type, sdl_id, gamepad_id) <=>
+               std::tie(o.gamepad_id, o.type, o.sdl_id, o.gamepad_id);
     }
     bool IsValid() const {
         return *this != InputID();
@@ -146,6 +147,7 @@ const std::map<std::string, u32> string_to_cbutton_map = {
     {"back", SDL_GAMEPAD_BUTTON_BACK},
     {"share", SDL_GAMEPAD_BUTTON_BACK},
     {"home", SDL_GAMEPAD_BUTTON_GUIDE},
+
     {"lpaddle_high", SDL_GAMEPAD_BUTTON_LEFT_PADDLE1},
     {"lpaddle_low", SDL_GAMEPAD_BUTTON_LEFT_PADDLE2},
     {"rpaddle_high", SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1},
@@ -438,14 +440,11 @@ public:
 };
 
 class ControllerOutput {
-    static GameControllers controllers;
-
 public:
+    static GameControllers controllers;
     static void GetGetGamepadIndexFromSDLJoystickID(const SDL_JoystickID id) {}
     static void LinkJoystickAxes();
-    static GameController* GetController(u8 id) {
-        return controllers.GetController(id);
-    }
+
     u32 button;
     u32 axis;
     u8 gamepad_id;
@@ -466,14 +465,6 @@ public:
     }
     ControllerOutput(const ControllerOutput& o) : button(o.button), axis(o.axis) {
         new_param = new s16(*o.new_param);
-    }
-    ControllerOutput& operator=(const ControllerOutput& o) {
-        if (this != &o) {
-            button = o.button;
-            axis = o.axis;
-            *new_param = *o.new_param;
-        }
-        return *this;
     }
     ~ControllerOutput() {
         delete new_param;

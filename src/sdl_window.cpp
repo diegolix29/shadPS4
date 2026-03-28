@@ -425,7 +425,7 @@ void WindowSDL::InitTimers() {
         SDL_AddTimer(250, &PollGyroAndAccel, controllers[i]);
         SDL_AddTimer(16, &UpdateAxisSmoothingTimer, controllers[i]);
     }
-    SDL_AddTimer(33, Input::MousePolling, (void*)Input::ControllerOutput::GetController(0));
+    SDL_AddTimer(33, Input::MousePolling, (void*)Input::ControllerOutput::controllers.GetController(0));
 }
 
 void WindowSDL::RequestKeyboard() {
