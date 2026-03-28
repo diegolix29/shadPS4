@@ -89,13 +89,13 @@ constexpr float constant_down_accel[3] = {0.0f, 9.81f, 0.0f};
 void EmulateGyro(GameController* controller, u32 interval) {
     float d_x = 0, d_y = 0;
     SDL_GetRelativeMouseState(&d_x, &d_y);
-    controller->UpdateAcceleration(constant_down_accel);
+    controller->Acceleration(1, constant_down_accel);
     float gyro_from_mouse[3] = {-d_y / 100, -d_x / 100, 0.0f};
     if (mouse_gyro_roll_mode) {
         gyro_from_mouse[1] = 0.0f;
         gyro_from_mouse[2] = -d_x / 100;
     }
-    controller->UpdateGyro(gyro_from_mouse);
+    controller->Gyro(1, gyro_from_mouse);
 }
 
 void EmulateTouchpad(GameController* controller, u32 interval) {
@@ -104,7 +104,7 @@ void EmulateTouchpad(GameController* controller, u32 interval) {
     controller->SetTouchpadState(0, (mouse_buttons & SDL_BUTTON_LMASK) != 0,
                                  std::clamp(x / g_window->GetWidth(), 0.0f, 1.0f),
                                  std::clamp(y / g_window->GetHeight(), 0.0f, 1.0f));
-    controller->Button(Libraries::Pad::OrbisPadButtonDataOffset::TouchPad,
+    controller->CheckButton(0, Libraries::Pad::OrbisPadButtonDataOffset::TouchPad,
                        (mouse_buttons & SDL_BUTTON_RMASK) != 0);
 }
 
