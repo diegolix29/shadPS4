@@ -6,6 +6,7 @@
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/logging/log.h"
+#include "common/thread.h"
 #include "core/libraries/videodec/videodec_error.h"
 
 #include "common/support/avdec.h"
@@ -131,8 +132,6 @@ s32 VdecDecoder::Flush(OrbisVideodecFrameBuffer& pFrameBufferInOut,
     while (true) {
         int ret = avcodec_receive_frame(mCodecContext, frame);
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            pPictureInfoOut.isValid = true;
-            pPictureInfoOut.isErrorPic = false;
             break;
         } else if (ret < 0) {
             LOG_ERROR(Lib_Videodec, "Error receiving frame from decoder: {}", ret);
@@ -167,12 +166,25 @@ s32 VdecDecoder::Flush(OrbisVideodecFrameBuffer& pFrameBufferInOut,
             u32(frame->crop_bottom + (height - frame->height));
         // TODO maybe more avc?
 
+        frameCount++;
         if (frameCount > 1) {
             LOG_WARNING(Lib_Videodec, "We have more than 1 frame");
         }
     }
 
     av_frame_free(&frame);
+    if (frameCount == 0) {
+        std::string thread_name = Common::GetCurrentThreadName();
+        if (thread_name.find("MoviePlayer2") != std::string::npos) {
+            LOG_INFO(
+                Lib_Videodec,
+                "MoviePlayer2 thread flush with 0 frames, applying workaround to prevent hang");
+            pPictureInfoOut.isValid = true;
+            pPictureInfoOut.isErrorPic = false;
+        } else {
+            LOG_DEBUG(Lib_Videodec, "Flush completed with 0 frames for thread: {}", thread_name);
+        }
+    }
     return ORBIS_OK;
 }
 
