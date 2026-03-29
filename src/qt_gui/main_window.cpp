@@ -1996,12 +1996,6 @@ void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
                 Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
                 (runningGameSerial + ".toml");
             Config::load(game_config_path, true);
-
-            if (std::filesystem::exists(game_config_path)) {
-                EmulatorState::GetInstance()->SetGameSpecifigConfigUsed(true);
-            } else {
-                EmulatorState::GetInstance()->SetGameSpecifigConfigUsed(false);
-            }
         }
 
         if (hasUpdate || hasMods) {

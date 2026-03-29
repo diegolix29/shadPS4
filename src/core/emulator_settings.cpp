@@ -474,7 +474,6 @@ bool EmulatorSettingsImpl::Load(const std::string& serial) {
                 ApplyGroupOverrides(m_vulkan, gj.at("Vulkan"), changed);
 
             PrintChangedSummary(changed);
-            EmulatorState::GetInstance()->SetGameSpecifigConfigUsed(true);
             return true;
         }
     } catch (const std::exception& e) {

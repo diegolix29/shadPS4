@@ -454,13 +454,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                     Config::save(config_dir / "config.toml", false);
 
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)) {
-                    if (!EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
-                        Config::setDefaultValues();
-                        if (!EmulatorState::GetInstance()->IsGameSpecifigConfigUsed()) {
-                            Config::save(config_dir / "config.toml", false);
-                        }
-                        LoadValuesFromConfig();
-                    }
+                    Config::setDefaultValues();
+                    Config::save(config_dir / "config.toml", false);
+                    LoadValuesFromConfig();
 
                 } else if (button == ui->buttonBox->button(QDialogButtonBox::Close)) {
                     ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
