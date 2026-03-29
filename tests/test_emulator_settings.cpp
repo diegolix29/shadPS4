@@ -790,17 +790,19 @@ TEST_F(EmulatorSettingsTest, DoubleGlobalLoadIsIdempotent) {
     EXPECT_EQ(f->GetWindowWidth(), 2560u);
 }
 
-TEST_F(EmulatorSettingsTest, ConfigUsedFlagTrueWhenFileExists) {
+TEST_F(EmulatorSettingsTest, GameConfigLoadedSuccessfullyWhenFileExists) {
     json game;
     game["General"]["neo_mode"] = true;
     WriteJson(GameConfig("CUSA01234"), game);
     temp_settings->Load("CUSA01234");
-    EXPECT_TRUE(EmulatorState::GetInstance()->IsGameSpecifigConfigUsed());
+    temp_settings->SetConfigMode(ConfigMode::Default);
+    EXPECT_TRUE(temp_settings->IsNeo());
 }
 
-TEST_F(EmulatorSettingsTest, ConfigUsedFlagFalseWhenFileAbsent) {
+TEST_F(EmulatorSettingsTest, GameConfigNotLoadedWhenFileAbsent) {
     temp_settings->Load("CUSA99999");
-    EXPECT_FALSE(EmulatorState::GetInstance()->IsGameSpecifigConfigUsed());
+    temp_settings->SetConfigMode(ConfigMode::Default);
+    EXPECT_FALSE(temp_settings->IsNeo());
 }
 
 TEST_F(EmulatorSettingsTest, DestructorNoSaveIfLoadNeverCalled) {
