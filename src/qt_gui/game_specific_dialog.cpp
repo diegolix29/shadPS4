@@ -58,6 +58,16 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
     specialPadChecks[3][3] = ui->spc4_p4;
 
     PopulateAudioDevices();
+
+    std::error_code error;
+    if (std::filesystem::exists(m_config_path, error)) {
+        Config::load(m_config_path, true);
+    } else {
+        const auto global_config_path =
+            Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml";
+        Config::load(global_config_path, false);
+    }
+
     LoadValuesFromConfig();
 
     WindowThemes themes;
@@ -405,7 +415,6 @@ void GameSpecificDialog::OnRcasAttenuationSpinBoxChanged(double spinValue) {
 }
 
 void GameSpecificDialog::LoadValuesFromConfig() {
-
     ui->enableAutoBackupCheckBox->setChecked(Config::getEnableAutoBackup());
     ui->HotkeysCheckBox->setChecked(Config::DisableHardcodedHotkeys());
     ui->HomeHotkeysCheckBox->setChecked(Config::UseHomeButtonForHotkeys());

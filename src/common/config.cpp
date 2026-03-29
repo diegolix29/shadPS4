@@ -157,7 +157,6 @@ public:
                       bool is_game_specific = false) {
         if (is_game_specific) {
             data[header][key] = game_specific_value.value_or(base_value);
-            game_specific_value = std::nullopt;
         } else {
             data[header][key] = base_value;
         }
@@ -557,7 +556,7 @@ u32 getFpsLimit() {
 }
 
 void setFpsLimit(u32 fpsValue) {
-    fpsLimit.set(fpsValue, is_game_specific_context);
+    fpsLimit.base_value = fpsValue;
 }
 
 bool isFpsLimiterEnabled() {
@@ -1940,20 +1939,84 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         fmt::print("Saving new configuration file {}\n", fmt::UTF(path.u8string()));
     }
 
-    data["General"]["volumeSlider"] = volumeSlider.base_value;
-    data["General"]["muteEnabled"] = muteEnabled.base_value;
+    if (is_game_specific) {
+        data["General"]["volumeSlider"] =
+            volumeSlider.game_specific_value.value_or(volumeSlider.base_value);
+        data["General"]["muteEnabled"] =
+            muteEnabled.game_specific_value.value_or(muteEnabled.base_value);
+        data["General"]["isPS4Pro"] = isNeo.game_specific_value.value_or(isNeo.base_value);
+        data["General"]["isDevKit"] = isDevKit.game_specific_value.value_or(isDevKit.base_value);
+        data["General"]["extraDmemInMbytes"] =
+            extraDmemInMbytes.game_specific_value.value_or(extraDmemInMbytes.base_value);
+        data["General"]["isPSNSignedIn"] =
+            isPSNSignedIn.game_specific_value.value_or(isPSNSignedIn.base_value);
+        data["General"]["isTrophyPopupDisabled"] =
+            isTrophyPopupDisabled.game_specific_value.value_or(isTrophyPopupDisabled.base_value);
+        data["General"]["trophyNotificationDuration"] =
+            trophyNotificationDuration.game_specific_value.value_or(
+                trophyNotificationDuration.base_value);
+        data["General"]["logFilter"] = logFilter.game_specific_value.value_or(logFilter.base_value);
+        data["General"]["logType"] = logType.game_specific_value.value_or(logType.base_value);
+        data["General"]["isIdenticalLogGrouped"] =
+            isIdenticalLogGrouped.game_specific_value.value_or(isIdenticalLogGrouped.base_value);
+        data["General"]["restartWithBaseGame"] =
+            restartWithBaseGame.game_specific_value.value_or(restartWithBaseGame.base_value);
+        data["General"]["separateUpdateEnabled"] =
+            separateupdatefolder.game_specific_value.value_or(separateupdatefolder.base_value);
+        data["General"]["screenTipDisable"] =
+            screenTipDisable.game_specific_value.value_or(screenTipDisable.base_value);
+        data["General"]["isSideTrophy"] =
+            isSideTrophy.game_specific_value.value_or(isSideTrophy.base_value);
+        data["General"]["isConnectedToNetwork"] =
+            isConnectedToNetwork.game_specific_value.value_or(isConnectedToNetwork.base_value);
+        data["General"]["httpHostOverride"] =
+            httpHostOverride.game_specific_value.value_or(httpHostOverride.base_value);
+        data["General"]["firstBootHandled"] =
+            firstBootHandled.game_specific_value.value_or(firstBootHandled.base_value);
+        data["General"]["defaultControllerID"] =
+            defaultControllerID.game_specific_value.value_or(defaultControllerID.base_value);
+        data["General"]["activeControllerID"] =
+            activeControllerID.game_specific_value.value_or(activeControllerID.base_value);
+        data["General"]["enableAutoBackup"] =
+            enableAutoBackup.game_specific_value.value_or(enableAutoBackup.base_value);
+        data["General"]["enableMods"] =
+            enableMods.game_specific_value.value_or(enableMods.base_value);
+        data["General"]["enableUpdates"] =
+            enableUpdates.game_specific_value.value_or(enableUpdates.base_value);
+    } else {
+        data["General"]["volumeSlider"] = volumeSlider.base_value;
+        data["General"]["muteEnabled"] = muteEnabled.base_value;
+        data["General"]["isPS4Pro"] = isNeo.base_value;
+        data["General"]["isDevKit"] = isDevKit.base_value;
+        data["General"]["extraDmemInMbytes"] = extraDmemInMbytes.base_value;
+        data["General"]["isPSNSignedIn"] = isPSNSignedIn.base_value;
+        data["General"]["isTrophyPopupDisabled"] = isTrophyPopupDisabled.base_value;
+        data["General"]["trophyNotificationDuration"] = trophyNotificationDuration.base_value;
+        data["General"]["logFilter"] = logFilter.base_value;
+        data["General"]["logType"] = logType.base_value;
+        data["General"]["isIdenticalLogGrouped"] = isIdenticalLogGrouped.base_value;
+        data["General"]["restartWithBaseGame"] = restartWithBaseGame.base_value;
+        data["General"]["separateUpdateEnabled"] = separateupdatefolder.base_value;
+        data["General"]["screenTipDisable"] = screenTipDisable.base_value;
+        data["General"]["isSideTrophy"] = isSideTrophy.base_value;
+        data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
+        data["General"]["httpHostOverride"] = httpHostOverride.base_value;
+        data["General"]["firstBootHandled"] = firstBootHandled.base_value;
+        data["General"]["defaultControllerID"] = defaultControllerID.base_value;
+        data["General"]["activeControllerID"] = activeControllerID.base_value;
+        data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
+        data["General"]["enableMods"] = enableMods.base_value;
+        data["General"]["enableUpdates"] = enableUpdates.base_value;
+    }
+    std::vector<int> custom_cores_int;
+    for (u32 core : customCpuCores) {
+        custom_cores_int.push_back(static_cast<int>(core));
+    }
+    data["General"]["customCpuCores"] = custom_cores_int;
 
-    data["General"]["isPS4Pro"] = isNeo.base_value;
-    data["General"]["isDevKit"] = isDevKit.base_value;
-    data["General"]["extraDmemInMbytes"] = extraDmemInMbytes.base_value;
-    data["General"]["isPSNSignedIn"] = isPSNSignedIn.base_value;
-    data["General"]["isTrophyPopupDisabled"] = isTrophyPopupDisabled.base_value;
-    data["General"]["trophyNotificationDuration"] = trophyNotificationDuration.base_value;
     data["General"]["playBGM"] = playBGM;
     data["General"]["BGMvolume"] = BGMvolume;
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
-    data["General"]["logFilter"] = logFilter.base_value;
-    data["General"]["logType"] = logType.base_value;
     data["General"]["userNames"] = userNames.base_value;
     data["General"]["playerEnabledStates"] = playerEnabledStates.base_value;
     data["General"]["updateChannel"] = updateChannel;
@@ -1965,95 +2028,191 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
     data["General"]["DisableHardcodedHotkeys"] = isDisableHardcodedHotkeys.base_value;
     data["General"]["UseHomeButtonForHotkeys"] = homeButtonHotkey.base_value;
-    data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
     data["General"]["GamesMenuUI"] = bootGamesMenu;
     data["General"]["HubMenuUI"] = bootHubMenu;
-    data["General"]["restartWithBaseGame"] = restartWithBaseGame.base_value;
-    data["General"]["enableMods"] = enableMods.base_value;
-    data["General"]["enableUpdates"] = enableUpdates.base_value;
-    data["General"]["separateUpdateEnabled"] = separateupdatefolder.base_value;
-    data["General"]["screenTipDisable"] = screenTipDisable.base_value;
-    data["General"]["sideTrophy"] = isSideTrophy.base_value;
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
     data["General"]["sysModulesPath"] = string{fmt::UTF(sys_modules_path.u8string()).data};
     data["General"]["fontsPath"] = string{fmt::UTF(fonts_path.u8string()).data};
-    data["General"]["isConnectedToNetwork"] = isConnectedToNetwork.base_value;
-    data["General"]["httpHostOverride"] = httpHostOverride.base_value;
-    data["General"]["firstBootHandled"] = firstBootHandled.base_value;
-    data["General"]["defaultControllerID"] = defaultControllerID.base_value;
-    data["General"]["activeControllerID"] = activeControllerID.base_value;
-    data["General"]["cpuCoreMode"] = static_cast<int>(cpuCoreMode.base_value);
-    std::vector<int> custom_cores_int;
-    for (u32 core : customCpuCores) {
-        custom_cores_int.push_back(static_cast<int>(core));
-    }
-    data["General"]["customCpuCores"] = custom_cores_int;
 
-    data["Input"]["cursorState"] = cursorState.base_value;
-    data["Input"]["cursorHideTimeout"] = cursorHideTimeout.base_value;
+    if (is_game_specific) {
+        data["Input"]["cursorState"] =
+            cursorState.game_specific_value.value_or(cursorState.base_value);
+        data["Input"]["cursorHideTimeout"] =
+            cursorHideTimeout.game_specific_value.value_or(cursorHideTimeout.base_value);
+        data["Input"]["isMotionControlsEnabled"] =
+            isMotionControlsEnabled.game_specific_value.value_or(
+                isMotionControlsEnabled.base_value);
+        data["Input"]["useUnifiedInputConfig"] =
+            useUnifiedInputConfig.game_specific_value.value_or(useUnifiedInputConfig.base_value);
+        data["Input"]["backgroundControllerInput"] =
+            backgroundControllerInput.game_specific_value.value_or(
+                backgroundControllerInput.base_value);
+        data["Input"]["isKeyboardBindingsDisabled"] =
+            isKeyboardBindingsDisabled.game_specific_value.value_or(
+                isKeyboardBindingsDisabled.base_value);
+        data["Input"]["usbDeviceBackend"] =
+            usbDeviceBackend.game_specific_value.value_or(usbDeviceBackend.base_value);
+    } else {
+        data["Input"]["cursorState"] = cursorState.base_value;
+        data["Input"]["cursorHideTimeout"] = cursorHideTimeout.base_value;
+        data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
+        data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
+        data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
+        data["Input"]["isKeyboardBindingsDisabled"] = isKeyboardBindingsDisabled.base_value;
+        data["Input"]["usbDeviceBackend"] = usbDeviceBackend.base_value;
+    }
     for (int p = 1; p <= 4; p++) {
         std::string useKey = "useSpecialPad" + std::to_string(p);
         std::string classKey = "specialPadClass" + std::to_string(p);
-
-        useSpecialPads[p - 1].setTomlValue(data, "Input", useKey, false);
-        specialPadClasses[p - 1].setTomlValue(data, "Input", classKey, false);
+        useSpecialPads[p - 1].setTomlValue(data, "Input", useKey, is_game_specific);
+        specialPadClasses[p - 1].setTomlValue(data, "Input", classKey, is_game_specific);
     }
-    data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
-    data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
-    data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
-    data["Input"]["isKeyboardBindingsDisabled"] = isKeyboardBindingsDisabled.base_value;
-    data["Input"]["usbDeviceBackend"] = usbDeviceBackend.base_value;
 
-    data["Audio"]["micDevice"] = micDevice.base_value;
-    data["Audio"]["audioBackend"] = static_cast<int>(audioBackend.base_value);
-    data["Audio"]["mainOutputDevice"] = mainOutputDevice.base_value;
-    data["Audio"]["padSpkOutputDevice"] = padSpkOutputDevice.base_value;
+    if (is_game_specific) {
+        data["Audio"]["micDevice"] = micDevice.game_specific_value.value_or(micDevice.base_value);
+        data["Audio"]["audioBackend"] =
+            static_cast<int>(audioBackend.game_specific_value.value_or(audioBackend.base_value));
+        data["Audio"]["mainOutputDevice"] =
+            mainOutputDevice.game_specific_value.value_or(mainOutputDevice.base_value);
+        data["Audio"]["padSpkOutputDevice"] =
+            padSpkOutputDevice.game_specific_value.value_or(padSpkOutputDevice.base_value);
+    } else {
+        data["Audio"]["micDevice"] = micDevice.base_value;
+        data["Audio"]["audioBackend"] = static_cast<int>(audioBackend.base_value);
+        data["Audio"]["mainOutputDevice"] = mainOutputDevice.base_value;
+        data["Audio"]["padSpkOutputDevice"] = padSpkOutputDevice.base_value;
+    }
 
-    data["GPU"]["rcasAttenuation"] = rcasAttenuation.base_value;
-    data["GPU"]["fsrEnabled"] = fsrEnabled.base_value;
-    data["GPU"]["rcasEnabled"] = rcasEnabled.base_value;
-    data["GPU"]["fpsLimit"] = fpsLimit.base_value;
-    data["GPU"]["fpsLimiterEnabled"] = fpsLimiterEnabled.base_value;
-    data["GPU"]["screenWidth"] = windowWidth.base_value;
-    data["GPU"]["screenHeight"] = windowHeight.base_value;
-    data["GPU"]["internalScreenWidth"] = internalScreenWidth.base_value;
-    data["GPU"]["internalScreenHeight"] = internalScreenHeight.base_value;
-    data["GPU"]["nullGpu"] = isNullGpu.base_value;
-    data["GPU"]["copyGPUBuffers"] = shouldCopyGPUBuffers.base_value;
-    data["GPU"]["readbackSpeedMode"] = static_cast<int>(readbackSpeedMode.base_value);
-    data["GPU"]["readbackLinearImages"] = readbackLinearImagesEnabled.base_value;
-    data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.base_value;
-    data["GPU"]["dumpShaders"] = shouldDumpShaders.base_value;
-    data["GPU"]["patchShaders"] = shouldPatchShaders.base_value;
-    data["GPU"]["vblankFrequency"] = vblankFrequency.base_value;
-    data["GPU"]["Fullscreen"] = isFullscreen.base_value;
-    data["GPU"]["FullscreenMode"] = fullscreenMode.base_value;
-    data["GPU"]["presentMode"] = presentMode.base_value;
-    data["GPU"]["allowHDR"] = isHDRAllowed.base_value;
-    data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled.base_value;
-    data["Vulkan"]["gpuId"] = gpuId.base_value;
-    data["Vulkan"]["validation"] = vkValidation.base_value;
-    data["Vulkan"]["validation_core"] = vkValidationCore.base_value;
-    data["Vulkan"]["validation_sync"] = vkValidationSync.base_value;
-    data["Vulkan"]["validation_gpu"] = vkValidationGpu.base_value;
-    data["Vulkan"]["crashDiagnostic"] = vkCrashDiagnostic.base_value;
-    data["Vulkan"]["hostMarkers"] = vkHostMarkers.base_value;
-    data["Vulkan"]["guestMarkers"] = vkGuestMarkers.base_value;
-    data["Vulkan"]["rdocEnable"] = rdocEnable.base_value;
-    data["Vulkan"]["pipelineCacheEnable"] = pipelineCacheEnable.base_value;
-    data["Vulkan"]["pipelineCacheArchive"] = pipelineCacheArchive.base_value;
+    if (is_game_specific) {
+        data["GPU"]["rcasAttenuation"] =
+            rcasAttenuation.game_specific_value.value_or(rcasAttenuation.base_value);
+        data["GPU"]["fsrEnabled"] = fsrEnabled.game_specific_value.value_or(fsrEnabled.base_value);
+        data["GPU"]["rcasEnabled"] =
+            rcasEnabled.game_specific_value.value_or(rcasEnabled.base_value);
+        data["GPU"]["fpsLimit"] = fpsLimit.game_specific_value.value_or(fpsLimit.base_value);
+        data["GPU"]["fpsLimiterEnabled"] =
+            fpsLimiterEnabled.game_specific_value.value_or(fpsLimiterEnabled.base_value);
+        data["GPU"]["screenWidth"] =
+            windowWidth.game_specific_value.value_or(windowWidth.base_value);
+        data["GPU"]["screenHeight"] =
+            windowHeight.game_specific_value.value_or(windowHeight.base_value);
+        data["GPU"]["internalScreenWidth"] =
+            internalScreenWidth.game_specific_value.value_or(internalScreenWidth.base_value);
+        data["GPU"]["internalScreenHeight"] =
+            internalScreenHeight.game_specific_value.value_or(internalScreenHeight.base_value);
+        data["GPU"]["nullGpu"] = isNullGpu.game_specific_value.value_or(isNullGpu.base_value);
+        data["GPU"]["copyGPUBuffers"] =
+            shouldCopyGPUBuffers.game_specific_value.value_or(shouldCopyGPUBuffers.base_value);
+        data["GPU"]["readbackSpeedMode"] = static_cast<int>(
+            readbackSpeedMode.game_specific_value.value_or(readbackSpeedMode.base_value));
+        data["GPU"]["readbackLinearImages"] =
+            readbackLinearImagesEnabled.game_specific_value.value_or(
+                readbackLinearImagesEnabled.base_value);
+        data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.game_specific_value.value_or(
+            directMemoryAccessEnabled.base_value);
+        data["GPU"]["dumpShaders"] =
+            shouldDumpShaders.game_specific_value.value_or(shouldDumpShaders.base_value);
+        data["GPU"]["patchShaders"] =
+            shouldPatchShaders.game_specific_value.value_or(shouldPatchShaders.base_value);
+        data["GPU"]["vblankFrequency"] =
+            vblankFrequency.game_specific_value.value_or(vblankFrequency.base_value);
+        data["GPU"]["Fullscreen"] =
+            isFullscreen.game_specific_value.value_or(isFullscreen.base_value);
+        data["GPU"]["FullscreenMode"] =
+            fullscreenMode.game_specific_value.value_or(fullscreenMode.base_value);
+        data["GPU"]["presentMode"] =
+            presentMode.game_specific_value.value_or(presentMode.base_value);
+        data["GPU"]["allowHDR"] =
+            isHDRAllowed.game_specific_value.value_or(isHDRAllowed.base_value);
+        data["GPU"]["shaderSkipsEnabled"] =
+            shaderSkipsEnabled.game_specific_value.value_or(shaderSkipsEnabled.base_value);
+    } else {
+        data["GPU"]["rcasAttenuation"] = rcasAttenuation.base_value;
+        data["GPU"]["fsrEnabled"] = fsrEnabled.base_value;
+        data["GPU"]["rcasEnabled"] = rcasEnabled.base_value;
+        data["GPU"]["fpsLimit"] = fpsLimit.base_value;
+        data["GPU"]["fpsLimiterEnabled"] = fpsLimiterEnabled.base_value;
+        data["GPU"]["screenWidth"] = windowWidth.base_value;
+        data["GPU"]["screenHeight"] = windowHeight.base_value;
+        data["GPU"]["internalScreenWidth"] = internalScreenWidth.base_value;
+        data["GPU"]["internalScreenHeight"] = internalScreenHeight.base_value;
+        data["GPU"]["nullGpu"] = isNullGpu.base_value;
+        data["GPU"]["copyGPUBuffers"] = shouldCopyGPUBuffers.base_value;
+        data["GPU"]["readbackSpeedMode"] = static_cast<int>(readbackSpeedMode.base_value);
+        data["GPU"]["readbackLinearImages"] = readbackLinearImagesEnabled.base_value;
+        data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.base_value;
+        data["GPU"]["dumpShaders"] = shouldDumpShaders.base_value;
+        data["GPU"]["patchShaders"] = shouldPatchShaders.base_value;
+        data["GPU"]["vblankFrequency"] = vblankFrequency.base_value;
+        data["GPU"]["Fullscreen"] = isFullscreen.base_value;
+        data["GPU"]["FullscreenMode"] = fullscreenMode.base_value;
+        data["GPU"]["presentMode"] = presentMode.base_value;
+        data["GPU"]["allowHDR"] = isHDRAllowed.base_value;
+        data["GPU"]["shaderSkipsEnabled"] = shaderSkipsEnabled.base_value;
+    }
 
-    data["Debug"]["DebugDump"] = isDebugDump.base_value;
-    data["Debug"]["CollectShader"] = isShaderDebug.base_value;
-    data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled.base_value;
-    data["Debug"]["showFpsCounter"] = showFpsCounter.base_value;
-    data["Debug"]["logEnabled"] = logEnabled.base_value;
+    if (is_game_specific) {
+        data["Vulkan"]["gpuId"] = gpuId.game_specific_value.value_or(gpuId.base_value);
+        data["Vulkan"]["validation"] =
+            vkValidation.game_specific_value.value_or(vkValidation.base_value);
+        data["Vulkan"]["validation_core"] =
+            vkValidationCore.game_specific_value.value_or(vkValidationCore.base_value);
+        data["Vulkan"]["validation_sync"] =
+            vkValidationSync.game_specific_value.value_or(vkValidationSync.base_value);
+        data["Vulkan"]["validation_gpu"] =
+            vkValidationGpu.game_specific_value.value_or(vkValidationGpu.base_value);
+        data["Vulkan"]["crashDiagnostic"] =
+            vkCrashDiagnostic.game_specific_value.value_or(vkCrashDiagnostic.base_value);
+        data["Vulkan"]["hostMarkers"] =
+            vkHostMarkers.game_specific_value.value_or(vkHostMarkers.base_value);
+        data["Vulkan"]["guestMarkers"] =
+            vkGuestMarkers.game_specific_value.value_or(vkGuestMarkers.base_value);
+        data["Vulkan"]["rdocEnable"] =
+            rdocEnable.game_specific_value.value_or(rdocEnable.base_value);
+        data["Vulkan"]["pipelineCacheEnable"] =
+            pipelineCacheEnable.game_specific_value.value_or(pipelineCacheEnable.base_value);
+        data["Vulkan"]["pipelineCacheArchive"] =
+            pipelineCacheArchive.game_specific_value.value_or(pipelineCacheArchive.base_value);
+    } else {
+        data["Vulkan"]["gpuId"] = gpuId.base_value;
+        data["Vulkan"]["validation"] = vkValidation.base_value;
+        data["Vulkan"]["validation_core"] = vkValidationCore.base_value;
+        data["Vulkan"]["validation_sync"] = vkValidationSync.base_value;
+        data["Vulkan"]["validation_gpu"] = vkValidationGpu.base_value;
+        data["Vulkan"]["crashDiagnostic"] = vkCrashDiagnostic.base_value;
+        data["Vulkan"]["hostMarkers"] = vkHostMarkers.base_value;
+        data["Vulkan"]["guestMarkers"] = vkGuestMarkers.base_value;
+        data["Vulkan"]["rdocEnable"] = rdocEnable.base_value;
+        data["Vulkan"]["pipelineCacheEnable"] = pipelineCacheEnable.base_value;
+        data["Vulkan"]["pipelineCacheArchive"] = pipelineCacheArchive.base_value;
+    }
+
+    if (is_game_specific) {
+        data["Debug"]["DebugDump"] =
+            isDebugDump.game_specific_value.value_or(isDebugDump.base_value);
+        data["Debug"]["CollectShader"] =
+            isShaderDebug.game_specific_value.value_or(isShaderDebug.base_value);
+        data["Debug"]["isSeparateLogFilesEnabled"] =
+            isSeparateLogFilesEnabled.game_specific_value.value_or(
+                isSeparateLogFilesEnabled.base_value);
+        data["Debug"]["showFpsCounter"] =
+            showFpsCounter.game_specific_value.value_or(showFpsCounter.base_value);
+        data["Debug"]["logEnabled"] =
+            logEnabled.game_specific_value.value_or(logEnabled.base_value);
+    } else {
+        data["Debug"]["DebugDump"] = isDebugDump.base_value;
+        data["Debug"]["CollectShader"] = isShaderDebug.base_value;
+        data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled.base_value;
+        data["Debug"]["showFpsCounter"] = showFpsCounter.base_value;
+        data["Debug"]["logEnabled"] = logEnabled.base_value;
+    }
     data["Keys"]["TrophyKey"] = trophyKey;
 
     std::vector<std::string> directories;
     std::vector<bool> directories_enabled;
 
+    // ... (rest of the code remains the same)
     struct DirEntry {
         std::string path_str;
         bool enabled;
@@ -2248,7 +2407,7 @@ void setDefaultValues() {
     vkGuestMarkers = false;
     rdocEnable = false;
     pipelineCacheEnable = false;
-    pipelineCacheArchive = true;
+    pipelineCacheArchive = false;
 
     // Debug
     isDebugDump = false;
