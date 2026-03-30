@@ -1029,12 +1029,11 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
 
 void SettingsDialog::LoadValuesFromConfig() {
 
-    Config::setConfigMode(Config::ConfigMode::Clean);
-
     std::filesystem::path userdir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     std::error_code error;
     if (std::filesystem::exists(userdir / "config.toml", error)) {
         Config::load(userdir / "config.toml");
+        Config::setConfigMode(Config::ConfigMode::Default);
     } else {
         Config::setConfigMode(Config::ConfigMode::Default);
         return;

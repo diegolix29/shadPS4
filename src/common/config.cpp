@@ -750,17 +750,17 @@ std::string getLogType() {
     return logType.get();
 }
 
-string getUserName(int id) {
+std::string getUserName(int id) {
     return userNames.get()[id];
 }
 
-void setUserName(int id, string name) {
+void setUserName(int id, const std::string& name) {
     auto temp = userNames.get();
     temp[id] = name;
     userNames.set(temp);
 }
 
-std::array<string, 4> const getUserNames() {
+std::array<std::string, 4> const getUserNames() {
     return userNames.get();
 }
 
@@ -1225,12 +1225,6 @@ void setLogFilter(const std::string& type) {
 
 void setSeparateLogFilesEnabled(bool enabled) {
     isSeparateLogFilesEnabled.base_value = enabled;
-}
-
-void setUserName(int id, const std::string& name) {
-    auto arr = userNames.get();
-    arr[id] = name;
-    userNames.set(arr);
 }
 
 void setUpdateChannel(const std::string& type) {

@@ -245,7 +245,6 @@ bool GetOverrideControllerColor();
 void SetOverrideControllerColor(bool enable);
 int* GetControllerCustomColor();
 void SetControllerCustomColor(int r, int b, int g);
-void setUserName(int id, const std::string& name);
 
 void setUpdateChannel(const std::string& type);
 void setChooseHomeTab(const std::string& type);
