@@ -1286,7 +1286,7 @@ void VersionDialog::InstallPkgWithV7() {
     QMessageBox::StandardButton reply =
         QMessageBox::question(this, tr("PKG Installer Download"),
                               tr("To run the PKG installer, we need to download the %1 build (%2 "
-                                 ")in BBFork Repository.\n\nDo you want to proceed?")
+                                 ")in Shadlix Repository.\n\nDo you want to proceed?")
                                   .arg(platform)
                                   .arg(targetReleasePrefix),
                               QMessageBox::Yes | QMessageBox::No);
