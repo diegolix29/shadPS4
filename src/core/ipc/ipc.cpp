@@ -152,7 +152,6 @@ void IPC::InputLoop() {
             SDL_PushEvent(&event);
         } else if (cmd == "ADJUST_VOLUME") {
             int value = static_cast<int>(next_u64());
-            bool is_game_specific = next_u64() != 0;
             Config::setVolumeSlider(value);
             Libraries::AudioOut::AdjustVol();
         } else if (cmd == "SET_FSR") {

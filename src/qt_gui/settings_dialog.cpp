@@ -1029,11 +1029,14 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
 
 void SettingsDialog::LoadValuesFromConfig() {
 
+    Config::setConfigMode(Config::ConfigMode::Clean);
+
     std::filesystem::path userdir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     std::error_code error;
     if (std::filesystem::exists(userdir / "config.toml", error)) {
         Config::load(userdir / "config.toml");
     } else {
+        Config::setConfigMode(Config::ConfigMode::Default);
         return;
     }
 
@@ -1043,6 +1046,7 @@ void SettingsDialog::LoadValuesFromConfig() {
         const toml::value data = toml::parse(userdir / "config.toml");
     } catch (std::exception& ex) {
         fmt::print("Got exception trying to load config file. Exception: {}\n", ex.what());
+        Config::setConfigMode(Config::ConfigMode::Default);
         return;
     }
 
@@ -1313,6 +1317,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     bgm_volume_backup = Config::getBGMvolume();
     volume_slider_backup = Config::getVolumeSlider();
     fps_backup = Config::getFpsLimit();
+
+    Config::setConfigMode(Config::ConfigMode::Default);
 }
 
 void SettingsDialog::VolumeSliderChange(int value) {

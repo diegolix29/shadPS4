@@ -5,9 +5,11 @@
 #include <QKeyEvent>
 #include <QMessageBox>
 #include <QPushButton>
+#include "common/config.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "control_settings.h"
+#include "core/emulator_state.h"
 #include "input/controller.h"
 #include "ui_control_settings.h"
 
@@ -351,9 +353,11 @@ void ControlSettings::SaveControllerConfig(bool CloseOnSave) {
     Config::SetOverrideControllerColor(ui->LightbarCheckBox->isChecked());
     Config::SetControllerCustomColor(ui->RSlider->value(), ui->GSlider->value(),
                                      ui->BSlider->value());
-    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
+    if (!EmulatorState::GetInstance()->IsGameRunning() || Config::GetUseUnifiedInputConfig()) {
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
+    }
 
-    if (GameRunning) {
+    if (EmulatorState::GetInstance()->IsGameRunning()) {
         Config::GetUseUnifiedInputConfig() ? m_ipc_client->reloadInputs("default")
                                            : m_ipc_client->reloadInputs(RunningGameSerial);
     }

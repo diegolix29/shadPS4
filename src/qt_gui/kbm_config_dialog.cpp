@@ -9,6 +9,7 @@
 #include <iostream>
 #include "common/config.h"
 #include "common/path_util.h"
+#include "core/emulator_state.h"
 #include "game_info.h"
 #include "sdl_window.h"
 
@@ -46,9 +47,13 @@ EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
     unifiedInputCheckBox->setChecked(!Config::GetUseUnifiedInputConfig());
 
     // Connect checkbox signal
-    connect(unifiedInputCheckBox, &QCheckBox::toggled, this, [](bool checked) {
+    connect(unifiedInputCheckBox, &QCheckBox::toggled, this, [unifiedInputCheckBox](bool checked) {
         Config::SetUseUnifiedInputConfig(!checked);
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
+
+        if (!EmulatorState::GetInstance()->IsGameRunning() || Config::GetUseUnifiedInputConfig()) {
+            Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml",
+                         false);
+        }
     });
     // Create Save, Cancel, and Help buttons
     QPushButton* saveButton = new QPushButton("Save", this);

@@ -9,11 +9,15 @@
 #include <QWheelEvent>
 #include <SDL3/SDL_events.h>
 
+#include "common/config.h"
 #include "common/path_util.h"
+#include "core/emulator_state.h"
+#include "game_info.h"
 #include "input/input_handler.h"
 #include "kbm_config_dialog.h"
 #include "kbm_gui.h"
 #include "kbm_help_dialog.h"
+#include "sdl_event_wrapper.h"
 #include "ui_kbm_gui.h"
 
 HelpDialog* HelpWindow;
@@ -340,9 +344,12 @@ QString(tr("Cannot bind any unique input more than once. Duplicate inputs mapped
     output_file.close();
 
     Config::SetUseUnifiedInputConfig(!ui->PerGameCheckBox->isChecked());
-    Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
 
-    if (GameRunning) {
+    if (!EmulatorState::GetInstance()->IsGameRunning() || Config::GetUseUnifiedInputConfig()) {
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
+    }
+
+    if (EmulatorState::GetInstance()->IsGameRunning()) {
         Config::GetUseUnifiedInputConfig() ? m_ipc_client->reloadInputs("default")
                                            : m_ipc_client->reloadInputs(RunningGameSerial);
     }

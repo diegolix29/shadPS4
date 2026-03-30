@@ -61,11 +61,17 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
 
     std::error_code error;
     if (std::filesystem::exists(m_config_path, error)) {
+        // Clear any existing values first, then load game-specific config
+        Config::setConfigMode(Config::ConfigMode::Clean);
         Config::load(m_config_path, true);
+        Config::setConfigMode(Config::ConfigMode::Default);
     } else {
         const auto global_config_path =
             Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml";
+        // Clear any existing values first, then load global config as fallback
+        Config::setConfigMode(Config::ConfigMode::Clean);
         Config::load(global_config_path, false);
+        Config::setConfigMode(Config::ConfigMode::Default);
     }
 
     LoadValuesFromConfig();
@@ -785,88 +791,42 @@ void GameSpecificDialog::UpdateSettings() {
     };
 
     //  General
-    if (ui->enableAutoBackupCheckBox->isChecked() != Config::getEnableAutoBackup())
-        overrides["General"]["enableAutoBackup"] = ui->enableAutoBackupCheckBox->isChecked();
-
-    if (ui->discordRPCCheckbox->isChecked() != Config::getEnableDiscordRPC())
-        overrides["General"]["enableDiscordRPC"] = ui->discordRPCCheckbox->isChecked();
-
-    if (ui->HotkeysCheckBox->isChecked() != Config::DisableHardcodedHotkeys())
-        overrides["General"]["DisableHardcodedHotkeys"] = ui->HotkeysCheckBox->isChecked();
-
-    if (ui->HomeHotkeysCheckBox->isChecked() != Config::UseHomeButtonForHotkeys())
-        overrides["General"]["UseHomeButtonForHotkeys"] = ui->HomeHotkeysCheckBox->isChecked();
-
-    if (ui->horizontalVolumeSlider->value() != Config::getVolumeSlider())
-        overrides["General"]["volumeSlider"] = ui->horizontalVolumeSlider->value();
-
-    if (ui->connectedNetworkCheckBox->isChecked() != Config::getIsConnectedToNetwork())
-        overrides["General"]["isConnectedToNetwork"] = ui->connectedNetworkCheckBox->isChecked();
-
-    if (ui->isDevKitCheckBox->isChecked() != Config::isDevKitConsole())
-        overrides["General"]["isDevKit"] = ui->isDevKitCheckBox->isChecked();
-
-    if (ui->isNeoModeCheckBox->isChecked() != Config::isNeoModeConsole())
-        overrides["General"]["isPS4Pro"] = ui->isNeoModeCheckBox->isChecked();
-
-    if (ui->isPSNSignedInCheckBox->isChecked() != Config::getPSNSignedIn())
-        overrides["General"]["isPSNSignedIn"] = ui->isPSNSignedInCheckBox->isChecked();
-
-    if (ui->httpHostOverrideLineEdit->text().toStdString() != Config::GetHttpHostOverride())
-        overrides["General"]["httpHostOverride"] =
-            ui->httpHostOverrideLineEdit->text().toStdString();
-
-    if (ui->disableTrophycheckBox->isChecked() != Config::getisTrophyPopupDisabled())
-        overrides["General"]["isTrophyPopupDisabled"] = ui->disableTrophycheckBox->isChecked();
-
-    if (ui->logFilterLineEdit->text().toStdString() != Config::getLogFilter())
-        overrides["General"]["logFilter"] = ui->logFilterLineEdit->text().toStdString();
-
-    if (logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString() != Config::getLogType())
-        overrides["General"]["logType"] =
-            logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString();
-
-    if (ui->screenTipBox->isChecked() != Config::getScreenTipDisable())
-        overrides["General"]["screenTipDisable"] = ui->screenTipBox->isChecked();
-
-    if (ui->showSplashCheckBox->isChecked() != Config::showSplash())
-        overrides["General"]["showSplash"] = ui->showSplashCheckBox->isChecked();
+    overrides["General"]["enableAutoBackup"] = ui->enableAutoBackupCheckBox->isChecked();
+    overrides["General"]["enableDiscordRPC"] = ui->discordRPCCheckbox->isChecked();
+    overrides["General"]["DisableHardcodedHotkeys"] = ui->HotkeysCheckBox->isChecked();
+    overrides["General"]["UseHomeButtonForHotkeys"] = ui->HomeHotkeysCheckBox->isChecked();
+    overrides["General"]["volumeSlider"] = ui->horizontalVolumeSlider->value();
+    overrides["General"]["isConnectedToNetwork"] = ui->connectedNetworkCheckBox->isChecked();
+    overrides["General"]["isDevKit"] = ui->isDevKitCheckBox->isChecked();
+    overrides["General"]["isPS4Pro"] = ui->isNeoModeCheckBox->isChecked();
+    overrides["General"]["isPSNSignedIn"] = ui->isPSNSignedInCheckBox->isChecked();
+    overrides["General"]["httpHostOverride"] = ui->httpHostOverrideLineEdit->text().toStdString();
+    overrides["General"]["isTrophyPopupDisabled"] = ui->disableTrophycheckBox->isChecked();
+    overrides["General"]["logFilter"] = ui->logFilterLineEdit->text().toStdString();
+    overrides["General"]["logType"] =
+        logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString();
+    overrides["General"]["screenTipDisable"] = ui->screenTipBox->isChecked();
+    overrides["General"]["showSplash"] = ui->showSplashCheckBox->isChecked();
 
     // Trophy
-    std::string side = Config::sideTrophy();
-    if (ui->radioButton_Top->isChecked() && side != "top")
+    if (ui->radioButton_Top->isChecked())
         overrides["General"]["sideTrophy"] = "top";
-    else if (ui->radioButton_Left->isChecked() && side != "left")
+    else if (ui->radioButton_Left->isChecked())
         overrides["General"]["sideTrophy"] = "left";
-    else if (ui->radioButton_Right->isChecked() && side != "right")
+    else if (ui->radioButton_Right->isChecked())
         overrides["General"]["sideTrophy"] = "right";
-    else if (ui->radioButton_Bottom->isChecked() && side != "bottom")
+    else if (ui->radioButton_Bottom->isChecked())
         overrides["General"]["sideTrophy"] = "bottom";
 
-    if (ui->popUpDurationSpinBox->value() != Config::getTrophyNotificationDuration())
-        overrides["General"]["trophyNotificationDuration"] = ui->popUpDurationSpinBox->value();
+    overrides["General"]["trophyNotificationDuration"] = ui->popUpDurationSpinBox->value();
+    overrides["General"]["enableMods"] = ui->enableModsCheckBox->isChecked();
+    overrides["General"]["enableUpdates"] = ui->enableUpdatesCheckBox->isChecked();
+    overrides["General"]["extraDmemInMbytes"] = ui->MemorySpinBox->value();
 
-    if (ui->enableModsCheckBox->isChecked() != Config::getEnableMods())
-        overrides["General"]["enableMods"] = ui->enableModsCheckBox->isChecked();
-
-    if (ui->enableUpdatesCheckBox->isChecked() != Config::getEnableUpdates())
-        overrides["General"]["enableUpdates"] = ui->enableUpdatesCheckBox->isChecked();
-
-    if (ui->MemorySpinBox->value() != Config::getExtraDmemInMbytes())
-        overrides["General"]["extraDmemInMbytes"] = ui->MemorySpinBox->value();
-
-    if (ui->backgroundControllerCheckBox->isChecked() != Config::getBackgroundControllerInput())
-        overrides["Input"]["backgroundControllerInput"] =
-            ui->backgroundControllerCheckBox->isChecked();
-
-    if (ui->idleTimeoutSpinBox->value() != Config::getCursorHideTimeout())
-        overrides["Input"]["cursorHideTimeout"] = ui->idleTimeoutSpinBox->value();
-
-    if (ui->hideCursorComboBox->currentIndex() != Config::getCursorState())
-        overrides["Input"]["cursorState"] = ui->hideCursorComboBox->currentIndex();
-
-    if (ui->motionControlsCheckBox->isChecked() != Config::getIsMotionControlsEnabled())
-        overrides["Input"]["isMotionControlsEnabled"] = ui->motionControlsCheckBox->isChecked();
+    overrides["Input"]["backgroundControllerInput"] = ui->backgroundControllerCheckBox->isChecked();
+    overrides["Input"]["cursorHideTimeout"] = ui->idleTimeoutSpinBox->value();
+    overrides["Input"]["cursorState"] = ui->hideCursorComboBox->currentIndex();
+    overrides["Input"]["isMotionControlsEnabled"] = ui->motionControlsCheckBox->isChecked();
 
     for (int p = 1; p <= 4; ++p) {
         int assignedClass = 0;
@@ -883,136 +843,59 @@ void GameSpecificDialog::UpdateSettings() {
 
         bool use = assignedClass != 0;
 
-        if (assignedClass != Config::getSpecialPadClass(p))
-            overrides["Input"][classKey] = assignedClass;
-
-        if (use != Config::getUseSpecialPad(p))
-            overrides["Input"][useKey] = use;
+        overrides["Input"][classKey] = assignedClass;
+        overrides["Input"][useKey] = use;
     }
 
-    if (ui->useUnifiedInputConfigCheckBox->isChecked() != Config::GetUseUnifiedInputConfig())
-        overrides["Input"]["useUnifiedInputConfig"] =
-            ui->useUnifiedInputConfigCheckBox->isChecked();
-
-    if (ui->mainOutputDeviceComboBox->currentText().toStdString() != Config::getMainOutputDevice())
-        overrides["Audio"]["mainOutputDevice"] =
-            ui->mainOutputDeviceComboBox->currentText().toStdString();
-
-    if (ui->padSpkOutputDeviceComboBox->currentText().toStdString() !=
-        Config::getPadSpkOutputDevice())
-        overrides["Audio"]["padSpkOutputDevice"] =
-            ui->padSpkOutputDeviceComboBox->currentText().toStdString();
+    overrides["Input"]["useUnifiedInputConfig"] = ui->useUnifiedInputConfigCheckBox->isChecked();
+    overrides["Audio"]["mainOutputDevice"] =
+        ui->mainOutputDeviceComboBox->currentText().toStdString();
+    overrides["Audio"]["padSpkOutputDevice"] =
+        ui->padSpkOutputDeviceComboBox->currentText().toStdString();
 
     // Audio backend override
     Config::AudioBackend selectedBackend = (ui->AudioBackendComboBox->currentIndex() == 1)
                                                ? Config::AudioBackend::OpenAL
                                                : Config::AudioBackend::SDL;
-    if (selectedBackend != Config::getAudioBackend())
-        overrides["Audio"]["audioBackend"] = static_cast<int>(selectedBackend);
+    overrides["Audio"]["audioBackend"] = static_cast<int>(selectedBackend);
 
-    if (ui->enableHDRCheckBox->isChecked() != Config::allowHDR())
-        overrides["GPU"]["allowHDR"] = ui->enableHDRCheckBox->isChecked();
-
-    if (ui->copyGPUBuffersCheckBox->isChecked() != Config::copyGPUCmdBuffers())
-        overrides["GPU"]["copyGPUBuffers"] = ui->copyGPUBuffersCheckBox->isChecked();
-
-    if (ui->DMACheckBox->isChecked() != Config::directMemoryAccess())
-        overrides["GPU"]["directMemoryAccess"] = ui->DMACheckBox->isChecked();
-
-    if (ui->dumpShadersCheckBox->isChecked() != Config::dumpShaders())
-        overrides["GPU"]["dumpShaders"] = ui->dumpShadersCheckBox->isChecked();
-
-    if (ui->fpsSpinBox->value() != Config::getFpsLimit())
-        overrides["GPU"]["fpsLimit"] = ui->fpsSpinBox->value();
-
-    if (ui->fpsLimiterCheckBox->isChecked() != Config::isFpsLimiterEnabled())
-        overrides["GPU"]["fpsLimiterEnabled"] = ui->fpsLimiterCheckBox->isChecked();
-
-    if (ui->FSRCheckBox->isChecked() != Config::getFsrEnabled())
-        overrides["GPU"]["fsrEnabled"] = ui->FSRCheckBox->isChecked();
-
-    {
-        QString comboText = ui->displayModeComboBox->currentText();
-        std::string screen = screenModeMap.value(comboText, "Windowed").toStdString();
-
-        if (screen != Config::getFullscreenMode())
-            overrides["GPU"]["FullscreenMode"] = screen;
-
-        bool shouldFullscreen = (screen != "Windowed");
-        if (shouldFullscreen != Config::getIsFullscreen())
-            overrides["GPU"]["Fullscreen"] = (screen != "Windowed");
-    }
+    overrides["GPU"]["allowHDR"] = ui->enableHDRCheckBox->isChecked();
+    overrides["GPU"]["copyGPUBuffers"] = ui->copyGPUBuffersCheckBox->isChecked();
+    overrides["GPU"]["directMemoryAccess"] = ui->DMACheckBox->isChecked();
+    overrides["GPU"]["dumpShaders"] = ui->dumpShadersCheckBox->isChecked();
+    overrides["GPU"]["fpsLimit"] = ui->fpsSpinBox->value();
+    overrides["GPU"]["fsrEnabled"] = ui->FSRCheckBox->isChecked();
+    overrides["GPU"]["fpsLimiterEnabled"] = ui->fpsLimiterCheckBox->isChecked();
 
     QString key = presentModeMap.key(ui->presentModeComboBox->currentText(), "Fifo");
-    if (key.toStdString() != Config::getPresentMode())
-        overrides["GPU"]["presentMode"] = key.toStdString();
+    overrides["GPU"]["presentMode"] = key.toStdString();
 
     {
-        int current = Config::getRcasAttenuation();
         int newVal = ui->RCASSlider->value();
-
-        if (newVal != current)
-            overrides["GPU"]["rcasAttenuation"] = static_cast<double>(newVal);
+        overrides["GPU"]["rcasAttenuation"] = static_cast<double>(newVal);
     }
 
-    if (ui->RCASCheckBox->isChecked() != Config::getRcasEnabled())
-        overrides["GPU"]["rcasEnabled"] = ui->RCASCheckBox->isChecked();
+    overrides["GPU"]["rcasEnabled"] = ui->RCASCheckBox->isChecked();
+    overrides["GPU"]["readbackLinearImages"] = ui->ReadbacksLinearCheckBox->isChecked();
+    overrides["GPU"]["readbackSpeedMode"] = ui->ReadbackSpeedComboBox->currentIndex();
+    overrides["GPU"]["windowWidth"] = ui->widthSpinBox->value();
+    overrides["GPU"]["windowHeight"] = ui->heightSpinBox->value();
+    overrides["GPU"]["shaderSkipsEnabled"] = ui->SkipsCheckBox->isChecked();
+    overrides["GPU"]["vblankFrequency"] = ui->vblankSpinBox->value();
+    overrides["GPU"]["patchShaders"] = ui->patchShadersCheckBox->isChecked();
 
-    if (ui->ReadbacksLinearCheckBox->isChecked() != Config::getReadbackLinearImages())
-        overrides["GPU"]["readbackLinearImages"] = ui->ReadbacksLinearCheckBox->isChecked();
-
-    if (static_cast<Config::ReadbackSpeed>(ui->ReadbackSpeedComboBox->currentIndex()) !=
-        Config::readbackSpeed()) {
-        overrides["GPU"]["readbackSpeedMode"] = ui->ReadbackSpeedComboBox->currentIndex();
-    }
-
-    if (ui->widthSpinBox->value() != Config::getWindowWidth())
-        overrides["GPU"]["windowWidth"] = ui->widthSpinBox->value();
-
-    if (ui->heightSpinBox->value() != Config::getWindowHeight())
-        overrides["GPU"]["windowHeight"] = ui->heightSpinBox->value();
-
-    if (ui->SkipsCheckBox->isChecked() != Config::getShaderSkipsEnabled())
-        overrides["GPU"]["shaderSkipsEnabled"] = ui->SkipsCheckBox->isChecked();
-
-    if (ui->vblankSpinBox->value() != Config::vblankFreq())
-        overrides["GPU"]["vblankFrequency"] = ui->vblankSpinBox->value();
-
-    if (ui->crashDiagnosticsCheckBox->isChecked() != Config::getVkCrashDiagnosticEnabled())
-        overrides["Vulkan"]["crashDiagnostic"] = ui->crashDiagnosticsCheckBox->isChecked();
-
-    if (ui->guestMarkersCheckBox->isChecked() != Config::getVkGuestMarkersEnabled())
-        overrides["Vulkan"]["guestMarkers"] = ui->guestMarkersCheckBox->isChecked();
-
-    if (ui->hostMarkersCheckBox->isChecked() != Config::getVkHostMarkersEnabled())
-        overrides["Vulkan"]["hostMarkers"] = ui->hostMarkersCheckBox->isChecked();
-
-    if (ui->cacheCheckBox->isChecked() != Config::isPipelineCacheEnabled())
-        overrides["Vulkan"]["pipelineCacheEnable"] = ui->cacheCheckBox->isChecked();
-
-    if (ui->cacheArchiveCheckBox->isChecked() != Config::isPipelineCacheArchived())
-        overrides["Vulkan"]["pipelineCacheArchive"] = ui->cacheArchiveCheckBox->isChecked();
-
-    if (ui->rdocCheckBox->isChecked() != Config::isRdocEnabled())
-        overrides["Vulkan"]["rdocEnable"] = ui->rdocCheckBox->isChecked();
-
-    if (ui->vkValidationCheckBox->isChecked() != Config::vkValidationEnabled())
-        overrides["Vulkan"]["validation"] = ui->vkValidationCheckBox->isChecked();
-
-    if (ui->vkSyncValidationCheckBox->isChecked() != Config::vkValidationSyncEnabled())
-        overrides["Vulkan"]["validation_sync"] = ui->vkSyncValidationCheckBox->isChecked();
-
-    if (ui->collectShaderCheckBox->isChecked() != Config::collectShadersForDebug())
-        overrides["Debug"]["CollectShader"] = ui->collectShaderCheckBox->isChecked();
-
-    if (ui->patchShadersCheckBox->isChecked() != Config::patchShaders())
-        overrides["GPU"]["patchShaders"] = ui->patchShadersCheckBox->isChecked();
-
-    if (ui->debugDump->isChecked() != Config::debugDump())
-        overrides["Debug"]["DebugDump"] = ui->debugDump->isChecked();
-
-    if (ui->enableLoggingCheckBox->isChecked() != Config::getLoggingEnabled())
-        overrides["Debug"]["logEnabled"] = ui->enableLoggingCheckBox->isChecked();
+    overrides["Vulkan"]["crashDiagnostic"] = ui->crashDiagnosticsCheckBox->isChecked();
+    overrides["Vulkan"]["guestMarkers"] = ui->guestMarkersCheckBox->isChecked();
+    overrides["Vulkan"]["hostMarkers"] = ui->hostMarkersCheckBox->isChecked();
+    overrides["Vulkan"]["pipelineCacheEnable"] = ui->cacheCheckBox->isChecked();
+    overrides["Vulkan"]["pipelineCacheArchive"] = ui->cacheArchiveCheckBox->isChecked();
+    overrides["Vulkan"]["rdocEnable"] = ui->rdocCheckBox->isChecked();
+    overrides["Vulkan"]["validation"] = ui->vkValidationCheckBox->isChecked();
+    overrides["Vulkan"]["validation_sync"] = ui->vkSyncValidationCheckBox->isChecked();
+    overrides["Debug"]["CollectShader"] = ui->collectShaderCheckBox->isChecked();
+    overrides["GPU"]["patchShaders"] = ui->patchShadersCheckBox->isChecked();
+    overrides["Debug"]["DebugDump"] = ui->debugDump->isChecked();
+    overrides["Debug"]["logEnabled"] = ui->enableLoggingCheckBox->isChecked();
 
     std::error_code ec;
     if (overrides.as_table().empty()) {
