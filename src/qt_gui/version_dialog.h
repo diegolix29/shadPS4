@@ -35,4 +35,7 @@ private:
     void PopulateDownloadTree(const QStringList& versions);
     void InstallSelectedVersionExe();
     void UninstallSelectedVersion();
+    void LaunchPkgInstaller();
+    void ShowPkgInstallerDialog(const QString& installerFolder,
+                                const QString& destinationPath = "");
 };

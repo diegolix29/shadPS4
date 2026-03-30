@@ -1215,6 +1215,69 @@ void VersionDialog::dropEvent(QDropEvent* event) {
     LoadinstalledList();
 }
 
+void VersionDialog::LaunchPkgInstaller() {
+    const QString targetReleasePrefix = "V7-shadPS4";
+    QString userPath = QString::fromStdString(m_compat_info->GetShadPath());
+    QString installerFolder = QDir(userPath).filePath("PKG_Installer_v7");
+    QString installerExe;
+
+#if defined(Q_OS_WIN)
+    installerExe = QDir(installerFolder).filePath("extractor.exe");
+#elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
+    installerExe = QDir(installerFolder).filePath("extractor");
+#endif
+
+    if (QFile::exists(installerExe)) {
+        QProcess::startDetached(installerExe, QStringList() << "--install-pkg");
+        ShowPkgInstallerDialog(installerFolder);
+    } else {
+        QMessageBox::warning(
+            this, tr("PKG Installer Not Found"),
+            tr("PKG Installer not found. Please install it first using the Install PKG button."));
+    }
+}
+
+void VersionDialog::ShowPkgInstallerDialog(const QString& installerFolder,
+                                           const QString& destinationPath) {
+    QMessageBox infoBox(this);
+    infoBox.setWindowTitle(tr("PKG Installer Running"));
+    infoBox.setIcon(QMessageBox::Information);
+    infoBox.setText(
+        tr("The PKG Installer has been launched.\n"
+           "Please tap OK after your installation is complete to close the installer.\n\n"
+           "Tap 'Install Another PKG' to close the current installer and start a new one."));
+
+    QPushButton* okButton = infoBox.addButton(tr("OK"), QMessageBox::AcceptRole);
+    QPushButton* anotherButton =
+        infoBox.addButton(tr("Install Another PKG"), QMessageBox::ActionRole);
+
+    infoBox.setDefaultButton(okButton);
+
+    infoBox.exec();
+
+#if defined(Q_OS_WIN)
+    QProcess::startDetached("taskkill", QStringList() << "/IM" << "extractor.exe" << "/F");
+#elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
+    QString script = QString("#!/bin/bash\n"
+                             "ps aux | grep '%1' | grep -v grep | awk '{print $2}' | xargs -r kill "
+                             "-9 2>/dev/null || true\n"
+                             "ps aux | grep 'extractor' | grep -v grep | awk '{print $2}' | xargs "
+                             "-r kill -9 2>/dev/null || true\n")
+                         .arg(QDir(installerFolder).path());
+    QProcess::startDetached("/bin/bash", QStringList() << "-c" << script);
+#endif
+
+    if (infoBox.clickedButton() == okButton) {
+        if (!destinationPath.isEmpty()) {
+            QDir(installerFolder).removeRecursively();
+            QFile::remove(destinationPath);
+        }
+        this->close();
+    } else if (infoBox.clickedButton() == anotherButton) {
+        QTimer::singleShot(1000, this, [this]() { LaunchPkgInstaller(); });
+    }
+}
+
 void VersionDialog::InstallPkgWithV7() {
     if (m_compat_info->GetShadPath().empty()) {
         QMessageBox::warning(this, tr("Setup Required"),
@@ -1253,30 +1316,7 @@ void VersionDialog::InstallPkgWithV7() {
 
     if (QFile::exists(installerExe)) {
         QProcess::startDetached(installerExe, QStringList() << "--install-pkg");
-
-        QMessageBox infoBox(this);
-        infoBox.setWindowTitle(tr("PKG Installer Running"));
-        infoBox.setIcon(QMessageBox::Information);
-        infoBox.setText(tr("The existing PKG Installer has been launched with the "
-                           "installation argument.\n"
-                           "Please tap OK after your installation is complete.\n\n"
-                           "The app will close the installer process automatically."));
-        infoBox.setStandardButtons(QMessageBox::Ok);
-
-        connect(&infoBox, &QMessageBox::accepted, this, [installerFolder]() {
-#if defined(Q_OS_WIN)
-            QProcess::startDetached("taskkill", QStringList() << "/IM" << "extractor.exe" << "/F");
-#elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
-            QString script = QString(
-                "#!/bin/bash\n"
-                "ps aux | grep '%1' | grep -v grep | awk '{print $2}' | xargs -r kill -9 2>/dev/null || true\n"
-                "ps aux | grep 'extractor' | grep -v grep | awk '{print $2}' | xargs -r kill -9 2>/dev/null || true\n"
-            ).arg(QDir(installerFolder).path());
-            QProcess::startDetached("/bin/bash", QStringList() << "-c" << script);
-#endif
-        });
-
-        infoBox.exec();
+        ShowPkgInstallerDialog(installerFolder);
         this->close();
         return;
     }
@@ -1379,45 +1419,44 @@ void VersionDialog::InstallPkgWithV7() {
             connect(downloadReply, &QNetworkReply::readyRead, this,
                     [file, downloadReply]() { file->write(downloadReply->readAll()); });
 
-            connect(
-                downloadReply, &QNetworkReply::finished, this,
-                [this, file, downloadReply, progressDialog, installerFolder, destinationPath,
-                 userPath]() mutable {
-                    file->flush();
-                    file->close();
-                    file->deleteLater();
-                    downloadReply->deleteLater();
-                    progressDialog->close();
-                    progressDialog->deleteLater();
+            connect(downloadReply, &QNetworkReply::finished, this,
+                    [this, file, downloadReply, progressDialog, installerFolder, destinationPath,
+                     userPath]() mutable {
+                        file->flush();
+                        file->close();
+                        file->deleteLater();
+                        downloadReply->deleteLater();
+                        progressDialog->close();
+                        progressDialog->deleteLater();
 
-                    if (downloadReply->error() != QNetworkReply::NoError) {
-                        QMessageBox::critical(this, tr("Download Failed"),
-                                              downloadReply->errorString());
-                        QFile::remove(destinationPath);
-                        return;
-                    }
+                        if (downloadReply->error() != QNetworkReply::NoError) {
+                            QMessageBox::critical(this, tr("Download Failed"),
+                                                  downloadReply->errorString());
+                            QFile::remove(destinationPath);
+                            return;
+                        }
 
 #if defined(Q_OS_WIN)
-                    QString psScript =
-                        QString("New-Item -ItemType Directory -Path \"%1\" -Force\n"
-                                "Expand-Archive -Path \"%2\" -DestinationPath \"%1\" -Force\n"
-                                "Move-Item -Path \"%1/shadps4.exe\" -Destination "
-                                "\"%1/extractor.exe\" -Force\n"
-                                "Start-Process -FilePath \"%1/extractor.exe\" -ArgumentList "
-                                "\"--install-pkg\"\n")
-                            .arg(installerFolder)
-                            .arg(destinationPath);
-                    QString psFile = userPath + "/run_pkg_installer.ps1";
-                    QFile f(psFile);
-                    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                        QTextStream out(&f);
-                        f.write("\xEF\xBB\xBF");
-                        out << psScript;
-                        f.close();
-                    }
-                    QProcess::startDetached("powershell.exe", QStringList()
-                                                                  << "-ExecutionPolicy" << "Bypass"
-                                                                  << "-File" << psFile);
+                        QString psScript =
+                            QString("New-Item -ItemType Directory -Path \"%1\" -Force\n"
+                                    "Expand-Archive -Path \"%2\" -DestinationPath \"%1\" -Force\n"
+                                    "Move-Item -Path \"%1/shadps4.exe\" -Destination "
+                                    "\"%1/extractor.exe\" -Force\n"
+                                    "Start-Process -FilePath \"%1/extractor.exe\" -ArgumentList "
+                                    "\"--install-pkg\"\n")
+                                .arg(installerFolder)
+                                .arg(destinationPath);
+                        QString psFile = userPath + "/run_pkg_installer.ps1";
+                        QFile f(psFile);
+                        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                            QTextStream out(&f);
+                            f.write("\xEF\xBB\xBF");
+                            out << psScript;
+                            f.close();
+                        }
+                        QProcess::startDetached("powershell.exe",
+                                                QStringList() << "-ExecutionPolicy" << "Bypass"
+                                                              << "-File" << psFile);
 #else
                     QString shScript =
                         QString(
@@ -1476,29 +1515,8 @@ void VersionDialog::InstallPkgWithV7() {
                     QProcess::startDetached("/bin/bash", QStringList() << shFile);
 #endif
 
-                    QMessageBox infoBox(this);
-                    infoBox.setWindowTitle(tr("PKG Installer Running"));
-                    infoBox.setIcon(QMessageBox::Information);
-                    infoBox.setText(tr("PKG installer is being called on the downloaded build.\n"
-                                       "Please tap OK after your installation.\n\n"
-                                       "The app and temporary downloaded build will be close and "
-                                       "erased automatically."));
-                    infoBox.setStandardButtons(QMessageBox::Ok);
-
-                    connect(&infoBox, &QMessageBox::accepted, this,
-                            [installerFolder, destinationPath]() {
-#if defined(Q_OS_WIN)
-                                QProcess::startDetached(
-                                    "taskkill", QStringList() << "/IM" << "extractor.exe" << "/F");
-#elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
-                                    QProcess::startDetached("pkill", QStringList() << "extractor");
-#endif
-                                QDir(installerFolder).removeRecursively();
-                                QFile::remove(destinationPath);
-                            });
-
-                    infoBox.exec();
-                    this->close();
-                });
+                        ShowPkgInstallerDialog(installerFolder, destinationPath);
+                        this->close();
+                    });
         });
 }
