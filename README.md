@@ -10,7 +10,7 @@ Discord server for talking about forks. https://discord.gg/jgpqB7gUxG
 
 This repository has three branches with extra features based on the main Shad branch. They are experimental or self-added for convenience. They all share the following Bloodborne-specific enhancements:
 
-NOTE:     BBFORK IS THE ONLY ONE THAT I WILL UPDATE FROM NOW ON, ALSO IT WILL HAVE ALL THE FEATURES INTO EXPERIMENTAL TAB. 
+NOTE:     Shadlix IS THE ONLY ONE THAT I WILL UPDATE FROM NOW ON, ALSO IT WILL HAVE ALL THE FEATURES INTO EXPERIMENTAL TAB. 
 
 -A sound hack that prevents Bloodborne from losing audio. (originally made by rainvmaker)
 
@@ -34,7 +34,7 @@ NOTE:     BBFORK IS THE ONLY ONE THAT I WILL UPDATE FROM NOW ON, ALSO IT WILL HA
 
 PRTBB This is the safest branch at the moment. It doesn’t include any extra features.
 
-BBFork (previously known as mainBB) -Includes a high-resolution hack (thanks to fmod) with adjonesse hack to stabilize it and modified by me to avoid crashing other games. -Note: May impact performance on mid- or low-end systems.
+Shadlix (previously known as BBFork) -Includes a high-resolution hack (thanks to fmod) with adjonesse hack to stabilize it and modified by me to avoid crashing other games. -Note: May impact performance on mid- or low-end systems.
 
 Full-Souls -Includes the AV improvements PR to prevent Dark Souls 2’s main intro from crashing.
 

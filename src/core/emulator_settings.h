@@ -308,7 +308,7 @@ struct GeneralSettings {
     Setting<std::array<std::string, 4>> user_names{
         {"shadPS4", "shadps4-2", "shadPS4-3", "shadPS4-4"}};
     Setting<std::array<bool, 4>> player_enabled_states{{true, true, true, true}};
-    Setting<std::string> update_channel{"BBFork"};
+    Setting<std::string> update_channel{"Shadlix"};
     Setting<bool> auto_update{false};
     Setting<bool> pause_on_unfocus{false};
     Setting<bool> show_welcome_dialog{true};

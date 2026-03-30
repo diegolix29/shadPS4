@@ -42,7 +42,7 @@ WelcomeDialog::WelcomeDialog(WindowThemes* themes, QWidget* parent)
     m_window_themes.ApplyThemeToDialog(this);
     SetupUI();
     ApplyTheme();
-    setWindowTitle("Welcome to BBFork Build - shadPs4");
+    setWindowTitle("Welcome to Shadlix Build - shadPs4");
     setWindowIcon(QIcon(":images/shadps4.ico"));
     resize(700, 600);
     setMinimumSize(600, 550);
@@ -131,7 +131,7 @@ void WelcomeDialog::SetupUI() {
     logo->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(logo);
 
-    auto* title = new QLabel("<h2>BBFork Build by Diegolix - Welcome</h2>"
+    auto* title = new QLabel("<h2>Shadlix Build by Diegolix - Welcome</h2>"
                              "<b>Included Features & Hacks:</b><br>");
     title->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(title);
@@ -385,7 +385,7 @@ void WelcomeDialog::SetupUI() {
                 QMessageBox::StandardButton reply =
                     showThemedMessageBox(QMessageBox::Question, tr("Global folder detected"),
                                          tr("Global folder already exists.\n\nThis folder will be "
-                                            "used for the BBFork build.\n"
+                                            "used for the Shadlix build.\n"
                                             "A new configuration file will be created for this "
                                             "fork.\n\nContinue with Global mode?"),
                                          QMessageBox::Yes | QMessageBox::No);

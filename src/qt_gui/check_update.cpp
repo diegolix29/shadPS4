@@ -45,7 +45,7 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
     QUrl url;
     if (updateChannel == "Revert") {
         url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/actions/"
-                   "runs?branch=BBFork&status=success&per_page=4");
+                   "runs?branch=Shadlix&status=success&per_page=4");
     } else {
         url = QUrl("https://api.github.com/repos/diegolix29/shadPS4/releases");
     }
@@ -203,29 +203,29 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
         QString latestDate;
         QJsonObject jsonObj;
 
-        QJsonObject newestBBFork;
+        QJsonObject newestShadlix;
         QDateTime newestDate;
 
         for (const QJsonValue& value : jsonArray) {
             QJsonObject obj = value.toObject();
             QString title = obj["name"].toString();
-            if (title.startsWith("BBFork")) {
+            if (title.startsWith("Shadlix")) {
                 QDateTime pubDate =
                     QDateTime::fromString(obj["published_at"].toString(), Qt::ISODate);
                 if (!newestDate.isValid() || pubDate > newestDate) {
                     newestDate = pubDate;
-                    newestBBFork = obj;
+                    newestShadlix = obj;
                 }
             }
         }
 
-        if (newestBBFork.isEmpty()) {
-            QMessageBox::warning(this, tr("Error"), tr("No BBFork release found."));
+        if (newestShadlix.isEmpty()) {
+            QMessageBox::warning(this, tr("Error"), tr("No Shadlix release found."));
             reply->deleteLater();
             return;
         }
 
-        jsonObj = newestBBFork;
+        jsonObj = newestShadlix;
         latestVersion = jsonObj["tag_name"].toString();
 
         if (latestVersion.isEmpty()) {

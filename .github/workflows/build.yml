@@ -565,8 +565,8 @@ jobs:
         path: shadps4.flatpak
         name: shadps4-linux-flatpak-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         
-  BBFork:
-    if: github.ref == 'refs/heads/BBFork' && github.event_name == 'push'
+  Shadlix:
+    if: github.ref == 'refs/heads/Shadlix' && github.event_name == 'push'
     needs: [get-info, windows-sdl, windows-qt, macos-sdl, macos-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
     runs-on: ubuntu-latest
     steps:
@@ -580,13 +580,13 @@ jobs:
         chmod -R a+x ./artifacts/shadps4-linux-sdl-*
         chmod -R a+x ./artifacts/shadps4-macos-sdl-*
 
-    - name: Compress individual directories as BBFork-<platform>.zip
+    - name: Compress individual directories as Shadlix-<platform>.zip
       run: |
         cd ./artifacts
         for dir in */; do
           if [ -d "$dir" ]; then
             dir_name=${dir%/}
-            (cd "$dir_name" && zip -r "../BBFork-${dir_name}.zip" .)
+            (cd "$dir_name" && zip -r "../Shadlix-${dir_name}.zip" .)
           fi
         done
 
@@ -606,10 +606,10 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.SHADPS4_TOKEN_REPO }}
       with:
-        name: "BBFork-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
-        tag: "BBFork-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
+        name: "Shadlix-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}"
+        tag: "Shadlix-shadPS4-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.fullhash }}"
         body: "Full Changelog: [${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }}](https://github.com/${{ github.repository }}/compare/${{ env.last_release_tag }}...${{ needs.get-info.outputs.fullhash }})"
-        artifacts: ./artifacts/BBFork-*.zip
+        artifacts: ./artifacts/Shadlix-*.zip
 
     - name: Manage Revert Release Titles
       env:
@@ -620,7 +620,7 @@ jobs:
 
         targets=$(echo "$releases" | jq -c '[.[] 
           | select(.draft==false and .prerelease==false and 
-                   ((.name|startswith("BBFork-shadPS4-")) or (.name|startswith("Revert-")))) 
+                   ((.name|startswith("Shadlix-shadPS4-")) or (.name|startswith("Revert-")))) 
           ] | sort_by(.published_at) | reverse')
 
         echo "$targets" | jq -c '.[]' | while read -r release; do
@@ -635,13 +635,13 @@ jobs:
         releases=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
         targets=$(echo "$releases" | jq -c '[.[] 
           | select(.draft==false and .prerelease==false and 
-                   ((.name|startswith("BBFork-shadPS4-")) or (.name|startswith("Revert-")))) 
+                   ((.name|startswith("Shadlix-shadPS4-")) or (.name|startswith("Revert-")))) 
           ] | sort_by(.published_at) | reverse')
 
         echo "$targets" | jq -c '.[1:][]' | nl -w1 -s' ' | while read -r index release; do
           release_id=$(echo "$release" | jq -r '.id')
           release_name=$(echo "$release" | jq -r '.name')
-          clean_name=$(echo "$release_name" | sed -E 's/^(Revert-[0-9]+-|BBFork-)//')
+          clean_name=$(echo "$release_name" | sed -E 's/^(Revert-[0-9]+-|Shadlix-)//')
           i=$index
           if [ $i -le 3 ]; then
             new_name="Revert-${i}-${clean_name}"

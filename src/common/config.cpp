@@ -1567,25 +1567,25 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         playerEnabledStates.setFromToml(general, "playerEnabledStates", false);
 
         if (!Common::g_is_release) {
-            updateChannel = toml::find_or<std::string>(general, "updateChannel", "BBFork");
+            updateChannel = toml::find_or<std::string>(general, "updateChannel", "Shadlix");
         }
         if (updateChannel == "Release") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         if (updateChannel == "Full-Souls") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         if (updateChannel == "Nightly") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         if (updateChannel == "mainBB") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         if (updateChannel == "PartBB") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         if (updateChannel == "Revert") {
-            updateChannel = "BBFork";
+            updateChannel = "Shadlix";
         }
         isShowSplash.setFromToml(general, "showSplash", is_game_specific);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);

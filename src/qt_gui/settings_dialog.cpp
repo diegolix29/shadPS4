@@ -106,7 +106,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Close)->setFocus();
 
     // Connect signals and slots
-    channelMap = {{tr("Revert"), "Revert"}, {tr("BBFork"), "BBFork"}};
+    channelMap = {{tr("Revert"), "Revert"}, {tr("Shadlix"), "Shadlix"}};
     logTypeMap = {{tr("async"), "async"}, {tr("sync"), "sync"}};
     screenModeMap = {{tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
                      {tr("Windowed"), "Windowed"},
@@ -1243,7 +1243,7 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
 
-    if (updateChannel != "Full-Souls" && updateChannel != "BBFork" && updateChannel != "PRTBB") {
+    if (updateChannel != "Full-Souls" && updateChannel != "Shadlix" && updateChannel != "PRTBB") {
         updateChannel = "Full-Souls";
     }
 

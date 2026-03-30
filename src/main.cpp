@@ -261,15 +261,16 @@ int main(int argc, char* argv[]) {
         const SDL_MessageBoxButtonData buttons[] = {
             {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "OK"}, {0, 1, "Open Repo"}};
 
-        const SDL_MessageBoxData messageboxdata = {SDL_MESSAGEBOX_INFORMATION,
-                                                   nullptr,
-                                                   "shadPS4",
-                                                   "This is a CLI application.\n\n"
-                                                   "Use QTLauncher or BBFork version to use it.\n\n"
-                                                   "Or use the QT BBFork for a GUI.",
-                                                   SDL_arraysize(buttons),
-                                                   buttons,
-                                                   nullptr};
+        const SDL_MessageBoxData messageboxdata = {
+            SDL_MESSAGEBOX_INFORMATION,
+            nullptr,
+            "shadPS4",
+            "This is a CLI application.\n\n"
+            "Use QTLauncher or Shadlix version to use it.\n\n"
+            "Or use the QT Shadlix for a GUI.",
+            SDL_arraysize(buttons),
+            buttons,
+            nullptr};
 
         int buttonid = -1;
         if (SDL_ShowMessageBox(&messageboxdata, &buttonid) < 0) {
