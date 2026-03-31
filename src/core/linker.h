@@ -124,10 +124,11 @@ public:
         }
     }
 
-    void RelocateAllImports() {
-        std::scoped_lock lk{mutex};
+    void LoadSharedLibraries() {
         for (auto& module : m_modules) {
-            Relocate(module.get());
+            if (module->IsSharedLib()) {
+                module->Start(0, nullptr, nullptr);
+            }
         }
     }
 
