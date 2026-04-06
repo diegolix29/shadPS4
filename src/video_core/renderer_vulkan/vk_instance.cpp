@@ -89,16 +89,16 @@ std::string GetReadableVersion(u32 version) {
 
 } // Anonymous namespace
 
-Instance::Instance(bool enable_validation, bool enable_crash_diagnostic)
+Instance::Instance(bool enable_validation, bool enable_crash_diagnostic, bool manage_imgui)
     : instance{CreateInstance(Frontend::WindowSystemType::Headless, enable_validation,
                               enable_crash_diagnostic)},
-      physical_devices{EnumeratePhysicalDevices(instance)} {}
+      physical_devices{EnumeratePhysicalDevices(instance)}, manage_imgui{manage_imgui} {}
 
-Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index,
-                   bool enable_validation /*= false*/, bool enable_crash_diagnostic /*= false*/)
+Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index, bool enable_validation,
+                   bool enable_crash_diagnostic, bool manage_imgui)
     : instance{CreateInstance(window.GetWindowInfo().type, enable_validation,
                               enable_crash_diagnostic)},
-      physical_devices{EnumeratePhysicalDevices(instance)} {
+      physical_devices{EnumeratePhysicalDevices(instance)}, manage_imgui{manage_imgui} {
     if (enable_validation) {
         debug_callback = CreateDebugCallback(*instance);
     }
@@ -185,7 +185,9 @@ Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index,
 }
 
 Instance::~Instance() {
-    ImGui::Core::Shutdown(GetDevice());
+    if (manage_imgui) {
+        ImGui::Core::Shutdown(GetDevice());
+    }
     vmaDestroyAllocator(allocator);
 }
 

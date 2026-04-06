@@ -21,9 +21,11 @@ namespace Vulkan {
 
 class Instance {
 public:
-    explicit Instance(bool validation = false, bool crash_diagnostic = false);
+    explicit Instance(bool validation = false, bool crash_diagnostic = false,
+                      bool manage_imgui = true);
     explicit Instance(Frontend::WindowSDL& window, s32 physical_device_index,
-                      bool enable_validation = false, bool enable_crash_diagnostic = false);
+                      bool enable_validation = false, bool enable_crash_diagnostic = false,
+                      bool manage_imgui = true);
     ~Instance();
 
     /// Returns a formatted string for the driver version
@@ -507,6 +509,7 @@ private:
     bool maintenance_8{};
     bool attachment_feedback_loop{};
     bool supports_memory_budget{};
+    bool manage_imgui{true};
     u64 total_memory_budget{};
     std::vector<size_t> valid_heaps;
 };

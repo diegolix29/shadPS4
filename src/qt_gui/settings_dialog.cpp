@@ -122,7 +122,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     if (m_physical_devices.empty()) {
         // Populate cache of physical devices.
-        Vulkan::Instance instance(false, false);
+        Vulkan::Instance instance(false, false, false);
         auto physical_devices = instance.GetPhysicalDevices();
         for (const vk::PhysicalDevice physical_device : physical_devices) {
             auto prop = physical_device.getProperties();
