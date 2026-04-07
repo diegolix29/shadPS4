@@ -110,14 +110,27 @@ public:
         case GameAction::OpenModsFolder: {
             QString modsPath;
             Common::FS::PathToQString(modsPath, game.path);
-            modsPath += "-MODS";
 
-            if (std::filesystem::exists(Common::FS::PathFromQString(modsPath))) {
-                QDesktopServices::openUrl(QUrl::fromLocalFile(modsPath));
-            } else {
-                QMessageBox::information(
-                    nullptr, tr("Mods Folder"),
-                    QString(tr("Mods folder not found. Expected path: %1")).arg(modsPath));
+            QStringList modSuffixes = {"-mods", "-MODS", "-Mods"};
+            bool found = false;
+
+            for (const QString& suffix : modSuffixes) {
+                QString testPath = modsPath + suffix;
+                if (std::filesystem::exists(Common::FS::PathFromQString(testPath))) {
+                    QDesktopServices::openUrl(QUrl::fromLocalFile(testPath));
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                QStringList expectedPaths;
+                for (const QString& suffix : modSuffixes) {
+                    expectedPaths << modsPath + suffix;
+                }
+                QMessageBox::information(nullptr, tr("Mods Folder"),
+                                         QString(tr("Mods folder not found. Expected paths: %1"))
+                                             .arg(expectedPaths.join(", ")));
             }
             break;
         }

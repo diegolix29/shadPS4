@@ -339,12 +339,20 @@ int main(int argc, char* argv[]) {
         auto base_folder = ebootPath.parent_path();
         auto parent = base_folder.parent_path();
         auto game_folder_name = base_folder.filename().string();
-        auto auto_mods_folder = parent / (game_folder_name + "-MODS");
-        if (std::filesystem::exists(auto_mods_folder) &&
-            std::filesystem::is_directory(auto_mods_folder)) {
-            modsFolder = auto_mods_folder;
-            Core::FileSys::MntPoints::enable_mods = true;
-            std::cout << "Auto-detected mods folder: " << auto_mods_folder << "\n";
+
+        std::vector<std::string> modSuffixes = {"-mods", "-MODS", "-Mods"};
+        bool found = false;
+
+        for (const auto& suffix : modSuffixes) {
+            auto auto_mods_folder = parent / (game_folder_name + suffix);
+            if (std::filesystem::exists(auto_mods_folder) &&
+                std::filesystem::is_directory(auto_mods_folder)) {
+                modsFolder = auto_mods_folder;
+                Core::FileSys::MntPoints::enable_mods = true;
+                std::cout << "Auto-detected mods folder: " << auto_mods_folder << "\n";
+                found = true;
+                break;
+            }
         }
     } else {
         std::cout << "Using manually specified mods folder: " << modsFolder->string() << "\n";

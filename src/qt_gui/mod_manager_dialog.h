@@ -85,6 +85,7 @@ private:
     void cleanupEmptyDirectories(const QString& path);
     bool modMatchesGame(const std::filesystem::path& modPath) const;
     QString findModThatContainsFile(const QString& relPath) const;
+    QString findModFolder(const QString& gamePath) const;
 
     QString resolveOriginalFile(const QString& rel) const;
 

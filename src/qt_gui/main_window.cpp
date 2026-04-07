@@ -1985,11 +1985,28 @@ void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
     if (!file.empty()) {
         auto game_folder_name = file.filename().string();
         auto base_folder = file;
-        auto update_folder = base_folder.parent_path() / (game_folder_name + "-UPDATE");
-        auto mods_folder = base_folder.parent_path() / (game_folder_name + "-MODS");
+        auto parent = base_folder.parent_path();
 
-        bool hasUpdate = std::filesystem::is_directory(update_folder);
-        bool hasMods = std::filesystem::exists(mods_folder);
+        auto findFolderVariant =
+            [&](const std::vector<std::string>& variants) -> std::filesystem::path {
+            for (const auto& name : variants) {
+                auto path = parent / name;
+                if (std::filesystem::exists(path)) {
+                    return path;
+                }
+            }
+            return {};
+        };
+
+        auto update_folder =
+            findFolderVariant({game_folder_name + "-UPDATE", game_folder_name + "-update",
+                               game_folder_name + "-patch", game_folder_name + "-PATCH"});
+
+        auto mods_folder = findFolderVariant(
+            {game_folder_name + "-MODS", game_folder_name + "-mods", game_folder_name + "-Mods"});
+
+        bool hasUpdate = !update_folder.empty() && std::filesystem::is_directory(update_folder);
+        bool hasMods = !mods_folder.empty() && std::filesystem::exists(mods_folder);
 
         if (!runningGameSerial.empty()) {
             const auto game_config_path =
@@ -2021,6 +2038,7 @@ void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
             }
         }
     }
+
     if (gamePath.isEmpty())
         Common::FS::PathToQString(gamePath, file);
 

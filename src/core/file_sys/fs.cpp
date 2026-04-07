@@ -68,24 +68,11 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
         return mount->host_path;
 
     const auto rel_path = std::string_view{corrected_path}.substr(mount->mount.size() + 1);
-    std::filesystem::path host_path = mount->host_path / rel_path;
-
-    // Compute overlay folders
-    std::filesystem::path update_path = mount->host_path;
-    update_path += "-UPDATE";
-    update_path /= rel_path;
-    std::filesystem::path patch_path = mount->host_path;
-    patch_path += "-patch";
-    patch_path /= rel_path;
-    std::filesystem::path mods_path;
-
-    if (!MntPoints::manual_mods_path.empty()) {
-        mods_path = MntPoints::manual_mods_path / rel_path;
-    } else {
-        mods_path = mount->host_path;
-        mods_path += "-MODS";
-        mods_path /= rel_path;
-    }
+    std::filesystem::path host_path = ConstructOverlayPath(*mount, rel_path, HostPathType::Base);
+    std::filesystem::path patch_path = ConstructOverlayPath(*mount, rel_path, HostPathType::Patch);
+    std::filesystem::path mods_path = ConstructOverlayPath(*mount, rel_path, HostPathType::Mod);
+    std::filesystem::path update_path =
+        ConstructOverlayPath(*mount, rel_path, HostPathType::Update);
 
     // Priority: MODS > PATCH > UPDATE > BASE
     if (!force_base_path && !ignore_game_patches) {
@@ -155,17 +142,55 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
     };
 
     if (!force_base_path && !ignore_game_patches) {
-        if (const auto path = search(patch_path)) {
+        if (const auto path = search(ConstructOverlayPath(*mount, rel_path, HostPathType::Patch))) {
             return *path;
         }
     }
-    if (const auto path = search(host_path)) {
+    if (const auto path = search(ConstructOverlayPath(*mount, rel_path, HostPathType::Base))) {
         return *path;
     }
 
     // Opening the guest path will surely fail but at least gives
     // a better error message than the empty path.
     return host_path;
+}
+
+std::filesystem::path MntPoints::ConstructOverlayPath(const MntPair& mount,
+                                                      const std::string_view& rel_path,
+                                                      HostPathType path_type) {
+    switch (path_type) {
+    case HostPathType::Base:
+        return mount.host_path / rel_path;
+
+    case HostPathType::Mod: {
+        std::filesystem::path mods_path;
+        if (!manual_mods_path.empty()) {
+            mods_path = manual_mods_path / rel_path;
+        } else {
+            mods_path = mount.host_path;
+            mods_path += "-MODS";
+            mods_path /= rel_path;
+        }
+        return mods_path;
+    }
+
+    case HostPathType::Patch: {
+        std::filesystem::path patch_path = mount.host_path;
+        patch_path += "-patch";
+        patch_path /= rel_path;
+        return patch_path;
+    }
+
+    case HostPathType::Update: {
+        std::filesystem::path update_path = mount.host_path;
+        update_path += "-UPDATE";
+        update_path /= rel_path;
+        return update_path;
+    }
+
+    default:
+        return mount.host_path / rel_path;
+    }
 }
 
 // TODO: Does not handle mount points inside mount points.

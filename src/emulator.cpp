@@ -289,6 +289,20 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         }
     }
 
+    std::vector<std::string> modSuffixes = {"-mods", "-MODS", "-Mods"};
+    bool foundMods = false;
+
+    for (const auto& suffix : modSuffixes) {
+        std::filesystem::path mods_folder = game_folder;
+        mods_folder += suffix;
+
+        if (std::filesystem::exists(mods_folder) && !std::filesystem::is_empty(mods_folder)) {
+            LOG_INFO(Loader, "Files found in game mods folder: {}", mods_folder.string());
+            foundMods = true;
+            break;
+        }
+    }
+
     // Create stdin/stdout/stderr
     Common::Singleton<FileSys::HandleTable>::Instance()->CreateStdHandles();
 

@@ -22,6 +22,8 @@ struct Resolver;
 
 namespace Core::FileSys {
 
+enum class HostPathType { Base, Mod, Patch, Update };
+
 class MntPoints {
 #ifdef _WIN64
     static constexpr bool NeedsCaseInsensitiveSearch = false;
@@ -48,6 +50,11 @@ public:
 
     std::filesystem::path GetHostPath(std::string_view guest_directory,
                                       bool* is_read_only = nullptr, bool force_base_path = false);
+
+    std::filesystem::path ConstructOverlayPath(const MntPair& mount,
+                                               const std::string_view& rel_path,
+                                               HostPathType path_type);
+
     using IterateDirectoryCallback =
         std::function<void(const std::filesystem::path& host_path, bool is_file)>;
     void IterateDirectory(std::string_view guest_directory,

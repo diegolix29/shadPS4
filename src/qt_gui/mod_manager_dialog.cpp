@@ -58,7 +58,7 @@ ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameS
     if (!Core::FileSys::MntPoints::manual_mods_path.empty()) {
         overlayRoot = QString::fromStdString(Core::FileSys::MntPoints::manual_mods_path.string());
     } else {
-        overlayRoot = gamePath + "-MODS";
+        overlayRoot = findModFolder(gamePath);
     }
     cleanupOverlayRootIfEmpty();
 
@@ -283,6 +283,18 @@ QString ModManagerDialog::findModThatContainsFile(const QString& relPath) const 
             return mod;
     }
     return "";
+}
+
+QString ModManagerDialog::findModFolder(const QString& gamePath) const {
+    QStringList modSuffixes = {"-mods", "-MODS", "-Mods"};
+
+    for (const QString& suffix : modSuffixes) {
+        QString modPath = gamePath + suffix;
+        if (QDir(modPath).exists()) {
+            return modPath;
+        }
+    }
+    return gamePath + "-MODS";
 }
 
 void ModManagerDialog::onSearchTextChanged(const QString& text) {
@@ -1030,9 +1042,12 @@ QString ModManagerDialog::resolveOriginalFile(const QString& rel) const {
 
     if (!Core::FileSys::MntPoints::manual_mods_path.empty()) {
         searchOrder << QString::fromStdString(Core::FileSys::MntPoints::manual_mods_path.string());
+    } else {
+        QStringList modSuffixes = {"-mods", "-MODS", "-Mods"};
+        for (const QString& suffix : modSuffixes) {
+            searchOrder << (gamePath + suffix);
+        }
     }
-
-    searchOrder << (gamePath + "-MODS");
 
     searchOrder << (gamePath + "-patch");
 
@@ -1414,8 +1429,12 @@ QString ModManagerDialog::resolveOriginalFolderForRestore(const QString& rel) co
 
     if (!Core::FileSys::MntPoints::manual_mods_path.empty())
         searchOrder << QString::fromStdString(Core::FileSys::MntPoints::manual_mods_path.string());
-
-    searchOrder << (gamePath + "-MODS");
+    else {
+        QStringList modSuffixes = {"-mods", "-MODS", "-Mods"};
+        for (const QString& suffix : modSuffixes) {
+            searchOrder << (gamePath + suffix);
+        }
+    }
     searchOrder << (gamePath + "-patch");
     searchOrder << (gamePath + "-UPDATE");
     searchOrder << gamePath;

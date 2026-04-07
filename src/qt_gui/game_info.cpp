@@ -23,8 +23,9 @@ void ScanDirectoryRecursively(const QString& dir, QStringList& filePaths, int cu
         QString folderName = entry.fileName();
 
         // Skip update/patch/mods folders
-        if (folderName.endsWith("-UPDATE") || folderName.endsWith("-patch") ||
-            folderName.endsWith("-MODS")) {
+        if (folderName.endsWith("-UPDATE", Qt::CaseInsensitive) ||
+            folderName.endsWith("-patch", Qt::CaseInsensitive) ||
+            folderName.endsWith("-MODS", Qt::CaseInsensitive)) {
             continue;
         }
 
