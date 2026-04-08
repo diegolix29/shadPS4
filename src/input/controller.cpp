@@ -175,6 +175,11 @@ void GameController::Gyro(int id, const float gyro[3]) {
 
     AddState(state);
 }
+
+Colour GameController::GetLightBarRGB() {
+    return colour;
+}
+
 void GameController::Acceleration(int id, const float acceleration[3]) {
     std::scoped_lock lock{m_mutex};
     auto state = GetLastState();

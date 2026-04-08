@@ -17,6 +17,12 @@
 
 struct SDL_Gamepad;
 
+struct Colour {
+    u8 r = 0;
+    u8 g = 0;
+    u8 b = 0;
+};
+
 namespace Input {
 
 enum class Axis {
@@ -74,7 +80,7 @@ public:
 
     void Axis(Axis axis, int value, bool smooth = true);
     void UpdateAxisSmoothing();
-
+    Colour GetLightBarRGB();
     void Gyro(int id, const float gyro[3]);
     void Acceleration(int id, const float acceleration[3]);
     void SetLightBarRGB(u8 r, u8 g, u8 b);
@@ -135,6 +141,7 @@ private:
     std::array<StateInternal, MAX_STATES> m_private;
     std::chrono::steady_clock::time_point m_last_update = {};
     Libraries::Pad::OrbisFQuaternion m_orientation = {0.0f, 0.0f, 0.0f, 1.0f};
+    Colour colour = {0, 0, 255};
 
     u8 player_index = -1;
 };

@@ -212,7 +212,7 @@ int PS4_SYSV_ABI scePadGetInfo(OrbisPadInfo* data) {
     if (!data) {
         return ORBIS_PAD_ERROR_INVALID_ARG;
     }
-    auto& controllers = *Common::Singleton<GameControllers>::Instance();
+    auto& controllers = *Common::Singleton<Input::GameControllers>::Instance();
     auto col = controllers[0]->GetLightBarRGB();
     std::memset(data, 0, sizeof(OrbisPadInfo));
     data->unk1 = 0x1;
