@@ -56,6 +56,12 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
         total_size -= 128_MB;
     }
     total_flexible_size = flexible_size - ORBIS_FLEXIBLE_MEMORY_BASE;
+    if (extra_dmem != 0) {
+        LOG_WARNING(Kernel_Vmm,
+                    "extraDmemInMbytes is {} MB! Increasing flexible memory by the same amount",
+                    extra_dmem);
+        total_flexible_size += extra_dmem * 1_MB;
+    }
     total_direct_size = total_size - flexible_size;
 
     // Insert an area that covers the direct memory physical address block.
