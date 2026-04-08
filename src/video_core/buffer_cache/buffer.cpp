@@ -3,6 +3,8 @@
 
 #include "common/alignment.h"
 #include "common/assert.h"
+#include "common/config.h"
+#include "common/logging/log.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -51,6 +53,15 @@ std::string_view BufferTypeName(MemoryUsage type) {
     switch (usage) {
     case MemoryUsage::DeviceLocal:
     case MemoryUsage::Stream:
+        if (Config::getUseHostMemoryFallback()) {
+            static bool logged_once = false;
+            if (!logged_once) {
+                LOG_INFO(Render,
+                         "Host memory fallback enabled - using system RAM for GPU allocations");
+                logged_once = true;
+            }
+            return VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+        }
         return VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     case MemoryUsage::Upload:
     case MemoryUsage::Download:

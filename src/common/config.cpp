@@ -225,6 +225,7 @@ static ConfigEntry<int> specialPadClasses[4] = {1, 1, 1, 1};
 static ConfigEntry<string> mainOutputDevice("Default Device");
 static ConfigEntry<string> padSpkOutputDevice("Default Device");
 static ConfigEntry<int> extraDmemInMbytes(0);
+static ConfigEntry<bool> useHostMemoryFallback(false);
 static ConfigEntry<int> usbDeviceBackend(UsbBackendType::Real);
 
 // Non-config runtime-only
@@ -448,6 +449,14 @@ int getExtraDmemInMbytes() {
 
 void setExtraDmemInMbytes(int value) {
     extraDmemInMbytes.base_value = value;
+}
+
+bool getUseHostMemoryFallback() {
+    return useHostMemoryFallback.get();
+}
+
+void setUseHostMemoryFallback(bool enable) {
+    useHostMemoryFallback.base_value = enable;
 }
 
 int getUsbDeviceBackend() {
@@ -1545,6 +1554,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         volumeSlider.setFromToml(general, "volumeSlider", is_game_specific);
         muteEnabled.setFromToml(general, "muteEnabled", is_game_specific);
         extraDmemInMbytes.setFromToml(general, "extraDmemInMbytes", is_game_specific);
+        useHostMemoryFallback.setFromToml(general, "useHostMemoryFallback", is_game_specific);
         isNeo.setFromToml(general, "isPS4Pro", is_game_specific);
         isDevKit.setFromToml(general, "isDevKit", is_game_specific);
         isPSNSignedIn.setFromToml(general, "isPSNSignedIn", is_game_specific);
@@ -1942,6 +1952,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["General"]["isDevKit"] = isDevKit.game_specific_value.value_or(isDevKit.base_value);
         data["General"]["extraDmemInMbytes"] =
             extraDmemInMbytes.game_specific_value.value_or(extraDmemInMbytes.base_value);
+        data["General"]["useHostMemoryFallback"] =
+            useHostMemoryFallback.game_specific_value.value_or(useHostMemoryFallback.base_value);
         data["General"]["isPSNSignedIn"] =
             isPSNSignedIn.game_specific_value.value_or(isPSNSignedIn.base_value);
         data["General"]["isTrophyPopupDisabled"] =
@@ -1983,6 +1995,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["General"]["isPS4Pro"] = isNeo.base_value;
         data["General"]["isDevKit"] = isDevKit.base_value;
         data["General"]["extraDmemInMbytes"] = extraDmemInMbytes.base_value;
+        data["General"]["useHostMemoryFallback"] = useHostMemoryFallback.base_value;
         data["General"]["isPSNSignedIn"] = isPSNSignedIn.base_value;
         data["General"]["isTrophyPopupDisabled"] = isTrophyPopupDisabled.base_value;
         data["General"]["trophyNotificationDuration"] = trophyNotificationDuration.base_value;
@@ -2344,6 +2357,7 @@ void setDefaultValues() {
     isShowSplash = false;
     isSideTrophy = "right";
     compatibilityData = false;
+    useHostMemoryFallback = false;
 
     // Input
     cursorState = HideCursorState::Idle;

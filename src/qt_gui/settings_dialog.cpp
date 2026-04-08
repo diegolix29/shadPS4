@@ -563,6 +563,10 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         connect(ui->chooseHomeTabComboBox, &QComboBox::currentTextChanged, this,
                 [](const QString& hometab) { Config::setChooseHomeTab(hometab.toStdString()); });
 
+        connect(
+            ui->useHostMemoryFallbackCheckBox, &QCheckBox::checkStateChanged, this,
+            [](Qt::CheckState state) { Config::setUseHostMemoryFallback(state == Qt::Checked); });
+
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
         connect(ui->showBackgroundImageCheckBox, &QCheckBox::stateChanged, this, [](int state) {
 #else
@@ -1297,19 +1301,21 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->backgroundControllerCheckBox->setChecked(
         toml::find_or<bool>(data, "Input", "backgroundControllerInput", false));
     ui->isDevKitCheckBox->setChecked(toml::find_or<bool>(data, "General", "isDevKit", false));
-
     ui->isNeoModeCheckBox->setChecked(toml::find_or<bool>(data, "General", "isPS4Pro", false));
 
     ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
 
     ui->connectedNetworkCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isConnectedToNetwork", false));
+    ui->useHostMemoryFallbackCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "useHostMemoryFallback", false));
     ui->isPSNSignedInCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isPSNSignedIn", false));
 
     ui->removeFolderButton->setEnabled(!ui->gameFoldersListWidget->selectedItems().isEmpty());
     ui->backgroundImageOpacitySlider->setValue(Config::getBackgroundImageOpacity());
     ui->showBackgroundImageCheckBox->setChecked(Config::getShowBackgroundImage());
+    SyncRealTimeWidgetstoConfig();
     SyncRealTimeWidgetstoConfig();
 
     backgroundImageOpacitySlider_backup = Config::getBackgroundImageOpacity();
