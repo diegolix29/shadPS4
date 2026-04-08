@@ -442,6 +442,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->AudioBackendComboBox->setCurrentIndex((backend == Config::AudioBackend::OpenAL) ? 1 : 0);
 
     ui->connectedNetworkCheckBox->setChecked(Config::getIsConnectedToNetwork());
+    ui->useHostMemoryFallbackCheckBox->setChecked(Config::getUseHostMemoryFallback());
     ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
     ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
     ui->isPSNSignedInCheckBox->setChecked(Config::getPSNSignedIn());
@@ -566,6 +567,9 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->MemorySpinBox->setValue(toml::find<int>(gen, "extraDmemInMbytes"));
         if (gen.contains("isConnectedToNetwork"))
             ui->connectedNetworkCheckBox->setChecked(toml::find<bool>(gen, "isConnectedToNetwork"));
+        if (gen.contains("useHostMemoryFallback"))
+            ui->useHostMemoryFallbackCheckBox->setChecked(
+                toml::find<bool>(gen, "useHostMemoryFallback"));
         if (gen.contains("isDevKit"))
             ui->isDevKitCheckBox->setChecked(toml::find<bool>(gen, "isDevKit"));
         if (gen.contains("isPS4Pro"))
@@ -797,6 +801,7 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["UseHomeButtonForHotkeys"] = ui->HomeHotkeysCheckBox->isChecked();
     overrides["General"]["volumeSlider"] = ui->horizontalVolumeSlider->value();
     overrides["General"]["isConnectedToNetwork"] = ui->connectedNetworkCheckBox->isChecked();
+    overrides["General"]["useHostMemoryFallback"] = ui->useHostMemoryFallbackCheckBox->isChecked();
     overrides["General"]["isDevKit"] = ui->isDevKitCheckBox->isChecked();
     overrides["General"]["isPS4Pro"] = ui->isNeoModeCheckBox->isChecked();
     overrides["General"]["isPSNSignedIn"] = ui->isPSNSignedInCheckBox->isChecked();

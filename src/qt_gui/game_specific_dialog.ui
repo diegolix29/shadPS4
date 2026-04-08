@@ -1620,6 +1620,14 @@
 								</item>
 
 								<item>
+									<widget class="QCheckBox" name="useHostMemoryFallbackCheckBox">
+										<property name="text">
+											<string>Use Host Memory Fallback (System RAM as VRAM)</string>
+										</property>
+									</widget>
+								</item>
+
+								<item>
 									<widget class="QCheckBox" name="HomeHotkeysCheckBox">
 										<property name="text">
 											<string>Enable PS/Home/Guide button for Hotkeys</string>
@@ -1813,7 +1821,7 @@
 									</widget>
 								</item>
 								<item>
-									<widget class="QLabel" name="label_23">
+									<widget class="QLabel" name="label_27">
 										<property name="font">
 											<font>
 												<pointsize>11</pointsize>

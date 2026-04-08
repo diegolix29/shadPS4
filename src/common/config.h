@@ -199,6 +199,8 @@ void setNeoMode(bool enable);  // no ui setting
 bool vkValidationGpuEnabled(); // no set
 int getExtraDmemInMbytes();
 void setExtraDmemInMbytes(int value);
+bool getUseHostMemoryFallback();
+void setUseHostMemoryFallback(bool enable);
 bool getIsMotionControlsEnabled();
 void setIsMotionControlsEnabled(bool use);
 std::string getDefaultControllerID();
