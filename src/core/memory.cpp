@@ -13,12 +13,17 @@
 #include "core/libraries/kernel/orbis_error.h"
 #include "core/libraries/kernel/process.h"
 #include "core/memory.h"
+#include "core/memory_compression.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 
 namespace Core {
 
 MemoryManager::MemoryManager() {
     LOG_INFO(Kernel_Vmm, "Virtual memory space initialized with regions:");
+
+    // Initialize memory compression system
+    memory_compression = std::make_unique<MemoryCompression>();
+    memory_compression->SetCompressionLevel(Config::getMemoryCompressionLevel());
 
     // Construct vma_map using the regions reserved by the address space
     auto regions = impl.GetUsableRegions();

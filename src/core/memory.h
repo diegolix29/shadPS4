@@ -28,6 +28,8 @@ class MemoryMapViewer;
 
 namespace Core {
 
+class MemoryCompression;
+
 constexpr u64 DEFAULT_MAPPING_BASE = 0x200000000;
 
 enum class MemoryProt : u32 {
@@ -375,6 +377,7 @@ private:
     u64 pool_budget{};
     s32 sdk_version{};
     Vulkan::Rasterizer* rasterizer{};
+    std::unique_ptr<MemoryCompression> memory_compression;
 
     struct PrtArea {
         VAddr start;

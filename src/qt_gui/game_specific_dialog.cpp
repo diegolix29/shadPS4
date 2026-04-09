@@ -443,6 +443,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
 
     ui->connectedNetworkCheckBox->setChecked(Config::getIsConnectedToNetwork());
     ui->useHostMemoryFallbackCheckBox->setChecked(Config::getUseHostMemoryFallback());
+    int compressionLevel = Config::getMemoryCompressionLevel();
+    ui->memoryCompressionComboBox->setCurrentIndex(compressionLevel);
     ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
     ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
     ui->isPSNSignedInCheckBox->setChecked(Config::getPSNSignedIn());
@@ -570,6 +572,9 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         if (gen.contains("useHostMemoryFallback"))
             ui->useHostMemoryFallbackCheckBox->setChecked(
                 toml::find<bool>(gen, "useHostMemoryFallback"));
+        if (gen.contains("memoryCompressionLevel"))
+            ui->memoryCompressionComboBox->setCurrentIndex(
+                toml::find<int>(gen, "memoryCompressionLevel"));
         if (gen.contains("isDevKit"))
             ui->isDevKitCheckBox->setChecked(toml::find<bool>(gen, "isDevKit"));
         if (gen.contains("isPS4Pro"))
@@ -802,6 +807,7 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["volumeSlider"] = ui->horizontalVolumeSlider->value();
     overrides["General"]["isConnectedToNetwork"] = ui->connectedNetworkCheckBox->isChecked();
     overrides["General"]["useHostMemoryFallback"] = ui->useHostMemoryFallbackCheckBox->isChecked();
+    overrides["General"]["memoryCompressionLevel"] = ui->memoryCompressionComboBox->currentIndex();
     overrides["General"]["isDevKit"] = ui->isDevKitCheckBox->isChecked();
     overrides["General"]["isPS4Pro"] = ui->isNeoModeCheckBox->isChecked();
     overrides["General"]["isPSNSignedIn"] = ui->isPSNSignedInCheckBox->isChecked();
