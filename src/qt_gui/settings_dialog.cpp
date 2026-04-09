@@ -563,9 +563,31 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         connect(ui->chooseHomeTabComboBox, &QComboBox::currentTextChanged, this,
                 [](const QString& hometab) { Config::setChooseHomeTab(hometab.toStdString()); });
 
-        connect(
-            ui->useHostMemoryFallbackCheckBox, &QCheckBox::checkStateChanged, this,
-            [](Qt::CheckState state) { Config::setUseHostMemoryFallback(state == Qt::Checked); });
+        connect(ui->useHostMemoryFallbackCheckBox, &QCheckBox::stateChanged, this,
+                [](int state) { Config::setUseHostMemoryFallback(state == Qt::Checked); });
+
+        connect(ui->memoryCompressionComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, [](int index) {
+                    int level = 0;
+                    switch (index) {
+                    case 0:
+                        level = 0;
+                        break; // Disabled
+                    case 1:
+                        level = 1;
+                        break; // Fast
+                    case 2:
+                        level = 2;
+                        break; // Balanced
+                    case 3:
+                        level = 3;
+                        break; // Maximum
+                    default:
+                        level = 0;
+                        break; // Default to Disabled
+                    }
+                    Config::setMemoryCompressionLevel(level);
+                });
 
 #if (QT_VERSION < QT_VERSION_CHECK(6, 7, 0))
         connect(ui->showBackgroundImageCheckBox, &QCheckBox::stateChanged, this, [](int state) {
@@ -1309,6 +1331,8 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "isConnectedToNetwork", false));
     ui->useHostMemoryFallbackCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "useHostMemoryFallback", false));
+    int compressionLevel = toml::find_or<int>(data, "General", "memoryCompressionLevel", 0);
+    ui->memoryCompressionComboBox->setCurrentIndex(compressionLevel);
     ui->isPSNSignedInCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isPSNSignedIn", false));
 

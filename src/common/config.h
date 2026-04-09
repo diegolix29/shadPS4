@@ -201,6 +201,8 @@ int getExtraDmemInMbytes();
 void setExtraDmemInMbytes(int value);
 bool getUseHostMemoryFallback();
 void setUseHostMemoryFallback(bool enable);
+int getMemoryCompressionLevel();
+void setMemoryCompressionLevel(int level);
 bool getIsMotionControlsEnabled();
 void setIsMotionControlsEnabled(bool use);
 std::string getDefaultControllerID();

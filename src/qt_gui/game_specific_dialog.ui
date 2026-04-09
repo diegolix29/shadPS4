@@ -1628,6 +1628,50 @@
 								</item>
 
 								<item>
+									<widget class="QGroupBox" name="memoryCompressionGroup">
+										<property name="title">
+											<string>Memory Compression</string>
+										</property>
+										<layout class="QHBoxLayout" name="memoryCompressionLayout">
+											<item>
+												<widget class="QLabel" name="memoryCompressionLabel">
+													<property name="text">
+														<string>Compression Level:</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QComboBox" name="memoryCompressionComboBox">
+													<property name="toolTip">
+														<string>Select memory compression level for better memory usage</string>
+													</property>
+													<item>
+														<property name="text">
+															<string>Disabled</string>
+														</property>
+													</item>
+													<item>
+														<property name="text">
+															<string>Fast</string>
+														</property>
+													</item>
+													<item>
+														<property name="text">
+															<string>Balanced</string>
+														</property>
+													</item>
+													<item>
+														<property name="text">
+															<string>Maximum</string>
+														</property>
+													</item>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+
+								<item>
 									<widget class="QCheckBox" name="HomeHotkeysCheckBox">
 										<property name="text">
 											<string>Enable PS/Home/Guide button for Hotkeys</string>
