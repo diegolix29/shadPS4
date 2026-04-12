@@ -34,10 +34,17 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include <QDesktopServices>
+#include <QInputDialog>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QTabWidget>
 #include "common/path_util.h"
 #include "core/file_sys/fs.h"
 #include "mod_manager_dialog.h"
 #include "mod_tracker.h"
+#include "nexus_mods_api.h"
 
 ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameSerial,
                                    QWidget* parent)
@@ -78,6 +85,23 @@ ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameS
     modTracker->loadFromFile();
 
     setupUI();
+
+    m_nexusApi = new NexusModsApi(this);
+    m_imgNam = new QNetworkAccessManager(this);
+    connect(m_nexusApi, &NexusModsApi::searchResultsReady, this,
+            &ModManagerDialog::onNexusSearchResultsReady);
+    connect(m_nexusApi, &NexusModsApi::modFilesReady, this,
+            &ModManagerDialog::onNexusModFilesReady);
+    connect(m_nexusApi, &NexusModsApi::downloadLinkReady, this,
+            &ModManagerDialog::onNexusDownloadLinkReady);
+    connect(m_nexusApi, &NexusModsApi::errorOccurred, this, &ModManagerDialog::onNexusError);
+    connect(m_nexusApi, &NexusModsApi::apiKeyValidated, this,
+            &ModManagerDialog::onNexusApiKeyValidated);
+    if (m_nexusApi->autoDetectApiKey()) {
+        m_nexusApi->validateApiKey();
+    } else {
+        updateNexusKeyStatus();
+    }
     applyDarkTheme();
     scanAvailableMods();
     scanActiveMods();
@@ -92,8 +116,19 @@ void ModManagerDialog::setupUI() {
     setupHeader();
     mainLayout->addWidget(titleLabel);
 
+    auto* tabs = new QTabWidget(this);
+    tabs->setDocumentMode(true);
+
+    auto* localTab = new QWidget();
+    auto* localLayout = new QVBoxLayout(localTab);
+    localLayout->setContentsMargins(0, 0, 0, 0);
     setupModList();
-    mainLayout->addWidget(modScrollArea);
+    localLayout->addWidget(modScrollArea);
+    tabs->addTab(localTab, "Installed Mods");
+
+    setupNexusTab(tabs);
+
+    mainLayout->addWidget(tabs);
 }
 
 void ModManagerDialog::setupHeader() {
@@ -1880,4 +1915,453 @@ void ModManagerDialog::populateFileTree(QTreeWidgetItem* parentItem, const QStri
             }
         }
     }
+}
+
+void ModManagerDialog::setupNexusTab(QTabWidget* tabs) {
+    auto* nexusTab = new QWidget();
+    auto* outerLayout = new QVBoxLayout(nexusTab);
+    outerLayout->setContentsMargins(10, 8, 10, 8);
+    outerLayout->setSpacing(8);
+
+    auto* keyBar = new QHBoxLayout();
+    auto* keyIcon = new QLabel("");
+    m_nexusKeyStatusLabel = new QLabel("Nexus API key: not set");
+    m_nexusKeyStatusLabel->setStyleSheet("QLabel { color: #ff9800; }");
+    m_nexusSetKeyBtn = new QPushButton("Set API Key");
+    m_nexusSetKeyBtn->setFixedWidth(110);
+
+    keyBar->addWidget(keyIcon);
+    keyBar->addWidget(m_nexusKeyStatusLabel, 1);
+    keyBar->addWidget(m_nexusSetKeyBtn);
+    outerLayout->addLayout(keyBar);
+
+    auto* searchBar = new QHBoxLayout();
+    m_nexusSearchBox = new QLineEdit();
+    m_nexusSearchBox->setPlaceholderText(
+        "Search Nexus Mods  -  type a mod name just like on the Nexus website...");
+    m_nexusSearchBox->setClearButtonEnabled(true);
+    m_nexusSearchBtn = new QPushButton("Search");
+    m_nexusSearchBtn->setFixedWidth(90);
+    m_nexusSearchBtn->setStyleSheet(R"(
+        QPushButton { background-color: #e8591a; color: #fff;
+                      border: none; border-radius: 4px; padding: 7px 14px;
+                      font-weight: bold; }
+        QPushButton:hover { background-color: #c44d16; }
+        QPushButton:disabled { background-color: #555; }
+    )");
+
+    searchBar->addWidget(m_nexusSearchBox, 1);
+    searchBar->addWidget(m_nexusSearchBtn);
+    outerLayout->addLayout(searchBar);
+
+    auto* pageBar = new QHBoxLayout();
+    m_nexusStatusLabel = new QLabel("Enter a search term above.");
+    m_nexusStatusLabel->setStyleSheet("QLabel { color: #aaa; font-size: 11px; }");
+    m_nexusPrevBtn = new QPushButton("< Prev");
+    m_nexusNextBtn = new QPushButton("Next >");
+    m_nexusPageLabel = new QLabel("");
+    m_nexusPrevBtn->setVisible(false);
+    m_nexusNextBtn->setVisible(false);
+    m_nexusPrevBtn->setFixedWidth(70);
+    m_nexusNextBtn->setFixedWidth(70);
+
+    pageBar->addWidget(m_nexusStatusLabel, 1);
+    pageBar->addWidget(m_nexusPrevBtn);
+    pageBar->addWidget(m_nexusPageLabel);
+    pageBar->addWidget(m_nexusNextBtn);
+    outerLayout->addLayout(pageBar);
+
+    m_nexusScrollArea = new QScrollArea();
+    m_nexusScrollArea->setWidgetResizable(true);
+    m_nexusScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    m_nexusResultsContainer = new QWidget();
+    m_nexusResultsLayout = new QVBoxLayout(m_nexusResultsContainer);
+    m_nexusResultsLayout->setSpacing(8);
+    m_nexusResultsLayout->setAlignment(Qt::AlignTop);
+    m_nexusScrollArea->setWidget(m_nexusResultsContainer);
+    outerLayout->addWidget(m_nexusScrollArea, 1);
+
+    connect(m_nexusSetKeyBtn, &QPushButton::clicked, this,
+            &ModManagerDialog::onNexusSetApiKeyClicked);
+    connect(m_nexusSearchBtn, &QPushButton::clicked, this, &ModManagerDialog::onNexusSearchClicked);
+    connect(m_nexusSearchBox, &QLineEdit::returnPressed, this,
+            &ModManagerDialog::onNexusSearchReturnPressed);
+    connect(m_nexusPrevBtn, &QPushButton::clicked, this, &ModManagerDialog::onNexusPagePrev);
+    connect(m_nexusNextBtn, &QPushButton::clicked, this, &ModManagerDialog::onNexusPageNext);
+
+    tabs->addTab(nexusTab, " Browse Nexus");
+}
+
+void ModManagerDialog::updateNexusKeyStatus() {
+    if (!m_nexusApi)
+        return;
+    if (m_nexusApi->hasApiKey()) {
+        m_nexusKeyStatusLabel->setText("Nexus API key: [OK]  (connected)");
+        m_nexusKeyStatusLabel->setStyleSheet("QLabel { color: #4CAF50; }");
+        m_nexusSearchBtn->setEnabled(true);
+    } else {
+        m_nexusKeyStatusLabel->setText(
+            "Nexus API key: not set  -  paste your key to enable search");
+        m_nexusKeyStatusLabel->setStyleSheet("QLabel { color: #ff9800; }");
+        m_nexusSearchBtn->setEnabled(false);
+    }
+}
+
+void ModManagerDialog::onNexusSetApiKeyClicked() {
+    bool ok = false;
+    QString key = QInputDialog::getText(this, "Nexus Mods API Key",
+                                        "Paste your Nexus Mods personal API key\n"
+                                        "(get it at nexusmods.com -> your profile -> API Keys):",
+                                        QLineEdit::Normal,
+                                        m_nexusApi ? m_nexusApi->apiKey() : QString(), &ok);
+
+    if (ok && !key.trimmed().isEmpty() && m_nexusApi) {
+        m_nexusApi->setApiKey(key.trimmed());
+        m_nexusStatusLabel->setText("Validating key...");
+        m_nexusApi->validateApiKey();
+    }
+}
+
+void ModManagerDialog::onNexusApiKeyValidated(bool valid, const QString& username) {
+    if (valid) {
+        m_nexusKeyStatusLabel->setText(
+            QString("Nexus API key: [OK]  logged in as %1").arg(username));
+        m_nexusKeyStatusLabel->setStyleSheet("QLabel { color: #4CAF50; }");
+        if (m_nexusSearchBtn)
+            m_nexusSearchBtn->setEnabled(true);
+        m_nexusStatusLabel->setText("Key validated. Type a mod name and hit Search.");
+    } else {
+        m_nexusKeyStatusLabel->setText("Nexus API key: [X]  invalid  -  please check your key");
+        m_nexusKeyStatusLabel->setStyleSheet("QLabel { color: #f44336; }");
+        if (m_nexusSearchBtn)
+            m_nexusSearchBtn->setEnabled(false);
+    }
+}
+
+void ModManagerDialog::onNexusSearchClicked() {
+    if (!m_nexusApi)
+        return;
+    QString query = m_nexusSearchBox->text().trimmed();
+    if (query.isEmpty()) {
+        m_nexusStatusLabel->setText("Please enter a search term.");
+        return;
+    }
+    m_nexusCurrentQuery = query;
+    m_nexusOffset = 0;
+    m_nexusCurrentSlug = NexusModsApi::gameSlugForSerial(gameSerial);
+
+    if (m_nexusCurrentSlug.isEmpty()) {
+        m_nexusStatusLabel->setText("This game serial is not mapped to a Nexus slug. "
+                                    "Enter the Nexus game slug manually in the field below.");
+        m_nexusSearchBtn->setEnabled(true);
+        return;
+    }
+
+    m_nexusStatusLabel->setText("Searching Nexus (latest/trending/updated)...");
+    m_nexusSearchBtn->setEnabled(false);
+
+    m_nexusApi->searchAllModes(m_nexusCurrentSlug, query);
+}
+
+void ModManagerDialog::onNexusSearchReturnPressed() {
+    onNexusSearchClicked();
+}
+
+void ModManagerDialog::onNexusPagePrev() {}
+
+void ModManagerDialog::onNexusPageNext() {}
+
+void ModManagerDialog::onNexusSearchResultsReady(const QList<NexusModResult>& results,
+                                                 int totalCount) {
+    m_nexusTotalCount = totalCount;
+    if (m_nexusSearchBtn)
+        m_nexusSearchBtn->setEnabled(true);
+
+    if (results.isEmpty()) {
+        m_nexusStatusLabel->setText("No mods found for that query.");
+        m_nexusPrevBtn->setEnabled(false);
+        m_nexusNextBtn->setEnabled(false);
+        while (QLayoutItem* item = m_nexusResultsLayout->takeAt(0)) {
+            if (item->widget())
+                item->widget()->deleteLater();
+            delete item;
+        }
+        return;
+    }
+
+    populateNexusResults(results, totalCount);
+}
+
+void ModManagerDialog::populateNexusResults(const QList<NexusModResult>& results, int totalCount) {
+    while (QLayoutItem* item = m_nexusResultsLayout->takeAt(0)) {
+        if (item->widget())
+            item->widget()->deleteLater();
+        delete item;
+    }
+
+    for (const NexusModResult& mod : results) {
+        QWidget* card = createNexusResultCard(mod);
+        m_nexusResultsLayout->addWidget(card);
+    }
+    m_nexusResultsLayout->addStretch();
+
+    int page = m_nexusOffset / m_nexusLimit + 1;
+    int totalPages = (totalCount + m_nexusLimit - 1) / m_nexusLimit;
+    m_nexusStatusLabel->setText(
+        QString("Found %1 mod(s)  -  page %2 / %3").arg(totalCount).arg(page).arg(totalPages));
+    m_nexusPageLabel->setText(QString("%1 / %2").arg(page).arg(totalPages));
+
+    m_nexusPrevBtn->setVisible(false);
+    m_nexusNextBtn->setVisible(false);
+
+    if (m_nexusScrollArea)
+        m_nexusScrollArea->verticalScrollBar()->setValue(0);
+}
+
+QWidget* ModManagerDialog::createNexusResultCard(const NexusModResult& mod) {
+    auto* card = new QWidget();
+    card->setMinimumHeight(100);
+    card->setMaximumHeight(130);
+    card->setStyleSheet(R"(
+        QWidget {
+            background-color: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 6px;
+        }
+        QWidget:hover { border-color: #e8591a; }
+    )");
+
+    auto* row = new QHBoxLayout(card);
+    row->setContentsMargins(10, 8, 10, 8);
+    row->setSpacing(12);
+
+    auto* imgLabel = new QLabel();
+    imgLabel->setFixedSize(120, 80);
+    imgLabel->setAlignment(Qt::AlignCenter);
+    imgLabel->setStyleSheet("QLabel { background-color: #1a1a1a; border-radius: 4px; }");
+    imgLabel->setText("Loading...");
+    if (!mod.pictureUrl.isEmpty())
+        loadNexusThumbnail(mod.pictureUrl, imgLabel);
+
+    auto* textCol = new QVBoxLayout();
+    textCol->setSpacing(2);
+
+    auto* nameLabel = new QLabel(mod.name.isEmpty() ? "(unnamed mod)" : mod.name);
+    nameLabel->setStyleSheet("QLabel { font-weight: bold; font-size: 14px; color: #fff; }");
+    nameLabel->setWordWrap(true);
+
+    auto* authorLabel = new QLabel(QString("by %1   |  %2")
+                                       .arg(mod.author.isEmpty() ? "Unknown" : mod.author)
+                                       .arg(mod.gameSlug.isEmpty() ? gameSerial : mod.gameSlug));
+    authorLabel->setStyleSheet("QLabel { color: #aaa; font-size: 11px; }");
+
+    auto* summaryLabel = new QLabel(mod.summary);
+    summaryLabel->setStyleSheet("QLabel { color: #ccc; font-size: 11px; }");
+    summaryLabel->setWordWrap(true);
+    summaryLabel->setMaximumHeight(36);
+
+    auto* statsLabel = new QLabel(QString("[DL] %1   |  [OK] %2   |  v%3")
+                                      .arg(mod.downloadCount)
+                                      .arg(mod.endorsementCount)
+                                      .arg(mod.version.isEmpty() ? "?" : mod.version));
+    statsLabel->setStyleSheet("QLabel { color: #888; font-size: 10px; }");
+
+    textCol->addWidget(nameLabel);
+    textCol->addWidget(authorLabel);
+    textCol->addWidget(summaryLabel);
+    textCol->addWidget(statsLabel);
+    textCol->addStretch();
+
+    auto* btnCol = new QVBoxLayout();
+    btnCol->setSpacing(4);
+
+    auto* nexusBtn = new QPushButton("Open on Nexus");
+    nexusBtn->setFixedWidth(130);
+    nexusBtn->setStyleSheet(R"(
+        QPushButton { background-color: #333; color: #ddd; border: 1px solid #555;
+                      border-radius: 4px; padding: 5px; font-size: 11px; }
+        QPushButton:hover { background-color: #444; }
+    )");
+
+    auto* installBtn = new QPushButton("[DL] Get Files");
+    installBtn->setFixedWidth(130);
+    installBtn->setStyleSheet(R"(
+        QPushButton { background-color: #e8591a; color: #fff; border: none;
+                      border-radius: 4px; padding: 5px; font-weight: bold; font-size: 11px; }
+        QPushButton:hover { background-color: #c44d16; }
+    )");
+
+    btnCol->addStretch();
+    btnCol->addWidget(nexusBtn);
+    btnCol->addWidget(installBtn);
+    btnCol->addStretch();
+
+    row->addWidget(imgLabel);
+    row->addLayout(textCol, 1);
+    row->addLayout(btnCol);
+
+    int modId = mod.modId;
+    QString gameSlug = mod.gameSlug.isEmpty() ? m_nexusCurrentSlug : mod.gameSlug;
+    QString nexusUrl = QString("https://www.nexusmods.com/%1/mods/%2").arg(gameSlug).arg(modId);
+
+    connect(nexusBtn, &QPushButton::clicked, this,
+            [nexusUrl]() { QDesktopServices::openUrl(QUrl(nexusUrl)); });
+    connect(installBtn, &QPushButton::clicked, this,
+            [this, modId, gameSlug]() { onNexusResultItemClicked(modId, gameSlug); });
+
+    return card;
+}
+
+void ModManagerDialog::loadNexusThumbnail(const QString& url, QLabel* label) {
+    if (!m_imgNam || url.isEmpty())
+        return;
+    QNetworkReply* reply = m_imgNam->get(QNetworkRequest(QUrl(url)));
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply, label]() { onNexusThumbnailDownloaded(reply, label); });
+}
+
+void ModManagerDialog::onNexusThumbnailDownloaded(QNetworkReply* reply, QLabel* imageLabel) {
+    reply->deleteLater();
+    if (!imageLabel)
+        return;
+    if (reply->error() != QNetworkReply::NoError) {
+        imageLabel->setText("No image");
+        return;
+    }
+    QPixmap px;
+    px.loadFromData(reply->readAll());
+    if (!px.isNull()) {
+        imageLabel->setPixmap(
+            px.scaled(imageLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        imageLabel->setText(QString());
+    } else {
+        imageLabel->setText("No image");
+    }
+}
+
+void ModManagerDialog::onNexusResultItemClicked(int modId, const QString& gameSlug) {
+    if (!m_nexusApi)
+        return;
+    m_pendingFileSelectSlug[modId] = gameSlug;
+    m_nexusStatusLabel->setText("Fetching file list...");
+    m_nexusApi->fetchModFiles(gameSlug, modId);
+}
+
+void ModManagerDialog::onNexusModFilesReady(int modId, const QList<NexusFileInfo>& files) {
+    m_nexusStatusLabel->setText(QString("%1 mod(s) found  -  ready.").arg(m_nexusTotalCount));
+
+    if (files.isEmpty()) {
+        QMessageBox::information(this, "No Files",
+                                 "This mod has no downloadable files listed on Nexus.");
+        return;
+    }
+
+    QString gameSlug = m_pendingFileSelectSlug.value(modId, m_nexusCurrentSlug);
+
+    QDialog dlg(this);
+    dlg.setWindowTitle("Choose File to Download");
+    dlg.setMinimumSize(600, 350);
+    dlg.setStyleSheet("QDialog { background-color: #1e1e1e; color: #fff; }");
+
+    auto* layout = new QVBoxLayout(&dlg);
+    auto* label = new QLabel(QString("Select a file for mod #%1:").arg(modId));
+    label->setStyleSheet("QLabel { color: #fff; font-weight: bold; }");
+    layout->addWidget(label);
+
+    auto* listW = new QListWidget();
+    listW->setStyleSheet(R"(
+        QListWidget { background-color: #2d2d2d; color: #fff;
+                      border: 1px solid #404040; }
+        QListWidget::item { padding: 6px; border-bottom: 1px solid #404040; }
+        QListWidget::item:selected { background-color: #e8591a; }
+    )");
+
+    for (const NexusFileInfo& fi : files) {
+        QString sizeStr = fi.sizeKb > 1024 ? QString("%1 MB").arg(fi.sizeKb / 1024.0, 0, 'f', 1)
+                                           : QString("%1 KB").arg(fi.sizeKb);
+        QString label2 = QString("[%1]  %2  v%3  (%4)")
+                             .arg(fi.category)
+                             .arg(fi.name)
+                             .arg(fi.version.isEmpty() ? "?" : fi.version)
+                             .arg(sizeStr);
+        auto* item = new QListWidgetItem(label2);
+        item->setData(Qt::UserRole, fi.fileId);
+        item->setData(Qt::UserRole + 1, fi.name);
+        listW->addItem(item);
+    }
+
+    layout->addWidget(listW, 1);
+
+    auto* btnRow = new QHBoxLayout();
+    auto* cancelBtn = new QPushButton("Cancel");
+    auto* dlBtn = new QPushButton("Get Download Link");
+    dlBtn->setStyleSheet(R"(
+        QPushButton { background-color: #e8591a; color: #fff; border: none;
+                      border-radius: 4px; padding: 7px 14px; font-weight: bold; }
+        QPushButton:hover { background-color: #c44d16; }
+    )");
+
+    btnRow->addStretch();
+    btnRow->addWidget(cancelBtn);
+    btnRow->addWidget(dlBtn);
+    layout->addLayout(btnRow);
+
+    connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+    connect(dlBtn, &QPushButton::clicked, &dlg, [&dlg, listW]() {
+        if (listW->currentItem())
+            dlg.accept();
+    });
+    connect(listW, &QListWidget::itemDoubleClicked, &dlg,
+            [&dlg](QListWidgetItem*) { dlg.accept(); });
+
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+
+    QListWidgetItem* sel = listW->currentItem();
+    if (!sel)
+        return;
+
+    int fileId = sel->data(Qt::UserRole).toInt();
+    QString fileName = sel->data(Qt::UserRole + 1).toString();
+
+    m_nexusStatusLabel->setText("Fetching download link...");
+    m_pendingFileSelectSlug[fileId] = gameSlug;
+    downloadAndInstallNexusMod(gameSlug, modId, fileId, fileName);
+}
+
+void ModManagerDialog::downloadAndInstallNexusMod(const QString& gameSlug, int modId, int fileId,
+                                                  const QString& /*fileName*/) {
+    if (!m_nexusApi)
+        return;
+
+    connect(m_nexusApi, &NexusModsApi::downloadLinkReady, this,
+            &ModManagerDialog::onNexusDownloadLinkReady, Qt::UniqueConnection);
+
+    m_nexusApi->fetchDownloadLink(gameSlug, modId, fileId);
+}
+
+void ModManagerDialog::onNexusDownloadLinkReady(int /*modId*/, int /*fileId*/, const QString& url) {
+    m_nexusStatusLabel->setText("Download link ready  -  opening in browser.");
+    if (url.isEmpty()) {
+        QMessageBox::warning(this, "No Link",
+                             "Nexus did not return a download link.\n"
+                             "This sometimes happens for free-tier accounts.\n"
+                             "The mod page will open in your browser instead.");
+        return;
+    }
+    QDesktopServices::openUrl(QUrl(url));
+
+    QMessageBox::information(this, "Download Started",
+                             "The download has been opened in your browser.\n\n"
+                             "Once the file is saved, use the  \"Install Mod\" button\n"
+                             "on the  \"Installed Mods\" tab to add it to your game.");
+}
+
+void ModManagerDialog::onNexusError(const QString& message) {
+    if (m_nexusStatusLabel)
+        m_nexusStatusLabel->setText(QString("Error: %1").arg(message));
+    if (m_nexusSearchBtn)
+        m_nexusSearchBtn->setEnabled(true);
+    QMessageBox::warning(this, "Nexus Mods Error", message);
 }

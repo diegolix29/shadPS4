@@ -320,6 +320,7 @@ u32 m_window_size_H = 720;
 std::vector<std::string> m_elf_viewer;
 std::vector<std::string> m_recent_files;
 std::string emulator_language = "en_US";
+std::string nexus_api_key = "";
 static int backgroundImageOpacity = 50;
 static bool showBackgroundImage = true;
 static bool descriptionVisible = true;
@@ -1451,6 +1452,14 @@ std::string getEmulatorLanguage() {
     return emulator_language;
 }
 
+std::string getNexusApiKey() {
+    return nexus_api_key;
+}
+
+void setNexusApiKey(const std::string& apiKey) {
+    nexus_api_key = apiKey;
+}
+
 u32 GetLanguage() {
     return m_language;
 }
@@ -1769,19 +1778,6 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         m_window_size_W = toml::find_or<int>(gui, "mw_width", 1280);
         m_window_size_H = toml::find_or<int>(gui, "mw_height", 720);
-        main_window_geometry_x = toml::find_or<int>(gui, "geometry_x", 0);
-        main_window_geometry_y = toml::find_or<int>(gui, "geometry_y", 0);
-        main_window_geometry_w = toml::find_or<int>(gui, "geometry_w", 1280);
-        main_window_geometry_h = toml::find_or<int>(gui, "geometry_h", 720);
-
-        m_table_mode = toml::find_or<int>(gui, "gameTableMode", 0);
-        emulator_language = toml::find_or<std::string>(gui, "emulatorLanguage", "en_US");
-
-        backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
-        showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
-        descriptionVisible = toml::find_or<bool>(gui, "descriptionVisible", true);
-        showLabelsUnderIcons = toml::find_or<bool>(gui, "showLabelsUnderIcons", true);
-        enableColorFilter = toml::find_or<bool>(gui, "enableColorFilter", true);
         launcher_boot = toml::find_or<bool>(gui, "launcher_boot", false);
         isQT = toml::find_or<bool>(gui, "isQT", false);
         isSDL = toml::find_or<bool>(gui, "isSDL", false);
@@ -2271,6 +2267,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["GUI"]["showBackgroundImage"] = showBackgroundImage;
     data["GUI"]["descriptionVisible"] = descriptionVisible;
     data["GUI"]["emulatorLanguage"] = emulator_language;
+    data["GUI"]["nexusApiKey"] = nexus_api_key;
     data["GUI"]["isQT"] = isQT;
     data["GUI"]["isSDL"] = isSDL;
     data["Settings"]["consoleLanguage"] = m_language;

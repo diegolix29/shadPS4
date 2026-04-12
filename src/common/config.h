@@ -370,6 +370,9 @@ void setEnableMods(bool enable);
 bool getEnableUpdates();
 void setEnableUpdates(bool enable);
 
+std::string getNexusApiKey();
+void setNexusApiKey(const std::string& apiKey);
+
 Common::CpuCoreMode getCpuCoreMode();
 void setCpuCoreMode(Common::CpuCoreMode mode);
 std::vector<u32> getCustomCpuCores();

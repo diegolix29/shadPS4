@@ -1237,6 +1237,8 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/mod_manager_dialog.h
            src/qt_gui/mod_tracker.cpp
            src/qt_gui/mod_tracker.h
+           src/qt_gui/nexus_mods_api.cpp
+           src/qt_gui/nexus_mods_api.h
            ${EMULATOR}
            ${RESOURCE_FILES}
            ${TRANSLATIONS}
