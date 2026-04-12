@@ -5,6 +5,7 @@
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/np/np_score.h"
+#include "np_error.h"
 
 namespace Libraries::Np::NpScore {
 
@@ -34,13 +35,18 @@ int PS4_SYSV_ABI sceNpScoreChangeModeForOtherSaveDataOwners() {
 }
 
 int PS4_SYSV_ABI sceNpScoreCreateNpTitleCtx(OrbisNpServiceLabel serviceLabel, OrbisNpId* npId) {
-    LOG_ERROR(Lib_NpScore, "serviceLabel = {}, npId->data = {}", serviceLabel, npId->handle.data);
-    return ORBIS_OK;
+    LOG_ERROR(Lib_NpScore, "(STUBBED) called serviceLabel={}, npId={}",
+              static_cast<u32>(serviceLabel), PTR(npId));
+
+    static s32 title_ctx_id_counter = 0;
+    s32 title_ctx_id = title_ctx_id_counter++;
+
+    return title_ctx_id;
 }
 
 int PS4_SYSV_ABI sceNpScoreCreateRequest(s32 titleCtxId) {
     LOG_ERROR(Lib_NpScore, "libCtxId = {}", titleCtxId);
-    return ORBIS_OK;
+    return 1;
 }
 
 int PS4_SYSV_ABI sceNpScoreDeleteRequest(s32 reqId) {
@@ -57,7 +63,7 @@ int PS4_SYSV_ABI sceNpScoreCreateNpTitleCtxA(OrbisNpServiceLabel npServiceLabel,
 
 int PS4_SYSV_ABI sceNpScoreCreateTitleCtx() {
     LOG_ERROR(Lib_NpScore, "(STUBBED) called");
-    return ORBIS_OK;
+    return 1;
 }
 
 int PS4_SYSV_ABI sceNpScoreDeleteNpTitleCtx(s32 titleCtxId) {
@@ -502,10 +508,17 @@ int PS4_SYSV_ABI sceNpScoreRecordScoreAsync(s32 reqId, OrbisNpScoreBoardId board
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceNpScoreSanitizeComment(s32 reqId, const char* comment, char* sanitizedComment,
-                                           void* option) {
-    LOG_ERROR(Lib_NpScore, "(STUBBED) called reqId={}, comment={}, sanitizedComment={}, option={}",
-              reqId, comment ? comment : "null", PTR(sanitizedComment), PTR(option));
+int PS4_SYSV_ABI sceNpScoreSanitizeComment(s32 request_handle, char* input_string,
+                                           char* output_buffer, void* options) {
+    LOG_ERROR(Lib_NpScore, "(STUBBED) called");
+
+    if (output_buffer == nullptr || input_string == nullptr) {
+
+        return ORBIS_NP_SCORE_INVALID_ARGUMENT;
+    }
+
+    strcpy(output_buffer, input_string);
+
     return ORBIS_OK;
 }
 

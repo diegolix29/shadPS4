@@ -282,8 +282,8 @@ int PS4_SYSV_ABI sceNpScoreRecordScoreAsync(s32 reqId, OrbisNpScoreBoardId board
                                             const OrbisNpScoreGameInfo* gameInfo,
                                             OrbisNpScoreRankNumber* tmpRank,
                                             const Rtc::OrbisRtcTick* compareDate, void* option);
-int PS4_SYSV_ABI sceNpScoreSanitizeComment(s32 reqId, const char* comment, char* sanitizedComment,
-                                           void* option);
+int PS4_SYSV_ABI sceNpScoreSanitizeComment(s32 request_handle, char* input_string,
+                                           char* output_buffer, void* options);
 int PS4_SYSV_ABI sceNpScoreSanitizeCommentAsync(s32 reqId, const char* comment,
                                                 char* sanitizedComment, void* option);
 int PS4_SYSV_ABI sceNpScoreSetPlayerCharacterId(s32 ctxId, OrbisNpScorePcId pcId);
