@@ -90,6 +90,7 @@ private:
     void OnGamepadEvent(const SDL_Event* event);
     void CheckHotkeys();
     void RelaunchEmulator();
+    void RelaunchEmulatorWithBigPicture();
 
     s32 width;
     s32 height;

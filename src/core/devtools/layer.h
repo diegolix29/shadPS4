@@ -32,6 +32,7 @@ public:
 
 namespace Overlay {
 
+void TextCentered(const std::string& text);
 void ToggleSimpleFps();
 void SetSimpleFps(bool enabled);
 void ToggleQuitWindow();

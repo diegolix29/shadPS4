@@ -326,6 +326,7 @@ struct GeneralSettings {
     Setting<std::string> active_controller_id{""};
     Setting<int> cpu_core_mode{0}; // 0 = All cores
     Setting<std::vector<int>> custom_cpu_cores{};
+    Setting<int> big_picture_scale{1000};
 
     // return a vector of override descriptors (runtime, but tiny)
     std::vector<OverrideItem> GetOverrideableFields() const {
@@ -371,7 +372,9 @@ struct GeneralSettings {
             make_override<GeneralSettings>("http_host_override",
                                            &GeneralSettings::http_host_override),
             make_override<GeneralSettings>("cpu_core_mode", &GeneralSettings::cpu_core_mode),
-            make_override<GeneralSettings>("custom_cpu_cores", &GeneralSettings::custom_cpu_cores)};
+            make_override<GeneralSettings>("custom_cpu_cores", &GeneralSettings::custom_cpu_cores),
+            make_override<GeneralSettings>("big_picture_scale",
+                                           &GeneralSettings::big_picture_scale)};
     }
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
@@ -385,7 +388,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
     always_show_changelog, disable_hardcoded_hotkeys, use_home_button_for_hotkeys, enable_mods,
     enable_updates, compatibility_enabled, check_compatibility_on_startup, http_host_override,
     first_boot_handled, choose_home_tab, default_controller_id, active_controller_id, cpu_core_mode,
-    custom_cpu_cores)
+    custom_cpu_cores, big_picture_scale)
 
 // -------------------------------
 // Debug settings
@@ -764,6 +767,7 @@ public:
     SETTING_FORWARD(m_general, ActiveControllerId, active_controller_id)
     SETTING_FORWARD(m_general, CpuCoreMode, cpu_core_mode)
     SETTING_FORWARD(m_general, CustomCpuCores, custom_cpu_cores)
+    SETTING_FORWARD(m_general, BigPictureScale, big_picture_scale)
 
     // Audio settings
     SETTING_FORWARD(m_audio, AudioBackend, audio_backend)

@@ -14,6 +14,7 @@
 #include "core/libraries/audio/audioout.h"
 #include "emulator.h"
 #include "game_directory_dialog.h"
+#include "imgui/big_picture.h"
 #include "iostream"
 #include "main_window.h"
 #include "main_window_themes.h"
@@ -78,6 +79,7 @@ int main(int argc, char* argv[]) {
 
     bool has_command_line_argument = argc > 1;
     bool show_gui = false, has_game_argument = false;
+    bool big_picture_mode = false;
     std::string game_path;
     std::vector<std::string> game_arg{};
 
@@ -110,6 +112,7 @@ int main(int argc, char* argv[]) {
                     "  -p, --patch <patch_file>      Apply specified patch file\n"
                     "  -i, --ignore-game-patch       Disable automatic loading of game patch\n"
                     "  -s, --show-gui                Show the GUI\n"
+                    "  -b, --bigpicture              Launch in Big Picture mode\n"
                     "  -f, --fullscreen <true|false> Specify window initial fullscreen "
                     "state. Does not overwrite the config file.\n"
                     "  --add-game-folder <folder>    Adds a new game folder to the config.\n"
@@ -130,6 +133,8 @@ int main(int argc, char* argv[]) {
 
         {"-s", [&](int&) { show_gui = true; }},
         {"--show-gui", [&](int& i) { arg_map["-s"](i); }},
+        {"-b", [&](int&) { big_picture_mode = true; }},
+        {"--bigpicture", [&](int& i) { arg_map["-b"](i); }},
 
         {"-g",
          [&](int& i) {
@@ -302,6 +307,16 @@ int main(int argc, char* argv[]) {
         }
 
         has_command_line_argument = true;
+    }
+
+    if (big_picture_mode) {
+        if (has_game_argument) {
+            std::cerr << "Error: Big picture mode cannot be used with a specific game. Use big "
+                         "picture mode to select games.\n";
+            exit(1);
+        }
+        BigPictureMode::Launch();
+        return 0;
     }
 
     if (has_game_argument) {

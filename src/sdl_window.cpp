@@ -22,6 +22,7 @@
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/system/userservice.h"
+#include "imgui/big_picture.h"
 #include "imgui/renderer/imgui_core.h"
 #include "input/controller.h"
 #include "input/input_handler.h"
@@ -276,6 +277,15 @@ void WindowSDL::WaitEvent() {
         is_open = false;
         RelaunchEmulator();
         break;
+    case SDL_EVENT_QUIT + 2:
+        // Launch big picture mode (direct call for command line)
+        BigPictureMode::Launch();
+        break;
+    case SDL_EVENT_QUIT + 3:
+        // Relaunch emulator in big picture mode
+        is_open = false;
+        RelaunchEmulatorWithBigPicture();
+        break;
 
     case SDL_EVENT_QUIT_DIALOG:
         Overlay::ToggleQuitWindow();
@@ -424,6 +434,70 @@ void WindowSDL::RelaunchEmulator() {
         }
     } else {
         qWarning() << "Failed to write relaunch bash script";
+    }
+#endif
+}
+
+void WindowSDL::RelaunchEmulatorWithBigPicture() {
+#ifdef Q_OS_WIN
+    QString emulatorPath = QCoreApplication::applicationFilePath(); // Get current executable path
+    QString emulatorDir = QFileInfo(emulatorPath).absolutePath();   // Get working directory
+    QString scriptFileName =
+        QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/relaunch_bigpicture.ps1";
+
+    // Use double quotes, remove unnecessary escaping, add -b argument for big picture mode
+    QString scriptContent =
+        QStringLiteral(
+            "Start-Sleep -Seconds 2\n"
+            "Start-Process -FilePath \"%1\" -WorkingDirectory \"%2\" -ArgumentList \"-b\"\n")
+            .arg(emulatorPath, emulatorDir);
+
+    QFile scriptFile(scriptFileName);
+    if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&scriptFile);
+        scriptFile.write("\xEF\xBB\xBF"); // UTF-8 BOM for PowerShell script
+        out << scriptContent;
+        scriptFile.close();
+
+        bool started =
+            QProcess::startDetached("powershell.exe", QStringList() << "-ExecutionPolicy"
+                                                                    << "Bypass"
+                                                                    << "-File" << scriptFileName);
+        if (!started) {
+            qWarning() << "Failed to start big picture relaunch PowerShell script";
+        }
+    } else {
+        qWarning() << "Failed to write big picture relaunch PowerShell script";
+    }
+
+#elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
+    QString emulatorPath = QCoreApplication::applicationFilePath();
+    QString scriptFileName = "/tmp/relaunch_bigpicture.sh";
+
+    // Use full absolute path, add -b argument for big picture mode
+    QString scriptContent = QStringLiteral("#!/bin/bash\n"
+                                           "sleep 2\n"
+                                           "exec \"%1\" -b \"$@\" &\n")
+                                .arg(emulatorPath);
+
+    QFile scriptFile(scriptFileName);
+    if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&scriptFile);
+        out << scriptContent;
+        scriptFile.close();
+
+        // Give full rwx for owner, and rx for others (safe for /tmp usage)
+        scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner |
+                                  QFileDevice::WriteOwner | QFileDevice::ExeGroup |
+                                  QFileDevice::ReadGroup | QFileDevice::ExeOther |
+                                  QFileDevice::ReadOther);
+
+        bool started = QProcess::startDetached("bash", QStringList() << scriptFileName);
+        if (!started) {
+            qWarning() << "Failed to start big picture relaunch bash script";
+        }
+    } else {
+        qWarning() << "Failed to write big picture relaunch bash script";
     }
 #endif
 }

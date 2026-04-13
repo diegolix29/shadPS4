@@ -27,6 +27,7 @@
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc.h"
 #include "emulator.h"
+#include "imgui/big_picture.h"
 
 #ifdef _WIN32
 #include <shellapi.h>
@@ -76,6 +77,7 @@ int main(int argc, char* argv[]) {
     bool show_gui = false;
     bool no_ipc = false;
     bool waitForDebugger = false;
+    bool big_picture_mode = false;
 
     std::string gamePath;
     std::string emulatorPath;
@@ -100,6 +102,7 @@ int main(int argc, char* argv[]) {
                           "  -f, --fullscreen <true|false> Set initial fullscreen state (does not "
                           "overwrite config)\n"
                           "  -s, --show-gui                Show GUI mode\n"
+                          "  -b, --bigpicture              Launch in Big Picture mode\n"
                           "  -I, --no-ipc                  Disable IPC subsystem\n"
                           "  --show-fps                    Enable FPS counter display at startup\n"
                           "  --add-game-folder <folder>    Add a new game folder to config\n"
@@ -166,6 +169,8 @@ int main(int argc, char* argv[]) {
 
         {"-s", [&](int&) { show_gui = true; }},
         {"--show-gui", [&](int& i) { arg_map["-s"](i); }},
+        {"-b", [&](int&) { big_picture_mode = true; }},
+        {"--bigpicture", [&](int& i) { arg_map["-b"](i); }},
         {"-I", [&](int&) { no_ipc = true; }},
         {"--no-ipc", [&](int& i) { arg_map["-I"](i); }},
 
@@ -316,6 +321,16 @@ int main(int argc, char* argv[]) {
         has_game_argument = true;
         for (const auto& a : emulatorArgs)
             gameArgs.push_back(a);
+    }
+
+    if (big_picture_mode) {
+        if (has_game_argument) {
+            std::cerr << "Error: Big picture mode cannot be used with a specific game. Use big "
+                         "picture mode to select games.\n";
+            return 1;
+        }
+        BigPictureMode::Launch();
+        return 0;
     }
 
     std::filesystem::path ebootPath(gamePath);

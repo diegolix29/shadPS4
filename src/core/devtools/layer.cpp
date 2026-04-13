@@ -129,6 +129,15 @@ static void SetupTheme() {
 
 namespace Overlay {
 
+void TextCentered(const std::string& text) {
+    float window_width = GetWindowSize().x;
+    float text_width = CalcTextSize(text.c_str()).x;
+    float text_indentation = (window_width - text_width) * 0.5f;
+
+    SameLine(text_indentation);
+    Text("%s", text.c_str());
+}
+
 void ToggleSimpleFps() {
     show_simple_fps = !show_simple_fps;
     visibility_toggled = true;
@@ -881,7 +890,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
 
     float btnWidth = 160.0f;
     float btnHeight = 40.0f;
-    float totalWidth = btnWidth * 5.0f + ImGui::GetStyle().ItemSpacing.x * 4.0f;
+    float totalWidth = btnWidth * 6.0f + ImGui::GetStyle().ItemSpacing.x * 5.0f;
     float centerPos = (ImGui::GetContentRegionAvail().x - totalWidth) * 0.5f;
 
     ImGui::SetCursorPosX(centerPos);
@@ -895,6 +904,13 @@ void L::DrawPauseStatusWindow(bool& is_open) {
     if (ImGui::Button("View Trophies", ImVec2(btnWidth, btnHeight))) {
         ImGui::OpenPopup("Quick Trophy List Viewer");
         dataLoaded = false;
+    }
+    ImGui::SameLine();
+
+    if (ImGui::Button("Big Picture", ImVec2(btnWidth, btnHeight))) {
+        SDL_Event event{};
+        event.type = SDL_EVENT_QUIT + 3;
+        SDL_PushEvent(&event);
     }
     ImGui::SameLine();
 

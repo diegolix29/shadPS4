@@ -2,11 +2,14 @@
 //  SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
 #include <imgui.h>
 
 #include "big_picture.h"
+#include "common/config.h"
 #include "common/logging/log.h"
 #include "core/devtools/layer.h"
+#include "core/emulator_settings.h"
 #include "core/file_format/psf.h"
 #include "emulator.h"
 #include "imgui/renderer/imgui_impl_sdl3_bpm.h"
@@ -302,20 +305,56 @@ std::filesystem::path UpdateChecker(const std::string sceItem, std::filesystem::
 
 void GetGameInfo() {
     gameVec.clear();
-    for (const auto& installLoc : EmulatorSettings.GetAllGameInstallDirs()) {
-        if (installLoc.enabled && std::filesystem::exists(installLoc.path)) {
-            for (const auto& entry : std::filesystem::directory_iterator(installLoc.path)) {
-                if (entry.path().filename().string().ends_with("-UPDATE") ||
-                    entry.path().filename().string().ends_with("-patch") || !entry.is_directory()) {
+    LOG_INFO(ImGui, "Starting game detection...");
+
+    auto gameDirs = Config::getGameDirectories();
+    auto enabledDirs = Config::getGameDirectoriesEnabled();
+    LOG_INFO(ImGui, "Found {} game directories", gameDirs.size());
+
+    for (size_t i = 0; i < gameDirs.size(); i++) {
+        const auto& installLoc = gameDirs[i];
+        bool enabled = (i < enabledDirs.size()) ? enabledDirs[i] : true;
+
+        LOG_INFO(ImGui, "Checking game directory: {} (enabled: {})", installLoc.string(), enabled);
+
+        if (enabled && std::filesystem::exists(installLoc)) {
+            int dirCount = 0;
+            for (const auto& entry : std::filesystem::directory_iterator(installLoc)) {
+                dirCount++;
+                std::string folderName = entry.path().filename().string();
+
+                LOG_DEBUG(ImGui, "Found folder: {}", folderName);
+
+                if (folderName.ends_with("-UPDATE") || folderName.ends_with("-patch") ||
+                    !entry.is_directory()) {
+                    LOG_DEBUG(ImGui, "Skipping folder: {} (UPDATE/patch or not directory)",
+                              folderName);
                     continue;
                 }
 
                 Game game;
                 game.ebootPath = entry.path() / "eboot.bin";
 
+                LOG_INFO(ImGui, "Checking game: {}", entry.path().string());
+                LOG_DEBUG(ImGui, "Eboot path: {}", game.ebootPath.string());
+
+                if (!std::filesystem::exists(game.ebootPath)) {
+                    LOG_WARNING(ImGui, "Eboot.bin not found in: {}", entry.path().string());
+                    continue;
+                }
+
                 const std::string iconFileName = "icon0.png";
                 std::filesystem::path iconPath = UpdateChecker(iconFileName, entry.path());
-                game.iconTexture = IMG_LoadTexture(renderer, iconPath.string().c_str());
+
+                if (std::filesystem::exists(iconPath)) {
+                    game.iconTexture = IMG_LoadTexture(renderer, iconPath.string().c_str());
+                    if (!game.iconTexture) {
+                        LOG_WARNING(ImGui, "Failed to load icon: {}", iconPath.string());
+                    }
+                } else {
+                    LOG_DEBUG(ImGui, "Icon not found: {}", iconPath.string());
+                    game.iconTexture = nullptr;
+                }
 
                 PSF psf;
                 const std::string sfoFileName = "param.sfo";
@@ -324,16 +363,28 @@ void GetGameInfo() {
                 if (psf.Open(sfoPath)) {
                     if (const auto title = psf.GetString("TITLE"); title.has_value()) {
                         game.title = *title;
+                        LOG_INFO(ImGui, "Found game: {} ({})", game.title,
+                                 entry.path().filename().string());
+                    } else {
+                        game.title = entry.path().filename().string();
+                        LOG_WARNING(ImGui, "No title found in param.sfo, using folder name: {}",
+                                    game.title);
                     }
                 } else {
-                    continue;
+                    LOG_WARNING(ImGui, "Failed to open param.sfo in: {}", entry.path().string());
+                    game.title = entry.path().filename().string();
                 }
 
                 gameVec.push_back(game);
                 focusState.push_back(false);
             }
+            LOG_INFO(ImGui, "Processed {} entries in directory: {}", dirCount, installLoc.string());
+        } else {
+            LOG_WARNING(ImGui, "Game directory not found or disabled: {}", installLoc.string());
         }
     }
+
+    LOG_INFO(ImGui, "Game detection complete. Found {} games", gameVec.size());
 }
 
 } // namespace BigPictureMode
