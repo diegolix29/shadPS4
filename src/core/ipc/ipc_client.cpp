@@ -71,9 +71,10 @@ void IpcClient::toggleFullscreen() {
     writeLine("TOGGLE_FULLSCREEN");
 }
 
-void IpcClient::adjustVol(int volume) {
+void IpcClient::adjustVol(int volume, bool is_game_specific) {
     writeLine("ADJUST_VOLUME");
     writeLine(QString::number(volume));
+    writeLine(QString::number(is_game_specific ? 1 : 0));
 }
 
 void IpcClient::setFsr(bool enable) {

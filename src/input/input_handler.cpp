@@ -826,13 +826,17 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             break;
         case HOTKEY_VOLUME_UP:
             if (new_button_state) {
-                Config::setVolumeSlider(Config::getVolumeSlider() + 10);
+                std::string game_serial = std::string(Common::ElfInfo::Instance().GameSerial());
+                bool is_game_specific = !game_serial.empty();
+                Config::setVolumeSlider(Config::getVolumeSlider() + 10, is_game_specific);
                 Overlay::ShowVolume();
             }
             break;
         case HOTKEY_VOLUME_DOWN:
             if (new_button_state) {
-                Config::setVolumeSlider(Config::getVolumeSlider() - 10);
+                std::string game_serial = std::string(Common::ElfInfo::Instance().GameSerial());
+                bool is_game_specific = !game_serial.empty();
+                Config::setVolumeSlider(Config::getVolumeSlider() - 10, is_game_specific);
                 Overlay::ShowVolume();
             }
             break;

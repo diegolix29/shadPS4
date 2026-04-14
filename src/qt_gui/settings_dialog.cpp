@@ -466,7 +466,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                     Config::setFpsLimit(fps_backup);
 
                     ui->horizontalVolumeSlider->setValue(volume_slider_backup);
-                    Config::setVolumeSlider(volume_slider_backup);
+                    Config::setVolumeSlider(volume_slider_backup, false);
 
                     ui->BGMVolumeSlider->setValue(bgm_volume_backup);
                     BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
@@ -1034,7 +1034,7 @@ void SettingsDialog::closeEvent(QCloseEvent* event) {
         ui->backgroundImageOpacitySlider->setValue(backgroundImageOpacitySlider_backup);
         emit BackgroundOpacityChanged(backgroundImageOpacitySlider_backup);
         ui->horizontalVolumeSlider->setValue(volume_slider_backup);
-        Config::setVolumeSlider(volume_slider_backup);
+        Config::setVolumeSlider(volume_slider_backup, false);
         ui->BGMVolumeSlider->setValue(bgm_volume_backup);
         BackgroundMusicPlayer::getInstance().setVolume(bgm_volume_backup);
         ui->fpsSlider->setValue(fps_backup);
@@ -1770,7 +1770,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setCollectShaderForDebug(ui->collectShaderCheckBox->isChecked());
     Config::setPatchShaders(ui->patchShadersCheckBox->isChecked());
     Config::setCopyGPUCmdBuffers(ui->copyGPUBuffersCheckBox->isChecked());
-    Config::setVolumeSlider(ui->horizontalVolumeSlider->value());
+    Config::setVolumeSlider(ui->horizontalVolumeSlider->value(), false);
     Config::setSysModulesPath(Common::FS::PathFromQString(ui->currentSysModulesPath->text()));
 
     Config::setAutoUpdate(ui->updateCheckBox->isChecked());

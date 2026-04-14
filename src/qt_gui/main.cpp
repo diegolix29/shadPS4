@@ -450,7 +450,8 @@ int main(int argc, char* argv[]) {
                     SDL_PushEvent(&e);
                 } else if (cmd == "ADJUST_VOLUME") {
                     int value = static_cast<int>(std::stoull(next_str(), nullptr, 0));
-                    Config::setVolumeSlider(value);
+                    bool is_game_specific = next_u64() != 0;
+                    Config::setVolumeSlider(value, is_game_specific);
                     Libraries::AudioOut::AdjustVol();
                 } else if (cmd == "SET_FSR") {
                     bool use_fsr = std::stoull(next_str(), nullptr, 0) != 0;

@@ -29,7 +29,7 @@ public:
     void stopEmulator();
     void restartEmulator();
     void toggleFullscreen();
-    void adjustVol(int volume);
+    void adjustVol(int volume, bool is_game_specific = false);
     void setFsr(bool enable);
     void setRcas(bool enable);
     void setRcasAttenuation(int value);

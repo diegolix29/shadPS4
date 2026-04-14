@@ -820,8 +820,8 @@ int getVolumeSlider() {
     return volumeSlider.get();
 }
 
-void setVolumeSlider(int volumeValue) {
-    volumeSlider.set(volumeValue, is_game_specific_context);
+void setVolumeSlider(int volumeValue, bool is_game_specific) {
+    volumeSlider.set(volumeValue, is_game_specific);
 }
 
 bool isMuteEnabled() {

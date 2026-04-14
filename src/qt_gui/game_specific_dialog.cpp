@@ -430,7 +430,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         VolumeSliderChange(value);
 
         if (Config::getGameRunning())
-            m_ipc_client->adjustVol(value);
+            m_ipc_client->adjustVol(value, true);
     });
     ui->horizontalVolumeSlider->blockSignals(true);
     ui->horizontalVolumeSlider->setValue(Config::getVolumeSlider());
@@ -805,6 +805,7 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["DisableHardcodedHotkeys"] = ui->HotkeysCheckBox->isChecked();
     overrides["General"]["UseHomeButtonForHotkeys"] = ui->HomeHotkeysCheckBox->isChecked();
     overrides["General"]["volumeSlider"] = ui->horizontalVolumeSlider->value();
+    Config::setVolumeSlider(ui->horizontalVolumeSlider->value(), true);
     overrides["General"]["isConnectedToNetwork"] = ui->connectedNetworkCheckBox->isChecked();
     overrides["General"]["useHostMemoryFallback"] = ui->useHostMemoryFallbackCheckBox->isChecked();
     overrides["General"]["memoryCompressionLevel"] = ui->memoryCompressionComboBox->currentIndex();
