@@ -325,8 +325,8 @@ static int backgroundImageOpacity = 50;
 static bool showBackgroundImage = true;
 static bool descriptionVisible = true;
 static ConfigEntry<bool> enableAutoBackup(false);
-static bool showLabelsUnderIcons = true;
-static bool enableColorFilter = true;
+static ConfigEntry<bool> showLabelsUnderIcons(true);
+static ConfigEntry<bool> enableColorFilter(true);
 static std::string updateChannel;
 static ConfigEntry<int> volumeSlider(100);
 static ConfigEntry<bool> muteEnabled(false);
@@ -654,19 +654,19 @@ bool getIsFullscreen() {
 }
 
 bool getShowLabelsUnderIcons() {
-    return showLabelsUnderIcons;
+    return showLabelsUnderIcons.get();
 }
 
 void setShowLabelsUnderIcons(bool enable) {
-    showLabelsUnderIcons = enable;
+    showLabelsUnderIcons.set(enable, is_game_specific_context);
 }
 
 bool getEnableColorFilter() {
-    return enableColorFilter;
+    return enableColorFilter.get();
 }
 
 void setEnableColorFilter(bool enable) {
-    enableColorFilter = enable;
+    enableColorFilter.set(enable, is_game_specific_context);
 }
 
 string getFullscreenMode() {
@@ -1857,7 +1857,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             settings_addon_directories = addon_dir2;
         }
         save_data_path = toml::find_fs_path_or(gui, "saveDataPath", save_data_path);
-
+        showLabelsUnderIcons.setFromToml(gui, "showLabelsUnderIcons", false);
+        enableColorFilter.setFromToml(gui, "enableColorFilter", false);
         m_elf_viewer = toml::find_or<std::vector<std::string>>(gui, "elfDirs", {});
         m_recent_files = toml::find_or<std::vector<std::string>>(gui, "recentFiles", {});
     }
@@ -2261,8 +2262,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["GUI"]["saveDataPath"] = std::string{fmt::UTF(save_data_path.u8string()).data};
     data["GUI"]["loadGameSizeEnabled"] = load_game_size;
     data["GUI"]["CustomBackgroundImage"] = g_customBackgroundImage;
-    data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
-    data["GUI"]["enableColorFilter"] = enableColorFilter;
+    data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons.get();
+    data["GUI"]["enableColorFilter"] = enableColorFilter.get();
     data["GUI"]["backgroundImageOpacity"] = backgroundImageOpacity;
     data["GUI"]["showBackgroundImage"] = showBackgroundImage;
     data["GUI"]["descriptionVisible"] = descriptionVisible;
@@ -2270,17 +2271,29 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["GUI"]["nexusApiKey"] = nexus_api_key;
     data["GUI"]["isQT"] = isQT;
     data["GUI"]["isSDL"] = isSDL;
-    data["Settings"]["consoleLanguage"] = m_language;
-    toml::value shader_skip_data;
-    for (const auto& [game_id, hashes] : all_skipped_shader_hashes) {
-        std::vector<toml::value> hash_values;
-        for (const auto& hash : hashes) {
-            hash_values.emplace_back(hash);
-        }
-        shader_skip_data[game_id] = hash_values;
-    }
 
-    data["ShaderSkip"] = shader_skip_data;
+    data["GUI"]["mw_width"] = m_window_size_W;
+    data["GUI"]["mw_height"] = m_window_size_H;
+    data["GUI"]["theme"] = mw_themes;
+    data["GUI"]["iconSize"] = m_icon_size;
+    data["GUI"]["sliderPos"] = m_slider_pos;
+    data["GUI"]["iconSizeGrid"] = m_icon_size_grid;
+    data["GUI"]["sliderPosGrid"] = m_slider_pos_grid;
+    data["GUI"]["gameTableMode"] = m_table_mode;
+    data["GUI"]["geometry_x"] = main_window_geometry_x;
+    data["GUI"]["geometry_y"] = main_window_geometry_y;
+    data["GUI"]["geometry_w"] = main_window_geometry_w;
+    data["GUI"]["geometry_h"] = main_window_geometry_h;
+    data["GUI"]["elfDirs"] = m_elf_viewer;
+    data["GUI"]["recentFiles"] = m_recent_files;
+    data["GUI"]["launcher_boot"] = launcher_boot;
+    data["GUI"]["guiStyle"] = guiStyle;
+    data["GUI"]["version_path"] = version_path;
+    toml::value toolbar_map = toml::table{};
+    for (const auto& [name, visible] : toolbar_visibility_settings) {
+        toolbar_map[name] = visible;
+    }
+    data["GUI"]["ToolbarVisibility"] = toolbar_map;
 
     sortTomlSections(data);
 
@@ -2327,8 +2340,8 @@ void saveMainWindow(const std::filesystem::path& path) {
     data["GUI"]["geometry_h"] = main_window_geometry_h;
     data["GUI"]["elfDirs"] = m_elf_viewer;
     data["GUI"]["recentFiles"] = m_recent_files;
-    data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons;
-    data["GUI"]["enableColorFilter"] = enableColorFilter;
+    data["GUI"]["showLabelsUnderIcons"] = showLabelsUnderIcons.get();
+    data["GUI"]["enableColorFilter"] = enableColorFilter.get();
     data["GUI"]["launcher_boot"] = launcher_boot;
     data["GUI"]["guiStyle"] = guiStyle;
     data["GUI"]["version_path"] = version_path;
