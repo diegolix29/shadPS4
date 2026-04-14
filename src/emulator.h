@@ -30,11 +30,8 @@ public:
              std::optional<std::filesystem::path> game_folder = {});
     void UpdatePlayTime(const std::string& serial);
 
-    /**
-     * This will kill the current process and launch a new process with the same configuration
-     * (using CLI args) but replacing the eboot image and guest arguments
-     */
-    void Restart(std::filesystem::path eboot_path, const std::vector<std::string>& guest_args = {});
+    void Restart(std::filesystem::path eboot_path, const std::vector<std::string>& guest_args = {},
+                 std::filesystem::path game_root = {});
 
     const char* executableName;
     bool waitForDebuggerBeforeRun{false};

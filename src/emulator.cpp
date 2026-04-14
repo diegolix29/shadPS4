@@ -66,12 +66,10 @@ Frontend::WindowSDL* g_window = nullptr;
 namespace Core {
 
 Emulator::Emulator() {
-    // Initialize NT API functions, set high priority and disable WER
 #ifdef _WIN32
     Common::NtApi::Initialize();
     SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
     SetErrorMode(SetErrorMode(0) | SEM_NOGPFAULTERRORBOX);
-    // need to init this in order for winsock2 to work
     WORD versionWanted = MAKEWORD(2, 2);
     WSADATA wsaData;
     WSAStartup(versionWanted, &wsaData);
@@ -122,8 +120,6 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         if (const auto game_folder_name = game_folder.filename().string();
             game_folder_name.ends_with("-UPDATE") || game_folder_name.ends_with("-patch") ||
             game_folder_name.ends_with("-mods")) {
-            // If an executable was launched from a separate update directory,
-            // use the base game directory as the game folder.
             const std::string base_name = game_folder_name.substr(0, game_folder_name.rfind('-'));
             const auto base_path = game_folder.parent_path() / base_name;
             if (std::filesystem::is_directory(base_path)) {
@@ -134,16 +130,13 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     std::filesystem::path eboot_name = std::filesystem::relative(file, game_folder);
 
-    // Applications expect to be run from /app0 so mount the file's parent path as app0.
     auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
     mnt->Mount(game_folder, "/app0", true);
-    // Certain games may use /hostapp as well such as CUSA001100
     mnt->Mount(game_folder, "/hostapp", true);
 
     const auto param_sfo_path = mnt->GetHostPath("/app0/sce_sys/param.sfo");
     const auto param_sfo_exists = std::filesystem::exists(param_sfo_path);
 
-    // Load param.sfo details if it exists
     std::string id;
     std::string title;
     std::string app_version;
@@ -168,26 +161,20 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
             psf_attributes.raw = *raw_attributes;
         }
 
-        // Extract sdk version from pubtool info.
         std::string_view pubtool_info =
             param_sfo->GetString("PUBTOOLINFO").value_or("Unknown value");
         u64 sdk_ver_offset = pubtool_info.find("sdk_ver");
 
         if (sdk_ver_offset == pubtool_info.npos) {
-            // Default to using firmware version if SDK version is not found.
             sdk_version = fw_version;
         } else {
-            // Increment offset to account for sdk_ver= part of string.
             sdk_ver_offset += 8;
             u64 sdk_ver_len = pubtool_info.find(",", sdk_ver_offset);
             if (sdk_ver_len == pubtool_info.npos) {
-                // If there's no more commas, this is likely the last entry of pubtool info.
-                // Use string length instead.
                 sdk_ver_len = pubtool_info.size();
             }
             sdk_ver_len -= sdk_ver_offset;
             std::string sdk_ver_string = pubtool_info.substr(sdk_ver_offset, sdk_ver_len).data();
-            // Number is stored in base 16.
             sdk_version = std::stoi(sdk_ver_string, nullptr, 16);
         }
     }
@@ -215,7 +202,6 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     Config::load(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (id + ".toml"),
                  true);
 
-    // Initialize logging as soon as possible
     if (!id.empty() && Config::getSeparateLogFilesEnabled()) {
         Common::Log::Initialize(id + ".log");
     } else {
@@ -303,18 +289,14 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         }
     }
 
-    // Create stdin/stdout/stderr
     Common::Singleton<FileSys::HandleTable>::Instance()->CreateStdHandles();
 
-    // Initialize components
     memory = Core::Memory::Instance();
     controllers = Common::Singleton<Input::GameControllers>::Instance();
     linker = Common::Singleton<Core::Linker>::Instance();
 
-    // Load renderdoc module
     VideoCore::LoadRenderDoc();
 
-    // Initialize patcher and trophies
     if (!id.empty()) {
         MemoryPatcher::g_game_serial = id;
         Libraries::Np::NpTrophy::game_serial = id;
@@ -362,12 +344,10 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     if (!std::filesystem::exists(mount_data_dir)) {
         std::filesystem::create_directory(mount_data_dir);
     }
-    mnt->Mount(mount_data_dir, "/data"); // should just exist, manually create with game serial
+    mnt->Mount(mount_data_dir, "/data");
 
-    // Mounting temp folders
     const auto& mount_temp_dir = Common::FS::GetUserPath(Common::FS::PathType::TempDataDir) / id;
     if (std::filesystem::exists(mount_temp_dir)) {
-        // Temp folder should be cleared on each boot.
         std::filesystem::remove_all(mount_temp_dir);
     }
     std::filesystem::create_directory(mount_temp_dir);
@@ -387,13 +367,11 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
     VideoCore::SetOutputDir(mount_captures_dir, id);
 
-    // Mount system fonts
     const auto& fonts_dir = Config::getFontsPath();
     if (!std::filesystem::exists(fonts_dir)) {
         std::filesystem::create_directory(fonts_dir);
     }
 
-    // Fonts are mounted into the sandboxed system directory, construct the appropriate path.
     const char* sandbox_root = Libraries::Kernel::sceKernelGetFsSandboxRandomWord();
     std::string guest_font_dir = "/";
     guest_font_dir.append(sandbox_root).append("/common/font");
@@ -403,7 +381,6 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
     mnt->Mount(host_font_dir, guest_font_dir);
 
-    // There is a second font directory, mount that too.
     guest_font_dir.append("2");
     const auto& host_font2_dir = fonts_dir / "font2";
     if (!std::filesystem::exists(host_font2_dir)) {
@@ -415,20 +392,16 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         LOG_WARNING(Loader, "No dumped system fonts, expect missing text or instability");
     }
 
-    // Initialize kernel and library facilities.
     Libraries::InitHLELibs(&linker->GetHLESymbols());
 
-    // Load the module with the linker
     if (linker->LoadModule(eboot_path) == -1) {
         LOG_CRITICAL(Loader, "Failed to load game's eboot.bin: {}",
                      Common::FS::PathToUTF8String(std::filesystem::absolute(eboot_path)));
         std::quick_exit(0);
     }
 
-    // check if we have system modules to load
     LoadSystemModules(game_info.game_serial);
 
-    // Load all prx from game's sce_module folder
     mnt->IterateDirectory("/app0/sce_module", [this](const auto& path, const auto is_file) {
         if (is_file) {
             LOG_INFO(Loader, "Loading {}", fmt::UTF(path.u8string()));
@@ -472,12 +445,17 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     std::quick_exit(0);
 }
 
-void Emulator::Restart(std::filesystem::path eboot_path,
-                       const std::vector<std::string>& guest_args) {
+void Emulator::Restart(std::filesystem::path eboot_path, const std::vector<std::string>& guest_args,
+                       std::filesystem::path game_root) {
     std::vector<std::string> args;
 
-    auto mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
-    auto game_path = mnt->GetHostPath("/app0");
+    std::filesystem::path game_path;
+    if (!game_root.empty()) {
+        game_path = game_root;
+    } else {
+        auto mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
+        game_path = mnt->GetHostPath("/app0");
+    }
 
     args.push_back("--log-append");
     args.push_back("--game");
@@ -523,7 +501,6 @@ void Emulator::Restart(std::filesystem::path eboot_path,
     }
 #if defined(_WIN32)
     std::string cmdline;
-    // Emulator executable
     cmdline += "\"";
     cmdline += executableName;
     cmdline += "\"";
@@ -550,7 +527,6 @@ void Emulator::Restart(std::filesystem::path eboot_path,
 #elif defined(__APPLE__) || defined(__linux__) || defined(__FreeBSD__)
     std::vector<char*> argv;
 
-    // Emulator executable
     argv.push_back(const_cast<char*>(executableName));
 
     for (const auto& arg : args) {
@@ -560,7 +536,6 @@ void Emulator::Restart(std::filesystem::path eboot_path,
 
     pid_t pid = fork();
     if (pid == 0) {
-        // Child process - execute the new instance
         execvp(executableName, argv.data());
         std::cerr << "Failed to restart game: execvp failed" << std::endl;
         std::quick_exit(1);

@@ -34,6 +34,8 @@ static int scaleSelected = 1;
 static SDL_Window* window = nullptr;
 static SDL_Renderer* renderer = nullptr;
 
+void DestroyGameTextures(); // forward declaration
+
 void Launch() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         LOG_ERROR(ImGui, "SDL_INIT_VIDEO Error: {}", SDL_GetError());
@@ -226,6 +228,7 @@ void Launch() {
         SDL_RenderPresent(renderer);
     }
 
+    DestroyGameTextures();
     ImGui_ImplSDLRenderer3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
@@ -303,8 +306,19 @@ std::filesystem::path UpdateChecker(const std::string sceItem, std::filesystem::
     return outputPath;
 }
 
+void DestroyGameTextures() {
+    for (auto& game : gameVec) {
+        if (game.iconTexture) {
+            SDL_DestroyTexture(game.iconTexture);
+            game.iconTexture = nullptr;
+        }
+    }
+}
+
 void GetGameInfo() {
+    DestroyGameTextures();
     gameVec.clear();
+    focusState.clear();
     LOG_INFO(ImGui, "Starting game detection...");
 
     auto gameDirs = Config::getGameDirectories();

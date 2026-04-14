@@ -30,14 +30,18 @@
 #include "options.h"
 #include "sdl_window.h"
 
+#include <cmrc/cmrc.hpp>
+#include "core/file_format/psf.h"
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc.h"
+#include "imgui/imgui_texture.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
 #include "widget/frame_dump.h"
 #include "widget/frame_graph.h"
 #include "widget/memory_map.h"
 #include "widget/module_list.h"
 #include "widget/shader_list.h"
+CMRC_DECLARE(res);
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
 extern Frontend::WindowSDL* g_window;
@@ -75,7 +79,12 @@ static bool showTrophyViewer = false;
 
 struct CachedTrophy {
     std::string name;
+    std::string trophyType;
+    std::string id;
     bool unlocked;
+    std::filesystem::path iconPath;
+    ImGui::RefCountedTexture iconTex;
+    ImGui::RefCountedTexture typeTex;
 };
 
 struct CachedTrophyFile {
@@ -442,13 +451,13 @@ void L::DrawSimple() {
     const float frameRate = DebugState.Framerate;
 
     if (frameRate < 10.0f) {
-        PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // Red
+        PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
     } else if (frameRate < 30.0f) {
-        PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f)); // Orange
+        PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f));
     } else if (frameRate <= 60.0f) {
-        PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f)); // Green
+        PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
     } else {
-        PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.7f, 1.0f, 1.0f)); // Light blue
+        PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
     }
 
     const float ms = frameRate > 0.0f ? (1000.0f / frameRate) : 0.0f;
@@ -642,7 +651,7 @@ void L::SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame 
     overrides["GPU"]["rcasAttenuation"] = Config::getRcasAttenuation();
     overrides["GPU"]["readbackLinearImages"] = Config::getReadbackLinearImages();
     overrides["GPU"]["shaderSkipsEnabled"] = Config::getShaderSkipsEnabled();
-    overrides["GPU"]["directMemoryAccessEnabled"] = Config::directMemoryAccess();
+    overrides["GPU"]["directMemoryAccess"] = Config::directMemoryAccess();
     overrides["GPU"]["readbackSpeedMode"] = static_cast<int>(Config::readbackSpeed());
     overrides["GPU"]["presentMode"] = Config::getPresentMode();
 
@@ -1010,6 +1019,9 @@ void L::DrawPauseStatusWindow(bool& is_open) {
                                     CachedTrophy t;
                                     t.unlocked = false;
                                     cachedTrophies.totalCount++;
+                                    t.id = reader.attributes().value("id").toString().toStdString();
+                                    t.trophyType =
+                                        reader.attributes().value("ttype").toString().toStdString();
 
                                     if (reader.attributes().hasAttribute("unlockstate") &&
                                         reader.attributes().value("unlockstate").toString() ==
@@ -1029,7 +1041,33 @@ void L::DrawPauseStatusWindow(bool& is_open) {
                                     currentFile.trophies.push_back(t);
                                 }
                             }
-                            cachedTrophies.files.push_back(currentFile);
+                            for (auto& trophy : currentFile.trophies) {
+                                std::string iconFileName = "TROP" + trophy.id + ".PNG";
+                                std::filesystem::path iconsDir = dirEntry.path() / "Icons";
+                                trophy.iconPath = iconsDir / iconFileName;
+                                if (std::filesystem::exists(trophy.iconPath)) {
+                                    trophy.iconTex =
+                                        ImGui::RefCountedTexture::DecodePngFile(trophy.iconPath);
+                                }
+                                std::string gradeFile;
+                                if (trophy.trophyType == "P")
+                                    gradeFile = "src/images/platinum.png";
+                                else if (trophy.trophyType == "G")
+                                    gradeFile = "src/images/gold.png";
+                                else if (trophy.trophyType == "S")
+                                    gradeFile = "src/images/silver.png";
+                                else
+                                    gradeFile = "src/images/bronze.png";
+                                auto resource = cmrc::res::get_filesystem();
+                                try {
+                                    auto resFile = resource.open(gradeFile);
+                                    std::vector<u8> imgdata(resFile.begin(), resFile.end());
+                                    trophy.typeTex = ImGui::RefCountedTexture::DecodePngTexture(
+                                        std::move(imgdata));
+                                } catch (...) {
+                                }
+                            }
+                            cachedTrophies.files.push_back(std::move(currentFile));
                         }
 #endif
                     }
@@ -1064,28 +1102,49 @@ void L::DrawPauseStatusWindow(bool& is_open) {
             ImGui::BeginChild("TrophyList", ImVec2(0, -40), true);
             for (const auto& fileData : cachedTrophies.files) {
                 if (ImGui::CollapsingHeader(fileData.id.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-                    if (ImGui::BeginTable("TrophyTable", 2,
-                                          ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV)) {
+                    if (ImGui::BeginTable("TrophyTable", 4,
+                                          ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
+                                              ImGuiTableFlags_ScrollY)) {
+                        ImGui::TableSetupColumn("##grade", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+                        ImGui::TableSetupColumn("##icon", ImGuiTableColumnFlags_WidthFixed, 56.0f);
                         ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 60.0f);
                         ImGui::TableSetupColumn("Trophy Name", ImGuiTableColumnFlags_WidthStretch);
+                        ImGui::TableHeadersRow();
 
                         for (const auto& trophy : fileData.trophies) {
-                            ImGui::TableNextRow();
+                            ImGui::TableNextRow(ImGuiTableRowFlags_None, 52.0f);
 
                             ImGui::TableSetColumnIndex(0);
-                            ImGui::PushStyleColor(ImGuiCol_Text, trophy.unlocked
-                                                                     ? ImVec4(0, 1, 0, 1)
-                                                                     : ImVec4(0.5, 0.5, 0.5, 1));
-                            const char* statusText = trophy.unlocked ? "[O]" : "[ ]";
-                            float statusOffset =
-                                (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusText).x) *
-                                0.5f;
-                            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusOffset);
-                            ImGui::TextUnformatted(statusText);
-                            ImGui::PopStyleColor();
+                            if (trophy.typeTex) {
+                                auto typeImg = trophy.typeTex.GetTexture();
+                                ImGui::Image(typeImg.im_id, ImVec2(36.0f, 36.0f));
+                            }
 
                             ImGui::TableSetColumnIndex(1);
-                            ImGui::TextUnformatted(trophy.name.c_str());
+                            if (trophy.iconTex) {
+                                auto img = trophy.iconTex.GetTexture();
+                                if (!trophy.unlocked)
+                                    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.35f);
+                                ImGui::Image(img.im_id, ImVec2(50.0f, 50.0f));
+                                if (!trophy.unlocked)
+                                    ImGui::PopStyleVar();
+                            }
+
+                            ImGui::TableSetColumnIndex(2);
+                            if (trophy.unlocked) {
+                                ImGui::PushStyleColor(ImGuiCol_Text,
+                                                      ImVec4(0.2f, 1.0f, 0.3f, 1.0f));
+                                ImGui::TextUnformatted("Unlocked");
+                                ImGui::PopStyleColor();
+                            } else {
+                                ImGui::PushStyleColor(ImGuiCol_Text,
+                                                      ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+                                ImGui::TextUnformatted("Locked");
+                                ImGui::PopStyleColor();
+                            }
+
+                            ImGui::TableSetColumnIndex(3);
+                            ImGui::TextWrapped("%s", trophy.name.c_str());
                         }
                         ImGui::EndTable();
                     }
@@ -1255,6 +1314,140 @@ void L::DrawPauseStatusWindow(bool& is_open) {
                                      return 0;
                                  })) {
                 Config::setLogFilter(std::string(filter_buf));
+            }
+
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Change Game")) {
+            ImGui::Spacing();
+
+            struct PauseMenuGame {
+                std::string title;
+                std::filesystem::path ebootPath;
+                ImGui::RefCountedTexture iconTex;
+            };
+            static std::vector<PauseMenuGame> pauseGameList;
+            static bool pauseGameListLoaded = false;
+
+            if (!pauseGameListLoaded) {
+                pauseGameList.clear();
+
+                auto gameDirs = Config::getGameDirectories();
+                auto enabledDirs = Config::getGameDirectoriesEnabled();
+
+                auto updateChecker =
+                    [](const std::string& sceItem,
+                       const std::filesystem::path& gameFolder) -> std::filesystem::path {
+                    auto updateFolder = gameFolder;
+                    updateFolder += "-UPDATE";
+                    auto patchFolder = gameFolder;
+                    patchFolder += "-patch";
+                    if (std::filesystem::exists(updateFolder / "sce_sys" / sceItem))
+                        return updateFolder / "sce_sys" / sceItem;
+                    if (std::filesystem::exists(patchFolder / "sce_sys" / sceItem))
+                        return patchFolder / "sce_sys" / sceItem;
+                    return gameFolder / "sce_sys" / sceItem;
+                };
+
+                for (size_t i = 0; i < gameDirs.size(); i++) {
+                    const auto& installLoc = gameDirs[i];
+                    bool enabled = (i < enabledDirs.size()) ? enabledDirs[i] : true;
+                    if (!enabled || !std::filesystem::exists(installLoc))
+                        continue;
+
+                    for (const auto& entry : std::filesystem::directory_iterator(installLoc)) {
+                        std::string folderName = entry.path().filename().string();
+                        if (folderName.ends_with("-UPDATE") || folderName.ends_with("-patch") ||
+                            !entry.is_directory())
+                            continue;
+
+                        std::filesystem::path ebootPath = entry.path() / "eboot.bin";
+                        if (!std::filesystem::exists(ebootPath))
+                            continue;
+
+                        PauseMenuGame game;
+                        game.ebootPath = ebootPath;
+
+                        PSF psf;
+                        auto sfoPath = updateChecker("param.sfo", entry.path());
+                        if (psf.Open(sfoPath)) {
+                            if (auto title = psf.GetString("TITLE"); title.has_value())
+                                game.title = *title;
+                            else
+                                game.title = folderName;
+                        } else {
+                            game.title = folderName;
+                        }
+
+                        auto iconPath = updateChecker("icon0.png", entry.path());
+                        if (std::filesystem::exists(iconPath)) {
+                            game.iconTex = ImGui::RefCountedTexture::DecodePngFile(iconPath);
+                        }
+
+                        pauseGameList.push_back(std::move(game));
+                    }
+                }
+                pauseGameListLoaded = true;
+            }
+
+            ImGui::TextDisabled("Select a game below to switch. Current game will restart.");
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            if (pauseGameList.empty()) {
+                ImGui::TextColored(ImVec4(1, 0.6f, 0.2f, 1),
+                                   "No games found in configured game directories.");
+            } else {
+                const float iconSize = 80.0f;
+                const float itemPadding = 12.0f;
+                const float itemWidth = iconSize + itemPadding * 2.0f + 100.0f;
+                float availWidth = ImGui::GetContentRegionAvail().x;
+                int cols = std::max(1, (int)(availWidth / (iconSize + 160.0f)));
+
+                ImGui::BeginChild("GameListScrollRegion", ImVec2(0, -30), true);
+
+                for (int i = 0; i < (int)pauseGameList.size(); i++) {
+                    const auto& game = pauseGameList[i];
+
+                    ImGui::PushID(i);
+                    ImGui::BeginGroup();
+
+                    if (game.iconTex) {
+                        auto img = game.iconTex.GetTexture();
+                        if (ImGui::ImageButton("##icon", img.im_id, ImVec2(iconSize, iconSize))) {
+                            auto* emulator = Common::Singleton<::Core::Emulator>::Instance();
+                            emulator->Restart(game.ebootPath, {}, game.ebootPath.parent_path());
+                        }
+                    } else {
+                        if (ImGui::Button("?", ImVec2(iconSize, iconSize))) {
+                            auto* emulator = Common::Singleton<::Core::Emulator>::Instance();
+                            emulator->Restart(game.ebootPath, {}, game.ebootPath.parent_path());
+                        }
+                    }
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Launch: %s", game.title.c_str());
+                    }
+
+                    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + iconSize);
+                    ImGui::TextWrapped("%s", game.title.c_str());
+                    ImGui::PopTextWrapPos();
+
+                    ImGui::EndGroup();
+                    ImGui::PopID();
+
+                    bool lastInRow = ((i + 1) % cols == 0) || (i + 1 == (int)pauseGameList.size());
+                    if (!lastInRow) {
+                        ImGui::SameLine(0.0f, itemPadding);
+                    } else {
+                        ImGui::Dummy(ImVec2(0.0f, itemPadding));
+                    }
+                }
+                ImGui::EndChild();
+
+                if (ImGui::SmallButton("Refresh Game List")) {
+                    pauseGameListLoaded = false;
+                }
             }
 
             ImGui::EndTabItem();
@@ -1783,6 +1976,14 @@ void L::Draw() {
                                         CachedTrophy t;
                                         t.unlocked = false;
                                         cachedTrophies.totalCount++;
+                                        t.id = reader.attributes()
+                                                   .value("id")
+                                                   .toString()
+                                                   .toStdString();
+                                        t.trophyType = reader.attributes()
+                                                           .value("ttype")
+                                                           .toString()
+                                                           .toStdString();
 
                                         if (reader.attributes().hasAttribute("unlockstate") &&
                                             reader.attributes().value("unlockstate").toString() ==
@@ -1802,7 +2003,33 @@ void L::Draw() {
                                         currentFile.trophies.push_back(t);
                                     }
                                 }
-                                cachedTrophies.files.push_back(currentFile);
+                                for (auto& trophy : currentFile.trophies) {
+                                    std::string iconFileName = "TROP" + trophy.id + ".PNG";
+                                    std::filesystem::path iconsDir = dirEntry.path() / "Icons";
+                                    trophy.iconPath = iconsDir / iconFileName;
+                                    if (std::filesystem::exists(trophy.iconPath)) {
+                                        trophy.iconTex = ImGui::RefCountedTexture::DecodePngFile(
+                                            trophy.iconPath);
+                                    }
+                                    std::string gradeFile;
+                                    if (trophy.trophyType == "P")
+                                        gradeFile = "src/images/platinum.png";
+                                    else if (trophy.trophyType == "G")
+                                        gradeFile = "src/images/gold.png";
+                                    else if (trophy.trophyType == "S")
+                                        gradeFile = "src/images/silver.png";
+                                    else
+                                        gradeFile = "src/images/bronze.png";
+                                    auto resource = cmrc::res::get_filesystem();
+                                    try {
+                                        auto resFile = resource.open(gradeFile);
+                                        std::vector<u8> imgdata(resFile.begin(), resFile.end());
+                                        trophy.typeTex = ImGui::RefCountedTexture::DecodePngTexture(
+                                            std::move(imgdata));
+                                    } catch (...) {
+                                    }
+                                }
+                                cachedTrophies.files.push_back(std::move(currentFile));
                             }
 #endif
                         }
@@ -1830,31 +2057,54 @@ void L::Draw() {
                 for (const auto& fileData : cachedTrophies.files) {
                     if (ImGui::CollapsingHeader(fileData.id.c_str(),
                                                 ImGuiTreeNodeFlags_DefaultOpen)) {
-                        if (ImGui::BeginTable("TrophyTableFull", 2,
+                        if (ImGui::BeginTable("TrophyTableFull", 4,
                                               ImGuiTableFlags_RowBg |
-                                                  ImGuiTableFlags_BordersInnerV)) {
+                                                  ImGuiTableFlags_BordersInnerV |
+                                                  ImGuiTableFlags_ScrollY)) {
+                            ImGui::TableSetupColumn("##grade", ImGuiTableColumnFlags_WidthFixed,
+                                                    40.0f);
+                            ImGui::TableSetupColumn("##icon", ImGuiTableColumnFlags_WidthFixed,
+                                                    56.0f);
                             ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed,
-                                                    60.0f);
+                                                    70.0f);
                             ImGui::TableSetupColumn("Trophy Name",
                                                     ImGuiTableColumnFlags_WidthStretch);
+                            ImGui::TableHeadersRow();
 
                             for (const auto& trophy : fileData.trophies) {
-                                ImGui::TableNextRow();
+                                ImGui::TableNextRow(ImGuiTableRowFlags_None, 52.0f);
 
                                 ImGui::TableSetColumnIndex(0);
-                                ImGui::PushStyleColor(ImGuiCol_Text,
-                                                      trophy.unlocked ? ImVec4(0, 1, 0, 1)
-                                                                      : ImVec4(0.5, 0.5, 0.5, 1));
-                                const char* statusText = trophy.unlocked ? "[O]" : "[ ]";
-                                float statusOffset =
-                                    (ImGui::GetColumnWidth() - ImGui::CalcTextSize(statusText).x) *
-                                    0.5f;
-                                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + statusOffset);
-                                ImGui::TextUnformatted(statusText);
-                                ImGui::PopStyleColor();
+                                if (trophy.typeTex) {
+                                    auto typeImg = trophy.typeTex.GetTexture();
+                                    ImGui::Image(typeImg.im_id, ImVec2(36.0f, 36.0f));
+                                }
 
                                 ImGui::TableSetColumnIndex(1);
-                                ImGui::TextUnformatted(trophy.name.c_str());
+                                if (trophy.iconTex) {
+                                    auto img = trophy.iconTex.GetTexture();
+                                    if (!trophy.unlocked)
+                                        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.35f);
+                                    ImGui::Image(img.im_id, ImVec2(50.0f, 50.0f));
+                                    if (!trophy.unlocked)
+                                        ImGui::PopStyleVar();
+                                }
+
+                                ImGui::TableSetColumnIndex(2);
+                                if (trophy.unlocked) {
+                                    ImGui::PushStyleColor(ImGuiCol_Text,
+                                                          ImVec4(0.2f, 1.0f, 0.3f, 1.0f));
+                                    ImGui::TextUnformatted("Unlocked");
+                                    ImGui::PopStyleColor();
+                                } else {
+                                    ImGui::PushStyleColor(ImGuiCol_Text,
+                                                          ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+                                    ImGui::TextUnformatted("Locked");
+                                    ImGui::PopStyleColor();
+                                }
+
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::TextWrapped("%s", trophy.name.c_str());
                             }
                             ImGui::EndTable();
                         }
