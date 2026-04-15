@@ -241,6 +241,7 @@ find_package(SDL3_image CONFIG)
 if (SDL3_mixer_FOUND)
     find_package(SDL3 3.1.2 CONFIG)
 endif()
+find_package(SDL3 3.1.2 CONFIG)
 find_package(stb MODULE)
 find_package(toml11 4.2.0 CONFIG)
 find_package(tsl-robin-map 1.3.0 CONFIG)
@@ -1144,6 +1145,8 @@ set(IMGUI src/imgui/imgui_config.h
           src/imgui/renderer/texture_manager.h
           src/imgui/big_picture.cpp
           src/imgui/big_picture.h
+          src/imgui/settings_dialog_imgui.cpp
+          src/imgui/settings_dialog_imgui.h
 )
 
 set(INPUT src/input/controller.cpp
@@ -1429,6 +1432,15 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeRC.cmake")
 cmrc_add_resource_library(embedded-resources
         ALIAS res::embedded
         NAMESPACE res
+        src/images/big_picture/folder.png
+        src/images/big_picture/settings.png
+        src/images/big_picture/global-settings.png
+        src/images/big_picture/experimental.png
+        src/images/big_picture/graphics.png
+        src/images/big_picture/controller.png
+        src/images/big_picture/trophy.png
+        src/images/big_picture/log.png
+	src/images/trophy.wav
         src/images/trophy.wav
         src/images/bgm.wav
         src/images/tick.mp3
