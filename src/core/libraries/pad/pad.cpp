@@ -309,13 +309,6 @@ int PS4_SYSV_ABI scePadOpen(s32 userId, s32 type, s32 index, const OrbisPadOpenP
     if (userId == -1) {
         return ORBIS_PAD_ERROR_DEVICE_NO_HANDLE;
     }
-    if (Config::getUseSpecialPad(pad)) {
-        if (type != ORBIS_PAD_PORT_TYPE_SPECIAL)
-            return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
-    } else {
-        if (type != ORBIS_PAD_PORT_TYPE_STANDARD && type != ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL)
-            return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
-    }
     LOG_INFO(Lib_Pad, "(DUMMY) called user_id = {} type = {} index = {}", userId, type, index);
     g_openHandles.insert(userId);
     scePadResetLightBar(userId);
@@ -328,13 +321,6 @@ int PS4_SYSV_ABI scePadOpenExt(s32 userId, s32 type, s32 index,
     int pad = HandleToIndex(userId);
 
     LOG_ERROR(Lib_Pad, "(STUBBED) called");
-    if (Config::getUseSpecialPad(pad)) {
-        if (type != ORBIS_PAD_PORT_TYPE_SPECIAL)
-            return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
-    } else {
-        if (type != ORBIS_PAD_PORT_TYPE_STANDARD && type != ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL)
-            return ORBIS_PAD_ERROR_DEVICE_NOT_CONNECTED;
-    }
     return pad; // dummy
 }
 
