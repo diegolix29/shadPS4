@@ -24,6 +24,8 @@ endif()
 
 project(shadPS4 CXX C ASM ${ADDITIONAL_LANGUAGES})
 
+include(FetchContent)
+
 # Forcing PIE makes sure that the base address is high enough so that it doesn't clash with the PS4 memory.
 if(UNIX AND NOT APPLE)
     set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
@@ -1293,7 +1295,7 @@ create_target_directory_groups(shadps4)
 
 target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui ImGuiFileDialog gcn half::half ZLIB::ZLIB PNG::PNG minimp3)
 target_link_libraries(shadps4 PRIVATE Boost::headers GPUOpen::VulkanMemoryAllocator LibAtrac9 sirit Vulkan::Headers xxHash::xxhash Zydis::Zydis glslang::glslang SDL3::SDL3 SDL3_image::SDL3_image SDL3_mixer::SDL3_mixer pugixml::pugixml)
-target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib)
+target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib spdlog::spdlog)
 
 target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config.h")
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
@@ -1394,13 +1396,6 @@ if (WIN32)
         target_link_options(shadps4 PRIVATE /STACK:0x200000,0x200000)
     else()
         target_link_options(shadps4 PRIVATE -Wl,--stack,2097152)
-    endif()
-
-    # Change base image address
-    if (MSVC)
-        target_link_options(shadps4 PRIVATE /BASE:0x700000000000)
-    else()
-        target_link_options(shadps4 PRIVATE -Wl,--image-base=0x700000000000)
     endif()
 endif()
 

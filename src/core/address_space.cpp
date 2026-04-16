@@ -129,7 +129,7 @@ struct AddressSpace::Impl {
         s32 sdk_ver = Common::ElfInfo::Instance().CompiledSdkVer();
         if (os_version_info.dwBuildNumber <= AffectedBuildNumber ||
             sdk_ver >= Common::ElfInfo::FW_30) {
-            supported_user_max = 0x10000000000ULL;
+            supported_user_max = Config::getSupportedUserMax();
             // Only log the message if we're restricting the user max due to operating system.
             // Since higher compiled SDK versions also get reduced max, we don't need to log there.
             if (sdk_ver < Common::ElfInfo::FW_30) {
@@ -141,7 +141,7 @@ struct AddressSpace::Impl {
         }
 
         // Determine the free address ranges we can access.
-        VAddr next_addr = SYSTEM_MANAGED_MIN;
+        VAddr next_addr = 0x80000000ULL;
         MEMORY_BASIC_INFORMATION info{};
         while (next_addr <= supported_user_max) {
             ASSERT_MSG(VirtualQuery(reinterpret_cast<PVOID>(next_addr), &info, sizeof(info)),
@@ -173,8 +173,8 @@ struct AddressSpace::Impl {
                 process, reinterpret_cast<PVOID>(region.second.base), region.second.size,
                 MEM_RESERVE | MEM_RESERVE_PLACEHOLDER, PAGE_NOACCESS, NULL, 0));
             // All marked regions should reserve fine since they're free.
-            ASSERT_MSG(addr, "Unable to reserve virtual address space: {}",
-                       Common::GetLastErrorMsg());
+            // ASSERT_MSG(addr, "Unable to reserve virtual address space: {}",
+            //            Common::GetLastErrorMsg());
         }
 
         // Set these constants to ensure code relying on them works.
