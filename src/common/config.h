@@ -114,6 +114,8 @@ u32 getWindowWidth();
 u32 getWindowHeight();
 void setWindowWidth(u32 width);
 void setWindowHeight(u32 height);
+int getBigPictureScale();
+void setBigPictureScale(int scale);
 u32 getInternalScreenWidth();
 u32 getInternalScreenHeight();
 void setInternalScreenWidth(u32 width);

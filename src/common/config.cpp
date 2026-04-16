@@ -238,6 +238,7 @@ static ConfigEntry<u32> windowWidth(1280);
 static ConfigEntry<u32> windowHeight(720);
 static ConfigEntry<u32> internalScreenWidth(1280);
 static ConfigEntry<u32> internalScreenHeight(720);
+static ConfigEntry<int> bigPictureScale(1000);
 static ConfigEntry<bool> isNullGpu(false);
 static ConfigEntry<bool> shouldCopyGPUBuffers(false);
 static ConfigEntry<ReadbackSpeed> readbackSpeedMode(ReadbackSpeed::Disable);
@@ -723,6 +724,14 @@ u32 getWindowWidth() {
 
 u32 getWindowHeight() {
     return windowHeight.get();
+}
+
+int getBigPictureScale() {
+    return bigPictureScale.get();
+}
+
+void setBigPictureScale(int scale) {
+    bigPictureScale.base_value = scale;
 }
 
 u32 getInternalScreenWidth() {
@@ -1781,6 +1790,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         launcher_boot = toml::find_or<bool>(gui, "launcher_boot", false);
         isQT = toml::find_or<bool>(gui, "isQT", false);
         isSDL = toml::find_or<bool>(gui, "isSDL", false);
+        isGameRunning = toml::find_or<bool>(gui, "isGameRunning", false);
 
         toolbar_visibility_settings.clear();
         if (gui.contains("ToolbarVisibility") && gui.at("ToolbarVisibility").is_table()) {
@@ -2271,6 +2281,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["GUI"]["nexusApiKey"] = nexus_api_key;
     data["GUI"]["isQT"] = isQT;
     data["GUI"]["isSDL"] = isSDL;
+    data["GUI"]["isGameRunning"] = isGameRunning;
 
     data["GUI"]["mw_width"] = m_window_size_W;
     data["GUI"]["mw_height"] = m_window_size_H;
@@ -2454,6 +2465,7 @@ void setDefaultValues() {
     muteEnabled = false;
     isQT = false;
     isSDL = false;
+    isGameRunning = false;
 
     // Settings
     emulator_language = "en_US";

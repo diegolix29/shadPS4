@@ -4,6 +4,7 @@
 #pragma once
 
 #include <filesystem>
+#include <vector>
 #include <SDL3/SDL.h>
 
 namespace BigPictureMode {
@@ -15,7 +16,7 @@ struct Game {
     std::string serial;
     bool focusState;
 };
-
+void DestroyGameTextures();
 void Launch();
 void SetGameIcons(std::vector<Game>& games);
 void GetGameInfo(std::vector<Game>& games, bool AddGlobalSettings, SDL_Texture* texture = {});

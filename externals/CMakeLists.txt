@@ -37,6 +37,10 @@ file(GLOB LIBATRAC9_SOURCES LibAtrac9/C/src/*.c)
 add_library(LibAtrac9 STATIC ${LIBATRAC9_SOURCES})
 target_include_directories(LibAtrac9 INTERFACE LibAtrac9/C/src)
 
+# minimp3
+add_library(minimp3 INTERFACE)
+target_include_directories(minimp3 INTERFACE minimp3)
+
 # zlib
 if (NOT TARGET ZLIB::ZLIB)
     set(ZLIB_ENABLE_TESTS OFF)

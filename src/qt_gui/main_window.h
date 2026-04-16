@@ -269,9 +269,12 @@ private:
     // Gamepad support
     SDL_Gamepad* m_gamepad = nullptr;
     QTimer* m_gamepadTimer = nullptr;
+    QTimer* m_gamepadLaunchTimer = nullptr;
+    QTimer* m_gamepadFocusDelayTimer = nullptr;
     bool m_gamepadInitialized = false;
     bool m_gamepadFailed = false;
     bool m_usingJoystickFallback = false;
+    bool m_gamepadInputBlocked = false;
 
     // Gamepad methods
     void initializeGamepad();
@@ -282,6 +285,11 @@ private:
     void navigateGamesDown();
     void navigateGamesLeft();
     void navigateGamesRight();
+    void startGamepadLaunchDelay();
+    void startGamepadFocusDelay();
+    void unblockGamepadInput();
+    void focusInEvent(QFocusEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;

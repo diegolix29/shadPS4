@@ -2111,6 +2111,7 @@ void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
         QString emulatorExePath = QString::fromStdString(Config::getVersionPath());
 
         m_ipc_client->startGame(QFileInfo(emulatorExePath), fullArgs, workDir);
+        setWindowState(Qt::WindowMinimized);
     } else if (Config::getBootLauncher() && Config::getSdlInstalled()) {
         QString emulatorExePath = QString::fromStdString(Config::getVersionPath());
         QStringList final_args = args;
@@ -2138,11 +2139,14 @@ void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
 
         if (!started) {
             QMessageBox::critical(this, tr("Error"), tr("Failed to launch game in detached mode."));
+        } else {
+            setWindowState(Qt::WindowMinimized);
         }
     } else {
 
         m_ipc_client->startGame(QFileInfo(QCoreApplication::applicationFilePath()), fullArgs,
                                 workDir);
+        setWindowState(Qt::WindowMinimized);
     }
     if (ignorePatches) {
         Core::FileSys::MntPoints::ignore_game_patches = false;
@@ -2155,6 +2159,10 @@ void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
         QMetaObject::invokeMethod(this, [this]() {
             Config::setGameRunning(false);
             UpdateToolbarButtons();
+            setWindowState(Qt::WindowNoState);
+            show();
+            raise();
+            activateWindow();
         });
     };
 
@@ -2327,6 +2335,10 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
         QMetaObject::invokeMethod(this, [this]() {
             Config::setGameRunning(false);
             UpdateToolbarButtons();
+            setWindowState(Qt::WindowNoState);
+            show();
+            raise();
+            activateWindow();
         });
     };
 }
@@ -2361,6 +2373,8 @@ void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
     QString workDir = QDir::currentPath();
     m_ipc_client->startGame(fileInfo, final_args, workDir, false);
     m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+
+    setWindowState(Qt::WindowMinimized);
 }
 
 void MainWindow::ApplyLastUsedStyle() {
@@ -2857,7 +2871,41 @@ void MainWindow::initializeGamepad() {
     connect(m_gamepadTimer, &QTimer::timeout, this, &MainWindow::handleGamepadEvents);
     m_gamepadTimer->start(50);
 
+    m_gamepadLaunchTimer = new QTimer(this);
+    m_gamepadLaunchTimer->setSingleShot(true);
+    connect(m_gamepadLaunchTimer, &QTimer::timeout, this, &MainWindow::StartGame);
+
+    m_gamepadFocusDelayTimer = new QTimer(this);
+    m_gamepadFocusDelayTimer->setSingleShot(true);
+    connect(m_gamepadFocusDelayTimer, &QTimer::timeout, this, &MainWindow::unblockGamepadInput);
+
     m_gamepadInitialized = true;
+}
+
+void MainWindow::startGamepadLaunchDelay() {
+    if (m_gamepadLaunchTimer && !m_gamepadLaunchTimer->isActive()) {
+        m_gamepadLaunchTimer->start(1000);
+    }
+}
+
+void MainWindow::startGamepadFocusDelay() {
+    m_gamepadInputBlocked = true;
+    if (m_gamepadFocusDelayTimer && !m_gamepadFocusDelayTimer->isActive()) {
+        m_gamepadFocusDelayTimer->start(1000);
+    }
+}
+
+void MainWindow::unblockGamepadInput() {
+    m_gamepadInputBlocked = false;
+}
+
+void MainWindow::focusInEvent(QFocusEvent* event) {
+    QMainWindow::focusInEvent(event);
+    startGamepadFocusDelay();
+}
+
+void MainWindow::focusOutEvent(QFocusEvent* event) {
+    QMainWindow::focusOutEvent(event);
 }
 
 void MainWindow::handleGamepadEvents() {
@@ -2960,8 +3008,8 @@ void MainWindow::handleGamepadEvents() {
 
         if (currentAState && !lastAState) {
             if (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr &&
-                ui->playButton->isEnabled()) {
-                StartGame();
+                ui->playButton->isEnabled() && !m_gamepadInputBlocked) {
+                startGamepadLaunchDelay();
             }
         }
 
@@ -2973,8 +3021,8 @@ void MainWindow::handleGamepadEvents() {
 
         if (currentStartState && !lastStartState) {
             if (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr &&
-                ui->playButton->isEnabled()) {
-                StartGame();
+                ui->playButton->isEnabled() && !m_gamepadInputBlocked) {
+                startGamepadLaunchDelay();
             }
         }
 
@@ -2991,7 +3039,6 @@ void MainWindow::handleJoystickInput() {
         return;
     }
 
-    // Don't process joystick GUI navigation if main window is not focused
     if (!isActiveWindow()) {
         return;
     }
@@ -3101,8 +3148,8 @@ void MainWindow::handleJoystickInput() {
         if (currentButton0State && !lastButton0State) {
             qDebug() << "Joystick button 0 (A) pressed";
             if (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr &&
-                ui->playButton->isEnabled()) {
-                StartGame();
+                ui->playButton->isEnabled() && !m_gamepadInputBlocked) {
+                startGamepadLaunchDelay();
             }
         }
 
@@ -3116,8 +3163,8 @@ void MainWindow::handleJoystickInput() {
         if (currentButton7State && !lastButton7State) {
             qDebug() << "Joystick button 7 (Start) pressed";
             if (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr &&
-                ui->playButton->isEnabled()) {
-                StartGame();
+                ui->playButton->isEnabled() && !m_gamepadInputBlocked) {
+                startGamepadLaunchDelay();
             }
         }
 

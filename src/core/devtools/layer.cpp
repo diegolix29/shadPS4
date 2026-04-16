@@ -139,11 +139,11 @@ static void SetupTheme() {
 namespace Overlay {
 
 void TextCentered(const std::string& text) {
-    float window_width = GetWindowSize().x;
+    float window_width = GetContentRegionAvail().x;
     float text_width = CalcTextSize(text.c_str()).x;
     float text_indentation = (window_width - text_width) * 0.5f;
 
-    SameLine(text_indentation);
+    SetCursorPosX(text_indentation);
     Text("%s", text.c_str());
 }
 
@@ -917,6 +917,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
     ImGui::SameLine();
 
     if (ImGui::Button("Big Picture", ImVec2(btnWidth, btnHeight))) {
+        Config::setGameRunning(true);
         SDL_Event event{};
         event.type = SDL_EVENT_QUIT + 3;
         SDL_PushEvent(&event);
