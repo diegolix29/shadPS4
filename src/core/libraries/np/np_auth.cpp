@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <mutex>
-#include "common/config.h"
 #include "common/logging/log.h"
+#include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/np/np_auth.h"
@@ -13,11 +13,9 @@
 
 namespace Libraries::Np::NpAuth {
 
-static bool g_signed_in = false;
+static bool g_shadnet_enabled = false;
 static s32 g_active_auth_requests = 0;
 static std::mutex g_auth_request_mutex;
-
-const char* g_dummy_auth_code = "DUMMY-CODE";
 
 // Internal types for storing request-related information
 enum class NpAuthRequestState {
@@ -112,7 +110,7 @@ s32 GetAuthorizationCode(s32 req_id, const OrbisNpAuthGetAuthorizationCodeParame
     }
 
     request.state = NpAuthRequestState::Complete;
-    if (!g_signed_in) {
+    if (!g_shadnet_enabled) {
         request.result = ORBIS_NP_ERROR_SIGNED_OUT;
         // If the request is processed in some form, and it's an async request, then it returns OK.
         if (request.async) {
@@ -125,9 +123,8 @@ s32 GetAuthorizationCode(s32 req_id, const OrbisNpAuthGetAuthorizationCodeParame
 
     // Not sure what values are expected here, so zeroing these for now.
     std::memset(auth_code, 0, sizeof(OrbisNpAuthorizationCode));
-    std::strncpy(auth_code->code, "AUTHCODE", 9);
     if (issuer_id != nullptr) {
-        *issuer_id = 100;
+        *issuer_id = 0;
     }
     return ORBIS_OK;
 }
@@ -144,7 +141,7 @@ sceNpAuthGetAuthorizationCode(s32 req_id, const OrbisNpAuthGetAuthorizationCodeP
     if (param->online_id == nullptr || param->client_id == nullptr || param->scope == nullptr) {
         return ORBIS_NP_AUTH_ERROR_INVALID_ARGUMENT;
     }
-    if (!g_signed_in) {
+    if (!g_shadnet_enabled) {
         // Calls sceNpManagerIntGetUserIdByOnlineId to get a user id, returning any errors.
         // This call will not succeed while signed out because games cannot retrieve an online id.
         return ORBIS_NP_ERROR_USER_NOT_FOUND;
@@ -210,7 +207,7 @@ s32 GetIdToken(s32 req_id, const OrbisNpAuthGetIdTokenParameterA* param, s32 fla
     }
 
     request.state = NpAuthRequestState::Complete;
-    if (!g_signed_in) {
+    if (!g_shadnet_enabled) {
         request.result = ORBIS_NP_ERROR_SIGNED_OUT;
         // If the request is processed in some form, and it's an async request, then it returns OK.
         if (request.async) {
@@ -223,7 +220,6 @@ s32 GetIdToken(s32 req_id, const OrbisNpAuthGetIdTokenParameterA* param, s32 fla
 
     // Not sure what values are expected here, so zeroing this for now.
     std::memset(token, 0, sizeof(OrbisNpIdToken));
-    std::strncpy(token->token, "TOKEN", 6);
     return ORBIS_OK;
 }
 
@@ -239,7 +235,7 @@ s32 PS4_SYSV_ABI sceNpAuthGetIdToken(s32 req_id, const OrbisNpAuthGetIdTokenPara
         param->client_secret == nullptr || param->scope == nullptr) {
         return ORBIS_NP_AUTH_ERROR_INVALID_ARGUMENT;
     }
-    if (!g_signed_in) {
+    if (!g_shadnet_enabled) {
         // Calls sceNpManagerIntGetUserIdByOnlineId to get a user id, returning any errors.
         // This call will not succeed while signed out because games cannot retrieve an online id.
         return ORBIS_NP_ERROR_USER_NOT_FOUND;
@@ -367,7 +363,7 @@ s32 PS4_SYSV_ABI sceNpAuthDeleteRequest(s32 req_id) {
 }
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym) {
-    g_signed_in = Config::getPSNSignedIn();
+    g_shadnet_enabled = EmulatorSettings.IsShadNetEnabled();
 
     LIB_FUNCTION("6bwFkosYRQg", "libSceNpAuth", 1, "libSceNpAuth", sceNpAuthCreateRequest);
     LIB_FUNCTION("N+mr7GjTvr8", "libSceNpAuth", 1, "libSceNpAuth", sceNpAuthCreateAsyncRequest);
