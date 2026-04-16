@@ -30,7 +30,7 @@ void LoadEmbeddedTexture(std::string resourcePath, SDL_Texture*& texture);
 void AddCategory(std::string name, SDL_Texture* texture, SettingsCategory category);
 
 void DrawSettings(bool* open);
-void SaveSettings(std::string profile);
+void SaveSettings(std::string profile, bool isGameSpecific);
 void LoadSettings(std::string profile);
 void LoadCategory(SettingsCategory);
 

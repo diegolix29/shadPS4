@@ -78,7 +78,6 @@ bool getPSNSignedIn();
 bool getShaderSkipsEnabled();
 AudioBackend getAudioBackend();
 void setAudioBackend(AudioBackend backend);
-int getAudioVolume();
 bool groupIdenticalLogs();
 void setGroupIdenticalLogs(bool enable, bool is_game_specific = false);
 
@@ -265,8 +264,6 @@ void setDescriptionVisible(bool visible);
 bool getDescriptionVisible();
 void setPSNSignedIn(bool sign);
 void setShaderSkipsEnabled(bool enable);
-
-void setAudioVolume(int volume);
 
 std::string getMainOutputDevice();
 void setMainOutputDevice(std::string device);

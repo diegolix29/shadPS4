@@ -6,6 +6,7 @@
 #include <cmrc/cmrc.hpp>
 #include <stb_image.h>
 
+#include "common/config.h"
 #include "core/devtools/layer.h"
 #include "core/emulator_settings.h"
 #include "imgui/imgui_std.h"
@@ -150,13 +151,13 @@ void Init() {
     LoadEmbeddedTexture("src/images/big_picture/log.png", logTexture);
 
     GetGameInfo(settingsProfileVec, true, globalSettingsTexture);
-    uiScale = static_cast<float>(EmulatorSettings.GetBigPictureScale() / 1000.f);
+    uiScale = static_cast<float>(Config::getBigPictureScale() / 1000.f);
 }
 
 void DeInit() {
-    EmulatorSettings.Load();
-    EmulatorSettings.SetBigPictureScale(static_cast<int>(uiScale * 1000));
-    EmulatorSettings.Save();
+    Config::load(std::filesystem::path{}, false);
+    Config::setBigPictureScale(static_cast<int>(uiScale * 1000));
+    Config::save(std::filesystem::path{}, false);
 }
 
 void DrawSettings(bool* open) {
@@ -250,12 +251,22 @@ void DrawSettings(bool* open) {
             ImGui::Separator();
 
             if (ImGui::Button("OK", ImVec2(250 * uiScale, 0))) {
-                std::string profile = currentProfile;
-                if (currentProfile != "Global") {
-                    profile = currentProfile.substr(0, 9);
+                std::string profileToSave = currentProfile;
+                bool isGameSpecific = (currentProfile != "Global");
+
+                if (isGameSpecific) {
+                    // Extract just the 9-digit serial (CUSA00000 format)
+                    size_t spacePos = currentProfile.find(' ');
+                    if (spacePos != std::string::npos) {
+                        profileToSave = currentProfile.substr(0, spacePos);
+                    }
+                    // Ensure it's exactly 9 characters for CUSA format
+                    if (profileToSave.length() > 9) {
+                        profileToSave = profileToSave.substr(0, 9);
+                    }
                 }
 
-                SaveSettings(profile);
+                SaveSettings(profileToSave, isGameSpecific);
                 if (closeOnSave) {
                     DeInit();
                     *open = false;
@@ -408,83 +419,80 @@ void LoadCategory(SettingsCategory category) {
         ImGuiWindowFlags child_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                                        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NavFlattened;
         ImGui::BeginChild("ProfileSelect", ImVec2(0, 0), true, child_flags);
-        Overlay::TextCentered("Select Global or Game-Specific Settings Profile");
+        Overlay::TextCentered("Select Global or a Game to save Custom Configuration");
         SetProfileIcons(settingsProfileVec);
         ImGui::EndChild();
     }
 }
 
-void SaveSettings(std::string profile) {
-    const bool isSpecific = currentProfile != "Global";
-
+void SaveSettings(std::string profile, bool isGameSpecific) {
     /////////// General Tab
-    EmulatorSettings.SetConsoleLanguage(languageMap.at(languageOptions.at(consoleLanguageSetting)),
-                                        isSpecific);
-    EmulatorSettings.SetVolumeSlider(volumeSetting, isSpecific);
-    EmulatorSettings.SetShowSplash(showSplashSetting, isSpecific);
-    EmulatorSettings.SetAudioBackend(audioBackendSetting, isSpecific);
+    Config::setLanguage(languageMap.at(languageOptions.at(consoleLanguageSetting)));
+    Config::setVolumeSlider(volumeSetting, isGameSpecific);
+    Config::setShowSplash(showSplashSetting);
+    Config::setAudioBackend(static_cast<Config::AudioBackend>(audioBackendSetting));
 
     /////////// Graphics Tab
     bool isFullscreen = fullscreenModeSetting != 0;
-    EmulatorSettings.SetFullScreen(isFullscreen);
-    EmulatorSettings.SetFullScreenMode(fullscreenModeOptions.at(fullscreenModeSetting), isSpecific);
-    EmulatorSettings.SetPresentMode(presentModeOptions.at(presentModeSetting), isSpecific);
-    EmulatorSettings.SetWindowHeight(windowHeightSetting, isSpecific);
-    EmulatorSettings.SetWindowWidth(windowWidthSetting, isSpecific);
-    EmulatorSettings.SetHdrAllowed(hdrAllowedSetting, isSpecific);
-    EmulatorSettings.SetFsrEnabled(fsrEnabledSetting, isSpecific);
-    EmulatorSettings.SetRcasEnabled(rcasEnabledSetting, isSpecific);
-    EmulatorSettings.SetRcasAttenuation(static_cast<int>(rcasAttenuationSetting * 1000),
-                                        isSpecific);
+    Config::setIsFullscreen(isFullscreen);
+    Config::setFullscreenMode(fullscreenModeOptions.at(fullscreenModeSetting));
+    Config::setPresentMode(presentModeOptions.at(presentModeSetting));
+    Config::setWindowHeight(windowHeightSetting);
+    Config::setWindowWidth(windowWidthSetting);
+    Config::setAllowHDR(hdrAllowedSetting);
+    Config::setFsrEnabled(fsrEnabledSetting);
+    Config::setRcasEnabled(rcasEnabledSetting);
+    Config::setRcasAttenuation(static_cast<int>(rcasAttenuationSetting * 1000));
 
     /////////// Input Tab
-    EmulatorSettings.SetMotionControlsEnabled(motionControlsSetting, isSpecific);
-    EmulatorSettings.SetBackgroundControllerInput(backgroundControllerSetting, isSpecific);
-    EmulatorSettings.SetCursorState(cursorStateSetting, isSpecific);
-    EmulatorSettings.SetCursorHideTimeout(cursorTimeoutSetting, isSpecific);
+    Config::setIsMotionControlsEnabled(motionControlsSetting);
+    Config::setBackgroundControllerInput(backgroundControllerSetting);
+    Config::setCursorState(cursorStateSetting);
+    Config::setCursorHideTimeout(cursorTimeoutSetting);
 
     /////////// Trophy Tab
-    EmulatorSettings.SetTrophyPopupDisabled(trophyPopupDisabledSetting, isSpecific);
-    EmulatorSettings.SetTrophyNotificationSide(trophySideOptions.at(trophySideSetting), isSpecific);
-    EmulatorSettings.SetTrophyNotificationDuration(static_cast<double>(trophyDurationSetting));
+    Config::setisTrophyPopupDisabled(trophyPopupDisabledSetting);
+    Config::setSideTrophy(trophySideOptions.at(trophySideSetting));
+    Config::setTrophyNotificationDuration(static_cast<double>(trophyDurationSetting));
 
     /////////// Log Tab
-    EmulatorSettings.SetLogEnabled(logEnabledSetting, isSpecific);
-    EmulatorSettings.SetLogType(logTypeOptions.at(logTypeSetting), isSpecific);
-    EmulatorSettings.SetSeparateLoggingEnabled(separateLogSetting, isSpecific);
+    Config::setLoggingEnabled(logEnabledSetting);
+    Config::setLogType(logTypeOptions.at(logTypeSetting));
+    Config::setSeparateLogFilesEnabled(separateLogSetting);
 
     /////////// Experimental Tab
-    if (isSpecific) {
-        EmulatorSettings.SetReadbacksMode(readbacksModeSetting, true);
-        EmulatorSettings.SetReadbackLinearImagesEnabled(readbackLinearImagesSetting, true);
-        EmulatorSettings.SetDirectMemoryAccessEnabled(directMemoryAccessSetting, true);
-        EmulatorSettings.SetDevKit(devkitConsoleSetting, true);
-        EmulatorSettings.SetNeo(neoModeSetting, true);
-        EmulatorSettings.SetPSNSignedIn(psnSignedInSetting, true);
-        EmulatorSettings.SetConnectedToNetwork(connectedNetworkSetting, true);
-        EmulatorSettings.SetPipelineCacheEnabled(pipelineCacheEnabledSetting, true);
-        EmulatorSettings.SetPipelineCacheArchived(pipelineCacheArchiveSetting, true);
-        EmulatorSettings.SetExtraDmemInMBytes(extraDmemSetting, true);
-        EmulatorSettings.SetVblankFrequency(vblankFrequencySetting, true);
-    }
+    Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbacksModeSetting));
+    Config::setReadbackLinearImages(readbackLinearImagesSetting);
+    Config::setDirectMemoryAccess(directMemoryAccessSetting);
+    Config::setDevKitMode(devkitConsoleSetting);
+    Config::setNeoMode(neoModeSetting);
+    Config::setPSNSignedIn(psnSignedInSetting);
+    Config::setIsConnectedToNetwork(connectedNetworkSetting);
+    Config::setPipelineCacheEnabled(pipelineCacheEnabledSetting);
+    Config::setPipelineCacheArchived(pipelineCacheArchiveSetting);
+    Config::setExtraDmemInMbytes(extraDmemSetting);
+    Config::setVblankFreq(vblankFrequencySetting);
 
-    if (!isSpecific) {
-        EmulatorSettings.Save();
+    // Save to appropriate config file
+    if (isGameSpecific) {
+        // Save to game-specific config file (customConfigs/gameSerial.toml)
+        Config::save(profile, true);
     } else {
-        EmulatorSettings.Save(profile);
+        // Save to global config file (config.toml)
+        Config::save(std::filesystem::path{}, false);
     }
 }
 
 void LoadSettings(std::string profile) {
     const bool isSpecific = currentProfile != "Global";
     if (!isSpecific) {
-        EmulatorSettings.Load();
+        Config::load(std::filesystem::path{}, false);
     } else {
-        EmulatorSettings.Load(profile);
+        Config::load(profile, true);
     }
 
     /////////// General Tab
-    int languageIndex = EmulatorSettings.GetConsoleLanguage();
+    int languageIndex = Config::GetLanguage();
     std::string language;
     for (const auto& [key, value] : languageMap) {
         if (value == languageIndex) {
@@ -492,52 +500,48 @@ void LoadSettings(std::string profile) {
         }
     }
     consoleLanguageSetting = GetComboIndex(language, languageOptions);
-    volumeSetting = EmulatorSettings.GetVolumeSlider();
-    showSplashSetting = EmulatorSettings.IsShowSplash();
-    audioBackendSetting = EmulatorSettings.GetAudioBackend();
+    volumeSetting = Config::getVolumeSlider();
+    showSplashSetting = Config::showSplash();
+    audioBackendSetting = static_cast<int>(Config::getAudioBackend());
 
     /////////// Graphics Tab
-    fullscreenModeSetting =
-        GetComboIndex(EmulatorSettings.GetFullScreenMode(), fullscreenModeOptions);
-    presentModeSetting = GetComboIndex(EmulatorSettings.GetPresentMode(), presentModeOptions);
-    windowHeightSetting = EmulatorSettings.GetWindowHeight();
-    windowWidthSetting = EmulatorSettings.GetWindowWidth();
-    hdrAllowedSetting = EmulatorSettings.IsHdrAllowed();
-    fsrEnabledSetting = EmulatorSettings.IsFsrEnabled();
-    rcasEnabledSetting = EmulatorSettings.IsRcasEnabled();
-    rcasAttenuationSetting = static_cast<float>(EmulatorSettings.GetRcasAttenuation() * 0.001f);
+    fullscreenModeSetting = GetComboIndex(Config::getFullscreenMode(), fullscreenModeOptions);
+    presentModeSetting = GetComboIndex(Config::getPresentMode(), presentModeOptions);
+    windowHeightSetting = Config::getWindowHeight();
+    windowWidthSetting = Config::getWindowWidth();
+    hdrAllowedSetting = Config::allowHDR();
+    fsrEnabledSetting = Config::getFsrEnabled();
+    rcasEnabledSetting = Config::getRcasEnabled();
+    rcasAttenuationSetting = static_cast<float>(Config::getRcasAttenuation() * 0.001f);
 
     /////////// Input Tab
-    motionControlsSetting = EmulatorSettings.IsMotionControlsEnabled();
-    backgroundControllerSetting = EmulatorSettings.IsBackgroundControllerInput();
-    cursorStateSetting = EmulatorSettings.GetCursorState();
-    cursorTimeoutSetting = EmulatorSettings.GetCursorHideTimeout();
+    motionControlsSetting = Config::getIsMotionControlsEnabled();
+    backgroundControllerSetting = Config::getBackgroundControllerInput();
+    cursorStateSetting = Config::getCursorState();
+    cursorTimeoutSetting = Config::getCursorHideTimeout();
 
     /////////// Trophy Tab
-    trophyPopupDisabledSetting = EmulatorSettings.IsTrophyPopupDisabled();
-    trophySideSetting =
-        GetComboIndex(EmulatorSettings.GetTrophyNotificationSide(), trophySideOptions);
-    trophyDurationSetting = static_cast<float>(EmulatorSettings.GetTrophyNotificationDuration());
+    trophyPopupDisabledSetting = Config::getisTrophyPopupDisabled();
+    trophySideSetting = GetComboIndex(Config::sideTrophy(), trophySideOptions);
+    trophyDurationSetting = static_cast<float>(Config::getTrophyNotificationDuration());
 
     /////////// Log Tab
-    logEnabledSetting = EmulatorSettings.IsLogEnabled();
-    logTypeSetting = GetComboIndex(EmulatorSettings.GetLogType(), logTypeOptions);
-    separateLogSetting = EmulatorSettings.IsSeparateLoggingEnabled();
+    logEnabledSetting = Config::getLoggingEnabled();
+    logTypeSetting = GetComboIndex(Config::getLogType(), logTypeOptions);
+    separateLogSetting = Config::getSeparateLogFilesEnabled();
 
     /////////// Experimental Tab
-    if (isSpecific) {
-        readbacksModeSetting = EmulatorSettings.GetReadbacksMode();
-        readbackLinearImagesSetting = EmulatorSettings.IsReadbackLinearImagesEnabled();
-        directMemoryAccessSetting = EmulatorSettings.IsDirectMemoryAccessEnabled();
-        devkitConsoleSetting = EmulatorSettings.IsDevKit();
-        neoModeSetting = EmulatorSettings.IsNeo();
-        psnSignedInSetting = EmulatorSettings.IsPSNSignedIn();
-        connectedNetworkSetting = EmulatorSettings.IsConnectedToNetwork();
-        pipelineCacheEnabledSetting = EmulatorSettings.IsPipelineCacheEnabled();
-        pipelineCacheArchiveSetting = EmulatorSettings.IsPipelineCacheArchived();
-        extraDmemSetting = EmulatorSettings.GetExtraDmemInMBytes();
-        vblankFrequencySetting = EmulatorSettings.GetVblankFrequency();
-    }
+    readbacksModeSetting = static_cast<int>(Config::readbackSpeed());
+    readbackLinearImagesSetting = Config::getReadbackLinearImages();
+    directMemoryAccessSetting = Config::directMemoryAccess();
+    devkitConsoleSetting = Config::isDevKitConsole();
+    neoModeSetting = Config::isNeoModeConsole();
+    psnSignedInSetting = Config::getPSNSignedIn();
+    connectedNetworkSetting = Config::getIsConnectedToNetwork();
+    pipelineCacheEnabledSetting = Config::isPipelineCacheEnabled();
+    pipelineCacheArchiveSetting = Config::isPipelineCacheArchived();
+    extraDmemSetting = Config::getExtraDmemInMbytes();
+    vblankFrequencySetting = Config::vblankFreq();
 }
 
 void AddCategory(std::string name, SDL_Texture* texture, SettingsCategory category) {
