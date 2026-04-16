@@ -6,8 +6,10 @@
 #include <memory>
 #include <string_view>
 #include <spdlog/common.h>
-#include <spdlog/details/log_msg.h>
+#include <spdlog/details/fmt_helper.h>
+#include <spdlog/details/os.h>
 #include <spdlog/formatter.h>
+#include <spdlog/pattern_formatter.h>
 
 #include "common/thread.h"
 
@@ -45,7 +47,7 @@ struct thread_name_formatter : spdlog::formatter {
         spdlog::details::fmt_helper::append_string_view(GetCurrentThreadName(), dest);
         dest.push_back(')');
         dest.push_back(' ');
-        spdlog::details::fmt_helper::append_string_view(msg.source.short_filename, dest);
+        spdlog::details::fmt_helper::append_string_view(msg.source.filename, dest);
         dest.push_back(':');
         spdlog::details::fmt_helper::append_int(msg.source.line, dest);
         dest.push_back(' ');
@@ -55,14 +57,14 @@ struct thread_name_formatter : spdlog::formatter {
         dest.push_back(':');
         dest.push_back(' ');
         spdlog::details::fmt_helper::append_string_view(msg.payload, dest);
-        spdlog::details::fmt_helper::append_string_view(spdlog::details::os::default_eol, dest);
+        spdlog::details::fmt_helper::append_string_view("\n", dest);
 
         msg.color_range_end = dest.size();
 
         _current_size += dest.size();
     }
 
-    std::unique_ptr<formatter> clone() const override {
+    std::unique_ptr<spdlog::formatter> clone() const override {
         return std::make_unique<thread_name_formatter>(_size_limit);
     }
 

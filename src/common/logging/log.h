@@ -34,6 +34,13 @@ void FmtLogMessage(Class log_class, Level log_level, const char* filename, unsig
 
 } // namespace Common::Log
 
+// Function declarations for log setup
+namespace Common::Log {
+void Setup(std::string_view log_filename);
+void Shutdown();
+void Flush();
+} // namespace Common::Log
+
 // Define the fmt lib macros
 #define LOG_GENERIC(log_class, log_level, ...)                                                     \
     Common::Log::FmtLogMessage(log_class, log_level, Common::Log::TrimSourcePath(__FILE__),        \

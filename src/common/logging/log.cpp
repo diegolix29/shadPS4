@@ -1,14 +1,20 @@
 // SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <chrono>
 #include <cstdlib>
 #include <string>
 
+#include <spdlog/logger.h>
+#include <spdlog/sinks/async_sink.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/dup_filter_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include "common/assert.h"
 #include "common/config.h"
 #include "common/logging/log.h"
 #include "common/logging/thread_name_formatter.h"
-#include "common/types.h"
+#include "common/path_util.h"
 #include "core/emulator_settings.h"
 #ifdef _WIN32
 #include <Windows.h>
@@ -17,7 +23,7 @@
 namespace Common::Log {
 bool g_should_append = false;
 
-static std::shared_ptr<spdlog_stdout> g_console_sink;
+static std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> g_console_sink;
 static std::shared_ptr<spdlog::sinks::basic_file_sink_mt> g_shad_file_sink;
 
 std::unordered_map<std::string_view, std::shared_ptr<spdlog::logger>> ALL_LOGGERS{
@@ -176,30 +182,29 @@ void Setup(std::string_view log_filename) {
     }
 
 #else
-    g_console_sink = UpdateColorLevels(std::make_shared<spdlog_stdout>());
+    g_console_sink = UpdateColorLevels(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 #endif
 
     g_console_sink->set_formatter(std::make_unique<thread_name_formatter>(UNLIMITED_SIZE));
 
     g_shad_file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
         (GetUserPath(Common::FS::PathType::LogDir) / log_filename).string(), !g_should_append);
-    g_shad_file_sink->set_formatter(
-        std::make_unique<thread_name_formatter>(EmulatorSettings.GetLogSizeLimit()));
+    g_shad_file_sink->set_formatter(std::make_unique<thread_name_formatter>(UNLIMITED_SIZE));
 
     std::initializer_list<spdlog::sink_ptr> sinks{g_console_sink, g_shad_file_sink};
 
-    std::initializer_list<spdlog::sink_ptr> async_sink{std::make_shared<spdlog::sinks::async_sink>(
-        spdlog::sinks::async_sink::config{.sinks = sinks})};
+    std::initializer_list<spdlog::sink_ptr> async_sink_list{
+        std::make_shared<spdlog::sinks::async_sink>(
+            spdlog::sinks::async_sink::config{.sinks = sinks})};
 
     std::initializer_list<spdlog::sink_ptr> dup_filter{
-        std::make_shared<spdlog::sinks::dup_filter_sink_mt>(
-            std::chrono::milliseconds(EmulatorSettings.GetLogMaxSkipDuration()),
-            EmulatorSettings.IsLogSync() ? sinks : async_sink)};
+        std::make_shared<spdlog::sinks::dup_filter_sink_mt>(std::chrono::milliseconds(1000),
+                                                            sinks)};
 
     spdlog::level default_log_level = spdlog::level::info;
     std::unordered_map<std::string, spdlog::level> log_level_per_class;
 
-    if (EmulatorSettings.IsLogEnable()) {
+    if (EmulatorSettings.IsLogEnabled()) {
         for (const auto class_level : std::views::split(EmulatorSettings.GetLogFilter(), ',')) {
             const auto class_level_pair =
                 std::views::split(class_level, '=') | std::ranges::to<std::vector<std::string>>();
@@ -216,16 +221,16 @@ void Setup(std::string_view log_filename) {
     }
 
     for (auto& [name, logger] : ALL_LOGGERS) {
-        logger = std::make_shared<spdlog::logger>(
-            std::string(name), EmulatorSettings.IsLogSkipDuplicate()
-                                   ? dup_filter
-                                   : (EmulatorSettings.IsLogSync() ? sinks : async_sink));
+        logger = std::make_shared<spdlog::logger>(std::string(name), dup_filter);
 
-        if (EmulatorSettings.IsLogEnable()) {
+        if (EmulatorSettings.IsLogEnabled()) {
             const auto level_it = log_level_per_class.find(std::string(name));
 
-            logger->set_level(level_it != log_level_per_class.end() ? level_it->second
-                                                                    : default_log_level);
+            if (level_it != log_level_per_class.end()) {
+                logger->set_level(level_it->second);
+            } else {
+                logger->set_level(default_log_level);
+            }
         } else {
             logger->set_level(spdlog::level::off);
         }
