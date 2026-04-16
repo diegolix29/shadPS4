@@ -918,6 +918,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
 
     if (ImGui::Button("Big Picture", ImVec2(btnWidth, btnHeight))) {
         Config::setGameRunning(true);
+        Config::setIsFullscreen(true);
         SDL_Event event{};
         event.type = SDL_EVENT_QUIT + 3;
         SDL_PushEvent(&event);

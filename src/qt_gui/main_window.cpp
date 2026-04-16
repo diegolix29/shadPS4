@@ -5,8 +5,10 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <QFileInfo>
 #include <QObject>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QString>
 #include <QStyleFactory>
 #include <signal.h>
@@ -15,11 +17,13 @@
 #include <QWidget>
 
 #include <QDockWidget>
+#include <QFile>
 #include <QKeyEvent>
 #include <QPlainTextEdit>
 #include <QProgressDialog>
 #include <QSplitter>
 #include <QStatusBar>
+#include <QTextStream>
 #include "SDL3/SDL_events.h"
 #include "emulator.h"
 #include "mod_manager_dialog.h"
@@ -38,6 +42,7 @@
 #include "core/ipc/ipc.h"
 
 #include "core/libraries/audio/audioout.h"
+#include "imgui/big_picture.h"
 #include "version_dialog.h"
 
 #include "game_directory_dialog.h"
@@ -843,12 +848,14 @@ void MainWindow::AddUiWidgets() {
 
     ui->toggleLogButton->setObjectName("ToggleLogButton");
     ui->installPkgButton->setObjectName("InstallPkgButton");
+    ui->bpBootButton->setObjectName("BPBootButton");
     ui->launcherBox->setObjectName("launcherBox");
     searchSliderContainer->setObjectName("searchSliderContainer");
     styleContainer->setObjectName("styleContainer");
 
     m_toolbarContainers.append(ui->installPkgButton);
     m_toolbarContainers.append(ui->toggleLogButton);
+    m_toolbarContainers.append(ui->bpBootButton);
     m_toolbarContainers.append(styleContainer);
     m_toolbarContainers.append(searchSliderContainer);
 
@@ -857,6 +864,7 @@ void MainWindow::AddUiWidgets() {
 
     flowLayout->addWidget(ui->installPkgButton);
     flowLayout->addWidget(ui->toggleLogButton);
+    flowLayout->addWidget(ui->bpBootButton);
     flowLayout->addWidget(ui->launcherBox);
     flowLayout->addWidget(ui->FlowBox);
     ui->FlowBox->setVisible(true);
@@ -1129,6 +1137,7 @@ void MainWindow::CreateDockWindows(bool newDock) {
     ui->logDisplay->setVisible(showLog);
     ui->toggleLogButton->setText(showLog ? tr("Hide Log") : tr("Show Log"));
     ui->installPkgButton->setText(tr("Install PKG"));
+    ui->bpBootButton->setText(tr("BP Boot"));
 
     disconnect(ui->toggleLogButton, nullptr, nullptr, nullptr);
 
@@ -1504,6 +1513,69 @@ void MainWindow::CreateConnects() {
     connect(ui->bigPictureButton, &QPushButton::clicked, this,
             [this]() { m_bigPicture->toggle(); });
     connect(ui->hubMenuButton, &QPushButton::clicked, this, [this]() { m_hubMenu->toggle(); });
+    connect(ui->bpBootButton, &QPushButton::clicked, this, [this]() {
+        Config::setGameRunning(true);
+        Config::setIsFullscreen(true);
+
+        QApplication::quit();
+
+        QString emulatorPath = QCoreApplication::applicationFilePath();
+        QString emulatorDir = QFileInfo(emulatorPath).absolutePath();
+
+#ifdef Q_OS_WIN
+        QString scriptFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
+                                 "/relaunch_bigpicture.ps1";
+
+        QString scriptContent =
+            QStringLiteral(
+                "Start-Sleep -Seconds 2\n"
+                "Start-Process -FilePath \"%1\" -WorkingDirectory \"%2\" -ArgumentList \"-b\"\n")
+                .arg(emulatorPath, emulatorDir);
+
+        QFile scriptFile(scriptFileName);
+        if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&scriptFile);
+            scriptFile.write("\xEF\xBB\xBF");
+            out << scriptContent;
+            scriptFile.close();
+
+            bool started = QProcess::startDetached("powershell.exe",
+                                                   QStringList() << "-ExecutionPolicy"
+                                                                 << "Bypass"
+                                                                 << "-File" << scriptFileName);
+            if (!started) {
+                qWarning() << "Failed to start big picture relaunch PowerShell script";
+            }
+        } else {
+            qWarning() << "Failed to write big picture relaunch PowerShell script";
+        }
+#elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
+        QString scriptFileName = "/tmp/relaunch_bigpicture.sh";
+
+        QString scriptContent = QStringLiteral("#!/bin/bash\n"
+                                               "sleep 2\n"
+                                               "exec \"%1\" -b \"$@\" &\n")
+                                    .arg(emulatorPath);
+
+        QFile scriptFile(scriptFileName);
+        if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&scriptFile);
+            out << scriptContent;
+            scriptFile.close();
+
+            scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner |
+                                     QFileDevice::ExeGroup | QFileDevice::ReadGroup |
+                                     QFileDevice::ExeOther | QFileDevice::ReadOther);
+
+            bool started = QProcess::startDetached(scriptFileName);
+            if (!started) {
+                qWarning() << "Failed to start big picture relaunch shell script";
+            }
+        } else {
+            qWarning() << "Failed to write big picture relaunch shell script";
+        }
+#endif
+    });
 
     connect(ui->modManagerButton, &QPushButton::clicked, this, [this]() {
         if (m_game_info->m_games.empty()) {
