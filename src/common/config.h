@@ -368,6 +368,7 @@ bool getEnableMods();
 void setEnableMods(bool enable);
 bool getEnableUpdates();
 void setEnableUpdates(bool enable);
+u64 getSupportedUserMax();
 
 std::string getNexusApiKey();
 void setNexusApiKey(const std::string& apiKey);

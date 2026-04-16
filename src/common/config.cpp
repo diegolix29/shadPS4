@@ -91,6 +91,10 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         if (it->second.is_integer()) {
             return static_cast<Config::AudioBackend>(toml::get<int>(it->second));
         }
+    } else if constexpr (std::is_same_v<T, u64>) {
+        if (it->second.is_integer()) {
+            return static_cast<u64>(toml::get<u64>(it->second));
+        }
     } else {
         static_assert(false, "Unsupported type in get_optional<T>");
     }
@@ -208,6 +212,7 @@ static std::string version_path;
 static ConfigEntry<string> httpHostOverride("localhost");
 static ConfigEntry<bool> enableMods(true);
 static ConfigEntry<bool> enableUpdates(true);
+static ConfigEntry<u64> supported_user_max(0x7000000000);
 
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
@@ -947,6 +952,10 @@ bool getEnableUpdates() {
     return enableUpdates.get();
 }
 
+u64 getSupportedUserMax() {
+    return supported_user_max.get();
+}
+
 void setEnableUpdates(bool enable) {
     enableUpdates.base_value = enable;
 }
@@ -1631,6 +1640,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         enableMods.setFromToml(general, "enableMods", is_game_specific);
         enableUpdates.setFromToml(general, "enableUpdates", is_game_specific);
+        supported_user_max.setFromToml(general, "supported_user_max", is_game_specific);
 
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
@@ -2008,6 +2018,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
             enableMods.game_specific_value.value_or(enableMods.base_value);
         data["General"]["enableUpdates"] =
             enableUpdates.game_specific_value.value_or(enableUpdates.base_value);
+        data["General"]["supported_user_max"] =
+            supported_user_max.game_specific_value.value_or(supported_user_max.base_value);
     } else {
         data["General"]["volumeSlider"] = volumeSlider.base_value;
         data["General"]["muteEnabled"] = muteEnabled.base_value;
@@ -2034,6 +2046,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
         data["General"]["enableMods"] = enableMods.base_value;
         data["General"]["enableUpdates"] = enableUpdates.base_value;
+        data["General"]["supported_user_max"] = supported_user_max.base_value;
     }
     std::vector<int> custom_cores_int;
     for (u32 core : customCpuCores) {

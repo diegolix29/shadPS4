@@ -55,7 +55,7 @@ void NetCtlInternal::CheckCallback() {
     last_callback_event = event;
     for (const auto [func, arg] : callbacks) {
         if (func != nullptr) {
-            func(event, arg);
+            Core::ExecuteGuest(func, event, arg);
         }
     }
 }
@@ -71,7 +71,7 @@ void NetCtlInternal::CheckNpToolkitCallback() {
     last_nptool_event = event;
     for (const auto [func, arg] : nptool_callbacks) {
         if (func != nullptr) {
-            func(event, arg);
+            Core::ExecuteGuest(func, event, arg);
         }
     }
 }
