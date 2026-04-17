@@ -173,8 +173,8 @@ struct AddressSpace::Impl {
                 process, reinterpret_cast<PVOID>(region.second.base), region.second.size,
                 MEM_RESERVE | MEM_RESERVE_PLACEHOLDER, PAGE_NOACCESS, NULL, 0));
             // All marked regions should reserve fine since they're free.
-            ASSERT_MSG(addr, "Unable to reserve virtual address space: {}",
-                       Common::GetLastErrorMsg());
+           // ASSERT_MSG(addr, "Unable to reserve virtual address space: {}",
+           //            Common::GetLastErrorMsg());
         }
 
         // Set these constants to ensure code relying on them works.

@@ -212,7 +212,7 @@ static std::string version_path;
 static ConfigEntry<string> httpHostOverride("localhost");
 static ConfigEntry<bool> enableMods(true);
 static ConfigEntry<bool> enableUpdates(true);
-static ConfigEntry<u64> supported_user_max(0x7000000000ULL);
+static ConfigEntry<u64> supported_user_max(0x7000000000);
 
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
