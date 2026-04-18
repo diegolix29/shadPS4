@@ -320,6 +320,12 @@ if (NOT TARGET CLI11::CLI11)
 endif()
 
 
+# ImGuiFileDialog
+add_library(ImGuiFileDialog ImGuiFileDialog/ImGuiFileDialog.cpp)
+target_compile_definitions(ImGuiFileDialog PRIVATE USE_STD_FILESYSTEM)
+target_include_directories(ImGuiFileDialog INTERFACE ImGuiFileDialog/)
+target_link_libraries(ImGuiFileDialog PRIVATE Dear_ImGui)
+
 #openal
 if (NOT TARGET OpenAL::OpenAL)
 set(ALSOFT_ENABLE_MODULES OFF CACHE BOOL "" FORCE)
