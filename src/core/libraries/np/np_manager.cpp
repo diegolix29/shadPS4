@@ -657,8 +657,8 @@ s32 PS4_SYSV_ABI sceNpGetNpReachabilityState(Libraries::UserService::OrbisUserSe
         return ORBIS_NP_ERROR_INVALID_ARGUMENT;
     }
 
-    *state = g_signed_in ? OrbisNpReachabilityState::Reachable
-                               : OrbisNpReachabilityState::Unavailable;
+    *state =
+        g_signed_in ? OrbisNpReachabilityState::Reachable : OrbisNpReachabilityState::Unavailable;
     return ORBIS_OK;
 }
 

@@ -172,6 +172,9 @@ int PS4_SYSV_ABI scePadGetExtControllerInformation(s32 handle,
     pInfo->capability = 0;
 
     auto res = scePadGetControllerInformation(handle, &pInfo->base);
+    if (!Config::getUseSpecialPad(handle)) {
+        pInfo->base.connected = false;
+    }
     return res;
 }
 
