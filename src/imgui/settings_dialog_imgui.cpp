@@ -99,7 +99,7 @@ bool readbackLinearImagesSetting;
 bool directMemoryAccessSetting;
 bool devkitConsoleSetting;
 bool neoModeSetting;
-bool shadnetEnabledSetting;
+bool psnSignedInSetting;
 bool connectedNetworkSetting;
 bool pipelineCacheEnabledSetting;
 bool pipelineCacheArchiveSetting;
@@ -451,7 +451,7 @@ void LoadCategory(SettingsCategory category) {
             AddSettingBool("Enable Direct Memory Access", directMemoryAccessSetting);
             AddSettingBool("Enable Devkit Console Mode", devkitConsoleSetting);
             AddSettingBool("Enable PS4 Neo Mode", neoModeSetting);
-            AddSettingBool("Enable ShadNet", shadnetEnabledSetting);
+            AddSettingBool("Enable ShadNet", psnSignedInSetting);
             AddSettingBool("Set Network Connected to True", connectedNetworkSetting);
             AddSettingBool("Enable Shader Cache", pipelineCacheEnabledSetting);
 

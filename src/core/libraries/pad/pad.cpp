@@ -309,28 +309,11 @@ int PS4_SYSV_ABI scePadOpen(s32 userId, s32 type, s32 index, const OrbisPadOpenP
     if (userId == -1) {
         return ORBIS_PAD_ERROR_DEVICE_NO_HANDLE;
     }
-    if (userId == ORBIS_USER_SERVICE_USER_ID_SYSTEM) {
-        if (type == ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL) {
-            LOG_INFO(Lib_Pad, "Opened a TV remote device");
-            user_id_pad_handle_map[ORBIS_USER_SERVICE_USER_ID_SYSTEM] = tv_remote_handle;
-            return tv_remote_handle;
-        }
-        return ORBIS_DEVICE_SERVICE_ERROR_INVALID_USER;
-    }
-    if (type == ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL) {
-        return ORBIS_PAD_ERROR_INVALID_ARG;
-    }
-    auto u = UserManagement.GetUserByID(userId);
-    if (!u) {
-        return ORBIS_DEVICE_SERVICE_ERROR_USER_NOT_LOGIN;
-    }
-    s32 pad_handle = u->player_index;
-    LOG_INFO(Lib_Pad, "called user_id = {} type = {} index = {}, pad_handle = {}", userId, type,
-             index, pad_handle);
-    scePadResetLightBar(pad_handle);
-    scePadResetOrientation(pad_handle);
-    user_id_pad_handle_map[userId] = pad_handle;
-    return pad_handle;
+    LOG_INFO(Lib_Pad, "(DUMMY) called user_id = {} type = {} index = {}", userId, type, index);
+    g_openHandles.insert(userId);
+    scePadResetLightBar(userId);
+    scePadResetOrientation(userId);
+    return userId; // dummy
 }
 
 int PS4_SYSV_ABI scePadOpenExt(s32 userId, s32 type, s32 index,
@@ -338,17 +321,7 @@ int PS4_SYSV_ABI scePadOpenExt(s32 userId, s32 type, s32 index,
     int pad = HandleToIndex(userId);
 
     LOG_ERROR(Lib_Pad, "(STUBBED) called");
-    auto u = UserManagement.GetUserByID(userId);
-    if (!u) {
-        return ORBIS_DEVICE_SERVICE_ERROR_USER_NOT_LOGIN;
-    }
-    s32 pad_handle = u->player_index;
-    LOG_INFO(Lib_Pad, "called user_id = {} type = {} index = {}, pad_handle = {}", userId, type,
-             index, pad_handle);
-    scePadResetLightBar(pad_handle);
-    scePadResetOrientation(pad_handle);
-    user_id_pad_handle_map[userId] = pad_handle;
-    return pad_handle;
+    return pad; // dummy
 }
 
 int PS4_SYSV_ABI scePadOpenExt2() {
