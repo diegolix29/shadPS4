@@ -114,15 +114,15 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
     }
     const VAddr page_addr = PageManager::GetPageAddr(device_addr);
     auto* memory = Core::Memory::Instance();
-    if (preemptive_downloads.Intersects(page_addr, PageManager::PM_PAGE_BITS)) {
+    if (preemptive_downloads.Intersects(page_addr, PageManager::GetPageSize())) {
         preemptive_downloads.ForEachInRange(
-            page_addr, PageManager::PM_PAGE_BITS,
+            page_addr, PageManager::GetPageSize(),
             [&](VAddr begin, VAddr end, const PreemptiveDownload& download) {
                 scheduler.Wait(download.done_tick);
                 memory->TryWriteBacking(std::bit_cast<u8*>(download.device_addr), download.staging,
                                         download.size);
             });
-        preemptive_downloads.Subtract(page_addr, PageManager::PM_PAGE_BITS);
+        preemptive_downloads.Subtract(page_addr, PageManager::GetPageSize());
         memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, is_write);
     } else {
         const auto [download, offset] = download_buffer.Map(total_size_bytes);
@@ -532,7 +532,7 @@ bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
     }
     const VAddr page_addr = PageManager::GetPageAddr(addr);
     bool modified = false;
-    gpu_modified_ranges_pending.ForEachInRange(page_addr, PageManager::PM_PAGE_BITS,
+    gpu_modified_ranges_pending.ForEachInRange(page_addr, PageManager::GetPageSize(),
                                                [&](VAddr, VAddr) { modified = true; });
     return modified;
 }
@@ -929,7 +929,7 @@ void BufferCache::CommitPendingGpuRanges() {
             const BufferId buffer_id = page_table[page_addr >> CACHING_PAGEBITS].buffer_id;
             const Buffer& buffer = slot_buffers[buffer_id];
             const VAddr start_addr = std::max(page_addr, begin);
-            const VAddr end_addr = std::min(page_addr + PageManager::PM_PAGE_BITS, end);
+            const VAddr end_addr = std::min(page_addr + PageManager::GetPageSize(), end);
             const u32 size = end_addr - start_addr;
             preemptive_copies[buffer_id].emplace_back(buffer.Offset(start_addr), total_size_bytes,
                                                       size);

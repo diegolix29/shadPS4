@@ -3,7 +3,7 @@
 
 #pragma once
 
-#if __unix__
+#ifdef __linux__
 #include <pthread.h>
 #endif
 

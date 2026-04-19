@@ -524,7 +524,7 @@ void Emulator::Restart(std::filesystem::path eboot_path, const std::vector<std::
 
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
-#elif defined(__APPLE__) || defined(__linux__) || defined(__FreeBSD__)
+#elif defined(__APPLE__) || defined(__linux__)
     std::vector<char*> argv;
 
     argv.push_back(const_cast<char*>(executableName));
