@@ -12,7 +12,7 @@
 #elif defined(__linux__)
 #include <filesystem>
 #include <fstream>
-#elif defined(__APPLE__) || defined(__FreeBSD__)
+#elif defined(__APPLE__)
 #include <errno.h>
 #include <signal.h>
 #include <sys/sysctl.h>
@@ -48,8 +48,6 @@ bool Core::Debugger::IsDebuggerAttached() {
         return (info.kp_proc.p_flag & P_TRACED) != 0;
     }
     return false;
-#elif defined(__FreeBSD__)
-    return false;
 #else
 #error "Unsupported platform"
 #endif
@@ -68,7 +66,7 @@ void Core::Debugger::WaitForDebuggerAttach() {
 int Core::Debugger::GetCurrentPid() {
 #if defined(_WIN32)
     return GetCurrentProcessId();
-#elif defined(__APPLE__) || defined(__linux__) || defined(__FreeBSD__)
+#elif defined(__APPLE__) || defined(__linux__)
     return getpid();
 #else
 #error "Unsupported platform"
@@ -90,7 +88,7 @@ void Core::Debugger::WaitForPid(int pid) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         std::cerr << "Waiting for process " << pid << " to exit..." << std::endl;
     }
-#elif defined(__APPLE__) || defined(__FreeBSD__)
+#elif defined(__APPLE__)
     while (kill(pid, 0) == 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         std::cerr << "Waiting for process " << pid << " to exit..." << std::endl;

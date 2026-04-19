@@ -38,8 +38,8 @@
 
 namespace VideoCore {
 
-constexpr size_t PM_PAGE_SIZE = 4_KB;
-constexpr size_t PM_PAGE_BITS = 12;
+constexpr size_t PAGE_SIZE = 4_KB;
+constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
@@ -110,7 +110,7 @@ struct PageManager::Impl {
     };
 
     static constexpr size_t ADDRESS_BITS = 40;
-    static constexpr size_t NUM_ADDRESS_PAGES = 1ULL << (40 - PM_PAGE_BITS);
+    static constexpr size_t NUM_ADDRESS_PAGES = 1ULL << (40 - PAGE_BITS);
     static constexpr size_t NUM_ADDRESS_LOCKS = NUM_ADDRESS_PAGES / PAGES_PER_LOCK;
     inline static Vulkan::Rasterizer* rasterizer;
 
@@ -207,8 +207,8 @@ struct PageManager::Impl {
     void UpdatePageWatchers(VAddr addr, u64 size) {
         RENDERER_TRACE;
 
-        size_t page = addr >> PM_PAGE_BITS;
-        const u64 page_end = Common::DivCeil(addr + size, PM_PAGE_SIZE);
+        size_t page = addr >> PAGE_BITS;
+        const u64 page_end = Common::DivCeil(addr + size, PAGE_SIZE);
 
         const auto lock_start = locks.begin() + (page / PAGES_PER_LOCK);
         const auto lock_end = locks.begin() + Common::DivCeil(page_end, PAGES_PER_LOCK);
@@ -222,12 +222,21 @@ struct PageManager::Impl {
         const auto release_pending = [&] {
             if (range_bytes > 0) {
                 RENDERER_TRACE;
-
-                Protect(range_begin << PM_PAGE_BITS, range_bytes, perms);
+                // Perform pending (un)protect action
+                Protect(range_begin << PAGE_BITS, range_bytes, perms);
                 range_bytes = 0;
                 potential_range_bytes = 0;
             }
         };
+
+        // Iterate requested pages
+        const u64 aligned_addr = page << PAGE_BITS;
+        const u64 aligned_end = page_end << PAGE_BITS;
+        if (!rasterizer->IsMapped(aligned_addr, aligned_end - aligned_addr)) {
+            LOG_WARNING(Render,
+                        "Tracking memory region {:#x} - {:#x} which is not fully GPU mapped.",
+                        aligned_addr, aligned_end);
+        }
 
         for (; page != page_end; ++page) {
             PageState& state = cached_pages[page];
@@ -238,13 +247,14 @@ struct PageManager::Impl {
                 release_pending();
                 perms = new_perms;
             } else if (range_bytes != 0) {
-                potential_range_bytes += PM_PAGE_SIZE;
+                // If the protection did not change, extend the potential range
+                potential_range_bytes += PAGE_SIZE;
             }
 
             if ((new_count == 0 && !track) || (new_count == 1 && track)) {
                 if (range_bytes == 0) {
                     range_begin = page;
-                    potential_range_bytes = PM_PAGE_SIZE;
+                    potential_range_bytes = PAGE_SIZE;
                 }
                 range_bytes = potential_range_bytes;
             }
@@ -255,18 +265,72 @@ struct PageManager::Impl {
     template <bool track, bool is_read>
     void UpdatePageWatchersForRegion(VAddr base_addr, RegionBits& mask) {
         RENDERER_TRACE;
+        auto start_range = mask.FirstRange();
+        auto end_range = mask.LastRange();
 
-        for (auto range : mask) {
-            if (range.first == range.second)
-                continue;
-            const VAddr start_addr = base_addr + (range.first << PM_PAGE_BITS);
-            const u64 size = (range.second - range.first) << PM_PAGE_BITS;
-            UpdatePageWatchers<track, is_read>(start_addr, size);
+        if (start_range.second == end_range.second) {
+            // if all pages are contiguous, use the regular UpdatePageWatchers
+            const VAddr start_addr = base_addr + (start_range.first << PAGE_BITS);
+            const u64 size = (start_range.second - start_range.first) << PAGE_BITS;
+            return UpdatePageWatchers<track, is_read>(start_addr, size);
+        }
+
+        size_t base_page = (base_addr >> PAGE_BITS);
+        ASSERT(base_page % PAGES_PER_LOCK == 0);
+        std::scoped_lock lk(locks[base_page / PAGES_PER_LOCK]);
+        auto perms = cached_pages[base_page + start_range.first].Perms();
+        u64 range_begin = 0;
+        u64 range_bytes = 0;
+        u64 potential_range_bytes = 0;
+
+        const auto release_pending = [&] {
+            if (range_bytes > 0) {
+                RENDERER_TRACE;
+                // Perform pending (un)protect action
+                Protect((range_begin << PAGE_BITS), range_bytes, perms);
+                range_bytes = 0;
+                potential_range_bytes = 0;
+            }
+        };
+
+        // Iterate pages
+        for (size_t page = start_range.first; page < end_range.second; ++page) {
+            PageState& state = cached_pages[base_page + page];
+            const bool update = mask.Get(page);
+
+            // Apply the change to the page state
+            const u8 new_count =
+                update ? state.AddDelta<track ? 1 : -1, is_read>() : state.AddDelta<0, is_read>();
+
+            if (auto new_perms = state.Perms(); new_perms != perms) [[unlikely]] {
+                // If the protection changed add pending (un)protect action
+                release_pending();
+                perms = new_perms;
+            } else if (range_bytes != 0) {
+                // If the protection did not change, extend the potential range
+                potential_range_bytes += PAGE_SIZE;
+            }
+
+            for (auto range : mask) {
+                if (range.first == range.second)
+                    continue;
+            }
+
+            // If the page must be (un)protected
+            if ((new_count == 0 && !track) || (new_count == 1 && track)) {
+                if (range_bytes == 0) {
+                    // Start a new potential range
+                    range_begin = base_page + page;
+                    potential_range_bytes = PAGE_SIZE;
+                }
+                // Extend current rango up to potential range
+                range_bytes = potential_range_bytes;
+            }
         }
     }
 
     std::array<PageState, NUM_ADDRESS_PAGES> cached_pages{};
-#ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
+#ifdef __linux__
     using LockType = Common::AdaptiveMutex;
 #else
     using LockType = Common::SpinLock;

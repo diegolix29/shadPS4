@@ -148,3 +148,6 @@
 	url = https://github.com/shadexternals/ImGuiFileDialog.git
     branch = shadps4
 	shallow = true
+[submodule "externals/ext-libusb"]
+	path = externals/ext-libusb
+	url = https://github.com/shadps4-emu/ext-libusb.git
