@@ -38,8 +38,8 @@
 
 namespace VideoCore {
 
-constexpr size_t PM_PAGE_SIZE = 4_KB;
-constexpr size_t PM_PAGE_BITS = 12;
+constexpr size_t PAGE_SIZE = 4_KB;
+constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
@@ -110,7 +110,7 @@ struct PageManager::Impl {
     };
 
     static constexpr size_t ADDRESS_BITS = 40;
-    static constexpr size_t NUM_ADDRESS_PAGES = 1ULL << (40 - PM_PAGE_BITS);
+    static constexpr size_t NUM_ADDRESS_PAGES = 1ULL << (40 - PAGE_BITS);
     static constexpr size_t NUM_ADDRESS_LOCKS = NUM_ADDRESS_PAGES / PAGES_PER_LOCK;
     inline static Vulkan::Rasterizer* rasterizer;
 
@@ -207,8 +207,8 @@ struct PageManager::Impl {
     void UpdatePageWatchers(VAddr addr, u64 size) {
         RENDERER_TRACE;
 
-        size_t page = addr >> PM_PAGE_BITS;
-        const u64 page_end = Common::DivCeil(addr + size, PM_PAGE_SIZE);
+        size_t page = addr >> PAGE_BITS;
+        const u64 page_end = Common::DivCeil(addr + size, PAGE_SIZE);
 
         const auto lock_start = locks.begin() + (page / PAGES_PER_LOCK);
         const auto lock_end = locks.begin() + Common::DivCeil(page_end, PAGES_PER_LOCK);
@@ -223,7 +223,7 @@ struct PageManager::Impl {
             if (range_bytes > 0) {
                 RENDERER_TRACE;
 
-                Protect(range_begin << PM_PAGE_BITS, range_bytes, perms);
+                Protect(range_begin << PAGE_BITS, range_bytes, perms);
                 range_bytes = 0;
                 potential_range_bytes = 0;
             }
@@ -238,13 +238,13 @@ struct PageManager::Impl {
                 release_pending();
                 perms = new_perms;
             } else if (range_bytes != 0) {
-                potential_range_bytes += PM_PAGE_SIZE;
+                potential_range_bytes += PAGE_SIZE;
             }
 
             if ((new_count == 0 && !track) || (new_count == 1 && track)) {
                 if (range_bytes == 0) {
                     range_begin = page;
-                    potential_range_bytes = PM_PAGE_SIZE;
+                    potential_range_bytes = PAGE_SIZE;
                 }
                 range_bytes = potential_range_bytes;
             }
@@ -259,14 +259,14 @@ struct PageManager::Impl {
         for (auto range : mask) {
             if (range.first == range.second)
                 continue;
-            const VAddr start_addr = base_addr + (range.first << PM_PAGE_BITS);
-            const u64 size = (range.second - range.first) << PM_PAGE_BITS;
+            const VAddr start_addr = base_addr + (range.first << PAGE_BITS);
+            const u64 size = (range.second - range.first) << PAGE_BITS;
             UpdatePageWatchers<track, is_read>(start_addr, size);
         }
     }
 
     std::array<PageState, NUM_ADDRESS_PAGES> cached_pages{};
-#ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
+#ifdef __linux__
     using LockType = Common::AdaptiveMutex;
 #else
     using LockType = Common::SpinLock;

@@ -89,7 +89,6 @@ if (NOT TARGET SDL3_image::SDL3_image)
     set(SDLIMAGE_XV OFF CACHE BOOL "" FORCE)
     add_subdirectory(sdl3_image)
 endif()
-
 # SDL3_mixer
 if (NOT TARGET SDL3_mixer::SDL3_mixer)
     set(SDLMIXER_FLAC OFF)
@@ -241,15 +240,8 @@ endif()
 
 # libusb
 if (NOT TARGET libusb::usb)
-    if (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
-        # YOU MUST USE NATIVE LIBUSB
-        # using anything else will crash instantly, also freebsd will NOT like it
-        # no you cant vendor this libusb, its builtin on freebsd
-        find_package(libusb)
-    else()
-        add_subdirectory(libusb)
-        add_library(libusb::usb ALIAS usb-1.0)
-    endif()
+    add_subdirectory(ext-libusb)
+    add_library(libusb::usb ALIAS usb-1.0)
 endif()
 
 # Discord RPC
@@ -271,25 +263,24 @@ endif()
 set(HWINFO_STATIC ON)
 add_subdirectory(hwinfo)
 
-if (APPLE OR ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
+# Apple-only dependencies
+if (APPLE)
     # date
     if (NOT TARGET date::date-tz)
         option(BUILD_TZ_LIB "" ON)
         option(USE_SYSTEM_TZ_DB "" ON)
         add_subdirectory(date)
     endif()
-    if (NOT TARGET epoll-shim)
-        add_subdirectory(epoll-shim)
-    endif()
-endif()
 
-# Apple-only dependencies
-if (APPLE)
     # MoltenVK
     if (NOT TARGET MoltenVK)
         set(MVK_EXCLUDE_SPIRV_TOOLS ON)
         set(MVK_USE_METAL_PRIVATE_API ON)
         add_subdirectory(MoltenVK)
+    endif()
+
+    if (NOT TARGET epoll-shim)
+        add_subdirectory(epoll-shim)
     endif()
 endif()
 
@@ -319,12 +310,12 @@ if (NOT TARGET CLI11::CLI11)
     add_subdirectory(CLI11)
 endif()
 
-
 # ImGuiFileDialog
 add_library(ImGuiFileDialog ImGuiFileDialog/ImGuiFileDialog.cpp)
 target_compile_definitions(ImGuiFileDialog PRIVATE USE_STD_FILESYSTEM)
 target_include_directories(ImGuiFileDialog INTERFACE ImGuiFileDialog/)
 target_link_libraries(ImGuiFileDialog PRIVATE Dear_ImGui)
+
 
 #openal
 if (NOT TARGET OpenAL::OpenAL)

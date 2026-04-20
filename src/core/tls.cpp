@@ -10,8 +10,6 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#elif defined(__FreeBSD__)
-#include <machine/sysarch.h>
 #elif defined(__APPLE__) && defined(ARCH_X86_64)
 #include <architecture/i386/table.h>
 #include <boost/icl/interval_set.hpp>
@@ -159,17 +157,12 @@ Tcb* GetTcbBase() {
 
 #elif defined(ARCH_X86_64)
 
-// Linux x86_64
-#if defined(__FreeBSD__)
-void SetTcbBase(void* image_address) {
-    amd64_set_gsbase(image_address);
-}
-#else
+// Other POSIX x86_64
+
 void SetTcbBase(void* image_address) {
     const int ret = syscall(SYS_arch_prctl, ARCH_SET_GS, (unsigned long)image_address);
     ASSERT_MSG(ret == 0, "Failed to set GS base: errno {}", errno);
 }
-#endif
 
 Tcb* GetTcbBase() {
     return Libraries::Kernel::g_curthread->tcb;

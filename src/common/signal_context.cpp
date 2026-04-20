@@ -7,9 +7,6 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#elif defined(__FreeBSD__)
-#include <machine/npx.h>
-#include <sys/ucontext.h>
 #else
 #include <sys/ucontext.h>
 #endif
@@ -22,17 +19,9 @@ void* GetXmmPointer(void* ctx, u8 index) {
     case index:                                                                                    \
         return (void*)(&((EXCEPTION_POINTERS*)ctx)->ContextRecord->Xmm##index.Low)
 #elif defined(__APPLE__)
-#define CASE(index) return (void*)(&((ucontext_t*)ctx)->uc_mcontext->__fs.__fpu_xmm##index);
-#elif defined(__FreeBSD__)
-    // In mc_fpstate
-    // See <machine/npx.h> for the internals of mc_fpstate[].
 #define CASE(index)                                                                                \
-    case index: {                                                                                  \
-        auto& mctx = ((ucontext_t*)ctx)->uc_mcontext;                                              \
-        ASSERT(mctx.mc_fpformat == _MC_FPFMT_XMM);                                                 \
-        auto* s_fpu = (struct savefpu*)(&mctx.mc_fpstate[0]);                                      \
-        return (void*)(&(s_fpu->sv_xmm[0]));                                                       \
-    }
+    case index:                                                                                    \
+        return (void*)(&((ucontext_t*)ctx)->uc_mcontext->__fs.__fpu_xmm##index);
 #else
 #define CASE(index)                                                                                \
     case index:                                                                                    \
@@ -68,8 +57,6 @@ void* GetRip(void* ctx) {
     return (void*)((EXCEPTION_POINTERS*)ctx)->ContextRecord->Rip;
 #elif defined(__APPLE__)
     return (void*)((ucontext_t*)ctx)->uc_mcontext->__ss.__rip;
-#elif defined(__FreeBSD__)
-    return (void*)((ucontext_t*)ctx)->uc_mcontext.mc_rip;
 #else
     return (void*)((ucontext_t*)ctx)->uc_mcontext.gregs[REG_RIP];
 #endif
@@ -80,8 +67,6 @@ void IncrementRip(void* ctx, u64 length) {
     ((EXCEPTION_POINTERS*)ctx)->ContextRecord->Rip += length;
 #elif defined(__APPLE__)
     ((ucontext_t*)ctx)->uc_mcontext->__ss.__rip += length;
-#elif defined(__FreeBSD__)
-    ((ucontext_t*)ctx)->uc_mcontext.mc_rip += length;
 #else
     ((ucontext_t*)ctx)->uc_mcontext.gregs[REG_RIP] += length;
 #endif
