@@ -24,10 +24,7 @@ endif()
 # spdlog
 set(SPDLOG_NO_EXCEPTIONS ON)
 set(SPDLOG_DISABLE_GLOBAL_LOGGER ON)
-if (TARGET fmt::fmt)
-    set(SPDLOG_FMT_EXTERNAL ON)
-endif()
-add_subdirectory(spdlog EXCLUDE_FROM_ALL SYSTEM)
+add_subdirectory(spdlog)
 
 # fmtlib
 if (NOT TARGET fmt::fmt)
