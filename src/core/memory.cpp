@@ -36,7 +36,7 @@ MemoryManager::MemoryManager() {
 
     // Pre-initialize direct backing
     auto total_size = ORBIS_KERNEL_TOTAL_MEM_DEV_PRO;
-    s32 extra_dmem = EmulatorSettings.GetExtraDmemInMBytes();
+    s32 extra_dmem = Config::getExtraDmemInMbytes();
     if (extra_dmem != 0) {
         total_size += extra_dmem * 1_MB;
     }
@@ -49,7 +49,7 @@ MemoryManager::MemoryManager() {
     fmem_map.clear();
     fmem_map.emplace(total_size, PhysicalMemoryArea{total_size, total_flexible_size});
 
-    ASSERT_MSG(Libraries::Kernel::sceKernelGetCompiledSdkVersion(&sdk_version) == 0,
+    ASSERT_MSG(::Libraries::Kernel::sceKernelGetCompiledSdkVersion(&sdk_version) == 0,
                "Failed to get compiled SDK version");
 }
 
@@ -76,7 +76,7 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
     if (!use_extended_mem2 && !is_neo) {
         total_size -= 128_MB;
     }
-    total_flexible_size = flexible_size - ORBIS_FLEXIBLE_MEMORY_BASE;
+    total_flexible_size = flexible_size - ORBIS_KERNEL_FLEXIBLE_MEMORY_BASE;
     if (extra_dmem != 0) {
         LOG_WARNING(Kernel_Vmm,
                     "extraDmemInMbytes is {} MB! Increasing flexible memory by the same amount",
@@ -581,7 +581,7 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
                    virtual_addr);
         auto vma = FindVMA(virtual_addr)->second;
         auto remaining_size = vma.base + vma.size - virtual_addr;
-        if (!vma.IsFree() || remaining_size < size) {
+        if ((!vma.IsFree() && vma.type != VMAType::Reserved) || remaining_size < size) {
             LOG_ERROR(Kernel_Vmm, "Unable to map {:#x} bytes at address {:#x}", size, virtual_addr);
             return ORBIS_KERNEL_ERROR_ENOMEM;
         }
