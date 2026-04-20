@@ -6,8 +6,8 @@
 #include <memory>
 #include <string_view>
 #include <spdlog/common.h>
-#include <spdlog/details/log_msg.h>
-#include <spdlog/formatter.h>
+#include <spdlog/details/fmt_helper.h>
+#include <spdlog/details/os.h>
 
 #include "common/thread.h"
 
@@ -45,17 +45,17 @@ struct thread_name_formatter : spdlog::formatter {
         spdlog::details::fmt_helper::append_string_view(GetCurrentThreadName(), dest);
         dest.push_back(')');
         dest.push_back(' ');
-        spdlog::details::fmt_helper::append_string_view(msg.source.short_filename, dest);
+        spdlog::details::fmt_helper::append_string_view(msg.source.file, dest);
         dest.push_back(':');
         spdlog::details::fmt_helper::append_int(msg.source.line, dest);
         dest.push_back(' ');
         spdlog::details::fmt_helper::append_string_view(
-            std::string_view(msg.source.funcname) == "operator()" ? "lambda" : msg.source.funcname,
+            std::string_view(msg.source.function) == "operator()" ? "lambda" : msg.source.function,
             dest);
         dest.push_back(':');
         dest.push_back(' ');
         spdlog::details::fmt_helper::append_string_view(msg.payload, dest);
-        spdlog::details::fmt_helper::append_string_view(spdlog::details::os::default_eol, dest);
+        spdlog::details::fmt_helper::append_string_view("\n", dest);
 
         msg.color_range_end = dest.size();
 

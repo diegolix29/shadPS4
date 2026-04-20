@@ -8,7 +8,7 @@
 #include "common/config.h"
 #include "common/logging/log.h"
 #include "common/logging/thread_name_formatter.h"
-#include "common/types.h"
+#include "common/path_util.h"
 #include "core/emulator_settings.h"
 #ifdef _WIN32
 #include <Windows.h>
@@ -17,8 +17,8 @@
 namespace Common::Log {
 bool g_should_append = false;
 
-static std::shared_ptr<spdlog_stdout> g_console_sink;
-static std::shared_ptr<spdlog::sinks::basic_file_sink_mt> g_shad_file_sink;
+static std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> g_console_sink;
+static std::shared_ptr<spdlog::sinks::basic_file_sink<std::mutex>> g_shad_file_sink;
 
 std::unordered_map<std::string_view, std::shared_ptr<spdlog::logger>> ALL_LOGGERS{
     {Class::Common, nullptr},
@@ -176,15 +176,15 @@ void Setup(std::string_view log_filename) {
     }
 
 #else
-    g_console_sink = UpdateColorLevels(std::make_shared<spdlog_stdout>());
+    g_console_sink = UpdateColorLevels(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 #endif
 
     g_console_sink->set_formatter(std::make_unique<thread_name_formatter>(UNLIMITED_SIZE));
 
-    g_shad_file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+    g_shad_file_sink = std::make_shared<spdlog::sinks::basic_file_sink<std::mutex>>(
         (GetUserPath(Common::FS::PathType::LogDir) / log_filename).string(), !g_should_append);
     g_shad_file_sink->set_formatter(
-        std::make_unique<thread_name_formatter>(EmulatorSettings.GetLogSizeLimit()));
+        std::make_unique<thread_name_formatter>(UNLIMITED_SIZE));
 
     std::initializer_list<spdlog::sink_ptr> sinks{g_console_sink, g_shad_file_sink};
 
