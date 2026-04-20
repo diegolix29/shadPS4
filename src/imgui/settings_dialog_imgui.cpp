@@ -48,6 +48,7 @@ const std::map<std::string, int> languageMap = {{"Arabic", 21},
                                                 {"Ukrainian", 30},
                                                 {"Vietnamese", 28}};
 std::vector<std::string> languageOptions; // assigned from keys above
+const std::vector<std::string> logTypeOptions = {"sync", "async"};
 const std::vector<std::string> fullscreenModeOptions = {"Windowed", "Fullscreen",
                                                         "Fullscreen (Borderless)"};
 const std::vector<std::string> audioBackendOptions = {"SDL", "OpenAL"};
@@ -87,9 +88,9 @@ int trophySideSetting;
 float trophyDurationSetting;
 
 // Log tab
-bool logEnableSetting;
-bool logSeparateSetting;
-bool logSyncSetting;
+bool logEnabledSetting;
+bool separateLogSetting;
+int logTypeSetting;
 
 // Experimental tab
 int readbacksModeSetting;
@@ -419,10 +420,10 @@ void LoadCategory(SettingsCategory category) {
             ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 500.0f * uiScale);
             ImGui::TableSetupColumn("Value");
 
-            AddSettingBool("Enable Logging", logEnableSetting);
-            if (logEnableSetting) {
-                AddSettingBool("Separate Log Files", logSeparateSetting);
-                AddSettingBool("Log Sync", logSyncSetting);
+            AddSettingBool("Enable Logging", logEnabledSetting);
+            if (logEnabledSetting) {
+                AddSettingBool("Separate Log Files", separateLogSetting);
+                AddSettingCombo("Log Type", logTypeSetting, logTypeOptions);
             }
 
             ImGui::EndTable();
@@ -537,9 +538,9 @@ void SaveSettings(std::string profile) {
     EmulatorSettings.SetTrophyNotificationDuration(static_cast<double>(trophyDurationSetting));
 
     /////////// Log Tab
-    EmulatorSettings.SetLogEnable(logEnableSetting, isSpecific);
-    EmulatorSettings.SetLogSeparate(logSeparateSetting, isSpecific);
-    EmulatorSettings.SetLogSync(logSyncSetting, isSpecific);
+    EmulatorSettings.SetLogEnabled(logEnabledSetting, isSpecific);
+    EmulatorSettings.SetLogType(logTypeOptions.at(logTypeSetting), isSpecific);
+    EmulatorSettings.SetSeparateLoggingEnabled(separateLogSetting, isSpecific);
 
     /////////// Experimental Tab
     if (isSpecific) {
@@ -608,9 +609,9 @@ void LoadSettings(std::string profile) {
     trophyDurationSetting = static_cast<float>(EmulatorSettings.GetTrophyNotificationDuration());
 
     /////////// Log Tab
-    logEnableSetting = EmulatorSettings.IsLogEnable();
-    logSeparateSetting = EmulatorSettings.IsLogSeparate();
-    logSyncSetting = EmulatorSettings.IsLogSync();
+    logEnabledSetting = EmulatorSettings.IsLogEnabled();
+    logTypeSetting = GetComboIndex(EmulatorSettings.GetLogType(), logTypeOptions);
+    separateLogSetting = EmulatorSettings.IsSeparateLoggingEnabled();
 
     /////////// Experimental Tab
     if (isSpecific) {
