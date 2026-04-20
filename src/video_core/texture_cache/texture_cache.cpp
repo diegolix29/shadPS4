@@ -7,7 +7,9 @@
 #include "common/config.h"
 #include "common/debug.h"
 #include "common/scope_exit.h"
-#include "core/memory.h"
+#include "core/emulator_settings.h"
+#include "core/memory/kernel.h"
+#include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/page_manager.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -150,11 +152,14 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
     download_data.resize(write_size);
     std::memcpy(download_data.data(), mapping.Data(), write_size);
 
-    scheduler.DeferPriorityOperation([this, device_addr = image.info.guest_address,
-                                      download = std::move(download_data), write_size] {
-        Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(device_addr), download.data(),
-                                                  write_size);
-    });
+    scheduler.DeferPriorityOperation(
+        [this, device_addr = image.info.guest_address, download, download_size] {
+            auto* memory = Core::Memory::Instance();
+            /*memory->ForEachBackingRegion(device_addr, download_size,
+                                         [&](u64 offset, u64 size, u8* backing) {
+                                             memcpy(backing, download + offset, size);
+                                         });*/
+        });
 }
 
 void TextureCache::MarkAsMaybeDirty(ImageId image_id, Image& image) {
@@ -219,8 +224,8 @@ void TextureCache::MarkAsMaybeReused(VAddr addr, size_t size) {
 }
 
 void TextureCache::UnmapMemory(VAddr cpu_addr, size_t size) {
+    return;
     std::scoped_lock lk{mutex};
-
     ImageIds deleted_images;
     ForEachImageInRegion(cpu_addr, size, [&](ImageId id, Image&) { deleted_images.push_back(id); });
     for (const ImageId id : deleted_images) {

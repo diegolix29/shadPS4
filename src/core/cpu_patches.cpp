@@ -756,7 +756,8 @@ static bool TryPatchJit(void* code_address) {
 
     return TryPatch(code, module).first;
 }
-
+#pragma GCC push_options
+#pragma GCC optimize("O0")
 static void TryPatchAot(void* code_address, u64 code_size) {
     auto* code = static_cast<u8*>(code_address);
     auto* module = GetModule(code);
@@ -766,8 +767,10 @@ static void TryPatchAot(void* code_address, u64 code_size) {
 
     std::unique_lock lock{module->mutex};
 
+    const VAddr end_addr = VAddr(code) + code_size;
     const auto* end = code + code_size;
     while (code < end) {
+        VAddr code_addr = VAddr(code);
         code += TryPatch(code, module).second;
     }
 }

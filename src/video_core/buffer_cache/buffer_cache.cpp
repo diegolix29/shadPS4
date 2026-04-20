@@ -6,8 +6,7 @@
 #include "common/debug.h"
 #include "common/memory_patcher.h"
 #include "common/scope_exit.h"
-#include "core/memory.h"
-
+#include "core/memory/kernel.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/buffer_cache/memory_tracker.h"

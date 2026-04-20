@@ -10,7 +10,7 @@
 #include "core/libraries/kernel/threads/pthread.h"
 #include "core/libraries/kernel/threads/thread_state.h"
 #include "core/libraries/libs.h"
-#include "core/memory.h"
+#include "core/memory/kernel.h"
 
 namespace Libraries::Kernel {
 
@@ -235,7 +235,7 @@ int PS4_SYSV_ABI posix_pthread_create_name_np(PthreadT* thread, const PthreadAtt
         new_thread->attr.sched_policy = curthread->attr.sched_policy;
     }
 
-    static std::atomic<int> TidCounter = 1;
+    static std::atomic<int> TidCounter = 100001;
     new_thread->tid = ++TidCounter;
 
     if (new_thread->attr.stackaddr_attr == nullptr) {
@@ -261,10 +261,14 @@ int PS4_SYSV_ABI posix_pthread_create_name_np(PthreadT* thread, const PthreadAtt
     new_thread->cancel_async = false;
 
     auto* memory = Core::Memory::Instance();
-    if (name && memory->IsValidMapping(reinterpret_cast<VAddr>(name))) {
+    if (name && memory->IsGuestMapping(reinterpret_cast<VAddr>(name))) {
         new_thread->name = name;
     } else {
         new_thread->name = fmt::format("Thread{}", new_thread->tid.load());
+    }
+
+    if (new_thread->tid.load() == 100027) {
+        printf("bad\n");
     }
 
     ASSERT(new_thread->attr.suspend == 0);
@@ -418,7 +422,7 @@ int PS4_SYSV_ABI posix_sched_get_priority_min(SchedPolicy policy) {
 }
 
 int PS4_SYSV_ABI posix_pthread_rename_np(PthreadT thread, const char* name) {
-    LOG_INFO(Kernel_Pthread, "name = {}", name ? name : "(null)");
+    LOG_INFO(Kernel_Pthread, "thread = {}, name = {}", thread ? thread->name : "null", name ? name : "(null)");
     auto* thread_state = ThrState::Instance();
     auto* memory = Core::Memory::Instance();
 
