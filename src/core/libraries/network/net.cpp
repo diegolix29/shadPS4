@@ -699,7 +699,6 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
                 LOG_DEBUG(Lib_Net, "P2P EpollControl ADD: native_fd={} os_epoll_fd={}",
                           *native_handle, epoll->epoll_fd);
             }
-#ifndef __FreeBSD__
             epoll_event native_event = {.events = ConvertEpollEventsIn(event->events),
                                         .data = {.fd = id}};
             if (epoll_ctl(epoll->epoll_fd, EPOLL_CTL_ADD, *native_handle, &native_event) != 0) {
@@ -718,7 +717,6 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
                 LOG_DEBUG(Lib_Net, "P2P EpollControl ADD: SUCCESS id={} events_after={}", id,
                           epoll->events.size());
             }
-#endif
             break;
         }
         case Core::FileSys::FileType::Resolver: {
@@ -763,12 +761,10 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
                 return ORBIS_NET_ERROR_EBADF;
             }
 
-#ifndef __FreeBSD__
             epoll_event native_event = {.events = ConvertEpollEventsIn(event->events),
                                         .data = {.fd = id}};
             ASSERT(epoll_ctl(epoll->epoll_fd, EPOLL_CTL_MOD, *native_handle, &native_event) == 0);
             *it = {id, *event};
-#endif
             break;
         }
         default:
@@ -812,7 +808,6 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
                 *sceNetErrnoLoc() = ORBIS_NET_EBADF;
                 return ORBIS_NET_ERROR_EBADF;
             }
-#ifndef __FreeBSD__
 
             ASSERT(epoll_ctl(epoll->epoll_fd, EPOLL_CTL_DEL, *native_handle, nullptr) == 0);
             epoll->events.erase(it);
@@ -820,7 +815,6 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
                 LOG_DEBUG(Lib_Net, "P2P EpollControl DEL: SUCCESS id={} events_after={}", id,
                           epoll->events.size());
             }
-#endif
             break;
         }
         case Core::FileSys::FileType::Resolver: {
@@ -877,9 +871,6 @@ int PS4_SYSV_ABI sceNetEpollDestroy(OrbisNetId epollid) {
 
 int PS4_SYSV_ABI sceNetEpollWait(OrbisNetId epollid, OrbisNetEpollEvent* events, int maxevents,
                                  int timeout) {
-#ifdef __FreeBSD__
-    return 0;
-#else
     g_epoll_wait_call_count.fetch_add(1, std::memory_order_relaxed);
 
     auto file = FDTable::Instance()->GetEpoll(epollid);
@@ -1040,7 +1031,6 @@ int PS4_SYSV_ABI sceNetEpollWait(OrbisNetId epollid, OrbisNetEpollEvent* events,
     }
 
     return i;
-#endif
 }
 
 int* PS4_SYSV_ABI sceNetErrnoLoc() {

@@ -114,15 +114,15 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
     }
     const VAddr page_addr = PageManager::GetPageAddr(device_addr);
     auto* memory = Core::Memory::Instance();
-    if (preemptive_downloads.Intersects(page_addr, PageManager::PM_PAGE_BITS)) {
+    if (preemptive_downloads.Intersects(page_addr, PageManager::PAGE_SIZE)) {
         preemptive_downloads.ForEachInRange(
-            page_addr, PageManager::PM_PAGE_BITS,
+            page_addr, PageManager::PAGE_SIZE,
             [&](VAddr begin, VAddr end, const PreemptiveDownload& download) {
                 scheduler.Wait(download.done_tick);
                 memory->TryWriteBacking(std::bit_cast<u8*>(download.device_addr), download.staging,
                                         download.size);
             });
-        preemptive_downloads.Subtract(page_addr, PageManager::PM_PAGE_BITS);
+        preemptive_downloads.Subtract(page_addr, PageManager::PAGE_SIZE);
         memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, is_write);
     } else {
         const auto [download, offset] = download_buffer.Map(total_size_bytes);
@@ -466,12 +466,10 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size,
     const bool skip_stream_buffer =
         (flags & ObtainBufferFlags::IgnoreStreamBuffer) != ObtainBufferFlags{};
 
-    if (!is_written && size <= CACHING_PAGESIZE && !IsRegionGpuModified(device_addr, size)) {
-        if (IsRegionCpuModified(device_addr, size)) {
-            const u64 offset =
-                stream_buffer.Copy(device_addr, size, instance.UniformMinAlignment());
-            return {&stream_buffer, offset};
-        }
+    if (!is_written && !skip_stream_buffer && size <= CACHING_PAGESIZE &&
+        !IsRegionGpuModified(device_addr, size)) {
+        const u64 offset = stream_buffer.Copy(device_addr, size, instance.UniformMinAlignment());
+        return {&stream_buffer, offset};
     }
 
     if (IsBufferInvalid(buffer_id)) {
@@ -532,7 +530,7 @@ bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
     }
     const VAddr page_addr = PageManager::GetPageAddr(addr);
     bool modified = false;
-    gpu_modified_ranges_pending.ForEachInRange(page_addr, PageManager::PM_PAGE_BITS,
+    gpu_modified_ranges_pending.ForEachInRange(page_addr, PageManager::PAGE_SIZE,
                                                [&](VAddr, VAddr) { modified = true; });
     return modified;
 }
@@ -929,7 +927,7 @@ void BufferCache::CommitPendingGpuRanges() {
             const BufferId buffer_id = page_table[page_addr >> CACHING_PAGEBITS].buffer_id;
             const Buffer& buffer = slot_buffers[buffer_id];
             const VAddr start_addr = std::max(page_addr, begin);
-            const VAddr end_addr = std::min(page_addr + PageManager::PM_PAGE_BITS, end);
+            const VAddr end_addr = std::min(page_addr + PageManager::PAGE_SIZE, end);
             const u32 size = end_addr - start_addr;
             preemptive_copies[buffer_id].emplace_back(buffer.Offset(start_addr), total_size_bytes,
                                                       size);

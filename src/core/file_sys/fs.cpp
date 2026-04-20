@@ -68,11 +68,24 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
         return mount->host_path;
 
     const auto rel_path = std::string_view{corrected_path}.substr(mount->mount.size() + 1);
-    std::filesystem::path host_path = ConstructOverlayPath(*mount, rel_path, HostPathType::Base);
-    std::filesystem::path patch_path = ConstructOverlayPath(*mount, rel_path, HostPathType::Patch);
-    std::filesystem::path mods_path = ConstructOverlayPath(*mount, rel_path, HostPathType::Mod);
-    std::filesystem::path update_path =
-        ConstructOverlayPath(*mount, rel_path, HostPathType::Update);
+    std::filesystem::path host_path = mount->host_path / rel_path;
+
+    // Compute overlay folders
+    std::filesystem::path update_path = mount->host_path;
+    update_path += "-UPDATE";
+    update_path /= rel_path;
+    std::filesystem::path patch_path = mount->host_path;
+    patch_path += "-patch";
+    patch_path /= rel_path;
+    std::filesystem::path mods_path;
+
+    if (!MntPoints::manual_mods_path.empty()) {
+        mods_path = MntPoints::manual_mods_path / rel_path;
+    } else {
+        mods_path = mount->host_path;
+        mods_path += "-MODS";
+        mods_path /= rel_path;
+    }
 
     // Priority: MODS > PATCH > UPDATE > BASE
     if (!force_base_path && !ignore_game_patches) {
@@ -93,7 +106,7 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
         std::scoped_lock lk{m_mutex};
         path_parts.clear();
         auto current_path = host_path;
-        while (!current_path.empty() && !std::filesystem::exists(current_path)) {
+        while (!std::filesystem::exists(current_path)) {
             // We have probably cached this if it's a folder.
             if (auto it = path_cache.find(current_path); it != path_cache.end()) {
                 current_path = it->second;
@@ -102,40 +115,38 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
             path_parts.emplace_back(current_path.filename());
             current_path = current_path.parent_path();
         }
-        if (!current_path.empty()) {
-            // We have found an anchor. Traverse parts we recoded and see if they
-            // exist in filesystem but in different case.
-            auto guest_path = current_path;
-            while (!path_parts.empty()) {
-                const auto part = path_parts.back();
-                const auto add_match = [&](const auto& host_part) {
-                    current_path /= host_part;
-                    guest_path /= part;
-                    path_cache[guest_path] = current_path;
-                    path_parts.pop_back();
-                };
-                // Can happen when the mismatch is in upper folder.
-                if (std::filesystem::exists(current_path / part)) {
-                    add_match(part);
+        // We have found an anchor. Traverse parts we recoded and see if they
+        // exist in filesystem but in different case.
+        auto guest_path = current_path;
+        while (!path_parts.empty()) {
+            const auto part = path_parts.back();
+            const auto add_match = [&](const auto& host_part) {
+                current_path /= host_part;
+                guest_path /= part;
+                path_cache[guest_path] = current_path;
+                path_parts.pop_back();
+            };
+            // Can happen when the mismatch is in upper folder.
+            if (std::filesystem::exists(current_path / part)) {
+                add_match(part);
+                continue;
+            }
+            const auto part_low = Common::ToLower(part.string());
+            bool found_match = false;
+            for (const auto& path : std::filesystem::directory_iterator(current_path)) {
+                const auto candidate = path.path().filename();
+                const auto filename = Common::ToLower(candidate.string());
+                // Check if a filename matches in case insensitive manner.
+                if (filename != part_low) {
                     continue;
                 }
-                const auto part_low = Common::ToLower(part.string());
-                bool found_match = false;
-                for (const auto& path : std::filesystem::directory_iterator(current_path)) {
-                    const auto candidate = path.path().filename();
-                    const auto filename = Common::ToLower(candidate.string());
-                    // Check if a filename matches in case insensitive manner.
-                    if (filename != part_low) {
-                        continue;
-                    }
-                    // We found a match, record the actual path in the cache.
-                    add_match(candidate);
-                    found_match = true;
-                    break;
-                }
-                if (!found_match) {
-                    return std::optional<std::filesystem::path>({});
-                }
+                // We found a match, record the actual path in the cache.
+                add_match(candidate);
+                found_match = true;
+                break;
+            }
+            if (!found_match) {
+                return std::optional<std::filesystem::path>({});
             }
         }
         return std::optional<std::filesystem::path>(current_path);
@@ -154,7 +165,6 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
     // a better error message than the empty path.
     return host_path;
 }
-
 std::filesystem::path MntPoints::ConstructOverlayPath(const MntPair& mount,
                                                       const std::string_view& rel_path,
                                                       HostPathType path_type) {
@@ -192,7 +202,6 @@ std::filesystem::path MntPoints::ConstructOverlayPath(const MntPair& mount,
         return mount.host_path / rel_path;
     }
 }
-
 // TODO: Does not handle mount points inside mount points.
 void MntPoints::IterateDirectory(std::string_view guest_directory,
                                  const IterateDirectoryCallback& callback) {
@@ -304,6 +313,7 @@ File* HandleTable::GetResolver(int d) {
 
 File* HandleTable::GetFile(const std::filesystem::path& host_name) {
     std::scoped_lock lock{m_mutex};
+
     for (auto* file : m_files) {
         if (file != nullptr && file->m_host_name == host_name) {
             return file;
