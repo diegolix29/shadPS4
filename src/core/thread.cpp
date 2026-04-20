@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/alignment.h"
@@ -26,17 +26,17 @@ static constexpr u32 ORBIS_FPUCW = 0x037f;
 #define RPL_MASK (0x03)
 #define EFLAGS_INTERRUPT_MASK (0x200)
 
-void InitializeTeb(INITIAL_TEB* teb, void* stackaddr, size_t stacksize) {
-    teb->StackBase = (void*)((u64)stackaddr + stacksize);
+void InitializeTeb(INITIAL_TEB* teb, const ::Libraries::Kernel::PthreadAttr* attr) {
+    teb->StackBase = (void*)((u64)attr->stackaddr_attr + attr->stacksize_attr);
     teb->StackLimit = nullptr;
-    teb->StackAllocationBase = stackaddr;
+    teb->StackAllocationBase = attr->stackaddr_attr;
 }
 
-void InitializeContext(CONTEXT* ctx, ThreadFunc func, void* arg, void* stackaddr,
-                       size_t stacksize) {
+void InitializeContext(CONTEXT* ctx, ThreadFunc func, void* arg,
+                       const ::Libraries::Kernel::PthreadAttr* attr) {
     /* Note: The stack has to be reversed */
-    ctx->Rsp = (u64)stackaddr + stacksize;
-    ctx->Rbp = (u64)stackaddr + stacksize;
+    ctx->Rsp = (u64)attr->stackaddr_attr + attr->stacksize_attr;
+    ctx->Rbp = (u64)attr->stackaddr_attr + attr->stacksize_attr;
     ctx->Rcx = (u64)arg;
     ctx->Rip = (u64)func;
 
@@ -58,14 +58,12 @@ NativeThread::NativeThread() : native_handle{0} {}
 
 NativeThread::~NativeThread() {}
 
-int NativeThread::Create(ThreadFunc func, void* arg) {
-    constexpr size_t stacksize = 8_KB;
-    init_stack_ptr = malloc(stacksize);
+int NativeThread::Create(ThreadFunc func, void* arg, const ::Libraries::Kernel::PthreadAttr* attr) {
 #ifndef _WIN64
     pthread_t* pthr = reinterpret_cast<pthread_t*>(&native_handle);
     pthread_attr_t pattr;
     pthread_attr_init(&pattr);
-    pthread_attr_setstack(&pattr, init_stack_ptr, stacksize);
+    pthread_attr_setstack(&pattr, attr->stackaddr_attr, attr->stacksize_attr);
     return pthread_create(pthr, &pattr, (PthreadFunc)func, arg);
 #else
     CLIENT_ID clientId{};
@@ -75,8 +73,8 @@ int NativeThread::Create(ThreadFunc func, void* arg) {
     clientId.UniqueProcess = GetCurrentProcess();
     clientId.UniqueThread = GetCurrentThread();
 
-    InitializeTeb(&teb, init_stack_ptr, stacksize);
-    InitializeContext(&ctx, func, arg, init_stack_ptr, stacksize);
+    InitializeTeb(&teb, attr);
+    InitializeContext(&ctx, func, arg, attr);
 
     return NtCreateThread(&native_handle, THREAD_ALL_ACCESS, nullptr, GetCurrentProcess(),
                           &clientId, &ctx, &teb, false);
@@ -109,9 +107,6 @@ void NativeThread::Exit() {
     auto* teb = reinterpret_cast<TEB*>(NtCurrentTeb());
     teb->DeallocationStack = nullptr;
 
-    if (init_stack_ptr != nullptr) {
-        free(init_stack_ptr);
-    }
     NtTerminateThread(nullptr, 0);
 #else
     // Disable and free the signal stack.
@@ -125,9 +120,6 @@ void NativeThread::Exit() {
         sig_stack_ptr = nullptr;
     }
 
-    if (init_stack_ptr != nullptr) {
-        free(init_stack_ptr);
-    }
     pthread_exit(nullptr);
 #endif
 }
