@@ -19,7 +19,7 @@ s32 PS4_SYSV_ABI sceKernelIsInSandbox() {
 s32 PS4_SYSV_ABI sceKernelIsNeoMode() {
     static s32 IsNeoMode = -1;
     if (IsNeoMode == -1) {
-        IsNeoMode = EmulatorSettings.IsNeo() &&
+        IsNeoMode = Config::isNeoModeConsole() &&
                     Common::ElfInfo::Instance().GetPSFAttributes().support_neo_mode;
     }
     return IsNeoMode;
