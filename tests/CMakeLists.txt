@@ -109,13 +109,14 @@ set(GCN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/error.cpp
     ${CMAKE_SOURCE_DIR}/src/common/io_file.cpp
     ${CMAKE_SOURCE_DIR}/src/common/string_util.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/logging/log.cpp
     ${CMAKE_SOURCE_DIR}/src/common/ntapi.cpp
 
     # Stubs that replace dependencies
-    stubs/common_stub.cpp
+    stubs/log_stub.cpp     
     stubs/resource_tracking_pass_stub.cpp
     stubs/scm_rev_stub.cpp
+    stubs/config_stub.cpp
+    stubs/memory_patcher_stub.cpp
 
     gcn/gcn_test_runner.hpp
     gcn/gcn_test_runner.cpp
@@ -155,7 +156,6 @@ target_link_libraries(shadps4_gcn_test PRIVATE
     Vulkan::Headers
     sirit
     SDL3::SDL3
-    spdlog::spdlog
     tsl::robin_map
 )
 
