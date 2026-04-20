@@ -148,3 +148,8 @@
 	url = https://github.com/shadexternals/ImGuiFileDialog.git
 	branch = shadps4
 	shallow = true
+[submodule "externals/spdlog"]
+	path = externals/spdlog
+	url = https://github.com/gabime/spdlog.git
+	shallow = true
+	branch = v2.x
