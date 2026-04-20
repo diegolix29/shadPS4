@@ -32,7 +32,7 @@ void Setup(std::string_view log_filename);
 
 void Shutdown();
 
-void Flush();
+void Redirect(const std::string& name);
 } // namespace Common::Log
 
 // Define the fmt lib macros
