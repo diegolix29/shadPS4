@@ -7,7 +7,7 @@
 #include "common/div_ceil.h"
 #include "common/range_lock.h"
 #include "common/signal_context.h"
-#include "core/memory.h"
+#include "core/memory/kernel.h"
 #include "core/signals.h"
 #include "video_core/page_manager.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"

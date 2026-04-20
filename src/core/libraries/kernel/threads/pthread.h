@@ -356,6 +356,7 @@ struct Pthread {
 
     int SetAffinity(const Cpuset* cpuset);
 };
+static_assert(sizeof(Pthread) % 16 == 0);
 using PthreadT = Pthread*;
 
 extern thread_local Pthread* g_curthread;

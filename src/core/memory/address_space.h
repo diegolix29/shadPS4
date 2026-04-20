@@ -21,6 +21,8 @@ enum class MemoryPermission : u32 {
 };
 DECLARE_ENUM_FLAG_OPERATORS(MemoryPermission)
 
+enum class MemoryMapFlags : u32;
+
 /**
  * Represents the user virtual address space backed by a dmem memory block
  */
@@ -76,7 +78,8 @@ public:
     void* Map(VAddr virtual_addr, u64 size, PAddr phys_addr = -1, bool exec = false);
 
     /// Memory maps a specified file descriptor.
-    void* MapFile(VAddr virtual_addr, u64 size, u64 offset, u32 prot, uintptr_t fd);
+    void* MapFile(VAddr virtual_addr, u64 size, u64 offset, MemoryMapFlags flags, u32 prot,
+                  uintptr_t fd);
 
     /// Unmaps specified virtual memory area.
     void Unmap(VAddr virtual_addr, u64 size);

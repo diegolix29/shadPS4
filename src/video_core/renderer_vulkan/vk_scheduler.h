@@ -432,7 +432,7 @@ private:
 
     void PriorityPendingOpsThread(std::stop_token stoken);
 
-private:
+public:
     const Instance& instance;
     MasterSemaphore master_semaphore;
     CommandPool command_pool;

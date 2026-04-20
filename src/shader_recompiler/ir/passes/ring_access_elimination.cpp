@@ -95,14 +95,11 @@ void RingAccessElimination(const IR::Program& program, const RuntimeInfo& runtim
         u32 output_vertices = gs_info.output_vertices;
         if (info.gs_copy_data.output_vertices &&
             info.gs_copy_data.output_vertices != output_vertices) {
-            ASSERT_MSG(output_vertices > info.gs_copy_data.output_vertices &&
-                           gs_info.mode == AmdGpu::GsScenario::ScenarioG,
+            ASSERT_MSG(gs_info.mode == AmdGpu::GsScenario::ScenarioG,
                        "Invalid geometry shader vertex configuration scenario = {}, max_vert_out = "
                        "{}, output_vertices = {}",
                        u32(gs_info.mode), output_vertices, info.gs_copy_data.output_vertices);
-            LOG_WARNING(Render_Vulkan, "MAX_VERT_OUT {} is larger than actual output vertices {}",
-                        output_vertices, info.gs_copy_data.output_vertices);
-            output_vertices = info.gs_copy_data.output_vertices;
+            output_vertices = std::max(info.gs_copy_data.output_vertices, output_vertices);
         }
         u32 dwords_per_vertex = gs_info.out_vertex_data_size;
         if (info.gs_copy_data.num_comps && info.gs_copy_data.num_comps > dwords_per_vertex) {

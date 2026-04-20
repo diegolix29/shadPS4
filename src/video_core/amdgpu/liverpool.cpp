@@ -11,7 +11,7 @@
 #include "core/emulator_settings.h"
 #include "core/libraries/kernel/process.h"
 #include "core/libraries/videoout/driver.h"
-#include "core/memory.h"
+#include "core/memory/kernel.h"
 #include "core/platform.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/amdgpu/pm4_cmds.h"
@@ -693,7 +693,13 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 const auto* event_eos = reinterpret_cast<const PM4CmdEventWriteEos*>(header);
                 event_eos->SignalFence([](void* address, u64 data, u32 num_bytes) {
                     auto* memory = Core::Memory::Instance();
-                    if (!memory->TryWriteBacking(address, &data, num_bytes)) {
+                    const VAddr virtual_addr = std::bit_cast<VAddr>(address);
+                    const bool wrote_backing =
+                        /*memory->ForEachBackingRegion(
+ virtual_addr, num_bytes, [&](u64 offset, u64 size, u8* backing) {
+     memcpy(backing, &data + offset, num_bytes);
+ })*/ false;
+                    if (!wrote_backing) {
                         memcpy(address, &data, num_bytes);
                     }
                 });
@@ -712,7 +718,13 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 event_eop->SignalFence(
                     [](void* address, u64 data, u32 num_bytes) {
                         auto* memory = Core::Memory::Instance();
-                        if (!memory->TryWriteBacking(address, &data, num_bytes)) {
+                        const VAddr virtual_addr = std::bit_cast<VAddr>(address);
+                        const bool wrote_backing =
+                            /*memory->ForEachBackingRegion(
+     virtual_addr, num_bytes, [&](u64 offset, u64 size, u8* backing) {
+         memcpy(backing, &data + offset, num_bytes);
+     })*/ false;
+                        if (!wrote_backing) {
                             memcpy(address, &data, num_bytes);
                         }
                     },

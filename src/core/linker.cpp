@@ -19,7 +19,7 @@
 #include "core/libraries/kernel/threads.h"
 #include "core/libraries/sysmodule/sysmodule.h"
 #include "core/linker.h"
-#include "core/memory.h"
+#include "core/memory/kernel.h"
 #include "core/tls.h"
 #include "ipc/ipc.h"
 
@@ -146,11 +146,11 @@ void Linker::Execute(const std::vector<std::string>& args) {
 
         // Simulate libSceGnmDriver initialization, which maps a chunk of direct memory.
         // Some games fail without accurately emulating this behavior.
-        s64 phys_addr{};
+        PAddr phys_addr{};
         s32 result = Libraries::Kernel::sceKernelAllocateDirectMemory(
             0, Libraries::Kernel::sceKernelGetDirectMemorySize(), 0x10000, 0x10000, 3, &phys_addr);
         if (result == 0) {
-            void* addr{reinterpret_cast<void*>(0xfe0000000)};
+            VAddr addr = 0xfe0000000;
             result = Libraries::Kernel::sceKernelMapNamedDirectMemory(
                 &addr, 0x10000, 0x13, 0, phys_addr, 0x10000, "SceGnmDriver");
         }
@@ -438,7 +438,7 @@ void* Linker::AllocateTlsForThread(bool is_primary) {
     if (is_primary) {
         const size_t tls_aligned = Common::AlignUp(total_tls_size, 16_KB);
         const int ret = Libraries::Kernel::sceKernelMapNamedFlexibleMemory(
-            &addr_out, tls_aligned, 3, 0, "SceKernelPrimaryTcbTls");
+            reinterpret_cast<VAddr*>(&addr_out), tls_aligned, 3, 0, "SceKernelPrimaryTcbTls");
         ASSERT_MSG(ret == 0, "Unable to allocate TLS+TCB for the primary thread");
     } else {
         if (heap_api) {

@@ -3,7 +3,7 @@
 
 #include "common/debug.h"
 #include "core/emulator_settings.h"
-#include "core/memory.h"
+#include "core/memory/kernel.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"

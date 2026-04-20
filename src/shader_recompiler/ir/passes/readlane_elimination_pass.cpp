@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-
+#pragma GCC push_options
+#pragma GCC optimize("O0")
 #include <unordered_map>
 #include <queue>
 #include "shader_recompiler/ir/program.h"
@@ -13,7 +14,8 @@ static IR::Inst* SearchChain(IR::Inst* inst, u32 lane) {
             // We found a possible write lane source, return it.
             return inst;
         }
-        inst = inst->Arg(0).InstRecursive();
+        inst = inst->Arg(0).TryInstRecursive();
+        ASSERT(inst);
     }
     return inst;
 }
@@ -81,8 +83,12 @@ static IR::Value GetRealValue(PhiMap& phi_map, IR::Inst* inst, u32 lane) {
         // Gather all arguments.
         boost::container::static_vector<IR::Value, 5> phi_args;
         for (size_t arg_index = 0; arg_index < inst->NumArgs(); arg_index++) {
-            IR::Inst* arg_prod = inst->Arg(arg_index).InstRecursive();
-            const IR::Value arg = GetRealValue(phi_map, arg_prod, lane);
+            IR::Value arg = inst->Arg(arg_index);
+            if (!arg.IsImmediate()) {
+                IR::Inst* arg_prod = arg.TryInstRecursive();
+                ASSERT(arg_prod);
+                arg = GetRealValue(phi_map, arg_prod, lane);
+            }
             phi_args.push_back(arg);
         }
         const IR::Value arg0 = phi_args[0].Resolve();
