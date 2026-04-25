@@ -12,7 +12,8 @@
 #elif defined(__linux__)
 #include <filesystem>
 #include <fstream>
-#elif defined(__APPLE__)
+#include <unistd.h>
+#elif defined(__APPLE__) || defined(__FreeBSD__)
 #include <errno.h>
 #include <signal.h>
 #include <sys/sysctl.h>
