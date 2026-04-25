@@ -21,6 +21,7 @@
 #include "qt_gui/compatibility_info.h"
 #include "system_error"
 #include "unordered_map"
+#include "vector"
 #include "video_core/renderer_vulkan/vk_presenter.h"
 #include "welcome_dialog.h"
 
@@ -29,6 +30,7 @@ WindowThemes m_window_themes;
 
 #ifdef _WIN32
 #include <windows.h>
+#include <shellapi.h>
 #endif
 #include <input/input_handler.h>
 std::shared_ptr<IpcClient> m_ipc_client;
@@ -41,10 +43,37 @@ void StopProgram() {
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
+    SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
-#endif
+    
+    int argc_w;
+    wchar_t** argv_w = CommandLineToArgvW(GetCommandLineW(), &argc_w);
+    
+    QApplication* a = nullptr;
+    
+    if (argv_w != nullptr) {
+        std::vector<std::string> argv_utf8;
+        std::vector<char*> argv_converted;
+        argv_utf8.reserve(argc_w);
+        argv_converted.reserve(argc_w + 1);
 
+        for (int i = 0; i < argc_w; ++i) {
+            QString arg = QString::fromWCharArray(argv_w[i]);
+            argv_utf8.push_back(arg.toStdString());
+            argv_converted.push_back(const_cast<char*>(argv_utf8[i].c_str()));
+        }
+        argv_converted.push_back(nullptr);
+
+        a = new QApplication(argc_w, argv_converted.data());
+        
+        LocalFree(argv_w);
+    } else {
+        a = new QApplication(argc, argv);
+    }
+#else
     QApplication a(argc, argv);
+    QApplication* app_ptr = &a;
+#endif
 
     QApplication::setDesktopFileName("net.shadps4.shadPS4");
 
@@ -536,5 +565,9 @@ int main(int argc, char* argv[]) {
     }
 
     m_main_window->show();
-    return a.exec();
+#ifdef _WIN32
+    return a->exec();
+#else
+    return app_ptr->exec();
+#endif
 }
