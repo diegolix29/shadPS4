@@ -169,7 +169,7 @@ Block* Inst::PhiBlock(size_t index) const {
         UNREACHABLE_MSG("{} is not a Phi instruction", op);
     }
     if (index >= phi_args.size()) {
-        UNREACHABLE_MSG("Out of bounds argument index {} in phi instruction", index);
+        UNREACHABLE_MSG("Out of bounds argument index {} in phi instruction");
     }
     return phi_args[index].first;
 }
