@@ -157,6 +157,7 @@ target_link_libraries(shadps4_gcn_test PRIVATE
     sirit
     SDL3::SDL3
     tsl::robin_map
+    half::half
 )
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
