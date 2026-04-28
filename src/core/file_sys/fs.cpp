@@ -153,13 +153,13 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
     };
 
     if ((corrected_path.starts_with("/app0") || corrected_path.starts_with("/hostapp")) &&
-        path_type != HostPathType::Base) {
+        !force_base_path) {
         if (const auto path = search(mods_path)) {
             return *path;
         }
     }
 
-    if (path_type != HostPathType::Base && !ignore_game_patches) {
+    if (!force_base_path && !ignore_game_patches) {
         if (const auto path = search(patch_path)) {
             return *path;
         }
