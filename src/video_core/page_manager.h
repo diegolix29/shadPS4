@@ -15,7 +15,6 @@ class Rasterizer;
 namespace VideoCore {
 
 class PageManager {
-public:
     // Use the same page size as the tracker.
     static constexpr size_t PAGE_BITS = TRACKER_PAGE_BITS;
     static constexpr size_t PAGE_SIZE = TRACKER_BYTES_PER_PAGE;
@@ -50,10 +49,6 @@ public:
     /// Returns address of the next page.
     static constexpr VAddr GetNextPageAddr(VAddr addr) {
         return Common::AlignUp(addr + 1, PAGE_SIZE);
-    }
-
-    static constexpr size_t GetPageSize() {
-        return PAGE_SIZE;
     }
 
 private:

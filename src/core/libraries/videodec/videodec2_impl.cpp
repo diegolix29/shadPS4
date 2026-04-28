@@ -9,7 +9,7 @@
 
 #include "common/support/avdec.h"
 
-namespace Libraries::Videodec2 {
+namespace Libraries::Vdec2 {
 
 std::vector<OrbisVideodec2AvcPictureInfo> gPictureInfos;
 std::vector<OrbisVideodec2LegacyAvcPictureInfo> gLegacyPictureInfos;
@@ -118,6 +118,19 @@ s32 VdecDecoder::Decode(const OrbisVideodec2InputData& inputData,
             frame = nv12_frame;
         }
 
+        // Pre-fill the frame buffer with neutral NV12 values before copying.
+        // Luma = 0x00 (black), Chroma U=V = 0x80 (neutral / no color cast).
+        // This prevents green artifacts when the GPU samples beyond the valid
+        // frame area due to texture alignment or bilinear filtering bleed.
+        {
+            u8* dst = (u8*)frameBuffer.frameBuffer;
+            const u32 luma_size = frame->width * frame->height;
+            std::memset(dst, 0x00, luma_size);
+            if (frameBuffer.frameBufferSize > luma_size) {
+                std::memset(dst + luma_size, 0x80, frameBuffer.frameBufferSize - luma_size);
+            }
+        }
+
         CopyNV12Data((u8*)frameBuffer.frameBuffer, *frame);
         frameBuffer.isAccepted = true;
 
@@ -215,6 +228,16 @@ s32 VdecDecoder::Flush(OrbisVideodec2FrameBuffer& frameBuffer,
             frame = nv12_frame;
         }
 
+        // Pre-fill with neutral NV12 (same as Decode path above).
+        {
+            u8* dst = (u8*)frameBuffer.frameBuffer;
+            const u32 luma_size = frame->width * frame->height;
+            std::memset(dst, 0x00, luma_size);
+            if (frameBuffer.frameBufferSize > luma_size) {
+                std::memset(dst + luma_size, 0x80, frameBuffer.frameBufferSize - luma_size);
+            }
+        }
+
         CopyNV12Data((u8*)frameBuffer.frameBuffer, *frame);
         frameBuffer.isAccepted = true;
 
@@ -278,4 +301,4 @@ AVFrame* VdecDecoder::ConvertNV12Frame(AVFrame& frame) {
     return nv12_frame;
 }
 
-} // namespace Libraries::Videodec2
+} // namespace Libraries::Vdec2

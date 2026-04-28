@@ -5,8 +5,7 @@
 #define MAGIC_ENUM_RANGE_MAX 300
 #include <magic_enum/magic_enum.hpp>
 
-#include "common/logging/log.h"
-#include "core/libraries/error_codes.h"
+#include "core/libraries/kernel/orbis_error.h"
 #include "core/libraries/kernel/process.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/system/sysmodule.h"
@@ -14,7 +13,7 @@
 
 namespace Libraries::SysModule {
 
-int PS4_SYSV_ABI sceSysmoduleGetModuleHandleInternal() {
+    int PS4_SYSV_ABI sceSysmoduleGetModuleHandleInternal() {
     LOG_ERROR(Lib_SysModule, "(STUBBED) called");
     return ORBIS_OK;
 }
@@ -65,7 +64,6 @@ int PS4_SYSV_ABI sceSysmoduleIsCameraPreloaded() {
     LOG_ERROR(Lib_SysModule, "(STUBBED) called");
     return ORBIS_OK;
 }
-
 int PS4_SYSV_ABI sceSysmoduleIsLoaded(OrbisSysModule id) {
     LOG_ERROR(Lib_SysModule, "(DUMMY) called module = {}", magic_enum::enum_name(id));
     if (static_cast<u16>(id) == 0) {

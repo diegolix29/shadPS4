@@ -4,6 +4,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <queue>
@@ -21,36 +22,69 @@ class VkCtxScope;
 namespace Vulkan {
 
 class Instance;
-
-struct RenderAttachment {
-    vk::ImageView image_view;
-    vk::ImageLayout image_layout;
-    std::array<u32, 4> clear_value;
-    union {
-        u32 is_clear;
-        struct {
-            bool has_depth;
-            bool depth_clear;
-            bool has_stencil;
-            bool stencil_clear;
-        };
-    };
-};
-static_assert(std::has_unique_object_representations_v<RenderAttachment>);
+struct DrawBundle;
+class DrawBundleRing;
 
 struct RenderState {
-    std::array<RenderAttachment, 8> color_attachments;
-    RenderAttachment depth_stencil_attachment;
-    u16 width;
-    u16 height;
-    u16 num_layers;
-    u16 num_color_attachments;
+    std::array<vk::RenderingAttachmentInfo, 8> color_attachments;
+    vk::RenderingAttachmentInfo depth_attachment;
+    vk::RenderingAttachmentInfo stencil_attachment;
+    u32 num_color_attachments;
+    u32 num_layers;
+    bool has_depth;
+    bool has_stencil;
+    u32 width;
+    u32 height;
+    // OPT: Lightweight hash for fast equality rejection.
+    // Updated by ComputeHash() after all fields are set.
+    u64 state_hash{};
+
+    RenderState() {
+        std::memset(this, 0, sizeof(*this));
+        color_attachments.fill(vk::RenderingAttachmentInfo{});
+        depth_attachment = vk::RenderingAttachmentInfo{};
+        stencil_attachment = vk::RenderingAttachmentInfo{};
+        num_layers = 1;
+    }
+
+    /// Call after all fields are populated to enable fast equality checks.
+    void ComputeHash() noexcept {
+        // Hash the fields most likely to differ between draws.
+        // This covers ~98% of state changes without touching the full 700 bytes.
+        auto mix = [](u64 h, u64 v) noexcept {
+            h ^= v + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+            return h;
+        };
+        u64 h = 0x84222325cbf29ce4ULL;
+        h = mix(h, (static_cast<u64>(width) << 32) | static_cast<u64>(height));
+        h = mix(h, (static_cast<u64>(num_color_attachments) << 32) | static_cast<u64>(num_layers));
+        h = mix(h, (static_cast<u64>(has_depth) << 1) | static_cast<u64>(has_stencil));
+        // Hash attachment imageViews and loadOps (most frequently changing parts).
+        for (u32 i = 0; i < num_color_attachments; ++i) {
+            h = mix(h, reinterpret_cast<u64>(
+                           static_cast<VkImageView>(color_attachments[i].imageView)));
+            h = mix(h, static_cast<u64>(static_cast<u32>(color_attachments[i].loadOp)));
+        }
+        if (has_depth) {
+            h = mix(h, reinterpret_cast<u64>(
+                           static_cast<VkImageView>(depth_attachment.imageView)));
+            h = mix(h, static_cast<u64>(static_cast<u32>(depth_attachment.loadOp)));
+        }
+        if (has_stencil) {
+            h = mix(h, reinterpret_cast<u64>(
+                           static_cast<VkImageView>(stencil_attachment.imageView)));
+        }
+        state_hash = h;
+    }
 
     bool operator==(const RenderState& other) const noexcept {
+        // OPT: Fast reject on hash before expensive memcmp.
+        if (state_hash != other.state_hash) [[likely]] {
+            return false;
+        }
         return std::memcmp(this, &other, sizeof(RenderState)) == 0;
     }
 };
-static_assert(std::has_unique_object_representations_v<RenderState>);
 
 struct SubmitInfo {
     std::array<vk::Semaphore, 3> wait_semas;
@@ -168,6 +202,11 @@ struct DynamicState {
     /// Invalidates all dynamic state to be flushed into the next command buffer.
     void Invalidate() {
         std::memset(&dirty_state, 0xFF, sizeof(dirty_state));
+    }
+
+    /// Clear dirty flags without issuing any commands (for threaded recording).
+    void ClearDirty() {
+        std::memset(&dirty_state, 0, sizeof(dirty_state));
     }
 
     void SetViewports(const Viewports& viewports_) {
@@ -379,7 +418,11 @@ public:
     }
 
     /// Returns the current pipeline dynamic state tracking.
+    /// In threaded mode, returns parser-private state to avoid racing with recorder.
     DynamicState& GetDynamicState() {
+        if (threaded_recording_) {
+            return parser_dynamic_state_;
+        }
         return dynamic_state;
     }
 
@@ -425,12 +468,56 @@ public:
 
     static std::mutex submit_mutex;
 
+    // =========================================================================
+    // Path A: Threaded command recording infrastructure.
+    //
+    // When enabled, all vkCmd* calls from Draw() are packaged into DrawBundles
+    // and processed by a dedicated recorder thread. The parser thread (GpuComm)
+    // can then overlap next-draw resolution with current-draw recording.
+    //
+    // Lifecycle:
+    //   1. Parser calls AllocateBundle() → gets a pre-allocated slot
+    //   2. Parser fills the DrawBundle with recording data
+    //   3. Parser calls SubmitBundle() → publishes to ring, wakes recorder
+    //   4. Recorder calls ProcessBundle() → issues vkCmd* calls
+    //   5. At sync points, parser calls DrainRecorderQueue() to wait
+    //
+    // The recorder thread exclusively owns: current_cmdbuf, recorder_render_state,
+    // recorder_is_rendering, recorder_last_pipeline.
+    // =========================================================================
+
+    /// Get a pre-allocated DrawBundle slot to write into.
+    /// Returns nullptr if the ring is full (caller must DrainRecorderQueue).
+    DrawBundle* AllocateBundle();
+
+    /// Publish the bundle and wake the recorder thread.
+    void SubmitBundle();
+
+    /// Hint that the recorder may be in a render pass (for EndRendering optimization).
+    void SetRecorderRenderingHint() noexcept { recorder_rendering_hint_ = true; }
+
+    /// Block until the recorder thread has processed all pending bundles.
+    /// Must be called before any sync point (Flush, Finish, CpSync).
+    void DrainRecorderQueue();
+
+    /// Returns true if threaded recording is active.
+    bool IsThreadedRecording() const noexcept { return threaded_recording_; }
+
+    /// Enable/disable threaded recording mode.
+    void SetThreadedRecording(bool enabled);
+
 private:
     void AllocateWorkerCommandBuffers();
 
     void SubmitExecution(SubmitInfo& info);
 
     void PriorityPendingOpsThread(std::stop_token stoken);
+
+    /// Recorder thread entry point.
+    void RecorderThread(std::stop_token stoken);
+
+    /// Replay all vkCmd* calls from a DrawBundle into current_cmdbuf.
+    void ProcessBundle(const DrawBundle& bundle);
 
 private:
     const Instance& instance;
@@ -451,6 +538,21 @@ private:
     RenderState render_state;
     bool is_rendering = false;
     tracy::VkCtxScope* profiler_scope{};
+
+    // --- Path A recorder thread state ---
+    bool threaded_recording_{false};
+    bool recorder_rendering_hint_{false};  // Parser-side: true if recorder might be in a render pass
+    DynamicState parser_dynamic_state_;  // Parser-private in threaded mode (avoids race with recorder)
+    std::unique_ptr<DrawBundleRing> bundle_ring_;
+    std::jthread recorder_thread_;
+    std::mutex recorder_mutex_;
+    std::condition_variable_any recorder_cv_;
+
+    // Recorder-thread-private render state tracking.
+    // Mirrors render_state/is_rendering but owned by the recorder thread.
+    RenderState recorder_render_state_;
+    bool recorder_is_rendering_{false};
+    vk::Pipeline recorder_last_pipeline_{};
 };
 
 } // namespace Vulkan

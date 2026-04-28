@@ -3,8 +3,6 @@
 
 #include "common/alignment.h"
 #include "common/assert.h"
-#include "common/config.h"
-#include "common/logging/log.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -53,15 +51,6 @@ std::string_view BufferTypeName(MemoryUsage type) {
     switch (usage) {
     case MemoryUsage::DeviceLocal:
     case MemoryUsage::Stream:
-        if (Config::getUseHostMemoryFallback()) {
-            static bool logged_once = false;
-            if (!logged_once) {
-                LOG_INFO(Render,
-                         "Host memory fallback enabled - using system RAM for GPU allocations");
-                logged_once = true;
-            }
-            return VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
-        }
         return VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     case MemoryUsage::Upload:
     case MemoryUsage::Download:
@@ -199,6 +188,7 @@ std::pair<u8*, u64> StreamBuffer::Map(u64 size, u64 alignment, bool allow_wait) 
         offset = Common::AlignUp(offset, alignment);
     }
 
+
     if (offset + size > this->size_bytes) {
         // The buffer would overflow, save the amount of used watches and reset the state.
         invalidation_mark = current_watch_cursor;
@@ -230,10 +220,12 @@ void StreamBuffer::Commit() {
     }
 
     offset += mapped_size;
-    if (current_watch_cursor != 0 &&
-        current_watches[current_watch_cursor].tick == scheduler->CurrentTick()) {
-        current_watches[current_watch_cursor].upper_bound = offset;
-        return;
+    if (current_watch_cursor != 0) {
+        auto& prev = current_watches[current_watch_cursor - 1];
+        if (prev.tick == scheduler->CurrentTick()) {
+            prev.upper_bound = offset;
+            return;
+        }
     }
 
     if (current_watch_cursor + 1 >= current_watches.size()) {
@@ -264,33 +256,6 @@ bool StreamBuffer::WaitPendingOperations(u64 requested_upper_bound, bool allow_w
         ++wait_cursor;
     }
     return true;
-}
-
-StreamBufferMapping::StreamBufferMapping(StreamBuffer& stream_buffer, u64 size, u64 alignment,
-                                         bool allow_wait) {
-    const auto [data, offset] = stream_buffer.Map(size, alignment, allow_wait);
-    if (!data) {
-        // This happens if the size is too big or no waiting is allowed when it is required
-        is_temp_buffer = true;
-        this->buffer = new VideoCore::Buffer(*stream_buffer.instance, *stream_buffer.scheduler,
-                                             stream_buffer.usage, 0, AllFlags, size);
-        this->data = this->buffer->mapped_data.data();
-        this->offset = 0;
-        ASSERT_MSG(this->data, "Failed to map temporary buffer");
-    } else {
-        is_temp_buffer = false;
-        buffer = &stream_buffer;
-        this->data = data;
-        this->offset = offset;
-    }
-}
-
-StreamBufferMapping::~StreamBufferMapping() {
-    if (is_temp_buffer) {
-        ASSERT(buffer);
-        auto scheduler = buffer->scheduler;
-        scheduler->DeferOperation([buffer = this->buffer]() mutable { delete buffer; });
-    }
 }
 
 } // namespace VideoCore

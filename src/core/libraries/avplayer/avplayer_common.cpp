@@ -30,15 +30,7 @@ AvPlayerSourceType GetSourceType(std::string_view path) {
     }
 
     // schema://server.domain/path/to/file.ext/and/beyond -> .ext/and/beyond
-
-    // Find extension dot
-    auto dot_pos = name.rfind('.');
-    if (dot_pos == std::string_view::npos) {
-        return AvPlayerSourceType::Unknown;
-    }
-
-    // Extract extension (".ext/anything" or ".ext")
-    auto ext = name.substr(dot_pos);
+    auto ext = name.substr(name.rfind('.'));
     if (ext.empty()) {
         return AvPlayerSourceType::Unknown;
     }

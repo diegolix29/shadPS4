@@ -1,10 +1,9 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
 #include "common/types.h"
-#include "core/libraries/system/userservice.h"
 
 namespace Core::Loader {
 class SymbolsResolver;
@@ -16,11 +15,11 @@ struct OrbisGameLiveStreamingStatus {
     bool isOnAir;
     u8 align[3];
     u32 spectatorCounts;
-    Libraries::UserService::OrbisUserServiceUserId userId;
+    s32 userId;
     u8 reserved[60];
 };
 struct OrbisGameLiveStreamingStatus2 {
-    Libraries::UserService::OrbisUserServiceUserId userId;
+    s32 userId;
     bool isOnAir;
     u8 align[3];
     u32 spectatorCounts;

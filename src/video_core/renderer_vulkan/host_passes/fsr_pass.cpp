@@ -8,8 +8,6 @@
 #include "video_core/renderer_vulkan/vk_platform.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 
-#include <vk_mem_alloc.h>
-
 #define A_CPU
 #include "core/debug_state.h"
 #include "video_core/host_shaders/fsr/ffx_a.h"
@@ -281,7 +279,7 @@ vk::ImageView FsrPass::Render(vk::CommandBuffer cmdbuf, vk::ImageView input,
 
         { // rcas
             consts = {};
-            FsrRcasCon(reinterpret_cast<AU1*>(&consts.Const0), Config::getRcasAttenuation());
+            FsrRcasCon(reinterpret_cast<AU1*>(&consts.Const0), settings.rcas_attenuation);
             consts.Sample[0] = hdr ? 1 : 0;
 
             std::array<vk::DescriptorImageInfo, 3> img_info{{
@@ -408,13 +406,6 @@ void FsrPass::ResizeAndInvalidate(u32 width, u32 height) {
 
 void FsrPass::CreateImages(Img& img) const {
     img.dirty = false;
-
-    // Destroy previous resources before re-creating at new size.
-    // Views first, then images (views reference the images).
-    img.intermediary_image_view.reset();
-    img.output_image_view.reset();
-    img.intermediary_image.Destroy();
-    img.output_image.Destroy();
 
     vk::ImageCreateInfo image_create_info{
         .imageType = vk::ImageType::e2D,

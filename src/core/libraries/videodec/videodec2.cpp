@@ -8,7 +8,7 @@
 #include "core/libraries/videodec/videodec2_impl.h"
 #include "core/libraries/videodec/videodec_error.h"
 
-namespace Libraries::Videodec2 {
+namespace Libraries::Vdec2 {
 
 static constexpr u64 kMinimumMemorySize = 16_MB; ///> Fake minimum memory size for querying
 
@@ -34,35 +34,7 @@ s32 PS4_SYSV_ABI
 sceVideodec2AllocateComputeQueue(const OrbisVideodec2ComputeConfigInfo* computeCfgInfo,
                                  const OrbisVideodec2ComputeMemoryInfo* computeMemInfo,
                                  OrbisVideodec2ComputeQueue* computeQueue) {
-    LOG_WARNING(Lib_Vdec2, "called");
-    if (!computeCfgInfo || !computeMemInfo || !computeQueue) {
-        LOG_ERROR(Lib_Vdec2, "Invalid arguments");
-        return ORBIS_VIDEODEC2_ERROR_ARGUMENT_POINTER;
-    }
-    if (computeCfgInfo->thisSize != sizeof(OrbisVideodec2ComputeConfigInfo) ||
-        computeMemInfo->thisSize != sizeof(OrbisVideodec2ComputeMemoryInfo)) {
-        LOG_ERROR(Lib_Vdec2, "Invalid struct size");
-        return ORBIS_VIDEODEC2_ERROR_STRUCT_SIZE;
-    }
-    if (computeCfgInfo->reserved0 != 0 || computeCfgInfo->reserved1 != 0) {
-        LOG_ERROR(Lib_Vdec2, "Invalid compute config");
-        return ORBIS_VIDEODEC2_ERROR_CONFIG_INFO;
-    }
-    if (computeCfgInfo->computePipeId > 4) {
-        LOG_ERROR(Lib_Vdec2, "Invalid compute pipe id");
-        return ORBIS_VIDEODEC2_ERROR_COMPUTE_PIPE_ID;
-    }
-    if (computeCfgInfo->computeQueueId > 7) {
-        LOG_ERROR(Lib_Vdec2, "Invalid compute queue id");
-        return ORBIS_VIDEODEC2_ERROR_COMPUTE_QUEUE_ID;
-    }
-    if (!computeMemInfo->cpuGpuMemory) {
-        LOG_ERROR(Lib_Vdec2, "Invalid memory pointer");
-        return ORBIS_VIDEODEC2_ERROR_MEMORY_POINTER;
-    }
-
-    // The real library returns a pointer to memory inside cpuGpuMemory
-    *computeQueue = computeMemInfo->cpuGpuMemory;
+    LOG_INFO(Lib_Vdec2, "called");
     return ORBIS_OK;
 }
 
@@ -261,4 +233,4 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
                  sceVideodec2GetPictureInfo);
 }
 
-} // namespace Libraries::Videodec2
+} // namespace Libraries::Vdec2

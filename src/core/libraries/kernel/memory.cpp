@@ -89,31 +89,21 @@ s32 PS4_SYSV_ABI sceKernelAllocateMainDirectMemory(u64 len, u64 alignment, s32 m
 }
 
 s32 PS4_SYSV_ABI sceKernelCheckedReleaseDirectMemory(u64 start, u64 len) {
-    LOG_INFO(Kernel_Vmm, "called start = {:#x}, len = {:#x}", start, len);
-    if (!Common::Is16KBAligned(start) || !Common::Is16KBAligned(len)) {
-        LOG_ERROR(Kernel_Vmm, "Misaligned start or length, start = {:#x}, length = {:#x}", start,
-                  len);
-        return ORBIS_KERNEL_ERROR_EINVAL;
-    }
     if (len == 0) {
         return ORBIS_OK;
     }
+    LOG_INFO(Kernel_Vmm, "called start = {:#x}, len = {:#x}", start, len);
     auto* memory = Core::Memory::Instance();
-    return memory->Free(start, len, true);
+    memory->Free(start, len);
+    return ORBIS_OK;
 }
 
 s32 PS4_SYSV_ABI sceKernelReleaseDirectMemory(u64 start, u64 len) {
-    LOG_INFO(Kernel_Vmm, "called start = {:#x}, len = {:#x}", start, len);
-    if (!Common::Is16KBAligned(start) || !Common::Is16KBAligned(len)) {
-        LOG_ERROR(Kernel_Vmm, "Misaligned start or length, start = {:#x}, length = {:#x}", start,
-                  len);
-        return ORBIS_KERNEL_ERROR_EINVAL;
-    }
     if (len == 0) {
         return ORBIS_OK;
     }
     auto* memory = Core::Memory::Instance();
-    memory->Free(start, len, false);
+    memory->Free(start, len);
     return ORBIS_OK;
 }
 
@@ -339,11 +329,7 @@ s32 PS4_SYSV_ABI sceKernelMprotect(const void* addr, u64 size, s32 prot) {
     Core::MemoryManager* memory_manager = Core::Memory::Instance();
     Core::MemoryProt protection_flags = static_cast<Core::MemoryProt>(prot);
 
-    s32 result = memory_manager->Protect(aligned_addr, aligned_size, protection_flags);
-    if (result == ORBIS_OK) {
-        memory_manager->InvalidateMemory(aligned_addr, aligned_size);
-    }
-    return result;
+    return memory_manager->Protect(aligned_addr, aligned_size, protection_flags);
 }
 
 s32 PS4_SYSV_ABI posix_mprotect(const void* addr, u64 size, s32 prot) {
@@ -374,7 +360,6 @@ s32 PS4_SYSV_ABI sceKernelMtypeprotect(const void* addr, u64 size, s32 mtype, s3
     s32 result = memory_manager->Protect(aligned_addr, aligned_size, protection_flags);
     if (result == ORBIS_OK) {
         memory_manager->SetDirectMemoryType(aligned_addr, aligned_size, mtype);
-        memory_manager->InvalidateMemory(aligned_addr, aligned_size);
     }
     return result;
 }

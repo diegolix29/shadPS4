@@ -16,8 +16,8 @@ namespace {
                                    std::source_location loc = std::source_location::current()) {
     const std::string functionName = loc.function_name();
     const int lineNumber = loc.line();
-    // UNREACHABLE_MSG("Invalid type = {}, functionName = {}, line = {}", u32(type), functionName,
-    //                 lineNumber);
+    UNREACHABLE_MSG("Invalid type = {}, functionName = {}, line = {}", u32(type), functionName,
+                    lineNumber);
 }
 } // Anonymous namespace
 
@@ -427,8 +427,8 @@ U32 IREmitter::ReadConst(const Value& base, const U32& offset) {
     return Inst<U32>(Opcode::ReadConst, base, offset);
 }
 
-U32 IREmitter::ReadConstBuffer(const Value& handle, const U32& index, BufferInstInfo info) {
-    return Inst<U32>(Opcode::ReadConstBuffer, Flags{info}, handle, index);
+U32 IREmitter::ReadConstBuffer(const Value& handle, const U32& index) {
+    return Inst<U32>(Opcode::ReadConstBuffer, handle, index);
 }
 
 U8 IREmitter::LoadBufferU8(const Value& handle, const Value& address, BufferInstInfo info) {
@@ -627,11 +627,6 @@ Value IREmitter::BufferAtomicCmpSwap(const Value& handle, const Value& address, 
     return Inst(Opcode::BufferAtomicCmpSwap32, Flags{info}, handle, address, vdata, cmp_value);
 }
 
-Value IREmitter::BufferAtomicFCmpSwap(const Value& handle, const Value& address, const Value& vdata,
-                                      const Value& cmp_value, BufferInstInfo info) {
-    return Inst(Opcode::BufferAtomicFCmpSwap32, Flags{info}, handle, address, vdata, cmp_value);
-}
-
 U32 IREmitter::DataAppend(const U32& counter) {
     return Inst<U32>(Opcode::DataAppend, counter, Imm32(0));
 }
@@ -670,10 +665,6 @@ Value IREmitter::Ballot(const U1& bit) {
 
 U32 IREmitter::BallotFindLsb(const Value& mask) {
     return Inst<U32>(Opcode::BallotFindLsb, mask);
-}
-
-U1 IREmitter::InverseBallot(const Value& mask) {
-    return Inst<U1>(Opcode::InverseBallot, mask);
 }
 
 U1 IREmitter::GroupAny(const U1& bit) {
@@ -763,7 +754,8 @@ Value IREmitter::CompositeConstruct(std::span<const Value> elements) {
     case 4:
         return CompositeConstruct(elements[0], elements[1], elements[2], elements[3]);
     default:
-        return {};
+        UNREACHABLE_MSG("Composite construct with {} elements, only 2-4 are supported",
+                        elements.size());
     }
 }
 
@@ -1389,29 +1381,35 @@ U1 IREmitter::FPUnordered(const F32F64& lhs, const F32F64& rhs) {
     return LogicalOr(FPIsNan(lhs), FPIsNan(rhs));
 }
 
-F32F64 IREmitter::FPMax(const F32F64& lhs, const F32F64& rhs) {
+F32F64 IREmitter::FPMax(const F32F64& lhs, const F32F64& rhs, bool is_legacy) {
     if (lhs.Type() != rhs.Type()) {
         UNREACHABLE_MSG("Mismatching types {} and {}", lhs.Type(), rhs.Type());
     }
 
     switch (lhs.Type()) {
     case Type::F32:
-        return Inst<F32>(Opcode::FPMax32, lhs, rhs);
+        return Inst<F32>(Opcode::FPMax32, lhs, rhs, is_legacy);
     case Type::F64:
+        if (is_legacy) {
+            UNREACHABLE_MSG("F64 cannot be used with LEGACY ops");
+        }
         return Inst<F64>(Opcode::FPMax64, lhs, rhs);
     default:
         ThrowInvalidType(lhs.Type());
     }
 }
 
-F32F64 IREmitter::FPMin(const F32F64& lhs, const F32F64& rhs) {
+F32F64 IREmitter::FPMin(const F32F64& lhs, const F32F64& rhs, bool is_legacy) {
     if (lhs.Type() != rhs.Type()) {
         UNREACHABLE_MSG("Mismatching types {} and {}", lhs.Type(), rhs.Type());
     }
     switch (lhs.Type()) {
     case Type::F32:
-        return Inst<F32>(Opcode::FPMin32, lhs, rhs);
+        return Inst<F32>(Opcode::FPMin32, lhs, rhs, is_legacy);
     case Type::F64:
+        if (is_legacy) {
+            UNREACHABLE_MSG("F64 cannot be used with LEGACY ops");
+        }
         return Inst<F64>(Opcode::FPMin64, lhs, rhs);
     default:
         ThrowInvalidType(lhs.Type());
@@ -1770,7 +1768,7 @@ U1 IREmitter::IGreaterThan(const U32U64& lhs, const U32U64& rhs, bool is_signed)
 
 U1 IREmitter::INotEqual(const U32U64& lhs, const U32U64& rhs) {
     if (lhs.Type() != rhs.Type()) {
-        // UNREACHABLE_MSG("Mismatching types {} and {}", lhs.Type(), rhs.Type());
+        UNREACHABLE_MSG("Mismatching types {} and {}", lhs.Type(), rhs.Type());
     }
     switch (lhs.Type()) {
     case Type::U32:
@@ -2055,11 +2053,6 @@ Value IREmitter::ImageAtomicXor(const Value& handle, const Value& coords, const 
 Value IREmitter::ImageAtomicExchange(const Value& handle, const Value& coords, const Value& value,
                                      TextureInstInfo info) {
     return Inst(Opcode::ImageAtomicExchange32, Flags{info}, handle, coords, value);
-}
-
-Value IREmitter::ImageAtomicCmpSwap(const Value& handle, const Value& coords, const Value& value,
-                                    const Value& cmp_value, TextureInstInfo info) {
-    return Inst(Opcode::ImageAtomicCmpSwap32, Flags{info}, handle, coords, value, cmp_value);
 }
 
 Value IREmitter::ImageSampleRaw(const Value& image_handle, const Value& sampler_handle,

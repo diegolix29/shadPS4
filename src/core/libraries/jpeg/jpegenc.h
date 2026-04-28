@@ -68,10 +68,15 @@ struct OrbisJpegEncEncodeParam {
 static_assert(sizeof(OrbisJpegEncEncodeParam) == 0x30);
 
 struct OrbisJpegEncOutputInfo {
-    u32 size;
-    u32 height;
+    u32 size;           // +0x00: JPEG output byte count
+    u32 height;         // +0x04: image height
+    u32 width;          // +0x08: image width  (game may read this)
+    u32 color_space;    // +0x0c: color space  (game may read this)
+    u32 sampling_type;  // +0x10: sampling type (game may read this)
+    u32 comp_ratio;     // +0x14: actual compression ratio
+    u32 reserved[2];    // +0x18: zero-fill for safety
 };
-static_assert(sizeof(OrbisJpegEncOutputInfo) == 0x8);
+static_assert(sizeof(OrbisJpegEncOutputInfo) == 0x20);
 
 s32 PS4_SYSV_ABI sceJpegEncCreate(const OrbisJpegEncCreateParam* param, void* memory,
                                   u32 memory_size, OrbisJpegEncHandle* handle);

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <ctime>
@@ -6,6 +6,7 @@
 
 #include "common/assert.h"
 #include "common/native_clock.h"
+#include "common/rdtsc.h"
 #include "common/thread.h"
 #include "core/libraries/kernel/kernel.h"
 #include "core/libraries/kernel/orbis_error.h"
@@ -49,7 +50,9 @@ u64 PS4_SYSV_ABI sceKernelGetProcessTimeCounterFrequency() {
 }
 
 u64 PS4_SYSV_ABI sceKernelReadTsc() {
-    return clock->GetUptime();
+    // Hard guarantee: this is just an instruction sequence (lfence/rdtsc/lfence on x86_64),
+    // so perf cannot attribute any syscall to it.
+    return Common::FencedRDTSC();
 }
 
 static s32 posix_nanosleep_impl(const OrbisKernelTimespec* rqtp, OrbisKernelTimespec* rmtp,
@@ -548,8 +551,6 @@ void RegisterTime(Core::Loader::SymbolsResolver* sym) {
     initial_ptc = clock->GetUptime();
 
     // POSIX
-    LIB_FUNCTION("NhpspxdjEKU", "libkernel", 1, "libkernel", posix_nanosleep);
-    LIB_FUNCTION("NhpspxdjEKU", "libScePosix", 1, "libkernel", posix_nanosleep);
     LIB_FUNCTION("yS8U2TGCe1A", "libkernel", 1, "libkernel", posix_nanosleep);
     LIB_FUNCTION("yS8U2TGCe1A", "libScePosix", 1, "libkernel", posix_nanosleep);
     LIB_FUNCTION("QcteRwbsnV0", "libkernel", 1, "libkernel", posix_usleep);

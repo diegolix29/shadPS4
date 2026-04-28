@@ -73,19 +73,6 @@ struct SubresourceRange {
     auto operator<=>(const SubresourceRange&) const = default;
 };
 
-inline SubresourceRange ClampSubresourceRange(const SubresourceRange& range,
-                                              const SubresourceExtent& extent) {
-    SubresourceRange clamped = range;
-
-    clamped.base.level = std::min(clamped.base.level, static_cast<u32>(extent.levels - 1));
-    clamped.base.layer = std::min(clamped.base.layer, static_cast<u32>(extent.layers - 1));
-
-    clamped.extent.levels = std::min(clamped.extent.levels, extent.levels - clamped.base.level);
-    clamped.extent.layers = std::min(clamped.extent.layers, extent.layers - clamped.base.layer);
-
-    return clamped;
-}
-
 struct ImageCopy {
     SubresourceLayers src_subresource;
     SubresourceLayers dst_subresource;

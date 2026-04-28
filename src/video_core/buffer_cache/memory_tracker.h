@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include <algorithm>
 #include <deque>
 #include <type_traits>
 #include <vector>
+#include <boost/container/small_vector.hpp>
 #include "common/debug.h"
 #include "common/types.h"
 #include "video_core/buffer_cache/region_manager.h"
@@ -18,7 +18,6 @@ public:
     static constexpr size_t MAX_CPU_PAGE_BITS = 40;
     static constexpr size_t NUM_HIGH_PAGES = 1ULL << (MAX_CPU_PAGE_BITS - TRACKER_HIGHER_PAGE_BITS);
     static constexpr size_t MANAGER_POOL_SIZE = 32;
-    static constexpr size_t PREEMPTIVE_FLUSH_THRESHOLD = 16;
 
 public:
     explicit MemoryTracker(PageManager& tracker_) : tracker{&tracker_} {}
@@ -42,6 +41,7 @@ public:
             });
     }
 
+
     /// Mark region as CPU modified, notifying the device_tracker about this change
     void MarkRegionAsCpuModified(VAddr dirty_cpu_addr, u64 query_size) {
         IteratePages<false>(dirty_cpu_addr, query_size,
@@ -52,97 +52,95 @@ public:
                             });
     }
 
-    void MarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size) {
-        IteratePages<false>(dirty_cpu_addr, query_size,
-                            [this](RegionManager* manager, u64 offset, size_t size) {
-                                std::scoped_lock lk{manager->lock};
-                                manager->template ChangeRegionState<Type::GPU, true>(
-                                    manager->GetCpuAddr() + offset, size);
-                            });
-    }
-
     /// Unmark region as modified from the host GPU
-    void UnmarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size, bool is_write) noexcept {
+    void UnmarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size) noexcept {
         IteratePages<false>(dirty_cpu_addr, query_size,
-                            [is_write](RegionManager* manager, u64 offset, size_t size) {
+                            [](RegionManager* manager, u64 offset, size_t size) {
                                 std::scoped_lock lk{manager->lock};
                                 manager->template ChangeRegionState<Type::GPU, false>(
                                     manager->GetCpuAddr() + offset, size);
-                                if (is_write) {
-                                    manager->template ChangeRegionState<Type::CPU, true>(
-                                        manager->GetCpuAddr() + offset, size);
-                                }
                             });
     }
-
-    /// Call 'func' for each page that should be preemptively flushed
-    void ForEachPreemptiveFlushPage(VAddr cpu_addr, u64 size, auto&& func) {
-        IteratePages<false>(
-            cpu_addr, size, [&func](RegionManager* manager, u64 offset, size_t size) {
-                const size_t start_page = offset / TRACKER_BYTES_PER_PAGE;
-                const size_t end_page = Common::DivCeil(offset + size, TRACKER_BYTES_PER_PAGE);
-                for (u64 page = start_page; page != end_page; ++page) {
-                    if (manager->NumFlushes(page) >= PREEMPTIVE_FLUSH_THRESHOLD) {
-                        func(manager->GetCpuAddr() + page * TRACKER_BYTES_PER_PAGE);
-                    }
-                }
-            });
+    /// Unmark region as modified from the CPU (after host upload)
+    void UnmarkRegionAsCpuModified(VAddr dirty_cpu_addr, u64 query_size) {
+        IteratePages<false>(dirty_cpu_addr, query_size,
+                            [](RegionManager* manager, u64 offset, size_t size) {
+                                std::scoped_lock lk{manager->lock};
+                                manager->template ChangeRegionState<Type::CPU, false>(
+                                    manager->GetCpuAddr() + offset, size);
+                            });
     }
 
     /// Removes all protection from a page and ensures GPU data has been flushed if requested
     void InvalidateRegion(VAddr cpu_addr, u64 size, auto&& on_flush) noexcept {
-        IteratePages<false>(cpu_addr, size,
-                            [&on_flush](RegionManager* manager, u64 offset, size_t size) {
-                                manager->lock.lock();
-                                if (manager->template IsRegionModified<Type::GPU>(offset, size)) {
-                                    manager->lock.unlock();
-                                    on_flush();
-                                } else {
-
-                                    manager->template ChangeRegionState<Type::CPU, true>(
-                                        manager->GetCpuAddr() + offset, size);
-                                    manager->lock.unlock();
-                                }
-                            });
-    }
-
-    /// Removes all protection from a page (lose any non downloaded GPU modifications)
-    void InvalidateRegion(VAddr cpu_addr, u64 size) noexcept {
-        IteratePages<false>(cpu_addr, size, [](RegionManager* manager, u64 offset, size_t size) {
-            // Perform both the GPU modification check and CPU state change with the lock
-            // in case we are racing with GPU thread trying to mark the page as GPU
-            // modified.
-            std::scoped_lock lk{manager->lock};
-            manager->template ChangeRegionState<Type::GPU, false>(manager->GetCpuAddr() + offset,
-                                                                  size);
-            manager->template ChangeRegionState<Type::CPU, true>(manager->GetCpuAddr() + offset,
-                                                                 size);
-        });
+        IteratePages<false>(
+            cpu_addr, size, [&on_flush](RegionManager* manager, u64 offset, size_t size) {
+                const bool should_flush = [&] {
+                    // Perform both the GPU modification check and CPU state change with the lock
+                    // in case we are racing with GPU thread trying to mark the page as GPU
+                    // modified. If we need to flush the flush function is going to perform CPU
+                    // state change.
+                    std::scoped_lock lk{manager->lock};
+                    if (Config::readbacks() &&
+                        manager->template IsRegionModified<Type::GPU>(offset, size)) {
+                        return true;
+                    }
+                    manager->template ChangeRegionState<Type::CPU, true>(
+                        manager->GetCpuAddr() + offset, size);
+                    return false;
+                }();
+                if (should_flush) {
+                    on_flush();
+                }
+            });
     }
 
     /// Call 'func' for each CPU modified range and unmark those pages as CPU modified
-    void ForEachUploadRange(VAddr query_cpu_range, u64 query_size, bool is_written, auto&& func,
-                            auto&& on_upload) {
-        IteratePages<true>(query_cpu_range, query_size,
-                           [&func, is_written](RegionManager* manager, u64 offset, size_t size) {
-                               manager->lock.lock();
-                               manager->template ForEachModifiedRange<Type::CPU, true>(
-                                   manager->GetCpuAddr() + offset, size, func);
-                               if (!is_written) {
-                                   manager->lock.unlock();
-                               }
-                           });
-        on_upload();
-        if (!is_written) {
-            return;
-        }
-        IteratePages<false>(query_cpu_range, query_size,
-                            [&func, is_written](RegionManager* manager, u64 offset, size_t size) {
-                                manager->template ChangeRegionState<Type::GPU, true>(
-                                    manager->GetCpuAddr() + offset, size);
-                                manager->lock.unlock();
-                            });
+
+/// Call 'func' for each CPU modified range and unmark those pages as CPU modified
+void ForEachUploadRange(VAddr query_cpu_range, u64 query_size, bool is_written, auto&& func,
+                        auto&& on_upload) {
+    // PERF(GR2 v14): Avoid a second full IteratePages() walk on the write path.
+    //
+    // The original implementation iterated pages twice when is_written==true:
+    //   1) lock managers + enumerate CPU-dirty ranges
+    //   2) iterate the same pages again to mark GPU-modified + unlock
+    //
+    // We keep the existing locking semantics (locks remain held across on_upload()),
+    // but record which RegionManagers we locked so we can finalize in O(#managers_touched)
+    // instead of a second page-table walk.
+    struct LockedManager {
+        RegionManager* manager{};
+        u64 offset{};
+        size_t size{};
+    };
+    boost::container::small_vector<LockedManager, 16> locked;
+
+    IteratePages<true>(
+        query_cpu_range, query_size,
+        [&func, is_written, &locked](RegionManager* manager, u64 offset, size_t size) {
+            manager->lock.lock();
+            manager->template ForEachModifiedRange<Type::CPU, true>(
+                manager->GetCpuAddr() + offset, size, func);
+            if (!is_written) {
+                manager->lock.unlock();
+            } else {
+                locked.push_back(LockedManager{manager, offset, size});
+            }
+        });
+
+    on_upload();
+
+    if (!is_written) {
+        return;
     }
+
+    for (auto& e : locked) {
+        e.manager->template ChangeRegionState<Type::GPU, true>(
+            e.manager->GetCpuAddr() + e.offset, e.size);
+        e.manager->lock.unlock();
+    }
+}
 
     /// Call 'func' for each GPU modified range and unmark those pages as GPU modified
     template <bool clear>

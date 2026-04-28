@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "ajm_error.h"
-#include "ajm_mp3.h"
-#include "ajm_result.h"
-
 #include "common/assert.h"
+#include "core/libraries/ajm/ajm_error.h"
+#include "core/libraries/ajm/ajm_mp3.h"
 #include "core/libraries/error_codes.h"
 
 extern "C" {
@@ -107,7 +105,7 @@ AVFrame* AjmMp3Decoder::ConvertAudioFrame(AVFrame* frame) {
     return new_frame;
 }
 
-AjmMp3Decoder::AjmMp3Decoder(AjmFormatEncoding format, AjmMp3CodecFlags flags, u32)
+AjmMp3Decoder::AjmMp3Decoder(AjmFormatEncoding format, AjmMp3CodecFlags flags)
     : m_format(format), m_flags(flags), m_codec(avcodec_find_decoder(AV_CODEC_ID_MP3)),
       m_codec_context(avcodec_alloc_context3(m_codec)), m_parser(av_parser_init(m_codec->id)) {
     int ret = avcodec_open2(m_codec_context, m_codec, nullptr);
@@ -124,6 +122,7 @@ void AjmMp3Decoder::Reset() {
     avcodec_flush_buffers(m_codec_context);
     m_header.reset();
     m_frame_samples = 0;
+    m_frame_size = 0;
 }
 
 void AjmMp3Decoder::GetInfo(void* out_info) const {
@@ -142,7 +141,7 @@ void AjmMp3Decoder::GetInfo(void* out_info) const {
 
 u32 AjmMp3Decoder::GetMinimumInputSize() const {
     // 4 bytes is for mp3 header that contains frame_size
-    return 4;
+    return std::max<u32>(m_frame_size, 4);
 }
 
 DecoderResult AjmMp3Decoder::ProcessData(std::span<u8>& in_buf, SparseOutputBuffer& output,
@@ -150,21 +149,18 @@ DecoderResult AjmMp3Decoder::ProcessData(std::span<u8>& in_buf, SparseOutputBuff
     DecoderResult result{};
     AVPacket* pkt = av_packet_alloc();
 
-    m_header = std::byteswap(*reinterpret_cast<u32*>(in_buf.data()));
-    AjmDecMp3ParseFrame info{};
-    ParseMp3Header(in_buf.data(), in_buf.size(), true, &info);
-    m_frame_samples = info.samples_per_channel;
-    if (info.total_samples != 0 || info.encoder_delay != 0) {
+    if ((!m_header.has_value() || m_frame_samples == 0) && in_buf.size() >= 4) {
+        m_header = std::byteswap(*reinterpret_cast<u32*>(in_buf.data()));
+        AjmDecMp3ParseFrame info{};
+        ParseMp3Header(in_buf.data(), in_buf.size(), true, &info);
+        m_frame_samples = info.samples_per_channel;
+        m_frame_size = info.frame_size;
         gapless.init = {
             .total_samples = info.total_samples,
             .skip_samples = static_cast<u16>(info.encoder_delay),
             .skipped_samples = 0,
         };
         gapless.current = gapless.init;
-    }
-
-    if (in_buf.size() < info.frame_size) {
-        result.result |= ORBIS_AJM_RESULT_PARTIAL_INPUT;
     }
 
     int ret = av_parser_parse2(m_parser, m_codec_context, &pkt->data, &pkt->size, in_buf.data(),
@@ -315,8 +311,7 @@ int AjmMp3Decoder::ParseMp3Header(const u8* p_begin, u32 stream_size, int parse_
 
     BitReader reader(p_current);
     if (header->protection_type == 0) {
-        // crc = reader.Read<u16>(16);
-        reader.Skip(16);
+        reader.Skip(16); // crc = reader.Read<u16>(16);
     }
 
     if (header->version == Mp3AudioVersion::V1) {
@@ -428,7 +423,11 @@ int AjmMp3Decoder::ParseMp3Header(const u8* p_begin, u32 stream_size, int parse_
                 frame->encoder_delay = std::byteswap(*reinterpret_cast<const u16*>(p_fgh + 1));
                 frame->total_samples = std::byteswap(*reinterpret_cast<const u32*>(p_fgh + 3));
                 frame->ofl_type = AjmDecMp3OflType::Fgh;
+            } else {
+                LOG_ERROR(Lib_Ajm, "FGH header CRC is incorrect.");
             }
+        } else {
+            LOG_ERROR(Lib_Ajm, "Could not find vendor header.");
         }
     }
 

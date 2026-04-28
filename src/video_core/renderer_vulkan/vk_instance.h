@@ -21,11 +21,9 @@ namespace Vulkan {
 
 class Instance {
 public:
-    explicit Instance(bool validation = false, bool crash_diagnostic = false,
-                      bool manage_imgui = true);
+    explicit Instance(bool validation = false, bool crash_diagnostic = false);
     explicit Instance(Frontend::WindowSDL& window, s32 physical_device_index,
-                      bool enable_validation = false, bool enable_crash_diagnostic = false,
-                      bool manage_imgui = true);
+                      bool enable_validation = false, bool enable_crash_diagnostic = false);
     ~Instance();
 
     /// Returns a formatted string for the driver version
@@ -151,12 +149,7 @@ public:
         return depth_range_unrestricted;
     }
 
-    /// Returns true when VK_EXT_extended_dynamic_state3 is supported
-    bool IsExtendedDynamicState3Supported() const {
-        return dynamic_state_3;
-    }
-
-    /// Returns true when the extendedDynamicState3ColorWriteMask feature of
+    /// Returns true when the extendedDynamicState3ColorWriteMask feature o
     /// VK_EXT_extended_dynamic_state3 is supported.
     bool IsDynamicColorWriteMaskSupported() const {
         return dynamic_state_3 && dynamic_state_3_features.extendedDynamicState3ColorWriteMask;
@@ -238,11 +231,6 @@ public:
     /// Returns true if 64-bit integer atomic operations can be used on shared memory
     bool IsSharedInt64AtomicsSupported() const {
         return vk12_features.shaderSharedInt64Atomics;
-    }
-
-    /// Returns true if the subgroup size can be set to match guest subgroup size
-    bool IsSubgroupSize64Supported() const {
-        return vk13_features.subgroupSizeControl && vk13_props.maxSubgroupSize >= 64;
     }
 
     /// Returns true when VK_KHR_workgroup_memory_explicit_layout is supported.
@@ -428,12 +416,6 @@ public:
         return features.logicOp;
     }
 
-    /// Returns whether VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT is supported on compressed
-    /// images.
-    bool IsBlockTexelViewSupported() const {
-        return supports_block_texel_view;
-    }
-
     /// Returns whether the device can report memory usage.
     bool CanReportMemoryUsage() const {
         return supports_memory_budget;
@@ -444,7 +426,7 @@ public:
 
     /// Returns the total memory budget available to the device.
     [[nodiscard]] u64 GetTotalMemoryBudget() const {
-        return 4_GB; // PS4 VRAM limit for testing
+        return total_memory_budget;
     }
 
     /// Determines if a format is supported for a set of feature flags.
@@ -460,7 +442,6 @@ private:
     /// Collects various information from the device.
     void CollectDeviceParameters();
     void CollectPhysicalMemoryInfo();
-    void CollectImageFormatInfo();
     void CollectToolingInfo() const;
 
     /// Gets the supported feature flags for a format.
@@ -474,11 +455,9 @@ private:
     vk::PhysicalDeviceMemoryProperties memory_properties;
     vk::PhysicalDeviceVulkan11Properties vk11_props;
     vk::PhysicalDeviceVulkan12Properties vk12_props;
-    vk::PhysicalDeviceVulkan13Properties vk13_props;
     vk::PhysicalDevicePushDescriptorPropertiesKHR push_descriptor_props;
     vk::PhysicalDeviceFeatures features;
     vk::PhysicalDeviceVulkan12Features vk12_features;
-    vk::PhysicalDeviceVulkan13Features vk13_features;
     vk::PhysicalDevicePortabilitySubsetFeaturesKHR portability_features;
     vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT dynamic_state_3_features;
     vk::PhysicalDeviceRobustness2FeaturesEXT robustness2_features;
@@ -521,8 +500,6 @@ private:
     bool maintenance_8{};
     bool attachment_feedback_loop{};
     bool supports_memory_budget{};
-    bool supports_block_texel_view{};
-    bool manage_imgui{true};
     u64 total_memory_budget{};
     std::vector<size_t> valid_heaps;
 };

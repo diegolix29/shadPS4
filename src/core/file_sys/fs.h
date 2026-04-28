@@ -5,7 +5,6 @@
 
 #include <atomic>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <vector>
 #include <tsl/robin_map.h>
@@ -22,8 +21,6 @@ struct Resolver;
 
 namespace Core::FileSys {
 
-enum class HostPathType { Base, Mod, Patch, Update };
-
 class MntPoints {
 #ifdef _WIN64
     static constexpr bool NeedsCaseInsensitiveSearch = false;
@@ -32,7 +29,6 @@ class MntPoints {
 #endif
 public:
     static bool ignore_game_patches;
-    static bool enable_mods;
     struct MntPair {
         std::filesystem::path host_path;
         std::string mount; // e.g /app0
@@ -46,15 +42,9 @@ public:
                bool read_only = false);
     void Unmount(const std::filesystem::path& host_folder, const std::string& guest_folder);
     void UnmountAll();
-    inline static std::filesystem::path manual_mods_path;
 
     std::filesystem::path GetHostPath(std::string_view guest_directory,
                                       bool* is_read_only = nullptr, bool force_base_path = false);
-
-    std::filesystem::path ConstructOverlayPath(const MntPair& mount,
-                                               const std::string_view& rel_path,
-                                               HostPathType path_type);
-
     using IterateDirectoryCallback =
         std::function<void(const std::filesystem::path& host_path, bool is_file)>;
     void IterateDirectory(std::string_view guest_directory,
@@ -68,17 +58,14 @@ public:
         return it == m_mnt_pairs.end() ? nullptr : &*it;
     }
 
-    const std::optional<MntPair> GetMount(const std::string& guest_path) {
+    const MntPair* GetMount(const std::string& guest_path) {
         std::scoped_lock lock{m_mutex};
         const auto it = std::ranges::find_if(m_mnt_pairs, [&](const auto& mount) {
             // When doing starts-with check, add a trailing slash to make sure we don't match
             // against only part of the mount path.
             return guest_path == mount.mount || guest_path.starts_with(mount.mount + "/");
         });
-        if (it == m_mnt_pairs.end()) {
-            return std::nullopt;
-        }
-        return *it;
+        return it == m_mnt_pairs.end() ? nullptr : &*it;
     }
 
 private:
@@ -94,8 +81,7 @@ enum class FileType {
     Device,
     Socket,
     Epoll,
-    Resolver,
-    Equeue
+    Resolver
 };
 
 struct File {

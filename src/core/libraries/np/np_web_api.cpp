@@ -5,19 +5,8 @@
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/np/np_web_api.h"
-#include "np_error.h"
 
 namespace Libraries::Np::NpWebApi {
-
-static std::map<SceNpWebApiMockRequestType, std::string> g_templates{
-    {REQ_BLOCK_LIST, "{\"totalResults\": 0, \"blockList\": []}"},
-    {REQ_FRIEND_LIST, "{\"totalResults\": 0, \"friendList\": []}"},
-};
-static std::map<s64, SceNpWebApiMockRequestType> g_requests;
-static std::mutex g_templates_map_mutex;
-static std::mutex g_requests_map_mutex;
-
-// TODO mock enabled setting
 
 s32 PS4_SYSV_ABI sceNpWebApiCreateContext() {
     LOG_ERROR(Lib_NpWebApi, "(STUBBED) called");
@@ -134,42 +123,8 @@ s32 PS4_SYSV_ABI sceNpWebApiCreateMultipartRequest() {
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceNpWebApiCreateRequest(s32 title_user_ctx_id, const char* p_api_group,
-                                          const char* p_path, s32 method,
-                                          SceNpWebApiContentParameter* p_content_parameter,
-                                          s64* p_request_id) {
+s32 PS4_SYSV_ABI sceNpWebApiCreateRequest() {
     LOG_ERROR(Lib_NpWebApi, "(STUBBED) called");
-
-    if (p_path == nullptr) {
-
-        return ORBIS_NP_WEB_API_INVALID_ARGUMENT;
-    }
-
-    static s64 request_id_counter = 0;
-    s64 request_id = request_id_counter++;
-
-    *p_request_id = request_id;
-
-    SceNpWebApiMockRequestType type = REQ_INVALID;
-
-    std::lock_guard<std::mutex> lock(g_requests_map_mutex);
-
-    if (strstr(p_path, "blockList") != nullptr) {
-
-        type = REQ_BLOCK_LIST;
-    } else if (strstr(p_path, "friendList") != nullptr) {
-
-        type = REQ_FRIEND_LIST;
-    }
-
-    if (type == REQ_INVALID) {
-
-        LOG_ERROR(Lib_NpWebApi, "No mock for request path: '{}'", p_path);
-        return ORBIS_OK;
-    }
-
-    g_requests.emplace(request_id, type);
-
     return ORBIS_OK;
 }
 
@@ -188,17 +143,8 @@ s32 PS4_SYSV_ABI sceNpWebApiDeleteHandle() {
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceNpWebApiDeleteRequest(s64 request_id) {
-    LOG_ERROR(Lib_NpWebApi, "(STUBBED) called, request_id: '{}'", request_id);
-
-    std::lock_guard<std::mutex> lock(g_requests_map_mutex);
-
-    auto it = g_requests.find(request_id);
-    if (it != g_requests.end()) {
-
-        g_requests.erase(it);
-    }
-
+s32 PS4_SYSV_ABI sceNpWebApiDeleteRequest() {
+    LOG_ERROR(Lib_NpWebApi, "(STUBBED) called");
     return ORBIS_OK;
 }
 
@@ -222,22 +168,8 @@ s32 PS4_SYSV_ABI sceNpWebApiGetHttpResponseHeaderValueLength() {
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceNpWebApiGetHttpStatusCode(s64 request_id, s32* out_status_code) {
-    LOG_ERROR(Lib_NpWebApi, "(STUBBED) called, request_id: '{}'", request_id);
-
-    if (out_status_code == nullptr) {
-
-        return ORBIS_NP_WEB_API_INVALID_ARGUMENT;
-    }
-
-    std::lock_guard<std::mutex> lock(g_requests_map_mutex);
-
-    auto it = g_requests.find(request_id);
-    if (it != g_requests.end()) {
-
-        *out_status_code = 200;
-    }
-
+s32 PS4_SYSV_ABI sceNpWebApiGetHttpStatusCode() {
+    LOG_ERROR(Lib_NpWebApi, "(STUBBED) called");
     return ORBIS_OK;
 }
 
@@ -287,29 +219,8 @@ s32 PS4_SYSV_ABI sceNpWebApiIntRegisterServicePushEventCallbackA() {
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceNpWebApiReadData(s64 request_id, char* data, u64 size) {
-    LOG_ERROR(Lib_NpWebApi, "(STUBBED) called, request_id: '{}'", request_id);
-
-    if (data == nullptr || size == 0) {
-
-        return ORBIS_OK;
-    }
-
-    std::lock_guard<std::mutex> lock_r(g_requests_map_mutex);
-    std::lock_guard<std::mutex> lock_t(g_templates_map_mutex);
-    auto it = g_requests.find(request_id);
-    if (it != g_requests.end()) {
-        auto template_it = g_templates.find(it->second);
-        if (template_it != g_templates.end()) {
-
-            const std::string& response = template_it->second;
-            u64 to_copy = std::min(size, static_cast<u64>(response.size()));
-
-            memcpy(data, response.data(), to_copy);
-            return static_cast<s32>(to_copy);
-        }
-    }
-
+s32 PS4_SYSV_ABI sceNpWebApiReadData() {
+    LOG_ERROR(Lib_NpWebApi, "(STUBBED) called");
     return ORBIS_OK;
 }
 

@@ -28,16 +28,6 @@ int PS4_SYSV_ABI posix_pthread_create(PthreadT* thread, const PthreadAttrT* attr
 
 int PS4_SYSV_ABI posix_pthread_join(PthreadT pthread, void** thread_return);
 
-int PS4_SYSV_ABI posix_pthread_mutexattr_init(PthreadMutexAttrT* attr);
-int PS4_SYSV_ABI posix_pthread_mutexattr_settype(PthreadMutexAttrT* attr, PthreadMutexType type);
-int PS4_SYSV_ABI posix_pthread_mutexattr_destroy(PthreadMutexAttrT* attr);
-
-int PS4_SYSV_ABI scePthreadMutexInit(PthreadMutexT* mutex, const PthreadMutexAttrT* mutex_attr,
-                                     const char* name);
-int PS4_SYSV_ABI posix_pthread_mutex_lock(PthreadMutexT* mutex);
-int PS4_SYSV_ABI posix_pthread_mutex_unlock(PthreadMutexT* mutex);
-int PS4_SYSV_ABI posix_pthread_mutex_destroy(PthreadMutexT* mutex);
-
 void RegisterThreads(Core::Loader::SymbolsResolver* sym);
 
 class Thread {
@@ -48,6 +38,26 @@ public:
     }
 
     void Run(std::function<void(std::stop_token)>&& func) {
+        // FIX(GR2FORK v4): if a thread is already running against this
+        // Thread object, stop+join it BEFORE overwriting the pthread
+        // handle and function storage. Previously Run() unconditionally
+        // called pthread_create, which:
+        //   1. orphaned the old pthread (handle overwritten, never joined)
+        //   2. silently overwrote this->func while the old thread might
+        //      still be about to read it from RunWrapper — a data race
+        //      on std::function whose deferred cost is random vtable /
+        //      pure-call dispatches in the orphan
+        //   3. reused the same stop_source, which was not reset, so
+        //      neither the old nor the new thread got a clean token
+        // Visible trigger: avplayer_source.cpp calls Run() on its
+        // demuxer/decoder Thread members inside Start(); if the game
+        // double-Start()s a source without an intervening Stop() (log
+        // evidence: two StatePlay events + two triplets of decoder-
+        // thread-started logs in rapid succession), we leaked three
+        // orphan threads every time.
+        if (Joinable()) {
+            Stop();
+        }
         this->func = std::move(func);
         PthreadAttrT attr{};
         posix_pthread_attr_init(&attr);

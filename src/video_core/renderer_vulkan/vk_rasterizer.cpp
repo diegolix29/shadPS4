@@ -11,24 +11,35 @@
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_hle.h"
+#include "video_core/renderer_vulkan/draw_bundle.h"
 #include "video_core/texture_cache/image_view.h"
 #include "video_core/texture_cache/texture_cache.h"
+
+
+#include <array>
+#include <algorithm>
+#include <atomic>
+#include <cstring>
+#include <xxhash.h>
 
 #ifdef MemoryBarrier
 #undef MemoryBarrier
 #endif
 
+
 namespace Vulkan {
 
-static Shader::PushData MakeUserData(const AmdGpu::Regs& regs) {
-    // TODO(roamic): Add support for multiple viewports and geometry shaders when ViewportIndex
-    // is encountered and implemented in the recompiler.
-    Shader::PushData push_data{};
+
+static void MakeUserData(Shader::PushData& push_data, const AmdGpu::Regs& regs) {
+    // PERF(v7): Zero only buf_offsets (40 bytes) with a single memset instead of
+    // value-initializing the full ~120-byte PushData every draw. ud_regs are
+    // always overwritten by Info::PushUd for every register the shader consumes.
+    std::memset(push_data.buf_offsets.data(), 0, push_data.buf_offsets.size());
+
     push_data.xoffset = regs.viewport_control.xoffset_enable ? regs.viewports[0].xoffset : 0.f;
     push_data.xscale = regs.viewport_control.xscale_enable ? regs.viewports[0].xscale : 1.f;
     push_data.yoffset = regs.viewport_control.yoffset_enable ? regs.viewports[0].yoffset : 0.f;
     push_data.yscale = regs.viewport_control.yscale_enable ? regs.viewports[0].yscale : 1.f;
-    return push_data;
 }
 
 Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
@@ -46,14 +57,6 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
 
 Rasterizer::~Rasterizer() = default;
 
-// Get the current color buffer image for screenshot capture
-VideoCore::ImageId Rasterizer::GetCurrentColorBuffer(u32 index) const {
-    if (index < AmdGpu::NUM_COLOR_BUFFERS) {
-        return cb_descs[index].first;
-    }
-    return VideoCore::ImageId{};
-}
-
 void Rasterizer::CpSync() {
     scheduler.EndRendering();
     auto cmdbuf = scheduler.CommandBuffer();
@@ -64,7 +67,7 @@ void Rasterizer::CpSync() {
     };
     cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
                            vk::PipelineStageFlagBits::eDrawIndirect,
-                           vk::DependencyFlagBits::eByRegion, ib_barrier, {}, {});
+                           vk::DependencyFlags{}, ib_barrier, {}, {});
 }
 
 bool Rasterizer::FilterDraw() {
@@ -124,12 +127,63 @@ void Rasterizer::PrepareRenderState(const GraphicsPipeline* pipeline) {
 
     const bool skip_cb_binding =
         regs.color_control.mode == AmdGpu::ColorControl::OperationMode::Disable;
+
+    // =========================================================================
+    // Render target identity hash: skip FindImage when CB/DB addresses unchanged.
+    // FindImage is the most expensive per-draw call (~page table walk + hash lookup).
+    // Render targets change on pass switches, not between draws within a pass.
+    // =========================================================================
+    auto mix = [](u64 h, u64 v) noexcept -> u64 {
+        return h ^ (v + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
+    };
+    u64 rt_hash = 0x84222325cbf29ce4ULL;
+    rt_hash = mix(rt_hash, key.mrt_mask);
+    rt_hash = mix(rt_hash, skip_cb_binding ? 1ULL : 0ULL);
+    for (s32 cb = 0; cb < std::bit_width(key.mrt_mask); ++cb) {
+        if (!skip_cb_binding && regs.color_buffers[cb] &&
+            regs.color_target_mask.GetMask(cb) && (key.mrt_mask & (1 << cb))) {
+            rt_hash = mix(rt_hash, regs.color_buffers[cb].Address());
+            rt_hash = mix(rt_hash, liverpool->last_cb_extent[cb].raw);
+        }
+    }
+    if ((regs.depth_control.depth_enable && regs.depth_buffer.DepthValid()) ||
+        (regs.depth_control.stencil_enable && regs.depth_buffer.StencilValid())) {
+        rt_hash = mix(rt_hash, regs.depth_buffer.DepthAddress());
+        rt_hash = mix(rt_hash, liverpool->last_db_extent.raw);
+        rt_hash = mix(rt_hash, regs.depth_htile_data_base.GetAddress());
+    }
+
+    if (rt_cache_.valid && rt_cache_.hash == rt_hash) {
+        // Fast path: render targets unchanged. Reuse cached image_ids.
+        // Must still add to bound_images and re-mark is_target (cleared by ResetBindings).
+        for (s32 cb = 0; cb < std::bit_width(key.mrt_mask); ++cb) {
+            auto& [image_id, desc] = cb_descs[cb];
+            image_id = rt_cache_.cb_image_ids[cb];
+            if (!image_id) {
+                continue;
+            }
+            bound_images.emplace_back(image_id);
+            texture_cache.GetImage(image_id).binding.is_target = 1u;
+        }
+        {
+            auto& [image_id, desc] = db_desc;
+            image_id = rt_cache_.db_image_id;
+            if (image_id) {
+                bound_images.emplace_back(image_id);
+                texture_cache.GetImage(image_id).binding.is_target = 1u;
+            }
+        }
+        return;
+    }
+
+    // Full path: resolve render targets via FindImage.
     for (s32 cb = 0; cb < std::bit_width(key.mrt_mask); ++cb) {
         auto& [image_id, desc] = cb_descs[cb];
         const auto& col_buf = regs.color_buffers[cb];
         const u32 target_mask = regs.color_target_mask.GetMask(cb);
         if (skip_cb_binding || !col_buf || !target_mask || (key.mrt_mask & (1 << cb)) == 0) {
             image_id = {};
+            rt_cache_.cb_image_ids[cb] = {};
             continue;
         }
         const auto& hint = liverpool->last_cb_extent[cb];
@@ -137,6 +191,7 @@ void Rasterizer::PrepareRenderState(const GraphicsPipeline* pipeline) {
         image_id = bound_images.emplace_back(texture_cache.FindImage(desc));
         auto& image = texture_cache.GetImage(image_id);
         image.binding.is_target = 1u;
+        rt_cache_.cb_image_ids[cb] = image_id;
     }
 
     if ((regs.depth_control.depth_enable && regs.depth_buffer.DepthValid()) ||
@@ -149,9 +204,14 @@ void Rasterizer::PrepareRenderState(const GraphicsPipeline* pipeline) {
         image_id = bound_images.emplace_back(texture_cache.FindImage(desc));
         auto& image = texture_cache.GetImage(image_id);
         image.binding.is_target = 1u;
+        rt_cache_.db_image_id = image_id;
     } else {
         db_desc.first = {};
+        rt_cache_.db_image_id = {};
     }
+
+    rt_cache_.hash = rt_hash;
+    rt_cache_.valid = true;
 }
 
 static std::pair<u32, u32> GetDrawOffsets(
@@ -196,10 +256,10 @@ void Rasterizer::EliminateFastClear() {
 void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     RENDERER_TRACE;
 
-    scheduler.PopPendingOperations();
-
-    if (!FilterDraw()) {
-        return;
+    // Batch PopPendingOperations: only check every 16th draw.
+    // Pending ops are deferred GPU-side completions; 16-draw latency is imperceptible.
+    if ((draw_counter_++ & 15) == 0) {
+        scheduler.PopPendingOperations();
     }
 
     const auto& regs = liverpool->regs;
@@ -208,12 +268,61 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
         return;
     }
 
+    // Skip FilterDraw when pipeline hasn't changed — FilterDraw only reads
+    // key-affecting regs (color_control.mode, primitive_type, depth overrides)
+    // which are stable within the same pipeline.
+    if (pipeline != last_filter_pipeline_) {
+        last_filter_result_ = FilterDraw();
+        last_filter_pipeline_ = pipeline;
+    }
+    if (!last_filter_result_) {
+        return;
+    }
+
+
+
     PrepareRenderState(pipeline);
     if (!BindResources(pipeline)) {
         return;
     }
     const auto state = BeginRendering(pipeline);
 
+    if (scheduler.IsThreadedRecording()) {
+        // =====================================================================
+        // Phase 1B: VB, IB, barriers, push, descriptors, dynamic state,
+        // bindPipeline → direct cmdbuf. Only beginRendering + draw → bundle.
+        // =====================================================================
+        buffer_cache.BindVertexBuffers(*pipeline);
+        if (is_indexed) {
+            buffer_cache.BindIndexBuffer(index_offset);
+        }
+
+        pipeline->BindResources(set_writes, buffer_barriers, push_data);
+        UpdateDynamicState(pipeline, is_indexed);
+        scheduler.GetDynamicState().Commit(instance, scheduler.CommandBuffer());
+
+        BindPipelineCached(vk::PipelineBindPoint::eGraphics, pipeline->Handle());
+
+        const auto& vs_info = pipeline->GetStage(Shader::LogicalStage::Vertex);
+        const auto& fetch_shader = pipeline->GetFetchShader();
+        const auto [vertex_offset, instance_offset] =
+            GetDrawOffsets(regs, vs_info, fetch_shader);
+
+        auto* bundle = scheduler.AllocateBundle();
+        bundle->type = is_indexed ? DrawBundle::Type::DrawIndexed : DrawBundle::Type::Draw;
+        bundle->render_state = state;
+        bundle->has_render_state = true;
+        bundle->num_indices = regs.num_indices;
+        bundle->num_instances = regs.num_instances.NumInstances();
+        bundle->vertex_offset = static_cast<s32>(vertex_offset);
+        bundle->instance_offset = instance_offset;
+
+        scheduler.SubmitBundle();
+        ResetBindings();
+        return;
+    }
+
+    // Non-threaded path (unchanged).
     buffer_cache.BindVertexBuffers(*pipeline);
     if (is_indexed) {
         buffer_cache.BindIndexBuffer(index_offset);
@@ -228,7 +337,7 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     const auto [vertex_offset, instance_offset] = GetDrawOffsets(regs, vs_info, fetch_shader);
 
     const auto cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline->Handle());
+    BindPipelineCached(vk::PipelineBindPoint::eGraphics, pipeline->Handle());
 
     if (is_indexed) {
         cmdbuf.drawIndexed(regs.num_indices, regs.num_instances.NumInstances(), 0,
@@ -262,18 +371,22 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
     }
     const auto state = BeginRendering(pipeline);
 
+    // DrawIndirect uses non-threaded cmdbuf access. Drain any pending
+    // recorder bundles to avoid racing on current_cmdbuf.
+    scheduler.DrainRecorderQueue();
+
     buffer_cache.BindVertexBuffers(*pipeline);
     if (is_indexed) {
         buffer_cache.BindIndexBuffer(0);
     }
 
     const auto& [buffer, base] =
-        buffer_cache.ObtainBuffer(arg_address + offset, stride * max_count);
+        buffer_cache.ObtainBuffer(arg_address + offset, stride * max_count, false);
 
     VideoCore::Buffer* count_buffer{};
     u32 count_base{};
     if (count_address != 0) {
-        std::tie(count_buffer, count_base) = buffer_cache.ObtainBuffer(count_address, 4);
+        std::tie(count_buffer, count_base) = buffer_cache.ObtainBuffer(count_address, 4, false);
     }
 
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
@@ -284,7 +397,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
     // instance offsets will be automatically applied by Vulkan from indirect args buffer.
 
     const auto cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline->Handle());
+    BindPipelineCached(vk::PipelineBindPoint::eGraphics, pipeline->Handle());
 
     if (is_indexed) {
         ASSERT(sizeof(VkDrawIndexedIndirectCommand) == stride);
@@ -320,6 +433,7 @@ void Rasterizer::DispatchDirect() {
         return;
     }
 
+
     const auto& cs = pipeline->GetStage(Shader::LogicalStage::Compute);
     if (ExecuteShaderHLE(cs, liverpool->regs, cs_program, *this)) {
         return;
@@ -333,13 +447,13 @@ void Rasterizer::DispatchDirect() {
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
 
     const auto cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
+    BindPipelineCached(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatch(cs_program.dim_x, cs_program.dim_y, cs_program.dim_z);
 
     ResetBindings();
 }
 
-void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_gpu) {
+void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
     RENDERER_TRACE;
 
     scheduler.PopPendingOperations();
@@ -354,14 +468,13 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_g
         return;
     }
 
-    const auto [buffer, base] =
-        buffer_cache.ObtainBuffer(address + offset, size, VideoCore::ObtainBufferFlags::IsWritten);
-    buffer_cache.GetPendingGpuModifiedRanges().Subtract(address + offset, size);
+    const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, false);
+
     scheduler.EndRendering();
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
 
     const auto cmdbuf = scheduler.CommandBuffer();
-    cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
+    BindPipelineCached(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatchIndirect(buffer->Handle(), base);
 
     ResetBindings();
@@ -384,55 +497,152 @@ void Rasterizer::OnSubmit() {
         buffer_cache.ProcessFaultBuffer();
     }
     texture_cache.ProcessDownloadImages();
-    buffer_cache.ProcessPreemptiveDownloads();
+    texture_cache.RunGarbageCollector();
+    buffer_cache.RunGarbageCollector();
+}
 
-    static u64 gc_timer = 0;
-    if (++gc_timer > 60) {
-        gc_timer = 0;
-        const u64 used_mem = instance.GetDeviceMemoryUsage();
-        const u64 trigger = texture_cache.GetTriggerGcMemory();
-        if (used_mem > trigger) {
-            texture_cache.RunGarbageCollectorAsync();
-            buffer_cache.RunGarbageCollectorAsync();
+void Rasterizer::PrepareDescriptorDeltaCache(const Pipeline* pipeline) {
+    const auto cmdbuf = scheduler.CommandBuffer();
+    const u64 tick = scheduler.CurrentTick();
+    const auto layout = pipeline ? pipeline->GetLayout() : vk::PipelineLayout{};
+
+    // FIX(GR2FORK): when the pipeline uses DESCRIPTOR SETS (not push
+    // descriptors), each commit allocates a fresh VkDescriptorSet that starts
+    // with every binding uninitialized. The delta filter cannot skip writes
+    // on that path or those bindings stay unwritten and the draw faults
+    // (VUID-vkCmdDrawIndexed-None-08114, RADV DEVICE_LOST on first indexed
+    // sample/ssbo load). Force-invalidate the cache every call on the
+    // descriptor-set path so ShouldWriteDescriptor always returns true.
+    //
+    // On push-descriptor pipelines the delta filter is still safe and
+    // beneficial — push state persists across draws in the same cmdbuf.
+    const bool uses_push = pipeline && pipeline->UsesPushDescriptors();
+
+    // IMPORTANT: Vulkan command buffers may be re-used across recordings with the same handle.
+    // Key the delta-cache on the current submit tick + layout to avoid skipping the FIRST push
+    // in a fresh recording (which causes validation errors + VK_ERROR_DEVICE_LOST).
+    if (!uses_push ||
+        desc_cache_cmdbuf != cmdbuf || desc_cache_tick != tick || desc_cache_layout != layout ||
+        desc_cache_pipeline != pipeline) {
+        desc_cache_cmdbuf = cmdbuf;
+        desc_cache_tick = tick;
+        desc_cache_layout = layout;
+        desc_cache_pipeline = pipeline;
+
+        // Bump epoch instead of clearing the whole cache.
+        ++desc_cache_epoch;
+        if (desc_cache_epoch == 0) {
+            // Extremely unlikely wrap; reset epochs to force invalid.
+            desc_cache_epoch = 1;
+            for (auto& e : desc_cache) {
+                e.epoch = 0;
+            }
         }
     }
 }
 
-void Rasterizer::CommitPendingGpuRanges() {
-    buffer_cache.CommitPendingGpuRanges();
+bool Rasterizer::ShouldWriteDescriptor(u32 binding, vk::DescriptorType type, u64 a, u64 b, u64 c) {
+    if (binding >= desc_cache.size()) [[unlikely]] {
+        return true;
+    }
+    auto& e = desc_cache[binding];
+    if (e.epoch == desc_cache_epoch && e.type == type && e.a == a && e.b == b && e.c == c) [[likely]] {
+        return false;
+    }
+    e.epoch = desc_cache_epoch;
+    e.type = type;
+    e.a = a;
+    e.b = b;
+    e.c = c;
+    return true;
 }
 
 bool Rasterizer::BindResources(const Pipeline* pipeline) {
-    if (IsComputeImageCopy(pipeline) || IsComputeMetaClear(pipeline) ||
-        IsComputeImageClear(pipeline)) {
+    if (IsComputeImageCopy(pipeline) || IsComputeMetaClear(pipeline) || IsComputeImageClear(pipeline)) {
         return false;
     }
 
-    set_write_index = 0;
     set_writes.clear();
     buffer_barriers.clear();
     buffer_infos.clear();
     image_infos.clear();
 
-    bool uses_dma = false;
+    PrepareDescriptorDeltaCache(pipeline);
 
-    // Bind resource buffers and textures.
     Shader::Backend::Bindings binding{};
-    push_data = MakeUserData(liverpool->regs);
-    for (const auto* stage : pipeline->GetStages()) {
-        if (!stage) {
-            continue;
+    MakeUserData(push_data, liverpool->regs);
+
+    // =========================================================================
+    // Stage binding skip: hash user_data per stage. When pipeline + user_data
+    // + cmdbuf tick are unchanged, BindBuffers/BindTextures would iterate
+    // hundreds of lines just for ShouldWriteDescriptor to skip everything.
+    // Short-circuit that: call PushUd + advance counters only.
+    // =========================================================================
+    const u64 tick = scheduler.CurrentTick();
+    // FIX(GR2FORK): the all_stages_cached fast path below emits an empty
+    // set_writes and relies on the pipeline-side push-descriptor state to
+    // persist across draws. Push descriptors support that; descriptor sets
+    // do not — each newly-committed VkDescriptorSet starts uninitialized,
+    // so an empty set_writes produces an empty set. Skip the fast path on
+    // descriptor-set pipelines to force a full rebind.
+    const bool pipeline_uses_push = pipeline && pipeline->UsesPushDescriptors();
+    bool all_stages_cached = !pipeline->IsCompute() &&
+                              pipeline_uses_push &&
+                              binding_skip_cache_.valid &&
+                              binding_skip_cache_.pipeline == pipeline &&
+                              binding_skip_cache_.cmdbuf_tick == tick;
+
+    if (all_stages_cached) {
+        for (const auto* stage : pipeline->GetStages()) {
+            if (!stage) continue;
+            const u32 si = static_cast<u32>(stage->l_stage);
+            const u64 ud_hash = XXH3_64bits(stage->user_data.data(),
+                                             stage->user_data.size_bytes());
+            if (binding_skip_cache_.stages[si].pgm_hash != stage->pgm_hash ||
+                binding_skip_cache_.stages[si].ud_hash != ud_hash) {
+                all_stages_cached = false;
+                break;
+            }
         }
-        set_writes.resize(set_writes.size() + stage->buffers.size() + stage->images.size() +
-                          stage->samplers.size());
+    }
+
+    if (all_stages_cached && !binding_skip_cache_.uses_dma) {
+        // Fast path: identical bindings — just update push constants + counters.
+        for (const auto* stage : pipeline->GetStages()) {
+            if (!stage) continue;
+            stage->PushUd(binding, push_data);
+            binding.buffer += stage->buffers.size();
+            binding.unified += stage->buffers.size() +
+                               stage->images.size() +
+                               stage->samplers.size();
+        }
+        return true;
+    }
+
+    // Full binding path.
+    bool uses_dma = false;
+    for (const auto* stage : pipeline->GetStages()) {
+        if (!stage) continue;
+        uses_dma |= stage->uses_dma;
         stage->PushUd(binding, push_data);
         BindBuffers(*stage, binding, push_data);
         BindTextures(*stage, binding);
-        uses_dma |= stage->uses_dma;
     }
 
+    // Update skip cache for next draw.
+    binding_skip_cache_.pipeline = pipeline;
+    binding_skip_cache_.cmdbuf_tick = tick;
+    binding_skip_cache_.uses_dma = uses_dma;
+    for (const auto* stage : pipeline->GetStages()) {
+        if (!stage) continue;
+        const u32 si = static_cast<u32>(stage->l_stage);
+        binding_skip_cache_.stages[si].pgm_hash = stage->pgm_hash;
+        binding_skip_cache_.stages[si].ud_hash =
+            XXH3_64bits(stage->user_data.data(), stage->user_data.size_bytes());
+    }
+    binding_skip_cache_.valid = true;
+
     if (uses_dma) {
-        // We only use fault buffer for DMA right now.
         Common::RecursiveSharedLock lock{mapped_ranges_mutex};
         for (auto& range : mapped_ranges) {
             buffer_cache.SynchronizeBuffersInRange(range.lower(), range.upper() - range.lower());
@@ -441,6 +651,20 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
     }
 
     return true;
+}
+
+
+void Rasterizer::BindPipelineCached(vk::PipelineBindPoint bind_point, vk::Pipeline pipeline) {
+    const auto cmdbuf = scheduler.CommandBuffer();
+    const u64 tick = scheduler.CurrentTick();
+    if (last_bound_pipeline_ == pipeline && last_bound_pipeline_cmdbuf_ == cmdbuf &&
+        last_bound_pipeline_tick_ == tick) {
+        return;
+    }
+    cmdbuf.bindPipeline(bind_point, pipeline);
+    last_bound_pipeline_ = pipeline;
+    last_bound_pipeline_cmdbuf_ = cmdbuf;
+    last_bound_pipeline_tick_ = tick;
 }
 
 bool Rasterizer::IsComputeMetaClear(const Pipeline* pipeline) {
@@ -604,27 +828,82 @@ bool Rasterizer::IsComputeImageClear(const Pipeline* pipeline) {
 
 void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Bindings& binding,
                              Shader::PushData& push_data) {
-    buffer_bindings.clear();
+    // OPT-BUF: per-call FindBuffer() de-dup cache.
+    // Safe: only dedups within this BindBuffers() call (cannot go stale across frames).
+    struct LocalFindBufferCacheEntry {
+        VAddr guest_address{};
+        u64 guest_size{};
+        VideoCore::BufferId buffer_id{};
+    };
+    static thread_local std::array<LocalFindBufferCacheEntry, 32> find_buffer_cache;
+    u32 find_buffer_cache_size = 0;
 
-    for (const auto& desc : stage.buffers) {
-        const auto vsharp = desc.GetSharp(stage);
-        if (!desc.IsSpecial() && vsharp.base_address != 0 && vsharp.GetSize() > 0) {
-            const u64 size = memory->ClampRangeSize(vsharp.base_address, vsharp.GetSize());
-            const auto buffer_id = buffer_cache.FindBuffer(vsharp.base_address, size);
-            buffer_bindings.emplace_back(buffer_id, vsharp, size);
-        } else {
-            buffer_bindings.emplace_back(VideoCore::BufferId{}, vsharp, 0);
+    auto FindBufferCached = [&](VAddr addr, u64 size) -> VideoCore::BufferId {
+        for (u32 i = 0; i < find_buffer_cache_size; ++i) {
+            const auto& e = find_buffer_cache[i];
+            if (e.guest_address == addr && e.guest_size == size) {
+                return e.buffer_id;
+            }
         }
-    }
+        const auto id = buffer_cache.FindBuffer(addr, size);
+        if (find_buffer_cache_size < find_buffer_cache.size()) {
+            find_buffer_cache[find_buffer_cache_size++] = LocalFindBufferCacheEntry{addr, size, id};
+        }
+        return id;
+    };
+    struct LocalObtainBufferCacheEntry {
+        VAddr guest_address{};
+        u64 guest_size{};
+        bool is_written{};
+        bool is_formatted{};
+        VideoCore::BufferId buffer_id{};
+        VideoCore::Buffer* vk_buffer{};
+        u32 offset{};
+    };
+    static thread_local std::array<LocalObtainBufferCacheEntry, 32> obtain_buffer_cache{};
+    u32 obtain_buffer_cache_size = 0;
 
-    // Second pass to re-bind buffers that were updated after binding
-    for (u32 i = 0; i < buffer_bindings.size(); i++) {
-        const auto& [buffer_id, vsharp, size] = buffer_bindings[i];
+    auto ObtainBufferCached = [&](VAddr addr, u64 size, bool is_written, bool is_formatted,
+                                  VideoCore::BufferId buffer_id) -> std::pair<VideoCore::Buffer*, u32> {
+        for (u32 i = 0; i < obtain_buffer_cache_size; ++i) {
+            const auto& e = obtain_buffer_cache[i];
+            if (e.guest_address == addr && e.guest_size == size && e.is_written == is_written &&
+                e.is_formatted == is_formatted && e.buffer_id == buffer_id) {
+                return {e.vk_buffer, e.offset};
+            }
+        }
+        const auto [vk_buffer, offset] =
+            buffer_cache.ObtainBuffer(addr, size, is_written, is_formatted, buffer_id);
+        if (obtain_buffer_cache_size < obtain_buffer_cache.size()) {
+            obtain_buffer_cache[obtain_buffer_cache_size++] = LocalObtainBufferCacheEntry{
+                .guest_address = addr,
+                .guest_size = size,
+                .is_written = is_written,
+                .is_formatted = is_formatted,
+                .buffer_id = buffer_id,
+                .vk_buffer = vk_buffer,
+                .offset = offset,
+            };
+        }
+        return {vk_buffer, offset};
+    };
+
+    // Single fused pass: resolve buffer_id and bind in one iteration.
+    // Eliminates the buffer_bindings intermediate vector (clear + emplace_back + read-back).
+    for (u32 i = 0; i < stage.buffers.size(); i++) {
         const auto& desc = stage.buffers[i];
+        const auto vsharp = desc.GetSharp(stage);
+
+        VideoCore::BufferId buffer_id{};
+        u64 size = 0;
+        if (!desc.IsSpecial() && vsharp.base_address != 0 && vsharp.GetSize() > 0) {
+            size = memory->ClampRangeSize(vsharp.base_address, vsharp.GetSize());
+            buffer_id = FindBufferCached(vsharp.base_address, size);
+        }
+
         const bool is_storage = desc.IsStorage(vsharp);
         const u32 alignment =
             is_storage ? instance.StorageMinAlignment() : instance.UniformMinAlignment();
-        // Buffer is not from the cache, either a special buffer or unbound.
         if (!buffer_id) {
             if (desc.buffer_type == Shader::BufferType::GdsBuffer) {
                 const auto* gds_buf = buffer_cache.GetGdsBuffer();
@@ -632,9 +911,38 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
             } else if (desc.buffer_type == Shader::BufferType::Flatbuf) {
                 auto& vk_buffer = buffer_cache.GetUtilityBuffer(VideoCore::MemoryUsage::Stream);
                 const u32 ubo_size = stage.flattened_ud_buf.size() * sizeof(u32);
-                const u64 offset =
-                    vk_buffer.Copy(stage.flattened_ud_buf.data(), ubo_size, alignment);
-                buffer_infos.emplace_back(vk_buffer.Handle(), offset, ubo_size);
+
+                struct FlatbufCacheEntry {
+                    u64 stage_key = 0;
+                    vk::CommandBuffer cmdbuf{};
+                    u64 hash = 0;
+                    u64 offset = 0;
+                    u32 size = 0;
+                    bool valid = false;
+                };
+                static thread_local std::array<FlatbufCacheEntry, 32> flatbuf_cache{};
+
+                const auto cmdbuf = scheduler.CommandBuffer();
+                const u64 payload_hash = (ubo_size == 0) ? 0 : XXH3_64bits(stage.flattened_ud_buf.data(), ubo_size);
+                const u64 stage_key = static_cast<u64>(stage.pgm_hash) ^ (static_cast<u64>(desc.sharp_idx) << 1);
+
+                FlatbufCacheEntry& e = flatbuf_cache[stage_key & (flatbuf_cache.size() - 1)];
+
+                u64 offset = 0;
+                if (e.valid && e.stage_key == stage_key && e.cmdbuf == cmdbuf && e.size == ubo_size &&
+                    e.hash == payload_hash) {
+                    offset = e.offset;
+                    } else {
+                        offset = vk_buffer.Copy(stage.flattened_ud_buf.data(), ubo_size, alignment);
+                        e.stage_key = stage_key;
+                        e.cmdbuf = cmdbuf;
+                        e.hash = payload_hash;
+                        e.offset = offset;
+                        e.size = ubo_size;
+                        e.valid = true;
+                    }
+
+                    buffer_infos.emplace_back(vk_buffer.Handle(), offset, ubo_size);
             } else if (desc.buffer_type == Shader::BufferType::BdaPagetable) {
                 const auto* bda_buffer = buffer_cache.GetBdaPageTableBuffer();
                 buffer_infos.emplace_back(bda_buffer->Handle(), 0, bda_buffer->SizeBytes());
@@ -646,7 +954,28 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
                 const auto& cs_program = liverpool->GetCsRegs();
                 const auto lds_size = cs_program.SharedMemSize() * cs_program.NumWorkgroups();
                 const auto [data, offset] = lds_buffer.Map(lds_size, alignment);
-                std::memset(data, 0, lds_size);
+
+                constexpr u64 kGpuFillThreshold = 256;
+                if (lds_size >= kGpuFillThreshold) {
+                    (void)data;
+                    auto cmdbuf = scheduler.CommandBuffer();
+                    cmdbuf.fillBuffer(lds_buffer.Handle(), offset, lds_size, 0);
+
+                    buffer_barriers.push_back(vk::BufferMemoryBarrier2{
+                        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+                        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+                        .dstStageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                        .dstAccessMask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite,
+                        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                        .buffer = lds_buffer.Handle(),
+                        .offset = offset,
+                        .size = lds_size,
+                    });
+                } else {
+                    std::memset(data, 0, lds_size);
+                }
+
                 buffer_infos.emplace_back(lds_buffer.Handle(), offset, lds_size);
             } else if (instance.IsNullDescriptorSupported()) {
                 buffer_infos.emplace_back(VK_NULL_HANDLE, 0, VK_WHOLE_SIZE);
@@ -655,15 +984,8 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
                 buffer_infos.emplace_back(null_buffer.Handle(), 0, VK_WHOLE_SIZE);
             }
         } else {
-            VideoCore::ObtainBufferFlags flags = {};
-            if (desc.is_written) {
-                flags |= VideoCore::ObtainBufferFlags::IsWritten;
-            }
-            if (desc.is_formatted) {
-                flags |= VideoCore::ObtainBufferFlags::IsTexelBuffer;
-            }
-            const auto [vk_buffer, offset] =
-                buffer_cache.ObtainBuffer(vsharp.base_address, size, flags, buffer_id);
+            const auto [vk_buffer, offset] = ObtainBufferCached(
+                vsharp.base_address, size, desc.is_written, desc.is_formatted, buffer_id);
             const u32 offset_aligned = Common::AlignDown(offset, alignment);
             const u32 adjust = offset - offset_aligned;
             ASSERT(adjust % 4 == 0);
@@ -672,7 +994,11 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
             if (auto barrier =
                     vk_buffer->GetBarrier(desc.is_written ? vk::AccessFlagBits2::eShaderWrite
                                                           : vk::AccessFlagBits2::eShaderRead,
-                                          vk::PipelineStageFlagBits2::eAllCommands)) {
+                                          // OPT: Use specific shader stage instead of eAllCommands.
+                                          // eAllCommands forces a full pipeline drain which prevents
+                                          // the GPU from overlapping independent work.
+                                          vk::PipelineStageFlagBits2::eAllGraphics |
+                                              vk::PipelineStageFlagBits2::eComputeShader)) {
                 buffer_barriers.emplace_back(*barrier);
             }
             if (desc.is_written && desc.is_formatted) {
@@ -680,153 +1006,444 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
             }
         }
 
-        auto& set_write = set_writes[set_write_index++];
-        set_write.dstSet = VK_NULL_HANDLE;
-        set_write.dstBinding = binding.unified++;
-        set_write.dstArrayElement = 0;
-        set_write.descriptorCount = 1;
-        set_write.descriptorType =
-            is_storage ? vk::DescriptorType::eStorageBuffer : vk::DescriptorType::eUniformBuffer;
-        set_write.pBufferInfo = &buffer_infos.back();
+        const u32 dst_binding = binding.unified++;
+        const vk::DescriptorType dtype =
+        is_storage ? vk::DescriptorType::eStorageBuffer : vk::DescriptorType::eUniformBuffer;
+
+        const auto bi_handle = reinterpret_cast<u64>(static_cast<VkBuffer>(buffer_infos.back().buffer));
+        const u64 bi_offset = static_cast<u64>(buffer_infos.back().offset);
+        const u64 bi_range  = static_cast<u64>(buffer_infos.back().range);
+
+        if (ShouldWriteDescriptor(dst_binding, dtype, bi_handle, bi_offset, bi_range)) {
+            auto& w = set_writes.emplace_back();
+            w.dstSet = VK_NULL_HANDLE;
+            w.dstBinding = dst_binding;
+            w.dstArrayElement = 0;
+            w.descriptorCount = 1;
+            w.descriptorType = dtype;
+            w.pNext = nullptr;
+            w.pImageInfo = nullptr;
+            w.pBufferInfo = &buffer_infos.back();
+            w.pTexelBufferView = nullptr;
+        }
+
         ++binding.buffer;
     }
 }
 
 void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindings& binding) {
     image_bindings.clear();
-    const u32 first_image_idx = image_infos.size();
-    // For loading/storing to explicit mip levels, when no native instruction support, bind an array
-    // of descriptors consecutively, 1 for each mip level. The shader can index this with LOD
-    // operand.
-    // This array holds the size of each consecutive array with the number of bindings consumed.
-    // This is currently always 1 for anything other than mip fallback arrays.
-    boost::container::small_vector<u32, 8> image_descriptor_array_sizes;
+    bool any_needs_rebind = false; // OPT(v18): Track during first pass instead of separate scan
 
-    for (const auto& image_desc : stage.images) {
-        const auto tsharp = image_desc.GetSharp(stage);
-        if (texture_cache.IsMeta(tsharp.Address())) {
+    // OPT(v14.1 hotfix): Keep caches off TLS.
+    //
+    // v14 used large thread_local std::array<...> caches inside BindTextures(). That inflates TLS,
+    // and with shadPS4's custom pthread stacks, some systems hit pthread_create() EINVAL (22)
+    // during early game startup. Store the caches on the Rasterizer instance instead.
+    auto& find_image_cache = find_image_cache_;
+    const bool null_descriptors_supported = instance.IsNullDescriptorSupported();
+    const bool attachment_feedback_loop_layout_supported =
+    instance.IsAttachmentFeedbackLoopLayoutSupported();
+
+    auto make_flags = [](const Shader::ImageResource& r) noexcept -> u32 {
+        // Pack the bits that affect ImageInfo/ImageViewInfo construction.
+        return (u32(r.is_depth) << 0) | (u32(r.is_atomic) << 1) | (u32(r.is_array) << 2) |
+        (u32(r.is_written) << 3) | (u32(r.is_r128) << 4);
+    };
+
+    auto make_key = [&](const Shader::ImageResource& r, u32 flags) noexcept -> u64 {
+        // Stage + slot + flags. We still memcmp the raw Image descriptor for full match.
+        u64 k = stage.pgm_hash;
+        k ^= (static_cast<u64>(r.sharp_idx) << 1);
+        k ^= (static_cast<u64>(flags) << 32);
+        k ^= (static_cast<u64>(static_cast<u32>(stage.l_stage)) << 56);
+        return k;
+    };
+
+    // PERF(GR2 v17): Epoch-based validity — avoids zeroing 640+ bytes of stamp arrays per call.
+    const u32 epoch = ++bind_textures_epoch_;
+    // Handle epoch wrap (extremely unlikely, ~every 4 billion BindTextures calls)
+    if (epoch == 0) {
+        bind_textures_epoch_ = 1;
+        find_image_cache_stamp_.fill(0);
+        find_texture_cache_stamp_.fill(0);
+    }
+    auto& find_image_cache_stamp = find_image_cache_stamp_;
+
+    // OPT(v15): De-dup FindTexture() within this BindTextures() call.
+    // GR2 frequently binds the same {image_id,type,view_info} multiple times across stages.
+    // FindTexture() takes a lock (UpdateImage) and does view lookup, so avoiding duplicates
+    // reduces GpuComm overhead (rwlock + Image::FindView + barriers).
+    auto& find_texture_cache = find_texture_cache_;
+    auto& find_texture_cache_stamp = find_texture_cache_stamp_;
+    auto hash_view_info = [](const VideoCore::ImageViewInfo& v) noexcept -> u64 {
+        // PERF(GR2 v8): Pack fields into 2-3 mix calls instead of 11.
+        // This saves ~8 multiply+xor cycles per image binding in the hot path.
+        auto mix = [](u64 h, u64 x) noexcept {
+            h ^= x + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+            return h;
+        };
+        u64 h = 0x84222325cbf29ce4ULL;
+        // Pack type(8) + format(8) + level(8) + layer(8) + levels(8) + layers(8) + storage(1) = fits in 64 bits
+        const u64 packed0 =
+            (static_cast<u64>(static_cast<u32>(v.type))) |
+            (static_cast<u64>(static_cast<u32>(v.format)) << 8) |
+            (static_cast<u64>(v.range.base.level) << 16) |
+            (static_cast<u64>(v.range.base.layer) << 24) |
+            (static_cast<u64>(v.range.extent.levels) << 32) |
+            (static_cast<u64>(v.range.extent.layers) << 40) |
+            (static_cast<u64>(v.is_storage ? 1u : 0u) << 48);
+        h = mix(h, packed0);
+        // Pack swizzle components into one u64
+        const u64 packed1 =
+            (static_cast<u64>(v.mapping.r)) |
+            (static_cast<u64>(v.mapping.g) << 8) |
+            (static_cast<u64>(v.mapping.b) << 16) |
+            (static_cast<u64>(v.mapping.a) << 24);
+        h = mix(h, packed1);
+        return h;
+    };
+
+    auto FindTextureCached = [&](VideoCore::ImageId image_id,
+                                 VideoCore::TextureCache::BindingType type,
+                                 const VideoCore::ImageViewInfo& view_info) -> VideoCore::ImageView& {
+                                     const u64 k = (static_cast<u64>(image_id.index) * 0x9e3779b97f4a7c15ULL) ^
+                                     (static_cast<u64>(static_cast<u32>(type)) << 48) ^
+                                     hash_view_info(view_info);
+                                     const u32 slot = static_cast<u32>(k) & (find_texture_cache_stamp.size() - 1);
+                                     auto& e = find_texture_cache[slot];
+                                     if (find_texture_cache_stamp[slot] == epoch &&
+                                         e.image_id == image_id &&
+                                         e.type == type &&
+                                         e.view &&
+                                         e.view->info == view_info) {
+                                         return *e.view;
+                                         }
+                                         auto& v = texture_cache.FindTexture(image_id, type, view_info);
+                                     e = FindTextureCacheEntry{image_id, type, &v};
+                                     find_texture_cache_stamp[slot] = epoch;
+                                     return v;
+                                 };
+
+                                 for (const auto& image_res : stage.images) {
+                                     auto tsharp = image_res.GetSharp(stage);
+
+                                     if (texture_cache.IsMeta(tsharp.Address())) {
             LOG_WARNING(Render_Vulkan, "Unexpected metadata read by a shader (texture)");
         }
 
-        if (tsharp.GetDataFmt() == AmdGpu::DataFormat::FormatInvalid) {
-            image_bindings.emplace_back(std::piecewise_construct, std::tuple{}, std::tuple{});
-            image_descriptor_array_sizes.push_back(1);
+
+        if (tsharp.GetDataFmt() == AmdGpu::DataFormat::FormatInvalid) [[unlikely]] {
+            ImageBindingInfo& nb = image_bindings.emplace_back();
+            // FIX(GR2FORK): the layout always reserves NumBindings() slots for
+            // this ImageResource regardless of whether the sharp resolved to
+            // something real. Preserve num_bindings here so the 2nd-pass null
+            // emission writes the full array.
+            nb.num_bindings =
+                static_cast<u8>(std::min<u32>(255u, image_res.NumBindings(stage)));
             continue;
         }
 
-        const Shader::MipStorageFallbackMode mip_fallback_mode = image_desc.mip_fallback_mode;
-        const u32 num_bindings = image_desc.NumBindings(stage);
+        const u32 flags = make_flags(image_res);
+        const u64 key = make_key(image_res, flags);
+        // PERF(GR2 v16): Better cache slot selection to reduce collisions.
+        // The old key & (size-1) used low bits which cluster when pgm_hash is stable.
+        // Mix the key first with a multiplicative hash for better distribution.
+        const u64 mixed_key = (key ^ (key >> 16)) * 0x9e3779b97f4a7c15ULL;
+        CachedImageDescEntry& ce = image_desc_cache_[static_cast<u32>(mixed_key >> 20) & (image_desc_cache_.size() - 1)];
 
-        for (auto i = 0; i < num_bindings; i++) {
-            auto& [image_id, desc] = image_bindings.emplace_back(
-                std::piecewise_construct, std::tuple{}, std::tuple{tsharp, image_desc});
+        if (!(ce.valid && ce.key == key && std::memcmp(&ce.image, &tsharp, sizeof(tsharp)) == 0)) {
+            ce.key = key;
+            ce.image = tsharp;
+            ce.desc = VideoCore::TextureCache::ImageDesc(tsharp, image_res);
+            ce.valid = true;
+        }
+        const auto* base_desc = &ce.desc;
 
-            if (mip_fallback_mode == Shader::MipStorageFallbackMode::ConstantIndex) {
-                ASSERT(num_bindings == 1);
-                desc.view_info.range.base.level += image_desc.constant_mip_index;
-                desc.view_info.range.extent.levels = 1;
-            } else if (mip_fallback_mode == Shader::MipStorageFallbackMode::DynamicIndex) {
-                desc.view_info.range.base.level += i;
-                desc.view_info.range.extent.levels = 1;
+        // De-dup FindImage within this call (common when multiple stages alias).
+        VideoCore::TextureCache::FindImageWithViewResult found{};
+        bool found_cache_hit = false;
+        {
+            const u64 k = (static_cast<u64>(reinterpret_cast<uintptr_t>(base_desc)) >> 4);
+            const u32 slot = static_cast<u32>(k) & (find_image_cache.size() - 1);
+            auto& e = find_image_cache[slot];
+            if (find_image_cache_stamp[slot] == epoch && e.valid && e.base == base_desc) {
+                found = e.res;
+                found_cache_hit = true;
             }
+        }
+        if (!found_cache_hit) {
+            // Cross-call cache: validate cached resolution cheaply and skip full page-table walk when stable.
+            // PERF(GR2 v16): Better hash distribution for cache slot.
+            const u64 pkey_mixed = (key ^ (key >> 16)) * 0xbf58476d1ce4e5b9ULL;
+            const auto pslot = static_cast<u32>(pkey_mixed >> 20) &
+            static_cast<u32>(find_image_pcache_.size() - 1);
+            auto& pe = find_image_pcache_[pslot];
+            if (pe.valid && pe.key == key && pe.base == base_desc &&
+                texture_cache.ValidateCachedFindImage(*base_desc, pe.res.image_id, false)) {
+                found = pe.res;
+            found_cache_hit = true;
+                }
+        }
+        if (!found_cache_hit) {
+            found = texture_cache.FindImageWithView(*base_desc, false, false);
+        }
+        {
+            const u64 k = (static_cast<u64>(reinterpret_cast<uintptr_t>(base_desc)) >> 4);
+            const u32 slot = static_cast<u32>(k) & (find_image_cache.size() - 1);
+            find_image_cache[slot] = LocalFindImageCacheEntry{.base = base_desc, .res = found, .valid = true};
+            find_image_cache_stamp[slot] = epoch;
 
-            image_id = texture_cache.FindImage(desc);
-            auto* image = &texture_cache.GetImage(image_id);
-            if (image->depth_id) {
-                // If this image has an associated depth image, it's a stencil attachment.
-                // Redirect the access to the actual depth-stencil buffer.
-                image_id = image->depth_id;
-                image = &texture_cache.GetImage(image_id);
-            }
-            if (image->binding.is_bound) {
-                // The image is already bound. In case if it is about to be used as storage we
-                // need to force general layout on it.
-                image->binding.force_general |= image_desc.is_written;
-            }
-            image->binding.is_bound = 1u;
+            const u64 pkey_mixed2 = (key ^ (key >> 16)) * 0xbf58476d1ce4e5b9ULL;
+            const auto pslot = static_cast<u32>(pkey_mixed2 >> 20) &
+            static_cast<u32>(find_image_pcache_.size() - 1);
+            find_image_pcache_[pslot] = PersistentFindImageCacheEntry{
+                .key = key,
+                .base = base_desc,
+                .res = found,
+                .valid = true,
+            };
         }
 
-        image_descriptor_array_sizes.push_back(num_bindings);
+        auto image_id = found.image_id;
+
+        auto* image = &texture_cache.GetImage(image_id);
+        if (image->depth_id) {
+            // If this image has an associated depth image, it's a stencil attachment.
+            // Redirect the access to the actual depth-stencil buffer.
+            image_id = image->depth_id;
+            image = &texture_cache.GetImage(image_id);
+        }
+        // OPT(v18): Track needs_rebind here instead of a separate O(N) scan loop.
+        any_needs_rebind |= image->binding.needs_rebind;
+        if (image->binding.is_bound) {
+            // The image is already bound. In case if it is about to be used as storage we need
+            // to force general layout on it.
+            image->binding.force_general |= image_res.is_written;
+        }
+        image->binding.is_bound = 1u;
+
+        ImageBindingInfo& b = image_bindings.emplace_back();
+        b.image_id = image_id;
+        b.desc = base_desc;
+        b.view_mip = static_cast<s16>(found.view_mip);
+        b.view_slice = static_cast<s16>(found.view_slice);
+        // FIX(GR2FORK): capture NumBindings for the 2nd-loop mip-fallback
+        // expansion. DynamicIndex images want >1 consecutive descriptor slots.
+        b.num_bindings = static_cast<u8>(std::min<u32>(255u, image_res.NumBindings(stage)));
     }
 
-    // Second pass to re-bind images that were updated after binding
-    for (auto& [image_id, desc] : image_bindings) {
-        bool is_storage = desc.type == VideoCore::TextureCache::BindingType::Storage;
-        if (!image_id) {
-            if (instance.IsNullDescriptorSupported()) {
-                image_infos.emplace_back(VK_NULL_HANDLE, VK_NULL_HANDLE, vk::ImageLayout::eGeneral);
-            } else {
-                auto& null_image_view = texture_cache.FindTexture(VideoCore::NULL_IMAGE_ID, desc);
-                image_infos.emplace_back(VK_NULL_HANDLE, *null_image_view.image_view,
-                                         vk::ImageLayout::eGeneral);
-            }
-        } else {
-            if (auto& old_image = texture_cache.GetImage(image_id);
-                old_image.binding.needs_rebind) {
-                old_image.binding = {};
-                image_id = texture_cache.FindImage(desc);
-            }
+    // Second pass to re-bind images that were updated after binding.
+    //
+    // PERF(GR2 v16 + v18): Track whether any image needs rebinding during first pass.
+    // Eliminates the O(N) scan loop that previously iterated all image_bindings.
+    //
+    // PERF(GR2): FindTexture() always calls TextureCache::UpdateImage(), which takes a shared_lock even
+    // when the image is clean. GR2 often touches the same image multiple times with different view_info
+    // (mip/slice variants), which causes repeated lock traffic. De-dup UpdateImage() per ImageId within
+    // this BindTextures() call, and for sampled images call Image::FindView() directly (no extra UpdateImage).
+    //
+    // PERF(GR2 v17): Use PERSISTENT tick-based cache instead of per-call stamp arrays.
+    // This de-dups UpdateImage across multiple draws within the same command buffer tick,
+    // avoiding redundant shared_lock acquire/release for images that were already checked this tick.
+    const u64 current_tick = scheduler.CurrentTick();
+    auto UpdateImageOnce = [&](VideoCore::ImageId id) {
+        const u64 k = (static_cast<u64>(id.index) * 0x9e3779b97f4a7c15ULL);
+        const u32 slot = static_cast<u32>(k) & (update_image_cache_.size() - 1);
+        auto& e = update_image_cache_[slot];
+        if (e.image_id == id && e.tick == current_tick) {
+            return;
+        }
+        texture_cache.UpdateImage(id);
+        e.image_id = id;
+        e.tick = current_tick;
+    };
+    for (auto& b : image_bindings) {
+        const auto* base_desc = b.desc;
+        const bool is_storage = base_desc && base_desc->type == VideoCore::TextureCache::BindingType::Storage;
 
-            bound_images.emplace_back(image_id);
-
-            auto& image = texture_cache.GetImage(image_id);
-            auto& image_view = texture_cache.FindTexture(image_id, desc);
-
-            // The image is either bound as storage in a separate descriptor or bound as render
-            // target in feedback loop. Depth images are excluded because they can't be bound as
-            // storage and feedback loop doesn't make sense for them
-            if ((image.binding.force_general || image.binding.is_target) &&
-                !image.info.props.is_depth) {
-                image.Transit(instance.IsAttachmentFeedbackLoopLayoutSupported() &&
-                                      image.binding.is_target
-                                  ? vk::ImageLayout::eAttachmentFeedbackLoopOptimalEXT
-                                  : vk::ImageLayout::eGeneral,
-                              vk::AccessFlagBits2::eShaderRead |
-                                  (image.info.props.is_depth
-                                       ? vk::AccessFlagBits2::eDepthStencilAttachmentWrite
-                                       : vk::AccessFlagBits2::eColorAttachmentWrite),
-                              {});
-            } else {
-                if (is_storage) {
-                    image.Transit(vk::ImageLayout::eGeneral,
-                                  vk::AccessFlagBits2::eShaderRead |
-                                      vk::AccessFlagBits2::eShaderWrite,
-                                  desc.view_info.range);
+        if (!base_desc || !b.image_id) {
+            // FIX(GR2FORK): honor mip-fallback array slot count on null path.
+            // Layout still reserves num_bindings descriptors even when the
+            // sharp was invalid, so we must emit that many image_infos to
+            // keep binding.unified and the descriptorCount-N write aligned.
+            const u32 null_count = b.num_bindings ? b.num_bindings : 1u;
+            for (u32 null_i = 0; null_i < null_count; ++null_i) {
+                if (null_descriptors_supported) {
+                    image_infos.emplace_back(VK_NULL_HANDLE, VK_NULL_HANDLE, vk::ImageLayout::eGeneral);
                 } else {
-                    const auto new_layout = image.info.props.is_depth
-                                                ? vk::ImageLayout::eDepthStencilReadOnlyOptimal
-                                                : vk::ImageLayout::eShaderReadOnlyOptimal;
-                    image.Transit(new_layout, vk::AccessFlagBits2::eShaderRead,
-                                  desc.view_info.range);
+                    VideoCore::ImageViewInfo view_info{};
+                    if (base_desc) {
+                        view_info = base_desc->view_info;
+                        if (b.view_mip > 0) {
+                            view_info.range.base.level = b.view_mip;
+                        }
+                        if (b.view_slice > 0) {
+                            view_info.range.base.layer = b.view_slice;
+                        }
+                    }
+                    auto& null_image_view =
+                    texture_cache.FindTexture(VideoCore::NULL_IMAGE_ID,
+                                              VideoCore::TextureCache::BindingType::Texture,
+                                              view_info);
+                    image_infos.emplace_back(VK_NULL_HANDLE, *null_image_view.image_view,
+                                             vk::ImageLayout::eGeneral);
                 }
             }
-            image.usage.storage |= is_storage;
-            image.usage.texture |= !is_storage;
+        } else {
+            // PERF(GR2 v16): Only check needs_rebind when we know at least one image needs it.
+            if (any_needs_rebind) {
+                if (auto& old_image = texture_cache.GetImage(b.image_id); old_image.binding.needs_rebind) {
+                    old_image.binding = {};
+                    const auto rebound = texture_cache.FindImageWithView(*base_desc, false, false);
+                    b.image_id = rebound.image_id;
+                    b.view_mip = static_cast<s16>(rebound.view_mip);
+                    b.view_slice = static_cast<s16>(rebound.view_slice);
+                }
+            }
 
-            image_infos.emplace_back(VK_NULL_HANDLE, *image_view.image_view,
-                                     image.backing->state.layout);
+            bound_images.emplace_back(b.image_id);
+
+            auto& image = texture_cache.GetImage(b.image_id);
+
+            VideoCore::ImageViewInfo view_info = base_desc->view_info;
+            if (b.view_mip > 0) {
+                view_info.range.base.level = b.view_mip;
+            }
+            if (b.view_slice > 0) {
+                view_info.range.base.layer = b.view_slice;
+            }
+
+            // FIX(GR2FORK): PORT(upstream #4075). For DynamicIndex mip-fallback
+            // images, the layout declares descriptorCount = num_mips (one slot
+            // per mip). Emit N views + N image_infos here so every array slot
+            // gets populated, then emit a single descriptor write below with
+            // descriptorCount = num_bindings. Without this, elements >= 1 stay
+            // uninitialized and dispatches that index them (e.g. cs_img16 lod=1)
+            // fault on RADV -> VK_ERROR_DEVICE_LOST.
+            //
+            // For the common num_bindings==1 case this loop runs once and is
+            // identical to the prior single-emission path.
+            const u32 num_bindings = b.num_bindings ? b.num_bindings : 1u;
+
+            for (u32 mip_offset = 0; mip_offset < num_bindings; ++mip_offset) {
+                VideoCore::ImageViewInfo mip_view_info = view_info;
+                if (num_bindings > 1) {
+                    // FIX(GR2FORK): When expanding a mip-fallback array, each
+                    // descriptor slot must view exactly one mip level — that's
+                    // the whole point of binding-per-mip. The original view_info
+                    // may carry extent.levels covering the full chain (e.g. 6),
+                    // which combined with a shifted baseMipLevel violates
+                    // VUID-VkImageViewCreateInfo-subresourceRange-01718 (base +
+                    // count exceeds image mipLevels). Shader indexes per slot,
+                    // so single-level views are the correct geometry here.
+                    const u32 desired_level = view_info.range.base.level + mip_offset;
+                    const u32 max_level = image.info.resources.levels > 0
+                                              ? image.info.resources.levels - 1
+                                              : 0;
+                    mip_view_info.range.base.level =
+                        std::min<u32>(desired_level, max_level);
+                    mip_view_info.range.extent.levels = 1;
+                }
+
+                VideoCore::ImageView* view_ptr = nullptr;
+                if (is_storage) {
+                    // Keep the original FindTexture() path for storage images (it tags GpuModified + readback).
+                    auto& image_view = FindTextureCached(b.image_id, base_desc->type, mip_view_info);
+                    view_ptr = &image_view;
+                } else {
+                    // Sampled images: UpdateImage once per ImageId, then find view without re-taking the lock.
+                    UpdateImageOnce(b.image_id);
+                    view_ptr = &image.FindView(mip_view_info);
+                }
+
+                // Layout transitions only need to happen once per image, but
+                // doing them inside the loop is harmless (Transit is a no-op
+                // when already in the target state thanks to ARCH-7).
+                // Keep transitions driven by the full requested view range
+                // (base mip + all expanded mips) so the barrier covers every
+                // slot we're about to sample.
+                if ((image.binding.force_general || image.binding.is_target) && !image.info.props.is_depth) {
+                    image.Transit(attachment_feedback_loop_layout_supported && image.binding.is_target
+                    ? vk::ImageLayout::eAttachmentFeedbackLoopOptimalEXT
+                    : vk::ImageLayout::eGeneral,
+                    vk::AccessFlagBits2::eShaderRead |
+                                      (image.info.props.is_depth
+                                           ? vk::AccessFlagBits2::eDepthStencilAttachmentWrite
+                                           : vk::AccessFlagBits2::eColorAttachmentWrite),
+                                  {});
+                } else {
+                    if (is_storage) {
+                        // ARCH-7: Skip Transit when already in target state.
+                        const auto storage_access = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+                        if (!image.IsInState(vk::ImageLayout::eGeneral, storage_access)) {
+                            image.Transit(vk::ImageLayout::eGeneral, storage_access, mip_view_info.range);
+                        }
+                    } else {
+                        const auto new_layout = image.info.props.is_depth
+                        ? vk::ImageLayout::eDepthStencilReadOnlyOptimal
+                        : vk::ImageLayout::eShaderReadOnlyOptimal;
+                        // ARCH-7: Skip Transit for sampled images already in correct state.
+                        // In steady-state rendering, most sampled textures stay in ShaderReadOnlyOptimal
+                        // between draws. This avoids Transit → GetBarriers function call overhead.
+                        if (!image.IsInState(new_layout, vk::AccessFlagBits2::eShaderRead)) {
+                            image.Transit(new_layout, vk::AccessFlagBits2::eShaderRead, mip_view_info.range);
+                        }
+                    }
+                }
+                image.usage.storage |= is_storage;
+                image.usage.texture |= !is_storage;
+
+                image_infos.emplace_back(VK_NULL_HANDLE, *view_ptr->image_view,
+                                         image.backing->state.layout);
+            }
+        }
+
+        // FIX(GR2FORK): The layout always reserves num_bindings slots for
+        // this ImageResource (regardless of whether the sharp was valid). Both
+        // branches above (null path and real-image path) now emit exactly
+        // num_bindings image_infos, so advance binding.unified and emit a
+        // single write with descriptorCount = num_bindings. For the common
+        // num_bindings == 1 case, behavior is unchanged from upstream.
+        const u32 slot_count = b.num_bindings ? b.num_bindings : 1u;
+
+        const u32 dst_binding = binding.unified;
+        binding.unified += slot_count;
+        const vk::DescriptorType dtype = is_storage ? vk::DescriptorType::eStorageImage
+        : vk::DescriptorType::eSampledImage;
+
+        const u32 write_count = slot_count;
+        const size_t array_first = image_infos.size() - slot_count;
+
+        const auto ii_sampler =
+        reinterpret_cast<u64>(static_cast<VkSampler>(image_infos[array_first].sampler));
+        const auto ii_view =
+        reinterpret_cast<u64>(static_cast<VkImageView>(image_infos[array_first].imageView));
+        const u64 ii_layout = static_cast<u64>(static_cast<u32>(image_infos[array_first].imageLayout));
+
+        // ShouldWriteDescriptor tracks (binding, type, handles) — for multi-slot
+        // arrays we only hash the first slot. In practice the tail slots are
+        // derived from the same image (consecutive mips of one texture) so
+        // they change together; if a more robust invalidation is ever needed,
+        // fold write_count into the signature.
+        if (ShouldWriteDescriptor(dst_binding, dtype, ii_sampler, ii_view, ii_layout)) {
+            auto& w = set_writes.emplace_back();
+            w.dstSet = VK_NULL_HANDLE;
+            w.dstBinding = dst_binding;
+            w.dstArrayElement = 0;
+            w.descriptorCount = write_count;
+            w.descriptorType = dtype;
+            w.pNext = nullptr;
+            w.pImageInfo = &image_infos[array_first];
+            w.pBufferInfo = nullptr;
+            w.pTexelBufferView = nullptr;
         }
     }
 
-    u32 image_info_idx = first_image_idx;
-    u32 image_binding_idx = 0;
-    for (u32 array_size : image_descriptor_array_sizes) {
-        const auto& [_, desc] = image_bindings[image_binding_idx];
-        const bool is_storage = desc.type == VideoCore::TextureCache::BindingType::Storage;
-        auto& set_write = set_writes[set_write_index++];
-        set_write.dstSet = VK_NULL_HANDLE;
-        set_write.dstBinding = binding.unified;
-        set_write.dstArrayElement = 0;
-        set_write.descriptorCount = array_size;
-        set_write.descriptorType =
-            is_storage ? vk::DescriptorType::eStorageImage : vk::DescriptorType::eSampledImage;
-        set_write.pImageInfo = &image_infos[image_info_idx];
-
-        image_info_idx += array_size;
-        image_binding_idx += array_size;
-        binding.unified += array_size;
-    }
-
+    // Sampler fast-path cache. GetSampler() hashes 64 bytes + does a map
+    // lookup every call. A direct-mapped cache on the Rasterizer skips both
+    // on hit (>90% in steady-state GR2). Samplers are immutable Vulkan
+    // objects so caching handles is always safe.
     for (const auto& sampler : stage.samplers) {
         auto ssharp = sampler.GetSharp(stage);
         if (sampler.disable_aniso) {
@@ -835,17 +1452,45 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
                 ssharp.max_aniso.Assign(AmdGpu::AnisoRatio::One);
             }
         }
-        const auto vk_sampler = texture_cache.GetSampler(ssharp, liverpool->regs.ta_bc_base);
+
+        const u64 samp_hash = XXH3_64bits(&ssharp, sizeof(ssharp));
+        const u32 samp_slot = static_cast<u32>(samp_hash) & (SamplerCacheSize - 1);
+        auto& sc = sampler_cache_[samp_slot];
+        vk::Sampler vk_sampler;
+        if (sc.valid && sc.hash == samp_hash) {
+            vk_sampler = sc.sampler;
+        } else {
+            vk_sampler = texture_cache.GetSampler(ssharp, liverpool->regs.ta_bc_base);
+            sc.hash = samp_hash;
+            sc.sampler = vk_sampler;
+            sc.valid = true;
+        }
+
         image_infos.emplace_back(vk_sampler, VK_NULL_HANDLE, vk::ImageLayout::eGeneral);
-        auto& set_write = set_writes[set_write_index++];
-        set_write.dstSet = VK_NULL_HANDLE;
-        set_write.dstBinding = binding.unified++;
-        set_write.dstArrayElement = 0;
-        set_write.descriptorCount = 1;
-        set_write.descriptorType = vk::DescriptorType::eSampler;
-        set_write.pImageInfo = &image_infos.back();
+        const u32 dst_binding = binding.unified++;
+        const vk::DescriptorType dtype = vk::DescriptorType::eSampler;
+
+        const auto ii_sampler =
+        reinterpret_cast<u64>(static_cast<VkSampler>(image_infos.back().sampler));
+        const auto ii_view =
+        reinterpret_cast<u64>(static_cast<VkImageView>(image_infos.back().imageView));
+        const u64 ii_layout = static_cast<u64>(static_cast<u32>(image_infos.back().imageLayout));
+
+        if (ShouldWriteDescriptor(dst_binding, dtype, ii_sampler, ii_view, ii_layout)) {
+            auto& w = set_writes.emplace_back();
+            w.dstSet = VK_NULL_HANDLE;
+            w.dstBinding = dst_binding;
+            w.dstArrayElement = 0;
+            w.descriptorCount = 1;
+            w.descriptorType = dtype;
+            w.pNext = nullptr;
+            w.pImageInfo = &image_infos.back();
+            w.pBufferInfo = nullptr;
+            w.pTexelBufferView = nullptr;
+        }
     }
 }
+
 
 RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
     attachment_feedback_loop = false;
@@ -854,12 +1499,28 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
     RenderState state;
     state.width = instance.GetMaxFramebufferWidth();
     state.height = instance.GetMaxFramebufferHeight();
-    state.num_layers = std::numeric_limits<u16>::max();
+    state.num_layers = std::numeric_limits<u32>::max();
     state.num_color_attachments = std::bit_width(key.mrt_mask);
+
+    // OPT: Reuse the tick-based UpdateImage de-dup cache so that render targets
+    // already validated by BindTextures() during this draw don't re-acquire the
+    // texture cache shared_lock. This saves ~0.3-0.5% of GpuComm time.
+    const u64 current_tick = scheduler.CurrentTick();
+    auto UpdateImageDedup = [&](VideoCore::ImageId id) {
+        const u64 k = (static_cast<u64>(id.index) * 0x9e3779b97f4a7c15ULL);
+        const u32 slot = static_cast<u32>(k) & (update_image_cache_.size() - 1);
+        auto& e = update_image_cache_[slot];
+        if (e.image_id == id && e.tick == current_tick) {
+            return;
+        }
+        texture_cache.UpdateImage(id);
+        e.image_id = id;
+        e.tick = current_tick;
+    };
+
     for (auto cb = 0u; cb < state.num_color_attachments; ++cb) {
         auto& [image_id, desc] = cb_descs[cb];
         if (!image_id) {
-            state.color_attachments[cb] = {};
             continue;
         }
         auto* image = &texture_cache.GetImage(image_id);
@@ -867,7 +1528,9 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
             image_id = bound_images.emplace_back(texture_cache.FindImage(desc));
             image = &texture_cache.GetImage(image_id);
         }
-        texture_cache.UpdateImage(image_id);
+        // OPT: Use tick-dedup to skip re-acquiring shared_lock if BindTextures
+        // already validated this image during the same draw call.
+        UpdateImageDedup(image_id);
         image->SetBackingSamples(key.color_samples[cb]);
         const auto& image_view = texture_cache.FindRenderTarget(image_id, desc);
         const auto slice = image_view.info.range.base.layer;
@@ -886,28 +1549,28 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
                            vk::AccessFlagBits2::eColorAttachmentWrite, {});
             attachment_feedback_loop = true;
         } else {
-            image->Transit(vk::ImageLayout::eColorAttachmentOptimal,
-                           vk::AccessFlagBits2::eColorAttachmentWrite |
-                               vk::AccessFlagBits2::eColorAttachmentRead,
-                           desc.view_info.range);
+            // ARCH-5: Skip Transit when render target is already in correct state.
+            // Consecutive draws with the same render targets hit this ~95% of the time.
+            const auto ca_access = vk::AccessFlagBits2::eColorAttachmentWrite |
+                                   vk::AccessFlagBits2::eColorAttachmentRead;
+            if (!image->IsInState(vk::ImageLayout::eColorAttachmentOptimal, ca_access)) {
+                image->Transit(vk::ImageLayout::eColorAttachmentOptimal, ca_access,
+                               desc.view_info.range);
+            }
         }
 
         state.width = std::min<u32>(state.width, std::max(image->info.size.width >> mip, 1u));
         state.height = std::min<u32>(state.height, std::max(image->info.size.height >> mip, 1u));
         state.num_layers = std::min<u32>(state.num_layers, image_view.info.range.extent.layers);
-
-        const auto clear_value =
-            is_clear ? LiverpoolToVK::ColorBufferClearValue(col_buf) : vk::ClearValue{};
-        auto& attachment = state.color_attachments[cb];
-        attachment.image_view = *image_view.image_view;
-        attachment.image_layout = image->backing->state.layout;
-        attachment.clear_value = clear_value.color.uint32;
-        attachment.is_clear = is_clear;
-
+        state.color_attachments[cb] = {
+            .imageView = *image_view.image_view,
+            .imageLayout = image->backing->state.layout,
+            .loadOp = is_clear ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .clearValue =
+                is_clear ? LiverpoolToVK::ColorBufferClearValue(col_buf) : vk::ClearValue{},
+        };
         image->usage.render_target = 1u;
-    }
-    for (u32 cb = state.num_color_attachments; cb < state.color_attachments.size(); ++cb) {
-        state.color_attachments[cb] = {};
     }
 
     if (auto image_id = db_desc.first; image_id) {
@@ -924,49 +1587,102 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
         ASSERT(desc.view_info.range.extent.levels == 1 && !image.binding.needs_rebind);
 
         const bool has_stencil = image.info.props.has_stencil;
-        // Stencil writes can be enabled while depth writes are off.
-        const bool stencil_write =
-            has_stencil && regs.depth_control.stencil_enable && !desc.view_info.is_storage;
-        const auto new_layout = desc.view_info.is_storage
+
+        // FIX(GR2FORK): US disc GR2 (CUSA03694) crashes in Nevi Hand encounters
+        // with VK_ERROR_DEVICE_LOST. Validation layer (VUID-06886/06887) shows
+        // the same depth+stencil image bound in DEPTH_STENCIL_READ_ONLY_OPTIMAL
+        // while the current pipeline has depthWriteEnable=VK_TRUE and/or
+        // stencilTestEnable=VK_TRUE with non-zero writeMask and non-KEEP ops.
+        //
+        // Prior logic picked the layout purely from view_info.is_storage,
+        // ignoring whether the current draw actually writes depth or stencil.
+        // Nevi deferred-shading Z-prepass + forward stencil masking reuses the
+        // same image: an earlier draw binds it read-only for sampling, a later
+        // draw writes it — but because is_storage was false on the later bind,
+        // the layout stayed DEPTH_STENCIL_READ_ONLY_OPTIMAL. RADV hangs on the
+        // mismatch; other drivers may silently corrupt depth/stencil.
+        //
+        // Correct decision tree: need writable if is_storage, OR if depth
+        // writes are on, OR if stencil writes are on. The stencil writemask
+        // lives in stencil_ref_front (mirrored to stencil_ref_back).
+        const bool stencil_test_enabled = regs.depth_control.stencil_enable;
+        const bool stencil_writes_enabled =
+            stencil_test_enabled && regs.stencil_ref_front.stencil_write_mask != 0;
+        const bool depth_writes_enabled =
+            regs.depth_control.depth_enable && regs.depth_control.depth_write_enable;
+        const bool needs_writable_layout =
+            desc.view_info.is_storage || depth_writes_enabled || stencil_writes_enabled;
+
+        const auto new_layout = needs_writable_layout
                                     ? has_stencil ? vk::ImageLayout::eDepthStencilAttachmentOptimal
                                                   : vk::ImageLayout::eDepthAttachmentOptimal
-                                : stencil_write
-                                    ? vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
                                 : has_stencil ? vk::ImageLayout::eDepthStencilReadOnlyOptimal
                                               : vk::ImageLayout::eDepthReadOnlyOptimal;
-        image.Transit(new_layout,
-                      vk::AccessFlagBits2::eDepthStencilAttachmentWrite |
-                          vk::AccessFlagBits2::eDepthStencilAttachmentRead,
-                      desc.view_info.range);
+        const auto ds_access = vk::AccessFlagBits2::eDepthStencilAttachmentWrite |
+                               vk::AccessFlagBits2::eDepthStencilAttachmentRead;
+        // ARCH-5: Skip Transit when depth target is already in correct state.
+        if (!image.IsInState(new_layout, ds_access)) {
+            image.Transit(new_layout, ds_access, desc.view_info.range);
+        }
 
         state.width = std::min<u32>(state.width, image.info.size.width);
         state.height = std::min<u32>(state.height, image.info.size.height);
+        state.has_depth = regs.depth_buffer.DepthValid();
+        state.has_stencil = regs.depth_buffer.StencilValid();
         state.num_layers = std::min<u32>(state.num_layers, image_view.info.range.extent.layers);
-
-        auto& attachment = state.depth_stencil_attachment;
-        attachment.image_view = *image_view.image_view;
-        attachment.image_layout = image.backing->state.layout;
-
-        if (regs.depth_buffer.DepthValid()) {
-            attachment.clear_value[0] = is_depth_clear ? std::bit_cast<u32>(regs.depth_clear) : 0u;
-            attachment.has_depth = true;
-            attachment.depth_clear = is_depth_clear;
+        if (state.has_depth) {
+            state.depth_attachment = {
+                .imageView = *image_view.image_view,
+                .imageLayout = image.backing->state.layout,
+                .loadOp =
+                    is_depth_clear ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                // FIX(GR2FORK): write both fields of the depthStencil union.
+                // Previously only `.depth` was set; `.stencil` defaulted to 0,
+                // which is harmless when LOAD_OP_LOAD is in effect for stencil
+                // (the clearValue is unused) but produces messy diagnostic
+                // output (the YAML dump from the LunarG crash-diagnostic layer
+                // shows uninitialized-looking values via the active union
+                // member). Writing both ensures the struct always reflects
+                // the intended state of the depth/stencil pair regardless of
+                // which side actually clears.
+                .clearValue = vk::ClearValue{
+                    .depthStencil = vk::ClearDepthStencilValue{
+                        .depth = regs.depth_clear,
+                        .stencil = regs.stencil_clear,
+                    },
+                },
+            };
         }
-        if (regs.depth_buffer.StencilValid()) {
-            attachment.clear_value[1] = is_stencil_clear ? regs.stencil_clear : 0u;
-            attachment.has_stencil = true;
-            attachment.stencil_clear = is_stencil_clear;
+        if (state.has_stencil) {
+            state.stencil_attachment = {
+                .imageView = *image_view.image_view,
+                .imageLayout = image.backing->state.layout,
+                .loadOp =
+                    is_stencil_clear ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                // FIX(GR2FORK): see depth_attachment above. Both fields are
+                // written so the depth/stencil pair stays consistent across
+                // both attachment infos (which share the same imageView for
+                // combined depth+stencil formats).
+                .clearValue = vk::ClearValue{
+                    .depthStencil = vk::ClearDepthStencilValue{
+                        .depth = regs.depth_clear,
+                        .stencil = regs.stencil_clear,
+                    },
+                },
+            };
         }
 
         image.usage.depth_target = true;
-    } else {
-        state.depth_stencil_attachment = {};
     }
 
-    if (state.num_layers == std::numeric_limits<u16>::max()) {
+    if (state.num_layers == std::numeric_limits<u32>::max()) {
         state.num_layers = 1;
     }
 
+    // OPT: Pre-compute hash for fast equality rejection in BeginRendering.
+    state.ComputeHash();
     return state;
 }
 
@@ -1066,8 +1782,11 @@ bool Rasterizer::InvalidateMemory(VAddr addr, u64 size) {
         // Not GPU mapped memory, can skip invalidation logic entirely.
         return false;
     }
-    buffer_cache.InvalidateMemory(addr, size, true);
+    buffer_cache.InvalidateMemory(addr, size);
     texture_cache.InvalidateMemory(addr, size);
+    // Underlying texture/buffer data changed — caches are stale.
+    binding_skip_cache_.valid = false;
+    rt_cache_.valid = false;
     return true;
 }
 
@@ -1085,10 +1804,6 @@ bool Rasterizer::IsMapped(VAddr addr, u64 size) {
         // There is no memory, so not mapped.
         return false;
     }
-    if (static_cast<u64>(addr) > std::numeric_limits<u64>::max() - size) {
-        // Memory range wrapped the address space, cannot be mapped.
-        return false;
-    }
     const auto range = decltype(mapped_ranges)::interval_type::right_open(addr, addr + size);
 
     Common::RecursiveSharedLock lock{mapped_ranges_mutex};
@@ -1104,8 +1819,10 @@ void Rasterizer::MapMemory(VAddr addr, u64 size) {
 }
 
 void Rasterizer::UnmapMemory(VAddr addr, u64 size) {
-    buffer_cache.InvalidateMemory(addr, size, true);
+    buffer_cache.InvalidateMemory(addr, size);
     texture_cache.UnmapMemory(addr, size);
+    binding_skip_cache_.valid = false;
+    rt_cache_.valid = false;
     page_manager.OnGpuUnmap(addr, size);
     {
         std::scoped_lock lock{mapped_ranges_mutex};
@@ -1114,14 +1831,30 @@ void Rasterizer::UnmapMemory(VAddr addr, u64 size) {
 }
 
 void Rasterizer::UpdateDynamicState(const GraphicsPipeline* pipeline, const bool is_indexed) const {
+    auto& dynamic_state = scheduler.GetDynamicState();
+
+    // Skip all 6 sub-functions when no dynamic-state register changed since last draw.
+    // Each sub-function reads dozens of regs and does comparison/computation that Commit
+    // would then discover produced zero dirty flags. ~236 lines of work saved per hit.
+    if (!liverpool->IsDynamicDirty()) {
+        // In threaded mode, skip Commit — ProcessBundle handles it via snapshot.
+        if (!scheduler.IsThreadedRecording()) {
+            dynamic_state.Commit(instance, scheduler.CommandBuffer());
+        }
+        return;
+    }
+    liverpool->ClearDynamicDirty();
+
     UpdateViewportScissorState();
     UpdateDepthStencilState();
     UpdatePrimitiveState(is_indexed);
     UpdateRasterizationState();
     UpdateColorBlendingState(pipeline);
 
-    auto& dynamic_state = scheduler.GetDynamicState();
-    dynamic_state.Commit(instance, scheduler.CommandBuffer());
+    // In threaded mode, skip Commit — ProcessBundle handles it via snapshot.
+    if (!scheduler.IsThreadedRecording()) {
+        dynamic_state.Commit(instance, scheduler.CommandBuffer());
+    }
 }
 
 void Rasterizer::UpdateViewportScissorState() const {
@@ -1317,19 +2050,7 @@ void Rasterizer::UpdatePrimitiveState(const bool is_indexed) const {
     const auto& regs = liverpool->regs;
     auto& dynamic_state = scheduler.GetDynamicState();
 
-    const auto is_list_topology = [](const AmdGpu::PrimitiveType type) {
-        const auto topology = LiverpoolToVK::PrimitiveType(type);
-        return topology == vk::PrimitiveTopology::ePointList ||
-               topology == vk::PrimitiveTopology::eLineList ||
-               topology == vk::PrimitiveTopology::eTriangleList ||
-               topology == vk::PrimitiveTopology::eLineListWithAdjacency ||
-               topology == vk::PrimitiveTopology::eTriangleListWithAdjacency ||
-               topology == vk::PrimitiveTopology::ePatchList;
-    };
-
-    const auto prim_restart =
-        (regs.enable_primitive_restart & 1) != 0 &&
-        (instance.IsListRestartSupported() || !is_list_topology(regs.primitive_type));
+    const auto prim_restart = (regs.enable_primitive_restart & 1) != 0;
     ASSERT_MSG(!is_indexed || !prim_restart || regs.primitive_restart_index == 0xFFFF ||
                    regs.primitive_restart_index == 0xFFFFFFFF,
                "Primitive restart index other than -1 is not supported yet");

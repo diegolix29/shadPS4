@@ -151,6 +151,108 @@ bool ImageInfo::IsCompatible(const ImageInfo& info) const {
 }
 
 void ImageInfo::UpdateSize() {
+    // --- FIX: UPSTREAM TEXTURE BOMB DEFUSAL ---
+    // We catch the invalid layer count (e.g. 4609) HERE, before the
+    // Texture Cache sees it. This ensures the Request matches the Result,
+    // preventing the "Overlap resolve failed" infinite loop.
+    if (resources.layers > 512) {
+        // LOG_WARNING(Render_Vulkan, "Texture Bomb in Info: Clamping {} layers to 1.", resources.layers);
+        resources.layers = 1;
+    }
+
+    // PERF(GR2 v8): Compute signature with packed 64-bit words instead of 13 separate hash steps.
+    // This reduces ALU from 13 multiply+xor chains to 4.
+    u64 h = 1469598103934665603ULL;
+    auto hash_step = [](u64 h, u64 v) noexcept {
+        h ^= v;
+        h *= 1099511628211ULL;
+        return h;
+    };
+    // Pack pitch(32) + width(32)
+    h = hash_step(h, (static_cast<u64>(pitch) << 32) | static_cast<u64>(size.width));
+    // Pack height(32) + depth(32)
+    h = hash_step(h, (static_cast<u64>(size.height) << 32) | static_cast<u64>(size.depth));
+    // Pack levels(8) + layers(16) + num_bits(16) + num_samples(8) + tile_mode(8) + array_mode(8)
+    h = hash_step(h,
+        static_cast<u64>(resources.levels) |
+        (static_cast<u64>(resources.layers) << 8) |
+        (static_cast<u64>(num_bits) << 24) |
+        (static_cast<u64>(num_samples) << 40) |
+        (static_cast<u64>(static_cast<u32>(tile_mode)) << 48) |
+        (static_cast<u64>(static_cast<u32>(array_mode)) << 56));
+    // Pack boolean flags
+    h = hash_step(h,
+        static_cast<u64>(alt_tile ? 1u : 0u) |
+        (static_cast<u64>(props.is_block ? 1u : 0u) << 1) |
+        (static_cast<u64>(props.is_pow2 ? 1u : 0u) << 2));
+
+    if (h == size_sig) {
+        return;
+    }
+    size_sig = h;
+
+    // Fast path: most GR2 textures are single-mip. Avoid the per-mip loop overhead.
+    if (resources.levels == 1) {
+        guest_size = 0;
+
+        u32 mip_w = pitch;
+        u32 mip_h = size.height;
+        if (props.is_block) {
+            mip_w = (mip_w + 3) / 4;
+            mip_h = (mip_h + 3) / 4;
+        }
+        mip_w = std::max(mip_w, 1u);
+        mip_h = std::max(mip_h, 1u);
+        u32 mip_d = std::max(size.depth, 1u);
+        u32 thickness = 1;
+
+        if (props.is_pow2) {
+            mip_w = std::bit_ceil(mip_w);
+            mip_h = std::bit_ceil(mip_h);
+            mip_d = std::bit_ceil(mip_d);
+        }
+
+        auto& mip_info = mips_layout[0];
+        switch (array_mode) {
+            case AmdGpu::ArrayMode::ArrayLinearAligned: {
+                std::tie(mip_info.pitch, mip_info.height, mip_info.size) =
+                ImageSizeLinearAligned(mip_w, mip_h, num_bits, num_samples);
+                break;
+            }
+            case AmdGpu::ArrayMode::Array1DTiledThick:
+                thickness = 4;
+                mip_d += (-mip_d) & (thickness - 1);
+                [[fallthrough]];
+            case AmdGpu::ArrayMode::Array1DTiledThin1: {
+                std::tie(mip_info.pitch, mip_info.height, mip_info.size) =
+                ImageSizeMicroTiled(mip_w, mip_h, thickness, num_bits, num_samples);
+                break;
+            }
+            case AmdGpu::ArrayMode::Array2DTiledThick:
+                thickness = 4;
+                mip_d += (-mip_d) & (thickness - 1);
+                [[fallthrough]];
+            case AmdGpu::ArrayMode::Array2DTiledThin1: {
+                ASSERT(!props.is_block);
+                std::tie(mip_info.pitch, mip_info.height, mip_info.size) = ImageSizeMacroTiled(
+                    mip_w, mip_h, thickness, num_bits, num_samples, tile_mode, 0, alt_tile);
+                break;
+            }
+            default: {
+                UNREACHABLE_MSG("Unknown array mode {}", magic_enum::enum_name(array_mode));
+            }
+        }
+        if (props.is_block) {
+            mip_info.pitch = std::max(mip_info.pitch * 4, 32u);
+            mip_info.height = std::max(mip_info.height * 4, 32u);
+        }
+
+        mip_info.size *= mip_d * resources.layers;
+        mip_info.offset = 0;
+        guest_size = mip_info.size;
+        return;
+    }
+
     guest_size = 0;
     for (s32 mip = 0; mip < resources.levels; ++mip) {
         u32 mip_w = pitch >> mip;

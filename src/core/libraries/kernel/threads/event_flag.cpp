@@ -1,23 +1,41 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <mutex>
-
-#ifdef _WIN64
-#include <list>
-#include "core/libraries/kernel/sync/semaphore.h"
-#include "core/libraries/kernel/threads/pthread.h"
-#else
+#include <array>
+#include <bit>
 #include <condition_variable>
+#include <mutex>
 #include <thread>
-#endif
 
 #include "common/assert.h"
 #include "common/logging/log.h"
+#include "common/sync_trace.h"
 #include "core/libraries/kernel/orbis_error.h"
 #include "core/libraries/libs.h"
 
 namespace Libraries::Kernel {
+
+// FIX(GR2FORK): wait threshold for SLOW log-to-ring. Waits faster than this
+// are ignored entirely; slower ones go in the ring. 500ms is well below the
+// watchdog's 15s critical threshold so we always catch near-hangs.
+static constexpr auto kTraceWaitThresholdMs = std::chrono::milliseconds(500);
+
+// FIX(GR2FORK): EventFlag race-guard window. Protects against the Havok
+// scheduler bug where one thread does:
+//     Worker:       Set(bit)
+//     Coordinator:  Clear(0)  ; wipes the bit
+//     Coordinator:  Wait(bit) ; never wakes — signal lost
+// We track per-bit set timestamps. On Wait entry, if the wait wants a bit
+// that was Set within this window but is no longer present in m_bits, we
+// re-inject it. A wait that successfully consumes a bit (via ClearMode)
+// clears the timestamp so legitimate "wait for NEXT signal" sequences are
+// unaffected.
+#ifndef GR2FORK_EF_RACE_WINDOW_MS
+#define GR2FORK_EF_RACE_WINDOW_MS 20
+#endif
+static constexpr auto kEfRaceGuardWindow =
+    std::chrono::milliseconds(GR2FORK_EF_RACE_WINDOW_MS);
+
 
 constexpr int ORBIS_KERNEL_EVF_ATTR_TH_FIFO = 0x01;
 constexpr int ORBIS_KERNEL_EVF_ATTR_TH_PRIO = 0x02;
@@ -41,50 +59,23 @@ public:
         : m_name(name), m_thread_mode(thread_mode), m_queue_mode(queue_mode), m_bits(bits) {};
 
     int Wait(u64 bits, WaitMode wait_mode, ClearMode clear_mode, u64* result, u32* ptr_micros) {
-#ifdef _WIN64
+        // FIX(GR2FORK): register in active-waiter table; erase on all exits.
+        const auto trace_start = std::chrono::steady_clock::now();
+        Common::SyncTrace::NoteWaitBegin(
+            Common::SyncTrace::Op::WAIT_EF_SLOW, this, m_name, bits);
+        struct WaitEndGuard {
+            ~WaitEndGuard() { Common::SyncTrace::NoteWaitEnd(); }
+        } _end_guard;
+
         std::unique_lock lock{m_mutex};
 
-        if (m_thread_mode == ThreadMode::Single && !m_wait_list.empty()) {
-            return ORBIS_KERNEL_ERROR_EPERM;
-        }
-
-        // condition already satisfied, no need to block.
-        if (CheckBits(bits, wait_mode)) {
-            if (result != nullptr) {
-                *result = m_bits;
-            }
-            ApplyClear(bits, clear_mode);
-            return ORBIS_OK;
-        }
-
-        // no timeout caller does not want to block.
-        if (ptr_micros != nullptr && *ptr_micros == 0) {
-            if (result != nullptr) {
-                *result = m_bits;
-            }
-            return ORBIS_KERNEL_ERROR_ETIMEDOUT;
-        }
-
-        // Enqueue a per-waiter entry and block on its semaphore alertably.
-        WaitingThread waiter{bits, wait_mode, m_queue_mode == QueueMode::Fifo};
-        const auto it = AddWaiter(&waiter);
-
-        const int wait_result = waiter.Wait(lock, ptr_micros);
-
-        if (wait_result == ORBIS_KERNEL_ERROR_ETIMEDOUT) {
-            m_wait_list.erase(it);
-        }
-
-        if (result != nullptr) {
-            *result = m_bits;
-        }
-        if (wait_result == ORBIS_OK) {
-            ApplyClear(bits, clear_mode);
-        }
-
-        return wait_result;
-#else
-        std::unique_lock lock{m_mutex};
+        // FIX(GR2FORK): race-guard. If bits this wait wants were Set within
+        // kEfRaceGuardWindow but are no longer present in m_bits (wiped by
+        // a racy Clear between the Set and this Wait), re-inject them.
+        // This targets the Havok scheduler's
+        //   Set(X) → Clear(0) → Wait(X)
+        // pattern where the coordinator's reset wipes a fresh worker signal.
+        (void)RaceGuardReinject(bits);
 
         uint32_t micros = 0;
         bool infinitely = true;
@@ -94,6 +85,9 @@ public:
         }
 
         if (m_thread_mode == ThreadMode::Single && m_waiting_threads > 0) {
+            Common::SyncTrace::Record(
+                Common::SyncTrace::Op::WAIT_EF_SLOW, this, m_name,
+                bits, 0, m_waiting_threads, ORBIS_KERNEL_ERROR_EPERM);
             return ORBIS_KERNEL_ERROR_EPERM;
         }
 
@@ -114,6 +108,14 @@ public:
                 }
                 *ptr_micros = 0;
                 --m_waiting_threads;
+                const auto d = std::chrono::steady_clock::now() - trace_start;
+                if (d >= kTraceWaitThresholdMs) {
+                    Common::SyncTrace::Record(
+                        Common::SyncTrace::Op::WAIT_EF_SLOW, this, m_name,
+                        bits,
+                        std::chrono::duration_cast<std::chrono::milliseconds>(d).count(),
+                        m_waiting_threads, ORBIS_KERNEL_ERROR_ETIMEDOUT);
+                }
                 return ORBIS_KERNEL_ERROR_ETIMEDOUT;
             }
         }
@@ -134,19 +136,36 @@ public:
         }
 
         if (m_status == Status::Canceled) {
+            Common::SyncTrace::Record(
+                Common::SyncTrace::Op::WAIT_EF_SLOW, this, m_name,
+                bits, 0, m_waiting_threads, ORBIS_KERNEL_ERROR_ECANCELED);
             return ORBIS_KERNEL_ERROR_ECANCELED;
         } else if (m_status == Status::Deleted) {
+            Common::SyncTrace::Record(
+                Common::SyncTrace::Op::WAIT_EF_SLOW, this, m_name,
+                bits, 0, m_waiting_threads, ORBIS_KERNEL_ERROR_EACCES);
             return ORBIS_KERNEL_ERROR_EACCES;
         }
 
         if (clear_mode == ClearMode::All) {
+            // FIX(GR2FORK): consumed — clear all stamps so a later race-guard
+            // check doesn't incorrectly re-inject a stale signal.
             m_bits = 0;
+            m_bit_set_at.fill({});
         } else if (clear_mode == ClearMode::Bits) {
             m_bits &= ~bits;
+            ClearBitsStamps(bits);
         }
 
+        const auto d = std::chrono::steady_clock::now() - trace_start;
+        if (d >= kTraceWaitThresholdMs) {
+            Common::SyncTrace::Record(
+                Common::SyncTrace::Op::WAIT_EF_SLOW, this, m_name,
+                bits,
+                std::chrono::duration_cast<std::chrono::milliseconds>(d).count(),
+                m_waiting_threads, ORBIS_OK);
+        }
         return ORBIS_OK;
-#endif
     }
 
     int Poll(u64 bits, WaitMode wait_mode, ClearMode clear_mode, u64* result) {
@@ -160,11 +179,6 @@ public:
     }
 
     void Set(u64 bits) {
-#ifdef _WIN64
-        std::scoped_lock lock{m_mutex};
-        m_bits |= bits;
-        WakeWaiters();
-#else
         std::unique_lock lock{m_mutex};
 
         while (m_status != Status::Set) {
@@ -173,16 +187,21 @@ public:
             m_mutex.lock();
         }
 
+        const u64 before = m_bits;
         m_bits |= bits;
+        // FIX(GR2FORK): stamp bits we just Set for race-guard purposes.
+        StampBitsSet(bits);
+        const u32 waiters = static_cast<u32>(m_waiting_threads);
         m_cond_var.notify_all();
-#endif
+
+        // FIX(GR2FORK): ring-only record; no log I/O.
+        Common::SyncTrace::Record(
+            Common::SyncTrace::Op::SET_EF, this, m_name,
+            /*arg1=*/bits, /*arg2=*/m_bits, waiters, /*result=*/0);
+        (void)before;
     }
 
     void Clear(u64 bits) {
-#ifdef _WIN64
-        std::scoped_lock lock{m_mutex};
-        m_bits &= bits;
-#else
         std::unique_lock lock{m_mutex};
         while (m_status != Status::Set) {
             m_mutex.unlock();
@@ -191,25 +210,12 @@ public:
         }
 
         m_bits &= bits;
-#endif
+        Common::SyncTrace::Record(
+            Common::SyncTrace::Op::CLEAR_EF, this, m_name,
+            /*arg1=*/bits, /*arg2=*/m_bits, 0, 0);
     }
 
     void Cancel(u64 setPattern, int* numWaitThreads) {
-#ifdef _WIN64
-        std::scoped_lock lock{m_mutex};
-
-        if (numWaitThreads) {
-            *numWaitThreads = static_cast<int>(m_wait_list.size());
-        }
-
-        m_bits = setPattern;
-
-        for (auto* waiter : m_wait_list) {
-            waiter->was_canceled = true;
-            waiter->sem.release();
-        }
-        m_wait_list.clear();
-#else
         std::unique_lock lock{m_mutex};
 
         while (m_status != Status::Set) {
@@ -225,6 +231,11 @@ public:
         m_status = Status::Canceled;
         m_bits = setPattern;
 
+        Common::SyncTrace::Record(
+            Common::SyncTrace::Op::CANCEL_EF, this, m_name,
+            /*arg1=*/setPattern, /*arg2=*/0,
+            static_cast<u32>(m_waiting_threads), 0);
+
         m_cond_var.notify_all();
 
         while (m_waiting_threads > 0) {
@@ -234,115 +245,83 @@ public:
         }
 
         m_status = Status::Set;
-#endif
     }
 
 private:
+    enum class Status { Set, Canceled, Deleted };
+
     std::mutex m_mutex;
+    std::condition_variable m_cond_var;
+    Status m_status = Status::Set;
+    int m_waiting_threads = 0;
     std::string m_name;
     ThreadMode m_thread_mode = ThreadMode::Single;
     QueueMode m_queue_mode = QueueMode::Fifo;
     u64 m_bits = 0;
-#ifdef _WIN64
-    struct WaitingThread {
-        BinarySemaphore sem;
-        u64 bits;
-        WaitMode wait_mode;
-        u32 priority;
-        bool was_signaled{};
-        bool was_canceled{};
 
-        explicit WaitingThread(u64 bits_, WaitMode wait_mode_, bool is_fifo)
-            : sem{0}, bits{bits_}, wait_mode{wait_mode_}, priority{0} {
-            if (!is_fifo) {
-                priority = g_curthread->attr.prio;
-            }
-        }
+    // FIX(GR2FORK): per-bit "last Set time" for race-guard re-injection.
+    // Default-constructed time_point has zero duration since epoch, which
+    // we use as the "never set" sentinel.
+    std::array<std::chrono::steady_clock::time_point, 64> m_bit_set_at{};
 
-        [[nodiscard]] int GetResult() const {
-            if (was_signaled) {
-                return ORBIS_OK;
-            }
-            if (was_canceled) {
-                return ORBIS_KERNEL_ERROR_ECANCELED;
-            }
-            return ORBIS_KERNEL_ERROR_ETIMEDOUT;
-        }
-
-        int Wait(std::unique_lock<std::mutex>& lk, u32* timeout) {
-            lk.unlock();
-            if (!timeout) {
-                sem.acquire();
-            } else {
-                const auto start = std::chrono::high_resolution_clock::now();
-                sem.try_acquire_for(std::chrono::microseconds(*timeout));
-                const auto end = std::chrono::high_resolution_clock::now();
-                const auto elapsed =
-                    std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-                lk.lock();
-                if (was_signaled) {
-                    *timeout = static_cast<u32>(elapsed < *timeout ? *timeout - elapsed : 0);
-                } else {
-                    *timeout = 0;
-                }
-                return GetResult();
-            }
-            lk.lock();
-            return GetResult();
-        }
-    };
-
-    using WaitList = std::list<WaitingThread*>;
-    WaitList m_wait_list;
-
-    bool CheckBits(u64 bits, WaitMode wait_mode) const {
-        if (wait_mode == WaitMode::And) {
-            return (m_bits & bits) == bits;
-        }
-        return (m_bits & bits) != 0;
-    }
-
-    void ApplyClear(u64 bits, ClearMode clear_mode) {
-        if (clear_mode == ClearMode::All) {
-            m_bits = 0;
-        } else if (clear_mode == ClearMode::Bits) {
-            m_bits &= ~bits;
+    // Called under m_mutex. For each bit in `bits`, stamp now.
+    void StampBitsSet(u64 bits) {
+        const auto now = std::chrono::steady_clock::now();
+        while (bits != 0) {
+            const int i = std::countr_zero(bits);
+            m_bit_set_at[i] = now;
+            bits &= bits - 1;
         }
     }
 
-    // Release only waiters whose specific bit condition is now satisfied.
-    void WakeWaiters() {
-        for (auto it = m_wait_list.begin(); it != m_wait_list.end();) {
-            auto* waiter = *it;
-            if (CheckBits(waiter->bits, waiter->wait_mode)) {
-                it = m_wait_list.erase(it);
-                waiter->was_signaled = true;
-                waiter->sem.release();
-            } else {
-                ++it;
-            }
+    // Called under m_mutex. For each bit in `bits`, mark "never set" so
+    // subsequent Wait entries will not try to re-inject this bit.
+    void ClearBitsStamps(u64 bits) {
+        while (bits != 0) {
+            const int i = std::countr_zero(bits);
+            m_bit_set_at[i] = {};
+            bits &= bits - 1;
         }
     }
 
-    WaitList::iterator AddWaiter(WaitingThread* waiter) {
-        if (m_queue_mode == QueueMode::Fifo) {
-            m_wait_list.push_back(waiter);
-            return --m_wait_list.end();
-        }
-        // Priority order: insert before the first waiter with strictly lower priority.
-        auto it = m_wait_list.begin();
-        while (it != m_wait_list.end() && (*it)->priority <= waiter->priority) {
-            ++it;
-        }
-        return m_wait_list.insert(it, waiter);
-    }
-#else
-    enum class Status { Set, Canceled, Deleted };
-
-    std::condition_variable m_cond_var;
-    Status m_status = Status::Set;
-    int m_waiting_threads = 0;
+    // Called under m_mutex at Wait entry. If the wait wants a bit that was
+    // set recently but is no longer in m_bits (wiped by a racy Clear),
+    // re-inject it. Returns the mask of bits we re-injected.
+    u64 RaceGuardReinject(u64 wants) {
+        // FIX(GR2FORK): temporary disable for diagnostic purposes. The race
+        // guard fires ~12,500 times per long session and might be masking
+        // (or causing) downstream issues that surface as VK_ERROR_DEVICE_LOST.
+        // Disabling lets us see whether the underlying Havok timing bug
+        // actually manifests, or whether the guard itself is the problem.
+        // To re-enable: define GR2FORK_EF_RACE_GUARD_ENABLE at build time,
+        // or just delete the next two lines.
+#ifndef GR2FORK_EF_RACE_GUARD_ENABLE
+        return 0;
 #endif
+        if (wants == 0) return 0;
+        const auto now = std::chrono::steady_clock::now();
+        u64 reinject = 0;
+        u64 missing = wants & ~m_bits;
+        while (missing != 0) {
+            const int i = std::countr_zero(missing);
+            const auto& when = m_bit_set_at[i];
+            if (when.time_since_epoch().count() != 0 &&
+                (now - when) < kEfRaceGuardWindow) {
+                reinject |= (1ULL << i);
+            }
+            missing &= missing - 1;
+        }
+        if (reinject != 0) {
+            LOG_WARNING(Kernel_Event,
+                        "[EF race-guard] ef={} name=\"{}\" "
+                        "re-injecting bits={:#x} (recently Set, then wiped)",
+                        static_cast<const void*>(this), m_name, reinject);
+            m_bits |= reinject;
+            ClearBitsStamps(reinject);
+            m_cond_var.notify_all();
+        }
+        return reinject;
+    }
 };
 
 using OrbisKernelUseconds = u32;
@@ -498,7 +477,6 @@ int PS4_SYSV_ABI sceKernelPollEventFlag(OrbisKernelEventFlag ef, u64 bitPattern,
 
     return result;
 }
-
 int PS4_SYSV_ABI sceKernelWaitEventFlag(OrbisKernelEventFlag ef, u64 bitPattern, u32 waitMode,
                                         u64* pResultPat, OrbisKernelUseconds* pTimeout) {
     LOG_DEBUG(Kernel_Event, "called bitPattern = {:#x} waitMode = {:#x}", bitPattern, waitMode);

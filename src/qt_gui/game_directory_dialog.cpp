@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <QApplication>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
@@ -10,6 +11,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QStyle>
 #include <QVBoxLayout>
 
 #include "game_directory_dialog.h"
@@ -30,7 +32,17 @@ GameDirectoryDialog::GameDirectoryDialog() : m_gamesDirectory(nullptr) {
 GameDirectoryDialog::~GameDirectoryDialog() {}
 
 void GameDirectoryDialog::BrowseGamesDirectory() {
+    // Temporarily clear stylesheet to use OS native dialog theme
+    QString savedStyleSheet = qApp->styleSheet();
+    QPalette savedPalette = qApp->palette();
+    qApp->setStyleSheet("");
+    qApp->setPalette(QApplication::style()->standardPalette());
+
     auto path = QFileDialog::getExistingDirectory(this, tr("Games Directory"));
+
+    // Restore stylesheet and palette
+    qApp->setStyleSheet(savedStyleSheet);
+    qApp->setPalette(savedPalette);
 
     if (!path.isEmpty()) {
         m_gamesDirectory->setText(QDir::toNativeSeparators(path));
@@ -38,7 +50,17 @@ void GameDirectoryDialog::BrowseGamesDirectory() {
 }
 
 void GameDirectoryDialog::BrowseAddonsDirectory() {
+    // Temporarily clear stylesheet to use OS native dialog theme
+    QString savedStyleSheet = qApp->styleSheet();
+    QPalette savedPalette = qApp->palette();
+    qApp->setStyleSheet("");
+    qApp->setPalette(QApplication::style()->standardPalette());
+
     auto path = QFileDialog::getExistingDirectory(this, tr("DLC Directory"));
+
+    // Restore stylesheet and palette
+    qApp->setStyleSheet(savedStyleSheet);
+    qApp->setPalette(savedPalette);
 
     if (!path.isEmpty()) {
         m_addonsDirectory->setText(QDir::toNativeSeparators(path));
@@ -83,7 +105,18 @@ QWidget* GameDirectoryDialog::SetupSysModulesDirectory() {
     // Browse button.
     auto browse = new QPushButton(tr("Browse"));
     connect(browse, &QPushButton::clicked, [this]() {
+        // Temporarily clear stylesheet to use OS native dialog theme
+        QString savedStyleSheet = qApp->styleSheet();
+        QPalette savedPalette = qApp->palette();
+        qApp->setStyleSheet("");
+        qApp->setPalette(QApplication::style()->standardPalette());
+
         auto path = QFileDialog::getExistingDirectory(this, tr("Directory for system modules"));
+
+        // Restore stylesheet and palette
+        qApp->setStyleSheet(savedStyleSheet);
+        qApp->setPalette(savedPalette);
+
         if (!path.isEmpty()) {
             m_sysModulesDirectory->setText(QDir::toNativeSeparators(path));
         }

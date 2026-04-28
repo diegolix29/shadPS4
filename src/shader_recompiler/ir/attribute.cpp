@@ -101,7 +101,7 @@ std::string NameOf(Attribute attribute) {
     case Attribute::Param31:
         return "Param31";
     case Attribute::ClipDistance:
-        return "ClipDistance";
+        return "ClipDistanace";
     case Attribute::CullDistance:
         return "CullDistance";
     case Attribute::RenderTargetIndex:
@@ -153,9 +153,9 @@ std::string NameOf(Attribute attribute) {
     case Attribute::TessellationEvaluationPointV:
         return "TessellationEvaluationPointV";
     case Attribute::PackedHullInvocationInfo:
-        return "PackedHullInvocationInfo";
-    case Attribute::OffChipLdsBase:
         return "OffChipLdsBase";
+    case Attribute::OffChipLdsBase:
+        return "PackedHullInvocationInfo";
     case Attribute::TessFactorsBufferBase:
         return "TessFactorsBufferBase";
     case Attribute::PointSize:
@@ -166,8 +166,6 @@ std::string NameOf(Attribute attribute) {
         return "SampleMask";
     case Attribute::PackedAncillary:
         return "PackedAncillary";
-    case Attribute::SubgroupLtMask:
-        return "SubgroupLtMask";
     default:
         break;
     }

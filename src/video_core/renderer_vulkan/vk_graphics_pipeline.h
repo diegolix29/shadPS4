@@ -56,12 +56,25 @@ struct GraphicsPipelineKey {
         u32 depth_clip_enable : 1;
     };
 
+    // Cached hash — MUST be last members so offsetof excludes them from hashing.
+    mutable std::size_t cached_hash_{0};
+    mutable bool hash_valid_{false};
+
     GraphicsPipelineKey() {
         std::memset(this, 0, sizeof(*this));
     }
 
     bool operator==(const GraphicsPipelineKey& key) const noexcept {
-        return std::memcmp(this, &key, sizeof(key)) == 0;
+        // Compare only the real pipeline state, exclude cached hash fields.
+        return std::memcmp(this, &key, offsetof(GraphicsPipelineKey, cached_hash_)) == 0;
+    }
+
+    std::size_t GetHash() const noexcept {
+        if (!hash_valid_) {
+            cached_hash_ = XXH3_64bits(this, offsetof(GraphicsPipelineKey, cached_hash_));
+            hash_valid_ = true;
+        }
+        return cached_hash_;
     }
 
     void Serialize(Serialization::Archive& ar) const;
@@ -120,6 +133,6 @@ private:
 template <>
 struct std::hash<Vulkan::GraphicsPipelineKey> {
     std::size_t operator()(const Vulkan::GraphicsPipelineKey& key) const noexcept {
-        return XXH3_64bits(&key, sizeof(key));
+        return key.GetHash();
     }
 };

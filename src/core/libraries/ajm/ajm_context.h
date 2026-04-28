@@ -16,6 +16,8 @@
 #include <span>
 #include <thread>
 #include <utility>
+#include <map>
+#include <vector>
 
 namespace Libraries::Ajm {
 
@@ -52,6 +54,12 @@ private:
 
     std::jthread worker_thread{};
     Common::MPSCQueue<std::shared_ptr<AjmBatch>> batch_queue;
+
+    // --- FIX: INSTANCE GRAVEYARD ---
+    using CacheKey = std::pair<AjmCodecType, u64>;
+    std::map<CacheKey, std::vector<std::shared_ptr<AjmInstance>>> recycled_instances;
+    std::mutex recycle_mutex;
+    // -------------------------------
 };
 
 } // namespace Libraries::Ajm

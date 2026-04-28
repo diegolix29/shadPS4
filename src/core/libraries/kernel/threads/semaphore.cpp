@@ -10,6 +10,7 @@
 
 #include "common/logging/log.h"
 #include "common/slot_vector.h"
+#include "common/sync_trace.h"
 #include "core/libraries/kernel/kernel.h"
 #include "core/libraries/kernel/orbis_error.h"
 #include "core/libraries/kernel/posix_error.h"
@@ -18,6 +19,9 @@
 #include "core/libraries/libs.h"
 
 namespace Libraries::Kernel {
+
+// FIX(GR2FORK): see event_flag.cpp for rationale.
+static constexpr auto kTraceSemaWaitThresholdMs = std::chrono::milliseconds(500);
 
 constexpr s32 ORBIS_KERNEL_SEM_VALUE_MAX = 0x7FFFFFFF;
 
@@ -36,6 +40,14 @@ public:
     ~OrbisSem() = default;
 
     s32 Wait(bool can_block, s32 need_count, u32* timeout) {
+        const auto trace_start = std::chrono::steady_clock::now();
+        Common::SyncTrace::NoteWaitBegin(
+            Common::SyncTrace::Op::WAIT_SEMA_SLOW, this, name,
+            static_cast<u64>(need_count));
+        struct WaitEndGuard {
+            ~WaitEndGuard() { Common::SyncTrace::NoteWaitEnd(); }
+        } _end_guard;
+
         std::unique_lock lk{mutex};
         if (token_count >= need_count) {
             token_count -= need_count;
@@ -58,16 +70,35 @@ public:
         if (result == ORBIS_KERNEL_ERROR_ETIMEDOUT) {
             wait_list.erase(it);
         }
+
+        const auto d = std::chrono::steady_clock::now() - trace_start;
+        if (d >= kTraceSemaWaitThresholdMs || result != ORBIS_OK) {
+            Common::SyncTrace::Record(
+                Common::SyncTrace::Op::WAIT_SEMA_SLOW, this, name,
+                static_cast<u64>(need_count),
+                std::chrono::duration_cast<std::chrono::milliseconds>(d).count(),
+                static_cast<u32>(wait_list.size()), result);
+        }
         return result;
     }
 
     bool Signal(s32 signal_count) {
         std::scoped_lock lk{mutex};
+        const s32 before = token_count.load();
+        const u32 waiters_before = static_cast<u32>(wait_list.size());
+
         if (token_count + signal_count > max_count) {
+            Common::SyncTrace::Record(
+                Common::SyncTrace::Op::SIGNAL_SEMA, this, name,
+                static_cast<u64>(signal_count),
+                static_cast<u64>(before),
+                waiters_before,
+                /*result=*/-1 /* over_max */);
             return false;
         }
         token_count += signal_count;
 
+        int woken = 0;
         // Wake up threads in order of priority.
         for (auto it = wait_list.begin(); it != wait_list.end();) {
             auto* waiter = *it;
@@ -79,15 +110,25 @@ public:
             token_count -= waiter->need_count;
             waiter->was_signaled = true;
             waiter->sem.release();
+            ++woken;
         }
 
+        Common::SyncTrace::Record(
+            Common::SyncTrace::Op::SIGNAL_SEMA, this, name,
+            static_cast<u64>(signal_count),
+            static_cast<u64>(token_count.load()),
+            waiters_before, woken);
         return true;
     }
 
     s32 Cancel(s32 set_count, s32* num_waiters) {
         std::scoped_lock lk{mutex};
+        const u32 waiters = static_cast<u32>(wait_list.size());
+        Common::SyncTrace::Record(
+            Common::SyncTrace::Op::CANCEL_SEMA, this, name,
+            static_cast<u64>(set_count), 0, waiters, 0);
         if (num_waiters) {
-            *num_waiters = static_cast<s32>(wait_list.size());
+            *num_waiters = static_cast<s32>(waiters);
         }
         for (auto* waiter : wait_list) {
             waiter->was_canceled = true;
@@ -100,6 +141,9 @@ public:
 
     void Delete() {
         std::scoped_lock lk{mutex};
+        Common::SyncTrace::Record(
+            Common::SyncTrace::Op::DELETE_SEMA, this, name,
+            0, 0, static_cast<u32>(wait_list.size()), 0);
         for (auto* waiter : wait_list) {
             waiter->was_deleted = true;
             waiter->sem.release();
@@ -306,14 +350,11 @@ s32 PS4_SYSV_ABI posix_sem_post(PthreadSem** sem) {
         *__Error() = POSIX_EINVAL;
         return -1;
     }
-    // Atomically check for overflow and increment in one step.
-    s32 current = (*sem)->value.load();
-    do {
-        if (current == ORBIS_KERNEL_SEM_VALUE_MAX) {
-            *__Error() = POSIX_EOVERFLOW;
-            return -1;
-        }
-    } while (!(*sem)->value.compare_exchange_weak(current, current + 1));
+    if ((*sem)->value == ORBIS_KERNEL_SEM_VALUE_MAX) {
+        *__Error() = POSIX_EOVERFLOW;
+        return -1;
+    }
+    ++(*sem)->value;
     (*sem)->semaphore.release();
     return 0;
 }
@@ -370,13 +411,9 @@ s32 PS4_SYSV_ABI scePthreadSemTrywait(PthreadSem** sem) {
 }
 
 s32 PS4_SYSV_ABI scePthreadSemTimedwait(PthreadSem** sem, u32 usec) {
-    OrbisKernelTimespec now{};
-    posix_clock_gettime(ORBIS_CLOCK_REALTIME, &now);
-    const u64 total_nsec = now.tv_nsec + (usec % 1000000) * 1000ULL;
-
     OrbisKernelTimespec time{};
-    time.tv_sec = now.tv_sec + usec / 1000000 + total_nsec / 1000000000;
-    time.tv_nsec = total_nsec % 1000000000;
+    time.tv_sec = usec / 1000000;
+    time.tv_nsec = (usec % 1000000) * 1000;
 
     s32 ret = posix_sem_timedwait(sem, &time);
     if (ret != 0) {

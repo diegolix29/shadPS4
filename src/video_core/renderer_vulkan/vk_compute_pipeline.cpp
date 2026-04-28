@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <boost/container/small_vector.hpp>
+#include <cstdlib>
 
+#include "common/config.h"
 #include "shader_recompiler/info.h"
 #include "video_core/renderer_vulkan/vk_compute_pipeline.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -21,11 +23,7 @@ ComputePipeline::ComputePipeline(const Instance& instance, Scheduler& scheduler,
     info = &info_;
     const auto debug_str = GetDebugString();
 
-    const vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo subgroup_size_ci = {
-        .requiredSubgroupSize = 64,
-    };
     const vk::PipelineShaderStageCreateInfo shader_ci = {
-        .pNext = instance.IsSubgroupSize64Supported() ? &subgroup_size_ci : nullptr,
         .stage = vk::ShaderStageFlagBits::eCompute,
         .module = module,
         .pName = "main",
@@ -48,6 +46,8 @@ ComputePipeline::ComputePipeline(const Instance& instance, Scheduler& scheduler,
         });
     }
     for (const auto& image : info->images) {
+        // PORT(upstream #4075): consecutive descriptor slots for IMAGE_STORE_MIP
+        // fallback — one slot per mip level when DynamicIndex, 1 otherwise.
         const u32 num_bindings = image.NumBindings(*info);
         bindings.push_back({
             .binding = binding,
@@ -72,8 +72,31 @@ ComputePipeline::ComputePipeline(const Instance& instance, Scheduler& scheduler,
         .offset = 0,
         .size = sizeof(Shader::PushData),
     };
+    // PERF(GR2): Mesa RADV push descriptors are a major CPU hot spot (memmove + radv_cmd_update_descriptor_sets).
+    // Default to descriptor sets on RADV; allow env overrides:
+    //   SHADPS4_FORCE_PUSH_DESCRIPTORS=1  -> always use push descriptors when possible
+    //   SHADPS4_DISABLE_PUSH_DESCRIPTORS=1 -> never use push descriptors
+    bool force_push = Config::vkForcePushDescriptorsEnabled();
+    bool force_no_push = Config::vkDisablePushDescriptorsEnabled();
 
-    uses_push_descriptors = binding < instance.MaxPushDescriptors();
+    // Env overrides (highest priority)
+    if (const char* e = std::getenv("SHADPS4_FORCE_PUSH_DESCRIPTORS"); e && e[0] != '0') {
+        force_push = true;
+    }
+    if (const char* e = std::getenv("SHADPS4_DISABLE_PUSH_DESCRIPTORS"); e && e[0] != '0') {
+        force_no_push = true;
+    }
+
+    // Force-push wins if both are set.
+    if (force_push) {
+        force_no_push = false;
+    }
+    bool is_radv = false;
+    #ifdef VK_DRIVER_ID_MESA_RADV
+    is_radv = static_cast<VkDriverId>(instance.GetDriverID()) == VK_DRIVER_ID_MESA_RADV;
+    #endif
+    const bool prefer_push = force_push ? true : (force_no_push ? false : !is_radv);
+    uses_push_descriptors = prefer_push && (binding < instance.MaxPushDescriptors());
     const auto flags = uses_push_descriptors
                            ? vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR
                            : vk::DescriptorSetLayoutCreateFlagBits{};

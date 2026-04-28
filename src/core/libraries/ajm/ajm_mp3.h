@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "common/enum.h"
 #include "common/types.h"
 #include "core/libraries/ajm/ajm_instance.h"
 
@@ -64,7 +63,7 @@ struct AjmSidebandDecMp3CodecInfo {
 
 class AjmMp3Decoder : public AjmCodec {
 public:
-    explicit AjmMp3Decoder(AjmFormatEncoding format, AjmMp3CodecFlags flags, u32 channels);
+    explicit AjmMp3Decoder(AjmFormatEncoding format, AjmMp3CodecFlags flags);
     ~AjmMp3Decoder() override;
 
     void Reset() override;
@@ -99,6 +98,7 @@ private:
     SwrContext* m_swr_context = nullptr;
     std::optional<u32> m_header;
     u32 m_frame_samples = 0;
+    u32 m_frame_size = 0;
 };
 
 } // namespace Libraries::Ajm

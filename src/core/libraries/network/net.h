@@ -1,9 +1,8 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
-#include <atomic>
 #include "common/assert.h"
 #include "common/types.h"
 #include "netctl.h"
@@ -21,11 +20,6 @@ class SymbolsResolver;
 #endif
 
 namespace Libraries::Net {
-
-// Global counter for sceNetEpollWait calls (incremented in net.cpp, read by P2PT diagnostic)
-extern std::atomic<u32> g_epoll_wait_call_count;
-// P2P-specific epoll wait counter (only for "extnetwork2_udp" epolls)
-extern std::atomic<u32> g_p2p_epoll_wait_count;
 
 static int ConvertFamilies(int family);
 
@@ -114,15 +108,6 @@ enum OrbisNetSocketSoOption : u32 {
     ORBIS_NET_SO_POLICY = 0x1201,
     ORBIS_NET_SO_NAME = 0x1202,
     ORBIS_NET_SO_PRIORITY = 0x1203
-};
-
-enum OrbisNetFlags : u32 {
-    ORBIS_NET_MSG_PEEK = 0x00000002,
-    ORBIS_NET_MSG_WAITALL = 0x00000040,
-    ORBIS_NET_MSG_DONTWAIT = 0x00000080,
-    ORBIS_NET_MSG_USECRYPTO = 0x00100000,
-    ORBIS_NET_MSG_USESIGNATURE = 0x00200000,
-    ORBIS_NET_MSG_PEEKLEN = (0x00400000 | ORBIS_NET_MSG_PEEK)
 };
 
 constexpr std::string_view NameOf(OrbisNetSocketSoOption o) {
@@ -373,7 +358,7 @@ int PS4_SYSV_ABI sceNetDumpDestroy();
 int PS4_SYSV_ABI sceNetDumpRead();
 int PS4_SYSV_ABI sceNetDuplicateIpStart();
 int PS4_SYSV_ABI sceNetDuplicateIpStop();
-int PS4_SYSV_ABI sceNetEpollAbort(OrbisNetId epollid, int flags);
+int PS4_SYSV_ABI sceNetEpollAbort();
 int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, OrbisNetId id,
                                     OrbisNetEpollEvent* event);
 int PS4_SYSV_ABI sceNetEpollCreate(const char* name, int flags);

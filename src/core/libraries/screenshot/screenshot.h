@@ -26,5 +26,9 @@ int PS4_SYSV_ABI sceScreenShotSetOverlayImageWithOrigin();
 int PS4_SYSV_ABI sceScreenShotSetParam();
 int PS4_SYSV_ABI sceScreenShotSetDrcParam();
 
+int PS4_SYSV_ABI sceScreenShotUnknownZ(u64 a1 = 0, u64 a2 = 0, u64 a3 = 0, u64 a4 = 0,
+                                        u64 a5 = 0, u64 a6 = 0, u64 a7 = 0, u64 a8 = 0);
+
 void RegisterLib(Core::Loader::SymbolsResolver* sym);
 } // namespace Libraries::ScreenShot
+// Note: added before closing namespace brace - need to fix

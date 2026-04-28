@@ -18,8 +18,6 @@ public:
     int ResolveAsync(const char* hostname, OrbisNetInAddr* addr, int timeout, int retry, int flags);
     void Resolve();
 
-    int resolution_error = ORBIS_OK;
-
 private:
     struct AsyncResolution {
         const char* hostname;
@@ -33,6 +31,7 @@ private:
     int poolid;
     int flags;
     std::optional<AsyncResolution> async_resolution{};
+    int resolution_error = ORBIS_OK;
     std::mutex m_mutex;
 };
 

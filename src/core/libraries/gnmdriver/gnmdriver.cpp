@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <atomic>
+
+#include "gnm_error.h"
 #include "gnm_error.h"
 #include "gnmdriver.h"
 
@@ -64,7 +67,8 @@ static constexpr std::array indirect_sgpr_offsets{0u, 0u, 0x4cu, 0u, 0xccu, 0u, 
 static constexpr bool UseNeoCompatSequences = false;
 
 // In case if `submitDone` is issued we need to block submissions until GPU idle
-static u32 submission_lock{};
+
+static std::atomic_bool submission_lock{false};
 std::condition_variable cv_lock{};
 std::mutex m_submission{};
 static u64 frames_submitted{};      // frame counter
@@ -79,14 +83,19 @@ static constexpr u32 tessellation_offchip_buffer_size = 0x800000u;
 
 static void ResetSubmissionLock(Platform::InterruptId irq) {
     std::unique_lock lock{m_submission};
-    submission_lock = 0;
+    submission_lock.store(false, std::memory_order_release);
     cv_lock.notify_all();
 }
 
 static void WaitGpuIdle() {
     HLE_TRACE;
+    if (!submission_lock.load(std::memory_order_acquire)) [[likely]] {
+        return;
+    }
     std::unique_lock lock{m_submission};
-    cv_lock.wait(lock, [] { return submission_lock == 0; });
+    cv_lock.wait(lock, [] {
+        return !submission_lock.load(std::memory_order_acquire);
+    });
 }
 
 // Write a special ending NOP packet with N DWs data block
@@ -123,23 +132,21 @@ static inline bool IsValidEventType(Platform::InterruptId id) {
            static_cast<u32>(id) == static_cast<u32>(Platform::InterruptId::GfxEop);
 }
 
-s32 PS4_SYSV_ABI sceGnmAddEqEvent(OrbisKernelEqueue eq, u64 id, void* udata) {
+s32 PS4_SYSV_ABI sceGnmAddEqEvent(SceKernelEqueue eq, u64 id, void* udata) {
     LOG_TRACE(Lib_GnmDriver, "called");
 
-    auto equeue = GetEqueue(eq);
-    if (!equeue) {
+    if (!eq) {
         return ORBIS_KERNEL_ERROR_EBADF;
     }
 
     EqueueEvent kernel_event{};
     kernel_event.event.ident = id;
-    kernel_event.event.filter = OrbisKernelEvent::Filter::GraphicsCore;
-    kernel_event.event.flags = OrbisKernelEvent::Flags::Add;
+    kernel_event.event.filter = SceKernelEvent::Filter::GraphicsCore;
+    kernel_event.event.flags = SceKernelEvent::Flags::Add;
     kernel_event.event.fflags = 0;
     kernel_event.event.data = id;
     kernel_event.event.udata = udata;
-
-    equeue->AddEvent(kernel_event);
+    eq->AddEvent(kernel_event);
 
     Platform::IrqC::Instance()->Register(
         static_cast<Platform::InterruptId>(id),
@@ -151,17 +158,16 @@ s32 PS4_SYSV_ABI sceGnmAddEqEvent(OrbisKernelEqueue eq, u64 id, void* udata) {
                 return;
 
             // Event data is expected to be an event type as per sceGnmGetEqEventType.
-            equeue->TriggerEvent(static_cast<GnmEventType>(id),
-                                 OrbisKernelEvent::Filter::GraphicsCore,
-                                 reinterpret_cast<void*>(id));
+            eq->TriggerEvent(static_cast<GnmEventType>(id), SceKernelEvent::Filter::GraphicsCore,
+                             reinterpret_cast<void*>(id));
         },
-        equeue);
+        eq);
     return ORBIS_OK;
 }
 
 int PS4_SYSV_ABI sceGnmAreSubmitsAllowed() {
     LOG_TRACE(Lib_GnmDriver, "called");
-    return submission_lock == 0;
+    return !submission_lock.load(std::memory_order_relaxed);
 }
 
 int PS4_SYSV_ABI sceGnmBeginWorkload(u32 workload_stream, u64* workload) {
@@ -270,17 +276,16 @@ int PS4_SYSV_ABI sceGnmDebugHardwareStatus() {
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceGnmDeleteEqEvent(OrbisKernelEqueue eq, u64 id) {
+s32 PS4_SYSV_ABI sceGnmDeleteEqEvent(SceKernelEqueue eq, u64 id) {
     LOG_TRACE(Lib_GnmDriver, "called");
 
-    auto equeue = GetEqueue(eq);
-    if (!equeue) {
+    if (!eq) {
         return ORBIS_KERNEL_ERROR_EBADF;
     }
 
-    equeue->RemoveEvent(id, OrbisKernelEvent::Filter::GraphicsCore);
+    eq->RemoveEvent(id, SceKernelEvent::Filter::GraphicsCore);
 
-    Platform::IrqC::Instance()->Unregister(static_cast<Platform::InterruptId>(id), equeue);
+    Platform::IrqC::Instance()->Unregister(static_cast<Platform::InterruptId>(id), eq);
     return ORBIS_OK;
 }
 
@@ -627,30 +632,10 @@ int PS4_SYSV_ABI sceGnmDrawIndirectCountMulti() {
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceGnmDrawIndirectMulti(u32* cmdbuf, u32 size, u32 data_offset, u32 max_count,
-                                         u32 shader_stage, u32 vertex_sgpr_offset,
-                                         u32 instance_sgpr_offset, u32 flags) {
-    LOG_TRACE(Lib_GnmDriver, "called");
-
-    if (cmdbuf && size == 11 && shader_stage < ShaderStages::Max && vertex_sgpr_offset < 0x10 &&
-        instance_sgpr_offset < 0x10) {
-        const auto predicate = flags & 1 ? PM4Predicate::PredEnable : PM4Predicate::PredDisable;
-        cmdbuf = WriteHeader<PM4ItOpcode::DrawIndirectMulti>(
-            cmdbuf, 4, PM4ShaderType::ShaderGraphics, predicate);
-
-        const auto sgpr_offset = indirect_sgpr_offsets[shader_stage];
-        cmdbuf[0] = data_offset;
-        cmdbuf[1] = vertex_sgpr_offset == 0 ? 0 : (vertex_sgpr_offset & 0xffffu) + sgpr_offset;
-        cmdbuf[2] = instance_sgpr_offset == 0 ? 0 : (instance_sgpr_offset & 0xffffu) + sgpr_offset;
-        cmdbuf[3] = max_count;
-        cmdbuf[4] = sizeof(DrawIndirectArgs);
-        cmdbuf[5] = sceKernelIsNeoMode() ? flags & 0xe0000000u | 2u : 2u; // auto index
-
-        cmdbuf += 6;
-        WriteTrailingNop<3>(cmdbuf);
-        return ORBIS_OK;
-    }
-    return -1;
+int PS4_SYSV_ABI sceGnmDrawIndirectMulti() {
+    LOG_ERROR(Lib_GnmDriver, "(STUBBED) called");
+    UNREACHABLE();
+    return ORBIS_OK;
 }
 
 u32 PS4_SYSV_ABI sceGnmDrawInitDefaultHardwareState(u32* cmdbuf, u32 size) {
@@ -919,7 +904,7 @@ int PS4_SYSV_ABI sceGnmGetDebugTimestamp() {
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceGnmGetEqEventType(const OrbisKernelEvent* ev) {
+int PS4_SYSV_ABI sceGnmGetEqEventType(const SceKernelEvent* ev) {
     LOG_TRACE(Lib_GnmDriver, "called");
     return sceKernelGetEventData(ev);
 }
@@ -2076,7 +2061,7 @@ int PS4_SYSV_ABI sceGnmSqttWaitForEvent() {
 }
 
 static inline s32 PatchFlipRequest(u32* cmdbuf, u32 size, u32 vo_handle, u32 buf_idx, u32 flip_mode,
-                                   s64 flip_arg, void* unk) {
+                                   u32 flip_arg, void* unk) {
     // check for `prepareFlip` packet
     cmdbuf += size - 64;
     ASSERT_MSG(cmdbuf[0] == 0xc03e1000, "Can't find `prepareFlip` packet");
@@ -2162,7 +2147,7 @@ static inline s32 PatchFlipRequest(u32* cmdbuf, u32 size, u32 vo_handle, u32 buf
 s32 PS4_SYSV_ABI sceGnmSubmitAndFlipCommandBuffers(u32 count, u32* dcb_gpu_addrs[],
                                                    u32* dcb_sizes_in_bytes, u32* ccb_gpu_addrs[],
                                                    u32* ccb_sizes_in_bytes, u32 vo_handle,
-                                                   u32 buf_idx, u32 flip_mode, s64 flip_arg) {
+                                                   u32 buf_idx, u32 flip_mode, u32 flip_arg) {
     return sceGnmSubmitAndFlipCommandBuffersForWorkload(
         count, count, dcb_gpu_addrs, dcb_sizes_in_bytes, ccb_gpu_addrs, ccb_sizes_in_bytes,
         vo_handle, buf_idx, flip_mode, flip_arg);
@@ -2170,7 +2155,7 @@ s32 PS4_SYSV_ABI sceGnmSubmitAndFlipCommandBuffers(u32 count, u32* dcb_gpu_addrs
 
 s32 PS4_SYSV_ABI sceGnmSubmitAndFlipCommandBuffersForWorkload(
     u32 workload, u32 count, u32* dcb_gpu_addrs[], u32* dcb_sizes_in_bytes, u32* ccb_gpu_addrs[],
-    u32* ccb_sizes_in_bytes, u32 vo_handle, u32 buf_idx, u32 flip_mode, s64 flip_arg) {
+    u32* ccb_sizes_in_bytes, u32 vo_handle, u32 buf_idx, u32 flip_mode, u32 flip_arg) {
     LOG_DEBUG(Lib_GnmDriver, "called [buf = {}]", buf_idx);
 
     auto* cmdbuf = dcb_gpu_addrs[count - 1];
@@ -2305,7 +2290,7 @@ int PS4_SYSV_ABI sceGnmSubmitDone() {
     LOG_DEBUG(Lib_GnmDriver, "called");
     WaitGpuIdle();
     if (!liverpool->IsGpuIdle()) {
-        submission_lock = true;
+        submission_lock.store(true, std::memory_order_release);
     }
     liverpool->SubmitDone();
     send_init_packet = true;
@@ -2868,11 +2853,6 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     LOG_INFO(Lib_GnmDriver, "Initializing presenter");
     liverpool = std::make_unique<AmdGpu::Liverpool>();
     presenter = std::make_unique<Vulkan::Presenter>(*g_window, liverpool.get());
-
-    // Auto-enable any patch shaders that exist in the patch folder
-    if (Config::collectShadersForDebug() && Config::patchShaders()) {
-        DebugState.AutoEnablePatchShaders();
-    }
 
     const s32 result = sceKernelGetCompiledSdkVersion(&sdk_version);
     if (result != ORBIS_OK) {

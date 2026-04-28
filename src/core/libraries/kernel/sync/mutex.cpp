@@ -11,12 +11,24 @@ TimedMutex::TimedMutex() {
 #ifdef _WIN64
     mtx = CreateMutex(nullptr, false, nullptr);
     ASSERT(mtx);
+#else
+    // Use adaptive mutex: the kernel does a brief spin before falling back to futex.
+    // This is significantly faster than std::timed_mutex for short critical sections
+    // and avoids the prctl syscall overhead seen in profiling.
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
+    int ret = pthread_mutex_init(&mtx, &attr);
+    ASSERT(ret == 0);
+    pthread_mutexattr_destroy(&attr);
 #endif
 }
 
 TimedMutex::~TimedMutex() {
 #ifdef _WIN64
     CloseHandle(mtx);
+#else
+    pthread_mutex_destroy(&mtx);
 #endif
 }
 
@@ -29,7 +41,7 @@ void TimedMutex::lock() {
         }
     }
 #else
-    mtx.lock();
+    pthread_mutex_lock(&mtx);
 #endif
 }
 
@@ -37,7 +49,7 @@ bool TimedMutex::try_lock() {
 #ifdef _WIN64
     return WaitForSingleObjectEx(mtx, 0, true) == WAIT_OBJECT_0;
 #else
-    return mtx.try_lock();
+    return pthread_mutex_trylock(&mtx) == 0;
 #endif
 }
 
@@ -45,7 +57,7 @@ void TimedMutex::unlock() {
 #ifdef _WIN64
     ReleaseMutex(mtx);
 #else
-    mtx.unlock();
+    pthread_mutex_unlock(&mtx);
 #endif
 }
 

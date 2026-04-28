@@ -22,37 +22,37 @@ static Core::FileSys::MntPoints* g_mnt = Common::Singleton<Core::FileSys::MntPoi
 namespace fs = std::filesystem;
 
 // clang-format off
-static const std::unordered_map<std::string, std::string> default_title = {
-    {"ja_JP", "セーブデータ"},
-    {"en_US", "Saved Data"},
-    {"fr_FR", "Données sauvegardées"},
-    {"es_ES", "Datos guardados"},
-    {"de_DE", "Gespeicherte Daten"},
-    {"it_IT", "Dati salvati"},
-    {"nl_NL", "Opgeslagen data"},
-    {"pt_PT", "Dados guardados"},
-    {"ru_RU", "Сохраненные данные"},
-    {"ko_KR", "저장 데이터"},
-    {"zh_CN", "保存数据"},
-    {"fi_FI", "Tallennetut tiedot"},
-    {"sv_SE", "Sparade data"},
-    {"da_DK", "Gemte data"},
-    {"no_NO", "Lagrede data"},
-    {"pl_PL", "Zapisane dane"},
-    {"pt_BR", "Dados salvos"},
-    {"tr_TR", "Kayıtlı Veriler"},
+static const std::unordered_map<int, std::string> default_title = {
+    {0/*"ja_JP"*/, "セーブデータ"},
+    {1/*"en_US"*/, "Saved Data"},
+    {2/*"fr_FR"*/, "Données sauvegardées"},
+    {3/*"es_ES"*/, "Datos guardados"},
+    {4/*"de_DE"*/, "Gespeicherte Daten"},
+    {5/*"it_IT"*/, "Dati salvati"},
+    {6/*"nl_NL"*/, "Opgeslagen data"},
+    {7/*"pt_PT"*/, "Dados guardados"},
+    {8/*"ru_RU"*/, "Сохраненные данные"},
+    {9/*"ko_KR"*/, "저장 데이터"},
+    {10/*"zh_CN"*/, "保存数据"},
+    {12/*"fi_FI"*/, "Tallennetut tiedot"},
+    {13/*"sv_SE"*/, "Sparade data"},
+    {14/*"da_DK"*/, "Gemte data"},
+    {15/*"no_NO"*/, "Lagrede data"},
+    {16/*"pl_PL"*/, "Zapisane dane"},
+    {17/*"pt_BR"*/, "Dados salvos"},
+    {19/*"tr_TR"*/, "Kayıtlı Veriler"},
 };
 // clang-format on
 
 namespace Libraries::SaveData {
 
-fs::path SaveInstance::MakeTitleSavePath(Libraries::UserService::OrbisUserServiceUserId user_id,
+fs::path SaveInstance::MakeTitleSavePath(OrbisUserServiceUserId user_id,
                                          std::string_view game_serial) {
     return Config::GetSaveDataPath() / std::to_string(user_id) / game_serial;
 }
 
-fs::path SaveInstance::MakeDirSavePath(Libraries::UserService::OrbisUserServiceUserId user_id,
-                                       std::string_view game_serial, std::string_view dir_name) {
+fs::path SaveInstance::MakeDirSavePath(OrbisUserServiceUserId user_id, std::string_view game_serial,
+                                       std::string_view dir_name) {
     return Config::GetSaveDataPath() / std::to_string(user_id) / game_serial / dir_name;
 }
 
@@ -71,9 +71,9 @@ fs::path SaveInstance::GetParamSFOPath(const fs::path& dir_path) {
 
 void SaveInstance::SetupDefaultParamSFO(PSF& param_sfo, std::string dir_name,
                                         std::string game_serial) {
-    std::string locale = Config::getEmulatorLanguage();
+    int locale = Config::GetLanguage();
     if (!default_title.contains(locale)) {
-        locale = "en_US";
+        locale = 1; // default to en_US if not found
     }
 
 #define P(type, key, ...) param_sfo.Add##type(std::string{key}, __VA_ARGS__)
@@ -89,8 +89,8 @@ void SaveInstance::SetupDefaultParamSFO(PSF& param_sfo, std::string dir_name,
 #undef P
 }
 
-SaveInstance::SaveInstance(int slot_num, Libraries::UserService::OrbisUserServiceUserId user_id,
-                           std::string _game_serial, std::string_view _dir_name, int max_blocks)
+SaveInstance::SaveInstance(int slot_num, OrbisUserServiceUserId user_id, std::string _game_serial,
+                           std::string_view _dir_name, int max_blocks)
     : slot_num(slot_num), user_id(user_id), game_serial(std::move(_game_serial)),
       dir_name(_dir_name),
       max_blocks(std::clamp(max_blocks, OrbisSaveDataBlocksMin2, OrbisSaveDataBlocksMax)) {
@@ -105,7 +105,7 @@ SaveInstance::SaveInstance(int slot_num, Libraries::UserService::OrbisUserServic
     mount_point = "/savedata" + std::to_string(slot_num);
 
     this->exists = fs::exists(param_sfo_path);
-    this->mounted = g_mnt->GetMount(mount_point) != std::nullopt;
+    this->mounted = g_mnt->GetMount(mount_point) != nullptr;
 }
 
 SaveInstance::~SaveInstance() {

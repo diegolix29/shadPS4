@@ -90,13 +90,16 @@ void BlitHelper::ReinterpretColorAsMsDepth(u32 width, u32 height, u32 num_sample
     });
 
     Vulkan::RenderState state{};
+    state.has_depth = true;
     state.width = width;
     state.height = height;
-    state.num_layers = 1;
-    state.depth_stencil_attachment.image_view = depth_view;
-    state.depth_stencil_attachment.image_layout = vk::ImageLayout::eDepthAttachmentOptimal;
-    state.depth_stencil_attachment.has_depth = true;
-    state.depth_stencil_attachment.depth_clear = true;
+    state.depth_attachment = vk::RenderingAttachmentInfo{
+        .imageView = depth_view,
+        .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eDontCare,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+        .clearValue = vk::ClearValue{.depthStencil = {.depth = 0.f}},
+    };
     scheduler.BeginRendering(state);
 
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -193,11 +196,12 @@ void BlitHelper::CopyBetweenMsImages(u32 width, u32 height, u32 num_samples,
     Vulkan::RenderState state{};
     state.width = width;
     state.height = height;
-    state.num_layers = 1;
-    state.num_color_attachments = 1;
-    state.color_attachments[0].image_view = dst_view;
-    state.color_attachments[0].image_layout = vk::ImageLayout::eColorAttachmentOptimal;
-    state.color_attachments[0].is_clear = true;
+    state.color_attachments[state.num_color_attachments++] = vk::RenderingAttachmentInfo{
+        .imageView = dst_view,
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eDontCare,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+    };
     scheduler.BeginRendering(state);
 
     const auto cmdbuf = scheduler.CommandBuffer();

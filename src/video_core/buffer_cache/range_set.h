@@ -72,7 +72,7 @@ struct RangeSet {
 
     template <typename Func>
     void ForEachInRange(VAddr base_addr, size_t size, Func&& func) const {
-        if (m_ranges_set.empty() || size == 0) {
+        if (m_ranges_set.empty()) {
             return;
         }
         const VAddr start_address = base_addr;
@@ -176,7 +176,7 @@ public:
 
     template <typename Func>
     void ForEachInRange(VAddr base_addr, size_t size, Func&& func) const {
-        if (m_ranges_map.empty() || size == 0) {
+        if (m_ranges_map.empty()) {
             return;
         }
         const VAddr start_address = base_addr;
@@ -266,28 +266,21 @@ public:
     }
 
     template <typename Func>
-    void ForEach(Func&& func) {
+    void ForEach(Func&& func) const {
         if (m_ranges_map.empty()) {
             return;
         }
 
-        for (auto it = m_ranges_map.begin(); it != m_ranges_map.end();) {
-            const auto& [interval, value] = *it;
+        for (const auto& [interval, value] : m_ranges_map) {
             const VAddr inter_addr_end = interval.upper();
             const VAddr inter_addr = interval.lower();
-            if (func(inter_addr, inter_addr_end, value)) {
-                const auto next_it = std::next(it);
-                m_ranges_map.erase(it);
-                it = next_it;
-            } else {
-                ++it;
-            }
+            func(inter_addr, inter_addr_end, value);
         }
     }
 
     template <typename Func>
     void ForEachInRange(VAddr base_addr, size_t size, Func&& func) const {
-        if (m_ranges_map.empty() || size == 0) {
+        if (m_ranges_map.empty()) {
             return;
         }
         const VAddr start_address = base_addr;

@@ -22,6 +22,5 @@ enum class Type {
 };
 
 using RegionBits = Common::BitArray<NUM_PAGES_PER_REGION>;
-using RegionWords = std::array<u16, NUM_PAGES_PER_REGION>;
 
 } // namespace VideoCore

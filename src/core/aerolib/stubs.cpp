@@ -4,6 +4,9 @@
 #include "common/logging/log.h"
 #include "core/aerolib/aerolib.h"
 #include "core/aerolib/stubs.h"
+#include "core/libraries/kernel/orbis_error.h"
+
+#include <string_view>
 
 namespace Core::AeroLib {
 
@@ -33,15 +36,35 @@ static u64 UnknownStub() {
 
 static const NidEntry* stub_nids[MAX_STUBS];
 static std::string stub_nids_unknown[MAX_STUBS];
+bool IsPhotoCaptureShareStub(const char* name) {
+    if (name == nullptr) {
+        return false;
+    }
+
+    const std::string_view n{name};
+
+    // Once HLE implementations for ContentExport/ContentSearch/ShareUtility are registered,
+    // these should not normally hit aerolib stubs at all.
+    // Keep this helper conservative and disabled to avoid masking HLE registration mistakes.
+    (void)n;
+    return false;
+}
 
 template <int stub_index>
 static u64 CommonStub() {
     auto entry = stub_nids[stub_index];
     if (entry) {
-        LOG_DEBUG(Core, "Stub: {} (nid: {}) called, returning zero to {}", entry->name, entry->nid,
+        if (IsPhotoCaptureShareStub(entry->name)) {
+            LOG_ERROR(Core,
+                      "Stub: {} (nid: {}) called in photo/share path, returning ENOSYS to {}",
+                      entry->name, entry->nid, __builtin_return_address(0));
+            return static_cast<u64>(static_cast<u32>(ORBIS_KERNEL_ERROR_ENOSYS));
+        }
+
+        LOG_ERROR(Core, "Stub: {} (nid: {}) called, returning zero to {}", entry->name, entry->nid,
                   __builtin_return_address(0));
     } else {
-        LOG_DEBUG(Core, "Stub: Unknown (nid: {}) called, returning zero to {}",
+        LOG_ERROR(Core, "Stub: Unknown (nid: {}) called, returning zero to {}",
                   stub_nids_unknown[stub_index], __builtin_return_address(0));
     }
     return 0;

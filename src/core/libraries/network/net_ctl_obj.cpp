@@ -48,14 +48,9 @@ void NetCtlInternal::CheckCallback() {
     std::scoped_lock lock{m_mutex};
     const auto event = Config::getIsConnectedToNetwork() ? ORBIS_NET_CTL_EVENT_TYPE_IPOBTAINED
                                                          : ORBIS_NET_CTL_EVENT_TYPE_DISCONNECTED;
-    // Only fire callbacks on state change (testing exact PS4 behavior)
-    if (event == last_callback_event) {
-        return;
-    }
-    last_callback_event = event;
     for (const auto [func, arg] : callbacks) {
         if (func != nullptr) {
-            func(event, arg);
+            Core::ExecuteGuest(func, event, arg);
         }
     }
 }
@@ -64,14 +59,9 @@ void NetCtlInternal::CheckNpToolkitCallback() {
     std::scoped_lock lock{m_mutex};
     const auto event = Config::getIsConnectedToNetwork() ? ORBIS_NET_CTL_EVENT_TYPE_IPOBTAINED
                                                          : ORBIS_NET_CTL_EVENT_TYPE_DISCONNECTED;
-    // Only fire callbacks on state change (testing exact PS4 behavior)
-    if (event == last_nptool_event) {
-        return;
-    }
-    last_nptool_event = event;
     for (const auto [func, arg] : nptool_callbacks) {
         if (func != nullptr) {
-            func(event, arg);
+            Core::ExecuteGuest(func, event, arg);
         }
     }
 }

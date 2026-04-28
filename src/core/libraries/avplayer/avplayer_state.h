@@ -67,6 +67,12 @@ private:
     void UpdateBufferingState();
     bool IsStateTransitionValid(AvState state);
 
+    // FIX(GR2FORK): Stop() implementation that assumes m_source_mutex is
+    // already held uniquely by the caller. Used by Start() so it can hold
+    // the unique lock for the whole Stop-then-Start lifecycle transition
+    // without deadlocking on a re-entrant shared-lock acquisition.
+    bool StopLocked();
+
     std::unique_ptr<AvPlayerSource> m_up_source;
 
     AvPlayerInitData m_init_data{};

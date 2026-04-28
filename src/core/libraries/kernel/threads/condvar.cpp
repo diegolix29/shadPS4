@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <chrono>
 #include <cstring>
 #include "common/assert.h"
+#include "common/sync_trace.h"
 #include "core/libraries/kernel/kernel.h"
 #include "core/libraries/kernel/posix_error.h"
 #include "core/libraries/kernel/threads/pthread.h"
@@ -10,6 +12,10 @@
 #include "core/libraries/libs.h"
 
 namespace Libraries::Kernel {
+
+// FIX(GR2FORK): match event_flag.cpp threshold so condvar slow-waits are
+// surfaced on the same scale as EF/sema slow-waits in hang dumps.
+static constexpr auto kTraceCondWaitThresholdMs = std::chrono::milliseconds(500);
 
 static std::mutex CondStaticLock;
 
@@ -30,8 +36,8 @@ static int CondInit(PthreadCondT* cond, const PthreadCondAttrT* cond_attr, const
     if (name) {
         cvp->name = name;
     } else {
-        static std::atomic<int> CondId{0};
-        cvp->name = fmt::format("Cond{}", CondId.fetch_add(1));
+        static int CondId = 0;
+        cvp->name = fmt::format("Cond{}", CondId++);
     }
 
     if (cond_attr == nullptr || *cond_attr == nullptr) {
@@ -98,6 +104,26 @@ int PthreadCond::Wait(PthreadMutexT* mutex, const OrbisKernelTimespec* abstime, 
         return error;
     }
 
+    // FIX(GR2FORK): make condvar waits visible to SyncTrace. The Main SM
+    // thread, AvController, and various engine fibers all park on guest
+    // pthread_cond_wait, which routes through Pthread::Sleep → a per-thread
+    // std::binary_semaphore that does NOT go through the SET_EF/SIGNAL_SEMA
+    // ring. Without this hook, the deadlock root in every hang dump is
+    // invisible — we see all the downstream MTTM/Havok/JobManager waiters
+    // but never the guest thread that stopped feeding them.
+    //
+    // arg1 carries the mutex pointer so the dump shows which mutex the
+    // thread will reacquire on wake — that's the thread's "wait location",
+    // useful for cross-referencing with WAIT_MUTEX_SLOW entries on the
+    // same mutex.
+    const auto trace_start = std::chrono::steady_clock::now();
+    Common::SyncTrace::NoteWaitBegin(
+        Common::SyncTrace::Op::WAIT_COND_SLOW, this, name,
+        reinterpret_cast<u64>(mp));
+    struct WaitEndGuard {
+        ~WaitEndGuard() { Common::SyncTrace::NoteWaitEnd(); }
+    } _end_guard;
+
     Pthread* curthread = g_curthread;
     ASSERT_MSG(curthread->wchan == nullptr, "Thread was already on queue.");
     // _thr_testcancel(curthread);
@@ -135,6 +161,16 @@ int PthreadCond::Wait(PthreadMutexT* mutex, const OrbisKernelTimespec* abstime, 
             SleepqUnlock(this);
             curthread->mutex_obj = nullptr;
             mp->CvLock(recurse);
+            // FIX(GR2FORK): record cancel exit if the wait was long enough
+            // to be interesting.
+            const auto d = std::chrono::steady_clock::now() - trace_start;
+            if (d >= kTraceCondWaitThresholdMs) {
+                Common::SyncTrace::Record(
+                    Common::SyncTrace::Op::WAIT_COND_SLOW, this, name,
+                    reinterpret_cast<u64>(mp),
+                    std::chrono::duration_cast<std::chrono::milliseconds>(d).count(),
+                    0, /*ECANCELED*/ -1);
+            }
             return 0;
         } else if (error == POSIX_ETIMEDOUT) {
             SleepQueue* sq = SleepqLookup(this);
@@ -148,6 +184,16 @@ int PthreadCond::Wait(PthreadMutexT* mutex, const OrbisKernelTimespec* abstime, 
     const int error2 = mp->CvLock(recurse);
     if (error == 0) {
         error = error2;
+    }
+    // FIX(GR2FORK): record slow exits (normal wake or timeout) so post-mortem
+    // hang dumps surface long condvar waits.
+    const auto d = std::chrono::steady_clock::now() - trace_start;
+    if (d >= kTraceCondWaitThresholdMs) {
+        Common::SyncTrace::Record(
+            Common::SyncTrace::Op::WAIT_COND_SLOW, this, name,
+            reinterpret_cast<u64>(mp),
+            std::chrono::duration_cast<std::chrono::milliseconds>(d).count(),
+            0, error);
     }
     return error;
 }
@@ -192,6 +238,14 @@ int PthreadCond::Signal(Pthread* thread) {
     PthreadMutex* mp = td->mutex_obj;
     has_user_waiters = SleepqRemove(sq, td);
 
+    // FIX(GR2FORK): record signal — only when a waiter was actually present.
+    // The no-waiters fast path above (sq == nullptr) is the common case and
+    // would flood the SyncTrace ring if recorded, masking real signals in
+    // the lead-up to a hang. arg2=1 means "single waiter woken".
+    Common::SyncTrace::Record(
+        Common::SyncTrace::Op::SIGNAL_COND, this, name,
+        reinterpret_cast<u64>(td), /*woken=*/1, 0, 0);
+
     BinarySemaphore* waddr = nullptr;
     if (mp->m_owner == curthread) {
         if (curthread->nwaiter_defer >= Pthread::MaxDeferWaiters) {
@@ -214,17 +268,24 @@ struct BroadcastArg {
     Pthread* curthread;
     BinarySemaphore* waddrs[Pthread::MaxDeferWaiters];
     int count;
+    // FIX(GR2FORK): total waiters woken across all defer-batches and the
+    // m_owner == curthread path (which defers to curthread->defer_waiters
+    // and does NOT increment `count`, so a separate counter is needed).
+    int woken_total;
 };
 
 int PthreadCond::Broadcast() {
     BroadcastArg ba;
     ba.curthread = g_curthread;
     ba.count = 0;
+    ba.woken_total = 0;
 
     const auto drop_cb = [](Pthread* td, void* arg) {
         auto* ba2 = static_cast<BroadcastArg*>(arg);
         Pthread* curthread = ba2->curthread;
         PthreadMutex* mp = td->mutex_obj;
+
+        ++ba2->woken_total;
 
         if (mp->m_owner == curthread) {
             if (curthread->nwaiter_defer >= Pthread::MaxDeferWaiters) {
@@ -256,6 +317,15 @@ int PthreadCond::Broadcast() {
 
     for (int i = 0; i < ba.count; i++) {
         ba.waddrs[i]->release();
+    }
+
+    // FIX(GR2FORK): record broadcast — only when waiters were actually woken.
+    // arg2 carries the woken count; useful for distinguishing a normal
+    // 1-of-1 signal from a true broadcast that woke 5+ threads.
+    if (ba.woken_total > 0) {
+        Common::SyncTrace::Record(
+            Common::SyncTrace::Op::SIGNAL_COND, this, name,
+            /*arg1=*/0, /*woken=*/static_cast<u64>(ba.woken_total), 0, 0);
     }
     return 0;
 }

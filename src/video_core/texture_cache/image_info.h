@@ -48,7 +48,7 @@ struct ImageInfo {
     }
     Extent2D BlockDim() const {
         const auto dim = props.is_block ? 2 : 0;
-        return Extent2D{pitch >> dim, size.height >> dim};
+        return Extent2D{size.width >> dim, size.height >> dim};
     }
 
     s32 MipOf(const ImageInfo& info) const;
@@ -83,6 +83,7 @@ struct ImageInfo {
     std::array<MipInfo, 16> mips_layout;
     VAddr guest_address{};
     u32 guest_size{};
+    u64 size_sig{};
     u8 bank_swizzle{};
     bool alt_tile{};
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/alignment.h"
@@ -13,16 +13,13 @@
 #include "core/aerolib/aerolib.h"
 #include "core/aerolib/stubs.h"
 #include "core/devtools/widget/module_list.h"
+#include "core/libraries/kernel/kernel.h"
 #include "core/libraries/kernel/memory.h"
 #include "core/libraries/kernel/threads.h"
 #include "core/linker.h"
 #include "core/memory.h"
 #include "core/tls.h"
 #include "ipc/ipc.h"
-
-#ifndef _WIN32
-#include <signal.h>
-#endif
 
 namespace Core {
 
@@ -73,7 +70,7 @@ void Linker::Execute(const std::vector<std::string>& args) {
     }
 
     // Configure the direct and flexible memory regions.
-    u64 fmem_size = ORBIS_KERNEL_FLEXIBLE_MEMORY_SIZE;
+    u64 fmem_size = ORBIS_FLEXIBLE_MEMORY_SIZE;
     bool use_extended_mem1 = true, use_extended_mem2 = true;
 
     const auto* proc_param = GetProcParam();
@@ -86,7 +83,7 @@ void Linker::Execute(const std::vector<std::string>& args) {
             if (mem_param.size >=
                 offsetof(OrbisKernelMemParam, flexible_memory_size) + sizeof(u64*)) {
                 if (const auto* flexible_size = mem_param.flexible_memory_size) {
-                    fmem_size = *flexible_size + ORBIS_KERNEL_FLEXIBLE_MEMORY_BASE;
+                    fmem_size = *flexible_size + ORBIS_FLEXIBLE_MEMORY_BASE;
                 }
             }
         }
@@ -108,12 +105,7 @@ void Linker::Execute(const std::vector<std::string>& args) {
     memory->SetupMemoryRegions(fmem_size, use_extended_mem1, use_extended_mem2);
 
     main_thread.Run([this, module, &args](std::stop_token) {
-        Common::SetCurrentThreadName("Game:Main");
-#ifndef _WIN32 // Clear any existing signal mask for game threads.
-        sigset_t emptyset;
-        sigemptyset(&emptyset);
-        pthread_sigmask(SIG_SETMASK, &emptyset, nullptr);
-#endif
+        Common::SetCurrentThreadName("GAME_MainThread");
         if (auto& ipc = IPC::Instance()) {
             ipc.WaitForStart();
         }
@@ -133,13 +125,12 @@ void Linker::Execute(const std::vector<std::string>& args) {
         ASSERT_MSG(result == 0, "Unable to emulate libSceGnmDriver initialization");
 
         // Start main module.
-        EntryParams params{};
+        EntryParams& params = Libraries::Kernel::entry_params;
         params.argc = 1;
         params.argv[0] = "eboot.bin";
         if (!args.empty()) {
-            constexpr int MaxArgs = sizeof(params.argv) / sizeof(params.argv[0]);
-            params.argc = std::min<int>(args.size(), MaxArgs);
-            for (int i = 0; i < params.argc; i++) {
+            params.argc = args.size();
+            for (int i = 0; i < args.size() && i < 33; i++) {
                 params.argv[i] = args[i].c_str();
             }
         }
@@ -189,8 +180,8 @@ s32 Linker::LoadAndStartModule(const std::filesystem::path& path, u64 args, cons
     }
 
     // Retrieve and verify proc param according to libkernel.
-    auto* param = module->GetProcParam<OrbisProcParam*>();
-    ASSERT_MSG(!param || param->size >= 0x18, "Invalid module param size: {}", param->size);
+    u64* param = module->GetProcParam<u64*>();
+    ASSERT_MSG(!param || param[0] >= 0x18, "Invalid module param size: {}", param[0]);
     s32 ret = module->Start(args, argp, param);
     if (pRes) {
         *pRes = ret;
@@ -277,6 +268,14 @@ void Linker::Relocate(Module* module) {
             case STB_GLOBAL:
             case STB_WEAK: {
                 rel_name = names_tlb + sym.st_name;
+                // v87: Log resolutions targeting the browse GOT range
+                {
+                    auto rel_offset = rel_virtual_addr - rel_base_virtual_addr;
+                    if (rel_offset >= 0x16bcc00 && rel_offset <= 0x16bcd18) {
+                        LOG_ERROR(Core_Linker, "[GR2v87] Browse GOT {:#x}: raw='{}'",
+                                  rel_offset, rel_name);
+                    }
+                }
                 if (Resolve(rel_name, rel_sym_type, module, &symrec)) {
                     // Only set the rela bit if the symbol was actually resolved and not stubbed.
                     module->SetRelaBit(bit_idx);
@@ -358,6 +357,7 @@ bool Linker::Resolve(const std::string& name, Loader::SymbolType sym_type, Modul
         return_info->virtual_address = AeroLib::GetStub(sr.name.c_str());
         return_info->name = "Unknown !!!";
     }
+    // v87: Log all unresolved symbols with their lib/mod names
     LOG_ERROR(Core_Linker, "Linker: Stub resolved {} as {} (lib: {}, mod: {})", sr.name,
               return_info->name, library->name, module->name);
     return false;

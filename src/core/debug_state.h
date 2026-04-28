@@ -14,6 +14,7 @@
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/regs.h"
 #include "video_core/renderer_vulkan/vk_common.h"
+#include <vulkan/vulkan.hpp>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -229,8 +230,6 @@ public:
                        vk::ShaderModule module, std::span<const u32> spv,
                        std::span<const u32> raw_code, std::span<const u32> patch_spv,
                        bool is_patched);
-
-    void AutoEnablePatchShaders();
 
 private:
     std::optional<RegDump*> GetRegDump(uintptr_t base_addr, uintptr_t header_addr);

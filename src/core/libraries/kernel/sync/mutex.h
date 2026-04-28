@@ -10,7 +10,9 @@
 #ifdef _WIN64
 #include <windows.h>
 #else
-#include <mutex>
+#include <cerrno>
+#include <ctime>
+#include <pthread.h>
 #endif
 
 namespace Libraries::Kernel {
@@ -43,7 +45,13 @@ public:
 
         return try_lock_until(abs_time);
 #else
-        return mtx.try_lock_for(rel_time);
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(rel_time);
+        long long total_ns = ts.tv_nsec + (ns.count() % 1000000000LL);
+        ts.tv_sec += ns.count() / 1000000000LL + total_ns / 1000000000LL;
+        ts.tv_nsec = total_ns % 1000000000LL;
+        return pthread_mutex_timedlock(&mtx, &ts) == 0;
 #endif
     }
 
@@ -65,7 +73,8 @@ public:
             }
         }
 #else
-        return mtx.try_lock_until(abs_time);
+        auto duration = abs_time - Clock::now();
+        return try_lock_for(duration);
 #endif
     }
 
@@ -73,7 +82,7 @@ private:
 #ifdef _WIN64
     HANDLE mtx;
 #else
-    std::timed_mutex mtx;
+    pthread_mutex_t mtx;
 #endif
 };
 

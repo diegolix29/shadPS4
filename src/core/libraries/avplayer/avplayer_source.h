@@ -195,6 +195,7 @@ private:
     std::atomic_bool m_is_looping = false;
     std::atomic_bool m_is_paused = false;
     std::atomic_bool m_is_eof = false;
+    std::atomic_bool m_first_video_delivered = false;
 
     std::unique_ptr<IDataStreamer> m_up_data_streamer;
 
@@ -231,6 +232,21 @@ private:
     AVCodecContextPtr m_audio_codec_context{nullptr, &ReleaseAVCodecContext};
     SWRContextPtr m_swr_context{nullptr, &ReleaseSWRContext};
     SWSContextPtr m_sws_context{nullptr, &ReleaseSWSContext};
+
+    // FIX(GR2FORK v4): FFmpeg's documented threading contract is that
+    // an AVCodecContext must be accessed by at most one thread at a
+    // time. shadPS4 violates that whenever the DemuxerThread calls
+    // avcodec_flush_buffers() on loop reset: the video/audio decoder
+    // threads keep calling avcodec_send_packet / avcodec_receive_frame
+    // on the SAME context with no synchronization. The race corrupts
+    // FFmpeg's internal state machine and produces a wild-pointer
+    // dereference on the next call (typical symptom: silent process
+    // death during pause-menu / title-screen video looping, since
+    // those are the only shadPS4 paths that trigger demuxer loop
+    // reset). These mutexes serialize all send/receive/flush calls
+    // on each codec context.
+    std::mutex m_video_codec_mutex{};
+    std::mutex m_audio_codec_mutex{};
 
     std::optional<u64> m_last_audio_ts{};
     std::optional<std::chrono::high_resolution_clock::time_point> m_start_time{};

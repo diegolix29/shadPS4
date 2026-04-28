@@ -115,7 +115,7 @@ public:
     void S_MULK_I32(const GcnInst& inst);
 
     // SOP1
-    void S_MOV_B32(const GcnInst& inst);
+    void S_MOV(const GcnInst& inst);
     void S_MOV_B64(const GcnInst& inst);
     void S_NOT_B64(const GcnInst& inst);
     void S_BREV_B32(const GcnInst& inst);
@@ -153,7 +153,6 @@ public:
     void V_SUB_F32(const GcnInst& inst);
     void V_SUBREV_F32(const GcnInst& inst);
     void V_MUL_F32(const GcnInst& inst);
-    void V_MUL_LEGACY_F32(const GcnInst& inst);
     void V_MUL_I32_I24(const GcnInst& inst, bool is_signed);
     void V_MIN_F32(const GcnInst& inst, bool is_legacy = false);
     void V_MAX_F32(const GcnInst& inst, bool is_legacy = false);
@@ -183,14 +182,9 @@ public:
     void V_CVT_PKNORM_U16_F32(const GcnInst& inst);
     void V_CVT_PKNORM_I16_F32(const GcnInst& inst);
     void V_CVT_PKRTZ_F16_F32(const GcnInst& inst);
-    void V_ADD_F16(const GcnInst& inst);
-    void V_SUB_F16(const GcnInst& inst);
-    void V_MUL_F16(const GcnInst& inst);
-    void V_MAX_F16(const GcnInst& inst);
-    void V_MIN_F16(const GcnInst& inst);
 
     // VOP1
-    void V_MOV_B32(const GcnInst& inst);
+    void V_MOV(const GcnInst& inst);
     void V_READFIRSTLANE_B32(const GcnInst& inst);
     void V_CVT_I32_F64(const GcnInst& inst);
     void V_CVT_F64_I32(const GcnInst& inst);
@@ -225,7 +219,6 @@ public:
     void V_NOT_B32(const GcnInst& inst);
     void V_BFREV_B32(const GcnInst& inst);
     void V_FFBH_U32(const GcnInst& inst);
-    void V_FFBH_I32(const GcnInst& inst);
     void V_FFBL_B32(const GcnInst& inst);
     void V_FREXP_EXP_I32_F64(const GcnInst& inst);
     void V_FREXP_MANT_F64(const GcnInst& inst);
@@ -238,7 +231,6 @@ public:
 
     // VOPC
     void V_CMP_F32(ConditionOp op, bool set_exec, const GcnInst& inst);
-    void V_CMP_F64(ConditionOp op, bool set_exec, const GcnInst& inst);
     void V_CMP_U32(ConditionOp op, bool is_signed, bool set_exec, const GcnInst& inst);
     void V_CMP_U64(ConditionOp op, bool is_signed, bool set_exec, const GcnInst& inst);
     void V_CMP_CLASS_F32(const GcnInst& inst);
@@ -267,7 +259,6 @@ public:
     void V_CVT_PK_I16_I32(const GcnInst& inst);
     void V_CVT_PK_U8_F32(const GcnInst& inst);
     void V_LSHL_B64(const GcnInst& inst);
-    void V_LSHR_B64(const GcnInst& inst);
     void V_ALIGNBIT_B32(const GcnInst& inst);
     void V_ALIGNBYTE_B32(const GcnInst& inst);
     void V_MUL_F64(const GcnInst& inst);
@@ -275,8 +266,6 @@ public:
     void V_MUL_LO_U32(const GcnInst& inst);
     void V_MUL_HI_U32(bool is_signed, const GcnInst& inst);
     void V_MAD_U64_U32(const GcnInst& inst);
-    void V_ADD3_U32(const GcnInst& inst);
-    void V_OR3_B32(const GcnInst& inst);
 
     // Vector interpolation
     // VINTRP
@@ -314,17 +303,11 @@ public:
     void IMAGE_GET_LOD(const GcnInst& inst);
 
 private:
-    IR::U1 GetSrc1(const InstOperand& operand);
     template <typename T = IR::U32>
     [[nodiscard]] T GetSrc(const InstOperand& operand);
-    template <typename T = IR::U32, bool is_signed = false>
-    [[nodiscard]] T GetSrc16(const InstOperand& operand);
     template <typename T = IR::U64>
     [[nodiscard]] T GetSrc64(const InstOperand& operand);
-    void SetDst1(const InstOperand& operand, const IR::U1& value);
     void SetDst(const InstOperand& operand, const IR::U32F32& value);
-    template <bool is_signed = false>
-    void SetDst16(const InstOperand& operand, const IR::U32F32& value);
     void SetDst64(const InstOperand& operand, const IR::U64F64& value_raw);
 
     // Vector ALU Helpers
@@ -342,14 +325,6 @@ private:
 
     IR::VectorReg GetScratchVgpr(u32 offset);
 
-    enum class RegType : u8 {
-        Scalar,
-        ThreadBitLo,
-        ThreadBitHi,
-        Undefined,
-    };
-    RegType GetRegType(const InstOperand& operand) const;
-
 private:
     IR::IREmitter ir;
     Info& info;
@@ -360,12 +335,6 @@ private:
     std::array<IR::Attribute, MaxInterpVgpr> vgpr_to_interp{};
     bool opcode_missing = false;
     u32 pc{};
-    struct RegsType {
-        std::array<RegType, IR::NumScalarRegs> scalar{};
-        RegType vcc{};
-    };
-    std::unordered_map<const Gcn::Block*, RegsType> block_types;
-    RegsType* type{};
 };
 
 } // namespace Shader::Gcn

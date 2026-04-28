@@ -28,11 +28,8 @@ int PS4_SYSV_ABI sys_connect(OrbisNetId s, const OrbisNetSockaddr* addr, u32 add
     if (returncode >= 0) {
         return returncode;
     }
-    u32 error = *Libraries::Kernel::__Error();
-    // Don't log EINPROGRESS or EISCONN, these are normal to see from non-blocking communication.
-    if (error != ORBIS_NET_EINPROGRESS && error != ORBIS_NET_EISCONN) {
-        LOG_ERROR(Lib_Net, "s = {} ({}) returned error code: {}", s, file->m_guest_name, error);
-    }
+    LOG_ERROR(Lib_Net, "s = {} ({}) returned error code: {}", s, file->m_guest_name,
+              (u32)*Libraries::Kernel::__Error());
     return -1;
 }
 
@@ -62,13 +59,8 @@ int PS4_SYSV_ABI sys_accept(OrbisNetId s, OrbisNetSockaddr* addr, u32* paddrlen)
     LOG_DEBUG(Lib_Net, "s = {} ({})", s, file->m_guest_name);
     auto new_sock = file->socket->Accept(addr, paddrlen);
     if (!new_sock) {
-        u32 error = *Libraries::Kernel::__Error();
-        // Don't log EWOULDBLOCK, this is normal to see from non-blocking communication.
-        if (error != ORBIS_NET_EWOULDBLOCK) {
-            LOG_ERROR(Lib_Net,
-                      "s = {} ({}) returned error code creating new socket for accepting: {}", s,
-                      file->m_guest_name, error);
-        }
+        LOG_ERROR(Lib_Net, "s = {} ({}) returned error code creating new socket for accepting: {}",
+                  s, file->m_guest_name, (u32)*Libraries::Kernel::__Error());
         return -1;
     }
     auto fd = FDTable::Instance()->CreateHandle();
@@ -343,7 +335,6 @@ int PS4_SYSV_ABI sys_socketclose(OrbisNetId s) {
     LOG_DEBUG(Lib_Net, "s = {} ({})", s, file->m_guest_name);
     int returncode = file->socket->Close();
     if (returncode >= 0) {
-        FDTable::Instance()->DeleteHandle(s);
         return returncode;
     }
     LOG_ERROR(Lib_Net, "error code returned: {}", (u32)*Libraries::Kernel::__Error());
@@ -362,14 +353,12 @@ int PS4_SYSV_ABI sys_sendto(OrbisNetId s, const void* buf, u64 len, int flags,
         LOG_ERROR(Lib_Net, "socket id is invalid = {}", s);
         return -1;
     }
-    LOG_DEBUG(Lib_Net, "sys_sendto: s={} ({}) len={} flags={:#x} addr={:p}", s, file->m_guest_name,
-              len, flags, static_cast<const void*>(addr));
+    LOG_DEBUG(Lib_Net, "s = {} ({}), len = {}, flags = {:#x}", s, file->m_guest_name, len, flags);
     int returncode = file->socket->SendPacket(buf, len, flags, addr, addrlen);
     if (returncode >= 0) {
         return returncode;
     }
-    LOG_ERROR(Lib_Net, "sys_sendto FAILED: s={} ({}) len={} orbis_error={}", s, file->m_guest_name,
-              len, (u32)*Libraries::Kernel::__Error());
+    LOG_ERROR(Lib_Net, "error code returned: {}", (u32)*Libraries::Kernel::__Error());
     return -1;
 }
 
@@ -406,11 +395,8 @@ s64 PS4_SYSV_ABI sys_recvfrom(OrbisNetId s, void* buf, u64 len, int flags, Orbis
     if (returncode >= 0) {
         return returncode;
     }
-    // Don't log EWOULDBLOCK, this is normal to see from non-blocking communication.
-    u32 error = *Libraries::Kernel::__Error();
-    if (error != ORBIS_NET_EWOULDBLOCK) {
-        LOG_ERROR(Lib_Net, "s = {} ({}) returned error code: {}", s, file->m_guest_name, error);
-    }
+    LOG_ERROR(Lib_Net, "s = {} ({}) returned error code: {}", s, file->m_guest_name,
+              (u32)*Libraries::Kernel::__Error());
     return -1;
 }
 

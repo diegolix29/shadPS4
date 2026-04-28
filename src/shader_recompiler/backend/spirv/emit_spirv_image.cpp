@@ -2,27 +2,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <boost/container/static_vector.hpp>
-#include "common/memory_patcher.h"
 #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
 #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
 
 namespace Shader::Backend::SPIRV {
-
-static bool IsUfc3ColorGradingWorkaround(const EmitContext& ctx, u32 handle) {
-    return ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xe115097cULL &&
-           (MemoryPatcher::g_game_serial == "CUSA06534" ||
-            MemoryPatcher::g_game_serial == "CUSA06536") &&
-           (ctx.images[handle & 0xFFFF].view_type == AmdGpu::ImageType::Color3D) &&
-           !ctx.images[handle & 0xFFFF].is_storage;
-}
-
-static Id EmitUfc3ColorGradingPassthrough(EmitContext& ctx, Id coords) {
-    const Id x = ctx.OpCompositeExtract(ctx.F32[1], coords, 0);
-    const Id y = ctx.OpCompositeExtract(ctx.F32[1], coords, 1);
-    const Id z = ctx.OpCompositeExtract(ctx.F32[1], coords, 2);
-    const Id one = ctx.ConstF32(1.0f);
-    return ctx.OpCompositeConstruct(ctx.F32[4], x, y, z, one);
-}
 
 struct ImageOperands {
     void Add(spv::ImageOperandsMask new_mask, Id value) {
@@ -94,10 +77,6 @@ Id EmitImageSampleRaw(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address1,
 
 Id EmitImageSampleImplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id bias,
                               const IR::Value& offset) {
-    if (IsUfc3ColorGradingWorkaround(ctx, handle)) {
-        return EmitUfc3ColorGradingPassthrough(ctx, coords);
-    }
-
     const auto& texture = ctx.images[handle & 0xFFFF];
     const Id image = ctx.OpLoad(texture.image_type, texture.id);
     const Id result_type = texture.data_types->Get(4);
@@ -113,10 +92,6 @@ Id EmitImageSampleImplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id c
 
 Id EmitImageSampleExplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id lod,
                               const IR::Value& offset) {
-    if (IsUfc3ColorGradingWorkaround(ctx, handle)) {
-        return EmitUfc3ColorGradingPassthrough(ctx, coords);
-    }
-
     const auto& texture = ctx.images[handle & 0xFFFF];
     const Id image = ctx.OpLoad(texture.image_type, texture.id);
     const Id result_type = texture.data_types->Get(4);
@@ -230,10 +205,6 @@ Id EmitImageQueryLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords) {
 
 Id EmitImageGradient(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id derivatives_dx,
                      Id derivatives_dy, const IR::Value& offset, const IR::Value& lod_clamp) {
-    if (IsUfc3ColorGradingWorkaround(ctx, handle)) {
-        return EmitUfc3ColorGradingPassthrough(ctx, coords);
-    }
-
     const auto& texture = ctx.images[handle & 0xFFFF];
     const Id image = ctx.OpLoad(texture.image_type, texture.id);
     const Id result_type = texture.data_types->Get(4);
@@ -255,20 +226,19 @@ Id EmitImageRead(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id lod
     Id texel;
     if (!texture.is_storage) {
         const Id image = ctx.OpLoad(texture.image_type, texture.id);
-        if (texture.view_type != AmdGpu::ImageType::Color2DMsaa) {
-            if (Sirit::ValidId(ms)) {
-                LOG_ERROR(Render_Recompiler, "image is not MS but ms operand is provided");
-            }
-            operands.Add(spv::ImageOperandsMask::Lod, lod);
-        }
+        operands.Add(spv::ImageOperandsMask::Lod, lod);
         texel = ctx.OpImageFetch(color_type, image, coords, operands.mask, operands.operands);
     } else {
+        // PORT(upstream #4075): mip-fallback for storage-image reads. In
+        // practice IMAGE_LOAD_MIP translates to OpImageFetch (non-storage
+        // branch), so this branch is currently unreachable. The #else path
+        // is retained for when a real case is discovered.
         Id image_ptr = texture.id;
         if (ctx.profile.supports_image_load_store_lod) {
             operands.Add(spv::ImageOperandsMask::Lod, lod);
         } else if (Sirit::ValidId(lod)) {
 #if 1
-            // It's  confusing what interactions will cause this code path so leave it as
+            // It's confusing what interactions will cause this code path so leave it as
             // unreachable until a case is found.
             // Normally IMAGE_LOAD_MIP should translate -> OpImageFetch
             UNREACHABLE_MSG("Unsupported ImageRead with Lod");
@@ -296,6 +266,8 @@ void EmitImageWrite(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id 
     if (ctx.profile.supports_image_load_store_lod) {
         operands.Add(spv::ImageOperandsMask::Lod, lod);
     } else if (Sirit::ValidId(lod)) {
+        // PORT(upstream #4075): index into descriptor array by lod to write
+        // the correct mip level when the driver can't do it natively.
         LOG_WARNING(Render, "Fallback for ImageWrite with LOD");
         ASSERT(texture.mip_fallback_mode == MipStorageFallbackMode::DynamicIndex);
         const Id single_image_ptr_type =

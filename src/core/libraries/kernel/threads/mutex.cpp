@@ -1,8 +1,10 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <chrono>
 #include <thread>
 #include "common/assert.h"
+#include "common/sync_trace.h"
 #include "common/types.h"
 #include "core/libraries/kernel/kernel.h"
 #include "core/libraries/kernel/posix_error.h"
@@ -10,8 +12,10 @@
 #include "core/libraries/libs.h"
 
 namespace Libraries::Kernel {
-
-static constexpr u32 MUTEX_ADAPTIVE_SPINS = 2000;
+// FIX(GR2FORK): match condvar/EF/sema slow-wait threshold (500ms).
+static constexpr auto kTraceMutexLockThresholdMs = std::chrono::milliseconds(500);
+static constexpr u32 MUTEX_DEFAULT_SPINS  = 500;
+static constexpr u32 MUTEX_ADAPTIVE_SPINS = 8000;
 static std::mutex MutxStaticLock;
 
 #define THR_MUTEX_INITIALIZER ((PthreadMutex*)NULL)
@@ -39,7 +43,7 @@ static constexpr PthreadMutexAttr PthreadMutexattrAdaptiveDefault = {
 
 using CallocFun = void* (*)(size_t, size_t);
 
-static s32 MutexInit(PthreadMutexT* mutex, const PthreadMutexAttr* mutex_attr, const char* name) {
+static int MutexInit(PthreadMutexT* mutex, const PthreadMutexAttr* mutex_attr, const char* name) {
     const PthreadMutexAttr* attr;
     if (mutex_attr == nullptr) {
         attr = &PthreadMutexattrDefault;
@@ -60,16 +64,19 @@ static s32 MutexInit(PthreadMutexT* mutex, const PthreadMutexAttr* mutex_attr, c
     if (name) {
         pmutex->name = name;
     } else {
-        static std::atomic<s32> MutexId{0};
-        pmutex->name = fmt::format("Mutex{}", MutexId.fetch_add(1));
+        static int MutexId = 0;
+        pmutex->name = fmt::format("Mutex{}", MutexId++);
     }
 
     pmutex->m_flags = PthreadMutexFlags(attr->m_type);
     pmutex->m_owner = nullptr;
     pmutex->m_count = 0;
-    pmutex->m_spinloops = 0;
-    pmutex->m_yieldloops = 0;
+    // Small default spin window helps avoid futex wake/sleep on short holds (common in job systems).
+    pmutex->m_spinloops = MUTEX_DEFAULT_SPINS;
+    pmutex->m_yieldloops = 8;
     pmutex->m_protocol = attr->m_protocol;
+
+    // Adaptive mutexes get a larger spin budget.
     if (attr->m_type == PthreadMutexType::AdaptiveNp) {
         pmutex->m_spinloops = MUTEX_ADAPTIVE_SPINS;
         // pmutex->m_yieldloops = _thr_yieldloops;
@@ -79,7 +86,7 @@ static s32 MutexInit(PthreadMutexT* mutex, const PthreadMutexAttr* mutex_attr, c
     return 0;
 }
 
-static s32 InitStatic(Pthread* thread, PthreadMutexT* mutex) {
+static int InitStatic(Pthread* thread, PthreadMutexT* mutex) {
     std::scoped_lock lk{MutxStaticLock};
 
     if (*mutex == THR_MUTEX_INITIALIZER) {
@@ -90,17 +97,17 @@ static s32 InitStatic(Pthread* thread, PthreadMutexT* mutex) {
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_init(PthreadMutexT* mutex,
+int PS4_SYSV_ABI posix_pthread_mutex_init(PthreadMutexT* mutex,
                                           const PthreadMutexAttrT* mutex_attr) {
     return MutexInit(mutex, mutex_attr ? *mutex_attr : nullptr, nullptr);
 }
 
-s32 PS4_SYSV_ABI scePthreadMutexInit(PthreadMutexT* mutex, const PthreadMutexAttrT* mutex_attr,
+int PS4_SYSV_ABI scePthreadMutexInit(PthreadMutexT* mutex, const PthreadMutexAttrT* mutex_attr,
                                      const char* name) {
     return MutexInit(mutex, mutex_attr ? *mutex_attr : nullptr, name);
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_destroy(PthreadMutexT* mutex) {
+int PS4_SYSV_ABI posix_pthread_mutex_destroy(PthreadMutexT* mutex) {
     PthreadMutexT m = *mutex;
     if (m < THR_MUTEX_DESTROYED) {
         return 0;
@@ -116,7 +123,7 @@ s32 PS4_SYSV_ABI posix_pthread_mutex_destroy(PthreadMutexT* mutex) {
     return 0;
 }
 
-s32 PthreadMutex::SelfTryLock() {
+int PthreadMutex::SelfTryLock() {
     switch (Type()) {
     case PthreadMutexType::ErrorCheck:
     case PthreadMutexType::Normal:
@@ -135,7 +142,7 @@ s32 PthreadMutex::SelfTryLock() {
     }
 }
 
-s32 PthreadMutex::SelfLock(const OrbisKernelTimespec* abstime, u64 usec) {
+int PthreadMutex::SelfLock(const OrbisKernelTimespec* abstime, u64 usec) {
     const auto DoSleep = [&] {
         if (abstime == THR_RELTIME) {
             std::this_thread::sleep_for(std::chrono::microseconds(usec));
@@ -185,7 +192,7 @@ s32 PthreadMutex::SelfLock(const OrbisKernelTimespec* abstime, u64 usec) {
     }
 }
 
-s32 PthreadMutex::Lock(const OrbisKernelTimespec* abstime, u64 usec) {
+int PthreadMutex::Lock(const OrbisKernelTimespec* abstime, u64 usec) {
     Pthread* curthread = g_curthread;
     if (m_owner == curthread) {
         return SelfLock(abstime, usec);
@@ -198,7 +205,7 @@ s32 PthreadMutex::Lock(const OrbisKernelTimespec* abstime, u64 usec) {
      * faster than entering the kernel
      */
     if (m_protocol == PthreadMutexProt::None) [[likely]] {
-        s32 count = m_spinloops;
+        int count = m_spinloops;
         while (count--) {
             if (m_lock.try_lock()) {
                 m_owner = curthread;
@@ -206,18 +213,27 @@ s32 PthreadMutex::Lock(const OrbisKernelTimespec* abstime, u64 usec) {
             }
             CPU_SPINWAIT;
         }
-
-        count = m_yieldloops;
-        while (count--) {
-            std::this_thread::yield();
-            if (m_lock.try_lock()) {
-                m_owner = curthread;
-                return 0;
-            }
-        }
+        // Note: yield loop removed. With PTHREAD_ADAPTIVE_MUTEX backing m_lock,
+        // the kernel already does adaptive spinning in m_lock.lock() below.
+        // The old yield loop caused redundant sched_yield() syscalls.
     }
 
-    s32 ret = 0;
+    // FIX(GR2FORK): instrument kernel-fallback mutex contention. The spin
+    // loop above is the fast path and isn't recorded — only entries that
+    // fall through to m_lock.lock()/try_lock_*() are slow enough to matter.
+    // Without this, a thread blocked on a contested mutex (e.g. the Main
+    // SM trying to grab a mutex held by a stuck loader) is invisible in
+    // hang dumps. arg1 = current owner pointer at wait-start, useful for
+    // identifying which holder needs investigating.
+    const auto trace_start = std::chrono::steady_clock::now();
+    Common::SyncTrace::NoteWaitBegin(
+        Common::SyncTrace::Op::WAIT_MUTEX_SLOW, this, name,
+        reinterpret_cast<u64>(m_owner));
+    struct WaitEndGuard {
+        ~WaitEndGuard() { Common::SyncTrace::NoteWaitEnd(); }
+    } _end_guard;
+
+    int ret = 0;
     if (abstime == nullptr) {
         m_lock.lock();
     } else if (abstime != THR_RELTIME && (abstime->tv_nsec < 0 || abstime->tv_nsec >= 1000000000))
@@ -233,43 +249,55 @@ s32 PthreadMutex::Lock(const OrbisKernelTimespec* abstime, u64 usec) {
     if (ret == 0) {
         m_owner = curthread;
     }
+
+    // FIX(GR2FORK): record slow exits — successful lock after long contention,
+    // timeout, or EINVAL all interesting.
+    const auto d = std::chrono::steady_clock::now() - trace_start;
+    if (d >= kTraceMutexLockThresholdMs) {
+        Common::SyncTrace::Record(
+            Common::SyncTrace::Op::WAIT_MUTEX_SLOW, this, name,
+            reinterpret_cast<u64>(m_owner),
+            std::chrono::duration_cast<std::chrono::milliseconds>(d).count(),
+            0, ret);
+    }
     return ret;
 }
 
-s32 PthreadMutex::TryLock() {
+int PthreadMutex::TryLock() {
     Pthread* curthread = g_curthread;
     if (m_owner == curthread) {
         return SelfTryLock();
     }
-    const s32 ret = m_lock.try_lock() ? 0 : POSIX_EBUSY;
+    const int ret = m_lock.try_lock() ? 0 : POSIX_EBUSY;
     if (ret == 0) {
         m_owner = curthread;
     }
     return ret;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_trylock(PthreadMutexT* mutex) {
+int PS4_SYSV_ABI posix_pthread_mutex_trylock(PthreadMutexT* mutex) {
     CHECK_AND_INIT_MUTEX
     return (*mutex)->TryLock();
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_lock(PthreadMutexT* mutex) {
+int PS4_SYSV_ABI posix_pthread_mutex_lock(PthreadMutexT* mutex) {
     CHECK_AND_INIT_MUTEX
     return (*mutex)->Lock(nullptr);
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_timedlock(PthreadMutexT* mutex,
+int PS4_SYSV_ABI posix_pthread_mutex_timedlock(PthreadMutexT* mutex,
                                                const OrbisKernelTimespec* abstime) {
     CHECK_AND_INIT_MUTEX
+    UNREACHABLE();
     return (*mutex)->Lock(abstime);
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_reltimedlock_np(PthreadMutexT* mutex, u64 usec) {
+int PS4_SYSV_ABI posix_pthread_mutex_reltimedlock_np(PthreadMutexT* mutex, u64 usec) {
     CHECK_AND_INIT_MUTEX
     return (*mutex)->Lock(THR_RELTIME, usec);
 }
 
-s32 PthreadMutex::Unlock() {
+int PthreadMutex::Unlock() {
     Pthread* curthread = g_curthread;
     /*
      * Check if the running thread is not the owner of the mutex.
@@ -294,7 +322,7 @@ s32 PthreadMutex::Unlock() {
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_unlock(PthreadMutexT* mutex) {
+int PS4_SYSV_ABI posix_pthread_mutex_unlock(PthreadMutexT* mutex) {
     PthreadMutex* mp = *mutex;
     if (mp <= THR_MUTEX_DESTROYED) [[unlikely]] {
         if (mp == THR_MUTEX_DESTROYED) {
@@ -305,29 +333,29 @@ s32 PS4_SYSV_ABI posix_pthread_mutex_unlock(PthreadMutexT* mutex) {
     return mp->Unlock();
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_getspinloops_np(PthreadMutexT* mutex, int* count) {
+int PS4_SYSV_ABI posix_pthread_mutex_getspinloops_np(PthreadMutexT* mutex, int* count) {
     CHECK_AND_INIT_MUTEX
     *count = (*mutex)->m_spinloops;
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_setspinloops_np(PthreadMutexT* mutex, s32 count) {
+int PS4_SYSV_ABI posix_pthread_mutex_setspinloops_np(PthreadMutexT* mutex, int count) {
     CHECK_AND_INIT_MUTEX(*mutex)->m_spinloops = count;
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_getyieldloops_np(PthreadMutexT* mutex, int* count) {
+int PS4_SYSV_ABI posix_pthread_mutex_getyieldloops_np(PthreadMutexT* mutex, int* count) {
     CHECK_AND_INIT_MUTEX
     *count = (*mutex)->m_yieldloops;
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_setyieldloops_np(PthreadMutexT* mutex, s32 count) {
+int PS4_SYSV_ABI posix_pthread_mutex_setyieldloops_np(PthreadMutexT* mutex, int count) {
     CHECK_AND_INIT_MUTEX(*mutex)->m_yieldloops = count;
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutex_isowned_np(PthreadMutexT* mutex) {
+int PS4_SYSV_ABI posix_pthread_mutex_isowned_np(PthreadMutexT* mutex) {
     PthreadMutex* m = *mutex;
     if (m <= THR_MUTEX_DESTROYED) {
         return 0;
@@ -335,7 +363,7 @@ s32 PS4_SYSV_ABI posix_pthread_mutex_isowned_np(PthreadMutexT* mutex) {
     return m->m_owner == g_curthread;
 }
 
-s32 PthreadMutex::IsOwned(Pthread* curthread) const {
+int PthreadMutex::IsOwned(Pthread* curthread) const {
     if (this <= THR_MUTEX_DESTROYED) [[unlikely]] {
         if (this == THR_MUTEX_DESTROYED) {
             return POSIX_EINVAL;
@@ -348,7 +376,7 @@ s32 PthreadMutex::IsOwned(Pthread* curthread) const {
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutexattr_init(PthreadMutexAttrT* attr) {
+int PS4_SYSV_ABI posix_pthread_mutexattr_init(PthreadMutexAttrT* attr) {
     auto pattr = new (std::nothrow) PthreadMutexAttr{};
     if (pattr == nullptr) {
         return POSIX_ENOMEM;
@@ -358,7 +386,7 @@ s32 PS4_SYSV_ABI posix_pthread_mutexattr_init(PthreadMutexAttrT* attr) {
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutexattr_setkind_np(PthreadMutexAttrT* attr,
+int PS4_SYSV_ABI posix_pthread_mutexattr_setkind_np(PthreadMutexAttrT* attr,
                                                     PthreadMutexType kind) {
     if (attr == nullptr || *attr == nullptr) {
         *__Error() = POSIX_EINVAL;
@@ -368,7 +396,7 @@ s32 PS4_SYSV_ABI posix_pthread_mutexattr_setkind_np(PthreadMutexAttrT* attr,
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutexattr_getkind_np(PthreadMutexAttrT attr) {
+int PS4_SYSV_ABI posix_pthread_mutexattr_getkind_np(PthreadMutexAttrT attr) {
     if (attr == nullptr) {
         *__Error() = POSIX_EINVAL;
         return -1;
@@ -376,16 +404,15 @@ s32 PS4_SYSV_ABI posix_pthread_mutexattr_getkind_np(PthreadMutexAttrT attr) {
     return static_cast<int>(attr->m_type);
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutexattr_settype(PthreadMutexAttrT* attr, PthreadMutexType type) {
-    if (attr == nullptr || *attr == nullptr || type < PthreadMutexType::ErrorCheck ||
-        type >= PthreadMutexType::Max) {
+int PS4_SYSV_ABI posix_pthread_mutexattr_settype(PthreadMutexAttrT* attr, PthreadMutexType type) {
+    if (attr == nullptr || *attr == nullptr || type >= PthreadMutexType::Max) {
         return POSIX_EINVAL;
     }
     (*attr)->m_type = type;
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutexattr_gettype(PthreadMutexAttrT* attr, PthreadMutexType* type) {
+int PS4_SYSV_ABI posix_pthread_mutexattr_gettype(PthreadMutexAttrT* attr, PthreadMutexType* type) {
     if (attr == nullptr || *attr == nullptr || (*attr)->m_type >= PthreadMutexType::Max) {
         return POSIX_EINVAL;
     }
@@ -393,7 +420,7 @@ s32 PS4_SYSV_ABI posix_pthread_mutexattr_gettype(PthreadMutexAttrT* attr, Pthrea
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutexattr_destroy(PthreadMutexAttrT* attr) {
+int PS4_SYSV_ABI posix_pthread_mutexattr_destroy(PthreadMutexAttrT* attr) {
     if (attr == nullptr || *attr == nullptr) {
         return POSIX_EINVAL;
     }
@@ -402,7 +429,7 @@ s32 PS4_SYSV_ABI posix_pthread_mutexattr_destroy(PthreadMutexAttrT* attr) {
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutexattr_getprotocol(PthreadMutexAttrT* mattr,
+int PS4_SYSV_ABI posix_pthread_mutexattr_getprotocol(PthreadMutexAttrT* mattr,
                                                      PthreadMutexProt* protocol) {
     if (mattr == nullptr || *mattr == nullptr) {
         return POSIX_EINVAL;
@@ -411,7 +438,7 @@ s32 PS4_SYSV_ABI posix_pthread_mutexattr_getprotocol(PthreadMutexAttrT* mattr,
     return 0;
 }
 
-s32 PS4_SYSV_ABI posix_pthread_mutexattr_setprotocol(PthreadMutexAttrT* mattr,
+int PS4_SYSV_ABI posix_pthread_mutexattr_setprotocol(PthreadMutexAttrT* mattr,
                                                      PthreadMutexProt protocol) {
     if (mattr == nullptr || *mattr == nullptr || (protocol < PthreadMutexProt::None) ||
         (protocol > PthreadMutexProt::Protect)) {
@@ -420,15 +447,6 @@ s32 PS4_SYSV_ABI posix_pthread_mutexattr_setprotocol(PthreadMutexAttrT* mattr,
     (*mattr)->m_protocol = protocol;
     //(*mattr)->m_ceiling = THR_MAX_RR_PRIORITY;
     return 0;
-}
-
-s32 PS4_SYSV_ABI posix_pthread_mutexattr_setpshared(PthreadMutexAttrT* attr, s32 pshared) {
-    constexpr s32 POSIX_PTHREAD_PROCESS_PRIVATE = 0;
-    constexpr s32 POSIX_PTHREAD_PROCESS_SHARED = 1;
-    if (!attr || !*attr || pshared != POSIX_PTHREAD_PROCESS_PRIVATE) {
-        return POSIX_EINVAL;
-    }
-    return ORBIS_OK;
 }
 
 void RegisterMutex(Core::Loader::SymbolsResolver* sym) {
@@ -443,7 +461,6 @@ void RegisterMutex(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("5txKfcMUAok", "libScePosix", 1, "libkernel", posix_pthread_mutexattr_setprotocol);
     LIB_FUNCTION("HF7lK46xzjY", "libScePosix", 1, "libkernel", posix_pthread_mutexattr_destroy);
     LIB_FUNCTION("K-jXhbt2gn4", "libScePosix", 1, "libkernel", posix_pthread_mutex_trylock);
-    LIB_FUNCTION("EXv3ztGqtDM", "libScePosix", 1, "libkernel", posix_pthread_mutexattr_setpshared);
 
     // Posix-Kernel
     LIB_FUNCTION("ttHNfU+qDBU", "libkernel", 1, "libkernel", posix_pthread_mutex_init);
@@ -454,7 +471,6 @@ void RegisterMutex(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("mDmgMOGVUqg", "libkernel", 1, "libkernel", posix_pthread_mutexattr_settype);
     LIB_FUNCTION("HF7lK46xzjY", "libkernel", 1, "libkernel", posix_pthread_mutexattr_destroy);
     LIB_FUNCTION("K-jXhbt2gn4", "libkernel", 1, "libkernel", posix_pthread_mutex_trylock);
-    LIB_FUNCTION("EXv3ztGqtDM", "libkernel", 1, "libkernel", posix_pthread_mutexattr_setpshared);
 
     // Orbis
     LIB_FUNCTION("cmo1RIYva9o", "libkernel", 1, "libkernel", ORBIS(scePthreadMutexInit));

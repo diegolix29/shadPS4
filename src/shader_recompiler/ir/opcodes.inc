@@ -150,7 +150,6 @@ OPCODE(BufferAtomicOr32,                                    U32,            Opaq
 OPCODE(BufferAtomicXor32,                                   U32,            Opaque,         Opaque,         U32,                                            )
 OPCODE(BufferAtomicSwap32,                                  U32,            Opaque,         Opaque,         U32,                                            )
 OPCODE(BufferAtomicCmpSwap32,                               U32,            Opaque,         Opaque,         U32,            U32,                            )
-OPCODE(BufferAtomicFCmpSwap32,                              F32,            Opaque,         Opaque,         F32,            F32,                            )
 
 // Vector utility
 OPCODE(CompositeConstructU32x2,                             U32x2,          U32,            U32,                                                            )
@@ -236,9 +235,9 @@ OPCODE(FPAdd64,                                             F64,            F64,
 OPCODE(FPSub32,                                             F32,            F32,            F32,                                                            )
 OPCODE(FPFma32,                                             F32,            F32,            F32,            F32,                                            )
 OPCODE(FPFma64,                                             F64,            F64,            F64,            F64,                                            )
-OPCODE(FPMax32,                                             F32,            F32,            F32,                                                            )
+OPCODE(FPMax32,                                             F32,            F32,            F32,            U1,                                             )
 OPCODE(FPMax64,                                             F64,            F64,            F64,                                                            )
-OPCODE(FPMin32,                                             F32,            F32,            F32,                                                            )
+OPCODE(FPMin32,                                             F32,            F32,            F32,            U1,                                             )
 OPCODE(FPMin64,                                             F64,            F64,            F64,                                                            )
 OPCODE(FPMinTri32,                                          F32,            F32,            F32,            F32,                                            )
 OPCODE(FPMaxTri32,                                          F32,            F32,            F32,            F32,                                            )
@@ -437,7 +436,6 @@ OPCODE(ImageAtomicAnd32,                                    U32,            Opaq
 OPCODE(ImageAtomicOr32,                                     U32,            Opaque,         Opaque,         U32,                                            )
 OPCODE(ImageAtomicXor32,                                    U32,            Opaque,         Opaque,         U32,                                            )
 OPCODE(ImageAtomicExchange32,                               U32,            Opaque,         Opaque,         U32,                                            )
-OPCODE(ImageAtomicCmpSwap32,                                U32,            Opaque,         Opaque,         U32,            U32,                            )
 
 // Cube operations - optional, usable if profile.supports_native_cube_calc
 OPCODE(CubeFaceIndex,                                       F32,            F32x3,                                                                          )
@@ -451,7 +449,6 @@ OPCODE(ReadLane,                                            U32,            U32,
 OPCODE(WriteLane,                                           U32,            U32,            U32,            U32                                             )
 OPCODE(Ballot,                                              U32x4,          U1,                                                                             )
 OPCODE(BallotFindLsb,                                       U32,            U32x4,                                                                          )
-OPCODE(InverseBallot,                                       U1,             U32x4,                                                                          )
 OPCODE(DataAppend,                                          U32,            U32,            U32                                                             )
 OPCODE(DataConsume,                                         U32,            U32,            U32                                                             )
 OPCODE(GroupAny,                                            U1,             U1,                                                                             )

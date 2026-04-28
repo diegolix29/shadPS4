@@ -38,7 +38,7 @@ void PS4_SYSV_ABI sceVideoOutSetBufferAttribute(BufferAttribute* attribute, Pixe
     attribute->option = SCE_VIDEO_OUT_BUFFER_ATTRIBUTE_OPTION_NONE;
 }
 
-s32 PS4_SYSV_ABI sceVideoOutAddFlipEvent(Kernel::OrbisKernelEqueue eq, s32 handle, void* udata) {
+s32 PS4_SYSV_ABI sceVideoOutAddFlipEvent(Kernel::SceKernelEqueue eq, s32 handle, void* udata) {
     LOG_INFO(Lib_VideoOut, "handle = {}", handle);
 
     auto* port = driver->GetPort(handle);
@@ -46,41 +46,39 @@ s32 PS4_SYSV_ABI sceVideoOutAddFlipEvent(Kernel::OrbisKernelEqueue eq, s32 handl
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
 
-    auto equeue = Kernel::GetEqueue(eq);
-    if (equeue == nullptr) {
+    if (eq == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE;
     }
 
     Kernel::EqueueEvent event{};
     event.event.ident = static_cast<u64>(OrbisVideoOutInternalEventId::Flip);
-    event.event.filter = Kernel::OrbisKernelEvent::Filter::VideoOut;
-    event.event.flags = Kernel::OrbisKernelEvent::Flags::Add;
+    event.event.filter = Kernel::SceKernelEvent::Filter::VideoOut;
+    event.event.flags = Kernel::SceKernelEvent::Flags::Add;
     event.event.udata = udata;
     event.event.fflags = 0;
     event.event.data = 0;
     event.data = port;
-    equeue->AddEvent(event);
+    eq->AddEvent(event);
 
-    port->flip_events.push_back(equeue);
+    port->flip_events.push_back(eq);
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceVideoOutDeleteFlipEvent(Kernel::OrbisKernelEqueue eq, s32 handle) {
+s32 PS4_SYSV_ABI sceVideoOutDeleteFlipEvent(Kernel::SceKernelEqueue eq, s32 handle) {
     auto* port = driver->GetPort(handle);
     if (port == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
 
-    auto equeue = Kernel::GetEqueue(eq);
-    if (equeue == nullptr) {
+    if (eq == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE;
     }
-    equeue->RemoveEvent(handle, Kernel::OrbisKernelEvent::Filter::VideoOut);
-    port->flip_events.erase(find(port->flip_events.begin(), port->flip_events.end(), equeue));
+    eq->RemoveEvent(handle, Kernel::SceKernelEvent::Filter::VideoOut);
+    port->flip_events.erase(find(port->flip_events.begin(), port->flip_events.end(), eq));
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceVideoOutAddVblankEvent(Kernel::OrbisKernelEqueue eq, s32 handle, void* udata) {
+s32 PS4_SYSV_ABI sceVideoOutAddVblankEvent(Kernel::SceKernelEqueue eq, s32 handle, void* udata) {
     LOG_INFO(Lib_VideoOut, "handle = {}", handle);
 
     auto* port = driver->GetPort(handle);
@@ -88,37 +86,35 @@ s32 PS4_SYSV_ABI sceVideoOutAddVblankEvent(Kernel::OrbisKernelEqueue eq, s32 han
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
 
-    auto equeue = Kernel::GetEqueue(eq);
-    if (equeue == nullptr) {
+    if (eq == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE;
     }
 
     Kernel::EqueueEvent event{};
     event.event.ident = static_cast<u64>(OrbisVideoOutInternalEventId::Vblank);
-    event.event.filter = Kernel::OrbisKernelEvent::Filter::VideoOut;
-    event.event.flags = Kernel::OrbisKernelEvent::Flags::Add;
+    event.event.filter = Kernel::SceKernelEvent::Filter::VideoOut;
+    event.event.flags = Kernel::SceKernelEvent::Flags::Add;
     event.event.udata = udata;
     event.event.fflags = 0;
     event.event.data = 0;
     event.data = port;
-    equeue->AddEvent(event);
+    eq->AddEvent(event);
 
-    port->vblank_events.push_back(equeue);
+    port->vblank_events.push_back(eq);
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceVideoOutDeleteVblankEvent(Kernel::OrbisKernelEqueue eq, s32 handle) {
+s32 PS4_SYSV_ABI sceVideoOutDeleteVblankEvent(Kernel::SceKernelEqueue eq, s32 handle) {
     auto* port = driver->GetPort(handle);
     if (port == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
 
-    auto equeue = Kernel::GetEqueue(eq);
-    if (equeue == nullptr) {
+    if (eq == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE;
     }
-    equeue->RemoveEvent(handle, Kernel::OrbisKernelEvent::Filter::VideoOut);
-    port->vblank_events.erase(find(port->vblank_events.begin(), port->vblank_events.end(), equeue));
+    eq->RemoveEvent(handle, Kernel::SceKernelEvent::Filter::VideoOut);
+    port->vblank_events.erase(find(port->vblank_events.begin(), port->vblank_events.end(), eq));
     return ORBIS_OK;
 }
 
@@ -160,7 +156,7 @@ s32 PS4_SYSV_ABI sceVideoOutSubmitFlip(s32 handle, s32 bufferIndex, s32 flipMode
     }
 
     if (flipMode != 1) {
-        LOG_DEBUG(Lib_VideoOut, "flipmode = {}", flipMode);
+        LOG_WARNING(Lib_VideoOut, "flipmode = {}", flipMode);
     }
 
     if (bufferIndex < -1 || bufferIndex > 15) {
@@ -184,11 +180,11 @@ s32 PS4_SYSV_ABI sceVideoOutSubmitFlip(s32 handle, s32 bufferIndex, s32 flipMode
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceVideoOutGetEventId(const Kernel::OrbisKernelEvent* ev) {
+s32 PS4_SYSV_ABI sceVideoOutGetEventId(const Kernel::SceKernelEvent* ev) {
     if (ev == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_ADDRESS;
     }
-    if (ev->filter != Kernel::OrbisKernelEvent::Filter::VideoOut) {
+    if (ev->filter != Kernel::SceKernelEvent::Filter::VideoOut) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT;
     }
 
@@ -212,16 +208,16 @@ s32 PS4_SYSV_ABI sceVideoOutGetEventId(const Kernel::OrbisKernelEvent* ev) {
     }
 }
 
-s32 PS4_SYSV_ABI sceVideoOutGetEventData(const Kernel::OrbisKernelEvent* ev, s64* data) {
+s32 PS4_SYSV_ABI sceVideoOutGetEventData(const Kernel::SceKernelEvent* ev, s64* data) {
     if (ev == nullptr || data == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_ADDRESS;
     }
-    if (ev->filter != Kernel::OrbisKernelEvent::Filter::VideoOut) {
+    if (ev->filter != Kernel::SceKernelEvent::Filter::VideoOut) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT;
     }
 
     auto event_data = ev->data >> 0x10;
-    if (ev->ident != static_cast<s32>(OrbisVideoOutInternalEventId::Flip) || ev->data >= 0) {
+    if (ev->ident != static_cast<s32>(OrbisVideoOutInternalEventId::Flip) || ev->data == 0) {
         *data = event_data;
     } else {
         *data = event_data | 0xffff000000000000;
@@ -229,11 +225,11 @@ s32 PS4_SYSV_ABI sceVideoOutGetEventData(const Kernel::OrbisKernelEvent* ev, s64
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceVideoOutGetEventCount(const Kernel::OrbisKernelEvent* ev) {
+s32 PS4_SYSV_ABI sceVideoOutGetEventCount(const Kernel::SceKernelEvent* ev) {
     if (ev == nullptr) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_ADDRESS;
     }
-    if (ev->filter != Kernel::OrbisKernelEvent::Filter::VideoOut) {
+    if (ev->filter != Kernel::SceKernelEvent::Filter::VideoOut) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_EVENT;
     }
 
@@ -295,8 +291,8 @@ s32 PS4_SYSV_ABI sceVideoOutGetResolutionStatus(s32 handle, SceVideoOutResolutio
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceVideoOutOpen(Libraries::UserService::OrbisUserServiceUserId userId, s32 busType,
-                                 s32 index, const void* param) {
+s32 PS4_SYSV_ABI sceVideoOutOpen(SceUserServiceUserId userId, s32 busType, s32 index,
+                                 const void* param) {
     LOG_INFO(Lib_VideoOut, "called");
     ASSERT(busType == SCE_VIDEO_OUT_BUS_TYPE_MAIN);
 
@@ -342,20 +338,48 @@ s32 PS4_SYSV_ABI sceVideoOutGetBufferLabelAddress(s32 handle, uintptr_t* label_a
     return 16;
 }
 
-s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, s64 flip_arg, void** unk) {
+s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, u32 arg, void** unk) {
     auto* port = driver->GetPort(handle);
     if (!port) {
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
+
     Platform::IrqC::Instance()->RegisterOnce(
         Platform::InterruptId::GfxFlip, [=](Platform::InterruptId irq) {
-            ASSERT_MSG(irq == Platform::InterruptId::GfxFlip, "Unexpected IRQ");
-            if (port->is_hdr) {
-                LOG_WARNING(Lib_VideoOut, "Ignoring flip IRQ during mode change");
+            ASSERT_MSG(irq == Platform::InterruptId::GfxFlip, "An unexpected IRQ occured");
+            // FIX(GR2FORK): downgraded from ASSERT_MSG. This race fires when a
+            // sibling EOP flip ran SubmitFlipInternal and zeroed this buffer's
+            // label as its "previous" (driver.cpp:204) before this IRQ's callback
+            // got to execute. Triggers reliably on AvPlayer cutscene skip /
+            // gallery preview transitions (StatePause + pad press + rapid
+            // transition flips).
+            //
+            // Original "continue anyway" path still called SubmitFlip with the
+            // late buf_id, which routes through SubmitFlipInternal and on the
+            // next Flip() drains buffer_labels[prev_index] = 0 — but prev_index
+            // by then points at the *correctly-ordered* in-flight buffer, so
+            // the label of a still-pending frame gets clobbered. The game's
+            // BG fiber workers (BGFiberWorkerHigh/Low/Sys) then deadlock on
+            // EF bit 0x10000000 forever — observable as pending_submits=1
+            // stuck and a flood of EF race-guard re-injects in the lead-up.
+            //
+            // Drop the late flip entirely. The earlier (out-of-order) sibling
+            // flip already presented something; missing one frame is exactly
+            // the "worst case" the previous downgrade comment accepted, and
+            // it leaves prev_index pointing at the actually-presented buffer
+            // so the next Flip() wipes the right slot.
+            if (port->buffer_labels[buf_id] != 1) [[unlikely]] {
+                LOG_WARNING(Lib_VideoOut,
+                            "Out-of-order flip IRQ (buf_id={} label={}) — dropping late flip",
+                            buf_id, port->buffer_labels[buf_id]);
                 return;
             }
-            const bool result = driver->SubmitFlip(port, buf_id, flip_arg, true);
-            ASSERT_MSG(result, "EOP flip submission failed for buffer {}", buf_id);
+            const auto result = driver->SubmitFlip(port, buf_id, arg, true);
+            if (!result) [[unlikely]] {
+                LOG_WARNING(Lib_VideoOut,
+                            "EOP flip submission failed (buf_id={}) — dropping frame",
+                            buf_id);
+            }
         });
 
     return ORBIS_OK;

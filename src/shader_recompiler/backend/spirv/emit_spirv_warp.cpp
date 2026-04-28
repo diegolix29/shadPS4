@@ -6,7 +6,7 @@
 
 namespace Shader::Backend::SPIRV {
 
-static Id SubgroupScope(EmitContext& ctx) {
+Id SubgroupScope(EmitContext& ctx) {
     return ctx.ConstU32(static_cast<u32>(spv::Scope::Subgroup));
 }
 
@@ -40,10 +40,6 @@ Id EmitBallot(EmitContext& ctx, Id bit) {
 
 Id EmitBallotFindLsb(EmitContext& ctx, Id mask) {
     return ctx.OpGroupNonUniformBallotFindLSB(ctx.U32[1], SubgroupScope(ctx), mask);
-}
-
-Id EmitInverseBallot(EmitContext& ctx, Id mask) {
-    return ctx.OpGroupNonUniformInverseBallot(ctx.U1[1], SubgroupScope(ctx), mask);
 }
 
 Id EmitGroupAny(EmitContext& ctx, Id bit) {

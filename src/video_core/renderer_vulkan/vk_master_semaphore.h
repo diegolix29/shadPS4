@@ -49,6 +49,7 @@ public:
 protected:
     const Instance& instance;
     vk::UniqueSemaphore semaphore;    ///< Timeline semaphore.
+    std::atomic<u64> last_refresh_ns{0};
     std::atomic<u64> gpu_tick{0};     ///< Current known GPU tick.
     std::atomic<u64> current_tick{1}; ///< Current logical tick.
 };

@@ -113,7 +113,6 @@ bool PSF::Encode(const std::filesystem::path& filepath) const {
         LOG_ERROR(Core, "Failed to write PSF file. Written {} Expected {}", written,
                   psf_buffer.size());
     }
-    file.Close();
     return written == psf_buffer.size();
 }
 

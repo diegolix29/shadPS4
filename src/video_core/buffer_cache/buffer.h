@@ -4,7 +4,6 @@
 #pragma once
 
 #include <cstddef>
-#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -126,7 +125,7 @@ public:
     }
 
     std::optional<vk::BufferMemoryBarrier2> GetBarrier(vk::AccessFlags2 dst_acess_mask,
-                                                       vk::PipelineStageFlagBits2 dst_stage,
+                                                       vk::PipelineStageFlags2 dst_stage,
                                                        u32 offset = 0) {
         if (dst_acess_mask == access_mask && stage == dst_stage) {
             return {};
@@ -163,10 +162,15 @@ public:
     Vulkan::Scheduler* scheduler;
     MemoryUsage usage;
     UniqueBuffer buffer;
+    // OPT: Narrowed default access mask and stage. eAllCommands creates maximum GPU pipeline
+    // bubbles by forcing full drain before any subsequent work. Use eAllGraphics | eComputeShader
+    // which covers actual shader usage without blocking transfer-only or host stages.
     vk::Flags<vk::AccessFlagBits2> access_mask{
-        vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite |
+        vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite |
         vk::AccessFlagBits2::eTransferRead | vk::AccessFlagBits2::eTransferWrite};
-    vk::PipelineStageFlagBits2 stage{vk::PipelineStageFlagBits2::eAllCommands};
+    vk::PipelineStageFlags2 stage{vk::PipelineStageFlagBits2::eAllGraphics |
+                                   vk::PipelineStageFlagBits2::eComputeShader |
+                                   vk::PipelineStageFlagBits2::eTransfer};
 };
 
 class StreamBuffer : public Buffer {
@@ -209,53 +213,6 @@ private:
     std::vector<Watch> previous_watches;
     std::size_t wait_cursor{};
     u64 wait_bound{};
-};
-
-class StreamBufferMapping {
-public:
-    StreamBufferMapping(StreamBuffer& stream_buffer, u64 size, u64 alignment = 0,
-                        bool allow_wait = true);
-    ~StreamBufferMapping();
-
-    StreamBufferMapping(const StreamBufferMapping&) = delete;
-    StreamBufferMapping& operator=(const StreamBufferMapping&) = delete;
-
-    StreamBufferMapping(StreamBufferMapping&& other)
-        : buffer{std::exchange(other.buffer, nullptr)}, data{std::exchange(other.data, nullptr)},
-          offset{std::exchange(other.offset, 0)},
-          is_temp_buffer{std::exchange(other.is_temp_buffer, false)} {}
-
-    StreamBufferMapping& operator=(StreamBufferMapping&& other) {
-        if (this != &other) {
-            buffer = std::exchange(other.buffer, nullptr);
-            data = std::exchange(other.data, nullptr);
-            offset = std::exchange(other.offset, 0);
-            is_temp_buffer = std::exchange(other.is_temp_buffer, false);
-        }
-        return *this;
-    }
-
-    VideoCore::Buffer* Buffer() const {
-        return buffer;
-    }
-
-    u8* Data() const {
-        return data;
-    }
-
-    u64 Offset() const {
-        return offset;
-    }
-
-    bool TemporaryBuffer() const {
-        return is_temp_buffer;
-    }
-
-private:
-    VideoCore::Buffer* buffer;
-    u8* data{};
-    u64 offset{};
-    bool is_temp_buffer{};
 };
 
 } // namespace VideoCore

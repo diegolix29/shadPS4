@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "common/enum.h"
 #include "common/types.h"
 #include "core/libraries/ajm/ajm_instance.h"
 
@@ -13,6 +12,8 @@
 #include <vector>
 
 namespace Libraries::Ajm {
+
+constexpr s32 ORBIS_AJM_DEC_AT9_MAX_CHANNELS = 8;
 
 enum AjmAt9CodecFlags : u32 {
     ParseRiffHeader = 1 << 0,
@@ -28,7 +29,7 @@ struct AjmSidebandDecAt9CodecInfo {
 };
 
 struct AjmAt9Decoder final : AjmCodec {
-    explicit AjmAt9Decoder(AjmFormatEncoding format, AjmAt9CodecFlags flags, u32 channels);
+    explicit AjmAt9Decoder(AjmFormatEncoding format, AjmAt9CodecFlags flags);
     ~AjmAt9Decoder() override;
 
     void Reset() override;

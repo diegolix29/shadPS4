@@ -1,4 +1,4 @@
-//  SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
+//  SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 //  SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "ipc.h"
@@ -14,7 +14,6 @@
 #include "common/types.h"
 #include "core/debug_state.h"
 #include "core/debugger.h"
-#include "core/emulator_state.h"
 #include "core/libraries/audio/audioout.h"
 #include "input/input_handler.h"
 #include "sdl_window.h"
@@ -72,7 +71,7 @@ void IPC::Init() {
         return;
     }
 
-    EmulatorState::GetInstance()->SetAutoPatchesLoadEnabled(false);
+    Config::setLoadAutoPatches(false);
 
     input_thread = std::jthread([this] {
         Common::SetCurrentThreadName("IPC Read thread");
@@ -168,24 +167,18 @@ void IPC::InputLoop() {
         } else if (cmd == "SET_RCAS_ATTENUATION") {
             int value = static_cast<int>(next_u64());
             if (presenter) {
-                presenter->GetFsrSettingsRef().rcasAttenuation =
+                presenter->GetFsrSettingsRef().rcas_attenuation =
                     static_cast<float>(value / 1000.0f);
             }
         } else if (cmd == "USB_LOAD_FIGURE") {
             const auto ref = Libraries::Usbd::usb_backend->GetImplRef();
             if (ref) {
-                std::string file_name = next_str();
-                const u8 pad = next_u64();
-                const u8 slot = next_u64();
-                ref->LoadFigure(file_name, pad, slot);
+                ref->LoadFigure(next_str(), next_u64(), next_u64());
             }
         } else if (cmd == "USB_REMOVE_FIGURE") {
             const auto ref = Libraries::Usbd::usb_backend->GetImplRef();
             if (ref) {
-                const u8 pad = next_u64();
-                const u8 slot = next_u64();
-                bool full_remove = next_u64() != 0;
-                ref->RemoveFigure(pad, slot, full_remove);
+                ref->RemoveFigure(next_u64(), next_u64(), next_u64() != 0);
             }
         } else if (cmd == "USB_MOVE_FIGURE") {
             const auto ref = Libraries::Usbd::usb_backend->GetImplRef();
@@ -211,6 +204,13 @@ void IPC::InputLoop() {
         } else if (cmd == "RELOAD_INPUTS") {
             std::string config = next_str();
             Input::ParseInputConfig(config);
+        } else if (cmd == "SET_ACTIVE_CONTROLLER") {
+            std::string active_controller = next_str();
+            GamepadSelect::SetSelectedGamepad(active_controller);
+            SDL_Event checkGamepad;
+            SDL_memset(&checkGamepad, 0, sizeof(checkGamepad));
+            checkGamepad.type = SDL_EVENT_CHANGE_CONTROLLER;
+            SDL_PushEvent(&checkGamepad);
         } else {
             std::cerr << ";UNKNOWN CMD: " << cmd << std::endl;
         }

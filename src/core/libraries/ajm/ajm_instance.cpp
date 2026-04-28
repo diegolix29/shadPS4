@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "ajm_aac.h"
 #include "ajm_at9.h"
 #include "ajm_instance.h"
 #include "ajm_mp3.h"
@@ -27,18 +26,13 @@ u8 GetPCMSize(AjmFormatEncoding format) {
 AjmInstance::AjmInstance(AjmCodecType codec_type, AjmInstanceFlags flags) : m_flags(flags) {
     switch (codec_type) {
     case AjmCodecType::At9Dec: {
-        m_codec = std::make_unique<AjmAt9Decoder>(
-            AjmFormatEncoding(flags.format), AjmAt9CodecFlags(flags.codec), u32(flags.channels));
+        m_codec = std::make_unique<AjmAt9Decoder>(AjmFormatEncoding(flags.format),
+                                                  AjmAt9CodecFlags(flags.codec));
         break;
     }
     case AjmCodecType::Mp3Dec: {
-        m_codec = std::make_unique<AjmMp3Decoder>(
-            AjmFormatEncoding(flags.format), AjmMp3CodecFlags(flags.codec), u32(flags.channels));
-        break;
-    }
-    case AjmCodecType::M4aacDec: {
-        m_codec = std::make_unique<AjmAacDecoder>(
-            AjmFormatEncoding(flags.format), AjmAacCodecFlags(flags.codec), u32(flags.channels));
+        m_codec = std::make_unique<AjmMp3Decoder>(AjmFormatEncoding(flags.format),
+                                                  AjmMp3CodecFlags(flags.codec));
         break;
     }
     default:

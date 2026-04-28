@@ -101,6 +101,11 @@ public:
 
     void ExecuteJob(AjmJob& job);
 
+    // --- FIX: RECYCLING HELPERS ---
+    [[nodiscard]] AjmInstanceFlags GetFlags() const { return m_flags; }
+    void ResetState() { Reset(); }
+    // ------------------------------
+
 private:
     bool HasEnoughSpace(const SparseOutputBuffer& output) const;
     void Reset();

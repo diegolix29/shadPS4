@@ -1,9 +1,8 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
-#include <core/libraries/system/userservice.h>
 #include "common/enum.h"
 #include "common/types.h"
 
@@ -144,7 +143,6 @@ enum class OrbisPadButtonDataOffset : u32 {
     Square = 0x8000,
     TouchPad = 0x100000,
     Intercepted = 0x80000000,
-    Home = 0x00010000,
 };
 DECLARE_ENUM_FLAG_OPERATORS(OrbisPadButtonDataOffset)
 
@@ -278,10 +276,9 @@ int PS4_SYSV_ABI scePadGetExtControllerInformation(s32 handle,
                                                    OrbisPadExtendedControllerInformation* pInfo);
 int PS4_SYSV_ABI scePadGetExtensionUnitInfo();
 int PS4_SYSV_ABI scePadGetFeatureReport();
-int PS4_SYSV_ABI scePadGetHandle(Libraries::UserService::OrbisUserServiceUserId userId, s32 type,
-                                 s32 index);
+int PS4_SYSV_ABI scePadGetHandle(s32 userId, s32 type, s32 index);
 int PS4_SYSV_ABI scePadGetIdleCount();
-int PS4_SYSV_ABI scePadGetInfo(u32* data);
+int PS4_SYSV_ABI scePadGetInfo();
 int PS4_SYSV_ABI scePadGetInfoByPortType();
 int PS4_SYSV_ABI scePadGetLicenseControllerInformation();
 int PS4_SYSV_ABI scePadGetMotionSensorPosition();
@@ -297,10 +294,8 @@ int PS4_SYSV_ABI scePadIsMoveReproductionModel();
 int PS4_SYSV_ABI scePadIsValidHandle();
 int PS4_SYSV_ABI scePadMbusInit();
 int PS4_SYSV_ABI scePadMbusTerm();
-int PS4_SYSV_ABI scePadOpen(Libraries::UserService::OrbisUserServiceUserId userId, s32 type,
-                            s32 index, const OrbisPadOpenParam* pParam);
-int PS4_SYSV_ABI scePadOpenExt(Libraries::UserService::OrbisUserServiceUserId userId, s32 type,
-                               s32 index, const OrbisPadOpenExtParam* pParam);
+int PS4_SYSV_ABI scePadOpen(s32 userId, s32 type, s32 index, const OrbisPadOpenParam* pParam);
+int PS4_SYSV_ABI scePadOpenExt(s32 userId, s32 type, s32 index, const OrbisPadOpenExtParam* pParam);
 int PS4_SYSV_ABI scePadOpenExt2();
 int PS4_SYSV_ABI scePadOutputReport();
 int PS4_SYSV_ABI scePadRead(s32 handle, OrbisPadData* pData, s32 num);
@@ -325,7 +320,7 @@ int PS4_SYSV_ABI scePadSetForceIntercepted();
 int PS4_SYSV_ABI scePadSetLightBar(s32 handle, const OrbisPadLightBarParam* pParam);
 int PS4_SYSV_ABI scePadSetLightBarBaseBrightness();
 int PS4_SYSV_ABI scePadSetLightBarBlinking();
-int PS4_SYSV_ABI scePadSetLightBarForTracker(s32 handle, const OrbisPadLightBarParam* pParam);
+int PS4_SYSV_ABI scePadSetLightBarForTracker();
 int PS4_SYSV_ABI scePadSetLoginUserNumber();
 int PS4_SYSV_ABI scePadSetMotionSensorState(s32 handle, bool bEnable);
 int PS4_SYSV_ABI scePadSetProcessFocus();
@@ -352,6 +347,14 @@ int PS4_SYSV_ABI Func_298D21481F94C9FA();
 int PS4_SYSV_ABI Func_51E514BCD3A05CA5();
 int PS4_SYSV_ABI Func_89C9237E393DA243();
 int PS4_SYSV_ABI Func_EF103E845B6F0420();
+
+// Raw button state snapshot for external consumers (e.g., gallery HLE research).
+// Accumulates button presses from both scePadRead/scePadReadState AND an SDL
+// event watcher (installed lazily on first scePadRead call). Uses PS4 button
+// bitmask values (Triangle=0x1000, Circle=0x2000, Cross=0x4000, Square=0x8000,
+// D-pad Up=0x10, Right=0x20, Down=0x40, Left=0x80, L1=0x100, R1=0x200).
+u32 GetRawButtons();    // Consume-and-clear
+u32 PeekRawButtons();   // Non-destructive
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym);
 } // namespace Libraries::Pad

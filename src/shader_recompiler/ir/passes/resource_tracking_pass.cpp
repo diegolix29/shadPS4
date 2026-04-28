@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/memory_patcher.h"
 #include "shader_recompiler/frontend/control_flow_graph.h"
 #include "shader_recompiler/info.h"
 #include "shader_recompiler/ir/basic_block.h"
@@ -40,7 +39,6 @@ bool IsBufferAtomic(const IR::Inst& inst) {
     case IR::Opcode::BufferAtomicXor32:
     case IR::Opcode::BufferAtomicSwap32:
     case IR::Opcode::BufferAtomicCmpSwap32:
-    case IR::Opcode::BufferAtomicFCmpSwap32:
         return true;
     default:
         return false;
@@ -127,8 +125,7 @@ bool IsDataRingInstruction(const IR::Inst& inst) {
     }
 }
 
-IR::Type BufferDataType(const IR::Inst& inst, const Profile& profile,
-                        AmdGpu::NumberFormat num_format) {
+IR::Type BufferDataType(const IR::Inst& inst, AmdGpu::NumberFormat num_format) {
     switch (inst.GetOpcode()) {
     case IR::Opcode::LoadBufferU8:
     case IR::Opcode::StoreBufferU8:
@@ -146,7 +143,7 @@ IR::Type BufferDataType(const IR::Inst& inst, const Profile& profile,
         return IR::Type::U64;
     case IR::Opcode::BufferAtomicFMax32:
     case IR::Opcode::BufferAtomicFMin32:
-        return profile.supports_buffer_fp32_atomic_min_max ? IR::Type::F32 : IR::Type::U32;
+        return IR::Type::F32;
     case IR::Opcode::LoadBufferFormatF32:
     case IR::Opcode::StoreBufferFormatF32:
         // Formatted buffer loads can use a variety of types.
@@ -218,7 +215,6 @@ bool IsImageAtomicInstruction(const IR::Inst& inst) {
     case IR::Opcode::ImageAtomicOr32:
     case IR::Opcode::ImageAtomicXor32:
     case IR::Opcode::ImageAtomicExchange32:
-    case IR::Opcode::ImageAtomicCmpSwap32:
         return true;
     default:
         return false;
@@ -259,6 +255,10 @@ public:
 
     u32 Add(const ImageResource& desc) {
         const u32 index{Add(image_resources, desc, [&desc](const auto& existing) {
+            // PORT(upstream #4075): two image descriptors with the same sharp
+            // but different mip-fallback bindings must be distinct entries,
+            // otherwise the descriptor-set layout computed from NumBindings
+            // won't match what the shader expects.
             return desc.sharp_idx == existing.sharp_idx && desc.is_array == existing.is_array &&
                    desc.mip_fallback_mode == existing.mip_fallback_mode &&
                    desc.constant_mip_index == existing.constant_mip_index;
@@ -491,8 +491,7 @@ SharpLocation TrackSharp(const IR::Inst* inst, const IR::Block& current_parent, 
     return SharpLocationFromSource(sources[0]);
 }
 
-void PatchBufferSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors& descriptors,
-                      const Profile& profile) {
+void PatchBufferSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors& descriptors) {
     IR::Inst* handle = inst.Arg(0).InstRecursive();
     u32 buffer_binding = 0;
     if (handle->AreAllArgsImmediates()) {
@@ -506,30 +505,24 @@ void PatchBufferSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors&
         // buffer_load_format_xyz v[8:10], v1, s[32:35], 0 ...
         // is used to define an inline buffer resource
         std::array<u64, 2> raw;
-
-        if (MemoryPatcher::IsSpecialCusa()) {
-            raw[0] = info.pgm_base + (handle->Arg(0).U32() | (u64(handle->Arg(1).U32()) << 32));
-        } else {
-            raw[0] = handle->Arg(0).U32() | (u64(handle->Arg(1).U32()) << 32);
-        }
-
+        // Keep relative address, we'll do fixup of the address at buffer fetch later
+        raw[0] = (handle->Arg(0).U32() | u64(handle->Arg(1).U32()) << 32);
         raw[1] = handle->Arg(2).U32() | u64(handle->Arg(3).U32()) << 32;
         const auto buffer = std::bit_cast<AmdGpu::Buffer>(raw);
         buffer_binding = descriptors.Add(BufferResource{
             .sharp_idx = std::numeric_limits<u32>::max(),
-            .used_types = BufferDataType(inst, profile, buffer.GetNumberFmt()),
+            .used_types = BufferDataType(inst, buffer.GetNumberFmt()),
             .inline_cbuf = buffer,
             .buffer_type = BufferType::Guest,
         });
     } else {
         // Normal buffer resource.
         IR::Inst* buffer_handle = handle->Arg(0).InstRecursive();
-        const auto inst_info = inst.Flags<IR::BufferInstInfo>();
-        const auto sharp_idx = TrackSharp(buffer_handle, block, inst_info.pc);
+        const auto sharp_idx = TrackSharp(buffer_handle, block);
         const auto buffer = info.ReadUdSharp<AmdGpu::Buffer>(sharp_idx);
         buffer_binding = descriptors.Add(BufferResource{
             .sharp_idx = sharp_idx,
-            .used_types = BufferDataType(inst, profile, buffer.GetNumberFmt()),
+            .used_types = BufferDataType(inst, buffer.GetNumberFmt()),
             .buffer_type = BufferType::Guest,
             .is_written = IsBufferStore(inst),
             .is_formatted = inst.GetOpcode() == IR::Opcode::LoadBufferFormatF32 ||
@@ -550,10 +543,12 @@ void PatchImageSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors& 
     const auto tsharp = TrackSharp(image_handle, block, inst_info.pc);
     const bool is_atomic = IsImageAtomicInstruction(inst);
     const bool is_written = inst.GetOpcode() == IR::Opcode::ImageWrite || is_atomic;
+    // PORT(upstream #4075): detect IMAGE_STORE_MIP-style ops that need the
+    // descriptor-array fallback because the driver lacks native
+    // image-load-store-lod support. ImageRead without is_written is OpImageFetch
+    // (handled natively); only is_written + has_lod needs the fallback here.
     const bool is_storage =
         inst.GetOpcode() == IR::Opcode::ImageRead || inst.GetOpcode() == IR::Opcode::ImageWrite;
-    // ImageRead with !is_written gets emitted as OpImageFetch with LOD operand, doesn't
-    // need fallback (TODO is this 100% true?)
     const bool needs_mip_storage_fallback =
         inst_info.has_lod && is_written && !profile.supports_image_load_store_lod;
     ImageResource image_res = {
@@ -564,16 +559,16 @@ void PatchImageSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors& 
         .is_written = is_written,
         .is_r128 = bool(inst_info.is_r128),
     };
-
     auto image = image_res.GetSharp(info);
     ASSERT(image.GetType() != AmdGpu::ImageType::Invalid);
 
     if (needs_mip_storage_fallback) {
-        // If the mip level to IMAGE_(LOAD/STORE)_MIP is a constant, set up ImageResource
-        // so that we will only bind a single level.
-        // If index is dynamic, we will bind levels as an array
+        // PORT(upstream #4075): If the mip level to IMAGE_(LOAD/STORE)_MIP is
+        // a compile-time constant, bind only that single level. If the lod is
+        // dynamic, bind every level of the image as an array and index at
+        // runtime. The lod argument's position in the image op body depends on
+        // the view type.
         const auto view_type = image.GetViewType(image_res.is_array);
-
         IR::Inst* body = inst.Arg(1).InstRecursive();
         const auto lod_arg = [&] -> IR::Value {
             switch (view_type) {
@@ -671,7 +666,7 @@ void PatchImageSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors& 
 }
 
 void PatchGlobalDataShareAccess(IR::Block& block, IR::Inst& inst, Info& info,
-                                Descriptors& descriptors, const Profile& profile) {
+                                Descriptors& descriptors) {
     const u32 binding = descriptors.Add(BufferResource{
         .used_types = IR::Type::U32,
         .inline_cbuf = AmdGpu::Buffer::Null(),
@@ -714,7 +709,6 @@ void PatchGlobalDataShareAccess(IR::Block& block, IR::Inst& inst, Info& info,
         inst.SetArg(1, ir.Imm32(binding));
     } else {
         // Convert shared memory opcode to storage buffer atomic to GDS buffer.
-        auto& buffer = info.buffers[binding];
         const IR::U32 offset = IR::U32{inst.Arg(0)};
         const IR::U32 address_words = ir.ShiftRightLogical(offset, ir.Imm32(1));
         const IR::U32 address_dwords = ir.ShiftRightLogical(offset, ir.Imm32(2));
@@ -760,35 +754,27 @@ void PatchGlobalDataShareAccess(IR::Block& block, IR::Inst& inst, Info& info,
         case IR::Opcode::SharedAtomicXor32:
             inst.ReplaceUsesWith(ir.BufferAtomicXor(handle, address_dwords, inst.Arg(1), {}));
             break;
-        case IR::Opcode::LoadSharedU16: {
+        case IR::Opcode::LoadSharedU16:
             inst.ReplaceUsesWith(ir.LoadBufferU16(handle, address_words, {}));
-            buffer.used_types |= IR::Type::U16;
             break;
-        }
         case IR::Opcode::LoadSharedU32:
             inst.ReplaceUsesWith(ir.LoadBufferU32(1, handle, address_dwords, {}));
             break;
-        case IR::Opcode::LoadSharedU64: {
+        case IR::Opcode::LoadSharedU64:
             inst.ReplaceUsesWith(ir.LoadBufferU64(handle, address_qwords, {}));
-            buffer.used_types |= IR::Type::U64;
             break;
-        }
-        case IR::Opcode::WriteSharedU16: {
+        case IR::Opcode::WriteSharedU16:
             ir.StoreBufferU16(handle, address_words, IR::U16{inst.Arg(1)}, {});
             inst.Invalidate();
-            buffer.used_types |= IR::Type::U16;
             break;
-        }
         case IR::Opcode::WriteSharedU32:
             ir.StoreBufferU32(1, handle, address_dwords, inst.Arg(1), {});
             inst.Invalidate();
             break;
-        case IR::Opcode::WriteSharedU64: {
+        case IR::Opcode::WriteSharedU64:
             ir.StoreBufferU64(handle, address_qwords, IR::U64{inst.Arg(1)}, {});
             inst.Invalidate();
-            buffer.used_types |= IR::Type::U64;
             break;
-        }
         default:
             UNREACHABLE();
         }
@@ -929,8 +915,8 @@ void PatchImageSampleArgs(IR::Block& block, IR::Inst& inst, Info& info,
     };
     u32 addr_reg = 0;
 
-    // Load first address components as denoted in 8.2.4 VGPR Usage Sea Islands Series
-    // Instruction Set Architecture
+    // Load first address components as denoted in 8.2.4 VGPR Usage Sea Islands Series Instruction
+    // Set Architecture
     const IR::Value offset = [&] -> IR::Value {
         if (!inst_info.has_offset) {
             return IR::U32{};
@@ -1039,8 +1025,7 @@ void PatchImageSampleArgs(IR::Block& block, IR::Inst& inst, Info& info,
             return ir.CompositeConstruct(get_coord(addr_reg - 2, 0), get_coord(addr_reg - 1, 1));
         case AmdGpu::ImageType::Color2DArray: // x, y, slice
             addr_reg = addr_reg + 3;
-            // Note we can use FixCubeCoords with fallthrough cases since it checks for image
-            // type.
+            // Note we can use FixCubeCoords with fallthrough cases since it checks for image type.
             return FixCubeCoords(ir, image, get_coord(addr_reg - 3, 0), get_coord(addr_reg - 2, 1),
                                  get_addr_reg(addr_reg - 1));
         case AmdGpu::ImageType::Color3D: // x, y, z
@@ -1061,7 +1046,7 @@ void PatchImageSampleArgs(IR::Block& block, IR::Inst& inst, Info& info,
 
     auto texel = [&] -> IR::Value {
         if (is_msaa) {
-            return ir.ImageRead(handle, coords, {}, ir.Imm32(0U), inst_info);
+            return ir.ImageRead(handle, coords, ir.Imm32(0U), ir.Imm32(0U), inst_info);
         }
         if (inst_info.is_gather) {
             if (inst_info.is_depth) {
@@ -1099,8 +1084,7 @@ void PatchImageArgs(IR::Block& block, IR::Inst& inst, Info& info) {
     }
 
     const auto image_handle = inst.Arg(0);
-    const auto binding_index = image_handle.U32() & 0xFFFF;
-    const auto& image_res = info.images[binding_index];
+    const auto& image_res = info.images[image_handle.U32() & 0xFFFF];
     auto image = image_res.GetSharp(info);
 
     // Sample instructions must be handled separately using address register data.
@@ -1109,7 +1093,7 @@ void PatchImageArgs(IR::Block& block, IR::Inst& inst, Info& info) {
     }
 
     IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
-    auto inst_info = inst.Flags<IR::TextureInstInfo>();
+    const auto inst_info = inst.Flags<IR::TextureInstInfo>();
     const auto view_type = image.GetViewType(image_res.is_array);
 
     // Now that we know the image type, adjust texture coordinate vector.
@@ -1120,26 +1104,8 @@ void PatchImageArgs(IR::Block& block, IR::Inst& inst, Info& info) {
             return {body->Arg(0), body->Arg(1)};
         case AmdGpu::ImageType::Color1DArray: // x, slice, [lod]
         case AmdGpu::ImageType::Color2D:      // x, y, [lod]
+        case AmdGpu::ImageType::Color2DMsaa:  // x, y. (sample is passed on different argument)
             return {ir.CompositeConstruct(body->Arg(0), body->Arg(1)), body->Arg(2)};
-        case AmdGpu::ImageType::Color2DMsaa: // x, y. (sample is passed on different argument)
-        {
-            auto skip_lod = false;
-            if (inst_info.has_lod) {
-                const auto mipid = body->Arg(2);
-                if (mipid.IsImmediate() && mipid.U32() == 0) {
-                    // if image_x_mip refers to a MSAA image, and mipid is 0, it is safe to be
-                    // skipped and fragid is taken from the next arg
-                    LOG_WARNING(Render_Recompiler, "Encountered a _mip instruction with MSAA "
-                                                   "image, and mipid is 0, skipping LoD");
-                    inst_info.has_lod.Assign(false);
-                    skip_lod = true;
-                } else {
-                    UNREACHABLE_MSG(
-                        "Encountered a _mip instruction with MSAA image, and mipid is non-zero");
-                }
-            }
-            return {ir.CompositeConstruct(body->Arg(0), body->Arg(1)), body->Arg(skip_lod ? 3 : 2)};
-        }
         case AmdGpu::ImageType::Color2DArray:     // x, y, slice, [lod]
         case AmdGpu::ImageType::Color2DMsaaArray: // x, y, slice. (sample is passed on different
                                                   // argument)
@@ -1153,7 +1119,9 @@ void PatchImageArgs(IR::Block& block, IR::Inst& inst, Info& info) {
     const auto has_ms = view_type == AmdGpu::ImageType::Color2DMsaa ||
                         view_type == AmdGpu::ImageType::Color2DMsaaArray;
     ASSERT(!inst_info.has_lod || !has_ms);
-    // If we are binding a single mip level as fallback, drop the argument
+    // PORT(upstream #4075): when fallback binds a single mip level (ConstantIndex
+    // mode), the shader must not pass a lod argument — the descriptor already
+    // points at the right mip. DynamicIndex keeps the lod for runtime indexing.
     const auto lod =
         (inst_info.has_lod && image_res.mip_fallback_mode != MipStorageFallbackMode::ConstantIndex)
             ? IR::U32{arg}
@@ -1197,7 +1165,7 @@ void ResourceTrackingPass(IR::Program& program, const Profile& profile) {
     for (IR::Block* const block : program.blocks) {
         for (IR::Inst& inst : block->Instructions()) {
             if (IsBufferInstruction(inst)) {
-                PatchBufferSharp(*block, inst, info, descriptors, profile);
+                PatchBufferSharp(*block, inst, info, descriptors);
             } else if (IsImageInstruction(inst)) {
                 PatchImageSharp(*block, inst, info, descriptors, profile);
             }
@@ -1212,7 +1180,7 @@ void ResourceTrackingPass(IR::Program& program, const Profile& profile) {
             } else if (IsImageInstruction(inst)) {
                 PatchImageArgs(*block, inst, info);
             } else if (IsDataRingInstruction(inst)) {
-                PatchGlobalDataShareAccess(*block, inst, info, descriptors, profile);
+                PatchGlobalDataShareAccess(*block, inst, info, descriptors);
             }
         }
     }

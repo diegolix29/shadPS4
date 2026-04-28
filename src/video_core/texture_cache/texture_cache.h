@@ -1,12 +1,15 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <shared_mutex>
 #include <thread>
 #include <unordered_set>
+#include <vector>
 #include <boost/container/small_vector.hpp>
 #include <queue>
 #include <tsl/robin_map.h>
@@ -20,10 +23,6 @@
 #include "video_core/texture_cache/image_view.h"
 #include "video_core/texture_cache/sampler.h"
 #include "video_core/texture_cache/tile_manager.h"
-
-namespace Core::Libraries::VideoOut {
-struct BufferAttributeGroup;
-}
 
 namespace AmdGpu {
 struct Liverpool;
@@ -40,7 +39,8 @@ class TextureCache {
     static constexpr s64 DEFAULT_CRITICAL_GC_MEMORY = 3_GB;
     static constexpr s64 TARGET_GC_THRESHOLD = 8_GB;
 
-    using ImageIds = boost::container::small_vector<ImageId, 16>;
+
+    using ImageIds = boost::container::small_vector<ImageId, 64>;
 
     struct Traits {
         using Entry = ImageIds;
@@ -81,8 +81,7 @@ public:
 
 public:
     TextureCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                 AmdGpu::Liverpool* liverpool, BufferCache& buffer_cache,
-                 PageManager& page_manager);
+                 AmdGpu::Liverpool* liverpool, BufferCache& buffer_cache, PageManager& tracker);
     ~TextureCache();
 
     TileManager& GetTileManager() noexcept {
@@ -95,21 +94,50 @@ public:
     /// Marks an image as dirty if it exists at the provided address.
     void InvalidateMemoryFromGPU(VAddr address, size_t max_size);
 
-    void MarkAsMaybeReused(VAddr addr, size_t size);
-
     /// Evicts any images that overlap the unmapped range.
     void UnmapMemory(VAddr cpu_addr, size_t size);
 
     /// Schedules a copy of pending images for download back to CPU memory.
     void ProcessDownloadImages();
 
+    /// Synchronous GPU→CPU download for the photo render target.
+    /// Called from the game thread (sceJpegEncEncode) — does NOT use SendCommand or the
+    /// scheduler's command buffer, avoiding deadlocks. Instead, it uses a dedicated one-shot
+    /// Vulkan command pool/buffer/fence to copy the last known 1024×1024 linear render target
+    /// directly to the encoder's CPU buffer at |address|.
+    /// Returns true if an image was found and successfully downloaded.
+    bool ForceDownloadByAddress(VAddr address, u64 size);
+
+    /// Triggers texture survey logging for the next N texture bindings.
+    /// Called after photo encode to discover what the game samples for preview.
+    static void TriggerPhotoTextureSurvey(int budget = 200);
+
     /// Retrieves the image handle of the image with the provided attributes.
     [[nodiscard]] ImageId FindImage(ImageDesc& desc, bool exact_fmt = false);
+
+    struct FindImageWithViewResult {
+        ImageId image_id{};
+        int view_mip{-1};
+        int view_slice{-1};
+    };
+
+    /// Same as FindImage(), but does not mutate the provided ImageDesc.
+    /// Returns the subresource location (mip/slice) when the requested image is a subresource.
+    [[nodiscard]] FindImageWithViewResult FindImageWithView(const ImageDesc& desc,
+                                                            bool exact_fmt = false,
+                                                            bool touch_lru = true);
+    [[nodiscard]] bool ValidateCachedFindImage(const ImageDesc& desc, ImageId image_id,
+                                               bool exact_fmt = false) const;
 
     /// Retrieves image whose address matches provided
     [[nodiscard]] ImageId FindImageFromRange(VAddr address, size_t size, bool ensure_valid = true);
 
     /// Retrieves an image view with the properties of the specified image id.
+    /// Retrieves an image view with the properties of the specified image id, using a
+    /// lightweight descriptor (binding type + view info).
+    [[nodiscard]] ImageView& FindTexture(ImageId image_id, BindingType type,
+                                         const ImageViewInfo& view_info);
+
     [[nodiscard]] ImageView& FindTexture(ImageId image_id, const ImageDesc& desc);
 
     /// Retrieves the render target with specified properties
@@ -119,13 +147,10 @@ public:
     [[nodiscard]] ImageView& FindDepthTarget(ImageId image_id, const ImageDesc& desc);
 
     /// Updates image contents if it was modified by CPU.
-    void UpdateImage(ImageId image_id) {
-        std::scoped_lock lock{mutex};
-        Image& image = slot_images[image_id];
-        TrackImage(image_id);
-        TouchImage(image);
-        RefreshImage(image);
-    }
+    ///
+    /// PERF(GR2): This is hit *a lot* in GpuComm via FindTexture/FindRenderTarget.
+    /// Use a shared-lock fast path to avoid write-lock churn on already-tracked, clean images.
+    void UpdateImage(ImageId image_id);
 
     /// Resolves overlap between existing cache image and pending merged image
     [[nodiscard]] std::tuple<ImageId, int, int> ResolveOverlap(const ImageInfo& info,
@@ -154,9 +179,21 @@ public:
         return image;
     }
 
+    /// Retrieves the image WITHOUT updating LRU cache.
+    /// Use only when the caller just needs to clear transient state (e.g. binding flags)
+    /// and does not constitute a "real" access that should keep the image alive.
+    [[nodiscard]] Image& GetImageUntouched(ImageId id) {
+        return slot_images[id];
+    }
+
     /// Retrieves the image view with the specified id.
     [[nodiscard]] ImageView& GetImageView(ImageId id) {
         return slot_image_views[id];
+    }
+
+    /// Returns the total VRAM currently used by tracked images, in bytes.
+    [[nodiscard]] u64 GetTotalUsedMemory() const noexcept {
+        return total_used_memory;
     }
 
     /// Returns true if the specified address is a metadata surface.
@@ -200,10 +237,6 @@ public:
     /// Runs the garbage collector.
     void RunGarbageCollector();
 
-    void EnqueueForGc(std::function<void()> fn);
-
-    void RunGarbageCollectorAsync();
-
     template <typename Func>
     void ForEachImageInRegion(VAddr cpu_addr, size_t size, Func&& func) {
         using FuncReturn = typename std::invoke_result<Func, ImageId, Image&>::type;
@@ -243,17 +276,6 @@ public:
         for (const ImageId image_id : images) {
             slot_images[image_id].flags &= ~ImageFlagBits::Picked;
         }
-    }
-    mutable std::mutex gc_mutex;
-    std::queue<std::function<void()>> gc_queue;
-    u64 GetTriggerGcMemory() const {
-        return trigger_gc_memory;
-    }
-    u64 GetPressureGcMemory() const {
-        return pressure_gc_memory;
-    }
-    u64 GetCriticalGcMemory() const {
-        return critical_gc_memory;
     }
 
 private:
@@ -307,9 +329,15 @@ private:
     void DeleteImage(ImageId image_id);
 
     /// Touch the image in the LRU cache.
-    void TouchImage(Image& image);
+    void TouchImage(const Image& image);
 
     void FreeImage(ImageId image_id) {
+        Image& image = slot_images[image_id];
+        if (False(image.flags & ImageFlagBits::Registered)) {
+            // Already freed through another path (e.g., address conflict resolution
+            // followed by GC eviction). Skip to avoid double-free.
+            return;
+        }
         UntrackImage(image_id);
         UnregisterImage(image_id);
         DeleteImage(image_id);
@@ -320,7 +348,7 @@ private:
     Vulkan::Scheduler& scheduler;
     AmdGpu::Liverpool* liverpool;
     BufferCache& buffer_cache;
-    PageManager& page_manager;
+    PageManager& tracker;
     BlitHelper blit_helper;
     TileManager tile_manager;
     Common::SlotVector<Image> slot_images;
@@ -334,9 +362,8 @@ private:
     u64 critical_gc_memory = 0;
     u64 gc_tick = 0;
     Common::LeastRecentlyUsedCache<ImageId, u64> lru_cache;
-    bool readback_linear_images;
     PageTable page_table;
-    std::mutex mutex;
+    mutable std::shared_mutex mutex;
     struct MetaDataInfo {
         enum class Type {
             CMask,
@@ -347,6 +374,58 @@ private:
         s32 clear_mask = -1;
     };
     tsl::robin_map<VAddr, MetaDataInfo> surface_metas;
+
+    // ── GR2 Photo Download (one-shot Vulkan resources, game-thread owned) ──────
+    // These are lazily created on first ForceDownloadByAddress call and used
+    // exclusively from the game thread, so no locking is needed for them.
+    vk::CommandPool photo_cmd_pool_{};
+    vk::CommandBuffer photo_cmd_buf_{};
+    vk::Fence photo_fence_{};
+    vk::Buffer photo_staging_buf_{};
+    vk::DeviceMemory photo_staging_mem_{};
+    void* photo_staging_ptr_{nullptr};
+    u32 photo_staging_size_{0};
+    bool photo_resources_init_{false};
+
+    // Tracks the most recently bound 1024×1024 linear render target.
+    // Written on the GPU thread (FindRenderTarget), read on the game thread
+    // (ForceDownloadByAddress). Using atomic for safe cross-thread access.
+    struct PhotoRTInfo {
+        ImageId image_id{};
+        u64 stamp{0}; // monotonic stamp to detect staleness
+    };
+    std::mutex photo_rt_mutex_;
+    PhotoRTInfo last_photo_rt_{};
+    std::atomic<u64> photo_rt_stamp_{0};
+
+    // ── GR2 Photo Snapshot (preserves photo pixels across RT reuse) ──────────
+    // After ForceDownloadByAddress copies photo pixels to CPU, we save a copy
+    // here. If the game later samples the same address as a texture but the RT
+    // has been overwritten (GpuModified), we re-upload the snapshot pixels
+    // before the texture is sampled. This mimics real PS4 behavior where the
+    // hardware encoder doesn't disturb the render target.
+    struct PhotoSnapshot {
+        VAddr guest_address{0};       // Guest address of the photo RT
+        ImageId image_id{};           // Image ID at time of capture
+        std::vector<u8> pixels;       // Saved BGRA pixel data
+        u32 width{0};
+        u32 height{0};
+        u32 pitch{0};
+        u32 bpp{0};
+        bool valid{false};            // True after successful capture
+        u64 capture_stamp{0};         // For staleness detection
+        int restore_count{0};         // How many times we've restored
+    };
+    std::mutex photo_snapshot_mutex_;
+    PhotoSnapshot photo_snapshot_{};
+
+    /// Called after ForceDownloadByAddress to save photo pixels
+    void SavePhotoSnapshot(VAddr address, ImageId image_id, u32 width, u32 height,
+                           u32 pitch, u32 bpp);
+
+    /// Called from FindTexture when the game samples the photo address.
+    /// If the RT has been overwritten, restores the snapshot pixels.
+    bool MaybeRestorePhotoSnapshot(ImageId image_id, Image& image);
 };
 
 } // namespace VideoCore

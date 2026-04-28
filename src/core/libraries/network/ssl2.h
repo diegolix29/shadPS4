@@ -10,17 +10,5 @@ class SymbolsResolver;
 }
 
 namespace Libraries::Ssl2 {
-
-struct OrbisSslData {
-    char* ptr;
-    u64 size;
-};
-
-struct OrbisSslCaCerts {
-    OrbisSslData* certs;
-    u64 num;
-    void* pool;
-};
-
 void RegisterLib(Core::Loader::SymbolsResolver* sym);
 } // namespace Libraries::Ssl2

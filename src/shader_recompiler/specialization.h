@@ -3,7 +3,12 @@
 
 #pragma once
 
+#include <array>
 #include <bitset>
+#include <cstring>
+#include <type_traits>
+
+#include <xxhash.h>
 
 #include "common/types.h"
 #include "shader_recompiler/backend/bindings.h"
@@ -52,7 +57,9 @@ struct ImageSpecialization {
     bool is_srgb = false;
     AmdGpu::CompMapping dst_select{};
     AmdGpu::NumberConversion num_conversion{};
-    // FIXME any pipeline cache changes needed?
+    // PORT(upstream #4075): IMAGE_STORE_MIP fallback binds N descriptors
+    // for N mip levels; baked into the spec so fallback vs non-fallback
+    // shaders land on distinct pipeline cache entries.
     u32 num_bindings = 0;
 
     bool operator==(const ImageSpecialization&) const = default;
@@ -72,6 +79,12 @@ struct SamplerSpecialization {
     bool operator==(const SamplerSpecialization&) const = default;
 };
 
+static_assert(std::is_trivially_copyable_v<VsAttribSpecialization>);
+static_assert(std::is_trivially_copyable_v<BufferSpecialization>);
+static_assert(std::is_trivially_copyable_v<ImageSpecialization>);
+static_assert(std::is_trivially_copyable_v<FMaskSpecialization>);
+static_assert(std::is_trivially_copyable_v<SamplerSpecialization>);
+
 /**
  * Alongside runtime information, this structure also checks bound resources
  * for compatibility. Can be used as a key for storing shader permutations.
@@ -84,18 +97,25 @@ struct StageSpecialization {
     const Info* info{};
     RuntimeInfo runtime_info{};
     std::bitset<MaxStageResources> bitset{};
+    std::array<u64, 2> bitwords{};
     std::optional<Gcn::FetchShaderData> fetch_shader_data{};
-    boost::container::small_vector<VsAttribSpecialization, 32> vs_attribs;
-    boost::container::small_vector<BufferSpecialization, 16> buffers;
-    boost::container::small_vector<ImageSpecialization, 16> images;
-    boost::container::small_vector<FMaskSpecialization, 8> fmasks;
-    boost::container::small_vector<SamplerSpecialization, 16> samplers;
+    boost::container::small_vector<VsAttribSpecialization, 64> vs_attribs;
+    boost::container::small_vector<BufferSpecialization, 32> buffers;
+    boost::container::small_vector<ImageSpecialization, 32> images;
+    boost::container::small_vector<FMaskSpecialization, 16> fmasks;
+    boost::container::small_vector<SamplerSpecialization, 32> samplers;
     Backend::Bindings start{};
+    u64 sig{};
+    u64 sig2{};
 
     StageSpecialization() = default;
-    StageSpecialization(const Info& info_, RuntimeInfo runtime_info_, const Profile& profile_,
-                        Backend::Bindings start_)
+
+    // 5th param accepted for codegodplus ABI compat but IGNORED.
+    StageSpecialization(const Info& info_, const RuntimeInfo& runtime_info_, const Profile& profile_,
+                        Backend::Bindings start_,
+                        const std::optional<Gcn::FetchShaderData>* /*preparsed_fetch*/ = nullptr)
         : info{&info_}, runtime_info{runtime_info_}, start{start_} {
+        // NOGLITCH: unconditional parse for ALL stages.
         fetch_shader_data = Gcn::ParseFetchShader(info_);
         if (info_.stage == Stage::Vertex && fetch_shader_data) {
             // Specialize shader on VS input number types to follow spec.
@@ -146,6 +166,8 @@ struct StageSpecialization {
                              spec.is_srgb = sharp.GetNumberFmt() == AmdGpu::NumberFormat::Srgb;
                          }
                          spec.num_conversion = sharp.GetNumberConversion();
+                         // PORT(upstream #4075): consecutive descriptor count
+                         // for mip fallback (1 otherwise).
                          spec.num_bindings = desc.NumBindings(*info);
                      });
         ForEachSharp(binding, fmasks, info->fmasks,
@@ -170,6 +192,7 @@ struct StageSpecialization {
                 runtime_info.vs_info.InitFromTessConstants(tess_constants);
             }
         }
+        ComputeSig();
     }
 
     void ForEachSharp(auto& spec_list, auto& desc_list, auto&& func) {
@@ -191,7 +214,9 @@ struct StageSpecialization {
                 binding++;
                 continue;
             }
-            bitset.set(binding++);
+            const u32 b = binding++;
+            bitset.set(b);
+            bitwords[b >> 6] |= (1ULL << (b & 63));
             func(spec, desc, sharp);
         }
     }
@@ -200,6 +225,63 @@ struct StageSpecialization {
         return info != nullptr;
     }
 
+    void ComputeSig() noexcept {
+        u64 h1 = 1469598103934665603ULL;
+        u64 h2 = 0x84222325cbf29ce4ULL;
+        auto step = [&](u64 v) noexcept {
+            h1 ^= v;
+            h1 *= 1099511628211ULL;
+            h2 ^= v + 0x9e3779b97f4a7c15ULL + (h2 << 6) + (h2 >> 2);
+        };
+        auto mix_pod_bulk = [&](const void* p, size_t n) noexcept {
+            if (n == 0) return;
+            step(XXH3_64bits(p, n));
+        };
+        auto mix_pod_vec_fast = [&](const auto& vec) noexcept {
+            using T = typename std::decay_t<decltype(vec)>::value_type;
+            static_assert(std::is_trivially_copyable_v<T>);
+            step(static_cast<u64>(vec.size()));
+            if (!vec.empty()) {
+                mix_pod_bulk(vec.data(), vec.size() * sizeof(T));
+            }
+        };
+        step(static_cast<u64>(info ? info->pgm_hash : 0));
+        step(static_cast<u64>(info ? static_cast<u32>(info->stage) : 0));
+        step(static_cast<u64>(info ? static_cast<u32>(info->l_stage) : 0));
+        mix_pod_bulk(&runtime_info, sizeof(runtime_info));
+        mix_pod_bulk(&start, sizeof(start));
+        step(bitwords[0]);
+        step(bitwords[1]);
+        step(fetch_shader_data.has_value() ? 1ULL : 0ULL);
+        if (fetch_shader_data) {
+            u64 fs_packed =
+                static_cast<u64>(fetch_shader_data->attributes.size()) |
+                (static_cast<u64>(static_cast<u8>(fetch_shader_data->vertex_offset_sgpr)) << 16) |
+                (static_cast<u64>(static_cast<u8>(fetch_shader_data->instance_offset_sgpr)) << 24);
+            step(fs_packed);
+            for (const auto& a : fetch_shader_data->attributes) {
+                u64 w = 0;
+                w |= static_cast<u64>(a.semantic) << 0;
+                w |= static_cast<u64>(a.dest_vgpr) << 8;
+                w |= static_cast<u64>(a.num_elements) << 16;
+                w |= static_cast<u64>(a.sgpr_base) << 24;
+                w |= static_cast<u64>(a.dword_offset) << 32;
+                w |= static_cast<u64>(a.instance_data) << 40;
+                w |= static_cast<u64>(a.inst_offset) << 48;
+                step(w);
+                step(static_cast<u64>(a.data_format) | (static_cast<u64>(a.num_format) << 8));
+            }
+        }
+        mix_pod_vec_fast(vs_attribs);
+        mix_pod_vec_fast(buffers);
+        mix_pod_vec_fast(images);
+        mix_pod_vec_fast(fmasks);
+        mix_pod_vec_fast(samplers);
+        sig = h1;
+        sig2 = h2;
+    }
+
+    // NOGLITCH: full field comparison, NO sig fast-reject.
     bool operator==(const StageSpecialization& other) const {
         if (!Valid()) {
             return false;
@@ -221,10 +303,6 @@ struct StageSpecialization {
             return false;
         }
 
-        // For VS which only generates geometry and doesn't have any inputs, its start
-        // bindings still may change as they depend on previously processed FS. The check below
-        // handles this case and prevents generation of redundant permutations. This is also safe
-        // for other types of shaders with no bindings.
         if (bitset.none() && other.bitset.none()) {
             return true;
         }

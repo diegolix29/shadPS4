@@ -5,6 +5,9 @@
 #include "shader_recompiler/frontend/decode.h"
 #include "shader_recompiler/frontend/fetch_shader.h"
 
+#include <array>
+#include <cstdint>
+
 namespace Shader::Gcn {
 
 /**
@@ -51,6 +54,32 @@ std::optional<FetchShaderData> ParseFetchShader(const Shader::Info& info) {
     }
 
     const auto* code = GetFetchShaderCode(info, info.fetch_shader_sgpr_base);
+
+    // PERF(v6): ParseFetchShader is pure for a given fetch-shader code pointer. GR2 calls it a lot
+    // through StageSpecialization, so memoize results per-thread to avoid re-decoding the same code.
+    auto hash_head = [](const u32* p) noexcept -> u64 {
+        u64 h = 1469598103934665603ULL;
+        for (u32 i = 0; i < 16; ++i) {
+            h ^= static_cast<u64>(p[i]);
+            h *= 1099511628211ULL;
+        }
+        return h;
+    };
+
+    struct CacheEntry {
+        const u32* code{};
+        u64 head_sig{};
+        FetchShaderData data{};
+        bool valid{};
+    };
+
+    static thread_local std::array<CacheEntry, 64> cache{};
+    const uintptr_t key = reinterpret_cast<uintptr_t>(code);
+    CacheEntry& e = cache[(key >> 4) & (cache.size() - 1)];
+    if (e.valid && e.code == code) {
+        return e.data;
+    }
+    const u64 head_sig = hash_head(code);
     FetchShaderData data{};
     GcnCodeSlice code_slice(code, code + std::numeric_limits<u32>::max());
     GcnDecodeContext decoder;
@@ -107,6 +136,12 @@ std::optional<FetchShaderData> ParseFetchShader(const Shader::Info& info) {
             }
         }
     }
+
+    // Store into cache (copy is cheap: attributes vector is small).
+    e.code = code;
+    e.head_sig = head_sig;
+    e.data = data;
+    e.valid = true;
 
     return data;
 }

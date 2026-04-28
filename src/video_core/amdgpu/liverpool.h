@@ -4,6 +4,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <atomic>
 #include <coroutine>
 #include <exception>
 #include <mutex>
@@ -14,6 +15,7 @@
 #include <queue>
 
 #include "common/assert.h"
+#include "common/bounded_threadsafe_queue.h"
 #include "common/slot_vector.h"
 #include "common/types.h"
 #include "common/unique_function.h"
@@ -62,6 +64,27 @@ struct Liverpool {
     Regs regs{};
     std::array<CbDbExtent, NUM_COLOR_BUFFERS> last_cb_extent{};
     CbDbExtent last_db_extent{};
+    u64 GetGfxPipelineStamp() const noexcept {
+        return gfx_pipeline_stamp.load(std::memory_order_relaxed);
+    }
+
+    /// Check if the pipeline key needs rebuilding (vs just dynamic state change).
+    bool IsGfxKeyDirty() const noexcept {
+        return gfx_key_dirty_;
+    }
+
+    void ClearGfxKeyDirty() noexcept {
+        gfx_key_dirty_ = false;
+    }
+
+    /// Check if any dynamic-state register changed since last draw.
+    bool IsDynamicDirty() const noexcept {
+        return dynamic_dirty_;
+    }
+
+    void ClearDynamicDirty() noexcept {
+        dynamic_dirty_ = false;
+    }
 
 public:
     explicit Liverpool();
@@ -71,20 +94,25 @@ public:
     void SubmitAsc(u32 gnm_vqid, std::span<const u32> acb);
 
     void SubmitDone() noexcept {
-        std::scoped_lock lk{submit_mutex};
-        mapped_queues[GfxQueueId].ccb_buffer_offset = 0;
-        mapped_queues[GfxQueueId].dcb_buffer_offset = 0;
-        submit_done = true;
-        submit_cv.notify_one();
+        mapped_queues[GfxQueueId].ccb_buffer_offset.store(0, std::memory_order_relaxed);
+        mapped_queues[GfxQueueId].dcb_buffer_offset.store(0, std::memory_order_relaxed);
+        submit_done.store(true, std::memory_order_release);
+        NotifyGpu();
     }
 
     void WaitGpuIdle() noexcept {
-        std::unique_lock lk{submit_mutex};
-        submit_cv.wait(lk, [this] { return num_submits == 0; });
+        std::unique_lock lk{idle_mutex_};
+        idle_cv_.wait(lk, [this] {
+            return num_submits.load(std::memory_order_acquire) == 0;
+        });
     }
 
     bool IsGpuIdle() const {
         return num_submits == 0;
+    }
+
+    [[nodiscard]] u32 GetNumSubmits() const noexcept {
+        return num_submits.load(std::memory_order_acquire);
     }
 
     void SetVoPort(Libraries::VideoOut::VideoOutPort* port) {
@@ -102,21 +130,17 @@ public:
         }
         if constexpr (wait_done) {
             std::binary_semaphore sem{0};
-            {
-                std::scoped_lock lk{submit_mutex};
-                command_queue.emplace([&sem, &func] {
-                    func();
-                    sem.release();
-                });
-                ++num_commands;
-                submit_cv.notify_one();
-            }
+            command_queue_.EmplaceWait([&sem, &func] {
+                func();
+                sem.release();
+            });
+            num_commands.fetch_add(1, std::memory_order_release);
+            NotifyGpu();
             sem.acquire();
         } else {
-            std::scoped_lock lk{submit_mutex};
-            command_queue.emplace(std::move(func));
-            ++num_commands;
-            submit_cv.notify_one();
+            command_queue_.EmplaceWait(std::move(func));
+            num_commands.fetch_add(1, std::memory_order_release);
+            NotifyGpu();
         }
     }
 
@@ -182,12 +206,90 @@ private:
     Task ProcessCeUpdate(std::span<const u32> ccb);
     template <bool is_indirect = false>
     Task ProcessCompute(std::span<const u32> acb, u32 vqid);
+    void BumpGfxPipelineStamp() noexcept {
+        gfx_pipeline_stamp.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    /// Mark pipeline state as potentially changed. Actual stamp bump deferred to draw time.
+    void MarkGfxPipelineDirty() noexcept {
+        pipeline_dirty_ = true;
+        dynamic_dirty_ = true;
+    }
+
+    /// Mark that a key-affecting register changed (not just dynamic state).
+    void MarkGfxKeyDirty() noexcept {
+        pipeline_dirty_ = true;
+        gfx_key_dirty_ = true;
+        dynamic_dirty_ = true;
+    }
+
+    /// Bump the stamp only if dirty (called from draw/dispatch handlers).
+    void FlushGfxPipelineDirty() noexcept {
+        if (pipeline_dirty_) {
+            BumpGfxPipelineStamp();
+            pipeline_dirty_ = false;
+        }
+    }
+
+    /// Returns true if the context register range is dynamic-state-only
+    /// (viewport, scissor, blend constants, depth control, etc.)
+    /// and does NOT affect the GraphicsPipelineKey.
+    bool IsDynamicStateOnlyContextReg(u32 reg_addr) const noexcept {
+        // Use pointer arithmetic against reg_array to compute word offsets.
+        // This avoids offsetof on anonymous union/struct members (non-portable).
+        const u32* base = regs.reg_array.data();
+        auto wo = [base](const auto& field) noexcept -> u32 {
+            return static_cast<u32>(reinterpret_cast<const u32*>(&field) - base);
+        };
+        auto in_range = [reg_addr](u32 start, u32 end) noexcept -> bool {
+            return reg_addr >= start && reg_addr < end;
+        };
+
+        if (in_range(wo(regs.depth_bounds_min),
+                      wo(regs.depth_clear) + 1)) return true;
+        if (in_range(wo(regs.screen_scissor),
+                      wo(regs.screen_scissor) + sizeof(regs.screen_scissor) / 4)) return true;
+        if (in_range(wo(regs.window_offset),
+                      wo(regs.window_scissor) + sizeof(regs.window_scissor) / 4)) return true;
+        if (in_range(wo(regs.generic_scissor),
+                      wo(regs.generic_scissor) + sizeof(regs.generic_scissor) / 4)) return true;
+        if (in_range(wo(regs.viewport_scissors[0]),
+                      wo(regs.viewport_depths[0]) + sizeof(regs.viewport_depths) / 4)) return true;
+        if (in_range(wo(regs.index_offset),
+                      wo(regs.primitive_restart_index) + 1)) return true;
+        if (in_range(wo(regs.blend_constants),
+                      wo(regs.stencil_ref_back) + sizeof(regs.stencil_ref_back) / 4)) return true;
+        if (in_range(wo(regs.viewports[0]),
+                      wo(regs.viewports[0]) + sizeof(regs.viewports) / 4)) return true;
+        if (in_range(wo(regs.poly_offset),
+                      wo(regs.poly_offset) + sizeof(regs.poly_offset) / 4)) return true;
+        if (in_range(wo(regs.depth_control),
+                      wo(regs.depth_control) + sizeof(regs.depth_control) / 4)) return true;
+        if (in_range(wo(regs.viewport_control),
+                      wo(regs.viewport_control) + sizeof(regs.viewport_control) / 4)) return true;
+        return false;
+    }
 
     void ProcessCommands();
     void Process(std::stop_token stoken);
 
+    void NotifyGpu() {
+        {
+            std::lock_guard lk{wake_mutex_};
+        }
+        wake_cv_.notify_one();
+    }
+
+    void NotifyIdle() {
+        {
+            std::lock_guard lk{idle_mutex_};
+        }
+        idle_cv_.notify_all();
+    }
+
     struct GpuQueue {
         std::mutex m_access{};
+        std::atomic<u32> submit_count{0};
         std::atomic<u32> dcb_buffer_offset;
         std::atomic<u32> ccb_buffer_offset;
         std::vector<u32> dcb_buffer;
@@ -196,7 +298,7 @@ private:
         ComputeProgram cs_state{};
     };
     std::array<GpuQueue, NumTotalQueues> mapped_queues{};
-    u32 num_mapped_queues{1u}; // GFX is always available
+    std::atomic<u32> num_mapped_queues{1u};
 
     VAddr indirect_args_addr{};
     u32 num_counter_pairs{};
@@ -223,14 +325,24 @@ private:
     Vulkan::Rasterizer* rasterizer{};
     Libraries::VideoOut::VideoOutPort* vo_port{};
     std::jthread process_thread{};
+    std::atomic<u64> gfx_pipeline_stamp{1};
     std::atomic<u32> num_submits{};
     std::atomic<u32> num_commands{};
     std::atomic<bool> submit_done{};
-    std::mutex submit_mutex;
-    std::condition_variable_any submit_cv;
-    std::queue<Common::UniqueFunction<void>> command_queue{};
+
+    Common::MPSCQueue<Common::UniqueFunction<void>, 256> command_queue_;
+
+    std::mutex wake_mutex_;
+    std::condition_variable_any wake_cv_;
+
+    std::mutex idle_mutex_;
+    std::condition_variable idle_cv_;
+
     std::thread::id gpu_id;
     s32 curr_qid{-1};
+    bool pipeline_dirty_{};
+    bool gfx_key_dirty_{};
+    bool dynamic_dirty_{};
 };
 
 } // namespace AmdGpu

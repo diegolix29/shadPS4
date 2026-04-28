@@ -273,7 +273,6 @@ public:
     Id local_invocation_id{};
     Id invocation_id{};
     Id subgroup_local_invocation_id{};
-    Id subgroup_lt_mask{};
     Id image_u32{};
     Id image_f32{};
 
@@ -298,6 +297,8 @@ public:
         AmdGpu::ImageType view_type;
         bool is_integer = false;
         bool is_storage = false;
+        // PORT(upstream #4075): distinguishes None / DynamicIndex / ConstantIndex
+        // at emit time so EmitImageRead/Write can pick the right path.
         MipStorageFallbackMode mip_fallback_mode{};
     };
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -62,7 +62,7 @@ struct OrbisNetLinger {
     s32 l_linger;
 };
 struct Socket {
-    explicit Socket(int domain, int type, int protocol) : socket_type(type) {}
+    explicit Socket(int domain, int type, int protocol) {}
     virtual ~Socket() = default;
     virtual bool IsValid() const = 0;
     virtual int Close() = 0;
@@ -82,12 +82,8 @@ struct Socket {
     virtual int GetPeerName(OrbisNetSockaddr* addr, u32* namelen) = 0;
     virtual int fstat(Libraries::Kernel::OrbisKernelStat* stat) = 0;
     virtual std::optional<net_socket> Native() = 0;
-    virtual bool HasQueuedData() {
-        return false;
-    }
     std::mutex m_mutex;
     std::mutex receive_mutex;
-    int socket_type;
 };
 
 struct PosixSocket : public Socket {
@@ -129,12 +125,10 @@ struct PosixSocket : public Socket {
 };
 
 struct P2PSocket : public Socket {
-    net_socket sock_;        // reference to shared transport fd (NOT owned)
-    u16 bound_vport_{0};     // bound virtual port (network byte order)
-    int sockopt_so_nbio_{0}; // non-blocking mode flag
-
-    explicit P2PSocket(int domain, int type, int protocol);
-    bool IsValid() const override;
+    explicit P2PSocket(int domain, int type, int protocol) : Socket(domain, type, protocol) {}
+    bool IsValid() const override {
+        return true;
+    }
     int Close() override;
     int SetSocketOptions(int level, int optname, const void* optval, u32 optlen) override;
     int GetSocketOptions(int level, int optname, void* optval, u32* optlen) override;
@@ -150,17 +144,10 @@ struct P2PSocket : public Socket {
     int GetSocketAddress(OrbisNetSockaddr* name, u32* namelen) override;
     int GetPeerName(OrbisNetSockaddr* addr, u32* namelen) override;
     int fstat(Libraries::Kernel::OrbisKernelStat* stat) override;
-    bool HasQueuedData() override;
     std::optional<net_socket> Native() override {
-        if (IsValid())
-            return sock_;
         return {};
     }
 };
-
-// Drain the shared P2P transport socket into per-vport queues.
-// Call this before checking HasQueuedData() on P2P sockets.
-void DrainP2PTransport();
 
 struct UnixSocket : public Socket {
     net_socket sock;

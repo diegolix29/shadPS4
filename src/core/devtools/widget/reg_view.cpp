@@ -4,7 +4,6 @@
 #include <filesystem>
 #include <optional>
 #include <string>
-#include <vector>
 #include <imgui.h>
 #include <magic_enum/magic_enum.hpp>
 #include <stdio.h>
@@ -29,15 +28,16 @@ constexpr auto depth_id = 0xF3;
 namespace Core::Devtools::Widget {
 
 void RegView::ProcessShader(int shader_id) {
-    if (shader_decomp.contains(shader_id)) {
-        return;
+    std::vector<u32> shader_code;
+    AmdGpu::UserData user_data;
+    if (data.is_compute) {
+        shader_code = data.cs_data.code;
+        user_data = data.cs_data.cs_program.user_data;
+    } else {
+        const auto& s = data.stages[shader_id];
+        shader_code = s.code;
+        user_data = s.user_data.user_data;
     }
-
-    const std::vector<u32>& shader_code =
-        data.is_compute ? data.cs_data.code : data.stages[shader_id].code;
-
-    const AmdGpu::UserData user_data = data.is_compute ? data.cs_data.cs_program.user_data
-                                                       : data.stages[shader_id].user_data.user_data;
 
     std::string shader_dis = RunDisassembler(Options.disassembler_cli_isa, shader_code);
 
@@ -60,7 +60,6 @@ void RegView::ProcessShader(int shader_id) {
     };
     shader_decomp.emplace(shader_id, std::move(cache));
 }
-
 void RegView::SelectShader(int id) {
     selected_shader = id;
     if (!shader_decomp.contains(id)) {
@@ -130,27 +129,23 @@ void RegView::DrawGraphicsRegs() {
             }
         };
 
-        bool first_cb = true;
         for (int cb = 0; cb < AmdGpu::NUM_COLOR_BUFFERS; ++cb) {
-            const auto& buffer = regs.color_buffers[cb];
-            if (!buffer || !regs.color_target_mask.GetMask(cb))
-                continue;
-
-            if (!first_cb)
-                SameLine();
-            first_cb = false;
-
             PushID(cb);
 
             TableNextRow();
             TableNextColumn();
 
+            const auto& buffer = regs.color_buffers[cb];
+
             Text("Color buffer %d", cb);
             TableNextColumn();
-
-            const char* text = last_selected_cb == cb && default_reg_popup.open ? "x" : "->";
-            if (SmallButton(text)) {
-                open_new_popup(cb, buffer, cb);
+            if (!buffer || !regs.color_target_mask.GetMask(cb)) {
+                TextUnformatted("N/A");
+            } else {
+                const char* text = last_selected_cb == cb && default_reg_popup.open ? "x" : "->";
+                if (SmallButton(text)) {
+                    open_new_popup(cb, buffer, cb);
+                }
             }
 
             PopID();
@@ -229,11 +224,7 @@ RegView::RegView() {
 void RegView::SetData(DebugStateType::RegDump _data, const std::string& base_title, u32 batch_id) {
     this->data = std::move(_data);
     this->batch_id = batch_id;
-
-    char title_buf[256];
-    snprintf(title_buf, sizeof(title_buf), "%s/Batch %u", base_title.c_str(), batch_id);
-    this->title = title_buf;
-
+    this->title = fmt::format("{}/Batch {}", base_title, batch_id);
     // clear cache
     shader_decomp.clear();
     if (data.is_compute) {

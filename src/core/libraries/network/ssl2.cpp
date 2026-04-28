@@ -5,7 +5,6 @@
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/network/ssl2.h"
-#include "core/libraries/network/ssl2_error.h"
 
 namespace Libraries::Ssl2 {
 
@@ -109,19 +108,8 @@ int PS4_SYSV_ABI sceSslEnableVerifyOption() {
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceSslFreeCaCerts(s32 ssl_ctx_id, OrbisSslCaCerts* certs) {
-    LOG_ERROR(Lib_Ssl2, "(DUMMY) called");
-    if (certs == nullptr) {
-        return ORBIS_SSL_ERROR_INVALID_ARGUMENT;
-    }
-    if (certs->certs != nullptr) {
-        for (s32 data = 0; data < certs->num; data++) {
-            free(certs->certs[data].ptr);
-        }
-        delete (certs->certs);
-    }
-
-    // delete (certs->pool);
+int PS4_SYSV_ABI sceSslFreeCaCerts() {
+    LOG_ERROR(Lib_Ssl2, "(STUBBED) called");
     return ORBIS_OK;
 }
 
@@ -140,18 +128,17 @@ int PS4_SYSV_ABI sceSslGetAlpnSelected() {
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceSslGetCaCerts(s32 ssl_ctx_id, OrbisSslCaCerts* certs) {
+struct OrbisSslCaCerts {
+    void* certs;
+    u64 num;
+    void* pool;
+};
+
+int PS4_SYSV_ABI sceSslGetCaCerts(int sslCtxId, OrbisSslCaCerts* certs) {
+    // check if it is same as libSceSsl
     LOG_ERROR(Lib_Ssl2, "(DUMMY) called");
-    if (certs == nullptr) {
-        return ORBIS_SSL_ERROR_INVALID_ARGUMENT;
-    }
-    // Allocate a buffer to store dummy data in.
-    const char* dummy_data = "dummy";
-    u64 dummy_length = strlen(dummy_data) + 1;
-    char* data = static_cast<char*>(malloc(dummy_length));
-    strncpy(data, dummy_data, dummy_length);
-    certs->certs = new OrbisSslData{data, dummy_length};
-    certs->num = 1;
+    certs->certs = nullptr;
+    certs->num = 0;
     certs->pool = nullptr;
     return ORBIS_OK;
 }

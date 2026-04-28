@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "common/memory_patcher.h"
 #include "common/types.h"
 #include "shader_recompiler/ir/type.h"
 #include "video_core/amdgpu/resource.h"
@@ -54,37 +53,28 @@ struct BufferResource {
     }
 
     constexpr AmdGpu::Buffer GetSharp(const auto& info) const noexcept {
-        if (MemoryPatcher::IsSpecialCusa()) {
-            const auto buffer =
-                inline_cbuf ? inline_cbuf : info.template ReadUdSharp<AmdGpu::Buffer>(sharp_idx);
-
-            if (!buffer.Valid()) {
-                LOG_DEBUG(Render, "Encountered invalid buffer sharp");
-                return AmdGpu::Buffer::Null();
-            }
-            return buffer;
-        }
-
         AmdGpu::Buffer buffer{};
         if (inline_cbuf) {
             buffer = inline_cbuf;
-            if (inline_cbuf.base_address != 1) {
+            if (inline_cbuf.base_address > 1) {
                 buffer.base_address += info.pgm_base; // address fixup
             }
         } else {
             buffer = info.template ReadUdSharp<AmdGpu::Buffer>(sharp_idx);
         }
-
         if (!buffer.Valid()) {
             LOG_DEBUG(Render, "Encountered invalid buffer sharp");
             return AmdGpu::Buffer::Null();
         }
-
         return buffer;
     }
 };
 using BufferResourceList = boost::container::static_vector<BufferResource, NUM_BUFFERS>;
 
+// PORT(upstream #4075): IMAGE_STORE_MIP fallback — when the driver does not
+// expose VK_AMD_shader_image_load_store_lod (or we explicitly disable it for
+// correctness), a shader that writes to an explicit mip level must instead
+// bind each mip level as a separate descriptor and index into them.
 enum class MipStorageFallbackMode : u32 { None, DynamicIndex, ConstantIndex };
 
 struct ImageResource {
@@ -104,7 +94,6 @@ struct ImageResource {
         } else {
             const auto raw = info.template ReadUdSharp<u128>(sharp_idx);
             std::memcpy(&image, &raw, sizeof(raw));
-            image.pitch = image.width;
         }
         if (!image.Valid()) {
             LOG_DEBUG(Render_Vulkan, "Encountered invalid image sharp");
@@ -121,6 +110,9 @@ struct ImageResource {
         return image;
     }
 
+    // PORT(upstream #4075): how many consecutive descriptor slots this image
+    // consumes. DynamicIndex mode binds one slot per mip level so the shader
+    // can index with a runtime lod value; everything else uses a single slot.
     u32 NumBindings(const auto& info) const {
         const AmdGpu::Image tsharp = GetSharp(info);
         return (mip_fallback_mode == MipStorageFallbackMode::DynamicIndex)

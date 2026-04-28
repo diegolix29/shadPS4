@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <ranges>
+#include <limits>
+#include <cstring>
+#include <mutex>
+#include <vector>
+#include <xxhash.h>
 
 #include "common/config.h"
 #include "common/hash.h"
@@ -12,7 +17,6 @@
 #include "shader_recompiler/info.h"
 #include "shader_recompiler/recompiler.h"
 #include "shader_recompiler/runtime_info.h"
-#include "src/video_core/amdgpu/regs_shader.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/cache_storage.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
@@ -23,11 +27,119 @@
 
 namespace Vulkan {
 
+namespace {
+
+// =========================================================================
+// OPT(GR2 v78): Pipeline compile graveyard.
+// =========================================================================
+// std::future<T>'s destructor joins the worker thread. When a Vulkan driver
+// hangs inside vkCreateGraphicsPipelines, that thread never returns, and
+// any future destruction (PipelineCache dtor, pending-map erase) blocks
+// forever. We dump "abandoned" futures here on permafail and on PipelineCache
+// teardown; this storage is intentionally never freed so futures never get
+// destructed. On process exit the OS reaps the hung threads via _exit.
+struct PipelineCompileGraveyard {
+    std::mutex mu;
+    // Heap-allocated vector we never delete — this is the leak-on-purpose.
+    std::vector<std::future<std::unique_ptr<GraphicsPipeline>>>* graves = nullptr;
+    void Bury(std::future<std::unique_ptr<GraphicsPipeline>> f) {
+        std::lock_guard lk{mu};
+        if (!graves) {
+            graves = new std::vector<std::future<std::unique_ptr<GraphicsPipeline>>>();
+        }
+        graves->push_back(std::move(f));
+    }
+};
+
+PipelineCompileGraveyard& Graveyard() {
+    // Leaked Meyers-style singleton — heap allocated + never deleted, so its
+    // dtor never runs (which is exactly what we want; see comment above).
+    static auto* g = new PipelineCompileGraveyard();
+    return *g;
+}
+
+} // namespace
+
 using Shader::LogicalStage;
 using Shader::Output;
 using Shader::Stage;
 
 constexpr static auto SpirvVersion1_6 = 0x00010600U;
+
+// PERF(GR2 v16): Hash RuntimeInfo by stage, matching operator== semantics exactly.
+// Cannot hash raw bytes because the union has padding and some stages use custom
+// equality (e.g. FragmentRuntimeInfo only compares inputs[0..num_inputs]).
+static u64 HashRuntimeInfoForStage(const Shader::RuntimeInfo& ri) {
+    // Combine helper: boost::hash_combine style
+    auto mix = [](u64 seed, u64 v) -> u64 {
+        return seed ^ (v + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2));
+    };
+    u64 h = static_cast<u64>(ri.stage);
+    switch (ri.stage) {
+    case Shader::Stage::Local:
+        h = mix(h, ri.ls_info.ls_stride);
+        break;
+    case Shader::Stage::Export:
+        h = mix(h, ri.es_info.vertex_data_size);
+        break;
+    case Shader::Stage::Vertex: {
+        const auto& v = ri.vs_info;
+        h = mix(h, v.num_outputs);
+        h = mix(h, XXH3_64bits(v.outputs.data(), sizeof(v.outputs)));
+        h = mix(h, static_cast<u64>(v.tess_emulated_primitive) |
+                    (static_cast<u64>(v.emulate_depth_negative_one_to_one) << 1) |
+                    (static_cast<u64>(v.clip_disable) << 2));
+        h = mix(h, v.step_rate_0);
+        h = mix(h, v.step_rate_1);
+        h = mix(h, static_cast<u64>(v.tess_type));
+        h = mix(h, static_cast<u64>(v.tess_topology));
+        h = mix(h, static_cast<u64>(v.tess_partitioning));
+        h = mix(h, v.hs_output_cp_stride);
+        break;
+    }
+    case Shader::Stage::Hull:
+        // Uses default operator==, so hash all fields.
+        h = mix(h, XXH3_64bits(&ri.hs_info, sizeof(ri.hs_info)));
+        break;
+    case Shader::Stage::Geometry: {
+        const auto& g = ri.gs_info;
+        h = mix(h, g.num_outputs);
+        h = mix(h, XXH3_64bits(g.outputs.data(), sizeof(g.outputs)));
+        h = mix(h, g.num_invocations);
+        h = mix(h, g.output_vertices);
+        h = mix(h, static_cast<u64>(g.in_primitive));
+        h = mix(h, XXH3_64bits(g.out_primitive.data(), sizeof(g.out_primitive)));
+        h = mix(h, g.vs_copy_hash); // Not the span pointer!
+        break;
+    }
+    case Shader::Stage::Fragment: {
+        const auto& f = ri.fs_info;
+        h = mix(h, XXH3_64bits(f.color_buffers.data(), sizeof(f.color_buffers)));
+        h = mix(h, XXH3_64bits(&f.en_flags, sizeof(f.en_flags)));
+        h = mix(h, XXH3_64bits(&f.addr_flags, sizeof(f.addr_flags)));
+        h = mix(h, f.num_inputs);
+        h = mix(h, static_cast<u64>(f.z_export_format));
+        h = mix(h, static_cast<u64>(f.mrtz_mask) |
+                    (static_cast<u64>(f.dual_source_blending) << 8));
+        if (f.num_inputs > 0) {
+            h = mix(h, XXH3_64bits(f.inputs.data(),
+                                    f.num_inputs * sizeof(f.inputs[0])));
+        }
+        break;
+    }
+    case Shader::Stage::Compute: {
+        const auto& c = ri.cs_info;
+        h = mix(h, XXH3_64bits(c.workgroup_size.data(), sizeof(c.workgroup_size)));
+        h = mix(h, static_cast<u64>(c.tgid_enable[0]) |
+                    (static_cast<u64>(c.tgid_enable[1]) << 1) |
+                    (static_cast<u64>(c.tgid_enable[2]) << 2));
+        break;
+    }
+    default:
+        break;
+    }
+    return h;
+}
 
 constexpr static std::array DescriptorHeapSizes = {
     vk::DescriptorPoolSize{vk::DescriptorType::eUniformBuffer, 512},
@@ -102,7 +214,7 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
     switch (stage) {
     case Stage::Local: {
         BuildCommon(regs.ls_program);
-        Shader::TessellationDataConstantBuffer tess_constants{};
+        Shader::TessellationDataConstantBuffer tess_constants;
         const auto* hull_info = infos[u32(Shader::LogicalStage::TessellationControl)];
         hull_info->ReadTessConstantBuffer(tess_constants);
         info.ls_info.ls_stride = tess_constants.ls_stride;
@@ -120,7 +232,15 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
     }
     case Stage::Export: {
         BuildCommon(regs.es_program);
-        info.es_info.vertex_data_size = regs.vgt_esgs_ring_itemsize;
+        if (l_stage == LogicalStage::TessellationEval) {
+            // Combined LS+HS+ES+GS pipeline: ES acts as domain shader.
+            info.vs_info.num_outputs = regs.vgt_esgs_ring_itemsize;
+            info.vs_info.tess_type = regs.tess_config.type;
+            info.vs_info.tess_topology = regs.tess_config.topology;
+            info.vs_info.tess_partitioning = regs.tess_config.partitioning;
+        } else {
+            info.es_info.vertex_data_size = regs.vgt_esgs_ring_itemsize;
+        }
         break;
     }
     case Stage::Vertex: {
@@ -128,7 +248,6 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
         info.vs_info.step_rate_0 = regs.vgt_instance_step_rate_0;
         info.vs_info.step_rate_1 = regs.vgt_instance_step_rate_1;
         info.vs_info.num_outputs = MapOutputs(info.vs_info.outputs, regs.vs_output_control);
-        info.vs_info.num_exports = regs.vs_output_config.NumExports();
         info.vs_info.emulate_depth_negative_one_to_one =
             !instance.IsDepthClipControlSupported() &&
             regs.clipper_control.clip_space == AmdGpu::ClipSpace::MinusWToW;
@@ -151,6 +270,19 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
         gs_info.num_invocations =
             regs.vgt_gs_instance_cnt.IsEnabled() ? regs.vgt_gs_instance_cnt.count : 1;
         gs_info.in_primitive = regs.primitive_type;
+        // In combined tess+GS pipelines, primitive_type is PatchPrimitive which isn't
+        // meaningful for GS input. Resolve to the actual post-tessellation output type.
+        if (gs_info.in_primitive == AmdGpu::PrimitiveType::PatchPrimitive) {
+            switch (regs.tess_config.type) {
+            case AmdGpu::TessellationType::Isoline:
+                gs_info.in_primitive = AmdGpu::PrimitiveType::LineList;
+                break;
+            case AmdGpu::TessellationType::Triangle:
+            case AmdGpu::TessellationType::Quad:
+                gs_info.in_primitive = AmdGpu::PrimitiveType::TriangleList;
+                break;
+            }
+        }
         for (u32 stream_id = 0; stream_id < Shader::GsMaxOutputStreams; ++stream_id) {
             gs_info.out_primitive[stream_id] =
                 regs.vgt_gs_out_prim_type.GetPrimitiveType(stream_id);
@@ -201,10 +333,6 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
         for (u32 i = 0; i < Shader::MaxColorBuffers; i++) {
             info.fs_info.color_buffers[i] = graphics_key.color_buffers[i];
         }
-        info.fs_info.clip_distance_emulation =
-            regs.vs_output_control.clip_distance_enable &&
-            !regs.stage_enable.IsStageEnabled(static_cast<u32>(Stage::Local)) &&
-            profile.needs_clip_distance_emulation;
         break;
     }
     case Stage::Compute: {
@@ -248,7 +376,13 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
         .support_fp32_denorm_flush = bool(vk12_props.shaderDenormFlushToZeroFloat32),
         .support_fp32_round_to_zero = bool(vk12_props.shaderRoundingModeRTZFloat32),
         .support_legacy_vertex_attributes = instance_.IsLegacyVertexAttributesSupported(),
-        .supports_image_load_store_lod = instance_.IsImageLoadStoreLodSupported(),
+        // PORT(upstream #4075, IMAGE_STORE_MIP fallback, commit — merged Mar 17 2026):
+        // upstream hardcodes this to false with a // TEST marker. The fallback path
+        // is preferred on both AMD and NVIDIA for GR2 per compat issue #1429
+        // (mipmap-only-level-0 bug affects both vendors). Small perf cost on AMD
+        // where native load-store-lod works — each IMAGE_STORE_MIP image uses
+        // N descriptor slots instead of 1.
+        .supports_image_load_store_lod = /*instance_.IsImageLoadStoreLodSupported()*/ false, // TEST
         .supports_native_cube_calc = instance_.IsAmdGcnShaderSupported(),
         .supports_trinary_minmax = instance_.IsAmdShaderTrinaryMinMaxSupported(),
         // TODO: Emitted bounds checks cause problems with phi control flow; needs to be fixed.
@@ -272,7 +406,6 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
                               instance.GetDriverID() == vk::DriverId::eMoltenvk,
         .needs_buffer_offsets = instance.StorageMinAlignment() > 4,
         .needs_unorm_fixup = instance.GetDriverID() == vk::DriverId::eMoltenvk,
-        .needs_clip_distance_emulation = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
     };
 
     WarmUp();
@@ -283,36 +416,236 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
     pipeline_cache = std::move(cache);
 }
 
-PipelineCache::~PipelineCache() = default;
+PipelineCache::~PipelineCache() {
+    // OPT(GR2 v78): Dump any still-in-flight async compiles to the graveyard.
+    // The map's own destructor would destruct each std::future, which joins
+    // its worker thread — and if any of those threads are hung inside the
+    // Vulkan driver, the emulator would freeze on its way out. Move futures
+    // out first so map destruction sees already-empty PendingGraphicsPipeline
+    // objects.
+    for (auto& [key, pending] : pending_graphics_pipelines) {
+        if (pending && pending->future.valid()) {
+            Graveyard().Bury(std::move(pending->future));
+        }
+    }
+    pending_graphics_pipelines.clear();
+}
+
 
 const GraphicsPipeline* PipelineCache::GetGraphicsPipeline() {
+    const u64 stamp = liverpool->GetGfxPipelineStamp();
+    if (stamp == last_gfx_stamp && last_gfx_pipeline) {
+        return last_gfx_pipeline;
+    }
+    // Level 2: stamp bumped but only dynamic-state regs changed (viewport, scissor, etc.)
+    // Skip the entire RefreshGraphicsKey rebuild — pipeline key cannot have changed.
+    if (!liverpool->IsGfxKeyDirty() && last_gfx_pipeline) {
+        last_gfx_stamp = stamp;
+        return last_gfx_pipeline;
+    }
+    liverpool->ClearGfxKeyDirty();
     if (!RefreshGraphicsKey()) {
         return nullptr;
     }
+    // Key-level dedup: when only dynamic state changed (viewport, scissor, blend constants),
+    // the stamp bumps but the pipeline key is byte-identical. Skip the hash + map lookup.
+    if (last_gfx_pipeline &&
+        std::memcmp(&graphics_key, &prev_graphics_key_,
+                    offsetof(GraphicsPipelineKey, cached_hash_)) == 0) {
+        last_gfx_stamp = stamp;
+        return last_gfx_pipeline;
+    }
+
+    // =========================================================================
+    // OPT(GR2 v78): Pending-async check first.
+    // =========================================================================
+    // If a previous call for this key launched an async compile that didn't
+    // finish within the sync budget, the future lives in pending_graphics_pipelines.
+    // Poll non-blockingly; finalize into graphics_pipelines on ready.
+    if (auto pit = pending_graphics_pipelines.find(graphics_key);
+        pit != pending_graphics_pipelines.end()) {
+        if (TryFinalizePending(*pit->second, graphics_key)) {
+            // Result moved into graphics_pipelines[graphics_key]. Erase pending.
+            pending_graphics_pipelines.erase(pit);
+            // Fall through to the main-path update below.
+        } else {
+            // Still compiling (or permafailed). Skip this draw.
+            return nullptr;
+        }
+    }
+
     const auto [it, is_new] = graphics_pipelines.try_emplace(graphics_key);
     if (is_new) {
         const auto pipeline_hash = std::hash<GraphicsPipelineKey>{}(graphics_key);
         LOG_INFO(Render_Vulkan, "Compiling graphics pipeline {:#x}", pipeline_hash);
 
-        GraphicsPipeline::SerializationSupport sdata{};
-        it.value() = std::make_unique<GraphicsPipeline>(
-            instance, scheduler, desc_heap, profile, graphics_key, *pipeline_cache, infos,
-            runtime_infos, fetch_shader, modules, sdata, false);
+        auto pending = LaunchAsyncPipelineCompile(graphics_key, pipeline_hash);
 
-        RegisterPipelineData(graphics_key, pipeline_hash, sdata);
-        ++num_new_pipelines;
-
-        if (Config::collectShadersForDebug()) {
-            for (auto stage = 0; stage < MaxShaderStages; ++stage) {
-                if (infos[stage]) {
-                    auto& m = modules[stage];
-                    module_related_pipelines[m].emplace_back(graphics_key);
+        // Synchronous fast-path wait. Most compiles complete in <50ms; waiting
+        // kInitialSyncBudget catches them without triggering frame-skip.
+        if (pending->future.wait_for(kInitialSyncBudget) == std::future_status::ready) {
+            std::unique_ptr<GraphicsPipeline> pipeline;
+            try {
+                pipeline = pending->future.get();
+            } catch (const std::exception& e) {
+                LOG_ERROR(Render_Vulkan, "Async pipeline compile threw: {}", e.what());
+            }
+            if (!pipeline) {
+                // Compile failed. Drop the empty map slot so we can retry next tick.
+                graphics_pipelines.erase(it);
+                return nullptr;
+            }
+            // Move result into the cache slot.
+            it.value() = std::move(pipeline);
+            // Finalize side effects — these need post-ctor state (sdata, modules).
+            RegisterPipelineData(graphics_key, pipeline_hash, pending->sdata);
+            ++num_new_pipelines;
+            if (Config::collectShadersForDebug()) {
+                for (auto stage = 0; stage < MaxShaderStages; ++stage) {
+                    if (pending->infos_copy[stage]) {
+                        auto& m = pending->modules_copy[stage];
+                        module_related_pipelines[m].emplace_back(graphics_key);
+                    }
                 }
             }
+            fetch_shader.reset();
+        } else {
+            // Slow path: compile hasn't finished. Stash the pending entry, leave
+            // graphics_pipelines[key] as null (indicates "in-flight"), return
+            // null so the Rasterizer skips this draw. Subsequent draws for the
+            // same key hit the TryFinalizePending branch above.
+            pending_graphics_pipelines.emplace(graphics_key, std::move(pending));
+            fetch_shader.reset();
+            return nullptr;
         }
-        fetch_shader.reset();
+    } else if (!it->second) {
+        // Defensive: is_new=false but slot is null. This shouldn't happen if
+        // invariants hold (TryFinalizePending always writes non-null on success,
+        // and we already checked pending above). Treat as "still compiling."
+        return nullptr;
     }
-    return it->second.get();
+
+    last_gfx_stamp = stamp;
+    last_gfx_pipeline = it->second.get();
+    std::memcpy(&prev_graphics_key_, &graphics_key, sizeof(GraphicsPipelineKey));
+    return last_gfx_pipeline;
+}
+
+bool PipelineCache::TryFinalizePending(PendingGraphicsPipeline& pending,
+                                       const GraphicsPipelineKey& key) {
+    if (pending.permafailed) {
+        return false;
+    }
+    if (pending.future.wait_for(std::chrono::milliseconds{0}) !=
+        std::future_status::ready) {
+        // Still compiling. Check thresholds for escalation.
+        const auto elapsed = std::chrono::steady_clock::now() - pending.started_at;
+        if (elapsed >= kPermaFailThreshold) {
+            LOG_CRITICAL(Render_Vulkan,
+                         "Pipeline {:#x} stuck >{}s — permafailed. Moving to graveyard; "
+                         "this pipeline's draws will be skipped for the rest of the session. "
+                         "This is almost certainly a Vulkan driver hang "
+                         "(Mesa/RADV). Try updating your GPU driver.",
+                         pending.pipeline_hash,
+                         std::chrono::duration_cast<std::chrono::seconds>(kPermaFailThreshold)
+                             .count());
+            Graveyard().Bury(std::move(pending.future));
+            pending.permafailed = true;
+        } else if (elapsed >= kHangLogThreshold && !pending.hang_warned) {
+            LOG_WARNING(Render_Vulkan,
+                        "Pipeline {:#x} compile exceeded {}s — likely driver hang. "
+                        "Draws using this pipeline are being skipped. Will permafail at {}s.",
+                        pending.pipeline_hash,
+                        std::chrono::duration_cast<std::chrono::seconds>(kHangLogThreshold)
+                            .count(),
+                        std::chrono::duration_cast<std::chrono::seconds>(kPermaFailThreshold)
+                            .count());
+            pending.hang_warned = true;
+        }
+        return false;
+    }
+    // Ready. Collect the result.
+    std::unique_ptr<GraphicsPipeline> pipeline;
+    try {
+        pipeline = pending.future.get();
+    } catch (const std::exception& e) {
+        LOG_ERROR(Render_Vulkan, "Async pipeline {:#x} threw: {}", pending.pipeline_hash,
+                  e.what());
+    }
+    if (!pipeline) {
+        // Compile failed. Don't leave a permafail marker — let the outer code
+        // retry next tick by erasing the pending entry (caller does this).
+        return false;
+    }
+    // Install into the main map (create slot if missing; it usually exists as null).
+    auto [it, is_new] = graphics_pipelines.try_emplace(key);
+    it.value() = std::move(pipeline);
+    // Finalize side effects.
+    RegisterPipelineData(key, pending.pipeline_hash, pending.sdata);
+    ++num_new_pipelines;
+    if (Config::collectShadersForDebug()) {
+        for (auto stage = 0; stage < MaxShaderStages; ++stage) {
+            if (pending.infos_copy[stage]) {
+                auto& m = pending.modules_copy[stage];
+                module_related_pipelines[m].emplace_back(key);
+            }
+        }
+    }
+    LOG_INFO(Render_Vulkan, "Pipeline {:#x} compile finished after {} ms",
+             pending.pipeline_hash,
+             std::chrono::duration_cast<std::chrono::milliseconds>(
+                 std::chrono::steady_clock::now() - pending.started_at)
+                 .count());
+    return true;
+}
+
+std::unique_ptr<PipelineCache::PendingGraphicsPipeline>
+PipelineCache::LaunchAsyncPipelineCompile(const GraphicsPipelineKey& key, u64 pipeline_hash) {
+    auto pending = std::make_unique<PendingGraphicsPipeline>();
+    pending->started_at = std::chrono::steady_clock::now();
+    pending->pipeline_hash = pipeline_hash;
+
+    // Deep-copy stage data. The PipelineCache::infos/runtime_infos/modules
+    // members are span-targets and get overwritten by the next RefreshGraphicsStages.
+    // The async task must not alias them.
+    pending->infos_copy = infos;
+    pending->runtime_infos_copy = runtime_infos;
+    pending->modules_copy = modules;
+    pending->fetch_shader_copy = fetch_shader;
+
+    // Capture by raw pointer into the pending entry. The pending entry lives
+    // in the map owned by PipelineCache until finalize/permafail, so pointers
+    // into it are stable for the lifetime of the worker's execution (worker
+    // result is harvested before erase in TryFinalizePending, or moved to the
+    // graveyard where it's never touched again).
+    PendingGraphicsPipeline* raw = pending.get();
+
+    // Snapshot fields the ctor needs but that reference PipelineCache members.
+    const Instance* instance_ptr = &instance;
+    Scheduler* scheduler_ptr = &scheduler;
+    DescriptorHeap* desc_heap_ptr = &desc_heap;
+    const Shader::Profile* profile_ptr = &profile;
+    vk::PipelineCache cache_handle = *pipeline_cache;
+    GraphicsPipelineKey key_copy = key;
+
+    pending->future = std::async(
+        std::launch::async,
+        [raw, instance_ptr, scheduler_ptr, desc_heap_ptr, profile_ptr, cache_handle,
+         key_copy]() -> std::unique_ptr<GraphicsPipeline> {
+            // Spans over the pending-owned copies — stable for the async task's lifetime.
+            std::span<const Shader::Info*, MaxShaderStages> infos_span{raw->infos_copy};
+            std::span<const Shader::RuntimeInfo, MaxShaderStages> runtime_span{
+                raw->runtime_infos_copy};
+            std::span<const vk::ShaderModule> modules_span{raw->modules_copy};
+            // Note: GraphicsPipeline ctor ASSERTs on driver-return failure, which
+            // kills the process. We can't soften that; it's only the hang case
+            // (no return at all) that this whole mechanism addresses.
+            return std::make_unique<GraphicsPipeline>(
+                *instance_ptr, *scheduler_ptr, *desc_heap_ptr, *profile_ptr, key_copy,
+                cache_handle, infos_span, runtime_span, raw->fetch_shader_copy, modules_span,
+                raw->sdata, false);
+        });
+    return pending;
 }
 
 const ComputePipeline* PipelineCache::GetComputePipeline() {
@@ -455,12 +788,6 @@ bool PipelineCache::RefreshGraphicsStages() {
         }
 
         const auto params = AmdGpu::GetParams(*pgm);
-
-        if (Config::getShaderSkipsEnabled() && Config::ShouldSkipShader(params.hash)) {
-            LOG_WARNING(Render_Vulkan, "Skipped graphics shader hash {:#x}.", params.hash);
-            return false;
-        }
-
         std::optional<Shader::Gcn::FetchShaderData> fetch_shader_;
         std::tie(infos[stage_out_idx], modules[stage_out_idx], fetch_shader_,
                  key.stage_hashes[stage_out_idx]) =
@@ -474,6 +801,7 @@ bool PipelineCache::RefreshGraphicsStages() {
     infos.fill(nullptr);
     modules.fill(nullptr);
     bind_stage(Stage::Fragment, LogicalStage::Fragment);
+
     const auto* fs_info = infos[static_cast<u32>(LogicalStage::Fragment)];
     key.mrt_mask = fs_info ? fs_info->mrt_mask : 0u;
     key.num_color_attachments = std::bit_width(key.mrt_mask);
@@ -484,8 +812,8 @@ bool PipelineCache::RefreshGraphicsStages() {
             LOG_WARNING(Render_Vulkan, "Geometry shader stage unsupported, skipping");
             return false;
         }
-        if (regs.vgt_gs_mode.onchip || regs.vgt_strmout_config.raw) {
-            LOG_WARNING(Render_Vulkan, "Geometry shader features unsupported, skipping");
+        if (regs.vgt_strmout_config.raw) {
+            LOG_WARNING(Render_Vulkan, "Stream output unsupported, skipping");
             return false;
         }
         if (!bind_stage(Stage::Export, LogicalStage::Vertex)) {
@@ -512,7 +840,36 @@ bool PipelineCache::RefreshGraphicsStages() {
         }
         break;
     default:
-        bind_stage(Stage::Vertex, LogicalStage::Vertex);
+        if (regs.stage_enable.hs_en && regs.stage_enable.gs_en) {
+            // Combined LS+HS+ES+GS pipeline (e.g. foliage with tessellation + geometry).
+            if (!instance.IsTessellationSupported() || !instance.IsGeometryStageSupported()) {
+                LOG_WARNING(Render_Vulkan,
+                            "Combined tessellation+geometry pipeline unsupported, skipping");
+                return false;
+            }
+            if (regs.tess_config.type == AmdGpu::TessellationType::Isoline &&
+                !instance.IsTessellationIsolinesSupported()) {
+                return false;
+            }
+            if (regs.vgt_strmout_config.raw) {
+                LOG_WARNING(Render_Vulkan, "Stream output unsupported, skipping");
+                return false;
+            }
+            if (!bind_stage(Stage::Hull, LogicalStage::TessellationControl)) {
+                return false;
+            }
+            if (!bind_stage(Stage::Export, LogicalStage::TessellationEval)) {
+                return false;
+            }
+            if (!bind_stage(Stage::Local, LogicalStage::Vertex)) {
+                return false;
+            }
+            if (!bind_stage(Stage::Geometry, LogicalStage::Geometry)) {
+                return false;
+            }
+        } else {
+            bind_stage(Stage::Vertex, LogicalStage::Vertex);
+        }
         break;
     }
 
@@ -536,13 +893,6 @@ bool PipelineCache::RefreshComputeKey() {
     Shader::Backend::Bindings binding{};
     const auto& cs_pgm = liverpool->GetCsRegs();
     const auto cs_params = AmdGpu::GetParams(cs_pgm);
-    if (Config::getShaderSkipsEnabled()) {
-        if (Config::ShouldSkipShader(cs_params.hash)) {
-            LOG_WARNING(Render_Vulkan, "Skipped compute shader hash {:#x}.", cs_params.hash);
-            return false;
-        }
-    }
-
     std::tie(infos[0], modules[0], fetch_shader, compute_key.value) =
         GetProgram(Shader::Stage::Compute, LogicalStage::Compute, cs_params, binding);
     return true;
@@ -555,9 +905,10 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
              perm_idx != 0 ? "(permutation)" : "");
     DumpShader(code, info.pgm_hash, info.stage, perm_idx, "bin");
 
-    const std::string stage_name = fmt::format("{}", info.stage);
     const auto ir_program = Shader::TranslateProgram(code, pools, info, runtime_info, profile);
     auto spv = Shader::Backend::SPIRV::EmitSPIRV(profile, runtime_info, ir_program, binding);
+    DumpShader(spv, info.pgm_hash, info.stage, perm_idx, "spv");
+
     vk::ShaderModule module;
 
     auto patch = GetShaderPatch(info.pgm_hash, info.stage, perm_idx, "spv");
@@ -583,7 +934,7 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
 PipelineCache::Result PipelineCache::GetProgram(Stage stage, LogicalStage l_stage,
                                                 const Shader::ShaderParams& params,
                                                 Shader::Backend::Bindings& binding) {
-    auto runtime_info = BuildRuntimeInfo(stage, l_stage);
+    Shader::RuntimeInfo runtime_info = BuildRuntimeInfo(stage, l_stage);
     auto [it_pgm, new_program] = program_cache.try_emplace(params.hash);
     if (new_program) {
         it_pgm.value() = std::make_unique<Program>(stage, l_stage, params);
@@ -604,35 +955,140 @@ PipelineCache::Result PipelineCache::GetProgram(Stage stage, LogicalStage l_stag
     info.pgm_base = params.Base(); // Needs to be actualized for inline cbuffer address fixup
     info.user_data = params.user_data;
     info.RefreshFlatBuf();
-    auto spec = Shader::StageSpecialization(info, runtime_info, profile, binding);
 
+    // PERF(GR2 v16): Fast-path to skip StageSpecialization construction.
+    // Hash (user_data, runtime_info by stage, full binding) and compare to cached result.
+    // When only context regs change (viewport, scissor, blend) but SH regs stay the same,
+    // this avoids constructing StageSpecialization (~2.26% of GpuComm).
+    u64 ud_hash;
+    u64 ri_bind_hash;
+    {
+        ud_hash = XXH3_64bits(params.user_data.data(), params.user_data.size_bytes());
+        // Mix in stage-aware runtime_info hash (handles union padding + custom operator==)
+        ri_bind_hash = HashRuntimeInfoForStage(runtime_info);
+        // Mix in ALL binding fields (unified, buffer, user_data — 3x u32 = 12 bytes)
+        ri_bind_hash ^= (static_cast<u64>(binding.unified) |
+                     (static_cast<u64>(binding.buffer) << 32)) +
+                    0x9e3779b97f4a7c15ULL + (ri_bind_hash << 6) + (ri_bind_hash >> 2);
+        ri_bind_hash ^= static_cast<u64>(binding.user_data) +
+                    0x517cc1b727220a95ULL + (ri_bind_hash << 6) + (ri_bind_hash >> 2);
+
+        ud_hash ^= ri_bind_hash + 0x9e3779b97f4a7c15ULL + (ud_hash << 6) + (ud_hash >> 2);
+
+        if (program->last_result.valid && program->last_result.ud_hash == ud_hash) {
+            const auto perm_idx = program->last_result.perm_idx;
+            if (perm_idx < program->modules.size()) {
+                info.AddBindings(binding);
+                return std::make_tuple(&program->info, program->last_result.module,
+                                       program->modules[perm_idx].spec.fetch_shader_data,
+                                       program->last_result.perm_hash);
+            }
+        }
+
+        // FIX(GR2FORK): PERF(GR2 v17) "Stable single-permutation shortcut" removed.
+        //
+        // The removed shortcut assumed that if `ri_bind_hash` (hash of
+        // runtime_info + binding offsets) matched the cached value for 64+
+        // consecutive calls, the cached shader module remained valid even
+        // when `user_data` (the SGPRs) differed — on the rationale that
+        // "stride/format/etc. are extremely unlikely to change" once a
+        // program has been stable.
+        //
+        // That assumption is wrong. `user_data` values ARE the guest
+        // pointers (or inline encodings) to the image/buffer sharps that
+        // StageSpecialization codegens against — see Info::ReadUdReg in
+        // shader_recompiler/info.h, which dereferences user_data[i] to
+        // reach sharp memory. Different user_data → different sharp
+        // address → potentially different image type / dst_select /
+        // num_conversion / srgb / storage / array-ness / fetch-shader
+        // layout. A module specialized against sharp set A is NOT safe to
+        // serve for sharp set B, even if both have the same slot layout.
+        //
+        // GR2 (CUSA03694) exposes this. The same fragment shader is used
+        // both for comic/UI panels (RGBA8_SRGB 2D textures) and for
+        // in-world effect draws (different image types / num_conversion).
+        // Ditto vertex shaders used for UI quads and for high-velocity
+        // character animation. After ~64 UI draws the shortcut locks the
+        // cache to the UI spec; subsequent effect/fall draws then read
+        // the stale module and produce green garbled effect textures and
+        // vertex explosions. The shortcut also rewrote last_result.ud_hash
+        // to the new user_data, so Fast-path 1 above would keep firing on
+        // the stale module for the remainder of the 512-call revalidate
+        // window — self-reinforcing.
+        //
+        // Fast-path 1 (ud_hash-keyed) above remains correct: ud_hash is
+        // XXH3 of the user_data BYTES, so any SGPR change — which is what
+        // changes when sharp pointers change — invalidates the hit. We
+        // lose the v17 perf win for programs that receive genuinely new
+        // user_data every frame but point to structurally identical
+        // sharps; that case pays one StageSpecialization construct per
+        // call, which is what the sig-based lookup below is optimized for.
+        //
+        // Store hashes for later cache update (after spec construction + lookup)
+        program->last_result.ud_hash = ud_hash;
+        program->last_result.ri_bind_hash = ri_bind_hash;
+    }
+
+    const std::optional<Shader::Gcn::FetchShaderData>* cached_fetch = nullptr;
+    if (stage == Stage::Vertex && !program->modules.empty()) {
+        cached_fetch = &program->modules.front().spec.fetch_shader_data;
+    }
+    auto spec = Shader::StageSpecialization(info, runtime_info, profile, binding, cached_fetch);
+
+    // Fast path: look up by specialization signature.
+    // We use a *pair* of signatures (sig + sig2) so we can avoid expensive deep comparisons.
     size_t perm_idx = program->modules.size();
     u64 perm_hash = HashCombine(params.hash, perm_idx);
 
     vk::ShaderModule module{};
 
-    const auto it = std::ranges::find(program->modules, spec, &Program::Module::spec);
-    if (it == program->modules.end()) {
-        auto new_info = Shader::Info(stage, l_stage, params);
-        module = CompileModule(new_info, runtime_info, params.code, perm_idx, binding);
+    bool found = false;
+    if (const auto it_sig = program->perm_index_by_sig.find(spec.sig);
+        it_sig != program->perm_index_by_sig.end() && it_sig->second < program->modules.size()) {
+        const auto& ms = program->modules[it_sig->second].spec;
+        if (ms.sig == spec.sig && ms.sig2 == spec.sig2) {
+            info.AddBindings(binding);
+            perm_idx = it_sig->second;
+            perm_hash = HashCombine(params.hash, perm_idx);
+            module = program->modules[perm_idx].module;
+            found = true;
+            // Update per-program result cache.
+            program->last_result.perm_idx = perm_idx;
+            program->last_result.perm_hash = perm_hash;
+            program->last_result.module = module;
+            program->last_result.valid = true;
+        }
+    }
 
-        RegisterShaderMeta(info, spec.fetch_shader_data, spec, perm_hash, perm_idx);
-        program->AddPermut(module, std::move(spec));
-    } else {
-        info.AddBindings(binding);
-        module = it->module;
-        perm_idx = std::distance(program->modules.begin(), it);
-        perm_hash = HashCombine(params.hash, perm_idx);
-
-        // Check for patches even on cached shaders
-        if (Config::patchShaders()) {
-            auto patch = GetShaderPatch(info.pgm_hash, info.stage, perm_idx, "spv");
-            if (patch) {
-                const auto& d = instance.GetDevice();
-                d.destroyShaderModule(module);
-                module = CompileSPV(*patch, d);
-                it->module = module;
+    if (!found) {
+        // Fallback: linear scan by (sig,sig2) without deep comparisons.
+        size_t found_idx = std::numeric_limits<size_t>::max();
+        for (size_t i = 0; i < program->modules.size(); ++i) {
+            const auto& ms = program->modules[i].spec;
+            if (ms.sig == spec.sig && ms.sig2 == spec.sig2) {
+                found_idx = i;
+                break;
             }
+        }
+
+        if (found_idx == std::numeric_limits<size_t>::max()) {
+            auto new_info = Shader::Info(stage, l_stage, params);
+            module = CompileModule(new_info, runtime_info, params.code, perm_idx, binding);
+
+            RegisterShaderMeta(info, spec.fetch_shader_data, spec, perm_hash, perm_idx);
+            program->AddPermut(module, std::move(spec));
+        } else {
+            info.AddBindings(binding);
+            module = program->modules[found_idx].module;
+            perm_idx = found_idx;
+            perm_hash = HashCombine(params.hash, perm_idx);
+            // Keep the map warm for future lookups.
+            program->perm_index_by_sig.try_emplace(spec.sig, perm_idx);
+            // Update per-program result cache.
+            program->last_result.perm_idx = perm_idx;
+            program->last_result.perm_hash = perm_hash;
+            program->last_result.module = module;
+            program->last_result.valid = true;
         }
     }
     return std::make_tuple(&program->info, module,
@@ -691,52 +1147,6 @@ void PipelineCache::DumpShader(std::span<const u32> code, u64 hash, Shader::Stag
     file.WriteSpan(code);
 }
 
-void PipelineCache::ReloadAllPatches() {
-    if (!Config::patchShaders()) {
-        return;
-    }
-
-    LOG_INFO(Render_Vulkan, "Checking for shader patches to reload...");
-
-    size_t patches_reloaded = 0;
-
-    // Iterate through all cached programs and check for patches
-    for (const auto& [hash, program] : program_cache) {
-        for (size_t i = 0; i < program->modules.size(); ++i) {
-            auto& module = program->modules[i];
-            auto patch = GetShaderPatch(hash, program->info.stage, i, "spv");
-            if (patch) {
-                LOG_INFO(Loader, "Reloading patch for cached {} shader {:#x}", program->info.stage,
-                         hash);
-                const auto& d = instance.GetDevice();
-                d.destroyShaderModule(module.module);
-                module.module = CompileSPV(*patch, d);
-
-                // Invalidate related pipelines to force recreation
-                if (module_related_pipelines.contains(module.module)) {
-                    auto& pipeline_keys = module_related_pipelines[module.module];
-                    for (auto& key : pipeline_keys) {
-                        if (std::holds_alternative<GraphicsPipelineKey>(key)) {
-                            auto& graphics_key = std::get<GraphicsPipelineKey>(key);
-                            graphics_pipelines.erase(graphics_key);
-                        } else if (std::holds_alternative<ComputePipelineKey>(key)) {
-                            auto& compute_key = std::get<ComputePipelineKey>(key);
-                            compute_pipelines.erase(compute_key);
-                        }
-                    }
-                }
-                patches_reloaded++;
-            }
-        }
-    }
-
-    if (patches_reloaded > 0) {
-        LOG_INFO(Render_Vulkan, "Successfully reloaded {} shader patches", patches_reloaded);
-    } else {
-        LOG_INFO(Render_Vulkan, "No shader patches found to reload");
-    }
-}
-
 std::optional<std::vector<u32>> PipelineCache::GetShaderPatch(u64 hash, Shader::Stage stage,
                                                               size_t perm_idx,
                                                               std::string_view ext) {
@@ -755,5 +1165,5 @@ std::optional<std::vector<u32>> PipelineCache::GetShaderPatch(u64 hash, Shader::
     std::vector<u32> code(file.GetSize() / sizeof(u32));
     file.Read(code);
     return code;
-}
+                                                              }
 } // namespace Vulkan

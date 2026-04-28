@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <limits>
+#include <chrono>
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
 
@@ -29,6 +30,16 @@ MasterSemaphore::MasterSemaphore(const Instance& instance_) : instance{instance_
 MasterSemaphore::~MasterSemaphore() = default;
 
 void MasterSemaphore::Refresh() {
+    // Rate-limit expensive getSemaphoreCounterValue() calls (often an ioctl on RADV).
+    // This reduces CPU overhead when Refresh() is called frequently in tight loops.
+    constexpr u64 kMinRefreshIntervalNs = 100'000; // 100us
+    const u64 now_ns = static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+    const u64 last_ns = last_refresh_ns.load(std::memory_order_relaxed);
+    if (now_ns - last_ns < kMinRefreshIntervalNs) {
+        return;
+    }
+    last_refresh_ns.store(now_ns, std::memory_order_relaxed);
     u64 this_tick{};
     u64 counter{};
     do {

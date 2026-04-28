@@ -1,12 +1,31 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <unordered_map>
+
 #include "core/libraries/kernel/kernel.h"
 #include "core/libraries/kernel/posix_error.h"
 #include "core/libraries/kernel/threads/pthread.h"
 #include "core/libraries/libs.h"
+#include "common/sync_trace.h"
 
 namespace Libraries::Kernel {
+
+// FIX(GR2FORK): per-thread reader-recursion counts.
+// MSVC's std::shared_timed_mutex (the backing store of PthreadRwlock.lock) is
+// NOT recursive. If a thread already holds a read lock and a writer becomes
+// queued, a recursive Rdlock() call blocks forever — because shared_timed_mutex
+// is write-preferring, it won't admit new readers while a writer is waiting.
+// POSIX pthread_rwlock allows recursive read-locking from the same thread, and
+// GR2 (Havok scheduler) relies on this. We intercept recursive Rdlock here and
+// bump a thread-local count instead of calling into shared_timed_mutex, then
+// symmetrically release on Unlock. Fully transparent to the rwlock itself —
+// the underlying std::shared_timed_mutex only sees one shared-lock hold per
+// thread regardless of how deep the game recurses.
+static std::unordered_map<PthreadRwlock*, int>& TlsReadCounts() {
+    thread_local std::unordered_map<PthreadRwlock*, int> counts;
+    return counts;
+}
 
 static std::mutex RwlockStaticLock;
 
@@ -64,27 +83,46 @@ int PS4_SYSV_ABI posix_pthread_rwlock_init(PthreadRwlockT* rwlock, const Pthread
 int PthreadRwlock::Rdlock(const OrbisKernelTimespec* abstime) {
     Pthread* curthread = g_curthread;
 
+    // FIX(GR2FORK): recursive read-lock shortcut. If this thread already
+    // holds a read lock on `this`, just bump the TLS count — don't go through
+    // std::shared_timed_mutex (which would deadlock when a writer is queued).
+    auto& tls_counts = TlsReadCounts();
+    auto it = tls_counts.find(this);
+    if (it != tls_counts.end() && it->second > 0) {
+        it->second++;
+        curthread->rdlock_count++;
+        return 0;
+    }
+
     /*
      * POSIX said the validity of the abstimeout parameter need
      * not be checked if the lock can be immediately acquired.
      */
     if (lock.try_lock_shared()) {
         curthread->rdlock_count++;
+        tls_counts[this] = 1;
+        Common::SyncTrace::RwRdlockAcquired(this);
         return 0;
     }
     if (abstime && (abstime->tv_nsec >= 1000000000 || abstime->tv_nsec < 0)) [[unlikely]] {
         return POSIX_EINVAL;
     }
 
+    Common::SyncTrace::RwWaitBegin(this, /*want_write=*/false);
+
     // Note: On interruption an attempt to relock the mutex is made.
     if (abstime != nullptr) {
         if (!lock.try_lock_shared_until(abstime->TimePoint())) {
+            Common::SyncTrace::RwWaitEnd(this);
             return POSIX_ETIMEDOUT;
         }
     } else {
         lock.lock_shared();
     }
 
+    Common::SyncTrace::RwWaitEnd(this);
+    Common::SyncTrace::RwRdlockAcquired(this);
+    tls_counts[this] = 1;
     curthread->rdlock_count++;
     return 0;
 }
@@ -98,6 +136,8 @@ int PthreadRwlock::Wrlock(const OrbisKernelTimespec* abstime) {
      */
     if (lock.try_lock()) {
         owner = curthread;
+        // FIX(GR2FORK): track write-lock acquisition.
+        Common::SyncTrace::RwWrlockAcquired(this);
         return 0;
     }
 
@@ -105,15 +145,21 @@ int PthreadRwlock::Wrlock(const OrbisKernelTimespec* abstime) {
         return POSIX_EINVAL;
     }
 
+    // FIX(GR2FORK): track that we're blocking on the writer slot.
+    Common::SyncTrace::RwWaitBegin(this, /*want_write=*/true);
+
     // Note: On interruption an attempt to relock the mutex is made.
     if (abstime != nullptr) {
         if (!lock.try_lock_until(abstime->TimePoint())) {
+            Common::SyncTrace::RwWaitEnd(this);
             return POSIX_ETIMEDOUT;
         }
     } else {
         lock.lock();
     }
 
+    Common::SyncTrace::RwWaitEnd(this);
+    Common::SyncTrace::RwWrlockAcquired(this);
     owner = curthread;
     return 0;
 }
@@ -136,10 +182,21 @@ int PS4_SYSV_ABI posix_pthread_rwlock_tryrdlock(PthreadRwlockT* rwlock) {
     PthreadRwlockT prwlock{};
     CHECK_AND_INIT_RWLOCK
 
+    // FIX(GR2FORK): recursive read-lock shortcut (same reason as Rdlock).
+    auto& tls_counts = TlsReadCounts();
+    auto tls_it = tls_counts.find(prwlock);
+    if (tls_it != tls_counts.end() && tls_it->second > 0) {
+        tls_it->second++;
+        curthread->rdlock_count++;
+        return 0;
+    }
+
     if (!prwlock->lock.try_lock_shared()) {
         return POSIX_EBUSY;
     }
 
+    Common::SyncTrace::RwRdlockAcquired(prwlock);
+    tls_counts[prwlock] = 1;
     curthread->rdlock_count++;
     return 0;
 }
@@ -153,6 +210,8 @@ int PS4_SYSV_ABI posix_pthread_rwlock_trywrlock(PthreadRwlockT* rwlock) {
         return POSIX_EBUSY;
     }
     prwlock->owner = curthread;
+    // FIX(GR2FORK): track successful trywrlock acquisition.
+    Common::SyncTrace::RwWrlockAcquired(prwlock);
     return 0;
 }
 
@@ -178,11 +237,25 @@ int PS4_SYSV_ABI posix_pthread_rwlock_unlock(PthreadRwlockT* rwlock) {
 
     if (prwlock->owner == curthread) {
         prwlock->owner = nullptr;
+        Common::SyncTrace::RwWrlockReleased(prwlock);
         prwlock->lock.unlock();
     } else {
         if (prwlock->owner == nullptr) {
             curthread->rdlock_count--;
         }
+        // FIX(GR2FORK): recursive read-lock counting. Only call unlock_shared
+        // on the OUTERMOST release; inner releases just decrement the TLS
+        // counter.
+        auto& tls_counts = TlsReadCounts();
+        auto tls_it = tls_counts.find(prwlock);
+        if (tls_it != tls_counts.end()) {
+            if (tls_it->second > 1) {
+                tls_it->second--;
+                return 0; // inner release; don't touch the mutex
+            }
+            tls_counts.erase(tls_it);
+        }
+        Common::SyncTrace::RwRdlockReleased(prwlock);
         prwlock->lock.unlock_shared();
     }
 

@@ -4,8 +4,10 @@
 #include <algorithm>
 #include <utility>
 #include <boost/container/small_vector.hpp>
+#include <cstdlib>
 
 #include "common/assert.h"
+#include "common/config.h"
 #include "shader_recompiler/backend/spirv/emit_spirv_quad_rect.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
@@ -25,6 +27,15 @@ static constexpr std::array LogicalStageToStageBit = {
     vk::ShaderStageFlagBits::eGeometry,
     vk::ShaderStageFlagBits::eCompute,
 };
+
+static bool IsPrimitiveTopologyList(const vk::PrimitiveTopology topology) {
+    return topology == vk::PrimitiveTopology::ePointList ||
+           topology == vk::PrimitiveTopology::eLineList ||
+           topology == vk::PrimitiveTopology::eTriangleList ||
+           topology == vk::PrimitiveTopology::eLineListWithAdjacency ||
+           topology == vk::PrimitiveTopology::eTriangleListWithAdjacency ||
+           topology == vk::PrimitiveTopology::ePatchList;
+}
 
 GraphicsPipeline::GraphicsPipeline(
     const Instance& instance, Scheduler& scheduler, DescriptorHeap& desc_heap,
@@ -193,9 +204,8 @@ GraphicsPipeline::GraphicsPipeline(
     } else if (is_rect_list || is_quad_list) {
         const auto type = is_quad_list ? AuxShaderType::QuadListTCS : AuxShaderType::RectListTCS;
         if (!preloading) {
-            const auto& vs_info = runtime_infos[u32(Shader::LogicalStage::Vertex)].vs_info;
             const auto& fs_info = runtime_infos[u32(Shader::LogicalStage::Fragment)].fs_info;
-            sdata.tcs = Shader::Backend::SPIRV::EmitAuxilaryTessShader(type, vs_info, fs_info);
+            sdata.tcs = Shader::Backend::SPIRV::EmitAuxilaryTessShader(type, fs_info);
         }
         shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
             .stage = vk::ShaderStageFlagBits::eTessellationControl,
@@ -212,10 +222,9 @@ GraphicsPipeline::GraphicsPipeline(
         });
     } else if (is_rect_list || is_quad_list) {
         if (!preloading) {
-            const auto& vs_info = runtime_infos[u32(Shader::LogicalStage::Vertex)].vs_info;
             const auto& fs_info = runtime_infos[u32(Shader::LogicalStage::Fragment)].fs_info;
             sdata.tes = Shader::Backend::SPIRV::EmitAuxilaryTessShader(
-                AuxShaderType::PassthroughTES, vs_info, fs_info);
+                AuxShaderType::PassthroughTES, fs_info);
         }
         shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
             .stage = vk::ShaderStageFlagBits::eTessellationEvaluation,
@@ -298,10 +307,9 @@ GraphicsPipeline::GraphicsPipeline(
             (alpha_blend == vk::BlendOp::eMin || alpha_blend == vk::BlendOp::eMax) &&
             (src_alpha != vk::BlendFactor::eOne || dst_alpha != vk::BlendFactor::eOne);
         if (color_scaled_min_max || alpha_scaled_min_max) {
-            LOG_WARNING(Render_Vulkan, "Unimplemented use of min/max blend op with blend factor "
-                                       "not equal to one, using shader fallback.");
-
-            attachments[i].blendEnable = false;
+            LOG_WARNING(
+                Render_Vulkan,
+                "Unimplemented use of min/max blend op with blend factor not equal to one.");
         }
 
         attachments[i] = vk::PipelineColorBlendAttachmentState{
@@ -352,10 +360,6 @@ GraphicsPipeline::GraphicsPipeline(
         .blendConstants = std::array{1.0f, 1.0f, 1.0f, 1.0f},
     };
 
-    // Required by spec unless VK_EXT_extended_dynamic_state3 is supported.
-    // In practice, we use dynamic state for all of it.
-    constexpr vk::PipelineDepthStencilStateCreateInfo depth_stencil_info = {};
-
     const vk::GraphicsPipelineCreateInfo pipeline_info = {
         .pNext = &pipeline_rendering_ci,
         .stageCount = static_cast<u32>(shader_stages.size()),
@@ -366,8 +370,6 @@ GraphicsPipeline::GraphicsPipeline(
         .pViewportState = &viewport_info,
         .pRasterizationState = &raster_chain.get(),
         .pMultisampleState = &sdata.multisampling,
-        .pDepthStencilState =
-            !instance.IsExtendedDynamicState3Supported() ? &depth_stencil_info : nullptr,
         .pColorBlendState = &color_blending,
         .pDynamicState = &dynamic_info,
         .layout = *pipeline_layout,
@@ -457,6 +459,8 @@ void GraphicsPipeline::BuildDescSetLayout(bool preloading) {
             });
         }
         for (const auto& image : stage->images) {
+            // PORT(upstream #4075): same mip-fallback descriptor expansion as
+            // vk_compute_pipeline.
             const u32 num_bindings = image.NumBindings(*stage);
             bindings.push_back({
                 .binding = binding,
@@ -476,7 +480,31 @@ void GraphicsPipeline::BuildDescSetLayout(bool preloading) {
             });
         }
     }
-    uses_push_descriptors = binding < instance.MaxPushDescriptors();
+    // PERF(GR2): Mesa RADV push descriptors are a major CPU hot spot (memmove + radv_cmd_update_descriptor_sets).
+    // Default to descriptor sets on RADV; allow env overrides:
+    //   SHADPS4_FORCE_PUSH_DESCRIPTORS=1  -> always use push descriptors when possible
+    //   SHADPS4_DISABLE_PUSH_DESCRIPTORS=1 -> never use push descriptors
+    bool force_push = Config::vkForcePushDescriptorsEnabled();
+    bool force_no_push = Config::vkDisablePushDescriptorsEnabled();
+
+    // Env overrides (highest priority)
+    if (const char* e = std::getenv("SHADPS4_FORCE_PUSH_DESCRIPTORS"); e && e[0] != '0') {
+        force_push = true;
+    }
+    if (const char* e = std::getenv("SHADPS4_DISABLE_PUSH_DESCRIPTORS"); e && e[0] != '0') {
+        force_no_push = true;
+    }
+
+    // Force-push wins if both are set.
+    if (force_push) {
+        force_no_push = false;
+    }
+    bool is_radv = false;
+    #ifdef VK_DRIVER_ID_MESA_RADV
+    is_radv = static_cast<VkDriverId>(instance.GetDriverID()) == VK_DRIVER_ID_MESA_RADV;
+    #endif
+    const bool prefer_push = force_push ? true : (force_no_push ? false : !is_radv);
+    uses_push_descriptors = prefer_push && (binding < instance.MaxPushDescriptors());
     const auto flags = uses_push_descriptors
                            ? vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR
                            : vk::DescriptorSetLayoutCreateFlagBits{};

@@ -8,8 +8,12 @@
 #include "core/libraries/avplayer/avplayer_error.h"
 #include "core/libraries/avplayer/avplayer_file_streamer.h"
 #include "core/libraries/avplayer/avplayer_source.h"
+// FIX(GR2FORK): needed for Stop() to drain the GPU before freeing video buffers.
+#include "video_core/renderer_vulkan/vk_presenter.h"
 
 #include <magic_enum/magic_enum.hpp>
+
+#include <thread>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -20,6 +24,12 @@ extern "C" {
 }
 
 #include "common/support/avdec.h"
+
+// FIX(GR2FORK): extern declaration at file/global scope so name resolves to
+// the global-scope `presenter` defined elsewhere, not to a nonexistent
+// `Libraries::AvPlayer::presenter`. Same pattern as video_out.cpp:16 and
+// jpegenc.cpp:45.
+extern std::unique_ptr<Vulkan::Presenter> presenter;
 
 namespace Libraries::AvPlayer {
 
@@ -116,12 +126,8 @@ bool AvPlayerSource::GetStreamInfo(u32 stream_index, AvPlayerStreamInfo& info) {
         LOG_INFO(Lib_AvPlayer, "Stream {} is a video stream.", stream_index);
         info.details.video.aspect_ratio =
             f32(p_stream->codecpar->width) / p_stream->codecpar->height;
-        auto width = u32(p_stream->codecpar->width);
-        auto height = u32(p_stream->codecpar->height);
-        if (!m_use_vdec2) {
-            width = Common::AlignUp(width, 16);
-            height = Common::AlignUp(height, 16);
-        }
+        auto width = Common::AlignUp(u32(p_stream->codecpar->width), 64);
+        auto height = Common::AlignUp(u32(p_stream->codecpar->height), 16);
         info.details.video.width = width;
         info.details.video.height = height;
         if (p_lang_node != nullptr) {
@@ -208,12 +214,32 @@ bool AvPlayerSource::Start() {
             return false;
         }
         m_video_codec_context =
-            AVCodecContextPtr(avcodec_alloc_context3(decoder), &ReleaseAVCodecContext);
+        AVCodecContextPtr(avcodec_alloc_context3(decoder), &ReleaseAVCodecContext);
         if (avcodec_parameters_to_context(m_video_codec_context.get(), stream->codecpar) < 0) {
             LOG_ERROR(Lib_AvPlayer, "Could not copy stream {} avcodec parameters to context.",
                       m_video_stream_index.value());
             return false;
         }
+
+        // FIX(GR2FORK): Do NOT enable FF_THREAD_FRAME here.
+        //
+        // 3050 Ti silent window-closes during video transitions (pause menu,
+        // title screen, tutorial popups) are caused by FFmpeg's frame-threading
+        // worker pool. GR2 cycles Stop/Start rapidly as menus open and close
+        // (28+ cycles captured in a single session). When Stop() frees the
+        // codec context via the AVCodecContextPtr deleter, FFmpeg tries to
+        // join its internal frame-threading workers. If a worker is mid-decode,
+        // that teardown races with it and produces a read AV at offset 0x108
+        // of a freed struct (the crash signature we saw: SEH ACCESS_VIOLATION
+        // read 0x108 inside 0x7FFA... avcodec-*.dll).
+        //
+        // FF_THREAD_FRAME's benefit is ~5-10% decode speedup on large-resolution
+        // video. GR2's menu videos are small (720p max) so the speedup is
+        // imperceptible, but the teardown race is reliably fatal on slower
+        // hardware. Single-threaded decode is correctness-over-speed here.
+        m_video_codec_context->thread_count = 1;
+        m_video_codec_context->thread_type = 0;
+
         if (avcodec_open2(m_video_codec_context.get(), decoder, nullptr) < 0) {
             LOG_ERROR(Lib_AvPlayer, "Could not open avcodec for video stream {}.",
                       m_video_stream_index.value());
@@ -221,13 +247,15 @@ bool AvPlayerSource::Start() {
         }
         auto width = u32(m_video_codec_context->width);
         auto height = u32(m_video_codec_context->height);
-        if (!m_use_vdec2) {
-            width = Common::AlignUp(width, 16);
-            height = Common::AlignUp(height, 16);
-        }
-        const auto size = (width * height * 3) / 2;
+        const auto pitch = Common::AlignUp(width, 64);
+        const auto aligned_h = Common::AlignUp(height, 16);
+        const auto size = pitch * aligned_h * 3 / 2;
+        const auto luma_size = pitch * aligned_h;
         for (u64 index = 0; index < m_max_num_video_framebuffers; ++index) {
-            m_video_buffers.Push(GuestBuffer(m_memory_replacement, 0x100, size, true));
+            auto buf = GuestBuffer(m_memory_replacement, 0x100, size, true);
+            std::memset(buf.GetBuffer(), 0x00, luma_size);
+            std::memset(buf.GetBuffer() + luma_size, 0x80, size - luma_size);
+            m_video_buffers.Push(std::move(buf));
         }
     }
     if (m_audio_stream_index) {
@@ -239,12 +267,19 @@ bool AvPlayerSource::Start() {
             return false;
         }
         m_audio_codec_context =
-            AVCodecContextPtr(avcodec_alloc_context3(decoder), &ReleaseAVCodecContext);
+        AVCodecContextPtr(avcodec_alloc_context3(decoder), &ReleaseAVCodecContext);
         if (avcodec_parameters_to_context(m_audio_codec_context.get(), stream->codecpar) < 0) {
             LOG_ERROR(Lib_AvPlayer, "Could not copy stream {} avcodec parameters to context.",
                       m_audio_stream_index.value());
             return false;
         }
+
+        // FIX(GR2FORK): same reasoning as video — no threading in audio decode
+        // either. Audio codecs are cheap enough that single-thread decode is
+        // well within budget. Removes one more class of teardown-race crash.
+        m_audio_codec_context->thread_count = 1;
+        m_audio_codec_context->thread_type = 0;
+
         if (avcodec_open2(m_audio_codec_context.get(), decoder, nullptr) < 0) {
             LOG_ERROR(Lib_AvPlayer, "Could not open avcodec for audio stream {}.",
                       m_audio_stream_index.value());
@@ -267,19 +302,39 @@ bool AvPlayerSource::Start() {
 bool AvPlayerSource::Stop() {
     std::unique_lock lock(m_state_mutex);
 
-    if (!HasRunningThreads()) {
-        LOG_WARNING(Lib_AvPlayer, "Could not stop playback: already stopped.");
-        return false;
+    // FIX(GR2FORK): US disc (CUSA03694) crashes with VK_ERROR_DEVICE_LOST at
+    // vk_presenter.cpp:770 during newspaper comic cutscenes. The crash is a
+    // race: comics cycle sceAvPlayerPlay/Pause/Stop rapidly, decoder threads
+    // self-exit on EOF, and Stop() clears m_video_buffers below before the
+    // GPU has finished sampling the last NV12 decode output. On EU disc
+    // (CUSA04943) larger video frames mask this by giving the GPU time to
+    // drain naturally; US disc's faster decode cycles lose the race.
+    //
+    // Drain all in-flight GPU work so no command buffer still references the
+    // about-to-be-freed frame memory. waitIdle here is heavy but only runs
+    // once per AvPlayer shutdown (cutscene transitions), so the cost is
+    // negligible. Same precedent as the GR2 photo path in texture_cache.
+    if (::presenter) {
+        ::presenter->WaitIdle();
     }
 
-    if (m_up_data_streamer) {
-        m_up_data_streamer->Reset();
+    const bool had_threads = HasRunningThreads();
+
+    if (had_threads) {
+        if (m_up_data_streamer) {
+            m_up_data_streamer->Reset();
+        }
+
+        m_video_decoder_thread.Stop();
+        m_audio_decoder_thread.Stop();
+        m_demuxer_thread.Stop();
     }
 
-    m_video_decoder_thread.Stop();
-    m_audio_decoder_thread.Stop();
-    m_demuxer_thread.Stop();
-
+    // Always clean up resources, even when threads already self-terminated
+    // (e.g. after EOF).  On a real PS4 stopping an already-finished player
+    // is a successful no-op — returning false here previously caused
+    // AvPlayerState::Stop() to skip its state transition, which could
+    // prevent the game from properly cycling the handle.
     m_current_audio_frame.reset();
     m_current_video_frame.reset();
 
@@ -289,6 +344,28 @@ bool AvPlayerSource::Stop() {
     m_video_packets.Clear();
     m_audio_frames.Clear();
     m_video_frames.Clear();
+
+    // FIX(GR2FORK): Explicitly tear down codec contexts HERE, inside Stop(),
+    // while m_state_mutex is held and our decoder threads are guaranteed
+    // joined. Previously these were only freed when either the source object
+    // was destroyed, or when Start() reassigned the unique_ptr (which
+    // triggered the custom deleter → avcodec_free_context → FFmpeg internal
+    // teardown).
+    //
+    // The latter path was racing with the 3050 Ti's narrower timing window:
+    // Start() reassigned m_video_codec_context while some peripheral FFmpeg
+    // reference (packet, parser, etc.) was still in flight, producing a
+    // read AV at offset 0x108 of a freed AVCodecContext (crash signature
+    // observed in the log). Tearing the context down here, while we still
+    // hold the mutex and before Start() has any chance to run, eliminates
+    // that window.
+    //
+    // Also reset the SW scaler/resampler — they hold references back into
+    // the codec contexts' pixel/sample formats.
+    m_sws_context.reset();
+    m_swr_context.reset();
+    m_video_codec_context.reset();
+    m_audio_codec_context.reset();
 
     m_last_audio_ts.reset();
     m_start_time.reset();
@@ -336,26 +413,75 @@ bool AvPlayerSource::GetVideoData(AvPlayerFrameInfoEx& video_info) {
         return false;
     }
 
-    if (m_video_frames.Size() == 0) {
+    // FIX(GR2FORK v4): peek-then-decide via TryPeek (atomic under the
+    // queue's mutex) instead of unlocked Size() + Front(). Previously
+    // the game thread took a raw reference to m_video_frames.front()
+    // and then the DemuxerThread's loop-reset drain could empty the
+    // queue under it → dangling reference, wild read on .info access.
+    AvPlayerFrameInfoEx head_info{};
+    if (!m_video_frames.TryPeek([&](const Frame& f) { head_info = f.info; })) {
         return false;
     }
 
-    const auto& new_frame = m_video_frames.Front();
     if (m_state.GetSyncMode() == AvPlayerAvSyncMode::Default) {
         if (m_audio_stream_index) {
-            if (new_frame.info.timestamp > m_last_audio_ts.value_or(0)) {
+            const auto audio_ts = m_last_audio_ts.value_or(0);
+            if (head_info.timestamp > audio_ts) {
+                // Head frame not yet due — leave it in queue, try later.
                 return false;
             }
+            // Skip stale frames: keep popping while the NEW head is also
+            // still ≤ audio_ts. Return the last popped candidate (newest
+            // frame audio has already passed).
+            std::optional<Frame> candidate;
+            while (true) {
+                auto popped = m_video_frames.Pop();
+                if (!popped.has_value()) break;
+                if (candidate.has_value()) {
+                    // Discard previously-held candidate — a newer one is available.
+                    m_video_buffers.Push(std::move(candidate->buffer));
+                    m_video_buffers_cv.Notify();
+                }
+                candidate = std::move(popped);
+                AvPlayerFrameInfoEx next_info{};
+                const bool have_next = m_video_frames.TryPeek(
+                    [&](const Frame& f) { next_info = f.info; });
+                if (!have_next || next_info.timestamp > audio_ts) break;
+            }
+            if (!candidate.has_value()) return false;
+            video_info = candidate->info;
+            m_current_video_frame = std::move(candidate);
+            return true;
         } else {
-            // Sync with the internal timer since audio is not available
             const auto current_time = CurrentTime();
-            if (0 < current_time && current_time < new_frame.info.timestamp) {
+            if (0 < current_time && current_time < head_info.timestamp) {
                 return false;
             }
+            // Same skip-stale-frames pattern as the audio-synced branch.
+            std::optional<Frame> candidate;
+            while (true) {
+                auto popped = m_video_frames.Pop();
+                if (!popped.has_value()) break;
+                if (candidate.has_value()) {
+                    m_video_buffers.Push(std::move(candidate->buffer));
+                    m_video_buffers_cv.Notify();
+                }
+                candidate = std::move(popped);
+                AvPlayerFrameInfoEx next_info{};
+                const bool have_next = m_video_frames.TryPeek(
+                    [&](const Frame& f) { next_info = f.info; });
+                if (!have_next || current_time < next_info.timestamp) break;
+            }
+            if (!candidate.has_value()) return false;
+            video_info = candidate->info;
+            m_current_video_frame = std::move(candidate);
+            return true;
         }
     }
 
+    // Non-default sync mode: just return the oldest frame.
     auto frame = m_video_frames.Pop();
+    if (!frame.has_value()) return false; // raced empty — try again next tick
     video_info = frame->info;
     m_current_video_frame = std::move(frame);
     return true;
@@ -373,11 +499,15 @@ bool AvPlayerSource::GetAudioData(AvPlayerFrameInfo& audio_info) {
         return false;
     }
 
-    if (m_audio_frames.Size() == 0) {
+    // FIX(GR2FORK v4): atomic Pop with has_value check. The previous
+    // Size() == 0 early-return followed by an unchecked Pop() was a
+    // TOCTOU — if the demuxer drained m_audio_frames between the size
+    // check and the Pop (which happens on loop reset), Pop() returns
+    // nullopt and the subsequent frame->info.timestamp dereference was UB.
+    auto frame = m_audio_frames.Pop();
+    if (!frame.has_value()) {
         return false;
     }
-
-    auto frame = m_audio_frames.Pop();
     m_last_audio_ts = frame->info.timestamp;
 
     audio_info = {};
@@ -477,6 +607,48 @@ void AvPlayerSource::DemuxerThread(std::stop_token stop) {
                         avformat_seek_file(m_avformat_context.get(), index, 0, 0, stream->duration,
                                            0);
                     }
+                    // Reset timing references so the new loop's timestamps
+                    // (starting from 0) stay in sync with the wall clock.
+                    // Without this, CurrentTime() drifts ahead each loop
+                    // and the frame-skip logic drops increasingly more frames.
+                    m_start_time = std::chrono::high_resolution_clock::now();
+                    m_pause_duration = {};
+                    m_last_audio_ts.reset();
+
+                    // FIX(GR2FORK v4): while-pop pattern; Size()-then-Pop()
+                    // was a TOCTOU race against the game thread's
+                    // GetVideoData path, which also pops from
+                    // m_video_frames. With atomic Pop() a nullopt
+                    // cleanly terminates the drain loop.
+                    while (auto old = m_video_frames.Pop()) {
+                        m_video_buffers.Push(std::move(old->buffer));
+                    }
+                    m_video_buffers_cv.Notify();
+                    while (auto old = m_audio_frames.Pop()) {
+                        m_audio_buffers.Push(std::move(old->buffer));
+                    }
+                    m_audio_buffers_cv.Notify();
+
+                    // FIX(GR2FORK v4): codec context access must be
+                    // serialized with the decoder threads' send_packet
+                    // / receive_frame calls — FFmpeg requires single-
+                    // thread access to an AVCodecContext. Unlocked
+                    // flush_buffers here is the primary suspect for
+                    // pause-menu-idle silent death: each video loop
+                    // iteration (every few seconds for a short menu
+                    // video) gives the race another chance, and over
+                    // a ~45 minute idle that is hundreds of chances.
+                    // Flush holds each mutex for only microseconds so
+                    // the decoder threads are blocked imperceptibly.
+                    if (m_video_codec_context) {
+                        std::lock_guard lk(m_video_codec_mutex);
+                        avcodec_flush_buffers(m_video_codec_context.get());
+                    }
+                    if (m_audio_codec_context) {
+                        std::lock_guard lk(m_audio_codec_mutex);
+                        avcodec_flush_buffers(m_audio_codec_context.get());
+                    }
+
                     continue;
                 } else {
                     LOG_INFO(Lib_AvPlayer, "EOF reached in demuxer. Exiting.");
@@ -543,35 +715,44 @@ AvPlayerSource::AVFramePtr AvPlayerSource::ConvertVideoFrame(const AVFrame& fram
     return nv12_frame;
 }
 
-static void CopyNV12Data(u8* dst, const AVFrame& src, bool use_vdec2) {
-    auto width = u32(src.width);
-    auto height = u32(src.height);
-    if (!use_vdec2) {
-        width = Common::AlignUp(width, 16);
-        height = Common::AlignUp(height, 16);
+static void CopyNV12Data(u8* dst, const AVFrame& src) {
+    const u32 content_w = u32(src.width);
+    const u32 content_h = u32(src.height);
+    const u32 pitch = Common::AlignUp(content_w, 64);
+    const u32 height = Common::AlignUp(content_h, 16);
+
+    u8* luma_dst = dst;
+    u8* chroma_dst = dst + pitch * height;
+
+    const u32 src_luma_pitch = u32(src.linesize[0]);
+    const u32 src_chroma_pitch = u32(src.linesize[1]);
+
+    for (u32 y = 0; y < content_h; ++y) {
+        std::memcpy(luma_dst + y * pitch, src.data[0] + y * src_luma_pitch, content_w);
     }
 
-    if (src.width == width) {
-        std::memcpy(dst, src.data[0], src.width * src.height);
-        std::memcpy(dst + src.width * height, src.data[1], (src.width * src.height) / 2);
-    } else {
-        const auto luma_dst = dst;
-        for (u32 y = 0; y < src.height; ++y) {
-            std::memcpy(luma_dst + y * width, src.data[0] + y * src.width, src.width);
-        }
-        const auto chroma_dst = dst + width * height;
-        for (u32 y = 0; y < src.height / 2; ++y) {
-            std::memcpy(chroma_dst + y * (width / 2), src.data[0] + y * (src.width / 2),
-                        src.width / 2);
-        }
+    const u32 chroma_rows = content_h / 2;
+    for (u32 y = 0; y < chroma_rows; ++y) {
+        std::memcpy(chroma_dst + y * pitch, src.data[1] + y * src_chroma_pitch, content_w);
     }
 }
 
 Frame AvPlayerSource::PrepareVideoFrame(GuestBuffer buffer, const AVFrame& frame) {
     ASSERT(frame.format == AV_PIX_FMT_NV12);
 
+    const u32 content_w = u32(frame.width);
+    const u32 content_h = u32(frame.height);
+    const u32 pitch = Common::AlignUp(content_w, 64);
+    const u32 height = Common::AlignUp(content_h, 16);
+
     auto p_buffer = buffer.GetBuffer();
-    CopyNV12Data(p_buffer, frame, m_use_vdec2);
+
+    const u32 luma_size = pitch * height;
+    const u32 chroma_size = pitch * (height / 2);
+    std::memset(p_buffer, 0x00, luma_size);
+    std::memset(p_buffer + luma_size, 0x80, chroma_size);
+
+    CopyNV12Data(p_buffer, frame);
 
     const auto pkt_dts = u64(frame.pkt_dts) * 1000;
     const auto stream = m_avformat_context->streams[m_video_stream_index.value()];
@@ -579,13 +760,6 @@ Frame AvPlayerSource::PrepareVideoFrame(GuestBuffer buffer, const AVFrame& frame
     const auto den = time_base.den;
     const auto num = time_base.num;
     const auto timestamp = (num != 0 && den > 1) ? (pkt_dts * num) / den : pkt_dts;
-
-    auto width = u32(frame.width);
-    auto height = u32(frame.height);
-    if (!m_use_vdec2) {
-        width = Common::AlignUp(width, 16);
-        height = Common::AlignUp(height, 16);
-    }
 
     return Frame{
         .buffer = std::move(buffer),
@@ -597,15 +771,14 @@ Frame AvPlayerSource::PrepareVideoFrame(GuestBuffer buffer, const AVFrame& frame
                     {
                         .video =
                             {
-                                .width = width,
+                                .width = pitch,
                                 .height = height,
                                 .aspect_ratio = (float)av_q2d(frame.sample_aspect_ratio),
-                                .crop_left_offset = u32(frame.crop_left),
-                                .crop_right_offset = u32(frame.crop_right + (width - frame.width)),
-                                .crop_top_offset = u32(frame.crop_top),
-                                .crop_bottom_offset =
-                                    u32(frame.crop_bottom + (height - frame.height)),
-                                .pitch = u32(frame.linesize[0]),
+                                .crop_left_offset = 0,
+                                .crop_right_offset = pitch - content_w,
+                                .crop_top_offset = 0,
+                                .crop_bottom_offset = height - content_h,
+                                .pitch = pitch,
                                 .luma_bit_depth = 8,
                                 .chroma_bit_depth = 8,
                             },
@@ -629,13 +802,23 @@ void AvPlayerSource::VideoDecoderThread(std::stop_token stop) {
             continue;
         }
 
-        auto res = avcodec_send_packet(m_video_codec_context.get(), packet->get());
+        // FIX(GR2FORK v4): lock codec context for the FFmpeg call —
+        // the demuxer thread may be calling avcodec_flush_buffers on
+        // the same context during a loop reset, and FFmpeg requires
+        // single-thread access.
+        int res;
+        {
+            std::lock_guard lk(m_video_codec_mutex);
+            res = avcodec_send_packet(m_video_codec_context.get(), packet->get());
+        }
         if (res < 0 && res != AVERROR(EAGAIN)) {
             m_state.OnError();
             LOG_ERROR(Lib_AvPlayer, "Could not send packet to the video codec. Error = {}",
                       av_err2str(res));
             return;
         }
+        auto up_frame = AVFramePtr(av_frame_alloc(), &ReleaseAVFrame);
+
         while (res >= 0) {
             if (!m_video_buffers_cv.Wait(stop, [this] { return m_video_buffers.Size() != 0; })) {
                 break;
@@ -643,8 +826,12 @@ void AvPlayerSource::VideoDecoderThread(std::stop_token stop) {
             if (m_video_buffers.Size() == 0) {
                 continue;
             }
-            auto up_frame = AVFramePtr(av_frame_alloc(), &ReleaseAVFrame);
-            res = avcodec_receive_frame(m_video_codec_context.get(), up_frame.get());
+            av_frame_unref(up_frame.get());
+            // FIX(GR2FORK v4): lock codec context — see send_packet above.
+            {
+                std::lock_guard lk(m_video_codec_mutex);
+                res = avcodec_receive_frame(m_video_codec_context.get(), up_frame.get());
+            }
             if (res < 0) {
                 if (res == AVERROR_EOF) {
                     LOG_INFO(Lib_AvPlayer, "EOF reached in video decoder");
@@ -750,13 +937,21 @@ void AvPlayerSource::AudioDecoderThread(std::stop_token stop) {
         if (!packet.has_value()) {
             continue;
         }
-        auto res = avcodec_send_packet(m_audio_codec_context.get(), packet->get());
+        // FIX(GR2FORK v4): lock codec context — same rationale as
+        // video decoder thread above.
+        int res;
+        {
+            std::lock_guard lk(m_audio_codec_mutex);
+            res = avcodec_send_packet(m_audio_codec_context.get(), packet->get());
+        }
         if (res < 0 && res != AVERROR(EAGAIN)) {
             m_state.OnError();
             LOG_ERROR(Lib_AvPlayer, "Could not send packet to the audio codec. Error = {}",
                       av_err2str(res));
             return;
         }
+        auto up_frame = AVFramePtr(av_frame_alloc(), &ReleaseAVFrame);
+
         while (res >= 0) {
             if (!m_audio_buffers_cv.Wait(stop, [this] { return m_audio_buffers.Size() != 0; })) {
                 break;
@@ -765,8 +960,12 @@ void AvPlayerSource::AudioDecoderThread(std::stop_token stop) {
                 continue;
             }
 
-            auto up_frame = AVFramePtr(av_frame_alloc(), &ReleaseAVFrame);
-            res = avcodec_receive_frame(m_audio_codec_context.get(), up_frame.get());
+            av_frame_unref(up_frame.get());
+            // FIX(GR2FORK v4): lock codec context — see send_packet above.
+            {
+                std::lock_guard lk(m_audio_codec_mutex);
+                res = avcodec_receive_frame(m_audio_codec_context.get(), up_frame.get());
+            }
             if (res < 0) {
                 if (res == AVERROR_EOF) {
                     LOG_INFO(Lib_AvPlayer, "EOF reached in audio decoder");

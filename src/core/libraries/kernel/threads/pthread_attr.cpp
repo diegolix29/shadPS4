@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/libraries/kernel/kernel.h"
@@ -24,9 +24,9 @@ static constexpr std::array<PthreadPrio, 3> ThrPriorities = {{
 }};
 
 PthreadAttr PthreadAttrDefault = {
-    .sched_policy = SchedPolicy::Other,
-    .sched_inherit = PthreadInheritSched,
-    .prio = ORBIS_KERNEL_PRIO_FIFO_DEFAULT,
+    .sched_policy = SchedPolicy::Fifo,
+    .sched_inherit = 0,
+    .prio = 0,
     .suspend = false,
     .flags = PthreadAttrFlags::ScopeSystem,
     .stackaddr_attr = nullptr,
@@ -291,7 +291,7 @@ void RegisterThreadAttr(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("2Q0z6rnBrTE", "libScePosix", 1, "libkernel", posix_pthread_attr_setstacksize);
     LIB_FUNCTION("Ucsu-OK+els", "libScePosix", 1, "libkernel", posix_pthread_attr_get_np);
     LIB_FUNCTION("RtLRV-pBTTY", "libScePosix", 1, "libkernel", posix_pthread_attr_getschedpolicy);
-    LIB_FUNCTION("JarMIy8kKEY", "libScePosix", 1, "libkernel", posix_pthread_attr_setschedpolicy);
+    LIB_FUNCTION("JarMIy8kKEY", "libkernel", 1, "libkernel", posix_pthread_attr_setschedpolicy);
     LIB_FUNCTION("E+tyo3lp5Lw", "libScePosix", 1, "libkernel", posix_pthread_attr_setdetachstate);
     LIB_FUNCTION("zHchY8ft5pk", "libScePosix", 1, "libkernel", posix_pthread_attr_destroy);
     LIB_FUNCTION("euKRgm0Vn2M", "libScePosix", 1, "libkernel", posix_pthread_attr_setschedparam);

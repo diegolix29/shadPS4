@@ -33,84 +33,8 @@ constexpr static bool Is32BppPixelFormat(PixelFormat format) {
 
 constexpr u32 PixelFormatBpp(PixelFormat pixel_format) {
     switch (pixel_format) {
-    // 8-bit formats
-    case PixelFormat::R8Unorm:
-    case PixelFormat::R8Snorm:
-    case PixelFormat::R8Uint:
-    case PixelFormat::R8Sint:
-        return 1;
-
-    // 16-bit formats
-    case PixelFormat::R16Unorm:
-    case PixelFormat::R16Snorm:
-    case PixelFormat::R16Uint:
-    case PixelFormat::R16Sint:
-    case PixelFormat::R16Float:
-        return 2;
-
-    case PixelFormat::R8G8Unorm:
-    case PixelFormat::R8G8Snorm:
-    case PixelFormat::R8G8Uint:
-    case PixelFormat::R8G8Sint:
-    case PixelFormat::R16G16Unorm:
-    case PixelFormat::R16G16Snorm:
-    case PixelFormat::R16G16Uint:
-    case PixelFormat::R16G16Sint:
-    case PixelFormat::R16G16Float:
-        return 4;
-
-    // 32-bit formats
-    case PixelFormat::R32Uint:
-    case PixelFormat::R32Sint:
-    case PixelFormat::R32Float:
-        return 4;
-
-    // 64-bit formats
-    case PixelFormat::R32G32Uint:
-    case PixelFormat::R32G32Sint:
-    case PixelFormat::R32G32Float:
-    case PixelFormat::R16G16B16A16Unorm:
-    case PixelFormat::R16G16B16A16Snorm:
-    case PixelFormat::R16G16B16A16Uint:
-    case PixelFormat::R16G16B16A16Sint:
-    case PixelFormat::R16G16B16A16Float:
-        return 8;
-
-    // 128-bit formats
-    case PixelFormat::R32G32B32A32Uint:
-    case PixelFormat::R32G32B32A32Sint:
-    case PixelFormat::R32G32B32A32Float:
-        return 16;
-
-    // 4-byte packed formats (already in your code)
-    case PixelFormat::A8R8G8B8Srgb:
-    case PixelFormat::A8B8G8R8Srgb:
-    case PixelFormat::A2R10G10B10:
-    case PixelFormat::A2R10G10B10Srgb:
-    case PixelFormat::A2R10G10B10Bt2020Pq:
-        return 4;
-
     case PixelFormat::A16R16G16B16Float:
         return 8;
-
-    // Depth/stencil and HDR formats
-    case PixelFormat::D16Unorm:
-        return 2;
-    case PixelFormat::D24UnormS8Uint:
-        return 4;
-    case PixelFormat::D32Float:
-        return 4;
-    case PixelFormat::D32FloatS8Uint:
-        return 8;
-
-    case PixelFormat::R10G10B10A2Unorm:
-    case PixelFormat::R10G10B10A2Uint:
-        return 4;
-    case PixelFormat::B10G11R11Float:
-        return 4;
-    case PixelFormat::E5B9G9R9Float:
-        return 4;
-
     default:
         return 4;
     }
@@ -269,7 +193,7 @@ void VideoOutDriver::Flip(const Request& req) {
         if (event != nullptr) {
             event->TriggerEvent(
                 static_cast<u64>(OrbisVideoOutInternalEventId::Flip),
-                Kernel::OrbisKernelEvent::Filter::VideoOut,
+                Kernel::SceKernelEvent::Filter::VideoOut,
                 reinterpret_cast<void*>(static_cast<u64>(OrbisVideoOutInternalEventId::Flip) |
                                         (req.flip_arg << 16)));
         }
@@ -300,7 +224,7 @@ bool VideoOutDriver::SubmitFlip(VideoOutPort* port, s32 index, s64 flip_arg,
                                 bool is_eop /*= false*/) {
     {
         std::unique_lock lock{port->port_mutex};
-        if (index != -1 && port->flip_status.flip_pending_num > 16) {
+        if (index != -1 && port->flip_status.flip_pending_num >= port->NumRegisteredBuffers()) {
             LOG_ERROR(Lib_VideoOut, "Flip queue is full");
             return false;
         }
@@ -328,7 +252,6 @@ void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_
         frame = presenter->PrepareBlankFrame(false);
     } else {
         const auto& buffer = port->buffer_slots[index];
-        ASSERT_MSG(buffer.group_index >= 0, "Trying to flip an unregistered buffer!");
         const auto& group = port->groups[buffer.group_index];
         frame = presenter->PrepareFrame(group, buffer.address_left);
     }
@@ -344,50 +267,12 @@ void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_
 }
 
 void VideoOutDriver::PresentThread(std::stop_token token) {
-    // Use 64-bit integers for nanosecond arithmetic to avoid overflow/truncation.
-    int64_t fps_cap_value_ns = 0;
-    constexpr int64_t kNanosPerSec = 1'000'000'000LL;
-
-    if (Config::isFpsLimiterEnabled()) {
-        const auto fps_limit = static_cast<int64_t>(Config::getFpsLimit());
-        LOG_INFO(Lib_VideoOut, "PresentThread: FPS limiter enabled, fps_limit = {}", fps_limit);
-        if (fps_limit > 0) {
-            fps_cap_value_ns = kNanosPerSec / fps_limit; // nanoseconds per frame
-        } else {
-            // If fps_limit is 0 (invalid), fall back to vblank frequency below.
-            LOG_INFO(Lib_VideoOut,
-                     "PresentThread: FPS limiter has invalid value (0), falling back to vblank");
-            fps_cap_value_ns = 0;
-        }
-    } else {
-        LOG_INFO(Lib_VideoOut, "PresentThread: FPS limiter disabled, using vblank frequency");
-    }
-
-    if (fps_cap_value_ns == 0) {
-        // Either limiter disabled or limiter produced 0 (or invalid fps). Use vblank frequency.
-        const auto vblank_freq = static_cast<int64_t>(Config::vblankFreq());
-        LOG_INFO(Lib_VideoOut, "PresentThread: Using vblank_freq = {}", vblank_freq);
-        if (vblank_freq > 0) {
-            fps_cap_value_ns = kNanosPerSec / vblank_freq; // nanoseconds per vblank
-        } else {
-            // As a last resort: clamp to 1ms per frame (1000000 ns) to avoid zero-duration.
-            fps_cap_value_ns = 1'000'000LL;
-        }
-    }
-
-    LOG_INFO(Lib_VideoOut, "PresentThread: fps_cap_value_ns = {} ns ({} FPS)", fps_cap_value_ns,
-             fps_cap_value_ns > 0 ? 1'000'000'000LL / fps_cap_value_ns : 0);
-
-    // Ensure at least 1 ns to avoid zero-duration timers.
-    if (fps_cap_value_ns <= 0) {
-        fps_cap_value_ns = 1;
-    }
-
-    const std::chrono::nanoseconds FpsCap{static_cast<long long>(fps_cap_value_ns)};
+    const std::chrono::nanoseconds vblank_period(1000000000 / Config::vblankFreq());
 
     Common::SetCurrentThreadName("shadPS4:PresentThread");
-    Common::SetCurrentThreadRealtime(FpsCap);
-    Common::AccurateTimer timer{FpsCap};
+    Common::SetCurrentThreadRealtime(vblank_period);
+
+    Common::AccurateTimer timer{vblank_period};
 
     const auto receive_request = [this] -> Request {
         std::scoped_lock lk{mutex};
@@ -410,31 +295,10 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
 
         // Check if it's time to take a request.
         auto& vblank_status = main_port.vblank_status;
-
-        // Use wide unsigned arithmetic to avoid wrap when adding 1.
-        const uint64_t flip_rate_plus_one = static_cast<uint64_t>(main_port.flip_rate) + 1ULL;
-        if (flip_rate_plus_one > 0) {
-            if ((static_cast<uint64_t>(vblank_status.count) % flip_rate_plus_one) == 0ULL) {
-                const auto request = receive_request();
-                if (!request) {
-                    if (timer.GetTotalWait().count() < 0) { // Don't draw too fast
-                        if (!main_port.is_open) {
-                            DrawBlankFrame();
-                        } else if (ImGui::Core::MustKeepDrawing()) {
-                            DrawLastFrame();
-                        }
-                    }
-                } else {
-                    Flip(request);
-                    FRAME_END;
-                }
-            }
-        } else {
-            // Defensive fallback if flip_rate_plus_one somehow became zero (shouldn't happen),
-            // treat as always true.
+        if (vblank_status.count % (main_port.flip_rate + 1) == 0) {
             const auto request = receive_request();
             if (!request) {
-                if (timer.GetTotalWait().count() < 0) {
+                if (timer.GetTotalWait().count() < 0) { // Dont draw too fast
                     if (!main_port.is_open) {
                         DrawBlankFrame();
                     } else if (ImGui::Core::MustKeepDrawing()) {
@@ -450,26 +314,18 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
         {
             // Needs lock here as can be concurrently read by `sceVideoOutGetVblankStatus`
             std::scoped_lock lock{main_port.vo_mutex};
-
-            // Trigger flip events for the port
-            for (auto& event : main_port.vblank_events) {
-                if (event != nullptr) {
-                    event->TriggerEvent(static_cast<u64>(OrbisVideoOutInternalEventId::Vblank),
-                                        Kernel::OrbisKernelEvent::Filter::VideoOut,
-                                        reinterpret_cast<void*>(
-                                            static_cast<u64>(OrbisVideoOutInternalEventId::Vblank) |
-                                            (vblank_status.count << 16)));
-                }
-            }
-
-            // Update vblank status
             vblank_status.count++;
-            if (main_port.flip_rate == 0 ||
-                (vblank_status.count - 1) % (main_port.flip_rate + 1) == 0) {
-                vblank_status.process_time = Libraries::Kernel::sceKernelGetProcessTime();
-                vblank_status.tsc = Libraries::Kernel::sceKernelReadTsc();
-            }
+            vblank_status.process_time = Libraries::Kernel::sceKernelGetProcessTime();
+            vblank_status.tsc = Libraries::Kernel::sceKernelReadTsc();
             main_port.vblank_cv.notify_all();
+        }
+
+        // Trigger flip events for the port.
+        for (auto& event : main_port.vblank_events) {
+            if (event != nullptr) {
+                event->TriggerEvent(static_cast<u64>(OrbisVideoOutInternalEventId::Vblank),
+                                    Kernel::SceKernelEvent::Filter::VideoOut, nullptr);
+            }
         }
 
         timer.End();

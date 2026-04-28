@@ -270,34 +270,28 @@ bool PipelineCache::LoadPipelineStage(Serialization::Archive& ar, size_t stage) 
 
     vk::ShaderModule module{};
 
-    // Check for patches even when loading from cache
-    auto patch = GetShaderPatch(program->info.pgm_hash, program->info.stage, perm_idx, "spv");
-    const bool use_patch = patch && Config::patchShaders();
-
-    if (use_patch) {
-        module = CompileSPV(*patch, instance.GetDevice());
-    } else {
-        module = CompileSPV(spv, instance.GetDevice());
-    }
-
     auto [it_pgm, new_program] = program_cache.try_emplace(program->info.pgm_hash);
     if (new_program) {
+        module = CompileSPV(spv, instance.GetDevice());
         it_pgm.value() = std::move(program);
     } else {
         const auto& it = std::ranges::find(it_pgm.value()->modules, spec, &Program::Module::spec);
         if (it != it_pgm.value()->modules.end()) {
-            // If the permutation is already preloaded, make sure it has the same permutation index
+            // If the specialization is already preloaded, we MAY reuse its module.
+            // However, different permutation indices can point to different SPIR-V blobs even if the
+            // specialization compares equal. Reusing across indices can produce invalid pipelines.
             const auto idx = std::distance(it_pgm.value()->modules.begin(), it);
-            ASSERT_MSG(perm_idx == idx, "Permutation {} is already inserted at {}! ({}_{:x})",
-                       perm_idx, idx, program->info.stage, program->info.pgm_hash);
-            module = it->module;
-        } else {
-            if (use_patch) {
-                // Use patch instead of cached SPIR-V
-                module = CompileSPV(*patch, instance.GetDevice());
-            } else {
+            if (perm_idx != idx) {
+                LOG_WARNING(Render,
+                            "Pipeline cache: permutation {} maps to existing specialization at {}. "
+                            "Compiling module for this permutation to avoid cross-permutation reuse. ({}_{:x})",
+                            perm_idx, idx, program->info.stage, program->info.pgm_hash);
                 module = CompileSPV(spv, instance.GetDevice());
+            } else {
+                module = it->module;
             }
+        } else {
+            module = CompileSPV(spv, instance.GetDevice());
         }
     }
     it_pgm.value()->InsertPermut(module, std::move(spec), perm_idx);
@@ -471,7 +465,21 @@ bool StageSpecialization::Deserialize(Serialization::Archive& ar) {
 
     std::string bits{};
     spec.Read(bits);
-    bitset = std::bitset<MaxStageResources>(bits);
+
+    // Portable parse (avoid std::bitset<N>(std::string) ctor) AND keep bitwords in sync.
+    // bits is serialized as bitset.to_string() => MSB->LSB; bit index 0 is LSB.
+    bitset.reset();
+    bitwords[0] = 0;
+    bitwords[1] = 0;
+    const size_t lim = bits.size() < MaxStageResources ? bits.size() : MaxStageResources;
+    const size_t n = bits.size();
+    for (size_t i = 0; i < lim; ++i) {
+        const char c = bits[n - 1 - i];
+        if (c == '1') {
+            bitset.set(i);
+            bitwords[i >> 6] |= (1ULL << (i & 63));
+        }
+    }
 
     u64 fetch_data_size{};
     spec.Read(fetch_data_size);
@@ -488,6 +496,7 @@ bool StageSpecialization::Deserialize(Serialization::Archive& ar) {
     spec.Read(fmasks);
     spec.Read(samplers);
 
+    ComputeSig();
     return true;
 }
 

@@ -55,7 +55,6 @@ void Translator::S_LOAD_DWORD(int num_dwords, const GcnInst& inst) {
     for (u32 i = 0; i < num_dwords; i++) {
         IR::U32 index = ir.IAdd(dword_offset, ir.Imm32(i));
         ir.SetScalarReg(dst_reg + i, ir.ReadConst(base, index));
-        type->scalar[inst.dst[0].code + i] = RegType::Scalar;
     }
 }
 
@@ -71,18 +70,13 @@ void Translator::S_BUFFER_LOAD_DWORD(int num_dwords, const GcnInst& inst) {
         }
         return ir.ShiftRightLogical(ir.GetScalarReg(IR::ScalarReg(smrd.offset)), ir.Imm32(2));
     }();
-
-    IR::BufferInstInfo buffer_info{};
-    buffer_info.pc.Assign(pc);
-
     const IR::Value vsharp =
         ir.CompositeConstruct(ir.GetScalarReg(sbase), ir.GetScalarReg(sbase + 1),
                               ir.GetScalarReg(sbase + 2), ir.GetScalarReg(sbase + 3));
     IR::ScalarReg dst_reg{inst.dst[0].code};
     for (u32 i = 0; i < num_dwords; i++) {
         const IR::U32 index = ir.IAdd(dword_offset, ir.Imm32(i));
-        ir.SetScalarReg(dst_reg + i, ir.ReadConstBuffer(vsharp, index, buffer_info));
-        type->scalar[inst.dst[0].code + i] = RegType::Scalar;
+        ir.SetScalarReg(dst_reg + i, ir.ReadConstBuffer(vsharp, index));
     }
 }
 

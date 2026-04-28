@@ -1,11 +1,10 @@
-// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
 #include "common/types.h"
 #include "core/libraries/np/np_types.h"
-#include "core/libraries/system/userservice.h"
 
 namespace Core::Loader {
 class SymbolsResolver;
@@ -32,7 +31,7 @@ struct OrbisNpAuthGetAuthorizationCodeParameter {
 
 struct OrbisNpAuthGetAuthorizationCodeParameterA {
     u64 size;
-    Libraries::UserService::OrbisUserServiceUserId user_id;
+    s32 user_id;
     u8 padding[4];
     const OrbisNpClientId* client_id;
     const char* scope;
@@ -48,7 +47,7 @@ struct OrbisNpAuthGetIdTokenParameter {
 
 struct OrbisNpAuthGetIdTokenParameterA {
     u64 size;
-    Libraries::UserService::OrbisUserServiceUserId user_id;
+    s32 user_id;
     u8 padding[4];
     const OrbisNpClientId* client_id;
     const OrbisNpClientSecret* client_secret;

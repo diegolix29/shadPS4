@@ -8,6 +8,7 @@
 #include "common/assert.h"
 #include "common/error.h"
 #include "common/logging/log.h"
+#include "common/path_util.h"
 #include "common/scope_exit.h"
 #include "common/singleton.h"
 #include "core/file_sys/devices/console_device.h"
@@ -27,6 +28,7 @@
 #include "core/libraries/libs.h"
 #include "core/libraries/network/sockets.h"
 #include "core/memory.h"
+#include "core/libraries/screenshot/photo_gnf_generator.h"
 #include "kernel.h"
 
 #ifdef _WIN32
@@ -34,7 +36,6 @@
 #include <winsock2.h>
 #else
 #include <sys/select.h>
-#include <sys/stat.h>
 #endif
 
 namespace D = Core::Devices;
@@ -87,13 +88,11 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
     if (!read && !write && !rdwr) {
         // Start by checking for invalid flags.
         *__Error() = POSIX_EINVAL;
-        LOG_ERROR(Kernel_Fs, "Opening path {} failed, invalid flags {:#x}", raw_path, flags);
         return -1;
     }
 
     if (strlen(raw_path) > 255) {
         *__Error() = POSIX_ENAMETOOLONG;
-        LOG_ERROR(Kernel_Fs, "Opening path {} failed, path is too long", raw_path);
         return -1;
     }
 
@@ -132,6 +131,78 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
     file->m_guest_name = path;
     file->m_host_name = mnt->GetHostPath(file->m_guest_name, &read_only);
     bool exists = fs::exists(file->m_host_name);
+
+    // v57: GR2 gallery fiber redirect — if a "photo/" path fails to resolve,
+    // try looking in the screenshots directory directly. FIOS2 may pass paths
+    // like "photo/CONTENT_ID.jpg" or "/app0/photo/CONTENT_ID.jpg" that don't
+    // match any mount. Extract the filename and try the screenshots dir.
+    // Also try adding/removing .jpg since we don't know the exact fiber format.
+    if (!exists && std::string_view{raw_path}.find("photo") != std::string_view::npos) {
+        std::string_view pv{raw_path};
+        auto photo_pos = pv.find("photo/");
+        if (photo_pos != std::string_view::npos) {
+            auto filename = std::string(pv.substr(photo_pos + 6));
+            auto screenshots_dir = Common::FS::GetUserPath(
+                Common::FS::PathType::ScreenshotsDir) / "GR2_PhotoApp_HLE";
+            
+            // Try exact name first
+            auto try_path = screenshots_dir / filename;
+            if (!fs::exists(try_path) && !filename.ends_with(".jpg")) {
+                // Try adding .jpg
+                try_path = screenshots_dir / (filename + ".jpg");
+            }
+            if (!fs::exists(try_path) && filename.ends_with(".jpg")) {
+                // Try without .jpg
+                try_path = screenshots_dir / filename.substr(0, filename.size() - 4);
+            }
+            
+            if (fs::exists(try_path)) {
+                file->m_host_name = try_path;
+                exists = true;
+                read_only = true;
+                LOG_INFO(Kernel_Fs,
+                    "[GR2v57] Photo redirect: '{}' → '{}'",
+                    raw_path, try_path.string());
+            } else {
+                LOG_WARNING(Kernel_Fs,
+                    "[GR2v57] Photo path not found: '{}' (tried '{}')",
+                    raw_path, (screenshots_dir / filename).string());
+            }
+        }
+    }
+
+    // v57: Log ALL file opens that contain "photo" for debugging fiber paths
+    if (std::string_view{raw_path}.find("photo") != std::string_view::npos) {
+        LOG_INFO(Kernel_Fs,
+            "[GR2v57] open() with photo path: '{}' exists={} host='{}'",
+            raw_path, exists, file->m_host_name.string());
+    }
+
+    // v155x: Log ANY file open containing "j=" — detect if CDtex system
+    // uses FIOS2/sceKernelOpen for j= overlay entries
+    if (std::string_view{raw_path}.find("j=") != std::string_view::npos) {
+        LOG_INFO(Kernel_Fs,
+            "[GR2v155x] ★ j= file open: '{}' exists={} host='{}'",
+            raw_path, exists, file->m_host_name.string());
+    }
+
+    // v142: GNF photo substitution — swap paw-print texture with decoded photos
+    // When CDtex/FAM loads film_dummy.gnf for a gallery slot, redirect to our
+    // decoded photo GNF file. Each slot gets a different photo via atomic counter.
+    if (std::string_view{raw_path}.find("film_dummy") != std::string_view::npos) {
+        auto& gnf_mgr = Libraries::ScreenShot::PhotoGnfManager::Instance();
+        if (gnf_mgr.IsReady()) {
+            auto photo_path = gnf_mgr.ConsumeNextSlotPath();
+            if (!photo_path.empty() && fs::exists(photo_path)) {
+                file->m_host_name = photo_path;
+                exists = true;
+                read_only = true;
+                LOG_INFO(Kernel_Fs, "[GR2v155] film_dummy.gnf → {}",
+                         photo_path.string());
+            }
+        }
+    }
+
     s32 e = 0;
 
     if (create) {
@@ -139,7 +210,6 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
             // Error if file exists
             h->DeleteHandle(handle);
             *__Error() = POSIX_EEXIST;
-            LOG_ERROR(Kernel_Fs, "Creating {} failed, file already exists", raw_path);
             return -1;
         }
 
@@ -148,7 +218,6 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
                 // Can't create files in a read only directory
                 h->DeleteHandle(handle);
                 *__Error() = POSIX_EROFS;
-                LOG_ERROR(Kernel_Fs, "Creating {} failed, path is read-only", raw_path);
                 return -1;
             }
             // Create a file if it doesn't exist
@@ -158,7 +227,6 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
         // If we're not creating a file, and it doesn't exist, return ENOENT
         h->DeleteHandle(handle);
         *__Error() = POSIX_ENOENT;
-        LOG_ERROR(Kernel_Fs, "Opening path {} failed, file does not exist", raw_path);
         return -1;
     }
 
@@ -174,7 +242,6 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
             // This will trigger when create & directory is specified, this is expected.
             h->DeleteHandle(handle);
             *__Error() = POSIX_ENOTDIR;
-            LOG_ERROR(Kernel_Fs, "Opening directory {} failed, file is not a directory", raw_path);
             return -1;
         }
 
@@ -182,8 +249,6 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
             // Cannot open directories with any type of write access
             h->DeleteHandle(handle);
             *__Error() = POSIX_EISDIR;
-            LOG_ERROR(Kernel_Fs, "Opening directory {} failed, cannot open directories for writing",
-                      raw_path);
             return -1;
         }
 
@@ -191,8 +256,6 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
             // Cannot open directories with truncate
             h->DeleteHandle(handle);
             *__Error() = POSIX_EISDIR;
-            LOG_ERROR(Kernel_Fs, "Opening directory {} failed, cannot truncate directories",
-                      raw_path);
             return -1;
         }
 
@@ -211,7 +274,6 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
             // Can't open files with truncate flag in a read only directory
             h->DeleteHandle(handle);
             *__Error() = POSIX_EROFS;
-            LOG_ERROR(Kernel_Fs, "Truncating {} failed, path is read-only", raw_path);
             return -1;
         } else if (truncate) {
             // Open the file as read-write so we can truncate regardless of flags.
@@ -230,7 +292,6 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
             // Can't open files with write/read-write access in a read only directory
             h->DeleteHandle(handle);
             *__Error() = POSIX_EROFS;
-            LOG_ERROR(Kernel_Fs, "Opening {} for writing failed, path is read-only", raw_path);
             return -1;
         } else if (write) {
             if (append) {
@@ -256,7 +317,6 @@ s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
         // Open failed in platform-specific code, errno needs to be converted.
         h->DeleteHandle(handle);
         SetPosixErrno(e);
-        LOG_ERROR(Kernel_Fs, "Opening {} failed, error = {}", raw_path, *__Error());
         return -1;
     }
 
@@ -271,6 +331,7 @@ s32 PS4_SYSV_ABI posix_open(const char* filename, s32 flags, u16 mode) {
 s32 PS4_SYSV_ABI sceKernelOpen(const char* path, s32 flags, /* SceKernelMode*/ u16 mode) {
     s32 result = open(path, flags, mode);
     if (result < 0) {
+        LOG_ERROR(Kernel_Fs, "error = {}", *__Error());
         return ErrnoToSceKernelError(*__Error());
     }
     return result;
@@ -711,10 +772,9 @@ s32 PS4_SYSV_ABI posix_stat(const char* path, OrbisKernelStat* sb) {
 s32 PS4_SYSV_ABI sceKernelStat(const char* path, OrbisKernelStat* sb) {
     s32 result = posix_stat(path, sb);
     if (result < 0) {
-        LOG_ERROR(Kernel_Fs, "sceKernelStat: error = {}, path = {}", *__Error(), path);
+        LOG_ERROR(Kernel_Fs, "error = {}", *__Error());
         return ErrnoToSceKernelError(*__Error());
     }
-    LOG_DEBUG(Kernel_Fs, "sceKernelStat: success, path = {}", path);
     return result;
 }
 
@@ -765,30 +825,6 @@ s32 PS4_SYSV_ABI fstat(s32 fd, OrbisKernelStat* sb) {
         sb->st_size = file->f.GetSize();
         sb->st_blksize = 512;
         sb->st_blocks = (sb->st_size + 511) / 512;
-#if defined(__linux__) || defined(__FreeBSD__)
-        struct stat filestat = {};
-        stat(file->f.GetPath().c_str(), &filestat);
-        sb->st_atim = *reinterpret_cast<OrbisKernelTimespec*>(&filestat.st_atim);
-        sb->st_mtim = *reinterpret_cast<OrbisKernelTimespec*>(&filestat.st_mtim);
-        sb->st_ctim = *reinterpret_cast<OrbisKernelTimespec*>(&filestat.st_ctim);
-#elif defined(__APPLE__)
-        struct stat filestat = {};
-        stat(file->f.GetPath().c_str(), &filestat);
-        sb->st_atim = *reinterpret_cast<OrbisKernelTimespec*>(&filestat.st_atimespec);
-        sb->st_mtim = *reinterpret_cast<OrbisKernelTimespec*>(&filestat.st_mtimespec);
-        sb->st_ctim = *reinterpret_cast<OrbisKernelTimespec*>(&filestat.st_ctimespec);
-#else
-        const auto ft = std::filesystem::last_write_time(file->f.GetPath());
-        const auto sctp = std::chrono::time_point_cast<std::chrono::nanoseconds>(
-            ft - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now());
-        const auto secs = std::chrono::time_point_cast<std::chrono::seconds>(sctp);
-        const auto nsecs = std::chrono::duration_cast<std::chrono::nanoseconds>(sctp - secs);
-
-        sb->st_mtim.tv_sec = static_cast<int64_t>(secs.time_since_epoch().count());
-        sb->st_mtim.tv_nsec = static_cast<int64_t>(nsecs.count());
-        sb->st_atim = sb->st_mtim;
-        sb->st_ctim = sb->st_mtim;
-#endif
         // TODO incomplete
         break;
     }
@@ -805,8 +841,7 @@ s32 PS4_SYSV_ABI fstat(s32 fd, OrbisKernelStat* sb) {
         return file->socket->fstat(sb);
     }
     case Core::FileSys::FileType::Epoll:
-    case Core::FileSys::FileType::Resolver:
-    case Core::FileSys::FileType::Equeue: {
+    case Core::FileSys::FileType::Resolver: {
         LOG_ERROR(Kernel_Fs, "(STUBBED) file type {}", magic_enum::enum_name(file->type.load()));
         break;
     }
@@ -1301,8 +1336,7 @@ s32 PS4_SYSV_ABI posix_select(s32 nfds, fd_set_posix* readfds, fd_set_posix* wri
         if (file->type == Core::FileSys::FileType::Regular ||
             file->type == Core::FileSys::FileType::Device) {
             // Disk files always ready
-            // For devices, stdin (fd 0) is never read-ready.
-            if (want_read && i != 0) {
+            if (want_read) {
                 FD_SET_POSIX(i, &read_ready);
             }
             if (want_write) {
@@ -1335,7 +1369,7 @@ s32 PS4_SYSV_ABI posix_select(s32 nfds, fd_set_posix* readfds, fd_set_posix* wri
               read_host.fd_count, write_host.fd_count, except_host.fd_count);
 
     if (read_host.fd_count == 0 && write_host.fd_count == 0 && except_host.fd_count == 0) {
-        LOG_DEBUG(Kernel_Fs, "No sockets in fd_sets, select() will return immediately");
+        LOG_WARNING(Kernel_Fs, "No sockets in fd_sets, select() will return immediately");
     }
 
     if (readfds) {

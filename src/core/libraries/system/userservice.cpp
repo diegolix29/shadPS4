@@ -1,22 +1,14 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-
-#include <queue>
 
 #include "common/config.h"
 #include "common/logging/log.h"
 
-#include <queue>
-#include "common/singleton.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/system/userservice_error.h"
-#include "core/tls.h"
-#include "input/controller.h"
 
 namespace Libraries::UserService {
-
-std::queue<OrbisUserServiceEvent> user_service_event_queue = {};
 
 int PS4_SYSV_ABI sceUserServiceInitializeForShellCore() {
     LOG_ERROR(Lib_UserService, "(STUBBED) called");
@@ -113,21 +105,15 @@ int PS4_SYSV_ABI sceUserServiceGetDiscPlayerFlag() {
     return ORBIS_OK;
 }
 
-void AddUserServiceEvent(const OrbisUserServiceEvent e) {
-    LOG_DEBUG(Lib_UserService, "Event added to queue: {} {}", (u8)e.event, e.userId);
-    user_service_event_queue.push(e);
-}
-
 s32 PS4_SYSV_ABI sceUserServiceGetEvent(OrbisUserServiceEvent* event) {
     LOG_TRACE(Lib_UserService, "(DUMMY) called");
+    // fake a loggin event
+    static bool logged_in = false;
 
-    if (!user_service_event_queue.empty()) {
-        OrbisUserServiceEvent& temp = user_service_event_queue.front();
-        event->event = temp.event;
-        event->userId = temp.userId;
-        user_service_event_queue.pop();
-        LOG_INFO(Lib_UserService, "Event processed by the game: {} {}", (u8)temp.event,
-                 temp.userId);
+    if (!logged_in) {
+        logged_in = true;
+        event->event = OrbisUserServiceEventType::Login;
+        event->userId = 1;
         return ORBIS_OK;
     }
 
@@ -581,23 +567,17 @@ int PS4_SYSV_ABI sceUserServiceGetLoginFlag() {
 }
 
 s32 PS4_SYSV_ABI sceUserServiceGetLoginUserIdList(OrbisUserServiceLoginUserIdList* userIdList) {
-    // LOG_DEBUG(Lib_UserService, "called");
+    LOG_DEBUG(Lib_UserService, "called");
     if (userIdList == nullptr) {
         LOG_ERROR(Lib_UserService, "user_id is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
     // TODO only first user, do the others as well
-    auto controllers = *Common::Singleton<Input::GameControllers>::Instance();
-    auto playerEnabledStates = Config::getPlayerEnabledStates();
-    int li = 0;
-    for (int ci = 0; ci < 4; ci++) {
-        if (controllers[ci]->user_id != -1 && playerEnabledStates[ci]) {
-            userIdList->user_id[li++] = controllers[ci]->user_id;
-        }
-    }
-    for (; li < 4; li++) {
-        userIdList->user_id[li] = -1;
-    }
+    userIdList->user_id[0] = 1;
+    userIdList->user_id[1] = ORBIS_USER_SERVICE_USER_ID_INVALID;
+    userIdList->user_id[2] = ORBIS_USER_SERVICE_USER_ID_INVALID;
+    userIdList->user_id[3] = ORBIS_USER_SERVICE_USER_ID_INVALID;
+
     return ORBIS_OK;
 }
 
@@ -1068,7 +1048,7 @@ s32 PS4_SYSV_ABI sceUserServiceGetUserColor(int user_id, OrbisUserServiceUserCol
         LOG_ERROR(Lib_UserService, "color is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    *color = (OrbisUserServiceUserColor)(user_id - 1);
+    *color = OrbisUserServiceUserColor::Blue;
     return ORBIS_OK;
 }
 
@@ -1088,16 +1068,12 @@ int PS4_SYSV_ABI sceUserServiceGetUserGroupNum() {
 }
 
 s32 PS4_SYSV_ABI sceUserServiceGetUserName(int user_id, char* user_name, std::size_t size) {
-    LOG_DEBUG(Lib_UserService, "called user_id = {}, size = {} ", user_id, size);
-    if (user_id == ORBIS_USER_SERVICE_USER_ID_INVALID) {
-        LOG_ERROR(Lib_UserService, "invalid user_id");
-        return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
-    }
+    LOG_DEBUG(Lib_UserService, "called user_id = {} ,size = {} ", user_id, size);
     if (user_name == nullptr) {
         LOG_ERROR(Lib_UserService, "user_name is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    std::string name = Config::getUserName(user_id - 1);
+    std::string name = Config::getUserName();
     if (size < name.length()) {
         LOG_ERROR(Lib_UserService, "buffer is too short");
         return ORBIS_USER_SERVICE_ERROR_BUFFER_TOO_SHORT;
