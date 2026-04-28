@@ -152,8 +152,15 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
         return std::optional<std::filesystem::path>(current_path);
     };
 
-    if (!force_base_path && !ignore_game_patches) {
-        if (const auto path = search(ConstructOverlayPath(*mount, rel_path, HostPathType::Patch))) {
+    if ((corrected_path.starts_with("/app0") || corrected_path.starts_with("/hostapp")) &&
+        path_type != HostPathType::Base) {
+        if (const auto path = search(mods_path)) {
+            return *path;
+        }
+    }
+
+    if (path_type != HostPathType::Base && !ignore_game_patches) {
+        if (const auto path = search(patch_path)) {
             return *path;
         }
     }
