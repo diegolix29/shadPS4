@@ -64,7 +64,6 @@
 #define HOTKEY_ADD_VIRTUAL_USER 0xf000000c
 #define HOTKEY_REMOVE_VIRTUAL_USER 0xf000000d
 #define HOTKEY_SCREENSHOT_WITH_OVERLAYS 0xf000000e
-#define HOTKEY_OPEN_EMULATOR_SETTINGS 0xf000000f
 
 #define SDL_UNMAPPED UINT32_MAX - 1
 
@@ -166,7 +165,6 @@ const std::map<std::string, u32> string_to_hotkey_map = {
     {"hotkey_remove_virtual_user", HOTKEY_REMOVE_VIRTUAL_USER},
     {"hotkey_volume_up", HOTKEY_VOLUME_UP},
     {"hotkey_volume_down", HOTKEY_VOLUME_DOWN},
-    {"hotkey_emulator_settings", HOTKEY_OPEN_EMULATOR_SETTINGS},
 };
 
 const std::map<std::string, AxisMapping> string_to_axis_map = {
@@ -532,7 +530,7 @@ public:
 
 class ControllerAllOutputs {
 public:
-    static constexpr u64 output_count = 42;
+    static constexpr u64 output_count = 41;
     std::array<ControllerOutput, output_count> data = {
         // Important: these have to be the first, or else they will update in the wrong order
         ControllerOutput(LEFTJOYSTICK_HALFMODE),
@@ -585,7 +583,6 @@ public:
         ControllerOutput(HOTKEY_REMOVE_VIRTUAL_USER),
         ControllerOutput(HOTKEY_VOLUME_UP),
         ControllerOutput(HOTKEY_VOLUME_DOWN),
-        ControllerOutput(HOTKEY_OPEN_EMULATOR_SETTINGS),
 
         ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_AXIS_INVALID),
     };

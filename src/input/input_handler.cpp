@@ -25,7 +25,6 @@
 #include "core/devtools/layer.h"
 #include "core/emulator_settings.h"
 #include "core/emulator_state.h"
-#include "imgui/big_picture/settings_dialog_layer.h"
 #include "input/controller.h"
 #include "input/input_mouse.h"
 
@@ -181,7 +180,6 @@ std::filesystem::path GetInputConfigFile(const std::string& game_id) {
             {"hotkey_quit", "lctrl, lshift, end"},
             {"hotkey_volume_up", "kpplus"},
             {"hotkey_volume_down", "kpminus"},
-            {"hotkey_emulator_settings", "f3"},
         };
         std::string legacy_capture_binding;
         bool legacy_capture_binding_found = false;
@@ -800,9 +798,6 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             break;
         case HOTKEY_QUIT:
             PushSDLEvent(SDL_EVENT_QUIT_DIALOG);
-            break;
-        case HOTKEY_OPEN_EMULATOR_SETTINGS:
-            ImGuiEmuSettings::OpenInGameSettingsDialog();
             break;
         case KEY_TOGGLE:
             // noop

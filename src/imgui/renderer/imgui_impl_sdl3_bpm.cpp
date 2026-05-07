@@ -5,7 +5,7 @@
 
 #include "imgui.h"
 #ifndef IMGUI_DISABLE
-#include "imgui_impl_sdl3_big_picture.h"
+#include "imgui_impl_sdl3_bpm.h"
 
 // Clang warnings with -Weverything
 #if defined(__clang__)
