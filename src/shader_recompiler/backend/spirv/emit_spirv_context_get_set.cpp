@@ -118,6 +118,16 @@ Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
             result = ctx.OpSelect(ctx.U32[1], is_three, zero_float_bits, result);
         }
     }
+    if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0x00000000f74e94d5ULL && handle == 4) {
+        const Id logical_index = index;
+        if (MemoryPatcher::g_game_serial == "CUSA07580" ||
+            MemoryPatcher::g_game_serial == "CUSA07569") {
+            // Disable color correction by setting buffer 8 to 0 (equivalent to if(false) in the
+            // shader)
+            const Id is_eight = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(8u));
+            result = ctx.OpSelect(ctx.U32[1], is_eight, ctx.u32_zero_value, result);
+        }
+    }
     if (const Id size = buffer.Size(PointerSize::B32); Sirit::ValidId(size)) {
         const Id in_bounds = ctx.OpULessThan(ctx.U1[1], index, size);
         return ctx.OpSelect(ctx.U32[1], in_bounds, result, ctx.u32_zero_value);
