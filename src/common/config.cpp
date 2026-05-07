@@ -1871,6 +1871,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         enableColorFilter.setFromToml(gui, "enableColorFilter", false);
         m_elf_viewer = toml::find_or<std::vector<std::string>>(gui, "elfDirs", {});
         m_recent_files = toml::find_or<std::vector<std::string>>(gui, "recentFiles", {});
+        emulator_language = toml::find_or<std::string>(gui, "emulatorLanguage", emulator_language);
     }
 
     if (data.contains("Settings")) {
@@ -2235,6 +2236,12 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["Debug"]["logEnabled"] = logEnabled.base_value;
     }
     data["Keys"]["TrophyKey"] = trophyKey;
+
+    if (is_game_specific) {
+        data["Settings"]["consoleLanguage"] = m_language;
+    } else {
+        data["Settings"]["consoleLanguage"] = m_language;
+    }
 
     std::vector<std::string> directories;
     std::vector<bool> directories_enabled;
