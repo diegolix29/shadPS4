@@ -201,9 +201,6 @@ public:
         controller_override_colors[i] = {r, g, b};
     }
     static std::optional<Colour> GetControllerCustomColor(s32 i) {
-        if (i >= controller_override_colors.size()) {
-            return {};
-        }
         return controller_override_colors[i];
     }
 };
