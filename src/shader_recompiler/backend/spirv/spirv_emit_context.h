@@ -329,6 +329,7 @@ public:
         BufferType buffer_type;
         std::array<Id, u32(PointerSize::NumClass)> offsets;
         std::array<Id, u32(PointerSize::NumClass)> sizes;
+
         std::array<BufferSpv, u32(PointerType::NumAlias)> aliases;
 
         template <class Self>
