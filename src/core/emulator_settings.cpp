@@ -592,7 +592,8 @@ bool EmulatorSettingsImpl::TransferSettings() {
         setFromToml(s.motion_controls_enabled, input, "isMotionControlsEnabled");
         setFromToml(s.use_unified_input_config, input, "useUnifiedInputConfig");
         setFromToml(s.background_controller_input, input, "backgroundControllerInput");
-        setFromToml(s.keyboard_bindings_disabled, input, "isKeyboardBindingsDisabled");
+        setFromToml(s.ime_accessibility_enabled, input, "imeAccessibilityEnabled");
+        setFromToml(s.ime_url_mail_short_panel, input, "imeUrlMailShortPanel");
         setFromToml(s.usb_device_backend, input, "usbDeviceBackend");
         setFromToml(s.camera_id, input, "cameraId");
         setFromToml(s.default_controller_id, input, "defaultControllerID");
