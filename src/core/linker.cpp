@@ -133,7 +133,7 @@ void Linker::Execute(const std::vector<std::string>& args) {
         ASSERT_MSG(result == 0, "Unable to emulate libSceGnmDriver initialization");
 
         // Add all guest arguments, we will always have the executable path in argv[0]
-        EntryParams& params = Libraries::Kernel::entry_params;
+        EntryParams params{};
         constexpr int MaxArgs = sizeof(params.argv) / sizeof(params.argv[0]);
         params.argc = std::min<int>(args.size(), MaxArgs);
         for (int i = 0; i < params.argc; i++) {
