@@ -551,6 +551,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                     }
                     emit CompatibilityChanged();
                 });
+
+        connect(ui->enableScreenshotNotificationsCheckBox, &QCheckBox::stateChanged, this,
+                [](int state) { Config::setScreenshotNotificationsEnabled(state == Qt::Checked); });
     }
 
     {
@@ -1255,6 +1258,9 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->checkCompatibilityOnStartupCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
 
+    ui->enableScreenshotNotificationsCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "screenshotNotificationsEnabled", true));
+
     ui->FSRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fsrEnabled", true));
     ui->RCASCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "rcasEnabled", true));
 
@@ -1780,6 +1786,7 @@ void SettingsDialog::UpdateSettings() {
         chooseHomeTabMap.value(ui->chooseHomeTabComboBox->currentText()).toStdString());
     Config::setCompatibilityEnabled(ui->enableCompatibilityCheckBox->isChecked());
     Config::setCheckCompatibilityOnStartup(ui->checkCompatibilityOnStartupCheckBox->isChecked());
+    Config::setScreenshotNotificationsEnabled(ui->enableScreenshotNotificationsCheckBox->isChecked());
     Config::setBackgroundImageOpacity(ui->backgroundImageOpacitySlider->value());
     emit BackgroundOpacityChanged(ui->backgroundImageOpacitySlider->value());
     Config::setShowBackgroundImage(ui->showBackgroundImageCheckBox->isChecked());

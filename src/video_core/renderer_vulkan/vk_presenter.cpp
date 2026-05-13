@@ -454,7 +454,9 @@ static void SavePendingScreenshots(const std::vector<ScreenshotReadback>& readba
         }
 
         LOG_INFO(Render_Vulkan, "Saved screenshot: {}", primary_path.string());
-        shadNotifications::QueueNotification("Saved screenshot:\n" + primary_path.string(), 3.0f);
+        if (Config::getScreenshotNotificationsEnabled()) {
+            shadNotifications::QueueNotification("Saved screenshot:\n" + primary_path.string(), 3.0f);
+        }
 
         for (size_t i = 1; i < readback.paths.size(); ++i) {
             const auto& path = readback.paths[i];
@@ -470,7 +472,9 @@ static void SavePendingScreenshots(const std::vector<ScreenshotReadback>& readba
             }
 
             LOG_INFO(Render_Vulkan, "Saved screenshot: {}", path.string());
-            shadNotifications::QueueNotification("Saved screenshot:\n" + path.string(), 3.0f);
+            if (Config::getScreenshotNotificationsEnabled()) {
+                shadNotifications::QueueNotification("Saved screenshot:\n" + path.string(), 3.0f);
+            }
         }
     }
 }

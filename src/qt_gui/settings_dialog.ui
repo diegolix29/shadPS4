@@ -982,6 +982,13 @@
 																	</property>
 																</widget>
 															</item>
+															<item>
+																<widget class="QCheckBox" name="enableScreenshotNotificationsCheckBox">
+																	<property name="text">
+																		<string>Show Screenshot Notifications</string>
+																	</property>
+																</widget>
+															</item>
 														</layout>
 													</widget>
 												</item>

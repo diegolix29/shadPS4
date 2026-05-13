@@ -366,7 +366,7 @@ void WindowSDL::WaitEvent() {
         VideoCore::RequestScreenshot(VideoCore::ScreenshotRequest::WithOverlays);
         break;
     case SDL_EVENT_SCREENSHOT:
-        VideoCore::TriggerScreenshot();
+        VideoCore::RequestScreenshot(VideoCore::ScreenshotRequest::GameOnly);
         break;
 
     default:

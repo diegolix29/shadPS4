@@ -960,6 +960,9 @@ void Hotkeys::processSDLEvents(int Type, int Input, int Value) {
             case SDL_GAMEPAD_BUTTON_START:
                 pressedButtons.insert(12, "options");
                 break;
+            case SDL_GAMEPAD_BUTTON_TOUCHPAD:
+                pressedButtons.insert(17, "touchpad");
+                break;
             default:
                 break;
             }
@@ -993,6 +996,13 @@ void Hotkeys::processSDLEvents(int Type, int Input, int Value) {
         }
 
         if (Type == SDL_EVENT_GAMEPAD_BUTTON_UP)
+            CheckMapping(MappingButton);
+
+        if (Type == SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN) {
+            pressedButtons.insert(17, "touchpad");
+        }
+
+        if (Type == SDL_EVENT_GAMEPAD_TOUCHPAD_UP)
             CheckMapping(MappingButton);
     }
 

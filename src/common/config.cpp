@@ -193,6 +193,7 @@ static ConfigEntry<bool> isConnectedToNetwork(false);
 static bool enableDiscordRPC = false;
 static bool checkCompatibilityOnStartup = false;
 static bool compatibilityData = false;
+static bool screenshotNotificationsEnabled = true;
 static std::filesystem::path sys_modules_path = {};
 static bool bootGamesMenu = false;
 static bool bootHubMenu = false;
@@ -1055,6 +1056,14 @@ bool getCheckCompatibilityOnStartup() {
     return checkCompatibilityOnStartup;
 }
 
+bool getScreenshotNotificationsEnabled() {
+    return screenshotNotificationsEnabled;
+}
+
+void setScreenshotNotificationsEnabled(bool enable) {
+    screenshotNotificationsEnabled = enable;
+}
+
 void setfpsColor(bool enable) {
     fpsColorState = enable;
 }
@@ -1635,6 +1644,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
             toml::find_or<bool>(general, "checkCompatibilityOnStartup", false);
+        screenshotNotificationsEnabled =
+            toml::find_or<bool>(general, "screenshotNotificationsEnabled", true);
         isConnectedToNetwork.setFromToml(general, "isConnectedToNetwork", is_game_specific);
         httpHostOverride.setFromToml(general, "httpHostOverride", is_game_specific);
         firstBootHandled.setFromToml(general, "firstBootHandled", is_game_specific);
@@ -2060,6 +2071,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["General"]["HubMenuUI"] = bootHubMenu;
     data["General"]["compatibilityEnabled"] = compatibilityData;
     data["General"]["checkCompatibilityOnStartup"] = checkCompatibilityOnStartup;
+    data["General"]["screenshotNotificationsEnabled"] = screenshotNotificationsEnabled;
     data["General"]["sysModulesPath"] = string{fmt::UTF(sys_modules_path.u8string()).data};
     data["General"]["fontsPath"] = string{fmt::UTF(fonts_path.u8string()).data};
 
@@ -2480,6 +2492,7 @@ void setDefaultValues() {
     gpuId = -1;
     compatibilityData = false;
     checkCompatibilityOnStartup = false;
+    screenshotNotificationsEnabled = true;
     backgroundImageOpacity = 50;
     showBackgroundImage = true;
     descriptionVisible = true;

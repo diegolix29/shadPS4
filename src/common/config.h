@@ -72,6 +72,8 @@ bool getisTrophyPopupDisabled();
 bool getEnableDiscordRPC();
 bool getCompatibilityEnabled();
 bool getCheckCompatibilityOnStartup();
+bool getScreenshotNotificationsEnabled();
+void setScreenshotNotificationsEnabled(bool enable);
 int getBackgroundImageOpacity();
 bool getShowBackgroundImage();
 bool getPSNSignedIn();

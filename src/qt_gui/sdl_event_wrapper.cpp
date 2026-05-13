@@ -47,6 +47,12 @@ bool Wrapper::ProcessEvent(SDL_Event* event) {
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
         emit SDLEvent(SDL_EVENT_GAMEPAD_AXIS_MOTION, event->gaxis.axis, event->gaxis.value);
         return true;
+    case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
+        emit SDLEvent(SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN, event->gtouchpad.finger, 0);
+        return true;
+    case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
+        emit SDLEvent(SDL_EVENT_GAMEPAD_TOUCHPAD_UP, event->gtouchpad.finger, 0);
+        return true;
     case SDL_EVENT_AUDIO_DEVICE_ADDED:
         if (event->adevice.recording == 0)
             emit audioDeviceChanged(true);
@@ -55,7 +61,9 @@ bool Wrapper::ProcessEvent(SDL_Event* event) {
         if (event->adevice.recording == 0)
             emit audioDeviceChanged(false);
         return true;
-    // block all other SDL events while wrapper is active
+    case SDL_EVENT_KEY_DOWN:
+    case SDL_EVENT_KEY_UP:
+        return false;
     default:
         return true;
     }
