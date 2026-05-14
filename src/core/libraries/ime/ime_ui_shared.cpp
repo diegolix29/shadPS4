@@ -100,7 +100,7 @@ bool ReadControllerState(Libraries::UserService::OrbisUserServiceUserId user_id,
         return true;
     };
 
-    const auto mapped = Input::GameControllers::GetControllerIndexFromUserID(user_id);
+    const auto mapped = GamepadSelect::GetControllerIndexFromUserID(user_id);
     if (mapped.has_value() && *mapped < 5) {
         bool has_state = false;
         if (read_state(*mapped, &has_state) && has_state) {

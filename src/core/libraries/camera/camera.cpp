@@ -736,9 +736,6 @@ s32 PS4_SYSV_ABI sceCameraSetConfig(s32 handle, OrbisCameraConfig* config) {
     if (!g_library_opened) {
         return ORBIS_CAMERA_ERROR_NOT_OPEN;
     }
-    if (EmulatorSettings.GetCameraId() == -1) {
-        return ORBIS_CAMERA_ERROR_NOT_CONNECTED;
-    }
 
     switch (config->configType) {
     case ORBIS_CAMERA_CONFIG_TYPE1:

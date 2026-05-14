@@ -771,7 +771,6 @@ public:
     SETTING_FORWARD(m_general, HttpHostOverride, http_host_override)
     SETTING_FORWARD_BOOL(m_general, FirstBootHandled, first_boot_handled)
     SETTING_FORWARD(m_general, ChooseHomeTab, choose_home_tab)
-    SETTING_FORWARD(m_general, DefaultControllerId, default_controller_id)
     SETTING_FORWARD(m_general, ActiveControllerId, active_controller_id)
     SETTING_FORWARD(m_general, CpuCoreMode, cpu_core_mode)
     SETTING_FORWARD(m_general, CustomCpuCores, custom_cpu_cores)
@@ -850,6 +849,7 @@ public:
     SETTING_FORWARD_BOOL(m_input, ImeAccessibilityEnabled, ime_accessibility_enabled)
     SETTING_FORWARD_BOOL(m_input, ImeUrlMailShortPanel, ime_url_mail_short_panel)
     SETTING_FORWARD(m_input, DefaultControllerId, default_controller_id)
+    SETTING_FORWARD(m_input, CameraId, camera_id)
     SETTING_FORWARD_BOOL(m_input, UsingSpecialPad, use_special_pad)
     SETTING_FORWARD(m_input, SpecialPadClass, special_pad_class)
     SETTING_FORWARD_BOOL(m_input, UseUnifiedInputConfig, use_unified_input_config)
@@ -871,3 +871,4 @@ public:
 #undef SETTING_FORWARD_BOOL
 #undef SETTING_FORWARD_BOOL_READONLY
 };
+
