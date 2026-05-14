@@ -43,10 +43,10 @@ void NotificationsUI::Draw() {
     float AdjustHeight = io.DisplaySize.y / 1080;
     ImVec2 padding = ImGui::GetStyle().WindowPadding;
 
-    float wrapWidth = 300 * AdjustWidth - padding.x * 2; // 350 window size - 50 image size
+    float wrapWidth = 0.0f; // No wrapping for straight line layout
     float textHeight =
         ImGui::CalcTextSize(currentInfo.message.c_str(), nullptr, false, wrapWidth).y;
-    ImVec2 window_size{(350 * AdjustWidth),
+    ImVec2 window_size{std::max({350 * AdjustWidth, (textHeight + 70 * AdjustWidth + padding.x * 2.0f)}),
                        std::max({70 * AdjustHeight, (textHeight + padding.y * 2.0f)})};
 
     elapsed_time += io.DeltaTime;
@@ -108,7 +108,7 @@ void NotificationsUI::Draw() {
                          ImVec2((50 * AdjustWidth), (50 * AdjustHeight)));
         }
         ImGui::SameLine();
-        ImGui::TextWrapped("%s", currentInfo.message.c_str());
+        ImGui::Text("%s", currentInfo.message.c_str());
     }
 
     ImGui::PopStyleVar();

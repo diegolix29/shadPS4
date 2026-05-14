@@ -27,6 +27,7 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <fstream>
 #include <csetjmp>
 #include <cstring>
 #include <ctime>
@@ -455,7 +456,14 @@ static void SavePendingScreenshots(const std::vector<ScreenshotReadback>& readba
 
         LOG_INFO(Render_Vulkan, "Saved screenshot: {}", primary_path.string());
         if (Config::getScreenshotNotificationsEnabled()) {
-            shadNotifications::QueueNotification("Saved screenshot:\n" + primary_path.string(), 3.0f);
+            std::ifstream file(primary_path, std::ios::binary);
+            std::vector<u8> imgdata;
+            if (file) {
+                imgdata = std::vector<u8>(std::istreambuf_iterator<char>(file),
+                                          std::istreambuf_iterator<char>());
+            }
+            shadNotifications::QueueNotification("Saved screenshot:\n" + primary_path.string(), 3.0f,
+                                                 shadNotifications::position::BottomRight, imgdata);
         }
 
         for (size_t i = 1; i < readback.paths.size(); ++i) {
@@ -473,7 +481,14 @@ static void SavePendingScreenshots(const std::vector<ScreenshotReadback>& readba
 
             LOG_INFO(Render_Vulkan, "Saved screenshot: {}", path.string());
             if (Config::getScreenshotNotificationsEnabled()) {
-                shadNotifications::QueueNotification("Saved screenshot:\n" + path.string(), 3.0f);
+                std::ifstream file(path, std::ios::binary);
+                std::vector<u8> imgdata;
+                if (file) {
+                    imgdata = std::vector<u8>(std::istreambuf_iterator<char>(file),
+                                              std::istreambuf_iterator<char>());
+                }
+                shadNotifications::QueueNotification("Saved screenshot:\n" + path.string(), 3.0f,
+                                                     shadNotifications::position::BottomRight, imgdata);
             }
         }
     }
