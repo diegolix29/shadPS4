@@ -4,7 +4,6 @@
 #include "common/assert.h"
 #include "common/config.h"
 #include "common/memory_patcher.h"
-#include "shader_recompiler/backend/spirv/emit_spirv_bounds.h"
 #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
 #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
 #include "shader_recompiler/ir/attribute.h"
