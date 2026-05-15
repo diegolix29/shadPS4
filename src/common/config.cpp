@@ -168,7 +168,11 @@ public:
 // General
 static ConfigEntry<bool> isNeo(false);
 static ConfigEntry<bool> isDevKit(false);
-static ConfigEntry<bool> isPSNSignedIn(false);
+static ConfigEntry<std::string> shadnet_server{"srv.shadps4.net:31313"};
+static ConfigEntry<std::string> shadnet_webapi_server{"http://srv.shadps4.net:31315"};
+static ConfigEntry<std::string> signaling_info{};
+static ConfigEntry<bool> enable_upnp{true};
+static ConfigEntry<bool> isShadNetEnabled(false);
 static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
 static ConfigEntry<std::string> logFilter("");
@@ -180,6 +184,9 @@ static ConfigEntry<std::array<std::string, 4>> userNames({
     "shadPS4-4",
 });
 static ConfigEntry<std::array<bool, 4>> playerEnabledStates({true, true, true, true});
+static ConfigEntry<std::array<bool, 4>> shadNetEnabledStates({false, false, false, false});
+static ConfigEntry<std::array<std::string, 4>> shadNetNpids({"", "", "", ""});
+static ConfigEntry<std::array<std::string, 4>> shadNetPasswords({"", "", "", ""});
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
@@ -230,6 +237,10 @@ static ConfigEntry<int> extraDmemInMbytes(0);
 static ConfigEntry<bool> useHostMemoryFallback(false);
 static ConfigEntry<int> memoryCompressionLevel(0);
 static ConfigEntry<int> usbDeviceBackend(UsbBackendType::Real);
+static ConfigEntry<s32> cameraId(-1);
+static ConfigEntry<bool> imeAccessibilityEnabled(false);
+static ConfigEntry<bool> imeUrlMailShortPanel(false);
+static ConfigEntry<bool> useMiceAsMice(false);
 
 // Non-config runtime-only
 static bool overrideControllerColor = false;
@@ -351,6 +362,110 @@ static bool launcher_boot = false;
 std::unordered_map<std::string, bool> toolbar_visibility_settings;
 static std::filesystem::path fonts_path = {};
 static ConfigEntry<bool> isIdenticalLogGrouped(true);
+static ConfigEntry<std::string> signaling_addr{""};
+static ConfigEntry<u16> signaling_port{};
+
+std::string getSignalingAddr() {
+    return signaling_addr.get();
+}
+
+void setSignalingAddr(const std::string& addr) {
+    signaling_addr.base_value = addr;
+}
+
+u16 getSignalingPort() {
+    return signaling_port.get();
+}
+
+void setSignalingPort(u16 port) {
+    signaling_port.base_value = port;
+}
+
+bool IsUPnPEnabled() {
+    return enable_upnp.get();
+}
+
+void SetUPnPEnabled(bool enable) {
+    enable_upnp.base_value = enable;
+}
+std::string getShadnetServer() {
+    return shadnet_server.get();
+}
+
+void setShadnetServer(const std::string& server) {
+    shadnet_server.base_value = server;
+}
+
+std::string getShadnetWebApiServer() {
+    return shadnet_webapi_server.get();
+}
+
+void setShadnetWebApiServer(const std::string& server) {
+    shadnet_webapi_server.base_value = server;
+}
+
+std::string getSignalingInfo() {
+    return signaling_info.get();
+}
+
+void setSignalingInfo(const std::string& info) {
+    signaling_info.base_value = info;
+}
+
+const std::vector<GameDirectories> getAllGameDirectories() {
+    std::vector<Config::GameDirectories> directories;
+    auto paths = getGameDirectories();
+    auto enabled_states = getGameDirectoriesEnabled();
+
+    for (size_t i = 0; i < paths.size(); ++i) {
+        Config::GameDirectories dir;
+        dir.path = paths[i];
+        // Make sure we don't go out of bounds if arrays mismatch
+        dir.enabled = (i < enabled_states.size()) ? enabled_states[i] : true;
+        directories.push_back(dir);
+    }
+    return directories;
+}
+
+bool IsUseUnifiedInputConfig() {
+    return useUnifiedInputConfig.get();
+}
+
+bool IsMiceUsedAsMice() {
+    return useMiceAsMice.get();
+}
+
+bool IsImeUrlMailShortPanel() {
+    return imeUrlMailShortPanel.get();
+}
+
+bool IsImeAccessibilityEnabled() {
+    return imeAccessibilityEnabled.get();
+}
+
+std::filesystem::path GetFontsDir() {
+    return fonts_path;
+}
+
+int GetCameraId() {
+    return cameraId.get();
+}
+
+void Load() {
+    load(std::filesystem::path{}, false);
+}
+
+void Load(const std::string& profile) {
+    load(profile, true);
+}
+
+void Save() {
+    save(std::filesystem::path{}, false);
+}
+
+void Save(const std::string& profile) {
+    save(profile, true);
+}
 
 bool getToolbarWidgetVisibility(const std::string& name, bool default_value) {
     if (toolbar_visibility_settings.count(name)) {
@@ -843,6 +958,52 @@ std::array<bool, 4> getPlayerEnabledStates() {
 
 void setPlayerEnabledStates(const std::array<bool, 4>& states) {
     playerEnabledStates.set(states);
+}
+
+bool getShadNetEnabled(int id) {
+    return shadNetEnabledStates.get()[id];
+}
+
+void setShadNetEnabled(int id, bool enabled) {
+    auto temp = shadNetEnabledStates.get();
+    temp[id] = enabled;
+    shadNetEnabledStates.set(temp);
+}
+
+std::array<bool, 4> getShadNetEnabledStates() {
+    return shadNetEnabledStates.get();
+}
+
+void setShadNetEnabledStates(const std::array<bool, 4>& states) {
+    shadNetEnabledStates.set(states);
+}
+
+std::string getShadNetNpid(int id) {
+    return shadNetNpids.get()[id];
+}
+
+void setShadNetNpid(int id, const std::string& npid) {
+    auto temp = shadNetNpids.get();
+    temp[id] = npid;
+    shadNetNpids.set(temp);
+}
+
+std::array<std::string, 4> const getShadNetNpids() {
+    return shadNetNpids.get();
+}
+
+std::string getShadNetPassword(int id) {
+    return shadNetPasswords.get()[id];
+}
+
+void setShadNetPassword(int id, const std::string& password) {
+    auto temp = shadNetPasswords.get();
+    temp[id] = password;
+    shadNetPasswords.set(temp);
+}
+
+std::array<std::string, 4> const getShadNetPasswords() {
+    return shadNetPasswords.get();
 }
 
 std::string getUpdateChannel() {
@@ -1565,12 +1726,12 @@ void setDescriptionVisible(bool visible) {
     descriptionVisible = visible;
 }
 
-bool getPSNSignedIn() {
-    return isPSNSignedIn.get();
+bool IsShadNetEnabled() {
+    return isShadNetEnabled.get();
 }
 
-void setPSNSignedIn(bool sign) {
-    isPSNSignedIn.base_value = sign;
+void setShadNetEnable(bool sign) {
+    isShadNetEnabled.base_value = sign;
 }
 
 bool getShaderSkipsEnabled() {
@@ -1657,7 +1818,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         memoryCompressionLevel.setFromToml(general, "memoryCompressionLevel", is_game_specific);
         isNeo.setFromToml(general, "isPS4Pro", is_game_specific);
         isDevKit.setFromToml(general, "isDevKit", is_game_specific);
-        isPSNSignedIn.setFromToml(general, "isPSNSignedIn", is_game_specific);
+        isShadNetEnabled.setFromToml(general, "isShadNetEnabled", is_game_specific);
         playBGM = toml::find_or<bool>(general, "playBGM", false);
         isTrophyPopupDisabled.setFromToml(general, "isTrophyPopupDisabled", is_game_specific);
         trophyNotificationDuration.setFromToml(general, "trophyNotificationDuration",
@@ -1669,6 +1830,13 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isIdenticalLogGrouped.setFromToml(general, "isIdenticalLogGrouped", is_game_specific);
         userNames.setFromToml(general, "userNames", false);
         playerEnabledStates.setFromToml(general, "playerEnabledStates", false);
+        shadNetEnabledStates.setFromToml(general, "shadNetEnabledStates", false);
+        shadNetNpids.setFromToml(general, "shadNetNpids", false);
+        shadNetPasswords.setFromToml(general, "shadNetPasswords", false);
+        shadnet_server.setFromToml(general, "shadnetServer", false);
+        shadnet_webapi_server.setFromToml(general, "shadnetWebApiServer", false);
+        signaling_info.setFromToml(general, "signalingInfo", false);
+        enable_upnp.setFromToml(general, "enableUPnP", false);
 
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Shadlix");
@@ -2063,8 +2231,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
             useHostMemoryFallback.game_specific_value.value_or(useHostMemoryFallback.base_value);
         data["General"]["memoryCompressionLevel"] =
             memoryCompressionLevel.game_specific_value.value_or(memoryCompressionLevel.base_value);
-        data["General"]["isPSNSignedIn"] =
-            isPSNSignedIn.game_specific_value.value_or(isPSNSignedIn.base_value);
+        data["General"]["isShadNetEnabled"] =
+            isShadNetEnabled.game_specific_value.value_or(isShadNetEnabled.base_value);
         data["General"]["isTrophyPopupDisabled"] =
             isTrophyPopupDisabled.game_specific_value.value_or(isTrophyPopupDisabled.base_value);
         data["General"]["trophyNotificationDuration"] =
@@ -2106,7 +2274,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["General"]["extraDmemInMbytes"] = extraDmemInMbytes.base_value;
         data["General"]["useHostMemoryFallback"] = useHostMemoryFallback.base_value;
         data["General"]["memoryCompressionLevel"] = memoryCompressionLevel.base_value;
-        data["General"]["isPSNSignedIn"] = isPSNSignedIn.base_value;
+        data["General"]["isShadNetEnabled"] = isShadNetEnabled.base_value;
         data["General"]["isTrophyPopupDisabled"] = isTrophyPopupDisabled.base_value;
         data["General"]["trophyNotificationDuration"] = trophyNotificationDuration.base_value;
         data["General"]["logFilter"] = logFilter.base_value;
@@ -2136,6 +2304,13 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["userNames"] = userNames.base_value;
     data["General"]["playerEnabledStates"] = playerEnabledStates.base_value;
+    data["General"]["shadNetEnabledStates"] = shadNetEnabledStates.base_value;
+    data["General"]["shadNetNpids"] = shadNetNpids.base_value;
+    data["General"]["shadNetPasswords"] = shadNetPasswords.base_value;
+    data["General"]["shadnetServer"] = shadnet_server.base_value;
+    data["General"]["shadnetWebApiServer"] = shadnet_webapi_server.base_value;
+    data["General"]["signalingInfo"] = signaling_info.base_value;
+    data["General"]["enableUPnP"] = enable_upnp.base_value;
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
@@ -2479,7 +2654,7 @@ void setDefaultValues() {
     memoryCompressionLevel = 0;
     extraDmemInMbytes = 0;
 
-    isPSNSignedIn = false;
+    isShadNetEnabled = false;
     isTrophyPopupDisabled = false;
     trophyNotificationDuration = 6.0;
     enableDiscordRPC = false;
@@ -2492,6 +2667,13 @@ void setDefaultValues() {
     logType = "sync";
     userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
     playerEnabledStates = {true, true, true, true};
+    shadNetEnabledStates = {false, false, false, false};
+    shadNetNpids = {"", "", "", ""};
+    shadNetPasswords = {"", "", "", ""};
+    shadnet_server = "srv.shadps4.net:31313";
+    shadnet_webapi_server = "http://srv.shadps4.net:31315";
+    signaling_info = "";
+    enable_upnp = true;
     chooseHomeTab = "General";
     isShowSplash = false;
     isSideTrophy = "right";

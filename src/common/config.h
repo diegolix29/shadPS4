@@ -76,7 +76,7 @@ bool getScreenshotNotificationsEnabled();
 void setScreenshotNotificationsEnabled(bool enable);
 int getBackgroundImageOpacity();
 bool getShowBackgroundImage();
-bool getPSNSignedIn();
+bool IsShadNetEnabled();
 bool getShaderSkipsEnabled();
 AudioBackend getAudioBackend();
 void setAudioBackend(AudioBackend backend);
@@ -93,6 +93,23 @@ std::array<std::string, 4> const getUserNames();
 std::string getUpdateChannel();
 std::string getChooseHomeTab();
 void setSeparateUpdateEnabled(bool use);
+std::string getShadnetServer();
+void setShadnetServer(const std::string& server);
+std::string getShadnetWebApiServer();
+void setShadnetWebApiServer(const std::string& server);
+std::string getSignalingInfo();
+void setSignalingInfo(const std::string& info);
+
+std::array<bool, 4> getShadNetEnabledStates();
+void setShadNetEnabledStates(const std::array<bool, 4>& states);
+bool getShadNetEnabled(int id);
+void setShadNetEnabled(int id, bool enabled);
+std::array<std::string, 4> const getShadNetNpids();
+std::string getShadNetNpid(int id);
+void setShadNetNpid(int id, const std::string& npid);
+std::array<std::string, 4> const getShadNetPasswords();
+std::string getShadNetPassword(int id);
+void setShadNetPassword(int id, const std::string& password);
 
 u16 leftDeadZone();
 u16 rightDeadZone();
@@ -198,9 +215,7 @@ void setUseSpecialPad(int pad, bool use);
 bool getUseSpecialPad(int pad);
 void setSpecialPadClass(int pad, int type);
 int getSpecialPadClass(int pad);
-bool getPSNSignedIn();
-void setPSNSignedIn(bool sign); // no ui setting
-bool patchShaders();            // no set
+bool patchShaders(); // no set
 void setfpsColor(bool enable);
 void setNeoMode(bool enable);  // no ui setting
 bool vkValidationGpuEnabled(); // no set
@@ -271,7 +286,6 @@ void setBackgroundImageOpacity(int opacity);
 void setShowBackgroundImage(bool show);
 void setDescriptionVisible(bool visible);
 bool getDescriptionVisible();
-void setPSNSignedIn(bool sign);
 void setShaderSkipsEnabled(bool enable);
 
 std::string getMainOutputDevice();
@@ -285,6 +299,7 @@ void setTrophyNotificationDuration(double newTrophyNotificationDuration);
 void setIsMotionControlsEnabled(bool use);
 std::filesystem::path getSysModulesPath();
 void setSysModulesPath(const std::filesystem::path& path);
+const std::vector<GameDirectories> getAllGameDirectories();
 
 void setLogType(const std::string& type);
 void setLogFilter(const std::string& type);
@@ -355,12 +370,31 @@ u32 getMainWindowHeight();
 std::vector<std::string> getElfViewer();
 std::vector<std::string> getRecentFiles();
 std::string getEmulatorLanguage();
+std::string getSignalingAddr();
+void setSignalingAddr(const std::string& addr);
+u16 getSignalingPort();
+void setSignalingPort(u16 port);
 
+bool IsUPnPEnabled();
+void SetUPnPEnabled(bool enable);
 int getVolumeSlider();
 void setVolumeSlider(int volumeValue, bool is_game_specific);
 bool isMuteEnabled();
 void setMuteEnabled(bool enabled);
 bool hasCustomMuteHotkey();
+
+bool IsUseUnifiedInputConfig();
+bool IsMiceUsedAsMice();
+bool IsImeUrlMailShortPanel();
+bool IsImeAccessibilityEnabled();
+std::filesystem::path GetFontsDir();
+int GetCameraId();
+
+// UI Load/Save overloads
+void Load();
+void Load(const std::string& profile);
+void Save();
+void Save(const std::string& profile);
 
 bool GamesMenuUI();
 void setGamesMenuUI(bool enable);

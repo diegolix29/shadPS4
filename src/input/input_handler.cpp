@@ -180,6 +180,8 @@ std::filesystem::path GetInputConfigFile(const std::string& game_id) {
             {"hotkey_quit", "lctrl, lshift, end"},
             {"hotkey_volume_up", "kpplus"},
             {"hotkey_volume_down", "kpminus"},
+            {"hotkey_toggle_friends", "f2"},
+
         };
         std::string legacy_capture_binding;
         bool legacy_capture_binding_found = false;
@@ -363,8 +365,7 @@ std::optional<int> parseInt(const std::string& s) {
 };
 
 void ParseInputConfig(const std::string game_id = "") {
-    std::string game_id_or_default =
-        EmulatorSettings.IsUseUnifiedInputConfig() ? "default" : game_id;
+    std::string game_id_or_default = Config::IsUseUnifiedInputConfig() ? "default" : game_id;
     const auto config_file = GetInputConfigFile(game_id_or_default);
     const auto global_config_file = GetInputConfigFile("global");
 
@@ -850,6 +851,9 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             break;
         case HOTKEY_QUIT:
             PushSDLEvent(SDL_EVENT_QUIT_DIALOG);
+            break;
+        case HOTKEY_TOGGLE_FRIENDS:
+            PushSDLEvent(SDL_EVENT_TOGGLE_FRIENDS);
             break;
         case KEY_TOGGLE:
             // noop

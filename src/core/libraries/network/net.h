@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <atomic>
 #include "common/assert.h"
 #include "common/types.h"
 #include "netctl.h"
@@ -21,11 +20,6 @@ class SymbolsResolver;
 #endif
 
 namespace Libraries::Net {
-
-// Global counter for sceNetEpollWait calls (incremented in net.cpp, read by P2PT diagnostic)
-extern std::atomic<u32> g_epoll_wait_call_count;
-// P2P-specific epoll wait counter (only for "extnetwork2_udp" epolls)
-extern std::atomic<u32> g_p2p_epoll_wait_count;
 
 static int ConvertFamilies(int family);
 
@@ -373,7 +367,7 @@ int PS4_SYSV_ABI sceNetDumpDestroy();
 int PS4_SYSV_ABI sceNetDumpRead();
 int PS4_SYSV_ABI sceNetDuplicateIpStart();
 int PS4_SYSV_ABI sceNetDuplicateIpStop();
-int PS4_SYSV_ABI sceNetEpollAbort(OrbisNetId epollid, int flags);
+int PS4_SYSV_ABI sceNetEpollAbort();
 int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, OrbisNetId id,
                                     OrbisNetEpollEvent* event);
 int PS4_SYSV_ABI sceNetEpollCreate(const char* name, int flags);

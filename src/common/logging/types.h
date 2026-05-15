@@ -57,6 +57,7 @@ enum class Class : u8 {
     Lib_UserService,         ///< The LibSceUserService implementation.
     Lib_VideoOut,            ///< The LibSceVideoOut implementation.
     Lib_CommonDlg,           ///< The LibSceCommonDialog implementation.
+    Lib_ContentExport,       ///< The LibSceContentExport implementation.
     Lib_MsgDlg,              ///< The LibSceMsgDialog implementation.
     Lib_AudioOut,            ///< The LibSceAudioOut implementation.
     Lib_AudioIn,             ///< The LibSceAudioIn implementation.
@@ -132,7 +133,9 @@ enum class Class : u8 {
     Input,                   ///< Input emulation
     Tty,                     ///< Debug output from emu
     IPC,
-    Count ///< Total number of logging classes
+    NpHandler, ///< NpHandler shadNet manager
+    ShadNet,   ///< shadNet binary protocol client
+    Count      ///< Total number of logging classes
 };
 
 } // namespace Common::Log

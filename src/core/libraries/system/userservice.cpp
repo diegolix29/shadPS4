@@ -9,12 +9,16 @@
 #include <queue>
 #include "common/singleton.h"
 #include "core/libraries/libs.h"
+#include "core/libraries/np/np_handler.h"
+#include "core/libraries/np/np_manager.h"
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/system/userservice_error.h"
 #include "core/tls.h"
 #include "input/controller.h"
 
 namespace Libraries::UserService {
+
+static bool g_shadnet_enabled = false;
 
 std::queue<OrbisUserServiceEvent> user_service_event_queue = {};
 
@@ -1097,8 +1101,22 @@ s32 PS4_SYSV_ABI sceUserServiceGetUserName(int user_id, char* user_name, std::si
         LOG_ERROR(Lib_UserService, "user_name is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
+
     std::string name = Config::getUserName(user_id - 1);
-    if (size < name.length()) {
+
+    if (Config::getShadNetEnabled(user_id - 1) &&
+        Libraries::Np::NpHandler::GetInstance().IsPsnSignedIn(user_id)) {
+
+        const auto np_id = Libraries::Np::NpHandler::GetInstance().GetNpId(user_id);
+
+        const std::size_t handle_len = strnlen(np_id.handle.data, sizeof(np_id.handle.data));
+
+        if (handle_len > 0) {
+            name.assign(np_id.handle.data, handle_len);
+        }
+    }
+
+    if (size < name.length() + 1) {
         LOG_ERROR(Lib_UserService, "buffer is too short");
         return ORBIS_USER_SERVICE_ERROR_BUFFER_TOO_SHORT;
     }
@@ -2192,6 +2210,7 @@ int PS4_SYSV_ABI Func_D2B814603E7B4477() {
 }
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym) {
+    g_shadnet_enabled = Config::IsShadNetEnabled();
     LIB_FUNCTION("Psl9mfs3duM", "libSceUserServiceForShellCore", 1, "libSceUserService",
                  sceUserServiceInitializeForShellCore);
     LIB_FUNCTION("CydP+QtA0KI", "libSceUserServiceForShellCore", 1, "libSceUserService",

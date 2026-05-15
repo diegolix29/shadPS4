@@ -99,10 +99,6 @@
 	url = https://github.com/shadps4-emu/ext-wepoll.git
 	shallow = true
 	branch = dist
-[submodule "externals/MoltenVK"]
-	path = externals/MoltenVK
-	url = https://github.com/shadPS4-emu/ext-MoltenVK.git
-	shallow = true
 [submodule "externals/json"]
 	path = externals/json
 	url = https://github.com/nlohmann/json.git
@@ -113,9 +109,6 @@
 [submodule "externals/miniz"]
 	path = externals/miniz
 	url = https://github.com/richgel999/miniz
-[submodule "externals/cpp-httplib"]
-	path = externals/cpp-httplib
-	url = https://github.com/yhirose/cpp-httplib
 [submodule "externals/aacdec/fdk-aac"]
 	path = externals/aacdec/fdk-aac
 	url = https://android.googlesource.com/platform/external/aac
@@ -159,3 +152,13 @@
 [submodule "externals/miniupnp"]
 	path = externals/miniupnp
 	url = https://github.com/miniupnp/miniupnp.git
+[submodule "externals/mesa-kosmickrisp"]
+	path = externals/mesa-kosmickrisp
+	url = https://github.com/shadexternals/mesa-kosmickrisp
+[submodule "externals/vulkan-loader"]
+	path = externals/vulkan-loader
+	url = https://github.com/KhronosGroup/Vulkan-Loader
+	shallow = true
+[submodule "externals/protobuf"]
+	path = externals/protobuf
+	url = https://github.com/shadexternals/protobuf.git

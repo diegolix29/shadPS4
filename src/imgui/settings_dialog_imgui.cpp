@@ -99,7 +99,7 @@ bool readbackLinearImagesSetting;
 bool directMemoryAccessSetting;
 bool devkitConsoleSetting;
 bool neoModeSetting;
-bool psnSignedInSetting;
+bool shadnetEnabledSetting;
 bool connectedNetworkSetting;
 bool pipelineCacheEnabledSetting;
 bool pipelineCacheArchiveSetting;
@@ -121,7 +121,7 @@ SDL_Texture* foldersTexture;
 const float gameImageSize = 200.f;
 const float settingsIconSize = 125.f;
 std::vector<Game> settingsProfileVec = {};
-std::vector<GameInstallDir> m_GameInstallDirs = {};
+std::vector<Config::GameDirectories> m_GameInstallDirs = {};
 
 float uiScale = 1.0f;
 SDL_Renderer* renderer;
@@ -138,7 +138,7 @@ void Init() {
     currentProfile = "Global";
     currentCategory = SettingsCategory::Profiles;
     LoadSettings("Global");
-    m_GameInstallDirs = EmulatorSettings.GetAllGameInstallDirs();
+    m_GameInstallDirs = Config::getAllGameDirectories();
 
     SDL_Window* window = SDL_GetKeyboardFocus();
     renderer = SDL_GetRenderer(window);
@@ -403,7 +403,7 @@ void LoadCategory(SettingsCategory category) {
         if (ImGuiFileDialog::Instance()->Display("OpenFolder",
                                                  child_flags | ImGuiWindowFlags_NoMove)) {
             if (ImGuiFileDialog::Instance()->IsOk()) {
-                GameInstallDir dir;
+                Config::GameDirectories dir;
                 dir.path = ImGuiFileDialog::Instance()->GetCurrentPath();
                 dir.enabled = true;
 
@@ -451,7 +451,7 @@ void LoadCategory(SettingsCategory category) {
             AddSettingBool("Enable Direct Memory Access", directMemoryAccessSetting);
             AddSettingBool("Enable Devkit Console Mode", devkitConsoleSetting);
             AddSettingBool("Enable PS4 Neo Mode", neoModeSetting);
-            AddSettingBool("Enable ShadNet", psnSignedInSetting);
+            AddSettingBool("Enable ShadNet", shadnetEnabledSetting);
             AddSettingBool("Set Network Connected to True", connectedNetworkSetting);
             AddSettingBool("Enable Shader Cache", pipelineCacheEnabledSetting);
 
@@ -555,7 +555,7 @@ void SaveSettings(std::string profile, bool isGameSpecific) {
     Config::setDirectMemoryAccess(directMemoryAccessSetting);
     Config::setDevKitMode(devkitConsoleSetting);
     Config::setNeoMode(neoModeSetting);
-    Config::setPSNSignedIn(psnSignedInSetting);
+    Config::setShadNetEnabled(0, shadnetEnabledSetting);
     Config::setIsConnectedToNetwork(connectedNetworkSetting);
     Config::setPipelineCacheEnabled(pipelineCacheEnabledSetting);
     Config::setPipelineCacheArchived(pipelineCacheArchiveSetting);
@@ -625,7 +625,7 @@ void LoadSettings(std::string profile) {
     directMemoryAccessSetting = Config::directMemoryAccess();
     devkitConsoleSetting = Config::isDevKitConsole();
     neoModeSetting = Config::isNeoModeConsole();
-    psnSignedInSetting = Config::getPSNSignedIn();
+    shadnetEnabledSetting = Config::getShadNetEnabled(0);
     connectedNetworkSetting = Config::getIsConnectedToNetwork();
     pipelineCacheEnabledSetting = Config::isPipelineCacheEnabled();
     pipelineCacheArchiveSetting = Config::isPipelineCacheArchived();
@@ -791,14 +791,18 @@ void SaveInstallDirs() {
     }
 
     if (!isGlobal) {
-        EmulatorSettings.Load();
+        // Updated to use lowercase and the correct path/bool parameters
+        Config::load(std::filesystem::path{}, false);
     }
 
-    EmulatorSettings.SetAllGameInstallDirs(m_GameInstallDirs);
-    EmulatorSettings.Save();
+    Config::setAllGameDirectories(m_GameInstallDirs);
+
+    // Updated to use lowercase
+    Config::save(std::filesystem::path{}, false);
 
     if (!isGlobal) {
-        EmulatorSettings.Load(profile);
+        // Updated to use lowercase and the specific profile parameters
+        Config::load(profile, true);
     }
 
     GetGameInfo(settingsProfileVec, true, globalSettingsTexture);

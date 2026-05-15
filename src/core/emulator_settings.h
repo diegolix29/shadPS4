@@ -116,131 +116,16 @@ inline OverrideItem make_override(const char* key, Setting<T> Struct::* member) 
     return OverrideItem{
         key,
         [member, key](void* base, const nlohmann::json& entry, std::vector<std::string>& changed) {
-            LOG_DEBUG(Config, "[make_override] Processing key: {}", key);
-            LOG_DEBUG(Config, "[make_override] Entry JSON: {}", entry.dump());
             Struct* obj = reinterpret_cast<Struct*>(base);
             Setting<T>& dst = obj->*member;
             try {
                 T newValue = entry.get<T>();
-                if constexpr (std::is_same_v<T, std::vector<int>>) {
-                    std::ostringstream newValueStr;
-                    newValueStr << "[";
-                    for (size_t i = 0; i < newValue.size(); ++i) {
-                        if (i > 0)
-                            newValueStr << ", ";
-                        newValueStr << newValue[i];
-                    }
-                    newValueStr << "]";
-                    LOG_DEBUG(Config, "[make_override] Parsed value: {}", newValueStr.str());
-                } else if constexpr (std::is_same_v<T, std::array<std::string, 4>>) {
-                    std::ostringstream newValueStr;
-                    newValueStr << "[";
-                    for (size_t i = 0; i < newValue.size(); ++i) {
-                        if (i > 0)
-                            newValueStr << ", ";
-                        newValueStr << newValue[i];
-                    }
-                    newValueStr << "]";
-                    LOG_DEBUG(Config, "[make_override] Parsed value: {}", newValueStr.str());
-                } else if constexpr (std::is_same_v<T, std::array<bool, 4>>) {
-                    std::ostringstream newValueStr;
-                    newValueStr << "[";
-                    for (size_t i = 0; i < newValue.size(); ++i) {
-                        if (i > 0)
-                            newValueStr << ", ";
-                        newValueStr << (newValue[i] ? "true" : "false");
-                    }
-                    newValueStr << "]";
-                    LOG_DEBUG(Config, "[make_override] Parsed value: {}", newValueStr.str());
-                } else {
-                    LOG_DEBUG(Config, "[make_override] Parsed value: {}", newValue);
-                }
-
-                if constexpr (std::is_same_v<T, std::vector<int>>) {
-                    std::ostringstream currentValueStr;
-                    currentValueStr << "[";
-                    for (size_t i = 0; i < dst.value.size(); ++i) {
-                        if (i > 0)
-                            currentValueStr << ", ";
-                        currentValueStr << dst.value[i];
-                    }
-                    currentValueStr << "]";
-                    LOG_DEBUG(Config, "[make_override] Current value: {}", currentValueStr.str());
-                } else if constexpr (std::is_same_v<T, std::array<std::string, 4>>) {
-                    std::ostringstream currentValueStr;
-                    currentValueStr << "[";
-                    for (size_t i = 0; i < dst.value.size(); ++i) {
-                        if (i > 0)
-                            currentValueStr << ", ";
-                        currentValueStr << dst.value[i];
-                    }
-                    currentValueStr << "]";
-                    LOG_DEBUG(Config, "[make_override] Current value: {}", currentValueStr.str());
-                } else if constexpr (std::is_same_v<T, std::array<bool, 4>>) {
-                    std::ostringstream currentValueStr;
-                    currentValueStr << "[";
-                    for (size_t i = 0; i < dst.value.size(); ++i) {
-                        if (i > 0)
-                            currentValueStr << ", ";
-                        currentValueStr << (dst.value[i] ? "true" : "false");
-                    }
-                    currentValueStr << "]";
-                    LOG_DEBUG(Config, "[make_override] Current value: {}", currentValueStr.str());
-                } else {
-                    LOG_DEBUG(Config, "[make_override] Current value: {}", dst.value);
-                }
                 if (dst.value != newValue) {
                     std::ostringstream oss;
-                    if constexpr (std::is_same_v<T, std::vector<int>>) {
-                        oss << key << " ( [";
-                        for (size_t i = 0; i < dst.value.size(); ++i) {
-                            if (i > 0)
-                                oss << ", ";
-                            oss << dst.value[i];
-                        }
-                        oss << "] → [";
-                        for (size_t i = 0; i < newValue.size(); ++i) {
-                            if (i > 0)
-                                oss << ", ";
-                            oss << newValue[i];
-                        }
-                        oss << "] )";
-                    } else if constexpr (std::is_same_v<T, std::array<std::string, 4>>) {
-                        oss << key << " ( [";
-                        for (size_t i = 0; i < dst.value.size(); ++i) {
-                            if (i > 0)
-                                oss << ", ";
-                            oss << dst.value[i];
-                        }
-                        oss << "] → [";
-                        for (size_t i = 0; i < newValue.size(); ++i) {
-                            if (i > 0)
-                                oss << ", ";
-                            oss << newValue[i];
-                        }
-                        oss << "] )";
-                    } else if constexpr (std::is_same_v<T, std::array<bool, 4>>) {
-                        oss << key << " ( [";
-                        for (size_t i = 0; i < dst.value.size(); ++i) {
-                            if (i > 0)
-                                oss << ", ";
-                            oss << (dst.value[i] ? "true" : "false");
-                        }
-                        oss << "] → [";
-                        for (size_t i = 0; i < newValue.size(); ++i) {
-                            if (i > 0)
-                                oss << ", ";
-                            oss << (newValue[i] ? "true" : "false");
-                        }
-                        oss << "] )";
-                    } else {
-                        oss << key << " ( " << dst.value << " → " << newValue << " )";
-                    }
+                    oss << key << " ( " << dst.value << " -> " << newValue << " )";
                     changed.push_back(oss.str());
-                    LOG_DEBUG(Config, "[make_override] Recorded change: {}", oss.str());
                 }
                 dst.game_specific_value = newValue;
-                LOG_DEBUG(Config, "[make_override] Successfully updated {}", key);
             } catch (const std::exception& e) {
                 LOG_ERROR(Config, "[make_override] error parsing {}: {}", key, e.what());
                 LOG_ERROR(Config, "[make_override] Entry was: {}", entry.dump());
@@ -288,50 +173,20 @@ struct GeneralSettings {
     Setting<bool> neo_mode{false};
     Setting<bool> dev_kit_mode{false};
     Setting<int> extra_dmem_in_mbytes{0};
-    Setting<bool> psn_signed_in{false};
+    Setting<bool> shad_net_enabled{false};
     Setting<bool> trophy_popup_disabled{false};
     Setting<double> trophy_notification_duration{6.0};
     Setting<std::string> trophy_notification_side{"right"};
-    Setting<std::string> log_filter{""};
-    Setting<std::string> log_type{"sync"};
     Setting<bool> show_splash{false};
-    Setting<bool> identical_log_grouped{true};
     Setting<bool> connected_to_network{false};
     Setting<bool> discord_rpc_enabled{false};
     Setting<bool> show_fps_counter{false};
     Setting<int> console_language{1};
-
-    // Additional missing settings from config.cpp
-    Setting<bool> enable_auto_backup{false};
-    Setting<bool> restart_with_base_game{false};
-    Setting<bool> separate_update_enabled{false};
-    Setting<bool> screen_tip_disable{false};
-    Setting<bool> mute_enabled{false};
-    Setting<bool> play_bgm{false};
-    Setting<int> bgm_volume{50};
-    Setting<std::array<std::string, 4>> user_names{
-        {"shadPS4", "shadps4-2", "shadPS4-3", "shadPS4-4"}};
-    Setting<std::array<bool, 4>> player_enabled_states{{true, true, true, true}};
-    Setting<std::string> update_channel{"Shadlix"};
-    Setting<bool> auto_update{false};
-    Setting<bool> pause_on_unfocus{false};
-    Setting<bool> show_welcome_dialog{true};
-    Setting<bool> always_show_changelog{false};
-    Setting<bool> disable_hardcoded_hotkeys{false};
-    Setting<bool> use_home_button_for_hotkeys{false};
-    Setting<bool> enable_mods{true};
-    Setting<bool> enable_updates{true};
-    Setting<bool> compatibility_enabled{false};
-    Setting<bool> check_compatibility_on_startup{false};
-    Setting<std::string> http_host_override{"localhost"};
-    Setting<bool> first_boot_handled{false};
-    Setting<std::string> choose_home_tab{"General"};
-    Setting<std::string> default_controller_id{""};
-    Setting<std::string> active_controller_id{""};
-    Setting<int> cpu_core_mode{0}; // 0 = All cores
-    Setting<std::vector<int>> custom_cpu_cores{};
     Setting<int> big_picture_scale{1000};
-    Setting<std::string> shadnet_server{""};
+    Setting<std::string> shadnet_server{"srv.shadps4.net:31313"};
+    Setting<std::string> shadnet_webapi_server{"http://srv.shadps4.net:31315"};
+    Setting<std::string> signaling_info{};
+    Setting<bool> enable_upnp{true};
 
     // return a vector of override descriptors (runtime, but tiny)
     std::vector<OverrideItem> GetOverrideableFields() const {
@@ -341,88 +196,84 @@ struct GeneralSettings {
             make_override<GeneralSettings>("dev_kit_mode", &GeneralSettings::dev_kit_mode),
             make_override<GeneralSettings>("extra_dmem_in_mbytes",
                                            &GeneralSettings::extra_dmem_in_mbytes),
-            make_override<GeneralSettings>("psn_signed_in", &GeneralSettings::psn_signed_in),
+            make_override<GeneralSettings>("shad_net_enabled", &GeneralSettings::shad_net_enabled),
             make_override<GeneralSettings>("trophy_popup_disabled",
                                            &GeneralSettings::trophy_popup_disabled),
             make_override<GeneralSettings>("trophy_notification_duration",
                                            &GeneralSettings::trophy_notification_duration),
-            make_override<GeneralSettings>("log_filter", &GeneralSettings::log_filter),
-            make_override<GeneralSettings>("log_type", &GeneralSettings::log_type),
-            make_override<GeneralSettings>("identical_log_grouped",
-                                           &GeneralSettings::identical_log_grouped),
             make_override<GeneralSettings>("show_splash", &GeneralSettings::show_splash),
             make_override<GeneralSettings>("trophy_notification_side",
                                            &GeneralSettings::trophy_notification_side),
             make_override<GeneralSettings>("connected_to_network",
-                                           &GeneralSettings::connected_to_network),
-            // Additional overrideable fields
-            make_override<GeneralSettings>("enable_auto_backup",
-                                           &GeneralSettings::enable_auto_backup),
-            make_override<GeneralSettings>("restart_with_base_game",
-                                           &GeneralSettings::restart_with_base_game),
-            make_override<GeneralSettings>("separate_update_enabled",
-                                           &GeneralSettings::separate_update_enabled),
-            make_override<GeneralSettings>("screen_tip_disable",
-                                           &GeneralSettings::screen_tip_disable),
-            make_override<GeneralSettings>("mute_enabled", &GeneralSettings::mute_enabled),
-            make_override<GeneralSettings>("play_bgm", &GeneralSettings::play_bgm),
-            make_override<GeneralSettings>("bgm_volume", &GeneralSettings::bgm_volume),
-            make_override<GeneralSettings>("pause_on_unfocus", &GeneralSettings::pause_on_unfocus),
-            make_override<GeneralSettings>("disable_hardcoded_hotkeys",
-                                           &GeneralSettings::disable_hardcoded_hotkeys),
-            make_override<GeneralSettings>("use_home_button_for_hotkeys",
-                                           &GeneralSettings::use_home_button_for_hotkeys),
-            make_override<GeneralSettings>("enable_mods", &GeneralSettings::enable_mods),
-            make_override<GeneralSettings>("enable_updates", &GeneralSettings::enable_updates),
-            make_override<GeneralSettings>("http_host_override",
-                                           &GeneralSettings::http_host_override),
-            make_override<GeneralSettings>("cpu_core_mode", &GeneralSettings::cpu_core_mode),
-            make_override<GeneralSettings>("custom_cpu_cores", &GeneralSettings::custom_cpu_cores),
-            make_override<GeneralSettings>("big_picture_scale",
-                                           &GeneralSettings::big_picture_scale)};
+                                           &GeneralSettings::connected_to_network)};
     }
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
-    GeneralSettings, install_dirs, addon_install_dir, home_dir, sys_modules_dir, font_dir,
-    volume_slider, neo_mode, dev_kit_mode, extra_dmem_in_mbytes, psn_signed_in,
-    trophy_popup_disabled, trophy_notification_duration, log_filter, log_type, show_splash,
-    identical_log_grouped, trophy_notification_side, connected_to_network, discord_rpc_enabled,
-    show_fps_counter, console_language, enable_auto_backup, restart_with_base_game,
-    separate_update_enabled, screen_tip_disable, mute_enabled, play_bgm, bgm_volume, user_names,
-    player_enabled_states, update_channel, auto_update, pause_on_unfocus, show_welcome_dialog,
-    always_show_changelog, disable_hardcoded_hotkeys, use_home_button_for_hotkeys, enable_mods,
-    enable_updates, compatibility_enabled, check_compatibility_on_startup, http_host_override,
-    first_boot_handled, choose_home_tab, default_controller_id, active_controller_id, cpu_core_mode,
-    custom_cpu_cores, big_picture_scale)
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GeneralSettings, install_dirs, addon_install_dir, home_dir,
+                                   sys_modules_dir, font_dir, volume_slider, neo_mode, dev_kit_mode,
+                                   extra_dmem_in_mbytes, shad_net_enabled, trophy_popup_disabled,
+                                   trophy_notification_duration, show_splash,
+                                   trophy_notification_side, connected_to_network,
+                                   discord_rpc_enabled, show_fps_counter, console_language,
+                                   big_picture_scale, shadnet_server, shadnet_webapi_server,
+                                   signaling_info, enable_upnp)
+
+// -------------------------------
+// Log settings
+// -------------------------------
+struct LogSettings {
+    Setting<bool> append{false}; // specific
+    Setting<bool> enable{true};  // specific
+    Setting<std::string> filter{""};
+    Setting<u32> max_skip_duration{5'000};
+    Setting<bool> separate{false}; // specific
+    Setting<unsigned long long> size_limit{100_MB};
+    Setting<bool> skip_duplicate{true};
+    Setting<bool> sync{true};
+#ifdef _WIN32
+    Setting<std::string> type{"wincolor"};
+#endif
+
+    // return a vector of override descriptors (runtime, but tiny)
+    std::vector<OverrideItem> GetOverrideableFields() const {
+        return std::vector<OverrideItem>{
+            make_override<LogSettings>("append", &LogSettings::append),
+            make_override<LogSettings>("log_enabled", &LogSettings::enable),
+            make_override<LogSettings>("filter", &LogSettings::filter),
+            make_override<LogSettings>("max_skip_duration", &LogSettings::max_skip_duration),
+            make_override<LogSettings>("separate", &LogSettings::separate),
+            make_override<LogSettings>("size_limit", &LogSettings::size_limit),
+            make_override<LogSettings>("skip_duplicate", &LogSettings::skip_duplicate),
+            make_override<LogSettings>("sync", &LogSettings::sync),
+#ifdef _WIN32
+            make_override<LogSettings>("type", &LogSettings::type),
+#endif
+        };
+    }
+};
+#ifdef _WIN32
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LogSettings, append, enable, filter, max_skip_duration, separate,
+                                   size_limit, skip_duplicate, sync, type)
+#else
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LogSettings, append, enable, filter, max_skip_duration, separate,
+                                   size_limit, skip_duplicate, sync)
+#endif
 
 // -------------------------------
 // Debug settings
 // -------------------------------
 struct DebugSettings {
-    Setting<bool> separate_logging_enabled{false}; // specific
-    Setting<bool> debug_dump{false};               // specific
-    Setting<bool> shader_collect{false};           // specific
-    Setting<bool> shader_debug{false};             // specific
-    Setting<bool> shader_skips_enabled{false};     // specific
-    Setting<bool> fps_color_state{false};          // specific
-    Setting<bool> log_enabled{true};               // specific
-    Setting<std::string> config_version{""};       // specific
+    Setting<bool> debug_dump{false};         // specific
+    Setting<bool> shader_collect{false};     // specific
+    Setting<std::string> config_version{""}; // specific
 
     std::vector<OverrideItem> GetOverrideableFields() const {
         return std::vector<OverrideItem>{
             make_override<DebugSettings>("debug_dump", &DebugSettings::debug_dump),
-            make_override<DebugSettings>("shader_collect", &DebugSettings::shader_collect),
-            make_override<DebugSettings>("shader_debug", &DebugSettings::shader_debug),
-            make_override<DebugSettings>("shader_skips_enabled",
-                                         &DebugSettings::shader_skips_enabled),
-            make_override<DebugSettings>("separate_logging_enabled",
-                                         &DebugSettings::separate_logging_enabled),
-            make_override<DebugSettings>("log_enabled", &DebugSettings::log_enabled)};
+            make_override<DebugSettings>("shader_collect", &DebugSettings::shader_collect)};
     }
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DebugSettings, separate_logging_enabled, debug_dump,
-                                   shader_collect, shader_debug, shader_skips_enabled,
-                                   fps_color_state, log_enabled, config_version)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DebugSettings, debug_dump, shader_collect, config_version)
 
 // -------------------------------
 // Input settings
@@ -654,6 +505,7 @@ public:
 
 private:
     GeneralSettings m_general{};
+    LogSettings m_log{};
     DebugSettings m_debug{};
     InputSettings m_input{};
     AudioSettings m_audio{};
@@ -739,48 +591,33 @@ public:
     SETTING_FORWARD_BOOL(m_general, Neo, neo_mode)
     SETTING_FORWARD_BOOL(m_general, DevKit, dev_kit_mode)
     SETTING_FORWARD(m_general, ExtraDmemInMBytes, extra_dmem_in_mbytes)
-    SETTING_FORWARD_BOOL(m_general, PSNSignedIn, psn_signed_in)
+    SETTING_FORWARD_BOOL(m_general, ShadNetEnabled, shad_net_enabled)
     SETTING_FORWARD_BOOL(m_general, TrophyPopupDisabled, trophy_popup_disabled)
     SETTING_FORWARD(m_general, TrophyNotificationDuration, trophy_notification_duration)
     SETTING_FORWARD(m_general, TrophyNotificationSide, trophy_notification_side)
     SETTING_FORWARD_BOOL(m_general, ShowSplash, show_splash)
-    SETTING_FORWARD_BOOL(m_general, IdenticalLogGrouped, identical_log_grouped)
-    SETTING_FORWARD(m_general, LogFilter, log_filter)
-    SETTING_FORWARD(m_general, LogType, log_type)
     SETTING_FORWARD_BOOL(m_general, ConnectedToNetwork, connected_to_network)
     SETTING_FORWARD_BOOL(m_general, DiscordRPCEnabled, discord_rpc_enabled)
     SETTING_FORWARD_BOOL(m_general, ShowFpsCounter, show_fps_counter)
     SETTING_FORWARD(m_general, ConsoleLanguage, console_language)
-
-    // Additional general settings
-    SETTING_FORWARD_BOOL(m_general, EnableAutoBackup, enable_auto_backup)
-    SETTING_FORWARD_BOOL(m_general, RestartWithBaseGame, restart_with_base_game)
-    SETTING_FORWARD_BOOL(m_general, SeparateUpdateEnabled, separate_update_enabled)
-    SETTING_FORWARD_BOOL(m_general, ScreenTipDisable, screen_tip_disable)
-    SETTING_FORWARD_BOOL(m_general, MuteEnabled, mute_enabled)
-    SETTING_FORWARD_BOOL(m_general, PlayBGM, play_bgm)
-    SETTING_FORWARD(m_general, BGMVolume, bgm_volume)
-    SETTING_FORWARD(m_general, UserNames, user_names)
-    SETTING_FORWARD(m_general, PlayerEnabledStates, player_enabled_states)
-    SETTING_FORWARD(m_general, UpdateChannel, update_channel)
-    SETTING_FORWARD_BOOL(m_general, AutoUpdate, auto_update)
-    SETTING_FORWARD_BOOL(m_general, PauseOnUnfocus, pause_on_unfocus)
-    SETTING_FORWARD_BOOL(m_general, ShowWelcomeDialog, show_welcome_dialog)
-    SETTING_FORWARD_BOOL(m_general, AlwaysShowChangelog, always_show_changelog)
-    SETTING_FORWARD_BOOL(m_general, DisableHardcodedHotkeys, disable_hardcoded_hotkeys)
-    SETTING_FORWARD_BOOL(m_general, UseHomeButtonForHotkeys, use_home_button_for_hotkeys)
-    SETTING_FORWARD_BOOL(m_general, EnableMods, enable_mods)
-    SETTING_FORWARD_BOOL(m_general, EnableUpdates, enable_updates)
-    SETTING_FORWARD_BOOL(m_general, CompatibilityEnabled, compatibility_enabled)
-    SETTING_FORWARD_BOOL(m_general, CheckCompatibilityOnStartup, check_compatibility_on_startup)
-    SETTING_FORWARD(m_general, HttpHostOverride, http_host_override)
-    SETTING_FORWARD_BOOL(m_general, FirstBootHandled, first_boot_handled)
-    SETTING_FORWARD(m_general, ChooseHomeTab, choose_home_tab)
-    SETTING_FORWARD(m_general, ActiveControllerId, active_controller_id)
-    SETTING_FORWARD(m_general, CpuCoreMode, cpu_core_mode)
-    SETTING_FORWARD(m_general, CustomCpuCores, custom_cpu_cores)
     SETTING_FORWARD(m_general, BigPictureScale, big_picture_scale)
     SETTING_FORWARD(m_general, ShadNetServer, shadnet_server)
+    SETTING_FORWARD(m_general, ShadNetWebApiServer, shadnet_webapi_server)
+    SETTING_FORWARD(m_general, SignalingInfo, signaling_info)
+    SETTING_FORWARD_BOOL(m_general, UPnPEnabled, enable_upnp)
+
+    // Log settings
+    SETTING_FORWARD_BOOL(m_log, LogAppend, append)
+    SETTING_FORWARD_BOOL(m_log, LogEnable, enable)
+    SETTING_FORWARD(m_log, LogFilter, filter)
+    SETTING_FORWARD(m_log, LogMaxSkipDuration, max_skip_duration)
+    SETTING_FORWARD_BOOL(m_log, LogSeparate, separate)
+    SETTING_FORWARD(m_log, LogSizeLimit, size_limit)
+    SETTING_FORWARD_BOOL(m_log, LogSkipDuplicate, skip_duplicate)
+    SETTING_FORWARD_BOOL(m_log, LogSync, sync)
+#ifdef _WIN32
+    SETTING_FORWARD(m_log, LogType, type)
+#endif
 
     // Audio settings
     SETTING_FORWARD(m_audio, AudioBackend, audio_backend)
@@ -792,23 +629,9 @@ public:
     SETTING_FORWARD(m_audio, OpenALPadSpkOutputDevice, openal_padSpk_output_device)
 
     // Debug settings
-    SETTING_FORWARD_BOOL(m_debug, SeparateLoggingEnabled, separate_logging_enabled)
     SETTING_FORWARD_BOOL(m_debug, DebugDump, debug_dump)
     SETTING_FORWARD_BOOL(m_debug, ShaderCollect, shader_collect)
-    SETTING_FORWARD_BOOL(m_debug, ShaderDebug, shader_debug)
-    SETTING_FORWARD_BOOL(m_debug, ShaderSkipsEnabled, shader_skips_enabled)
-    SETTING_FORWARD_BOOL(m_debug, FpsColorState, fps_color_state)
-    SETTING_FORWARD_BOOL(m_debug, LogEnabled, log_enabled)
-
-    std::string GetConfigVersion() const {
-        return m_debug.config_version.get();
-    }
-    void SetConfigVersion(const std::string& version) {
-        m_debug.config_version.value = version;
-    }
-    void SetConfigVersion(const char* version) {
-        m_debug.config_version.value = std::string(version);
-    }
+    SETTING_FORWARD(m_debug, ConfigVersion, config_version)
 
     // GPU Settings
     SETTING_FORWARD_BOOL(m_gpu, NullGPU, null_gpu)
@@ -854,10 +677,10 @@ public:
     SETTING_FORWARD_BOOL(m_input, ImeAccessibilityEnabled, ime_accessibility_enabled)
     SETTING_FORWARD_BOOL(m_input, ImeUrlMailShortPanel, ime_url_mail_short_panel)
     SETTING_FORWARD(m_input, DefaultControllerId, default_controller_id)
-    SETTING_FORWARD(m_input, CameraId, camera_id)
     SETTING_FORWARD_BOOL(m_input, UsingSpecialPad, use_special_pad)
     SETTING_FORWARD(m_input, SpecialPadClass, special_pad_class)
     SETTING_FORWARD_BOOL(m_input, UseUnifiedInputConfig, use_unified_input_config)
+    SETTING_FORWARD(m_input, CameraId, camera_id)
     SETTING_FORWARD_BOOL(m_input, CircleEnter, is_circle_enter)
     SETTING_FORWARD_BOOL(m_input, MiceUsedAsMice, use_mice_as_mice)
 

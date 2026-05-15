@@ -1917,9 +1917,209 @@
 														</layout>
 													</widget>
 												</item>
+												<item>
+													<widget class="QGroupBox" name="shadnetNetworkGroupBox">
+														<property name="sizePolicy">
+															<sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+																<horstretch>0</horstretch>
+																<verstretch>0</verstretch>
+															</sizepolicy>
+														</property>
+														<property name="title">
+															<string>ShadNet Network</string>
+														</property>
+														<layout class="QFormLayout" name="shadnetNetworkFormLayout">
+															<property name="fieldGrowthPolicy">
+																<enum>QFormLayout::FieldGrowthPolicy::AllNonFixedFieldsGrow</enum>
+															</property>
+															<item row="0" column="0">
+																<widget class="QLabel" name="serverLabel">
+																	<property name="text">
+																		<string>Server</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="0" column="1">
+																<widget class="QLineEdit" name="serverLineEdit"/>
+															</item>
+															<item row="1" column="0">
+																<widget class="QLabel" name="servWebApiLabel">
+																	<property name="text">
+																		<string>WebAPI Server</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="1" column="1">
+																<widget class="QLineEdit" name="servWebApiLineEdit"/>
+															</item>
+															<item row="2" column="0">
+																<widget class="QLabel" name="signalingInfoLabel">
+																	<property name="text">
+																		<string>Signaling Info</string>
+																	</property>
+																</widget>
+															</item>
+															<item row="2" column="1">
+																<widget class="QLineEdit" name="signalingInfoLineEdit"/>
+															</item>
+															<item row="3" column="0">
+																<widget class="QCheckBox" name="upnpCheckBox">
+																	<property name="text">
+																		<string>Enable UPNP</string>
+																	</property>
+																</widget>
+															</item>
+														</layout>
+													</widget>
+												</item>
 											</layout>
 										</item>
 									</layout>
+								</item>
+								<item>
+									<widget class="QGroupBox" name="shadnetAccountsGroupBox">
+										<property name="title">
+											<string>ShadNet Accounts</string>
+										</property>
+										<layout class="QGridLayout" name="shadnetAccountsGridLayout">
+											<item row="0" column="1">
+												<widget class="QLabel" name="labelShadnetSignIn">
+													<property name="text">
+														<string>Sign In</string>
+													</property>
+												</widget>
+											</item>
+											<item row="0" column="2">
+												<widget class="QLabel" name="labelShadnetNpid">
+													<property name="text">
+														<string>Account ID (NPID)</string>
+													</property>
+												</widget>
+											</item>
+											<item row="0" column="3">
+												<widget class="QLabel" name="labelShadnetPassword">
+													<property name="text">
+														<string>Password</string>
+													</property>
+												</widget>
+											</item>
+											<item row="0" column="4">
+												<widget class="QLabel" name="labelShadnetShow">
+													<property name="text">
+														<string>Show</string>
+													</property>
+												</widget>
+											</item>
+											<item row="1" column="0">
+												<widget class="QLabel" name="labelShadnetPlayer1">
+													<property name="text">
+														<string>Player 1</string>
+													</property>
+												</widget>
+											</item>
+											<item row="1" column="1">
+												<widget class="QCheckBox" name="shadnetEnableCheckBox1"/>
+											</item>
+											<item row="1" column="2">
+												<widget class="QLineEdit" name="shadnetNpidLineEdit1">
+													<property name="placeholderText">
+														<string>Account ID (NPID)</string>
+													</property>
+												</widget>
+											</item>
+											<item row="1" column="3">
+												<widget class="QLineEdit" name="shadnetPasswordLineEdit1">
+													<property name="echoMode">
+														<enum>QLineEdit::Password</enum>
+													</property>
+												</widget>
+											</item>
+											<item row="1" column="4">
+												<widget class="QCheckBox" name="shadnetShowPasswordCheckBox1"/>
+											</item>
+											<item row="2" column="0">
+												<widget class="QLabel" name="labelShadnetPlayer2">
+													<property name="text">
+														<string>Player 2</string>
+													</property>
+												</widget>
+											</item>
+											<item row="2" column="1">
+												<widget class="QCheckBox" name="shadnetEnableCheckBox2"/>
+											</item>
+											<item row="2" column="2">
+												<widget class="QLineEdit" name="shadnetNpidLineEdit2">
+													<property name="placeholderText">
+														<string>Account ID (NPID)</string>
+													</property>
+												</widget>
+											</item>
+											<item row="2" column="3">
+												<widget class="QLineEdit" name="shadnetPasswordLineEdit2">
+													<property name="echoMode">
+														<enum>QLineEdit::Password</enum>
+													</property>
+												</widget>
+											</item>
+											<item row="2" column="4">
+												<widget class="QCheckBox" name="shadnetShowPasswordCheckBox2"/>
+											</item>
+											<item row="3" column="0">
+												<widget class="QLabel" name="labelShadnetPlayer3">
+													<property name="text">
+														<string>Player 3</string>
+													</property>
+												</widget>
+											</item>
+											<item row="3" column="1">
+												<widget class="QCheckBox" name="shadnetEnableCheckBox3"/>
+											</item>
+											<item row="3" column="2">
+												<widget class="QLineEdit" name="shadnetNpidLineEdit3">
+													<property name="placeholderText">
+														<string>Account ID (NPID)</string>
+													</property>
+												</widget>
+											</item>
+											<item row="3" column="3">
+												<widget class="QLineEdit" name="shadnetPasswordLineEdit3">
+													<property name="echoMode">
+														<enum>QLineEdit::Password</enum>
+													</property>
+												</widget>
+											</item>
+											<item row="3" column="4">
+												<widget class="QCheckBox" name="shadnetShowPasswordCheckBox3"/>
+											</item>
+											<item row="4" column="0">
+												<widget class="QLabel" name="labelShadnetPlayer4">
+													<property name="text">
+														<string>Player 4</string>
+													</property>
+												</widget>
+											</item>
+											<item row="4" column="1">
+												<widget class="QCheckBox" name="shadnetEnableCheckBox4"/>
+											</item>
+											<item row="4" column="2">
+												<widget class="QLineEdit" name="shadnetNpidLineEdit4">
+													<property name="placeholderText">
+														<string>Account ID (NPID)</string>
+													</property>
+												</widget>
+											</item>
+											<item row="4" column="3">
+												<widget class="QLineEdit" name="shadnetPasswordLineEdit4">
+													<property name="echoMode">
+														<enum>QLineEdit::Password</enum>
+													</property>
+												</widget>
+											</item>
+											<item row="4" column="4">
+												<widget class="QCheckBox" name="shadnetShowPasswordCheckBox4"/>
+											</item>
+										</layout>
+									</widget>
 								</item>
 								<item>
 									<spacer name="userTabSpacer">
@@ -2188,7 +2388,7 @@
 											<number>0</number>
 										</property>
 
-							   		   <item>
+										<item>
 											<layout class="QHBoxLayout" name="micTabLayoutLeft">
 												<item>
 													<widget class="QGroupBox" name="MicGroupBox">
@@ -2960,14 +3160,6 @@
 												</widget>
 											</item>
 										</layout>
-									</widget>
-								</item>
-
-								<item>
-									<widget class="QCheckBox" name="isPSNSignedInCheckBox">
-										<property name="text">
-											<string>PSN Signed</string>
-										</property>
 									</widget>
 								</item>
 

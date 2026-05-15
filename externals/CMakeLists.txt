@@ -37,10 +37,6 @@ file(GLOB LIBATRAC9_SOURCES LibAtrac9/C/src/*.c)
 add_library(LibAtrac9 STATIC ${LIBATRAC9_SOURCES})
 target_include_directories(LibAtrac9 INTERFACE LibAtrac9/C/src)
 
-# minimp3
-add_library(minimp3 INTERFACE)
-target_include_directories(minimp3 INTERFACE minimp3)
-
 # zlib
 if (NOT TARGET ZLIB::ZLIB)
     set(ZLIB_ENABLE_TESTS OFF)
@@ -248,8 +244,15 @@ endif()
 
 # libusb
 if (NOT TARGET libusb::usb)
-    add_subdirectory(libusb)
-    add_library(libusb::usb ALIAS usb-1.0)
+    if (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
+        # YOU MUST USE NATIVE LIBUSB
+        # using anything else will crash instantly, also freebsd will NOT like it
+        # no you cant vendor this libusb, its builtin on freebsd
+        find_package(libusb)
+    else()
+        add_subdirectory(libusb)
+        add_library(libusb::usb ALIAS usb-1.0)
+    endif()
 endif()
 
 # Discord RPC
@@ -271,51 +274,21 @@ endif()
 set(HWINFO_STATIC ON)
 add_subdirectory(hwinfo)
 
-# Apple-only dependencies
-if (APPLE)
+if (APPLE OR ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
     # date
     if (NOT TARGET date::date-tz)
         option(BUILD_TZ_LIB "" ON)
         option(USE_SYSTEM_TZ_DB "" ON)
         add_subdirectory(date)
     endif()
-
-    # epoll-shim (Linux epoll API on kqueue)
     if (NOT TARGET epoll-shim)
-        set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
         add_subdirectory(epoll-shim)
-    endif()
-    if (TARGET epoll-shim AND NOT TARGET epoll-shim::epoll-shim)
-        add_library(epoll-shim::epoll-shim ALIAS epoll-shim)
-    endif()
-    if (TARGET epoll-shim-interpose AND NOT TARGET epoll-shim::epoll-shim-interpose)
-        add_library(epoll-shim::epoll-shim-interpose ALIAS epoll-shim-interpose)
-    endif()
-endif()
-
-# Apple-only dependencies
-if (APPLE)
-    # MoltenVK
-    if (NOT TARGET MoltenVK)
-        set(MVK_EXCLUDE_SPIRV_TOOLS ON)
-        set(MVK_USE_METAL_PRIVATE_API ON)
-        add_subdirectory(MoltenVK)
-    endif()
-endif()
-
-# Apple-only dependencies
-if (APPLE)
-    # MoltenVK
-    if (NOT TARGET MoltenVK)
-        set(MVK_EXCLUDE_SPIRV_TOOLS ON)
-        set(MVK_USE_METAL_PRIVATE_API ON)
-        add_subdirectory(MoltenVK)
     endif()
 endif()
 
 #windows only
 if (WIN32)
-    add_subdirectory(ext-wepoll)
+add_subdirectory(ext-wepoll)
 endif()
 
 add_subdirectory(aacdec)
@@ -339,12 +312,25 @@ if (NOT TARGET CLI11::CLI11)
     add_subdirectory(CLI11)
 endif()
 
+# miniupnpc
+if (NOT TARGET miniupnpc::miniupnpc)
+set(UPNPC_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(UPNPC_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(UPNPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
+set(UPNPC_NO_INSTALL ON CACHE BOOL "" FORCE)
+add_subdirectory(miniupnp/miniupnpc)
+endif()
+
+# minimp3
+add_library(minimp3 INTERFACE)
+target_include_directories(minimp3 INTERFACE minimp3)
+
 # ImGuiFileDialog
 add_library(ImGuiFileDialog ImGuiFileDialog/ImGuiFileDialog.cpp)
 target_compile_definitions(ImGuiFileDialog PRIVATE USE_STD_FILESYSTEM)
 target_include_directories(ImGuiFileDialog INTERFACE ImGuiFileDialog/)
 target_link_libraries(ImGuiFileDialog PRIVATE Dear_ImGui)
-
 
 #openal
 if (NOT TARGET OpenAL::OpenAL)
@@ -378,6 +364,19 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory(openal-soft EXCLUDE_FROM_ALL)
 endif()
 
+# LibreSSL
+if (TARGET LibreSSL::SSL OR TARGET LibreSSL::Crypto)
+    set(SSL_DEPENDENCIES LibreSSL::SSL LibreSSL::Crypto)
+elseif (TARGET OpenSSL::SSL OR TARGET OpenSSL::Crypto)
+    set(SSL_DEPENDENCIES OpenSSL::SSL OpenSSL::Crypto)
+else()
+    set(LIBRESSL_SKIP_INSTALL ON CACHE BOOL "" FORCE)
+    set(LIBRESSL_APPS OFF CACHE BOOL "" FORCE)
+    set(LIBRESSL_TESTS OFF CACHE BOOL "" FORCE)
+    add_subdirectory(libressl EXCLUDE_FROM_ALL)
+    get_directory_property(SSL_DEPENDENCIES DIRECTORY libressl DEFINITION OPENSSL_LIBS)
+endif()
+
 # cpp-httplib
 add_library(Cpp_Httplib INTERFACE)
 target_include_directories(Cpp_Httplib INTERFACE cpp-httplib/)
@@ -387,7 +386,7 @@ if (TARGET ZLIB::ZLIB)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_ZLIB_SUPPORT)
     message(STATUS "cpp-httplib: zlib support enabled (gzip response decompression)")
 else()
-    message(STATUS "cpp-httplib: zlib not available — gzip responses will arrive uncompressed")
+    message(STATUS "cpp-httplib: zlib not available â€” gzip responses will arrive uncompressed")
 endif()
 
 if (DEFINED SSL_DEPENDENCIES)
@@ -395,5 +394,28 @@ if (DEFINED SSL_DEPENDENCIES)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
     message(STATUS "cpp-httplib: SSL support enabled (TLS connections)")
 else()
-    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available — libSceHttp HTTPS will fall back to mock at runtime.")
+    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available â€” libSceHttp HTTPS will fall back to mock at runtime.")
 endif()
+
+# macOS Vulkan driver
+if (APPLE AND NOT ENABLE_SYSTEM_VULKAN AND NOT ENABLE_TESTS)
+    add_subdirectory(vulkan-loader)
+    set(VULKAN_LOADER_PATH "${CMAKE_CURRENT_BINARY_DIR}/vulkan-loader/loader/libvulkan.dylib" PARENT_SCOPE)
+
+    add_subdirectory(mesa-kosmickrisp)
+    set(VULKAN_DRIVER_PATH "${CMAKE_CURRENT_BINARY_DIR}/mesa-kosmickrisp/outputs/libvulkan_kosmickrisp.dylib" PARENT_SCOPE)
+    set(VULKAN_ICD_PATH "${CMAKE_CURRENT_BINARY_DIR}/mesa-kosmickrisp/outputs/kosmickrisp_mesa_icd.json" PARENT_SCOPE)
+endif()
+
+# protobuf
+set(protobuf_BUILD_TESTS              OFF CACHE INTERNAL "")
+set(protobuf_BUILD_EXAMPLES           OFF CACHE INTERNAL "")
+set(protobuf_BUILD_PROTOC_BINARIES    ON  CACHE INTERNAL "")
+set(protobuf_INSTALL                  OFF CACHE INTERNAL "")
+set(protobuf_WITH_ZLIB                OFF CACHE INTERNAL "")
+set(protobuf_BUILD_SHARED_LIBS        OFF CACHE INTERNAL "")
+set(protobuf_FORCE_FETCH_DEPENDENCIES ON  CACHE INTERNAL "")
+if(MSVC)
+set(protobuf_MSVC_STATIC_RUNTIME OFF CACHE BOOL "" FORCE)
+endif()
+add_subdirectory(protobuf EXCLUDE_FROM_ALL)
