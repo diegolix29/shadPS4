@@ -13,8 +13,8 @@
 #include <core/libraries/kernel/kernel.h>
 #include <magic_enum/magic_enum.hpp>
 #include "common/assert.h"
-#include "common/error.h"
 #include "common/config.h"
+#include "common/error.h"
 #include "common/logging/log.h"
 #include "common/singleton.h"
 #include "core/file_sys/fs.h"
@@ -658,7 +658,8 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
         case Core::FileSys::FileType::Socket: {
             auto native_handle = file->socket->Native();
             if (!native_handle) {
-                LOG_ERROR(Lib_Net, "Socket has no native epoll readiness handle");
+                // P2P socket, cannot be added to epoll
+                LOG_ERROR(Lib_Net, "P2P socket cannot be added to epoll (unimplemented)");
                 *sceNetErrnoLoc() = ORBIS_NET_EBADF;
                 return ORBIS_NET_ERROR_EBADF;
             }
@@ -707,7 +708,8 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
         case Core::FileSys::FileType::Socket: {
             auto native_handle = file->socket->Native();
             if (!native_handle) {
-                LOG_ERROR(Lib_Net, "Socket has no native epoll readiness handle");
+                // P2P socket, cannot be modified in epoll
+                LOG_ERROR(Lib_Net, "P2P socket cannot be modified in epoll (unimplemented)");
                 *sceNetErrnoLoc() = ORBIS_NET_EBADF;
                 return ORBIS_NET_ERROR_EBADF;
             }
@@ -750,7 +752,8 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
         case Core::FileSys::FileType::Socket: {
             auto native_handle = file->socket->Native();
             if (!native_handle) {
-                LOG_ERROR(Lib_Net, "Socket has no native epoll readiness handle");
+                // P2P socket, cannot be removed from epoll
+                LOG_ERROR(Lib_Net, "P2P socket cannot be removed from epoll (unimplemented)");
                 *sceNetErrnoLoc() = ORBIS_NET_EBADF;
                 return ORBIS_NET_ERROR_EBADF;
             }
@@ -1847,6 +1850,7 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("YWTpt45PxbI", "libSceNet", 1, "libSceNet", sceNetDumpRead);
     LIB_FUNCTION("TwjkDIPdZ1Q", "libSceNet", 1, "libSceNet", sceNetDuplicateIpStart);
     LIB_FUNCTION("QCbvCx9HL30", "libSceNet", 1, "libSceNet", sceNetDuplicateIpStop);
+    LIB_FUNCTION("w21YgGGNtBk", "libSceNet", 1, "libSceNet", sceNetEpollAbort);
     LIB_FUNCTION("ZVw46bsasAk", "libSceNet", 1, "libSceNet", sceNetEpollControl);
     LIB_FUNCTION("SF47kB2MNTo", "libSceNet", 1, "libSceNet", sceNetEpollCreate);
     LIB_FUNCTION("Inp1lfL+Jdw", "libSceNet", 1, "libSceNet", sceNetEpollDestroy);

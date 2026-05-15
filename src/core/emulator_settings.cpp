@@ -8,6 +8,7 @@
 #include <common/path_util.h>
 #include <common/scm_rev.h>
 #include <toml.hpp>
+#include "common/logging/formatter.h"
 #include "common/logging/log.h"
 #include "emulator_settings.h"
 #include "emulator_state.h"
@@ -55,6 +56,10 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         if (it->second.is_integer()) {
             return static_cast<u32>(toml::get<unsigned int>(it->second));
         }
+    } else if constexpr (std::is_same_v<T, unsigned long long>) {
+        if (it->second.is_integer()) {
+            return static_cast<long long>(toml::get<unsigned long long>(it->second));
+        }
     } else if constexpr (std::is_same_v<T, double>) {
         if (it->second.is_floating()) {
             return toml::get<double>(it->second);
@@ -71,18 +76,6 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         if (it->second.is_boolean()) {
             return toml::get<bool>(it->second);
         }
-    } else if constexpr (std::is_same_v<T, std::vector<int>>) {
-        if (it->second.is_array()) {
-            return toml::get<std::vector<int>>(it->second);
-        }
-    } else if constexpr (std::is_same_v<T, std::array<std::string, 4>>) {
-        if (it->second.is_array()) {
-            return toml::get<std::array<std::string, 4>>(it->second);
-        }
-    } else if constexpr (std::is_same_v<T, std::array<bool, 4>>) {
-        if (it->second.is_array()) {
-            return toml::get<std::array<bool, 4>>(it->second);
-        }
     } else {
         static_assert([] { return false; }(), "Unsupported type in get_optional<T>");
     }
@@ -96,7 +89,6 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
 
 void EmulatorSettingsImpl::PrintChangedSummary(const std::vector<std::string>& changed) {
     if (changed.empty()) {
-        LOG_DEBUG(Config, "No game-specific overrides applied");
         return;
     }
     LOG_DEBUG(Config, "Game-specific overrides applied:");
@@ -188,7 +180,7 @@ const std::vector<bool> EmulatorSettingsImpl::GetGameInstallDirsEnabled() {
 
 std::filesystem::path EmulatorSettingsImpl::GetHomeDir() {
     if (m_general.home_dir.value.empty()) {
-        return Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        return Common::FS::GetUserPath(Common::FS::PathType::HomeDir);
     }
     return m_general.home_dir.value;
 }
@@ -233,12 +225,12 @@ void EmulatorSettingsImpl::SetAddonInstallDir(const std::filesystem::path& dir) 
 // ── Game-specific override management ────────────────────────────────
 void EmulatorSettingsImpl::ClearGameSpecificOverrides() {
     ClearGroupOverrides(m_general);
+    ClearGroupOverrides(m_log);
     ClearGroupOverrides(m_debug);
     ClearGroupOverrides(m_input);
     ClearGroupOverrides(m_audio);
     ClearGroupOverrides(m_gpu);
     ClearGroupOverrides(m_vulkan);
-    LOG_DEBUG(Config, "All game-specific overrides cleared");
 }
 
 void EmulatorSettingsImpl::ResetGameSpecificValue(const std::string& key) {
@@ -253,6 +245,8 @@ void EmulatorSettingsImpl::ResetGameSpecificValue(const std::string& key) {
         return false;
     };
     if (tryGroup(m_general))
+        return;
+    if (tryGroup(m_log))
         return;
     if (tryGroup(m_debug))
         return;
@@ -271,12 +265,7 @@ bool EmulatorSettingsImpl::Save(const std::string& serial) {
     try {
         if (!serial.empty()) {
             const auto cfgDir = Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs);
-            std::error_code ec;
-            std::filesystem::create_directories(cfgDir, ec);
-            if (ec) {
-                LOG_ERROR(Config, "Failed to create CustomConfigs directory: {}", cfgDir.string());
-                return false;
-            }
+            std::filesystem::create_directories(cfgDir);
             const auto path = cfgDir / (serial + ".json");
 
             json j = json::object();
@@ -284,6 +273,10 @@ bool EmulatorSettingsImpl::Save(const std::string& serial) {
             json generalObj = json::object();
             SaveGroupGameSpecific(m_general, generalObj);
             j["General"] = generalObj;
+
+            json logObj = json::object();
+            SaveGroupGameSpecific(m_log, logObj);
+            j["Log"] = logObj;
 
             json debugObj = json::object();
             SaveGroupGameSpecific(m_debug, debugObj);
@@ -318,20 +311,11 @@ bool EmulatorSettingsImpl::Save(const std::string& serial) {
             const auto path =
                 Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.json";
 
-            const auto parentDir = path.parent_path();
-            if (!parentDir.empty() && !std::filesystem::exists(parentDir)) {
-                std::error_code ec;
-                std::filesystem::create_directories(parentDir, ec);
-                if (ec) {
-                    LOG_ERROR(Config, "Failed to create parent directory: {}", parentDir.string());
-                    return false;
-                }
-            }
-
             SetConfigVersion(Common::g_scm_rev);
 
             json j;
             j["General"] = m_general;
+            j["Log"] = m_log;
             j["Debug"] = m_debug;
             j["Input"] = m_input;
             j["Audio"] = m_audio;
@@ -378,7 +362,6 @@ bool EmulatorSettingsImpl::Load(const std::string& serial) {
             // ── Global config ──────────────────────────────────────────
             const auto userDir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
             const auto configPath = userDir / "config.json";
-            LOG_DEBUG(Config, "Loading global config from: {}", configPath.string());
 
             if (std::ifstream in{configPath}; in.good()) {
                 json gj;
@@ -393,13 +376,12 @@ bool EmulatorSettingsImpl::Load(const std::string& serial) {
                 };
 
                 mergeGroup(m_general, "General");
+                mergeGroup(m_log, "Log");
                 mergeGroup(m_debug, "Debug");
                 mergeGroup(m_input, "Input");
                 mergeGroup(m_audio, "Audio");
                 mergeGroup(m_gpu, "GPU");
                 mergeGroup(m_vulkan, "Vulkan");
-
-                LOG_DEBUG(Config, "Global config loaded successfully");
             } else {
                 if (std::filesystem::exists(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
                                             "config.toml")) {
@@ -433,7 +415,6 @@ bool EmulatorSettingsImpl::Load(const std::string& serial) {
                         }
                     }
                 }
-                LOG_DEBUG(Config, "Global config not found - using defaults");
                 SetDefaultValues();
                 Save();
             }
@@ -449,16 +430,13 @@ bool EmulatorSettingsImpl::Load(const std::string& serial) {
             // base configuration.
             const auto gamePath =
                 Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (serial + ".json");
-            LOG_DEBUG(Config, "Applying game config: {}", gamePath.string());
 
             if (!std::filesystem::exists(gamePath)) {
-                LOG_DEBUG(Config, "No game-specific config found for {}", serial);
                 return false;
             }
 
             std::ifstream in(gamePath);
             if (!in) {
-                LOG_ERROR(Config, "Failed to open game config: {}", gamePath.string());
                 return false;
             }
 
@@ -473,6 +451,8 @@ bool EmulatorSettingsImpl::Load(const std::string& serial) {
             // time without ever touching the base values.
             if (gj.contains("General"))
                 ApplyGroupOverrides(m_general, gj.at("General"), changed);
+            if (gj.contains("Log"))
+                ApplyGroupOverrides(m_log, gj.at("Log"), changed);
             if (gj.contains("Debug"))
                 ApplyGroupOverrides(m_debug, gj.at("Debug"), changed);
             if (gj.contains("Input"))
@@ -495,6 +475,7 @@ bool EmulatorSettingsImpl::Load(const std::string& serial) {
 
 void EmulatorSettingsImpl::SetDefaultValues() {
     m_general = GeneralSettings{};
+    m_log = LogSettings{};
     m_debug = DebugSettings{};
     m_input = InputSettings{};
     m_audio = AudioSettings{};
@@ -528,57 +509,53 @@ bool EmulatorSettingsImpl::TransferSettings() {
         setFromToml(s.trophy_popup_disabled, general, "isTrophyPopupDisabled");
         setFromToml(s.trophy_notification_duration, general, "trophyNotificationDuration");
         setFromToml(s.discord_rpc_enabled, general, "enableDiscordRPC");
-        setFromToml(s.log_filter, general, "logFilter");
-        setFromToml(s.log_type, general, "logType");
-        setFromToml(s.identical_log_grouped, general, "isIdenticalLogGrouped");
         setFromToml(s.show_splash, general, "showSplash");
         setFromToml(s.trophy_notification_side, general, "sideTrophy");
         setFromToml(s.connected_to_network, general, "isConnectedToNetwork");
         setFromToml(s.sys_modules_dir, general, "sysModulesPath");
         setFromToml(s.font_dir, general, "fontsPath");
+        // setFromToml(, general, "userName");
+        // setFromToml(s.defaultControllerID, general, "defaultControllerID");
+    }
 
-        // Additional settings from config.cpp
-        setFromToml(s.enable_auto_backup, general, "enableAutoBackup");
-        setFromToml(s.restart_with_base_game, general, "restartWithBaseGame");
-        setFromToml(s.separate_update_enabled, general, "separateUpdateEnabled");
-        setFromToml(s.screen_tip_disable, general, "screenTipDisable");
-        setFromToml(s.mute_enabled, general, "muteEnabled");
-        setFromToml(s.play_bgm, general, "playBGM");
-        if (auto opt = toml::get_optional<int>(general, "BGMvolume")) {
-            s.bgm_volume.value = *opt;
-        }
-        setFromToml(s.pause_on_unfocus, general, "pauseOnUnfocus");
-        setFromToml(s.disable_hardcoded_hotkeys, general, "DisableHardcodedHotkeys");
-        setFromToml(s.use_home_button_for_hotkeys, general, "UseHomeButtonForHotkeys");
-        setFromToml(s.enable_mods, general, "enableMods");
-        setFromToml(s.enable_updates, general, "enableUpdates");
-        setFromToml(s.http_host_override, general, "httpHostOverride");
-        setFromToml(s.cpu_core_mode, general, "cpuCoreMode");
-        if (auto opt = toml::get_optional<std::vector<int>>(general, "customCpuCores")) {
-            s.custom_cpu_cores.value = *opt;
-        }
+    if (og_data.contains("Log")) {
+        const toml::value& log = og_data.at("Log");
+        auto& s = m_log;
 
-        // Array settings
-        if (auto opt = toml::get_optional<std::array<std::string, 4>>(general, "userNames")) {
-            s.user_names.value = *opt;
-        }
-        if (auto opt = toml::get_optional<std::array<bool, 4>>(general, "playerEnabledStates")) {
-            s.player_enabled_states.value = *opt;
-        }
+        setFromToml(s.append, log, "append");
+        setFromToml(s.enable, log, "enable");
+        setFromToml(s.filter, log, "filter");
+        setFromToml(s.max_skip_duration, log, "maxSkipDuration");
+        setFromToml(s.separate, log, "separate");
+        setFromToml(s.size_limit, log, "sizeLimit");
+        setFromToml(s.skip_duplicate, log, "skipDuplicate");
+        setFromToml(s.sync, log, "sync");
+#ifdef _WIN32
+        setFromToml(s.type, log, "type");
+#endif
+    }
 
-        // String settings
-        if (auto opt = toml::get_optional<std::string>(general, "updateChannel")) {
-            s.update_channel.value = *opt;
-        }
+    if (og_data.contains("General")) {
+        const toml::value& general = og_data.at("General");
+        auto& s = m_log;
 
-        // Additional missing settings
-        setFromToml(s.compatibility_enabled, general, "compatibilityEnabled");
-        setFromToml(s.check_compatibility_on_startup, general, "checkCompatibilityOnStartup");
-        setFromToml(s.first_boot_handled, general, "firstBootHandled");
-        setFromToml(s.choose_home_tab, general, "chooseHomeTab");
-        setFromToml(s.auto_update, general, "autoUpdate");
-        setFromToml(s.show_welcome_dialog, general, "showWelcomeDialog");
-        setFromToml(s.always_show_changelog, general, "alwaysShowChangelog");
+        setFromToml(s.filter, general, "logFilter");
+        setFromToml(s.skip_duplicate, general, "isIdenticalLogGrouped");
+        Setting<std::string> logType("sync");
+        setFromToml(logType, general, "logType");
+        if (logType.get() == "sync") {
+            s.sync = true;
+        } else {
+            s.sync = false;
+        }
+    }
+
+    if (og_data.contains("Debug")) {
+        const toml::value& debug = og_data.at("Debug");
+        auto& s = m_log;
+
+        setFromToml(s.enable, debug, "logEnabled");
+        setFromToml(s.separate, debug, "isSeparateLogFilesEnabled");
     }
 
     if (og_data.contains("Input")) {
@@ -595,8 +572,6 @@ bool EmulatorSettingsImpl::TransferSettings() {
         setFromToml(s.ime_accessibility_enabled, input, "imeAccessibilityEnabled");
         setFromToml(s.ime_url_mail_short_panel, input, "imeUrlMailShortPanel");
         setFromToml(s.usb_device_backend, input, "usbDeviceBackend");
-        setFromToml(s.camera_id, input, "cameraId");
-        setFromToml(s.default_controller_id, input, "defaultControllerID");
     }
 
     if (og_data.contains("Audio")) {
@@ -606,10 +581,6 @@ bool EmulatorSettingsImpl::TransferSettings() {
         setFromToml(s.sdl_mic_device, audio, "micDevice");
         setFromToml(s.sdl_main_output_device, audio, "mainOutputDevice");
         setFromToml(s.sdl_padSpk_output_device, audio, "padSpkOutputDevice");
-        setFromToml(s.openal_mic_device, audio, "openalMicDevice");
-        setFromToml(s.openal_main_output_device, audio, "openalMainOutputDevice");
-        setFromToml(s.openal_padSpk_output_device, audio, "openalPadSpkOutputDevice");
-        setFromToml(s.audio_backend, audio, "audioBackend");
     }
 
     if (og_data.contains("GPU")) {
@@ -659,19 +630,13 @@ bool EmulatorSettingsImpl::TransferSettings() {
         auto& s = m_debug;
 
         setFromToml(s.debug_dump, debug, "DebugDump");
-        setFromToml(s.separate_logging_enabled, debug, "isSeparateLogFilesEnabled");
         setFromToml(s.shader_collect, debug, "CollectShader");
-        setFromToml(s.shader_debug, debug, "isShaderDebug");
-        setFromToml(s.shader_skips_enabled, debug, "shaderSkipsEnabled");
-        setFromToml(s.fps_color_state, debug, "fpsColorState");
-        setFromToml(s.log_enabled, debug, "logEnabled");
         setFromToml(m_general.show_fps_counter, debug, "showFpsCounter");
     }
 
     if (og_data.contains("Settings")) {
         const toml::value& settings = og_data.at("Settings");
         auto& s = m_general;
-
         setFromToml(s.console_language, settings, "consoleLanguage");
     }
 
@@ -768,6 +733,7 @@ std::vector<std::string> EmulatorSettingsImpl::GetAllOverrideableKeys() const {
             keys.push_back(item.key);
     };
     addGroup(m_general.GetOverrideableFields());
+    addGroup(m_log.GetOverrideableFields());
     addGroup(m_debug.GetOverrideableFields());
     addGroup(m_input.GetOverrideableFields());
     addGroup(m_audio.GetOverrideableFields());

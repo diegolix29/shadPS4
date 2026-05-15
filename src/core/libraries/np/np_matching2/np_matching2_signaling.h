@@ -4,7 +4,7 @@
 #pragma once
 
 #include "common/types.h"
-#include "core/libraries/np/np_matching2.h"
+#include "core/libraries/np/np_matching2/np_matching2.h"
 
 namespace Libraries::Np::NpMatching2 {
 

@@ -9,7 +9,6 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <string_view>
 #include <thread>
 
 #include "common/logging/log.h"
@@ -17,9 +16,9 @@
 #include "core/libraries/network/sockets.h"
 #include "core/libraries/np/np_error.h"
 #include "core/libraries/np/np_matching2/np_matching2_internal.h"
+#include "core/libraries/np/np_matching2/np_matching2_mm.h"
 #include "core/libraries/np/np_matching2/np_matching2_signaling.h"
 #include "core/libraries/np/np_signaling/np_signaling_stubs.h"
-#include "core/libraries/np/np_types2.h"
 
 namespace Libraries::Np::NpMatching2 {
 
@@ -103,7 +102,8 @@ bool ResolvePeerEndpoint(const MemberCache& member, PeerInfo& peer) {
         peer.addr = member.addr;
         peer.port = member.port;
         if (peer.online_id.data[0] == 0) {
-            peer.online_id = member.np_id.handle;
+            std::strncpy(peer.online_id.data, member.np_id.handle.data,
+                         sizeof(peer.online_id.data) - 1);
         }
         return true;
     }
@@ -111,12 +111,13 @@ bool ResolvePeerEndpoint(const MemberCache& member, PeerInfo& peer) {
     const std::string online_id(member.np_id.handle.data);
     u32 resolved_addr = 0;
     u16 resolved_port = 0;
-    if (!online_id.empty() && NpSignaling::Stubs::ResolvePeer(online_id, &resolved_addr, &resolved_port)) {
+    if (!online_id.empty() && RequestSignalingInfos(online_id, &resolved_addr, &resolved_port)) {
         peer.addr = resolved_addr;
         peer.port = resolved_port;
     }
     if (peer.online_id.data[0] == 0) {
-        peer.online_id = member.np_id.handle;
+        std::strncpy(peer.online_id.data, member.np_id.handle.data,
+                     sizeof(peer.online_id.data) - 1);
     }
     return peer.addr != 0 && peer.port != 0;
 }
@@ -175,13 +176,13 @@ bool SendMatching2Handshake(ContextObject& ctx, OrbisNpMatching2RoomId room_id,
     pkt.from_member_id = ctx.my_member_id;
     pkt.to_member_id = member_id;
     std::memcpy(pkt.online_id_from, ctx.online_id.data, ORBIS_NP_ONLINEID_MAX_LENGTH);
-    pkt.mapped_addr = NpSignaling::Stubs::AdvertisedAddr();
-    pkt.mapped_port = NpSignaling::Stubs::ConfiguredPort() != 0
-                          ? Libraries::Net::sceNetHtons(NpSignaling::Stubs::ConfiguredPort())
+    pkt.mapped_addr = Net::GetP2PAdvertisedAddr();
+    pkt.mapped_port = Net::GetP2PConfiguredPort() != 0
+                          ? Libraries::Net::sceNetHtons(Net::GetP2PConfiguredPort())
                           : 0;
     pkt.nonce = nonce;
 
-    const int rc = Libraries::Net::P2PMatching2SendTo(&pkt, sizeof(pkt), peer.addr, peer.port);
+    const int rc = Net::P2PMatching2SendTo(&pkt, sizeof(pkt), peer.addr, peer.port);
     const auto now = std::chrono::steady_clock::now();
     peer.last_send = now;
     if (kind == Matching2HandshakeKind::Check) {
@@ -232,8 +233,8 @@ void HandleMatching2HandshakePacket(u32 from_addr, u16 from_port,
 
     PeerInfo& peer = ctx->peers[member_id];
     peer.member_id = member_id;
-    peer.addr = from_addr != 0 ? from_addr : pkt.mapped_addr;
-    peer.port = from_port != 0 ? from_port : pkt.mapped_port;
+    peer.addr = pkt.mapped_addr != 0 ? pkt.mapped_addr : from_addr;
+    peer.port = pkt.mapped_port != 0 ? pkt.mapped_port : from_port;
     peer.status =
         peer.status == kMatching2ConnActive ? kMatching2ConnActive : kMatching2ConnPending;
     peer.handshake_started = true;
@@ -277,7 +278,7 @@ void Matching2HandshakeThreadMain() {
         Matching2HandshakePacket pkt{};
         u32 from_addr = 0;
         u16 from_port = 0;
-        const int rc = Libraries::Net::P2PMatching2RecvFrom(&pkt, sizeof(pkt), &from_addr, &from_port);
+        const int rc = Net::P2PMatching2RecvFrom(&pkt, sizeof(pkt), &from_addr, &from_port);
         if (rc == sizeof(pkt)) {
             HandleMatching2HandshakePacket(from_addr, from_port, pkt);
         }
@@ -309,7 +310,7 @@ void Matching2HandshakeThreadMain() {
                     now - peer.last_send > kMatching2HandshakeTimeout) {
                     peer.status = kMatching2ConnInactive;
                     QueueMatching2SignalingEvent(*ctx, ctx->room_id, member_id,
-                                                 ORBIS_NP_MATCHING2_SIGNALING_EVENT_DEAD,
+                                                 ORBIS_NP_MATCHING2_SIGNALING_EVENT_NETINFO_ERROR,
                                                  ORBIS_NP_MATCHING2_SIGNALING_ERROR_TIMEOUT);
                     continue;
                 }
@@ -333,9 +334,6 @@ void Matching2HandshakeThreadMain() {
 } // namespace
 
 bool SendMatching2StunPing(const ContextObject& ctx) {
-    if (!NpSignaling::Stubs::Matching2Enabled()) {
-        return false;
-    }
     if (!ctx.started || ctx.online_id.data[0] == '\0') {
         return false;
     }
@@ -389,7 +387,7 @@ void StartMatching2PeerHandshake(ContextObject& ctx, OrbisNpMatching2RoomId room
         return;
     }
 
-    Libraries::Net::EnsureP2PTransport();
+    Net::EnsureP2PTransport();
 
     PeerInfo& peer = ctx.peers[member_id];
     peer.member_id = member_id;
@@ -487,8 +485,7 @@ u32 GetRoomPingUs(const ContextObject& ctx, OrbisNpMatching2RoomId roomId) {
 }
 
 void* BuildSignalingGetPingInfoPayload(ContextObject& ctx, OrbisNpMatching2RoomId roomId) {
-    CallbackPayload& p =
-        ctx.request_payload_override ? *ctx.request_payload_override : ctx.request_payload;
+    CallbackPayload& p = ctx.request_payload;
     p.Reset();
 
     const auto room_it = ctx.room_cache.find(roomId);
