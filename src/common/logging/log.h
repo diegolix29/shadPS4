@@ -31,7 +31,6 @@ void FmtLogMessage(Class log_class, Level log_level, const char* filename, unsig
     FmtLogMessageImpl(log_class, log_level, filename, line_num, function, format,
                       fmt::make_format_args(args...));
 }
-
 } // namespace Common::Log
 
 // Define the fmt lib macros

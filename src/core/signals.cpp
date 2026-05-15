@@ -61,8 +61,6 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     }
 
     LOG_CRITICAL(Debug, "Unhandled Exception code {:#x} at {}", code, address);
-    Common::Log::Flush();
-
     return EXCEPTION_CONTINUE_SEARCH;
 }
 

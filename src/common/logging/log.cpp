@@ -8,7 +8,6 @@
 #include "common/assert.h"
 #include "common/config.h"
 #include "common/logging/log.h"
-#include "common/logging/thread_name_formatter.h"
 #include "common/types.h"
 #include "core/emulator_settings.h"
 #ifdef _WIN32
