@@ -20,8 +20,6 @@ constexpr int ORBIS_PAD_PORT_TYPE_STANDARD = 0;
 constexpr int ORBIS_PAD_PORT_TYPE_SPECIAL = 2;
 constexpr int ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL = 16;
 
-constexpr int ORBIS_PAD_CONNECTION_TYPE_LOCAL = 0;
-
 enum class OrbisPadDeviceClass {
     Invalid = -1,
     Standard = 0,
