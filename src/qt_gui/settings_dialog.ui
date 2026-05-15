@@ -2168,6 +2168,13 @@
 																	</property>
 																</widget>
 															</item>
+															<item>
+																<widget class="QCheckBox" name="xCircleButtonSwapCheckBox">
+																	<property name="text">
+																		<string>Swap X/Circle Buttons (Xbox Layout)</string>
+																	</property>
+																</widget>
+															</item>
 														</layout>
 													</widget>
 												</item>

@@ -218,6 +218,9 @@ void setBackgroundControllerInput(bool enable);
 bool getKeyboardBindingsDisabled();
 void setKeyboardBindingsDisabled(bool disable);
 
+bool getXCircleButtonSwap();
+void setXCircleButtonSwap(bool swap);
+
 bool isPlayerEnabled(int player_id);
 void setPlayerEnabled(int player_id, bool enabled);
 std::array<bool, 4> getPlayerEnabledStates();

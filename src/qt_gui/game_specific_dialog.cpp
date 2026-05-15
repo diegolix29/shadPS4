@@ -479,6 +479,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
 
     ui->backgroundControllerCheckBox->setChecked(Config::getBackgroundControllerInput());
     ui->disableKeyboardBindingsCheckBox->setChecked(Config::getKeyboardBindingsDisabled());
+    ui->xCircleButtonSwapCheckBox->setChecked(Config::getXCircleButtonSwap());
     ui->idleTimeoutSpinBox->setValue(Config::getCursorHideTimeout());
     int idx = Config::getCursorState();
     if (idx >= 0 && idx < ui->hideCursorComboBox->count())
@@ -624,6 +625,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         if (in.contains("isKeyboardBindingsDisabled"))
             ui->disableKeyboardBindingsCheckBox->setChecked(
                 toml::find<bool>(in, "isKeyboardBindingsDisabled"));
+        if (in.contains("xCircleButtonSwap"))
+            ui->xCircleButtonSwapCheckBox->setChecked(toml::find<bool>(in, "xCircleButtonSwap"));
         if (in.contains("cursorHideTimeout"))
             ui->idleTimeoutSpinBox->setValue(toml::find<int>(in, "cursorHideTimeout"));
         if (in.contains("cursorState"))
@@ -836,6 +839,9 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["extraDmemInMbytes"] = ui->MemorySpinBox->value();
 
     overrides["Input"]["backgroundControllerInput"] = ui->backgroundControllerCheckBox->isChecked();
+    overrides["Input"]["isKeyboardBindingsDisabled"] =
+        ui->disableKeyboardBindingsCheckBox->isChecked();
+    overrides["Input"]["xCircleButtonSwap"] = ui->xCircleButtonSwapCheckBox->isChecked();
     overrides["Input"]["cursorHideTimeout"] = ui->idleTimeoutSpinBox->value();
     overrides["Input"]["cursorState"] = ui->hideCursorComboBox->currentIndex();
     overrides["Input"]["isMotionControlsEnabled"] = ui->motionControlsCheckBox->isChecked();

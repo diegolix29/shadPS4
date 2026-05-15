@@ -950,6 +950,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->idleTimeoutGroupBox->installEventFilter(this);
         ui->backgroundControllerCheckBox->installEventFilter(this);
         ui->disableKeyboardBindingsCheckBox->installEventFilter(this);
+        ui->xCircleButtonSwapCheckBox->installEventFilter(this);
         ui->motionControlsCheckBox->installEventFilter(this);
         ui->micComboBox->installEventFilter(this);
 
@@ -1135,6 +1136,8 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "Input", "backgroundControllerInput", false));
     ui->disableKeyboardBindingsCheckBox->setChecked(
         toml::find_or<bool>(data, "Input", "isKeyboardBindingsDisabled", false));
+    ui->xCircleButtonSwapCheckBox->setChecked(
+        toml::find_or<bool>(data, "Input", "xCircleButtonSwap", false));
 
     QString micValue = QString::fromStdString(Config::getMicDevice());
     int micIndex = ui->micComboBox->findData(micValue);
@@ -1639,6 +1642,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setIsMotionControlsEnabled(ui->motionControlsCheckBox->isChecked());
     Config::setBackgroundControllerInput(ui->backgroundControllerCheckBox->isChecked());
     Config::setKeyboardBindingsDisabled(ui->disableKeyboardBindingsCheckBox->isChecked());
+    Config::setXCircleButtonSwap(ui->xCircleButtonSwapCheckBox->isChecked());
     Config::setisTrophyPopupDisabled(ui->disableTrophycheckBox->isChecked());
     Config::setTrophyNotificationDuration(ui->popUpDurationSpinBox->value());
 

@@ -221,6 +221,7 @@ static ConfigEntry<std::string> defaultControllerID("");
 static ConfigEntry<std::string> activeControllerID("");
 static ConfigEntry<bool> backgroundControllerInput(false);
 static ConfigEntry<bool> isKeyboardBindingsDisabled(false);
+static ConfigEntry<bool> xCircleButtonSwap(false);
 static ConfigEntry<bool> useSpecialPads[4] = {false, false, false, false};
 static ConfigEntry<int> specialPadClasses[4] = {1, 1, 1, 1};
 static ConfigEntry<string> mainOutputDevice("Default Device");
@@ -1557,6 +1558,14 @@ void setKeyboardBindingsDisabled(bool disable) {
     isKeyboardBindingsDisabled.set(disable, is_game_specific_context);
 }
 
+bool getXCircleButtonSwap() {
+    return xCircleButtonSwap.get();
+}
+
+void setXCircleButtonSwap(bool swap) {
+    xCircleButtonSwap.set(swap, is_game_specific_context);
+}
+
 void load(const std::filesystem::path& path, bool is_game_specific) {
     // If the configuration file does not exist, create it and return, unless it is game specific
     std::error_code error;
@@ -1685,6 +1694,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         backgroundControllerInput.setFromToml(input, "backgroundControllerInput", is_game_specific);
         isKeyboardBindingsDisabled.setFromToml(input, "isKeyboardBindingsDisabled",
                                                is_game_specific);
+        xCircleButtonSwap.setFromToml(input, "xCircleButtonSwap", is_game_specific);
         usbDeviceBackend.setFromToml(input, "usbDeviceBackend", is_game_specific);
     }
 
@@ -2091,6 +2101,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["Input"]["isKeyboardBindingsDisabled"] =
             isKeyboardBindingsDisabled.game_specific_value.value_or(
                 isKeyboardBindingsDisabled.base_value);
+        data["Input"]["xCircleButtonSwap"] =
+            xCircleButtonSwap.game_specific_value.value_or(xCircleButtonSwap.base_value);
         data["Input"]["usbDeviceBackend"] =
             usbDeviceBackend.game_specific_value.value_or(usbDeviceBackend.base_value);
     } else {
@@ -2100,6 +2112,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
         data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
         data["Input"]["isKeyboardBindingsDisabled"] = isKeyboardBindingsDisabled.base_value;
+        data["Input"]["xCircleButtonSwap"] = xCircleButtonSwap.base_value;
         data["Input"]["usbDeviceBackend"] = usbDeviceBackend.base_value;
     }
     for (int p = 1; p <= 4; p++) {
