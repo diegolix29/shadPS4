@@ -46,8 +46,9 @@ void NotificationsUI::Draw() {
     float wrapWidth = 0.0f; // No wrapping for straight line layout
     float textHeight =
         ImGui::CalcTextSize(currentInfo.message.c_str(), nullptr, false, wrapWidth).y;
-    ImVec2 window_size{std::max({350 * AdjustWidth, (textHeight + 70 * AdjustWidth + padding.x * 2.0f)}),
-                       std::max({70 * AdjustHeight, (textHeight + padding.y * 2.0f)})};
+    ImVec2 window_size{
+        std::max({350 * AdjustWidth, (textHeight + 70 * AdjustWidth + padding.x * 2.0f)}),
+        std::max({70 * AdjustHeight, (textHeight + padding.y * 2.0f)})};
 
     elapsed_time += io.DeltaTime;
     float progress = std::min(elapsed_time / animation_duration, 1.0f);

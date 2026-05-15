@@ -1786,7 +1786,8 @@ void SettingsDialog::UpdateSettings() {
         chooseHomeTabMap.value(ui->chooseHomeTabComboBox->currentText()).toStdString());
     Config::setCompatibilityEnabled(ui->enableCompatibilityCheckBox->isChecked());
     Config::setCheckCompatibilityOnStartup(ui->checkCompatibilityOnStartupCheckBox->isChecked());
-    Config::setScreenshotNotificationsEnabled(ui->enableScreenshotNotificationsCheckBox->isChecked());
+    Config::setScreenshotNotificationsEnabled(
+        ui->enableScreenshotNotificationsCheckBox->isChecked());
     Config::setBackgroundImageOpacity(ui->backgroundImageOpacitySlider->value());
     emit BackgroundOpacityChanged(ui->backgroundImageOpacitySlider->value());
     Config::setShowBackgroundImage(ui->showBackgroundImageCheckBox->isChecked());

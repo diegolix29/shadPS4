@@ -27,11 +27,11 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
-#include <fstream>
 #include <csetjmp>
 #include <cstring>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <limits>
 #include <memory>
@@ -462,8 +462,9 @@ static void SavePendingScreenshots(const std::vector<ScreenshotReadback>& readba
                 imgdata = std::vector<u8>(std::istreambuf_iterator<char>(file),
                                           std::istreambuf_iterator<char>());
             }
-            shadNotifications::QueueNotification("Saved screenshot:\n" + primary_path.string(), 3.0f,
-                                                 shadNotifications::position::BottomRight, imgdata);
+            shadNotifications::QueueNotification("Saved screenshot:\n" + primary_path.string(),
+                                                 3.0f, shadNotifications::position::BottomRight,
+                                                 imgdata);
         }
 
         for (size_t i = 1; i < readback.paths.size(); ++i) {
@@ -488,7 +489,8 @@ static void SavePendingScreenshots(const std::vector<ScreenshotReadback>& readba
                                               std::istreambuf_iterator<char>());
                 }
                 shadNotifications::QueueNotification("Saved screenshot:\n" + path.string(), 3.0f,
-                                                     shadNotifications::position::BottomRight, imgdata);
+                                                     shadNotifications::position::BottomRight,
+                                                     imgdata);
             }
         }
     }
