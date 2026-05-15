@@ -200,6 +200,10 @@ static void RunThread(void* arg) {
     Common::SetCurrentThreadName(curthread->name.c_str());
     DebugState.AddCurrentThreadToGuestList();
 
+#ifdef WIN32
+    std::set_terminate(Common::Log::Terminate);
+#endif
+
     /* Run the current thread's start routine with argument: */
     curthread->native_thr.Initialize();
     void* ret = Core::ExecuteGuest(curthread->start_routine, curthread->arg);
