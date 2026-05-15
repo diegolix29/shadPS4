@@ -448,22 +448,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
     ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
     ui->shadnetCheckBox->setChecked(Config::IsShadNetEnabled());
-    
-    // Load HTTP host overrides into table
-    auto httpOverrides = Config::GetHttpHostOverride();
-    ui->httpHostOverrideTable->setRowCount(0);
-    for (const auto& [pattern, replacement] : httpOverrides) {
-        int row = ui->httpHostOverrideTable->rowCount();
-        ui->httpHostOverrideTable->insertRow(row);
-        ui->httpHostOverrideTable->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(pattern)));
-        ui->httpHostOverrideTable->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(replacement)));
-    }
-
-    // App0 storage settings
-    ui->app0BandwidthSpinBox->setValue(Config::getApp0ReadBandwidthMibps());
-    ui->app0DisableTimeStretchingCheckBox->setChecked(Config::getApp0ReadDisableTimeStretching());
-    ui->app0UnlimitedSequentialReadSpeedCheckBox->setChecked(
-        Config::getApp0ReadUnlimitedSequentialReadSpeed());
+    ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
     ui->disableTrophycheckBox->setChecked(Config::getisTrophyPopupDisabled());
     ui->logFilterLineEdit->setText(QString::fromStdString(Config::getLogFilter()));
     ui->logTypeComboBox->setCurrentText(QString::fromStdString(Config::getLogType()));
@@ -482,21 +467,6 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         QString userPath;
         Common::FS::PathToQString(userPath, Common::FS::GetUserPath(Common::FS::PathType::LogDir));
         QDesktopServices::openUrl(QUrl::fromLocalFile(userPath));
-    });
-
-    connect(ui->addHttpHostOverrideBtn, &QPushButton::clicked, this, [this]() {
-        int row = ui->httpHostOverrideTable->rowCount();
-        ui->httpHostOverrideTable->insertRow(row);
-        ui->httpHostOverrideTable->setItem(row, 0, new QTableWidgetItem());
-        ui->httpHostOverrideTable->setItem(row, 1, new QTableWidgetItem());
-        ui->httpHostOverrideTable->editItem(ui->httpHostOverrideTable->item(row, 0));
-    });
-
-    connect(ui->removeHttpHostOverrideBtn, &QPushButton::clicked, this, [this]() {
-        int currentRow = ui->httpHostOverrideTable->currentRow();
-        if (currentRow >= 0) {
-            ui->httpHostOverrideTable->removeRow(currentRow);
-        }
     });
 
     ui->hideCursorComboBox->clear();
@@ -612,6 +582,9 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->isNeoModeCheckBox->setChecked(toml::find<bool>(gen, "isPS4Pro"));
         if (gen.contains("isShadNetEnabled"))
             ui->shadnetCheckBox->setChecked(toml::find<bool>(gen, "isShadNetEnabled"));
+        if (gen.contains("httpHostOverride"))
+            ui->httpHostOverrideLineEdit->setText(
+                QString::fromStdString(toml::find<std::string>(gen, "httpHostOverride")));
         if (gen.contains("isTrophyPopupDisabled"))
             ui->disableTrophycheckBox->setChecked(toml::find<bool>(gen, "isTrophyPopupDisabled"));
         if (gen.contains("logFilter"))
@@ -624,15 +597,6 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->screenTipBox->setChecked(toml::find<bool>(gen, "screenTipDisable"));
         if (gen.contains("showSplash"))
             ui->showSplashCheckBox->setChecked(toml::find<bool>(gen, "showSplash"));
-        // App0 storage settings
-        if (gen.contains("app0_read_bandwidth_mibps"))
-            ui->app0BandwidthSpinBox->setValue(toml::find<int>(gen, "app0_read_bandwidth_mibps"));
-        if (gen.contains("app0_read_disable_time_stretching"))
-            ui->app0DisableTimeStretchingCheckBox->setChecked(
-                toml::find<bool>(gen, "app0_read_disable_time_stretching"));
-        if (gen.contains("app0_read_unlimited_sequential_read_speed"))
-            ui->app0UnlimitedSequentialReadSpeedCheckBox->setChecked(
-                toml::find<bool>(gen, "app0_read_unlimited_sequential_read_speed"));
         if (gen.contains("sideTrophy")) {
             QString side = QString::fromStdString(toml::find<std::string>(gen, "sideTrophy"));
             ui->radioButton_Left->setChecked(side == "left");
@@ -851,18 +815,7 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["isDevKit"] = ui->isDevKitCheckBox->isChecked();
     overrides["General"]["isPS4Pro"] = ui->isNeoModeCheckBox->isChecked();
     overrides["General"]["isShadNetEnabled"] = ui->shadnetCheckBox->isChecked();
-    
-    // Save HTTP host overrides from table
-    std::map<std::string, std::string> httpOverrides;
-    for (int row = 0; row < ui->httpHostOverrideTable->rowCount(); ++row) {
-        QTableWidgetItem* patternItem = ui->httpHostOverrideTable->item(row, 0);
-        QTableWidgetItem* replacementItem = ui->httpHostOverrideTable->item(row, 1);
-        if (patternItem && replacementItem && !patternItem->text().isEmpty() && !replacementItem->text().isEmpty()) {
-            httpOverrides[patternItem->text().toStdString()] = replacementItem->text().toStdString();
-        }
-    }
-    Config::SetHttpHostOverride(httpOverrides);
-    
+    overrides["General"]["httpHostOverride"] = ui->httpHostOverrideLineEdit->text().toStdString();
     overrides["General"]["isTrophyPopupDisabled"] = ui->disableTrophycheckBox->isChecked();
     overrides["General"]["logFilter"] = ui->logFilterLineEdit->text().toStdString();
     overrides["General"]["logType"] =
@@ -884,13 +837,6 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["enableMods"] = ui->enableModsCheckBox->isChecked();
     overrides["General"]["enableUpdates"] = ui->enableUpdatesCheckBox->isChecked();
     overrides["General"]["extraDmemInMbytes"] = ui->MemorySpinBox->value();
-
-    // App0 storage settings
-    overrides["General"]["app0_read_bandwidth_mibps"] = ui->app0BandwidthSpinBox->value();
-    overrides["General"]["app0_read_disable_time_stretching"] =
-        ui->app0DisableTimeStretchingCheckBox->isChecked();
-    overrides["General"]["app0_read_unlimited_sequential_read_speed"] =
-        ui->app0UnlimitedSequentialReadSpeedCheckBox->isChecked();
 
     overrides["Input"]["backgroundControllerInput"] = ui->backgroundControllerCheckBox->isChecked();
     overrides["Input"]["isKeyboardBindingsDisabled"] =

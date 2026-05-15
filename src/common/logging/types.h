@@ -106,8 +106,7 @@ enum class Class : u8 {
     Lib_SharePlay,           ///< The LibSceSharePlay implemenation
     Lib_Fiber,               ///< The LibSceFiber implementation.
     Lib_Vdec2,               ///< The LibSceVideodec2 implementation.
-    Lib_Videodec,            ///< The LibSceVideoRecording implementation.
-    Lib_VideoRecording,      ///< The LibSceVideodec implementation.
+    Lib_Videodec,            ///< The LibSceVideodec implementation.
     Lib_Voice,               ///< The LibSceVoice implementation.
     Lib_RazorCpu,            ///< The LibRazorCpu implementation.
     Lib_Mouse,               ///< The LibSceMouse implementation
@@ -134,8 +133,9 @@ enum class Class : u8 {
     Input,                   ///< Input emulation
     Tty,                     ///< Debug output from emu
     IPC,
-    ShadNet,
-    Count ///< Total number of logging classes
+    NpHandler, ///< NpHandler shadNet manager
+    ShadNet,   ///< shadNet binary protocol client
+    Count      ///< Total number of logging classes
 };
 
 } // namespace Common::Log
