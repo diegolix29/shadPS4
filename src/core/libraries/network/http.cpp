@@ -476,7 +476,7 @@ int PS4_SYSV_ABI sceHttpGetResponseContentLength(u32 req_id, u64* out_content_le
 
 int PS4_SYSV_ABI sceHttpGetStatusCode(int reqId, int* statusCode) {
     LOG_INFO(Lib_Http, "(STUBBED) called reqId={}, statusCode={}", reqId,
-              reinterpret_cast<uintptr_t>(statusCode));
+             reinterpret_cast<uintptr_t>(statusCode));
 #if 0
     if (!g_isHttpInitialized)
         return ORBIS_HTTP_ERROR_BEFORE_INIT;
@@ -559,9 +559,10 @@ int PS4_SYSV_ABI sceHttpParseStatusLine(const char* statusLine, u64 lineLen, int
     LOG_INFO(Lib_Http,
              "called statusLine={}, lineLen={}, httpMajorVer={}, httpMinorVer={}, responseCode={}, "
              "reasonPhrase={}, phraseLen={}",
-             reinterpret_cast<uintptr_t>(statusLine), lineLen, reinterpret_cast<uintptr_t>(httpMajorVer),
-             reinterpret_cast<uintptr_t>(httpMinorVer), reinterpret_cast<uintptr_t>(responseCode),
-             reinterpret_cast<uintptr_t>(reasonPhrase), reinterpret_cast<uintptr_t>(phraseLen));
+             reinterpret_cast<uintptr_t>(statusLine), lineLen,
+             reinterpret_cast<uintptr_t>(httpMajorVer), reinterpret_cast<uintptr_t>(httpMinorVer),
+             reinterpret_cast<uintptr_t>(responseCode), reinterpret_cast<uintptr_t>(reasonPhrase),
+             reinterpret_cast<uintptr_t>(phraseLen));
 
     if (!statusLine) {
         LOG_ERROR(Lib_Http, "Invalid response: statusLine is null");
@@ -955,7 +956,7 @@ int PS4_SYSV_ABI sceHttpsFreeCaList(int libhttpCtxId, OrbisHttpsCaList* caList) 
 
 int PS4_SYSV_ABI sceHttpsGetCaList(int httpCtxId, OrbisHttpsCaList* list) {
     LOG_INFO(Lib_Http, "called httpCtxId={}, list={}", httpCtxId,
-              reinterpret_cast<uintptr_t>(list));
+             reinterpret_cast<uintptr_t>(list));
     LOG_ERROR(Lib_Http, "(DUMMY) returning empty CA list");
     list->certsNum = 0;
     return ORBIS_OK;
@@ -1021,7 +1022,8 @@ int PS4_SYSV_ABI sceHttpUnsetEpoll(int id) {
 int PS4_SYSV_ABI sceHttpWaitRequest(OrbisHttpEpollHandle eh, OrbisHttpNBEvent* nbev, int maxevents,
                                     int timeout) {
     LOG_ERROR(Lib_Http, "(STUBBED) called eh={}, nbev={}, maxevents={}, timeout={}",
-              reinterpret_cast<uintptr_t>(eh), reinterpret_cast<uintptr_t>(nbev), maxevents, timeout);
+              reinterpret_cast<uintptr_t>(eh), reinterpret_cast<uintptr_t>(nbev), maxevents,
+              timeout);
     return ORBIS_OK;
 }
 
@@ -1199,7 +1201,8 @@ int PS4_SYSV_ABI sceHttpUriMerge(char* mergedUrl, char* url, char* relativeUri, 
     LOG_TRACE(Lib_Http,
               "called mergedUrl={}, url={}, relativeUri={}, require={}, prepare={}, option={:#x}",
               reinterpret_cast<uintptr_t>(mergedUrl), url ? url : "(null)",
-              relativeUri ? relativeUri : "(null)", reinterpret_cast<uintptr_t>(require), prepare, option);
+              relativeUri ? relativeUri : "(null)", reinterpret_cast<uintptr_t>(require), prepare,
+              option);
 
     u64 requiredLength;
     int returnValue;
@@ -1570,8 +1573,8 @@ int PS4_SYSV_ABI sceHttpUriSweepPath(char* dst, const char* src, u64 srcSize) {
               src ? src : "(null)", srcSize);
 
     if (!dst || !src) {
-        LOG_ERROR(Lib_Http, "Invalid parameters: dst={}, src={}",
-                  reinterpret_cast<uintptr_t>(dst), reinterpret_cast<uintptr_t>(src));
+        LOG_ERROR(Lib_Http, "Invalid parameters: dst={}, src={}", reinterpret_cast<uintptr_t>(dst),
+                  reinterpret_cast<uintptr_t>(src));
         return ORBIS_HTTP_ERROR_INVALID_VALUE;
     }
 

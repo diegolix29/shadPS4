@@ -251,6 +251,9 @@ void ControllerOutput::LinkJoystickAxes() {
 static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
     using OPBDO = OrbisPadButtonDataOffset;
 
+    // Check if X/Circle button swap is enabled for Xbox controller layout
+    bool swap_x_circle = Config::getXCircleButtonSwap();
+
     switch (button) {
     case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
         return OPBDO::Down;
@@ -261,13 +264,13 @@ static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
     case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
         return OPBDO::Right;
     case SDL_GAMEPAD_BUTTON_SOUTH:
-        return OPBDO::Cross;
+        return swap_x_circle ? OPBDO::Circle : OPBDO::Cross;
     case SDL_GAMEPAD_BUTTON_NORTH:
         return OPBDO::Triangle;
     case SDL_GAMEPAD_BUTTON_WEST:
         return OPBDO::Square;
     case SDL_GAMEPAD_BUTTON_EAST:
-        return OPBDO::Circle;
+        return swap_x_circle ? OPBDO::Cross : OPBDO::Circle;
     case SDL_GAMEPAD_BUTTON_START:
         return OPBDO::Options;
     case SDL_GAMEPAD_BUTTON_TOUCHPAD:

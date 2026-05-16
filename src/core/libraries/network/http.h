@@ -435,10 +435,12 @@ int PS4_SYSV_ABI sceHttpCreateConnection(int tmplId, const char* serverName, con
 int PS4_SYSV_ABI sceHttpCreateConnectionWithURL(int tmplId, const char* url, bool enableKeepalive);
 int PS4_SYSV_ABI sceHttpCreateEpoll(int libhttpCtxId, OrbisHttpEpollHandle* eh);
 int PS4_SYSV_ABI sceHttpCreateRequest(int connId, int method, const char* path, u64 contentLength);
-int PS4_SYSV_ABI sceHttpCreateRequest2(int connId, const char* method, const char* path, u64 contentLength);
+int PS4_SYSV_ABI sceHttpCreateRequest2(int connId, const char* method, const char* path,
+                                       u64 contentLength);
 int PS4_SYSV_ABI sceHttpCreateRequestWithURL(s32 conn_id, s32 method, const char* url,
                                              u64 content_length);
-int PS4_SYSV_ABI sceHttpCreateRequestWithURL2(int connId, const char* method, const char* url, u64 contentLength);
+int PS4_SYSV_ABI sceHttpCreateRequestWithURL2(int connId, const char* method, const char* url,
+                                              u64 contentLength);
 int PS4_SYSV_ABI sceHttpCreateTemplate(s32 conn_id, const char* user_agent, s32 http_v, s32 flags);
 int PS4_SYSV_ABI sceHttpDbgEnableProfile();
 int PS4_SYSV_ABI sceHttpDbgGetConnectionStat();
