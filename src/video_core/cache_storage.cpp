@@ -144,7 +144,8 @@ bool WriteVector(const BlobType type, std::filesystem::path&& path_, std::vector
             path.replace_extension(GetBlobFileExtension(type));
             if (Config::isPipelineCacheArchived()) {
                 ASSERT_MSG(!ar_is_read_only,
-                           "The archive is read-only. Did you forget to call `FinishPreload`?");
+                           "Shader Cache invalid, please Delete Shader cache for this Title, Right "
+                           "click the game and Delete/Delete ShaderCache");
                 if (!mz_zip_writer_add_mem(&zip_ar, path.string().c_str(), v.data(),
                                            v.size() * sizeof(T), MZ_BEST_COMPRESSION)) {
                     LOG_ERROR(Render, "Failed to add {} to the archive", path.string().c_str());
