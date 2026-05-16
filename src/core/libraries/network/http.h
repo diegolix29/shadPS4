@@ -433,12 +433,12 @@ int PS4_SYSV_ABI sceHttpCookieImport(int libhttpCtxId, const void* buffer, u64 b
 int PS4_SYSV_ABI sceHttpCreateConnection(int tmplId, const char* serverName, const char* scheme,
                                          u16 port, int isEnableKeepalive);
 int PS4_SYSV_ABI sceHttpCreateConnectionWithURL(int tmplId, const char* url, bool enableKeepalive);
-int PS4_SYSV_ABI sceHttpCreateEpoll();
-int PS4_SYSV_ABI sceHttpCreateRequest();
-int PS4_SYSV_ABI sceHttpCreateRequest2();
+int PS4_SYSV_ABI sceHttpCreateEpoll(int libhttpCtxId, OrbisHttpEpollHandle* eh);
+int PS4_SYSV_ABI sceHttpCreateRequest(int connId, int method, const char* path, u64 contentLength);
+int PS4_SYSV_ABI sceHttpCreateRequest2(int connId, const char* method, const char* path, u64 contentLength);
 int PS4_SYSV_ABI sceHttpCreateRequestWithURL(s32 conn_id, s32 method, const char* url,
                                              u64 content_length);
-int PS4_SYSV_ABI sceHttpCreateRequestWithURL2();
+int PS4_SYSV_ABI sceHttpCreateRequestWithURL2(int connId, const char* method, const char* url, u64 contentLength);
 int PS4_SYSV_ABI sceHttpCreateTemplate(s32 conn_id, const char* user_agent, s32 http_v, s32 flags);
 int PS4_SYSV_ABI sceHttpDbgEnableProfile();
 int PS4_SYSV_ABI sceHttpDbgGetConnectionStat();
@@ -448,11 +448,11 @@ int PS4_SYSV_ABI sceHttpDbgShowConnectionStat();
 int PS4_SYSV_ABI sceHttpDbgShowMemoryPoolStat();
 int PS4_SYSV_ABI sceHttpDbgShowRequestStat();
 int PS4_SYSV_ABI sceHttpDbgShowStat();
-int PS4_SYSV_ABI sceHttpDeleteConnection();
+int PS4_SYSV_ABI sceHttpDeleteConnection(int connId);
 int PS4_SYSV_ABI sceHttpDeleteRequest(s32 req_id);
-int PS4_SYSV_ABI sceHttpDeleteTemplate();
-int PS4_SYSV_ABI sceHttpDestroyEpoll();
-int PS4_SYSV_ABI sceHttpGetAcceptEncodingGZIPEnabled();
+int PS4_SYSV_ABI sceHttpDeleteTemplate(int tmplId);
+int PS4_SYSV_ABI sceHttpDestroyEpoll(int libhttpCtxId, OrbisHttpEpollHandle eh);
+int PS4_SYSV_ABI sceHttpGetAcceptEncodingGZIPEnabled(int id, int* isEnable);
 int PS4_SYSV_ABI sceHttpGetAllResponseHeaders(int reqId, char** header, u64* headerSize);
 int PS4_SYSV_ABI sceHttpGetAuthEnabled(int id, int* isEnable);
 int PS4_SYSV_ABI sceHttpGetAutoRedirect(int id, int* isEnable);
@@ -477,13 +477,13 @@ int PS4_SYSV_ABI sceHttpParseStatusLine(const char* statusLine, u64 lineLen, int
                                         const char** reasonPhrase, u64* phraseLen);
 int PS4_SYSV_ABI sceHttpReadData(u32 req_id, char* dest, u32 size);
 int PS4_SYSV_ABI sceHttpRedirectCacheFlush();
-int PS4_SYSV_ABI sceHttpRemoveRequestHeader();
+int PS4_SYSV_ABI sceHttpRemoveRequestHeader(int id, const char* name);
 int PS4_SYSV_ABI sceHttpRequestGetAllHeaders();
-int PS4_SYSV_ABI sceHttpsDisableOption();
-int PS4_SYSV_ABI sceHttpsDisableOptionPrivate();
-int PS4_SYSV_ABI sceHttpsEnableOption(u32 options);
-int PS4_SYSV_ABI sceHttpsEnableOptionPrivate();
-int PS4_SYSV_ABI sceHttpSendRequest(int reqId, const void* postData, u64 size);
+int PS4_SYSV_ABI sceHttpsDisableOption(int id, u32 sslFlags);
+int PS4_SYSV_ABI sceHttpsDisableOptionPrivate(int id, u32 sslFlags);
+int PS4_SYSV_ABI sceHttpsEnableOption(int id, u32 sslFlags);
+int PS4_SYSV_ABI sceHttpsEnableOptionPrivate(int id, u32 sslFlags);
+int PS4_SYSV_ABI sceHttpSendRequest(int req_id, const void* post_data, u64 size);
 int PS4_SYSV_ABI sceHttpSetAcceptEncodingGZIPEnabled(int id, int isEnable);
 int PS4_SYSV_ABI sceHttpSetAuthEnabled(int id, int isEnable);
 int PS4_SYSV_ABI sceHttpSetAuthInfoCallback(int id, OrbisHttpAuthInfoCallback cbfunc,
@@ -504,8 +504,8 @@ int PS4_SYSV_ABI sceHttpSetDefaultAcceptEncodingGZIPEnabled(int libhttpCtxId, in
 int PS4_SYSV_ABI sceHttpSetDelayBuildRequestEnabled(int id, int isEnable);
 int PS4_SYSV_ABI sceHttpSetEpoll(int id, OrbisHttpEpollHandle eh, void* userArg);
 int PS4_SYSV_ABI sceHttpSetEpollId();
-int PS4_SYSV_ABI sceHttpSetHttp09Enabled();
-int PS4_SYSV_ABI sceHttpSetInflateGZIPEnabled();
+int PS4_SYSV_ABI sceHttpSetHttp09Enabled(int id, int isEnable);
+int PS4_SYSV_ABI sceHttpSetInflateGZIPEnabled(int id, int isEnable);
 int PS4_SYSV_ABI sceHttpSetNonblock(s32 tmpl_id, bool enable);
 int PS4_SYSV_ABI sceHttpSetPolicyOption();
 int PS4_SYSV_ABI sceHttpSetPriorityOption();
