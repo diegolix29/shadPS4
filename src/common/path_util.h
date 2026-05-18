@@ -34,6 +34,7 @@ enum class PathType {
     CustomAudios,   // Where custom audios are stored.
     FontsDir,       // Where dumped system fonts are stored.
     HomeDir,        // Where home directory is stored.
+    CustomModulesDir // Where custom modules are stored.
 };
 
 enum class PathInitState { Uninitialized, Portable, Global };
@@ -60,6 +61,7 @@ constexpr auto CACHE_DIR = "cache";
 constexpr auto AUDIO_DIR = "custom_audios";
 constexpr auto FONTS_DIR = "fonts";
 constexpr auto HOME_DIR = "home";
+constexpr auto CUSTOM_MODULES_DIR = "custom_modules";
 
 // Filenames
 constexpr auto LOG_FILE = "shad_log.txt";
