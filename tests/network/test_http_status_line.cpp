@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "common/types.h"
+#include "common/logging/types.h"
 #include "core/libraries/network/http.h"
 #include "core/libraries/network/http_error.h"
 

@@ -25,7 +25,6 @@ set(SETTINGS_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/logging/text_formatter.cpp
 
     # Stubs that replace dependencies
-    stubs/log_stub.cpp     
     stubs/scm_rev_stub.cpp
     stubs/sdl_stub.cpp
 
@@ -112,7 +111,6 @@ set(GCN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/ntapi.cpp
 
     # Stubs that replace dependencies
-    stubs/log_stub.cpp     
     stubs/resource_tracking_pass_stub.cpp
     stubs/scm_rev_stub.cpp
     stubs/config_stub.cpp
@@ -221,10 +219,8 @@ set(HTTP_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/assert.cpp
     ${CMAKE_SOURCE_DIR}/src/common/error.cpp
     ${CMAKE_SOURCE_DIR}/src/common/string_util.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/logging/log.cpp
 
     # Stubs that replace dependencies
-    stubs/common_stub.cpp
     stubs/scm_rev_stub.cpp
     stubs/sdl_stub.cpp
     stubs/loader_stub.cpp
@@ -242,9 +238,10 @@ list(APPEND TEST_TARGETS shadps4_http_test)
 target_include_directories(shadps4_http_test PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src/common/logging
 )
 target_compile_features(shadps4_http_test PRIVATE cxx_std_23)
-target_compile_definitions(shadps4_http_test PRIVATE BOOST_ASIO_STANDALONE)
+target_compile_definitions(shadps4_http_test PRIVATE BOOST_ASIO_STANDALONE DISABLE_LOGGING)
 
 target_link_libraries(shadps4_http_test PRIVATE
     GTest::gtest_main
@@ -253,7 +250,7 @@ target_link_libraries(shadps4_http_test PRIVATE
     nlohmann_json::nlohmann_json
     toml11::toml11
     SDL3::SDL3
-    spdlog::spdlog
+    Cpp_Httplib
 )
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
