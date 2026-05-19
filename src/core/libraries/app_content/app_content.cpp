@@ -5,8 +5,8 @@
 
 #include "app_content.h"
 #include "common/assert.h"
-#include "common/elf_info.h"
 #include "common/config.h"
+#include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "common/singleton.h"
 #include "core/file_format/psf.h"
