@@ -221,10 +221,8 @@ set(HTTP_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/assert.cpp
     ${CMAKE_SOURCE_DIR}/src/common/error.cpp
     ${CMAKE_SOURCE_DIR}/src/common/string_util.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/logging/log.cpp
 
     # Stubs that replace dependencies
-    stubs/common_stub.cpp
     stubs/scm_rev_stub.cpp
     stubs/sdl_stub.cpp
     stubs/loader_stub.cpp
@@ -253,7 +251,7 @@ target_link_libraries(shadps4_http_test PRIVATE
     nlohmann_json::nlohmann_json
     toml11::toml11
     SDL3::SDL3
-    spdlog::spdlog
+    Cpp_Httplib
 )
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
