@@ -13,4 +13,20 @@ bool dumpShaders() {
     return false;
 }
 
+std::string getLogFilter() {
+    return "";
+}
+
+bool getLoggingEnabled() {
+    return false;
+}
+
+bool groupIdenticalLogs() {
+    return false;
+}
+
+std::string getLogType() {
+    return "async";
+}
+
 } // namespace Config
