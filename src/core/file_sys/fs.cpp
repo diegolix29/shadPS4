@@ -69,13 +69,15 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
 
     const auto rel_path = std::string_view{corrected_path}.substr(mount->mount.size() + 1);
     std::filesystem::path host_path = mount->host_path / rel_path;
-
     // Compute overlay folders
-    std::filesystem::path update_path = mount->host_path;
-    update_path += "-UPDATE";
-    update_path /= rel_path;
     std::filesystem::path patch_path = mount->host_path;
-    patch_path += "-patch";
+    patch_path += "-UPDATE";
+
+    if (!std::filesystem::exists(patch_path)) {
+        patch_path = mount->host_path;
+        patch_path += "-patch";
+    }
+
     patch_path /= rel_path;
     std::filesystem::path mods_path;
 
@@ -87,14 +89,12 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
         mods_path /= rel_path;
     }
 
-    // Priority: MODS > PATCH > UPDATE > BASE
+    // Priority: MODS > PATCH/UPDATE > BASE
     if (!force_base_path && !ignore_game_patches) {
         if (enable_mods && std::filesystem::exists(mods_path))
             return mods_path;
         if (std::filesystem::exists(patch_path))
             return patch_path;
-        if (std::filesystem::exists(update_path))
-            return update_path;
     }
 
     if (!NeedsCaseInsensitiveSearch)
@@ -175,38 +175,45 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
 std::filesystem::path MntPoints::ConstructOverlayPath(const MntPair& mount,
                                                       const std::string_view& rel_path,
                                                       HostPathType path_type) {
+    std::filesystem::path host_path = mount.host_path;
+
+    // Update folder is either mount + "-UPDATE" or mount + "-patch"
+    std::filesystem::path patch_path = mount.host_path;
+    patch_path += "-UPDATE";
+
+    if (!std::filesystem::exists(patch_path)) {
+        patch_path = mount.host_path;
+        patch_path += "-patch";
+    }
+
+    // Mods folder
+    std::filesystem::path mods_path;
+
+    if (!manual_mods_path.empty()) {
+        mods_path = manual_mods_path;
+    } else {
+        mods_path = mount.host_path;
+        mods_path += "-MODS";
+    }
+
+    // Append relative path
+    host_path /= rel_path;
+    patch_path /= rel_path;
+    mods_path /= rel_path;
+
     switch (path_type) {
     case HostPathType::Base:
-        return mount.host_path / rel_path;
+        return host_path;
 
-    case HostPathType::Mod: {
-        std::filesystem::path mods_path;
-        if (!manual_mods_path.empty()) {
-            mods_path = manual_mods_path / rel_path;
-        } else {
-            mods_path = mount.host_path;
-            mods_path += "-MODS";
-            mods_path /= rel_path;
-        }
+    case HostPathType::Mod:
         return mods_path;
-    }
 
-    case HostPathType::Patch: {
-        std::filesystem::path patch_path = mount.host_path;
-        patch_path += "-patch";
-        patch_path /= rel_path;
+    case HostPathType::Patch:
+    case HostPathType::Update:
         return patch_path;
-    }
-
-    case HostPathType::Update: {
-        std::filesystem::path update_path = mount.host_path;
-        update_path += "-UPDATE";
-        update_path /= rel_path;
-        return update_path;
-    }
 
     default:
-        return mount.host_path / rel_path;
+        return host_path;
     }
 }
 // TODO: Does not handle mount points inside mount points.
