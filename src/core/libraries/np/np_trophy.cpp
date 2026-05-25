@@ -10,7 +10,6 @@
 #include "core/libraries/libs.h"
 #include "core/libraries/np/np_error.h"
 #include "core/libraries/np/np_trophy.h"
-#include "core/libraries/np/np_trophy_error.h"
 #include "core/libraries/np/trophy_ui.h"
 #include "core/memory.h"
 
