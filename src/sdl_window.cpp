@@ -28,6 +28,7 @@
 #include "input/input_handler.h"
 #include "input/input_mouse.h"
 #include "sdl_window.h"
+#include "core/file_sys/fs.h"
 
 static std::mutex virtual_user_mutex;
 #include "video_core/renderdoc.h"
@@ -37,6 +38,7 @@ static std::mutex virtual_user_mutex;
 #include "SDL3/SDL_metal.h"
 #endif
 #include <core/emulator_settings.h>
+#include <common/path_util.h>
 static bool pause_due_to_focus_loss = false;
 
 namespace Frontend {
@@ -116,8 +118,8 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING,
                           std::string(window_title).c_str());
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED);
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, Config::getWindowPosX());
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, Config::getWindowPosY());
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height);
     SDL_SetNumberProperty(props, "flags", SDL_WINDOW_VULKAN);
@@ -229,7 +231,28 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_MAXIMIZED:
     case SDL_EVENT_WINDOW_RESTORED:
-        OnResize();
+        {
+            int x, y;
+            SDL_GetWindowPosition(window, &x, &y);
+            SDL_GetWindowSize(window, &width, &height);
+            Config::setWindowPosX(x);
+            Config::setWindowPosY(y);
+            Config::setWindowWidth(width);
+            Config::setWindowHeight(height);
+            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+            Config::save(config_dir / "config.toml");
+            OnResize();
+        }
+        break;
+    case SDL_EVENT_WINDOW_MOVED:
+        {
+            int x, y;
+            SDL_GetWindowPosition(window, &x, &y);
+            Config::setWindowPosX(x);
+            Config::setWindowPosY(y);
+            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+            Config::save(config_dir / "config.toml");
+        }
         break;
     case SDL_EVENT_WINDOW_MINIMIZED:
     case SDL_EVENT_WINDOW_EXPOSED:
@@ -261,7 +284,18 @@ void WindowSDL::WaitEvent() {
         OnGamepadEvent(&event);
         break;
     case SDL_EVENT_QUIT:
-        is_open = false;
+        {
+            int x, y;
+            SDL_GetWindowPosition(window, &x, &y);
+            SDL_GetWindowSize(window, &width, &height);
+            Config::setWindowPosX(x);
+            Config::setWindowPosY(y);
+            Config::setWindowWidth(width);
+            Config::setWindowHeight(height);
+            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+            Config::save(config_dir / "config.toml", false);
+            is_open = false;
+        }
         break;
     case SDL_EVENT_KILL_EMULATOR:
 #ifdef Q_OS_WIN
