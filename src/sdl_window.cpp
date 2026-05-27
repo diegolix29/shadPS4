@@ -19,6 +19,7 @@
 #include "common/elf_info.h"
 #include "core/debug_state.h"
 #include "core/devtools/layer.h"
+#include "core/file_sys/fs.h"
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/system/userservice.h"
@@ -28,7 +29,6 @@
 #include "input/input_handler.h"
 #include "input/input_mouse.h"
 #include "sdl_window.h"
-#include "core/file_sys/fs.h"
 
 static std::mutex virtual_user_mutex;
 #include "video_core/renderdoc.h"
@@ -37,8 +37,8 @@ static std::mutex virtual_user_mutex;
 #ifdef __APPLE__
 #include "SDL3/SDL_metal.h"
 #endif
-#include <core/emulator_settings.h>
 #include <common/path_util.h>
+#include <core/emulator_settings.h>
 static bool pause_due_to_focus_loss = false;
 
 namespace Frontend {
@@ -230,30 +230,26 @@ void WindowSDL::WaitEvent() {
         break;
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_MAXIMIZED:
-    case SDL_EVENT_WINDOW_RESTORED:
-        {
-            int x, y;
-            SDL_GetWindowPosition(window, &x, &y);
-            SDL_GetWindowSize(window, &width, &height);
-            Config::setWindowPosX(x);
-            Config::setWindowPosY(y);
-            Config::setWindowWidth(width);
-            Config::setWindowHeight(height);
-            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-            Config::save(config_dir / "config.toml");
-            OnResize();
-        }
-        break;
-    case SDL_EVENT_WINDOW_MOVED:
-        {
-            int x, y;
-            SDL_GetWindowPosition(window, &x, &y);
-            Config::setWindowPosX(x);
-            Config::setWindowPosY(y);
-            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-            Config::save(config_dir / "config.toml");
-        }
-        break;
+    case SDL_EVENT_WINDOW_RESTORED: {
+        int x, y;
+        SDL_GetWindowPosition(window, &x, &y);
+        SDL_GetWindowSize(window, &width, &height);
+        Config::setWindowPosX(x);
+        Config::setWindowPosY(y);
+        Config::setWindowWidth(width);
+        Config::setWindowHeight(height);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml");
+        OnResize();
+    } break;
+    case SDL_EVENT_WINDOW_MOVED: {
+        int x, y;
+        SDL_GetWindowPosition(window, &x, &y);
+        Config::setWindowPosX(x);
+        Config::setWindowPosY(y);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml");
+    } break;
     case SDL_EVENT_WINDOW_MINIMIZED:
     case SDL_EVENT_WINDOW_EXPOSED:
         is_shown = event.type == SDL_EVENT_WINDOW_EXPOSED;
@@ -283,20 +279,18 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
         OnGamepadEvent(&event);
         break;
-    case SDL_EVENT_QUIT:
-        {
-            int x, y;
-            SDL_GetWindowPosition(window, &x, &y);
-            SDL_GetWindowSize(window, &width, &height);
-            Config::setWindowPosX(x);
-            Config::setWindowPosY(y);
-            Config::setWindowWidth(width);
-            Config::setWindowHeight(height);
-            const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
-            Config::save(config_dir / "config.toml", false);
-            is_open = false;
-        }
-        break;
+    case SDL_EVENT_QUIT: {
+        int x, y;
+        SDL_GetWindowPosition(window, &x, &y);
+        SDL_GetWindowSize(window, &width, &height);
+        Config::setWindowPosX(x);
+        Config::setWindowPosY(y);
+        Config::setWindowWidth(width);
+        Config::setWindowHeight(height);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml", false);
+        is_open = false;
+    } break;
     case SDL_EVENT_KILL_EMULATOR:
 #ifdef Q_OS_WIN
         QProcess::startDetached("taskkill", QStringList() << "/IM" << "shadPS4.exe" << "/F");
