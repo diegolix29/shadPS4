@@ -683,7 +683,8 @@ void VersionDialog::InstallSelectedVersion() {
                         });
                     reply->deleteLater();
                 });
-        });
+        },
+        Qt::UniqueConnection);
 }
 
 void VersionDialog::LoadinstalledList() {
@@ -880,6 +881,9 @@ void VersionDialog::LoadinstalledList() {
 }
 
 QStringList VersionDialog::LoadDownloadCache() {
+    if (m_compat_info->GetShadPath().empty())
+        return {};
+
     QString cachePath =
         QDir(QString::fromStdString(m_compat_info->GetShadPath())).filePath("cache.version");
 
@@ -894,6 +898,9 @@ QStringList VersionDialog::LoadDownloadCache() {
 }
 
 void VersionDialog::SaveDownloadCache(const QStringList& versions) {
+    if (m_compat_info->GetShadPath().empty())
+        return;
+
     QString cachePath =
         QDir(QString::fromStdString(m_compat_info->GetShadPath())).filePath("cache.version");
     QFile file(cachePath);
@@ -1523,5 +1530,6 @@ void VersionDialog::InstallPkgWithV7() {
                         ShowPkgInstallerDialog(installerFolder, destinationPath);
                         this->close();
                     });
-        });
+        },
+        Qt::UniqueConnection);
 }

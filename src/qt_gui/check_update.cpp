@@ -179,8 +179,10 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
                                             downloadReply->deleteLater();
                                             return;
                                         }
-                                        DownloadUpdate(downloadReply->url().toString());
+                                        QString finalUrl = downloadReply->url().toString();
                                         downloadReply->deleteLater();
+
+                                        DownloadUpdate(finalUrl);
                                     });
 
                             releasesReply->deleteLater();
@@ -540,7 +542,24 @@ void CheckUpdate::Install() {
     Common::FS::PathToQString(userPath, Common::FS::GetUserPath(Common::FS::PathType::UserDir));
 
     QString rootPath;
-    Common::FS::PathToQString(rootPath, std::filesystem::current_path());
+
+#if defined(Q_OS_LINUX)
+    std::filesystem::path actualPath;
+
+    if (const char* appImage = std::getenv("APPIMAGE")) {
+        if (strlen(appImage) > 0) {
+            actualPath = std::filesystem::path(appImage).parent_path();
+        }
+    }
+
+    if (actualPath.empty()) {
+        actualPath = Common::FS::GetExecutablePath().parent_path();
+    }
+
+    Common::FS::PathToQString(rootPath, actualPath);
+#else
+    Common::FS::PathToQString(rootPath, Common::FS::GetExecutablePath().parent_path());
+#endif
 
     QString tempDirPath = userPath + "/temp_download_update";
     QString startingUpdate = tr("Starting Update...");
@@ -698,9 +717,17 @@ void CheckUpdate::Install() {
     QFile scriptFile(scriptFileName);
     if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream out(&scriptFile);
+
+#if defined(Q_OS_WIN)
+        // PowerShell handles UTF-8 BOM correctly
         scriptFile.write("\xEF\xBB\xBF");
+#endif
 #ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
         out << scriptContent.arg(binaryStartingUpdate).arg(tempDirPath).arg(rootPath);
+#else
+        out << scriptContent.arg(startingUpdate).arg(tempDirPath).arg(rootPath);
+#endif
 #endif
 #if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
         out << scriptContent.arg(startingUpdate).arg(tempDirPath).arg(rootPath);
