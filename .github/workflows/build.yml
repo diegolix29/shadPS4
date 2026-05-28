@@ -5,11 +5,15 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - '**'
     paths-ignore:
       - "documents/**"
       - "**/*.md"
 
   pull_request:
+    branches:
+      - '**'
     paths-ignore:
       - "documents/**"
       - "**/*.md"
