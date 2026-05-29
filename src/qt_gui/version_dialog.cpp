@@ -81,7 +81,7 @@ VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info
         exePath = QFileDialog::getOpenFileName(this, tr("Select executable"), QDir::rootPath(),
                                                tr("Executable (*.exe)"));
 #elif defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
-        exePath = QFileDialog::getOpenFileName(this, tr("Select executable"), QDir::rootPath(),
+        exePath = QFileDialog::getOpenFileName(this, tr("Select executable"), QDir::homePath(),
                                                "Executable (*)");
 #endif
 
@@ -172,7 +172,12 @@ VersionDialog::~VersionDialog() {
 std::filesystem::path VersionDialog::GetActualExecutablePath() {
 #if defined(Q_OS_LINUX)
     if (const char* appimageEnv = std::getenv("APPIMAGE")) {
-        return std::filesystem::path(appimageEnv);
+        if (appimageEnv && strlen(appimageEnv) > 0) {
+            try {
+                return std::filesystem::path(appimageEnv);
+            } catch (...) {
+            }
+        }
     }
 #endif
     return Common::FS::GetExecutablePath();
@@ -678,7 +683,8 @@ void VersionDialog::InstallSelectedVersion() {
                         });
                     reply->deleteLater();
                 });
-        });
+        },
+        Qt::UniqueConnection);
 }
 
 void VersionDialog::LoadinstalledList() {
@@ -875,6 +881,9 @@ void VersionDialog::LoadinstalledList() {
 }
 
 QStringList VersionDialog::LoadDownloadCache() {
+    if (m_compat_info->GetShadPath().empty())
+        return {};
+
     QString cachePath =
         QDir(QString::fromStdString(m_compat_info->GetShadPath())).filePath("cache.version");
 
@@ -889,6 +898,9 @@ QStringList VersionDialog::LoadDownloadCache() {
 }
 
 void VersionDialog::SaveDownloadCache(const QStringList& versions) {
+    if (m_compat_info->GetShadPath().empty())
+        return;
+
     QString cachePath =
         QDir(QString::fromStdString(m_compat_info->GetShadPath())).filePath("cache.version");
     QFile file(cachePath);
@@ -992,8 +1004,8 @@ void VersionDialog::InstallSelectedVersionExe() {
         target = versionDir.filePath("shadps4-sdl.exe");
 #endif
 #if defined(Q_OS_LINUX)
-        source = versionDir.filePath("Shadps4-sdl.exe");
-        target = versionDir.filePath("shadps4-sdl.exe");
+        source = versionDir.filePath("shadps4");
+        target = versionDir.filePath("shadps4-sdl");
 #endif
 
 #if defined(Q_OS_MAC)
@@ -1518,5 +1530,6 @@ void VersionDialog::InstallPkgWithV7() {
                         ShowPkgInstallerDialog(installerFolder, destinationPath);
                         this->close();
                     });
-        });
+        },
+        Qt::UniqueConnection);
 }

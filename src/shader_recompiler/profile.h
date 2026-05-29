@@ -52,6 +52,57 @@ struct Profile {
     bool needs_buffer_offsets{};
     bool needs_unorm_fixup{};
     bool needs_clip_distance_emulation{};
+
+    bool operator!=(const Profile& other) const {
+        return max_ubo_size != other.max_ubo_size ||
+               max_viewport_width != other.max_viewport_width ||
+               max_viewport_height != other.max_viewport_height ||
+               max_shared_memory_size != other.max_shared_memory_size ||
+               supported_spirv != other.supported_spirv || subgroup_size != other.subgroup_size ||
+               support_int8 != other.support_int8 || support_int16 != other.support_int16 ||
+               support_int64 != other.support_int64 || support_float16 != other.support_float16 ||
+               support_float64 != other.support_float64 ||
+               supports_denorm_behavior_independence !=
+                   other.supports_denorm_behavior_independence ||
+               supports_rounding_mode_independence != other.supports_rounding_mode_independence ||
+               support_fp16_denorm_preserve != other.support_fp16_denorm_preserve ||
+               support_fp16_denorm_flush != other.support_fp16_denorm_flush ||
+               support_fp16_round_to_zero != other.support_fp16_round_to_zero ||
+               support_fp32_denorm_preserve != other.support_fp32_denorm_preserve ||
+               support_fp32_denorm_flush != other.support_fp32_denorm_flush ||
+               support_fp32_round_to_zero != other.support_fp32_round_to_zero ||
+               support_fp64_denorm_preserve != other.support_fp64_denorm_preserve ||
+               support_fp64_denorm_flush != other.support_fp64_denorm_flush ||
+               support_fp64_round_to_zero != other.support_fp64_round_to_zero ||
+               support_fp16_signed_zero_inf_nan_preserve !=
+                   other.support_fp16_signed_zero_inf_nan_preserve ||
+               support_fp32_signed_zero_inf_nan_preserve !=
+                   other.support_fp32_signed_zero_inf_nan_preserve ||
+               support_fp64_signed_zero_inf_nan_preserve !=
+                   other.support_fp64_signed_zero_inf_nan_preserve ||
+               support_legacy_vertex_attributes != other.support_legacy_vertex_attributes ||
+               supports_image_load_store_lod != other.supports_image_load_store_lod ||
+               supports_native_cube_calc != other.supports_native_cube_calc ||
+               supports_trinary_minmax != other.supports_trinary_minmax ||
+               supports_buffer_fp32_atomic_min_max != other.supports_buffer_fp32_atomic_min_max ||
+               supports_image_fp32_atomic_min_max != other.supports_image_fp32_atomic_min_max ||
+               supports_buffer_int64_atomics != other.supports_buffer_int64_atomics ||
+               supports_shared_int64_atomics != other.supports_shared_int64_atomics ||
+               supports_workgroup_explicit_memory_layout !=
+                   other.supports_workgroup_explicit_memory_layout ||
+               supports_amd_shader_explicit_vertex_parameter !=
+                   other.supports_amd_shader_explicit_vertex_parameter ||
+               supports_fragment_shader_barycentric != other.supports_fragment_shader_barycentric ||
+               has_incomplete_fragment_shader_barycentric !=
+                   other.has_incomplete_fragment_shader_barycentric ||
+               has_broken_spirv_clamp != other.has_broken_spirv_clamp ||
+               lower_left_origin_mode != other.lower_left_origin_mode ||
+               needs_manual_interpolation != other.needs_manual_interpolation ||
+               needs_lds_barriers != other.needs_lds_barriers ||
+               needs_buffer_offsets != other.needs_buffer_offsets ||
+               needs_unorm_fixup != other.needs_unorm_fixup ||
+               needs_clip_distance_emulation != other.needs_clip_distance_emulation;
+    }
 };
 
 } // namespace Shader

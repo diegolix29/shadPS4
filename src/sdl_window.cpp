@@ -19,6 +19,7 @@
 #include "common/elf_info.h"
 #include "core/debug_state.h"
 #include "core/devtools/layer.h"
+#include "core/file_sys/fs.h"
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/system/userservice.h"
@@ -36,6 +37,7 @@ static std::mutex virtual_user_mutex;
 #ifdef __APPLE__
 #include "SDL3/SDL_metal.h"
 #endif
+#include <common/path_util.h>
 #include <core/emulator_settings.h>
 static bool pause_due_to_focus_loss = false;
 
@@ -116,8 +118,8 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING,
                           std::string(window_title).c_str());
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED);
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, Config::getWindowPosX());
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, Config::getWindowPosY());
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height);
     SDL_SetNumberProperty(props, "flags", SDL_WINDOW_VULKAN);
@@ -228,9 +230,26 @@ void WindowSDL::WaitEvent() {
         break;
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_MAXIMIZED:
-    case SDL_EVENT_WINDOW_RESTORED:
+    case SDL_EVENT_WINDOW_RESTORED: {
+        int x, y;
+        SDL_GetWindowPosition(window, &x, &y);
+        SDL_GetWindowSize(window, &width, &height);
+        Config::setWindowPosX(x);
+        Config::setWindowPosY(y);
+        Config::setWindowWidth(width);
+        Config::setWindowHeight(height);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml");
         OnResize();
-        break;
+    } break;
+    case SDL_EVENT_WINDOW_MOVED: {
+        int x, y;
+        SDL_GetWindowPosition(window, &x, &y);
+        Config::setWindowPosX(x);
+        Config::setWindowPosY(y);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml");
+    } break;
     case SDL_EVENT_WINDOW_MINIMIZED:
     case SDL_EVENT_WINDOW_EXPOSED:
         is_shown = event.type == SDL_EVENT_WINDOW_EXPOSED;
@@ -260,9 +279,18 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
         OnGamepadEvent(&event);
         break;
-    case SDL_EVENT_QUIT:
+    case SDL_EVENT_QUIT: {
+        int x, y;
+        SDL_GetWindowPosition(window, &x, &y);
+        SDL_GetWindowSize(window, &width, &height);
+        Config::setWindowPosX(x);
+        Config::setWindowPosY(y);
+        Config::setWindowWidth(width);
+        Config::setWindowHeight(height);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml", false);
         is_open = false;
-        break;
+    } break;
     case SDL_EVENT_KILL_EMULATOR:
 #ifdef Q_OS_WIN
         QProcess::startDetached("taskkill", QStringList() << "/IM" << "shadPS4.exe" << "/F");

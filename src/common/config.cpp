@@ -238,6 +238,8 @@ static int controllerCustomColorRGB[3] = {0, 0, 255};
 // GPU
 static ConfigEntry<u32> windowWidth(1280);
 static ConfigEntry<u32> windowHeight(720);
+static ConfigEntry<s32> windowPosX(SDL_WINDOWPOS_CENTERED);
+static ConfigEntry<s32> windowPosY(SDL_WINDOWPOS_CENTERED);
 static ConfigEntry<u32> internalScreenWidth(1280);
 static ConfigEntry<u32> internalScreenHeight(720);
 static ConfigEntry<int> bigPictureScale(1000);
@@ -726,6 +728,22 @@ u32 getWindowWidth() {
 
 u32 getWindowHeight() {
     return windowHeight.get();
+}
+
+s32 getWindowPosX() {
+    return windowPosX.get();
+}
+
+s32 getWindowPosY() {
+    return windowPosY.get();
+}
+
+void setWindowPosX(s32 x) {
+    windowPosX.base_value = x;
+}
+
+void setWindowPosY(s32 y) {
+    windowPosY.base_value = y;
 }
 
 int getBigPictureScale() {
@@ -1743,6 +1761,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         fpsLimiterEnabled.setFromToml(gpu, "fpsLimiterEnabled", is_game_specific);
         windowWidth.setFromToml(gpu, "screenWidth", is_game_specific);
         windowHeight.setFromToml(gpu, "screenHeight", is_game_specific);
+        windowPosX.setFromToml(gpu, "windowPosX", false);
+        windowPosY.setFromToml(gpu, "windowPosY", false);
         internalScreenWidth.setFromToml(gpu, "internalScreenWidth", is_game_specific);
         internalScreenHeight.setFromToml(gpu, "internalScreenHeight", is_game_specific);
         isNullGpu.setFromToml(gpu, "nullGpu", is_game_specific);
@@ -1808,6 +1828,10 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         m_window_size_W = toml::find_or<int>(gui, "mw_width", 1280);
         m_window_size_H = toml::find_or<int>(gui, "mw_height", 720);
+        main_window_geometry_x = toml::find_or<int>(gui, "geometry_x", 400);
+        main_window_geometry_y = toml::find_or<int>(gui, "geometry_y", 400);
+        main_window_geometry_w = toml::find_or<int>(gui, "geometry_w", 1280);
+        main_window_geometry_h = toml::find_or<int>(gui, "geometry_h", 720);
         launcher_boot = toml::find_or<bool>(gui, "launcher_boot", false);
         isQT = toml::find_or<bool>(gui, "isQT", false);
         isSDL = toml::find_or<bool>(gui, "isSDL", false);
@@ -2188,6 +2212,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["GPU"]["fpsLimiterEnabled"] = fpsLimiterEnabled.base_value;
         data["GPU"]["screenWidth"] = windowWidth.base_value;
         data["GPU"]["screenHeight"] = windowHeight.base_value;
+        data["GPU"]["windowPosX"] = windowPosX.base_value;
+        data["GPU"]["windowPosY"] = windowPosY.base_value;
         data["GPU"]["internalScreenWidth"] = internalScreenWidth.base_value;
         data["GPU"]["internalScreenHeight"] = internalScreenHeight.base_value;
         data["GPU"]["nullGpu"] = isNullGpu.base_value;
