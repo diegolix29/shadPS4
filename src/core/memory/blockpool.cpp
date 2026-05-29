@@ -228,7 +228,8 @@ void Blockpool::SetName(VAddr start, VAddr end, const char* name) {
         return;
     }
     NameEntry entry{start, end, {}};
-    strlcpy(entry.name, name, 32);
+    strncpy(entry.name, name, 32);
+    entry.name[31] = '\0';
     auto [it, _] = blockpool_names.emplace(start, entry);
 
     // Try merge with prev.

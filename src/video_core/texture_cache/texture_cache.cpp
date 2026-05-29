@@ -152,8 +152,8 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
     download_data.resize(write_size);
     std::memcpy(download_data.data(), mapping.Data(), write_size);
 
-    scheduler.DeferPriorityOperation(
-        [this, device_addr = image.info.guest_address, download, download_size] {
+    scheduler.DeferPriorityOperation([this, device_addr = image.info.guest_address,
+                                      download = std::move(download_data), write_size] {
             auto* memory = Core::Memory::Instance();
             /*memory->ForEachBackingRegion(device_addr, download_size,
                                          [&](u64 offset, u64 size, u8* backing) {

@@ -28,7 +28,7 @@ void SxLock::downgrade() {
 
 void SxLock::xlock_hard(u64 tid) {
     using Pthread = ::Libraries::Kernel::Pthread;
-    u_int i, spintries = 0;
+    u32 i, spintries = 0;
 
     /* If we already hold an exclusive lock, then recurse. */
     if (IsXLocked()) {

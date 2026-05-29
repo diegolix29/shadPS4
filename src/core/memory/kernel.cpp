@@ -11,12 +11,13 @@
 #include "core/libraries/kernel/process.h"
 #include "core/memory/kernel.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
+#include "core/libraries/kernel/threads/pthread.h"
 
 namespace Core {
 
 MemoryManager::MemoryManager()
     : blockpool{impl}, dmem{impl}, vm_map{impl, dmem, blockpool, budget, flex_pool} {
-    ASSERT_MSG(Libraries::Kernel::sceKernelGetCompiledSdkVersion(&sdk_version) == 0,
+    ASSERT_MSG(::Libraries::Kernel::sceKernelGetCompiledSdkVersion(&sdk_version) == 0,
                "Failed to get compiled SDK version");
 
     // Construct vma_map using the regions reserved by the address space

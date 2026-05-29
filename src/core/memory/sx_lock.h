@@ -28,12 +28,12 @@ class SxLock {
     }
 
     bool IsXLocked() const {
-        return (raw & ~(FlagMask & ~Shared)) == std::bit_cast<u64>(Libraries::Kernel::g_curthread);
+        return (raw & ~(FlagMask & ~Shared)) == std::bit_cast<u64>(::Libraries::Kernel::g_curthread);
     }
 
 public:
     void lock() {
-        u64 tid = std::bit_cast<u64>(Libraries::Kernel::g_curthread);
+        u64 tid = std::bit_cast<u64>(::Libraries::Kernel::g_curthread);
         u64 expected = SX_LOCK_UNLOCKED;
         if (!raw_atomic.compare_exchange_weak(expected, tid, std::memory_order_acquire)) {
             return xlock_hard(tid);
@@ -46,13 +46,13 @@ public:
             raw_atomic |= Recursed;
             return true;
         }
-        u64 tid = std::bit_cast<u64>(Libraries::Kernel::g_curthread);
+        u64 tid = std::bit_cast<u64>(::Libraries::Kernel::g_curthread);
         u64 expected = SX_LOCK_UNLOCKED;
         return raw_atomic.compare_exchange_weak(expected, tid, std::memory_order_acquire);
     }
 
     void unlock() {
-        u64 tid = std::bit_cast<u64>(Libraries::Kernel::g_curthread);
+        u64 tid = std::bit_cast<u64>(::Libraries::Kernel::g_curthread);
         if (!raw_atomic.compare_exchange_weak(tid, SX_LOCK_UNLOCKED, std::memory_order_release)) {
             return xunlock_hard(tid);
         }
@@ -88,7 +88,7 @@ public:
     }
 
     bool try_upgrade() {
-        u64 tid = std::bit_cast<u64>(Libraries::Kernel::g_curthread);
+        u64 tid = std::bit_cast<u64>(::Libraries::Kernel::g_curthread);
         u64 x = raw & ExclusiveWaiters;
         u64 expected = SX_ONE_SHARER | Shared | x;
         return raw_atomic.compare_exchange_weak(expected, tid | x);

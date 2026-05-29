@@ -118,8 +118,8 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
             page_addr, PageManager::PAGE_SIZE,
             [&](VAddr begin, VAddr end, const PreemptiveDownload& download) {
                 scheduler.Wait(download.done_tick);
-                memory->TryWriteBacking(std::bit_cast<u8*>(download.device_addr), download.staging,
-                                        download.size);
+                //memory->TryWriteBacking(std::bit_cast<u8*>(download.device_addr), download.staging,
+                //                        download.size);
             });
         preemptive_downloads.Subtract(page_addr, PageManager::PAGE_SIZE);
         memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, is_write);
@@ -137,8 +137,8 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
             for (const auto& copy : copies) {
                 const VAddr copy_device_addr = buffer.CpuAddr() + copy.srcOffset;
                 const u64 dst_offset = copy.dstOffset - offset;
-                memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
-                                        copy.size);
+                //memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
+                //                        copy.size);
             }
             memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, is_write);
         };
@@ -211,8 +211,8 @@ void BufferCache::ReadEdgeImagePages(const Image& image) {
         for (const auto& copy : copies) {
             const VAddr copy_device_addr = buf_addr + copy.srcOffset;
             const u64 dst_offset = copy.dstOffset - download_offset;
-            memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
-                                    copy.size);
+            //memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
+           //                         copy.size);
         }
     });
 }
@@ -717,8 +717,8 @@ void BufferCache::ProcessPreemptiveDownloads() {
         if (!scheduler.IsFree(download.done_tick)) {
             return false;
         }
-        memory->TryWriteBacking(std::bit_cast<u8*>(download.device_addr), download.staging,
-                                download.size);
+        //memory->TryWriteBacking(std::bit_cast<u8*>(download.device_addr), download.staging,
+        //                        download.size);
 
         processed_ranges.emplace_back(begin, end - begin);
         return true;

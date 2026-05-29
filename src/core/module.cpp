@@ -153,10 +153,10 @@ void Module::LoadModuleToMemory(u32& max_tls_index) {
 
 #ifdef ARCH_X86_64
     void* trampoline_region = std::bit_cast<void*>(base_virtual_addr + aligned_base_size);
-    const int tramp_ret = memory->MapMemory(
-        &trampoline_region, base_virtual_addr + aligned_base_size, TrampolineSize,
-        MemoryProt::CpuReadWrite | MemoryProt::CpuExec,
-        MemoryMapFlags::Fixed | MemoryMapFlags::NoOverwrite, VMAType::File, "Trampoline");
+    const int tramp_ret =
+        memory->MapMemory(reinterpret_cast<VAddr*>(&trampoline_region), TrampolineSize,
+                          MemoryProt::CpuReadWrite | MemoryProt::CpuExec,
+                          MemoryMapFlags::Fixed | MemoryMapFlags::Void, -1, 0, "Trampoline");
     ASSERT_MSG(tramp_ret == 0, "Unable to map trampoline memory");
 
     // Initialize trampoline generator.

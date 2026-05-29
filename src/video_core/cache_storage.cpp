@@ -150,7 +150,7 @@ bool WriteVector(const BlobType type, std::filesystem::path&& path_, std::vector
                 if (ar_is_read_only) {
                     if (!Storage::shader_cache_error_shown.exchange(true)) {
                         mz_zip_reader_end(&zip_ar);
-
+#ifdef ENABLE_QT_GUI
                         if (g_MainWindow) {
                             const QString serial = QString::fromStdString(
                                 std::string(Common::ElfInfo::Instance().GameSerial()));
@@ -167,6 +167,9 @@ bool WriteVector(const BlobType type, std::filesystem::path&& path_, std::vector
                                 },
                                 Qt::QueuedConnection);
                         }
+#else
+                        LOG_ERROR(Render, "Shader cache archive is corrupted");
+#endif
                     }
 
                     return;

@@ -8,7 +8,6 @@
 #include "common/config.h"
 #include "common/elf_info.h"
 #include "common/error.h"
-#include "core/address_space.h"
 #include "core/libraries/kernel/memory.h"
 #include "core/memory/address_space.h"
 #include "core/memory/vm_map.h"
@@ -821,8 +820,11 @@ void* AddressSpace::Map(VAddr virtual_addr, u64 size, PAddr phys_addr, bool is_e
     // canonical copy of the memory and rely on the JIT to map translated code as executable.
     constexpr auto prot = PAGE_READWRITE;
 #endif
+#ifndef _WIN32
+
     const int flag = phys_addr != -1 ? MAP_SHARED : (MAP_ANONYMOUS | MAP_PRIVATE);
     return impl->Map(virtual_addr, phys_addr, size, prot, flag);
+#endif
 }
 
 void* AddressSpace::MapFile(VAddr virtual_addr, u64 size, u64 offset, MemoryMapFlags flags,
