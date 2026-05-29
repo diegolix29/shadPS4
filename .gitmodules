@@ -149,6 +149,3 @@
 	branch = shadps4
 	shallow = true
 	branch = v2.x
-[submodule "externals/libressl"]
-	path = externals/libressl
-	url = https://github.com/shadexternals/libressl

@@ -179,10 +179,8 @@ void CheckUpdate::CheckForUpdates(const bool showMessage) {
                                             downloadReply->deleteLater();
                                             return;
                                         }
-                                        QString finalUrl = downloadReply->url().toString();
+                                        DownloadUpdate(downloadReply->url().toString());
                                         downloadReply->deleteLater();
-
-                                        DownloadUpdate(finalUrl);
                                     });
 
                             releasesReply->deleteLater();
@@ -542,24 +540,7 @@ void CheckUpdate::Install() {
     Common::FS::PathToQString(userPath, Common::FS::GetUserPath(Common::FS::PathType::UserDir));
 
     QString rootPath;
-
-#if defined(Q_OS_LINUX)
-    std::filesystem::path actualPath;
-
-    if (const char* appImage = std::getenv("APPIMAGE")) {
-        if (strlen(appImage) > 0) {
-            actualPath = std::filesystem::path(appImage).parent_path();
-        }
-    }
-
-    if (actualPath.empty()) {
-        actualPath = Common::FS::GetExecutablePath().parent_path();
-    }
-
-    Common::FS::PathToQString(rootPath, actualPath);
-#else
-    Common::FS::PathToQString(rootPath, Common::FS::GetExecutablePath().parent_path());
-#endif
+    Common::FS::PathToQString(rootPath, std::filesystem::current_path());
 
     QString tempDirPath = userPath + "/temp_download_update";
     QString startingUpdate = tr("Starting Update...");
@@ -657,19 +638,17 @@ void CheckUpdate::Install() {
         "    sleep 2\n"
         "    extract_file\n"
         "    sleep 2\n"
-        "    if pgrep -f \"shadps4\" > /dev/null; then\n"
-        "        pkill -f \"shadps4\"\n"
+        "    if pgrep -f \"Shadps4-qt.AppImage\" > /dev/null; then\n"
+        "        pkill -f \"Shadps4-qt.AppImage\"\n"
         "        sleep 2\n"
         "    fi\n"
         "    cp -r \"%2/\"* \"%3/\"\n"
         "    sleep 2\n"
         "    rm \"%3/update.sh\"\n"
         "    rm \"%3/temp_download_update.zip\"\n"
-        "    chmod +x \"%3\"/*.AppImage 2>/dev/null || true\n"
-        "    chmod +x \"%3\"/shadps4* 2>/dev/null || true\n"
+        "    chmod +x \"%3/Shadps4-qt.AppImage\"\n"
         "    rm -r \"%2\"\n"
-        "    cd \"%3\" && ls *.AppImage 2>/dev/null | head -1 | xargs -I {} ./{} || ls shadps4* "
-        "2>/dev/null | head -1 | xargs -I {} ./{}\n"
+        "    cd \"%3\" && ./Shadps4-qt.AppImage\n"
         "}\n"
         "main\n");
     arguments << scriptFileName;
@@ -717,17 +696,9 @@ void CheckUpdate::Install() {
     QFile scriptFile(scriptFileName);
     if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream out(&scriptFile);
-
-#if defined(Q_OS_WIN)
-        // PowerShell handles UTF-8 BOM correctly
         scriptFile.write("\xEF\xBB\xBF");
-#endif
 #ifdef Q_OS_WIN
-#if defined(Q_OS_WIN)
         out << scriptContent.arg(binaryStartingUpdate).arg(tempDirPath).arg(rootPath);
-#else
-        out << scriptContent.arg(startingUpdate).arg(tempDirPath).arg(rootPath);
-#endif
 #endif
 #if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
         out << scriptContent.arg(startingUpdate).arg(tempDirPath).arg(rootPath);
