@@ -1,29 +1,29 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <QFileInfo>
-#include <QObject>
-#include <QProcess>
-#include <QStandardPaths>
-#include <QString>
-#include <QStyleFactory>
-#include <signal.h>
-
-#include <QStyle>
-#include <QWidget>
-
 #include <QDockWidget>
 #include <QFile>
+#include <QFileInfo>
 #include <QKeyEvent>
+#include <QMetaObject>
+#include <QObject>
 #include <QPlainTextEdit>
+#include <QProcess>
 #include <QProgressDialog>
 #include <QSplitter>
+#include <QStandardPaths>
 #include <QStatusBar>
+#include <QString>
+#include <QStyle>
+#include <QStyleFactory>
 #include <QTextStream>
+#include <QWidget>
+#include <signal.h>
 #include "SDL3/SDL_events.h"
 #include "emulator.h"
 #include "mod_manager_dialog.h"
@@ -45,6 +45,7 @@
 #include "imgui/big_picture.h"
 #include "version_dialog.h"
 
+#include "core/debug_state.h"
 #include "game_directory_dialog.h"
 #include "hotkeys.h"
 #include "input/controller.h"
@@ -56,6 +57,10 @@
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"
 #endif
+namespace Storage {
+extern std::atomic_bool shader_cache_paused_game;
+extern std::atomic_bool shader_cache_error_shown;
+} // namespace Storage
 MainWindow* g_MainWindow = nullptr;
 QProcess* MainWindow::emulatorProcess = nullptr;
 
@@ -508,6 +513,54 @@ void MainWindow::onDeleteShaderCacheRequested(int index) {
             tr("Are you sure you want to delete %1's Shader Cache?").arg(gameName),
             QMessageBox::Yes | QMessageBox::No)) {
         QFile::remove(shaderCachePath);
+    }
+}
+
+void MainWindow::onShaderCacheError(const QString& gameSerial) {
+    QString shaderCachePath;
+
+    Common::FS::PathToQString(shaderCachePath,
+                              Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
+                                  std::filesystem::path(gameSerial.toStdString() + ".zip"));
+
+    QString gameName = gameSerial;
+
+    for (const auto& game : m_game_info->m_games) {
+        if (game.serial == gameSerial.toStdString()) {
+            gameName = QString::fromStdString(game.name);
+            break;
+        }
+    }
+    QMessageBox::StandardButton reply =
+        QMessageBox::question(this, tr("Shader Cache Invalid"),
+                              tr("The shader cache for %1 is invalid.\n\n"
+                                 "Do you want to delete the shader cache and continue?")
+                                  .arg(gameName),
+                              QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes) {
+        QString shaderZipPath;
+        Common::FS::PathToQString(shaderZipPath,
+                                  Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
+                                      std::filesystem::path(gameSerial.toStdString() + ".zip"));
+
+        QString shaderDirPath;
+        Common::FS::PathToQString(shaderDirPath,
+                                  Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
+                                      std::filesystem::path(gameSerial.toStdString()));
+
+        if (QFile::exists(shaderZipPath)) {
+            QFile::remove(shaderZipPath);
+        }
+
+        QDir shaderDir(shaderDirPath);
+        if (shaderDir.exists()) {
+            shaderDir.removeRecursively();
+        }
+    }
+    Storage::DataBase::Instance().ResetShaderCacheState();
+    if (Storage::shader_cache_paused_game.exchange(false)) {
+        DebugState.ResumeGuestThreads();
     }
 }
 

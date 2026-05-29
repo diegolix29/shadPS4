@@ -36,6 +36,7 @@
 #include "main_window_themes.h"
 #include "main_window_ui.h"
 #include "sdl_window.h"
+#include "video_core/cache_storage.h"
 
 class QFlowLayout : public QLayout {
 public:
@@ -149,6 +150,7 @@ public:
     bool Init();
     void onHubMenuOpenFolderRequested(int index);
     void onDeleteShaderCacheRequested(int index);
+    void onShaderCacheError(const QString& gameSerial);
     void openSettingsWindow();
     void createToolbarContextMenu(const QPoint& pos);
     void contextMenuEvent(QContextMenuEvent* event) override;

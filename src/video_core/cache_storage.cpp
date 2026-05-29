@@ -18,6 +18,11 @@
 #include <future>
 #include <mutex>
 #include <queue>
+#include "core/debug_state.h"
+
+#ifdef ENABLE_QT_GUI
+#include "qt_gui/main_window.h"
+#endif
 
 namespace {
 
@@ -33,6 +38,9 @@ bool ar_is_read_only{true};
 } // namespace
 
 namespace Storage {
+
+std::atomic_bool shader_cache_error_shown = false;
+std::atomic_bool shader_cache_paused_game = false;
 
 void ProcessIO(const std::stop_token& stoken) {
     Common::SetCurrentThreadName("shadPS4:PipelineCacheIO");
@@ -143,9 +151,34 @@ bool WriteVector(const BlobType type, std::filesystem::path&& path_, std::vector
             auto path{path_};
             path.replace_extension(GetBlobFileExtension(type));
             if (Config::isPipelineCacheArchived()) {
-                ASSERT_MSG(!ar_is_read_only,
-                           "Shader Cache invalid, please Delete Shader cache for this Title, Right "
-                           "click the game and Delete/Delete ShaderCache");
+                if (ar_is_read_only) {
+                    if (!Storage::shader_cache_error_shown.exchange(true)) {
+                        mz_zip_reader_end(&zip_ar);
+#ifdef ENABLE_QT_GUI
+                        if (g_MainWindow) {
+                            const QString serial = QString::fromStdString(
+                                std::string(Common::ElfInfo::Instance().GameSerial()));
+
+                            QMetaObject::invokeMethod(
+                                g_MainWindow,
+                                [serial]() {
+                                    if (!DebugState.IsGuestThreadsPaused()) {
+                                        DebugState.PauseGuestThreads();
+                                        Storage::shader_cache_paused_game = true;
+                                    }
+
+                                    g_MainWindow->onShaderCacheError(serial);
+                                },
+                                Qt::QueuedConnection);
+                        }
+#else
+                        LOG_ERROR(Render, "Shader cache archive is corrupted");
+#endif
+                    }
+
+                    return;
+                }
+
                 if (!mz_zip_writer_add_mem(&zip_ar, path.string().c_str(), v.data(),
                                            v.size() * sizeof(T), MZ_BEST_COMPRESSION)) {
                     LOG_ERROR(Render, "Failed to add {} to the archive", path.string().c_str());
@@ -164,6 +197,18 @@ bool WriteVector(const BlobType type, std::filesystem::path&& path_, std::vector
     ++num_requests;
     request_cv.notify_one();
     return true;
+}
+
+void DataBase::ResetShaderCacheState() {
+    shader_cache_error_shown = false;
+
+    mz_zip_zero_struct(&zip_ar);
+
+    if (Config::isPipelineCacheArchived()) {
+        mz_zip_writer_init_file(&zip_ar, cache_path.string().c_str(), 0);
+    }
+
+    ar_is_read_only = false;
 }
 
 template <typename T>

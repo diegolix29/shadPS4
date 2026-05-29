@@ -32,6 +32,7 @@ public:
         return opened;
     }
     void FinishPreload();
+    void ResetShaderCacheState();
 
     bool Save(BlobType type, const std::string& name, std::vector<u8>&& data);
     bool Save(BlobType type, const std::string& name, std::vector<u32>&& data);
