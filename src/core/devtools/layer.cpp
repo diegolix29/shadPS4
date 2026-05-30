@@ -560,16 +560,22 @@ void DrawFullscreenHotkeysWindow(bool& is_open) {
         ImGui::SetWindowFontScale(1.0f);
         ImGui::SeparatorText("Controls");
 
+        bool swap = Config::getXCircleButtonSwap();
+        std::string pause_hk =
+            std::string("F9 or Share/PS/GUIDE+") + (swap ? "Circle/B" : "Cross/A");
+        std::string stop_hk =
+            std::string("ESC or Share/PS/GUIDE+") + (swap ? "Cross/A" : "Circle/B");
+
         struct HotkeyItem {
             const char* action;
             const char* keys;
         };
 
-        HotkeyItem hotkeys[] = {{"Pause/Resume", "F9 or Share/PS/GUIDE+Cross/A"},
-                                {"Stop", "ESC or Share/PS/GUIDE+Square/Y"},
+        HotkeyItem hotkeys[] = {{"Pause/Resume", pause_hk.c_str()},
+                                {"Stop", stop_hk.c_str()},
                                 {"Fullscreen", "F11 or Share/PS/GUIDE+R2"},
-                                {"Developer Tools", "Ctrl+F10 or Share/PS/GUIDE+Circle/B"},
-                                {"Show FShare/PS/GUIDE", "F10 or Share/PS/GUIDE+L2"},
+                                {"Developer Tools", "Ctrl+F10 or Share/PS/GUIDE+Up"},
+                                {"Show FPS", "F10 or Share/PS/GUIDE+L2"},
                                 {"Settings", "F3 or Share/PS/GUIDE+Triangle/X"},
                                 {"Mute Game", "F1 or Share/PS/GUIDE+Right"},
                                 {"View Trophies", "F2 or Share/PS/GUIDE+Left"}};
@@ -603,16 +609,22 @@ void DrawFullscreenHotkeysPause(bool& is_open) {
         ImGui::SetWindowFontScale(1.0f);
         ImGui::SeparatorText("Pause Controls");
 
+        bool swap = Config::getXCircleButtonSwap();
+        std::string pause_hk =
+            std::string("F9 or Share/PS/GUIDE+") + (swap ? "Circle/B" : "Cross/A");
+        std::string stop_hk =
+            std::string("ESC or Share/PS/GUIDE+") + (swap ? "Cross/A" : "Circle/B");
+
         struct HotkeyItem {
             const char* action;
             const char* keys;
         };
 
-        HotkeyItem hotkeys[] = {{"Pause/Resume", "F9 or Share/PS/GUIDE+Cross/A"},
-                                {"Stop", "ESC or Share/PS/GUIDE+Square/Y"},
+        HotkeyItem hotkeys[] = {{"Pause/Resume", pause_hk.c_str()},
+                                {"Stop", stop_hk.c_str()},
                                 {"Fullscreen", "F11 or Share/PS/GUIDE+R2"},
-                                {"Developer Tools", "Ctrl+F10 or Share/PS/GUIDE+Circle/B"},
-                                {"Show FShare/PS/GUIDE", "F10 or Share/PS/GUIDE+L2"},
+                                {"Developer Tools", "Ctrl+F10 or Share/PS/GUIDE+Up"},
+                                {"Show FPS", "F10 or Share/PS/GUIDE+L2"},
                                 {"Settings", "F3 or Share/PS/GUIDE+Triangle/X"},
                                 {"Mute Game", "F1 or Share/PS/GUIDE+Right"},
                                 {"View Trophies", "F2 or Share/PS/GUIDE+Left"}};
@@ -845,6 +857,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
     ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoFocusOnAppearing |
                                    ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
@@ -1581,8 +1594,9 @@ void L::Draw() {
     const bool userQuitController = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::QuitPad,
                                                                 Input::HotkeyInputType::Controller);
 
-    const bool swap_x_circle = Config::getXCircleButtonSwap();
-    const Btn cancel_btn = swap_x_circle ? Btn::Cross : Btn::Circle;
+    // Emulated pad already handles the swap logic physically.
+    // We bind statically to the logical intent.
+    const Btn cancel_btn = Btn::Circle;
 
     if (!userQuitController && !blockHardcoded) {
         if (Input::ControllerComboPressedOnce(pad, modifierButton, cancel_btn)) {
@@ -1610,7 +1624,8 @@ void L::Draw() {
             SDL_PushEvent(&e);
         }
     }
-    const Btn confirm_btn = Config::getXCircleButtonSwap() ? Btn::Circle : Btn::Cross;
+
+    const Btn confirm_btn = Btn::Cross;
 
     if (!userPauseController && !blockHardcoded) {
         if (Input::ControllerComboPressedOnce(pad, modifierButton, confirm_btn)) {
@@ -1832,13 +1847,15 @@ void L::Draw() {
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::SetWindowFontScale(0.9f);
-            L::TextCentered("Press Cross/A to Select | Triangle/Y to Cancel");
+
+            const bool swap_x_circle_menu = Config::getXCircleButtonSwap();
+            std::string select_btn = swap_x_circle_menu ? "Circle/B" : "Cross/A";
+            std::string cancel_hint = "Press " + select_btn + " to Select | Triangle / Y to Cancel";
+
+            L::TextCentered(cancel_hint);
             ImGui::SetWindowFontScale(1.0f);
 
-            const bool swap_x_circle = Config::getXCircleButtonSwap();
-
-            const ImGuiKey confirm_button =
-                swap_x_circle ? ImGuiKey_GamepadFaceRight : ImGuiKey_GamepadFaceDown;
+            const ImGuiKey confirm_button = ImGuiKey_GamepadFaceDown;
 
             if (ImGui::IsKeyPressed(ImGuiKey_Enter, false) ||
                 ImGui::IsKeyPressed(confirm_button, false)) {

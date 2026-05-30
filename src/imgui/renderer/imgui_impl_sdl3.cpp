@@ -772,7 +772,7 @@ static void UpdateGamepads() {
     UpdateGamepadButton(bd, io, ImGuiKey_GamepadBack, SDL_GAMEPAD_BUTTON_BACK);
     /*UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceLeft,
                         SDL_GAMEPAD_BUTTON_WEST); // Xbox X, PS Square*/ // Disable to avoid menu toggle
-    
+
     // Apply X to Circle swap if configured
     const bool swap_x_circle = Config::getXCircleButtonSwap();
     if (swap_x_circle) {
@@ -786,7 +786,7 @@ static void UpdateGamepads() {
         UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceDown,
                             SDL_GAMEPAD_BUTTON_SOUTH); // Xbox A, PS Cross
     }
-    
+
     UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceUp,
                         SDL_GAMEPAD_BUTTON_NORTH); // Xbox Y, PS Triangle
     UpdateGamepadButton(bd, io, ImGuiKey_GamepadDpadLeft, SDL_GAMEPAD_BUTTON_DPAD_LEFT);
