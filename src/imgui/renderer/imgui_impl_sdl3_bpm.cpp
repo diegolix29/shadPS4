@@ -5,6 +5,7 @@
 
 #include "imgui.h"
 #ifndef IMGUI_DISABLE
+#include "common/config.h"
 #include "imgui_impl_sdl3_bpm.h"
 
 // Clang warnings with -Weverything
@@ -929,12 +930,23 @@ static void ImGui_ImplSDL3_UpdateGamepads() {
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadBack, SDL_GAMEPAD_BUTTON_BACK);
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceLeft,
                                        SDL_GAMEPAD_BUTTON_WEST); // Xbox X, PS Square
-    ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceRight,
-                                       SDL_GAMEPAD_BUTTON_EAST); // Xbox B, PS Circle
+    
+    // Apply X to Circle swap if configured
+    const bool swap_x_circle = Config::getXCircleButtonSwap();
+    if (swap_x_circle) {
+        ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceRight,
+                                           SDL_GAMEPAD_BUTTON_SOUTH); // Xbox A, PS Cross
+        ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceDown,
+                                           SDL_GAMEPAD_BUTTON_EAST); // Xbox B, PS Circle
+    } else {
+        ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceRight,
+                                           SDL_GAMEPAD_BUTTON_EAST); // Xbox B, PS Circle
+        ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceDown,
+                                           SDL_GAMEPAD_BUTTON_SOUTH); // Xbox A, PS Cross
+    }
+    
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceUp,
                                        SDL_GAMEPAD_BUTTON_NORTH); // Xbox Y, PS Triangle
-    ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceDown,
-                                       SDL_GAMEPAD_BUTTON_SOUTH); // Xbox A, PS Cross
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadDpadLeft,
                                        SDL_GAMEPAD_BUTTON_DPAD_LEFT);
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadDpadRight,

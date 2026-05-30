@@ -7,6 +7,7 @@
 #include <cstring>
 #include <numbers>
 
+#include "common/config.h"
 #include "common/singleton.h"
 #include "input/controller.h"
 
@@ -586,10 +587,19 @@ VirtualPadSnapshot ReadVirtualPadSnapshot(Libraries::UserService::OrbisUserServi
         merge_imgui_button(ImGuiKey_GamepadDpadRight, kMaskRight);
         merge_imgui_button(ImGuiKey_GamepadDpadUp, kMaskUp);
         merge_imgui_button(ImGuiKey_GamepadDpadDown, kMaskDown);
-        merge_imgui_button(ImGuiKey_GamepadFaceDown, kMaskCross);
+        
+        // Apply X to Circle swap if configured
+        const bool swap_x_circle = Config::getXCircleButtonSwap();
+        if (swap_x_circle) {
+            merge_imgui_button(ImGuiKey_GamepadFaceDown, kMaskCircle);
+            merge_imgui_button(ImGuiKey_GamepadFaceRight, kMaskCross);
+        } else {
+            merge_imgui_button(ImGuiKey_GamepadFaceDown, kMaskCross);
+            merge_imgui_button(ImGuiKey_GamepadFaceRight, kMaskCircle);
+        }
+        
         merge_imgui_button(ImGuiKey_GamepadFaceUp, kMaskTriangle);
         merge_imgui_button(ImGuiKey_GamepadFaceLeft, kMaskSquare);
-        merge_imgui_button(ImGuiKey_GamepadFaceRight, kMaskCircle);
         merge_imgui_button(ImGuiKey_GamepadL1, kMaskL1);
         merge_imgui_button(ImGuiKey_GamepadR1, kMaskR1);
         merge_imgui_button(ImGuiKey_GamepadL3, kMaskL3);

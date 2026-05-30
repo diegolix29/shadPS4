@@ -1581,8 +1581,11 @@ void L::Draw() {
     const bool userQuitController = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::QuitPad,
                                                                 Input::HotkeyInputType::Controller);
 
+    const bool swap_x_circle = Config::getXCircleButtonSwap();
+    const Btn cancel_btn = swap_x_circle ? Btn::Cross : Btn::Circle;
+
     if (!userQuitController && !blockHardcoded) {
-        if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Circle)) {
+        if (Input::ControllerComboPressedOnce(pad, modifierButton, cancel_btn)) {
             Overlay::ToggleQuitWindow();
             visibility_toggled = true;
         }
@@ -1607,9 +1610,10 @@ void L::Draw() {
             SDL_PushEvent(&e);
         }
     }
+    const Btn confirm_btn = Config::getXCircleButtonSwap() ? Btn::Circle : Btn::Cross;
 
     if (!userPauseController && !blockHardcoded) {
-        if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Cross)) {
+        if (Input::ControllerComboPressedOnce(pad, modifierButton, confirm_btn)) {
             SDL_Event e;
             e.type = SDL_EVENT_TOGGLE_PAUSE;
             SDL_PushEvent(&e);
@@ -1831,8 +1835,13 @@ void L::Draw() {
             L::TextCentered("Press Cross/A to Select | Triangle/Y to Cancel");
             ImGui::SetWindowFontScale(1.0f);
 
+            const bool swap_x_circle = Config::getXCircleButtonSwap();
+
+            const ImGuiKey confirm_button =
+                swap_x_circle ? ImGuiKey_GamepadFaceRight : ImGuiKey_GamepadFaceDown;
+
             if (ImGui::IsKeyPressed(ImGuiKey_Enter, false) ||
-                ImGui::IsKeyPressed(ImGuiKey_GamepadFaceDown, false)) {
+                ImGui::IsKeyPressed(confirm_button, false)) {
 
                 switch (quit_menu_selection) {
                 case 0: {

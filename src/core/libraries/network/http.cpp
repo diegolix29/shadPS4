@@ -1021,7 +1021,7 @@ int PS4_SYSV_ABI sceHttpUnsetEpoll(int id) {
 
 int PS4_SYSV_ABI sceHttpWaitRequest(OrbisHttpEpollHandle eh, OrbisHttpNBEvent* nbev, int maxevents,
                                     int timeout) {
-    LOG_ERROR(Lib_Http, "(STUBBED) called eh={}, nbev={}, maxevents={}, timeout={}",
+    LOG_DEBUG(Lib_Http, "(STUBBED) called eh={}, nbev={}, maxevents={}, timeout={}",
               reinterpret_cast<uintptr_t>(eh), reinterpret_cast<uintptr_t>(nbev), maxevents,
               timeout);
     return ORBIS_OK;
