@@ -86,12 +86,7 @@ ImageId TextureCache::GetNullImage(const vk::Format format) {
 }
 
 void TextureCache::ProcessDownloadImages() {
-    const auto mode = EmulatorSettings.GetReadbacksMode();
-    if (mode == GpuReadbacksMode::Disabled) {
-        download_images.clear();
-        return;
-    }
-    const bool sync = mode == GpuReadbacksMode::Precise;
+    const bool sync = EmulatorSettings.GetReadbacksMode() == GpuReadbacksMode::Precise;
     for (const ImageId image_id : download_images) {
         DownloadImageMemory(image_id, sync);
     }
