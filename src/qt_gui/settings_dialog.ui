@@ -2873,7 +2873,7 @@
 									<widget class="QLabel" name="label_22">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -2991,7 +2991,7 @@
 									<widget class="QLabel" name="label_4">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -3041,7 +3041,7 @@
 									<widget class="QLabel" name="label_231">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -3068,7 +3068,7 @@
 									<widget class="QLabel" name="label_211">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -3093,7 +3093,7 @@
 										</property>
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -3137,7 +3137,7 @@
 									<widget class="QLabel" name="label_readbacksaccuracy_hint">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -3182,7 +3182,7 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
 									<widget class="QLabel" name="label_232">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>

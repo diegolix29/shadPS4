@@ -1584,7 +1584,7 @@
 									<widget class="QLabel" name="label_22">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -1697,7 +1697,7 @@
 									<widget class="QLabel" name="label_4">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -1727,7 +1727,7 @@
 									<widget class="QLabel" name="label_23">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -1753,7 +1753,7 @@
 									<widget class="QLabel" name="label_211">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -1774,7 +1774,7 @@
 									<widget class="QLabel" name="label_readbacks_speed_title">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -1831,7 +1831,7 @@
 									<widget class="QLabel" name="label_readbacksaccuracy_hint">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
@@ -1875,7 +1875,7 @@
 									<widget class="QLabel" name="label_27">
 										<property name="font">
 											<font>
-												<pointsize>11</pointsize>
+												<pointsize>9</pointsize>
 												<bold>true</bold>
 											</font>
 										</property>
