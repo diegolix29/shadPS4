@@ -86,19 +86,25 @@ ImageId TextureCache::GetNullImage(const vk::Format format) {
 }
 
 void TextureCache::ProcessDownloadImages() {
+    const auto mode = EmulatorSettings.GetReadbacksMode();
+    if (mode == GpuReadbacksMode::Disabled) {
+        download_images.clear();
+        return;
+    }
+    const bool sync = mode == GpuReadbacksMode::Precise;
     for (const ImageId image_id : download_images) {
-        DownloadImageMemory(image_id);
+        DownloadImageMemory(image_id, sync);
     }
     download_images.clear();
 }
 
-void TextureCache::DownloadImageMemory(ImageId image_id) {
+void TextureCache::DownloadImageMemory(ImageId image_id, bool sync) {
     Image& image = slot_images[image_id];
     if (False(image.flags & ImageFlagBits::GpuModified)) {
         return;
     }
     auto& download_buffer = buffer_cache.GetUtilityBuffer(MemoryUsage::Download);
-    const u32 download_size = image.info.pitch * image.info.size.height *
+    const u32 download_size = image.info.pitch * image.info.size.height * image.info.size.depth *
                               image.info.resources.layers * (image.info.num_bits / 8);
     ASSERT(download_size <= image.info.guest_size);
     const auto [download, offset] = download_buffer.Map(download_size);
@@ -116,7 +122,7 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
                 .layerCount = image.info.resources.layers,
             },
         .imageOffset = {0, 0, 0},
-        .imageExtent = {image.info.size.width, image.info.size.height, 1},
+        .imageExtent = {image.info.size.width, image.info.size.height, image.info.size.depth},
     };
     scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -124,11 +130,17 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
     cmdbuf.copyImageToBuffer(image.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
                              download_buffer.Handle(), image_download);
 
-    scheduler.DeferPriorityOperation(
-        [this, device_addr = image.info.guest_address, download, download_size] {
-            Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(device_addr), download,
-                                                      download_size);
-        });
+    if (sync) {
+        scheduler.Finish();
+        Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(image.info.guest_address),
+                                                  download, download_size);
+    } else {
+        scheduler.DeferPriorityOperation(
+            [this, device_addr = image.info.guest_address, download, download_size] {
+                Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(device_addr), download,
+                                                          download_size);
+            });
+    }
 }
 
 void TextureCache::MarkAsMaybeDirty(ImageId image_id, Image& image) {
@@ -643,7 +655,8 @@ ImageView& TextureCache::FindTexture(ImageId image_id, const ImageDesc& desc) {
     Image& image = slot_images[image_id];
     if (desc.type == BindingType::Storage) {
         image.flags |= ImageFlagBits::GpuModified;
-        if (readback_linear_images && !image.info.props.is_tiled && image.info.guest_address != 0) {
+        if (!image.info.props.is_tiled && image.info.guest_address != 0 &&
+            (readback_linear_images || image.info.props.is_volume)) {
             download_images.emplace(image_id);
         }
     }
