@@ -213,8 +213,17 @@ void WelcomeDialog::SetupUI() {
     updateButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     mainLayout->addWidget(updateButton, 0, Qt::AlignLeft);
     connect(updateButton, &QPushButton::clicked, this, [this]() {
+        if (!Common::FS::IsUserPathsInitialized()) {
+            auto portable_dir = Common::FS::GetPortablePath();
+            auto init_state = std::filesystem::exists(portable_dir)
+                                  ? Common::FS::PathInitState::Portable
+                                  : Common::FS::PathInitState::Global;
+            Common::FS::InitializeUserPaths(init_state);
+        }
+        const auto config_path =
+            Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml";
         Config::setShowWelcomeDialog(!m_skipNextLaunch);
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
+        Config::save(config_path, false);
         accept();
     });
     auto* footer = new QHBoxLayout();
@@ -298,14 +307,13 @@ void WelcomeDialog::SetupUI() {
         showThemedMessageBox(QMessageBox::Information, tr("Portable Folder Set"),
                              tr("Portable Folder Successfully Set"), QMessageBox::Ok);
 
-        Config::setShowWelcomeDialog(false);
-
         const auto new_user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         const auto config_path = new_user_dir / "config.toml";
         if (std::filesystem::exists(config_path)) {
             Config::load(config_path);
         }
 
+        Config::setShowWelcomeDialog(false);
         Config::save(config_path, false);
 
         accept();
@@ -402,14 +410,13 @@ void WelcomeDialog::SetupUI() {
         showThemedMessageBox(QMessageBox::Information, tr("Global Folder Set"),
                              tr("Global Folder Successfully Set"), QMessageBox::Ok);
 
-        Config::setShowWelcomeDialog(false);
-
         const auto new_user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         const auto config_path = new_user_dir / "config.toml";
         if (std::filesystem::exists(config_path)) {
             Config::load(config_path);
         }
 
+        Config::setShowWelcomeDialog(false);
         Config::save(config_path, false);
 
         accept();

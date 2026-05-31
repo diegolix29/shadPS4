@@ -184,7 +184,7 @@ static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
 static ConfigEntry<bool> pauseOnUnfocus(false);
-static bool showWelcomeDialog = true;
+static ConfigEntry<bool> showWelcomeDialog(true);
 static ConfigEntry<bool> isDisableHardcodedHotkeys(false);
 static ConfigEntry<bool> homeButtonHotkey(false);
 static bool isAlwaysShowChangelog = false;
@@ -412,7 +412,7 @@ u32 m_language = 1; // english
 static std::string trophyKey = "";
 
 bool getShowWelcomeDialog() {
-    return showWelcomeDialog;
+    return showWelcomeDialog.get();
 }
 
 bool isPipelineCacheArchived() {
@@ -432,7 +432,7 @@ void setPipelineCacheEnabled(bool enable) {
 }
 
 void setShowWelcomeDialog(bool enable) {
-    showWelcomeDialog = enable;
+    showWelcomeDialog.base_value = enable;
 }
 
 bool getPauseOnUnfocus() {
@@ -1658,7 +1658,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isShowSplash.setFromToml(general, "showSplash", is_game_specific);
         isAutoUpdate = toml::find_or<bool>(general, "autoUpdate", false);
         pauseOnUnfocus.setFromToml(general, "pauseOnUnfocus", is_game_specific);
-        showWelcomeDialog = toml::find_or<bool>(general, "showWelcomeDialog", true);
+        showWelcomeDialog.setFromToml(general, "showWelcomeDialog", false);
 
         isAlwaysShowChangelog = toml::find_or<bool>(general, "alwaysShowChangelog", false);
         isDisableHardcodedHotkeys.setFromToml(general, "DisableHardcodedHotkeys", is_game_specific);
@@ -2097,7 +2097,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["General"]["showSplash"] = isShowSplash.base_value;
     data["General"]["autoUpdate"] = isAutoUpdate;
     data["General"]["pauseOnUnfocus"] = pauseOnUnfocus.base_value;
-    data["General"]["showWelcomeDialog"] = showWelcomeDialog;
+    data["General"]["showWelcomeDialog"] = showWelcomeDialog.base_value;
     data["General"]["alwaysShowChangelog"] = isAlwaysShowChangelog;
     data["General"]["DisableHardcodedHotkeys"] = isDisableHardcodedHotkeys.base_value;
     data["General"]["UseHomeButtonForHotkeys"] = homeButtonHotkey.base_value;
