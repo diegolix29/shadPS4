@@ -57,6 +57,13 @@ int main(int argc, char* argv[]) {
     std::shared_ptr<EmulatorState> m_emu_state = std::make_shared<EmulatorState>();
     EmulatorState::SetInstance(m_emu_state);
 
+    {
+        auto portable = Common::FS::GetPortablePath();
+        auto init_state = std::filesystem::exists(portable) ? Common::FS::PathInitState::Portable
+                                                            : Common::FS::PathInitState::Global;
+        Common::FS::InitializeUserPaths(init_state);
+    }
+
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
     // temp copy the trophy key from old config to key manager if exists
