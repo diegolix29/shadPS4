@@ -7,6 +7,7 @@
 #include <fmt/std.h>
 
 #include "common/assert.h"
+#include "common/config.h"
 #include "common/logging/log.h"
 #include "common/logging/thread_name_formatter.h"
 #include "common/types.h"

@@ -11,6 +11,7 @@
 
 #include <core/emulator_settings.h>
 #include <core/emulator_state.h>
+#include "common/config.h"
 #include "common/key_manager.h"
 #include "common/logging/log.h"
 #include "common/memory_patcher.h"
@@ -112,9 +113,22 @@ int main(int argc, char* argv[]) {
     EmulatorState::SetInstance(emu_state);
     UserSettings.Load();
 
-    // Initialize key manager
+    const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+    Config::load(user_dir / "config.toml");
+
+    // ---- Trophy key migration ----
     auto key_manager = KeyManager::GetInstance();
     key_manager->LoadFromFile();
+    if (key_manager->GetAllKeys().TrophyKeySet.ReleaseTrophyKey.empty() &&
+        !Config::getTrophyKey().empty()) {
+        auto keys = key_manager->GetAllKeys();
+        if (keys.TrophyKeySet.ReleaseTrophyKey.empty() && !Config::getTrophyKey().empty()) {
+            keys.TrophyKeySet.ReleaseTrophyKey =
+                KeyManager::HexStringToBytes(Config::getTrophyKey());
+            key_manager->SetAllKeys(keys);
+            key_manager->SaveToFile();
+        }
+    }
 
     // Load configurations
     std::shared_ptr<EmulatorSettingsImpl> emu_settings = std::make_shared<EmulatorSettingsImpl>();
