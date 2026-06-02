@@ -54,12 +54,6 @@ sudo zypper install clang git cmake libasound2 libpulse-devel \
     vulkan-validationlayers libpng-devel
 ```
 
-#### NixOS
-
-```bash
-nix-shell shell.nix
-```
-
 #### Nix Flake Development Shell
 ```bash
 nix develop
@@ -69,13 +63,13 @@ ln -s ./build/compile_commands.json .
 
 #### Nix Flake Build
 ```bash
-nix build .?submodules=1#linux.debug
+nix build .?submodules=1#debug
 ```
 ```bash
-nix build .?submodules=1#linux.release
+nix build .?submodules=1#release
 ```
 ```bash
-nix build .?submodules=1#linux.releaseWithDebugInfo
+nix build .?submodules=1#releaseWithDebugInfo
 ```
 #### Other Linux distributions
 
