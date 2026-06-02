@@ -42,9 +42,34 @@ static void hexToBytes(const char* hex, unsigned char* dst) {
     }
 }
 
-bool TRP::Extract(const std::filesystem::path& trophyPath, std::string npCommId,
+bool TRP::Extract(const std::filesystem::path& trophyPath, int index, std::string npCommId,
                   const std::filesystem::path& outputPath) {
-    // Retrieve trophy key
+    if (!std::filesystem::exists(trophyPath)) {
+        LOG_WARNING(Common_Filesystem, "Trophy directory doesn't exist: {}", trophyPath.string());
+        return false;
+    }
+
+    // Collect all .trp files in the directory
+    std::vector<std::filesystem::path> trpFiles;
+    for (const auto& entry : std::filesystem::directory_iterator(trophyPath)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".trp") {
+            trpFiles.push_back(entry.path());
+        }
+    }
+
+    // Sort files to ensure consistent ordering
+    std::sort(trpFiles.begin(), trpFiles.end());
+
+    if (index >= trpFiles.size()) {
+        LOG_WARNING(Common_Filesystem, "Trophy index {} out of range (only {} .trp files found)",
+                    index, trpFiles.size());
+        return false;
+    }
+
+    // Select the file at the given index
+    std::filesystem::path gameSysDir = trpFiles[index];
+    LOG_INFO(Common_Filesystem, "Using trophy file: {}", gameSysDir.filename().string());
+
     const auto& user_key_vec =
         KeyManager::GetInstance()->GetAllKeys().TrophyKeySet.ReleaseTrophyKey;
 
@@ -56,26 +81,28 @@ bool TRP::Extract(const std::filesystem::path& trophyPath, std::string npCommId,
     std::array<u8, 16> user_key{};
     std::copy(user_key_vec.begin(), user_key_vec.end(), user_key.begin());
 
-    s32 trpFileIndex = 0;
     bool success = true;
+    int trpFileIndex = 0;
+
     try {
-        if (trophyPath.extension() != ".trp") {
+        const auto& it = gameSysDir;
+        if (it.extension() != ".trp") {
             return false;
         }
-        Common::FS::IOFile file(trophyPath, Common::FS::FileAccessMode::Read);
+        Common::FS::IOFile file(it, Common::FS::FileAccessMode::Read);
         if (!file.IsOpen()) {
-            LOG_ERROR(Common_Filesystem, "Unable to open trophy file: {}", trophyPath.string());
+            LOG_ERROR(Common_Filesystem, "Unable to open trophy file: {}", it.string());
             return false;
         }
 
         TrpHeader header;
         if (!file.Read(header)) {
-            LOG_ERROR(Common_Filesystem, "Failed to read TRP header from {}", trophyPath.string());
+            LOG_ERROR(Common_Filesystem, "Failed to read TRP header from {}", it.string());
             return false;
         }
 
         if (header.magic != TRP_MAGIC) {
-            LOG_ERROR(Common_Filesystem, "Wrong trophy magic number in {}", trophyPath.string());
+            LOG_ERROR(Common_Filesystem, "Wrong trophy magic number in {}", it.string());
             return false;
         }
 
@@ -88,7 +115,7 @@ bool TRP::Extract(const std::filesystem::path& trophyPath, std::string npCommId,
         }
 
         // Process each entry in the TRP file
-        for (u32 i = 0; i < header.entry_num; i++) {
+        for (int i = 0; i < header.entry_num; i++) {
             if (!file.Seek(seekPos)) {
                 LOG_ERROR(Common_Filesystem, "Failed to seek to TRP entry offset");
                 success = false;
@@ -125,7 +152,7 @@ bool TRP::Extract(const std::filesystem::path& trophyPath, std::string npCommId,
                 }
             } else {
                 LOG_DEBUG(Common_Filesystem, "Unknown entry flag: {} for {}",
-                          static_cast<u32>(entry.flag), name);
+                          static_cast<unsigned int>(entry.flag), name);
             }
             trpFileIndex++;
         }
@@ -206,7 +233,7 @@ bool TRP::ProcessEncryptedXmlEntry(Common::FS::IOFile& file, const TrpEntry& ent
         return false;
     }
 
-    // Decrypt the data
+    // Decrypt the data - FIX: Don't check return value since DecryptEFSM returns void
     std::span<const u8, 16> key_span(user_key);
 
     // Convert npCommId string to span (pad or truncate to 16 bytes)
@@ -220,7 +247,7 @@ bool TRP::ProcessEncryptedXmlEntry(Common::FS::IOFile& file, const TrpEntry& ent
     // Remove padding
     removePadding(XML);
 
-    // Create output filename
+    // Create output filename (replace ESFM with XML)
     std::string xml_name(entry.entry_name);
     size_t pos = xml_name.find("ESFM");
     if (pos != std::string::npos) {
