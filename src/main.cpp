@@ -103,6 +103,9 @@ int main(int argc, char* argv[]) {
     if (waitPid)
         Core::Debugger::WaitForPid(*waitPid);
 
+    // Start default log
+    Common::Log::Setup("shad_log.txt");
+
     IPC::Instance().Init();
 
     auto emu_state = std::make_shared<EmulatorState>();
@@ -118,8 +121,10 @@ int main(int argc, char* argv[]) {
     EmulatorSettingsImpl::SetInstance(emu_settings);
     emu_settings->Load();
 
-    // Configure logger appropriately
+    Common::Log::Shutdown();
+    // Start configured log
     Common::Log::g_should_append |= EmulatorSettings.IsLogAppend();
+    Common::Log::Setup("shad_log.txt");
 
     if (bigPicture) {
         BigPictureMode::Launch(argv[0]);

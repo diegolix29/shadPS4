@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <iostream>
 #include <unordered_map>
 #include <vector>
 #include <spdlog/details/fmt_helper.h>
