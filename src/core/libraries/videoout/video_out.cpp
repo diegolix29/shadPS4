@@ -348,10 +348,19 @@ s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, s64 flip_arg, voi
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
 
+    const s32 index = static_cast<s32>(buf_id);
+    if (index < -1 || index > 15) {
+        LOG_ERROR(Lib_VideoOut, "Invalid buf_id = {}", index);
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_INDEX;
+    }
+    if (index != -1 && port->buffer_slots[index].group_index < 0) {
+        LOG_ERROR(Lib_VideoOut, "Slot in buf_id = {} is not registered", index);
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_INDEX;
+    }
+
     Platform::IrqC::Instance()->RegisterOnce(
         Platform::InterruptId::GfxFlip, [=](Platform::InterruptId irq) {
             ASSERT_MSG(irq == Platform::InterruptId::GfxFlip, "An unexpected IRQ occured");
-            ASSERT_MSG(port->buffer_labels[buf_id] == 1, "Out of order flip IRQ");
             const auto result = driver->SubmitFlip(port, buf_id, flip_arg, true);
             ASSERT_MSG(result, "EOP flip submission failed");
         });
