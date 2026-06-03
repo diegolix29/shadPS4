@@ -772,6 +772,42 @@ static void TryPatchAot(void* code_address, u64 code_size) {
     }
 }
 
+static void TryPatchAotSse4aOnly(void* code_address, u64 code_size) {
+    static constexpr std::array<ZydisMnemonic, 4> kSse4aMnemonics = {
+        ZYDIS_MNEMONIC_EXTRQ,
+        ZYDIS_MNEMONIC_INSERTQ,
+        ZYDIS_MNEMONIC_MOVNTSS,
+        ZYDIS_MNEMONIC_MOVNTSD,
+    };
+
+    auto* code = static_cast<u8*>(code_address);
+    auto* module = GetModule(code);
+    if (module == nullptr) {
+        return;
+    }
+
+    std::unique_lock lock{module->mutex};
+
+    const auto* end = code + code_size;
+    while (code < end) {
+        ZydisDecodedInstruction instruction;
+        ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT];
+        const auto status = Common::Decoder::Instance()->decodeInstruction(
+            instruction, operands, code, module->end - code);
+        if (!ZYAN_SUCCESS(status)) {
+            code += 1;
+            continue;
+        }
+        const bool is_sse4a =
+            std::ranges::find(kSse4aMnemonics, instruction.mnemonic) != kSse4aMnemonics.end();
+        if (is_sse4a) {
+            code += TryPatch(code, module).second;
+        } else {
+            code += instruction.length;
+        }
+    }
+}
+
 static bool PatchesAccessViolationHandler(void* context, void* /* fault_address */) {
     return TryPatchJit(Common::GetRip(context));
 }
@@ -832,6 +868,10 @@ void PrePatchInstructions(u64 segment_addr, u64 segment_size) {
     // ahead-of-time patching for now until a better solution is worked out.
     if (!Patches.empty()) {
         TryPatchAot(reinterpret_cast<void*>(segment_addr), segment_size);
+    }
+#else
+    if (!Patches.empty()) {
+        TryPatchAotSse4aOnly(reinterpret_cast<void*>(segment_addr), segment_size);
     }
 #endif
 }
