@@ -314,6 +314,14 @@ u32 main_window_geometry_x = 400;
 u32 main_window_geometry_y = 400;
 u32 main_window_geometry_w = 1280;
 u32 main_window_geometry_h = 720;
+u32 settings_dialog_geometry_x = 200;
+u32 settings_dialog_geometry_y = 200;
+u32 settings_dialog_geometry_w = 900;
+u32 settings_dialog_geometry_h = 700;
+u32 game_specific_dialog_geometry_x = 200;
+u32 game_specific_dialog_geometry_y = 200;
+u32 game_specific_dialog_geometry_w = 900;
+u32 game_specific_dialog_geometry_h = 700;
 u32 mw_themes = 0;
 u32 m_icon_size = 36;
 u32 m_icon_size_grid = 69;
@@ -1374,6 +1382,34 @@ void setMainWindowHeight(u32 height) {
     m_window_size_H = height;
 }
 
+void setSettingsDialogGeometry(u32 x, u32 y, u32 w, u32 h) {
+    settings_dialog_geometry_x = x;
+    settings_dialog_geometry_y = y;
+    settings_dialog_geometry_w = w;
+    settings_dialog_geometry_h = h;
+}
+
+void getSettingsDialogGeometry(u32& x, u32& y, u32& w, u32& h) {
+    x = settings_dialog_geometry_x;
+    y = settings_dialog_geometry_y;
+    w = settings_dialog_geometry_w;
+    h = settings_dialog_geometry_h;
+}
+
+void setGameSpecificDialogGeometry(u32 x, u32 y, u32 w, u32 h) {
+    game_specific_dialog_geometry_x = x;
+    game_specific_dialog_geometry_y = y;
+    game_specific_dialog_geometry_w = w;
+    game_specific_dialog_geometry_h = h;
+}
+
+void getGameSpecificDialogGeometry(u32& x, u32& y, u32& w, u32& h) {
+    x = game_specific_dialog_geometry_x;
+    y = game_specific_dialog_geometry_y;
+    w = game_specific_dialog_geometry_w;
+    h = game_specific_dialog_geometry_h;
+}
+
 void setElfViewer(const std::vector<std::string>& elfList) {
     m_elf_viewer.resize(elfList.size());
     m_elf_viewer = elfList;
@@ -1832,6 +1868,14 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         main_window_geometry_y = toml::find_or<int>(gui, "geometry_y", 400);
         main_window_geometry_w = toml::find_or<int>(gui, "geometry_w", 1280);
         main_window_geometry_h = toml::find_or<int>(gui, "geometry_h", 720);
+        settings_dialog_geometry_x = toml::find_or<int>(gui, "settings_geometry_x", 200);
+        settings_dialog_geometry_y = toml::find_or<int>(gui, "settings_geometry_y", 200);
+        settings_dialog_geometry_w = toml::find_or<int>(gui, "settings_geometry_w", 900);
+        settings_dialog_geometry_h = toml::find_or<int>(gui, "settings_geometry_h", 700);
+        game_specific_dialog_geometry_x = toml::find_or<int>(gui, "game_specific_geometry_x", 200);
+        game_specific_dialog_geometry_y = toml::find_or<int>(gui, "game_specific_geometry_y", 200);
+        game_specific_dialog_geometry_w = toml::find_or<int>(gui, "game_specific_geometry_w", 900);
+        game_specific_dialog_geometry_h = toml::find_or<int>(gui, "game_specific_geometry_h", 700);
         launcher_boot = toml::find_or<bool>(gui, "launcher_boot", false);
         isQT = toml::find_or<bool>(gui, "isQT", false);
         isSDL = toml::find_or<bool>(gui, "isSDL", false);
