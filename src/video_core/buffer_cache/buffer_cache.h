@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <functional>
 #include <boost/container/small_vector.hpp>
 #include <queue>
 #include <tsl/robin_map.h>
@@ -145,6 +146,11 @@ public:
     /// Performs buffer to buffer data copy on the GPU.
     void CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, bool src_gds);
 
+    /// Inserts externally produced GPU data into the buffer cache, marking the region as
+    /// GPU-modified. Used to inject compute shader storage image output so that
+    /// ObtainBufferForImage can find the data through its Level 1/2 fallback chain.
+    void InsertGpuData(VAddr device_addr, const void* data, u64 size);
+
     /// Obtains a buffer for the specified region.
     [[nodiscard]] std::pair<Buffer*, u32> ObtainBuffer(
         VAddr gpu_addr, u32 size, ObtainBufferFlags flags = ObtainBufferFlags::None,
@@ -182,6 +188,11 @@ public:
 
     /// Runs the garbage collector.
     void RunGarbageCollector();
+
+    using PreAccessCallback = std::function<void(VAddr, u64)>;
+    void SetPreAccessCallback(PreAccessCallback cb) {
+        pre_access_cb = std::move(cb);
+    }
 
     /// Notifies memory tracker of GPU modified ranges from the last CPU fence.
     void CommitPendingGpuRanges();
@@ -277,6 +288,7 @@ private:
     tsl::robin_map<BufferId, BufferCopies> preemptive_copies;
     SplitRangeMap<BufferId> buffer_ranges;
     PageTable page_table;
+    PreAccessCallback pre_access_cb;
 };
 
 } // namespace VideoCore
