@@ -94,7 +94,7 @@ public:
     /// exclude_producer. Used after inserting compute storage output into buffer cache,
     /// so that consumer textures refresh from the buffer cache instead of stale guest memory.
     /// Returns the number of images marked.
-    u32 InvalidateMemoryRange(VAddr address, size_t max_size, VAddr exclude_producer = 0);
+    u32 InvalidateMemoryRange(VAddr address, size_t max_size, ImageId exclude_producer = {});
 
     /// Returns true if any image in the range has GpuDirty set (i.e., still waiting
     /// for data from buffer cache). Used by BufferCache GC to avoid evicting buffers

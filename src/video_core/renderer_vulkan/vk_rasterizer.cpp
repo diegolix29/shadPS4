@@ -381,8 +381,8 @@ void Rasterizer::Finish() {
 void Rasterizer::SyncComputeStorageImages() {
     if (pending_storage_syncs.empty()) return;
 
-    LOG_INFO(Render_Vulkan, "[StorageSync] {} storage image(s) to sync",
-             pending_storage_syncs.size());
+    LOG_DEBUG(Render_Vulkan, "[StorageSync] {} storage image(s) to sync",
+              pending_storage_syncs.size());
 
     auto& download_buf = buffer_cache.GetUtilityBuffer(VideoCore::MemoryUsage::Download);
 
@@ -454,7 +454,7 @@ void Rasterizer::SyncComputeStorageImages() {
     const u64 tick = scheduler.CurrentTick();
     scheduler.Wait(tick);
 
-    LOG_INFO(Render_Vulkan, "[StorageSync] GPU done, tick={}", tick);
+    LOG_DEBUG(Render_Vulkan, "[StorageSync] GPU done, tick={}", tick);
 
     for (size_t i = 0; i < pending_storage_syncs.size(); ++i) {
         auto& sync = pending_storage_syncs[i];
@@ -464,8 +464,8 @@ void Rasterizer::SyncComputeStorageImages() {
 
         const u32 count =
             texture_cache.InvalidateMemoryRange(sync.guest_addr, sync.guest_size,
-                                                /*exclude_producer=*/sync.guest_addr);
-        LOG_INFO(Render_Vulkan, "[StorageSync] guest={:#x} injected {}B, {} consumer(s) marked",
+                                                /*exclude_producer=*/sync.image_id);
+        LOG_DEBUG(Render_Vulkan, "[StorageSync] guest={:#x} injected {}B, {} consumer(s) marked",
                  sync.guest_addr, st.size, count);
     }
 
@@ -907,9 +907,9 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
                         .pitch = image.info.pitch,
                         .pixel_format = image.info.pixel_format,
                     });
-                    LOG_INFO(Render_Vulkan,
-                             "[StorageSync] collected guest={:#x} {}x{} fmt={} layers={} "
-                             "mips={} samples={} pitch={} size={}",
+                    LOG_DEBUG(Render_Vulkan,
+                              "[StorageSync] collected guest={:#x} {}x{} fmt={} layers={} "
+                              "mips={} samples={} pitch={} size={}",
                              image.info.guest_address, image.info.size.width,
                              image.info.size.height, vk::to_string(image.info.pixel_format),
                              image.info.resources.layers, image.info.resources.levels,

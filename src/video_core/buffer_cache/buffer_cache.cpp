@@ -381,7 +381,7 @@ void BufferCache::InsertGpuData(VAddr device_addr, const void* data, u64 size) {
     const bool existed = IsRegionRegistered(device_addr, size);
     const auto [buffer, offset] = ObtainBuffer(device_addr, size, true);
     WriteDataBuffer(*buffer, device_addr, data, size);
-    LOG_INFO(Render_Vulkan, "[StorageSync] InsertGpuData: guest={:#x} size={} {} total_used={}",
+    LOG_DEBUG(Render_Vulkan, "[StorageSync] InsertGpuData: guest={:#x} size={} {} total_used={}",
              device_addr, size, existed ? "reuse" : "new_buffer", total_used_memory);
 }
 
