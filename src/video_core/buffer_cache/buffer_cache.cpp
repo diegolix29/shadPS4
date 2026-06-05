@@ -372,6 +372,19 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
     });
 }
 
+void BufferCache::InsertGpuData(VAddr device_addr, const void* data, u64 size) {
+    // ObtainBuffer(is_written=true) internally:
+    //   1. Registers the buffer in page_table (→ ObtainBufferForImage Level 1 hit)
+    //   2. Sets MemoryTracker GPU dirty via ChangeRegionState<GPU, true> (→ Level 2 hit)
+    //   3. Adds to gpu_modified_ranges (→ DownloadBufferMemory traversal)
+    // WriteDataBuffer copies the staging data into the device buffer.
+    const bool existed = IsRegionRegistered(device_addr, size);
+    const auto [buffer, offset] = ObtainBuffer(device_addr, size, true);
+    WriteDataBuffer(*buffer, device_addr, data, size);
+    LOG_INFO(Render_Vulkan, "[StorageSync] InsertGpuData: guest={:#x} size={} {} total_used={}",
+             device_addr, size, existed ? "reuse" : "new_buffer", total_used_memory);
+}
+
 std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, bool is_written,
                                                   bool is_texel_buffer, BufferId buffer_id) {
     // For read-only buffers use device local stream buffer to reduce renderpass breaks.
@@ -851,8 +864,27 @@ void BufferCache::RunGarbageCollector() {
         if (max_deletions == 0) {
             return;
         }
-        --max_deletions;
         Buffer& buffer = slot_buffers[buffer_id];
+
+        // Before evicting, check if TextureCache still has GpuDirty images in this
+        // buffer's range. If so, consumer textures haven't consumed the data yet
+        // (e.g. cubemap faces not visible for many frames). Skip eviction to avoid
+        // leaving consumers with a dangling GpuDirty pointing to deleted buffer data.
+        // In aggressive mode (critical memory pressure), evict anyway.
+        if (!aggressive && texture_cache.HasGpuDirtyImagesInRange(buffer.CpuAddr(),
+                                                                   buffer.SizeBytes())) {
+            LOG_INFO(Render_Vulkan,
+                     "BufferCache GC: buffer {:#x} has pending GpuDirty consumers, skip "
+                     "total_used={}",
+                     buffer.CpuAddr(), total_used_memory);
+            return;
+        }
+
+        --max_deletions;
+        LOG_WARNING(Render_Vulkan,
+                    "BufferCache GC: evict buffer {:#x} size={} total_used={} mode={}",
+                    buffer.CpuAddr(), buffer.SizeBytes(), total_used_memory,
+                    aggressive ? "aggressive" : "normal");
         // InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes());
         DownloadBufferMemory<true>(buffer, buffer.CpuAddr(), buffer.SizeBytes(), true);
         DeleteBuffer(buffer_id);

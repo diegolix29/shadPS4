@@ -185,6 +185,36 @@ void TextureCache::InvalidateMemoryFromGPU(VAddr address, size_t max_size) {
     });
 }
 
+u32 TextureCache::InvalidateMemoryRange(VAddr address, size_t max_size, VAddr exclude_producer) {
+    std::scoped_lock lock{mutex};
+    u32 count = 0;
+    ForEachImageInRegion(address, max_size, [&](ImageId image_id, Image& image) {
+        if (exclude_producer && image.info.guest_address == exclude_producer) {
+            LOG_DEBUG(Render_Vulkan, "[StorageSync] skip producer guest={:#x}", exclude_producer);
+            return;
+        }
+        image.flags |= ImageFlagBits::GpuDirty;
+        ++count;
+        LOG_DEBUG(Render_Vulkan, "[StorageSync] GpuDirty image id={} guest={:#x} fmt={}",
+                  image_id.index, image.info.guest_address,
+                  vk::to_string(image.info.pixel_format));
+    });
+    return count;
+}
+
+bool TextureCache::HasGpuDirtyImagesInRange(VAddr addr, size_t size) {
+    std::scoped_lock lock{mutex};
+    bool found = false;
+    ForEachImageInRegion(addr, size, [&](ImageId, Image& image) {
+        if (True(image.flags & ImageFlagBits::GpuDirty)) {
+            found = true;
+            return true; // break iteration
+        }
+        return false;
+    });
+    return found;
+}
+
 void TextureCache::UnmapMemory(VAddr cpu_addr, size_t size) {
     std::scoped_lock lk{mutex};
 

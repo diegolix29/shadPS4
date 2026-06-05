@@ -90,6 +90,17 @@ public:
     /// Marks an image as dirty if it exists at the provided address.
     void InvalidateMemoryFromGPU(VAddr address, size_t max_size);
 
+    /// Marks all images overlapping the range as GpuDirty, excluding the producer at
+    /// exclude_producer. Used after inserting compute storage output into buffer cache,
+    /// so that consumer textures refresh from the buffer cache instead of stale guest memory.
+    /// Returns the number of images marked.
+    u32 InvalidateMemoryRange(VAddr address, size_t max_size, VAddr exclude_producer = 0);
+
+    /// Returns true if any image in the range has GpuDirty set (i.e., still waiting
+    /// for data from buffer cache). Used by BufferCache GC to avoid evicting buffers
+    /// whose data hasn't been consumed yet.
+    [[nodiscard]] bool HasGpuDirtyImagesInRange(VAddr addr, size_t size);
+
     /// Evicts any images that overlap the unmapped range.
     void UnmapMemory(VAddr cpu_addr, size_t size);
 

@@ -314,6 +314,13 @@ void Rasterizer::DispatchDirect() {
 
     const auto& cs = pipeline->GetStage(Shader::LogicalStage::Compute);
     if (ExecuteShaderHLE(cs, liverpool->regs, cs_program, *this)) {
+        if (!pending_storage_syncs.empty()) {
+            LOG_ERROR(Render_Vulkan,
+                      "[StorageSync] HLE intercepted dispatch with {} storage binding(s) — "
+                      "output NOT synced, texture corruption likely",
+                      pending_storage_syncs.size());
+            pending_storage_syncs.clear();
+        }
         return;
     }
 
@@ -328,6 +335,7 @@ void Rasterizer::DispatchDirect() {
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatch(cs_program.dim_x, cs_program.dim_y, cs_program.dim_z);
 
+    SyncComputeStorageImages();
     ResetBindings();
 }
 
@@ -355,6 +363,7 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatchIndirect(buffer->Handle(), base);
 
+    SyncComputeStorageImages();
     ResetBindings();
 }
 
@@ -367,6 +376,100 @@ u64 Rasterizer::Flush() {
 
 void Rasterizer::Finish() {
     scheduler.Finish();
+}
+
+void Rasterizer::SyncComputeStorageImages() {
+    if (pending_storage_syncs.empty()) return;
+
+    LOG_INFO(Render_Vulkan, "[StorageSync] {} storage image(s) to sync",
+             pending_storage_syncs.size());
+
+    auto& download_buf = buffer_cache.GetUtilityBuffer(VideoCore::MemoryUsage::Download);
+
+    // Transit storage images to transfer-src on the dispatch command buffer.
+    // Pipeline barriers ensure CS writes are visible to the subsequent copy.
+    for (auto& sync : pending_storage_syncs) {
+        auto& img = texture_cache.GetImage(sync.image_id);
+        img.Transit(vk::ImageLayout::eTransferSrcOptimal,
+                    vk::AccessFlagBits2::eTransferRead, {});
+    }
+
+    // Submit dispatch + barriers, get a fresh command buffer.
+    scheduler.EndRendering();
+    auto cmdbuf = scheduler.CommandBuffer();
+
+    // Record vkCmdCopyImageToBuffer for each storage image on the same cmdbuf.
+    // Staging pointers remain valid after Commit/Wait (host-visible persistent mapping).
+    struct StagedDownload {
+        const u8* data;
+        u32 size;
+    };
+    boost::container::small_vector<StagedDownload, 4> staged;
+
+    for (auto& sync : pending_storage_syncs) {
+        const auto& img = texture_cache.GetImage(sync.image_id);
+        const u32 bpp = img.info.num_bits / 8u;  // bytes per pixel
+        const u32 row_length = sync.pitch ? sync.pitch : sync.width;
+        const u32 download_size = row_length * sync.height * sync.layers * bpp;
+
+        LOG_DEBUG(Render_Vulkan,
+                  "[StorageSync] download guest={:#x} {}x{} layers={} bpp={} row_len={} "
+                  "size={}",
+                  sync.guest_addr, sync.width, sync.height, sync.layers, bpp, row_length,
+                  download_size);
+
+        boost::container::small_vector<vk::BufferImageCopy, 6> regions;
+        const u32 layer_size = row_length * sync.height * bpp;
+        for (u32 layer = 0; layer < sync.layers; ++layer) {
+            regions.push_back({
+                .bufferOffset = layer * layer_size,
+                .bufferRowLength = row_length,
+                .bufferImageHeight = 0,
+                .imageSubresource =
+                    {
+                        .aspectMask = img.aspect_mask & ~vk::ImageAspectFlagBits::eStencil,
+                        .mipLevel = 0,
+                        .baseArrayLayer = layer,
+                        .layerCount = 1,
+                    },
+                .imageOffset = {0, 0, 0},
+                .imageExtent = {sync.width, sync.height, 1},
+            });
+        }
+
+        const auto [data, offset] = download_buf.Map(download_size);
+        for (auto& region : regions) {
+            region.bufferOffset += offset;
+        }
+        download_buf.Commit();
+        staged.push_back({data, download_size});
+
+        // Record copy directly — image is already in eTransferSrcOptimal from Transit above.
+        cmdbuf.copyImageToBuffer(img.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
+                                  download_buf.Handle(), regions);
+    }
+
+    // Submit copies, wait for GPU, then inject into buffer cache.
+    scheduler.EndRendering();
+    const u64 tick = scheduler.CurrentTick();
+    scheduler.Wait(tick);
+
+    LOG_INFO(Render_Vulkan, "[StorageSync] GPU done, tick={}", tick);
+
+    for (size_t i = 0; i < pending_storage_syncs.size(); ++i) {
+        auto& sync = pending_storage_syncs[i];
+        auto& st = staged[i];
+
+        buffer_cache.InsertGpuData(sync.guest_addr, st.data, st.size);
+
+        const u32 count =
+            texture_cache.InvalidateMemoryRange(sync.guest_addr, sync.guest_size,
+                                                /*exclude_producer=*/sync.guest_addr);
+        LOG_INFO(Render_Vulkan, "[StorageSync] guest={:#x} injected {}B, {} consumer(s) marked",
+                 sync.guest_addr, st.size, count);
+    }
+
+    pending_storage_syncs.clear();
 }
 
 void Rasterizer::OnSubmit() {
@@ -384,6 +487,8 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
         IsComputeImageClear(pipeline)) {
         return false;
     }
+
+    pending_storage_syncs.clear();
 
     set_write_index = 0;
     set_writes.clear();
@@ -773,6 +878,45 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
             }
             image.usage.storage |= is_storage;
             image.usage.texture |= !is_storage;
+
+            // Phase A: collect storage image metadata for post-dispatch buffer-cache sync.
+            // Deduplicate by guest_addr — the same storage image may be bound to multiple
+            // descriptor set slots in a single dispatch.
+            if (is_storage && image.info.guest_address != 0) {
+                bool already = false;
+                for (const auto& s : pending_storage_syncs) {
+                    if (s.guest_addr == image.info.guest_address) {
+                        already = true;
+                        break;
+                    }
+                }
+                if (already) {
+                    LOG_DEBUG(Render_Vulkan,
+                              "[StorageSync] duplicate binding guest={:#x} skipped",
+                              image.info.guest_address);
+                } else {
+                    pending_storage_syncs.push_back({
+                        .image_id = image_id,
+                        .guest_addr = image.info.guest_address,
+                        .guest_size = image.info.guest_size,
+                        .width = image.info.size.width,
+                        .height = image.info.size.height,
+                        .layers = image.info.resources.layers,
+                        .num_samples = image.info.num_samples,
+                        .num_mips = image.info.resources.levels,
+                        .pitch = image.info.pitch,
+                        .pixel_format = image.info.pixel_format,
+                    });
+                    LOG_INFO(Render_Vulkan,
+                             "[StorageSync] collected guest={:#x} {}x{} fmt={} layers={} "
+                             "mips={} samples={} pitch={} size={}",
+                             image.info.guest_address, image.info.size.width,
+                             image.info.size.height, vk::to_string(image.info.pixel_format),
+                             image.info.resources.layers, image.info.resources.levels,
+                             image.info.num_samples, image.info.pitch,
+                             image.info.guest_size);
+                }
+            }
 
             image_infos.emplace_back(VK_NULL_HANDLE, *image_view.image_view,
                                      image.backing->state.layout);

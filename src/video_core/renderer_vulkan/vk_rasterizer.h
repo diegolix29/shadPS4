@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <vector>
 #include "common/recursive_lock.h"
 #include "common/shared_first_mutex.h"
 #include "video_core/buffer_cache/buffer_cache.h"
@@ -116,6 +117,23 @@ private:
 
 private:
     friend class VideoCore::BufferCache;
+
+    /// Storage image info collected during BindResources for post-dispatch GPU→buffer-cache sync.
+    struct PendingStorageSync {
+        VideoCore::ImageId image_id;   // for Transit / GetImage access
+        VAddr guest_addr;              // image.info.guest_address
+        u64 guest_size;                // image.info.guest_size
+        u32 width, height;            // image.info.size
+        u32 layers;                    // image.info.resources.layers
+        u32 num_samples, num_mips;    // image.info.num_samples, resources.levels
+        u32 pitch;                     // image.info.pitch (tiled row length)
+        vk::Format pixel_format;       // image.info.pixel_format
+    };
+    std::vector<PendingStorageSync> pending_storage_syncs;
+
+    /// Phase B: download storage image output to staging, inject into buffer cache,
+    /// and mark overlapping consumer textures GpuDirty.
+    void SyncComputeStorageImages();
 
     const Instance& instance;
     Scheduler& scheduler;
