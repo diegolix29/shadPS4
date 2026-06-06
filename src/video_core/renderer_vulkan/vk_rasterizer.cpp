@@ -43,6 +43,7 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
         liverpool->BindRasterizer(this);
     }
     memory->SetRasterizer(this);
+    InstallPreAccessCallback();
 }
 
 Rasterizer::~Rasterizer() = default;
@@ -385,6 +386,20 @@ void Rasterizer::RecordStorageDownload() {
     const u32 sync_count = static_cast<u32>(pending_storage_syncs.size());
     LOG_INFO(Render_Vulkan, "[StorageSync] recording {} storage image download(s)", sync_count);
 
+    // Phase 4b: create placeholder buffers to set up read/write protection on the
+    // pending ranges before the async window opens. ObtainBuffer(is_written=true)
+    // registers the buffer in page_table, sets GPU dirty (read protection), clears
+    // CPU dirty (write protection), and adds gpu_modified_ranges. WriteDataBuffer is
+    // deferred until force-sync or OnSubmit.
+    {
+        std::scoped_lock lk{pending_sync_mutex};
+        for (const auto& sync : pending_storage_syncs) {
+            std::ignore = buffer_cache.ObtainBuffer(sync.guest_addr,
+                                                      static_cast<u32>(sync.guest_size), true);
+            pending_sync_ranges.Add(sync.guest_addr, sync.guest_size);
+        }
+    }
+
     auto& download_buf = buffer_cache.GetUtilityBuffer(VideoCore::MemoryUsage::Download);
 
     // Transit storage images to transfer-src on the dispatch command buffer.
@@ -479,11 +494,19 @@ void Rasterizer::RecordStorageDownload() {
 }
 
 void Rasterizer::ProcessPendingStorageSyncs() {
-    if (pending_downloads.empty()) return;
+    // Take ownership of pending state under the mutex, then release the lock
+    // before doing any GPU Wait operations.
+    decltype(pending_downloads) downloads;
+    {
+        std::scoped_lock lk{pending_sync_mutex};
+        if (pending_downloads.empty()) return;
+        downloads = std::move(pending_downloads);
+        pending_sync_ranges.Clear();
+    }
 
-    const size_t batch_count = pending_downloads.size();
+    const size_t batch_count = downloads.size();
     u32 total_syncs = 0;
-    for (const auto& dl : pending_downloads) {
+    for (const auto& dl : downloads) {
         total_syncs += static_cast<u32>(dl.syncs.size());
     }
 
@@ -495,7 +518,7 @@ void Rasterizer::ProcessPendingStorageSyncs() {
                          .count();
     u64 total_wait_us = 0;
 
-    for (auto& dl : pending_downloads) {
+    for (auto& dl : downloads) {
         if (!scheduler.IsFree(dl.tick)) {
             const u64 single_wait_start =
                 std::chrono::duration_cast<std::chrono::microseconds>(
@@ -542,8 +565,51 @@ void Rasterizer::ProcessPendingStorageSyncs() {
     LOG_INFO(Render_Vulkan,
              "[StorageSync] batch complete: {} batch(es), total wait {} us, {} sync(s) injected",
              batch_count, total_wait_end - wait_start, total_syncs);
+}
 
-    pending_downloads.clear();
+void Rasterizer::InstallPreAccessCallback() {
+    buffer_cache.SetPreAccessCallback([this](VAddr addr, u64 size) {
+        std::unique_lock lk{pending_sync_mutex};
+        if (!pending_sync_ranges.Intersects(addr, size)) {
+            return;
+        }
+        // Force-sync ALL pending downloads — any overlap means the cache is about to
+        // access a range whose GPU data is not yet injected. Flushing everything is
+        // simpler and safer than trying to match individual ranges.
+        LOG_INFO(Render_Vulkan,
+                 "[StorageSync] force-sync triggered by access to {:#x} ({} pending batch(es))",
+                 addr, pending_downloads.size());
+        auto all = std::move(pending_downloads);
+        pending_sync_ranges.Clear();
+        // Transfer ownership out of the lock scope before doing GPU Wait operations.
+        lk.unlock();
+
+        for (auto& dl : all) {
+            if (!scheduler.IsFree(dl.tick)) {
+                scheduler.Wait(dl.tick);
+            }
+            for (size_t i = 0; i < dl.syncs.size(); ++i) {
+                const auto& sync = dl.syncs[i];
+                const auto& st = dl.staging_refs[i];
+                if (!st.data || st.size == 0) {
+                    LOG_ERROR(Render_Vulkan,
+                              "[StorageSync] force-sync invalid staging ref idx={} guest={:#x}",
+                              i, sync.guest_addr);
+                    continue;
+                }
+                // InsertGpuData internally calls ObtainBuffer (FindBuffer + overlap
+                // resolution) + WriteDataBuffer, handling any buffer merges that
+                // occurred since the placeholder was created.
+                buffer_cache.InsertGpuData(sync.guest_addr, st.data, st.size);
+                texture_cache.InvalidateMemoryRange(sync.guest_addr, sync.guest_size,
+                                                     sync.image_id);
+                LOG_DEBUG(Render_Vulkan,
+                          "[StorageSync] force-sync injected guest={:#x} {}B", sync.guest_addr,
+                          st.size);
+            }
+        }
+        LOG_INFO(Render_Vulkan, "[StorageSync] force-sync complete");
+    });
 }
 
 void Rasterizer::OnSubmit() {

@@ -145,12 +145,25 @@ private:
     };
     std::vector<PendingStorageDownload> pending_downloads;
 
+    /// Mutex protecting pending_sync_ranges and pending_downloads against concurrent
+    /// access from GPU thread (recording / OnSubmit) and fault-handling threads
+    /// (ReadMemory → pre_access_cb).
+    std::mutex pending_sync_mutex;
+
+    /// Ranges with pending storage downloads whose GPU data has not yet been injected
+    /// into buffer cache. Checked by pre_access_cb to decide whether to force-sync.
+    VideoCore::RangeSet pending_sync_ranges;
+
     /// Phase B: record vkCmdCopyImageToBuffer for storage images and submit without waiting.
     /// Actual data injection is deferred to OnSubmit (ProcessPendingStorageSyncs).
     void RecordStorageDownload();
 
     /// Process all pending storage downloads: Wait → InsertGpuData → InvalidateMemoryRange.
     void ProcessPendingStorageSyncs();
+
+    /// Registers the BufferCache pre-access callback that force-syncs pending storage
+    /// downloads when the cache is about to access a monitored range.
+    void InstallPreAccessCallback();
 
     const Instance& instance;
     Scheduler& scheduler;

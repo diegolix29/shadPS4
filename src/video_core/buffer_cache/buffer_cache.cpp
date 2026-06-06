@@ -82,6 +82,11 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size) {
 }
 
 void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
+    // Allow external systems (e.g. async storage download) to inject pending GPU data
+    // before the cache attempts to download buffer contents to guest.
+    if (pre_access_cb) {
+        pre_access_cb(device_addr, size);
+    }
     liverpool->SendCommand<true>([this, device_addr, size, is_write] {
         Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
         DownloadBufferMemory<false>(buffer, device_addr, size, is_write);
@@ -405,6 +410,11 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, b
 }
 
 std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 size) {
+    // Allow external systems (e.g. async storage download) to inject pending GPU data
+    // before the cache falls through to Level 2/3 and potentially reads stale guest memory.
+    if (pre_access_cb) {
+        pre_access_cb(gpu_addr, size);
+    }
     // Check if any buffer contains the full requested range.
     const BufferId buffer_id = page_table[gpu_addr >> CACHING_PAGEBITS].buffer_id;
     if (buffer_id) {

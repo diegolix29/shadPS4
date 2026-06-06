@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <functional>
 #include <boost/container/small_vector.hpp>
 #include "common/lru_cache.h"
 #include "common/slot_vector.h"
@@ -160,6 +161,14 @@ public:
     /// Runs the garbage collector.
     void RunGarbageCollector();
 
+    /// Callback invoked before ObtainBufferForImage or ReadMemory accesses guest data.
+    /// Allows external systems (e.g. async storage download) to inject pending GPU data
+    /// before the cache responds. Default-initialized as empty; zero-overhead when unused.
+    using PreAccessCallback = std::function<void(VAddr, u64)>;
+    void SetPreAccessCallback(PreAccessCallback cb) {
+        pre_access_cb = std::move(cb);
+    }
+
 private:
     template <typename Func>
     void ForEachBufferInRange(VAddr device_addr, u64 size, Func&& func) {
@@ -226,6 +235,7 @@ private:
     RangeSet gpu_modified_ranges;
     SplitRangeMap<BufferId> buffer_ranges;
     PageTable page_table;
+    PreAccessCallback pre_access_cb;
 };
 
 } // namespace VideoCore
