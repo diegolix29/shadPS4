@@ -384,7 +384,7 @@ void Rasterizer::RecordStorageDownload() {
     if (pending_storage_syncs.empty()) return;
 
     const u32 sync_count = static_cast<u32>(pending_storage_syncs.size());
-    LOG_INFO(Render_Vulkan, "[StorageSync] recording {} storage image download(s)", sync_count);
+    LOG_DEBUG(Render_Vulkan, "[StorageSync] recording {} storage image download(s)", sync_count);
 
     // Phase 4b: create placeholder buffers to set up read/write protection on the
     // pending ranges before the async window opens. ObtainBuffer(is_written=true)
@@ -482,7 +482,7 @@ void Rasterizer::RecordStorageDownload() {
     const u64 tick = scheduler.CurrentTick();
     scheduler.Flush();
 
-    LOG_INFO(Render_Vulkan, "[StorageSync] submitted {} downloads at tick {}, pending total={}",
+    LOG_DEBUG(Render_Vulkan, "[StorageSync] submitted {} downloads at tick {}, pending total={}",
               staging_refs.size(), tick, pending_downloads.size() + 1);
 
     pending_downloads.push_back({
@@ -510,7 +510,7 @@ void Rasterizer::ProcessPendingStorageSyncs() {
         total_syncs += static_cast<u32>(dl.syncs.size());
     }
 
-    LOG_INFO(Render_Vulkan, "[StorageSync] processing {} batch(es), {} sync(s) total",
+    LOG_DEBUG(Render_Vulkan, "[StorageSync] processing {} batch(es), {} sync(s) total",
              batch_count, total_syncs);
 
     u64 wait_start = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -562,7 +562,7 @@ void Rasterizer::ProcessPendingStorageSyncs() {
         std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now().time_since_epoch())
             .count();
-    LOG_INFO(Render_Vulkan,
+    LOG_DEBUG(Render_Vulkan,
              "[StorageSync] batch complete: {} batch(es), total wait {} us, {} sync(s) injected",
              batch_count, total_wait_end - wait_start, total_syncs);
 }
@@ -576,7 +576,7 @@ void Rasterizer::InstallPreAccessCallback() {
         // Force-sync ALL pending downloads — any overlap means the cache is about to
         // access a range whose GPU data is not yet injected. Flushing everything is
         // simpler and safer than trying to match individual ranges.
-        LOG_INFO(Render_Vulkan,
+        LOG_DEBUG(Render_Vulkan,
                  "[StorageSync] force-sync triggered by access to {:#x} ({} pending batch(es))",
                  addr, pending_downloads.size());
         auto all = std::move(pending_downloads);
@@ -584,9 +584,19 @@ void Rasterizer::InstallPreAccessCallback() {
         // Transfer ownership out of the lock scope before doing GPU Wait operations.
         lk.unlock();
 
+        int waited = 0;
+        u64 total_wait_us = 0;
         for (auto& dl : all) {
             if (!scheduler.IsFree(dl.tick)) {
+                const u64 t0 = std::chrono::duration_cast<std::chrono::microseconds>(
+                                   std::chrono::steady_clock::now().time_since_epoch())
+                                   .count();
                 scheduler.Wait(dl.tick);
+                total_wait_us += std::chrono::duration_cast<std::chrono::microseconds>(
+                                     std::chrono::steady_clock::now().time_since_epoch())
+                                     .count() -
+                                 t0;
+                ++waited;
             }
             for (size_t i = 0; i < dl.syncs.size(); ++i) {
                 const auto& sync = dl.syncs[i];
@@ -600,15 +610,19 @@ void Rasterizer::InstallPreAccessCallback() {
                 // InsertGpuData internally calls ObtainBuffer (FindBuffer + overlap
                 // resolution) + WriteDataBuffer, handling any buffer merges that
                 // occurred since the placeholder was created.
+                // NOTE: InvalidateMemoryRange skipped here — force-sync may be
+                // called from ObtainBufferForImage under texture_cache.mutex.
+                // Consumer marking is deferred to OnSubmit batch processing.
                 buffer_cache.InsertGpuData(sync.guest_addr, st.data, st.size);
-                texture_cache.InvalidateMemoryRange(sync.guest_addr, sync.guest_size,
-                                                     sync.image_id);
                 LOG_DEBUG(Render_Vulkan,
                           "[StorageSync] force-sync injected guest={:#x} {}B", sync.guest_addr,
                           st.size);
             }
         }
-        LOG_INFO(Render_Vulkan, "[StorageSync] force-sync complete");
+        LOG_DEBUG(Render_Vulkan,
+                 "[StorageSync] force-sync complete: {} batch(es), {} waited, "
+                 "total wait {} us",
+                 all.size(), waited, total_wait_us);
     });
 }
 
