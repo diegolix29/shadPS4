@@ -131,9 +131,26 @@ private:
     };
     std::vector<PendingStorageSync> pending_storage_syncs;
 
-    /// Phase B: download storage image output to staging, inject into buffer cache,
-    /// and mark overlapping consumer textures GpuDirty.
-    void SyncComputeStorageImages();
+    /// Holds a reference to staging buffer data after commit.
+    struct StagingRef {
+        const u8* data;
+        u32 size;
+    };
+
+    /// One batched download unit: a Flush tick + its staging data + sync metadata.
+    struct PendingStorageDownload {
+        u64 tick;                                          // GPU tick to wait for
+        boost::container::small_vector<StagingRef, 4> staging_refs;
+        std::vector<PendingStorageSync> syncs;
+    };
+    std::vector<PendingStorageDownload> pending_downloads;
+
+    /// Phase B: record vkCmdCopyImageToBuffer for storage images and submit without waiting.
+    /// Actual data injection is deferred to OnSubmit (ProcessPendingStorageSyncs).
+    void RecordStorageDownload();
+
+    /// Process all pending storage downloads: Wait → InsertGpuData → InvalidateMemoryRange.
+    void ProcessPendingStorageSyncs();
 
     const Instance& instance;
     Scheduler& scheduler;

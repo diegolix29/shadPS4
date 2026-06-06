@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <chrono>
 #include "common/debug.h"
 #include "core/emulator_settings.h"
 #include "core/memory.h"
@@ -335,7 +336,7 @@ void Rasterizer::DispatchDirect() {
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatch(cs_program.dim_x, cs_program.dim_y, cs_program.dim_z);
 
-    SyncComputeStorageImages();
+    RecordStorageDownload();
     ResetBindings();
 }
 
@@ -363,7 +364,7 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatchIndirect(buffer->Handle(), base);
 
-    SyncComputeStorageImages();
+    RecordStorageDownload();
     ResetBindings();
 }
 
@@ -378,11 +379,11 @@ void Rasterizer::Finish() {
     scheduler.Finish();
 }
 
-void Rasterizer::SyncComputeStorageImages() {
+void Rasterizer::RecordStorageDownload() {
     if (pending_storage_syncs.empty()) return;
 
-    LOG_DEBUG(Render_Vulkan, "[StorageSync] {} storage image(s) to sync",
-              pending_storage_syncs.size());
+    const u32 sync_count = static_cast<u32>(pending_storage_syncs.size());
+    LOG_INFO(Render_Vulkan, "[StorageSync] recording {} storage image download(s)", sync_count);
 
     auto& download_buf = buffer_cache.GetUtilityBuffer(VideoCore::MemoryUsage::Download);
 
@@ -399,12 +400,8 @@ void Rasterizer::SyncComputeStorageImages() {
     auto cmdbuf = scheduler.CommandBuffer();
 
     // Record vkCmdCopyImageToBuffer for each storage image on the same cmdbuf.
-    // Staging pointers remain valid after Commit/Wait (host-visible persistent mapping).
-    struct StagedDownload {
-        const u8* data;
-        u32 size;
-    };
-    boost::container::small_vector<StagedDownload, 4> staged;
+    // Staging pointers remain valid until insert phase — StreamBuffer watch protects them.
+    boost::container::small_vector<StagingRef, 4> staging_refs;
 
     for (auto& sync : pending_storage_syncs) {
         const auto& img = texture_cache.GetImage(sync.image_id);
@@ -438,41 +435,121 @@ void Rasterizer::SyncComputeStorageImages() {
         }
 
         const auto [data, offset] = download_buf.Map(download_size);
+        if (!data) {
+            LOG_ERROR(Render_Vulkan,
+                      "[StorageSync] StreamBuffer Map failed for {}B — download SKIPPED, "
+                      "texture corruption likely",
+                      download_size);
+            continue;
+        }
         for (auto& region : regions) {
             region.bufferOffset += offset;
         }
         download_buf.Commit();
-        staged.push_back({data, download_size});
+        staging_refs.push_back({data, download_size});
 
         // Record copy directly — image is already in eTransferSrcOptimal from Transit above.
         cmdbuf.copyImageToBuffer(img.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
                                   download_buf.Handle(), regions);
     }
 
-    // Submit copies, wait for GPU, then inject into buffer cache.
-    scheduler.EndRendering();
-    const u64 tick = scheduler.CurrentTick();
-    scheduler.Wait(tick);
-
-    LOG_DEBUG(Render_Vulkan, "[StorageSync] GPU done, tick={}", tick);
-
-    for (size_t i = 0; i < pending_storage_syncs.size(); ++i) {
-        auto& sync = pending_storage_syncs[i];
-        auto& st = staged[i];
-
-        buffer_cache.InsertGpuData(sync.guest_addr, st.data, st.size);
-
-        const u32 count =
-            texture_cache.InvalidateMemoryRange(sync.guest_addr, sync.guest_size,
-                                                /*exclude_producer=*/sync.image_id);
-        LOG_DEBUG(Render_Vulkan, "[StorageSync] guest={:#x} injected {}B, {} consumer(s) marked",
-                 sync.guest_addr, st.size, count);
+    if (staging_refs.empty()) {
+        LOG_ERROR(Render_Vulkan,
+                  "[StorageSync] all {} Map()s failed — nothing to submit, texture corruption "
+                  "likely",
+                  sync_count);
+        pending_storage_syncs.clear();
+        return;
     }
 
-    pending_storage_syncs.clear();
+    // Submit copies without waiting — injection deferred to OnSubmit.
+    scheduler.EndRendering();
+    const u64 tick = scheduler.CurrentTick();
+    scheduler.Flush();
+
+    LOG_INFO(Render_Vulkan, "[StorageSync] submitted {} downloads at tick {}, pending total={}",
+              staging_refs.size(), tick, pending_downloads.size() + 1);
+
+    pending_downloads.push_back({
+        .tick = tick,
+        .staging_refs = std::move(staging_refs),
+        .syncs = std::move(pending_storage_syncs),
+    });
+    // pending_storage_syncs is now empty (moved-from)
+}
+
+void Rasterizer::ProcessPendingStorageSyncs() {
+    if (pending_downloads.empty()) return;
+
+    const size_t batch_count = pending_downloads.size();
+    u32 total_syncs = 0;
+    for (const auto& dl : pending_downloads) {
+        total_syncs += static_cast<u32>(dl.syncs.size());
+    }
+
+    LOG_INFO(Render_Vulkan, "[StorageSync] processing {} batch(es), {} sync(s) total",
+             batch_count, total_syncs);
+
+    u64 wait_start = std::chrono::duration_cast<std::chrono::microseconds>(
+                         std::chrono::steady_clock::now().time_since_epoch())
+                         .count();
+    u64 total_wait_us = 0;
+
+    for (auto& dl : pending_downloads) {
+        if (!scheduler.IsFree(dl.tick)) {
+            const u64 single_wait_start =
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::steady_clock::now().time_since_epoch())
+                    .count();
+            scheduler.Wait(dl.tick);
+            const u64 single_wait_us =
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::steady_clock::now().time_since_epoch())
+                    .count() -
+                single_wait_start;
+            total_wait_us += single_wait_us;
+            LOG_DEBUG(Render_Vulkan, "[StorageSync] waited {} us for tick={}", single_wait_us,
+                      dl.tick);
+        }
+
+        for (size_t i = 0; i < dl.syncs.size(); ++i) {
+            auto& sync = dl.syncs[i];
+            auto& st = dl.staging_refs[i];
+
+            if (!st.data || st.size == 0) {
+                LOG_ERROR(Render_Vulkan,
+                          "[StorageSync] invalid staging ref idx={} guest={:#x} — SKIPPED, "
+                          "texture corruption likely",
+                          i, sync.guest_addr);
+                continue;
+            }
+
+            buffer_cache.InsertGpuData(sync.guest_addr, st.data, st.size);
+
+            const u32 count =
+                texture_cache.InvalidateMemoryRange(sync.guest_addr, sync.guest_size,
+                                                    /*exclude_producer=*/sync.image_id);
+            LOG_DEBUG(Render_Vulkan,
+                      "[StorageSync] injected guest={:#x} {}B, {} consumer(s) marked",
+                      sync.guest_addr, st.size, count);
+        }
+    }
+
+    const u64 total_wait_end =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now().time_since_epoch())
+            .count();
+    LOG_INFO(Render_Vulkan,
+             "[StorageSync] batch complete: {} batch(es), total wait {} us, {} sync(s) injected",
+             batch_count, total_wait_end - wait_start, total_syncs);
+
+    pending_downloads.clear();
 }
 
 void Rasterizer::OnSubmit() {
+    // Flush pending storage downloads before any GC activity.
+    ProcessPendingStorageSyncs();
+
     if (fault_process_pending) {
         fault_process_pending = false;
         buffer_cache.ProcessFaultBuffer();
