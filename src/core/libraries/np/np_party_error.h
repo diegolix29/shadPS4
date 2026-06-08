@@ -3,6 +3,6 @@
 
 #pragma once
 
-#include "core/libraries/error_codes.h"
+#include "np_error.h"
 
-constexpr int ORBIS_NP_PARTY_ERROR_NOT_IN_PARTY = 0x80552506;
+// NP Party errors are defined in np_error.h

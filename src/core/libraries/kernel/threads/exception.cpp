@@ -326,6 +326,11 @@ bool PS4_SYSV_ABI posix_sigisemptyset(Sigset* s) {
     return s->bits[0] == 0 && s->bits[1] == 0 && s->bits[2] == 0 && s->bits[3] == 0;
 }
 
+s32 PS4_SYSV_ABI posix_sigprocmask(s32 how, const Sigset* set, Sigset* oset) {
+    LOG_ERROR(Lib_Kernel, "(STUBBED) called, how = {}", how);
+    return ORBIS_OK;
+}
+
 s32 PS4_SYSV_ABI posix_sigalstack(const OrbisKernelExceptionHandlerStack* ss,
                                   OrbisKernelExceptionHandlerStack* old_ss) {
 #ifdef __unix__

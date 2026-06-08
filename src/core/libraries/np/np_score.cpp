@@ -514,7 +514,7 @@ int PS4_SYSV_ABI sceNpScoreSanitizeComment(s32 request_handle, char* input_strin
 
     if (output_buffer == nullptr || input_string == nullptr) {
 
-        return ORBIS_NP_SCORE_INVALID_ARGUMENT;
+        return ORBIS_NP_COMMUNITY_ERROR_INVALID_ARGUMENT;
     }
 
     strcpy(output_buffer, input_string);

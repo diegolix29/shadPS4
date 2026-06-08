@@ -3,6 +3,6 @@
 
 #pragma once
 
-#include "core/libraries/error_codes.h"
+#include "np_error.h"
 
-constexpr int ORBIS_NP_UTIL_ERROR_NOT_MATCH = 0x80550609;
+// NP Util errors are defined in np_error.h

@@ -3,7 +3,7 @@
 
 #include "common/arch.h"
 #include "common/assert.h"
-#include "emulator.h"
+#include "common/logging/backend.h"
 
 #if defined(ARCH_X86_64)
 #define Crash() __asm__ __volatile__("int $3")
@@ -14,12 +14,15 @@
 #endif
 
 void assert_fail_impl() {
-    Common::Singleton<Core::Emulator>::Instance()->Shutdown();
+    Common::Log::Stop();
+    std::fflush(stdout);
     Crash();
 }
 
 [[noreturn]] void unreachable_impl() {
-    assert_fail_impl();
+    Common::Log::Stop();
+    std::fflush(stdout);
+    Crash();
     throw std::runtime_error("Unreachable code");
 }
 
