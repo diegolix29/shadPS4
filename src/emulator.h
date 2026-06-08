@@ -29,6 +29,7 @@ public:
     void Run(std::filesystem::path file, const std::vector<std::string> args = {},
              std::optional<std::filesystem::path> game_folder = {});
     void UpdatePlayTime(const std::string& serial);
+    void Shutdown();
 
     void Restart(std::filesystem::path eboot_path, const std::vector<std::string>& guest_args = {},
                  std::filesystem::path game_root = {});

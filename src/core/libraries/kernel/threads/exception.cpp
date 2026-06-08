@@ -521,12 +521,7 @@ int PS4_SYSV_ABI sceKernelRaiseException(PthreadT thread, int signum) {
     return ret;
 }
 
-s32 PS4_SYSV_ABI posix_sigprocmask(s32 how, const Sigset* set, Sigset* oset) {
-    LOG_ERROR(Lib_Kernel, "(STUBBED) called, how = {}", how);
-    return ORBIS_OK;
-}
-
-s32 PS4_SYSV_ABI sceKernelDebugRaiseException(s32 error, s64 unk) {
+s32 PS4_SYSV_ABI sceKernelDebugRaiseException(u32 error, s64 unk) {
     if (unk != 0) {
         return ORBIS_KERNEL_ERROR_EINVAL;
     }
@@ -534,7 +529,7 @@ s32 PS4_SYSV_ABI sceKernelDebugRaiseException(s32 error, s64 unk) {
     return ORBIS_OK;
 }
 
-s32 PS4_SYSV_ABI sceKernelDebugRaiseExceptionOnReleaseMode(s32 error, s64 unk) {
+s32 PS4_SYSV_ABI sceKernelDebugRaiseExceptionOnReleaseMode(u32 error, s64 unk) {
     if (unk != 0) {
         return ORBIS_KERNEL_ERROR_EINVAL;
     }

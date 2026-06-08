@@ -7,6 +7,7 @@
 #include "common/signal_context.h"
 #include "core/libraries/kernel/threads/exception.h"
 #include "core/signals.h"
+#include "emulator.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -52,8 +53,7 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     case DBG_PRINTEXCEPTION_WIDE_C:
         // Used by OutputDebugString functions.
         return EXCEPTION_CONTINUE_EXECUTION;
-    case EXCEPTION_BREAKPOINT:
-        // This is almost certainly coming from our asserts/unreachables, no need to log it again.
+        return EXCEPTION_CONTINUE_SEARCH;
         return EXCEPTION_CONTINUE_SEARCH;
     default:
         break;
@@ -62,8 +62,13 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     if (handled) {
         return EXCEPTION_CONTINUE_EXECUTION;
     }
+    // Breakpoints almost certainly come from our asserts/unreachables, no need to log it again.
+    if (code != EXCEPTION_BREAKPOINT) {
+        LOG_CRITICAL(Debug, "Unhandled Exception code {:#x} at {}", code, address);
+        Common::Singleton<Core::Emulator>::Instance()->Shutdown();
+    }
 
-    LOG_CRITICAL(Debug, "Unhandled Exception code {:#x} at {}", code, address);
+
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
