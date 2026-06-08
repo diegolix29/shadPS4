@@ -635,6 +635,7 @@ void Rasterizer::OnSubmit() {
         buffer_cache.ProcessFaultBuffer();
     }
     texture_cache.ProcessDownloadImages();
+    texture_cache.ClearRtRecords();
     texture_cache.RunGarbageCollector();
     buffer_cache.RunGarbageCollector();
 }
@@ -963,6 +964,8 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
             }
 
             image_id = texture_cache.FindImage(desc);
+            texture_cache.CopyFromLastRt(desc.info.guest_address, image_id,
+                                         desc.info.size.width, desc.info.size.height);
             auto* image = &texture_cache.GetImage(image_id);
             if (auto depth_image_id = texture_cache.GetAssociatedDepth(*image)) {
                 // If this image has an associated depth image, it's a stencil attachment.
@@ -1142,6 +1145,12 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
         texture_cache.UpdateImage(image_id);
         image->SetBackingSamples(key.color_samples[cb]);
         const auto& image_view = texture_cache.FindRenderTarget(image_id, desc);
+        texture_cache.RecordRtWrite(desc.info.guest_address, image_id);
+        // Auto-exposure 1×1 render target: force download to guest so CPU can read the result
+        if (desc.info.size.width == 1 && desc.info.size.height == 1 &&
+            desc.info.pixel_format == vk::Format::eR16G16Sfloat) {
+            texture_cache.AddDownload(image_id);
+        }
         const auto slice = image_view.info.range.base.layer;
         const auto mip = image_view.info.range.base.level;
 

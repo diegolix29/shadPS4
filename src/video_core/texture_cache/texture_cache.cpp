@@ -92,6 +92,58 @@ void TextureCache::ProcessDownloadImages() {
     download_images.clear();
 }
 
+void TextureCache::RecordRtWrite(VAddr addr, ImageId id) {
+    last_rt_address_[addr] = id;
+}
+
+// PS4 unified memory allows different-sized views of the same buffer to see the same data.
+// In shadPS4, each view size gets its own VkImage with independent GPU memory (they can't
+// share a VkImage because BlockDim/pixel dimensions differ). When a render target is written
+// at an address and a smaller texture source at the same address is later sampled, we must
+// explicitly copy the data from the larger RT VkImage to the smaller texture VkImage.
+void TextureCache::CopyFromLastRt(VAddr addr, ImageId tex_id, u32 copy_w, u32 copy_h) {
+    std::scoped_lock lock{mutex};
+    auto it = last_rt_address_.find(addr);
+    if (it == last_rt_address_.end()) {
+        return;
+    }
+    ImageId rt_id = it->second;
+    if (!slot_images.is_allocated(rt_id)) {
+        last_rt_address_.erase(it);
+        return;
+    }
+    auto& rt_image = slot_images[rt_id];
+    // Only copy if the recorded RT is larger than the texture
+    if (rt_image.info.size.width <= copy_w && rt_image.info.size.height <= copy_h) {
+        return;
+    }
+    if (!slot_images.is_allocated(tex_id)) {
+        return;
+    }
+    auto& tex_image = slot_images[tex_id];
+    rt_image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {});
+    tex_image.Transit(vk::ImageLayout::eTransferDstOptimal, vk::AccessFlagBits2::eTransferWrite,
+                      {});
+    const vk::ImageCopy region = {
+        .srcSubresource = {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+        .srcOffset = {0, 0, 0},
+        .dstSubresource = {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+        .dstOffset = {0, 0, 0},
+        .extent = {copy_w, copy_h, 1},
+    };
+    scheduler.CommandBuffer().copyImage(
+        rt_image.GetImage(), vk::ImageLayout::eTransferSrcOptimal, tex_image.GetImage(),
+        vk::ImageLayout::eTransferDstOptimal, region);
+    rt_image.Transit(vk::ImageLayout::eColorAttachmentOptimal,
+                     vk::AccessFlagBits2::eColorAttachmentWrite, {});
+    tex_image.Transit(vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlagBits2::eShaderRead,
+                      {});
+}
+
+void TextureCache::ClearRtRecords() {
+    last_rt_address_.clear();
+}
+
 void TextureCache::DownloadImageMemory(ImageId image_id) {
     Image& image = slot_images[image_id];
     if (False(image.flags & ImageFlagBits::GpuModified)) {

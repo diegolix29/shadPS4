@@ -107,6 +107,20 @@ public:
     /// Schedules a copy of pending images for download back to CPU memory.
     void ProcessDownloadImages();
 
+    /// Add an image to the download queue for guest memory writeback on next submit.
+    void AddDownload(ImageId image_id) {
+        download_images.emplace(image_id);
+    }
+
+    /// Records that an RT was written at this guest address (for same-address copy chain).
+    void RecordRtWrite(VAddr addr, ImageId id);
+
+    /// If a larger RT was previously written at the same address, copy its data into tex_id.
+    void CopyFromLastRt(VAddr addr, ImageId tex_id, u32 copy_w, u32 copy_h);
+
+    /// Clears RT write records (called each submit).
+    void ClearRtRecords();
+
     /// Retrieves the image handle of the image with the provided attributes.
     [[nodiscard]] ImageId FindImage(ImageDesc& desc, bool exact_fmt = false);
 
@@ -341,6 +355,7 @@ private:
     u64 gc_tick = 0;
     Common::LeastRecentlyUsedCache<ImageId, u64> lru_cache;
     bool readback_linear_images;
+    tsl::robin_map<VAddr, ImageId> last_rt_address_;
     PageTable page_table;
     std::mutex mutex;
     struct MetaDataInfo {
