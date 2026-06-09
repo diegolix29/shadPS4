@@ -8,6 +8,7 @@
 #include "common/shared_first_mutex.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/page_manager.h"
+#include "video_core/renderer_vulkan/storage_image_sync.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/texture_cache/texture_cache.h"
 
@@ -118,58 +119,12 @@ private:
 private:
     friend class VideoCore::BufferCache;
 
-    /// Storage image info collected during BindResources for post-dispatch GPU→buffer-cache sync.
-    struct PendingStorageSync {
-        VideoCore::ImageId image_id;   // for Transit / GetImage access
-        VAddr guest_addr;              // image.info.guest_address
-        u64 guest_size;                // image.info.guest_size
-        u32 width, height;            // image.info.size
-        u32 layers;                    // image.info.resources.layers
-        u32 num_samples, num_mips;    // image.info.num_samples, resources.levels
-        u32 pitch;                     // image.info.pitch (tiled row length)
-        vk::Format pixel_format;       // image.info.pixel_format
-    };
-    std::vector<PendingStorageSync> pending_storage_syncs;
-
-    /// Holds a reference to staging buffer data after commit.
-    struct StagingRef {
-        const u8* data;
-        u32 size;
-    };
-
-    /// One batched download unit: a Flush tick + its staging data + sync metadata.
-    struct PendingStorageDownload {
-        u64 tick;                                          // GPU tick to wait for
-        boost::container::small_vector<StagingRef, 4> staging_refs;
-        std::vector<PendingStorageSync> syncs;
-    };
-    std::vector<PendingStorageDownload> pending_downloads;
-
-    /// Mutex protecting pending_sync_ranges and pending_downloads against concurrent
-    /// access from GPU thread (recording / OnSubmit) and fault-handling threads
-    /// (ReadMemory → pre_access_cb).
-    std::mutex pending_sync_mutex;
-
-    /// Ranges with pending storage downloads whose GPU data has not yet been injected
-    /// into buffer cache. Checked by pre_access_cb to decide whether to force-sync.
-    VideoCore::RangeSet pending_sync_ranges;
-
-    /// Phase B: record vkCmdCopyImageToBuffer for storage images and submit without waiting.
-    /// Actual data injection is deferred to OnSubmit (ProcessPendingStorageSyncs).
-    void RecordStorageDownload();
-
-    /// Process all pending storage downloads: Wait → InsertGpuData → InvalidateMemoryRange.
-    void ProcessPendingStorageSyncs();
-
-    /// Registers the BufferCache pre-access callback that force-syncs pending storage
-    /// downloads when the cache is about to access a monitored range.
-    void InstallPreAccessCallback();
-
     const Instance& instance;
     Scheduler& scheduler;
     VideoCore::PageManager page_manager;
     VideoCore::BufferCache buffer_cache;
     VideoCore::TextureCache texture_cache;
+    StorageImageSync storage_sync_;
     AmdGpu::Liverpool* liverpool;
     Core::MemoryManager* memory;
     boost::icl::interval_set<VAddr> mapped_ranges;
