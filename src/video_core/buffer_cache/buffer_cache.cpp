@@ -387,7 +387,7 @@ void BufferCache::InsertGpuData(VAddr device_addr, const void* data, u64 size) {
     const auto [buffer, offset] = ObtainBuffer(device_addr, size, true);
     WriteDataBuffer(*buffer, device_addr, data, size);
     LOG_DEBUG(Render_Vulkan, "[StorageSync] InsertGpuData: guest={:#x} size={} {} total_used={}",
-             device_addr, size, existed ? "reuse" : "new_buffer", total_used_memory);
+              device_addr, size, existed ? "reuse" : "new_buffer", total_used_memory);
 }
 
 std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size, bool is_written,
@@ -881,8 +881,8 @@ void BufferCache::RunGarbageCollector() {
         // (e.g. cubemap faces not visible for many frames). Skip eviction to avoid
         // leaving consumers with a dangling GpuDirty pointing to deleted buffer data.
         // In aggressive mode (critical memory pressure), evict anyway.
-        if (!aggressive && texture_cache.HasGpuDirtyImagesInRange(buffer.CpuAddr(),
-                                                                   buffer.SizeBytes())) {
+        if (!aggressive &&
+            texture_cache.HasGpuDirtyImagesInRange(buffer.CpuAddr(), buffer.SizeBytes())) {
             LOG_INFO(Render_Vulkan,
                      "BufferCache GC: buffer {:#x} has pending GpuDirty consumers, skip "
                      "total_used={}",

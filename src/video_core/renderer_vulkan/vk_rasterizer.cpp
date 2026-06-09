@@ -37,9 +37,8 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
     : instance{instance_}, scheduler{scheduler_}, page_manager{this},
       buffer_cache{instance, scheduler, liverpool_, texture_cache, page_manager},
       texture_cache{instance, scheduler, liverpool_, buffer_cache, page_manager},
-      storage_sync_{scheduler, buffer_cache, texture_cache},
-      liverpool{liverpool_}, memory{Core::Memory::Instance()},
-      pipeline_cache{instance, scheduler, liverpool} {
+      storage_sync_{scheduler, buffer_cache, texture_cache}, liverpool{liverpool_},
+      memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool} {
     if (!EmulatorSettings.IsNullGPU()) {
         liverpool->BindRasterizer(this);
     }
@@ -387,7 +386,6 @@ u64 Rasterizer::Flush() {
 void Rasterizer::Finish() {
     scheduler.Finish();
 }
-
 
 void Rasterizer::OnSubmit() {
     // Flush pending storage downloads before any GC activity.
@@ -886,8 +884,8 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
             texture_cache.RecordRtWrite(desc.info.guest_address, image_id);
         }
         // 1×1 render target: force download to guest so CPU can read the result
-        if (Gow3Features::_1x1_readback &&
-            desc.info.size.width == 1 && desc.info.size.height == 1) {
+        if (Gow3Features::_1x1_readback && desc.info.size.width == 1 &&
+            desc.info.size.height == 1) {
             texture_cache.AddDownload(image_id);
         }
         const auto slice = image_view.info.range.base.layer;

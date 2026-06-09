@@ -131,9 +131,9 @@ void TextureCache::CopyFromLastRt(VAddr addr, ImageId tex_id, u32 copy_w, u32 co
         .dstOffset = {0, 0, 0},
         .extent = {copy_w, copy_h, 1},
     };
-    scheduler.CommandBuffer().copyImage(
-        rt_image.GetImage(), vk::ImageLayout::eTransferSrcOptimal, tex_image.GetImage(),
-        vk::ImageLayout::eTransferDstOptimal, region);
+    scheduler.CommandBuffer().copyImage(rt_image.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
+                                        tex_image.GetImage(), vk::ImageLayout::eTransferDstOptimal,
+                                        region);
     rt_image.Transit(vk::ImageLayout::eColorAttachmentOptimal,
                      vk::AccessFlagBits2::eColorAttachmentWrite, {});
     tex_image.Transit(vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlagBits2::eShaderRead,
@@ -249,8 +249,7 @@ u32 TextureCache::InvalidateMemoryRange(VAddr address, size_t max_size, ImageId 
         image.flags |= ImageFlagBits::GpuDirty;
         ++count;
         LOG_DEBUG(Render_Vulkan, "[StorageSync] GpuDirty image id={} guest={:#x} fmt={}",
-                  image_id.index, image.info.guest_address,
-                  vk::to_string(image.info.pixel_format));
+                  image_id.index, image.info.guest_address, vk::to_string(image.info.pixel_format));
     });
     return count;
 }

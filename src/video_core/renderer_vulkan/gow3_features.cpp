@@ -14,7 +14,8 @@ bool Gow3Features::depth_clear_skip = false;
 void Gow3Features::Init() {
     const auto& serial = Common::ElfInfo::Instance().GameSerial();
     const bool is_gow3 = serial == "CUSA01623" || serial == "CUSA01715" || serial == "CUSA01740";
-    if (!is_gow3) return;
+    if (!is_gow3)
+        return;
 
     storage_image_sync = true;
     LOG_INFO(Render, "[GOW3] storage_image_sync enabled");
