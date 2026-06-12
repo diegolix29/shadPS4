@@ -238,6 +238,7 @@ find_package(Boost 1.84.0 CONFIG)
 find_package(CLI11 2.6.1 CONFIG)
 find_package(FFmpeg 5.1.2 MODULE)
 find_package(fmt 12.0.0 CONFIG)
+find_package(Freetype 2.14.1 MODULE)
 find_package(glslang 15 CONFIG)
 find_package(half 1.12.0 MODULE)
 find_package(magic_enum 0.9.7 CONFIG)
@@ -1321,9 +1322,7 @@ target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::h
 target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config.h")
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
 
-if (TARGET freetype)
-    target_link_libraries(shadps4 PRIVATE freetype)
-endif()
+target_link_libraries(shadps4 PRIVATE Freetype::Freetype)
 
 if (ENABLE_DISCORD_RPC)
     target_compile_definitions(shadps4 PRIVATE ENABLE_DISCORD_RPC)

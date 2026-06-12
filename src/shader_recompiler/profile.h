@@ -103,6 +103,7 @@ struct Profile {
                needs_unorm_fixup != other.needs_unorm_fixup ||
                needs_clip_distance_emulation != other.needs_clip_distance_emulation;
     }
+    bool supports_shader_stencil_export{};
 };
 
 } // namespace Shader

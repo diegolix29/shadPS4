@@ -1031,7 +1031,7 @@ void Translator::SetDst(const InstOperand& operand, const IR::U32F32& value) {
     case OperandField::M0:
         return ir.SetM0(result);
     default:
-        UNREACHABLE();
+        UNREACHABLE_MSG("Unknown field {}", u32(operand.field));
     }
 }
 
