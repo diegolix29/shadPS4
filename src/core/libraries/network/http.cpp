@@ -973,7 +973,7 @@ int PS4_SYSV_ABI sceHttpUriCopy() {
 }
 
 int PS4_SYSV_ABI sceHttpUriEscape(char* out, u64* require, u64 prepare, const char* in) {
-    LOG_TRACE(Lib_Http, "called");
+    LOG_DEBUG(Lib_Http, "called");
 
     if (!in) {
         LOG_ERROR(Lib_Http, "Invalid input string");
@@ -1385,7 +1385,7 @@ int PS4_SYSV_ABI sceHttpUriParse(OrbisHttpUriElement* out, const char* srcUri, v
 }
 
 int PS4_SYSV_ABI sceHttpUriSweepPath(char* dst, const char* src, u64 srcSize) {
-    LOG_TRACE(Lib_Http, "called");
+    LOG_DEBUG(Lib_Http, "called");
 
     if (!dst || !src) {
         LOG_ERROR(Lib_Http, "Invalid parameters");
@@ -1477,7 +1477,7 @@ int PS4_SYSV_ABI sceHttpUriSweepPath(char* dst, const char* src, u64 srcSize) {
 }
 
 int PS4_SYSV_ABI sceHttpUriUnescape(char* out, u64* require, u64 prepare, const char* in) {
-    LOG_TRACE(Lib_Http, "called");
+    LOG_DEBUG(Lib_Http, "called");
 
     if (!in) {
         LOG_ERROR(Lib_Http, "Invalid input string");
