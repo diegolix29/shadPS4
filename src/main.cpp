@@ -103,11 +103,6 @@ int main(int argc, char* argv[]) {
     if (waitPid)
         Core::Debugger::WaitForPid(*waitPid);
 
-    // Initialize main log with default config
-    Common::Log::Setup("shadps4.log");
-
-    LOG_INFO(Debug, "Run: {}", std::span(argv, argc));
-
     IPC::Instance().Init();
 
     auto emu_state = std::make_shared<EmulatorState>();
@@ -135,14 +130,14 @@ int main(int argc, char* argv[]) {
     if (addGameFolder) {
         EmulatorSettings.AddGameInstallDir(*addGameFolder);
         EmulatorSettings.Save();
-        LOG_INFO(Config, "Game folder successfully saved.");
+        std::cout << "Game folder successfully saved.\n";
         return 0;
     }
 
     if (setAddonFolder) {
         EmulatorSettings.SetAddonInstallDir(*setAddonFolder);
         EmulatorSettings.Save();
-        LOG_INFO(Config, "Addon folder successfully saved.");
+        std::cout << "Addon folder successfully saved.\n";
         return 0;
     }
 
@@ -151,7 +146,7 @@ int main(int argc, char* argv[]) {
             gamePath = gameArgs.front();
             gameArgs.erase(gameArgs.begin());
         } else {
-            LOG_ERROR(Debug, "Please provide a game path or ID.");
+            std::cerr << "Error: Please provide a game path or ID.\n";
             return 1;
         }
     }
@@ -159,7 +154,7 @@ int main(int argc, char* argv[]) {
         if (gameArgs.front() == "--") {
             gameArgs.erase(gameArgs.begin());
         } else {
-            LOG_ERROR(Debug, "unhandled flags");
+            std::cerr << "Error: unhandled flags\n";
             return 1;
         }
     }
@@ -177,7 +172,7 @@ int main(int argc, char* argv[]) {
         } else if (*fullscreenStr == "false") {
             EmulatorSettings.SetFullScreen(false);
         } else {
-            LOG_ERROR(Debug, "Invalid argument for --fullscreen (use true|false)");
+            std::cerr << "Error: Invalid argument for --fullscreen (use true|false)\n";
             return 1;
         }
     }
@@ -204,7 +199,7 @@ int main(int argc, char* argv[]) {
             }
         }
         if (!found) {
-            LOG_ERROR(Debug, "Game ID or file path not found: {}", *gamePath);
+            std::cerr << "Error: Game ID or file path not found: " << *gamePath << "\n";
             return 1;
         }
     }

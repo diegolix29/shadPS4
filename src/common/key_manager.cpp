@@ -83,7 +83,7 @@ bool KeyManager::LoadFromFile() {
 
         std::ifstream file(keysPath);
         if (!file.is_open()) {
-            LOG_ERROR(KeyManager, "Could not open key file: {}", keysPath.string());
+            fmt::println("Could not open key file: {}", keysPath.string());
             return false;
         }
 
@@ -106,7 +106,7 @@ bool KeyManager::LoadFromFile() {
         return true;
 
     } catch (const std::exception& e) {
-        LOG_ERROR(KeyManager, "Error loading keys, using defaults: {}", e.what());
+        fmt::println("Error loading keys, using defaults: {}", e.what());
         SetDefaultKeys();
         return false;
     }
@@ -122,7 +122,7 @@ bool KeyManager::SaveToFile() {
 
         std::ofstream file(keysPath);
         if (!file.is_open()) {
-            LOG_ERROR(KeyManager, "Could not open key file for writing: {}", keysPath.string());
+            fmt::println("Could not open key file for writing: {}", keysPath.string());
             return false;
         }
 
@@ -130,13 +130,13 @@ bool KeyManager::SaveToFile() {
         file.flush();
 
         if (file.fail()) {
-            LOG_ERROR(KeyManager, "Failed to write keys to: {}", keysPath.string());
+            fmt::println("Failed to write keys to: {}", keysPath.string());
             return false;
         }
         return true;
 
     } catch (const std::exception& e) {
-        LOG_ERROR(KeyManager, "Error saving keys: {}", e.what());
+        fmt::println("Error saving keys: {}", e.what());
         return false;
     }
 }
