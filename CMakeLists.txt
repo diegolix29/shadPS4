@@ -8,9 +8,9 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 if(APPLE)
-    list(APPEND ADDITIONAL_LANGUAGES OBJC OBJCXX)
-    # Starting with 15.4, Rosetta 2 has support for all the necessary instruction sets.
-    set(CMAKE_OSX_DEPLOYMENT_TARGET 15.4 CACHE STRING "")
+    list(APPEND ADDITIONAL_LANGUAGES OBJC)
+    # Minimum OS version for KosmicKrisp
+    set(CMAKE_OSX_DEPLOYMENT_TARGET 26.0 CACHE STRING "")
 endif()
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -265,7 +265,7 @@ find_package(SDL3 3.1.2 CONFIG)
 find_package(stb MODULE)
 find_package(toml11 4.2.0 CONFIG)
 find_package(tsl-robin-map 1.3.0 CONFIG)
-find_package(VulkanHeaders 1.4.329 CONFIG)
+find_package(VulkanHeaders 1.4.330 CONFIG)
 find_package(VulkanMemoryAllocator 3.1.0 CONFIG)
 find_package(xbyak 7.07 CONFIG)
 find_package(xxHash 0.8.2 MODULE)
@@ -1432,24 +1432,10 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 endif()
 
 if (APPLE)
-    # Include kosmikrips Vulkan driver
+    # Bundle Vulkan loader and KosmicKrisp driver with the emulator.
     set_property(TARGET shadps4 APPEND PROPERTY BUILD_RPATH "@executable_path")
-    set(KOSMIK_DST ${CMAKE_CURRENT_BINARY_DIR})
-    set(KOSMIK_DYLIB_SRC ${VULKAN_DRIVER_PATH})
-    set(KOSMIK_DYLIB_DST ${KOSMIK_DST}/libvulkan.dylib)
-    set(KOSMIK_ICD_SRC ${VULKAN_ICD_PATH})
-    set(KOSMIK_ICD_DST ${KOSMIK_DST}/kosmickrisp_mesa_icd.json)
-
-    add_custom_command(
-        OUTPUT ${KOSMIK_ICD_DST}
-        DEPENDS ${KOSMIK_ICD_SRC} ${KOSMIK_DST}
-        COMMAND ${CMAKE_COMMAND} -E copy ${KOSMIK_ICD_SRC} ${KOSMIK_ICD_DST})
-    add_custom_command(
-        OUTPUT ${KOSMIK_DYLIB_DST}
-        DEPENDS ${KOSMIK_DYLIB_SRC} ${KOSMIK_DST}
-        COMMAND ${CMAKE_COMMAND} -E copy ${KOSMIK_DYLIB_SRC} ${KOSMIK_DYLIB_DST})
-    add_custom_target(CopyKosmikrips DEPENDS ${KOSMIK_ICD_DST} ${KOSMIK_DYLIB_DST})
-    add_dependencies(shadps4 CopyKosmikrips)
+    add_subdirectory(externals/mesa-kosmickrisp)
+    AddCopyKosmicKrisp(shadps4 ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
     if (ARCHITECTURE STREQUAL "x86_64")
         # Reserve system-managed memory space.
