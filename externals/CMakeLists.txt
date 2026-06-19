@@ -279,10 +279,11 @@ if (APPLE)
         option(USE_SYSTEM_TZ_DB "" ON)
         add_subdirectory(date)
     endif()
+endif()
 
-#windows only
+# Windows only
 if (WIN32)
-add_subdirectory(ext-wepoll)
+    add_subdirectory(ext-wepoll)
 endif()
 
 add_subdirectory(aacdec)
