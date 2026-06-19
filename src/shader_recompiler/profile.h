@@ -92,8 +92,6 @@ struct Profile {
                supports_amd_shader_explicit_vertex_parameter !=
                    other.supports_amd_shader_explicit_vertex_parameter ||
                supports_fragment_shader_barycentric != other.supports_fragment_shader_barycentric ||
-               has_incomplete_fragment_shader_barycentric !=
-                   other.has_incomplete_fragment_shader_barycentric ||
                has_broken_spirv_clamp != other.has_broken_spirv_clamp ||
                lower_left_origin_mode != other.lower_left_origin_mode ||
                needs_manual_interpolation != other.needs_manual_interpolation ||

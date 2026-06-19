@@ -214,6 +214,7 @@ static ConfigEntry<bool> enableUpdates(true);
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
 static ConfigEntry<int> cursorHideTimeout(5);
 static ConfigEntry<bool> isMotionControlsEnabled(true);
+static ConfigEntry<bool> isMiceUsedAsMice(false);
 static ConfigEntry<bool> useUnifiedInputConfig(true);
 static ConfigEntry<std::string> micDevice("Default Device");
 static ConfigEntry<AudioBackend> audioBackend(AudioBackend::SDL);
@@ -696,6 +697,14 @@ bool getisTrophyPopupDisabled() {
 
 bool getPlayBGM() {
     return playBGM;
+}
+
+bool IsMiceUsedAsMice() {
+    return isMiceUsedAsMice.get();
+}
+
+void setIsMiceUsedAsMice(bool enable) {
+    isMiceUsedAsMice.set(enable, is_game_specific_context);
 }
 
 int getBGMvolume() {
@@ -1743,6 +1752,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             useSpecialPads[p - 1].setFromToml(input, useKey, false);
             specialPadClasses[p - 1].setFromToml(input, classKey, false);
         }
+        isMiceUsedAsMice.setFromToml(input, "IsMiceUsedAsMice", is_game_specific);
         isMotionControlsEnabled.setFromToml(input, "isMotionControlsEnabled", is_game_specific);
         useUnifiedInputConfig.setFromToml(input, "useUnifiedInputConfig", is_game_specific);
         backgroundControllerInput.setFromToml(input, "backgroundControllerInput", is_game_specific);
@@ -2161,6 +2171,10 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["Input"]["isMotionControlsEnabled"] =
             isMotionControlsEnabled.game_specific_value.value_or(
                 isMotionControlsEnabled.base_value);
+
+        data["Input"]["IsMiceUsedAsMice"] =
+            isMiceUsedAsMice.game_specific_value.value_or(isMiceUsedAsMice.base_value);
+
         data["Input"]["useUnifiedInputConfig"] =
             useUnifiedInputConfig.game_specific_value.value_or(useUnifiedInputConfig.base_value);
         data["Input"]["backgroundControllerInput"] =
@@ -2177,6 +2191,9 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["Input"]["cursorState"] = cursorState.base_value;
         data["Input"]["cursorHideTimeout"] = cursorHideTimeout.base_value;
         data["Input"]["isMotionControlsEnabled"] = isMotionControlsEnabled.base_value;
+
+        data["Input"]["IsMiceUsedAsMice"] = isMiceUsedAsMice.base_value;
+
         data["Input"]["useUnifiedInputConfig"] = useUnifiedInputConfig.base_value;
         data["Input"]["backgroundControllerInput"] = backgroundControllerInput.base_value;
         data["Input"]["isKeyboardBindingsDisabled"] = isKeyboardBindingsDisabled.base_value;

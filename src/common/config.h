@@ -83,6 +83,9 @@ void setAudioBackend(AudioBackend backend);
 bool groupIdenticalLogs();
 void setGroupIdenticalLogs(bool enable, bool is_game_specific = false);
 
+bool IsMiceUsedAsMice();
+void setIsMiceUsedAsMice(bool enable);
+
 std::string getLogFilter();
 std::string getLogType();
 std::string getUserName();

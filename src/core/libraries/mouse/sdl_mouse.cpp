@@ -34,7 +34,7 @@ constexpr u32 OrbisButtonFromSDL(Uint8 button) {
 
 bool PushSDLEvent(SDL_Event const& e) {
     static OrbisMouseData current_state[2]{};
-    if (!EmulatorSettings.IsMiceUsedAsMice()) {
+    if (!Config::IsMiceUsedAsMice()) {
         return false;
     }
     if (!g_lib_init) {
