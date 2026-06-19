@@ -116,6 +116,7 @@ endif()
 if (NOT TARGET Vulkan::Headers)
     set(VULKAN_HEADERS_ENABLE_MODULE OFF)
     add_subdirectory(vulkan-headers)
+    set(VulkanHeaders_VERSION "1.4.330")
 endif()
 
 # VMA
@@ -279,18 +280,6 @@ if (APPLE)
         add_subdirectory(date)
     endif()
 
-    # MoltenVK
-    if (NOT TARGET MoltenVK)
-        set(MVK_EXCLUDE_SPIRV_TOOLS ON)
-        set(MVK_USE_METAL_PRIVATE_API ON)
-        add_subdirectory(MoltenVK)
-    endif()
-
-    if (NOT TARGET epoll-shim)
-        add_subdirectory(epoll-shim)
-    endif()
-endif()
-
 #windows only
 if (WIN32)
 add_subdirectory(ext-wepoll)
@@ -360,3 +349,28 @@ endif()
 add_library(Cpp_Httplib INTERFACE)
 target_include_directories(Cpp_Httplib INTERFACE cpp-httplib/)
 
+if (TARGET ZLIB::ZLIB)
+    target_link_libraries(Cpp_Httplib INTERFACE ZLIB::ZLIB)
+    target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_ZLIB_SUPPORT)
+    message(STATUS "cpp-httplib: zlib support enabled (gzip response decompression)")
+else()
+    message(STATUS "cpp-httplib: zlib not available — gzip responses will arrive uncompressed")
+endif()
+
+if (DEFINED SSL_DEPENDENCIES)
+    target_link_libraries(Cpp_Httplib INTERFACE ${SSL_DEPENDENCIES})
+    target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
+    message(STATUS "cpp-httplib: SSL support enabled (TLS connections)")
+else()
+    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available — libSceHttp HTTPS will fall back to mock at runtime.")
+endif()
+
+# macOS Vulkan driver
+if (APPLE AND NOT ENABLE_SYSTEM_VULKAN AND NOT ENABLE_TESTS)
+    add_subdirectory(vulkan-loader)
+    set(VULKAN_LOADER_PATH "${CMAKE_CURRENT_BINARY_DIR}/vulkan-loader/loader/libvulkan.dylib" PARENT_SCOPE)
+
+    add_subdirectory(mesa-kosmickrisp)
+    set(VULKAN_DRIVER_PATH "${CMAKE_CURRENT_BINARY_DIR}/mesa-kosmickrisp/outputs/libvulkan_kosmickrisp.dylib" PARENT_SCOPE)
+    set(VULKAN_ICD_PATH "${CMAKE_CURRENT_BINARY_DIR}/mesa-kosmickrisp/outputs/kosmickrisp_mesa_icd.json" PARENT_SCOPE)
+endif()

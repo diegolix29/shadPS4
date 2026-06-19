@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 ### Install the necessary tools to build shadPS4:
 
-First, make sure you have **Xcode 16.0 or newer** installed.
+First, make sure you have **Xcode 26.0 or newer** installed.
 
 For installing other tools and library dependencies we will be using [Homebrew](https://brew.sh/).
 
@@ -25,19 +25,10 @@ Then, use Homebrew to install the required build tools:
 brew install clang-format cmake
 ```
 
-Next, install x86_64 Qt. You can skip these steps and move on to **Cloning and compiling** if you do not intend to build the Qt GUI.
-
-**If you are on an ARM Mac:**
+Finally, install the dependencies required for building the KosmicKrisp Vulkan driver. You can skip this by setting `-DENABLE_SYSTEM_VULKAN=ON` when configuring, but you are responsible for having a compatible Vulkan setup installed.
 ```
-# Installs x86_64 Homebrew to /usr/local
-arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-# Installs libraries.
-arch -x86_64 /usr/local/bin/brew install qt@6
-```
-
-**If you are on an x86_64 Mac:**
-```
-brew install qt@6
+brew install meson ninja pkg-config llvm spirv-tools spirv-llvm-translator libclc
+pip3 install --break-system-packages mako packaging pyyaml
 ```
 
 ### Cloning and compiling:
@@ -52,8 +43,6 @@ Generate the build directory in the shadPS4 directory:
 ```
 cmake -S . -B build/ -DCMAKE_OSX_ARCHITECTURES=x86_64
 ```
-
-If you want to build the Qt GUI, add `-DENABLE_QT_GUI=ON` to the end of this command as well.
 
 Enter the directory:
 ```
