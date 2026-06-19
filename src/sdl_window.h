@@ -103,7 +103,4 @@ private:
     bool is_open{true};
 };
 
-void SetWindowIcon(SDL_Window* window, const std::vector<u8>& png);
-void SetDefaultWindowIcon(SDL_Window* window);
-
 } // namespace Frontend
