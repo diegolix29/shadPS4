@@ -63,7 +63,7 @@ void StorageImageSync::Clear() {
 }
 
 void StorageImageSync::Collect(VideoCore::ImageId image_id, const VideoCore::Image& image) {
-    // Deduplicate by guest_addr — the same storage image may be bound to multiple
+    // Deduplicate by guest_addr � the same storage image may be bound to multiple
     // descriptor set slots in a single dispatch.
     const VAddr addr = image.info.guest_address;
     if (addr == 0)
@@ -146,7 +146,7 @@ void StorageImageSync::RecordDownload(bool async) {
     auto cmdbuf = scheduler.CommandBuffer();
 
     // Record vkCmdCopyImageToBuffer for each storage image on the same cmdbuf.
-    // Staging pointers remain valid until insert phase — StreamBuffer watch protects them.
+    // Staging pointers remain valid until insert phase � StreamBuffer watch protects them.
     boost::container::small_vector<StagingRef, 4> staging_refs;
 
     for (auto& sync : pending_syncs) {
@@ -183,7 +183,7 @@ void StorageImageSync::RecordDownload(bool async) {
         const auto [data, offset] = download_buf.Map(download_size);
         if (!data) {
             LOG_ERROR(Render_Vulkan,
-                      "[StorageSync] StreamBuffer Map failed for {}B — download SKIPPED, "
+                      "[StorageSync] StreamBuffer Map failed for {}B � download SKIPPED, "
                       "texture corruption likely",
                       download_size);
             continue;
@@ -194,14 +194,14 @@ void StorageImageSync::RecordDownload(bool async) {
         download_buf.Commit();
         staging_refs.push_back({data, download_size});
 
-        // Record copy directly — image is already in eTransferSrcOptimal from Transit above.
+        // Record copy directly � image is already in eTransferSrcOptimal from Transit above.
         cmdbuf.copyImageToBuffer(img.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
                                  download_buf.Handle(), regions);
     }
 
     if (staging_refs.empty()) {
         LOG_ERROR(Render_Vulkan,
-                  "[StorageSync] all {} Map()s failed — nothing to submit, texture corruption "
+                  "[StorageSync] all {} Map()s failed � nothing to submit, texture corruption "
                   "likely",
                   sync_count);
         pending_syncs.clear();
@@ -209,7 +209,7 @@ void StorageImageSync::RecordDownload(bool async) {
     }
 
     if (async) {
-        // Submit copies without waiting — injection deferred to OnSubmit.
+        // Submit copies without waiting � injection deferred to OnSubmit.
         scheduler.EndRendering();
         const u64 tick = scheduler.CurrentTick();
         scheduler.Flush();
@@ -290,7 +290,7 @@ void StorageImageSync::ProcessPending() {
 
             if (!st.data || st.size == 0) {
                 LOG_ERROR(Render_Vulkan,
-                          "[StorageSync] invalid staging ref idx={} guest={:#x} — SKIPPED, "
+                          "[StorageSync] invalid staging ref idx={} guest={:#x} � SKIPPED, "
                           "texture corruption likely",
                           i, sync.guest_addr);
                 continue;
@@ -321,7 +321,7 @@ void StorageImageSync::InstallPreAccessCallback() {
         if (!pending_ranges.Intersects(addr, size)) {
             return;
         }
-        // Force-sync ALL pending downloads — any overlap means the cache is about to
+        // Force-sync ALL pending downloads � any overlap means the cache is about to
         // access a range whose GPU data is not yet injected. Flushing everything is
         // simpler and safer than trying to match individual ranges.
         LOG_DEBUG(Render_Vulkan,
@@ -358,7 +358,7 @@ void StorageImageSync::InstallPreAccessCallback() {
                 // InsertGpuData internally calls ObtainBuffer (FindBuffer + overlap
                 // resolution) + WriteDataBuffer, handling any buffer merges that
                 // occurred since the placeholder was created.
-                // NOTE: InvalidateMemoryRange skipped here — force-sync may be
+                // NOTE: InvalidateMemoryRange skipped here � force-sync may be
                 // called from ObtainBufferForImage under texture_cache.mutex.
                 // Consumer marking is deferred to OnSubmit batch processing.
                 buffer_cache.InsertGpuData(sync.guest_addr, st.data, st.size);
@@ -634,6 +634,17 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
         std::tie(count_buffer, count_base) = buffer_cache.ObtainBuffer(count_address, 4);
     }
 
+    if (auto barrier = buffer->GetBarrier(vk::AccessFlagBits2::eIndirectCommandRead,
+                                          vk::PipelineStageFlagBits2::eDrawIndirect)) {
+        buffer_barriers.emplace_back(*barrier);
+    }
+    if (count_buffer) {
+        if (auto barrier = count_buffer->GetBarrier(vk::AccessFlagBits2::eIndirectCommandRead,
+                                                    vk::PipelineStageFlagBits2::eDrawIndirect)) {
+            buffer_barriers.emplace_back(*barrier);
+        }
+    }
+
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
     UpdateDynamicState(pipeline, is_indexed);
     scheduler.BeginRendering(state);
@@ -682,7 +693,7 @@ void Rasterizer::DispatchDirect() {
     if (ExecuteShaderHLE(cs, liverpool->regs, cs_program, *this)) {
         if (Gow3Features::storage_image_sync && storage_sync_.HasPending()) {
             LOG_ERROR(Render_Vulkan,
-                      "[StorageSync] HLE intercepted dispatch with {} storage binding(s) —"
+                      "[StorageSync] HLE intercepted dispatch with {} storage binding(s) �"
                       "output NOT synced, texture corruption likely",
                       storage_sync_.PendingCount());
             storage_sync_.DiscardPending();
@@ -722,9 +733,13 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_g
         return;
     }
 
-    const auto [buffer, base] =
-        buffer_cache.ObtainBuffer(address + offset, size, VideoCore::ObtainBufferFlags::IsWritten);
-    buffer_cache.GetPendingGpuModifiedRanges().Subtract(address + offset, size);
+    const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, false);
+
+    if (auto barrier = buffer->GetBarrier(vk::AccessFlagBits2::eIndirectCommandRead,
+                                          vk::PipelineStageFlagBits2::eDrawIndirect)) {
+        buffer_barriers.emplace_back(*barrier);
+    }
+
     scheduler.EndRendering();
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
 
@@ -1263,7 +1278,7 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
         if (Gow3Features::rt_alias_copy) {
             texture_cache.RecordRtWrite(desc.info.guest_address, image_id);
         }
-        // 1×1 render target: force download to guest so CPU can read the result
+        // 1�1 render target: force download to guest so CPU can read the result
         if (Gow3Features::_1x1_readback && desc.info.size.width == 1 &&
             desc.info.size.height == 1) {
             texture_cache.AddDownload(image_id);
@@ -1315,7 +1330,7 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
         auto& image = texture_cache.GetImage(image_id);
 
         const auto slice = image_view.info.range.base.layer;
-        // Only clear depth if writes are enabled —PS4 hardware ignores clear when
+        // Only clear depth if writes are enabled �PS4 hardware ignores clear when
         // depth_write_enable is false, otherwise data from a previous pass is lost.
         const bool is_depth_clear =
             (Gow3Features::depth_clear_skip ? regs.depth_control.depth_write_enable : true) &&
