@@ -744,7 +744,8 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_g
         return;
     }
 
-    const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, false);
+    const auto [buffer, base] =
+        buffer_cache.ObtainBuffer(address + offset, size, VideoCore::ObtainBufferFlags::IsWritten);
 
     if (auto barrier = buffer->GetBarrier(vk::AccessFlagBits2::eIndirectCommandRead,
                                           vk::PipelineStageFlagBits2::eDrawIndirect)) {

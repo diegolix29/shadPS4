@@ -21,6 +21,15 @@ if (NOT TARGET Boost::headers)
     add_subdirectory(ext-boost)
 endif()
 
+# spdlog
+set(SPDLOG_NO_EXCEPTIONS ON)
+set(SPDLOG_DISABLE_GLOBAL_LOGGER ON)
+if (TARGET fmt::fmt)
+    set(SPDLOG_FMT_EXTERNAL ON)
+endif()
+add_subdirectory(spdlog EXCLUDE_FROM_ALL SYSTEM)
+target_compile_definitions(spdlog PUBLIC SPDLOG_FUNCTION=__func__)
+
 # fmtlib
 if (NOT TARGET fmt::fmt)
     add_subdirectory(fmt)
@@ -36,10 +45,6 @@ endif()
 file(GLOB LIBATRAC9_SOURCES LibAtrac9/C/src/*.c)
 add_library(LibAtrac9 STATIC ${LIBATRAC9_SOURCES})
 target_include_directories(LibAtrac9 INTERFACE LibAtrac9/C/src)
-
-# minimp3
-add_library(minimp3 INTERFACE)
-target_include_directories(minimp3 INTERFACE minimp3)
 
 # zlib
 if (NOT TARGET ZLIB::ZLIB)
@@ -78,45 +83,10 @@ if (NOT TARGET SDL3::SDL3)
     add_subdirectory(sdl3)
 endif()
 
-# SDL3_image
-if (NOT TARGET SDL3_image::SDL3_image)
-    set(SDLIMAGE_VENDORED OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_ANI OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_AVIF OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_BMP OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_GIF OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_JPG  OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_JXL OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_LBM OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_PCX OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_PNM OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_QOI OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_SVG OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_TGA OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_TIF OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_WEBP OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_XCF OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_XPM OFF CACHE BOOL "" FORCE)
-    set(SDLIMAGE_XV OFF CACHE BOOL "" FORCE)
-    add_subdirectory(sdl3_image)
-endif()
-# SDL3_mixer
-if (NOT TARGET SDL3_mixer::SDL3_mixer)
-    set(SDLMIXER_FLAC OFF)
-    set(SDLMIXER_OGG OFF)
-    set(SDLMIXER_MOD OFF)
-    set(SDLMIXER_MIDI OFF)
-    set(SDLMIXER_OPUS OFF)
-    set(SDLMIXER_WAVPACK OFF)
-    set(BUILD_SHARED_LIBS OFF)
-    add_subdirectory(sdl3_mixer)
-endif()
-
 # vulkan-headers
 if (NOT TARGET Vulkan::Headers)
     set(VULKAN_HEADERS_ENABLE_MODULE OFF)
     add_subdirectory(vulkan-headers)
-    set(VulkanHeaders_VERSION "1.4.330")
 endif()
 
 # VMA
@@ -248,8 +218,15 @@ endif()
 
 # libusb
 if (NOT TARGET libusb::usb)
-    add_subdirectory(libusb)
-    add_library(libusb::usb ALIAS usb-1.0)
+    if (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
+        # YOU MUST USE NATIVE LIBUSB
+        # using anything else will crash instantly, also freebsd will NOT like it
+        # no you cant vendor this libusb, its builtin on freebsd
+        find_package(libusb)
+    else()
+        add_subdirectory(libusb)
+        add_library(libusb::usb ALIAS usb-1.0)
+    endif()
 endif()
 
 # Discord RPC
@@ -271,19 +248,31 @@ endif()
 set(HWINFO_STATIC ON)
 add_subdirectory(hwinfo)
 
-# Apple-only dependencies
-if (APPLE)
+if (APPLE OR ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
     # date
     if (NOT TARGET date::date-tz)
         option(BUILD_TZ_LIB "" ON)
         option(USE_SYSTEM_TZ_DB "" ON)
         add_subdirectory(date)
     endif()
+    if (NOT TARGET epoll-shim)
+        add_subdirectory(epoll-shim)
+    endif()
 endif()
 
-# Windows only
+# Apple-only dependencies
+if (APPLE)
+    # MoltenVK
+    if (NOT TARGET MoltenVK)
+        set(MVK_EXCLUDE_SPIRV_TOOLS ON)
+        set(MVK_USE_METAL_PRIVATE_API ON)
+        add_subdirectory(MoltenVK)
+    endif()
+endif()
+
+#windows only
 if (WIN32)
-    add_subdirectory(ext-wepoll)
+add_subdirectory(ext-wepoll)
 endif()
 
 add_subdirectory(aacdec)
@@ -307,12 +296,25 @@ if (NOT TARGET CLI11::CLI11)
     add_subdirectory(CLI11)
 endif()
 
+# miniupnpc
+if (NOT TARGET miniupnpc::miniupnpc)
+set(UPNPC_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(UPNPC_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(UPNPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
+set(UPNPC_NO_INSTALL ON CACHE BOOL "" FORCE)
+add_subdirectory(miniupnp/miniupnpc)
+endif()
+
+# minimp3
+add_library(minimp3 INTERFACE)
+target_include_directories(minimp3 INTERFACE minimp3)
+
 # ImGuiFileDialog
 add_library(ImGuiFileDialog ImGuiFileDialog/ImGuiFileDialog.cpp)
 target_compile_definitions(ImGuiFileDialog PRIVATE USE_STD_FILESYSTEM)
 target_include_directories(ImGuiFileDialog INTERFACE ImGuiFileDialog/)
 target_link_libraries(ImGuiFileDialog PRIVATE Dear_ImGui)
-
 
 #openal
 if (NOT TARGET OpenAL::OpenAL)
@@ -346,6 +348,19 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory(openal-soft EXCLUDE_FROM_ALL)
 endif()
 
+# LibreSSL
+if (TARGET LibreSSL::SSL OR TARGET LibreSSL::Crypto)
+    set(SSL_DEPENDENCIES LibreSSL::SSL LibreSSL::Crypto)
+elseif (TARGET OpenSSL::SSL OR TARGET OpenSSL::Crypto)
+    set(SSL_DEPENDENCIES OpenSSL::SSL OpenSSL::Crypto)
+else()
+    set(LIBRESSL_SKIP_INSTALL ON CACHE BOOL "" FORCE)
+    set(LIBRESSL_APPS OFF CACHE BOOL "" FORCE)
+    set(LIBRESSL_TESTS OFF CACHE BOOL "" FORCE)
+    add_subdirectory(libressl EXCLUDE_FROM_ALL)
+    get_directory_property(SSL_DEPENDENCIES DIRECTORY libressl DEFINITION OPENSSL_LIBS)
+endif()
+
 # cpp-httplib
 add_library(Cpp_Httplib INTERFACE)
 target_include_directories(Cpp_Httplib INTERFACE cpp-httplib/)
@@ -355,7 +370,7 @@ if (TARGET ZLIB::ZLIB)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_ZLIB_SUPPORT)
     message(STATUS "cpp-httplib: zlib support enabled (gzip response decompression)")
 else()
-    message(STATUS "cpp-httplib: zlib not available — gzip responses will arrive uncompressed")
+    message(STATUS "cpp-httplib: zlib not available â€” gzip responses will arrive uncompressed")
 endif()
 
 if (DEFINED SSL_DEPENDENCIES)
@@ -363,15 +378,5 @@ if (DEFINED SSL_DEPENDENCIES)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
     message(STATUS "cpp-httplib: SSL support enabled (TLS connections)")
 else()
-    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available — libSceHttp HTTPS will fall back to mock at runtime.")
-endif()
-
-# macOS Vulkan driver
-if (APPLE AND NOT ENABLE_SYSTEM_VULKAN AND NOT ENABLE_TESTS)
-    add_subdirectory(vulkan-loader)
-    set(VULKAN_LOADER_PATH "${CMAKE_CURRENT_BINARY_DIR}/vulkan-loader/loader/libvulkan.dylib" PARENT_SCOPE)
-
-    add_subdirectory(mesa-kosmickrisp)
-    set(VULKAN_DRIVER_PATH "${CMAKE_CURRENT_BINARY_DIR}/mesa-kosmickrisp/outputs/libvulkan_kosmickrisp.dylib" PARENT_SCOPE)
-    set(VULKAN_ICD_PATH "${CMAKE_CURRENT_BINARY_DIR}/mesa-kosmickrisp/outputs/kosmickrisp_mesa_icd.json" PARENT_SCOPE)
+    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available â€” libSceHttp HTTPS will fall back to mock at runtime.")
 endif()
