@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-26]
+        os: [windows-latest, ubuntu-latest, macos-latest]
         include:
           - os: windows-latest
             compiler_cxx: clang-cl
@@ -82,7 +82,7 @@ jobs:
           - os: ubuntu-latest
             compiler_cxx: clang++
             compiler_c: clang
-          - os: macos-26
+          - os: macos-latest
             compiler_cxx: clang++
             compiler_c: clang
 
@@ -245,7 +245,7 @@ jobs:
         path: upload/
 
   macos-sdl:
-    runs-on: macos-26
+    runs-on: macos-15
     needs: get-info
     steps:
     - uses: actions/checkout@v6.0.2
@@ -257,13 +257,6 @@ jobs:
       with:
         xcode-version: latest
 
-    - name: Install Build Dependencies
-      run: |
-        brew install cmake meson pkg-config llvm spirv-tools spirv-llvm-translator libclc
-        pip3 install --break-system-packages mako packaging pyyaml
-    - name: Configure LLVM PATH
-      run: |
-        echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
     - name: Cache CMake Configuration
       uses: actions/cache@v5.0.4
       env: 
