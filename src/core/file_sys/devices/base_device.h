@@ -4,11 +4,8 @@
 #pragma once
 
 #include "common/types.h"
+#include "common/va_ctx.h"
 #include "core/libraries/kernel/orbis_error.h"
-
-namespace Common {
-struct VaCtx;
-}
 
 namespace Libraries::Kernel {
 struct OrbisKernelStat;
