@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 #ifdef ENABLE_QT_GUI

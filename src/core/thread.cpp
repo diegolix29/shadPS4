@@ -18,6 +18,7 @@
 #define cpu_set_t cpuset_t
 #endif
 #endif
+#endif
 
 namespace Core {
 

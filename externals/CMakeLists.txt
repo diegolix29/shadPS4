@@ -116,6 +116,7 @@ endif()
 if (NOT TARGET Vulkan::Headers)
     set(VULKAN_HEADERS_ENABLE_MODULE OFF)
     add_subdirectory(vulkan-headers)
+    set(VulkanHeaders_VERSION "1.4.330")
 endif()
 
 # VMA
@@ -278,22 +279,31 @@ if (APPLE)
         option(USE_SYSTEM_TZ_DB "" ON)
         add_subdirectory(date)
     endif()
+endif()
 
+# Apple-only dependencies
+if (APPLE)
     # MoltenVK
     if (NOT TARGET MoltenVK)
         set(MVK_EXCLUDE_SPIRV_TOOLS ON)
         set(MVK_USE_METAL_PRIVATE_API ON)
         add_subdirectory(MoltenVK)
     endif()
+endif()
 
-    if (NOT TARGET epoll-shim)
-        add_subdirectory(epoll-shim)
+# Apple-only dependencies
+if (APPLE)
+    # MoltenVK
+    if (NOT TARGET MoltenVK)
+        set(MVK_EXCLUDE_SPIRV_TOOLS ON)
+        set(MVK_USE_METAL_PRIVATE_API ON)
+        add_subdirectory(MoltenVK)
     endif()
 endif()
 
 #windows only
 if (WIN32)
-add_subdirectory(ext-wepoll)
+    add_subdirectory(ext-wepoll)
 endif()
 
 add_subdirectory(aacdec)
@@ -316,20 +326,6 @@ if (NOT TARGET CLI11::CLI11)
     set(CLI11_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     add_subdirectory(CLI11)
 endif()
-
-# miniupnpc
-if (NOT TARGET miniupnpc::miniupnpc)
-set(UPNPC_BUILD_STATIC ON CACHE BOOL "" FORCE)
-set(UPNPC_BUILD_SHARED OFF CACHE BOOL "" FORCE)
-set(UPNPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
-set(UPNPC_NO_INSTALL ON CACHE BOOL "" FORCE)
-add_subdirectory(miniupnp/miniupnpc)
-endif()
-
-# minimp3
-add_library(minimp3 INTERFACE)
-target_include_directories(minimp3 INTERFACE minimp3)
 
 # ImGuiFileDialog
 add_library(ImGuiFileDialog ImGuiFileDialog/ImGuiFileDialog.cpp)
@@ -374,3 +370,18 @@ endif()
 add_library(Cpp_Httplib INTERFACE)
 target_include_directories(Cpp_Httplib INTERFACE cpp-httplib/)
 
+if (TARGET ZLIB::ZLIB)
+    target_link_libraries(Cpp_Httplib INTERFACE ZLIB::ZLIB)
+    target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_ZLIB_SUPPORT)
+    message(STATUS "cpp-httplib: zlib support enabled (gzip response decompression)")
+else()
+    message(STATUS "cpp-httplib: zlib not available — gzip responses will arrive uncompressed")
+endif()
+
+if (DEFINED SSL_DEPENDENCIES)
+    target_link_libraries(Cpp_Httplib INTERFACE ${SSL_DEPENDENCIES})
+    target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
+    message(STATUS "cpp-httplib: SSL support enabled (TLS connections)")
+else()
+    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available — libSceHttp HTTPS will fall back to mock at runtime.")
+endif()
