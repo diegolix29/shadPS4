@@ -458,19 +458,6 @@ void BufferCache::CopyBuffer(VAddr dst, VAddr src, u32 num_bytes, bool dst_gds, 
     });
 }
 
-void BufferCache::InsertGpuData(VAddr device_addr, const void* data, u64 size) {
-    // ObtainBuffer(is_written=true) internally:
-    //   1. Registers the buffer in page_table (→ ObtainBufferForImage Level 1 hit)
-    //   2. Sets MemoryTracker GPU dirty via ChangeRegionState<GPU, true> (→ Level 2 hit)
-    //   3. Adds to gpu_modified_ranges (→ DownloadBufferMemory traversal)
-    // WriteDataBuffer copies the staging data into the device buffer.
-    const bool existed = IsRegionRegistered(device_addr, size);
-    const auto [buffer, offset] = ObtainBuffer(device_addr, size, ObtainBufferFlags::IsWritten);
-    WriteDataBuffer(*buffer, device_addr, data, size);
-    LOG_DEBUG(Render_Vulkan, "[StorageSync] InsertGpuData: guest={:#x} size={} {} total_used={}",
-              device_addr, size, existed ? "reuse" : "new_buffer", total_used_memory);
-}
-
 std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size,
                                                   ObtainBufferFlags flags, BufferId buffer_id) {
 
@@ -510,11 +497,6 @@ std::pair<Buffer*, u32> BufferCache::ObtainBuffer(VAddr device_addr, u32 size,
 }
 
 std::pair<Buffer*, u32> BufferCache::ObtainBufferForImage(VAddr gpu_addr, u32 size) {
-    // Allow external systems (e.g. async storage download) to inject pending GPU data
-    // before the cache falls through to Level 2/3 and potentially reads stale guest memory.
-    if (pre_access_cb) {
-        pre_access_cb(gpu_addr, size);
-    }
     // Check if any buffer contains the full requested range.
     const BufferId buffer_id = page_table[gpu_addr >> CACHING_PAGEBITS].buffer_id;
     if (buffer_id) {
@@ -558,6 +540,10 @@ void BufferCache::MarkRegionAsGpuModified(VAddr addr, size_t size) {
     gpu_modified_ranges.Add(addr, size);
     memory_tracker->MarkRegionAsGpuModified(addr, size);
     texture_cache.MarkAsMaybeReused(addr, size);
+}
+
+void BufferCache::MarkRegionAsCpuModified(VAddr addr, size_t size) {
+    memory_tracker->MarkRegionAsCpuModified(addr, size);
 }
 
 BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {

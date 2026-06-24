@@ -91,58 +91,6 @@ void TextureCache::ProcessDownloadImages() {
     download_images.clear();
 }
 
-void TextureCache::RecordRtWrite(VAddr addr, ImageId id) {
-    last_rt_address_[addr] = id;
-}
-
-// PS4 unified memory allows different-sized views of the same buffer to see the same data.
-// In shadPS4, each view size gets its own VkImage with independent GPU memory (they can't
-// share a VkImage because BlockDim/pixel dimensions differ). When a render target is written
-// at an address and a smaller texture source at the same address is later sampled, we must
-// explicitly copy the data from the larger RT VkImage to the smaller texture VkImage.
-void TextureCache::CopyFromLastRt(VAddr addr, ImageId tex_id, u32 copy_w, u32 copy_h) {
-    std::scoped_lock lock{mutex};
-    auto it = last_rt_address_.find(addr);
-    if (it == last_rt_address_.end()) {
-        return;
-    }
-    ImageId rt_id = it->second;
-    if (!slot_images.is_allocated(rt_id)) {
-        last_rt_address_.erase(it);
-        return;
-    }
-    auto& rt_image = slot_images[rt_id];
-    // Only copy if the recorded RT is larger than the texture
-    if (rt_image.info.size.width <= copy_w && rt_image.info.size.height <= copy_h) {
-        return;
-    }
-    if (!slot_images.is_allocated(tex_id)) {
-        return;
-    }
-    auto& tex_image = slot_images[tex_id];
-    rt_image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {});
-    tex_image.Transit(vk::ImageLayout::eTransferDstOptimal, vk::AccessFlagBits2::eTransferWrite,
-                      {});
-    const vk::ImageCopy region = {
-        .srcSubresource = {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
-        .srcOffset = {0, 0, 0},
-        .dstSubresource = {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
-        .dstOffset = {0, 0, 0},
-        .extent = {copy_w, copy_h, 1},
-    };
-    scheduler.CommandBuffer().copyImage(rt_image.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
-                                        tex_image.GetImage(), vk::ImageLayout::eTransferDstOptimal,
-                                        region);
-    rt_image.Transit(vk::ImageLayout::eColorAttachmentOptimal,
-                     vk::AccessFlagBits2::eColorAttachmentWrite, {});
-    tex_image.Transit(vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlagBits2::eShaderRead,
-                      {});
-}
-
-void TextureCache::ClearRtRecords() {
-    last_rt_address_.clear();
-}
-
 void TextureCache::DownloadImageMemory(ImageId image_id, bool sync) {
     Image& image = slot_images[image_id];
     if (False(image.flags & ImageFlagBits::GpuModified)) {
@@ -223,11 +171,14 @@ void TextureCache::MarkAsMaybeDirty(ImageId image_id, Image& image) {
     UntrackImage(image_id);
 }
 
-void TextureCache::InvalidateMemory(VAddr addr, size_t size) {
+void TextureCache::InvalidateMemory(VAddr addr, size_t size, ImageId exclude_image_id) {
     std::scoped_lock lock{mutex};
     const auto pages_start = PageManager::GetPageAddr(addr);
     const auto pages_end = PageManager::GetNextPageAddr(addr + size - 1);
     ForEachImageInRegion(pages_start, pages_end - pages_start, [&](ImageId image_id, Image& image) {
+        if (exclude_image_id && image_id == exclude_image_id) {
+            return;
+        }
         const auto image_begin = image.info.guest_address;
         const auto image_end = image.info.guest_address + image.info.guest_size;
         if (image.Overlaps(addr, size)) {
@@ -265,36 +216,6 @@ void TextureCache::InvalidateMemoryFromGPU(VAddr address, size_t max_size) {
         // Ensure image is reuploaded when accessed again.
         image.flags |= ImageFlagBits::GpuDirty;
     });
-}
-
-u32 TextureCache::InvalidateMemoryRange(VAddr address, size_t max_size, ImageId exclude_producer) {
-    std::scoped_lock lock{mutex};
-    u32 count = 0;
-    ForEachImageInRegion(address, max_size, [&](ImageId image_id, Image& image) {
-        if (exclude_producer && image_id == exclude_producer) {
-            LOG_DEBUG(Render_Vulkan, "[StorageSync] skip producer id={} guest={:#x}",
-                      image_id.index, image.info.guest_address);
-            return;
-        }
-        image.flags |= ImageFlagBits::GpuDirty;
-        ++count;
-        LOG_DEBUG(Render_Vulkan, "[StorageSync] GpuDirty image id={} guest={:#x} fmt={}",
-                  image_id.index, image.info.guest_address, vk::to_string(image.info.pixel_format));
-    });
-    return count;
-}
-
-bool TextureCache::HasGpuDirtyImagesInRange(VAddr addr, size_t size) {
-    std::scoped_lock lock{mutex};
-    bool found = false;
-    ForEachImageInRegion(addr, size, [&](ImageId, Image& image) {
-        if (True(image.flags & ImageFlagBits::GpuDirty)) {
-            found = true;
-            return true; // break iteration
-        }
-        return false;
-    });
-    return found;
 }
 
 void TextureCache::MarkAsMaybeReused(VAddr addr, size_t size) {

@@ -1,20 +1,15 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+﻿// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
-#include <mutex>
-#include <vector>
-#include <boost/container/small_vector.hpp>
 #include "common/recursive_lock.h"
 #include "common/shared_first_mutex.h"
-#include "common/slot_vector.h"
-#include "common/types.h"
 #include "video_core/buffer_cache/buffer_cache.h"
-#include "video_core/buffer_cache/range_set.h"
 #include "video_core/page_manager.h"
+#include "video_core/renderer_vulkan/render_target_sync.h"
+#include "video_core/renderer_vulkan/storage_image_sync.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
-#include "video_core/texture_cache/image.h"
 #include "video_core/texture_cache/texture_cache.h"
 
 namespace AmdGpu {
@@ -30,82 +25,6 @@ namespace Vulkan {
 class Scheduler;
 class RenderState;
 class GraphicsPipeline;
-
-struct Gow3Features {
-    static bool storage_image_sync;
-    static bool async_storage_download;
-    static bool rt_alias_copy;
-    static bool _1x1_readback;
-    static bool depth_clear_skip;
-
-    static void Init();
-};
-
-class StorageImageSync {
-public:
-    StorageImageSync(Scheduler& scheduler, VideoCore::BufferCache& buffer_cache,
-                     VideoCore::TextureCache& texture_cache);
-    ~StorageImageSync();
-
-    /// Clear the per-dispatch collection. Call before each BindResources.
-    void Clear();
-
-    /// Collect a storage image for post-dispatch sync. Deduplicates by guest_addr.
-    void Collect(VideoCore::ImageId image_id, const VideoCore::Image& image);
-
-    /// Record vkCmdCopyImageToBuffer for collected storage images.
-    /// @param async  If true, submit without waiting (defer to ProcessPending).
-    ///               If false, wait immediately and inject data into buffer cache.
-    void RecordDownload(bool async);
-
-    /// Process all pending async downloads: Wait → InsertGpuData → InvalidateMemoryRange.
-    void ProcessPending();
-
-    /// Discard collected syncs without processing (for HLE interception).
-    void DiscardPending();
-
-    /// True if there are collected syncs not yet recorded.
-    bool HasPending() const;
-
-    /// Number of collected syncs.
-    u32 PendingCount() const;
-
-    /// Register the force-sync callback on the buffer cache.
-    /// Only call when async mode is enabled.
-    void InstallPreAccessCallback();
-
-private:
-    struct PendingSync {
-        VideoCore::ImageId image_id;
-        VAddr guest_addr;
-        u64 guest_size;
-        u32 width, height;
-        u32 layers;
-        u32 num_samples, num_mips;
-        u32 pitch;
-        vk::Format pixel_format;
-    };
-
-    struct StagingRef {
-        const u8* data;
-        u32 size;
-    };
-
-    struct PendingDownload {
-        u64 tick;
-        boost::container::small_vector<StagingRef, 4> staging_refs;
-        std::vector<PendingSync> syncs;
-    };
-
-    Scheduler& scheduler;
-    VideoCore::BufferCache& buffer_cache;
-    VideoCore::TextureCache& texture_cache;
-
-    std::vector<PendingSync> pending_syncs;
-    std::vector<PendingDownload> pending_downloads;
-    std::mutex pending_mutex;
-    VideoCore::RangeSet pending_ranges;
-};
 
 class Rasterizer {
 public:
@@ -214,6 +133,8 @@ private:
     VideoCore::BufferCache buffer_cache;
     VideoCore::TextureCache texture_cache;
     StorageImageSync storage_sync_;
+    RenderTargetSync rt_sync_;
+    VideoCore::ImageId pending_storage_image_id_{};
     AmdGpu::Liverpool* liverpool;
     Core::MemoryManager* memory;
     boost::icl::interval_set<VAddr> mapped_ranges;
