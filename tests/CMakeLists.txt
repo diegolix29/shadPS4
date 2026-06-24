@@ -144,8 +144,12 @@ target_link_libraries(shadps4_settings_test PRIVATE
     fmt::fmt
     nlohmann_json::nlohmann_json
     toml11::toml11
-    SDL3::SDL3 
 )
+if (TARGET SDL3::SDL3)
+    target_include_directories(shadps4_settings_test PRIVATE
+        $<TARGET_PROPERTY:SDL3::SDL3,INTERFACE_INCLUDE_DIRECTORIES>)
+endif()
+
 target_link_libraries(shadps4_gcn_test PRIVATE
     GTest::gtest_main
     fmt::fmt
@@ -194,9 +198,12 @@ endforeach()
 
 include(GoogleTest)
 
-foreach(t ${TEST_TARGETS})
-    gtest_discover_tests(${t}
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        PROPERTIES TIMEOUT 60
-    )
-endforeach()
+gtest_discover_tests(shadps4_settings_test
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DISCOVERY_TIMEOUT 60
+    PROPERTIES TIMEOUT 60
+)
+gtest_discover_tests(shadps4_gcn_test
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    PROPERTIES TIMEOUT 60
+)

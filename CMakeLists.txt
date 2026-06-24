@@ -1369,8 +1369,8 @@ if (APPLE)
     endif()
 
     # Replacement for std::chrono::time_zone
-    target_link_libraries(shadps4 PRIVATE date::date-tz epoll-shim)
-endif()
+    target_link_libraries(shadps4 PRIVATE date::date-tz epoll-shim::epoll-shim)
+    endif()
 
 if (ENABLE_QT_GUI)
     target_link_libraries(shadps4 PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia)
