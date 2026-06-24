@@ -9,7 +9,7 @@
 
 namespace Frontend {
 
-void SetWindowIcon(SDL_Window* window, const std::vector<u8>& png) {
+void WindowSDL::SetWindowIcon(SDL_Window* /*window*/, const std::vector<u8>& png) {
     @autoreleasepool {
         NSData* pngData = [NSData dataWithBytes:png.data() length:png.size()];
         NSImage* baseIcon = [[[NSImage alloc] initWithData:pngData] autorelease];

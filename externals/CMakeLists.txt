@@ -279,6 +279,18 @@ if (APPLE)
         option(USE_SYSTEM_TZ_DB "" ON)
         add_subdirectory(date)
     endif()
+
+    # epoll-shim (Linux epoll API on kqueue)
+    if (NOT TARGET epoll-shim)
+        set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+        add_subdirectory(epoll-shim)
+    endif()
+    if (TARGET epoll-shim AND NOT TARGET epoll-shim::epoll-shim)
+        add_library(epoll-shim::epoll-shim ALIAS epoll-shim)
+    endif()
+    if (TARGET epoll-shim-interpose AND NOT TARGET epoll-shim::epoll-shim-interpose)
+        add_library(epoll-shim::epoll-shim-interpose ALIAS epoll-shim-interpose)
+    endif()
 endif()
 
 # Apple-only dependencies

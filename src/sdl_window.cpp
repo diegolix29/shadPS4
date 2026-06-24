@@ -200,10 +200,6 @@ WindowSDL::~WindowSDL() {
 SDL_Event* e = nullptr;
 
 void WindowSDL::SetIcon(const std::filesystem::path& path) {
-#ifdef __APPLE__
-    // Use native path which matches system icon look-and-feel.
-    Common::SetAppIcon(path);
-#else
     Common::FS::IOFile file{path, Common::FS::FileAccessMode::Read,
                             Common::FS::FileType::BinaryFile,
                             Common::FS::FileShareFlag::ShareReadWrite};
@@ -221,6 +217,9 @@ void WindowSDL::SetIcon(const std::filesystem::path& path) {
         return;
     }
 
+#ifdef __APPLE__
+    SetWindowIcon(window, buf);
+#else
     int image_width = 0;
     int image_height = 0;
     constexpr int num_channels = 4;
@@ -247,6 +246,7 @@ void WindowSDL::SetIcon(const std::filesystem::path& path) {
     SDL_DestroySurface(surface);
 #endif
 }
+
 void WindowSDL::WaitEvent() {
     // Called on main thread
     SDL_Event event;

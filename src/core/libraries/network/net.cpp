@@ -8,7 +8,6 @@
 #include <winsock2.h>
 #else
 #include <arpa/inet.h>
-#include <sys/epoll.h>
 #endif
 
 #include <atomic>
