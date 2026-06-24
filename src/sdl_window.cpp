@@ -15,9 +15,13 @@
 #include "SDL3/SDL_properties.h"
 #include "SDL3/SDL_timer.h"
 #include "SDL3/SDL_video.h"
+
 #include "common/assert.h"
 #include "common/config.h"
 #include "common/elf_info.h"
+#include "common/io_file.h"
+#include "common/logging/formatter.h"
+#include "common/scope_exit.h"
 #include "core/debug_state.h"
 #include "core/devtools/layer.h"
 #include "core/file_sys/fs.h"
@@ -38,8 +42,11 @@ static std::mutex virtual_user_mutex;
 #ifdef __APPLE__
 #include "SDL3/SDL_metal.h"
 #endif
+
 #include <common/path_util.h>
 #include <core/emulator_settings.h>
+#include "core/libraries/mouse/sdl_mouse.h"
+
 static bool pause_due_to_focus_loss = false;
 
 namespace Frontend {

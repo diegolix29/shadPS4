@@ -72,6 +72,8 @@ public:
     }
 
     void SetIcon(const std::filesystem::path& path);
+    void SetWindowIcon(SDL_Window* window, const std::vector<u8>& png);
+    void SetDefaultWindowIcon(SDL_Window* window);
 
     void WaitEvent();
     void InitTimers();

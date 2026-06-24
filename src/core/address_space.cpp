@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <map>
+#include <mutex>
 #include "common/alignment.h"
 #include "common/arch.h"
 #include "common/assert.h"
@@ -393,6 +394,8 @@ struct AddressSpace::Impl {
     }
 
     void* Map(VAddr virtual_addr, PAddr phys_addr, u64 size, ULONG prot, s32 fd = -1) {
+        std::scoped_lock lk{regions_mutex};
+
         // Get a pointer to the region containing virtual_addr
         auto it = std::prev(regions.upper_bound(virtual_addr));
 
@@ -461,6 +464,8 @@ struct AddressSpace::Impl {
     }
 
     void Unmap(VAddr virtual_addr, u64 size) {
+        std::scoped_lock lk{regions_mutex};
+
         // Loop through all regions in the requested range
         u64 remaining_size = size;
         VAddr current_addr = virtual_addr;
@@ -501,6 +506,8 @@ struct AddressSpace::Impl {
     }
 
     void Protect(VAddr virtual_addr, u64 size, bool read, bool write, bool execute) {
+        std::scoped_lock lk{regions_mutex};
+
         DWORD new_flags{};
 
         if (write && !read) {
@@ -557,6 +564,8 @@ struct AddressSpace::Impl {
     }
 
     boost::icl::interval_set<VAddr> GetUsableRegions() {
+        std::scoped_lock lk{regions_mutex};
+
         boost::icl::interval_set<VAddr> reserved_regions;
         for (auto region : regions) {
             reserved_regions.insert({region.second.base, region.second.base + region.second.size});
@@ -575,6 +584,7 @@ struct AddressSpace::Impl {
     u8* user_base{};
     u64 user_size{};
     std::map<VAddr, MemoryRegion> regions;
+    std::mutex regions_mutex;
 };
 #else
 
@@ -719,6 +729,8 @@ struct AddressSpace::Impl {
 
     void* Map(VAddr virtual_addr, PAddr phys_addr, u64 size, PosixPageProtection prot,
               int fd = -1) {
+        std::scoped_lock lk{regions_mutex};
+
         m_free_regions.subtract({virtual_addr, virtual_addr + size});
 #ifdef __APPLE__
         if ((prot & PROT_EXEC) != 0) {
@@ -736,6 +748,8 @@ struct AddressSpace::Impl {
     }
 
     void Unmap(VAddr virtual_addr, u64 size) {
+        std::scoped_lock lk{regions_mutex};
+
         // Check to see if we are adjacent to any regions.
         VAddr start_address = virtual_addr;
         VAddr end_address = start_address + size;
@@ -757,6 +771,8 @@ struct AddressSpace::Impl {
     }
 
     void Protect(VAddr virtual_addr, u64 size, bool read, bool write, bool execute) {
+        std::scoped_lock lk{regions_mutex};
+
         int flags = PROT_NONE;
         if (read) {
             flags |= PROT_READ;
@@ -782,6 +798,7 @@ struct AddressSpace::Impl {
     u8* user_base{};
     u64 user_size{};
     boost::icl::interval_set<VAddr> m_free_regions;
+    std::mutex regions_mutex;
 };
 #endif
 
