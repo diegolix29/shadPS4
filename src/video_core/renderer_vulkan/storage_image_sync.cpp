@@ -44,6 +44,10 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
                   "[StorageSync] StreamBuffer Map failed for {}B — download SKIPPED, "
                   "texture corruption likely",
                   download_size);
+        // img was already transitioned to TransferSrcOptimal above; restore it to a
+        // sane layout so later passes don't trip a validation error or stall on a
+        // mismatched layout.
+        img.Transit(vk::ImageLayout::eGeneral, vk::AccessFlagBits2::eShaderWrite, {});
         return;
     }
 

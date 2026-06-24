@@ -30,8 +30,9 @@ void RenderTargetSync::CopyFromLastRt(VAddr addr, VideoCore::ImageId tex_id, u32
     VideoCore::ImageId rt_id = it->second;
     auto& rt_image = texture_cache.GetImage(rt_id);
 
-    // Only skip if RT is strictly smaller than texture.
-    if (rt_image.info.size.width < copy_w && rt_image.info.size.height < copy_h) {
+    // Skip if RT is smaller than texture in either dimension — copying would
+    // read/write out of bounds of the RT image (invalid Vulkan usage, can hang the GPU).
+    if (rt_image.info.size.width < copy_w || rt_image.info.size.height < copy_h) {
         LOG_WARNING(Render_Vulkan,
                     "[CopyFromLastRt] RT smaller than texture: rt={}x{} tex={}x{} @ {:#x}",
                     rt_image.info.size.width, rt_image.info.size.height, copy_w, copy_h, addr);

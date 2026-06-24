@@ -199,7 +199,7 @@ TileManager::Result TileManager::DetileImage(vk::Buffer in_buffer, u32 in_offset
     const vk::DescriptorBufferInfo tiled_buffer_info{
         .buffer = in_buffer,
         .offset = in_offset,
-        .range = info.guest_size,
+        .range = VK_WHOLE_SIZE,
     };
 
     const vk::DescriptorBufferInfo linear_buffer_info{
@@ -285,7 +285,7 @@ TileManager::Result TileManager::TileLinearBuffer(vk::Buffer in_buffer, u32 in_o
     const vk::DescriptorBufferInfo linear_buffer_info{
         .buffer = in_buffer,
         .offset = in_offset,
-        .range = info.guest_size,
+        .range = VK_WHOLE_SIZE,
     };
 
     const std::array<vk::WriteDescriptorSet, 3> set_writes = {{
@@ -364,7 +364,7 @@ void TileManager::TileImage(Image& in_image, std::span<vk::BufferImageCopy> buff
     const vk::DescriptorBufferInfo tiled_buffer_info{
         .buffer = out_buffer,
         .offset = out_offset,
-        .range = info.guest_size,
+        .range = VK_WHOLE_SIZE,
     };
 
     const vk::DescriptorBufferInfo linear_buffer_info{
