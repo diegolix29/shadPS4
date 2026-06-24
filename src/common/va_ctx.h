@@ -2,15 +2,8 @@
 //  SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 
-#include "common/arch.h"
-#include "common/types.h"
-
-#ifdef ARCH_X86_64
 #include <xmmintrin.h>
-#else
-// FIXME
-typedef __int128 __m128;
-#endif
+#include "common/types.h"
 
 #define VA_ARGS                                                                                    \
     uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t rcx, uint64_t r8, uint64_t r9,              \
