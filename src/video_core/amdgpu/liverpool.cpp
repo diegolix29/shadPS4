@@ -698,6 +698,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 const auto* event_eos = reinterpret_cast<const PM4CmdEventWriteEos*>(header);
                 if (rasterizer) {
                     rasterizer->CommitPendingGpuRanges();
+                    rasterizer->ProcessDownloadImages();
                 }
                 event_eos->SignalFence([](void* address, u64 data, u32 num_bytes) {
                     auto* memory = Core::Memory::Instance();
@@ -719,6 +720,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 const auto* event_eop = reinterpret_cast<const PM4CmdEventWriteEop*>(header);
                 if (rasterizer) {
                     rasterizer->CommitPendingGpuRanges();
+                    rasterizer->ProcessDownloadImages();
                 }
                 event_eop->SignalFence(
                     [](void* address, u64 data, u32 num_bytes) {
@@ -1192,6 +1194,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             const auto* release_mem = reinterpret_cast<const PM4CmdReleaseMem*>(header);
             if (rasterizer) {
                 rasterizer->CommitPendingGpuRanges();
+                rasterizer->ProcessDownloadImages();
             }
             release_mem->SignalFence(
                 [pipe_id = queue.pipe_id] {

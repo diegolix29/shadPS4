@@ -10,29 +10,13 @@ namespace Shader::Backend::SPIRV {
 
 static bool IsUfc3ColorGradingWorkaround(const EmitContext& ctx, u32 handle) {
     return ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xe115097cULL &&
-           (MemoryPatcher::g_game_serial == "CUSA06534" ||
-            MemoryPatcher::g_game_serial == "CUSA06536") &&
-           (ctx.images[handle & 0xFFFF].view_type == AmdGpu::ImageType::Color3D) &&
-           !ctx.images[handle & 0xFFFF].is_storage;
-}
-
-static bool IsColorCorrectionDisableWorkaround(const EmitContext& ctx, u32 handle) {
-    return ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0x00000000f74e94d5ULL &&
-           (MemoryPatcher::g_game_serial == "CUSA07580" ||
-            MemoryPatcher::g_game_serial == "CUSA07569") &&
+           (MemoryPatcher::g_game_serial == "CUSA14209" ||
+            MemoryPatcher::g_game_serial == "CUSA14204") &&
            (ctx.images[handle & 0xFFFF].view_type == AmdGpu::ImageType::Color3D) &&
            !ctx.images[handle & 0xFFFF].is_storage;
 }
 
 static Id EmitUfc3ColorGradingPassthrough(EmitContext& ctx, Id coords) {
-    const Id x = ctx.OpCompositeExtract(ctx.F32[1], coords, 0);
-    const Id y = ctx.OpCompositeExtract(ctx.F32[1], coords, 1);
-    const Id z = ctx.OpCompositeExtract(ctx.F32[1], coords, 2);
-    const Id one = ctx.ConstF32(1.0f);
-    return ctx.OpCompositeConstruct(ctx.F32[4], x, y, z, one);
-}
-
-static Id EmitColorCorrectionDisablePassthrough(EmitContext& ctx, Id coords) {
     const Id x = ctx.OpCompositeExtract(ctx.F32[1], coords, 0);
     const Id y = ctx.OpCompositeExtract(ctx.F32[1], coords, 1);
     const Id z = ctx.OpCompositeExtract(ctx.F32[1], coords, 2);
@@ -113,9 +97,6 @@ Id EmitImageSampleImplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id c
     if (IsUfc3ColorGradingWorkaround(ctx, handle)) {
         return EmitUfc3ColorGradingPassthrough(ctx, coords);
     }
-    if (IsColorCorrectionDisableWorkaround(ctx, handle)) {
-        return EmitColorCorrectionDisablePassthrough(ctx, coords);
-    }
 
     const auto& texture = ctx.images[handle & 0xFFFF];
     const Id image = ctx.OpLoad(texture.image_type, texture.id);
@@ -134,9 +115,6 @@ Id EmitImageSampleExplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id c
                               const IR::Value& offset) {
     if (IsUfc3ColorGradingWorkaround(ctx, handle)) {
         return EmitUfc3ColorGradingPassthrough(ctx, coords);
-    }
-    if (IsColorCorrectionDisableWorkaround(ctx, handle)) {
-        return EmitColorCorrectionDisablePassthrough(ctx, coords);
     }
 
     const auto& texture = ctx.images[handle & 0xFFFF];
@@ -254,9 +232,6 @@ Id EmitImageGradient(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id
                      Id derivatives_dy, const IR::Value& offset, const IR::Value& lod_clamp) {
     if (IsUfc3ColorGradingWorkaround(ctx, handle)) {
         return EmitUfc3ColorGradingPassthrough(ctx, coords);
-    }
-    if (IsColorCorrectionDisableWorkaround(ctx, handle)) {
-        return EmitColorCorrectionDisablePassthrough(ctx, coords);
     }
 
     const auto& texture = ctx.images[handle & 0xFFFF];

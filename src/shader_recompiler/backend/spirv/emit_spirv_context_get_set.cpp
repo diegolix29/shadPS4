@@ -89,23 +89,25 @@ Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
     if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xa298398bULL && handle == 0) {
         const Id logical_index = index;
         if (MemoryPatcher::g_game_serial == "CUSA01968" ||
-            MemoryPatcher::g_game_serial == "CUSA01936") {
+            MemoryPatcher::g_game_serial == "CUSA01936" ||
+            MemoryPatcher::g_game_serial == "CUSA14209" ||
+            MemoryPatcher::g_game_serial == "CUSA14204") {
             const Id is_five = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(5u));
             result = ctx.OpSelect(ctx.U32[1], is_five, ctx.u32_zero_value, result);
         }
     }
     if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xffe52ec0369553e4ULL && handle == 0) {
         const Id logical_index = index;
-        if (MemoryPatcher::g_game_serial == "CUSA00222" ||
-            MemoryPatcher::g_game_serial == "CUSA00264") {
+        if (MemoryPatcher::g_game_serial == "CUSA14209" ||
+            MemoryPatcher::g_game_serial == "CUSA14204") {
             const Id is_five = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(5u));
             result = ctx.OpSelect(ctx.U32[1], is_five, ctx.u32_zero_value, result);
         }
     }
     if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xe115097cULL && handle == 4) {
         const Id logical_index = index;
-        if (MemoryPatcher::g_game_serial == "CUSA06534" ||
-            MemoryPatcher::g_game_serial == "CUSA06536") {
+        if (MemoryPatcher::g_game_serial == "CUSA14209" ||
+            MemoryPatcher::g_game_serial == "CUSA14204") {
             const Id one_float_bits = ctx.ConstU32(0x3f800000u);
             const Id zero_float_bits = ctx.ConstU32(0x00000000u);
             const Id is_zero = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(0u));
@@ -116,16 +118,6 @@ Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
             result = ctx.OpSelect(ctx.U32[1], is_one, zero_float_bits, result);
             result = ctx.OpSelect(ctx.U32[1], is_two, one_float_bits, result);
             result = ctx.OpSelect(ctx.U32[1], is_three, zero_float_bits, result);
-        }
-    }
-    if (ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0x00000000f74e94d5ULL && handle == 4) {
-        const Id logical_index = index;
-        if (MemoryPatcher::g_game_serial == "CUSA07580" ||
-            MemoryPatcher::g_game_serial == "CUSA07569") {
-            // Disable color correction by setting buffer 8 to 0 (equivalent to if(false) in the
-            // shader)
-            const Id is_eight = ctx.OpIEqual(ctx.U1[1], logical_index, ctx.ConstU32(8u));
-            result = ctx.OpSelect(ctx.U32[1], is_eight, ctx.u32_zero_value, result);
         }
     }
     if (const Id size = buffer.Size(PointerSize::B32); Sirit::ValidId(size)) {

@@ -86,7 +86,7 @@ ImageId TextureCache::GetNullImage(const vk::Format format) {
 
 void TextureCache::ProcessDownloadImages() {
     for (const ImageId image_id : download_images) {
-        DownloadImageMemory(image_id);
+        DownloadImageMemory(image_id, true);
     }
     download_images.clear();
 }
@@ -143,14 +143,12 @@ void TextureCache::ClearRtRecords() {
     last_rt_address_.clear();
 }
 
-void TextureCache::DownloadImageMemory(ImageId image_id) {
+void TextureCache::DownloadImageMemory(ImageId image_id, bool sync) {
     Image& image = slot_images[image_id];
     if (False(image.flags & ImageFlagBits::GpuModified)) {
         return;
     }
 
-    const u32 download_size = image.info.pitch * image.info.size.height *
-                              image.info.resources.layers * (image.info.num_bits / 8);
     auto& download_buffer = buffer_cache.GetUtilityBuffer(MemoryUsage::Download);
     const auto image_addr = image.info.guest_address;
     const auto image_size = image.info.guest_size;
@@ -181,17 +179,18 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
         });
         copy_size += mip_size;
     }
+
     if (buffer_copies.empty()) {
         return;
     }
 
-    StreamBufferMapping mapping(download_buffer, image_size);
-    download_buffer.Commit();
     scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
 
     image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {});
-    tile_manager.TileImage(image, buffer_copies, mapping.Buffer()->Handle(), mapping.Offset(),
+
+    const auto [mapping_data, mapping_offset] = download_buffer.Map(copy_size, true);
+    tile_manager.TileImage(image, buffer_copies, download_buffer.Handle(), mapping_offset,
                            copy_size);
 
     scheduler.Finish();
@@ -200,13 +199,18 @@ void TextureCache::DownloadImageMemory(ImageId image_id) {
 
     std::vector<u8> download_data;
     download_data.resize(write_size);
-    std::memcpy(download_data.data(), mapping.Data(), write_size);
+    std::memcpy(download_data.data(), mapping_data, write_size);
 
-    scheduler.DeferPriorityOperation([this, device_addr = image.info.guest_address,
-                                      download = std::move(download_data), write_size] {
-        Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(device_addr), download.data(),
-                                                  write_size);
-    });
+    const auto write_data = [this, device_addr = image_addr, download_data, write_size] {
+        Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(device_addr),
+                                                  download_data.data(), write_size);
+    };
+
+    if (sync) {
+        write_data();
+    } else {
+        scheduler.DeferPriorityOperation(write_data);
+    }
 }
 
 void TextureCache::MarkAsMaybeDirty(ImageId image_id, Image& image) {
@@ -758,7 +762,8 @@ ImageView& TextureCache::FindTexture(ImageId image_id, const ImageDesc& desc) {
     Image& image = slot_images[image_id];
     if (desc.type == BindingType::Storage) {
         image.flags |= ImageFlagBits::GpuModified;
-        if (readback_linear_images && !image.info.props.is_tiled && image.info.guest_address != 0) {
+        if (!image.info.props.is_tiled && image.info.guest_address != 0 &&
+            image.info.props.is_volume) {
             download_images.emplace(image_id);
         }
     }
