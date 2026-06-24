@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: 2026 shadPS4 Emulator Project
-SPDX-License-Identifier: GPL-2.0-or-later
--->
-
 v0.4.0 31/10/2024 - codename divicius
 =================
 
