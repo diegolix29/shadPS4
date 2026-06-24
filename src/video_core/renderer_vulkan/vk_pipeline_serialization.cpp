@@ -332,6 +332,7 @@ void PipelineCache::WarmUp() {
     if (cached_profile != profile) {
         LOG_WARNING(Render,
                     "Pipeline cache isn't compatible with current system. Ignoring the cache");
+        Storage::DataBase::Instance().Close();
         return;
     }
 
