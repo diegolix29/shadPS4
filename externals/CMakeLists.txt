@@ -37,10 +37,6 @@ file(GLOB LIBATRAC9_SOURCES LibAtrac9/C/src/*.c)
 add_library(LibAtrac9 STATIC ${LIBATRAC9_SOURCES})
 target_include_directories(LibAtrac9 INTERFACE LibAtrac9/C/src)
 
-# minimp3
-add_library(minimp3 INTERFACE)
-target_include_directories(minimp3 INTERFACE minimp3)
-
 # zlib
 if (NOT TARGET ZLIB::ZLIB)
     set(ZLIB_ENABLE_TESTS OFF)
@@ -316,6 +312,20 @@ if (NOT TARGET CLI11::CLI11)
     set(CLI11_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     add_subdirectory(CLI11)
 endif()
+
+# miniupnpc
+if (NOT TARGET miniupnpc::miniupnpc)
+set(UPNPC_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(UPNPC_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(UPNPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
+set(UPNPC_NO_INSTALL ON CACHE BOOL "" FORCE)
+add_subdirectory(miniupnp/miniupnpc)
+endif()
+
+# minimp3
+add_library(minimp3 INTERFACE)
+target_include_directories(minimp3 INTERFACE minimp3)
 
 # ImGuiFileDialog
 add_library(ImGuiFileDialog ImGuiFileDialog/ImGuiFileDialog.cpp)
