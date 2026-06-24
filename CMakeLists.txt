@@ -1369,8 +1369,14 @@ if (APPLE)
     endif()
 
     # Replacement for std::chrono::time_zone
-    target_link_libraries(shadps4 PRIVATE date::date-tz epoll-shim::epoll-shim)
+    if (TARGET epoll-shim::epoll-shim)
+        target_link_libraries(shadps4 PRIVATE date::date-tz epoll-shim::epoll-shim)
+    elseif (TARGET epoll-shim)
+        target_link_libraries(shadps4 PRIVATE date::date-tz epoll-shim)
+    else()
+        message(FATAL_ERROR "epoll-shim is required on macOS (init submodule or brew install epoll-shim)")
     endif()
+endif()
 
 if (ENABLE_QT_GUI)
     target_link_libraries(shadps4 PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia)
