@@ -1,8 +1,10 @@
-﻿// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/config.h"
 #include "common/debug.h"
+#include "common/elf_info.h"
+#include "common/logging/log.h"
 #include "core/memory.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/liverpool.h"
@@ -20,6 +22,357 @@
 
 namespace Vulkan {
 
+// Gow3Features implementation
+bool Gow3Features::storage_image_sync = false;
+bool Gow3Features::async_storage_download = false;
+bool Gow3Features::rt_alias_copy = false;
+bool Gow3Features::_1x1_readback = false;
+bool Gow3Features::depth_clear_skip = false;
+
+void Gow3Features::Init() {
+    const auto& serial = Common::ElfInfo::Instance().GameSerial();
+    const bool is_gow3 = serial == "CUSA01623" || serial == "CUSA01715" || serial == "CUSA01740";
+    if (!is_gow3)
+        return;
+
+    storage_image_sync = true;
+    LOG_INFO(Render, "[GOW3] storage_image_sync enabled");
+
+    async_storage_download = true;
+    LOG_INFO(Render, "[GOW3] async_storage_download enabled");
+
+    rt_alias_copy = true;
+    LOG_INFO(Render, "[GOW3] rt_alias_copy enabled");
+
+    _1x1_readback = true;
+    LOG_INFO(Render, "[GOW3] 1x1_readback enabled");
+
+    depth_clear_skip = true;
+    LOG_INFO(Render, "[GOW3] depth_clear_skip enabled");
+}
+
+// StorageImageSync implementation
+StorageImageSync::StorageImageSync(Scheduler& scheduler_, VideoCore::BufferCache& buffer_cache_,
+                                   VideoCore::TextureCache& texture_cache_)
+    : scheduler{scheduler_}, buffer_cache{buffer_cache_}, texture_cache{texture_cache_} {}
+
+StorageImageSync::~StorageImageSync() = default;
+
+void StorageImageSync::Clear() {
+    pending_syncs.clear();
+}
+
+void StorageImageSync::Collect(VideoCore::ImageId image_id, const VideoCore::Image& image) {
+    // Deduplicate by guest_addr � the same storage image may be bound to multiple
+    // descriptor set slots in a single dispatch.
+    const VAddr addr = image.info.guest_address;
+    if (addr == 0)
+        return;
+
+    for (const auto& s : pending_syncs) {
+        if (s.guest_addr == addr) {
+            LOG_DEBUG(Render_Vulkan, "[StorageSync] duplicate binding guest={:#x} skipped", addr);
+            return;
+        }
+    }
+
+    pending_syncs.push_back({
+        .image_id = image_id,
+        .guest_addr = addr,
+        .guest_size = image.info.guest_size,
+        .width = image.info.size.width,
+        .height = image.info.size.height,
+        .layers = image.info.resources.layers,
+        .num_samples = image.info.num_samples,
+        .num_mips = image.info.resources.levels,
+        .pitch = image.info.pitch,
+        .pixel_format = image.info.pixel_format,
+    });
+
+    LOG_DEBUG(Render_Vulkan,
+              "[StorageSync] collected guest={:#x} {}x{} fmt={} layers={} "
+              "mips={} samples={} pitch={} size={}",
+              image.info.guest_address, image.info.size.width, image.info.size.height,
+              vk::to_string(image.info.pixel_format), image.info.resources.layers,
+              image.info.resources.levels, image.info.num_samples, image.info.pitch,
+              image.info.guest_size);
+}
+
+bool StorageImageSync::HasPending() const {
+    return !pending_syncs.empty();
+}
+
+u32 StorageImageSync::PendingCount() const {
+    return static_cast<u32>(pending_syncs.size());
+}
+
+void StorageImageSync::DiscardPending() {
+    pending_syncs.clear();
+}
+
+void StorageImageSync::RecordDownload(bool async) {
+    if (pending_syncs.empty())
+        return;
+
+    const u32 sync_count = static_cast<u32>(pending_syncs.size());
+    LOG_DEBUG(Render_Vulkan, "[StorageSync] recording {} storage image download(s)", sync_count);
+
+    // Phase 4b: create placeholder buffers to set up read/write protection on the
+    // pending ranges before the async window opens. ObtainBuffer(is_written=true)
+    // registers the buffer in page_table, sets GPU dirty (read protection), clears
+    // CPU dirty (write protection), and adds gpu_modified_ranges. WriteDataBuffer is
+    // deferred until force-sync or OnSubmit.
+    if (async) {
+        std::scoped_lock lk{pending_mutex};
+        for (const auto& sync : pending_syncs) {
+            std::ignore =
+                buffer_cache.ObtainBuffer(sync.guest_addr, static_cast<u32>(sync.guest_size),
+                                          VideoCore::ObtainBufferFlags::IsWritten);
+            pending_ranges.Add(sync.guest_addr, sync.guest_size);
+        }
+    }
+
+    auto& download_buf = buffer_cache.GetUtilityBuffer(VideoCore::MemoryUsage::Download);
+
+    // Transit storage images to transfer-src on the dispatch command buffer.
+    // Pipeline barriers ensure CS writes are visible to the subsequent copy.
+    for (auto& sync : pending_syncs) {
+        auto& img = texture_cache.GetImage(sync.image_id);
+        img.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {});
+    }
+
+    // Submit dispatch + barriers, get a fresh command buffer.
+    scheduler.EndRendering();
+    auto cmdbuf = scheduler.CommandBuffer();
+
+    // Record vkCmdCopyImageToBuffer for each storage image on the same cmdbuf.
+    // Staging pointers remain valid until insert phase � StreamBuffer watch protects them.
+    boost::container::small_vector<StagingRef, 4> staging_refs;
+
+    for (auto& sync : pending_syncs) {
+        const auto& img = texture_cache.GetImage(sync.image_id);
+        const u32 bpp = img.info.num_bits / 8u;
+        const u32 row_length = sync.pitch ? sync.pitch : sync.width;
+        const u32 download_size = row_length * sync.height * sync.layers * bpp;
+
+        LOG_DEBUG(Render_Vulkan,
+                  "[StorageSync] download guest={:#x} {}x{} layers={} bpp={} row_len={} "
+                  "size={}",
+                  sync.guest_addr, sync.width, sync.height, sync.layers, bpp, row_length,
+                  download_size);
+
+        boost::container::small_vector<vk::BufferImageCopy, 6> regions;
+        const u32 layer_size = row_length * sync.height * bpp;
+        for (u32 layer = 0; layer < sync.layers; ++layer) {
+            regions.push_back({
+                .bufferOffset = layer * layer_size,
+                .bufferRowLength = row_length,
+                .bufferImageHeight = 0,
+                .imageSubresource =
+                    {
+                        .aspectMask = img.aspect_mask & ~vk::ImageAspectFlagBits::eStencil,
+                        .mipLevel = 0,
+                        .baseArrayLayer = layer,
+                        .layerCount = 1,
+                    },
+                .imageOffset = {0, 0, 0},
+                .imageExtent = {sync.width, sync.height, 1},
+            });
+        }
+
+        const auto [data, offset] = download_buf.Map(download_size);
+        if (!data) {
+            LOG_ERROR(Render_Vulkan,
+                      "[StorageSync] StreamBuffer Map failed for {}B � download SKIPPED, "
+                      "texture corruption likely",
+                      download_size);
+            continue;
+        }
+        for (auto& region : regions) {
+            region.bufferOffset += offset;
+        }
+        download_buf.Commit();
+        staging_refs.push_back({data, download_size});
+
+        // Record copy directly � image is already in eTransferSrcOptimal from Transit above.
+        cmdbuf.copyImageToBuffer(img.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
+                                 download_buf.Handle(), regions);
+    }
+
+    if (staging_refs.empty()) {
+        LOG_ERROR(Render_Vulkan,
+                  "[StorageSync] all {} Map()s failed � nothing to submit, texture corruption "
+                  "likely",
+                  sync_count);
+        pending_syncs.clear();
+        return;
+    }
+
+    if (async) {
+        // Submit copies without waiting � injection deferred to OnSubmit.
+        scheduler.EndRendering();
+        const u64 tick = scheduler.CurrentTick();
+        scheduler.Flush();
+
+        LOG_DEBUG(Render_Vulkan,
+                  "[StorageSync] submitted {} downloads at tick {}, pending total={}",
+                  staging_refs.size(), tick, pending_downloads.size() + 1);
+
+        pending_downloads.push_back({
+            .tick = tick,
+            .staging_refs = std::move(staging_refs),
+            .syncs = std::move(pending_syncs),
+        });
+        // pending_syncs is now empty (moved-from)
+    } else {
+        // Sync mode: submit and wait immediately, then inject data into buffer cache.
+        scheduler.EndRendering();
+        const u64 tick = scheduler.CurrentTick();
+        scheduler.Wait(tick);
+
+        for (size_t i = 0; i < staging_refs.size(); ++i) {
+            auto& sync = pending_syncs[i];
+            auto& st = staging_refs[i];
+            if (!st.data || st.size == 0)
+                continue;
+            buffer_cache.InsertGpuData(sync.guest_addr, st.data, st.size);
+            texture_cache.InvalidateMemoryRange(sync.guest_addr, sync.guest_size,
+                                                /*exclude_producer=*/sync.image_id);
+        }
+        pending_syncs.clear();
+    }
+}
+
+void StorageImageSync::ProcessPending() {
+    // Take ownership of pending state under the mutex, then release the lock
+    // before doing any GPU Wait operations.
+    decltype(pending_downloads) downloads;
+    {
+        std::scoped_lock lk{pending_mutex};
+        if (pending_downloads.empty())
+            return;
+        downloads = std::move(pending_downloads);
+        pending_ranges.Clear();
+    }
+
+    const size_t batch_count = downloads.size();
+    u32 total_syncs = 0;
+    for (const auto& dl : downloads) {
+        total_syncs += static_cast<u32>(dl.syncs.size());
+    }
+
+    LOG_DEBUG(Render_Vulkan, "[StorageSync] processing {} batch(es), {} sync(s) total", batch_count,
+              total_syncs);
+
+    u64 wait_start = std::chrono::duration_cast<std::chrono::microseconds>(
+                         std::chrono::steady_clock::now().time_since_epoch())
+                         .count();
+    u64 total_wait_us = 0;
+
+    for (auto& dl : downloads) {
+        if (!scheduler.IsFree(dl.tick)) {
+            const u64 single_wait_start = std::chrono::duration_cast<std::chrono::microseconds>(
+                                              std::chrono::steady_clock::now().time_since_epoch())
+                                              .count();
+            scheduler.Wait(dl.tick);
+            const u64 single_wait_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                                           std::chrono::steady_clock::now().time_since_epoch())
+                                           .count() -
+                                       single_wait_start;
+            total_wait_us += single_wait_us;
+            LOG_DEBUG(Render_Vulkan, "[StorageSync] waited {} us for tick={}", single_wait_us,
+                      dl.tick);
+        }
+
+        for (size_t i = 0; i < dl.syncs.size(); ++i) {
+            auto& sync = dl.syncs[i];
+            auto& st = dl.staging_refs[i];
+
+            if (!st.data || st.size == 0) {
+                LOG_ERROR(Render_Vulkan,
+                          "[StorageSync] invalid staging ref idx={} guest={:#x} � SKIPPED, "
+                          "texture corruption likely",
+                          i, sync.guest_addr);
+                continue;
+            }
+
+            buffer_cache.InsertGpuData(sync.guest_addr, st.data, st.size);
+
+            const u32 count =
+                texture_cache.InvalidateMemoryRange(sync.guest_addr, sync.guest_size,
+                                                    /*exclude_producer=*/sync.image_id);
+            LOG_DEBUG(Render_Vulkan,
+                      "[StorageSync] injected guest={:#x} {}B, {} consumer(s) marked",
+                      sync.guest_addr, st.size, count);
+        }
+    }
+
+    const u64 total_wait_end = std::chrono::duration_cast<std::chrono::microseconds>(
+                                   std::chrono::steady_clock::now().time_since_epoch())
+                                   .count();
+    LOG_DEBUG(Render_Vulkan,
+              "[StorageSync] batch complete: {} batch(es), total wait {} us, {} sync(s) injected",
+              batch_count, total_wait_end - wait_start, total_syncs);
+}
+
+void StorageImageSync::InstallPreAccessCallback() {
+    buffer_cache.SetPreAccessCallback([this](VAddr addr, u64 size) {
+        std::unique_lock lk{pending_mutex};
+        if (!pending_ranges.Intersects(addr, size)) {
+            return;
+        }
+        // Force-sync ALL pending downloads � any overlap means the cache is about to
+        // access a range whose GPU data is not yet injected. Flushing everything is
+        // simpler and safer than trying to match individual ranges.
+        LOG_DEBUG(Render_Vulkan,
+                  "[StorageSync] force-sync triggered by access to {:#x} ({} pending batch(es))",
+                  addr, pending_downloads.size());
+        auto all = std::move(pending_downloads);
+        pending_ranges.Clear();
+        // Transfer ownership out of the lock scope before doing GPU Wait operations.
+        lk.unlock();
+
+        int waited = 0;
+        u64 total_wait_us = 0;
+        for (auto& dl : all) {
+            if (!scheduler.IsFree(dl.tick)) {
+                const u64 t0 = std::chrono::duration_cast<std::chrono::microseconds>(
+                                   std::chrono::steady_clock::now().time_since_epoch())
+                                   .count();
+                scheduler.Wait(dl.tick);
+                total_wait_us += std::chrono::duration_cast<std::chrono::microseconds>(
+                                     std::chrono::steady_clock::now().time_since_epoch())
+                                     .count() -
+                                 t0;
+                ++waited;
+            }
+            for (size_t i = 0; i < dl.syncs.size(); ++i) {
+                const auto& sync = dl.syncs[i];
+                const auto& st = dl.staging_refs[i];
+                if (!st.data || st.size == 0) {
+                    LOG_ERROR(Render_Vulkan,
+                              "[StorageSync] force-sync invalid staging ref idx={} guest={:#x}", i,
+                              sync.guest_addr);
+                    continue;
+                }
+                // InsertGpuData internally calls ObtainBuffer (FindBuffer + overlap
+                // resolution) + WriteDataBuffer, handling any buffer merges that
+                // occurred since the placeholder was created.
+                // NOTE: InvalidateMemoryRange skipped here � force-sync may be
+                // called from ObtainBufferForImage under texture_cache.mutex.
+                // Consumer marking is deferred to OnSubmit batch processing.
+                buffer_cache.InsertGpuData(sync.guest_addr, st.data, st.size);
+                LOG_DEBUG(Render_Vulkan, "[StorageSync] force-sync injected guest={:#x} {}B",
+                          sync.guest_addr, st.size);
+            }
+        }
+        LOG_DEBUG(Render_Vulkan,
+                  "[StorageSync] force-sync complete: {} batch(es), {} waited, "
+                  "total wait {} us",
+                  all.size(), waited, total_wait_us);
+    });
+}
+
 static Shader::PushData MakeUserData(const AmdGpu::Regs& regs) {
     // TODO(roamic): Add support for multiple viewports and geometry shaders when ViewportIndex
     // is encountered and implemented in the recompiler.
@@ -36,13 +389,17 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
     : instance{instance_}, scheduler{scheduler_}, page_manager{this},
       buffer_cache{instance, scheduler, liverpool_, texture_cache, page_manager},
       texture_cache{instance, scheduler, liverpool_, buffer_cache, page_manager},
-      storage_sync_{scheduler, buffer_cache, texture_cache},
-      rt_sync_{instance, scheduler, texture_cache}, liverpool{liverpool_},
-      memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool} {
+      liverpool{liverpool_}, memory{Core::Memory::Instance()},
+      pipeline_cache{instance, scheduler, liverpool},
+      storage_sync_{scheduler, buffer_cache, texture_cache} {
     if (!Config::nullGpu()) {
         liverpool->BindRasterizer(this);
     }
     memory->SetRasterizer(this);
+    Gow3Features::Init();
+    if (Gow3Features::async_storage_download) {
+        storage_sync_.InstallPreAccessCallback();
+    }
 }
 
 Rasterizer::~Rasterizer() = default;
@@ -345,6 +702,13 @@ void Rasterizer::DispatchDirect() {
 
     const auto& cs = pipeline->GetStage(Shader::LogicalStage::Compute);
     if (ExecuteShaderHLE(cs, liverpool->regs, cs_program, *this)) {
+        if (Gow3Features::storage_image_sync && storage_sync_.HasPending()) {
+            LOG_ERROR(Render_Vulkan,
+                      "[StorageSync] HLE intercepted dispatch with {} storage binding(s) �"
+                      "output NOT synced, texture corruption likely",
+                      storage_sync_.PendingCount());
+            storage_sync_.DiscardPending();
+        }
         return;
     }
 
@@ -359,8 +723,8 @@ void Rasterizer::DispatchDirect() {
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatch(cs_program.dim_x, cs_program.dim_y, cs_program.dim_z);
 
-    if (pending_storage_image_id_) {
-        storage_sync_.Sync(pending_storage_image_id_);
+    if (Gow3Features::storage_image_sync) {
+        storage_sync_.RecordDownload(Gow3Features::async_storage_download);
     }
     ResetBindings();
 }
@@ -395,8 +759,8 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_g
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatchIndirect(buffer->Handle(), base);
 
-    if (pending_storage_image_id_) {
-        storage_sync_.Sync(pending_storage_image_id_);
+    if (Gow3Features::storage_image_sync) {
+        storage_sync_.RecordDownload(Gow3Features::async_storage_download);
     }
     ResetBindings();
 }
@@ -413,6 +777,11 @@ void Rasterizer::Finish() {
 }
 
 void Rasterizer::OnSubmit() {
+    // Flush pending storage downloads before any GC activity.
+    if (Gow3Features::storage_image_sync) {
+        storage_sync_.ProcessPending();
+    }
+
     if (fault_process_pending) {
         fault_process_pending = false;
         buffer_cache.ProcessFaultBuffer();
@@ -442,7 +811,9 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
         return false;
     }
 
-    pending_storage_image_id_ = {};
+    if (Gow3Features::storage_image_sync) {
+        storage_sync_.Clear();
+    }
 
     set_write_index = 0;
     set_writes.clear();
@@ -767,8 +1138,10 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
             }
 
             image_id = texture_cache.FindImage(desc);
-            rt_sync_.CopyFromLastRt(desc.info.guest_address, image_id, desc.info.size.width,
-                                    desc.info.size.height);
+            if (Gow3Features::rt_alias_copy) {
+                texture_cache.CopyFromLastRt(desc.info.guest_address, image_id,
+                                             desc.info.size.width, desc.info.size.height);
+            }
             auto* image = &texture_cache.GetImage(image_id);
             if (auto depth_image_id = texture_cache.GetAssociatedDepth(*image)) {
                 // If this image has an associated depth image, it's a stencil attachment.
@@ -842,8 +1215,9 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
             image.usage.storage |= is_storage;
             image.usage.texture |= !is_storage;
 
-            if (is_storage) {
-                pending_storage_image_id_ = image_id;
+            // Collect storage image for post-dispatch buffer-cache sync.
+            if (Gow3Features::storage_image_sync && is_storage) {
+                storage_sync_.Collect(image_id, image);
             }
 
             image_infos.emplace_back(VK_NULL_HANDLE, *image_view.image_view,
@@ -913,10 +1287,13 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
         texture_cache.UpdateImage(image_id);
         image->SetBackingSamples(key.color_samples[cb]);
         const auto& image_view = texture_cache.FindRenderTarget(image_id, desc);
-        rt_sync_.RecordRtWrite(desc.info.guest_address, image_id);
-        // 1×1 render target: force download to guest so CPU can read the result
-        if (desc.info.size.width == 1 && desc.info.size.height == 1) {
-            rt_sync_.Schedule1x1Readback(image_id);
+        if (Gow3Features::rt_alias_copy) {
+            texture_cache.RecordRtWrite(desc.info.guest_address, image_id);
+        }
+        // 1�1 render target: force download to guest so CPU can read the result
+        if (Gow3Features::_1x1_readback && desc.info.size.width == 1 &&
+            desc.info.size.height == 1) {
+            texture_cache.AddDownload(image_id);
         }
         const auto slice = image_view.info.range.base.layer;
         const auto mip = image_view.info.range.base.level;
@@ -965,11 +1342,12 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
         auto& image = texture_cache.GetImage(image_id);
 
         const auto slice = image_view.info.range.base.layer;
-        // Only clear depth if writes are enabled —PS4 hardware ignores clear when
+        // Only clear depth if writes are enabled �PS4 hardware ignores clear when
         // depth_write_enable is false, otherwise data from a previous pass is lost.
-        const bool is_depth_clear = regs.depth_control.depth_write_enable &&
-                                    (regs.depth_render_control.depth_clear_enable ||
-                                     texture_cache.IsMetaCleared(htile_address, slice));
+        const bool is_depth_clear =
+            (Gow3Features::depth_clear_skip ? regs.depth_control.depth_write_enable : true) &&
+            (regs.depth_render_control.depth_clear_enable ||
+             texture_cache.IsMetaCleared(htile_address, slice));
         const bool is_stencil_clear = regs.depth_render_control.stencil_clear_enable;
         texture_cache.TouchMeta(htile_address, slice, false);
         ASSERT(desc.view_info.range.extent.levels == 1 && !image.binding.needs_rebind);
