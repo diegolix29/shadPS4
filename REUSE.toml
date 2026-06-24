@@ -21,6 +21,7 @@ path = [
     "documents/Screenshots/*",
     "documents/Screenshots/Linux/*",
     "documents/Screenshots/Windows/*",
+    "externals/MoltenVK/MoltenVK_icd.json",
     "flake.lock",
     "scripts/ps4_names.txt",
     "src/images/bronze.png",
