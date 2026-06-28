@@ -8,10 +8,8 @@
 #include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
-#include "core/libraries/np/np_handler.h"
 #include "core/libraries/np/np_manager.h"
 #include "core/libraries/np/np_matching2/np_matching2.h"
-#include "core/libraries/np/np_matching2/np_matching2_internal.h"
 #include "core/libraries/np/np_matching2/np_matching2_types.h"
 #include "core/libraries/np/np_types.h"
 #include "core/libraries/system/userservice.h"
@@ -40,7 +38,9 @@ int PS4_SYSV_ABI sceNpMatching2CreateContext(const OrbisNpMatching2CreateContext
         return ORBIS_NP_MATCHING2_ERROR_INVALID_ARGUMENT;
     }
 
-    return ContextManager::Instance().CreateContext(param->npId, param->serviceLabel, ctxId);
+    *ctxId = contextId++;
+
+    return ORBIS_OK;
 }
 
 int PS4_SYSV_ABI sceNpMatching2CreateContextA(const OrbisNpMatching2CreateContextParameterA* param,
@@ -55,10 +55,9 @@ int PS4_SYSV_ABI sceNpMatching2CreateContextA(const OrbisNpMatching2CreateContex
         return ORBIS_NP_MATCHING2_ERROR_INVALID_ARGUMENT;
     }
 
-    const Libraries::Np::OrbisNpId np_id =
-        Libraries::Np::NpHandler::GetInstance().GetNpId(param->userId);
+    *ctxId = contextId++;
 
-    return ContextManager::Instance().CreateContext(&np_id, param->serviceLabel, ctxId);
+    return ORBIS_OK;
 }
 
 static std::optional<OrbisNpMatching2RequestOptParam> defaultRequestOptParam = std::nullopt;
@@ -273,20 +272,7 @@ int PS4_SYSV_ABI sceNpMatching2Initialize(OrbisNpMatching2InitializeParameter* p
         return ORBIS_NP_MATCHING2_ERROR_ALREADY_INITIALIZED;
     }
 
-    if (!param || (param->size != 0x30 && param->size != 0x28)) {
-        return ORBIS_NP_MATCHING2_ERROR_INVALID_ARGUMENT;
-    }
-
-    LOG_INFO(Lib_NpMatching2, "poolSize={:#x} stackSize={:#x} priority={} size={:#x}",
-             param->poolSize, param->stackSize, param->priority, param->size);
-    if (param->size == 0x30) {
-        LOG_INFO(Lib_NpMatching2, "sslPoolSize={:#x}", param->sslPoolSize);
-    }
-
-    InitEventDispatcher();
-
     g_initialized = true;
-    g_state.initialized.store(true);
     Libraries::Np::NpManager::RegisterNpCallback("NpMatching2", ProcessEvents);
 
     return ORBIS_OK;
@@ -300,11 +286,7 @@ int PS4_SYSV_ABI sceNpMatching2Terminate() {
     }
 
     g_initialized = false;
-    g_state.initialized.store(false);
     Libraries::Np::NpManager::DeregisterNpCallback("NpMatching2");
-
-    TermEventDispatcher();
-    ContextManager::Instance().Reset();
 
     return ORBIS_OK;
 }
