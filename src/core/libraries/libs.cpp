@@ -33,7 +33,7 @@
 #include "core/libraries/network/ssl.h"
 #include "core/libraries/network/ssl2.h"
 #include "core/libraries/np/np_auth.h"
-#include "core/libraries/np/np_commerce.h"
+#include "core/libraries/np/np_commerce/np_commerce.h"
 #include "core/libraries/np/np_common.h"
 #include "core/libraries/np/np_manager.h"
 #include "core/libraries/np/np_partner.h"

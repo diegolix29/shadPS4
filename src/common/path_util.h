@@ -59,6 +59,7 @@ constexpr auto MODS_FOLDER = "mods_folder";
 constexpr auto CACHE_DIR = "cache";
 constexpr auto AUDIO_DIR = "custom_audios";
 constexpr auto FONTS_DIR = "fonts";
+constexpr auto TROPHY_DIR = "trophy";
 constexpr auto HOME_DIR = "home";
 
 // Filenames

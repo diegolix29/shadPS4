@@ -301,6 +301,36 @@ s32 PS4_SYSV_ABI sceKernelGetAppInfo(s32 pid, OrbisKernelAppInfo* app_info) {
     return ORBIS_OK;
 }
 
+s32 PS4_SYSV_ABI sceKernelTitleWorkaroundIsEnabled(OrbisKernelTitleWorkaround* tw, s32 bit,
+                                                   s32* result) {
+    LOG_ERROR(Lib_Kernel, "(STUBBED) called, bit {:#x}", bit);
+    if (!tw || !result) {
+        return ORBIS_KERNEL_ERROR_EFAULT;
+    }
+
+    // Maximum bit value is known to change with new firmwares.
+    if (bit >= 0x3a) {
+        return ORBIS_KERNEL_ERROR_EINVAL;
+    }
+
+    // Straight from decompilation, most uses rely on workaround data from sceKernelGetAppInfo.
+    *result = ((tw->ids[bit >> 6] >> (bit & 0x3f)) & 1);
+    return ORBIS_OK;
+}
+
+s32 PS4_SYSV_ABI sceKernelGetProcessType(s32 pid) {
+    LOG_ERROR(Lib_Kernel, "(STUBBED) called, pid: {}", pid);
+    if (pid != GLOBAL_PID) {
+        return ORBIS_KERNEL_ERROR_ENOSYS;
+    }
+    return 0;
+}
+
+s32 PS4_SYSV_ABI __sys_regmgr_call(u32 op, u32 key, void* result, void* value, u64 len) {
+    LOG_ERROR(Lib_Kernel, "(STUBBED) called, op: {:#x}, key: {}, len: {}", op, key, len);
+    return ORBIS_OK;
+}
+
 // Nominally: long sysconf(int name);
 u64 PS4_SYSV_ABI posix_sysconf(s32 name) {
     switch (name) {
@@ -437,8 +467,8 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     Libraries::Kernel::RegisterDebug(sym);
 
     LIB_OBJ("f7uOxY9mM1U", "libkernel", 1, "libkernel", &g_stack_chk_guard);
-    LIB_OBJ("+2thxYZ4syk", "libkernel", 1, "libkernel", &g_environ)
-    LIB_OBJ("djxxOmW6-aw", "libkernel", 1, "libkernel", &g_progname)
+    LIB_OBJ("+2thxYZ4syk", "libkernel", 1, "libkernel", &g_environ);
+    LIB_OBJ("djxxOmW6-aw", "libkernel", 1, "libkernel", &g_progname);
     LIB_FUNCTION("D4yla3vx4tY", "libkernel", 1, "libkernel", sceKernelError);
     LIB_FUNCTION("YeU23Szo3BM", "libkernel", 1, "libkernel", sceKernelGetAllowedSdkVersionOnSystem);
     LIB_FUNCTION("Mv1zUObHvXI", "libkernel", 1, "libkernel", sceKernelGetSystemSwVersion);
@@ -453,6 +483,7 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("9BcDykPmo1I", "libkernel", 1, "libkernel", __Error);
     LIB_FUNCTION("k+AXqu2-eBc", "libkernel", 1, "libkernel", posix_getpagesize);
     LIB_FUNCTION("k+AXqu2-eBc", "libScePosix", 1, "libkernel", posix_getpagesize);
+    LIB_FUNCTION("7NwggrWJ5cA", "libkernel", 1, "libkernel", __sys_regmgr_call);
 
     LIB_FUNCTION("mkawd0NA9ts", "libkernel", 1, "libkernel", posix_sysconf);
     LIB_FUNCTION("mkawd0NA9ts", "libScePosix", 1, "libkernel", posix_sysconf);

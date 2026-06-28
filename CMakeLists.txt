@@ -642,9 +642,7 @@ set(VDEC_LIB src/core/libraries/videodec/videodec2_impl.cpp
 
 set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_common.cpp
-            src/core/libraries/np/np_common.h
-            src/core/libraries/np/np_commerce.cpp
-            src/core/libraries/np/np_commerce.h
+            src/core/libraries/np/np_common.h  
             src/core/libraries/np/np_manager.cpp
             src/core/libraries/np/np_manager.h
             src/core/libraries/np/np_matching2.cpp
@@ -666,10 +664,6 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_party.h
             src/core/libraries/np/np_auth.cpp
             src/core/libraries/np/np_auth.h
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog.cpp
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog.h
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.cpp
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.h
             src/core/libraries/np/np_sns_facebook_dialog.cpp
             src/core/libraries/np/np_sns_facebook_dialog.h
             src/core/libraries/np/np_partner.cpp

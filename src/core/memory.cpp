@@ -577,8 +577,11 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
 
     if (True(flags & MemoryMapFlags::Fixed) && True(flags & MemoryMapFlags::NoOverwrite)) {
         // Perform necessary error checking for Fixed & NoOverwrite case
-        ASSERT_MSG(IsValidMapping(virtual_addr, size), "Attempted to access invalid address {:#x}",
-                   virtual_addr);
+        if (!IsValidMapping(virtual_addr, size)) {
+            LOG_ERROR(Kernel_Vmm, "addr = {:#x} size = {:#x} is outside the memory map",
+                      virtual_addr, size);
+            return ORBIS_KERNEL_ERROR_ENOMEM;
+        }
         auto vma = FindVMA(virtual_addr)->second;
         auto remaining_size = vma.base + vma.size - virtual_addr;
         if ((!vma.IsFree() && vma.type != VMAType::Reserved) || remaining_size < size) {
@@ -776,6 +779,40 @@ s32 MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, u64 size, Memory
         prot &= ~MemoryProt::CpuExec;
     }
 
+    if (True(flags & MemoryMapFlags::Fixed) && True(flags & MemoryMapFlags::NoOverwrite)) {
+        if (!IsValidMapping(virtual_addr, size)) {
+            LOG_ERROR(Kernel_Vmm, "addr = {:#x} size = {:#x} is outside the memory map",
+                      virtual_addr, size);
+            return ORBIS_KERNEL_ERROR_ENOMEM;
+        }
+        auto vma = FindVMA(virtual_addr)->second;
+
+        auto remaining_size = vma.base + vma.size - virtual_addr;
+        if (!vma.IsFree() || remaining_size < size) {
+            LOG_ERROR(Kernel_Vmm, "Unable to map {:#x} bytes at address {:#x}", size, virtual_addr);
+            return ORBIS_KERNEL_ERROR_ENOMEM;
+        }
+    } else if (False(flags & MemoryMapFlags::Fixed)) {
+        virtual_addr = virtual_addr == 0 ? DEFAULT_MAPPING_BASE : virtual_addr;
+        virtual_addr = SearchFree(virtual_addr, size, 16_KB);
+        if (virtual_addr == -1) {
+            // No suitable memory areas to map to
+            return ORBIS_KERNEL_ERROR_ENOMEM;
+        }
+    }
+
+    // Perform early GPU unmap to avoid potential deadlocks
+    if (IsValidGpuMapping(virtual_addr, size)) {
+        rasterizer->UnmapMemory(virtual_addr, size);
+    }
+
+    // Aquire writer lock
+    std::scoped_lock lk2{mutex};
+
+    // Update VMA map and map to address space.
+    auto new_vma_handle = CreateArea(virtual_addr, size, prot, flags, VMAType::File, "anon", 0);
+
+    auto& new_vma = new_vma_handle->second;
     // Add virtual memory area
     auto& new_vma = CarveVMA(mapped_addr, size)->second;
     new_vma.disallow_merge = True(flags & MemoryMapFlags::NoCoalesce);
@@ -882,8 +919,11 @@ s32 MemoryManager::UnmapMemory(VAddr virtual_addr, u64 size) {
     // Align address and size appropriately
     virtual_addr = Common::AlignDown(virtual_addr, 16_KB);
     size = Common::AlignUp(size, 16_KB);
-    ASSERT_MSG(IsValidMapping(virtual_addr, size), "Attempted to access invalid address {:#x}",
-               virtual_addr);
+    if (!IsValidMapping(virtual_addr, size)) {
+        LOG_ERROR(Kernel_Vmm, "addr = {:#x} size = {:#x} is outside the memory map", virtual_addr,
+                  size);
+        return ORBIS_KERNEL_ERROR_EINVAL;
+    }
 
     // If the requested range has GPU access, unmap from GPU.
     if (IsValidGpuMapping(virtual_addr, size)) {
@@ -1506,7 +1546,10 @@ VAddr MemoryManager::SearchFree(VAddr virtual_addr, u64 size, u32 alignment) {
     }
 
     // If the requested address is beyond the maximum our code can handle, throw an assert
-    ASSERT_MSG(IsValidMapping(virtual_addr), "Input address {:#x} is out of bounds", virtual_addr);
+    if (!IsValidMapping(virtual_addr)) {
+        LOG_ERROR(Kernel_Vmm, "addr = {:#x} is outside the memory map", virtual_addr);
+        return -1;
+    }
 
     // Align up the virtual_addr first.
     virtual_addr = Common::AlignUp(virtual_addr, alignment);
