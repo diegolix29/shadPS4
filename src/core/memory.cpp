@@ -812,7 +812,6 @@ s32 MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, u64 size, Memory
     // Update VMA map and map to address space.
     auto new_vma_handle = CreateArea(virtual_addr, size, prot, flags, VMAType::File, "anon", 0);
 
-    auto& new_vma = new_vma_handle->second;
     // Add virtual memory area
     auto& new_vma = CarveVMA(mapped_addr, size)->second;
     new_vma.disallow_merge = True(flags & MemoryMapFlags::NoCoalesce);

@@ -192,11 +192,9 @@ void BackupCUSAFolder(const std::filesystem::path& cusa_dir) {
     }
 }
 
-void AddPatchToQueue(patchInfo patchToAdd) {
+void AddPatchToQueue(const patchInfo& patchToAdd) {
     if (patches_applied) {
-        PatchMemory(patchToAdd.modNameStr, patchToAdd.offsetStr, patchToAdd.valueStr,
-                    patchToAdd.targetStr, patchToAdd.sizeStr, patchToAdd.isOffset,
-                    patchToAdd.littleEndian, patchToAdd.patchMask, patchToAdd.maskOffset);
+        MemoryPatcher::PatchMemory(patchToAdd);
         return;
     }
     pending_patches.push_back(patchToAdd);
@@ -210,9 +208,7 @@ void ApplyPendingPatches() {
         if (currentPatch.gameSerial != "*" && currentPatch.gameSerial != g_game_serial)
             continue;
 
-        PatchMemory(currentPatch.modNameStr, currentPatch.offsetStr, currentPatch.valueStr,
-                    currentPatch.targetStr, currentPatch.sizeStr, currentPatch.isOffset,
-                    currentPatch.littleEndian, currentPatch.patchMask, currentPatch.maskOffset);
+PatchMemory(currentPatch);
     }
 
     pending_patches.clear();
@@ -310,27 +306,28 @@ void OnGameLoaded() {
                             if (!versionMatches && type != "mask" && type != "mask_jump32")
                                 continue;
 
-                        std::string address = patchLineIt->attribute("Address").value();
-                        std::string patchValue = patchLineIt->attribute("Value").value();
-                        std::string maskOffsetStr = patchLineIt->attribute("Offset").value();
-                        std::string targetStr = "";
-                        std::string sizeStr = "";
-                        if (type == "mask_jump32") {
-                            targetStr = patchLineIt->attribute("Target").value();
-                            sizeStr = patchLineIt->attribute("Size").value();
-                        } else {
-                            try {
-                                patchValue = convertValueToHex(type, patchValue);
-                            } catch (std::exception& e) {
-                                ASSERT_MSG(false,
-                                           "Failed to parse patch value \"{}\" for \"{}\" in "
-                                           "patch \"{}\", error: \"{}\"\n"
-                                           "If the patch was working on earlier versions, then it "
-                                           "was using a format that shadPS4 handled incorrectly, "
-                                           "and the patch should instead be fixed.",
-                                           patchValue, address, currentPatchName, e.what());
+                            std::string address = patchLineIt->attribute("Address").value();
+                            std::string patchValue = patchLineIt->attribute("Value").value();
+                            std::string maskOffsetStr = patchLineIt->attribute("Offset").value();
+                            std::string targetStr = "";
+                            std::string sizeStr = "";
+                            if (type == "mask_jump32") {
+                                targetStr = patchLineIt->attribute("Target").value();
+                                sizeStr = patchLineIt->attribute("Size").value();
+                            } else {
+                                try {
+                                    patchValue = convertValueToHex(type, patchValue);
+                                } catch (std::exception& e) {
+                                    ASSERT_MSG(
+                                        false,
+                                        "Failed to parse patch value \"{}\" for \"{}\" in "
+                                        "patch \"{}\", error: \"{}\"\n"
+                                        "If the patch was working on earlier versions, then it "
+                                        "was using a format that shadPS4 handled incorrectly, "
+                                        "and the patch should instead be fixed.",
+                                        patchValue, address, currentPatchName, e.what());
+                                }
                             }
-                        }
 
                             bool littleEndian = false;
                             if (type == "bytes16" || type == "bytes32" || type == "bytes64") {
@@ -351,26 +348,26 @@ void OnGameLoaded() {
                                 maskOffsetValue = std::stoi(maskOffsetStr, 0, 10);
                             }
 
-                        const patchInfo patch = {
-                            .gameSerial = "*",
-                            .modNameStr = currentPatchName,
-                            .offsetStr = address,
-                            .valueStr = patchValue,
-                            .targetStr = targetStr,
-                            .sizeStr = sizeStr,
-                            .littleEndian = littleEndian,
-                            .patchMask = patchMask,
-                            .maskOffset = maskOffsetValue,
-                        };
-                        MemoryPatcher::PatchMemory(patch);
+                            const patchInfo patch = {
+                                .gameSerial = "*",
+                                .modNameStr = currentPatchName,
+                                .offsetStr = address,
+                                .valueStr = patchValue,
+                                .targetStr = targetStr,
+                                .sizeStr = sizeStr,
+                                .littleEndian = littleEndian,
+                                .patchMask = patchMask,
+                                .maskOffset = maskOffsetValue,
+                            };
+                            MemoryPatcher::PatchMemory(patch);
+                        }
                     }
                 }
             }
+        } else {
+            LOG_ERROR(Loader, "Could not parse patch XML: {}", result.description());
         }
-    } else {
-        LOG_ERROR(Loader, "Could not parse patch XML: {}", result.description());
     }
-}
 
 #ifdef ENABLE_QT_GUI
     // We use the QT headers for the xml and json parsing, this define is only true on QT builds
@@ -514,16 +511,25 @@ void OnGameLoaded() {
 
                             if (type == "mask_jump32")
                                 patchMask = MemoryPatcher::PatchMask::Mask_Jump32;
-
                             if ((type == "mask" || type == "mask_jump32") &&
                                 !maskOffsetStr.toStdString().empty()) {
                                 maskOffsetValue = std::stoi(maskOffsetStr.toStdString(), 0, 10);
                             }
 
-                            MemoryPatcher::PatchMemory(
-                                currentPatchName, address.toStdString(), patchValue.toStdString(),
-                                targetStr.toStdString(), sizeStr.toStdString(), false, littleEndian,
-                                patchMask, maskOffsetValue);
+                            const patchInfo patch = {
+                                .gameSerial = "*",
+                                .modNameStr = currentPatchName,
+                                .offsetStr = address.toStdString(),
+                                .valueStr = patchValue.toStdString(),
+                                .targetStr = targetStr.toStdString(),
+                                .sizeStr = sizeStr.toStdString(),
+                                .isOffset = false,
+                                .littleEndian = littleEndian,
+                                .patchMask = patchMask,
+                                .maskOffset = maskOffsetValue,
+                            };
+
+                            MemoryPatcher::PatchMemory(patch);
                         }
                     }
                 }
@@ -854,8 +860,18 @@ void ApplyRuntimePatch(const std::string& modNameStr, const std::string& offsetS
 
     PatchMask maskType = static_cast<PatchMask>(patchMask);
 
-    PatchMemory(modNameStr, offsetStr, valueStr, targetStr, sizeStr, isOffset, littleEndian,
-                maskType, maskOffset);
+    patchInfo currentPatch = {.gameSerial = "*",
+                              .modNameStr = modNameStr,
+                              .offsetStr = offsetStr,
+                              .valueStr = valueStr,
+                              .targetStr = targetStr,
+                              .sizeStr = sizeStr,
+                              .isOffset = isOffset,
+                              .littleEndian = littleEndian,
+                              .patchMask = maskType,
+                              .maskOffset = maskOffset};
+
+    PatchMemory(currentPatch);
 }
 
 } // namespace MemoryPatcher

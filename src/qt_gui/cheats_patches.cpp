@@ -1281,23 +1281,24 @@ void CheatsPatches::applyPatch(const QString& patchName, bool enabled) {
                 maskOffsetValue = std::stoi(maskOffsetStr.toStdString(), 0, 10);
             }
 
-            if (MemoryPatcher::g_eboot_address == 0) {
-                MemoryPatcher::patchInfo addingPatch;
-                addingPatch.gameSerial = patchInfo.serial.toStdString();
-                addingPatch.modNameStr = patchName.toStdString();
-                addingPatch.offsetStr = address.toStdString();
-                addingPatch.valueStr = patchValue.toStdString();
-                addingPatch.isOffset = false;
-                addingPatch.littleEndian = littleEndian;
-                addingPatch.patchMask = patchMask;
-                addingPatch.maskOffset = maskOffsetValue;
+// 1. Construct the patch struct first so it exists in this scope
+            MemoryPatcher::patchInfo currentPatch;
+            currentPatch.gameSerial = patchInfo.serial.toStdString();
+            currentPatch.modNameStr = patchName.toStdString();
+            currentPatch.offsetStr = address.toStdString();
+            currentPatch.valueStr = patchValue.toStdString();
+            currentPatch.isOffset = false;
+            currentPatch.littleEndian = littleEndian;
+            currentPatch.patchMask = patchMask;
+            currentPatch.maskOffset = maskOffsetValue;
 
-                MemoryPatcher::AddPatchToQueue(addingPatch);
+            // 2. Decide whether to queue it or apply it immediately
+            if (MemoryPatcher::g_eboot_address == 0) {
+                MemoryPatcher::AddPatchToQueue(currentPatch);
                 continue;
             }
-            MemoryPatcher::PatchMemory(patchName.toStdString(), address.toStdString(),
-                                       patchValue.toStdString(), "", "", false, littleEndian,
-                                       patchMask);
+
+            MemoryPatcher::PatchMemory(currentPatch);
         }
     }
 }

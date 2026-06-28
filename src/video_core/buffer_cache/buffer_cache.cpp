@@ -218,7 +218,9 @@ void BufferCache::ReadEdgeImagePages(const Image& image) {
     });
 }
 
-void BufferCache::BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline) {
+void BufferCache::BindVertexBuffers(
+    const Vulkan::GraphicsPipeline& pipeline,
+    boost::container::small_vector<vk::BufferMemoryBarrier2, 16>& barriers) {
     const auto& regs = liverpool->regs;
     Vulkan::VertexInputs<vk::VertexInputAttributeDescription2EXT> attributes;
     Vulkan::VertexInputs<vk::VertexInputBindingDescription2EXT> bindings;
@@ -338,7 +340,7 @@ void BufferCache::BindIndexBuffer(
 
     // Bind index buffer.
     const u32 index_buffer_size = regs.num_indices * index_size;
-    const auto [vk_buffer, offset] = ObtainBuffer(index_address, index_buffer_size, false);
+    const auto [vk_buffer, offset] = ObtainBuffer(index_address, index_buffer_size);
     if (IsRegionGpuModified(index_address, index_buffer_size)) {
         if (auto barrier = vk_buffer->GetBarrier(vk::AccessFlagBits2::eIndexRead,
                                                  vk::PipelineStageFlagBits2::eIndexInput)) {
