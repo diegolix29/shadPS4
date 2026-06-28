@@ -16,11 +16,38 @@ StorageImageSync::StorageImageSync(Scheduler& scheduler_, VideoCore::BufferCache
 
 StorageImageSync::~StorageImageSync() = default;
 
+bool StorageImageSync::HasAliasAtAddress(VAddr addr, VideoCore::ImageId self_id) const {
+    const u64 page = addr >> VideoCore::TextureCache::Traits::PageBits;
+    const auto& page_table = texture_cache.GetPageTable();
+    const auto page_it = page_table.find(page);
+    if (!page_it)
+        return false;
+
+    for (VideoCore::ImageId other_id : *page_it) {
+        if (other_id == self_id)
+            continue;
+        auto& other_image = texture_cache.GetImage(other_id);
+        if (other_image.info.guest_address == addr) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void StorageImageSync::Sync(VideoCore::ImageId image_id) {
     auto& img = texture_cache.GetImage(image_id);
     const VAddr guest_addr = img.info.guest_address;
     if (guest_addr == 0)
         return;
+
+    // Nothing currently aliases this address, so a guest write-back can't be observed by
+    // any resident image. Skip the full Map + GPU-wait + write-back stall — this is the
+    // overwhelmingly common case for compute shaders that write a storage image purely
+    // for later GPU-side consumption, and doing the stall unconditionally here was the
+    // main cause of the severe (~50%) performance regression in compute-heavy titles.
+    if (!HasAliasAtAddress(guest_addr, image_id)) {
+        return;
+    }
 
     const u32 bpp = img.info.num_bits / 8u;
     const u32 row_length = img.info.pitch ? img.info.pitch : img.info.size.width;
