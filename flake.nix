@@ -6,15 +6,10 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
-    
-    abseilCppSource = {
-      url = "github:abseil/abseil-cpp?ref=20250512.1";
-      flake = false;
-    };
   };
 
   outputs =
-    { self, nixpkgs, abseilCppSource }:
+    { self, nixpkgs }:
     let
       pkgsLinux = nixpkgs.legacyPackages.x86_64-linux;
 
@@ -26,7 +21,6 @@
         let
           shell =
             { self
-            , lib
             , mkShell
             , clangStdenv
             , clang-tools
@@ -93,7 +87,7 @@
                   clang-tools
                   cmake
                   pkg-config
-                ] ++ sdlConfigureDeps ++ lib.optionals enableDebugTooling [ renderdoc gef strace perf vulkan-tools ];
+                ] ++ sdlConfigureDeps ++ pkgsLinux.lib.optionals enableDebugTooling [ renderdoc gef strace perf vulkan-tools ];
 
               shellHook = ''
                 echo "Entering shadPS4 development shell!"
@@ -118,7 +112,6 @@
 
           build =
             { clangStdenv
-            , lib
             , cmake
             , ninja
             , pkg-config
@@ -158,7 +151,6 @@
             , libuuid
             , systemdMinimal
             , libx11
-            , abseilCppSource
             , releaseMode ? "debug"
             , enableDiscordRpc ? false
             ,
@@ -209,10 +201,9 @@
 
               cmakeFlags = [
                 (getBuildSettings releaseMode).flag
-                (lib.cmakeBool "ENABLE_DISCORD_RPC" enableDiscordRpc)
-                (lib.cmakeBool "ENABLE_TESTS" false)
-                (lib.cmakeBool "ENABLE_SYSTEM_LIBRARIES" true)
-                "-DFETCHCONTENT_SOURCE_DIR_ABSL=${abseilCppSource}"
+                (pkgsLinux.lib.cmakeBool "ENABLE_DISCORD_RPC" enableDiscordRpc)
+                (pkgsLinux.lib.cmakeBool "ENABLE_TESTS" false)
+                (pkgsLinux.lib.cmakeBool "ENABLE_SYSTEM_LIBRARIES" true)
               ];
               dontStrip = (getBuildSettings releaseMode).symbols;
 
@@ -228,10 +219,10 @@
             });
         in
         {
-          debug = pkgsLinux.callPackage build { releaseMode = "debug"; inherit abseilCppSource; };
-          release = pkgsLinux.callPackage build { releaseMode = "release"; inherit abseilCppSource; };
-          releaseWithDebInfo = pkgsLinux.callPackage build { releaseMode = "relWithDebInfo"; inherit abseilCppSource; };
-          default = pkgsLinux.callPackage build { releaseMode = "relWithDebInfo"; inherit abseilCppSource; };
+          debug = pkgsLinux.callPackage build { releaseMode = "debug"; };
+          release = pkgsLinux.callPackage build { releaseMode = "release"; };
+          releaseWithDebInfo = pkgsLinux.callPackage build { releaseMode = "relWithDebInfo"; };
+          default = pkgsLinux.callPackage build { releaseMode = "relWithDebInfo"; };
         };
     };
 }
