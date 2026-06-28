@@ -15,7 +15,6 @@
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/network/http.h"
 #include "core/libraries/np/np_error.h"
-#include "core/libraries/np/np_handler.h"
 #include "np_web_api_internal.h"
 
 namespace Libraries::Np::NpWebApi {
@@ -1048,18 +1047,6 @@ s32 deleteRequest(s64 requestId) {
     }
 
     releaseRequest(request);
-    if (request->http_request_id != 0) {
-        Libraries::Http::sceHttpDeleteRequest(request->http_request_id);
-        request->http_request_id = 0;
-    }
-    if (request->http_connection_id != 0) {
-        Libraries::Http::sceHttpDeleteConnection(request->http_connection_id);
-        request->http_connection_id = 0;
-    }
-    if (request->http_template_id != 0) {
-        Libraries::Http::sceHttpDeleteTemplate(request->http_template_id);
-        request->http_template_id = 0;
-    }
     user_context->requests.erase(request->requestId);
 
     releaseUserContext(user_context);
@@ -1735,7 +1722,7 @@ s32 unregisterExtdPushEventCallback(s32 titleUserCtxId, s32 callbackId) {
 s32 PS4_SYSV_ABI getHttpRequestIdFromRequest(OrbisNpWebApiRequest* request)
 
 {
-    return request->http_request_id;
+    return request->requestId;
 }
 
 // Request/response header support
