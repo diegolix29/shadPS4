@@ -332,6 +332,9 @@ struct GeneralSettings {
     Setting<std::vector<int>> custom_cpu_cores{};
     Setting<int> big_picture_scale{1000};
     Setting<std::string> shadnet_server{""};
+    Setting<std::string> signaling_addr{""};
+    Setting<u16> signaling_port{};
+    Setting<bool> enable_upnp{true};
 
     // return a vector of override descriptors (runtime, but tiny)
     std::vector<OverrideItem> GetOverrideableFields() const {
@@ -355,31 +358,52 @@ struct GeneralSettings {
                                            &GeneralSettings::trophy_notification_side),
             make_override<GeneralSettings>("connected_to_network",
                                            &GeneralSettings::connected_to_network),
-            // Additional overrideable fields
-            make_override<GeneralSettings>("enable_auto_backup",
-                                           &GeneralSettings::enable_auto_backup),
-            make_override<GeneralSettings>("restart_with_base_game",
-                                           &GeneralSettings::restart_with_base_game),
-            make_override<GeneralSettings>("separate_update_enabled",
-                                           &GeneralSettings::separate_update_enabled),
-            make_override<GeneralSettings>("screen_tip_disable",
-                                           &GeneralSettings::screen_tip_disable),
-            make_override<GeneralSettings>("mute_enabled", &GeneralSettings::mute_enabled),
-            make_override<GeneralSettings>("play_bgm", &GeneralSettings::play_bgm),
-            make_override<GeneralSettings>("bgm_volume", &GeneralSettings::bgm_volume),
-            make_override<GeneralSettings>("pause_on_unfocus", &GeneralSettings::pause_on_unfocus),
-            make_override<GeneralSettings>("disable_hardcoded_hotkeys",
-                                           &GeneralSettings::disable_hardcoded_hotkeys),
-            make_override<GeneralSettings>("use_home_button_for_hotkeys",
-                                           &GeneralSettings::use_home_button_for_hotkeys),
-            make_override<GeneralSettings>("enable_mods", &GeneralSettings::enable_mods),
-            make_override<GeneralSettings>("enable_updates", &GeneralSettings::enable_updates),
-            make_override<GeneralSettings>("http_host_override",
-                                           &GeneralSettings::http_host_override),
-            make_override<GeneralSettings>("cpu_core_mode", &GeneralSettings::cpu_core_mode),
-            make_override<GeneralSettings>("custom_cpu_cores", &GeneralSettings::custom_cpu_cores),
-            make_override<GeneralSettings>("big_picture_scale",
-                                           &GeneralSettings::big_picture_scale)};
+            make_override<GeneralSettings>("signaling_addr", &GeneralSettings::signaling_addr),
+            make_override<GeneralSettings>("signaling_port", &GeneralSettings::signaling_port),
+            make_override<GeneralSettings>("enable_upnp", &GeneralSettings::enable_upnp)};
+    }
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GeneralSettings, install_dirs, addon_install_dir, home_dir,
+                                   sys_modules_dir, font_dir, volume_slider, neo_mode, dev_kit_mode,
+                                   extra_dmem_in_mbytes, shad_net_enabled, trophy_popup_disabled,
+                                   trophy_notification_duration, show_splash,
+                                   trophy_notification_side, connected_to_network,
+                                   discord_rpc_enabled, show_fps_counter, console_language,
+                                   big_picture_scale, shadnet_server, signaling_addr,
+                                   signaling_port, enable_upnp)
+
+// -------------------------------
+// Log settings
+// -------------------------------
+struct LogSettings {
+    Setting<bool> append{false}; // specific
+    Setting<bool> enable{true};  // specific
+    Setting<std::string> filter{""};
+    Setting<u32> max_skip_duration{5'000};
+    Setting<bool> separate{false}; // specific
+    Setting<unsigned long long> size_limit{100_MB};
+    Setting<bool> skip_duplicate{true};
+    Setting<bool> sync{true};
+#ifdef _WIN32
+    Setting<std::string> type{"wincolor"};
+#endif
+
+    // return a vector of override descriptors (runtime, but tiny)
+    std::vector<OverrideItem> GetOverrideableFields() const {
+        return std::vector<OverrideItem>{
+            make_override<LogSettings>("append", &LogSettings::append),
+            make_override<LogSettings>("enable", &LogSettings::enable),
+            make_override<LogSettings>("filter", &LogSettings::filter),
+            make_override<LogSettings>("max_skip_duration", &LogSettings::max_skip_duration),
+            make_override<LogSettings>("separate", &LogSettings::separate),
+            make_override<LogSettings>("size_limit", &LogSettings::size_limit),
+            make_override<LogSettings>("skip_duplicate", &LogSettings::skip_duplicate),
+            make_override<LogSettings>("sync", &LogSettings::sync),
+#ifdef _WIN32
+            make_override<LogSettings>("type", &LogSettings::type),
+#endif
+        };
     }
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
@@ -781,6 +805,22 @@ public:
     SETTING_FORWARD(m_general, CustomCpuCores, custom_cpu_cores)
     SETTING_FORWARD(m_general, BigPictureScale, big_picture_scale)
     SETTING_FORWARD(m_general, ShadNetServer, shadnet_server)
+    SETTING_FORWARD(m_general, SignalingAddr, signaling_addr)
+    SETTING_FORWARD(m_general, SignalingPort, signaling_port)
+    SETTING_FORWARD_BOOL(m_general, UPnPEnabled, enable_upnp)
+
+    // Log settings
+    SETTING_FORWARD_BOOL(m_log, LogAppend, append)
+    SETTING_FORWARD_BOOL(m_log, LogEnable, enable)
+    SETTING_FORWARD(m_log, LogFilter, filter)
+    SETTING_FORWARD(m_log, LogMaxSkipDuration, max_skip_duration)
+    SETTING_FORWARD_BOOL(m_log, LogSeparate, separate)
+    SETTING_FORWARD(m_log, LogSizeLimit, size_limit)
+    SETTING_FORWARD_BOOL(m_log, LogSkipDuplicate, skip_duplicate)
+    SETTING_FORWARD_BOOL(m_log, LogSync, sync)
+#ifdef _WIN32
+    SETTING_FORWARD(m_log, LogType, type)
+#endif
 
     // Audio settings
     SETTING_FORWARD(m_audio, AudioBackend, audio_backend)

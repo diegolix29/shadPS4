@@ -29,6 +29,7 @@
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/system/userservice.h"
 #include "imgui/big_picture.h"
+#include "core/user_settings.h"
 #include "imgui/renderer/imgui_core.h"
 #include "input/controller.h"
 #include "input/input_handler.h"
