@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "core/memory.h"
 #include "video_core/buffer_cache/buffer_cache.h"
@@ -35,17 +36,22 @@ bool StorageImageSync::HasAliasAtAddress(VAddr addr, VideoCore::ImageId self_id)
 }
 
 void StorageImageSync::Sync(VideoCore::ImageId image_id) {
+    const auto& serial = Common::ElfInfo::Instance().GameSerial();
+    if (serial == "CUSA11227" || serial == "CUSA12982") {
+        return;
+    }
     auto& img = texture_cache.GetImage(image_id);
     const VAddr guest_addr = img.info.guest_address;
     if (guest_addr == 0)
         return;
 
-    // Nothing currently aliases this address, so a guest write-back can't be observed by
-    // any resident image. Skip the full Map + GPU-wait + write-back stall — this is the
-    // overwhelmingly common case for compute shaders that write a storage image purely
-    // for later GPU-side consumption, and doing the stall unconditionally here was the
-    // main cause of the severe (~50%) performance regression in compute-heavy titles.
-    if (!HasAliasAtAddress(guest_addr, image_id)) {
+    const bool disable_alias_check =
+        serial == "CUSA01623" || serial == "CUSA01715" || serial == "CUSA01740";
+
+    // For almost every game, skip the expensive synchronization when there is
+    // no image alias at this address. The listed titles require the old
+    // behavior, so always perform the synchronization for them.
+    if (!disable_alias_check && !HasAliasAtAddress(guest_addr, image_id)) {
         return;
     }
 

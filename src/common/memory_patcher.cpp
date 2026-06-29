@@ -208,7 +208,7 @@ void ApplyPendingPatches() {
         if (currentPatch.gameSerial != "*" && currentPatch.gameSerial != g_game_serial)
             continue;
 
-PatchMemory(currentPatch);
+        PatchMemory(currentPatch);
     }
 
     pending_patches.clear();

@@ -1281,7 +1281,7 @@ void CheatsPatches::applyPatch(const QString& patchName, bool enabled) {
                 maskOffsetValue = std::stoi(maskOffsetStr.toStdString(), 0, 10);
             }
 
-// 1. Construct the patch struct first so it exists in this scope
+            // 1. Construct the patch struct first so it exists in this scope
             MemoryPatcher::patchInfo currentPatch;
             currentPatch.gameSerial = patchInfo.serial.toStdString();
             currentPatch.modNameStr = patchName.toStdString();
