@@ -75,6 +75,7 @@ int main(int argc, char* argv[]) {
     QApplication* app_ptr = &a;
 #endif
 
+    QApplication::setApplicationName("shadps4");
     QApplication::setDesktopFileName("net.shadps4.shadPS4");
 
     // Init emulator state
