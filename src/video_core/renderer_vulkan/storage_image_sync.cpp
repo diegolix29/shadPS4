@@ -37,7 +37,8 @@ bool StorageImageSync::HasAliasAtAddress(VAddr addr, VideoCore::ImageId self_id)
 
 void StorageImageSync::Sync(VideoCore::ImageId image_id) {
     const auto& serial = Common::ElfInfo::Instance().GameSerial();
-    if (serial == "CUSA11227" || serial == "CUSA12982") {
+    if (serial == "CUSA11227" || serial == "CUSA12982" || serial == "CUSA00093" ||
+        serial == "CUSA00003" || serial == "CUSA01627" || serial == "CUSA01778") {
         return;
     }
     auto& img = texture_cache.GetImage(image_id);
