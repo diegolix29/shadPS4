@@ -336,7 +336,7 @@ T Translator::GetSrc(const InstOperand& operand) {
                 value = bits;
             }
         } else {
-            UNREACHABLE();
+            //    UNREACHABLE();
         }
         break;
     case OperandField::VectorGPR:

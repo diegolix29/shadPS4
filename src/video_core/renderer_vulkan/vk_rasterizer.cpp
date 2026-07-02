@@ -421,6 +421,8 @@ void Rasterizer::OnSubmit() {
     texture_cache.ProcessDownloadImages();
     buffer_cache.ProcessPreemptiveDownloads();
 
+    rt_sync_.ClearRecords();
+
     static u64 gc_timer = 0;
     if (++gc_timer > 60) {
         gc_timer = 0;
