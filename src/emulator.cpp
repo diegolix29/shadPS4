@@ -17,8 +17,6 @@
 #include "common/logging/log.h"
 #include "common/thread.h"
 #include "core/ipc/ipc.h"
-#include "core/libraries/rudp/rudp.h"
-#include "core/libraries/system_gesture/system_gesture.h"
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"
 #endif
@@ -571,20 +569,8 @@ void Emulator::LoadSystemModules(const std::string& game_serial) {
          {"libSceLibcInternal.sprx", &Libraries::LibcInternal::RegisterLib},
          {"libSceCesCs.sprx", nullptr},
          {"libSceAudiodec.sprx", nullptr},
-         {"libSceAudiodecCpu.sprx", nullptr},
-         {"libSceAudiodecCpuDdp.sprx", nullptr},
-         {"libSceAudiodecCpuM4aac.sprx", nullptr},
-         {"libSceAudiodecCpuDtsHdLbr.sprx", nullptr},
-         {"libSceAudiodecCpuHevag.sprx", nullptr},
          {"libSceFont.sprx", &Libraries::Font::RegisterLib},
          {"libSceFontFt.sprx", &Libraries::FontFt::RegisterLib},
-         {"libSceFreeTypeOt.sprx", nullptr},
-         {"libSceFreeTypeOl.sprx", nullptr},
-         {"libSceFreeTypeOptOl.sprx", nullptr},
-         {"libSceRudp.sprx", &Libraries::Rudp::RegisterLib},
-         {"libSceWkFontConfig.sprx", nullptr},
-         {"libSceSystemGesture.sprx", &Libraries::SystemGesture::RegisterLib},
-         {"libSceXml.sprx", nullptr},
          {"libSceFreeTypeOt.sprx", nullptr}});
 
     std::vector<std::filesystem::path> found_modules;
