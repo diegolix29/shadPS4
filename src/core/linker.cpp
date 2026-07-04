@@ -69,20 +69,11 @@ void Linker::Execute(const std::vector<std::string>& args) {
     Module* module = m_modules[0].get();
     static_tls_size = module->tls.offset = module->tls.image_size;
 
-    // Map libSceLibcInternal
-    const auto& libc_internal_path = Config::getSysModulesPath() / "libSceLibcInternal.sprx";
-    bool has_libcinternal = false;
-    if (std::filesystem::exists(libc_internal_path)) {
-        LoadModule(libc_internal_path);
-        has_libcinternal = true;
-    } else {
-        // Need to load HLE, LLE isn't present
-        LOG_INFO(Core_Linker, "Can't Load libSceLibcInternal.sprx switching to HLE");
-        Libraries::LibcInternal::RegisterLib(&GetHLESymbols());
+    for (const auto& m : m_modules) {
+        Relocate(m.get());
     }
-
-    // Relocate all modules
-    RelocateAllImports();
+    const auto& libc_internal_path = Config::getSysModulesPath() / "libSceLibcInternal.sprx";
+    bool has_libcinternal = std::filesystem::exists(libc_internal_path);
 
     // Before we can run guest code, we need to properly initialize the heap API and
     // libSceLibcInternal. libSceLibcInternal's _malloc_init serves as an additional initialization
@@ -141,7 +132,7 @@ void Linker::Execute(const std::vector<std::string>& args) {
 
     memory->SetupMemoryRegions(fmem_size, use_extended_mem1, use_extended_mem2);
 
-    main_thread.Run([this, module, &args, has_libcinternal](std::stop_token) {
+    main_thread.Run([this, module, &args](std::stop_token) {
         Common::SetCurrentThreadName("Game:Main");
 #ifndef _WIN32 // Clear any existing signal mask for game threads.
         sigset_t emptyset;
@@ -151,6 +142,12 @@ void Linker::Execute(const std::vector<std::string>& args) {
         if (auto& ipc = IPC::Instance()) {
             ipc.WaitForStart();
         }
+
+        LoadSharedLibraries();
+        RelocateAllImports();
+
+        const auto& libc_internal_path = Config::getSysModulesPath() / "libSceLibcInternal.sprx";
+        bool has_libcinternal = std::filesystem::exists(libc_internal_path);
 
         // Load libSceLibcInternal, run malloc_init.
         if (has_libcinternal) {
@@ -197,14 +194,16 @@ void Linker::Execute(const std::vector<std::string>& args) {
         ASSERT_MSG(result == 0, "Unable to emulate libSceGnmDriver initialization");
 
         // Add all guest arguments, we will always have the executable path in argv[0]
+
         EntryParams params{};
         constexpr int MaxArgs = sizeof(params.argv) / sizeof(params.argv[0]);
         params.argc = std::min<int>(args.size(), MaxArgs);
+
         for (int i = 0; i < params.argc; i++) {
             params.argv[i] = args[i].c_str();
         }
-
         // Run the game's entry function
+
         params.entry_addr = module->GetEntryAddress();
         ExecuteGuest(RunMainEntry, &params);
     });
