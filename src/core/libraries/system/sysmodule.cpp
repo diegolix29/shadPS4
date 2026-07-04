@@ -1,135 +1,170 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#define MAGIC_ENUM_RANGE_MIN 0
-#define MAGIC_ENUM_RANGE_MAX 300
-#include <magic_enum/magic_enum.hpp>
+#include <mutex>
 
+#include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "core/libraries/error_codes.h"
+#include "core/libraries/kernel/orbis_error.h"
 #include "core/libraries/kernel/process.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/system/sysmodule.h"
-#include "core/libraries/system/system_error.h"
+#include "core/libraries/system/sysmodule_error.h"
+#include "core/libraries/system/sysmodule_internal.h"
+#include "core/linker.h"
 
 namespace Libraries::SysModule {
 
-int PS4_SYSV_ABI sceSysmoduleGetModuleHandleInternal() {
-    LOG_ERROR(Lib_SysModule, "(STUBBED) called");
-    return ORBIS_OK;
+static std::mutex g_mutex{};
+
+s32 PS4_SYSV_ABI sceSysmoduleGetModuleHandleInternal(OrbisSysModuleInternal id, s32* handle) {
+    LOG_INFO(Lib_SysModule, "called");
+    if ((id & 0x7fffffff) == 0) {
+        return ORBIS_SYSMODULE_INVALID_ID;
+    }
+
+    std::scoped_lock lk{g_mutex};
+    return getModuleHandle(id, handle);
 }
 
 s32 PS4_SYSV_ABI sceSysmoduleGetModuleInfoForUnwind(VAddr addr, s32 flags,
                                                     Kernel::OrbisModuleInfoForUnwind* info) {
-    LOG_TRACE(Lib_SysModule, "sceSysmoduleGetModuleInfoForUnwind(addr=0x{:X}, flags=0x{:X})", addr,
-              flags);
-
+    LOG_TRACE(Lib_SysModule, "sceSysmoduleGetModuleInfoForUnwind called");
     s32 res = Kernel::sceKernelGetModuleInfoForUnwind(addr, flags, info);
-    if (res != 0) {
+    if (res != ORBIS_OK) {
         return res;
     }
 
-    static constexpr std::array<std::string_view, 17> modules_to_hide = {
-        "libc.prx",
-        "libc.sprx",
-        "libSceAudioLatencyEstimation.prx",
-        "libSceFace.prx",
-        "libSceFaceTracker.prx",
-        "libSceFios2.prx",
-        "libSceFios2.sprx",
-        "libSceFontGsm.prx",
-        "libSceHand.prx",
-        "libSceHandTracker.prx",
-        "libSceHeadTracker.prx",
-        "libSceJobManager.prx",
-        "libSceNpCppWebApi.prx",
-        "libSceNpToolkit.prx",
-        "libSceNpToolkit2.prx",
-        "libSceS3DConversion.prx",
-        "libSceSmart.prx",
-    };
-
-    const std::string_view module_name = info->name.data();
-    if (std::ranges::find(modules_to_hide, module_name) != modules_to_hide.end()) {
+    if (shouldHideName(info->name.data())) {
         std::ranges::fill(info->name, '\0');
     }
-    return res;
+    return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceSysmoduleIsCalledFromSysModule() {
+s32 PS4_SYSV_ABI sceSysmoduleIsCalledFromSysModule() {
     LOG_ERROR(Lib_SysModule, "(STUBBED) called");
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceSysmoduleIsCameraPreloaded() {
+s32 PS4_SYSV_ABI sceSysmoduleIsCameraPreloaded() {
     LOG_ERROR(Lib_SysModule, "(STUBBED) called");
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceSysmoduleIsLoaded(OrbisSysModule id) {
-    LOG_ERROR(Lib_SysModule, "(DUMMY) called module = {}", magic_enum::enum_name(id));
-    if (static_cast<u16>(id) == 0) {
-        LOG_ERROR(Lib_SysModule, "Invalid sysmodule ID: {:#x}", static_cast<u16>(id));
+s32 PS4_SYSV_ABI sceSysmoduleIsLoaded(OrbisSysModule id) {
+    if (id == 0) {
         return ORBIS_SYSMODULE_INVALID_ID;
     }
-    return ORBIS_OK;
+
+    std::scoped_lock lk{g_mutex};
+    return getModuleHandle(id, nullptr);
 }
 
-int PS4_SYSV_ABI sceSysmoduleIsLoadedInternal(OrbisSysModuleInternal id) {
-    LOG_ERROR(Lib_SysModule, "(DUMMY) called module = {:#x}", static_cast<u32>(id));
-    if ((static_cast<u32>(id) & 0x7FFFFFFF) == 0) {
-        LOG_ERROR(Lib_SysModule, "Invalid internal sysmodule ID: {:#x}", static_cast<u32>(id));
+s32 PS4_SYSV_ABI sceSysmoduleIsLoadedInternal(OrbisSysModuleInternal id) {
+    if ((id & 0x7fffffff) == 0) {
         return ORBIS_SYSMODULE_INVALID_ID;
     }
-    return ORBIS_OK;
+
+    std::scoped_lock lk{g_mutex};
+    return getModuleHandle(id, nullptr);
 }
 
-int PS4_SYSV_ABI sceSysmoduleLoadModule(OrbisSysModule id) {
-    LOG_ERROR(Lib_SysModule, "(DUMMY) called module = {}", magic_enum::enum_name(id));
-    return ORBIS_OK;
+s32 PS4_SYSV_ABI sceSysmoduleLoadModule(OrbisSysModule id) {
+    LOG_INFO(Lib_SysModule, "called, id = {:#x}", id);
+    s32 result = validateModuleId(id);
+    if (result < ORBIS_OK) {
+        return result;
+    }
+
+    // Only locks for internal loadModule call.
+    {
+        std::scoped_lock lk{g_mutex};
+        result = loadModule(id, 0, nullptr, nullptr);
+    }
+
+    if (result == ORBIS_KERNEL_ERROR_ESTART) {
+        s32 sdk_ver = 0;
+        result = Kernel::sceKernelGetCompiledSdkVersion(&sdk_ver);
+        if (sdk_ver < Common::ElfInfo::FW_1150 || result != ORBIS_OK) {
+            return ORBIS_KERNEL_ERROR_EINVAL;
+        } else {
+            return ORBIS_KERNEL_ERROR_ESTART;
+        }
+    }
+
+    // The real library has some weird workaround for CUSA01478 and CUSA01495 here.
+    // Unless this is proven necessary, I don't plan to handle this.
+    return result;
 }
 
-int PS4_SYSV_ABI sceSysmoduleLoadModuleByNameInternal() {
+s32 PS4_SYSV_ABI sceSysmoduleLoadModuleByNameInternal() {
     LOG_ERROR(Lib_SysModule, "(STUBBED) called");
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceSysmoduleLoadModuleInternal() {
+s32 PS4_SYSV_ABI sceSysmoduleLoadModuleInternal(OrbisSysModuleInternal id) {
+    LOG_INFO(Lib_SysModule, "called, id = {:#x}", id);
+    s32 result = validateModuleId(id);
+    if (result < ORBIS_OK) {
+        return result;
+    }
+
+    // This specific module ID is loaded unlocked.
+    if (id == 0x80000039) {
+        return loadModule(id, 0, nullptr, nullptr);
+    }
+    std::scoped_lock lk{g_mutex};
+    return loadModule(id, 0, nullptr, nullptr);
+}
+
+s32 PS4_SYSV_ABI sceSysmoduleLoadModuleInternalWithArg(OrbisSysModuleInternal id, s32 argc,
+                                                       const void* argv, u64 unk, s32* res_out) {
+    LOG_INFO(Lib_SysModule, "called, id = {:#x}", id);
+    s32 result = validateModuleId(id);
+    if (result < ORBIS_OK) {
+        return result;
+    }
+
+    if (unk != 0) {
+        return ORBIS_SYSMODULE_INVALID_ID;
+    }
+
+    std::scoped_lock lk{g_mutex};
+    return loadModule(id, argc, argv, res_out);
+}
+
+s32 PS4_SYSV_ABI sceSysmoduleMapLibcForLibkernel() {
     LOG_ERROR(Lib_SysModule, "(STUBBED) called");
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceSysmoduleLoadModuleInternalWithArg() {
+s32 PS4_SYSV_ABI sceSysmodulePreloadModuleForLibkernel() {
+    LOG_DEBUG(Lib_SysModule, "called");
+    return preloadModulesForLibkernel();
+}
+
+s32 PS4_SYSV_ABI sceSysmoduleUnloadModule(OrbisSysModule id) {
+    LOG_ERROR(Lib_SysModule, "(STUBBED) called, id = {:#x}", id);
+    if (id == 0) {
+        return ORBIS_SYSMODULE_INVALID_ID;
+    }
+
+    std::scoped_lock lk{g_mutex};
+    return unloadModule(id, 0, nullptr, nullptr, false);
+}
+
+s32 PS4_SYSV_ABI sceSysmoduleUnloadModuleByNameInternal() {
     LOG_ERROR(Lib_SysModule, "(STUBBED) called");
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceSysmoduleMapLibcForLibkernel() {
+s32 PS4_SYSV_ABI sceSysmoduleUnloadModuleInternal() {
     LOG_ERROR(Lib_SysModule, "(STUBBED) called");
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceSysmodulePreloadModuleForLibkernel() {
-    LOG_ERROR(Lib_SysModule, "(STUBBED) called");
-    return ORBIS_OK;
-}
-
-int PS4_SYSV_ABI sceSysmoduleUnloadModule() {
-    LOG_ERROR(Lib_SysModule, "(STUBBED) called");
-    return ORBIS_OK;
-}
-
-int PS4_SYSV_ABI sceSysmoduleUnloadModuleByNameInternal() {
-    LOG_ERROR(Lib_SysModule, "(STUBBED) called");
-    return ORBIS_OK;
-}
-
-int PS4_SYSV_ABI sceSysmoduleUnloadModuleInternal() {
-    LOG_ERROR(Lib_SysModule, "(STUBBED) called");
-    return ORBIS_OK;
-}
-
-int PS4_SYSV_ABI sceSysmoduleUnloadModuleInternalWithArg() {
+s32 PS4_SYSV_ABI sceSysmoduleUnloadModuleInternalWithArg() {
     LOG_ERROR(Lib_SysModule, "(STUBBED) called");
     return ORBIS_OK;
 }

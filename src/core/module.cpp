@@ -10,6 +10,7 @@
 #include "common/string_util.h"
 #include "core/aerolib/aerolib.h"
 #include "core/cpu_patches.h"
+#include "core/libraries/error_codes.h"
 #include "core/loader/dwarf.h"
 #include "core/memory.h"
 #include "core/module.h"
@@ -97,7 +98,6 @@ Module::~Module() = default;
 s32 Module::Start(u64 args, const void* argp, void* param) {
     LOG_INFO(Core_Linker, "Module started : {}", name);
     const VAddr addr = dynamic_info.init_virtual_addr + GetBaseAddress();
-    Core::EnsureThreadInitialized();
     return reinterpret_cast<EntryFunc>(addr)(args, argp, param);
 }
 
@@ -113,24 +113,20 @@ void Module::LoadModuleToMemory(u32& max_tls_index) {
 
     // Reserve memory area for module
     void** out_addr = reinterpret_cast<void**>(&base_virtual_addr);
-    memory->MapMemory(out_addr, ModuleLoadBase, aligned_base_size + TrampolineSize,
-                      MemoryProt::NoAccess, MemoryMapFlags::NoFlags, VMAType::Reserved, name);
+    s32 result =
+        memory->MapMemory(out_addr, ModuleLoadBase, aligned_base_size + TrampolineSize,
+                          MemoryProt::NoAccess, MemoryMapFlags::NoFlags, VMAType::Reserved, name);
+    ASSERT_MSG(result == ORBIS_OK, "Failed to reserve memory for module {}", name);
     LOG_INFO(Core_Linker, "Loading module {} to {}", name, fmt::ptr(*out_addr));
 
 #ifdef ARCH_X86_64
-    void* trampoline_region = std::bit_cast<void*>(base_virtual_addr + aligned_base_size);
-    const int tramp_ret = memory->MapMemory(
-        &trampoline_region, base_virtual_addr + aligned_base_size, TrampolineSize,
-        MemoryProt::CpuReadWrite | MemoryProt::CpuExec,
-        MemoryMapFlags::Fixed | MemoryMapFlags::NoOverwrite, VMAType::File, "Trampoline");
-    ASSERT_MSG(tramp_ret == 0, "Unable to map trampoline memory");
-
     // Initialize trampoline generator.
     VAddr trampoline_vaddr = base_virtual_addr + aligned_base_size;
     void* trampoline_addr = std::bit_cast<void*>(trampoline_vaddr);
-    memory->MapMemory(&trampoline_addr, trampoline_vaddr, TrampolineSize,
-                      MemoryProt::CpuReadWrite | MemoryProt::CpuExec, MemoryMapFlags::Fixed,
-                      VMAType::Code, name);
+    result = memory->MapMemory(&trampoline_addr, trampoline_vaddr, TrampolineSize,
+                               MemoryProt::CpuReadWrite | MemoryProt::CpuExec,
+                               MemoryMapFlags::Fixed, VMAType::Code, name);
+    ASSERT_MSG(result == ORBIS_OK, "Failed to map trampoline area for module {}", name);
     RegisterPatchModule(*out_addr, aligned_base_size, trampoline_addr, TrampolineSize);
 #endif
 
@@ -155,10 +151,13 @@ void Module::LoadModuleToMemory(u32& max_tls_index) {
             if ((phdr.p_flags & PF_EXEC) != 0) {
                 segment_prot |= MemoryProt::CpuExec;
             }
+
             // Map module segments
             const auto memory_type = IsSystemLib() ? VMAType::Code : VMAType::Flexible;
-            memory->MapMemory(&segment_addr, segment_vaddr, segment_size, segment_prot,
-                              MemoryMapFlags::Fixed, memory_type, name);
+            s32 result = memory->MapMemory(&segment_addr, segment_vaddr, segment_size, segment_prot,
+                                           MemoryMapFlags::Fixed, memory_type, name);
+            ASSERT_MSG(result == ORBIS_OK, "Failed to map segment at {:#x} for module {}",
+                       segment_vaddr, name);
             elf.LoadSegment(segment_vaddr, phdr.p_offset, phdr.p_filesz);
         }
         if (info.num_segments < 4) {

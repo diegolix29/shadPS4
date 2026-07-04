@@ -409,15 +409,6 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         std::quick_exit(0);
     }
 
-    LoadSystemModules(game_info.game_serial);
-
-    mnt->IterateDirectory("/app0/sce_module", [this](const auto& path, const auto is_file) {
-        if (is_file) {
-            LOG_INFO(Loader, "Loading {}", fmt::UTF(path.u8string()));
-            linker->LoadModule(path);
-        }
-    });
-
 #ifdef ENABLE_DISCORD_RPC
     // Discord RPC
     if (Config::getEnableDiscordRPC()) {
@@ -556,66 +547,6 @@ void Emulator::Restart(std::filesystem::path eboot_path, const std::vector<std::
 #endif
 
     std::quick_exit(0);
-}
-
-void Emulator::LoadSystemModules(const std::string& game_serial) {
-    constexpr auto ModulesToLoad = std::to_array<SysModules>(
-        {{"libSceNgs2.sprx", &Libraries::Ngs2::RegisterLib},
-         {"libSceUlt.sprx", nullptr},
-         {"libSceRtc.sprx", &Libraries::Rtc::RegisterLib},
-         {"libSceJpegDec.sprx", nullptr},
-         {"libSceJpegEnc.sprx", &Libraries::JpegEnc::RegisterLib},
-         {"libScePngEnc.sprx", &Libraries::PngEnc::RegisterLib},
-         {"libSceJson.sprx", nullptr},
-         {"libSceJson2.sprx", nullptr},
-         {"libSceLibcInternal.sprx", &Libraries::LibcInternal::RegisterLib},
-         {"libSceCesCs.sprx", nullptr},
-         {"libSceAudiodec.sprx", nullptr},
-         {"libSceAudiodecCpu.sprx", nullptr},
-         {"libSceAudiodecCpuDdp.sprx", nullptr},
-         {"libSceAudiodecCpuM4aac.sprx", nullptr},
-         {"libSceAudiodecCpuDtsHdLbr.sprx", nullptr},
-         {"libSceAudiodecCpuHevag.sprx", nullptr},
-         {"libSceFont.sprx", &Libraries::Font::RegisterLib},
-         {"libSceFontFt.sprx", &Libraries::FontFt::RegisterLib},
-         {"libSceFreeTypeOt.sprx", nullptr},
-         {"libSceFreeTypeOl.sprx", nullptr},
-         {"libSceFreeTypeOptOl.sprx", nullptr},
-         {"libSceRudp.sprx", &Libraries::Rudp::RegisterLib},
-         {"libSceWkFontConfig.sprx", nullptr},
-         {"libSceSystemGesture.sprx", &Libraries::SystemGesture::RegisterLib},
-         {"libSceXml.sprx", nullptr},
-         {"libSceFreeTypeOt.sprx", nullptr}});
-
-    std::vector<std::filesystem::path> found_modules;
-    const auto& sys_module_path = Config::getSysModulesPath();
-    for (const auto& entry : std::filesystem::directory_iterator(sys_module_path)) {
-        found_modules.push_back(entry.path());
-    }
-    for (const auto& [module_name, init_func] : ModulesToLoad) {
-        const auto it = std::ranges::find_if(
-            found_modules, [&](const auto& path) { return path.filename() == module_name; });
-        if (it != found_modules.end()) {
-            LOG_INFO(Loader, "Loading {}", it->string());
-            if (linker->LoadModule(*it) != -1) {
-                continue;
-            }
-        }
-        if (init_func) {
-            LOG_INFO(Loader, "Can't Load {} switching to HLE", module_name);
-            init_func(&linker->GetHLESymbols());
-        } else {
-            LOG_INFO(Loader, "No HLE available for {} module", module_name);
-        }
-    }
-    if (!game_serial.empty() && std::filesystem::exists(sys_module_path / game_serial)) {
-        for (const auto& entry :
-             std::filesystem::directory_iterator(sys_module_path / game_serial)) {
-            LOG_INFO(Loader, "Loading {} from game serial file {}", entry.path().string(),
-                     game_serial);
-            linker->LoadModule(entry.path());
-        }
-    }
 }
 
 void Emulator::UpdatePlayTime(const std::string& serial) {
