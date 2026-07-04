@@ -76,7 +76,7 @@ bool getScreenshotNotificationsEnabled();
 void setScreenshotNotificationsEnabled(bool enable);
 int getBackgroundImageOpacity();
 bool getShowBackgroundImage();
-bool getPSNSignedIn();
+bool IsShadNetEnabled();
 bool getShaderSkipsEnabled();
 AudioBackend getAudioBackend();
 void setAudioBackend(AudioBackend backend);
@@ -198,8 +198,7 @@ void setUseSpecialPad(int pad, bool use);
 bool getUseSpecialPad(int pad);
 void setSpecialPadClass(int pad, int type);
 int getSpecialPadClass(int pad);
-bool getPSNSignedIn();
-void setPSNSignedIn(bool sign); // no ui setting
+void setShadNetEnable(bool sign); // no ui setting
 bool patchShaders();            // no set
 void setfpsColor(bool enable);
 void setNeoMode(bool enable);  // no ui setting
@@ -271,7 +270,6 @@ void setBackgroundImageOpacity(int opacity);
 void setShowBackgroundImage(bool show);
 void setDescriptionVisible(bool visible);
 bool getDescriptionVisible();
-void setPSNSignedIn(bool sign);
 void setShaderSkipsEnabled(bool enable);
 
 std::string getMainOutputDevice();

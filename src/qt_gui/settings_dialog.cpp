@@ -1343,7 +1343,7 @@ void SettingsDialog::LoadValuesFromConfig() {
     int compressionLevel = toml::find_or<int>(data, "General", "memoryCompressionLevel", 0);
     ui->memoryCompressionComboBox->setCurrentIndex(compressionLevel);
     ui->isPSNSignedInCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "isPSNSignedIn", false));
+        toml::find_or<bool>(data, "General", "isShadNetEnabled", false));
 
     ui->removeFolderButton->setEnabled(!ui->gameFoldersListWidget->selectedItems().isEmpty());
     ui->backgroundImageOpacitySlider->setValue(Config::getBackgroundImageOpacity());
@@ -1804,7 +1804,7 @@ void SettingsDialog::UpdateSettings() {
         presenter->UpdateFsrSettingsFromConfig();
     }
     Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
-    Config::setPSNSignedIn(ui->isPSNSignedInCheckBox->isChecked());
+    Config::setShadNetEnable(ui->isPSNSignedInCheckBox->isChecked());
     Config::SetHttpHostOverride(ui->httpHostOverrideLineEdit->text().toStdString());
 
     std::vector<Config::GameDirectories> dirs_with_states;

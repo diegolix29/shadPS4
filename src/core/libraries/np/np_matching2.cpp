@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include "common/logging/log.h"
+#include "common/config.h"
 #include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
@@ -376,7 +377,7 @@ int PS4_SYSV_ABI sceNpMatching2ContextStart(OrbisNpMatching2ContextId ctxId, u64
     }
 
     std::scoped_lock lk{g_events_mutex};
-    if (EmulatorSettings.IsConnectedToNetwork() && EmulatorSettings.IsShadNetEnabled()) {
+    if (Config::getIsConnectedToNetwork() && Config::IsShadNetEnabled()) {
         g_ctx_events.emplace_back(ctxId, ORBIS_NP_MATCHING2_CONTEXT_EVENT_STARTED,
                                   ORBIS_NP_MATCHING2_EVENT_CAUSE_CONTEXT_ACTION, 0);
     } else {

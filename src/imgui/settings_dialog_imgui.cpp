@@ -3,16 +3,15 @@
 
 #include <map>
 #include <ranges>
+#include <ImGuiFileDialog.h>
 #include <cmrc/cmrc.hpp>
 #include <stb_image.h>
 
+#include "common/config.h"
 #include "core/devtools/layer.h"
 #include "core/emulator_settings.h"
 #include "imgui/imgui_std.h"
 #include "settings_dialog_imgui.h"
-
-#include "imgui_fonts/notosansjp_regular.ttf.g.cpp"
-#include "imgui_fonts/proggyvector_regular.ttf.g.cpp"
 
 CMRC_DECLARE(res);
 namespace BigPictureMode {
@@ -100,7 +99,7 @@ bool readbackLinearImagesSetting;
 bool directMemoryAccessSetting;
 bool devkitConsoleSetting;
 bool neoModeSetting;
-bool shadnetEnabledSetting;
+bool psnSignedInSetting;
 bool connectedNetworkSetting;
 bool pipelineCacheEnabledSetting;
 bool pipelineCacheArchiveSetting;
@@ -116,11 +115,13 @@ SDL_Texture* graphicsTexture;
 SDL_Texture* inputTexture;
 SDL_Texture* trophyTexture;
 SDL_Texture* logTexture;
+SDL_Texture* foldersTexture;
 
 //////////////// Gui variable
 const float gameImageSize = 200.f;
 const float settingsIconSize = 125.f;
 std::vector<Game> settingsProfileVec = {};
+std::vector<GameInstallDir> m_GameInstallDirs = {};
 
 float uiScale = 1.0f;
 SDL_Renderer* renderer;
@@ -128,6 +129,7 @@ SDL_Renderer* renderer;
 SettingsCategory currentCategory = SettingsCategory::Profiles;
 std::string currentProfile = "Global";
 bool closeOnSave = false;
+bool showFileDialog = false;
 
 void Init() {
     auto languageKeys = std::views::keys(languageMap);
@@ -136,27 +138,29 @@ void Init() {
     currentProfile = "Global";
     currentCategory = SettingsCategory::Profiles;
     LoadSettings("Global");
+    m_GameInstallDirs = EmulatorSettings.GetAllGameInstallDirs();
 
     SDL_Window* window = SDL_GetKeyboardFocus();
     renderer = SDL_GetRenderer(window);
 
     LoadEmbeddedTexture("src/images/big_picture/settings.png", generalTexture);
-    LoadEmbeddedTexture("src/images/big_picture/folder.png", profilesTexture);
+    LoadEmbeddedTexture("src/images/big_picture/profiles.png", profilesTexture);
     LoadEmbeddedTexture("src/images/big_picture/global-settings.png", globalSettingsTexture);
     LoadEmbeddedTexture("src/images/big_picture/experimental.png", experimentalTexture);
     LoadEmbeddedTexture("src/images/big_picture/graphics.png", graphicsTexture);
     LoadEmbeddedTexture("src/images/big_picture/controller.png", inputTexture);
     LoadEmbeddedTexture("src/images/big_picture/trophy.png", trophyTexture);
     LoadEmbeddedTexture("src/images/big_picture/log.png", logTexture);
+    LoadEmbeddedTexture("src/images/big_picture/folder.png", foldersTexture);
 
     GetGameInfo(settingsProfileVec, true, globalSettingsTexture);
-    uiScale = static_cast<float>(EmulatorSettings.GetBigPictureScale() / 1000.f);
+    uiScale = static_cast<float>(Config::getBigPictureScale() / 1000.f);
 }
 
 void DeInit() {
-    EmulatorSettings.Load();
-    EmulatorSettings.SetBigPictureScale(static_cast<int>(uiScale * 1000));
-    EmulatorSettings.Save();
+    Config::load(std::filesystem::path{}, false);
+    Config::setBigPictureScale(static_cast<int>(uiScale * 1000));
+    Config::save(std::filesystem::path{}, false);
 }
 
 void DrawSettings(bool* open) {
@@ -167,7 +171,8 @@ void DrawSettings(bool* open) {
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
 
-    if (ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoDecoration)) {
+    if (ImGui::Begin("Settings", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollWithMouse)) {
         if (ImGui::IsWindowAppearing()) {
             Init();
             closeOnSave = false;
@@ -180,7 +185,10 @@ void DrawSettings(bool* open) {
 
         ImVec4 settingsColor = ImVec4(0.1f, 0.1f, 0.12f, 0.8f); // Darker gray
         ImGui::PushStyleColor(ImGuiCol_ChildBg, settingsColor);
-        ImGui::BeginChild("Categories", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY,
+        float vertSize = (settingsIconSize * uiScale + ImGui::CalcTextSize("Profiles").y) +
+                         ImGui::GetStyle().FramePadding.x * 2.f * uiScale + 20.0 * uiScale;
+
+        ImGui::BeginChild("Categories", ImVec2(0, vertSize), true,
                           child_flags | ImGuiWindowFlags_HorizontalScrollbar);
 
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(30.0f * uiScale, 0.0f));
@@ -191,6 +199,7 @@ void DrawSettings(bool* open) {
         AddCategory("Graphics", graphicsTexture, SettingsCategory::Graphics);
         AddCategory("Input", inputTexture, SettingsCategory::Input);
         AddCategory("Trophy", trophyTexture, SettingsCategory::Trophy);
+        AddCategory("Game Folders", foldersTexture, SettingsCategory::Folders);
         AddCategory("Log", logTexture, SettingsCategory::Log);
 
         if (currentProfile != "Global")
@@ -250,12 +259,22 @@ void DrawSettings(bool* open) {
             ImGui::Separator();
 
             if (ImGui::Button("OK", ImVec2(250 * uiScale, 0))) {
-                std::string profile = currentProfile;
-                if (currentProfile != "Global") {
-                    profile = currentProfile.substr(0, 9);
+                std::string profileToSave = currentProfile;
+                bool isGameSpecific = (currentProfile != "Global");
+
+                if (isGameSpecific) {
+                    // Extract just the 9-digit serial (CUSA00000 format)
+                    size_t spacePos = currentProfile.find(' ');
+                    if (spacePos != std::string::npos) {
+                        profileToSave = currentProfile.substr(0, spacePos);
+                    }
+                    // Ensure it's exactly 9 characters for CUSA format
+                    if (profileToSave.length() > 9) {
+                        profileToSave = profileToSave.substr(0, 9);
+                    }
                 }
 
-                SaveSettings(profile);
+                SaveSettings(profileToSave, isGameSpecific);
                 if (closeOnSave) {
                     DeInit();
                     *open = false;
@@ -295,10 +314,15 @@ void DrawSettings(bool* open) {
 }
 
 void LoadCategory(SettingsCategory category) {
-    ImGui::TextColored(ImVec4(0.00f, 1.00f, 1.00f, 1.00f), "%s",
-                       ("Selected Profile: " + currentProfile).c_str()); // Dark Blue
+    if (category != SettingsCategory::Folders) {
+        ImGui::TextColored(ImVec4(0.00f, 1.00f, 1.00f, 1.00f), "%s",
+                           ("Selected Profile: " + currentProfile).c_str()); // Dark Blue
+    }
     ImGui::Dummy(ImVec2(0, 20.f * uiScale));
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4.0f * uiScale, 10.0f * uiScale));
+
+    ImGuiWindowFlags child_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                   ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NavFlattened;
 
     if (category == SettingsCategory::General) {
         if (ImGui::BeginTable("SettingsTable", 2)) {
@@ -364,6 +388,44 @@ void LoadCategory(SettingsCategory category) {
 
             ImGui::EndTable();
         }
+    } else if (category == SettingsCategory::Folders) {
+        if (ImGui::Button("Add Folder", ImVec2(400.f * uiScale, 0))) {
+            ImGuiFileDialog::Instance()->OpenDialog(
+                "OpenFolder", "Add shadPS4 game folder", nullptr, ".", 1, nullptr,
+                ImGuiFileDialogFlags_DisableCreateDirectoryButton |
+                    ImGuiFileDialogFlags_DontShowHiddenFiles);
+
+            ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(viewport->Pos);
+            ImGui::SetNextWindowSize(viewport->Size);
+        }
+
+        if (ImGuiFileDialog::Instance()->Display("OpenFolder",
+                                                 child_flags | ImGuiWindowFlags_NoMove)) {
+            if (ImGuiFileDialog::Instance()->IsOk()) {
+                GameInstallDir dir;
+                dir.path = ImGuiFileDialog::Instance()->GetCurrentPath();
+                dir.enabled = true;
+
+#ifdef WIN32
+                // replace \ with / on windows
+                std::string pathString = dir.path.string();
+                size_t pos = 0;
+                while ((pos = pathString.find("\\", pos)) != std::string::npos) {
+                    pathString.replace(pos, 1, "/");
+                    pos += 2;
+                }
+
+                dir.path = pathString;
+#endif
+
+                m_GameInstallDirs.push_back(dir);
+                SaveInstallDirs();
+            }
+
+            ImGuiFileDialog::Instance()->Close();
+        }
+
     } else if (category == SettingsCategory::Log) {
         if (ImGui::BeginTable("SettingsTable", 2)) {
             ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 500.0f * uiScale);
@@ -389,7 +451,7 @@ void LoadCategory(SettingsCategory category) {
             AddSettingBool("Enable Direct Memory Access", directMemoryAccessSetting);
             AddSettingBool("Enable Devkit Console Mode", devkitConsoleSetting);
             AddSettingBool("Enable PS4 Neo Mode", neoModeSetting);
-            AddSettingBool("Enable ShadNet", shadnetEnabledSetting);
+            AddSettingBool("Enable ShadNet", psnSignedInSetting);
             AddSettingBool("Set Network Connected to True", connectedNetworkSetting);
             AddSettingBool("Enable Shader Cache", pipelineCacheEnabledSetting);
 
@@ -405,86 +467,121 @@ void LoadCategory(SettingsCategory category) {
 
     // Child Window if Needed
     if (category == SettingsCategory::Profiles) {
-        ImGuiWindowFlags child_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                       ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NavFlattened;
+
         ImGui::BeginChild("ProfileSelect", ImVec2(0, 0), true, child_flags);
-        Overlay::TextCentered("Select Global or Game-Specific Settings Profile");
+        Overlay::TextCentered("Select Global or a Game to save Custom Configuration");
         SetProfileIcons(settingsProfileVec);
+        ImGui::EndChild();
+    } else if (category == SettingsCategory::Folders) {
+        ImGui::BeginChild("Game Folder List", ImVec2(0, 0), true, child_flags);
+
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0, 5.0f * uiScale));
+        if (ImGui::BeginTable("FoldersTable", 3)) {
+            ImGui::TableSetupColumn("FolderButton", ImGuiTableColumnFlags_WidthFixed,
+                                    300.0f * uiScale);
+            ImGui::TableSetupColumn("FolderEnabled", ImGuiTableColumnFlags_WidthFixed, 0.0f);
+            ImGui::TableSetupColumn("FolderPath");
+
+            for (int i = 0; i < m_GameInstallDirs.size(); i++) {
+                std::string buttonLabel = "Remove Folder##" + std::to_string(i);
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                if (ImGui::Button(buttonLabel.c_str(), ImVec2(280 * uiScale, 0))) {
+                    m_GameInstallDirs.erase(m_GameInstallDirs.begin() + i);
+                    SaveInstallDirs();
+                }
+
+                ImGui::TableNextColumn();
+                std::string checkboxLabel = "##EnableFolder" + std::to_string(i);
+                bool previousState = m_GameInstallDirs[i].enabled;
+                ImGui::Checkbox(checkboxLabel.c_str(), &m_GameInstallDirs[i].enabled);
+                ImGui::SameLine();
+                ImGui::Dummy(ImVec2(5.0 * uiScale, 0));
+
+                if (m_GameInstallDirs[i].enabled != previousState) {
+                    SaveInstallDirs();
+                }
+
+                ImGui::TableNextColumn();
+                ImGui::TextWrapped("%s", m_GameInstallDirs[i].path.string().c_str());
+            }
+
+            ImGui::EndTable();
+        }
+        ImGui::PopStyleVar();
+
         ImGui::EndChild();
     }
 }
 
-void SaveSettings(std::string profile) {
-    const bool isSpecific = currentProfile != "Global";
-
+void SaveSettings(std::string profile, bool isGameSpecific) {
     /////////// General Tab
-    EmulatorSettings.SetConsoleLanguage(languageMap.at(languageOptions.at(consoleLanguageSetting)),
-                                        isSpecific);
-    EmulatorSettings.SetVolumeSlider(volumeSetting, isSpecific);
-    EmulatorSettings.SetShowSplash(showSplashSetting, isSpecific);
-    EmulatorSettings.SetAudioBackend(audioBackendSetting, isSpecific);
+    Config::setLanguage(languageMap.at(languageOptions.at(consoleLanguageSetting)));
+    Config::setVolumeSlider(volumeSetting, isGameSpecific);
+    Config::setShowSplash(showSplashSetting);
+    Config::setAudioBackend(static_cast<Config::AudioBackend>(audioBackendSetting));
 
     /////////// Graphics Tab
     bool isFullscreen = fullscreenModeSetting != 0;
-    EmulatorSettings.SetFullScreen(isFullscreen);
-    EmulatorSettings.SetFullScreenMode(fullscreenModeOptions.at(fullscreenModeSetting), isSpecific);
-    EmulatorSettings.SetPresentMode(presentModeOptions.at(presentModeSetting), isSpecific);
-    EmulatorSettings.SetWindowHeight(windowHeightSetting, isSpecific);
-    EmulatorSettings.SetWindowWidth(windowWidthSetting, isSpecific);
-    EmulatorSettings.SetHdrAllowed(hdrAllowedSetting, isSpecific);
-    EmulatorSettings.SetFsrEnabled(fsrEnabledSetting, isSpecific);
-    EmulatorSettings.SetRcasEnabled(rcasEnabledSetting, isSpecific);
-    EmulatorSettings.SetRcasAttenuation(static_cast<int>(rcasAttenuationSetting * 1000),
-                                        isSpecific);
+    Config::setIsFullscreen(isFullscreen);
+    Config::setFullscreenMode(fullscreenModeOptions.at(fullscreenModeSetting));
+    Config::setPresentMode(presentModeOptions.at(presentModeSetting));
+    Config::setWindowHeight(windowHeightSetting);
+    Config::setWindowWidth(windowWidthSetting);
+    Config::setAllowHDR(hdrAllowedSetting);
+    Config::setFsrEnabled(fsrEnabledSetting);
+    Config::setRcasEnabled(rcasEnabledSetting);
+    Config::setRcasAttenuation(static_cast<int>(rcasAttenuationSetting * 1000));
 
     /////////// Input Tab
-    EmulatorSettings.SetMotionControlsEnabled(motionControlsSetting, isSpecific);
-    EmulatorSettings.SetBackgroundControllerInput(backgroundControllerSetting, isSpecific);
-    EmulatorSettings.SetCursorState(cursorStateSetting, isSpecific);
-    EmulatorSettings.SetCursorHideTimeout(cursorTimeoutSetting, isSpecific);
+    Config::setIsMotionControlsEnabled(motionControlsSetting);
+    Config::setBackgroundControllerInput(backgroundControllerSetting);
+    Config::setCursorState(cursorStateSetting);
+    Config::setCursorHideTimeout(cursorTimeoutSetting);
 
     /////////// Trophy Tab
-    EmulatorSettings.SetTrophyPopupDisabled(trophyPopupDisabledSetting, isSpecific);
-    EmulatorSettings.SetTrophyNotificationSide(trophySideOptions.at(trophySideSetting), isSpecific);
-    EmulatorSettings.SetTrophyNotificationDuration(static_cast<double>(trophyDurationSetting));
+    Config::setisTrophyPopupDisabled(trophyPopupDisabledSetting);
+    Config::setSideTrophy(trophySideOptions.at(trophySideSetting));
+    Config::setTrophyNotificationDuration(static_cast<double>(trophyDurationSetting));
 
     /////////// Log Tab
-    EmulatorSettings.SetLogEnabled(logEnabledSetting, isSpecific);
-    EmulatorSettings.SetLogType(logTypeOptions.at(logTypeSetting), isSpecific);
-    EmulatorSettings.SetSeparateLoggingEnabled(separateLogSetting, isSpecific);
+    Config::setLoggingEnabled(logEnabledSetting);
+    Config::setLogType(logTypeOptions.at(logTypeSetting));
+    Config::setSeparateLogFilesEnabled(separateLogSetting);
 
     /////////// Experimental Tab
-    if (isSpecific) {
-        EmulatorSettings.SetReadbacksMode(readbacksModeSetting, true);
-        EmulatorSettings.SetReadbackLinearImagesEnabled(readbackLinearImagesSetting, true);
-        EmulatorSettings.SetDirectMemoryAccessEnabled(directMemoryAccessSetting, true);
-        EmulatorSettings.SetDevKit(devkitConsoleSetting, true);
-        EmulatorSettings.SetNeo(neoModeSetting, true);
-        EmulatorSettings.SetShadNetEnabled(shadnetEnabledSetting, true);
-        EmulatorSettings.SetConnectedToNetwork(connectedNetworkSetting, true);
-        EmulatorSettings.SetPipelineCacheEnabled(pipelineCacheEnabledSetting, true);
-        EmulatorSettings.SetPipelineCacheArchived(pipelineCacheArchiveSetting, true);
-        EmulatorSettings.SetExtraDmemInMBytes(extraDmemSetting, true);
-        EmulatorSettings.SetVblankFrequency(vblankFrequencySetting, true);
-    }
+    Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbacksModeSetting));
+    Config::setReadbackLinearImages(readbackLinearImagesSetting);
+    Config::setDirectMemoryAccess(directMemoryAccessSetting);
+    Config::setDevKitMode(devkitConsoleSetting);
+    Config::setNeoMode(neoModeSetting);
+    Config::setShadNetEnable(psnSignedInSetting);
+    Config::setIsConnectedToNetwork(connectedNetworkSetting);
+    Config::setPipelineCacheEnabled(pipelineCacheEnabledSetting);
+    Config::setPipelineCacheArchived(pipelineCacheArchiveSetting);
+    Config::setExtraDmemInMbytes(extraDmemSetting);
+    Config::setVblankFreq(vblankFrequencySetting);
 
-    if (!isSpecific) {
-        EmulatorSettings.Save();
+    // Save to appropriate config file
+    if (isGameSpecific) {
+        // Save to game-specific config file (customConfigs/gameSerial.toml)
+        Config::save(profile, true);
     } else {
-        EmulatorSettings.Save(profile);
+        // Save to global config file (config.toml)
+        Config::save(std::filesystem::path{}, false);
     }
 }
 
 void LoadSettings(std::string profile) {
     const bool isSpecific = currentProfile != "Global";
     if (!isSpecific) {
-        EmulatorSettings.Load();
+        Config::load(std::filesystem::path{}, false);
     } else {
-        EmulatorSettings.Load(profile);
+        Config::load(profile, true);
     }
 
     /////////// General Tab
-    int languageIndex = EmulatorSettings.GetConsoleLanguage();
+    int languageIndex = Config::GetLanguage();
     std::string language;
     for (const auto& [key, value] : languageMap) {
         if (value == languageIndex) {
@@ -492,52 +589,48 @@ void LoadSettings(std::string profile) {
         }
     }
     consoleLanguageSetting = GetComboIndex(language, languageOptions);
-    volumeSetting = EmulatorSettings.GetVolumeSlider();
-    showSplashSetting = EmulatorSettings.IsShowSplash();
-    audioBackendSetting = EmulatorSettings.GetAudioBackend();
+    volumeSetting = Config::getVolumeSlider();
+    showSplashSetting = Config::showSplash();
+    audioBackendSetting = static_cast<int>(Config::getAudioBackend());
 
     /////////// Graphics Tab
-    fullscreenModeSetting =
-        GetComboIndex(EmulatorSettings.GetFullScreenMode(), fullscreenModeOptions);
-    presentModeSetting = GetComboIndex(EmulatorSettings.GetPresentMode(), presentModeOptions);
-    windowHeightSetting = EmulatorSettings.GetWindowHeight();
-    windowWidthSetting = EmulatorSettings.GetWindowWidth();
-    hdrAllowedSetting = EmulatorSettings.IsHdrAllowed();
-    fsrEnabledSetting = EmulatorSettings.IsFsrEnabled();
-    rcasEnabledSetting = EmulatorSettings.IsRcasEnabled();
-    rcasAttenuationSetting = static_cast<float>(EmulatorSettings.GetRcasAttenuation() * 0.001f);
+    fullscreenModeSetting = GetComboIndex(Config::getFullscreenMode(), fullscreenModeOptions);
+    presentModeSetting = GetComboIndex(Config::getPresentMode(), presentModeOptions);
+    windowHeightSetting = Config::getWindowHeight();
+    windowWidthSetting = Config::getWindowWidth();
+    hdrAllowedSetting = Config::allowHDR();
+    fsrEnabledSetting = Config::getFsrEnabled();
+    rcasEnabledSetting = Config::getRcasEnabled();
+    rcasAttenuationSetting = static_cast<float>(Config::getRcasAttenuation() * 0.001f);
 
     /////////// Input Tab
-    motionControlsSetting = EmulatorSettings.IsMotionControlsEnabled();
-    backgroundControllerSetting = EmulatorSettings.IsBackgroundControllerInput();
-    cursorStateSetting = EmulatorSettings.GetCursorState();
-    cursorTimeoutSetting = EmulatorSettings.GetCursorHideTimeout();
+    motionControlsSetting = Config::getIsMotionControlsEnabled();
+    backgroundControllerSetting = Config::getBackgroundControllerInput();
+    cursorStateSetting = Config::getCursorState();
+    cursorTimeoutSetting = Config::getCursorHideTimeout();
 
     /////////// Trophy Tab
-    trophyPopupDisabledSetting = EmulatorSettings.IsTrophyPopupDisabled();
-    trophySideSetting =
-        GetComboIndex(EmulatorSettings.GetTrophyNotificationSide(), trophySideOptions);
-    trophyDurationSetting = static_cast<float>(EmulatorSettings.GetTrophyNotificationDuration());
+    trophyPopupDisabledSetting = Config::getisTrophyPopupDisabled();
+    trophySideSetting = GetComboIndex(Config::sideTrophy(), trophySideOptions);
+    trophyDurationSetting = static_cast<float>(Config::getTrophyNotificationDuration());
 
     /////////// Log Tab
-    logEnabledSetting = EmulatorSettings.IsLogEnabled();
-    logTypeSetting = GetComboIndex(EmulatorSettings.GetLogType(), logTypeOptions);
-    separateLogSetting = EmulatorSettings.IsSeparateLoggingEnabled();
+    logEnabledSetting = Config::getLoggingEnabled();
+    logTypeSetting = GetComboIndex(Config::getLogType(), logTypeOptions);
+    separateLogSetting = Config::getSeparateLogFilesEnabled();
 
     /////////// Experimental Tab
-    if (isSpecific) {
-        readbacksModeSetting = EmulatorSettings.GetReadbacksMode();
-        readbackLinearImagesSetting = EmulatorSettings.IsReadbackLinearImagesEnabled();
-        directMemoryAccessSetting = EmulatorSettings.IsDirectMemoryAccessEnabled();
-        devkitConsoleSetting = EmulatorSettings.IsDevKit();
-        neoModeSetting = EmulatorSettings.IsNeo();
-        shadnetEnabledSetting = EmulatorSettings.IsShadNetEnabled();
-        connectedNetworkSetting = EmulatorSettings.IsConnectedToNetwork();
-        pipelineCacheEnabledSetting = EmulatorSettings.IsPipelineCacheEnabled();
-        pipelineCacheArchiveSetting = EmulatorSettings.IsPipelineCacheArchived();
-        extraDmemSetting = EmulatorSettings.GetExtraDmemInMBytes();
-        vblankFrequencySetting = EmulatorSettings.GetVblankFrequency();
-    }
+    readbacksModeSetting = static_cast<int>(Config::readbackSpeed());
+    readbackLinearImagesSetting = Config::getReadbackLinearImages();
+    directMemoryAccessSetting = Config::directMemoryAccess();
+    devkitConsoleSetting = Config::isDevKitConsole();
+    neoModeSetting = Config::isNeoModeConsole();
+    psnSignedInSetting = Config::IsShadNetEnabled();
+    connectedNetworkSetting = Config::getIsConnectedToNetwork();
+    pipelineCacheEnabledSetting = Config::isPipelineCacheEnabled();
+    pipelineCacheArchiveSetting = Config::isPipelineCacheArchived();
+    extraDmemSetting = Config::getExtraDmemInMbytes();
+    vblankFrequencySetting = Config::vblankFreq();
 }
 
 void AddCategory(std::string name, SDL_Texture* texture, SettingsCategory category) {
@@ -688,6 +781,27 @@ void SetProfileIcons(std::vector<Game>& games) {
             rowContentWidth = gameImageSize * uiScale + itemSpacing;
         }
     }
+}
+
+void SaveInstallDirs() {
+    std::string profile;
+    const bool isGlobal = currentProfile == "Global";
+    if (!isGlobal) {
+        profile = currentProfile.substr(0, 9);
+    }
+
+    if (!isGlobal) {
+        EmulatorSettings.Load();
+    }
+
+    EmulatorSettings.SetAllGameInstallDirs(m_GameInstallDirs);
+    EmulatorSettings.Save();
+
+    if (!isGlobal) {
+        EmulatorSettings.Load(profile);
+    }
+
+    GetGameInfo(settingsProfileVec, true, globalSettingsTexture);
 }
 
 } // namespace BigPictureMode

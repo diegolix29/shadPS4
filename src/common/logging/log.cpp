@@ -178,7 +178,7 @@ void Setup(std::string_view log_filename) {
     }
 
 #ifdef _WIN32
-    if (EmulatorSettings.GetLogType() == "wincolor") {
+    if (Config::GetLogType() == "wincolor") {
         g_console_sink = std::make_shared<spdlog::sinks::wincolor_stdout_sink_mt>();
     } else {
         g_console_sink = std::make_shared<spdlog::sinks::msvc_sink_mt>();
@@ -193,7 +193,7 @@ void Setup(std::string_view log_filename) {
     g_shad_file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
         (GetUserPath(Common::FS::PathType::LogDir) / log_filename).string(), !g_should_append);
     g_shad_file_sink->set_formatter(
-        std::make_unique<thread_name_formatter>(EmulatorSettings.GetLogSizeLimit()));
+        std::make_unique<thread_name_formatter>(Config::GetLogSizeLimit()));
 
     std::initializer_list<spdlog::sink_ptr> sinks{g_console_sink, g_shad_file_sink};
 
@@ -202,14 +202,14 @@ void Setup(std::string_view log_filename) {
 
     std::initializer_list<spdlog::sink_ptr> dup_filter{
         std::make_shared<spdlog::sinks::dup_filter_sink_mt>(
-            std::chrono::milliseconds(EmulatorSettings.GetLogMaxSkipDuration()),
-            EmulatorSettings.IsLogSync() ? sinks : async_sink)};
+            std::chrono::milliseconds(Config::GetLogMaxSkipDuration()),
+            Config::IsLogSync() ? sinks : async_sink)};
 
     spdlog::level default_log_level = spdlog::level::info;
     std::unordered_map<std::string, spdlog::level> log_level_per_class;
 
-    if (EmulatorSettings.IsLogEnable()) {
-        for (const auto class_level : std::views::split(EmulatorSettings.GetLogFilter(), ',')) {
+    if (Config::IsLogEnable()) {
+        for (const auto class_level : std::views::split(Config::GetLogFilter(), ',')) {
             const auto class_level_pair =
                 std::views::split(class_level, '=') | std::ranges::to<std::vector<std::string>>();
 
@@ -226,11 +226,11 @@ void Setup(std::string_view log_filename) {
 
     for (auto& [name, logger] : ALL_LOGGERS) {
         logger = std::make_shared<spdlog::logger>(
-            std::string(name), EmulatorSettings.IsLogSkipDuplicate()
+            std::string(name), Config::IsLogSkipDuplicate()
                                    ? dup_filter
-                                   : (EmulatorSettings.IsLogSync() ? sinks : async_sink));
+                                   : (Config::IsLogSync() ? sinks : async_sink));
 
-        if (EmulatorSettings.IsLogEnable()) {
+        if (Config::IsLogEnable()) {
             const auto level_it = log_level_per_class.find(std::string(name));
 
             logger->set_level(level_it != log_level_per_class.end() ? level_it->second

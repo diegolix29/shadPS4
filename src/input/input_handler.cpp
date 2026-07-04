@@ -363,8 +363,7 @@ std::optional<int> parseInt(const std::string& s) {
 };
 
 void ParseInputConfig(const std::string game_id = "") {
-    std::string game_id_or_default =
-        EmulatorSettings.IsUseUnifiedInputConfig() ? "default" : game_id;
+    std::string game_id_or_default = Config::GetUseUnifiedInputConfig() ? "default" : game_id;
     const auto config_file = GetInputConfigFile(game_id_or_default);
     const auto global_config_file = GetInputConfigFile("global");
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/logging/log.h"
+#include "common/config.h"
 #include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
@@ -207,7 +208,7 @@ s32 PS4_SYSV_ABI sceNpWebApi2SendMultipartRequest() {
 }
 
 s32 PS4_SYSV_ABI sceNpWebApi2SendRequest() {
-    if (!EmulatorSettings.IsShadNetEnabled()) {
+    if (!Config::IsShadNetEnabled()) {
         LOG_INFO(Lib_NpWebApi2, "called, returning shadNet signed out.");
         return ORBIS_NP_WEBAPI2_ERROR_NOT_SIGNED_IN;
     }

@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include "common/logging/log.h"
+#include "common/config.h"
 #include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
@@ -363,7 +364,7 @@ s32 PS4_SYSV_ABI sceNpAuthDeleteRequest(s32 req_id) {
 }
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym) {
-    g_shadnet_enabled = EmulatorSettings.IsShadNetEnabled();
+    g_shadnet_enabled = Config::IsShadNetEnabled();
 
     LIB_FUNCTION("6bwFkosYRQg", "libSceNpAuth", 1, "libSceNpAuth", sceNpAuthCreateRequest);
     LIB_FUNCTION("N+mr7GjTvr8", "libSceNpAuth", 1, "libSceNpAuth", sceNpAuthCreateAsyncRequest);

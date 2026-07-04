@@ -168,7 +168,7 @@ public:
 // General
 static ConfigEntry<bool> isNeo(false);
 static ConfigEntry<bool> isDevKit(false);
-static ConfigEntry<bool> isPSNSignedIn(false);
+static ConfigEntry<bool> isShadNetEnabled(false);
 static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
 static ConfigEntry<std::string> logFilter("");
@@ -1565,12 +1565,12 @@ void setDescriptionVisible(bool visible) {
     descriptionVisible = visible;
 }
 
-bool getPSNSignedIn() {
-    return isPSNSignedIn.get();
+bool IsShadNetEnabled() {
+    return isShadNetEnabled.get();
 }
 
-void setPSNSignedIn(bool sign) {
-    isPSNSignedIn.base_value = sign;
+void setShadNetEnable(bool sign) {
+    isShadNetEnabled.base_value = sign;
 }
 
 bool getShaderSkipsEnabled() {
@@ -1657,7 +1657,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         memoryCompressionLevel.setFromToml(general, "memoryCompressionLevel", is_game_specific);
         isNeo.setFromToml(general, "isPS4Pro", is_game_specific);
         isDevKit.setFromToml(general, "isDevKit", is_game_specific);
-        isPSNSignedIn.setFromToml(general, "isPSNSignedIn", is_game_specific);
+        isShadNetEnabled.setFromToml(general, "isShadNetEnabled", is_game_specific);
         playBGM = toml::find_or<bool>(general, "playBGM", false);
         isTrophyPopupDisabled.setFromToml(general, "isTrophyPopupDisabled", is_game_specific);
         trophyNotificationDuration.setFromToml(general, "trophyNotificationDuration",
@@ -2063,8 +2063,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
             useHostMemoryFallback.game_specific_value.value_or(useHostMemoryFallback.base_value);
         data["General"]["memoryCompressionLevel"] =
             memoryCompressionLevel.game_specific_value.value_or(memoryCompressionLevel.base_value);
-        data["General"]["isPSNSignedIn"] =
-            isPSNSignedIn.game_specific_value.value_or(isPSNSignedIn.base_value);
+        data["General"]["isShadNetEnabled"] =
+            isShadNetEnabled.game_specific_value.value_or(isShadNetEnabled.base_value);
         data["General"]["isTrophyPopupDisabled"] =
             isTrophyPopupDisabled.game_specific_value.value_or(isTrophyPopupDisabled.base_value);
         data["General"]["trophyNotificationDuration"] =
@@ -2106,7 +2106,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["General"]["extraDmemInMbytes"] = extraDmemInMbytes.base_value;
         data["General"]["useHostMemoryFallback"] = useHostMemoryFallback.base_value;
         data["General"]["memoryCompressionLevel"] = memoryCompressionLevel.base_value;
-        data["General"]["isPSNSignedIn"] = isPSNSignedIn.base_value;
+        data["General"]["isShadNetEnabled"] = isShadNetEnabled.base_value;
         data["General"]["isTrophyPopupDisabled"] = isTrophyPopupDisabled.base_value;
         data["General"]["trophyNotificationDuration"] = trophyNotificationDuration.base_value;
         data["General"]["logFilter"] = logFilter.base_value;
@@ -2479,7 +2479,7 @@ void setDefaultValues() {
     memoryCompressionLevel = 0;
     extraDmemInMbytes = 0;
 
-    isPSNSignedIn = false;
+    isShadNetEnabled = false;
     isTrophyPopupDisabled = false;
     trophyNotificationDuration = 6.0;
     enableDiscordRPC = false;
