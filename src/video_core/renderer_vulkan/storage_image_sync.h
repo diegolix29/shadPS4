@@ -25,7 +25,7 @@ class Scheduler;
 /// either another currently-resident VkImage aliasing the same guest address
 /// (same pull/push philosophy as RenderTargetSync), or genuine CPU consumption.
 /// Forcing a full CPU/GPU pipeline stall (Map + wait-for-GPU + write-back) after
-/// *every* storage-image dispatch — even when nothing aliases that address —
+/// *every* storage-image dispatch ï¿½ even when nothing aliases that address ï¿½
 /// serializes the CPU and GPU and was responsible for large performance
 /// regressions in compute-heavy titles. Sync() now cheaply checks the page
 /// table first and skips the expensive stall entirely when there is no

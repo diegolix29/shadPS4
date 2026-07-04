@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include "common/elf_info.h"
+#include "common/config.h"
 #include "common/logging/log.h"
 #include "core/emulator_settings.h"
 #include "core/libraries/np/np_error.h"
@@ -20,7 +21,7 @@ NpHandler& NpHandler::GetInstance() {
 }
 
 bool NpHandler::IsPsnSignedIn(s32 user_id) const {
-    if (EmulatorSettings.IsShadNetEnabled()) {
+    if (Config::IsShadNetEnabled()) {
         return true; // fake just return true if shadnet is enabled //TODO
     }
     return false;
