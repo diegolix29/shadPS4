@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+
 #include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "core/memory.h"
@@ -49,9 +51,6 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
     const bool disable_alias_check =
         serial == "CUSA01623" || serial == "CUSA01715" || serial == "CUSA01740";
 
-    // For almost every game, skip the expensive synchronization when there is
-    // no image alias at this address. The listed titles require the old
-    // behavior, so always perform the synchronization for them.
     if (!disable_alias_check && !HasAliasAtAddress(guest_addr, image_id)) {
         return;
     }
@@ -59,25 +58,27 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
     const u32 bpp = img.info.num_bits / 8u;
     const u32 row_length = img.info.pitch ? img.info.pitch : img.info.size.width;
     const u32 download_size = row_length * img.info.size.height * img.info.resources.layers * bpp;
+    const u32 write_back_size =
+        img.info.props.is_tiled ? std::max(download_size, img.info.guest_size) : download_size;
 
-    LOG_DEBUG(Render_Vulkan, "[StorageSync] guest={:#x} {}x{} layers={} bpp={} row_len={} size={}",
+    LOG_DEBUG(Render_Vulkan,
+              "[StorageSync] guest={:#x} {}x{} layers={} bpp={} row_len={} size={} "
+              "write_back_size={}",
               guest_addr, img.info.size.width, img.info.size.height, img.info.resources.layers, bpp,
-              row_length, download_size);
+              row_length, download_size, write_back_size);
 
     // Transit to transfer-src for the copy.
     img.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {});
 
     scheduler.EndRendering();
     auto cmdbuf = scheduler.CommandBuffer();
-
-    // Map staging buffer and record copy.
     auto& download_buf = buffer_cache.GetUtilityBuffer(VideoCore::MemoryUsage::Download);
-    const auto [data, offset] = download_buf.Map(download_size);
+    const auto [data, offset] = download_buf.Map(write_back_size);
     if (!data) {
         LOG_ERROR(Render_Vulkan,
                   "[StorageSync] StreamBuffer Map failed for {}B — download SKIPPED, "
                   "texture corruption likely",
-                  download_size);
+                  write_back_size);
         // img was already transitioned to TransferSrcOptimal above; restore it to a
         // sane layout so later passes don't trip a validation error or stall on a
         // mismatched layout.
@@ -118,7 +119,7 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
         const vk::BufferCopy tile_copy = {
             .srcOffset = tiled_offset,
             .dstOffset = offset,
-            .size = download_size,
+            .size = write_back_size,
         };
         scheduler.CommandBuffer().copyBuffer(tiled_buffer, download_buf.Handle(), tile_copy);
     }
@@ -131,9 +132,10 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
     // Mark consumers dirty before writing to guest (hash check needs old hash).
     texture_cache.InvalidateMemory(guest_addr, img.info.guest_size,
                                    /*exclude_image_id=*/image_id);
-    Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(guest_addr), data, download_size);
+    Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(guest_addr), data,
+                                              write_back_size);
     // Notify buffer cache that guest memory has new data so SynchronizeBuffer picks it up.
-    buffer_cache.MarkRegionAsCpuModified(guest_addr, download_size);
+    buffer_cache.MarkRegionAsCpuModified(guest_addr, write_back_size);
 }
 
 } // namespace Vulkan

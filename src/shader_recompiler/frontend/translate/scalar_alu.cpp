@@ -506,6 +506,8 @@ void Translator::S_MULK_I32(const GcnInst& inst) {
 void Translator::S_MOV_B32(const GcnInst& inst) {
     if (inst.dst[0].field == OperandField::ScalarGPR) {
         if (inst.src[0].field == OperandField::ExecLo) {
+            type->scalar[inst.dst[0].code] = RegType::ThreadBitLo;
+            type->scalar[inst.dst[0].code + 1] = RegType::ThreadBitHi;
             ir.SetThreadBitScalarReg(IR::ScalarReg(inst.dst[0].code), ir.GetExec());
             return;
         } else if (inst.src[0].field == OperandField::ExecHi) {

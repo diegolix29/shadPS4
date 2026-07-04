@@ -134,7 +134,11 @@ private:
     VideoCore::TextureCache texture_cache;
     StorageImageSync storage_sync_;
     RenderTargetSync rt_sync_;
-    VideoCore::ImageId pending_storage_image_id_{};
+    // All storage images bound by the last BindTextures call. A compute dispatch can bind more
+    // than one storage image (multiple UAVs); every one of them needs its post-dispatch sync,
+    // not just the last one seen while iterating bindings.
+    boost::container::static_vector<VideoCore::ImageId, Shader::NUM_IMAGES>
+        pending_storage_image_ids_;
     AmdGpu::Liverpool* liverpool;
     Core::MemoryManager* memory;
     boost::icl::interval_set<VAddr> mapped_ranges;

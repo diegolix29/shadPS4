@@ -1,6 +1,8 @@
 ﻿// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+
 #include "common/config.h"
 #include "common/debug.h"
 #include "common/elf_info.h"
@@ -360,8 +362,8 @@ void Rasterizer::DispatchDirect() {
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatch(cs_program.dim_x, cs_program.dim_y, cs_program.dim_z);
 
-    if (pending_storage_image_id_) {
-        storage_sync_.Sync(pending_storage_image_id_);
+    for (const auto& storage_image_id : pending_storage_image_ids_) {
+        storage_sync_.Sync(storage_image_id);
     }
     ResetBindings();
 }
@@ -396,8 +398,8 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_g
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->Handle());
     cmdbuf.dispatchIndirect(buffer->Handle(), base);
 
-    if (pending_storage_image_id_) {
-        storage_sync_.Sync(pending_storage_image_id_);
+    for (const auto& storage_image_id : pending_storage_image_ids_) {
+        storage_sync_.Sync(storage_image_id);
     }
     ResetBindings();
 }
@@ -445,7 +447,7 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
         return false;
     }
 
-    pending_storage_image_id_ = {};
+    pending_storage_image_ids_.clear();
 
     set_write_index = 0;
     set_writes.clear();
@@ -846,7 +848,10 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
             image.usage.texture |= !is_storage;
 
             if (is_storage) {
-                pending_storage_image_id_ = image_id;
+                if (std::find(pending_storage_image_ids_.begin(), pending_storage_image_ids_.end(),
+                              image_id) == pending_storage_image_ids_.end()) {
+                    pending_storage_image_ids_.push_back(image_id);
+                }
             }
 
             image_infos.emplace_back(VK_NULL_HANDLE, *image_view.image_view,
