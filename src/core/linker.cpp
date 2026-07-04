@@ -16,7 +16,7 @@
 #include "core/libraries/kernel/memory.h"
 #include "core/libraries/kernel/threads.h"
 #include "core/libraries/libc_internal/libc_internal.h"
-#include "core/libraries/sysmodule/sysmodule.h"
+#include "core/libraries/system/sysmodule.h"
 #include "core/linker.h"
 #include "core/memory.h"
 #include "core/tls.h"
@@ -70,8 +70,7 @@ void Linker::Execute(const std::vector<std::string>& args) {
     static_tls_size = module->tls.offset = module->tls.image_size;
 
     // Map libSceLibcInternal
-    const auto& libc_internal_path =
-        EmulatorSettings.GetSysModulesDir() / "libSceLibcInternal.sprx";
+    const auto& libc_internal_path = Config::getSysModulesPath() / "libSceLibcInternal.sprx";
     bool has_libcinternal = false;
     if (std::filesystem::exists(libc_internal_path)) {
         LoadModule(libc_internal_path);
@@ -170,7 +169,7 @@ void Linker::Execute(const std::vector<std::string>& args) {
         // Load and start custom modules from the user directory.
         std::string_view id = Common::ElfInfo::Instance().GameSerial();
         const auto& custom_mod_directory =
-            Common::FS::GetUserPath(Common::FS::PathType::CustomModulesDir) / id;
+            Common::FS::GetUserPath(Common::FS::PathType::SysModuleDir) / id;
         if (!std::filesystem::exists(custom_mod_directory)) {
             std::filesystem::create_directory(custom_mod_directory);
         }

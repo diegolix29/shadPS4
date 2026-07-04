@@ -124,9 +124,16 @@ public:
         }
     }
 
-    void LoadSharedLibraries() {
+    void RelocateAllImports() {
+        std::scoped_lock lk{mutex};
         for (auto& module : m_modules) {
-            if (module->IsSharedLib()) {
+            Relocate(module.get());
+        }
+    }
+
+    void LoadLibcInternal() {
+        for (auto& module : m_modules) {
+            if (module->name.contains("libSceLibcInternal")) {
                 module->Start(0, nullptr, nullptr);
             }
         }
