@@ -882,7 +882,7 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_sys/fs.h
          src/core/ipc/ipc.cpp
          src/core/ipc/ipc.h
-                  src/core/ipc/ipc_client.h
+         src/core/ipc/ipc_client.h
          src/core/ipc/ipc_client.cpp
          src/core/loader/dwarf.cpp
          src/core/loader/dwarf.h
@@ -1181,6 +1181,10 @@ set(IMGUI src/imgui/imgui_config.h
           src/imgui/renderer/texture_manager.h
           src/imgui/big_picture.cpp
           src/imgui/big_picture.h
+          src/imgui/friends_layer.cpp
+          src/imgui/friends_layer.h
+          src/imgui/shadnet_notifications_layer.cpp
+          src/imgui/shadnet_notifications_layer.h
           src/imgui/settings_dialog_imgui.cpp
           src/imgui/settings_dialog_imgui.h
 )
@@ -1199,6 +1203,28 @@ set(EMULATOR src/emulator.cpp
              src/core/emulator_settings.h
              src/sdl_window.h
              src/sdl_window.cpp
+)
+
+# shadNet protobuf generation
+set(SHADNET_PROTO_OUT "${CMAKE_CURRENT_BINARY_DIR}/shadnet_proto_gen")
+file(MAKE_DIRECTORY "${SHADNET_PROTO_OUT}")
+add_custom_command(
+    OUTPUT
+        "${SHADNET_PROTO_OUT}/shadnet.pb.cc"
+        "${SHADNET_PROTO_OUT}/shadnet.pb.h"
+    COMMAND protobuf::protoc
+        "--proto_path=${CMAKE_CURRENT_SOURCE_DIR}/src/shadnet"
+        "--cpp_out=${SHADNET_PROTO_OUT}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/shadnet/shadnet.proto"
+    DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/shadnet/shadnet.proto"
+    COMMENT "Generating shadnet protobuf sources"
+    VERBATIM
+)
+
+set(SHADNET src/shadnet/client.cpp
+            src/shadnet/client.h
+            "${SHADNET_PROTO_OUT}/shadnet.pb.cc"
 )
 
 if (APPLE)
@@ -1320,6 +1346,7 @@ else()
         ${SHADER_RECOMPILER}
         ${VIDEO_CORE}
         ${EMULATOR}
+            ${SHADNET}
         src/main.cpp
         src/emulator.cpp
         src/emulator.h
@@ -1338,6 +1365,8 @@ target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
 
 target_link_libraries(shadps4 PRIVATE Freetype::Freetype)
+target_link_libraries(shadps4 PRIVATE libprotobuf)
+target_include_directories(shadps4 PRIVATE "${SHADNET_PROTO_OUT}")
 
 if (ENABLE_DISCORD_RPC)
     target_compile_definitions(shadps4 PRIVATE ENABLE_DISCORD_RPC)

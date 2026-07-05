@@ -93,6 +93,15 @@ std::array<std::string, 4> const getUserNames();
 std::string getUpdateChannel();
 std::string getChooseHomeTab();
 void setSeparateUpdateEnabled(bool use);
+// Add these to the Config namespace in config.h
+std::string getShadnetServer();
+void setShadnetServer(const std::string& server);
+std::string getShadnetWebApiServer();
+void setShadnetWebApiServer(const std::string& server);
+std::string getSignalingInfo();
+void setSignalingInfo(const std::string& info);
+bool getEnableUpnp();
+void setEnableUpnp(bool enable);
 
 u16 leftDeadZone();
 u16 rightDeadZone();

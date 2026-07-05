@@ -132,6 +132,8 @@ enum class Class : u8 {
     Input,                   ///< Input emulation
     Tty,                     ///< Debug output from emu
     IPC,
+    NpHandler,               ///< NpHandler shadNet manager
+    ShadNet,                 ///< shadNet binary protocol client
     Count ///< Total number of logging classes
 };
 

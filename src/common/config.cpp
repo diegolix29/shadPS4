@@ -168,6 +168,10 @@ public:
 // General
 static ConfigEntry<bool> isNeo(false);
 static ConfigEntry<bool> isDevKit(false);
+static ConfigEntry<std::string> shadnet_server{"srv.shadps4.net:31313"};
+static ConfigEntry<std::string> shadnet_webapi_server{"http://srv.shadps4.net:31315"};
+static ConfigEntry<std::string> signaling_info{};
+static ConfigEntry<bool> enable_upnp{true};
 static ConfigEntry<bool> isShadNetEnabled(false);
 static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
@@ -351,6 +355,39 @@ static bool launcher_boot = false;
 std::unordered_map<std::string, bool> toolbar_visibility_settings;
 static std::filesystem::path fonts_path = {};
 static ConfigEntry<bool> isIdenticalLogGrouped(true);
+
+// Add these implementations to config.cpp
+std::string getShadnetServer() {
+    return shadnet_server.get();
+}
+
+void setShadnetServer(const std::string& server) {
+    shadnet_server.base_value = server;
+}
+
+std::string getShadnetWebApiServer() {
+    return shadnet_webapi_server.get();
+}
+
+void setShadnetWebApiServer(const std::string& server) {
+    shadnet_webapi_server.base_value = server;
+}
+
+std::string getSignalingInfo() {
+    return signaling_info.get();
+}
+
+void setSignalingInfo(const std::string& info) {
+    signaling_info.base_value = info;
+}
+
+bool getEnableUpnp() {
+    return enable_upnp.get();
+}
+
+void setEnableUpnp(bool enable) {
+    enable_upnp.base_value = enable;
+}
 
 bool getToolbarWidgetVisibility(const std::string& name, bool default_value) {
     if (toolbar_visibility_settings.count(name)) {

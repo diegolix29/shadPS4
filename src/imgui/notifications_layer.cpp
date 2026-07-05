@@ -16,10 +16,10 @@ std::queue<NotificationInfo> notif_queue;
 std::mutex queueMtx;
 
 const std::map<shadNotifications::stockIcons, std::string> iconMap = {
-    {shadNotifications::stockIcons::shadPS4, "src/images/shadps4.png"},
-    {shadNotifications::stockIcons::Settings, "src/images/big_picture/settings.png"},
-    {shadNotifications::stockIcons::Profiles, "src/images/big_picture/profiles.png"},
-    {shadNotifications::stockIcons::Input, "src/images/big_picture/controller.png"},
+    {shadNotifications::stockIcons::shadPS4, "src/resources/shadps4.png"},
+    {shadNotifications::stockIcons::Settings, "src/resources/big_picture/settings.png"},
+    {shadNotifications::stockIcons::Profiles, "src/resources/big_picture/profiles.png"},
+    {shadNotifications::stockIcons::Input, "src/resources/big_picture/controller.png"},
 };
 
 NotificationsUI::NotificationsUI(NotificationInfo info) {
@@ -43,12 +43,11 @@ void NotificationsUI::Draw() {
     float AdjustHeight = io.DisplaySize.y / 1080;
     ImVec2 padding = ImGui::GetStyle().WindowPadding;
 
-    float wrapWidth = 0.0f; // No wrapping for straight line layout
+    float wrapWidth = 300 * AdjustWidth - padding.x * 2; // 350 window size - 50 image size
     float textHeight =
         ImGui::CalcTextSize(currentInfo.message.c_str(), nullptr, false, wrapWidth).y;
-    ImVec2 window_size{
-        std::max({350 * AdjustWidth, (textHeight + 70 * AdjustWidth + padding.x * 2.0f)}),
-        std::max({70 * AdjustHeight, (textHeight + padding.y * 2.0f)})};
+    ImVec2 window_size{(350 * AdjustWidth),
+                       std::max({70 * AdjustHeight, (textHeight + padding.y * 2.0f)})};
 
     elapsed_time += io.DeltaTime;
     float progress = std::min(elapsed_time / animation_duration, 1.0f);
@@ -109,7 +108,7 @@ void NotificationsUI::Draw() {
                          ImVec2((50 * AdjustWidth), (50 * AdjustHeight)));
         }
         ImGui::SameLine();
-        ImGui::Text("%s", currentInfo.message.c_str());
+        ImGui::TextWrapped("%s", currentInfo.message.c_str());
     }
 
     ImGui::PopStyleVar();
