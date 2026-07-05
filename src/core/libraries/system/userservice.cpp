@@ -1084,7 +1084,12 @@ s32 PS4_SYSV_ABI sceUserServiceGetUserColor(int user_id, OrbisUserServiceUserCol
         LOG_ERROR(Lib_UserService, "color is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    *color = (OrbisUserServiceUserColor)UserManagement.GetUserByID(user_id)->user_color;
+    auto const* u = UserManagement.GetUserByID(user_id);
+    if (u == nullptr) {
+        LOG_ERROR(Lib_UserService, "User not found");
+        return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
+    }
+    *color = (OrbisUserServiceUserColor)u->user_color;
     return ORBIS_OK;
 }
 

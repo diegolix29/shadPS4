@@ -34,6 +34,7 @@ enum class PathType {
     CustomAudios,   // Where custom audios are stored.
     FontsDir,       // Where dumped system fonts are stored.
     HomeDir,        // Where home directory is stored.
+    TrophyDir,      // Where general trophy metadata is stored.
 };
 
 enum class PathInitState { Uninitialized, Portable, Global };

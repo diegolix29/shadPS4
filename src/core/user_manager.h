@@ -14,21 +14,30 @@ struct User {
     u32 user_color;
     int player_index = 0; // 1-4
     bool logged_in = false;
+
     // ShadNet settings
     std::string shadnet_npid = "";     // account identifier
     std::string shadnet_password = ""; // account password
     std::string shadnet_token = "";    // 2FA/validation token (future use)
     std::string shadnet_email = "";    // email address (furute use)
     bool shadnet_enabled = false;      // enable shadnet for user
+
+    // NP / PSN variables needed by np_manager
+    std::string np_country = "us";
+    std::string np_language = "en";
+    int np_age = 99;
+    std::string np_date_of_birth = "1990-01-01";
 };
 
 struct Users {
     std::vector<User> user{};
     std::string commit_hash{};
 };
+
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(User, user_id, user_color, user_name, player_index,
                                                 shadnet_npid, shadnet_password, shadnet_token,
-                                                shadnet_email, shadnet_enabled)
+                                                shadnet_email, shadnet_enabled, np_country,
+                                                np_language, np_age, np_date_of_birth)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Users, user, commit_hash)
 
 using LoggedInUsers = std::array<User*, 4>;
@@ -43,6 +52,9 @@ public:
     User* GetUserByID(s32 user_id);
     User* GetUserByPlayerIndex(s32 index);
     const std::vector<User>& GetAllUsers() const;
+
+    void SyncWithConfig();
+
     Users CreateDefaultUsers();
     bool SetDefaultUser(u32 user_id);
     User GetDefaultUser();

@@ -11,6 +11,8 @@
 #include "user_manager.h"
 #include "user_settings.h"
 
+using namespace Libraries::UserService;
+
 bool UserManager::AddUser(const User& user) {
     for (const auto& u : m_users.user) {
         if (u.user_id == user.user_id)
@@ -60,10 +62,18 @@ bool UserManager::RenameUser(s32 user_id, const std::string& new_name) {
                 return true; // no change
 
             user.user_name = new_name;
+
+            // Sync backwards to Config
+            // user_ids start at 1000 for slots 0-3 based on CreateDefaultUsers
+            if (user_id >= 1000 && user_id < 1004) {
+                int config_index = user_id - 1000;
+                Config::setUserName(config_index, new_name);
+            }
+
+            Save();
             return true;
         }
     }
-    Save();
     return false;
 }
 
@@ -87,12 +97,50 @@ const std::vector<User>& UserManager::GetAllUsers() const {
     return m_users.user;
 }
 
+void UserManager::SyncWithConfig() {
+    auto user_names = Config::getUserNames();
+    auto shadnet_npids = Config::getShadNetNpids();
+    auto shadnet_passwords = Config::getShadNetPasswords();
+    auto shadnet_enabled_states = Config::getShadNetEnabledStates();
+
+    for (int i = 0; i < 4; ++i) {
+        s32 expected_user_id = 1000 + i;
+        User* user = GetUserByID(expected_user_id);
+
+        if (user) {
+            // Update existing user with active config states
+            user->user_name = user_names[i];
+            user->shadnet_npid = shadnet_npids[i];
+            user->shadnet_password = shadnet_passwords[i];
+            user->shadnet_enabled = shadnet_enabled_states[i];
+        } else {
+            // Re-create user if they are missing but config name exists
+            if (!user_names[i].empty()) {
+                User new_user{
+                    .user_id = expected_user_id,
+                    .user_name = user_names[i],
+                    .user_color = static_cast<u32>(i + 1),
+                    .player_index = i + 1,
+                    .shadnet_npid = shadnet_npids[i],
+                    .shadnet_password = shadnet_passwords[i],
+                    .shadnet_token = "",
+                    .shadnet_email = "",
+                    .shadnet_enabled = shadnet_enabled_states[i],
+                };
+                AddUser(new_user);
+            }
+        }
+    }
+    Save();
+}
+
 Users UserManager::CreateDefaultUsers() {
     Users default_users;
     auto user_names = Config::getUserNames();
     auto shadnet_npids = Config::getShadNetNpids();
     auto shadnet_passwords = Config::getShadNetPasswords();
     auto shadnet_enabled_states = Config::getShadNetEnabledStates();
+
     default_users.user = {
         {
             .user_id = 1000,
@@ -186,6 +234,7 @@ void UserManager::SetControllerPort(u32 user_id, int port) {
     }
     Save();
 }
+
 // Returns a list of users that have valid home directories
 std::vector<User> UserManager::GetValidUsers() const {
     std::vector<User> result;
@@ -207,10 +256,13 @@ LoggedInUsers UserManager::GetLoggedInUsers() const {
     return logged_in_users;
 }
 
-using namespace Libraries::UserService;
-
 void UserManager::LoginUser(User* u, s32 player_index) {
     if (!u) {
+        return;
+    }
+
+    if (player_index < 1 || player_index > 4) {
+        LOG_ERROR(Lib_UserService, "Invalid player_index: {}", player_index);
         return;
     }
 
@@ -237,7 +289,9 @@ void UserManager::LogoutUser(User* u) {
     }
     u->logged_in = false;
     AddUserServiceEvent({OrbisUserServiceEventType::Logout, u->user_id});
-    logged_in_users[u->player_index - 1] = {};
+    if (u->player_index >= 1 && u->player_index <= 4) {
+        logged_in_users[u->player_index - 1] = {};
+    }
 }
 
 bool UserManager::Save() const {

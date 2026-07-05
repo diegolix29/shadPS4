@@ -4,8 +4,8 @@
 #include <chrono>
 #include <cstring>
 
-#include "common/config.h"
 #include "common/logging/log.h"
+#include "common/config.h"
 #include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
@@ -16,7 +16,6 @@
 #include "core/libraries/np/np_matching2/np_matching2_internal.h"
 #include "core/libraries/np/np_matching2/np_matching2_mm.h"
 #include "core/libraries/np/np_matching2/np_matching2_signaling.h"
-#include "core/libraries/np/np_matching2/np_matching2_types.h"
 #include "core/libraries/np/np_types.h"
 #include "core/libraries/system/userservice.h"
 
@@ -56,7 +55,7 @@ int PS4_SYSV_ABI sceNpMatching2CreateContextA(const OrbisNpMatching2CreateContex
     const Libraries::Np::OrbisNpId np_id =
         Libraries::Np::NpHandler::GetInstance().GetNpId(param->userId);
 
-    return ContextManager::Instance().CreateContext(&np_id, param->serviceLabel, ctxId);
+    return ContextManager::Instance().CreateContext(&np_id, param->serviceLabel, ctxId, true);
 }
 
 int PS4_SYSV_ABI sceNpMatching2CreateJoinRoom(OrbisNpMatching2ContextId ctxId,
@@ -417,7 +416,7 @@ int PS4_SYSV_ABI sceNpMatching2SearchRoom(OrbisNpMatching2ContextId ctxId,
     StoreRequestCallback(ctx, requestOpt);
     const OrbisNpMatching2RequestId reqId = AllocRequestId();
     *requestId = reqId;
-    MmSearchRoom(ctxId, reqId, *request);
+    MmSearchRoom(ctxId, reqId, *request, ctx->a_variant);
     return ORBIS_OK;
 }
 
@@ -691,8 +690,30 @@ int PS4_SYSV_ABI sceNpMatching2GetLobbyMemberDataInternalList() {
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceNpMatching2GetRoomDataExternalList() {
-    LOG_INFO(Lib_NpMatching2, "called");
+int PS4_SYSV_ABI sceNpMatching2GetRoomDataExternalList(
+    OrbisNpMatching2ContextId ctxId, OrbisNpMatching2GetRoomDataExternalListRequest* request,
+    OrbisNpMatching2RequestOptParam* requestOpt, OrbisNpMatching2RequestId* requestId) {
+    LOG_INFO(Lib_NpMatching2, "called, ctxId = {}, requestOpt = {}", ctxId, fmt::ptr(requestOpt));
+
+    if (!IsInitialized()) {
+        LOG_ERROR(Lib_NpMatching2, "not initialized");
+        return ORBIS_NP_MATCHING2_ERROR_NOT_INITIALIZED;
+    }
+    if (!request || !requestId) {
+        LOG_ERROR(Lib_NpMatching2, "request or requestId null");
+        return ORBIS_NP_MATCHING2_ERROR_INVALID_ARGUMENT;
+    }
+
+    ContextObject* ctx = ContextManager::Instance().Get(ctxId);
+    if (!ctx) {
+        LOG_ERROR(Lib_NpMatching2, "invalid context id");
+        return ORBIS_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID;
+    }
+
+    StoreRequestCallback(ctx, requestOpt);
+    const OrbisNpMatching2RequestId reqId = AllocRequestId();
+    *requestId = reqId;
+    MmGetRoomDataExternalList(ctxId, reqId, *request, ctx->a_variant);
     return ORBIS_OK;
 }
 
