@@ -100,8 +100,6 @@ std::string getShadnetWebApiServer();
 void setShadnetWebApiServer(const std::string& server);
 std::string getSignalingInfo();
 void setSignalingInfo(const std::string& info);
-bool getEnableUpnp();
-void setEnableUpnp(bool enable);
 
 u16 leftDeadZone();
 u16 rightDeadZone();
@@ -362,7 +360,13 @@ u32 getMainWindowHeight();
 std::vector<std::string> getElfViewer();
 std::vector<std::string> getRecentFiles();
 std::string getEmulatorLanguage();
+std::string getSignalingAddr();
+void setSignalingAddr(const std::string& addr);
+u16 getSignalingPort();
+void setSignalingPort(u16 port);
 
+bool IsUPnPEnabled();
+void SetUPnPEnabled(bool enable);
 int getVolumeSlider();
 void setVolumeSlider(int volumeValue, bool is_game_specific);
 bool isMuteEnabled();

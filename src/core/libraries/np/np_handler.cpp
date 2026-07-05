@@ -179,7 +179,7 @@ bool NpHandler::ConnectUser(s32 user_id, const std::string& host, u16 port, cons
     // Seed the current Appear-Offline preference so the login packet carries it (the send
     // is suppressed pre-auth; it just caches on the client).
     client->SetAppearOffline(m_appear_offline.load());
-    if (EmulatorSettings.IsUPnPEnabled()) {
+    if (Config::IsUPnPEnabled()) {
         Net::UPnPClient::Instance().Start();
     }
     client->Start(host, port, npid, password, token);

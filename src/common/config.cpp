@@ -355,8 +355,32 @@ static bool launcher_boot = false;
 std::unordered_map<std::string, bool> toolbar_visibility_settings;
 static std::filesystem::path fonts_path = {};
 static ConfigEntry<bool> isIdenticalLogGrouped(true);
+static ConfigEntry<std::string> signaling_addr{""};
+static ConfigEntry<u16> signaling_port{};
 
-// Add these implementations to config.cpp
+std::string getSignalingAddr() {
+    return signaling_addr.get();
+}
+
+void setSignalingAddr(const std::string& addr) {
+    signaling_addr.base_value = addr;
+}
+
+u16 getSignalingPort() {
+    return signaling_port.get();
+}
+
+void setSignalingPort(u16 port) {
+    signaling_port.base_value = port;
+}
+
+bool IsUPnPEnabled() {
+    return enable_upnp.get();
+}
+
+void SetUPnPEnabled(bool enable) {
+    enable_upnp.base_value = enable;
+}
 std::string getShadnetServer() {
     return shadnet_server.get();
 }
@@ -379,14 +403,6 @@ std::string getSignalingInfo() {
 
 void setSignalingInfo(const std::string& info) {
     signaling_info.base_value = info;
-}
-
-bool getEnableUpnp() {
-    return enable_upnp.get();
-}
-
-void setEnableUpnp(bool enable) {
-    enable_upnp.base_value = enable;
 }
 
 bool getToolbarWidgetVisibility(const std::string& name, bool default_value) {
