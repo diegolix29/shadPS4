@@ -3,18 +3,18 @@
 
 #include <queue>
 
-#include "common/config.h"
-#include "common/logging/log.h"
 #include <core/user_settings.h>
 #include <queue>
+#include "common/config.h"
+#include "common/logging/log.h"
 #include "common/singleton.h"
 #include "core/libraries/libs.h"
-#include "core/user_manager.h"
+#include "core/libraries/np/np_handler.h"
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/system/userservice_error.h"
 #include "core/tls.h"
+#include "core/user_manager.h"
 #include "input/controller.h"
-#include "core/libraries/np/np_handler.h"
 
 namespace Libraries::UserService {
 static bool g_shadnet_enabled = false;
@@ -512,8 +512,14 @@ s32 PS4_SYSV_ABI sceUserServiceGetInitialUser(int* user_id) {
         LOG_ERROR(Lib_UserService, "user_id is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    // select first user (TODO add more)
-    *user_id = 1;
+    // Get default user from UserManager, fall back to user_id 1 if not available
+    auto default_user = UserManagement.GetDefaultUser();
+    if (default_user.user_id == -1) {
+        LOG_WARNING(Lib_UserService, "No valid default user found, falling back to user_id 1");
+        *user_id = 1;
+    } else {
+        *user_id = default_user.user_id;
+    }
     return ORBIS_OK;
 }
 

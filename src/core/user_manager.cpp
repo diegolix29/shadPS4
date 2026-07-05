@@ -5,6 +5,7 @@
 #include <iostream>
 #include <common/assert.h>
 #include <common/path_util.h>
+#include "common/config.h"
 #include "emulator_settings.h"
 #include "libraries/system/userservice.h"
 #include "user_manager.h"
@@ -88,50 +89,54 @@ const std::vector<User>& UserManager::GetAllUsers() const {
 
 Users UserManager::CreateDefaultUsers() {
     Users default_users;
+    auto user_names = Config::getUserNames();
+    auto shadnet_npids = Config::getShadNetNpids();
+    auto shadnet_passwords = Config::getShadNetPasswords();
+    auto shadnet_enabled_states = Config::getShadNetEnabledStates();
     default_users.user = {
         {
             .user_id = 1000,
-            .user_name = "shadPS4",
+            .user_name = user_names[0],
             .user_color = 1,
             .player_index = 1,
-            .shadnet_npid = "",
-            .shadnet_password = "",
+            .shadnet_npid = shadnet_npids[0],
+            .shadnet_password = shadnet_passwords[0],
             .shadnet_token = "",
             .shadnet_email = "",
-            .shadnet_enabled = false,
+            .shadnet_enabled = shadnet_enabled_states[0],
         },
         {
             .user_id = 1001,
-            .user_name = "shadPS4-2",
+            .user_name = user_names[1],
             .user_color = 2,
             .player_index = 2,
-            .shadnet_npid = "",
-            .shadnet_password = "",
+            .shadnet_npid = shadnet_npids[1],
+            .shadnet_password = shadnet_passwords[1],
             .shadnet_token = "",
             .shadnet_email = "",
-            .shadnet_enabled = false,
+            .shadnet_enabled = shadnet_enabled_states[1],
         },
         {
             .user_id = 1002,
-            .user_name = "shadPS4-3",
+            .user_name = user_names[2],
             .user_color = 3,
             .player_index = 3,
-            .shadnet_npid = "",
-            .shadnet_password = "",
+            .shadnet_npid = shadnet_npids[2],
+            .shadnet_password = shadnet_passwords[2],
             .shadnet_token = "",
             .shadnet_email = "",
-            .shadnet_enabled = false,
+            .shadnet_enabled = shadnet_enabled_states[2],
         },
         {
             .user_id = 1003,
-            .user_name = "shadPS4-4",
+            .user_name = user_names[3],
             .user_color = 4,
             .player_index = 4,
-            .shadnet_npid = "",
-            .shadnet_password = "",
+            .shadnet_npid = shadnet_npids[3],
+            .shadnet_password = shadnet_passwords[3],
             .shadnet_token = "",
             .shadnet_email = "",
-            .shadnet_enabled = false,
+            .shadnet_enabled = shadnet_enabled_states[3],
         },
     };
 
@@ -160,7 +165,16 @@ bool UserManager::SetDefaultUser(u32 user_id) {
 }
 
 User UserManager::GetDefaultUser() {
-    return *GetUserByPlayerIndex(1);
+    User* user = GetUserByPlayerIndex(1);
+    if (user != nullptr) {
+        return *user;
+    }
+    // Fallback to first user if no user has player_index = 1
+    if (!m_users.user.empty()) {
+        return m_users.user[0];
+    }
+    // Return invalid user as last resort
+    return User{};
 }
 
 void UserManager::SetControllerPort(u32 user_id, int port) {
