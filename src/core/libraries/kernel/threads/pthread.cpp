@@ -12,6 +12,15 @@
 #include "core/libraries/libs.h"
 #include "core/memory.h"
 
+#if defined(ARCH_X86_64) || defined(__arm64__) || defined(__aarch64__)
+extern "C" void* PS4_SYSV_ABI _runOnAnotherStack(void* arg, void* func,
+                                                 void* stackb) asm("_runOnAnotherStack");
+#else
+void* PS4_SYSV_ABI _runOnAnotherStack(void* arg, void* func, void* stackb) {
+    UNREACHABLE_MSG("_runOnAnotherStack not implemented on target architecture.");
+}
+#endif
+
 namespace Libraries::Kernel {
 
 extern PthreadAttr PthreadAttrDefault;

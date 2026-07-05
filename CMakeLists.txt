@@ -396,6 +396,11 @@ set(KERNEL_LIB src/core/libraries/kernel/sync/mutex.cpp
                src/core/libraries/kernel/aio.h
 )
 
+if (ARCHITECTURE STREQUAL "x86_64" OR ARCHITECTURE STREQUAL "arm64")
+    list(APPEND KERNEL_LIB src/core/libraries/kernel/threads/stack.S)
+    set_source_files_properties(src/core/libraries/kernel/threads/stack.S PROPERTIES COMPILE_OPTIONS -Wno-unused-command-line-argument)
+endif()
+
 set(NETWORK_LIBS src/core/libraries/network/http.cpp
                  src/core/libraries/network/http.h
                  src/core/libraries/network/http_error.h
