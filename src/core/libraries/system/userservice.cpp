@@ -1,26 +1,24 @@
-// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <queue>
 
+#include "common/config.h"
 #include "common/logging/log.h"
-
 #include <core/user_settings.h>
 #include <queue>
 #include "common/singleton.h"
-#include "common/config.h"
-#include "core/emulator_settings.h"
 #include "core/libraries/libs.h"
-#include "core/libraries/np/np_handler.h"
-#include "core/libraries/np/np_manager.h"
+#include "core/user_manager.h"
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/system/userservice_error.h"
 #include "core/tls.h"
 #include "input/controller.h"
+#include "core/libraries/np/np_handler.h"
 
 namespace Libraries::UserService {
-
 static bool g_shadnet_enabled = false;
+std::queue<OrbisUserServiceEvent> user_service_event_queue = {};
 
 int PS4_SYSV_ABI sceUserServiceInitializeForShellCore() {
     LOG_ERROR(Lib_UserService, "(STUBBED) called");
@@ -117,22 +115,19 @@ int PS4_SYSV_ABI sceUserServiceGetDiscPlayerFlag() {
     return ORBIS_OK;
 }
 
-std::queue<OrbisUserServiceEvent> user_service_event_queue = {};
-
 void AddUserServiceEvent(const OrbisUserServiceEvent e) {
     LOG_DEBUG(Lib_UserService, "Event added to queue: {} {}", (u8)e.event, e.userId);
     user_service_event_queue.push(e);
 }
 
 s32 PS4_SYSV_ABI sceUserServiceGetEvent(OrbisUserServiceEvent* event) {
-    LOG_TRACE(Lib_UserService, "called");
+    LOG_TRACE(Lib_UserService, "(DUMMY) called");
 
     if (!user_service_event_queue.empty()) {
         OrbisUserServiceEvent& temp = user_service_event_queue.front();
         event->event = temp.event;
         event->userId = temp.userId;
         user_service_event_queue.pop();
-        Libraries::Np::NpManager::NotifyNpStateFromUserServiceEvent(temp.event, temp.userId);
         LOG_INFO(Lib_UserService, "Event processed by the game: {} {}", (u8)temp.event,
                  temp.userId);
         return ORBIS_OK;
@@ -517,7 +512,8 @@ s32 PS4_SYSV_ABI sceUserServiceGetInitialUser(int* user_id) {
         LOG_ERROR(Lib_UserService, "user_id is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    *user_id = UserManagement.GetDefaultUser().user_id;
+    // select first user (TODO add more)
+    *user_id = 1;
     return ORBIS_OK;
 }
 
@@ -587,29 +583,26 @@ int PS4_SYSV_ABI sceUserServiceGetLoginFlag() {
 }
 
 s32 PS4_SYSV_ABI sceUserServiceGetLoginUserIdList(OrbisUserServiceLoginUserIdList* userIdList) {
+    // LOG_DEBUG(Lib_UserService, "called");
     if (userIdList == nullptr) {
-        LOG_ERROR(Lib_UserService, "userIdList is null");
+        LOG_ERROR(Lib_UserService, "user_id is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-
-    // Initialize all slots to invalid (-1)
-    for (int i = 0; i < ORBIS_USER_SERVICE_MAX_LOGIN_USERS; i++) {
-        userIdList->user_id[i] = ORBIS_USER_SERVICE_USER_ID_INVALID;
+    // TODO only first user, do the others as well
+    auto controllers = *Common::Singleton<Input::GameControllers>::Instance();
+    auto playerEnabledStates = Config::getPlayerEnabledStates();
+    int li = 0;
+    for (int ci = 0; ci < 4; ci++) {
+        if (controllers[ci]->user_id != -1 && playerEnabledStates[ci]) {
+            userIdList->user_id[li++] = controllers[ci]->user_id;
+        }
     }
-
-    auto& user_manager = UserManagement;
-
-    auto logged_in_users = user_manager.GetLoggedInUsers();
-
-    for (int i = 0; i < ORBIS_USER_SERVICE_MAX_LOGIN_USERS; i++) {
-        s32 id =
-            logged_in_users[i] ? logged_in_users[i]->user_id : ORBIS_USER_SERVICE_USER_ID_INVALID;
-        userIdList->user_id[i] = id;
-        LOG_DEBUG(Lib_UserService, "Slot {}: User ID {} (port {})", i, id,
-                  logged_in_users[i] ? logged_in_users[i]->player_index : -1);
+    for (; li < 4; li++) {
+        userIdList->user_id[li] = -1;
     }
     return ORBIS_OK;
 }
+
 int PS4_SYSV_ABI sceUserServiceGetMicLevel() {
     LOG_ERROR(Lib_UserService, "(STUBBED) called");
     return ORBIS_OK;
@@ -1077,7 +1070,7 @@ s32 PS4_SYSV_ABI sceUserServiceGetUserColor(int user_id, OrbisUserServiceUserCol
         LOG_ERROR(Lib_UserService, "color is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    *color = (OrbisUserServiceUserColor)UserManagement.GetUserByID(user_id)->user_color;
+    *color = (OrbisUserServiceUserColor)(user_id - 1);
     return ORBIS_OK;
 }
 
@@ -2217,7 +2210,6 @@ int PS4_SYSV_ABI Func_D2B814603E7B4477() {
 }
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym) {
-    g_shadnet_enabled = Config::IsShadNetEnabled();
     LIB_FUNCTION("Psl9mfs3duM", "libSceUserServiceForShellCore", 1, "libSceUserService",
                  sceUserServiceInitializeForShellCore);
     LIB_FUNCTION("CydP+QtA0KI", "libSceUserServiceForShellCore", 1, "libSceUserService",

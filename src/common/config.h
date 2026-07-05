@@ -101,6 +101,18 @@ void setShadnetWebApiServer(const std::string& server);
 std::string getSignalingInfo();
 void setSignalingInfo(const std::string& info);
 
+// ShadNet per-player accounts (index 0-3, matches getUserName/setUserName convention)
+std::array<bool, 4> getShadNetEnabledStates();
+void setShadNetEnabledStates(const std::array<bool, 4>& states);
+bool getShadNetEnabled(int id);
+void setShadNetEnabled(int id, bool enabled);
+std::array<std::string, 4> const getShadNetNpids();
+std::string getShadNetNpid(int id);
+void setShadNetNpid(int id, const std::string& npid);
+std::array<std::string, 4> const getShadNetPasswords();
+std::string getShadNetPassword(int id);
+void setShadNetPassword(int id, const std::string& password);
+
 u16 leftDeadZone();
 u16 rightDeadZone();
 s16 getCursorState();
@@ -206,7 +218,7 @@ bool getUseSpecialPad(int pad);
 void setSpecialPadClass(int pad, int type);
 int getSpecialPadClass(int pad);
 void setShadNetEnable(bool sign); // no ui setting
-bool patchShaders();            // no set
+bool patchShaders();              // no set
 void setfpsColor(bool enable);
 void setNeoMode(bool enable);  // no ui setting
 bool vkValidationGpuEnabled(); // no set

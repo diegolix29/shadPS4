@@ -1159,7 +1159,7 @@
 																				</widget>
 																			</item>
 																			<item>
-																				<widget class="QCheckBox" name="isPSNSignedInCheckBox">
+																				<widget class="QCheckBox" name="shadnetCheckBox">
 																					<property name="text">
 																						<string>PSN Signed</string>
 																					</property>

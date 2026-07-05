@@ -184,6 +184,9 @@ static ConfigEntry<std::array<std::string, 4>> userNames({
     "shadPS4-4",
 });
 static ConfigEntry<std::array<bool, 4>> playerEnabledStates({true, true, true, true});
+static ConfigEntry<std::array<bool, 4>> shadNetEnabledStates({false, false, false, false});
+static ConfigEntry<std::array<std::string, 4>> shadNetNpids({"", "", "", ""});
+static ConfigEntry<std::array<std::string, 4>> shadNetPasswords({"", "", "", ""});
 static std::string chooseHomeTab = "General";
 static ConfigEntry<bool> isShowSplash(false);
 static bool isAutoUpdate = false;
@@ -896,6 +899,52 @@ std::array<bool, 4> getPlayerEnabledStates() {
 
 void setPlayerEnabledStates(const std::array<bool, 4>& states) {
     playerEnabledStates.set(states);
+}
+
+bool getShadNetEnabled(int id) {
+    return shadNetEnabledStates.get()[id];
+}
+
+void setShadNetEnabled(int id, bool enabled) {
+    auto temp = shadNetEnabledStates.get();
+    temp[id] = enabled;
+    shadNetEnabledStates.set(temp);
+}
+
+std::array<bool, 4> getShadNetEnabledStates() {
+    return shadNetEnabledStates.get();
+}
+
+void setShadNetEnabledStates(const std::array<bool, 4>& states) {
+    shadNetEnabledStates.set(states);
+}
+
+std::string getShadNetNpid(int id) {
+    return shadNetNpids.get()[id];
+}
+
+void setShadNetNpid(int id, const std::string& npid) {
+    auto temp = shadNetNpids.get();
+    temp[id] = npid;
+    shadNetNpids.set(temp);
+}
+
+std::array<std::string, 4> const getShadNetNpids() {
+    return shadNetNpids.get();
+}
+
+std::string getShadNetPassword(int id) {
+    return shadNetPasswords.get()[id];
+}
+
+void setShadNetPassword(int id, const std::string& password) {
+    auto temp = shadNetPasswords.get();
+    temp[id] = password;
+    shadNetPasswords.set(temp);
+}
+
+std::array<std::string, 4> const getShadNetPasswords() {
+    return shadNetPasswords.get();
 }
 
 std::string getUpdateChannel() {
@@ -1722,6 +1771,13 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isIdenticalLogGrouped.setFromToml(general, "isIdenticalLogGrouped", is_game_specific);
         userNames.setFromToml(general, "userNames", false);
         playerEnabledStates.setFromToml(general, "playerEnabledStates", false);
+        shadNetEnabledStates.setFromToml(general, "shadNetEnabledStates", false);
+        shadNetNpids.setFromToml(general, "shadNetNpids", false);
+        shadNetPasswords.setFromToml(general, "shadNetPasswords", false);
+        shadnet_server.setFromToml(general, "shadnetServer", false);
+        shadnet_webapi_server.setFromToml(general, "shadnetWebApiServer", false);
+        signaling_info.setFromToml(general, "signalingInfo", false);
+        enable_upnp.setFromToml(general, "enableUPnP", false);
 
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Shadlix");
@@ -2189,6 +2245,13 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["userNames"] = userNames.base_value;
     data["General"]["playerEnabledStates"] = playerEnabledStates.base_value;
+    data["General"]["shadNetEnabledStates"] = shadNetEnabledStates.base_value;
+    data["General"]["shadNetNpids"] = shadNetNpids.base_value;
+    data["General"]["shadNetPasswords"] = shadNetPasswords.base_value;
+    data["General"]["shadnetServer"] = shadnet_server.base_value;
+    data["General"]["shadnetWebApiServer"] = shadnet_webapi_server.base_value;
+    data["General"]["signalingInfo"] = signaling_info.base_value;
+    data["General"]["enableUPnP"] = enable_upnp.base_value;
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
@@ -2545,6 +2608,13 @@ void setDefaultValues() {
     logType = "sync";
     userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
     playerEnabledStates = {true, true, true, true};
+    shadNetEnabledStates = {false, false, false, false};
+    shadNetNpids = {"", "", "", ""};
+    shadNetPasswords = {"", "", "", ""};
+    shadnet_server = "srv.shadps4.net:31313";
+    shadnet_webapi_server = "http://srv.shadps4.net:31315";
+    signaling_info = "";
+    enable_upnp = true;
     chooseHomeTab = "General";
     isShowSplash = false;
     isSideTrophy = "right";
