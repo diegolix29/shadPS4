@@ -601,6 +601,16 @@ set(JPEG_LIB src/core/libraries/jpeg/jpeg_error.h
              src/core/libraries/jpeg/jpegenc.h
 )
 
+set(CONTENT_EXPORT_LIB src/core/libraries/content_export/content_export.cpp
+               src/core/libraries/content_export/content_export.h
+               src/core/libraries/content_export/content_export_error.h
+)
+
+set(VIDEO_RECORDING_LIB src/core/libraries/video_recording/video_recording.cpp
+               src/core/libraries/video_recording/video_recording.h
+               src/core/libraries/video_recording/video_recording_error.h
+)
+
 set(PLAYGO_LIB src/core/libraries/playgo/playgo.cpp
                src/core/libraries/playgo/playgo.h
                src/core/libraries/playgo/playgo_dialog.cpp
@@ -907,6 +917,8 @@ set(CORE src/core/aerolib/stubs.cpp
          ${PNG_LIB}
          ${JPEG_LIB}
          ${PLAYGO_LIB}
+         ${CONTENT_EXPORT_LIB}
+         ${VIDEO_RECORDING_LIB}
          ${RANDOM_LIB}
          ${USBD_LIB}
          ${ZLIB_LIB}
@@ -1334,6 +1346,7 @@ if (ENABLE_QT_GUI)
         ${SHADER_RECOMPILER}
         ${VIDEO_CORE}
         ${EMULATOR}
+        ${SHADNET}
         src/images/shadPS4.icns
     )
 else()

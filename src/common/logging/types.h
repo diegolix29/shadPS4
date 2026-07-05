@@ -123,6 +123,8 @@ enum class Class : u8 {
     Lib_VrTracker,           ///< The LibSceVrTracker implementation.
     Lib_Font,                ///< The libSceFont implementation.
     Lib_FontFt,              ///< The libSceFontFt implementation.
+    Lib_ContentExport,       ///< The LibSceContentExport implementation.
+    Lib_VideoRecording,      ///< The LibSceVideoRecording implementation.
     Frontend,                ///< Emulator UI
     Render,                  ///< Video Core
     Render_Vulkan,           ///< Vulkan backend
