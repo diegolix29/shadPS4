@@ -11,11 +11,6 @@
 
 namespace Libraries::Np::NpMatching2 {
 
-struct OrbisNpMatching2RoomGroup;
-struct OrbisNpMatching2RoomGroupInfo;
-struct OrbisNpMatching2RoomBinAttrInternal;
-struct OrbisNpMatching2RoomMemberBinAttrInternal;
-
 using OrbisNpMatching2ContextCallback = PS4_SYSV_ABI void (*)(OrbisNpMatching2ContextId contextId,
                                                               OrbisNpMatching2Event event,
                                                               OrbisNpMatching2EventCause cause,
@@ -23,12 +18,7 @@ using OrbisNpMatching2ContextCallback = PS4_SYSV_ABI void (*)(OrbisNpMatching2Co
 
 using OrbisNpMatching2LobbyEventCallback =
     PS4_SYSV_ABI void (*)(OrbisNpMatching2ContextId contextId, OrbisNpMatching2LobbyId lobbyId,
-                          OrbisNpMatching2Event event, const void* data, void* userdata);
-
-using OrbisNpMatching2LobbyMessageCallback =
-    PS4_SYSV_ABI void (*)(OrbisNpMatching2ContextId contextId, OrbisNpMatching2LobbyId lobbyId,
-                          OrbisNpMatching2LobbyMemberId srcMemberId, OrbisNpMatching2Event event,
-                          const void* data, void* userdata);
+                          OrbisNpMatching2Event event, void* data, void* userdata);
 
 using OrbisNpMatching2RequestCallback = PS4_SYSV_ABI void (*)(OrbisNpMatching2ContextId,
                                                               OrbisNpMatching2RequestId,
@@ -49,6 +39,30 @@ using OrbisNpMatching2SignalingCallback =
     PS4_SYSV_ABI void (*)(OrbisNpMatching2ContextId contextId, OrbisNpMatching2RoomId roomId,
                           OrbisNpMatching2RoomMemberId roomMemberId, OrbisNpMatching2Event event,
                           int errorCode, void* userdata);
+
+// internal - to be removed.
+struct NpMatching2ContextEvent {
+    OrbisNpMatching2ContextId contextId;
+    OrbisNpMatching2Event event;
+    OrbisNpMatching2EventCause cause;
+    int errorCode;
+};
+
+// internal - to be removed.
+struct NpMatching2LobbyEvent {
+    OrbisNpMatching2ContextId contextId;
+    OrbisNpMatching2LobbyId lobbyId;
+    OrbisNpMatching2Event event;
+    void* data;
+};
+
+// internal - to be removed.
+struct NpMatching2RoomEvent {
+    OrbisNpMatching2ContextId contextId;
+    OrbisNpMatching2RoomId roomId;
+    OrbisNpMatching2Event event;
+    void* data;
+};
 
 struct OrbisNpMatching2BinAttr {
     OrbisNpMatching2AttributeId id;
@@ -85,36 +99,6 @@ struct OrbisNpMatching2SignalingOptParam {
     OrbisNpMatching2RoomMemberId memberId;
     u8 padding[4];
 };
-
-struct OrbisNpMatching2CreateJoinRoomRequest {
-    u16 maxSlot;
-    OrbisNpMatching2TeamId teamId;
-    u8 pad[5];
-    OrbisNpMatching2Flags flags;
-    OrbisNpMatching2WorldId worldId;
-    OrbisNpMatching2LobbyId lobbyId;
-    void* roomPasswd;
-    OrbisNpMatching2RoomPasswordSlotMask* passwdSlotMask;
-    void* groupConfig;
-    u64 groupConfigs;
-    void* joinGroupLabel;
-    Libraries::Np::OrbisNpOnlineId* allowedUser;
-    u64 allowedUsers;
-    Libraries::Np::OrbisNpOnlineId* blockedUser;
-    u64 blockedUsers;
-    OrbisNpMatching2BinAttr* internalBinAttr;
-    u64 internalBinAttrs;
-    OrbisNpMatching2IntAttr* externalSearchIntAttr;
-    u64 externalSearchIntAttrs;
-    OrbisNpMatching2BinAttr* externalSearchBinAttr;
-    u64 externalSearchBinAttrs;
-    OrbisNpMatching2BinAttr* externalBinAttr;
-    u64 externalBinAttrs;
-    OrbisNpMatching2BinAttr* memberInternalBinAttr;
-    u64 memberInternalBinAttrs;
-    OrbisNpMatching2SignalingOptParam* signalingParam;
-};
-static_assert(sizeof(OrbisNpMatching2CreateJoinRoomRequest) == 184);
 
 struct OrbisNpMatching2CreateJoinRoomRequestA {
     u16 maxSlot;
@@ -158,11 +142,11 @@ struct OrbisNpMatching2RoomDataInternal {
     OrbisNpMatching2RoomId roomId;
     OrbisNpMatching2RoomPasswordSlotMask passwdSlotMask;
     u64 joinedSlotMask;
-    OrbisNpMatching2RoomGroup* roomGroup;
+    void* roomGroup;
     u64 roomGroups;
     OrbisNpMatching2Flags flags;
     u8 pad[4];
-    OrbisNpMatching2RoomBinAttrInternal* internalBinAttr;
+    void* internalBinAttr;
     u64 internalBinAttrs;
 };
 
@@ -176,8 +160,8 @@ struct OrbisNpMatching2RoomMemberDataInternalA {
     OrbisNpMatching2TeamId teamId;
     OrbisNpMatching2NatType natType;
     OrbisNpMatching2Flags flags;
-    OrbisNpMatching2RoomGroup* roomGroup;
-    OrbisNpMatching2RoomMemberBinAttrInternal* roomMemberInternalBinAttr;
+    void* roomGroup;
+    void* roomMemberInternalBinAttr;
     u64 roomMemberInternalBinAttrs;
 };
 
@@ -197,12 +181,6 @@ struct OrbisNpMatching2GetWorldInfoListRequest {
     OrbisNpMatching2ServerId serverId;
 };
 
-struct OrbisNpMatching2GetRoomDataInternalRequest {
-    OrbisNpMatching2RoomId roomId;
-    const OrbisNpMatching2AttributeId* attrId;
-    u64 attrIdNum;
-};
-
 struct OrbisNpMatching2World {
     OrbisNpMatching2World* next;
     OrbisNpMatching2WorldId worldId;
@@ -217,14 +195,6 @@ struct OrbisNpMatching2World {
 struct OrbisNpMatching2GetWorldInfoListResponse {
     OrbisNpMatching2World* world;
     u64 worldNum;
-};
-
-struct OrbisNpMatching2GroupLabel {
-    u8 data[8];
-};
-
-struct OrbisNpMatching2SessionPassword {
-    u8 data[8];
 };
 
 struct OrbisNpMatching2InitializeParameter {
@@ -243,86 +213,9 @@ struct OrbisNpMatching2PresenceOptionData {
     u64 len;
 };
 
-struct OrbisNpMatching2RoomMemberUpdateA {
-    OrbisNpMatching2RoomMemberDataInternalA* roomMemberDataInternal;
-    OrbisNpMatching2EventCause eventCause;
-    u8 padding[7];
-    OrbisNpMatching2PresenceOptionData optData;
-};
-
-struct OrbisNpMatching2RoomUpdate {
-    OrbisNpMatching2EventCause eventCause;
-    u8 padding[3];
-    s32 errorCode;
-    OrbisNpMatching2PresenceOptionData optData;
-};
-
-struct OrbisNpMatching2RoomDataInternalUpdate {
-    OrbisNpMatching2RoomDataInternal* chgRoomDataInternal;
-    OrbisNpMatching2FlagAttr* chgFlagAttr;
-    OrbisNpMatching2FlagAttr* prevFlagAttr;
-    OrbisNpMatching2RoomPasswordSlotMask* chgRoomPasswordSlotMask;
-    OrbisNpMatching2RoomPasswordSlotMask* prevRoomPasswordSlotMask;
-    OrbisNpMatching2RoomGroup** chgRoomGroup;
-    u64 chgRoomGroupNum;
-    OrbisNpMatching2RoomBinAttrInternal** chgRoomBinAttrInternal;
-    u64 chgRoomBinAttrInternalNum;
-};
-
-struct OrbisNpMatching2JoinRoomRequest {
-    OrbisNpMatching2RoomId roomId;
-    OrbisNpMatching2SessionPassword* roomPasswd;
-    OrbisNpMatching2GroupLabel* joinGroupLabel;
-    OrbisNpMatching2BinAttr* roomMemberBinInternalAttr;
-    u64 roomMemberBinInternalAttrNum;
-    OrbisNpMatching2PresenceOptionData optData;
-    OrbisNpMatching2TeamId teamId;
-    u8 pad[3];
-    OrbisNpMatching2Flags flags;
-    Libraries::Np::OrbisNpOnlineId* blockedUser;
-    u64 blockedUsers;
-
-    int Validate() {
-        return 0;
-    }
-};
-static_assert(sizeof(OrbisNpMatching2JoinRoomRequest) == 0x58);
-
-struct OrbisNpMatching2JoinRoomRequestA {
-    OrbisNpMatching2RoomId roomId;
-    OrbisNpMatching2SessionPassword* roomPasswd;
-    OrbisNpMatching2GroupLabel* joinGroupLabel;
-    OrbisNpMatching2BinAttr* roomMemberBinInternalAttr;
-    u64 roomMemberBinInternalAttrNum;
-    OrbisNpMatching2PresenceOptionData optData;
-    OrbisNpMatching2TeamId teamId;
-    u8 pad[3];
-    OrbisNpMatching2Flags flags;
-    Libraries::Np::OrbisNpAccountId* blockedUser;
-    u64 blockedUsers;
-
-    int Validate() {
-        return 0;
-    }
-};
-static_assert(sizeof(OrbisNpMatching2JoinRoomRequestA) == 0x58);
-
-struct OrbisNpMatching2KickoutRoomMemberRequest {
-    OrbisNpMatching2RoomId roomId;
-    OrbisNpMatching2RoomMemberId memberId;
-    OrbisNpMatching2BlockKickFlag blockKickFlag;
-    u8 padding[5];
-    OrbisNpMatching2PresenceOptionData optData;
-};
-static_assert(sizeof(OrbisNpMatching2KickoutRoomMemberRequest) == 0x28);
-
 struct OrbisNpMatching2LeaveRoomRequest {
     OrbisNpMatching2RoomId roomId;
     OrbisNpMatching2PresenceOptionData optData;
-};
-
-struct OrbisNpMatching2LeaveRoomResponse {
-    OrbisNpMatching2RoomId roomId;
 };
 
 struct OrbisNpMatching2Range {
@@ -335,20 +228,6 @@ struct OrbisNpMatching2Range {
 struct OrbisNpMatching2RangeFilter {
     u32 start;
     u32 max;
-};
-
-using OrbisNpMatching2Operator = u8;
-
-struct OrbisNpMatching2IntSearchFilter {
-    OrbisNpMatching2Operator searchOperator;
-    u8 padding[7];
-    OrbisNpMatching2IntAttr attr;
-};
-
-struct OrbisNpMatching2BinSearchFilter {
-    OrbisNpMatching2Operator searchOperator;
-    u8 padding[7];
-    OrbisNpMatching2BinAttr attr;
 };
 
 struct OrbisNpMatching2RequestOptParam {
@@ -377,112 +256,7 @@ struct OrbisNpMatching2RoomDataExternalA {
     u16 openPrivateSlots;
     Libraries::Np::OrbisNpPeerAddressA owner;
     Libraries::Np::OrbisNpOnlineId ownerOnlineId;
-    OrbisNpMatching2RoomGroupInfo* roomGroup;
-    u64 roomGroups;
-    OrbisNpMatching2IntAttr* externalSearchIntAttr;
-    u64 externalSearchIntAttrs;
-    OrbisNpMatching2BinAttr* externalSearchBinAttr;
-    u64 externalSearchBinAttrs;
-    OrbisNpMatching2BinAttr* externalBinAttr;
-    u64 externalBinAttrs;
-};
-
-struct OrbisNpMatching2RoomGroup {
-    OrbisNpMatching2RoomGroupId id;
-    bool hasPasswd;
-    bool hasLabel;
-    u8 pad;
-    OrbisNpMatching2GroupLabel label;
-    u32 slots;
-    u32 groupMembers;
-};
-
-struct OrbisNpMatching2RoomGroupConfig {
-    u32 slots;
-    bool hasLabel;
-    OrbisNpMatching2GroupLabel label;
-    bool hasPassword;
-    u8 pad[2];
-};
-
-struct OrbisNpMatching2RoomGroupPasswordConfig {
-    OrbisNpMatching2RoomGroupId groupId;
-    bool hasPassword;
-    u8 pad[1];
-};
-
-struct OrbisNpMatching2RoomGroupInfo {
-    OrbisNpMatching2RoomGroupId id;
-    bool hasPasswd;
-    u8 pad[2];
-    u32 slots;
-    u32 groupMembers;
-};
-
-struct OrbisNpMatching2RoomBinAttrInternal {
-    Libraries::Rtc::OrbisRtcTick lastUpdate;
-    OrbisNpMatching2RoomMemberId memberId;
-    u8 pad[6];
-    OrbisNpMatching2BinAttr binAttr;
-};
-
-struct OrbisNpMatching2RoomMemberBinAttrInternal {
-    Libraries::Rtc::OrbisRtcTick lastUpdate;
-    OrbisNpMatching2BinAttr binAttr;
-};
-
-struct OrbisNpMatching2RoomMemberDataInternal {
-    OrbisNpMatching2RoomMemberDataInternal* next;
-    u64 joinDate;
-    Libraries::Np::OrbisNpId npId;
-    u8 pad[4];
-    OrbisNpMatching2RoomMemberId memberId;
-    OrbisNpMatching2TeamId teamId;
-    OrbisNpMatching2NatType natType;
-    OrbisNpMatching2Flags flagAttr;
-    OrbisNpMatching2RoomGroup* roomGroup;
-    OrbisNpMatching2RoomMemberBinAttrInternal* roomMemberBinAttrInternal;
-    u64 roomMemberBinAttrInternalNum;
-};
-static_assert(sizeof(OrbisNpMatching2RoomMemberDataInternal) == 0x58);
-
-struct OrbisNpMatching2RoomMemberUpdate {
-    OrbisNpMatching2RoomMemberDataInternal* roomMemberDataInternal;
-    OrbisNpMatching2EventCause eventCause;
-    u8 padding[7];
-    OrbisNpMatching2PresenceOptionData optData;
-};
-
-struct OrbisNpMatching2RoomMemberDataInternalList {
-    OrbisNpMatching2RoomMemberDataInternal* members;
-    u64 membersNum;
-    OrbisNpMatching2RoomMemberDataInternal* me;
-    OrbisNpMatching2RoomMemberDataInternal* owner;
-};
-
-struct OrbisNpMatching2CreateJoinRoomResponse {
-    const OrbisNpMatching2RoomDataInternal* roomData;
-    OrbisNpMatching2RoomMemberDataInternalList members;
-};
-
-struct OrbisNpMatching2RoomDataExternal {
-    OrbisNpMatching2RoomDataExternal* next;
-    u16 maxSlot;
-    u16 curMembers;
-    OrbisNpMatching2Flags flags;
-    OrbisNpMatching2ServerId serverId;
-    u8 pad[2];
-    OrbisNpMatching2WorldId worldId;
-    OrbisNpMatching2LobbyId lobbyId;
-    OrbisNpMatching2RoomId roomId;
-    u64 passwdSlotMask;
-    u64 joinedSlotMask;
-    u16 publicSlots;
-    u16 privateSlots;
-    u16 openPublicSlots;
-    u16 openPrivateSlots;
-    Libraries::Np::OrbisNpId* ownerNpId;
-    OrbisNpMatching2RoomGroupInfo* roomGroup;
+    void* roomGroup;
     u64 roomGroups;
     OrbisNpMatching2IntAttr* externalSearchIntAttr;
     u64 externalSearchIntAttrs;
@@ -499,45 +273,17 @@ struct OrbisNpMatching2SearchRoomRequest {
     OrbisNpMatching2RangeFilter rangeFilter;
     OrbisNpMatching2Flags flags1;
     OrbisNpMatching2Flags flags2;
-    OrbisNpMatching2IntSearchFilter* intFilter;
+    void* intFilter;
     u64 intFilters;
-    OrbisNpMatching2BinSearchFilter* binFilter;
+    void* binFilter;
     u64 binFilters;
     OrbisNpMatching2AttributeId* attr;
     u64 attrs;
 };
 
-struct OrbisNpMatching2SearchRoomResponse {
-    OrbisNpMatching2Range range;
-    OrbisNpMatching2RoomDataExternal* roomDataExt;
-};
-
 struct OrbisNpMatching2SearchRoomResponseA {
     OrbisNpMatching2Range range;
     OrbisNpMatching2RoomDataExternalA* roomDataExt;
-};
-
-struct OrbisNpMatching2SetRoomDataExternalRequest {
-    OrbisNpMatching2RoomId roomId;
-    const OrbisNpMatching2IntAttr* roomSearchableIntAttrExternal;
-    u64 roomSearchableIntAttrExternalNum;
-    const OrbisNpMatching2BinAttr* roomSearchableBinAttrExternal;
-    u64 roomSearchableBinAttrExternalNum;
-    const OrbisNpMatching2BinAttr* roomBinAttrExternal;
-    u64 roomBinAttrExternalNum;
-};
-
-struct OrbisNpMatching2SetRoomDataInternalRequest {
-    OrbisNpMatching2RoomId roomId;
-    OrbisNpMatching2Flags flagFilter;
-    OrbisNpMatching2Flags flagAttr;
-    const OrbisNpMatching2BinAttr* roomBinAttrInternal;
-    u64 roomBinAttrInternalNum;
-    const OrbisNpMatching2RoomGroupPasswordConfig* passwordConfig;
-    u64 passwordConfigNum;
-    const OrbisNpMatching2RoomPasswordSlotMask* passwordSlotMask;
-    const OrbisNpMatching2RoomMemberId* ownerPrivilegeRank;
-    u64 ownerPrivilegeRankNum;
 };
 
 struct OrbisNpMatching2SetUserInfoRequest {
@@ -547,54 +293,13 @@ struct OrbisNpMatching2SetUserInfoRequest {
     u64 userBinAttrs;
 };
 
-struct OrbisNpMatching2SignalingConnectionInfoAddr {
-    u32 addr;
-    u16 port;
-    u8 pad[2];
-};
-
-union OrbisNpMatching2SignalingConnectionInfo {
-    u32 rtt;
-    u32 bandwidth;
-    Libraries::Np::OrbisNpId npId;
-    OrbisNpMatching2SignalingConnectionInfoAddr address;
-    u32 packetLoss;
-};
-static_assert(sizeof(OrbisNpMatching2SignalingConnectionInfo) == 0x24);
-
-union OrbisNpMatching2SignalingConnectionInfoA {
-    u32 rtt;
-    u32 bandwidth;
-    Libraries::Np::OrbisNpPeerAddressA peerAddrA;
-    OrbisNpMatching2SignalingConnectionInfoAddr address;
-    u32 packetLoss;
-};
-static_assert(sizeof(OrbisNpMatching2SignalingConnectionInfoA) == 0x10);
-
-struct OrbisNpMatching2SignalingGetPingInfoRequest {
+// internal - to be removed.
+struct OrbisNpMatching2SignalingEvent {
+    OrbisNpMatching2ContextId contextId;
     OrbisNpMatching2RoomId roomId;
-    u8 pad[16];
-
-    int Validate() {
-        return 0;
-    }
-};
-
-struct OrbisNpMatching2SignalingGetPingInfoResponse {
-    OrbisNpMatching2ServerId serverId;
-    u8 pad[2];
-    OrbisNpMatching2WorldId worldId;
-    OrbisNpMatching2RoomId roomId;
-    u32 rtt;
-    u8 reserved[20];
-};
-static_assert(sizeof(OrbisNpMatching2SignalingGetPingInfoResponse) == 0x28);
-
-struct OrbisNpMatching2SignalingParam {
-    int type;
-    int flag;
-    OrbisNpMatching2RoomMemberId mainMember;
-    u8 pad[4];
+    OrbisNpMatching2RoomMemberId roomMemberId;
+    OrbisNpMatching2Event event;
+    int errorCode;
 };
 
 } // namespace Libraries::Np::NpMatching2
