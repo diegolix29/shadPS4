@@ -1,9 +1,10 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
 #include <string>
+
 #include "common/types.h"
 
 namespace Core::Loader {
@@ -12,13 +13,10 @@ class SymbolsResolver;
 
 namespace Libraries::Np::NpSignaling {
 
-// Functional NpSignaling HLE for Bloodborne multiplayer.
-// The SocketState machine (SocketState_tick at 0x10d8bb0) calls these functions
-// to manage P2P connections. The game's callback at NpSignaling_callback (0x10c10d0)
-// processes events and pushes them to the SessionOwner's event queue for processing
-// by the SocketState handler.
+using OrbisNpSignalingContextId = s32;
+using OrbisNpSignalingConnectionId = s32;
+using OrbisNpSignalingRequestId = u32;
 
-// Bloodborne RE confirms 5 params at 0x10c099c.
 using OrbisNpSignalingHandler = PS4_SYSV_ABI void (*)(u32 ctxId, u32 connId, s32 event,
                                                       s32 errorCode, void* userArg);
 
@@ -40,69 +38,109 @@ constexpr s32 ORBIS_NP_SIGNALING_CONN_INFO_PEER_NP_ID = 3;
 constexpr s32 ORBIS_NP_SIGNALING_CONN_INFO_PEER_ADDR = 4;
 constexpr s32 ORBIS_NP_SIGNALING_CONN_INFO_MAPPED_ADDR = 5;
 constexpr s32 ORBIS_NP_SIGNALING_CONN_INFO_PACKET_LOSS = 6;
+constexpr s32 ORBIS_NP_SIGNALING_CONN_INFO_PEER_ADDRESS_A = 7;
+
+constexpr s32 ORBIS_NP_SIGNALING_CONTEXT_OPTION_FLAG = 1;
 
 struct OrbisNpSignalingNetInfo {
-    u64 size;       // +0x00: must be sizeof(OrbisNpSignalingNetInfo) = 0x18
-    u32 localAddr;  // +0x08
-    u32 mappedAddr; // +0x0C
-    s32 natStatus;  // +0x10
-    u32 _pad_14;    // +0x14
+    u64 size;
+    u32 localAddr;
+    u32 mappedAddr;
+    s32 natStatus;
+    u32 _pad_14;
 };
 static_assert(sizeof(OrbisNpSignalingNetInfo) == 0x18);
 
-// --- Shared peer info (set by NpMatching2 HLE, read by NpSignaling HLE) ---
-// Both HLE modules need access to peer connection info.
-struct NpSignalingPeerInfo {
-    u32 addr = 0; // IPv4 in network byte order
-    u16 port = 0; // port in network byte order
-    s32 status = ORBIS_NP_SIGNALING_CONN_STATUS_INACTIVE;
-    u16 member_id = 0;
-    std::string online_id; // PSN online ID for NpId matching
+struct OrbisNpSignalingAccountPlatformPair {
+    u64 accountId;
+    u32 platformType;
+    u32 _pad_0c;
 };
+static_assert(sizeof(OrbisNpSignalingAccountPlatformPair) == 0x10);
 
-// Set peer info from NpMatching2 HLE when a room join occurs.
-// online_id is used to match pending ActivateConnection requests and fire deferred events.
-void SetPeerInfo(u16 member_id, u32 addr, u16 port, const std::string& online_id = "");
+struct OrbisNpSignalingMemoryInfo {
+    u64 currentInUse;
+    u64 peakInUse;
+    u64 maxSystemSize;
+};
+static_assert(sizeof(OrbisNpSignalingMemoryInfo) == 0x18);
 
-// Get peer info for signaling status queries
-NpSignalingPeerInfo GetPeerInfo(u16 member_id = 0);
+struct OrbisNpSignalingConnectionStatistics {
+    u32 peakConnectionCount;
+    u32 activeConnectionCount;
+    u32 transientConnectionCount;
+    u32 establishedConnectionCount;
+};
+static_assert(sizeof(OrbisNpSignalingConnectionStatistics) == 0x10);
 
-// Get any active peer (for when we don't know the member_id)
-NpSignalingPeerInfo GetAnyActivePeer();
-
-// Set/get local signaling address (called by NpMatching2 HLE on context start)
-void SetLocalAddr(u32 addr, u16 port);
-u32 GetLocalAddr();
-u16 GetLocalPort();
-
-// --- PS4 API functions ---
-
-s32 PS4_SYSV_ABI sceNpSignalingActivateConnection(s32 ctxId, void* npId, s32* connId);
-s32 PS4_SYSV_ABI sceNpSignalingActivateConnectionA();
-s32 PS4_SYSV_ABI sceNpSignalingCancelPeerNetInfo();
-s32 PS4_SYSV_ABI sceNpSignalingCreateContext(s32 param_1, void* param_2, void* param_3,
-                                             s32* context_id);
-s32 PS4_SYSV_ABI sceNpSignalingCreateContextA();
-s32 PS4_SYSV_ABI sceNpSignalingDeactivateConnection(s32 ctxId, s32 connId);
-s32 PS4_SYSV_ABI sceNpSignalingDeleteContext(s32 ctxId);
-s32 PS4_SYSV_ABI sceNpSignalingGetConnectionFromNpId();
-s32 PS4_SYSV_ABI sceNpSignalingGetConnectionFromPeerAddress();
-s32 PS4_SYSV_ABI sceNpSignalingGetConnectionFromPeerAddressA();
-s32 PS4_SYSV_ABI sceNpSignalingGetConnectionInfo(s32 ctxId, s32 connId, s32 infoType, void* info);
-s32 PS4_SYSV_ABI sceNpSignalingGetConnectionInfoA();
-s32 PS4_SYSV_ABI sceNpSignalingGetConnectionStatistics();
-s32 PS4_SYSV_ABI sceNpSignalingGetConnectionStatus(s32 ctxId, s32 connId, s32* connStatus,
-                                                   u32* peerAddr, u16* peerPort);
-s32 PS4_SYSV_ABI sceNpSignalingGetContextOption();
-s32 PS4_SYSV_ABI sceNpSignalingGetLocalNetInfo(s32 ctxId, OrbisNpSignalingNetInfo* info);
-s32 PS4_SYSV_ABI sceNpSignalingGetMemoryInfo();
-s32 PS4_SYSV_ABI sceNpSignalingGetPeerNetInfo();
-s32 PS4_SYSV_ABI sceNpSignalingGetPeerNetInfoA();
-s32 PS4_SYSV_ABI sceNpSignalingGetPeerNetInfoResult();
-s32 PS4_SYSV_ABI sceNpSignalingInitialize();
-s32 PS4_SYSV_ABI sceNpSignalingSetContextOption();
+s32 PS4_SYSV_ABI sceNpSignalingInitialize(s64 memorySize, s32 threadPriority, s32 cpuAffinityMask,
+                                          s64 threadStackSize);
 s32 PS4_SYSV_ABI sceNpSignalingTerminate();
-s32 PS4_SYSV_ABI sceNpSignalingTerminateConnection();
+
+s32 PS4_SYSV_ABI sceNpSignalingCreateContext(const void* npId, void* callback, void* callbackArg,
+                                             OrbisNpSignalingContextId* outContextId);
+s32 PS4_SYSV_ABI sceNpSignalingCreateContextA(s32 userId, void* callback, void* callbackArg,
+                                              OrbisNpSignalingContextId* outContextId);
+s32 PS4_SYSV_ABI sceNpSignalingDeleteContext(OrbisNpSignalingContextId ctxId);
+
+s32 PS4_SYSV_ABI sceNpSignalingActivateConnection(OrbisNpSignalingContextId ctxId,
+                                                  const void* peerNpId,
+                                                  OrbisNpSignalingConnectionId* outConnId);
+s32 PS4_SYSV_ABI sceNpSignalingActivateConnectionA(
+    OrbisNpSignalingContextId ctxId, const OrbisNpSignalingAccountPlatformPair* peerAddr,
+    OrbisNpSignalingConnectionId* outConnId);
+s32 PS4_SYSV_ABI sceNpSignalingDeactivateConnection(OrbisNpSignalingContextId ctxId,
+                                                    OrbisNpSignalingConnectionId connId);
+s32 PS4_SYSV_ABI sceNpSignalingTerminateConnection(OrbisNpSignalingContextId ctxId,
+                                                   OrbisNpSignalingConnectionId connId);
+
+s32 PS4_SYSV_ABI sceNpSignalingGetConnectionStatus(OrbisNpSignalingContextId ctxId,
+                                                   OrbisNpSignalingConnectionId connId,
+                                                   u32* outStatus, u32* outPeerAddr,
+                                                   u16* outPeerPort);
+s32 PS4_SYSV_ABI sceNpSignalingGetConnectionInfo(OrbisNpSignalingContextId ctxId,
+                                                 OrbisNpSignalingConnectionId connId, s32 infoCode,
+                                                 void* outInfo);
+s32 PS4_SYSV_ABI sceNpSignalingGetConnectionInfoA(OrbisNpSignalingContextId ctxId,
+                                                  OrbisNpSignalingConnectionId connId, s32 infoCode,
+                                                  void* outInfo);
+
+s32 PS4_SYSV_ABI sceNpSignalingGetConnectionFromNpId(OrbisNpSignalingContextId ctxId,
+                                                     const void* peerNpId,
+                                                     OrbisNpSignalingConnectionId* outConnId);
+s32 PS4_SYSV_ABI
+sceNpSignalingGetConnectionFromPeerAddress(OrbisNpSignalingContextId ctxId, u32 peerAddr,
+                                           u16 peerPort, OrbisNpSignalingConnectionId* outConnId);
+s32 PS4_SYSV_ABI sceNpSignalingGetConnectionFromPeerAddressA(
+    OrbisNpSignalingContextId ctxId, const OrbisNpSignalingAccountPlatformPair* peerAddr,
+    OrbisNpSignalingConnectionId* outConnId);
+
+s32 PS4_SYSV_ABI sceNpSignalingSetContextOption(OrbisNpSignalingContextId ctxId, s32 optionId,
+                                                s32 optionValue);
+s32 PS4_SYSV_ABI sceNpSignalingGetContextOption(OrbisNpSignalingContextId ctxId, s32 optionId,
+                                                s32* outOptionValue);
+
+s32 PS4_SYSV_ABI sceNpSignalingGetLocalNetInfo(OrbisNpSignalingContextId ctxId,
+                                               OrbisNpSignalingNetInfo* info);
+
+s32 PS4_SYSV_ABI sceNpSignalingGetPeerNetInfo(OrbisNpSignalingContextId ctxId, const void* peerNpId,
+                                              OrbisNpSignalingRequestId* outReqId);
+s32 PS4_SYSV_ABI sceNpSignalingGetPeerNetInfoA(OrbisNpSignalingContextId ctxId,
+                                               const void* peerAccountPayload,
+                                               OrbisNpSignalingRequestId* outReqId);
+s32 PS4_SYSV_ABI sceNpSignalingCancelPeerNetInfo(OrbisNpSignalingContextId ctxId, s32 reqOrConnId);
+s32 PS4_SYSV_ABI sceNpSignalingGetPeerNetInfoResult(OrbisNpSignalingContextId ctxId,
+                                                    OrbisNpSignalingConnectionId connId,
+                                                    OrbisNpSignalingNetInfo* peerNetInfo);
+
+s32 PS4_SYSV_ABI sceNpSignalingGetMemoryInfo(OrbisNpSignalingMemoryInfo* info);
+s32 PS4_SYSV_ABI sceNpSignalingGetConnectionStatistics(OrbisNpSignalingConnectionStatistics* stats);
+
+s32 GetActiveConnectionIdForPeer(std::string_view online_id);
+
+s32 GetConnectionStatusForPeer(std::string_view online_id, s32* out_conn_id);
+
+bool GetPeerAddress(std::string_view online_id, u32* out_addr, u16* out_port);
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym);
 } // namespace Libraries::Np::NpSignaling
