@@ -646,7 +646,7 @@ sceNpGetUserIdByAccountId(u64 account_id, Libraries::UserService::OrbisUserServi
     if (!g_shadnet_enabled) {
         return ORBIS_NP_ERROR_SIGNED_OUT;
     }
-    *user_id = 1000;
+    *user_id = 1;
     LOG_DEBUG(Lib_NpManager, "userid({}) = {}", account_id, *user_id);
     return ORBIS_OK;
 }
