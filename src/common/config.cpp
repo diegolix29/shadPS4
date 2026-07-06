@@ -356,7 +356,7 @@ std::unordered_map<std::string, bool> toolbar_visibility_settings;
 static std::filesystem::path fonts_path = {};
 static ConfigEntry<bool> isIdenticalLogGrouped(true);
 
-const std::vector<Config::GameDirectories> Config::getAllGameDirectories() {
+const std::vector<GameDirectories> getAllGameDirectories() {
     std::vector<Config::GameDirectories> directories;
     auto paths = getGameDirectories();
     auto enabled_states = getGameDirectoriesEnabled();
