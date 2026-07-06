@@ -447,7 +447,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->memoryCompressionComboBox->setCurrentIndex(compressionLevel);
     ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
     ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
-    ui->isPSNSignedInCheckBox->setChecked(Config::getPSNSignedIn());
+    ui->isPSNSignedInCheckBox->setChecked(Config::getShadNetEnabled(0));
     ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
     ui->disableTrophycheckBox->setChecked(Config::getisTrophyPopupDisabled());
     ui->logFilterLineEdit->setText(QString::fromStdString(Config::getLogFilter()));

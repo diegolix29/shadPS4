@@ -660,7 +660,7 @@ void L::SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame 
 
     overrides["General"]["logFilter"] = Config::getLogFilter();
     overrides["General"]["enableAutoBackup"] = Config::getEnableAutoBackup();
-    overrides["General"]["isPSNSignedIn"] = Config::getPSNSignedIn();
+    overrides["General"]["isPSNSignedIn"] = Config::getShadNetEnabled(0);
     overrides["General"]["muteEnabled"] = Config::isMuteEnabled();
     overrides["General"]["isConnectedToNetwork"] = Config::getIsConnectedToNetwork();
     overrides["General"]["isDevKit"] = Config::isDevKitConsole();
@@ -712,7 +712,7 @@ void DrawFullscreenSettingsWindow(bool& is_open) {
                                                              : ImVec4(1, 0, 0, 1),
                            Config::getIsConnectedToNetwork() ? "Connected" : "Disconnected");
 
-        DrawYesNo("PSN", Config::getPSNSignedIn());
+        DrawYesNo("PSN", Config::getShadNetEnabled(0));
         ImGui::SeparatorText("Configuration");
 
         if (ImGui::BeginTable("SettingsGrid", 2, ImGuiTableFlags_BordersInnerV)) {
@@ -911,7 +911,7 @@ void L::DrawPauseStatusWindow(bool& is_open) {
         ImGui::Text("FPS: %.0f", DebugState.Framerate);
 
         ImGui::TableSetColumnIndex(2);
-        if (Config::getPSNSignedIn())
+        if (Config::getShadNetEnabled(0))
             ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "PSN: Online");
         else
             ImGui::TextDisabled("PSN: Offline");
@@ -1199,9 +1199,9 @@ void L::DrawPauseStatusWindow(bool& is_open) {
             if (ImGui::Checkbox("Connect Network", &network_connected))
                 Config::setIsConnectedToNetwork(network_connected);
 
-            bool psn = Config::getPSNSignedIn();
+            bool psn = Config::getShadNetEnabled(0);
             if (ImGui::Checkbox("PSN Signed In", &psn))
-                Config::setPSNSignedIn(psn);
+                Config::setShadNetEnabled(0, psn);
 
             bool autobackup = Config::getEnableAutoBackup();
             if (ImGui::Checkbox("Auto Backup", &autobackup))

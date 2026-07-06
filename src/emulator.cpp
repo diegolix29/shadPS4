@@ -229,7 +229,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     LOG_INFO(Config, "General isNeo: {}", Config::isNeoModeConsole());
     LOG_INFO(Config, "General isDevKit: {}", Config::isDevKitConsole());
     LOG_INFO(Config, "General isConnectedToNetwork: {}", Config::getIsConnectedToNetwork());
-    LOG_INFO(Config, "General isPsnSignedIn: {}", Config::getPSNSignedIn());
+    LOG_INFO(Config, "General isPsnSignedIn: {}", Config::getShadNetEnabled(0));
     LOG_INFO(Config, "GPU isNullGpu: {}", Config::nullGpu());
     LOG_INFO(Config, "GPU readbackSpeed: {}", magic_enum::enum_name(Config::readbackSpeed()));
     LOG_INFO(Config, "GPU readbackLinearImages: {}", Config::getReadbackLinearImages());

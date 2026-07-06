@@ -1804,7 +1804,7 @@ void SettingsDialog::UpdateSettings() {
         presenter->UpdateFsrSettingsFromConfig();
     }
     Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
-    Config::setPSNSignedIn(ui->isPSNSignedInCheckBox->isChecked());
+    Config::setShadNetEnabled(0, ui->isPSNSignedInCheckBox->isChecked());
     Config::SetHttpHostOverride(ui->httpHostOverrideLineEdit->text().toStdString());
 
     std::vector<Config::GameDirectories> dirs_with_states;
