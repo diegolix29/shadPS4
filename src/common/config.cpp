@@ -467,7 +467,6 @@ void Save(const std::string& profile) {
     save(profile, true);
 }
 
-
 bool getToolbarWidgetVisibility(const std::string& name, bool default_value) {
     if (toolbar_visibility_settings.count(name)) {
         return toolbar_visibility_settings.at(name);

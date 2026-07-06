@@ -217,7 +217,7 @@ void setUseSpecialPad(int pad, bool use);
 bool getUseSpecialPad(int pad);
 void setSpecialPadClass(int pad, int type);
 int getSpecialPadClass(int pad);
-bool patchShaders();              // no set
+bool patchShaders(); // no set
 void setfpsColor(bool enable);
 void setNeoMode(bool enable);  // no ui setting
 bool vkValidationGpuEnabled(); // no set

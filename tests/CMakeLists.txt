@@ -258,7 +258,6 @@ target_link_libraries(shadps4_http_test PRIVATE
     nlohmann_json::nlohmann_json
     toml11::toml11
     SDL3::SDL3
-    spdlog::spdlog
 )
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
