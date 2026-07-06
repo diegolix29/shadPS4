@@ -681,7 +681,7 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_party.h
             src/core/libraries/np/np_auth.cpp
             src/core/libraries/np/np_auth.h
-                        src/core/libraries/np/np_profile_dialog/np_profile_dialog.cpp
+            src/core/libraries/np/np_profile_dialog/np_profile_dialog.cpp
             src/core/libraries/np/np_profile_dialog/np_profile_dialog.h
             src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.cpp
             src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.h
@@ -689,10 +689,18 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_sns_facebook_dialog.h
             src/core/libraries/np/np_partner.cpp
             src/core/libraries/np/np_partner.h
-            src/core/libraries/np/np_signaling.cpp
             src/core/libraries/np/object_manager.h
-            src/core/libraries/np/np_signaling.cpp
-            src/core/libraries/np/np_signaling.h
+            src/core/libraries/np/np_score/np_score.cpp
+            src/core/libraries/np/np_score/np_score.h
+            src/core/libraries/np/np_score/np_score_ctx.h
+            src/core/libraries/np/np_signaling/np_signaling.cpp
+            src/core/libraries/np/np_signaling/np_signaling.h
+            src/core/libraries/np/np_signaling/np_signaling_helpers.h
+            src/core/libraries/np/np_signaling/np_signaling_helpers.cpp
+            src/core/libraries/np/np_signaling/np_signaling_state.h
+            src/core/libraries/np/np_signaling/np_signaling_stubs.h
+            src/core/libraries/np/np_signaling/np_signaling_state.cpp
+            src/core/libraries/np/np_signaling/np_signaling_stubs.cpp
 )
 
 set(ZLIB_LIB src/core/libraries/zlib/zlib.cpp
