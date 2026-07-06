@@ -340,7 +340,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         }
         
         QSlider::groove:horizontal {
-            height: 8px;
+            height: 12px;
             background: %3;
             border: 1px solid %9;
             border-radius: 4px;
@@ -609,6 +609,37 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
                                       Common::FS::GetUserPath(Common::FS::PathType::CustomTrophy));
             QDesktopServices::openUrl(QUrl::fromLocalFile(userPath));
         });
+    }
+
+    // ShadNet per-player sign-in wiring
+    {
+        QCheckBox* shadnetEnableBoxes[4] = {ui->shadnetEnableCheckBox1, ui->shadnetEnableCheckBox2,
+                                            ui->shadnetEnableCheckBox3, ui->shadnetEnableCheckBox4};
+        QLineEdit* shadnetNpidEdits[4] = {ui->shadnetNpidLineEdit1, ui->shadnetNpidLineEdit2,
+                                          ui->shadnetNpidLineEdit3, ui->shadnetNpidLineEdit4};
+        QLineEdit* shadnetPasswordEdits[4] = {
+            ui->shadnetPasswordLineEdit1, ui->shadnetPasswordLineEdit2,
+            ui->shadnetPasswordLineEdit3, ui->shadnetPasswordLineEdit4};
+        QCheckBox* shadnetShowBoxes[4] = {
+            ui->shadnetShowPasswordCheckBox1, ui->shadnetShowPasswordCheckBox2,
+            ui->shadnetShowPasswordCheckBox3, ui->shadnetShowPasswordCheckBox4};
+
+        for (int i = 0; i < 4; i++) {
+            QLineEdit* npidEdit = shadnetNpidEdits[i];
+            QLineEdit* passwordEdit = shadnetPasswordEdits[i];
+            QCheckBox* showBox = shadnetShowBoxes[i];
+
+            connect(shadnetEnableBoxes[i], &QCheckBox::toggled, this,
+                    [npidEdit, passwordEdit, showBox](bool checked) {
+                        npidEdit->setEnabled(checked);
+                        passwordEdit->setEnabled(checked);
+                        showBox->setEnabled(checked);
+                    });
+
+            connect(showBox, &QCheckBox::toggled, this, [passwordEdit](bool checked) {
+                passwordEdit->setEchoMode(checked ? QLineEdit::Normal : QLineEdit::Password);
+            });
+        }
     }
 
     {
@@ -945,6 +976,9 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->label_Trophy->installEventFilter(this);
         ui->trophyKeyLineEdit->installEventFilter(this);
 
+        ui->shadnetNetworkGroupBox->installEventFilter(this);
+        ui->shadnetAccountsGroupBox->installEventFilter(this);
+
         // Input
         ui->hideCursorGroupBox->installEventFilter(this);
         ui->idleTimeoutGroupBox->installEventFilter(this);
@@ -1016,7 +1050,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->isDevKitCheckBox->installEventFilter(this);
         ui->isNeoModeCheckBox->installEventFilter(this);
         ui->connectedNetworkCheckBox->installEventFilter(this);
-        ui->isPSNSignedInCheckBox->installEventFilter(this);
         ui->ReadbacksLinearCheckBox->installEventFilter(this);
         ui->ReadbackSpeedComboBox->installEventFilter(this);
         ui->MemorySpinBox->installEventFilter(this);
@@ -1342,8 +1375,37 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "General", "useHostMemoryFallback", false));
     int compressionLevel = toml::find_or<int>(data, "General", "memoryCompressionLevel", 0);
     ui->memoryCompressionComboBox->setCurrentIndex(compressionLevel);
-    ui->isPSNSignedInCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "isPSNSignedIn", false));
+    // ShadNet network settings (shared by all player accounts)
+    ui->serverLineEdit->setText(QString::fromStdString(Config::getShadnetServer()));
+    ui->servWebApiLineEdit->setText(QString::fromStdString(Config::getShadnetWebApiServer()));
+    ui->signalingInfoLineEdit->setText(QString::fromStdString(Config::getSignalingInfo()));
+    ui->upnpCheckBox->setChecked(Config::IsUPnPEnabled());
+
+    // ShadNet per-player sign-in
+    auto shadNetEnabled = Config::getShadNetEnabledStates();
+    auto shadNetNpids = Config::getShadNetNpids();
+    auto shadNetPasswords = Config::getShadNetPasswords();
+
+    QCheckBox* shadnetEnableBoxes[4] = {ui->shadnetEnableCheckBox1, ui->shadnetEnableCheckBox2,
+                                        ui->shadnetEnableCheckBox3, ui->shadnetEnableCheckBox4};
+    QLineEdit* shadnetNpidEdits[4] = {ui->shadnetNpidLineEdit1, ui->shadnetNpidLineEdit2,
+                                      ui->shadnetNpidLineEdit3, ui->shadnetNpidLineEdit4};
+    QLineEdit* shadnetPasswordEdits[4] = {
+        ui->shadnetPasswordLineEdit1, ui->shadnetPasswordLineEdit2, ui->shadnetPasswordLineEdit3,
+        ui->shadnetPasswordLineEdit4};
+    QCheckBox* shadnetShowBoxes[4] = {
+        ui->shadnetShowPasswordCheckBox1, ui->shadnetShowPasswordCheckBox2,
+        ui->shadnetShowPasswordCheckBox3, ui->shadnetShowPasswordCheckBox4};
+
+    for (int i = 0; i < 4; i++) {
+        shadnetEnableBoxes[i]->setChecked(shadNetEnabled[i]);
+        shadnetNpidEdits[i]->setText(QString::fromStdString(shadNetNpids[i]));
+        shadnetPasswordEdits[i]->setText(QString::fromStdString(shadNetPasswords[i]));
+        shadnetPasswordEdits[i]->setEchoMode(QLineEdit::Password);
+        shadnetNpidEdits[i]->setEnabled(shadNetEnabled[i]);
+        shadnetPasswordEdits[i]->setEnabled(shadNetEnabled[i]);
+        shadnetShowBoxes[i]->setEnabled(shadNetEnabled[i]);
+    }
 
     ui->removeFolderButton->setEnabled(!ui->gameFoldersListWidget->selectedItems().isEmpty());
     ui->backgroundImageOpacitySlider->setValue(Config::getBackgroundImageOpacity());
@@ -1604,8 +1666,10 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
         text = tr("Enable Devkit Console Mode:\\nAdds support for Devkit console memory size.");
     } else if (elementName == "connectedNetworkCheckBox") {
         text = tr("Set Network Connected to True:\\nForces games to detect an active network connection. Actual online capabilities are not yet supported.");
-    } else if (elementName == "isPSNSignedInCheckBox") {
-        text = tr("Set PSN Signed-in to True:\\nForces games to detect an active PSN sign-in. Actual PSN capabilities are not supported."); 
+    } else if (elementName == "shadnetNetworkGroupBox") {
+        text = tr("ShadNet Network:\\nA PSN server replacement.\\nCompatibility is very limited at the moment.\\nYou can register at https://www.shadps4.net/shadNet/register/.");
+    } else if (elementName == "shadnetAccountsGroupBox") {
+        text = tr("ShadNet Accounts:\\nSign in each player to ShadNet using their NPID and password.\\nOnce signed in, the player's ShadNet online ID is used in place of their local username.");
     }
     // clang-format on
     ui->descriptionText->setText(text.replace("\\n", "\n"));
@@ -1804,8 +1868,30 @@ void SettingsDialog::UpdateSettings() {
         presenter->UpdateFsrSettingsFromConfig();
     }
     Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
-    Config::setShadNetEnabled(0, ui->isPSNSignedInCheckBox->isChecked());
     Config::SetHttpHostOverride(ui->httpHostOverrideLineEdit->text().toStdString());
+
+    // ShadNet network settings
+    Config::setShadnetServer(ui->serverLineEdit->text().toStdString());
+    Config::setShadnetWebApiServer(ui->servWebApiLineEdit->text().toStdString());
+    Config::setSignalingInfo(ui->signalingInfoLineEdit->text().toStdString());
+    Config::SetUPnPEnabled(ui->upnpCheckBox->isChecked());
+
+    // ShadNet per-player sign-in
+    {
+        QCheckBox* shadnetEnableBoxes[4] = {ui->shadnetEnableCheckBox1, ui->shadnetEnableCheckBox2,
+                                            ui->shadnetEnableCheckBox3, ui->shadnetEnableCheckBox4};
+        QLineEdit* shadnetNpidEdits[4] = {ui->shadnetNpidLineEdit1, ui->shadnetNpidLineEdit2,
+                                          ui->shadnetNpidLineEdit3, ui->shadnetNpidLineEdit4};
+        QLineEdit* shadnetPasswordEdits[4] = {
+            ui->shadnetPasswordLineEdit1, ui->shadnetPasswordLineEdit2,
+            ui->shadnetPasswordLineEdit3, ui->shadnetPasswordLineEdit4};
+
+        for (int i = 0; i < 4; i++) {
+            Config::setShadNetEnabled(i, shadnetEnableBoxes[i]->isChecked());
+            Config::setShadNetNpid(i, shadnetNpidEdits[i]->text().toStdString());
+            Config::setShadNetPassword(i, shadnetPasswordEdits[i]->text().toStdString());
+        }
+    }
 
     std::vector<Config::GameDirectories> dirs_with_states;
     for (int i = 0; i < ui->gameFoldersListWidget->count(); i++) {
