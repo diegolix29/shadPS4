@@ -843,7 +843,7 @@
 															</property>
 
 															<layout class="QGridLayout" name="specialPadGridLayout">
-																
+
 																<item row="0" column="1">
 																	<widget class="QLabel">
 																		<property name="text">
@@ -1159,9 +1159,9 @@
 																				</widget>
 																			</item>
 																			<item>
-																				<widget class="QCheckBox" name="isPSNSignedInCheckBox">
+																				<widget class="QCheckBox" name="shadnetCheckBox">
 																					<property name="text">
-																						<string>PSN Signed</string>
+																						<string>ShadNet Enabled</string>
 																					</property>
 																				</widget>
 																			</item>

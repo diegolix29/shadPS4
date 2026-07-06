@@ -447,7 +447,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->memoryCompressionComboBox->setCurrentIndex(compressionLevel);
     ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
     ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
-    ui->isPSNSignedInCheckBox->setChecked(Config::getPSNSignedIn());
+    ui->shadnetCheckBox->setChecked(Config::IsShadNetEnabled());
     ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
     ui->disableTrophycheckBox->setChecked(Config::getisTrophyPopupDisabled());
     ui->logFilterLineEdit->setText(QString::fromStdString(Config::getLogFilter()));
@@ -580,8 +580,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->isDevKitCheckBox->setChecked(toml::find<bool>(gen, "isDevKit"));
         if (gen.contains("isPS4Pro"))
             ui->isNeoModeCheckBox->setChecked(toml::find<bool>(gen, "isPS4Pro"));
-        if (gen.contains("isPSNSignedIn"))
-            ui->isPSNSignedInCheckBox->setChecked(toml::find<bool>(gen, "isPSNSignedIn"));
+        if (gen.contains("isShadNetEnabled"))
+            ui->shadnetCheckBox->setChecked(toml::find<bool>(gen, "isShadNetEnabled"));
         if (gen.contains("httpHostOverride"))
             ui->httpHostOverrideLineEdit->setText(
                 QString::fromStdString(toml::find<std::string>(gen, "httpHostOverride")));
@@ -814,7 +814,7 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["memoryCompressionLevel"] = ui->memoryCompressionComboBox->currentIndex();
     overrides["General"]["isDevKit"] = ui->isDevKitCheckBox->isChecked();
     overrides["General"]["isPS4Pro"] = ui->isNeoModeCheckBox->isChecked();
-    overrides["General"]["isPSNSignedIn"] = ui->isPSNSignedInCheckBox->isChecked();
+    overrides["General"]["isShadNetEnabled"] = ui->shadnetCheckBox->isChecked();
     overrides["General"]["httpHostOverride"] = ui->httpHostOverrideLineEdit->text().toStdString();
     overrides["General"]["isTrophyPopupDisabled"] = ui->disableTrophycheckBox->isChecked();
     overrides["General"]["logFilter"] = ui->logFilterLineEdit->text().toStdString();
