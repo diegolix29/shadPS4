@@ -230,6 +230,10 @@ static ConfigEntry<int> extraDmemInMbytes(0);
 static ConfigEntry<bool> useHostMemoryFallback(false);
 static ConfigEntry<int> memoryCompressionLevel(0);
 static ConfigEntry<int> usbDeviceBackend(UsbBackendType::Real);
+static ConfigEntry<s32> cameraId(-1);
+static ConfigEntry<bool> imeAccessibilityEnabled(false);
+static ConfigEntry<bool> imeUrlMailShortPanel(false);
+static ConfigEntry<bool> useMiceAsMice(false);
 
 // Non-config runtime-only
 static bool overrideControllerColor = false;
@@ -351,6 +355,61 @@ static bool launcher_boot = false;
 std::unordered_map<std::string, bool> toolbar_visibility_settings;
 static std::filesystem::path fonts_path = {};
 static ConfigEntry<bool> isIdenticalLogGrouped(true);
+
+const std::vector<Config::GameDirectories> Config::getAllGameDirectories() {
+    std::vector<Config::GameDirectories> directories;
+    auto paths = getGameDirectories();
+    auto enabled_states = getGameDirectoriesEnabled();
+
+    for (size_t i = 0; i < paths.size(); ++i) {
+        Config::GameDirectories dir;
+        dir.path = paths[i];
+        // Make sure we don't go out of bounds if arrays mismatch
+        dir.enabled = (i < enabled_states.size()) ? enabled_states[i] : true;
+        directories.push_back(dir);
+    }
+    return directories;
+}
+
+bool IsUseUnifiedInputConfig() {
+    return useUnifiedInputConfig.get();
+}
+
+bool IsMiceUsedAsMice() {
+    return useMiceAsMice.get();
+}
+
+bool IsImeUrlMailShortPanel() {
+    return imeUrlMailShortPanel.get();
+}
+
+bool IsImeAccessibilityEnabled() {
+    return imeAccessibilityEnabled.get();
+}
+
+std::filesystem::path GetFontsDir() {
+    return fonts_path;
+}
+
+int GetCameraId() {
+    return cameraId.get();
+}
+
+void Load() {
+    load(std::filesystem::path{}, false);
+}
+
+void Load(const std::string& profile) {
+    load(profile, true);
+}
+
+void Save() {
+    save(std::filesystem::path{}, false);
+}
+
+void Save(const std::string& profile) {
+    save(profile, true);
+}
 
 bool getToolbarWidgetVisibility(const std::string& name, bool default_value) {
     if (toolbar_visibility_settings.count(name)) {

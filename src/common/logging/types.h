@@ -57,6 +57,7 @@ enum class Class : u8 {
     Lib_UserService,         ///< The LibSceUserService implementation.
     Lib_VideoOut,            ///< The LibSceVideoOut implementation.
     Lib_CommonDlg,           ///< The LibSceCommonDialog implementation.
+    Lib_ContentExport,       ///< The LibSceContentExport implementation.
     Lib_MsgDlg,              ///< The LibSceMsgDialog implementation.
     Lib_AudioOut,            ///< The LibSceAudioOut implementation.
     Lib_AudioIn,             ///< The LibSceAudioIn implementation.
@@ -105,7 +106,8 @@ enum class Class : u8 {
     Lib_SharePlay,           ///< The LibSceSharePlay implemenation
     Lib_Fiber,               ///< The LibSceFiber implementation.
     Lib_Vdec2,               ///< The LibSceVideodec2 implementation.
-    Lib_Videodec,            ///< The LibSceVideodec implementation.
+    Lib_Videodec,            ///< The LibSceVideoRecording implementation.
+    Lib_VideoRecording,      ///< The LibSceVideodec implementation.
     Lib_Voice,               ///< The LibSceVoice implementation.
     Lib_RazorCpu,            ///< The LibRazorCpu implementation.
     Lib_Mouse,               ///< The LibSceMouse implementation

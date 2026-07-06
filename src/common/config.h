@@ -285,6 +285,7 @@ void setTrophyNotificationDuration(double newTrophyNotificationDuration);
 void setIsMotionControlsEnabled(bool use);
 std::filesystem::path getSysModulesPath();
 void setSysModulesPath(const std::filesystem::path& path);
+const std::vector<GameDirectories> getAllGameDirectories();
 
 void setLogType(const std::string& type);
 void setLogFilter(const std::string& type);
@@ -361,6 +362,19 @@ void setVolumeSlider(int volumeValue, bool is_game_specific);
 bool isMuteEnabled();
 void setMuteEnabled(bool enabled);
 bool hasCustomMuteHotkey();
+
+bool IsUseUnifiedInputConfig();
+bool IsMiceUsedAsMice();
+bool IsImeUrlMailShortPanel();
+bool IsImeAccessibilityEnabled();
+std::filesystem::path GetFontsDir();
+int GetCameraId();
+
+// UI Load/Save overloads
+void Load();
+void Load(const std::string& profile);
+void Save();
+void Save(const std::string& profile);
 
 bool GamesMenuUI();
 void setGamesMenuUI(bool enable);

@@ -19,6 +19,7 @@
 #include <unordered_set>
 #include <vector>
 #include <nlohmann/json.hpp>
+#include "common/config.h"
 #include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
@@ -1557,7 +1558,7 @@ int PS4_SYSV_ABI sceHttpSendRequest(int reqId, const void* postData, u64 size) {
         }
     }
 
-    const bool online = EmulatorSettings.IsConnectedToNetwork();
+    const bool online = Config::getIsConnectedToNetwork();
     LOG_INFO(Lib_Http, "reqId={} dispatched to async worker [{} {} {}://{}:{}{}]", reqId,
              online ? "ONLINE" : "OFFLINE", HttpMethodName(plan.method), plan.scheme, plan.host,
              plan.port, plan.path);
