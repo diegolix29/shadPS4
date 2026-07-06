@@ -4125,7 +4125,7 @@ s32 PS4_SYSV_ABI sceFontOpenFontSet(OrbisFontLib library, u32 fontSetType, u32 o
                 using_builtin_primary = true;
             } else {
                 LOG_ERROR(Lib_Font, "FONT_OPEN_FAILED path='{}' fontsPath='{}'",
-                          primary_path.string(), EmulatorSettings.GetFontsDir().string());
+                          primary_path.string(), Config::GetFontsDir().string());
                 return release_library_and_clear_out(ORBIS_FONT_ERROR_FONT_OPEN_FAILED);
             }
         }

@@ -76,7 +76,7 @@ void Launch() {
     font_cfg.OversampleH = 2;
     font_cfg.OversampleV = 1;
     ImFont* myFont = ImGui::FontStack::AddPrimaryUiFont(
-        io.Fonts, 32.0f, EmulatorSettings.GetConsoleLanguage(), font_cfg, true);
+        io.Fonts, 32.0f, Config::GetLanguage(), font_cfg, true);
     io.FontDefault = myFont;
 
     io.Fonts->Build();

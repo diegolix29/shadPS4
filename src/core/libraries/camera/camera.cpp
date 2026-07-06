@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/config.h"
+
 #include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "core/emulator_settings.h"
@@ -413,7 +415,7 @@ s32 PS4_SYSV_ABI sceCameraGetFrameData(s32 handle, OrbisCameraFrameData* frame_d
     if (!g_library_opened || !sdl_camera) {
         return ORBIS_CAMERA_ERROR_NOT_OPEN;
     }
-    if (EmulatorSettings.GetCameraId() == -1) {
+    if (Config::GetCameraId() == -1) {
         return ORBIS_CAMERA_ERROR_NOT_CONNECTED;
     }
     Uint64 timestampNS = 0;
@@ -635,7 +637,7 @@ s32 PS4_SYSV_ABI sceCameraIsAttached(s32 index) {
         return ORBIS_CAMERA_ERROR_PARAM;
     }
     // 0 = disconnected, 1 = connected
-    return EmulatorSettings.GetCameraId() == -1 ? 0 : 1;
+    return Config::GetCameraId() == -1 ? 0 : 1;
 }
 
 s32 PS4_SYSV_ABI sceCameraIsConfigChangeDone() {
@@ -755,7 +757,7 @@ s32 PS4_SYSV_ABI sceCameraSetConfig(s32 handle, OrbisCameraConfig* config) {
         LOG_ERROR(Lib_Camera, "ORBIS_CAMERA_ERROR_NOT_OPEN");
         return ORBIS_CAMERA_ERROR_NOT_OPEN;
     }
-    if (EmulatorSettings.GetCameraId() == -1) {
+    if (Config::GetCameraId() == -1) {
         LOG_ERROR(Lib_Camera, "ORBIS_CAMERA_ERROR_NOT_CONNECTED");
         return ORBIS_CAMERA_ERROR_NOT_CONNECTED;
     }
@@ -1076,9 +1078,9 @@ s32 PS4_SYSV_ABI sceCameraStart(s32 handle, OrbisCameraStartParameter* param) {
     cam_spec.width = c_width;
     cam_spec.framerate_numerator = 60;
     cam_spec.framerate_denominator = 1;
-    sdl_camera = SDL_OpenCamera(devices[EmulatorSettings.GetCameraId()], &cam_spec);
+    sdl_camera = SDL_OpenCamera(devices[Config::GetCameraId()], &cam_spec);
     LOG_INFO(Lib_Camera, "SDL backend in use: {}", SDL_GetCurrentCameraDriver());
-    char const* camera_name = SDL_GetCameraName(devices[EmulatorSettings.GetCameraId()]);
+    char const* camera_name = SDL_GetCameraName(devices[Config::GetCameraId()]);
     if (camera_name)
         LOG_INFO(Lib_Camera, "SDL camera name: {}", camera_name);
     SDL_CameraSpec spec;

@@ -769,7 +769,7 @@ s32 sendRequest(s64 requestId, s32 partIndex, const void* pData, u64 dataSize, s
     unlockContext(context);
 
     // Stubbing sceNpManagerIntGetSigninState call with a config check.
-    if (!EmulatorSettings.IsShadNetEnabled()) {
+    if (!Config::IsShadNetEnabled()) {
         releaseRequest(request);
         releaseUserContext(user_context);
         releaseContext(context);
@@ -777,7 +777,7 @@ s32 sendRequest(s64 requestId, s32 partIndex, const void* pData, u64 dataSize, s
     }
 
     if (request->http_request_id == 0) {
-        std::string base_url = EmulatorSettings.GetShadNetWebApiServer();
+        std::string base_url = Config::GetShadNetWebApiServer();
         // sceHttpCreateConnectionWithURL expects a template id, not the raw libhttp
         // context id that NpWebApi was initialized with. Create a template from the
         // context first, then open the connection against it.
@@ -1378,7 +1378,7 @@ s32 createServicePushEventFilterInternal(
     auto& handle = context->handles[handleId];
     handle->userCount++;
 
-    if (pNpServiceName != nullptr && !EmulatorSettings.IsShadNetEnabled()) {
+    if (pNpServiceName != nullptr && !Config::IsShadNetEnabled()) {
         // Seems sceNpManagerIntGetUserList fails?
         LOG_DEBUG(Lib_NpWebApi, "Cannot create service push event while shadNet is disabled");
         handle->userCount--;
@@ -1555,7 +1555,7 @@ s32 createExtendedPushEventFilterInternal(
     auto& handle = context->handles[handleId];
     handle->userCount++;
 
-    if (pNpServiceName != nullptr && !EmulatorSettings.IsShadNetEnabled()) {
+    if (pNpServiceName != nullptr && !Config::IsShadNetEnabled()) {
         // Seems sceNpManagerIntGetUserList fails?
         LOG_DEBUG(Lib_NpWebApi, "Cannot create extended push event while shadNet is disabled");
         handle->userCount--;

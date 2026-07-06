@@ -2020,7 +2020,7 @@ static bool DirectoryContainsAnyFontFiles(const std::filesystem::path& dir) {
 }
 
 static std::filesystem::path GetSysFontBaseDirImpl(bool log_errors) {
-    std::filesystem::path base = EmulatorSettings.GetFontsDir();
+    std::filesystem::path base = Config::GetFontsDir();
     std::error_code ec;
     if (base.empty()) {
         if (log_errors) {
@@ -2344,7 +2344,7 @@ std::string ReportSystemFaceRequest(FontState& st, Libraries::Font::OrbisFontHan
     }
     if (!st.system_requested) {
         st.system_requested = true;
-        const auto configured = EmulatorSettings.GetFontsDir();
+        const auto configured = Config::GetFontsDir();
         return fmt::format("SystemFace: handle={} requested internal font but fontsPath ('{}') "
                            "could not be loaded",
                            static_cast<const void*>(handle), configured.string());
