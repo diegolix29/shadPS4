@@ -46,8 +46,7 @@ std::string tr(std::string input) {
     if (Config::GetLanguage() == 1 || Config::GetLanguage() == 18)
         return input;
 
-    const std::map<std::string, std::string> translationTable =
-        langMap.at(Config::GetLanguage());
+    const std::map<std::string, std::string> translationTable = langMap.at(Config::GetLanguage());
 
     if (!translationTable.contains(input)) {
         return input;

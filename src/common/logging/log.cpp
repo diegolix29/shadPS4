@@ -227,9 +227,8 @@ void Setup(std::string_view log_filename) {
 
     for (auto& [name, logger] : ALL_LOGGERS) {
         logger = std::make_shared<spdlog::logger>(
-            std::string(name), Config::IsLogSkipDuplicate()
-                                   ? dup_filter
-                                   : (Config::IsLogSync() ? sinks : async_sink));
+            std::string(name),
+            Config::IsLogSkipDuplicate() ? dup_filter : (Config::IsLogSync() ? sinks : async_sink));
 
         if (Config::IsLogEnable()) {
             const auto level_it = log_level_per_class.find(std::string(name));
