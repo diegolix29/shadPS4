@@ -147,8 +147,6 @@ s32 PS4_SYSV_ABI sceNpSignalingCreateContext(const void* npId, void* callback, v
         return ORBIS_NP_SIGNALING_ERROR_INVALID_ARGUMENT;
     }
 
-    const bool transport_ready = Stubs::EnsureTransport();
-
     s32 ctx_id = 0;
     {
         SignalingMutexGuard lock;
@@ -179,7 +177,7 @@ s32 PS4_SYSV_ABI sceNpSignalingCreateContext(const void* npId, void* callback, v
                  fmt::ptr(callbackArg), ctx.compiled_sdk_version, ctx.bound_port);
     }
 
-    if (transport_ready) {
+    if (Stubs::TransportIsReady()) {
         SendStunPing(ctx_id);
     }
     return ORBIS_OK;
@@ -204,8 +202,6 @@ s32 PS4_SYSV_ABI sceNpSignalingCreateContextA(s32 userId, void* callback, void* 
     }
     // Account id isn't needed without matchmaking wired up; leave it 0 for now.
     const OrbisNpAccountId account_id = 0;
-
-    const bool transport_ready = Stubs::EnsureTransport();
 
     s32 ctx_id = 0;
     {
@@ -238,7 +234,7 @@ s32 PS4_SYSV_ABI sceNpSignalingCreateContextA(s32 userId, void* callback, void* 
                  OnlineIdToString(ctx.owner_online_id), account_id);
     }
 
-    if (transport_ready) {
+    if (Stubs::TransportIsReady()) {
         SendStunPing(ctx_id);
     }
     return ORBIS_OK;
@@ -301,8 +297,6 @@ s32 PS4_SYSV_ABI sceNpSignalingActivateConnection(OrbisNpSignalingContextId ctxI
 
     s32 cid = 0;
     bool reused_established = false;
-    bool queue_activation = false;
-    bool start_handshake = true;
     {
         SignalingMutexGuard lock;
         if (!g_initialized) {
@@ -328,18 +322,12 @@ s32 PS4_SYSV_ABI sceNpSignalingActivateConnection(OrbisNpSignalingContextId ctxI
             } else if (conn_it != g_connections.end()) {
                 cid = existing_it->second;
                 ConnectionInfo& ci = conn_it->second;
-                const bool was_locally_activated = ci.locally_activated;
                 ci.locally_activated = true;
                 if (ci.state == ConnState::Established) {
                     ClearLingerAndTimeoutLocked(cid);
                     reused_established = true;
-                    start_handshake = false;
                 } else {
                     ClearLingerAndTimeoutLocked(cid);
-                    start_handshake = true;
-                }
-                if (!was_locally_activated) {
-                    queue_activation = true;
                 }
             }
         }
@@ -364,30 +352,23 @@ s32 PS4_SYSV_ABI sceNpSignalingActivateConnection(OrbisNpSignalingContextId ctxI
         }
         if (created_new) {
             ArmConnectTimeoutLocked(cid);
-            queue_activation = true;
-            start_handshake = true;
-        }
-        if (queue_activation) {
-            QueueActivationLocked(cid, peer_online_id_str, start_handshake);
+            QueueActivationLocked(cid, peer_online_id_str);
         }
         LOG_INFO(Lib_NpSignaling, "ctxId={} peer='{}' connId={} Status: {}", ctxId,
                  peer_online_id_str, cid,
                  created_new          ? "queued, async"
-                 : reused_established ? "queued local activation on established connection"
-                 : queue_activation   ? "queued local activation on existing connection"
+                 : reused_established ? "reused established"
                                       : "reused transient");
     }
 
     *outConnId = cid;
 
-    if (queue_activation) {
-        g_dispatch_cv.notify_all();
+    if (reused_established) {
+        EstablishConnection(cid, false);
         return ORBIS_OK;
     }
 
-    if (reused_established) {
-        EstablishConnection(cid, false);
-    }
+    g_dispatch_cv.notify_all();
     return ORBIS_OK;
 }
 
