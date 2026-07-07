@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <chrono>
-#include <cstdint>
 #include <cstring>
-#include <memory>
 
 #include "common/logging/log.h"
 #include "core/emulator_settings.h"
@@ -247,11 +245,7 @@ int PS4_SYSV_ABI sceNpMatching2ContextStop(OrbisNpMatching2ContextId ctxId) {
         return rc;
     }
 
-    const s32 submit_rc = MmContextStop(ctxId);
-    if (submit_rc != ORBIS_OK) {
-        ContextManager::Instance().CompleteStop(ctxId);
-        return submit_rc;
-    }
+    MmContextStop(ctxId);
     return ORBIS_OK;
 }
 
@@ -316,11 +310,6 @@ int PS4_SYSV_ABI sceNpMatching2SetDefaultRequestOptParam(
         LOG_ERROR(Lib_NpMatching2, "invalid context id");
         return ORBIS_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID;
     }
-
-    LOG_INFO(Lib_NpMatching2,
-             "SetDefaultRequestOptParam: ctx={} opt={} callback={:#x} arg={} timeout={} appId={}",
-             ctxId, fmt::ptr(requestOpt), reinterpret_cast<std::uintptr_t>(requestOpt->callback),
-             fmt::ptr(requestOpt->arg), requestOpt->timeout, requestOpt->appId);
 
     ctx->default_request_callback = requestOpt->callback;
     ctx->default_request_callback_arg = requestOpt->arg;
@@ -581,7 +570,8 @@ s32 PS4_SYSV_ABI sceNpMatching2SignalingGetConnectionStatus(OrbisNpMatching2Cont
         if (member_it != room_it->second.members.end()) {
             pi.addr = member_it->second.addr;
             pi.port = member_it->second.port;
-            pi.online_id = member_it->second.np_id.handle;
+            std::strncpy(pi.online_id.data, member_it->second.np_id.handle.data,
+                         sizeof(pi.online_id.data) - 1);
         }
         peer_it = ctx->peers.emplace(memberId, pi).first;
     }
@@ -760,9 +750,8 @@ int PS4_SYSV_ABI sceNpMatching2GetRoomDataInternal(
     ev.req_id = reqId;
     ev.req_event = ORBIS_NP_MATCHING2_REQUEST_EVENT_GET_ROOM_DATA_INTERNAL;
     ev.error_code = 0;
-    const RequestCallbackInfo request_cb = ConsumeRequestCallback(ctx);
-    ev.request_cb = request_cb.callback;
-    ev.request_cb_arg = request_cb.arg;
+    ev.request_cb = ctx->default_request_callback;
+    ev.request_cb_arg = ctx->default_request_callback_arg;
     ev.request_data = request_data;
     ScheduleEvent(std::move(ev));
     return ORBIS_OK;
@@ -982,10 +971,9 @@ int PS4_SYSV_ABI sceNpMatching2SignalingGetPingInfo(OrbisNpMatching2ContextId ct
     const OrbisNpMatching2RequestId request_id = AllocRequestId();
     *reqId = request_id;
 
-    auto request_payload_owner = std::make_shared<CallbackPayload>();
-    ctx->request_payload_override = request_payload_owner.get();
-    void* request_data = BuildSignalingGetPingInfoPayload(*ctx, request->roomId);
-    ctx->request_payload_override = nullptr;
+    const bool room_found = ctx->room_cache.find(request->roomId) != ctx->room_cache.end();
+    void* request_data =
+        room_found ? BuildSignalingGetPingInfoPayload(*ctx, request->roomId) : nullptr;
 
     PendingEvent ev{};
     ev.type = PendingEvent::REQUEST_CB;
@@ -993,12 +981,10 @@ int PS4_SYSV_ABI sceNpMatching2SignalingGetPingInfo(OrbisNpMatching2ContextId ct
     ev.fire_at = std::chrono::steady_clock::now();
     ev.req_id = request_id;
     ev.req_event = ORBIS_NP_MATCHING2_REQUEST_EVENT_SIGNALING_GET_PING_INFO;
-    ev.error_code = ORBIS_OK;
-    const RequestCallbackInfo request_cb = ConsumeRequestCallback(ctx);
-    ev.request_cb = request_cb.callback;
-    ev.request_cb_arg = request_cb.arg;
+    ev.error_code = room_found ? ORBIS_OK : ORBIS_NP_MATCHING2_ERROR_ROOM_NOT_FOUND;
+    ev.request_cb = ctx->default_request_callback;
+    ev.request_cb_arg = ctx->default_request_callback_arg;
     ev.request_data = request_data;
-    ev.request_payload_owner = std::move(request_payload_owner);
     ScheduleEvent(std::move(ev));
     return ORBIS_OK;
 }

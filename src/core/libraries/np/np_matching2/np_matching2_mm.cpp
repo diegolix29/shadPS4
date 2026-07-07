@@ -3,7 +3,6 @@
 
 #include <chrono>
 #include <condition_variable>
-#include <cstdint>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -31,8 +30,6 @@ struct PendingRequest {
     OrbisNpMatching2RequestId req_id = 0;
     OrbisNpMatching2Event req_event{};
     bool a_variant = false;
-    OrbisNpMatching2RequestCallback request_cb = nullptr;
-    void* request_cb_arg = nullptr;
 };
 
 struct MmClientState {
@@ -163,11 +160,8 @@ void DispatchRequestComplete(const PendingRequest& pr, ShadNet::ErrorType error,
     }
 
     void* request_data = nullptr;
-    std::shared_ptr<CallbackPayload> request_payload_owner;
 
     if (error_code == 0) {
-        request_payload_owner = std::make_shared<CallbackPayload>();
-        ctx->request_payload_override = request_payload_owner.get();
         const std::string proto = ExtractProtoBytes(body);
         if (pr.req_event == ORBIS_NP_MATCHING2_REQUEST_EVENT_CREATE_JOIN_ROOM ||
             pr.req_event == ORBIS_NP_MATCHING2_REQUEST_EVENT_CREATE_JOIN_ROOM_A) {
@@ -227,7 +221,6 @@ void DispatchRequestComplete(const PendingRequest& pr, ShadNet::ErrorType error,
                                             : BuildGetUserInfoListPayload(*ctx, reply);
             }
         }
-        ctx->request_payload_override = nullptr;
     }
 
     PendingEvent ev{};
@@ -237,10 +230,9 @@ void DispatchRequestComplete(const PendingRequest& pr, ShadNet::ErrorType error,
     ev.req_id = pr.req_id;
     ev.req_event = pr.req_event;
     ev.error_code = error_code;
-    ev.request_cb = pr.request_cb;
-    ev.request_cb_arg = pr.request_cb_arg;
+    ev.request_cb = ctx->default_request_callback;
+    ev.request_cb_arg = ctx->default_request_callback_arg;
     ev.request_data = request_data;
-    ev.request_payload_owner = std::move(request_payload_owner);
     ScheduleEvent(std::move(ev));
 
     if (error_code == 0 && (pr.req_event == ORBIS_NP_MATCHING2_REQUEST_EVENT_JOIN_ROOM ||
@@ -292,7 +284,7 @@ void BuildMemberUpdate(CallbackPayload& p, const RoomCache& rc, const MemberCach
         m.joinDateTicks.tick = mc.join_date;
         m.user.accountId = mc.account_id;
         m.user.platform = mc.platform;
-        m.onlineId = mc.np_id.handle;
+        std::strncpy(m.onlineId.data, mc.np_id.handle.data, sizeof(m.onlineId.data) - 1);
         m.roomGroup = p.room_groups.empty() ? nullptr : p.room_groups.data();
         m.roomMemberInternalBinAttr =
             p.member_bin_attrs.empty() ? nullptr : p.member_bin_attrs.data();
@@ -358,7 +350,7 @@ void HandleRoomEvent(const ShadNet::NotifyRoomEvent& n) {
         mc.join_date = n.member_join_date;
         mc.addr = IpStringToAddr(n.member_addr);
         mc.port = Libraries::Net::sceNetHtons(static_cast<u16>(n.member_port));
-        SetNpId(mc.np_id, n.member_npid);
+        std::strncpy(mc.np_id.handle.data, n.member_npid.c_str(), sizeof(mc.np_id.handle.data) - 1);
         mc.account_id = static_cast<Libraries::Np::OrbisNpAccountId>(n.member_account_id);
         mc.platform = static_cast<Libraries::Np::OrbisNpPlatformType>(n.member_platform);
         for (const auto& a : n.member_bin_attrs) {
@@ -371,7 +363,7 @@ void HandleRoomEvent(const ShadNet::NotifyRoomEvent& n) {
         pi.member_id = member_id;
         pi.addr = mc.addr;
         pi.port = mc.port;
-        SetNpOnlineId(pi.online_id, n.member_npid);
+        std::strncpy(pi.online_id.data, n.member_npid.c_str(), sizeof(pi.online_id.data) - 1);
         ctx->peers[member_id] = pi;
 
         BuildMemberUpdate(p, room_it->second, mc, cause, ctx->a_variant);
@@ -665,11 +657,11 @@ void MmContextStart(OrbisNpMatching2ContextId ctx_id) {
     }
 }
 
-s32 MmContextStop(OrbisNpMatching2ContextId ctx_id) {
+void MmContextStop(OrbisNpMatching2ContextId ctx_id) {
     shadnet::ContextStopRequest req;
     req.set_ctx_id(ctx_id);
-    return MmSubmitRequest(ctx_id, 0, ORBIS_NP_MATCHING2_CONTEXT_EVENT_STOPPED,
-                           MmCommand::ContextStop, MakeProtoPayload(req));
+    MmSubmitRequest(ctx_id, 0, ORBIS_NP_MATCHING2_CONTEXT_EVENT_STOPPED, MmCommand::ContextStop,
+                    MakeProtoPayload(req));
 }
 
 s32 MmSubmitRequest(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
@@ -685,24 +677,10 @@ s32 MmSubmitRequest(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId 
         return ORBIS_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID;
     }
 
-    ContextObject* ctx = ContextManager::Instance().Get(ctx_id);
-    if (!ctx) {
-        LOG_ERROR(Lib_NpMatching2, "MmSubmitRequest({}): invalid ctx={}", static_cast<u16>(cmd),
-                  ctx_id);
-        return ORBIS_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID;
-    }
-    const RequestCallbackInfo request_cb = ConsumeRequestCallback(ctx);
-    LOG_INFO(Lib_NpMatching2,
-             "MmSubmitRequest: ctx={} reqId={} event={:#x} cmd={} aVariant={} callback={:#x} "
-             "arg={}",
-             ctx_id, req_id, static_cast<u16>(req_event), static_cast<u16>(cmd), a_variant,
-             reinterpret_cast<std::uintptr_t>(request_cb.callback), fmt::ptr(request_cb.arg));
-
     const u64 pkt_id = client->SubmitRequest(static_cast<ShadNet::CommandType>(cmd), payload);
     {
         std::lock_guard lock(g_mm.pending_mutex);
-        g_mm.pending[pkt_id] = {ctx_id,        req_id, req_event, a_variant, request_cb.callback,
-                                request_cb.arg};
+        g_mm.pending[pkt_id] = {ctx_id, req_id, req_event, a_variant};
     }
     LOG_DEBUG(Lib_NpMatching2, "submit cmd={} pkt_id={} ctx={} reqId={}", static_cast<u16>(cmd),
               pkt_id, ctx_id, req_id);

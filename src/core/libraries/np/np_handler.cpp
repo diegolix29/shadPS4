@@ -211,7 +211,7 @@ bool NpHandler::ConnectUser(s32 user_id, const std::string& host, u16 port, cons
     // Build OrbisNpId
     {
         OrbisNpId np_id{};
-        SetNpId(np_id, npid);
+        strncpy(np_id.handle.data, npid.c_str(), sizeof(np_id.handle.data) - 1);
         std::lock_guard lock(m_mutex_clients);
         m_np_ids[user_id] = np_id;
         m_clients[user_id] = std::move(client);
@@ -704,11 +704,11 @@ void NpHandler::OnWebApiPushEvent(s32 user_id, const ShadNet::NotifyWebApiPushEv
     ev.data = n.data;
     if (!n.fromNpid.empty()) {
         ev.hasFrom = true;
-        SetNpOnlineId(ev.fromOnlineId, n.fromNpid);
+        std::strncpy(ev.fromOnlineId.data, n.fromNpid.c_str(), sizeof(ev.fromOnlineId.data) - 1);
     }
     if (!n.toNpid.empty()) {
         ev.hasTo = true;
-        SetNpOnlineId(ev.toOnlineId, n.toNpid);
+        std::strncpy(ev.toOnlineId.data, n.toNpid.c_str(), sizeof(ev.toOnlineId.data) - 1);
     }
     ev.extdData = n.extdData; // extended-data (key,value) pairs -> dispatched as pExtdData
     NpWebApi::EnqueuePushEvent(ev);

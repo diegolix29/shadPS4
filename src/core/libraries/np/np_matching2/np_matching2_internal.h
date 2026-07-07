@@ -203,8 +203,6 @@ struct CallbackPayload {
 struct ContextObject {
     OrbisNpMatching2ContextId ctx_id = 0;
     bool started = false;
-    bool stop_pending = false;
-    bool destroy_pending = false;
     bool a_variant = false;
 
     OrbisNpMatching2ServerId server_id = 1;
@@ -230,7 +228,6 @@ struct ContextObject {
     std::map<OrbisNpMatching2RoomId, RoomCache> room_cache;
 
     CallbackPayload request_payload;
-    CallbackPayload* request_payload_override = nullptr;
     CallbackPayload room_event_payload;
 
     OrbisNpMatching2ContextCallback context_callback = nullptr;
@@ -253,8 +250,6 @@ struct ContextObject {
     void Reset() {
         ctx_id = 0;
         started = false;
-        stop_pending = false;
-        destroy_pending = false;
         a_variant = false;
         server_id = 1;
         service_label = 0;
@@ -273,7 +268,6 @@ struct ContextObject {
         peers.clear();
         room_cache.clear();
         request_payload.Reset();
-        request_payload_override = nullptr;
         room_event_payload.Reset();
         context_callback = nullptr;
         context_callback_arg = nullptr;
@@ -294,11 +288,6 @@ struct ContextObject {
     }
 };
 
-struct RequestCallbackInfo {
-    OrbisNpMatching2RequestCallback callback = nullptr;
-    void* arg = nullptr;
-};
-
 class ContextManager {
 public:
     static constexpr u32 kMaxContexts = 10;
@@ -311,7 +300,6 @@ public:
     bool Check(OrbisNpMatching2ContextId ctx_id);
     ContextObject* Get(OrbisNpMatching2ContextId ctx_id);
     bool Destroy(OrbisNpMatching2ContextId ctx_id);
-    void CompleteStop(OrbisNpMatching2ContextId ctx_id);
 
     s32 Start(OrbisNpMatching2ContextId ctx_id);
     s32 Stop(OrbisNpMatching2ContextId ctx_id);
@@ -356,7 +344,6 @@ struct PendingEvent {
     OrbisNpMatching2RequestCallback request_cb = nullptr;
     void* request_cb_arg = nullptr;
     void* request_data = nullptr;
-    std::shared_ptr<CallbackPayload> request_payload_owner;
 
     OrbisNpMatching2RoomId room_id = 0;
     OrbisNpMatching2RoomMemberId member_id = 0;
@@ -395,7 +382,6 @@ OrbisNpMatching2RequestId AllocRequestId();
 bool IsInitialized();
 void SetInitialized(bool initialized);
 void StoreRequestCallback(ContextObject* ctx, const OrbisNpMatching2RequestOptParam* requestOpt);
-RequestCallbackInfo ConsumeRequestCallback(ContextObject* ctx);
 
 void* BuildCreateJoinRoomPayload(ContextObject& ctx, const shadnet::CreateJoinRoomResponse& resp);
 void* BuildCreateJoinRoomPayloadA(ContextObject& ctx, const shadnet::CreateJoinRoomResponse& resp);

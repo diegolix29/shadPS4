@@ -9,7 +9,6 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <string_view>
 #include <thread>
 
 #include "common/logging/log.h"
@@ -103,7 +102,8 @@ bool ResolvePeerEndpoint(const MemberCache& member, PeerInfo& peer) {
         peer.addr = member.addr;
         peer.port = member.port;
         if (peer.online_id.data[0] == 0) {
-            peer.online_id = member.np_id.handle;
+            std::strncpy(peer.online_id.data, member.np_id.handle.data,
+                         sizeof(peer.online_id.data) - 1);
         }
         return true;
     }
@@ -116,7 +116,8 @@ bool ResolvePeerEndpoint(const MemberCache& member, PeerInfo& peer) {
         peer.port = resolved_port;
     }
     if (peer.online_id.data[0] == 0) {
-        peer.online_id = member.np_id.handle;
+        std::strncpy(peer.online_id.data, member.np_id.handle.data,
+                     sizeof(peer.online_id.data) - 1);
     }
     return peer.addr != 0 && peer.port != 0;
 }
@@ -237,9 +238,7 @@ void HandleMatching2HandshakePacket(u32 from_addr, u16 from_port,
     peer.status =
         peer.status == kMatching2ConnActive ? kMatching2ConnActive : kMatching2ConnPending;
     peer.handshake_started = true;
-    SetNpOnlineId(peer.online_id,
-                  std::string_view(reinterpret_cast<const char*>(pkt.online_id_from),
-                                   ORBIS_NP_ONLINEID_MAX_LENGTH));
+    std::memcpy(peer.online_id.data, pkt.online_id_from, ORBIS_NP_ONLINEID_MAX_LENGTH);
 
     const auto kind = static_cast<Matching2HandshakeKind>(pkt.kind);
     switch (kind) {
@@ -486,8 +485,7 @@ u32 GetRoomPingUs(const ContextObject& ctx, OrbisNpMatching2RoomId roomId) {
 }
 
 void* BuildSignalingGetPingInfoPayload(ContextObject& ctx, OrbisNpMatching2RoomId roomId) {
-    CallbackPayload& p =
-        ctx.request_payload_override ? *ctx.request_payload_override : ctx.request_payload;
+    CallbackPayload& p = ctx.request_payload;
     p.Reset();
 
     const auto room_it = ctx.room_cache.find(roomId);
