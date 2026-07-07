@@ -6,7 +6,6 @@
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/logging/log.h"
-#include "common/thread.h"
 #include "core/libraries/videodec/videodec_error.h"
 
 #include "common/support/avdec.h"
@@ -42,9 +41,7 @@ VdecDecoder::~VdecDecoder() {
 s32 VdecDecoder::Decode(const OrbisVideodecInputData& pInputDataIn,
                         OrbisVideodecFrameBuffer& pFrameBufferInOut,
                         OrbisVideodecPictureInfo& pPictureInfoOut) {
-    pPictureInfoOut.thisSize = sizeof(OrbisVideodecPictureInfo);
     pPictureInfoOut.isValid = false;
-    pPictureInfoOut.isErrorPic = true;
 
     if (!pInputDataIn.pAuData) {
         return ORBIS_VIDEODEC_ERROR_AU_POINTER;
@@ -77,39 +74,36 @@ s32 VdecDecoder::Decode(const OrbisVideodecInputData& pInputDataIn,
         av_packet_free(&packet);
         return ORBIS_VIDEODEC_ERROR_API_FAIL;
     }
-    int frameCount = 0;
-    while (true) {
-        ret = avcodec_receive_frame(mCodecContext, frame);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            break;
-        } else if (ret < 0) {
-            LOG_ERROR(Lib_Videodec, "Error receiving frame from decoder: {}", ret);
-            av_packet_free(&packet);
-            av_frame_free(&frame);
-            return ORBIS_VIDEODEC_ERROR_API_FAIL;
-        }
 
-        if (frame->format != AV_PIX_FMT_NV12) {
-            AVFrame* nv12_frame = ConvertNV12Frame(*frame);
-            ASSERT(nv12_frame);
-            av_frame_free(&frame);
-            frame = nv12_frame;
-        }
-
-        CopyNV12Data((u8*)pFrameBufferInOut.pFrameBuffer, *frame);
-
-        pPictureInfoOut.codecType = 0;
-        pPictureInfoOut.frameWidth = Common::AlignUp((u32)frame->width, 16);
-        pPictureInfoOut.frameHeight = Common::AlignUp((u32)frame->height, 16);
-        pPictureInfoOut.framePitch = frame->linesize[0];
-
-        pPictureInfoOut.isValid = true;
-        pPictureInfoOut.isErrorPic = false;
-        frameCount++;
-        if (frameCount > 1) {
-            LOG_WARNING(Lib_Videodec, "We have more than 1 frame");
-        }
+    ret = avcodec_receive_frame(mCodecContext, frame);
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+        av_packet_free(&packet);
+        av_frame_free(&frame);
+        return ORBIS_OK;
+    } else if (ret < 0) {
+        LOG_ERROR(Lib_Videodec, "Error receiving frame from decoder: {}", ret);
+        av_packet_free(&packet);
+        av_frame_free(&frame);
+        return ORBIS_VIDEODEC_ERROR_API_FAIL;
     }
+
+    if (frame->format != AV_PIX_FMT_NV12) {
+        AVFrame* nv12_frame = ConvertNV12Frame(*frame);
+        ASSERT(nv12_frame);
+        av_frame_free(&frame);
+        frame = nv12_frame;
+    }
+
+    CopyNV12Data((u8*)pFrameBufferInOut.pFrameBuffer, *frame);
+
+    pPictureInfoOut.codecType = 0;
+    pPictureInfoOut.frameWidth = Common::AlignUp((u32)frame->width, 16);
+    pPictureInfoOut.frameHeight = Common::AlignUp((u32)frame->height, 16);
+    pPictureInfoOut.framePitch = frame->linesize[0];
+
+    pPictureInfoOut.isValid = true;
+    pPictureInfoOut.isErrorPic = false;
+    pPictureInfoOut.attachedData = pInputDataIn.attachedData;
 
     av_packet_free(&packet);
     av_frame_free(&frame);
@@ -118,9 +112,7 @@ s32 VdecDecoder::Decode(const OrbisVideodecInputData& pInputDataIn,
 
 s32 VdecDecoder::Flush(OrbisVideodecFrameBuffer& pFrameBufferInOut,
                        OrbisVideodecPictureInfo& pPictureInfoOut) {
-    pPictureInfoOut.thisSize = sizeof(pPictureInfoOut);
     pPictureInfoOut.isValid = false;
-    pPictureInfoOut.isErrorPic = true;
 
     AVFrame* frame = av_frame_alloc();
     if (!frame) {
@@ -128,63 +120,50 @@ s32 VdecDecoder::Flush(OrbisVideodecFrameBuffer& pFrameBufferInOut,
         return ORBIS_VIDEODEC_ERROR_API_FAIL;
     }
 
-    int frameCount = 0;
-    while (true) {
-        int ret = avcodec_receive_frame(mCodecContext, frame);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            break;
-        } else if (ret < 0) {
-            LOG_ERROR(Lib_Videodec, "Error receiving frame from decoder: {}", ret);
-            av_frame_free(&frame);
-            return ORBIS_VIDEODEC_ERROR_API_FAIL;
-        }
-
-        if (frame->format != AV_PIX_FMT_NV12) {
-            AVFrame* nv12_frame = ConvertNV12Frame(*frame);
-            ASSERT(nv12_frame);
-            av_frame_free(&frame);
-            frame = nv12_frame;
-        }
-
-        CopyNV12Data((u8*)pFrameBufferInOut.pFrameBuffer, *frame);
-
-        pPictureInfoOut.codecType = 0;
-        pPictureInfoOut.frameWidth = Common::AlignUp((u32)frame->width, 16);
-        pPictureInfoOut.frameHeight = Common::AlignUp((u32)frame->height, 16);
-        pPictureInfoOut.framePitch = frame->linesize[0];
-
-        pPictureInfoOut.isValid = true;
-        pPictureInfoOut.isErrorPic = false;
-
-        u32 width = Common::AlignUp((u32)frame->width, 16);
-        u32 height = Common::AlignUp((u32)frame->height, 16);
-        pPictureInfoOut.codec.avc.frameCropLeftOffset = u32(frame->crop_left);
-        pPictureInfoOut.codec.avc.frameCropRightOffset =
-            u32(frame->crop_right + (width - frame->width));
-        pPictureInfoOut.codec.avc.frameCropTopOffset = u32(frame->crop_top);
-        pPictureInfoOut.codec.avc.frameCropBottomOffset =
-            u32(frame->crop_bottom + (height - frame->height));
-        // TODO maybe more avc?
-
-        frameCount++;
-        if (frameCount > 1) {
-            LOG_WARNING(Lib_Videodec, "We have more than 1 frame");
-        }
+    // avcodec_send_packet with packet set to nullptr results in codec flush.
+    // This flush can produce multiple frames but we can only return one.
+    // We cannot skip frames, some games hang if we do so we return only 1st.
+    // Games can send multiple consecutive flushes, but ffmpeg doesn't work
+    // this way and returns error. There is no way to make it flush only one
+    // frame so all we can do is just ignore the result and pray.
+    avcodec_send_packet(mCodecContext, nullptr);
+    int ret = avcodec_receive_frame(mCodecContext, frame);
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+        av_frame_free(&frame);
+        return ORBIS_OK;
+    } else if (ret < 0) {
+        LOG_ERROR(Lib_Videodec, "Error receiving frame from decoder: {}", ret);
+        av_frame_free(&frame);
+        return ORBIS_VIDEODEC_ERROR_API_FAIL;
     }
+
+    if (frame->format != AV_PIX_FMT_NV12) {
+        AVFrame* nv12_frame = ConvertNV12Frame(*frame);
+        ASSERT(nv12_frame);
+        av_frame_free(&frame);
+        frame = nv12_frame;
+    }
+
+    CopyNV12Data((u8*)pFrameBufferInOut.pFrameBuffer, *frame);
+
+    pPictureInfoOut.codecType = 0;
+    pPictureInfoOut.frameWidth = Common::AlignUp((u32)frame->width, 16);
+    pPictureInfoOut.frameHeight = Common::AlignUp((u32)frame->height, 16);
+    pPictureInfoOut.framePitch = frame->linesize[0];
+
+    pPictureInfoOut.isValid = true;
+    pPictureInfoOut.isErrorPic = false;
+
+    u32 width = Common::AlignUp((u32)frame->width, 16);
+    u32 height = Common::AlignUp((u32)frame->height, 16);
+    pPictureInfoOut.codec.avc.frameCropLeftOffset = u32(frame->crop_left);
+    pPictureInfoOut.codec.avc.frameCropRightOffset =
+        u32(frame->crop_right + (width - frame->width));
+    pPictureInfoOut.codec.avc.frameCropTopOffset = u32(frame->crop_top);
+    pPictureInfoOut.codec.avc.frameCropBottomOffset =
+        u32(frame->crop_bottom + (height - frame->height));
 
     av_frame_free(&frame);
-    if (frameCount == 0) {
-        std::string thread_name = Common::GetCurrentThreadName();
-        if (thread_name.find("MoviePlayer2") != std::string::npos) {
-            LOG_INFO(
-                Lib_Videodec,
-                "MoviePlayer2 thread flush with 0 frames, applying workaround to prevent hang");
-            pPictureInfoOut.isValid = true;
-            pPictureInfoOut.isErrorPic = false;
-        } else {
-            LOG_DEBUG(Lib_Videodec, "Flush completed with 0 frames for thread: {}", thread_name);
-        }
-    }
     return ORBIS_OK;
 }
 
