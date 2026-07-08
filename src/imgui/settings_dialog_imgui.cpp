@@ -555,7 +555,7 @@ void SaveSettings(std::string profile, bool isGameSpecific) {
     Config::setDirectMemoryAccess(directMemoryAccessSetting);
     Config::setDevKitMode(devkitConsoleSetting);
     Config::setNeoMode(neoModeSetting);
-    Config::setPSNSignedIn(psnSignedInSetting);
+    Config::setShadNetEnabled(0, psnSignedInSetting);
     Config::setIsConnectedToNetwork(connectedNetworkSetting);
     Config::setPipelineCacheEnabled(pipelineCacheEnabledSetting);
     Config::setPipelineCacheArchived(pipelineCacheArchiveSetting);
@@ -625,7 +625,7 @@ void LoadSettings(std::string profile) {
     directMemoryAccessSetting = Config::directMemoryAccess();
     devkitConsoleSetting = Config::isDevKitConsole();
     neoModeSetting = Config::isNeoModeConsole();
-    psnSignedInSetting = Config::getPSNSignedIn();
+    psnSignedInSetting = Config::getShadNetEnabled(1);
     connectedNetworkSetting = Config::getIsConnectedToNetwork();
     pipelineCacheEnabledSetting = Config::isPipelineCacheEnabled();
     pipelineCacheArchiveSetting = Config::isPipelineCacheArchived();
