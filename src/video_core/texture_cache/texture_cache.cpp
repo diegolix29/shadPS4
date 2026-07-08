@@ -149,15 +149,15 @@ void TextureCache::DownloadImageMemory(ImageId image_id, bool sync) {
     download_data.resize(write_size);
     std::memcpy(download_data.data(), mapping_data, write_size);
 
-    const auto write_data = [this, device_addr = image_addr, download_data, write_size] {
-        Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(device_addr),
-                                                  download_data.data(), write_size);
-    };
-
     if (sync) {
-        write_data();
+        Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(image_addr),
+                                                  download_data.data(), write_size);
     } else {
-        scheduler.DeferPriorityOperation(write_data);
+        scheduler.DeferPriorityOperation(
+            [this, device_addr = image_addr, download_data = std::move(download_data), write_size] {
+                Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(device_addr),
+                                                          download_data.data(), write_size);
+            });
     }
 }
 
