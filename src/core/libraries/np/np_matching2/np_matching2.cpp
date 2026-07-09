@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 
@@ -316,6 +317,11 @@ int PS4_SYSV_ABI sceNpMatching2SetDefaultRequestOptParam(
         return ORBIS_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID;
     }
 
+    LOG_INFO(Lib_NpMatching2,
+             "SetDefaultRequestOptParam: ctx={} opt={} callback={:#x} arg={} timeout={} appId={}",
+             ctxId, fmt::ptr(requestOpt), reinterpret_cast<std::uintptr_t>(requestOpt->callback),
+             fmt::ptr(requestOpt->arg), requestOpt->timeout, requestOpt->appId);
+
     ctx->default_request_callback = requestOpt->callback;
     ctx->default_request_callback_arg = requestOpt->arg;
 
@@ -473,10 +479,9 @@ int PS4_SYSV_ABI sceNpMatching2SendRoomMessage(OrbisNpMatching2ContextId ctxId, 
     }
 
     StoreRequestCallback(ctx, requestOpt);
-    const OrbisNpMatching2RequestId reqId = AllocRequestId();
-    *requestId = reqId;
-    return MmSendRoomMessage(ctxId, reqId,
-                             *static_cast<OrbisNpMatching2SendRoomMessageRequest*>(request));
+    *requestId = AllocRequestId();
+    LOG_WARNING(Lib_NpMatching2, "not implemented");
+    return ORBIS_OK;
 }
 
 int PS4_SYSV_ABI sceNpMatching2SetRoomDataExternal(

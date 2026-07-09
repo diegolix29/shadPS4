@@ -1304,10 +1304,6 @@ void HandleControlPacket(u32 from_addr, u16 from_port, const SignalingControl& p
 }
 
 void SendStunPing(s32 ctx_id) {
-    if (!Stubs::Matching2Enabled()) {
-        return;
-    }
-
     OrbisNpOnlineId online_id{};
 
     {
