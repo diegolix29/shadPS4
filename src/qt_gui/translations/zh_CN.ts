@@ -1082,7 +1082,7 @@
     </message>
     <message>
       <source>Show FPS Counter</source>
-      <translation>显示FPS计数器</translation>
+      <translation>显示 FPS 计数器</translation>
     </message>
     <message>
       <source>unmapped</source>
@@ -1110,7 +1110,7 @@
     </message>
     <message>
       <source>Renderdoc Capture (for debugging only)</source>
-      <translation>Renderdoc 捕获(仅供调试)</translation>
+      <translation>RenderDoc 捕获（仅供调试）</translation>
     </message>
     <message>
       <source>Toggle Mouse to Joystick Emulation</source>
@@ -1443,7 +1443,7 @@
     </message>
     <message>
       <source>Tiny</source>
-      <translation>微小</translation>
+      <translation>极小</translation>
     </message>
     <message>
       <source>Small</source>
@@ -1970,11 +1970,11 @@
     </message>
     <message>
       <source>Update:\nRelease: Official versions released every month that may be very outdated, but are more reliable and tested.\nNightly: Development versions that have all the latest features and fixes, but may contain bugs and are less stable.</source>
-      <translation>更新：\nRelease：每月发布的官方版本可能非常过时，但更可靠且经过测试。\nNightly：包含所有最新功能和修复的开发版本，但可能包含错误且稳定性较低。</translation>
+      <translation>更新：\n稳定版：每月发布的官方版本可能非常过时，但更可靠且经过测试。\nNightly：包含所有最新功能和修复的开发版本，但可能包含错误且稳定性较低。</translation>
     </message>
     <message>
       <source>Background Image:\nControl the opacity of the game background image.</source>
-      <translation>背景图片：\n控制游戏背景图片的可见度。</translation>
+      <translation>背景图片：\n控制游戏背景图片的透明度。</translation>
     </message>
     <message>
       <source>Play Title Music:\nIf a game supports it, enable playing special music when selecting the game in the GUI.</source>
@@ -2054,7 +2054,7 @@
     </message>
     <message>
       <source>Enable RenderDoc Debugging:\nIf enabled, the emulator will provide compatibility with Renderdoc to allow capture and analysis of the currently rendered frame.</source>
-      <translation>启用 RenderDoc 调试:\n启用后模拟器将提供与 Renderdoc 的兼容性，允许在渲染过程中捕获和分析当前渲染的帧。</translation>
+      <translation>启用 RenderDoc 调试：\n启用后模拟器将提供与 RenderDoc 的兼容性，允许在渲染过程中捕获和分析当前渲染的帧。</translation>
     </message>
     <message>
       <source>Collect Shaders:\nYou need this enabled to edit shaders with the debug menu (Ctrl + F10).</source>
@@ -2062,11 +2062,11 @@
     </message>
     <message>
       <source>Enable Readbacks:\nEnable GPU memory readbacks and writebacks.\nThis is required for proper behavior in some games.\nMight cause stability and/or performance issues.</source>
-      <translation>启用Readbacks：\n启用 GPU 内存回读和回写功能。\n这是某些游戏中恰当运行所必需的。\n可能会导致稳定性以及性能问题。</translation>
+      <translation>启用 Readbacks：\n启用 GPU 内存回读和回写功能。\n这是某些游戏中恰当运行所必需的。\n可能会导致稳定性以及性能问题。</translation>
     </message>
     <message>
       <source>Enable Readback Linear Images:\nEnables async downloading of GPU modified linear images.\nMight fix issues in some games.</source>
-      <translation>启用Readback线性图像：\n启用异步下载GPU修改的线性图像。\n可能会修复一些游戏中的问题。</translation>
+      <translation>启用 Readback 线性图像：\n启用异步下载GPU修改的线性图像。\n可能会修复一些游戏中的问题。</translation>
     </message>
     <message>
       <source>Copy GPU Buffers:\nGets around race conditions involving GPU submits.\nMay or may not help with PM4 type 0 crashes.</source>
@@ -2414,11 +2414,11 @@
     </message>
     <message>
       <source>Enable Vulkan Validation Layers:\nEnables a system that validates the state of the Vulkan renderer and logs information about its internal state.\nThis will reduce performance and likely change the behavior of emulation.\nYou need the Vulkan SDK for this to work.</source>
-      <translation>启用 Vulkan 验证层：\n此功能将启用一个用于验证Vulkan渲染器状态并记录其内部状态信息的系统。\n注意：这将严重降低性能，并极有可能改变模拟器行为！\n需要安装Vulkan SDK方可使用此功能。</translation>
+      <translation>启用 Vulkan 验证层：\n启用验证 Vulkan 渲染器状态并记录其内部状态信息的系统。\n这会降低性能并可能改变模拟行为。\n需要安装 Vulkan SDK。</translation>
     </message>
     <message>
       <source>Enable Vulkan Synchronization Validation:\nEnables a system that validates the timing of Vulkan rendering tasks.\nThis will reduce performance and likely change the behavior of emulation.\nYou need the Vulkan SDK for this to work.</source>
-      <translation>启用 Vulkan 同步验证：\n此功能将启用一个用于验证Vulkan渲染任务时序的系统。\n注意：这将显著降低性能，并可能改变模拟器行为！\n需要安装Vulkan SDK方可使用此功能。</translation>
+      <translation>启用 Vulkan 同步验证：\n启用验证 Vulkan 渲染任务时序的系统。\n这会降低性能并可能改变模拟行为。\n需要安装 Vulkan SDK。</translation>
     </message>
     <message>
       <source>Audio Device (general)</source>
