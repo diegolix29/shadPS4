@@ -2246,7 +2246,7 @@
     </message>
     <message>
       <source>Enable Controller Background Input:\nAllow shadPS4 to detect controller inputs when the game window is not in focus.</source>
-      <translation>启用控制器后台输入:\n允许 shadPS4 在游戏窗口不在焦点时检测控制器输入。</translation>
+      <translation>启用控制器后台输入：\n允许 shadPS4 在游戏窗口不在焦点时检测控制器输入。</translation>
     </message>
     <message>
       <source>Crash Diagnostics:\nCreates a .yaml file with info about the Vulkan state at the time of crashing.\nUseful for debugging &apos;Device lost&apos; errors. If you have this enabled, you should enable Host AND Guest Debug Markers.\nYou need Vulkan Validation Layers enabled and the Vulkan SDK for this to work.</source>
@@ -2290,7 +2290,7 @@
     </message>
     <message>
       <source>DLC Path:\nThe folder where game DLC loaded from.</source>
-      <translation>DLC 路径：\n游戏DLC 加载的文件夹。</translation>
+      <translation>DLC 路径：\n游戏 DLC 加载的文件夹。</translation>
     </message>
     <message>
       <source>Browse:\nBrowse for a folder to set as the DLC path.</source>
@@ -2402,7 +2402,7 @@
     </message>
     <message>
       <source>Enable Devkit Console Mode:\nAdds support for Devkit console memory size.</source>
-      <translation>启用Devkit开发机模式：\n增加对开发机内存容量的支持。</translation>
+      <translation>启用 Devkit 开发机模式：\n增加对开发机内存容量的支持。</translation>
     </message>
     <message>
       <source>Set Network Connected to True:\nForces games to detect an active network connection. Actual online capabilities are not yet supported.</source>
@@ -2410,7 +2410,7 @@
     </message>
     <message>
       <source>Set PSN Signed-in to True:\nForces games to detect an active PSN sign-in. Actual PSN capabilities are not supported.</source>
-      <translation>将“PSN登录状态”设为“已登录”：\n强制让游戏检测到PSN处于登录状态（注意：并不实际支持真实的PSN网络功能）。</translation>
+      <translation>将“PSN登录状态”设为“已登录”：\n强制让游戏检测到 PSN 处于登录状态（注意：并不实际支持真实的PSN网络功能）。</translation>
     </message>
     <message>
       <source>Enable Vulkan Validation Layers:\nEnables a system that validates the state of the Vulkan renderer and logs information about its internal state.\nThis will reduce performance and likely change the behavior of emulation.\nYou need the Vulkan SDK for this to work.</source>
