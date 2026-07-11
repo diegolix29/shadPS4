@@ -66,7 +66,7 @@ const std::map<std::string, std::string> ChineseTraditionalMap = {
 };
 
 const std::map<std::string, std::string> ChineseSimplifiedMap = {
-    {"Trophy Earned", "Trophy Earned"},
+    {"Trophy Earned", "获得奖杯"},
 };
 
 const std::map<std::string, std::string> FinnishMap = {

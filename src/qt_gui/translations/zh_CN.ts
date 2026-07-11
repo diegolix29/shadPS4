@@ -487,7 +487,7 @@
     </message>
     <message>
       <source>Cannot bind axis values more than once</source>
-      <translation>摇杆 X/Y 轴的操作绑定不在同一直线</translation>
+      <translation>同一摇杆方向不能重复绑定</translation>
     </message>
     <message>
       <source>Save</source>
@@ -519,7 +519,7 @@
     </message>
     <message>
       <source>Touchpad Center</source>
-      <translation>触控板中间</translation>
+      <translation>触摸板中间</translation>
     </message>
     <message>
       <source>Touchpad Right</source>
@@ -531,11 +531,11 @@
     </message>
     <message>
       <source>Square</source>
-      <translation>方框</translation>
+      <translation>方块</translation>
     </message>
     <message>
       <source>Circle</source>
-      <translation>圈</translation>
+      <translation>圆圈</translation>
     </message>
     <message>
       <source>Cross</source>
@@ -559,7 +559,7 @@
     </message>
     <message>
       <source>L1 and L2</source>
-      <translation>L1和L2</translation>
+      <translation>L1 和 L2</translation>
     </message>
     <message>
       <source>Active Gamepad</source>
@@ -646,7 +646,7 @@
     </message>
     <message>
       <source>Could not open the file for writing</source>
-      <translation>无法打开文件进行读取</translation>
+      <translation>无法打开文件进行写入</translation>
     </message>
     <message>
       <source>Save Changes</source>
@@ -786,7 +786,7 @@
     </message>
     <message>
       <source>Game boots, but only displays a blank screen</source>
-      <translation>游戏启动，但只显示白屏</translation>
+      <translation>游戏启动，但只显示空白屏幕</translation>
     </message>
     <message>
       <source>Game displays an image but does not go past the menu</source>
@@ -984,7 +984,7 @@
     </message>
     <message>
       <source>This game has no save data to delete!</source>
-      <translation>这个游戏没有更新可以删除！</translation>
+      <translation>这个游戏没有存档数据可以删除！</translation>
     </message>
     <message>
       <source>This game has no saved trophies to delete!</source>
@@ -1082,7 +1082,7 @@
     </message>
     <message>
       <source>Show FPS Counter</source>
-      <translation>显示FPS计数器</translation>
+      <translation>显示 FPS 计数器</translation>
     </message>
     <message>
       <source>unmapped</source>
@@ -1110,7 +1110,7 @@
     </message>
     <message>
       <source>Renderdoc Capture (for debugging only)</source>
-      <translation>Renderdoc 捕获(仅供调试)</translation>
+      <translation>RenderDoc 捕获（仅供调试）</translation>
     </message>
     <message>
       <source>Toggle Mouse to Joystick Emulation</source>
@@ -1229,7 +1229,7 @@
     </message>
     <message>
       <source>Options</source>
-      <translation>选项设置</translation>
+      <translation>选项</translation>
     </message>
     <message>
       <source>Mouse Movement Parameters</source>
@@ -1249,11 +1249,11 @@
     </message>
     <message>
       <source>Square</source>
-      <translation>方框</translation>
+      <translation>方块</translation>
     </message>
     <message>
       <source>Circle</source>
-      <translation>圈</translation>
+      <translation>圆圈</translation>
     </message>
     <message>
       <source>Cross</source>
@@ -1443,7 +1443,7 @@
     </message>
     <message>
       <source>Tiny</source>
-      <translation>微小</translation>
+      <translation>极小</translation>
     </message>
     <message>
       <source>Small</source>
@@ -1463,7 +1463,7 @@
     </message>
     <message>
       <source>Grid View</source>
-      <translation>表格视图</translation>
+      <translation>网格视图</translation>
     </message>
     <message>
       <source>Elf Viewer</source>
@@ -1678,7 +1678,7 @@
     </message>
     <message>
       <source>Default tab when opening settings</source>
-      <translation>打开设置时的默认选项卡</translation>
+      <translation>打开设置时的默认标签页</translation>
     </message>
     <message>
       <source>Show Game Size In List</source>
@@ -1842,15 +1842,15 @@
     </message>
     <message>
       <source>Guest Debug Markers</source>
-      <translation>Geust 调试标记</translation>
+      <translation>Guest 调试标记</translation>
     </message>
     <message>
       <source>Enable Readbacks</source>
-      <translation>启用Readbacks</translation>
+      <translation>启用回读</translation>
     </message>
     <message>
       <source>Enable Readback Linear Images</source>
-      <translation>启用Readback线性图像</translation>
+      <translation>启用线性图像回读</translation>
     </message>
     <message>
       <source>Update</source>
@@ -1890,7 +1890,7 @@
     </message>
     <message>
       <source>Opacity</source>
-      <translation>可见度</translation>
+      <translation>透明度</translation>
     </message>
     <message>
       <source>Play title music</source>
@@ -1970,11 +1970,11 @@
     </message>
     <message>
       <source>Update:\nRelease: Official versions released every month that may be very outdated, but are more reliable and tested.\nNightly: Development versions that have all the latest features and fixes, but may contain bugs and are less stable.</source>
-      <translation>更新：\nRelease：每月发布的官方版本可能非常过时，但更可靠且经过测试。\nNightly：包含所有最新功能和修复的开发版本，但可能包含错误且稳定性较低。</translation>
+      <translation>更新：\n稳定版：每月发布的官方版本可能非常过时，但更可靠且经过测试。\nNightly：包含所有最新功能和修复的开发版本，但可能包含错误且稳定性较低。</translation>
     </message>
     <message>
       <source>Background Image:\nControl the opacity of the game background image.</source>
-      <translation>背景图片：\n控制游戏背景图片的可见度。</translation>
+      <translation>背景图片：\n控制游戏背景图片的透明度。</translation>
     </message>
     <message>
       <source>Play Title Music:\nIf a game supports it, enable playing special music when selecting the game in the GUI.</source>
@@ -2054,7 +2054,7 @@
     </message>
     <message>
       <source>Enable RenderDoc Debugging:\nIf enabled, the emulator will provide compatibility with Renderdoc to allow capture and analysis of the currently rendered frame.</source>
-      <translation>启用 RenderDoc 调试:\n启用后模拟器将提供与 Renderdoc 的兼容性，允许在渲染过程中捕获和分析当前渲染的帧。</translation>
+      <translation>启用 RenderDoc 调试：\n启用后模拟器将提供与 RenderDoc 的兼容性，允许在渲染过程中捕获和分析当前渲染的帧。</translation>
     </message>
     <message>
       <source>Collect Shaders:\nYou need this enabled to edit shaders with the debug menu (Ctrl + F10).</source>
@@ -2062,11 +2062,11 @@
     </message>
     <message>
       <source>Enable Readbacks:\nEnable GPU memory readbacks and writebacks.\nThis is required for proper behavior in some games.\nMight cause stability and/or performance issues.</source>
-      <translation>启用Readbacks：\n启用 GPU 内存回读和回写功能。\n这是某些游戏中恰当运行所必需的。\n可能会导致稳定性以及性能问题。</translation>
+      <translation>启用 Readbacks：\n启用 GPU 内存回读和回写功能。\n这是某些游戏中恰当运行所必需的。\n可能会导致稳定性以及性能问题。</translation>
     </message>
     <message>
       <source>Enable Readback Linear Images:\nEnables async downloading of GPU modified linear images.\nMight fix issues in some games.</source>
-      <translation>启用Readback线性图像：\n启用异步下载GPU修改的线性图像。\n可能会修复一些游戏中的问题。</translation>
+      <translation>启用 Readback 线性图像：\n启用异步下载GPU修改的线性图像。\n可能会修复一些游戏中的问题。</translation>
     </message>
     <message>
       <source>Copy GPU Buffers:\nGets around race conditions involving GPU submits.\nMay or may not help with PM4 type 0 crashes.</source>
@@ -2106,7 +2106,7 @@
     </message>
     <message>
       <source>Save Data Path</source>
-      <translation>保存数据路径</translation>
+      <translation>存档数据路径</translation>
     </message>
     <message>
       <source>Browse</source>
@@ -2246,7 +2246,7 @@
     </message>
     <message>
       <source>Enable Controller Background Input:\nAllow shadPS4 to detect controller inputs when the game window is not in focus.</source>
-      <translation>启用控制器后台输入:\n允许ShadPS4在游戏窗口未焦点时检测控制器输入。</translation>
+      <translation>启用控制器后台输入：\n允许 shadPS4 在游戏窗口不在焦点时检测控制器输入。</translation>
     </message>
     <message>
       <source>Crash Diagnostics:\nCreates a .yaml file with info about the Vulkan state at the time of crashing.\nUseful for debugging &apos;Device lost&apos; errors. If you have this enabled, you should enable Host AND Guest Debug Markers.\nYou need Vulkan Validation Layers enabled and the Vulkan SDK for this to work.</source>
@@ -2290,15 +2290,15 @@
     </message>
     <message>
       <source>DLC Path:\nThe folder where game DLC loaded from.</source>
-      <translation>DLC 路径：\n游戏DLC 加载的文件夹。</translation>
+      <translation>DLC 路径：\n游戏 DLC 加载的文件夹。</translation>
     </message>
     <message>
       <source>Browse:\nBrowse for a folder to set as the DLC path.</source>
-      <translation>浏览：\n选择一个目录保存游戏存档数据。</translation>
+      <translation>浏览：\n浏览并设置 DLC 路径的文件夹。</translation>
     </message>
     <message>
       <source>FSR Settings</source>
-      <translation>FSR设置</translation>
+      <translation>FSR 设置</translation>
     </message>
     <message>
       <source>Enable FSR</source>
@@ -2306,11 +2306,11 @@
     </message>
     <message>
       <source>Enable RCAS (sharpening)</source>
-      <translation>启用 RCAS(锐化)</translation>
+      <translation>启用 RCAS（锐化）</translation>
     </message>
     <message>
       <source>RCAS Attenuation:</source>
-      <translation>RCAS范围：</translation>
+      <translation>RCAS 衰减：</translation>
     </message>
     <message>
       <source>Load Presets...</source>
@@ -2346,11 +2346,11 @@
     </message>
     <message>
       <source>Vblank Frequency</source>
-      <translation>垂直同步频率</translation>
+      <translation>垂直消隐频率</translation>
     </message>
     <message>
       <source>Vblank Frequency:\nThe frame rate at which the emulator refreshes at (60hz is the baseline, whether the game runs at 30 or 60fps). Changing this may have adverse effects, such as increasing the game speed, or breaking critical game functionality that does not expect this to change!</source>
-      <translation>垂直同步频率：\n此为模拟器的帧率刷新频率（基准为60赫兹，无论游戏本身以30帧还是60帧运行）。修改此数值可能导致负面影响，例如游戏速度加快，或破坏游戏关键功能（因游戏本身未预设此数值可被修改）！</translation>
+      <translation>垂直消隐频率：\n此为模拟器的帧率刷新频率（基准为60赫兹，无论游戏本身以30帧还是60帧运行）。修改此数值可能导致负面影响，例如游戏速度加快，或破坏游戏关键功能（因游戏本身未预设此数值可被修改）！</translation>
     </message>
     <message>
       <source>Enable Direct Memory Access</source>
@@ -2402,7 +2402,7 @@
     </message>
     <message>
       <source>Enable Devkit Console Mode:\nAdds support for Devkit console memory size.</source>
-      <translation>启用Devkit开发机模式：\n增加对开发机内存容量的支持。</translation>
+      <translation>启用 Devkit 开发机模式：\n增加对开发机内存容量的支持。</translation>
     </message>
     <message>
       <source>Set Network Connected to True:\nForces games to detect an active network connection. Actual online capabilities are not yet supported.</source>
@@ -2410,23 +2410,23 @@
     </message>
     <message>
       <source>Set PSN Signed-in to True:\nForces games to detect an active PSN sign-in. Actual PSN capabilities are not supported.</source>
-      <translation>将“PSN登录状态”设为“已登录”：\n强制让游戏检测到PSN处于登录状态（注意：并不实际支持真实的PSN网络功能）。</translation>
+      <translation>将“PSN登录状态”设为“已登录”：\n强制让游戏检测到 PSN 处于登录状态（注意：并不实际支持真实的PSN网络功能）。</translation>
     </message>
     <message>
       <source>Enable Vulkan Validation Layers:\nEnables a system that validates the state of the Vulkan renderer and logs information about its internal state.\nThis will reduce performance and likely change the behavior of emulation.\nYou need the Vulkan SDK for this to work.</source>
-      <translation>启用Vulkan验证层：\n此功能将启用一个用于验证Vulkan渲染器状态并记录其内部状态信息的系统。\n注意：这将严重降低性能，并极有可能改变模拟器行为！\n需要安装Vulkan SDK方可使用此功能。</translation>
+      <translation>启用 Vulkan 验证层：\n启用验证 Vulkan 渲染器状态并记录其内部状态信息的系统。\n这会降低性能并可能改变模拟行为。\n需要安装 Vulkan SDK。</translation>
     </message>
     <message>
       <source>Enable Vulkan Synchronization Validation:\nEnables a system that validates the timing of Vulkan rendering tasks.\nThis will reduce performance and likely change the behavior of emulation.\nYou need the Vulkan SDK for this to work.</source>
-      <translation>启用Vulkan同步验证功能：\n此功能将启用一个用于验证Vulkan渲染任务时序的系统。\n注意：这将显著降低性能，并可能改变模拟器行为！\n需要安装Vulkan SDK方可使用此功能。</translation>
+      <translation>启用 Vulkan 同步验证：\n启用验证 Vulkan 渲染任务时序的系统。\n这会降低性能并可能改变模拟行为。\n需要安装 Vulkan SDK。</translation>
     </message>
     <message>
       <source>Audio Device (general)</source>
-      <translation type="unfinished">Audio Device (general)</translation>
+      <translation>音频设备（通用）</translation>
     </message>
     <message>
       <source>Audio Device (DS4 speaker)</source>
-      <translation type="unfinished">Audio Device (DS4 speaker)</translation>
+      <translation>音频设备（DS4 手柄扬声器）</translation>
     </message>
   </context>
   <context>
@@ -2454,6 +2454,855 @@
     <message>
       <source>Show Hidden Trophies</source>
       <translation>显示隐藏奖杯</translation>
+    </message>
+  </context>
+
+  <context>
+    <name>VersionDialog</name>
+    <message>
+      <source>Install PKG</source>
+      <translation>安装 PKG</translation>
+    </message>
+    <message>
+      <source>Install Another PKG</source>
+      <translation>安装另一个 PKG</translation>
+    </message>
+    <message>
+      <source>PKG Installer Download</source>
+      <translation>PKG 安装器下载</translation>
+    </message>
+    <message>
+      <source>PKG Installer Not Found</source>
+      <translation>未找到 PKG 安装器</translation>
+    </message>
+    <message>
+      <source>PKG Installer Running</source>
+      <translation>PKG 安装器运行中</translation>
+    </message>
+    <message>
+      <source>PKG Installer not found. Please install it first using the Install PKG button.</source>
+      <translation>未找到 PKG 安装器。请先使用「安装 PKG」按钮进行安装。</translation>
+    </message>
+    <message>
+      <source>Downloading PKG Installer (%1)</source>
+      <translation>正在下载 PKG 安装器（%1）</translation>
+    </message>
+    <message>
+      <source>To run the PKG installer, we need to download the %1 build (%2</source>
+      <translation>运行 PKG 安装器需要下载 %1 版本（%2</translation>
+    </message>
+    <message>
+      <source>The PKG Installer has been launched.
+</source>
+      <translation>PKG 安装器已启动。
+</translation>
+    </message>
+    <message>
+      <source>Installation files not found for release '%1' or platform %2.</source>
+      <translation>未找到版本 '%1' 或平台 %2 的安装文件。</translation>
+    </message>
+    <message>
+      <source>No files available for this platform.</source>
+      <translation>此平台没有可用的文件。</translation>
+    </message>
+    <message>
+      <source>OK</source>
+      <translation>确定</translation>
+    </message>
+    <message>
+      <source>Notice</source>
+      <translation>提示</translation>
+    </message>
+    <message>
+      <source>Download</source>
+      <translation>下载</translation>
+    </message>
+    <message>
+      <source>Download Failed</source>
+      <translation>下载失败</translation>
+    </message>
+    <message>
+      <source>Downloading %1</source>
+      <translation>正在下载 %1</translation>
+    </message>
+    <message>
+      <source>Failed to fetch release info:</source>
+      <translation>无法获取版本信息：</translation>
+    </message>
+    <message>
+      <source>Unable to save temporary download file.</source>
+      <translation>无法保存临时下载文件。</translation>
+    </message>
+    <message>
+      <source>Could not save temporary download file.</source>
+      <translation>无法保存临时下载文件。</translation>
+    </message>
+    <message>
+      <source>The download failed.</source>
+      <translation>下载失败。</translation>
+    </message>
+    <message>
+      <source>Network error: %1</source>
+      <translation>网络错误：%1</translation>
+    </message>
+    <message>
+      <source>Extraction Failed</source>
+      <translation>解压失败</translation>
+    </message>
+    <message>
+      <source>Extraction Timeout</source>
+      <translation>解压超时</translation>
+    </message>
+    <message>
+      <source>The extraction process failed with exit</source>
+      <translation>解压过程失败，退出码：</translation>
+    </message>
+    <message>
+      <source>The extraction process timed out after 30</source>
+      <translation>解压过程在 30 秒后超时</translation>
+    </message>
+    <message>
+      <source>Press OK to install or Cancel to exit.</source>
+      <translation>点击确定安装，点击取消退出。</translation>
+    </message>
+    <message>
+      <source>Select a Revert Build</source>
+      <translation>选择一个回退构建版本</translation>
+    </message>
+    <message>
+      <source>Version %1 Downloaded please Install</source>
+      <translation>版本 %1 已下载，请安装</translation>
+    </message>
+    <message>
+      <source>Do you want to download the version: %1?</source>
+      <translation>是否要下载这个版本：%1？</translation>
+    </message>
+    <message>
+      <source>Executable not found</source>
+      <translation>未找到可执行文件</translation>
+    </message>
+    <message>
+      <source>Executable does not exist:
+%1</source>
+      <translation>可执行文件不存在：
+%1</translation>
+    </message>
+    <message>
+      <source>Version selected successfully:
+%1</source>
+      <translation>版本选择成功：
+%1</translation>
+    </message>
+    <message>
+      <source>Failed to rename SDL executable:
+%1 → %2</source>
+      <translation>无法重命名 SDL 可执行文件：
+%1 → %2</translation>
+    </message>
+    <message>
+      <source>Invalid version path.</source>
+      <translation>无效的版本路径。</translation>
+    </message>
+    <message>
+      <source>No releases found for update channel:</source>
+      <translation>未找到更新频道的版本：</translation>
+    </message>
+    <message>
+      <source>No Shadlix release found.</source>
+      <translation>未找到 Shadlix 版本。</translation>
+    </message>
+    <message>
+      <source>No Qt asset found for this Revert release and platform.</source>
+      <translation>未找到此回退版本和平台的 Qt 资源。</translation>
+    </message>
+    <message>
+      <source>Not enough successful workflow runs for Revert.</source>
+      <translation>回退操作的成功工作流执行次数不足。</translation>
+    </message>
+    <message>
+      <source>Shadlix</source>
+      <translation>Shadlix</translation>
+    </message>
+    <message>
+      <source>Revert</source>
+      <translation>回退</translation>
+    </message>
+    <message>
+      <source>Launch &amp; Folders</source>
+      <translation>启动与文件夹</translation>
+    </message>
+    <message>
+      <source>Open Log Location:
+Open the folder where the log file is saved.</source>
+      <translation>打开日志位置：
+打开保存日志文件的文件夹。</translation>
+    </message>
+    <message>
+      <source>Separate Log Files:
+Writes a separate logfile for each game.</source>
+      <translation>独立日志文件：
+为每个游戏单独写入日志文件。</translation>
+    </message>
+    <message>
+      <source>Update:
+Release: Official versions released every month that may be very outdated, but are more reliable and tested.
+Nightly: Development versions that have all the latest features and fixes, but may contain bugs and are less stable.</source>
+      <translation>更新频道：
+Release：每月发布的官方版本，可能较为陈旧，但更可靠且经过测试。
+Nightly：包含所有最新功能和修复的开发版本，但可能含有 bug 且不够稳定。</translation>
+    </message>
+    <message>
+      <source>Portable folder overwritten with global data.</source>
+      <translation>便携文件夹已用全局数据覆盖。</translation>
+    </message>
+    <message>
+      <source>Global folder overwritten with portable data.</source>
+      <translation>全局文件夹已用便携数据覆盖。</translation>
+    </message>
+    <message>
+      <source>Global User Folder Created</source>
+      <translation>全局用户文件夹已创建</translation>
+    </message>
+    <message>
+      <source>Global User Folder Updated</source>
+      <translation>全局用户文件夹已更新</translation>
+    </message>
+    <message>
+      <source>Portable User Folder Created</source>
+      <translation>便携用户文件夹已创建</translation>
+    </message>
+    <message>
+      <source>Portable User Folder Updated</source>
+      <translation>便携用户文件夹已更新</translation>
+    </message>
+    <message>
+      <source>Portable folder exists</source>
+      <translation>便携文件夹已存在</translation>
+    </message>
+    <message>
+      <source>Global folder exists</source>
+      <translation>全局文件夹已存在</translation>
+    </message>
+    <message>
+      <source>Game Settings</source>
+      <translation>游戏设置</translation>
+    </message>
+    <message>
+      <source>Global Settings</source>
+      <translation>全局设置</translation>
+    </message>
+    <message>
+      <source>Tools &amp; Config</source>
+      <translation>工具与配置</translation>
+    </message>
+    <message>
+      <source>Moved data from global folder to:
+%1</source>
+      <translation>已将数据从全局文件夹移动到：
+%1</translation>
+    </message>
+    <message>
+      <source>Moved data from portable folder to:
+%1</source>
+      <translation>已将数据从便携文件夹移动到：
+%1</translation>
+    </message>
+    <message>
+      <source>%1 already exists. Overwrite with global folder data?</source>
+      <translation>%1 已存在。是否用全局文件夹数据覆盖？</translation>
+    </message>
+    <message>
+      <source>%1 already exists. Overwrite with portable folder data?</source>
+      <translation>%1 已存在。是否用便携文件夹数据覆盖？</translation>
+    </message>
+    <message>
+      <source>%1 successfully created - Relaunch Emulator to Activate</source>
+      <translation>%1 创建成功 - 重新启动模拟器以激活</translation>
+    </message>
+    <message>
+      <source>%1 successfully created - Relaunch Emulator to Configure</source>
+      <translation>%1 创建成功 - 重新启动模拟器以配置</translation>
+    </message>
+    <message>
+      <source>The update has been downloaded.</source>
+      <translation>更新已下载。</translation>
+    </message>
+    <message>
+      <source>All Cores</source>
+      <translation>全部核心</translation>
+    </message>
+    <message>
+      <source>Efficient Cores</source>
+      <translation>能效核心</translation>
+    </message>
+    <message>
+      <source>Custom Cores</source>
+      <translation>自定义核心</translation>
+    </message>
+    <message>
+      <source>CPU Configuration:
+Configure CPU core usage for better performance or compatibility.
+
+All Cores: Use all available CPU cores (default).
+Efficient Cores: Use only efficient/power-saving CPU cores.
+Custom Cores: Manually specify which CPU cores to use (comma-separated numbers).
+
+Note: Changes require emulator restart to take effect.</source>
+      <translation>CPU 配置：
+配置 CPU 核心使用方式以提高性能或兼容性。
+
+全部核心：使用所有可用的 CPU 核心（默认）。
+能效核心：仅使用节能/低功耗 CPU 核心。
+自定义核心：手动指定要使用的 CPU 核心（逗号分隔的数字）。
+
+注意：更改需要重启模拟器才能生效。</translation>
+    </message>
+    <message>
+      <source>DLC Path:
+The folder where game DLC loaded from.</source>
+      <translation>DLC 路径：
+加载游戏 DLC 的文件夹。</translation>
+    </message>
+    <message>
+      <source>Save Data Path:
+The folder where game save data will be saved.</source>
+      <translation>存档路径：
+保存游戏存档的文件夹。</translation>
+    </message>
+    <message>
+      <source>Browse:
+Browse for a folder to set as the DLC path.</source>
+      <translation>浏览：
+浏览并设置 DLC 路径。</translation>
+    </message>
+    <message>
+      <source>Browse:
+Browse for a folder to set as the save data path.</source>
+      <translation>浏览：
+浏览并设置存档路径。</translation>
+    </message>
+    <message>
+      <source>Add:
+Add a folder to the list.</source>
+      <translation>添加：
+将文件夹添加到列表。</translation>
+    </message>
+    <message>
+      <source>Remove:
+Remove a folder from the list.</source>
+      <translation>移除：
+从列表中移除文件夹。</translation>
+    </message>
+    <message>
+      <source>Select the System Modules folder</source>
+      <translation>选择系统模块文件夹</translation>
+    </message>
+    <message>
+      <source>Directory for system modules</source>
+      <translation>系统模块目录</translation>
+    </message>
+    <message>
+      <source>Update Folder</source>
+      <translation>更新文件夹</translation>
+    </message>
+    <message>
+      <source>Update folder not found for this game.</source>
+      <translation>未找到该游戏的更新文件夹。</translation>
+    </message>
+    <message>
+      <source>Update database</source>
+      <translation>更新数据库</translation>
+    </message>
+    <message>
+      <source>Update Compatibility Database:
+Immediately update the compatibility database.</source>
+      <translation>更新兼容性数据库：
+立即更新兼容性数据库。</translation>
+    </message>
+    <message>
+      <source>Update Compatibility On Startup:
+Automatically update the compatibility database when shadPS4 starts.</source>
+      <translation>启动时更新兼容性数据库：
+在 shadPS4 启动时自动更新兼容性数据库。</translation>
+    </message>
+    <message>
+      <source>Delete Shader Cache</source>
+      <translation>删除着色器缓存</translation>
+    </message>
+    <message>
+      <source>The shader cache for %1 is invalid.
+
+</source>
+      <translation>%1 的着色器缓存无效。
+
+</translation>
+    </message>
+    <message>
+      <source>Shader Cache Invalid</source>
+      <translation>着色器缓存无效</translation>
+    </message>
+    <message>
+      <source>Display Compatibility Data:
+Displays game compatibility information in table view. Enable "Update Compatibility On Startup" to get up-to-date information.</source>
+      <translation>显示兼容性数据：
+在表格视图中显示游戏兼容性信息。启用「启动时更新兼容性数据库」以获取最新信息。</translation>
+    </message>
+    <message>
+      <source>Show Game Size In List:
+There is the size of the game in the list.</source>
+      <translation>在列表中显示游戏大小：
+在列表中添加游戏大小列。</translation>
+    </message>
+    <message>
+      <source>Hide Description</source>
+      <translation>隐藏描述</translation>
+    </message>
+    <message>
+      <source>Show Description</source>
+      <translation>显示描述</translation>
+    </message>
+    <message>
+      <source>Background Image:
+Control the opacity of the game background image.</source>
+      <translation>背景图片：
+控制游戏背景图片的透明度。</translation>
+    </message>
+    <message>
+      <source>Select Background Image</source>
+      <translation>选择背景图片</translation>
+    </message>
+    <message>
+      <source>Images (*.png *.jpg *.jpeg *.bmp)</source>
+      <translation>图片 (*.png *.jpg *.jpeg *.bmp)</translation>
+    </message>
+    <message>
+      <source>Style/Search/Size</source>
+      <translation>样式/搜索/大小</translation>
+    </message>
+    <message>
+      <source>GUI Style:</source>
+      <translation>GUI 样式：</translation>
+    </message>
+    <message>
+      <source>Default tab when opening settings:
+Choose which tab will open, the default is General.</source>
+      <translation>打开设置时的默认标签页：
+选择打开设置时显示的标签页，默认为常规。</translation>
+    </message>
+    <message>
+      <source>Games directories</source>
+      <translation>游戏目录</translation>
+    </message>
+    <message>
+      <source>Games Directory</source>
+      <translation>游戏目录</translation>
+    </message>
+    <message>
+      <source>Game Folders:
+The list of folders to check for installed games.</source>
+      <translation>游戏文件夹：
+用于检查已安装游戏的文件夹列表。</translation>
+    </message>
+    <message>
+      <source>Play Title Music:
+If a game supports it, enable playing special music when selecting the game in the GUI.</source>
+      <translation>播放标题音乐：
+如果游戏支持，在选择该游戏时在 GUI 中播放特殊背景音乐。</translation>
+    </message>
+    <message>
+      <source>Enable Devkit Console Mode:
+Adds support for Devkit console memory size.</source>
+      <translation>启用开发机模式：
+添加对开发机内存大小的支持。</translation>
+    </message>
+    <message>
+      <source>Enable PS4 Neo Mode:
+Adds support for PS4 Pro emulation and memory size. Currently causes instability in a large number of tested games.</source>
+      <translation>启用 PS4 Pro 模式：
+添加对 PS4 Pro 模拟和内存大小的支持。目前会在大量测试游戏中导致不稳定。</translation>
+    </message>
+    <message>
+      <source>Enable HDR:
+Enables HDR in games that support it.
+Your monitor must have support for the BT2020 PQ color space and the RGB10A2 swapchain format.</source>
+      <translation>启用 HDR：
+在支持 HDR 的游戏中启用 HDR。
+您的显示器必须支持 BT2020 PQ 色彩空间和 RGB10A2 交换链格式。</translation>
+    </message>
+    <message>
+      <source>Present Mode:
+Configures how video output will be presented to your screen.
+
+</source>
+      <translation>呈现模式：
+配置视频输出如何呈现在屏幕上。
+
+</translation>
+    </message>
+    <message>
+      <source>Graphics Device:
+On multiple GPU systems, select the GPU the emulator will use from the drop down list,
+or select "Auto Select" to automatically determine it.</source>
+      <translation>图形设备：
+在多 GPU 系统中，从下拉列表中选择模拟器使用的 GPU，
+或选择「自动选择」来自动确定。</translation>
+    </message>
+    <message>
+      <source>Copy GPU Buffers:
+Gets around race conditions involving GPU submits.
+May or may not help with PM4 type 0 crashes.</source>
+      <translation>复制 GPU 缓冲区：
+绕过涉及 GPU 提交的竞态条件。
+可能会改善 PM4 Type 0 崩溃问题。</translation>
+    </message>
+    <message>
+      <source>Width/Height:
+Sets the size of the emulator window at launch, which can be resized during gameplay.
+This is different from the in-game resolution.</source>
+      <translation>宽/高：
+设置模拟器窗口启动时的大小，游戏过程中可调整。
+这与游戏内分辨率不同。</translation>
+    </message>
+    <message>
+      <source>Enable RenderDoc Debugging:
+If enabled, the emulator will provide compatibility with Renderdoc to allow capture and analysis of the currently rendered frame.</source>
+      <translation>启用 RenderDoc 调试：
+如果启用，模拟器将提供 RenderDoc 兼容性，允许捕获和分析当前渲染的帧。</translation>
+    </message>
+    <message>
+      <source>Crash Diagnostics:
+Creates a .yaml file with info about the Vulkan state at the time of crashing.
+Useful for debugging 'Device lost' errors. If you have this enabled, you should enable Host AND Guest Debug Markers.
+You need Vulkan Validation Layers enabled and the Vulkan SDK for this to work.</source>
+      <translation>崩溃诊断：
+创建一个包含崩溃时 Vulkan 状态信息的 .yaml 文件。
+有助于调试「Device lost」错误。启用此选项时应同时启用 Host 和 Guest 调试标记。
+需要启用 Vulkan 验证层和安装 Vulkan SDK。</translation>
+    </message>
+    <message>
+      <source>Enable Vulkan Validation Layers:
+Enables a system that validates the state of the Vulkan renderer and logs information about its internal state.
+This will reduce performance and likely change the behavior of emulation.
+You need the Vulkan SDK for this to work.</source>
+      <translation>启用 Vulkan 验证层：
+启用验证 Vulkan 渲染器状态并记录其内部状态信息的系统。
+这会降低性能并可能改变模拟行为。
+需要安装 Vulkan SDK。</translation>
+    </message>
+    <message>
+      <source>Enable Vulkan Synchronization Validation:
+Enables a system that validates the timing of Vulkan rendering tasks.
+This will reduce performance and likely change the behavior of emulation.
+You need the Vulkan SDK for this to work.</source>
+      <translation>启用 Vulkan 同步验证：
+启用验证 Vulkan 渲染任务时序的系统。
+这会降低性能并可能改变模拟行为。
+需要安装 Vulkan SDK。</translation>
+    </message>
+    <message>
+      <source>Host Debug Markers:
+Inserts emulator-side information like markers for specific AMDGPU commands around Vulkan commands, as well as giving resources debug names.
+If you have this enabled, you should enable Crash Diagnostics.
+Useful for programs like RenderDoc.</source>
+      <translation>Host 调试标记：
+在 Vulkan 命令周围插入模拟器侧的信息，如特定 AMDGPU 命令的标记，以及为资源赋予调试名称。
+启用此选项时应同时启用崩溃诊断。
+对 RenderDoc 等程序有用。</translation>
+    </message>
+    <message>
+      <source>Guest Debug Markers:
+Inserts any debug markers the game itself has added to the command buffer.
+If you have this enabled, you should enable Crash Diagnostics.
+Useful for programs like RenderDoc.</source>
+      <translation>Guest 调试标记：
+插入游戏自身添加到命令缓冲区的任何调试标记。
+启用此选项时应同时启用崩溃诊断。
+对 RenderDoc 等程序有用。</translation>
+    </message>
+    <message>
+      <source>Enable Shaders Dumping:
+For the sake of technical debugging, saves the games shaders to a folder as they render.</source>
+      <translation>启用着色器转储：
+出于技术调试目的，在游戏渲染时将着色器保存到文件夹。</translation>
+    </message>
+    <message>
+      <source>Enable Shader Patching:
+Automatically enables and loads shader patches from the shader/patch folder.
+Patches will be applied on launch without requiring manual activation via debug menu.</source>
+      <translation>启用着色器补丁：
+自动启用并加载 shader/patch 文件夹中的着色器补丁。
+补丁将在启动时自动应用，无需通过调试菜单手动激活。</translation>
+    </message>
+    <message>
+      <source>Collect Shaders:
+You need this enabled to edit shaders with the debug menu (Ctrl + F10).</source>
+      <translation>收集着色器：
+启用此选项以通过调试菜单（Ctrl + F10）编辑着色器。</translation>
+    </message>
+    <message>
+      <source>Enable Null GPU:
+For the sake of technical debugging, disables game rendering as if there were no graphics card.</source>
+      <translation>启用空 GPU：
+出于技术调试目的，禁用游戏渲染，模拟没有显卡的状态。</translation>
+    </message>
+    <message>
+      <source>Enable Direct Memory Access:
+Enables arbitrary memory access from the GPU to CPU memory.</source>
+      <translation>启用直接内存访问：
+允许 GPU 对 CPU 内存进行任意内存访问。</translation>
+    </message>
+    <message>
+      <source>Enable Readback Linear Images:
+Enables async downloading of GPU modified linear images.
+Might fix issues in some games.</source>
+      <translation>启用线性图像回读：
+启用 GPU 修改后的线性图像的异步下载。
+可能会修复某些游戏中的问题。</translation>
+    </message>
+    <message>
+      <source>Volume:
+Adjust volume for games on a global level, range goes from 0-300% with the default being 100%.</source>
+      <translation>音量：
+全局调整游戏音量，范围 0-300%，默认为 100%。</translation>
+    </message>
+    <message>
+      <source>Microphone:
+None: Does not use the microphone.
+Default Device: Will use the default device defined in the system.
+Or manually choose the microphone to be used from the list.</source>
+      <translation>麦克风：
+无：不使用麦克风。
+默认设备：使用系统定义的默认设备。
+或从列表中手动选择要使用的麦克风。</translation>
+    </message>
+    <message>
+      <source>Enable Motion Controls:
+When enabled it will use the controller's motion control if supported.</source>
+      <translation>启用手柄体感：
+启用后，如果手柄支持，将使用其体感控制功能。</translation>
+    </message>
+    <message>
+      <source>Enable Controller Background Input:
+Allow shadPS4 to detect controller inputs when the game window is not in focus.</source>
+      <translation>启用后台手柄输入：
+允许 shadPS4 在游戏窗口不在焦点时检测手柄输入。</translation>
+    </message>
+    <message>
+      <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
+
+%1</source>
+      <translation>不能多次绑定任何同一输入。请重新映射以下按键的输入：
+
+%1</translation>
+    </message>
+    <message>
+      <source>Show Splash Screen:
+Shows the game's splash screen (a special image) while the game is starting.</source>
+      <translation>显示启动画面：
+游戏启动时显示启动画面（特殊图片）。</translation>
+    </message>
+    <message>
+      <source>Hide Cursor:
+Choose when the cursor will disappear:
+Never: You will always see the mouse.
+idle: Set a time for it to disappear after being idle.
+Always: you will never see the mouse.</source>
+      <translation>隐藏光标：
+选择光标何时消失：
+从不：始终显示鼠标。
+闲置：设定空闲后消失的时间。
+始终：始终不显示鼠标。</translation>
+    </message>
+    <message>
+      <source>Hide Idle Cursor Timeout:
+The duration (seconds) after which the cursor that has been idle hides itself.</source>
+      <translation>光标隐藏闲置时长：
+光标空闲后隐藏的持续时间（秒）。</translation>
+    </message>
+    <message>
+      <source>Console Language:
+Sets the language that PS4 game uses.
+It's recommended to set this to a language that the game supports, which will vary by region.</source>
+      <translation>主机语言：
+设置 PS4 游戏使用的语言。
+建议设置为游戏支持的语言，不同地区的游戏支持的语言不同。</translation>
+    </message>
+    <message>
+      <source>Emulator Language:
+Sets the language of the emulator's user interface.</source>
+      <translation>模拟器语言：
+设置模拟器用户界面的语言。</translation>
+    </message>
+    <message>
+      <source>Mods folder not found. Expected paths: %1</source>
+      <translation>未找到 MOD 文件夹。预期路径：%1</translation>
+    </message>
+    <message>
+      <source>Mods Folder</source>
+      <translation>MOD 文件夹</translation>
+    </message>
+    <message>
+      <source>Mods Manager</source>
+      <translation>MOD 管理器</translation>
+    </message>
+    <message>
+      <source>Open Mods Folder</source>
+      <translation>打开 MOD 文件夹</translation>
+    </message>
+    <message>
+      <source>Log Filter:
+Filters the log to only print specific information.
+Examples: "Core:Trace" "Lib.Pad:Debug Common.Filesystem:Error" "*:Critical"
+Levels: Trace, Debug, Info, Warning, Error, Critical - in this order, a specific level silences all levels preceding it in the list and logs every level after it.</source>
+      <translation>日志过滤器：
+过滤日志仅打印特定信息。
+示例：「Core:Trace」「Lib.Pad:Debug Common.Filesystem:Error」「*:Critical」
+级别：Trace、Debug、Info、Warning、Error、Critical——在此顺序中，指定级别会静默列表中之前的所有级别，并记录之后的所有级别。</translation>
+    </message>
+    <message>
+      <source>Log Type:
+Sets whether to synchronize the output of the log window for performance. May have adverse effects on emulation.</source>
+      <translation>日志类型：
+设置日志窗口输出是否同步，影响性能。可能对模拟产生不利影响。</translation>
+    </message>
+    <message>
+      <source>Enable Logging:
+Enables logging.
+Do not change this if you do not know what you're doing!
+When asking for help, make sure this setting is ENABLED.</source>
+      <translation>启用日志：
+启用日志记录。
+如果不清楚此设置的作用，请不要更改！
+寻求帮助时，请确保此设置已启用。</translation>
+    </message>
+    <message>
+      <source>Set Network Connected to True:
+Forces games to detect an active network connection. Actual online capabilities are not yet supported.</source>
+      <translation>设为网络已连接：
+强制游戏检测到活跃的网络连接。实际在线功能尚未支持。</translation>
+    </message>
+    <message>
+      <source>Username:
+Sets the PS4's account username, which may be displayed by some games.</source>
+      <translation>用户名：
+设置 PS4 账户的用户名，某些游戏可能会显示。</translation>
+    </message>
+    <message>
+      <source>ShadNet Network:
+A PSN server replacement.
+Compatibility is very limited at the moment.
+You can register at https://www.shadps4.net/shadNet/register/.</source>
+      <translation>ShadNet 网络：
+PSN 服务器替代方案。
+目前兼容性非常有限。
+可在 https://www.shadps4.net/shadNet/register/ 注册。</translation>
+    </message>
+    <message>
+      <source>Disable Trophy Pop-ups:
+Disable in-game trophy notifications. Trophy progress can still be tracked using the Trophy Viewer (right-click the game in the main window).</source>
+      <translation>禁用奖杯弹窗：
+禁用游戏内奖杯通知。仍可通过奖杯查看器（在主窗口右键点击游戏）跟踪奖杯进度。</translation>
+    </message>
+    <message>
+      <source>Trophy Key:
+Key used to decrypt trophies. Must be obtained from your jailbroken console.
+Must contain only hex characters.</source>
+      <translation>奖杯密钥：
+用于解密奖杯的密钥。必须从已破解的主机获取。
+只能包含十六进制字符。</translation>
+    </message>
+    <message>
+      <source>Open the custom trophy images/sounds folder:
+You can add custom images to the trophies and an audio.
+Add the files to custom_trophy with the following names:
+trophy.wav OR trophy.mp3, bronze.png, gold.png, platinum.png, silver.png
+Note: The sound will only work in QT versions.</source>
+      <translation>打开自定义奖杯图片/声音文件夹：
+您可以为奖杯添加自定义图片和音效。
+将以下文件添加到 custom_trophy 文件夹：
+trophy.wav 或 trophy.mp3、bronze.png、gold.png、platinum.png、silver.png
+注意：音效仅在 QT 版本中生效。</translation>
+    </message>
+    <message>
+      <source>Vblank Frequency:
+The frame rate at which the emulator refreshes at (60hz is the baseline, whether the game runs at 30 or 60fps). Changing this may have adverse effects, such as increasing the game speed, or breaking critical game functionality that does not expect this to change!</source>
+      <translation>垂直消隐频率：
+模拟器的刷新帧率（60Hz 为基准，无论游戏运行在 30 还是 60fps）。更改此设置可能产生不利影响，例如加快游戏速度，或破坏不期望此值更改的关键游戏功能！</translation>
+    </message>
+    <message>
+      <source>Select the shadPS4 folder</source>
+      <translation>选择 shadPS4 文件夹</translation>
+    </message>
+    <message>
+      <source>Setup Required</source>
+      <translation>需要初始设置</translation>
+    </message>
+    <message>
+      <source>First you need to choose a location to save the versions</source>
+      <translation>首先需要选择一个用于保存版本文件的位置</translation>
+    </message>
+    <message>
+      <source>The path to save versions has been cleared.</source>
+      <translation>保存版本的路径已清除。</translation>
+    </message>
+    <message>
+      <source>Path cleared</source>
+      <translation>路径已清除</translation>
+    </message>
+    <message>
+      <source>Folder Not Found</source>
+      <translation>文件夹未找到</translation>
+    </message>
+    <message>
+      <source>The previously selected folder no longer exists.
+</source>
+      <translation>之前选择的文件夹已不存在。
+</translation>
+    </message>
+    <message>
+      <source>The previously selected folder no longer exists:
+%1
+
+Please select a new location.</source>
+      <translation>之前选择的文件夹已不存在：
+%1
+
+请选择新的位置。</translation>
+    </message>
+    <message>
+      <source>Please use the Install PKG button to set up a new location.</source>
+      <translation>请使用「安装 PKG」按钮来设置新的位置。</translation>
+    </message>
+    <message>
+      <source>Delete version</source>
+      <translation>删除版本</translation>
+    </message>
+    <message>
+      <source>Do you want to delete the version</source>
+      <translation>是否要删除此版本</translation>
+    </message>
+    <message>
+      <source>Unregister Version</source>
+      <translation>注销版本</translation>
+    </message>
+    <message>
+      <source>Version Unregistered</source>
+      <translation>版本已注销</translation>
+    </message>
+    <message>
+      <source>%1 version has been unregistered from the launcher</source>
+      <translation>%1 版本已从启动器中注销</translation>
+    </message>
+    <message>
+      <source>Are you sure you want to unregister this %1 version from the launcher?</source>
+      <translation>确定要从启动器中注销此 %1 版本吗？</translation>
+    </message>
+  </context>
+  <context>
+    <name>KBMDialog</name>
+    <message>
+      <source>Game Settings</source>
+      <translation>游戏设置</translation>
     </message>
   </context>
 </TS>
