@@ -519,7 +519,7 @@
     </message>
     <message>
       <source>Touchpad Center</source>
-      <translation>触控板中间</translation>
+      <translation>触摸板中间</translation>
     </message>
     <message>
       <source>Touchpad Right</source>
@@ -531,11 +531,11 @@
     </message>
     <message>
       <source>Square</source>
-      <translation>方框</translation>
+      <translation>方块</translation>
     </message>
     <message>
       <source>Circle</source>
-      <translation>圈</translation>
+      <translation>圆圈</translation>
     </message>
     <message>
       <source>Cross</source>
@@ -786,7 +786,7 @@
     </message>
     <message>
       <source>Game boots, but only displays a blank screen</source>
-      <translation>游戏启动，但只显示白屏</translation>
+      <translation>游戏启动，但只显示空白屏幕</translation>
     </message>
     <message>
       <source>Game displays an image but does not go past the menu</source>
@@ -1229,7 +1229,7 @@
     </message>
     <message>
       <source>Options</source>
-      <translation>选项设置</translation>
+      <translation>选项</translation>
     </message>
     <message>
       <source>Mouse Movement Parameters</source>
@@ -1249,11 +1249,11 @@
     </message>
     <message>
       <source>Square</source>
-      <translation>方框</translation>
+      <translation>方块</translation>
     </message>
     <message>
       <source>Circle</source>
-      <translation>圈</translation>
+      <translation>圆圈</translation>
     </message>
     <message>
       <source>Cross</source>
@@ -1463,7 +1463,7 @@
     </message>
     <message>
       <source>Grid View</source>
-      <translation>表格视图</translation>
+      <translation>网格视图</translation>
     </message>
     <message>
       <source>Elf Viewer</source>
@@ -1678,7 +1678,7 @@
     </message>
     <message>
       <source>Default tab when opening settings</source>
-      <translation>打开设置时的默认选项卡</translation>
+      <translation>打开设置时的默认标签页</translation>
     </message>
     <message>
       <source>Show Game Size In List</source>
@@ -1890,7 +1890,7 @@
     </message>
     <message>
       <source>Opacity</source>
-      <translation>可见度</translation>
+      <translation>透明度</translation>
     </message>
     <message>
       <source>Play title music</source>
@@ -2246,7 +2246,7 @@
     </message>
     <message>
       <source>Enable Controller Background Input:\nAllow shadPS4 to detect controller inputs when the game window is not in focus.</source>
-      <translation>启用控制器后台输入:\n允许ShadPS4在游戏窗口未焦点时检测控制器输入。</translation>
+      <translation>启用控制器后台输入:\n允许 shadPS4 在游戏窗口不在焦点时检测控制器输入。</translation>
     </message>
     <message>
       <source>Crash Diagnostics:\nCreates a .yaml file with info about the Vulkan state at the time of crashing.\nUseful for debugging &apos;Device lost&apos; errors. If you have this enabled, you should enable Host AND Guest Debug Markers.\nYou need Vulkan Validation Layers enabled and the Vulkan SDK for this to work.</source>
@@ -2298,7 +2298,7 @@
     </message>
     <message>
       <source>FSR Settings</source>
-      <translation>FSR设置</translation>
+      <translation>FSR 设置</translation>
     </message>
     <message>
       <source>Enable FSR</source>
@@ -2306,7 +2306,7 @@
     </message>
     <message>
       <source>Enable RCAS (sharpening)</source>
-      <translation>启用 RCAS(锐化)</translation>
+      <translation>启用 RCAS（锐化）</translation>
     </message>
     <message>
       <source>RCAS Attenuation:</source>
@@ -2414,11 +2414,11 @@
     </message>
     <message>
       <source>Enable Vulkan Validation Layers:\nEnables a system that validates the state of the Vulkan renderer and logs information about its internal state.\nThis will reduce performance and likely change the behavior of emulation.\nYou need the Vulkan SDK for this to work.</source>
-      <translation>启用Vulkan验证层：\n此功能将启用一个用于验证Vulkan渲染器状态并记录其内部状态信息的系统。\n注意：这将严重降低性能，并极有可能改变模拟器行为！\n需要安装Vulkan SDK方可使用此功能。</translation>
+      <translation>启用 Vulkan 验证层：\n此功能将启用一个用于验证Vulkan渲染器状态并记录其内部状态信息的系统。\n注意：这将严重降低性能，并极有可能改变模拟器行为！\n需要安装Vulkan SDK方可使用此功能。</translation>
     </message>
     <message>
       <source>Enable Vulkan Synchronization Validation:\nEnables a system that validates the timing of Vulkan rendering tasks.\nThis will reduce performance and likely change the behavior of emulation.\nYou need the Vulkan SDK for this to work.</source>
-      <translation>启用Vulkan同步验证功能：\n此功能将启用一个用于验证Vulkan渲染任务时序的系统。\n注意：这将显著降低性能，并可能改变模拟器行为！\n需要安装Vulkan SDK方可使用此功能。</translation>
+      <translation>启用 Vulkan 同步验证：\n此功能将启用一个用于验证Vulkan渲染任务时序的系统。\n注意：这将显著降低性能，并可能改变模拟器行为！\n需要安装Vulkan SDK方可使用此功能。</translation>
     </message>
     <message>
       <source>Audio Device (general)</source>
