@@ -285,7 +285,8 @@ void VersionDialog::InstallSelectedVersion() {
     connect(
         ui->downloadTreeWidget, &QTreeWidget::itemClicked, this,
         [this](QTreeWidgetItem* item, int) {
-            if (m_compat_info->GetShadPath().empty()) {
+            auto shadPath = m_compat_info->GetShadPath();
+            if (shadPath.empty() || !QDir(QString::fromStdString(shadPath)).exists()) {
                 QMessageBox::warning(this, tr("Select the shadPS4 folder"),
                                      tr("First you need to choose a location to save the versions "
                                         "in\n'Path to save versions'"));
@@ -1218,6 +1219,12 @@ void VersionDialog::dropEvent(QDropEvent* event) {
 void VersionDialog::LaunchPkgInstaller() {
     const QString targetReleasePrefix = "V7-shadPS4";
     QString userPath = QString::fromStdString(m_compat_info->GetShadPath());
+    if (!QDir(userPath).exists()) {
+        QMessageBox::warning(this, tr("Folder Not Found"),
+                             tr("The previously selected folder no longer exists.\n"
+                                "Please use the Install PKG button to set up a new location."));
+        return;
+    }
     QString installerFolder = QDir(userPath).filePath("PKG_Installer_v7");
     QString installerExe;
 
@@ -1279,14 +1286,25 @@ void VersionDialog::ShowPkgInstallerDialog(const QString& installerFolder,
 }
 
 void VersionDialog::InstallPkgWithV7() {
-    if (m_compat_info->GetShadPath().empty()) {
-        QMessageBox::warning(this, tr("Setup Required"),
-                             tr("First you need to choose a location to save the "
-                                "versions in (Path to save versions)."));
+    auto shadPath = m_compat_info->GetShadPath();
+    QString shadPathStr = QString::fromStdString(shadPath);
 
-        QString initial_path = QString::fromStdString(m_compat_info->GetShadPath());
+    if (shadPath.empty() || !QDir(shadPathStr).exists()) {
+        if (shadPath.empty()) {
+            QMessageBox::warning(this, tr("Setup Required"),
+                                 tr("First you need to choose a location to save the "
+                                    "versions in (Path to save versions)."));
+        } else {
+            QMessageBox::warning(this, tr("Folder Not Found"),
+                                 tr("The previously selected folder no longer exists:\n%1\n\n"
+                                    "Please select a new location.")
+                                     .arg(shadPathStr));
+            m_compat_info->SetShadPath("");
+            ui->currentShadPath->clear();
+        }
+
         QString shad_folder_path_string =
-            QFileDialog::getExistingDirectory(this, tr("Select the shadPS4 folder"), initial_path);
+            QFileDialog::getExistingDirectory(this, tr("Select the shadPS4 folder"), shadPathStr);
 
         auto folder_path = Common::FS::PathFromQString(shad_folder_path_string);
 
