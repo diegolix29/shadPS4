@@ -3091,7 +3091,7 @@ Allow shadPS4 to detect controller inputs when the game window is not in focus.<
       <source>Cannot bind any unique input more than once. Duplicate inputs mapped to the following buttons:
 
 %1</source>
-      <translation>不能多次绑定同一输入。以下按钮存在重复映射：
+      <translation>不能多次绑定任何同一输入。请重新映射以下按键的输入：
 
 %1</translation>
     </message>
