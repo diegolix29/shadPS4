@@ -559,7 +559,7 @@
     </message>
     <message>
       <source>L1 and L2</source>
-      <translation>L1和L2</translation>
+      <translation>L1 和 L2</translation>
     </message>
     <message>
       <source>Active Gamepad</source>
@@ -646,7 +646,7 @@
     </message>
     <message>
       <source>Could not open the file for writing</source>
-      <translation>无法打开文件进行读取</translation>
+      <translation>无法打开文件进行写入</translation>
     </message>
     <message>
       <source>Save Changes</source>
@@ -1846,11 +1846,11 @@
     </message>
     <message>
       <source>Enable Readbacks</source>
-      <translation>启用Readbacks</translation>
+      <translation>启用回读</translation>
     </message>
     <message>
       <source>Enable Readback Linear Images</source>
-      <translation>启用Readback线性图像</translation>
+      <translation>启用线性图像回读</translation>
     </message>
     <message>
       <source>Update</source>
@@ -2106,7 +2106,7 @@
     </message>
     <message>
       <source>Save Data Path</source>
-      <translation>保存数据路径</translation>
+      <translation>存档数据路径</translation>
     </message>
     <message>
       <source>Browse</source>
@@ -2310,7 +2310,7 @@
     </message>
     <message>
       <source>RCAS Attenuation:</source>
-      <translation>RCAS范围：</translation>
+      <translation>RCAS 衰减：</translation>
     </message>
     <message>
       <source>Load Presets...</source>
@@ -2346,11 +2346,11 @@
     </message>
     <message>
       <source>Vblank Frequency</source>
-      <translation>垂直同步频率</translation>
+      <translation>垂直消隐频率</translation>
     </message>
     <message>
       <source>Vblank Frequency:\nThe frame rate at which the emulator refreshes at (60hz is the baseline, whether the game runs at 30 or 60fps). Changing this may have adverse effects, such as increasing the game speed, or breaking critical game functionality that does not expect this to change!</source>
-      <translation>垂直同步频率：\n此为模拟器的帧率刷新频率（基准为60赫兹，无论游戏本身以30帧还是60帧运行）。修改此数值可能导致负面影响，例如游戏速度加快，或破坏游戏关键功能（因游戏本身未预设此数值可被修改）！</translation>
+      <translation>垂直消隐频率：\n此为模拟器的帧率刷新频率（基准为60赫兹，无论游戏本身以30帧还是60帧运行）。修改此数值可能导致负面影响，例如游戏速度加快，或破坏游戏关键功能（因游戏本身未预设此数值可被修改）！</translation>
     </message>
     <message>
       <source>Enable Direct Memory Access</source>
@@ -3110,13 +3110,13 @@ Always: you will never see the mouse.</source>
       <translation>隐藏光标：
 选择光标何时消失：
 从不：始终显示鼠标。
-空闲后：设定空闲后消失的时间。
+闲置：设定空闲后消失的时间。
 始终：始终不显示鼠标。</translation>
     </message>
     <message>
       <source>Hide Idle Cursor Timeout:
 The duration (seconds) after which the cursor that has been idle hides itself.</source>
-      <translation>空闲光标超时：
+      <translation>光标隐藏闲置时长：
 光标空闲后隐藏的持续时间（秒）。</translation>
     </message>
     <message>
