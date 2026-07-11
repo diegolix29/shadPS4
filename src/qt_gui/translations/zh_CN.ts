@@ -487,7 +487,7 @@
     </message>
     <message>
       <source>Cannot bind axis values more than once</source>
-      <translation>摇杆 X/Y 轴的操作绑定不在同一直线</translation>
+      <translation>不能多次绑定同一个摇杆轴值</translation>
     </message>
     <message>
       <source>Save</source>
@@ -984,7 +984,7 @@
     </message>
     <message>
       <source>This game has no save data to delete!</source>
-      <translation>这个游戏没有更新可以删除！</translation>
+      <translation>这个游戏没有存档数据可以删除！</translation>
     </message>
     <message>
       <source>This game has no saved trophies to delete!</source>
@@ -1842,7 +1842,7 @@
     </message>
     <message>
       <source>Guest Debug Markers</source>
-      <translation>Geust 调试标记</translation>
+      <translation>Guest 调试标记</translation>
     </message>
     <message>
       <source>Enable Readbacks</source>
@@ -2294,7 +2294,7 @@
     </message>
     <message>
       <source>Browse:\nBrowse for a folder to set as the DLC path.</source>
-      <translation>浏览：\n选择一个目录保存游戏存档数据。</translation>
+      <translation>浏览：\n浏览并设置 DLC 路径的文件夹。</translation>
     </message>
     <message>
       <source>FSR Settings</source>
