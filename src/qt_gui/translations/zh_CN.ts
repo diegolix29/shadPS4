@@ -487,7 +487,7 @@
     </message>
     <message>
       <source>Cannot bind axis values more than once</source>
-      <translation>不能多次绑定同一个摇杆轴值</translation>
+      <translation>同一摇杆方向不能重复绑定</translation>
     </message>
     <message>
       <source>Save</source>
