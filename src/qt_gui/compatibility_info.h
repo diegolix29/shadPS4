@@ -107,6 +107,8 @@ public:
 
         // Persist to disk
         QSettings settings("shadPS4", "Emulator");
+        settings.setValue("ShadPath", QString::fromStdString(path));
+        settings.sync();
     }
     QList<int> LoadDockWidgetSizes();
     void SaveDockWidgetSizes(const QList<int>& sizes);
