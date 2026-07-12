@@ -6,6 +6,8 @@
 #pragma once
 
 #include <chrono>
+#include <memory>
+
 #include "common/types.h"
 
 namespace Common {
@@ -42,6 +44,22 @@ void SetThreadAffinity(const std::vector<u32>& core_ids);
 
 bool AccurateSleep(std::chrono::nanoseconds duration, std::chrono::nanoseconds* remaining,
                    bool interruptible);
+
+class InterruptibleTimer {
+public:
+    InterruptibleTimer();
+    ~InterruptibleTimer();
+
+    InterruptibleTimer(const InterruptibleTimer&) = delete;
+    InterruptibleTimer& operator=(const InterruptibleTimer&) = delete;
+
+    void WaitUntil(std::chrono::steady_clock::time_point deadline);
+    void Notify();
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl;
+};
 
 class AccurateTimer {
     std::chrono::nanoseconds target_interval{};

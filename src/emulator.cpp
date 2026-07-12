@@ -38,6 +38,7 @@
 #include "core/libraries/font/font.h"
 #include "core/libraries/font/fontft.h"
 #include "core/libraries/jpeg/jpegenc.h"
+#include "core/file_sys/storage_scheduler.h"
 #include "core/libraries/kernel/kernel.h"
 #include "core/libraries/libc_internal/libc_internal.h"
 #include "core/libraries/libpng/pngenc.h"
@@ -76,7 +77,29 @@ Emulator::Emulator() {
 #endif
 }
 
-Emulator::~Emulator() {
+Emulator::~Emulator() {}
+
+void Emulator::Shutdown() {
+    static bool exit_done = false;
+    std::scoped_lock l{exit_mutex};
+    if (exit_done) {
+        return;
+    }
+    if (Core::FileSys::GetApp0StorageScheduler().IsEnabled()) {
+        const auto storage_stats = Core::FileSys::GetApp0StorageScheduler().GetStats();
+        LOG_DEBUG(
+            Kernel_Fs,
+            "app0 HDD summary: bytes={} chunks={} sequential={} positioned={} modeled_wait_ms={} "
+            "oversleep_ms={} host_overrun_ms={} host_wait_ms={} prefetched={} demand={} "
+            "max_staging={} max_queue={}",
+            storage_stats.bytes_read, storage_stats.chunks, storage_stats.sequential_chunks,
+            storage_stats.positioned_chunks, storage_stats.modeled_wait_ns / 1'000'000,
+            storage_stats.timer_oversleep_ns / 1'000'000, storage_stats.host_overrun_ns / 1'000'000,
+            storage_stats.host_wait_ns / 1'000'000, storage_stats.prefetched_chunks,
+            storage_stats.demand_chunks, storage_stats.max_staging_buffers,
+            storage_stats.max_queue_depth);
+    }
+    Common::Log::Flush();
     if (controllers) {
         controllers->Cleanup();
     }
@@ -178,6 +201,13 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
             sdk_version = std::stoi(sdk_ver_string, nullptr, 16);
         }
     }
+
+    EmulatorSettings.Load(id);
+    Core::FileSys::GetApp0StorageScheduler().Configure(
+        EmulatorSettings.GetApp0ReadBandwidthMiBps());
+    // Switch to configured log
+    Common::Log::Switch((!id.empty() && EmulatorSettings.IsLogSeparate()) ? id + ".log"
+                                                                          : "shad_log.txt");
 
     auto guest_eboot_path = "/app0/" + eboot_name.generic_string();
     const auto eboot_path = mnt->GetHostPath(guest_eboot_path);
