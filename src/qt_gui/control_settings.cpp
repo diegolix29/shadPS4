@@ -729,7 +729,7 @@ void ControlSettings::CheckGamePad() {
         GamepadSelect::GetIndexfromGUID(gamepads, gamepad_count, Config::getActiveControllerID());
 
     if (!gamepads || gamepad_count == 0) {
-        ui->ActiveGamepadBox->addItem("No gamepads detected");
+        ui->ActiveGamepadBox->addItem(tr("No gamepads detected"));
         ui->ActiveGamepadBox->setCurrentIndex(0);
         return;
     } else {
@@ -758,7 +758,7 @@ void ControlSettings::CheckGamePad() {
         ui->DefaultGamepadName->setText(SDL_GetGamepadNameForID(gamepads[defaultIndex]));
         ui->DefaultGamepadLabel->setText(tr("ID: ") + defaultGUID);
     } else {
-        ui->DefaultGamepadName->setText("Default controller not connected");
+        ui->DefaultGamepadName->setText(tr("Default controller not connected"));
         ui->DefaultGamepadLabel->setText(tr("n/a"));
     }
 
