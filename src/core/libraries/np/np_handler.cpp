@@ -53,9 +53,6 @@ std::pair<std::string, u16> NpHandler::ParseServerAddress() const {
 }
 
 bool NpHandler::ConnectUserById(s32 user_id) {
-    if (!Config::IsShadNetEnabled())
-        return false;
-
     {
         std::lock_guard lock(m_mutex_clients);
         if (m_clients.find(user_id) != m_clients.end())
@@ -91,11 +88,6 @@ void NpHandler::StartWorker() {
 void NpHandler::Initialize() {
     if (m_initialized.exchange(true)) {
         LOG_WARNING(NpHandler, "Initialize called more than once");
-        return;
-    }
-
-    if (!Config::IsShadNetEnabled()) {
-        LOG_INFO(NpHandler, "shadNet disabled globally we are in offline mode");
         return;
     }
 

@@ -515,7 +515,7 @@ s32 PS4_SYSV_ABI sceUserServiceGetInitialUser(int* user_id) {
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
     // select first user (TODO add more)
-    *user_id = 1;
+    *user_id = 1000;
     return ORBIS_OK;
 }
 
