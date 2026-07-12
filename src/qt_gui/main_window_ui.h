@@ -555,6 +555,8 @@ public:
             QCoreApplication::translate("MainWindow", "Clear Custom Background", nullptr));
         toggleColorFilterAct->setText(
             QCoreApplication::translate("MainWindow", "Enable Theme Colors"));
+        pauseOnUnfocusAct->setText(
+            QCoreApplication::translate("MainWindow", "Pause Game When Unfocused"));
 
     } // retranslateUi
 };

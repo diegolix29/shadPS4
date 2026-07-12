@@ -54,7 +54,7 @@ ModManagerDialog::ModManagerDialog(const QString& gamePath, const QString& gameS
       uninstallModBtn(nullptr), titleLabel(nullptr), modListWidget(nullptr), modScrollArea(nullptr),
       modListContainer(nullptr), modListLayout(nullptr), viewModeGroup(nullptr),
       listAvailable(nullptr), listActive(nullptr) {
-    setWindowTitle(QString("Browse %1 Mods").arg(gameSerial));
+    setWindowTitle(tr("Browse %1 Mods").arg(gameSerial));
     setMinimumSize(900, 700);
     resize(1200, 800);
 
@@ -124,7 +124,7 @@ void ModManagerDialog::setupUI() {
     localLayout->setContentsMargins(0, 0, 0, 0);
     setupModList();
     localLayout->addWidget(modScrollArea);
-    tabs->addTab(localTab, "Installed Mods");
+    tabs->addTab(localTab, tr("Installed Mods"));
 
     setupNexusTab(tabs);
 
@@ -135,7 +135,7 @@ void ModManagerDialog::setupHeader() {
     auto* titleContainer = new QWidget(this);
     auto* titleLayout = new QVBoxLayout(titleContainer);
 
-    auto* titleLabel = new QLabel(QString("Browse %1 Mods").arg(gameSerial), this);
+    auto* titleLabel = new QLabel(tr("Browse %1 Mods").arg(gameSerial), this);
     titleLabel->setAlignment(Qt::AlignCenter);
     QFont font = titleLabel->font();
     font.setPointSize(18);
@@ -144,29 +144,29 @@ void ModManagerDialog::setupHeader() {
 
     auto* headerLayout = new QHBoxLayout();
     searchBox = new QLineEdit(this);
-    searchBox->setPlaceholderText("Search mods...");
+    searchBox->setPlaceholderText(tr("Search mods..."));
     searchBox->setMinimumWidth(300);
     searchBox->setClearButtonEnabled(true);
     sortComboBox = new QComboBox(this);
-    sortComboBox->addItem("Date Added", Qt::DescendingOrder);
-    sortComboBox->addItem("Name", Qt::AscendingOrder);
-    sortComboBox->addItem("Author", Qt::AscendingOrder);
-    sortComboBox->addItem("Size", Qt::DescendingOrder);
+    sortComboBox->addItem(tr("Date Added"), Qt::DescendingOrder);
+    sortComboBox->addItem(tr("Name"), Qt::AscendingOrder);
+    sortComboBox->addItem(tr("Author"), Qt::AscendingOrder);
+    sortComboBox->addItem(tr("Size"), Qt::DescendingOrder);
     sortComboBox->setMinimumWidth(120);
-    gridViewBtn = new QPushButton("Grid", this);
+    gridViewBtn = new QPushButton(tr("Grid"), this);
     gridViewBtn->setCheckable(true);
     gridViewBtn->setChecked(true);
 
-    listViewBtn = new QPushButton("List", this);
+    listViewBtn = new QPushButton(tr("List"), this);
     listViewBtn->setCheckable(true);
 
     viewModeGroup = new QButtonGroup(this);
     viewModeGroup->addButton(gridViewBtn, 0);
     viewModeGroup->addButton(listViewBtn, 1);
     viewModeGroup->setExclusive(true);
-    refreshBtn = new QPushButton("Refresh", this);
-    installModBtn = new QPushButton("Install Mod", this);
-    closeBtn = new QPushButton("Close", this);
+    refreshBtn = new QPushButton(tr("Refresh"), this);
+    installModBtn = new QPushButton(tr("Install Mod"), this);
+    closeBtn = new QPushButton(tr("Close"), this);
 
     headerLayout->addWidget(searchBox);
     headerLayout->addWidget(sortComboBox);
@@ -174,7 +174,7 @@ void ModManagerDialog::setupHeader() {
     headerLayout->addWidget(listViewBtn);
     headerLayout->addStretch();
     headerLayout->addWidget(refreshBtn);
-    auto* openFolderBtn = new QPushButton("Open Folder");
+    auto* openFolderBtn = new QPushButton(tr("Open Folder"));
     openFolderBtn->setStyleSheet(R"(
         QPushButton {
             background-color: #2d2d2d;
@@ -197,7 +197,7 @@ void ModManagerDialog::setupHeader() {
         }
         QUrl url = QUrl::fromLocalFile(folderPath);
         if (!QDesktopServices::openUrl(url)) {
-            QMessageBox::warning(this, "Error", "Could not open the mods folder.");
+            QMessageBox::warning(this, tr("Error"), tr("Could not open the mods folder."));
         }
     });
 
@@ -515,7 +515,7 @@ QWidget* ModManagerDialog::createModItem(const ModInfo& modInfo) {
     titleLabel->setMinimumHeight(30);
     titleLabel->setMaximumHeight(40);
     auto* authorLabel =
-        new QLabel(QString("by %1").arg(modInfo.author.isEmpty() ? "Unknown" : modInfo.author));
+        new QLabel(tr("by %1").arg(modInfo.author.isEmpty() ? tr("Unknown") : modInfo.author));
     authorLabel->setStyleSheet("QLabel { color: #cccccc; font-size: 11px; }");
     authorLabel->setMinimumHeight(15);
     auto* typeLabel = new QLabel(getModTypeString(modInfo.name));
@@ -526,7 +526,7 @@ QWidget* ModManagerDialog::createModItem(const ModInfo& modInfo) {
     auto* sizeLabel = new QLabel(getModSizeString(modInfo.name));
     sizeLabel->setStyleSheet("QLabel { color: #888888; font-size: 10px; }");
     sizeLabel->setMinimumHeight(15);
-    auto* statusLabel = new QLabel(modInfo.isActive ? "Active" : "Inactive");
+    auto* statusLabel = new QLabel(modInfo.isActive ? tr("Active") : tr("Inactive"));
     statusLabel->setStyleSheet(
         modInfo.isActive ? "QLabel { color: #4CAF50; font-size: 10px; font-weight: bold; }"
                          : "QLabel { color: #ff9800; font-size: 10px; font-weight: bold; }");
@@ -534,7 +534,7 @@ QWidget* ModManagerDialog::createModItem(const ModInfo& modInfo) {
     auto* buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(6);
 
-    auto* previewBtn = new QPushButton("Details");
+    auto* previewBtn = new QPushButton(tr("Details"));
     previewBtn->setStyleSheet(R"(
         QPushButton {
             background-color: #0078d4;
@@ -550,7 +550,7 @@ QWidget* ModManagerDialog::createModItem(const ModInfo& modInfo) {
         }
     )");
 
-    auto* downloadBtn = new QPushButton(modInfo.isActive ? "Deactivate" : "Activate");
+    auto* downloadBtn = new QPushButton(modInfo.isActive ? tr("Deactivate") : tr("Activate"));
     downloadBtn->setStyleSheet(modInfo.isActive ? R"(
         QPushButton {
             background-color: #f44336;
@@ -627,7 +627,7 @@ QWidget* ModManagerDialog::createModListItem(const ModInfo& modInfo) {
     titleLabel->setMinimumWidth(200);
     titleLabel->setMaximumWidth(250);
     auto* authorLabel =
-        new QLabel(QString("by %1").arg(modInfo.author.isEmpty() ? "Unknown" : modInfo.author));
+        new QLabel(tr("by %1").arg(modInfo.author.isEmpty() ? tr("Unknown") : modInfo.author));
     authorLabel->setStyleSheet("QLabel { color: #cccccc; font-size: 12px; }");
     authorLabel->setMinimumWidth(120);
     authorLabel->setMaximumWidth(150);
@@ -784,7 +784,7 @@ qint64 ModManagerDialog::getModSizeBytes(const QString& modName) const {
 
 QString ModManagerDialog::getModTypeString(const QString& modName) const {
     if (modName.isEmpty()) {
-        return "General";
+        return tr("General");
     }
 
     QString modPath = availablePath + "/" + modName;
@@ -805,7 +805,7 @@ QString ModManagerDialog::getModTypeString(const QString& modName) const {
 
     QStringList folders = modDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
     if (folders.isEmpty()) {
-        return "Empty";
+        return tr("Empty");
     }
 
     QStringList modFolders;
@@ -822,7 +822,7 @@ QString ModManagerDialog::getModTypeString(const QString& modName) const {
     }
 
     if (modFolders.isEmpty()) {
-        return "No files";
+        return tr("No files");
     }
 
     return modFolders.join(", ");
@@ -934,7 +934,7 @@ void ModManagerDialog::activateModByName(const QString& modName) {
     QString dst = activePath + "/" + modName;
 
     if (!QDir(src).exists()) {
-        QMessageBox::warning(this, "Mod Not Found",
+        QMessageBox::warning(this, tr("Mod Not Found"),
                              QString("Mod '%1' not found in Available folder.").arg(modName));
         return;
     }
@@ -949,13 +949,13 @@ void ModManagerDialog::activateModByName(const QString& modName) {
     }
 
     if (!activeConflicts.isEmpty()) {
-        QString msg = "This mod conflicts with following active mods:\n\n";
+        QString msg = tr("This mod conflicts with following active mods:\n\n");
         for (const QString& conflictingMod : activeConflicts) {
             msg += QString("- %1\n").arg(conflictingMod);
             greyedOutMods.insert(conflictingMod);
         }
 
-        msg += "\nActivating this mod will overwrite conflicting files. Continue?";
+        msg += tr("\nActivating this mod will overwrite conflicting files. Continue?");
         if (!showScrollableConflictDialog(msg))
             return;
     }
@@ -1333,21 +1333,21 @@ void ModManagerDialog::installModFromDisk() {
     QString path;
 
     QMessageBox msgBox(this);
-    msgBox.setWindowTitle("Select Mod");
-    msgBox.setText("Are you installing a folder or an archive?");
+    msgBox.setWindowTitle(tr("Select Mod"));
+    msgBox.setText(tr("Are you installing a folder or an archive?"));
     QPushButton* folderBtn = msgBox.addButton("Folder", QMessageBox::AcceptRole);
     QPushButton* archiveBtn = msgBox.addButton("Archive", QMessageBox::AcceptRole);
 
     msgBox.exec();
 
     if (msgBox.clickedButton() == folderBtn) {
-        path = QFileDialog::getExistingDirectory(this, "Select Mod Folder", QString(),
+        path = QFileDialog::getExistingDirectory(this, tr("Select Mod Folder"), QString(),
                                                  QFileDialog::ShowDirsOnly |
                                                      QFileDialog::DontResolveSymlinks);
     } else if (msgBox.clickedButton() == archiveBtn) {
         path = QFileDialog::getOpenFileName(
-            this, "Select Mod Archive", QString(),
-            "Mods (*.zip *.rar *.7z *.tar *.gz *.tgz);;All Files (*.*)");
+            this, tr("Select Mod Archive"), QString(),
+            tr("Mods (*.zip *.rar *.7z *.tar *.gz *.tgz);;All Files (*.*)"));
     } else {
         return;
     }
@@ -1360,10 +1360,10 @@ void ModManagerDialog::installModFromDisk() {
 #ifdef _WIN32
     if (info.suffix().toLower() == "rar") {
         QMessageBox::information(
-            this, "RAR Not Supported",
-            "RAR archives are not supported for mod installation on Windows.\n"
-            "Please unpack the RAR archive manually and install the mod as a folder, "
-            "or use a different supported archive format (ZIP, 7Z, TAR, GZ, TGZ).");
+            this, tr("RAR Not Supported"),
+            tr("RAR archives are not supported for mod installation on Windows.\n"
+               "Please unpack the RAR archive manually and install the mod as a folder, "
+               "or use a different supported archive format (ZIP, 7Z, TAR, GZ, TGZ)."));
         return;
     }
 #endif
@@ -1372,7 +1372,7 @@ void ModManagerDialog::installModFromDisk() {
     QString dst = availablePath + "/" + modName;
 
     if (QDir(dst).exists()) {
-        QMessageBox::warning(this, "Mod Exists", "This mod already exists.");
+        QMessageBox::warning(this, tr("Mod Exists"), tr("This mod already exists."));
         return;
     }
 
@@ -1401,7 +1401,8 @@ void ModManagerDialog::installModFromDisk() {
     QDir().mkpath(tempExtract);
 
     if (!ExtractArchive(path, tempExtract)) {
-        QMessageBox::warning(this, "Extraction Failed", "Unable to extract the mod archive.");
+        QMessageBox::warning(this, tr("Extraction Failed"),
+                             tr("Unable to extract the mod archive."));
         QDir(tempExtract).removeRecursively();
         return;
     }
@@ -1414,8 +1415,8 @@ void ModManagerDialog::installModFromDisk() {
 }
 
 void ModManagerDialog::removeAvailableMod() {
-    QMessageBox::information(this, "Remove Mod",
-                             "Remove functionality needs to be adapted for the new UI system.");
+    QMessageBox::information(this, tr("Remove Mod"),
+                             tr("Remove functionality needs to be adapted for the new UI system."));
 }
 
 void ModManagerDialog::deactivateSelected() {
@@ -1557,7 +1558,7 @@ QString ModManagerDialog::normalizeExtractedMod(const QString& modPath) {
 
 bool ModManagerDialog::showScrollableConflictDialog(const QString& text) {
     QDialog dlg(this);
-    dlg.setWindowTitle("Mod Conflict Detected");
+    dlg.setWindowTitle(tr("Mod Conflict Detected"));
     dlg.setModal(true);
     dlg.setMinimumSize(600, 400);
     dlg.setMaximumSize(800, 600);
@@ -1580,8 +1581,8 @@ bool ModManagerDialog::showScrollableConflictDialog(const QString& text) {
     layout->addWidget(scroll);
 
     auto* btnLayout = new QHBoxLayout();
-    QPushButton* okBtn = new QPushButton("OK");
-    QPushButton* cancelBtn = new QPushButton("Cancel");
+    QPushButton* okBtn = new QPushButton(tr("OK"));
+    QPushButton* cancelBtn = new QPushButton(tr("Cancel"));
 
     btnLayout->addStretch();
     btnLayout->addWidget(cancelBtn);
@@ -1650,7 +1651,7 @@ void ModManagerDialog::restoreMod(const QString& modName) {
         QDir(modBackupRoot).removeRecursively();
 
         QMessageBox::information(
-            this, "Mod Deactivation Complete",
+            this, tr("Mod Deactivation Complete"),
             QString("Mod '%1' deactivated (fallback method).\n%2 files removed, %3 files restored.")
                 .arg(modName)
                 .arg(filesRemoved)
@@ -1661,7 +1662,7 @@ void ModManagerDialog::restoreMod(const QString& modName) {
     QStringList modFiles = modTracker->getModFiles(modName);
 
     if (modFiles.isEmpty()) {
-        QMessageBox::warning(this, "Mod Deactivation Warning",
+        QMessageBox::warning(this, tr("Mod Deactivation Warning"),
                              QString("No files found in tracker for mod '%1'.\nThe mod may not "
                                      "have been properly installed."));
         return;
@@ -1747,7 +1748,7 @@ void ModManagerDialog::restoreMod(const QString& modName) {
 
 void ModManagerDialog::showModDetails(const QString& modName) {
     QDialog detailsDialog(this);
-    detailsDialog.setWindowTitle(QString("%1 - Details").arg(modName));
+    detailsDialog.setWindowTitle(tr("%1 - Details").arg(modName));
     detailsDialog.setModal(true);
     detailsDialog.setMinimumSize(800, 600);
     detailsDialog.resize(1000, 700);
@@ -1765,11 +1766,11 @@ void ModManagerDialog::showModDetails(const QString& modName) {
     auto* leftWidget = new QWidget();
     auto* leftLayout = new QVBoxLayout(leftWidget);
 
-    auto* fileLabel = new QLabel("File Structure:");
+    auto* fileLabel = new QLabel(tr("File Structure:"));
     fileLabel->setStyleSheet("QLabel { color: #ffffff; font-weight: bold; font-size: 14px; }");
 
     auto* fileTree = new QTreeWidget();
-    fileTree->setHeaderLabels({"Path", "Size", "Type"});
+    fileTree->setHeaderLabels({tr("Path"), tr("Size"), tr("Type")});
     fileTree->setStyleSheet(R"(
         QTreeWidget {
             background-color: #2d2d2d;
@@ -1813,7 +1814,7 @@ void ModManagerDialog::showModDetails(const QString& modName) {
     auto* rightWidget = new QWidget();
     auto* rightLayout = new QVBoxLayout(rightWidget);
 
-    auto* infoLabel = new QLabel("Mod Information:");
+    auto* infoLabel = new QLabel(tr("Mod Information:"));
     infoLabel->setStyleSheet("QLabel { color: #ffffff; font-weight: bold; font-size: 14px; }");
 
     auto* modInfoText = new QTextEdit();
@@ -1831,7 +1832,8 @@ void ModManagerDialog::showModDetails(const QString& modName) {
 
     ModInfo modInfo = modTracker->getMod(modName);
     QString infoText = QString("Name: %1\n").arg(modName);
-    infoText += QString("Author: %1\n").arg(modInfo.author.isEmpty() ? "Unknown" : modInfo.author);
+    infoText +=
+        QString("Author: %1\n").arg(modInfo.author.isEmpty() ? tr("Unknown") : modInfo.author);
     infoText += QString("Version: %1\n").arg(modInfo.version);
     infoText += QString("Size: %1\n").arg(getModSizeString(modName));
     infoText += QString("Status: %1\n").arg(modInfo.isActive ? "Active" : "Inactive");
@@ -1848,7 +1850,7 @@ void ModManagerDialog::showModDetails(const QString& modName) {
     contentSplitter->setStretchFactor(0, 2);
     contentSplitter->setStretchFactor(1, 1);
 
-    auto* closeBtn = new QPushButton("Close");
+    auto* closeBtn = new QPushButton(tr("Close"));
     closeBtn->setStyleSheet(R"(
         QPushButton {
             background-color: #f44336;
@@ -1896,7 +1898,7 @@ void ModManagerDialog::populateFileTree(QTreeWidgetItem* parentItem, const QStri
 
         if (fileInfo.isDir()) {
             item->setIcon(0, QIcon(":/icons/folder.png"));
-            item->setText(2, "Folder");
+            item->setText(2, tr("Folder"));
             populateFileTree(item, basePath, entryRelativePath);
         } else {
             item->setIcon(0, QIcon(":/icons/file.png"));
@@ -1905,13 +1907,13 @@ void ModManagerDialog::populateFileTree(QTreeWidgetItem* parentItem, const QStri
             QString extension = fileInfo.suffix().toLower();
             if (extension == "png" || extension == "jpg" || extension == "jpeg" ||
                 extension == "bmp") {
-                item->setText(2, "Image");
+                item->setText(2, tr("Image"));
             } else if (extension == "txt" || extension == "json" || extension == "xml") {
-                item->setText(2, "Text");
+                item->setText(2, tr("Text"));
             } else if (extension == "bin" || extension == "dat") {
-                item->setText(2, "Binary");
+                item->setText(2, tr("Binary"));
             } else {
-                item->setText(2, "File");
+                item->setText(2, tr("File"));
             }
         }
     }
@@ -1927,7 +1929,7 @@ void ModManagerDialog::setupNexusTab(QTabWidget* tabs) {
     auto* keyIcon = new QLabel("");
     m_nexusKeyStatusLabel = new QLabel("Nexus API key: not set");
     m_nexusKeyStatusLabel->setStyleSheet("QLabel { color: #ff9800; }");
-    m_nexusSetKeyBtn = new QPushButton("Set API Key");
+    m_nexusSetKeyBtn = new QPushButton(tr("Set API Key"));
     m_nexusSetKeyBtn->setFixedWidth(110);
 
     keyBar->addWidget(keyIcon);
@@ -1940,7 +1942,7 @@ void ModManagerDialog::setupNexusTab(QTabWidget* tabs) {
     m_nexusSearchBox->setPlaceholderText(
         "Search Nexus Mods  -  type a mod name just like on the Nexus website...");
     m_nexusSearchBox->setClearButtonEnabled(true);
-    m_nexusSearchBtn = new QPushButton("Search");
+    m_nexusSearchBtn = new QPushButton(tr("Search"));
     m_nexusSearchBtn->setFixedWidth(90);
     m_nexusSearchBtn->setStyleSheet(R"(
         QPushButton { background-color: #e8591a; color: #fff;
@@ -1957,8 +1959,8 @@ void ModManagerDialog::setupNexusTab(QTabWidget* tabs) {
     auto* pageBar = new QHBoxLayout();
     m_nexusStatusLabel = new QLabel("Enter a search term above.");
     m_nexusStatusLabel->setStyleSheet("QLabel { color: #aaa; font-size: 11px; }");
-    m_nexusPrevBtn = new QPushButton("< Prev");
-    m_nexusNextBtn = new QPushButton("Next >");
+    m_nexusPrevBtn = new QPushButton(tr("< Prev"));
+    m_nexusNextBtn = new QPushButton(tr("Next >"));
     m_nexusPageLabel = new QLabel("");
     m_nexusPrevBtn->setVisible(false);
     m_nexusNextBtn->setVisible(false);
@@ -1990,19 +1992,19 @@ void ModManagerDialog::setupNexusTab(QTabWidget* tabs) {
     connect(m_nexusPrevBtn, &QPushButton::clicked, this, &ModManagerDialog::onNexusPagePrev);
     connect(m_nexusNextBtn, &QPushButton::clicked, this, &ModManagerDialog::onNexusPageNext);
 
-    tabs->addTab(nexusTab, " Browse Nexus");
+    tabs->addTab(nexusTab, tr(" Browse Nexus"));
 }
 
 void ModManagerDialog::updateNexusKeyStatus() {
     if (!m_nexusApi)
         return;
     if (m_nexusApi->hasApiKey()) {
-        m_nexusKeyStatusLabel->setText("Nexus API key: [OK]  (connected)");
+        m_nexusKeyStatusLabel->setText(tr("Nexus API key: [OK] (connected)"));
         m_nexusKeyStatusLabel->setStyleSheet("QLabel { color: #4CAF50; }");
         m_nexusSearchBtn->setEnabled(true);
     } else {
         m_nexusKeyStatusLabel->setText(
-            "Nexus API key: not set  -  paste your key to enable search");
+            tr("Nexus API key: not set - paste your key to enable search"));
         m_nexusKeyStatusLabel->setStyleSheet("QLabel { color: #ff9800; }");
         m_nexusSearchBtn->setEnabled(false);
     }
@@ -2010,15 +2012,15 @@ void ModManagerDialog::updateNexusKeyStatus() {
 
 void ModManagerDialog::onNexusSetApiKeyClicked() {
     bool ok = false;
-    QString key = QInputDialog::getText(this, "Nexus Mods API Key",
-                                        "Paste your Nexus Mods personal API key\n"
-                                        "(get it at nexusmods.com -> your profile -> API Keys):",
-                                        QLineEdit::Normal,
-                                        m_nexusApi ? m_nexusApi->apiKey() : QString(), &ok);
+    QString key = QInputDialog::getText(
+        this, tr("Nexus Mods API Key"),
+        tr("Paste your Nexus Mods personal API key\n"
+           "(get it at nexusmods.com -> your profile -> API Keys):"),
+        QLineEdit::Normal, m_nexusApi ? m_nexusApi->apiKey() : QString(), &ok);
 
     if (ok && !key.trimmed().isEmpty() && m_nexusApi) {
         m_nexusApi->setApiKey(key.trimmed());
-        m_nexusStatusLabel->setText("Validating key...");
+        m_nexusStatusLabel->setText(tr("Validating key..."));
         m_nexusApi->validateApiKey();
     }
 }
@@ -2030,9 +2032,9 @@ void ModManagerDialog::onNexusApiKeyValidated(bool valid, const QString& usernam
         m_nexusKeyStatusLabel->setStyleSheet("QLabel { color: #4CAF50; }");
         if (m_nexusSearchBtn)
             m_nexusSearchBtn->setEnabled(true);
-        m_nexusStatusLabel->setText("Key validated. Type a mod name and hit Search.");
+        m_nexusStatusLabel->setText(tr("Key validated. Type a mod name and hit Search."));
     } else {
-        m_nexusKeyStatusLabel->setText("Nexus API key: [X]  invalid  -  please check your key");
+        m_nexusKeyStatusLabel->setText(tr("Nexus API key: [X] invalid - please check your key"));
         m_nexusKeyStatusLabel->setStyleSheet("QLabel { color: #f44336; }");
         if (m_nexusSearchBtn)
             m_nexusSearchBtn->setEnabled(false);
@@ -2044,7 +2046,7 @@ void ModManagerDialog::onNexusSearchClicked() {
         return;
     QString query = m_nexusSearchBox->text().trimmed();
     if (query.isEmpty()) {
-        m_nexusStatusLabel->setText("Please enter a search term.");
+        m_nexusStatusLabel->setText(tr("Please enter a search term."));
         return;
     }
     m_nexusCurrentQuery = query;
@@ -2058,7 +2060,7 @@ void ModManagerDialog::onNexusSearchClicked() {
         return;
     }
 
-    m_nexusStatusLabel->setText("Searching Nexus (latest/trending/updated)...");
+    m_nexusStatusLabel->setText(tr("Searching Nexus..."));
     m_nexusSearchBtn->setEnabled(false);
 
     m_nexusApi->searchAllModes(m_nexusCurrentSlug, query);
@@ -2079,7 +2081,7 @@ void ModManagerDialog::onNexusSearchResultsReady(const QList<NexusModResult>& re
         m_nexusSearchBtn->setEnabled(true);
 
     if (results.isEmpty()) {
-        m_nexusStatusLabel->setText("No mods found for that query.");
+        m_nexusStatusLabel->setText(tr("No mods found for that query."));
         m_nexusPrevBtn->setEnabled(false);
         m_nexusNextBtn->setEnabled(false);
         while (QLayoutItem* item = m_nexusResultsLayout->takeAt(0)) {
@@ -2140,7 +2142,7 @@ QWidget* ModManagerDialog::createNexusResultCard(const NexusModResult& mod) {
     imgLabel->setFixedSize(120, 80);
     imgLabel->setAlignment(Qt::AlignCenter);
     imgLabel->setStyleSheet("QLabel { background-color: #1a1a1a; border-radius: 4px; }");
-    imgLabel->setText("Loading...");
+    imgLabel->setText(tr("Loading..."));
     if (!mod.pictureUrl.isEmpty())
         loadNexusThumbnail(mod.pictureUrl, imgLabel);
 
@@ -2152,7 +2154,7 @@ QWidget* ModManagerDialog::createNexusResultCard(const NexusModResult& mod) {
     nameLabel->setWordWrap(true);
 
     auto* authorLabel = new QLabel(QString("by %1   |  %2")
-                                       .arg(mod.author.isEmpty() ? "Unknown" : mod.author)
+                                       .arg(mod.author.isEmpty() ? tr("Unknown") : mod.author)
                                        .arg(mod.gameSlug.isEmpty() ? gameSerial : mod.gameSlug));
     authorLabel->setStyleSheet("QLabel { color: #aaa; font-size: 11px; }");
 
@@ -2176,7 +2178,7 @@ QWidget* ModManagerDialog::createNexusResultCard(const NexusModResult& mod) {
     auto* btnCol = new QVBoxLayout();
     btnCol->setSpacing(4);
 
-    auto* nexusBtn = new QPushButton("Open on Nexus");
+    auto* nexusBtn = new QPushButton(tr("Open on Nexus"));
     nexusBtn->setFixedWidth(130);
     nexusBtn->setStyleSheet(R"(
         QPushButton { background-color: #333; color: #ddd; border: 1px solid #555;
@@ -2184,7 +2186,7 @@ QWidget* ModManagerDialog::createNexusResultCard(const NexusModResult& mod) {
         QPushButton:hover { background-color: #444; }
     )");
 
-    auto* installBtn = new QPushButton("[DL] Get Files");
+    auto* installBtn = new QPushButton(tr("[DL] Get Files"));
     installBtn->setFixedWidth(130);
     installBtn->setStyleSheet(R"(
         QPushButton { background-color: #e8591a; color: #fff; border: none;
@@ -2226,7 +2228,7 @@ void ModManagerDialog::onNexusThumbnailDownloaded(QNetworkReply* reply, QLabel* 
     if (!imageLabel)
         return;
     if (reply->error() != QNetworkReply::NoError) {
-        imageLabel->setText("No image");
+        imageLabel->setText(tr("No image"));
         return;
     }
     QPixmap px;
@@ -2244,7 +2246,7 @@ void ModManagerDialog::onNexusResultItemClicked(int modId, const QString& gameSl
     if (!m_nexusApi)
         return;
     m_pendingFileSelectSlug[modId] = gameSlug;
-    m_nexusStatusLabel->setText("Fetching file list...");
+    m_nexusStatusLabel->setText(tr("Fetching file list..."));
     m_nexusApi->fetchModFiles(gameSlug, modId);
 }
 
@@ -2252,15 +2254,15 @@ void ModManagerDialog::onNexusModFilesReady(int modId, const QList<NexusFileInfo
     m_nexusStatusLabel->setText(QString("%1 mod(s) found  -  ready.").arg(m_nexusTotalCount));
 
     if (files.isEmpty()) {
-        QMessageBox::information(this, "No Files",
-                                 "This mod has no downloadable files listed on Nexus.");
+        QMessageBox::information(this, tr("No Files"),
+                                 tr("This mod has no downloadable files listed on Nexus."));
         return;
     }
 
     QString gameSlug = m_pendingFileSelectSlug.value(modId, m_nexusCurrentSlug);
 
     QDialog dlg(this);
-    dlg.setWindowTitle("Choose File to Download");
+    dlg.setWindowTitle(tr("Choose File to Download"));
     dlg.setMinimumSize(600, 350);
     dlg.setStyleSheet("QDialog { background-color: #1e1e1e; color: #fff; }");
 
@@ -2295,7 +2297,7 @@ void ModManagerDialog::onNexusModFilesReady(int modId, const QList<NexusFileInfo
 
     auto* btnRow = new QHBoxLayout();
     auto* cancelBtn = new QPushButton("Cancel");
-    auto* dlBtn = new QPushButton("Get Download Link");
+    auto* dlBtn = new QPushButton(tr("Get Download Link"));
     dlBtn->setStyleSheet(R"(
         QPushButton { background-color: #e8591a; color: #fff; border: none;
                       border-radius: 4px; padding: 7px 14px; font-weight: bold; }
@@ -2325,7 +2327,7 @@ void ModManagerDialog::onNexusModFilesReady(int modId, const QList<NexusFileInfo
     int fileId = sel->data(Qt::UserRole).toInt();
     QString fileName = sel->data(Qt::UserRole + 1).toString();
 
-    m_nexusStatusLabel->setText("Fetching download link...");
+    m_nexusStatusLabel->setText(tr("Fetching download link..."));
     m_pendingFileSelectSlug[fileId] = gameSlug;
     downloadAndInstallNexusMod(gameSlug, modId, fileId, fileName);
 }
@@ -2342,20 +2344,20 @@ void ModManagerDialog::downloadAndInstallNexusMod(const QString& gameSlug, int m
 }
 
 void ModManagerDialog::onNexusDownloadLinkReady(int /*modId*/, int /*fileId*/, const QString& url) {
-    m_nexusStatusLabel->setText("Download link ready  -  opening in browser.");
+    m_nexusStatusLabel->setText(tr("Download link ready - opening in browser."));
     if (url.isEmpty()) {
-        QMessageBox::warning(this, "No Link",
-                             "Nexus did not return a download link.\n"
-                             "This sometimes happens for free-tier accounts.\n"
-                             "The mod page will open in your browser instead.");
+        QMessageBox::warning(this, tr("No Link"),
+                             tr("Nexus did not return a download link.\n"
+                                "This sometimes happens for free-tier accounts.\n"
+                                "The mod page will open in your browser instead."));
         return;
     }
     QDesktopServices::openUrl(QUrl(url));
 
-    QMessageBox::information(this, "Download Started",
-                             "The download has been opened in your browser.\n\n"
-                             "Once the file is saved, use the  \"Install Mod\" button\n"
-                             "on the  \"Installed Mods\" tab to add it to your game.");
+    QMessageBox::information(this, tr("Download Started"),
+                             tr("The download has been opened in your browser.\n\n"
+                                "Once the file is saved, use the \"Install Mod\" button\n"
+                                "on the \"Installed Mods\" tab to add it to your game."));
 }
 
 void ModManagerDialog::onNexusError(const QString& message) {
@@ -2363,5 +2365,5 @@ void ModManagerDialog::onNexusError(const QString& message) {
         m_nexusStatusLabel->setText(QString("Error: %1").arg(message));
     if (m_nexusSearchBtn)
         m_nexusSearchBtn->setEnabled(true);
-    QMessageBox::warning(this, "Nexus Mods Error", message);
+    QMessageBox::warning(this, tr("Nexus Mods Error"), message);
 }
