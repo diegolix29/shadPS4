@@ -1362,8 +1362,8 @@ void ModManagerDialog::installModFromDisk() {
         QMessageBox::information(
             this, tr("RAR Not Supported"),
             tr("RAR archives are not supported for mod installation on Windows.\n"
-            tr("Please unpack the RAR archive manually and install the mod as a folder, "
-            "or use a different supported archive format (ZIP, 7Z, TAR, GZ, TGZ)."));
+               "Please unpack the RAR archive manually and install the mod as a folder, "
+               "or use a different supported archive format (ZIP, 7Z, TAR, GZ, TGZ)."));
         return;
     }
 #endif
@@ -2012,7 +2012,7 @@ void ModManagerDialog::onNexusSetApiKeyClicked() {
     bool ok = false;
     QString key = QInputDialog::getText(this, tr("Nexus Mods API Key"),
                                         tr("Paste your Nexus Mods personal API key\n"
-                                        tr("(get it at nexusmods.com -> your profile -> API Keys):"),
+                                           "(get it at nexusmods.com -> your profile -> API Keys):"),
                                         QLineEdit::Normal,
                                         m_nexusApi ? m_nexusApi->apiKey() : QString(), &ok);
 
@@ -2346,16 +2346,16 @@ void ModManagerDialog::onNexusDownloadLinkReady(int /*modId*/, int /*fileId*/, c
     if (url.isEmpty()) {
         QMessageBox::warning(this, tr("No Link"),
                              tr("Nexus did not return a download link.\n"
-                             tr("This sometimes happens for free-tier accounts.\n"
-                             tr("The mod page will open in your browser instead."));
+                                "This sometimes happens for free-tier accounts.\n"
+                                "The mod page will open in your browser instead."));
         return;
     }
     QDesktopServices::openUrl(QUrl(url));
 
     QMessageBox::information(this, tr("Download Started"),
                              tr("The download has been opened in your browser.\n\n"
-                             tr("Once the file is saved, use the \"Install Mod\" button\n"
-                             tr("on the \"Installed Mods\" tab to add it to your game."));
+                                "Once the file is saved, use the \"Install Mod\" button\n"
+                                "on the \"Installed Mods\" tab to add it to your game."));
 }
 
 void ModManagerDialog::onNexusError(const QString& message) {
