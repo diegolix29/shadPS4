@@ -569,23 +569,29 @@ void ParseInputConfig(const std::string game_id = "") {
         auto hotkey_it = string_to_hotkey_map.find(output_string);
         auto axis_it = string_to_axis_map.find(output_string);
         if (button_it != string_to_cbutton_map.end()) {
+            auto output = ControllerOutput(button_it->second);
+            output.gamepad_id = std::clamp(output_gamepad_id - 1, 0, 3);
             connection = BindingConnection(
                 binding,
                 &*std::ranges::find(output_arrays[std::clamp(output_gamepad_id - 1, 0, 3)].data,
-                                    ControllerOutput(button_it->second)));
+                                    output));
         } else if (hotkey_it != string_to_hotkey_map.end()) {
+            auto output = ControllerOutput(hotkey_it->second);
+            output.gamepad_id = std::clamp(output_gamepad_id - 1, 0, 3);
             connection = BindingConnection(
                 binding,
                 &*std::ranges::find(output_arrays[std::clamp(output_gamepad_id - 1, 0, 3)].data,
-                                    ControllerOutput(hotkey_it->second)));
+                                    output));
         } else if (axis_it != string_to_axis_map.end()) {
             int value_to_set = binding.keys[2].type == InputType::Axis ? 0 : axis_it->second.value;
+            auto output = ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID,
+                                                     axis_it->second.axis,
+                                                     axis_it->second.value >= 0);
+            output.gamepad_id = std::clamp(output_gamepad_id - 1, 0, 3);
             connection = BindingConnection(
                 binding,
                 &*std::ranges::find(output_arrays[std::clamp(output_gamepad_id - 1, 0, 3)].data,
-                                    ControllerOutput(SDL_GAMEPAD_BUTTON_INVALID,
-                                                     axis_it->second.axis,
-                                                     axis_it->second.value >= 0)),
+                                    output),
                 value_to_set);
         } else {
             LOG_WARNING(Input, "Invalid format at line: {}, data: \"{}\", skipping line.",
@@ -775,15 +781,15 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
         switch (button) {
         case SDL_GAMEPAD_BUTTON_TOUCHPAD_LEFT:
             controller->SetTouchpadState(0, new_button_state, 0.25f, 0.5f);
-            controller->CheckButton(0, SDLGamepadToOrbisButton(button), new_button_state);
+            controller->CheckButton(gamepad_index, SDLGamepadToOrbisButton(button), new_button_state);
             break;
         case SDL_GAMEPAD_BUTTON_TOUCHPAD_CENTER:
             controller->SetTouchpadState(0, new_button_state, 0.50f, 0.5f);
-            controller->CheckButton(0, SDLGamepadToOrbisButton(button), new_button_state);
+            controller->CheckButton(gamepad_index, SDLGamepadToOrbisButton(button), new_button_state);
             break;
         case SDL_GAMEPAD_BUTTON_TOUCHPAD_RIGHT:
             controller->SetTouchpadState(0, new_button_state, 0.75f, 0.5f);
-            controller->CheckButton(0, SDLGamepadToOrbisButton(button), new_button_state);
+            controller->CheckButton(gamepad_index, SDLGamepadToOrbisButton(button), new_button_state);
             break;
         case LEFTJOYSTICK_HALFMODE:
             leftjoystick_halfmode = new_button_state;
@@ -862,7 +868,7 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             SetMouseGyroRollMode(new_button_state);
             break;
         default: // is a normal key (hopefully)
-            controller->CheckButton(0, SDLGamepadToOrbisButton(button), new_button_state);
+            controller->CheckButton(gamepad_index, SDLGamepadToOrbisButton(button), new_button_state);
             break;
         }
     } else if (axis != SDL_GAMEPAD_AXIS_INVALID && positive_axis) {
@@ -893,12 +899,12 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
         case Axis::TriggerLeft:
             ApplyDeadzone(new_param, lefttrigger_deadzone[gamepad_index]);
             controller->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
-            controller->CheckButton(0, OrbisPadButtonDataOffset::L2, *new_param > 0x20);
+            controller->CheckButton(gamepad_index, OrbisPadButtonDataOffset::L2, *new_param > 0x20);
             return;
         case Axis::TriggerRight:
             ApplyDeadzone(new_param, righttrigger_deadzone[gamepad_index]);
             controller->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
-            controller->CheckButton(0, OrbisPadButtonDataOffset::R2, *new_param > 0x20);
+            controller->CheckButton(gamepad_index, OrbisPadButtonDataOffset::R2, *new_param > 0x20);
             return;
         default:
             break;

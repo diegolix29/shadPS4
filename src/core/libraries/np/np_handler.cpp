@@ -62,7 +62,7 @@ bool NpHandler::ConnectUserById(s32 user_id) {
             return false; // already connected
     }
 
-    const User* u = UserManagement.GetUserByID(user_id);
+    const User* u = UserManager::GetInstance().GetUserByID(user_id);
     if (!u)
         return false;
     if (!u->shadnet_enabled) {
@@ -99,7 +99,7 @@ void NpHandler::Initialize() {
         return;
     }
 
-    const auto logged_in = UserManagement.GetLoggedInUsers(); // get all login users
+    const auto logged_in = UserManager::GetInstance().GetLoggedInUsers(); // get all login users
     int connected_count = 0;
     for (int i = 0; i < Libraries::UserService::ORBIS_USER_SERVICE_MAX_LOGIN_USERS; ++i) {
         const User* u = logged_in[i];

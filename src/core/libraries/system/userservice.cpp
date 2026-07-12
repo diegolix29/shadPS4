@@ -1072,7 +1072,7 @@ s32 PS4_SYSV_ABI sceUserServiceGetUserColor(int user_id, OrbisUserServiceUserCol
         LOG_ERROR(Lib_UserService, "color is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    *color = (OrbisUserServiceUserColor)(user_id - 1);
+    *color = (OrbisUserServiceUserColor)(user_id - 1000);
     return ORBIS_OK;
 }
 
@@ -1102,9 +1102,15 @@ s32 PS4_SYSV_ABI sceUserServiceGetUserName(int user_id, char* user_name, std::si
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
 
-    std::string name = Config::getUserName(user_id - 1);
+    int array_index = user_id - 1000;
+    if (array_index < 0 || array_index >= 4) {
+        LOG_ERROR(Lib_UserService, "invalid user_id: {}", user_id);
+        return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
+    }
 
-    if (Config::getShadNetEnabled(user_id - 1) &&
+    std::string name = Config::getUserName(array_index);
+
+    if (Config::getShadNetEnabled(array_index) &&
         Libraries::Np::NpHandler::GetInstance().IsPsnSignedIn(user_id)) {
 
         const auto np_id = Libraries::Np::NpHandler::GetInstance().GetNpId(user_id);

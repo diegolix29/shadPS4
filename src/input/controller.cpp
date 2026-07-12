@@ -9,6 +9,7 @@
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/system/userservice.h"
+#include "core/user_manager.h"
 #include "input/controller.h"
 
 static std::string SelectedGamepad = "";
@@ -331,13 +332,20 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
                 }
             }
             if (!still_connected) {
-                AddUserServiceEvent({OrbisUserServiceEventType::Logout, i + 1});
+                // Use UserManager to properly log out the user
+                auto& user_manager = UserManager::GetInstance();
+                auto* user = user_manager.GetUserByID(1000 + i);
+                if (user) {
+                    user_manager.LogoutUser(user);
+                }
                 controllers[i]->m_sdl_gamepad = nullptr;
                 SDL_CloseGamepad(pad);
                 controllers[i]->user_id = -1;
+                controllers[i]->m_connected = false;
                 slot_taken[i] = false;
             } else {
                 controllers[i]->player_index = i;
+                controllers[i]->m_connected = true;
             }
         }
     }
@@ -357,10 +365,16 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
                 c->m_sdl_gamepad = pad;
                 LOG_INFO(Input, "Gamepad registered for slot {}! Handle: {}", i,
                          SDL_GetGamepadID(pad));
-                c->user_id = i + 1;
+                c->user_id = 1000 + i;
                 slot_taken[i] = true;
-                c->player_index = i;
-                AddUserServiceEvent({OrbisUserServiceEventType::Login, i + 1});
+                c->player_index = i + 1;
+                c->m_connected = true;
+                // Use UserManager to properly log in the user
+                auto& user_manager = UserManager::GetInstance();
+                auto* user = user_manager.GetUserByID(1000 + i);
+                if (user) {
+                    user_manager.LoginUser(user, i + 1);
+                }
 
                 if (SDL_SetGamepadSensorEnabled(c->m_sdl_gamepad, SDL_SENSOR_GYRO, true)) {
                     c->gyro_poll_rate =
@@ -387,8 +401,15 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
     if (is_first_check) [[unlikely]] {
         is_first_check = false;
         if (controller_count == 0) {
-            controllers[0]->user_id = 1;
-            AddUserServiceEvent({OrbisUserServiceEventType::Login, 1});
+            controllers[0]->user_id = 1000;
+            controllers[0]->player_index = 1;
+            controllers[0]->m_connected = true;
+            // Use UserManager to properly log in the user
+            auto& user_manager = UserManager::GetInstance();
+            auto* user = user_manager.GetUserByID(1000);
+            if (user) {
+                user_manager.LoginUser(user, 1);
+            }
         }
     }
 
@@ -510,9 +531,9 @@ int GetDefaultGamepad(SDL_JoystickID* gamepadIDs, int gamepadCount) {
 }
 
 std::optional<u8> GetControllerIndexFromUserID(s32 user_id) {
-    if (user_id < 1 || user_id > 4)
+    if (user_id < 1000 || user_id > 1003)
         return std::nullopt;
-    return static_cast<u8>(user_id - 1);
+    return static_cast<u8>(user_id - 1000);
 }
 
 int GetIndexfromGUID(SDL_JoystickID* gamepadIDs, int gamepadCount, std::string GUID) {

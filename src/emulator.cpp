@@ -166,7 +166,7 @@ std::map<s32, std::string> ExtractTrophies(const std::filesystem::path& npbind_p
             }
 
             // Move extracted trophy contents into each user's folder
-            for (User user : UserSettings.GetUserManager().GetValidUsers()) {
+            for (User user : UserManager::GetInstance().GetValidUsers()) {
                 auto const user_trophy_file = EmulatorSettings.GetHomeDir() /
                                               std::to_string(user.user_id) / "trophy" /
                                               (np_comm_id + ".xml");

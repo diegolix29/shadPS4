@@ -108,6 +108,7 @@ public:
     static constexpr int max_smoothing_ticks = 2;
     int axis_smoothing_ticks[static_cast<int>(Input::Axis::AxisMax)]{0};
     int axis_smoothing_values[static_cast<int>(Input::Axis::AxisMax)]{0};
+    u8 player_index = -1;
 
 private:
     struct StateInternal {
@@ -136,7 +137,6 @@ private:
     std::chrono::steady_clock::time_point m_last_update = {};
     Libraries::Pad::OrbisFQuaternion m_orientation = {0.0f, 0.0f, 0.0f, 1.0f};
 
-    u8 player_index = -1;
 };
 
 class GameControllers {

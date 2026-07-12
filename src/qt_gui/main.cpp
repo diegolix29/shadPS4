@@ -12,6 +12,7 @@
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc_client.h"
 #include "core/libraries/audio/audioout.h"
+#include "core/user_manager.h"
 #include "emulator.h"
 #include "game_directory_dialog.h"
 #include "imgui/big_picture.h"
@@ -105,6 +106,8 @@ int main(int argc, char* argv[]) {
 
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
+    // Initialize UserManager singleton after config is loaded
+    UserManager::GetInstance();
     bool ignore_mods_path = false;
 
     bool has_command_line_argument = argc > 1;

@@ -26,6 +26,7 @@
 #include "core/debugger.h"
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc.h"
+#include "core/user_manager.h"
 #include "emulator.h"
 #include "imgui/big_picture.h"
 
@@ -66,6 +67,8 @@ int main(int argc, char* argv[]) {
 
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
+    // Initialize UserManager singleton after config is loaded
+    UserManager::GetInstance();
     // temp copy the trophy key from old config to key manager if exists
     auto key_manager = KeyManager::GetInstance();
     key_manager->LoadFromFile();

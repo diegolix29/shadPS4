@@ -67,7 +67,11 @@ public:
 
     bool Save() const;
 
+    static UserManager& GetInstance();
+
 private:
     Users m_users;
     LoggedInUsers logged_in_users{};
+    static UserManager s_instance;
+    static bool s_initialized;
 };

@@ -28,6 +28,7 @@
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/system/userservice.h"
+#include "core/user_manager.h"
 #include "core/user_settings.h"
 #include "imgui/big_picture.h"
 #include "imgui/friends_layer.h"
@@ -416,10 +417,14 @@ void WindowSDL::WaitEvent() {
         std::scoped_lock lock(virtual_user_mutex);
         for (int i = 0; i < 4; i++) {
             if (controllers[i]->user_id == -1) {
-                controllers[i]->user_id = i + 1;
-                Libraries::UserService::OrbisUserServiceEvent(
-                    {Libraries::UserService::OrbisUserServiceEventType::Login,
-                     (s32)controllers[i]->user_id});
+                controllers[i]->user_id = 1000 + i;
+                controllers[i]->player_index = i + 1;
+                // Use UserManager to properly log in the user
+                auto& user_manager = UserManager::GetInstance();
+                auto* user = user_manager.GetUserByID(controllers[i]->user_id);
+                if (user) {
+                    user_manager.LoginUser(user, i + 1);
+                }
                 break;
             }
         }
