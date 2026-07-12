@@ -2646,7 +2646,7 @@
 																					<enum>QAbstractSpinBox::ButtonSymbols::UpDownArrows</enum>
 																				</property>
 																				<property name="suffix">
-																					<string notr="true"/>
+																					<string/>
 																				</property>
 																				<property name="maximum">
 																					<number>3600</number>
@@ -3445,7 +3445,7 @@
 										<property name="alignment">
 										</property>
 										<property name="text">
-											<string notr="true">
+											<string>
 												<![CDATA[
         <b>Hint:</b><br/>
         Enable this for High Resolution Patches<br/>
@@ -3555,7 +3555,7 @@
 										<property name="alignment">
 										</property>
 										<property name="text">
-											<string notr="true">
+											<string>
 												<![CDATA[
         <b>Hint:</b><br/>
         Helps inFamous crash on binaryinfo crash,<br/>
@@ -3600,7 +3600,7 @@
 											</font>
 										</property>
 										<property name="text">
-											<string notr="true">
+											<string>
 												<![CDATA[
         <b>Hint:</b><br/>
         DMA implementation.<br/>
@@ -3627,7 +3627,7 @@
 											</font>
 										</property>
 										<property name="text">
-											<string notr="true">
+											<string>
 												<![CDATA[
         <b>Hint:</b><br/>
         Linear Readbacks for Postprocessing, helps TLG.<br/>
@@ -3696,7 +3696,7 @@
 											</font>
 										</property>
 										<property name="text">
-											<string notr="true">
+											<string>
 												<![CDATA[
 <b>Hint:</b><br/>
 Disable – Disable readbacks<br/>
