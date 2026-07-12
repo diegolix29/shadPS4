@@ -3475,6 +3475,60 @@
       <source>Player Enable/Disable</source>
       <translation>玩家启用/禁用</translation>
     </message>
+    <message>
+      <source>
+        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+        Enable this for High Resolution Patches&lt;br/&gt;
+        Can cause issues on other games.&lt;br/&gt;
+        Disable if you can't boot other games.
+        </source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;启用此项可使用高分辨率补丁&lt;br/&gt;可能导致其他游戏出现问题。&lt;br/&gt;如果无法启动其他游戏请禁用。</translation>
+    </message>
+    <message>
+      <source>
+        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+        Helps inFamous crash on binaryinfo crash,&lt;br/&gt;
+		Driveclub slowdowns,&lt;br/&gt;
+		and COD Ghost boot to main menu and some stages.&lt;br/&gt;		
+        </source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;有助于解决inFamous的binaryinfo崩溃、Driveclub的掉帧问题，以及COD Ghost启动到主菜单和某些关卡。</translation>
+    </message>
+    <message>
+      <source>
+        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+        DMA implementation.&lt;br/&gt;
+        Disable this for TLG; disabling helps with random crashes.&lt;br/&gt;
+        </source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;DMA实现，玩TLG时请禁用，可减少随机崩溃。</translation>
+    </message>
+    <message>
+      <source>
+        &lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+        Linear Readbacks for Postprocessing, helps TLG.&lt;br/&gt;
+		Disable for Elden Ring.&lt;br/&gt;
+        Disable if you encounter issues.&lt;br/&gt;
+		Enable if you get driver restart on DRIVECLUB.&lt;br/&gt;       
+        </source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;用于后处理的线性回读，有助于TLG。玩艾尔登法环时请禁用。遇到问题时请禁用。玩DRIVECLUB时如果显卡驱动重启请启用</translation>
+    </message>
+    <message>
+      <source>
+&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+Disable – Disable readbacks&lt;br/&gt;
+Unsafe – Old Fast Readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
+Low – Low readbacks Speed (Most Accurate)&lt;br/&gt;
+Default – Normal Readbacks Speed&lt;br/&gt;
+Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
+                </source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;禁用 - 禁用回读&lt;br/&gt;不安全 - 旧版快速回读速度&lt;br/&gt;低 - 最精确的回读&lt;br/&gt;默认 - 正常回读速度&lt;br/&gt;快速 - 最快回读速度</translation>
+    </message>
+    <message>
+      <source>
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Extra Memory Allocation, you can set it from 1–9999. It adds that amount of memory to the emulator for usage and enables resolutions above 1440p.
+											</source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;额外内存分配，可设置1-9999。为模拟器增加对应数量的内存，并启用高于1440p的分辨率。</translation>
+    </message>
   </context>
   <context>
     <name>TrophyViewer</name>
@@ -4748,12 +4802,6 @@ Please select a new location.</source>
       <translation>特殊类型 4</translation>
     </message>
     <message>
-      <source>&amp;lt;b&amp;gt;Hint:&amp;lt;/b&amp;gt;&amp;lt;br/&amp;gt;
-												Extra Memory Allocation, you can set it from 1–9999. It adds that amount of memory to the emulator for usage and enables resolutions above 1440p.</source>
-      <translation>&amp;lt;b&amp;gt;提示：&amp;lt;/b&amp;gt;&amp;lt;br/&amp;gt;
-												Extra Memory Allocation, you can set it from 1–9999. It adds that amount of memory to the emulator for usage and enables resolutions above 1440p.</translation>
-    </message>
-    <message>
       <source>300%</source>
       <translation>300%</translation>
     </message>
@@ -5180,6 +5228,70 @@ Please select a new location.</source>
     <message>
       <source>localhost</source>
       <translation>localhost</translation>
+    </message>
+    <message>
+      <source>
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Enable this for High Resolution Patches&lt;br/&gt;
+												Can cause issues on other games.&lt;br/&gt;
+												Disable if you cant boot other games.
+
+											</source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;启用此项可使用高分辨率补丁&lt;br/&gt;可能导致其他游戏出现问题。&lt;br/&gt;如果无法启动其他游戏请禁用。</translation>
+    </message>
+    <message>
+      <source>
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Helps inFamous crash on binaryinfo crash,
+												Driveclub slowdowns,
+												and COD Ghost boot to main menu and some stages.&lt;br/&gt;
+
+											</source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;有助于解决inFamous的binaryinfo崩溃、Driveclub的掉帧问题，以及COD Ghost启动到主菜单和某些关卡。</translation>
+    </message>
+    <message>
+      <source>
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												DMA implementation,
+												Disable this for TLG, disabling help with random crashes.&lt;br/&gt;
+
+											</source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;DMA实现，玩TLG时请禁用，可减少随机崩溃。</translation>
+    </message>
+    <message>
+      <source>
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Linear Readbacks for Postprocessing, helps TLG
+												Disable for Elden Ring.
+												Disable if encounter issues
+												Enable if you get Driver restart on DRIVECLUB&lt;br/&gt;
+
+											</source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;用于后处理的线性回读，有助于TLG。玩艾尔登法环时请禁用。遇到问题时请禁用。玩DRIVECLUB时如果显卡驱动重启请启用</translation>
+    </message>
+    <message>
+      <source>
+
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Disable – Disable readbacks&lt;br/&gt;
+												Unsafe – Old Fast Readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
+												Low – Low readbacks Speed (Most Accurate)&lt;br/&gt;
+												Default – Normal Readbacks Speed&lt;br/&gt;
+												Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub reload Event&lt;br/&gt;
+
+											</source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;禁用 - 禁用回读&lt;br/&gt;不安全 - 旧版快速回读速度&lt;br/&gt;低 - 最精确的回读&lt;br/&gt;默认 - 正常回读速度&lt;br/&gt;快速 - 最快回读速度</translation>
+    </message>
+    <message>
+      <source>
+												&lt;b&gt;Hint:&lt;/b&gt;&lt;br/&gt;
+												Extra Memory Allocation, you can set it from 1–9999. It adds that amount of memory to the emulator for usage and enables resolutions above 1440p.
+											</source>
+      <translation>&lt;b&gt;提示：&lt;/b&gt;&lt;br/&gt;额外内存分配，可设置1-9999。为模拟器增加对应数量的内存，并启用高于1440p的分辨率。</translation>
     </message>
   </context>
   <context>
