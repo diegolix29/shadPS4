@@ -281,6 +281,17 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Ap
     endif()
 endif()
 
+# Resolve system OpenSSL *before* externals/ is processed. externals/CMakeLists.txt
+# checks for the OpenSSL::SSL / OpenSSL::Crypto targets to decide whether cpp-httplib
+# should use system OpenSSL or vendor its own LibreSSL build. If find_package(OpenSSL)
+# runs later (as it used to, further down this file), that check always fails and a
+# second, ABI-incompatible SSL implementation gets statically linked into the binary
+# alongside the system OpenSSL that Qt loads at runtime -- causing a crash the moment
+# any HTTPS request is made (e.g. Check for Updates) on Linux.
+if (UNIX AND NOT APPLE AND ENABLE_QT_GUI)
+    find_package(OpenSSL REQUIRED)
+endif()
+
 add_subdirectory(externals)
 include_directories(src)
 
@@ -1570,8 +1581,9 @@ endif()
 
 if (UNIX AND NOT APPLE)
     if (ENABLE_QT_GUI)
-        find_package(OpenSSL REQUIRED)
-        target_link_libraries(shadps4 PRIVATE ${OPENSSL_LIBRARIES})
+        # find_package(OpenSSL) already ran earlier, before add_subdirectory(externals),
+        # so we just link against the existing imported target here.
+        target_link_libraries(shadps4 PRIVATE OpenSSL::SSL OpenSSL::Crypto)
     endif()
 endif()
 
