@@ -272,9 +272,6 @@ public:
 
     const std::string& GetAvatarUrl() const;
     u64 GetUserId() const;
-    u32 GetServerProtocolVersion() const {
-        return m_server_protocol_version.load();
-    }
     u32 GetAddrLocal() const;
     u32 GetAddrServer() const;
     bool IsMatching2Enabled() const;
@@ -372,7 +369,6 @@ private:
     std::string m_bearer_token;
     std::atomic<u32> m_addr_local{0};
     std::atomic<u32> m_addr_server{0};
-    std::atomic<u32> m_server_protocol_version{0};
     std::atomic<bool> m_matching2_enabled{false};
     std::atomic<bool> m_server_features_received{false};
 

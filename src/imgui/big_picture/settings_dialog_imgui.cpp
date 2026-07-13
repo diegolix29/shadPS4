@@ -83,7 +83,7 @@ void SettingsWindow::LoadSettings(std::string profile) {
         directMemoryAccessSetting = EmulatorSettings.IsDirectMemoryAccessEnabled();
         devkitConsoleSetting = EmulatorSettings.IsDevKit();
         neoModeSetting = EmulatorSettings.IsNeo();
-        shadnetEnabledSetting = EmulatorSettings.IsShadNetEnabledSetting();
+        shadnetEnabledSetting = EmulatorSettings.IsShadNetEnabled();
         connectedNetworkSetting = EmulatorSettings.IsConnectedToNetwork();
         pipelineCacheEnabledSetting = EmulatorSettings.IsPipelineCacheEnabled();
         pipelineCacheArchiveSetting = EmulatorSettings.IsPipelineCacheArchived();
