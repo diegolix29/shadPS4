@@ -278,6 +278,10 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Ap
     endif()
 endif()
 
+if (UNIX AND NOT APPLE AND ENABLE_QT_GUI)
+    find_package(OpenSSL REQUIRED)
+endif()
+
 add_subdirectory(externals)
 include_directories(src)
 
@@ -1504,8 +1508,7 @@ endif()
 
 if (UNIX AND NOT APPLE)
     if (ENABLE_QT_GUI)
-        find_package(OpenSSL REQUIRED)
-        target_link_libraries(shadps4 PRIVATE ${OPENSSL_LIBRARIES})
+        target_link_libraries(shadps4 PRIVATE OpenSSL::SSL OpenSSL::Crypto)
     endif()
 endif()
 
