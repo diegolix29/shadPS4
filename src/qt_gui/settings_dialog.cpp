@@ -1280,6 +1280,9 @@ void SettingsDialog::LoadValuesFromConfig() {
         toml::find_or<bool>(data, "Vulkan", "pipelineCacheArchive", false));
     ui->crashDiagnosticsCheckBox->setChecked(
         toml::find_or<bool>(data, "Vulkan", "crashDiagnostic", false));
+    ui->collectShaderCheckBox->setChecked(
+        toml::find_or<bool>(data, "Debug", "CollectShader", false));
+    ui->patchShadersCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "patchShaders", false));
     ui->DsAudioComboBox->setCurrentText(QString::fromStdString(
         toml::find_or<std::string>(data, "Audio", "padSpkOutputDevice", "")));
 
