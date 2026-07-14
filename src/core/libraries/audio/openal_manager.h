@@ -236,7 +236,7 @@ private:
         const bool has_mode_ext = alcIsExtensionPresent(ctx.device, "ALC_SOFT_output_mode");
         if (has_mode_ext) {
             ALCint requested_mode = ALC_ANY_SOFT;
-            switch (EmulatorSettings.GetOpenALOutputMode()) {
+            switch (Config::GetOpenALOutputMode()) {
             case OpenALOutputMode::OutputStereo:
                 requested_mode = ALC_STEREO_SOFT;
                 break;
@@ -260,7 +260,7 @@ private:
 
         const bool has_hrtf_ext = alcIsExtensionPresent(ctx.device, "ALC_SOFT_HRTF");
         if (has_hrtf_ext) {
-            const u32 hrtf_mode = EmulatorSettings.GetOpenALHrtf();
+            const u32 hrtf_mode = Config::GetOpenALHrtf();
             const ALCint hrtf_value = hrtf_mode == OpenALHrtfMode::HrtfOn    ? ALC_TRUE
                                       : hrtf_mode == OpenALHrtfMode::HrtfOff ? ALC_FALSE
                                                                              : ALC_DONT_CARE_SOFT;

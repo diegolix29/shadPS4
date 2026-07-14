@@ -42,6 +42,20 @@ enum class ReadbackSpeed : u32 {
     Fast,
 };
 
+enum OpenALHrtfMode : int {
+    HrtfAuto, // Let OpenAL Soft decide (on for headphone-like stereo outputs)
+    HrtfOn,   // Force HRTF binaural rendering
+    HrtfOff,  // Never use HRTF
+};
+
+enum OpenALOutputMode : int {
+    OutputAuto,       // Let OpenAL Soft negotiate with the device
+    OutputStereo,     // Force stereo output
+    OutputQuad,       // Force quadraphonic output
+    OutputSurround51, // Force 5.1 surround output
+    OutputSurround71, // Force 7.1 surround output
+};
+
 void load(const std::filesystem::path& path, bool is_game_specific = false);
 void save(const std::filesystem::path& path, bool is_game_specific = false);
 void saveMainWindow(const std::filesystem::path& path);
@@ -292,6 +306,13 @@ std::string getMainOutputDevice();
 void setMainOutputDevice(std::string device);
 std::string getPadSpkOutputDevice();
 void setPadSpkOutputDevice(std::string device);
+
+OpenALOutputMode GetOpenALOutputMode();
+void SetOpenALOutputMode(OpenALOutputMode mode);
+OpenALHrtfMode GetOpenALHrtf();
+void SetOpenALHrtf(OpenALHrtfMode mode);
+std::string GetOpenALMainOutputDevice();
+void SetOpenALMainOutputDevice(std::string device);
 
 void setCursorState(s16 cursorState);
 void setCursorHideTimeout(int newcursorHideTimeout);

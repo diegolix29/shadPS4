@@ -122,8 +122,6 @@ public:
             return;
         }
 
-        std::lock_guard<std::mutex> lock(volume_mutex);
-
         if (SDL_SetAudioStreamGain(stream, total_gain)) {
             current_gain.store(total_gain, std::memory_order_release);
             LOG_DEBUG(Lib_AudioOut,
@@ -210,8 +208,6 @@ private:
         const float stored_gain = current_gain.load(std::memory_order_acquire);
 
         if (std::abs(config_volume - stored_gain) > VOLUME_EPSILON) {
-            std::lock_guard<std::mutex> lock(volume_mutex);
-
             if (SDL_SetAudioStreamGain(stream, config_volume)) {
                 current_gain.store(config_volume, std::memory_order_release);
                 LOG_DEBUG(Lib_AudioOut, "Updated audio gain to {:.3f}", config_volume);

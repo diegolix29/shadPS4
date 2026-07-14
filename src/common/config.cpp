@@ -91,6 +91,14 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         if (it->second.is_integer()) {
             return static_cast<Config::AudioBackend>(toml::get<int>(it->second));
         }
+    } else if constexpr (std::is_same_v<T, Config::OpenALOutputMode>) {
+        if (it->second.is_integer()) {
+            return static_cast<Config::OpenALOutputMode>(toml::get<int>(it->second));
+        }
+    } else if constexpr (std::is_same_v<T, Config::OpenALHrtfMode>) {
+        if (it->second.is_integer()) {
+            return static_cast<Config::OpenALHrtfMode>(toml::get<int>(it->second));
+        }
     } else {
         static_assert(false, "Unsupported type in get_optional<T>");
     }
@@ -233,6 +241,9 @@ static ConfigEntry<bool> useSpecialPads[4] = {false, false, false, false};
 static ConfigEntry<int> specialPadClasses[4] = {1, 1, 1, 1};
 static ConfigEntry<string> mainOutputDevice("Default Device");
 static ConfigEntry<string> padSpkOutputDevice("Default Device");
+static ConfigEntry<OpenALOutputMode> openALOutputMode(OpenALOutputMode::OutputAuto);
+static ConfigEntry<OpenALHrtfMode> openALHrtfMode(OpenALHrtfMode::HrtfAuto);
+static ConfigEntry<string> openALMainOutputDevice("Default Device");
 static ConfigEntry<int> extraDmemInMbytes(0);
 static ConfigEntry<bool> useHostMemoryFallback(false);
 static ConfigEntry<int> memoryCompressionLevel(0);
@@ -619,6 +630,30 @@ void setMainOutputDevice(std::string device) {
 
 void setPadSpkOutputDevice(std::string device) {
     padSpkOutputDevice.base_value = device;
+}
+
+OpenALOutputMode GetOpenALOutputMode() {
+    return openALOutputMode.get();
+}
+
+void SetOpenALOutputMode(OpenALOutputMode mode) {
+    openALOutputMode.base_value = mode;
+}
+
+OpenALHrtfMode GetOpenALHrtf() {
+    return openALHrtfMode.get();
+}
+
+void SetOpenALHrtf(OpenALHrtfMode mode) {
+    openALHrtfMode.base_value = mode;
+}
+
+std::string GetOpenALMainOutputDevice() {
+    return openALMainOutputDevice.get();
+}
+
+void SetOpenALMainOutputDevice(std::string device) {
+    openALMainOutputDevice.base_value = device;
 }
 
 std::string getCustomBackgroundImage() {
