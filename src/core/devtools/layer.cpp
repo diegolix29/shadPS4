@@ -492,6 +492,11 @@ void L::Draw() {
     PopID();
 }
 
+bool L::NeedsRender() const {
+    return show_simple_fps || show_quit_window || show_volume ||
+           DebugState.IsShowingDebugMenuBar();
+}
+
 namespace Overlay {
 
 void TextCentered(const std::string& text) {

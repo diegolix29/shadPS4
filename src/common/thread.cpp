@@ -231,8 +231,10 @@ void SetThreadName(void* thread, const char* name) {
 
 #endif
 
-AccurateTimer::AccurateTimer(std::chrono::nanoseconds target_interval)
-    : target_interval(target_interval) {}
+AccurateTimer::AccurateTimer(const std::chrono::nanoseconds target_interval,
+                             const u32 max_catch_up_intervals)
+    : target_interval{target_interval},
+      max_timing_debt{target_interval * max_catch_up_intervals} {}
 
 void AccurateTimer::Start() {
     const auto begin_sleep = std::chrono::high_resolution_clock::now();
@@ -244,9 +246,19 @@ void AccurateTimer::Start() {
 }
 
 void AccurateTimer::End() {
-    auto now = std::chrono::high_resolution_clock::now();
+    const auto now = std::chrono::high_resolution_clock::now();
     total_wait +=
         target_interval - std::chrono::duration_cast<std::chrono::nanoseconds>(now - start_time);
+
+    total_wait = std::clamp(total_wait, -max_timing_debt, target_interval);
+}
+
+void AccurateTimer::Adjust(const std::chrono::nanoseconds correction) {
+    total_wait = std::clamp(total_wait + correction, -max_timing_debt, target_interval);
+}
+
+void AccurateTimer::Reset() {
+    total_wait = target_interval;
 }
 
 std::string GetCurrentThreadName() {

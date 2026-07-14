@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include "common/debug.h"
 #include "common/polyfill_thread.h"
 #include "core/libraries/videoout/video_out.h"
@@ -27,14 +28,16 @@ struct VideoOutPort {
     SceVideoOutVblankStatus vblank_status;
     std::vector<Kernel::OrbisKernelEqueue> flip_events;
     std::vector<Kernel::OrbisKernelEqueue> vblank_events;
+    std::mutex event_mutex;
     std::mutex vo_mutex;
     std::mutex port_mutex;
     std::condition_variable vo_cv;
     std::condition_variable vblank_cv;
-    int flip_rate = 0;
+    std::atomic<int> flip_rate{0};
     int prev_index = -1;
-    bool is_open = false;
-    bool is_hdr = false;
+    std::atomic_bool is_open{false};
+    std::atomic_bool is_hdr{false};
+    std::atomic<u64> generation{0};
 
     s32 FindFreeGroup() const {
         s32 index = 0;
@@ -94,27 +97,46 @@ public:
 
 private:
     struct Request {
-        Vulkan::Frame* frame;
-        VideoOutPort* port;
-        s64 flip_arg;
-        s32 index;
-        bool eop;
+        Vulkan::Frame* frame{};
+        VideoOutPort* port{};
+        s64 flip_arg{};
+        s32 index{};
+        bool eop{};
+        u64 generation{};
 
         operator bool() const noexcept {
             return frame != nullptr;
         }
     };
 
-    void Flip(const Request& req);
+    struct PresentRequest {
+        Vulkan::Frame* frame{};
+        bool hdr{};
+        u64 generation{};
+
+        operator bool() const noexcept {
+            return frame != nullptr;
+        }
+    };
+
+    bool Flip(const Request& req);
     void DrawBlankFrame(); // Video port out not open
     void DrawLastFrame();  // Used when there is no flip request
-    void SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_arg, bool is_eop = false);
+    void SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_arg, bool is_eop,
+                            u64 generation);
+    void PublishFrame(PresentRequest request);
+    void VblankThread(std::stop_token token);
     void PresentThread(std::stop_token token);
 
     std::mutex mutex;
     VideoOutPort main_port{};
+    std::jthread vblank_thread;
     std::jthread present_thread;
     std::queue<Request> requests;
+    std::mutex present_mutex;
+    std::condition_variable_any present_cv;
+    PresentRequest pending_present;
+    bool blank_requested{true};
 };
 
 } // namespace Libraries::VideoOut

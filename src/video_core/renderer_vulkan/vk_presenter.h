@@ -3,7 +3,11 @@
 
 #pragma once
 
+#include <array>
+#include <atomic>
 #include <condition_variable>
+#include <queue>
+#include <thread>
 
 #include "core/libraries/videoout/buffer.h"
 #include "imgui/imgui_texture.h"
@@ -25,30 +29,32 @@ struct Liverpool;
 namespace Vulkan {
 
 struct Frame {
-    u32 width;
-    u32 height;
-    VmaAllocation allocation;
-    vk::Image image;
-    vk::ImageView image_view;
-    vk::Fence present_done;
-    vk::Semaphore ready_semaphore;
-    u64 ready_tick;
+    u32 width{};
+    u32 height{};
+    VmaAllocation allocation{};
+    vk::Image image{};
+    vk::ImageView image_view{};
+    vk::Fence present_done{};
+    vk::Semaphore ready_semaphore{};
+    u64 ready_tick{};
     bool is_hdr{false};
     u8 id{};
 
-    ImTextureID imgui_texture;
-};
-
-enum SchedulerType {
-    Draw,
-    Present,
-    CpuFlip,
+    ImTextureID imgui_texture{};
 };
 
 class Rasterizer;
 
 class Presenter {
 public:
+    struct PresentationFeedback {
+        s64 last_present_ns;
+        s64 present_period_ns;
+        u32 present_period_samples;
+        u64 swapchain_generation;
+        bool is_fifo;
+    };
+
     Presenter(Frontend::WindowSDL& window, AmdGpu::Liverpool* liverpool);
     ~Presenter();
 
@@ -76,7 +82,11 @@ public:
         if (!IsHDRSupported()) {
             return;
         }
+        const bool changed = swapchain.GetHDR() != enable;
         swapchain.SetHDR(enable);
+        if (changed) {
+            ResetPresentationFeedback();
+        }
         pp_settings.hdr = enable ? 1 : 0;
     }
 
@@ -97,13 +107,38 @@ public:
 
     Frame* PrepareBlankFrame(bool present_thread);
 
-    void Present(Frame* frame, bool is_reusing_frame = false);
+    void Present(Frame* frame, bool is_reusing_frame = false, u64 presentation_epoch = 0);
     Frame* PrepareLastFrame();
+
+    /// Returns an unpresented frame once its producer timeline semaphore has completed.
+    /// This never waits on the caller and is safe for mailbox replacement on the vblank thread.
+    void RecycleFrameAsync(Frame* frame);
+
+    PresentationFeedback GetPresentationFeedback() const;
+
+    /// Invalidates feedback from work belonging to an older video-out lifecycle.
+    void SetPresentationEpoch(u64 epoch);
 
 private:
     Frame* GetRenderFrame();
 
     void RecreateFrame(Frame* frame, u32 width, u32 height);
+
+    void RecreateSwapchain();
+
+    void ResetPresentationFeedback();
+
+    void ResetPresentationFeedbackLocked();
+
+    void RecordPresentationFeedback(u64 epoch);
+
+    void RecycleThread(std::stop_token token);
+
+    void ReturnFrame(Frame* frame);
+
+    /// Waits for host rendering of a submitted source frame on the presentation thread, then
+    /// returns it to the producer pool. The guest/GPU thread only ever receives ready frames.
+    void RetireSubmittedFrame(Frame* frame);
 
     void SetExpectedGameSize(s32 width, s32 height);
 
@@ -121,19 +156,32 @@ private:
     AmdGpu::Liverpool* liverpool;
     Scheduler draw_scheduler;
     Scheduler present_scheduler;
-    Scheduler flip_scheduler;
     Swapchain swapchain;
     std::unique_ptr<Rasterizer> rasterizer;
     VideoCore::TextureCache& texture_cache;
     vk::UniqueCommandPool command_pool;
     std::vector<Frame> present_frames;
     std::queue<Frame*> free_queue;
-    Frame* last_submit_frame;
+    Frame* last_submit_frame{};
     std::mutex free_mutex;
     std::condition_variable free_cv;
+    std::mutex recycle_mutex;
+    std::condition_variable_any recycle_cv;
+    std::queue<Frame*> recycle_queue;
+    std::jthread recycle_thread;
     std::condition_variable_any frame_cv;
     std::optional<ImGui::RefCountedTexture> splash_img;
     std::vector<VAddr> vo_buffers_addr;
+    std::atomic<s64> last_present_ns{};
+    std::atomic<s64> present_period_ns{};
+    std::atomic<u32> present_period_samples{};
+    std::atomic<u64> swapchain_generation{};
+    std::mutex feedback_mutex;
+    static constexpr u32 PresentPeriodWindow = 7;
+    std::array<s64, PresentPeriodWindow> present_period_history{};
+    u32 present_period_history_index{};
+    u32 present_period_history_size{};
+    u64 presentation_epoch{};
 };
 
 } // namespace Vulkan

@@ -31,16 +31,25 @@ bool AccurateSleep(std::chrono::nanoseconds duration, std::chrono::nanoseconds* 
 
 class AccurateTimer {
     std::chrono::nanoseconds target_interval{};
+    std::chrono::nanoseconds max_timing_debt{};
     std::chrono::nanoseconds total_wait{};
 
     std::chrono::high_resolution_clock::time_point start_time;
 
 public:
-    explicit AccurateTimer(std::chrono::nanoseconds target_interval);
+    explicit AccurateTimer(std::chrono::nanoseconds target_interval,
+                           u32 max_catch_up_intervals = 2);
 
     void Start();
 
     void End();
+
+    /// Applies a bounded correction to the next wake-up. This is intended for clock
+    /// discipline; it never changes the nominal interval.
+    void Adjust(std::chrono::nanoseconds correction);
+
+    /// Drops accumulated timing debt after an external clock discontinuity.
+    void Reset();
 
     std::chrono::nanoseconds GetTotalWait() const {
         return total_wait;
