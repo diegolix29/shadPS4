@@ -75,10 +75,9 @@ void Linker::Execute(const std::vector<std::string>& args) {
     const auto& libc_internal_path = Config::getSysModulesPath() / "libSceLibcInternal.sprx";
     bool has_libcinternal = std::filesystem::exists(libc_internal_path);
 
-    // Before we can run guest code, we need to properly initialize the heap API and
-    // libSceLibcInternal. libSceLibcInternal's _malloc_init serves as an additional initialization
-    // function called by libkernel.
-    heap_api = new HeapAPI{};
+    // If we're running LLE libSceLibcInternal,
+    // we need to find the _malloc_init function and run it manually.
+    // This is something libkernel runs during initialization.
     static PS4_SYSV_ABI s32 (*malloc_init)() = nullptr;
 
     if (has_libcinternal) {
@@ -482,8 +481,8 @@ void* Linker::AllocateTlsForThread(bool is_primary) {
             &addr_out, tls_aligned, 3, 0, "SceKernelPrimaryTcbTls");
         ASSERT_MSG(ret == 0, "Unable to allocate TLS+TCB for the primary thread");
     } else {
-        if (heap_api) {
-            addr_out = Core::ExecuteGuest(heap_api->heap_malloc, total_tls_size);
+        if (heap_api && heap_api->heap_malloc) {
+            addr_out = heap_api->heap_malloc(total_tls_size);
         } else {
             addr_out = std::malloc(total_tls_size);
         }
@@ -492,8 +491,8 @@ void* Linker::AllocateTlsForThread(bool is_primary) {
 }
 
 void Linker::FreeTlsForNonPrimaryThread(void* pointer) {
-    if (heap_api) {
-        Core::ExecuteGuest(heap_api->heap_free, pointer);
+    if (heap_api && heap_api->heap_free) {
+        heap_api->heap_free(pointer);
     } else {
         std::free(pointer);
     }
