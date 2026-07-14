@@ -104,6 +104,8 @@ struct Profile {
                needs_clip_distance_emulation != other.needs_clip_distance_emulation;
     }
     bool supports_shader_stencil_export{};
+
+    bool operator==(const Profile&) const = default;
 };
 
 } // namespace Shader
