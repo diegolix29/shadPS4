@@ -107,13 +107,17 @@ void Translator::V_READLANE_B32(const GcnInst& inst) {
 
     // Restore a thread mask's per-lane bool spilled by V_WRITELANE_B32. Only the low (even) half
     // of a 64-bit mask carries the view; SetDst1 routes it to the SGPR, VCC, or EXEC.
-    if (lane.IsImmediate()) {
+    // Only apply this when we have strong evidence it's a mask restore operation.
+    if (lane.IsImmediate() && lane.U32() == 0) {
         ASSERT(lane.U32() < 64);
         const auto& dst = inst.dst[0];
         const bool is_mask_lo = (dst.field == OperandField::ScalarGPR && dst.code % 2 == 0) ||
                                 dst.field == OperandField::VccLo ||
                                 dst.field == OperandField::ExecLo;
-        if (is_mask_lo) {
+        const bool is_scalar_dst = dst.field == OperandField::ScalarGPR ||
+                                   dst.field == OperandField::VccLo ||
+                                   dst.field == OperandField::ExecLo;
+        if (is_mask_lo && is_scalar_dst) {
             SetDst1(dst, ir.GetMaskLaneVariable(IR::VectorReg(inst.src[0].code), lane.U32()));
         }
     }
@@ -128,13 +132,17 @@ void Translator::V_WRITELANE_B32(const GcnInst& inst) {
 
     // A thread mask may be spilled from a scalar to a vector lane. Shadow the low (even) half's
     // per-lane bool so V_READLANE_B32 can restore it; the high half and plain data store nothing.
-    if (lane.IsImmediate()) {
+    // Only apply this when we have strong evidence it's a mask spill operation.
+    if (lane.IsImmediate() && lane.U32() == 0) {
         ASSERT(lane.U32() < 64);
         const auto& src = inst.src[0];
         const bool is_mask_lo = (src.field == OperandField::ScalarGPR && src.code % 2 == 0) ||
                                 src.field == OperandField::VccLo ||
                                 src.field == OperandField::ExecLo;
-        if (is_mask_lo) {
+        const bool is_scalar_src = src.field == OperandField::ScalarGPR ||
+                                   src.field == OperandField::VccLo ||
+                                   src.field == OperandField::ExecLo;
+        if (is_mask_lo && is_scalar_src) {
             ir.SetMaskLaneVariable(dst, lane.U32(), GetSrc1(src));
         }
     }

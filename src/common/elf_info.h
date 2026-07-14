@@ -133,6 +133,14 @@ public:
         return sdk_ver;
     }
 
+    [[nodiscard]] bool IsInitialized() const {
+        return initialized;
+    }
+
+    [[nodiscard]] u32 GetSdkVerSafe() const {
+        return sdk_ver;
+    }
+
     [[nodiscard]] const PSFAttributes& GetPSFAttributes() const {
         ASSERT(initialized);
         return psf_attributes;

@@ -141,10 +141,12 @@ bool AvPlayerState::AddSource(std::string_view path, AvPlayerSourceType source_t
         }
 
         s32 sdk_ver{};
-        Libraries::Kernel::sceKernelGetCompiledSdkVersion(&sdk_ver);
         bool uses_vdec2 = m_post_init_data.video_decoder_init.decoder_type.video_type ==
-                              AvPlayerVideoDecoderType::Software2 ||
-                          sdk_ver >= Common::ElfInfo::FW_550;
+                          AvPlayerVideoDecoderType::Software2;
+        if (Common::ElfInfo::Instance().IsInitialized()) {
+            sdk_ver = Common::ElfInfo::Instance().GetSdkVerSafe();
+            uses_vdec2 = uses_vdec2 || sdk_ver >= Common::ElfInfo::FW_550;
+        }
         m_up_source = std::make_unique<AvPlayerSource>(*this, uses_vdec2);
         if (!m_up_source->Init(m_init_data, path)) {
             SetState(AvState::Error);
