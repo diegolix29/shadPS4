@@ -2481,6 +2481,9 @@ void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
     }
 
     QString selectedVersion = QString::fromStdString(Config::getVersionPath());
+    if (selectedVersion.isEmpty() || !QFile::exists(selectedVersion)) {
+        selectedVersion = QCoreApplication::applicationFilePath();
+    }
     QFileInfo fileInfo(selectedVersion);
     if (!fileInfo.exists()) {
         QMessageBox::critical(nullptr, "shadPS4",
