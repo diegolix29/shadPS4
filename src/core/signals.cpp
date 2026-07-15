@@ -5,6 +5,7 @@
 #include "common/assert.h"
 #include "common/decoder.h"
 #include "common/signal_context.h"
+#include "common/thread.h"
 #include "core/libraries/kernel/threads/exception.h"
 #include "core/signals.h"
 
@@ -24,6 +25,15 @@ namespace Libraries::Kernel {
 void SigactionHandler(int native_signum, siginfo_t* inf, ucontext_t* raw_context);
 extern std::array<OrbisKernelExceptionHandler, 32> Handlers;
 } // namespace Libraries::Kernel
+#else
+namespace Libraries::Kernel {
+// Defined in core/libraries/kernel/threads/exception.cpp. Converts a Windows CONTEXT into the
+// guest-visible Ucontext and invokes the guest's registered handler for `native_signum`
+// (an Orbis/POSIX signal number, see POSIX_SIGILL / POSIX_SIGSEGV etc.), if one was installed
+// via sceKernelInstallExceptionHandler.
+void ExceptionHandler(void* arg1, void* arg2, void* arg3, PCONTEXT context);
+extern std::array<OrbisKernelExceptionHandler, 130> Handlers;
+} // namespace Libraries::Kernel
 #endif
 
 namespace Core {
@@ -41,13 +51,22 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     }
 
     bool handled = false;
+    s32 orbis_signal = 0;
     switch (code) {
     case EXCEPTION_ACCESS_VIOLATION:
         handled = signals->DispatchAccessViolation(
             pExp, reinterpret_cast<void*>(pExp->ExceptionRecord->ExceptionInformation[1]));
+        orbis_signal = Libraries::Kernel::POSIX_SIGSEGV;
         break;
     case EXCEPTION_ILLEGAL_INSTRUCTION:
+    case EXCEPTION_PRIV_INSTRUCTION:
+        // Note: user-mode `int n` for most vectors (e.g. the PS4 SDK's debug-trap vector used
+        // for guest-side asserts) is not a valid gate on Windows and is commonly reported as
+        // EXCEPTION_ACCESS_VIOLATION with a bogus (-1) faulting address rather than as an
+        // illegal instruction, so this case alone does not catch every such trap - see the
+        // fallback forwarding below, which triggers regardless of which case matched.
         handled = signals->DispatchIllegalInstruction(pExp);
+        orbis_signal = Libraries::Kernel::POSIX_SIGILL;
         break;
     case DBG_PRINTEXCEPTION_C:
     case DBG_PRINTEXCEPTION_WIDE_C:
@@ -61,6 +80,21 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     }
 
     if (handled) {
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+
+    // If the guest has installed its own handler for this signal via
+    // sceKernelInstallExceptionHandler, forward the fault to it instead of unconditionally
+    // taking down the whole emulator. This mirrors what the POSIX SignalHandler already does
+    // (see the #else branch below) but was previously missing here - so on Windows, a guest
+    // assertion/debug-trap that the game itself would normally catch and log gracefully
+    // instead always hard-crashed shadPS4.
+    if (orbis_signal != 0 && Libraries::Kernel::Handlers[orbis_signal] != nullptr) {
+        const std::string thread_name = Common::GetCurrentThreadName();
+        Libraries::Kernel::ExceptionHandler(
+            const_cast<char*>(thread_name.c_str()),
+            reinterpret_cast<void*>(static_cast<uintptr_t>(orbis_signal)), nullptr,
+            pExp->ContextRecord);
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 

@@ -28,6 +28,12 @@ void SetCurrentThreadRealtime(std::chrono::nanoseconds period_ns);
 
 void SetCurrentThreadPriority(ThreadPriority new_priority);
 
+// Sets the priority of an arbitrary (already-created) thread, identified by its
+// native handle (HANDLE on Windows, pthread_t on POSIX). Used so that guest
+// scePthread priority requests (e.g. posix_pthread_setschedparam) are actually
+// reflected in the host OS scheduler instead of only being tracked internally.
+void SetThreadPriority(void* thread_handle, ThreadPriority new_priority);
+
 void SetCurrentThreadName(const char* name);
 
 void SetThreadName(void* thread, const char* name);
