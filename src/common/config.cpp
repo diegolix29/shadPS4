@@ -2060,6 +2060,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         m_icon_size_grid = toml::find_or<int>(gui, "iconSizeGrid", 69);
         m_slider_pos = toml::find_or<int>(gui, "sliderPos", 0);
         m_slider_pos_grid = toml::find_or<int>(gui, "sliderPosGrid", 0);
+        m_table_mode = toml::find_or<int>(gui, "gameTableMode", 0);
 
         mw_themes = toml::find_or<int>(gui, "theme", 0);
         guiStyle = toml::find_or<std::string>(gui, "guiStyle", "");

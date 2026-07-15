@@ -118,6 +118,104 @@ QString GenerateUnifiedStylesheet(const QString& windowBg, const QString& textCo
         .arg(windowBg, textColor, toolbarBg, accentColor, inputBg, borderColor, selectionColor,
              gridColor, osRootStyle);
 }
+
+QString GenerateDeepPurpleStylesheet(const QString& windowBg, const QString& textColor,
+                                     const QString& toolbarBg, const QString& accentColor,
+                                     const QString& accentHover, const QString& cardBg,
+                                     const QString& cardBorder, const QString& mutedColor) {
+    return QString(R"(
+        QMainWindow { background-color: %1; border: none; }
+        QWidget { color: %2; background-color: transparent; }
+
+        QToolBar {
+            background-color: %3;
+            border: none;
+            border-bottom: 1px solid %7;
+            spacing: 10px;
+            padding: 10px 14px;
+        }
+        QMenuBar { background-color: %3; color: %2; border-bottom: 1px solid %7; padding: 2px; }
+        QMenuBar::item { padding: 6px 10px; border-radius: 8px; }
+        QMenuBar::item:selected { background-color: %6; }
+        QMenu { background-color: %6; color: %2; border: 1px solid %7; border-radius: 10px; padding: 6px; }
+        QMenu::item { padding: 6px 14px; border-radius: 6px; }
+        QMenu::item:selected { background-color: %4; color: white; }
+
+        QPushButton {
+            background-color: %6;
+            color: %2;
+            border: 1px solid %7;
+            border-radius: 999px;
+            padding: 6px 16px;
+            font-weight: 600;
+        }
+        QPushButton:hover { background-color: %5; border-color: %4; color: white; }
+        QPushButton:pressed { background-color: %4; }
+        QPushButton#playButton, QPushButton#InstallPkgButton {
+            background-color: %4;
+            border: none;
+            color: white;
+        }
+        QPushButton#playButton:hover, QPushButton#InstallPkgButton:hover { background-color: %5; }
+
+        QLineEdit, QComboBox {
+            background-color: %6;
+            color: %2;
+            border: 1px solid %7;
+            border-radius: 999px;
+            padding: 6px 14px;
+        }
+        QLineEdit:focus, QComboBox:focus { border: 1px solid %4; }
+
+        QTableWidget, QListWidget, QListView {
+            background-color: transparent;
+            border: none;
+            color: %2;
+            selection-background-color: %5;
+            selection-color: white;
+            outline: none;
+        }
+        QHeaderView::section {
+            background-color: %6;
+            color: %8;
+            padding: 6px;
+            border: none;
+            border-bottom: 1px solid %7;
+        }
+
+        QScrollBar:vertical { background: %1; width: 10px; margin: 0; }
+        QScrollBar::handle:vertical { background: %7; border-radius: 5px; min-height: 24px; }
+        QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
+
+        QSplitter::handle { background-color: %7; }
+        QTextEdit#logDisplay {
+            background-color: %6;
+            color: %2;
+            border: 1px solid %7;
+            border-radius: 12px;
+            padding: 8px;
+        }
+
+        QGroupBox {
+            background-color: %6;
+            border: 1px solid %7;
+            border-radius: 12px;
+            margin-top: 18px;
+            padding-top: 10px;
+        }
+        QGroupBox::title { subcontrol-origin: margin; left: 12px; color: %4; font-weight: 600; }
+
+        QTabWidget::pane { border: 1px solid %7; border-radius: 10px; background: %6; top: -1px; }
+        QTabBar::tab { background: transparent; color: %8; padding: 8px 16px; border: none; }
+        QTabBar::tab:selected { color: %2; border-bottom: 2px solid %4; }
+
+        QSlider::groove:horizontal { border: none; height: 4px; background: %7; border-radius: 2px; }
+        QSlider::handle:horizontal { background: %4; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
+    )")
+        .arg(windowBg, textColor, toolbarBg, accentColor, accentHover, cardBg, cardBorder,
+             mutedColor);
+}
+
 void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QString& qssPath) {
     QString wBg, txt, toolBg, accent, hov, inp, border, sel, grid;
 
@@ -336,6 +434,25 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
                      "#39C591; } QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
 
+    case Theme::DeepPurple:
+        wBg = "#0D1017";
+        txt = "#E8ECF4";
+        toolBg = "#090C12";
+        accent = "#7C5CFC";
+        hov = "#8F73FF";
+        inp = "#141924";
+        border = "#232B3A";
+        sel = "#7C5CFC";
+        grid = "#232B3A";
+        m_iconBaseColor = QColor(0x7C, 0x5C, 0xFC);
+        setSearchbar(
+            "QLineEdit { background-color:#141924; color:#E8ECF4; border:1px solid #232B3A; "
+            "border-radius:999px; padding:6px 14px; } "
+            "QLineEdit:focus { border:1px solid #7C5CFC; }");
+        qApp->setStyleSheet(
+            GenerateDeepPurpleStylesheet(wBg, txt, toolBg, accent, hov, inp, border, "#8B94A7"));
+        break;
+
     case Theme::QSS:
         break;
     }
@@ -362,11 +479,43 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
     )")
                           .arg(toolBg, txt, border, accent, inp);
 
+    QColor accentColor(accent);
+    QColor hoverBgColor = accentColor;
+    hoverBgColor.setAlpha(38);
+    QColor pressedBgColor = accentColor;
+    pressedBgColor.setAlpha(70);
+
+    QString toolbarCss = QString(R"(
+        QToolBar { background-color: %1; border: none; border-bottom: 1px solid %2; spacing: 10px; padding: 8px; }
+        QToolBar QPushButton {
+            background-color: transparent;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            padding: 6px;
+        }
+        QToolBar QPushButton:hover {
+            background-color: rgba(%3, %4, %5, %6);
+            border: 1px solid %7;
+        }
+        QToolBar QPushButton:pressed {
+            background-color: rgba(%3, %4, %5, %8);
+            border: 1px solid %7;
+        }
+        QToolBar QLabel { background-color: transparent; }
+    )")
+                             .arg(toolBg, border)
+                             .arg(accentColor.red())
+                             .arg(accentColor.green())
+                             .arg(accentColor.blue())
+                             .arg(hoverBgColor.alpha())
+                             .arg(accent)
+                             .arg(pressedBgColor.alpha());
+
     QString existingCss = qApp->styleSheet();
     if (existingCss.isEmpty()) {
-        qApp->setStyleSheet(menuCss);
+        qApp->setStyleSheet(menuCss + "\n" + toolbarCss);
     } else {
-        qApp->setStyleSheet(existingCss + "\n" + menuCss);
+        qApp->setStyleSheet(existingCss + "\n" + menuCss + "\n" + toolbarCss);
     }
 
     qApp->setStyleSheet(qApp->styleSheet());

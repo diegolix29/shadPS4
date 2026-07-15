@@ -63,6 +63,7 @@ public:
     QAction* setThemeNeon;
     QAction* setThemeShadlix;
     QAction* setThemeShadlixCave;
+    QAction* setThemeDeepPurple;
     QAction* setThemeQSS;
     QWidget* centralWidget;
     QLineEdit* mw_searchbar;
@@ -262,6 +263,9 @@ public:
         setThemeShadlixCave = new QAction(MainWindow);
         setThemeShadlixCave->setObjectName("setThemeShadlixCave");
         setThemeShadlixCave->setCheckable(true);
+        setThemeDeepPurple = new QAction(MainWindow);
+        setThemeDeepPurple->setObjectName("setThemeDeepPurple");
+        setThemeDeepPurple->setCheckable(true);
         setThemeQSS = new QAction(MainWindow);
         setThemeQSS->setObjectName("setThemeQSS");
         setThemeQSS->setCheckable(true);
@@ -433,6 +437,7 @@ public:
         menuThemes->addAction(setThemeNeon);
         menuThemes->addAction(setThemeShadlix);
         menuThemes->addAction(setThemeShadlixCave);
+        menuThemes->addAction(setThemeDeepPurple);
         menuThemes->addAction(setThemeQSS);
         menuGame_List_Icons->addAction(setIconSizeTinyAct);
         menuGame_List_Icons->addAction(setIconSizeSmallAct);
@@ -545,6 +550,7 @@ public:
         setThemeNeon->setText("Neon");
         setThemeShadlix->setText("Shadlix");
         setThemeShadlixCave->setText("ShadlixCave");
+        setThemeDeepPurple->setText("DeepPurple");
         setThemeQSS->setText("QSS");
         toolBar->setWindowTitle(QCoreApplication::translate("MainWindow", "toolBar", nullptr));
         toggleLabelsAct->setText(

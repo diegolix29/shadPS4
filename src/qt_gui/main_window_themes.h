@@ -23,6 +23,7 @@ enum class Theme : int {
     Neon,
     Shadlix,
     ShadlixCave,
+    DeepPurple,
     QSS
 };
 

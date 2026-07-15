@@ -726,6 +726,7 @@ void MainWindow::CreateActions() {
     m_theme_act_group->addAction(ui->setThemeNeon);
     m_theme_act_group->addAction(ui->setThemeShadlix);
     m_theme_act_group->addAction(ui->setThemeShadlixCave);
+    m_theme_act_group->addAction(ui->setThemeDeepPurple);
     m_theme_act_group->addAction(ui->setThemeQSS);
 }
 
@@ -840,8 +841,15 @@ void MainWindow::AddUiWidgets() {
     ui->modManagerButton->setObjectName("modManagerButton");
     ui->bigPictureButton->setObjectName("bigPictureButton");
     ui->hubMenuButton->setObjectName("hubMenuButton");
-    auto addToolbarWidget = [this, flowLayout, createButtonWithLabel_wrapped,
-                             showLabels](QPushButton* button, const QString& text) {
+    // Fixed glow tint (rather than the active theme color) so the hover
+    // animation looks consistent no matter when the toolbar is first built
+    // relative to theme initialization.
+    const QColor toolbarGlowColor(90, 170, 255);
+    auto addToolbarWidget = [this, flowLayout, createButtonWithLabel_wrapped, showLabels,
+                             toolbarGlowColor](QPushButton* button, const QString& text) {
+        button->setCursor(Qt::PointingHandCursor);
+        button->setProperty("modernToolbarButton", true);
+        HoverAnimator::Attach(button, toolbarGlowColor);
         QWidget* container = createButtonWithLabel_wrapped(button, text, showLabels);
         container->setObjectName(button->objectName() + "Container");
         flowLayout->addWidget(container);
@@ -902,6 +910,11 @@ void MainWindow::AddUiWidgets() {
     ui->toggleLogButton->setObjectName("ToggleLogButton");
     ui->installPkgButton->setObjectName("InstallPkgButton");
     ui->bpBootButton->setObjectName("BPBootButton");
+    for (QPushButton* extraBtn : {ui->toggleLogButton, ui->installPkgButton, ui->bpBootButton}) {
+        extraBtn->setCursor(Qt::PointingHandCursor);
+        extraBtn->setProperty("modernToolbarButton", true);
+        HoverAnimator::Attach(extraBtn, toolbarGlowColor);
+    }
     ui->launcherBox->setObjectName("launcherBox");
     searchSliderContainer->setObjectName("searchSliderContainer");
     styleContainer->setObjectName("styleContainer");
@@ -1070,6 +1083,7 @@ void MainWindow::CreateDockWindows(bool newDock) {
 
     ui->splitter = new QSplitter(Qt::Vertical);
     ui->logDisplay = new QTextEdit(ui->splitter);
+    ui->logDisplay->setObjectName("logDisplay");
     ui->logDisplay->setText(tr("Game Log"));
     ui->logDisplay->setReadOnly(true);
 
@@ -1382,6 +1396,8 @@ void MainWindow::CreateConnects() {
                     themeToReload = Theme::Shadlix;
                 else if (ui->setThemeShadlixCave->isChecked())
                     themeToReload = Theme::ShadlixCave;
+                else if (ui->setThemeDeepPurple->isChecked())
+                    themeToReload = Theme::DeepPurple;
 
                 if (themeToReload == Theme::QSS) {
                     themeToReload = Theme::Dark;
@@ -1544,12 +1560,70 @@ void MainWindow::CreateConnects() {
     });
 
     connect(ui->bigPictureAct, &QAction::triggered, this, [this](bool checked) {
-        Config::setGamesMenuUI(checked);
+        bool currentBigPicture = Config::GamesMenuUI();
+        bool currentHubMenu = Config::HubMenuUI();
+
+        // If already enabled, disable it
+        if (currentBigPicture) {
+            Config::setGamesMenuUI(false);
+            ui->bigPictureAct->setChecked(false);
+        } else {
+            // If enabling, check if the other is already enabled
+            if (currentHubMenu) {
+                QMessageBox::StandardButton reply =
+                    QMessageBox::question(this, tr("Boot Settings"),
+                                          tr("GameHub is already enabled. Do you want to disable "
+                                             "GameHub and enable BigPicture instead?"),
+                                          QMessageBox::Yes | QMessageBox::No);
+
+                if (reply == QMessageBox::Yes) {
+                    Config::setHubMenuUI(false);
+                    ui->hubMenuAct->setChecked(false);
+                    Config::setGamesMenuUI(true);
+                    ui->bigPictureAct->setChecked(true);
+                } else {
+                    ui->bigPictureAct->setChecked(false);
+                    return;
+                }
+            } else {
+                Config::setGamesMenuUI(true);
+                ui->bigPictureAct->setChecked(true);
+            }
+        }
         Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
 
     connect(ui->hubMenuAct, &QAction::triggered, this, [this](bool checked) {
-        Config::setHubMenuUI(checked);
+        bool currentBigPicture = Config::GamesMenuUI();
+        bool currentHubMenu = Config::HubMenuUI();
+
+        // If already enabled, disable it
+        if (currentHubMenu) {
+            Config::setHubMenuUI(false);
+            ui->hubMenuAct->setChecked(false);
+        } else {
+            // If enabling, check if the other is already enabled
+            if (currentBigPicture) {
+                QMessageBox::StandardButton reply =
+                    QMessageBox::question(this, tr("Boot Settings"),
+                                          tr("BigPicture is already enabled. Do you want to "
+                                             "disable BigPicture and enable GameHub instead?"),
+                                          QMessageBox::Yes | QMessageBox::No);
+
+                if (reply == QMessageBox::Yes) {
+                    Config::setGamesMenuUI(false);
+                    ui->bigPictureAct->setChecked(false);
+                    Config::setHubMenuUI(true);
+                    ui->hubMenuAct->setChecked(true);
+                } else {
+                    ui->hubMenuAct->setChecked(false);
+                    return;
+                }
+            } else {
+                Config::setHubMenuUI(true);
+                ui->hubMenuAct->setChecked(true);
+            }
+        }
         Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
 
@@ -1746,6 +1820,7 @@ void MainWindow::CreateConnects() {
         CreateDockWindows(false);
         ui->mw_searchbar->setText("");
         SetLastIconSizeBullet();
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
 
     connect(ui->setlistModeGridAct, &QAction::triggered, m_dock_widget.data(), [this]() {
@@ -1759,6 +1834,7 @@ void MainWindow::CreateConnects() {
         CreateDockWindows(false);
         ui->mw_searchbar->setText("");
         SetLastIconSizeBullet();
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
 
     connect(ui->setlistElfAct, &QAction::triggered, m_dock_widget.data(), [this]() {
@@ -1771,6 +1847,7 @@ void MainWindow::CreateConnects() {
         Config::setTableMode(2);
         CreateDockWindows(false);
         SetLastIconSizeBullet();
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
     connect(ui->setlistModeCinematicAct, &QAction::triggered, m_dock_widget.data(), [this]() {
         ui->sizeSlider->setEnabled(true);
@@ -1783,6 +1860,7 @@ void MainWindow::CreateConnects() {
         CreateDockWindows(false);
         ui->mw_searchbar->setText("");
         SetLastIconSizeBullet();
+        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
 
     connect(ui->downloadCheatsPatchesAct, &QAction::triggered, this, [this]() {
@@ -2023,6 +2101,12 @@ void MainWindow::CreateConnects() {
     connect(ui->setThemeShadlixCave, &QAction::triggered, this, [this, applyThemeAndReconstruct]() {
         m_window_themes.SetWindowTheme(Theme::ShadlixCave, ui->mw_searchbar);
         Config::setMainWindowTheme(static_cast<int>(Theme::ShadlixCave));
+        applyThemeAndReconstruct();
+    });
+
+    connect(ui->setThemeDeepPurple, &QAction::triggered, this, [this, applyThemeAndReconstruct]() {
+        m_window_themes.SetWindowTheme(Theme::DeepPurple, ui->mw_searchbar);
+        Config::setMainWindowTheme(static_cast<int>(Theme::DeepPurple));
         applyThemeAndReconstruct();
     });
 
@@ -2591,6 +2675,10 @@ void MainWindow::SetLastUsedTheme() {
         break;
     case Theme::ShadlixCave:
         ui->setThemeShadlixCave->setChecked(true);
+        applyTheme();
+        break;
+    case Theme::DeepPurple:
+        ui->setThemeDeepPurple->setChecked(true);
         applyTheme();
         break;
     case Theme::QSS:

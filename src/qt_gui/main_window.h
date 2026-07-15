@@ -5,6 +5,7 @@
 #include <QActionGroup>
 #include <QDragEnterEvent>
 #include <QEasingCurve>
+#include <QGraphicsDropShadowEffect>
 #include <QGraphicsOpacityEffect>
 #include <QLayout>
 #include <QParallelAnimationGroup>
@@ -96,43 +97,76 @@ public:
 class HoverAnimator : public QObject {
     Q_OBJECT
 public:
-    HoverAnimator(QWidget* target) : QObject(target), m_target(target) {
+    explicit HoverAnimator(QWidget* target, QColor glowColor = QColor(90, 170, 255))
+        : QObject(target), m_target(target), m_glowColor(glowColor) {
         if (m_target) {
             m_target->installEventFilter(this);
             m_target->setAttribute(Qt::WA_Hover);
+
+            if (auto* btn = qobject_cast<QPushButton*>(m_target)) {
+                m_baseIconSize = btn->iconSize();
+            }
+
+            m_shadow = new QGraphicsDropShadowEffect(m_target);
+            m_shadow->setColor(m_glowColor);
+            m_shadow->setOffset(0, 0);
+            m_shadow->setBlurRadius(0);
+            m_target->setGraphicsEffect(m_shadow);
         }
+    }
+
+    static void Attach(QPushButton* button, QColor glowColor = QColor(90, 170, 255)) {
+        if (!button || button->property("hoverAnimAttached").toBool())
+            return;
+        button->setProperty("hoverAnimAttached", true);
+        new HoverAnimator(button, glowColor);
     }
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override {
         if (obj == m_target) {
             if (event->type() == QEvent::Enter) {
-                animate(1.5);
-                return true;
+                animate(true);
             } else if (event->type() == QEvent::Leave) {
-                animate(1.0);
-                return true;
+                animate(false);
             }
         }
         return QObject::eventFilter(obj, event);
     }
 
 private:
-    void animate(qreal endScale) {
-        if (auto btn = qobject_cast<QPushButton*>(m_target)) {
-            QPropertyAnimation* anim = new QPropertyAnimation(btn, "iconSize", this);
-            anim->setDuration(150);
-            anim->setStartValue(btn->iconSize());
+    void animate(bool hovered) {
+        if (auto* btn = qobject_cast<QPushButton*>(m_target)) {
+            if (m_baseIconSize.isEmpty())
+                m_baseIconSize = btn->iconSize();
 
-            int base = 32;
-            int target = static_cast<int>(base * endScale);
+            const QSize targetSize = hovered
+                                         ? QSize(static_cast<int>(m_baseIconSize.width() * 1.16),
+                                                 static_cast<int>(m_baseIconSize.height() * 1.16))
+                                         : m_baseIconSize;
 
-            anim->setEndValue(QSize(target, target));
-            anim->setEasingCurve(QEasingCurve::OutQuad);
-            anim->start(QAbstractAnimation::DeleteWhenStopped);
+            auto* sizeAnim = new QPropertyAnimation(btn, "iconSize", this);
+            sizeAnim->setDuration(180);
+            sizeAnim->setStartValue(btn->iconSize());
+            sizeAnim->setEndValue(targetSize);
+            sizeAnim->setEasingCurve(hovered ? QEasingCurve::OutBack : QEasingCurve::OutCubic);
+            sizeAnim->start(QAbstractAnimation::DeleteWhenStopped);
+        }
+
+        if (m_shadow) {
+            auto* glowAnim = new QPropertyAnimation(m_shadow, "blurRadius", this);
+            glowAnim->setDuration(220);
+            glowAnim->setStartValue(m_shadow->blurRadius());
+            glowAnim->setEndValue(hovered ? 24.0 : 0.0);
+            glowAnim->setEasingCurve(QEasingCurve::OutQuad);
+            glowAnim->start(QAbstractAnimation::DeleteWhenStopped);
         }
     }
+
     QWidget* m_target;
+    QGraphicsDropShadowEffect* m_shadow = nullptr;
+    QSize m_baseIconSize;
+    QColor m_glowColor;
 };
 
 class GameListFrame;
