@@ -338,8 +338,7 @@ bool Instance::CreateDevice() {
     }
     supports_memory_budget = add_extension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
     swapchain_maintenance1 = add_extension(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) &&
-                             feature_chain
-                                 .get<vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT>()
+                             feature_chain.get<vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT>()
                                  .swapchainMaintenance1;
     const bool calibrated_timestamps =
         TRACY_GPU_ENABLED ? add_extension(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME) : false;
@@ -353,9 +352,7 @@ bool Instance::CreateDevice() {
     bool graphics_queue_found = false;
     for (std::size_t i = 0; i < family_properties.size(); i++) {
         const u32 index = static_cast<u32>(i);
-        if ((family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics) &&
-            (!graphics_queue_found || family_properties[i].queueCount >
-                                          family_properties[queue_family_index].queueCount)) {
+        if (family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics) {
             queue_family_index = index;
             graphics_queue_found = true;
         }
@@ -572,8 +569,7 @@ bool Instance::CreateDevice() {
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*device);
 
     graphics_queue = device->getQueue(queue_family_index, 0);
-    present_queue = graphics_queue;
-    LOG_INFO(Render_Vulkan, "Using the graphics Vulkan queue for presentation");
+    present_queue = device->getQueue(queue_family_index, 0);
 
     if (calibrated_timestamps) {
         const auto [time_domains_result, time_domains] =

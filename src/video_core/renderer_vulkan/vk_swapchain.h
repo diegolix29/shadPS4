@@ -96,6 +96,10 @@ public:
         return present_mode == vk::PresentModeKHR::eFifo;
     }
 
+    bool IsMailbox() const {
+        return present_mode == vk::PresentModeKHR::eMailbox;
+    }
+
 private:
     /// Selects the best available swapchain image format
     void FindPresentFormat();

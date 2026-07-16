@@ -4,13 +4,14 @@
 #pragma once
 
 #include <atomic>
-#include "common/debug.h"
-#include "common/polyfill_thread.h"
-#include "core/libraries/videoout/video_out.h"
-
 #include <condition_variable>
 #include <mutex>
 #include <queue>
+
+#include "common/debug.h"
+#include "common/polyfill_thread.h"
+#include "core/libraries/videoout/presentation_queue.h"
+#include "core/libraries/videoout/video_out.h"
 
 namespace Vulkan {
 struct Frame;
@@ -83,7 +84,7 @@ public:
     ~VideoOutDriver();
 
     int Open(const ServiceThreadParams* params);
-    void Close(s32 handle);
+    s32 Close(s32 handle);
 
     VideoOutPort* GetPort(s32 handle);
 
@@ -93,7 +94,7 @@ public:
     int ChangeBufferAttribute(VideoOutPort* port, s32 bufferIndex,
                               const BufferAttribute* attribute);
 
-    bool SubmitFlip(VideoOutPort* port, s32 index, s64 flip_arg, bool is_eop = false);
+    s32 SubmitFlip(VideoOutPort* port, s32 index, s64 flip_arg, bool is_eop = false);
 
 private:
     struct Request {
@@ -135,7 +136,7 @@ private:
     std::queue<Request> requests;
     std::mutex present_mutex;
     std::condition_variable_any present_cv;
-    PresentRequest pending_present;
+    PresentationQueue<PresentRequest> pending_presents;
     bool blank_requested{true};
 };
 

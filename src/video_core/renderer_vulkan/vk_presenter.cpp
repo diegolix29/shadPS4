@@ -597,8 +597,7 @@ void Presenter::RecycleThread(std::stop_token token) {
         Frame* frame;
         {
             std::unique_lock lock{recycle_mutex};
-            recycle_cv.wait(lock, token,
-                            [this] { return !recycle_queue.empty(); });
+            recycle_cv.wait(lock, token, [this] { return !recycle_queue.empty(); });
             if (recycle_queue.empty()) {
                 if (token.stop_requested()) {
                     return;
@@ -615,8 +614,8 @@ void Presenter::RecycleThread(std::stop_token token) {
                 .pSemaphores = &frame->ready_semaphore,
                 .pValues = &frame->ready_tick,
             };
-            const auto result = instance.GetDevice().waitSemaphores(
-                wait_info, std::numeric_limits<u64>::max());
+            const auto result =
+                instance.GetDevice().waitSemaphores(wait_info, std::numeric_limits<u64>::max());
             ASSERT_MSG(result == vk::Result::eSuccess,
                        "Failed waiting for a superseded presentation frame: {}",
                        vk::to_string(result));
@@ -625,29 +624,33 @@ void Presenter::RecycleThread(std::stop_token token) {
     }
 }
 
-Presenter::PresentationFeedback Presenter::GetPresentationFeedback() const {
+Presenter::FifoTimingFeedback Presenter::GetFifoTimingFeedback() const {
     return {
-        .last_present_ns = last_present_ns.load(std::memory_order_acquire),
-        .present_period_ns = present_period_ns.load(std::memory_order_acquire),
-        .present_period_samples = present_period_samples.load(std::memory_order_acquire),
-        .swapchain_generation = swapchain_generation.load(std::memory_order_acquire),
+        .last_present_call_ns = last_present_call_ns.load(std::memory_order_acquire),
+        .present_call_period_ns = present_call_period_ns.load(std::memory_order_acquire),
+        .present_call_samples = present_call_samples.load(std::memory_order_acquire),
+        .generation = timing_generation.load(std::memory_order_acquire),
         .is_fifo = swapchain.IsFIFO(),
     };
 }
 
-void Presenter::ResetPresentationFeedback() {
+void Presenter::ResetFifoTimingFeedback() {
     std::scoped_lock lock{feedback_mutex};
-    ResetPresentationFeedbackLocked();
+    ResetFifoTimingFeedbackLocked();
 }
 
-void Presenter::ResetPresentationFeedbackLocked() {
-    last_present_ns.store(0, std::memory_order_release);
-    present_period_ns.store(0, std::memory_order_release);
-    present_period_samples.store(0, std::memory_order_release);
-    present_period_history.fill(0);
-    present_period_history_index = 0;
-    present_period_history_size = 0;
-    swapchain_generation.fetch_add(1, std::memory_order_acq_rel);
+void Presenter::ClearPresentCallHistoryLocked() {
+    last_present_call_ns.store(0, std::memory_order_release);
+    present_call_period_ns.store(0, std::memory_order_release);
+    present_call_samples.store(0, std::memory_order_release);
+    present_call_period_history.fill(0);
+    present_call_period_history_index = 0;
+    present_call_period_history_size = 0;
+}
+
+void Presenter::ResetFifoTimingFeedbackLocked() {
+    ClearPresentCallHistoryLocked();
+    timing_generation.fetch_add(1, std::memory_order_acq_rel);
 }
 
 void Presenter::SetPresentationEpoch(const u64 epoch) {
@@ -656,10 +659,10 @@ void Presenter::SetPresentationEpoch(const u64 epoch) {
         return;
     }
     presentation_epoch = epoch;
-    ResetPresentationFeedbackLocked();
+    ResetFifoTimingFeedbackLocked();
 }
 
-void Presenter::RecordPresentationFeedback(const u64 epoch) {
+void Presenter::RecordPresentCall(const u64 epoch) {
     if (epoch == 0) {
         return;
     }
@@ -671,41 +674,38 @@ void Presenter::RecordPresentationFeedback(const u64 epoch) {
 
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
     const s64 now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
-    const s64 previous_ns = last_present_ns.exchange(now_ns, std::memory_order_acq_rel);
+    const s64 previous_ns = last_present_call_ns.exchange(now_ns, std::memory_order_acq_rel);
     if (previous_ns == 0) {
         return;
     }
 
     const s64 sample = now_ns - previous_ns;
     if (sample <= 1'000'000 || sample >= 100'000'000) {
-        // A host stall is a clock discontinuity, not a display-period sample. Require a fresh
-        // window before allowing the guest PLL to engage again.
-        present_period_ns.store(0, std::memory_order_release);
-        present_period_samples.store(0, std::memory_order_release);
-        present_period_history.fill(0);
-        present_period_history_index = 0;
-        present_period_history_size = 0;
+        // Discard intervals that cannot represent steady FIFO pacing and require a fresh sample
+        // window before applying another guest-timer correction.
+        ClearPresentCallHistoryLocked();
         return;
     }
 
-    present_period_history[present_period_history_index] = sample;
-    present_period_history_index = (present_period_history_index + 1) % PresentPeriodWindow;
-    present_period_history_size =
-        std::min(present_period_history_size + 1, PresentPeriodWindow);
+    present_call_period_history[present_call_period_history_index] = sample;
+    present_call_period_history_index =
+        (present_call_period_history_index + 1) % PresentCallPeriodWindow;
+    present_call_period_history_size =
+        std::min(present_call_period_history_size + 1, PresentCallPeriodWindow);
 
-    auto sorted = present_period_history;
-    std::sort(sorted.begin(), sorted.begin() + present_period_history_size);
-    const u32 middle = present_period_history_size / 2;
-    const s64 median = present_period_history_size % 2 != 0
+    auto sorted = present_call_period_history;
+    std::sort(sorted.begin(), sorted.begin() + present_call_period_history_size);
+    const u32 middle = present_call_period_history_size / 2;
+    const s64 median = present_call_period_history_size % 2 != 0
                            ? sorted[middle]
                            : (sorted[middle - 1] + sorted[middle]) / 2;
-    present_period_ns.store(median, std::memory_order_release);
-    present_period_samples.store(present_period_history_size, std::memory_order_release);
+    present_call_period_ns.store(median, std::memory_order_release);
+    present_call_samples.store(present_call_period_history_size, std::memory_order_release);
 }
 
 void Presenter::RecreateSwapchain() {
     swapchain.Recreate(window.GetWidth(), window.GetHeight());
-    ResetPresentationFeedback();
+    ResetFifoTimingFeedback();
 }
 
 bool Presenter::IsVideoOutSurface(const AmdGpu::ColorBuffer& color_buffer) const {
@@ -1239,7 +1239,7 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, const u64 presentat
         present_scheduler.Finish();
         RecreateSwapchain();
     } else if (!is_reusing_frame) {
-        RecordPresentationFeedback(presentation_epoch);
+        RecordPresentCall(presentation_epoch);
     }
 
     if (!is_reusing_frame) {

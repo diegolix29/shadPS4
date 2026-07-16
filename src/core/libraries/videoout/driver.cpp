@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <optional>
+
 #include "common/assert.h"
 #include "common/debug.h"
 #include "common/thread.h"
@@ -40,7 +42,9 @@ constexpr u32 PixelFormatBpp(PixelFormat pixel_format) {
     }
 }
 
-VideoOutDriver::VideoOutDriver(u32 width, u32 height) {
+VideoOutDriver::VideoOutDriver(u32 width, u32 height)
+    : pending_presents{presenter->UsesMailboxPresentation() ? PresentationQueuePolicy::Mailbox
+                                                            : PresentationQueuePolicy::Fifo} {
     main_port.resolution.full_width = width;
     main_port.resolution.full_height = height;
     main_port.resolution.pane_width = width;
@@ -60,9 +64,8 @@ VideoOutDriver::~VideoOutDriver() {
         presenter->RecycleFrameAsync(requests.front().frame);
         requests.pop();
     }
-    if (pending_present) {
-        presenter->RecycleFrameAsync(pending_present.frame);
-        pending_present = {};
+    for (auto& request : pending_presents.Drain()) {
+        presenter->RecycleFrameAsync(request.frame);
     }
 }
 
@@ -78,15 +81,17 @@ int VideoOutDriver::Open(const ServiceThreadParams* params) {
     return 1;
 }
 
-void VideoOutDriver::Close(s32 handle) {
+s32 VideoOutDriver::Close(const s32 handle) {
     std::vector<Vulkan::Frame*> discarded_frames;
     std::vector<Kernel::OrbisKernelEqueue> flip_events;
     std::vector<Kernel::OrbisKernelEqueue> vblank_events;
     std::unique_lock lifecycle_lock{mutex};
     {
+        if (handle != 1 || !main_port.is_open.load(std::memory_order_acquire)) {
+            return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
+        }
         main_port.is_open.store(false, std::memory_order_release);
-        const u64 generation =
-            main_port.generation.fetch_add(1, std::memory_order_acq_rel) + 1;
+        const u64 generation = main_port.generation.fetch_add(1, std::memory_order_acq_rel) + 1;
         presenter->SetPresentationEpoch(generation);
         main_port.flip_rate.store(0, std::memory_order_release);
         main_port.prev_index = -1;
@@ -120,9 +125,8 @@ void VideoOutDriver::Close(s32 handle) {
 
     {
         std::scoped_lock lock{present_mutex};
-        if (pending_present) {
-            discarded_frames.push_back(pending_present.frame);
-            pending_present = {};
+        for (auto& request : pending_presents.Drain()) {
+            discarded_frames.push_back(request.frame);
         }
         blank_requested = true;
     }
@@ -146,10 +150,11 @@ void VideoOutDriver::Close(s32 handle) {
                                 Kernel::OrbisKernelEvent::Filter::VideoOut);
         }
     }
+    return ORBIS_OK;
 }
 
 VideoOutPort* VideoOutDriver::GetPort(int handle) {
-    if (handle != 1) [[unlikely]] {
+    if (handle != 1 || !main_port.is_open.load(std::memory_order_acquire)) [[unlikely]] {
         return nullptr;
     }
     return &main_port;
@@ -365,19 +370,19 @@ void VideoOutDriver::DrawLastFrame() {
     }
 }
 
-bool VideoOutDriver::SubmitFlip(VideoOutPort* port, s32 index, s64 flip_arg,
-                                bool is_eop /*= false*/) {
+s32 VideoOutDriver::SubmitFlip(VideoOutPort* port, s32 index, s64 flip_arg,
+                               bool is_eop /*= false*/) {
     u64 generation;
     {
         std::scoped_lock lifecycle_lock{mutex};
         if (!port->is_open.load(std::memory_order_acquire)) {
-            return false;
+            return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
         }
         generation = port->generation.load(std::memory_order_acquire);
         std::unique_lock lock{port->port_mutex};
-        if (index != -1 && port->flip_status.flip_pending_num > 16) {
+        if (port->flip_status.flip_pending_num >= MaxDisplayBuffers) {
             LOG_ERROR(Lib_VideoOut, "Flip queue is full");
-            return false;
+            return ORBIS_VIDEO_OUT_ERROR_FLIP_QUEUE_FULL;
         }
 
         if (is_eop) {
@@ -395,7 +400,7 @@ bool VideoOutDriver::SubmitFlip(VideoOutPort* port, s32 index, s64 flip_arg,
         SubmitFlipInternal(port, index, flip_arg, is_eop, generation);
     }
 
-    return true;
+    return ORBIS_OK;
 }
 
 void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_arg, bool is_eop,
@@ -442,20 +447,19 @@ void VideoOutDriver::PublishFrame(PresentRequest request) {
         return;
     }
 
-    Vulkan::Frame* superseded{};
+    std::optional<PresentRequest> superseded;
     {
         std::scoped_lock lock{present_mutex};
         if (!main_port.is_open.load(std::memory_order_acquire) ||
             main_port.generation.load(std::memory_order_acquire) != request.generation) {
-            superseded = request.frame;
+            superseded = request;
         } else {
-            superseded = pending_present.frame;
-            pending_present = request;
+            superseded = pending_presents.Push(request);
             blank_requested = false;
         }
     }
-    if (superseded != nullptr) {
-        presenter->RecycleFrameAsync(superseded);
+    if (superseded) {
+        presenter->RecycleFrameAsync(superseded->frame);
     }
     present_cv.notify_one();
 }
@@ -511,12 +515,21 @@ void VideoOutDriver::VblankThread(std::stop_token token) {
         {
             std::scoped_lock lifecycle_lock{mutex};
             if (main_port.is_open.load(std::memory_order_acquire)) {
-                std::scoped_lock vo_lock{main_port.vo_mutex};
-                auto& vblank_status = main_port.vblank_status;
+                u64 vblank_count;
+                {
+                    std::scoped_lock vo_lock{main_port.vo_mutex};
+                    auto& vblank_status = main_port.vblank_status;
+                    // The SDK defines event data as the total count after port opening, so update
+                    // status before notifying waiters and publishing the corresponding event.
+                    ++vblank_status.count;
+                    vblank_count = vblank_status.count;
+                    vblank_status.process_time = Libraries::Kernel::sceKernelGetProcessTime();
+                    vblank_status.tsc = Libraries::Kernel::sceKernelReadTsc();
+                    main_port.vblank_cv.notify_all();
+                }
                 {
                     std::scoped_lock event_lock{main_port.event_mutex};
-                    vblank_events.assign(main_port.vblank_events.begin(),
-                                         main_port.vblank_events.end());
+                    vblank_events = main_port.vblank_events;
                 }
                 for (auto event : vblank_events) {
                     auto equeue = Kernel::GetEqueue(event);
@@ -526,46 +539,41 @@ void VideoOutDriver::VblankThread(std::stop_token token) {
                             Kernel::OrbisKernelEvent::Filter::VideoOut,
                             reinterpret_cast<void*>(
                                 static_cast<u64>(OrbisVideoOutInternalEventId::Vblank) |
-                                (vblank_status.count << 16)));
+                                (vblank_count << 16)));
                     }
                 }
-
-                vblank_status.count++;
-                vblank_status.process_time = Libraries::Kernel::sceKernelGetProcessTime();
-                vblank_status.tsc = Libraries::Kernel::sceKernelReadTsc();
-                main_port.vblank_cv.notify_all();
             }
         }
 
         timer.End();
 
-        // Discipline FIFO near the configured guest cadence without ever waiting on Vulkan.
-        // Stale or mismatched feedback instantly falls back to the free-running guest timer.
-        const auto feedback = presenter->GetPresentationFeedback();
-        if (feedback.swapchain_generation != feedback_generation) {
-            feedback_generation = feedback.swapchain_generation;
+        // vkQueuePresentKHR completion is only a proxy for host FIFO cadence, not a physical
+        // display timestamp. Use it solely for a bounded phase correction; stale or mismatched
+        // samples fall back to the free-running guest timer.
+        const auto feedback = presenter->GetFifoTimingFeedback();
+        if (feedback.generation != feedback_generation) {
+            feedback_generation = feedback.generation;
             timer.Reset();
             continue;
         }
-        if (!feedback.is_fifo || feedback.last_present_ns == 0 ||
-            feedback.present_period_ns == 0 || feedback.present_period_samples < 5) {
+        if (!feedback.is_fifo || feedback.last_present_call_ns == 0 ||
+            feedback.present_call_period_ns == 0 || feedback.present_call_samples < 5) {
             continue;
         }
 
         const auto now = std::chrono::steady_clock::now().time_since_epoch();
         const s64 now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
         const s64 guest_period_ns = vblank_period.count();
-        const s64 age_ns = now_ns - feedback.last_present_ns;
-        const s64 period_error = std::abs(feedback.present_period_ns - guest_period_ns);
-        if (age_ns < 0 || age_ns >= 2 * guest_period_ns ||
-            period_error > guest_period_ns / 100) {
+        const s64 age_ns = now_ns - feedback.last_present_call_ns;
+        const s64 period_error = std::abs(feedback.present_call_period_ns - guest_period_ns);
+        if (age_ns < 0 || age_ns >= 2 * guest_period_ns || period_error > guest_period_ns / 100) {
             continue;
         }
 
         constexpr s64 PhaseLeadNs = 2'000'000;
         constexpr s64 MaxSlewNs = 500'000;
         const s64 expected_deadline = now_ns + std::max<s64>(timer.GetTotalWait().count(), 0);
-        const s64 desired_deadline = feedback.last_present_ns + guest_period_ns - PhaseLeadNs;
+        const s64 desired_deadline = feedback.last_present_call_ns + guest_period_ns - PhaseLeadNs;
         s64 phase_error = desired_deadline - expected_deadline;
         const s64 half_period = guest_period_ns / 2;
         while (phase_error > half_period) {
@@ -593,15 +601,13 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
         bool draw_blank = false;
         {
             std::unique_lock lock{present_mutex};
-            present_cv.wait_for(lock, token, std::chrono::milliseconds{16}, [this] {
-                return pending_present || blank_requested;
-            });
+            present_cv.wait_for(lock, token, std::chrono::milliseconds{16},
+                                [this] { return !pending_presents.Empty() || blank_requested; });
             if (token.stop_requested()) {
                 break;
             }
-            if (pending_present) {
-                request = pending_present;
-                pending_present = {};
+            if (!pending_presents.Empty()) {
+                request = pending_presents.Pop();
             } else if (blank_requested) {
                 draw_blank = !main_port.is_open.load(std::memory_order_acquire);
                 blank_requested = false;
@@ -635,10 +641,9 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
         const bool guest_is_live = main_port.is_open.load(std::memory_order_acquire) &&
                                    last_guest_present != Clock::time_point{} &&
                                    now - last_guest_present < LiveFrameSilence;
-        const bool redraw_due = last_ui_redraw == Clock::time_point{} ||
-                                now - last_ui_redraw >= UiRedrawPeriod;
-        if (redraw_due && !guest_is_live &&
-            (guest_paused || ImGui::Core::MustKeepDrawing())) {
+        const bool redraw_due =
+            last_ui_redraw == Clock::time_point{} || now - last_ui_redraw >= UiRedrawPeriod;
+        if (redraw_due && !guest_is_live && (guest_paused || ImGui::Core::MustKeepDrawing())) {
             DrawLastFrame();
             last_ui_redraw = Clock::now();
         }

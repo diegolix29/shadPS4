@@ -148,7 +148,7 @@ s32 PS4_SYSV_ABI sceVideoOutRegisterBuffers(s32 handle, s32 startIndex, void* co
     }
 
     auto* port = driver->GetPort(handle);
-    if (!port || !port->is_open) {
+    if (!port) {
         LOG_ERROR(Lib_VideoOut, "Invalid handle = {}", handle);
         return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
     }
@@ -158,16 +158,25 @@ s32 PS4_SYSV_ABI sceVideoOutRegisterBuffers(s32 handle, s32 startIndex, void* co
 
 s32 PS4_SYSV_ABI sceVideoOutSetFlipRate(s32 handle, s32 rate) {
     LOG_TRACE(Lib_VideoOut, "called");
-    driver->GetPort(handle)->flip_rate = rate;
+    auto* port = driver->GetPort(handle);
+    if (port == nullptr) {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
+    }
+    if (rate < 0 || rate > SCE_VIDEO_OUT_BUFFER_FLIP_RATE_MAX) {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_VALUE;
+    }
+    port->flip_rate.store(rate, std::memory_order_release);
     return ORBIS_OK;
 }
 
 s32 PS4_SYSV_ABI sceVideoOutIsFlipPending(s32 handle) {
     LOG_TRACE(Lib_VideoOut, "called");
     auto* port = driver->GetPort(handle);
+    if (port == nullptr) {
+        return ORBIS_VIDEO_OUT_ERROR_INVALID_HANDLE;
+    }
     std::unique_lock lock{port->port_mutex};
-    s32 pending = port->flip_status.flip_pending_num;
-    return pending;
+    return port->flip_status.flip_pending_num;
 }
 
 s32 PS4_SYSV_ABI sceVideoOutSubmitFlip(s32 handle, s32 bufferIndex, s32 flipMode, s64 flipArg) {
@@ -197,12 +206,7 @@ s32 PS4_SYSV_ABI sceVideoOutSubmitFlip(s32 handle, s32 bufferIndex, s32 flipMode
     LOG_DEBUG(Lib_VideoOut, "bufferIndex = {}, flipMode = {}, flipArg = {}", bufferIndex, flipMode,
               flipArg);
 
-    if (!driver->SubmitFlip(port, bufferIndex, flipArg)) {
-        LOG_ERROR(Lib_VideoOut, "Flip queue is full");
-        return ORBIS_VIDEO_OUT_ERROR_FLIP_QUEUE_FULL;
-    }
-
-    return ORBIS_OK;
+    return driver->SubmitFlip(port, bufferIndex, flipArg);
 }
 
 s32 PS4_SYSV_ABI sceVideoOutGetEventId(const Kernel::OrbisKernelEvent* ev) {
@@ -338,8 +342,7 @@ s32 PS4_SYSV_ABI sceVideoOutOpen(Libraries::UserService::OrbisUserServiceUserId 
 }
 
 s32 PS4_SYSV_ABI sceVideoOutClose(s32 handle) {
-    driver->Close(handle);
-    return ORBIS_OK;
+    return driver->Close(handle);
 }
 
 s32 PS4_SYSV_ABI sceVideoOutUnregisterBuffers(s32 handle, s32 attributeIndex) {
@@ -382,9 +385,9 @@ s32 sceVideoOutSubmitEopFlip(s32 handle, u32 buf_id, u32 mode, s64 flip_arg, voi
                 ASSERT_MSG(port->buffer_labels[buf_id] == 1, "Out of order flip IRQ");
             }
             const auto result = driver->SubmitFlip(port, buf_id, flip_arg, true);
-            if (!result && port->is_open.load(std::memory_order_acquire) &&
+            if (result != ORBIS_OK && port->is_open.load(std::memory_order_acquire) &&
                 port->generation.load(std::memory_order_acquire) == generation) {
-                LOG_WARNING(Lib_VideoOut, "EOP flip submission was rejected");
+                LOG_WARNING(Lib_VideoOut, "EOP flip submission failed: {:#x}", result);
             }
         });
 

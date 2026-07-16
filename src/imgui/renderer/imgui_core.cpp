@@ -115,9 +115,9 @@ void Initialize(const ::Vulkan::Instance& instance, const Frontend::WindowSDL& w
         .instance = instance.GetInstance(),
         .physical_device = instance.GetPhysicalDevice(),
         .device = instance.GetDevice(),
-        .queue_family = instance.GetPresentQueueFamilyIndex(),
-        // Texture uploads are submitted from Scheduler::SubmitExecution and therefore share the
-        // graphics queue's host-synchronization domain. Presentation may use a dedicated queue.
+        .queue_family = instance.GetGraphicsQueueFamilyIndex(),
+        // Texture uploads are submitted from Scheduler::SubmitExecution and share the graphics
+        // queue's host-synchronization domain.
         .queue = instance.GetGraphicsQueue(),
         .image_count = image_count,
         .min_allocation_size = 1024 * 1024,

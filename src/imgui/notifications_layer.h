@@ -37,10 +37,6 @@ public:
 
     void Draw() override;
 
-    bool NeedsRender() const override {
-        return true;
-    }
-
 private:
     NotificationInfo currentInfo;
 

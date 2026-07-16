@@ -30,8 +30,8 @@ struct RetiredSwapchain {
     std::vector<u8> present_fence_pending;
 
     explicit operator bool() const noexcept {
-        return handle || !image_views.empty() || !image_acquired.empty() || !present_ready.empty() ||
-               !present_fences.empty();
+        return handle || !image_views.empty() || !image_acquired.empty() ||
+               !present_ready.empty() || !present_fences.empty();
     }
 };
 
@@ -54,8 +54,8 @@ void WaitForRetiredSwapchain(const Instance& instance, RetiredSwapchain& retired
         }
     }
     if (!pending_fences.empty()) {
-        const auto result = instance.GetDevice().waitForFences(
-            pending_fences, true, std::numeric_limits<u64>::max());
+        const auto result = instance.GetDevice().waitForFences(pending_fences, true,
+                                                               std::numeric_limits<u64>::max());
         ASSERT_MSG(result == vk::Result::eSuccess,
                    "Failed waiting for retired swapchain presents: {}", vk::to_string(result));
     }
@@ -205,10 +205,17 @@ bool Swapchain::AcquireNextImage() {
 bool Swapchain::Present() {
     vk::SwapchainPresentFenceInfoEXT present_fence_info{};
     if (instance.HasSwapchainMaintenance1()) {
+        if (present_fence_pending[image_index]) {
+            const auto wait_result = instance.GetDevice().waitForFences(
+                present_fences[image_index], true, std::numeric_limits<u64>::max());
+            ASSERT_MSG(wait_result == vk::Result::eSuccess,
+                       "Failed waiting for reusable swapchain present fence: {}",
+                       vk::to_string(wait_result));
+            present_fence_pending[image_index] = false;
+        }
         const auto reset_result = instance.GetDevice().resetFences(present_fences[image_index]);
         ASSERT_MSG(reset_result == vk::Result::eSuccess,
                    "Failed resetting swapchain present fence: {}", vk::to_string(reset_result));
-        present_fence_pending[image_index] = false;
         present_fence_info = {
             .swapchainCount = 1,
             .pFences = &present_fences[image_index],
@@ -389,8 +396,7 @@ void Swapchain::RefreshSemaphores() {
         auto [fence_result, created_fence] =
             device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
         ASSERT_MSG(fence_result == vk::Result::eSuccess,
-                   "Failed to create swapchain present fence: {}",
-                   vk::to_string(fence_result));
+                   "Failed to create swapchain present fence: {}", vk::to_string(fence_result));
         fence = created_fence;
     }
 

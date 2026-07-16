@@ -6,8 +6,8 @@
 #include <array>
 #include <atomic>
 #include <condition_variable>
-#include <queue>
 #include <thread>
+#include <queue>
 
 #include "core/libraries/videoout/buffer.h"
 #include "imgui/imgui_texture.h"
@@ -47,11 +47,11 @@ class Rasterizer;
 
 class Presenter {
 public:
-    struct PresentationFeedback {
-        s64 last_present_ns;
-        s64 present_period_ns;
-        u32 present_period_samples;
-        u64 swapchain_generation;
+    struct FifoTimingFeedback {
+        s64 last_present_call_ns;
+        s64 present_call_period_ns;
+        u32 present_call_samples;
+        u64 generation;
         bool is_fifo;
     };
 
@@ -85,7 +85,7 @@ public:
         const bool changed = swapchain.GetHDR() != enable;
         swapchain.SetHDR(enable);
         if (changed) {
-            ResetPresentationFeedback();
+            ResetFifoTimingFeedback();
         }
         pp_settings.hdr = enable ? 1 : 0;
     }
@@ -114,7 +114,11 @@ public:
     /// This never waits on the caller and is safe for mailbox replacement on the vblank thread.
     void RecycleFrameAsync(Frame* frame);
 
-    PresentationFeedback GetPresentationFeedback() const;
+    FifoTimingFeedback GetFifoTimingFeedback() const;
+
+    bool UsesMailboxPresentation() const {
+        return swapchain.IsMailbox();
+    }
 
     /// Invalidates feedback from work belonging to an older video-out lifecycle.
     void SetPresentationEpoch(u64 epoch);
@@ -126,11 +130,13 @@ private:
 
     void RecreateSwapchain();
 
-    void ResetPresentationFeedback();
+    void ResetFifoTimingFeedback();
 
-    void ResetPresentationFeedbackLocked();
+    void ResetFifoTimingFeedbackLocked();
 
-    void RecordPresentationFeedback(u64 epoch);
+    void ClearPresentCallHistoryLocked();
+
+    void RecordPresentCall(u64 epoch);
 
     void RecycleThread(std::stop_token token);
 
@@ -172,15 +178,15 @@ private:
     std::condition_variable_any frame_cv;
     std::optional<ImGui::RefCountedTexture> splash_img;
     std::vector<VAddr> vo_buffers_addr;
-    std::atomic<s64> last_present_ns{};
-    std::atomic<s64> present_period_ns{};
-    std::atomic<u32> present_period_samples{};
-    std::atomic<u64> swapchain_generation{};
+    std::atomic<s64> last_present_call_ns{};
+    std::atomic<s64> present_call_period_ns{};
+    std::atomic<u32> present_call_samples{};
+    std::atomic<u64> timing_generation{};
     std::mutex feedback_mutex;
-    static constexpr u32 PresentPeriodWindow = 7;
-    std::array<s64, PresentPeriodWindow> present_period_history{};
-    u32 present_period_history_index{};
-    u32 present_period_history_size{};
+    static constexpr u32 PresentCallPeriodWindow = 7;
+    std::array<s64, PresentCallPeriodWindow> present_call_period_history{};
+    u32 present_call_period_history_index{};
+    u32 present_call_period_history_size{};
     u64 presentation_epoch{};
 };
 
