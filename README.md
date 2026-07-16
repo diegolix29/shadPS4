@@ -4,7 +4,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 -->
 Discord server for talking about forks. https://discord.gg/jgpqB7gUxG 
 
-“For the latest SHADPS4 and Diegolix fork updates, tips, tricks, and gameplay (including Bloodborne on PC), check out ProteinGaming on YouTube!” https://www.youtube.com/@ProteinGaming-97
+NEW GUI reworked + Cinema mode (netflix style) BigPicture and Gamehub modes if the QT gui is not of your liking
+
+<img width="1625" height="982" alt="image" src="https://github.com/user-attachments/assets/ac0d3837-a8f0-456b-bde8-df8ffb4a5f94" />
 
 <img width="1280" height="755" alt="image" src="https://github.com/user-attachments/assets/ca6749a6-5649-40cf-91ef-23219dcc3331" />
 
