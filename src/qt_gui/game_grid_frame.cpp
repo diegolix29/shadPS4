@@ -147,6 +147,8 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
         widget->setAttribute(Qt::WA_TranslucentBackground);
 
         QVBoxLayout* layout = new QVBoxLayout();
+        layout->setContentsMargins(5, 5, 5, 5);
+        layout->setSpacing(8);
 
         QWidget* image_container = new QWidget();
         image_container->setFixedSize(icon_size, icon_size);
@@ -156,13 +158,13 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
         QImage icon = m_games_[gameCounter].icon.scaled(
             QSize(icon_size, icon_size), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
         image_label->setFixedSize(icon.width(), icon.height());
-        image_label->setPixmap(RoundedCover(QPixmap::fromImage(icon), 10));
+        image_label->setPixmap(RoundedCover(QPixmap::fromImage(icon), 12));
         image_label->move(0, 0);
 
         QGraphicsDropShadowEffect* coverShadow = new QGraphicsDropShadowEffect();
-        coverShadow->setBlurRadius(18);
-        coverShadow->setColor(QColor(0, 0, 0, 140));
-        coverShadow->setOffset(0, 4);
+        coverShadow->setBlurRadius(25);
+        coverShadow->setColor(QColor(0, 0, 0, 180));
+        coverShadow->setOffset(0, 6);
         image_container->setGraphicsEffect(coverShadow);
 
         SetFavoriteIcon(image_container, m_games_, gameCounter);
@@ -170,6 +172,7 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
 
         QLabel* name_label = new QLabel(QString::fromStdString(m_games_[gameCounter].serial));
         name_label->setAlignment(Qt::AlignHCenter);
+        name_label->setWordWrap(true);
         layout->addWidget(image_container);
         layout->addWidget(name_label);
 
@@ -180,9 +183,9 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
         name_label->setStyleSheet(styleSheet);
 
         QGraphicsDropShadowEffect* shadowEffect = new QGraphicsDropShadowEffect();
-        shadowEffect->setBlurRadius(5);
-        shadowEffect->setColor(QColor(0, 0, 0, 160));
-        shadowEffect->setOffset(2, 2);
+        shadowEffect->setBlurRadius(8);
+        shadowEffect->setColor(QColor(0, 0, 0, 200));
+        shadowEffect->setOffset(0, 2);
 
         name_label->setGraphicsEffect(shadowEffect);
         widget->setLayout(layout);
@@ -345,9 +348,63 @@ void GameGridFrame::SetGameConfigIcon(QWidget* parentWidget, QVector<GameInfo> m
         Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (serialStr + ".toml"));
 
     QLabel* label = new QLabel(parentWidget);
-    label->setPixmap(QPixmap(":images/game_settings.png")
+    QPixmap iconPixmap = QPixmap(":images/game_settings.png")
                          .scaled(icon_size / 3.8, icon_size / 3.8, Qt::KeepAspectRatio,
-                                 Qt::SmoothTransformation));
+                                 Qt::SmoothTransformation);
+    
+    // Apply theme color tint to the icon
+    QPainter painter(&iconPixmap);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    
+    // Get theme color from config
+    int theme = Config::getMainWindowTheme();
+    QColor themeColor;
+    
+    switch (theme) {
+        case 0: // Dark
+            themeColor = QColor(90, 170, 255);
+            break;
+        case 1: // Light
+            themeColor = QColor(0, 120, 215);
+            break;
+        case 2: // Green
+            themeColor = QColor(76, 175, 80);
+            break;
+        case 3: // Blue
+            themeColor = QColor(33, 150, 243);
+            break;
+        case 4: // Violet
+            themeColor = QColor(156, 39, 176);
+            break;
+        case 5: // Gruvbox
+            themeColor = QColor(251, 73, 52);
+            break;
+        case 6: // Tokyo Night
+            themeColor = QColor(139, 92, 246);
+            break;
+        case 7: // OLED
+            themeColor = QColor(255, 255, 255);
+            break;
+        case 8: // Neon
+            themeColor = QColor(0, 255, 136);
+            break;
+        case 9: // Shadlix
+            themeColor = QColor(255, 107, 107);
+            break;
+        case 10: // ShadlixCave
+            themeColor = QColor(255, 159, 67);
+            break;
+        case 11: // DeepPurple
+            themeColor = QColor(103, 58, 183);
+            break;
+        default:
+            themeColor = QColor(90, 170, 255);
+    }
+    
+    painter.fillRect(iconPixmap.rect(), themeColor);
+    painter.end();
+    
+    label->setPixmap(iconPixmap);
     label->move(2, 2);
     label->raise();
     label->setVisible(hasGameConfig);
@@ -362,9 +419,63 @@ void GameGridFrame::SetFavoriteIcon(QWidget* parentWidget, QVector<GameInfo> m_g
     bool isFavorite = list.contains(serialStr);
 
     QLabel* label = new QLabel(parentWidget);
-    label->setPixmap(QPixmap(":images/favorite_icon.png")
+    QPixmap iconPixmap = QPixmap(":images/favorite_icon.png")
                          .scaled(icon_size / 1.2, icon_size / 1.2, Qt::KeepAspectRatio,
-                                 Qt::SmoothTransformation));
+                                 Qt::SmoothTransformation);
+    
+    // Apply theme color tint to the icon
+    QPainter painter(&iconPixmap);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    
+    // Get theme color from config
+    int theme = Config::getMainWindowTheme();
+    QColor themeColor;
+    
+    switch (theme) {
+        case 0: // Dark
+            themeColor = QColor(90, 170, 255);
+            break;
+        case 1: // Light
+            themeColor = QColor(0, 120, 215);
+            break;
+        case 2: // Green
+            themeColor = QColor(76, 175, 80);
+            break;
+        case 3: // Blue
+            themeColor = QColor(33, 150, 243);
+            break;
+        case 4: // Violet
+            themeColor = QColor(156, 39, 176);
+            break;
+        case 5: // Gruvbox
+            themeColor = QColor(251, 73, 52);
+            break;
+        case 6: // Tokyo Night
+            themeColor = QColor(139, 92, 246);
+            break;
+        case 7: // OLED
+            themeColor = QColor(255, 255, 255);
+            break;
+        case 8: // Neon
+            themeColor = QColor(0, 255, 136);
+            break;
+        case 9: // Shadlix
+            themeColor = QColor(255, 107, 107);
+            break;
+        case 10: // ShadlixCave
+            themeColor = QColor(255, 159, 67);
+            break;
+        case 11: // DeepPurple
+            themeColor = QColor(103, 58, 183);
+            break;
+        default:
+            themeColor = QColor(90, 170, 255);
+    }
+    
+    painter.fillRect(iconPixmap.rect(), themeColor);
+    painter.end();
+    
+    label->setPixmap(iconPixmap);
     label->move(icon_size - icon_size / 2, 1);
     label->raise();
     label->setVisible(isFavorite);

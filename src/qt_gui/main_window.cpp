@@ -1080,6 +1080,8 @@ void MainWindow::CreateDockWindows(bool newDock) {
 
     QWidget* dockContents = new QWidget(this);
     QVBoxLayout* dockLayout = new QVBoxLayout(dockContents);
+    dockLayout->setContentsMargins(0, 0, 0, 0);
+    dockLayout->setSpacing(0);
 
     ui->splitter = new QSplitter(Qt::Vertical);
     ui->logDisplay = new QTextEdit(ui->splitter);
@@ -1113,7 +1115,7 @@ void MainWindow::CreateDockWindows(bool newDock) {
 
         m_game_list_frame->show();
         if (!newDock) {
-            m_game_list_frame->clearContents();
+           m_game_list_frame->clearContents();
             m_game_list_frame->PopulateGameList();
         }
         ui->splitter->addWidget(m_game_list_frame.data());
