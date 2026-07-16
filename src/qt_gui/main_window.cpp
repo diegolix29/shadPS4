@@ -578,18 +578,24 @@ void MainWindow::createToolbarContextMenu(const QPoint& pos) {
     menu.setTitle(tr("Customize Toolbar"));
 
     for (QWidget* container : m_toolbarContainers) {
-        QLabel* label = container->property("buttonLabel").value<QLabel*>();
-        QString name = label ? label->text() : container->objectName();
-        if (name.isEmpty()) {
+        QString name;
 
-            if (qobject_cast<QFrame*>(container)) {
-                name = tr("Separator");
-            } else if (qobject_cast<QCheckBox*>(container)) {
-                name = qobject_cast<QCheckBox*>(container)->text();
-            } else if (qobject_cast<QComboBox*>(container->parentWidget())) {
-                name = tr("Style/Search/Size");
-            } else {
-                name = tr("Unknown Widget");
+        if (container->objectName() == "playPauseContainer") {
+            name = tr("Play/Pause");
+        } else {
+            QLabel* label = container->property("buttonLabel").value<QLabel*>();
+            name = label ? label->text() : container->objectName();
+            if (name.isEmpty()) {
+
+                if (qobject_cast<QFrame*>(container)) {
+                    name = tr("Separator");
+                } else if (qobject_cast<QCheckBox*>(container)) {
+                    name = qobject_cast<QCheckBox*>(container)->text();
+                } else if (qobject_cast<QComboBox*>(container->parentWidget())) {
+                    name = tr("Style/Search/Size");
+                } else {
+                    name = tr("Unknown Widget");
+                }
             }
         }
 
@@ -979,11 +985,20 @@ void MainWindow::AddUiWidgets() {
     ui->playContainer = addToolbarButton(ui->playButton, tr("Play"));
     ui->pauseContainer = addToolbarButton(ui->pauseButton, tr("Pause"));
 
+    ui->playContainer->setObjectName("playContainer");
+    ui->pauseContainer->setObjectName("pauseContainer");
+
     playPauseLayout->addWidget(ui->playContainer);
     playPauseLayout->addWidget(ui->pauseContainer);
     playPauseStack->setLayout(playPauseLayout);
 
-    ui->pauseContainer->setVisible(false);
+    playPauseStack->setObjectName("playPauseContainer");
+
+    ui->pauseButton->setVisible(false);
+    QLabel* pauseLabel = ui->pauseContainer->findChild<QLabel*>();
+    if (pauseLabel) {
+        pauseLabel->setVisible(false);
+    }
 
     QWidget* stopContainer = addToolbarButton(ui->stopButton, tr("Stop"));
     QWidget* restartContainer = addToolbarButton(ui->restartButton, tr("Restart"));
@@ -999,6 +1014,21 @@ void MainWindow::AddUiWidgets() {
     QWidget* bigPictureContainer = addToolbarButton(ui->bigPictureButton, tr("BigPicture"));
     QWidget* gameHubContainer = addToolbarButton(ui->hubMenuButton, tr("GameHub"));
     QWidget* cinemaContainer = addToolbarButton(ui->cinemaButton, tr("Cinema"));
+
+    stopContainer->setObjectName("stopContainer");
+    restartContainer->setObjectName("restartContainer");
+    settingsContainer->setObjectName("settingsContainer");
+    fullscreenContainer->setObjectName("fullscreenContainer");
+    controllerContainer->setObjectName("controllerContainer");
+    keyboardContainer->setObjectName("keyboardContainer");
+    hotkeysContainer->setObjectName("hotkeysContainer");
+    updaterContainer->setObjectName("updaterContainer");
+    refreshContainer->setObjectName("refreshContainer");
+    versionContainer->setObjectName("versionContainer");
+    modsContainer->setObjectName("modsContainer");
+    bigPictureContainer->setObjectName("bigPictureContainer");
+    gameHubContainer->setObjectName("gameHubContainer");
+    cinemaContainer->setObjectName("cinemaContainer");
 
     ui->bootIconsLayout->addWidget(playPauseStack);
     ui->bootIconsLayout->addWidget(stopContainer);
@@ -1022,8 +1052,7 @@ void MainWindow::AddUiWidgets() {
     iconsWrapperLayout->addWidget(ui->bootIconsArea);
     iconsWrapperLayout->addStretch();
 
-    m_toolbarContainers.append(ui->playContainer);
-    m_toolbarContainers.append(ui->pauseContainer);
+    m_toolbarContainers.append(playPauseStack);
     m_toolbarContainers.append(stopContainer);
     m_toolbarContainers.append(restartContainer);
     m_toolbarContainers.append(settingsContainer);
@@ -1196,18 +1225,20 @@ void MainWindow::AddUiWidgets() {
 void MainWindow::UpdateToolbarButtons() {
     bool showLabels = ui->toggleLabelsAct->isChecked();
 
+    QLabel* playLabel = ui->playContainer->findChild<QLabel*>();
     QLabel* pauseLabel = ui->pauseContainer->findChild<QLabel*>();
-    if (pauseLabel) {
-        pauseLabel->setVisible(false);
-    }
 
     if (Config::getGameRunning()) {
-        ui->playContainer->setVisible(false);
-        ui->pauseContainer->setVisible(true);
+        ui->playButton->setVisible(false);
+        ui->pauseButton->setVisible(true);
 
         if (is_paused) {
             ui->pauseButton->setIcon(ui->playButton->icon());
             ui->pauseButton->setToolTip(tr("Resume"));
+
+            if (m_originalIcons.contains(ui->playButton)) {
+                m_originalIcons[ui->pauseButton] = m_originalIcons[ui->playButton];
+            }
         } else {
             QColor baseColor;
             QColor hoverColor;
@@ -1223,24 +1254,31 @@ void MainWindow::UpdateToolbarButtons() {
             }
 
             ui->pauseButton->setIcon(
-                RecolorIcon(QIcon(":images/pause_icon.png"), baseColor, hoverColor));
+                RecolorIcon(QIcon(":/images/pause_icon.png"), baseColor, hoverColor));
             ui->pauseButton->setToolTip(tr("Pause"));
+
+            m_originalIcons[ui->pauseButton] = QIcon(":/images/pause_icon.png");
         }
 
-        if (showLabels && pauseLabel) {
-            pauseLabel->setText(is_paused ? tr("Resume") : tr("Pause"));
-            pauseLabel->setVisible(true);
+        if (showLabels) {
+            if (playLabel)
+                playLabel->setVisible(false);
+            if (pauseLabel) {
+                pauseLabel->setText(is_paused ? tr("Resume") : tr("Pause"));
+                pauseLabel->setVisible(true);
+            }
         }
     } else {
-        ui->playContainer->setVisible(true);
-        ui->pauseContainer->setVisible(false);
-    }
+        ui->playButton->setVisible(true);
+        ui->pauseButton->setVisible(false);
 
-    if (showLabels) {
-        QLabel* playLabel = ui->playContainer->findChild<QLabel*>();
-        if (playLabel) {
-            playLabel->setText(tr("Play"));
-            playLabel->setVisible(true);
+        if (showLabels) {
+            if (playLabel) {
+                playLabel->setText(tr("Play"));
+                playLabel->setVisible(true);
+            }
+            if (pauseLabel)
+                pauseLabel->setVisible(false);
         }
     }
 }
@@ -1249,9 +1287,8 @@ void MainWindow::UpdateToolbarLabels() {
     bool showLabels = ui->toggleLabelsAct->isChecked();
 
     for (QPushButton* button :
-         {ui->playButton, ui->stopButton, ui->restartButton, ui->settingsButton,
-          ui->fullscreenButton, ui->controllerButton, ui->keyboardButton, ui->versionButton,
-          ui->fullscreenButton, ui->controllerButton, ui->keyboardButton, ui->bigPictureButton,
+         {ui->stopButton, ui->restartButton, ui->settingsButton, ui->fullscreenButton,
+          ui->controllerButton, ui->keyboardButton, ui->versionButton, ui->bigPictureButton,
           ui->hubMenuButton, ui->cinemaButton, ui->configureHotkeysButton, ui->updaterButton,
           ui->refreshButton, ui->modManagerButton}) {
         QLabel* label = button->parentWidget()->findChild<QLabel*>();
@@ -1259,9 +1296,25 @@ void MainWindow::UpdateToolbarLabels() {
             label->setVisible(showLabels);
     }
 
+    QLabel* playLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
     QLabel* pauseLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
-    if (pauseLabel)
-        pauseLabel->setVisible(showLabels && Config::getGameRunning());
+
+    if (Config::getGameRunning()) {
+        if (playLabel)
+            playLabel->setVisible(false);
+        if (pauseLabel) {
+            pauseLabel->setText(is_paused ? tr("Resume") : tr("Pause"));
+            pauseLabel->setVisible(showLabels);
+        }
+    } else {
+        if (playLabel) {
+            playLabel->setText(tr("Play"));
+            playLabel->setVisible(showLabels);
+        }
+        if (pauseLabel)
+            pauseLabel->setVisible(false);
+    }
+
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::saveMainWindow(config_dir / "config.toml");
 }
