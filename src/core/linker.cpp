@@ -459,17 +459,39 @@ bool Linker::Resolve(const std::string& name, Loader::SymbolType sym_type, Modul
 }
 
 void* Linker::TlsGetAddr(u64 module_index, u64 offset) {
+    // Fast path: if this thread's DTV is already current for the loaded-module
+    // generation and the requested module's TLS block is present, resolving the
+    // address is a pure per-thread read -- every thread owns its own DTV, which only
+    // this thread ever grows (and only under the lock, on the slow path below). Take
+    // no lock here: __tls_get_addr resolves through this on every single guest TLS
+    // access, so the global linker mutex would otherwise be a hot serialization point
+    // across all threads (the SPU worker threads in particular hammer it, thrashing on
+    // one exclusive lock per context access). The generation counter is read atomically
+    // so a concurrent module load that grows the table is observed as a mismatch, which
+    // falls through to the locked slow path instead of indexing a stale/undersized DTV.
+    {
+        DtvEntry* dtv_table = GetTcbBase()->tcb_dtv;
+        if (dtv_table[0].counter == dtv_generation_counter.load(std::memory_order_acquire)) {
+            u8* addr = dtv_table[module_index + 1].pointer;
+            if (addr) {
+                return addr + offset;
+            }
+        }
+    }
+
+    // Slow path: the DTV needs growing (a dynamic module was loaded) or this module's
+    // TLS block hasn't been allocated for this thread yet -- both mutate state, so lock.
     std::scoped_lock lk{mutex};
 
     DtvEntry* dtv_table = GetTcbBase()->tcb_dtv;
-    if (dtv_table[0].counter != dtv_generation_counter) {
+    if (dtv_table[0].counter != dtv_generation_counter.load(std::memory_order_acquire)) {
         // Generation counter changed, a dynamic module was either loaded or unloaded.
         const u32 old_num_dtvs = dtv_table[1].counter;
         ASSERT_MSG(max_tls_index > old_num_dtvs, "Module unloading unsupported");
         // Module was loaded, increase DTV table size.
         DtvEntry* new_dtv_table = new DtvEntry[max_tls_index + 2]{};
         std::memcpy(new_dtv_table + 2, dtv_table + 2, old_num_dtvs * sizeof(DtvEntry));
-        new_dtv_table[0].counter = dtv_generation_counter;
+        new_dtv_table[0].counter = dtv_generation_counter.load(std::memory_order_relaxed);
         new_dtv_table[1].counter = max_tls_index;
         delete[] dtv_table;
 

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
 #include <vector>
 #include "core/libraries/kernel/threads.h"
@@ -102,7 +103,7 @@ public:
     }
 
     u32 GenerationCounter() const {
-        return dtv_generation_counter;
+        return dtv_generation_counter.load(std::memory_order_acquire);
     }
 
     size_t StaticTlsSize() const noexcept {
@@ -144,7 +145,7 @@ public:
     }
 
     void AdvanceGenerationCounter() noexcept {
-        dtv_generation_counter++;
+        dtv_generation_counter.fetch_add(1, std::memory_order_release);
     }
 
     void* TlsGetAddr(u64 module_index, u64 offset);
@@ -166,7 +167,7 @@ private:
     MemoryManager* memory;
     Libraries::Kernel::Thread main_thread;
     std::mutex mutex;
-    u32 dtv_generation_counter{1};
+    std::atomic<u32> dtv_generation_counter{1};
     size_t static_tls_size{};
     u32 max_tls_index{};
     u32 num_static_modules{};
