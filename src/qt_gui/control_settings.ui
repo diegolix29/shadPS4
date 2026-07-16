@@ -111,13 +111,7 @@
                   <property name="minimumSize">
                    <size>
                     <width>152</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>0</width>
-                    <height>16777215</height>
+                    <height>50</height>
                    </size>
                   </property>
                   <property name="title">
@@ -129,6 +123,12 @@
                   <layout class="QHBoxLayout" name="horizontalLayout_4">
                    <item>
                     <widget class="QPushButton" name="DpadUpButton">
+                     <property name="minimumSize">
+                      <size>
+                       <width>120</width>
+                       <height>30</height>
+                      </size>
+                     </property>
                      <property name="text">
                       <string>unmapped</string>
                      </property>
@@ -226,13 +226,7 @@
                   <property name="minimumSize">
                    <size>
                     <width>152</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>124</width>
-                    <height>16777215</height>
+                    <height>50</height>
                    </size>
                   </property>
                   <property name="title">
@@ -244,6 +238,12 @@
                   <layout class="QHBoxLayout" name="horizontalLayout_3">
                    <item>
                     <widget class="QPushButton" name="DpadDownButton">
+                     <property name="minimumSize">
+                      <size>
+                       <width>120</width>
+                       <height>30</height>
+                      </size>
+                     </property>
                      <property name="text">
                       <string>unmapped</string>
                      </property>
@@ -515,13 +515,7 @@
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>152</width>
-                    <height>16777215</height>
+                    <height>50</height>
                    </size>
                   </property>
                   <property name="title">
@@ -533,6 +527,12 @@
                   <layout class="QVBoxLayout" name="verticalLayout_10">
                    <item>
                     <widget class="QPushButton" name="LStickUpButton">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>30</height>
+                      </size>
+                     </property>
                      <property name="text">
                       <string>unmapped</string>
                      </property>
@@ -579,12 +579,6 @@
                </item>
                <item>
                 <widget class="QGroupBox" name="gb_left_stick_right">
-                 <property name="maximumSize">
-                  <size>
-                   <width>179</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
                  <property name="title">
                   <string>Right</string>
                  </property>
@@ -636,13 +630,7 @@
                   <property name="minimumSize">
                    <size>
                     <width>152</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>124</width>
-                    <height>21212</height>
+                    <height>50</height>
                    </size>
                   </property>
                   <property name="title">
@@ -654,6 +642,12 @@
                   <layout class="QVBoxLayout" name="verticalLayout_8">
                    <item>
                     <widget class="QPushButton" name="LStickDownButton">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>30</height>
+                      </size>
+                     </property>
                      <property name="text">
                       <string>unmapped</string>
                      </property>
@@ -1358,13 +1352,7 @@
                   <property name="minimumSize">
                    <size>
                     <width>152</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>0</width>
-                    <height>16777215</height>
+                    <height>50</height>
                    </size>
                   </property>
                   <property name="title">
@@ -1376,6 +1364,12 @@
                   <layout class="QVBoxLayout" name="verticalLayout_3">
                    <item>
                     <widget class="QPushButton" name="TriangleButton">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>30</height>
+                      </size>
+                     </property>
                      <property name="text">
                       <string>unmapped</string>
                      </property>
@@ -1473,13 +1467,7 @@
                   <property name="minimumSize">
                    <size>
                     <width>152</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>124</width>
-                    <height>16777215</height>
+                    <height>50</height>
                    </size>
                   </property>
                   <property name="title">
@@ -1491,6 +1479,12 @@
                   <layout class="QVBoxLayout" name="verticalLayout_5">
                    <item>
                     <widget class="QPushButton" name="CrossButton">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>30</height>
+                      </size>
+                     </property>
                      <property name="text">
                       <string>unmapped</string>
                      </property>
@@ -1765,13 +1759,7 @@
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>152</width>
-                    <height>1231321</height>
+                    <height>50</height>
                    </size>
                   </property>
                   <property name="title">
@@ -1783,6 +1771,12 @@
                   <layout class="QVBoxLayout" name="verticalLayout_7">
                    <item>
                     <widget class="QPushButton" name="RStickUpButton">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>30</height>
+                      </size>
+                     </property>
                      <property name="text">
                       <string>unmapped</string>
                      </property>
@@ -1880,13 +1874,7 @@
                   <property name="minimumSize">
                    <size>
                     <width>152</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>124</width>
-                    <height>2121</height>
+                    <height>50</height>
                    </size>
                   </property>
                   <property name="title">
@@ -1898,6 +1886,12 @@
                   <layout class="QVBoxLayout" name="verticalLayout_6">
                    <item>
                     <widget class="QPushButton" name="RStickDownButton">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>30</height>
+                      </size>
+                     </property>
                      <property name="text">
                       <string>unmapped</string>
                      </property>
