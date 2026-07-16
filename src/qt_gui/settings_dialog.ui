@@ -216,6 +216,15 @@
 															<string>System</string>
 														</property>
 														<layout class="QVBoxLayout" name="emuSettingsLayout">
+															<property name="leftMargin">
+																<number>9</number>
+															</property>
+															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
+																<number>9</number>
+															</property>
 															<property name="bottomMargin">
 																<number>70</number>
 															</property>
@@ -225,6 +234,18 @@
 																		<string>Console Language</string>
 																	</property>
 																	<layout class="QVBoxLayout" name="settingsLayout">
+																		<property name="leftMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="topMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="rightMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="bottomMargin">
+																			<number>9</number>
+																		</property>
 																		<item>
 																			<widget class="QComboBox" name="consoleLanguageComboBox"/>
 																		</item>
@@ -237,6 +258,18 @@
 																		<string>Emulator Language</string>
 																	</property>
 																	<layout class="QVBoxLayout" name="langSettingsLayout">
+																		<property name="leftMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="topMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="rightMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="bottomMargin">
+																			<number>9</number>
+																		</property>
 																		<item>
 																			<widget class="QComboBox" name="emulatorLanguageComboBox"/>
 																		</item>
@@ -468,6 +501,18 @@
 													<string>Audio Backend</string>
 												</property>
 												<layout class="QVBoxLayout" name="verticalLayout_82">
+													<property name="leftMargin">
+														<number>9</number>
+													</property>
+													<property name="topMargin">
+														<number>9</number>
+													</property>
+													<property name="rightMargin">
+														<number>9</number>
+													</property>
+													<property name="bottomMargin">
+														<number>9</number>
+													</property>
 													<item>
 														<widget class="QComboBox" name="AudioBackendComboBox">
 															<item>
@@ -491,6 +536,18 @@
 													<string>Audio Device (general)</string>
 												</property>
 												<layout class="QVBoxLayout" name="verticalLayout_81">
+													<property name="leftMargin">
+														<number>9</number>
+													</property>
+													<property name="topMargin">
+														<number>9</number>
+													</property>
+													<property name="rightMargin">
+														<number>9</number>
+													</property>
+													<property name="bottomMargin">
+														<number>9</number>
+													</property>
 													<item>
 														<widget class="QComboBox" name="GenAudioComboBox"/>
 													</item>
@@ -503,6 +560,18 @@
 													<string>Audio Device (DS4 speaker)</string>
 												</property>
 												<layout class="QVBoxLayout" name="verticalLayout_9">
+													<property name="leftMargin">
+														<number>9</number>
+													</property>
+													<property name="topMargin">
+														<number>9</number>
+													</property>
+													<property name="rightMargin">
+														<number>9</number>
+													</property>
+													<property name="bottomMargin">
+														<number>9</number>
+													</property>
 													<item>
 														<widget class="QComboBox" name="DsAudioComboBox"/>
 													</item>
@@ -562,7 +631,13 @@
 															<string>GUI Settings</string>
 														</property>
 														<layout class="QVBoxLayout" name="GUILayout">
+															<property name="leftMargin">
+																<number>9</number>
+															</property>
 															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
 																<number>9</number>
 															</property>
 															<property name="bottomMargin">
@@ -574,6 +649,18 @@
 																		<string>Default tab when opening settings</string>
 																	</property>
 																	<layout class="QVBoxLayout" name="tabSettingsLayout">
+																		<property name="leftMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="topMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="rightMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="bottomMargin">
+																			<number>9</number>
+																		</property>
 																		<item>
 																			<widget class="QComboBox" name="chooseHomeTabComboBox">
 																				<property name="sizePolicy">
@@ -646,6 +733,18 @@
 																		<string>Background Image</string>
 																	</property>
 																	<layout class="QVBoxLayout" name="backgroundImageVLayout">
+																		<property name="leftMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="topMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="rightMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="bottomMargin">
+																			<number>9</number>
+																		</property>
 																		<item>
 																			<widget class="QCheckBox" name="showBackgroundImageCheckBox">
 																				<property name="sizePolicy">
@@ -937,7 +1036,13 @@
 															<property name="spacing">
 																<number>10</number>
 															</property>
+															<property name="leftMargin">
+																<number>9</number>
+															</property>
 															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
 																<number>9</number>
 															</property>
 															<property name="bottomMargin">
@@ -1039,6 +1144,18 @@
 															<string>Graphics Device</string>
 														</property>
 														<layout class="QVBoxLayout" name="graphicsAdapterLayout">
+															<property name="leftMargin">
+																<number>9</number>
+															</property>
+															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
+																<number>9</number>
+															</property>
+															<property name="bottomMargin">
+																<number>9</number>
+															</property>
 															<item>
 																<widget class="QComboBox" name="graphicsAdapterBox"/>
 															</item>
@@ -1099,12 +1216,33 @@
 															<property name="leftMargin">
 																<number>12</number>
 															</property>
+															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
+																<number>12</number>
+															</property>
+															<property name="bottomMargin">
+																<number>12</number>
+															</property>
 															<item>
 																<widget class="QGroupBox" name="displayModeGroupBox">
 																	<property name="title">
 																		<string>Display Mode</string>
 																	</property>
 																	<layout class="QVBoxLayout" name="displayModeLayout">
+																		<property name="leftMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="topMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="rightMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="bottomMargin">
+																			<number>9</number>
+																		</property>
 																		<item>
 																			<widget class="QComboBox" name="displayModeComboBox">
 																				<property name="sizePolicy">
@@ -1139,6 +1277,18 @@
 																		<string>Present Mode</string>
 																	</property>
 																	<layout class="QVBoxLayout" name="presentModeLayout">
+																		<property name="leftMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="topMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="rightMargin">
+																			<number>9</number>
+																		</property>
+																		<property name="bottomMargin">
+																			<number>9</number>
+																		</property>
 																		<item>
 																			<widget class="QComboBox" name="presentModeComboBox">
 																				<property name="sizePolicy">
@@ -1175,6 +1325,18 @@
 																				<string>Window Size</string>
 																			</property>
 																			<layout class="QHBoxLayout" name="resLayout">
+																				<property name="leftMargin">
+																					<number>9</number>
+																				</property>
+																				<property name="topMargin">
+																					<number>9</number>
+																				</property>
+																				<property name="rightMargin">
+																					<number>9</number>
+																				</property>
+																				<property name="bottomMargin">
+																					<number>9</number>
+																				</property>
 																				<item>
 																					<widget class="QLabel" name="widthLabel">
 																						<property name="text">
@@ -1184,6 +1346,12 @@
 																				</item>
 																				<item>
 																					<widget class="QSpinBox" name="widthSpinBox">
+																						<property name="minimumSize">
+																							<size>
+																								<width>0</width>
+																								<height>35</height>
+																							</size>
+																						</property>
 																						<property name="accelerated">
 																							<bool>true</bool>
 																						</property>
@@ -1213,6 +1381,12 @@
 																				</item>
 																				<item>
 																					<widget class="QSpinBox" name="heightSpinBox">
+																						<property name="minimumSize">
+																							<size>
+																								<width>0</width>
+																								<height>35</height>
+																							</size>
+																						</property>
 																						<property name="frame">
 																							<bool>true</bool>
 																						</property>
@@ -1245,8 +1419,26 @@
 																				<string>Vblank Frequency</string>
 																			</property>
 																			<layout class="QVBoxLayout" name="vblankLayout">
+																				<property name="leftMargin">
+																					<number>9</number>
+																				</property>
+																				<property name="topMargin">
+																					<number>9</number>
+																				</property>
+																				<property name="rightMargin">
+																					<number>9</number>
+																				</property>
+																				<property name="bottomMargin">
+																					<number>9</number>
+																				</property>
 																				<item>
 																					<widget class="QSpinBox" name="vblankSpinBox">
+																						<property name="minimumSize">
+																							<size>
+																								<width>0</width>
+																								<height>35</height>
+																							</size>
+																						</property>
 																						<property name="frame">
 																							<bool>true</bool>
 																						</property>
@@ -1322,6 +1514,18 @@
 															<string>FSR Settings</string>
 														</property>
 														<layout class="QVBoxLayout" name="verticalLayout_5">
+															<property name="leftMargin">
+																<number>9</number>
+															</property>
+															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
+																<number>9</number>
+															</property>
+															<property name="bottomMargin">
+																<number>9</number>
+															</property>
 															<item>
 																<widget class="QCheckBox" name="FSRCheckBox">
 																	<property name="text">
@@ -1353,6 +1557,12 @@
 																	</item>
 																	<item>
 																		<widget class="QDoubleSpinBox" name="RCASSpinBox">
+																			<property name="minimumSize">
+																				<size>
+																					<width>0</width>
+																					<height>35</height>
+																				</size>
+																			</property>
 																			<property name="minimum">
 																				<double>0.000</double>
 																			</property>
@@ -1391,7 +1601,18 @@
 															<string>FPS Limit</string>
 														</property>
 														<layout class="QVBoxLayout" name="verticalLayout_8">
-
+															<property name="leftMargin">
+																<number>9</number>
+															</property>
+															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
+																<number>9</number>
+															</property>
+															<property name="bottomMargin">
+																<number>9</number>
+															</property>
 															<item>
 																<widget class="QCheckBox" name="fpsLimiterCheckBox">
 																	<property name="text">
@@ -1404,6 +1625,12 @@
 																<layout class="QHBoxLayout" name="horizontalLayout_8">
 																	<item>
 																		<widget class="QSpinBox" name="fpsSpinBox">
+																			<property name="minimumSize">
+																				<size>
+																					<width>80</width>
+																					<height>35</height>
+																				</size>
+																			</property>
 																			<property name="minimum">
 																				<number>30</number>
 																			</property>
@@ -1421,12 +1648,6 @@
 																			</property>
 																			<property name="alignment">
 																				<set>Qt::AlignCenter</set>
-																			</property>
-																			<property name="minimumSize">
-																				<size>
-																					<width>80</width>
-																					<height>0</height>
-																				</size>
 																			</property>
 																		</widget>
 																	</item>
@@ -1516,9 +1737,19 @@
 														<property name="title">
 															<string>Usernames</string>
 														</property>
-
 														<layout class="QVBoxLayout" name="userNamesLayout">
-
+															<property name="leftMargin">
+																<number>9</number>
+															</property>
+															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
+																<number>9</number>
+															</property>
+															<property name="bottomMargin">
+																<number>9</number>
+															</property>
 															<item>
 																<layout class="QHBoxLayout" name="user1Layout">
 																	<item>
@@ -1598,6 +1829,18 @@
 															</sizepolicy>
 														</property>
 														<layout class="QGridLayout" name="playerEnableGridLayout">
+															<property name="leftMargin">
+																<number>9</number>
+															</property>
+															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
+																<number>9</number>
+															</property>
+															<property name="bottomMargin">
+																<number>9</number>
+															</property>
 															<item row="0" column="0">
 																<widget class="QLabel">
 																	<property name="text">
@@ -1660,6 +1903,18 @@
 															</sizepolicy>
 														</property>
 														<layout class="QGridLayout" name="specialPadGridLayout">
+															<property name="leftMargin">
+																<number>9</number>
+															</property>
+															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
+																<number>9</number>
+															</property>
+															<property name="bottomMargin">
+																<number>9</number>
+															</property>
 															<item row="0" column="0">
 																<widget class="QLabel">
 																	<property name="text">
@@ -1786,6 +2041,18 @@
 															</sizepolicy>
 														</property>
 														<layout class="QVBoxLayout" name="userNameLayout_2">
+															<property name="leftMargin">
+																<number>9</number>
+															</property>
+															<property name="topMargin">
+																<number>9</number>
+															</property>
+															<property name="rightMargin">
+																<number>9</number>
+															</property>
+															<property name="bottomMargin">
+																<number>9</number>
+															</property>
 															<item>
 																<widget class="QCheckBox" name="disableTrophycheckBox">
 																	<property name="text">
@@ -1860,7 +2127,14 @@
 																		</widget>
 																	</item>
 																	<item>
-																		<widget class="QDoubleSpinBox" name="popUpDurationSpinBox"/>
+																		<widget class="QDoubleSpinBox" name="popUpDurationSpinBox">
+																			<property name="minimumSize">
+																				<size>
+																					<width>0</width>
+																					<height>35</height>
+																				</size>
+																			</property>
+																		</widget>
 																	</item>
 																	<item>
 																		<spacer name="horizontalSpacer_4">
@@ -2262,7 +2536,7 @@
 																				<property name="minimumSize">
 																					<size>
 																						<width>0</width>
-																						<height>0</height>
+																						<height>35</height>
 																					</size>
 																				</property>
 																				<property name="maximumSize">
@@ -3356,6 +3630,12 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
 										<layout class="QVBoxLayout" name="groupBox_2_layout">
 											<item>
 												<widget class="QSpinBox" name="MemorySpinBox">
+													<property name="minimumSize">
+														<size>
+															<width>0</width>
+															<height>35</height>
+														</size>
+													</property>
 													<property name="minimum">
 														<number>0</number>
 													</property>
@@ -3364,6 +3644,9 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
 													</property>
 													<property name="value">
 														<number>512</number>
+													</property>
+													<property name="suffix">
+														<string> MB</string>
 													</property>
 												</widget>
 											</item>
