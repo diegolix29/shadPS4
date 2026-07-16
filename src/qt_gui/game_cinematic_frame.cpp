@@ -77,9 +77,31 @@ GameCinematicFrame::GameCinematicFrame(std::shared_ptr<GameInfoClass> game_info_
 
     setObjectName("CinematicFrame");
     setFocusPolicy(Qt::StrongFocus);
+    setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
+    setAttribute(Qt::WA_DeleteOnClose, false);
 
     SetupUI();
     PopulateGameList();
+}
+
+void GameCinematicFrame::showFull() {
+    showFullScreen();
+    raise();
+    activateWindow();
+    setFocus(Qt::OtherFocusReason);
+}
+
+void GameCinematicFrame::hideFull() {
+    hide();
+}
+
+void GameCinematicFrame::toggle() {
+    if (isVisible()) {
+        hideFull();
+    } else {
+        PopulateGameList();
+        showFull();
+    }
 }
 
 void GameCinematicFrame::SetupUI() {
@@ -128,12 +150,23 @@ void GameCinematicFrame::SetupUI() {
 
     m_playButton->hide();
 
+    m_quitButton = new QPushButton(tr("Back"), this);
+    m_quitButton->setFixedSize(100, 40);
+    m_quitButton->setCursor(Qt::PointingHandCursor);
+    m_quitButton->setStyleSheet("QPushButton { background-color: #d32f2f; color: white; "
+                                "font-size: 14px; font-weight: bold; border-radius: 5px; }"
+                                "QPushButton:hover { background-color: #f44336; }"
+                                "QPushButton:pressed { background-color: #b71c1c; }");
+
+    connect(m_quitButton, &QPushButton::clicked, this, &GameCinematicFrame::onQuitButtonClicked);
+
     infoLayout->addWidget(m_titleLabel);
     infoLayout->addWidget(m_idLabel);
     infoLayout->addWidget(m_compatLabel);
     infoLayout->addWidget(m_detailsLabel);
     infoLayout->addSpacing(15);
     infoLayout->addWidget(m_playButton);
+    infoLayout->addWidget(m_quitButton);
 
     heroLayout->addLayout(infoLayout);
     heroLayout->addStretch();
@@ -181,7 +214,7 @@ void GameCinematicFrame::PopulateGameList() {
 
 void GameCinematicFrame::RefreshBackground() {
     QPalette palette;
-    if (!backgroundImage.isNull() && Config::getShowBackgroundImage()) {
+    if (!backgroundImage.isNull()) {
         QSize widgetSize = size();
         QPixmap scaledPixmap =
             QPixmap::fromImage(backgroundImage)
@@ -250,7 +283,7 @@ void GameCinematicFrame::UpdateHeroSection(const GameInfo& game) {
 
     m_playButton->show();
 
-    if (Config::getShowBackgroundImage() && !game.pic_path.empty()) {
+    if (!game.pic_path.empty()) {
         QString imagePath = pathToQString(game.pic_path);
         QImage original_image(imagePath);
         if (!original_image.isNull()) {
@@ -296,6 +329,10 @@ void GameCinematicFrame::onPlayButtonClicked() {
     if (m_currentIndex >= 0 && m_currentIndex < (int)m_game_info->m_games.size()) {
     }
     emit launchGameRequested(m_currentIndex);
+}
+
+void GameCinematicFrame::onQuitButtonClicked() {
+    hideFull();
 }
 void GameCinematicFrame::mouseDoubleClickEvent(QMouseEvent* event) {
     if (m_currentIndex >= 0 && m_currentIndex < static_cast<int>(m_game_info->m_games.size())) {

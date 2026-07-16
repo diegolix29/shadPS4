@@ -2055,6 +2055,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         g_customBackgroundImage = toml::find_or<std::string>(gui, "CustomBackgroundImage", "");
         load_game_size = toml::find_or<bool>(gui, "loadGameSizeEnabled", true);
+        showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
 
         m_icon_size = toml::find_or<int>(gui, "iconSize", 36);
         m_icon_size_grid = toml::find_or<int>(gui, "iconSizeGrid", 69);

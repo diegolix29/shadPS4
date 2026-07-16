@@ -283,7 +283,6 @@ private:
 
     WindowThemes m_window_themes;
     GameListUtils m_game_list_utils;
-    QScopedPointer<QDockWidget> m_dock_widget;
 
     QScopedPointer<GameListFrame> m_game_list_frame;
     QScopedPointer<GameGridFrame> m_game_grid_frame;

@@ -6,7 +6,7 @@
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
-#include <QMouseEvent> // Added for mouse events
+#include <QMouseEvent>
 #include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
@@ -62,6 +62,9 @@ public:
 
     void PopulateGameList();
     void RefreshBackground();
+    void showFull();
+    void hideFull();
+    void toggle();
 
 signals:
     void launchGameRequested(int index);
@@ -69,6 +72,7 @@ signals:
 private slots:
     void onCardClicked(int index);
     void onPlayButtonClicked();
+    void onQuitButtonClicked();
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
@@ -94,6 +98,7 @@ private:
     QLabel* m_detailsLabel = nullptr;
     QLabel* m_compatLabel = nullptr;
     QPushButton* m_playButton = nullptr;
+    QPushButton* m_quitButton = nullptr;
 
     QScrollArea* m_scrollArea = nullptr;
     QWidget* m_scrollContent = nullptr;

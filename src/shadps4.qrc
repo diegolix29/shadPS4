@@ -42,5 +42,7 @@
         <file>images/game_settings.png</file>
         <file>images/hub_icon.png</file>
         <file>images/games_icon.png</file>
+        <file>images/cinema_icon.png</file>
+        <file>images/default_background.jpg</file>
     </qresource>
 </RCC>

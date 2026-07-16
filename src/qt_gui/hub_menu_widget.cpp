@@ -1038,5 +1038,15 @@ void HubMenuWidget::showEvent(QShowEvent* ev) {
         ensureSelectionValid();
         highlightSelectedGame();
         requestCenterSelectedGame();
+        // Ensure UI is visible on first launch
+        if (m_sidebarContainer)
+            m_sidebarContainer->setVisible(true);
+        if (m_actionsMenu)
+            m_actionsMenu->setVisible(m_menuVisible);
+        if (m_dim)
+            m_dim->setVisible(true);
+        if (m_scroll)
+            m_scroll->setVisible(true);
+        m_hideUi = false;
     });
 }

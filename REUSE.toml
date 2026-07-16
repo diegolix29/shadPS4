@@ -85,6 +85,8 @@ path = [
     "src/images/hotkeybutton.png",
     "src/images/favorite_icon.png",
     "src/images/game_settings.png",
+    "src/images/default_background.jpg",
+    "src/images/cinema_icon.png",
     "src/shadps4.qrc",
     "src/images/big_picture/controller.png",
     "src/images/big_picture/experimental.png",

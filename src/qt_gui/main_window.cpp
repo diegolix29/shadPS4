@@ -299,6 +299,7 @@ bool MainWindow::Init() {
         ui->versionButton->installEventFilter(this);
         ui->bigPictureButton->installEventFilter(this);
         ui->hubMenuButton->installEventFilter(this);
+        ui->cinemaButton->installEventFilter(this);
         ui->modManagerButton->installEventFilter(this);
         ui->launcherBox->installEventFilter(this);
     }
@@ -318,6 +319,7 @@ bool MainWindow::Init() {
         ui->versionButton->removeEventFilter(this);
         ui->bigPictureButton->removeEventFilter(this);
         ui->hubMenuButton->removeEventFilter(this);
+        ui->cinemaButton->removeEventFilter(this);
         ui->modManagerButton->removeEventFilter(this);
         ui->launcherBox->removeEventFilter(this);
     }
@@ -598,7 +600,8 @@ void MainWindow::createToolbarContextMenu(const QPoint& pos) {
         connect(action, &QAction::toggled, this, &MainWindow::toggleToolbarWidgetVisibility);
     }
 
-    menu.exec(pos);
+    QPoint menuPos = QCursor::pos();
+    menu.exec(menuPos);
 }
 
 void MainWindow::toggleToolbarWidgetVisibility(bool checked) {
@@ -804,27 +807,142 @@ void MainWindow::AddUiWidgets() {
         return container;
     };
 
-    auto createSpacer_wrapped = [this]() -> QWidget* {
-        QWidget* spacer = new QWidget(this);
-        spacer->setFixedWidth(5);
-        spacer->setFixedHeight(5);
-        return spacer;
-    };
-
-    auto createVLine = [this]() -> QFrame* {
-        QFrame* line = new QFrame(this);
-        line->setFrameShape(QFrame::VLine);
-        line->setFrameShadow(QFrame::Sunken);
-        line->setMinimumWidth(2);
-        return line;
-    };
-
     bool showLabels = ui->toggleLabelsAct->isChecked();
     ui->toolBar->clear();
 
-    QWidget* toolbarContainer = new QWidget(this);
-    QFlowLayout* flowLayout = new QFlowLayout(toolbarContainer, 5, 0, 5);
-    toolbarContainer->setLayout(flowLayout);
+    ui->backgroundImageLabel = new QLabel(this);
+    ui->backgroundImageLabel->setObjectName("backgroundImageLabel");
+    ui->backgroundImageLabel->setAlignment(Qt::AlignCenter);
+    ui->backgroundImageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    ui->backgroundImageLabel->setStyleSheet("QLabel#backgroundImageLabel {"
+                                            "  background-color: rgba(20, 20, 30, 150);"
+                                            "  border: none;"
+                                            "}");
+
+    QString defaultBackgroundPath = ":/images/default_background.jpg";
+    QPixmap defaultPixmap(defaultBackgroundPath);
+    if (!defaultPixmap.isNull()) {
+        QPixmap scaledPixmap =
+            defaultPixmap.scaled(size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+        ui->backgroundImageLabel->setPixmap(scaledPixmap);
+    }
+
+    setCentralWidget(ui->backgroundImageLabel);
+
+    QWidget* uiOverlay = new QWidget(ui->backgroundImageLabel);
+    uiOverlay->setObjectName("uiOverlay");
+    uiOverlay->setStyleSheet("QWidget#uiOverlay { background-color: transparent; }");
+    uiOverlay->setGeometry(0, 0, ui->backgroundImageLabel->width(),
+                           ui->backgroundImageLabel->height());
+
+    QVBoxLayout* mainLayout = new QVBoxLayout(uiOverlay);
+    mainLayout->setContentsMargins(10, 10, 10, 10);
+    mainLayout->setSpacing(0);
+
+    ui->topControlBar = new QWidget(uiOverlay);
+    ui->topControlBar->setStyleSheet("background-color: transparent; border: none;");
+    ui->topControlBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    ui->topControlBarLayout = new QHBoxLayout(ui->topControlBar);
+    ui->topControlBarLayout->setContentsMargins(5, 5, 5, 5);
+    ui->topControlBarLayout->setSpacing(10);
+    ui->topControlBarLayout->setAlignment(Qt::AlignCenter);
+
+    ui->launcherBox = new QCheckBox(tr("Use Selected Version"), uiOverlay);
+    ui->launcherBox->setToolTip(tr("Let you Boot Game with selected Version"));
+    ui->launcherBox->setChecked(Config::getBootLauncher());
+
+    ui->toggleLogButton->setObjectName("ToggleLogButton");
+    ui->installPkgButton->setObjectName("InstallPkgButton");
+    ui->bpBootButton->setObjectName("BPBootButton");
+    ui->themeButton->setObjectName("ThemeButton");
+    ui->themeButton->setText(tr("Theme"));
+
+    for (QPushButton* extraBtn :
+         {ui->toggleLogButton, ui->installPkgButton, ui->bpBootButton, ui->themeButton}) {
+        const QColor toolbarGlowColor(90, 170, 255);
+        extraBtn->setCursor(Qt::PointingHandCursor);
+        extraBtn->setProperty("modernToolbarButton", true);
+        HoverAnimator::Attach(extraBtn, toolbarGlowColor);
+        extraBtn->setStyleSheet(
+            "QPushButton { background-color: rgba(50, 50, 50, 200); border: 1px solid rgba(90, "
+            "170, 255, 150); border-radius: 5px; padding: 5px; }");
+    }
+
+    ui->launcherBox->setObjectName("launcherBox");
+    ui->launcherBox->setStyleSheet(
+        "QCheckBox { background-color: rgba(30, 30, 30, 220); border: 1px solid rgba(90, 170, 255, "
+        "150); border-radius: 5px; padding: 5px; }");
+
+    QWidget* styleContainer = new QWidget(uiOverlay);
+    styleContainer->setStyleSheet("background-color: transparent; border: none;");
+    QHBoxLayout* styleLayout = new QHBoxLayout(styleContainer);
+    styleLayout->setContentsMargins(0, 0, 0, 0);
+    styleLayout->setSpacing(5);
+
+    QLabel* styleLabel = new QLabel(tr("GUI Style:"), uiOverlay);
+    styleLabel->setStyleSheet("color: white; font-weight: bold; background-color: rgba(30, 30, 30, "
+                              "200); padding: 5px; border-radius: 5px;");
+    styleLayout->addWidget(styleLabel);
+
+    ui->styleSelector->setStyleSheet(
+        "QComboBox { background-color: rgba(30, 30, 30, 200); color: white; padding: 5px; "
+        "border-radius: 5px; border: 1px solid rgba(90, 170, 255, 150); } QComboBox::drop-down { "
+        "border: none; } QComboBox QAbstractItemView { background-color: rgba(30, 30, 30, 200); "
+        "color: white; selection-background-color: rgba(90, 170, 255, 150); }");
+    styleLayout->addWidget(ui->styleSelector);
+    styleContainer->setObjectName("styleContainer");
+
+    ui->topControlBarLayout->addStretch();
+    ui->topControlBarLayout->addWidget(styleContainer);
+    ui->topControlBarLayout->addWidget(ui->mw_searchbar);
+    ui->topControlBarLayout->addWidget(ui->bpBootButton);
+    ui->topControlBarLayout->addWidget(ui->installPkgButton);
+    ui->topControlBarLayout->addWidget(ui->toggleLogButton);
+    ui->topControlBarLayout->addWidget(ui->themeButton);
+    ui->topControlBarLayout->addWidget(ui->launcherBox);
+    ui->topControlBarLayout->addStretch();
+
+    m_toolbarContainers.append(ui->installPkgButton);
+    m_toolbarContainers.append(ui->toggleLogButton);
+    m_toolbarContainers.append(ui->bpBootButton);
+    m_toolbarContainers.append(ui->themeButton);
+    m_toolbarContainers.append(styleContainer);
+    m_toolbarContainers.append(ui->mw_searchbar);
+    m_toolbarContainers.append(ui->launcherBox);
+
+    mainLayout->addWidget(ui->topControlBar);
+
+    mainLayout->addStretch();
+
+    QWidget* iconsWrapper = new QWidget(uiOverlay);
+    iconsWrapper->setStyleSheet("background-color: transparent; border: none;");
+    QHBoxLayout* iconsWrapperLayout = new QHBoxLayout(iconsWrapper);
+    iconsWrapperLayout->setContentsMargins(0, 0, 0, 0);
+
+    ui->bootIconsArea = new QWidget(iconsWrapper);
+    ui->bootIconsArea->setObjectName("bootIconsArea");
+    ui->bootIconsLayout = new QHBoxLayout(ui->bootIconsArea);
+    ui->bootIconsLayout->setContentsMargins(10, 5, 10, 5);
+    ui->bootIconsLayout->setSpacing(10);
+
+    ui->bootIconsArea->setStyleSheet("QWidget#bootIconsArea {"
+                                     "  background-color: rgba(20, 20, 20, 220);"
+                                     "  border-radius: 12px;"
+                                     "  border: 1px solid rgba(90, 170, 255, 80);"
+                                     "}");
+    ui->bootIconsArea->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+
+    const QColor toolbarGlowColor(90, 170, 255);
+    auto addToolbarButton = [this, createButtonWithLabel_wrapped, showLabels,
+                             toolbarGlowColor](QPushButton* button, const QString& text) {
+        button->setCursor(Qt::PointingHandCursor);
+        button->setProperty("modernToolbarButton", true);
+        button->setStyleSheet("QPushButton { background-color: transparent; border: none; }");
+        HoverAnimator::Attach(button, toolbarGlowColor);
+        QWidget* container = createButtonWithLabel_wrapped(button, text, showLabels);
+        container->setStyleSheet("background-color: transparent;");
+        return container;
+    };
 
     ui->playButton->setObjectName("playButton");
     ui->pauseButton->setObjectName("pauseButton");
@@ -841,111 +959,199 @@ void MainWindow::AddUiWidgets() {
     ui->modManagerButton->setObjectName("modManagerButton");
     ui->bigPictureButton->setObjectName("bigPictureButton");
     ui->hubMenuButton->setObjectName("hubMenuButton");
-    // Fixed glow tint (rather than the active theme color) so the hover
-    // animation looks consistent no matter when the toolbar is first built
-    // relative to theme initialization.
-    const QColor toolbarGlowColor(90, 170, 255);
-    auto addToolbarWidget = [this, flowLayout, createButtonWithLabel_wrapped, showLabels,
-                             toolbarGlowColor](QPushButton* button, const QString& text) {
-        button->setCursor(Qt::PointingHandCursor);
-        button->setProperty("modernToolbarButton", true);
-        HoverAnimator::Attach(button, toolbarGlowColor);
-        QWidget* container = createButtonWithLabel_wrapped(button, text, showLabels);
-        container->setObjectName(button->objectName() + "Container");
-        flowLayout->addWidget(container);
-        m_toolbarContainers.append(container);
-    };
+    ui->cinemaButton->setObjectName("cinemaButton");
 
-    addToolbarWidget(ui->playButton, tr("Play"));
-    addToolbarWidget(ui->pauseButton, tr("Pause"));
-    addToolbarWidget(ui->stopButton, tr("Stop"));
-    addToolbarWidget(ui->restartButton, tr("Restart"));
-
-    addToolbarWidget(ui->settingsButton, tr("Settings"));
-    addToolbarWidget(ui->fullscreenButton, tr("Full Screen"));
-
-    addToolbarWidget(ui->controllerButton, tr("Controllers"));
-    addToolbarWidget(ui->keyboardButton, tr("Keyboard"));
-
-    addToolbarWidget(ui->configureHotkeysButton, tr("Hotkeys"));
-    addToolbarWidget(ui->updaterButton, tr("Update"));
-
-    addToolbarWidget(ui->refreshButton, tr("Refresh List"));
-    addToolbarWidget(ui->versionButton, tr("Version"));
-    addToolbarWidget(ui->modManagerButton, tr("Mods Manager"));
-
-    addToolbarWidget(ui->bigPictureButton, tr("BigPicture"));
-
-    addToolbarWidget(ui->hubMenuButton, tr("GameHub"));
-
-    if (showLabels) {
-        QLabel* label = ui->pauseButton->parentWidget()->findChild<QLabel*>();
-        if (label)
-            label->setVisible(false);
+    QSize initialIconSize(40, 40);
+    for (QPushButton* btn :
+         {ui->playButton, ui->pauseButton, ui->stopButton, ui->restartButton, ui->settingsButton,
+          ui->fullscreenButton, ui->controllerButton, ui->keyboardButton,
+          ui->configureHotkeysButton, ui->updaterButton, ui->refreshButton, ui->versionButton,
+          ui->modManagerButton, ui->bigPictureButton, ui->hubMenuButton, ui->cinemaButton}) {
+        btn->setIconSize(initialIconSize);
     }
 
-    QWidget* searchSliderContainer = new QWidget(this);
-    QVBoxLayout* searchSliderLayout = new QVBoxLayout(searchSliderContainer);
-    searchSliderLayout->setContentsMargins(0, 0, 6, 6);
-    searchSliderLayout->setSpacing(2);
+    QWidget* playPauseStack = new QWidget(uiOverlay);
+    playPauseStack->setStyleSheet("background-color: transparent; border: none;");
+    QHBoxLayout* playPauseLayout = new QHBoxLayout(playPauseStack);
+    playPauseLayout->setContentsMargins(0, 0, 0, 0);
+    playPauseLayout->setSpacing(0);
 
-    searchSliderLayout->addWidget(ui->sizeSliderContainer);
-    searchSliderLayout->addWidget(ui->mw_searchbar);
+    ui->playContainer = addToolbarButton(ui->playButton, tr("Play"));
+    ui->pauseContainer = addToolbarButton(ui->pauseButton, tr("Pause"));
 
-    searchSliderContainer->setLayout(searchSliderLayout);
+    playPauseLayout->addWidget(ui->playContainer);
+    playPauseLayout->addWidget(ui->pauseContainer);
+    playPauseStack->setLayout(playPauseLayout);
 
-    QWidget* styleContainer = new QWidget(this);
-    QVBoxLayout* styleLayout = new QVBoxLayout(styleContainer);
-    styleLayout->setContentsMargins(2, 2, 2, 2);
+    ui->pauseContainer->setVisible(false);
 
-    QLabel* styleLabel = new QLabel(tr("GUI Style:"), this);
-    styleLayout->addWidget(styleLabel);
-    styleLayout->addWidget(ui->styleSelector);
+    QWidget* stopContainer = addToolbarButton(ui->stopButton, tr("Stop"));
+    QWidget* restartContainer = addToolbarButton(ui->restartButton, tr("Restart"));
+    QWidget* settingsContainer = addToolbarButton(ui->settingsButton, tr("Settings"));
+    QWidget* fullscreenContainer = addToolbarButton(ui->fullscreenButton, tr("Fullscreen"));
+    QWidget* controllerContainer = addToolbarButton(ui->controllerButton, tr("Controllers"));
+    QWidget* keyboardContainer = addToolbarButton(ui->keyboardButton, tr("Keyboard"));
+    QWidget* hotkeysContainer = addToolbarButton(ui->configureHotkeysButton, tr("Hotkeys"));
+    QWidget* updaterContainer = addToolbarButton(ui->updaterButton, tr("Update"));
+    QWidget* refreshContainer = addToolbarButton(ui->refreshButton, tr("Refresh"));
+    QWidget* versionContainer = addToolbarButton(ui->versionButton, tr("Version"));
+    QWidget* modsContainer = addToolbarButton(ui->modManagerButton, tr("Mods"));
+    QWidget* bigPictureContainer = addToolbarButton(ui->bigPictureButton, tr("BigPicture"));
+    QWidget* gameHubContainer = addToolbarButton(ui->hubMenuButton, tr("GameHub"));
+    QWidget* cinemaContainer = addToolbarButton(ui->cinemaButton, tr("Cinema"));
 
-    ui->launcherBox = new QCheckBox(tr("Use Selected Version"), this);
-    ui->FlowBox = new QCheckBox(tr(""), this);
-    ui->launcherBox->setToolTip(tr("Let you Boot Game with selected Version"));
-    ui->launcherBox->setChecked(Config::getBootLauncher());
+    ui->bootIconsLayout->addWidget(playPauseStack);
+    ui->bootIconsLayout->addWidget(stopContainer);
+    ui->bootIconsLayout->addWidget(restartContainer);
+    ui->bootIconsLayout->addWidget(settingsContainer);
+    ui->bootIconsLayout->addWidget(fullscreenContainer);
+    ui->bootIconsLayout->addWidget(controllerContainer);
+    ui->bootIconsLayout->addWidget(keyboardContainer);
+    ui->bootIconsLayout->addWidget(hotkeysContainer);
+    ui->bootIconsLayout->addWidget(updaterContainer);
+    ui->bootIconsLayout->addWidget(refreshContainer);
+    ui->bootIconsLayout->addWidget(versionContainer);
+    ui->bootIconsLayout->addWidget(modsContainer);
+    ui->bootIconsLayout->addWidget(bigPictureContainer);
+    ui->bootIconsLayout->addWidget(gameHubContainer);
+    ui->bootIconsLayout->addWidget(cinemaContainer);
 
-    ui->toggleLogButton->setObjectName("ToggleLogButton");
-    ui->installPkgButton->setObjectName("InstallPkgButton");
-    ui->bpBootButton->setObjectName("BPBootButton");
-    for (QPushButton* extraBtn : {ui->toggleLogButton, ui->installPkgButton, ui->bpBootButton}) {
-        extraBtn->setCursor(Qt::PointingHandCursor);
-        extraBtn->setProperty("modernToolbarButton", true);
-        HoverAnimator::Attach(extraBtn, toolbarGlowColor);
-    }
-    ui->launcherBox->setObjectName("launcherBox");
-    searchSliderContainer->setObjectName("searchSliderContainer");
-    styleContainer->setObjectName("styleContainer");
+    ui->bootIconsLayout->setAlignment(Qt::AlignCenter);
 
-    m_toolbarContainers.append(ui->installPkgButton);
-    m_toolbarContainers.append(ui->toggleLogButton);
-    m_toolbarContainers.append(ui->bpBootButton);
-    m_toolbarContainers.append(styleContainer);
-    m_toolbarContainers.append(searchSliderContainer);
+    iconsWrapperLayout->addStretch();
+    iconsWrapperLayout->addWidget(ui->bootIconsArea);
+    iconsWrapperLayout->addStretch();
 
-    flowLayout->addWidget(styleContainer);
-    flowLayout->addWidget(searchSliderContainer);
+    m_toolbarContainers.append(ui->playContainer);
+    m_toolbarContainers.append(ui->pauseContainer);
+    m_toolbarContainers.append(stopContainer);
+    m_toolbarContainers.append(restartContainer);
+    m_toolbarContainers.append(settingsContainer);
+    m_toolbarContainers.append(fullscreenContainer);
+    m_toolbarContainers.append(controllerContainer);
+    m_toolbarContainers.append(keyboardContainer);
+    m_toolbarContainers.append(hotkeysContainer);
+    m_toolbarContainers.append(updaterContainer);
+    m_toolbarContainers.append(refreshContainer);
+    m_toolbarContainers.append(versionContainer);
+    m_toolbarContainers.append(modsContainer);
+    m_toolbarContainers.append(bigPictureContainer);
+    m_toolbarContainers.append(gameHubContainer);
+    m_toolbarContainers.append(cinemaContainer);
 
-    flowLayout->addWidget(ui->installPkgButton);
-    flowLayout->addWidget(ui->toggleLogButton);
-    flowLayout->addWidget(ui->bpBootButton);
-    flowLayout->addWidget(ui->launcherBox);
-    flowLayout->addWidget(ui->FlowBox);
-    ui->FlowBox->setVisible(true);
-    ui->FlowBox->setChecked(true);
-    ui->FlowBox->setEnabled(false);
-    ui->FlowBox->setToolTip(tr("This Enables Flow of Icons So its always ON"));
+    ui->bootIconsArea->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->bootIconsArea, &QWidget::customContextMenuRequested, this,
+            &MainWindow::createToolbarContextMenu);
 
-    m_toolbarContainers.append(ui->launcherBox);
-    ui->sizeSliderContainer->setFixedWidth(130);
-    ui->mw_searchbar->setFixedWidth(125);
-    ui->styleSelector->setFixedWidth(125);
+    mainLayout->addWidget(iconsWrapper);
 
-    ui->styleSelector->setFocusPolicy(Qt::ClickFocus);
-    ui->launcherBox->setFocusPolicy(Qt::ClickFocus);
-    ui->sizeSlider->setFocusPolicy(Qt::ClickFocus);
+    mainLayout->addSpacing(15);
+
+    ui->gameRectangleContainer = new QWidget(uiOverlay);
+    ui->gameRectangleLayout = new QVBoxLayout(ui->gameRectangleContainer);
+    ui->gameRectangleLayout->setContentsMargins(15, 15, 15, 15);
+    ui->gameRectangleLayout->setSpacing(10);
+
+    ui->logDisplay = new QTextEdit(uiOverlay);
+    ui->logDisplay->setObjectName("logDisplay");
+    ui->logDisplay->setText(tr("Game Log"));
+    ui->logDisplay->setReadOnly(true);
+    ui->logDisplay->setMinimumHeight(150);
+    ui->logDisplay->setMaximumHeight(200);
+
+    QPalette logPalette = ui->logDisplay->palette();
+    logPalette.setColor(QPalette::Base, Qt::black);
+    ui->logDisplay->setPalette(logPalette);
+
+    ui->gameRectangleContainer->setStyleSheet("QWidget#gameRectangleContainer {"
+                                              "  background-color: rgba(30, 30, 30, 200);"
+                                              "  border-radius: 15px;"
+                                              "  border: 2px solid rgba(90, 170, 255, 150);"
+                                              "}");
+    ui->gameRectangleContainer->setObjectName("gameRectangleContainer");
+    ui->gameRectangleContainer->setMinimumHeight(75);
+
+    ui->gameHeightSliderContainer = new QWidget(uiOverlay);
+    ui->gameHeightSliderContainer->setStyleSheet("background-color: transparent; border: none;");
+    ui->gameHeightSliderLayout = new QHBoxLayout(ui->gameHeightSliderContainer);
+    ui->gameHeightSliderLayout->setContentsMargins(5, 5, 5, 5);
+    ui->gameHeightSliderLayout->setSpacing(30);
+
+    QWidget* bootIconsSliderWidget = new QWidget(uiOverlay);
+    bootIconsSliderWidget->setStyleSheet("background-color: transparent; border: none;");
+    QVBoxLayout* bootIconsSliderVLayout = new QVBoxLayout(bootIconsSliderWidget);
+    bootIconsSliderVLayout->setContentsMargins(0, 0, 0, 0);
+    bootIconsSliderVLayout->setSpacing(5);
+    bootIconsSliderVLayout->setAlignment(Qt::AlignCenter);
+
+    ui->bootIconsSizeSlider = new QSlider(Qt::Horizontal, uiOverlay);
+    ui->bootIconsSizeSlider->setMinimum(20);
+    ui->bootIconsSizeSlider->setMaximum(80);
+    ui->bootIconsSizeSlider->setValue(40);
+    ui->bootIconsSizeSlider->setFixedWidth(150);
+
+    QLabel* bootIconsLabel = new QLabel(tr("Icons Size"), uiOverlay);
+    bootIconsLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    bootIconsLabel->setAlignment(Qt::AlignCenter);
+
+    bootIconsSliderVLayout->addWidget(ui->bootIconsSizeSlider, 0, Qt::AlignCenter);
+    bootIconsSliderVLayout->addWidget(bootIconsLabel, 0, Qt::AlignCenter);
+    bootIconsSliderWidget->setLayout(bootIconsSliderVLayout);
+
+    QWidget* gameHeightSliderWidget = new QWidget(uiOverlay);
+    gameHeightSliderWidget->setStyleSheet("background-color: transparent; border: none;");
+    QVBoxLayout* gameHeightSliderVLayout = new QVBoxLayout(gameHeightSliderWidget);
+    gameHeightSliderVLayout->setContentsMargins(0, 0, 0, 0);
+    gameHeightSliderVLayout->setSpacing(5);
+    gameHeightSliderVLayout->setAlignment(Qt::AlignCenter);
+
+    ui->gameContainerHeightSlider = new QSlider(Qt::Horizontal, uiOverlay);
+    ui->gameContainerHeightSlider->setMinimum(150);
+    ui->gameContainerHeightSlider->setMaximum(600);
+    ui->gameContainerHeightSlider->setValue(300);
+    ui->gameContainerHeightSlider->setFixedWidth(150);
+
+    QLabel* gameHeightLabel = new QLabel(tr("Container Height"), uiOverlay);
+    gameHeightLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    gameHeightLabel->setAlignment(Qt::AlignCenter);
+
+    gameHeightSliderVLayout->addWidget(ui->gameContainerHeightSlider, 0, Qt::AlignCenter);
+    gameHeightSliderVLayout->addWidget(gameHeightLabel, 0, Qt::AlignCenter);
+    gameHeightSliderWidget->setLayout(gameHeightSliderVLayout);
+
+    QWidget* gameSizeSliderWidget = new QWidget(uiOverlay);
+    gameSizeSliderWidget->setStyleSheet("background-color: transparent; border: none;");
+    QVBoxLayout* gameSizeSliderVLayout = new QVBoxLayout(gameSizeSliderWidget);
+    gameSizeSliderVLayout->setContentsMargins(0, 0, 0, 0);
+    gameSizeSliderVLayout->setSpacing(5);
+    gameSizeSliderVLayout->setAlignment(Qt::AlignCenter);
+
+    QLabel* gameSizeLabel = new QLabel(tr("Game Size"), uiOverlay);
+    gameSizeLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    gameSizeLabel->setAlignment(Qt::AlignCenter);
+
+    ui->sizeSlider->setFixedWidth(150);
+
+    gameSizeSliderVLayout->addWidget(ui->sizeSlider, 0, Qt::AlignCenter);
+    gameSizeSliderVLayout->addWidget(gameSizeLabel, 0, Qt::AlignCenter);
+    gameSizeSliderWidget->setLayout(gameSizeSliderVLayout);
+
+    ui->gameHeightSliderLayout->addStretch();
+    ui->gameHeightSliderLayout->addWidget(bootIconsSliderWidget);
+    ui->gameHeightSliderLayout->addWidget(gameHeightSliderWidget);
+    ui->gameHeightSliderLayout->addWidget(gameSizeSliderWidget);
+    ui->gameHeightSliderLayout->addStretch();
+    ui->gameHeightSliderContainer->setLayout(ui->gameHeightSliderLayout);
+
+    ui->gameRectangleLayout->addWidget(ui->gameHeightSliderContainer);
+    mainLayout->addWidget(ui->gameRectangleContainer);
+
+    mainLayout->addSpacing(10);
+    mainLayout->addWidget(ui->logDisplay);
+
+    mainLayout->addSpacing(35);
+
+    uiOverlay->setLayout(mainLayout);
 
     for (QWidget* container : m_toolbarContainers) {
         if (!container->objectName().isEmpty()) {
@@ -954,16 +1160,16 @@ void MainWindow::AddUiWidgets() {
             container->setVisible(visible);
         }
     }
-    ui->toolBar->addWidget(toolbarContainer);
 
     ui->playButton->setVisible(true);
     ui->pauseButton->setVisible(false);
 
     ui->styleSelector->clear();
     QStringList styles = QStyleFactory::keys();
-    for (const QString& styleName : styles)
+    for (const QString& styleName : styles) {
         if (styleName.compare("windowsvista", Qt::CaseInsensitive) != 0)
             ui->styleSelector->addItem(styleName);
+    }
 
     QDir qssDir(QString::fromStdString(
         Common::FS::GetUserPath(Common::FS::PathType::CustomThemes).string()));
@@ -989,9 +1195,15 @@ void MainWindow::AddUiWidgets() {
 
 void MainWindow::UpdateToolbarButtons() {
     bool showLabels = ui->toggleLabelsAct->isChecked();
+
+    QLabel* pauseLabel = ui->pauseContainer->findChild<QLabel*>();
+    if (pauseLabel) {
+        pauseLabel->setVisible(false);
+    }
+
     if (Config::getGameRunning()) {
-        ui->playButton->setVisible(false);
-        ui->pauseButton->setVisible(true);
+        ui->playContainer->setVisible(false);
+        ui->pauseContainer->setVisible(true);
 
         if (is_paused) {
             ui->pauseButton->setIcon(ui->playButton->icon());
@@ -1015,31 +1227,21 @@ void MainWindow::UpdateToolbarButtons() {
             ui->pauseButton->setToolTip(tr("Pause"));
         }
 
-        if (showLabels) {
-            QLabel* playLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
-            QLabel* pauseLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
-            if (playLabel)
-                playLabel->setVisible(false);
-            if (pauseLabel) {
-                pauseLabel->setText(is_paused ? tr("Resume") : tr("Pause"));
-                pauseLabel->setVisible(true);
-            }
+        if (showLabels && pauseLabel) {
+            pauseLabel->setText(is_paused ? tr("Resume") : tr("Pause"));
+            pauseLabel->setVisible(true);
         }
-        return;
+    } else {
+        ui->playContainer->setVisible(true);
+        ui->pauseContainer->setVisible(false);
     }
 
-    ui->playButton->setVisible(true);
-    ui->pauseButton->setVisible(false);
-
     if (showLabels) {
-        QLabel* playLabel = ui->playButton->parentWidget()->findChild<QLabel*>();
-        QLabel* pauseLabel = ui->pauseButton->parentWidget()->findChild<QLabel*>();
+        QLabel* playLabel = ui->playContainer->findChild<QLabel*>();
         if (playLabel) {
             playLabel->setText(tr("Play"));
             playLabel->setVisible(true);
         }
-        if (pauseLabel)
-            pauseLabel->setVisible(false);
     }
 }
 
@@ -1050,8 +1252,8 @@ void MainWindow::UpdateToolbarLabels() {
          {ui->playButton, ui->stopButton, ui->restartButton, ui->settingsButton,
           ui->fullscreenButton, ui->controllerButton, ui->keyboardButton, ui->versionButton,
           ui->fullscreenButton, ui->controllerButton, ui->keyboardButton, ui->bigPictureButton,
-          ui->hubMenuButton, ui->configureHotkeysButton, ui->updaterButton, ui->refreshButton,
-          ui->modManagerButton}) {
+          ui->hubMenuButton, ui->cinemaButton, ui->configureHotkeysButton, ui->updaterButton,
+          ui->refreshButton, ui->modManagerButton}) {
         QLabel* label = button->parentWidget()->findChild<QLabel*>();
         if (label)
             label->setVisible(showLabels);
@@ -1075,22 +1277,7 @@ void MainWindow::contextMenuEvent(QContextMenuEvent* event) {
 }
 
 void MainWindow::CreateDockWindows(bool newDock) {
-    QWidget* phCentralWidget = new QWidget(this);
-    setCentralWidget(phCentralWidget);
-
-    QWidget* dockContents = new QWidget(this);
-    QVBoxLayout* dockLayout = new QVBoxLayout(dockContents);
-    dockLayout->setContentsMargins(0, 0, 0, 0);
-    dockLayout->setSpacing(0);
-
-    ui->splitter = new QSplitter(Qt::Vertical);
-    ui->logDisplay = new QTextEdit(ui->splitter);
-    ui->logDisplay->setObjectName("logDisplay");
-    ui->logDisplay->setText(tr("Game Log"));
-    ui->logDisplay->setReadOnly(true);
-
     if (newDock) {
-        m_dock_widget.reset(new QDockWidget(tr("Game List"), this));
         m_game_list_frame.reset(new GameListFrame(m_game_info, m_compat_info, m_ipc_client, this));
         m_game_list_frame->setObjectName("gamelist");
 
@@ -1111,14 +1298,13 @@ void MainWindow::CreateDockWindows(bool newDock) {
     if (table_mode == 0) {
         m_game_grid_frame->hide();
         m_elf_viewer->hide();
-        m_game_cinematic_frame->hide();
 
         m_game_list_frame->show();
         if (!newDock) {
-           m_game_list_frame->clearContents();
+            m_game_list_frame->clearContents();
             m_game_list_frame->PopulateGameList();
         }
-        ui->splitter->addWidget(m_game_list_frame.data());
+        ui->gameRectangleLayout->addWidget(m_game_list_frame.data());
 
         ui->sizeSlider->setEnabled(true);
         ui->sizeSlider->setSliderPosition(slider_pos);
@@ -1127,7 +1313,6 @@ void MainWindow::CreateDockWindows(bool newDock) {
     } else if (table_mode == 1) {
         m_game_list_frame->hide();
         m_elf_viewer->hide();
-        m_game_cinematic_frame->hide();
 
         m_game_grid_frame->show();
         if (!newDock) {
@@ -1136,7 +1321,7 @@ void MainWindow::CreateDockWindows(bool newDock) {
                 m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
             }
         }
-        ui->splitter->addWidget(m_game_grid_frame.data());
+        ui->gameRectangleLayout->addWidget(m_game_grid_frame.data());
 
         ui->sizeSlider->setEnabled(true);
         ui->sizeSlider->setSliderPosition(slider_pos);
@@ -1145,46 +1330,13 @@ void MainWindow::CreateDockWindows(bool newDock) {
     } else if (table_mode == 2) {
         m_game_list_frame->hide();
         m_game_grid_frame->hide();
-        m_game_cinematic_frame->hide();
 
         m_elf_viewer->show();
-        ui->splitter->addWidget(m_elf_viewer.data());
-
-        ui->sizeSlider->setEnabled(false);
-        isTableList = false;
-
-    } else if (table_mode == 3) {
-        m_game_list_frame->hide();
-        m_game_grid_frame->hide();
-        m_elf_viewer->hide();
-
-        m_game_cinematic_frame->show();
-        if (!newDock) {
-            m_game_cinematic_frame->PopulateGameList();
-        }
-        ui->splitter->addWidget(m_game_cinematic_frame.get());
+        ui->gameRectangleLayout->addWidget(m_elf_viewer.data());
 
         ui->sizeSlider->setEnabled(false);
         isTableList = false;
     }
-
-    QPalette logPalette = ui->logDisplay->palette();
-    logPalette.setColor(QPalette::Base, Qt::black);
-    ui->logDisplay->setPalette(logPalette);
-    ui->splitter->addWidget(ui->logDisplay);
-
-    QList<int> defaultSizes = {800, 200, 50};
-    QList<int> sizes = m_compat_info->LoadDockWidgetSizes();
-    if (sizes.isEmpty() || sizes.size() < 3 || sizes[1] == 0)
-        sizes = defaultSizes;
-
-    ui->splitter->setSizes(sizes);
-    ui->splitter->setCollapsible(0, false);
-    ui->splitter->setCollapsible(1, false);
-
-    dockLayout->addWidget(ui->splitter);
-    dockContents->setLayout(dockLayout);
-    m_dock_widget->setWidget(dockContents);
 
     ui->welcomeAct->setCheckable(true);
     ui->welcomeAct->setChecked(Config::getShowWelcomeDialog());
@@ -1194,13 +1346,6 @@ void MainWindow::CreateDockWindows(bool newDock) {
 
     ui->pauseOnUnfocusAct->setCheckable(true);
     ui->pauseOnUnfocusAct->setChecked(Config::getPauseOnUnfocus());
-
-    m_dock_widget->setAllowedAreas(Qt::AllDockWidgetAreas);
-    m_dock_widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    m_dock_widget->resize(this->width(), this->height());
-
-    addDockWidget(Qt::LeftDockWidgetArea, m_dock_widget.data());
-    setDockNestingEnabled(true);
 
     bool showLog = m_compat_info->LoadShowLogSetting();
     ui->logDisplay->setVisible(showLog);
@@ -1216,6 +1361,25 @@ void MainWindow::CreateDockWindows(bool newDock) {
         ui->toggleLogButton->setText(visible ? tr("Show Log") : tr("Hide Log"));
         m_compat_info->SaveShowLogSetting(!visible);
     });
+
+    QMenu* themeMenu = new QMenu(this);
+    themeMenu->addAction(ui->setThemeDark);
+    themeMenu->addAction(ui->setThemeLight);
+    themeMenu->addAction(ui->setThemeGreen);
+    themeMenu->addAction(ui->setThemeBlue);
+    themeMenu->addAction(ui->setThemeViolet);
+    themeMenu->addAction(ui->setThemeGruvbox);
+    themeMenu->addAction(ui->setThemeTokyoNight);
+    themeMenu->addAction(ui->setThemeOled);
+    themeMenu->addAction(ui->setThemeNeon);
+    themeMenu->addAction(ui->setThemeShadlix);
+    themeMenu->addAction(ui->setThemeShadlixCave);
+    themeMenu->addAction(ui->setThemeDeepPurple);
+    themeMenu->addAction(ui->setThemeQSS);
+
+    connect(ui->themeButton, &QPushButton::clicked, this, [this, themeMenu]() {
+        themeMenu->exec(ui->themeButton->mapToGlobal(QPoint(0, ui->themeButton->height())));
+    });
 }
 
 void MainWindow::LoadGameLists() {
@@ -1228,8 +1392,6 @@ void MainWindow::LoadGameLists() {
     m_game_info->GetGameInfo(this);
     if (isTableList) {
         m_game_list_frame->PopulateGameList();
-    } else if (Config::getTableMode() == 3) {
-        m_game_cinematic_frame->PopulateGameList();
     } else {
         m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
     }
@@ -1304,6 +1466,34 @@ void MainWindow::CreateConnects() {
         }
     });
 
+    connect(ui->bootIconsSizeSlider, &QSlider::valueChanged, this, [this](int value) {
+        QSize newSize(value, value);
+        ui->playButton->setIconSize(newSize);
+        ui->pauseButton->setIconSize(newSize);
+        ui->stopButton->setIconSize(newSize);
+        ui->restartButton->setIconSize(newSize);
+        ui->settingsButton->setIconSize(newSize);
+        ui->fullscreenButton->setIconSize(newSize);
+        ui->controllerButton->setIconSize(newSize);
+        ui->keyboardButton->setIconSize(newSize);
+        ui->configureHotkeysButton->setIconSize(newSize);
+        ui->updaterButton->setIconSize(newSize);
+        ui->refreshButton->setIconSize(newSize);
+        ui->versionButton->setIconSize(newSize);
+        ui->modManagerButton->setIconSize(newSize);
+        ui->bigPictureButton->setIconSize(newSize);
+        ui->hubMenuButton->setIconSize(newSize);
+        ui->cinemaButton->setIconSize(newSize);
+    });
+
+    connect(ui->gameContainerHeightSlider, &QSlider::valueChanged, this, [this](int value) {
+        ui->gameRectangleContainer->setMinimumHeight(value);
+        ui->gameRectangleContainer->setMaximumHeight(value);
+    });
+
+    ui->gameRectangleContainer->setMinimumHeight(300);
+    ui->gameRectangleContainer->setMaximumHeight(300);
+
     connect(ui->shadFolderAct, &QAction::triggered, this, [this]() {
         QString userPath;
         Common::FS::PathToQString(userPath, Common::FS::GetUserPath(Common::FS::PathType::UserDir));
@@ -1318,6 +1508,69 @@ void MainWindow::CreateConnects() {
             &MainWindow::StartGame);
     connect(m_game_list_frame.get(), &QTableWidget::cellDoubleClicked, this,
             &MainWindow::StartGame);
+
+    connect(m_game_grid_frame.get(), &QTableWidget::currentCellChanged, this,
+            [this](int currentRow, int currentColumn, int previousRow, int previousColumn) {
+                if (Config::getShowBackgroundImage()) {
+                    if (currentRow >= 0 && currentColumn >= 0) {
+                        int columnCnt = m_game_grid_frame->columnCount();
+                        if (columnCnt > 0) {
+                            int itemID = (currentRow * columnCnt) + currentColumn;
+                            if (itemID >= 0 && itemID < m_game_info->m_games.size()) {
+                                QString gamePic = QString::fromStdString(
+                                    m_game_info->m_games[itemID].pic_path.string());
+                                if (!gamePic.isEmpty()) {
+                                    QPixmap pixmap(gamePic);
+                                    if (!pixmap.isNull()) {
+                                        QPixmap scaledPixmap =
+                                            pixmap.scaled(ui->backgroundImageLabel->size(),
+                                                          Qt::KeepAspectRatioByExpanding,
+                                                          Qt::SmoothTransformation);
+                                        ui->backgroundImageLabel->setPixmap(scaledPixmap);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        QString defaultBackgroundPath = ":/images/default_background.jpg";
+                        QPixmap defaultPixmap(defaultBackgroundPath);
+                        if (!defaultPixmap.isNull()) {
+                            QPixmap scaledPixmap = defaultPixmap.scaled(
+                                ui->backgroundImageLabel->size(), Qt::KeepAspectRatioByExpanding,
+                                Qt::SmoothTransformation);
+                            ui->backgroundImageLabel->setPixmap(scaledPixmap);
+                        }
+                    }
+                }
+            });
+
+    connect(m_game_list_frame.get(), &QTableWidget::currentCellChanged, this,
+            [this](int currentRow, int currentColumn, int previousRow, int previousColumn) {
+                if (Config::getShowBackgroundImage()) {
+                    if (currentRow >= 0 && currentRow < m_game_info->m_games.size()) {
+                        QString gamePic = QString::fromStdString(
+                            m_game_info->m_games[currentRow].pic_path.string());
+                        if (!gamePic.isEmpty()) {
+                            QPixmap pixmap(gamePic);
+                            if (!pixmap.isNull()) {
+                                QPixmap scaledPixmap = pixmap.scaled(
+                                    ui->backgroundImageLabel->size(),
+                                    Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+                                ui->backgroundImageLabel->setPixmap(scaledPixmap);
+                            }
+                        }
+                    } else {
+                        QString defaultBackgroundPath = ":/images/default_background.jpg";
+                        QPixmap defaultPixmap(defaultBackgroundPath);
+                        if (!defaultPixmap.isNull()) {
+                            QPixmap scaledPixmap = defaultPixmap.scaled(
+                                ui->backgroundImageLabel->size(), Qt::KeepAspectRatioByExpanding,
+                                Qt::SmoothTransformation);
+                            ui->backgroundImageLabel->setPixmap(scaledPixmap);
+                        }
+                    }
+                }
+            });
 
     connect(ui->configureAct, &QAction::triggered, this, [this]() {
         auto settingsDialog =
@@ -1444,9 +1697,6 @@ void MainWindow::CreateConnects() {
         if (isTableList) {
             if (m_game_list_frame)
                 m_game_list_frame->RefreshListBackgroundImage();
-        } else if (Config::getTableMode() == 3) {
-            if (m_game_cinematic_frame)
-                m_game_cinematic_frame->RefreshBackground();
         } else {
             if (m_game_grid_frame)
                 m_game_grid_frame->RefreshGridBackgroundImage();
@@ -1599,12 +1849,10 @@ void MainWindow::CreateConnects() {
         bool currentBigPicture = Config::GamesMenuUI();
         bool currentHubMenu = Config::HubMenuUI();
 
-        // If already enabled, disable it
         if (currentHubMenu) {
             Config::setHubMenuUI(false);
             ui->hubMenuAct->setChecked(false);
         } else {
-            // If enabling, check if the other is already enabled
             if (currentBigPicture) {
                 QMessageBox::StandardButton reply =
                     QMessageBox::question(this, tr("Boot Settings"),
@@ -1642,6 +1890,8 @@ void MainWindow::CreateConnects() {
     connect(ui->bigPictureButton, &QPushButton::clicked, this,
             [this]() { m_bigPicture->toggle(); });
     connect(ui->hubMenuButton, &QPushButton::clicked, this, [this]() { m_hubMenu->toggle(); });
+    connect(ui->cinemaButton, &QPushButton::clicked, this,
+            [this]() { m_game_cinematic_frame->toggle(); });
     connect(ui->bpBootButton, &QPushButton::clicked, this, [this]() {
         Config::setGameRunning(true);
         Config::setIsFullscreen(true);
@@ -1763,9 +2013,7 @@ void MainWindow::CreateConnects() {
     });
 
     // handle resize like this for now, we deal with it when we add more docks
-    connect(this, &MainWindow::WindowResized, this, [&]() {
-        this->resizeDocks({m_dock_widget.data()}, {this->width()}, Qt::Orientation::Horizontal);
-    });
+    connect(this, &MainWindow::WindowResized, this, [&]() {});
 
     connect(ui->setIconSizeSmallAct, &QAction::triggered, this, [this]() {
         if (isTableList) {
@@ -1811,12 +2059,9 @@ void MainWindow::CreateConnects() {
             m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
         }
     });
-    connect(ui->setlistModeListAct, &QAction::triggered, m_dock_widget.data(), [this]() {
+    connect(ui->setlistModeListAct, &QAction::triggered, this, [this]() {
         ui->sizeSlider->setEnabled(true);
         BackgroundMusicPlayer::getInstance().stopMusic();
-
-        const QList<int> sizes = ui->splitter->sizes();
-        m_compat_info->SaveDockWidgetSizes(sizes);
 
         Config::setTableMode(0);
         CreateDockWindows(false);
@@ -1825,12 +2070,9 @@ void MainWindow::CreateConnects() {
         Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
 
-    connect(ui->setlistModeGridAct, &QAction::triggered, m_dock_widget.data(), [this]() {
+    connect(ui->setlistModeGridAct, &QAction::triggered, this, [this]() {
         ui->sizeSlider->setEnabled(true);
         BackgroundMusicPlayer::getInstance().stopMusic();
-
-        const QList<int> sizes = ui->splitter->sizes();
-        m_compat_info->SaveDockWidgetSizes(sizes);
 
         Config::setTableMode(1);
         CreateDockWindows(false);
@@ -1839,31 +2081,17 @@ void MainWindow::CreateConnects() {
         Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
 
-    connect(ui->setlistElfAct, &QAction::triggered, m_dock_widget.data(), [this]() {
+    connect(ui->setlistElfAct, &QAction::triggered, this, [this]() {
         ui->sizeSlider->setEnabled(false);
         BackgroundMusicPlayer::getInstance().stopMusic();
-
-        const QList<int> sizes = ui->splitter->sizes();
-        m_compat_info->SaveDockWidgetSizes(sizes);
 
         Config::setTableMode(2);
         CreateDockWindows(false);
         SetLastIconSizeBullet();
         Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
     });
-    connect(ui->setlistModeCinematicAct, &QAction::triggered, m_dock_widget.data(), [this]() {
-        ui->sizeSlider->setEnabled(true);
-        BackgroundMusicPlayer::getInstance().stopMusic();
-
-        const QList<int> sizes = ui->splitter->sizes();
-        m_compat_info->SaveDockWidgetSizes(sizes);
-
-        Config::setTableMode(3);
-        CreateDockWindows(false);
-        ui->mw_searchbar->setText("");
-        SetLastIconSizeBullet();
-        Config::save(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.toml", false);
-    });
+    connect(ui->setlistModeCinematicAct, &QAction::triggered, this,
+            [this]() { m_game_cinematic_frame->toggle(); });
 
     connect(ui->downloadCheatsPatchesAct, &QAction::triggered, this, [this]() {
         QDialog* panelDialog = new QDialog(this);
@@ -2458,8 +2686,6 @@ void MainWindow::SaveWindowState() const {
     Config::setMainWindowHeight(this->height());
     Config::setMainWindowGeometry(this->geometry().x(), this->geometry().y(),
                                   this->geometry().width(), this->geometry().height());
-    QList<int> sizes = {ui->splitter->sizes()};
-    m_compat_info->SaveDockWidgetSizes(sizes);
 }
 
 void MainWindow::BootGame() {
@@ -2789,6 +3015,7 @@ void MainWindow::SetUiIcons(const QColor& baseColor, const QColor& hoverColor) {
     recolor(ui->versionButton, ":/images/utils_icon.png");
     recolor(ui->bigPictureButton, ":/images/games_icon.png");
     recolor(ui->hubMenuButton, ":/images/hub_icon.png");
+    recolor(ui->cinemaButton, ":/images/cinema_icon.png");
     recolor(ui->modManagerButton, ":images/folder_icon.png");
     recolor(ui->configureHotkeysButton, ":/images/hotkeybutton.png");
 
@@ -2855,16 +3082,26 @@ void MainWindow::SetUiIcons(const QColor& baseColor, const QColor& hoverColor) {
 void MainWindow::resizeEvent(QResizeEvent* event) {
     emit WindowResized(event);
     QMainWindow::resizeEvent(event);
+
+    if (ui->backgroundImageLabel && !ui->backgroundImageLabel->pixmap().isNull()) {
+        QPixmap currentPixmap = ui->backgroundImageLabel->pixmap();
+        QPixmap scaledPixmap =
+            currentPixmap.scaled(ui->backgroundImageLabel->size(), Qt::KeepAspectRatioByExpanding,
+                                 Qt::SmoothTransformation);
+        ui->backgroundImageLabel->setPixmap(scaledPixmap);
+    }
+
+    if (ui->backgroundImageLabel && ui->backgroundImageLabel->findChild<QWidget*>("uiOverlay")) {
+        QWidget* uiOverlay = ui->backgroundImageLabel->findChild<QWidget*>("uiOverlay");
+        uiOverlay->setGeometry(0, 0, ui->backgroundImageLabel->width(),
+                               ui->backgroundImageLabel->height());
+    }
 }
 
 void MainWindow::HandleResize(QResizeEvent* event) {
-    // Existing logic for game list updates...
     if (isTableList) {
         if (m_game_list_frame)
             m_game_list_frame->RefreshListBackgroundImage();
-    } else if (Config::getTableMode() == 3) {
-        if (m_game_cinematic_frame)
-            m_game_cinematic_frame->RefreshBackground();
     } else {
         if (m_game_grid_frame) {
             m_game_grid_frame->windowWidth = this->width();
@@ -2873,10 +3110,8 @@ void MainWindow::HandleResize(QResizeEvent* event) {
         }
     }
 
-    // --- ADD THIS TO FORCE TOOLBAR LAYOUT UPDATE ---
-    // This tells the toolbar to check its content's size policies and re-layout.
     ui->toolBar->updateGeometry();
-    ui->toolBar->layout()->invalidate(); // Force immediate layout recalculation
+    ui->toolBar->layout()->invalidate();
 }
 
 void MainWindow::AddRecentFiles(QString filePath) {

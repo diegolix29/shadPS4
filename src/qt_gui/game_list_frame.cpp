@@ -273,47 +273,12 @@ void GameListFrame::ApplyCustomBackground() {
 }
 
 void GameListFrame::SetListBackgroundImage(QTableWidgetItem* item) {
-    if (!item) {
-        return;
-    }
-
-    if (!Config::getShowBackgroundImage()) {
-        backgroundImage = QImage();
-        m_last_opacity = -1;
-        m_current_game_path.clear();
-        RefreshListBackgroundImage();
-        return;
-    }
-
-    QString customPath = QString::fromStdString(Config::getCustomBackgroundImage());
-    if (!customPath.isEmpty()) {
-        QImage original_image(customPath);
-        if (!original_image.isNull()) {
-            const int opacity = Config::getBackgroundImageOpacity();
-            backgroundImage = m_game_list_utils.ChangeImageOpacity(
-                original_image, original_image.rect(), opacity / 100.0f);
-            m_last_opacity = opacity;
-            m_current_game_path = customPath.toStdString();
-        }
-        RefreshListBackgroundImage();
-        return;
-    }
-
-    const auto& game = m_game_info->m_games[item->row()];
-    const int opacity = Config::getBackgroundImageOpacity();
-
-    if (opacity != m_last_opacity || game.pic_path != m_current_game_path) {
-        auto image_path = game.pic_path.u8string();
-        QImage original_image(QString::fromStdString({image_path.begin(), image_path.end()}));
-        if (!original_image.isNull()) {
-            backgroundImage = m_game_list_utils.ChangeImageOpacity(
-                original_image, original_image.rect(), opacity / 100.0f);
-            m_last_opacity = opacity;
-            m_current_game_path = game.pic_path;
-        }
-    }
-
+    // Disabled - using single full-screen background instead
+    backgroundImage = QImage();
+    m_last_opacity = -1;
+    m_current_game_path.clear();
     RefreshListBackgroundImage();
+    return;
 }
 
 bool GameListFrame::CompareWithFavorite(const GameInfo& a, const GameInfo& b, int columnIndex,

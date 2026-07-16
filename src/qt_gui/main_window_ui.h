@@ -5,7 +5,6 @@
 
 #include <QMenuBar>
 #include <QPushButton>
-#include <QSplitter>
 #include <QTextEdit>
 #include <QToolBar>
 
@@ -14,8 +13,9 @@ public:
     QPushButton* toggleLogButton = new QPushButton();
     QPushButton* installPkgButton = new QPushButton();
     QPushButton* bpBootButton = new QPushButton();
+    QPushButton* themeButton = new QPushButton();
+    QPushButton* cinemaButton = new QPushButton();
 
-    QSplitter* splitter;
     QTextEdit* logDisplay;
 
     QAction* bootGameAct;
@@ -49,6 +49,7 @@ public:
     QAction* welcomeAct;
     QAction* bigPictureAct;
     QAction* hubMenuAct;
+    QAction* cinemaAct;
     QAction* pauseOnUnfocusAct;
     QAction* configureAct;
     QAction* configureHotkeys;
@@ -89,6 +90,23 @@ public:
     QWidget* sizeSliderContainer;
     QHBoxLayout* sizeSliderContainer_layout;
     QSlider* sizeSlider;
+
+    QWidget* topControlBar;
+    QHBoxLayout* topControlBarLayout;
+    QLabel* backgroundImageLabel;
+    QWidget* bootIconsArea;
+    QHBoxLayout* bootIconsLayout;
+    QSlider* bootIconsSizeSlider;
+    QWidget* bootIconsSliderContainer;
+    QHBoxLayout* bootIconsSliderLayout;
+    QWidget* gameRectangleContainer;
+    QVBoxLayout* gameRectangleLayout;
+    QSlider* gameContainerHeightSlider;
+    QWidget* gameHeightSliderContainer;
+    QHBoxLayout* gameHeightSliderLayout;
+    QWidget* playContainer;
+    QWidget* pauseContainer;
+
     QMenuBar* menuBar;
     QMenu* menuFile;
     QMenu* menuRecent;
@@ -517,7 +535,7 @@ public:
         setlistModeGridAct->setText(
             QCoreApplication::translate("MainWindow", "Grid View", nullptr));
         setlistModeCinematicAct->setText(
-            QCoreApplication::translate("MainWindow", "Cinema View", nullptr));
+            QCoreApplication::translate("MainWindow", "Launch Cinema Window", nullptr));
         setlistElfAct->setText(QCoreApplication::translate("MainWindow", "Elf Viewer", nullptr));
         gameInstallPathAct->setText(
             QCoreApplication::translate("MainWindow", "Games Directory", nullptr));

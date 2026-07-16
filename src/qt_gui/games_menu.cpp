@@ -1079,6 +1079,13 @@ void BigPictureWidget::showEvent(QShowEvent* ev) {
         centerSelectedTileAnimated();
         updateDepthEffect();
         setDimVisible(true);
+        if (m_scroll)
+            m_scroll->setVisible(true);
+        if (m_bottomBar)
+            m_bottomBar->setVisible(true);
+        if (m_hotkeysOverlay)
+            m_hotkeysOverlay->setVisible(true);
+        m_hideUi = false;
     });
 }
 
