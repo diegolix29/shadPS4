@@ -40,7 +40,15 @@ bool StorageImageSync::HasAliasAtAddress(VAddr addr, VideoCore::ImageId self_id)
 void StorageImageSync::Sync(VideoCore::ImageId image_id) {
     const auto& serial = Common::ElfInfo::Instance().GameSerial();
     if (serial == "CUSA11227" || serial == "CUSA12982" || serial == "CUSA00093" ||
-        serial == "CUSA00003" || serial == "CUSA01627" || serial == "CUSA01778") {
+        serial == "CUSA00003" || serial == "CUSA01627" || serial == "CUSA01778" ||
+        serial == "CUSA03173" || serial == "CUSA00900" || serial == "CUSA00208" ||
+        serial == "CUSA01363" || serial == "CUSA01322" || serial == "CUSA003027" ||
+        serial == "CUSA00299" || serial == "CUSA00207" || serial == "CUSA03014" ||
+        serial == "CUSA03023" || serial == "CUSA03014" || serial == "CUSA00900" ||
+        serial == "CUSA03388" || serial == "CUSA01589" || serial == "CUSA01760" ||
+        serial == "CUSA07439" || serial == "CUSA07339" || serial == "CUSA08692" ||
+        serial == "CUSA08495" || serial == "CUSA50617" || serial == "CUSA18723" ||
+        serial == "CUSA28863") {
         return;
     }
     auto& img = texture_cache.GetImage(image_id);

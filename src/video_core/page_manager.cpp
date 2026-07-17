@@ -52,7 +52,8 @@ struct PageManager::Impl {
             return (serial == "CUSA03173" || serial == "CUSA00900" || serial == "CUSA00208" ||
                     serial == "CUSA01363" || serial == "CUSA01322" || serial == "CUSA003027" ||
                     serial == "CUSA00299" || serial == "CUSA00207" || serial == "CUSA03014" ||
-                    serial == "CUSA03023");
+                    serial == "CUSA03023" || serial == "CUSA50617" || serial == "CUSA18723" ||
+                    serial == "CUSA28863");
         }
 
         Core::MemoryPermission WritePerm() const noexcept {
