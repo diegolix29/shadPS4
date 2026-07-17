@@ -27,6 +27,7 @@
 #include "common/polyfill_thread.h"
 #include "common/scm_rev.h"
 #include "common/singleton.h"
+#include "common/zar_fs.h"
 #include "core/debug_state.h"
 #include "core/debugger.h"
 #include "core/devtools/widget/module_list.h"
@@ -131,7 +132,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         Debugger::WaitForDebuggerAttach();
     }
 
-    if (std::filesystem::is_directory(file)) {
+    if (std::filesystem::is_directory(file) || Common::FS::Zar::IsZarArchive(file)) {
         file /= "eboot.bin";
     }
 
@@ -151,14 +152,16 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         }
     }
 
-    std::filesystem::path eboot_name = std::filesystem::relative(file, game_folder);
+    std::filesystem::path eboot_name = Common::FS::Zar::IsZarInnerPath(file)
+                                           ? file.lexically_relative(game_folder)
+                                           : std::filesystem::relative(file, game_folder);
 
     auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
     mnt->Mount(game_folder, "/app0", true);
     mnt->Mount(game_folder, "/hostapp", true);
 
     const auto param_sfo_path = mnt->GetHostPath("/app0/sce_sys/param.sfo");
-    const auto param_sfo_exists = std::filesystem::exists(param_sfo_path);
+    const auto param_sfo_exists = Common::FS::Zar::Exists(param_sfo_path);
 
     std::string id;
     std::string title;
@@ -220,7 +223,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     game_info.psf_attributes = psf_attributes;
 
     const auto pic1_path = mnt->GetHostPath("/app0/sce_sys/pic1.png");
-    if (std::filesystem::exists(pic1_path)) {
+    if (Common::FS::Zar::Exists(pic1_path)) {
         game_info.splash_path = pic1_path;
     }
 
@@ -236,6 +239,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
     Common::Log::Start();
     if (!std::filesystem::exists(file)) {
+    if (!Common::FS::Zar::Exists(file)) {
         LOG_CRITICAL(Loader, "eboot.bin does not exist: {}",
                      std::filesystem::absolute(file).string());
         std::quick_exit(0);
@@ -380,6 +384,10 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
     mnt->Mount(mount_data_dir, "/data");
 
+    // Remove stale files extracted from ZArchives on previous runs.
+    Common::FS::Zar::CleanupSpillFiles();
+
+    // Mounting temp folders
     const auto& mount_temp_dir = Common::FS::GetUserPath(Common::FS::PathType::TempDataDir) / id;
     if (std::filesystem::exists(mount_temp_dir)) {
         std::filesystem::remove_all(mount_temp_dir);

@@ -1,6 +1,15 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <limits>
+
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_hints.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_video.h>
+#include <cmrc/cmrc.hpp>
 #ifdef ENABLE_QT_GUI
 #include <QCoreApplication>
 #include <QFileInfo>
@@ -192,9 +201,14 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     }
 }
 
-WindowSDL::~WindowSDL() {
-    if (window) {
-        SDL_DestroyWindow(window);
+WindowSDL::~WindowSDL() = default;
+
+void WindowSDL::SetIcon(const std::filesystem::path& path) {
+    if (!Common::FS::Zar::Exists(path)) {
+        LOG_WARNING(Core, "Could not find icon file '{}', using default icon.",
+                    fmt::UTF(path.u8string()));
+        SetDefaultWindowIcon(window);
+        return;
     }
 }
 SDL_Event* e = nullptr;
@@ -208,6 +222,14 @@ void WindowSDL::SetIcon(const std::filesystem::path& path) {
         return;
     }
 
+    const u64 fileSize = file.GetSize();
+    if (fileSize > std::numeric_limits<size_t>::max()) {
+        LOG_ERROR(Core, "Window icon file '{}' is too large.", fmt::UTF(path.u8string()));
+        SetDefaultWindowIcon(window);
+        return;
+    }
+    std::vector<u8> buf(static_cast<size_t>(fileSize));
+    const size_t bytesRead = file.ReadRaw<u8>(buf.data(), fileSize);
     const u64 file_size = file.GetSize();
     std::vector<u8> buf(file_size);
     const size_t bytes_read = file.ReadRaw<u8>(buf.data(), file_size);
