@@ -41,6 +41,7 @@ void UpdateSinks();
 
 void UpdateLogLevels(std::string_view log_filter);
 void UpdateLogFlushLevel(std::string_view log_flush_level);
+void UpdateLogTimestamps(bool timestamps);
 
 static constexpr std::array level_string_views{"Trace", "Debug",    "Info", "Warning",
                                                "Error", "Critical", "Off"};
