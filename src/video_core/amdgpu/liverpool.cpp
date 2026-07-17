@@ -697,6 +697,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             case PM4ItOpcode::EventWriteEos: {
                 const auto* event_eos = reinterpret_cast<const PM4CmdEventWriteEos*>(header);
                 if (rasterizer) {
+                    rasterizer->CommitPendingGpuRanges();
                     rasterizer->ProcessDownloadImages();
                 }
                 event_eos->SignalFence([](void* address, u64 data, u32 num_bytes) {
@@ -718,6 +719,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
             case PM4ItOpcode::EventWriteEop: {
                 const auto* event_eop = reinterpret_cast<const PM4CmdEventWriteEop*>(header);
                 if (rasterizer) {
+                    rasterizer->CommitPendingGpuRanges();
                     rasterizer->ProcessDownloadImages();
                 }
                 event_eop->SignalFence(
@@ -773,6 +775,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 u64* address = write_data->Address<u64*>();
                 if (data_size <= sizeof(u64) && rasterizer) {
                     rasterizer->CommitPendingGpuRanges();
+                    rasterizer->ProcessDownloadImages();
                 }
                 if (!write_data->wr_one_addr.Value()) {
                     std::memcpy(address, write_data->data, data_size);
@@ -813,6 +816,8 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 }
                 const PM4CmdRewind* rewind = reinterpret_cast<const PM4CmdRewind*>(header);
                 rasterizer->CommitPendingGpuRanges();
+                rasterizer->ProcessDownloadImages();
+
                 while (!rewind->Valid()) {
                     YIELD_GFX();
                 }
@@ -1160,6 +1165,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             const u32 data_size = (header->type3.count.Value() - 2) * 4;
             if (data_size <= sizeof(u64) && rasterizer) {
                 rasterizer->CommitPendingGpuRanges();
+                rasterizer->ProcessDownloadImages();
             }
             if (!write_data->wr_one_addr.Value()) {
                 std::memcpy(write_data->Address<void*>(), write_data->data, data_size);
@@ -1191,6 +1197,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
         case PM4ItOpcode::ReleaseMem: {
             const auto* release_mem = reinterpret_cast<const PM4CmdReleaseMem*>(header);
             if (rasterizer) {
+                rasterizer->CommitPendingGpuRanges();
                 rasterizer->ProcessDownloadImages();
             }
             release_mem->SignalFence(

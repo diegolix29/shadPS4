@@ -165,6 +165,12 @@
                   </property>
                   <item>
                    <widget class="QPushButton" name="DpadLeftButton">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>30</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>unmapped</string>
                     </property>
@@ -196,6 +202,12 @@
                   </property>
                   <item>
                    <widget class="QPushButton" name="DpadRightButton">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>30</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>unmapped</string>
                     </property>
@@ -529,7 +541,7 @@
                     <widget class="QPushButton" name="LStickUpButton">
                      <property name="minimumSize">
                       <size>
-                       <width>0</width>
+                       <width>120</width>
                        <height>30</height>
                       </size>
                      </property>
@@ -569,6 +581,12 @@
                   </property>
                   <item>
                    <widget class="QPushButton" name="LStickLeftButton">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>30</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>unmapped</string>
                     </property>
@@ -600,6 +618,12 @@
                   </property>
                   <item>
                    <widget class="QPushButton" name="LStickRightButton">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>30</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>unmapped</string>
                     </property>
@@ -644,7 +668,7 @@
                     <widget class="QPushButton" name="LStickDownButton">
                      <property name="minimumSize">
                       <size>
-                       <width>0</width>
+                       <width>120</width>
                        <height>30</height>
                       </size>
                      </property>
@@ -1366,7 +1390,7 @@
                     <widget class="QPushButton" name="TriangleButton">
                      <property name="minimumSize">
                       <size>
-                       <width>0</width>
+                       <width>120</width>
                        <height>30</height>
                       </size>
                      </property>
@@ -1406,6 +1430,12 @@
                   </property>
                   <item>
                    <widget class="QPushButton" name="SquareButton">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>30</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>unmapped</string>
                     </property>
@@ -1437,6 +1467,12 @@
                   </property>
                   <item>
                    <widget class="QPushButton" name="CircleButton">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>30</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>unmapped</string>
                     </property>
@@ -1481,7 +1517,7 @@
                     <widget class="QPushButton" name="CrossButton">
                      <property name="minimumSize">
                       <size>
-                       <width>0</width>
+                       <width>120</width>
                        <height>30</height>
                       </size>
                      </property>
@@ -1773,7 +1809,7 @@
                     <widget class="QPushButton" name="RStickUpButton">
                      <property name="minimumSize">
                       <size>
-                       <width>0</width>
+                       <width>120</width>
                        <height>30</height>
                       </size>
                      </property>
@@ -1813,6 +1849,12 @@
                   </property>
                   <item>
                    <widget class="QPushButton" name="RStickLeftButton">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>30</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>unmapped</string>
                     </property>
@@ -1844,6 +1886,12 @@
                   </property>
                   <item>
                    <widget class="QPushButton" name="RStickRightButton">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>30</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>unmapped</string>
                     </property>
@@ -1888,7 +1936,7 @@
                     <widget class="QPushButton" name="RStickDownButton">
                      <property name="minimumSize">
                       <size>
-                       <width>0</width>
+                       <width>120</width>
                        <height>30</height>
                       </size>
                      </property>
