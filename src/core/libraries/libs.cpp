@@ -78,57 +78,12 @@
 
 namespace Libraries {
 
-void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
-    LOG_INFO(Lib_Kernel, "Initializing HLE libraries");
-    Libraries::Kernel::RegisterLib(sym);
-    Libraries::GnmDriver::RegisterLib(sym);
-    Libraries::VideoOut::RegisterLib(sym);
-    Libraries::UserService::RegisterLib(sym);
-    Libraries::SystemService::RegisterLib(sym);
-    Libraries::CommonDialog::RegisterLib(sym);
-    Libraries::MsgDialog::RegisterLib(sym);
-    Libraries::AudioOut::RegisterLib(sym);
-    Libraries::Http::RegisterLib(sym);
-    Libraries::Http2::RegisterLib(sym);
-    Libraries::Net::RegisterLib(sym);
-    Libraries::NetCtl::RegisterLib(sym);
-    Libraries::SaveData::RegisterLib(sym);
-    Libraries::SaveData::Dialog::RegisterLib(sym);
-    Libraries::Ssl2::RegisterLib(sym);
-    Libraries::SysModule::RegisterLib(sym);
-    Libraries::Posix::RegisterLib(sym);
-    Libraries::AudioIn::RegisterLib(sym);
-    Libraries::Np::NpCommerce::RegisterLib(sym);
-    Libraries::Np::NpCommon::RegisterLib(sym);
-    Libraries::Np::NpManager::RegisterLib(sym);
-    Libraries::Np::NpMatching2::RegisterLib(sym);
-    Libraries::Np::NpSignaling::RegisterLib(sym);
-    Libraries::Np::NpScore::RegisterLib(sym);
-    Libraries::Np::NpTrophy::RegisterLib(sym);
-    Libraries::Np::NpWebApi::RegisterLib(sym);
-    Libraries::Np::NpWebApi2::RegisterLib(sym);
-    Libraries::Np::NpProfileDialog::RegisterLib(sym);
-    Libraries::Np::NpSnsFacebookDialog::RegisterLib(sym);
-    Libraries::Np::NpAuth::RegisterLib(sym);
-    Libraries::Np::NpParty::RegisterLib(sym);
-    Libraries::Np::NpPartner::RegisterLib(sym);
-    Libraries::Np::NpTus::RegisterLib(sym);
-    Libraries::ScreenShot::RegisterLib(sym);
-    Libraries::AppContent::RegisterLib(sym);
-    Libraries::PngDec::RegisterLib(sym);
-    Libraries::PlayGo::RegisterLib(sym);
-    Libraries::PlayGo::Dialog::RegisterLib(sym);
-    Libraries::Random::RegisterLib(sym);
-    Libraries::Usbd::RegisterLib(sym);
-    Libraries::Pad::RegisterLib(sym);
-    Libraries::Ajm::RegisterLib(sym);
-    Libraries::ErrorDialog::RegisterLib(sym);
-    Libraries::ImeDialog::RegisterLib(sym);
-    Libraries::AvPlayer::RegisterLib(sym);
-    Libraries::Videodec::RegisterLib(sym);
-    Libraries::Videodec2::RegisterLib(sym);
+static void RegisterAudio3d(Core::Loader::SymbolsResolver* sym) {
     if (EmulatorSettings.GetAudioBackend() == AudioBackend::OpenAL) {
         Libraries::Audio3dOpenAL::RegisterLib(sym);
+    } else {
+        Libraries::Audio3d::RegisterLib(sym);
+    }
 }
 
 void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
@@ -217,9 +172,6 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
             // nothing.
             // {"libSceSsl.sprx", Libraries::Ssl::RegisterLib},
         });
-    Libraries::ContentExport::RegisterLib(sym);
-    Libraries::VideoRecording::RegisterLib(sym);
-    Libraries::InvitationDialog::RegisterLib(sym);
 
         for (auto mod : ModulesToLoad) {
             if (mod.module_name == "libSceGnmDriver.sprx") {
