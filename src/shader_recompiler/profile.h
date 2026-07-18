@@ -79,7 +79,6 @@ struct Profile {
                    other.support_fp32_signed_zero_inf_nan_preserve ||
                support_fp64_signed_zero_inf_nan_preserve !=
                    other.support_fp64_signed_zero_inf_nan_preserve ||
-               support_legacy_vertex_attributes != other.support_legacy_vertex_attributes ||
                supports_image_load_store_lod != other.supports_image_load_store_lod ||
                supports_native_cube_calc != other.supports_native_cube_calc ||
                supports_trinary_minmax != other.supports_trinary_minmax ||
