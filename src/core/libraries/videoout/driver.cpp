@@ -359,8 +359,7 @@ void VideoOutDriver::Flip(const Request& req) {
     auto& storage = Core::FileSys::GetApp0StorageScheduler();
     if (storage.IsEnabled()) {
         const auto expected_period =
-            std::chrono::nanoseconds{1'000'000'000 / EmulatorSettings.GetVblankFrequency()} *
-            (port->flip_rate + 1);
+            std::chrono::nanoseconds{1'000'000'000 / Config::vblankFreq()} * (port->flip_rate + 1);
         storage.ReportGuestFlip(expected_period);
     }
 }

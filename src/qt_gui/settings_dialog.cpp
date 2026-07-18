@@ -1372,6 +1372,14 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
 
+    // App0 storage settings
+    ui->app0BandwidthSpinBox->setValue(
+        toml::find_or<int>(data, "General", "app0_read_bandwidth_mibps", 0));
+    ui->app0DisableTimeStretchingCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "app0_read_disable_time_stretching", false));
+    ui->app0UnlimitedSequentialReadSpeedCheckBox->setChecked(
+        toml::find_or<bool>(data, "General", "app0_read_unlimited_sequential_read_speed", false));
+
     ui->connectedNetworkCheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isConnectedToNetwork", false));
     ui->useHostMemoryFallbackCheckBox->setChecked(
@@ -1726,6 +1734,12 @@ void SettingsDialog::UpdateSettings() {
     Config::setNeoMode(ui->isNeoModeCheckBox->isChecked());
     Config::setPlayBGM(ui->playBGMCheckBox->isChecked());
     Config::setLoggingEnabled(ui->enableLoggingCheckBox->isChecked());
+
+    // App0 storage settings
+    Config::setApp0ReadBandwidthMibps(ui->app0BandwidthSpinBox->value());
+    Config::setApp0ReadDisableTimeStretching(ui->app0DisableTimeStretchingCheckBox->isChecked());
+    Config::setApp0ReadUnlimitedSequentialReadSpeed(
+        ui->app0UnlimitedSequentialReadSpeedCheckBox->isChecked());
     Config::setAllowHDR(ui->enableHDRCheckBox->isChecked());
     Config::setEnableAutoBackup(ui->enableAutoBackupCheckBox->isChecked());
     Config::setLogType(logTypeMap.value(ui->logTypeComboBox->currentText()).toStdString());

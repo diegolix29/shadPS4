@@ -544,10 +544,7 @@ s32 PS4_SYSV_ABI sceKernelAioInitializeParam() {
 }
 
 void CleanupAio() {
-    if (id_state) {
-        free(id_state);
-        id_state = nullptr;
-    }
+    // id_state cleanup removed - variable no longer exists
 }
 
 void RegisterAio(Core::Loader::SymbolsResolver* sym) {

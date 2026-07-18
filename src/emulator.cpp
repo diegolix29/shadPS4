@@ -34,11 +34,11 @@
 #include "core/file_format/psf.h"
 #include "core/file_format/trp.h"
 #include "core/file_sys/fs.h"
+#include "core/file_sys/storage_scheduler.h"
 #include "core/libraries/disc_map/disc_map.h"
 #include "core/libraries/font/font.h"
 #include "core/libraries/font/fontft.h"
 #include "core/libraries/jpeg/jpegenc.h"
-#include "core/file_sys/storage_scheduler.h"
 #include "core/libraries/kernel/kernel.h"
 #include "core/libraries/libc_internal/libc_internal.h"
 #include "core/libraries/libpng/pngenc.h"
@@ -81,6 +81,7 @@ Emulator::~Emulator() {}
 
 void Emulator::Shutdown() {
     static bool exit_done = false;
+    static std::mutex exit_mutex;
     std::scoped_lock l{exit_mutex};
     if (exit_done) {
         return;
@@ -99,7 +100,6 @@ void Emulator::Shutdown() {
             storage_stats.demand_chunks, storage_stats.max_staging_buffers,
             storage_stats.max_queue_depth);
     }
-    Common::Log::Flush();
     if (controllers) {
         controllers->Cleanup();
     }
@@ -202,12 +202,9 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         }
     }
 
-    EmulatorSettings.Load(id);
-    Core::FileSys::GetApp0StorageScheduler().Configure(
-        EmulatorSettings.GetApp0ReadBandwidthMiBps());
+    Core::FileSys::GetApp0StorageScheduler().Configure(Config::getApp0ReadBandwidthMibps());
     // Switch to configured log
-    Common::Log::Switch((!id.empty() && EmulatorSettings.IsLogSeparate()) ? id + ".log"
-                                                                          : "shad_log.txt");
+    Config::getSeparateLogFilesEnabled() ? id + ".log" : "shad_log.txt";
 
     auto guest_eboot_path = "/app0/" + eboot_name.generic_string();
     const auto eboot_path = mnt->GetHostPath(guest_eboot_path);

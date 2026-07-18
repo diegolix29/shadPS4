@@ -87,7 +87,7 @@
 namespace Libraries {
 
 static void RegisterAudio3d(Core::Loader::SymbolsResolver* sym) {
-    if (EmulatorSettings.GetAudioBackend() == AudioBackend::OpenAL) {
+    if (Config::getAudioBackend() == Config::AudioBackend::OpenAL) {
         Libraries::Audio3dOpenAL::RegisterLib(sym);
     } else {
         Libraries::Audio3d::RegisterLib(sym);
@@ -98,7 +98,7 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
     LOG_INFO(Lib_Kernel, "Initializing HLE libraries");
 
     auto* game_info = Common::Singleton<Common::ElfInfo>::Instance();
-    const auto& sys_module_path = EmulatorSettings.GetSysModulesDir();
+    const auto& sys_module_path = Config::getSysModulesPath();
     const auto& game_specific_modules_path =
         sys_module_path /
         (game_info->GameSerial().empty() ? std::string_view("no_serial") : game_info->GameSerial());
