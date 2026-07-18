@@ -3676,6 +3676,67 @@ Fast – Fast readbacks Speed - If day races dosent show brighness on Driveclub 
 									</widget>
 								</item>
 
+								<item>
+									<widget class="QGroupBox" name="app0StorageGroup">
+										<property name="title">
+											<string>App0 Storage Settings</string>
+										</property>
+										<layout class="QVBoxLayout" name="app0StorageLayout">
+											<item>
+												<layout class="QHBoxLayout" name="app0BandwidthLayout">
+													<item>
+														<widget class="QLabel" name="app0BandwidthLabel">
+															<property name="text">
+																<string>Read Bandwidth (MiB/s):</string>
+															</property>
+														</widget>
+													</item>
+													<item>
+														<widget class="QSpinBox" name="app0BandwidthSpinBox">
+															<property name="minimum">
+																<number>0</number>
+															</property>
+															<property name="maximum">
+																<number>10000</number>
+															</property>
+															<property name="value">
+																<number>0</number>
+															</property>
+														</widget>
+													</item>
+													<item>
+														<widget class="QLabel" name="app0BandwidthRangeLabel">
+															<property name="text">
+																<string>(Typical: 75, 100, 125)</string>
+															</property>
+															<property name="font">
+																<font>
+																	<pointsize>9</pointsize>
+																	<italic>true</italic>
+																</font>
+															</property>
+														</widget>
+													</item>
+												</layout>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="app0DisableTimeStretchingCheckBox">
+													<property name="text">
+														<string>Disable Time Stretching</string>
+													</property>
+												</widget>
+											</item>
+											<item>
+												<widget class="QCheckBox" name="app0UnlimitedSequentialReadSpeedCheckBox">
+													<property name="text">
+														<string>Unlimited Sequential Read Speed</string>
+													</property>
+												</widget>
+											</item>
+										</layout>
+									</widget>
+								</item>
+
 							</layout>
 						</widget>
 					</widget>

@@ -449,6 +449,12 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
     ui->shadnetCheckBox->setChecked(Config::IsShadNetEnabled());
     ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
+
+    // App0 storage settings
+    ui->app0BandwidthSpinBox->setValue(Config::getApp0ReadBandwidthMibps());
+    ui->app0DisableTimeStretchingCheckBox->setChecked(Config::getApp0ReadDisableTimeStretching());
+    ui->app0UnlimitedSequentialReadSpeedCheckBox->setChecked(
+        Config::getApp0ReadUnlimitedSequentialReadSpeed());
     ui->disableTrophycheckBox->setChecked(Config::getisTrophyPopupDisabled());
     ui->logFilterLineEdit->setText(QString::fromStdString(Config::getLogFilter()));
     ui->logTypeComboBox->setCurrentText(QString::fromStdString(Config::getLogType()));
@@ -597,6 +603,15 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->screenTipBox->setChecked(toml::find<bool>(gen, "screenTipDisable"));
         if (gen.contains("showSplash"))
             ui->showSplashCheckBox->setChecked(toml::find<bool>(gen, "showSplash"));
+        // App0 storage settings
+        if (gen.contains("app0_read_bandwidth_mibps"))
+            ui->app0BandwidthSpinBox->setValue(toml::find<int>(gen, "app0_read_bandwidth_mibps"));
+        if (gen.contains("app0_read_disable_time_stretching"))
+            ui->app0DisableTimeStretchingCheckBox->setChecked(
+                toml::find<bool>(gen, "app0_read_disable_time_stretching"));
+        if (gen.contains("app0_read_unlimited_sequential_read_speed"))
+            ui->app0UnlimitedSequentialReadSpeedCheckBox->setChecked(
+                toml::find<bool>(gen, "app0_read_unlimited_sequential_read_speed"));
         if (gen.contains("sideTrophy")) {
             QString side = QString::fromStdString(toml::find<std::string>(gen, "sideTrophy"));
             ui->radioButton_Left->setChecked(side == "left");
@@ -837,6 +852,13 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["enableMods"] = ui->enableModsCheckBox->isChecked();
     overrides["General"]["enableUpdates"] = ui->enableUpdatesCheckBox->isChecked();
     overrides["General"]["extraDmemInMbytes"] = ui->MemorySpinBox->value();
+
+    // App0 storage settings
+    overrides["General"]["app0_read_bandwidth_mibps"] = ui->app0BandwidthSpinBox->value();
+    overrides["General"]["app0_read_disable_time_stretching"] =
+        ui->app0DisableTimeStretchingCheckBox->isChecked();
+    overrides["General"]["app0_read_unlimited_sequential_read_speed"] =
+        ui->app0UnlimitedSequentialReadSpeedCheckBox->isChecked();
 
     overrides["Input"]["backgroundControllerInput"] = ui->backgroundControllerCheckBox->isChecked();
     overrides["Input"]["isKeyboardBindingsDisabled"] =

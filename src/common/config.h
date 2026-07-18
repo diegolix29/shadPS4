@@ -436,6 +436,13 @@ void setEnableUpdates(bool enable);
 std::string getNexusApiKey();
 void setNexusApiKey(const std::string& apiKey);
 
+u32 getApp0ReadBandwidthMibps();
+void setApp0ReadBandwidthMibps(u32 value);
+bool getApp0ReadDisableTimeStretching();
+void setApp0ReadDisableTimeStretching(bool enable);
+bool getApp0ReadUnlimitedSequentialReadSpeed();
+void setApp0ReadUnlimitedSequentialReadSpeed(bool enable);
+
 Common::CpuCoreMode getCpuCoreMode();
 void setCpuCoreMode(Common::CpuCoreMode mode);
 std::vector<u32> getCustomCpuCores();

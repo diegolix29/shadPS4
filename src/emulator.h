@@ -35,6 +35,7 @@ public:
 
     const char* executableName;
     bool waitForDebuggerBeforeRun{false};
+    void Shutdown();
 
 private:
     void LoadSystemModules(const std::string& game_serial);

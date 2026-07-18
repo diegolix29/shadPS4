@@ -224,6 +224,9 @@ static std::string version_path;
 static ConfigEntry<string> httpHostOverride("localhost");
 static ConfigEntry<bool> enableMods(true);
 static ConfigEntry<bool> enableUpdates(true);
+static ConfigEntry<u32> app0_read_bandwidth_mibps(0);
+static ConfigEntry<bool> app0_read_disable_time_stretching(false);
+static ConfigEntry<bool> app0_read_unlimited_sequential_read_speed(false);
 
 // Input
 static ConfigEntry<int> cursorState(HideCursorState::Idle);
@@ -1725,6 +1728,30 @@ std::string getNexusApiKey() {
     return nexus_api_key;
 }
 
+u32 getApp0ReadBandwidthMibps() {
+    return app0_read_bandwidth_mibps.get();
+}
+
+void setApp0ReadBandwidthMibps(u32 value) {
+    app0_read_bandwidth_mibps.base_value = value;
+}
+
+bool getApp0ReadDisableTimeStretching() {
+    return app0_read_disable_time_stretching.get();
+}
+
+void setApp0ReadDisableTimeStretching(bool enable) {
+    app0_read_disable_time_stretching.base_value = enable;
+}
+
+bool getApp0ReadUnlimitedSequentialReadSpeed() {
+    return app0_read_unlimited_sequential_read_speed.get();
+}
+
+void setApp0ReadUnlimitedSequentialReadSpeed(bool enable) {
+    app0_read_unlimited_sequential_read_speed.base_value = enable;
+}
+
 void setNexusApiKey(const std::string& apiKey) {
     nexus_api_key = apiKey;
 }
@@ -1906,6 +1933,12 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
 
         enableMods.setFromToml(general, "enableMods", is_game_specific);
         enableUpdates.setFromToml(general, "enableUpdates", is_game_specific);
+        app0_read_bandwidth_mibps.setFromToml(general, "app0_read_bandwidth_mibps",
+                                              is_game_specific);
+        app0_read_disable_time_stretching.setFromToml(general, "app0_read_disable_time_stretching",
+                                                      is_game_specific);
+        app0_read_unlimited_sequential_read_speed.setFromToml(
+            general, "app0_read_unlimited_sequential_read_speed", is_game_specific);
 
         compatibilityData = toml::find_or<bool>(general, "compatibilityEnabled", false);
         checkCompatibilityOnStartup =
@@ -2303,6 +2336,15 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
             enableMods.game_specific_value.value_or(enableMods.base_value);
         data["General"]["enableUpdates"] =
             enableUpdates.game_specific_value.value_or(enableUpdates.base_value);
+        data["General"]["app0_read_bandwidth_mibps"] =
+            app0_read_bandwidth_mibps.game_specific_value.value_or(
+                app0_read_bandwidth_mibps.base_value);
+        data["General"]["app0_read_disable_time_stretching"] =
+            app0_read_disable_time_stretching.game_specific_value.value_or(
+                app0_read_disable_time_stretching.base_value);
+        data["General"]["app0_read_unlimited_sequential_read_speed"] =
+            app0_read_unlimited_sequential_read_speed.game_specific_value.value_or(
+                app0_read_unlimited_sequential_read_speed.base_value);
     } else {
         data["General"]["volumeSlider"] = volumeSlider.base_value;
         data["General"]["muteEnabled"] = muteEnabled.base_value;
@@ -2329,6 +2371,11 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["General"]["enableAutoBackup"] = enableAutoBackup.base_value;
         data["General"]["enableMods"] = enableMods.base_value;
         data["General"]["enableUpdates"] = enableUpdates.base_value;
+        data["General"]["app0_read_bandwidth_mibps"] = app0_read_bandwidth_mibps.base_value;
+        data["General"]["app0_read_disable_time_stretching"] =
+            app0_read_disable_time_stretching.base_value;
+        data["General"]["app0_read_unlimited_sequential_read_speed"] =
+            app0_read_unlimited_sequential_read_speed.base_value;
     }
     std::vector<int> custom_cores_int;
     for (u32 core : customCpuCores) {
