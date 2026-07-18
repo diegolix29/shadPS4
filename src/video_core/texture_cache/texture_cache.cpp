@@ -28,7 +28,8 @@ TextureCache::TextureCache(const Vulkan::Instance& instance_, Vulkan::Scheduler&
     : instance{instance_}, scheduler{scheduler_}, liverpool{liverpool_},
       buffer_cache{buffer_cache_}, tracker{tracker_}, blit_helper{instance, scheduler},
       tile_manager{instance, scheduler, buffer_cache.GetUtilityBuffer(MemoryUsage::Stream)},
-      readback_linear_images{EmulatorSettings.IsReadbackLinearImagesEnabled()} {
+      readback_linear_images{EmulatorSettings.IsReadbackLinearImagesEnabled()},
+      defer_rt_refresh{EmulatorSettings.IsDeferRtRefreshEnabled()} {
 
     u32 max_samplers = instance.GetMaxSamplerAllocationCount();
     trigger_gc_samplers = max_samplers * 3 / 4;
@@ -628,7 +629,16 @@ ImageView& TextureCache::FindTexture(ImageId image_id, const ImageDesc& desc) {
             download_images.emplace(image_id);
         }
     }
+    const bool gpu_written = desc.type == BindingType::Storage;
     UpdateImage(image_id);
+    // Stamp AFTER the refresh: RefreshImage skips an image already stamped for this frame,
+    // so stamping first would make this very bind's refresh a no-op and every later frame's
+    // too - the deferral would never expire, and Dirty would never clear (which also keeps
+    // SafeToDownload false and kills writeback). Deferring the *rest* of this frame is the
+    // point; the next frame's first use must still refresh.
+    if (gpu_written) {
+        image.last_gpu_write_epoch = frame_epoch.load(std::memory_order_relaxed);
+    }
     return image.FindView(desc.view_info);
 }
 
@@ -641,6 +651,12 @@ ImageView& TextureCache::FindRenderTarget(ImageId image_id, const ImageDesc& des
     }
     image.usage.render_target = 1u;
     UpdateImage(image_id);
+    // Stamp AFTER the refresh: RefreshImage skips an image already stamped for this frame,
+    // so stamping first would make this very bind's refresh a no-op and every later frame's
+    // too - the deferral would never expire, and Dirty would never clear (which also keeps
+    // SafeToDownload false and kills writeback). Deferring the *rest* of this frame is the
+    // point; the next frame's first use must still refresh.
+    image.last_gpu_write_epoch = frame_epoch.load(std::memory_order_relaxed);
 
     // Register meta data for this color buffer
     if (desc.info.meta_info.cmask_addr) {
@@ -663,6 +679,12 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
     image.flags |= ImageFlagBits::GpuModified;
     image.usage.depth_target = 1u;
     UpdateImage(image_id);
+    // Stamp AFTER the refresh: RefreshImage skips an image already stamped for this frame,
+    // so stamping first would make this very bind's refresh a no-op and every later frame's
+    // too - the deferral would never expire, and Dirty would never clear (which also keeps
+    // SafeToDownload false and kills writeback). Deferring the *rest* of this frame is the
+    // point; the next frame's first use must still refresh.
+    image.last_gpu_write_epoch = frame_epoch.load(std::memory_order_relaxed);
 
     // Register meta data for this depth buffer
     if (desc.info.meta_info.htile_addr) {
@@ -700,6 +722,25 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
 
 void TextureCache::RefreshImage(Image& image) {
     if (False(image.flags & ImageFlagBits::Dirty) || image.info.num_samples > 1) {
+        return;
+    }
+
+    // The guest CPU may re-initialize a render target for a future frame while the current
+    // command batch still draws into / samples it (frame pipelining, e.g. LBP3 fills its scene
+    // buffer with a flat "background, alpha=0" color each frame). Applying that write mid-batch
+    // would clobber the content the GPU rendered in this batch; defer it to the next one by
+    // keeping the dirty flags and skipping the upload while the write frame-epoch matches.
+    // Notes:
+    // - The stale data may arrive as CpuDirty (page tracker) or as GpuDirty (the CPU write was
+    //   picked up by a buffer-cache buffer aliasing the image range) — defer both. The refresh
+    //   still happens at the first use of the next frame, which is when the guest's
+    //   re-initialization is meant to be visible.
+    // - frame_epoch only advances on flips patched into the command stream (SubmitAndFlip). The
+    //   `frame_epoch > 1` check keeps titles that flip from the CPU side (epoch never advances)
+    //   on the stock path instead of deferring their CPU updates forever.
+    const u64 epoch = frame_epoch.load(std::memory_order_relaxed);
+    if (defer_rt_refresh && epoch > 1 && True(image.flags & ImageFlagBits::GpuModified) &&
+        image.last_gpu_write_epoch == epoch) {
         return;
     }
 

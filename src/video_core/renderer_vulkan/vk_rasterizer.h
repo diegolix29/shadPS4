@@ -69,6 +69,9 @@ public:
     u64 Flush();
     void Finish();
     void OnSubmit();
+    void OnGuestFlip() {
+        texture_cache.OnGuestFlip();
+    }
 
     PipelineCache& GetPipelineCache() {
         return pipeline_cache;

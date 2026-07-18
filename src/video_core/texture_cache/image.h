@@ -178,6 +178,7 @@ public:
     u64 image_uid{};
     u64 lru_id{};
     u64 tick_accessed_last{};
+    u64 last_gpu_write_epoch{};
     u64 hash{};
 
     struct {
