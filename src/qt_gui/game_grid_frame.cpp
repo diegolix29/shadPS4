@@ -1,10 +1,13 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <vector>
 #include <QPainter>
 #include <QPainterPath>
 #include <QTimer>
 #include "common/path_util.h"
+#include "common/types.h"
+#include "common/zar_fs.h"
 #include "game_grid_frame.h"
 #include "main_window.h"
 #include "qt_gui/compatibility_info.h"
@@ -115,6 +118,30 @@ GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
     this->horizontalHeader()->setVisible(false);
     this->verticalHeader()->setVisible(false);
     this->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    // Create .zar side list with title
+    m_zar_container = new QWidget(this);
+    QVBoxLayout* zarLayout = new QVBoxLayout(m_zar_container);
+    zarLayout->setContentsMargins(0, 0, 0, 0);
+    zarLayout->setSpacing(5);
+
+    m_zar_title = new QLabel(tr("ZAR Files"), this);
+    m_zar_title->setStyleSheet("color: white; font-weight: bold; background-color: rgba(30, 30, "
+                               "30, 200); padding: 5px; border-radius: 5px; text-align: center;");
+    m_zar_title->setAlignment(Qt::AlignCenter);
+    zarLayout->addWidget(m_zar_title);
+
+    m_zar_list = new QListWidget(this);
+    m_zar_list->setObjectName("ZarList");
+    m_zar_list->setMaximumWidth(200);
+    m_zar_list->setStyleSheet(
+        "QListWidget { background-color: rgba(30, 30, 30, 200); border: 1px solid rgba(90, 170, "
+        "255, 150); border-radius: 5px; } QListWidget::item { padding: 5px; color: white; } "
+        "QListWidget::item:hover { background-color: rgba(90, 170, 255, 100); } "
+        "QListWidget::item:selected { background-color: rgba(90, 170, 255, 150); }");
+    m_zar_list->setIconSize(QSize(64, 64));
+    zarLayout->addWidget(m_zar_list);
+
     PopulateGameGrid(m_game_info->m_games, false);
 
     connect(this, &QTableWidget::currentCellChanged, this, &GameGridFrame::onCurrentCellChanged);
@@ -185,6 +212,8 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
     this->crtColumn = -1;
     QVector<GameInfo> m_games_;
     this->clearContents();
+
+    PopulateZarList();
     if (fromSearch) {
         SortByFavorite(&m_games_search);
         m_games_ = m_games_search;
@@ -562,11 +591,58 @@ bool GameGridFrame::CompareWithFavorite(const GameInfo& a, const GameInfo& b) {
     bool isFavorite_b = list.contains(serialStr_b);
 
     if (isFavorite_a != isFavorite_b) {
-        return isFavorite_a; // favorites first
+        return isFavorite_a;
     } else {
         std::string name_a = a.name, name_b = b.name;
         std::transform(name_a.begin(), name_a.end(), name_a.begin(), ::tolower);
         std::transform(name_b.begin(), name_b.end(), name_b.begin(), ::tolower);
         return name_a < name_b;
+    }
+}
+
+void GameGridFrame::PopulateZarList() {
+    m_zar_list->clear();
+
+    for (const auto& zar_game : m_game_info->m_zar_games) {
+        QString name = QString::fromStdString(zar_game.name);
+        if (name.isEmpty()) {
+            QString path;
+            Common::FS::PathToQString(path, zar_game.path);
+            name = QFileInfo(path).fileName();
+        }
+        QListWidgetItem* item = new QListWidgetItem(name);
+        item->setData(Qt::UserRole, QString::fromStdString(zar_game.path.string()));
+
+        if (Common::FS::Zar::IsZarArchive(zar_game.path)) {
+            std::filesystem::path icon_path = zar_game.path / "sce_sys" / "icon0.png";
+            if (Common::FS::Zar::Exists(icon_path)) {
+                auto file_handle = Common::FS::Zar::OpenFile(icon_path);
+                if (file_handle) {
+                    u64 file_size = file_handle->GetSize();
+                    std::vector<u8> icon_data(file_size);
+                    file_handle->Read(icon_data.data(), file_size);
+                    QPixmap pixmap;
+                    pixmap.loadFromData(icon_data.data(), file_size);
+                    if (!pixmap.isNull()) {
+                        item->setIcon(QIcon(
+                            pixmap.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+                    }
+                }
+            }
+        } else if (!zar_game.icon.isNull()) {
+            item->setIcon(QIcon(QPixmap::fromImage(zar_game.icon)));
+        } else {
+            QString iconPath;
+            Common::FS::PathToQString(iconPath, zar_game.icon_path);
+            if (QFile::exists(iconPath)) {
+                QPixmap pixmap(iconPath);
+                if (!pixmap.isNull()) {
+                    item->setIcon(QIcon(
+                        pixmap.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+                }
+            }
+        }
+
+        m_zar_list->addItem(item);
     }
 }

@@ -24,6 +24,7 @@
 #include <QTextStream>
 #include <QWidget>
 #include <signal.h>
+#include <zarchive/zarchivewriter.h>
 #include "SDL3/SDL_events.h"
 #include "emulator.h"
 #include "mod_manager_dialog.h"
@@ -302,6 +303,8 @@ bool MainWindow::Init() {
         ui->cinemaButton->installEventFilter(this);
         ui->modManagerButton->installEventFilter(this);
         ui->launcherBox->installEventFilter(this);
+        ui->zarBootButton->installEventFilter(this);
+        ui->zarConvertButton->installEventFilter(this);
     }
 
     if (!Config::getEnableColorFilter()) {
@@ -322,6 +325,8 @@ bool MainWindow::Init() {
         ui->cinemaButton->removeEventFilter(this);
         ui->modManagerButton->removeEventFilter(this);
         ui->launcherBox->removeEventFilter(this);
+        ui->zarBootButton->removeEventFilter(this);
+        ui->zarConvertButton->removeEventFilter(this);
     }
 
     QString savedStyle = QString::fromStdString(Config::getGuiStyle());
@@ -820,10 +825,11 @@ void MainWindow::AddUiWidgets() {
     ui->backgroundImageLabel->setObjectName("backgroundImageLabel");
     ui->backgroundImageLabel->setAlignment(Qt::AlignCenter);
     ui->backgroundImageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    ui->backgroundImageLabel->setStyleSheet("QLabel#backgroundImageLabel {"
-                                            "  background-color: rgba(20, 20, 30, 150);"
-                                            "  border: none;"
-                                            "}");
+    ui->backgroundImageLabel->setStyleSheet(QString("QLabel#backgroundImageLabel {"
+                                                    "  background-color: rgba(20, 20, 30, %1);"
+                                                    "  border: none;"
+                                                    "}")
+                                                .arg(Config::getIconBgOpacity()));
 
     QString defaultBackgroundPath = ":/images/default_background.jpg";
     QPixmap defaultPixmap(defaultBackgroundPath);
@@ -860,11 +866,13 @@ void MainWindow::AddUiWidgets() {
     ui->toggleLogButton->setObjectName("ToggleLogButton");
     ui->installPkgButton->setObjectName("InstallPkgButton");
     ui->bpBootButton->setObjectName("BPBootButton");
+    ui->zarBootButton->setObjectName("ZarBootButton");
+    ui->zarConvertButton->setObjectName("ZarConvertButton");
     ui->themeButton->setObjectName("ThemeButton");
     ui->themeButton->setText(tr("Theme"));
 
-    for (QPushButton* extraBtn :
-         {ui->toggleLogButton, ui->installPkgButton, ui->bpBootButton, ui->themeButton}) {
+    for (QPushButton* extraBtn : {ui->toggleLogButton, ui->installPkgButton, ui->bpBootButton,
+                                  ui->zarBootButton, ui->zarConvertButton, ui->themeButton}) {
         const QColor toolbarGlowColor(90, 170, 255);
         extraBtn->setCursor(Qt::PointingHandCursor);
         extraBtn->setProperty("modernToolbarButton", true);
@@ -902,6 +910,8 @@ void MainWindow::AddUiWidgets() {
     ui->topControlBarLayout->addWidget(styleContainer);
     ui->topControlBarLayout->addWidget(ui->mw_searchbar);
     ui->topControlBarLayout->addWidget(ui->bpBootButton);
+    ui->topControlBarLayout->addWidget(ui->zarBootButton);
+    ui->topControlBarLayout->addWidget(ui->zarConvertButton);
     ui->topControlBarLayout->addWidget(ui->installPkgButton);
     ui->topControlBarLayout->addWidget(ui->toggleLogButton);
     ui->topControlBarLayout->addWidget(ui->themeButton);
@@ -911,6 +921,8 @@ void MainWindow::AddUiWidgets() {
     m_toolbarContainers.append(ui->installPkgButton);
     m_toolbarContainers.append(ui->toggleLogButton);
     m_toolbarContainers.append(ui->bpBootButton);
+    m_toolbarContainers.append(ui->zarBootButton);
+    m_toolbarContainers.append(ui->zarConvertButton);
     m_toolbarContainers.append(ui->themeButton);
     m_toolbarContainers.append(styleContainer);
     m_toolbarContainers.append(ui->mw_searchbar);
@@ -1169,7 +1181,127 @@ void MainWindow::AddUiWidgets() {
     ui->gameHeightSliderLayout->addWidget(bootIconsSliderWidget);
     ui->gameHeightSliderLayout->addWidget(gameHeightSliderWidget);
     ui->gameHeightSliderLayout->addWidget(gameSizeSliderWidget);
+
+    ui->logOpacitySlider = new QSlider(Qt::Horizontal, uiOverlay);
+    ui->logOpacitySlider->setMinimum(0);
+    ui->logOpacitySlider->setMaximum(100);
+    ui->logOpacitySlider->setValue(Config::getLogOpacity());
+
+    ui->bgOpacitySlider = new QSlider(Qt::Horizontal, uiOverlay);
+    ui->bgOpacitySlider->setMinimum(0);
+    ui->bgOpacitySlider->setMaximum(100);
+    ui->bgOpacitySlider->setValue(Config::getBgOpacity());
+
+    ui->iconBgOpacitySlider = new QSlider(Qt::Horizontal, uiOverlay);
+    ui->iconBgOpacitySlider->setMinimum(0);
+    ui->iconBgOpacitySlider->setMaximum(255);
+    ui->iconBgOpacitySlider->setValue(Config::getIconBgOpacity());
+
+    QWidget* logOpacitySliderWidget = new QWidget(uiOverlay);
+    logOpacitySliderWidget->setStyleSheet("background-color: transparent; border: none;");
+    QVBoxLayout* logOpacitySliderVLayout = new QVBoxLayout(logOpacitySliderWidget);
+    logOpacitySliderVLayout->setContentsMargins(0, 0, 0, 0);
+    logOpacitySliderVLayout->setSpacing(5);
+    logOpacitySliderVLayout->setAlignment(Qt::AlignCenter);
+
+    QLabel* logOpacityLabel = new QLabel(tr("Log Opacity"), uiOverlay);
+    logOpacityLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    logOpacityLabel->setAlignment(Qt::AlignCenter);
+
+    ui->logOpacitySlider->setFixedWidth(150);
+    logOpacitySliderVLayout->addWidget(ui->logOpacitySlider, 0, Qt::AlignCenter);
+    logOpacitySliderVLayout->addWidget(logOpacityLabel, 0, Qt::AlignCenter);
+    logOpacitySliderWidget->setLayout(logOpacitySliderVLayout);
+
+    QWidget* bgOpacitySliderWidget = new QWidget(uiOverlay);
+    bgOpacitySliderWidget->setStyleSheet("background-color: transparent; border: none;");
+    QVBoxLayout* bgOpacitySliderVLayout = new QVBoxLayout(bgOpacitySliderWidget);
+    bgOpacitySliderVLayout->setContentsMargins(0, 0, 0, 0);
+    bgOpacitySliderVLayout->setSpacing(5);
+    bgOpacitySliderVLayout->setAlignment(Qt::AlignCenter);
+
+    QLabel* bgOpacityLabel = new QLabel(tr("BG Opacity"), uiOverlay);
+    bgOpacityLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    bgOpacityLabel->setAlignment(Qt::AlignCenter);
+
+    ui->bgOpacitySlider->setFixedWidth(150);
+    bgOpacitySliderVLayout->addWidget(ui->bgOpacitySlider, 0, Qt::AlignCenter);
+    bgOpacitySliderVLayout->addWidget(bgOpacityLabel, 0, Qt::AlignCenter);
+    bgOpacitySliderWidget->setLayout(bgOpacitySliderVLayout);
+
+    QWidget* iconBgOpacitySliderWidget = new QWidget(uiOverlay);
+    iconBgOpacitySliderWidget->setStyleSheet("background-color: transparent; border: none;");
+    QVBoxLayout* iconBgOpacitySliderVLayout = new QVBoxLayout(iconBgOpacitySliderWidget);
+    iconBgOpacitySliderVLayout->setContentsMargins(0, 0, 0, 0);
+    iconBgOpacitySliderVLayout->setSpacing(5);
+    iconBgOpacitySliderVLayout->setAlignment(Qt::AlignCenter);
+
+    QLabel* iconBgOpacityLabel = new QLabel(tr("Icon BG Opacity"), uiOverlay);
+    iconBgOpacityLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    iconBgOpacityLabel->setAlignment(Qt::AlignCenter);
+
+    ui->iconBgOpacitySlider->setFixedWidth(150);
+    iconBgOpacitySliderVLayout->addWidget(ui->iconBgOpacitySlider, 0, Qt::AlignCenter);
+    iconBgOpacitySliderVLayout->addWidget(iconBgOpacityLabel, 0, Qt::AlignCenter);
+    iconBgOpacitySliderWidget->setLayout(iconBgOpacitySliderVLayout);
+
+    ui->gameHeightSliderLayout->addWidget(logOpacitySliderWidget);
+    ui->gameHeightSliderLayout->addWidget(bgOpacitySliderWidget);
+    ui->gameHeightSliderLayout->addWidget(iconBgOpacitySliderWidget);
     ui->gameHeightSliderLayout->addStretch();
+
+    connect(ui->logOpacitySlider, &QSlider::valueChanged, this, [this](int value) {
+        Config::setLogOpacity(value);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml", false);
+        if (ui->logDisplay) {
+            ui->logDisplay->setStyleSheet(
+                QString("QTextEdit#logDisplay { background-color: rgba(0, 0, 0, %1); color: white; "
+                        "border: 1px solid rgba(90, 170, 255, 150); }")
+                    .arg(value * 255 / 100));
+        }
+    });
+
+    connect(ui->bgOpacitySlider, &QSlider::valueChanged, this, [this](int value) {
+        Config::setBgOpacity(value);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml", false);
+        int alpha = value * 255 / 100;
+        ui->gameRectangleContainer->setStyleSheet(
+            QString("QWidget#gameRectangleContainer {"
+                    "  background-color: rgba(30, 30, 30, %1);"
+                    "  border-radius: 15px;"
+                    "  border: 2px solid rgba(90, 170, 255, 150);"
+                    "}")
+                .arg(alpha));
+    });
+
+    connect(ui->iconBgOpacitySlider, &QSlider::valueChanged, this, [this](int value) {
+        Config::setIconBgOpacity(value);
+        const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+        Config::save(config_dir / "config.toml", false);
+        UpdateIconBackgroundOpacity();
+    });
+
+    // Apply initial opacity values from config
+    if (ui->logDisplay) {
+        int logOpacity = Config::getLogOpacity();
+        ui->logDisplay->setStyleSheet(
+            QString("QTextEdit#logDisplay { background-color: rgba(0, 0, 0, %1); color: white; "
+                    "border: 1px solid rgba(90, 170, 255, 150); }")
+                .arg(logOpacity * 255 / 100));
+    }
+
+    int bgOpacity = Config::getBgOpacity();
+    int bgAlpha = bgOpacity * 255 / 100;
+    ui->gameRectangleContainer->setStyleSheet(QString("QWidget#gameRectangleContainer {"
+                                                      "  background-color: rgba(30, 30, 30, %1);"
+                                                      "  border-radius: 15px;"
+                                                      "  border: 2px solid rgba(90, 170, 255, 150);"
+                                                      "}")
+                                                  .arg(bgAlpha));
+
+    UpdateIconBackgroundOpacity();
     ui->gameHeightSliderContainer->setLayout(ui->gameHeightSliderLayout);
 
     ui->gameRectangleLayout->addWidget(ui->gameHeightSliderContainer);
@@ -1343,6 +1475,32 @@ void MainWindow::CreateDockWindows(bool newDock) {
         m_game_cinematic_frame.reset(
             new GameCinematicFrame(m_game_info, m_compat_info, m_ipc_client, this));
         m_game_cinematic_frame->setObjectName("cinematiclist");
+
+        m_list_container = new QWidget(this);
+        QHBoxLayout* listLayout = new QHBoxLayout(m_list_container);
+        listLayout->setContentsMargins(0, 0, 0, 0);
+        listLayout->setSpacing(0);
+
+        m_game_list_frame->m_zar_splitter = new QSplitter(Qt::Horizontal, m_list_container);
+        m_game_list_frame->m_zar_splitter->addWidget(m_game_list_frame.data());
+        m_game_list_frame->m_zar_splitter->addWidget(m_game_list_frame->m_zar_container);
+        m_game_list_frame->m_zar_splitter->setStretchFactor(0, 1);
+        m_game_list_frame->m_zar_splitter->setStretchFactor(1, 0);
+        m_game_list_frame->m_zar_splitter->setSizes({800, 200});
+        listLayout->addWidget(m_game_list_frame->m_zar_splitter);
+
+        m_grid_container = new QWidget(this);
+        QHBoxLayout* gridLayout = new QHBoxLayout(m_grid_container);
+        gridLayout->setContentsMargins(0, 0, 0, 0);
+        gridLayout->setSpacing(0);
+
+        m_game_grid_frame->m_zar_splitter = new QSplitter(Qt::Horizontal, m_grid_container);
+        m_game_grid_frame->m_zar_splitter->addWidget(m_game_grid_frame.data());
+        m_game_grid_frame->m_zar_splitter->addWidget(m_game_grid_frame->m_zar_container);
+        m_game_grid_frame->m_zar_splitter->setStretchFactor(0, 1);
+        m_game_grid_frame->m_zar_splitter->setStretchFactor(1, 0);
+        m_game_grid_frame->m_zar_splitter->setSizes({800, 200});
+        gridLayout->addWidget(m_game_grid_frame->m_zar_splitter);
     }
 
     int table_mode = Config::getTableMode();
@@ -1351,13 +1509,19 @@ void MainWindow::CreateDockWindows(bool newDock) {
     if (table_mode == 0) {
         m_game_grid_frame->hide();
         m_elf_viewer->hide();
+        m_grid_container->hide();
 
         m_game_list_frame->show();
         if (!newDock) {
             m_game_list_frame->clearContents();
             m_game_list_frame->PopulateGameList();
+        } else {
+            m_game_list_frame->PopulateZarList();
         }
-        ui->gameRectangleLayout->addWidget(m_game_list_frame.data());
+        m_game_list_frame->m_zar_list->setVisible(!m_game_info->m_zar_games.isEmpty());
+        m_list_container->show();
+
+        ui->gameRectangleLayout->addWidget(m_list_container);
 
         ui->sizeSlider->setEnabled(true);
         ui->sizeSlider->setSliderPosition(slider_pos);
@@ -1366,6 +1530,7 @@ void MainWindow::CreateDockWindows(bool newDock) {
     } else if (table_mode == 1) {
         m_game_list_frame->hide();
         m_elf_viewer->hide();
+        m_list_container->hide();
 
         m_game_grid_frame->show();
         if (!newDock) {
@@ -1373,8 +1538,13 @@ void MainWindow::CreateDockWindows(bool newDock) {
                 m_game_grid_frame->clearContents();
                 m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
             }
+        } else {
+            m_game_grid_frame->PopulateZarList();
         }
-        ui->gameRectangleLayout->addWidget(m_game_grid_frame.data());
+        m_game_grid_frame->m_zar_list->setVisible(!m_game_info->m_zar_games.isEmpty());
+        m_grid_container->show();
+
+        ui->gameRectangleLayout->addWidget(m_grid_container);
 
         ui->sizeSlider->setEnabled(true);
         ui->sizeSlider->setSliderPosition(slider_pos);
@@ -1405,6 +1575,8 @@ void MainWindow::CreateDockWindows(bool newDock) {
     ui->toggleLogButton->setText(showLog ? tr("Hide Log") : tr("Show Log"));
     ui->installPkgButton->setText(tr("Install PKG"));
     ui->bpBootButton->setText(tr("BP Boot"));
+    ui->zarBootButton->setText(tr("Boot ZAR"));
+    ui->zarConvertButton->setText(tr("Convert to ZAR"));
 
     disconnect(ui->toggleLogButton, nullptr, nullptr, nullptr);
 
@@ -1443,10 +1615,21 @@ void MainWindow::LoadGameLists() {
         m_compat_info->UpdateCompatibilityDatabase(this);
 
     m_game_info->GetGameInfo(this);
+
+    qDebug() << "LoadGameLists: m_zar_games size:" << m_game_info->m_zar_games.size();
+
     if (isTableList) {
         m_game_list_frame->PopulateGameList();
+        m_game_list_frame->m_zar_list->setVisible(!m_game_info->m_zar_games.isEmpty());
+        qDebug() << "LoadGameLists: List view, zar list visible:"
+                 << m_game_list_frame->m_zar_list->isVisible()
+                 << "item count:" << m_game_list_frame->m_zar_list->count();
     } else {
         m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
+        m_game_grid_frame->m_zar_list->setVisible(!m_game_info->m_zar_games.isEmpty());
+        qDebug() << "LoadGameLists: Grid view, zar list visible:"
+                 << m_game_grid_frame->m_zar_list->isVisible()
+                 << "item count:" << m_game_grid_frame->m_zar_list->count();
     }
 }
 
@@ -1511,11 +1694,13 @@ void MainWindow::CreateConnects() {
             m_game_list_frame->ResizeIcons(48 + value);
             Config::setIconSize(48 + value);
             Config::setSliderPosition(value);
+            m_game_list_frame->m_zar_list->setIconSize(QSize(48 + value, 48 + value));
         } else {
             m_game_grid_frame->icon_size = 69 + value;
             m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
             Config::setIconSizeGrid(69 + value);
             Config::setSliderPositionGrid(value);
+            m_game_grid_frame->m_zar_list->setIconSize(QSize(69 + value, 69 + value));
         }
     });
 
@@ -1561,6 +1746,92 @@ void MainWindow::CreateConnects() {
             &MainWindow::StartGame);
     connect(m_game_list_frame.get(), &QTableWidget::cellDoubleClicked, this,
             &MainWindow::StartGame);
+
+    connect(m_game_list_frame.get()->m_zar_list, &QListWidget::itemDoubleClicked, this,
+            [this](QListWidgetItem* item) {
+                QString gamePath = item->data(Qt::UserRole).toString();
+                std::filesystem::path path = Common::FS::PathFromQString(gamePath);
+
+                if (!std::filesystem::exists(path)) {
+                    QMessageBox::critical(nullptr, tr("Run Game"), tr("ZAR file not found"));
+                    return;
+                }
+
+                QString selectedVersion = QString::fromStdString(Config::getVersionPath());
+                if (selectedVersion.isEmpty() || !QFile::exists(selectedVersion)) {
+                    selectedVersion = QCoreApplication::applicationFilePath();
+                }
+                QFileInfo fileInfo(selectedVersion);
+                if (!fileInfo.exists()) {
+                    QMessageBox::critical(nullptr, "shadPS4",
+                                          QString(tr("Could not find the emulator executable")));
+                    return;
+                }
+
+                QStringList final_args;
+                final_args << gamePath;
+
+                Config::setGameRunning(true);
+                lastGamePath = path;
+
+                QString workDir = QDir::currentPath();
+                m_ipc_client->startGame(fileInfo, final_args, workDir, false);
+                m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+
+                m_ipc_client->gameClosedFunc = [this]() {
+                    QMetaObject::invokeMethod(this, [this]() {
+                        Config::setGameRunning(false);
+                        UpdateToolbarButtons();
+                        setWindowState(Qt::WindowNoState);
+                        show();
+                    });
+                };
+
+                setWindowState(Qt::WindowMinimized);
+            });
+
+    connect(m_game_grid_frame.get()->m_zar_list, &QListWidget::itemDoubleClicked, this,
+            [this](QListWidgetItem* item) {
+                QString gamePath = item->data(Qt::UserRole).toString();
+                std::filesystem::path path = Common::FS::PathFromQString(gamePath);
+
+                if (!std::filesystem::exists(path)) {
+                    QMessageBox::critical(nullptr, tr("Run Game"), tr("ZAR file not found"));
+                    return;
+                }
+
+                QString selectedVersion = QString::fromStdString(Config::getVersionPath());
+                if (selectedVersion.isEmpty() || !QFile::exists(selectedVersion)) {
+                    selectedVersion = QCoreApplication::applicationFilePath();
+                }
+                QFileInfo fileInfo(selectedVersion);
+                if (!fileInfo.exists()) {
+                    QMessageBox::critical(nullptr, "shadPS4",
+                                          QString(tr("Could not find the emulator executable")));
+                    return;
+                }
+
+                QStringList final_args;
+                final_args << gamePath;
+
+                Config::setGameRunning(true);
+                lastGamePath = path;
+
+                QString workDir = QDir::currentPath();
+                m_ipc_client->startGame(fileInfo, final_args, workDir, false);
+                m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+
+                m_ipc_client->gameClosedFunc = [this]() {
+                    QMetaObject::invokeMethod(this, [this]() {
+                        Config::setGameRunning(false);
+                        UpdateToolbarButtons();
+                        setWindowState(Qt::WindowNoState);
+                        show();
+                    });
+                };
+
+                setWindowState(Qt::WindowMinimized);
+            });
 
     connect(m_game_grid_frame.get(), &QTableWidget::currentCellChanged, this,
             [this](int currentRow, int currentColumn, int previousRow, int previousColumn) {
@@ -1995,9 +2266,8 @@ void MainWindow::CreateConnects() {
             out << scriptContent;
             scriptFile.close();
 
-            scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner |
-                                     QFileDevice::ExeGroup | QFileDevice::ReadGroup |
-                                     QFileDevice::ExeOther | QFileDevice::ReadOther);
+            QFile::setPermissions(scriptFileName,
+                                 QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
 
             bool started = QProcess::startDetached(scriptFileName);
             if (!started) {
@@ -2008,6 +2278,9 @@ void MainWindow::CreateConnects() {
         }
 #endif
     });
+    connect(ui->zarBootButton, &QPushButton::clicked, this, [this]() { BootZarGame(); });
+
+    connect(ui->zarConvertButton, &QPushButton::clicked, this, [this]() { ConvertToZar(); });
 
     connect(ui->modManagerButton, &QPushButton::clicked, this, [this]() {
         if (m_game_info->m_games.empty()) {
@@ -2056,12 +2329,14 @@ void MainWindow::CreateConnects() {
             ui->sizeSlider->setValue(0); // icone_size - 36
             Config::setIconSize(36);
             Config::setSliderPosition(0);
+            m_game_list_frame->m_zar_list->setIconSize(QSize(36, 36));
         } else {
             m_game_grid_frame->icon_size = 69;
             ui->sizeSlider->setValue(0); // icone_size - 36
             Config::setIconSizeGrid(69);
             Config::setSliderPositionGrid(0);
             m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
+            m_game_grid_frame->m_zar_list->setIconSize(QSize(69, 69));
         }
     });
 
@@ -2074,12 +2349,14 @@ void MainWindow::CreateConnects() {
             ui->sizeSlider->setValue(28);
             Config::setIconSize(64);
             Config::setSliderPosition(28);
+            m_game_list_frame->m_zar_list->setIconSize(QSize(64, 64));
         } else {
             m_game_grid_frame->icon_size = 97;
             ui->sizeSlider->setValue(28);
             Config::setIconSizeGrid(97);
             Config::setSliderPositionGrid(28);
             m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
+            m_game_grid_frame->m_zar_list->setIconSize(QSize(97, 97));
         }
     });
 
@@ -2089,12 +2366,14 @@ void MainWindow::CreateConnects() {
             ui->sizeSlider->setValue(92);
             Config::setIconSize(128);
             Config::setSliderPosition(92);
+            m_game_list_frame->m_zar_list->setIconSize(QSize(128, 128));
         } else {
             m_game_grid_frame->icon_size = 161;
             ui->sizeSlider->setValue(92);
             Config::setIconSizeGrid(161);
             Config::setSliderPositionGrid(92);
             m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
+            m_game_grid_frame->m_zar_list->setIconSize(QSize(161, 161));
         }
     });
 
@@ -2104,12 +2383,14 @@ void MainWindow::CreateConnects() {
             ui->sizeSlider->setValue(220);
             Config::setIconSize(256);
             Config::setSliderPosition(220);
+            m_game_list_frame->m_zar_list->setIconSize(QSize(256, 256));
         } else {
             m_game_grid_frame->icon_size = 256;
             ui->sizeSlider->setValue(220);
             Config::setIconSizeGrid(256);
             Config::setSliderPositionGrid(220);
             m_game_grid_frame->PopulateGameGrid(m_game_info->m_games, false);
+            m_game_grid_frame->m_zar_list->setIconSize(QSize(256, 256));
         }
     });
     connect(ui->setlistModeListAct, &QAction::triggered, this, [this]() {
@@ -2765,8 +3046,225 @@ void MainWindow::BootGame() {
         StartGameWithPath(gamePath);
 
         lastGamePath = gamePath.toStdString();
+    }
+}
+
+void MainWindow::BootZarGame() {
+    QFileDialog dialog;
+    dialog.setFileMode(QFileDialog::ExistingFile);
+    dialog.setNameFilter(tr("ZAR files (*.zar)"));
+
+    if (dialog.exec()) {
+        QStringList fileNames = dialog.selectedFiles();
+
+        if (fileNames.size() > 1) {
+            QMessageBox::critical(nullptr, tr("Game Boot"), tr("Only one file can be selected!"));
+            return;
+        }
+
+        QString gamePath = fileNames[0];
+        std::filesystem::path path = Common::FS::PathFromQString(gamePath);
+
+        if (!std::filesystem::exists(path)) {
+            QMessageBox::critical(nullptr, tr("Run Game"), tr("ZAR file not found"));
+            return;
+        }
+
+        QString selectedVersion = QString::fromStdString(Config::getVersionPath());
+        if (selectedVersion.isEmpty() || !QFile::exists(selectedVersion)) {
+            selectedVersion = QCoreApplication::applicationFilePath();
+        }
+        QFileInfo fileInfo(selectedVersion);
+        if (!fileInfo.exists()) {
+            QMessageBox::critical(nullptr, "shadPS4",
+                                  QString(tr("Could not find the emulator executable")));
+            return;
+        }
+
+        QStringList final_args;
+        final_args << gamePath;
+
         Config::setGameRunning(true);
-        UpdateToolbarButtons();
+        lastGamePath = path;
+
+        QString workDir = QDir::currentPath();
+        m_ipc_client->startGame(fileInfo, final_args, workDir, false);
+        m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+
+        setWindowState(Qt::WindowMinimized);
+    }
+}
+
+struct PackContext {
+    std::filesystem::path outputFilePath;
+    std::ofstream currentOutputFile;
+    bool hasError{false};
+};
+
+void _pack_NewOutputFile(const int32_t partIndex, void* ctx) {
+    PackContext* packContext = (PackContext*)ctx;
+    packContext->currentOutputFile = std::ofstream(packContext->outputFilePath, std::ios::binary);
+    if (!packContext->currentOutputFile.is_open()) {
+        printf("Failed to create output file: %s\n", packContext->outputFilePath.string().c_str());
+        packContext->hasError = true;
+    }
+}
+
+void _pack_WriteOutputData(const void* data, size_t length, void* ctx) {
+    PackContext* packContext = (PackContext*)ctx;
+    packContext->currentOutputFile.write((const char*)data, length);
+}
+
+void MainWindow::ConvertToZar() {
+    QFileDialog dialog;
+    dialog.setFileMode(QFileDialog::Directory);
+    dialog.setOption(QFileDialog::ShowDirsOnly, true);
+    dialog.setWindowTitle(tr("Select Game Folder to Convert"));
+
+    if (dialog.exec()) {
+        QString folderPath = dialog.selectedFiles()[0];
+        std::filesystem::path inputDir = Common::FS::PathFromQString(folderPath);
+
+        if (!std::filesystem::exists(inputDir) || !std::filesystem::is_directory(inputDir)) {
+            QMessageBox::critical(nullptr, tr("Convert to ZAR"), tr("Invalid directory selected"));
+            return;
+        }
+
+        QString outputFileName = QFileInfo(folderPath).fileName() + ".zar";
+        QString outputPath = QFileInfo(folderPath).absolutePath() + "/" + outputFileName;
+        std::filesystem::path outputFile = Common::FS::PathFromQString(outputPath);
+
+        if (std::filesystem::exists(outputFile)) {
+            QMessageBox::StandardButton reply = QMessageBox::question(
+                nullptr, tr("Convert to ZAR"), tr("Output file already exists. Overwrite?"),
+                QMessageBox::Yes | QMessageBox::No);
+            if (reply == QMessageBox::No) {
+                return;
+            }
+            std::filesystem::remove(outputFile);
+        }
+
+        QProgressDialog progressDialog(tr("Converting folder to ZAR..."), tr("Cancel"), 0, 0, this);
+        progressDialog.setWindowTitle(QCoreApplication::applicationName());
+        progressDialog.setWindowModality(Qt::WindowModal);
+        progressDialog.show();
+
+        std::vector<uint8_t> buffer;
+        buffer.resize(64 * 1024);
+
+        PackContext packContext;
+        packContext.outputFilePath = outputFile;
+        ZArchiveWriter zWriter(_pack_NewOutputFile, _pack_WriteOutputData, &packContext);
+
+        if (packContext.hasError) {
+            QMessageBox::critical(nullptr, tr("Convert to ZAR"),
+                                  tr("Failed to create output file"));
+            return;
+        }
+
+        int fileCount = 0;
+        for (auto const& dirEntry : std::filesystem::recursive_directory_iterator(inputDir)) {
+            std::error_code ec;
+            std::filesystem::path pathEntry =
+                std::filesystem::relative(dirEntry.path(), inputDir, ec);
+
+            if (dirEntry.is_directory()) {
+                if (!zWriter.MakeDir(pathEntry.generic_string().c_str(), false)) {
+                    QMessageBox::critical(nullptr, tr("Convert to ZAR"),
+                                          tr("Failed to create directory: %1")
+                                              .arg(QString::fromStdString(pathEntry.string())));
+                    return;
+                }
+            } else if (dirEntry.is_regular_file()) {
+                if (dirEntry == outputFile) {
+                    continue;
+                }
+
+                progressDialog.setLabelText(
+                    tr("Adding: %1").arg(QString::fromStdString(pathEntry.string())));
+                QApplication::processEvents();
+
+                if (!zWriter.StartNewFile(pathEntry.generic_string().c_str())) {
+                    QMessageBox::critical(nullptr, tr("Convert to ZAR"),
+                                          tr("Failed to create archive file: %1")
+                                              .arg(QString::fromStdString(pathEntry.string())));
+                    return;
+                }
+
+                std::ifstream inputFile(inputDir / pathEntry, std::ios::binary);
+                if (!inputFile.is_open()) {
+                    QMessageBox::critical(nullptr, tr("Convert to ZAR"),
+                                          tr("Failed to open input file: %1")
+                                              .arg(QString::fromStdString(pathEntry.string())));
+                    return;
+                }
+
+                while (true) {
+                    inputFile.read((char*)buffer.data(), buffer.size());
+                    int32_t readBytes = (int32_t)inputFile.gcount();
+                    if (readBytes <= 0)
+                        break;
+                    zWriter.AppendData(buffer.data(), readBytes);
+                }
+                fileCount++;
+            }
+
+            if (progressDialog.wasCanceled()) {
+                std::filesystem::remove(outputFile);
+                QMessageBox::information(nullptr, tr("Convert to ZAR"), tr("Conversion cancelled"));
+                return;
+            }
+
+            if (packContext.hasError) {
+                std::filesystem::remove(outputFile);
+                QMessageBox::critical(nullptr, tr("Convert to ZAR"), tr("Conversion failed"));
+                return;
+            }
+        }
+
+        zWriter.Finalize();
+        progressDialog.hide();
+
+        QMessageBox::information(
+            nullptr, tr("Convert to ZAR"),
+            tr("Successfully converted %1 files to ZAR format").arg(fileCount));
+
+        QMessageBox::StandardButton reply = QMessageBox::question(
+            nullptr, tr("Convert to ZAR"), tr("Delete original folder to save space?"),
+            QMessageBox::Yes | QMessageBox::No);
+        if (reply == QMessageBox::Yes) {
+            std::error_code ec;
+            std::filesystem::remove_all(inputDir, ec);
+            if (ec) {
+                QMessageBox::warning(nullptr, tr("Convert to ZAR"),
+                                     tr("Failed to delete original folder: %1")
+                                         .arg(QString::fromStdString(ec.message())));
+            } else {
+                QMessageBox::information(nullptr, tr("Convert to ZAR"),
+                                         tr("Original folder deleted successfully"));
+            }
+        }
+
+        LoadGameLists();
+    }
+}
+
+void MainWindow::UpdateIconBackgroundOpacity() {
+    int opacity = Config::getIconBgOpacity();
+    if (ui->backgroundImageLabel) {
+        ui->backgroundImageLabel->setStyleSheet(QString("QLabel#backgroundImageLabel {"
+                                                        "  background-color: rgba(20, 20, 30, %1);"
+                                                        "  border: none;"
+                                                        "}")
+                                                    .arg(opacity));
+    }
+    if (ui->bootIconsArea) {
+        ui->bootIconsArea->setStyleSheet(QString("QWidget#bootIconsArea {"
+                                                 "  background-color: rgba(20, 20, 20, %1);"
+                                                 "  border-radius: 12px;"
+                                                 "  border: 1px solid rgba(90, 170, 255, 80);"
+                                                 "}")
+                                             .arg(opacity));
     }
 }
 

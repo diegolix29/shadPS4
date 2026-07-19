@@ -88,8 +88,8 @@ int main(int argc, char* argv[]) {
         auto portable_dir = Common::FS::GetPortablePath();
         auto global_dir = Common::FS::GetGlobalPath();
 
-        bool portableExists = std::filesystem::exists(portable_dir);
-        bool globalExists = std::filesystem::exists(global_dir);
+        bool portableExists = Common::FS::Zar::Exists(portable_dir);
+        bool globalExists = Common::FS::Zar::Exists(global_dir);
 
         Common::FS::PathInitState detected_state;
         if (portableExists) {
@@ -212,7 +212,7 @@ int main(int argc, char* argv[]) {
          [&](int& i) {
              if (i + 1 < argc) {
                  std::filesystem::path dir(argv[++i]);
-                 if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir)) {
+                 if (!Common::FS::Zar::Exists(dir) || !std::filesystem::is_directory(dir)) {
                      std::cerr << "Error: Invalid mods folder: " << dir << "\n";
                      exit(1);
                  }
@@ -277,7 +277,7 @@ int main(int argc, char* argv[]) {
              }
              std::string folder_str{argv[i]};
              std::filesystem::path folder{folder_str};
-             if (!std::filesystem::exists(folder) || !std::filesystem::is_directory(folder)) {
+             if (!Common::FS::Zar::Exists(folder) || !std::filesystem::is_directory(folder)) {
                  std::cerr << "Error: Folder does not exist: " << folder_str << "\n";
                  exit(1);
              }
@@ -351,7 +351,7 @@ int main(int argc, char* argv[]) {
 
     if (has_game_argument) {
         std::filesystem::path eboot_path(game_path);
-        if (!std::filesystem::exists(eboot_path)) {
+        if (!Common::FS::Zar::Exists(eboot_path)) {
             bool found = false;
             const int max_depth = 5;
             for (const auto& dir : Config::getGameDirectories()) {
@@ -372,7 +372,7 @@ int main(int argc, char* argv[]) {
             auto parent = base_folder.parent_path();
             auto game_folder_name = base_folder.filename().string();
             auto auto_mods_folder = parent / (game_folder_name + "-MODS");
-            if (std::filesystem::exists(auto_mods_folder) &&
+            if (Common::FS::Zar::Exists(auto_mods_folder) &&
                 std::filesystem::is_directory(auto_mods_folder)) {
                 modsFolder = auto_mods_folder;
                 Core::FileSys::MntPoints::enable_mods = true;
@@ -543,7 +543,7 @@ int main(int argc, char* argv[]) {
     if (has_game_argument) {
         std::filesystem::path game_file_path(game_path);
 
-        if (!std::filesystem::exists(game_file_path)) {
+        if (!Common::FS::Zar::Exists(game_file_path)) {
             bool game_found = false;
             const int max_depth = 5;
             for (const auto& install_dir : Config::getGameDirectories()) {

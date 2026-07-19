@@ -13,6 +13,8 @@ public:
     QPushButton* toggleLogButton = new QPushButton();
     QPushButton* installPkgButton = new QPushButton();
     QPushButton* bpBootButton = new QPushButton();
+    QPushButton* zarBootButton = new QPushButton();
+    QPushButton* zarConvertButton = new QPushButton();
     QPushButton* themeButton = new QPushButton();
     QPushButton* cinemaButton = new QPushButton();
 
@@ -90,6 +92,18 @@ public:
     QWidget* sizeSliderContainer;
     QHBoxLayout* sizeSliderContainer_layout;
     QSlider* sizeSlider;
+
+    QWidget* logOpacitySliderContainer;
+    QHBoxLayout* logOpacitySliderContainer_layout;
+    QSlider* logOpacitySlider;
+
+    QWidget* bgOpacitySliderContainer;
+    QHBoxLayout* bgOpacitySliderContainer_layout;
+    QSlider* bgOpacitySlider;
+
+    QWidget* iconBgOpacitySliderContainer;
+    QHBoxLayout* iconBgOpacitySliderContainer_layout;
+    QSlider* iconBgOpacitySlider;
 
     QWidget* topControlBar;
     QHBoxLayout* topControlBarLayout;

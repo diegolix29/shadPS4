@@ -7,11 +7,15 @@
 #include <cctype>    // std::tolower
 
 #include <QColor>
+#include <QLabel>
+#include <QListWidget>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPainter>
 #include <QScrollBar>
+#include <QSplitter>
+#include <QVBoxLayout>
 
 #include "background_music_player.h"
 #include "compatibility_info.h"
@@ -58,11 +62,16 @@ private:
 
 public:
     void PopulateGameList(bool isInitialPopulation = true);
+    void PopulateZarList();
     void ResizeIcons(int iconSize);
     void SetFavoriteIcon(int row, int column);
     void ApplyCustomBackground();
     QTableWidgetItem* GetCurrentItem();
     QImage backgroundImage;
+    QSplitter* m_zar_splitter;
+    QWidget* m_zar_container;
+    QListWidget* m_zar_list;
+    QLabel* m_zar_title;
     GameListUtils m_game_list_utils;
     GuiContextMenus m_gui_context_menus;
     std::shared_ptr<GameInfoClass> m_game_info;

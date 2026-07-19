@@ -18,6 +18,7 @@ public:
     void GetGameInfo(QWidget* parent = nullptr);
     QVector<GameInfo> m_games;
     QVector<GameInfo> m_games_backup;
+    QVector<GameInfo> m_zar_games;
 
     static void SceUpdateChecker(const std::string sceItem, std::filesystem::path& gameItem,
                                  std::filesystem::path& update_folder,

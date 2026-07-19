@@ -239,10 +239,11 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
     Common::Log::Start();
     if (!std::filesystem::exists(file)) {
-    if (!Common::FS::Zar::Exists(file)) {
-        LOG_CRITICAL(Loader, "eboot.bin does not exist: {}",
-                     std::filesystem::absolute(file).string());
-        std::quick_exit(0);
+        if (!Common::FS::Zar::Exists(file)) {
+            LOG_CRITICAL(Loader, "eboot.bin does not exist: {}",
+                         std::filesystem::absolute(file).string());
+            std::quick_exit(0);
+        }
     }
 
     LOG_INFO(Loader, "Starting shadps4 emulator v{} ", Common::g_version);

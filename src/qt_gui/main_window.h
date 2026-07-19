@@ -259,6 +259,9 @@ private:
     QPixmap RecolorPixmap(const QIcon& icon, const QSize& size, const QColor& color);
     void SetUiIcons(const QColor& baseColor, const QColor& hoverColor);
     void BootGame();
+    void BootZarGame();
+    void ConvertToZar();
+    void UpdateIconBackgroundOpacity();
     void toggleWelcomeScreenOnLaunch(bool enabled);
     void onSetCustomBackground();
     void onClearCustomBackground();
@@ -289,6 +292,9 @@ private:
     QScopedPointer<ElfViewer> m_elf_viewer;
     std::unique_ptr<GameCinematicFrame> m_game_cinematic_frame;
     std::unique_ptr<Frontend::WindowSDL> m_sdlWindow;
+
+    QWidget* m_list_container = nullptr;
+    QWidget* m_grid_container = nullptr;
 
     QScopedPointer<QStatusBar> statusBar;
 

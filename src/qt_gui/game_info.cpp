@@ -39,20 +39,48 @@ void ScanDirectoryRecursively(const QString& dir, QStringList& filePaths, int cu
     }
 }
 
+void ScanZarFiles(const QString& dir, QStringList& zarFilePaths) {
+    QDir directory(dir);
+    QFileInfoList entries =
+        directory.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+
+    for (const auto& entry : entries) {
+        if (entry.isFile() && entry.fileName().endsWith(".zar", Qt::CaseInsensitive)) {
+            zarFilePaths.append(entry.absoluteFilePath());
+        } else if (entry.isDir()) {
+            QString folderName = entry.fileName();
+            // Skip update/patch/mods folders
+            if (folderName.endsWith("-UPDATE", Qt::CaseInsensitive) ||
+                folderName.endsWith("-patch", Qt::CaseInsensitive) ||
+                folderName.endsWith("-MODS", Qt::CaseInsensitive)) {
+                continue;
+            }
+            // Recursively scan subdirectories for .zar files
+            ScanZarFiles(entry.absoluteFilePath(), zarFilePaths);
+        }
+    }
+}
+
 GameInfoClass::GameInfoClass() = default;
 GameInfoClass::~GameInfoClass() = default;
 
 void GameInfoClass::GetGameInfo(QWidget* parent) {
     QStringList filePaths;
+    QStringList zarFilePaths;
     for (const auto& installLoc : Config::getGameDirectories()) {
         QString installDir;
         Common::FS::PathToQString(installDir, installLoc);
         ScanDirectoryRecursively(installDir, filePaths, 0);
+        ScanZarFiles(installDir, zarFilePaths);
     }
 
     m_games = QtConcurrent::mapped(filePaths, [&](const QString& path) {
                   return readGameInfo(Common::FS::PathFromQString(path));
               }).results();
+
+    m_zar_games = QtConcurrent::mapped(zarFilePaths, [&](const QString& path) {
+                      return readGameInfo(Common::FS::PathFromQString(path));
+                  }).results();
 
     // used to retrieve values after performing a search
     m_games_backup = m_games;
@@ -68,6 +96,7 @@ void GameInfoClass::GetGameInfo(QWidget* parent) {
     connect(&futureWatcher, &QFutureWatcher<void>::finished, [&]() {
         dialog.reset();
         std::sort(m_games.begin(), m_games.end(), GameInfoClass::CompareStrings);
+        std::sort(m_zar_games.begin(), m_zar_games.end(), GameInfoClass::CompareStrings);
     });
     connect(&dialog, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
     dialog.setRange(0, m_games.size());

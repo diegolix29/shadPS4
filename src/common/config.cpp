@@ -362,6 +362,9 @@ std::string nexus_api_key = "";
 static int backgroundImageOpacity = 50;
 static bool showBackgroundImage = true;
 static bool descriptionVisible = true;
+static int logOpacity = 100;
+static int bgOpacity = 100;
+static int iconBgOpacity = 150;
 static ConfigEntry<bool> enableAutoBackup(false);
 static ConfigEntry<bool> showLabelsUnderIcons(true);
 static ConfigEntry<bool> enableColorFilter(true);
@@ -1776,6 +1779,30 @@ bool getShowBackgroundImage() {
     return showBackgroundImage;
 }
 
+int getLogOpacity() {
+    return logOpacity;
+}
+
+void setLogOpacity(int opacity) {
+    logOpacity = std::clamp(opacity, 0, 100);
+}
+
+int getBgOpacity() {
+    return bgOpacity;
+}
+
+void setBgOpacity(int opacity) {
+    bgOpacity = std::clamp(opacity, 0, 100);
+}
+
+int getIconBgOpacity() {
+    return iconBgOpacity;
+}
+
+void setIconBgOpacity(int opacity) {
+    iconBgOpacity = std::clamp(opacity, 0, 255);
+}
+
 void setShowBackgroundImage(bool show) {
     showBackgroundImage = show;
 }
@@ -2089,6 +2116,10 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         g_customBackgroundImage = toml::find_or<std::string>(gui, "CustomBackgroundImage", "");
         load_game_size = toml::find_or<bool>(gui, "loadGameSizeEnabled", true);
         showBackgroundImage = toml::find_or<bool>(gui, "showBackgroundImage", true);
+        backgroundImageOpacity = toml::find_or<int>(gui, "backgroundImageOpacity", 50);
+        logOpacity = toml::find_or<int>(gui, "logOpacity", 100);
+        bgOpacity = toml::find_or<int>(gui, "bgOpacity", 100);
+        iconBgOpacity = toml::find_or<int>(gui, "iconBgOpacity", 150);
 
         m_icon_size = toml::find_or<int>(gui, "iconSize", 36);
         m_icon_size_grid = toml::find_or<int>(gui, "iconSizeGrid", 69);
@@ -2638,6 +2669,9 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["GUI"]["backgroundImageOpacity"] = backgroundImageOpacity;
     data["GUI"]["showBackgroundImage"] = showBackgroundImage;
     data["GUI"]["descriptionVisible"] = descriptionVisible;
+    data["GUI"]["logOpacity"] = logOpacity;
+    data["GUI"]["bgOpacity"] = bgOpacity;
+    data["GUI"]["iconBgOpacity"] = iconBgOpacity;
     data["GUI"]["emulatorLanguage"] = emulator_language;
     data["GUI"]["nexusApiKey"] = nexus_api_key;
     data["GUI"]["isQT"] = isQT;
@@ -2846,6 +2880,9 @@ void setDefaultValues() {
     showBackgroundImage = true;
     descriptionVisible = true;
     showLabelsUnderIcons = true;
+    logOpacity = 100;
+    bgOpacity = 100;
+    iconBgOpacity = 150;
     enableColorFilter = true;
     launcher_boot = false;
 }
