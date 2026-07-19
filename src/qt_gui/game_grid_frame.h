@@ -3,8 +3,12 @@
 
 #pragma once
 
+#include <QLabel>
+#include <QListWidget>
 #include <QPainter>
 #include <QScrollBar>
+#include <QSplitter>
+#include <QVBoxLayout>
 
 #include "background_music_player.h"
 #include "common/config.h"
@@ -46,6 +50,7 @@ public:
                            std::shared_ptr<CompatibilityInfoClass> compat_info_get,
                            std::shared_ptr<IpcClient> ipc_client, QWidget* parent = nullptr);
     void PopulateGameGrid(QVector<GameInfo> m_games, bool fromSearch);
+    void PopulateZarList();
     bool IsValidCellSelected();
 
     void SetGameConfigIcon(QWidget* parentWidget, QVector<GameInfo> m_games_, int gameCounter);
@@ -66,4 +71,8 @@ public:
     int crtRow;
     int crtColumn;
     int columnCnt;
+    QSplitter* m_zar_splitter;
+    QWidget* m_zar_container;
+    QListWidget* m_zar_list;
+    QLabel* m_zar_title;
 };

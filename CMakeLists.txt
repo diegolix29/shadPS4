@@ -786,6 +786,8 @@ set(COMMON src/common/logging/backend.cpp
            src/common/incremental_id.h
            src/common/io_file.cpp
            src/common/io_file.h
+           src/common/zar_fs.cpp
+           src/common/zar_fs.h
            src/common/lru_cache.h
            src/common/error.cpp
            src/common/error.h
@@ -1342,6 +1344,7 @@ target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
 
 target_link_libraries(shadps4 PRIVATE Freetype::Freetype)
+target_link_libraries(shadps4 PRIVATE ZArchive::zarchive)
 
 if (ENABLE_DISCORD_RPC)
     target_compile_definitions(shadps4 PRIVATE ENABLE_DISCORD_RPC)

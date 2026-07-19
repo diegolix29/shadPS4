@@ -108,6 +108,7 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
 
     if (!NeedsCaseInsensitiveSearch) {
         return host_path;
+    }
 
     const auto search = [&](const auto host_path) {
         // If the path does not exist attempt to verify this.
@@ -124,40 +125,49 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
             path_parts.emplace_back(current_path.filename());
             current_path = current_path.parent_path();
         }
-        // We have found an anchor. Traverse parts we recoded and see if they
+
+        // We have found an anchor. Traverse parts we recorded and see if they
         // exist in filesystem but in different case.
         auto guest_path = current_path;
         while (!path_parts.empty()) {
             const auto part = path_parts.back();
+
             const auto add_match = [&](const auto& host_part) {
                 current_path /= host_part;
                 guest_path /= part;
                 path_cache[guest_path] = current_path;
                 path_parts.pop_back();
             };
+
             // Can happen when the mismatch is in upper folder.
             if (std::filesystem::exists(current_path / part)) {
                 add_match(part);
                 continue;
             }
+
             const auto part_low = Common::ToLower(part.string());
             bool found_match = false;
+
             for (const auto& path : std::filesystem::directory_iterator(current_path)) {
                 const auto candidate = path.path().filename();
                 const auto filename = Common::ToLower(candidate.string());
+
                 // Check if a filename matches in case insensitive manner.
                 if (filename != part_low) {
                     continue;
                 }
+
                 // We found a match, record the actual path in the cache.
                 add_match(candidate);
                 found_match = true;
                 break;
             }
+
             if (!found_match) {
                 return std::optional<std::filesystem::path>({});
             }
         }
+
         return std::optional<std::filesystem::path>(current_path);
     };
 
@@ -185,6 +195,7 @@ std::filesystem::path MntPoints::ConstructOverlayPath(const MntPair& mount,
                                                       const std::string_view& rel_path,
                                                       HostPathType path_type) {
     std::filesystem::path host_path = mount.host_path;
+    std::string rel_path_str(rel_path);
 
     // Update folder is either mount + "-UPDATE" or mount + "-patch"
     std::filesystem::path patch_path = mount.host_path;
@@ -206,9 +217,9 @@ std::filesystem::path MntPoints::ConstructOverlayPath(const MntPair& mount,
     }
 
     // Append relative path
-    host_path /= rel_path;
-    patch_path /= rel_path;
-    mods_path /= rel_path;
+    host_path /= rel_path_str;
+    patch_path /= rel_path_str;
+    mods_path /= rel_path_str;
 
     switch (path_type) {
     case HostPathType::Base:
@@ -236,6 +247,9 @@ void MntPoints::IterateDirectory(std::string_view guest_directory,
     // Prepend entries for . and .., as both are treated as files on PS4.
     callback(base_path / ".", false);
     callback(base_path / "..", false);
+
+    const auto mod_path = ConstructOverlayPath(*GetMount(std::string(guest_directory)),
+                                               std::string_view(""), HostPathType::Mod);
 
     // Pass 1: Any files that existed in the base directory, using mod/patch directory if needed.
     // The base directory may live inside a ZArchive; mod/patch overlays are always host folders.
@@ -288,7 +302,7 @@ int HandleTable::CreateHandle() {
     auto file = std::make_shared<File>();
     file->is_opened = false;
 
-    int existingFilesNum = m_files.size();
+    const int existingFilesNum = static_cast<int>(m_files.size());
 
     for (int index = 0; index < existingFilesNum; index++) {
         if (m_files.at(index) == nullptr) {

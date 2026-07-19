@@ -203,14 +203,6 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
 
 WindowSDL::~WindowSDL() = default;
 
-void WindowSDL::SetIcon(const std::filesystem::path& path) {
-    if (!Common::FS::Zar::Exists(path)) {
-        LOG_WARNING(Core, "Could not find icon file '{}', using default icon.",
-                    fmt::UTF(path.u8string()));
-        SetDefaultWindowIcon(window);
-        return;
-    }
-}
 SDL_Event* e = nullptr;
 
 void WindowSDL::SetIcon(const std::filesystem::path& path) {
@@ -229,12 +221,9 @@ void WindowSDL::SetIcon(const std::filesystem::path& path) {
         return;
     }
     std::vector<u8> buf(static_cast<size_t>(fileSize));
-    const size_t bytesRead = file.ReadRaw<u8>(buf.data(), fileSize);
-    const u64 file_size = file.GetSize();
-    std::vector<u8> buf(file_size);
-    const size_t bytes_read = file.ReadRaw<u8>(buf.data(), file_size);
+    const size_t bytes_read = file.ReadRaw<u8>(buf.data(), fileSize);
     file.Close();
-    if (bytes_read < file_size) {
+    if (bytes_read < fileSize) {
         LOG_ERROR(Core, "Failed to read window icon file '{}'.", fmt::UTF(path.u8string()));
         return;
     }

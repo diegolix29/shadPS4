@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
 
     {
         auto portable = Common::FS::GetPortablePath();
-        auto init_state = std::filesystem::exists(portable) ? Common::FS::PathInitState::Portable
+        auto init_state = Common::FS::Zar::Exists(portable) ? Common::FS::PathInitState::Portable
                                                             : Common::FS::PathInitState::Global;
         Common::FS::InitializeUserPaths(init_state);
     }
@@ -203,7 +203,7 @@ int main(int argc, char* argv[]) {
          [&](int& i) {
              if (i + 1 < argc) {
                  std::filesystem::path dir(argv[++i]);
-                 if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir)) {
+                 if (!Common::FS::Zar::Exists(dir) || !std::filesystem::is_directory(dir)) {
                      std::cerr << "Error: Invalid mods folder: " << dir << "\n";
                      exit(1);
                  }
@@ -225,7 +225,7 @@ int main(int argc, char* argv[]) {
              if (++i >= argc)
                  exit((std::cerr << "Error: Missing argument for --add-game-folder\n", 1));
              std::filesystem::path dir(argv[i]);
-             if (!std::filesystem::exists(dir))
+             if (!Common::FS::Zar::Exists(dir))
                  exit((std::cerr << "Error: Directory not found: " << dir << "\n", 1));
              Config::addGameDirectories(dir);
              Config::save(user_dir / "config.toml");
@@ -237,7 +237,7 @@ int main(int argc, char* argv[]) {
              if (++i >= argc)
                  exit((std::cerr << "Error: Missing argument for --set-addon-folder\n", 1));
              std::filesystem::path dir(argv[i]);
-             if (!std::filesystem::exists(dir))
+             if (!Common::FS::Zar::Exists(dir))
                  exit((std::cerr << "Error: Directory not found: " << dir << "\n", 1));
              Config::setAddonDirectories(dir);
              Config::save(user_dir / "config.toml");
@@ -251,7 +251,7 @@ int main(int argc, char* argv[]) {
              if (++i >= argc)
                  exit((std::cerr << "Error: Missing argument for --override-root\n", 1));
              std::filesystem::path folder(argv[i]);
-             if (!std::filesystem::exists(folder) || !std::filesystem::is_directory(folder))
+             if (!Common::FS::Zar::Exists(folder) || !std::filesystem::is_directory(folder))
                  exit((std::cerr << "Error: Invalid folder: " << folder << "\n", 1));
              gameFolder = folder;
          }},
@@ -341,7 +341,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::filesystem::path ebootPath(gamePath);
-    if (!std::filesystem::exists(ebootPath)) {
+    if (!Common::FS::Zar::Exists(ebootPath)) {
         bool found = false;
         const int max_depth = 5;
         for (const auto& dir : Config::getGameDirectories()) {
@@ -367,7 +367,7 @@ int main(int argc, char* argv[]) {
 
         for (const auto& suffix : modSuffixes) {
             auto auto_mods_folder = parent / (game_folder_name + suffix);
-            if (std::filesystem::exists(auto_mods_folder) &&
+            if (Common::FS::Zar::Exists(auto_mods_folder) &&
                 std::filesystem::is_directory(auto_mods_folder)) {
                 modsFolder = auto_mods_folder;
                 Core::FileSys::MntPoints::enable_mods = true;

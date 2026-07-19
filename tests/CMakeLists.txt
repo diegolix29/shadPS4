@@ -15,6 +15,7 @@ set(SETTINGS_TEST_SOURCES
     # Under test
     ${CMAKE_SOURCE_DIR}/src/core/emulator_settings.cpp
     ${CMAKE_SOURCE_DIR}/src/core/emulator_state.cpp
+
     # Minimal common support
     ${CMAKE_SOURCE_DIR}/src/common/path_util.cpp
     ${CMAKE_SOURCE_DIR}/src/common/assert.cpp
@@ -30,7 +31,6 @@ set(SETTINGS_TEST_SOURCES
 
     # Tests
     test_emulator_settings.cpp
-    test_storage_scheduler.cpp
 )
 
 set(GCN_TEST_SOURCES
@@ -107,10 +107,10 @@ set(GCN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/path_util.cpp
     ${CMAKE_SOURCE_DIR}/src/common/assert.cpp
     ${CMAKE_SOURCE_DIR}/src/common/error.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/io_file.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/zar_fs.cpp
     ${CMAKE_SOURCE_DIR}/src/common/string_util.cpp
     ${CMAKE_SOURCE_DIR}/src/common/ntapi.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/io_file.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/zar_fs.cpp
 
     # Stubs that replace dependencies
     stubs/log_stub.cpp     
@@ -140,12 +140,12 @@ set(ZAR_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/assert.cpp
     ${CMAKE_SOURCE_DIR}/src/common/error.cpp
     ${CMAKE_SOURCE_DIR}/src/common/string_util.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/logging/log.cpp
     ${CMAKE_SOURCE_DIR}/src/common/ntapi.cpp
 
     # Stubs that replace dependencies
     stubs/common_stub.cpp
     stubs/core_stub.cpp
+    stubs/log_stub.cpp
     stubs/scm_rev_stub.cpp
     stubs/sdl_stub.cpp
 
@@ -191,13 +191,13 @@ target_link_libraries(shadps4_gcn_test PRIVATE
     half::half
     ZArchive::zarchive
 )
+
 target_link_libraries(shadps4_zar_test PRIVATE
     GTest::gtest_main
     fmt::fmt
     nlohmann_json::nlohmann_json
     toml11::toml11
     SDL3::SDL3
-    spdlog::spdlog
     ZArchive::zarchive
 )
 
