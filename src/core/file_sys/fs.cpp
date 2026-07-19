@@ -70,16 +70,13 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
     std::filesystem::path host_path = mount->host_path;
 
     // Update folder is either mount + "-UPDATE" or mount + "-patch"
-    std::filesystem::path patch_path = mount->host_path;
-    patch_path += "-UPDATE";
-    if (!std::filesystem::exists(patch_path)) {
-        patch_path = mount->host_path;
-        patch_path += "-patch";
+    std::filesystem::path patch_path = Zar::ResolveCompanionPath(mount->host_path, "-UPDATE");
+    if (!Zar::IsDirectory(patch_path)) {
+        patch_path = Zar::ResolveCompanionPath(mount->host_path, "-patch");
     }
 
     // Mods folder can only be at mount + "-mods"
-    std::filesystem::path mods_path = mount->host_path;
-    mods_path += "-mods";
+    std::filesystem::path mods_path = Zar::ResolveCompanionPath(mount->host_path, "-mods");
 
     // If we're just retrieving the mount, return the correct mount path.
     if (corrected_path_sanitized == mount->mount) {
@@ -105,13 +102,12 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
     }
 
     if ((corrected_path.starts_with("/app0") || corrected_path.starts_with("/hostapp")) &&
-        path_type != HostPathType::Base && std::filesystem::exists(mods_path)) {
+        path_type != HostPathType::Base && Zar::Exists(mods_path)) {
         return mods_path;
     }
 
     if ((corrected_path.starts_with("/app0") || corrected_path.starts_with("/hostapp")) &&
-        path_type != HostPathType::Base && !ignore_game_patches &&
-        std::filesystem::exists(patch_path)) {
+        path_type != HostPathType::Base && !ignore_game_patches && Zar::Exists(patch_path)) {
         return patch_path;
     }
 
@@ -214,17 +210,16 @@ void MntPoints::IterateDirectory(std::string_view guest_directory,
     callback(base_path / "..", false);
 
     // Pass 1: Any files that existed in the base directory, using mod/patch directory if needed.
-    // The base directory may live inside a ZArchive; mod/patch overlays are always host folders.
     if (Zar::Exists(base_path)) {
         Zar::IterateDirectory(
             base_path, [&](const std::filesystem::path& entry_path, bool entry_is_file) {
                 const auto mod_entry_path = mod_path / entry_path.filename();
                 const auto patch_entry_path = patch_path / entry_path.filename();
-                if (std::filesystem::exists(mod_entry_path)) {
-                    callback(mod_entry_path, !std::filesystem::is_directory(mod_entry_path));
+                if (Zar::Exists(mod_entry_path)) {
+                    callback(mod_entry_path, !Zar::IsDirectory(mod_entry_path));
                     return;
-                } else if (std::filesystem::exists(patch_entry_path)) {
-                    callback(patch_entry_path, !std::filesystem::is_directory(patch_entry_path));
+                } else if (Zar::Exists(patch_entry_path)) {
+                    callback(patch_entry_path, !Zar::IsDirectory(patch_entry_path));
                     return;
                 }
                 callback(entry_path, entry_is_file);
@@ -232,29 +227,31 @@ void MntPoints::IterateDirectory(std::string_view guest_directory,
     }
 
     // Pass 2: Any files that exist only in the patch directory.
-    if (std::filesystem::exists(patch_path)) {
-        for (const auto& entry : std::filesystem::directory_iterator(patch_path)) {
-            const auto base_entry_path = base_path / entry.path().filename();
-            if (!Zar::Exists(base_entry_path)) {
-                const auto mod_entry_path = mod_path / entry.path().filename();
-                if (std::filesystem::exists(mod_entry_path)) {
-                    callback(mod_entry_path, !std::filesystem::is_directory(mod_entry_path));
-                    continue;
+    if (Zar::Exists(patch_path)) {
+        Zar::IterateDirectory(
+            patch_path, [&](const std::filesystem::path& entry_path, bool entry_is_file) {
+                const auto base_entry_path = base_path / entry_path.filename();
+                if (!Zar::Exists(base_entry_path)) {
+                    const auto mod_entry_path = mod_path / entry_path.filename();
+                    if (Zar::Exists(mod_entry_path)) {
+                        callback(mod_entry_path, !Zar::IsDirectory(mod_entry_path));
+                        return;
+                    }
+                    callback(entry_path, entry_is_file);
                 }
-                callback(entry.path(), !entry.is_directory());
-            }
-        }
+            });
     }
 
     // Pass 3: Any files that exist only in the mod directory (confirmed this can be valid)
-    if (std::filesystem::exists(mod_path)) {
-        for (const auto& entry : std::filesystem::directory_iterator(mod_path)) {
-            const auto base_entry_path = base_path / entry.path().filename();
-            const auto patch_entry_path = patch_path / entry.path().filename();
-            if (!Zar::Exists(base_entry_path) && !std::filesystem::exists(patch_entry_path)) {
-                callback(entry.path(), !entry.is_directory());
-            }
-        }
+    if (Zar::Exists(mod_path)) {
+        Zar::IterateDirectory(
+            mod_path, [&](const std::filesystem::path& entry_path, bool entry_is_file) {
+                const auto base_entry_path = base_path / entry_path.filename();
+                const auto patch_entry_path = patch_path / entry_path.filename();
+                if (!Zar::Exists(base_entry_path) && !Zar::Exists(patch_entry_path)) {
+                    callback(entry_path, entry_is_file);
+                }
+            });
     }
 }
 

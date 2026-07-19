@@ -181,6 +181,36 @@ std::optional<fs::path> FindGameByID(const fs::path& dir, const std::string& gam
     return std::nullopt;
 }
 
+fs::path ResolveCompanionPath(const fs::path& game_path, std::string_view suffix) {
+    auto content_path = game_path;
+    const bool is_archive = IsZarArchive(content_path);
+    if (is_archive) {
+        content_path.replace_extension();
+    }
+    content_path += suffix;
+
+    if (IsDirectory(content_path)) {
+        return content_path;
+    }
+
+    auto archive_path = content_path;
+    archive_path += ".zar";
+    if (IsZarArchive(archive_path)) {
+        return archive_path;
+    }
+
+    // Preserve the original archive behavior as a fallback for existing "GAME.zar-UPDATE"
+    // directories, while preferring the conventional stem-based names above.
+    if (is_archive) {
+        auto legacy_path = game_path;
+        legacy_path += suffix;
+        if (IsDirectory(legacy_path)) {
+            return legacy_path;
+        }
+    }
+    return content_path;
+}
+
 bool Exists(const fs::path& path) {
     if (const auto split = Split(path)) {
         return split->archive->reader->LookUp(split->inner, true, true) != ZARCHIVE_INVALID_NODE;

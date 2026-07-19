@@ -382,10 +382,11 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         args.insert(args.begin(), guest_eboot_path);
     }
 
-    std::filesystem::path mods_folder = game_folder;
-    mods_folder += "-mods";
+    const auto mods_folder = Common::FS::Zar::ResolveCompanionPath(game_folder, "-mods");
 
-    if (std::filesystem::exists(mods_folder) && !std::filesystem::is_empty(mods_folder)) {
+    bool has_mods = false;
+    Common::FS::Zar::IterateDirectory(mods_folder, [&](const auto&, bool) { has_mods = true; });
+    if (has_mods) {
         LOG_INFO(Loader, "Files found in game mods folder");
     }
 

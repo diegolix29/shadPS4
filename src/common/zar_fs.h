@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "common/types.h"
 
@@ -27,6 +28,11 @@ bool IsZarInnerPath(const std::filesystem::path& path);
 /// Searches for <game_id>.zar and returns its eboot.bin path.
 std::optional<std::filesystem::path> FindGameByID(const std::filesystem::path& dir,
                                                   const std::string& game_id, int max_depth);
+
+/// Resolves sibling game content such as "-UPDATE" or "-mods". A directory is preferred
+/// over an archive. For "GAME.zar", the candidates are "GAME-UPDATE" and "GAME-UPDATE.zar".
+std::filesystem::path ResolveCompanionPath(const std::filesystem::path& game_path,
+                                           std::string_view suffix);
 
 /// Filesystem queries that also accept archive paths. An archive itself is a directory.
 bool Exists(const std::filesystem::path& path);

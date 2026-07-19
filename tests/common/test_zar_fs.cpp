@@ -144,6 +144,22 @@ TEST_F(ZarFsTest, FindsArchivedGameById) {
     EXPECT_EQ(*found, archive_path / "eboot.bin");
 }
 
+TEST_F(ZarFsTest, ResolvesDirectoryAndArchiveCompanions) {
+    const auto update_path = test_dir / "CUSA00001-UPDATE";
+    ASSERT_TRUE(fs::create_directory(update_path));
+    EXPECT_EQ(ResolveCompanionPath(archive_path, "-UPDATE"), update_path);
+
+    const auto patch_path = test_dir / "CUSA00001-patch.zar";
+    ASSERT_TRUE(CreateArchive(patch_path));
+    EXPECT_EQ(ResolveCompanionPath(archive_path, "-patch"), patch_path);
+
+    EXPECT_EQ(ResolveCompanionPath(archive_path, "-mods"), test_dir / "CUSA00001-mods");
+
+    const auto legacy_mods_path = test_dir / "CUSA00001.zar-mods";
+    ASSERT_TRUE(fs::create_directory(legacy_mods_path));
+    EXPECT_EQ(ResolveCompanionPath(archive_path, "-mods"), legacy_mods_path);
+}
+
 TEST_F(ZarFsTest, KeepsOpenFileValidAfterCacheEviction) {
     auto file = OpenFile(archive_path / "eboot.bin");
     ASSERT_NE(file, nullptr);

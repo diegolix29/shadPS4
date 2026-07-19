@@ -36,22 +36,16 @@ SDL_Renderer* renderer;
 namespace {
 
 std::filesystem::path UpdateChecker(const std::string sceItem, std::filesystem::path game_folder) {
-    std::filesystem::path outputPath;
-    auto update_folder = game_folder;
-    update_folder += "-UPDATE";
+    const auto update_folder = Common::FS::Zar::ResolveCompanionPath(game_folder, "-UPDATE");
+    const auto patch_folder = Common::FS::Zar::ResolveCompanionPath(game_folder, "-patch");
 
-    auto patch_folder = game_folder;
-    patch_folder += "-patch";
-
-    if (std::filesystem::exists(update_folder / "sce_sys" / sceItem)) {
-        outputPath = update_folder / "sce_sys" / sceItem;
-    } else if (std::filesystem::exists(patch_folder / "sce_sys" / sceItem)) {
-        outputPath = patch_folder / "sce_sys" / sceItem;
-    } else {
-        outputPath = game_folder / "sce_sys" / sceItem;
+    if (Common::FS::Zar::Exists(update_folder / "sce_sys" / sceItem)) {
+        return update_folder / "sce_sys" / sceItem;
     }
-
-    return outputPath;
+    if (Common::FS::Zar::Exists(patch_folder / "sce_sys" / sceItem)) {
+        return patch_folder / "sce_sys" / sceItem;
+    }
+    return game_folder / "sce_sys" / sceItem;
 }
 
 void SetGameIcons(std::vector<IconInfo>& gameIcons) {
@@ -160,8 +154,9 @@ void GetGameIconInfo(std::vector<IconInfo>& icons) {
                 const auto entry_name = entry.path().filename().string();
                 const bool is_zar =
                     entry.is_regular_file() && Common::FS::Zar::IsZarArchive(entry.path());
-                if (entry_name.ends_with("-UPDATE") || entry_name.ends_with("-patch") ||
-                    (!entry.is_directory() && !is_zar)) {
+                const auto content_name = is_zar ? entry.path().stem().string() : entry_name;
+                if (content_name.ends_with("-UPDATE") || content_name.ends_with("-patch") ||
+                    content_name.ends_with("-mods") || (!entry.is_directory() && !is_zar)) {
                     continue;
                 }
 
