@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "common/types.h"
 
@@ -25,6 +26,9 @@ bool IsZarArchive(const std::filesystem::path& path);
 /// Returns whether path identifies an entry within a host ZArchive.
 bool IsZarInnerPath(const std::filesystem::path& path);
 
+/// Returns the containing host archive for an archive root or inner path.
+std::optional<std::filesystem::path> GetArchivePath(const std::filesystem::path& path);
+
 /// Searches for <game_id>.zar and returns its eboot.bin path.
 std::optional<std::filesystem::path> FindGameByID(const std::filesystem::path& dir,
                                                   const std::string& game_id, int max_depth);
@@ -33,6 +37,10 @@ std::optional<std::filesystem::path> FindGameByID(const std::filesystem::path& d
 /// over an archive. For "GAME.zar", the candidates are "GAME-UPDATE" and "GAME-UPDATE.zar".
 std::filesystem::path ResolveCompanionPath(const std::filesystem::path& game_path,
                                            std::string_view suffix);
+
+/// Returns all existing sibling companions in loose-folder, archive, then legacy order.
+std::vector<std::filesystem::path> FindCompanionPaths(const std::filesystem::path& game_path,
+                                                      std::string_view suffix);
 
 /// Filesystem queries that also accept archive paths. An archive itself is a directory.
 bool Exists(const std::filesystem::path& path);

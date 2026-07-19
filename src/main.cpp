@@ -19,6 +19,7 @@
 #include "core/emulator_settings.h"
 #include "core/emulator_state.h"
 #include "core/file_sys/fs.h"
+#include "core/file_sys/game_content.h"
 #include "core/ipc/ipc.h"
 #include "core/user_settings.h"
 #include "emulator.h"
@@ -214,12 +215,8 @@ int main(int argc, char* argv[]) {
         bool found = false;
         constexpr int maxDepth = 5;
         for (const auto& installDir : EmulatorSettings.GetGameInstallDirs()) {
-            if (auto foundPath = Common::FS::FindGameByID(installDir, *gamePath, maxDepth)) {
-                ebootPath = *foundPath;
-                found = true;
-                break;
-            }
-            if (auto foundPath = Common::FS::Zar::FindGameByID(installDir, *gamePath, maxDepth)) {
+            if (auto foundPath = Core::FileSys::GameContentCatalog::FindGameById(
+                    installDir, *gamePath, maxDepth)) {
                 ebootPath = *foundPath;
                 found = true;
                 break;

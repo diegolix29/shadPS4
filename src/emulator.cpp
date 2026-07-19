@@ -33,6 +33,7 @@
 #include "core/file_format/psf.h"
 #include "core/file_format/trp.h"
 #include "core/file_sys/fs.h"
+#include "core/file_sys/game_content.h"
 #include "core/libraries/kernel/kernel.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/np/np_trophy.h"
@@ -111,7 +112,7 @@ s32 ReadCompiledSdkVersion(const std::filesystem::path& file) {
 }
 
 std::map<s32, std::string> ExtractTrophies(const std::filesystem::path& npbind_path,
-                                           const std::filesystem::path& trophy_dir) {
+                                           std::string_view trophy_directory) {
     std::map<s32, std::string> trophy_index_map{};
 
     NPBindFile npbind;
@@ -128,14 +129,14 @@ std::map<s32, std::string> ExtractTrophies(const std::filesystem::path& npbind_p
     auto& game_info = Common::ElfInfo::Instance();
     game_info.SetNpCommIds(np_comm_ids);
 
-    if (!Common::FS::Zar::Exists(trophy_dir)) {
+    auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
+    if (!Common::FS::Zar::IsDirectory(mnt->GetHostPath(trophy_directory))) {
         LOG_WARNING(Common_Filesystem, "Game does not contain a trophy directory");
         return trophy_index_map;
     }
 
     std::string pattern = "trophy";
-    Common::FS::Zar::IterateDirectory(trophy_dir, [&](const std::filesystem::path& entry,
-                                                      bool is_file) {
+    mnt->IterateDirectory(trophy_directory, [&](const std::filesystem::path& entry, bool is_file) {
         if (is_file && entry.extension() == ".trp") {
             std::string filename = entry.stem().string(); // "trophy00", "trophy01", etc.
 
@@ -197,37 +198,34 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         Debugger::WaitForDebuggerAttach();
     }
 
-    if (std::filesystem::is_directory(file) || Common::FS::Zar::IsZarArchive(file)) {
-        file /= "eboot.bin";
+    const bool launched_root = Common::FS::Zar::IsDirectory(file);
+    const auto content = FileSys::GameContentCatalog::Discover(file, p_game_folder);
+    if (!content) {
+        LOG_CRITICAL(Loader, "Unable to discover a valid base game from {}",
+                     Common::FS::PathToUTF8String(file));
+        return;
     }
 
-    std::filesystem::path game_folder;
-    if (p_game_folder.has_value()) {
-        game_folder = p_game_folder.value();
-    } else {
-        game_folder = file.parent_path();
-        if (const auto game_folder_name = game_folder.filename().string();
-            game_folder_name.ends_with("-UPDATE") || game_folder_name.ends_with("-patch") ||
-            game_folder_name.ends_with("-mods")) {
-            // If an executable was launched from a separate update directory,
-            // use the base game directory as the game folder.
-            const std::string base_name = game_folder_name.substr(0, game_folder_name.rfind('-'));
-            const auto base_path = game_folder.parent_path() / base_name;
-            if (std::filesystem::is_directory(base_path)) {
-                game_folder = base_path;
-            }
+    const auto game_folder = content->GetBaseRoot();
+    std::filesystem::path eboot_name = "eboot.bin";
+    if (!launched_root && Common::FS::Zar::Exists(file)) {
+        const auto relative = file.lexically_relative(game_folder);
+        if (!relative.empty() && !relative.generic_string().starts_with("..")) {
+            eboot_name = relative;
         }
     }
-
-    std::filesystem::path eboot_name = Common::FS::Zar::IsZarInnerPath(file)
-                                           ? file.lexically_relative(game_folder)
-                                           : std::filesystem::relative(file, game_folder);
-
-    // Applications expect to be run from /app0 so mount the file's parent path as app0.
+    // Applications expect to be run from /app0. Mount every source as one layered view.
     auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
     mnt->Mount(game_folder, "/app0", true);
-    // Certain games may use /hostapp as well such as CUSA001100
     mnt->Mount(game_folder, "/hostapp", true);
+    for (const auto& patch : content->GetPatchRoots()) {
+        mnt->MountOverlay(patch, "/app0", FileSys::MntPoints::MountLayer::Patch);
+        mnt->MountOverlay(patch, "/hostapp", FileSys::MntPoints::MountLayer::Patch);
+    }
+    for (const auto& mod : content->GetModRoots()) {
+        mnt->MountOverlay(mod, "/app0", FileSys::MntPoints::MountLayer::Mod);
+        mnt->MountOverlay(mod, "/hostapp", FileSys::MntPoints::MountLayer::Mod);
+    }
 
     const auto param_sfo_path = mnt->GetHostPath("/app0/sce_sys/param.sfo");
     const auto param_sfo_exists = Common::FS::Zar::Exists(param_sfo_path);
@@ -305,10 +303,11 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
 
     game_info.game_folder = game_folder;
+    game_info.content_container = content->GetContainerRoot();
 
-    if (!Common::FS::Zar::Exists(file)) {
+    if (!Common::FS::Zar::Exists(eboot_path)) {
         LOG_CRITICAL(Loader, "eboot.bin does not exist: {}",
-                     std::filesystem::absolute(file).string());
+                     Common::FS::PathToUTF8String(eboot_path));
         std::quick_exit(0);
     }
 
@@ -382,11 +381,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         args.insert(args.begin(), guest_eboot_path);
     }
 
-    const auto mods_folder = Common::FS::Zar::ResolveCompanionPath(game_folder, "-mods");
-
-    bool has_mods = false;
-    Common::FS::Zar::IterateDirectory(mods_folder, [&](const auto&, bool) { has_mods = true; });
-    if (has_mods) {
+    if (!content->GetModRoots().empty()) {
         LOG_INFO(Loader, "Files found in game mods folder");
     }
 
@@ -408,8 +403,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     // Extract and load trophies
     std::filesystem::path npbind_path = mnt->GetHostPath("/app0/sce_sys/npbind.dat");
-    std::filesystem::path trophy_dir = mnt->GetHostPath("/app0/sce_sys/trophy");
-    game_info.trophy_index_map = ExtractTrophies(npbind_path, trophy_dir);
+    game_info.trophy_index_map = ExtractTrophies(npbind_path, "/app0/sce_sys/trophy");
 
     std::string game_title = fmt::format("{} - {} <{}>", id, title, app_version);
     std::string window_title = "";
@@ -547,7 +541,7 @@ void Emulator::Restart(std::filesystem::path eboot_path,
     std::vector<std::string> args;
 
     auto mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
-    auto game_path = mnt->GetHostPath("/app0");
+    auto game_path = mnt->GetHostPath("/app0", nullptr, FileSys::MntPoints::HostPathType::Base);
 
     args.push_back("--log-append");
     args.push_back("--game");

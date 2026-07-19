@@ -3,12 +3,14 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
-#include <tsl/robin_map.h>
+
 #include "common/io_file.h"
 #include "common/logging/formatter.h"
 #include "core/file_sys/devices/base_device.h"
@@ -23,15 +25,22 @@ struct Resolver;
 namespace Core::FileSys {
 
 class MntPoints {
-#ifdef _WIN64
-    static constexpr bool NeedsCaseInsensitiveSearch = false;
-#else
-    static constexpr bool NeedsCaseInsensitiveSearch = true;
-#endif
 public:
     static bool ignore_game_patches;
-    struct MntPair {
+
+    enum class MountLayer {
+        Base,
+        Patch,
+        Mod,
+    };
+
+    struct MntSource {
         std::filesystem::path host_path;
+        MountLayer layer;
+    };
+
+    struct MntPair {
+        std::vector<MntSource> sources;
         std::string mount; // e.g /app0
         bool read_only;
     };
@@ -48,6 +57,8 @@ public:
 
     void Mount(const std::filesystem::path& host_folder, const std::string& guest_folder,
                bool read_only = false);
+    void MountOverlay(const std::filesystem::path& host_folder, const std::string& guest_folder,
+                      MountLayer layer);
     void Unmount(const std::filesystem::path& host_folder, const std::string& guest_folder);
     void UnmountAll();
 
@@ -62,7 +73,10 @@ public:
     const MntPair* GetMountFromHostPath(const std::string& host_path) {
         std::scoped_lock lock{m_mutex};
         const auto it = std::ranges::find_if(m_mnt_pairs, [&](const MntPair& mount) {
-            return host_path.starts_with(std::string{fmt::UTF(mount.host_path.u8string()).data});
+            return std::ranges::any_of(mount.sources, [&](const MntSource& source) {
+                return host_path.starts_with(
+                    std::string{fmt::UTF(source.host_path.u8string()).data});
+            });
         });
         return it == m_mnt_pairs.end() ? nullptr : &*it;
     }
@@ -82,8 +96,6 @@ public:
 
 private:
     std::vector<MntPair> m_mnt_pairs;
-    std::vector<std::filesystem::path> path_parts;
-    tsl::robin_map<std::filesystem::path, std::filesystem::path> path_cache;
     std::mutex m_mutex;
 };
 

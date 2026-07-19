@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <limits>
+#include <set>
 #include <stb_image.h>
 
 #include "common/io_file.h"
@@ -11,6 +12,7 @@
 #include "core/devtools/layer.h"
 #include "core/emulator_settings.h"
 #include "core/file_format/psf.h"
+#include "core/file_sys/game_content.h"
 #include "emulator.h"
 #include "imgui/big_picture/big_picture.h"
 #include "imgui/big_picture/imgui_impl_sdl3_big_picture.h"
@@ -34,19 +36,6 @@ float uiScale = 1.0f;
 SDL_Renderer* renderer;
 
 namespace {
-
-std::filesystem::path UpdateChecker(const std::string sceItem, std::filesystem::path game_folder) {
-    const auto update_folder = Common::FS::Zar::ResolveCompanionPath(game_folder, "-UPDATE");
-    const auto patch_folder = Common::FS::Zar::ResolveCompanionPath(game_folder, "-patch");
-
-    if (Common::FS::Zar::Exists(update_folder / "sce_sys" / sceItem)) {
-        return update_folder / "sce_sys" / sceItem;
-    }
-    if (Common::FS::Zar::Exists(patch_folder / "sce_sys" / sceItem)) {
-        return patch_folder / "sce_sys" / sceItem;
-    }
-    return game_folder / "sce_sys" / sceItem;
-}
 
 void SetGameIcons(std::vector<IconInfo>& gameIcons) {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -147,25 +136,29 @@ SDL_Texture* LoadSdlTextureDataFromFile(std::filesystem::path filePath) {
 
 void GetGameIconInfo(std::vector<IconInfo>& icons) {
     icons.clear();
+    std::set<std::filesystem::path> discovered_games;
 
     for (const auto& installLoc : EmulatorSettings.GetAllGameInstallDirs()) {
         if (installLoc.enabled && std::filesystem::exists(installLoc.path)) {
             for (const auto& entry : std::filesystem::directory_iterator(installLoc.path)) {
-                const auto entry_name = entry.path().filename().string();
                 const bool is_zar =
                     entry.is_regular_file() && Common::FS::Zar::IsZarArchive(entry.path());
-                const auto content_name = is_zar ? entry.path().stem().string() : entry_name;
-                if (content_name.ends_with("-UPDATE") || content_name.ends_with("-patch") ||
-                    content_name.ends_with("-mods") || (!entry.is_directory() && !is_zar)) {
+                if (!entry.is_directory() && !is_zar) {
+                    continue;
+                }
+                const auto content = Core::FileSys::GameContentCatalog::Discover(entry.path());
+                if (!content) {
+                    continue;
+                }
+                if (!discovered_games.emplace(content->GetBaseRoot()).second) {
                     continue;
                 }
 
                 IconInfo icon;
                 PSF psf;
-                const std::string sfoFileName = "param.sfo";
-                std::filesystem::path sfoPath = UpdateChecker(sfoFileName, entry.path());
+                const auto sfoPath = content->ResolveAppPath("sce_sys/param.sfo");
 
-                if (Common::FS::Zar::Exists(sfoPath) && psf.Open(sfoPath)) {
+                if (sfoPath && psf.Open(*sfoPath)) {
                     if (const auto title = psf.GetString("TITLE"); title.has_value()) {
                         icon.title = *title;
                     }
@@ -177,13 +170,11 @@ void GetGameIconInfo(std::vector<IconInfo>& icons) {
                     continue;
                 }
 
-                const std::string iconFileName = "icon0.png";
-                std::filesystem::path iconPath = UpdateChecker(iconFileName, entry.path());
-
-                SDL_Texture* texture = LoadSdlTextureDataFromFile(iconPath);
+                const auto iconPath = content->ResolveAppPath("sce_sys/icon0.png");
+                SDL_Texture* texture = iconPath ? LoadSdlTextureDataFromFile(*iconPath) : nullptr;
                 icon.textureId = ImTextureID(texture);
 
-                icon.ebootPath = entry.path() / "eboot.bin";
+                icon.ebootPath = content->GetBaseRoot() / "eboot.bin";
                 icon.focusState = false;
                 icons.push_back(icon);
             }

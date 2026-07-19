@@ -132,7 +132,10 @@ set(GCN_TEST_SOURCES
 set(ZAR_TEST_SOURCES
     # Under test
     ${CMAKE_SOURCE_DIR}/src/common/io_file.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/overlay_fs.cpp
     ${CMAKE_SOURCE_DIR}/src/common/zar_fs.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/file_format/psf.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/file_sys/game_content.cpp
 
     # Minimal common support
     ${CMAKE_SOURCE_DIR}/src/core/emulator_settings.cpp

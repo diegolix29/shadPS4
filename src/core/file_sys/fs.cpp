@@ -2,13 +2,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
-#include "common/string_util.h"
-#include "common/zar_fs.h"
+
+#include "common/overlay_fs.h"
 #include "core/file_sys/devices/logger.h"
 #include "core/file_sys/devices/nop_device.h"
 #include "core/file_sys/fs.h"
-
-namespace Zar = Common::FS::Zar;
 
 namespace Core::FileSys {
 
@@ -23,11 +21,42 @@ std::string RemoveTrailingSlashes(const std::string& path) {
     return path_sanitized;
 }
 
+bool HasParentTraversal(const std::filesystem::path& path) {
+    return std::ranges::any_of(path,
+                               [](const std::filesystem::path& part) { return part == ".."; });
+}
+
 void MntPoints::Mount(const std::filesystem::path& host_folder, const std::string& guest_folder,
                       bool read_only) {
     std::scoped_lock lock{m_mutex};
     const auto guest_folder_sanitized = RemoveTrailingSlashes(guest_folder);
-    m_mnt_pairs.emplace_back(host_folder, guest_folder_sanitized, read_only);
+    const auto existing = std::ranges::find(m_mnt_pairs, guest_folder_sanitized, &MntPair::mount);
+    if (existing != m_mnt_pairs.end()) {
+        existing->sources.push_back({host_folder, MountLayer::Base});
+        existing->read_only = existing->read_only && read_only;
+        return;
+    }
+    m_mnt_pairs.push_back({.sources = {{host_folder, MountLayer::Base}},
+                           .mount = guest_folder_sanitized,
+                           .read_only = read_only});
+}
+
+void MntPoints::MountOverlay(const std::filesystem::path& host_folder,
+                             const std::string& guest_folder, MountLayer layer) {
+    std::scoped_lock lock{m_mutex};
+    const auto guest_folder_sanitized = RemoveTrailingSlashes(guest_folder);
+    const auto existing = std::ranges::find(m_mnt_pairs, guest_folder_sanitized, &MntPair::mount);
+    if (existing == m_mnt_pairs.end()) {
+        m_mnt_pairs.push_back({.sources = {{host_folder, layer}},
+                               .mount = guest_folder_sanitized,
+                               .read_only = true});
+        return;
+    }
+    if (std::ranges::none_of(existing->sources, [&](const MntSource& source) {
+            return source.host_path == host_folder && source.layer == layer;
+        })) {
+        existing->sources.push_back({host_folder, layer});
+    }
 }
 
 void MntPoints::Unmount(const std::filesystem::path& host_folder, const std::string& guest_folder) {
@@ -66,193 +95,93 @@ std::filesystem::path MntPoints::GetHostPath(std::string_view path, bool* is_rea
         *is_read_only = mount->read_only;
     }
 
-    const auto corrected_path_sanitized = RemoveTrailingSlashes(corrected_path);
-    std::filesystem::path host_path = mount->host_path;
-
-    // Update folder is either mount + "-UPDATE" or mount + "-patch"
-    std::filesystem::path patch_path = Zar::ResolveCompanionPath(mount->host_path, "-UPDATE");
-    if (!Zar::IsDirectory(patch_path)) {
-        patch_path = Zar::ResolveCompanionPath(mount->host_path, "-patch");
-    }
-
-    // Mods folder can only be at mount + "-mods"
-    std::filesystem::path mods_path = Zar::ResolveCompanionPath(mount->host_path, "-mods");
-
-    // If we're just retrieving the mount, return the correct mount path.
-    if (corrected_path_sanitized == mount->mount) {
-        if (path_type == HostPathType::Mod) {
-            return mods_path;
-        } else if (path_type == HostPathType::Patch) {
-            return patch_path;
-        } else {
-            return host_path;
-        }
-    }
-
-    // Remove device (e.g /app0) from path to retrieve relative path.
-    const auto rel_path = std::string_view{corrected_path}.substr(mount->mount.size() + 1);
-    host_path /= rel_path;
-    patch_path /= rel_path;
-    mods_path /= rel_path;
-
-    if (path_type == HostPathType::Mod) {
-        return mods_path;
-    } else if (path_type == HostPathType::Patch) {
-        return patch_path;
-    }
-
-    if ((corrected_path.starts_with("/app0") || corrected_path.starts_with("/hostapp")) &&
-        path_type != HostPathType::Base && Zar::Exists(mods_path)) {
-        return mods_path;
-    }
-
-    if ((corrected_path.starts_with("/app0") || corrected_path.starts_with("/hostapp")) &&
-        path_type != HostPathType::Base && !ignore_game_patches && Zar::Exists(patch_path)) {
-        return patch_path;
-    }
-
-    // Paths inside a ZArchive-mounted game cannot be probed on the host filesystem, and
-    // ZArchive lookups are case-insensitive already, so no case correction is needed.
-    if (Zar::IsZarInnerPath(host_path)) {
-        return host_path;
-    }
-
-    if (!NeedsCaseInsensitiveSearch) {
-        return host_path;
-    }
-
-    const auto search = [&](const auto host_path) {
-        // If the path does not exist attempt to verify this.
-        // Retrieve parent path until we find one that exists.
-        std::scoped_lock lk{m_mutex};
-        path_parts.clear();
-        auto current_path = host_path;
-        while (!current_path.empty() && !std::filesystem::exists(current_path)) {
-            // We have probably cached this if it's a folder.
-            if (auto it = path_cache.find(current_path); it != path_cache.end()) {
-                current_path = it->second;
-                break;
-            }
-            path_parts.emplace_back(current_path.filename());
-            current_path = current_path.parent_path();
-        }
-        if (!current_path.empty()) {
-            // We have found an anchor. Traverse parts we recoded and see if they
-            // exist in filesystem but in different case.
-            auto guest_path = current_path;
-            while (!path_parts.empty()) {
-                const auto part = path_parts.back();
-                const auto add_match = [&](const auto& host_part) {
-                    current_path /= host_part;
-                    guest_path /= part;
-                    path_cache[guest_path] = current_path;
-                    path_parts.pop_back();
-                };
-                // Can happen when the mismatch is in upper folder.
-                if (std::filesystem::exists(current_path / part)) {
-                    add_match(part);
-                    continue;
-                }
-                const auto part_low = Common::ToLower(part.string());
-                bool found_match = false;
-                for (const auto& path : std::filesystem::directory_iterator(current_path)) {
-                    const auto candidate = path.path().filename();
-                    const auto filename = Common::ToLower(candidate.string());
-                    // Check if a filename matches in case insensitive manner.
-                    if (filename != part_low) {
-                        continue;
-                    }
-                    // We found a match, record the actual path in the cache.
-                    add_match(candidate);
-                    found_match = true;
-                    break;
-                }
-                if (!found_match) {
-                    return std::optional<std::filesystem::path>({});
-                }
+    std::vector<std::filesystem::path> sources;
+    const auto add_sources = [&](MountLayer layer) {
+        for (const auto& source : mount->sources) {
+            if (source.layer == layer) {
+                sources.push_back(source.host_path);
             }
         }
-        return std::optional<std::filesystem::path>(current_path);
     };
 
-    if ((corrected_path.starts_with("/app0") || corrected_path.starts_with("/hostapp")) &&
-        path_type != HostPathType::Base) {
-        if (const auto path = search(mods_path)) {
-            return *path;
+    if (path_type == HostPathType::Base) {
+        add_sources(MountLayer::Base);
+    } else if (path_type == HostPathType::Patch) {
+        add_sources(MountLayer::Patch);
+    } else if (path_type == HostPathType::Mod) {
+        add_sources(MountLayer::Mod);
+    } else {
+        add_sources(MountLayer::Mod);
+        if (!ignore_game_patches) {
+            add_sources(MountLayer::Patch);
         }
+        add_sources(MountLayer::Base);
+    }
+    if (sources.empty()) {
+        return {};
     }
 
-    if (path_type != HostPathType::Base && !ignore_game_patches) {
-        if (const auto path = search(patch_path)) {
-            return *path;
-        }
+    std::filesystem::path relative_path;
+    if (RemoveTrailingSlashes(corrected_path) != mount->mount) {
+        relative_path = std::string_view{corrected_path}.substr(mount->mount.size() + 1);
     }
-    if (const auto path = search(host_path)) {
-        return *path;
+    if (HasParentTraversal(relative_path)) {
+        return {};
     }
 
-    // Opening the guest path will surely fail but at least gives
-    // a better error message than the empty path.
-    return host_path;
+    if (const auto resolved = Common::FS::OverlayView{sources}.Resolve(relative_path)) {
+        return *resolved;
+    }
+
+    // Opening the guest path will fail, but the lowest-priority path gives a useful error.
+    return sources.back() / relative_path;
 }
 
 // TODO: Does not handle mount points inside mount points.
 void MntPoints::IterateDirectory(std::string_view guest_directory,
                                  const IterateDirectoryCallback& callback) {
-    const auto base_path = GetHostPath(guest_directory, nullptr, HostPathType::Base);
-
-    // Forces path types so as not to resolve to base path
-    const auto patch_path = GetHostPath(guest_directory, nullptr, HostPathType::Patch);
-    const auto mod_path = GetHostPath(guest_directory, nullptr, HostPathType::Mod);
-
-    // Prepend entries for . and .., as both are treated as files on PS4.
-    callback(base_path / ".", false);
-    callback(base_path / "..", false);
-
-    // Pass 1: Any files that existed in the base directory, using mod/patch directory if needed.
-    if (Zar::Exists(base_path)) {
-        Zar::IterateDirectory(
-            base_path, [&](const std::filesystem::path& entry_path, bool entry_is_file) {
-                const auto mod_entry_path = mod_path / entry_path.filename();
-                const auto patch_entry_path = patch_path / entry_path.filename();
-                if (Zar::Exists(mod_entry_path)) {
-                    callback(mod_entry_path, !Zar::IsDirectory(mod_entry_path));
-                    return;
-                } else if (Zar::Exists(patch_entry_path)) {
-                    callback(patch_entry_path, !Zar::IsDirectory(patch_entry_path));
-                    return;
-                }
-                callback(entry_path, entry_is_file);
-            });
+    std::string corrected_path{guest_directory};
+    size_t pos = corrected_path.find("//");
+    while (pos != std::string::npos) {
+        corrected_path.replace(pos, 2, "/");
+        pos = corrected_path.find("//", pos + 1);
     }
 
-    // Pass 2: Any files that exist only in the patch directory.
-    if (Zar::Exists(patch_path)) {
-        Zar::IterateDirectory(
-            patch_path, [&](const std::filesystem::path& entry_path, bool entry_is_file) {
-                const auto base_entry_path = base_path / entry_path.filename();
-                if (!Zar::Exists(base_entry_path)) {
-                    const auto mod_entry_path = mod_path / entry_path.filename();
-                    if (Zar::Exists(mod_entry_path)) {
-                        callback(mod_entry_path, !Zar::IsDirectory(mod_entry_path));
-                        return;
-                    }
-                    callback(entry_path, entry_is_file);
-                }
-            });
+    const auto mount = GetMount(corrected_path);
+    if (!mount) {
+        return;
     }
 
-    // Pass 3: Any files that exist only in the mod directory (confirmed this can be valid)
-    if (Zar::Exists(mod_path)) {
-        Zar::IterateDirectory(
-            mod_path, [&](const std::filesystem::path& entry_path, bool entry_is_file) {
-                const auto base_entry_path = base_path / entry_path.filename();
-                const auto patch_entry_path = patch_path / entry_path.filename();
-                if (!Zar::Exists(base_entry_path) && !Zar::Exists(patch_entry_path)) {
-                    callback(entry_path, entry_is_file);
-                }
-            });
+    std::filesystem::path relative_path;
+    if (RemoveTrailingSlashes(corrected_path) != mount->mount) {
+        relative_path = std::string_view{corrected_path}.substr(mount->mount.size() + 1);
     }
+    if (HasParentTraversal(relative_path)) {
+        return;
+    }
+
+    std::vector<std::filesystem::path> sources;
+    const auto append = [&](MountLayer layer) {
+        for (const auto& source : mount->sources) {
+            if (source.layer == layer) {
+                sources.push_back(source.host_path);
+            }
+        }
+    };
+    append(MountLayer::Mod);
+    if (!ignore_game_patches) {
+        append(MountLayer::Patch);
+    }
+    append(MountLayer::Base);
+    if (sources.empty()) {
+        return;
+    }
+
+    const Common::FS::OverlayView overlay{sources};
+    const auto resolved = overlay.Resolve(relative_path).value_or(sources.back() / relative_path);
+    callback(resolved / ".", false);
+    callback(resolved / "..", false);
+    overlay.IterateDirectory(relative_path, callback);
 }
 
 int HandleTable::CreateHandle() {

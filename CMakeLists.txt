@@ -781,6 +781,8 @@ set(COMMON src/common/logging/classes.h
            src/common/incremental_id.h
            src/common/io_file.cpp
            src/common/io_file.h
+           src/common/overlay_fs.cpp
+           src/common/overlay_fs.h
            src/common/zar_fs.cpp
            src/common/zar_fs.h
            src/common/lru_cache.h
@@ -876,6 +878,8 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_format/trp.h
          src/core/file_format/npbind.cpp
          src/core/file_format/npbind.h
+         src/core/file_sys/game_content.cpp
+         src/core/file_sys/game_content.h
          src/core/file_sys/fs.cpp
          src/core/file_sys/fs.h
          src/core/ipc/ipc.cpp

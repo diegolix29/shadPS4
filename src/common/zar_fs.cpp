@@ -154,6 +154,14 @@ bool IsZarInnerPath(const fs::path& path) {
     return located && !located->inner.empty();
 }
 
+std::optional<fs::path> GetArchivePath(const fs::path& path) {
+    const auto located = Locate(path);
+    if (!located) {
+        return std::nullopt;
+    }
+    return located->archive_path;
+}
+
 std::optional<fs::path> FindGameByID(const fs::path& dir, const std::string& game_id,
                                      int max_depth) {
     if (max_depth < 0) {
@@ -182,33 +190,51 @@ std::optional<fs::path> FindGameByID(const fs::path& dir, const std::string& gam
 }
 
 fs::path ResolveCompanionPath(const fs::path& game_path, std::string_view suffix) {
+    const auto companions = FindCompanionPaths(game_path, suffix);
+    if (!companions.empty()) {
+        return companions.front();
+    }
+
     auto content_path = game_path;
-    const bool is_archive = IsZarArchive(content_path);
-    if (is_archive) {
+    if (const auto archive_path = GetArchivePath(content_path)) {
+        content_path = *archive_path;
+        content_path.replace_extension();
+    }
+    content_path += suffix;
+
+    return content_path;
+}
+
+std::vector<fs::path> FindCompanionPaths(const fs::path& game_path, std::string_view suffix) {
+    std::vector<fs::path> companions;
+    auto content_path = game_path;
+    const auto archive_path = GetArchivePath(content_path);
+    if (archive_path) {
+        content_path = *archive_path;
         content_path.replace_extension();
     }
     content_path += suffix;
 
     if (IsDirectory(content_path)) {
-        return content_path;
+        companions.push_back(content_path);
     }
 
-    auto archive_path = content_path;
-    archive_path += ".zar";
-    if (IsZarArchive(archive_path)) {
-        return archive_path;
+    auto packed_path = content_path;
+    packed_path += ".zar";
+    if (IsZarArchive(packed_path)) {
+        companions.push_back(packed_path);
     }
 
     // Preserve the original archive behavior as a fallback for existing "GAME.zar-UPDATE"
     // directories, while preferring the conventional stem-based names above.
-    if (is_archive) {
-        auto legacy_path = game_path;
+    if (archive_path) {
+        auto legacy_path = *archive_path;
         legacy_path += suffix;
         if (IsDirectory(legacy_path)) {
-            return legacy_path;
+            companions.push_back(legacy_path);
         }
     }
-    return content_path;
+    return companions;
 }
 
 bool Exists(const fs::path& path) {
