@@ -365,8 +365,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (!modsFolder.has_value()) {
-        const auto mods_overlay =
-            Common::FS::Zar::FindOverlay(ebootPath.parent_path(), Common::FS::Zar::ModSuffixes);
+        const auto mods_overlay = Common::FS::Zar::GetOverlayPath(ebootPath.parent_path(), "-MODS");
         if (Common::FS::Zar::Exists(mods_overlay)) {
             modsFolder = mods_overlay;
             Core::FileSys::MntPoints::manual_mods_path = mods_overlay;
@@ -377,8 +376,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Using manually specified mods folder: " << modsFolder->string() << "\n";
     }
 
-    const auto patch_overlay =
-        Common::FS::Zar::FindOverlay(ebootPath.parent_path(), Common::FS::Zar::PatchSuffixes);
+    const auto patch_overlay = Common::FS::Zar::GetOverlayPath(ebootPath.parent_path(), "-UPDATE");
     if (Common::FS::Zar::Exists(patch_overlay)) {
         std::cout << "Auto-detected patch/update overlay: " << patch_overlay << "\n";
     }
