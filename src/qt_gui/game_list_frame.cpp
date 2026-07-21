@@ -326,6 +326,7 @@ void GameListFrame::PopulateZarList() {
             }
         }
 
+        item->setToolTip(path);
         m_zar_list->addItem(item);
     }
 }

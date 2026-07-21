@@ -8,6 +8,8 @@
 #include "common/config.h"
 #include "common/logging/backend.h"
 #include "common/memory_patcher.h"
+#include "common/path_util.h"
+#include "common/zar_fs.h"
 #include "core/debugger.h"
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc_client.h"
@@ -88,8 +90,8 @@ int main(int argc, char* argv[]) {
         auto portable_dir = Common::FS::GetPortablePath();
         auto global_dir = Common::FS::GetGlobalPath();
 
-        bool portableExists = Common::FS::Zar::Exists(portable_dir);
-        bool globalExists = Common::FS::Zar::Exists(global_dir);
+        bool portableExists = std::filesystem::exists(portable_dir);
+        bool globalExists = std::filesystem::exists(global_dir);
 
         Common::FS::PathInitState detected_state;
         if (portableExists) {
@@ -212,7 +214,7 @@ int main(int argc, char* argv[]) {
          [&](int& i) {
              if (i + 1 < argc) {
                  std::filesystem::path dir(argv[++i]);
-                 if (!Common::FS::Zar::Exists(dir) || !std::filesystem::is_directory(dir)) {
+                 if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir)) {
                      std::cerr << "Error: Invalid mods folder: " << dir << "\n";
                      exit(1);
                  }
@@ -277,7 +279,7 @@ int main(int argc, char* argv[]) {
              }
              std::string folder_str{argv[i]};
              std::filesystem::path folder{folder_str};
-             if (!Common::FS::Zar::Exists(folder) || !std::filesystem::is_directory(folder)) {
+             if (!std::filesystem::exists(folder) || !std::filesystem::is_directory(folder)) {
                  std::cerr << "Error: Folder does not exist: " << folder_str << "\n";
                  exit(1);
              }
@@ -360,6 +362,11 @@ int main(int argc, char* argv[]) {
                     found = true;
                     break;
                 }
+                if (auto foundPath = Common::FS::Zar::FindGameByID(dir, game_path, max_depth)) {
+                    eboot_path = *foundPath;
+                    found = true;
+                    break;
+                }
             }
             if (!found) {
                 std::cerr << "Error: Game not found: " << game_path << "\n";
@@ -369,14 +376,32 @@ int main(int argc, char* argv[]) {
 
         if (!modsFolder.has_value()) {
             auto base_folder = eboot_path.parent_path();
-            auto parent = base_folder.parent_path();
-            auto game_folder_name = base_folder.filename().string();
-            auto auto_mods_folder = parent / (game_folder_name + "-MODS");
-            if (Common::FS::Zar::Exists(auto_mods_folder) &&
-                std::filesystem::is_directory(auto_mods_folder)) {
-                modsFolder = auto_mods_folder;
-                Core::FileSys::MntPoints::enable_mods = true;
-                std::cout << "Auto-detected mods folder: " << auto_mods_folder << "\n";
+
+            // GetOverlayPath already checks for a zar overlay first, then falls back to a
+            // loose folder, so a single lookup per suffix is sufficient here.
+            std::vector<std::string> modSuffixes = {"-mods", "-MODS", "-Mods"};
+            for (const auto& suffix : modSuffixes) {
+                auto overlay_path = Common::FS::Zar::GetOverlayPath(base_folder, suffix);
+                if (std::filesystem::exists(overlay_path)) {
+                    modsFolder = overlay_path;
+                    Core::FileSys::MntPoints::enable_mods = true;
+                    Core::FileSys::MntPoints::manual_mods_path = overlay_path;
+                    std::cout << "Auto-detected mods overlay: " << overlay_path << "\n";
+                    break;
+                }
+            }
+
+            // Patch/update overlays are resolved generically by fs.cpp (which prefers
+            // "-UPDATE", falling back to "-patch") and don't need an explicit override here,
+            // but log the detected overlay for parity/visibility with mods detection.
+            std::filesystem::path patch_overlay_path = base_folder;
+            patch_overlay_path += "-UPDATE";
+            if (!std::filesystem::exists(patch_overlay_path)) {
+                patch_overlay_path = base_folder;
+                patch_overlay_path += "-patch";
+            }
+            if (std::filesystem::exists(patch_overlay_path)) {
+                std::cout << "Detected patch/update overlay: " << patch_overlay_path << "\n";
             }
         } else {
             std::cout << "Using manually specified mods folder: " << modsFolder->string() << "\n";
@@ -549,6 +574,12 @@ int main(int argc, char* argv[]) {
             for (const auto& install_dir : Config::getGameDirectories()) {
                 if (auto found_path = Common::FS::FindGameByID(install_dir, game_path, max_depth)) {
                     game_file_path = *found_path;
+                    game_found = true;
+                    break;
+                }
+                if (auto foundPath =
+                        Common::FS::Zar::FindGameByID(install_dir, game_path, max_depth)) {
+                    game_file_path = *foundPath;
                     game_found = true;
                     break;
                 }

@@ -160,6 +160,21 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     mnt->Mount(game_folder, "/app0", true);
     mnt->Mount(game_folder, "/hostapp", true);
 
+    // Auto-detect zar overlay files if manual_mods_path is not set
+    if (Core::FileSys::MntPoints::manual_mods_path.empty() &&
+        Common::FS::Zar::IsZarArchive(game_folder)) {
+        std::vector<std::string> mods_suffixes = {"-mods", "-MODS", "-Mods"};
+        for (const auto& suffix : mods_suffixes) {
+            auto zar_mods_path = Common::FS::Zar::GetOverlayPath(game_folder, suffix);
+            if (std::filesystem::exists(zar_mods_path)) {
+                Core::FileSys::MntPoints::manual_mods_path = zar_mods_path;
+                Core::FileSys::MntPoints::enable_mods = true;
+                LOG_INFO(Loader, "Auto-detected mods zar: {}", zar_mods_path.string());
+                break;
+            }
+        }
+    }
+
     const auto param_sfo_path = mnt->GetHostPath("/app0/sce_sys/param.sfo");
     const auto param_sfo_exists = Common::FS::Zar::Exists(param_sfo_path);
 

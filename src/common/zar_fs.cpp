@@ -198,6 +198,39 @@ bool IsDirectory(const fs::path& path) {
     return fs::is_directory(path, ec);
 }
 
+fs::path GetZarOverlayPath(const fs::path& game_path, std::string_view suffix) {
+    auto overlay_path = game_path;
+    if (IsZarArchive(overlay_path)) {
+        overlay_path.replace_extension();
+    }
+    overlay_path += suffix;
+    overlay_path += ".zar";
+    return overlay_path;
+}
+
+fs::path GetOverlayPath(const fs::path& game_path, std::string_view suffix) {
+    // First check for zar overlay (e.g., game-mods.zar)
+    auto zar_overlay = game_path;
+    if (IsZarArchive(zar_overlay)) {
+        zar_overlay.replace_extension();
+    }
+    zar_overlay += suffix;
+    zar_overlay += ".zar";
+
+    if (std::filesystem::exists(zar_overlay)) {
+        return zar_overlay;
+    }
+
+    // Fall back to loose folder overlay (e.g., game-MODS)
+    auto folder_overlay = game_path;
+    if (IsZarArchive(folder_overlay)) {
+        folder_overlay.replace_extension();
+    }
+    folder_overlay += suffix;
+
+    return folder_overlay;
+}
+
 bool IsRegularFile(const fs::path& path) {
     if (const auto split = Split(path)) {
         const auto node = split->archive->reader->LookUp(split->inner, true, false);

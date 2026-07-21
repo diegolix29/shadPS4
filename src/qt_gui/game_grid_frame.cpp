@@ -643,6 +643,9 @@ void GameGridFrame::PopulateZarList() {
             }
         }
 
+        QString path;
+        Common::FS::PathToQString(path, zar_game.path);
+        item->setToolTip(path);
         m_zar_list->addItem(item);
     }
 }

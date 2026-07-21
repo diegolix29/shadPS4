@@ -23,6 +23,7 @@
 #include "common/logging/backend.h"
 #include "common/memory_patcher.h"
 #include "common/path_util.h"
+#include "common/zar_fs.h"
 #include "core/debugger.h"
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc.h"
@@ -59,7 +60,7 @@ int main(int argc, char* argv[]) {
 
     {
         auto portable = Common::FS::GetPortablePath();
-        auto init_state = Common::FS::Zar::Exists(portable) ? Common::FS::PathInitState::Portable
+        auto init_state = std::filesystem::exists(portable) ? Common::FS::PathInitState::Portable
                                                             : Common::FS::PathInitState::Global;
         Common::FS::InitializeUserPaths(init_state);
     }
@@ -203,12 +204,13 @@ int main(int argc, char* argv[]) {
          [&](int& i) {
              if (i + 1 < argc) {
                  std::filesystem::path dir(argv[++i]);
-                 if (!Common::FS::Zar::Exists(dir) || !std::filesystem::is_directory(dir)) {
+                 if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir)) {
                      std::cerr << "Error: Invalid mods folder: " << dir << "\n";
                      exit(1);
                  }
                  Core::FileSys::MntPoints::enable_mods = true;
                  Core::FileSys::MntPoints::manual_mods_path = dir;
+                 modsFolder = dir;
                  std::cout << "Mods folder set: " << dir << "\n";
              } else {
                  std::cerr << "Error: Missing argument for -mf/--mods-folder\n";
@@ -225,7 +227,7 @@ int main(int argc, char* argv[]) {
              if (++i >= argc)
                  exit((std::cerr << "Error: Missing argument for --add-game-folder\n", 1));
              std::filesystem::path dir(argv[i]);
-             if (!Common::FS::Zar::Exists(dir))
+             if (!std::filesystem::exists(dir))
                  exit((std::cerr << "Error: Directory not found: " << dir << "\n", 1));
              Config::addGameDirectories(dir);
              Config::save(user_dir / "config.toml");
@@ -237,7 +239,7 @@ int main(int argc, char* argv[]) {
              if (++i >= argc)
                  exit((std::cerr << "Error: Missing argument for --set-addon-folder\n", 1));
              std::filesystem::path dir(argv[i]);
-             if (!Common::FS::Zar::Exists(dir))
+             if (!std::filesystem::exists(dir))
                  exit((std::cerr << "Error: Directory not found: " << dir << "\n", 1));
              Config::setAddonDirectories(dir);
              Config::save(user_dir / "config.toml");
@@ -251,7 +253,7 @@ int main(int argc, char* argv[]) {
              if (++i >= argc)
                  exit((std::cerr << "Error: Missing argument for --override-root\n", 1));
              std::filesystem::path folder(argv[i]);
-             if (!Common::FS::Zar::Exists(folder) || !std::filesystem::is_directory(folder))
+             if (!std::filesystem::exists(folder) || !std::filesystem::is_directory(folder))
                  exit((std::cerr << "Error: Invalid folder: " << folder << "\n", 1));
              gameFolder = folder;
          }},
@@ -350,6 +352,11 @@ int main(int argc, char* argv[]) {
                 found = true;
                 break;
             }
+            if (auto foundPath = Common::FS::Zar::FindGameByID(dir, gamePath, max_depth)) {
+                ebootPath = *foundPath;
+                found = true;
+                break;
+            }
         }
         if (!found) {
             std::cerr << "Error: Game not found: " << gamePath << "\n";
@@ -358,26 +365,22 @@ int main(int argc, char* argv[]) {
     }
 
     if (!modsFolder.has_value()) {
-        auto base_folder = ebootPath.parent_path();
-        auto parent = base_folder.parent_path();
-        auto game_folder_name = base_folder.filename().string();
-
-        std::vector<std::string> modSuffixes = {"-mods", "-MODS", "-Mods"};
-        bool found = false;
-
-        for (const auto& suffix : modSuffixes) {
-            auto auto_mods_folder = parent / (game_folder_name + suffix);
-            if (Common::FS::Zar::Exists(auto_mods_folder) &&
-                std::filesystem::is_directory(auto_mods_folder)) {
-                modsFolder = auto_mods_folder;
-                Core::FileSys::MntPoints::enable_mods = true;
-                std::cout << "Auto-detected mods folder: " << auto_mods_folder << "\n";
-                found = true;
-                break;
-            }
+        const auto mods_overlay =
+            Common::FS::Zar::FindOverlay(ebootPath.parent_path(), Common::FS::Zar::ModSuffixes);
+        if (Common::FS::Zar::Exists(mods_overlay)) {
+            modsFolder = mods_overlay;
+            Core::FileSys::MntPoints::manual_mods_path = mods_overlay;
+            Core::FileSys::MntPoints::enable_mods = true;
+            std::cout << "Auto-detected mods overlay: " << mods_overlay << "\n";
         }
     } else {
         std::cout << "Using manually specified mods folder: " << modsFolder->string() << "\n";
+    }
+
+    const auto patch_overlay =
+        Common::FS::Zar::FindOverlay(ebootPath.parent_path(), Common::FS::Zar::PatchSuffixes);
+    if (Common::FS::Zar::Exists(patch_overlay)) {
+        std::cout << "Auto-detected patch/update overlay: " << patch_overlay << "\n";
     }
 
     if (!Core::FileSys::MntPoints::enable_mods) {

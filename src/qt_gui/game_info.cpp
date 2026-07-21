@@ -46,6 +46,19 @@ void ScanZarFiles(const QString& dir, QStringList& zarFilePaths) {
 
     for (const auto& entry : entries) {
         if (entry.isFile() && entry.fileName().endsWith(".zar", Qt::CaseInsensitive)) {
+            QString fileName = entry.fileName();
+            // Skip update/patch/mods zar files (case-insensitive)
+            if (fileName.endsWith("-update.zar", Qt::CaseInsensitive) ||
+                fileName.endsWith("-UPDATE.zar", Qt::CaseInsensitive) ||
+                fileName.endsWith("-Update.zar", Qt::CaseInsensitive) ||
+                fileName.endsWith("-patch.zar", Qt::CaseInsensitive) ||
+                fileName.endsWith("-PATCH.zar", Qt::CaseInsensitive) ||
+                fileName.endsWith("-Patch.zar", Qt::CaseInsensitive) ||
+                fileName.endsWith("-mods.zar", Qt::CaseInsensitive) ||
+                fileName.endsWith("-MODS.zar", Qt::CaseInsensitive) ||
+                fileName.endsWith("-Mods.zar", Qt::CaseInsensitive)) {
+                continue;
+            }
             zarFilePaths.append(entry.absoluteFilePath());
         } else if (entry.isDir()) {
             QString folderName = entry.fileName();

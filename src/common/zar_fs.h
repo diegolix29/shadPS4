@@ -18,6 +18,14 @@ namespace Common::FS::Zar {
 
 class Archive;
 
+/// Returns a zar overlay path beside a game directory or ZArchive.
+std::filesystem::path GetZarOverlayPath(const std::filesystem::path& game_path,
+                                        std::string_view suffix);
+
+/// Returns unified overlay path that checks for zar files first, then falls back to loose folders
+std::filesystem::path GetOverlayPath(const std::filesystem::path& game_path,
+                                     std::string_view suffix);
+
 /// Returns whether path is an existing host ZArchive.
 bool IsZarArchive(const std::filesystem::path& path);
 
