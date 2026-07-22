@@ -6,6 +6,7 @@
 #include "common/config.h"
 #include "common/debug.h"
 #include "common/elf_info.h"
+#include "common/memory_patcher.h"
 #include "core/memory.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/liverpool.h"
@@ -723,7 +724,9 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
                 buffer_cache.ObtainBuffer(vsharp.base_address, size, flags, buffer_id);
             const u32 offset_aligned = Common::AlignDown(offset, alignment);
             const u32 adjust = offset - offset_aligned;
-            ASSERT(adjust % 4 == 0);
+            if (!MemoryPatcher::IsSpecialCusa()) {
+                ASSERT(adjust % 4 == 0);
+            }
             push_data.AddOffset(binding.buffer, adjust);
             buffer_infos.emplace_back(vk_buffer->Handle(), offset_aligned, size + adjust);
             if (auto barrier =
