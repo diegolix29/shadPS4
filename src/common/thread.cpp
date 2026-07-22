@@ -2,16 +2,13 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-
 #include <algorithm>
 #include <array>
 #include <condition_variable>
 #include <ctime>
-#include <mutex>
 #include <string>
 #include <thread>
-#include <vector>
-
+#include <mutex>
 #include "core/libraries/kernel/threads/pthread.h"
 
 #include "common/error.h"
@@ -43,7 +40,7 @@
 
 namespace Common {
 
-struct InterruptibleTimer::Impl {
+    struct InterruptibleTimer::Impl {
 #ifdef _WIN32
     HANDLE timer{};
     HANDLE interrupt{};
@@ -171,34 +168,29 @@ void SetCurrentThreadRealtime(const std::chrono::nanoseconds period_ns) {
 
 #ifdef _WIN32
 
-static int ToWindowsThreadPriority(ThreadPriority new_priority) {
+void SetCurrentThreadPriority(ThreadPriority new_priority) {
+    int windows_priority = 0;
     switch (new_priority) {
     case ThreadPriority::Low:
-        return THREAD_PRIORITY_BELOW_NORMAL;
+        windows_priority = THREAD_PRIORITY_BELOW_NORMAL;
+        break;
     case ThreadPriority::Normal:
-        return THREAD_PRIORITY_NORMAL;
+        windows_priority = THREAD_PRIORITY_NORMAL;
+        break;
     case ThreadPriority::High:
-        return THREAD_PRIORITY_ABOVE_NORMAL;
+        windows_priority = THREAD_PRIORITY_ABOVE_NORMAL;
+        break;
     case ThreadPriority::VeryHigh:
-        return THREAD_PRIORITY_HIGHEST;
+        windows_priority = THREAD_PRIORITY_HIGHEST;
+        break;
     case ThreadPriority::Critical:
-        return THREAD_PRIORITY_TIME_CRITICAL;
+        windows_priority = THREAD_PRIORITY_TIME_CRITICAL;
+        break;
     default:
-        return THREAD_PRIORITY_NORMAL;
+        windows_priority = THREAD_PRIORITY_NORMAL;
+        break;
     }
-}
-
-void SetCurrentThreadPriority(ThreadPriority new_priority) {
-    auto handle = GetCurrentThread();
-    ::SetThreadPriority(handle, ToWindowsThreadPriority(new_priority));
-}
-
-void SetThreadPriority(void* thread_handle, ThreadPriority new_priority) {
-    if (!thread_handle) {
-        return;
-    }
-    ::SetThreadPriority(reinterpret_cast<HANDLE>(thread_handle),
-                        ToWindowsThreadPriority(new_priority));
+    ::SetThreadPriority(GetCurrentThread(), windows_priority);
 }
 
 bool AccurateSleep(const std::chrono::nanoseconds duration, std::chrono::nanoseconds* remaining,
@@ -223,22 +215,6 @@ bool AccurateSleep(const std::chrono::nanoseconds duration, std::chrono::nanosec
 
 #else
 
-static void ApplyPosixThreadPriority(pthread_t thread, ThreadPriority new_priority) {
-    const auto scheduling_type = SCHED_OTHER;
-    s32 max_prio = sched_get_priority_max(scheduling_type);
-    s32 min_prio = sched_get_priority_min(scheduling_type);
-    u32 level = std::max(static_cast<u32>(new_priority) + 1, 4U);
-
-    struct sched_param params;
-    if (max_prio > min_prio) {
-        params.sched_priority = min_prio + ((max_prio - min_prio) * level) / 4;
-    } else {
-        params.sched_priority = min_prio - ((min_prio - max_prio) * level) / 4;
-    }
-
-    pthread_setschedparam(thread, scheduling_type, &params);
-}
-
 void SetCurrentThreadPriority(ThreadPriority new_priority) {
     ApplyPosixThreadPriority(pthread_self(), new_priority);
 }
@@ -249,6 +225,7 @@ void SetThreadPriority(void* thread_handle, ThreadPriority new_priority) {
     }
     ApplyPosixThreadPriority(reinterpret_cast<pthread_t>(thread_handle), new_priority);
 }
+
 
 bool AccurateSleep(const std::chrono::nanoseconds duration, std::chrono::nanoseconds* remaining,
                    const bool interruptible) {
