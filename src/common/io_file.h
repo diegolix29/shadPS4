@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <span>
 #include <type_traits>
+#include "common/logging/log.h"
 
 #include "common/concepts.h"
 #include "common/types.h"
@@ -180,7 +181,15 @@ public:
         if (zar_file) {
             return zar_file->Read(data, size * sizeof(T)) / sizeof(T);
         }
-        return std::fread(data, sizeof(T), size, file);
+        u64 read = std::fread(data, sizeof(T), size, file);
+        if (std::ferror(file)) {
+            LOG_ERROR(
+                Core,
+                "file read errored, file = {}, data = {}, offset = {:#x}, size = {:#x}, errno = {}",
+                file_path.string().data(), fmt::ptr(data), Tell(), size, std::strerror(errno));
+            std::clearerr(file);
+        }
+        return read;
     }
 
     template <typename T>

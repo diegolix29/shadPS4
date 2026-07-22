@@ -374,8 +374,11 @@ s64 ReadFile(Common::FS::IOFile& file, void* buf, u64 nbytes) {
     // Invalidate up to the actual number of bytes that could be read.
     const auto remaining = file.GetSize() - file.Tell();
     memory->InvalidateMemory(reinterpret_cast<VAddr>(buf), std::min<u64>(nbytes, remaining));
-
-    return file.ReadRaw<u8>(buf, nbytes);
+    void* file_buf = std::malloc(nbytes);
+    u64 bytes = file.ReadRaw<u8>(file_buf, nbytes);
+    std::memcpy(buf, file_buf, bytes);
+    std::free(file_buf);
+    return bytes;
 }
 
 // Returns the errno for an invalid iovec array, or 0 when it is acceptable.
