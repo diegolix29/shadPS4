@@ -3,7 +3,6 @@
 
 #pragma once
 #include <cstring>
-#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -34,6 +33,8 @@ inline bool IsSpecialCusa() {
            serial == "CUSA00554";
 }
 
+
+
 struct patchInfo {
     std::string gameSerial;
     std::string modNameStr;
@@ -51,24 +52,10 @@ std::string convertValueToHex(const std::string type, const std::string valueStr
 
 void OnGameLoaded();
 void AddPatchToQueue(const patchInfo& patchToAdd);
-void ApplyRuntimePatch(const std::string& modNameStr, const std::string& offsetStr,
-                       const std::string& valueStr, const std::string& targetStr,
-                       const std::string& sizeStr, bool isOffset, bool littleEndian, int patchMask,
-                       int maskOffset);
+
 void PatchMemory(const patchInfo& patch);
 
 static std::vector<int32_t> PatternToByte(const std::string& pattern);
 uintptr_t PatternScan(const std::string& signature);
-
-struct PendingPatch {
-    std::string modName;
-    std::string address;
-    std::string value;
-    std::string target;
-    std::string size;
-    bool littleEndian = false;
-    PatchMask mask = PatchMask::None;
-    int maskOffset = 0;
-};
 
 } // namespace MemoryPatcher

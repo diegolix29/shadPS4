@@ -496,9 +496,18 @@ int main(int argc, char* argv[]) {
                     std::getline(std::cin, mask);
                     std::getline(std::cin, maskOffset);
 
-                    MemoryPatcher::ApplyRuntimePatch(modName, offset, value, target, size,
-                                                     isOffset == "1", littleEndian == "1",
-                                                     std::stoi(mask), std::stoi(maskOffset));
+                    MemoryPatcher::patchInfo patch;
+                    patch.gameSerial = "*";
+                    patch.modNameStr = modName;
+                    patch.offsetStr = offset;
+                    patch.valueStr = value;
+                    patch.targetStr = target;
+                    patch.sizeStr = size;
+                    patch.isOffset = isOffset == "1";
+                    patch.littleEndian = littleEndian == "1";
+                    patch.patchMask = static_cast<MemoryPatcher::PatchMask>(std::stoi(mask));
+                    patch.maskOffset = std::stoi(maskOffset);
+                    MemoryPatcher::AddPatchToQueue(patch);
                 } else if (cmd == "PAUSE" || cmd == "RESUME") {
                     SDL_Event e;
                     e.type = SDL_EVENT_TOGGLE_PAUSE;
