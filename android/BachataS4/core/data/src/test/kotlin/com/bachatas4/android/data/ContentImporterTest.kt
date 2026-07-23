@@ -217,6 +217,47 @@ class ContentImporterTest {
     }
 
     @Test
+    fun finalizeStagingTreePromotesToGamesDir() = runTest {
+        val gamesDir = File(temporaryFolder.root, "games")
+        val staging = File(gamesDir, ".import-pkg")
+        File(staging, "sce_sys").mkdirs()
+        File(staging, "sce_sys/param.sfo").writeText("sfo")
+        File(staging, "eboot.bin").writeText("boot")
+        val importer = importerFor(ByteArray(0))
+
+        val result = importer.finalizeStagingTree(
+            ContentImportRequest("CUSA00007", "Pkg Game", "content://pkg.pkg"),
+            staging,
+        )
+
+        assertEquals("games/CUSA00007", result.game.relativePath)
+        assertEquals("pkg-extract", result.sha256)
+        assertEquals(7L, result.bytesCopied)
+        assertEquals("boot", File(temporaryFolder.root, "games/CUSA00007/eboot.bin").readText())
+        assertEquals("sfo", File(temporaryFolder.root, "games/CUSA00007/sce_sys/param.sfo").readText())
+        assertFalse(staging.exists())
+    }
+
+    @Test
+    fun finalizeStagingTreeRejectsMissingEboot() = runTest {
+        val gamesDir = File(temporaryFolder.root, "games")
+        val staging = File(gamesDir, ".import-pkg")
+        File(staging, "sce_sys").mkdirs()
+        File(staging, "sce_sys/param.sfo").writeText("sfo")
+        val importer = importerFor(ByteArray(0))
+
+        val error = assertImportException {
+            importer.finalizeStagingTree(
+                ContentImportRequest("CUSA00008", "Bad", "content://pkg.pkg"),
+                staging,
+            )
+        }
+
+        assertEquals(RuntimeErrorCode.CONTENT_INVALID, error.code)
+        assertTrue(error.message!!.contains("eboot.bin"))
+    }
+
+    @Test
     fun progressCallbackFiresAfterEachFile() = runTest {
         val files = mapOf(
             "content://eboot" to "exe".toByteArray(),

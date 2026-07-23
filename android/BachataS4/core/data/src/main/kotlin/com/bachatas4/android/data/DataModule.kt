@@ -34,6 +34,11 @@ object DataModule {
 
     @Provides
     @Singleton
+    fun pkgKeyStore(@ApplicationContext context: Context): PkgKeyStore =
+        PkgKeyStore(context.filesDir)
+
+    @Provides
+    @Singleton
     fun runtimeProfileStore(@ApplicationContext context: Context): RuntimeProfileStore =
         RuntimeProfileStore(context.filesDir)
 

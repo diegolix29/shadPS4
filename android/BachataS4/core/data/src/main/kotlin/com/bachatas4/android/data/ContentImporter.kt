@@ -139,6 +139,66 @@ class ContentImporter(
 
     private fun formatGiB(bytes: Long): String = "%.1f".format(bytes / (1024.0 * 1024.0 * 1024.0))
 
+    /**
+     * Atomically promote a native PKG extract staging directory into `games/<id>`.
+     * [stagingDir] must already contain `sce_sys/param.sfo` and `eboot.bin`.
+     */
+    suspend fun finalizeStagingTree(
+        request: ContentImportRequest,
+        stagingDir: File,
+    ): ContentImportResult = withContext(Dispatchers.IO) {
+        validateGameId(request.id)
+        val gamesDir = File(filesDir, "games").canonicalFile
+        gamesDir.mkdirs()
+        val destination = File(gamesDir, request.id).canonicalFile
+        requireInside(gamesDir, destination)
+        if (destination.exists()) {
+            throw ContentImportException(RuntimeErrorCode.CONTENT_INVALID, "Game already imported")
+        }
+        val staging = stagingDir.canonicalFile
+        requireInside(gamesDir, staging)
+        if (!staging.isDirectory) {
+            throw ContentImportException(RuntimeErrorCode.CONTENT_INVALID, "Staging directory missing")
+        }
+        val paramSfo = File(staging, "sce_sys/param.sfo")
+        if (!paramSfo.isFile) {
+            throw ContentImportException(
+                RuntimeErrorCode.CONTENT_INVALID,
+                "invalid game layout: missing sce_sys/param.sfo",
+            )
+        }
+        val eboot = File(staging, "eboot.bin")
+        if (!eboot.isFile) {
+            throw ContentImportException(
+                RuntimeErrorCode.CONTENT_INVALID,
+                "invalid game layout: missing eboot.bin",
+            )
+        }
+        val bytesCopied = walkFileSize(staging)
+        moveAtomically(staging, destination)
+        ContentImportResult(
+            game = Game(
+                id = request.id,
+                title = request.title,
+                relativePath = "games/${request.id}",
+                subtitle = request.subtitle,
+                detail = request.detail,
+            ),
+            bytesCopied = bytesCopied,
+            sha256 = "pkg-extract",
+        )
+    }
+
+    private fun walkFileSize(root: File): Long {
+        var total = 0L
+        root.walkTopDown().forEach { file ->
+            if (file.isFile) {
+                total += file.length().coerceAtLeast(0L)
+            }
+        }
+        return total
+    }
+
     suspend fun importGame(request: ContentImportRequest): ContentImportResult =
         withContext(Dispatchers.IO) {
             validateGameId(request.id)
