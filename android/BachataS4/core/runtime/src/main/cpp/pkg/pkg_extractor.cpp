@@ -353,14 +353,41 @@ bool build_fs_table(int fd, ExtractState& st, std::string& err) {
         return false;
     }
     LOGI("PFSC offset=0x%llx", static_cast<unsigned long long>(st.pfsc_offset));
+    if (st.pfsc_offset >= length || sizeof(PFSCHdr) > length - st.pfsc_offset) {
+        err = "PFSC header OOB";
+        return false;
+    }
     std::vector<u8> pfsc(length - st.pfsc_offset);
     std::memcpy(pfsc.data(), pfs_decrypted.data() + st.pfsc_offset, pfsc.size());
     PFSCHdr pfsChdr{};
     std::memcpy(&pfsChdr, pfsc.data(), sizeof(pfsChdr));
-    const int num_blocks = static_cast<int>(pfsChdr.data_length / pfsChdr.block_sz2);
-    st.sectorMap.resize(num_blocks + 1);
+    if (pfsChdr.block_sz2 <= 0 || pfsChdr.data_length <= 0) {
+        err = "Invalid PFSC geometry";
+        return false;
+    }
+    const int64_t num_blocks64 = pfsChdr.data_length / pfsChdr.block_sz2;
+    // Cap: avoid huge allocs from corrupt headers.
+    if (num_blocks64 <= 0 || num_blocks64 > 2'000'000) {
+        err = "PFSC num_blocks out of range";
+        LOGE("num_blocks=%lld data_length=%lld block_sz2=%lld",
+             static_cast<long long>(num_blocks64),
+             static_cast<long long>(pfsChdr.data_length),
+             static_cast<long long>(pfsChdr.block_sz2));
+        return false;
+    }
+    const int num_blocks = static_cast<int>(num_blocks64);
+    const int64_t map_bytes = (static_cast<int64_t>(num_blocks) + 1) * 8;
+    if (pfsChdr.block_offsets < 0 ||
+        static_cast<uint64_t>(pfsChdr.block_offsets) + static_cast<uint64_t>(map_bytes) > pfsc.size()) {
+        err = "PFSC sector map OOB";
+        return false;
+    }
+    LOGI("PFSC num_blocks=%d block_offsets=%lld", num_blocks,
+         static_cast<long long>(pfsChdr.block_offsets));
+    st.sectorMap.resize(static_cast<size_t>(num_blocks) + 1);
     for (int i = 0; i < num_blocks + 1; ++i) {
-        std::memcpy(&st.sectorMap[i], pfsc.data() + pfsChdr.block_offsets + i * 8, 8);
+        std::memcpy(&st.sectorMap[i],
+                    pfsc.data() + pfsChdr.block_offsets + static_cast<size_t>(i) * 8, 8);
     }
 
     u32 ent_size = 0;
@@ -374,30 +401,54 @@ bool build_fs_table(int fd, ExtractState& st, std::string& err) {
     st.extractPaths[0] = st.extract_root;
     st.current_dir = st.extract_root;
 
+    auto read_dirent = [&](int j, Dirent& dirent) -> bool {
+        // Only 16-byte header is guaranteed; name length is bounded.
+        if (j < 0 || j + 16 > 0x10000) return false;
+        std::memcpy(&dirent.ino, &decompressedData[j], 4);
+        std::memcpy(&dirent.type, &decompressedData[j + 4], 4);
+        std::memcpy(&dirent.namelen, &decompressedData[j + 8], 4);
+        std::memcpy(&dirent.entsize, &decompressedData[j + 12], 4);
+        if (dirent.entsize <= 0 || j + dirent.entsize > 0x10000) return false;
+        if (dirent.namelen < 0 || dirent.namelen >= 256) return false;
+        if (16 + dirent.namelen > dirent.entsize) return false;
+        std::memset(dirent.name, 0, sizeof(dirent.name));
+        std::memcpy(dirent.name, &decompressedData[j + 16], static_cast<size_t>(dirent.namelen));
+        return true;
+    };
+
     for (int i = 0; i < num_blocks; ++i) {
         if (g_cancel.load()) {
             err = "CANCELLED";
             return false;
         }
-        const u64 sectorOffset = st.sectorMap[i];
-        const u64 sectorSize = st.sectorMap[i + 1] - sectorOffset;
-        compressedData.resize(static_cast<size_t>(sectorSize));
+        const u64 sectorOffset = st.sectorMap[static_cast<size_t>(i)];
+        const u64 sectorSize = st.sectorMap[static_cast<size_t>(i) + 1] - sectorOffset;
+        if (sectorSize == 0 || sectorSize > 0x20000) continue;
         if (sectorOffset + sectorSize > pfsc.size()) break;
+        compressedData.resize(static_cast<size_t>(sectorSize));
         std::memcpy(compressedData.data(), pfsc.data() + sectorOffset, static_cast<size_t>(sectorSize));
+        std::fill(decompressedData.begin(), decompressedData.end(), 0);
         if (sectorSize == 0x10000) {
             std::memcpy(decompressedData.data(), compressedData.data(), 0x10000);
         } else if (sectorSize < 0x10000) {
             DecompressPFSC(compressedData, decompressedData);
+        } else {
+            continue;
         }
 
         if (i == 0) {
             std::memcpy(&ndinode, decompressedData.data() + 0x30, 4);
+            LOGI("ndinode=%u", ndinode);
+            if (ndinode > 500000) {
+                err = "ndinode unreasonable";
+                return false;
+            }
         }
         int occupied_blocks = static_cast<int>((ndinode * 0xA8) / 0x10000);
         if (((ndinode * 0xA8) % 0x10000) != 0) occupied_blocks += 1;
 
         if (i >= 1 && i <= occupied_blocks) {
-            for (int p = 0; p < 0x10000; p += 0xA8) {
+            for (int p = 0; p + static_cast<int>(sizeof(Inode)) <= 0x10000; p += 0xA8) {
                 Inode node{};
                 std::memcpy(&node, &decompressedData[p], sizeof(node));
                 if (node.Mode == 0) break;
@@ -409,10 +460,10 @@ bool build_fs_table(int fd, ExtractState& st, std::string& err) {
         if (flat_path_table == "flat_path_table") uroot_reached = true;
 
         if (uroot_reached) {
-            for (int j = 0; j < 0x10000; j += static_cast<int>(ent_size ? ent_size : 1)) {
+            for (int j = 0; j < 0x10000; ) {
                 Dirent dirent{};
-                std::memcpy(&dirent, &decompressedData[j], sizeof(dirent));
-                ent_size = dirent.entsize;
+                if (!read_dirent(j, dirent)) break;
+                ent_size = static_cast<u32>(dirent.entsize);
                 if (ent_size == 0) break;
                 if (dirent.ino != 0) {
                     ndinode_counter++;
@@ -421,6 +472,7 @@ bool build_fs_table(int fd, ExtractState& st, std::string& err) {
                     uroot_reached = false;
                     break;
                 }
+                j += static_cast<int>(ent_size);
             }
         }
 
@@ -430,34 +482,37 @@ bool build_fs_table(int fd, ExtractState& st, std::string& err) {
 
         bool end_reached = false;
         if (dinode_reached) {
-            for (int j = 0; j < 0x10000; j += static_cast<int>(ent_size ? ent_size : 1)) {
+            for (int j = 0; j < 0x10000; ) {
                 Dirent dirent{};
-                std::memcpy(&dirent, &decompressedData[j], sizeof(dirent));
+                if (!read_dirent(j, dirent)) break;
                 if (dirent.ino == 0) break;
-                ent_size = dirent.entsize;
+                ent_size = static_cast<u32>(dirent.entsize);
                 if (ent_size == 0) break;
                 pfs_fs_table table{};
-                table.name = std::string(dirent.name, dirent.namelen);
-                table.inode = dirent.ino;
-                table.type = dirent.type;
+                table.name = std::string(dirent.name, static_cast<size_t>(dirent.namelen));
+                table.inode = static_cast<u32>(dirent.ino);
+                table.type = static_cast<u32>(dirent.type);
                 if (table.type == PFS_CURRENT_DIR) {
-                    auto it = st.extractPaths.find(table.inode);
+                    auto it = st.extractPaths.find(static_cast<int>(table.inode));
                     if (it != st.extractPaths.end()) st.current_dir = it->second;
                 }
-                st.extractPaths[table.inode] = st.current_dir / fs::path(table.name);
+                st.extractPaths[static_cast<int>(table.inode)] =
+                    st.current_dir / fs::path(table.name);
                 if (table.type == PFS_FILE || table.type == PFS_DIR) {
                     if (table.type == PFS_DIR) {
-                        const auto& p = st.extractPaths[table.inode];
+                        const auto& p = st.extractPaths[static_cast<int>(table.inode)];
                         if (safe_under(st.extract_root, p)) fs::create_directories(p);
                     }
                     st.fsTable.push_back(table);
                     ndinode_counter++;
                     if ((ndinode_counter + 1) == static_cast<int>(ndinode)) end_reached = true;
                 }
+                j += static_cast<int>(ent_size);
             }
             if (end_reached) break;
         }
     }
+    LOGI("build_fs_table done files=%zu inodes=%zu", st.fsTable.size(), st.iNodeBuf.size());
     return true;
 }
 
