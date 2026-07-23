@@ -280,38 +280,75 @@ bool build_fs_table(int fd, ExtractState& st, std::string& err) {
         err = "Failed to read PFS seed";
         return false;
     }
-    st.crypto.PfsGenCryptoKey(st.ekpfsKey, seed, st.dataKey, st.tweakKey);
+    const u64 pfs_flags = u64(st.hdr.pfs_image_flags);
+    const bool new_crypt = (pfs_flags & 0x2000000000000000ULL) != 0;
+    st.crypto.PfsGenCryptoKey(st.ekpfsKey, seed, st.dataKey, st.tweakKey, new_crypt);
+    LOGI("PfsGenCryptoKey new_crypt=%d pfs_flags=0x%llx",
+         new_crypt ? 1 : 0,
+         static_cast<unsigned long long>(pfs_flags));
     // Match shadPS4: decrypt first pfs_cache_size*2 bytes of outer PFS image.
     u32 length = u32(st.hdr.pfs_cache_size) * 2;
     if (length == 0) {
-        // Fallback: enough to scan for PFSC (some headers report 0 cache).
         length = 0x100000;
         LOGI("pfs_cache_size=0, fallback length=0x%x", length);
     }
-    // Cap / expand scan window so PFSC search can succeed on large titles.
     if (length < 0x40000) length = 0x40000;
     const u64 pfs_off = u64(st.hdr.pfs_image_offset);
     const u64 pfs_sz = u64(st.hdr.pfs_image_size);
     if (pfs_sz > 0 && length > pfs_sz) length = static_cast<u32>(pfs_sz);
-    LOGI("build_fs_table pfs_off=%llu pfs_sz=%llu cache=%u length=%u",
+    // LibOrbisPkg: crypt starts at BlockSize/0x1000 (usually 16).
+    constexpr uint64_t kCryptStartSector = 16;
+    LOGI("build_fs_table pfs_off=%llu pfs_sz=%llu cache=%u length=%u cryptStart=%llu",
          static_cast<unsigned long long>(pfs_off),
          static_cast<unsigned long long>(pfs_sz),
          u32(st.hdr.pfs_cache_size),
-         length);
+         length,
+         static_cast<unsigned long long>(kCryptStartSector));
     std::vector<u8> pfs_encrypted(length);
     std::vector<u8> pfs_decrypted(length);
     if (!pread_all(fd, pfs_encrypted.data(), length, static_cast<off_t>(pfs_off))) {
         err = "Failed reading PFS header region";
         return false;
     }
-    st.crypto.decryptPFS(st.dataKey, st.tweakKey, pfs_encrypted, pfs_decrypted, 0);
-    st.pfsc_offset = GetPFSCOffset(pfs_decrypted);
-    if (st.pfsc_offset == static_cast<u32>(-1) || st.pfsc_offset >= length) {
+    auto try_find_pfsc = [&](bool use_new_crypt) -> bool {
+        st.crypto.PfsGenCryptoKey(st.ekpfsKey, seed, st.dataKey, st.tweakKey, use_new_crypt);
+        st.crypto.decryptPFS(st.dataKey, st.tweakKey, pfs_encrypted, pfs_decrypted, 0, kCryptStartSector);
+        st.pfsc_offset = GetPFSCOffset(pfs_decrypted);
+        return st.pfsc_offset != static_cast<u32>(-1) && st.pfsc_offset < length;
+    };
+    bool found = try_find_pfsc(new_crypt);
+    if (!found && !new_crypt) {
+        LOGI("PFSC miss with new_crypt=0, retry new_crypt=1");
+        found = try_find_pfsc(true);
+    }
+    if (!found && new_crypt) {
+        LOGI("PFSC miss with new_crypt=1, retry new_crypt=0");
+        found = try_find_pfsc(false);
+    }
+    // Also try crypt_start_sector=0 (shadPS4 style) if still missing.
+    if (!found) {
+        LOGI("PFSC miss with cryptStart=16, retry cryptStart=0");
+        st.crypto.PfsGenCryptoKey(st.ekpfsKey, seed, st.dataKey, st.tweakKey, new_crypt);
+        st.crypto.decryptPFS(st.dataKey, st.tweakKey, pfs_encrypted, pfs_decrypted, 0, 0);
+        st.pfsc_offset = GetPFSCOffset(pfs_decrypted);
+        found = st.pfsc_offset != static_cast<u32>(-1) && st.pfsc_offset < length;
+    }
+    if (!found) {
+        LOGI("PFSC not found; plain[0..15]=%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x",
+             pfs_encrypted[0], pfs_encrypted[1], pfs_encrypted[2], pfs_encrypted[3],
+             pfs_encrypted[4], pfs_encrypted[5], pfs_encrypted[6], pfs_encrypted[7],
+             pfs_encrypted[8], pfs_encrypted[9], pfs_encrypted[10], pfs_encrypted[11],
+             pfs_encrypted[12], pfs_encrypted[13], pfs_encrypted[14], pfs_encrypted[15]);
         LOGI("PFSC not found; decrypted[0..15]=%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x",
              pfs_decrypted[0], pfs_decrypted[1], pfs_decrypted[2], pfs_decrypted[3],
              pfs_decrypted[4], pfs_decrypted[5], pfs_decrypted[6], pfs_decrypted[7],
              pfs_decrypted[8], pfs_decrypted[9], pfs_decrypted[10], pfs_decrypted[11],
              pfs_decrypted[12], pfs_decrypted[13], pfs_decrypted[14], pfs_decrypted[15]);
+        if (length > 0x20000) {
+            LOGI("decrypted@0x20000=%02x%02x%02x%02x",
+                 pfs_decrypted[0x20000], pfs_decrypted[0x20001],
+                 pfs_decrypted[0x20002], pfs_decrypted[0x20003]);
+        }
         err = "PFSC magic not found (wrong keys or unsupported PFS layout)";
         return false;
     }

@@ -444,13 +444,21 @@ void Crypto::aesCbcCfb128DecryptEntry(std::span<const uint8_t, 32> ivkey,
 void Crypto::PfsGenCryptoKey(std::span<const uint8_t, 32> ekpfs,
                              std::span<const uint8_t, 16> seed,
                              std::span<uint8_t, 16> dataKey,
-                             std::span<uint8_t, 16> tweakKey) {
+                             std::span<uint8_t, 16> tweakKey,
+                             bool new_crypt) {
+    std::array<uint8_t, 32> key_material{};
+    if (new_crypt) {
+        // LibOrbisPkg: HMAC-SHA256(ekpfs, seed) used as HMAC key for index=1
+        HmacSha256(ekpfs, seed, key_material);
+    } else {
+        std::memcpy(key_material.data(), ekpfs.data(), 32);
+    }
     uint8_t d[20];
     const uint32_t index = 1;
-    std::memcpy(d, &index, 4); // little-endian index as shadPS4
+    std::memcpy(d, &index, 4); // little-endian index
     std::memcpy(d + 4, seed.data(), 16);
     uint8_t out[32];
-    HmacSha256(ekpfs, d, out);
+    HmacSha256(key_material, d, out);
     std::memcpy(tweakKey.data(), out, 16);
     std::memcpy(dataKey.data(), out + 16, 16);
 }
@@ -459,9 +467,16 @@ void Crypto::decryptPFS(std::span<const uint8_t, 16> dataKey,
                         std::span<const uint8_t, 16> tweakKey,
                         std::span<const uint8_t> src_image,
                         std::span<uint8_t> dst_image,
-                        uint64_t sector) {
+                        uint64_t sector,
+                        uint64_t crypt_start_sector) {
+    // LibOrbisPkg XtsDecryptReader: sectors < cryptStartSector are plaintext.
+    // Default crypt_start_sector = 16 (BlockSize 0x10000 / 0x1000).
     for (size_t i = 0; i + 0x1000 <= src_image.size() && i + 0x1000 <= dst_image.size(); i += 0x1000) {
         const uint64_t current_sector = sector + (i / 0x1000);
+        if (current_sector < crypt_start_sector) {
+            std::memcpy(dst_image.data() + i, src_image.data() + i, 0x1000);
+            continue;
+        }
         uint8_t tweak[16]{};
         std::memcpy(tweak, &current_sector, sizeof(uint64_t));
         uint8_t encrypted_tweak[16];
@@ -476,7 +491,16 @@ void Crypto::decryptPFS(std::span<const uint8_t, 16> dataKey,
             for (int j = 0; j < 16; ++j) {
                 dst_image[i + off + j] = static_cast<uint8_t>(dec[j] ^ encrypted_tweak[j]);
             }
-            xts_mult(encrypted_tweak);
+            // GF multiply as LibOrbisPkg (shift + carry into next byte)
+            int feedback = 0;
+            for (int k = 0; k < 16; ++k) {
+                const uint8_t tmp = encrypted_tweak[k];
+                encrypted_tweak[k] = static_cast<uint8_t>((2 * encrypted_tweak[k]) | feedback);
+                feedback = (tmp & 0x80) >> 7;
+            }
+            if (feedback != 0) {
+                encrypted_tweak[0] ^= 0x87;
+            }
         }
     }
 }

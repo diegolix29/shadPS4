@@ -31,16 +31,21 @@ public:
                                   std::span<uint8_t> ciphertext,
                                   std::span<uint8_t> decrypted);
 
+    // new_crypt: (pfs_flags & 0x2000000000000000) — HMAC(ekpfs, seed) first.
     void PfsGenCryptoKey(std::span<const uint8_t, 32> ekpfs,
                          std::span<const uint8_t, 16> seed,
                          std::span<uint8_t, 16> dataKey,
-                         std::span<uint8_t, 16> tweakKey);
+                         std::span<uint8_t, 16> tweakKey,
+                         bool new_crypt = false);
 
+    // crypt_start_sector: LibOrbisPkg default 16 (BlockSize/0x1000). Sectors
+    // below that are copied without decryption.
     void decryptPFS(std::span<const uint8_t, 16> dataKey,
                     std::span<const uint8_t, 16> tweakKey,
                     std::span<const uint8_t> src_image,
                     std::span<uint8_t> dst_image,
-                    uint64_t sector);
+                    uint64_t sector,
+                    uint64_t crypt_start_sector = 16);
 
     // LibOrbisPkg ComputeKeys(content_id[36], passcode[32], index) → 32 bytes.
     static bool ComputeKeys(const std::string& content_id,
