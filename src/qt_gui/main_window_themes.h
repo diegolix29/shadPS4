@@ -47,10 +47,14 @@ public:
     QColor textColor() const {
         return m_textColor;
     }
+    QColor backgroundColor() const {
+        return m_backgroundColor;
+    }
     bool m_isCyberpunkQss = false;
 
 private:
     QColor m_iconBaseColor{Qt::white};
     QColor m_iconHoverColor{Qt::lightGray};
     QColor m_textColor{Qt::white};
+    QColor m_backgroundColor{Qt::black};
 };

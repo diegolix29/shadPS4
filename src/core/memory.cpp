@@ -76,6 +76,7 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
     if (!use_extended_mem2 && !is_neo) {
         total_size -= 128_MB;
     }
+
     total_flexible_size = flexible_size - ORBIS_KERNEL_FLEXIBLE_MEMORY_BASE;
     if (extra_dmem != 0) {
         LOG_WARNING(Kernel_Vmm,
@@ -83,10 +84,8 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
                     extra_dmem);
         total_flexible_size += extra_dmem * 1_MB;
     }
-
-    // Update stored totals
-    total_flexible_size = flexible_size - ORBIS_KERNEL_FLEXIBLE_MEMORY_BASE;
     ASSERT_MSG(total_flexible_size >= flexible_usage, "Unable to shrink flexible memory size");
+
     u64 old_direct_size = total_direct_size;
     total_direct_size = total_size - flexible_size;
 
@@ -584,7 +583,7 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
         }
         auto vma = FindVMA(virtual_addr)->second;
         auto remaining_size = vma.base + vma.size - virtual_addr;
-        if ((!vma.IsFree() && vma.type != VMAType::Reserved) || remaining_size < size) {
+        if (!vma.IsFree() || remaining_size < size) {
             LOG_ERROR(Kernel_Vmm, "Unable to map {:#x} bytes at address {:#x}", size, virtual_addr);
             return ORBIS_KERNEL_ERROR_ENOMEM;
         }
@@ -1473,10 +1472,9 @@ u64 MemoryManager::GetFlexibleMappedBytesInRangeLocked(VAddr virtual_addr, u64 s
         const VAddr vma_end = vma.base + vma.size;
         const VAddr overlap_start = std::max(range_start, vma.base);
         const VAddr overlap_end = std::min(range_end, vma_end);
-        const bool counted_type = IsFlexibleCountedVmaType(vma.type);
-        const bool committed = IsFlexibleCommittedVma(vma);
 
-        if (overlap_start < overlap_end && counted_type && committed) {
+        if (overlap_start < overlap_end && IsFlexibleCountedVmaType(vma.type) &&
+            IsFlexibleCommittedVma(vma)) {
             mapped_bytes += overlap_end - overlap_start;
         }
 

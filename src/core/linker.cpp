@@ -5,15 +5,20 @@
 #include "common/arch.h"
 #include "common/assert.h"
 #include "common/config.h"
+
 #include "common/elf_info.h"
+#include "common/logging/formatter.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "common/string_util.h"
 #include "common/thread.h"
 #include "common/zar_fs.h"
+
 #include "core/aerolib/aerolib.h"
 #include "core/aerolib/stubs.h"
 #include "core/devtools/widget/module_list.h"
+#include "core/emulator_settings.h"
+#include "core/libraries/kernel/kernel.h"
 #include "core/libraries/kernel/memory.h"
 #include "core/libraries/kernel/threads.h"
 #include "core/libraries/libc_internal/libc_internal.h"
@@ -33,8 +38,8 @@ static PS4_SYSV_ABI void ProgramExitFunc() {
     LOG_ERROR(Core_Linker, "Exit function called");
 }
 
-#ifdef ARCH_X86_64
 static PS4_SYSV_ABI void* RunMainEntry [[noreturn]] (EntryParams* params) {
+#ifdef ARCH_X86_64
     // Start shared library modules
     asm volatile("andq $-16, %%rsp\n" // Align to 16 bytes
                  "subq $8, %%rsp\n"   // videoout_basic expects the stack to be misaligned
@@ -54,8 +59,10 @@ static PS4_SYSV_ABI void* RunMainEntry [[noreturn]] (EntryParams* params) {
                  : "r"(params->entry_addr), "r"(params), "r"(ProgramExitFunc)
                  : "rax", "rsi", "rdi");
     UNREACHABLE();
-}
+#else
+    UNREACHABLE_MSG("RunMainEntry unimplemented for current architecture.");
 #endif
+}
 
 Linker::Linker() : memory{Memory::Instance()} {}
 
@@ -70,11 +77,21 @@ void Linker::Execute(const std::vector<std::string>& args) {
     Module* module = m_modules[0].get();
     static_tls_size = module->tls.offset = module->tls.image_size;
 
-    for (const auto& m : m_modules) {
-        Relocate(m.get());
-    }
+    // Map libSceLibcInternal
     const auto& libc_internal_path = Config::getSysModulesPath() / "libSceLibcInternal.sprx";
-    bool has_libcinternal = std::filesystem::exists(libc_internal_path);
+
+    bool has_libcinternal = false;
+    if (std::filesystem::exists(libc_internal_path)) {
+        LoadModule(libc_internal_path);
+        has_libcinternal = true;
+    } else {
+        // Need to load HLE, LLE isn't present
+        LOG_INFO(Core_Linker, "Can't Load libSceLibcInternal.sprx switching to HLE");
+        Libraries::LibcInternal::RegisterLib(&GetHLESymbols());
+    }
+
+    // Relocate all modules
+    RelocateAllImports();
 
     // If we're running LLE libSceLibcInternal,
     // we need to find the _malloc_init function and run it manually.
@@ -132,8 +149,10 @@ void Linker::Execute(const std::vector<std::string>& args) {
 
     memory->SetupMemoryRegions(fmem_size, use_extended_mem1, use_extended_mem2);
 
-    main_thread.Run([this, module, &args](std::stop_token) {
+    main_thread.Run([this, module, &args, has_libcinternal](std::stop_token) {
         Common::SetCurrentThreadName("Game:Main");
+        std::set_terminate(terminate);
+
 #ifndef _WIN32 // Clear any existing signal mask for game threads.
         sigset_t emptyset;
         sigemptyset(&emptyset);
@@ -142,7 +161,6 @@ void Linker::Execute(const std::vector<std::string>& args) {
         if (auto& ipc = IPC::Instance()) {
             ipc.WaitForStart();
         }
-
         LoadSharedLibraries();
         RelocateAllImports();
 
@@ -166,7 +184,7 @@ void Linker::Execute(const std::vector<std::string>& args) {
         // Load and start custom modules from the user directory.
         std::string_view id = Common::ElfInfo::Instance().GameSerial();
         const auto& custom_mod_directory =
-            Common::FS::GetUserPath(Common::FS::PathType::SysModuleDir) / id;
+            Common::FS::GetUserPath(Common::FS::PathType::CustomModulesDir) / id;
         if (!std::filesystem::exists(custom_mod_directory)) {
             std::filesystem::create_directory(custom_mod_directory);
         }
@@ -194,18 +212,16 @@ void Linker::Execute(const std::vector<std::string>& args) {
         ASSERT_MSG(result == 0, "Unable to emulate libSceGnmDriver initialization");
 
         // Add all guest arguments, we will always have the executable path in argv[0]
-
-        EntryParams params{};
+        EntryParams& params = Libraries::Kernel::entry_params;
         constexpr int MaxArgs = sizeof(params.argv) / sizeof(params.argv[0]);
         params.argc = std::min<int>(args.size(), MaxArgs);
-
         for (int i = 0; i < params.argc; i++) {
             params.argv[i] = args[i].c_str();
         }
-        // Run the game's entry function
 
+        // Run the game's entry function
         params.entry_addr = module->GetEntryAddress();
-        ExecuteGuest(RunMainEntry, &params);
+        RunMainEntry(&params);
     });
 }
 
@@ -420,8 +436,10 @@ bool Linker::Resolve(const std::string& name, Loader::SymbolType sym_type, Modul
         return_info->virtual_address = AeroLib::GetStub(sr.name.c_str());
         return_info->name = "Unknown !!!";
     }
-    LOG_ERROR(Core_Linker, "Linker: Stub resolved {} as {} (lib: {}, mod: {})", sr.name,
-              return_info->name, library->name, module->name);
+    if (library->name != "libc" && library->name != "libSceFios2") {
+        LOG_WARNING(Core_Linker, "Linker: Stub resolved {} as {} (lib: {}, mod: {})", sr.name,
+                    return_info->name, library->name, module->name);
+    }
     return false;
 }
 

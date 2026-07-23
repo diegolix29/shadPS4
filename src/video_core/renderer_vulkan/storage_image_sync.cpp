@@ -48,7 +48,7 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
         serial == "CUSA03388" || serial == "CUSA01589" || serial == "CUSA01760" ||
         serial == "CUSA07439" || serial == "CUSA07339" || serial == "CUSA08692" ||
         serial == "CUSA08495" || serial == "CUSA50617" || serial == "CUSA18723" ||
-        serial == "CUSA28863") {
+        serial == "CUSA28863" || serial == "CUSA00093" || serial == "CUSA00003") {
         return;
     }
     auto& img = texture_cache.GetImage(image_id);

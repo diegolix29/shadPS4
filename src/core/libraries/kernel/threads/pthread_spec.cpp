@@ -85,7 +85,7 @@ void _thread_cleanupspecific() {
                  * destructor:
                  */
                 lk.unlock();
-                Core::ExecuteGuest(destructor, data);
+                destructor(data);
                 lk.lock();
             }
         }

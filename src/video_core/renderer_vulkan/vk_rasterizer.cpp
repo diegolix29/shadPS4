@@ -34,7 +34,7 @@ static bool ShouldDisableSync() {
            serial == "CUSA03388" || serial == "CUSA01589" || serial == "CUSA01760" ||
            serial == "CUSA07439" || serial == "CUSA07339" || serial == "CUSA08692" ||
            serial == "CUSA08495" || serial == "CUSA50617" || serial == "CUSA18723" ||
-           serial == "CUSA28863";
+           serial == "CUSA28863" || serial == "CUSA00093" || serial == "CUSA00003";
 }
 
 static Shader::PushData MakeUserData(const AmdGpu::Regs& regs) {

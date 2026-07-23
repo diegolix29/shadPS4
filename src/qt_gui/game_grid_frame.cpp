@@ -106,6 +106,7 @@ GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
 
     this->setObjectName("GameGridFrame");
 
+    this->setAttribute(Qt::WA_TranslucentBackground);
     this->setShowGrid(false);
     this->setEditTriggers(QAbstractItemView::NoEditTriggers);
     this->setSelectionBehavior(QAbstractItemView::SelectItems);
@@ -126,19 +127,12 @@ GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
     zarLayout->setSpacing(5);
 
     m_zar_title = new QLabel(tr("ZAR Files"), this);
-    m_zar_title->setStyleSheet("color: white; font-weight: bold; background-color: rgba(30, 30, "
-                               "30, 200); padding: 5px; border-radius: 5px; text-align: center;");
     m_zar_title->setAlignment(Qt::AlignCenter);
     zarLayout->addWidget(m_zar_title);
 
     m_zar_list = new QListWidget(this);
     m_zar_list->setObjectName("ZarList");
     m_zar_list->setMaximumWidth(200);
-    m_zar_list->setStyleSheet(
-        "QListWidget { background-color: rgba(30, 30, 30, 200); border: 1px solid rgba(90, 170, "
-        "255, 150); border-radius: 5px; } QListWidget::item { padding: 5px; color: white; } "
-        "QListWidget::item:hover { background-color: rgba(90, 170, 255, 100); } "
-        "QListWidget::item:selected { background-color: rgba(90, 170, 255, 150); }");
     m_zar_list->setIconSize(QSize(64, 64));
     zarLayout->addWidget(m_zar_list);
 
@@ -146,10 +140,8 @@ GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
 
     connect(this, &QTableWidget::currentCellChanged, this, &GameGridFrame::onCurrentCellChanged);
 
-    connect(this->verticalScrollBar(), &QScrollBar::valueChanged, this,
-            &GameGridFrame::RefreshGridBackgroundImage);
-    connect(this->horizontalScrollBar(), &QScrollBar::valueChanged, this,
-            &GameGridFrame::RefreshGridBackgroundImage);
+    RefreshZarBackgroundImage();
+
     connect(this, &QTableWidget::customContextMenuRequested, this, [=, this](const QPoint& pos) {
         int changedFavorite = m_gui_context_menus.RequestGameMenu(
             pos, m_game_info->m_games, m_compat_info, m_ipc_client, this, false,
@@ -282,16 +274,31 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
         layout->addWidget(name_label);
         layout->addWidget(serial_label);
 
+        // Get theme text color
+        QColor themeTextColor = Qt::white;
+        QColor themeSerialColor = QColor(204, 204, 204); // #cccccc
+        if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
+            themeTextColor = mw->getThemes()->textColor();
+            // For serial, use a slightly lighter/darker variant based on theme
+            if (themeTextColor.lightness() > 128) {
+                themeSerialColor = themeTextColor.darker(120);
+            } else {
+                themeSerialColor = themeTextColor.lighter(150);
+            }
+        }
+
         float fontSize = (Config::getIconSizeGrid() / 5.5f);
         QString nameStyleSheet =
-            QString("color: white; font-weight: bold; font-size: %1px; background: transparent;")
+            QString("color: %1; font-weight: bold; font-size: %2px; background: transparent;")
+                .arg(themeTextColor.name())
                 .arg(fontSize);
         name_label->setStyleSheet(nameStyleSheet);
 
         float serialFontSize = (Config::getIconSizeGrid() / 8.0f);
         QString serialStyleSheet =
             QString(
-                "color: #cccccc; font-weight: normal; font-size: %1px; background: transparent;")
+                "color: %1; font-weight: normal; font-size: %2px; background: transparent;")
+                .arg(themeSerialColor.name())
                 .arg(serialFontSize);
         serial_label->setStyleSheet(serialStyleSheet);
 
@@ -354,7 +361,7 @@ void GameGridFrame::SetCustomBackgroundImage(const QString& filePath) {
 
     QImage original_image(filePath);
     if (!original_image.isNull()) {
-        const int opacity = Config::getBackgroundImageOpacity();
+        const int opacity = Config::getIconBgOpacity();
         backgroundImage = m_game_list_utils.ChangeImageOpacity(
             original_image, original_image.rect(), opacity / 100.0f);
 
@@ -378,7 +385,7 @@ void GameGridFrame::LoadBackgroundImage(const QString& filePath) {
 
     QImage original_image(filePath);
     if (!original_image.isNull()) {
-        const int opacity = Config::getBackgroundImageOpacity();
+        const int opacity = Config::getIconBgOpacity();
         backgroundImage = m_game_list_utils.ChangeImageOpacity(
             original_image, original_image.rect(), opacity / 100.0f);
 
@@ -393,6 +400,14 @@ void GameGridFrame::RefreshGridBackgroundImage() {
 
     QPalette palette = this->palette();
 
+    // Get theme-based background color
+    QColor bgColor = QColor(30, 30, 30); // Default fallback
+    if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
+        bgColor = mw->getThemes()->backgroundColor();
+    }
+    int opacity = Config::getBgOpacity();
+    int alpha = opacity * 255 / 100;
+
     if (!backgroundImage.isNull() && Config::getShowBackgroundImage()) {
         QSize widgetSize = size();
         QPixmap scaledPixmap =
@@ -401,13 +416,16 @@ void GameGridFrame::RefreshGridBackgroundImage() {
         int x = (widgetSize.width() - scaledPixmap.width()) / 2;
         int y = (widgetSize.height() - scaledPixmap.height()) / 2;
         QPixmap finalPixmap(widgetSize);
-        finalPixmap.fill(Qt::transparent);
+        finalPixmap.fill(QColor(bgColor.red(), bgColor.green(), bgColor.blue(), alpha));
         QPainter painter(&finalPixmap);
         painter.drawPixmap(x, y, scaledPixmap);
 
         palette.setBrush(QPalette::Base, QBrush(finalPixmap));
     } else {
-        palette.setBrush(QPalette::Base, QBrush(Qt::NoBrush));
+        // Apply theme-based background color with opacity
+        QPixmap solidPixmap(size());
+        solidPixmap.fill(QColor(bgColor.red(), bgColor.green(), bgColor.blue(), alpha));
+        palette.setBrush(QPalette::Base, QBrush(solidPixmap));
     }
 
     QColor transparentColor = QColor(135, 206, 235, 40);
@@ -419,6 +437,37 @@ void GameGridFrame::RefreshGridBackgroundImage() {
 void GameGridFrame::resizeEvent(QResizeEvent* event) {
     QTableWidget::resizeEvent(event);
     RefreshGridBackgroundImage();
+}
+
+void GameGridFrame::RefreshZarBackgroundImage() {
+    // Get theme-based background color from main window
+    QColor zarBgColor = QColor(30, 30, 30); // Default fallback
+    QColor textColor = Qt::white; // Default text color
+    if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
+        zarBgColor = mw->getThemes()->backgroundColor();
+        textColor = mw->getThemes()->textColor();
+    }
+    int opacity = Config::getBgOpacity();
+    int alpha = opacity * 200 / 100;
+
+    m_zar_title->setStyleSheet(QString("color: %1; font-weight: bold; background-color: rgba(%2, %3, "
+                               "%4, %5); padding: 5px; border-radius: 5px; text-align: center;")
+                               .arg(textColor.name())
+                               .arg(zarBgColor.red())
+                               .arg(zarBgColor.green())
+                               .arg(zarBgColor.blue())
+                               .arg(alpha));
+
+    m_zar_list->setStyleSheet(QString(
+        "QListWidget { background-color: rgba(%1, %2, %3, %4); border: 1px solid rgba(90, 170, "
+        "255, 150); border-radius: 5px; } QListWidget::item { padding: 5px; color: %5; } "
+        "QListWidget::item:hover { background-color: rgba(90, 170, 255, 100); } "
+        "QListWidget::item:selected { background-color: rgba(90, 170, 255, 150); }")
+        .arg(zarBgColor.red())
+        .arg(zarBgColor.green())
+        .arg(zarBgColor.blue())
+        .arg(alpha)
+        .arg(textColor.name()));
 }
 
 bool GameGridFrame::IsValidCellSelected() {
@@ -437,56 +486,11 @@ void GameGridFrame::SetGameConfigIcon(QWidget* parentWidget, QVector<GameInfo> m
                              .scaled(icon_size / 3.8, icon_size / 3.8, Qt::KeepAspectRatio,
                                      Qt::SmoothTransformation);
 
-    // Apply theme color tint to the icon
+    // Apply consistent toolbar color to match icon buttons
     QPainter painter(&iconPixmap);
     painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-
-    // Get theme color from config
-    int theme = Config::getMainWindowTheme();
-    QColor themeColor;
-
-    switch (theme) {
-    case 0: // Dark
-        themeColor = QColor(90, 170, 255);
-        break;
-    case 1: // Light
-        themeColor = QColor(0, 120, 215);
-        break;
-    case 2: // Green
-        themeColor = QColor(76, 175, 80);
-        break;
-    case 3: // Blue
-        themeColor = QColor(33, 150, 243);
-        break;
-    case 4: // Violet
-        themeColor = QColor(156, 39, 176);
-        break;
-    case 5: // Gruvbox
-        themeColor = QColor(251, 73, 52);
-        break;
-    case 6: // Tokyo Night
-        themeColor = QColor(139, 92, 246);
-        break;
-    case 7: // OLED
-        themeColor = QColor(255, 255, 255);
-        break;
-    case 8: // Neon
-        themeColor = QColor(0, 255, 136);
-        break;
-    case 9: // Shadlix
-        themeColor = QColor(255, 107, 107);
-        break;
-    case 10: // ShadlixCave
-        themeColor = QColor(255, 159, 67);
-        break;
-    case 11: // DeepPurple
-        themeColor = QColor(103, 58, 183);
-        break;
-    default:
-        themeColor = QColor(90, 170, 255);
-    }
-
-    painter.fillRect(iconPixmap.rect(), themeColor);
+    const QColor toolbarGlowColor(90, 170, 255);
+    painter.fillRect(iconPixmap.rect(), toolbarGlowColor);
     painter.end();
 
     label->setPixmap(iconPixmap);
@@ -508,56 +512,11 @@ void GameGridFrame::SetFavoriteIcon(QWidget* parentWidget, QVector<GameInfo> m_g
                              .scaled(icon_size / 1.2, icon_size / 1.2, Qt::KeepAspectRatio,
                                      Qt::SmoothTransformation);
 
-    // Apply theme color tint to the icon
+    // Apply consistent toolbar color to match icon buttons
     QPainter painter(&iconPixmap);
     painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-
-    // Get theme color from config
-    int theme = Config::getMainWindowTheme();
-    QColor themeColor;
-
-    switch (theme) {
-    case 0: // Dark
-        themeColor = QColor(90, 170, 255);
-        break;
-    case 1: // Light
-        themeColor = QColor(0, 120, 215);
-        break;
-    case 2: // Green
-        themeColor = QColor(76, 175, 80);
-        break;
-    case 3: // Blue
-        themeColor = QColor(33, 150, 243);
-        break;
-    case 4: // Violet
-        themeColor = QColor(156, 39, 176);
-        break;
-    case 5: // Gruvbox
-        themeColor = QColor(251, 73, 52);
-        break;
-    case 6: // Tokyo Night
-        themeColor = QColor(139, 92, 246);
-        break;
-    case 7: // OLED
-        themeColor = QColor(255, 255, 255);
-        break;
-    case 8: // Neon
-        themeColor = QColor(0, 255, 136);
-        break;
-    case 9: // Shadlix
-        themeColor = QColor(255, 107, 107);
-        break;
-    case 10: // ShadlixCave
-        themeColor = QColor(255, 159, 67);
-        break;
-    case 11: // DeepPurple
-        themeColor = QColor(103, 58, 183);
-        break;
-    default:
-        themeColor = QColor(90, 170, 255);
-    }
-
-    painter.fillRect(iconPixmap.rect(), themeColor);
+    const QColor toolbarGlowColor(90, 170, 255);
+    painter.fillRect(iconPixmap.rect(), toolbarGlowColor);
     painter.end();
 
     label->setPixmap(iconPixmap);

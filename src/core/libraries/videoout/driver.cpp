@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/assert.h"
@@ -35,84 +35,8 @@ constexpr static bool Is32BppPixelFormat(PixelFormat format) {
 
 constexpr u32 PixelFormatBpp(PixelFormat pixel_format) {
     switch (pixel_format) {
-    // 8-bit formats
-    case PixelFormat::R8Unorm:
-    case PixelFormat::R8Snorm:
-    case PixelFormat::R8Uint:
-    case PixelFormat::R8Sint:
-        return 1;
-
-    // 16-bit formats
-    case PixelFormat::R16Unorm:
-    case PixelFormat::R16Snorm:
-    case PixelFormat::R16Uint:
-    case PixelFormat::R16Sint:
-    case PixelFormat::R16Float:
-        return 2;
-
-    case PixelFormat::R8G8Unorm:
-    case PixelFormat::R8G8Snorm:
-    case PixelFormat::R8G8Uint:
-    case PixelFormat::R8G8Sint:
-    case PixelFormat::R16G16Unorm:
-    case PixelFormat::R16G16Snorm:
-    case PixelFormat::R16G16Uint:
-    case PixelFormat::R16G16Sint:
-    case PixelFormat::R16G16Float:
-        return 4;
-
-    // 32-bit formats
-    case PixelFormat::R32Uint:
-    case PixelFormat::R32Sint:
-    case PixelFormat::R32Float:
-        return 4;
-
-    // 64-bit formats
-    case PixelFormat::R32G32Uint:
-    case PixelFormat::R32G32Sint:
-    case PixelFormat::R32G32Float:
-    case PixelFormat::R16G16B16A16Unorm:
-    case PixelFormat::R16G16B16A16Snorm:
-    case PixelFormat::R16G16B16A16Uint:
-    case PixelFormat::R16G16B16A16Sint:
-    case PixelFormat::R16G16B16A16Float:
-        return 8;
-
-    // 128-bit formats
-    case PixelFormat::R32G32B32A32Uint:
-    case PixelFormat::R32G32B32A32Sint:
-    case PixelFormat::R32G32B32A32Float:
-        return 16;
-
-    // 4-byte packed formats (already in your code)
-    case PixelFormat::A8R8G8B8Srgb:
-    case PixelFormat::A8B8G8R8Srgb:
-    case PixelFormat::A2R10G10B10:
-    case PixelFormat::A2R10G10B10Srgb:
-    case PixelFormat::A2R10G10B10Bt2020Pq:
-        return 4;
-
     case PixelFormat::A16R16G16B16Float:
         return 8;
-
-    // Depth/stencil and HDR formats
-    case PixelFormat::D16Unorm:
-        return 2;
-    case PixelFormat::D24UnormS8Uint:
-        return 4;
-    case PixelFormat::D32Float:
-        return 4;
-    case PixelFormat::D32FloatS8Uint:
-        return 8;
-
-    case PixelFormat::R10G10B10A2Unorm:
-    case PixelFormat::R10G10B10A2Uint:
-        return 4;
-    case PixelFormat::B10G11R11Float:
-        return 4;
-    case PixelFormat::E5B9G9R9Float:
-        return 4;
-
     default:
         return 4;
     }

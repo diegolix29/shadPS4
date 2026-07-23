@@ -274,12 +274,13 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         toolBg = "#353535";
         accent = "#2A82DA";
         hov = "#353535";
-        inp = "#141414";
+        inp = "#000000";
         border = "#535353";
         sel = "#2A82DA";
         grid = "#535353";
         m_iconBaseColor = QColor(200, 200, 200);
-        setSearchbar("QLineEdit { background-color:#1e1e1e; color:white; border:1px solid white; } "
+        m_backgroundColor = Qt::black;
+        setSearchbar("QLineEdit { background-color:#000000; color:white; border:1px solid white; } "
                      "QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
 
@@ -289,11 +290,13 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         toolBg = "#e6e6e6";
         accent = "#2A82DA";
         hov = "#505050";
-        inp = "#e6e6e6";
+        inp = "#ffffff";
         border = "#cccccc";
         sel = "#2A82DA";
         grid = "#cccccc";
         m_iconBaseColor = Qt::black;
+        m_backgroundColor = Qt::white;
+        m_textColor = Qt::black;
         setSearchbar("QLineEdit { background-color:#ffffff; color:black; border:1px solid black; } "
                      "QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
@@ -309,6 +312,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         sel = "#2A82DA";
         grid = "#354535";
         m_iconBaseColor = QColor(144, 238, 144);
+        m_backgroundColor = QColor(25, 40, 25);
         setSearchbar("QLineEdit { background-color:#192819; color:white; border:1px solid white; } "
                      "QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
@@ -324,6 +328,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         sel = "#2A82DA";
         grid = "#283c5a";
         m_iconBaseColor = QColor(100, 149, 237);
+        m_backgroundColor = QColor(20, 40, 60);
         setSearchbar("QLineEdit { background-color:#14283c; color:white; border:1px solid white; } "
                      "QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
@@ -339,6 +344,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         sel = "#2A82DA";
         grid = "#643278";
         m_iconBaseColor = QColor(186, 85, 211);
+        m_backgroundColor = QColor(80, 30, 90);
         setSearchbar("QLineEdit { background-color:#501e5a; color:white; border:1px solid white; } "
                      "QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
@@ -354,6 +360,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         sel = "#83a598";
         grid = "#50482f";
         m_iconBaseColor = QColor(250, 189, 47);
+        m_backgroundColor = QColor(29, 32, 33);
         setSearchbar("QLineEdit { background-color:#1d2021; color:#f9f5d7; border:1px solid "
                      "#f9f5d7; } QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
@@ -369,6 +376,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         sel = "#7aa2f7";
         grid = "#24283b";
         m_iconBaseColor = QColor(122, 162, 247);
+        m_backgroundColor = QColor(26, 27, 38);
         setSearchbar("QLineEdit { background-color:#1a1b26; color:#9d7cd8; border:1px solid "
                      "#9d7cd8; } QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
@@ -384,6 +392,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         sel = "#2A82DA";
         grid = "#333333";
         m_iconBaseColor = Qt::white;
+        m_backgroundColor = Qt::black;
         setSearchbar("QLineEdit { background-color:#000000; color:white; border:1px solid white; } "
                      "QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
@@ -399,6 +408,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         sel = "#ffff33";
         grid = "#39ff14";
         m_iconBaseColor = QColor(0, 255, 255);
+        m_backgroundColor = QColor(13, 13, 13);
         setSearchbar("QLineEdit { background-color:#0d0d0d; color:#39ff14; border:1px solid "
                      "#39ff14; border-radius: 6px; padding: 6px; font-weight: bold; } "
                      "QLineEdit:focus { border:1px solid #ff00ff; }");
@@ -415,6 +425,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         sel = "#9370db";
         grid = "#40e0d0";
         m_iconBaseColor = QColor(64, 224, 208);
+        m_backgroundColor = QColor(26, 16, 51);
         setSearchbar("QLineEdit { background-color:#1a1033; color:#40e0d0; border:1px solid "
                      "#40e0d0; } QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
@@ -430,6 +441,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         sel = "#00ddc6";
         grid = "#39c591";
         m_iconBaseColor = QColor(57, 202, 144);
+        m_backgroundColor = QColor(13, 57, 36);
         setSearchbar("QLineEdit { background-color:#0D3924; color:#39C591; border:1px solid "
                      "#39C591; } QLineEdit:focus { border:1px solid #2A82DA; }");
         break;
@@ -445,6 +457,7 @@ void WindowThemes::SetWindowTheme(Theme theme, QLineEdit* mw_searchbar, const QS
         sel = "#7C5CFC";
         grid = "#232B3A";
         m_iconBaseColor = QColor(0x7C, 0x5C, 0xFC);
+        m_backgroundColor = QColor(20, 25, 36);
         setSearchbar(
             "QLineEdit { background-color:#141924; color:#E8ECF4; border:1px solid #232B3A; "
             "border-radius:999px; padding:6px 14px; } "

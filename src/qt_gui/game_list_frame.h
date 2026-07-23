@@ -35,6 +35,8 @@ Q_SIGNALS:
 public Q_SLOTS:
     void SetListBackgroundImage(QTableWidgetItem* item);
     void RefreshListBackgroundImage();
+    void RefreshZarBackgroundImage();
+    void RefreshHeaderColors();
     void resizeEvent(QResizeEvent* event);
     void SortNameAscending(int columnIndex);
     void SortNameDescending(int columnIndex);

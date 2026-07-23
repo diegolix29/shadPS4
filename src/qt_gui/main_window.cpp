@@ -805,6 +805,8 @@ void MainWindow::AddUiWidgets() {
         QLabel* label = new QLabel(labelText, this);
         label->setAlignment(Qt::AlignCenter | Qt::AlignBottom);
         label->setVisible(ui->toggleLabelsAct->isChecked());
+        // Set initial theme color
+        label->setStyleSheet(QString("color: %1; font-size: 11px;").arg(m_window_themes.textColor().name()));
         layout->addWidget(label);
 
         if (!ui->toggleLabelsAct->isChecked())
@@ -825,10 +827,15 @@ void MainWindow::AddUiWidgets() {
     ui->backgroundImageLabel->setObjectName("backgroundImageLabel");
     ui->backgroundImageLabel->setAlignment(Qt::AlignCenter);
     ui->backgroundImageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    QColor bgColor = m_window_themes.backgroundColor();
     ui->backgroundImageLabel->setStyleSheet(QString("QLabel#backgroundImageLabel {"
-                                                    "  background-color: rgba(20, 20, 30, %1);"
+                                                    "  background-color: rgba(%1, %2, %3, %4);"
                                                     "  border: none;"
                                                     "}")
+                                                .arg(bgColor.red())
+                                                .arg(bgColor.green())
+                                                .arg(bgColor.blue())
                                                 .arg(Config::getIconBgOpacity()));
 
     QString defaultBackgroundPath = ":/images/default_background.jpg";
@@ -877,15 +884,23 @@ void MainWindow::AddUiWidgets() {
         extraBtn->setCursor(Qt::PointingHandCursor);
         extraBtn->setProperty("modernToolbarButton", true);
         HoverAnimator::Attach(extraBtn, toolbarGlowColor);
-        extraBtn->setStyleSheet(
-            "QPushButton { background-color: rgba(50, 50, 50, 200); border: 1px solid rgba(90, "
-            "170, 255, 150); border-radius: 5px; padding: 5px; }");
+        QColor extraBtnBgColor = m_window_themes.backgroundColor();
+        extraBtn->setStyleSheet(QString(
+            "QPushButton { background-color: rgba(%1, %2, %3, 200); border: 1px solid rgba(90, "
+            "170, 255, 150); border-radius: 5px; padding: 5px; }")
+            .arg(extraBtnBgColor.red())
+            .arg(extraBtnBgColor.green())
+            .arg(extraBtnBgColor.blue()));
     }
 
     ui->launcherBox->setObjectName("launcherBox");
-    ui->launcherBox->setStyleSheet(
-        "QCheckBox { background-color: rgba(30, 30, 30, 220); border: 1px solid rgba(90, 170, 255, "
-        "150); border-radius: 5px; padding: 5px; }");
+    QColor launcherBgColor = m_window_themes.backgroundColor();
+    ui->launcherBox->setStyleSheet(QString(
+        "QCheckBox { background-color: rgba(%1, %2, %3, 220); border: 1px solid rgba(90, 170, 255, "
+        "150); border-radius: 5px; padding: 5px; }")
+        .arg(launcherBgColor.red())
+        .arg(launcherBgColor.green())
+        .arg(launcherBgColor.blue()));
 
     QWidget* styleContainer = new QWidget(uiOverlay);
     styleContainer->setStyleSheet("background-color: transparent; border: none;");
@@ -894,15 +909,22 @@ void MainWindow::AddUiWidgets() {
     styleLayout->setSpacing(5);
 
     QLabel* styleLabel = new QLabel(tr("GUI Style:"), uiOverlay);
-    styleLabel->setStyleSheet("color: white; font-weight: bold; background-color: rgba(30, 30, 30, "
-                              "200); padding: 5px; border-radius: 5px;");
+    QColor styleBgColor = m_window_themes.backgroundColor();
+    styleLabel->setStyleSheet(QString("color: white; font-weight: bold; background-color: rgba(%1, %2, %3, "
+                              "200); padding: 5px; border-radius: 5px;")
+                              .arg(styleBgColor.red())
+                              .arg(styleBgColor.green())
+                              .arg(styleBgColor.blue()));
     styleLayout->addWidget(styleLabel);
 
-    ui->styleSelector->setStyleSheet(
-        "QComboBox { background-color: rgba(30, 30, 30, 200); color: white; padding: 5px; "
+    ui->styleSelector->setStyleSheet(QString(
+        "QComboBox { background-color: rgba(%1, %2, %3, 200); color: white; padding: 5px; "
         "border-radius: 5px; border: 1px solid rgba(90, 170, 255, 150); } QComboBox::drop-down { "
-        "border: none; } QComboBox QAbstractItemView { background-color: rgba(30, 30, 30, 200); "
-        "color: white; selection-background-color: rgba(90, 170, 255, 150); }");
+        "border: none; } QComboBox QAbstractItemView { background-color: rgba(%1, %2, %3, 200); "
+        "color: white; selection-background-color: rgba(90, 170, 255, 150); }")
+        .arg(styleBgColor.red())
+        .arg(styleBgColor.green())
+        .arg(styleBgColor.blue()));
     styleLayout->addWidget(ui->styleSelector);
     styleContainer->setObjectName("styleContainer");
 
@@ -943,11 +965,15 @@ void MainWindow::AddUiWidgets() {
     ui->bootIconsLayout->setContentsMargins(10, 5, 10, 5);
     ui->bootIconsLayout->setSpacing(10);
 
-    ui->bootIconsArea->setStyleSheet("QWidget#bootIconsArea {"
-                                     "  background-color: rgba(20, 20, 20, 220);"
+    QColor bootIconsBgColor = m_window_themes.backgroundColor();
+    ui->bootIconsArea->setStyleSheet(QString("QWidget#bootIconsArea {"
+                                     "  background-color: rgba(%1, %2, %3, 220);"
                                      "  border-radius: 12px;"
                                      "  border: 1px solid rgba(90, 170, 255, 80);"
-                                     "}");
+                                     "}")
+                                     .arg(bootIconsBgColor.red())
+                                     .arg(bootIconsBgColor.green())
+                                     .arg(bootIconsBgColor.blue()));
     ui->bootIconsArea->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 
     const QColor toolbarGlowColor(90, 170, 255);
@@ -1104,11 +1130,15 @@ void MainWindow::AddUiWidgets() {
     logPalette.setColor(QPalette::Base, Qt::black);
     ui->logDisplay->setPalette(logPalette);
 
-    ui->gameRectangleContainer->setStyleSheet("QWidget#gameRectangleContainer {"
-                                              "  background-color: rgba(30, 30, 30, 200);"
+    QColor gameRectBgColor = m_window_themes.backgroundColor();
+    ui->gameRectangleContainer->setStyleSheet(QString("QWidget#gameRectangleContainer {"
+                                              "  background-color: rgba(%1, %2, %3, 200);"
                                               "  border-radius: 15px;"
                                               "  border: 2px solid rgba(90, 170, 255, 150);"
-                                              "}");
+                                              "}")
+                                              .arg(gameRectBgColor.red())
+                                              .arg(gameRectBgColor.green())
+                                              .arg(gameRectBgColor.blue()));
     ui->gameRectangleContainer->setObjectName("gameRectangleContainer");
     ui->gameRectangleContainer->setMinimumHeight(75);
 
@@ -1131,12 +1161,12 @@ void MainWindow::AddUiWidgets() {
     ui->bootIconsSizeSlider->setValue(40);
     ui->bootIconsSizeSlider->setFixedWidth(150);
 
-    QLabel* bootIconsLabel = new QLabel(tr("Icons Size"), uiOverlay);
-    bootIconsLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
-    bootIconsLabel->setAlignment(Qt::AlignCenter);
+    m_bootIconsLabel = new QLabel(tr("Icons Size"), uiOverlay);
+    m_bootIconsLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    m_bootIconsLabel->setAlignment(Qt::AlignCenter);
 
     bootIconsSliderVLayout->addWidget(ui->bootIconsSizeSlider, 0, Qt::AlignCenter);
-    bootIconsSliderVLayout->addWidget(bootIconsLabel, 0, Qt::AlignCenter);
+    bootIconsSliderVLayout->addWidget(m_bootIconsLabel, 0, Qt::AlignCenter);
     bootIconsSliderWidget->setLayout(bootIconsSliderVLayout);
 
     QWidget* gameHeightSliderWidget = new QWidget(uiOverlay);
@@ -1152,12 +1182,12 @@ void MainWindow::AddUiWidgets() {
     ui->gameContainerHeightSlider->setValue(300);
     ui->gameContainerHeightSlider->setFixedWidth(150);
 
-    QLabel* gameHeightLabel = new QLabel(tr("Container Height"), uiOverlay);
-    gameHeightLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
-    gameHeightLabel->setAlignment(Qt::AlignCenter);
+    m_gameHeightLabel = new QLabel(tr("Container Height"), uiOverlay);
+    m_gameHeightLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    m_gameHeightLabel->setAlignment(Qt::AlignCenter);
 
     gameHeightSliderVLayout->addWidget(ui->gameContainerHeightSlider, 0, Qt::AlignCenter);
-    gameHeightSliderVLayout->addWidget(gameHeightLabel, 0, Qt::AlignCenter);
+    gameHeightSliderVLayout->addWidget(m_gameHeightLabel, 0, Qt::AlignCenter);
     gameHeightSliderWidget->setLayout(gameHeightSliderVLayout);
 
     QWidget* gameSizeSliderWidget = new QWidget(uiOverlay);
@@ -1167,14 +1197,14 @@ void MainWindow::AddUiWidgets() {
     gameSizeSliderVLayout->setSpacing(5);
     gameSizeSliderVLayout->setAlignment(Qt::AlignCenter);
 
-    QLabel* gameSizeLabel = new QLabel(tr("Game Size"), uiOverlay);
-    gameSizeLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
-    gameSizeLabel->setAlignment(Qt::AlignCenter);
+    m_gameSizeLabel = new QLabel(tr("Game Size"), uiOverlay);
+    m_gameSizeLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    m_gameSizeLabel->setAlignment(Qt::AlignCenter);
 
     ui->sizeSlider->setFixedWidth(150);
 
     gameSizeSliderVLayout->addWidget(ui->sizeSlider, 0, Qt::AlignCenter);
-    gameSizeSliderVLayout->addWidget(gameSizeLabel, 0, Qt::AlignCenter);
+    gameSizeSliderVLayout->addWidget(m_gameSizeLabel, 0, Qt::AlignCenter);
     gameSizeSliderWidget->setLayout(gameSizeSliderVLayout);
 
     ui->gameHeightSliderLayout->addStretch();
@@ -1204,13 +1234,13 @@ void MainWindow::AddUiWidgets() {
     logOpacitySliderVLayout->setSpacing(5);
     logOpacitySliderVLayout->setAlignment(Qt::AlignCenter);
 
-    QLabel* logOpacityLabel = new QLabel(tr("Log Opacity"), uiOverlay);
-    logOpacityLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
-    logOpacityLabel->setAlignment(Qt::AlignCenter);
+    m_logOpacityLabel = new QLabel(tr("Log Opacity"), uiOverlay);
+    m_logOpacityLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    m_logOpacityLabel->setAlignment(Qt::AlignCenter);
 
     ui->logOpacitySlider->setFixedWidth(150);
     logOpacitySliderVLayout->addWidget(ui->logOpacitySlider, 0, Qt::AlignCenter);
-    logOpacitySliderVLayout->addWidget(logOpacityLabel, 0, Qt::AlignCenter);
+    logOpacitySliderVLayout->addWidget(m_logOpacityLabel, 0, Qt::AlignCenter);
     logOpacitySliderWidget->setLayout(logOpacitySliderVLayout);
 
     QWidget* bgOpacitySliderWidget = new QWidget(uiOverlay);
@@ -1220,13 +1250,13 @@ void MainWindow::AddUiWidgets() {
     bgOpacitySliderVLayout->setSpacing(5);
     bgOpacitySliderVLayout->setAlignment(Qt::AlignCenter);
 
-    QLabel* bgOpacityLabel = new QLabel(tr("BG Opacity"), uiOverlay);
-    bgOpacityLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
-    bgOpacityLabel->setAlignment(Qt::AlignCenter);
+    m_bgOpacityLabel = new QLabel(tr("BG Opacity"), uiOverlay);
+    m_bgOpacityLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    m_bgOpacityLabel->setAlignment(Qt::AlignCenter);
 
     ui->bgOpacitySlider->setFixedWidth(150);
     bgOpacitySliderVLayout->addWidget(ui->bgOpacitySlider, 0, Qt::AlignCenter);
-    bgOpacitySliderVLayout->addWidget(bgOpacityLabel, 0, Qt::AlignCenter);
+    bgOpacitySliderVLayout->addWidget(m_bgOpacityLabel, 0, Qt::AlignCenter);
     bgOpacitySliderWidget->setLayout(bgOpacitySliderVLayout);
 
     QWidget* iconBgOpacitySliderWidget = new QWidget(uiOverlay);
@@ -1236,13 +1266,13 @@ void MainWindow::AddUiWidgets() {
     iconBgOpacitySliderVLayout->setSpacing(5);
     iconBgOpacitySliderVLayout->setAlignment(Qt::AlignCenter);
 
-    QLabel* iconBgOpacityLabel = new QLabel(tr("Icon BG Opacity"), uiOverlay);
-    iconBgOpacityLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
-    iconBgOpacityLabel->setAlignment(Qt::AlignCenter);
+    m_iconBgOpacityLabel = new QLabel(tr("Icon BG Opacity"), uiOverlay);
+    m_iconBgOpacityLabel->setStyleSheet("color: white; font-weight: bold; font-size: 11px;");
+    m_iconBgOpacityLabel->setAlignment(Qt::AlignCenter);
 
     ui->iconBgOpacitySlider->setFixedWidth(150);
     iconBgOpacitySliderVLayout->addWidget(ui->iconBgOpacitySlider, 0, Qt::AlignCenter);
-    iconBgOpacitySliderVLayout->addWidget(iconBgOpacityLabel, 0, Qt::AlignCenter);
+    iconBgOpacitySliderVLayout->addWidget(m_iconBgOpacityLabel, 0, Qt::AlignCenter);
     iconBgOpacitySliderWidget->setLayout(iconBgOpacitySliderVLayout);
 
     ui->gameHeightSliderLayout->addWidget(logOpacitySliderWidget);
@@ -1255,9 +1285,13 @@ void MainWindow::AddUiWidgets() {
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         Config::save(config_dir / "config.toml", false);
         if (ui->logDisplay) {
+            QColor logBgColor = m_window_themes.backgroundColor();
             ui->logDisplay->setStyleSheet(
-                QString("QTextEdit#logDisplay { background-color: rgba(0, 0, 0, %1); color: white; "
+                QString("QTextEdit#logDisplay { background-color: rgba(%1, %2, %3, %4); color: white; "
                         "border: 1px solid rgba(90, 170, 255, 150); }")
+                    .arg(logBgColor.red())
+                    .arg(logBgColor.green())
+                    .arg(logBgColor.blue())
                     .arg(value * 255 / 100));
         }
     });
@@ -1267,13 +1301,25 @@ void MainWindow::AddUiWidgets() {
         const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
         Config::save(config_dir / "config.toml", false);
         int alpha = value * 255 / 100;
+        QColor gameRectBgColor = m_window_themes.backgroundColor();
         ui->gameRectangleContainer->setStyleSheet(
             QString("QWidget#gameRectangleContainer {"
-                    "  background-color: rgba(30, 30, 30, %1);"
+                    "  background-color: rgba(%1, %2, %3, %4);"
                     "  border-radius: 15px;"
                     "  border: 2px solid rgba(90, 170, 255, 150);"
                     "}")
+                .arg(gameRectBgColor.red())
+                .arg(gameRectBgColor.green())
+                .arg(gameRectBgColor.blue())
                 .arg(alpha));
+        // Update ZAR backgrounds with BG opacity
+        if (m_game_list_frame) {
+            m_game_list_frame->RefreshZarBackgroundImage();
+        }
+        if (m_game_grid_frame) {
+            m_game_grid_frame->RefreshZarBackgroundImage();
+            m_game_grid_frame->RefreshGridBackgroundImage();
+        }
     });
 
     connect(ui->iconBgOpacitySlider, &QSlider::valueChanged, this, [this](int value) {
@@ -1286,19 +1332,27 @@ void MainWindow::AddUiWidgets() {
     // Apply initial opacity values from config
     if (ui->logDisplay) {
         int logOpacity = Config::getLogOpacity();
+        QColor logBgColor = m_window_themes.backgroundColor();
         ui->logDisplay->setStyleSheet(
-            QString("QTextEdit#logDisplay { background-color: rgba(0, 0, 0, %1); color: white; "
+            QString("QTextEdit#logDisplay { background-color: rgba(%1, %2, %3, %4); color: white; "
                     "border: 1px solid rgba(90, 170, 255, 150); }")
+                .arg(logBgColor.red())
+                .arg(logBgColor.green())
+                .arg(logBgColor.blue())
                 .arg(logOpacity * 255 / 100));
     }
 
     int bgOpacity = Config::getBgOpacity();
     int bgAlpha = bgOpacity * 255 / 100;
+    QColor gameRectBgColorInit = m_window_themes.backgroundColor();
     ui->gameRectangleContainer->setStyleSheet(QString("QWidget#gameRectangleContainer {"
-                                                      "  background-color: rgba(30, 30, 30, %1);"
+                                                      "  background-color: rgba(%1, %2, %3, %4);"
                                                       "  border-radius: 15px;"
                                                       "  border: 2px solid rgba(90, 170, 255, 150);"
                                                       "}")
+                                                  .arg(gameRectBgColorInit.red())
+                                                  .arg(gameRectBgColorInit.green())
+                                                  .arg(gameRectBgColorInit.blue())
                                                   .arg(bgAlpha));
 
     UpdateIconBackgroundOpacity();
@@ -1501,6 +1555,10 @@ void MainWindow::CreateDockWindows(bool newDock) {
         m_game_grid_frame->m_zar_splitter->setStretchFactor(1, 0);
         m_game_grid_frame->m_zar_splitter->setSizes({800, 200});
         gridLayout->addWidget(m_game_grid_frame->m_zar_splitter);
+
+        // Initialize backgrounds with slider opacity state
+        m_game_list_frame->RefreshListBackgroundImage();
+        m_game_grid_frame->RefreshGridBackgroundImage();
     }
 
     int table_mode = Config::getTableMode();
@@ -1675,6 +1733,8 @@ void MainWindow::CreateConnects() {
         SetLastIconSizeBullet();
         toggleColorFilter();
         ApplyLastUsedStyle();
+        UpdateThemeBackgrounds();
+        UpdateIconBackgroundOpacity();
         LoadGameLists();
     };
 
@@ -3251,20 +3311,200 @@ void MainWindow::ConvertToZar() {
 
 void MainWindow::UpdateIconBackgroundOpacity() {
     int opacity = Config::getIconBgOpacity();
+    QColor bgColor = m_window_themes.backgroundColor();
+
     if (ui->backgroundImageLabel) {
         ui->backgroundImageLabel->setStyleSheet(QString("QLabel#backgroundImageLabel {"
-                                                        "  background-color: rgba(20, 20, 30, %1);"
+                                                        "  background-color: rgba(%1, %2, %3, %4);"
                                                         "  border: none;"
                                                         "}")
+                                                    .arg(bgColor.red())
+                                                    .arg(bgColor.green())
+                                                    .arg(bgColor.blue())
                                                     .arg(opacity));
     }
     if (ui->bootIconsArea) {
         ui->bootIconsArea->setStyleSheet(QString("QWidget#bootIconsArea {"
-                                                 "  background-color: rgba(20, 20, 20, %1);"
+                                                 "  background-color: rgba(%1, %2, %3, %4);"
                                                  "  border-radius: 12px;"
                                                  "  border: 1px solid rgba(90, 170, 255, 80);"
                                                  "}")
+                                             .arg(bgColor.red())
+                                             .arg(bgColor.green())
+                                             .arg(bgColor.blue())
                                              .arg(opacity));
+    }
+    if (m_game_list_frame) {
+        m_game_list_frame->RefreshListBackgroundImage();
+        m_game_list_frame->RefreshZarBackgroundImage();
+        m_game_list_frame->update();
+    }
+    if (m_game_grid_frame) {
+        m_game_grid_frame->RefreshGridBackgroundImage();
+        m_game_grid_frame->RefreshZarBackgroundImage();
+        m_game_grid_frame->update();
+    }
+}
+
+void MainWindow::UpdateThemeBackgrounds() {
+    QColor bgColor = m_window_themes.backgroundColor();
+    QColor textColor = m_window_themes.textColor();
+
+    // Update background image label
+    if (ui->backgroundImageLabel) {
+        int opacity = Config::getIconBgOpacity();
+        ui->backgroundImageLabel->setStyleSheet(QString("QLabel#backgroundImageLabel {"
+                                                        "  background-color: rgba(%1, %2, %3, %4);"
+                                                        "  border: none;"
+                                                        "}")
+                                                    .arg(bgColor.red())
+                                                    .arg(bgColor.green())
+                                                    .arg(bgColor.blue())
+                                                    .arg(opacity));
+    }
+
+    // Update boot icons area
+    if (ui->bootIconsArea) {
+        int opacity = Config::getIconBgOpacity();
+        ui->bootIconsArea->setStyleSheet(QString("QWidget#bootIconsArea {"
+                                                 "  background-color: rgba(%1, %2, %3, %4);"
+                                                 "  border-radius: 12px;"
+                                                 "  border: 1px solid rgba(90, 170, 255, 80);"
+                                                 "}")
+                                             .arg(bgColor.red())
+                                             .arg(bgColor.green())
+                                             .arg(bgColor.blue())
+                                             .arg(opacity));
+    }
+
+    // Update game rectangle container
+    int bgOpacity = Config::getBgOpacity();
+    int bgAlpha = bgOpacity * 255 / 100;
+    ui->gameRectangleContainer->setStyleSheet(QString("QWidget#gameRectangleContainer {"
+                                                      "  background-color: rgba(%1, %2, %3, %4);"
+                                                      "  border-radius: 15px;"
+                                                      "  border: 2px solid rgba(90, 170, 255, 150);"
+                                                      "}")
+                                                  .arg(bgColor.red())
+                                                  .arg(bgColor.green())
+                                                  .arg(bgColor.blue())
+                                                  .arg(bgAlpha));
+
+    // Update log display
+    if (ui->logDisplay) {
+        int logOpacity = Config::getLogOpacity();
+        ui->logDisplay->setStyleSheet(
+            QString("QTextEdit#logDisplay { background-color: rgba(%1, %2, %3, %4); color: %5; "
+                    "border: 1px solid rgba(90, 170, 255, 150); }")
+                .arg(bgColor.red())
+                .arg(bgColor.green())
+                .arg(bgColor.blue())
+                .arg(logOpacity * 255 / 100)
+                .arg(textColor.name()));
+    }
+
+    // Update style label and selector
+    QColor styleBgColor = bgColor;
+    QList<QLabel*> labels = findChildren<QLabel*>();
+    for (QLabel* label : labels) {
+        if (label->text() == tr("GUI Style:")) {
+            label->setStyleSheet(QString("color: %1; font-weight: bold; background-color: rgba(%2, %3, %4, "
+                                  "200); padding: 5px; border-radius: 5px;")
+                                  .arg(textColor.name())
+                                  .arg(styleBgColor.red())
+                                  .arg(styleBgColor.green())
+                                  .arg(styleBgColor.blue()));
+            break;
+        }
+    }
+
+    if (ui->styleSelector) {
+        ui->styleSelector->setStyleSheet(QString(
+            "QComboBox { background-color: rgba(%1, %2, %3, 200); color: %4; padding: 5px; "
+            "border-radius: 5px; border: 1px solid rgba(90, 170, 255, 150); } QComboBox::drop-down { "
+            "border: none; } QComboBox QAbstractItemView { background-color: rgba(%1, %2, %3, 200); "
+            "color: %4; selection-background-color: rgba(90, 170, 255, 150); }")
+            .arg(styleBgColor.red())
+            .arg(styleBgColor.green())
+            .arg(styleBgColor.blue())
+            .arg(textColor.name()));
+    }
+
+    // Update launcher box
+    if (ui->launcherBox) {
+        QColor launcherBgColor = bgColor;
+        ui->launcherBox->setStyleSheet(QString(
+            "QCheckBox { background-color: rgba(%1, %2, %3, 220); color: %4; border: 1px solid rgba(90, 170, 255, "
+            "150); border-radius: 5px; padding: 5px; }")
+            .arg(launcherBgColor.red())
+            .arg(launcherBgColor.green())
+            .arg(launcherBgColor.blue())
+            .arg(textColor.name()));
+    }
+
+    // Update extra toolbar buttons
+    QColor extraBtnBgColor = bgColor;
+    for (QPushButton* extraBtn : {ui->toggleLogButton, ui->installPkgButton, ui->bpBootButton,
+                                  ui->zarBootButton, ui->zarConvertButton, ui->themeButton}) {
+        if (extraBtn) {
+            extraBtn->setStyleSheet(QString(
+                "QPushButton { background-color: rgba(%1, %2, %3, 200); color: %4; border: 1px solid rgba(90, "
+                "170, 255, 150); border-radius: 5px; padding: 5px; }")
+                .arg(extraBtnBgColor.red())
+                .arg(extraBtnBgColor.green())
+                .arg(extraBtnBgColor.blue())
+                .arg(textColor.name()));
+        }
+    }
+
+    // Update slider labels
+    QString labelStyle = QString("color: %1; font-weight: bold; font-size: 11px;").arg(textColor.name());
+    if (m_bootIconsLabel) {
+        m_bootIconsLabel->setStyleSheet(labelStyle);
+    }
+    if (m_gameHeightLabel) {
+        m_gameHeightLabel->setStyleSheet(labelStyle);
+    }
+    if (m_gameSizeLabel) {
+        m_gameSizeLabel->setStyleSheet(labelStyle);
+    }
+    if (m_logOpacityLabel) {
+        m_logOpacityLabel->setStyleSheet(labelStyle);
+    }
+    if (m_bgOpacityLabel) {
+        m_bgOpacityLabel->setStyleSheet(labelStyle);
+    }
+    if (m_iconBgOpacityLabel) {
+        m_iconBgOpacityLabel->setStyleSheet(labelStyle);
+    }
+
+    // Update toolbar button labels
+    QString buttonLabelStyle = QString("color: %1; font-size: 11px;").arg(textColor.name());
+    for (QWidget* container : m_toolbarContainers) {
+        if (QLabel* label = container->property("buttonLabel").value<QLabel*>()) {
+            label->setStyleSheet(buttonLabelStyle);
+        }
+    }
+
+    // Update play and pause labels separately (they're in stacked containers)
+    if (ui->playContainer) {
+        if (QLabel* playLabel = ui->playContainer->findChild<QLabel*>()) {
+            playLabel->setStyleSheet(buttonLabelStyle);
+        }
+    }
+    if (ui->pauseContainer) {
+        if (QLabel* pauseLabel = ui->pauseContainer->findChild<QLabel*>()) {
+            pauseLabel->setStyleSheet(buttonLabelStyle);
+        }
+    }
+
+    // Update ZAR backgrounds in game frames
+    if (m_game_list_frame) {
+        m_game_list_frame->RefreshZarBackgroundImage();
+        m_game_list_frame->RefreshHeaderColors();
+    }
+    if (m_game_grid_frame) {
+        m_game_grid_frame->RefreshZarBackgroundImage();
     }
 }
 
@@ -3409,6 +3649,9 @@ void MainWindow::SetLastUsedTheme() {
         if (m_game_cinematic_frame) {
             m_game_cinematic_frame->update();
         }
+
+        // Update theme backgrounds on startup
+        UpdateThemeBackgrounds();
     };
 
     switch (lastTheme) {

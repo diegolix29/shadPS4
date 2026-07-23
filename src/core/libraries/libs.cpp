@@ -16,6 +16,7 @@
 #include "core/libraries/companion/companion_httpd.h"
 #include "core/libraries/companion/companion_util.h"
 #include "core/libraries/disc_map/disc_map.h"
+#include "core/libraries/fiber/fiber.h"
 #include "core/libraries/game_live_streaming/gamelivestreaming.h"
 #include "core/libraries/gnmdriver/gnmdriver.h"
 #include "core/libraries/hmd/hmd.h"
@@ -24,7 +25,6 @@
 #include "core/libraries/ime/ime.h"
 #include "core/libraries/ime/ime_dialog.h"
 #include "core/libraries/kernel/kernel.h"
-#include "core/libraries/kernel/process.h"
 #include "core/libraries/libc_internal/libc_internal.h"
 #include "core/libraries/libpng/pngdec.h"
 #include "core/libraries/libs.h"
@@ -57,12 +57,13 @@
 #include "core/libraries/random/random.h"
 #include "core/libraries/razor_cpu/razor_cpu.h"
 #include "core/libraries/remote_play/remoteplay.h"
-#include "core/libraries/rtc/rtc.h"
+#include "core/libraries/rudp/rudp.h"
 #include "core/libraries/save_data/dialog/savedatadialog.h"
 #include "core/libraries/save_data/savedata.h"
 #include "core/libraries/screenshot/screenshot.h"
 #include "core/libraries/share_play/shareplay.h"
 #include "core/libraries/signin_dialog/signindialog.h"
+#include "core/libraries/system/sysmodule.h"
 #include "core/libraries/system/commondialog.h"
 #include "core/libraries/system/msgdialog.h"
 #include "core/libraries/system/systemservice.h"
@@ -76,10 +77,6 @@
 #include "core/libraries/vr_tracker/vr_tracker.h"
 #include "core/libraries/web_browser_dialog/webbrowserdialog.h"
 #include "core/libraries/zlib/zlib_sce.h"
-#ifdef ARCH_X86_64
-#include "core/libraries/fiber/fiber.h"
-#endif
-#include "core/libraries/system/sysmodule.h"
 #include "emulator.h"
 
 #include <array>
@@ -170,9 +167,7 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
             {"libSceCompanionUtil.sprx", Libraries::CompanionUtil::RegisterLib},
             {"libSceVoice.sprx", Libraries::Voice::RegisterLib},
             {"libSceVrTracker.sprx", Libraries::VrTracker::RegisterLib},
-        // {"libSceContentExport.sprx", Libraries::ContentExport::RegisterLib},
-        // {"libSceVideoRecording.sprx", Libraries::VideoRecording::RegisterLib},
-        // {"libSceInvitationDialog.sprx", Libraries::InvitationDialog::RegisterLib},
+
 #ifdef ARCH_X86_64
             {"libSceFiber.sprx", Libraries::Fiber::RegisterLib},
 #endif

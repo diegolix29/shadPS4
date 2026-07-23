@@ -140,10 +140,10 @@ private:
             if (m_baseIconSize.isEmpty())
                 m_baseIconSize = btn->iconSize();
 
-            const QSize targetSize = hovered
-                                         ? QSize(static_cast<int>(m_baseIconSize.width() * 1.16),
-                                                 static_cast<int>(m_baseIconSize.height() * 1.16))
-                                         : m_baseIconSize;
+            // Calculate fixed pixel offset instead of percentage to prevent layout issues
+            const int maxOffset = 6; // Maximum pixels to add regardless of icon size
+            const int offset = hovered ? maxOffset : 0;
+            const QSize targetSize = m_baseIconSize + QSize(offset, offset);
 
             auto* sizeAnim = new QPropertyAnimation(btn, "iconSize", this);
             sizeAnim->setDuration(180);
@@ -226,6 +226,8 @@ public:
     std::unique_ptr<HubMenuWidget> m_hubMenu;
     std::shared_ptr<GameInfoClass> m_game_info = std::make_shared<GameInfoClass>();
 
+    WindowThemes* getThemes() { return &m_window_themes; }
+
 private Q_SLOTS:
     void ConfigureGuiFromSettings();
     void SaveWindowState() const;
@@ -262,6 +264,7 @@ private:
     void BootZarGame();
     void ConvertToZar();
     void UpdateIconBackgroundOpacity();
+    void UpdateThemeBackgrounds();
     void toggleWelcomeScreenOnLaunch(bool enabled);
     void onSetCustomBackground();
     void onClearCustomBackground();
@@ -295,6 +298,13 @@ private:
 
     QWidget* m_list_container = nullptr;
     QWidget* m_grid_container = nullptr;
+
+    QLabel* m_bootIconsLabel = nullptr;
+    QLabel* m_gameHeightLabel = nullptr;
+    QLabel* m_gameSizeLabel = nullptr;
+    QLabel* m_logOpacityLabel = nullptr;
+    QLabel* m_bgOpacityLabel = nullptr;
+    QLabel* m_iconBgOpacityLabel = nullptr;
 
     QScopedPointer<QStatusBar> statusBar;
 
