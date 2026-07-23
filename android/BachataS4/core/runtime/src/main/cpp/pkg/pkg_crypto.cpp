@@ -2,6 +2,7 @@
 // Algorithms aligned with shadPS4 Crypto / LibOrbisPkg.
 #include "pkg_crypto.h"
 #include "keys.h"
+#include "pkg_rsa_bridge.h"
 
 #include <algorithm>
 #include <cstring>
@@ -609,29 +610,11 @@ void Crypto::decryptPFS(std::span<const uint8_t, 16> dataKey,
 void Crypto::RSA2048Decrypt(std::span<uint8_t, 32> out_key,
                             std::span<const uint8_t, 256> ciphertext,
                             bool is_dk3) {
-    bool ok;
-    if (is_dk3) {
-        ok = rsa_pkcs1_v15_decrypt_crt(
-            ciphertext.data(),
-            PkgDerivedKey3Keyset::Prime1, sizeof(PkgDerivedKey3Keyset::Prime1),
-            PkgDerivedKey3Keyset::Prime2, sizeof(PkgDerivedKey3Keyset::Prime2),
-            PkgDerivedKey3Keyset::Exponent1, sizeof(PkgDerivedKey3Keyset::Exponent1),
-            PkgDerivedKey3Keyset::Exponent2, sizeof(PkgDerivedKey3Keyset::Exponent2),
-            PkgDerivedKey3Keyset::Coefficient, sizeof(PkgDerivedKey3Keyset::Coefficient),
-            PkgDerivedKey3Keyset::Modulus, sizeof(PkgDerivedKey3Keyset::Modulus),
-            out_key.data());
-    } else {
-        ok = rsa_pkcs1_v15_decrypt_crt(
-            ciphertext.data(),
-            FakeKeyset::Prime1, sizeof(FakeKeyset::Prime1),
-            FakeKeyset::Prime2, sizeof(FakeKeyset::Prime2),
-            FakeKeyset::Exponent1, sizeof(FakeKeyset::Exponent1),
-            FakeKeyset::Exponent2, sizeof(FakeKeyset::Exponent2),
-            FakeKeyset::Coefficient, sizeof(FakeKeyset::Coefficient),
-            FakeKeyset::Modulus, sizeof(FakeKeyset::Modulus),
-            out_key.data());
+    // Real PKCS#1 v1.5 decrypt via Android javax.crypto (JNI). Hand-rolled RSA
+    // was too slow for 2048-bit CRT and hung probe on large titles.
+    if (bachata_pkg_rsa_decrypt(ciphertext.data(), out_key.data(), is_dk3 ? 1 : 0) != 0) {
+        throw std::runtime_error("RSA decrypt failed (Java PKCS1)");
     }
-    if (!ok) throw std::runtime_error("RSA decrypt failed");
 }
 
 bool Crypto::ComputeKeys(const std::string& content_id,

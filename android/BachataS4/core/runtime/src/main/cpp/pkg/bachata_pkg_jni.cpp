@@ -1,11 +1,22 @@
 #include "pkg_extractor.h"
+#include "pkg_rsa_bridge.h"
 
+#include <android/log.h>
 #include <jni.h>
 
 #include <cstring>
+#include <mutex>
 #include <string>
 
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "BachataPkg", __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "BachataPkg", __VA_ARGS__)
+
 namespace {
+
+JavaVM* g_vm = nullptr;
+std::mutex g_rsa_mu;
+jclass g_pkg_rsa_cls = nullptr; // global ref
+jmethodID g_pkg_rsa_decrypt = nullptr;
 
 struct ProgressCtx {
     JavaVM* jvm = nullptr;
@@ -69,7 +80,87 @@ jobject make_extract_result(JNIEnv* env, int status, const char* message, const 
     return env->NewObject(cls, ctor, st, msg, cid);
 }
 
+bool ensure_rsa_method(JNIEnv* env) {
+    if (g_pkg_rsa_cls && g_pkg_rsa_decrypt) return true;
+    jclass local = env->FindClass("com/bachatas4/android/runtime/pkg/PkgRsa");
+    if (!local) {
+        LOGE("FindClass PkgRsa failed");
+        if (env->ExceptionCheck()) env->ExceptionDescribe();
+        env->ExceptionClear();
+        return false;
+    }
+    g_pkg_rsa_cls = static_cast<jclass>(env->NewGlobalRef(local));
+    env->DeleteLocalRef(local);
+    g_pkg_rsa_decrypt = env->GetStaticMethodID(g_pkg_rsa_cls, "decrypt", "([BZ)[B");
+    if (!g_pkg_rsa_decrypt) {
+        LOGE("GetStaticMethodID PkgRsa.decrypt failed");
+        if (env->ExceptionCheck()) env->ExceptionDescribe();
+        env->ExceptionClear();
+        return false;
+    }
+    return true;
+}
+
 } // namespace
+
+extern "C" int bachata_pkg_rsa_decrypt(const uint8_t* ciphertext256, uint8_t* out32, int is_dk3) {
+    if (!g_vm || !ciphertext256 || !out32) return -1;
+    std::lock_guard<std::mutex> lock(g_rsa_mu);
+    JNIEnv* env = nullptr;
+    bool attached = false;
+    if (g_vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+        if (g_vm->AttachCurrentThread(&env, nullptr) != 0) {
+            LOGE("RSA AttachCurrentThread failed");
+            return -2;
+        }
+        attached = true;
+    }
+    if (!ensure_rsa_method(env)) {
+        if (attached) g_vm->DetachCurrentThread();
+        return -3;
+    }
+    jbyteArray jin = env->NewByteArray(256);
+    env->SetByteArrayRegion(jin, 0, 256, reinterpret_cast<const jbyte*>(ciphertext256));
+    auto jout = static_cast<jbyteArray>(
+        env->CallStaticObjectMethod(g_pkg_rsa_cls, g_pkg_rsa_decrypt, jin, is_dk3 ? JNI_TRUE : JNI_FALSE));
+    env->DeleteLocalRef(jin);
+    if (env->ExceptionCheck()) {
+        LOGE("PkgRsa.decrypt threw");
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        if (attached) g_vm->DetachCurrentThread();
+        return -4;
+    }
+    if (!jout) {
+        LOGE("PkgRsa.decrypt returned null");
+        if (attached) g_vm->DetachCurrentThread();
+        return -5;
+    }
+    const jsize n = env->GetArrayLength(jout);
+    if (n < 32) {
+        LOGE("PkgRsa.decrypt short output len=%d", static_cast<int>(n));
+        env->DeleteLocalRef(jout);
+        if (attached) g_vm->DetachCurrentThread();
+        return -6;
+    }
+    env->GetByteArrayRegion(jout, 0, 32, reinterpret_cast<jbyte*>(out32));
+    env->DeleteLocalRef(jout);
+    if (attached) g_vm->DetachCurrentThread();
+    LOGI("RSA decrypt ok isDk3=%d", is_dk3);
+    return 0;
+}
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
+    g_vm = vm;
+    JNIEnv* env = nullptr;
+    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+        return JNI_ERR;
+    }
+    // Eager-resolve PkgRsa so first probe is not missing classloader edge cases.
+    ensure_rsa_method(env);
+    LOGI("JNI_OnLoad bachata_pkg ok");
+    return JNI_VERSION_1_6;
+}
 
 extern "C" JNIEXPORT jobject JNICALL
 Java_com_bachatas4_android_runtime_pkg_PkgExtractor_nativeProbe(JNIEnv* env, jclass, jint fd) {
