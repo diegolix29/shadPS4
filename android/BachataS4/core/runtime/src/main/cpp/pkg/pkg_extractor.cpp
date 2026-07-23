@@ -470,6 +470,7 @@ bool extract_sce_sys_entries(int fd, ExtractState& st, std::string& err) {
 void bachata_pkg_cancel(void) { g_cancel.store(true); }
 
 int bachata_pkg_probe(int fd, BachataPkgProbe* out) {
+    LOGI("probe start fd=%d", fd);
     if (!out) return 3;
     std::memset(out, 0, sizeof(*out));
     g_cancel.store(false);
@@ -477,6 +478,7 @@ int bachata_pkg_probe(int fd, BachataPkgProbe* out) {
     if (!read_header(fd, hdr) || u32(hdr.magic) != 0x7F434E54) {
         out->status = 3;
         std::snprintf(out->message, sizeof(out->message), "Invalid PKG header");
+        LOGE("probe bad header magic");
         return 3;
     }
     char cid[0x30]{};
@@ -488,43 +490,61 @@ int bachata_pkg_probe(int fd, BachataPkgProbe* out) {
     if (std::strlen(cid) >= 16) {
         std::snprintf(out->title_hint, sizeof(out->title_hint), "%.9s", cid + 7);
     }
+    LOGI("probe header ok contentId=%s pkgSize=%llu pfsSize=%llu",
+         cid,
+         static_cast<unsigned long long>(out->package_size),
+         static_cast<unsigned long long>(out->pfs_image_size));
     // Auth probe with zero passcode + fake path
     ExtractState st;
     st.hdr = hdr;
     st.content_id = cid;
     std::string err;
+    LOGI("probe try zero-passcode keys");
     if (derive_keys_from_entries(fd, st, "00000000000000000000000000000000", err)) {
         out->status = 0;
+        LOGI("probe ok via zero-passcode");
         return 0;
     }
     if (err == "NEED_PASSCODE") {
         out->status = 1;
         std::snprintf(out->message, sizeof(out->message), "Passcode required");
+        LOGI("probe need passcode (after zero)");
         return 1;
     }
     // try without passcode (RSA only)
     err.clear();
+    LOGI("probe try RSA/EKPFS keys");
     if (derive_keys_from_entries(fd, st, nullptr, err)) {
         out->status = 0;
+        LOGI("probe ok via RSA/EKPFS");
         return 0;
     }
     if (err == "NEED_PASSCODE") {
         out->status = 1;
         std::snprintf(out->message, sizeof(out->message), "Passcode required");
+        LOGI("probe need passcode (after RSA)");
         return 1;
     }
     out->status = 3;
     std::snprintf(out->message, sizeof(out->message), "%s", err.c_str());
+    LOGE("probe error: %s", err.c_str());
     return 3;
 }
 
 int bachata_pkg_extract(int fd, const char* out_path, const char* passcode_or_null,
                         void (*progress)(void* ctx, uint64_t done, uint64_t total, const char* file),
                         void* progress_ctx) {
+    LOGI("extract start fd=%d out=%s hasPasscode=%d",
+         fd,
+         out_path ? out_path : "(null)",
+         passcode_or_null && passcode_or_null[0] ? 1 : 0);
     g_cancel.store(false);
     if (!out_path) return 3;
     ExtractState st;
-    if (!read_header(fd, st.hdr) || u32(st.hdr.magic) != 0x7F434E54) return 3;
+    if (!read_header(fd, st.hdr) || u32(st.hdr.magic) != 0x7F434E54) {
+        LOGE("extract bad header");
+        return 3;
+    }
     char cid[0x30]{};
     std::memcpy(cid, st.hdr.pkg_content_id, 0x24);
     st.content_id = cid;
@@ -537,31 +557,41 @@ int bachata_pkg_extract(int fd, const char* out_path, const char* passcode_or_nu
     // Try provided passcode, then zero, then RSA-only.
     bool keyed = false;
     if (pass && std::strlen(pass) == 32) {
+        LOGI("extract derive keys with provided passcode");
         keyed = derive_keys_from_entries(fd, st, pass, err);
     }
     if (!keyed) {
         err.clear();
+        LOGI("extract derive keys with zero passcode");
         keyed = derive_keys_from_entries(fd, st, "00000000000000000000000000000000", err);
     }
     if (!keyed) {
         err.clear();
+        LOGI("extract derive keys via RSA/EKPFS");
         keyed = derive_keys_from_entries(fd, st, nullptr, err);
     }
     if (!keyed) {
-        if (err == "NEED_PASSCODE") return 1;
+        if (err == "NEED_PASSCODE") {
+            LOGI("extract need passcode");
+            return 1;
+        }
         LOGE("key derive: %s", err.c_str());
         return 3;
     }
+    LOGI("extract keys ok contentId=%s", cid);
 
+    LOGI("extract sce_sys entries");
     if (!extract_sce_sys_entries(fd, st, err)) {
         LOGE("sce_sys: %s", err.c_str());
         return 3;
     }
+    LOGI("extract build fs table");
     if (!build_fs_table(fd, st, err)) {
         if (err == "CANCELLED") return 2;
         LOGE("fs table: %s", err.c_str());
         return 3;
     }
+    LOGI("extract fs table files=%zu inodes=%zu", st.fsTable.size(), st.iNodeBuf.size());
 
     uint64_t total = 0;
     for (const auto& t : st.fsTable) {
@@ -569,10 +599,19 @@ int bachata_pkg_extract(int fd, const char* out_path, const char* passcode_or_nu
             total += static_cast<uint64_t>(st.iNodeBuf[t.inode].Size);
         }
     }
+    LOGI("extract total_bytes=%llu", static_cast<unsigned long long>(total));
     uint64_t done = 0;
+    size_t file_index = 0;
     for (const auto& t : st.fsTable) {
-        if (g_cancel.load()) return 2;
+        if (g_cancel.load()) {
+            LOGI("extract cancelled");
+            return 2;
+        }
         if (t.type != PFS_FILE) continue;
+        ++file_index;
+        if (file_index == 1 || (file_index % 25) == 0) {
+            LOGI("extract file #%zu name=%s", file_index, t.name.c_str());
+        }
         if (!extract_file(fd, st, t, err)) {
             if (err == "CANCELLED") return 2;
             LOGE("extract %s: %s", t.name.c_str(), err.c_str());
@@ -583,6 +622,7 @@ int bachata_pkg_extract(int fd, const char* out_path, const char* passcode_or_nu
         }
         if (progress) progress(progress_ctx, done, total, t.name.c_str());
     }
+    LOGI("extract done files=%zu bytes=%llu", file_index, static_cast<unsigned long long>(done));
     return 0;
 }
 

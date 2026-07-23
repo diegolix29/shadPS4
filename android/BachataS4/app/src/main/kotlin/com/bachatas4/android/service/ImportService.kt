@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Intent
 import android.net.Uri
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import com.bachatas4.android.MainActivity
@@ -60,6 +61,7 @@ class ImportService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ImportManager.ACTION_CANCEL -> {
+                Log.i(TAG, "cancel requested")
                 PkgExtractor.nativeCancel()
                 passcodeWaiter?.complete(null)
                 importJob?.cancel()
@@ -72,22 +74,27 @@ class ImportService : Service() {
             }
             ImportManager.ACTION_SUBMIT_PASSCODE -> {
                 val code = intent.getStringExtra(ImportManager.EXTRA_PASSCODE)
+                Log.i(TAG, "passcode submitted (len=${code?.length ?: 0})")
                 passcodeWaiter?.complete(code)
                 return START_NOT_STICKY
             }
             ImportManager.ACTION_IMPORT -> {
                 val uriString = intent.getStringExtra(ImportManager.EXTRA_URI) ?: run {
+                    Log.e(TAG, "import missing source URI")
                     ImportManager.update(ImportProgress.Failed("Missing source URI"))
                     stopSelf()
                     return START_NOT_STICKY
                 }
                 val mode = intent.getStringExtra(ImportManager.EXTRA_MODE) ?: ImportManager.MODE_FOLDER
+                Log.i(TAG, "import start mode=$mode uri=$uriString")
                 if (importJob?.isActive == true) {
+                    Log.w(TAG, "import already running — ignore new request")
                     return START_NOT_STICKY
                 }
                 if (!ImportManager.tryBeginImport()) {
                     ImportManager.reset()
                     if (!ImportManager.tryBeginImport()) {
+                        Log.w(TAG, "import slot busy — abort")
                         return START_NOT_STICKY
                     }
                 }
@@ -115,19 +122,22 @@ class ImportService : Service() {
     }
 
     private suspend fun runFolderImport(uriString: String) {
+        Log.i(TAG, "folder import prepare uri=$uriString")
         updateNotification("Preparing import…", indeterminate = true)
         try {
             val uri = Uri.parse(uriString)
             runCatching {
                 contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
+            }.onFailure { Log.w(TAG, "folder persistable permission: ${it.message}") }
 
+            Log.i(TAG, "folder tree scan start")
             val (folderName, entries) = withContext(Dispatchers.IO) {
                 val root = requireNotNull(
                     DocumentFile.fromTreeUri(this@ImportService, uri),
                 ) { "Cannot read selected folder" }
                 (root.name?.ifBlank { null } ?: "Imported game") to root.toImportEntries()
             }
+            Log.i(TAG, "folder tree scan done name=$folderName files=${entries.size}")
 
             ImportManager.update(ImportProgress.Scanning(folderName))
             updateNotification("Identifying $folderName…", indeterminate = true)
@@ -143,6 +153,7 @@ class ImportService : Service() {
             }
             val sfo = sfoBytes?.let { ParamSfoReader.parse(it) }
             val resolved = GameMetadataResolver.resolve(folderName = folderName, sfo = sfo)
+            Log.i(TAG, "folder copy start id=${resolved.id} title=${resolved.title} files=${entries.size}")
 
             val result = contentImporter.importGameTree(
                 ContentImportRequest(
@@ -179,16 +190,19 @@ class ImportService : Service() {
 
             gameRepository.addImportedGame(result, uriString, System.currentTimeMillis())
             ImportManager.update(ImportProgress.Success(resolved.id, resolved.title))
+            Log.i(TAG, "folder import success id=${resolved.id}")
             notifyDone("${resolved.title} imported")
         } catch (failure: Throwable) {
             handleFailure(failure)
         } finally {
             if (ImportManager.isBusy()) ImportManager.reset()
+            Log.i(TAG, "folder import finished (stopSelf)")
             stopSelf()
         }
     }
 
     private suspend fun runPkgImport(uriString: String) {
+        Log.i(TAG, "pkg import prepare uri=$uriString")
         updateNotification("Preparing import…", indeterminate = true)
         var staging: File? = null
         var completed = false
@@ -196,15 +210,24 @@ class ImportService : Service() {
             val uri = Uri.parse(uriString)
             runCatching {
                 contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
+            }.onFailure { Log.w(TAG, "pkg persistable permission: ${it.message}") }
 
+            Log.i(TAG, "pkg openFileDescriptor start")
             val pfd = withContext(Dispatchers.IO) {
                 contentResolver.openFileDescriptor(uri, "r")
                     ?: error("Cannot open PKG")
             }
+            Log.i(TAG, "pkg openFileDescriptor ok sizeHint=${pfd.statSize}")
             pfd.use { descriptor ->
                 val fd = descriptor.fd
+                Log.i(TAG, "pkg nativeProbe start fd=$fd")
                 val probe = withContext(Dispatchers.IO) { PkgExtractor.nativeProbe(fd) }
+                Log.i(
+                    TAG,
+                    "pkg nativeProbe done status=${probe.status} contentId=${probe.contentId} " +
+                        "pkgSize=${probe.packageSize} pfsSize=${probe.pfsImageSize} " +
+                        "hint=${probe.titleHint} msg=${probe.message}",
+                )
                 val displayName = probe.titleHint?.ifBlank { null }
                     ?: probe.contentId.ifBlank { "PKG" }
                 ImportManager.update(ImportProgress.Scanning(displayName))
@@ -217,15 +240,18 @@ class ImportService : Service() {
                 val gamesDir = File(filesDir, "games").canonicalFile
                 gamesDir.mkdirs()
                 val required = probe.pfsImageSize.takeIf { it > 0 } ?: probe.packageSize
-                if (required > 0 && required > gamesDir.usableSpace) {
+                val free = gamesDir.usableSpace
+                Log.i(TAG, "pkg space required=$required free=$free")
+                if (required > 0 && required > free) {
                     error(
                         "Import requires ${formatBytes(required)} but only " +
-                            "${formatBytes(gamesDir.usableSpace)} is available",
+                            "${formatBytes(free)} is available",
                     )
                 }
 
                 staging = File(gamesDir, ".import-${UUID.randomUUID()}").canonicalFile
                 staging!!.mkdirs()
+                Log.i(TAG, "pkg staging=${staging!!.absolutePath}")
 
                 var usedPasscode: String? = null
                 var extractStatus = PkgStatus.ERROR
@@ -236,13 +262,20 @@ class ImportService : Service() {
                     pkgKeyStore.getPasscode(probe.contentId)?.let { add(it) }
                     add("00000000000000000000000000000000")
                 }.distinct()
+                Log.i(TAG, "pkg extract candidates=${candidates.size} (passcodes redacted)")
 
-                for (candidate in candidates) {
+                for ((index, candidate) in candidates.withIndex()) {
+                    Log.i(
+                        TAG,
+                        "pkg extract attempt #$index hasPasscode=${candidate != null} " +
+                            "staging=${staging!!.absolutePath}",
+                    )
                     val result = withContext(Dispatchers.IO) {
                         extractWithProgress(fd, staging!!, candidate, displayName)
                     }
                     extractStatus = result.status
                     extractMessage = result.message
+                    Log.i(TAG, "pkg extract attempt #$index result=${result.status} msg=${result.message}")
                     if (result.status == PkgStatus.OK) {
                         usedPasscode = candidate
                         break
@@ -254,7 +287,7 @@ class ImportService : Service() {
                 }
 
                 if (extractStatus != PkgStatus.OK) {
-                    // Ask user for passcode
+                    Log.i(TAG, "pkg need user passcode contentId=${probe.contentId}")
                     ImportManager.update(
                         ImportProgress.NeedPasscode(probe.contentId, probe.titleHint),
                     )
@@ -266,9 +299,11 @@ class ImportService : Service() {
                     if (userCode.isNullOrBlank()) {
                         throw CancellationException("cancelled")
                     }
+                    Log.i(TAG, "pkg user passcode received len=${userCode.length}")
                     val result = withContext(Dispatchers.IO) {
                         extractWithProgress(fd, staging!!, userCode, displayName)
                     }
+                    Log.i(TAG, "pkg extract with user passcode result=${result.status} msg=${result.message}")
                     if (result.status == PkgStatus.CANCELLED) throw CancellationException("cancelled")
                     if (result.status != PkgStatus.OK) {
                         error(result.message ?: "Wrong passcode or extract failed")
@@ -278,6 +313,7 @@ class ImportService : Service() {
 
                 ImportManager.update(ImportProgress.Finalizing(displayName))
                 updateNotification("Registering game…", indeterminate = true)
+                Log.i(TAG, "pkg finalize start")
 
                 val sfoFile = File(staging, "sce_sys/param.sfo")
                 val sfo = if (sfoFile.isFile) {
@@ -289,6 +325,7 @@ class ImportService : Service() {
                     folderName = displayName,
                     sfo = sfo,
                 )
+                Log.i(TAG, "pkg metadata id=${resolved.id} title=${resolved.title}")
 
                 val result = contentImporter.finalizeStagingTree(
                     ContentImportRequest(
@@ -309,20 +346,24 @@ class ImportService : Service() {
                     probe.contentId.isNotBlank()
                 ) {
                     pkgKeyStore.putPasscode(probe.contentId, usedPasscode)
+                    Log.i(TAG, "pkg keydb saved for contentId=${probe.contentId}")
                 }
 
                 gameRepository.addImportedGame(result, uriString, System.currentTimeMillis())
                 ImportManager.update(ImportProgress.Success(resolved.id, resolved.title))
+                Log.i(TAG, "pkg import success id=${resolved.id} bytes=${result.bytesCopied}")
                 notifyDone("${resolved.title} imported")
             }
         } catch (failure: Throwable) {
             handleFailure(failure)
         } finally {
             if (!completed) {
+                Log.w(TAG, "pkg import cleanup staging=${staging?.absolutePath}")
                 staging?.deleteRecursively()
             }
             passcodeWaiter = null
             if (ImportManager.isBusy()) ImportManager.reset()
+            Log.i(TAG, "pkg import finished completed=$completed (stopSelf)")
             stopSelf()
         }
     }
@@ -332,40 +373,53 @@ class ImportService : Service() {
         staging: File,
         passcode: String?,
         displayName: String,
-    ) = PkgExtractor.nativeExtract(
-        fd = fd,
-        outPath = staging.absolutePath,
-        passcode = passcode,
-        listener = { bytesDone, totalHint, currentFile ->
-            ImportManager.update(
-                ImportProgress.Extracting(
-                    bytesCopied = bytesDone,
-                    totalBytes = totalHint,
-                    currentFile = currentFile,
-                    gameTitle = displayName,
-                ),
-            )
-            val (max, progress) = scaledProgress(bytesDone, totalHint)
-            val sizeText = if (totalHint > 0) {
-                "${formatBytes(bytesDone)} / ${formatBytes(totalHint)}"
-            } else {
-                formatBytes(bytesDone)
-            }
-            updateNotification(
-                "Extracting PKG · $sizeText · $currentFile",
-                maxProgress = max,
-                progress = progress,
-                indeterminate = max == 0,
-            )
-        },
-    )
+    ): com.bachatas4.android.runtime.pkg.PkgExtractResult {
+        var lastLogAt = 0L
+        Log.i(TAG, "nativeExtract enter fd=$fd out=${staging.absolutePath}")
+        val result = PkgExtractor.nativeExtract(
+            fd = fd,
+            outPath = staging.absolutePath,
+            passcode = passcode,
+            listener = { bytesDone, totalHint, currentFile ->
+                ImportManager.update(
+                    ImportProgress.Extracting(
+                        bytesCopied = bytesDone,
+                        totalBytes = totalHint,
+                        currentFile = currentFile,
+                        gameTitle = displayName,
+                    ),
+                )
+                val (max, progress) = scaledProgress(bytesDone, totalHint)
+                val sizeText = if (totalHint > 0) {
+                    "${formatBytes(bytesDone)} / ${formatBytes(totalHint)}"
+                } else {
+                    formatBytes(bytesDone)
+                }
+                updateNotification(
+                    "Extracting PKG · $sizeText · $currentFile",
+                    maxProgress = max,
+                    progress = progress,
+                    indeterminate = max == 0,
+                )
+                val now = System.currentTimeMillis()
+                if (now - lastLogAt >= 5_000L) {
+                    lastLogAt = now
+                    Log.i(TAG, "nativeExtract progress $sizeText file=$currentFile")
+                }
+            },
+        )
+        Log.i(TAG, "nativeExtract exit status=${result.status} msg=${result.message}")
+        return result
+    }
 
     private fun handleFailure(failure: Throwable) {
         if (failure is CancellationException) {
+            Log.i(TAG, "import cancelled")
             ImportManager.reset()
             getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
         } else {
             val message = failure.message ?: failure.javaClass.simpleName
+            Log.e(TAG, "import failed: $message", failure)
             ImportManager.update(ImportProgress.Failed(message))
             notifyDone("Import failed: $message", ongoing = false)
         }
@@ -440,6 +494,7 @@ class ImportService : Service() {
     }
 
     private companion object {
+        const val TAG = "BachataImport"
         const val CHANNEL_ID = "import"
         const val NOTIFICATION_ID = 42
         const val PROGRESS_SCALE = 1000
