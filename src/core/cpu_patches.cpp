@@ -728,23 +728,42 @@ static bool TryExecuteIllegalInstruction(void* ctx, void* code_address) {
         u64 lowQWordDst;
         memcpy(&lowQWordDst, dst, sizeof(lowQWordDst));
 
-        u64 length = lowQWordSrc & 0x3F;
+        u64 raw_length_field = lowQWordSrc & 0x3F;
+        u64 index = (lowQWordSrc >> 8) & 0x3F;
+
+        // EXPERIMENTAL: AMD's docs mark "length field == 0 AND index != 0" as its own
+        // undefined case, separate from length+index > 64. The existing code always
+        // treats a raw length field of 0 as "64" regardless of index, which is one
+        // interpretation but not a confirmed match for real Jaguar silicon.
+        //
+        // This branch tries an alternate interpretation for that specific sub-case:
+        // when the raw field is 0 but index != 0, treat it as a 1-bit extract at
+        // `index` instead of a full 64-bit (all-ones-mask) extract. Toggle
+        // EXTRQ_ALT_ZERO_LENGTH_HEURISTIC to flip between the two for A/B testing.
+        constexpr bool EXTRQ_ALT_ZERO_LENGTH_HEURISTIC = true;
+
+        u64 length;
         u64 mask;
-        if (length == 0) {
-            length = 64; // for the check below
-            mask = 0xFFFF'FFFF'FFFF'FFFF;
+        if (raw_length_field == 0) {
+            if constexpr (EXTRQ_ALT_ZERO_LENGTH_HEURISTIC) {
+                length = (index == 0) ? 64 : 1;
+            } else {
+                length = 64;
+            }
+            mask = (length == 64) ? 0xFFFF'FFFF'FFFF'FFFF : (1ULL << length) - 1;
         } else {
+            length = raw_length_field;
             mask = (1ULL << length) - 1;
         }
 
-        u64 index = (lowQWordSrc >> 8) & 0x3F;
         if (length + index > 64) {
             // Undefined behavior if length + index is bigger than 64 according to the spec,
             // we'll warn and continue execution.
             LOG_TRACE(Core,
-                      "extrq at {} with length {} and index {} is bigger than 64, "
-                      "undefined behavior",
-                      fmt::ptr(code_address), length, index);
+                      "extrq at {} with length {} and index {} (raw_length_field={}) is bigger "
+                      "than 64, undefined behavior. srcQword=0x{:016x} dstQword_before=0x{:016x}",
+                      fmt::ptr(code_address), length, index, raw_length_field, lowQWordSrc,
+                      lowQWordDst);
         }
 
         lowQWordDst >>= index;
