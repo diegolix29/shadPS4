@@ -3,6 +3,7 @@ add_library(bachata_pkg SHARED
     pkg_extractor.cpp
     pkg_crypto.cpp
     pkg_type.cpp
+    aes.c
 )
 
 target_include_directories(bachata_pkg PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
