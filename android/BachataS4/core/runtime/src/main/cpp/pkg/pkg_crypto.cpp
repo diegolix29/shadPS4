@@ -100,8 +100,8 @@ void sha256(const uint8_t* data, size_t len, uint8_t out[32]) {
     sha256_final(ctx, out);
 }
 
-// ---------------- AES-128 ----------------
-// Tiny AES (public domain style) — S-box and core.
+// ---------------- AES-128 (column-major, NIST-compatible) ----------------
+// State layout matches FIPS-197 / tiny-AES-c: s[r + 4*c]
 const uint8_t sbox[256] = {
     0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,
     0xca,0x82,0xc9,0x7d,0xfa,0x59,0x47,0xf0,0xad,0xd4,0xa2,0xaf,0x9c,0xa4,0x72,0xc0,
@@ -138,77 +138,97 @@ const uint8_t rsbox[256] = {
     0xa0,0xe0,0x3b,0x4d,0xae,0x2a,0xf5,0xb0,0xc8,0xeb,0xbb,0x3c,0x83,0x53,0x99,0x61,
     0x17,0x2b,0x04,0x7e,0xba,0x77,0xd6,0x26,0xe1,0x69,0x14,0x63,0x55,0x21,0x0c,0x7d,
 };
-const uint8_t rcon[11] = {0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1b,0x36};
+const uint8_t rcon[11] = {0x8d,0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1b,0x36};
 
 uint8_t xtime(uint8_t x) { return static_cast<uint8_t>((x << 1) ^ (((x >> 7) & 1) * 0x1b)); }
 
 void aes_key_expansion(const uint8_t key[16], uint8_t round_keys[176]) {
     std::memcpy(round_keys, key, 16);
-    uint8_t temp[4];
-    int bytes = 16;
-    int rcon_i = 1;
-    while (bytes < 176) {
-        std::memcpy(temp, round_keys + bytes - 4, 4);
-        if (bytes % 16 == 0) {
-            const uint8_t t = temp[0];
-            temp[0] = sbox[temp[1]] ^ rcon[rcon_i++];
-            temp[1] = sbox[temp[2]];
-            temp[2] = sbox[temp[3]];
-            temp[3] = sbox[t];
+    uint8_t tempa[4];
+    int i = 4;
+    while (i < 44) {
+        tempa[0] = round_keys[(i - 1) * 4 + 0];
+        tempa[1] = round_keys[(i - 1) * 4 + 1];
+        tempa[2] = round_keys[(i - 1) * 4 + 2];
+        tempa[3] = round_keys[(i - 1) * 4 + 3];
+        if (i % 4 == 0) {
+            const uint8_t u = tempa[0];
+            tempa[0] = tempa[1];
+            tempa[1] = tempa[2];
+            tempa[2] = tempa[3];
+            tempa[3] = u;
+            tempa[0] = sbox[tempa[0]];
+            tempa[1] = sbox[tempa[1]];
+            tempa[2] = sbox[tempa[2]];
+            tempa[3] = sbox[tempa[3]];
+            tempa[0] ^= rcon[i / 4];
         }
-        for (int i = 0; i < 4; ++i) {
-            round_keys[bytes] = round_keys[bytes - 16] ^ temp[i];
-            ++bytes;
-        }
+        round_keys[i * 4 + 0] = round_keys[(i - 4) * 4 + 0] ^ tempa[0];
+        round_keys[i * 4 + 1] = round_keys[(i - 4) * 4 + 1] ^ tempa[1];
+        round_keys[i * 4 + 2] = round_keys[(i - 4) * 4 + 2] ^ tempa[2];
+        round_keys[i * 4 + 3] = round_keys[(i - 4) * 4 + 3] ^ tempa[3];
+        ++i;
     }
 }
 
 void add_round_key(uint8_t state[16], const uint8_t* rk) {
     for (int i = 0; i < 16; ++i) state[i] ^= rk[i];
 }
-void sub_bytes(uint8_t state[16]) { for (int i = 0; i < 16; ++i) state[i] = sbox[state[i]]; }
-void inv_sub_bytes(uint8_t state[16]) { for (int i = 0; i < 16; ++i) state[i] = rsbox[state[i]]; }
+void sub_bytes(uint8_t state[16]) {
+    for (int i = 0; i < 16; ++i) state[i] = sbox[state[i]];
+}
+void inv_sub_bytes(uint8_t state[16]) {
+    for (int i = 0; i < 16; ++i) state[i] = rsbox[state[i]];
+}
 void shift_rows(uint8_t s[16]) {
-    uint8_t t;
-    t = s[1]; s[1] = s[5]; s[5] = s[9]; s[9] = s[13]; s[13] = t;
-    t = s[2]; s[2] = s[10]; s[10] = t; t = s[6]; s[6] = s[14]; s[14] = t;
-    t = s[15]; s[15] = s[11]; s[11] = s[7]; s[7] = s[3]; s[3] = t;
+    uint8_t temp;
+    // Row 1
+    temp = s[1]; s[1] = s[5]; s[5] = s[9]; s[9] = s[13]; s[13] = temp;
+    // Row 2
+    temp = s[2]; s[2] = s[10]; s[10] = temp; temp = s[6]; s[6] = s[14]; s[14] = temp;
+    // Row 3
+    temp = s[15]; s[15] = s[11]; s[11] = s[7]; s[7] = s[3]; s[3] = temp;
 }
 void inv_shift_rows(uint8_t s[16]) {
-    uint8_t t;
-    t = s[13]; s[13] = s[9]; s[9] = s[5]; s[5] = s[1]; s[1] = t;
-    t = s[2]; s[2] = s[10]; s[10] = t; t = s[6]; s[6] = s[14]; s[14] = t;
-    t = s[3]; s[3] = s[7]; s[7] = s[11]; s[11] = s[15]; s[15] = t;
+    uint8_t temp;
+    temp = s[13]; s[13] = s[9]; s[9] = s[5]; s[5] = s[1]; s[1] = temp;
+    temp = s[2]; s[2] = s[10]; s[10] = temp; temp = s[6]; s[6] = s[14]; s[14] = temp;
+    temp = s[3]; s[3] = s[7]; s[7] = s[11]; s[11] = s[15]; s[15] = temp;
 }
 void mix_columns(uint8_t s[16]) {
-    for (int i = 0; i < 4; ++i) {
-        uint8_t* c = s + i * 4;
-        const uint8_t a0 = c[0], a1 = c[1], a2 = c[2], a3 = c[3];
-        c[0] = xtime(a0) ^ xtime(a1) ^ a1 ^ a2 ^ a3;
-        c[1] = a0 ^ xtime(a1) ^ xtime(a2) ^ a2 ^ a3;
-        c[2] = a0 ^ a1 ^ xtime(a2) ^ xtime(a3) ^ a3;
-        c[3] = xtime(a0) ^ a0 ^ a1 ^ a2 ^ xtime(a3);
+    for (int c = 0; c < 4; ++c) {
+        const uint8_t a0 = s[c * 4 + 0];
+        const uint8_t a1 = s[c * 4 + 1];
+        const uint8_t a2 = s[c * 4 + 2];
+        const uint8_t a3 = s[c * 4 + 3];
+        // column-major: bytes of column c are consecutive at c*4
+        s[c * 4 + 0] = xtime(a0) ^ xtime(a1) ^ a1 ^ a2 ^ a3;
+        s[c * 4 + 1] = a0 ^ xtime(a1) ^ xtime(a2) ^ a2 ^ a3;
+        s[c * 4 + 2] = a0 ^ a1 ^ xtime(a2) ^ xtime(a3) ^ a3;
+        s[c * 4 + 3] = xtime(a0) ^ a0 ^ a1 ^ a2 ^ xtime(a3);
     }
 }
 uint8_t mul(uint8_t a, uint8_t b) {
     uint8_t p = 0;
     for (int i = 0; i < 8; ++i) {
         if (b & 1) p ^= a;
-        const bool hi = a & 0x80;
-        a <<= 1;
+        const bool hi = (a & 0x80) != 0;
+        a = static_cast<uint8_t>(a << 1);
         if (hi) a ^= 0x1b;
-        b >>= 1;
+        b = static_cast<uint8_t>(b >> 1);
     }
     return p;
 }
 void inv_mix_columns(uint8_t s[16]) {
-    for (int i = 0; i < 4; ++i) {
-        uint8_t* c = s + i * 4;
-        const uint8_t a0 = c[0], a1 = c[1], a2 = c[2], a3 = c[3];
-        c[0] = mul(a0, 0x0e) ^ mul(a1, 0x0b) ^ mul(a2, 0x0d) ^ mul(a3, 0x09);
-        c[1] = mul(a0, 0x09) ^ mul(a1, 0x0e) ^ mul(a2, 0x0b) ^ mul(a3, 0x0d);
-        c[2] = mul(a0, 0x0d) ^ mul(a1, 0x09) ^ mul(a2, 0x0e) ^ mul(a3, 0x0b);
-        c[3] = mul(a0, 0x0b) ^ mul(a1, 0x0d) ^ mul(a2, 0x09) ^ mul(a3, 0x0e);
+    for (int c = 0; c < 4; ++c) {
+        const uint8_t a0 = s[c * 4 + 0];
+        const uint8_t a1 = s[c * 4 + 1];
+        const uint8_t a2 = s[c * 4 + 2];
+        const uint8_t a3 = s[c * 4 + 3];
+        s[c * 4 + 0] = mul(a0, 0x0e) ^ mul(a1, 0x0b) ^ mul(a2, 0x0d) ^ mul(a3, 0x09);
+        s[c * 4 + 1] = mul(a0, 0x09) ^ mul(a1, 0x0e) ^ mul(a2, 0x0b) ^ mul(a3, 0x0d);
+        s[c * 4 + 2] = mul(a0, 0x0d) ^ mul(a1, 0x09) ^ mul(a2, 0x0e) ^ mul(a3, 0x0b);
+        s[c * 4 + 3] = mul(a0, 0x0b) ^ mul(a1, 0x0d) ^ mul(a2, 0x09) ^ mul(a3, 0x0e);
     }
 }
 
@@ -217,9 +237,14 @@ void aes_encrypt_block(const uint8_t rk[176], const uint8_t in[16], uint8_t out[
     std::memcpy(s, in, 16);
     add_round_key(s, rk);
     for (int r = 1; r < 10; ++r) {
-        sub_bytes(s); shift_rows(s); mix_columns(s); add_round_key(s, rk + r * 16);
+        sub_bytes(s);
+        shift_rows(s);
+        mix_columns(s);
+        add_round_key(s, rk + r * 16);
     }
-    sub_bytes(s); shift_rows(s); add_round_key(s, rk + 160);
+    sub_bytes(s);
+    shift_rows(s);
+    add_round_key(s, rk + 160);
     std::memcpy(out, s, 16);
 }
 void aes_decrypt_block(const uint8_t rk[176], const uint8_t in[16], uint8_t out[16]) {
@@ -227,9 +252,14 @@ void aes_decrypt_block(const uint8_t rk[176], const uint8_t in[16], uint8_t out[
     std::memcpy(s, in, 16);
     add_round_key(s, rk + 160);
     for (int r = 9; r > 0; --r) {
-        inv_shift_rows(s); inv_sub_bytes(s); add_round_key(s, rk + r * 16); inv_mix_columns(s);
+        inv_shift_rows(s);
+        inv_sub_bytes(s);
+        add_round_key(s, rk + r * 16);
+        inv_mix_columns(s);
     }
-    inv_shift_rows(s); inv_sub_bytes(s); add_round_key(s, rk);
+    inv_shift_rows(s);
+    inv_sub_bytes(s);
+    add_round_key(s, rk);
     std::memcpy(out, s, 16);
 }
 
@@ -241,7 +271,7 @@ void aes_cbc_decrypt(const uint8_t key[16], const uint8_t iv[16], const uint8_t*
     for (size_t i = 0; i < len; i += 16) {
         uint8_t block[16];
         aes_decrypt_block(rk, in + i, block);
-        for (int j = 0; j < 16; ++j) out[i + j] = block[j] ^ prev[j];
+        for (int j = 0; j < 16; ++j) out[i + j] = static_cast<uint8_t>(block[j] ^ prev[j]);
         std::memcpy(prev, in + i, 16);
     }
 }
