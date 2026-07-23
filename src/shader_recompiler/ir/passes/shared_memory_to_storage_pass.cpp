@@ -105,7 +105,8 @@ void SharedMemoryToStoragePass(IR::Program& program, const RuntimeInfo& runtime_
     // * One of the following is true:
     //   * Requested shared memory size is too large for the host shared memory.
     //   * Workgroup explicit memory is not supported and multiple shared memory types are used.
-    const u32 shared_memory_size = runtime_info.cs_info.shared_memory_size;
+    const u32 shared_memory_size =
+        runtime_info.cs_info.shared_memory_size + program.info.shared_memory_scratch_size;
     const auto used_types = CalculateSharedMemoryTypes(program);
     if (used_types == IR::Type::Void || (shared_memory_size <= profile.max_shared_memory_size &&
                                          (profile.supports_workgroup_explicit_memory_layout ||

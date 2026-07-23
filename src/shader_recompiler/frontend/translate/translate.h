@@ -358,6 +358,7 @@ private:
     template <typename T = IR::U32, bool is_signed = false>
     [[nodiscard]] pk_type<T> GetSrcPk(const InstOperand& operand);
     void SetDst1(const InstOperand& operand, const IR::U1& value);
+    void SetDstCompareMask(const InstOperand& operand, const IR::U1& value);
     void SetDst(const InstOperand& operand, const IR::U32F32& value);
     template <bool is_signed = false>
     void SetDst16(const InstOperand& operand, const IR::U32F32& value);

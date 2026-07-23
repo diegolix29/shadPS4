@@ -117,6 +117,10 @@ set(GCN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/ir_passes.h
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/constant_propagation_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/dead_code_elimination_pass.cpp
+    ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/lower_wave64_ballot_pass.cpp
+    ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/shared_memory_barrier_pass.cpp
+    ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/wave64_lowering.cpp
+    ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/wave64_lowering.h
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/identity_removal_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/shader_info_collection_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/ssa_rewrite_pass.cpp
@@ -155,6 +159,7 @@ set(GCN_TEST_SOURCES
     gcn/test_guest_lane_id.cpp
     gcn/test_gcn_instructions.cpp
     gcn/test_mbcnt.cpp
+    gcn/test_wave64_ballot.cpp
 )
 
 add_executable(shadps4_settings_test ${SETTINGS_TEST_SOURCES})

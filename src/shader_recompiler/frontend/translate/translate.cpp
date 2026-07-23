@@ -929,6 +929,23 @@ void Translator::SetDst1(const InstOperand& operand, const IR::U1& value) {
     }
 }
 
+void Translator::SetDstCompareMask(const InstOperand& operand, const IR::U1& value) {
+    // GCN compare masks are fully written as EXEC & predicate, including when VOP3 redirects the
+    // result to an arbitrary SGPR pair.
+    const IR::U1 masked{ir.LogicalAnd(ir.GetExec(), value)};
+    SetDst1(operand, masked);
+    if (operand.field != OperandField::ScalarGPR) {
+        return;
+    }
+
+    // VOP3 compares can write an arbitrary SGPR pair. Keep the per-invocation predicate used by
+    // scalar control flow, but also materialize the full guest wave mask for ordinary SGPR reads
+    // such as V_BCNT and V_MBCNT.
+    const IR::Value mask = ir.Ballot(masked);
+    ir.SetScalarReg(IR::ScalarReg(operand.code), IR::U32{ir.CompositeExtract(mask, 0)});
+    ir.SetScalarReg(IR::ScalarReg(operand.code + 1), IR::U32{ir.CompositeExtract(mask, 1)});
+}
+
 void Translator::SetDst(const InstOperand& operand, const IR::U32F32& value) {
     IR::U32F32 result = value;
     if (value.Type() == IR::Type::F32) {

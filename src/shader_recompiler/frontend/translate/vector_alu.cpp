@@ -1181,10 +1181,10 @@ void Translator::V_CMP_F32(ConditionOp op, bool set_exec, const GcnInst& inst) {
         // and the VCC/SDST destination, zeroing inactive lanes' bits.
         const IR::U1 masked{ir.LogicalAnd(ir.GetExec(), result)};
         ir.SetExec(masked);
-        SetDst1(inst.dst[1], masked);
+        SetDstCompareMask(inst.dst[1], masked);
         return;
     }
-    SetDst1(inst.dst[1], result);
+    SetDstCompareMask(inst.dst[1], result);
 }
 
 void Translator::V_CMP_F64(ConditionOp op, bool set_exec, const GcnInst& inst) {
@@ -1216,10 +1216,10 @@ void Translator::V_CMP_F64(ConditionOp op, bool set_exec, const GcnInst& inst) {
         // See the V_CMPX note in V_CMP_F32.
         const IR::U1 masked{ir.LogicalAnd(ir.GetExec(), result)};
         ir.SetExec(masked);
-        SetDst1(inst.dst[1], masked);
+        SetDstCompareMask(inst.dst[1], masked);
         return;
     }
-    SetDst1(inst.dst[1], result);
+    SetDstCompareMask(inst.dst[1], result);
 }
 
 void Translator::V_CMP_U32(ConditionOp op, bool is_signed, bool set_exec, const GcnInst& inst) {
@@ -1251,10 +1251,10 @@ void Translator::V_CMP_U32(ConditionOp op, bool is_signed, bool set_exec, const 
         // See the V_CMPX note in V_CMP_F32.
         const IR::U1 masked{ir.LogicalAnd(ir.GetExec(), result)};
         ir.SetExec(masked);
-        SetDst1(inst.dst[1], masked);
+        SetDstCompareMask(inst.dst[1], masked);
         return;
     }
-    SetDst1(inst.dst[1], result);
+    SetDstCompareMask(inst.dst[1], result);
 }
 
 void Translator::V_CMP_U64(ConditionOp op, bool is_signed, bool set_exec, const GcnInst& inst) {
@@ -1296,7 +1296,7 @@ void Translator::V_CMP_U64(ConditionOp op, bool is_signed, bool set_exec, const 
     if (set_exec) {
         UNREACHABLE_MSG("Exec setting for V_CMP_U64 is not supported");
     }
-    SetDst1(inst.dst[1], result);
+    SetDstCompareMask(inst.dst[1], result);
 }
 
 void Translator::V_CMP_CLASS_F32(const GcnInst& inst) {
@@ -1318,7 +1318,7 @@ void Translator::V_CMP_CLASS_F32(const GcnInst& inst) {
         // We don't know the type yet, delay its resolution.
         value = ir.FPCmpClass32(src0, src1);
     }
-    SetDst1(inst.dst[1], value);
+    SetDstCompareMask(inst.dst[1], value);
 }
 
 // VOP3a

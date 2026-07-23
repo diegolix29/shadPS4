@@ -637,7 +637,9 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
             } else if (desc.buffer_type == Shader::BufferType::SharedMemory) {
                 auto& lds_buffer = buffer_cache.GetUtilityBuffer(VideoCore::MemoryUsage::Stream);
                 const auto& cs_program = liverpool->GetCsRegs();
-                const auto lds_size = cs_program.SharedMemSize() * cs_program.NumWorkgroups();
+                const u64 lds_size =
+                    (u64{cs_program.SharedMemSize()} + stage.shared_memory_scratch_size) *
+                    cs_program.NumWorkgroups();
                 const auto [data, offset] = lds_buffer.Map(lds_size, alignment);
                 std::memset(data, 0, lds_size);
                 buffer_infos.emplace_back(lds_buffer.Handle(), offset, lds_size);

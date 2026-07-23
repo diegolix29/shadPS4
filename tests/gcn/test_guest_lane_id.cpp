@@ -31,6 +31,16 @@ void EmitMbcntLaneId(Translator& translator, bool is_low = true) {
     translator.V_MBCNT_U32_B32(is_low, inst);
 }
 
+void EmitU32Compare(Translator& translator, OperandField destination) {
+    GcnInst inst{};
+    inst.src[0].field = OperandField::VectorGPR;
+    inst.src[0].code = 0;
+    inst.src[1].field = OperandField::ConstZero;
+    inst.dst[1].field = destination;
+    inst.dst[1].code = 4;
+    translator.V_CMP_U32(ConditionOp::LG, false, false, inst);
+}
+
 TEST(GuestLaneIdTest, ComputeMbcntUsesGuestLaneId) {
     Info info{};
     info.stage = Stage::Compute;
@@ -110,6 +120,47 @@ TEST(GuestLaneIdTest, ShaderInfoTracksGuestAndSubgroupLaneIdsSeparately) {
 
     EXPECT_TRUE(info.uses_guest_lane_id);
     EXPECT_TRUE(info.uses_lane_id);
+}
+
+TEST(GuestLaneIdTest, ExplicitCompareDestinationMaterializesGuestMask) {
+    Info info{};
+    info.stage = Stage::Compute;
+    info.l_stage = LogicalStage::Compute;
+    RuntimeInfo runtime_info{};
+    runtime_info.Initialize(Stage::Compute);
+    Profile profile{};
+    Common::ObjectPool<IR::Inst> inst_pool{64};
+    IR::Block block{inst_pool};
+    Translator translator{info, runtime_info, profile};
+    translator.EmitPrologue(&block);
+
+    EmitU32Compare(translator, OperandField::ScalarGPR);
+
+    EXPECT_EQ(CountOpcode(block, IR::Opcode::GetExec), 1);
+    EXPECT_EQ(CountOpcode(block, IR::Opcode::LogicalAnd), 1);
+    EXPECT_EQ(CountOpcode(block, IR::Opcode::SetThreadBitScalarReg), 1);
+    EXPECT_EQ(CountOpcode(block, IR::Opcode::Ballot), 1);
+    EXPECT_EQ(CountOpcode(block, IR::Opcode::CompositeExtractU32x4), 2);
+    EXPECT_EQ(CountOpcode(block, IR::Opcode::SetScalarRegister), 2);
+}
+
+TEST(GuestLaneIdTest, VccCompareDestinationKeepsPerLaneRepresentation) {
+    Info info{};
+    info.stage = Stage::Compute;
+    info.l_stage = LogicalStage::Compute;
+    RuntimeInfo runtime_info{};
+    runtime_info.Initialize(Stage::Compute);
+    Profile profile{};
+    Common::ObjectPool<IR::Inst> inst_pool{64};
+    IR::Block block{inst_pool};
+    Translator translator{info, runtime_info, profile};
+    translator.EmitPrologue(&block);
+
+    EmitU32Compare(translator, OperandField::VccLo);
+
+    EXPECT_EQ(CountOpcode(block, IR::Opcode::SetVcc), 1);
+    EXPECT_EQ(CountOpcode(block, IR::Opcode::Ballot), 0);
+    EXPECT_EQ(CountOpcode(block, IR::Opcode::SetScalarRegister), 0);
 }
 
 } // namespace
