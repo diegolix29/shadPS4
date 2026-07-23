@@ -449,6 +449,40 @@ private fun SettingsContent(
                                 }
                             }
                         }
+                        item {
+                            val ctx = LocalContext.current
+                            val clearKeysScope = rememberCoroutineScope()
+                            BachataPanel(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .fillMaxWidth(),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text("Game import", fontWeight = FontWeight.Bold)
+                                    Text(
+                                        "Clears saved PKG passcodes used for package import.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                    BachataPrimaryButton(onClick = {
+                                        clearKeysScope.launch {
+                                            withContext(Dispatchers.IO) {
+                                                com.bachatas4.android.data.PkgKeyStore(ctx.filesDir).clear()
+                                            }
+                                            android.widget.Toast.makeText(
+                                                ctx,
+                                                "Saved PKG keys cleared",
+                                                android.widget.Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                    }) {
+                                        Text("Clear saved PKG keys")
+                                    }
+                                }
+                            }
+                        }
                         if (state.runtime == SettingsRuntime.SHADPS4) {
                             item {
                                 val gameScope = state.scope is ProfileScope.Game

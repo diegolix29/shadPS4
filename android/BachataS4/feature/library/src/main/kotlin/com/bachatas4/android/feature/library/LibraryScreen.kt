@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -41,10 +42,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Surface
+import androidx.documentfile.provider.DocumentFile
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -84,6 +87,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -106,6 +110,24 @@ fun LibraryScreen(
         runCatching { dependencies.gameRepository().backfillTitlesFromSfo() }
         dependencies.gameRepository().observeGames().collectLatest(viewModel::setGames)
     }
+    // Success / Failed free the import slot for a new pick; clear Success banner after a short delay.
+    LaunchedEffect(importProgress) {
+        when (importProgress) {
+            is ImportProgress.Success -> {
+                delay(4_000)
+                if (ImportManager.progress.value is ImportProgress.Success) {
+                    ImportManager.reset()
+                }
+            }
+            is ImportProgress.Failed -> {
+                delay(8_000)
+                if (ImportManager.progress.value is ImportProgress.Failed) {
+                    ImportManager.reset()
+                }
+            }
+            else -> Unit
+        }
+    }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { /* optional: import progress notification when user grants POST_NOTIFICATIONS */ }
@@ -116,18 +138,111 @@ fun LibraryScreen(
             }
         }
     }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+    var showImportChooser by remember { mutableStateOf(false) }
+    var passcodeInput by remember { mutableStateOf("") }
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        if (ImportManager.isBusy()) {
+            Toast.makeText(context, "Import already in progress", Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
         val intent = Intent(ImportManager.ACTION_IMPORT).apply {
             setClassName(context.packageName, ImportManager.SERVICE_CLASS)
             putExtra(ImportManager.EXTRA_URI, uri.toString())
+            putExtra(ImportManager.EXTRA_MODE, ImportManager.MODE_FOLDER)
         }
         context.startService(intent)
     }
+    val pkgPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        if (ImportManager.isBusy()) {
+            Toast.makeText(context, "Import already in progress", Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
+        val name = DocumentFile.fromSingleUri(context, uri)?.name.orEmpty()
+        if (!name.endsWith(".pkg", ignoreCase = true)) {
+            Toast.makeText(context, "Select a .pkg file", Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val intent = Intent(ImportManager.ACTION_IMPORT).apply {
+            setClassName(context.packageName, ImportManager.SERVICE_CLASS)
+            putExtra(ImportManager.EXTRA_URI, uri.toString())
+            putExtra(ImportManager.EXTRA_MODE, ImportManager.MODE_PKG)
+        }
+        context.startService(intent)
+    }
+    val requestImport: () -> Unit = {
+        if (ImportManager.isBusy()) {
+            Toast.makeText(context, "Import already in progress", Toast.LENGTH_SHORT).show()
+        } else {
+            showImportChooser = true
+        }
+    }
+    if (showImportChooser) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showImportChooser = false },
+            title = { Text("Import game") },
+            text = { Text("Choose a game folder or a PS4 .pkg package.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showImportChooser = false
+                    folderPicker.launch(null)
+                }) { Text("Folder") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showImportChooser = false
+                    pkgPicker.launch(arrayOf("*/*"))
+                }) { Text("PKG") }
+            },
+        )
+    }
+    val needPasscode = importProgress as? ImportProgress.NeedPasscode
+    if (needPasscode != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { /* wait for submit/cancel via service */ },
+            title = { Text("PKG passcode") },
+            text = {
+                Column {
+                    Text(needPasscode.titleHint ?: needPasscode.contentId)
+                    androidx.compose.material3.OutlinedTextField(
+                        value = passcodeInput,
+                        onValueChange = { passcodeInput = it.take(32) },
+                        singleLine = true,
+                        label = { Text("32-character passcode") },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val intent = Intent(ImportManager.ACTION_SUBMIT_PASSCODE).apply {
+                        setClassName(context.packageName, ImportManager.SERVICE_CLASS)
+                        putExtra(ImportManager.EXTRA_PASSCODE, passcodeInput)
+                    }
+                    context.startService(intent)
+                    passcodeInput = ""
+                }) { Text("Submit") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    val intent = Intent(ImportManager.ACTION_CANCEL).apply {
+                        setClassName(context.packageName, ImportManager.SERVICE_CLASS)
+                    }
+                    context.startService(intent)
+                    passcodeInput = ""
+                }) { Text("Cancel") }
+            },
+        )
+    }
     val onLaunchWithTracking: (String) -> Unit = { id ->
         if (id == "__import_card__") {
-            picker.launch(null)
+            requestImport()
         } else {
             scope.launch {
                 runCatching { dependencies.gameRepository().updateLastLaunched(id) }
@@ -142,7 +257,7 @@ fun LibraryScreen(
     LaunchedEffect(viewModel) {
         viewModel.launch.collect { id ->
             if (id == "__import_card__") {
-                picker.launch(null)
+                requestImport()
             } else {
                 runCatching { dependencies.gameRepository().updateLastLaunched(id) }
                 onLaunch(id)
@@ -162,7 +277,7 @@ fun LibraryScreen(
         onOpenSettings = onOpenSettings,
         onOpenGameSettings = onOpenGameSettings,
         onSelectGame = viewModel::selectGame,
-        onImport = { picker.launch(null) },
+        onImport = requestImport,
         onLaunch = onLaunchWithTracking,
         onRequestDelete = { gameToDelete = it },
         onConfirmDelete = { id ->
@@ -195,7 +310,7 @@ fun LibraryContent(
 ) {
     val selected = state.games.firstOrNull { it.id == state.selectedGameId }
     val context = LocalContext.current
-    val isImporting = importProgress !is ImportProgress.Idle && importProgress !is ImportProgress.Failed
+    val isImporting = ImportManager.isBusy(importProgress)
     val selectedCoverBitmap = remember(selected?.relativePath) {
         if (selected == null) null else {
             val file = GameIconPaths.icon0(context.filesDir, selected.relativePath)
@@ -318,43 +433,84 @@ fun LibraryContent(
                 }
 
                 when (val progress = importProgress) {
+                    is ImportProgress.Preparing -> {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            ImportStatusCard(
+                                title = "Preparing import…",
+                                subtitle = "Scanning game folder. Large titles can take a while.",
+                                indeterminate = true,
+                            )
+                        }
+                    }
                     is ImportProgress.Scanning -> {
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            Text(
-                                "Identifying ${progress.folderName}…",
-                                color = BachataPalette.Secondary,
+                            ImportStatusCard(
+                                title = "Identifying ${progress.folderName}…",
+                                subtitle = "Reading game metadata",
+                                indeterminate = true,
                             )
                         }
                     }
                     is ImportProgress.Copying -> {
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    "Importing ${progress.gameTitle}",
-                                    color = BachataPalette.Primary,
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                                val fraction = if (progress.totalBytes > 0) {
-                                    progress.bytesCopied.toFloat() / progress.totalBytes.toFloat()
-                                } else 0f
-                                LinearProgressIndicator(
-                                    progress = { fraction.coerceIn(0f, 1f) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = BachataPalette.Accent,
-                                )
-                                Text(
-                                    "${formatBytes(progress.bytesCopied)} / ${formatBytes(progress.totalBytes)}",
-                                    color = BachataPalette.Secondary,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                                Text(
-                                    progress.currentFile,
-                                    color = BachataPalette.Secondary,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                            val fraction = if (progress.totalBytes > 0) {
+                                (progress.bytesCopied.toFloat() / progress.totalBytes.toFloat())
+                                    .coerceIn(0f, 1f)
+                            } else {
+                                0f
                             }
+                            val percent = (fraction * 100f).toInt()
+                            ImportStatusCard(
+                                title = "Importing ${progress.gameTitle}",
+                                subtitle = if (progress.totalBytes > 0) {
+                                    "${formatBytes(progress.bytesCopied)} / ${formatBytes(progress.totalBytes)} · $percent%"
+                                } else {
+                                    formatBytes(progress.bytesCopied)
+                                },
+                                detail = progress.currentFile,
+                                progress = fraction,
+                                indeterminate = progress.totalBytes <= 0,
+                            )
+                        }
+                    }
+                    is ImportProgress.Extracting -> {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            val fraction = if (progress.totalBytes > 0) {
+                                (progress.bytesCopied.toFloat() / progress.totalBytes.toFloat())
+                                    .coerceIn(0f, 1f)
+                            } else {
+                                0f
+                            }
+                            val percent = (fraction * 100f).toInt()
+                            ImportStatusCard(
+                                title = "Extracting ${progress.gameTitle}",
+                                subtitle = if (progress.totalBytes > 0) {
+                                    "${formatBytes(progress.bytesCopied)} / ${formatBytes(progress.totalBytes)} · $percent%"
+                                } else {
+                                    formatBytes(progress.bytesCopied)
+                                },
+                                detail = progress.currentFile,
+                                progress = fraction,
+                                indeterminate = progress.totalBytes <= 0,
+                            )
+                        }
+                    }
+                    is ImportProgress.Finalizing -> {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            ImportStatusCard(
+                                title = "Registering ${progress.title}…",
+                                subtitle = "Writing game library entry",
+                                indeterminate = true,
+                            )
+                        }
+                    }
+                    is ImportProgress.NeedPasscode -> {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            ImportStatusCard(
+                                title = "Passcode required",
+                                subtitle = progress.titleHint ?: progress.contentId,
+                                indeterminate = true,
+                            )
                         }
                     }
                     is ImportProgress.Success -> {
@@ -417,10 +573,12 @@ fun LibraryContent(
                 item(key = "import_card") {
                     ImportGameCard(
                         onClick = {
+                            if (isImporting) return@ImportGameCard
                             onSelectGame("__import_card__")
                             onImport()
                         },
-                        selected = state.selectedGameId == "__import_card__"
+                        selected = state.selectedGameId == "__import_card__",
+                        enabled = !isImporting,
                     )
                 }
             }
@@ -546,16 +704,79 @@ private fun LibraryGameCard(
 }
 
 @Composable
+private fun ImportStatusCard(
+    title: String,
+    subtitle: String,
+    detail: String? = null,
+    progress: Float = 0f,
+    indeterminate: Boolean = false,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = BachataPalette.Surface.copy(alpha = 0.55f),
+        shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BachataPalette.Accent.copy(alpha = 0.35f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                title,
+                color = BachataPalette.Primary,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (indeterminate) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = BachataPalette.Accent,
+                )
+            } else {
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = BachataPalette.Accent,
+                )
+            }
+            Text(
+                subtitle,
+                color = BachataPalette.Secondary,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (!detail.isNullOrBlank()) {
+                Text(
+                    detail,
+                    color = BachataPalette.Secondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ImportGameCard(
     onClick: () -> Unit,
     selected: Boolean,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    val accent = if (enabled) BachataPalette.Accent else BachataPalette.Secondary
+    val primary = if (enabled) BachataPalette.Primary else BachataPalette.Secondary
     GlassMorphicPanel(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        selected = selected,
+            .then(
+                if (enabled) {
+                    Modifier.clickable { onClick() }
+                } else {
+                    Modifier
+                },
+            ),
+        selected = selected && enabled,
     ) {
         Column(
             modifier = Modifier
@@ -573,16 +794,16 @@ private fun ImportGameCard(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "+",
+                    text = if (enabled) "+" else "…",
                     style = MaterialTheme.typography.displayMedium,
-                    color = BachataPalette.Accent,
+                    color = accent,
                     fontWeight = FontWeight.Bold
                 )
             }
             Text(
-                text = "Import Game",
+                text = if (enabled) "Import Game" else "Importing…",
                 maxLines = 2,
-                color = BachataPalette.Primary,
+                color = primary,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center

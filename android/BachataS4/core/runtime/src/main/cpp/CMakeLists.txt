@@ -18,4 +18,5 @@ add_subdirectory("${ADRENOTOOLS_ROOT}" "${CMAKE_CURRENT_BINARY_DIR}/libadrenotoo
 add_library(bachata_custom_vulkan SHARED custom_vulkan_bridge.cpp)
 target_link_libraries(bachata_custom_vulkan PRIVATE adrenotools android dl log)
 
+add_subdirectory(pkg)
 add_subdirectory(winlator)
