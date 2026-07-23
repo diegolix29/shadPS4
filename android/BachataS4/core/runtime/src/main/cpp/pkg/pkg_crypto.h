@@ -47,6 +47,9 @@ public:
                             const std::string& passcode,
                             uint32_t index,
                             std::span<uint8_t, 32> out);
+
+    // digest = SHA256(dk) XOR dk  (LibOrbisPkg CheckPasscode / CheckDerivedKey).
+    static void XorSha256Digest(std::span<const uint8_t, 32> key, std::span<uint8_t, 32> out_digest);
 };
 
 } // namespace bachata_pkg

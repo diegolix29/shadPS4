@@ -115,9 +115,17 @@ void DecompressPFSC(std::span<char> compressed, std::span<char> decompressed) {
 }
 
 u32 GetPFSCOffset(std::span<const u8> pfs_image) {
+    // Little-endian "PFSC" on disk.
     static constexpr u32 PfscMagic = 0x43534650;
     u32 value = 0;
-    for (u32 i = 0x20000; i + 4 <= pfs_image.size(); i += 0x10000) {
+    // shadPS4 starts at 0x20000; also scan earlier in case layout differs.
+    const u32 start = pfs_image.size() > 0x20000 ? 0x10000u : 0u;
+    for (u32 i = start; i + 4 <= pfs_image.size(); i += 0x10000) {
+        std::memcpy(&value, &pfs_image[i], sizeof(u32));
+        if (value == PfscMagic) return i;
+    }
+    // Byte-scan fallback every 0x1000 for atypical images.
+    for (u32 i = 0; i + 4 <= pfs_image.size(); i += 0x1000) {
         std::memcpy(&value, &pfs_image[i], sizeof(u32));
         if (value == PfscMagic) return i;
     }
@@ -158,6 +166,10 @@ bool read_header(int fd, PKGHeader& hdr) {
     return pread_all(fd, &hdr, sizeof(hdr), 0);
 }
 
+bool digests_equal(const std::array<u8, 32>& a, const std::array<u8, 32>& b) {
+    return std::memcmp(a.data(), b.data(), 32) == 0;
+}
+
 bool derive_keys_from_entries(int fd, ExtractState& st, const char* passcode, std::string& err) {
     const u32 offset = st.hdr.pkg_table_entry_offset;
     const u32 n_files = st.hdr.pkg_table_entry_count;
@@ -170,6 +182,7 @@ bool derive_keys_from_entries(int fd, ExtractState& st, const char* passcode, st
     std::array<u8, 256> imgKey{};
     bool have_entry_keys = false;
     bool have_image_key = false;
+    bool dk3_ok = false;
     PKGEntry image_entry{};
 
     for (u32 i = 0; i < n_files; ++i) {
@@ -178,9 +191,9 @@ bool derive_keys_from_entries(int fd, ExtractState& st, const char* passcode, st
             err = "Failed reading entry table";
             return false;
         }
-        const u32 id = entry.id;
+        const u32 id = u32(entry.id);
         if (id == 0x10) { // ENTRY_KEYS
-            off_t pos = entry.offset;
+            off_t pos = static_cast<off_t>(u32(entry.offset));
             if (!pread_all(fd, seed_digest.data(), 32, pos)) return false;
             pos += 32;
             for (int k = 0; k < 7; ++k) {
@@ -193,29 +206,48 @@ bool derive_keys_from_entries(int fd, ExtractState& st, const char* passcode, st
             }
             try {
                 st.crypto.RSA2048Decrypt(dk3, key1[3], true);
+                dk3_ok = true;
             } catch (const std::exception& ex) {
-                err = ex.what();
-                return false;
+                LOGI("DK3 RSA decrypt failed (may be ok for passcode pkgs): %s", ex.what());
+                dk3_ok = false;
             }
             have_entry_keys = true;
         } else if (id == 0x20) { // IMAGE_KEY
-            if (!pread_all(fd, imgkeydata.data(), 256, entry.offset)) return false;
+            if (!pread_all(fd, imgkeydata.data(), 256, static_cast<off_t>(u32(entry.offset)))) {
+                return false;
+            }
             image_entry = entry;
             have_image_key = true;
         }
     }
 
-    // Try passcode path first when provided (incl. zero).
+    if (!have_entry_keys) {
+        err = "PKG missing ENTRY_KEYS";
+        return false;
+    }
+
+    // Passcode path: MUST verify digest0 before accepting (LibOrbisPkg CheckPasscode).
+    // Unverified ComputeKeys always "works" and previously poisoned EKPFS → PFSC not found.
     if (passcode && std::strlen(passcode) == 32 && st.content_id.size() == 36) {
-        std::array<u8, 32> ek{};
-        if (Crypto::ComputeKeys(st.content_id, passcode, 1, ek)) {
-            st.ekpfsKey = ek;
-            LOGI("Using passcode-derived EKPFS");
-            return true;
+        std::array<u8, 32> dk0{};
+        std::array<u8, 32> digest0{};
+        if (Crypto::ComputeKeys(st.content_id, passcode, 0, dk0)) {
+            Crypto::XorSha256Digest(dk0, digest0);
+            if (digests_equal(digest0, digest1[0])) {
+                std::array<u8, 32> ek{};
+                if (Crypto::ComputeKeys(st.content_id, passcode, 1, ek)) {
+                    st.ekpfsKey = ek;
+                    LOGI("Using verified passcode-derived EKPFS");
+                    return true;
+                }
+            } else {
+                LOGI("passcode digest mismatch (not accepting ComputeKeys)");
+            }
         }
     }
 
-    if (have_entry_keys && have_image_key) {
+    // Fake/homebrew PKG: RSA-decrypt IMAGE_KEY with FakeKeyset after DK3 unwrap.
+    if (have_entry_keys && have_image_key && dk3_ok) {
         std::array<u8, 64> concat{};
         std::memcpy(concat.data(), &image_entry, sizeof(image_entry));
         std::memcpy(concat.data() + sizeof(image_entry), dk3.data(), 32);
@@ -223,12 +255,19 @@ bool derive_keys_from_entries(int fd, ExtractState& st, const char* passcode, st
         st.crypto.aesCbcCfb128Decrypt(ivKey, imgkeydata, imgKey);
         try {
             st.crypto.RSA2048Decrypt(st.ekpfsKey, imgKey, false);
+            // Optional: verify derived key digest index 1 when present.
+            std::array<u8, 32> ek_digest{};
+            Crypto::XorSha256Digest(st.ekpfsKey, ek_digest);
+            if (!digests_equal(ek_digest, digest1[1])) {
+                LOGI("RSA EKPFS digest1 mismatch — still trying (some fakes differ)");
+            }
+            LOGI("Using fake-pkg EKPFS via RSA");
+            return true;
         } catch (const std::exception& ex) {
             err = std::string("EKPFS RSA failed: ") + ex.what();
-            return false;
+            LOGI("%s", err.c_str());
+            // fall through to NEED_PASSCODE
         }
-        LOGI("Using fake-pkg EKPFS via RSA");
-        return true;
     }
 
     err = "NEED_PASSCODE";
@@ -242,23 +281,41 @@ bool build_fs_table(int fd, ExtractState& st, std::string& err) {
         return false;
     }
     st.crypto.PfsGenCryptoKey(st.ekpfsKey, seed, st.dataKey, st.tweakKey);
-    const u32 length = u32(st.hdr.pfs_cache_size) * 2;
+    // Match shadPS4: decrypt first pfs_cache_size*2 bytes of outer PFS image.
+    u32 length = u32(st.hdr.pfs_cache_size) * 2;
     if (length == 0) {
-        err = "Invalid pfs_cache_size";
-        return false;
+        // Fallback: enough to scan for PFSC (some headers report 0 cache).
+        length = 0x100000;
+        LOGI("pfs_cache_size=0, fallback length=0x%x", length);
     }
+    // Cap / expand scan window so PFSC search can succeed on large titles.
+    if (length < 0x40000) length = 0x40000;
+    const u64 pfs_off = u64(st.hdr.pfs_image_offset);
+    const u64 pfs_sz = u64(st.hdr.pfs_image_size);
+    if (pfs_sz > 0 && length > pfs_sz) length = static_cast<u32>(pfs_sz);
+    LOGI("build_fs_table pfs_off=%llu pfs_sz=%llu cache=%u length=%u",
+         static_cast<unsigned long long>(pfs_off),
+         static_cast<unsigned long long>(pfs_sz),
+         u32(st.hdr.pfs_cache_size),
+         length);
     std::vector<u8> pfs_encrypted(length);
     std::vector<u8> pfs_decrypted(length);
-    if (!pread_all(fd, pfs_encrypted.data(), length, static_cast<off_t>(u64(st.hdr.pfs_image_offset)))) {
+    if (!pread_all(fd, pfs_encrypted.data(), length, static_cast<off_t>(pfs_off))) {
         err = "Failed reading PFS header region";
         return false;
     }
     st.crypto.decryptPFS(st.dataKey, st.tweakKey, pfs_encrypted, pfs_decrypted, 0);
     st.pfsc_offset = GetPFSCOffset(pfs_decrypted);
     if (st.pfsc_offset == static_cast<u32>(-1) || st.pfsc_offset >= length) {
-        err = "PFSC magic not found";
+        LOGI("PFSC not found; decrypted[0..15]=%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x",
+             pfs_decrypted[0], pfs_decrypted[1], pfs_decrypted[2], pfs_decrypted[3],
+             pfs_decrypted[4], pfs_decrypted[5], pfs_decrypted[6], pfs_decrypted[7],
+             pfs_decrypted[8], pfs_decrypted[9], pfs_decrypted[10], pfs_decrypted[11],
+             pfs_decrypted[12], pfs_decrypted[13], pfs_decrypted[14], pfs_decrypted[15]);
+        err = "PFSC magic not found (wrong keys or unsupported PFS layout)";
         return false;
     }
+    LOGI("PFSC offset=0x%llx", static_cast<unsigned long long>(st.pfsc_offset));
     std::vector<u8> pfsc(length - st.pfsc_offset);
     std::memcpy(pfsc.data(), pfs_decrypted.data() + st.pfsc_offset, pfsc.size());
     PFSCHdr pfsChdr{};

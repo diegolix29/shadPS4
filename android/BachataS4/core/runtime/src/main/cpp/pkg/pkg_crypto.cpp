@@ -641,4 +641,12 @@ bool Crypto::ComputeKeys(const std::string& content_id,
     return true;
 }
 
+void Crypto::XorSha256Digest(std::span<const uint8_t, 32> key, std::span<uint8_t, 32> out_digest) {
+    uint8_t hash[32];
+    sha256(key.data(), 32, hash);
+    for (int i = 0; i < 32; ++i) {
+        out_digest[i] = static_cast<uint8_t>(hash[i] ^ key[i]);
+    }
+}
+
 } // namespace bachata_pkg
