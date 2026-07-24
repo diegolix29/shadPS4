@@ -237,7 +237,7 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
         QWidget* widget = new QWidget();
         widget->setAttribute(Qt::WA_TranslucentBackground);
         widget->setFixedWidth(icon_size + 10);
-        
+
         QVBoxLayout* layout = new QVBoxLayout();
         layout->setContentsMargins(5, 5, 5, 5);
         layout->setSpacing(8);

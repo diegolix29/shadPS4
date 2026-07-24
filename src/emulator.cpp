@@ -243,7 +243,8 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
 
     game_info.game_folder = game_folder;
-
+    std::filesystem::path npbindPath = mnt->GetHostPath("/app0/sce_sys/npbind.dat");
+    std::filesystem::path trophyDir = mnt->GetHostPath("/app0/sce_sys/trophy");
     Config::load(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (id + ".toml"),
                  true);
 
@@ -425,7 +426,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
     VideoCore::SetOutputDir(mount_captures_dir, id);
 
-    // Mount system fonts
+    const auto& fonts_dir = Config::getFontsPath();
     if (!std::filesystem::exists(fonts_dir)) {
         std::filesystem::create_directory(fonts_dir);
     }

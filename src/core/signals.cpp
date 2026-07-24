@@ -5,9 +5,10 @@
 #include "common/assert.h"
 #include "common/decoder.h"
 #include "common/signal_context.h"
-#include "common/thread.h"
+
 #include "core/libraries/kernel/threads/exception.h"
 #include "core/signals.h"
+#include "emulator.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -41,7 +42,7 @@ namespace Core {
 #if defined(_WIN32)
 
 static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
-    const auto* signals = Signals::Instance();
+    static Core::SignalDispatch* dispatcher = Core::Signals::Instance();
     DWORD code = 0;
     PVOID address = nullptr;
 
@@ -52,21 +53,14 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
 
     bool handled = false;
     s32 orbis_signal = 0;
+
     switch (code) {
     case EXCEPTION_ACCESS_VIOLATION:
-        handled = signals->DispatchAccessViolation(
+        handled = dispatcher->DispatchAccessViolation(
             pExp, reinterpret_cast<void*>(pExp->ExceptionRecord->ExceptionInformation[1]));
-        orbis_signal = Libraries::Kernel::POSIX_SIGSEGV;
         break;
     case EXCEPTION_ILLEGAL_INSTRUCTION:
-    case EXCEPTION_PRIV_INSTRUCTION:
-        // Note: user-mode `int n` for most vectors (e.g. the PS4 SDK's debug-trap vector used
-        // for guest-side asserts) is not a valid gate on Windows and is commonly reported as
-        // EXCEPTION_ACCESS_VIOLATION with a bogus (-1) faulting address rather than as an
-        // illegal instruction, so this case alone does not catch every such trap - see the
-        // fallback forwarding below, which triggers regardless of which case matched.
-        handled = signals->DispatchIllegalInstruction(pExp);
-        orbis_signal = Libraries::Kernel::POSIX_SIGILL;
+        handled = dispatcher->DispatchIllegalInstruction(pExp);
         break;
     case DBG_PRINTEXCEPTION_C:
     case DBG_PRINTEXCEPTION_WIDE_C:
@@ -98,7 +92,6 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
-    LOG_CRITICAL(Debug, "Unhandled Exception code {:#x} at {}", code, address);
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -125,7 +118,7 @@ static std::string DisassembleInstruction(void* code_address) {
 }
 
 void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
-    const auto* signals = Signals::Instance();
+    static Core::SignalDispatch* dispatcher = Core::Signals::Instance();
 
     auto* code_address = Common::GetRip(raw_context);
 
@@ -133,7 +126,7 @@ void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
     case SIGSEGV:
     case SIGBUS: {
         const bool is_write = Common::IsWriteError(raw_context);
-        if (!signals->DispatchAccessViolation(raw_context, info->si_addr)) {
+        if (!dispatcher->DispatchAccessViolation(raw_context, info->si_addr)) {
             // If the guest has installed a custom signal handler, and the access violation didn't
             // come from HLE memory tracking, pass the signal on
             if (Libraries::Kernel::Handlers[Libraries::Kernel::NativeToOrbisSignal(sig)]) {
@@ -148,7 +141,7 @@ void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
         break;
     }
     case SIGILL:
-        if (!signals->DispatchIllegalInstruction(raw_context)) {
+        if (!dispatcher->DispatchIllegalInstruction(raw_context)) {
             if (Libraries::Kernel::Handlers[Libraries::Kernel::NativeToOrbisSignal(sig)]) {
                 Libraries::Kernel::SigactionHandler(sig, info,
                                                     reinterpret_cast<ucontext_t*>(raw_context));
@@ -189,8 +182,6 @@ SignalDispatch::SignalDispatch() {
                "Failed to register illegal instruction signal handler.");
     ASSERT_MSG(sigaction(SIGSLEEP, &action, nullptr) == 0,
                "Failed to register sleep signal handler.");
-    ASSERT_MSG(sigaction(SIGUSR2, &action, nullptr) == 0,
-               "Failed to register resume signal handler.");
 #endif
 }
 
@@ -208,9 +199,6 @@ SignalDispatch::~SignalDispatch() {
                "Failed to remove access violation signal handler.");
     ASSERT_MSG(sigaction(SIGILL, &action, nullptr) == 0,
                "Failed to remove illegal instruction signal handler.");
-    ASSERT_MSG(sigaction(SIGUSR1, &action, nullptr) == 0, "Failed to remove sleep signal handler.");
-    ASSERT_MSG(sigaction(SIGUSR2, &action, nullptr) == 0,
-               "Failed to remove resume signal handler.");
 #endif
 }
 

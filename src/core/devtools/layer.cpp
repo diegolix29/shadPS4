@@ -1443,12 +1443,12 @@ void L::DrawPauseStatusWindow(bool& is_open) {
                         auto img = game.iconTex.GetTexture();
                         if (ImGui::ImageButton("##icon", img.im_id, ImVec2(iconSize, iconSize))) {
                             auto* emulator = Common::Singleton<::Core::Emulator>::Instance();
-                            emulator->Restart(game.ebootPath, {}, game.ebootPath.parent_path());
+                            emulator->Restart(game.ebootPath, {});
                         }
                     } else {
                         if (ImGui::Button("?", ImVec2(iconSize, iconSize))) {
                             auto* emulator = Common::Singleton<::Core::Emulator>::Instance();
-                            emulator->Restart(game.ebootPath, {}, game.ebootPath.parent_path());
+                            emulator->Restart(game.ebootPath, {});
                         }
                     }
                     if (ImGui::IsItemHovered()) {
