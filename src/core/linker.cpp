@@ -25,6 +25,7 @@
 #include "core/libraries/system/sysmodule.h"
 #include "core/linker.h"
 #include "core/memory.h"
+#include "core/thread.h"
 #include "core/tls.h"
 #include "ipc/ipc.h"
 
@@ -152,7 +153,12 @@ void Linker::Execute(const std::vector<std::string>& args) {
     main_thread.Run([this, module, &args, has_libcinternal](std::stop_token) {
         Common::SetCurrentThreadName("Game:Main");
 
-#ifndef _WIN32 // Clear any existing signal mask for game threads.
+#ifdef _WIN32
+        // Ensure host thread state is initialized before entering guest code (Orbis FP/SSE control
+        // state + a dedicated Windows VEH stack for access-violation-driven tracking).
+        Core::NativeThread host_thread;
+        host_thread.Initialize();
+#else // Clear any existing signal mask for game threads.
         sigset_t emptyset;
         sigemptyset(&emptyset);
         pthread_sigmask(SIG_SETMASK, &emptyset, nullptr);
