@@ -278,18 +278,18 @@ void HubMenuWidget::buildUi() {
     });
 
     m_hotkeysOverlay = new HotkeysOverlay(Qt::Vertical, m_actionsMenu);
-    m_hotkeysOverlay->setTitle("Hotkeys & Navigation Keys");
-    m_hotkeysOverlay->setHotkeys({{"Arrow Up/Down", "Navigate Games/Buttons"},
-                                  {"Arrow Right", "Focus on Buttons"},
-                                  {"Arrow Left", "Focus on Games"},
-                                  {"Enter/Space", "Select/Play"},
-                                  {"Backspace", "Hide/Show Games and Buttons"},
-                                  {"Press - P - ", "Play Highlighted Game"},
-                                  {"Press - M - ", "Mods Manager"},
-                                  {"Press - G - ", "Games Settings"},
-                                  {"Press - S - ", "Global Settings"},
-                                  {"Press - H - ", "Hotkeys Setup"},
-                                  {"Esc/Click on Fork Icon", "Exit"}});
+    m_hotkeysOverlay->setTitle(tr("Hotkeys & Navigation Keys"));
+    m_hotkeysOverlay->setHotkeys({{tr("Arrow Up/Down"), tr("Navigate Games/Buttons")},
+                                  {tr("Arrow Right"), tr("Focus on Buttons")},
+                                  {tr("Arrow Left"), tr("Focus on Games")},
+                                  {tr("Enter/Space"), tr("Select/Play")},
+                                  {tr("Backspace"), tr("Hide/Show Games and Buttons")},
+                                  {tr("Press - P - "), tr("Play Highlighted Game")},
+                                  {tr("Press - M - "), tr("Mods Manager")},
+                                  {tr("Press - G - "), tr("Games Settings")},
+                                  {tr("Press - S - "), tr("Global Settings")},
+                                  {tr("Press - H - "), tr("Hotkeys Setup")},
+                                  {tr("Esc/Click on Fork Icon"), tr("Exit")}});
     m_hotkeysOverlay->setStyleSheet("background: none; padding: 6px 12px;");
     m_background->raise();
     m_background->lower();
