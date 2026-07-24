@@ -2,8 +2,9 @@
 
 #include "fex_guest_engine.h"
 
+// Ucontext layout only — do not include pthread.h here. pthread → semaphore →
+// assert → log → spdlog, which the FEXCore-only guest harness does not provide.
 #include "core/libraries/kernel/threads/exception.h"
-#include "core/libraries/kernel/threads/pthread.h"
 #include "Common/Config.h"
 #include "Common/HostFeatures.h"
 #include <FEXCore/Config/Config.h>
@@ -28,6 +29,14 @@
 #include <cstring>
 #include <cstdio>
 #include <fstream>
+
+// Weak fallback when exception.cpp is not linked (fexcore-guest-harness).
+// Full shadPS4 provides the strong definition that reads g_curthread.
+namespace Libraries::Kernel {
+__attribute__((weak)) u64 FexCurrentGuestStackTop() noexcept {
+  return 0;
+}
+} // namespace Libraries::Kernel
 #include <limits>
 #include <mutex>
 #include <optional>
@@ -593,22 +602,16 @@ public:
     };
     uint64_t work_rsp = state.gregs[REG_RSP];
     if (!looks_guest(work_rsp)) {
-      if (auto* thr = Libraries::Kernel::g_curthread;
-          thr != nullptr && thr->attr.stackaddr_attr != nullptr &&
-          thr->attr.stacksize_attr > 0x2000) {
-        const auto base = reinterpret_cast<uint64_t>(thr->attr.stackaddr_attr);
-        const auto top =
-            (base + thr->attr.stacksize_attr) & ~uint64_t{0xf};
-        if (looks_guest(base) || looks_guest(top - 0x100)) {
-          work_rsp = top - 0x100;
-          std::fprintf(stderr,
-                       "BACHATA_FEX_SIGNAL use pthread stack top=%#lx base=%#lx "
-                       "size=%#lx (frame_rsp was %#lx)\n",
-                       static_cast<unsigned long>(work_rsp),
-                       static_cast<unsigned long>(base),
-                       static_cast<unsigned long>(thr->attr.stacksize_attr),
-                       static_cast<unsigned long>(state.gregs[REG_RSP]));
-        }
+      // Prefer Orbis pthread guest stack (strong FexCurrentGuestStackTop in
+      // exception.cpp). Harness keeps the weak stub → 0.
+      const auto top = Libraries::Kernel::FexCurrentGuestStackTop();
+      if (top != 0 && looks_guest(top - 0x100)) {
+        work_rsp = top - 0x100;
+        std::fprintf(stderr,
+                     "BACHATA_FEX_SIGNAL use pthread stack top=%#lx "
+                     "(frame_rsp was %#lx)\n",
+                     static_cast<unsigned long>(work_rsp),
+                     static_cast<unsigned long>(state.gregs[REG_RSP]));
       }
     }
 

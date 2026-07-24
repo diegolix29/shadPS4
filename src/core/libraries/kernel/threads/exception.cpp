@@ -27,6 +27,16 @@
 
 namespace Libraries::Kernel {
 
+u64 FexCurrentGuestStackTop() noexcept {
+    auto* thr = g_curthread;
+    if (thr == nullptr || thr->attr.stackaddr_attr == nullptr ||
+        thr->attr.stacksize_attr <= 0x2000) {
+        return 0;
+    }
+    const auto base = reinterpret_cast<u64>(thr->attr.stackaddr_attr);
+    return (base + thr->attr.stacksize_attr) & ~u64{0xf};
+}
+
 #ifdef _WIN32
 
 // Windows doesn't have native versions of these, and we don't need to use them either.

@@ -193,6 +193,12 @@ struct Ucontext {
 s32 NativeToOrbisSignal(s32 s);
 s32 OrbisToNativeSignal(s32 s);
 
+// Guest stack top for FEX soft-exception delivery (aligned). Returns 0 when the
+// current Orbis pthread has no usable guest stack. Strong definition lives in
+// exception.cpp; fex_guest_engine provides a weak stub so FEXCore-only harness
+// builds do not pull pthread/logging (spdlog) into the probe target.
+u64 FexCurrentGuestStackTop() noexcept;
+
 void RegisterException(Core::Loader::SymbolsResolver* sym);
 
 } // namespace Libraries::Kernel
