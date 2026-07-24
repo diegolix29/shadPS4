@@ -226,7 +226,9 @@ public:
     std::unique_ptr<HubMenuWidget> m_hubMenu;
     std::shared_ptr<GameInfoClass> m_game_info = std::make_shared<GameInfoClass>();
 
-    WindowThemes* getThemes() { return &m_window_themes; }
+    WindowThemes* getThemes() {
+        return &m_window_themes;
+    }
 
 private Q_SLOTS:
     void ConfigureGuiFromSettings();

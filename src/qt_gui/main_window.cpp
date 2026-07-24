@@ -806,7 +806,8 @@ void MainWindow::AddUiWidgets() {
         label->setAlignment(Qt::AlignCenter | Qt::AlignBottom);
         label->setVisible(ui->toggleLabelsAct->isChecked());
         // Set initial theme color
-        label->setStyleSheet(QString("color: %1; font-size: 11px;").arg(m_window_themes.textColor().name()));
+        label->setStyleSheet(
+            QString("color: %1; font-size: 11px;").arg(m_window_themes.textColor().name()));
         layout->addWidget(label);
 
         if (!ui->toggleLabelsAct->isChecked())
@@ -885,22 +886,23 @@ void MainWindow::AddUiWidgets() {
         extraBtn->setProperty("modernToolbarButton", true);
         HoverAnimator::Attach(extraBtn, toolbarGlowColor);
         QColor extraBtnBgColor = m_window_themes.backgroundColor();
-        extraBtn->setStyleSheet(QString(
-            "QPushButton { background-color: rgba(%1, %2, %3, 200); border: 1px solid rgba(90, "
-            "170, 255, 150); border-radius: 5px; padding: 5px; }")
-            .arg(extraBtnBgColor.red())
-            .arg(extraBtnBgColor.green())
-            .arg(extraBtnBgColor.blue()));
+        extraBtn->setStyleSheet(
+            QString(
+                "QPushButton { background-color: rgba(%1, %2, %3, 200); border: 1px solid rgba(90, "
+                "170, 255, 150); border-radius: 5px; padding: 5px; }")
+                .arg(extraBtnBgColor.red())
+                .arg(extraBtnBgColor.green())
+                .arg(extraBtnBgColor.blue()));
     }
 
     ui->launcherBox->setObjectName("launcherBox");
     QColor launcherBgColor = m_window_themes.backgroundColor();
-    ui->launcherBox->setStyleSheet(QString(
-        "QCheckBox { background-color: rgba(%1, %2, %3, 220); border: 1px solid rgba(90, 170, 255, "
-        "150); border-radius: 5px; padding: 5px; }")
-        .arg(launcherBgColor.red())
-        .arg(launcherBgColor.green())
-        .arg(launcherBgColor.blue()));
+    ui->launcherBox->setStyleSheet(QString("QCheckBox { background-color: rgba(%1, %2, %3, 220); "
+                                           "border: 1px solid rgba(90, 170, 255, "
+                                           "150); border-radius: 5px; padding: 5px; }")
+                                       .arg(launcherBgColor.red())
+                                       .arg(launcherBgColor.green())
+                                       .arg(launcherBgColor.blue()));
 
     QWidget* styleContainer = new QWidget(uiOverlay);
     styleContainer->setStyleSheet("background-color: transparent; border: none;");
@@ -910,21 +912,24 @@ void MainWindow::AddUiWidgets() {
 
     QLabel* styleLabel = new QLabel(tr("GUI Style:"), uiOverlay);
     QColor styleBgColor = m_window_themes.backgroundColor();
-    styleLabel->setStyleSheet(QString("color: white; font-weight: bold; background-color: rgba(%1, %2, %3, "
-                              "200); padding: 5px; border-radius: 5px;")
-                              .arg(styleBgColor.red())
-                              .arg(styleBgColor.green())
-                              .arg(styleBgColor.blue()));
+    styleLabel->setStyleSheet(
+        QString("color: white; font-weight: bold; background-color: rgba(%1, %2, %3, "
+                "200); padding: 5px; border-radius: 5px;")
+            .arg(styleBgColor.red())
+            .arg(styleBgColor.green())
+            .arg(styleBgColor.blue()));
     styleLayout->addWidget(styleLabel);
 
-    ui->styleSelector->setStyleSheet(QString(
-        "QComboBox { background-color: rgba(%1, %2, %3, 200); color: white; padding: 5px; "
-        "border-radius: 5px; border: 1px solid rgba(90, 170, 255, 150); } QComboBox::drop-down { "
-        "border: none; } QComboBox QAbstractItemView { background-color: rgba(%1, %2, %3, 200); "
-        "color: white; selection-background-color: rgba(90, 170, 255, 150); }")
-        .arg(styleBgColor.red())
-        .arg(styleBgColor.green())
-        .arg(styleBgColor.blue()));
+    ui->styleSelector->setStyleSheet(
+        QString("QComboBox { background-color: rgba(%1, %2, %3, 200); color: white; padding: 5px; "
+                "border-radius: 5px; border: 1px solid rgba(90, 170, 255, 150); } "
+                "QComboBox::drop-down { "
+                "border: none; } QComboBox QAbstractItemView { background-color: rgba(%1, %2, %3, "
+                "200); "
+                "color: white; selection-background-color: rgba(90, 170, 255, 150); }")
+            .arg(styleBgColor.red())
+            .arg(styleBgColor.green())
+            .arg(styleBgColor.blue()));
     styleLayout->addWidget(ui->styleSelector);
     styleContainer->setObjectName("styleContainer");
 
@@ -967,13 +972,13 @@ void MainWindow::AddUiWidgets() {
 
     QColor bootIconsBgColor = m_window_themes.backgroundColor();
     ui->bootIconsArea->setStyleSheet(QString("QWidget#bootIconsArea {"
-                                     "  background-color: rgba(%1, %2, %3, 220);"
-                                     "  border-radius: 12px;"
-                                     "  border: 1px solid rgba(90, 170, 255, 80);"
-                                     "}")
-                                     .arg(bootIconsBgColor.red())
-                                     .arg(bootIconsBgColor.green())
-                                     .arg(bootIconsBgColor.blue()));
+                                             "  background-color: rgba(%1, %2, %3, 220);"
+                                             "  border-radius: 12px;"
+                                             "  border: 1px solid rgba(90, 170, 255, 80);"
+                                             "}")
+                                         .arg(bootIconsBgColor.red())
+                                         .arg(bootIconsBgColor.green())
+                                         .arg(bootIconsBgColor.blue()));
     ui->bootIconsArea->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 
     const QColor toolbarGlowColor(90, 170, 255);
@@ -1132,13 +1137,13 @@ void MainWindow::AddUiWidgets() {
 
     QColor gameRectBgColor = m_window_themes.backgroundColor();
     ui->gameRectangleContainer->setStyleSheet(QString("QWidget#gameRectangleContainer {"
-                                              "  background-color: rgba(%1, %2, %3, 200);"
-                                              "  border-radius: 15px;"
-                                              "  border: 2px solid rgba(90, 170, 255, 150);"
-                                              "}")
-                                              .arg(gameRectBgColor.red())
-                                              .arg(gameRectBgColor.green())
-                                              .arg(gameRectBgColor.blue()));
+                                                      "  background-color: rgba(%1, %2, %3, 200);"
+                                                      "  border-radius: 15px;"
+                                                      "  border: 2px solid rgba(90, 170, 255, 150);"
+                                                      "}")
+                                                  .arg(gameRectBgColor.red())
+                                                  .arg(gameRectBgColor.green())
+                                                  .arg(gameRectBgColor.blue()));
     ui->gameRectangleContainer->setObjectName("gameRectangleContainer");
     ui->gameRectangleContainer->setMinimumHeight(75);
 
@@ -1287,8 +1292,9 @@ void MainWindow::AddUiWidgets() {
         if (ui->logDisplay) {
             QColor logBgColor = m_window_themes.backgroundColor();
             ui->logDisplay->setStyleSheet(
-                QString("QTextEdit#logDisplay { background-color: rgba(%1, %2, %3, %4); color: white; "
-                        "border: 1px solid rgba(90, 170, 255, 150); }")
+                QString(
+                    "QTextEdit#logDisplay { background-color: rgba(%1, %2, %3, %4); color: white; "
+                    "border: 1px solid rgba(90, 170, 255, 150); }")
                     .arg(logBgColor.red())
                     .arg(logBgColor.green())
                     .arg(logBgColor.blue())
@@ -3408,38 +3414,42 @@ void MainWindow::UpdateThemeBackgrounds() {
     QList<QLabel*> labels = findChildren<QLabel*>();
     for (QLabel* label : labels) {
         if (label->text() == tr("GUI Style:")) {
-            label->setStyleSheet(QString("color: %1; font-weight: bold; background-color: rgba(%2, %3, %4, "
-                                  "200); padding: 5px; border-radius: 5px;")
-                                  .arg(textColor.name())
-                                  .arg(styleBgColor.red())
-                                  .arg(styleBgColor.green())
-                                  .arg(styleBgColor.blue()));
+            label->setStyleSheet(
+                QString("color: %1; font-weight: bold; background-color: rgba(%2, %3, %4, "
+                        "200); padding: 5px; border-radius: 5px;")
+                    .arg(textColor.name())
+                    .arg(styleBgColor.red())
+                    .arg(styleBgColor.green())
+                    .arg(styleBgColor.blue()));
             break;
         }
     }
 
     if (ui->styleSelector) {
-        ui->styleSelector->setStyleSheet(QString(
-            "QComboBox { background-color: rgba(%1, %2, %3, 200); color: %4; padding: 5px; "
-            "border-radius: 5px; border: 1px solid rgba(90, 170, 255, 150); } QComboBox::drop-down { "
-            "border: none; } QComboBox QAbstractItemView { background-color: rgba(%1, %2, %3, 200); "
-            "color: %4; selection-background-color: rgba(90, 170, 255, 150); }")
-            .arg(styleBgColor.red())
-            .arg(styleBgColor.green())
-            .arg(styleBgColor.blue())
-            .arg(textColor.name()));
+        ui->styleSelector->setStyleSheet(
+            QString("QComboBox { background-color: rgba(%1, %2, %3, 200); color: %4; padding: 5px; "
+                    "border-radius: 5px; border: 1px solid rgba(90, 170, 255, 150); } "
+                    "QComboBox::drop-down { "
+                    "border: none; } QComboBox QAbstractItemView { background-color: rgba(%1, %2, "
+                    "%3, 200); "
+                    "color: %4; selection-background-color: rgba(90, 170, 255, 150); }")
+                .arg(styleBgColor.red())
+                .arg(styleBgColor.green())
+                .arg(styleBgColor.blue())
+                .arg(textColor.name()));
     }
 
     // Update launcher box
     if (ui->launcherBox) {
         QColor launcherBgColor = bgColor;
-        ui->launcherBox->setStyleSheet(QString(
-            "QCheckBox { background-color: rgba(%1, %2, %3, 220); color: %4; border: 1px solid rgba(90, 170, 255, "
-            "150); border-radius: 5px; padding: 5px; }")
-            .arg(launcherBgColor.red())
-            .arg(launcherBgColor.green())
-            .arg(launcherBgColor.blue())
-            .arg(textColor.name()));
+        ui->launcherBox->setStyleSheet(
+            QString("QCheckBox { background-color: rgba(%1, %2, %3, 220); color: %4; border: 1px "
+                    "solid rgba(90, 170, 255, "
+                    "150); border-radius: 5px; padding: 5px; }")
+                .arg(launcherBgColor.red())
+                .arg(launcherBgColor.green())
+                .arg(launcherBgColor.blue())
+                .arg(textColor.name()));
     }
 
     // Update extra toolbar buttons
@@ -3447,18 +3457,19 @@ void MainWindow::UpdateThemeBackgrounds() {
     for (QPushButton* extraBtn : {ui->toggleLogButton, ui->installPkgButton, ui->bpBootButton,
                                   ui->zarBootButton, ui->zarConvertButton, ui->themeButton}) {
         if (extraBtn) {
-            extraBtn->setStyleSheet(QString(
-                "QPushButton { background-color: rgba(%1, %2, %3, 200); color: %4; border: 1px solid rgba(90, "
-                "170, 255, 150); border-radius: 5px; padding: 5px; }")
-                .arg(extraBtnBgColor.red())
-                .arg(extraBtnBgColor.green())
-                .arg(extraBtnBgColor.blue())
-                .arg(textColor.name()));
+            extraBtn->setStyleSheet(QString("QPushButton { background-color: rgba(%1, %2, %3, "
+                                            "200); color: %4; border: 1px solid rgba(90, "
+                                            "170, 255, 150); border-radius: 5px; padding: 5px; }")
+                                        .arg(extraBtnBgColor.red())
+                                        .arg(extraBtnBgColor.green())
+                                        .arg(extraBtnBgColor.blue())
+                                        .arg(textColor.name()));
         }
     }
 
     // Update slider labels
-    QString labelStyle = QString("color: %1; font-weight: bold; font-size: 11px;").arg(textColor.name());
+    QString labelStyle =
+        QString("color: %1; font-weight: bold; font-size: 11px;").arg(textColor.name());
     if (m_bootIconsLabel) {
         m_bootIconsLabel->setStyleSheet(labelStyle);
     }
@@ -4254,8 +4265,11 @@ void MainWindow::handleGamepadEvents() {
         bool currentStartState = SDL_GetGamepadButton(m_gamepad, SDL_GAMEPAD_BUTTON_START);
 
         if (currentAState && !lastAState) {
-            if (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr &&
-                ui->playButton->isEnabled() && !m_gamepadInputBlocked) {
+            bool canLaunch =
+                isTableList ? (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr)
+                            : (m_game_grid_frame && m_game_grid_frame->IsValidCellSelected());
+
+            if (canLaunch && ui->playButton->isEnabled() && !m_gamepadInputBlocked) {
                 startGamepadLaunchDelay();
             }
         }
@@ -4267,8 +4281,10 @@ void MainWindow::handleGamepadEvents() {
         }
 
         if (currentStartState && !lastStartState) {
-            if (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr &&
-                ui->playButton->isEnabled() && !m_gamepadInputBlocked) {
+            bool canLaunch =
+                isTableList ? (m_game_list_frame && m_game_list_frame->GetCurrentItem() != nullptr)
+                            : (m_game_grid_frame && m_game_grid_frame->IsValidCellSelected());
+            if (canLaunch && ui->playButton->isEnabled() && !m_gamepadInputBlocked) {
                 startGamepadLaunchDelay();
             }
         }
@@ -4432,6 +4448,7 @@ void MainWindow::navigateGamesUp() {
                 m_game_list_frame->selectRow(rowCount - 1);
             }
         }
+        m_game_list_frame->setFocus(Qt::OtherFocusReason);
     } else if (!isTableList && m_game_grid_frame) {
         int currentRow = m_game_grid_frame->currentRow();
         int currentColumn = m_game_grid_frame->currentColumn();
@@ -4445,6 +4462,7 @@ void MainWindow::navigateGamesUp() {
                 m_game_grid_frame->setCurrentCell(rowCount - 1, currentColumn);
             }
         }
+        m_game_grid_frame->setFocus(Qt::OtherFocusReason);
     }
 }
 

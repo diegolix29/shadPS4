@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/logging/log.h"
-#include "core/file_sys/devices/rng_device.h"
 #include "common/va_ctx.h"
+#include "core/file_sys/devices/rng_device.h"
 
 namespace Core::Devices {
 

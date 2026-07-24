@@ -132,7 +132,6 @@ GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
 
     m_zar_list = new QListWidget(this);
     m_zar_list->setObjectName("ZarList");
-    m_zar_list->setMaximumWidth(200);
     m_zar_list->setIconSize(QSize(64, 64));
     zarLayout->addWidget(m_zar_list);
 
@@ -156,7 +155,6 @@ GameGridFrame::GameGridFrame(std::shared_ptr<GameInfoClass> game_info_get,
 
 void GameGridFrame::onCurrentCellChanged(int currentRow, int currentColumn, int previousRow,
                                          int previousColumn) {
-    // Early exit for invalid indices
     if (currentRow < 0 || currentColumn < 0) {
         cellClicked = false;
         validCellSelected = false;
@@ -168,7 +166,6 @@ void GameGridFrame::onCurrentCellChanged(int currentRow, int currentColumn, int 
     crtColumn = currentColumn;
     columnCnt = this->columnCount();
 
-    // Prevent integer overflow
     if (columnCnt <= 0 || crtRow > (std::numeric_limits<int>::max() / columnCnt)) {
         cellClicked = false;
         validCellSelected = false;
@@ -186,6 +183,7 @@ void GameGridFrame::onCurrentCellChanged(int currentRow, int currentColumn, int 
 
     cellClicked = true;
     validCellSelected = true;
+    this->setFocus(Qt::OtherFocusReason); // <-- add this
     SetGridBackgroundImage(crtRow, crtColumn);
     auto snd0Path = QString::fromStdString(m_game_info->m_games[itemID].snd0_path.string());
     PlayBackgroundMusic(snd0Path);
@@ -231,18 +229,25 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
     this->setColumnCount(gamesPerRow);
     this->setRowCount(rowCount);
     for (int i = 0; i < m_games_.size(); i++) {
-        QWidget* widget = new QWidget();
+        // Restore the underlying data item so the selection model works
+        // (mirrors GameListFrame::ResizeIcons)
+        QTableWidgetItem* cellItem = new QTableWidgetItem();
+        this->setItem(row, column, cellItem);
 
+        QWidget* widget = new QWidget();
         widget->setAttribute(Qt::WA_TranslucentBackground);
         widget->setFixedWidth(icon_size + 10);
-
+        
         QVBoxLayout* layout = new QVBoxLayout();
         layout->setContentsMargins(5, 5, 5, 5);
         layout->setSpacing(8);
 
         QWidget* image_container = new QWidget();
         image_container->setFixedSize(icon_size, icon_size);
-        image_container->setAttribute(Qt::WA_TranslucentBackground);
+        widget->setAttribute(Qt::WA_TranslucentBackground);
+        widget->setAttribute(Qt::WA_TransparentForMouseEvents);
+        widget->setFocusPolicy(Qt::NoFocus);
+        widget->setFixedWidth(icon_size + 10);
 
         QLabel* image_label = new QLabel(image_container);
         QImage icon = m_games_[gameCounter].icon.scaled(
@@ -296,8 +301,7 @@ void GameGridFrame::PopulateGameGrid(QVector<GameInfo> m_games_search, bool from
 
         float serialFontSize = (Config::getIconSizeGrid() / 8.0f);
         QString serialStyleSheet =
-            QString(
-                "color: %1; font-weight: normal; font-size: %2px; background: transparent;")
+            QString("color: %1; font-weight: normal; font-size: %2px; background: transparent;")
                 .arg(themeSerialColor.name())
                 .arg(serialFontSize);
         serial_label->setStyleSheet(serialStyleSheet);
@@ -442,7 +446,7 @@ void GameGridFrame::resizeEvent(QResizeEvent* event) {
 void GameGridFrame::RefreshZarBackgroundImage() {
     // Get theme-based background color from main window
     QColor zarBgColor = QColor(30, 30, 30); // Default fallback
-    QColor textColor = Qt::white; // Default text color
+    QColor textColor = Qt::white;           // Default text color
     if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
         zarBgColor = mw->getThemes()->backgroundColor();
         textColor = mw->getThemes()->textColor();
@@ -450,24 +454,26 @@ void GameGridFrame::RefreshZarBackgroundImage() {
     int opacity = Config::getBgOpacity();
     int alpha = opacity * 200 / 100;
 
-    m_zar_title->setStyleSheet(QString("color: %1; font-weight: bold; background-color: rgba(%2, %3, "
-                               "%4, %5); padding: 5px; border-radius: 5px; text-align: center;")
-                               .arg(textColor.name())
-                               .arg(zarBgColor.red())
-                               .arg(zarBgColor.green())
-                               .arg(zarBgColor.blue())
-                               .arg(alpha));
+    m_zar_title->setStyleSheet(
+        QString("color: %1; font-weight: bold; background-color: rgba(%2, %3, "
+                "%4, %5); padding: 5px; border-radius: 5px; text-align: center;")
+            .arg(textColor.name())
+            .arg(zarBgColor.red())
+            .arg(zarBgColor.green())
+            .arg(zarBgColor.blue())
+            .arg(alpha));
 
-    m_zar_list->setStyleSheet(QString(
-        "QListWidget { background-color: rgba(%1, %2, %3, %4); border: 1px solid rgba(90, 170, "
-        "255, 150); border-radius: 5px; } QListWidget::item { padding: 5px; color: %5; } "
-        "QListWidget::item:hover { background-color: rgba(90, 170, 255, 100); } "
-        "QListWidget::item:selected { background-color: rgba(90, 170, 255, 150); }")
-        .arg(zarBgColor.red())
-        .arg(zarBgColor.green())
-        .arg(zarBgColor.blue())
-        .arg(alpha)
-        .arg(textColor.name()));
+    m_zar_list->setStyleSheet(
+        QString(
+            "QListWidget { background-color: rgba(%1, %2, %3, %4); border: 1px solid rgba(90, 170, "
+            "255, 150); border-radius: 5px; } QListWidget::item { padding: 5px; color: %5; } "
+            "QListWidget::item:hover { background-color: rgba(90, 170, 255, 100); } "
+            "QListWidget::item:selected { background-color: rgba(90, 170, 255, 150); }")
+            .arg(zarBgColor.red())
+            .arg(zarBgColor.green())
+            .arg(zarBgColor.blue())
+            .arg(alpha)
+            .arg(textColor.name()));
 }
 
 bool GameGridFrame::IsValidCellSelected() {
@@ -486,11 +492,13 @@ void GameGridFrame::SetGameConfigIcon(QWidget* parentWidget, QVector<GameInfo> m
                              .scaled(icon_size / 3.8, icon_size / 3.8, Qt::KeepAspectRatio,
                                      Qt::SmoothTransformation);
 
-    // Apply consistent toolbar color to match icon buttons
+    QColor themeColor = QColor(90, 170, 255); // Default fallback
+    if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
+        themeColor = mw->getThemes()->textColor();
+    }
     QPainter painter(&iconPixmap);
     painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-    const QColor toolbarGlowColor(90, 170, 255);
-    painter.fillRect(iconPixmap.rect(), toolbarGlowColor);
+    painter.fillRect(iconPixmap.rect(), themeColor);
     painter.end();
 
     label->setPixmap(iconPixmap);
@@ -498,6 +506,8 @@ void GameGridFrame::SetGameConfigIcon(QWidget* parentWidget, QVector<GameInfo> m
     label->raise();
     label->setVisible(hasGameConfig);
     label->setObjectName("gameConfigIcon");
+
+    label->setProperty("themeColor", themeColor);
 }
 
 void GameGridFrame::SetFavoriteIcon(QWidget* parentWidget, QVector<GameInfo> m_games_,
@@ -507,23 +517,20 @@ void GameGridFrame::SetFavoriteIcon(QWidget* parentWidget, QVector<GameInfo> m_g
     QList<QString> list = m_compat_info->LoadFavorites();
     bool isFavorite = list.contains(serialStr);
 
-    QLabel* label = new QLabel(parentWidget);
-    QPixmap iconPixmap = QPixmap(":images/favorite_icon.png")
-                             .scaled(icon_size / 1.2, icon_size / 1.2, Qt::KeepAspectRatio,
-                                     Qt::SmoothTransformation);
+    QColor themeColor = QColor(90, 170, 255); // Default fallback
+    if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
+        themeColor = mw->getThemes()->textColor();
+    }
 
-    // Apply consistent toolbar color to match icon buttons
-    QPainter painter(&iconPixmap);
-    painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-    const QColor toolbarGlowColor(90, 170, 255);
-    painter.fillRect(iconPixmap.rect(), toolbarGlowColor);
-    painter.end();
-
-    label->setPixmap(iconPixmap);
-    label->move(icon_size - icon_size / 2, 1);
-    label->raise();
-    label->setVisible(isFavorite);
-    label->setObjectName("favoriteIcon");
+    if (isFavorite) {
+        parentWidget->setStyleSheet(
+            QString("QWidget { border: 3px solid rgba(%1, %2, %3, 200); border-radius: 8px; }")
+                .arg(themeColor.red())
+                .arg(themeColor.green())
+                .arg(themeColor.blue()));
+    } else {
+        parentWidget->setStyleSheet(QString("QWidget { border: none; }"));
+    }
 }
 
 void GameGridFrame::SortByFavorite(QVector<GameInfo>* game_list) {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -32,8 +33,6 @@ inline bool IsSpecialCusa() {
            serial == "CUSA00552" || serial == "CUSA00556" || serial == "CUSA00557" ||
            serial == "CUSA00554";
 }
-
-
 
 struct patchInfo {
     std::string gameSerial;
