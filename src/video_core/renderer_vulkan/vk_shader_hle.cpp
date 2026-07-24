@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "core/memory.h"
 #include "shader_recompiler/info.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_runtime.h"
@@ -87,8 +88,44 @@ static bool ExecuteCopyShaderHLE(const Shader::Info& info, const AmdGpu::Compute
             dst_buf_sharp.base_address + dst_offset_min,
             static_cast<u32>(dst_offset_max - dst_offset_min), true);
 
-        // Apply found buffer base.
         const auto vk_copies = std::span{copies}.subspan(batch_start, batch_end - batch_start);
+
+        auto* memory = Core::Memory::Instance();
+        const VAddr src_span_addr = src_buf_sharp.base_address + src_offset_min;
+        const VAddr dst_span_addr = dst_buf_sharp.base_address + dst_offset_min;
+        const u8* src_backing =
+            memory->TryGetBacking(src_span_addr, src_offset_max - src_offset_min);
+        u8* dst_backing = memory->TryGetBacking(dst_span_addr, dst_offset_max - dst_offset_min);
+        if (src_backing && dst_backing) {
+            if (!buffer_cache.IsRegionGpuModified(src_span_addr, src_offset_max - src_offset_min)) {
+                for (const auto& copy : vk_copies) {
+                    memcpy(dst_backing + (copy.dstOffset - dst_offset_min),
+                           src_backing + (copy.srcOffset - src_offset_min), copy.size);
+                }
+            } else {
+                for (const auto& copy : vk_copies) {
+                    if (!buffer_cache.IsRegionGpuModified(
+                            src_buf_sharp.base_address + copy.srcOffset, copy.size)) {
+                        memcpy(dst_backing + (copy.dstOffset - dst_offset_min),
+                               src_backing + (copy.srcOffset - src_offset_min), copy.size);
+                    }
+                }
+            }
+        } else {
+            static std::vector<u8> mirror_data;
+            for (const auto& copy : vk_copies) {
+                const VAddr src_addr = src_buf_sharp.base_address + copy.srcOffset;
+                const VAddr dst_addr = dst_buf_sharp.base_address + copy.dstOffset;
+                if (!buffer_cache.IsRegionGpuModified(src_addr, copy.size)) {
+                    mirror_data.resize(copy.size);
+                    memory->CopySparseMemory(src_addr, mirror_data.data(), copy.size);
+                    memory->TryWriteBacking(std::bit_cast<u8*>(dst_addr), mirror_data.data(),
+                                            copy.size);
+                }
+            }
+        }
+
+        // Apply found buffer base.
         for (auto& copy : vk_copies) {
             copy.srcOffset = copy.srcOffset - src_offset_min + src_buf_offset;
             copy.dstOffset = copy.dstOffset - dst_offset_min + dst_buf_offset;
