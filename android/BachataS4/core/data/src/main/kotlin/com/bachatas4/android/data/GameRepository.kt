@@ -40,6 +40,7 @@ class GameRepository @Inject constructor(
     /**
      * Scan the app-owned games directory for folders that are not in the database,
      * and automatically re-register them using their ParamSfo metadata.
+     * Also drops leftover `.import-*` staging dirs when no import is active.
      */
     suspend fun syncOrphanedFolders() {
         val gamesRoot = context.filesDir.resolve("games")
@@ -47,6 +48,13 @@ class GameRepository @Inject constructor(
 
         val dbGames = gameDao.getAll().map { it.id }.toSet()
         val folders = gamesRoot.listFiles()?.filter { it.isDirectory } ?: return
+
+        // Concurrent/crashed imports can leave staging trees; free space when idle.
+        if (!ImportManager.isBusy()) {
+            folders
+                .filter { it.name.startsWith(".import-") }
+                .forEach { staging -> runCatching { staging.deleteRecursively() } }
+        }
 
         folders.forEach { folder ->
             val id = folder.name

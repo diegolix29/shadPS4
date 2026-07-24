@@ -77,4 +77,20 @@ class ImportManagerTest {
         assertTrue(ImportManager.isBusy())
         assertFalse(ImportManager.tryBeginImport())
     }
+
+    @Test
+    fun needCopyConfirmIsBusyAndBlocksNewImport() {
+        ImportManager.update(
+            ImportProgress.NeedCopyConfirm(
+                contentId = "EP0001-CUSA00000_00-TEST000000000000",
+                titleHint = "Hint",
+                packageBytes = 7_000_000_000L,
+                extractBytes = 6_500_000_000L,
+                requiredBytes = 14_000_000_000L,
+                freeBytes = 30_000_000_000L,
+            ),
+        )
+        assertTrue(ImportManager.isBusy())
+        assertFalse(ImportManager.tryBeginImport())
+    }
 }

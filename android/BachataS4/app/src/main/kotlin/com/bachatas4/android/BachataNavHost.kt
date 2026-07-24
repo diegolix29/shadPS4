@@ -99,7 +99,9 @@ fun BachataNavHost(startDestination: String = BachataRoutes.Setup) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenDrivers = { navController.navigate(BachataRoutes.Drivers) },
-                showDriversTab = showDriverSelection,
+                // Always show Drivers in Settings (Play: bundled status; F-Droid: full manager).
+                // Setup/session driver pick remains gated by SHOW_DRIVER_SELECTION.
+                showDriversTab = true,
             )
         }
         composable(BachataRoutes.Drivers) {
@@ -110,7 +112,7 @@ fun BachataNavHost(startDestination: String = BachataRoutes.Setup) {
                 initialGameId = requireNotNull(entry.arguments?.getString("id")),
                 onBack = { navController.popBackStack() },
                 onOpenDrivers = { navController.navigate(BachataRoutes.Drivers) },
-                showDriversTab = showDriverSelection,
+                showDriversTab = true,
             )
         }
         composable(BachataRoutes.Game) {

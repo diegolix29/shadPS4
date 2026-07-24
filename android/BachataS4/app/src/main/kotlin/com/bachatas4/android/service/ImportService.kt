@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Intent
 import android.net.Uri
 import android.os.IBinder
+import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
@@ -22,9 +23,11 @@ import com.bachatas4.android.data.ImportProgress
 import com.bachatas4.android.data.ParamSfoReader
 import com.bachatas4.android.data.PkgKeyStore
 import com.bachatas4.android.runtime.pkg.PkgExtractor
+import com.bachatas4.android.runtime.pkg.PkgProbeResult
 import com.bachatas4.android.runtime.pkg.PkgStatus
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
+import java.io.FileOutputStream
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -34,8 +37,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.coroutineContext
 
 /**
  * Imports a user-selected game folder or PS4 `.pkg` into app storage.
@@ -52,6 +57,7 @@ class ImportService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var importJob: Job? = null
     private var passcodeWaiter: CompletableDeferred<String?>? = null
+    private var copyConfirmWaiter: CompletableDeferred<Boolean>? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -64,6 +70,7 @@ class ImportService : Service() {
                 Log.i(TAG, "cancel requested")
                 PkgExtractor.nativeCancel()
                 passcodeWaiter?.complete(null)
+                copyConfirmWaiter?.complete(false)
                 importJob?.cancel()
                 getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
                 if (importJob?.isActive != true) {
@@ -76,6 +83,11 @@ class ImportService : Service() {
                 val code = intent.getStringExtra(ImportManager.EXTRA_PASSCODE)
                 Log.i(TAG, "passcode submitted (len=${code?.length ?: 0})")
                 passcodeWaiter?.complete(code)
+                return START_NOT_STICKY
+            }
+            ImportManager.ACTION_CONFIRM_PKG_COPY -> {
+                Log.i(TAG, "pkg copy confirmed by user")
+                copyConfirmWaiter?.complete(true)
                 return START_NOT_STICKY
             }
             ImportManager.ACTION_IMPORT -> {
@@ -114,6 +126,7 @@ class ImportService : Service() {
     override fun onDestroy() {
         importJob?.cancel()
         passcodeWaiter?.complete(null)
+        copyConfirmWaiter?.complete(false)
         if (ImportManager.isBusy()) {
             ImportManager.reset()
         }
@@ -205,6 +218,7 @@ class ImportService : Service() {
         Log.i(TAG, "pkg import prepare uri=$uriString")
         updateNotification("Preparing import…", indeterminate = true)
         var staging: File? = null
+        var cacheFile: File? = null
         var completed = false
         try {
             val uri = Uri.parse(uriString)
@@ -212,57 +226,99 @@ class ImportService : Service() {
                 contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }.onFailure { Log.w(TAG, "pkg persistable permission: ${it.message}") }
 
-            Log.i(TAG, "pkg openFileDescriptor start")
-            val pfd = withContext(Dispatchers.IO) {
+            // Probe via SAF fd (header-only; sequential extract will use a local cache).
+            val probe: PkgProbeResult
+            withContext(Dispatchers.IO) {
                 contentResolver.openFileDescriptor(uri, "r")
                     ?: error("Cannot open PKG")
+            }.use { descriptor ->
+                Log.i(TAG, "pkg openFileDescriptor ok sizeHint=${descriptor.statSize}")
+                Log.i(TAG, "pkg nativeProbe start fd=${descriptor.fd}")
+                probe = withContext(Dispatchers.IO) { PkgExtractor.nativeProbe(descriptor.fd) }
             }
-            Log.i(TAG, "pkg openFileDescriptor ok sizeHint=${pfd.statSize}")
-            pfd.use { descriptor ->
-                val fd = descriptor.fd
-                Log.i(TAG, "pkg nativeProbe start fd=$fd")
-                val probe = withContext(Dispatchers.IO) { PkgExtractor.nativeProbe(fd) }
-                Log.i(
-                    TAG,
-                    "pkg nativeProbe done status=${probe.status} contentId=${probe.contentId} " +
-                        "pkgSize=${probe.packageSize} pfsSize=${probe.pfsImageSize} " +
-                        "hint=${probe.titleHint} msg=${probe.message}",
+            Log.i(
+                TAG,
+                "pkg nativeProbe done status=${probe.status} contentId=${probe.contentId} " +
+                    "pkgSize=${probe.packageSize} pfsSize=${probe.pfsImageSize} " +
+                    "hint=${probe.titleHint} msg=${probe.message}",
+            )
+            val displayName = probe.titleHint?.ifBlank { null }
+                ?: probe.contentId.ifBlank { "PKG" }
+            ImportManager.update(ImportProgress.Scanning(displayName))
+            updateNotification("Identifying $displayName…", indeterminate = true)
+
+            if (probe.status == PkgStatus.ERROR) {
+                error(probe.message ?: "Invalid package")
+            }
+
+            val gamesDir = File(filesDir, "games").canonicalFile
+            gamesDir.mkdirs()
+            val packageBytes = probe.packageSize.coerceAtLeast(0L)
+            val extractBytes = (probe.pfsImageSize.takeIf { it > 0 } ?: packageBytes).coerceAtLeast(0L)
+            // Peak usage while extract holds both the local PKG cache and staging tree.
+            val peak = packageBytes + extractBytes
+            val margin = maxOf(STORAGE_MARGIN_BYTES, peak / 20L) // 5% or 256 MiB
+            val required = peak + margin
+            val free = filesDir.usableSpace
+            Log.i(
+                TAG,
+                "pkg space package=$packageBytes extract=$extractBytes required=$required free=$free",
+            )
+
+            ImportManager.update(
+                ImportProgress.NeedCopyConfirm(
+                    contentId = probe.contentId,
+                    titleHint = probe.titleHint,
+                    packageBytes = packageBytes,
+                    extractBytes = extractBytes,
+                    requiredBytes = required,
+                    freeBytes = free,
+                ),
+            )
+            updateNotification("Confirm storage for PKG import", indeterminate = true)
+            val confirmWaiter = CompletableDeferred<Boolean>()
+            copyConfirmWaiter = confirmWaiter
+            val confirmed = confirmWaiter.await()
+            copyConfirmWaiter = null
+            if (!confirmed) {
+                throw CancellationException("cancelled")
+            }
+            Log.i(TAG, "pkg copy confirmed; free=$free required=$required")
+
+            // Soft re-check after confirm (space can change while dialog is open).
+            val freeNow = filesDir.usableSpace
+            if (required > 0 && required > freeNow) {
+                error(
+                    "Import needs about ${formatBytes(required)} free " +
+                        "(package ${formatBytes(packageBytes)} + extract ${formatBytes(extractBytes)}) " +
+                        "but only ${formatBytes(freeNow)} is available",
                 )
-                val displayName = probe.titleHint?.ifBlank { null }
-                    ?: probe.contentId.ifBlank { "PKG" }
-                ImportManager.update(ImportProgress.Scanning(displayName))
-                updateNotification("Identifying $displayName…", indeterminate = true)
+            }
 
-                if (probe.status == PkgStatus.ERROR) {
-                    error(probe.message ?: "Invalid package")
-                }
+            val cacheDir = File(filesDir, "pkg-cache").canonicalFile
+            cacheDir.mkdirs()
+            cacheFile = File(cacheDir, "${UUID.randomUUID()}.pkg").canonicalFile
+            Log.i(TAG, "pkg cache copy start dest=${cacheFile!!.absolutePath} size=$packageBytes")
+            copyPkgToLocalCache(uri, cacheFile!!, displayName, packageBytes)
+            Log.i(TAG, "pkg cache copy done size=${cacheFile!!.length()}")
 
-                val gamesDir = File(filesDir, "games").canonicalFile
-                gamesDir.mkdirs()
-                val required = probe.pfsImageSize.takeIf { it > 0 } ?: probe.packageSize
-                val free = gamesDir.usableSpace
-                Log.i(TAG, "pkg space required=$required free=$free")
-                if (required > 0 && required > free) {
-                    error(
-                        "Import requires ${formatBytes(required)} but only " +
-                            "${formatBytes(free)} is available",
-                    )
-                }
+            staging = File(gamesDir, ".import-${UUID.randomUUID()}").canonicalFile
+            staging!!.mkdirs()
+            Log.i(TAG, "pkg staging=${staging!!.absolutePath}")
 
-                staging = File(gamesDir, ".import-${UUID.randomUUID()}").canonicalFile
-                staging!!.mkdirs()
-                Log.i(TAG, "pkg staging=${staging!!.absolutePath}")
+            var usedPasscode: String? = null
+            var extractStatus = PkgStatus.ERROR
 
-                var usedPasscode: String? = null
-                var extractStatus = PkgStatus.ERROR
-                var extractMessage: String? = null
+            val candidates = buildList {
+                add(null) // try embedded / zero first via native
+                pkgKeyStore.getPasscode(probe.contentId)?.let { add(it) }
+                add("00000000000000000000000000000000")
+            }.distinct()
+            Log.i(TAG, "pkg extract candidates=${candidates.size} (passcodes redacted)")
 
-                val candidates = buildList {
-                    add(null) // try embedded / zero first via native
-                    pkgKeyStore.getPasscode(probe.contentId)?.let { add(it) }
-                    add("00000000000000000000000000000000")
-                }.distinct()
-                Log.i(TAG, "pkg extract candidates=${candidates.size} (passcodes redacted)")
+            ParcelFileDescriptor.open(cacheFile, ParcelFileDescriptor.MODE_READ_ONLY).use { localPfd ->
+                val fd = localPfd.fd
+                Log.i(TAG, "pkg local open ok fd=$fd size=${localPfd.statSize}")
 
                 for ((index, candidate) in candidates.withIndex()) {
                     Log.i(
@@ -274,7 +330,6 @@ class ImportService : Service() {
                         extractWithProgress(fd, staging!!, candidate, displayName)
                     }
                     extractStatus = result.status
-                    extractMessage = result.message
                     Log.i(TAG, "pkg extract attempt #$index result=${result.status} msg=${result.message}")
                     if (result.status == PkgStatus.OK) {
                         usedPasscode = candidate
@@ -361,10 +416,78 @@ class ImportService : Service() {
                 Log.w(TAG, "pkg import cleanup staging=${staging?.absolutePath}")
                 staging?.deleteRecursively()
             }
+            cacheFile?.let { cached ->
+                Log.i(TAG, "pkg cache delete path=${cached.absolutePath}")
+                runCatching { cached.delete() }
+            }
             passcodeWaiter = null
+            copyConfirmWaiter = null
             if (ImportManager.isBusy()) ImportManager.reset()
             Log.i(TAG, "pkg import finished completed=$completed (stopSelf)")
             stopSelf()
+        }
+    }
+
+    /**
+     * Sequential stream copy from SAF/content URI into app-private storage.
+     * Local random reads during extract are far faster than SAF pread.
+     */
+    private suspend fun copyPkgToLocalCache(
+        uri: Uri,
+        dest: File,
+        displayName: String,
+        totalHint: Long,
+    ) {
+        withContext(Dispatchers.IO) {
+            val input = contentResolver.openInputStream(uri)
+                ?: error("Cannot open PKG stream for local cache")
+            input.use { stream ->
+                FileOutputStream(dest).use { output ->
+                    val buffer = ByteArray(COPY_BUFFER_BYTES)
+                    var done = 0L
+                    var lastNotifyAt = 0L
+                    while (true) {
+                        coroutineContext.ensureActive()
+                        val n = stream.read(buffer)
+                        if (n < 0) break
+                        output.write(buffer, 0, n)
+                        done += n
+                        val now = System.currentTimeMillis()
+                        if (now - lastNotifyAt >= 250L) {
+                            lastNotifyAt = now
+                            ImportManager.update(
+                                ImportProgress.Copying(
+                                    bytesCopied = done,
+                                    totalBytes = totalHint,
+                                    currentFile = "Local PKG cache",
+                                    gameTitle = displayName,
+                                ),
+                            )
+                            val (max, progress) = scaledProgress(done, totalHint)
+                            val sizeText = if (totalHint > 0) {
+                                "${formatBytes(done)} / ${formatBytes(totalHint)}"
+                            } else {
+                                formatBytes(done)
+                            }
+                            updateNotification(
+                                "Copying PKG to device · $sizeText",
+                                maxProgress = max,
+                                progress = progress,
+                                indeterminate = max == 0,
+                            )
+                        }
+                    }
+                    output.fd.sync()
+                    ImportManager.update(
+                        ImportProgress.Copying(
+                            bytesCopied = done,
+                            totalBytes = if (totalHint > 0) totalHint else done,
+                            currentFile = "Local PKG cache",
+                            gameTitle = displayName,
+                        ),
+                    )
+                }
+            }
         }
     }
 
@@ -498,6 +621,9 @@ class ImportService : Service() {
         const val CHANNEL_ID = "import"
         const val NOTIFICATION_ID = 42
         const val PROGRESS_SCALE = 1000
+        const val COPY_BUFFER_BYTES = 1 * 1024 * 1024
+        /** Extra headroom beyond package + extract peak (256 MiB floor). */
+        const val STORAGE_MARGIN_BYTES = 256L * 1024L * 1024L
 
         fun scaledProgress(bytesCopied: Long, totalBytes: Long): Pair<Int, Int> {
             if (totalBytes <= 0L) return 0 to 0

@@ -29,6 +29,19 @@ sealed interface ImportProgress {
 
     data class NeedPasscode(val contentId: String, val titleHint: String?) : ImportProgress
 
+    /**
+     * PKG import paused before local cache copy so the user can confirm
+     * there is enough free storage for package + extract peak usage.
+     */
+    data class NeedCopyConfirm(
+        val contentId: String,
+        val titleHint: String?,
+        val packageBytes: Long,
+        val extractBytes: Long,
+        val requiredBytes: Long,
+        val freeBytes: Long,
+    ) : ImportProgress
+
     data class Success(val gameId: String, val title: String) : ImportProgress
 
     data class Failed(val message: String) : ImportProgress
@@ -38,6 +51,7 @@ object ImportManager {
     const val ACTION_IMPORT = "com.bachatas4.android.action.IMPORT_GAME"
     const val ACTION_CANCEL = "com.bachatas4.android.action.CANCEL_IMPORT"
     const val ACTION_SUBMIT_PASSCODE = "com.bachatas4.android.action.SUBMIT_PASSCODE"
+    const val ACTION_CONFIRM_PKG_COPY = "com.bachatas4.android.action.CONFIRM_PKG_COPY"
     const val EXTRA_URI = "source_uri"
     const val EXTRA_MODE = "import_mode"
     const val EXTRA_PASSCODE = "passcode"
@@ -54,7 +68,8 @@ object ImportManager {
             state is ImportProgress.Extracting ||
             state is ImportProgress.Copying ||
             state is ImportProgress.Finalizing ||
-            state is ImportProgress.NeedPasscode
+            state is ImportProgress.NeedPasscode ||
+            state is ImportProgress.NeedCopyConfirm
 
     /**
      * Atomically claim the single import slot and enter [ImportProgress.Preparing].
