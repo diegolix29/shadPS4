@@ -6,9 +6,9 @@
 #include <array>
 #include <condition_variable>
 #include <ctime>
+#include <mutex>
 #include <string>
 #include <thread>
-#include <mutex>
 #include "core/libraries/kernel/threads/pthread.h"
 
 #include "common/error.h"
@@ -29,8 +29,6 @@
 #include <pthread.h>
 #endif
 #include <sched.h>
-#endif
-#ifndef _WIN32
 #include <unistd.h>
 #endif
 
@@ -40,7 +38,7 @@
 
 namespace Common {
 
-    struct InterruptibleTimer::Impl {
+struct InterruptibleTimer::Impl {
 #ifdef _WIN32
     HANDLE timer{};
     HANDLE interrupt{};
@@ -215,6 +213,47 @@ bool AccurateSleep(const std::chrono::nanoseconds duration, std::chrono::nanosec
 
 #else
 
+static void ApplyPosixThreadPriority(pthread_t thread, ThreadPriority priority) {
+#ifdef __linux__
+    int sched_policy = SCHED_OTHER;
+    sched_param param{};
+    param.sched_priority = 0;
+
+    switch (priority) {
+    case ThreadPriority::Low:
+        param.sched_priority = -5;
+        break;
+    case ThreadPriority::Normal:
+        param.sched_priority = 0;
+        break;
+    case ThreadPriority::High:
+        param.sched_priority = 5;
+        break;
+    case ThreadPriority::VeryHigh:
+        param.sched_priority = 10;
+        break;
+    case ThreadPriority::Critical:
+        sched_policy = SCHED_RR;
+        param.sched_priority = sched_get_priority_max(SCHED_RR);
+        break;
+    default:
+        param.sched_priority = 0;
+        break;
+    }
+
+    pthread_setschedparam(thread, sched_policy, &param);
+#elif defined(__APPLE__)
+    // macOS uses different thread priority mechanisms
+    // For now, we'll skip implementation on macOS
+    (void)thread;
+    (void)priority;
+#else
+    // Other POSIX systems - generic implementation
+    (void)thread;
+    (void)priority;
+#endif
+}
+
 void SetCurrentThreadPriority(ThreadPriority new_priority) {
     ApplyPosixThreadPriority(pthread_self(), new_priority);
 }
@@ -225,7 +264,6 @@ void SetThreadPriority(void* thread_handle, ThreadPriority new_priority) {
     }
     ApplyPosixThreadPriority(reinterpret_cast<pthread_t>(thread_handle), new_priority);
 }
-
 
 bool AccurateSleep(const std::chrono::nanoseconds duration, std::chrono::nanoseconds* remaining,
                    const bool interruptible) {

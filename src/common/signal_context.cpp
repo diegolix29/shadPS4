@@ -19,7 +19,7 @@ void* GetXmmPointer(void* ctx, u8 index) {
 #if defined(_WIN32)
     return &((EXCEPTION_POINTERS*)ctx)->ContextRecord->Xmm0 + index;
 #elif defined(__APPLE__) && defined(ARCH_X86_64)
-    return &((ucontext_t*)ctx)->uc_mcontext->__ss.__xmm + index;
+    return &((ucontext_t*)ctx)->uc_mcontext->__fs.__fpu_xmm0 + index;
 #elif defined(__APPLE__) && defined(ARCH_ARM64)
     // ARM64 doesn't have XMM registers, return nullptr
     return nullptr;

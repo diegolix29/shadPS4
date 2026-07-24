@@ -25,7 +25,7 @@ void* PS4_SYSV_ABI AvPlayer::AllocateTexture(void* handle, u32 alignment, u32 si
     const auto* const self = reinterpret_cast<AvPlayer*>(handle);
     const auto allocate = self->m_init_data_original.memory_replacement.allocate_texture;
     const auto ptr = self->m_init_data_original.memory_replacement.object_ptr;
-    return allocate (ptr, alignment, size);
+    return allocate(ptr, alignment, size);
 }
 
 void PS4_SYSV_ABI AvPlayer::DeallocateTexture(void* handle, void* memory) {

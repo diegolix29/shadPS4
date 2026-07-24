@@ -33,8 +33,6 @@ inline bool IsSpecialCusa() {
            serial == "CUSA00554";
 }
 
-
-
 struct patchInfo {
     std::string gameSerial;
     std::string modNameStr;

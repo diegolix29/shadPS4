@@ -292,7 +292,6 @@ void AutoBackupThread(const std::filesystem::path& save_dir) {
     }
 }
 
-
 void OnGameLoaded() {
     std::string save_cusa = g_game_serial;
     if (g_game_serial == "CUSA03173") {
@@ -397,7 +396,6 @@ void ApplyPendingPatches() {
 
     pending_patches.clear();
 }
-
 
 void PatchMemory(const patchInfo& patch) {
     // Send a request to modify the process memory.

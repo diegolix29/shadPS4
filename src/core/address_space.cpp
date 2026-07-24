@@ -5,10 +5,10 @@
 #include "common/alignment.h"
 #include "common/arch.h"
 #include "common/assert.h"
+#include "common/config.h"
 #include "common/elf_info.h"
 #include "common/error.h"
 #include "core/address_space.h"
-#include "common/config.h"
 #include "core/libraries/kernel/memory.h"
 #include "core/memory.h"
 #include "libraries/error_codes.h"
@@ -630,7 +630,7 @@ enum PosixPageProtection {
 
 struct AddressSpace::Impl {
     Impl() {
-        BackingSize +=  Config::getExtraDmemInMbytes) * 1_MB;
+        BackingSize += Config::getExtraDmemInMbytes() * 1_MB;
         // Allocate virtual address placeholder for our address space.
         system_managed_size = SystemManagedSize;
         system_reserved_size = SystemReservedSize;

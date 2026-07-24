@@ -64,7 +64,7 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
     this->horizontalHeader()->setSortIndicatorShown(true);
     this->horizontalHeader()->setStretchLastSection(true);
     this->setContextMenuPolicy(Qt::CustomContextMenu);
-    this->setColumnCount(11);
+    this->setColumnCount(10);
     this->setColumnWidth(1, 300); // Name
     this->setColumnWidth(2, 140); // Compatibility
     this->setColumnWidth(3, 120); // Serial
@@ -73,12 +73,10 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
     this->setColumnWidth(6, 90);  // Size
     this->setColumnWidth(7, 90);  // Version
     this->setColumnWidth(8, 120); // Play Time
-    this->setColumnWidth(10, 40); // Favorite
 
     QStringList headers;
     headers << tr("Icon") << tr("Name") << tr("Compatibility") << tr("Serial") << tr("Region")
-            << tr("Firmware") << tr("Size") << tr("Version") << tr("Play Time") << tr("Path")
-            << tr("Favorite");
+            << tr("Firmware") << tr("Size") << tr("Version") << tr("Play Time") << tr("Path");
     this->setHorizontalHeaderLabels(headers);
 
     // Set initial theme color for headers
@@ -86,18 +84,20 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
     if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
         headerTextColor = mw->getThemes()->textColor();
     }
-    this->horizontalHeader()->setStyleSheet(QString(
-        "QHeaderView::section { background-color: rgba(30, 30, 30, 200); color: %1; padding: 5px; "
-        "border: none; border-right: 1px solid rgba(90, 170, 255, 80); border-bottom: 1px solid "
-        "rgba(90, 170, 255, 80); } QHeaderView::section:hover { background-color: rgba(90, 170, "
-        "255, 100); }")
-        .arg(headerTextColor.name()));
+    this->horizontalHeader()->setStyleSheet(
+        QString("QHeaderView::section { background-color: rgba(30, 30, 30, 200); color: %1; "
+                "padding: 5px; "
+                "border: none; border-right: 1px solid rgba(90, 170, 255, 80); border-bottom: 1px "
+                "solid "
+                "rgba(90, 170, 255, 80); } QHeaderView::section:hover { background-color: rgba(90, "
+                "170, "
+                "255, 100); }")
+            .arg(headerTextColor.name()));
 
     this->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     this->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
     this->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
-    this->horizontalHeader()->setSectionResizeMode(9, QHeaderView::Stretch);
-    this->horizontalHeader()->setSectionResizeMode(10, QHeaderView::Fixed);
+    this->horizontalHeader()->setSectionResizeMode(10, QHeaderView::Stretch);
 
     m_zar_container = new QWidget(this);
     QVBoxLayout* zarLayout = new QVBoxLayout(m_zar_container);
@@ -110,7 +110,6 @@ GameListFrame::GameListFrame(std::shared_ptr<GameInfoClass> game_info_get,
 
     m_zar_list = new QListWidget(this);
     m_zar_list->setObjectName("ZarList");
-    m_zar_list->setMaximumWidth(200);
     m_zar_list->setIconSize(QSize(64, 64));
     zarLayout->addWidget(m_zar_list);
 
@@ -232,20 +231,14 @@ void GameListFrame::PopulateGameList(bool isInitialPopulation) {
 
     for (int i = 0; i < m_game_info->m_games.size(); i++) {
         SetTableItem(i, 1, QString::fromStdString(m_game_info->m_games[i].name));
-        if (std::filesystem::exists(Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
-                                    (m_game_info->m_games[i].serial + ".toml"))) {
-            QTableWidgetItem* name_item = item(i, 1);
-            name_item->setIcon(QIcon(":images/game_settings.png"));
-        }
         SetTableItem(i, 3, QString::fromStdString(m_game_info->m_games[i].serial));
         SetRegionFlag(i, 4, QString::fromStdString(m_game_info->m_games[i].region));
         SetTableItem(i, 5, QString::fromStdString(m_game_info->m_games[i].fw));
         SetTableItem(i, 6, QString::fromStdString(m_game_info->m_games[i].size));
         SetTableItem(i, 7, QString::fromStdString(m_game_info->m_games[i].version));
-        SetFavoriteIcon(i, 10);
 
         if (m_game_info->m_games[i].serial == last_favorite && !isInitialPopulation) {
-            this->setCurrentCell(i, 10);
+            this->setCurrentCell(i, 0);
         }
 
         m_game_info->m_games[i].compatibility =
@@ -379,6 +372,15 @@ bool GameListFrame::CompareWithFavorite(const GameInfo& a, const GameInfo& b, in
 
 void GameListFrame::RefreshListBackgroundImage() {
     QPalette palette;
+
+    // Get theme-based background color
+    QColor bgColor = QColor(30, 30, 30); // Default fallback
+    if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
+        bgColor = mw->getThemes()->backgroundColor();
+    }
+    int opacity = Config::getBgOpacity();
+    int alpha = opacity * 255 / 100;
+
     if (!backgroundImage.isNull() && Config::getShowBackgroundImage()) {
         QSize widgetSize = size();
         QPixmap scaledPixmap =
@@ -387,12 +389,15 @@ void GameListFrame::RefreshListBackgroundImage() {
         int x = (widgetSize.width() - scaledPixmap.width()) / 2;
         int y = (widgetSize.height() - scaledPixmap.height()) / 2;
         QPixmap finalPixmap(widgetSize);
-        finalPixmap.fill(Qt::transparent);
+        finalPixmap.fill(QColor(bgColor.red(), bgColor.green(), bgColor.blue(), alpha));
         QPainter painter(&finalPixmap);
         painter.drawPixmap(x, y, scaledPixmap);
         palette.setBrush(QPalette::Base, QBrush(finalPixmap));
     } else {
-        palette.setBrush(QPalette::Base, QBrush(Qt::NoBrush));
+        // Apply theme-based background color with opacity
+        QPixmap solidPixmap(size());
+        solidPixmap.fill(QColor(bgColor.red(), bgColor.green(), bgColor.blue(), alpha));
+        palette.setBrush(QPalette::Base, QBrush(solidPixmap));
     }
     QColor transparentColor = QColor(135, 206, 235, 40);
     palette.setColor(QPalette::Highlight, transparentColor);
@@ -407,7 +412,7 @@ void GameListFrame::resizeEvent(QResizeEvent* event) {
 void GameListFrame::RefreshZarBackgroundImage() {
     // Get theme-based background color from main window
     QColor zarBgColor = QColor(30, 30, 30); // Default fallback
-    QColor textColor = Qt::white; // Default text color
+    QColor textColor = Qt::white;           // Default text color
     if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
         zarBgColor = mw->getThemes()->backgroundColor();
         textColor = mw->getThemes()->textColor();
@@ -415,24 +420,26 @@ void GameListFrame::RefreshZarBackgroundImage() {
     int opacity = Config::getBgOpacity();
     int alpha = opacity * 200 / 100;
 
-    m_zar_title->setStyleSheet(QString("color: %1; font-weight: bold; background-color: rgba(%2, %3, "
-                               "%4, %5); padding: 5px; border-radius: 5px; text-align: center;")
-                               .arg(textColor.name())
-                               .arg(zarBgColor.red())
-                               .arg(zarBgColor.green())
-                               .arg(zarBgColor.blue())
-                               .arg(alpha));
+    m_zar_title->setStyleSheet(
+        QString("color: %1; font-weight: bold; background-color: rgba(%2, %3, "
+                "%4, %5); padding: 5px; border-radius: 5px; text-align: center;")
+            .arg(textColor.name())
+            .arg(zarBgColor.red())
+            .arg(zarBgColor.green())
+            .arg(zarBgColor.blue())
+            .arg(alpha));
 
-    m_zar_list->setStyleSheet(QString(
-        "QListWidget { background-color: rgba(%1, %2, %3, %4); border: 1px solid rgba(90, 170, "
-        "255, 150); border-radius: 5px; } QListWidget::item { padding: 5px; color: %5; } "
-        "QListWidget::item:hover { background-color: rgba(90, 170, 255, 100); } "
-        "QListWidget::item:selected { background-color: rgba(90, 170, 255, 150); }")
-        .arg(zarBgColor.red())
-        .arg(zarBgColor.green())
-        .arg(zarBgColor.blue())
-        .arg(alpha)
-        .arg(textColor.name()));
+    m_zar_list->setStyleSheet(
+        QString(
+            "QListWidget { background-color: rgba(%1, %2, %3, %4); border: 1px solid rgba(90, 170, "
+            "255, 150); border-radius: 5px; } QListWidget::item { padding: 5px; color: %5; } "
+            "QListWidget::item:hover { background-color: rgba(90, 170, 255, 100); } "
+            "QListWidget::item:selected { background-color: rgba(90, 170, 255, 150); }")
+            .arg(zarBgColor.red())
+            .arg(zarBgColor.green())
+            .arg(zarBgColor.blue())
+            .arg(alpha)
+            .arg(textColor.name()));
 }
 
 void GameListFrame::RefreshHeaderColors() {
@@ -442,15 +449,18 @@ void GameListFrame::RefreshHeaderColors() {
         headerTextColor = mw->getThemes()->textColor();
         headerBgColor = mw->getThemes()->backgroundColor();
     }
-    this->horizontalHeader()->setStyleSheet(QString(
-        "QHeaderView::section { background-color: rgba(%1, %2, %3, 200); color: %4; padding: 5px; "
-        "border: none; border-right: 1px solid rgba(90, 170, 255, 80); border-bottom: 1px solid "
-        "rgba(90, 170, 255, 80); } QHeaderView::section:hover { background-color: rgba(90, 170, "
-        "255, 100); }")
-        .arg(headerBgColor.red())
-        .arg(headerBgColor.green())
-        .arg(headerBgColor.blue())
-        .arg(headerTextColor.name()));
+    this->horizontalHeader()->setStyleSheet(
+        QString("QHeaderView::section { background-color: rgba(%1, %2, %3, 200); color: %4; "
+                "padding: 5px; "
+                "border: none; border-right: 1px solid rgba(90, 170, 255, 80); border-bottom: 1px "
+                "solid "
+                "rgba(90, 170, 255, 80); } QHeaderView::section:hover { background-color: rgba(90, "
+                "170, "
+                "255, 100); }")
+            .arg(headerBgColor.red())
+            .arg(headerBgColor.green())
+            .arg(headerBgColor.blue())
+            .arg(headerTextColor.name()));
 }
 
 void GameListFrame::SortNameAscending(int columnIndex) {
@@ -482,58 +492,79 @@ void GameListFrame::ApplyLastSorting(bool isInitialPopulation) {
 
 void GameListFrame::ResizeIcons(int iconSize) {
     for (int index = 0; auto& game : m_game_info->m_games) {
+        // Create widget container like grid frame
+        QWidget* widget = new QWidget(this);
+        widget->setAttribute(Qt::WA_TranslucentBackground);
+        widget->setStyleSheet("background: transparent;");
+        QVBoxLayout* layout = new QVBoxLayout(widget);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+
+        // Create image container
+        QWidget* image_container = new QWidget(widget);
+        image_container->setFixedSize(iconSize, iconSize);
+        QVBoxLayout* image_layout = new QVBoxLayout(image_container);
+        image_layout->setContentsMargins(0, 0, 0, 0);
+
+        // Create label for icon
+        QLabel* image_label = new QLabel(image_container);
         QImage scaledPixmap = game.icon.scaled(QSize(iconSize, iconSize), Qt::KeepAspectRatio,
                                                Qt::SmoothTransformation);
-        QTableWidgetItem* iconItem = new QTableWidgetItem();
-        this->verticalHeader()->resizeSection(index, scaledPixmap.height());
-        this->horizontalHeader()->resizeSection(0, scaledPixmap.width());
-        iconItem->setData(Qt::DecorationRole, scaledPixmap);
-        this->setItem(index, 0, iconItem);
+        image_label->setPixmap(QPixmap::fromImage(scaledPixmap));
+        image_label->setAlignment(Qt::AlignCenter);
+        image_label->setFixedSize(iconSize, iconSize);
+        image_label->setAttribute(Qt::WA_TranslucentBackground);
+        image_label->setStyleSheet("background: transparent;");
+
+        image_layout->addWidget(image_label);
+        layout->addWidget(image_container);
+
+        // Add config icon like grid frame
+        std::string serialStr = game.serial;
+        bool hasGameConfig = std::filesystem::exists(
+            Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (serialStr + ".toml"));
+
+        QLabel* config_label = new QLabel(image_container);
+        QPixmap configPixmap = QPixmap(":images/game_settings.png")
+                                   .scaled(iconSize / 3.8, iconSize / 3.8, Qt::KeepAspectRatio,
+                                           Qt::SmoothTransformation);
+
+        QColor themeColor = QColor(90, 170, 255);
+        if (auto* mw = qobject_cast<MainWindow*>(this->window())) {
+            themeColor = mw->getThemes()->textColor();
+        }
+        QPainter painter(&configPixmap);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        painter.fillRect(configPixmap.rect(), themeColor);
+        painter.end();
+
+        config_label->setPixmap(configPixmap);
+        config_label->setFixedSize(configPixmap.width() + 4, configPixmap.height() + 4);
+        config_label->setAlignment(Qt::AlignCenter);
+        config_label->move(2, 2);
+        config_label->raise();
+        config_label->setVisible(hasGameConfig);
+        config_label->setObjectName("gameConfigIcon");
+
+        QList<QString> list = m_compat_info->LoadFavorites();
+        bool isFavorite = list.contains(QString::fromStdString(serialStr));
+
+        if (isFavorite) {
+            image_container->setStyleSheet(
+                QString("QWidget { border: 2px solid rgba(%1, %2, %3, 200); border-radius: 5px; }")
+                    .arg(themeColor.red())
+                    .arg(themeColor.green())
+                    .arg(themeColor.blue()));
+        }
+        widget->setLayout(layout);
+        this->setCellWidget(index, 0, widget);
+
+        this->verticalHeader()->resizeSection(index, iconSize);
+        this->horizontalHeader()->resizeSection(0, iconSize);
+
         index++;
     }
     this->horizontalHeader()->setSectionResizeMode(8, QHeaderView::ResizeToContents);
-}
-
-void GameListFrame::SetFavoriteIcon(int row, int column) {
-    QString serialStr = QString::fromStdString(m_game_info->m_games[row].serial);
-
-    QList<QString> list = m_compat_info->LoadFavorites();
-    bool isFavorite = list.contains(serialStr);
-
-    QTableWidgetItem* item = new QTableWidgetItem();
-
-    const int iconSize = 40;
-    QPixmap pixmap(":images/favorite_icon.png");
-    pixmap = pixmap.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-
-    // Apply consistent toolbar color to match icon buttons
-    QPainter painter(&pixmap);
-    painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-    const QColor toolbarGlowColor(90, 170, 255);
-    painter.fillRect(pixmap.rect(), toolbarGlowColor);
-    painter.end();
-
-    QWidget* widget = new QWidget(this);
-    widget->setAttribute(Qt::WA_TranslucentBackground);
-    widget->setStyleSheet("background: transparent;");
-
-    QVBoxLayout* layout = new QVBoxLayout(widget);
-    QLabel* label = new QLabel(widget);
-    label->setPixmap(pixmap);
-    label->setObjectName("favoriteIcon");
-    label->setVisible(isFavorite);
-
-    layout->setAlignment(Qt::AlignCenter);
-    layout->addWidget(label);
-    layout->setContentsMargins(0, 0, 0, 0);
-    widget->setLayout(layout);
-
-    this->setItem(row, column, item);
-    this->setCellWidget(row, column, widget);
-
-    if (column > 0) {
-        this->horizontalHeader()->setSectionResizeMode(column - 1, QHeaderView::Stretch);
-    }
 }
 
 void GameListFrame::SetCompatibilityItem(int row, int column, CompatibilityEntry entry) {
