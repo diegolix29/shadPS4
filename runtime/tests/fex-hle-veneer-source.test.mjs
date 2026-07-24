@@ -45,12 +45,19 @@ test("FEX function imports use typed guest veneers rather than host addresses", 
   assert.match(veneerHeader, /class HleCallAdapter/);
   assert.match(veneerHeader, /MakeHleCallAdapter/);
   assert.match(veneerHeader, /HleVeneerAllocator/);
+  assert.match(veneerHeader, /QueryExecutableRange/);
   assert.match(veneerSource, /mov rax, operation; syscall; ret/);
   assert.match(veneerSource, /mov r10, rcx/);
   assert.match(veneerSource, /mprotect/);
   assert.match(veneerSource, /__builtin___clear_cache/);
   assert.doesNotMatch(veneerSource, /PROT_WRITE\s*\|\s*PROT_EXEC/);
   assert.match(veneerSource, /BACHATA_FEX_VENEER/);
+  assert.match(veneerSource, /HleVeneerAllocator::QueryExecutableRange/);
+  // Late PRX loads (e.g. Unity il2CppUserAssemblies) allocate veneers after
+  // the FEX thread MappedRanges snapshot; dynamic query must include them.
+  assert.match(linker, /FexExecutableQueryContext/);
+  assert.match(linker, /query->veneers->QueryExecutableRange/);
+  assert.match(linker, /m_fex_exec_query\s*=\s*\{memory,\s*m_hle_veneers\.get\(\)\}/);
   assert.match(veneerHeader, /DecodeArgument/);
   assert.match(veneerHeader, /validate_range/);
   assert.match(veneerHeader, /bool writable/);

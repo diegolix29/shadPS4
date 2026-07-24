@@ -94,4 +94,21 @@ std::vector<GuestExecutionRange> HleVeneerAllocator::GetExecutableRanges() const
     return executable_ranges;
 }
 
+std::optional<GuestExecutionRange> HleVeneerAllocator::QueryExecutableRange(
+    std::uintptr_t address) const {
+    if (address == 0) {
+        return std::nullopt;
+    }
+    std::scoped_lock lock{allocator_mutex};
+    for (const auto& range : executable_ranges) {
+        if (!range.Executable || range.Begin == 0 || range.Size == 0) {
+            continue;
+        }
+        if (address >= range.Begin && address < range.Begin + range.Size) {
+            return range;
+        }
+    }
+    return std::nullopt;
+}
+
 } // namespace Core::GuestCpu

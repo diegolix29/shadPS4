@@ -7,15 +7,22 @@
 #include "core/libraries/kernel/orbis_error.h"
 #include "core/libraries/kernel/posix_error.h"
 #include "core/libraries/kernel/threads/exception.h"
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+#include "core/fex/fex_guest_engine.h"
+#include "core/guest_cpu/hle_call_adapter.h"
+#endif
 #include "core/libraries/kernel/threads/pthread.h"
 #include "core/libraries/libs.h"
 #include "core/signals.h"
+#include "core/linker.h"
+#include "common/singleton.h"
 
 #ifdef _WIN64
 #include "common/ntapi.h"
 #else
 #include <csignal>
 #endif
+#include <array>
 #include <unordered_set>
 
 namespace Libraries::Kernel {
@@ -264,9 +271,24 @@ void SigactionHandler(int native_signum, siginfo_t* inf, ucontext_t* raw_context
         ctx.uc_mcontext.mc_addr = reinterpret_cast<uint64_t>(inf->si_addr);
 #endif
 #else
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+        // ARM64 host: guest handlers are x86 code. Deliver through FEX using guest VA.
+        const auto orbis_sig = NativeToOrbisSignal(native_signum);
+        const auto guest_handler = reinterpret_cast<std::uintptr_t>(handler);
+        if (Core::Fex::DeliverGuestOrbisSignal(orbis_sig, inf, raw_context, guest_handler)) {
+            return;
+        }
+        LOG_ERROR(Lib_Kernel,
+                  "FEX failed to deliver guest signal {} (native {}) handler={:#x}", orbis_sig,
+                  native_signum, guest_handler);
+        return;
+#else
         UNREACHABLE_MSG("SigactionHandler not implemented for current architecture.");
 #endif
+#endif
+#ifdef ARCH_X86_64
         handler(NativeToOrbisSignal(native_signum), &ctx);
+#endif
     } else {
         UNREACHABLE_MSG("Unhandled exception");
     }
@@ -415,6 +437,14 @@ s32 PS4_SYSV_ABI posix_sigaction(s32 sig, Sigaction* act, Sigaction* oact) {
     struct sigaction native_act{};
     if (act) {
         native_act.sa_flags = act->sa_flags; // todo check compatibility, on Linux it seems fine
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+        // Soft guest exceptions (Unity SIGUSR1) must interrupt blocking HLE (futex)
+        // with EINTR so FEX can flush the deferred guest handler. SA_RESTART would
+        // re-enter host wait forever while GC waits for ExceptionHandler — hang.
+        if (native_sig != SIGSEGV && native_sig != SIGBUS && native_sig != SIGILL) {
+            native_act.sa_flags &= ~SA_RESTART;
+        }
+#endif
         native_act.sa_sigaction =
             reinterpret_cast<decltype(native_act.sa_sigaction)>(SigactionHandler);
         if (!posix_sigisemptyset(&act->sa_mask)) {
@@ -472,6 +502,17 @@ s32 PS4_SYSV_ABI posix_pthread_kill(PthreadT thread, s32 sig) {
         return POSIX_EINVAL;
     }
     LOG_WARNING(Lib_Kernel, "Raising signal {} on thread '{}'", sig, thread->name);
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+    // Host pthread_kill wakes the target (like Windows APC queue). Guest handler is
+    // queued in SigactionHandler → DeliverGuestOrbisSignal and runs via FEX
+    // HandleCallback at the next HLE boundary (desktop ExceptionHandler analogue).
+    if (Handlers[sig] != nullptr) {
+        LOG_WARNING(Lib_Kernel,
+                    "FEX: host-wake guest signal {} to '{}' (handler={:#x}); deferred FEX delivery",
+                    sig, thread->name, reinterpret_cast<std::uintptr_t>(Handlers[sig]));
+        // fall through to pthread_kill
+    }
+#endif
     int const native_signum = OrbisToNativeSignal(sig);
 #ifndef _WIN64
     const auto pthr = reinterpret_cast<pthread_t>(thread->native_thr.GetHandle());

@@ -26,6 +26,12 @@ namespace GuestCpu {
 class HleGuestBridge;
 class HleVeneerAllocator;
 }
+// Shared by Linker runtime and the FEX dynamic executable-range callback.
+// HLE veneers are host mmap pages not present in the guest VMM.
+struct FexExecutableQueryContext final {
+    MemoryManager* memory{};
+    GuestCpu::HleVeneerAllocator* veneers{};
+};
 #endif
 
 struct OrbisKernelMemParam {
@@ -190,6 +196,9 @@ private:
     std::vector<std::unique_ptr<Module>> m_modules;
     Loader::SymbolsResolver m_hle_symbols{};
 #ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+    // Must outlive m_fex_bridge; bridge holds a raw pointer into this for
+    // dynamic executable-range queries (guest VMM + late HLE veneers).
+    FexExecutableQueryContext m_fex_exec_query{};
     std::unique_ptr<GuestCpu::HleVeneerAllocator> m_hle_veneers;
     std::unique_ptr<GuestCpu::HleGuestBridge> m_fex_bridge;
     std::unique_ptr<FexGuestCpuBackend> m_fex_backend;

@@ -28,6 +28,9 @@ test("ARM64 production guest entries use the shared FEX runtime", () => {
   assert.match(linker, /FexGuestCpuBackend::Create/);
   assert.match(linker, /QueryProtection/);
   assert.match(linker, /GetExecutableRanges/);
+  assert.match(linker, /FexExecutableQueryContext/);
+  assert.match(linker, /QueryExecutableRange/);
+  assert.match(linkerHeader, /FexExecutableQueryContext/);
 
   const mainEntry = linker.slice(linker.indexOf("RunMainEntry"), linker.indexOf("Linker::Linker"));
   assert.match(mainEntry, /RunGuestMain/);

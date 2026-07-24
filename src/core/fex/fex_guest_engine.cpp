@@ -2,7 +2,8 @@
 
 #include "fex_guest_engine.h"
 
-
+#include "core/libraries/kernel/threads/exception.h"
+#include "core/libraries/kernel/threads/pthread.h"
 #include "Common/Config.h"
 #include "Common/HostFeatures.h"
 #include <FEXCore/Config/Config.h>
@@ -58,21 +59,78 @@ constexpr uint64_t kInvalidationUpdated = 0xfedc'ba98'7654'3210ULL;
 
 std::atomic_uint32_t FexBlockTraceCount {};
 
+// Forward-declare so ActiveFexExecution can hold the HLE bridge for deferred flush.
+class BridgeSyscallHandler;
+
 struct ActiveFexExecutionState final {
   FEXCore::Context::Context* Context {};
   FEXCore::Core::InternalThreadState* Thread {};
   FEXCore::SignalDelegator* SignalDelegator {};
+  BridgeSyscallHandler* Syscalls {};
 };
 
 thread_local ActiveFexExecutionState ActiveFexExecution;
+
+struct PendingOrbisSignalState final {
+  std::uintptr_t Handler {};
+  int OrbisSig {};
+  bool Pending {};
+  bool Flushing {};
+  // Host aarch64 snapshot at kill time so we can spill SRA → guest GPRs before
+  // HandleCallback (mid-JIT live state is NOT in CurrentFrame).
+  bool HasHostSnapshot {};
+  std::uintptr_t HostPc {};
+  std::array<std::uint64_t, 31> HostGprs {};
+};
+thread_local PendingOrbisSignalState PendingOrbisSignal {};
+
+// After host sa_sigaction returns, resume here to run deferred guest handler then
+// jump back into the interrupted FEX host PC. Mirrors Windows APC ExceptionHandler
+// without rewriting guest RIP from async-signal context mid-JIT.
+thread_local std::uintptr_t OrbisSignalResumeHostPc {};
+#if defined(__aarch64__)
+__attribute__((naked, noinline)) static void OrbisSignalHostTrampoline() {
+  // x0-x7/x8 may be live in JIT; save caller-saved pair around the C flush.
+  // Layout: stack saves x0-x18,x30; call C; restore; br to resume PC.
+  asm volatile(
+      "sub sp, sp, #176\n"
+      "stp x0, x1, [sp, #0]\n"
+      "stp x2, x3, [sp, #16]\n"
+      "stp x4, x5, [sp, #32]\n"
+      "stp x6, x7, [sp, #48]\n"
+      "stp x8, x9, [sp, #64]\n"
+      "stp x10, x11, [sp, #80]\n"
+      "stp x12, x13, [sp, #96]\n"
+      "stp x14, x15, [sp, #112]\n"
+      "stp x16, x17, [sp, #128]\n"
+      "stp x18, x30, [sp, #144]\n"
+      "bl OrbisSignalHostTrampolineBody\n"
+      "ldp x0, x1, [sp, #0]\n"
+      "ldp x2, x3, [sp, #16]\n"
+      "ldp x4, x5, [sp, #32]\n"
+      "ldp x6, x7, [sp, #48]\n"
+      "ldp x8, x9, [sp, #64]\n"
+      "ldp x10, x11, [sp, #80]\n"
+      "ldp x12, x13, [sp, #96]\n"
+      "ldp x14, x15, [sp, #112]\n"
+      "ldp x16, x17, [sp, #128]\n"
+      "ldp x18, x30, [sp, #144]\n"
+      "add sp, sp, #176\n"
+      "br x0\n" // body returns resume PC in x0
+  );
+}
+#endif
+
+extern "C" std::uintptr_t OrbisSignalHostTrampolineBody();
 
 class FexExecutionSignalScope final {
 public:
   FexExecutionSignalScope(FEXCore::Context::Context& context,
                           FEXCore::Core::InternalThreadState* thread,
-                          FEXCore::SignalDelegator* signalDelegator)
+                          FEXCore::SignalDelegator* signalDelegator,
+                          BridgeSyscallHandler* syscalls = nullptr)
     : Previous {ActiveFexExecution} {
-    ActiveFexExecution = {&context, thread, signalDelegator};
+    ActiveFexExecution = {&context, thread, signalDelegator, syscalls};
   }
 
   FexExecutionSignalScope(const FexExecutionSignalScope&) = delete;
@@ -475,7 +533,224 @@ public:
     OSABI = FEXCore::HLE::SyscallOSABI::OS_GENERIC;
   }
 
+  // Run deferred Orbis exception handler (Unity SIGUSR1 / signal 30) via nested
+  // HandleCallback. Mirrors desktop Windows APC ExceptionHandler: guest handler
+  // must actually run so GC STW can complete. Never rewrite host RIP/RSP.
+  void FlushPendingOrbisSignal() {
+    if (!PendingOrbisSignal.Pending || PendingOrbisSignal.Flushing ||
+        ActiveFexExecution.Context == nullptr || ActiveFexExecution.Thread == nullptr ||
+        PendingOrbisSignal.Handler == 0) {
+      return;
+    }
+    const auto handler = PendingOrbisSignal.Handler;
+    const auto sig = PendingOrbisSignal.OrbisSig;
+    const bool has_host = PendingOrbisSignal.HasHostSnapshot;
+    const auto host_pc = PendingOrbisSignal.HostPc;
+    std::array<std::uint64_t, 31> host_gprs = PendingOrbisSignal.HostGprs;
+    PendingOrbisSignal.Pending = false;
+    PendingOrbisSignal.Handler = 0;
+    PendingOrbisSignal.HasHostSnapshot = false;
+    PendingOrbisSignal.Flushing = true;
+
+    auto* thread = ActiveFexExecution.Thread;
+    auto* ctx = ActiveFexExecution.Context;
+    auto& state = thread->CurrentFrame->State;
+    using namespace FEXCore::X86State;
+
+    // Mid-JIT: guest GPRs live in host SRA registers, not CurrentFrame. Spill them
+    // from the kill-time host snapshot before nested HandleCallback.
+    if (has_host && ActiveFexExecution.SignalDelegator != nullptr &&
+        ctx->IsAddressInCodeBuffer(thread, host_pc)) {
+      const auto& cfg = ActiveFexExecution.SignalDelegator->GetConfig();
+      const auto count = std::min<uint16_t>(cfg.SRAGPRCount, 16);
+      for (uint16_t i = 0; i < count; ++i) {
+        const auto host_idx = cfg.SRAGPRMapping[i];
+        if (host_idx < host_gprs.size()) {
+          // Linear: StaticRegisters[i] ↔ guest gpr i (RAX=0 …)
+          state.gregs[i] = host_gprs[host_idx];
+        }
+      }
+      state.rip = ctx->RestoreRIPFromHostPC(thread, host_pc);
+      std::fprintf(stderr,
+                   "BACHATA_FEX_SIGNAL spill_sra host_pc=%#lx guest_rip=%#lx rsp=%#lx "
+                   "sra_count=%u\n",
+                   static_cast<unsigned long>(host_pc),
+                   static_cast<unsigned long>(state.rip),
+                   static_cast<unsigned long>(state.gregs[REG_RSP]), count);
+    }
+
+    // Nested invocation so handler HLE does not clobber the outer syscall frame.
+    InvocationState nested_invocation;
+    InvocationScope nested_scope {*this, nested_invocation, thread};
+
+    // Guest stack: prefer CurrentFrame RSP when it looks like PS4 VA; otherwise
+    // fall back to this pthread's guest stack (first GC kill often arrives before
+    // FEX has spilled guest RSP into CurrentFrame — frame holds host values).
+    const auto looks_guest = [](uint64_t a) {
+      // Tight PS4 user window. Host Android stacks sit at ~0x7e.. / 0x7c.. and
+      // must not be used as guest RSP (HandleCallback + x86 stack ops crash).
+      return a >= 0x100000000ULL && a < 0x900000000ULL;
+    };
+    uint64_t work_rsp = state.gregs[REG_RSP];
+    if (!looks_guest(work_rsp)) {
+      if (auto* thr = Libraries::Kernel::g_curthread;
+          thr != nullptr && thr->attr.stackaddr_attr != nullptr &&
+          thr->attr.stacksize_attr > 0x2000) {
+        const auto base = reinterpret_cast<uint64_t>(thr->attr.stackaddr_attr);
+        const auto top =
+            (base + thr->attr.stacksize_attr) & ~uint64_t{0xf};
+        if (looks_guest(base) || looks_guest(top - 0x100)) {
+          work_rsp = top - 0x100;
+          std::fprintf(stderr,
+                       "BACHATA_FEX_SIGNAL use pthread stack top=%#lx base=%#lx "
+                       "size=%#lx (frame_rsp was %#lx)\n",
+                       static_cast<unsigned long>(work_rsp),
+                       static_cast<unsigned long>(base),
+                       static_cast<unsigned long>(thr->attr.stacksize_attr),
+                       static_cast<unsigned long>(state.gregs[REG_RSP]));
+        }
+      }
+    }
+
+    // Save interrupted frame (may hold host values mid-HLE).
+    std::array<uint64_t, 16> saved_gprs {};
+    std::copy(std::begin(state.gregs), std::begin(state.gregs) + 16, saved_gprs.begin());
+    const uint64_t saved_rip = state.rip;
+    const uint64_t saved_rsp = state.gregs[REG_RSP];
+    if (!looks_guest(work_rsp)) {
+      std::fprintf(stderr,
+                   "BACHATA_FEX_SIGNAL flush abort: no guest stack frame_rsp=%#lx\n",
+                   static_cast<unsigned long>(saved_rsp));
+      PendingOrbisSignal.Pending = true;
+      PendingOrbisSignal.Handler = handler;
+      PendingOrbisSignal.OrbisSig = sig;
+      PendingOrbisSignal.Flushing = false;
+      return;
+    }
+
+    // Zero guest GPRs for soft handler: frame may contain host SRA garbage that
+    // looks like pointers (null+0xf8 SEGV). Keep FS/GS as-is for TLS.
+    for (size_t i = 0; i < 16; ++i) {
+      state.gregs[i] = 0;
+    }
+    state.gregs[REG_RSP] = work_rsp;
+
+    // PS4Util soft-handler pattern (Galak-Z):
+    //   lea rax, [counter]; inc [rax]
+    //   cmp edi, 30; jne fallback
+    //   mov rdx, [rsi+0xf8]   // uctx->uc_mcontext.mc_rsp  (offset 0xf8)
+    //   mov rdi, rsi          // uctx
+    //   mov rcx, [handler_slot]; mov rsi, rdx; jmp rcx
+    // So second arg to real Unity handler is mc_rsp — MUST be valid guest SP.
+    uint64_t ctx_addr = 0;
+    constexpr uint64_t kUcontextBytes =
+        (sizeof(Libraries::Kernel::Ucontext) + 0x3full) & ~uint64_t{0x3f};
+    if (work_rsp > kUcontextBytes + 0x100) {
+      ctx_addr = (work_rsp - kUcontextBytes) & ~uint64_t{0xf};
+      auto* uctx = reinterpret_cast<Libraries::Kernel::Ucontext*>(
+          static_cast<uintptr_t>(ctx_addr));
+      std::memset(uctx, 0, sizeof(*uctx));
+      auto& mc = uctx->uc_mcontext;
+      // Stack for the real handler (read at uctx+0xf8).
+      mc.mc_rsp = work_rsp;
+      mc.mc_rbp = work_rsp;
+      if (looks_guest(saved_rip)) {
+        mc.mc_rip = saved_rip;
+      } else {
+        // Dummy guest RIP in eboot range so stack-walkers see a code address.
+        mc.mc_rip = 0x8000000a0ULL;
+      }
+      mc.mc_fsbase = state.fs_cached;
+      mc.mc_gsbase = state.gs_cached;
+      mc.mc_fs = static_cast<u16>(state.fs_cached & 0xffff);
+      mc.mc_gs = static_cast<u16>(state.gs_cached & 0xffff);
+      // Handler stack below the uctx blob.
+      state.gregs[REG_RSP] = ctx_addr;
+    }
+    state.gregs[REG_RDI] = static_cast<uint64_t>(static_cast<uint32_t>(sig));
+    state.gregs[REG_RSI] = ctx_addr;
+
+    std::fprintf(stderr,
+                 "BACHATA_FEX_SIGNAL flush orbis_sig=%d handler=%#lx ctx=%#lx "
+                 "work_rsp=%#lx fs=%#lx\n",
+                 sig, static_cast<unsigned long>(handler),
+                 static_cast<unsigned long>(ctx_addr),
+                 static_cast<unsigned long>(work_rsp),
+                 static_cast<unsigned long>(state.fs_cached));
+    // Dump first 16 bytes of guest handler + probe QueryExecutableRange.
+    {
+      const auto range = QueryGuestExecutableRange(thread, handler);
+      std::fprintf(stderr,
+                   "BACHATA_FEX_SIGNAL handler_range begin=%#lx size=%#lx writable=%d\n",
+                   static_cast<unsigned long>(range.Base),
+                   static_cast<unsigned long>(range.Size),
+                   range.Writable ? 1 : 0);
+      const auto* bytes = reinterpret_cast<const unsigned char*>(
+          static_cast<uintptr_t>(handler));
+      std::fprintf(stderr, "BACHATA_FEX_SIGNAL handler_bytes");
+      for (int i = 0; i < 64; ++i) {
+        std::fprintf(stderr, " %02x", bytes[i]);
+      }
+      std::fprintf(stderr, "\n");
+      // Global the first LEA likely targets (rip+7+disp32 at +3).
+      if (bytes[0] == 0x48 && bytes[1] == 0x8d && bytes[2] == 0x05) {
+        const auto disp = static_cast<int32_t>(bytes[3] | (bytes[4] << 8) |
+                                               (bytes[5] << 16) | (bytes[6] << 24));
+        const auto target = handler + 7 + static_cast<std::uintptr_t>(disp);
+        const auto* g = reinterpret_cast<const unsigned char*>(
+            static_cast<uintptr_t>(target));
+        std::fprintf(stderr,
+                     "BACHATA_FEX_SIGNAL lea_target=%#lx qwords=%#lx %#lx %#lx %#lx\n",
+                     static_cast<unsigned long>(target),
+                     static_cast<unsigned long>(
+                         *reinterpret_cast<const uint64_t*>(g)),
+                     static_cast<unsigned long>(
+                         *reinterpret_cast<const uint64_t*>(g + 8)),
+                     static_cast<unsigned long>(
+                         *reinterpret_cast<const uint64_t*>(g + 16)),
+                     static_cast<unsigned long>(
+                         *reinterpret_cast<const uint64_t*>(g + 24)));
+        // Real Unity handler slot is typically at lea_target+0x10 (third qword).
+        const auto real_fn = *reinterpret_cast<const uint64_t*>(g + 16);
+        if (real_fn != 0) {
+          const auto* rb = reinterpret_cast<const unsigned char*>(
+              static_cast<uintptr_t>(real_fn));
+          std::fprintf(stderr, "BACHATA_FEX_SIGNAL real_fn=%#lx bytes",
+                       static_cast<unsigned long>(real_fn));
+          for (int i = 0; i < 32; ++i) {
+            std::fprintf(stderr, " %02x", rb[i]);
+          }
+          std::fprintf(stderr, "\n");
+          // Verify uctx+0xf8 == mc_rsp we wrote.
+          if (ctx_addr != 0) {
+            const auto at_f8 = *reinterpret_cast<const uint64_t*>(
+                static_cast<uintptr_t>(ctx_addr + 0xf8));
+            std::fprintf(stderr,
+                         "BACHATA_FEX_SIGNAL uctx+0xf8(mc_rsp)=%#lx work_rsp=%#lx\n",
+                         static_cast<unsigned long>(at_f8),
+                         static_cast<unsigned long>(work_rsp));
+          }
+        }
+      }
+    }
+    std::fprintf(stderr,
+                 "BACHATA_FEX_SIGNAL Exception raised successfully orbis_sig=%d handler=%#lx\n",
+                 sig, static_cast<unsigned long>(handler));
+
+    ctx->HandleCallback(thread, handler);
+
+    // Restore interrupted frame for resume (HLE or JIT trampoline).
+    std::copy(saved_gprs.begin(), saved_gprs.end(), std::begin(state.gregs));
+    state.rip = saved_rip;
+    state.gregs[REG_RSP] = saved_rsp;
+    PendingOrbisSignal.Flushing = false;
+  }
+
   uint64_t HandleSyscall(FEXCore::Core::CpuStateFrame* frame, FEXCore::HLE::SyscallArguments*) override {
+    // Desktop APC ExceptionHandler runs guest handler on the target thread around
+    // normal execution. On FEX, host pthread_kill only wakes + queues Pending;
+    // deliver here at HLE boundary (entry) so GC STW sees the handler.
+    FlushPendingOrbisSignal();
     auto* invocation = ActiveInvocation;
     if (invocation == nullptr) return static_cast<uint64_t>(-EPERM);
     if (frame == nullptr) {
@@ -495,6 +770,8 @@ public:
     if (const auto* error = std::get_if<EngineFailure>(&result)) {
       invocation->Failure = *error;
       frame->State.gregs[FEXCore::X86State::REG_RAX] = static_cast<uint64_t>(-error->Error);
+      // Still try to deliver if kill arrived while blocked in host HLE.
+      FlushPendingOrbisSignal();
       return frame->State.gregs[FEXCore::X86State::REG_RAX];
     }
 
@@ -505,6 +782,9 @@ public:
     }
     invocation->Result = frame->State.gregs[FEXCore::X86State::REG_RAX];
     invocation->WasInvoked = true;
+    // Kill often lands while target is blocked inside host futex/HLE. Flush after
+    // Invoke so handler runs before returning to pure guest JIT.
+    FlushPendingOrbisSignal();
     return invocation->Result;
   }
 
@@ -687,7 +967,86 @@ GuestCode BuildGuestCode() {
   return result;
 }
 
+// Called from naked OrbisSignalHostTrampoline after sa_sigaction returns.
+extern "C" std::uintptr_t OrbisSignalHostTrampolineBody() {
+  const auto resume = OrbisSignalResumeHostPc;
+  OrbisSignalResumeHostPc = 0;
+  if (ActiveFexExecution.Syscalls != nullptr) {
+    std::fprintf(stderr, "BACHATA_FEX_SIGNAL trampoline flush resume=%#lx\n",
+                 static_cast<unsigned long>(resume));
+    ActiveFexExecution.Syscalls->FlushPendingOrbisSignal();
+  }
+  return resume != 0 ? resume : reinterpret_cast<std::uintptr_t>(+[]() {
+    std::fprintf(stderr, "BACHATA_FEX_SIGNAL trampoline missing resume PC\n");
+  });
+}
+
 } // namespace
+
+bool DeliverGuestOrbisSignal(int orbis_sig, siginfo_t* info, void* rawContext,
+                             std::uintptr_t guest_handler) noexcept {
+  static_cast<void>(info);
+  if (guest_handler == 0) {
+    return false;
+  }
+
+  // Queue for this thread (SigactionHandler runs on the kill target).
+  // Desktop Windows: APC ExceptionHandler runs guest handler ASAP.
+  // FEX: cannot rewrite guest RIP from host inject (exit 133). Instead:
+  //  1) Queue pending
+  //  2) If currently inside FEX (ActiveFexExecution), divert host PC to a
+  //     trampoline that runs HandleCallback after the signal returns, then
+  //     resumes the interrupted host PC
+  //  3) Also flush at HLE entry/exit (covers wake-from-blocking-syscall)
+  PendingOrbisSignal.Handler = guest_handler;
+  PendingOrbisSignal.OrbisSig = orbis_sig;
+  PendingOrbisSignal.Pending = true;
+  PendingOrbisSignal.HasHostSnapshot = false;
+  const bool active = ActiveFexExecution.Thread != nullptr &&
+                      ActiveFexExecution.Syscalls != nullptr;
+  std::fprintf(stderr,
+               "BACHATA_FEX_SIGNAL defer orbis_sig=%d handler=%#lx active=%d\n",
+               orbis_sig, static_cast<unsigned long>(guest_handler), active ? 1 : 0);
+
+#if defined(__aarch64__)
+  if (active && rawContext != nullptr && !PendingOrbisSignal.Flushing) {
+    auto* uctx = reinterpret_cast<ucontext_t*>(rawContext);
+    const auto pc = static_cast<std::uintptr_t>(uctx->uc_mcontext.pc);
+    // Snapshot host GPRs for optional SRA spill when PC is in JIT.
+    PendingOrbisSignal.HostPc = pc;
+    for (size_t i = 0; i < PendingOrbisSignal.HostGprs.size(); ++i) {
+      PendingOrbisSignal.HostGprs[i] =
+          static_cast<std::uint64_t>(uctx->uc_mcontext.regs[i]);
+    }
+    PendingOrbisSignal.HasHostSnapshot = true;
+
+    // NEVER HandleCallback from async-signal context (FEX not re-entrant from
+    // sa_sigaction → Galak-Z SEGV 0x3008c2398 / 0xf8). Divert host PC so the
+    // trampoline runs AFTER the signal returns (normal context), then resume.
+    // Works for both JIT and HLE/libc wait: same model as returning from a
+    // normal signal handler, with soft ExceptionHandler inserted first.
+    const bool in_jit =
+        ActiveFexExecution.Context->IsAddressInCodeBuffer(ActiveFexExecution.Thread, pc);
+    if (!in_jit) {
+      // Outside JIT: SRA spill would mis-apply host GPRs onto guest frame.
+      PendingOrbisSignal.HasHostSnapshot = false;
+    }
+    if (pc != reinterpret_cast<std::uintptr_t>(&OrbisSignalHostTrampoline)) {
+      OrbisSignalResumeHostPc = pc;
+      uctx->uc_mcontext.pc =
+          static_cast<decltype(uctx->uc_mcontext.pc)>(
+              reinterpret_cast<std::uintptr_t>(&OrbisSignalHostTrampoline));
+      std::fprintf(stderr,
+                   "BACHATA_FEX_SIGNAL divert host_pc=%#lx -> trampoline in_jit=%d\n",
+                   static_cast<unsigned long>(pc), in_jit ? 1 : 0);
+    }
+  }
+#else
+  static_cast<void>(rawContext);
+#endif
+  return true;
+}
+
 
 bool HandleGuestSignal(int signal, siginfo_t* info, void* rawContext) noexcept {
 #if defined(__aarch64__)
@@ -804,7 +1163,8 @@ public:
     thread->CurrentFrame->State.gregs[FEXCore::X86State::REG_R12] =
         reinterpret_cast<uint64_t>(stackPage.Get()) + 1;
     {
-      FexExecutionSignalScope signalScope {*Context, thread, SignalDelegator.get()};
+      FexExecutionSignalScope signalScope {*Context, thread, SignalDelegator.get(),
+                                           Syscalls.get()};
       Context->ExecuteThread(thread);
     }
     if (Syscalls->FailureResult(invocation)) return *Syscalls->FailureResult(invocation);
@@ -845,7 +1205,8 @@ public:
     state.gregs[FEXCore::X86State::REG_RDI] = kCallbackInput;
     state.gregs[FEXCore::X86State::REG_RSP] = initialRsp;
     {
-      FexExecutionSignalScope signalScope {*Context, thread, SignalDelegator.get()};
+      FexExecutionSignalScope signalScope {*Context, thread, SignalDelegator.get(),
+                                           Syscalls.get()};
       Context->HandleCallback(thread, initialRip + guest.CallbackOffset);
     }
     if (state.gregs[FEXCore::X86State::REG_RAX] != kCallbackInput + 5 || state.gregs[FEXCore::X86State::REG_RSP] != initialRsp) {
@@ -856,7 +1217,8 @@ public:
     state.rip = invalidationRip;
     state.gregs[FEXCore::X86State::REG_RSP] = initialRsp;
     {
-      FexExecutionSignalScope signalScope {*Context, thread, SignalDelegator.get()};
+      FexExecutionSignalScope signalScope {*Context, thread, SignalDelegator.get(),
+                                           Syscalls.get()};
       Context->ExecuteThread(thread);
     }
     if (state.gregs[FEXCore::X86State::REG_RAX] != kInvalidationInitial) return Failure(EngineStage::Invalidate, EPROTO);
@@ -876,7 +1238,8 @@ public:
     state.rip = invalidationRip;
     state.gregs[FEXCore::X86State::REG_RSP] = initialRsp;
     {
-      FexExecutionSignalScope signalScope {*Context, thread, SignalDelegator.get()};
+      FexExecutionSignalScope signalScope {*Context, thread, SignalDelegator.get(),
+                                           Syscalls.get()};
       Context->ExecuteThread(thread);
     }
     result.Invalidation = state.gregs[FEXCore::X86State::REG_RAX] == kInvalidationUpdated;
@@ -932,7 +1295,8 @@ public:
     callRetStack.Initialize(thread);
     thread->CurrentFrame->State.fs_cached = reinterpret_cast<uint64_t>(tlsPage.Get());
     {
-      FexExecutionSignalScope signalScope {*Context, thread, SignalDelegator.get()};
+      FexExecutionSignalScope signalScope {*Context, thread, SignalDelegator.get(),
+                                           Syscalls.get()};
       Context->ExecuteThread(thread);
     }
     return thread->CurrentFrame->State.gregs[FEXCore::X86State::REG_RAX] == sentinel &&
@@ -1103,7 +1467,8 @@ EngineResult<GuestExecutionState> GuestEngine::Run(Thread& thread) {
                                                           thread.Native};
   {
     FexExecutionSignalScope signalScope {*ImplState->Context, thread.Native,
-                                         ImplState->SignalDelegator.get()};
+                                         ImplState->SignalDelegator.get(),
+                                         ImplState->Syscalls.get()};
     ImplState->Context->ExecuteThread(thread.Native);
   }
   if (ImplState->Syscalls->FailureResult(thread.Invocation)) {
@@ -1166,7 +1531,8 @@ EngineResult<GuestExecutionState> GuestEngine::CallGuest(
   BridgeSyscallHandler::InvocationScope invocationScope {*ImplState->Syscalls, invocation, thread};
   {
     FexExecutionSignalScope signalScope {*ImplState->Context, thread,
-                                         ImplState->SignalDelegator.get()};
+                                         ImplState->SignalDelegator.get(),
+                                         ImplState->Syscalls.get()};
     ImplState->Context->HandleCallback(thread, rip);
   }
   if (ImplState->Syscalls->FailureResult(invocation)) {

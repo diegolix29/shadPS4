@@ -60,6 +60,12 @@ struct GuestRunResult final {
 
 #ifndef _WIN32
 bool HandleGuestSignal(int signal, siginfo_t* info, void* rawContext) noexcept;
+// Queue Orbis guest exception handler for deferred FEX delivery (ARM64 host).
+// orbis_sig is the Orbis signal number (e.g. 30 / SIGUSR1). guest_handler is the
+// guest VA from Libraries::Kernel::Handlers. Actual run is HandleCallback at HLE
+// boundary — mirrors desktop Windows APC ExceptionHandler without host inject.
+bool DeliverGuestOrbisSignal(int orbis_sig, siginfo_t* info, void* rawContext,
+                             std::uintptr_t guest_handler) noexcept;
 #endif
 
 class GuestEngine final {

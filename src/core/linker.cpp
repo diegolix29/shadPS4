@@ -85,10 +85,21 @@ static bool SealGuestExecutableMemory(MemoryManager& memory, std::uintptr_t begi
     return false;
 }
 
+// HLE veneers live in host mmap pages outside the guest VMM. Dynamic PRX
+// loads allocate more of them after the FEX thread snapshot is taken, so the
+// dynamic QueryGuestExecutableRange path must see them here. Context layout
+// matches Linker::FexExecutableQueryContext.
 static std::optional<GuestExecutionRange> QueryGuestExecutableMemory(void* context,
                                                                      std::uintptr_t address) {
     if (context == nullptr || address == 0) return std::nullopt;
-    auto* memory = static_cast<MemoryManager*>(context);
+    auto* query = static_cast<FexExecutableQueryContext*>(context);
+    if (query->veneers != nullptr) {
+        if (auto range = query->veneers->QueryExecutableRange(address)) {
+            return range;
+        }
+    }
+    if (query->memory == nullptr) return std::nullopt;
+    auto* memory = query->memory;
     void* range_start{};
     void* range_end{};
     u32 protection{};
@@ -291,9 +302,10 @@ std::optional<GuestExecutionFailure> Linker::InitializeFexRuntime() {
         m_fex_exit_veneer = std::get<u64>(veneer);
     }
 
+    m_fex_exec_query = {memory, m_hle_veneers.get()};
     m_fex_bridge = std::make_unique<GuestCpu::HleGuestBridge>(
         registry, ValidateGuestMemory, memory, ReportGuestHleFailure, nullptr,
-        QueryGuestExecutableMemory, memory);
+        QueryGuestExecutableMemory, &m_fex_exec_query);
     auto backend = FexGuestCpuBackend::Create(*m_fex_bridge);
     if (const auto* failure = std::get_if<GuestExecutionFailure>(&backend)) {
         m_fex_bridge.reset();

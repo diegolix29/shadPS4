@@ -100,6 +100,11 @@ public:
     HleVeneerResult Allocate(const HleCallAdapter& adapter);
 
     [[nodiscard]] std::vector<GuestExecutionRange> GetExecutableRanges() const;
+    // Dynamic modules allocate veneers after FEX thread start. FEX JIT must
+    // discover those pages through QueryGuestExecutableRange, not only the
+    // MappedRanges snapshot taken at Run().
+    [[nodiscard]] std::optional<GuestExecutionRange> QueryExecutableRange(
+        std::uintptr_t address) const;
 
 private:
     struct Allocation final {
@@ -206,11 +211,16 @@ std::optional<T> DecodeArgument(CallCursor& cursor) {
                     return sizeof(PointedTo);
                 }
             }();
+            // Guest VMM only. HLE opaque handles (host new) live outside VMM;
+            // publish via PublishHostRange when possible. If still unmapped, allow
+            // non-null host-side addresses so FEX matches native x86 handle semantics.
             if (cursor.frame.validate_range == nullptr ||
                 !cursor.frame.validate_range(cursor.frame.validate_context,
                                              static_cast<std::uintptr_t>(*value), minimum_size,
                                              !std::is_const_v<std::remove_pointer_t<T>>)) {
-                return std::nullopt;
+                if (*value < 4096) {
+                    return std::nullopt;
+                }
             }
         }
         return reinterpret_cast<T>(static_cast<std::uintptr_t>(*value));
