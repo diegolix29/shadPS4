@@ -35,7 +35,10 @@ class BundledTurnipInstallerTest {
         assertEquals(hash, first.metadata.sha256)
         assertTrue(Files.isRegularFile(first.library))
         assertTrue(Files.isRegularFile(requireNotNull(first.icdManifest)))
-        assertEquals("test-v1", Files.readString(root.resolve(BundledTurnipInstaller.MARKER_FILE)).trim())
+        assertEquals(
+            "test-v1",
+            Files.readString(root.resolve(BundledTurnipInstaller.markerFileName("test-v1"))).trim(),
+        )
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -77,8 +80,53 @@ class BundledTurnipInstallerTest {
             deviceApi = 37,
         ).ensureInstalled()
         assertNotEquals(first.metadata.id, second.metadata.id)
-        assertEquals("v2", Files.readString(root.resolve(BundledTurnipInstaller.MARKER_FILE)).trim())
+        assertEquals(
+            "v2",
+            Files.readString(root.resolve(BundledTurnipInstaller.markerFileName("v2"))).trim(),
+        )
         assertEquals(hash2, second.metadata.sha256)
+    }
+
+    @Test
+    fun multiplePackagesShareRegistryWithSeparateMarkers() {
+        val zipA = glibcTurnipZip(name = "Turnip A", seed = 1)
+        val zipB = glibcTurnipZip(name = "Turnip B", seed = 2)
+        val hashA = sha256(zipA)
+        val hashB = sha256(zipB)
+        val root = temporaryFolder.newFolder("multi").toPath()
+
+        val a = BundledTurnipInstaller(
+            registryRoot = root,
+            openAsset = { ByteArrayInputStream(zipA) },
+            expectedSha256 = hashA,
+            assetName = "a.zip",
+            versionMarker = "line-a-v1",
+            deviceApi = 37,
+        ).ensureInstalled()
+        val b = BundledTurnipInstaller(
+            registryRoot = root,
+            openAsset = { ByteArrayInputStream(zipB) },
+            expectedSha256 = hashB,
+            assetName = "b.zip",
+            versionMarker = "line-b-v1",
+            deviceApi = 37,
+        ).ensureInstalled()
+
+        assertNotEquals(a.metadata.id, b.metadata.id)
+        assertEquals(hashA, a.metadata.sha256)
+        assertEquals(hashB, b.metadata.sha256)
+        assertTrue(Files.isRegularFile(root.resolve(BundledTurnipInstaller.markerFileName("line-a-v1"))))
+        assertTrue(Files.isRegularFile(root.resolve(BundledTurnipInstaller.markerFileName("line-b-v1"))))
+        // Re-ensure is idempotent for both.
+        val a2 = BundledTurnipInstaller(
+            registryRoot = root,
+            openAsset = { ByteArrayInputStream(zipA) },
+            expectedSha256 = hashA,
+            assetName = "a.zip",
+            versionMarker = "line-a-v1",
+            deviceApi = 37,
+        ).ensureInstalled()
+        assertEquals(a.metadata.id, a2.metadata.id)
     }
 
     @Test(expected = IllegalArgumentException::class)

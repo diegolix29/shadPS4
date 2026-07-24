@@ -203,6 +203,57 @@ fun LibraryScreen(
             },
         )
     }
+    val needCopyConfirm = importProgress as? ImportProgress.NeedCopyConfirm
+    if (needCopyConfirm != null) {
+        val enoughSpace = needCopyConfirm.freeBytes >= needCopyConfirm.requiredBytes
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { /* wait for confirm/cancel via service */ },
+            title = { Text("Confirm PKG import") },
+            text = {
+                Column {
+                    Text(needCopyConfirm.titleHint ?: needCopyConfirm.contentId.ifBlank { "Selected package" })
+                    Text(
+                        "PKG files are copied into app storage first, then extracted. " +
+                            "Peak free space needed is package + extract size.",
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    Text(
+                        "Package: ${formatBytes(needCopyConfirm.packageBytes)}\n" +
+                            "Extract: ${formatBytes(needCopyConfirm.extractBytes)}\n" +
+                            "Needed: ${formatBytes(needCopyConfirm.requiredBytes)}\n" +
+                            "Free: ${formatBytes(needCopyConfirm.freeBytes)}",
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    if (!enoughSpace) {
+                        Text(
+                            "Not enough free storage. Free space or cancel this import.",
+                            modifier = Modifier.padding(top = 8.dp),
+                            color = Color(0xFFFFB4AB),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val intent = Intent(ImportManager.ACTION_CONFIRM_PKG_COPY).apply {
+                            setClassName(context.packageName, ImportManager.SERVICE_CLASS)
+                        }
+                        context.startService(intent)
+                    },
+                    enabled = enoughSpace,
+                ) { Text(if (enoughSpace) "Continue" else "Not enough space") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    val intent = Intent(ImportManager.ACTION_CANCEL).apply {
+                        setClassName(context.packageName, ImportManager.SERVICE_CLASS)
+                    }
+                    context.startService(intent)
+                }) { Text("Cancel") }
+            },
+        )
+    }
     val needPasscode = importProgress as? ImportProgress.NeedPasscode
     if (needPasscode != null) {
         androidx.compose.material3.AlertDialog(
@@ -451,6 +502,20 @@ fun LibraryContent(
                             )
                         }
                     }
+                    is ImportProgress.NeedCopyConfirm -> {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            val enough = progress.freeBytes >= progress.requiredBytes
+                            ImportStatusCard(
+                                title = "Confirm storage for ${progress.titleHint ?: "PKG"}",
+                                subtitle = "Needed ${formatBytes(progress.requiredBytes)} · " +
+                                    "Free ${formatBytes(progress.freeBytes)}" +
+                                    if (enough) "" else " · not enough space",
+                                detail = "Package ${formatBytes(progress.packageBytes)} + " +
+                                    "extract ${formatBytes(progress.extractBytes)}",
+                                indeterminate = true,
+                            )
+                        }
+                    }
                     is ImportProgress.Copying -> {
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             val fraction = if (progress.totalBytes > 0) {
@@ -460,8 +525,13 @@ fun LibraryContent(
                                 0f
                             }
                             val percent = (fraction * 100f).toInt()
+                            val isPkgCache = progress.currentFile == "Local PKG cache"
                             ImportStatusCard(
-                                title = "Importing ${progress.gameTitle}",
+                                title = if (isPkgCache) {
+                                    "Copying ${progress.gameTitle} to device"
+                                } else {
+                                    "Importing ${progress.gameTitle}"
+                                },
                                 subtitle = if (progress.totalBytes > 0) {
                                     "${formatBytes(progress.bytesCopied)} / ${formatBytes(progress.totalBytes)} · $percent%"
                                 } else {

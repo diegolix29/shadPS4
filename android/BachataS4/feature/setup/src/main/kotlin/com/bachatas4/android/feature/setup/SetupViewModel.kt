@@ -24,11 +24,10 @@ data class SetupUiState(
     val isDownloading: Boolean = false,
 ) {
     val canEnterLibrary: Boolean
-        get() = deviceProfile.supported && runtimeInstalled && integrityVerified
+        get() = runtimeInstalled && integrityVerified
 
     val readiness: SetupReadiness
         get() = when {
-            !deviceProfile.supported -> SetupReadiness.UnsupportedDevice
             !runtimeInstalled -> SetupReadiness.RuntimeRequired
             !integrityVerified -> SetupReadiness.IntegrityRequired
             else -> SetupReadiness.Ready
@@ -37,7 +36,6 @@ data class SetupUiState(
 
 enum class SetupReadiness {
     Ready,
-    UnsupportedDevice,
     RuntimeRequired,
     IntegrityRequired,
 }
@@ -49,7 +47,7 @@ class SetupViewModel @Inject constructor(
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(
         SetupUiState(
-            deviceProfile = DeviceProfile(soc = "unknown", gpu = "unverified", supported = false),
+            deviceProfile = DeviceProfile(soc = "unknown", gpu = "unverified", supported = true),
             runtimeInstalled = false,
             integrityVerified = false,
             legalNotice = "Import only games and firmware content you legally own.",
@@ -59,12 +57,12 @@ class SetupViewModel @Inject constructor(
     val state: StateFlow<SetupUiState> = mutableState
 
     init {
-        val soc = android.os.Build.SOC_MODEL.orEmpty()
-        val isSupportedSoc = soc.equals("SM8650", ignoreCase = true) || soc.equals("SM8750", ignoreCase = true)
+        val soc = android.os.Build.SOC_MODEL.orEmpty().ifEmpty { "unknown" }
+        // No SoC allowlist: report detected hardware but do not block setup.
         val profile = DeviceProfile(
             soc = soc,
-            gpu = if (isSupportedSoc) "Adreno" else "unverified",
-            supported = isSupportedSoc
+            gpu = "unverified",
+            supported = true,
         )
         updateDeviceProfile(profile)
         

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/** Fail if an F-Droid / non-Play APK or AAB contains the Play-only Turnip asset. */
+/** Fail if an F-Droid / non-Play APK or AAB contains Play-only Turnip assets. */
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -15,9 +15,17 @@ const listing = execFileSync("unzip", ["-Z1", target], { encoding: "utf8" })
   .split("\n")
   .filter(Boolean);
 
+const playAssetPatterns = [
+  "assets/drivers/turnip-26.1.0-EMULATOR.zip",
+  "assets/drivers/turnip-mojo-25.0-EMULATOR.zip",
+  "assets/drivers/turnip-gen8-EMULATOR.zip",
+  "assets/licenses/mesa-turnip-26.1.0-NOTICE.txt",
+  "assets/licenses/mesa-turnip-mojo-25.0-NOTICE.txt",
+  "assets/licenses/mesa-turnip-gen8-NOTICE.txt",
+];
+
 const leaks = listing.filter((entry) =>
-  entry.includes("assets/drivers/turnip-26.1.0-EMULATOR.zip") ||
-  entry.includes("assets/licenses/mesa-turnip-26.1.0-NOTICE.txt"),
+  playAssetPatterns.some((pattern) => entry.includes(pattern)),
 );
 
 if (leaks.length > 0) {

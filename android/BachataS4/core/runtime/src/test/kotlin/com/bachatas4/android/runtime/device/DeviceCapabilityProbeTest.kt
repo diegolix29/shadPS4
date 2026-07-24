@@ -2,58 +2,28 @@ package com.bachatas4.android.runtime.device
 
 import com.bachatas4.android.model.DeviceProfile
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DeviceCapabilityProbeTest {
     @Test
-    fun acceptsSnapdragon8Gen3() {
+    fun acceptsAnySocGpuPairing() {
         assertTrue(classify("SM8650", "Adreno 750").supported)
-    }
-
-    @Test
-    fun acceptsSnapdragon8Elite() {
         assertTrue(classify("SM8750", "Adreno 830").supported)
+        assertTrue(classify("SM8150", "Adreno 640").supported)
+        assertTrue(classify("Tensor G5", "Mali").supported)
+        assertTrue(classify("SM8850", "Adreno 840").supported)
     }
 
     @Test
-    fun matchingIsCaseInsensitive() {
-        assertTrue(classify("sm8650", "qualcomm ADRENO 750").supported)
-        assertTrue(classify("SM8650", "Qualcomm Adreno (TM) 750 GPU").supported)
-        assertTrue(classify("sm8750", "adreno 830").supported)
-    }
-
-    @Test
-    fun rejectsWrongSocGpuPairings() {
-        assertFalse(classify("SM8650", "Adreno 830").supported)
-        assertFalse(classify("SM8750", "Adreno 750").supported)
-    }
-
-    @Test
-    fun rejectsGpuNamesWithoutModelTokenBoundaries() {
-        assertFalse(classify("SM8650", "Adreno 7500").supported)
-        assertFalse(classify("SM8650", "FakeAdreno 750").supported)
-        assertFalse(classify("SM8650", "Adreno 750Pro").supported)
-        assertFalse(classify("SM8750", "Adreno 8300").supported)
-        assertFalse(classify("SM8750", "FakeAdreno 830").supported)
-    }
-
-    @Test
-    fun rejectsUnknownHardware() {
-        assertFalse(classify("Tensor G5", "Mali").supported)
-        assertFalse(classify("SM8850", "Adreno 840").supported)
-    }
-
-    @Test
-    fun unverifiedGpuKeepsLaunchBlocked() {
+    fun unverifiedGpuDoesNotBlock() {
         val probe = DeviceCapabilityProbe(
             socModelProvider = SocModelProvider { "SM8650" },
             gpuCapabilityProvider = GpuCapabilityProvider { GpuCapability.Unverified },
         )
 
         assertEquals(
-            DeviceProfile(soc = "SM8650", gpu = "unverified", supported = false),
+            DeviceProfile(soc = "SM8650", gpu = "unverified", supported = true),
             probe.probe(),
         )
     }

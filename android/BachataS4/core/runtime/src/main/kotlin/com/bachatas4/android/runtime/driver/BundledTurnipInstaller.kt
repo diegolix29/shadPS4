@@ -7,10 +7,11 @@ import java.nio.file.Path
 import java.security.MessageDigest
 
 /**
- * Extracts and validates the Play-bundled Turnip package into the private driver registry.
+ * Extracts and validates one Play-bundled Turnip package into the private driver registry.
  *
  * Installs via [TurnipPackageInstaller] (atomic staging, path-traversal checks, ELF validation).
- * Re-extracts when the bundled version marker or package SHA-256 changes (app update).
+ * Re-extracts when the package version marker or package SHA-256 changes (app update).
+ * Multiple installers may share the same [registryRoot]; each uses its own marker file.
  */
 class BundledTurnipInstaller(
     private val registryRoot: Path,
@@ -22,9 +23,25 @@ class BundledTurnipInstaller(
     private val releaseTag: String = BundledTurnipSpec.RELEASE_TAG,
     private val deviceApi: Int = android.os.Build.VERSION.SDK_INT,
 ) {
+    constructor(
+        registryRoot: Path,
+        openAsset: () -> InputStream,
+        packageSpec: BundledTurnipPackage,
+        deviceApi: Int = android.os.Build.VERSION.SDK_INT,
+    ) : this(
+        registryRoot = registryRoot,
+        openAsset = openAsset,
+        expectedSha256 = packageSpec.sha256,
+        assetName = packageSpec.assetName,
+        versionMarker = packageSpec.versionMarker,
+        sourceRepository = packageSpec.sourceRepository,
+        releaseTag = packageSpec.releaseTag,
+        deviceApi = deviceApi,
+    )
+
     private val installer = TurnipPackageInstaller(registryRoot, deviceApi = deviceApi)
     private val registry = DriverRegistry(registryRoot)
-    private val markerFile = registryRoot.resolve(MARKER_FILE)
+    private val markerFile = registryRoot.resolve(markerFileName(versionMarker))
 
     fun ensureInstalled(): InstalledDriver {
         findMatchingInstalled()?.let { existing ->
@@ -33,7 +50,7 @@ class BundledTurnipInstaller(
         val bytes = openAsset().use { it.readBytes() }
         val actual = sha256(bytes)
         require(actual.equals(expectedSha256, ignoreCase = true)) {
-            "Bundled Turnip checksum mismatch (expected $expectedSha256, got $actual)"
+            "Bundled Turnip checksum mismatch for $assetName (expected $expectedSha256, got $actual)"
         }
         val installed = installer.install(
             ByteArrayInputStream(bytes),
@@ -44,7 +61,7 @@ class BundledTurnipInstaller(
             ),
         )
         require(installed.metadata.sha256.equals(expectedSha256, ignoreCase = true)) {
-            "Installed Turnip checksum mismatch after extract"
+            "Installed Turnip checksum mismatch after extract for $assetName"
         }
         Files.createDirectories(registryRoot)
         Files.write(markerFile, versionMarker.toByteArray(Charsets.UTF_8))
@@ -66,6 +83,10 @@ class BundledTurnipInstaller(
             .joinToString("") { "%02x".format(it) }
 
     companion object {
+        fun markerFileName(versionMarker: String): String =
+            ".bundled-turnip-$versionMarker"
+
+        /** @deprecated Use [markerFileName]; kept for older single-package tests. */
         const val MARKER_FILE = ".bundled-turnip-version"
     }
 }

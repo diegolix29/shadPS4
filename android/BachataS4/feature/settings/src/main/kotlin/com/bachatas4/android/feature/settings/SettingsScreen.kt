@@ -84,7 +84,7 @@ import com.bachatas4.android.designsystem.theme.BachataPalette
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenDrivers: () -> Unit = {},
-    /** Play builds hide Turnip selection; F-Droid keeps the Drivers tab. */
+    /** Drivers tab visibility in Settings (defaults on; Play still uses bundled-only backend). */
     showDriversTab: Boolean = true,
     initialGameId: String? = null,
     viewModel: SettingsViewModel = hiltViewModel(),

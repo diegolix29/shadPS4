@@ -47,7 +47,6 @@ fun SetupContent(
 ) {
     val readinessText = when (state.readiness) {
         SetupReadiness.Ready -> "Ready to enter your library"
-        SetupReadiness.UnsupportedDevice -> "This device is not currently supported"
         SetupReadiness.RuntimeRequired -> "Emulation runtime is required"
         SetupReadiness.IntegrityRequired -> "Runtime verification is required"
     }

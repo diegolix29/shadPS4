@@ -2,18 +2,18 @@ Bundled Mesa Turnip Vulkan driver (Play Store variant)
 ======================================================
 
 Package (in-app asset):
-  assets/drivers/turnip-26.1.0-EMULATOR.zip
+  assets/drivers/turnip-mojo-25.0-EMULATOR.zip
 
 Upstream package name:
-  Turnip-mojo-26.1-v2-08e7443-EMULATOR.zip
+  Turnip-mojo-25.0-v2-2a6fe3d-EMULATOR.zip
 
 Built and redistributed by:
   https://github.com/JICA98/bachata-s4-drivers
 
 Driver binary origin (Mesa / Freedreno Turnip):
   Repository: https://github.com/whitebelyash/mesa-unified
-  Branch:     mojo/26.1
-  Commit:     08e74439b86d87df4b705edc00e47a5ef1e3b637
+  Branch:     mojo/25.0
+  Commit:     2a6fe3d35a3b59a21418946af1c45d109422fbc7
 
 The Mesa project (including the Freedreno/Turnip Vulkan driver) is licensed
 under the MIT license. A copy of the standard Mesa MIT terms follows.
