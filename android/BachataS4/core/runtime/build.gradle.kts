@@ -13,6 +13,7 @@ android {
         externalNativeBuild {
             cmake { arguments += "-DANDROID_STL=c++_shared" }
         }
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     externalNativeBuild {
         cmake {
@@ -36,4 +37,10 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
+    testImplementation(kotlin("test"))
+    androidTestImplementation(libs.junit)
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(kotlin("test"))
 }

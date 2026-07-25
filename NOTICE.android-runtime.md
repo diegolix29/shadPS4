@@ -11,6 +11,21 @@
 
 `runtime/locks/winlator-vendor.sha256` records every copied upstream path, local path, and SHA-256. Wine UI, installers, assets, and bundled binaries are excluded.
 
+## Vortek
+
+- Client upstream: https://github.com/brunodev85/vortek.git
+- Client revision: `ab7329c4b445a4abd9b9af91b8148e1ca41464fa`
+- Client license: LGPL-2.1
+- Client source destination: `runtime/sources/vortek-client`
+- Client is built from source into the managed runtime (`host/lib/libvulkan_vortek.so`); no prebuilt Winlator Vortek asset is redistributed.
+- Server upstream: https://github.com/brunodev85/winlator-app.git
+- Server revision: `e113da42beefc39c69c8944b27c19c3703bfa856` (same pin as Winlator above)
+- Server source location: `runtime/sources/winlator-app/app/src/main/cpp/vortekrenderer`
+- Server is also LGPL-2.1 and is built from source (Android native library integration is a later task).
+- Protocol headers `request_codes.h` and `vortek_serializer.h` are verified byte-identical between the pinned client and server via `runtime/scripts/vendor-vortek.sh`.
+- Shared Bachata handshake definitions live in `runtime/vortek-protocol/bachata_vortek_protocol.h`.
+- Android server (Task 4): `libbachata_vortek_server.so` under `android/BachataS4/core/runtime/src/main/cpp/vortek/`, LGPL-2.1-derived ring/ashmem helpers from the pinned Winlator tree, host Vulkan via `dlopen("libvulkan.so")`.
+
 ## Runtime Components
 
 - shadPS4 backend: GPL-2.0-or-later; corresponding source is this repository, including Bachata runtime changes.

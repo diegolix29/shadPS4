@@ -3,6 +3,7 @@
 
 #include "common/arch.h"
 #include "common/assert.h"
+#include "common/crash_reporter.h"
 #include "common/decoder.h"
 #include "common/signal_context.h"
 #include "core/libraries/kernel/threads/exception.h"
@@ -100,6 +101,13 @@ static std::string DisassembleInstruction(void* code_address) {
 }
 
 void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
+    // Must check env before Signals::Instance() call since the first signal may be fatal.
+    static const bool crashReporterOn = [] {
+        Common::InitCrashReporter();
+        return true;
+    }();
+    (void)crashReporterOn;
+    Common::ReportCrash(raw_context, sig, info);
     const auto* signals = Signals::Instance();
 
     auto* code_address = Common::GetRip(raw_context);
@@ -153,6 +161,7 @@ void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
 #endif
 
 SignalDispatch::SignalDispatch() {
+    Common::InitCrashReporter();
 #if defined(_WIN32)
     ASSERT_MSG(handle = AddVectoredExceptionHandler(0, SignalHandler),
                "Failed to register exception handler.");

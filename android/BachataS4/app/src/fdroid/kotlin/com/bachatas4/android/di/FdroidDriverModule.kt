@@ -13,7 +13,9 @@ import com.bachatas4.android.runtime.driver.TurnipReleaseClient
 import com.bachatas4.android.runtime.driver.UrlConnectionDriverAssetTransport
 import com.bachatas4.android.runtime.driver.UrlConnectionHttpTransport
 import com.bachatas4.android.runtime.process.RuntimeVulkanDriver
+import com.bachatas4.android.runtime.process.RuntimeVulkanDriverIds
 import com.bachatas4.android.runtime.process.VulkanDriverConfiguration
+import com.bachatas4.android.runtime.process.VulkanDriverResolveContext
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -52,16 +54,20 @@ private class FdroidDriverManagerBackend(context: Context) : DriverManagerBacken
 
     override fun remove(id: String): Boolean = registry.remove(id)
 
-    override fun configurationFor(driverId: String, runtimeRoot: Path): VulkanDriverConfiguration {
-        if (driverId == "system") {
-            return VulkanDriverConfiguration.resolve(RuntimeVulkanDriver.SYSTEM, runtimeRoot)
+    override fun configurationFor(driverId: String, context: VulkanDriverResolveContext): VulkanDriverConfiguration =
+        when (driverId) {
+            RuntimeVulkanDriverIds.SYSTEM ->
+                VulkanDriverConfiguration.resolve(RuntimeVulkanDriver.SYSTEM, context)
+            RuntimeVulkanDriverIds.SYSTEM_VORTEK ->
+                VulkanDriverConfiguration.resolve(RuntimeVulkanDriver.SYSTEM_VORTEK, context)
+            else -> {
+                val driver = registry.resolve(driverId)
+                    ?: throw IllegalStateException(
+                        "Selected Vulkan driver '$driverId' is not installed; open Turnip drivers and select another driver",
+                    )
+                VulkanDriverConfiguration.resolve(driver, context.runtimeRoot)
+            }
         }
-        val driver = registry.resolve(driverId)
-            ?: throw IllegalStateException(
-                "Selected Vulkan driver '$driverId' is not installed; open Turnip drivers and select another driver",
-            )
-        return VulkanDriverConfiguration.resolve(driver, runtimeRoot)
-    }
 }
 
 @Module

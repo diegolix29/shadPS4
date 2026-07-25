@@ -5,6 +5,7 @@
 #include <list>
 #include <mutex>
 #include <semaphore>
+#include <cstdio>
 
 #include "core/libraries/kernel/sync/semaphore.h"
 
@@ -247,6 +248,7 @@ s32 PS4_SYSV_ABI sceKernelDeleteSema(OrbisKernelSema sem) {
 }
 
 s32 PS4_SYSV_ABI posix_sem_init(PthreadSem** sem, s32 pshared, u32 value) {
+    printf("[POSIX SEM] init\n"); fflush(stdout);
     if (value > ORBIS_KERNEL_SEM_VALUE_MAX) {
         *__Error() = POSIX_EINVAL;
         return -1;
@@ -258,6 +260,7 @@ s32 PS4_SYSV_ABI posix_sem_init(PthreadSem** sem, s32 pshared, u32 value) {
 }
 
 s32 PS4_SYSV_ABI posix_sem_destroy(PthreadSem** sem) {
+    printf("[POSIX SEM] destroy\n"); fflush(stdout);
     if (sem == nullptr || *sem == nullptr) {
         *__Error() = POSIX_EINVAL;
         return -1;
@@ -268,12 +271,14 @@ s32 PS4_SYSV_ABI posix_sem_destroy(PthreadSem** sem) {
 }
 
 s32 PS4_SYSV_ABI posix_sem_wait(PthreadSem** sem) {
+    printf("[POSIX SEM] wait begin\n"); fflush(stdout);
     if (sem == nullptr || *sem == nullptr) {
         *__Error() = POSIX_EINVAL;
         return -1;
     }
     (*sem)->semaphore.acquire();
     --(*sem)->value;
+    printf("[POSIX SEM] wait end\n"); fflush(stdout);
     return 0;
 }
 
@@ -304,6 +309,7 @@ s32 PS4_SYSV_ABI posix_sem_timedwait(PthreadSem** sem, const OrbisKernelTimespec
 }
 
 s32 PS4_SYSV_ABI posix_sem_post(PthreadSem** sem) {
+    printf("[POSIX SEM] post\n"); fflush(stdout);
     if (sem == nullptr || *sem == nullptr) {
         *__Error() = POSIX_EINVAL;
         return -1;
@@ -423,6 +429,15 @@ void RegisterSemaphore(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("w5IHyvahg-o", "libScePosix", 1, "libkernel", posix_sem_timedwait);
     LIB_FUNCTION("IKP8typ0QUk", "libScePosix", 1, "libkernel", posix_sem_post);
     LIB_FUNCTION("Bq+LRV-N6Hk", "libScePosix", 1, "libkernel", posix_sem_getvalue);
+
+    // OpenOrbis / libkernel Posix aliases
+    LIB_FUNCTION("pDuPEf3m4fI", "libkernel", 1, "libkernel", posix_sem_init);
+    LIB_FUNCTION("cDW233RAwWo", "libkernel", 1, "libkernel", posix_sem_destroy);
+    LIB_FUNCTION("YCV5dGGBcCo", "libkernel", 1, "libkernel", posix_sem_wait);
+    LIB_FUNCTION("WBWzsRifCEA", "libkernel", 1, "libkernel", posix_sem_trywait);
+    LIB_FUNCTION("w5IHyvahg-o", "libkernel", 1, "libkernel", posix_sem_timedwait);
+    LIB_FUNCTION("IKP8typ0QUk", "libkernel", 1, "libkernel", posix_sem_post);
+    LIB_FUNCTION("Bq+LRV-N6Hk", "libkernel", 1, "libkernel", posix_sem_getvalue);
 
     LIB_FUNCTION("GEnUkDZoUwY", "libkernel", 1, "libkernel", scePthreadSemInit);
     LIB_FUNCTION("Vwc+L05e6oE", "libkernel", 1, "libkernel", scePthreadSemDestroy);

@@ -84,11 +84,29 @@ public class GPUImage extends Texture {
         return hardwareBufferPtr;
     }
 
+    /**
+     * Release the permanent CPU lock taken at construction so Vulkan can write the AHB.
+     * After this call {@link #getVirtualData()} is null; Canvas compositors must copy via lock.
+     */
+    public void releaseCpuLock() {
+        if (locked && hardwareBufferPtr != 0) {
+            unlockHardwareBuffer(hardwareBufferPtr);
+            locked = false;
+            virtualData = null;
+        }
+    }
+
+    public boolean isLocked() {
+        return locked;
+    }
+
     private native long createHardwareBuffer(short width, short height, boolean cpuAccess, boolean useHALPixelFormatBGRA8888);
 
     private native void destroyHardwareBuffer(long hardwareBufferPtr, boolean locked);
 
     private native ByteBuffer lockHardwareBuffer(long hardwareBufferPtr);
+
+    private native void unlockHardwareBuffer(long hardwareBufferPtr);
 
     private native long createImageKHR(long hardwareBufferPtr, int textureId);
 

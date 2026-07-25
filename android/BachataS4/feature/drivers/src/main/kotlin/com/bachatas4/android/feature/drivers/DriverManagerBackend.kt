@@ -3,6 +3,7 @@ package com.bachatas4.android.feature.drivers
 import com.bachatas4.android.runtime.driver.InstalledDriver
 import com.bachatas4.android.runtime.driver.TurnipReleaseAsset
 import com.bachatas4.android.runtime.process.VulkanDriverConfiguration
+import com.bachatas4.android.runtime.process.VulkanDriverResolveContext
 import java.nio.file.Path
 
 data class DriverManagerCapabilities(
@@ -28,14 +29,21 @@ interface DriverManagerBackend {
     fun remove(id: String): Boolean
 
     /**
-     * Resolve Vulkan configuration for launch. Play backends may remap stale driver ids
+     * Resolve Vulkan configuration for launch. Play backends may remap stale Turnip ids
      * to the bundled package; non-Play backends load any installed id.
+     * [SYSTEM_VORTEK]([com.bachatas4.android.runtime.process.RuntimeVulkanDriverIds.SYSTEM_VORTEK])
+     * is never remapped to Turnip and requires a session socket in [context].
      */
-    fun configurationFor(driverId: String, runtimeRoot: Path): VulkanDriverConfiguration
+    fun configurationFor(driverId: String, context: VulkanDriverResolveContext): VulkanDriverConfiguration
+
+    /** Convenience for non-Vortek resolution without a session socket. */
+    fun configurationFor(driverId: String, runtimeRoot: Path): VulkanDriverConfiguration =
+        configurationFor(driverId, VulkanDriverResolveContext(runtimeRoot = runtimeRoot))
 
     /**
      * When non-null, setup should skip the driver picker and persist this id
      * (Play: bundled Turnip). F-Droid returns null and shows the picker.
+     * Never returns system-vortek (experimental opt-in only).
      */
     fun autoSelectDriverId(): String? = null
 }

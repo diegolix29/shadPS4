@@ -211,6 +211,21 @@ class RuntimeProbeLauncher {
             "XDG_CACHE_HOME",
             "MESA_SHADER_CACHE_DIR",
             "VK_ICD_FILENAMES",
+            "SDL_VULKAN_LIBRARY",
+            "BACHATA_VORTEK_SOCKET",
+            "BACHATA_VORTEK_HANDSHAKE",
+            "BACHATA_VORTEK_LOG_LEVEL",
+            "BACHATA_VORTEK_TRACE",
+            "BACHATA_VORTEK_TRANSPORT_ONLY",
+            "BACHATA_VORTEK_HEADLESS",
+            "BACHATA_VORTEK_WSI",
+            "BACHATA_VORTEK_WSI_SECONDS",
+            "BACHATA_VORTEK_WSI_RESIZE",
+            "BACHATA_VORTEK_SHAD",
+            "BACHATA_VORTEK_FENCE",
+            "BACHATA_VORTEK_TRACE_FENCES",
+            "BACHATA_VORTEK_FENCE_WAIT_MODE",
+            "BACHATA_VORTEK_FENCE_WAIT_FORCE_DEVICE_LOST",
         )
     }
 }

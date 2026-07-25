@@ -9,6 +9,7 @@
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/buffer_cache/memory_tracker.h"
+#include "video_core/buffer_cache/vk_dispatch_reload.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
@@ -236,11 +237,59 @@ void BufferCache::BindVertexBuffers(const Vulkan::GraphicsPipeline& pipeline) {
 
     const auto cmdbuf = scheduler.CommandBuffer();
     const auto num_buffers = guest_buffers.size();
-    if (instance.IsVertexInputDynamicState()) {
-        cmdbuf.bindVertexBuffers(0, num_buffers, host_buffers.data(), host_offsets.data());
+
+    // Always prefer vkCmdBindVertexBuffers2 (Vulkan 1.3 / VK_EXT_extended_dynamic_state).
+    // The core 1.0 vkCmdBindVertexBuffers is unusable in the Vortek RPC bridge: GDPA
+    // returns a trampoline that is non-null but jumps to 0 when called directly,
+    // whereas the VB2 trampoline works correctly. VB2 is a superset (sizes + strides
+    // are additional optional arguments), so it fully covers the core path.
+    const char* source = nullptr;
+    auto fn = BachataResolveBindVB2(
+        static_cast<VkDevice>(instance.GetDevice()),
+        VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceProcAddr,
+        &source);
+
+    static const bool trace_enabled = []() {
+        const char* env = std::getenv("BACHATA_VORTEK_TRACE_BIND_VERTEX_BUFFERS");
+        return env && (std::strcmp(env, "1") == 0 || std::strcmp(env, "true") == 0);
+    }();
+
+    if (trace_enabled) {
+        LOG_INFO(Render_Vulkan, "[Bachata.Dispatch] operation=BindVertexBuffers2");
+        LOG_INFO(Render_Vulkan, "[Bachata.Dispatch] resolver_result={}", fn ? "true" : "false");
+        if (source) {
+            LOG_INFO(Render_Vulkan, "[Bachata.Dispatch] bind_vertex_buffers2_source={}", source);
+        }
+    }
+
+    if (fn) {
+        // Stage 11.3: assert the indirect target is non-null before branching.
+        // The historical PC=0 crash was a branch through a null dispatcher slot;
+        // never call a Vulkan function pointer without this guard.
+        ASSERT_MSG(fn != nullptr,
+                   "vkCmdBindVertexBuffers2 resolved to null before indirect call");
+        fn(static_cast<VkCommandBuffer>(cmdbuf),
+           0, num_buffers,
+           reinterpret_cast<const VkBuffer*>(host_buffers.data()),
+           reinterpret_cast<const VkDeviceSize*>(host_offsets.data()),
+           reinterpret_cast<const VkDeviceSize*>(host_sizes.data()),
+           reinterpret_cast<const VkDeviceSize*>(host_strides.data()));
+    } else if (instance.IsVertexInputDynamicState()) {
+        // Fallback: core 1.0 vkCmdBindVertexBuffers via GDPA. Only used when VB2 is
+        // unavailable (non-Vortek hosts where the dispatcher slot may still be null).
+        auto bind_vb = BachataResolveBindVB(
+            static_cast<VkDevice>(instance.GetDevice()),
+            VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceProcAddr);
+        ASSERT_MSG(bind_vb != nullptr,
+                   "Required Vulkan function vkCmdBindVertexBuffers was not resolved");
+        bind_vb(static_cast<VkCommandBuffer>(cmdbuf), 0, num_buffers,
+                reinterpret_cast<const VkBuffer*>(host_buffers.data()),
+                reinterpret_cast<const VkDeviceSize*>(host_offsets.data()));
     } else {
-        cmdbuf.bindVertexBuffers2(0, num_buffers, host_buffers.data(), host_offsets.data(),
-                                  host_sizes.data(), host_strides.data());
+        LOG_ERROR(Render_Vulkan,
+                  "No vertex buffer bind path available: vkCmdBindVertexBuffers2 unresolved "
+                  "and vertex input dynamic state disabled");
+        ASSERT_MSG(false, "No usable vkCmdBindVertexBuffers path");
     }
 }
 

@@ -173,9 +173,21 @@ class RuntimeProcessLauncher(
             "SDL_VULKAN_LIBRARY",
             "TMPDIR",
             "XDG_CACHE_HOME",
+            "XKB_CONFIG_ROOT",
             "MESA_SHADER_CACHE_DIR",
             "VK_ICD_FILENAMES",
             "GLIBC_TUNABLES",
+            "BACHATA_VORTEK_SOCKET",
+            "BACHATA_VORTEK_HANDSHAKE",
+            "BACHATA_VORTEK_LOG_LEVEL",
+            "BACHATA_VORTEK_TRACE",
+            "BACHATA_VORTEK_TRACE_FENCES",
+            "BACHATA_VORTEK_FENCE_WAIT_MODE",
+            "BACHATA_VORTEK_FENCE_WAIT_FORCE_DEVICE_LOST",
+            "BACHATA_CRASH_REGISTERS",
+            "BACHATA_VORTEK_PROC_AUDIT",
+            "BACHATA_VORTEK_TRACE_BIND_VERTEX_BUFFERS",
+            "BACHATA_FEX_TRACE_SIGSYS",
         )
         val BOX64_ENVIRONMENT = Regex("BOX64_[A-Z0-9_]+")
     }

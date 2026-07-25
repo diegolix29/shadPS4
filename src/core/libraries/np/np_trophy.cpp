@@ -845,9 +845,16 @@ int PS4_SYSV_ABI sceNpTrophyRegisterContext(OrbisNpTrophyContext context,
             // Stub success here to prevent issues specific to missing a trophy key.
         }
     } else {
-        LOG_ERROR(Lib_NpTrophy, "No npCommId found for trophy index/service_label: {}",
+        // No NPCommId mapped for this service_label. This happens when the game's
+        // npbind.dat could not be parsed (ExtractTrophies left the map empty) — the
+        // reference desktop build hits this too. Treat it the same as "missing trophy
+        // files": log and register successfully. Returning INVALID_TITLEID here makes
+        // Dark Souls Remastered (CUSA08692) show "Failed to install Trophy Set" and
+        // block the title menu, even though the desktop build (which also has an empty
+        // map) proceeds fine.
+        LOG_ERROR(Lib_NpTrophy,
+                  "No npCommId found for trophy index/service_label: {} (registering anyway)",
                   ctx.service_label);
-        return ORBIS_NP_UTIL_ERROR_INVALID_TITLEID;
     }
 
     ctx.registered = true;

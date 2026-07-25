@@ -131,6 +131,11 @@ set(GCN_TEST_SOURCES
 
     # Tests
     gcn/test_gcn_instructions.cpp
+
+    # Vulkan-Hpp dispatch test (vkCmdBindVertexBuffers2)
+    gcn/test_vk_dispatch_bindvb2.cpp
+    ${CMAKE_SOURCE_DIR}/src/video_core/buffer_cache/vk_dispatch_reload.cpp
+    ${CMAKE_SOURCE_DIR}/src/video_core/buffer_cache/vk_dispatch_reload.h
 )
 
 set(IMGUI_MEMORY_TEST_SOURCES
@@ -175,6 +180,12 @@ target_link_libraries(shadps4_gcn_test PRIVATE
     SDL3::SDL3
     spdlog::spdlog
     half::half
+)
+
+# vk_dispatch_reload.cpp must not be LTO-optimized (same as in the main binary)
+set_source_files_properties(
+    ${CMAKE_SOURCE_DIR}/src/video_core/buffer_cache/vk_dispatch_reload.cpp
+    PROPERTIES COMPILE_FLAGS "-fno-lto"
 )
 target_link_libraries(shadps4_imgui_memory_test PRIVATE
     GTest::gtest_main

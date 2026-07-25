@@ -27,7 +27,10 @@ import com.bachatas4.android.runtime.process.RuntimeProcessLauncher
 import com.bachatas4.android.runtime.process.RuntimeProcessRequest
 import com.bachatas4.android.runtime.settings.RuntimeGuestBackend
 import com.bachatas4.android.runtime.process.RuntimeVulkanDriver
+import com.bachatas4.android.runtime.process.RuntimeVulkanDriverIds
 import com.bachatas4.android.runtime.process.VulkanDriverConfiguration
+import com.bachatas4.android.runtime.vortek.VortekSessionSupport
+import com.bachatas4.android.runtime.vortek.failureCategory
 import dagger.hilt.android.AndroidEntryPoint
 import com.bachatas4.android.runtime.session.ManagedSession
 import com.bachatas4.android.runtime.session.ManagedSessionState
@@ -115,12 +118,13 @@ class EmulationService : Service() {
         )
         val outputFile = sessionLog.backendLog.toFile()
         val telemetryReporter = FrameTelemetryReporter()
-        sessionLog.info("Session", "start game=$gameId driver=$vulkanDriver")
+        sessionLog.info("Session", "start game=$gameId intentDriver=$vulkanDriver")
         GamepadInputManager.onSessionStart()
         sessionLog.info(
             "Device",
             "manufacturer=${android.os.Build.MANUFACTURER} model=${android.os.Build.MODEL} sdk=${android.os.Build.VERSION.SDK_INT}",
         )
+        var vortekSession: VortekSessionSupport? = null
         try {
             require(gameId.matches(Regex("[A-Za-z0-9._-]+"))) { "Invalid game id" }
             val gamesRoot = File(filesDir, "games").canonicalFile
@@ -145,11 +149,14 @@ class EmulationService : Service() {
             val target = withTimeout(SURFACE_TIMEOUT_MS) { ManagedSession.surface.filterNotNull().first() }
             sessionLog.info("Display", "surface=${target.width}x${target.height}")
             val socketRoot = File(filesDir, "x").apply { mkdirs() }
+            // Xlib DISPLAY=:0 resolves @/tmp/.X11-unix/X0 (abstract) or
+            // /tmp/.X11-unix/X0 (filesystem). Do not use bare "/X0" — that only
+            // works if another process (e.g. Termux X11) owns the canonical path.
             xServer = WinlatorEmbeddedXServer(
                 this,
                 socketRoot,
                 useAbstractXSocket = true,
-                xSocketPath = "/X0",
+                xSocketPath = UnixSocketConfig.XSERVER_PATH,
                 useSharedMemoryAudio = false,
             )
             xServer.start(target.surface, target.width, target.height)
@@ -160,14 +167,55 @@ class EmulationService : Service() {
             }
             serverSocket = LocalServerSocket(boundSocket.fileDescriptor)
             val nativeLibraryDir = Paths.get(applicationInfo.nativeLibraryDir)
+
+            val useVortek = RuntimeVulkanDriverIds.isVortek(launchProfile.driverId)
+            var vortekSocketPath: Path? = null
+            if (useVortek) {
+                val shortId = VortekSessionSupport.newSessionId()
+                val session = VortekSessionSupport(
+                    filesDir = filesDir,
+                    sessionShortId = shortId,
+                    log = { tag, msg ->
+                        val section = if (tag == VortekSessionSupport.LOG_TAG) "Vortek" else tag
+                        sessionLog.info(section, msg)
+                    },
+                )
+                vortekSession = session
+                val start = session.startServer()
+                if (!start.ok) {
+                    throw IllegalStateException("${start.failureCategory()}: ${start.message}")
+                }
+                // Wire X window → AHB bridge for Vortek WSI (matched Winlator JMethods path).
+                val xs = xServer.xServer
+                if (xs != null) {
+                    val windowBridge = com.bachatas4.android.runtime.vortek.VortekWindowBridge(xs)
+                    val bridgeResult = session.controller.setWindowBridge(windowBridge)
+                    if (!bridgeResult.isOk) {
+                        throw IllegalStateException("vortek_window_bridge: ${bridgeResult.message}")
+                    }
+                    sessionLog.info("Vortek", "window_bridge=attached")
+                } else {
+                    throw IllegalStateException("vortek_surface_unavailable: x_server_missing")
+                }
+                vortekSocketPath = session.socketAsPath()
+                sessionLog.info("Vulkan", "driver=system-vortek box64Mode=HOST_GLIBC")
+            }
+
             val driverConfiguration = launchProfileProvider.vulkanConfiguration(
                 launchProfile,
                 installedRuntime,
                 filesDir.toPath(),
+                vortekSocketPath = vortekSocketPath,
             )
             val guestBackend = launchProfile.guestBackend
             sessionLog.info("Runtime", "guestBackend=${guestBackend.name.lowercase()}")
-            sessionLog.info("Vulkan", "driver=${launchProfile.driverId} box64Mode=${driverConfiguration.box64Mode}")
+            sessionLog.info(
+                "Vulkan",
+                "driver=${driverConfiguration.driverProfileId} box64Mode=${driverConfiguration.box64Mode}",
+            )
+            if (useVortek) {
+                sessionLog.info("Vortek", "guest_launch=begin")
+            }
             val runtimeHome = filesDir.toPath().resolve("runtime-home")
             ShadPs4ConfigManager.write(runtimeHome, launchProfile)
             sessionLog.info("Vulkan", "persistent pipeline cache enabled home=$runtimeHome")
@@ -183,22 +231,34 @@ class EmulationService : Service() {
             } else {
                 installedRuntime.resolve("bin/shadps4")
             }
-            process = RuntimeProcessLauncher().launch(
-                RuntimeProcessRequest(
-                    nativeLibraryDir = nativeLibraryDir,
-                    runtimeRoot = installedRuntime,
-                    overrideRoot = gameRoot.toPath(),
-                    storageRoot = filesDir.toPath(),
-                    shadPs4Executable = shadPs4Executable,
-                    socketPath = controlFile.path,
-                    environment = environment,
-                    arguments = listOf("-g", eboot.path),
-                    outputPath = outputFile.toPath(),
-                    box64Mode = driverConfiguration.box64Mode,
-                    guestBackend = guestBackend,
-                ),
-            )
+            process = try {
+                RuntimeProcessLauncher().launch(
+                    RuntimeProcessRequest(
+                        nativeLibraryDir = nativeLibraryDir,
+                        runtimeRoot = installedRuntime,
+                        overrideRoot = gameRoot.toPath(),
+                        storageRoot = filesDir.toPath(),
+                        shadPs4Executable = shadPs4Executable,
+                        socketPath = controlFile.path,
+                        environment = environment,
+                        arguments = listOf("-g", eboot.path),
+                        outputPath = outputFile.toPath(),
+                        box64Mode = driverConfiguration.box64Mode,
+                        guestBackend = guestBackend,
+                    ),
+                )
+            } catch (launchError: Exception) {
+                if (useVortek) {
+                    throw IllegalStateException(
+                        "vortek_guest_launch_failed: ${launchError.message}",
+                        launchError,
+                    )
+                }
+                throw launchError
+            }
             sessionLog.info("Runtime", "backend process launched")
+            // CONTEXT_READY is observed by the Android server when the real packaged client
+            // connects (Task 5 probe / game Vulkan init). Do not block control-socket accept.
             val acceptFuture = acceptExecutor.submit<LocalSocket> { serverSocket.accept() }
             while (clientSocket == null) {
                 clientSocket = try {
@@ -280,6 +340,7 @@ class EmulationService : Service() {
                 ManagedSession.detachControllerSlotSink(sink)
             }
             GamepadInputManager.onSessionEnd()
+            val guestExit = process?.exitCode
             process?.destroyForcibly()
             process = null
             runCatching { clientSocket?.close() }
@@ -287,6 +348,14 @@ class EmulationService : Service() {
             runCatching { boundSocket?.close() }
             acceptExecutor.shutdownNow()
             runCatching { xServer?.let { runBlocking { it.stop() } } }
+            // Always stop Vortek after guest teardown (or if guest never launched).
+            vortekSession?.let { session ->
+                runCatching {
+                    runBlocking { session.stop("session_cleanup", guestExitCode = guestExit) }
+                }.onFailure {
+                    sessionLog.warning("Vortek", "vortek_server_stop_failed: ${it.message.orEmpty()}")
+                }
+            }
             controlFile.delete()
             sessionLog.info("Session", "cleanup complete")
             stopSelf()
@@ -328,6 +397,8 @@ class EmulationService : Service() {
         "TMPDIR" to cacheDir.path,
         "XDG_CACHE_HOME" to File(cacheDir, "xdg").apply { mkdirs() }.path,
         "GLIBC_TUNABLES" to "glibc.pthread.rseq=0",
+        "BACHATA_VORTEK_TRACE_BIND_VERTEX_BUFFERS" to "1",
+        "BACHATA_FEX_TRACE_SIGSYS" to "1",
     )
 
     private fun stopSession() {

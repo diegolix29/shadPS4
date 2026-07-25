@@ -8,7 +8,10 @@ import com.bachatas4.android.runtime.driver.BundledTurnipPackage
 import com.bachatas4.android.runtime.driver.BundledTurnipSpec
 import com.bachatas4.android.runtime.driver.InstalledDriver
 import com.bachatas4.android.runtime.driver.TurnipReleaseAsset
+import com.bachatas4.android.runtime.process.RuntimeVulkanDriver
+import com.bachatas4.android.runtime.process.RuntimeVulkanDriverIds
 import com.bachatas4.android.runtime.process.VulkanDriverConfiguration
+import com.bachatas4.android.runtime.process.VulkanDriverResolveContext
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,8 +21,9 @@ import java.nio.file.Path
 import javax.inject.Singleton
 
 /**
- * Play Store driver backend: APK-bundled Turnip packages only
- * (mojo-26.1, mojo-25.0, gen8). No catalogue fetch, archive download, or ZIP import.
+ * Play Store driver backend: APK-bundled Turnip packages plus opt-in experimental Vortek.
+ * No catalogue fetch, archive download, or ZIP import.
+ * Stale Turnip ids still fall back to the first bundled package; system-vortek is never remapped.
  */
 internal class PlaystoreDriverManagerBackend(context: Context) : DriverManagerBackend {
     private val assets = context.assets
@@ -56,11 +60,17 @@ internal class PlaystoreDriverManagerBackend(context: Context) : DriverManagerBa
         throw UnsupportedOperationException("Bundled Turnip drivers cannot be removed")
     }
 
-    override fun configurationFor(driverId: String, runtimeRoot: Path): VulkanDriverConfiguration {
+    override fun configurationFor(driverId: String, context: VulkanDriverResolveContext): VulkanDriverConfiguration {
+        when (driverId) {
+            RuntimeVulkanDriverIds.SYSTEM ->
+                return VulkanDriverConfiguration.resolve(RuntimeVulkanDriver.SYSTEM, context)
+            RuntimeVulkanDriverIds.SYSTEM_VORTEK ->
+                return VulkanDriverConfiguration.resolve(RuntimeVulkanDriver.SYSTEM_VORTEK, context)
+        }
         val installed = ensureAllInstalled()
         val driver = installed.firstOrNull { it.metadata.id == driverId }
             ?: installed.first() // default mojo-26.1 (BundledTurnipSpec.DEFAULT / ALL order)
-        return VulkanDriverConfiguration.resolve(driver, runtimeRoot)
+        return VulkanDriverConfiguration.resolve(driver, context.runtimeRoot)
     }
 
     override fun autoSelectDriverId(): String = ensureAllInstalled().first().metadata.id
@@ -73,6 +83,7 @@ internal class PlaystoreDriverManagerBackend(context: Context) : DriverManagerBa
                 "Turnip updates are delivered through app updates."
         const val PLAY_STATUS =
             "Bundled Turnip lines: mojo-26.1, mojo-25.0, and gen8. " +
+                "System Driver (Vortek, Experimental) is opt-in. " +
                 "Driver updates are delivered through app updates."
     }
 }

@@ -108,7 +108,10 @@ class DriverManagerViewModelTest {
             if (remote) driver else error("Driver ZIP import is not available in this build")
 
         override fun remove(id: String) = remote
-        override fun configurationFor(driverId: String, runtimeRoot: Path): VulkanDriverConfiguration {
+        override fun configurationFor(
+            driverId: String,
+            context: com.bachatas4.android.runtime.process.VulkanDriverResolveContext,
+        ): VulkanDriverConfiguration {
             error("not used in tests")
         }
     }

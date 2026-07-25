@@ -38,6 +38,7 @@ import com.bachatas4.android.designsystem.BachataScreenHeader
 import com.bachatas4.android.designsystem.ForwardFab
 import com.bachatas4.android.designsystem.theme.BachataPalette
 import com.bachatas4.android.runtime.driver.TurnipReleaseClient
+import com.bachatas4.android.runtime.process.RuntimeVulkanDriverIds
 import com.bachatas4.android.runtime.settings.ProfileScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -120,21 +121,27 @@ fun DriverManagerScreen(
                             color = BachataPalette.Accent,
                             fontWeight = FontWeight.SemiBold
                         )
-                        if (state.selectedDriverId != "system") {
-                            val label = state.installed.firstOrNull { it.metadata.id == state.selectedDriverId }
-                                ?.metadata?.displayName
-                                ?: state.selectedDriverId
-                            Text(
-                                text = "Selected Driver: $label",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = BachataPalette.Primary
-                            )
-                        } else {
-                            Text(
+                        when (state.selectedDriverId) {
+                            RuntimeVulkanDriverIds.SYSTEM -> Text(
                                 text = "Selected Driver: System driver",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = BachataPalette.Secondary
                             )
+                            RuntimeVulkanDriverIds.SYSTEM_VORTEK -> Text(
+                                text = "Selected Driver: System Driver (Vortek, Experimental)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = BachataPalette.Accent
+                            )
+                            else -> {
+                                val label = state.installed.firstOrNull { it.metadata.id == state.selectedDriverId }
+                                    ?.metadata?.displayName
+                                    ?: state.selectedDriverId
+                                Text(
+                                    text = "Selected Driver: $label",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = BachataPalette.Primary
+                                )
+                            }
                         }
                     }
                 }
@@ -165,12 +172,59 @@ fun DriverManagerScreen(
                             }
                         }
                     }
-                    if (state.selectedDriverId != "system") {
+                    if (state.selectedDriverId != RuntimeVulkanDriverIds.SYSTEM) {
                         item {
                             TextButton(
-                                onClick = { viewModel.select("system") }
+                                onClick = { viewModel.select(RuntimeVulkanDriverIds.SYSTEM) }
                             ) {
                                 Text("Switch to System Driver")
+                            }
+                        }
+                    }
+                    if (state.selectedDriverId != RuntimeVulkanDriverIds.SYSTEM_VORTEK) {
+                        item {
+                            TextButton(
+                                onClick = { viewModel.select(RuntimeVulkanDriverIds.SYSTEM_VORTEK) }
+                            ) {
+                                Text("Use Vortek (Experimental)")
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                BachataPanel(
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    color = BachataPalette.RaisedSurface
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "System Driver (Vortek, Experimental)",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = BachataPalette.Accent,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "Uses the device’s Android Vulkan driver through the experimental " +
+                                "Vortek compatibility layer. Compatibility varies by device and game. " +
+                                "Opt-in only — never selected automatically.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = BachataPalette.Secondary,
+                        )
+                        if (state.selectedDriverId == RuntimeVulkanDriverIds.SYSTEM_VORTEK) {
+                            Text(
+                                text = "Currently selected",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = BachataPalette.Accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        } else {
+                            BachataPrimaryButton(
+                                onClick = { viewModel.select(RuntimeVulkanDriverIds.SYSTEM_VORTEK) },
+                                enabled = !state.loading,
+                            ) {
+                                Text("Select Vortek")
                             }
                         }
                     }

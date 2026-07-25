@@ -986,6 +986,28 @@ extern "C" std::uintptr_t OrbisSignalHostTrampolineBody() {
 
 } // namespace
 
+bool BachataQueryGuestRipSyscall(uint64_t* out_rip, uint64_t* out_syscall) noexcept {
+  // Async-signal-safe: only dereferences thread-local pointer + frame struct.
+  // ActiveFexExecution is thread_local, set by FexExecutionSignalScope during
+  // guest execution. If no FEX thread is active (e.g. crash in host-only init),
+  // Context is null and we report unavailable.
+  const auto& exec = ActiveFexExecution;
+  if (exec.Context == nullptr || exec.Thread == nullptr || exec.Thread->CurrentFrame == nullptr) {
+    return false;
+  }
+  // CurrentFrame->State holds the spilled guest GPRs at the last HLE/JIT boundary.
+  // During mid-JIT execution these may be stale (live in SRA host regs), but for a
+  // SIGSYS delivered at a host syscall boundary this is the best available view.
+  const auto& state = exec.Thread->CurrentFrame->State;
+  if (out_rip != nullptr) {
+    *out_rip = state.rip;
+  }
+  if (out_syscall != nullptr) {
+    *out_syscall = state.gregs[FEXCore::X86State::REG_RAX];
+  }
+  return true;
+}
+
 bool DeliverGuestOrbisSignal(int orbis_sig, siginfo_t* info, void* rawContext,
                              std::uintptr_t guest_handler) noexcept {
   static_cast<void>(info);

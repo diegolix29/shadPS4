@@ -1221,10 +1221,29 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
 
 Liverpool::CmdBuffer Liverpool::CopyCmdBuffers(std::span<const u32> dcb, std::span<const u32> ccb) {
     auto& queue = mapped_queues[GfxQueueId];
-    ASSERT_MSG(queue.dcb_buffer.capacity() >= queue.dcb_buffer_offset + dcb.size(),
-               "dcb copy buffer out of reserved space");
-    ASSERT_MSG(queue.ccb_buffer.capacity() >= queue.ccb_buffer_offset + ccb.size(),
-               "ccb copy buffer out of reserved space");
+
+    // A single submission must always fit the reserved copy space.
+    ASSERT_MSG(dcb.size() <= queue.dcb_buffer.capacity(),
+               "dcb submission larger than reserved copy space");
+    ASSERT_MSG(ccb.size() <= queue.ccb_buffer.capacity(),
+               "ccb submission larger than reserved copy space");
+
+    // The copy buffers persist across submissions so the GPU worker can parse a
+    // command buffer even after the guest reuses its source ring. Their offsets
+    // therefore grow monotonically and are only reset once the buffered data is no
+    // longer needed. The guest is expected to signal that point with
+    // sceGnmSubmitDone (-> SubmitDone), but some titles (e.g. Dark Souls
+    // Remastered) never call it, so the offset would otherwise overflow the
+    // reserved space and trip the assert below. When the next append would exceed
+    // the reservation, drain the GPU first (all previously buffered spans have
+    // then been consumed and can be discarded) and rewind the offsets to zero.
+    const bool dcb_overflows = queue.dcb_buffer_offset + dcb.size() > queue.dcb_buffer.capacity();
+    const bool ccb_overflows = queue.ccb_buffer_offset + ccb.size() > queue.ccb_buffer.capacity();
+    if (dcb_overflows || ccb_overflows) {
+        WaitGpuIdle();
+        queue.dcb_buffer_offset = 0;
+        queue.ccb_buffer_offset = 0;
+    }
 
     queue.dcb_buffer.resize(
         std::max(queue.dcb_buffer.size(), queue.dcb_buffer_offset + dcb.size()));

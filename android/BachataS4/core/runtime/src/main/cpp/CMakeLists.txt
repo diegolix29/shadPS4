@@ -20,3 +20,4 @@ target_link_libraries(bachata_custom_vulkan PRIVATE adrenotools android dl log)
 
 add_subdirectory(pkg)
 add_subdirectory(winlator)
+add_subdirectory(vortek)

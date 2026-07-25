@@ -828,6 +828,8 @@ set(COMMON src/common/logging/classes.h
            src/common/shared_first_mutex.h
            src/common/signal_context.h
            src/common/signal_context.cpp
+           src/common/crash_reporter.h
+           src/common/crash_reporter.cpp
            src/common/singleton.h
            src/common/slab_heap.h
            src/common/slot_vector.h
@@ -1110,6 +1112,7 @@ set(VIDEO_CORE src/video_core/amdgpu/cb_db_extent.h
                src/video_core/buffer_cache/buffer.h
                src/video_core/buffer_cache/buffer_cache.cpp
                src/video_core/buffer_cache/buffer_cache.h
+               src/video_core/buffer_cache/vk_dispatch_reload.cpp
                src/video_core/buffer_cache/fault_manager.cpp
                src/video_core/buffer_cache/fault_manager.h
                src/video_core/buffer_cache/memory_tracker.h
@@ -1260,6 +1263,11 @@ if (ENABLE_BACHATA_RUNTIME)
 endif()
 
 create_target_directory_groups(shadps4)
+
+set_source_files_properties(
+    src/video_core/buffer_cache/vk_dispatch_reload.cpp
+    PROPERTIES COMPILE_FLAGS "-fno-lto"
+)
 
 target_link_libraries(shadps4 PRIVATE spdlog::spdlog)
 target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui ImGuiFileDialog gcn half::half ZLIB::ZLIB PNG::PNG minimp3)

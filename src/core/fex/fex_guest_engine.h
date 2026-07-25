@@ -66,6 +66,12 @@ bool HandleGuestSignal(int signal, siginfo_t* info, void* rawContext) noexcept;
 // boundary — mirrors desktop Windows APC ExceptionHandler without host inject.
 bool DeliverGuestOrbisSignal(int orbis_sig, siginfo_t* info, void* rawContext,
                              std::uintptr_t guest_handler) noexcept;
+
+// Async-signal-safe best-effort query of the current guest RIP and syscall number
+// (RAX) from the active FEX thread context. Writes nothing and returns false if no
+// FEX thread is active on the current host thread. Designed for use inside a SIGSYS
+// signal handler — touches only thread-local pointer state and frame registers.
+bool BachataQueryGuestRipSyscall(uint64_t* out_rip, uint64_t* out_syscall) noexcept;
 #endif
 
 class GuestEngine final {

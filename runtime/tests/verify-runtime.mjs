@@ -17,6 +17,22 @@ const EXPECTED_COMPONENTS = [
     revision: "f2b679f6028ce1c38875233aecfcf5d3f8ebecec",
     license: "MIT",
   },
+  {
+    name: "vortek-client",
+    url: "https://github.com/brunodev85/vortek.git",
+    revision: "ab7329c4b445a4abd9b9af91b8148e1ca41464fa",
+    license: "LGPL-2.1",
+    sourceDestination: "runtime/sources/vortek-client",
+    buildOutput: "host/lib/libvulkan_vortek.so",
+  },
+  {
+    name: "vortek-server",
+    url: "https://github.com/brunodev85/winlator-app.git",
+    revision: "e113da42beefc39c69c8944b27c19c3703bfa856",
+    license: "LGPL-2.1",
+    sourceDestination: "runtime/sources/winlator-app/app/src/main/cpp/vortekrenderer",
+    sourcedFrom: "winlator-app",
+  },
 ];
 const FEX_REVISION = EXPECTED_COMPONENTS.find(({ name }) => name === "fex").revision;
 const EXPECTED_INPUTS = [
@@ -72,6 +88,10 @@ const REQUIRED_RUNTIME_PATHS = [
   "host/shadps4-arm64-fex",
   "host/ld-linux-aarch64.so.1",
   "host/libvulkan.so.1",
+  "host/lib/libvulkan_vortek.so",
+  "host/vulkan/icd.d/vortek.json",
+  "usr/share/bachata/vortek/LICENSE",
+  "usr/share/bachata/vortek/SOURCE.txt",
   "host/libc.so.6",
   "host/libdl.so.2",
   "host/libgcc_s.so.1",

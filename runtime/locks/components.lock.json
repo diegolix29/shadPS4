@@ -1,11 +1,57 @@
 {
   "schemaVersion": 1,
   "components": [
-    {"name":"box64","url":"https://github.com/ptitSeb/box64.git","revision":"50c8b90b09b433ab0767de44af2d0731cb0748b7","license":"MIT"},
-    {"name":"winlator-app","url":"https://github.com/brunodev85/winlator-app.git","revision":"e113da42beefc39c69c8944b27c19c3703bfa856","license":"LGPL-2.1"},
-    {"name":"winlator-components","url":"https://github.com/brunodev85/winlator.git","revision":"fb66541b93a4eb3ee585a433b4c7b20544d58e40","license":"MIT"},
-    {"name":"glibc-packages","url":"https://github.com/termux-pacman/glibc-packages.git","revision":"26d89ba7a1f856b99f0d437bef54f558b2485075","license":"mixed"},
-    {"name":"mesa","url":"https://gitlab.freedesktop.org/mesa/mesa.git","revision":"6984e91b5fe1d1c204e54954a4282fcdc0c44b78","license":"MIT"},
-    {"name":"fex","url":"https://github.com/FEX-Emu/FEX.git","revision":"f2b679f6028ce1c38875233aecfcf5d3f8ebecec","license":"MIT"}
+    {
+      "name": "box64",
+      "url": "https://github.com/ptitSeb/box64.git",
+      "revision": "50c8b90b09b433ab0767de44af2d0731cb0748b7",
+      "license": "MIT"
+    },
+    {
+      "name": "winlator-app",
+      "url": "https://github.com/brunodev85/winlator-app.git",
+      "revision": "e113da42beefc39c69c8944b27c19c3703bfa856",
+      "license": "LGPL-2.1"
+    },
+    {
+      "name": "winlator-components",
+      "url": "https://github.com/brunodev85/winlator.git",
+      "revision": "fb66541b93a4eb3ee585a433b4c7b20544d58e40",
+      "license": "MIT"
+    },
+    {
+      "name": "glibc-packages",
+      "url": "https://github.com/termux-pacman/glibc-packages.git",
+      "revision": "26d89ba7a1f856b99f0d437bef54f558b2485075",
+      "license": "mixed"
+    },
+    {
+      "name": "mesa",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa.git",
+      "revision": "6984e91b5fe1d1c204e54954a4282fcdc0c44b78",
+      "license": "MIT"
+    },
+    {
+      "name": "fex",
+      "url": "https://github.com/FEX-Emu/FEX.git",
+      "revision": "f2b679f6028ce1c38875233aecfcf5d3f8ebecec",
+      "license": "MIT"
+    },
+    {
+      "name": "vortek-client",
+      "url": "https://github.com/brunodev85/vortek.git",
+      "revision": "ab7329c4b445a4abd9b9af91b8148e1ca41464fa",
+      "license": "LGPL-2.1",
+      "sourceDestination": "runtime/sources/vortek-client",
+      "buildOutput": "host/lib/libvulkan_vortek.so"
+    },
+    {
+      "name": "vortek-server",
+      "url": "https://github.com/brunodev85/winlator-app.git",
+      "revision": "e113da42beefc39c69c8944b27c19c3703bfa856",
+      "license": "LGPL-2.1",
+      "sourceDestination": "runtime/sources/winlator-app/app/src/main/cpp/vortekrenderer",
+      "sourcedFrom": "winlator-app"
+    }
   ]
 }

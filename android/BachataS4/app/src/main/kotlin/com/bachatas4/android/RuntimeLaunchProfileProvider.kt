@@ -12,6 +12,7 @@ import com.bachatas4.android.runtime.settings.RuntimeSettingCatalog
 import com.bachatas4.android.runtime.settings.SettingKind
 import com.bachatas4.android.runtime.settings.ValueSource
 import com.bachatas4.android.runtime.process.VulkanDriverConfiguration
+import com.bachatas4.android.runtime.process.VulkanDriverResolveContext
 import java.nio.file.Path
 import javax.inject.Inject
 import kotlinx.serialization.json.JsonPrimitive
@@ -72,10 +73,23 @@ class RuntimeLaunchProfileProvider internal constructor(
     fun explicitSettingIds(profile: ResolvedRuntimeProfile): List<String> =
         profile.settings.values.filter { it.source != ValueSource.DEFAULT }.map { it.spec.id }.sorted()
 
-    fun vulkanConfiguration(profile: ResolvedRuntimeProfile, runtimeRoot: Path, filesDir: Path): VulkanDriverConfiguration =
+    fun vulkanConfiguration(
+        profile: ResolvedRuntimeProfile,
+        runtimeRoot: Path,
+        filesDir: Path,
+        vortekSocketPath: Path? = null,
+    ): VulkanDriverConfiguration =
         try {
-            driverBackend.configurationFor(profile.driverId, runtimeRoot)
+            driverBackend.configurationFor(
+                profile.driverId,
+                VulkanDriverResolveContext(
+                    runtimeRoot = runtimeRoot,
+                    vortekSocketPath = vortekSocketPath,
+                ),
+            )
         } catch (error: IllegalStateException) {
+            throw MissingRuntimeDriverException(profile.driverId, error)
+        } catch (error: IllegalArgumentException) {
             throw MissingRuntimeDriverException(profile.driverId, error)
         }
 

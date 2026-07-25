@@ -6,6 +6,7 @@ import com.bachatas4.android.feature.drivers.DriverManagerCapabilities
 import com.bachatas4.android.runtime.driver.InstalledDriver
 import com.bachatas4.android.runtime.driver.TurnipReleaseAsset
 import com.bachatas4.android.runtime.process.RuntimeVulkanDriver
+import com.bachatas4.android.runtime.process.RuntimeVulkanDriverIds
 import com.bachatas4.android.runtime.process.VulkanDriverConfiguration
 import com.bachatas4.android.runtime.settings.CompatibilityConstraint
 import com.bachatas4.android.runtime.settings.Box64Preset
@@ -40,9 +41,15 @@ class RuntimeLaunchProfileProviderTest {
         override fun download(asset: TurnipReleaseAsset, progress: (Long, Long) -> Unit) = error("no")
         override fun importZip(bytes: ByteArray, assetName: String) = error("no")
         override fun remove(id: String) = false
-        override fun configurationFor(driverId: String, runtimeRoot: Path): VulkanDriverConfiguration {
-            if (driverId == "system") {
-                return VulkanDriverConfiguration.resolve(RuntimeVulkanDriver.SYSTEM, runtimeRoot)
+        override fun configurationFor(
+            driverId: String,
+            context: com.bachatas4.android.runtime.process.VulkanDriverResolveContext,
+        ): VulkanDriverConfiguration {
+            if (driverId == "system" || driverId == RuntimeVulkanDriverIds.SYSTEM) {
+                return VulkanDriverConfiguration.resolve(RuntimeVulkanDriver.SYSTEM, context)
+            }
+            if (driverId == RuntimeVulkanDriverIds.SYSTEM_VORTEK) {
+                return VulkanDriverConfiguration.resolve(RuntimeVulkanDriver.SYSTEM_VORTEK, context)
             }
             throw IllegalStateException("Selected Vulkan driver '$driverId' is not installed")
         }

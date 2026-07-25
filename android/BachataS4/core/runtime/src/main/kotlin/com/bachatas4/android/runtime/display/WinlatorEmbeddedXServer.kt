@@ -47,6 +47,10 @@ class WinlatorEmbeddedXServer(
     private var session: Session? = null
     private var stopped = false
 
+    /** Live XServer while running; used by Vortek WSI window bridge. */
+    val xServer: XServer?
+        get() = session?.xServer
+
     override suspend fun start(surface: Surface, width: Int, height: Int): Unit = mutex.withLock {
         require(width > 0 && height > 0) { "X server dimensions must be positive" }
         check(session == null && !stopped) { "Embedded X server already started or stopped" }
@@ -55,7 +59,9 @@ class WinlatorEmbeddedXServer(
         val xServer = XServer(ScreenInfo(width, height))
         val xConnector = XConnectorEpoll(
             when {
-                useAbstractXSocket -> UnixSocketConfig.createAbstract(UnixSocketConfig.XSERVER_PATH)
+                useAbstractXSocket -> UnixSocketConfig.createAbstract(
+                    if (xSocketPath.startsWith("/")) xSocketPath else UnixSocketConfig.XSERVER_PATH,
+                )
                 else -> UnixSocketConfig.create(socketRoot.path, xSocketPath)
             },
             XClientConnectionHandler(xServer),
@@ -78,7 +84,7 @@ class WinlatorEmbeddedXServer(
             xConnector.start()
             alsaConnector.start()
             renderer.start()
-            session = Session(xConnector, alsaConnector, renderer)
+            session = Session(xServer, xConnector, alsaConnector, renderer)
             Log.d("WinlatorEmbeddedXServer", "socket type: ${if (useAbstractXSocket) "abstract" else "filesystem"}, DISPLAY=$display")
         } catch (error: Throwable) {
             renderer.stop()
@@ -105,6 +111,7 @@ class WinlatorEmbeddedXServer(
     }
 
     private data class Session(
+        val xServer: XServer,
         val xConnector: XConnectorEpoll,
         val alsaConnector: XConnectorEpoll,
         val renderer: SurfaceWindowRenderer,

@@ -239,6 +239,27 @@ s32 PS4_SYSV_ABI sceKernelSetGPO() {
     return ORBIS_OK;
 }
 
+// Per-thread atexit registration bookkeeping. Used by the runtime's TLS/exit
+// path; on retail (non-devkit) it is inert. Accepted and ignored so the guest
+// doesn't fall through to an ENOSYS that some callers dereference as a pointer.
+void* PS4_SYSV_ABI _sceKernelSetThreadAtexitCount(s32 count) {
+    LOG_TRACE(Kernel, "(STUBBED) count={}", count);
+    return nullptr;
+}
+
+void* PS4_SYSV_ABI _sceKernelSetThreadAtexitReport(s32 report) {
+    LOG_TRACE(Kernel, "(STUBBED) report={}", report);
+    return nullptr;
+}
+
+// AddressSanitizer new-replacement hook. When the sanitizer is disabled (the
+// normal case for shipped games) this must return nullptr to signal "no
+// override", not ENOSYS — callers treat the result as a function pointer.
+void* PS4_SYSV_ABI sceKernelGetSanitizerNewReplaceExternal() {
+    LOG_TRACE(Kernel, "(STUBBED) sanitizer disabled, returning nullptr");
+    return nullptr;
+}
+
 s32 PS4_SYSV_ABI sceKernelGetAllowedSdkVersionOnSystem(s32* ver) {
     if (ver == nullptr) {
         return ORBIS_KERNEL_ERROR_EINVAL;
@@ -531,6 +552,17 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("ca7v6Cxulzs", "libkernel", 1, "libkernel", sceKernelSetGPO);
     LIB_FUNCTION("iKJMWrAumPE", "libkernel", 1, "libkernel", getargc);
     LIB_FUNCTION("FJmglmTMdr4", "libkernel", 1, "libkernel", getargv);
+
+    // Dark Souls Remastered (CUSA08692) calls these three libkernel NIDs early
+    // in init. They resolve only to STUB entries in aerolib, so on the FEX backend
+    // they fell back to UnsupportedHleCallAdapter returning ENOSYS(38); the guest
+    // then treated that value as a pointer and tripped an UNREACHABLE -> SIGTRAP
+    // -> exit 133 within ~400ms of launch. Registering the no-op shims above stops
+    // the deref. See diagnose-bachata skill: "HLE gap (the Fios2 class of bug)".
+    LIB_FUNCTION("pB-yGZ2nQ9o", "libkernel", 1, "libkernel", _sceKernelSetThreadAtexitCount);
+    LIB_FUNCTION("WhCc1w3EhSI", "libkernel", 1, "libkernel", _sceKernelSetThreadAtexitReport);
+    LIB_FUNCTION("bnZxYgAFeA0", "libkernel", 1, "libkernel",
+                 sceKernelGetSanitizerNewReplaceExternal);
 }
 
 } // namespace Libraries::Kernel

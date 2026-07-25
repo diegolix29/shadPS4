@@ -564,6 +564,67 @@ bool Instance::CreateDevice() {
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*device);
 
+
+    // ── Vulkan 1.3 dispatch audit ─────────────────────────────────────────────
+    // Run immediately after init(*device) so failures surface at startup, not at
+    // the first draw call.  If any mandatory slot is null the renderer cannot
+    // proceed; log every slot so the complete state is captured in one message.
+#ifndef NDEBUG
+    {
+        struct SlotCheck {
+            const char* name;
+            const void* slot;  // address stored in the dispatcher
+            bool required;
+        };
+        auto gdpa = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceProcAddr;
+        VkDevice raw_device = static_cast<VkDevice>(*device);
+
+        // Probe each function via GDPA so we can compare direct vs. Vulkan-Hpp slot.
+#define PROBE(fn)                                                            \
+        {                                                                    \
+            #fn,                                                             \
+            reinterpret_cast<const void*>(VULKAN_HPP_DEFAULT_DISPATCHER.fn),\
+            true                                                             \
+        }
+        const SlotCheck checks[] = {
+            PROBE(vkCmdBindVertexBuffers2),
+            PROBE(vkCmdPipelineBarrier2),
+            PROBE(vkQueueSubmit2),
+            PROBE(vkCmdBeginRendering),
+            PROBE(vkCmdEndRendering),
+            PROBE(vkCmdCopyBuffer2),
+            PROBE(vkCmdCopyImage2),
+            PROBE(vkCmdCopyBufferToImage2),
+            PROBE(vkCmdCopyImageToBuffer2),
+            PROBE(vkCmdBlitImage2),
+            PROBE(vkCmdResolveImage2),
+            PROBE(vkGetBufferDeviceAddress),
+        };
+#undef PROBE
+
+        bool any_null = false;
+        LOG_INFO(Render_Vulkan,
+                 "VK-HPP dispatch audit: dispatcher={} device={}",
+                 fmt::ptr(&VULKAN_HPP_DEFAULT_DISPATCHER),
+                 fmt::ptr(raw_device));
+        for (const auto& c : checks) {
+            auto direct = gdpa ? gdpa(raw_device, c.name) : nullptr;
+            LOG_INFO(Render_Vulkan,
+                     "  {:40s} hpp={} direct={}{}",
+                     c.name,
+                     fmt::ptr(c.slot),
+                     fmt::ptr(direct),
+                     (c.required && !c.slot) ? " <-- NULL MANDATORY SLOT" : "");
+            if (c.required && !c.slot)
+                any_null = true;
+        }
+        ASSERT_MSG(!any_null,
+                   "One or more mandatory Vulkan 1.3 dispatcher slots are null "
+                   "immediately after init(*device). Renderer cannot start.");
+    }
+#endif
+
+
     graphics_queue = device->getQueue(queue_family_index, 0);
     present_queue = device->getQueue(queue_family_index, 0);
 

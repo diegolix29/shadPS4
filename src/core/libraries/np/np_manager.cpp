@@ -908,6 +908,21 @@ s32 PS4_SYSV_ABI sceNpUnregisterStateCallbackA(s32 callback_id) {
     return UnregisterStateCallbackAById(callback_id);
 }
 
+// Game-presence callback registration. shadPS4 never reports game presence to a
+// real NP backend, so the callback would never fire; accept it and hand back a
+// non-negative callback id so the caller treats registration as successful.
+// This mirrors what the desktop x86_64 path gets from AeroLib's benign no-op
+// stub. Without it, on the FEX backend the call resolves only to a STUB entry
+// in aerolib and falls back to UnsupportedHleCallAdapter returning ENOSYS(38);
+// Dark Souls Remastered (CUSA08692) interprets that failure as "NP init
+// failed" and refuses to install the trophy set, showing the
+// "Failed to install Trophy Set" dialog at the title screen.
+s32 PS4_SYSV_ABI sceNpRegisterGamePresenceCallbackA(void* callback, void* userdata) {
+    LOG_WARNING(Lib_NpManager, "(STUBBED) called, callback={} userdata={}", callback, userdata);
+    static s32 next_id = 1;
+    return next_id++;
+}
+
 struct NpReachabilityStateCallback {
     OrbisNpReachabilityStateCallback func;
     void* userdata;
@@ -1018,6 +1033,8 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
                  sceNpUnregisterStateCallback);
     LIB_FUNCTION("qQJfO8HAiaY", "libSceNpManager", 1, "libSceNpManager",
                  sceNpRegisterStateCallbackA);
+    LIB_FUNCTION("KswxLxk4c1Y", "libSceNpManager", 1, "libSceNpManager",
+                 sceNpRegisterGamePresenceCallbackA);
     LIB_FUNCTION("M3wFXbYQtAA", "libSceNpManager", 1, "libSceNpManager",
                  sceNpUnregisterStateCallbackA);
     LIB_FUNCTION("hw5KNqAAels", "libSceNpManager", 1, "libSceNpManager",

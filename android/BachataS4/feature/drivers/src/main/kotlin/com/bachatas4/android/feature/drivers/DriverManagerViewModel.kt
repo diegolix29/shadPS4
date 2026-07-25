@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.bachatas4.android.data.RuntimeProfileStore
 import com.bachatas4.android.runtime.driver.InstalledDriver
 import com.bachatas4.android.runtime.driver.TurnipReleaseAsset
+import com.bachatas4.android.runtime.process.RuntimeVulkanDriverIds
 import com.bachatas4.android.runtime.settings.ProfileScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -18,7 +19,7 @@ data class DriverManagerUiState(
     val installed: List<InstalledDriver> = emptyList(),
     val available: List<TurnipReleaseAsset> = emptyList(),
     val scope: ProfileScope = ProfileScope.Global,
-    val selectedDriverId: String = "system",
+    val selectedDriverId: String = RuntimeVulkanDriverIds.SYSTEM,
     val capabilities: DriverManagerCapabilities = DriverManagerCapabilities(
         remoteCatalogEnabled = false,
         importEnabled = false,
@@ -47,7 +48,7 @@ class DriverManagerViewModel @Inject constructor(
 
     fun selectScope(scope: ProfileScope) {
         viewModelScope.launch {
-            val selected = profiles.load(scope).driverId ?: "system"
+            val selected = profiles.load(scope).driverId ?: RuntimeVulkanDriverIds.SYSTEM
             mutableState.value = mutableState.value.copy(scope = scope, selectedDriverId = selected)
         }
     }
@@ -57,12 +58,14 @@ class DriverManagerViewModel @Inject constructor(
         val installed = backend.installed()
         val releases = if (caps.remoteCatalogEnabled) backend.releases(force) else emptyList()
         val scope = mutableState.value.scope
-        // Prefer persisted profile so Play migration remaps stale ids even before selectScope settles.
-        val selected = profiles.load(scope).driverId ?: "system"
-        if (selected != "system" && installed.none { it.metadata.id == selected }) {
-            val fallback = installed.firstOrNull()?.metadata?.id ?: "system"
+        // Prefer persisted profile so Play migration remaps stale Turnip ids even before selectScope settles.
+        // system-vortek is synthetic opt-in and must never be remapped to Turnip.
+        val selected = profiles.load(scope).driverId ?: RuntimeVulkanDriverIds.SYSTEM
+        val knownSynthetic = RuntimeVulkanDriverIds.isSynthetic(selected)
+        if (!knownSynthetic && installed.none { it.metadata.id == selected }) {
+            val fallback = installed.firstOrNull()?.metadata?.id ?: RuntimeVulkanDriverIds.SYSTEM
             profiles.update(scope) {
-                it.copy(driverId = fallback.takeUnless { value -> value == "system" })
+                it.copy(driverId = fallback.takeUnless { value -> value == RuntimeVulkanDriverIds.SYSTEM })
             }
             mutableState.value = mutableState.value.copy(
                 capabilities = caps,
@@ -99,9 +102,16 @@ class DriverManagerViewModel @Inject constructor(
     }
 
     fun select(id: String) {
-        require(id == "system" || backend.installed().any { it.metadata.id == id }) { "Driver is not installed" }
+        require(
+            RuntimeVulkanDriverIds.isSynthetic(id) || backend.installed().any { it.metadata.id == id },
+        ) { "Driver is not installed" }
         viewModelScope.launch {
-            profiles.update(mutableState.value.scope) { it.copy(driverId = id.takeUnless { value -> value == "system" }) }
+            // Persist null for legacy system default; persist system-vortek explicitly.
+            val stored = when (id) {
+                RuntimeVulkanDriverIds.SYSTEM -> null
+                else -> id
+            }
+            profiles.update(mutableState.value.scope) { it.copy(driverId = stored) }
             mutableState.value = mutableState.value.copy(selectedDriverId = id)
         }
     }
@@ -120,7 +130,7 @@ class DriverManagerViewModel @Inject constructor(
 
     fun confirmDelete() {
         val id = mutableState.value.pendingDeleteId ?: return
-        select("system")
+        select(RuntimeVulkanDriverIds.SYSTEM)
         delete(id)
     }
 

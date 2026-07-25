@@ -1,0 +1,10 @@
+# Vortek protocol compatibility manifest
+# client_url=https://github.com/brunodev85/vortek.git
+# client_revision=ab7329c4b445a4abd9b9af91b8148e1ca41464fa
+# server_url=https://github.com/brunodev85/winlator-app.git
+# server_revision=e113da42beefc39c69c8944b27c19c3703bfa856
+# protocol_match=true
+23162b9e2b5560d77e993b74ed39bc2b50e7a7cc895370849881b7becbeb6414  client include/request_codes.h
+23162b9e2b5560d77e993b74ed39bc2b50e7a7cc895370849881b7becbeb6414  server include/request_codes.h
+2761a1cad4c6812004e57c210b57507800b64b28ba33824b936d9daa37461253  client include/vortek_serializer.h
+2761a1cad4c6812004e57c210b57507800b64b28ba33824b936d9daa37461253  server include/vortek_serializer.h

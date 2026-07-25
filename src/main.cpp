@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <array>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -33,7 +34,116 @@
 #include <sys/sysctl.h>
 #endif
 
+#include <signal.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <ucontext.h>
+#include <cstdio>
+#include <cstring>
+
+static struct sigaction g_old_sigsys_action;
+// Alternate signal stack so the handler can run even if the crashing thread's
+// stack is exhausted. SA_ONSTACK (set below) routes the signal here.
+static std::array<unsigned char, 65536> g_sigsys_altstack alignas(16) {};
+
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+#include "core/fex/fex_guest_engine.h"
+#endif
+
+static void BachataSigsysHandler(int signo, siginfo_t* info, void* uctx) {
+    ucontext_t* _ctx = reinterpret_cast<ucontext_t*>(uctx);
+    uint64_t pc = 0, sp = 0, x8 = 0;
+    uint64_t x0 = 0, x1 = 0, x2 = 0, x3 = 0, x4 = 0, x5 = 0, x29 = 0, x30 = 0;
+#ifdef __aarch64__
+    if (_ctx) {
+        pc = _ctx->uc_mcontext.pc;
+        sp = _ctx->uc_mcontext.sp;
+        x8 = _ctx->uc_mcontext.regs[8];
+        x0 = _ctx->uc_mcontext.regs[0];
+        x1 = _ctx->uc_mcontext.regs[1];
+        x2 = _ctx->uc_mcontext.regs[2];
+        x3 = _ctx->uc_mcontext.regs[3];
+        x4 = _ctx->uc_mcontext.regs[4];
+        x5 = _ctx->uc_mcontext.regs[5];
+        x29 = _ctx->uc_mcontext.regs[29];
+        x30 = _ctx->uc_mcontext.regs[30];
+    }
+#endif
+
+    // Best-effort guest RIP/syscall capture. On the FEX guest CPU path, mid-JIT
+    // guest state lives in SRA host regs, but at a host syscall boundary the
+    // CurrentFrame holds the spilled guest RIP and RAX. Returns false (leaves
+    // guest_rip/guest_syscall as the "unavailable" sentinels) when no FEX thread
+    // is active (e.g. crash during host-only init or in a non-FEX host library).
+    uint64_t guest_rip = 0;
+    uint64_t guest_syscall = 0;
+    bool have_guest = false;
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+    have_guest = Core::Fex::BachataQueryGuestRipSyscall(&guest_rip, &guest_syscall);
+#endif
+
+    char buf[1024];
+    int len = snprintf(buf, sizeof(buf),
+        "[Bachata.FEX.SIGSYS] signo=%d\n"
+        "[Bachata.FEX.SIGSYS] code=%d\n"
+        "[Bachata.FEX.SIGSYS] errno=%d\n"
+        "[Bachata.FEX.SIGSYS] syscall=%d\n"
+        "[Bachata.FEX.SIGSYS] arch=0x%x\n"
+        "[Bachata.FEX.SIGSYS] call_addr=0x%lx\n"
+        "[Bachata.FEX.SIGSYS] host_pc=0x%lx\n"
+        "[Bachata.FEX.SIGSYS] host_x8=%lu\n"
+        "[Bachata.FEX.SIGSYS] guest_rip=0x%lx\n"
+        "[Bachata.FEX.SIGSYS] guest_syscall=%s%lu\n"
+        "[Bachata.FEX.SIGSYS] host_sp=0x%lx host_x0=0x%lx host_x1=0x%lx host_x2=0x%lx host_x3=0x%lx host_x4=0x%lx host_x5=0x%lx host_x29=0x%lx host_x30=0x%lx pid=%d tid=%ld\n",
+        info ? info->si_signo : signo,
+        info ? info->si_code : 0,
+        info ? info->si_errno : 0,
+        info ? info->si_syscall : -1,
+        info ? info->si_arch : 0,
+        info ? (unsigned long)(uintptr_t)info->si_call_addr : 0UL,
+        (unsigned long)pc,
+        (unsigned long)x8,
+        (unsigned long)guest_rip,
+        have_guest ? "" : "unavailable ",
+        (unsigned long)guest_syscall,
+        (unsigned long)sp, (unsigned long)x0, (unsigned long)x1, (unsigned long)x2,
+        (unsigned long)x3, (unsigned long)x4, (unsigned long)x5, (unsigned long)x29,
+        (unsigned long)x30, ::getpid(), (long)::syscall(SYS_gettid));
+
+    if (len > 0) {
+        ::write(STDERR_FILENO, buf, static_cast<size_t>(len));
+    }
+
+    if (g_old_sigsys_action.sa_flags & SA_SIGINFO) {
+        if (g_old_sigsys_action.sa_sigaction) {
+            g_old_sigsys_action.sa_sigaction(signo, info, uctx);
+        }
+    } else if (g_old_sigsys_action.sa_handler != SIG_DFL && g_old_sigsys_action.sa_handler != SIG_IGN) {
+        g_old_sigsys_action.sa_handler(signo);
+    } else {
+        signal(signo, SIG_DFL);
+        raise(signo);
+    }
+}
+
+static void InstallBachataSigsysTrap() {
+    // Install an alternate stack first: SA_ONSTACK redirects the signal here so
+    // the handler runs even on an exhausted main stack.
+    stack_t ss{};
+    ss.ss_sp = g_sigsys_altstack.data();
+    ss.ss_size = g_sigsys_altstack.size();
+    ss.ss_flags = 0;
+    sigaltstack(&ss, nullptr);
+
+    struct sigaction sa{};
+    sa.sa_sigaction = BachataSigsysHandler;
+    sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGSYS, &sa, &g_old_sigsys_action);
+}
+
 int main(int argc, char* argv[]) {
+    InstallBachataSigsysTrap();
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
 #endif

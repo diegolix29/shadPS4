@@ -269,6 +269,50 @@ for (const lib of readFileSync(shadps4Arm64Needed, "utf8").trim().split("\n")) {
 
 copy(hostBox64Binary, join(hostDir, "box64"), 0o755);
 
+// Vortek guest ICD (aarch64 glibc client) — optional until built, required when present in lock.
+const vortekStage = resolve(projectRoot, "runtime/build/vortek-client-stage");
+const vortekLib = join(vortekStage, "host/lib/libvulkan_vortek.so");
+const vortekIcd = join(vortekStage, "host/vulkan/icd.d/vortek.json");
+const vortekLicense = join(vortekStage, "usr/share/bachata/vortek/LICENSE");
+const vortekSourceMeta = join(vortekStage, "usr/share/bachata/vortek/SOURCE.txt");
+if (!existsSync(vortekLib) || !existsSync(vortekIcd)) {
+  fail("Vortek client stage missing. Run runtime/scripts/build-vortek-client.sh first.");
+}
+const vortekIcdText = readFileSync(vortekIcd, "utf8");
+if (vortekIcdText.includes("com.winlator")) fail("Vortek ICD contains Winlator path");
+const vortekIcdJson = JSON.parse(vortekIcdText);
+if (vortekIcdJson?.ICD?.api_version !== "1.3.0") {
+  fail(`Vortek ICD api_version must be 1.3.0, got ${vortekIcdJson?.ICD?.api_version}`);
+}
+// Task 8: truthful 1.3.0 only — reject 1.4+ over-advertisement.
+if (/^1\.(4|5|6)\./.test(String(vortekIcdJson?.ICD?.api_version || ""))) {
+  fail("Vortek ICD must not over-advertise beyond approved 1.3.0");
+}
+mkdirSync(join(hostDir, "lib"), { recursive: true });
+mkdirSync(join(hostDir, "vulkan/icd.d"), { recursive: true });
+mkdirSync(join(rootfs, "usr/share/bachata/vortek"), { recursive: true });
+copy(vortekLib, join(hostDir, "lib/libvulkan_vortek.so"), 0o755);
+copy(vortekIcd, join(hostDir, "vulkan/icd.d/vortek.json"), 0o644);
+copy(vortekLicense, join(rootfs, "usr/share/bachata/vortek/LICENSE"), 0o644);
+copy(vortekSourceMeta, join(rootfs, "usr/share/bachata/vortek/SOURCE.txt"), 0o644);
+console.log("[Bachata.Vortek.Build] packaged host/lib/libvulkan_vortek.so and host/vulkan/icd.d/vortek.json");
+
+// Task 5 transport probe binaries (packaged for on-device HOST_GLIBC integration tests).
+const vortekProbeSrc = resolve(projectRoot, "runtime/tests/vortek_probe/vortek_probe.c");
+const vortekProbeDir = join(rootfs, "bin/probes");
+mkdirSync(vortekProbeDir, { recursive: true });
+const vortekProbeX64 = join(vortekProbeDir, "vortek_probe_x86_64");
+const vortekProbeA64 = join(vortekProbeDir, "vortek_probe_aarch64");
+const vortekProbeCommonFlags = [
+  "-O2", "-s", "-fno-ident", "-Wl,--build-id=none",
+  "-I", resolve(projectRoot, "runtime/sources/mesa/include"),
+  "-DVK_USE_PLATFORM_XLIB_KHR",
+  vortekProbeSrc, "-ldl", "-lX11",
+];
+run("x86_64-linux-gnu-gcc", [...vortekProbeCommonFlags, "-o", vortekProbeX64]);
+run("aarch64-linux-gnu-gcc", [...vortekProbeCommonFlags, "-o", vortekProbeA64]);
+console.log("[Bachata.Vortek.Build] packaged bin/probes/vortek_probe_{x86_64,aarch64}");
+
 // Copy host libs to jniLibs
 mkdirSync(nativeOutputDir, { recursive: true });
 const jniMappings = [
@@ -327,3 +371,84 @@ renameSync(`${zipPath}.tmp`, zipPath);
 renameSync(`${manifestPath}.tmp`, manifestPath);
 
 console.log(`runtime.zip sha256=${sha256(zip)} files=${files.length}`);
+
+// ---- Stage 1: debug-symbol companion ----
+// Produce a matching .debug file + manifest for the exact shadps4-arm64-fex
+// binary that was packaged, keyed by its Build ID.  Output lives OUTSIDE the
+// APK assets dir (a sibling "debug-symbols/" tree) so it is never shipped in
+// the production APK/AAB but is always recoverable for offline symbolization.
+//
+// One-link invariant: the .full (= the unstripped cmake output that was copied
+// into the runtime) is the source for both the .debug file and this manifest.
+// Nothing is relinked.
+function readElfBuildId(file) {
+  const bytes = readFileSync(file);
+  if (bytes.length < 64 || bytes.readUInt32LE(0) !== 0x464c457f) return null;
+  const e_phoff = Number(bytes.readBigUInt64LE(0x20));
+  const e_phentsize = bytes.readUInt16LE(0x36);
+  const e_phnum = bytes.readUInt16LE(0x38);
+  for (let i = 0; i < e_phnum; i++) {
+    const off = e_phoff + i * e_phentsize;
+    if (bytes.readUInt32LE(off) !== 4) continue; // PT_NOTE
+    const p_offset = Number(bytes.readBigUInt64LE(off + 8));
+    const p_filesz = Number(bytes.readBigUInt64LE(off + 0x20));
+    let o = p_offset;
+    const end = p_offset + p_filesz;
+    while (o + 12 <= end) {
+      const namesz = bytes.readUInt32LE(o);
+      const descsz = bytes.readUInt32LE(o + 4);
+      const ntype = bytes.readUInt32LE(o + 8);
+      const namepad = (namesz + 3) & ~3;
+      const descpad = (descsz + 3) & ~3;
+      if (ntype === 3 && namesz === 4 && descsz === 20 &&
+          bytes[o + 12] === 0x47 && bytes[o + 13] === 0x4e && bytes[o + 14] === 0x55) {
+        return bytes.subarray(o + 12 + namepad, o + 12 + namepad + 20).toString("hex");
+      }
+      o += 12 + namepad + descpad;
+    }
+  }
+  return null;
+}
+
+const arm64SrcFull = join(shadps4Arm64Stage, "bin/shadps4-arm64");
+if (existsSync(arm64SrcFull)) {
+  const buildId = readElfBuildId(arm64SrcFull);
+  if (!buildId) {
+    console.warn("debug-symbols: could not read Build ID from shadps4-arm64; skipping");
+  } else {
+    const llvmObjcopy = "llvm-objcopy";
+    // Stage 1 guard: the debug file must NEVER land inside the APK assets tree.
+    // Put it in runtime/build/debug-symbols/<build-id>/, well outside app/src/main.
+    const debugRoot = resolve(projectRoot, "runtime/build/debug-symbols", buildId);
+    if (debugRoot.startsWith(resolve(projectRoot, "android"))) {
+      fail("debug-symbols output would land inside the APK assets tree; refusing");
+    }
+    mkdirSync(debugRoot, { recursive: true });
+    mkdirSync(debugRoot, { recursive: true });
+    const debugFile = join(debugRoot, "shadps4-arm64-fex.debug");
+    // .debug file: only-keep-debug from the SAME .full that was deployed.
+    run(llvmObjcopy, ["--only-keep-debug", arm64SrcFull, debugFile]);
+    const fullSha = sha256(readFileSync(arm64SrcFull));
+    const debugSha = sha256(readFileSync(debugFile));
+    const deployedBinary = join(rootfs, "host/shadps4-arm64-fex");
+    const deployedSha = existsSync(deployedBinary) ? sha256(readFileSync(deployedBinary)) : null;
+    const manifest = {
+      source_commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectRoot, encoding: "utf8" }).trim(),
+      binary_build_id: buildId,
+      binary_sha256: fullSha,
+      deployed_sha256: deployedSha,
+      debug_sha256: debugSha,
+      compiler: "clang " + execFileSync("clang", ["--version"], { encoding: "utf8" }).split("\n")[0],
+      linker: "ld.lld (via clang)",
+      optimization_flags: "-O2 (CMAKE_BUILD_TYPE=Release)",
+      lto_setting: "inherit (CMake default)",
+      target_architecture: "aarch64-linux-gnu",
+      timestamp: new Date().toISOString(),
+    };
+    writeFileSync(join(debugRoot, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+    console.log(`debug-symbols/${buildId}/shadps4-arm64-fex.debug sha256=${debugSha}`);
+    console.log(`debug-symbols: binary_build_id=${buildId}`);
+  }
+} else {
+  console.warn("debug-symbols: shadps4-arm64 source binary not found; skipping");
+}
