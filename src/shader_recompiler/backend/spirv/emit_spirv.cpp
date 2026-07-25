@@ -409,16 +409,25 @@ void DefineEntryPoint(const Info& info, EmitContext& ctx, Id main) {
             ctx.AddExecutionMode(main, spv::ExecutionMode::DepthReplacing);
         }
         break;
-    case LogicalStage::Geometry:
+    case LogicalStage::Geometry: {
         execution_model = spv::ExecutionModel::Geometry;
         ctx.AddExecutionMode(main, GetInputPrimitiveType(ctx.runtime_info.gs_info.in_primitive));
         ctx.AddExecutionMode(main,
                              GetOutputPrimitiveType(ctx.runtime_info.gs_info.out_primitive[0]));
-        ctx.AddExecutionMode(main, spv::ExecutionMode::OutputVertices,
-                             ctx.runtime_info.gs_info.output_vertices);
+        // The guest may program VGT_GS_MAX_VERT_OUT well above what the copy shader actually
+        // consumes (LBP3: 64 vs 12). Declaring the register value can push the module past
+        // maxGeometryTotalOutputComponents (64 verts * 56 comps = 3584 > 1024 on NVIDIA), whose
+        // violation loses the device. Declare the count RingAccessElimination settled on, so the
+        // declaration and the ring addressing it generated agree. It falls back to the raw
+        // register only if that pass did not run for this module.
+        const u32 output_vertices = info.gs_output_vertices != 0
+                                        ? info.gs_output_vertices
+                                        : ctx.runtime_info.gs_info.output_vertices;
+        ctx.AddExecutionMode(main, spv::ExecutionMode::OutputVertices, output_vertices);
         ctx.AddExecutionMode(main, spv::ExecutionMode::Invocations,
                              ctx.runtime_info.gs_info.num_invocations);
         break;
+    }
     default:
         UNREACHABLE_MSG("Stage {}", u32(info.stage));
     }

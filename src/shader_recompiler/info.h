@@ -125,6 +125,10 @@ struct Info : InfoPersistent {
 
     ReadConstType readconst_types{};
     CopyShaderData gs_copy_data;
+    // Effective geometry output vertex count: VGT_GS_MAX_VERT_OUT clamped to what the copy shader
+    // actually consumes. Computed once by RingAccessElimination, which addresses the ring with it;
+    // the backend declares the same value so the module and the generated code cannot disagree.
+    u32 gs_output_vertices{};
     u32 uses_patches{};
 
     VAddr pgm_base;
