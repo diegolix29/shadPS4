@@ -956,6 +956,68 @@ void RegisterPatchModule(void* module_ptr, u64 module_size, void* trampoline_are
                                           trampoline_area_size));
 }
 
+static void PatchOneRedZonePoint(u8* code, size_t available, bool restore) {
+    auto* module = GetModule(code);
+    ASSERT_MSG(module, "PatchRedZoneGuard: {} is not inside a registered module", fmt::ptr(code));
+
+    // How far below rsp we reserve. 128 matches the SysV AMD64 red zone size; guest code is
+    // never allowed to rely on more than that without adjusting rsp itself.
+    static constexpr s32 RedZoneReserve = 128;
+
+    std::scoped_lock lk{module->mutex};
+    auto& patch_gen = module->patch_gen;
+    patch_gen.reset();
+    patch_gen.setSize(code - patch_gen.getCode());
+
+    if (restore) {
+        patch_gen.lea(rsp, ptr[rsp + RedZoneReserve]);
+    } else {
+        patch_gen.lea(rsp, ptr[rsp - RedZoneReserve]);
+    }
+
+    const auto patch_size = patch_gen.getCurr() - code;
+    ASSERT_MSG(patch_size > 0 && static_cast<size_t>(patch_size) <= available,
+               "Red zone guard at {} needs {} bytes but only {} are available", fmt::ptr(code),
+               patch_size, available);
+
+    // Fill remaining space with nops, same as the regular instruction patcher does.
+    patch_gen.nop(available - patch_size);
+
+    module->patched.insert(code);
+    LOG_INFO(Core, "Patched red zone guard ({}) at: {}", restore ? "exit" : "entry",
+             fmt::ptr(code));
+}
+
+void PatchRedZoneGuard(void* entry_addr, size_t entry_patch_size, std::span<void* const> exit_addrs,
+                       size_t exit_patch_size) {
+    std::call_once(init_flag, PatchesInit);
+
+    PatchOneRedZonePoint(reinterpret_cast<u8*>(entry_addr), entry_patch_size, false);
+    for (void* exit_addr : exit_addrs) {
+        PatchOneRedZonePoint(reinterpret_cast<u8*>(exit_addr), exit_patch_size, true);
+    }
+}
+
+void PatchStackReserveImmediate(void* addr, u8 expected_old_value, u8 new_value) {
+    std::call_once(init_flag, PatchesInit);
+
+    auto* code = reinterpret_cast<u8*>(addr);
+    auto* module = GetModule(code);
+    ASSERT_MSG(module, "PatchStackReserveImmediate: {} is not inside a registered module",
+               fmt::ptr(code));
+
+    std::scoped_lock lk{module->mutex};
+    ASSERT_MSG(*code == expected_old_value,
+               "Immediate byte at {} is {:#x}, expected {:#x} -- offsets likely don't match this "
+               "game build, refusing to patch",
+               fmt::ptr(code), *code, expected_old_value);
+
+    *code = new_value;
+    module->patched.insert(code);
+    LOG_INFO(Core, "Patched stack reserve immediate at {}: {:#x} -> {:#x}", fmt::ptr(code),
+             expected_old_value, new_value);
+}
+
 void PrePatchInstructions(u64 segment_addr, u64 segment_size) {
 #if !defined(_WIN32) && !defined(__APPLE__)
     // Linux and others have an FS segment pointing to valid memory, so continue to do full
