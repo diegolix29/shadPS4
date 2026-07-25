@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
+#include <mutex>
 #include <string>
+#include <unordered_map>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/logging/log.h"
@@ -10,6 +12,29 @@
 #include "core/file_sys/fs.h"
 
 namespace Libraries::Fios2 {
+
+// The guest uses the async Fios2 op API (submit op -> OpWait -> OpGetActualCount).
+// shadPS4 services I/O synchronously, so each async submitter runs the work inline and
+// records the result under a fake op handle that the Op* queries read back. Fake handles
+// start above zero so they never collide with the "invalid op" sentinel (-1 / 0).
+namespace {
+std::mutex g_op_mutex;
+std::unordered_map<s32, s64> g_op_actual_counts;
+s32 g_next_op_handle = 1;
+
+s32 AllocateOpHandle(s64 actual_count) {
+    std::scoped_lock lock{g_op_mutex};
+    const s32 op = g_next_op_handle++;
+    g_op_actual_counts[op] = actual_count;
+    return op;
+}
+
+s64 QueryOpActualCount(s32 op) {
+    std::scoped_lock lock{g_op_mutex};
+    const auto it = g_op_actual_counts.find(op);
+    return it != g_op_actual_counts.end() ? it->second : 0;
+}
+} // namespace
 
 struct FiosStat {
     s64 size;
@@ -230,6 +255,105 @@ s32 PS4_SYSV_ABI sceFiosStatSync(const void* op_attr, const char* path, FiosStat
     return result;
 }
 
+// Async Fios2 op API. shadPS4 has no real async I/O queue, so async submitters do the
+// work inline and hand back a fake op handle. The Op* waiters then report the op as
+// already complete and return the recorded result. This mirrors what the desktop x86
+// path achieves via AeroLib's benign no-op stubs, while keeping the byte counts intact.
+
+s32 PS4_SYSV_ABI sceFiosOverlayAdd(void* overlay, s32* out_id) {
+    LOG_INFO(Lib_SysModule, "[FIOS-HLE][OverlayAdd] overlay={} out_id={}", overlay,
+             static_cast<void*>(out_id));
+    // No overlay filesystem is implemented; accept and ignore the registration.
+    if (out_id != nullptr) {
+        *out_id = 1; // fake overlay id
+    }
+    return 0;
+}
+
+s32 PS4_SYSV_ABI sceFiosFHPread(const void* op_attr, s32 handle, void* buffer, s64 size,
+                                s64 offset) {
+    // Non-blocking positioned read: perform it synchronously and return a fake op handle
+    // so a following OpWait/OpGetActualCount returns the real byte count. The op handle is
+    // the return value (positive on success, negative errno on failure), matching the Vita/
+    // PS4 SceFiosOp convention rather than a separate out-param.
+    const s64 read = Kernel::sceKernelPread(handle, buffer, static_cast<u64>(size), offset);
+    const s32 op = read >= 0 ? AllocateOpHandle(read) : static_cast<s32>(read);
+    LOG_INFO(Lib_SysModule,
+             "[FIOS-HLE][FHPread] handle={} offset={:#x} size={} read={} op={} op_attr={}", handle,
+             offset, size, read, op, op_attr);
+    return op;
+}
+
+s32 PS4_SYSV_ABI sceFiosFHOpen(const void* op_attr, s32* out_handle, const char* path,
+                               const void* open_params) {
+    // Non-blocking open: run it synchronously (shadPS4 has no async queue), store the file
+    // descriptor in *out_handle for the caller, and return a positive op handle so the
+    // following OpWait/OpGetActualCount report success. Mirrors FHOpenSync but yields an op.
+    s32 op = -1;
+    if (out_handle != nullptr && path != nullptr) {
+        const s32 fd = Kernel::posix_open(path, 0, 0);
+        if (fd >= 0) {
+            *out_handle = fd;
+            op = AllocateOpHandle(0);
+            LOG_INFO(Lib_SysModule,
+                     "[FIOS-HLE][FHOpen] path='{}' handle={} op={} op_attr={} open_params={}", path,
+                     fd, op, op_attr, open_params);
+        } else {
+            LOG_ERROR(Lib_SysModule, "[FIOS-HLE][FHOpen] failed path='{}'", path);
+            op = fd;
+        }
+    }
+    return op;
+}
+
+s32 PS4_SYSV_ABI sceFiosOpWait(s32 op) {
+    LOG_INFO(Lib_SysModule, "[FIOS-HLE][OpWait] op={} (synchronous, already complete)", op);
+    return 0;
+}
+
+s32 PS4_SYSV_ABI sceFiosOpSyncWait(s32 op) {
+    LOG_INFO(Lib_SysModule, "[FIOS-HLE][OpSyncWait] op={} (synchronous, already complete)", op);
+    return 0;
+}
+
+s64 PS4_SYSV_ABI sceFiosOpGetActualCount(s32 op) {
+    const s64 count = QueryOpActualCount(op);
+    LOG_INFO(Lib_SysModule, "[FIOS-HLE][OpGetActualCount] op={} count={}", op, count);
+    return count;
+}
+
+s32 PS4_SYSV_ABI sceFiosOpIsDone(s32 op) {
+    // All ops complete synchronously, so every submitted op is already done.
+    LOG_INFO(Lib_SysModule, "[FIOS-HLE][OpIsDone] op={} (always done)", op);
+    return 1;
+}
+
+s32 PS4_SYSV_ABI sceFiosOpGetError(s32 op) {
+    // Ops store their outcome in the byte count: negative counts encode the errno.
+    const s64 count = QueryOpActualCount(op);
+    LOG_INFO(Lib_SysModule, "[FIOS-HLE][OpGetError] op={} error={}", op, count < 0 ? count : 0);
+    return count < 0 ? static_cast<s32>(count) : 0;
+}
+
+s32 PS4_SYSV_ABI sceFiosOpDelete(s32 op) {
+    // Drop the recorded count so fake op handles don't leak across long sessions.
+    {
+        std::scoped_lock lock{g_op_mutex};
+        g_op_actual_counts.erase(op);
+    }
+    LOG_INFO(Lib_SysModule, "[FIOS-HLE][OpDelete] op={}", op);
+    return 0;
+}
+
+s32 PS4_SYSV_ABI sceFiosFHClose(const void* op_attr, s32 handle) {
+    // Async close: run synchronously and return a completed op handle.
+    const s32 result = Kernel::posix_close(handle);
+    const s32 op = result >= 0 ? AllocateOpHandle(0) : result;
+    LOG_INFO(Lib_SysModule, "[FIOS-HLE][FHClose] handle={} result={} op={} op_attr={}", handle,
+             result, op, op_attr);
+    return op;
+}
+
 void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("wAKZ-det+yo", "libSceFios2", 1, "libSceFios2", sceFiosInitialize);
     LIB_FUNCTION("b44anV2D7K0", "libSceFios2", 1, "libSceFios2", sceFiosFHOpenSync);
@@ -251,6 +375,16 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("MrRFrdgpsx8", "libSceFios2", 1, "libSceFios2", sceFiosFHTell);
     LIB_FUNCTION("Kl-TbrDU9YM", "libSceFios2", 1, "libSceFios2", sceFiosFHWriteSync);
     LIB_FUNCTION("jayvY07C5dk", "libSceFios2", 1, "libSceFios2", sceFiosStatSync);
+    LIB_FUNCTION("TXABsmiiqto", "libSceFios2", 1, "libSceFios2", sceFiosOverlayAdd);
+    LIB_FUNCTION("rR8wq7YFRZs", "libSceFios2", 1, "libSceFios2", sceFiosFHPread);
+    LIB_FUNCTION("er6TkQFUvp0", "libSceFios2", 1, "libSceFios2", sceFiosFHOpen);
+    LIB_FUNCTION("SnoQQWnGK9I", "libSceFios2", 1, "libSceFios2", sceFiosOpWait);
+    LIB_FUNCTION("+FRvKknUj1I", "libSceFios2", 1, "libSceFios2", sceFiosOpGetActualCount);
+    LIB_FUNCTION("2wvqS7Odb6M", "libSceFios2", 1, "libSceFios2", sceFiosOpSyncWait);
+    LIB_FUNCTION("bfgo2Otmqz0", "libSceFios2", 1, "libSceFios2", sceFiosOpIsDone);
+    LIB_FUNCTION("X+7rIfY97Ps", "libSceFios2", 1, "libSceFios2", sceFiosOpGetError);
+    LIB_FUNCTION("5cyEcilO-J0", "libSceFios2", 1, "libSceFios2", sceFiosOpDelete);
+    LIB_FUNCTION("5sYNBNK+W3g", "libSceFios2", 1, "libSceFios2", sceFiosFHClose);
 }
 
 } // namespace Libraries::Fios2
