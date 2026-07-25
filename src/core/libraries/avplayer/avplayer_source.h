@@ -142,7 +142,7 @@ private:
 
 class AvPlayerSource {
 public:
-    AvPlayerSource(AvPlayerStateCallback& state);
+    AvPlayerSource(AvPlayerStateCallback& state, bool use_vdec2);
     ~AvPlayerSource();
 
     bool Init(const AvPlayerInitData& init_data, std::string_view path);
@@ -193,8 +193,9 @@ private:
     Frame PrepareVideoFrame(GuestBuffer buffer, const AVFrame& frame);
 
     AvPlayerStateCallback& m_state;
+    bool m_use_vdec2 = false;
 
-    struct Stream {
+      struct Stream {
         size_t ffmpeg_index = 0;
         AvPlayerStreamInfo info;
     };
