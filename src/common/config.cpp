@@ -2701,6 +2701,10 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     }
     data["GUI"]["ToolbarVisibility"] = toolbar_map;
 
+    for (const auto& [game_id, hashes] : all_skipped_shader_hashes) {
+        data["ShaderSkip"][game_id] = hashes;
+    }
+
     sortTomlSections(data);
 
     std::ofstream file(path, std::ios::binary);

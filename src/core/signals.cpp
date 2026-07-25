@@ -5,7 +5,6 @@
 #include "common/assert.h"
 #include "common/decoder.h"
 #include "common/signal_context.h"
-
 #include "core/libraries/kernel/threads/exception.h"
 #include "core/signals.h"
 #include "core/veh_stack.h"
@@ -27,15 +26,6 @@ namespace Libraries::Kernel {
 void SigactionHandler(int native_signum, siginfo_t* inf, ucontext_t* raw_context);
 extern std::array<OrbisKernelExceptionHandler, 32> Handlers;
 } // namespace Libraries::Kernel
-#else
-namespace Libraries::Kernel {
-// Defined in core/libraries/kernel/threads/exception.cpp. Converts a Windows CONTEXT into the
-// guest-visible Ucontext and invokes the guest's registered handler for `native_signum`
-// (an Orbis/POSIX signal number, see POSIX_SIGILL / POSIX_SIGSEGV etc.), if one was installed
-// via sceKernelInstallExceptionHandler.
-void ExceptionHandler(void* arg1, void* arg2, void* arg3, PCONTEXT context);
-extern std::array<OrbisKernelExceptionHandler, 130> Handlers;
-} // namespace Libraries::Kernel
 #endif
 
 namespace Core {
@@ -43,7 +33,7 @@ namespace Core {
 #if defined(_WIN32)
 
 static long SignalHandlerImpl(EXCEPTION_POINTERS* pExp) noexcept {
-    const auto* signals = Signals::Instance();
+    static Core::SignalDispatch* dispatcher = Core::Signals::Instance();
     DWORD code = 0;
     PVOID address = nullptr;
 
@@ -53,8 +43,6 @@ static long SignalHandlerImpl(EXCEPTION_POINTERS* pExp) noexcept {
     }
 
     bool handled = false;
-    s32 orbis_signal = 0;
-
     switch (code) {
     case EXCEPTION_ACCESS_VIOLATION:
         handled = dispatcher->DispatchAccessViolation(
@@ -78,19 +66,10 @@ static long SignalHandlerImpl(EXCEPTION_POINTERS* pExp) noexcept {
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
-    // If the guest has installed its own handler for this signal via
-    // sceKernelInstallExceptionHandler, forward the fault to it instead of unconditionally
-    // taking down the whole emulator. This mirrors what the POSIX SignalHandler already does
-    // (see the #else branch below) but was previously missing here - so on Windows, a guest
-    // assertion/debug-trap that the game itself would normally catch and log gracefully
-    // instead always hard-crashed shadPS4.
-    if (orbis_signal != 0 && Libraries::Kernel::Handlers[orbis_signal] != nullptr) {
-        const std::string thread_name = Common::GetCurrentThreadName();
-        Libraries::Kernel::ExceptionHandler(
-            const_cast<char*>(thread_name.c_str()),
-            reinterpret_cast<void*>(static_cast<uintptr_t>(orbis_signal)), nullptr,
-            pExp->ContextRecord);
-        return EXCEPTION_CONTINUE_EXECUTION;
+    // Breakpoints almost certainly come from our asserts/unreachables, no need to log it again.
+    if (code != EXCEPTION_BREAKPOINT) {
+        LOG_CRITICAL(Debug, "Unhandled Exception code {:#x} at {}", code, address);
+        Common::Singleton<Core::Emulator>::Instance()->Shutdown();
     }
 
     return EXCEPTION_CONTINUE_SEARCH;
@@ -127,7 +106,7 @@ static std::string DisassembleInstruction(void* code_address) {
 }
 
 void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
-    static Core::SignalDispatch* dispatcher = Core::Signals::Instance();
+    const auto* signals = Signals::Instance();
 
     auto* code_address = Common::GetRip(raw_context);
 
@@ -135,7 +114,7 @@ void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
     case SIGSEGV:
     case SIGBUS: {
         const bool is_write = Common::IsWriteError(raw_context);
-        if (!dispatcher->DispatchAccessViolation(raw_context, info->si_addr)) {
+        if (!signals->DispatchAccessViolation(raw_context, info->si_addr)) {
             // If the guest has installed a custom signal handler, and the access violation didn't
             // come from HLE memory tracking, pass the signal on
             if (Libraries::Kernel::Handlers[Libraries::Kernel::NativeToOrbisSignal(sig)]) {
@@ -150,7 +129,7 @@ void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
         break;
     }
     case SIGILL:
-        if (!dispatcher->DispatchIllegalInstruction(raw_context)) {
+        if (!signals->DispatchIllegalInstruction(raw_context)) {
             if (Libraries::Kernel::Handlers[Libraries::Kernel::NativeToOrbisSignal(sig)]) {
                 Libraries::Kernel::SigactionHandler(sig, info,
                                                     reinterpret_cast<ucontext_t*>(raw_context));
