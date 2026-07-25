@@ -282,7 +282,7 @@ void Module::ApplyRedZoneWorkarounds(VAddr base) {
     // (0x7F) gives it ~79 extra bytes of headroom below where a Windows exception dispatch
     // could otherwise clobber live data if a GPU buffer dirty-tracking fault lands here mid-
     // function. This is a mitigation, not a proven complete fix -- test empirically.
-    if (MemoryPatcher::g_game_serial == "CUSA03173" || "CUSA00004") {
+    if (MemoryPatcher::g_game_serial == "REPLACE_WITH_YOUR_GAME_SERIAL") {
         PatchStackReserveImmediate(std::bit_cast<void*>(base + 0x28CE7BD), 0x30, 0x7F);
         PatchStackReserveImmediate(std::bit_cast<void*>(base + 0x28CEEAC), 0x30, 0x7F);
 
