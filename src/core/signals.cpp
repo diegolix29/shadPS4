@@ -101,12 +101,6 @@ static std::string DisassembleInstruction(void* code_address) {
 }
 
 void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
-    // Must check env before Signals::Instance() call since the first signal may be fatal.
-    static const bool crashReporterOn = [] {
-        Common::InitCrashReporter();
-        return true;
-    }();
-    (void)crashReporterOn;
     Common::ReportCrash(raw_context, sig, info);
     const auto* signals = Signals::Instance();
 

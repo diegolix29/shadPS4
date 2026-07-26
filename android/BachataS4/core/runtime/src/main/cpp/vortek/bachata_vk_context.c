@@ -9,8 +9,10 @@
 #include <android/log.h>
 #include <jni.h>
 
+#include "arrays.h"
 #include "vk_context.h"
 #include "request_handler.h"
+#include "request_codes.h"
 #include "vulkan_helper.h"
 #include "vulkan_wrapper.h"
 #include "vortek.h"
@@ -32,6 +34,32 @@ static pthread_mutex_t g_dispatch_mutex = PTHREAD_MUTEX_INITIALIZER;
 /* Optional WSI window bridge (Java object with getWindow* methods). */
 static JavaVM* g_jvm = NULL;
 static jobject g_window_bridge = NULL; /* global ref */
+
+static void disableUnsupportedDeviceExtensions(VkContext* context) {
+    static const char* unsupported[] = {
+        "VK_EXT_vertex_input_dynamic_state",
+    };
+
+    if (!context->disabledDeviceExtensions) {
+        context->disabledDeviceExtensions =
+            ArrayList_fromStrings(unsupported, sizeof(unsupported) / sizeof(unsupported[0]));
+        return;
+    }
+
+    for (size_t i = 0; i < sizeof(unsupported) / sizeof(unsupported[0]); i++) {
+        bool alreadyDisabled = false;
+        for (int j = 0; j < context->disabledDeviceExtensions->size; j++) {
+            const char* extension = context->disabledDeviceExtensions->elements[j];
+            if (strcmp(extension, unsupported[i]) == 0) {
+                alreadyDisabled = true;
+                break;
+            }
+        }
+        if (!alreadyDisabled) {
+            ArrayList_add(context->disabledDeviceExtensions, strdup(unsupported[i]));
+        }
+    }
+}
 
 static void loadJMethods(JMethods* jmethods) {
     if (!jmethods->jvm || !jmethods->obj) {
@@ -150,8 +178,10 @@ static void* request_thread(void* param) {
 
         HandleRequestFunc handleRequestFunc = getHandleRequestFunc((short)requestCode);
         if (handleRequestFunc) {
-            BACHATA_LOG("request=code=%d size=%d", requestCode, context->inputBufferSize);
             handleRequestFunc(context);
+            if (requestCode == REQUEST_CODE_VK_CREATE_INSTANCE) {
+                disableUnsupportedDeviceExtensions(context);
+            }
         } else {
             BACHATA_ERR("unsupported_request=code=%d size=%d", requestCode, context->inputBufferSize);
             if (context->clientRing) {

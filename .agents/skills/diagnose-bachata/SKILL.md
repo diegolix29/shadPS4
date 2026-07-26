@@ -21,7 +21,7 @@ Trigger when the user reports any of:
 
 ## Orientation map (read first — don't re-scan)
 
-Repo root: `/home/jica/repo/Bachata-S4`. All paths below are relative to it unless noted.
+Repo root: `$HOME/repo/Bachata-S4`. All paths below are relative to it unless noted.
 
 ### Where things live
 
@@ -59,7 +59,7 @@ Session logs live on-device under the app's private storage and are pulled with:
 
 ```bash
 cd android/BachataS4
-ADB=/mnt/c/Users/Admin/AppData/Local/Android/Sdk/platform-tools/adb.exe
+ADB="$(wslpath "$USERPROFILE")/AppData/Local/Android/Sdk/platform-tools/adb.exe"
 ADB_OVERRIDE="$ADB" ./pull-session-logs.sh --game <CUSAxxxxx> --output session-logs
 ```
 
@@ -118,7 +118,7 @@ reproduces on the reference path:
 runtime/build/shadps4-x86_64/shadps4 -g "<path-to-game>/eboot.bin"
 ```
 
-Game files on this host live under `/mnt/c/Users/Admin/Downloads/PS4 Games/<game>/`.
+Game files on this host live under `$(wslpath "$USERPROFILE")/Downloads/PS4 Games/<game>/`.
 The user's real Windows desktop GPU is the gold reference; WSL2g's D3D12-translated
 Vulkan is a *second* data point (it can reproduce GPU-path issues but isn't proof of
 "works on desktop" — ask the user for the Windows `shad_log.txt` from
@@ -138,13 +138,13 @@ Do not guess from extension lists or speculation.
 gdb is not installed by default and needs no sudo — extract it to a user prefix:
 
 ```bash
-cd /home/jica/repo/Bachata-S4
+cd "$HOME/repo/Bachata-S4"
 apt-get download gdb libbabeltrace1 libipt2 libdebuginfod1t64 \
   libsource-highlight4t64 libxxhash0 libmpfr6 libpython3.14 libreadline8t64
-mkdir -p /home/jica/gdb-user
-for d in *.deb; do dpkg-deb -x "$d" /home/jica/gdb-user; done
-GDB=/home/jica/gdb-user/usr/bin/gdb
-GDBLIB="LD_LIBRARY_PATH=/home/jica/gdb-user/usr/lib/x86_64-linux-gnu:/home/jica/gdb-user/usr/lib"
+mkdir -p "$HOME/gdb-user"
+for d in *.deb; do dpkg-deb -x "$d" "$HOME/gdb-user"; done
+GDB="$HOME/gdb-user/usr/bin/gdb"
+GDBLIB="LD_LIBRARY_PATH=$HOME/gdb-user/usr/lib/x86_64-linux-gnu:$HOME/gdb-user/usr/lib"
 ```
 
 Run the native build under gdb, break after guest memory is mapped (set a breakpoint
@@ -219,8 +219,8 @@ unzip -l app/build/outputs/apk/fdroid/debug/app-fdroid-debug.apk \
 Install + launch via DirectLaunchActivity (debug-only activity, takes `--es game_id <CUSAid>`):
 
 ```bash
-ADB=/mnt/c/Users/Admin/AppData/Local/Android/Sdk/platform-tools/adb.exe
-SERIAL=80605355   # OnePlus CPH2649; adjust per device
+ADB="$(wslpath "$USERPROFILE")/AppData/Local/Android/Sdk/platform-tools/adb.exe"
+SERIAL=<serial-id>   # adjust per device
 "$ADB" -s $SERIAL install -r -d app/build/outputs/apk/fdroid/debug/app-fdroid-debug.apk
 "$ADB" -s $SERIAL logcat -c
 "$ADB" -s $SERIAL shell am start -n com.bachatas4.android/.DirectLaunchActivity --es game_id CUSA01623

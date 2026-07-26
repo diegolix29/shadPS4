@@ -22,7 +22,7 @@ add_library(bachata_vortek_server SHARED
     ${VORTEK_UPSTREAM}/src/vk_object.c
     ${VORTEK_UPSTREAM}/src/resource_memory.c
     ${VORTEK_UPSTREAM}/src/shader_inspector.c
-    ${VORTEK_UPSTREAM}/src/xwindow_swapchain.c
+    bachata_xwindow_swapchain.c
     ${VORTEK_UPSTREAM}/src/timeline_semaphore.c
     ${VORTEK_UPSTREAM}/src/async_pipeline_creator.c
     # Shared helpers
@@ -35,6 +35,7 @@ target_include_directories(bachata_vortek_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../winlator/include
     ${VORTEK_UPSTREAM}/include
+    ${VORTEK_UPSTREAM}/src
     ${WINLATOR_UPSTREAM}/include
 )
 

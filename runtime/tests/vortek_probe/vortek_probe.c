@@ -881,9 +881,6 @@ static int run_wsi(void* icd_lib) {
             return fail("queue_submit_failed");
         }
 
-        /* Ensure GPU done before server-side AHB CPU copy on present. */
-        wait_fences(device, 1, &in_flight, VK_TRUE, 2ULL * 1000 * 1000 * 1000);
-
         VkPresentInfoKHR pi = {0};
         pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         pi.waitSemaphoreCount = 1;
