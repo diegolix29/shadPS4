@@ -1190,6 +1190,57 @@ s32 PS4_SYSV_ABI sceNpUnregisterPlusEventCallback() {
     return ORBIS_OK;
 }
 
+// libSceNpUtility. A bandwidth test measures against a real online service, and nothing backs
+// one here. The generic auto-stub answers OK with an unpopulated status, which reads to a title
+// as "the test has started and is still running": it then polls sceNpBandwidthTestGetStatus
+// waiting for a result that never comes. A signed-out console fails the call outright, so do the
+// same whenever no user is signed in and let the title take its offline path. (This is the only
+// entry point of the bandwidth-test API a title can reach without one; the rest stay auto-stubbed
+// and would belong in a libSceNpUtility module of their own if they are ever implemented.)
+// The parameters are left undeclared: nothing here interprets them, and the observed register
+// contents do not match the documented (priority, pool size) pair.
+s32 PS4_SYSV_ABI sceNpBandwidthTestInitStart() {
+    if (!g_shadnet_enabled || !Libraries::Np::NpHandler::GetInstance().IsAnySignedIn()) {
+        LOG_DEBUG(Lib_NpManager, "signed out");
+        return ORBIS_NP_ERROR_SIGNED_OUT;
+    }
+    LOG_ERROR(Lib_NpManager, "(STUBBED) called");
+    return ORBIS_OK;
+}
+
+// A signed-in title starts the test above then polls GetStatus until it reports finished (status
+// == 2), then reads two doubles from Shutdown. Nothing measures a real link, so report an instant,
+// successful result with nominal bandwidth. Signatures match the eboot call sites:
+//   sceNpBandwidthTestGetStatus(id, s32* out_status)     out_status = 2 (finished)
+//   sceNpBandwidthTestShutdown(id, {double up; double down; ...}*)
+struct OrbisNpBandwidthTestResult {
+    double upload_bps;
+    double download_bps;
+    s32 result;
+    s32 padding;
+};
+
+s32 PS4_SYSV_ABI sceNpBandwidthTestGetStatus(s32 /*id*/, s32* status) {
+    if (!g_shadnet_enabled || !Libraries::Np::NpHandler::GetInstance().IsAnySignedIn()) {
+        return ORBIS_NP_ERROR_SIGNED_OUT;
+    }
+    if (status == nullptr) {
+        return ORBIS_NP_ERROR_INVALID_ARGUMENT;
+    }
+    *status = 2; // SCE_NP_BANDWIDTH_TEST_STATUS_FINISHED
+    return ORBIS_OK;
+}
+
+s32 PS4_SYSV_ABI sceNpBandwidthTestShutdown(s32 /*id*/, OrbisNpBandwidthTestResult* result) {
+    if (result != nullptr) {
+        result->upload_bps = 10000000.0;
+        result->download_bps = 10000000.0;
+        result->result = 0;
+        result->padding = 0;
+    }
+    return ORBIS_OK;
+}
+
 void RegisterNpCallback(std::string key, std::function<void()> cb) {
     std::scoped_lock lk{g_np_callbacks_mutex};
     LOG_DEBUG(Lib_NpManager, "registering callback processing for {}", key);
@@ -1216,6 +1267,14 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
         },
         nullptr);
     Libraries::Np::NpHandler::GetInstance().Initialize();
+
+    // See the comment above sceNpBandwidthTestInitStart.
+    LIB_FUNCTION("jktww3yJXnc", "libSceNpUtility", 1, "libSceNpUtility",
+                 sceNpBandwidthTestInitStart);
+    LIB_FUNCTION("BYIZGKm6bO4", "libSceNpUtility", 1, "libSceNpUtility",
+                 sceNpBandwidthTestGetStatus);
+    LIB_FUNCTION("pLr1fEQS1z8", "libSceNpUtility", 1, "libSceNpUtility",
+                 sceNpBandwidthTestShutdown);
 
     LIB_FUNCTION("GpLQDNKICac", "libSceNpManager", 1, "libSceNpManager", sceNpCreateRequest);
     LIB_FUNCTION("eiqMCt9UshI", "libSceNpManager", 1, "libSceNpManager", sceNpCreateAsyncRequest);
