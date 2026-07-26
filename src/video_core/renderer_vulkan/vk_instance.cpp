@@ -338,6 +338,8 @@ bool Instance::CreateDevice() {
         LOG_INFO(Render_Vulkan, "- sampler2DViewOf3D: {}",
                  image_2d_view_of_3d_features.sampler2DViewOf3D);
     }
+    image_view_min_lod = add_extension(VK_EXT_IMAGE_VIEW_MIN_LOD_EXTENSION_NAME);
+    supports_memory_budget = add_extension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
     const bool calibrated_timestamps =
         TRACY_GPU_ENABLED ? add_extension(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME) : false;
 
@@ -514,27 +516,9 @@ bool Instance::CreateDevice() {
             .image2DViewOf3D = image_2d_view_of_3d_features.image2DViewOf3D,
             .sampler2DViewOf3D = image_2d_view_of_3d_features.sampler2DViewOf3D,
         },
-#ifdef __APPLE__
-        vk::PhysicalDevicePortabilitySubsetFeaturesKHR{
-            .constantAlphaColorBlendFactors = portability_features.constantAlphaColorBlendFactors,
-            .events = portability_features.events,
-            .imageViewFormatReinterpretation = portability_features.imageViewFormatReinterpretation,
-            .imageViewFormatSwizzle = portability_features.imageViewFormatSwizzle,
-            .imageView2DOn3DImage = portability_features.imageView2DOn3DImage,
-            .multisampleArrayImage = portability_features.multisampleArrayImage,
-            .mutableComparisonSamplers = portability_features.mutableComparisonSamplers,
-            .pointPolygons = portability_features.pointPolygons,
-            .samplerMipLodBias = portability_features.samplerMipLodBias,
-            .separateStencilMaskRef = portability_features.separateStencilMaskRef,
-            .shaderSampleRateInterpolationFunctions =
-                portability_features.shaderSampleRateInterpolationFunctions,
-            .tessellationIsolines = portability_features.tessellationIsolines,
-            .tessellationPointMode = portability_features.tessellationPointMode,
-            .triangleFans = portability_features.triangleFans,
-            .vertexAttributeAccessBeyondStride =
-                portability_features.vertexAttributeAccessBeyondStride,
+        vk::PhysicalDeviceImageViewMinLodFeaturesEXT{
+            .minLod = true,
         },
-#endif
     };
 
     if (!custom_border_color) {
@@ -576,6 +560,9 @@ bool Instance::CreateDevice() {
     }
     if (!image_2d_view_of_3d) {
         device_chain.unlink<vk::PhysicalDeviceImage2DViewOf3DFeaturesEXT>();
+    }
+    if (!image_view_min_lod) {
+        device_chain.unlink<vk::PhysicalDeviceImageViewMinLodFeaturesEXT>();
     }
 
     auto [device_result, dev] = physical_device.createDeviceUnique(device_chain.get());

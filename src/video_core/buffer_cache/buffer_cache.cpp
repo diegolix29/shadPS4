@@ -247,7 +247,7 @@ void BufferCache::BindVertexBuffers(
     // Build list of ranges covering the requested buffers
     Vulkan::VertexInputs<BufferRange> ranges{};
     for (const auto& buffer : guest_buffers) {
-        if (buffer.GetSize() > 0) {
+        if (buffer.base_address != 0 && buffer.GetSize() > 0) {
             ranges.emplace_back(buffer.base_address, buffer.base_address + buffer.GetSize());
         }
     }
@@ -290,7 +290,7 @@ void BufferCache::BindVertexBuffers(
     Vulkan::VertexInputs<vk::DeviceSize> host_sizes;
     Vulkan::VertexInputs<vk::DeviceSize> host_strides;
     for (const auto& buffer : guest_buffers) {
-        if (buffer.GetSize() > 0) {
+        if (buffer.base_address != 0 && buffer.GetSize() > 0) {
             const auto host_buffer_info =
                 std::ranges::find_if(ranges_merged, [&](const BufferRange& range) {
                     return buffer.base_address >= range.base_address &&

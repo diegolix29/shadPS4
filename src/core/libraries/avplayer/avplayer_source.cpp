@@ -443,7 +443,7 @@ u64 AvPlayerSource::DurationMillis() const {
         if (stream_index.value() < 0) {
             return;
         }
-        const auto index = stream_index.value();
+        const auto index = m_streams[stream_index.value()].ffmpeg_index;
         if (index >= m_streams.size()) {
             return;
         }
