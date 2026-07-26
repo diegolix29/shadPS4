@@ -5,7 +5,6 @@
 
 #include <string>
 #include <vector>
-#include "common/arch.h"
 #include "common/config.h"
 
 #include "common/types.h"
@@ -216,9 +215,6 @@ public:
 
     s32 Start(u64 args, const void* argp, void* param);
     void LoadModuleToMemory(u32& max_tls_index);
-#ifdef ARCH_X86_64
-    void ApplyRedZoneWorkarounds(VAddr base);
-#endif
     void LoadDynamicInfo();
     void LoadSymbols();
 

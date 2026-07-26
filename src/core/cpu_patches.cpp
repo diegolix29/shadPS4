@@ -22,7 +22,11 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#if defined(__FreeBSD__)
+#include <machine/npx.h>
+#endif
 #include <pthread.h>
+#include <sys/ucontext.h>
 #endif
 
 using namespace Xbyak::util;
@@ -665,8 +669,6 @@ static std::pair<bool, u64> TryPatch(u8* code, PatchModule* module) {
     return std::make_pair(false, instruction.length);
 }
 
-#if defined(ARCH_X86_64)
-
 static bool Is4ByteExtrqOrInsertq(void* code_address) {
     u8* bytes = (u8*)code_address;
     if (bytes[0] == 0x66 && bytes[1] == 0x0F && bytes[2] == 0x79) {
@@ -676,6 +678,67 @@ static bool Is4ByteExtrqOrInsertq(void* code_address) {
     } else {
         return false;
     }
+}
+
+static void* GetXmmPointer(void* ctx, u8 index) {
+#if defined(_WIN32)
+#define CASE(index)                                                                                \
+    case index:                                                                                    \
+        return (void*)(&((EXCEPTION_POINTERS*)ctx)->ContextRecord->Xmm##index.Low)
+#elif defined(__APPLE__)
+#define CASE(index)                                                                                \
+    case index:                                                                                    \
+        return (void*)(&((ucontext_t*)ctx)->uc_mcontext->__fs.__fpu_xmm##index);
+#elif defined(__FreeBSD__)
+    // In mc_fpstate
+    // See <machine/npx.h> for the internals of mc_fpstate[].
+#define CASE(index)                                                                                \
+    case index: {                                                                                  \
+        auto& mctx = ((ucontext_t*)ctx)->uc_mcontext;                                              \
+        ASSERT(mctx.mc_fpformat == _MC_FPFMT_XMM);                                                 \
+        auto* s_fpu = (struct savefpu*)(&mctx.mc_fpstate[0]);                                      \
+        return (void*)(&(s_fpu->sv_xmm[0]));                                                       \
+    }
+#else
+#define CASE(index)                                                                                \
+    case index:                                                                                    \
+        return (void*)(&((ucontext_t*)ctx)->uc_mcontext.fpregs->_xmm[index].element[0])
+#endif
+    switch (index) {
+        CASE(0);
+        CASE(1);
+        CASE(2);
+        CASE(3);
+        CASE(4);
+        CASE(5);
+        CASE(6);
+        CASE(7);
+        CASE(8);
+        CASE(9);
+        CASE(10);
+        CASE(11);
+        CASE(12);
+        CASE(13);
+        CASE(14);
+        CASE(15);
+    default: {
+        UNREACHABLE_MSG("Invalid XMM register index: {}", index);
+        return nullptr;
+    }
+    }
+#undef CASE
+}
+
+static void IncrementRip(void* ctx, u64 length) {
+#if defined(_WIN32)
+    ((EXCEPTION_POINTERS*)ctx)->ContextRecord->Rip += length;
+#elif defined(__APPLE__)
+    ((ucontext_t*)ctx)->uc_mcontext->__ss.__rip += length;
+#elif defined(__FreeBSD__)
+    ((ucontext_t*)ctx)->uc_mcontext.mc_rip += length;
+#else
+    ((ucontext_t*)ctx)->uc_mcontext.gregs[REG_RIP] += length;
+#endif
 }
 
 static bool TryExecuteIllegalInstruction(void* ctx, void* code_address) {
@@ -719,8 +782,8 @@ static bool TryExecuteIllegalInstruction(void* ctx, void* code_address) {
 
     switch (mnemonic) {
     case ZYDIS_MNEMONIC_EXTRQ: {
-        const auto dst = Common::GetXmmPointer(ctx, dstIndex);
-        const auto src = Common::GetXmmPointer(ctx, srcIndex);
+        const auto dst = GetXmmPointer(ctx, dstIndex);
+        const auto src = GetXmmPointer(ctx, srcIndex);
 
         u64 lowQWordSrc;
         memcpy(&lowQWordSrc, src, sizeof(lowQWordSrc));
@@ -728,42 +791,23 @@ static bool TryExecuteIllegalInstruction(void* ctx, void* code_address) {
         u64 lowQWordDst;
         memcpy(&lowQWordDst, dst, sizeof(lowQWordDst));
 
-        u64 raw_length_field = lowQWordSrc & 0x3F;
-        u64 index = (lowQWordSrc >> 8) & 0x3F;
-
-        // EXPERIMENTAL: AMD's docs mark "length field == 0 AND index != 0" as its own
-        // undefined case, separate from length+index > 64. The existing code always
-        // treats a raw length field of 0 as "64" regardless of index, which is one
-        // interpretation but not a confirmed match for real Jaguar silicon.
-        //
-        // This branch tries an alternate interpretation for that specific sub-case:
-        // when the raw field is 0 but index != 0, treat it as a 1-bit extract at
-        // `index` instead of a full 64-bit (all-ones-mask) extract. Toggle
-        // EXTRQ_ALT_ZERO_LENGTH_HEURISTIC to flip between the two for A/B testing.
-        constexpr bool EXTRQ_ALT_ZERO_LENGTH_HEURISTIC = true;
-
-        u64 length;
+        u64 length = lowQWordSrc & 0x3F;
         u64 mask;
-        if (raw_length_field == 0) {
-            if constexpr (EXTRQ_ALT_ZERO_LENGTH_HEURISTIC) {
-                length = (index == 0) ? 64 : 1;
-            } else {
-                length = 64;
-            }
-            mask = (length == 64) ? 0xFFFF'FFFF'FFFF'FFFF : (1ULL << length) - 1;
+        if (length == 0) {
+            length = 64; // for the check below
+            mask = 0xFFFF'FFFF'FFFF'FFFF;
         } else {
-            length = raw_length_field;
             mask = (1ULL << length) - 1;
         }
 
+        u64 index = (lowQWordSrc >> 8) & 0x3F;
         if (length + index > 64) {
             // Undefined behavior if length + index is bigger than 64 according to the spec,
             // we'll warn and continue execution.
             LOG_TRACE(Core,
-                      "extrq at {} with length {} and index {} (raw_length_field={}) is bigger "
-                      "than 64, undefined behavior. srcQword=0x{:016x} dstQword_before=0x{:016x}",
-                      fmt::ptr(code_address), length, index, raw_length_field, lowQWordSrc,
-                      lowQWordDst);
+                      "extrq at {} with length {} and index {} is bigger than 64, "
+                      "undefined behavior",
+                      fmt::ptr(code_address), length, index);
         }
 
         lowQWordDst >>= index;
@@ -772,13 +816,13 @@ static bool TryExecuteIllegalInstruction(void* ctx, void* code_address) {
         memset((u8*)dst + sizeof(u64), 0, sizeof(u64));
         memcpy(dst, &lowQWordDst, sizeof(lowQWordDst));
 
-        Common::IncrementRip(ctx, 4);
+        IncrementRip(ctx, 4);
 
         return true;
     }
     case ZYDIS_MNEMONIC_INSERTQ: {
-        const auto dst = Common::GetXmmPointer(ctx, dstIndex);
-        const auto src = Common::GetXmmPointer(ctx, srcIndex);
+        const auto dst = GetXmmPointer(ctx, dstIndex);
+        const auto src = GetXmmPointer(ctx, srcIndex);
 
         u64 lowQWordSrc, highQWordSrc;
         memcpy(&lowQWordSrc, src, sizeof(lowQWordSrc));
@@ -813,7 +857,7 @@ static bool TryExecuteIllegalInstruction(void* ctx, void* code_address) {
         memset((u8*)dst + sizeof(u64), 0, sizeof(u64));
         memcpy(dst, &lowQWordDst, sizeof(lowQWordDst));
 
-        Common::IncrementRip(ctx, 4);
+        IncrementRip(ctx, 4);
 
         return true;
     }
@@ -824,15 +868,6 @@ static bool TryExecuteIllegalInstruction(void* ctx, void* code_address) {
 
     UNREACHABLE();
 }
-#elif defined(ARCH_ARM64)
-// These functions shouldn't be needed for ARM as it will use a JIT so there's no need to patch
-// instructions.
-static bool TryExecuteIllegalInstruction(void*, void*) {
-    return false;
-}
-#else
-#error "Unsupported architecture"
-#endif
 
 static bool TryPatchJit(void* code_address) {
     auto* code = static_cast<u8*>(code_address);
@@ -865,7 +900,6 @@ static void TryPatchAot(void* code_address, u64 code_size) {
         code += TryPatch(code, module).second;
     }
 }
-
 static void TryPatchAotSse4aOnly(void* code_address, u64 code_size) {
     static constexpr std::array<ZydisMnemonic, 4> kSse4aMnemonics = {
         ZYDIS_MNEMONIC_EXTRQ,
@@ -954,68 +988,6 @@ void RegisterPatchModule(void* module_ptr, u64 module_size, void* trampoline_are
                     std::forward_as_tuple(static_cast<u8*>(module_ptr), module_size,
                                           static_cast<u8*>(trampoline_area_ptr),
                                           trampoline_area_size));
-}
-
-static void PatchOneRedZonePoint(u8* code, size_t available, bool restore) {
-    auto* module = GetModule(code);
-    ASSERT_MSG(module, "PatchRedZoneGuard: {} is not inside a registered module", fmt::ptr(code));
-
-    // How far below rsp we reserve. 128 matches the SysV AMD64 red zone size; guest code is
-    // never allowed to rely on more than that without adjusting rsp itself.
-    static constexpr s32 RedZoneReserve = 128;
-
-    std::scoped_lock lk{module->mutex};
-    auto& patch_gen = module->patch_gen;
-    patch_gen.reset();
-    patch_gen.setSize(code - patch_gen.getCode());
-
-    if (restore) {
-        patch_gen.lea(rsp, ptr[rsp + RedZoneReserve]);
-    } else {
-        patch_gen.lea(rsp, ptr[rsp - RedZoneReserve]);
-    }
-
-    const auto patch_size = patch_gen.getCurr() - code;
-    ASSERT_MSG(patch_size > 0 && static_cast<size_t>(patch_size) <= available,
-               "Red zone guard at {} needs {} bytes but only {} are available", fmt::ptr(code),
-               patch_size, available);
-
-    // Fill remaining space with nops, same as the regular instruction patcher does.
-    patch_gen.nop(available - patch_size);
-
-    module->patched.insert(code);
-    LOG_INFO(Core, "Patched red zone guard ({}) at: {}", restore ? "exit" : "entry",
-             fmt::ptr(code));
-}
-
-void PatchRedZoneGuard(void* entry_addr, size_t entry_patch_size, std::span<void* const> exit_addrs,
-                       size_t exit_patch_size) {
-    std::call_once(init_flag, PatchesInit);
-
-    PatchOneRedZonePoint(reinterpret_cast<u8*>(entry_addr), entry_patch_size, false);
-    for (void* exit_addr : exit_addrs) {
-        PatchOneRedZonePoint(reinterpret_cast<u8*>(exit_addr), exit_patch_size, true);
-    }
-}
-
-void PatchStackReserveImmediate(void* addr, u8 expected_old_value, u8 new_value) {
-    std::call_once(init_flag, PatchesInit);
-
-    auto* code = reinterpret_cast<u8*>(addr);
-    auto* module = GetModule(code);
-    ASSERT_MSG(module, "PatchStackReserveImmediate: {} is not inside a registered module",
-               fmt::ptr(code));
-
-    std::scoped_lock lk{module->mutex};
-    ASSERT_MSG(*code == expected_old_value,
-               "Immediate byte at {} is {:#x}, expected {:#x} -- offsets likely don't match this "
-               "game build, refusing to patch",
-               fmt::ptr(code), *code, expected_old_value);
-
-    *code = new_value;
-    module->patched.insert(code);
-    LOG_INFO(Core, "Patched stack reserve immediate at {}: {:#x} -> {:#x}", fmt::ptr(code),
-             expected_old_value, new_value);
 }
 
 void PrePatchInstructions(u64 segment_addr, u64 segment_size) {

@@ -33,7 +33,7 @@ namespace Core {
 #if defined(_WIN32)
 
 static long SignalHandlerImpl(EXCEPTION_POINTERS* pExp) noexcept {
-    static Core::SignalDispatch* dispatcher = Core::Signals::Instance();
+    const auto* signal_dispatcher = Signals::Instance();
     DWORD code = 0;
     PVOID address = nullptr;
 
@@ -45,11 +45,11 @@ static long SignalHandlerImpl(EXCEPTION_POINTERS* pExp) noexcept {
     bool handled = false;
     switch (code) {
     case EXCEPTION_ACCESS_VIOLATION:
-        handled = dispatcher->DispatchAccessViolation(
+        handled = signal_dispatcher->DispatchAccessViolation(
             pExp, reinterpret_cast<void*>(pExp->ExceptionRecord->ExceptionInformation[1]));
         break;
     case EXCEPTION_ILLEGAL_INSTRUCTION:
-        handled = dispatcher->DispatchIllegalInstruction(pExp);
+        handled = signal_dispatcher->DispatchIllegalInstruction(pExp);
         break;
     case DBG_PRINTEXCEPTION_C:
     case DBG_PRINTEXCEPTION_WIDE_C:

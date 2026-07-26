@@ -260,42 +260,7 @@ void Module::LoadModuleToMemory(u32& max_tls_index) {
             MemoryPatcher::OnGameLoaded();
         }
     }
-
-#ifdef ARCH_X86_64
-    if (name == "eboot.bin") {
-        ApplyRedZoneWorkarounds(base_virtual_addr);
-    }
-#endif
 }
-
-#ifdef ARCH_X86_64
-void Module::ApplyRedZoneWorkarounds(VAddr base) {
-    // Per-title workarounds for red zone corruption (see PatchRedZoneGuard/
-    // PatchStackReserveImmediate in cpu_patches.h for why this is needed).
-    //
-    // TODO: fill in the real serial once confirmed. Function at module offset 0x28CE7B0 is a
-    // per-vertex/per-point distance+lighting calc (heavy vsqrtss/vdivss chain) called every
-    // frame from GXWorker threads; it opens a `sub rsp,30h` frame at entry (0x28CE7BD is the
-    // immediate byte) and additionally uses red zone space down to at least [rsp-0x60] inside
-    // the function body, with a matching `add rsp,30h` at the single exit point (0x28CEEAC is
-    // the immediate byte). Widening both from 0x30 to the max single-byte-immediate value
-    // (0x7F) gives it ~79 extra bytes of headroom below where a Windows exception dispatch
-    // could otherwise clobber live data if a GPU buffer dirty-tracking fault lands here mid-
-    // function. This is a mitigation, not a proven complete fix -- test empirically.
-    if (MemoryPatcher::g_game_serial == "REPLACE_WITH_YOUR_GAME_SERIAL") {
-        PatchStackReserveImmediate(std::bit_cast<void*>(base + 0x28CE7BD), 0x30, 0x7F);
-        PatchStackReserveImmediate(std::bit_cast<void*>(base + 0x28CEEAC), 0x30, 0x7F);
-
-        // Sibling function immediately after the one above (same shape: heavy red zone use in
-        // a per-vertex loop). This is the one causing the near-instant crash -- confirmed via a
-        // crash dump at module offset 0x28CF0D6 with RAX/RBX/RCX/RDX/RSI/R12/R15 all zeroed
-        // simultaneously, the same corruption fingerprint as the first function, just hitting a
-        // pointer loaded from deep in the red zone ([rsp-0x60]) instead.
-        PatchStackReserveImmediate(std::bit_cast<void*>(base + 0x28CEECD), 0x20, 0x7F);
-        PatchStackReserveImmediate(std::bit_cast<void*>(base + 0x28CF566), 0x20, 0x7F);
-    }
-}
-#endif
 
 void Module::LoadDynamicInfo() {
     for (const auto* dyn = reinterpret_cast<elf_dynamic*>(m_dynamic.data()); dyn->d_tag != DT_NULL;
