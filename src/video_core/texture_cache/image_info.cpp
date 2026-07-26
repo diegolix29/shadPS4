@@ -125,7 +125,7 @@ ImageInfo::ImageInfo(const AmdGpu::Image& image, const Shader::ImageResource& de
         pixel_format = LiverpoolToVK::PromoteFormatToDepth(pixel_format);
         props.is_depth = true;
     }
-    type = image.GetBaseType();
+    type = desc.Is1DHostedAs2D(image) ? AmdGpu::ImageType::Color2D : image.GetBaseType();
     props.is_tiled = image.IsTiled();
     props.is_volume = type == AmdGpu::ImageType::Color3D;
     props.is_pow2 = image.pow2pad;

@@ -130,6 +130,10 @@ public:
     [[nodiscard]] ImageId ResolveDepthOverlap(const ImageInfo& requested_info, BindingType binding,
                                               ImageId cache_img_id);
 
+    /// Recreates a backing whose dimension cannot support the requested view.
+    [[nodiscard]] ImageId ResolveDimensionOverlap(const ImageInfo& requested_info,
+                                                  ImageId cache_img_id);
+
     /// Creates a new image with provided image info and copies subresources from image_id
     [[nodiscard]] ImageId ExpandImage(const ImageInfo& info, ImageId image_id);
 

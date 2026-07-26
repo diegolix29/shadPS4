@@ -137,7 +137,7 @@ std::expected<Runner*, ErrorInfo> Runner::instance() {
 }
 
 std::expected<void, ErrorInfo> Runner::initialize() {
-    VULKAN_HPP_DEFAULT_DISPATCHER.init();
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(loader_);
 
     // ---- Instance ------------------------------------------------------
     vk::ApplicationInfo app_info{

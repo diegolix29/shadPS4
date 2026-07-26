@@ -3,6 +3,12 @@
 
 #include <xxhash.h>
 
+#include <mutex>
+#include <string>
+#include <unordered_set>
+
+#include <magic_enum/magic_enum.hpp>
+
 #include "common/assert.h"
 #include "common/debug.h"
 #include "common/div_ceil.h"
@@ -14,6 +20,7 @@
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/texture_cache/host_compatibility.h"
+#include "video_core/texture_cache/image_view.h"
 #include "video_core/texture_cache/texture_cache.h"
 #include "video_core/texture_cache/tile_manager.h"
 
@@ -21,6 +28,68 @@ namespace VideoCore {
 
 static constexpr u64 PageShift = 12;
 static constexpr u64 NumFramesBeforeRemoval = 32;
+static constexpr std::size_t MaxViewDimensionMismatchRecords = 64;
+
+static void LogViewDimensionMismatch(const TextureCache::ImageDesc& desc, const Image& image) {
+    if (IsViewTypeCompatible(desc.view_info.type, image.info.type)) {
+        return;
+    }
+
+    const auto& requested = desc.info;
+    const auto& backing = image.info;
+    const auto requested_micro = AmdGpu::GetMicroTileMode(requested.tile_mode);
+    const auto backing_micro = AmdGpu::GetMicroTileMode(backing.tile_mode);
+    const u32 active_backing_samples = image.backing ? image.backing->num_samples : 0;
+    const std::string actual_vk_type =
+        image.backing ? vk::to_string(image.backing->image.image_ci.imageType) : "None";
+    const std::string actual_vk_format =
+        image.backing ? vk::to_string(image.backing->image.image_ci.format) : "None";
+    const std::string actual_vk_samples =
+        image.backing ? vk::to_string(image.backing->image.image_ci.samples) : "None";
+    const std::string record = fmt::format(
+        "VIEW_DIMENSION_MISMATCH binding={} view={} requested_type={} backing_type={} "
+        "request_addr={:#x} request_size={:#x} backing_addr={:#x} backing_size={:#x} "
+        "request_extent={}x{}x{} request_pitch={} request_bpp={} request_samples={} "
+        "request_levels={} request_layers={} request_tile={} request_array={} "
+        "request_micro={} request_thickness={} request_format={} "
+        "backing_extent={}x{}x{} backing_pitch={} backing_bpp={} backing_samples={} "
+        "active_backing_samples={} actual_vk_type={} actual_vk_format={} actual_vk_samples={} "
+        "backing_levels={} backing_layers={} backing_tile={} "
+        "backing_array={} backing_micro={} backing_thickness={} backing_format={} "
+        "view_format={} mip_base={} mip_count={} layer_base={} layer_count={} storage={} "
+        "history_texture={} history_storage={} history_rt={} history_depth={} history_vo={} "
+        "bound={} target={} usage_flags={}",
+        magic_enum::enum_name(desc.type), magic_enum::enum_name(desc.view_info.type),
+        magic_enum::enum_name(requested.type), magic_enum::enum_name(backing.type),
+        requested.guest_address, requested.guest_size, backing.guest_address, backing.guest_size,
+        requested.size.width, requested.size.height, requested.size.depth, requested.pitch,
+        requested.num_bits, requested.num_samples, requested.resources.levels,
+        requested.resources.layers, magic_enum::enum_name(requested.tile_mode),
+        magic_enum::enum_name(requested.array_mode), magic_enum::enum_name(requested_micro),
+        AmdGpu::GetMicroTileThickness(requested.array_mode),
+        vk::to_string(requested.pixel_format), backing.size.width, backing.size.height,
+        backing.size.depth, backing.pitch, backing.num_bits, backing.num_samples,
+        active_backing_samples, actual_vk_type, actual_vk_format, actual_vk_samples,
+        backing.resources.levels, backing.resources.layers,
+        magic_enum::enum_name(backing.tile_mode), magic_enum::enum_name(backing.array_mode),
+        magic_enum::enum_name(backing_micro), AmdGpu::GetMicroTileThickness(backing.array_mode),
+        vk::to_string(backing.pixel_format), vk::to_string(desc.view_info.format),
+        desc.view_info.range.base.level, desc.view_info.range.extent.levels,
+        desc.view_info.range.base.layer, desc.view_info.range.extent.layers,
+        desc.view_info.is_storage, image.usage.texture, image.usage.storage,
+        image.usage.render_target, image.usage.depth_target, image.usage.vo_surface,
+        image.binding.is_bound, image.binding.is_target, vk::to_string(image.usage_flags));
+
+    static std::mutex records_mutex;
+    static std::unordered_set<std::string> records;
+    {
+        std::scoped_lock lock{records_mutex};
+        if (records.size() >= MaxViewDimensionMismatchRecords || !records.emplace(record).second) {
+            return;
+        }
+    }
+    LOG_ERROR(Render_Vulkan, "{}", record);
+}
 
 TextureCache::TextureCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
                            AmdGpu::Liverpool* liverpool_, BufferCache& buffer_cache_,
@@ -287,6 +356,65 @@ ImageId TextureCache::ResolveDepthOverlap(const ImageInfo& requested_info, Bindi
     return cache_image_id;
 }
 
+ImageId TextureCache::ResolveDimensionOverlap(const ImageInfo& requested_info,
+                                              ImageId cache_image_id) {
+    auto& cache_image = slot_images[cache_image_id];
+    if (!NeedsViewTypeRecreation(requested_info.type, cache_image.info.type)) {
+        return {};
+    }
+
+    const auto& cached_info = cache_image.info;
+    const bool is_supported_single_row =
+        requested_info.size.width == cached_info.size.width && requested_info.size.height == 1 &&
+        cached_info.size.height == 1 && requested_info.size.depth == 1 &&
+        cached_info.size.depth == 1 && requested_info.resources.levels == 1 &&
+        cached_info.resources.levels == 1 && requested_info.resources.layers == 1 &&
+        cached_info.resources.layers == 1 && requested_info.num_samples == 1 &&
+        cached_info.num_samples == 1 && requested_info.pixel_format == cached_info.pixel_format &&
+        requested_info.tile_mode == cached_info.tile_mode;
+    if (!is_supported_single_row) {
+        LOG_ERROR(Render_Vulkan,
+                  "Unsupported image dimension recreation: requested={} backing={} "
+                  "requested_extent={}x{}x{} backing_extent={}x{}x{}",
+                  magic_enum::enum_name(requested_info.type),
+                  magic_enum::enum_name(cached_info.type), requested_info.size.width,
+                  requested_info.size.height, requested_info.size.depth, cached_info.size.width,
+                  cached_info.size.height, cached_info.size.depth);
+        return {};
+    }
+
+    const auto& copy_buffer = buffer_cache.GetUtilityBuffer(MemoryUsage::DeviceLocal);
+    const u64 copy_bytes = static_cast<u64>(cached_info.size.width) * cached_info.size.height *
+                           cached_info.size.depth * cached_info.num_bits / 8;
+    if (copy_bytes > copy_buffer.SizeBytes()) {
+        LOG_ERROR(Render_Vulkan, "Image dimension recreation needs {} bytes, buffer has {}",
+                  copy_bytes, copy_buffer.SizeBytes());
+        return {};
+    }
+
+    const auto& new_info = requested_info;
+    const auto new_image_id =
+        slot_images.insert(instance, scheduler, blit_helper, slot_image_views, new_info);
+    RegisterImage(new_image_id);
+
+    auto& new_image = slot_images[new_image_id];
+    auto& source_image = slot_images[cache_image_id];
+    new_image.usage = source_image.usage;
+
+    // Fold any pending CPU or buffer-cache changes into the old backing before moving its
+    // authoritative contents through a dimension-neutral buffer copy.
+    RefreshImage(source_image);
+    new_image.CopyImageWithBuffer(source_image, copy_buffer.Handle(), 0);
+    new_image.flags &= ~ImageFlagBits::Dirty;
+    new_image.flags |= source_image.flags & ImageFlagBits::GpuModified;
+
+    if (source_image.binding.is_bound || source_image.binding.is_target) {
+        source_image.binding.needs_rebind = 1u;
+    }
+    FreeImage(cache_image_id);
+    return new_image_id;
+}
+
 std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& image_info,
                                                            BindingType binding,
                                                            ImageId cache_image_id,
@@ -312,6 +440,11 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
             return {depth_image_id, -1, -1};
         }
 
+        if (const auto dimension_image_id =
+                ResolveDimensionOverlap(image_info, cache_image_id)) {
+            return {dimension_image_id, -1, -1};
+        }
+
         // Compressed view of uncompressed image with same block size.
         if (image_info.props.is_block && !cache_image.info.props.is_block) {
             return {ExpandImage(image_info, cache_image_id), -1, -1};
@@ -328,9 +461,11 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
             image_info.guest_size <= cache_image.info.guest_size) {
             auto result_id = merged_image_id ? merged_image_id : cache_image_id;
             const auto& result_image = slot_images[result_id];
-            const bool is_compatible =
+            const bool is_format_compatible =
                 IsVulkanFormatCompatible(result_image.info.pixel_format, image_info.pixel_format);
-            return {is_compatible ? result_id : ImageId{}, -1, -1};
+            const bool is_view_compatible =
+                IsViewTypeCompatible(image_info.type, result_image.info.type);
+            return {is_format_compatible && is_view_compatible ? result_id : ImageId{}, -1, -1};
         }
 
         // Size and resources are greater, expand the image.
@@ -548,7 +683,7 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
             continue;
         }
         if (!IsVulkanFormatCompatible(cache_image.info.pixel_format, info.pixel_format) ||
-            (cache_image.info.type != info.type && info.size != Extent3D{1, 1, 1})) {
+            !IsViewTypeCompatible(info.type, cache_image.info.type)) {
             continue;
         }
         if (exact_fmt && info.pixel_format != cache_image.info.pixel_format) {
@@ -641,6 +776,7 @@ ImageId TextureCache::FindImageFromRange(VAddr address, size_t size, bool ensure
 
 ImageView& TextureCache::FindTexture(ImageId image_id, const ImageDesc& desc) {
     Image& image = slot_images[image_id];
+    LogViewDimensionMismatch(desc, image);
     if (desc.type == BindingType::Storage) {
         image.flags |= ImageFlagBits::GpuModified;
         if (readback_linear_images && !image.info.props.is_tiled && image.info.guest_address != 0) {

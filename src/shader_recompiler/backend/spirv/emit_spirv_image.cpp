@@ -180,8 +180,14 @@ Id EmitImageQueryDimensions(EmitContext& ctx, IR::Inst* inst, u32 handle, Id lod
                         : ctx.OpImageQuerySize(type, image);
     }};
     switch (texture.view_type) {
-    case AmdGpu::ImageType::Color1D:
+    case AmdGpu::ImageType::Color1D: {
+        if (texture.is_1d_hosted_as_2d) {
+            const Id host_dimensions = query(ctx.U32[2]);
+            const Id width = ctx.OpCompositeExtract(ctx.U32[1], host_dimensions, 0);
+            return ctx.OpCompositeConstruct(ctx.U32[4], width, zero, zero, mips());
+        }
         return ctx.OpCompositeConstruct(ctx.U32[4], query(ctx.U32[1]), zero, zero, mips());
+    }
     case AmdGpu::ImageType::Color1DArray:
     case AmdGpu::ImageType::Color2D:
     case AmdGpu::ImageType::Color2DMsaa:

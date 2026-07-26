@@ -926,7 +926,7 @@ spv::ImageFormat GetFormat(const AmdGpu::Image& image) {
 Id ImageType(EmitContext& ctx, const ImageResource& desc, Id sampled_type) {
     const auto image = desc.GetSharp(ctx.info);
     const auto format = desc.is_atomic ? GetFormat(image) : spv::ImageFormat::Unknown;
-    const auto type = image.GetViewType(desc.is_array);
+    const auto type = desc.GetHostViewType(image);
     const u32 sampled = desc.is_written ? 2 : 1;
     switch (type) {
     case AmdGpu::ImageType::Color1D:
@@ -953,6 +953,7 @@ void EmitContext::DefineImagesAndSamplers() {
         const auto nfmt = sharp.GetNumberFmt();
         const bool is_integer = AmdGpu::IsInteger(nfmt);
         const bool is_storage = image_desc.is_written;
+        const bool is_1d_hosted_as_2d = image_desc.Is1DHostedAs2D(sharp);
         const MipStorageFallbackMode mip_fallback_mode = image_desc.mip_fallback_mode;
         const VectorIds& data_types = GetAttributeType(*this, nfmt);
         const Id sampled_type = data_types[1];
@@ -977,6 +978,7 @@ void EmitContext::DefineImagesAndSamplers() {
             .sampled_type = is_storage ? sampled_type : TypeSampledImage(image_type),
             .image_type = image_type,
             .view_type = sharp.GetViewType(image_desc.is_array),
+            .is_1d_hosted_as_2d = is_1d_hosted_as_2d,
             .is_integer = is_integer,
             .is_storage = is_storage,
             .mip_fallback_mode = mip_fallback_mode,

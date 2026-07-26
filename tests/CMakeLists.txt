@@ -14,6 +14,7 @@ set(TEST_TARGETS
     shadps4_gcn_test
     shadps4_guest_memory_validation_test
     shadps4_imgui_memory_test
+    shadps4_libc_mspace_test
 )
 
 set(SETTINGS_TEST_SOURCES
@@ -96,6 +97,7 @@ set(GCN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/constant_propagation_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/dead_code_elimination_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/identity_removal_pass.cpp
+    ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/resource_tracking_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/shader_info_collection_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/ssa_rewrite_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/post_order.cpp
@@ -131,6 +133,7 @@ set(GCN_TEST_SOURCES
 
     # Tests
     gcn/test_gcn_instructions.cpp
+    gcn/test_image_host_view.cpp
 
     # Vulkan-Hpp dispatch test (vkCmdBindVertexBuffers2)
     gcn/test_vk_dispatch_bindvb2.cpp
@@ -146,15 +149,22 @@ set(GUEST_MEMORY_VALIDATION_TEST_SOURCES
     core/test_guest_memory_validation_cache.cpp
 )
 
+set(LIBC_MSPACE_TEST_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/core/libraries/libc_internal/mspace.cpp
+    core/test_libc_mspace.cpp
+)
+
 add_executable(shadps4_settings_test ${SETTINGS_TEST_SOURCES})
 add_executable(shadps4_gcn_test ${GCN_TEST_SOURCES})
 add_executable(shadps4_guest_memory_validation_test ${GUEST_MEMORY_VALIDATION_TEST_SOURCES})
 add_executable(shadps4_imgui_memory_test ${IMGUI_MEMORY_TEST_SOURCES})
+add_executable(shadps4_libc_mspace_test ${LIBC_MSPACE_TEST_SOURCES})
 
 foreach(t ${TEST_TARGETS})
     target_include_directories(${t} PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/tests
     )
     target_compile_features(${t} PRIVATE cxx_std_23)
     target_compile_definitions(${t} PRIVATE BOOST_ASIO_STANDALONE)
@@ -192,6 +202,9 @@ target_link_libraries(shadps4_imgui_memory_test PRIVATE
     Vulkan::Headers
 )
 target_link_libraries(shadps4_guest_memory_validation_test PRIVATE
+    GTest::gtest_main
+)
+target_link_libraries(shadps4_libc_mspace_test PRIVATE
     GTest::gtest_main
 )
 

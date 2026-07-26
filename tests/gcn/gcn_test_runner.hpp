@@ -100,6 +100,8 @@ private:
     Runner() = default;
     std::expected<void, ErrorInfo> initialize();
 
+    // Must outlive every Vulkan handle: members are destroyed in reverse declaration order.
+    vk::detail::DynamicLoader loader_;
     vk::Instance            instance_;
     vk::PhysicalDevice      physical_device_;
     vk::Device              device_;

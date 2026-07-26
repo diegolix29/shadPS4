@@ -74,6 +74,9 @@ using BufferResourceList = boost::container::static_vector<BufferResource, NUM_B
 enum class MipStorageFallbackMode : u32 { None, DynamicIndex, ConstantIndex };
 
 struct ImageResource {
+    static constexpr f32 Hosted2DSampleY = 0.5f;
+    static constexpr u32 Hosted2DIntegerY = 0u;
+
     u32 sharp_idx;
     bool is_depth{};
     bool is_atomic{};
@@ -82,6 +85,18 @@ struct ImageResource {
     bool is_r128{};
     MipStorageFallbackMode mip_fallback_mode{};
     u32 constant_mip_index{};
+
+    bool Is1DHostedAs2D(const AmdGpu::Image& sharp) const noexcept {
+        return !is_array && !is_written && !is_depth && !is_atomic && !is_r128 &&
+               sharp.GetType() == AmdGpu::ImageType::Color1D && sharp.height == 0 &&
+               sharp.NumLayers() == 1 && sharp.NumLevels() == 1 && sharp.NumSamples() == 1 &&
+               sharp.GetTileMode() == AmdGpu::TileMode::Thin2DThin;
+    }
+
+    AmdGpu::ImageType GetHostViewType(const AmdGpu::Image& sharp) const noexcept {
+        return Is1DHostedAs2D(sharp) ? AmdGpu::ImageType::Color2D
+                                    : sharp.GetViewType(is_array);
+    }
 
     constexpr AmdGpu::Image GetSharp(const auto& info) const noexcept {
         AmdGpu::Image image{};

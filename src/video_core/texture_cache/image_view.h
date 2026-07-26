@@ -23,6 +23,31 @@ class Scheduler;
 
 namespace VideoCore {
 
+inline bool IsViewTypeCompatible(AmdGpu::ImageType view_type, AmdGpu::ImageType image_type) {
+    switch (view_type) {
+    case AmdGpu::ImageType::Color1D:
+    case AmdGpu::ImageType::Color1DArray:
+        return image_type == AmdGpu::ImageType::Color1D;
+    case AmdGpu::ImageType::Color2D:
+    case AmdGpu::ImageType::Color2DArray:
+    case AmdGpu::ImageType::Color2DMsaa:
+    case AmdGpu::ImageType::Color2DMsaaArray:
+        return image_type == AmdGpu::ImageType::Color2D || image_type == AmdGpu::ImageType::Color3D;
+    case AmdGpu::ImageType::Color3D:
+        return image_type == AmdGpu::ImageType::Color3D;
+    default:
+        UNREACHABLE();
+    }
+}
+
+inline bool NeedsViewTypeRecreation(AmdGpu::ImageType requested_type,
+                                    AmdGpu::ImageType backing_type) {
+    return (requested_type == AmdGpu::ImageType::Color1D &&
+            backing_type == AmdGpu::ImageType::Color2D) ||
+           (requested_type == AmdGpu::ImageType::Color2D &&
+            backing_type == AmdGpu::ImageType::Color1D);
+}
+
 struct ImageViewInfo {
     ImageViewInfo() = default;
     ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageResource& desc) noexcept;
