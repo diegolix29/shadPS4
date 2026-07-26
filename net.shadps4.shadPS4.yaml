@@ -77,9 +77,13 @@ modules:
       - type: git
         url: https://github.com/diegolix29/shadPS4
         branch: Shadlix
-        recursive: true  
+        disable-fsckobjects: true
         x-checker-data:
           type: json
           url: https://api.github.com/repos/diegolix29/shadPS4/releases
           tag-query: '[.[] | select(.prerelease == true)] | first | .tag_name // "Shadlix"'
           version-query: '[.[] | select(.prerelease == true)] | first | .tag_name // "Shadlix"'
+    prepare-commands:
+      - git config --global core.fsckObjects false
+      - git submodule update --init --recursive --jobs 4 || true
+      - rm -rf externals/mesa-kosmickrisp/externals/mesa
