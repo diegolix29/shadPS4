@@ -155,6 +155,17 @@ public:
         return m_name;
     }
 
+    bool HasGpuEvent() {
+        std::scoped_lock lock{m_mutex};
+        for (const auto& ev : m_events) {
+            if (ev.event.filter == OrbisKernelEvent::Filter::GraphicsCore ||
+                ev.event.filter == OrbisKernelEvent::Filter::VideoOut) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool AddEvent(EqueueEvent& event);
     bool ScheduleEvent(u64 id, s16 filter,
                        void (*callback)(OrbisKernelEqueue, const OrbisKernelEvent&));
@@ -204,6 +215,11 @@ private:
     std::condition_variable m_cond;
     std::unordered_map<u64, SmallTimer> m_small_timers;
 };
+
+/// Records that the renderer just compiled a shader or pipeline. A compile burst stalls the GPU
+/// command processor for longer than the timeouts titles wait with, so waits that depend on GPU
+/// progress are granted extra slack for a short while afterwards.
+void SignalShaderCompile();
 
 std::shared_ptr<EqueueInternal> GetEqueue(OrbisKernelEqueue eq);
 u64 PS4_SYSV_ABI sceKernelGetEventData(const OrbisKernelEvent* ev);

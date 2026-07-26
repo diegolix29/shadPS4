@@ -8,6 +8,7 @@
 #include "common/path_util.h"
 #include "core/debug_state.h"
 #include "core/emulator_settings.h"
+#include "core/libraries/kernel/equeue.h"
 #include "shader_recompiler/backend/spirv/emit_spirv.h"
 #include "shader_recompiler/info.h"
 #include "shader_recompiler/recompiler.h"
@@ -336,6 +337,7 @@ const GraphicsPipeline* PipelineCache::GetGraphicsPipeline() {
 
         RegisterPipelineData(graphics_key, pipeline_hash, sdata);
         ++num_new_pipelines;
+        Libraries::Kernel::SignalShaderCompile();
 
         if (EmulatorSettings.IsShaderCollect()) {
             for (auto stage = 0; stage < MaxShaderStages; ++stage) {
@@ -365,6 +367,7 @@ const ComputePipeline* PipelineCache::GetComputePipeline() {
                                                        modules[0], sdata, false);
         RegisterPipelineData(compute_key, sdata);
         ++num_new_pipelines;
+        Libraries::Kernel::SignalShaderCompile();
 
         if (EmulatorSettings.IsShaderCollect()) {
             auto& m = modules[0];

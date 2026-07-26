@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -19,6 +22,30 @@
 #include "core/libraries/libs.h"
 
 namespace Libraries::Kernel {
+
+// Timestamp of the most recent shader or pipeline compile, in steady-clock nanoseconds. It lives
+// here because the wait policy below is its only consumer.
+static std::atomic<u64> last_shader_compile_ns{0};
+
+static u64 SteadyNowNs() {
+    // duration_cast, not raw ticks: steady_clock::period is not required to be nanoseconds.
+    return static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                std::chrono::steady_clock::now().time_since_epoch())
+                                .count());
+}
+
+static bool ShaderCompileRecent(std::chrono::nanoseconds within) {
+    const u64 last = last_shader_compile_ns.load(std::memory_order_relaxed);
+    if (last == 0) {
+        return false;
+    }
+    const u64 now = SteadyNowNs();
+    return now >= last && (now - last) < static_cast<u64>(within.count());
+}
+
+void SignalShaderCompile() {
+    last_shader_compile_ns.store(SteadyNowNs(), std::memory_order_relaxed);
+}
 
 extern boost::asio::io_context io_context;
 extern void KernelSignalRequest();
@@ -526,7 +553,23 @@ int PS4_SYSV_ABI sceKernelWaitEqueue(OrbisKernelEqueue eq, OrbisKernelEvent* ev,
         return ORBIS_KERNEL_ERROR_EINVAL;
     }
 
-    *out = equeue->WaitForEvents(ev, num, timo);
+    // A compile burst blocks the GPU command processor for longer than the timeouts titles wait
+    // with, so a GPU-completion watchdog gives up on work that is slow, not hung. Extend only
+    // waits on queues carrying an event a compile stall defers, and only right after a compile.
+    static constexpr OrbisKernelUseconds MinExtendableTimeout = 100'000; // 100 ms
+    static constexpr OrbisKernelUseconds ExtendedTimeout = 10'000'000;   // 10 s
+    static constexpr auto CompileWindow = std::chrono::seconds(2);
+    OrbisKernelUseconds extended_timo{};
+    const OrbisKernelUseconds* eff_timo = timo;
+    // Below the floor the guest meant a poll, not a wait: stretching it would hang a thread that
+    // was never blocking.
+    if (timo != nullptr && *timo >= MinExtendableTimeout && ShaderCompileRecent(CompileWindow) &&
+        equeue->HasGpuEvent()) {
+        extended_timo = std::max(*timo, ExtendedTimeout);
+        eff_timo = &extended_timo;
+    }
+
+    *out = equeue->WaitForEvents(ev, num, eff_timo);
 
     if (*out == 0) {
         return ORBIS_KERNEL_ERROR_ETIMEDOUT;
