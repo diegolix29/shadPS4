@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <vector>
 #include <Zydis/Zydis.h>
@@ -1007,15 +1008,138 @@ void PatchStackReserveImmediate(void* addr, u8 expected_old_value, u8 new_value)
                fmt::ptr(code));
 
     std::scoped_lock lk{module->mutex};
-    // ASSERT_MSG(*code == expected_old_value,
-    //           "Immediate byte at {} is {:#x}, expected {:#x} -- offsets likely don't match this "
-     //          "game build, refusing to patch",
-     //          fmt::ptr(code), *code, expected_old_value);
+    ASSERT_MSG(*code == expected_old_value,
+               "Immediate byte at {} is {:#x}, expected {:#x} -- offsets likely don't match this "
+               "game build, refusing to patch",
+               fmt::ptr(code), *code, expected_old_value);
 
     *code = new_value;
     module->patched.insert(code);
     LOG_INFO(Core, "Patched stack reserve immediate at {}: {:#x} -> {:#x}", fmt::ptr(code),
              expected_old_value, new_value);
+}
+
+namespace {
+struct PendingRedZoneFrame {
+    u8* entry_imm_addr = nullptr; // address of the immediate byte in `sub rsp, imm8`
+    u8 imm8 = 0;
+    bool saw_redzone_access = false;
+    size_t bytes_since_entry = 0;
+};
+} // namespace
+
+size_t ScanAndPatchRedZoneFrames(void* code_start, size_t code_size) {
+    auto* module = GetModule(code_start);
+    if (module == nullptr) {
+        return 0;
+    }
+
+    // Nothing to gain widening a frame that's already at (or near) the max single-byte value,
+    // and it also doubles as a "don't re-patch what's already patched" guard.
+    static constexpr u8 kMaxImm8 = 0x7F;
+    static constexpr u8 kMinInterestingImm8 = 0x08;
+    // Give up tracking a candidate frame if its matching epilogue hasn't shown up by then --
+    // real leaf functions using this pattern are small (the two known instances are ~1.7KB and
+    // ~1.5KB), so this is generous headroom without letting a false start run away across
+    // unrelated functions for the whole rest of the segment.
+    static constexpr size_t kMaxFrameSpan = 4096;
+
+    auto* code = static_cast<u8*>(code_start);
+    const auto* end = code + code_size;
+
+    std::optional<PendingRedZoneFrame> pending;
+    size_t patched_frames = 0;
+
+    while (code < end) {
+        ZydisDecodedInstruction instruction;
+        ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT];
+        const auto status =
+            Common::Decoder::Instance()->decodeInstruction(instruction, operands, code, end - code);
+        if (!ZYAN_SUCCESS(status)) {
+            code += 1;
+            continue;
+        }
+
+        if (pending) {
+            pending->bytes_since_entry += instruction.length;
+
+            // A genuine SysV red zone access: a fixed negative displacement off rsp (no index),
+            // within the ABI-guaranteed 128 bytes below rsp, and deeper than what this frame's
+            // own `sub rsp` already reserves -- i.e. the function is relying on space it never
+            // asked for.
+            for (u8 i = 0; i < instruction.operand_count; i++) {
+                const auto& op = operands[i];
+                if (op.type == ZYDIS_OPERAND_TYPE_MEMORY && op.mem.base == ZYDIS_REGISTER_RSP &&
+                    op.mem.index == ZYDIS_REGISTER_NONE && op.mem.disp.size != 0 &&
+                    op.mem.disp.value < 0 && op.mem.disp.value >= -128 &&
+                    (-op.mem.disp.value) > pending->imm8) {
+                    pending->saw_redzone_access = true;
+                }
+            }
+
+            const bool is_matching_epilogue =
+                instruction.mnemonic == ZYDIS_MNEMONIC_ADD && instruction.operand_count >= 2 &&
+                operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER &&
+                operands[0].reg.value == ZYDIS_REGISTER_RSP &&
+                operands[1].type == ZYDIS_OPERAND_TYPE_IMMEDIATE && operands[1].imm.size == 8 &&
+                operands[1].imm.value.u == pending->imm8;
+
+            if (is_matching_epilogue && pending->saw_redzone_access) {
+                // The immediate is always the last byte of this encoding (REX.W + opcode +
+                // modrm + imm8), same convention PatchStackReserveImmediate's callers use.
+                u8* exit_imm_addr = code + instruction.length - 1;
+                PatchStackReserveImmediate(pending->entry_imm_addr, pending->imm8, kMaxImm8);
+                PatchStackReserveImmediate(exit_imm_addr, pending->imm8, kMaxImm8);
+                patched_frames++;
+                pending.reset();
+            } else {
+                // Anything that disturbs rsp or transfers control invalidates this simple
+                // single-sub/single-add tracking. A function genuinely relying on the red zone
+                // can't make calls in between (the callee would clobber it), so seeing one here
+                // means this isn't the pattern we're looking for -- bail rather than risk
+                // matching an unrelated `add rsp, imm8` from later, different code.
+                const bool disturbs_frame = instruction.mnemonic == ZYDIS_MNEMONIC_CALL ||
+                                            instruction.mnemonic == ZYDIS_MNEMONIC_PUSH ||
+                                            instruction.mnemonic == ZYDIS_MNEMONIC_POP ||
+                                            instruction.mnemonic == ZYDIS_MNEMONIC_LEAVE ||
+                                            instruction.mnemonic == ZYDIS_MNEMONIC_RET ||
+                                            ((instruction.mnemonic == ZYDIS_MNEMONIC_SUB ||
+                                              instruction.mnemonic == ZYDIS_MNEMONIC_LEA) &&
+                                             instruction.operand_count >= 1 &&
+                                             operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER &&
+                                             operands[0].reg.value == ZYDIS_REGISTER_RSP);
+
+                if (disturbs_frame || pending->bytes_since_entry > kMaxFrameSpan) {
+                    pending.reset();
+                }
+            }
+        }
+
+        // Look for a new candidate frame entry. Checked after the block above so an epilogue
+        // that closed a frame this same instruction can't also be mistaken for a new one (ADD
+        // and SUB are different mnemonics anyway, but keep the ordering intentional).
+        if (!pending && instruction.mnemonic == ZYDIS_MNEMONIC_SUB &&
+            instruction.operand_count >= 2 && operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER &&
+            operands[0].reg.value == ZYDIS_REGISTER_RSP &&
+            operands[1].type == ZYDIS_OPERAND_TYPE_IMMEDIATE && operands[1].imm.size == 8) {
+            const u8 imm8 = static_cast<u8>(operands[1].imm.value.u);
+            if (imm8 >= kMinInterestingImm8 && imm8 < kMaxImm8) {
+                pending = PendingRedZoneFrame{
+                    .entry_imm_addr = code + instruction.length - 1,
+                    .imm8 = imm8,
+                };
+            }
+        }
+
+        code += instruction.length;
+    }
+
+    if (patched_frames > 0) {
+        LOG_INFO(Core, "ScanAndPatchRedZoneFrames: widened {} red zone frame(s) in region {} - {}",
+                 patched_frames, fmt::ptr(code_start), fmt::ptr(end));
+    }
+
+    return patched_frames;
 }
 
 void PrePatchInstructions(u64 segment_addr, u64 segment_size) {

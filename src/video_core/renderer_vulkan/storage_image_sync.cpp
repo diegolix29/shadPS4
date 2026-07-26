@@ -48,7 +48,8 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
         serial == "CUSA03388" || serial == "CUSA01589" || serial == "CUSA01760" ||
         serial == "CUSA07439" || serial == "CUSA07339" || serial == "CUSA08692" ||
         serial == "CUSA08495" || serial == "CUSA50617" || serial == "CUSA18723" ||
-        serial == "CUSA28863" || serial == "CUSA00093" || serial == "CUSA00003"|| serial == "CUSA03694") {
+        serial == "CUSA28863" || serial == "CUSA00093" || serial == "CUSA00003" ||
+        serial == "CUSA03694") {
         return;
     }
     auto& img = texture_cache.GetImage(image_id);
@@ -56,8 +57,8 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
     if (guest_addr == 0)
         return;
 
-    const bool disable_alias_check =
-        serial == "CUSA01623" || serial == "CUSA01715" || serial == "CUSA01740"|| serial == "CUSA00004";
+    const bool disable_alias_check = serial == "CUSA01623" || serial == "CUSA01715" ||
+                                     serial == "CUSA01740" || serial == "CUSA00004";
 
     if (!disable_alias_check && !HasAliasAtAddress(guest_addr, image_id)) {
         return;

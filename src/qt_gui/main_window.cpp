@@ -2120,7 +2120,7 @@ void MainWindow::CreateConnects() {
 
     connect(ui->installPkgButton, &QPushButton::clicked, this, [this]() {
         auto versionDialog = new VersionDialog(m_compat_info, this);
-        versionDialog->InstallPkgWithV7();
+        versionDialog->InstallPkgDirect();
     });
 
     connect(ui->launcherBox, &QCheckBox::clicked, this, [this](bool checked) {

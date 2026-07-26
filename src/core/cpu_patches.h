@@ -40,4 +40,22 @@ void PatchRedZoneGuard(void* entry_addr, size_t entry_patch_size, std::span<void
 /// doesn't correspond to what was reverse-engineered (different game version/build).
 void PatchStackReserveImmediate(void* addr, u8 expected_old_value, u8 new_value);
 
+/// Scans a region of already-loaded code for the same pattern `PatchStackReserveImmediate` is
+/// meant to fix by hand: a function that opens a small `sub rsp, imm8` / `add rsp, imm8` frame
+/// (single-byte immediate encoding) and then, somewhere in its body, additionally accesses
+/// memory at a fixed negative offset from rsp that falls outside that frame but still within the
+/// SysV red zone (0 to -128 bytes). Every matching pair found has both immediates widened to the
+/// maximum single-byte value (0x7F), exactly as if `PatchStackReserveImmediate` had been called
+/// on it directly. This exists because the affected functions are typically compiler-duplicated
+/// per data-format variant, so hand-finding each one via crash dumps doesn't scale -- this scans
+/// once for all of them at load time.
+///
+/// The match is deliberately conservative (single sub/add pair, no intervening call, push, pop,
+/// or further stack pointer adjustment) to avoid misidentifying unrelated code; functions with
+/// more complex frames or multiple return paths won't be caught and may still need a manual
+/// `PatchStackReserveImmediate` call.
+///
+/// Returns the number of function frames that were widened.
+size_t ScanAndPatchRedZoneFrames(void* code_start, size_t code_size);
+
 } // namespace Core

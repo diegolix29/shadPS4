@@ -18,9 +18,11 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QProgressDialog>
 #include <common/path_util.h>
 
 #include "common/config.h"
+#include "core/file_format/pkg.h"
 #include "qt_gui/compatibility_info.h"
 #include "qt_gui/main_window.h"
 #include "ui_version_dialog.h"
@@ -1537,4 +1539,107 @@ void VersionDialog::InstallPkgWithV7() {
                         this->close();
                     });
         });
+}
+
+void VersionDialog::InstallPkgDirect() {
+    const QString pkgPath = QFileDialog::getOpenFileName(this, tr("Select PKG File"),
+                                                          QString(), tr("PKG Files (*.pkg)"));
+    if (pkgPath.isEmpty())
+        return;
+
+    // Use the first enabled game directory from config
+    const auto gameDirs = Config::getAllGameDirectories();
+    QString destDir;
+    
+    for (const auto& gameDir : gameDirs) {
+        if (gameDir.enabled && std::filesystem::exists(gameDir.path)) {
+            destDir = QString::fromStdString(gameDir.path.string());
+            break;
+        }
+    }
+    
+    // If no enabled game directory found, ask user to select one
+    if (destDir.isEmpty()) {
+        destDir = QFileDialog::getExistingDirectory(this, tr("Select Install Directory"));
+        if (destDir.isEmpty())
+            return;
+    }
+
+    auto* progress = new QProgressDialog(tr("Installing PKG..."), QString(), 0, 0, this);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setCancelButton(nullptr);
+    progress->show();
+
+    // Use QTimer to run extraction on main thread to avoid thread-safety issues
+    QTimer::singleShot(100, this, [this, pkgPath, destDir, progress]() {
+        try {
+            // Use Qt file operations for better compatibility
+            QFile pkgFile(pkgPath);
+            if (!pkgFile.exists()) {
+                progress->close();
+                progress->deleteLater();
+                QMessageBox::critical(this, tr("Error"),
+                                      tr("PKG file does not exist:\n%1").arg(pkgPath));
+                return;
+            }
+            
+            QDir destDirObj(destDir);
+            if (!destDirObj.exists()) {
+                progress->close();
+                progress->deleteLater();
+                QMessageBox::critical(this, tr("Error"),
+                                      tr("Destination directory does not exist:\n%1").arg(destDir));
+                return;
+            }
+            
+            // Convert to std::filesystem::path for PKG class
+            std::filesystem::path pkgPathStd;
+            std::filesystem::path destPathStd;
+            
+            try {
+                pkgPathStd = std::filesystem::path(pkgPath.toStdString());
+                destPathStd = std::filesystem::path(destDir.toStdString());
+            } catch (const std::exception& e) {
+                progress->close();
+                progress->deleteLater();
+                QMessageBox::critical(this, tr("Error"),
+                                      tr("Path conversion failed: %1").arg(e.what()));
+                return;
+            }
+            
+            PKG pkg;
+            std::string failreason;
+            
+            if (!pkg.Open(pkgPathStd, failreason)) {
+                progress->close();
+                progress->deleteLater();
+                QMessageBox::critical(this, tr("Error"),
+                                      tr("Failed to open PKG:\n%1").arg(QString::fromStdString(failreason)));
+                return;
+            }
+            
+            if (!pkg.Extract(pkgPathStd, destPathStd, failreason)) {
+                progress->close();
+                progress->deleteLater();
+                QMessageBox::critical(this, tr("Error"),
+                                      tr("Failed to extract PKG:\n%1").arg(QString::fromStdString(failreason)));
+                return;
+            }
+            
+            progress->close();
+            progress->deleteLater();
+            QMessageBox::information(this, tr("Success"), tr("PKG installed successfully."));
+            this->close();
+        } catch (const std::exception& e) {
+            progress->close();
+            progress->deleteLater();
+            QMessageBox::critical(this, tr("Error"),
+                                  tr("Exception during PKG extraction: %1").arg(e.what()));
+        } catch (...) {
+            progress->close();
+            progress->deleteLater();
+            QMessageBox::critical(this, tr("Error"),
+                                  tr("Unknown exception during PKG extraction"));
+        }
+    });
 }

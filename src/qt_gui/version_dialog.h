@@ -21,6 +21,7 @@ public:
     void DownloadListVersion();
     void InstallSelectedVersion();
     void InstallPkgWithV7();
+    void InstallPkgDirect();
 
 private:
     Ui::VersionDialog* ui;

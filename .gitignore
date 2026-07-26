@@ -421,3 +421,6 @@ cmake-build-*
 
 # Nix Result symlink
 result
+
+# vcpkg installed packages
+vcpkg_installed/

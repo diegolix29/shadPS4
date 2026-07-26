@@ -194,6 +194,22 @@ void Module::LoadModuleToMemory(u32& max_tls_index) {
 #ifdef ARCH_X86_64
             if (elf_pheader[i].p_flags & PF_EXEC) {
                 PrePatchInstructions(segment_addr, segment_file_size);
+
+                // Automatically widen every sub-rsp/add-rsp frame in this executable segment
+                // that also reaches into the SysV red zone below it (see
+                // ScanAndPatchRedZoneFrames in cpu_patches.h for the full rationale). Restricted
+                // to eboot.bin's code and gated on serial the same way ApplyRedZoneWorkarounds
+                // below is, since this is still a per-title mitigation, not something we want
+                // running unconditionally on every game.
+                if (name == "eboot.bin" &&
+                    MemoryPatcher::g_game_serial == "CUSA03173") {
+                    const auto frames_patched = ScanAndPatchRedZoneFrames(
+                        std::bit_cast<void*>(segment_addr), segment_file_size);
+                    LOG_INFO(Core_Linker,
+                             "ScanAndPatchRedZoneFrames: {} red zone frame(s) widened in "
+                             "segment at {:#018x}",
+                             frames_patched, segment_addr);
+                }
             }
 #endif
             break;
@@ -269,7 +285,7 @@ void Module::LoadModuleToMemory(u32& max_tls_index) {
 }
 
 #ifdef ARCH_X86_64
-void Module::ApplyRedZoneWorkarounds(VAddr base) {
+void Module::ApplyRedZoneWorkarounds([[maybe_unused]] VAddr base) {
     // Per-title workarounds for red zone corruption (see PatchRedZoneGuard/
     // PatchStackReserveImmediate in cpu_patches.h for why this is needed).
     //
@@ -282,17 +298,14 @@ void Module::ApplyRedZoneWorkarounds(VAddr base) {
     // (0x7F) gives it ~79 extra bytes of headroom below where a Windows exception dispatch
     // could otherwise clobber live data if a GPU buffer dirty-tracking fault lands here mid-
     // function. This is a mitigation, not a proven complete fix -- test empirically.
-    if (MemoryPatcher::g_game_serial == "CUSA03173" || "CUSA00004") {
-        PatchStackReserveImmediate(std::bit_cast<void*>(base + 0x28CE7BD), 0x30, 0x7F);
-        PatchStackReserveImmediate(std::bit_cast<void*>(base + 0x28CEEAC), 0x30, 0x7F);
-
-        // Sibling function immediately after the one above (same shape: heavy red zone use in
-        // a per-vertex loop). This is the one causing the near-instant crash -- confirmed via a
-        // crash dump at module offset 0x28CF0D6 with RAX/RBX/RCX/RDX/RSI/R12/R15 all zeroed
-        // simultaneously, the same corruption fingerprint as the first function, just hitting a
-        // pointer loaded from deep in the red zone ([rsp-0x60]) instead.
-        PatchStackReserveImmediate(std::bit_cast<void*>(base + 0x28CEECD), 0x20, 0x7F);
-        PatchStackReserveImmediate(std::bit_cast<void*>(base + 0x28CF566), 0x20, 0x7F);
+    // NOTE: the two functions this originally hand-patched (module offsets 0x28CE7B0 and
+    // 0x28CEEC0) are now caught automatically by ScanAndPatchRedZoneFrames, called from
+    // LoadModuleToMemory's executable-segment loop above, which generalizes this same fix
+    // across every sibling function with the same shape instead of requiring each one to be
+    // found by hand from a crash dump first. This function is left in place (currently a no-op)
+    // in case a future function needs a manual PatchStackReserveImmediate call the scanner's
+    // conservative heuristics don't catch -- e.g. a frame with multiple return paths.
+    if (MemoryPatcher::g_game_serial == "CUSA03173") {
     }
 }
 #endif
