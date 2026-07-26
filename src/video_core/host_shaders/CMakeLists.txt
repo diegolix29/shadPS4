@@ -17,6 +17,7 @@ set(SHADER_FILES
     fs_tri.vert
     fsr.comp
     post_process.frag
+    stencil_to_color.frag
     tiling.comp
 )
 

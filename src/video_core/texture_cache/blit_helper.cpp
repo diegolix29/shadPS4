@@ -10,6 +10,7 @@
 #include "video_core/host_shaders/color_to_ms_depth_frag.h"
 #include "video_core/host_shaders/fs_tri_vert.h"
 #include "video_core/host_shaders/ms_image_blit_frag.h"
+#include "video_core/host_shaders/stencil_to_color_frag.h"
 
 namespace VideoCore {
 
@@ -42,6 +43,11 @@ BlitHelper::~BlitHelper() {
     device.destroy(color_to_ms_depth_frag);
     device.destroy(src_msaa_copy_frag);
     device.destroy(src_non_msaa_copy_frag);
+    for (const auto frag : stencil_to_color_frags) {
+        if (frag) {
+            device.destroy(frag);
+        }
+    }
 }
 
 void BlitHelper::ReinterpretColorAsMsDepth(u32 width, u32 height, u32 num_samples,
@@ -222,6 +228,110 @@ void BlitHelper::CopyBetweenMsImages(u32 width, u32 height, u32 num_samples,
     if (it == ms_image_copy_pl.end()) {
         CreateMsCopyPipeline(key);
         it = --ms_image_copy_pl.end();
+    }
+    cmdbuf.bindPipeline(vk::PipelineBindPoint::eGraphics, *it->second);
+
+    const vk::Viewport viewport = {
+        .x = 0,
+        .y = 0,
+        .width = float(state.width),
+        .height = float(state.height),
+        .minDepth = 0.f,
+        .maxDepth = 1.f,
+    };
+    cmdbuf.setViewportWithCount(viewport);
+
+    const vk::Rect2D scissor = {
+        .offset = {0, 0},
+        .extent = {state.width, state.height},
+    };
+    cmdbuf.setScissorWithCount(scissor);
+
+    cmdbuf.draw(3, 1, 0, 0);
+
+    scheduler.EndRendering();
+    scheduler.GetDynamicState().Invalidate();
+}
+
+void BlitHelper::CopyStencilToColor(Image& source, Image& dest, u32 pack) {
+    // Barriers must land outside a render pass; Transit ends the current one itself.
+    source.Transit(vk::ImageLayout::eDepthStencilReadOnlyOptimal, vk::AccessFlagBits2::eShaderRead,
+                   {});
+    dest.Transit(vk::ImageLayout::eColorAttachmentOptimal,
+                 vk::AccessFlagBits2::eColorAttachmentWrite, {});
+
+    const vk::ImageViewUsageCreateInfo src_usage_ci{.usage = vk::ImageUsageFlagBits::eSampled};
+    const vk::ImageViewCreateInfo src_view_ci = {
+        .pNext = &src_usage_ci,
+        .image = source.GetImage(),
+        .viewType = vk::ImageViewType::e2D,
+        .format = source.info.pixel_format,
+        .subresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eStencil,
+            .baseMipLevel = 0U,
+            .levelCount = 1U,
+            .baseArrayLayer = 0U,
+            .layerCount = 1U,
+        },
+    };
+    const auto [src_view_result, src_view] = instance.GetDevice().createImageView(src_view_ci);
+    ASSERT_MSG(src_view_result == vk::Result::eSuccess, "Failed to create image view: {}",
+               vk::to_string(src_view_result));
+
+    const vk::ImageViewUsageCreateInfo dst_usage_ci{.usage =
+                                                        vk::ImageUsageFlagBits::eColorAttachment};
+    const vk::ImageViewCreateInfo dst_view_ci = {
+        .pNext = &dst_usage_ci,
+        .image = dest.GetImage(),
+        .viewType = vk::ImageViewType::e2D,
+        .format = dest.info.pixel_format,
+        .subresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0U,
+            .levelCount = 1U,
+            .baseArrayLayer = 0U,
+            .layerCount = 1U,
+        },
+    };
+    const auto [dst_view_result, dst_view] = instance.GetDevice().createImageView(dst_view_ci);
+    ASSERT_MSG(dst_view_result == vk::Result::eSuccess, "Failed to create image view: {}",
+               vk::to_string(dst_view_result));
+    scheduler.DeferOperation([device = instance.GetDevice(), src_view, dst_view] {
+        device.destroyImageView(src_view);
+        device.destroyImageView(dst_view);
+    });
+
+    Vulkan::RenderState state{};
+    state.width = dest.info.size.width;
+    state.height = dest.info.size.height;
+    state.num_layers = 1;
+    state.num_color_attachments = 1;
+    state.color_attachments[0].image_view = dst_view;
+    state.color_attachments[0].image_layout = vk::ImageLayout::eColorAttachmentOptimal;
+    scheduler.BeginRendering(state);
+
+    const auto cmdbuf = scheduler.CommandBuffer();
+    const vk::DescriptorImageInfo image_info = {
+        .sampler = VK_NULL_HANDLE,
+        .imageView = src_view,
+        .imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+    };
+    const vk::WriteDescriptorSet texture_write = {
+        .dstSet = VK_NULL_HANDLE,
+        .dstBinding = 0U,
+        .dstArrayElement = 0U,
+        .descriptorCount = 1U,
+        .descriptorType = vk::DescriptorType::eSampledImage,
+        .pImageInfo = &image_info,
+    };
+    cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics, *single_texture_pl_layout, 0U,
+                                texture_write);
+
+    const StencilCopyPipelineKey key{dest.info.pixel_format, pack};
+    auto it = std::ranges::find(stencil_to_color_pl, key, &StencilCopyPipeline::first);
+    if (it == stencil_to_color_pl.end()) {
+        CreateStencilCopyPipeline(key);
+        it = --stencil_to_color_pl.end();
     }
     cmdbuf.bindPipeline(vk::PipelineBindPoint::eGraphics, *it->second);
 
@@ -433,6 +543,93 @@ void BlitHelper::CreateMsCopyPipeline(const MsPipelineKey& key) {
                           key.num_samples);
 
     ms_image_copy_pl.emplace_back(key, std::move(pipeline));
+}
+
+void BlitHelper::CreateStencilCopyPipeline(const StencilCopyPipelineKey& key) {
+    const u32 frag_index = key.pack == 4 ? 2 : key.pack == 2 ? 1 : 0;
+    auto& frag = stencil_to_color_frags[frag_index];
+    if (!frag) {
+        frag =
+            Vulkan::Compile(HostShaders::STENCIL_TO_COLOR_FRAG, vk::ShaderStageFlagBits::eFragment,
+                            instance.GetDevice(), {fmt::format("PACK={}", key.pack)});
+    }
+
+    const vk::PipelineInputAssemblyStateCreateInfo input_assembly = {
+        .topology = vk::PrimitiveTopology::eTriangleList,
+    };
+    const vk::PipelineMultisampleStateCreateInfo multisampling = {
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+    };
+    const vk::PipelineDepthStencilStateCreateInfo depth_state = {
+        .depthTestEnable = false,
+        .depthWriteEnable = false,
+        .depthCompareOp = vk::CompareOp::eAlways,
+    };
+    const std::array dynamic_states = {vk::DynamicState::eViewportWithCount,
+                                       vk::DynamicState::eScissorWithCount};
+    const vk::PipelineDynamicStateCreateInfo dynamic_info = {
+        .dynamicStateCount = static_cast<u32>(dynamic_states.size()),
+        .pDynamicStates = dynamic_states.data(),
+    };
+
+    std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages;
+    shader_stages[0] = {
+        .stage = vk::ShaderStageFlagBits::eVertex,
+        .module = fs_tri_vertex,
+        .pName = "main",
+    };
+    shader_stages[1] = {
+        .stage = vk::ShaderStageFlagBits::eFragment,
+        .module = frag,
+        .pName = "main",
+    };
+
+    const vk::PipelineRenderingCreateInfo pipeline_rendering_ci = {
+        .colorAttachmentCount = 1u,
+        .pColorAttachmentFormats = &key.attachment_format,
+        .depthAttachmentFormat = vk::Format::eUndefined,
+        .stencilAttachmentFormat = vk::Format::eUndefined,
+    };
+
+    const vk::PipelineColorBlendAttachmentState attachment = {
+        .blendEnable = false,
+        .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+                          vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+    };
+
+    const vk::PipelineColorBlendStateCreateInfo color_blending = {
+        .logicOpEnable = false,
+        .logicOp = vk::LogicOp::eCopy,
+        .attachmentCount = 1u,
+        .pAttachments = &attachment,
+    };
+    const vk::PipelineViewportStateCreateInfo viewport_info{};
+    const vk::PipelineVertexInputStateCreateInfo vertex_input_info{};
+    const vk::PipelineRasterizationStateCreateInfo raster_state{.lineWidth = 1.f};
+
+    const vk::GraphicsPipelineCreateInfo pipeline_info = {
+        .pNext = &pipeline_rendering_ci,
+        .stageCount = static_cast<u32>(shader_stages.size()),
+        .pStages = shader_stages.data(),
+        .pVertexInputState = &vertex_input_info,
+        .pInputAssemblyState = &input_assembly,
+        .pViewportState = &viewport_info,
+        .pRasterizationState = &raster_state,
+        .pMultisampleState = &multisampling,
+        .pDepthStencilState = &depth_state,
+        .pColorBlendState = &color_blending,
+        .pDynamicState = &dynamic_info,
+        .layout = *single_texture_pl_layout,
+    };
+
+    auto [pipeline_result, pipeline] =
+        instance.GetDevice().createGraphicsPipelineUnique(VK_NULL_HANDLE, pipeline_info);
+    ASSERT_MSG(pipeline_result == vk::Result::eSuccess, "Failed to create graphics pipeline: {}",
+               vk::to_string(pipeline_result));
+    Vulkan::SetObjectName(instance.GetDevice(), *pipeline, "Stencil to Color {} pack {}",
+                          vk::to_string(key.attachment_format), key.pack);
+
+    stencil_to_color_pl.emplace_back(key, std::move(pipeline));
 }
 
 } // namespace VideoCore

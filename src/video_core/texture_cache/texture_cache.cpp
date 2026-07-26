@@ -12,6 +12,7 @@
 #include "core/memory.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/page_manager.h"
+#include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/texture_cache/host_compatibility.h"
@@ -748,6 +749,9 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
     Image& image = slot_images[image_id];
     image.flags |= ImageFlagBits::GpuModified;
     image.usage.depth_target = 1u;
+    // Any depth-target bind may rewrite depth/stencil contents (draws or attachment
+    // clears); stale staged stencil copies are detected against this stamp.
+    ++image.ds_write_stamp;
     UpdateImage(image_id);
     // Stamp AFTER the refresh: RefreshImage skips an image already stamped for this frame,
     // so stamping first would make this very bind's refresh a no-op and every later frame's
@@ -788,6 +792,120 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
     }
 
     return image.FindView(desc.view_info, false);
+}
+
+// Maps a color view format that byte-aliases S8 stencil data to the packing factor
+// (stencil texels per output texel) and the UINT staging format the copy renders into.
+// The game-facing view reinterprets the staging image with the requested format, so the
+// copy stays byte-exact regardless of the requested numeric type.
+static std::pair<u32, vk::Format> StencilAliasPacking(vk::Format format) {
+    switch (format) {
+    case vk::Format::eR8G8Unorm:
+    case vk::Format::eR8G8Uint:
+        return {2, vk::Format::eR8G8Uint};
+    case vk::Format::eR8G8B8A8Unorm:
+    case vk::Format::eR8G8B8A8Uint:
+    case vk::Format::eR8G8B8A8Srgb:
+        return {4, vk::Format::eR8G8B8A8Uint};
+    default:
+        // Single-8-bit formats (R8Unorm/R8Uint) already sample the stencil aspect natively.
+        return {0, vk::Format::eUndefined};
+    }
+}
+
+ImageId TextureCache::FindStencilAliasColorCopy(ImageId depth_image_id, const ImageDesc& desc) {
+    std::scoped_lock lock{mutex};
+    Image& depth_image = slot_images[depth_image_id];
+    const auto& depth_info = depth_image.info;
+    if (!depth_info.props.is_depth || !depth_info.props.has_stencil || depth_info.num_samples > 1) {
+        return {};
+    }
+    if (desc.type != BindingType::Texture) {
+        LOG_DEBUG(Render_Vulkan, "Not staging stencil alias {:#x}: non-texture binding",
+                  depth_info.guest_address);
+        return {};
+    }
+    const auto [channel_bytes, staging_format] = StencilAliasPacking(desc.view_info.format);
+    if (channel_bytes == 0) {
+        if (!Vulkan::LiverpoolToVK::IsFormatDepthCompatible(desc.view_info.format) &&
+            !Vulkan::LiverpoolToVK::IsFormatStencilCompatible(desc.view_info.format)) {
+            LOG_DEBUG(Render_Vulkan, "Not staging stencil alias of {:#x} at {:#x}: view format {}",
+                      depth_info.guest_address, desc.info.guest_address,
+                      vk::to_string(desc.view_info.format));
+        }
+        return {};
+    }
+    const auto& size = desc.info.size;
+    u32 pack = 0;
+    if (size.width == depth_info.size.width && size.height == depth_info.size.height) {
+        // Full-resolution alias: one texel per stencil texel (PS3-heritage engines read the
+        // packed depth/stencil word and index the stencil from one of its channels).
+        pack = 1;
+    } else if (size.width * channel_bytes == depth_info.size.width &&
+               size.height == depth_info.size.height) {
+        // Byte alias: each texel packs channel_bytes adjacent stencil bytes.
+        pack = channel_bytes;
+    } else {
+        LOG_DEBUG(Render_Vulkan,
+                  "Not staging stencil alias of {:#x} at {:#x}: {}x{} view does not cover {}x{}",
+                  depth_info.guest_address, desc.info.guest_address, size.width, size.height,
+                  depth_info.size.width, depth_info.size.height);
+        return {};
+    }
+    if (desc.info.resources != SubresourceExtent{} || desc.view_info.range != SubresourceRange{}) {
+        LOG_DEBUG(Render_Vulkan, "Not staging stencil alias {:#x}: non-trivial subresources",
+                  depth_info.guest_address);
+        return {};
+    }
+
+    bool valid_copy = false;
+    if (depth_image.stencil_copy_id && slot_images.is_allocated(depth_image.stencil_copy_id)) {
+        const Image& existing = slot_images[depth_image.stencil_copy_id];
+        valid_copy = existing.image_uid == depth_image.stencil_copy_uid &&
+                     existing.info.pixel_format == staging_format &&
+                     existing.info.size.width == size.width &&
+                     existing.info.size.height == size.height;
+    }
+    if (!valid_copy) {
+        if (depth_image.stencil_copy_id) {
+            // A previous copy with a different shape; it is never tracked or registered.
+            if (slot_images.is_allocated(depth_image.stencil_copy_id) &&
+                slot_images[depth_image.stencil_copy_id].image_uid ==
+                    depth_image.stencil_copy_uid) {
+                DeleteImage(depth_image.stencil_copy_id);
+            }
+            depth_image.DisassociateStencilCopy();
+        }
+        ImageInfo staging_info{};
+        staging_info.pixel_format = staging_format;
+        staging_info.type = AmdGpu::ImageType::Color2D;
+        staging_info.size = {size.width, size.height, 1};
+        // Bits per texel of the staging format, not of the stencil source: `pack` is how many
+        // stencil bytes land in one output texel, which only equals the texel width when the
+        // alias is a byte view.
+        staging_info.num_bits = channel_bytes * 8;
+        // No guest address: the copy lives host-side only, outside registration/tracking.
+        const ImageId staging_id =
+            slot_images.insert(instance, scheduler, blit_helper, slot_image_views, staging_info);
+        // insert() may reallocate the slot vector; re-fetch references by id.
+        Image& staging = slot_images[staging_id];
+        Image& depth = slot_images[depth_image_id];
+        staging.flags = ImageFlagBits::Empty; // content comes only from the GPU-side copy
+        depth.AssociateStencilCopy(staging_id, staging.image_uid);
+        LOG_INFO(Render_Vulkan,
+                 "Serving {} view of depth image {:#x} stencil from a staged {}x{} copy (pack {})",
+                 vk::to_string(desc.view_info.format), depth.info.guest_address, size.width,
+                 size.height, pack);
+    }
+
+    Image& depth = slot_images[depth_image_id];
+    Image& staging = slot_images[depth.stencil_copy_id];
+    if (depth.stencil_copy_stamp != depth.ds_write_stamp) {
+        blit_helper.CopyStencilToColor(depth, staging, pack);
+        depth.stencil_copy_stamp = depth.ds_write_stamp;
+    }
+    staging.tick_accessed_last = scheduler.CurrentTick();
+    return depth.stencil_copy_id;
 }
 
 void TextureCache::RefreshImage(Image& image) {
@@ -1175,6 +1293,10 @@ void TextureCache::RunGarbageCollector() {
 }
 
 void TextureCache::TouchImage(const Image& image) {
+    // Unregistered images (staged stencil copies) have no LRU entry.
+    if (False(image.flags & ImageFlagBits::Registered)) {
+        return;
+    }
     lru_cache.Touch(image.lru_id, gc_tick);
 }
 
@@ -1182,6 +1304,15 @@ void TextureCache::DeleteImage(ImageId image_id) {
     Image& image = slot_images[image_id];
     ASSERT_MSG(!image.IsTracked(), "Image was not untracked");
     ASSERT_MSG(False(image.flags & ImageFlagBits::Registered), "Image was not unregistered");
+
+    // Reclaim any staged stencil copy along with its source; the copy itself is never
+    // tracked or registered.
+    if (image.stencil_copy_id && slot_images.is_allocated(image.stencil_copy_id) &&
+        slot_images[image.stencil_copy_id].image_uid == image.stencil_copy_uid) {
+        const ImageId copy_id = image.stencil_copy_id;
+        image.DisassociateStencilCopy();
+        DeleteImage(copy_id);
+    }
 
     // Remove any registered meta areas.
     const auto& meta_info = image.info.meta_info;

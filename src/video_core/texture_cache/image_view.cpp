@@ -117,12 +117,42 @@ ImageView::ImageView(const Vulkan::Instance& instance, const ImageViewInfo& info
         aspect = vk::ImageAspectFlagBits::eStencil;
     }
 
+    // Some games (e.g. LittleBigPlanet 3) alias a depth/stencil buffer as a plain color texture
+    // (here R8G8B8A8 over a D32_SFLOAT_S8_UINT image). Vulkan cannot express that reinterpretation:
+    // the view format matched neither the depth nor stencil aspect above, so we would create a view
+    // with an incompatible format and a DEPTH|STENCIL aspect that is invalid for sampling and makes
+    // the driver lose the device. Views whose format equals the image format are the depth-target
+    // attachment views and stay untouched: both aspects on the image's own format are exactly what
+    // an attachment needs. The common stencil-plane aliases are served with real data from a staged
+    // stencil copy by the texture cache before a view is ever requested here, so this fallback only
+    // catches reinterpretations the copy cannot express. Coerce those to a valid single-aspect
+    // depth view and swizzle it to zero: depth is not the data the shader indexes, and feeding it
+    // through is actively harmful (LBP3 read leftover depth as "every pixel is an edge" and blended
+    // the whole frame with its neighbours). Zero is the neutral value for the masks these aliases
+    // carry.
+    vk::ComponentMapping mapping = info.mapping;
+    if ((aspect & vk::ImageAspectFlagBits::eDepth) &&
+        (aspect & vk::ImageAspectFlagBits::eStencil) && format != image.info.pixel_format) {
+        LOG_WARNING(Render_Vulkan,
+                    "Coercing incompatible view format {} on depth/stencil image to a zeroed depth "
+                    "view",
+                    vk::to_string(format));
+        format = image.info.pixel_format;
+        aspect = vk::ImageAspectFlagBits::eDepth;
+        mapping = vk::ComponentMapping{
+            .r = vk::ComponentSwizzle::eZero,
+            .g = vk::ComponentSwizzle::eZero,
+            .b = vk::ComponentSwizzle::eZero,
+            .a = vk::ComponentSwizzle::eZero,
+        };
+    }
+
     const vk::ImageViewCreateInfo image_view_ci = {
         .pNext = &usage_ci,
         .image = image.GetImage(),
         .viewType = ConvertImageViewType(info.type),
         .format = instance.GetSupportedFormat(format, image.format_features),
-        .components = info.mapping,
+        .components = mapping,
         .subresourceRange{
             .aspectMask = aspect,
             .baseMipLevel = info.range.base.level,

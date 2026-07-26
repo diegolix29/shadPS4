@@ -112,6 +112,11 @@ public:
     /// Retrieves the depth target with specified properties
     [[nodiscard]] ImageView& FindDepthTarget(ImageId image_id, const ImageDesc& desc);
 
+    /// Serves a color-format read of a depth/stencil image's stencil plane from a staged
+    /// color copy of the stencil aspect, refreshed when the depth/stencil contents change.
+    /// Returns a null id when the requested view cannot be expressed as such a copy.
+    [[nodiscard]] ImageId FindStencilAliasColorCopy(ImageId depth_image_id, const ImageDesc& desc);
+
     /// Updates image contents if it was modified by CPU.
     void UpdateImage(ImageId image_id) {
         std::scoped_lock lock{mutex};
