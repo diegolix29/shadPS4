@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <cstring>
 #include <optional>
+#include <type_traits>
 #include <vector>
 #include "common/types.h"
 #include "shader_recompiler/info.h"
@@ -46,12 +48,16 @@ struct VertexAttribute {
         return buffer;
     }
 
-    bool operator==(const VertexAttribute& other) const {
-        return semantic == other.semantic && dest_vgpr == other.dest_vgpr &&
-               num_elements == other.num_elements && sgpr_base == other.sgpr_base &&
-               dword_offset == other.dword_offset && instance_data == other.instance_data;
+    bool operator==(const VertexAttribute& other) const noexcept {
+        u64 lhs;
+        u64 rhs;
+        std::memcpy(&lhs, this, sizeof(lhs));
+        std::memcpy(&rhs, &other, sizeof(rhs));
+        return ((lhs ^ rhs) & 0x0000ffffffffffffULL) == 0;
     }
 };
+static_assert(sizeof(VertexAttribute) == 9);
+static_assert(std::is_trivially_copyable_v<VertexAttribute>);
 
 struct FetchShaderData {
     u32 size = 0;

@@ -3,6 +3,7 @@
 
 #include "infinity.h"
 
+#include <bit>
 #include <mutex>
 
 namespace Libraries::Usbd {

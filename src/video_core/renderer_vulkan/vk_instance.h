@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <mutex>
+#include <optional>
 #include <span>
 #include <unordered_map>
 
@@ -21,11 +23,13 @@ namespace Vulkan {
 
 class Instance {
 public:
-    explicit Instance(bool validation = false, bool crash_diagnostic = false,
-                      bool manage_imgui = true);
+    explicit Instance(bool validation = false, bool crash_diagnostic = false);
     explicit Instance(Frontend::WindowSDL& window, s32 physical_device_index,
-                      bool enable_validation = false, bool enable_crash_diagnostic = false,
-                      bool manage_imgui = true);
+                      bool enable_validation = false, bool enable_crash_diagnostic = false);
+    /// Creates the device without a window, for self-tests. The overlay renderer is never set
+    /// up on such an instance.
+    explicit Instance(Frontend::WindowSystemType window_type, s32 physical_device_index,
+                      bool enable_validation = false, bool enable_crash_diagnostic = false);
     ~Instance();
 
     /// Returns a formatted string for the driver version
@@ -77,8 +81,72 @@ public:
         return present_queue;
     }
 
+    /// True when presentation has its own queue of the graphics family.
+    bool HasSeparatePresentQueue() const {
+        return separate_present_queue;
+    }
+
+    /// Vulkan queues require externally synchronized host access.
+    std::mutex& GetGraphicsQueueMutex() const {
+        return graphics_queue_mutex;
+    }
+
+    std::mutex& GetPresentQueueMutex() const {
+        return separate_present_queue ? present_queue_mutex : graphics_queue_mutex;
+    }
+
+    /// True when the device has a queue family that only transfers, fed by the copy engines.
+    bool HasTransferQueue() const {
+        return transfer_queue_family_index.has_value();
+    }
+
+    u32 GetTransferQueueFamilyIndex() const {
+        return *transfer_queue_family_index;
+    }
+
+    vk::Queue GetTransferQueue() const {
+        return transfer_queue;
+    }
+
+    std::mutex& GetTransferQueueMutex() const {
+        return transfer_queue_mutex;
+    }
+
+    bool HasSwapchainMaintenance1() const {
+        return swapchain_maintenance1;
+    }
+
+    /// Present ids and present waits through VK_KHR_present_id2/VK_KHR_present_wait2, which
+    /// the surface must also support.
+    bool HasPresentWait2() const {
+        return present_wait2;
+    }
+
+    /// Present ids and present waits through VK_KHR_present_id/VK_KHR_present_wait.
+    bool HasPresentWait() const {
+        return present_wait;
+    }
+
+    /// Whether the instance can query surface capabilities through their extensible form.
+    bool HasSurfaceCapabilities2() const {
+        return surface_capabilities2;
+    }
+
+    /// VK_NV_low_latency2 (NVIDIA Reflex).
+    bool HasNvLowLatency2() const {
+        return nv_low_latency2;
+    }
+
     TracyVkCtx GetProfilerContext() const {
         return profiler_context;
+    }
+
+    [[nodiscard]] double TimestampPeriodNs() const noexcept {
+        return properties.limits.timestampPeriod;
+    }
+
+    [[nodiscard]] u32 TimestampValidBits() const noexcept {
+        return timestamp_valid_bits;
     }
 
     /// Returns true if anisotropic filtering is supported
@@ -89,22 +157,6 @@ public:
     /// Returns true if depth bounds testing is supported
     bool IsDepthBoundsSupported() const {
         return features.depthBounds;
-    }
-
-    /// Returns true if query pools can be reset from the host.
-    bool IsHostQueryResetSupported() const {
-        return vk12_features.hostQueryReset;
-    }
-
-    /// Returns true when VK_EXT_conditional_rendering is supported
-    bool IsConditionalRenderingSupported() const {
-        return conditional_rendering;
-    }
-
-    /// Returns true when the device is AMD (requires 64-bit predicate workaround)
-    bool IsAmdGpu() const {
-        return driver_id == vk::DriverId::eAmdProprietary ||
-               driver_id == vk::DriverId::eAmdOpenSource;
     }
 
     /// Returns true if 16-bit floats are supported in shaders
@@ -278,16 +330,6 @@ public:
         return features.tessellationShader;
     }
 
-    /// Returns true when tessellation isolines are supported by the device
-    bool IsTessellationIsolinesSupported() const {
-        return !portability_subset || portability_features.tessellationIsolines;
-    }
-
-    /// Returns true when tessellation point mode is supported by the device
-    bool IsTessellationPointModeSupported() const {
-        return !portability_subset || portability_features.tessellationPointMode;
-    }
-
     /// Returns the vendor ID of the physical device
     u32 GetVendorID() const {
         return properties.vendorID;
@@ -413,6 +455,17 @@ public:
         return properties.limits.maxFramebufferHeight;
     }
 
+    /// Returns the maximum number of samplers that can be allocated at once.
+    u32 GetMaxSamplerAllocationCount() const {
+        if (driver_id == vk::DriverId::eMesaKosmickrisp) {
+            // FIXME: KosmicKrisp has an internal 1024 unique sampler limit before
+            // vkCreateSampler starts returning VK_ERROR_OUT_OF_HOST_MEMORY. Work
+            // around this for now by reducing the value to 1024.
+            return 1024;
+        }
+        return properties.limits.maxSamplerAllocationCount;
+    }
+
     /// Returns the sample count flags supported by color buffers.
     vk::SampleCountFlags GetColorSampleCounts() const {
         return properties.limits.framebufferColorSampleCounts;
@@ -456,7 +509,7 @@ public:
 
     /// Returns the total memory budget available to the device.
     [[nodiscard]] u64 GetTotalMemoryBudget() const {
-        return 4_GB; // PS4 VRAM limit for testing
+        return total_memory_budget;
     }
 
     /// Determines if a format is supported for a set of feature flags.
@@ -491,7 +544,6 @@ private:
     vk::PhysicalDeviceFeatures features;
     vk::PhysicalDeviceVulkan12Features vk12_features;
     vk::PhysicalDeviceVulkan13Features vk13_features;
-    vk::PhysicalDevicePortabilitySubsetFeaturesKHR portability_features;
     vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT dynamic_state_3_features;
     vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT shader_atomic_float2_features;
     vk::PhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR
@@ -500,15 +552,28 @@ private:
     vk::PhysicalDevicePrimitiveTopologyListRestartFeaturesEXT list_restart_features;
     vk::DriverIdKHR driver_id;
     vk::UniqueDebugUtilsMessengerEXT debug_callback{};
+    bool shutdown_overlay{true};
     std::string vendor_name;
     VmaAllocator allocator{};
     vk::Queue present_queue;
     vk::Queue graphics_queue;
+    mutable std::mutex graphics_queue_mutex;
+    mutable std::mutex present_queue_mutex;
+    bool separate_present_queue{};
+    std::optional<u32> transfer_queue_family_index;
+    vk::Queue transfer_queue;
+    mutable std::mutex transfer_queue_mutex;
     std::vector<vk::PhysicalDevice> physical_devices;
     std::vector<std::string> available_extensions;
     std::unordered_map<vk::Format, vk::FormatProperties3> format_properties;
     TracyVkCtx profiler_context{};
     u32 queue_family_index{0};
+    u32 timestamp_valid_bits{};
+    bool swapchain_maintenance1{};
+    bool present_wait2{};
+    bool present_wait{};
+    bool surface_capabilities2{};
+    bool nv_low_latency2{};
     bool custom_border_color{};
     bool fragment_shader_barycentric{};
     bool amd_shader_explicit_vertex_parameter{};
@@ -528,15 +593,13 @@ private:
     bool shader_atomic_float{};
     bool shader_atomic_float2{};
     bool workgroup_memory_explicit_layout{};
-    bool portability_subset{};
     bool maintenance_8{};
     bool attachment_feedback_loop{};
     bool image_2d_view_of_3d{};
     bool image_view_min_lod{};
-    bool conditional_rendering{};
     bool supports_memory_budget{};
     bool supports_block_texel_view{};
-    bool manage_imgui{true};
+    bool calibrated_timestamps{};
     u64 total_memory_budget{};
     std::vector<size_t> valid_heaps;
 };

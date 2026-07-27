@@ -112,8 +112,10 @@ void Initialize(const ::Vulkan::Instance& instance, const Frontend::WindowSDL& w
         .instance = instance.GetInstance(),
         .physical_device = instance.GetPhysicalDevice(),
         .device = instance.GetDevice(),
-        .queue_family = instance.GetPresentQueueFamilyIndex(),
-        .queue = instance.GetPresentQueue(),
+        .queue_family = instance.GetGraphicsQueueFamilyIndex(),
+        // Texture uploads are submitted from Scheduler::SubmitExecution and share the graphics
+        // queue's host-synchronization domain.
+        .queue = instance.GetGraphicsQueue(),
         .image_count = image_count,
         .min_allocation_size = 1024 * 1024,
         .pipeline_rendering_create_info{
@@ -122,6 +124,8 @@ void Initialize(const ::Vulkan::Instance& instance, const Frontend::WindowSDL& w
         },
         .allocator = allocator,
         .check_vk_result_fn = &CheckVkResult,
+        .present_queue = instance.GetPresentQueue(),
+        .present_queue_mutex = &instance.GetPresentQueueMutex(),
     };
     Vulkan::Init(vk_info);
 
@@ -281,8 +285,9 @@ void Render(const vk::CommandBuffer& cmdbuf, const vk::ImageView& image_view,
 }
 
 bool MustKeepDrawing() {
-    return std::ranges::any_of(layers, [](Layer* layer) { return layer->ShouldKeepDrawing(); }) ||
-           change_layers.size() > 1;
+    std::scoped_lock lock{change_layers_mutex};
+    return !change_layers.empty() ||
+           std::ranges::any_of(layers, [](const Layer* layer) { return layer->NeedsRender(); });
 }
 
 } // namespace Core

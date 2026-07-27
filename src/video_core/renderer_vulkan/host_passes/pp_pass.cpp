@@ -186,7 +186,7 @@ void PostProcessingPass::Create(vk::Device device, const vk::Format surface_form
     sampler = Check<"create pp sampler">(device.createSamplerUnique(sampler_ci));
 }
 
-void PostProcessingPass::Render(vk::CommandBuffer cmdbuf, vk::ImageView input,
+void PostProcessingPass::Render(const CommandRecorder& cmdbuf, vk::ImageView input,
                                 vk::Extent2D input_size, Frame& frame, Settings settings) {
     if (Config::getVkHostMarkersEnabled()) {
         cmdbuf.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{

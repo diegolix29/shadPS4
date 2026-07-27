@@ -1,18 +1,22 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/config.h"
 #include "common/debug.h"
 #include "common/elf_info.h"
 #include "common/io_file.h"
 #include "common/path_util.h"
 #include "common/singleton.h"
+#include "common/thread.h"
 #include "core/debug_state.h"
 #include "core/devtools/layer.h"
+#include "core/emulator_settings.h"
 #include "core/libraries/system/systemservice.h"
+#include "imgui/friends_layer.h"
+#include "imgui/invitation_prompt_layer.h"
 #include "imgui/notifications_layer.h"
 #include "imgui/renderer/imgui_core.h"
 #include "imgui/renderer/imgui_impl_vulkan.h"
+#include "imgui/shadnet_notifications_layer.h"
 #include "sdl_window.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/renderdoc.h"
@@ -28,6 +32,7 @@
 #include <chrono>
 #include <cmath>
 #include <csetjmp>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <filesystem>
@@ -35,10 +40,10 @@
 #include <iomanip>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <sstream>
 #include <system_error>
-#include <thread>
 #include <vector>
 #include <imgui.h>
 #include <png.h>
@@ -97,6 +102,17 @@ bool CanBlitToSwapchain(const vk::PhysicalDevice physical_device, vk::Format for
 [[nodiscard]] vk::ImageBlit MakeImageBlitStretch(s32 frame_width, s32 frame_height,
                                                  s32 swapchain_width, s32 swapchain_height) {
     return MakeImageBlit(frame_width, frame_height, swapchain_width, swapchain_height, 0, 0);
+}
+
+/// SHADPS4_VK_RECORD_THREAD=0 makes the command processor record its Vulkan commands itself
+/// again instead of handing them to the recording thread.
+static bool DrawRecordingThreadEnabled() {
+    const char* env = std::getenv("SHADPS4_VK_RECORD_THREAD");
+    if (env != nullptr && env[0] == '0') {
+        LOG_INFO(Render_Vulkan, "Vulkan recording thread disabled by SHADPS4_VK_RECORD_THREAD");
+        return false;
+    }
+    return true;
 }
 
 static vk::Rect2D FitImage(s32 frame_width, s32 frame_height, s32 swapchain_width,
@@ -263,7 +279,7 @@ static const std::array<u8, 1024>& GetUnorm10ToU8Lut() {
     return lut;
 }
 
-static void CopyImageToReadback(const vk::CommandBuffer& cmdbuf, const vk::Image image,
+static void CopyImageToReadback(const CommandRecorder& cmdbuf, const vk::Image image,
                                 const vk::ImageLayout layout, ScreenshotReadback& readback) {
     const vk::BufferImageCopy copy_region = {
         .bufferOffset = 0,
@@ -455,17 +471,15 @@ static void SavePendingScreenshots(const std::vector<ScreenshotReadback>& readba
         }
 
         LOG_INFO(Render_Vulkan, "Saved screenshot: {}", primary_path.string());
-        if (Config::getScreenshotNotificationsEnabled()) {
-            std::ifstream file(primary_path, std::ios::binary);
-            std::vector<u8> imgdata;
-            if (file) {
-                imgdata = std::vector<u8>(std::istreambuf_iterator<char>(file),
-                                          std::istreambuf_iterator<char>());
-            }
-            shadNotifications::QueueNotification("Saved screenshot:\n" + primary_path.string(),
-                                                 3.0f, shadNotifications::position::BottomRight,
-                                                 imgdata);
+
+        std::ifstream file(primary_path, std::ios::binary);
+        std::vector<u8> imgdata;
+        if (file) {
+            imgdata = std::vector<u8>(std::istreambuf_iterator<char>(file),
+                                      std::istreambuf_iterator<char>());
         }
+        shadNotifications::QueueNotification("Saved screenshot:\n" + primary_path.string(), 3.0f,
+                                             shadNotifications::position::BottomRight, imgdata);
 
         for (size_t i = 1; i < readback.paths.size(); ++i) {
             const auto& path = readback.paths[i];
@@ -481,35 +495,38 @@ static void SavePendingScreenshots(const std::vector<ScreenshotReadback>& readba
             }
 
             LOG_INFO(Render_Vulkan, "Saved screenshot: {}", path.string());
-            if (Config::getScreenshotNotificationsEnabled()) {
-                std::ifstream file(path, std::ios::binary);
-                std::vector<u8> imgdata;
-                if (file) {
-                    imgdata = std::vector<u8>(std::istreambuf_iterator<char>(file),
-                                              std::istreambuf_iterator<char>());
-                }
-                shadNotifications::QueueNotification("Saved screenshot:\n" + path.string(), 3.0f,
-                                                     shadNotifications::position::BottomRight,
-                                                     imgdata);
+            std::ifstream file(path, std::ios::binary);
+            std::vector<u8> imgdata;
+            if (file) {
+                imgdata = std::vector<u8>(std::istreambuf_iterator<char>(file),
+                                          std::istreambuf_iterator<char>());
             }
+            shadNotifications::QueueNotification("Saved screenshot:\n" + path.string(), 3.0f,
+                                                 shadNotifications::position::BottomRight, imgdata);
         }
     }
 }
 
 Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_)
     : window{window_}, liverpool{liverpool_},
-      instance{window, Config::getGpuId(), Config::vkValidationEnabled(),
-               Config::getVkCrashDiagnosticEnabled()},
-      draw_scheduler{instance}, present_scheduler{instance}, flip_scheduler{instance},
+      instance{window, EmulatorSettings.GetGpuId(), EmulatorSettings.IsVkValidationEnabled(),
+               EmulatorSettings.IsVkCrashDiagnosticEnabled()},
+      draw_scheduler{instance, true, DrawRecordingThreadEnabled()},
+      present_scheduler{instance, false, false, true},
       swapchain{instance, window},
       rasterizer{std::make_unique<Rasterizer>(instance, draw_scheduler, liverpool)},
-      texture_cache{rasterizer->GetTextureCache()} {
+      texture_cache{rasterizer->GetTextureCache()},
+      display_pacer{1'000'000'000 / static_cast<s64>(EmulatorSettings.GetVblankFrequency())} {
+    gpu_frames_ahead = std::min(EmulatorSettings.GetGpuFramesAhead(), MaxGpuFramesAhead);
     const u32 num_images = swapchain.GetImageCount();
+    // Four source frames cover all independent ownership states during a host stall: last shown,
+    // active present, mailbox and next producer. Keep the old +1 policy for larger swapchains.
+    const u32 num_frames = std::max(num_images + 1, 4U);
     const vk::Device device = instance.GetDevice();
 
     // Create presentation frames.
-    present_frames.resize(num_images);
-    for (u32 i = 0; i < num_images; i++) {
+    present_frames.resize(num_frames);
+    for (u32 i = 0; i < num_frames; i++) {
         Frame& frame = present_frames[i];
         frame.id = i;
         auto fence = Check<"create present done fence">(
@@ -517,32 +534,64 @@ Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_
         frame.present_done = fence;
         free_queue.push(&frame);
     }
+    recycle_thread = std::jthread([this](std::stop_token token) { RecycleThread(token); });
+    if (swapchain.HasPresentWait()) {
+        pacing_log = std::getenv("SHADPS4_PACING_LOG") != nullptr;
+        present_ready_thread =
+            std::jthread([this](std::stop_token token) { PresentReadyThread(token); });
+        present_wait_thread =
+            std::jthread([this](std::stop_token token) { PresentWaitThread(token); });
+    }
+    if (swapchain.HasLowLatency()) {
+        const vk::StructureChain semaphore_chain = {
+            vk::SemaphoreCreateInfo{},
+            vk::SemaphoreTypeCreateInfo{
+                .semaphoreType = vk::SemaphoreType::eTimeline,
+                .initialValue = 0,
+            },
+        };
+        reflex_semaphore = Check<"create Reflex sleep semaphore">(
+            device.createSemaphoreUnique(semaphore_chain.get()));
+        const u64 present_id = PresentIdOfFrame(gcp_frame_id);
+        swapchain.SetLatencyMarker(present_id, vk::LatencyMarkerNV::eSimulationStart);
+        swapchain.SetLatencyMarker(present_id, vk::LatencyMarkerNV::eRendersubmitStart);
+        draw_scheduler.SetLatencyPresentId(present_id);
+    }
 
-    fsr_settings.enable = Config::getFsrEnabled();
-    fsr_settings.use_rcas = Config::getRcasEnabled();
-    fsr_settings.rcasAttenuation = static_cast<float>(Config::getRcasAttenuation() / 1000.f);
+    fsr_settings.enable = EmulatorSettings.IsFsrEnabled();
+    fsr_settings.use_rcas = EmulatorSettings.IsRcasEnabled();
+    fsr_settings.rcas_attenuation =
+        static_cast<float>(EmulatorSettings.GetRcasAttenuation() / 1000.f);
 
     fsr_pass.Create(device, instance.GetAllocator(), num_images);
     pp_pass.Create(device, swapchain.GetSurfaceFormat().format);
 
     ImGui::Layer::AddLayer(Common::Singleton<Core::Devtools::Layer>::Instance());
-}
-
-void Presenter::UpdateFsrSettingsFromConfig() {
-    fsr_settings.enable = Config::getFsrEnabled();
-    fsr_settings.use_rcas = Config::getRcasEnabled();
-    fsr_settings.rcasAttenuation = static_cast<float>(Config::getRcasAttenuation() / 1000.f);
+    ImGui::Friends::Register();
+    ImGui::ShadNetNotify::Register();
+    ImGui::InvitationPrompt::Register();
 }
 
 Presenter::~Presenter() {
+    ImGui::InvitationPrompt::Unregister();
+    ImGui::ShadNetNotify::Unregister();
+    ImGui::Friends::Unregister();
     ImGui::Layer::RemoveLayer(Common::Singleton<Core::Devtools::Layer>::Instance());
+
+    recycle_thread.request_stop();
+    recycle_cv.notify_all();
+    recycle_thread.join();
+    for (auto* thread : {&present_ready_thread, &present_wait_thread}) {
+        if (thread->joinable()) {
+            thread->request_stop();
+            thread->join();
+        }
+    }
 
     draw_scheduler.Finish();
     present_scheduler.Finish();
-    flip_scheduler.Finish();
-    Check(draw_scheduler.CommandBuffer().reset());
-    Check(present_scheduler.CommandBuffer().reset());
-    Check(flip_scheduler.CommandBuffer().reset());
+    draw_scheduler.ResetCommandBuffer();
+    present_scheduler.ResetCommandBuffer();
 
     const vk::Device device = instance.GetDevice();
     for (auto& frame : present_frames) {
@@ -550,6 +599,422 @@ Presenter::~Presenter() {
         device.destroyImageView(frame.image_view);
         device.destroyFence(frame.present_done);
     }
+}
+
+void Presenter::SyncPipelineCache() {
+    rasterizer->GetPipelineCache().Sync();
+}
+
+void Presenter::ReturnFrame(Frame* frame) {
+    if (frame == nullptr) {
+        return;
+    }
+    std::scoped_lock lock{free_mutex};
+    free_queue.push(frame);
+    free_cv.notify_one();
+}
+
+void Presenter::RecycleFrameAsync(Frame* frame) {
+    if (frame == nullptr) {
+        return;
+    }
+    {
+        std::scoped_lock lock{recycle_mutex};
+        recycle_queue.push(frame);
+    }
+    recycle_cv.notify_one();
+}
+
+void Presenter::RecycleThread(std::stop_token token) {
+    Common::SetCurrentThreadName("shadPS4:FrameRecycle");
+    while (true) {
+        Frame* frame;
+        {
+            std::unique_lock lock{recycle_mutex};
+            recycle_cv.wait(lock, token, [this] { return !recycle_queue.empty(); });
+            if (recycle_queue.empty()) {
+                if (token.stop_requested()) {
+                    return;
+                }
+                continue;
+            }
+            frame = recycle_queue.front();
+            recycle_queue.pop();
+        }
+
+        if (frame->ready_semaphore && frame->ready_tick != 0) {
+            const vk::SemaphoreWaitInfo wait_info = {
+                .semaphoreCount = 1,
+                .pSemaphores = &frame->ready_semaphore,
+                .pValues = &frame->ready_tick,
+            };
+            const auto result =
+                instance.GetDevice().waitSemaphores(wait_info, std::numeric_limits<u64>::max());
+            ASSERT_MSG(result == vk::Result::eSuccess,
+                       "Failed waiting for a superseded presentation frame: {}",
+                       vk::to_string(result));
+        }
+        // A presented frame is still read by its presentation until the fence signals. The fence
+        // of a frame that was never presented stays signaled from its previous use.
+        const auto result = instance.GetDevice().waitForFences(frame->present_done, true,
+                                                               std::numeric_limits<u64>::max());
+        ASSERT_MSG(result == vk::Result::eSuccess, "Failed retiring presentation frame: {}",
+                   vk::to_string(result));
+        ReturnFrame(frame);
+    }
+}
+
+Presenter::PresentTimingFeedback Presenter::GetPresentTimingFeedback() const {
+    const u64 seq = correction_seq.load(std::memory_order_acquire);
+    return {
+        .last_present_call_ns = last_present_call_ns.load(std::memory_order_acquire),
+        .present_call_period_ns = present_call_period_ns.load(std::memory_order_acquire),
+        .generation = timing_generation.load(std::memory_order_acquire),
+        .present_call_samples = present_call_samples.load(std::memory_order_acquire),
+        .is_fifo = swapchain.IsFIFO(),
+        .display_locked = display_locked.load(std::memory_order_acquire),
+        .correction_seq = seq,
+        .correction_ns = correction_ns.load(std::memory_order_acquire),
+    };
+}
+
+void Presenter::ResetFifoTimingFeedback() {
+    std::scoped_lock lock{feedback_mutex};
+    ResetFifoTimingFeedbackLocked();
+}
+
+void Presenter::ClearPresentCallHistoryLocked() {
+    last_present_call_ns.store(0, std::memory_order_release);
+    present_call_period_ns.store(0, std::memory_order_release);
+    present_call_samples.store(0, std::memory_order_release);
+    present_call_period_history.fill(0);
+    present_call_period_history_index = 0;
+    present_call_period_history_size = 0;
+}
+
+void Presenter::ResetFifoTimingFeedbackLocked() {
+    ClearPresentCallHistoryLocked();
+    // The present wait thread resets the display pacer when it sees the new generation.
+    display_locked.store(false, std::memory_order_release);
+    {
+        std::scoped_lock lock{pacing_mutex};
+        pacing.locked = false;
+        pacing.anchor_display_ns = 0;
+    }
+    timing_generation.fetch_add(1, std::memory_order_acq_rel);
+}
+
+void Presenter::SetPresentationEpoch(const u64 epoch) {
+    std::scoped_lock lock{feedback_mutex};
+    if (presentation_epoch == epoch) {
+        return;
+    }
+    presentation_epoch = epoch;
+    ResetFifoTimingFeedbackLocked();
+}
+
+void Presenter::RecordPresentCall(const u64 epoch) {
+    if (epoch == 0) {
+        return;
+    }
+
+    std::scoped_lock lock{feedback_mutex};
+    if (epoch != presentation_epoch) {
+        return;
+    }
+
+    const auto now = std::chrono::steady_clock::now().time_since_epoch();
+    const s64 now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
+    const s64 previous_ns = last_present_call_ns.exchange(now_ns, std::memory_order_acq_rel);
+    if (previous_ns == 0) {
+        return;
+    }
+
+    const s64 sample = now_ns - previous_ns;
+    if (sample <= 1'000'000 || sample >= 100'000'000) {
+        // Discard intervals that cannot represent steady FIFO pacing and require a fresh sample
+        // window before applying another guest-timer correction.
+        ClearPresentCallHistoryLocked();
+        return;
+    }
+
+    present_call_period_history[present_call_period_history_index] = sample;
+    present_call_period_history_index =
+        (present_call_period_history_index + 1) % PresentCallPeriodWindow;
+    present_call_period_history_size =
+        std::min(present_call_period_history_size + 1, PresentCallPeriodWindow);
+
+    auto sorted = present_call_period_history;
+    std::sort(sorted.begin(), sorted.begin() + present_call_period_history_size);
+    const u32 middle = present_call_period_history_size / 2;
+    const s64 median = present_call_period_history_size % 2 != 0
+                           ? sorted[middle]
+                           : (sorted[middle - 1] + sorted[middle]) / 2;
+    present_call_period_ns.store(median, std::memory_order_release);
+    present_call_samples.store(present_call_period_history_size, std::memory_order_release);
+}
+
+void Presenter::RecreateSwapchain() {
+    swapchain.Recreate(window.GetWidth(), window.GetHeight());
+    ResetFifoTimingFeedback();
+}
+
+bool Presenter::UsesDisplayPacing() const {
+    return swapchain.HasPresentWait() && (swapchain.IsFIFO() || swapchain.IsMailbox());
+}
+
+u64 Presenter::NextPresentId(const Frame* frame, const bool is_reusing_frame) {
+    if (!swapchain.HasPresentWait()) {
+        return 0;
+    }
+    constexpr u64 RepresentMask = (u64{1} << PresentIdFrameShift) - 1;
+    u64 present_id = 0;
+    if (!is_reusing_frame && frame->frame_id != 0) {
+        present_id = PresentIdOfFrame(frame->frame_id);
+    } else if ((last_present_id & RepresentMask) != RepresentMask) {
+        present_id = last_present_id + 1;
+    }
+    if (present_id <= last_present_id) {
+        return 0;
+    }
+    last_present_id = present_id;
+    return present_id;
+}
+
+bool Presenter::ShouldHoldFlip(const s64 tick_ns, const s64 next_tick_ns,
+                               const u64 previous_frame_id) {
+    if (previous_frame_id == 0) {
+        return false;
+    }
+    std::scoped_lock lock{pacing_mutex};
+    const s64 period = pacing.display_period_ns;
+    if (!pacing.locked || period <= 0 || pacing.anchor_display_ns == 0) {
+        return false;
+    }
+    // Pacing data from a display that stopped taking frames is stale.
+    constexpr s64 StaleNs = 50'000'000;
+    if (tick_ns - pacing.anchor_display_ns > 4 * period + StaleNs) {
+        return false;
+    }
+
+    const u64 previous_id = PresentIdOfFrame(previous_frame_id);
+    s64 previous_slot;
+    if (pacing.displayed_present_id >= previous_id) {
+        previous_slot = pacing.anchor_display_ns;
+    } else if (pacing.ready_present_id == previous_id && pacing.ready_ns != 0) {
+        // Finished and waiting for the display: it goes out at the first scanout after that.
+        const s64 since_anchor = pacing.ready_ns - pacing.anchor_display_ns;
+        const s64 refreshes = since_anchor <= 0 ? 0 : (since_anchor + period - 1) / period;
+        previous_slot = pacing.anchor_display_ns + refreshes * period;
+        // That scanout passed with an older frame, so the display queue holds a backlog. A
+        // flip latched now would queue behind it and keep every later frame a refresh late.
+        if (tick_ns > previous_slot + std::max<s64>(1'000'000, period / 4)) {
+            backlog_holds.fetch_add(1, std::memory_order_relaxed);
+            return true;
+        }
+    } else {
+        // Still rendering, or never presented: the GPU paces the guest, not the display.
+        return false;
+    }
+
+    // The display shows the next frame at the scanout after the previous one.
+    const s64 next_slot = previous_slot + period;
+    if (tick_ns + pacing.lead_ns > next_slot) {
+        return false;
+    }
+    // Latching at the next vblank still makes that scanout, with a fresher frame.
+    if (next_tick_ns + pacing.lead_ns <= next_slot) {
+        slot_holds.fetch_add(1, std::memory_order_relaxed);
+        return true;
+    }
+    return false;
+}
+
+void Presenter::PresentReadyThread(std::stop_token token) {
+    Common::SetCurrentThreadName("shadPS4:PresentReady");
+    // The wake-up time is the completion timestamp, so this thread must run as soon as it wakes.
+    Common::SetCurrentThreadPriority(Common::ThreadPriority::VeryHigh);
+
+    using namespace std::chrono;
+    constexpr u64 WaitSliceNs = 10'000'000;
+    constexpr u32 MaxWaitSlices = 50;
+
+    while (!token.stop_requested()) {
+        PendingPresentWait entry;
+        {
+            std::unique_lock lock{present_wait_mutex};
+            ready_wait_cv.wait(lock, token, [this] { return !ready_wait_queue.empty(); });
+            if (ready_wait_queue.empty()) {
+                continue;
+            }
+            entry = ready_wait_queue.front();
+            ready_wait_queue.pop_front();
+        }
+
+        const vk::Semaphore present_semaphore = present_scheduler.GetMasterSemaphore()->Handle();
+        const vk::SemaphoreWaitInfo ready_wait = {
+            .semaphoreCount = 1,
+            .pSemaphores = &present_semaphore,
+            .pValues = &entry.present_tick,
+        };
+        vk::Result ready_result = vk::Result::eTimeout;
+        for (u32 i = 0; i < MaxWaitSlices && ready_result == vk::Result::eTimeout &&
+                        !token.stop_requested();
+             ++i) {
+            ready_result = instance.GetDevice().waitSemaphores(ready_wait, WaitSliceNs);
+        }
+        entry.ready_ns = 0;
+        if (ready_result == vk::Result::eSuccess) {
+            entry.ready_ns =
+                duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
+            std::scoped_lock lock{pacing_mutex};
+            pacing.ready_present_id = entry.present_id;
+            pacing.ready_ns = entry.ready_ns;
+        }
+
+        {
+            std::scoped_lock lock{present_wait_mutex};
+            if (display_wait_queue.size() >= MaxPendingPresentWaits) {
+                display_wait_queue.pop_front();
+            }
+            display_wait_queue.push_back(entry);
+        }
+        display_wait_cv.notify_one();
+    }
+}
+
+void Presenter::PresentWaitThread(std::stop_token token) {
+    Common::SetCurrentThreadName("shadPS4:PresentWait");
+    // The wake-up time is the display timestamp, so this thread must run as soon as it wakes.
+    Common::SetCurrentThreadPriority(Common::ThreadPriority::VeryHigh);
+
+    using namespace std::chrono;
+    const auto now_ns = [] {
+        return duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
+    };
+    constexpr u64 WaitSliceNs = 10'000'000;
+    constexpr u32 MaxWaitSlices = 50;
+    // A wait shorter than this did not block, so its return time is not the event time.
+    constexpr s64 BlockedWaitNs = 20'000;
+    constexpr s64 LogIntervalNs = 5'000'000'000;
+    u64 pacer_generation = timing_generation.load(std::memory_order_acquire);
+    s64 next_log_ns = now_ns() + LogIntervalNs;
+
+    while (!token.stop_requested()) {
+        PendingPresentWait entry;
+        {
+            std::unique_lock lock{present_wait_mutex};
+            display_wait_cv.wait(lock, token, [this] { return !display_wait_queue.empty(); });
+            if (display_wait_queue.empty()) {
+                continue;
+            }
+            entry = display_wait_queue.front();
+            display_wait_queue.pop_front();
+        }
+
+        vk::Result display_result = vk::Result::eTimeout;
+        s64 display_wait_start_ns = now_ns();
+        if (entry.ready_ns != 0) {
+            for (u32 i = 0; i < MaxWaitSlices && display_result == vk::Result::eTimeout &&
+                            !token.stop_requested();
+                 ++i) {
+                display_wait_start_ns = now_ns();
+                display_result = swapchain.WaitForPresent(entry.swapchain_serial,
+                                                          entry.present_id, WaitSliceNs);
+            }
+        }
+        const s64 display_ns = now_ns();
+        const bool displayed = display_result == vk::Result::eSuccess ||
+                               display_result == vk::Result::eSuboptimalKHR;
+        // The display may have taken the frame before this thread started waiting for it.
+        const bool timed = displayed && !(display_ns - display_wait_start_ns < BlockedWaitNs &&
+                                          display_ns - entry.ready_ns > BlockedWaitNs);
+
+        const u64 generation = timing_generation.load(std::memory_order_acquire);
+        std::optional<DisplayPacer::Result> result;
+        {
+            std::scoped_lock lock{pacing_mutex};
+            if (generation != pacer_generation) {
+                pacer_generation = generation;
+                display_pacer.Reset();
+                pacing.locked = false;
+                pacing.anchor_display_ns = 0;
+            }
+            // Abandoned waits release the frame for the vblank thread too.
+            pacing.displayed_present_id = std::max(pacing.displayed_present_id, entry.present_id);
+            if (timed) {
+                display_pacer.SetNominalDisplayPeriod(window.GetDisplayRefreshPeriodNs());
+                result = display_pacer.AddSample(entry.latch_ns, entry.ready_ns, display_ns);
+                pacing.locked = result->locked;
+                pacing.display_period_ns = display_pacer.DisplayPeriod();
+                pacing.lead_ns = display_pacer.Lead();
+                pacing.anchor_display_ns = display_ns;
+            }
+        }
+        if (result) {
+            display_locked.store(result->locked, std::memory_order_release);
+            correction_ns.store(result->correction_ns, std::memory_order_release);
+            correction_seq.fetch_add(1, std::memory_order_acq_rel);
+        }
+
+        if (pacing_log && display_ns >= next_log_ns) {
+            next_log_ns = display_ns + LogIntervalNs;
+            DisplayPacer::Stats stats;
+            PacingState state;
+            {
+                std::scoped_lock lock{pacing_mutex};
+                stats = display_pacer.TakeStats();
+                state = pacing;
+            }
+            LOG_INFO(Render_Vulkan,
+                     "Display pacing: locked={} period={:.3f}ms lead={:.2f}ms p95={:.2f}ms "
+                     "samples={} coherent={}/{} held={}/{} holds slot={} backlog={} "
+                     "corrections={:.2f}ms",
+                     state.locked, static_cast<double>(state.display_period_ns) / 1e6,
+                     static_cast<double>(state.lead_ns) / 1e6,
+                     static_cast<double>(stats.production_p95_ns) / 1e6, stats.samples,
+                     stats.coherent, stats.history, stats.held, stats.history,
+                     slot_holds.exchange(0, std::memory_order_relaxed),
+                     backlog_holds.exchange(0, std::memory_order_relaxed),
+                     static_cast<double>(stats.corrections_ns) / 1e6);
+        }
+    }
+}
+
+void Presenter::EndGuestFrame() {
+    const u64 present_id = PresentIdOfFrame(gcp_frame_id);
+    const bool reflex = reflex_semaphore && swapchain.HasLowLatency();
+    if (reflex) {
+        swapchain.SetLatencyMarker(present_id, vk::LatencyMarkerNV::eRendersubmitEnd);
+        swapchain.SetLatencyMarker(present_id, vk::LatencyMarkerNV::eSimulationEnd);
+        // The command processor plays the part of the game loop: the driver holds it back until
+        // the GPU is about to need the next frame, so the frame starts from fresher guest work
+        // instead of waiting in a queue in front of the GPU.
+        const u64 value = ++reflex_sleep_value;
+        if (swapchain.LatencySleep(*reflex_semaphore, value)) {
+            const vk::Semaphore semaphore = *reflex_semaphore;
+            const vk::SemaphoreWaitInfo wait_info = {
+                .semaphoreCount = 1,
+                .pSemaphores = &semaphore,
+                .pValues = &value,
+            };
+            constexpr u64 MaxSleepNs = 100'000'000;
+            const auto result = instance.GetDevice().waitSemaphores(wait_info, MaxSleepNs);
+            if (result != vk::Result::eSuccess && !reflex_timeout_logged) {
+                reflex_timeout_logged = true;
+                LOG_WARNING(Render_Vulkan, "NVIDIA Reflex sleep did not finish: {}",
+                            vk::to_string(result));
+            }
+        }
+    }
+
+    ++gcp_frame_id;
+    const u64 next_present_id = PresentIdOfFrame(gcp_frame_id);
+    if (reflex) {
+        swapchain.SetLatencyMarker(next_present_id, vk::LatencyMarkerNV::eSimulationStart);
+        swapchain.SetLatencyMarker(next_present_id, vk::LatencyMarkerNV::eRendersubmitStart);
+    }
+    draw_scheduler.SetLatencyPresentId(reflex ? next_present_id : 0);
 }
 
 bool Presenter::IsVideoOutSurface(const AmdGpu::ColorBuffer& color_buffer) const {
@@ -644,38 +1109,8 @@ Frame* Presenter::PrepareLastFrame() {
                    "Device lost during waiting for a frame");
     }
 
-    auto& scheduler = flip_scheduler;
-    scheduler.EndRendering();
-    const auto cmdbuf = scheduler.CommandBuffer();
-
-    const auto frame_subresources = vk::ImageSubresourceRange{
-        .aspectMask = vk::ImageAspectFlagBits::eColor,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = VK_REMAINING_ARRAY_LAYERS,
-    };
-
-    const auto pre_barrier =
-        vk::ImageMemoryBarrier2{.srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                                .srcAccessMask = vk::AccessFlagBits2::eColorAttachmentRead,
-                                .dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                                .dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                                .oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-                                .newLayout = vk::ImageLayout::eGeneral,
-                                .image = frame->image,
-                                .subresourceRange{frame_subresources}};
-
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &pre_barrier,
-    });
-
-    // Flush frame creation commands.
-    frame->ready_semaphore = scheduler.GetMasterSemaphore()->Handle();
-    frame->ready_tick = scheduler.CurrentTick();
-    SubmitInfo info{};
-    scheduler.Flush(info);
+    // The prior presentation leaves the source image shader-readable. Re-presentation only reads
+    // it again, so no layout round-trip or extra queue submission is necessary.
     return frame;
 }
 
@@ -753,15 +1188,13 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& 
         auto& readback = pending_screenshots.back();
 
         // Capture the guest output before any host-side scaling (FSR/PP) is applied.
-        image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {},
-                      cmdbuf);
+        image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {});
         CopyImageToReadback(cmdbuf, image.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
                             readback);
     }
 
     // Continue with host-side passes that draw the displayed (scaled) frame.
-    image.Transit(vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlagBits2::eShaderRead, {},
-                  cmdbuf);
+    image.Transit(vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlagBits2::eShaderRead, {});
 
     image_view = fsr_pass.Render(cmdbuf, image_view, image_size, {frame->width, frame->height},
                                  fsr_settings, frame->is_hdr);
@@ -781,8 +1214,23 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& 
     // Flush frame creation commands.
     frame->ready_semaphore = draw_scheduler.GetMasterSemaphore()->Handle();
     frame->ready_tick = draw_scheduler.CurrentTick();
+    frame->frame_id = gcp_frame_id;
+    frame->latch_ns = 0;
     SubmitInfo info{};
     draw_scheduler.Flush(info);
+
+    // When the GPU is the slower side, the command processor would otherwise run ahead until
+    // every presentation frame is taken. Finished frames then queue behind the GPU: the present
+    // call blocks in the driver, pending frames are superseded after the GPU rendered them and
+    // the command processor stalls waiting for a frame. Bound the backlog here instead.
+    const u64 frame_number = guest_frame_count++;
+    guest_frame_ticks[frame_number % guest_frame_ticks.size()] = frame->ready_tick;
+    if (gpu_frames_ahead != 0 && frame_number >= gpu_frames_ahead) {
+        const u64 oldest_tick =
+            guest_frame_ticks[(frame_number - gpu_frames_ahead) % guest_frame_ticks.size()];
+        draw_scheduler.Wait(oldest_tick);
+    }
+    EndGuestFrame();
     return frame;
 }
 
@@ -854,33 +1302,40 @@ Frame* Presenter::PrepareBlankFrame(bool present_thread) {
     // Flush frame creation commands.
     frame->ready_semaphore = scheduler.GetMasterSemaphore()->Handle();
     frame->ready_tick = scheduler.CurrentTick();
+    frame->frame_id = present_thread ? 0 : gcp_frame_id;
+    frame->latch_ns = 0;
     SubmitInfo info{};
     scheduler.Flush(info);
+    if (!present_thread) {
+        EndGuestFrame();
+    }
     return frame;
 }
 
-void Presenter::Present(Frame* frame, bool is_reusing_frame) {
-    // Free the frame for reuse
-    const auto free_frame = [&] {
-        if (!is_reusing_frame) {
-            last_submit_frame = frame;
-            std::scoped_lock fl{free_mutex};
-            free_queue.push(frame);
-            free_cv.notify_one();
+void Presenter::Present(Frame* frame, bool is_reusing_frame, const u64 presentation_epoch) {
+    if (presentation_epoch != 0) {
+        std::scoped_lock lock{feedback_mutex};
+        if (presentation_epoch != this->presentation_epoch) {
+            if (!is_reusing_frame) {
+                RecycleFrameAsync(frame);
+            }
+            return;
         }
-    };
+    }
 
     // Recreate the swapchain if the window was resized.
     if (window.GetWidth() != swapchain.GetWidth() || window.GetHeight() != swapchain.GetHeight()) {
-        swapchain.Recreate(window.GetWidth(), window.GetHeight());
+        RecreateSwapchain();
     }
 
     if (!swapchain.AcquireNextImage()) {
-        swapchain.Recreate(window.GetWidth(), window.GetHeight());
+        RecreateSwapchain();
         if (!swapchain.AcquireNextImage()) {
             // User resizes the window too fast and GPU can't keep up. Skip this frame.
             LOG_WARNING(Render_Vulkan, "Skipping frame!");
-            free_frame();
+            if (!is_reusing_frame) {
+                RecycleFrameAsync(frame);
+            }
             return;
         }
     }
@@ -899,13 +1354,15 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
 
     auto& scheduler = present_scheduler;
     const auto cmdbuf = scheduler.CommandBuffer();
+    // Presentation records on this thread; the overlay renderer needs the command buffer itself.
+    const vk::CommandBuffer raw_cmdbuf = scheduler.RawCommandBuffer();
     const u32 capture_with_overlays_count = VideoCore::ConsumeWithOverlaysScreenshotRequests();
     std::vector<ScreenshotReadback> pending_screenshots;
     if (capture_with_overlays_count > 0) {
         pending_screenshots.reserve(1);
     }
 
-    if (Config::getVkHostMarkersEnabled()) {
+    if (EmulatorSettings.IsVkHostMarkersEnabled()) {
         cmdbuf.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
             .pLabelName = "Present",
         });
@@ -913,30 +1370,35 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
 
     {
         auto* profiler_ctx = instance.GetProfilerContext();
-        TracyVkNamedZoneC(profiler_ctx, renderer_gpu_zone, cmdbuf, "Host frame",
+        TracyVkNamedZoneC(profiler_ctx, renderer_gpu_zone, raw_cmdbuf, "Host frame",
                           MarkersPalette::GpuMarkerColor, profiler_ctx != nullptr);
 
         const vk::Extent2D extent = swapchain.GetExtent();
-        const std::array pre_barriers{
-            vk::ImageMemoryBarrier{
-                .srcAccessMask = vk::AccessFlagBits::eNone,
-                .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-                .oldLayout = vk::ImageLayout::eUndefined,
-                .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .image = swapchain_image,
-                .subresourceRange{
-                    .aspectMask = vk::ImageAspectFlagBits::eColor,
-                    .baseMipLevel = 0,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = VK_REMAINING_ARRAY_LAYERS,
-                },
+        const vk::ImageMemoryBarrier swapchain_pre_barrier{
+            .srcAccessMask = vk::AccessFlagBits::eNone,
+            .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
+            .oldLayout = vk::ImageLayout::eUndefined,
+            .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = swapchain_image,
+            .subresourceRange{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = VK_REMAINING_ARRAY_LAYERS,
             },
-            vk::ImageMemoryBarrier{
+        };
+
+        cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                               vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                               vk::DependencyFlagBits::eByRegion, {}, {}, swapchain_pre_barrier);
+
+        if (!is_reusing_frame) {
+            const vk::ImageMemoryBarrier frame_pre_barrier{
                 .srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-                .dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead,
+                .dstAccessMask = vk::AccessFlagBits::eShaderRead,
                 .oldLayout = vk::ImageLayout::eGeneral,
                 .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -949,14 +1411,13 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
                     .baseArrayLayer = 0,
                     .layerCount = VK_REMAINING_ARRAY_LAYERS,
                 },
-            },
-        };
+            };
+            cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                   vk::PipelineStageFlagBits::eFragmentShader,
+                                   vk::DependencyFlagBits::eByRegion, {}, {}, frame_pre_barrier);
+        }
 
         bool swapchain_copied_for_screenshot = false;
-
-        cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                               vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                               vk::DependencyFlagBits::eByRegion, {}, {}, pre_barriers);
 
         { // Draw the game
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0.0f});
@@ -1002,7 +1463,7 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
                 ImGui::SetCursorPos(ImGui::GetCursorStartPos() + offset);
                 ImGui::Image(game_texture, size);
 
-                if (Config::nullGpu()) {
+                if (EmulatorSettings.IsNullGPU()) {
                     Core::Devtools::Layer::DrawNullGpuNotice();
                 }
             }
@@ -1010,7 +1471,7 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
             ImGui::PopStyleVar(3);
             ImGui::PopStyleColor();
         }
-        ImGui::Core::Render(cmdbuf, swapchain_image_view, swapchain.GetExtent());
+        ImGui::Core::Render(raw_cmdbuf, swapchain_image_view, swapchain.GetExtent());
 
         if (capture_with_overlays_count > 0) {
             pending_screenshots.emplace_back(
@@ -1074,11 +1535,10 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
                                vk::DependencyFlagBits::eByRegion, {}, {}, post_barrier);
 
         if (profiler_ctx) {
-            TracyVkCollect(profiler_ctx, cmdbuf);
+            TracyVkCollect(profiler_ctx, raw_cmdbuf);
         }
     }
-
-    if (Config::getVkHostMarkersEnabled()) {
+    if (EmulatorSettings.IsVkHostMarkersEnabled()) {
         cmdbuf.endDebugUtilsLabelEXT();
     }
 
@@ -1091,23 +1551,73 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
             [deferred_screenshots]() { SavePendingScreenshots(*deferred_screenshots); });
     }
 
+    const bool is_guest_frame = !is_reusing_frame && frame->frame_id != 0;
+    const u64 present_id = NextPresentId(frame, is_reusing_frame);
+    const bool mark_latency = is_guest_frame && present_id != 0 && swapchain.HasLowLatency();
     SubmitInfo info{};
-    info.AddWait(swapchain.GetImageAcquiredSemaphore());
-    info.AddWait(frame->ready_semaphore, frame->ready_tick);
+    if (mark_latency) {
+        info.latency_present_id = present_id;
+    }
+    info.AddWait(swapchain.GetImageAcquiredSemaphore(), 1,
+                 vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    info.AddWait(frame->ready_semaphore, frame->ready_tick,
+                 vk::PipelineStageFlagBits::eFragmentShader);
     info.AddSignal(swapchain.GetPresentReadySemaphore());
     info.AddSignal(frame->present_done);
+    // The command processor publishes a frame without waiting for its submission. A wait on
+    // the queue for a value that is submitted to it only later can stall the queue.
+    if (frame->ready_semaphore == draw_scheduler.GetMasterSemaphore()->Handle()) {
+        draw_scheduler.WaitSubmitted(frame->ready_tick);
+    }
+    const u64 present_tick = scheduler.CurrentTick();
     scheduler.Flush(info);
-
     // Present to swapchain.
-    {
-        std::scoped_lock submit_lock{Scheduler::submit_mutex};
-        if (!swapchain.Present()) {
-            swapchain.Recreate(window.GetWidth(), window.GetHeight());
+    if (mark_latency) {
+        swapchain.SetLatencyMarker(present_id, vk::LatencyMarkerNV::ePresentStart);
+    }
+    const u64 swapchain_serial = swapchain.GetSerial();
+    const bool present_succeeded = swapchain.Present(present_id);
+    if (mark_latency) {
+        swapchain.SetLatencyMarker(present_id, vk::LatencyMarkerNV::ePresentEnd);
+    }
+    if (present_succeeded && is_guest_frame && present_id != 0 && frame->latch_ns != 0 &&
+        UsesDisplayPacing()) {
+        {
+            std::scoped_lock lock{present_wait_mutex};
+            if (ready_wait_queue.size() >= MaxPendingPresentWaits) {
+                ready_wait_queue.pop_front();
+            }
+            ready_wait_queue.push_back({
+                .present_id = present_id,
+                .present_tick = present_tick,
+                .swapchain_serial = swapchain_serial,
+                .latch_ns = frame->latch_ns,
+                .ready_ns = 0,
+            });
         }
+        ready_wait_cv.notify_one();
+    }
+    if (!present_succeeded) {
+        // An out-of-date present may not consume its wait semaphore or signal a maintenance
+        // fence. Finish only this scheduler timeline before retiring the old swapchain resources;
+        // the wait happens on the host presentation thread and never on the guest vblank thread.
+        present_scheduler.Finish();
+        RecreateSwapchain();
+    } else if (!is_reusing_frame) {
+        RecordPresentCall(presentation_epoch);
     }
 
-    free_frame();
     if (!is_reusing_frame) {
+        // The previous frame returns to the pool once the GPU is done presenting it. Waiting for
+        // that here would pace this thread by the GPU: while the GPU runs a frame behind the
+        // guest, each present would block for a whole frame and newer frames would be superseded
+        // after the GPU already rendered them.
+        if (present_succeeded) {
+            RecycleFrameAsync(last_submit_frame);
+            last_submit_frame = frame;
+        } else {
+            RecycleFrameAsync(frame);
+        }
         DebugState.IncFlipFrameNum();
     }
 }
@@ -1123,24 +1633,6 @@ Frame* Presenter::GetRenderFrame() {
         // Take the frame from the queue
         frame = free_queue.front();
         free_queue.pop();
-    }
-
-    const vk::Device device = instance.GetDevice();
-    vk::Result result{};
-
-    const auto wait = [&]() {
-        result = device.waitForFences(frame->present_done, false, std::numeric_limits<u64>::max());
-        return result;
-    };
-
-    // Wait for the presentation to be finished so all frame resources are free
-    while (wait() != vk::Result::eSuccess) {
-        // ASSERT_MSG(result != vk::Result::eErrorDeviceLost,
-        //   "Device lost during waiting for a frame");
-        // Retry if the waiting times out
-        if (result == vk::Result::eTimeout) {
-            continue;
-        }
     }
 
     if (frame->width != expected_frame_width || frame->height != expected_frame_height ||

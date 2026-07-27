@@ -1,29 +1,164 @@
 // SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <cstdint>
+#include <cstring>
 #include <limits>
+
+#if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
+#include <immintrin.h>
+#endif
 
 #include "common/alignment.h"
 #include "common/assert.h"
-#include "common/config.h"
 #include "common/debug.h"
 #include "common/elf_info.h"
+#include "core/emulator_settings.h"
 #include "core/file_sys/fs.h"
 #include "core/libraries/kernel/memory.h"
 #include "core/libraries/kernel/orbis_error.h"
 #include "core/libraries/kernel/process.h"
 #include "core/memory.h"
-#include "core/memory_compression.h"
+#include "video_core/guest_copy_engine.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 
 namespace Core {
 
+namespace {
+
+constexpr size_t NonTemporalCopyThreshold = 8 * 1024;
+constexpr size_t DenseCopySpanWays = 4;
+
+struct DenseCopySpan {
+    VAddr begin{};
+    VAddr end{};
+
+    [[nodiscard]] bool Contains(VAddr source, u64 size) const noexcept {
+        return source >= begin && source < end && size <= end - source;
+    }
+};
+
+struct DenseCopyCache {
+    const MemoryManager* owner{};
+    u64 generation{};
+    DenseCopySpan hot{};
+    std::array<DenseCopySpan, DenseCopySpanWays - 1> secondary{};
+    u8 next_replacement{};
+
+    void Reset(const MemoryManager* new_owner, u64 new_generation) noexcept {
+        owner = new_owner;
+        generation = new_generation;
+        hot = {};
+        secondary = {};
+        next_replacement = 0;
+    }
+
+    void Insert(DenseCopySpan span) noexcept {
+        if (hot.end != 0) {
+            secondary[next_replacement] = hot;
+            next_replacement = (next_replacement + 1) % secondary.size();
+        }
+        hot = span;
+    }
+};
+
+thread_local DenseCopyCache dense_copy_cache{};
+
+[[nodiscard]] bool CopyMappedBytes(const u8* source, u8* destination, size_t size,
+                                   bool allow_non_temporal) noexcept {
+#if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
+    if (allow_non_temporal && size >= NonTemporalCopyThreshold && size % 64 == 0 &&
+        (reinterpret_cast<uintptr_t>(destination) & 63U) == 0) {
+        size_t offset = 0;
+        const size_t vector_size = size & ~size_t{31};
+        for (; offset < vector_size; offset += 32) {
+            const __m256i value =
+                _mm256_loadu_si256(reinterpret_cast<const __m256i*>(source + offset));
+            _mm256_stream_si256(reinterpret_cast<__m256i*>(destination + offset), value);
+        }
+        if (offset != size) {
+            std::memcpy(destination + offset, source + offset, size - offset);
+        }
+        return true;
+    }
+
+    if (size <= 256) {
+        size_t offset = 0;
+        for (; offset + 32 <= size; offset += 32) {
+            const __m256i value =
+                _mm256_loadu_si256(reinterpret_cast<const __m256i*>(source + offset));
+            _mm256_storeu_si256(reinterpret_cast<__m256i*>(destination + offset), value);
+        }
+        if (offset != size) {
+            std::memcpy(destination + offset, source + offset, size - offset);
+        }
+        return false;
+    }
+#else
+    (void)allow_non_temporal;
+#endif
+    std::memcpy(destination, source, size);
+    return false;
+}
+
+[[nodiscard]] bool ZeroBytes(u8* destination, size_t size, bool allow_non_temporal) noexcept {
+#if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
+    const __m256i zero = _mm256_setzero_si256();
+    if (allow_non_temporal && size >= NonTemporalCopyThreshold && size % 64 == 0 &&
+        (reinterpret_cast<uintptr_t>(destination) & 63U) == 0) {
+        size_t offset = 0;
+        const size_t vector_size = size & ~size_t{31};
+        for (; offset < vector_size; offset += 32) {
+            _mm256_stream_si256(reinterpret_cast<__m256i*>(destination + offset), zero);
+        }
+        if (offset != size) {
+            std::memset(destination + offset, 0, size - offset);
+        }
+        return true;
+    }
+
+    if (size <= 256) {
+        size_t offset = 0;
+        for (; offset + 32 <= size; offset += 32) {
+            _mm256_storeu_si256(reinterpret_cast<__m256i*>(destination + offset), zero);
+        }
+        if (offset != size) {
+            std::memset(destination + offset, 0, size - offset);
+        }
+        return false;
+    }
+#else
+    (void)allow_non_temporal;
+#endif
+    std::memset(destination, 0, size);
+    return false;
+}
+
+void FinishNonTemporalCopies(bool used_non_temporal) noexcept {
+#if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
+    if (used_non_temporal) {
+        _mm_sfence();
+    }
+#else
+    (void)used_non_temporal;
+#endif
+}
+
+SHAD_NO_INLINE void ValidateSparseCopyDestination(const void* destination) {
+    ASSERT(destination != nullptr);
+}
+
+SHAD_NO_INLINE void ValidateSparseCopyMapping(bool valid, VAddr source) {
+    ASSERT_MSG(valid, "Attempted to access invalid address {:#x}", source);
+}
+
+} // namespace
+
 MemoryManager::MemoryManager() {
     LOG_INFO(Kernel_Vmm, "Virtual memory space initialized with regions:");
-
-    // Initialize memory compression system
-    memory_compression = std::make_unique<MemoryCompression>();
-    memory_compression->SetCompressionLevel(Config::getMemoryCompressionLevel());
 
     // Construct vma_map using the regions reserved by the address space
     auto regions = impl.GetUsableRegions();
@@ -36,7 +171,7 @@ MemoryManager::MemoryManager() {
 
     // Pre-initialize direct backing
     auto total_size = ORBIS_KERNEL_TOTAL_MEM_DEV_PRO;
-    s32 extra_dmem = Config::getExtraDmemInMbytes();
+    s32 extra_dmem = EmulatorSettings.GetExtraDmemInMBytes();
     if (extra_dmem != 0) {
         total_size += extra_dmem * 1_MB;
     }
@@ -53,7 +188,7 @@ MemoryManager::MemoryManager() {
     fmem_map.clear();
     fmem_map.emplace(total_size, PhysicalMemoryArea{total_size, total_flexible_size});
 
-    ASSERT_MSG(::Libraries::Kernel::sceKernelGetCompiledSdkVersion(&sdk_version) == 0,
+    ASSERT_MSG(Libraries::Kernel::sceKernelGetCompiledSdkVersion(&sdk_version) == 0,
                "Failed to get compiled SDK version");
 }
 
@@ -64,11 +199,11 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
     // Calculate actual direct and flexible memory sizes
     const bool is_neo = ::Libraries::Kernel::sceKernelIsNeoMode();
     auto total_size = is_neo ? ORBIS_KERNEL_TOTAL_MEM_PRO : ORBIS_KERNEL_TOTAL_MEM;
-    if (Config::isDevKitConsole()) {
+    if (EmulatorSettings.IsDevKit()) {
         total_size = is_neo ? ORBIS_KERNEL_TOTAL_MEM_DEV_PRO : ORBIS_KERNEL_TOTAL_MEM_DEV;
     }
-    s32 extra_dmem = Config::getExtraDmemInMbytes();
-    if (Config::getExtraDmemInMbytes() != 0) {
+    s32 extra_dmem = EmulatorSettings.GetExtraDmemInMBytes();
+    if (extra_dmem != 0) {
         LOG_WARNING(Kernel_Vmm,
                     "extraDmemInMbytes is {} MB! Old Direct Size: {:#x} -> New Direct Size: {:#x}",
                     extra_dmem, total_size, total_size + extra_dmem * 1_MB);
@@ -89,22 +224,9 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
         total_size -= 128_MB;
     }
 
-    LOG_WARNING(Kernel_Vmm,
-                "[MemDiag] SetupMemoryRegions: flexible_size(param)={:#x} is_neo={} "
-                "use_extended_mem1={} use_extended_mem2={} total_size(before extra_dmem)={:#x} "
-                "old_direct_size={:#x}",
-                flexible_size, is_neo, use_extended_mem1, use_extended_mem2, total_size,
-                total_direct_size);
-
+    // Update stored totals
     total_flexible_size = flexible_size - ORBIS_KERNEL_FLEXIBLE_MEMORY_BASE;
-    if (extra_dmem != 0) {
-        LOG_WARNING(Kernel_Vmm,
-                    "extraDmemInMbytes is {} MB! Increasing flexible memory by the same amount",
-                    extra_dmem);
-        total_flexible_size += extra_dmem * 1_MB;
-    }
     ASSERT_MSG(total_flexible_size >= flexible_usage, "Unable to shrink flexible memory size");
-
     u64 old_direct_size = total_direct_size;
     total_direct_size = total_size - flexible_size;
 
@@ -115,34 +237,11 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
                "Unable to shrink dmem map");
     last_dmem_area->second.size -= (old_direct_size - total_direct_size);
 
-    flexible_virtual_base = impl.SystemReservedVirtualBase();
-    const u64 flexible_virtual_size =
-        std::min<u64>(total_flexible_size, impl.SystemReservedVirtualSize());
-    flexible_virtual_end = flexible_virtual_base + flexible_virtual_size;
-
-    {
-        std::scoped_lock lk{mutex};
-        RecalculateFlexibleMappedUsageLocked();
-    }
-
     LOG_INFO(Kernel_Vmm, "Configured memory regions: flexible size = {:#x}, direct size = {:#x}",
              total_flexible_size, total_direct_size);
-    if (Config::debugDump()) {
-        LOG_DEBUG(
-            Kernel_Vmm,
-            "Flexible accounting region: [{:#x}, {:#x}), total = {:#x}, used = {:#x}, free = {:#x}",
-            flexible_virtual_base, flexible_virtual_end, total_flexible_size, flexible_mapped_usage,
-            GetAvailableFlexibleSize());
-    }
 }
 
-u64 MemoryManager::ClampRangeSize(VAddr virtual_addr, u64 size) {
-    static constexpr u64 MinSizeToClamp = 1_GB;
-    // Dont bother with clamping if the size is small so we dont pay a map lookup on every buffer.
-    if (size < MinSizeToClamp) {
-        return size;
-    }
-
+u64 MemoryManager::ClampRangeSizeSlow(VAddr virtual_addr, u64 size) {
     std::shared_lock lk{mutex};
     ASSERT_MSG(IsValidMapping(virtual_addr), "Attempted to access invalid address {:#x}",
                virtual_addr);
@@ -181,28 +280,149 @@ void MemoryManager::SetPrtArea(u32 id, VAddr address, u64 size) {
     rasterizer->MapMemory(address, size);
 }
 
-void MemoryManager::CopySparseMemory(VAddr virtual_addr, u8* dest, u64 size) {
-    std::shared_lock lk{mutex};
-    ASSERT_MSG(IsValidMapping(virtual_addr), "Attempted to access invalid address {:#x}",
-               virtual_addr);
-
-    auto vma = FindVMA(virtual_addr);
-    while (size) {
-        u64 copy_size = std::min<u64>(vma->second.size - (virtual_addr - vma->first), size);
-        if (vma->second.IsMapped()) {
-            std::memcpy(dest, std::bit_cast<const u8*>(virtual_addr), copy_size);
-        } else {
-            std::memset(dest, 0, copy_size);
-        }
-        size -= copy_size;
-        virtual_addr += copy_size;
-        dest += copy_size;
-        ++vma;
-    }
+void MemoryManager::CopySparseMemory(VAddr source, u8* destination, u64 size) {
+    const SparseCopyRequest request{
+        .source = source,
+        .destination = destination,
+        .size = size,
+    };
+    CopySparseMemoryBatch(std::span<const SparseCopyRequest>{&request, 1}, size);
 }
 
-bool MemoryManager::TryWriteBacking(void* address, const void* data, u64 size) {
+bool MemoryManager::ResolveMappedSpan(VAddr source, u64 size, VAddr& span_begin,
+                                      VAddr& span_end) {
+    const auto upper = vma_map.upper_bound(source);
+    if (upper == vma_map.begin()) [[unlikely]] {
+        return false;
+    }
+    auto vma = std::prev(upper);
+    const auto& area = vma->second;
+    if (!area.IsMapped() || source < area.base || source - area.base >= area.size) {
+        return false;
+    }
+
+    span_begin = area.base;
+    span_end = area.base + area.size;
+    for (++vma; vma != vma_map.end() && vma->second.IsMapped() &&
+                vma->second.base == span_end;
+         ++vma) {
+        span_end += vma->second.size;
+    }
+    return size <= span_end - source;
+}
+
+SHAD_NO_INLINE bool MemoryManager::CopySparseMemoryCold(const SparseCopyRequest& request,
+                                                        bool allow_non_temporal,
+                                                        SparseCopyStats* stats) {
+    const bool valid_mapping = IsValidMapping(request.source, request.size);
+    if (!valid_mapping) [[unlikely]] {
+        ValidateSparseCopyMapping(valid_mapping, request.source);
+    }
+
+    bool used_non_temporal = false;
+    VAddr source = request.source;
+    u8* destination = request.destination;
+    u64 remaining = request.size;
+    auto vma = FindVMA(source);
+    while (remaining != 0) {
+        const u64 run_size =
+            std::min<u64>(vma->second.size - (source - vma->second.base), remaining);
+        bool run_non_temporal{};
+        if (vma->second.IsMapped()) {
+            run_non_temporal = CopyMappedBytes(std::bit_cast<const u8*>(source), destination,
+                                               run_size, allow_non_temporal);
+            if (stats != nullptr) {
+                ++stats->mapped_runs;
+                stats->mapped_bytes += run_size;
+            }
+        } else {
+            run_non_temporal = ZeroBytes(destination, run_size, allow_non_temporal);
+            if (stats != nullptr) {
+                ++stats->zero_runs;
+                stats->zero_bytes += run_size;
+            }
+        }
+        if (stats != nullptr && run_non_temporal) {
+            ++stats->non_temporal_runs;
+            stats->non_temporal_bytes += run_size;
+        }
+        used_non_temporal |= run_non_temporal;
+        remaining -= run_size;
+        source += run_size;
+        destination += run_size;
+        ++vma;
+    }
+    return used_non_temporal;
+}
+
+void MemoryManager::CopySparseMemoryBatch(std::span<const SparseCopyRequest> requests,
+                                          u64 total_size, bool allow_non_temporal) {
+    if (requests.empty()) {
+        return;
+    }
+
+    std::shared_lock lk{mutex};
+    bool used_non_temporal = false;
+    const bool use_non_temporal =
+        allow_non_temporal && total_size >= NonTemporalCopyThreshold;
+
+    auto& dense_cache = dense_copy_cache;
+    if (dense_cache.owner != this || dense_cache.generation != mapping_generation) {
+        dense_cache.Reset(this, mapping_generation);
+    }
+
+    for (const auto& request : requests) {
+        if (request.size == 0) {
+            continue;
+        }
+        if (request.destination == nullptr) [[unlikely]] {
+            ValidateSparseCopyDestination(request.destination);
+        }
+
+        // 0 = miss, 1 = hot span, 2 = secondary span, 3 = newly resolved dense span.
+        u8 dense_path{};
+        if (dense_cache.hot.Contains(request.source, request.size)) {
+            dense_path = 1;
+        } else {
+            for (auto& span : dense_cache.secondary) {
+                if (span.Contains(request.source, request.size)) {
+                    std::swap(span, dense_cache.hot);
+                    dense_path = 2;
+                    break;
+                }
+            }
+        }
+
+        if (dense_path == 0) {
+            DenseCopySpan span{};
+            if (ResolveMappedSpan(request.source, request.size, span.begin, span.end)) {
+                dense_cache.Insert(span);
+                dense_path = 3;
+            }
+        }
+
+        if (dense_path != 0) [[likely]] {
+            const bool copied_non_temporal =
+                CopyMappedBytes(std::bit_cast<const u8*>(request.source), request.destination,
+                                request.size, use_non_temporal);
+            used_non_temporal |= copied_non_temporal;
+            continue;
+        }
+
+        SparseCopyStats* const cold_stats_ptr = nullptr;
+        used_non_temporal |= CopySparseMemoryCold(request, use_non_temporal, cold_stats_ptr);
+    }
+
+    FinishNonTemporalCopies(used_non_temporal);
+}
+
+bool MemoryManager::TryWriteBacking(void* address, const void* data, u64 size,
+                                    MemoryWriteOrigin origin) {
     const VAddr virtual_addr = std::bit_cast<VAddr>(address);
+    const u64 write_size = size;
+    // Deferred staging copies of this range must read the old bytes. Wait before taking the
+    // mapping lock: copy workers need it in shared mode.
+    VideoCore::GuestCopyEngine::Instance().WaitForGuestWrite(virtual_addr, size);
     std::shared_lock lk{mutex};
     ASSERT_MSG(IsValidMapping(virtual_addr, size), "Attempted to access invalid address {:#x}",
                virtual_addr);
@@ -237,7 +457,58 @@ bool MemoryManager::TryWriteBacking(void* address, const void* data, u64 size) {
         }
     }
 
+    lk.unlock();
+    if (rasterizer != nullptr) {
+        const auto source = origin == MemoryWriteOrigin::GpuCompletion
+                                ? VideoCore::MemoryWriteSource::GpuCompletion
+                                : VideoCore::MemoryWriteSource::CommandProcessor;
+        rasterizer->NotifyMemoryWrite(virtual_addr, write_size, source);
+    }
+
     return true;
+}
+
+template <bool copy>
+bool MemoryManager::WalkBackingLocked(VAddr source, u8* destination, u64 size) {
+    while (size != 0) {
+        const auto upper = vma_map.upper_bound(source);
+        if (upper == vma_map.begin()) {
+            return false;
+        }
+        const auto& vma = std::prev(upper)->second;
+        if (!vma.Contains(source, 1) || !HasPhysicalBacking(vma)) {
+            return false;
+        }
+        const u64 offset_in_vma = source - vma.base;
+        const auto phys_upper = vma.phys_areas.upper_bound(offset_in_vma);
+        if (phys_upper == vma.phys_areas.begin()) {
+            return false;
+        }
+        const auto phys = std::prev(phys_upper);
+        const u64 offset_in_phys = offset_in_vma - phys->first;
+        if (offset_in_phys >= phys->second.size) {
+            return false;
+        }
+        const u64 run =
+            std::min<u64>({size, phys->second.size - offset_in_phys, vma.base + vma.size - source});
+        if constexpr (copy) {
+            std::memcpy(destination, impl.BackingBase() + phys->second.base + offset_in_phys, run);
+            destination += run;
+        }
+        source += run;
+        size -= run;
+    }
+    return true;
+}
+
+bool MemoryManager::IsBackedRange(VAddr source, u64 size) {
+    std::shared_lock lk{mutex};
+    return WalkBackingLocked<false>(source, nullptr, size);
+}
+
+bool MemoryManager::ReadBacking(VAddr source, u8* destination, u64 size) {
+    std::shared_lock lk{mutex};
+    return WalkBackingLocked<true>(source, destination, size);
 }
 
 PAddr MemoryManager::PoolExpand(PAddr search_start, PAddr search_end, u64 size, u64 alignment) {
@@ -498,6 +769,7 @@ s32 MemoryManager::PoolCommit(VAddr virtual_addr, u64 size, MemoryProt prot, s32
 
     // Merge this VMA with similar nearby areas
     MergeAdjacent(vma_map, new_vma_handle);
+    ++mapping_generation;
 
     lk2.unlock();
     if (IsValidGpuMapping(mapped_addr, size)) {
@@ -545,6 +817,7 @@ MemoryManager::VMAHandle MemoryManager::CreateArea(VAddr virtual_addr, u64 size,
     new_vma.name = name;
     new_vma.type = type;
     new_vma.phys_areas.clear();
+    ++mapping_generation;
     return new_vma_handle;
 }
 
@@ -624,7 +897,6 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
 
     // Acquire writer lock.
     std::unique_lock lk2{mutex};
-    const u64 flexible_before = GetFlexibleMappedBytesInRangeLocked(virtual_addr, size);
 
     // Create VMA representing this mapping.
     auto new_vma_handle = CreateArea(virtual_addr, size, prot, flags, type, name, alignment);
@@ -710,9 +982,6 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
         // Direct memory mappings only coalesce on SDK version 2.00 or later.
         MergeAdjacent(vma_map, new_vma_handle);
     }
-
-    const u64 flexible_after = GetFlexibleMappedBytesInRangeLocked(mapped_addr, size);
-    AdjustFlexibleMappedUsageLocked(flexible_before, flexible_after);
 
     *out_addr = std::bit_cast<void*>(mapped_addr);
     if (type != VMAType::Reserved && type != VMAType::PoolReserved) {
@@ -931,6 +1200,8 @@ s32 MemoryManager::PoolDecommit(VAddr virtual_addr, u64 size) {
         remaining_size -= size_in_vma;
     }
 
+    ++mapping_generation;
+
     // Unmap from address space
     impl.Unmap(virtual_addr, size);
     // Tracy memory tracking breaks from merging memory areas. Disabled for now.
@@ -961,13 +1232,7 @@ s32 MemoryManager::UnmapMemory(VAddr virtual_addr, u64 size) {
 
     // Acquire writer lock.
     std::scoped_lock lk2{mutex};
-    const u64 flexible_before = GetFlexibleMappedBytesInRangeLocked(virtual_addr, size);
-    const s32 result = UnmapMemoryImpl(virtual_addr, size);
-    if (result == ORBIS_OK) {
-        const u64 flexible_after = GetFlexibleMappedBytesInRangeLocked(virtual_addr, size);
-        AdjustFlexibleMappedUsageLocked(flexible_before, flexible_after);
-    }
-    return result;
+    return UnmapMemoryImpl(virtual_addr, size);
 }
 
 u64 MemoryManager::UnmapBytesFromEntry(VAddr virtual_addr, VirtualMemoryArea vma_base, u64 size) {
@@ -1029,6 +1294,7 @@ u64 MemoryManager::UnmapBytesFromEntry(VAddr virtual_addr, VirtualMemoryArea vma
     vma.disallow_merge = false;
     vma.name = "";
     MergeAdjacent(vma_map, new_it);
+    ++mapping_generation;
 
     if (vma_type != VMAType::Reserved && vma_type != VMAType::PoolReserved) {
         // Unmap the memory region.
@@ -1473,94 +1739,6 @@ void MemoryManager::InvalidateMemory(const VAddr addr, const u64 size) const {
     if (rasterizer) {
         rasterizer->InvalidateMemory(addr, size);
     }
-}
-
-void MemoryManager::RecalculateFlexibleUsageForDebug() {
-    std::scoped_lock lk{mutex};
-    RecalculateFlexibleMappedUsageLocked();
-}
-
-bool MemoryManager::IsFlexibleCountedVmaType(VMAType type) const {
-    return type == VMAType::Flexible || type == VMAType::Code;
-}
-
-bool MemoryManager::IsFlexibleCommittedVma(const VirtualMemoryArea& vma) const {
-    if (!vma.IsMapped()) {
-        return false;
-    }
-
-    const bool has_physical_tracking =
-        vma.type == VMAType::Direct || vma.type == VMAType::Flexible || vma.type == VMAType::Pooled;
-    if (has_physical_tracking) {
-        // Direct/flexible/pooled mappings should expose at least one physical sub-area when
-        // committed.
-        return !vma.phys_areas.empty();
-    }
-
-    // Non-phys-tracked mappings (code/stack/file) are committed through address-space map calls.
-    return vma.type == VMAType::Code || vma.type == VMAType::Stack || vma.type == VMAType::File;
-}
-
-u64 MemoryManager::GetFlexibleMappedBytesInRangeLocked(VAddr virtual_addr, u64 size) const {
-    if (!IsFlexibleRegionConfigured() || size == 0) {
-        return 0;
-    }
-
-    const VAddr aligned_start = Common::AlignDown(virtual_addr, 16_KB);
-    const u64 page_offset = virtual_addr - aligned_start;
-    if (size > std::numeric_limits<u64>::max() - page_offset) {
-        return 0;
-    }
-    const u64 aligned_size = Common::AlignUp(size + page_offset, 16_KB);
-    if (aligned_size == 0) {
-        return 0;
-    }
-
-    const VAddr aligned_end = aligned_start + aligned_size;
-    const VAddr range_start = std::max(aligned_start, flexible_virtual_base);
-    const VAddr range_end = std::min(aligned_end, flexible_virtual_end);
-    if (range_start >= range_end) {
-        return 0;
-    }
-
-    u64 mapped_bytes = 0;
-    auto it = vma_map.upper_bound(range_start);
-    if (it != vma_map.begin()) {
-        it = std::prev(it);
-    }
-    while (it != vma_map.end() && it->second.base < range_end) {
-        const auto& vma = it->second;
-        const VAddr vma_end = vma.base + vma.size;
-        const VAddr overlap_start = std::max(range_start, vma.base);
-        const VAddr overlap_end = std::min(range_end, vma_end);
-
-        if (overlap_start < overlap_end && IsFlexibleCountedVmaType(vma.type) &&
-            IsFlexibleCommittedVma(vma)) {
-            mapped_bytes += overlap_end - overlap_start;
-        }
-
-        ++it;
-    }
-    return mapped_bytes;
-}
-
-void MemoryManager::AdjustFlexibleMappedUsageLocked(u64 mapped_before, u64 mapped_after) {
-    if (mapped_after >= mapped_before) {
-        flexible_mapped_usage += mapped_after - mapped_before;
-    } else {
-        const u64 delta = mapped_before - mapped_after;
-        flexible_mapped_usage = delta > flexible_mapped_usage ? 0 : flexible_mapped_usage - delta;
-    }
-}
-
-void MemoryManager::RecalculateFlexibleMappedUsageLocked() {
-    if (!IsFlexibleRegionConfigured()) {
-        flexible_mapped_usage = 0;
-        return;
-    }
-
-    flexible_mapped_usage = GetFlexibleMappedBytesInRangeLocked(
-        flexible_virtual_base, flexible_virtual_end - flexible_virtual_base);
 }
 
 VAddr MemoryManager::SearchFree(VAddr virtual_addr, u64 size, u32 alignment) {

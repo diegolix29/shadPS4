@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "common/memory_patcher.h"
 #include "common/types.h"
 #include "shader_recompiler/ir/type.h"
 #include "video_core/amdgpu/resource.h"
@@ -30,6 +29,23 @@ enum class BufferType : u32 {
 
 struct Info;
 
+// The rejections of invalid sharps are out of line so that resolving a valid sharp, done for
+// every resource of every draw, does not carry the logging code.
+[[nodiscard]] SHAD_NO_INLINE inline AmdGpu::Buffer RejectBufferSharp() noexcept {
+    LOG_DEBUG(Render, "Encountered invalid buffer sharp");
+    return AmdGpu::Buffer::Null();
+}
+
+[[nodiscard]] SHAD_NO_INLINE inline AmdGpu::Image RejectImageSharp(bool is_depth) noexcept {
+    LOG_DEBUG(Render_Vulkan, "Encountered invalid image sharp");
+    return AmdGpu::Image::Null(is_depth);
+}
+
+[[nodiscard]] SHAD_NO_INLINE inline AmdGpu::Image RejectDepthImageSharp() noexcept {
+    LOG_DEBUG(Render_Vulkan, "Encountered non-depth image used with depth instruction!");
+    return AmdGpu::Image::Null(true);
+}
+
 struct BufferResource {
     u32 sharp_idx;
     IR::Type used_types;
@@ -44,32 +60,18 @@ struct BufferResource {
     }
 
     constexpr AmdGpu::Buffer GetSharp(const auto& info) const noexcept {
-        if (MemoryPatcher::IsSpecialCusa()) {
-            const auto buffer =
-                inline_cbuf ? inline_cbuf : info.template ReadUdSharp<AmdGpu::Buffer>(sharp_idx);
-
-            if (!buffer.Valid()) {
-                LOG_DEBUG(Render, "Encountered invalid buffer sharp");
-                return AmdGpu::Buffer::Null();
-            }
-            return buffer;
-        }
-
         AmdGpu::Buffer buffer{};
         if (inline_cbuf) {
             buffer = inline_cbuf;
-            if (inline_cbuf.base_address > 1) {
+            if (inline_cbuf.base_address != 1) {
                 buffer.base_address += info.pgm_base; // address fixup
             }
         } else {
             buffer = info.template ReadUdSharp<AmdGpu::Buffer>(sharp_idx);
         }
-
-        if (!buffer.Valid()) {
-            LOG_DEBUG(Render, "Encountered invalid buffer sharp");
-            return AmdGpu::Buffer::Null();
+        if (!buffer.Valid()) [[unlikely]] {
+            return RejectBufferSharp();
         }
-
         return buffer;
     }
 };
@@ -96,26 +98,26 @@ struct ImageResource {
             std::memcpy(&image, &raw, sizeof(raw));
             image.pitch = image.width;
         }
-        if (!image.Valid()) {
-            LOG_DEBUG(Render_Vulkan, "Encountered invalid image sharp");
-            image = AmdGpu::Image::Null(is_depth);
+        if (!image.Valid()) [[unlikely]] {
+            image = RejectImageSharp(is_depth);
         } else if (is_depth) {
             const auto data_fmt = image.GetDataFmt();
             if (data_fmt != AmdGpu::DataFormat::Format16 &&
-                data_fmt != AmdGpu::DataFormat::Format32) {
-                LOG_DEBUG(Render_Vulkan,
-                          "Encountered non-depth image used with depth instruction!");
-                image = AmdGpu::Image::Null(true);
+                data_fmt != AmdGpu::DataFormat::Format32) [[unlikely]] {
+                image = RejectDepthImageSharp();
             }
         }
         return image;
     }
 
-    u32 NumBindings(const auto& info) const {
-        const AmdGpu::Image tsharp = GetSharp(info);
+    u32 NumBindings(const AmdGpu::Image& tsharp) const {
         return (mip_fallback_mode == MipStorageFallbackMode::DynamicIndex)
                    ? (tsharp.last_level - tsharp.base_level + 1)
                    : 1;
+    }
+
+    u32 NumBindings(const auto& info) const {
+        return NumBindings(GetSharp(info));
     }
 };
 using ImageResourceList = boost::container::static_vector<ImageResource, NUM_IMAGES>;

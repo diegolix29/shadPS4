@@ -772,12 +772,23 @@ static auto surface_format_table = []() constexpr {
     return result;
 }();
 
+static SHAD_NO_INLINE vk::Format InvalidSurfaceFormat(AmdGpu::DataFormat data_format,
+                                                      AmdGpu::NumberFormat num_format) {
+    ASSERT_MSG(false, "Unknown data_format={} and num_format={}",
+               static_cast<u32>(data_format), static_cast<u32>(num_format));
+    return vk::Format::eUndefined;
+}
+
 vk::Format SurfaceFormat(AmdGpu::DataFormat data_format, AmdGpu::NumberFormat num_format) {
     vk::Format result = surface_format_table[GetSurfaceFormatTableIndex(data_format, num_format)];
-    bool found =
+    const bool found =
         result != vk::Format::eUndefined || data_format == AmdGpu::DataFormat::FormatInvalid;
-    ASSERT_MSG(found, "Unknown data_format={} and num_format={}", static_cast<u32>(data_format),
-               static_cast<u32>(num_format));
+    if (!found) [[unlikely]] {
+#if defined(__clang__)
+        [[clang::musttail]]
+#endif
+        return InvalidSurfaceFormat(data_format, num_format);
+    }
     return result;
 }
 
@@ -811,15 +822,34 @@ std::span<const DepthFormatInfo> DepthFormats() {
     return formats;
 }
 
+static SHAD_NO_INLINE vk::Format InvalidDepthFormat(DepthBuffer::ZFormat z_format,
+                                                    DepthBuffer::StencilFormat stencil_format) {
+    ASSERT_MSG(false, "Unknown z_format={} and stencil_format={}", static_cast<u32>(z_format),
+               static_cast<u32>(stencil_format));
+    return vk::Format::eUndefined;
+}
+
 vk::Format DepthFormat(DepthBuffer::ZFormat z_format, DepthBuffer::StencilFormat stencil_format) {
-    const auto& formats = DepthFormats();
-    const auto format =
-        std::find_if(formats.begin(), formats.end(), [&](const DepthFormatInfo& format_info) {
-            return format_info.z_format == z_format && format_info.stencil_format == stencil_format;
-        });
-    ASSERT_MSG(format != formats.end(), "Unknown z_format={} and stencil_format={}",
-               static_cast<u32>(z_format), static_cast<u32>(stencil_format));
-    return format->vk_format;
+    static constexpr std::array FormatTable{
+        vk::Format::eUndefined,
+        vk::Format::eD32SfloatS8Uint,
+        vk::Format::eD16Unorm,
+        vk::Format::eD16UnormS8Uint,
+        vk::Format::eUndefined,
+        vk::Format::eUndefined,
+        vk::Format::eD32Sfloat,
+        vk::Format::eD32SfloatS8Uint,
+    };
+    static constexpr u32 SupportedMask = 0b11001111;
+    const u32 index = (static_cast<u32>(z_format) << 1) | static_cast<u32>(stencil_format);
+    const bool found = index < FormatTable.size() && ((SupportedMask >> index) & 1U) != 0;
+    if (!found) [[unlikely]] {
+#if defined(__clang__)
+        [[clang::musttail]]
+#endif
+        return InvalidDepthFormat(z_format, stencil_format);
+    }
+    return FormatTable[index];
 }
 
 vk::ClearValue ColorBufferClearValue(const AmdGpu::ColorBuffer& color_buffer) {

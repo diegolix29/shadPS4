@@ -187,3 +187,7 @@
 [submodule "externals/abseil-cpp"]
 	path = externals/abseil-cpp
 	url = https://github.com/abseil/abseil-cpp.git
+[submodule "externals/imgui"]
+	path = externals/imgui
+	url = https://github.com/shadexternals/imgui.git
+	branch = docking

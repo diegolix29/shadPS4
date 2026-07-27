@@ -66,6 +66,13 @@ inline F32 ApplyReadNumberConversion(IREmitter& ir, const F32& value,
         const IR::F32 max = ir.Imm32(float(std::numeric_limits<u16>::max()));
         return ir.FPDiv(left, max);
     }
+    case AmdGpu::NumberConversion::Sint32ToSnormNz: {
+        const IR::F32 raw = ir.ConvertSToF(32, 32, ir.BitCast<U32>(value));
+        const IR::F32 left = ir.FPAdd(ir.FPMul(raw, ir.Imm32(2.f)), ir.Imm32(1.f));
+        const IR::F32 max =
+            ir.Imm32(static_cast<float>(std::numeric_limits<u32>::max()));
+        return ir.FPDiv(left, max);
+    }
     case AmdGpu::NumberConversion::Uint32ToUnorm: {
         const auto float_val = ir.ConvertUToF(32, 32, ir.BitCast<U32>(value));
         return ir.FPDiv(float_val, ir.Imm32(static_cast<float>(std::numeric_limits<u32>::max())));
@@ -117,6 +124,17 @@ inline F32 ApplyWriteNumberConversion(IREmitter& ir, const F32& value,
         const IR::F32 mul = ir.FPMul(ir.FPClamp(value, ir.Imm32(-1.f), ir.Imm32(1.f)), max);
         const IR::F32 left = ir.FPSub(mul, ir.Imm32(1.f));
         const IR::U32 raw = ir.ConvertFToS(32, ir.FPDiv(left, ir.Imm32(2.f)));
+        return ir.BitCast<F32>(raw);
+    }
+    case AmdGpu::NumberConversion::Sint32ToSnormNz: {
+        const IR::F32 clamped = ir.FPClamp(value, ir.Imm32(-1.f), ir.Imm32(1.f));
+        const IR::U1 upper = ir.FPGreaterThanEqual(clamped, ir.Imm32(1.f));
+        const IR::F32 scaled = ir.FPSub(
+            ir.FPMul(clamped, ir.Imm32(2147483648.f)), ir.Imm32(0.5f));
+        const IR::F32 safe = IR::F32{ir.Select(upper, ir.Imm32(0.f), scaled)};
+        const IR::U32 converted = ir.ConvertFToS(32, safe);
+        const IR::U32 raw{
+            ir.Select(upper, ir.Imm32(std::numeric_limits<s32>::max()), converted)};
         return ir.BitCast<F32>(raw);
     }
     case AmdGpu::NumberConversion::Uint32ToUnorm: {

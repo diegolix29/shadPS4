@@ -50,6 +50,10 @@ public:
                     vk::ShaderModule module, SerializationSupport& sdata, bool preloading);
     ~ComputePipeline();
 
+    const ComputePipelineKey& GetComputeKey() const noexcept {
+        return compute_key;
+    }
+
 private:
     ComputePipelineKey compute_key;
 };

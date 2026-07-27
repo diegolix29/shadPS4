@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/types.h"
+#include "video_core/renderer_vulkan/vk_command_recorder.h"
 #include "video_core/renderer_vulkan/vk_common.h"
 
 namespace Vulkan {
@@ -21,7 +22,7 @@ public:
 
     void Create(vk::Device device, vk::Format surface_format);
 
-    void Render(vk::CommandBuffer cmdbuf, vk::ImageView input, vk::Extent2D input_size,
+    void Render(const CommandRecorder& cmdbuf, vk::ImageView input, vk::Extent2D input_size,
                 Frame& output, Settings settings);
 
 private:

@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <mutex>
+
 #include "common/types.h"
 #include "video_core/renderer_vulkan/vk_common.h"
 
@@ -33,6 +35,10 @@ struct InitInfo {
     // (Optional) Allocation, Logging
     const vk::AllocationCallbacks* allocator{};
     void (*check_vk_result_fn)(vk::Result err);
+
+    // Queue of the submissions that draw the overlay, when it is not `queue`.
+    vk::Queue present_queue{};
+    std::mutex* present_queue_mutex{};
 };
 
 // Prepare all resources needed for uploading textures

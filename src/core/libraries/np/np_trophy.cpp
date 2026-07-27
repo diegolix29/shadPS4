@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <unordered_map>
+#include <fmt/format.h>
 #include <pugixml.hpp>
 
 #include "common/logging/log.h"

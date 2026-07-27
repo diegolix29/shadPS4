@@ -13,6 +13,7 @@ struct EffectiveDepthStencilState {
     bool depth_write_enable{};
     bool depth_bounds_enable{};
     bool stencil_test_enable{};
+    bool stencil_write_enable{};
 };
 
 [[nodiscard]] constexpr EffectiveDepthStencilState GetEffectiveDepthStencilState(
@@ -75,6 +76,7 @@ struct EffectiveDepthStencilState {
         .depth_write_enable = needs_attachment && depth_write,
         .depth_bounds_enable = needs_attachment && depth_bounds,
         .stencil_test_enable = needs_attachment && stencil_has_effect,
+        .stencil_write_enable = needs_attachment && stencil_can_write,
     };
 }
 

@@ -252,7 +252,14 @@ void UploadTextureData::Destroy() {
     VkData* bd = GetBackendData();
     const InitInfo& v = bd->init_info;
 
-    CheckVkErr(v.device.waitIdle());
+    // Texture resources are consumed only by the submissions that draw the overlay. The caller
+    // serializes this operation with the graphics queue; a separate presentation queue is locked
+    // here, never while it holds the graphics queue's lock.
+    CheckVkErr(v.queue.waitIdle());
+    if (v.present_queue && v.present_queue != v.queue) {
+        std::scoped_lock present_lock{*v.present_queue_mutex};
+        CheckVkErr(v.present_queue.waitIdle());
+    }
     RemoveTexture(im_texture);
     im_texture = nullptr;
 

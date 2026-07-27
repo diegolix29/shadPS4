@@ -3,7 +3,12 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cstring>
+#include <immintrin.h>
+#include <ranges>
 #include <span>
+#include <type_traits>
 #include "common/types.h"
 #include "shader_recompiler/frontend/tessellation.h"
 #include "video_core/amdgpu/pixel_format.h"
@@ -149,9 +154,9 @@ struct GeometryRuntimeInfo {
     u64 vs_copy_hash;
 
     bool operator==(const GeometryRuntimeInfo& other) const {
-        return num_outputs == other.num_outputs && outputs == other.outputs && num_invocations &&
-               other.num_invocations && output_vertices == other.output_vertices &&
-               in_primitive == other.in_primitive &&
+        return num_outputs == other.num_outputs && outputs == other.outputs &&
+               num_invocations == other.num_invocations &&
+               output_vertices == other.output_vertices && in_primitive == other.in_primitive &&
                std::ranges::equal(out_primitive, other.out_primitive) &&
                vs_copy_hash == other.vs_copy_hash;
     }
@@ -168,12 +173,14 @@ static constexpr u32 MaxColorBuffers = 8;
 struct PsColorBuffer {
     AmdGpu::DataFormat data_format : 6;
     AmdGpu::NumberFormat num_format : 4;
-    AmdGpu::NumberConversion num_conversion : 3;
+    AmdGpu::NumberConversion num_conversion : 4;
     AmdGpu::ShaderExportFormat export_format : 4;
     AmdGpu::CompMapping swizzle;
 
     bool operator==(const PsColorBuffer& other) const = default;
 };
+static_assert(sizeof(PsColorBuffer) == sizeof(u64));
+static_assert(std::is_trivially_copyable_v<PsColorBuffer>);
 
 struct FragmentRuntimeInfo {
     struct PsInput {
@@ -188,6 +195,8 @@ struct FragmentRuntimeInfo {
 
         bool operator==(const PsInput&) const noexcept = default;
     };
+    static_assert(sizeof(PsInput) == sizeof(u32));
+    static_assert(std::is_trivially_copyable_v<PsInput>);
     AmdGpu::PsInput en_flags;
     AmdGpu::PsInput addr_flags;
     u32 num_inputs;
@@ -199,13 +208,59 @@ struct FragmentRuntimeInfo {
     bool clip_distance_emulation{false};
 
     bool operator==(const FragmentRuntimeInfo& other) const noexcept {
-        return std::ranges::equal(color_buffers, other.color_buffers) &&
-               en_flags == other.en_flags && addr_flags == other.addr_flags &&
-               num_inputs == other.num_inputs && z_export_format == other.z_export_format &&
-               mrtz_mask == other.mrtz_mask && dual_source_blending == other.dual_source_blending &&
-               clip_distance_emulation == other.clip_distance_emulation &&
-               std::ranges::equal(inputs.begin(), inputs.begin() + num_inputs, other.inputs.begin(),
-                                  other.inputs.begin() + num_inputs);
+        u64 lhs_interp_flags;
+        u64 rhs_interp_flags;
+        std::memcpy(&lhs_interp_flags, &en_flags, sizeof(lhs_interp_flags));
+        std::memcpy(&rhs_interp_flags, &other.en_flags, sizeof(rhs_interp_flags));
+        constexpr u64 InterpFlagsMask = 0x0000ffff0000ffffULL;
+
+        u64 lhs_export_state;
+        u64 rhs_export_state;
+        std::memcpy(&lhs_export_state, &z_export_format, sizeof(lhs_export_state));
+        std::memcpy(&rhs_export_state, &other.z_export_format, sizeof(rhs_export_state));
+        if (((lhs_interp_flags ^ rhs_interp_flags) & InterpFlagsMask) != 0 ||
+            num_inputs != other.num_inputs || lhs_export_state != rhs_export_state) {
+            return false;
+        }
+
+        const auto* lhs_colors = reinterpret_cast<const __m256i*>(color_buffers.data());
+        const auto* rhs_colors = reinterpret_cast<const __m256i*>(other.color_buffers.data());
+        __m256i difference =
+            _mm256_xor_si256(_mm256_loadu_si256(lhs_colors), _mm256_loadu_si256(rhs_colors));
+        difference = _mm256_or_si256(
+            difference,
+            _mm256_xor_si256(_mm256_loadu_si256(lhs_colors + 1),
+                             _mm256_loadu_si256(rhs_colors + 1)));
+
+        if (num_inputs != 0) {
+            const auto* lhs_inputs = reinterpret_cast<const __m256i*>(inputs.data());
+            const auto* rhs_inputs = reinterpret_cast<const __m256i*>(other.inputs.data());
+            difference = _mm256_or_si256(
+                difference,
+                _mm256_xor_si256(_mm256_loadu_si256(lhs_inputs),
+                                 _mm256_loadu_si256(rhs_inputs)));
+            // Initialize() canonicalizes inactive slots, so the final partial group is safe to
+            // compare as a complete AVX2 block. Gnm limits the table to 32 dwords.
+            if (num_inputs > 8) {
+                difference = _mm256_or_si256(
+                    difference,
+                    _mm256_xor_si256(_mm256_loadu_si256(lhs_inputs + 1),
+                                     _mm256_loadu_si256(rhs_inputs + 1)));
+            }
+            if (num_inputs > 16) {
+                difference = _mm256_or_si256(
+                    difference,
+                    _mm256_xor_si256(_mm256_loadu_si256(lhs_inputs + 2),
+                                     _mm256_loadu_si256(rhs_inputs + 2)));
+            }
+            if (num_inputs > 24) {
+                difference = _mm256_or_si256(
+                    difference,
+                    _mm256_xor_si256(_mm256_loadu_si256(lhs_inputs + 3),
+                                     _mm256_loadu_si256(rhs_inputs + 3)));
+            }
+        }
+        return _mm256_testz_si256(difference, difference) != 0;
     }
 };
 
@@ -253,11 +308,20 @@ struct RuntimeInfo {
     }
 
     bool operator==(const RuntimeInfo& other) const noexcept {
+        // Compute modules cached before their FP modes were read have them all zeroed.
+        if (fp_denorm_mode32 != other.fp_denorm_mode32 ||
+            fp_denorm_mode16_64 != other.fp_denorm_mode16_64 ||
+            fp_round_mode32 != other.fp_round_mode32 ||
+            fp_round_mode16_64 != other.fp_round_mode16_64) {
+            return false;
+        }
         switch (stage) {
         case Stage::Fragment:
             return fs_info == other.fs_info;
         case Stage::Vertex:
-            return vs_info == other.vs_info;
+            // Initialize() canonicalizes the complete representation, including padding.
+            static_assert(std::is_trivially_copyable_v<VertexRuntimeInfo>);
+            return std::memcmp(&vs_info, &other.vs_info, sizeof(vs_info)) == 0;
         case Stage::Compute:
             return cs_info == other.cs_info;
         case Stage::Export:

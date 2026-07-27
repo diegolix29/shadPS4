@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <bit>
 #include <string_view>
 #include <fmt/format.h>
 #include "common/assert.h"
@@ -106,6 +107,7 @@ enum class NumberConversion : u32 {
     Sint16ToSnormNz = 5,
     Uint32ToUnorm = 6,
     SrgbToNorm = 7,
+    Sint32ToSnormNz = 8,
 };
 
 union CompMapping {
@@ -118,7 +120,7 @@ union CompMapping {
     std::array<CompSwizzle, 4> array;
 
     bool operator==(const CompMapping& other) const {
-        return array == other.array;
+        return std::bit_cast<u32>(array) == std::bit_cast<u32>(other.array);
     }
 
     template <typename T>
@@ -355,6 +357,11 @@ constexpr NumberConversion MapNumberConversion(const NumberFormat num_fmt,
         case DataFormat::Format16_16:
         case DataFormat::Format16_16_16_16:
             return NumberConversion::Sint16ToSnormNz;
+        case DataFormat::Format32:
+        case DataFormat::Format32_32:
+        case DataFormat::Format32_32_32:
+        case DataFormat::Format32_32_32_32:
+            return NumberConversion::Sint32ToSnormNz;
         default:
             return NumberConversion::None;
         }

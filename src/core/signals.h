@@ -46,6 +46,12 @@ public:
     /// Dispatches an illegal instruction signal, returning whether it was successfully handled.
     bool DispatchIllegalInstruction(void* context) const;
 
+    /// Requests a single-step trap flag execution to rearm page protection after 1 instruction.
+    void RequestSingleStepRearm(void* context, VAddr page_addr, u64 size);
+
+    /// Handles a single-step trap exception, re-protecting temporarily unprotected pages.
+    bool HandleSingleStepException(void* context);
+
 private:
     template <typename T>
     struct HandlerEntry {

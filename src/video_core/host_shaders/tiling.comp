@@ -6,6 +6,7 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_shader_explicit_arithmetic_types : require
+#extension GL_EXT_samplerless_texture_functions : require
 
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -21,6 +22,8 @@ layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 // #define NUM_BANK_BITS
 // #define TILE_SPLIT_BYTES
 // #define MACRO_TILE_ASPECT
+// #define TILE_FROM_IMAGE: the tiler reads the image through a uint view of its texels, rather
+// than a linear copy of it.
 
 #define BYTES_PER_PIXEL (BITS_PER_PIXEL / 8)
 
@@ -96,15 +99,37 @@ layout (set = 0, binding = 0, scalar) buffer InputBuf {
     BLOCK_TYPE tiled_data[];
 };
 
+#ifdef TILE_FROM_IMAGE
+layout (set = 0, binding = 1) uniform utexture2DArray source_image;
+
+#if BITS_PER_PIXEL == 8
+#define TEXEL_TO_BLOCK(v) uint8_t((v).x)
+#elif BITS_PER_PIXEL == 16
+#define TEXEL_TO_BLOCK(v) uint16_t((v).x)
+#elif BITS_PER_PIXEL == 32
+#define TEXEL_TO_BLOCK(v) (v).x
+#elif BITS_PER_PIXEL == 64
+#define TEXEL_TO_BLOCK(v) (v).xy
+#else
+#define TEXEL_TO_BLOCK(v) (v)
+#endif
+#else
 layout (set = 0, binding = 1, scalar) buffer OutputBuf {
     BLOCK_TYPE linear_data[];
 };
+#endif
 
 layout (set = 0, binding = 2, scalar) uniform TilingInfo {
     uint bank_swizzle;
     uint num_slices;
     uint num_mips;
     MipInfo mips[16];
+    // Extent of mip 0, for the reads from the image.
+    uint image_width;
+    uint image_height;
+    // Tiled bytes the tiler writes, from the start of the image.
+    uint range_begin;
+    uint range_end;
 } info;
 
 uint32_t ComputePixelIndexWithinMicroTile(uint32_t x, uint32_t y, uint32_t z) {
@@ -426,9 +451,26 @@ void main() {
     uint pitch = info.mips[mip].pitch;
     uint height = info.mips[mip].height;
     uint tiled_offset = info.mips[mip].offset;
-    uint x = texel % pitch;
-    uint y = (texel / pitch) % height;
-    uint slice = texel / (pitch * height);
+    uint x;
+    uint y;
+    uint slice;
+    uint linear_texel = gl_GlobalInvocationID.x;
+    if ((pitch & 7u) == 0u && (height & 7u) == 0u) {
+        // Each 64 threads take an 8x8 block, so a wave touches whole micro tiles on the tiled
+        // side instead of a few bytes of many.
+        uint block = texel / 64u;
+        uint blocks_x = pitch / 8u;
+        uint blocks_y = height / 8u;
+        uint rest = block / blocks_x;
+        x = (block % blocks_x) * 8u + (texel & 7u);
+        y = (rest % blocks_y) * 8u + ((texel / 8u) & 7u);
+        slice = rest / blocks_y;
+        linear_texel = gl_GlobalInvocationID.x - texel + (slice * height + y) * pitch + x;
+    } else {
+        x = texel % pitch;
+        y = (texel / pitch) % height;
+        slice = texel / (pitch * height);
+    }
 
 #if ARRAY_MODE == ARRAY_1D_TILED_THIN1 || ARRAY_MODE == ARRAY_1D_TILED_THICK
     tiled_offset += ComputeSurfaceAddrFromCoordMicroTiled(x, y, slice, pitch, height, 0);
@@ -437,8 +479,20 @@ void main() {
 #endif
 
 #ifdef IS_TILER
-    tiled_data[tiled_offset / BYTES_PER_PIXEL] = linear_data[gl_GlobalInvocationID.x];
+    if (tiled_offset + BYTES_PER_PIXEL <= info.range_begin || tiled_offset >= info.range_end) {
+        return;
+    }
+#ifdef TILE_FROM_IMAGE
+    // The padding past the extent has no texels; its bytes keep what the buffer holds.
+    if (x >= max(info.image_width >> mip, 1u) || y >= max(info.image_height >> mip, 1u)) {
+        return;
+    }
+    uvec4 value = texelFetch(source_image, ivec3(x, y, slice), int(mip));
+    tiled_data[tiled_offset / BYTES_PER_PIXEL] = TEXEL_TO_BLOCK(value);
 #else
-    linear_data[gl_GlobalInvocationID.x] = tiled_data[tiled_offset / BYTES_PER_PIXEL];
+    tiled_data[tiled_offset / BYTES_PER_PIXEL] = linear_data[linear_texel];
+#endif
+#else
+    linear_data[linear_texel] = tiled_data[tiled_offset / BYTES_PER_PIXEL];
 #endif
 }

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <string_view>
 #include <fmt/format.h>
 
 #include "common/assert.h"
@@ -24,6 +25,9 @@ vk::SurfaceKHR CreateSurface(vk::Instance instance, const Frontend::WindowSDL& e
 
 vk::UniqueInstance CreateInstance(Frontend::WindowSystemType window_type, bool enable_validation,
                                   bool enable_crash_diagnostic);
+
+/// Whether CreateInstance enabled the extension for an instance with a window of this type.
+bool IsInstanceExtensionEnabled(Frontend::WindowSystemType window_type, std::string_view extension);
 
 vk::UniqueDebugUtilsMessengerEXT CreateDebugCallback(vk::Instance instance);
 

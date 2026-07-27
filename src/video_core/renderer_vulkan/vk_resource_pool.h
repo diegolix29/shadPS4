@@ -4,6 +4,7 @@
 #pragma once
 
 #include <deque>
+#include <optional>
 #include <vector>
 #include <boost/container/static_vector.hpp>
 #include <tsl/robin_map.h>
@@ -33,7 +34,8 @@ public:
     ResourcePool(const ResourcePool&) = default;
 
 protected:
-    std::size_t CommitResource();
+    /// Returns a resource the GPU is done with and marks it busy until tick completes.
+    std::size_t CommitResource(u64 tick);
 
     /// Called when a chunk of resources have to be allocated.
     virtual void Allocate(std::size_t begin, std::size_t end) = 0;
@@ -51,12 +53,16 @@ protected:
 
 class CommandPool final : public ResourcePool {
 public:
-    explicit CommandPool(const Instance& instance, MasterSemaphore* master_semaphore);
+    /// Command buffers of queue_family_index, the graphics family when not given. Buffers are
+    /// recycled by the ticks of master_semaphore.
+    explicit CommandPool(const Instance& instance, MasterSemaphore* master_semaphore,
+                         std::optional<u32> queue_family_index = {});
     ~CommandPool() override;
 
     void Allocate(std::size_t begin, std::size_t end) override;
 
-    vk::CommandBuffer Commit();
+    /// Returns a command buffer for the command buffer submitted as tick.
+    vk::CommandBuffer Commit(u64 tick);
 
 private:
     const Instance& instance;

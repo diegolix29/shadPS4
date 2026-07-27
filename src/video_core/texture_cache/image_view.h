@@ -37,6 +37,23 @@ struct ImageViewInfo {
     u32 min_lod = 0;
     bool is_storage = false;
 
+    bool operator==(const ImageViewInfo& other) const noexcept {
+        const auto pack = [](const auto low, const auto high) noexcept {
+            return static_cast<u64>(static_cast<u32>(low)) |
+                   (static_cast<u64>(static_cast<u32>(high)) << 32);
+        };
+        const u64 different =
+            (pack(type, format) ^ pack(other.type, other.format)) |
+            (pack(range.base.level, range.base.layer) ^
+             pack(other.range.base.level, other.range.base.layer)) |
+            (pack(range.extent.levels, range.extent.layers) ^
+             pack(other.range.extent.levels, other.range.extent.layers)) |
+            (pack(mapping.r, mapping.g) ^ pack(other.mapping.r, other.mapping.g)) |
+            (pack(mapping.b, mapping.a) ^ pack(other.mapping.b, other.mapping.a)) |
+            (pack(min_lod, is_storage) ^ pack(other.min_lod, other.is_storage));
+        return different == 0;
+    }
+
     auto operator<=>(const ImageViewInfo&) const = default;
 };
 

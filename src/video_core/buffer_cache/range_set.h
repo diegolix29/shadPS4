@@ -48,6 +48,11 @@ struct RangeSet {
     bool Contains(VAddr base_address, size_t size) const {
         const VAddr end_address = base_address + size;
         IntervalType interval{base_address, end_address};
+        if (m_ranges_set.empty()) {
+            // What boost::icl::contains answers without searching: only an empty interval is
+            // contained in an empty set.
+            return boost::icl::is_empty(interval);
+        }
         return boost::icl::contains(m_ranges_set, interval);
     }
 

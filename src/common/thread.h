@@ -5,12 +5,35 @@
 
 #pragma once
 
+#include <algorithm>
 #include <chrono>
-#include <memory>
+#include <string>
+#include <string_view>
 
 #include "common/types.h"
 
 namespace Common {
+
+enum class MissedTickPolicy : u32 {
+    CatchUp,
+    SkipMissed,
+};
+
+namespace Detail {
+
+[[nodiscard]] constexpr std::chrono::nanoseconds NormalizePeriodicWait(
+    std::chrono::nanoseconds wait, const std::chrono::nanoseconds interval,
+    const std::chrono::nanoseconds max_timing_debt, const MissedTickPolicy policy) {
+    if (policy == MissedTickPolicy::CatchUp) {
+        return std::clamp(wait, -max_timing_debt, interval);
+    }
+
+    // A periodic notification is an edge, not replayable work. Once its deadline is missed,
+    // schedule a fresh full interval instead of preserving phase with a shortened catch-up wait.
+    return wait <= std::chrono::nanoseconds::zero() ? interval : std::min(wait, interval);
+}
+
+} // namespace Detail
 
 enum class ThreadPriority : u32 {
     Low = 0,
@@ -19,53 +42,40 @@ enum class ThreadPriority : u32 {
     VeryHigh = 3,
     Critical = 4,
 };
-enum class CpuCoreMode : u32 {
-    All = 0,
-    Efficient = 1,
-    Custom = 2,
-};
-
-class InterruptibleTimer {
-public:
-    InterruptibleTimer();
-    ~InterruptibleTimer();
-
-    InterruptibleTimer(const InterruptibleTimer&) = delete;
-    InterruptibleTimer& operator=(const InterruptibleTimer&) = delete;
-
-    void WaitUntil(std::chrono::steady_clock::time_point deadline);
-    void Notify();
-
-private:
-    struct Impl;
-    std::unique_ptr<Impl> impl;
-};
 
 void SetCurrentThreadRealtime(std::chrono::nanoseconds period_ns);
 
 void SetCurrentThreadPriority(ThreadPriority new_priority);
-void SetThreadPriority(void* thread_handle, ThreadPriority new_priority);
 
 void SetCurrentThreadName(const char* name);
 
 void SetThreadName(void* thread, const char* name);
-void SetThreadAffinity(const std::vector<u32>& core_ids);
 
 bool AccurateSleep(std::chrono::nanoseconds duration, std::chrono::nanoseconds* remaining,
                    bool interruptible);
 
 class AccurateTimer {
     std::chrono::nanoseconds target_interval{};
+    std::chrono::nanoseconds max_timing_debt{};
     std::chrono::nanoseconds total_wait{};
+    MissedTickPolicy missed_tick_policy{};
 
-    std::chrono::high_resolution_clock::time_point start_time;
+    std::chrono::steady_clock::time_point start_time;
 
 public:
-    explicit AccurateTimer(std::chrono::nanoseconds target_interval);
+    explicit AccurateTimer(std::chrono::nanoseconds target_interval, u32 max_catch_up_intervals = 2,
+                           MissedTickPolicy missed_tick_policy = MissedTickPolicy::CatchUp);
 
     void Start();
 
     void End();
+
+    /// Applies a bounded correction to the next wake-up. This is intended for clock
+    /// discipline; it never changes the nominal interval.
+    void Adjust(std::chrono::nanoseconds correction);
+
+    /// Drops accumulated timing debt after an external clock discontinuity.
+    void Reset();
 
     std::chrono::nanoseconds GetTotalWait() const {
         return total_wait;
@@ -73,5 +83,6 @@ public:
 };
 
 std::string GetCurrentThreadName();
+std::string_view GetCurrentThreadNameView();
 
 } // namespace Common

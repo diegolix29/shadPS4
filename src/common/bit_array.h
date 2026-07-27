@@ -207,6 +207,45 @@ public:
         return !None();
     }
 
+    [[nodiscard]] inline bool AnyInRange(size_t start, size_t end) const noexcept {
+        if (start >= end || end > N) {
+            return false;
+        }
+
+        const size_t first_word = start / BITS_PER_WORD;
+        const size_t last_word = (end - 1) / BITS_PER_WORD;
+        const size_t start_bit = start % BITS_PER_WORD;
+        const size_t end_bit = (end - 1) % BITS_PER_WORD;
+        const u64 start_mask = ~0ULL << start_bit;
+        const u64 end_mask = end_bit == BITS_PER_WORD - 1 ? ~0ULL : (1ULL << (end_bit + 1)) - 1;
+
+        if (first_word == last_word) {
+            return (data[first_word] & start_mask & end_mask) != 0;
+        }
+
+        if ((data[first_word] & start_mask) != 0) {
+            return true;
+        }
+
+        size_t word = first_word + 1;
+#ifdef BIT_ARRAY_USE_AVX
+        for (; word + WORDS_PER_AVX <= last_word; word += WORDS_PER_AVX) {
+            const __m256i current =
+                _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&data[word]));
+            if (!_mm256_testz_si256(current, current)) {
+                return true;
+            }
+        }
+#endif
+        for (; word < last_word; ++word) {
+            if (data[word] != 0) {
+                return true;
+            }
+        }
+
+        return (data[last_word] & end_mask) != 0;
+    }
+
     Range FirstRangeFrom(size_t start) const {
         if (start >= N) {
             return {N, N};

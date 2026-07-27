@@ -6,7 +6,9 @@
 #include <mutex>
 #include <SDL3/SDL_init.h>
 #include <cmrc/cmrc.hpp>
+#include <fmt/format.h>
 #include <imgui.h>
+#include <imgui/imgui_std.h>
 #include <queue>
 
 #ifdef ENABLE_QT_GUI
@@ -21,7 +23,6 @@
 #include "common/config.h"
 #include "common/path_util.h"
 #include "core/libraries/np/trophy_ui.h"
-#include "imgui/imgui_std.h"
 
 CMRC_DECLARE(res);
 namespace fs = std::filesystem;

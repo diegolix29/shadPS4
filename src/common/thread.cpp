@@ -2,13 +2,13 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-#include <algorithm>
-#include <array>
-#include <condition_variable>
+
 #include <ctime>
-#include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
+#include <fmt/format.h>
+
 #include "core/libraries/kernel/threads/pthread.h"
 
 #include "common/error.h"
@@ -29,6 +29,8 @@
 #include <pthread.h>
 #endif
 #include <sched.h>
+#endif
+#ifndef _WIN32
 #include <unistd.h>
 #endif
 
@@ -38,88 +40,8 @@
 
 namespace Common {
 
-struct InterruptibleTimer::Impl {
-#ifdef _WIN32
-    HANDLE timer{};
-    HANDLE interrupt{};
-#else
-    std::mutex mutex;
-    std::condition_variable cv;
-    bool interrupted{};
-#endif
-};
-
-InterruptibleTimer::InterruptibleTimer() : impl{std::make_unique<Impl>()} {
-#ifdef _WIN32
-    impl->timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
-                                         TIMER_ALL_ACCESS);
-    if (impl->timer == nullptr) {
-        impl->timer = CreateWaitableTimerW(nullptr, TRUE, nullptr);
-    }
-    impl->interrupt = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-#endif
-}
-
-InterruptibleTimer::~InterruptibleTimer() {
-#ifdef _WIN32
-    if (impl->timer != nullptr) {
-        CloseHandle(impl->timer);
-    }
-    if (impl->interrupt != nullptr) {
-        CloseHandle(impl->interrupt);
-    }
-#endif
-}
-
-void InterruptibleTimer::WaitUntil(std::chrono::steady_clock::time_point deadline) {
-    const auto now = std::chrono::steady_clock::now();
-    if (deadline <= now) {
-        return;
-    }
-#ifdef _WIN32
-    if (impl->timer == nullptr || impl->interrupt == nullptr) {
-        std::this_thread::sleep_until(deadline);
-        return;
-    }
-    const auto remaining =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(deadline - now).count();
-    LARGE_INTEGER interval{.QuadPart = -std::max<s64>(1, remaining / 100)};
-    if (!SetWaitableTimer(impl->timer, &interval, 0, nullptr, nullptr, FALSE)) {
-        std::this_thread::sleep_until(deadline);
-        return;
-    }
-    const std::array handles{impl->timer, impl->interrupt};
-    const DWORD result =
-        WaitForMultipleObjects(static_cast<DWORD>(handles.size()), handles.data(), FALSE, INFINITE);
-    if (result == WAIT_FAILED) {
-        std::this_thread::sleep_until(deadline);
-        return;
-    }
-#else
-    std::unique_lock lock{impl->mutex};
-    if (impl->interrupted) {
-        impl->interrupted = false;
-        return;
-    }
-    if (impl->cv.wait_until(lock, deadline, [&] { return impl->interrupted; })) {
-        impl->interrupted = false;
-        return;
-    }
-#endif
-}
-
-void InterruptibleTimer::Notify() {
-#ifdef _WIN32
-    if (impl->interrupt != nullptr) {
-        SetEvent(impl->interrupt);
-    }
-#else
-    {
-        std::scoped_lock lock{impl->mutex};
-        impl->interrupted = true;
-    }
-    impl->cv.notify_one();
-#endif
+namespace {
+thread_local std::string current_thread_name;
 }
 
 #ifdef __APPLE__
@@ -167,6 +89,7 @@ void SetCurrentThreadRealtime(const std::chrono::nanoseconds period_ns) {
 #ifdef _WIN32
 
 void SetCurrentThreadPriority(ThreadPriority new_priority) {
+    auto handle = GetCurrentThread();
     int windows_priority = 0;
     switch (new_priority) {
     case ThreadPriority::Low:
@@ -188,20 +111,29 @@ void SetCurrentThreadPriority(ThreadPriority new_priority) {
         windows_priority = THREAD_PRIORITY_NORMAL;
         break;
     }
-    ::SetThreadPriority(GetCurrentThread(), windows_priority);
+    SetThreadPriority(handle, windows_priority);
 }
 
 bool AccurateSleep(const std::chrono::nanoseconds duration, std::chrono::nanoseconds* remaining,
                    const bool interruptible) {
-    const auto begin_sleep = std::chrono::high_resolution_clock::now();
+    const auto begin_sleep = std::chrono::steady_clock::now();
 
     LARGE_INTEGER interval{
         .QuadPart = -1 * (duration.count() / 100u),
     };
-    HANDLE timer = ::CreateWaitableTimer(NULL, TRUE, NULL);
-    SetWaitableTimer(timer, &interval, 0, NULL, NULL, 0);
-    const auto ret = WaitForSingleObjectEx(timer, INFINITE, interruptible);
-    ::CloseHandle(timer);
+    HANDLE timer = ::CreateWaitableTimerExW(
+        nullptr, nullptr,
+        CREATE_WAITABLE_TIMER_MANUAL_RESET | CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
+        TIMER_ALL_ACCESS);
+    if (!timer) {
+        timer = ::CreateWaitableTimerW(nullptr, TRUE, nullptr);
+    }
+    const DWORD ret = timer && ::SetWaitableTimer(timer, &interval, 0, nullptr, nullptr, FALSE)
+                          ? ::WaitForSingleObjectEx(timer, INFINITE, interruptible)
+                          : WAIT_FAILED;
+    if (timer) {
+        ::CloseHandle(timer);
+    }
 
     if (remaining) {
         const auto end_sleep = std::chrono::high_resolution_clock::now();
@@ -213,56 +145,22 @@ bool AccurateSleep(const std::chrono::nanoseconds duration, std::chrono::nanosec
 
 #else
 
-static void ApplyPosixThreadPriority(pthread_t thread, ThreadPriority priority) {
-#ifdef __linux__
-    int sched_policy = SCHED_OTHER;
-    sched_param param{};
-    param.sched_priority = 0;
-
-    switch (priority) {
-    case ThreadPriority::Low:
-        param.sched_priority = -5;
-        break;
-    case ThreadPriority::Normal:
-        param.sched_priority = 0;
-        break;
-    case ThreadPriority::High:
-        param.sched_priority = 5;
-        break;
-    case ThreadPriority::VeryHigh:
-        param.sched_priority = 10;
-        break;
-    case ThreadPriority::Critical:
-        sched_policy = SCHED_RR;
-        param.sched_priority = sched_get_priority_max(SCHED_RR);
-        break;
-    default:
-        param.sched_priority = 0;
-        break;
-    }
-
-    pthread_setschedparam(thread, sched_policy, &param);
-#elif defined(__APPLE__)
-    // macOS uses different thread priority mechanisms
-    // For now, we'll skip implementation on macOS
-    (void)thread;
-    (void)priority;
-#else
-    // Other POSIX systems - generic implementation
-    (void)thread;
-    (void)priority;
-#endif
-}
-
 void SetCurrentThreadPriority(ThreadPriority new_priority) {
-    ApplyPosixThreadPriority(pthread_self(), new_priority);
-}
+    pthread_t this_thread = pthread_self();
 
-void SetThreadPriority(void* thread_handle, ThreadPriority new_priority) {
-    if (!thread_handle) {
-        return;
+    const auto scheduling_type = SCHED_OTHER;
+    s32 max_prio = sched_get_priority_max(scheduling_type);
+    s32 min_prio = sched_get_priority_min(scheduling_type);
+    u32 level = std::max(static_cast<u32>(new_priority) + 1, 4U);
+
+    struct sched_param params;
+    if (max_prio > min_prio) {
+        params.sched_priority = min_prio + ((max_prio - min_prio) * level) / 4;
+    } else {
+        params.sched_priority = min_prio - ((min_prio - max_prio) * level) / 4;
     }
-    ApplyPosixThreadPriority(reinterpret_cast<pthread_t>(thread_handle), new_priority);
+
+    pthread_setschedparam(this_thread, scheduling_type, &params);
 }
 
 bool AccurateSleep(const std::chrono::nanoseconds duration, std::chrono::nanoseconds* remaining,
@@ -291,6 +189,7 @@ bool AccurateSleep(const std::chrono::nanoseconds duration, std::chrono::nanosec
 
 // Sets the debugger-visible name of the current thread.
 void SetCurrentThreadName(const char* name) {
+    current_thread_name = name;
     if (Libraries::Kernel::g_curthread) {
         Libraries::Kernel::g_curthread->name = name;
     }
@@ -306,6 +205,7 @@ void SetThreadName(void* thread, const char* name) {
 // MinGW with the POSIX threading model does not support pthread_setname_np
 #if !defined(_WIN32) || defined(_MSC_VER)
 void SetCurrentThreadName(const char* name) {
+    current_thread_name = name;
     if (Libraries::Kernel::g_curthread) {
         Libraries::Kernel::g_curthread->name = name;
     }
@@ -335,6 +235,7 @@ void SetThreadName(void* thread, const char* name) {
 
 #if defined(_WIN32)
 void SetCurrentThreadName(const char* name) {
+    current_thread_name = name;
     if (Libraries::Kernel::g_curthread) {
         Libraries::Kernel::g_curthread->name = name;
     }
@@ -348,67 +249,69 @@ void SetThreadName(void* thread, const char* name) {
 
 #endif
 
-AccurateTimer::AccurateTimer(std::chrono::nanoseconds target_interval)
-    : target_interval(target_interval) {}
+AccurateTimer::AccurateTimer(const std::chrono::nanoseconds target_interval,
+                             const u32 max_catch_up_intervals,
+                             const MissedTickPolicy missed_tick_policy)
+    : target_interval{target_interval}, max_timing_debt{target_interval * max_catch_up_intervals},
+      missed_tick_policy{missed_tick_policy} {}
 
 void AccurateTimer::Start() {
-    const auto begin_sleep = std::chrono::high_resolution_clock::now();
+    const auto begin_sleep = std::chrono::steady_clock::now();
     if (total_wait.count() > 0) {
         AccurateSleep(total_wait, nullptr, false);
     }
-    start_time = std::chrono::high_resolution_clock::now();
+    start_time = std::chrono::steady_clock::now();
     total_wait -= std::chrono::duration_cast<std::chrono::nanoseconds>(start_time - begin_sleep);
 }
 
 void AccurateTimer::End() {
-    auto now = std::chrono::high_resolution_clock::now();
+    const auto now = std::chrono::steady_clock::now();
     total_wait +=
         target_interval - std::chrono::duration_cast<std::chrono::nanoseconds>(now - start_time);
+
+    total_wait = Detail::NormalizePeriodicWait(total_wait, target_interval, max_timing_debt,
+                                               missed_tick_policy);
 }
 
-std::string GetCurrentThreadName() {
+void AccurateTimer::Adjust(const std::chrono::nanoseconds correction) {
+    const auto minimum_wait = missed_tick_policy == MissedTickPolicy::CatchUp
+                                  ? -max_timing_debt
+                                  : std::chrono::nanoseconds{1};
+    total_wait = std::clamp(total_wait + correction, minimum_wait, target_interval);
+}
+
+void AccurateTimer::Reset() {
+    total_wait = target_interval;
+}
+
+std::string_view GetCurrentThreadNameView() {
     using namespace Libraries::Kernel;
     if (g_curthread && !g_curthread->name.empty()) {
         return g_curthread->name;
     }
+    if (!current_thread_name.empty()) {
+        return current_thread_name;
+    }
 #ifdef _WIN32
-    PWSTR name;
-    GetThreadDescription(GetCurrentThread(), &name);
-    return Common::UTF16ToUTF8(name);
+    PWSTR name = nullptr;
+    if (SUCCEEDED(GetThreadDescription(GetCurrentThread(), &name)) && name != nullptr) {
+        current_thread_name = Common::UTF16ToUTF8(name);
+        LocalFree(name);
+    }
 #else
     char name[256];
-    if (pthread_getname_np(pthread_self(), name, sizeof(name)) != 0) {
-        return "<unknown name>";
+    if (pthread_getname_np(pthread_self(), name, sizeof(name)) == 0) {
+        current_thread_name = name;
     }
-    return std::string{name};
 #endif
+    if (current_thread_name.empty()) {
+        current_thread_name = "<unknown name>";
+    }
+    return current_thread_name;
 }
 
-void SetThreadAffinity(const std::vector<u32>& core_ids) {
-    if (core_ids.empty()) {
-        return;
-    }
-
-#ifdef _WIN32
-    HANDLE thread = GetCurrentThread();
-    DWORD_PTR affinity_mask = 0;
-    for (u32 core_id : core_ids) {
-        affinity_mask |= (1ULL << core_id);
-    }
-    SetThreadAffinityMask(thread, affinity_mask);
-#elif defined(__linux__)
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    for (u32 core_id : core_ids) {
-        CPU_SET(core_id, &cpuset);
-    }
-    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-#elif defined(__APPLE__)
-    // macOS doesn't have direct thread affinity control
-    // We can use thread_policy_set but it's more complex
-    // For now, we'll skip implementation on macOS
-    LOG_INFO(Common, "Thread affinity not implemented for macOS");
-#endif
+std::string GetCurrentThreadName() {
+    return std::string{GetCurrentThreadNameView()};
 }
 
 } // namespace Common

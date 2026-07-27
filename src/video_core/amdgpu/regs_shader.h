@@ -3,6 +3,11 @@
 
 #pragma once
 
+#include <bit>
+#if defined(__AVX2__)
+#include <immintrin.h>
+#endif
+
 #include "common/assert.h"
 #include "common/types.h"
 #include "shader_recompiler/params.h"
@@ -176,14 +181,20 @@ struct ComputeProgram {
     u64 address : 40;
     std::array<u32, 4> pad1;
     struct {
-        u64 num_vgprs : 6;
-        u64 num_sgprs : 4;
-        u64 : 23;
-        u64 num_user_regs : 5;
-        u64 : 1;
-        u64 tgid_enable : 3;
-        u64 : 5;
-        u64 lds_dwords : 9;
+        u32 num_vgprs : 6;
+        u32 num_sgprs : 4;
+        u32 : 2;
+        FpRoundMode fp_round_mode32 : 2;
+        FpRoundMode fp_round_mode64 : 2;
+        FpDenormMode fp_denorm_mode32 : 2;
+        FpDenormMode fp_denorm_mode64 : 2;
+        u32 : 12;
+        u32 scratch_en : 1;
+        u32 num_user_regs : 5;
+        u32 : 1;
+        u32 tgid_enable : 3;
+        u32 : 5;
+        u32 lds_dwords : 9;
     } settings;
     u32 pad2;
     u32 resource_limits;
@@ -209,37 +220,56 @@ struct ComputeProgram {
     }
 };
 
-inline const BinaryInfo* SearchBinaryInfo(const u32* code) noexcept {
-    if (!code)
-        return nullptr;
-
-    constexpr u32 token_mov_vcchi = 0xBEEB03FFu;
-
-    if (code[0] == token_mov_vcchi) {
-        const auto* info = std::bit_cast<const BinaryInfo*>(code + (code[1] + 1) * 2);
-        if (info && info->Valid())
-            return info;
-    }
-
-    constexpr std::size_t signature_size = sizeof(BinaryInfo::signature_ref) / sizeof(u8);
-    constexpr std::size_t search_limit = 0x4000u;
-    const u32* end = code + search_limit;
-    for (const u32* it = code; it < end; ++it) {
-        const auto* info = std::bit_cast<const BinaryInfo*>(it);
-        if (info && info->Valid())
-            return info;
-    }
-
-    return nullptr;
+[[noreturn]] SHAD_NO_INLINE inline void ReportMissingBinaryInfo() {
+    UNREACHABLE_MSG("Shader binary info not found.");
 }
 
-inline constexpr Shader::ShaderParams GetParams(const auto& sh) {
+static constexpr const BinaryInfo& SearchBinaryInfo(const u32* code) {
+    constexpr u32 token_mov_vcchi = 0xBEEB03FF;
+    if (code[0] == token_mov_vcchi) {
+        const auto* info = std::bit_cast<const BinaryInfo*>(code + (code[1] + 1) * 2);
+        if (info->Valid()) {
+            return *info;
+        }
+    }
+    constexpr u32 search_limit = 0x4000;
+    const u32* end = code + search_limit;
+    const u32* it = code;
+#if defined(__AVX2__)
+    // Compares the first four bytes of the signature at eight dwords at once, in order, so the
+    // first match is the one the scalar search finds. The code is 256 byte aligned, so each
+    // 32 byte block stays within a page the scalar search reads.
+    static_assert(search_limit % 8 == 0);
+    constexpr u32 signature_head = 0x5362724F; // "OrbS"
+    const __m256i head = _mm256_set1_epi32(static_cast<int>(signature_head));
+    for (; it < end; it += 8) {
+        const __m256i words = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(it));
+        u32 candidates = static_cast<u32>(
+            _mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(words, head))));
+        while (candidates != 0) {
+            const auto* info = std::bit_cast<const BinaryInfo*>(it + std::countr_zero(candidates));
+            if (info->Valid()) {
+                return *info;
+            }
+            candidates &= candidates - 1;
+        }
+    }
+#endif
+    for (; it < end; ++it) {
+        if (const BinaryInfo* info = std::bit_cast<const BinaryInfo*>(it); info->Valid()) {
+            return *info;
+        }
+    }
+    ReportMissingBinaryInfo();
+}
+
+static constexpr Shader::ShaderParams GetParams(const auto& sh) {
     const auto* code = sh.template Address<u32*>();
     const auto& bininfo = SearchBinaryInfo(code);
     return {
         .user_data = sh.user_data,
-        .code = std::span{code, bininfo->length / sizeof(u32)},
-        .hash = bininfo->shader_hash,
+        .code = std::span{code, bininfo.length / sizeof(u32)},
+        .hash = bininfo.shader_hash,
     };
 }
 

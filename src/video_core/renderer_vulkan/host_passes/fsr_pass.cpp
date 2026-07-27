@@ -138,7 +138,7 @@ void FsrPass::Create(vk::Device device, VmaAllocator allocator, u32 num_images) 
     }
 }
 
-vk::ImageView FsrPass::Render(vk::CommandBuffer cmdbuf, vk::ImageView input,
+vk::ImageView FsrPass::Render(const CommandRecorder& cmdbuf, vk::ImageView input,
                               vk::Extent2D input_size, vk::Extent2D output_size, Settings settings,
                               bool hdr) {
     if (!settings.enable) {

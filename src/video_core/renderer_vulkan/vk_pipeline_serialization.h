@@ -7,6 +7,10 @@
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 
+namespace Serialization {
+inline constexpr u32 PipelineKeyVersion = 3u;
+}
+
 namespace Vulkan {
 
 void RegisterPipelineData(const ComputePipelineKey& key,

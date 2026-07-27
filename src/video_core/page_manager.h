@@ -14,6 +14,33 @@ class Rasterizer;
 
 namespace VideoCore {
 
+enum class MemoryWriteSource : u8 {
+    Cpu,
+    CommandProcessor,
+    GpuCompletion,
+    Map,
+    Unmap,
+};
+
+struct MemoryWriteWatch {
+    VAddr page{};
+    u64 id{};
+    u64 epoch{};
+
+    explicit operator bool() const noexcept {
+        return id != 0;
+    }
+};
+
+using MemoryWriteCallback =
+    void (*)(void* user_data, VAddr page, u64 epoch, MemoryWriteSource source) noexcept;
+
+struct MemoryWriteNotifyResult {
+    u32 matched_pages{};
+    u32 callbacks{};
+    bool had_active_watches{};
+};
+
 class PageManager {
 public:
     // Use the same page size as the tracker.
@@ -34,9 +61,29 @@ public:
     /// Unregister a range of gpu memory that was unmapped.
     void OnGpuUnmap(VAddr address, size_t size);
 
+    /// Arms a one-shot notification for writes touching the page that contains address. The
+    /// callback must only update consumer-owned state and must not call back into PageManager.
+    [[nodiscard]] MemoryWriteWatch ArmWriteWatch(VAddr address, MemoryWriteCallback callback,
+                                                 void* user_data);
+
+    /// Cancels a write watch. Once this returns, its callback can no longer be running.
+    bool CancelWriteWatch(MemoryWriteWatch watch);
+
+    /// Notifies one-shot observers after a guest-memory write becomes visible.
+    MemoryWriteNotifyResult NotifyWrite(VAddr address, u64 size, MemoryWriteSource source);
+
     /// Updates watches in the pages touching the specified region.
-    template <bool track>
+    template <bool track, bool is_read = false>
     void UpdatePageWatchers(VAddr addr, u64 size) const;
+
+    /// Returns true if the page containing address has active read watchers.
+    [[nodiscard]] bool HasReadWatcher(VAddr address) const;
+
+    /// Lock-free variant over a range, for the guest copy engine.
+    [[nodiscard]] bool HasReadWatchers(VAddr address, u64 size) const noexcept;
+
+    /// Temporarily unprotects the page (e.g. for single-stepping after a fault).
+    void TemporarilyUnprotect(VAddr address, u64 size) const;
 
     /// Updates watches in the pages touching the specified region using a mask.
     template <bool track, bool is_read = false>

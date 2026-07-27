@@ -1,9 +1,13 @@
-﻿// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
+#include <array>
+#include <atomic>
+#include <bit>
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <unordered_set>
@@ -11,6 +15,7 @@
 #include <queue>
 #include <tsl/robin_map.h>
 
+#include "common/hash.h"
 #include "common/lru_cache.h"
 #include "common/slot_vector.h"
 #include "shader_recompiler/resource.h"
@@ -21,10 +26,6 @@
 #include "video_core/texture_cache/sampler.h"
 #include "video_core/texture_cache/tile_manager.h"
 
-namespace Core::Libraries::VideoOut {
-struct BufferAttributeGroup;
-}
-
 namespace AmdGpu {
 struct Liverpool;
 }
@@ -32,7 +33,9 @@ struct Liverpool;
 namespace VideoCore {
 
 class BufferCache;
+struct GpuAuthorityShadow;
 class PageManager;
+class ReadbackTracker;
 
 class TextureCache {
     // Default values for garbage collection
@@ -40,7 +43,6 @@ class TextureCache {
     static constexpr s64 DEFAULT_CRITICAL_GC_MEMORY = 3_GB;
     static constexpr s64 TARGET_GC_THRESHOLD = 8_GB;
 
-public:
     using ImageIds = boost::container::small_vector<ImageId, 16>;
 
     struct Traits {
@@ -80,64 +82,115 @@ public:
             : info{group, cpu_address}, type{BindingType::VideoOut} {}
     };
 
+    enum class DownloadPolicy : u8 {
+        LegacyEager,
+        AuthorityManaged,
+    };
+
+    enum class DownloadTrigger : u8 {
+        EventWriteEos,
+        EventWriteEop,
+        ReleaseMem,
+        ExplicitHostDemand,
+        CpuRead,
+        Unmap,
+        Other,
+    };
+
+    struct DownloadContext {
+        DownloadTrigger trigger{DownloadTrigger::Other};
+        u32 trigger_control{0};
+        u32 trigger_data_control{0};
+    };
+
+    struct PendingImageDownload {
+        ImageId image_id{0};
+        u64 image_uid{0};
+        u64 resource_version{0};
+        VAddr guest_begin{0};
+        u32 size{0};
+        DownloadPolicy policy{DownloadPolicy::LegacyEager};
+    };
+
+    struct PendingFastpathCandidate {
+        ImageId image_id{0};
+        u64 image_uid{0};
+        u64 resource_version{0};
+        VAddr guest_addr{0};
+        u32 download_size{0};
+    };
+
 public:
     TextureCache(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                 AmdGpu::Liverpool* liverpool, BufferCache& buffer_cache,
-                 PageManager& page_manager);
+                 AmdGpu::Liverpool* liverpool, BufferCache& buffer_cache, PageManager& tracker);
     ~TextureCache();
 
     TileManager& GetTileManager() noexcept {
         return tile_manager;
     }
 
-    [[nodiscard]] const PageTable& GetPageTable() const noexcept {
-        return page_table;
-    }
-
     /// Invalidates any image in the logical page range.
-    /// @param exclude_image_id  If set, this image is skipped (used by storage sync to
-    ///                          exclude the producer storage image from invalidation).
-    void InvalidateMemory(VAddr addr, size_t size, ImageId exclude_image_id = {});
+    void InvalidateMemory(VAddr addr, size_t size);
 
     /// Marks an image as dirty if it exists at the provided address.
     void InvalidateMemoryFromGPU(VAddr address, size_t max_size);
-
-    void MarkAsMaybeReused(VAddr addr, size_t size);
 
     /// Evicts any images that overlap the unmapped range.
     void UnmapMemory(VAddr cpu_addr, size_t size);
 
     /// Schedules a copy of pending images for download back to CPU memory.
-    void ProcessDownloadImages();
+    bool ProcessDownloadImages(const DownloadContext& context, bool* gpu_resident = nullptr);
 
-    /// Add an image to the download queue for guest memory writeback on next submit.
-    void AddDownload(ImageId image_id) {
-        download_images.emplace(image_id);
-    }
+    [[nodiscard]] bool PromotePendingDownloadAuthority(ImageId image_id, u64 image_uid,
+                                                        u64 resource_version,
+                                                        std::shared_ptr<GpuAuthorityShadow>* shadow);
+    void PruneSupersededPendingDownloads(u64 image_uid, u64 superseded_version);
+    void ScheduleComputeDownload(ImageId image_id);
+    void ScheduleRenderTargetDownload(ImageId image_id);
+
+    [[nodiscard]] std::optional<PendingFastpathCandidate> TakePendingFastpathCandidate();
+
+    [[nodiscard]] bool IsGpuAuthorityImageCurrent(ImageId image_id, u64 image_uid,
+                                                  u64 resource_version, VAddr address,
+                                                  size_t size);
+
+    void WaitGpuAuthorityShadow(const std::shared_ptr<GpuAuthorityShadow>& shadow);
+    bool MaterializeGpuAuthority(const std::shared_ptr<GpuAuthorityShadow>& shadow,
+                                 VAddr required_addr, size_t required_size,
+                                 s8* out_validation_bytes_equal = nullptr);
 
     /// Retrieves the image handle of the image with the provided attributes.
     [[nodiscard]] ImageId FindImage(ImageDesc& desc, bool exact_fmt = false);
 
+    [[nodiscard]] bool TryReuseImage(ImageId image_id, u64 image_uid, u64 expected_topology_epoch);
+
+    [[nodiscard]] u64 TopologyEpoch() const noexcept {
+        return topology_epoch.load(std::memory_order_relaxed);
+    }
+
     /// Retrieves image whose address matches provided
     [[nodiscard]] ImageId FindImageFromRange(VAddr address, size_t size, bool ensure_valid = true);
 
+    /// Retrieves the smallest valid image that fully contains the provided range.
+    [[nodiscard]] ImageId FindImageContainingRange(VAddr address, size_t size);
+
     /// Retrieves an image view with the properties of the specified image id.
+    void PrepareTexture(ImageId image_id, BindingType type);
+
     [[nodiscard]] ImageView& FindTexture(ImageId image_id, const ImageDesc& desc);
 
     /// Retrieves the render target with specified properties
+    void PrepareRenderTarget(ImageId image_id, const ImageDesc& desc);
+
     [[nodiscard]] ImageView& FindRenderTarget(ImageId image_id, const ImageDesc& desc);
 
     /// Retrieves the depth target with specified properties
+    void PrepareDepthTarget(ImageId image_id, const ImageDesc& desc);
+
     [[nodiscard]] ImageView& FindDepthTarget(ImageId image_id, const ImageDesc& desc);
 
     /// Updates image contents if it was modified by CPU.
-    void UpdateImage(ImageId image_id) {
-        std::scoped_lock lock{mutex};
-        Image& image = slot_images[image_id];
-        TrackImage(image_id);
-        TouchImage(image);
-        RefreshImage(image);
-    }
+    void UpdateImage(ImageId image_id);
 
     /// Resolves overlap between existing cache image and pending merged image
     [[nodiscard]] std::tuple<ImageId, int, int> ResolveOverlap(const ImageInfo& info,
@@ -152,8 +205,9 @@ public:
     /// Creates a new image with provided image info and copies subresources from image_id
     [[nodiscard]] ImageId ExpandImage(const ImageInfo& info, ImageId image_id);
 
-    /// Reuploads image contents.
-    void RefreshImage(Image& image);
+    /// Reuploads image contents. An image that is about to be overwritten keeps only the
+    /// bookkeeping of a refresh.
+    void RefreshImage(Image& image, bool overwritten = false);
 
     /// Retrieves the sampler that matches the provided S# descriptor.
     [[nodiscard]] vk::Sampler GetSampler(const AmdGpu::Sampler& sampler,
@@ -212,6 +266,19 @@ public:
         return false;
     }
 
+    /// Returns whether a slice of the specified metadata surface has been cleared and marks it
+    /// as not cleared, as IsMetaCleared followed by TouchMeta(address, slice, false) would.
+    bool TakeMetaCleared(VAddr address, u32 slice) {
+        auto it = surface_metas.find(address);
+        if (it == surface_metas.end()) {
+            return false;
+        }
+        auto& clear_mask = it.value().clear_mask;
+        const bool cleared = clear_mask & (1u << slice);
+        clear_mask &= ~(1u << slice);
+        return cleared;
+    }
+
     /// Clears all slices of the specified metadata surface.
     bool ClearMeta(VAddr address) {
         auto it = surface_metas.find(address);
@@ -238,10 +305,6 @@ public:
 
     /// Runs the garbage collector.
     void RunGarbageCollector();
-
-    void EnqueueForGc(std::function<void()> fn);
-
-    void RunGarbageCollectorAsync();
 
     template <typename Func>
     void ForEachImageInRegion(VAddr cpu_addr, size_t size, Func&& func) {
@@ -283,19 +346,23 @@ public:
             slot_images[image_id].flags &= ~ImageFlagBits::Picked;
         }
     }
-    mutable std::mutex gc_mutex;
-    std::queue<std::function<void()>> gc_queue;
-    u64 GetTriggerGcMemory() const {
-        return trigger_gc_memory;
-    }
-    u64 GetPressureGcMemory() const {
-        return pressure_gc_memory;
-    }
-    u64 GetCriticalGcMemory() const {
-        return critical_gc_memory;
-    }
 
 private:
+    struct AliasState;
+    enum class AliasAccess {
+        Read,
+        ReadWrite,
+    };
+
+    ImageId CreateStencilImage(const ImageDesc& desc);
+    vk::Sampler TouchSampler(Sampler& entry);
+    vk::Sampler CreateSampler(u64 hash, const AmdGpu::Sampler& sampler,
+                              AmdGpu::BorderColorBuffer border_color_base);
+
+    void PrepareImageAccess(ImageId image_id, AliasAccess access);
+    void UpdateImageImpl(ImageId image_id);
+    void ScheduleImageDownload(ImageId image_id, bool fastpath_candidate, bool replace_existing);
+
     /// Iterate over all page indices in a range
     template <typename Func>
     static void ForEachPage(PAddr addr, size_t size, Func&& func) {
@@ -313,7 +380,8 @@ private:
     }
 
     /// Copies image memory back to CPU.
-    void DownloadImageMemory(ImageId image_id, bool sync = false);
+    bool DownloadImageMemory(ImageId image_id, bool validate_identity = false,
+                             bool track_gpu_source = false, bool* gpu_resident = nullptr);
 
     /// Thread function for copying downloaded images out to CPU memory.
     void DownloadedImagesThread(const std::stop_token& token);
@@ -339,11 +407,32 @@ private:
 
     void MarkAsMaybeDirty(ImageId image_id, Image& image);
 
+    void InvalidateAlias(Image& image);
+    void SynchronizeAlias(ImageId image_id);
+    [[nodiscard]] std::optional<Extent3D> ResolveAliasCopy(ImageId image_id, AliasState& state);
+    [[nodiscard]] bool CommitAliasWriter(AliasState& state);
+    void CopyAlias(ImageId src_id, ImageId dst_id, const Extent3D& extent);
+    void PublishAliasWrite(ImageId image_id);
+
+    template <typename Func>
+    void ForEachAlias(const Image& image, Func&& func);
+
+    [[nodiscard]] bool IsLiveImage(ImageId image_id, u64 image_uid) const {
+        return image_id && slot_images.is_allocated(image_id) &&
+               slot_images[image_id].image_uid == image_uid;
+    }
+
     /// Removes the image and any views/surface metas that reference it.
     void DeleteImage(ImageId image_id);
 
-    /// Touch the image in the LRU cache.
-    void TouchImage(Image& image);
+    /// Touch the image in the LRU cache at most once per GC tick.
+    void TouchImage(Image& image) {
+        if (image.lru_tick != gc_tick) [[unlikely]] {
+            TouchImageSlow(image);
+        }
+    }
+
+    void TouchImageSlow(Image& image);
 
     void FreeImage(ImageId image_id) {
         UntrackImage(image_id);
@@ -351,34 +440,88 @@ private:
         DeleteImage(image_id);
     }
 
+    void GarbageCollectImages();
+    void GarbageCollectSamplers();
+
 private:
+    struct ExactImageCacheKey {
+        std::array<u64, 6> words{};
+    };
+    static_assert(sizeof(ExactImageCacheKey) == 48);
+
+    struct ExactImageCacheEntry {
+        ExactImageCacheKey key{};
+        ImageId image_id{};
+        u64 image_uid{};
+        u64 topology_epoch{};
+        bool valid{};
+    };
+
+    ImageId FindImageSlow(ImageDesc& desc, bool exact_fmt, const ExactImageCacheKey& exact_key,
+                          ExactImageCacheEntry& exact_entry, size_t cache_index);
+
+    static constexpr size_t ExactImageCacheSize = 256;
+    static_assert(std::has_single_bit(ExactImageCacheSize));
+
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
     AmdGpu::Liverpool* liverpool;
     BufferCache& buffer_cache;
-    PageManager& page_manager;
+    PageManager& tracker;
+    std::shared_ptr<ReadbackTracker> readback_tracker;
     BlitHelper blit_helper;
     TileManager tile_manager;
+    /// Outlives the images, which return their Vulkan images to it.
+    ImageRecycler image_recycler;
     Common::SlotVector<Image> slot_images;
     Common::SlotVector<ImageView> slot_image_views;
-    tsl::robin_map<u64, Sampler> samplers;
-    std::unordered_set<ImageId> download_images;
+    tsl::robin_map<u64, Sampler, IntegerKeyHash> samplers;
+    std::vector<PendingImageDownload> pending_downloads;
+    struct AliasState {
+        // Backing contains the complete shared-memory view; writer is an uncommitted write.
+        u64 backing_uid{};
+        u64 writer_uid{};
+        u64 download_uid{};
+        ImageId backing{};
+        ImageId writer{};
+        ImageId download{};
+        u32 members{};
+
+        void ResetAuthority() {
+            const u32 member_count = members;
+            *this = {};
+            members = member_count;
+        }
+    };
+    tsl::robin_map<VAddr, AliasState, IntegerKeyHash> alias_states;
+    boost::container::small_vector<VAddr, 4> pending_alias_downloads;
+    u64 alias_generation{};
     u64 total_used_memory = 0;
     u64 trigger_gc_memory = 0;
     u64 pressure_gc_memory = 0;
     u64 critical_gc_memory = 0;
+    u64 total_used_samplers = 0;
+    u64 trigger_gc_samplers = 0;
+    u64 pressure_gc_samplers = 0;
+    u64 critical_gc_samplers = 0;
     u64 gc_tick = 0;
+    std::atomic<u64> topology_epoch{1};
+    std::array<ExactImageCacheEntry, ExactImageCacheSize> exact_image_cache{};
+    std::array<ExactImageCacheEntry, ExactImageCacheSize> exact_image_cache_victim{};
     Common::LeastRecentlyUsedCache<ImageId, u64> lru_cache;
+    Common::LeastRecentlyUsedCache<u64, u64> sampler_lru_cache;
     bool readback_linear_images;
     PageTable page_table;
-    std::mutex mutex;
+    std::recursive_mutex mutex;
     std::mutex samplers_mutex;
     std::mutex download_images_mutex;
+    mutable std::mutex fastpath_candidate_mutex;
+    std::optional<PendingFastpathCandidate> pending_fastpath_candidate;
     struct MetaDataInfo {
         MetaType type;
         s32 clear_mask = -1;
     };
-    tsl::robin_map<VAddr, MetaDataInfo> surface_metas;
+    tsl::robin_map<VAddr, MetaDataInfo, IntegerKeyHash> surface_metas;
 };
 
 } // namespace VideoCore

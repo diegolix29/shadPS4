@@ -3,8 +3,10 @@
 
 #pragma once
 
+#include <array>
 #include <map>
 #include <mutex>
+#include <span>
 #include <string>
 #include <string_view>
 #include "common/enum.h"
@@ -28,8 +30,6 @@ class MemoryMapViewer;
 
 namespace Core {
 
-class MemoryCompression;
-
 constexpr u64 DEFAULT_MAPPING_BASE = 0x200000000;
 
 enum class MemoryProt : u32 {
@@ -43,6 +43,11 @@ enum class MemoryProt : u32 {
     GpuReadWrite = 48,
 };
 DECLARE_ENUM_FLAG_OPERATORS(MemoryProt)
+
+enum class MemoryWriteOrigin : u8 {
+    CommandProcessor,
+    GpuCompletion,
+};
 
 enum class MemoryMapFlags : u32 {
     NoFlags = 0,
@@ -161,11 +166,9 @@ struct VirtualMemoryArea {
 class MemoryManager {
     using PhysMap = std::map<PAddr, PhysicalMemoryArea>;
     using PhysHandle = PhysMap::iterator;
-    using PhysConstHandle = PhysMap::const_iterator;
 
     using VMAMap = std::map<VAddr, VirtualMemoryArea>;
     using VMAHandle = VMAMap::iterator;
-    using VMAConstHandle = VMAMap::const_iterator;
 
 public:
     explicit MemoryManager();
@@ -187,17 +190,8 @@ public:
         return total_flexible_size;
     }
 
-    u64 GetUsedFlexibleSize() const {
-        return flexible_mapped_usage;
-    }
-
     u64 GetAvailableFlexibleSize() const {
-        const u64 used = GetUsedFlexibleSize();
-        return used < total_flexible_size ? total_flexible_size - used : 0;
-    }
-
-    bool IsFlexibleRegionConfigured() const {
-        return flexible_virtual_end > flexible_virtual_base;
+        return total_flexible_size - flexible_usage;
     }
 
     VAddr SystemReservedVirtualBase() noexcept {
@@ -247,13 +241,39 @@ public:
         return size_to_validate <= 0;
     }
 
-    u64 ClampRangeSize(VAddr virtual_addr, u64 size);
+    u64 ClampRangeSize(VAddr virtual_addr, u64 size) {
+        // Dont bother with clamping if the size is small so we dont pay a map lookup on every
+        // buffer, nor a call.
+        if (size < MinSizeToClamp) [[likely]] {
+            return size;
+        }
+        return ClampRangeSizeSlow(virtual_addr, size);
+    }
 
     void SetPrtArea(u32 id, VAddr address, u64 size);
 
-    void CopySparseMemory(VAddr source, u8* dest, u64 size);
+    struct SparseCopyRequest {
+        VAddr source{};
+        u8* destination{};
+        u64 size{};
+    };
 
-    bool TryWriteBacking(void* address, const void* data, u64 size);
+    void CopySparseMemory(VAddr source, u8* dest, u64 size);
+    /// Copies a request batch whose sizes sum to total_size.
+    void CopySparseMemoryBatch(std::span<const SparseCopyRequest> requests, u64 total_size,
+                               bool allow_non_temporal = true);
+
+    bool TryWriteBacking(void* address, const void* data, u64 size,
+                         MemoryWriteOrigin origin = MemoryWriteOrigin::CommandProcessor);
+
+    /// Returns true when every byte of the range lives in physical backing, so ReadBacking can
+    /// read it.
+    [[nodiscard]] bool IsBackedRange(VAddr source, u64 size);
+
+    /// Reads guest memory through the backing view, which ignores the page protection of the
+    /// guest mapping and so never faults. Returns false, copying nothing meaningful, when part of
+    /// the range has no physical backing.
+    bool ReadBacking(VAddr source, u8* destination, u64 size);
 
     void SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1, bool use_extended_mem2);
 
@@ -303,31 +323,42 @@ public:
 
     void InvalidateMemory(VAddr addr, u64 size) const;
 
-    void RecalculateFlexibleUsageForDebug();
-
 private:
+    static constexpr u64 MinSizeToClamp = 1ULL << 30;
+
+    u64 ClampRangeSizeSlow(VAddr virtual_addr, u64 size);
+
+    struct SparseCopyStats {
+        u32 mapped_runs{};
+        u32 zero_runs{};
+        u32 non_temporal_runs{};
+        u64 mapped_bytes{};
+        u64 zero_bytes{};
+        u64 non_temporal_bytes{};
+    };
+
+    [[nodiscard]] bool ResolveMappedSpan(VAddr source, u64 size, VAddr& span_begin,
+                                         VAddr& span_end);
+    [[nodiscard]] bool CopySparseMemoryCold(const SparseCopyRequest& request,
+                                            bool allow_non_temporal,
+                                            SparseCopyStats* stats);
+
     VMAHandle FindVMA(VAddr target) {
-        return std::prev(vma_map.upper_bound(target));
-    }
-    VMAConstHandle FindVMA(VAddr target) const {
         return std::prev(vma_map.upper_bound(target));
     }
 
     PhysHandle FindDmemArea(PAddr target) {
         return std::prev(dmem_map.upper_bound(target));
     }
-    PhysConstHandle FindDmemArea(PAddr target) const {
-        return std::prev(dmem_map.upper_bound(target));
-    }
 
     PhysHandle FindFmemArea(PAddr target) {
         return std::prev(fmem_map.upper_bound(target));
     }
-    PhysConstHandle FindFmemArea(PAddr target) const {
-        return std::prev(fmem_map.upper_bound(target));
-    }
 
-    bool HasPhysicalBacking(const VirtualMemoryArea& vma) const {
+    template <bool copy>
+    bool WalkBackingLocked(VAddr source, u8* destination, u64 size);
+
+    bool HasPhysicalBacking(VirtualMemoryArea vma) {
         return vma.type == VMAType::Direct || vma.type == VMAType::Flexible ||
                vma.type == VMAType::Pooled;
     }
@@ -353,16 +384,6 @@ private:
 
     s32 UnmapMemoryImpl(VAddr virtual_addr, u64 size);
 
-    bool IsFlexibleCountedVmaType(VMAType type) const;
-
-    bool IsFlexibleCommittedVma(const VirtualMemoryArea& vma) const;
-
-    u64 GetFlexibleMappedBytesInRangeLocked(VAddr virtual_addr, u64 size) const;
-
-    void AdjustFlexibleMappedUsageLocked(u64 mapped_before, u64 mapped_after);
-
-    void RecalculateFlexibleMappedUsageLocked();
-
 private:
     AddressSpace impl;
     PhysMap dmem_map;
@@ -373,13 +394,9 @@ private:
     u64 total_direct_size{};
     u64 total_flexible_size{};
     u64 flexible_usage{};
-    VAddr flexible_virtual_base{};
-    VAddr flexible_virtual_end{};
-    u64 flexible_mapped_usage{};
     u64 pool_budget{};
     s32 sdk_version{};
     Vulkan::Rasterizer* rasterizer{};
-    std::unique_ptr<MemoryCompression> memory_compression;
 
     struct PrtArea {
         VAddr start;
@@ -392,6 +409,7 @@ private:
         }
     };
     std::array<PrtArea, 3> prt_areas{};
+    u64 mapping_generation{1};
 
     friend class ::Core::Devtools::Widget::MemoryMapViewer;
 };

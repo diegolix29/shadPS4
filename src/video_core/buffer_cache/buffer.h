@@ -8,9 +8,12 @@
 #include <optional>
 #include <utility>
 #include <vector>
+#include "common/incremental_id.h"
 #include "common/types.h"
 #include "core/memory.h"
 #include "video_core/amdgpu/resource.h"
+#include "video_core/buffer_cache/stream_buffer_pin.h"
+#include "video_core/flush_epoch.h"
 #include "video_core/renderer_vulkan/vk_common.h"
 
 namespace Vulkan {
@@ -75,9 +78,10 @@ struct UniqueBuffer {
 
 class Buffer {
 public:
+    /// With transfer_shared, the transfer queue family can access the buffer too.
     explicit Buffer(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
                     MemoryUsage usage, VAddr cpu_addr_, vk::BufferUsageFlags flags,
-                    u64 size_bytes_);
+                    u64 size_bytes_, bool transfer_shared = false);
 
     Buffer& operator=(const Buffer&) = delete;
     Buffer(const Buffer&) = delete;
@@ -117,6 +121,10 @@ public:
         return lru_id;
     }
 
+    u64 Uid() const noexcept {
+        return uid;
+    }
+
     vk::Buffer Handle() const noexcept {
         return buffer;
     }
@@ -126,60 +134,124 @@ public:
         return buffer.bda_addr;
     }
 
-    std::optional<vk::BufferMemoryBarrier2> GetBarrier(vk::AccessFlags2 dst_acess_mask,
+    /// Orders an access after the ones recorded before it. A read waits only for the last
+    /// write, and not at all once that write was made visible to its access and stage: reads
+    /// are not ordered against each other. A write waits for the reads since the last write,
+    /// which themselves waited for it, or for that write when nothing read the buffer since.
+    std::optional<vk::BufferMemoryBarrier2> GetBarrier(vk::AccessFlags2 dst_access,
                                                        vk::PipelineStageFlagBits2 dst_stage,
                                                        u32 offset = 0) {
-        if (dst_acess_mask == access_mask && stage == dst_stage) {
-            return {};
+        constexpr vk::AccessFlags2 WriteAccess = vk::AccessFlagBits2::eShaderWrite |
+                                                 vk::AccessFlagBits2::eTransferWrite |
+                                                 vk::AccessFlagBits2::eMemoryWrite;
+        const u64 epoch = FlushEpoch::Current();
+        vk::PipelineStageFlags2 src_stage;
+        vk::AccessFlags2 src_access;
+        if (!(dst_access & WriteAccess)) {
+            const bool access_visible =
+                (visible_access & vk::AccessFlagBits2::eMemoryRead) ||
+                (visible_access & dst_access) == dst_access;
+            const bool stage_visible =
+                (visible_stages & vk::PipelineStageFlagBits2::eAllCommands) ||
+                (visible_stages & dst_stage) == vk::PipelineStageFlags2{dst_stage};
+            read_stages |= dst_stage;
+            if (access_visible && stage_visible) {
+                return {};
+            }
+            src_stage = write_stage;
+            src_access = write_access;
+            visible_access |= dst_access;
+            visible_stages |= dst_stage;
+        } else {
+            if (!read_stages && write_access == dst_access && write_stage == dst_stage) {
+                // Read-write bindings in a row are only ordered across a guest cache flush.
+                if (write_epoch == epoch) {
+                    return {};
+                }
+            }
+            if (read_stages) {
+                src_stage = read_stages;
+                src_access = {};
+            } else {
+                src_stage = write_stage;
+                src_access = write_access;
+            }
+            write_access = dst_access;
+            write_stage = dst_stage;
+            write_epoch = epoch;
+            visible_access = {};
+            visible_stages = {};
+            read_stages = {};
         }
 
         DEBUG_ASSERT(offset < size_bytes);
 
         const auto barrier = vk::BufferMemoryBarrier2{
-            .srcStageMask = stage,
-            .srcAccessMask = access_mask,
+            .srcStageMask = src_stage,
+            .srcAccessMask = src_access,
             .dstStageMask = dst_stage,
-            .dstAccessMask = dst_acess_mask,
+            .dstAccessMask = dst_access,
             .buffer = buffer.buffer,
             .offset = offset,
             .size = size_bytes - offset,
         };
-        access_mask = dst_acess_mask;
-        stage = dst_stage;
         return barrier;
     }
 
     void Fill(u64 offset, u32 num_bytes, u32 value);
+
+    /// Makes a completed download range visible to the CPU.
+    void Invalidate(u64 offset, u64 size);
 
 public:
     VAddr cpu_addr = 0;
     bool is_picked{};
     bool is_coherent{};
     bool is_deleted{};
+    bool has_image_alias{};
+    /// Advances whenever the cache uploads into the buffer or binds it for GPU writes.
+    u64 content_generation{};
     int stream_score = 0;
     size_t size_bytes = 0;
     u64 lru_id = 0;
+    u64 uid = 0;
     std::span<u8> mapped_data;
     const Vulkan::Instance* instance;
     Vulkan::Scheduler* scheduler;
     MemoryUsage usage;
     UniqueBuffer buffer;
-    vk::Flags<vk::AccessFlagBits2> access_mask{
+    /// Last write access, the accesses and stages it was made visible to since, and the stages
+    /// that read the buffer since.
+    vk::AccessFlags2 write_access{
         vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite |
         vk::AccessFlagBits2::eTransferRead | vk::AccessFlagBits2::eTransferWrite};
-    vk::PipelineStageFlagBits2 stage{vk::PipelineStageFlagBits2::eAllCommands};
+    vk::PipelineStageFlags2 write_stage{vk::PipelineStageFlagBits2::eAllCommands};
+    vk::AccessFlags2 visible_access{};
+    vk::PipelineStageFlags2 visible_stages{};
+    vk::PipelineStageFlags2 read_stages{};
+    /// FlushEpoch::Current() when a write access was last requested.
+    u64 write_epoch{};
+
+private:
+    static Common::IncrementalIdProvider<u64> global_uid;
 };
 
 class StreamBuffer : public Buffer {
 public:
     explicit StreamBuffer(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                          MemoryUsage usage, u64 size_bytes_);
+                          MemoryUsage usage, u64 size_bytes_, bool transfer_shared = false);
 
     /// Reserves a region of memory from the stream buffer.
     std::pair<u8*, u64> Map(u64 size, u64 alignment = 0, bool allow_wait = true);
 
     /// Ensures that reserved bytes of memory are available to the GPU.
     void Commit();
+    void Commit(StreamBufferPinHandle pin);
+
+    /// Returns the ring-buffer generation. It changes whenever allocations wrap to offset zero.
+    [[nodiscard]] u64 Generation() const noexcept {
+        return generation;
+    }
 
     /// Maps and commits a memory region with user provided data
     u64 Copy(auto src, size_t size, size_t alignment = 0) {
@@ -201,19 +273,37 @@ private:
         u64 upper_bound{};
     };
 
+    static constexpr size_t NoNewWatch = ~size_t{0};
+
+    /// Flushes the mapped range and records it in a watch. Returns the index of the new watch,
+    /// or NoNewWatch when the range was merged into the previous one.
+    size_t CommitWatch(bool pinned);
+
     /// Increases the amount of watches available.
-    void ReserveWatches(std::vector<Watch>& watches, std::size_t grow_size);
+    void ReserveWatches(std::vector<Watch>& watches, std::vector<StreamBufferPinHandle>& pins,
+                        std::size_t grow_size);
 
     /// Waits pending watches until requested upper bound.
-    bool WaitPendingOperations(u64 requested_upper_bound, bool allow_wait);
+    bool WaitPendingOperations(u64 requested_upper_bound, bool allow_wait) {
+        // What the loop of WaitPendingWatches checks first: most maps have nothing to wait for.
+        if (!invalidation_mark || requested_upper_bound <= wait_bound ||
+            wait_cursor >= *invalidation_mark) {
+            return true;
+        }
+        return WaitPendingWatches(requested_upper_bound, allow_wait);
+    }
+    bool WaitPendingWatches(u64 requested_upper_bound, bool allow_wait);
 
 private:
     u64 offset{};
     u64 mapped_size{};
+    u64 generation{1};
     std::vector<Watch> current_watches;
+    std::vector<StreamBufferPinHandle> current_watch_pins;
     std::size_t current_watch_cursor{};
     std::optional<size_t> invalidation_mark;
     std::vector<Watch> previous_watches;
+    std::vector<StreamBufferPinHandle> previous_watch_pins;
     std::size_t wait_cursor{};
     u64 wait_bound{};
 };

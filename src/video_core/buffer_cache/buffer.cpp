@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <array>
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/config.h"
@@ -14,6 +15,8 @@
 #include <vk_mem_alloc.h>
 
 namespace VideoCore {
+
+Common::IncrementalIdProvider<u64> Buffer::global_uid{};
 
 std::string_view BufferTypeName(MemoryUsage type) {
     switch (type) {
@@ -112,13 +115,20 @@ void UniqueBuffer::Create(const vk::BufferCreateInfo& buffer_ci, MemoryUsage usa
 }
 
 Buffer::Buffer(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_, MemoryUsage usage_,
-               VAddr cpu_addr_, vk::BufferUsageFlags flags, u64 size_bytes_)
-    : cpu_addr{cpu_addr_}, size_bytes{size_bytes_}, instance{&instance_}, scheduler{&scheduler_},
-      usage{usage_}, buffer{instance->GetDevice(), instance->GetAllocator()} {
+               VAddr cpu_addr_, vk::BufferUsageFlags flags, u64 size_bytes_, bool transfer_shared)
+    : cpu_addr{cpu_addr_}, size_bytes{size_bytes_}, uid{global_uid.Next()}, instance{&instance_},
+      scheduler{&scheduler_}, usage{usage_},
+      buffer{instance->GetDevice(), instance->GetAllocator()} {
     // Create buffer object.
+    const bool concurrent = transfer_shared && instance->HasTransferQueue();
+    const std::array queue_families{instance->GetGraphicsQueueFamilyIndex(),
+                                    concurrent ? instance->GetTransferQueueFamilyIndex() : 0U};
     const vk::BufferCreateInfo buffer_ci = {
         .size = size_bytes,
         .usage = flags,
+        .sharingMode = concurrent ? vk::SharingMode::eConcurrent : vk::SharingMode::eExclusive,
+        .queueFamilyIndexCount = concurrent ? static_cast<u32>(queue_families.size()) : 0U,
+        .pQueueFamilyIndices = concurrent ? queue_families.data() : nullptr,
     };
     VmaAllocationInfo alloc_info{};
     buffer.Create(buffer_ci, usage, &alloc_info);
@@ -171,14 +181,21 @@ void Buffer::Fill(u64 offset, u32 num_bytes, u32 value) {
     });
 }
 
+void Buffer::Invalidate(u64 offset, u64 size) {
+    ASSERT(offset + size <= size_bytes);
+    if (!is_coherent && usage == MemoryUsage::Download) {
+        vmaInvalidateAllocation(instance->GetAllocator(), buffer.allocation, offset, size);
+    }
+}
+
 constexpr u64 WATCHES_INITIAL_RESERVE = 0x4000;
 constexpr u64 WATCHES_RESERVE_CHUNK = 0x1000;
 
 StreamBuffer::StreamBuffer(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                           MemoryUsage usage, u64 size_bytes)
-    : Buffer{instance, scheduler, usage, 0, AllFlags, size_bytes} {
-    ReserveWatches(current_watches, WATCHES_INITIAL_RESERVE);
-    ReserveWatches(previous_watches, WATCHES_INITIAL_RESERVE);
+                           MemoryUsage usage, u64 size_bytes, bool transfer_shared)
+    : Buffer{instance, scheduler, usage, 0, AllFlags, size_bytes, transfer_shared} {
+    ReserveWatches(current_watches, current_watch_pins, WATCHES_INITIAL_RESERVE);
+    ReserveWatches(previous_watches, previous_watch_pins, WATCHES_INITIAL_RESERVE);
     const auto device = instance.GetDevice();
     Vulkan::SetObjectName(device, Handle(), "StreamBuffer({}):{:#x}", BufferTypeName(usage),
                           size_bytes);
@@ -204,9 +221,11 @@ std::pair<u8*, u64> StreamBuffer::Map(u64 size, u64 alignment, bool allow_wait) 
         invalidation_mark = current_watch_cursor;
         current_watch_cursor = 0;
         offset = 0;
+        ++generation;
 
         // Swap watches and reset waiting cursors.
         std::swap(previous_watches, current_watches);
+        std::swap(previous_watch_pins, current_watch_pins);
         wait_cursor = 0;
         wait_bound = 0;
     }
@@ -219,7 +238,7 @@ std::pair<u8*, u64> StreamBuffer::Map(u64 size, u64 alignment, bool allow_wait) 
     return {mapped_data.data() + offset, offset};
 }
 
-void StreamBuffer::Commit() {
+size_t StreamBuffer::CommitWatch(bool pinned) {
     if (!is_coherent) {
         if (usage == MemoryUsage::Download) {
             vmaInvalidateAllocation(instance->GetAllocator(), buffer.allocation, offset,
@@ -230,36 +249,73 @@ void StreamBuffer::Commit() {
     }
 
     offset += mapped_size;
-    if (current_watch_cursor != 0 &&
-        current_watches[current_watch_cursor].tick == scheduler->CurrentTick()) {
-        current_watches[current_watch_cursor].upper_bound = offset;
-        return;
+    if (current_watch_cursor != 0 && !pinned &&
+        (current_watch_pins.empty() || !current_watch_pins[current_watch_cursor - 1]) &&
+        current_watches[current_watch_cursor - 1].tick == scheduler->CurrentTick()) {
+        current_watches[current_watch_cursor - 1].upper_bound = offset;
+        return NoNewWatch;
     }
 
     if (current_watch_cursor + 1 >= current_watches.size()) {
         // Ensure that there are enough watches.
-        ReserveWatches(current_watches, WATCHES_RESERVE_CHUNK);
+        ReserveWatches(current_watches, current_watch_pins, WATCHES_RESERVE_CHUNK);
     }
 
-    auto& watch = current_watches[current_watch_cursor++];
+    if (pinned && current_watch_pins.empty()) {
+        current_watch_pins.resize(current_watches.size());
+    }
+    const size_t watch_index = current_watch_cursor++;
+    auto& watch = current_watches[watch_index];
     watch.upper_bound = offset;
     watch.tick = scheduler->CurrentTick();
+    return watch_index;
 }
 
-void StreamBuffer::ReserveWatches(std::vector<Watch>& watches, std::size_t grow_size) {
-    watches.resize(watches.size() + grow_size);
-}
-
-bool StreamBuffer::WaitPendingOperations(u64 requested_upper_bound, bool allow_wait) {
-    if (!invalidation_mark) {
-        return true;
+// The unpinned overload keeps shared_ptr destruction out of the common path.
+void StreamBuffer::Commit() {
+    const size_t watch_index = CommitWatch(false);
+    if (watch_index != NoNewWatch && !current_watch_pins.empty()) {
+        current_watch_pins[watch_index].reset();
     }
+}
+
+void StreamBuffer::Commit(StreamBufferPinHandle pin) {
+    const size_t watch_index = CommitWatch(pin != nullptr);
+    if (watch_index != NoNewWatch && !current_watch_pins.empty()) {
+        current_watch_pins[watch_index] = std::move(pin);
+    }
+}
+
+void StreamBuffer::ReserveWatches(std::vector<Watch>& watches,
+                                  std::vector<StreamBufferPinHandle>& pins,
+                                  std::size_t grow_size) {
+    watches.resize(watches.size() + grow_size);
+    if (!pins.empty()) {
+        pins.resize(watches.size());
+    }
+}
+
+SHAD_NO_INLINE bool StreamBuffer::WaitPendingWatches(u64 requested_upper_bound, bool allow_wait) {
     while (requested_upper_bound > wait_bound && wait_cursor < *invalidation_mark) {
         auto& watch = previous_watches[wait_cursor];
-        if (!scheduler->IsFree(watch.tick) && !allow_wait) {
+        auto pin = previous_watch_pins.empty() ? StreamBufferPinHandle{}
+                                               : previous_watch_pins[wait_cursor];
+        const u64 required_tick = pin ? pin->RequiredTick(watch.tick) : watch.tick;
+        if ((!scheduler->IsFree(required_tick) ||
+              (pin && !pin->IsReleased())) &&
+            !allow_wait) {
             return false;
         }
-        scheduler->Wait(watch.tick);
+        {
+            scheduler->Wait(required_tick);
+        }
+        if (pin) {
+            pin->Reclaim();
+            if (!pin->IsReleased()) {
+                return false;
+            }
+            previous_watch_pins[wait_cursor].reset();
+        }
         wait_bound = watch.upper_bound;
         ++wait_cursor;
     }

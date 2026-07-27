@@ -29,6 +29,9 @@ public:
         return *handle;
     }
 
+    size_t lru_id{};
+    u64 lru_tick{};
+
 private:
     vk::UniqueSampler handle;
 };

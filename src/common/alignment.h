@@ -3,14 +3,21 @@
 
 #pragma once
 
+#include <bit>
 #include <cstddef>
 #include <type_traits>
 
 namespace Common {
 
+// A power of two alignment known only at run time is applied with a mask instead of a division,
+// with the same result.
+
 template <typename T>
 [[nodiscard]] constexpr T AlignUp(T value, std::size_t size) {
     static_assert(std::is_unsigned_v<T>, "T must be an unsigned value.");
+    if (std::has_single_bit(size)) {
+        return static_cast<T>((static_cast<std::size_t>(value) + (size - 1)) & ~(size - 1));
+    }
     auto mod{static_cast<T>(value % size)};
     value -= mod;
     return static_cast<T>(mod == T{0} ? value : value + size);
@@ -19,6 +26,9 @@ template <typename T>
 template <typename T>
 [[nodiscard]] constexpr T AlignDown(T value, std::size_t size) {
     static_assert(std::is_unsigned_v<T>, "T must be an unsigned value.");
+    if (std::has_single_bit(size)) {
+        return static_cast<T>(static_cast<std::size_t>(value) & ~(size - 1));
+    }
     return static_cast<T>(value - value % size);
 }
 

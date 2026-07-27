@@ -3,16 +3,17 @@
 
 #pragma once
 
+#include <array>
 #include <condition_variable>
 #include <coroutine>
+#include <deque>
 #include <exception>
 #include <mutex>
-#include <optional>
+#include <queue>
 #include <semaphore>
 #include <span>
 #include <thread>
 #include <vector>
-#include <queue>
 
 #include "common/assert.h"
 #include "common/slot_vector.h"
@@ -30,6 +31,20 @@ struct VideoOutPort;
 }
 
 namespace AmdGpu {
+
+struct PM4CmdEventWriteEop;
+struct PM4CmdEventWriteEos;
+struct PM4CmdReleaseMem;
+union PM4Header;
+
+/// Guest memory a queued completion signal writes.
+struct GuestSignalLabel {
+    VAddr address{};
+    u64 value{};
+    u32 num_bytes{};    ///< Zero when the signal writes no memory.
+    bool described{};   ///< False when the signal may write memory not described here.
+    bool value_known{}; ///< The value lands once the copies before the signal finish.
+};
 
 struct Liverpool {
     static constexpr u32 GfxQueueId = 0u;
@@ -96,11 +111,6 @@ public:
         rasterizer = rasterizer_;
     }
 
-    /// Returns true when the PM4 packet currently being processed has the predicate bit set.
-    bool IsPacketPredicated() const {
-        return packet_predicated;
-    }
-
     template <bool wait_done = false>
     void SendCommand(auto&& func) {
         if (std::this_thread::get_id() == gpu_id) {
@@ -126,6 +136,10 @@ public:
         }
     }
 
+    [[nodiscard]] bool IsGpuThread() const noexcept {
+        return std::this_thread::get_id() == gpu_id;
+    }
+
     void ReserveCopyBufferSpace() {
         GpuQueue& gfx_queue = mapped_queues[GfxQueueId];
         std::scoped_lock lk(gfx_queue.m_access);
@@ -136,6 +150,14 @@ public:
 
     inline ComputeProgram& GetCsRegs() {
         return mapped_queues[curr_qid].cs_state;
+    }
+
+    [[nodiscard]] u64 GraphicsPipelineGeneration() const noexcept {
+        return graphics_pipeline_generation;
+    }
+
+    [[nodiscard]] u64 GraphicsStateGeneration() const noexcept {
+        return graphics_state_generation;
     }
 
     struct AscQueueInfo {
@@ -184,16 +206,61 @@ private:
 
     using CmdBuffer = std::pair<std::span<const u32>, std::span<const u32>>;
     CmdBuffer CopyCmdBuffers(std::span<const u32> dcb, std::span<const u32> ccb);
-    Task ProcessGraphics(std::span<const u32> dcb, std::span<const u32> ccb);
-    Task ProcessCeUpdate(std::span<const u32> ccb);
+    Task ProcessGraphics(std::span<const u32> dcb, std::span<const u32> ccb, u32 ib_depth = 0);
+    Task ProcessCeUpdate(std::span<const u32> ccb, u32 ib_depth = 0);
     template <bool is_indirect = false>
-    Task ProcessCompute(std::span<const u32> acb, u32 vqid);
+    Task ProcessCompute(std::span<const u32> acb, u32 vqid, u32 ib_depth = 0);
 
     void ProcessCommands();
     void Process(std::stop_token stoken);
+    template <u32 NumWords>
+    bool WriteGraphicsRegistersSmall(u32 first_register, const u32* payload);
+    bool WriteGraphicsRegisters(u32 first_register, const u32* payload, u32 word_count);
+    bool WriteGraphicsRegisters4(u32 first_register, const u32* payload);
+    bool WriteGraphicsRegisters8(u32 first_register, const u32* payload);
+    bool WriteGraphicsRegistersSlow(u32 first_register, const u32* payload, u32 word_count);
+    void HandleContextRegisterHint(u32 register_address, u32 packet_count, const u32* payload);
+    bool TryPromoteGoW3Eos(const PM4CmdEventWriteEos& packet);
+    void ProcessGraphicsEventWrite(const PM4Header* header);
+    void ProcessEventWriteEop(const PM4CmdEventWriteEop& packet);
+    void ProcessEventWriteEos(const PM4CmdEventWriteEos& packet);
+    void ProcessComputeReleaseMem(const PM4CmdReleaseMem& packet, const u32* queue_pipe_id);
 
-    /// Restores the index base staged by a GPU-predicated DrawIndex2 (see the draw handler).
-    void RestorePredicatedIndexBase();
+    bool TrackDeferredGpuCompletion(u32 queue_id, VAddr address = 0, u64 value = 0,
+                                    u32 num_bytes = 0);
+    bool TryBypassGpuCompletionWait(u32 queue_id, VAddr address, u32 function, u32 mask,
+                                    u32 reference);
+    void FlushPendingGpuCompletionsForWait();
+    void RefreshPendingGpuCompletions();
+
+    /// Runs a completion signal once guest copy jobs up to guest_copy_seq have read the memory
+    /// parsed before it. Signals run in order, on this thread.
+    void SignalAfterGuestReads(u64 guest_copy_seq, Common::UniqueFunction<void>&& signal,
+                               const GuestSignalLabel& label = {});
+    /// Runs the queued signals whose copies have completed.
+    void PollGuestReadSignals();
+    /// Waits for the copies of every queued signal and runs them.
+    void FlushGuestReadSignals();
+    /// Defers a signal to the completion of the GPU work recorded so far, behind the queued
+    /// signals, so that signals still land in command stream order.
+    void DeferGpuCompletionInOrder(Common::UniqueFunction<void>&& callback,
+                                   const GuestSignalLabel& label = {});
+    /// Whether the queued signals leave the label at address with a value that passes a
+    /// WAIT_REG_MEM. The command stream may then run on while their copies finish.
+    bool SkipWaitForQueuedSignal(VAddr address, u32 function, u32 mask, u32 reference);
+    /// The command processor is about to write guest memory the guest reads. After a wait
+    /// skipped a queued signal, the write must not land before that signal.
+    void OrderAfterSkippedSignals() {
+        if (skipped_signal_count != 0) [[unlikely]] {
+            FlushSkippedSignals();
+        }
+    }
+    void FlushSkippedSignals();
+
+    bool ArmMemoryWait(u32 queue_id, VAddr address);
+    void CancelMemoryWait(u32 queue_id);
+    void WakeMemoryWait(u32 queue_id) noexcept;
+    void ReleaseMemoryWaitFallbacks() noexcept;
 
     struct GpuQueue {
         std::mutex m_access{};
@@ -205,12 +272,48 @@ private:
         ComputeProgram cs_state{};
     };
     std::array<GpuQueue, NumTotalQueues> mapped_queues{};
+    std::array<Task::Handle, NumTotalQueues> active_tasks{};
     u32 num_mapped_queues{1u}; // GFX is always available
+
+    struct MemoryWaitContext {
+        Liverpool* owner{};
+        u32 queue_id{};
+        VAddr page{};
+        u64 id{};
+        u64 epoch{};
+    };
+    std::array<MemoryWaitContext, NumTotalQueues> memory_waits{};
+
+    struct GuestReadSignal {
+        u64 guest_copy_seq{};
+        Common::UniqueFunction<void> signal;
+        GuestSignalLabel label{};
+        bool skipped{}; ///< A wait ran on without it.
+    };
+    std::deque<GuestReadSignal> guest_read_signals;
+    u32 skipped_signal_count{};
+    std::atomic<u64> ready_queue_mask{};
+    std::atomic<u64> blocked_queue_mask{};
+
+    struct PendingGpuFenceWord {
+        VAddr address{};
+        u32 value{};
+        u8 queue_id{};
+        bool barriered{};
+    };
+    static_assert(sizeof(PendingGpuFenceWord) == 16);
+    static constexpr u32 MaxPendingGpuFenceWords = 64;
+    std::array<PendingGpuFenceWord, MaxPendingGpuFenceWords> pending_gpu_fence_words{};
+    u64 pending_gpu_completion_tick{};
+    u32 pending_gpu_completion_count{};
+    u32 pending_gpu_fence_word_count{};
 
     VAddr indirect_args_addr{};
     u32 num_counter_pairs{};
-    bool packet_predicated{};
-    std::optional<std::pair<u32, u32>> saved_index_base{};
+    u64 pixel_counter{};
+    u64 graphics_pipeline_generation{1};
+    u64 graphics_state_generation{1};
+    bool warned_set_predication{};
 
     struct ConstantEngine {
         void Reset() {

@@ -1,7 +1,7 @@
-
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdlib>
 #include <boost/container/static_vector.hpp>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -89,16 +89,25 @@ std::string GetReadableVersion(u32 version) {
 
 } // Anonymous namespace
 
-Instance::Instance(bool enable_validation, bool enable_crash_diagnostic, bool manage_imgui)
+Instance::Instance(bool enable_validation, bool enable_crash_diagnostic)
     : instance{CreateInstance(Frontend::WindowSystemType::Headless, enable_validation,
                               enable_crash_diagnostic)},
-      physical_devices{EnumeratePhysicalDevices(instance)}, manage_imgui{manage_imgui} {}
+      physical_devices{EnumeratePhysicalDevices(instance)} {}
 
-Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index, bool enable_validation,
-                   bool enable_crash_diagnostic, bool manage_imgui)
-    : instance{CreateInstance(window.GetWindowInfo().type, enable_validation,
-                              enable_crash_diagnostic)},
-      physical_devices{EnumeratePhysicalDevices(instance)}, manage_imgui{manage_imgui} {
+Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index,
+                   bool enable_validation /*= false*/, bool enable_crash_diagnostic /*= false*/)
+    : Instance(window.GetWindowInfo().type, physical_device_index, enable_validation,
+               enable_crash_diagnostic) {
+    shutdown_overlay = true;
+}
+
+Instance::Instance(Frontend::WindowSystemType window_type, s32 physical_device_index,
+                   bool enable_validation /*= false*/, bool enable_crash_diagnostic /*= false*/)
+    : instance{CreateInstance(window_type, enable_validation, enable_crash_diagnostic)},
+      physical_devices{EnumeratePhysicalDevices(instance)} {
+    shutdown_overlay = false;
+    surface_capabilities2 =
+        IsInstanceExtensionEnabled(window_type, VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
     if (enable_validation) {
         debug_callback = CreateDebugCallback(*instance);
     }
@@ -171,7 +180,7 @@ Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index, bool 
 }
 
 Instance::~Instance() {
-    if (manage_imgui) {
+    if (shutdown_overlay) {
         ImGui::Core::Shutdown(GetDevice());
     }
     vmaDestroyAllocator(allocator);
@@ -204,11 +213,14 @@ bool Instance::CreateDevice() {
                           vk::PhysicalDeviceRobustness2FeaturesEXT,
                           vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT,
                           vk::PhysicalDevicePrimitiveTopologyListRestartFeaturesEXT,
-                          vk::PhysicalDevicePortabilitySubsetFeaturesKHR,
                           vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
                           vk::PhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR,
                           vk::PhysicalDeviceImage2DViewOf3DFeaturesEXT,
-                          vk::PhysicalDeviceConditionalRenderingFeaturesEXT>();
+                          vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT,
+                          vk::PhysicalDevicePresentId2FeaturesKHR,
+                          vk::PhysicalDevicePresentWait2FeaturesKHR,
+                          vk::PhysicalDevicePresentIdFeaturesKHR,
+                          vk::PhysicalDevicePresentWaitFeaturesKHR>();
     features = feature_chain.get().features;
 
     const vk::StructureChain properties_chain = physical_device.getProperties2<
@@ -226,7 +238,7 @@ bool Instance::CreateDevice() {
         return false;
     }
 
-    boost::container::static_vector<const char*, 32> enabled_extensions;
+    boost::container::static_vector<const char*, 40> enabled_extensions;
     const auto add_extension = [&](std::string_view extension) -> bool {
         const auto result =
             std::find_if(available_extensions.begin(), available_extensions.end(),
@@ -340,29 +352,35 @@ bool Instance::CreateDevice() {
                  image_2d_view_of_3d_features.sampler2DViewOf3D);
     }
     image_view_min_lod = add_extension(VK_EXT_IMAGE_VIEW_MIN_LOD_EXTENSION_NAME);
-    conditional_rendering = add_extension(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME);
-    if (conditional_rendering) {
-        const auto conditional_rendering_features =
-            feature_chain.get<vk::PhysicalDeviceConditionalRenderingFeaturesEXT>();
-        conditional_rendering = conditional_rendering_features.conditionalRendering;
-        LOG_INFO(Render_Vulkan, "- conditionalRendering: {}",
-                 conditional_rendering_features.conditionalRendering);
-    }
     supports_memory_budget = add_extension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
-    const bool calibrated_timestamps =
-        TRACY_GPU_ENABLED ? add_extension(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME) : false;
-
-#ifdef __APPLE__
-    if (driver_id == vk::DriverId::eMoltenvk) {
-        portability_subset = add_extension(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
-        if (portability_subset) {
-            portability_features =
-                feature_chain.get<vk::PhysicalDevicePortabilitySubsetFeaturesKHR>();
+    swapchain_maintenance1 = add_extension(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) &&
+                             feature_chain.get<vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT>()
+                                 .swapchainMaintenance1;
+    // Present ids let the presenter wait for each frame to reach the display. The second
+    // revision also needs the surface to support it, which the swapchain checks.
+    if (surface_capabilities2 &&
+        feature_chain.get<vk::PhysicalDevicePresentId2FeaturesKHR>().presentId2 &&
+        feature_chain.get<vk::PhysicalDevicePresentWait2FeaturesKHR>().presentWait2 &&
+        add_extension(VK_KHR_PRESENT_ID_2_EXTENSION_NAME)) {
+        present_wait2 = add_extension(VK_KHR_PRESENT_WAIT_2_EXTENSION_NAME);
+        if (!present_wait2) {
+            enabled_extensions.pop_back();
         }
     }
+    if (!present_wait2 && feature_chain.get<vk::PhysicalDevicePresentIdFeaturesKHR>().presentId &&
+        feature_chain.get<vk::PhysicalDevicePresentWaitFeaturesKHR>().presentWait &&
+        add_extension(VK_KHR_PRESENT_ID_EXTENSION_NAME)) {
+        present_wait = add_extension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME);
+        if (!present_wait) {
+            enabled_extensions.pop_back();
+        }
+    }
+    // Reflex identifies frames by their present ids.
+    nv_low_latency2 =
+        (present_wait2 || present_wait) && add_extension(VK_NV_LOW_LATENCY_2_EXTENSION_NAME);
+#if TRACY_GPU_ENABLED
+    calibrated_timestamps = add_extension(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
 #endif
-
-    supports_memory_budget = add_extension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
 
     const auto family_properties = physical_device.getQueueFamilyProperties();
     if (family_properties.empty()) {
@@ -375,6 +393,7 @@ bool Instance::CreateDevice() {
         const u32 index = static_cast<u32>(i);
         if (family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics) {
             queue_family_index = index;
+            timestamp_valid_bits = family_properties[i].timestampValidBits;
             graphics_queue_found = true;
         }
     }
@@ -384,20 +403,56 @@ bool Instance::CreateDevice() {
         return false;
     }
 
+    // A family with transfer and nothing else is fed by the copy engines, which run beside the
+    // graphics queue. SHADPS4_TRANSFER_QUEUE=0 keeps every copy on the graphics queue.
+    const char* transfer_queue_env = std::getenv("SHADPS4_TRANSFER_QUEUE");
+    if (transfer_queue_env == nullptr || transfer_queue_env[0] != '0') {
+        for (std::size_t i = 0; i < family_properties.size(); i++) {
+            const auto flags = family_properties[i].queueFlags;
+            if ((flags & vk::QueueFlagBits::eTransfer) && !(flags & vk::QueueFlagBits::eGraphics) &&
+                !(flags & vk::QueueFlagBits::eCompute) && family_properties[i].queueCount > 0) {
+                transfer_queue_family_index = static_cast<u32>(i);
+                break;
+            }
+        }
+    }
+    if (transfer_queue_family_index) {
+        LOG_INFO(Render_Vulkan, "Using transfer queue family {}", *transfer_queue_family_index);
+    }
+
+    // Presentation gets its own queue of the graphics family when there is one. A present call
+    // can block in the driver until the display frees a swapchain image, and the queue must stay
+    // locked for the whole call, so on a shared queue the GPU could not be fed during that time.
+    // SHADPS4_PRESENT_QUEUE=0 presents on the graphics queue.
+    const char* present_queue_env = std::getenv("SHADPS4_PRESENT_QUEUE");
+    separate_present_queue = family_properties[queue_family_index].queueCount > 1 &&
+                             (present_queue_env == nullptr || present_queue_env[0] != '0');
+    LOG_INFO(Render_Vulkan, "Presenting on {} queue",
+             separate_present_queue ? "a separate" : "the graphics");
+
     static constexpr std::array queue_priorities = {1.0f};
-    const vk::DeviceQueueCreateInfo queue_info = {
+    static constexpr std::array graphics_queue_priorities = {1.0f, 1.0f};
+    boost::container::static_vector<vk::DeviceQueueCreateInfo, 2> queue_infos;
+    queue_infos.push_back({
         .queueFamilyIndex = queue_family_index,
-        .queueCount = static_cast<u32>(queue_priorities.size()),
-        .pQueuePriorities = queue_priorities.data(),
-    };
+        .queueCount = separate_present_queue ? 2U : 1U,
+        .pQueuePriorities = graphics_queue_priorities.data(),
+    });
+    if (transfer_queue_family_index) {
+        queue_infos.push_back({
+            .queueFamilyIndex = *transfer_queue_family_index,
+            .queueCount = static_cast<u32>(queue_priorities.size()),
+            .pQueuePriorities = queue_priorities.data(),
+        });
+    }
 
     const auto vk11_features = feature_chain.get<vk::PhysicalDeviceVulkan11Features>();
     vk12_features = feature_chain.get<vk::PhysicalDeviceVulkan12Features>();
     vk13_features = feature_chain.get<vk::PhysicalDeviceVulkan13Features>();
     vk::StructureChain device_chain = {
         vk::DeviceCreateInfo{
-            .queueCreateInfoCount = 1u,
-            .pQueueCreateInfos = &queue_info,
+            .queueCreateInfoCount = static_cast<u32>(queue_infos.size()),
+            .pQueueCreateInfos = queue_infos.data(),
             .enabledExtensionCount = static_cast<u32>(enabled_extensions.size()),
             .ppEnabledExtensionNames = enabled_extensions.data(),
         },
@@ -526,8 +581,20 @@ bool Instance::CreateDevice() {
         vk::PhysicalDeviceImageViewMinLodFeaturesEXT{
             .minLod = true,
         },
-        vk::PhysicalDeviceConditionalRenderingFeaturesEXT{
-            .conditionalRendering = true,
+        vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT{
+            .swapchainMaintenance1 = true,
+        },
+        vk::PhysicalDevicePresentId2FeaturesKHR{
+            .presentId2 = true,
+        },
+        vk::PhysicalDevicePresentWait2FeaturesKHR{
+            .presentWait2 = true,
+        },
+        vk::PhysicalDevicePresentIdFeaturesKHR{
+            .presentId = true,
+        },
+        vk::PhysicalDevicePresentWaitFeaturesKHR{
+            .presentWait = true,
         },
     };
 
@@ -574,8 +641,16 @@ bool Instance::CreateDevice() {
     if (!image_view_min_lod) {
         device_chain.unlink<vk::PhysicalDeviceImageViewMinLodFeaturesEXT>();
     }
-    if (!conditional_rendering) {
-        device_chain.unlink<vk::PhysicalDeviceConditionalRenderingFeaturesEXT>();
+    if (!swapchain_maintenance1) {
+        device_chain.unlink<vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT>();
+    }
+    if (!present_wait2) {
+        device_chain.unlink<vk::PhysicalDevicePresentId2FeaturesKHR>();
+        device_chain.unlink<vk::PhysicalDevicePresentWait2FeaturesKHR>();
+    }
+    if (!present_wait) {
+        device_chain.unlink<vk::PhysicalDevicePresentIdFeaturesKHR>();
+        device_chain.unlink<vk::PhysicalDevicePresentWaitFeaturesKHR>();
     }
 
     auto [device_result, dev] = physical_device.createDeviceUnique(device_chain.get());
@@ -588,34 +663,39 @@ bool Instance::CreateDevice() {
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*device);
 
     graphics_queue = device->getQueue(queue_family_index, 0);
-    present_queue = device->getQueue(queue_family_index, 0);
+    present_queue = device->getQueue(queue_family_index, separate_present_queue ? 1 : 0);
+    if (transfer_queue_family_index) {
+        transfer_queue = device->getQueue(*transfer_queue_family_index, 0);
+    }
 
     if (calibrated_timestamps) {
         const auto [time_domains_result, time_domains] =
             physical_device.getCalibrateableTimeDomainsEXT();
         if (time_domains_result == vk::Result::eSuccess) {
 #if _WIN64
-            const bool has_host_time_domain =
-                std::find(time_domains.cbegin(), time_domains.cend(),
-                          vk::TimeDomainEXT::eQueryPerformanceCounter) != time_domains.cend();
+            constexpr auto preferred_host_domain = vk::TimeDomainEXT::eQueryPerformanceCounter;
 #elif __linux__
-            const bool has_host_time_domain =
-                std::find(time_domains.cbegin(), time_domains.cend(),
-                          vk::TimeDomainEXT::eClockMonotonicRaw) != time_domains.cend();
+            constexpr auto preferred_host_domain = vk::TimeDomainEXT::eClockMonotonicRaw;
 #else
-            // Tracy limitation means only Windows and Linux can use host time domain.
-            // https://github.com/shadps4-emu/tracy/blob/c6d779d78508514102fbe1b8eb28bda10d95bb2a/public/tracy/TracyVulkan.hpp#L384-L389
-            const bool has_host_time_domain = false;
+            constexpr auto preferred_host_domain = vk::TimeDomainEXT::eDevice;
 #endif
+            const bool has_host_time_domain =
+                std::find(time_domains.cbegin(), time_domains.cend(), preferred_host_domain) !=
+                time_domains.cend();
             if (has_host_time_domain) {
+#if TRACY_GPU_ENABLED
                 static constexpr std::string_view context_name{"vk_rasterizer"};
                 profiler_context = TracyVkContextHostCalibrated(
                     *instance, physical_device, *device,
                     VULKAN_HPP_DEFAULT_DISPATCHER.vkGetInstanceProcAddr,
                     VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceProcAddr);
                 TracyVkContextName(profiler_context, context_name.data(), context_name.size());
+#endif
+            } else {
+                calibrated_timestamps = false;
             }
         } else {
+            calibrated_timestamps = false;
             LOG_WARNING(Render_Vulkan, "Could not query calibrated time domains for profiling: {}",
                         vk::to_string(time_domains_result));
         }
@@ -782,9 +862,7 @@ u64 Instance::GetDeviceMemoryUsage() const {
     for (const size_t heap : valid_heaps) {
         total_usage += memory_budget_props.heapUsage[heap];
     }
-
-    const u64 ps4_vram_limit = 4_GB;
-    return std::min(total_usage, ps4_vram_limit);
+    return total_usage;
 }
 
 vk::FormatFeatureFlags2 Instance::GetFormatFeatureFlags(vk::Format format) const {

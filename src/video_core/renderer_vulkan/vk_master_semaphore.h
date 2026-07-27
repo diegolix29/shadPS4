@@ -5,8 +5,10 @@
 
 #include <atomic>
 #include <condition_variable>
-#include <thread>
+#include <mutex>
 #include <queue>
+#include <thread>
+
 #include "common/types.h"
 #include "video_core/renderer_vulkan/vk_common.h"
 

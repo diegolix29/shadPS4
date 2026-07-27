@@ -177,6 +177,7 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     }
     SDL_SetWindowFullscreen(window, Config::getIsFullscreen());
     SDL_SyncWindow(window);
+    UpdateDisplayRefreshPeriod();
     // The window geometry is only final once the fullscreen transition has settled; refresh
     // the cached size so the first swapchain and the splashscreen use the real drawable size.
     SDL_GetWindowSizeInPixels(window, &width, &height);
@@ -316,6 +317,10 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_WINDOW_EXPOSED:
         is_shown = event.type == SDL_EVENT_WINDOW_EXPOSED;
         OnResize();
+        break;
+    case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
+    case SDL_EVENT_DISPLAY_CURRENT_MODE_CHANGED:
+        UpdateDisplayRefreshPeriod();
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -621,7 +626,27 @@ void WindowSDL::ReleaseKeyboard() {
 
 void WindowSDL::OnResize() {
     SDL_GetWindowSizeInPixels(window, &width, &height);
+    // Entering or leaving exclusive fullscreen can switch the display mode.
+    UpdateDisplayRefreshPeriod();
     ImGui::Core::OnResize();
+}
+
+void WindowSDL::UpdateDisplayRefreshPeriod() {
+    s64 period_ns = 0;
+    const SDL_DisplayID display = SDL_GetDisplayForWindow(window);
+    const SDL_DisplayMode* mode = display != 0 ? SDL_GetCurrentDisplayMode(display) : nullptr;
+    if (mode != nullptr) {
+        if (mode->refresh_rate_numerator > 0 && mode->refresh_rate_denominator > 0) {
+            period_ns = 1'000'000'000LL * mode->refresh_rate_denominator /
+                        mode->refresh_rate_numerator;
+        } else if (mode->refresh_rate > 0.0f) {
+            period_ns = static_cast<s64>(1'000'000'000.0 / mode->refresh_rate);
+        }
+    }
+    if (display_refresh_period_ns.exchange(period_ns, std::memory_order_acq_rel) != period_ns) {
+        LOG_INFO(Frontend, "Display refresh period: {:.4f} ms",
+                 static_cast<double>(period_ns) / 1'000'000.0);
+    }
 }
 
 Uint32 wheelOffCallback(void* og_event, Uint32 timer_id, Uint32 interval) {

@@ -80,7 +80,7 @@ FaultManager::FaultManager(const Vulkan::Instance& instance, Vulkan::Scheduler& 
 void FaultManager::ProcessFaultBuffer() {
     if (u64 wait_tick = fault_areas[current_area]) {
         scheduler.Wait(wait_tick);
-        scheduler.PopPendingOperations();
+        scheduler.PopPendingOperations(true);
     }
 
     const u32 offset = current_area * PageFaultAreaSize;
