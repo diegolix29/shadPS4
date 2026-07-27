@@ -44,6 +44,8 @@ Repo root: `$HOME/repo/Bachata-S4`. All paths below are relative to it unless no
 ### Exit code cheat sheet
 
 Android `Process.exitCode()`: if killed by signal N, returns `128 + N`.
+- **127 = Shared Library Missing** → `shadPS4 exited before socket connect: 127: .../shadps4-arm64-fex: error while loading shared libraries: <libname>.so.N: cannot open shared object file: No such file or directory` (e.g. `libcap.so.2`). Indicates a host library dependency gap in Debian runtime packaging.
+  - **Fix**: Add missing `.so` to `arm64Explicit` in `runtime/scripts/stage-debian-runtime.mjs`, re-stage, and rebuild runtime assets.
 - **133 = 128 + 5 = SIGTRAP** → most often a guest assert / `UNREACHABLE_MSG` in
   `src/core/signals.cpp:~134` ("Breakpoints almost certainly come from our asserts").
 - **134 = SIGABRT**, **139 = SIGSEGV**, **137 = SIGKILL (OOM)**.
@@ -96,6 +98,7 @@ console.log(l.filter(x => x && !/^BACHATA_FEX/.test(x)).slice(-20).map(clean).jo
 ```
 
 Patterns to grep for, by failure class:
+- **exit 127 / Missing Shared Library:** `error while loading shared libraries` or `cannot open shared object file` (e.g. `libcap.so.2`). Check `runtime/scripts/stage-debian-runtime.mjs`.
 - **exit 133 / SIGTRAP:** `Critical|Unhandled access|ReportGuestHleFailure|UNREACHABLE`
 - **HLE gap (the Fios2 class of bug):** `FEX HLE call <nid>#<lib>.*failed: 38` and
   `unresolved HLE <name> uses temporary ENOSYS fallback`. The failing NID → look up in
@@ -193,10 +196,29 @@ output, all diagnostic traps/dumps/hardcoded addresses removed.
 Per `AGENTS.md`, the Gradle build packages existing runtime assets but does NOT
 generate them. Before `assembleDebug`, always rebuild the runtime from repo root:
 
+### Option A: Native Host Build
+
 ```bash
 git submodule update --init --recursive --jobs 8   # only if submodules changed
 runtime/scripts/build-runtime-debian.sh
 node runtime/tests/verify-runtime.mjs runtime/locks/components.lock.json
+```
+
+### Option B: Podman Container Build (refer to `documents/podman-setup.md`)
+
+```bash
+podman exec --workdir /workspace bachata-debian-builder bash -c "
+  bash runtime/scripts/build-vortek-client.sh
+  runtime/scripts/build-runtime-debian.sh
+  node runtime/tests/verify-runtime.mjs runtime/locks/components.lock.json
+  node runtime/tests/verify-no-bundled-turnip.mjs runtime/build/rootfs
+"
+
+podman exec --workdir /workspace/android/BachataS4 bachata-debian-builder bash -c "
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+  export ANDROID_HOME=/opt/android-sdk
+  ./gradlew clean test lintDebug assemblePlaystoreDebug
+"
 ```
 
 `build-runtime-debian.sh` chains: `build-shadps4-x86_64.sh` → `build-box64-host.sh`
@@ -210,18 +232,23 @@ Then build + verify + install the APK:
 cd android/BachataS4
 ./gradlew test lintDebug assembleDebug
 # APK variants: app-fdroid-debug.apk and app-playstore-debug.apk (under app/build/outputs/apk/<variant>/debug/)
+
 # CRITICAL: confirm BOTH managed-runtime assets are present before installing:
 unzip -l app/build/outputs/apk/fdroid/debug/app-fdroid-debug.apk \
   | grep -E 'assets/runtime/(manifest\.json|runtime\.zip)'
-# Do NOT install if either is missing — a green Gradle build alone proves nothing.
+
+# For Play Store variant, verify bundled Turnip driver packages:
+node runtime/tests/verify-playstore-bundled-turnip.mjs app/build/outputs/apk/playstore/debug/app-playstore-debug.apk
 ```
 
 Install + launch via DirectLaunchActivity (debug-only activity, takes `--es game_id <CUSAid>`):
 
 ```bash
-ADB="$(wslpath "$USERPROFILE")/AppData/Local/Android/Sdk/platform-tools/adb.exe"
+ADB="adb"  # or full adb.exe path on WSL2
 SERIAL=<serial-id>   # adjust per device
-"$ADB" -s $SERIAL install -r -d app/build/outputs/apk/fdroid/debug/app-fdroid-debug.apk
+"$ADB" -s $SERIAL install -r -d app/build/outputs/apk/playstore/debug/app-playstore-debug.apk
+# If install fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE (signature mismatch):
+# "$ADB" -s $SERIAL uninstall com.bachatas4.android && "$ADB" -s $SERIAL install app/build/outputs/apk/playstore/debug/app-playstore-debug.apk
 "$ADB" -s $SERIAL logcat -c
 "$ADB" -s $SERIAL shell am start -n com.bachatas4.android/.DirectLaunchActivity --es game_id CUSA01623
 ```
@@ -231,10 +258,12 @@ claiming the fix works.
 
 ## Conventions / gotchas
 
-- **Two adb servers.** `/usr/bin/adb` is useless here; always use `adb.exe` (full path)
-  or `ADB_OVERRIDE` for the pull script.
+- **Two adb servers on WSL2.** `/usr/bin/adb` on WSL2 does not see USB devices; use `adb.exe`
+  or `ADB_OVERRIDE` for the pull script. On native Linux/PikaOS, host `/usr/bin/adb` works directly.
+- **`INSTALL_FAILED_UPDATE_INCOMPATIBLE` error:** Occurs when switching between signature keys (e.g. release vs debug or fdroid vs playstore). Run `adb uninstall com.bachatas4.android` first.
 - **`grep` shell alias breaks `-E -i` together** (`conflicting matchers specified`).
   Use `/usr/bin/grep` explicitly or one flag at a time.
+- **Exit code 127 = missing host library in container runtime.** If `shadps4-arm64-fex` fails with `cannot open shared object file` (e.g. `libcap.so.2`), add the `.so` to `arm64Explicit` in `stage-debian-runtime.mjs` and re-stage.
 - **Exit code 133 ≠ crash bug necessarily** — it's a guest assert. The real bug is
   whatever made the guest reach the `UNREACHABLE`; the assert is the symptom.
 - **`ENABLE_BACHATA_RUNTIME` is ON in both the arm64-FEX and x86_64 native builds**,

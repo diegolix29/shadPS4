@@ -254,7 +254,7 @@ const arm64Explicit = [
   "libxcb.so.1", "libxcb-dri3.so.0", "libxcb-present.so.0", "libxcb-randr.so.0",
   "libxcb-render.so.0", "libxcb-shm.so.0", "libxcb-sync.so.1",
   "libXau.so.6", "libXdmcp.so.6", "libvulkan.so.1", "libz.so.1", "libdrm.so.2",
-  "libudev.so.1", "libuuid.so.1",
+  "libudev.so.1", "libuuid.so.1", "libcap.so.2",
   // Data (not libs but needed)
   "libc.so.6", "libm.so.6",
 ];
