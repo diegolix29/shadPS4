@@ -1281,32 +1281,24 @@ void CheatsPatches::applyPatch(const QString& patchName, bool enabled) {
                 maskOffsetValue = std::stoi(maskOffsetStr.toStdString(), 0, 10);
             }
 
-            if (MemoryPatcher::g_eboot_address == 0) {
-                MemoryPatcher::patchInfo addingPatch;
-                addingPatch.gameSerial = patchInfo.serial.toStdString();
-                addingPatch.modNameStr = patchName.toStdString();
-                addingPatch.offsetStr = address.toStdString();
-                addingPatch.valueStr = patchValue.toStdString();
-                addingPatch.isOffset = false;
-                addingPatch.littleEndian = littleEndian;
-                addingPatch.patchMask = patchMask;
-                addingPatch.maskOffset = maskOffsetValue;
+            // 1. Construct the patch struct first so it exists in this scope
+            MemoryPatcher::patchInfo currentPatch;
+            currentPatch.gameSerial = patchInfo.serial.toStdString();
+            currentPatch.modNameStr = patchName.toStdString();
+            currentPatch.offsetStr = address.toStdString();
+            currentPatch.valueStr = patchValue.toStdString();
+            currentPatch.isOffset = false;
+            currentPatch.littleEndian = littleEndian;
+            currentPatch.patchMask = patchMask;
+            currentPatch.maskOffset = maskOffsetValue;
 
-                MemoryPatcher::AddPatchToQueue(addingPatch);
+            // 2. Decide whether to queue it or apply it immediately
+            if (MemoryPatcher::g_eboot_address == 0) {
+                MemoryPatcher::AddPatchToQueue(currentPatch);
                 continue;
             }
-            MemoryPatcher::patchInfo patch;
-            patch.gameSerial = patchInfo.serial.toStdString();
-            patch.modNameStr = patchName.toStdString();
-            patch.offsetStr = address.toStdString();
-            patch.valueStr = patchValue.toStdString();
-            patch.targetStr = "";
-            patch.sizeStr = "";
-            patch.isOffset = false;
-            patch.littleEndian = littleEndian;
-            patch.patchMask = patchMask;
-            patch.maskOffset = maskOffsetValue;
-            MemoryPatcher::PatchMemory(patch);
+
+            MemoryPatcher::PatchMemory(currentPatch);
         }
     }
 }
