@@ -3,6 +3,9 @@
 
 #include "common/logging/log.h"
 #include "common/thread.h"
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+#include "core/guest_cpu/guest_callback.h"
+#endif
 #include "core/libraries/avplayer/avplayer_error.h"
 #include "core/libraries/avplayer/avplayer_state.h"
 
@@ -89,9 +92,18 @@ void AvPlayerState::DefaultEventCallback(void* opaque, AvPlayerEvents event_id, 
     auto const self = reinterpret_cast<AvPlayerState*>(opaque);
     const auto callback = self->m_event_replacement.event_callback;
     const auto ptr = self->m_event_replacement.object_ptr;
-    if (callback != nullptr) {
-        callback(ptr, event_id, 0, event_data);
+    if (callback == nullptr) {
+        return;
     }
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+    const auto callback_address = reinterpret_cast<const void*>(callback);
+    if (Core::GuestCpu::IsGuestFunctionAddress(callback_address)) {
+        Core::GuestCpu::RunGuestFunctionOrAbort(callback_address, "AvPlayer event", ptr, event_id,
+                                                source_id, event_data);
+        return;
+    }
+#endif
+    callback(ptr, event_id, source_id, event_data);
 }
 
 // Called inside GAME thread
