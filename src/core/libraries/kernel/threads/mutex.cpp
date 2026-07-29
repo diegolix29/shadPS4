@@ -27,9 +27,6 @@ static std::mutex MutxStaticLock;
 
 #define CHECK_AND_INIT_MUTEX                                                                       \
     if (PthreadMutex* m = *mutex; m <= THR_MUTEX_DESTROYED) [[unlikely]] {                         \
-        if (m == THR_MUTEX_DESTROYED) {                                                            \
-            return POSIX_EINVAL;                                                                   \
-        }                                                                                          \
         if (s32 ret = InitStatic(g_curthread, mutex); ret) {                                       \
             return ret;                                                                            \
         }                                                                                          \
@@ -87,7 +84,7 @@ static s32 MutexInit(PthreadMutexT* mutex, const PthreadMutexAttr* mutex_attr, c
 static s32 InitStatic(Pthread* thread, PthreadMutexT* mutex) {
     std::scoped_lock lk{MutxStaticLock};
 
-    if (*mutex == THR_MUTEX_INITIALIZER) {
+    if (*mutex == THR_MUTEX_INITIALIZER || *mutex == THR_MUTEX_DESTROYED) {
         return MutexInit(mutex, &PthreadMutexattrDefault, nullptr);
     } else if (*mutex == THR_ADAPTIVE_MUTEX_INITIALIZER) {
         return MutexInit(mutex, &PthreadMutexattrAdaptiveDefault, nullptr);
