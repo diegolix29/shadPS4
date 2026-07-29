@@ -34,3 +34,32 @@ test("AvPlayer dispatches game events through the FEX guest bridge", () => {
   );
   assert.match(callback, /callback\(ptr, event_id, source_id, event_data\)/);
 });
+
+test("AvPlayer dispatches game allocators through the FEX guest bridge", () => {
+  const implementation = read("src/core/libraries/avplayer/avplayer_impl.cpp");
+  const wrappers = [
+    ["void* PS4_SYSV_ABI AvPlayer::Allocate(", "void PS4_SYSV_ABI AvPlayer::Deallocate(", "allocate", "AvPlayer allocate"],
+    ["void PS4_SYSV_ABI AvPlayer::Deallocate(", "void* PS4_SYSV_ABI AvPlayer::AllocateTexture(", "deallocate", "AvPlayer deallocate"],
+    ["void* PS4_SYSV_ABI AvPlayer::AllocateTexture(", "void PS4_SYSV_ABI AvPlayer::DeallocateTexture(", "allocate", "AvPlayer allocate texture"],
+    ["void PS4_SYSV_ABI AvPlayer::DeallocateTexture(", "int PS4_SYSV_ABI AvPlayer::OpenFile(", "deallocate", "AvPlayer deallocate texture"],
+  ];
+
+  assert.match(implementation, /#include "core\/guest_cpu\/guest_callback\.h"/);
+  assert.match(
+    implementation,
+    /const void\* CallbackAddress\(Callback callback\)/,
+  );
+  assert.match(
+    implementation,
+    /bool IsGuestCallback\(Callback callback\)/,
+  );
+
+  for (const [start, end, variable, label] of wrappers) {
+    const wrapper = section(implementation, start, end);
+    assert.match(wrapper, new RegExp(`IsGuestCallback\\(${variable}\\)`));
+    assert.match(
+      wrapper,
+      new RegExp(`RunGuestFunctionOrAbort\\([\\s\\S]*"${label}"`),
+    );
+  }
+});
