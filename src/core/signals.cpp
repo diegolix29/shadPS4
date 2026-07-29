@@ -7,12 +7,9 @@
 #include "common/signal_context.h"
 #include "core/libraries/kernel/threads/exception.h"
 #include "core/signals.h"
-#include "core/veh_stack.h"
-#include "emulator.h"
 
 #ifdef _WIN32
 #include <windows.h>
-static constexpr DWORD MS_VC_EXCEPTION = 0x406D1388;
 #else
 #include <csignal>
 #include <pthread.h>
@@ -32,32 +29,28 @@ namespace Core {
 
 #if defined(_WIN32)
 
-static long SignalHandlerImpl(EXCEPTION_POINTERS* pExp) noexcept {
-    const auto* signal_dispatcher = Signals::Instance();
+static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
+    const auto* signals = Signals::Instance();
     DWORD code = 0;
-    PVOID address = nullptr;
 
     if (pExp != nullptr && pExp->ExceptionRecord != nullptr) {
         code = pExp->ExceptionRecord->ExceptionCode;
-        address = pExp->ExceptionRecord->ExceptionAddress;
     }
 
     bool handled = false;
     switch (code) {
     case EXCEPTION_ACCESS_VIOLATION:
-        handled = signal_dispatcher->DispatchAccessViolation(
+        handled = signals->DispatchAccessViolation(
             pExp, reinterpret_cast<void*>(pExp->ExceptionRecord->ExceptionInformation[1]));
         break;
     case EXCEPTION_ILLEGAL_INSTRUCTION:
-        handled = signal_dispatcher->DispatchIllegalInstruction(pExp);
+    case EXCEPTION_PRIV_INSTRUCTION:
+        handled = signals->DispatchIllegalInstruction(pExp);
         break;
     case DBG_PRINTEXCEPTION_C:
     case DBG_PRINTEXCEPTION_WIDE_C:
         // Used by OutputDebugString functions.
         return EXCEPTION_CONTINUE_EXECUTION;
-    case MS_VC_EXCEPTION:
-        LOG_DEBUG(Debug, "Pass MS_VC_EXCEPTION at {} to handler", address);
-        return EXCEPTION_EXECUTE_HANDLER;
     default:
         break;
     }
@@ -66,21 +59,9 @@ static long SignalHandlerImpl(EXCEPTION_POINTERS* pExp) noexcept {
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
-    // Breakpoints almost certainly come from our asserts/unreachables, no need to log it again.
-    if (code != EXCEPTION_BREAKPOINT) {
-        LOG_CRITICAL(Debug, "Unhandled Exception code {:#x} at {}", code, address);
-        Common::Singleton<Core::Emulator>::Instance()->Shutdown();
-    }
-
+    // Vectored handlers run before frame-based SEH and language-runtime handlers. Exceptions that
+    // do not belong to the emulator must continue through normal Windows dispatch.
     return EXCEPTION_CONTINUE_SEARCH;
-}
-
-static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
-#ifdef _WIN64
-    return static_cast<LONG>(RunOnVehStack(SignalHandlerImpl, pExp));
-#else
-    return static_cast<LONG>(SignalHandlerImpl(pExp));
-#endif
 }
 
 #else
@@ -106,7 +87,7 @@ static std::string DisassembleInstruction(void* code_address) {
 }
 
 void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
-    const auto* signal_dispatcher = Signals::Instance();
+    const auto* signals = Signals::Instance();
 
     auto* code_address = Common::GetRip(raw_context);
 
@@ -114,7 +95,7 @@ void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
     case SIGSEGV:
     case SIGBUS: {
         const bool is_write = Common::IsWriteError(raw_context);
-        if (!signal_dispatcher->DispatchAccessViolation(raw_context, info->si_addr)) {
+        if (!signals->DispatchAccessViolation(raw_context, info->si_addr)) {
             // If the guest has installed a custom signal handler, and the access violation didn't
             // come from HLE memory tracking, pass the signal on
             if (Libraries::Kernel::Handlers[Libraries::Kernel::NativeToOrbisSignal(sig)]) {
@@ -129,7 +110,7 @@ void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
         break;
     }
     case SIGILL:
-        if (!signal_dispatcher->DispatchIllegalInstruction(raw_context)) {
+        if (!signals->DispatchIllegalInstruction(raw_context)) {
             if (Libraries::Kernel::Handlers[Libraries::Kernel::NativeToOrbisSignal(sig)]) {
                 Libraries::Kernel::SigactionHandler(sig, info,
                                                     reinterpret_cast<ucontext_t*>(raw_context));
