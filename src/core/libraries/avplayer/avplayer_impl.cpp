@@ -119,8 +119,19 @@ AvPlayerInitData AvPlayer::StubInitData(const AvPlayerInitData& data) {
     result.memory_replacement.deallocate = &AvPlayer::Deallocate;
     result.memory_replacement.allocate_texture = &AvPlayer::AllocateTexture;
     result.memory_replacement.deallocate_texture = &AvPlayer::DeallocateTexture;
-    if (data.file_replacement.open == nullptr || data.file_replacement.close == nullptr ||
-        data.file_replacement.read_offset == nullptr || data.file_replacement.size == nullptr) {
+    const bool missing_file_callback =
+        data.file_replacement.open == nullptr || data.file_replacement.close == nullptr ||
+        data.file_replacement.read_offset == nullptr || data.file_replacement.size == nullptr;
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+    const bool has_guest_file_callback =
+        IsGuestCallback(data.file_replacement.open) ||
+        IsGuestCallback(data.file_replacement.close) ||
+        IsGuestCallback(data.file_replacement.read_offset) ||
+        IsGuestCallback(data.file_replacement.size);
+#else
+    constexpr bool has_guest_file_callback = false;
+#endif
+    if (missing_file_callback || has_guest_file_callback) {
         result.file_replacement = {};
     } else {
         result.file_replacement.object_ptr = this;

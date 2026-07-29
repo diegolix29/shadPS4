@@ -76,3 +76,27 @@ test("AvPlayer dispatches game allocators through the FEX guest bridge", () => {
     }
   }
 });
+
+test("AvPlayer keeps host FFmpeg buffers out of guest file callbacks", () => {
+  const implementation = read("src/core/libraries/avplayer/avplayer_impl.cpp");
+  const stub = section(
+    implementation,
+    "AvPlayerInitData AvPlayer::StubInitData",
+    "AvPlayer::AvPlayer(",
+  );
+
+  assert.match(stub, /const bool missing_file_callback =/);
+  assert.match(stub, /const bool has_guest_file_callback =/);
+  for (const callback of ["open", "close", "read_offset", "size"]) {
+    assert.match(
+      stub,
+      new RegExp(`IsGuestCallback\\(data\.file_replacement\.${callback}\\)`),
+    );
+  }
+  assert.match(
+    stub,
+    /if \(missing_file_callback \|\| has_guest_file_callback\)[\s\S]*result\.file_replacement = \{\};/,
+  );
+  assert.match(stub, /result\.file_replacement\.open = &AvPlayer::OpenFile/);
+  assert.match(stub, /result\.file_replacement\.read_offset = &AvPlayer::ReadOffsetFile/);
+});
