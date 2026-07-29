@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <array>
+
 #include "common/recursive_lock.h"
 #include "common/shared_first_mutex.h"
 #include "video_core/buffer_cache/buffer_cache.h"
@@ -10,6 +12,7 @@
 #include "video_core/renderer_vulkan/render_target_sync.h"
 #include "video_core/renderer_vulkan/storage_image_sync.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
+#include "video_core/renderer_vulkan/vk_predication.h"
 #include "video_core/texture_cache/texture_cache.h"
 
 namespace AmdGpu {
@@ -72,6 +75,11 @@ public:
     void UnmapMemory(VAddr addr, u64 size);
 
     void CpSync();
+
+    PredicationManager& GetPredication() {
+        return predication;
+    }
+
     u64 Flush();
     void Finish();
 
@@ -163,6 +171,7 @@ private:
     boost::container::static_vector<ImageBindingInfo, Shader::NUM_IMAGES> image_bindings;
     bool fault_process_pending{};
     bool attachment_feedback_loop{};
+    PredicationManager predication;
 };
 
 } // namespace Vulkan
