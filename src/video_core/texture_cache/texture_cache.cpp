@@ -113,6 +113,20 @@ void TextureCache::DownloadImageMemory(ImageId image_id, bool sync) {
     }
 }
 
+void TextureCache::ReadbackSmallTarget(VAddr address) {
+    const ImageId image_id = FindImageFromRange(address, 1, false);
+    if (!image_id) {
+        return;
+    }
+    Image& image = slot_images[image_id];
+    if (False(image.flags & ImageFlagBits::GpuModified) || image.info.props.is_depth ||
+        image.info.props.is_block || image.info.resources.levels != 1 ||
+        image.info.size.width * image.info.size.height > 4096) {
+        return;
+    }
+    DownloadImageMemory(image_id, false);
+}
+
 void TextureCache::MarkAsMaybeDirty(ImageId image_id, Image& image) {
     if (image.hash == 0) {
         // Initialize hash
@@ -571,6 +585,61 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
     if (!image_id) {
         image_id = slot_images.insert(instance, scheduler, blit_helper, slot_image_views, info);
         RegisterImage(image_id);
+    }
+
+    // Reduction chains often reuse one scratch allocation: the game renders a stage into a
+    // large container image, then samples it through a smaller T# over the same base address
+    // and pitch. That T# resolves to a never-rendered sibling image which would sample stale
+    // data, so sync its texels from the container's top-left region first.
+    if (desc.type == BindingType::Texture && !desc.info.props.is_depth &&
+        desc.info.resources.levels == 1 && !desc.info.props.is_block &&
+        !desc.info.props.is_volume && desc.info.num_samples == 1) {
+        Image& resolved = slot_images[image_id];
+        if (False(resolved.flags & ImageFlagBits::GpuModified)) {
+            ImageId container_id{};
+            ForEachImageInRegion(info.guest_address, 1, [&](ImageId cid, Image& cimg) {
+                if (cid == image_id || cimg.info.guest_address != info.guest_address ||
+                    cimg.info.props.is_depth) {
+                    return;
+                }
+                if (False(cimg.flags & ImageFlagBits::GpuModified) ||
+                    cimg.info.pixel_format != resolved.info.pixel_format ||
+                    cimg.info.size.width < resolved.info.size.width ||
+                    cimg.info.size.height < resolved.info.size.height) {
+                    return;
+                }
+                container_id = cid;
+            });
+            if (container_id) {
+                Image& container = slot_images[container_id];
+                scheduler.EndRendering();
+                const auto cmdbuf = scheduler.CommandBuffer();
+                container.Transit(vk::ImageLayout::eTransferSrcOptimal,
+                                  vk::AccessFlagBits2::eTransferRead, {});
+                resolved.Transit(vk::ImageLayout::eTransferDstOptimal,
+                                 vk::AccessFlagBits2::eTransferWrite, {});
+                const vk::ImageCopy region = {
+                    .srcSubresource = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                       .mipLevel = 0,
+                                       .baseArrayLayer = 0,
+                                       .layerCount = 1},
+                    .srcOffset = {0, 0, 0},
+                    .dstSubresource = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                       .mipLevel = 0,
+                                       .baseArrayLayer = 0,
+                                       .layerCount = 1},
+                    .dstOffset = {0, 0, 0},
+                    .extent = {resolved.info.size.width, resolved.info.size.height, 1},
+                };
+                cmdbuf.copyImage(container.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
+                                 resolved.GetImage(), vk::ImageLayout::eTransferDstOptimal, region);
+                resolved.flags &= ~ImageFlagBits::Dirty;
+                LOG_DEBUG(
+                    Render_Vulkan, "synced sub-image {}x{} from container {}x{} at addr={:#x}",
+                    resolved.info.size.width, resolved.info.size.height, container.info.size.width,
+                    container.info.size.height, info.guest_address);
+            }
+        }
     }
 
     Image& image = slot_images[image_id];

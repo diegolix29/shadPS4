@@ -169,6 +169,10 @@ public:
         return {};
     }
 
+    /// Downloads small single-level GPU-written targets (exposure/reduction results) into
+    /// guest memory so the game's CPU-side reads observe them. Cheap; async.
+    void ReadbackSmallTarget(VAddr address);
+
     /// Returns true if the specified address is a metadata surface.
     bool IsMeta(VAddr address) const {
         return surface_metas.contains(address);

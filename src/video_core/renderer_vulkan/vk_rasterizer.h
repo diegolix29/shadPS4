@@ -99,6 +99,8 @@ private:
 
     bool FilterDraw();
 
+    void CheckTargetReadback();
+
     void BindBuffers(const Shader::Info& stage, Shader::Backend::Bindings& binding,
                      Shader::PushData& push_data);
     void BindTextures(const Shader::Info& stage, Shader::Backend::Bindings& binding);
@@ -138,6 +140,7 @@ private:
 
     u32 set_write_index{};
     Pipeline::DescriptorWrites set_writes;
+    VAddr last_readback_cb0{};
     Pipeline::BufferBarriers buffer_barriers;
     Shader::PushData push_data;
 

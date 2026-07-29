@@ -185,6 +185,19 @@ void Rasterizer::EliminateFastClear() {
     ScopeMarkerEnd();
 }
 
+// Games read back small reduction results (auto-exposure and similar) through guest memory.
+// When rendering moves away from such a target, download it so CPU-side reads observe it.
+void Rasterizer::CheckTargetReadback() {
+    const VAddr cb0_addr = liverpool->regs.color_buffers[0].Address();
+    if (last_readback_cb0 == cb0_addr) {
+        return;
+    }
+    const VAddr prev = std::exchange(last_readback_cb0, cb0_addr);
+    if (prev) {
+        texture_cache.ReadbackSmallTarget(prev);
+    }
+}
+
 void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     RENDERER_TRACE;
 
@@ -199,6 +212,8 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     if (!pipeline) {
         return;
     }
+
+    CheckTargetReadback();
 
     PrepareRenderState(pipeline);
     if (!BindResources(pipeline)) {
@@ -247,6 +262,8 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
     if (!pipeline) {
         return;
     }
+
+    CheckTargetReadback();
 
     PrepareRenderState(pipeline);
     if (!BindResources(pipeline)) {
