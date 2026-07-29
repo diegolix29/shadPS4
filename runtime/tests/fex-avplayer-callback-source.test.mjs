@@ -38,10 +38,10 @@ test("AvPlayer dispatches game events through the FEX guest bridge", () => {
 test("AvPlayer dispatches game allocators through the FEX guest bridge", () => {
   const implementation = read("src/core/libraries/avplayer/avplayer_impl.cpp");
   const wrappers = [
-    ["void* PS4_SYSV_ABI AvPlayer::Allocate(", "void PS4_SYSV_ABI AvPlayer::Deallocate(", "allocate", "AvPlayer allocate"],
-    ["void PS4_SYSV_ABI AvPlayer::Deallocate(", "void* PS4_SYSV_ABI AvPlayer::AllocateTexture(", "deallocate", "AvPlayer deallocate"],
-    ["void* PS4_SYSV_ABI AvPlayer::AllocateTexture(", "void PS4_SYSV_ABI AvPlayer::DeallocateTexture(", "allocate", "AvPlayer allocate texture"],
-    ["void PS4_SYSV_ABI AvPlayer::DeallocateTexture(", "int PS4_SYSV_ABI AvPlayer::OpenFile(", "deallocate", "AvPlayer deallocate texture"],
+    ["void* PS4_SYSV_ABI AvPlayer::Allocate(", "void PS4_SYSV_ABI AvPlayer::Deallocate(", "allocate", "AvPlayer allocate", true],
+    ["void PS4_SYSV_ABI AvPlayer::Deallocate(", "void* PS4_SYSV_ABI AvPlayer::AllocateTexture(", "deallocate", "AvPlayer deallocate", false],
+    ["void* PS4_SYSV_ABI AvPlayer::AllocateTexture(", "void PS4_SYSV_ABI AvPlayer::DeallocateTexture(", "allocate", "AvPlayer allocate texture", true],
+    ["void PS4_SYSV_ABI AvPlayer::DeallocateTexture(", "int PS4_SYSV_ABI AvPlayer::OpenFile(", "deallocate", "AvPlayer deallocate texture", false],
   ];
 
   assert.match(implementation, /#include "core\/guest_cpu\/guest_callback\.h"/);
@@ -54,12 +54,25 @@ test("AvPlayer dispatches game allocators through the FEX guest bridge", () => {
     /bool IsGuestCallback\(Callback callback\)/,
   );
 
-  for (const [start, end, variable, label] of wrappers) {
+  for (const [start, end, variable, label, returnsMemory] of wrappers) {
     const wrapper = section(implementation, start, end);
     assert.match(wrapper, new RegExp(`IsGuestCallback\\(${variable}\\)`));
     assert.match(
       wrapper,
       new RegExp(`RunGuestFunctionOrAbort\\([\\s\\S]*"${label}"`),
     );
+    if (returnsMemory) {
+      assert.match(
+        wrapper,
+        new RegExp(`return reinterpret_cast<void\\*>\\([\\s\\S]*RunGuestFunctionOrAbort\\([\\s\\S]*"${label}"`),
+      );
+      assert.match(wrapper, /return allocate\(ptr, alignment, size\);/);
+    } else {
+      assert.match(
+        wrapper,
+        new RegExp(`RunGuestFunctionOrAbort\\([\\s\\S]*"${label}"[\\s\\S]*\\);\\s*return;`),
+      );
+      assert.match(wrapper, /deallocate\(ptr, memory\);/);
+    }
   }
 });
