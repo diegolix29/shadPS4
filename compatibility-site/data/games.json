@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "lastUpdated": "2026-07-30T00:00:00Z",
+  "project": {
+    "name": "Bachata S4",
+    "repository": "https://github.com/JICA98/Bachata-S4",
+    "platform": "Android"
+  },
+  "games": []
+}

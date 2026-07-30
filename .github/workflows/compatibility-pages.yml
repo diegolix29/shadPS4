@@ -1,0 +1,81 @@
+name: Compatibility website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "compatibility-site/**"
+      - "scripts/compatibility/**"
+      - ".github/workflows/compatibility-pages.yml"
+  pull_request:
+    paths:
+      - "compatibility-site/**"
+      - "scripts/compatibility/**"
+      - ".github/workflows/compatibility-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: compatibility-pages
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate compatibility database
+        run: python3 scripts/compatibility/validate_database.py
+
+      - name: Check JavaScript syntax
+        run: node --check compatibility-site/assets/js/app.js
+
+      - name: Enforce Pages artifact limits
+        shell: bash
+        run: |
+          set -euo pipefail
+          oversized="$(find compatibility-site -type f -size +25M -print)"
+          if [[ -n "$oversized" ]]; then
+            echo "Individual website files must stay under 25 MiB:" >&2
+            echo "$oversized" >&2
+            exit 1
+          fi
+          total_kib="$(du -sk compatibility-site | awk '{print $1}')"
+          if (( total_kib > 900000 )); then
+            echo "Compatibility website exceeds the safe 900 MiB Pages budget." >&2
+            exit 1
+          fi
+
+  upload:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static website
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: compatibility-site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: upload
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

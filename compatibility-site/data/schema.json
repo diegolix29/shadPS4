@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jica98.github.io/Bachata-S4/data/schema.json",
+  "title": "Bachata S4 compatibility database",
+  "type": "object",
+  "required": ["schemaVersion", "lastUpdated", "project", "games"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "lastUpdated": { "type": "string", "format": "date-time" },
+    "project": {
+      "type": "object",
+      "required": ["name", "repository", "platform"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "repository": { "type": "string", "format": "uri" },
+        "platform": { "type": "string", "minLength": 1 }
+      }
+    },
+    "games": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/game" }
+    }
+  },
+  "$defs": {
+    "game": {
+      "type": "object",
+      "required": ["id", "title", "serial", "tests"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "serial": { "type": "string", "pattern": "^CUSA[0-9]{5}$" },
+        "region": { "type": "string" },
+        "publisher": { "type": "string" },
+        "tests": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/test" }
+        }
+      }
+    },
+    "test": {
+      "type": "object",
+      "required": ["testedAt", "status", "gameVersion", "emulatorVersion", "commit", "device", "renderer", "notes", "screenshots", "logs"],
+      "additionalProperties": false,
+      "properties": {
+        "testedAt": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["playable", "ingame", "menus", "boots", "nothing"] },
+        "gameVersion": { "type": "string", "minLength": 1 },
+        "emulatorVersion": { "type": "string", "minLength": 1 },
+        "commit": { "type": "string", "pattern": "^[0-9a-fA-F]{7,40}$" },
+        "guestBackend": { "enum": ["fex", "box64", "native-arm64", "unknown"] },
+        "summary": { "type": "string" },
+        "notes": { "type": "string", "minLength": 1 },
+        "issues": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "device": { "$ref": "#/$defs/device" },
+        "renderer": { "$ref": "#/$defs/renderer" },
+        "performance": { "$ref": "#/$defs/performance" },
+        "settings": { "type": "object" },
+        "screenshots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              { "type": "string", "minLength": 1, "pattern": "^assets/screenshots/" },
+              {
+                "type": "object",
+                "required": ["path"],
+                "additionalProperties": false,
+                "properties": {
+                  "path": { "type": "string", "minLength": 1, "pattern": "^assets/screenshots/" },
+                  "caption": { "type": "string" }
+                }
+              }
+            ]
+          }
+        },
+        "logs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              { "type": "string", "minLength": 1, "pattern": "^assets/logs/" },
+              {
+                "type": "object",
+                "required": ["path"],
+                "additionalProperties": false,
+                "properties": {
+                  "path": { "type": "string", "minLength": 1, "pattern": "^assets/logs/" },
+                  "label": { "type": "string" },
+                  "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+                }
+              }
+            ]
+          }
+        },
+        "videoUrl": { "type": "string", "format": "uri" },
+        "reportUrl": { "type": "string", "format": "uri" },
+        "tester": { "type": "string" }
+      }
+    },
+    "device": {
+      "type": "object",
+      "required": ["manufacturer", "model", "soc", "gpu", "androidVersion"],
+      "additionalProperties": false,
+      "properties": {
+        "manufacturer": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "soc": { "type": "string", "minLength": 1 },
+        "gpu": { "type": "string", "minLength": 1 },
+        "androidVersion": { "type": "string", "minLength": 1 },
+        "ramGb": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "renderer": {
+      "type": "object",
+      "required": ["driver"],
+      "additionalProperties": false,
+      "properties": {
+        "driver": { "type": "string", "minLength": 1 },
+        "driverVersion": { "type": "string" },
+        "resolutionScale": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "averageFps": { "type": "number", "minimum": 0 },
+        "minFps": { "type": "number", "minimum": 0 },
+        "maxFps": { "type": "number", "minimum": 0 },
+        "framePacing": { "enum": ["stable", "mostly-stable", "stuttery", "severe-stutter", "unknown"] },
+        "testDurationSeconds": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

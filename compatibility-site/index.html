@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Community-maintained game compatibility results for the Bachata S4 PlayStation 4 emulator on Android.">
+  <meta name="theme-color" content="#0a0d16">
+  <meta property="og:title" content="Bachata S4 Compatibility">
+  <meta property="og:description" content="Search verified Android game compatibility reports, screenshots, performance data, devices, and logs.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/logo.png">
+  <title>Bachata S4 Compatibility</title>
+  <link rel="icon" href="assets/logo.png">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script defer src="assets/js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#games">Skip to compatibility list</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="./" aria-label="Bachata S4 compatibility home">
+        <img src="assets/logo.png" alt="" width="48" height="48">
+        <span>
+          <strong>Bachata S4</strong>
+          <small>Android compatibility tracker</small>
+        </span>
+      </a>
+      <nav class="header-actions" aria-label="Primary">
+        <a class="button button-quiet" href="https://github.com/JICA98/Bachata-S4" target="_blank" rel="noreferrer">GitHub</a>
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">
+          <span aria-hidden="true">◐</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow">Evidence-first compatibility</span>
+          <h1>See what runs on <span>Bachata S4</span></h1>
+          <p>Browse Android-specific results with device details, FPS ranges, screenshots, emulator commits, graphics drivers, notes, and raw session logs.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#games">Browse games</a>
+            <a class="button button-secondary" href="https://github.com/JICA98/Bachata-S4/tree/main/.agents/skills/bachata-compatibility" target="_blank" rel="noreferrer">Testing workflow</a>
+          </div>
+        </div>
+        <div class="status-legend" aria-label="Compatibility status definitions">
+          <article><span class="status-dot playable"></span><div><strong>Playable</strong><small>Completable without major issues</small></div></article>
+          <article><span class="status-dot ingame"></span><div><strong>Ingame</strong><small>Gameplay works with major issues</small></div></article>
+          <article><span class="status-dot menus"></span><div><strong>Menus</strong><small>Reaches menus, not gameplay</small></div></article>
+          <article><span class="status-dot boots"></span><div><strong>Boots</strong><small>Visual or audio output before menus</small></div></article>
+          <article><span class="status-dot nothing"></span><div><strong>Nothing</strong><small>Crash, hang, or black screen</small></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-section" aria-label="Database summary">
+      <div class="container stats-grid">
+        <article class="stat-card"><span id="stat-total">—</span><small>Tested games</small></article>
+        <article class="stat-card"><span id="stat-playable">—</span><small>Playable</small></article>
+        <article class="stat-card"><span id="stat-ingame">—</span><small>Ingame</small></article>
+        <article class="stat-card"><span id="stat-devices">—</span><small>Devices represented</small></article>
+      </div>
+    </section>
+
+    <section class="browser-section" id="games">
+      <div class="container">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Compatibility database</span>
+            <h2>Find a game</h2>
+          </div>
+          <p id="database-meta" aria-live="polite">Loading compatibility data…</p>
+        </div>
+
+        <form class="filters" id="filters" role="search">
+          <label class="search-field">
+            <span class="sr-only">Search games</span>
+            <span aria-hidden="true">⌕</span>
+            <input id="search" type="search" autocomplete="off" placeholder="Search title, CUSA, device, SoC…">
+          </label>
+          <label>
+            <span class="sr-only">Status</span>
+            <select id="status-filter">
+              <option value="all">All statuses</option>
+              <option value="playable">Playable</option>
+              <option value="ingame">Ingame</option>
+              <option value="menus">Menus</option>
+              <option value="boots">Boots</option>
+              <option value="nothing">Nothing</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">Graphics platform</span>
+            <select id="gpu-filter">
+              <option value="all">All GPUs</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">Sort order</span>
+            <select id="sort-filter">
+              <option value="recent">Recently tested</option>
+              <option value="title">Title A–Z</option>
+              <option value="status">Best compatibility</option>
+              <option value="fps">Highest average FPS</option>
+            </select>
+          </label>
+          <button class="button button-quiet reset-button" id="reset-filters" type="button">Reset</button>
+        </form>
+
+        <div class="result-summary" aria-live="polite">
+          <span id="result-count">0 games</span>
+          <span id="active-filter-summary"></span>
+        </div>
+
+        <div class="game-grid" id="game-grid" aria-live="polite" aria-busy="true"></div>
+
+        <div class="empty-state" id="empty-state" hidden>
+          <img src="assets/placeholder.svg" alt="" width="320" height="180">
+          <h3 id="empty-title">No matching reports</h3>
+          <p id="empty-copy">Try changing the filters or add the first compatibility report using the repository skill.</p>
+          <a class="button button-secondary" href="https://github.com/JICA98/Bachata-S4" target="_blank" rel="noreferrer">Open repository</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="brand footer-brand">
+        <img src="assets/logo.png" alt="" width="38" height="38">
+        <span><strong>Bachata S4</strong><small>Community compatibility data</small></span>
+      </div>
+      <p>Only test games and firmware files you legally own. Reports describe emulator behavior and do not provide game content.</p>
+    </div>
+  </footer>
+
+  <dialog class="game-dialog" id="game-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-shell">
+      <button class="dialog-close icon-button" id="dialog-close" type="button" aria-label="Close game details">×</button>
+      <div id="dialog-content"></div>
+    </div>
+  </dialog>
+
+  <template id="game-card-template">
+    <article class="game-card">
+      <button class="game-card-button" type="button">
+        <div class="game-image-wrap">
+          <img class="game-image" loading="lazy" alt="">
+          <span class="status-badge"></span>
+          <span class="screenshot-count" hidden></span>
+        </div>
+        <div class="game-card-body">
+          <div class="title-row">
+            <h3></h3>
+            <span class="serial"></span>
+          </div>
+          <p class="game-note"></p>
+          <dl class="quick-specs">
+            <div><dt>Device</dt><dd class="device"></dd></div>
+            <div><dt>Average</dt><dd class="fps"></dd></div>
+            <div><dt>Tested</dt><dd class="tested"></dd></div>
+          </dl>
+        </div>
+      </button>
+    </article>
+  </template>
+</body>
+</html>
