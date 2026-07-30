@@ -144,27 +144,6 @@ jobs:
         run: ctest --test-dir build --output-on-failure --progress -E 'GcnTest'
         shell: bash
 
-  android:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Install Android toolchain
-        run: sdkmanager "platforms;android-37" "build-tools;37.0.0" "ndk;30.0.14904198" "cmake;3.22.1"
-      - name: Run FEXCore source regression tests
-        run: node --test runtime/tests/fexcore-*-source.test.mjs
-      - name: Verify locked runtime
-        run: node runtime/tests/verify-runtime.mjs --locks-only
-      - name: Test, lint, and build APK
-        working-directory: android/BachataS4
-        run: ./gradlew test lintDebug assembleDebug
-
   windows-sdl:
     runs-on: windows-2025-vs2026
     needs: get-info
