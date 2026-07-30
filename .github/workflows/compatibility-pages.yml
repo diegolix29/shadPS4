@@ -6,16 +6,20 @@ on:
     paths:
       - "compatibility-site/**"
       - "scripts/compatibility/**"
+      - ".agents/skills/bachata-compatibility/**"
       - ".github/workflows/compatibility-pages.yml"
   pull_request:
     paths:
       - "compatibility-site/**"
       - "scripts/compatibility/**"
+      - ".agents/skills/bachata-compatibility/**"
       - ".github/workflows/compatibility-pages.yml"
+  release:
+    types: [published, edited, deleted]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -29,12 +33,28 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Synchronize GitHub release index
+        if: github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/compatibility/sync_releases.py
 
       - name: Validate compatibility database
         run: python3 scripts/compatibility/validate_database.py
 
-      - name: Check JavaScript syntax
-        run: node --check compatibility-site/assets/js/app.js
+      - name: Check scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check compatibility-site/assets/js/app.js
+          bash -n scripts/compatibility/capture_android_report.sh
+          python3 -m py_compile \
+            scripts/compatibility/add_report.py \
+            scripts/compatibility/sync_releases.py \
+            scripts/compatibility/validate_database.py
 
       - name: Enforce Pages artifact limits
         shell: bash
@@ -52,25 +72,29 @@ jobs:
             exit 1
           fi
 
-  upload:
-    if: github.event_name != 'pull_request'
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Commit synchronized release index
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- compatibility-site/data/releases.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add compatibility-site/data/releases.json
+          git commit -m "chore: sync compatibility release index"
+          git push || echo "warning: release index could not be pushed; the deployed artifact is still current"
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload static website
+      - name: Upload validated website
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: compatibility-site
 
   deploy:
     if: github.event_name != 'pull_request'
-    needs: upload
+    needs: validate
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

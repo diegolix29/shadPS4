@@ -1,43 +1,32 @@
 # Bachata S4 compatibility site
 
-A static, dependency-free GitHub Pages frontend for Android game compatibility data.
-The website loads `data/games.json` at runtime and supports:
+A dependency-free GitHub Pages frontend for release-specific Android game compatibility.
+The page joins two checked-in JSON files:
 
-- title, CUSA, device, SoC, GPU, and notes search
-- status and GPU filtering
-- sorting by recent test, title, compatibility, or average FPS
-- responsive game cards and shareable `?game=<id>` details
-- screenshots, device/driver/build data, performance, known issues, logs, and test history
-- light/dark theme and accessible keyboard/dialog behavior
+- `data/games.json`: games, historical test reports, screenshots, and logs;
+- `data/releases.json`: official Bachata S4 GitHub releases.
+
+The latest stable release is selected by default. Users can filter by GitHub release,
+selected physical device, exact Turnip version/driver, GPU family, and compatibility status.
+A game can therefore have different results across releases, devices, and drivers without
+one test overwriting another.
 
 ## Local preview
-
-A web server is required because browsers normally block `fetch()` from `file://` URLs.
 
 ```bash
 python3 -m http.server 8080 --directory compatibility-site
 ```
 
-Then open `http://localhost:8080`.
-
-## Database design
-
-`data/games.json` is the source of truth. Each game has a stable `id`, a PS4 title ID,
-and an ordered `tests` array. New tests are appended rather than overwriting old ones,
-so compatibility changes remain auditable.
-
-The latest `testedAt` entry determines the status shown on the main grid. The complete
-history is visible in the game detail dialog.
-
-## Adding reports
-
-Do not edit paths or calculate hashes manually. Use:
+## Refresh official releases
 
 ```bash
-python3 scripts/compatibility/add_report.py --help
+python3 scripts/compatibility/sync_releases.py
 ```
 
-Example:
+The Pages workflow also refreshes the index whenever a GitHub release is published,
+edited, or deleted.
+
+## Add a report
 
 ```bash
 python3 scripts/compatibility/add_report.py \
@@ -46,21 +35,27 @@ python3 scripts/compatibility/add_report.py \
   --region US \
   --status ingame \
   --game-version "1.00" \
+  --release-tag v0.1.5 \
+  --commit 407a5ae \
   --guest-backend fex \
-  --notes "Reached controllable gameplay; major rendering issue after the intro." \
+  --notes "Reached controllable gameplay; rendering breaks after the intro." \
   --issue "Missing character textures" \
-  --device-json .git/compatibility-work/cusa00001/20260730-120000/device.json \
-  --renderer-driver "System Vulkan" \
-  --driver-version "Adreno proprietary" \
-  --average-fps 24 \
-  --min-fps 18 \
-  --max-fps 30 \
+  --device-json .git/compatibility-work/cusa00001/<capture>/device.json \
+  --driver-type turnip \
+  --renderer-driver "Mesa Turnip" \
+  --turnip-driver-version "26.1.0" \
+  --turnip-driver-build "release build" \
+  --turnip-driver-source "bundled Bachata S4 driver" \
+  --average-fps 24 --min-fps 18 --max-fps 30 \
   --frame-pacing stuttery \
-  --screenshot ".git/compatibility-work/cusa00001/20260730-120000/screenshots/cusa00001-01.png::Gameplay" \
-  --log ".git/compatibility-work/cusa00001/20260730-120000/session-logs/latest/shadps4.log::shadPS4 session log"
+  --screenshot ".git/compatibility-work/cusa00001/<capture>/screenshots/gameplay.png::Gameplay" \
+  --log ".git/compatibility-work/cusa00001/<capture>/session-logs/<session>/shadps4.log::shadPS4 log"
 ```
 
-Fields that were not measured must be omitted rather than estimated. Validate before committing:
+For the Android system driver, use `--driver-type system`, omit all Turnip arguments,
+and record the observed system driver version with `--driver-version`.
+
+Validate before committing:
 
 ```bash
 python3 scripts/compatibility/validate_database.py
@@ -68,11 +63,8 @@ python3 scripts/compatibility/validate_database.py
 
 ## Status definitions
 
-- `playable`: full-game completion is verified with playable performance and no major game-breaking issues
-- `ingame`: controllable gameplay is reached, but major issues remain
-- `menus`: menus are reached, but gameplay is not
-- `boots`: visual or audio output occurs before the menu
-- `nothing`: launch crashes, hangs, or remains on a black screen
-
-A title screen alone is not `ingame`, and a few minutes of gameplay are not enough to
-claim `playable` for a long game.
+- `playable`: full completion verified without major game-breaking issues
+- `ingame`: controllable gameplay reached, but major issues remain
+- `menus`: functional menus reached, not gameplay
+- `boots`: output appears before menus
+- `nothing`: crash, hang, or black screen

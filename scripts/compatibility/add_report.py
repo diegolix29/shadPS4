@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add or update a Bachata S4 game compatibility report and copy its evidence."""
+"""Add a release-scoped Bachata S4 compatibility report and copy its evidence."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from validate_database import validate_database
 
@@ -114,7 +115,6 @@ def copy_log(spec: str, site_root: Path, serial: str, stamp: str, index: int) ->
     existing = ensure_under_site(source, site_root, "assets/logs/")
     if existing:
         return {"path": existing, "label": label, "sha256": sha256(source)}, None
-
     destination_dir = site_root / "assets" / "logs" / serial.lower()
     destination_dir.mkdir(parents=True, exist_ok=True)
     base = clean_name(source.name.removesuffix(".gz").removesuffix(".log"))
@@ -139,6 +139,14 @@ def compact_dict(value: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def release_tags(releases_path: Path) -> set[str]:
+    try:
+        data = json.loads(releases_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Unable to load release index {releases_path}: {exc}") from exc
+    return {str(item.get("tag", "")).strip() for item in data.get("releases", []) if isinstance(item, dict)}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--title", required=True)
@@ -147,8 +155,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--publisher", default="")
     parser.add_argument("--status", required=True, choices=("playable", "ingame", "menus", "boots", "nothing"))
     parser.add_argument("--game-version", required=True)
-    parser.add_argument("--emulator-version", default="")
-    parser.add_argument("--commit", default="")
+    parser.add_argument("--release-tag", required=True, help="Published Bachata S4 GitHub release tag, e.g. v0.1.5")
+    parser.add_argument("--emulator-version", default="", help="Installed versionName; defaults to the release tag without a leading v")
+    parser.add_argument("--commit", required=True, help="Exact commit SHA for the tested GitHub release")
     parser.add_argument("--tested-at", type=parse_iso, default=iso_now())
     parser.add_argument("--guest-backend", choices=("fex", "box64", "native-arm64", "unknown"), default="unknown")
     parser.add_argument("--summary", default="")
@@ -156,7 +165,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--issue", action="append", default=[], help="Repeat for each known issue")
     parser.add_argument("--tester", default="")
 
-    parser.add_argument("--device-json", help="JSON file/object containing manufacturer, model, soc, gpu, androidVersion, ramGb")
+    parser.add_argument("--device-json", help="JSON file/object containing label, manufacturer, model, soc, gpu, androidVersion, ramGb")
+    parser.add_argument("--device-label", default="", help="Public device selector label; defaults to manufacturer + model")
     parser.add_argument("--manufacturer", default="")
     parser.add_argument("--model", default="")
     parser.add_argument("--soc", default="")
@@ -164,8 +174,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--android-version", default="")
     parser.add_argument("--ram-gb", type=float)
 
+    parser.add_argument("--driver-type", required=True, choices=("system", "turnip", "custom"))
     parser.add_argument("--renderer-driver", required=True)
     parser.add_argument("--driver-version", default="")
+    parser.add_argument("--turnip-driver-version", default="", help="Required when --driver-type=turnip")
+    parser.add_argument("--turnip-driver-build", default="")
+    parser.add_argument("--turnip-driver-source", default="")
     parser.add_argument("--resolution-scale", type=float)
     parser.add_argument("--average-fps", type=float)
     parser.add_argument("--min-fps", type=float)
@@ -174,11 +188,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--test-duration-seconds", type=int)
     parser.add_argument("--settings-json", help="JSON file/object with compatibility-relevant settings")
 
-    parser.add_argument("--screenshot", action="append", required=True, metavar="PATH[::CAPTION]", help="Repeat to copy screenshots")
-    parser.add_argument("--log", action="append", required=True, metavar="PATH[::LABEL]", help="Repeat to gzip and copy logs")
+    parser.add_argument("--screenshot", action="append", required=True, metavar="PATH[::CAPTION]")
+    parser.add_argument("--log", action="append", required=True, metavar="PATH[::LABEL]")
     parser.add_argument("--video-url", default="")
     parser.add_argument("--report-url", default="")
     parser.add_argument("--database", type=Path, default=None)
+    parser.add_argument("--releases", type=Path, default=None)
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -188,21 +203,27 @@ def main() -> int:
     root = repo_root()
     site_root = root / "compatibility-site"
     database_path = args.database.resolve() if args.database else site_root / "data" / "games.json"
+    releases_path = args.releases.resolve() if args.releases else site_root / "data" / "releases.json"
     serial = args.serial.strip().upper()
     if not SERIAL_RE.fullmatch(serial):
         raise SystemExit("--serial must match CUSA followed by five digits, e.g. CUSA00900")
     if not database_path.is_file():
         raise SystemExit(f"Database not found: {database_path}")
 
-    commit = args.commit.strip() or command_output("git", "rev-parse", "HEAD", cwd=root)
-    emulator_version = args.emulator_version.strip() or command_output("git", "describe", "--tags", "--always", "--dirty", cwd=root)
-    if not commit:
-        raise SystemExit("Unable to determine commit; provide --commit")
-    if not emulator_version:
-        raise SystemExit("Unable to determine emulator version; provide --emulator-version")
+    release_tag = args.release_tag.strip()
+    known_releases = release_tags(releases_path)
+    if release_tag not in known_releases:
+        command = "python3 scripts/compatibility/sync_releases.py"
+        raise SystemExit(f"Release {release_tag!r} is not in {releases_path}. Run `{command}` after publishing the GitHub release.")
+
+    commit = args.commit.strip()
+    emulator_version = args.emulator_version.strip() or release_tag.removeprefix("v")
+    if args.driver_type == "turnip" and not args.turnip_driver_version.strip():
+        raise SystemExit("--turnip-driver-version is required when --driver-type=turnip")
 
     device = load_json_object(args.device_json, "device")
     cli_device = {
+        "label": args.device_label,
         "manufacturer": args.manufacturer,
         "model": args.model,
         "soc": args.soc,
@@ -213,7 +234,9 @@ def main() -> int:
     for key, value in cli_device.items():
         if value not in (None, ""):
             device[key] = value
-    missing_device = [key for key in ("manufacturer", "model", "soc", "gpu", "androidVersion") if not str(device.get(key, "")).strip()]
+    if not str(device.get("label", "")).strip():
+        device["label"] = f"{device.get('manufacturer', '')} {device.get('model', '')}".strip()
+    missing_device = [key for key in ("label", "manufacturer", "model", "soc", "gpu", "androidVersion") if not str(device.get(key, "")).strip()]
     if missing_device:
         raise SystemExit(f"Missing device fields: {', '.join(missing_device)}. Use --device-json or individual flags.")
 
@@ -225,8 +248,12 @@ def main() -> int:
     created_evidence = [path for _, path in screenshot_results + log_results if path is not None]
 
     renderer = compact_dict({
+        "driverType": args.driver_type,
         "driver": args.renderer_driver,
         "driverVersion": args.driver_version,
+        "turnipVersion": args.turnip_driver_version,
+        "turnipBuild": args.turnip_driver_build,
+        "turnipSource": args.turnip_driver_source,
         "resolutionScale": args.resolution_scale,
     })
     performance = compact_dict({
@@ -242,6 +269,7 @@ def main() -> int:
         "testedAt": args.tested_at,
         "status": args.status,
         "gameVersion": args.game_version.strip(),
+        "releaseTag": release_tag,
         "emulatorVersion": emulator_version,
         "commit": commit,
         "guestBackend": args.guest_backend,
@@ -263,12 +291,7 @@ def main() -> int:
     games = database.setdefault("games", [])
     game = next((item for item in games if str(item.get("serial", "")).upper() == serial), None)
     if game is None:
-        game = {
-            "id": serial.lower(),
-            "title": args.title.strip(),
-            "serial": serial,
-            "tests": [],
-        }
+        game = {"id": serial.lower(), "title": args.title.strip(), "serial": serial, "tests": []}
         games.append(game)
     else:
         game["title"] = args.title.strip()
@@ -277,9 +300,12 @@ def main() -> int:
     if args.publisher.strip():
         game["publisher"] = args.publisher.strip()
 
-    duplicate = next((item for item in game["tests"] if item.get("testedAt") == report["testedAt"] and item.get("commit") == report["commit"]), None)
+    signature = (report["releaseTag"], report["testedAt"], report["commit"], report["device"]["label"])
+    duplicate = next((item for item in game["tests"] if (
+        item.get("releaseTag"), item.get("testedAt"), item.get("commit"), item.get("device", {}).get("label")
+    ) == signature), None)
     if duplicate:
-        raise SystemExit(f"A report for {serial} already exists at {report['testedAt']} on commit {report['commit']}")
+        raise SystemExit(f"A matching report already exists for {serial}, {release_tag}, {device['label']}, {report['testedAt']}")
     game["tests"].append(report)
     game["tests"].sort(key=lambda item: item.get("testedAt", ""), reverse=True)
     games.sort(key=lambda item: str(item.get("title", "")).casefold())
@@ -295,7 +321,7 @@ def main() -> int:
     backup = database_path.with_suffix(database_path.suffix + ".bak")
     shutil.copy2(database_path, backup)
     database_path.write_text(serialized, encoding="utf-8")
-    errors = validate_database(database_path)
+    errors = validate_database(database_path, releases_path)
     if errors:
         shutil.move(backup, database_path)
         for path in created_evidence:
@@ -305,7 +331,11 @@ def main() -> int:
             print(f"  - {error}", file=sys.stderr)
         return 1
     backup.unlink(missing_ok=True)
-    print(f"Added {args.status} report for {args.title} ({serial})")
+    release_url = f"https://github.com/JICA98/Bachata-S4/releases/tag/{quote(release_tag, safe='')}"
+    print(f"Added {args.status} report for {args.title} ({serial}) on {release_tag}")
+    print(f"Device: {device['label']}")
+    print(f"Driver: {args.renderer_driver}" + (f" / Turnip {args.turnip_driver_version}" if args.driver_type == "turnip" else ""))
+    print(f"Release: {release_url}")
     print(f"Database: {database_path.relative_to(root) if database_path.is_relative_to(root) else database_path}")
     for screenshot in screenshots:
         print(f"Screenshot: {screenshot['path']}")

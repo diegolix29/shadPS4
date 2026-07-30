@@ -2,15 +2,21 @@
   'use strict';
 
   const DATA_URL = 'data/games.json';
+  const RELEASES_URL = 'data/releases.json';
   const PLACEHOLDER = 'assets/placeholder.svg';
   const STATUS_ORDER = { playable: 0, ingame: 1, menus: 2, boots: 3, nothing: 4, unknown: 5 };
   const STATUS_LABEL = { playable: 'Playable', ingame: 'Ingame', menus: 'Menus', boots: 'Boots', nothing: 'Nothing', unknown: 'Unknown' };
 
   const state = {
     database: null,
+    releases: [],
+    releaseMap: new Map(),
     games: [],
     query: '',
+    release: 'all',
     status: 'all',
+    device: 'all',
+    driver: 'all',
     gpu: 'all',
     sort: 'recent'
   };
@@ -18,7 +24,10 @@
   const els = {
     themeToggle: document.querySelector('#theme-toggle'),
     search: document.querySelector('#search'),
+    release: document.querySelector('#release-filter'),
     status: document.querySelector('#status-filter'),
+    device: document.querySelector('#device-filter'),
+    driver: document.querySelector('#driver-filter'),
     gpu: document.querySelector('#gpu-filter'),
     sort: document.querySelector('#sort-filter'),
     reset: document.querySelector('#reset-filters'),
@@ -39,6 +48,11 @@
     dialogContent: document.querySelector('#dialog-content')
   };
 
+  function text(value, fallback = 'Not recorded') {
+    const output = String(value ?? '').trim();
+    return output || fallback;
+  }
+
   function normalizeStatus(value) {
     const status = String(value || 'unknown').toLowerCase();
     return Object.hasOwn(STATUS_ORDER, status) ? status : 'unknown';
@@ -49,10 +63,10 @@
     return Number.isNaN(date.getTime()) ? new Date(0) : date;
   }
 
-  function latestTest(game) {
-    const tests = Array.isArray(game.tests) ? [...game.tests] : [];
-    tests.sort((a, b) => parseDate(b.testedAt) - parseDate(a.testedAt));
-    return tests[0] || {};
+  function formatDate(value, options = { year: 'numeric', month: 'short', day: 'numeric' }) {
+    const date = parseDate(value);
+    if (date.getTime() === 0) return 'Unknown';
+    return new Intl.DateTimeFormat(undefined, options).format(date);
   }
 
   function allTests(game) {
@@ -60,28 +74,75 @@
     return tests.sort((a, b) => parseDate(b.testedAt) - parseDate(a.testedAt));
   }
 
-  function text(value, fallback = 'Not recorded') {
-    const output = String(value ?? '').trim();
-    return output || fallback;
+  function deviceName(test) {
+    const label = text(test?.device?.label, '');
+    if (label) return label;
+    return `${text(test?.device?.manufacturer, '')} ${text(test?.device?.model, '')}`.trim() || 'Unknown device';
   }
 
-  function formatDate(value, options = { year: 'numeric', month: 'short', day: 'numeric' }) {
-    const date = parseDate(value);
-    if (date.getTime() === 0) return 'Unknown';
-    return new Intl.DateTimeFormat(undefined, options).format(date);
+  function gpuFamily(test) {
+    const gpu = text(test?.device?.gpu, 'Unknown');
+    if (/adreno/i.test(gpu)) return 'Adreno';
+    if (/mali/i.test(gpu)) return 'Mali';
+    if (/xclipse/i.test(gpu)) return 'Xclipse';
+    if (/immortalis/i.test(gpu)) return 'Immortalis';
+    return gpu;
+  }
+
+  function driverKey(test) {
+    const renderer = test?.renderer || {};
+    const type = text(renderer.driverType, 'custom').toLowerCase();
+    if (type === 'turnip') return `turnip:${text(renderer.turnipVersion, 'unknown')}`;
+    return `${type}:${text(renderer.driverVersion || renderer.driver, 'unknown')}`;
+  }
+
+  function driverLabel(test) {
+    const renderer = test?.renderer || {};
+    if (renderer.driverType === 'turnip') {
+      const build = renderer.turnipBuild ? ` (${renderer.turnipBuild})` : '';
+      return `Turnip ${text(renderer.turnipVersion, 'unknown')}${build}`;
+    }
+    if (renderer.driverType === 'system') return `System · ${text(renderer.driverVersion || renderer.driver)}`;
+    return [renderer.driver, renderer.driverVersion].filter(Boolean).join(' ') || 'Custom driver';
+  }
+
+  function releaseInfo(tag) {
+    return state.releaseMap.get(tag) || { tag, name: tag, url: '', prerelease: false, latest: false };
+  }
+
+  function releaseLabel(tag) {
+    const release = releaseInfo(tag);
+    return `${release.tag || tag}${release.latest ? ' · Latest' : ''}${release.prerelease ? ' · Pre-release' : ''}`;
+  }
+
+  function candidateTests(game) {
+    return allTests(game).filter(test => {
+      if (state.release !== 'all' && test.releaseTag !== state.release) return false;
+      if (state.device !== 'all' && deviceName(test) !== state.device) return false;
+      if (state.driver !== 'all' && driverKey(test) !== state.driver) return false;
+      if (state.gpu !== 'all' && gpuFamily(test) !== state.gpu) return false;
+      return true;
+    });
+  }
+
+  function selectedTest(game) {
+    return candidateTests(game)[0] || null;
   }
 
   function formatFps(performance) {
     if (!performance || typeof performance !== 'object') return '—';
-    if (Number.isFinite(Number(performance.averageFps))) return `${Number(performance.averageFps).toFixed(Number(performance.averageFps) % 1 ? 1 : 0)} FPS`;
+    if (Number.isFinite(Number(performance.averageFps))) {
+      const value = Number(performance.averageFps);
+      return `${value.toFixed(value % 1 ? 1 : 0)} FPS`;
+    }
     const min = Number(performance.minFps);
     const max = Number(performance.maxFps);
     if (Number.isFinite(min) && Number.isFinite(max)) return `${min}–${max} FPS`;
     return '—';
   }
 
-  function averageFps(game) {
-    const value = Number(latestTest(game).performance?.averageFps);
+  function averageFps(test) {
+    const value = Number(test?.performance?.averageFps);
     return Number.isFinite(value) ? value : -1;
   }
 
@@ -95,29 +156,15 @@
     return `Screenshot ${index + 1}`;
   }
 
-  function deviceName(test) {
-    const manufacturer = text(test.device?.manufacturer, '');
-    const model = text(test.device?.model, '');
-    return `${manufacturer} ${model}`.trim() || 'Unknown device';
-  }
-
-  function gpuFamily(test) {
-    const gpu = text(test.device?.gpu, 'Unknown');
-    if (/adreno/i.test(gpu)) return 'Adreno';
-    if (/mali/i.test(gpu)) return 'Mali';
-    if (/xclipse/i.test(gpu)) return 'Xclipse';
-    if (/immortalis/i.test(gpu)) return 'Immortalis';
-    return gpu;
-  }
-
-  function searchableGame(game) {
-    const test = latestTest(game);
+  function searchableGame(game, test) {
     return [
       game.title, game.serial, game.region, game.publisher,
-      test.status, test.gameVersion, test.emulatorVersion, test.commit,
-      test.device?.manufacturer, test.device?.model, test.device?.soc, test.device?.gpu,
-      test.device?.androidVersion, test.renderer?.driver, test.renderer?.driverVersion,
-      test.notes, ...(Array.isArray(test.issues) ? test.issues : [])
+      test.status, test.gameVersion, test.releaseTag, test.emulatorVersion, test.commit,
+      test.device?.label, test.device?.manufacturer, test.device?.model, test.device?.soc,
+      test.device?.gpu, test.device?.androidVersion, test.renderer?.driverType,
+      test.renderer?.driver, test.renderer?.driverVersion, test.renderer?.turnipVersion,
+      test.renderer?.turnipBuild, test.renderer?.turnipSource, test.notes,
+      ...(Array.isArray(test.issues) ? test.issues : [])
     ].filter(Boolean).join(' ').toLowerCase();
   }
 
@@ -134,53 +181,66 @@
     els.themeToggle.addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
   }
 
-  function populateGpuFilter() {
-    const families = [...new Set(state.games.map(game => gpuFamily(latestTest(game))).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-    for (const family of families) {
-      const option = document.createElement('option');
-      option.value = family;
-      option.textContent = family;
-      els.gpu.append(option);
-    }
+  function addOption(select, value, label) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    select.append(option);
+  }
+
+  function populateFilters() {
+    for (const release of state.releases) addOption(els.release, release.tag, releaseLabel(release.tag));
+    const tests = state.games.flatMap(allTests);
+    const devices = [...new Set(tests.map(deviceName).filter(name => name !== 'Unknown device'))].sort((a, b) => a.localeCompare(b));
+    const drivers = new Map();
+    for (const test of tests) drivers.set(driverKey(test), driverLabel(test));
+    const gpus = [...new Set(tests.map(gpuFamily).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    for (const value of devices) addOption(els.device, value, value);
+    for (const [key, label] of [...drivers.entries()].sort((a, b) => a[1].localeCompare(b[1]))) addOption(els.driver, key, label);
+    for (const value of gpus) addOption(els.gpu, value, value);
+
+    const requested = new URL(location.href).searchParams.get('release');
+    const latest = state.releases.find(release => release.latest)?.tag;
+    state.release = requested && state.releaseMap.has(requested) ? requested : (latest || 'all');
+    els.release.value = state.release;
+  }
+
+  function environmentTests() {
+    return state.games.map(game => selectedTest(game)).filter(Boolean);
   }
 
   function updateStats() {
-    const latest = state.games.map(latestTest);
-    const uniqueDevices = new Set(latest.map(deviceName).filter(name => name !== 'Unknown device'));
-    els.total.textContent = String(state.games.length);
-    els.playable.textContent = String(latest.filter(test => normalizeStatus(test.status) === 'playable').length);
-    els.ingame.textContent = String(latest.filter(test => normalizeStatus(test.status) === 'ingame').length);
-    els.devices.textContent = String(uniqueDevices.size);
+    const tests = environmentTests();
+    els.total.textContent = String(tests.length);
+    els.playable.textContent = String(tests.filter(test => normalizeStatus(test.status) === 'playable').length);
+    els.ingame.textContent = String(tests.filter(test => normalizeStatus(test.status) === 'ingame').length);
+    els.devices.textContent = String(new Set(tests.map(deviceName).filter(name => name !== 'Unknown device')).size);
   }
 
   function filteredGames() {
     const query = state.query.trim().toLowerCase();
-    const games = state.games.filter(game => {
-      const test = latestTest(game);
-      if (query && !searchableGame(game).includes(query)) return false;
-      if (state.status !== 'all' && normalizeStatus(test.status) !== state.status) return false;
-      if (state.gpu !== 'all' && gpuFamily(test) !== state.gpu) return false;
-      return true;
-    });
-
-    games.sort((a, b) => {
-      const aTest = latestTest(a);
-      const bTest = latestTest(b);
-      if (state.sort === 'title') return text(a.title).localeCompare(text(b.title));
+    const rows = [];
+    for (const game of state.games) {
+      const test = selectedTest(game);
+      if (!test) continue;
+      if (query && !searchableGame(game, test).includes(query)) continue;
+      if (state.status !== 'all' && normalizeStatus(test.status) !== state.status) continue;
+      rows.push({ game, test });
+    }
+    rows.sort((a, b) => {
+      if (state.sort === 'title') return text(a.game.title).localeCompare(text(b.game.title));
       if (state.sort === 'status') {
-        const statusDiff = STATUS_ORDER[normalizeStatus(aTest.status)] - STATUS_ORDER[normalizeStatus(bTest.status)];
-        return statusDiff || text(a.title).localeCompare(text(b.title));
+        const difference = STATUS_ORDER[normalizeStatus(a.test.status)] - STATUS_ORDER[normalizeStatus(b.test.status)];
+        return difference || text(a.game.title).localeCompare(text(b.game.title));
       }
-      if (state.sort === 'fps') return averageFps(b) - averageFps(a) || text(a.title).localeCompare(text(b.title));
-      return parseDate(bTest.testedAt) - parseDate(aTest.testedAt) || text(a.title).localeCompare(text(b.title));
+      if (state.sort === 'fps') return averageFps(b.test) - averageFps(a.test) || text(a.game.title).localeCompare(text(b.game.title));
+      return parseDate(b.test.testedAt) - parseDate(a.test.testedAt) || text(a.game.title).localeCompare(text(b.game.title));
     });
-
-    return games;
+    return rows;
   }
 
-  function createCard(game) {
+  function createCard({ game, test }) {
     const fragment = els.template.content.cloneNode(true);
-    const test = latestTest(game);
     const status = normalizeStatus(test.status);
     const screenshots = Array.isArray(test.screenshots) ? test.screenshots.filter(screenshotPath) : [];
     const button = fragment.querySelector('.game-card-button');
@@ -200,43 +260,62 @@
 
     fragment.querySelector('h3').textContent = text(game.title, 'Untitled game');
     fragment.querySelector('.serial').textContent = text(game.serial, 'NO ID');
-    fragment.querySelector('.game-note').textContent = text(test.summary || test.notes, 'No test notes have been added yet.');
+    fragment.querySelector('.game-note').textContent = `${text(test.summary || test.notes, 'No test notes.')} · Tested ${formatDate(test.testedAt, { year: 'numeric', month: 'short' })}`;
+    fragment.querySelector('.release').textContent = text(test.releaseTag);
     fragment.querySelector('.device').textContent = deviceName(test);
+    fragment.querySelector('.driver').textContent = driverLabel(test);
     fragment.querySelector('.fps').textContent = formatFps(test.performance);
-    fragment.querySelector('.tested').textContent = formatDate(test.testedAt, { year: 'numeric', month: 'short' });
 
-    button.setAttribute('aria-label', `Open compatibility details for ${text(game.title)}`);
-    button.addEventListener('click', () => openGame(game));
+    button.setAttribute('aria-label', `Open ${text(game.title)} details for ${text(test.releaseTag)}`);
+    button.addEventListener('click', () => openGame(game, test));
     return fragment;
   }
 
+  function updateReleaseUrl() {
+    const url = new URL(location.href);
+    if (state.release === 'all') url.searchParams.delete('release');
+    else url.searchParams.set('release', state.release);
+    window.history.replaceState({}, '', url);
+  }
+
   function render() {
-    const games = filteredGames();
-    els.grid.replaceChildren(...games.map(createCard));
+    const rows = filteredGames();
+    updateStats();
+    els.grid.replaceChildren(...rows.map(createCard));
     els.grid.setAttribute('aria-busy', 'false');
-    els.count.textContent = `${games.length} ${games.length === 1 ? 'game' : 'games'}`;
+    els.count.textContent = `${rows.length} ${rows.length === 1 ? 'game' : 'games'}`;
 
     const active = [];
+    if (state.release !== 'all') active.push(state.release);
     if (state.status !== 'all') active.push(STATUS_LABEL[state.status]);
+    if (state.device !== 'all') active.push(state.device);
+    if (state.driver !== 'all') active.push(els.driver.selectedOptions[0]?.textContent || state.driver);
     if (state.gpu !== 'all') active.push(state.gpu);
     if (state.query.trim()) active.push(`“${state.query.trim()}”`);
     els.activeSummary.textContent = active.length ? `Filtered by ${active.join(' · ')}` : '';
 
-    const noData = state.games.length === 0;
-    els.empty.hidden = games.length !== 0;
-    els.grid.hidden = games.length === 0;
-    if (games.length === 0) {
-      els.emptyTitle.textContent = noData ? 'No compatibility reports yet' : 'No matching reports';
-      els.emptyCopy.textContent = noData
-        ? 'The JSON database is ready. Run the included agent skill to test a game, capture evidence, and create the first entry.'
-        : 'Try changing the search or filters.';
+    els.empty.hidden = rows.length !== 0;
+    els.grid.hidden = rows.length === 0;
+    if (rows.length === 0) {
+      const hasReports = state.games.some(game => allTests(game).length);
+      if (!hasReports) {
+        els.emptyTitle.textContent = state.release === 'all' ? 'No compatibility reports yet' : `No reports for ${state.release} yet`;
+        els.emptyCopy.textContent = 'Use the included agent skill to test an official release on a selected device and driver, capture evidence, and add the first JSON report.';
+      } else {
+        els.emptyTitle.textContent = 'No matching reports';
+        els.emptyCopy.textContent = 'Try another release, device, Turnip version, GPU, status, or search term.';
+      }
     }
+
+    const releaseMeta = state.release === 'all' ? 'All GitHub releases' : releaseLabel(state.release);
+    els.meta.textContent = `${releaseMeta} · JSON schema v${text(state.database?.schemaVersion, '2')} · Updated ${formatDate(state.database?.lastUpdated, { year: 'numeric', month: 'short', day: 'numeric' })}`;
   }
 
   function definitionList(items) {
     const dl = document.createElement('dl');
     dl.className = 'detail-list';
     for (const [label, value] of items) {
+      if (value === undefined || value === null || value === '') continue;
       const wrap = document.createElement('div');
       const dt = document.createElement('dt');
       const dd = document.createElement('dd');
@@ -257,12 +336,12 @@
     return wrap;
   }
 
-  function openGame(game, updateUrl = true) {
-    const test = latestTest(game);
+  function openGame(game, test, updateUrl = true) {
     const tests = allTests(game);
     const status = normalizeStatus(test.status);
     const screenshots = Array.isArray(test.screenshots) ? test.screenshots.filter(screenshotPath) : [];
     const heroImage = screenshots.length ? screenshotPath(screenshots[0]) : PLACEHOLDER;
+    const release = releaseInfo(test.releaseTag);
 
     const hero = document.createElement('div');
     hero.className = 'dialog-hero';
@@ -279,7 +358,7 @@
     title.id = 'dialog-title';
     title.textContent = text(game.title, 'Untitled game');
     const subtitle = document.createElement('p');
-    subtitle.textContent = [game.serial, game.region, test.gameVersion ? `Game ${test.gameVersion}` : ''].filter(Boolean).join(' · ');
+    subtitle.textContent = [game.serial, game.region, test.gameVersion ? `Game ${test.gameVersion}` : '', test.releaseTag].filter(Boolean).join(' · ');
     heading.append(badge, title, subtitle);
     hero.append(image, heading);
 
@@ -292,7 +371,7 @@
 
     const notes = document.createElement('p');
     notes.textContent = text(test.notes || test.summary, 'No detailed notes were recorded.');
-    main.append(section('Latest test notes', notes));
+    main.append(section(`Test notes · ${test.releaseTag}`, notes));
 
     if (Array.isArray(test.issues) && test.issues.length) {
       const list = document.createElement('ul');
@@ -330,14 +409,20 @@
     const device = test.device || {};
     const renderer = test.renderer || {};
     side.append(section('Test environment', definitionList([
-      ['Device', deviceName(test)],
+      ['Release', releaseLabel(test.releaseTag)],
+      ['Selected device', deviceName(test)],
       ['SoC', device.soc],
       ['GPU', device.gpu],
       ['Android', device.androidVersion],
       ['RAM', device.ramGb ? `${device.ramGb} GB` : ''],
-      ['Driver', [renderer.driver, renderer.driverVersion].filter(Boolean).join(' ')],
-      ['Backend', test.guestBackend],
-      ['Emulator', test.emulatorVersion],
+      ['Driver type', renderer.driverType],
+      ['Driver', renderer.driver],
+      ['Driver version', renderer.driverVersion],
+      ['Turnip version', renderer.turnipVersion],
+      ['Turnip build', renderer.turnipBuild],
+      ['Turnip source', renderer.turnipSource],
+      ['Guest backend', test.guestBackend],
+      ['Installed version', test.emulatorVersion],
       ['Commit', test.commit ? String(test.commit).slice(0, 12) : ''],
       ['Tested', formatDate(test.testedAt)]
     ])));
@@ -351,12 +436,11 @@
     ])));
 
     const evidence = [];
-    const logs = Array.isArray(test.logs) ? test.logs : [];
-    for (const item of logs) {
+    for (const item of Array.isArray(test.logs) ? test.logs : []) {
       const path = typeof item === 'string' ? item : item?.path;
-      if (!path) continue;
-      evidence.push([typeof item === 'object' ? text(item.label, 'Session log') : 'Session log', path]);
+      if (path) evidence.push([typeof item === 'object' ? text(item.label, 'Session log') : 'Session log', path]);
     }
+    if (release.url) evidence.unshift([`${test.releaseTag} release`, release.url]);
     if (test.videoUrl) evidence.push(['Video evidence', test.videoUrl]);
     if (test.reportUrl) evidence.push(['External report', test.reportUrl]);
     if (evidence.length) {
@@ -379,36 +463,39 @@
     }
 
     if (tests.length > 1) {
-      const history = document.createElement('div');
-      history.className = 'report-history';
+      const reportHistory = document.createElement('div');
+      reportHistory.className = 'report-history';
       for (const entry of tests) {
         const row = document.createElement('div');
         row.className = 'report-row';
         const left = document.createElement('span');
+        left.className = 'report-row-copy';
         const strong = document.createElement('strong');
-        strong.textContent = formatDate(entry.testedAt, { year: 'numeric', month: 'short', day: 'numeric' });
-        left.append(strong, document.createTextNode(` · ${text(entry.emulatorVersion, 'unknown build')}`));
+        strong.textContent = `${entry.releaseTag} · ${formatDate(entry.testedAt, { year: 'numeric', month: 'short', day: 'numeric' })}`;
+        const environment = document.createElement('small');
+        environment.textContent = `${deviceName(entry)} · ${driverLabel(entry)}`;
+        left.append(strong, environment);
         const right = document.createElement('span');
         const entryStatus = normalizeStatus(entry.status);
         right.className = `status-text ${entryStatus}`;
         right.textContent = STATUS_LABEL[entryStatus];
         row.append(left, right);
-        history.append(row);
+        reportHistory.append(row);
       }
-      main.append(section('Report history', history));
+      main.append(section('Report history by release', reportHistory));
     }
 
     grid.append(main, side);
     body.append(grid);
     els.dialogContent.replaceChildren(hero, body);
-
     if (!els.dialog.open) els.dialog.showModal();
     els.dialogClose.focus({ preventScroll: true });
     document.body.classList.add('dialog-open');
     if (updateUrl) {
       const url = new URL(location.href);
       url.searchParams.set('game', text(game.id || game.serial).toLowerCase());
-      history.replaceState({}, '', url);
+      url.searchParams.set('test', `${test.releaseTag}:${test.testedAt}`);
+      window.history.replaceState({}, '', url);
     }
   }
 
@@ -418,31 +505,42 @@
     if (updateUrl) {
       const url = new URL(location.href);
       url.searchParams.delete('game');
-      history.replaceState({}, '', url);
+      url.searchParams.delete('test');
+      window.history.replaceState({}, '', url);
     }
   }
 
   function openGameFromUrl() {
-    const id = new URL(location.href).searchParams.get('game');
+    const url = new URL(location.href);
+    const id = url.searchParams.get('game');
     if (!id) return;
     const game = state.games.find(item => [item.id, item.serial].filter(Boolean).some(value => String(value).toLowerCase() === id.toLowerCase()));
-    if (game) openGame(game, false);
+    if (!game) return;
+    const signature = url.searchParams.get('test');
+    const test = signature
+      ? allTests(game).find(entry => `${entry.releaseTag}:${entry.testedAt}` === signature)
+      : selectedTest(game) || allTests(game)[0];
+    if (test) openGame(game, test, false);
   }
 
   function bindFilters() {
     els.search.addEventListener('input', event => { state.query = event.target.value; render(); });
+    els.release.addEventListener('change', event => { state.release = event.target.value; updateReleaseUrl(); render(); });
     els.status.addEventListener('change', event => { state.status = event.target.value; render(); });
+    els.device.addEventListener('change', event => { state.device = event.target.value; render(); });
+    els.driver.addEventListener('change', event => { state.driver = event.target.value; render(); });
     els.gpu.addEventListener('change', event => { state.gpu = event.target.value; render(); });
     els.sort.addEventListener('change', event => { state.sort = event.target.value; render(); });
     els.reset.addEventListener('click', () => {
       state.query = '';
-      state.status = 'all';
-      state.gpu = 'all';
+      state.release = state.releases.find(release => release.latest)?.tag || 'all';
+      state.status = state.device = state.driver = state.gpu = 'all';
       state.sort = 'recent';
       els.search.value = '';
-      els.status.value = 'all';
-      els.gpu.value = 'all';
+      els.release.value = state.release;
+      els.status.value = els.device.value = els.driver.value = els.gpu.value = 'all';
       els.sort.value = 'recent';
+      updateReleaseUrl();
       render();
     });
     els.dialogClose.addEventListener('click', () => closeGame());
@@ -450,18 +548,23 @@
     els.dialog.addEventListener('click', event => { if (event.target === els.dialog) closeGame(); });
   }
 
+  async function fetchJson(url) {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+    return response.json();
+  }
+
   async function loadDatabase() {
     try {
-      const response = await fetch(DATA_URL, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const database = await response.json();
+      const [database, releaseIndex] = await Promise.all([fetchJson(DATA_URL), fetchJson(RELEASES_URL)]);
       if (!database || !Array.isArray(database.games)) throw new Error('games must be an array');
+      if (!releaseIndex || !Array.isArray(releaseIndex.releases)) throw new Error('releases must be an array');
       state.database = database;
       state.games = database.games;
-      updateStats();
-      populateGpuFilter();
+      state.releases = releaseIndex.releases;
+      state.releaseMap = new Map(state.releases.map(release => [release.tag, release]));
+      populateFilters();
       render();
-      els.meta.textContent = `JSON schema v${text(database.schemaVersion, '1')} · Updated ${formatDate(database.lastUpdated, { year: 'numeric', month: 'short', day: 'numeric' })}`;
       openGameFromUrl();
     } catch (error) {
       console.error('Compatibility database failed to load:', error);
@@ -469,7 +572,7 @@
       els.grid.hidden = true;
       els.empty.hidden = false;
       els.emptyTitle.textContent = 'Compatibility data could not be loaded';
-      els.emptyCopy.textContent = 'Serve this folder over HTTP and confirm data/games.json contains valid JSON.';
+      els.emptyCopy.textContent = 'Serve this folder over HTTP and confirm data/games.json and data/releases.json contain valid JSON.';
       els.meta.textContent = 'Database unavailable';
       els.total.textContent = els.playable.textContent = els.ingame.textContent = els.devices.textContent = '—';
     }

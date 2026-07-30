@@ -315,3 +315,25 @@ input::placeholder { color: var(--faint); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+/* Release/device/driver compatibility selectors */
+.filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.filters .search-field { grid-column: span 2; }
+.filters .reset-button { justify-self: stretch; }
+.quick-specs { grid-template-columns: .7fr 1.25fr 1.1fr .72fr; }
+.release-link { color: var(--accent); text-decoration: none; font-weight: 750; }
+.release-link:hover { text-decoration: underline; }
+.report-row-copy { display: grid; gap: 3px; }
+.report-row-copy small { color: var(--faint); }
+
+@media (max-width: 980px) {
+  .filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .filters .search-field { grid-column: 1 / -1; }
+  .quick-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .filters { grid-template-columns: 1fr; }
+  .filters .search-field { grid-column: auto; }
+  .quick-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

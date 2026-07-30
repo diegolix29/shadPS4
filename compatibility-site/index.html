@@ -41,7 +41,7 @@
         <div class="hero-copy">
           <span class="eyebrow">Evidence-first compatibility</span>
           <h1>See what runs on <span>Bachata S4</span></h1>
-          <p>Browse Android-specific results with device details, FPS ranges, screenshots, emulator commits, graphics drivers, notes, and raw session logs.</p>
+          <p>Browse release-specific Android results with the selected device, exact Turnip driver version, FPS ranges, screenshots, commits, notes, and raw session logs.</p>
           <div class="hero-actions">
             <a class="button button-primary" href="#games">Browse games</a>
             <a class="button button-secondary" href="https://github.com/JICA98/Bachata-S4/tree/main/.agents/skills/bachata-compatibility" target="_blank" rel="noreferrer">Testing workflow</a>
@@ -62,7 +62,7 @@
         <article class="stat-card"><span id="stat-total">—</span><small>Tested games</small></article>
         <article class="stat-card"><span id="stat-playable">—</span><small>Playable</small></article>
         <article class="stat-card"><span id="stat-ingame">—</span><small>Ingame</small></article>
-        <article class="stat-card"><span id="stat-devices">—</span><small>Devices represented</small></article>
+        <article class="stat-card"><span id="stat-devices">—</span><small>Selected devices</small></article>
       </div>
     </section>
 
@@ -80,7 +80,13 @@
           <label class="search-field">
             <span class="sr-only">Search games</span>
             <span aria-hidden="true">⌕</span>
-            <input id="search" type="search" autocomplete="off" placeholder="Search title, CUSA, device, SoC…">
+            <input id="search" type="search" autocomplete="off" placeholder="Search title, CUSA, release, device, Turnip…">
+          </label>
+          <label>
+            <span class="sr-only">Bachata S4 release</span>
+            <select id="release-filter">
+              <option value="all">All releases</option>
+            </select>
           </label>
           <label>
             <span class="sr-only">Status</span>
@@ -91,6 +97,18 @@
               <option value="menus">Menus</option>
               <option value="boots">Boots</option>
               <option value="nothing">Nothing</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">Selected device</span>
+            <select id="device-filter">
+              <option value="all">All devices</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">Selected graphics driver</span>
+            <select id="driver-filter">
+              <option value="all">All drivers</option>
             </select>
           </label>
           <label>
@@ -160,9 +178,10 @@
           </div>
           <p class="game-note"></p>
           <dl class="quick-specs">
+            <div><dt>Release</dt><dd class="release"></dd></div>
             <div><dt>Device</dt><dd class="device"></dd></div>
+            <div><dt>Driver</dt><dd class="driver"></dd></div>
             <div><dt>Average</dt><dd class="fps"></dd></div>
-            <div><dt>Tested</dt><dd class="tested"></dd></div>
           </dl>
         </div>
       </button>

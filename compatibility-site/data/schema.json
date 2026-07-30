@@ -6,16 +6,17 @@
   "required": ["schemaVersion", "lastUpdated", "project", "games"],
   "additionalProperties": false,
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "lastUpdated": { "type": "string", "format": "date-time" },
     "project": {
       "type": "object",
-      "required": ["name", "repository", "platform"],
+      "required": ["name", "repository", "platform", "releaseSource"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "repository": { "type": "string", "format": "uri" },
-        "platform": { "type": "string", "minLength": 1 }
+        "platform": { "type": "string", "minLength": 1 },
+        "releaseSource": { "type": "string", "format": "uri" }
       }
     },
     "games": {
@@ -43,12 +44,13 @@
     },
     "test": {
       "type": "object",
-      "required": ["testedAt", "status", "gameVersion", "emulatorVersion", "commit", "device", "renderer", "notes", "screenshots", "logs"],
+      "required": ["testedAt", "status", "gameVersion", "releaseTag", "emulatorVersion", "commit", "device", "renderer", "notes", "screenshots", "logs"],
       "additionalProperties": false,
       "properties": {
         "testedAt": { "type": "string", "format": "date-time" },
         "status": { "enum": ["playable", "ingame", "menus", "boots", "nothing"] },
         "gameVersion": { "type": "string", "minLength": 1 },
+        "releaseTag": { "type": "string", "minLength": 1 },
         "emulatorVersion": { "type": "string", "minLength": 1 },
         "commit": { "type": "string", "pattern": "^[0-9a-fA-F]{7,40}$" },
         "guestBackend": { "enum": ["fex", "box64", "native-arm64", "unknown"] },
@@ -107,9 +109,10 @@
     },
     "device": {
       "type": "object",
-      "required": ["manufacturer", "model", "soc", "gpu", "androidVersion"],
+      "required": ["label", "manufacturer", "model", "soc", "gpu", "androidVersion"],
       "additionalProperties": false,
       "properties": {
+        "label": { "type": "string", "minLength": 1 },
         "manufacturer": { "type": "string", "minLength": 1 },
         "model": { "type": "string", "minLength": 1 },
         "soc": { "type": "string", "minLength": 1 },
@@ -120,13 +123,23 @@
     },
     "renderer": {
       "type": "object",
-      "required": ["driver"],
+      "required": ["driverType", "driver"],
       "additionalProperties": false,
       "properties": {
+        "driverType": { "enum": ["system", "turnip", "custom"] },
         "driver": { "type": "string", "minLength": 1 },
         "driverVersion": { "type": "string" },
+        "turnipVersion": { "type": "string", "minLength": 1 },
+        "turnipBuild": { "type": "string" },
+        "turnipSource": { "type": "string" },
         "resolutionScale": { "type": "number", "exclusiveMinimum": 0 }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "driverType": { "const": "turnip" } }, "required": ["driverType"] },
+          "then": { "required": ["turnipVersion"] }
+        }
+      ]
     },
     "performance": {
       "type": "object",
