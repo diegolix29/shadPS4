@@ -20,7 +20,6 @@ public abstract class ClientOpcodes {
     public static final byte GET_PROPERTY = 20;
     public static final byte SET_SELECTION_OWNER = 22;
     public static final byte GET_SELECTION_OWNER = 23;
-    public static final byte CONVERT_SELECTION = 24;
     public static final byte SEND_EVENT = 25;
     public static final byte GRAB_POINTER = 26;
     public static final byte UNGRAB_POINTER = 27;
@@ -29,7 +28,6 @@ public abstract class ClientOpcodes {
     public static final byte WARP_POINTER = 41;
     public static final byte SET_INPUT_FOCUS = 42;
     public static final byte GET_INPUT_FOCUS = 43;
-    public static final byte QUERY_KEYMAP = 44;
     public static final byte OPEN_FONT = 45;
     public static final byte LIST_FONTS = 49;
     public static final byte CREATE_PIXMAP = 53;

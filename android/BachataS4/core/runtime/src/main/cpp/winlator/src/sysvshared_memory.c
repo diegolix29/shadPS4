@@ -10,12 +10,9 @@
 #include <pthread.h>
 #include <sys/ipc.h>
 #include <sys/syscall.h>
-#include <sys/ioctl.h>
 #include <jni.h>
 #include <android/log.h>
 #include <android/sharedmem.h>
-#include <linux/dma-buf.h>
-#include <linux/types.h>
 
 #define __u32 uint32_t
 #include <linux/ashmem.h>
@@ -80,20 +77,6 @@ Java_com_winlator_sysvshm_SysVSharedMemory_mapSHMSegment(JNIEnv *env, jobject ob
     char *data = mmap(NULL, size, readonly ? PROT_READ : PROT_WRITE | PROT_READ, MAP_SHARED, fd, offset);
     if (data == MAP_FAILED) return NULL;
     return (*env)->NewDirectByteBuffer(env, data, size);
-}
-
-JNIEXPORT void JNICALL
-Java_com_winlator_sysvshm_SysVSharedMemory_dmaBufSyncStart(JNIEnv *env, jclass obj, jint fd, jboolean read) {
-    struct dma_buf_sync sync = {0};
-    sync.flags = (read ? DMA_BUF_SYNC_READ : DMA_BUF_SYNC_WRITE) | DMA_BUF_SYNC_START;
-    ioctl(fd, DMA_BUF_IOCTL_SYNC, &sync);
-}
-
-JNIEXPORT void JNICALL
-Java_com_winlator_sysvshm_SysVSharedMemory_dmaBufSyncEnd(JNIEnv *env, jclass obj, jint fd, jboolean read) {
-    struct dma_buf_sync sync = {0};
-    sync.flags = (read ? DMA_BUF_SYNC_READ : DMA_BUF_SYNC_WRITE) | DMA_BUF_SYNC_END;
-    ioctl(fd, DMA_BUF_IOCTL_SYNC, &sync);
 }
 
 JNIEXPORT void JNICALL

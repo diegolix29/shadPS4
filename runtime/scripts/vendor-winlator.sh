@@ -72,7 +72,8 @@ for override in \
   com/winlator/xserver/extensions/DRI3Extension.java \
   com/winlator/xserver/extensions/XComposite.java \
   com/winlator/xconnector/UnixSocketConfig.java \
-  com/winlator/alsaserver/ALSAClient.java; do
+  com/winlator/alsaserver/ALSAClient.java \
+  com/winlator/renderer/GPUImage.java; do
   cp "$override_root/$override" "$runtime_root/java/$override"
 done
 for override in winlator/include/time_utils.h winlator/include/string_utils.h; do

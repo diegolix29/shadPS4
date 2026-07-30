@@ -43,6 +43,7 @@ public class ALSAClient {
         public short latencyMillis = DEFAULT_LATENCY_MILLIS;
         public byte performanceMode = AudioTrack.PERFORMANCE_MODE_LOW_LATENCY;
         public float volume = DEFAULT_VOLUME;
+        public boolean useSharedMemory = true;
 
         public static Options fromKeyValueSet(KeyValueSet config) {
             if (config == null || config.isEmpty()) return new Options();

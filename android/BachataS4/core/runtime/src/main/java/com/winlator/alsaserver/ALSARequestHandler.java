@@ -46,7 +46,7 @@ public class ALSARequestHandler implements RequestHandler {
                 alsaClient.setBufferSize(inputStream.readInt());
                 alsaClient.prepare();
 
-                if (alsaClient.options.useSharedMemory) createSharedMemory(alsaClient, outputStream);
+                if (ALSAClient.USE_SHARED_MEMORY) createSharedMemory(alsaClient, outputStream);
                 break;
             case RequestCodes.WRITE:
                 ByteBuffer sharedBuffer = alsaClient.getSharedBuffer();

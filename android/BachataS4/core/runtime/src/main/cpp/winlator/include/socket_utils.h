@@ -20,20 +20,16 @@ static inline int send_fds(int sockFd, int* fds, int numFds, void* data, int siz
         .msg_iov = &iovmsg,
         .msg_iovlen = 1,
         .msg_flags = 0,
-        .msg_control = NULL,
-        .msg_controllen = 0,
+        .msg_control = &ctrlmsg,
+        .msg_controllen = sizeof(struct cmsghdr) + numFds * sizeof(int)
     };
 
-    if (numFds > 0 && fds) {
-        if (numFds > MAX_FDS) numFds = MAX_FDS;
-        msg.msg_control = &ctrlmsg;
-        msg.msg_controllen = sizeof(struct cmsghdr) + (size_t)numFds * sizeof(int);
-        struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = msg.msg_controllen;
-        for (int i = 0; i < numFds; i++) ((int*)CMSG_DATA(cmsg))[i] = fds[i];
-    }
+    struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type = SCM_RIGHTS;
+    cmsg->cmsg_len = msg.msg_controllen;
+
+    for (int i = 0; i < numFds; i++) ((int*)CMSG_DATA(cmsg))[i] = fds[i];
     return sendmsg(sockFd, &msg, 0);
 }
 

@@ -28,6 +28,11 @@ public class UnixSocketConfig {
         return new UnixSocketConfig(socketFile.getPath());
     }
 
+    public static UnixSocketConfig createAbstract(String path) {
+        String abstractPath = path.startsWith("\0") ? path : "\0" + path;
+        return new UnixSocketConfig(abstractPath);
+    }
+
     private static void deleteRecursively(File file) {
         File[] children = file.listFiles();
         if (children != null) for (File child : children) deleteRecursively(child);

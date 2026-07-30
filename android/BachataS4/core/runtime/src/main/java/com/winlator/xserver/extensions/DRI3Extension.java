@@ -112,13 +112,8 @@ public class DRI3Extension extends Extension {
         final Texture texture = content.getTexture();
 
         if (!(texture instanceof GPUImage)) {
-            GPUImage gpuImage = new GPUImage(content);
-            if (gpuImage.getHardwareBufferPtr() != 0 && gpuImage.getVirtualData() != null) {
-                texture.destroy();
-                content.setTexture(gpuImage);
-            } else {
-                gpuImage.destroy();
-            }
+            texture.destroy();
+            content.setTexture(new GPUImage(content, false));
         }
 
         GPUImage gpuImage = (GPUImage)content.getTexture();
@@ -175,12 +170,11 @@ public class DRI3Extension extends Extension {
             Drawable drawable = xServer.drawableManager.createDrawable(pixmapId, totalWidth, height, depth);
             drawable.setData(buffer);
             drawable.setTexture(null);
-            drawable.setDmaBufFd(fd);
             drawable.setOnDestroyListener(onDestroyDrawableListener);
             xServer.pixmapManager.createPixmap(drawable);
         }
         finally {
-            // Keep fd alive for cache sync; don't close it here
+            XConnectorEpoll.closeFd(fd);
         }
     }
 

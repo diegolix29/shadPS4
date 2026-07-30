@@ -50,10 +50,7 @@ AHardwareBuffer* createHardwareBuffer(int width, int height, bool cpuAccess, boo
     buffDesc.width = width;
     buffDesc.height = height;
     buffDesc.layers = 1;
-    buffDesc.usage = AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT | AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
-    if (cpuAccess) {
-        buffDesc.usage |= AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN | AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN;
-    }
+    buffDesc.usage = cpuAccess ? AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN : AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
     buffDesc.format = useHALPixelFormatBGRA8888 ? HAL_PIXEL_FORMAT_BGRA_8888 : AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
 
     AHardwareBuffer* hardwareBuffer = NULL;
@@ -108,7 +105,7 @@ Java_com_winlator_renderer_GPUImage_lockHardwareBuffer(JNIEnv *env, jclass obj,
                                                        jlong hardwareBufferPtr) {
     AHardwareBuffer* hardwareBuffer = (AHardwareBuffer*)hardwareBufferPtr;
     void *virtualAddr;
-    AHardwareBuffer_lock(hardwareBuffer, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN | AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN, -1, NULL, &virtualAddr);
+    AHardwareBuffer_lock(hardwareBuffer, AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN, -1, NULL, &virtualAddr);
 
     AHardwareBuffer_Desc buffDesc = {0};
     AHardwareBuffer_describe(hardwareBuffer, &buffDesc);
@@ -123,16 +120,5 @@ Java_com_winlator_renderer_GPUImage_destroyImageKHR(JNIEnv *env, jclass obj, jlo
     if (imageKHR) {
         EGLDisplay eglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
         eglDestroyImageKHR(eglDisplay, imageKHR);
-    }
-}
-
-JNIEXPORT void JNICALL
-Java_com_winlator_renderer_GPUImage_unlockHardwareBuffer(JNIEnv *env, jclass obj,
-                                                          jlong hardwareBufferPtr) {
-    (void)env;
-    (void)obj;
-    AHardwareBuffer* hardwareBuffer = (AHardwareBuffer*)hardwareBufferPtr;
-    if (hardwareBuffer) {
-        AHardwareBuffer_unlock(hardwareBuffer, NULL);
     }
 }

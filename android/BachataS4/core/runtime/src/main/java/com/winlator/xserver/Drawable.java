@@ -23,7 +23,6 @@ public class Drawable extends XResource {
     private boolean offscreenStorage = false;
     private Callback<Drawable> onDestroyListener;
     public final Object renderLock = new Object();
-    private int dmaBufFd = -1;
 
     static {
         System.loadLibrary("winlator");
@@ -56,10 +55,7 @@ public class Drawable extends XResource {
     }
 
     public void setTexture(Texture texture) {
-        if (texture instanceof GPUImage) {
-            ByteBuffer gpuData = ((GPUImage)texture).getVirtualData();
-            if (gpuData != null) data = gpuData;
-        }
+        if (texture instanceof GPUImage) data = ((GPUImage)texture).getVirtualData();
         this.texture = texture;
     }
 
@@ -70,14 +66,6 @@ public class Drawable extends XResource {
 
     public void setData(ByteBuffer data) {
         this.data = data;
-    }
-
-    public int getDmaBufFd() {
-        return dmaBufFd;
-    }
-
-    public void setDmaBufFd(int fd) {
-        this.dmaBufFd = fd;
     }
 
     private short getStride() {

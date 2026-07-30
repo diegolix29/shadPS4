@@ -45,3 +45,5 @@ void getCompressedImageFormatProperties(void* a, void* b, void* c) {
 
 /* Global from Winlator main.c that request_handler expects. */
 int vortekSerializerCastVkObject = 1;
+
+void bachata_vortek_join_fence_wait_workers(void) {}
