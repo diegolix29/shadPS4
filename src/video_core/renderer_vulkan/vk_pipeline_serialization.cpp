@@ -118,7 +118,15 @@ bool LoadShaderMeta(Serialization::Archive& ar, Shader::Info& info,
     spec.Deserialize(ar);
     info.Deserialize(ar);
 
-    fetch_shader_data = spec.fetch_shader_data;
+    // Only the vertex-input stage carries a fetch shader. LoadGraphicsPipeline restores stages in
+    // LogicalStage order, so a geometry stage loads AFTER the vertex stage; assigning
+    // unconditionally would clobber the vertex stage's fetch shader with the geometry stage's
+    // empty one, and the preloaded pipeline then binds no vertex attributes at all (LBP3: fuzz
+    // ribbons drawn from garbage inputs as screen-wide translucent streaks). Mirror
+    // RefreshGraphicsStages, which only latches a present value.
+    if (spec.fetch_shader_data) {
+        fetch_shader_data = spec.fetch_shader_data;
+    }
     return true;
 }
 
@@ -212,6 +220,15 @@ bool GraphicsPipeline::SerializationSupport::Deserialize(Serialization::Archive&
 }
 
 bool PipelineCache::LoadGraphicsPipeline(Serialization::Archive& ar) {
+    // These three are PipelineCache members reused across every preloaded pipeline, and the
+    // early returns below leave whatever the previous one put there. ForEachBlob keeps going
+    // after a failure, so without this a pipeline that has no fetch shader of its own would
+    // inherit the last one's - the same wrong-vertex-layout symptom the conditional assign
+    // below exists to prevent. Clear on entry, not only on the success path.
+    fetch_shader.reset();
+    infos.fill(nullptr);
+    modules.fill(nullptr);
+
     graphics_key.Deserialize(ar);
 
     GraphicsPipeline::SerializationSupport sdata{};
