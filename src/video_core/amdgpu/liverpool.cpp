@@ -196,9 +196,18 @@ Liverpool::Task Liverpool::ProcessCeUpdate(std::span<const u32> ccb) {
             break;
         }
         case PM4ItOpcode::WaitOnDeCounterDiff: {
-            const auto diff = it_body[0];
+            const u32 diff = it_body[0];
+            u64 wdecd_iters = 0;
             while ((cblock.de_count - cblock.ce_count) >= diff) {
                 YIELD_CE();
+#ifdef ENABLE_BACHATA_RUNTIME
+                if (++wdecd_iters % 10 == 0) {
+                    LOG_WARNING(Render_Vulkan,
+                                "PM4 WAIT_ON_DE_COUNTER_DIFF stalled (CE) iterations={} diff={} "
+                                "ce_count={} de_count={}",
+                                wdecd_iters, diff, cblock.ce_count, cblock.de_count);
+                }
+#endif
             }
             break;
         }
@@ -796,7 +805,15 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (mem_semaphore->IsSignaling()) {
                     mem_semaphore->Signal();
                 } else {
+                    u64 sem_iters = 0;
                     while (!mem_semaphore->Signaled()) {
+#ifdef ENABLE_BACHATA_RUNTIME
+                        if (++sem_iters % 10 == 0) {
+                            LOG_WARNING(Render_Vulkan,
+                                        "PM4 MEM_SEMAPHORE stalled queue=gfx iterations={}",
+                                        sem_iters);
+                        }
+#endif
                         YIELD_GFX();
                     }
                     mem_semaphore->Decrement();
@@ -812,7 +829,14 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     break;
                 }
                 const PM4CmdRewind* rewind = reinterpret_cast<const PM4CmdRewind*>(header);
+                u64 rewind_iters = 0;
                 while (!rewind->Valid()) {
+#ifdef ENABLE_BACHATA_RUNTIME
+                    if (++rewind_iters % 10 == 0) {
+                        LOG_WARNING(Render_Vulkan,
+                                    "PM4 REWIND stalled queue=gfx iterations={}", rewind_iters);
+                    }
+#endif
                     YIELD_GFX();
                 }
                 break;
@@ -833,7 +857,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 u64 wait_iterations = 0;
                 while (!wait_reg_mem->Test(regs.reg_array)) {
 #ifdef ENABLE_BACHATA_RUNTIME
-                    if (++wait_iterations % 1'000'000 == 0) {
+                    if (++wait_iterations % 10 == 0) {
                         const bool is_memory = wait_reg_mem->mem_space.Value() ==
                                                PM4CmdWaitRegMem::MemSpace::Memory;
                         const u32 value = is_memory ? *wait_reg_mem->Address<const u32*>()
@@ -859,9 +883,16 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     {indirect_buffer->Address<const u32>(), indirect_buffer->ib_size}, {});
                 RESUME_GFX(task);
 
+                u64 ib_iters = 0;
                 while (!task.handle.done()) {
                     YIELD_GFX();
                     RESUME_GFX(task);
+#ifdef ENABLE_BACHATA_RUNTIME
+                    if (++ib_iters % 10 == 0) {
+                        LOG_WARNING(Render_Vulkan,
+                                    "PM4 INDIRECT_BUFFER nested gfx stalled iterations={}", ib_iters);
+                    }
+#endif
                 }
                 break;
             }
@@ -870,8 +901,17 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 break;
             }
             case PM4ItOpcode::WaitOnCeCounter: {
+                u64 woce_iters = 0;
                 while (cblock.ce_count <= cblock.de_count && !ce_task.handle.done()) {
                     RESUME_GFX(ce_task);
+#ifdef ENABLE_BACHATA_RUNTIME
+                    if (++woce_iters % 10 == 0) {
+                        LOG_WARNING(Render_Vulkan,
+                                    "PM4 WAIT_ON_CE_COUNTER stalled queue=gfx iterations={} "
+                                    "ce_count={} de_count={} ce_task_done={}",
+                                    woce_iters, cblock.ce_count, cblock.de_count, 0);
+                    }
+#endif
                 }
                 break;
             }
@@ -918,8 +958,17 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
     }
 
     if (ce_task.handle) {
+        u64 cedrain_iters = 0;
         while (!ce_task.handle.done()) {
             RESUME_GFX(ce_task);
+#ifdef ENABLE_BACHATA_RUNTIME
+            if (++cedrain_iters % 10 == 0) {
+                LOG_WARNING(Render_Vulkan,
+                            "PM4 CE_DRAIN stalled (post-dcb ce_task) iterations={} "
+                            "ce_count={} de_count={}",
+                            cedrain_iters, cblock.ce_count, cblock.de_count);
+            }
+#endif
         }
         ce_task.handle.destroy();
     }
@@ -1168,7 +1217,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             u64 wait_iterations = 0;
             while (!wait_reg_mem->Test(regs.reg_array)) {
 #ifdef ENABLE_BACHATA_RUNTIME
-                if (++wait_iterations % 1'000'000 == 0) {
+                if (++wait_iterations % 10 == 0) {
                     const bool is_memory = wait_reg_mem->mem_space.Value() ==
                                            PM4CmdWaitRegMem::MemSpace::Memory;
                     const u32 value = is_memory ? *wait_reg_mem->Address<const u32*>()

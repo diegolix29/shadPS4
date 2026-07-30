@@ -20,12 +20,22 @@
 #include <array>
 
 #include "gcn/gcn_test_runner.hpp"
+#include "video_core/buffer_cache/vertex_buffer_bind_path.h"
 #include "video_core/buffer_cache/vk_dispatch_reload.h"
 
 // vk_common.h macros must be applied before including vulkan.hpp.
 // gcn_test_runner.hpp already pulls in vulkan.hpp with the correct defines.
 
 namespace {
+
+TEST(VertexBufferBindPathTest, UsesCoreBindingWhenVertexInputIsDynamic) {
+    EXPECT_EQ(VideoCore::SelectVertexBufferBindPath(true), VideoCore::VertexBufferBindPath::Core);
+}
+
+TEST(VertexBufferBindPathTest, UsesExtendedBindingWhenVertexInputIsStatic) {
+    EXPECT_EQ(VideoCore::SelectVertexBufferBindPath(false),
+              VideoCore::VertexBufferBindPath::Extended);
+}
 
 // ----------------------------------------------------------------------------
 // VkDispatchBindVb2Test

@@ -776,6 +776,15 @@ TEST_F(HttpLifecycle, CreateAndDestroyEpoll) {
     sceHttpTerm(ctx);
 }
 
+TEST_F(HttpLifecycle, CreateEpollHandleStaysAboveNullPage) {
+    int ctx = sceHttpInit(0, 0, 4096);
+    OrbisHttpEpollHandle eh = nullptr;
+    ASSERT_EQ(sceHttpCreateEpoll(ctx, &eh), ORBIS_OK);
+    EXPECT_GE(reinterpret_cast<uintptr_t>(eh), uintptr_t{4096});
+    EXPECT_EQ(sceHttpDestroyEpoll(ctx, eh), ORBIS_OK);
+    sceHttpTerm(ctx);
+}
+
 TEST_F(HttpLifecycle, CreateEpollNullOut) {
     int ctx = sceHttpInit(0, 0, 4096);
     EXPECT_EQ(sceHttpCreateEpoll(ctx, nullptr), static_cast<int>(ORBIS_HTTP_ERROR_INVALID_VALUE));

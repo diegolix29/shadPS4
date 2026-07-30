@@ -1,6 +1,6 @@
 ---
 name: diagnose-bachata
-description: Diagnose and fix crashes, black screens, and GPU deadlocks in the Bachata-S4 / shadPS4 Android runtime. Use whenever the user reports a game failing to launch, crashing with an exit code (e.g. "Stopped: 133", "exitCode=133"), freezing, or showing a black/blank screen on the Android build — or wants to compare Android vs desktop behavior. Jump-starts the investigation by pointing at the exact logs, code locations, build commands, and adb/device quirks so the agent doesn't scan the whole codebase to get oriented.
+description: Use when a Bachata-S4 / shadPS4 Android game crashes, reports Stopped or exitCode, freezes, black-screens, GPU-deadlocks, fails after a cutscene or teardown transition, or behaves differently from desktop.
 ---
 
 # Diagnose Bachata-S4
@@ -10,18 +10,14 @@ Structured investigation workflow for shadPS4/Bachata-S4 Android runtime failure
 and code locations learned from real fixes so each new investigation starts from
 the known map, not a blind scan.
 
-## When to use
-
-Trigger when the user reports any of:
-- Game "Stopped: NNN" or `exitCode=NNN` on Android
-- Crash-to-launcher, app dies within seconds of "Running"
-- Black / blank / frozen screen while FPS counter still moves
-- A game that works on desktop shadPS4 but fails on the Android build
-- "compare Android vs desktop" / "why does it work on PC but not phone"
+**Core rule:** Treat the exit code and nearest warning as routing hints. Prove the
+failure by correlating the terminal error with the lifetime of the exact guest
+address, handle, callback, fence, or thread involved.
 
 ## Orientation map (read first — don't re-scan)
 
-Repo root: `$HOME/repo/Bachata-S4`. All paths below are relative to it unless noted.
+Resolve the repo root with `git rev-parse --show-toplevel`. All paths below are
+relative to it.
 
 ### Where things live
 
@@ -32,6 +28,9 @@ Repo root: `$HOME/repo/Bachata-S4`. All paths below are relative to it unless no
 | HLE registration in a lib | the lib's `RegisterLib()` — `LIB_FUNCTION("nid", "lib", ver, "mod", fn)` |
 | FEX unresolved-HLE fallback | `src/core/linker.cpp:~802` ("temporary ENOSYS fallback") → returns `ENOSYS=38` |
 | UnsupportedHleCallAdapter | `src/core/guest_cpu/hle_call_adapter.h` (returns `HleCallFailure{ENOSYS}`) |
+| FEX guest callback bridge | `src/core/guest_cpu/fex_hle_bridge.*`, `src/core/guest_cpu/hle_call_adapter.*` |
+| AvPlayer callback/source lifetime | `src/core/libraries/avplayer/` |
+| Pthread mutex lifetime | `src/core/libraries/kernel/threads/mutex.cpp`, `src/core/libraries/kernel/threads/pthread.h` |
 | GPU command processor (PM4) | `src/video_core/amdgpu/liverpool.cpp` |
 | PM4 opcodes | `src/video_core/amdgpu/pm4_opcodes.h` (`WaitRegMem=0x3c`, `EventWriteEop=0x47`, ...) |
 | PM4 packet structs + Test() | `src/video_core/amdgpu/pm4_cmds.h` |
@@ -43,25 +42,31 @@ Repo root: `$HOME/repo/Bachata-S4`. All paths below are relative to it unless no
 
 ### Exit code cheat sheet
 
-Android `Process.exitCode()`: if killed by signal N, returns `128 + N`.
+Android `Process.exitCode()` commonly reports `128 + signal`, but the number alone
+is not a diagnosis. Guest panic paths may deliberately fault, enter shadPS4's signal
+handler, and finish through an assertion/trap path.
 - **127 = Shared Library Missing** → `shadPS4 exited before socket connect: 127: .../shadps4-arm64-fex: error while loading shared libraries: <libname>.so.N: cannot open shared object file: No such file or directory` (e.g. `libcap.so.2`). Indicates a host library dependency gap in Debian runtime packaging.
   - **Fix**: Add missing `.so` to `arm64Explicit` in `runtime/scripts/stage-debian-runtime.mjs`, re-stage, and rebuild runtime assets.
-- **133 = 128 + 5 = SIGTRAP** → most often a guest assert / `UNREACHABLE_MSG` in
-  `src/core/signals.cpp:~134` ("Breakpoints almost certainly come from our asserts").
+- **133** → route immediately to the last guest panic, `EINVAL`, unhandled access,
+  `ASSERT`, `UNREACHABLE`, or `SignalHandler` lines. It often ends in a trap/assert,
+  but may begin with a deliberate guest null write or another handled fault.
 - **134 = SIGABRT**, **139 = SIGSEGV**, **137 = SIGKILL (OOM)**.
 
-For 133: the guest hit an `UNREACHABLE`/`ASSERT`. Pull the session log and find the
-`<Critical> SignalHandler: Unreachable code!` line — the lines just above it show
-what failed (often a NULL deref from an un-filled HLE handle, or an unimplemented
-PM4 opcode).
+For 133, find the terminal `<Critical> SignalHandler` or unhandled-access line, then
+walk backward to the first subsystem error or guest panic. Never stop at
+`Unreachable code!`; it is usually the final consequence.
 
 ## Step 1 — Pull the failing session log (do this before reading code)
 
-Session logs live on-device under the app's private storage and are pulled with:
+Session logs live on-device under the app's private storage. Select adb by evidence:
 
 ```bash
+ADB=adb
+"$ADB" devices -l
+# On WSL only, if Linux adb sees no device and adb.exe does:
+# ADB=/full/path/to/adb.exe
+
 cd android/BachataS4
-ADB="$(wslpath "$USERPROFILE")/AppData/Local/Android/Sdk/platform-tools/adb.exe"
 ADB_OVERRIDE="$ADB" ./pull-session-logs.sh --game <CUSAxxxxx> --output session-logs
 ```
 
@@ -70,10 +75,9 @@ Each session dir is named `YYYYMMDD-HHMMSS-<CUSAid>-<hash>` and contains:
 - `shadps4.log` — backend stdout/stderr (the real crash evidence; can be millions of lines)
 - `shadps4-internal.log` — copied shadPS4 internal log (if present)
 
-**adb quirk — read this:** there are TWO adb servers. `/usr/bin/adb` (Linux) sees no
-device; the device is reachable only through `adb.exe` (Windows). The pull script
-auto-detects `adb.exe` if on PATH, but to be explicit pass `ADB_OVERRIDE=<path>`.
-All manual `adb shell` calls must use the full `adb.exe` path too.
+On native Linux/PikaOS, `/usr/bin/adb` normally owns the USB device. On WSL there
+may be separate Linux and Windows adb servers; use whichever actually lists the
+target serial. Use the same adb binary for every command in the session.
 
 List sessions without pulling: `./pull-session-logs.sh --list`
 Pull newest: `./pull-session-logs.sh --latest`
@@ -99,18 +103,64 @@ console.log(l.filter(x => x && !/^BACHATA_FEX/.test(x)).slice(-20).map(clean).jo
 
 Patterns to grep for, by failure class:
 - **exit 127 / Missing Shared Library:** `error while loading shared libraries` or `cannot open shared object file` (e.g. `libcap.so.2`). Check `runtime/scripts/stage-debian-runtime.mjs`.
-- **exit 133 / SIGTRAP:** `Critical|Unhandled access|ReportGuestHleFailure|UNREACHABLE`
+- **exit 133 / panic:** `Critical|Unhandled access|ReportGuestHleFailure|UNREACHABLE|DL_PANIC|Invalid mutex|EINVAL`
 - **HLE gap (the Fios2 class of bug):** `FEX HLE call <nid>#<lib>.*failed: 38` and
   `unresolved HLE <name> uses temporary ENOSYS fallback`. The failing NID → look up in
   `aerolib.inl`; if it's only a `STUB(...)` with no `LIB_FUNCTION` in the lib's
   `RegisterLib`, that's the gap.
+- **Host/guest callback boundary:** callback faults, host pointers in guest code, or
+  FEX callback failures around `AvPlayer`. Classify each callback with
+  `IsGuestCallback`. Bridge guest event/memory callbacks; keep host-owned FFmpeg
+  buffers and native file I/O on the host side.
+- **Mutex lifecycle:** `PthreadMutex.cpp|Invalid mutex|EINVAL|pthread_mutex`.
+  Trace the exact guest mutex slot through init, destroy, and the failing operation.
 - **GPU deadlock / black screen:** `WAIT_REG_MEM stalled` (gives addr/value/ref/mask/function),
   `GPU coroutine active resumes=<huge>` spinning on one `opcode=0xNN submits=1`,
   `EOP fence write`, low `Compiling graphics pipeline` count.
 - **Vulkan capability gap:** `Extension VK_<name> unavailable` (cross-check with the
   desktop run — some are benign, some gate features).
 
-## Step 3 — Reproduce / compare on native x86_64 desktop build
+### Trace resource identity before forming a fix
+
+When the terminal error names a guest address or handle, build its full ordered
+lifecycle across the log. For mutex `EINVAL`, temporarily log only:
+
+```text
+operation, guest slot, slot value, host handle, name/type, owner, thread, result
+```
+
+Log successful init/destroy plus every `EINVAL` return site. Then group events by
+guest slot:
+
+- Destroy succeeds, then a later call first sees the destroyed sentinel: semantic
+  guest lifetime race. It is not proof of host use-after-free.
+- A call already holds the host pointer while destroy deletes it: host object
+  lifetime race.
+- Waiter/in-flight tracking protects only calls already entered. It cannot protect
+  a future call that begins after the slot becomes destroyed.
+
+Treat nearby stubs, warnings, and module unloads as correlated hypotheses until a
+mechanism connects them to the same resource. Treat high-volume `QueryProtection`
+messages for one host heap pointer as noise unless they align with the terminal fault.
+
+## Step 3 — Choose the narrowest evidence-backed fix
+
+Fix the violated boundary, not the final assertion:
+
+- Preserve host/guest pointer ownership at callback boundaries.
+- For a proven destroy→future-lock scheduling race, prefer an operation-specific
+  compatibility path through existing lazy initialization. Keep unrelated
+  operations strict when possible (for example, destroyed unlock and repeated
+  destroy still return `EINVAL`).
+- Separate semantic compatibility from host object lifetime safety; one does not
+  automatically solve the other.
+
+Reject title-ID/address checks, sleeps/yields used as timing fixes, blanket success
+returns, manual fence writes, and process-lifetime leaks. If upstream/FreeBSD is
+strict but hardware timing masks undefined guest behavior, document the deviation
+as emulator compatibility and cover its exact scope with a regression test.
+
+## Step 4 — Reproduce / compare on native x86_64 desktop build
 
 The repo ships a native x86_64 build (no FEX, direct execution). Run it headless
 against the same game to see if a failure is Android/FEX/Turnip-specific or
@@ -131,7 +181,7 @@ Vulkan is a *second* data point (it can reproduce GPU-path issues but isn't proo
 bug — it just means it's not FEX/Turnip-specific. The desktop-oracle comparison is
 what tells you whether the Android path diverged.
 
-## Step 4 — Classify CPU-side vs GPU-side writers (gdb watchpoint protocol)
+## Step 5 — Classify CPU-side vs GPU-side writers (gdb watchpoint protocol)
 
 When a fence/label at a guest address `A` is never written (classic GPU deadlock:
 `WAIT_REG_MEM` on `A` waits forever for nonzero), you must determine whether the
@@ -191,15 +241,31 @@ the address or substituting a manual host write:
 Success = WAIT_REG_MEM exits naturally, first real draw completes with non-empty
 output, all diagnostic traps/dumps/hardcoded addresses removed.
 
-## Step 5 — Rebuild + redeploy after a fix
+## Step 6 — Rebuild + redeploy after a fix
 
 Per `AGENTS.md`, the Gradle build packages existing runtime assets but does NOT
 generate them. Before `assembleDebug`, always rebuild the runtime from repo root:
 
+First select the build environment:
+
+```bash
+if command -v aarch64-linux-gnu-gcc >/dev/null; then
+  echo native-builder
+elif podman container exists bachata-debian-builder 2>/dev/null; then
+  echo podman-builder
+else
+  echo install-or-create-builder
+fi
+```
+
+On PikaOS, prefer the documented Debian Podman builder. Do not install cross
+packages on the host merely because `build-runtime-debian.sh` reports a missing
+compiler.
+
 ### Option A: Native Host Build
 
 ```bash
-git submodule update --init --recursive --jobs 8   # only if submodules changed
+git submodule update --init --recursive --jobs 8
 runtime/scripts/build-runtime-debian.sh
 node runtime/tests/verify-runtime.mjs runtime/locks/components.lock.json
 ```
@@ -208,6 +274,7 @@ node runtime/tests/verify-runtime.mjs runtime/locks/components.lock.json
 
 ```bash
 podman exec --workdir /workspace bachata-debian-builder bash -c "
+  git submodule update --init --recursive --jobs 8
   bash runtime/scripts/build-vortek-client.sh
   runtime/scripts/build-runtime-debian.sh
   node runtime/tests/verify-runtime.mjs runtime/locks/components.lock.json
@@ -217,7 +284,7 @@ podman exec --workdir /workspace bachata-debian-builder bash -c "
 podman exec --workdir /workspace/android/BachataS4 bachata-debian-builder bash -c "
   export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
   export ANDROID_HOME=/opt/android-sdk
-  ./gradlew clean test lintDebug assemblePlaystoreDebug
+  ./gradlew test lintDebug assembleDebug
 "
 ```
 
@@ -256,16 +323,38 @@ SERIAL=<serial-id>   # adjust per device
 Then re-pull the session log (Step 1) and confirm the failure class is gone before
 claiming the fix works.
 
+## Step 7 — Verify the exact former failure boundary
+
+A build, title screen, or fixed-duration capture is not gameplay proof.
+
+1. Reproduce the same state transition: first-run setup, brightness selection,
+   movie teardown, save load, or gameplay entry. `adb install -r` preserves app
+   data and may skip the path; never clear user data without permission.
+2. For interactive or long cutscenes, start the session, let the user or test driver
+   cross the boundary, then pull the still-current log again. A 60-second capture
+   taken before interaction is stale evidence.
+3. Require all three gates:
+   - screenshot/video shows a complete frame after the former boundary;
+   - runtime process remains alive;
+   - refreshed log lacks the old panic signature/exit code and contains the expected
+     later milestone.
+4. Remove all temporary address-specific logging and rebuild/retest the clean source
+   before commit.
+
 ## Conventions / gotchas
 
-- **Two adb servers on WSL2.** `/usr/bin/adb` on WSL2 does not see USB devices; use `adb.exe`
-  or `ADB_OVERRIDE` for the pull script. On native Linux/PikaOS, host `/usr/bin/adb` works directly.
+- **Select adb; don't assume it.** On WSL, compare Linux adb and `adb.exe`. On native
+  Linux/PikaOS, host adb normally works directly.
 - **`INSTALL_FAILED_UPDATE_INCOMPATIBLE` error:** Occurs when switching between signature keys (e.g. release vs debug or fdroid vs playstore). Run `adb uninstall com.bachatas4.android` first.
 - **`grep` shell alias breaks `-E -i` together** (`conflicting matchers specified`).
   Use `/usr/bin/grep` explicitly or one flag at a time.
 - **Exit code 127 = missing host library in container runtime.** If `shadps4-arm64-fex` fails with `cannot open shared object file` (e.g. `libcap.so.2`), add the `.so` to `arm64Explicit` in `stage-debian-runtime.mjs` and re-stage.
-- **Exit code 133 ≠ crash bug necessarily** — it's a guest assert. The real bug is
-  whatever made the guest reach the `UNREACHABLE`; the assert is the symptom.
+- **Exit code 133 is not the root cause.** The real bug is whatever produced the
+  guest panic/fault before `SignalHandler` or `UNREACHABLE`.
+- **Repeated errors are not automatically causal.** Aggregate by address and thread,
+  then correlate the terminal failure with the exact resource lifecycle.
+- **Adjacent unload/stub calls are not proof.** Require a same-resource mechanism or
+  an intervention that changes the outcome.
 - **`ENABLE_BACHATA_RUNTIME` is ON in both the arm64-FEX and x86_64 native builds**,
   so the `WAIT_REG_MEM stalled` / `EOP fence write` / `GPU coroutine active`
   diagnostics are present in the native build too — use them as the reference.

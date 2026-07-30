@@ -167,12 +167,20 @@ static HttpSettings* ResolveSettings(int id, const char*& level) {
     return nullptr;
 }
 
+// Handles are opaque integers cast to void*. The FEX HLE-call adapter rejects
+// non-null pointer arguments below the null page (4096) with EFAULT, so keep
+// encoded handles above that range.
+static constexpr intptr_t kEpollHandleBase = 0x10000;
+
 static OrbisHttpEpollHandle EncodeEpollHandle(int id) {
-    return reinterpret_cast<OrbisHttpEpollHandle>(static_cast<intptr_t>(id));
+    if (id == 0) {
+        return nullptr;
+    }
+    return reinterpret_cast<OrbisHttpEpollHandle>(kEpollHandleBase + id);
 }
 
 static int DecodeEpollHandle(OrbisHttpEpollHandle eh) {
-    return static_cast<int>(reinterpret_cast<intptr_t>(eh));
+    return static_cast<int>(reinterpret_cast<intptr_t>(eh) - kEpollHandleBase);
 }
 
 // Resolve the (epoll_id*, epoll_user_arg*) pair on a template/connection/request
