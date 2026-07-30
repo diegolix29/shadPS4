@@ -201,7 +201,7 @@ api_version=$approved_api_version
 EOF
 
 # Basic binary checks
-file_out=$(file "$output_lib")
+file_out=$(file -b "$output_lib")
 echo "$file_out" | grep -qi 'aarch64' || {
   echo "output is not aarch64: $file_out" >&2
   exit 1
