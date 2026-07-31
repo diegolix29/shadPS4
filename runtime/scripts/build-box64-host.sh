@@ -118,6 +118,8 @@ fi
 require_tools cc cmake ninja aarch64-linux-gnu-gcc aarch64-linux-gnu-g++
 
 mkdir -p "$build_dir"
+mkdir -p "$source_dir/tests"
+[[ -f "$source_dir/tests/box64-bash" ]] || touch "$source_dir/tests/box64-bash"
 affinity_test="$build_dir/test_bachata_thread_affinity"
 cc -Wall -Wextra -Werror "$source_dir/tests/test_bachata_thread_affinity.c" -o "$affinity_test"
 "$affinity_test"
