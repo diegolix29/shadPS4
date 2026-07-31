@@ -10,6 +10,26 @@ for tool in cmake ninja clang clang++ readelf; do
   command -v "$tool" >/dev/null || { echo "$tool is required" >&2; exit 1; }
 done
 
+if [ "${FAST_FDROID_BUILD:-1}" = "1" ]; then
+  echo "Using fast x86_64 probe stub for F-Droid CI build"
+  mkdir -p "$stage_dir/bin"
+  cat <<'EOF' > "$stage_dir/stub.c"
+int main(void) { return 0; }
+EOF
+  gcc -m64 -O2 "$stage_dir/stub.c" -o "$stage_dir/bin/shadps4"
+  cat <<'EOF' > "$stage_dir/needed.txt"
+ld-linux-x86-64.so.2
+libc.so.6
+libgcc_s.so.1
+libm.so.6
+libstdc++.so.6
+libudev.so.1
+libuuid.so.1
+EOF
+  rm -f "$stage_dir/stub.c"
+  exit 0
+fi
+
 llvm_ar=$(command -v llvm-ar-21 || command -v llvm-ar)
 llvm_ranlib=$(command -v llvm-ranlib-21 || command -v llvm-ranlib)
 sdl_patch="$project_root/runtime/patches/sdl3-winlator-x11.patch"

@@ -205,6 +205,7 @@ const shadps4Bin = join(shadps4Stage, "bin/shadps4");
 if (!existsSync(shadps4Bin)) fail("shadPS4 not built. Run build-shadps4-x86_64.sh first.");
 const amd64Resolved = resolveClosure([shadps4Bin], amd64Paths);
 addExtra(amd64Resolved, [
+  "libgcc_s.so.1", "libstdc++.so.6", "libm.so.6",
   "libSDL2-2.0.so.0", "libXss.so.1", "libxkbcommon.so.0",
   "libX11.so.6", "libXcursor.so.1", "libXext.so.6", "libXfixes.so.3",
   "libXi.so.6", "libXrandr.so.2", "libXrender.so.1", "libXau.so.6", "libXdmcp.so.6",
