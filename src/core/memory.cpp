@@ -4,6 +4,9 @@
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/debug.h"
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include "common/elf_info.h"
 #include "core/emulator_settings.h"
 #include "core/file_sys/fs.h"
@@ -762,6 +765,21 @@ s32 MemoryManager::MapFile(void** out_addr, VAddr virtual_addr, u64 size, Memory
     bool is_exec = True(prot & MemoryProt::CpuExec);
 
     impl.MapFile(mapped_addr, size, phys_addr, std::bit_cast<u32>(prot), handle);
+
+#ifndef _WIN32
+    // PS4 pages are 16KB and mmap zero-fills the mapped tail past EOF. Host pages
+    // are 4KB, so host pages fully past EOF raise SIGBUS on access (e.g. IL2CPP
+    // reading past the end of global-metadata.dat). Back that tail with anonymous
+    // zero pages to match PS4 semantics.
+    const u64 file_size = file->f.GetSize();
+    const u64 file_bytes =
+        file_size > static_cast<u64>(phys_addr) ? file_size - static_cast<u64>(phys_addr) : 0;
+    const u64 host_page = static_cast<u64>(sysconf(_SC_PAGESIZE));
+    const u64 valid_size = std::min(size, Common::AlignUp(file_bytes, host_page));
+    if (valid_size < size) {
+        impl.Map(mapped_addr + valid_size, size - valid_size);
+    }
+#endif
 
     *out_addr = std::bit_cast<void*>(mapped_addr);
     return ORBIS_OK;

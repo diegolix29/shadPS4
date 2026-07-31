@@ -29,6 +29,10 @@ extern "C" {
 
 namespace Libraries::AvPlayer {
 
+static bool ShouldTraceCount(u64 count) {
+    return count <= 10 || (count & (count - 1)) == 0;
+}
+
 AvPlayerSource::AvPlayerSource(AvPlayerStateCallback& state, bool use_vdec2)
     : m_state(state), m_use_vdec2(use_vdec2) {}
 
@@ -320,12 +324,23 @@ bool AvPlayerSource::Stop() {
     m_video_frames.Clear();
 
     m_last_audio_ts.reset();
+    m_atomic_last_audio_ts = 0;
     m_start_time.reset();
     m_pause_time = {};
     m_pause_duration = {};
 
     m_is_paused = false;
     m_is_eof = false;
+
+    m_trace_video_data_success_count = 0;
+    m_trace_video_data_inactive_count = 0;
+    m_trace_video_data_empty_count = 0;
+    m_trace_video_data_ahead_count = 0;
+    m_trace_audio_data_success_count = 0;
+    m_trace_audio_data_inactive_count = 0;
+    m_trace_audio_data_empty_count = 0;
+    m_trace_video_frame_queued_count = 0;
+    m_trace_demux_eof_count = 0;
 
     return true;
 }
@@ -362,10 +377,22 @@ bool AvPlayerSource::GetVideoData(AvPlayerFrameInfoEx& video_info) {
     }
 
     if (!IsActive() || m_is_paused) {
+        const u64 count = ++m_trace_video_data_inactive_count;
+        if (ShouldTraceCount(count)) {
+            LOG_INFO(Lib_AvPlayer,
+                     "BACHATA_AVPLAYER_TRACE stage=get_video_data_inactive_paused count={} active={} paused={} eof={}",
+                     count, IsActive(), m_is_paused.load(), m_is_eof.load());
+        }
         return false;
     }
 
     if (m_video_frames.Size() == 0) {
+        const u64 count = ++m_trace_video_data_empty_count;
+        if (ShouldTraceCount(count)) {
+            LOG_INFO(Lib_AvPlayer,
+                     "BACHATA_AVPLAYER_TRACE stage=get_video_data_empty count={} eof={} last_audio_ts={}",
+                     count, m_is_eof.load(), m_atomic_last_audio_ts.load(std::memory_order_relaxed));
+        }
         return false;
     }
 
@@ -373,6 +400,13 @@ bool AvPlayerSource::GetVideoData(AvPlayerFrameInfoEx& video_info) {
     if (m_state.GetSyncMode() == AvPlayerAvSyncMode::Default) {
         if (m_audio_stream_index) {
             if (new_frame.info.timestamp > m_last_audio_ts.value_or(0)) {
+                const u64 count = ++m_trace_video_data_ahead_count;
+                if (ShouldTraceCount(count)) {
+                    LOG_INFO(Lib_AvPlayer,
+                             "BACHATA_AVPLAYER_TRACE stage=get_video_data_ahead_of_audio count={} frame_ts={} last_audio_ts={} eof={}",
+                             count, new_frame.info.timestamp, m_atomic_last_audio_ts.load(std::memory_order_relaxed),
+                             m_is_eof.load());
+                }
                 return false;
             }
         } else {
@@ -387,6 +421,15 @@ bool AvPlayerSource::GetVideoData(AvPlayerFrameInfoEx& video_info) {
     auto frame = m_video_frames.Pop();
     video_info = frame->info;
     m_current_video_frame = std::move(frame);
+
+    const u64 count = ++m_trace_video_data_success_count;
+    if (ShouldTraceCount(count)) {
+        LOG_INFO(Lib_AvPlayer,
+                 "BACHATA_AVPLAYER_TRACE stage=get_video_data_success count={} frame_ts={} last_audio_ts={} eof={}",
+                 count, video_info.timestamp, m_atomic_last_audio_ts.load(std::memory_order_relaxed),
+                 m_is_eof.load());
+    }
+
     return true;
 }
 
@@ -399,15 +442,28 @@ bool AvPlayerSource::GetAudioData(AvPlayerFrameInfo& audio_info) {
     }
 
     if (!IsActive() || m_is_paused) {
+        const u64 count = ++m_trace_audio_data_inactive_count;
+        if (ShouldTraceCount(count)) {
+            LOG_INFO(Lib_AvPlayer,
+                     "BACHATA_AVPLAYER_TRACE stage=get_audio_data_inactive_paused count={} active={} paused={} eof={}",
+                     count, IsActive(), m_is_paused.load(), m_is_eof.load());
+        }
         return false;
     }
 
     if (m_audio_frames.Size() == 0) {
+        const u64 count = ++m_trace_audio_data_empty_count;
+        if (ShouldTraceCount(count)) {
+            LOG_INFO(Lib_AvPlayer,
+                     "BACHATA_AVPLAYER_TRACE stage=get_audio_data_empty count={} eof={} last_audio_ts={}",
+                     count, m_is_eof.load(), m_atomic_last_audio_ts.load(std::memory_order_relaxed));
+        }
         return false;
     }
 
     auto frame = m_audio_frames.Pop();
     m_last_audio_ts = frame->info.timestamp;
+    m_atomic_last_audio_ts.store(frame->info.timestamp, std::memory_order_relaxed);
 
     audio_info = {};
     audio_info.timestamp = frame->info.timestamp;
@@ -416,6 +472,15 @@ bool AvPlayerSource::GetAudioData(AvPlayerFrameInfo& audio_info) {
     audio_info.details.audio.size = frame->info.details.audio.size;
     audio_info.details.audio.channel_count = frame->info.details.audio.channel_count;
     m_current_audio_frame = std::move(frame);
+
+    const u64 count = ++m_trace_audio_data_success_count;
+    if (ShouldTraceCount(count)) {
+        LOG_INFO(Lib_AvPlayer,
+                 "BACHATA_AVPLAYER_TRACE stage=get_audio_data_success count={} frame_ts={} last_audio_ts={} eof={}",
+                 count, audio_info.timestamp, m_atomic_last_audio_ts.load(std::memory_order_relaxed),
+                 m_is_eof.load());
+    }
+
     return true;
 }
 
@@ -578,6 +643,13 @@ void AvPlayerSource::DemuxerThread(std::stop_token stop) {
     }
 
     m_is_eof = true;
+
+    const u64 count = ++m_trace_demux_eof_count;
+    if (ShouldTraceCount(count)) {
+        LOG_INFO(Lib_AvPlayer,
+                 "BACHATA_AVPLAYER_TRACE stage=demux_eof count={} eof={} last_audio_ts={}",
+                 count, m_is_eof.load(), m_atomic_last_audio_ts.load(std::memory_order_relaxed));
+    }
 
     m_video_packets_cv.Notify();
     m_audio_packets_cv.Notify();
@@ -767,9 +839,27 @@ void AvPlayerSource::VideoDecoderThread(std::stop_token stop) {
                         m_state.OnError();
                         return;
                     }
-                    m_video_frames.Push(PrepareVideoFrame(std::move(buffer.value()), *nv12_frame));
+                    auto prep_frame = PrepareVideoFrame(std::move(buffer.value()), *nv12_frame);
+                    const u64 frame_ts = prep_frame.info.timestamp;
+                    m_video_frames.Push(std::move(prep_frame));
+                    const u64 count = ++m_trace_video_frame_queued_count;
+                    if (ShouldTraceCount(count)) {
+                        LOG_INFO(Lib_AvPlayer,
+                                 "BACHATA_AVPLAYER_TRACE stage=video_frame_queued count={} frame_ts={} last_audio_ts={} eof={}",
+                                 count, frame_ts, m_atomic_last_audio_ts.load(std::memory_order_relaxed),
+                                 m_is_eof.load());
+                    }
                 } else {
-                    m_video_frames.Push(PrepareVideoFrame(std::move(buffer.value()), *up_frame));
+                    auto prep_frame = PrepareVideoFrame(std::move(buffer.value()), *up_frame);
+                    const u64 frame_ts = prep_frame.info.timestamp;
+                    m_video_frames.Push(std::move(prep_frame));
+                    const u64 count = ++m_trace_video_frame_queued_count;
+                    if (ShouldTraceCount(count)) {
+                        LOG_INFO(Lib_AvPlayer,
+                                 "BACHATA_AVPLAYER_TRACE stage=video_frame_queued count={} frame_ts={} last_audio_ts={} eof={}",
+                                 count, frame_ts, m_atomic_last_audio_ts.load(std::memory_order_relaxed),
+                                 m_is_eof.load());
+                    }
                 }
                 m_video_frames_cv.Notify();
             }

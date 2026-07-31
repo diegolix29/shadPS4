@@ -93,45 +93,6 @@ struct PendingOrbisSignalState final {
 };
 thread_local PendingOrbisSignalState PendingOrbisSignal {};
 
-// After host sa_sigaction returns, resume here to run deferred guest handler then
-// jump back into the interrupted FEX host PC. Mirrors Windows APC ExceptionHandler
-// without rewriting guest RIP from async-signal context mid-JIT.
-thread_local std::uintptr_t OrbisSignalResumeHostPc {};
-#if defined(__aarch64__)
-__attribute__((naked, noinline)) static void OrbisSignalHostTrampoline() {
-  // x0-x7/x8 may be live in JIT; save caller-saved pair around the C flush.
-  // Layout: stack saves x0-x18,x30; call C; restore; br to resume PC.
-  asm volatile(
-      "sub sp, sp, #176\n"
-      "stp x0, x1, [sp, #0]\n"
-      "stp x2, x3, [sp, #16]\n"
-      "stp x4, x5, [sp, #32]\n"
-      "stp x6, x7, [sp, #48]\n"
-      "stp x8, x9, [sp, #64]\n"
-      "stp x10, x11, [sp, #80]\n"
-      "stp x12, x13, [sp, #96]\n"
-      "stp x14, x15, [sp, #112]\n"
-      "stp x16, x17, [sp, #128]\n"
-      "stp x18, x30, [sp, #144]\n"
-      "bl OrbisSignalHostTrampolineBody\n"
-      "ldp x0, x1, [sp, #0]\n"
-      "ldp x2, x3, [sp, #16]\n"
-      "ldp x4, x5, [sp, #32]\n"
-      "ldp x6, x7, [sp, #48]\n"
-      "ldp x8, x9, [sp, #64]\n"
-      "ldp x10, x11, [sp, #80]\n"
-      "ldp x12, x13, [sp, #96]\n"
-      "ldp x14, x15, [sp, #112]\n"
-      "ldp x16, x17, [sp, #128]\n"
-      "ldp x18, x30, [sp, #144]\n"
-      "add sp, sp, #176\n"
-      "br x0\n" // body returns resume PC in x0
-  );
-}
-#endif
-
-extern "C" std::uintptr_t OrbisSignalHostTrampolineBody();
-
 class FexExecutionSignalScope final {
 public:
   FexExecutionSignalScope(FEXCore::Context::Context& context,
@@ -553,40 +514,14 @@ public:
     }
     const auto handler = PendingOrbisSignal.Handler;
     const auto sig = PendingOrbisSignal.OrbisSig;
-    const bool has_host = PendingOrbisSignal.HasHostSnapshot;
-    const auto host_pc = PendingOrbisSignal.HostPc;
-    std::array<std::uint64_t, 31> host_gprs = PendingOrbisSignal.HostGprs;
     PendingOrbisSignal.Pending = false;
     PendingOrbisSignal.Handler = 0;
-    PendingOrbisSignal.HasHostSnapshot = false;
     PendingOrbisSignal.Flushing = true;
 
     auto* thread = ActiveFexExecution.Thread;
     auto* ctx = ActiveFexExecution.Context;
     auto& state = thread->CurrentFrame->State;
     using namespace FEXCore::X86State;
-
-    // Mid-JIT: guest GPRs live in host SRA registers, not CurrentFrame. Spill them
-    // from the kill-time host snapshot before nested HandleCallback.
-    if (has_host && ActiveFexExecution.SignalDelegator != nullptr &&
-        ctx->IsAddressInCodeBuffer(thread, host_pc)) {
-      const auto& cfg = ActiveFexExecution.SignalDelegator->GetConfig();
-      const auto count = std::min<uint16_t>(cfg.SRAGPRCount, 16);
-      for (uint16_t i = 0; i < count; ++i) {
-        const auto host_idx = cfg.SRAGPRMapping[i];
-        if (host_idx < host_gprs.size()) {
-          // Linear: StaticRegisters[i] ↔ guest gpr i (RAX=0 …)
-          state.gregs[i] = host_gprs[host_idx];
-        }
-      }
-      state.rip = ctx->RestoreRIPFromHostPC(thread, host_pc);
-      std::fprintf(stderr,
-                   "BACHATA_FEX_SIGNAL spill_sra host_pc=%#lx guest_rip=%#lx rsp=%#lx "
-                   "sra_count=%u\n",
-                   static_cast<unsigned long>(host_pc),
-                   static_cast<unsigned long>(state.rip),
-                   static_cast<unsigned long>(state.gregs[REG_RSP]), count);
-    }
 
     // Nested invocation so handler HLE does not clobber the outer syscall frame.
     InvocationState nested_invocation;
@@ -739,8 +674,14 @@ public:
     std::fprintf(stderr,
                  "BACHATA_FEX_SIGNAL Exception raised successfully orbis_sig=%d handler=%#lx\n",
                  sig, static_cast<unsigned long>(handler));
+    std::fprintf(stderr, "BACHATA_FEX_SIGNAL callback_ret=%#lx\n",
+                 static_cast<unsigned long>(thread->CurrentFrame->Pointers.ThunkCallbackRet));
 
     ctx->HandleCallback(thread, handler);
+
+    std::fprintf(stderr, "BACHATA_FEX_SIGNAL handler returned rip=%#lx rsp=%#lx\n",
+                 static_cast<unsigned long>(state.rip),
+                 static_cast<unsigned long>(state.gregs[REG_RSP]));
 
     // Restore interrupted frame for resume (HLE or JIT trampoline).
     std::copy(saved_gprs.begin(), saved_gprs.end(), std::begin(state.gregs));
@@ -970,20 +911,6 @@ GuestCode BuildGuestCode() {
   return result;
 }
 
-// Called from naked OrbisSignalHostTrampoline after sa_sigaction returns.
-extern "C" std::uintptr_t OrbisSignalHostTrampolineBody() {
-  const auto resume = OrbisSignalResumeHostPc;
-  OrbisSignalResumeHostPc = 0;
-  if (ActiveFexExecution.Syscalls != nullptr) {
-    std::fprintf(stderr, "BACHATA_FEX_SIGNAL trampoline flush resume=%#lx\n",
-                 static_cast<unsigned long>(resume));
-    ActiveFexExecution.Syscalls->FlushPendingOrbisSignal();
-  }
-  return resume != 0 ? resume : reinterpret_cast<std::uintptr_t>(+[]() {
-    std::fprintf(stderr, "BACHATA_FEX_SIGNAL trampoline missing resume PC\n");
-  });
-}
-
 } // namespace
 
 bool BachataQueryGuestRipSyscall(uint64_t* out_rip, uint64_t* out_syscall) noexcept {
@@ -1008,6 +935,16 @@ bool BachataQueryGuestRipSyscall(uint64_t* out_rip, uint64_t* out_syscall) noexc
   return true;
 }
 
+void FlushPendingGuestOrbisSignal() noexcept {
+  // Called from blocking HLE waits (semaphore/cond) to deliver a queued Orbis
+  // guest signal at a safe point on the parked guest thread. Runs the guest
+  // handler via nested HandleCallback (never from async-signal context). No-op
+  // when nothing is pending or no FEX guest thread is active on this host thread.
+  if (ActiveFexExecution.Syscalls != nullptr) {
+    ActiveFexExecution.Syscalls->FlushPendingOrbisSignal();
+  }
+}
+
 bool DeliverGuestOrbisSignal(int orbis_sig, siginfo_t* info, void* rawContext,
                              std::uintptr_t guest_handler) noexcept {
   static_cast<void>(info);
@@ -1015,60 +952,50 @@ bool DeliverGuestOrbisSignal(int orbis_sig, siginfo_t* info, void* rawContext,
     return false;
   }
 
-  // Queue for this thread (SigactionHandler runs on the kill target).
-  // Desktop Windows: APC ExceptionHandler runs guest handler ASAP.
-  // FEX: cannot rewrite guest RIP from host inject (exit 133). Instead:
-  //  1) Queue pending
-  //  2) If currently inside FEX (ActiveFexExecution), divert host PC to a
-  //     trampoline that runs HandleCallback after the signal returns, then
-  //     resumes the interrupted host PC
-  //  3) Also flush at HLE entry/exit (covers wake-from-blocking-syscall)
+  // Queue for this thread (SigactionHandler runs on the kill target). It is not
+  // safe to run the guest handler from async-signal context (nested
+  // HandleCallback re-enters the JIT), so only set Pending here. Delivery happens
+  // at the next safe HLE boundary: HandleSyscall for running JIT threads, or the
+  // blocking semaphore/cond waits (FlushPendingGuestOrbisSignal) for threads
+  // parked in a host futex, e.g. the GC Finalizer during stop-the-world.
   PendingOrbisSignal.Handler = guest_handler;
   PendingOrbisSignal.OrbisSig = orbis_sig;
   PendingOrbisSignal.Pending = true;
   PendingOrbisSignal.HasHostSnapshot = false;
   const bool active = ActiveFexExecution.Thread != nullptr &&
                       ActiveFexExecution.Syscalls != nullptr;
-  std::fprintf(stderr,
-               "BACHATA_FEX_SIGNAL defer orbis_sig=%d handler=%#lx active=%d\n",
-               orbis_sig, static_cast<unsigned long>(guest_handler), active ? 1 : 0);
+
+  std::uint64_t host_pc = 0;
+  std::uint64_t host_sp = 0;
+  bool in_jit = false;
 
 #if defined(__aarch64__)
-  if (active && rawContext != nullptr && !PendingOrbisSignal.Flushing) {
-    auto* uctx = reinterpret_cast<ucontext_t*>(rawContext);
-    const auto pc = static_cast<std::uintptr_t>(uctx->uc_mcontext.pc);
-    // Snapshot host GPRs for optional SRA spill when PC is in JIT.
-    PendingOrbisSignal.HostPc = pc;
-    for (size_t i = 0; i < PendingOrbisSignal.HostGprs.size(); ++i) {
-      PendingOrbisSignal.HostGprs[i] =
-          static_cast<std::uint64_t>(uctx->uc_mcontext.regs[i]);
-    }
-    PendingOrbisSignal.HasHostSnapshot = true;
-
-    // NEVER HandleCallback from async-signal context (FEX not re-entrant from
-    // sa_sigaction → Galak-Z SEGV 0x3008c2398 / 0xf8). Divert host PC so the
-    // trampoline runs AFTER the signal returns (normal context), then resume.
-    // Works for both JIT and HLE/libc wait: same model as returning from a
-    // normal signal handler, with soft ExceptionHandler inserted first.
-    const bool in_jit =
-        ActiveFexExecution.Context->IsAddressInCodeBuffer(ActiveFexExecution.Thread, pc);
-    if (!in_jit) {
-      // Outside JIT: SRA spill would mis-apply host GPRs onto guest frame.
-      PendingOrbisSignal.HasHostSnapshot = false;
-    }
-    if (pc != reinterpret_cast<std::uintptr_t>(&OrbisSignalHostTrampoline)) {
-      OrbisSignalResumeHostPc = pc;
-      uctx->uc_mcontext.pc =
-          static_cast<decltype(uctx->uc_mcontext.pc)>(
-              reinterpret_cast<std::uintptr_t>(&OrbisSignalHostTrampoline));
-      std::fprintf(stderr,
-                   "BACHATA_FEX_SIGNAL divert host_pc=%#lx -> trampoline in_jit=%d\n",
-                   static_cast<unsigned long>(pc), in_jit ? 1 : 0);
+  if (rawContext != nullptr) {
+    const auto* context = reinterpret_cast<const ucontext_t*>(rawContext);
+    host_pc = static_cast<std::uint64_t>(context->uc_mcontext.pc);
+    host_sp = static_cast<std::uint64_t>(context->uc_mcontext.sp);
+    if (ActiveFexExecution.Context != nullptr && ActiveFexExecution.Thread != nullptr) {
+      in_jit = ActiveFexExecution.Context->IsAddressInCodeBuffer(
+          ActiveFexExecution.Thread, static_cast<std::uintptr_t>(host_pc));
     }
   }
 #else
   static_cast<void>(rawContext);
 #endif
+
+  std::fprintf(stderr,
+               "BACHATA_FEX_SIGNAL defer orbis_sig=%d handler=%#lx active=%d host_pc=%#lx host_sp=%#lx in_jit=%d\n",
+               orbis_sig, static_cast<unsigned long>(guest_handler), active ? 1 : 0,
+               static_cast<unsigned long>(host_pc), static_cast<unsigned long>(host_sp),
+               in_jit ? 1 : 0);
+
+  // Delivery is deferred to a safe HLE boundary. It is never safe to run the
+  // guest handler (nested HandleCallback re-enters the JIT) from async-signal
+  // context, and diverting the host PC to resume a blocked libc futex proved
+  // unrecoverable (nested signal reentrancy → SIGILL). Instead the queued
+  // handler runs from HandleSyscall (running JIT threads) or from the blocking
+  // semaphore/cond waits via FlushPendingGuestOrbisSignal (threads parked in a
+  // host futex, e.g. the GC Finalizer during stop-the-world).
   return true;
 }
 

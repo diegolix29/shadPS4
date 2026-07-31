@@ -238,9 +238,20 @@ private:
     SWSContextPtr m_sws_context{nullptr, &ReleaseSWSContext};
 
     std::optional<u64> m_last_audio_ts{};
+    std::atomic<u64> m_atomic_last_audio_ts{0};
     std::optional<std::chrono::high_resolution_clock::time_point> m_start_time{};
     std::chrono::high_resolution_clock::time_point m_pause_time{};
     std::chrono::high_resolution_clock::duration m_pause_duration{};
+
+    std::atomic<u64> m_trace_video_data_success_count{0};
+    std::atomic<u64> m_trace_video_data_inactive_count{0};
+    std::atomic<u64> m_trace_video_data_empty_count{0};
+    std::atomic<u64> m_trace_video_data_ahead_count{0};
+    std::atomic<u64> m_trace_audio_data_success_count{0};
+    std::atomic<u64> m_trace_audio_data_inactive_count{0};
+    std::atomic<u64> m_trace_audio_data_empty_count{0};
+    std::atomic<u64> m_trace_video_frame_queued_count{0};
+    std::atomic<u64> m_trace_demux_eof_count{0};
 };
 
 } // namespace Libraries::AvPlayer

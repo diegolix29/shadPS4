@@ -134,6 +134,7 @@ set(GCN_TEST_SOURCES
     # Tests
     gcn/test_gcn_instructions.cpp
     gcn/test_image_host_view.cpp
+    gcn/test_pm4_stall_log.cpp
 
     # Vulkan-Hpp dispatch test (vkCmdBindVertexBuffers2)
     gcn/test_vk_dispatch_bindvb2.cpp

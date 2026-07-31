@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 
@@ -15,6 +16,12 @@
 #include <dispatch/dispatch.h>
 #else
 #include <semaphore>
+#endif
+
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+namespace Core::Fex {
+void FlushPendingGuestOrbisSignal() noexcept;
+} // namespace Core::Fex
 #endif
 
 namespace Libraries::Kernel {
@@ -70,7 +77,17 @@ public:
             }
         }
 #else
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+        for (;;) {
+            if (sem.try_acquire_for(std::chrono::milliseconds{25})) {
+                Core::Fex::FlushPendingGuestOrbisSignal();
+                return;
+            }
+            Core::Fex::FlushPendingGuestOrbisSignal();
+        }
+#else
         sem.acquire();
+#endif
 #endif
     }
 
@@ -108,7 +125,35 @@ public:
         const auto timeout = dispatch_time(DISPATCH_TIME_NOW, rel_time_ns.count());
         return dispatch_semaphore_wait(sem, timeout) == 0;
 #else
+#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
+        const auto deadline = std::chrono::steady_clock::now() + rel_time;
+        // Handle non-positive duration: immediate try then flush.
+        {
+            const auto now = std::chrono::steady_clock::now();
+            if (now >= deadline) {
+                const bool acquired = sem.try_acquire();
+                Core::Fex::FlushPendingGuestOrbisSignal();
+                return acquired;
+            }
+        }
+        for (;;) {
+            const auto now = std::chrono::steady_clock::now();
+            if (now >= deadline) {
+                Core::Fex::FlushPendingGuestOrbisSignal();
+                return false;
+            }
+            auto remaining = std::chrono::duration_cast<std::chrono::nanoseconds>(deadline - now);
+            auto slice = std::min(remaining,
+                std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds{25}));
+            if (sem.try_acquire_for(slice)) {
+                Core::Fex::FlushPendingGuestOrbisSignal();
+                return true;
+            }
+            Core::Fex::FlushPendingGuestOrbisSignal();
+        }
+#else
         return sem.try_acquire_for(rel_time);
+#endif
 #endif
     }
 

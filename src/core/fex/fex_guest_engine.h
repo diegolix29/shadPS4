@@ -72,6 +72,14 @@ bool DeliverGuestOrbisSignal(int orbis_sig, siginfo_t* info, void* rawContext,
 // FEX thread is active on the current host thread. Designed for use inside a SIGSYS
 // signal handler — touches only thread-local pointer state and frame registers.
 bool BachataQueryGuestRipSyscall(uint64_t* out_rip, uint64_t* out_syscall) noexcept;
+
+// Deliver any Orbis guest signal queued by DeliverGuestOrbisSignal for the
+// current thread, running its handler via nested HandleCallback at this safe HLE
+// point. No-op when nothing is pending or no FEX guest thread is active. Blocking
+// HLE waits (semaphore/cond) call this between wait chunks so stop-the-world
+// signals (e.g. Unity GC, signal 30) reach threads parked in a host futex that
+// would otherwise swallow the interrupting EINTR inside libstdc++.
+void FlushPendingGuestOrbisSignal() noexcept;
 #endif
 
 class GuestEngine final {

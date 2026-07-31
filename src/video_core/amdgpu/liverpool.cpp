@@ -15,6 +15,7 @@
 #include "core/platform.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/amdgpu/pm4_cmds.h"
+#include "video_core/amdgpu/stall_log.h"
 #include "video_core/renderdoc.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 
@@ -201,7 +202,7 @@ Liverpool::Task Liverpool::ProcessCeUpdate(std::span<const u32> ccb) {
             while ((cblock.de_count - cblock.ce_count) >= diff) {
                 YIELD_CE();
 #ifdef ENABLE_BACHATA_RUNTIME
-                if (++wdecd_iters % 10 == 0) {
+                if (ShouldLogStallIteration(++wdecd_iters)) {
                     LOG_WARNING(Render_Vulkan,
                                 "PM4 WAIT_ON_DE_COUNTER_DIFF stalled (CE) iterations={} diff={} "
                                 "ce_count={} de_count={}",
@@ -808,7 +809,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     u64 sem_iters = 0;
                     while (!mem_semaphore->Signaled()) {
 #ifdef ENABLE_BACHATA_RUNTIME
-                        if (++sem_iters % 10 == 0) {
+                        if (ShouldLogStallIteration(++sem_iters)) {
                             LOG_WARNING(Render_Vulkan,
                                         "PM4 MEM_SEMAPHORE stalled queue=gfx iterations={}",
                                         sem_iters);
@@ -832,7 +833,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 u64 rewind_iters = 0;
                 while (!rewind->Valid()) {
 #ifdef ENABLE_BACHATA_RUNTIME
-                    if (++rewind_iters % 10 == 0) {
+                    if (ShouldLogStallIteration(++rewind_iters)) {
                         LOG_WARNING(Render_Vulkan,
                                     "PM4 REWIND stalled queue=gfx iterations={}", rewind_iters);
                     }
@@ -857,7 +858,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 u64 wait_iterations = 0;
                 while (!wait_reg_mem->Test(regs.reg_array)) {
 #ifdef ENABLE_BACHATA_RUNTIME
-                    if (++wait_iterations % 10 == 0) {
+                    if (ShouldLogStallIteration(++wait_iterations)) {
                         const bool is_memory = wait_reg_mem->mem_space.Value() ==
                                                PM4CmdWaitRegMem::MemSpace::Memory;
                         const u32 value = is_memory ? *wait_reg_mem->Address<const u32*>()
@@ -888,7 +889,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     YIELD_GFX();
                     RESUME_GFX(task);
 #ifdef ENABLE_BACHATA_RUNTIME
-                    if (++ib_iters % 10 == 0) {
+                    if (ShouldLogStallIteration(++ib_iters)) {
                         LOG_WARNING(Render_Vulkan,
                                     "PM4 INDIRECT_BUFFER nested gfx stalled iterations={}", ib_iters);
                     }
@@ -905,7 +906,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 while (cblock.ce_count <= cblock.de_count && !ce_task.handle.done()) {
                     RESUME_GFX(ce_task);
 #ifdef ENABLE_BACHATA_RUNTIME
-                    if (++woce_iters % 10 == 0) {
+                    if (ShouldLogStallIteration(++woce_iters)) {
                         LOG_WARNING(Render_Vulkan,
                                     "PM4 WAIT_ON_CE_COUNTER stalled queue=gfx iterations={} "
                                     "ce_count={} de_count={} ce_task_done={}",
@@ -962,7 +963,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
         while (!ce_task.handle.done()) {
             RESUME_GFX(ce_task);
 #ifdef ENABLE_BACHATA_RUNTIME
-            if (++cedrain_iters % 10 == 0) {
+            if (ShouldLogStallIteration(++cedrain_iters)) {
                 LOG_WARNING(Render_Vulkan,
                             "PM4 CE_DRAIN stalled (post-dcb ce_task) iterations={} "
                             "ce_count={} de_count={}",
@@ -1217,7 +1218,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             u64 wait_iterations = 0;
             while (!wait_reg_mem->Test(regs.reg_array)) {
 #ifdef ENABLE_BACHATA_RUNTIME
-                if (++wait_iterations % 10 == 0) {
+                if (ShouldLogStallIteration(++wait_iterations)) {
                     const bool is_memory = wait_reg_mem->mem_space.Value() ==
                                            PM4CmdWaitRegMem::MemSpace::Memory;
                     const u32 value = is_memory ? *wait_reg_mem->Address<const u32*>()
