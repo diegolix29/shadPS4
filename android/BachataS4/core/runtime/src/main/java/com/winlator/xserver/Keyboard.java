@@ -36,6 +36,19 @@ public class Keyboard {
         return modifiersMask;
     }
 
+    public byte[] getKeymap() {
+        return createKeymap(pressedKeys);
+    }
+
+    static byte[] createKeymap(Iterable<Byte> pressedKeys) {
+        byte[] keymap = new byte[32];
+        for (byte keycode : pressedKeys) {
+            int unsignedKeycode = Byte.toUnsignedInt(keycode);
+            keymap[unsignedKeycode / 8] |= (byte)(1 << (unsignedKeycode % 8));
+        }
+        return keymap;
+    }
+
     public void setKeysyms(byte keycode, int minKeysym, int majKeysym) {
         int index = keycode - MIN_KEYCODE;
         keysyms[index*KEYSYMS_PER_KEYCODE+0] = minKeysym;

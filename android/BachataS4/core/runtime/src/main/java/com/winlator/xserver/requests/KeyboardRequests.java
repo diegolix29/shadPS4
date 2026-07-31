@@ -13,6 +13,16 @@ import com.winlator.xserver.errors.XRequestError;
 import java.io.IOException;
 
 public abstract class KeyboardRequests {
+    public static void queryKeymap(XClient client, XOutputStream outputStream) throws IOException {
+        try (XStreamLock lock = outputStream.lock()) {
+            outputStream.writeByte(RESPONSE_CODE_SUCCESS);
+            outputStream.writeByte((byte)0);
+            outputStream.writeShort(client.getSequenceNumber());
+            outputStream.writeInt(2);
+            outputStream.write(client.xServer.keyboard.getKeymap());
+        }
+    }
+
     public static void getKeyboardMapping(XClient client, XInputStream inputStream, XOutputStream outputStream) throws IOException, XRequestError {
         byte firstKeycode = inputStream.readByte();
         int count = inputStream.readUnsignedByte();

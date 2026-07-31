@@ -256,6 +256,9 @@ public class XClientRequestHandler implements RequestHandler {
                             SelectionRequests.getSelectionOwner(client, inputStream, outputStream);
                         }
                         break;
+                    case ClientOpcodes.CONVERT_SELECTION:
+                        client.skipRequest();
+                        break;
                     case ClientOpcodes.SEND_EVENT:
                         try (XLock lock = client.xServer.lockAll()) {
                             WindowRequests.sendEvent(client, inputStream, outputStream);
@@ -294,6 +297,11 @@ public class XClientRequestHandler implements RequestHandler {
                     case ClientOpcodes.GET_INPUT_FOCUS:
                         try (XLock lock = client.xServer.lock(XServer.Lockable.WINDOW_MANAGER)) {
                             WindowRequests.getInputFocus(client, inputStream, outputStream);
+                        }
+                        break;
+                    case ClientOpcodes.QUERY_KEYMAP:
+                        try (XLock lock = client.xServer.lock(XServer.Lockable.INPUT_DEVICE)) {
+                            KeyboardRequests.queryKeymap(client, outputStream);
                         }
                         break;
                     case ClientOpcodes.OPEN_FONT:

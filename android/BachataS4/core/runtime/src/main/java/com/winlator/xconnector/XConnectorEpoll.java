@@ -86,6 +86,11 @@ public class XConnectorEpoll {
         catch (IOException e) {
             killConnection(client);
         }
+        catch (RuntimeException e) {
+            // Called from native pollThread via CallVoidMethod. An uncaught Java
+            // exception leaves a pending exception and CheckJNI aborts the process.
+            killConnection(client);
+        }
     }
 
     @Keep

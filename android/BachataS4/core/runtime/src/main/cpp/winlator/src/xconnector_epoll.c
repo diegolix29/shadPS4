@@ -8,6 +8,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <malloc.h>
 #include <jni.h>
 #include <android/log.h>
@@ -17,6 +18,8 @@
 #include "jni_utils.h"
 
 #define MAX_EVENTS 10
+#define ABSTRACT_PREFIX "abstract:"
+#define LOG_TAG "BachataXConnector"
 
 typedef struct JMethods {
     JavaVM* jvm;
@@ -48,6 +51,39 @@ typedef struct ConnectedClient {
 } ConnectedClient;
 
 static int createServerSocket(const char* sockPath) {
+    if (strncmp(sockPath, ABSTRACT_PREFIX, strlen(ABSTRACT_PREFIX)) == 0) {
+        const char* abstractPath = sockPath + strlen(ABSTRACT_PREFIX);
+        size_t pathLength = strlen(abstractPath);
+        if (pathLength == 0 || pathLength + 1 >= sizeof(((struct sockaddr_un*)0)->sun_path)) return -1;
+
+        int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd < 0) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "abstract socket failed errno=%d", errno);
+            return -1;
+        }
+
+        struct sockaddr_un serverAddr = {0};
+        serverAddr.sun_family = AF_LOCAL;
+        serverAddr.sun_path[0] = '\0';
+        memcpy(serverAddr.sun_path + 1, abstractPath, pathLength);
+        int addrLength = sizeof(sa_family_t) + 1 + (int)pathLength;
+
+        if (bind(fd, (struct sockaddr*) &serverAddr, addrLength) < 0) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "abstract bind path=%s failed errno=%d", abstractPath, errno);
+            goto abstract_error;
+        }
+        if (listen(fd, MAX_EVENTS) < 0) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "abstract listen path=%s failed errno=%d", abstractPath, errno);
+            goto abstract_error;
+        }
+        __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "abstract listening on %s", abstractPath);
+        return fd;
+
+    abstract_error:
+        CLOSEFD(fd);
+        return -1;
+    }
+
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) return -1;
 

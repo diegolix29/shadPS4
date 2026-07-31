@@ -29,8 +29,8 @@ public class UnixSocketConfig {
     }
 
     public static UnixSocketConfig createAbstract(String path) {
-        String abstractPath = path.startsWith("\0") ? path : "\0" + path;
-        return new UnixSocketConfig(abstractPath);
+        if (!path.startsWith("/")) throw new IllegalArgumentException("Abstract X11 path must be absolute: " + path);
+        return new UnixSocketConfig("abstract:" + path);
     }
 
     private static void deleteRecursively(File file) {
