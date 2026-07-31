@@ -37,7 +37,8 @@ class WinlatorEmbeddedXServer(
     private val socketRoot: File,
     private val useAbstractXSocket: Boolean = false,
     private val xSocketPath: String = UnixSocketConfig.XSERVER_PATH,
-    private val useSharedMemoryAudio: Boolean = true,
+    // Socket-payload AudioTransport has no SHM map; keep false or audio is silence.
+    private val useSharedMemoryAudio: Boolean = false,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : EmbeddedXServer {
     override val display: String = ":0"

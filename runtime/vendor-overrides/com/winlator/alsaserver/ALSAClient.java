@@ -15,7 +15,12 @@ import java.nio.ByteOrder;
 public class ALSAClient {
     private static final float DEFAULT_VOLUME = 1.0f;
     private static final short DEFAULT_LATENCY_MILLIS = 16;
-    public static final boolean USE_SHARED_MEMORY = true;
+    /**
+     * Legacy Winlator default. Bachata's guest audio path is socket-payload only
+     * ({@code AudioTransport}); session code passes {@link Options#useSharedMemory}=false.
+     * Prefer Options over this static when deciding PREPARE/WRITE behavior.
+     */
+    public static final boolean USE_SHARED_MEMORY = false;
     public static final byte BUFFER_OFFSET = 4;
     public enum DataType {
         U8(1), S16LE(2), S16BE(2), FLOATLE(4), FLOATBE(4);
@@ -43,7 +48,8 @@ public class ALSAClient {
         public short latencyMillis = DEFAULT_LATENCY_MILLIS;
         public byte performanceMode = AudioTrack.PERFORMANCE_MODE_LOW_LATENCY;
         public float volume = DEFAULT_VOLUME;
-        public boolean useSharedMemory = true;
+        /** When true, PREPARE creates ashmem SHM; WRITE reads PCM from SHM not socket. */
+        public boolean useSharedMemory = false;
 
         public static Options fromKeyValueSet(KeyValueSet config) {
             if (config == null || config.isEmpty()) return new Options();
@@ -109,7 +115,12 @@ public class ALSAClient {
         frameBytes = (byte)(channels * dataType.byteCount);
         release();
 
-        if (!isValidBufferSize()) return;
+        if (!isValidBufferSize()) {
+            android.util.Log.w("ALSAClient",
+                "prepare skipped: channels=" + channels + " sampleRate=" + sampleRate
+                    + " bufferSize=" + bufferSize + " frameBytes=" + frameBytes);
+            return;
+        }
 
         AudioFormat format = new AudioFormat.Builder()
             .setEncoding(getPCMEncoding(dataType))
@@ -117,7 +128,14 @@ public class ALSAClient {
             .setChannelMask(getChannelConfig(channels))
             .build();
 
+        // USAGE_GAME so stream is not dropped under modern Android focus rules.
+        android.media.AudioAttributes attributes = new android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_GAME)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build();
+
         audioTrack = new AudioTrack.Builder()
+            .setAudioAttributes(attributes)
             .setPerformanceMode(options.performanceMode)
             .setAudioFormat(format)
             .setBufferSizeInBytes(getBufferSizeInBytes())
@@ -126,6 +144,10 @@ public class ALSAClient {
         bufferCapacity = audioTrack.getBufferCapacityInFrames();
         if (options.volume != 1.0f) audioTrack.setVolume(options.volume);
         audioTrack.play();
+        android.util.Log.i("ALSAClient",
+            "AudioTrack prepared rate=" + sampleRate + " ch=" + channels
+                + " frames=" + bufferSize + " shm=" + options.useSharedMemory
+                + " state=" + audioTrack.getPlayState());
     }
 
     public void start() {

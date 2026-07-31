@@ -1,21 +1,29 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-30T00:00:00Z",
+  "generatedAt": "2026-07-31T17:35:15Z",
   "repository": "JICA98/Bachata-S4",
   "releases": [
+    {
+      "tag": "v0.1.6",
+      "name": "BachataS4 v0.1.6",
+      "url": "https://github.com/JICA98/Bachata-S4/releases/tag/v0.1.6",
+      "publishedAt": "2026-07-31T16:39:55Z",
+      "prerelease": false,
+      "latest": true
+    },
     {
       "tag": "v0.1.5",
       "name": "BachataS4 v0.1.5",
       "url": "https://github.com/JICA98/Bachata-S4/releases/tag/v0.1.5",
-      "publishedAt": "2026-07-13T17:27:00Z",
+      "publishedAt": "2026-07-13T17:27:09Z",
       "prerelease": false,
-      "latest": true
+      "latest": false
     },
     {
       "tag": "v0.1.4",
       "name": "v0.1.4",
       "url": "https://github.com/JICA98/Bachata-S4/releases/tag/v0.1.4",
-      "publishedAt": "2026-07-12T17:55:00Z",
+      "publishedAt": "2026-07-12T17:55:04Z",
       "prerelease": false,
       "latest": false
     },
@@ -23,7 +31,7 @@
       "tag": "v0.1.3",
       "name": "v0.1.3",
       "url": "https://github.com/JICA98/Bachata-S4/releases/tag/v0.1.3",
-      "publishedAt": "2026-07-12T17:11:00Z",
+      "publishedAt": "2026-07-12T17:11:38Z",
       "prerelease": false,
       "latest": false
     },
@@ -31,7 +39,7 @@
       "tag": "v0.1.2",
       "name": "v0.1.2",
       "url": "https://github.com/JICA98/Bachata-S4/releases/tag/v0.1.2",
-      "publishedAt": "2026-07-12T16:33:00Z",
+      "publishedAt": "2026-07-12T16:33:01Z",
       "prerelease": false,
       "latest": false
     },
@@ -39,7 +47,7 @@
       "tag": "v0.1.1",
       "name": "v0.1.1",
       "url": "https://github.com/JICA98/Bachata-S4/releases/tag/v0.1.1",
-      "publishedAt": "2026-07-12T15:25:00Z",
+      "publishedAt": "2026-07-12T15:25:14Z",
       "prerelease": false,
       "latest": false
     },
@@ -47,7 +55,7 @@
       "tag": "v0.1.0",
       "name": "BachataS4 0.1.0",
       "url": "https://github.com/JICA98/Bachata-S4/releases/tag/v0.1.0",
-      "publishedAt": "2026-07-12T14:22:00Z",
+      "publishedAt": "2026-07-12T14:22:47Z",
       "prerelease": false,
       "latest": false
     },
@@ -55,7 +63,7 @@
       "tag": "v0.1.0-alpha",
       "name": "BachataS4 0.1.0-alpha",
       "url": "https://github.com/JICA98/Bachata-S4/releases/tag/v0.1.0-alpha",
-      "publishedAt": "2026-07-12T07:47:00Z",
+      "publishedAt": "2026-07-12T07:47:42Z",
       "prerelease": true,
       "latest": false
     }
