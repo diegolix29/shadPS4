@@ -43,6 +43,33 @@ This repository is a fork that includes both the **emulator core** and the **And
 
 ---
 
+## Compatibility
+
+Community-tested compatibility results are published on the
+[Bachata S4 compatibility website](https://jica98.github.io/Bachata-S4/#games),
+with evidence-backed reports stored in
+[`compatibility-site/data/games.json`](compatibility-site/data/games.json).
+
+Every report belongs to one official GitHub release, one physical Android device, and one
+selected graphics driver. Results are added with
+[`.agents/skills/bachata-compatibility/SKILL.md`](.agents/skills/bachata-compatibility/SKILL.md).
+
+<!-- compatibility-status-table -->
+| Status | Reports |
+|---|---|
+| `playable` | 0 |
+| `ingame` | 1 |
+| `menus` | 0 |
+| `boots` | 0 |
+| `nothing` | 0 |
+<!-- compatibility-status-table -->
+
+Links:
+- [Compatibility website](https://jica98.github.io/Bachata-S4/#games)
+- [Play Store](https://play.google.com/store/apps/details?id=com.bachatas4.android)
+
+---
+
 ## Features
 
 - Open-source PS4 emulation wrapper for Android  

@@ -33,7 +33,10 @@ cd "$ROOT"
    measurements that are not supported by evidence.
 8. Preserve published logs byte-for-byte. Gzip is allowed; editing or trimming is not.
 9. Append a historical test. Never overwrite results from an older release/device/driver.
-10. Publish only after strict validation and local website review succeed.
+10. Keep the README status summary in sync with `compatibility-site/data/games.json` by
+    running `python3 scripts/compatibility/update_readme.py` after adding each report, and
+    commit the regenerated `README.md` together with the report.
+11. Publish only after strict validation and local website review succeed.
 
 ## Status classification
 
@@ -228,7 +231,20 @@ For the system driver, use `--driver-type system`, set `--driver-version`, and o
 `--turnip-*` arguments. The importer rejects an unknown release tag and requires a Turnip
 version whenever the driver type is `turnip`.
 
-## Phase 6 — Validate and review
+## Phase 6 — Update the README status summary
+
+The repo `README.md` shows a count of `playable` / `ingame` / `menus` / `boots` /
+`nothing` reports. Refresh it so it matches the merged database, then commit it with the
+report:
+
+```bash
+python3 scripts/compatibility/update_readme.py
+```
+
+The script only rewrites the delimited status table between the
+`<!-- compatibility-status-table -->` markers; the rest of the README is untouched.
+
+## Phase 7 — Validate and review
 
 ```bash
 python3 scripts/compatibility/validate_database.py
@@ -250,13 +266,15 @@ Inspect the exact diff:
 
 ```bash
 git diff -- \
+  README.md \
   compatibility-site/data/games.json \
   compatibility-site/data/releases.json \
   compatibility-site/assets/screenshots \
   compatibility-site/assets/logs
 ```
 
-Commit only accepted public evidence and JSON. A suitable message is:
+Commit only accepted public evidence, the regenerated `README.md`, and JSON. A suitable
+message is:
 
 ```text
 compatibility: add CUSAxxxxx on v0.1.5 / <device> / Turnip <version>
