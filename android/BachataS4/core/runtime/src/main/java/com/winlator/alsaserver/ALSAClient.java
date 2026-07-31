@@ -188,7 +188,7 @@ public class ALSAClient {
     }
 
     public int pointer() {
-        return audioTrack != null ? position / frameBytes : 0;
+        return (audioTrack != null && frameBytes > 0) ? position / frameBytes : 0;
     }
 
     public void setDataType(DataType dataType) {
@@ -259,7 +259,11 @@ public class ALSAClient {
     }
 
     private boolean isValidBufferSize() {
-        return ((bufferSize % frameBytes) == 0) && bufferSize > 0;
+        // frameBytes is channels * sample width; guest/SDL can send channels=0 during
+        // probe or protocol misread. bufferSize % 0 throws ArithmeticException and,
+        // because this runs under JNI CallVoidMethod, aborts the whole process.
+        return frameBytes > 0 && bufferSize > 0 && sampleRate > 0
+            && (bufferSize % frameBytes) == 0;
     }
 
     public static void assignFramesPerBuffer(Context context) {
