@@ -127,6 +127,7 @@ fun BachataNavHost(startDestination: String = BachataRoutes.Setup) {
                 gameId = requireNotNull(entry.arguments?.getString("id")),
                 onOpenDrivers = { navController.navigate(BachataRoutes.Drivers) },
                 showDriverActions = showDriverSelection,
+                onExit = { navController.popBackStack() },
             )
         }
     }

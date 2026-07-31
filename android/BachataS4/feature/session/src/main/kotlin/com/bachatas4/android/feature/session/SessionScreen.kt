@@ -63,6 +63,8 @@ fun SessionScreen(
     onOpenDrivers: () -> Unit = {},
     /** Play builds omit Turnip recovery UI (driver is fixed to the bundled package). */
     showDriverActions: Boolean = true,
+    /** Stops the game and returns to the library, keeping the app alive. */
+    onExit: () -> Unit = {},
     viewModel: SessionViewModel = hiltViewModel(),
 ) {
     SessionWindowModeEffect()
@@ -284,7 +286,8 @@ fun SessionScreen(
                                         Intent(ManagedSession.ACTION_STOP).setClassName(context.packageName, ManagedSession.SERVICE_CLASS),
                                     )
                                 }
-                                (context as? android.app.Activity)?.finish()
+                                showStopOverlay = false
+                                onExit()
                             },
                             colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                                 containerColor = BachataPalette.RaisedSurface,
