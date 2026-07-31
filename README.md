@@ -6,12 +6,12 @@ SPDX-License-Identifier: GPL-2.0-or-later
 <div align="center">
 
 <a href="https://play.google.com/store/apps/details?id=com.bachatas4.android">
-  <img src="assets/feature_graphic.png" alt="Bachata S4 — PlayStation 4 emulation on Android" width="100%">
+  <img src="https://raw.githubusercontent.com/JICA98/Bachata-S4/main/fastlane/metadata/android/en-US/images/featureGraphic.png" alt="Bachata S4 — PlayStation 4 emulation on Android" width="100%">
 </a>
 
 <br><br>
 
-<img src="assets/logo.png" alt="Bachata S4 logo" width="150">
+<img src="https://raw.githubusercontent.com/JICA98/Bachata-S4/main/fastlane/metadata/android/en-US/images/icon.png" alt="Bachata S4 logo" width="150">
 
 # Bachata S4
 
