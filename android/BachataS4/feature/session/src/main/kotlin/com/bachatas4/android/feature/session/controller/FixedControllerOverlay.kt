@@ -140,7 +140,7 @@ private class GlassOverlayView(context: Context) : View(context) {
     override fun onDraw(canvas: AndroidCanvas) {
         super.onDraw(canvas)
         val densityScale = min(width / 1920f, height / 1080f)
-        val renderAlpha = (layout.opacity * if (faded) 0.35f else 1f).coerceIn(0.20f, 1f)
+        val renderAlpha = if (faded) 0f else layout.opacity
         val overlayAlphaInt = (renderAlpha * 255).roundToInt()
 
         GlassButtonRenderer.scale = densityScale

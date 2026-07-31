@@ -208,13 +208,13 @@ fun SessionScreen(
                         modifier = Modifier.padding(bottom = 24.dp)
                     )
 
-                    // Overlay Settings (Faded overlay switch)
+                    // Overlay Settings (Show/Hide overlay switch)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(bottom = 12.dp)
                     ) {
                         Text(
-                            text = "Fade controller overlay",
+                            text = "Show/Hide Controller overlay",
                             color = BachataPalette.Secondary,
                             style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(end = 16.dp)
@@ -226,7 +226,7 @@ fun SessionScreen(
                                 contentColor = if (faded) BachataPalette.OnAccent else BachataPalette.Primary
                             )
                         ) {
-                            Text(if (faded) "Faded" else "Visible")
+                            Text(if (faded) "Hidden" else "Shown")
                         }
                     }
 
@@ -276,6 +276,23 @@ fun SessionScreen(
                             )
                         ) {
                             Text("Stop")
+                        }
+                        Button(
+                            onClick = {
+                                if (state is ManagedSessionState.Running || state is ManagedSessionState.Preparing) {
+                                    context.startService(
+                                        Intent(ManagedSession.ACTION_STOP).setClassName(context.packageName, ManagedSession.SERVICE_CLASS),
+                                    )
+                                }
+                                (context as? android.app.Activity)?.finish()
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = BachataPalette.RaisedSurface,
+                                contentColor = BachataPalette.Primary
+                            ),
+                            modifier = Modifier.padding(start = 12.dp)
+                        ) {
+                            Text("Exit")
                         }
                     }
                 }

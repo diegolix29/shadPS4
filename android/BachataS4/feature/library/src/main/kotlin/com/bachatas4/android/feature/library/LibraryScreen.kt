@@ -30,6 +30,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -64,7 +67,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.drawWithContent
@@ -415,34 +417,8 @@ fun LibraryContent(
                     alpha = 0.22f,
                     contentScale = ContentScale.Crop,
                 )
-            } else if (state.games.isEmpty()) {
-                Image(
-                    painter = painterResource(id = R.drawable.bg_library),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .drawWithContent {
-                            drawContent()
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        BachataPalette.Canvas
-                                    ),
-                                    startY = size.height * 0.30f,
-                                    endY = size.height * 0.65f
-                                )
-                            )
-                            drawRect(
-                                color = BachataPalette.Canvas,
-                                topLeft = Offset(0f, size.height * 0.65f),
-                                size = Size(size.width, size.height * 0.35f)
-                            )
-                        },
-                    alpha = 0.15f,
-                    contentScale = ContentScale.Fit,
-                )
             }
+
 
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 148.dp),
@@ -946,6 +922,7 @@ private fun GlassBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
