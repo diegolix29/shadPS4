@@ -1,287 +1,301 @@
 ---
 name: bachata-compatibility
-description: Test a legally owned PS4 game on a specific published Bachata S4 GitHub release, selected Android device, and selected Vulkan/Turnip driver; capture screenshots and logs; then publish a validated compatibility JSON entry.
+description: Create or reuse a canonical game issue, create a dedicated compatibility-repository worktree, test a legally owned PS4 game on one published Bachata S4 release/device/driver, capture evidence, stage an immutable report, and publish it only after explicit user confirmation.
 ---
 
-# Bachata S4 release compatibility reporting
+# Bachata S4 compatibility report workflow
 
-Use this workflow to create evidence-backed records in
-`compatibility-site/data/games.json`. Compatibility is not a single global state: every
-report belongs to one published GitHub release, one selected physical Android device, and
-one selected graphics driver. Never merge observations from different environments.
+The emulator/frontend repository is `JICA98/Bachata-S4`. Compatibility metadata, one-file-
+per-test JSON, screenshots, and logs belong exclusively to
+`JICA98/Bachata-S4-Compatibility`.
+
+## Absolute rules
+
+1. Test only content the tester legally owns. Never publish game files, firmware, keys,
+   licenses, accounts, private device identifiers, or the ADB serial.
+2. Create the compatibility Git worktree **before** creating or changing report files.
+3. Search for or create the canonical GitHub issue **before launching the game**. Reuse one
+   issue per CUSA. Never create one issue per device or release.
+4. Every report belongs to one published Bachata S4 release, one selected physical device,
+   and one selected Vulkan driver. Exact Turnip version is mandatory for Turnip.
+5. Existing report JSON and evidence are immutable. Add a new superseding report.
+6. Do not commit, push, open a pull request, change the final issue status, or comment the
+   result until the user explicitly confirms the prepared report.
+7. Status is the furthest state actually observed: `playable`, `ingame`, `menus`, `boots`,
+   or `nothing`. When uncertain, choose the lower status.
+8. The canonical issue has exactly one `status:*` label representing the best confirmed
+   result across all reports. Per-report status remains in JSON.
+
+## 1. Resolve repositories and prerequisites
 
 ```bash
-ROOT="$(git rev-parse --show-toplevel)"
-cd "$ROOT"
+MAIN_ROOT="$(git rev-parse --show-toplevel)"
+COMPAT_REPO="${BACHATA_COMPAT_REPO:-$(dirname "$MAIN_ROOT")/Bachata-S4-Compatibility}"
+COMPAT_REMOTE="https://github.com/JICA98/Bachata-S4-Compatibility.git"
+
+command -v gh adb git python3 >/dev/null
+gh auth status
+
+if [[ ! -d "$COMPAT_REPO/.git" ]]; then
+  git clone "$COMPAT_REMOTE" "$COMPAT_REPO"
+fi
+git -C "$COMPAT_REPO" remote set-url origin "$COMPAT_REMOTE"
+git -C "$COMPAT_REPO" fetch origin main --prune
+git -C "$MAIN_ROOT" fetch origin --tags --prune
 ```
 
-## Non-negotiable rules
-
-1. Test only games, firmware, and content the tester is legally entitled to use. Never
-   commit game files, firmware, keys, licenses, account data, or private device IDs.
-2. Use a published tag listed by `gh release list --repo JICA98/Bachata-S4`. Do not label
-   a dirty/local build as an official release.
-3. Install and test the APK asset from the selected release, or prove that the installed
-   APK was built from the exact release commit. Record both `releaseTag` and `commit`.
-4. Explicitly select one ADB device. Publish only its human-readable device label and
-   hardware details; never publish the ADB serial.
-5. Record the driver actually selected in Bachata S4. When Turnip is selected, the exact
-   Turnip version is mandatory. Do not use the Mesa/Turnip version from memory.
-6. Classify only the furthest state actually observed. Never infer gameplay from a
-   process launch, title screen, or log line alone.
-7. Do not invent FPS, versions, hardware, settings, or milestones. Omit optional
-   measurements that are not supported by evidence.
-8. Preserve published logs byte-for-byte. Gzip is allowed; editing or trimming is not.
-9. Append a historical test. Never overwrite results from an older release/device/driver.
-10. Keep the README status summary in sync with `compatibility-site/data/games.json` by
-    running `python3 scripts/compatibility/update_readme.py` after adding each report, and
-    commit the regenerated `README.md` together with the report.
-11. Publish only after strict validation and local website review succeed.
-
-## Status classification
-
-| Status | Required evidence |
-|---|---|
-| `playable` | Full-game completion verified with playable performance and no major game-breaking issue. |
-| `ingame` | Controllable gameplay reached, but crashes, hangs, severe rendering/audio defects, or other major issues remain. |
-| `menus` | Functional menus reached, but gameplay cannot be entered. |
-| `boots` | Visual or audio output occurs before the main menu. |
-| `nothing` | Crash, hang, or black screen before useful output. |
-
-When uncertain, use the lower status and describe the exact blocker.
-
-## Phase 1 — Select and verify a GitHub release
-
-Refresh the checked-in release index and inspect official releases:
+Set concrete identifiers. CUSA must be uppercase:
 
 ```bash
-python3 scripts/compatibility/sync_releases.py
-gh release list --repo JICA98/Bachata-S4 --limit 20
+export CUSA=CUSAxxxxx
+export GAME_TITLE="Exact game title"
+export BACHATA_RELEASE=v0.1.6
+export DEVICE_LABEL="OnePlus 13 · Snapdragon 8 Elite"
 ```
 
-Set the exact published tag:
+Verify the release exists and obtain its commit:
 
 ```bash
-export BACHATA_RELEASE=v0.1.5
-
-gh release view "$BACHATA_RELEASE" \
-  --repo JICA98/Bachata-S4 \
+gh release view "$BACHATA_RELEASE" --repo JICA98/Bachata-S4 \
   --json tagName,name,isPrerelease,publishedAt,targetCommitish,url
+RELEASE_COMMIT="$(git -C "$MAIN_ROOT" rev-list -n1 "$BACHATA_RELEASE")"
 ```
 
-Install the correct APK asset for that tag. After installation, verify the package version:
+Do not describe a dirty/local build as an official release. Install the APK from the
+selected release or prove the APK was built from the exact release commit.
+
+## 2. Create the compatibility worktree first
+
+Use a unique branch and a sibling worktree. Never stage reports directly in the main
+compatibility clone:
 
 ```bash
-ADB="${ADB:-adb}"
-"$ADB" shell dumpsys package com.bachatas4.android \
-  | sed -nE 's/^[[:space:]]*versionName=//p' | head -n 1
+STAMP="$(date -u +%Y%m%d-%H%M%S)"
+REPORT_BRANCH="compat/${CUSA,,}-$STAMP"
+WORKTREE_ROOT="${BACHATA_WORKTREE_ROOT:-$(dirname "$MAIN_ROOT")/.worktrees}"
+COMPAT_WORKTREE="$WORKTREE_ROOT/bachata-compat-${CUSA,,}-$STAMP"
+mkdir -p "$WORKTREE_ROOT"
+
+git -C "$COMPAT_REPO" worktree add -b "$REPORT_BRANCH" \
+  "$COMPAT_WORKTREE" origin/main
 ```
 
-The installed `versionName` should correspond to the selected tag after removing the
-leading `v`. If it does not, stop and install the correct release.
+All compatibility scripts after this point must run from `$COMPAT_WORKTREE`.
 
-## Phase 2 — Select the physical device and graphics driver
+## 3. Find or create the canonical issue before testing
 
-List devices:
+Ensure shared labels exist once:
 
 ```bash
-"$ADB" devices -l
+"$COMPAT_WORKTREE/scripts/setup_labels.sh"
 ```
 
-When multiple devices are attached, explicitly select one:
+Search open and closed issues by exact CUSA:
 
 ```bash
+ISSUE_NUMBER="$(gh issue list --repo JICA98/Bachata-S4-Compatibility \
+  --state all --search "\"$CUSA\" in:title" --json number,title \
+  --jq ".[] | select(.title | contains(\"$CUSA\")) | .number" | head -n1)"
+```
+
+Create a game-specific label if needed, then create the issue only when none exists:
+
+```bash
+gh label create "game:$CUSA" --repo JICA98/Bachata-S4-Compatibility \
+  --color 5319e7 --description "Reports for $CUSA" --force
+
+if [[ -z "$ISSUE_NUMBER" ]]; then
+  ISSUE_URL="$(gh issue create --repo JICA98/Bachata-S4-Compatibility \
+    --title "[$CUSA] $GAME_TITLE" \
+    --label "game-report,game:$CUSA,status:testing,needs-confirmation" \
+    --body "Canonical compatibility discussion for **$GAME_TITLE** ($CUSA). Individual release/device/driver tests will be submitted as immutable report pull requests after tester confirmation.")"
+  ISSUE_NUMBER="${ISSUE_URL##*/}"
+else
+  gh issue edit "$ISSUE_NUMBER" --repo JICA98/Bachata-S4-Compatibility \
+    --add-label "game-report,game:$CUSA,status:testing,needs-confirmation"
+fi
+```
+
+Read the issue and existing reports before testing so the new run addresses known blockers:
+
+```bash
+gh issue view "$ISSUE_NUMBER" --repo JICA98/Bachata-S4-Compatibility --comments
+find "$COMPAT_WORKTREE/games/$CUSA/reports" -maxdepth 1 -name '*.json' -print 2>/dev/null | sort
+```
+
+## 4. Select device and exact driver
+
+```bash
+adb devices -l
 export SERIAL=<exact-adb-serial>
 ```
 
-Choose a public label that distinguishes the hardware without exposing the serial, for
-example:
+When multiple devices exist, `$SERIAL` is mandatory. The private capture file may contain
+it, but report JSON must contain only the human-readable device label and hardware fields.
 
-```bash
-export DEVICE_LABEL="OnePlus 12 · Snapdragon 8 Gen 3"
-```
+In Bachata S4, select the driver and record what is actually displayed or logged:
 
-In Bachata S4, open the graphics-driver selector and note exactly what is selected:
+- Turnip: type, name, exact Mesa/Turnip version, optional build/revision and source.
+- System: driver name and observed version.
+- Custom: exact name and version.
 
-- system driver: record driver name and observed version;
-- Turnip: record exact Mesa/Turnip version, optional build/revision, and source;
-- custom non-Turnip driver: record its displayed name and version.
+Do not confuse Android version, Vulkan API version, GPU model, or bundle filename with the
+Turnip version.
 
-Confirm driver evidence from app settings and/or session logs. Search likely fields:
-
-```bash
-grep -E -i 'turnip|mesa|driver|vulkan|gpu' <session-log> | tail -n 120
-```
-
-Do not confuse Android version, Vulkan API version, or GPU model with the Turnip version.
-
-## Phase 3 — Launch and capture evidence
-
-Example using Turnip:
-
-```bash
-scripts/compatibility/capture_android_report.sh CUSAxxxxx \
-  --release-tag "$BACHATA_RELEASE" \
-  --device-label "$DEVICE_LABEL" \
-  --driver-type turnip \
-  --driver-name "Mesa Turnip" \
-  --turnip-version "26.1.0" \
-  --turnip-build "exact displayed build, when available" \
-  --turnip-source "bundled / imported source label" \
-  --delay 60 \
-  --count 2 \
-  --interval 30
-```
-
-System-driver example:
-
-```bash
-scripts/compatibility/capture_android_report.sh CUSAxxxxx \
-  --release-tag "$BACHATA_RELEASE" \
-  --device-label "$DEVICE_LABEL" \
-  --driver-type system \
-  --driver-name "Qualcomm system Vulkan" \
-  --driver-version "exact observed version" \
-  --delay 60 --count 2 --interval 30
-```
-
-The helper launches the debug-only `DirectLaunchActivity`, captures screenshots and
-hardware metadata from the selected device, force-stops the app to flush logs, and pulls
-the newest matching app-private session logs. It prints `Evidence directory: ...`; assign
-that absolute path to `WORK`.
-
-Interact with the game until the target boundary is reached. For `ingame` or `playable`,
-verify that the screenshot shows a complete controllable frame and that the session log
-reaches the same or a later state without terminating first.
-
-For crashes, black screens, exit codes, GPU stalls, or unexplained teardown, use
-`.agents/skills/diagnose-bachata/SKILL.md` when available. Do not replace diagnosis with a
-guess in the compatibility notes.
-
-## Phase 4 — Inspect evidence
-
-```bash
-WORK="<absolute evidence directory>"
-cat "$WORK/device.json"
-cat "$WORK/capture.json"  # private work file; never publish it
-find "$WORK/session-logs" -maxdepth 3 -type f -printf '%TY-%Tm-%Td %TT %p\n' | sort
-```
-
-Use filtered reads for large logs:
-
-```bash
-/usr/bin/grep -E -i \
-  'exitCode|guestBackend=|turnip|mesa|driver=|Critical|Error|Unhandled access|SIG|fps|frame' \
-  "$WORK"/session-logs/**/application.log \
-  "$WORK"/session-logs/**/shadps4.log 2>/dev/null | tail -n 160
-```
-
-Determine:
-
-- title, CUSA, region, and game version;
-- exact release tag and release commit;
-- selected device label and captured hardware fields;
-- selected driver type/name/version;
-- exact Turnip version/build/source when applicable;
-- guest backend;
-- furthest verified state and status;
-- measured FPS only from an actual counter or trace;
-- major issues and relevant non-default settings.
-
-Discard screenshots that are blank, fail to prove the status, or expose notifications,
-accounts, or private information. Never publish `capture.json`, because it contains the
-ADB serial. If app-private logs are unavailable, use unmodified `logcat.txt` and state that
-limitation in the notes.
-
-## Phase 5 — Add the report
+## 5. Launch and capture
 
 Turnip example:
 
 ```bash
-python3 scripts/compatibility/add_report.py \
-  --title "Game title" \
-  --serial CUSAxxxxx \
-  --region US \
-  --status ingame \
-  --game-version "1.00" \
+cd "$MAIN_ROOT"
+scripts/compatibility/capture_android_report.sh "$CUSA" \
   --release-tag "$BACHATA_RELEASE" \
-  --commit "<exact release commit SHA>" \
-  --guest-backend fex \
-  --summary "Reaches gameplay with a major rendering blocker." \
-  --notes "State exactly what was tested, how far it progressed, and what failed." \
-  --issue "First reproducible game-breaking issue" \
-  --device-json "$WORK/device.json" \
+  --device-label "$DEVICE_LABEL" \
   --driver-type turnip \
-  --renderer-driver "Mesa Turnip" \
-  --turnip-driver-version "26.1.0" \
-  --turnip-driver-build "exact displayed build" \
-  --turnip-driver-source "bundled / imported source label" \
+  --driver-name "Mesa Turnip" \
+  --turnip-version "26.3.0-devel" \
+  --turnip-build "git-exactrevision" \
+  --turnip-source "bundled/imported source label" \
+  --delay 60 --count 2 --interval 30
+```
+
+The helper uses the selected ADB device, launches `DirectLaunchActivity` when available, takes screenshots,
+force-stops the app to flush logs, and pulls the matching app-private session. If testing an official APK without the debug-only direct launcher, open the game manually and pass `--no-launch`. Assign the
+printed evidence directory to `CAPTURE`.
+
+```bash
+export CAPTURE="<absolute evidence directory>"
+cat "$CAPTURE/device.json"
+cat "$CAPTURE/capture.json"   # private; never publish
+find "$CAPTURE/session-logs" -type f -maxdepth 3 -print
+```
+
+Inspect screenshots and filtered log lines. Do not infer gameplay from launch success or a
+single log line. Discard blank/private screenshots. Keep logs byte-for-byte; the importer
+will gzip and hash them.
+
+## 6. Stage one immutable report in the worktree
+
+Use the canonical issue number and exact release commit. Add one `--screenshot` and one
+`--log` argument per evidence file; `path::caption` and `path::label` are supported.
+
+```bash
+cd "$COMPAT_WORKTREE"
+python3 scripts/add_report.py \
+  --title "$GAME_TITLE" \
+  --cusa "$CUSA" \
+  --region US \
+  --publisher "Publisher" \
+  --issue-number "$ISSUE_NUMBER" \
+  --status ingame \
+  --game-version "01.00" \
+  --release-tag "$BACHATA_RELEASE" \
+  --commit "$RELEASE_COMMIT" \
+  --emulator-version "${BACHATA_RELEASE#v}" \
+  --guest-backend fex \
+  --summary "Exact one-sentence observed result." \
+  --notes "What was tested, how far it progressed, settings, and the blocker." \
+  --issue "Major reproducible problem, when present" \
+  --device-json "$CAPTURE/device.json" \
+  --driver-type turnip \
+  --driver-name "Mesa Turnip" \
+  --driver-version "26.3.0-devel" \
+  --driver-build "git-exactrevision" \
+  --driver-source "bundled/imported source label" \
   --resolution-scale 1.0 \
-  --average-fps 24 --min-fps 18 --max-fps 30 \
+  --average-fps 30 --min-fps 24 --max-fps 35 \
   --frame-pacing stuttery \
   --test-duration-seconds 300 \
-  --screenshot "$WORK/screenshots/menu.png::Main menu" \
-  --screenshot "$WORK/screenshots/gameplay.png::Controllable gameplay" \
-  --log "$WORK/session-logs/<session>/application.log::Bachata application log" \
-  --log "$WORK/session-logs/<session>/shadps4.log::shadPS4 session log" \
-  --tester "GitHub handle"
+  --screenshot "$CAPTURE/screenshots/first.png::What this proves" \
+  --screenshot "$CAPTURE/screenshots/second.png::What this proves" \
+  --log "$CAPTURE/session-logs/<session>/application.log::Bachata application log" \
+  --log "$CAPTURE/session-logs/<session>/shadps4.log::shadPS4 session log" \
+  --tester "$(gh api user --jq .login)"
+
+python3 scripts/validate.py
+python3 scripts/build_site_data.py --output generated
 ```
 
-For the system driver, use `--driver-type system`, set `--driver-version`, and omit all
-`--turnip-*` arguments. The importer rejects an unknown release tag and requires a Turnip
-version whenever the driver type is `turnip`.
+FPS values are optional unless measured by a real counter/trace. Do not invent values.
 
-## Phase 6 — Update the README status summary
+## 7. Preview and request explicit confirmation
 
-The repo `README.md` shows a count of `playable` / `ingame` / `menus` / `boots` /
-`nothing` reports. Refresh it so it matches the merged database, then commit it with the
-report:
+Assemble a local preview using the frontend from `$MAIN_ROOT` and generated data from the
+worktree. Copy only screenshots, not logs:
 
 ```bash
-python3 scripts/compatibility/update_readme.py
+PREVIEW="$(mktemp -d)"
+cp -a "$MAIN_ROOT/compatibility-site/." "$PREVIEW/"
+mkdir -p "$PREVIEW/data" "$PREVIEW/evidence"
+cp "$COMPAT_WORKTREE/generated/site-index.json" "$PREVIEW/data/"
+cp "$COMPAT_WORKTREE/generated/releases.json" "$PREVIEW/data/"
+cp -a "$COMPAT_WORKTREE/generated/games" "$PREVIEW/data/"
+(
+  cd "$COMPAT_WORKTREE"
+  find assets -type f -path '*/screenshots/*' -exec cp --parents '{}' "$PREVIEW/evidence/" \;
+)
+python3 -m http.server 8080 --directory "$PREVIEW"
 ```
 
-The script only rewrites the delimited status table between the
-`<!-- compatibility-status-table -->` markers; the rest of the README is untouched.
+Before publication, show the user:
 
-## Phase 7 — Validate and review
+- CUSA/title and canonical issue number;
+- status and why it meets that boundary;
+- Bachata release and commit;
+- selected public device;
+- selected driver and exact Turnip version/build;
+- performance only when measured;
+- screenshot thumbnails/paths and log names/hashes;
+- `git -C "$COMPAT_WORKTREE" diff --stat` and validation result.
 
-```bash
-python3 scripts/compatibility/validate_database.py
-node --check compatibility-site/assets/js/app.js
-bash -n scripts/compatibility/capture_android_report.sh
-python3 -m http.server 8080 --directory compatibility-site
-```
+Ask for explicit confirmation to publish this exact report. Stop here until confirmation.
+Do not treat silence, earlier general approval, or successful validation as confirmation.
 
-Verify locally:
+## 8. Publish only after confirmation
 
-- the selected release defaults/filters correctly;
-- the game appears only for environments with a matching report;
-- release, selected device, and exact Turnip/system driver are visible on the card;
-- detail history preserves older release/device/driver reports;
-- screenshots and immutable log links open;
-- mobile layout remains usable.
-
-Inspect the exact diff:
-
-```bash
-git diff -- \
-  README.md \
-  compatibility-site/data/games.json \
-  compatibility-site/data/releases.json \
-  compatibility-site/assets/screenshots \
-  compatibility-site/assets/logs
-```
-
-Commit only accepted public evidence, the regenerated `README.md`, and JSON. A suitable
-message is:
+Determine the best confirmed status from existing reports using this order:
 
 ```text
-compatibility: add CUSAxxxxx on v0.1.5 / <device> / Turnip <version>
+playable > ingame > menus > boots > nothing
 ```
 
-## Publication gate
+Update the canonical issue to exactly one best `status:*` label; remove `status:testing`
+and `needs-confirmation`. Then commit, push, and open the PR:
 
-Publish only when the release tag is official, installed version matches, selected device
-and driver are factual, classification is supported by screenshot and log evidence, no
-private/copyrighted content is present, and all validation and local rendering checks pass.
+```bash
+cd "$COMPAT_WORKTREE"
+git add games assets
+git commit -m "compat($CUSA): add $BACHATA_RELEASE report"
+git push -u origin "$REPORT_BRANCH"
+
+PR_URL="$(gh pr create --repo JICA98/Bachata-S4-Compatibility \
+  --base main --head "$REPORT_BRANCH" \
+  --title "compat($CUSA): $GAME_TITLE on $BACHATA_RELEASE" \
+  --body "Updates #$ISSUE_NUMBER with a confirmed immutable report.\n\n- Status: <status>\n- Device: $DEVICE_LABEL\n- Driver: <exact driver/version>\n- Release: $BACHATA_RELEASE")"
+```
+
+Update labels carefully. Do not downgrade the best confirmed issue status because a newer
+release/device regresses; add `regression` instead and retain the best-status label.
+
+Comment on the same canonical issue only after confirmation:
+
+```bash
+gh issue comment "$ISSUE_NUMBER" --repo JICA98/Bachata-S4-Compatibility \
+  --body "Confirmed report submitted: $PR_URL\n\nStatus: **<status>**  \nRelease: **$BACHATA_RELEASE**  \nDevice: **$DEVICE_LABEL**  \nDriver: **<exact driver/version>**"
+```
+
+The issue remains open as the long-lived communication thread. The PR is the auditable
+report submission. After merge, the compatibility repository dispatches a Pages rebuild;
+the main repository also performs a scheduled fallback rebuild.
+
+## 9. Cleanup
+
+After the PR is merged or abandoned:
+
+```bash
+git -C "$COMPAT_REPO" worktree remove "$COMPAT_WORKTREE"
+git -C "$COMPAT_REPO" worktree prune
+```
+
+On user rejection, do not push. Remove the temporary worktree and local branch, and remove
+`status:testing`/`needs-confirmation` from an existing issue if no test remains active.

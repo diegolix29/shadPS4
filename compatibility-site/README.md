@@ -1,70 +1,25 @@
-# Bachata S4 compatibility site
+# Bachata S4 compatibility frontend
 
-A dependency-free GitHub Pages frontend for release-specific Android game compatibility.
-The page joins two checked-in JSON files:
+This directory contains only the static frontend. Compatibility source data, screenshots,
+and compressed logs live in `JICA98/Bachata-S4-Compatibility`.
 
-- `data/games.json`: games, historical test reports, screenshots, and logs;
-- `data/releases.json`: official Bachata S4 GitHub releases.
+The Pages workflow checks out both repositories, validates the append-only report source,
+generates a compact homepage index and one full JSON file per CUSA, copies only optimized
+screenshots into the Pages artifact, and leaves logs in the data repository.
 
-The latest stable release is selected by default. Users can filter by GitHub release,
-selected physical device, exact Turnip version/driver, GPU family, and compatibility status.
-A game can therefore have different results across releases, devices, and drivers without
-one test overwriting another.
-
-## Local preview
+For local preview from sibling clones:
 
 ```bash
-python3 -m http.server 8080 --directory compatibility-site
+rm -rf /tmp/bachata-compat-preview
+cp -a compatibility-site /tmp/bachata-compat-preview
+python3 ../Bachata-S4-Compatibility/scripts/build_site_data.py \
+  --root ../Bachata-S4-Compatibility \
+  --output /tmp/bachata-generated
+mkdir -p /tmp/bachata-compat-preview/data /tmp/bachata-compat-preview/evidence
+cp /tmp/bachata-generated/site-index.json /tmp/bachata-compat-preview/data/
+cp /tmp/bachata-generated/releases.json /tmp/bachata-compat-preview/data/
+cp -a /tmp/bachata-generated/games /tmp/bachata-compat-preview/data/
+(cd ../Bachata-S4-Compatibility && find assets -type f -path '*/screenshots/*' \
+  -exec cp --parents '{}' /tmp/bachata-compat-preview/evidence/ \;)
+python3 -m http.server 8080 --directory /tmp/bachata-compat-preview
 ```
-
-## Refresh official releases
-
-```bash
-python3 scripts/compatibility/sync_releases.py
-```
-
-The Pages workflow also refreshes the index whenever a GitHub release is published,
-edited, or deleted.
-
-## Add a report
-
-```bash
-python3 scripts/compatibility/add_report.py \
-  --title "Example Game" \
-  --serial CUSA00001 \
-  --region US \
-  --status ingame \
-  --game-version "1.00" \
-  --release-tag v0.1.5 \
-  --commit 407a5ae \
-  --guest-backend fex \
-  --notes "Reached controllable gameplay; rendering breaks after the intro." \
-  --issue "Missing character textures" \
-  --device-json .git/compatibility-work/cusa00001/<capture>/device.json \
-  --driver-type turnip \
-  --renderer-driver "Mesa Turnip" \
-  --turnip-driver-version "26.1.0" \
-  --turnip-driver-build "release build" \
-  --turnip-driver-source "bundled Bachata S4 driver" \
-  --average-fps 24 --min-fps 18 --max-fps 30 \
-  --frame-pacing stuttery \
-  --screenshot ".git/compatibility-work/cusa00001/<capture>/screenshots/gameplay.png::Gameplay" \
-  --log ".git/compatibility-work/cusa00001/<capture>/session-logs/<session>/shadps4.log::shadPS4 log"
-```
-
-For the Android system driver, use `--driver-type system`, omit all Turnip arguments,
-and record the observed system driver version with `--driver-version`.
-
-Validate before committing:
-
-```bash
-python3 scripts/compatibility/validate_database.py
-```
-
-## Status definitions
-
-- `playable`: full completion verified without major game-breaking issues
-- `ingame`: controllable gameplay reached, but major issues remain
-- `menus`: functional menus reached, not gameplay
-- `boots`: output appears before menus
-- `nothing`: crash, hang, or black screen

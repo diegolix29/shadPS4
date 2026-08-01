@@ -14,12 +14,14 @@ on:
       - "scripts/compatibility/**"
       - ".agents/skills/bachata-compatibility/**"
       - ".github/workflows/compatibility-pages.yml"
-  release:
-    types: [published, edited, deleted]
+  repository_dispatch:
+    types: [compatibility-data-updated]
+  schedule:
+    - cron: "41 */6 * * *"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -28,78 +30,79 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Check out Bachata S4 frontend
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          path: bachata
 
-      - name: Synchronize GitHub release index
-        if: github.event_name == 'release'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python3 scripts/compatibility/sync_releases.py
+      - name: Check out compatibility source data
+        uses: actions/checkout@v4
+        with:
+          repository: JICA98/Bachata-S4-Compatibility
+          ref: main
+          path: compatibility
 
-      - name: Validate compatibility database
-        run: python3 scripts/compatibility/validate_database.py
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Check scripts
-        shell: bash
+      - name: Validate immutable source data
+        working-directory: compatibility
+        run: python3 scripts/validate.py
+
+      - name: Generate compact and per-game indexes
+        working-directory: compatibility
+        run: python3 scripts/build_site_data.py --output generated
+
+      - name: Check frontend source
+        working-directory: bachata
         run: |
-          set -euo pipefail
           node --check compatibility-site/assets/js/app.js
           bash -n scripts/compatibility/capture_android_report.sh
-          python3 -m py_compile \
-            scripts/compatibility/add_report.py \
-            scripts/compatibility/sync_releases.py \
-            scripts/compatibility/validate_database.py
 
-      - name: Enforce Pages artifact limits
+      - name: Assemble Pages artifact
         shell: bash
         run: |
           set -euo pipefail
-          oversized="$(find compatibility-site -type f -size +25M -print)"
+          rm -rf _site
+          cp -a bachata/compatibility-site _site
+          mkdir -p _site/data _site/evidence
+          cp compatibility/generated/site-index.json _site/data/site-index.json
+          cp compatibility/generated/releases.json _site/data/releases.json
+          cp -a compatibility/generated/games _site/data/games
+          (
+            cd compatibility
+            find assets -type f -path '*/screenshots/*' -exec cp --parents '{}' ../_site/evidence/ \;
+          )
+          oversized="$(find _site -type f -size +25M -print -quit)"
           if [[ -n "$oversized" ]]; then
-            echo "Individual website files must stay under 25 MiB:" >&2
-            echo "$oversized" >&2
+            echo "A deployed file exceeds 25 MiB: $oversized" >&2
             exit 1
           fi
-          total_kib="$(du -sk compatibility-site | awk '{print $1}')"
-          if (( total_kib > 900000 )); then
-            echo "Compatibility website exceeds the safe 900 MiB Pages budget." >&2
+          total_kib="$(du -sk _site | awk '{print $1}')"
+          if (( total_kib >= 900000 )); then
+            echo "Pages artifact exceeds the 900 MiB safety budget." >&2
             exit 1
           fi
 
-      - name: Commit synchronized release index
-        if: github.event_name == 'release'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- compatibility-site/data/releases.json; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add compatibility-site/data/releases.json
-          git commit -m "chore: sync compatibility release index"
-          git push || echo "warning: release index could not be pushed; the deployed artifact is still current"
-
-      - name: Upload validated website
+      - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: compatibility-site
+          path: _site
 
   deploy:
     if: github.event_name != 'pull_request'
-    needs: validate
+    needs: build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

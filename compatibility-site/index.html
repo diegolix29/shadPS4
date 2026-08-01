@@ -8,9 +8,9 @@
   <meta property="og:title" content="Bachata S4 Compatibility">
   <meta property="og:description" content="Search verified Android game compatibility reports, screenshots, performance data, devices, and logs.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://raw.githubusercontent.com/JICA98/Bachata-S4/main/fastlane/metadata/android/en-US/images/icon.png">
+  <meta property="og:image" content="assets/logo.png">
   <title>Bachata S4 Compatibility</title>
-  <link rel="icon" href="https://raw.githubusercontent.com/JICA98/Bachata-S4/main/fastlane/metadata/android/en-US/images/icon.png">
+  <link rel="icon" href="assets/logo.png">
   <link rel="stylesheet" href="assets/css/styles.css">
   <script defer src="assets/js/app.js"></script>
 </head>
@@ -20,14 +20,15 @@
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="./" aria-label="Bachata S4 compatibility home">
-        <img src="https://raw.githubusercontent.com/JICA98/Bachata-S4/main/fastlane/metadata/android/en-US/images/icon.png" alt="" width="48" height="48">
+        <img src="assets/logo.png" alt="" width="48" height="48">
         <span>
           <strong>Bachata S4</strong>
           <small>Android compatibility tracker</small>
         </span>
       </a>
       <nav class="header-actions" aria-label="Primary">
-        <a class="button button-quiet" href="https://github.com/JICA98/Bachata-S4" target="_blank" rel="noreferrer">GitHub</a>
+        <a class="button button-quiet" href="https://github.com/JICA98/Bachata-S4-Compatibility" target="_blank" rel="noreferrer">Compatibility data</a>
+        <a class="button button-quiet" href="https://github.com/JICA98/Bachata-S4" target="_blank" rel="noreferrer">Emulator</a>
         <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">
           <span aria-hidden="true">◐</span>
         </button>
@@ -41,7 +42,7 @@
         <div class="hero-copy">
           <span class="eyebrow">Evidence-first compatibility</span>
           <h1>See what runs on <span>Bachata S4</span></h1>
-          <p>Browse release-specific Android results with the selected device, exact Turnip driver version, FPS ranges, screenshots, commits, notes, and raw session logs.</p>
+          <p>Browse one compact entry per CUSA ID, then open the title to compare release-specific results, selected devices, exact Turnip versions, FPS, screenshots, and logs.</p>
           <div class="hero-actions">
             <a class="button button-primary" href="#games">Browse games</a>
             <a class="button button-secondary" href="https://github.com/JICA98/Bachata-S4/tree/main/.agents/skills/bachata-compatibility" target="_blank" rel="noreferrer">Testing workflow</a>
@@ -135,12 +136,13 @@
         </div>
 
         <div class="game-grid" id="game-grid" aria-live="polite" aria-busy="true"></div>
+        <div class="load-more-wrap"><button class="button button-secondary" id="load-more" type="button" hidden>Load more games</button></div>
 
         <div class="empty-state" id="empty-state" hidden>
           <img src="assets/placeholder.svg" alt="" width="320" height="180">
           <h3 id="empty-title">No matching reports</h3>
           <p id="empty-copy">Try changing the filters or add the first compatibility report using the repository skill.</p>
-          <a class="button button-secondary" href="https://github.com/JICA98/Bachata-S4" target="_blank" rel="noreferrer">Open repository</a>
+          <a class="button button-secondary" href="https://github.com/JICA98/Bachata-S4-Compatibility/issues" target="_blank" rel="noreferrer">Open compatibility issues</a>
         </div>
       </div>
     </section>
@@ -149,8 +151,8 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <div class="brand footer-brand">
-        <img src="https://raw.githubusercontent.com/JICA98/Bachata-S4/main/fastlane/metadata/android/en-US/images/icon.png" alt="" width="38" height="38">
-        <span><strong>Bachata S4</strong><small>Community compatibility data</small></span>
+        <img src="assets/logo.png" alt="" width="38" height="38">
+        <span><strong>Bachata S4</strong><small>Frontend from Bachata S4 · reports from the compatibility repository</small></span>
       </div>
       <p>Only test games and firmware files you legally own. Reports describe emulator behavior and do not provide game content.</p>
     </div>

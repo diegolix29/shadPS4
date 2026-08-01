@@ -337,3 +337,12 @@ input::placeholder { color: var(--faint); }
   .filters .search-field { grid-column: auto; }
   .quick-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Lazy per-CUSA report details */
+.report-selector { display: grid; gap: 6px; max-width: min(720px, 100%); margin-top: 8px; color: rgba(255,255,255,.78); font-size: .78rem; font-weight: 700; }
+.report-selector select { width: 100%; min-height: 42px; }
+.report-row { width: 100%; appearance: none; font: inherit; text-align: left; background: var(--bg-elevated); cursor: pointer; }
+.report-row:hover, .report-row.active { border-color: var(--accent); background: var(--bg-soft); }
+.dialog-loading { min-height: 280px; display: grid; place-content: center; gap: 8px; padding: 48px; text-align: center; color: var(--muted); }
+.dialog-loading strong { color: var(--text); font-size: 1.1rem; }
+.load-more-wrap { display: flex; justify-content: center; padding-top: 26px; }
