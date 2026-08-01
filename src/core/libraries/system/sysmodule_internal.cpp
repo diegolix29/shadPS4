@@ -19,9 +19,9 @@
 #include "core/libraries/ngs2/ngs2.h"
 #include "core/libraries/rtc/rtc.h"
 #include "core/libraries/rudp/rudp.h"
-#include "core/libraries/system/sysmodule_error.h"
-#include "core/libraries/system/sysmodule_internal.h"
-#include "core/libraries/system/sysmodule_table.h"
+#include "core/libraries/sysmodule/sysmodule_error.h"
+#include "core/libraries/sysmodule/sysmodule_internal.h"
+#include "core/libraries/sysmodule/sysmodule_table.h"
 #include "core/libraries/system_gesture/system_gesture.h"
 #include "core/linker.h"
 #include "emulator.h"
@@ -267,6 +267,7 @@ s32 loadModuleInternal(s32 index, s32 argc, const void* argv, s32* res_out) {
 
                 // When loading HLEs, we need to relocate imports
                 // This ensures later module loads can see our HLE functions.
+                linker->RelocateAllImports();
             } else {
                 LOG_INFO(Loader, "No HLE available for {} module", mod_name);
             }

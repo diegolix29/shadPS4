@@ -208,6 +208,8 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
 
 WindowSDL::~WindowSDL() = default;
 
+SDL_Event* e = nullptr;
+
 void WindowSDL::SetIcon(std::span<const u8> png_data) {
     if (png_data.empty()) {
         LOG_WARNING(Core, "No window icon data available, using default icon.");
@@ -215,18 +217,6 @@ void WindowSDL::SetIcon(std::span<const u8> png_data) {
         return;
     }
     SetWindowIcon(window, std::vector<u8>(png_data.begin(), png_data.end()));
-}
-
-    SDL_Surface* surface = SDL_CreateSurfaceFrom(image_width, image_height, SDL_PIXELFORMAT_RGBA32,
-                                                 image_data, image_width * num_channels);
-    if (surface == nullptr) {
-        LOG_ERROR(Core, "Failed to create SDL surface for window icon: {}", SDL_GetError());
-    }
-    if (!SDL_SetWindowIcon(window, surface)) {
-        LOG_ERROR(Core, "Failed to set SDL window icon: {}", SDL_GetError());
-    }
-    SDL_DestroySurface(surface);
-#endif
 }
 
 void WindowSDL::WaitEvent() {

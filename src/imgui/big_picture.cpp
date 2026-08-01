@@ -301,15 +301,12 @@ void SetGameIcons(std::vector<Game>& games) {
 
 std::filesystem::path UpdateChecker(const std::string sceItem, std::filesystem::path game_folder) {
     std::filesystem::path outputPath;
-    auto update_folder = game_folder;
-    update_folder += "-UPDATE";
+    const auto update_folder = Core::FileSys::OverlayPath(game_folder, "-UPDATE");
+    const auto patch_folder = Core::FileSys::OverlayPath(game_folder, "-patch");
 
-    auto patch_folder = game_folder;
-    patch_folder += "-patch";
-
-    if (Common::FS::Zar::Exists(update_folder / "sce_sys" / sceItem)) {
+    if (std::filesystem::exists(update_folder / "sce_sys" / sceItem)) {
         outputPath = update_folder / "sce_sys" / sceItem;
-    } else if (Common::FS::Zar::Exists(patch_folder / "sce_sys" / sceItem)) {
+    } else if (std::filesystem::exists(patch_folder / "sce_sys" / sceItem)) {
         outputPath = patch_folder / "sce_sys" / sceItem;
     } else {
         outputPath = game_folder / "sce_sys" / sceItem;

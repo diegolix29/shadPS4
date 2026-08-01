@@ -442,6 +442,8 @@ set(AVPLAYER_LIB src/core/libraries/avplayer/avplayer_common.cpp
                  src/core/libraries/avplayer/avplayer_common.h
                  src/core/libraries/avplayer/avplayer_file_streamer.cpp
                  src/core/libraries/avplayer/avplayer_file_streamer.h
+                 src/core/libraries/avplayer/avplayer_handle_streamer.cpp
+                 src/core/libraries/avplayer/avplayer_handle_streamer.h
                  src/core/libraries/avplayer/avplayer_impl.cpp
                  src/core/libraries/avplayer/avplayer_impl.h
                  src/core/libraries/avplayer/avplayer_source.cpp
@@ -791,8 +793,6 @@ set(COMMON src/common/logging/backend.cpp
            src/common/incremental_id.h
            src/common/io_file.cpp
            src/common/io_file.h
-           src/common/zar_fs.cpp
-           src/common/zar_fs.h
            src/common/lru_cache.h
            src/common/error.cpp
            src/common/error.h
@@ -891,9 +891,14 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_format/npbind.h
          src/core/file_sys/fs.cpp
          src/core/file_sys/fs.h
+         src/core/file_sys/ifile.h
+         src/core/file_sys/backends/host_fs.cpp
+         src/core/file_sys/backends/host_fs.h
+         src/core/file_sys/backends/zarchive_fs.cpp
+         src/core/file_sys/backends/zarchive_fs.h
          src/core/ipc/ipc.cpp
          src/core/ipc/ipc.h
-                  src/core/ipc/ipc_client.h
+         src/core/ipc/ipc_client.h
          src/core/ipc/ipc_client.cpp
          src/core/loader/dwarf.cpp
          src/core/loader/dwarf.h
@@ -1352,6 +1357,8 @@ target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURC
 
 target_link_libraries(shadps4 PRIVATE Freetype::Freetype)
 target_link_libraries(shadps4 PRIVATE ZArchive::zarchive)
+
+target_include_directories(shadps4 PRIVATE "${SHADNET_PROTO_OUT}")
 
 if (ENABLE_DISCORD_RPC)
     target_compile_definitions(shadps4 PRIVATE ENABLE_DISCORD_RPC)

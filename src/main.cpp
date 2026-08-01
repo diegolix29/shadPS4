@@ -23,7 +23,6 @@
 #include "common/logging/backend.h"
 #include "common/memory_patcher.h"
 #include "common/path_util.h"
-#include "common/zar_fs.h"
 #include "core/debugger.h"
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc.h"
@@ -342,43 +341,54 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::filesystem::path ebootPath(gamePath);
-    if (!Common::FS::Zar::Exists(ebootPath)) {
-        bool found = false;
-        const int max_depth = 5;
-        for (const auto& dir : Config::getGameDirectories()) {
-            if (auto found_path = Common::FS::FindGameByID(dir, gamePath, max_depth)) {
-                ebootPath = *found_path;
-                found = true;
-                break;
+    std::filesystem::path ebootPath(*gamePath);
+    const auto archive_component_exists = [](const std::filesystem::path& p) -> bool {
+        std::filesystem::path accum;
+        for (const auto& comp : p) {
+            accum /= comp;
+            if (comp.extension() == ".zar") {
+                return std::filesystem::is_regular_file(accum);
             }
-            if (auto foundPath = Common::FS::Zar::FindGameByID(dir, gamePath, max_depth)) {
+        }
+        return false;
+    };
+    if (!std::filesystem::exists(ebootPath) && !archive_component_exists(ebootPath)) {
+        bool found = false;
+        constexpr int maxDepth = 5;
+        for (const auto& installDir : Config::getGameDirectories()) {
+            if (auto foundPath = Common::FS::FindGameByID(installDir, *gamePath, maxDepth)) {
                 ebootPath = *foundPath;
                 found = true;
                 break;
             }
         }
         if (!found) {
-            std::cerr << "Error: Game not found: " << gamePath << "\n";
+            LOG_ERROR(Debug, "Game ID or file path not found: {}", *gamePath);
             return 1;
         }
     }
 
     if (!modsFolder.has_value()) {
-        const auto mods_overlay = Common::FS::Zar::GetOverlayPath(ebootPath.parent_path(), "-MODS");
-        if (Common::FS::Zar::Exists(mods_overlay)) {
-            modsFolder = mods_overlay;
-            Core::FileSys::MntPoints::manual_mods_path = mods_overlay;
-            Core::FileSys::MntPoints::enable_mods = true;
-            std::cout << "Auto-detected mods overlay: " << mods_overlay << "\n";
+        auto base_folder = ebootPath.parent_path();
+        auto parent = base_folder.parent_path();
+        auto game_folder_name = base_folder.filename().string();
+
+        std::vector<std::string> modSuffixes = {"-mods", "-MODS", "-Mods"};
+        bool found = false;
+
+        for (const auto& suffix : modSuffixes) {
+            auto auto_mods_folder = parent / (game_folder_name + suffix);
+            if (std::filesystem::exists(auto_mods_folder) &&
+                std::filesystem::is_directory(auto_mods_folder)) {
+                modsFolder = auto_mods_folder;
+                Core::FileSys::MntPoints::enable_mods = true;
+                std::cout << "Auto-detected mods folder: " << auto_mods_folder << "\n";
+                found = true;
+                break;
+            }
         }
     } else {
         std::cout << "Using manually specified mods folder: " << modsFolder->string() << "\n";
-    }
-
-    const auto patch_overlay = Common::FS::Zar::GetOverlayPath(ebootPath.parent_path(), "-UPDATE");
-    if (Common::FS::Zar::Exists(patch_overlay)) {
-        std::cout << "Auto-detected patch/update overlay: " << patch_overlay << "\n";
     }
 
     if (!Core::FileSys::MntPoints::enable_mods) {
@@ -389,7 +399,7 @@ int main(int argc, char* argv[]) {
     if (waitPid)
         Core::Debugger::WaitForPid(*waitPid);
 
-    Core::Emulator* emulator = Common::Singleton<Core::Emulator>::Instance();
+    auto* emulator = Common::Singleton<Core::Emulator>::Instance();
     emulator->executableName = argv[0];
     emulator->waitForDebuggerBeforeRun = waitForDebugger;
     emulator->Run(ebootPath, gameArgs, gameFolder);

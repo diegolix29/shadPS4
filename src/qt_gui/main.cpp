@@ -9,7 +9,6 @@
 #include "common/logging/backend.h"
 #include "common/memory_patcher.h"
 #include "common/path_util.h"
-#include "common/zar_fs.h"
 #include "core/debugger.h"
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc_client.h"
@@ -353,17 +352,12 @@ int main(int argc, char* argv[]) {
 
     if (has_game_argument) {
         std::filesystem::path eboot_path(game_path);
-        if (!Common::FS::Zar::Exists(eboot_path)) {
+        if (!std::filesystem::exists(eboot_path)) {
             bool found = false;
             const int max_depth = 5;
             for (const auto& dir : Config::getGameDirectories()) {
                 if (auto found_path = Common::FS::FindGameByID(dir, game_path, max_depth)) {
                     eboot_path = *found_path;
-                    found = true;
-                    break;
-                }
-                if (auto foundPath = Common::FS::Zar::FindGameByID(dir, game_path, max_depth)) {
-                    eboot_path = *foundPath;
                     found = true;
                     break;
                 }
@@ -376,17 +370,20 @@ int main(int argc, char* argv[]) {
 
         if (!modsFolder.has_value()) {
             auto base_folder = eboot_path.parent_path();
+            auto parent = base_folder.parent_path();
+            auto game_folder_name = base_folder.filename().string();
 
-            // GetOverlayPath already checks for a zar overlay first, then falls back to a
-            // loose folder, so a single lookup per suffix is sufficient here.
             std::vector<std::string> modSuffixes = {"-mods", "-MODS", "-Mods"};
+            bool found = false;
+
             for (const auto& suffix : modSuffixes) {
-                auto overlay_path = Common::FS::Zar::GetOverlayPath(base_folder, suffix);
-                if (std::filesystem::exists(overlay_path)) {
-                    modsFolder = overlay_path;
+                auto auto_mods_folder = parent / (game_folder_name + suffix);
+                if (Common::FS::Zar::Exists(auto_mods_folder) &&
+                    std::filesystem::is_directory(auto_mods_folder)) {
+                    modsFolder = auto_mods_folder;
                     Core::FileSys::MntPoints::enable_mods = true;
-                    Core::FileSys::MntPoints::manual_mods_path = overlay_path;
-                    std::cout << "Auto-detected mods overlay: " << overlay_path << "\n";
+                    std::cout << "Auto-detected mods folder: " << auto_mods_folder << "\n";
+                    found = true;
                     break;
                 }
             }
@@ -567,19 +564,22 @@ int main(int argc, char* argv[]) {
 
     if (has_game_argument) {
         std::filesystem::path game_file_path(game_path);
-
-        if (!Common::FS::Zar::Exists(game_file_path)) {
+        const auto archive_component_exists = [](const std::filesystem::path& p) -> bool {
+            std::filesystem::path accum;
+            for (const auto& comp : p) {
+                accum /= comp;
+                if (comp.extension() == ".zar") {
+                    return std::filesystem::is_regular_file(accum);
+                }
+            }
+            return false;
+        };
+        if (!std::filesystem::exists(eboot_path) && !archive_component_exists(eboot_path)) {
             bool game_found = false;
             const int max_depth = 5;
             for (const auto& install_dir : Config::getGameDirectories()) {
                 if (auto found_path = Common::FS::FindGameByID(install_dir, game_path, max_depth)) {
                     game_file_path = *found_path;
-                    game_found = true;
-                    break;
-                }
-                if (auto foundPath =
-                        Common::FS::Zar::FindGameByID(install_dir, game_path, max_depth)) {
-                    game_file_path = *foundPath;
                     game_found = true;
                     break;
                 }

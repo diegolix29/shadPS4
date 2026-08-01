@@ -106,24 +106,23 @@ void Emulator::Shutdown() {
     }
 }
 
-s32 ReadCompiledSdkVersion(const std::filesystem::path& file) {
+s32 ReadCompiledSdkVersion(const std::string& guest_or_host_path) {
+    auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
+    std::unique_ptr<Core::FileSys::IFile> handle;
+    if (!guest_or_host_path.empty() && guest_or_host_path.front() == '/') {
+        handle = mnt->Open(guest_or_host_path, /*writable=*/false);
+    }
+
     Core::Loader::Elf elf;
-    elf.Open(file);
+    if (handle) {
+        elf.Open(std::move(handle));
+    } else {
+        elf.Open(std::filesystem::path{guest_or_host_path});
+    }
+
     if (!elf.IsElfFile()) {
         return 0;
     }
-    const auto elf_pheader = elf.GetProgramHeader();
-    auto i_procparam = std::find_if(elf_pheader.begin(), elf_pheader.end(), [](const auto& entry) {
-        return entry.p_type == PT_SCE_PROCPARAM;
-    });
-
-    if (i_procparam != elf_pheader.end()) {
-        Core::OrbisProcParam param{};
-        elf.LoadSegment(u64(&param), i_procparam->p_offset, i_procparam->p_filesz);
-        return param.sdk_version;
-    }
-    return 0;
-}
 
 void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
                    std::optional<std::filesystem::path> p_game_folder) {
@@ -137,86 +136,124 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
 
     std::filesystem::path game_folder;
-    if (p_game_folder.has_value()) {
-        game_folder = p_game_folder.value();
-    } else {
-        game_folder = file.parent_path();
-        if (const auto game_folder_name = game_folder.filename().string();
-            game_folder_name.ends_with("-UPDATE") || game_folder_name.ends_with("-patch") ||
-            game_folder_name.ends_with("-mods")) {
-            const std::string base_name = game_folder_name.substr(0, game_folder_name.rfind('-'));
-            const auto base_path = game_folder.parent_path() / base_name;
-            if (std::filesystem::is_directory(base_path)) {
-                game_folder = base_path;
+
+    // Archive detection.
+    std::filesystem::path archive_path;
+    std::filesystem::path archive_inner;
+    {
+        std::filesystem::path accum;
+        bool found = false;
+        for (const auto& comp : file) {
+            if (!found) {
+                accum /= comp;
+                if (comp.extension() == ".zar") {
+                    found = true;
+                    archive_path = accum;
+                }
+            } else {
+                archive_inner /= comp;
             }
+        }
+        // Only treat it as an archive if the .zar element is a real file.
+        if (found && !std::filesystem::is_regular_file(archive_path)) {
+            found = false;
+        }
+        if (found && archive_inner.empty()) {
+            archive_inner = "eboot.bin";
+        }
+    }
+    const bool from_archive = !archive_path.empty();
+
+    const auto rebase_to_base_game = [](std::filesystem::path& folder) {
+        if (const auto base = FileSys::BaseGameFromOverlay(folder)) {
+            if (const auto resolved = FileSys::ResolveGameRoot(*base)) {
+                LOG_INFO(Loader, "Launched from overlay {}, using base game {} as /app0",
+                         folder.string(), resolved->string());
+                folder = *resolved;
+            } else {
+                LOG_WARNING(Loader, "Launched from overlay {} but no base game was found",
+                            folder.string());
+            }
+        }
+    };
+
+    std::filesystem::path eboot_name;
+
+    if (from_archive) {
+        game_folder = archive_path;
+        file = archive_path / archive_inner;
+        eboot_name = archive_inner;
+        rebase_to_base_game(game_folder);
+    }
+
+    if (!from_archive) {
+        if (p_game_folder.has_value()) {
+            game_folder = p_game_folder.value();
+            eboot_name = std::filesystem::relative(file, game_folder);
+        } else {
+            game_folder = file.parent_path();
+            eboot_name = std::filesystem::relative(file, game_folder);
+            rebase_to_base_game(game_folder);
         }
     }
 
-    std::filesystem::path eboot_name = Common::FS::Zar::IsZarInnerPath(file)
-                                           ? file.lexically_relative(game_folder)
-                                           : std::filesystem::relative(file, game_folder);
-
+    // Applications expect to be run from /app0 so mount the file's parent path as app0.
     auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
     mnt->Mount(game_folder, "/app0", true);
     mnt->Mount(game_folder, "/hostapp", true);
-
-    // Auto-detect zar overlay files if manual_mods_path is not set
-    if (Core::FileSys::MntPoints::manual_mods_path.empty() &&
-        Common::FS::Zar::IsZarArchive(game_folder)) {
-        std::vector<std::string> mods_suffixes = {"-mods", "-MODS", "-Mods"};
-        for (const auto& suffix : mods_suffixes) {
-            auto zar_mods_path = Common::FS::Zar::GetOverlayPath(game_folder, suffix);
-            if (std::filesystem::exists(zar_mods_path)) {
-                Core::FileSys::MntPoints::manual_mods_path = zar_mods_path;
-                Core::FileSys::MntPoints::enable_mods = true;
-                LOG_INFO(Loader, "Auto-detected mods zar: {}", zar_mods_path.string());
-                break;
-            }
-        }
-    }
-
-    const auto param_sfo_path = mnt->GetHostPath("/app0/sce_sys/param.sfo");
-    const auto param_sfo_exists = Common::FS::Zar::Exists(param_sfo_path);
 
     std::string id;
     std::string title;
     std::string app_version;
     u32 sdk_version;
     u32 fw_version;
+    bool param_sfo_exists = false;
     Common::PSFAttributes psf_attributes{};
-    if (param_sfo_exists) {
-        auto* param_sfo = Common::Singleton<PSF>::Instance();
-        ASSERT_MSG(param_sfo->Open(param_sfo_path), "Failed to open param.sfo");
 
-        const auto content_id = param_sfo->GetString("CONTENT_ID");
-        const auto title_id = param_sfo->GetString("TITLE_ID");
-        if (content_id.has_value() && !content_id->empty()) {
-            id = std::string(*content_id, 7, 9);
-        } else if (title_id.has_value()) {
-            id = *title_id;
-        }
-        title = param_sfo->GetString("TITLE").value_or("Unknown title");
-        fw_version = param_sfo->GetInteger("SYSTEM_VER").value_or(0x4700000);
-        app_version = param_sfo->GetString("APP_VER").value_or("Unknown version");
-        if (const auto raw_attributes = param_sfo->GetInteger("ATTRIBUTE")) {
-            psf_attributes.raw = *raw_attributes;
-        }
+    if (auto psf_handle = mnt->Open("/app0/sce_sys/param.sfo", /*writable=*/false)) {
+        std::vector<u8> psf_buf(psf_handle->Size());
+        if (psf_handle->Read(psf_buf.data(), psf_buf.size()) == static_cast<s64>(psf_buf.size())) {
+            auto* param_sfo = Common::Singleton<PSF>::Instance();
+            ASSERT_MSG(param_sfo->Open(psf_buf), "Failed to open param.sfo");
+            param_sfo_exists = true;
 
-        std::string_view pubtool_info =
-            param_sfo->GetString("PUBTOOLINFO").value_or("Unknown value");
-        u64 sdk_ver_offset = pubtool_info.find("sdk_ver");
-
-        if (sdk_ver_offset == pubtool_info.npos) {
-            sdk_version = fw_version;
-        } else {
-            sdk_ver_offset += 8;
-            u64 sdk_ver_len = pubtool_info.find(",", sdk_ver_offset);
-            if (sdk_ver_len == pubtool_info.npos) {
-                sdk_ver_len = pubtool_info.size();
+            const auto content_id = param_sfo->GetString("CONTENT_ID");
+            const auto title_id = param_sfo->GetString("TITLE_ID");
+            if (content_id.has_value() && !content_id->empty()) {
+                id = std::string(*content_id, 7, 9);
+            } else if (title_id.has_value()) {
+                id = *title_id;
             }
-            sdk_ver_len -= sdk_ver_offset;
-            std::string sdk_ver_string = pubtool_info.substr(sdk_ver_offset, sdk_ver_len).data();
-            sdk_version = std::stoi(sdk_ver_string, nullptr, 16);
+            title = param_sfo->GetString("TITLE").value_or("Unknown title");
+            fw_version = param_sfo->GetInteger("SYSTEM_VER").value_or(0x4700000);
+            app_version = param_sfo->GetString("APP_VER").value_or("Unknown version");
+            if (const auto raw_attributes = param_sfo->GetInteger("ATTRIBUTE")) {
+                psf_attributes.raw = *raw_attributes;
+            }
+
+            // Extract sdk version from pubtool info.
+            std::string_view pubtool_info =
+                param_sfo->GetString("PUBTOOLINFO").value_or("Unknown value");
+            u64 sdk_ver_offset = pubtool_info.find("sdk_ver");
+
+            if (sdk_ver_offset == pubtool_info.npos) {
+                // Default to using firmware version if SDK version is not found.
+                sdk_version = fw_version;
+            } else {
+                // Increment offset to account for sdk_ver= part of string.
+                sdk_ver_offset += 8;
+                u64 sdk_ver_len = pubtool_info.find(",", sdk_ver_offset);
+                if (sdk_ver_len == pubtool_info.npos) {
+                    // If there's no more commas, this is likely the last entry of pubtool info.
+                    // Use string length instead.
+                    sdk_ver_len = pubtool_info.size();
+                }
+                sdk_ver_len -= sdk_ver_offset;
+                std::string sdk_ver_string =
+                    pubtool_info.substr(sdk_ver_offset, sdk_ver_len).data();
+                // Number is stored in base 16.
+                sdk_version = std::stoi(sdk_ver_string, nullptr, 16);
+            }
         }
     }
 
@@ -225,7 +262,6 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     Config::getSeparateLogFilesEnabled() ? id + ".log" : "shad_log.txt";
 
     auto guest_eboot_path = "/app0/" + eboot_name.generic_string();
-    const auto eboot_path = mnt->GetHostPath(guest_eboot_path);
 
     auto& game_info = Common::ElfInfo::Instance();
     game_info.initialized = true;
@@ -234,12 +270,13 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     game_info.app_ver = app_version;
     game_info.firmware_ver = fw_version & 0xFFF00000;
     game_info.raw_firmware_ver = fw_version;
-    game_info.sdk_ver = ReadCompiledSdkVersion(eboot_path);
+    game_info.sdk_ver = ReadCompiledSdkVersion(guest_eboot_path);
     game_info.psf_attributes = psf_attributes;
 
-    const auto pic1_path = mnt->GetHostPath("/app0/sce_sys/pic1.png");
-    if (Common::FS::Zar::Exists(pic1_path)) {
-        game_info.splash_path = pic1_path;
+    if (auto splash = mnt->ReadFile("/app0/sce_sys/pic1.png")) {
+        game_info.splash_data = std::move(*splash);
+    } else {
+        LOG_INFO(Loader, "No splash image found at /app0/sce_sys/pic1.png");
     }
 
     game_info.game_folder = game_folder;
@@ -254,12 +291,10 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         Common::Log::Initialize();
     }
     Common::Log::Start();
-    if (!std::filesystem::exists(file)) {
-        if (!Common::FS::Zar::Exists(file)) {
-            LOG_CRITICAL(Loader, "eboot.bin does not exist: {}",
-                         std::filesystem::absolute(file).string());
+    if (!mnt->Exists(guest_eboot_path)) {
+        LOG_CRITICAL(Loader, "eboot.bin does not exist: {}", guest_eboot_path);
             std::quick_exit(0);
-        }
+        
     }
 
     LOG_INFO(Loader, "Starting shadps4 emulator v{} ", Common::g_version);
@@ -329,8 +364,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     bool foundMods = false;
 
     for (const auto& suffix : modSuffixes) {
-        std::filesystem::path mods_folder = game_folder;
-        mods_folder += suffix;
+        const auto mods_folder = FileSys::OverlayPath(game_folder, modSuffixes)
 
         if (std::filesystem::exists(mods_folder) && !std::filesystem::is_empty(mods_folder)) {
             LOG_INFO(Loader, "Files found in game mods folder: {}", mods_folder.string());
@@ -390,9 +424,10 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     g_window = window.get();
 
-    std::filesystem::path icon_path = mnt->GetHostPath("/app0/sce_sys/icon0.png");
-    if (std::filesystem::exists(icon_path)) {
-        window->SetIcon(icon_path);
+     if (auto icon = mnt->ReadFile("/app0/sce_sys/icon0.png")) {
+        window->SetIcon(*icon);
+    } else {
+        window->SetIcon({});
     }
 
     const auto& mount_data_dir = Common::FS::GetUserPath(Common::FS::PathType::GameDataDir) / id;
@@ -453,9 +488,8 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     Libraries::InitHLELibs(&linker->GetHLESymbols());
 
-    if (linker->LoadModule(eboot_path) == -1) {
-        LOG_CRITICAL(Loader, "Failed to load game's eboot.bin: {}",
-                     Common::FS::PathToUTF8String(std::filesystem::absolute(eboot_path)));
+    if (linker->LoadModule(guest_eboot_path) == -1) {
+        LOG_CRITICAL(Loader, "Failed to load game's eboot.bin: {}", guest_eboot_path);
         std::quick_exit(0);
     }
 
@@ -511,16 +545,40 @@ void Emulator::Restart(std::filesystem::path eboot_path, const std::vector<std::
     if (!game_root.empty()) {
         game_path = game_root;
     } else {
-        auto mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
-        game_path = mnt->GetHostPath("/app0");
+        auto& game_info = Common::ElfInfo::Instance();
+        const auto& game_folder = game_info.GetGameFolder();
+        const bool from_archive =
+            std::filesystem::is_regular_file(game_folder) && game_folder.extension() == ".zar";
     }
 
     args.push_back("--log-append");
-    args.push_back("--game");
-    args.push_back(Common::FS::PathToUTF8String(eboot_path));
+    if (from_archive) {
+        // Archive-backed base game: relaunch by pointing --game at the
+        // .zar itself. Run() re-detects the extension and re-mounts it.
+        std::filesystem::path relaunch = game_folder;
+        std::string guest = Common::FS::PathToUTF8String(eboot_path);
+        for (const std::string_view prefix : {"/app0/", "/hostapp/"}) {
+            if (guest.starts_with(prefix)) {
+                guest.erase(0, prefix.size());
+                break;
+            }
+        }
+        if (!guest.empty() && guest != "eboot.bin") {
+            relaunch /= guest;
+        }
 
-    args.push_back("--override-root");
-    args.push_back(Common::FS::PathToUTF8String(game_path));
+        args.push_back("--game");
+        args.push_back(Common::FS::PathToUTF8String(relaunch));
+    } else {
+        auto mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
+        auto game_path = mnt->GetHostPath("/app0");
+
+        args.push_back("--game");
+        args.push_back(Common::FS::PathToUTF8String(eboot_path));
+
+        args.push_back("--override-root");
+        args.push_back(Common::FS::PathToUTF8String(game_path));
+    }
 
     if (FileSys::MntPoints::ignore_game_patches) {
         args.push_back("--ignore-game-patch");

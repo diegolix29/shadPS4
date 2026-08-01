@@ -72,7 +72,7 @@ public:
         return window_info;
     }
 
-    void SetIcon(const std::filesystem::path& path);
+    void SetIcon(std::span<const u8> png_data);
     void SetWindowIcon(SDL_Window* window, const std::vector<u8>& png);
     void SetDefaultWindowIcon(SDL_Window* window);
 

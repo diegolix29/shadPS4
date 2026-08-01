@@ -107,7 +107,7 @@ SaveInstance::SaveInstance(int slot_num, Libraries::UserService::OrbisUserServic
     mount_point = "/savedata" + std::to_string(slot_num);
 
     this->exists = fs::exists(param_sfo_path);
-    this->mounted = g_mnt->GetMount(mount_point) != std::nullopt;
+    this->mounted = g_mnt->GetMount(mount_point) != nullptr;
 }
 
 SaveInstance::~SaveInstance() {
@@ -152,13 +152,13 @@ void SaveInstance::SetupAndMount(bool read_only, bool copy_icon, bool ignore_cor
     if (!exists) {
         CreateFiles();
         if (copy_icon) {
-            const auto& src_icon = g_mnt->GetHostPath("/app0/sce_sys/save_data.png");
-            if (Common::FS::Zar::Exists(src_icon)) {
+            if (auto bytes = g_mnt->ReadFile("/app0/sce_sys/save_data.png")) {
                 auto output_icon = GetIconPath();
                 if (fs::exists(output_icon)) {
                     fs::remove(output_icon);
                 }
-                Common::FS::Zar::CopyFile(src_icon, output_icon);
+                Common::FS::IOFile dst(output_icon, Common::FS::FileAccessMode::Create);
+                dst.WriteRaw<u8>(bytes->data(), bytes->size());
             }
         }
         exists = true;
