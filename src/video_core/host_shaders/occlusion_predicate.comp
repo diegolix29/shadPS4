@@ -19,6 +19,7 @@ layout(push_constant) uniform PushConstants {
     uint count;
     uint dst_index;
     uint combine;
+    uint use_64bit_predicate;
 };
 
 void main() {
@@ -28,5 +29,17 @@ void main() {
         bits |= counter.x | counter.y;
     }
     const uint visible = bits != 0u ? 1u : 0u;
-    predicates[dst_index] = combine != 0u ? (predicates[dst_index] | visible) : visible;
+    
+    if (use_64bit_predicate != 0u) {
+        // AMD GPUs require 64-bit predicate values due to hardware limitations
+        // https://gitlab.freedesktop.org/mesa/mesa/-/issues/1979
+        // Write the predicate value to both 32-bit halves to ensure proper 64-bit behavior
+        const uvec2 predicate64 = combine != 0u ? 
+            uvec2(predicates[dst_index * 2] | visible, predicates[dst_index * 2 + 1]) : 
+            uvec2(visible, 0u);
+        predicates[dst_index * 2] = predicate64.x;
+        predicates[dst_index * 2 + 1] = predicate64.y;
+    } else {
+        predicates[dst_index] = combine != 0u ? (predicates[dst_index] | visible) : visible;
+    }
 }
