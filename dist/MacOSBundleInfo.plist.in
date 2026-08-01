@@ -26,6 +26,20 @@
 	<key>GCSupportsGameMode</key>
 	<true/>
 
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>${MACOSX_BUNDLE_TYPE_EXTENSION}</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>PlayStation 4 File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+		</dict>
+	</array>
+
 	<key>NSHumanReadableCopyright</key>
 	<string></string>
 

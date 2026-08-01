@@ -221,9 +221,12 @@ void WindowSDL::SetIcon(std::span<const u8> png_data) {
         SetDefaultWindowIcon(window);
         return;
     }
+#ifndef __APPLE__
     SetWindowIcon(window, std::vector<u8>(png_data.begin(), png_data.end()));
+#endif
 }
 
+#ifndef __APPLE__
 void WindowSDL::SetWindowIcon(SDL_Window* window, const std::vector<u8>& png) {
     int width, height, channels;
     stbi_uc* pixels = stbi_load_from_memory(png.data(), static_cast<int>(png.size()), &width,
@@ -252,6 +255,7 @@ void WindowSDL::SetDefaultWindowIcon(SDL_Window* window) {
     std::vector<u8> icon_data(icon_entry.begin(), icon_entry.end());
     SetWindowIcon(window, icon_data);
 }
+#endif
 
 void WindowSDL::WaitEvent() {
     // Called on main thread

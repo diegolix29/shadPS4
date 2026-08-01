@@ -341,7 +341,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::filesystem::path ebootPath(*gamePath);
+    std::filesystem::path ebootPath(gamePath);
     const auto archive_component_exists = [](const std::filesystem::path& p) -> bool {
         std::filesystem::path accum;
         for (const auto& comp : p) {
@@ -356,14 +356,14 @@ int main(int argc, char* argv[]) {
         bool found = false;
         constexpr int maxDepth = 5;
         for (const auto& installDir : Config::getGameDirectories()) {
-            if (auto foundPath = Common::FS::FindGameByID(installDir, *gamePath, maxDepth)) {
+            if (auto foundPath = Common::FS::FindGameByID(installDir, gamePath, maxDepth)) {
                 ebootPath = *foundPath;
                 found = true;
                 break;
             }
         }
         if (!found) {
-            LOG_ERROR(Debug, "Game ID or file path not found: {}", *gamePath);
+            LOG_ERROR(Debug, "Game ID or file path not found: {}", gamePath);
             return 1;
         }
     }

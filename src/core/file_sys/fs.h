@@ -24,7 +24,7 @@ struct Resolver;
 
 namespace Core::FileSys {
 
-    enum class HostPathType {
+enum class HostPathType {
     Default, // Prioritizes Mod, then patch, then base
     Base,
     Patch,
@@ -81,7 +81,7 @@ public:
     void IterateDirectory(std::string_view guest_directory,
                           const IterateDirectoryCallback& callback);
 
-       /// Returns true if the guest path exists in any backend of the
+    /// Returns true if the guest path exists in any backend of the
     /// mount stack. Mirrors fs::exists() on the resolved host path.
     bool Exists(std::string_view guest_path);
 
@@ -102,8 +102,6 @@ public:
     /// open + read the whole file as bytes. Returns nullopt
     /// when the file does not exist or is unreadable.
     std::optional<std::vector<u8>> ReadFile(std::string_view guest_path);
-
-
 
     const MntPair* GetMountFromHostPath(const std::string& host_path) {
         std::scoped_lock lock{m_mutex};
@@ -163,7 +161,7 @@ struct File {
     std::shared_ptr<Libraries::Net::Epoll> epoll;          // only valid for type == Epoll
     std::shared_ptr<Libraries::Net::Resolver> resolver;    // only valid for type == Resolver
 
-        bool IsBackendOpen() const {
+    bool IsBackendOpen() const {
         return handle && handle->IsOpen();
     }
 

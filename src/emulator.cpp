@@ -123,6 +123,7 @@ s32 ReadCompiledSdkVersion(const std::string& guest_or_host_path) {
     if (!elf.IsElfFile()) {
         return 0;
     }
+    return 0;
 }
 
 void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
@@ -364,9 +365,8 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     bool foundMods = false;
 
     for (const auto& suffix : modSuffixes) {
-        const auto mods_folder =
-            FileSys::OverlayPath(game_folder, suffix);
-            if (std::filesystem::exists(mods_folder) && !std::filesystem::is_empty(mods_folder)) {
+        const auto mods_folder = FileSys::OverlayPath(game_folder, suffix);
+        if (std::filesystem::exists(mods_folder) && !std::filesystem::is_empty(mods_folder)) {
             LOG_INFO(Loader, "Files found in game mods folder: {}", mods_folder.string());
             foundMods = true;
             break;

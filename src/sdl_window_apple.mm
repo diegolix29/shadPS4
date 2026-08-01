@@ -9,6 +9,10 @@
 
 namespace Frontend {
 
+void WindowSDL::SetDefaultWindowIcon(SDL_Window* /*window*/) {
+    // macOS uses NSApp setApplicationIconImage in SetWindowIcon instead
+}
+
 void WindowSDL::SetWindowIcon(SDL_Window* /*window*/, const std::vector<u8>& png) {
     @autoreleasepool {
         NSData* pngData = [NSData dataWithBytes:png.data() length:png.size()];

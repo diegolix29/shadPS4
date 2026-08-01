@@ -1,18 +1,19 @@
 // SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <limits>
+
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/config.h"
 #include "common/debug.h"
 #include "common/elf_info.h"
-#include "core/emulator_settings.h"
 #include "core/file_sys/fs.h"
 #include "core/libraries/kernel/memory.h"
-#include "core/memory_compression.h"
 #include "core/libraries/kernel/orbis_error.h"
 #include "core/libraries/kernel/process.h"
 #include "core/memory.h"
+#include "core/memory_compression.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 
 namespace Core {
@@ -20,7 +21,7 @@ namespace Core {
 MemoryManager::MemoryManager() {
     LOG_INFO(Kernel_Vmm, "Virtual memory space initialized with regions:");
 
-        // Initialize memory compression system
+    // Initialize memory compression system
     memory_compression = std::make_unique<MemoryCompression>();
     memory_compression->SetCompressionLevel(Config::getMemoryCompressionLevel());
 
@@ -63,7 +64,7 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
         total_size = is_neo ? ORBIS_KERNEL_TOTAL_MEM_DEV_PRO : ORBIS_KERNEL_TOTAL_MEM_DEV;
     }
     s32 extra_dmem = Config::getExtraDmemInMbytes();
-    if (extra_dmem != 0) {
+    if (Config::getExtraDmemInMbytes() != 0) {
         LOG_WARNING(Kernel_Vmm,
                     "extraDmemInMbytes is {} MB! Old Direct Size: {:#x} -> New Direct Size: {:#x}",
                     extra_dmem, total_size, total_size + extra_dmem * 1_MB);
@@ -75,6 +76,7 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
     if (!use_extended_mem2 && !is_neo) {
         total_size -= 128_MB;
     }
+
     total_flexible_size = flexible_size - ORBIS_KERNEL_FLEXIBLE_MEMORY_BASE;
     if (extra_dmem != 0) {
         LOG_WARNING(Kernel_Vmm,
@@ -82,10 +84,10 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
                     extra_dmem);
         total_flexible_size += extra_dmem * 1_MB;
     }
-    total_direct_size = total_size - flexible_size;
-    // Update stored totals
     ASSERT_MSG(total_flexible_size >= flexible_usage, "Unable to shrink flexible memory size");
+
     u64 old_direct_size = total_direct_size;
+    total_direct_size = total_size - flexible_size;
 
     // Limit direct memory space to match actual limit
     auto last_dmem_area = FindDmemArea(total_direct_size);
@@ -94,8 +96,25 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
                "Unable to shrink dmem map");
     last_dmem_area->second.size -= (old_direct_size - total_direct_size);
 
+    flexible_virtual_base = impl.SystemReservedVirtualBase();
+    const u64 flexible_virtual_size =
+        std::min<u64>(total_flexible_size, impl.SystemReservedVirtualSize());
+    flexible_virtual_end = flexible_virtual_base + flexible_virtual_size;
+
+    {
+        std::scoped_lock lk{mutex};
+        RecalculateFlexibleMappedUsageLocked();
+    }
+
     LOG_INFO(Kernel_Vmm, "Configured memory regions: flexible size = {:#x}, direct size = {:#x}",
              total_flexible_size, total_direct_size);
+    if (Config::debugDump()) {
+        LOG_DEBUG(
+            Kernel_Vmm,
+            "Flexible accounting region: [{:#x}, {:#x}), total = {:#x}, used = {:#x}, free = {:#x}",
+            flexible_virtual_base, flexible_virtual_end, total_flexible_size, flexible_mapped_usage,
+            GetAvailableFlexibleSize());
+    }
 }
 
 u64 MemoryManager::ClampRangeSize(VAddr virtual_addr, u64 size) {
@@ -586,6 +605,7 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
 
     // Acquire writer lock.
     std::unique_lock lk2{mutex};
+    const u64 flexible_before = GetFlexibleMappedBytesInRangeLocked(virtual_addr, size);
 
     // Create VMA representing this mapping.
     auto new_vma_handle = CreateArea(virtual_addr, size, prot, flags, type, name, alignment);
@@ -671,6 +691,9 @@ s32 MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, u64 size, Memo
         // Direct memory mappings only coalesce on SDK version 2.00 or later.
         MergeAdjacent(vma_map, new_vma_handle);
     }
+
+    const u64 flexible_after = GetFlexibleMappedBytesInRangeLocked(mapped_addr, size);
+    AdjustFlexibleMappedUsageLocked(flexible_before, flexible_after);
 
     *out_addr = std::bit_cast<void*>(mapped_addr);
     if (type != VMAType::Reserved && type != VMAType::PoolReserved) {
@@ -919,7 +942,13 @@ s32 MemoryManager::UnmapMemory(VAddr virtual_addr, u64 size) {
 
     // Acquire writer lock.
     std::scoped_lock lk2{mutex};
-    return UnmapMemoryImpl(virtual_addr, size);
+    const u64 flexible_before = GetFlexibleMappedBytesInRangeLocked(virtual_addr, size);
+    const s32 result = UnmapMemoryImpl(virtual_addr, size);
+    if (result == ORBIS_OK) {
+        const u64 flexible_after = GetFlexibleMappedBytesInRangeLocked(virtual_addr, size);
+        AdjustFlexibleMappedUsageLocked(flexible_before, flexible_after);
+    }
+    return result;
 }
 
 u64 MemoryManager::UnmapBytesFromEntry(VAddr virtual_addr, VirtualMemoryArea vma_base, u64 size) {
@@ -1425,6 +1454,94 @@ void MemoryManager::InvalidateMemory(const VAddr addr, const u64 size) const {
     if (rasterizer) {
         rasterizer->InvalidateMemory(addr, size);
     }
+}
+
+void MemoryManager::RecalculateFlexibleUsageForDebug() {
+    std::scoped_lock lk{mutex};
+    RecalculateFlexibleMappedUsageLocked();
+}
+
+bool MemoryManager::IsFlexibleCountedVmaType(VMAType type) const {
+    return type == VMAType::Flexible || type == VMAType::Code;
+}
+
+bool MemoryManager::IsFlexibleCommittedVma(const VirtualMemoryArea& vma) const {
+    if (!vma.IsMapped()) {
+        return false;
+    }
+
+    const bool has_physical_tracking =
+        vma.type == VMAType::Direct || vma.type == VMAType::Flexible || vma.type == VMAType::Pooled;
+    if (has_physical_tracking) {
+        // Direct/flexible/pooled mappings should expose at least one physical sub-area when
+        // committed.
+        return !vma.phys_areas.empty();
+    }
+
+    // Non-phys-tracked mappings (code/stack/file) are committed through address-space map calls.
+    return vma.type == VMAType::Code || vma.type == VMAType::Stack || vma.type == VMAType::File;
+}
+
+u64 MemoryManager::GetFlexibleMappedBytesInRangeLocked(VAddr virtual_addr, u64 size) const {
+    if (!IsFlexibleRegionConfigured() || size == 0) {
+        return 0;
+    }
+
+    const VAddr aligned_start = Common::AlignDown(virtual_addr, 16_KB);
+    const u64 page_offset = virtual_addr - aligned_start;
+    if (size > std::numeric_limits<u64>::max() - page_offset) {
+        return 0;
+    }
+    const u64 aligned_size = Common::AlignUp(size + page_offset, 16_KB);
+    if (aligned_size == 0) {
+        return 0;
+    }
+
+    const VAddr aligned_end = aligned_start + aligned_size;
+    const VAddr range_start = std::max(aligned_start, flexible_virtual_base);
+    const VAddr range_end = std::min(aligned_end, flexible_virtual_end);
+    if (range_start >= range_end) {
+        return 0;
+    }
+
+    u64 mapped_bytes = 0;
+    auto it = vma_map.upper_bound(range_start);
+    if (it != vma_map.begin()) {
+        it = std::prev(it);
+    }
+    while (it != vma_map.end() && it->second.base < range_end) {
+        const auto& vma = it->second;
+        const VAddr vma_end = vma.base + vma.size;
+        const VAddr overlap_start = std::max(range_start, vma.base);
+        const VAddr overlap_end = std::min(range_end, vma_end);
+
+        if (overlap_start < overlap_end && IsFlexibleCountedVmaType(vma.type) &&
+            IsFlexibleCommittedVma(vma)) {
+            mapped_bytes += overlap_end - overlap_start;
+        }
+
+        ++it;
+    }
+    return mapped_bytes;
+}
+
+void MemoryManager::AdjustFlexibleMappedUsageLocked(u64 mapped_before, u64 mapped_after) {
+    if (mapped_after >= mapped_before) {
+        flexible_mapped_usage += mapped_after - mapped_before;
+    } else {
+        const u64 delta = mapped_before - mapped_after;
+        flexible_mapped_usage = delta > flexible_mapped_usage ? 0 : flexible_mapped_usage - delta;
+    }
+}
+
+void MemoryManager::RecalculateFlexibleMappedUsageLocked() {
+    if (!IsFlexibleRegionConfigured()) {
+        flexible_mapped_usage = 0;
+        return;
+    }
+
+    flexible_mapped_usage = GetFlexibleMappedBytesInRangeLocked(
+        flexible_virtual_base, flexible_virtual_end - flexible_virtual_base);
 }
 
 VAddr MemoryManager::SearchFree(VAddr virtual_addr, u64 size, u32 alignment) {
