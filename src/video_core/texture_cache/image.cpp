@@ -462,9 +462,20 @@ static std::pair<u32, u32> SanitizeCopyLayers(const ImageInfo& src_info, const I
     // If the image type is equal, layer count must match. Take the minimum of both.
     if (vk_src_type == vk_dst_type) {
         if (src_layers != dst_layers) {
-            LOG_WARNING(Render_Vulkan,
-                        "Coercing copy source layers {} and destination layers {} to minimum.",
-                        src_layers, dst_layers);
+            if (src_layers > dst_layers) {
+                // Source layers beyond the destination's capacity are dropped - worth flagging.
+                LOG_WARNING(Render_Vulkan,
+                            "Coercing copy source layers {} and destination layers {} to minimum.",
+                            src_layers, dst_layers);
+            } else {
+                // The destination merely has spare layers (routine when copying into an array
+                // image allocated with growth headroom); every source layer is transferred, so
+                // nothing is lost. Titles that grow arrays per-frame would otherwise spam the
+                // log with hundreds of these per second.
+                LOG_DEBUG(Render_Vulkan,
+                          "Coercing copy source layers {} and destination layers {} to minimum.",
+                          src_layers, dst_layers);
+            }
             src_layers = dst_layers = std::min(src_layers, dst_layers);
         }
     } else {
