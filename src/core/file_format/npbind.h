@@ -4,7 +4,6 @@
 #pragma once
 #include <cstdint>
 #include <span>
-#include <filesystem>
 #include <string>
 #include <vector>
 #include "common/endian.h"

@@ -123,6 +123,7 @@ s32 ReadCompiledSdkVersion(const std::string& guest_or_host_path) {
     if (!elf.IsElfFile()) {
         return 0;
     }
+}
 
 void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
                    std::optional<std::filesystem::path> p_game_folder) {
@@ -293,8 +294,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     Common::Log::Start();
     if (!mnt->Exists(guest_eboot_path)) {
         LOG_CRITICAL(Loader, "eboot.bin does not exist: {}", guest_eboot_path);
-            std::quick_exit(0);
-        
+        std::quick_exit(0);
     }
 
     LOG_INFO(Loader, "Starting shadps4 emulator v{} ", Common::g_version);
@@ -364,9 +364,9 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     bool foundMods = false;
 
     for (const auto& suffix : modSuffixes) {
-        const auto mods_folder = FileSys::OverlayPath(game_folder, modSuffixes)
-
-        if (std::filesystem::exists(mods_folder) && !std::filesystem::is_empty(mods_folder)) {
+        const auto mods_folder =
+            FileSys::OverlayPath(game_folder, suffix);
+            if (std::filesystem::exists(mods_folder) && !std::filesystem::is_empty(mods_folder)) {
             LOG_INFO(Loader, "Files found in game mods folder: {}", mods_folder.string());
             foundMods = true;
             break;
@@ -424,7 +424,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     g_window = window.get();
 
-     if (auto icon = mnt->ReadFile("/app0/sce_sys/icon0.png")) {
+    if (auto icon = mnt->ReadFile("/app0/sce_sys/icon0.png")) {
         window->SetIcon(*icon);
     } else {
         window->SetIcon({});
@@ -541,17 +541,26 @@ void Emulator::Restart(std::filesystem::path eboot_path, const std::vector<std::
                        std::filesystem::path game_root) {
     std::vector<std::string> args;
 
-    std::filesystem::path game_path;
+    // 1. Declare variables in the outer scope
+    std::filesystem::path game_folder;
+    bool from_archive = false;
+
+    // 2. Assign values based on the condition
     if (!game_root.empty()) {
-        game_path = game_root;
+        game_folder = game_root;
+        // Optionally check archive status here if game_root could be an archive
+        from_archive =
+            std::filesystem::is_regular_file(game_folder) && game_folder.extension() == ".zar";
     } else {
         auto& game_info = Common::ElfInfo::Instance();
-        const auto& game_folder = game_info.GetGameFolder();
-        const bool from_archive =
+        game_folder = game_info.GetGameFolder();
+        from_archive =
             std::filesystem::is_regular_file(game_folder) && game_folder.extension() == ".zar";
     }
 
     args.push_back("--log-append");
+
+    // 3. Variables are now safely accessible here
     if (from_archive) {
         // Archive-backed base game: relaunch by pointing --game at the
         // .zar itself. Run() re-detects the extension and re-mounts it.

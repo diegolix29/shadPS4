@@ -52,6 +52,7 @@ inline constexpr bool NeedsCaseInsensitiveSearch = true;
 class MntPoints {
 public:
     static bool ignore_game_patches;
+    static bool enable_mods;
     struct MntPair {
         std::filesystem::path host_path;
         std::string mount; // e.g /app0

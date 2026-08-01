@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstring>
+#include <fstream>
 #include <iomanip>
-#include <limits>
 #include <sstream>
 #include <vector>
-
-#include "common/io_file.h"
 #include "npbind.h"
 
 bool NPBindFile::Load(const std::string& path) {
@@ -15,12 +13,13 @@ bool NPBindFile::Load(const std::string& path) {
     if (!f)
         return false;
 
-    const u64 sz = f.GetSize();
-    if (sz == 0 || sz > std::numeric_limits<size_t>::max())
+    std::streamsize sz = f.tellg();
+    if (sz <= 0)
         return false;
 
+    f.seekg(0, std::ios::beg);
     std::vector<u8> buf(static_cast<size_t>(sz));
-    if (f.ReadRaw<u8>(buf.data(), buf.size()) != buf.size())
+    if (!f.read(reinterpret_cast<char*>(buf.data()), sz))
         return false;
 
     return Load(std::span<const u8>{buf});

@@ -574,7 +574,7 @@ int main(int argc, char* argv[]) {
             }
             return false;
         };
-        if (!std::filesystem::exists(eboot_path) && !archive_component_exists(eboot_path)) {
+        if (!std::filesystem::exists(game_file_path) && !archive_component_exists(game_file_path)) {
             bool game_found = false;
             const int max_depth = 5;
             for (const auto& install_dir : Config::getGameDirectories()) {

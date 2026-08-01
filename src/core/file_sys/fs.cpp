@@ -540,26 +540,26 @@ int HandleTable::CreateHandle() {
 
 s64 File::PRead(void* buffer, u64 nbytes, u64 offset) {
     std::scoped_lock lock{m_mutex};
-    const s64 original_position = handle.Tell();
-    if (!handle.Seek(static_cast<s64>(offset))) {
+    const s64 original_position = handle->Tell();
+    if (!handle->Seek(static_cast<s64>(offset), Common::FS::SeekOrigin::SetOrigin)) {
         return -1;
     }
-    const s64 result = static_cast<s64>(handle.ReadRaw<u8>(buffer, nbytes));
+    const s64 result = handle->Read(buffer, nbytes);
     if (original_position >= 0) {
-        handle.Seek(original_position);
+        handle->Seek(original_position, Common::FS::SeekOrigin::SetOrigin);
     }
     return result;
 }
 
 s64 File::PWrite(const void* buffer, u64 nbytes, u64 offset) {
     std::scoped_lock lock{m_mutex};
-    const s64 original_position = handle.Tell();
-    if (!handle.Seek(static_cast<s64>(offset))) {
+    const s64 original_position = handle->Tell();
+    if (!handle->Seek(static_cast<s64>(offset), Common::FS::SeekOrigin::SetOrigin)) {
         return -1;
     }
-    const s64 result = static_cast<s64>(handle.WriteRaw<u8>(buffer, nbytes));
+    const s64 result = handle->Write(buffer, nbytes);
     if (original_position >= 0) {
-        handle.Seek(original_position);
+        handle->Seek(original_position, Common::FS::SeekOrigin::SetOrigin);
     }
     return result;
 }

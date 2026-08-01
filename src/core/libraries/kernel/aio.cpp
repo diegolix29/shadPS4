@@ -256,10 +256,10 @@ AioManager& GetAioManager() {
 
 s64 ReadNative(const std::shared_ptr<Core::FileSys::File>& file, void* buffer, u64 size,
                u64 offset) {
-    if (!file || file->type != Core::FileSys::FileType::Regular || file->f.IsWriteOnly()) {
+    if (!file || file->type != Core::FileSys::FileType::Regular || file->IsWriteOnly()) {
         return ORBIS_KERNEL_ERROR_EBADF;
     }
-    const u64 file_size = file->f.GetSize();
+    const u64 file_size = file->GetSize();
     const u64 readable = offset < file_size ? std::min(size, file_size - offset) : 0;
     Core::Memory::Instance()->InvalidateMemory(reinterpret_cast<VAddr>(buffer), readable);
     const s64 result = file->PRead(buffer, readable, offset);
@@ -351,7 +351,7 @@ s32 SubmitCommands(OrbisKernelAioRWRequest requests[], s32 size, s32 priority,
 
         if (!write && Core::FileSys::ShouldScheduleAppRead(*command.file)) {
             if (command.file->type != Core::FileSys::FileType::Regular ||
-                command.file->f.IsWriteOnly()) {
+                command.file->IsWriteOnly()) {
                 manager.Complete(record, command.request.result, ORBIS_KERNEL_ERROR_EBADF, false);
                 continue;
             }

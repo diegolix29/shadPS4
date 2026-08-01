@@ -57,6 +57,7 @@ static std::mutex virtual_user_mutex;
 #include "core/libraries/mouse/sdl_mouse.h"
 
 static bool pause_due_to_focus_loss = false;
+CMRC_DECLARE(res);
 
 namespace Frontend {
 
@@ -105,7 +106,10 @@ std::mutex motion_control_mutex;
 float gyro_buf[3] = {0.0f, 0.0f, 0.0f}, accel_buf[3] = {0.0f, 9.81f, 0.0f};
 static Uint32 SDLCALL PollGyroAndAccel(void* userdata, SDL_TimerID timer_id, Uint32 interval) {
     auto* controller = reinterpret_cast<Input::GameController*>(userdata);
-    controller->PollState();
+    controller->UpdateAxisSmoothing();
+    float gyro[3] = {0.0f, 0.0f, 0.0f};
+    controller->Gyro(0, gyro);
+    controller->Acceleration(0, gyro);
     return interval;
 }
 
@@ -200,6 +204,7 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     // input handler init-s
     Input::ControllerOutput::LinkJoystickAxes();
     Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
+    Input::GameControllers::TryOpenSDLControllers(controllers);
 
     if (Config::getBackgroundControllerInput()) {
         SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -217,6 +222,35 @@ void WindowSDL::SetIcon(std::span<const u8> png_data) {
         return;
     }
     SetWindowIcon(window, std::vector<u8>(png_data.begin(), png_data.end()));
+}
+
+void WindowSDL::SetWindowIcon(SDL_Window* window, const std::vector<u8>& png) {
+    int width, height, channels;
+    stbi_uc* pixels = stbi_load_from_memory(png.data(), static_cast<int>(png.size()), &width,
+                                            &height, &channels, STBI_rgb_alpha);
+    if (!pixels) {
+        LOG_ERROR(Core, "Failed to load window icon from memory");
+        return;
+    }
+
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, pixels,
+                                                 static_cast<int>(width) * 4);
+    if (!surface) {
+        LOG_ERROR(Core, "Failed to create SDL surface for window icon");
+        stbi_image_free(pixels);
+        return;
+    }
+
+    SDL_SetWindowIcon(window, surface);
+    SDL_DestroySurface(surface);
+    stbi_image_free(pixels);
+}
+
+void WindowSDL::SetDefaultWindowIcon(SDL_Window* window) {
+    auto fs = cmrc::res::get_filesystem();
+    auto icon_entry = fs.open("resources/icon.png");
+    std::vector<u8> icon_data(icon_entry.begin(), icon_entry.end());
+    SetWindowIcon(window, icon_data);
 }
 
 void WindowSDL::WaitEvent() {

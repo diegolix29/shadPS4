@@ -828,6 +828,8 @@ set(COMMON src/common/logging/backend.cpp
            src/common/string_util.h
            src/common/thread.cpp
            src/common/thread.h
+           src/common/zar_fs.cpp
+           src/common/zar_fs.h
            src/common/types.h
            src/common/uint128.h
            src/common/unique_function.h
@@ -987,6 +989,8 @@ set(SHADER_RECOMPILER src/shader_recompiler/profile.h
                       src/shader_recompiler/backend/spirv/emit_spirv_bitwise_conversion.cpp
                       src/shader_recompiler/backend/spirv/emit_spirv_composite.cpp
                       src/shader_recompiler/backend/spirv/emit_spirv_context_get_set.cpp
+                      src/shader_recompiler/backend/spirv/emit_spirv_discard_frag.cpp
+                      src/shader_recompiler/backend/spirv/emit_spirv_discard_frag.h
                       src/shader_recompiler/backend/spirv/emit_spirv_convert.cpp
                       src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
                       src/shader_recompiler/backend/spirv/emit_spirv_image.cpp

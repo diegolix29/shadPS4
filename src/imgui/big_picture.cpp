@@ -15,6 +15,7 @@
 #include "core/devtools/layer.h"
 #include "core/emulator_settings.h"
 #include "core/file_format/psf.h"
+#include "core/file_sys/fs.h"
 #include "emulator.h"
 #include "imgui/imgui_std.h"
 #include "imgui/renderer/font_stack.h"
