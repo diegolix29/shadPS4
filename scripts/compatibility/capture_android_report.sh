@@ -78,7 +78,7 @@ done
 for value in "$DELAY" "$COUNT" "$INTERVAL"; do
   [[ "$value" =~ ^[0-9]+$ ]] || { echo "error: timing/count values must be non-negative integers" >&2; exit 2; }
 done
-(( COUNT >= 1 )) || { echo "error: --count must be at least 1" >&2; exit 2; }
+(( COUNT >= 1 && COUNT <= 3 )) || { echo "error: --count must be between 1 and 3" >&2; exit 2; }
 if [[ -n "$DRIVER_TYPE" && ! "$DRIVER_TYPE" =~ ^(system|turnip|custom)$ ]]; then
   echo "error: --driver-type must be system, turnip, or custom" >&2; exit 2
 fi
