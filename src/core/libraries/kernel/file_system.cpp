@@ -3,6 +3,7 @@
 
 #include <map>
 #include <ranges>
+#include <vector>
 #include <magic_enum/magic_enum.hpp>
 
 #include "common/assert.h"
@@ -1357,7 +1358,8 @@ s32 PS4_SYSV_ABI posix_select(s32 nfds, fd_set_posix* readfds, fd_set_posix* wri
                 FD_SET_POSIX(i, &write_ready);
             }
             // exceptfds not supported on regular files
-        } else if (file->type == Core::FileSys::FileType::Socket) {
+        } else if (file->type == Core::FileSys::FileType::Socket && native_fd != -1) {
+            // The fd_set must not receive native_fd == -1: on Windows that is INVALID_SOCKET.
             if (want_read) {
                 FD_SET(native_fd, &read_host);
             }
@@ -1371,7 +1373,6 @@ s32 PS4_SYSV_ABI posix_select(s32 nfds, fd_set_posix* readfds, fd_set_posix* wri
         }
 
         if (native_fd == -1) {
-            LOG_WARNING(Kernel_Fs, "Unsupported fd {}", i);
             continue;
         }
 
