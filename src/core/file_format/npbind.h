@@ -3,6 +3,7 @@
 
 #pragma once
 #include <cstdint>
+#include <span>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -48,7 +49,8 @@ public:
     }
 
     // Load from file
-    bool Load(const std::filesystem::path& path);
+    bool Load(const std::string& path);
+    bool Load(std::span<const u8> data);
 
     // Accessors
     const NpBindHeader& Header() const {

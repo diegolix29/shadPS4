@@ -10,11 +10,9 @@
 #include "common/io_file.h"
 #include "npbind.h"
 
-bool NPBindFile::Load(const std::filesystem::path& path) {
-    Clear(); // Clear any existing data
-
-    Common::FS::IOFile f(path, Common::FS::FileAccessMode::Read);
-    if (!f.IsOpen())
+bool NPBindFile::Load(const std::string& path) {
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f)
         return false;
 
     const u64 sz = f.GetSize();
@@ -25,12 +23,18 @@ bool NPBindFile::Load(const std::filesystem::path& path) {
     if (f.ReadRaw<u8>(buf.data(), buf.size()) != buf.size())
         return false;
 
-    const u64 size = buf.size();
+    return Load(std::span<const u8>{buf});
+}
+
+bool NPBindFile::Load(std::span<const u8> data) {
+    Clear(); // Clear any existing data
+
+    const u64 size = data.size();
     if (size < sizeof(NpBindHeader))
         return false;
 
     // Read header
-    memcpy(&m_header, buf.data(), sizeof(NpBindHeader));
+    memcpy(&m_header, data.data(), sizeof(NpBindHeader));
     if (m_header.magic != NPBIND_MAGIC)
         return false;
 
@@ -54,14 +58,14 @@ bool NPBindFile::Load(const std::filesystem::path& path) {
             if (offset + 4 > size)
                 return false;
 
-            memcpy(&e.type, &buf[offset], 2);
-            memcpy(&e.size, &buf[offset + 2], 2);
+            memcpy(&e.type, &data[offset], 2);
+            memcpy(&e.size, &data[offset + 2], 2);
             offset += 4;
 
             if (offset + e.size > size)
                 return false;
 
-            e.data.assign(buf.begin() + offset, buf.begin() + offset + e.size);
+            e.data.assign(data.begin() + offset, data.begin() + offset + e.size);
             offset += e.size;
             return true;
         };
@@ -90,7 +94,7 @@ bool NPBindFile::Load(const std::filesystem::path& path) {
     // Read digest if available
     if (size >= 20) {
         // Digest is typically the last 20 bytes, independent of offset
-        memcpy(m_digest, &buf[size - 20], 20);
+        memcpy(m_digest, &data[size - 20], 20);
     } else {
         memset(m_digest, 0, 20);
     }

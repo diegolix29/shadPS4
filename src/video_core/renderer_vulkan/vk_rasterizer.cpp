@@ -943,7 +943,7 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
             serial != "CUSA00093" && serial != "CUSA00003" && serial != "CUSA01778" &&
             serial != "CUSA01627") {
             rt_sync_.RecordRtWrite(desc.info.guest_address, image_id);
-            // 1×1 render target: force download to guest so CPU can read the result
+            // 1�1 render target: force download to guest so CPU can read the result
             if (desc.info.size.width == 1 && desc.info.size.height == 1) {
                 rt_sync_.Schedule1x1Readback(image_id);
             }

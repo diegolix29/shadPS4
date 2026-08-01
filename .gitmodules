@@ -170,11 +170,9 @@
 [submodule "externals/protobuf"]
 	path = externals/protobuf
 	url = https://github.com/shadexternals/protobuf.git
-[submodule "externals/zarchive"]
-	path = externals/zarchive
-	url = https://github.com/Exzap/ZArchive.git
-	shallow = true
 [submodule "externals/zstd"]
 	path = externals/zstd
-	url = https://github.com/facebook/zstd.git
-	shallow = true
+	url = https://github.com/shadexternals/zstd.git
+[submodule "externals/zarchive"]
+	path = externals/zarchive
+	url = https://github.com/shadexternals/ZArchive.git

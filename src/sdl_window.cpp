@@ -105,9 +105,7 @@ std::mutex motion_control_mutex;
 float gyro_buf[3] = {0.0f, 0.0f, 0.0f}, accel_buf[3] = {0.0f, 9.81f, 0.0f};
 static Uint32 SDLCALL PollGyroAndAccel(void* userdata, SDL_TimerID timer_id, Uint32 interval) {
     auto* controller = reinterpret_cast<Input::GameController*>(userdata);
-    std::scoped_lock l{motion_control_mutex};
-    controller->Gyro(0, gyro_buf);
-    controller->Acceleration(0, accel_buf);
+    controller->PollState();
     return interval;
 }
 
@@ -202,7 +200,6 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     // input handler init-s
     Input::ControllerOutput::LinkJoystickAxes();
     Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
-    Input::GameControllers::TryOpenSDLControllers(controllers);
 
     if (Config::getBackgroundControllerInput()) {
         SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -211,48 +208,14 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
 
 WindowSDL::~WindowSDL() = default;
 
-SDL_Event* e = nullptr;
-
-void WindowSDL::SetIcon(const std::filesystem::path& path) {
-    Common::FS::IOFile file{path, Common::FS::FileAccessMode::Read,
-                            Common::FS::FileType::BinaryFile,
-                            Common::FS::FileShareFlag::ShareReadWrite};
-    if (!file.IsOpen()) {
-        LOG_ERROR(Core, "Failed to open window icon file '{}'.", fmt::UTF(path.u8string()));
-        return;
-    }
-
-    const u64 fileSize = file.GetSize();
-    if (fileSize > std::numeric_limits<size_t>::max()) {
-        LOG_ERROR(Core, "Window icon file '{}' is too large.", fmt::UTF(path.u8string()));
+void WindowSDL::SetIcon(std::span<const u8> png_data) {
+    if (png_data.empty()) {
+        LOG_WARNING(Core, "No window icon data available, using default icon.");
         SetDefaultWindowIcon(window);
         return;
     }
-    std::vector<u8> buf(static_cast<size_t>(fileSize));
-    const size_t bytes_read = file.ReadRaw<u8>(buf.data(), fileSize);
-    file.Close();
-    if (bytes_read < fileSize) {
-        LOG_ERROR(Core, "Failed to read window icon file '{}'.", fmt::UTF(path.u8string()));
-        return;
-    }
-
-#ifdef __APPLE__
-    SetWindowIcon(window, buf);
-#else
-    int image_width = 0;
-    int image_height = 0;
-    constexpr int num_channels = 4;
-    unsigned char* image_data =
-        stbi_load_from_memory(buf.data(), static_cast<int>(buf.size()), &image_width, &image_height,
-                              nullptr, num_channels);
-    if (image_data == nullptr) {
-        LOG_ERROR(Core, "Failed to load window icon image '{}': {}", fmt::UTF(path.u8string()),
-                  stbi_failure_reason());
-        return;
-    }
-    SCOPE_EXIT {
-        stbi_image_free(image_data);
-    };
+    SetWindowIcon(window, std::vector<u8>(png_data.begin(), png_data.end()));
+}
 
     SDL_Surface* surface = SDL_CreateSurfaceFrom(image_width, image_height, SDL_PIXELFORMAT_RGBA32,
                                                  image_data, image_width * num_channels);

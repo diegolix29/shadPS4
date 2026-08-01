@@ -4,6 +4,7 @@
 #pragma once
 
 #include <filesystem>
+#include <span>
 #include <string>
 
 #ifdef ENABLE_QT_GUI
