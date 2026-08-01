@@ -183,13 +183,29 @@ public:
 private:
     OrbisKernelEqueue m_handle;
     std::string m_name;
+
+public:
+    // Called by sceKernelDeleteEqueue: wakes every waiter so an indefinite wait returns
+    // instead of hanging for the rest of the process's life.
+    void MarkDeleted() {
+        {
+            std::scoped_lock lock{m_mutex};
+            m_deleted = true;
+        }
+        m_cond.notify_all();
+    }
+
+private:
+    // Set by sceKernelDeleteEqueue so an indefinite waiter wakes instead of hanging forever.
+    bool m_deleted{false};
+
     std::mutex m_mutex;
     std::vector<EqueueEvent> m_events;
     std::condition_variable m_cond;
     std::unordered_map<u64, SmallTimer> m_small_timers;
 };
 
-EqueueInternal* GetEqueue(OrbisKernelEqueue eq);
+std::shared_ptr<EqueueInternal> GetEqueue(OrbisKernelEqueue eq);
 u64 PS4_SYSV_ABI sceKernelGetEventData(const OrbisKernelEvent* ev);
 
 void RegisterEventQueue(Core::Loader::SymbolsResolver* sym);

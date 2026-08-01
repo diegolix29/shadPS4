@@ -364,6 +364,8 @@ set(P2P_TEST_SOURCES
     stubs/sdl_stub.cpp
     stubs/loader_stub.cpp
     stubs/core_stub.cpp
+    stubs/signals_stub.cpp
+    stubs/file_sys_stub.cpp
 
     # Tests
     network/test_p2p_port.cpp
@@ -418,6 +420,100 @@ if (WIN32)
 endif()
 
 gtest_discover_tests(shadps4_p2p_test
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DISCOVERY_TIMEOUT 60
+)
+
+# ===========================================================================
+# Kernel handle-table tests (concurrency around the semaphore handle table)
+# ===========================================================================
+
+set(KERNEL_TEST_SOURCES
+    # Under test
+    ${CMAKE_SOURCE_DIR}/src/core/libraries/kernel/threads/semaphore.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/libraries/kernel/equeue.cpp
+
+    # Minimal common and kernel support
+    ${CMAKE_SOURCE_DIR}/src/common/io_file.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/ntapi.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/emulator_settings.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/emulator_state.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/path_util.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/assert.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/error.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/string_util.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/logging/log.cpp
+
+    # Stubs that replace dependencies
+    stubs/common_stub.cpp
+    stubs/scm_rev_stub.cpp
+    stubs/sdl_stub.cpp
+    stubs/loader_stub.cpp
+    stubs/core_stub.cpp
+    stubs/kernel_stub.cpp
+    stubs/kernel_threads_stub.cpp
+    stubs/signals_stub.cpp
+    stubs/file_sys_stub.cpp
+    stubs/file_sys_handle_table_stub.cpp
+
+    # Tests
+    kernel/test_semaphore_handle_table.cpp
+    kernel/test_equeue_handle_table.cpp
+)
+
+add_executable(shadps4_kernel_test ${KERNEL_TEST_SOURCES})
+
+list(APPEND TEST_TARGETS shadps4_kernel_test)
+
+target_include_directories(shadps4_kernel_test PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}
+)
+target_compile_features(shadps4_kernel_test PRIVATE cxx_std_23)
+target_compile_definitions(shadps4_kernel_test PRIVATE BOOST_ASIO_STANDALONE)
+
+target_link_libraries(shadps4_kernel_test PRIVATE
+    GTest::gtest_main
+    fmt::fmt
+    magic_enum::magic_enum
+    nlohmann_json::nlohmann_json
+    toml11::toml11
+    tsl::robin_map
+    Tracy::TracyClient
+    Boost::headers
+    SDL3::SDL3
+    spdlog::spdlog
+)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
+    CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+    include(CheckCXXSymbolExists)
+    check_cxx_symbol_exists(_LIBCPP_VERSION version LIBCPP)
+    if (LIBCPP)
+        target_compile_options(shadps4_kernel_test PRIVATE -fexperimental-library)
+    endif()
+endif()
+
+if (WIN32)
+    target_link_libraries(shadps4_kernel_test PRIVATE onecore)
+    target_compile_definitions(shadps4_kernel_test PRIVATE
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        NTDDI_VERSION=0x0A000006
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+    )
+    if (MSVC)
+        target_compile_definitions(shadps4_kernel_test PRIVATE
+            _CRT_SECURE_NO_WARNINGS
+            _CRT_NONSTDC_NO_DEPRECATE
+            _SCL_SECURE_NO_WARNINGS
+            _TIMESPEC_DEFINED
+        )
+    endif()
+endif()
+
+gtest_discover_tests(shadps4_kernel_test
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     DISCOVERY_TIMEOUT 60
 )
