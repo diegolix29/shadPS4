@@ -110,7 +110,6 @@ private:
     Scheduler& scheduler;
     VideoCore::BufferCache& buffer_cache;
     bool supported{};
-    bool use_64bit_predicate{};
 
     // ZPASS sample counting.
     static constexpr u32 QueryPoolSize = 4096;

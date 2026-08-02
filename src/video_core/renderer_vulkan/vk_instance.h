@@ -101,12 +101,6 @@ public:
         return conditional_rendering;
     }
 
-    /// Returns true when the device is AMD (requires 64-bit predicate workaround)
-    bool IsAmdGpu() const {
-        return driver_id == vk::DriverId::eAmdProprietary ||
-               driver_id == vk::DriverId::eAmdOpenSource;
-    }
-
     /// Returns true if 16-bit floats are supported in shaders
     bool IsShaderFloat16Supported() const {
         return vk12_features.shaderFloat16;

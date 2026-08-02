@@ -26,7 +26,6 @@ struct ReducePushConstants {
     u32 count;
     u32 dst_index;
     u32 combine;
-    u32 use_64bit_predicate;
 };
 
 static vk::BufferMemoryBarrier2 MakeBufferBarrier(
@@ -109,26 +108,16 @@ static vk::BufferUsageFlags PredicateBufferUsage(const Instance& instance) {
     return usage;
 }
 
-static u32 GetPredicateSlotSize(const Instance& instance) {
-    // AMD GPUs require 64-bit predicate values due to hardware limitations
-    // https://gitlab.freedesktop.org/mesa/mesa/-/issues/1979
-    if (instance.IsAmdGpu()) {
-        return sizeof(u64);
-    }
-    return sizeof(u32);
-}
-
 PredicationManager::PredicationManager(const Instance& instance_, Scheduler& scheduler_,
                                        VideoCore::BufferCache& buffer_cache_)
     : instance{instance_}, scheduler{scheduler_}, buffer_cache{buffer_cache_},
       supported{instance_.IsConditionalRenderingSupported()},
-      use_64bit_predicate{instance_.IsAmdGpu()},
       predicate_buffer{instance_,
                        scheduler_,
                        VideoCore::MemoryUsage::DeviceLocal,
                        0,
                        PredicateBufferUsage(instance_),
-                       NumPredicateSlots * GetPredicateSlotSize(instance_)},
+                       NumPredicateSlots * sizeof(u32)},
       counter_scratch{instance_,
                       scheduler_,
                       VideoCore::MemoryUsage::DeviceLocal,
@@ -370,7 +359,7 @@ void PredicationManager::BeginDraw(vk::CommandBuffer cmdbuf, std::optional<u32> 
         }
         const vk::ConditionalRenderingBeginInfoEXT info = {
             .buffer = predicate_buffer.Handle(),
-            .offset = gpu_slot * GetPredicateSlotSize(instance),
+            .offset = gpu_slot * sizeof(u32),
             .flags = flags,
         };
         cmdbuf.beginConditionalRenderingEXT(info);
@@ -551,9 +540,8 @@ u32 PredicationManager::SelectPredicateSlot(vk::CommandBuffer cmdbuf, bool combi
     const u32 slot = AllocPredicateSlot();
     if (combine && mode == Mode::Static && static_visible.has_value()) {
         // Seed the slot with the previous visibility so the reduction ORs into it.
-        const u32 slot_size = GetPredicateSlotSize(instance);
-        const u64 value = *static_visible ? 1ULL : 0ULL;
-        cmdbuf.fillBuffer(predicate_buffer.Handle(), slot * slot_size, slot_size, value);
+        cmdbuf.fillBuffer(predicate_buffer.Handle(), slot * sizeof(u32), sizeof(u32),
+                          *static_visible ? 1u : 0u);
         combine_on_gpu = true;
     }
     return slot;
@@ -634,7 +622,6 @@ void PredicationManager::ReducePredicate(u32 src_index, u32 count, u32 dst_slot,
         .count = count,
         .dst_index = dst_slot,
         .combine = combine_on_gpu ? 1u : 0u,
-        .use_64bit_predicate = use_64bit_predicate ? 1u : 0u,
     };
     cmdbuf.pushConstants(*reduce_pipeline_layout, vk::ShaderStageFlagBits::eCompute, 0,
                          sizeof(push_constants), &push_constants);
