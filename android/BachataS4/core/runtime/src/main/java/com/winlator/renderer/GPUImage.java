@@ -70,11 +70,20 @@ public class GPUImage extends Texture {
         return virtualData;
     }
 
+    /**
+     * Release the permanent CPU lock taken at construction so Vulkan can write the AHB.
+     * After this call {@link #getVirtualData()} is null; Canvas compositors must copy via lock.
+     */
     public void releaseCpuLock() {
         if (locked && hardwareBufferPtr != 0) {
             unlockHardwareBuffer(hardwareBufferPtr);
             locked = false;
+            virtualData = null;
         }
+    }
+
+    public boolean isLocked() {
+        return locked;
     }
 
     @Override

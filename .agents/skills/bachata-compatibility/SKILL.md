@@ -24,6 +24,9 @@ per-test JSON, screenshots, and logs belong exclusively to
    or `nothing`. When uncertain, choose the lower status.
 8. The canonical issue has exactly one `status:*` label representing the best confirmed
    result across all reports. Per-report status remains in JSON.
+9. Every confirmed issue update must display at least one safe, representative gameplay
+   screenshot inline. Use screenshots committed with the report and immutable commit URLs;
+   never expose a local path, ADB serial, notification, account name, or other private data.
 
 ## 1. Resolve repositories and prerequisites
 
@@ -246,6 +249,7 @@ Before publication, show the user:
 - selected driver and exact Turnip version/build;
 - performance only when measured;
 - screenshot thumbnails/paths and log names/hashes;
+- the exact one to three screenshots that will be embedded in the canonical issue comment;
 - `git -C "$COMPAT_WORKTREE" diff --stat` and validation result.
 
 Ask for explicit confirmation to publish this exact report. Stop here until confirmation.
@@ -265,7 +269,22 @@ and `needs-confirmation`. Then commit, push, and open the PR:
 ```bash
 cd "$COMPAT_WORKTREE"
 git add games assets
+
+# Capture the newly staged, public screenshots before committing. Embed no more than three
+# representative images in the issue so the conversation remains readable.
+mapfile -t ISSUE_SCREENSHOTS < <(
+  git diff --cached --name-only --diff-filter=A -- assets \
+    | grep -Ei '/screenshots/.*\.(png|jpe?g|webp)$' \
+    | head -n 3
+)
+
+if (( ${#ISSUE_SCREENSHOTS[@]} == 0 )); then
+  echo "No safe staged screenshot found; refusing to publish an issue update without visual evidence." >&2
+  exit 1
+fi
+
 git commit -m "compat($CUSA): add $BACHATA_RELEASE report"
+REPORT_COMMIT="$(git rev-parse HEAD)"
 git push -u origin "$REPORT_BRANCH"
 
 PR_URL="$(gh pr create --repo JICA98/Bachata-S4-Compatibility \
@@ -277,12 +296,42 @@ PR_URL="$(gh pr create --repo JICA98/Bachata-S4-Compatibility \
 Update labels carefully. Do not downgrade the best confirmed issue status because a newer
 release/device regresses; add `regression` instead and retain the best-status label.
 
-Comment on the same canonical issue only after confirmation:
+Comment on the same canonical issue only after confirmation. The comment must include the
+report summary and one to three screenshots rendered inline. Build image URLs from the
+**pushed report commit SHA**, not a local path or mutable branch name:
 
 ```bash
+ISSUE_COMMENT="$(mktemp)"
+cat > "$ISSUE_COMMENT" <<EOF
+Confirmed compatibility report submitted: $PR_URL
+
+- **Status:** <status>
+- **Release:** $BACHATA_RELEASE
+- **Device:** $DEVICE_LABEL
+- **Driver:** <exact driver/version>
+- **Evidence commit:** \`$REPORT_COMMIT\`
+
+### Screenshots
+EOF
+
+for screenshot_path in "${ISSUE_SCREENSHOTS[@]}"; do
+  # Report-generated asset paths are expected to be URL-safe. Encode spaces defensively.
+  encoded_path="${screenshot_path// /%20}"
+  printf '\n![%s — %s — %s](https://raw.githubusercontent.com/JICA98/Bachata-S4-Compatibility/%s/%s)\n' \
+    "$GAME_TITLE" "$BACHATA_RELEASE" "<status>" \
+    "$REPORT_COMMIT" "$encoded_path" >> "$ISSUE_COMMENT"
+done
+
 gh issue comment "$ISSUE_NUMBER" --repo JICA98/Bachata-S4 \
-  --body "Confirmed report submitted: $PR_URL\n\nStatus: **<status>**  \nRelease: **$BACHATA_RELEASE**  \nDevice: **$DEVICE_LABEL**  \nDriver: **<exact driver/version>**"
+  --body-file "$ISSUE_COMMENT"
+rm -f "$ISSUE_COMMENT"
 ```
+
+Open the issue after commenting and verify that every selected image renders correctly. If
+an image is broken, private, blank, or misleading, delete/edit the comment immediately and
+replace it with a safe screenshot from the same report. Do not claim that a local pathname
+or a plain hyperlink is an attached screenshot; the image must be visibly embedded in the
+issue conversation.
 
 The issue remains open as the long-lived communication thread. The PR is the auditable
 report submission. The compatibility repository does not dispatch the website workflow. The site updates on the scheduled Pages rebuild or when the maintainer manually runs the Compatibility website workflow in JICA98/Bachata-S4.

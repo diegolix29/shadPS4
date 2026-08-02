@@ -50,7 +50,13 @@ AHardwareBuffer* createHardwareBuffer(int width, int height, bool cpuAccess, boo
     buffDesc.width = width;
     buffDesc.height = height;
     buffDesc.layers = 1;
-    buffDesc.usage = cpuAccess ? AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN : AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
+    // Vortek swapchain imports this AHB as a COLOR_ATTACHMENT|TRANSFER image.
+    // CPU-only usage (cpuAccess path regression) makes vkCreateImage fail with
+    // VK_ERROR_INITIALIZATION_FAILED and aborts guest swapchain create.
+    buffDesc.usage = AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT | AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
+    if (cpuAccess) {
+        buffDesc.usage |= AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN | AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN;
+    }
     buffDesc.format = useHALPixelFormatBGRA8888 ? HAL_PIXEL_FORMAT_BGRA_8888 : AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
 
     AHardwareBuffer* hardwareBuffer = NULL;
@@ -105,13 +111,26 @@ Java_com_winlator_renderer_GPUImage_lockHardwareBuffer(JNIEnv *env, jclass obj,
                                                        jlong hardwareBufferPtr) {
     AHardwareBuffer* hardwareBuffer = (AHardwareBuffer*)hardwareBufferPtr;
     void *virtualAddr;
-    AHardwareBuffer_lock(hardwareBuffer, AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN, -1, NULL, &virtualAddr);
+    AHardwareBuffer_lock(hardwareBuffer,
+                         AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN | AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN,
+                         -1, NULL, &virtualAddr);
 
     AHardwareBuffer_Desc buffDesc = {0};
     AHardwareBuffer_describe(hardwareBuffer, &buffDesc);
 
     jlong size = buffDesc.stride * buffDesc.height * 4;
     return (*env)->NewDirectByteBuffer(env, virtualAddr, size);
+}
+
+JNIEXPORT void JNICALL
+Java_com_winlator_renderer_GPUImage_unlockHardwareBuffer(JNIEnv *env, jclass obj,
+                                                          jlong hardwareBufferPtr) {
+    (void)env;
+    (void)obj;
+    AHardwareBuffer* hardwareBuffer = (AHardwareBuffer*)hardwareBufferPtr;
+    if (hardwareBuffer) {
+        AHardwareBuffer_unlock(hardwareBuffer, NULL);
+    }
 }
 
 JNIEXPORT void JNICALL
