@@ -1241,6 +1241,73 @@ s32 PS4_SYSV_ABI sceNpBandwidthTestShutdown(s32 /*id*/, OrbisNpBandwidthTestResu
     return ORBIS_OK;
 }
 
+// libSceNpUtility NP-lookup (online id -> np id directory). Also unimplemented until now, so the
+// generic stub answered every call with 0. That is a valid success code for most of the API but
+// NOT for the two constructors: a title context id and a request id are resources, and callers
+// check them for "> 0", not ">= 0". LBP3 does exactly that and treats ctx <= 0 as a hard failure
+// of its whole NP bring-up, which leaves its online menus (Community) disabled even though the
+// game server handshake succeeded. Hand out real positive ids so the constructors are usable.
+// Signatures come from the eboot call sites (ctx: one pointer arg; the rest take the id in edi).
+// Bases for the ids we hand out. Not SDK values - just two ranges far enough apart that a mixed
+// up context/request id fails the range check instead of being silently accepted.
+static constexpr s32 LookupTitleCtxIdBase = 0x30000000;
+static constexpr s32 LookupRequestIdBase = 0x31000000;
+
+static std::mutex g_lookup_mutex;
+static s32 g_lookup_next_title_ctx = 0;
+static s32 g_lookup_next_request = 0;
+
+s32 PS4_SYSV_ABI sceNpLookupCreateTitleCtx(void* /*param*/) {
+    if (!g_shadnet_enabled || !Libraries::Np::NpHandler::GetInstance().IsAnySignedIn()) {
+        LOG_DEBUG(Lib_NpManager, "signed out");
+        return ORBIS_NP_ERROR_SIGNED_OUT;
+    }
+    std::scoped_lock lk{g_lookup_mutex};
+    const s32 ctx_id = LookupTitleCtxIdBase + ++g_lookup_next_title_ctx;
+    LOG_DEBUG(Lib_NpManager, "created lookup title ctx {:#x}", ctx_id);
+    return ctx_id;
+}
+
+s32 PS4_SYSV_ABI sceNpLookupDeleteTitleCtx(s32 title_ctx_id) {
+    if (title_ctx_id <= LookupTitleCtxIdBase) {
+        return ORBIS_NP_ERROR_INVALID_ID;
+    }
+    LOG_DEBUG(Lib_NpManager, "deleted lookup title ctx {:#x}", title_ctx_id);
+    return ORBIS_OK;
+}
+
+s32 PS4_SYSV_ABI sceNpLookupCreateRequest(s32 title_ctx_id) {
+    if (title_ctx_id <= LookupTitleCtxIdBase) {
+        return ORBIS_NP_ERROR_INVALID_ID;
+    }
+    std::scoped_lock lk{g_lookup_mutex};
+    const s32 req_id = LookupRequestIdBase + ++g_lookup_next_request;
+    LOG_DEBUG(Lib_NpManager, "created lookup request {:#x}", req_id);
+    return req_id;
+}
+
+s32 PS4_SYSV_ABI sceNpLookupDeleteRequest(s32 req_id) {
+    if (req_id <= LookupRequestIdBase) {
+        return ORBIS_NP_ERROR_INVALID_ID;
+    }
+    LOG_DEBUG(Lib_NpManager, "deleted lookup request {:#x}", req_id);
+    return ORBIS_OK;
+}
+
+// Resolving an arbitrary online id needs a PSN directory we do not have, so report "no such user"
+// instead of inventing one. Callers test the return for < 0 and skip the (untouched) output
+// buffer, which is also why this must not keep returning the stub's 0: that claimed success and
+// left them reading an uninitialised SceNpId off their own stack.
+// The output/input parameter order here is NOT the PS3 one (the eboot passes a stack buffer in
+// rsi and the online id in rdx); neither pointer is touched, so the order stays unasserted.
+s32 PS4_SYSV_ABI sceNpLookupNpId(s32 req_id, void* /*arg1*/, void* /*arg2*/, void* /*option*/) {
+    if (req_id <= LookupRequestIdBase) {
+        return ORBIS_NP_ERROR_INVALID_ID;
+    }
+    LOG_DEBUG(Lib_NpManager, "req_id {:#x}: no NP directory to look up in", req_id);
+    return ORBIS_NP_ERROR_USER_NOT_FOUND;
+}
+
 void RegisterNpCallback(std::string key, std::function<void()> cb) {
     std::scoped_lock lk{g_np_callbacks_mutex};
     LOG_DEBUG(Lib_NpManager, "registering callback processing for {}", key);
@@ -1275,6 +1342,13 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
                  sceNpBandwidthTestGetStatus);
     LIB_FUNCTION("pLr1fEQS1z8", "libSceNpUtility", 1, "libSceNpUtility",
                  sceNpBandwidthTestShutdown);
+
+    // See the comment above sceNpLookupCreateTitleCtx.
+    LIB_FUNCTION("8533Q+LU7EQ", "libSceNpUtility", 1, "libSceNpUtility", sceNpLookupCreateTitleCtx);
+    LIB_FUNCTION("mtqDK9zkoIE", "libSceNpUtility", 1, "libSceNpUtility", sceNpLookupDeleteTitleCtx);
+    LIB_FUNCTION("iQr9UxPHUFs", "libSceNpUtility", 1, "libSceNpUtility", sceNpLookupCreateRequest);
+    LIB_FUNCTION("wLaxchvEEnk", "libSceNpUtility", 1, "libSceNpUtility", sceNpLookupDeleteRequest);
+    LIB_FUNCTION("T6tnM1Uti4g", "libSceNpUtility", 1, "libSceNpUtility", sceNpLookupNpId);
 
     LIB_FUNCTION("GpLQDNKICac", "libSceNpManager", 1, "libSceNpManager", sceNpCreateRequest);
     LIB_FUNCTION("eiqMCt9UshI", "libSceNpManager", 1, "libSceNpManager", sceNpCreateAsyncRequest);
