@@ -207,6 +207,8 @@ input::placeholder { color: var(--faint); }
 .game-card { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--panel-solid); overflow: hidden; box-shadow: 0 10px 35px rgba(0,0,0,.1); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
 .game-card:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); box-shadow: 0 18px 45px rgba(0,0,0,.2); }
 .game-card-button { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; text-align: left; }
+.game-card-actions { padding: 0 18px 18px; }
+.game-issue-link { width: 100%; min-height: 38px; font-size: .78rem; }
 .game-image-wrap { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--bg-soft); }
 .game-image { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .3s ease; }
 .game-card:hover .game-image { transform: scale(1.025); }
@@ -303,6 +305,7 @@ input::placeholder { color: var(--faint); }
   .search-field, .reset-button { grid-column: auto; }
   .game-grid { grid-template-columns: 1fr; }
   .game-card-body { padding: 16px; }
+  .game-card-actions { padding: 0 16px 16px; }
   .footer-inner { align-items: start; flex-direction: column; padding: 26px 0; }
   .footer-inner > p { text-align: left; }
   .dialog-hero { min-height: 310px; }

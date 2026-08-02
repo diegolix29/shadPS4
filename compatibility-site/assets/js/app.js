@@ -189,6 +189,7 @@
   function createCard({ game, report }) {
     const fragment = els.template.content.cloneNode(true);
     const button = fragment.querySelector('.game-card-button');
+    const issueLink = fragment.querySelector('.game-issue-link');
     const image = fragment.querySelector('.game-image');
     const status = normalizeStatus(report?.status || game.bestStatus);
     image.src = text(report?.thumbnail || game.thumbnail, PLACEHOLDER);
@@ -209,6 +210,15 @@
     fragment.querySelector('.fps').textContent = formatFps(report);
     button.setAttribute('aria-label', `Open all ${game.reportCount} ${game.reportCount === 1 ? 'report' : 'reports'} for ${game.title}`);
     button.addEventListener('click', () => openGame(game.cusaId, report?.reportId));
+    if (issueLink) {
+      if (game.issueUrl) {
+        issueLink.href = game.issueUrl;
+        issueLink.textContent = game.issueNumber ? `Open discussion #${game.issueNumber} ↗` : 'Open game discussion ↗';
+        issueLink.setAttribute('aria-label', `Open the GitHub discussion for ${game.title}`);
+      } else {
+        issueLink.hidden = true;
+      }
+    }
     return fragment;
   }
 

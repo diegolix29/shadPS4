@@ -14,8 +14,6 @@ on:
       - "scripts/compatibility/**"
       - ".agents/skills/bachata-compatibility/**"
       - ".github/workflows/compatibility-pages.yml"
-  repository_dispatch:
-    types: [compatibility-data-updated]
   schedule:
     - cron: "41 */6 * * *"
   workflow_dispatch:

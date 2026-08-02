@@ -1,6 +1,6 @@
 ---
 name: bachata-compatibility
-description: Create or reuse a canonical game issue, create a dedicated compatibility-repository worktree, test a legally owned PS4 game on one published Bachata S4 release/device/driver, capture evidence, stage an immutable report, and publish it only after explicit user confirmation.
+description: Create or reuse a canonical game issue in JICA98/Bachata-S4, create a dedicated compatibility-repository worktree, test a legally owned PS4 game on one published Bachata S4 release/device/driver, capture evidence, stage an immutable report, and publish it only after explicit user confirmation.
 ---
 
 # Bachata S4 compatibility report workflow
@@ -14,8 +14,7 @@ per-test JSON, screenshots, and logs belong exclusively to
 1. Test only content the tester legally owns. Never publish game files, firmware, keys,
    licenses, accounts, private device identifiers, or the ADB serial.
 2. Create the compatibility Git worktree **before** creating or changing report files.
-3. Search for or create the canonical GitHub issue **before launching the game**. Reuse one
-   issue per CUSA. Never create one issue per device or release.
+3. Search for or create the canonical GitHub issue in **JICA98/Bachata-S4** before launching the game. Reuse one issue per CUSA. Never create one issue per device or release. Compatibility report files and evidence still belong only to JICA98/Bachata-S4-Compatibility.
 4. Every report belongs to one published Bachata S4 release, one selected physical device,
    and one selected Vulkan driver. Exact Turnip version is mandatory for Turnip.
 5. Existing report JSON and evidence are immutable. Add a new superseding report.
@@ -87,13 +86,13 @@ All compatibility scripts after this point must run from `$COMPAT_WORKTREE`.
 Ensure shared labels exist once:
 
 ```bash
-"$COMPAT_WORKTREE/scripts/setup_labels.sh"
+"$COMPAT_WORKTREE/scripts/setup_labels.sh" JICA98/Bachata-S4
 ```
 
 Search open and closed issues by exact CUSA:
 
 ```bash
-ISSUE_NUMBER="$(gh issue list --repo JICA98/Bachata-S4-Compatibility \
+ISSUE_NUMBER="$(gh issue list --repo JICA98/Bachata-S4 \
   --state all --search "\"$CUSA\" in:title" --json number,title \
   --jq ".[] | select(.title | contains(\"$CUSA\")) | .number" | head -n1)"
 ```
@@ -101,17 +100,17 @@ ISSUE_NUMBER="$(gh issue list --repo JICA98/Bachata-S4-Compatibility \
 Create a game-specific label if needed, then create the issue only when none exists:
 
 ```bash
-gh label create "game:$CUSA" --repo JICA98/Bachata-S4-Compatibility \
+gh label create "game:$CUSA" --repo JICA98/Bachata-S4 \
   --color 5319e7 --description "Reports for $CUSA" --force
 
 if [[ -z "$ISSUE_NUMBER" ]]; then
-  ISSUE_URL="$(gh issue create --repo JICA98/Bachata-S4-Compatibility \
+  ISSUE_URL="$(gh issue create --repo JICA98/Bachata-S4 \
     --title "[$CUSA] $GAME_TITLE" \
     --label "game-report,game:$CUSA,status:testing,needs-confirmation" \
     --body "Canonical compatibility discussion for **$GAME_TITLE** ($CUSA). Individual release/device/driver tests will be submitted as immutable report pull requests after tester confirmation.")"
   ISSUE_NUMBER="${ISSUE_URL##*/}"
 else
-  gh issue edit "$ISSUE_NUMBER" --repo JICA98/Bachata-S4-Compatibility \
+  gh issue edit "$ISSUE_NUMBER" --repo JICA98/Bachata-S4 \
     --add-label "game-report,game:$CUSA,status:testing,needs-confirmation"
 fi
 ```
@@ -119,7 +118,7 @@ fi
 Read the issue and existing reports before testing so the new run addresses known blockers:
 
 ```bash
-gh issue view "$ISSUE_NUMBER" --repo JICA98/Bachata-S4-Compatibility --comments
+gh issue view "$ISSUE_NUMBER" --repo JICA98/Bachata-S4 --comments
 find "$COMPAT_WORKTREE/games/$CUSA/reports" -maxdepth 1 -name '*.json' -print 2>/dev/null | sort
 ```
 
@@ -187,6 +186,7 @@ python3 scripts/add_report.py \
   --region US \
   --publisher "Publisher" \
   --issue-number "$ISSUE_NUMBER" \
+  --issue-repository JICA98/Bachata-S4 \
   --status ingame \
   --game-version "01.00" \
   --release-tag "$BACHATA_RELEASE" \
@@ -271,7 +271,7 @@ git push -u origin "$REPORT_BRANCH"
 PR_URL="$(gh pr create --repo JICA98/Bachata-S4-Compatibility \
   --base main --head "$REPORT_BRANCH" \
   --title "compat($CUSA): $GAME_TITLE on $BACHATA_RELEASE" \
-  --body "Updates #$ISSUE_NUMBER with a confirmed immutable report.\n\n- Status: <status>\n- Device: $DEVICE_LABEL\n- Driver: <exact driver/version>\n- Release: $BACHATA_RELEASE")"
+  --body "Canonical discussion: https://github.com/JICA98/Bachata-S4/issues/$ISSUE_NUMBER\n\n- Status: <status>\n- Device: $DEVICE_LABEL\n- Driver: <exact driver/version>\n- Release: $BACHATA_RELEASE")"
 ```
 
 Update labels carefully. Do not downgrade the best confirmed issue status because a newer
@@ -280,13 +280,12 @@ release/device regresses; add `regression` instead and retain the best-status la
 Comment on the same canonical issue only after confirmation:
 
 ```bash
-gh issue comment "$ISSUE_NUMBER" --repo JICA98/Bachata-S4-Compatibility \
+gh issue comment "$ISSUE_NUMBER" --repo JICA98/Bachata-S4 \
   --body "Confirmed report submitted: $PR_URL\n\nStatus: **<status>**  \nRelease: **$BACHATA_RELEASE**  \nDevice: **$DEVICE_LABEL**  \nDriver: **<exact driver/version>**"
 ```
 
 The issue remains open as the long-lived communication thread. The PR is the auditable
-report submission. After merge, the compatibility repository dispatches a Pages rebuild;
-the main repository also performs a scheduled fallback rebuild.
+report submission. The compatibility repository does not dispatch the website workflow. The site updates on the scheduled Pages rebuild or when the maintainer manually runs the Compatibility website workflow in JICA98/Bachata-S4.
 
 ## 9. Cleanup
 
@@ -297,5 +296,4 @@ git -C "$COMPAT_REPO" worktree remove "$COMPAT_WORKTREE"
 git -C "$COMPAT_REPO" worktree prune
 ```
 
-On user rejection, do not push. Remove the temporary worktree and local branch, and remove
-`status:testing`/`needs-confirmation` from an existing issue if no test remains active.
+On user rejection, do not push. Remove the temporary worktree and local branch, and remove `status:testing`/`needs-confirmation` from the existing JICA98/Bachata-S4 issue if no test remains active.
