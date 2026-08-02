@@ -200,6 +200,9 @@ static bool ResolveEpollBinding(int id, int*& epoll_id_out, void**& user_arg_out
 }
 
 static bool HeaderNameMatches(std::string_view a, std::string_view b);
+
+// Lowercase, for the case-insensitive search over an Accept-Encoding value.
+static constexpr std::string_view kGzip = "gzip";
 static std::string HttpStatusLabel(int sc);
 
 // JSON shape: flat object mapping endpoint -> replacement URL. Example:
@@ -750,8 +753,32 @@ static s32 RunRealHttpRequest(const SendRequestPlan& plan_in, HttpResponse& out_
         // We always handle redirects manually per PS4 rules
         cli.set_follow_location(false);
 
+        // The content-coding the game negotiated itself, if any.
+        const auto game_accept_encoding =
+            std::find_if(plan.headers.begin(), plan.headers.end(), [](const auto& header) {
+                return HeaderNameMatches(header.first, "Accept-Encoding");
+            });
+        const bool game_set_accept_encoding = game_accept_encoding != plan.headers.end();
+        // ...and whether gzip is among what it asked for, which is the one coding the ORBIS
+        // flag below promises to inflate. Tokens are comma-separated and case-insensitive.
+        const bool game_asked_for_gzip =
+            game_set_accept_encoding &&
+            std::search(game_accept_encoding->second.begin(), game_accept_encoding->second.end(),
+                        kGzip.begin(), kGzip.end(), [](char x, char y) {
+                            return std::tolower(static_cast<unsigned char>(x)) == y;
+                        }) != game_accept_encoding->second.end();
+
 #ifdef CPPHTTPLIB_ZLIB_SUPPORT
-        cli.set_decompress(plan.settings.inflate_gzip);
+        // The ORBIS "inflate gzip" flag only promises to inflate *gzip*, and only for the
+        // Accept-Encoding the library adds on the game's behalf. httplib's set_decompress() also
+        // transparently inflates deflate/br, which silently breaks a game that asked for its own
+        // encoding and decodes the body itself: it gets plain bytes where it expects a compressed
+        // stream, its inflate fails, and it rejects an otherwise perfectly good response.
+        // LBP3 does exactly this - it sends "Accept-Encoding: deflate" and runs zlib over the
+        // reply. So leave the body untouched when the game negotiated a coding that does not
+        // include gzip; if it did ask for gzip, the flag still means what it says.
+        cli.set_decompress(plan.settings.inflate_gzip &&
+                           (!game_set_accept_encoding || game_asked_for_gzip));
 #endif
 
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
@@ -778,17 +805,8 @@ static s32 RunRealHttpRequest(const SendRequestPlan& plan_in, HttpResponse& out_
         for (const auto& [k, v] : plan.headers) {
             headers.emplace(k, v);
         }
-        if (plan.settings.accept_encoding_gzip) {
-            bool already_set = false;
-            for (const auto& [k, v] : plan.headers) {
-                if (HeaderNameMatches(k, "Accept-Encoding")) {
-                    already_set = true;
-                    break;
-                }
-            }
-            if (!already_set) {
-                headers.emplace("Accept-Encoding", "gzip");
-            }
+        if (plan.settings.accept_encoding_gzip && !game_set_accept_encoding) {
+            headers.emplace("Accept-Encoding", "gzip");
         }
 
         const char* body_ptr =
