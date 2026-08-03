@@ -119,7 +119,7 @@ cp "$client_source/LICENSE" "$license_output"
   printf '# Vortek protocol compatibility manifest\n'
   printf '# client_url=%s\n' "$client_url"
   printf '# client_revision=%s\n' "$client_revision"
-  printf '# server_url=https://github.com/brunodev85/winlator-app.git\n'
+  printf '# server_url=https://github.com/JICA98/winlator-app.git\n'
   printf '# server_revision=%s\n' "$server_revision"
   printf '# protocol_match=true\n'
   printf '%s  client include/request_codes.h\n' "$client_request_hash"

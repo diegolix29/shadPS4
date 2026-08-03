@@ -41,7 +41,7 @@ if (!winlator) fail("lock missing winlator-app");
 if (!/^[0-9a-f]{40}$/.test(client.revision)) fail("vortek-client revision must be 40 hex chars");
 if (!/^[0-9a-f]{40}$/.test(server.revision)) fail("vortek-server revision must be 40 hex chars");
 if (server.revision !== winlator.revision) fail("vortek-server revision must equal winlator-app");
-if (client.url !== "https://github.com/brunodev85/vortek.git") fail("unexpected vortek-client url");
+if (client.url !== "https://github.com/JICA98/vortek.git") fail("unexpected vortek-client url");
 if (client.license !== "LGPL-2.1") fail("vortek-client license must be LGPL-2.1");
 if (server.license !== "LGPL-2.1") fail("vortek-server license must be LGPL-2.1");
 if (client.sourceDestination !== "runtime/sources/vortek-client") fail("bad client sourceDestination");
@@ -85,7 +85,7 @@ if (!existsSync(protocolManifestPath)) fail("missing runtime/locks/vortek-protoc
 
 const notice = readFileSync(noticePath, "utf8");
 for (const needle of [
-  "brunodev85/vortek",
+  "JICA98/vortek",
   client.revision,
   "LGPL-2.1",
   "vortekrenderer",

@@ -118,6 +118,30 @@ tasks.whenTaskAdded {
     }
 }
 
+// Post-assemble gate: fail the build if the freshly built JNI libraries lack the
+// Bachata S4 runtime fixes (unlockHardwareBuffer export, abstract-socket handling,
+// robust vortek server). These markers are lost when CI vendors pristine upstream
+// sources, so verify the actual APK output, not just the sources.
+tasks.register("verifyNativeRuntimeFixes") {
+    group = "verification"
+    description = "Checks the assembled APK for the Bachata S4 native runtime fixes."
+    doLast {
+        val apk = layout.buildDirectory.dir("outputs/apk").get().asFile.walkTopDown()
+            .filter { it.isFile && it.extension == "apk" }
+            .maxByOrNull { it.lastModified() }
+            ?: error("No APK found under ${layout.buildDirectory.get()}/outputs/apk")
+        val script = File(rootProject.projectDir, "../../runtime/tests/verify-native-fixes.mjs")
+        val process = ProcessBuilder("node", script.absolutePath, apk.absolutePath)
+            .inheritIO()
+            .start()
+        val exit = process.waitFor()
+        if (exit != 0) throw GradleException("verifyNativeRuntimeFixes failed (exit $exit): native runtime fixes missing from APK")
+    }
+}
+tasks.matching { it.name.startsWith("assemble") }.configureEach {
+    finalizedBy("verifyNativeRuntimeFixes")
+}
+
 androidComponents {
     beforeVariants { variantBuilder ->
         val startParameterTasks = gradle.startParameter.taskNames

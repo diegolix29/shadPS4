@@ -2,7 +2,7 @@
 set -euo pipefail
 
 project_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-revision=e113da42beefc39c69c8944b27c19c3703bfa856
+revision=72ec347c9ced676e206fbc3762b9d567852cb3e3
 source_root="$project_root/runtime/sources/winlator-app"
 java_source="$source_root/app/src/main/java/com/winlator"
 cpp_source="$source_root/app/src/main/cpp/winlator"
@@ -12,7 +12,7 @@ override_root="$project_root/runtime/vendor-overrides"
 license_output="$project_root/LICENSES/Winlator-LGPL-2.1.txt"
 
 "$project_root/runtime/scripts/checkout-component.sh" \
-  winlator-app https://github.com/brunodev85/winlator-app.git "$revision"
+  winlator-app https://github.com/JICA98/winlator-app.git "$revision"
 
 java_packages=(xserver alsaserver sysvshm xconnector)
 support_files=(
@@ -65,15 +65,13 @@ copy_tree "$cpp_source" "$runtime_root/cpp/winlator"
 rm -f "$runtime_root/java/com/winlator/xserver/DesktopHelper.java"
 for override in \
   com/winlator/xserver/XServer.java \
-  com/winlator/xserver/Keyboard.java \
   com/winlator/xserver/InputDeviceManager.java \
   com/winlator/xserver/DrawableManager.java \
   com/winlator/xserver/extensions/PresentExtension.java \
   com/winlator/xserver/extensions/DRI3Extension.java \
   com/winlator/xserver/extensions/XComposite.java \
   com/winlator/xconnector/UnixSocketConfig.java \
-  com/winlator/alsaserver/ALSAClient.java \
-  com/winlator/renderer/GPUImage.java; do
+  com/winlator/alsaserver/ALSAClient.java; do
   cp "$override_root/$override" "$runtime_root/java/$override"
 done
 for override in winlator/include/time_utils.h winlator/include/string_utils.h; do
@@ -84,7 +82,7 @@ cp "$source_root/LICENSE" "$license_output"
 
 {
   printf '# Winlator source manifest\n'
-  printf '# url=https://github.com/brunodev85/winlator-app.git\n'
+  printf '# url=https://github.com/JICA98/winlator-app.git\n'
   printf '# revision=%s\n' "$revision"
   printf '# columns=upstream_sha256 local_sha256 upstream_path -> local_path\n'
   while IFS='|' read -r upstream destination; do

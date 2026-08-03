@@ -2,24 +2,22 @@
 
 ## Winlator
 
-- Upstream: https://github.com/brunodev85/winlator-app.git
-- Revision: `e113da42beefc39c69c8944b27c19c3703bfa856`
+- Upstream: https://github.com/JICA98/winlator-app.git (Bachata S4 runtime fork of brunodev85/winlator-app)
+- Revision: `72ec347c9ced676e206fbc3762b9d567852cb3e3`
 - License: LGPL-2.1
 - Copied paths: `app/src/main/java/com/winlator/{xserver,alsaserver,core,math,renderer,sysvshm,xconnector}` and `app/src/main/cpp/winlator`
 - Local destination: `android/BachataS4/core/runtime/src/main/{java/com/winlator,cpp/winlator}`
-- Modifications: source selection only; copied files remain byte-identical to the pinned revision. Bachata S4 integration lives outside `com.winlator`.
-
-`runtime/locks/winlator-vendor.sha256` records every copied upstream path, local path, and SHA-256. Wine UI, installers, assets, and bundled binaries are excluded.
+- Modifications: source selection plus Bachata S4 runtime fixes (abstract X11 sockets, keymap query, GPU image unlock, SYNC_FD wait handling) committed to the fork above; `runtime/locks/winlator-vendor.sha256` records every copied path and SHA-256.
 
 ## Vortek
 
-- Client upstream: https://github.com/brunodev85/vortek.git
-- Client revision: `ab7329c4b445a4abd9b9af91b8148e1ca41464fa`
+- Client upstream: https://github.com/JICA98/vortek.git (Bachata S4 runtime fork of brunodev85/vortek)
+- Client revision: `9325b6060fc1c690234e102fcbbb1e0283b8892e`
 - Client license: LGPL-2.1
 - Client source destination: `runtime/sources/vortek-client`
 - Client is built from source into the managed runtime (`host/lib/libvulkan_vortek.so`); no prebuilt Winlator Vortek asset is redistributed.
-- Server upstream: https://github.com/brunodev85/winlator-app.git
-- Server revision: `e113da42beefc39c69c8944b27c19c3703bfa856` (same pin as Winlator above)
+- Server upstream: https://github.com/JICA98/winlator-app.git
+- Server revision: `72ec347c9ced676e206fbc3762b9d567852cb3e3` (same pin as Winlator above)
 - Server source location: `runtime/sources/winlator-app/app/src/main/cpp/vortekrenderer`
 - Server is also LGPL-2.1 and is built from source (Android native library integration is a later task).
 - Protocol headers `request_codes.h` and `vortek_serializer.h` are verified byte-identical between the pinned client and server via `runtime/scripts/vendor-vortek.sh`.

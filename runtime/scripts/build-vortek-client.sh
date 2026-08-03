@@ -189,10 +189,10 @@ fi
 cp "$source_dir/LICENSE" "$stage_dir/usr/share/bachata/vortek/LICENSE"
 cat >"$stage_dir/usr/share/bachata/vortek/SOURCE.txt" <<EOF
 name=vortek-client
-url=https://github.com/brunodev85/vortek.git
+url=https://github.com/JICA98/vortek.git
 revision=$client_revision
 license=LGPL-2.1
-server_url=https://github.com/brunodev85/winlator-app.git
+server_url=https://github.com/JICA98/winlator-app.git
 server_revision=$server_revision
 server_path=app/src/main/cpp/vortekrenderer
 built_from_source=true

@@ -9,8 +9,8 @@
     },
     {
       "name": "winlator-app",
-      "url": "https://github.com/brunodev85/winlator-app.git",
-      "revision": "e113da42beefc39c69c8944b27c19c3703bfa856",
+      "url": "https://github.com/JICA98/winlator-app.git",
+      "revision": "72ec347c9ced676e206fbc3762b9d567852cb3e3",
       "license": "LGPL-2.1"
     },
     {
@@ -39,16 +39,16 @@
     },
     {
       "name": "vortek-client",
-      "url": "https://github.com/brunodev85/vortek.git",
-      "revision": "ab7329c4b445a4abd9b9af91b8148e1ca41464fa",
+      "url": "https://github.com/JICA98/vortek.git",
+      "revision": "9325b6060fc1c690234e102fcbbb1e0283b8892e",
       "license": "LGPL-2.1",
       "sourceDestination": "runtime/sources/vortek-client",
       "buildOutput": "host/lib/libvulkan_vortek.so"
     },
     {
       "name": "vortek-server",
-      "url": "https://github.com/brunodev85/winlator-app.git",
-      "revision": "e113da42beefc39c69c8944b27c19c3703bfa856",
+      "url": "https://github.com/JICA98/winlator-app.git",
+      "revision": "72ec347c9ced676e206fbc3762b9d567852cb3e3",
       "license": "LGPL-2.1",
       "sourceDestination": "runtime/sources/winlator-app/app/src/main/cpp/vortekrenderer",
       "sourcedFrom": "winlator-app"

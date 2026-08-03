@@ -1,8 +1,8 @@
 # Vortek protocol compatibility manifest
-# client_url=https://github.com/brunodev85/vortek.git
-# client_revision=ab7329c4b445a4abd9b9af91b8148e1ca41464fa
-# server_url=https://github.com/brunodev85/winlator-app.git
-# server_revision=e113da42beefc39c69c8944b27c19c3703bfa856
+# client_url=https://github.com/JICA98/vortek.git
+# client_revision=9325b6060fc1c690234e102fcbbb1e0283b8892e
+# server_url=https://github.com/JICA98/winlator-app.git
+# server_revision=72ec347c9ced676e206fbc3762b9d567852cb3e3
 # protocol_match=true
 23162b9e2b5560d77e993b74ed39bc2b50e7a7cc895370849881b7becbeb6414  client include/request_codes.h
 23162b9e2b5560d77e993b74ed39bc2b50e7a7cc895370849881b7becbeb6414  server include/request_codes.h
