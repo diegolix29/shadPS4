@@ -7,6 +7,8 @@
 #include "common/debug.h"
 #include "common/elf_info.h"
 #include "common/memory_patcher.h"
+#include "core/debug_state.h"
+#include "core/emulator_settings.h"
 #include "core/memory.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/amdgpu/liverpool.h"
@@ -258,6 +260,7 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
         cmdbuf.draw(regs.num_indices, regs.num_instances.NumInstances(), vertex_offset,
                     instance_offset);
     }
+    DebugState.IncDrawCall();
 
     predication.EndDraw(cmdbuf, zpass_query, predicated);
     ResetBindings();
@@ -342,6 +345,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
         } else {
             cmdbuf.drawIndexedIndirect(buffer->Handle(), base, max_count, stride);
         }
+        DebugState.IncDrawCall();
     } else {
         ASSERT(sizeof(VkDrawIndirectCommand) == stride);
 
@@ -351,6 +355,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
         } else {
             cmdbuf.drawIndirect(buffer->Handle(), base, max_count, stride);
         }
+        DebugState.IncDrawCall();
     }
 
     predication.EndDraw(cmdbuf, zpass_query, predicated);
@@ -386,6 +391,7 @@ void Rasterizer::DispatchDirect() {
     predication.BeginDraw(cmdbuf, std::nullopt, predicated);
     cmdbuf.dispatch(cs_program.dim_x, cs_program.dim_y, cs_program.dim_z);
     predication.EndDraw(cmdbuf, std::nullopt, predicated);
+    DebugState.IncDispatch();
 
     if (!ShouldDisableSync()) {
         for (const auto& storage_image_id : pending_storage_image_ids_) {
@@ -427,6 +433,7 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_g
     predication.BeginDraw(cmdbuf, std::nullopt, predicated);
     cmdbuf.dispatchIndirect(buffer->Handle(), base);
     predication.EndDraw(cmdbuf, std::nullopt, predicated);
+    DebugState.IncDispatch();
 
     if (!ShouldDisableSync()) {
         for (const auto& storage_image_id : pending_storage_image_ids_) {
