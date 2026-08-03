@@ -291,7 +291,8 @@ void PredicationManager::EnableFromBool(VAddr address, bool is_64bit, bool draw_
     // it must be sampled on the GPU timeline rather than at parse time. Obtain the guest
     // buffer before touching the command buffer: the cache lookup may flush the scheduler.
     const u32 width = is_64bit ? sizeof(u64) : sizeof(u32);
-    const auto [buffer, offset] = buffer_cache.ObtainBuffer(address, width, VideoCore::ObtainBufferFlags::None);
+    const auto [buffer, offset] =
+        buffer_cache.ObtainBuffer(address, width, VideoCore::ObtainBufferFlags::None);
     scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
     const u32 qword = AllocScratchQwords(1);

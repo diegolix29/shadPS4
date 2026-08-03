@@ -55,8 +55,8 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
       texture_cache{instance, scheduler, liverpool_, buffer_cache, page_manager},
       storage_sync_{scheduler, buffer_cache, texture_cache},
       rt_sync_{instance, scheduler, texture_cache}, liverpool{liverpool_},
-      predication{instance, scheduler, buffer_cache},
-      memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool} {
+      predication{instance, scheduler, buffer_cache}, memory{Core::Memory::Instance()},
+      pipeline_cache{instance, scheduler, liverpool} {
     if (!Config::nullGpu()) {
         liverpool->BindRasterizer(this);
     }
