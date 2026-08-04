@@ -22,7 +22,6 @@ public:
     void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame,
                                  const std::string& gameSerial);
     void Draw();
-    bool ShouldKeepDrawing() override;
     void DrawPauseStatusWindow(bool& is_open);
     bool show_pause_status = false;
     void TextCentered(const std::string& text);

@@ -216,10 +216,6 @@ void L::TextCentered(const std::string& text) {
     ImGui::TextUnformatted(text.c_str());
 }
 
-bool L::ShouldKeepDrawing() {
-    return DebugState.IsShowingDebugMenuBar();
-}
-
 void L::DrawMenuBar() {
     const auto& ctx = *GImGui;
     const auto& io = ctx.IO;
