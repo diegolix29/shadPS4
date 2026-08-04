@@ -498,25 +498,25 @@ void PredicationManager::BuildFromQueries(const std::vector<u32>& queries, bool 
         // reduction pass is needed; a count of exactly 2^32 is not reachable in practice.
         const u32 slot = AllocPredicateSlot();
         const u32 slot_size = GetPredicateSlotSize(instance);
-        
+
         RecordBufferBarrier(
             cmdbuf,
             MakeBufferBarrier(predicate_buffer.Handle(), vk::PipelineStageFlagBits2::eAllCommands,
                               vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
                               vk::PipelineStageFlagBits2::eAllTransfer,
                               vk::AccessFlagBits2::eTransferWrite));
-        
+
         if (use_64bit_predicate) {
             // For AMD, copy the full 64-bit result to ensure proper predicate format
-            cmdbuf.copyQueryPoolResults(*query_pool, queries.front(), 1, predicate_buffer.Handle(),
-                                        slot * slot_size, sizeof(u64),
-                                        vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait);
+            cmdbuf.copyQueryPoolResults(
+                *query_pool, queries.front(), 1, predicate_buffer.Handle(), slot * slot_size,
+                sizeof(u64), vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait);
         } else {
             cmdbuf.copyQueryPoolResults(*query_pool, queries.front(), 1, predicate_buffer.Handle(),
                                         slot * sizeof(u32), sizeof(u32),
                                         vk::QueryResultFlagBits::eWait);
         }
-        
+
         RecordBufferBarrier(cmdbuf,
                             MakeBufferBarrier(predicate_buffer.Handle(),
                                               vk::PipelineStageFlagBits2::eAllTransfer,
@@ -598,7 +598,7 @@ void PredicationManager::ReducePredicate(u32 src_index, u32 count, u32 dst_slot,
     const auto cmdbuf = scheduler.CommandBuffer();
 
     // Optimize barriers for AMD GPUs - use more precise stage masks and by-region dependency
-    const vk::DependencyFlags dependency_flags = 
+    const vk::DependencyFlags dependency_flags =
         instance.IsAmdGpu() ? vk::DependencyFlagBits::eByRegion : vk::DependencyFlags{};
 
     const std::array<vk::BufferMemoryBarrier2, 2> pre_barriers = {{

@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstdlib>
+#include <QCoreApplication>
 #include <QDir>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -14,6 +16,7 @@
 #include <QNetworkReply>
 #include <QProcess>
 #include <QProgressBar>
+#include <QProgressDialog>
 #include <QRegularExpression>
 #include <QTextStream>
 #include <QTimer>
@@ -21,6 +24,8 @@
 #include <common/path_util.h>
 
 #include "common/config.h"
+#include "core/file_format/pkg.h"
+#include "pkg_installer/pkg_installer.h"
 #include "qt_gui/compatibility_info.h"
 #include "qt_gui/main_window.h"
 #include "ui_version_dialog.h"
@@ -73,7 +78,7 @@ VersionDialog::VersionDialog(std::shared_ptr<CompatibilityInfoClass> compat_info
             [this]() { InstallSelectedVersionExe(); });
     connect(ui->uninstallQtButton, &QPushButton::clicked, this,
             &VersionDialog::UninstallSelectedVersion);
-    connect(ui->installPkgButton, &QPushButton::clicked, this, [this]() { InstallPkgWithV7(); });
+    connect(ui->installPkgButton, &QPushButton::clicked, this, [this]() { InstallPkg(); });
     connect(ui->addCustomVersionButton, &QPushButton::clicked, this, [this]() {
         QString exePath;
 
@@ -1216,325 +1221,151 @@ void VersionDialog::dropEvent(QDropEvent* event) {
     LoadinstalledList();
 }
 
-void VersionDialog::LaunchPkgInstaller() {
-    const QString targetReleasePrefix = "V7-shadPS4";
-    QString userPath = QString::fromStdString(m_compat_info->GetShadPath());
-    if (!QDir(userPath).exists()) {
-        QMessageBox::warning(this, tr("Folder Not Found"),
-                             tr("The previously selected folder no longer exists.\n"
-                                "Please use the Install PKG button to set up a new location."));
+void VersionDialog::InstallPkg() {
+    const QStringList pkgPaths = QFileDialog::getOpenFileNames(
+        this, tr("Select PKG File(s)"), QString(), tr("PS4 Package Files (*.pkg)"));
+    if (pkgPaths.isEmpty()) {
         return;
     }
-    QString installerFolder = QDir(userPath).filePath("PKG_Installer_v7");
-    QString installerExe;
-
-#if defined(Q_OS_WIN)
-    installerExe = QDir(installerFolder).filePath("extractor.exe");
-#elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
-    installerExe = QDir(installerFolder).filePath("extractor");
-#endif
-
-    if (QFile::exists(installerExe)) {
-        QProcess::startDetached(installerExe, QStringList() << "--install-pkg");
-        ShowPkgInstallerDialog(installerFolder);
-    } else {
-        QMessageBox::warning(
-            this, tr("PKG Installer Not Found"),
-            tr("PKG Installer not found. Please install it first using the Install PKG button."));
-    }
+    InstallPkgFiles(pkgPaths);
 }
 
-void VersionDialog::ShowPkgInstallerDialog(const QString& installerFolder,
-                                           const QString& destinationPath) {
-    QMessageBox infoBox(this);
-    infoBox.setWindowTitle(tr("PKG Installer Running"));
-    infoBox.setIcon(QMessageBox::Information);
-    infoBox.setText(
-        tr("The PKG Installer has been launched.\n"
-           "Please tap OK after your installation is complete to close the installer.\n\n"
-           "Tap 'Install Another PKG' to close the current installer and start a new one."));
+void VersionDialog::InstallPkgFiles(const QStringList& pkgPaths) {
+    // Content flag bits that mark a PKG as a patch/update rather than a base
+    // game install (see PKGContentFlag in core/file_format/pkg.h).
+    constexpr uint32_t kUpdateFlagsMask = static_cast<uint32_t>(PKGContentFlag::FIRST_PATCH) |
+                                          static_cast<uint32_t>(PKGContentFlag::PATCHGO) |
+                                          static_cast<uint32_t>(PKGContentFlag::SUBSEQUENT_PATCH) |
+                                          static_cast<uint32_t>(PKGContentFlag::DELTA_PATCH) |
+                                          static_cast<uint32_t>(PKGContentFlag::CUMULATIVE_PATCH);
 
-    QPushButton* okButton = infoBox.addButton(tr("OK"), QMessageBox::AcceptRole);
-    QPushButton* anotherButton =
-        infoBox.addButton(tr("Install Another PKG"), QMessageBox::ActionRole);
-
-    infoBox.setDefaultButton(okButton);
-
-    infoBox.exec();
-
-#if defined(Q_OS_WIN)
-    QProcess::startDetached("taskkill", QStringList() << "/IM" << "extractor.exe" << "/F");
-#elif defined(Q_OS_LINUX) || defined(Q_OS_MAC)
-    QString script = QString("#!/bin/bash\n"
-                             "ps aux | grep '%1' | grep -v grep | awk '{print $2}' | xargs -r kill "
-                             "-9 2>/dev/null || true\n"
-                             "ps aux | grep 'extractor' | grep -v grep | awk '{print $2}' | xargs "
-                             "-r kill -9 2>/dev/null || true\n")
-                         .arg(QDir(installerFolder).path());
-    QProcess::startDetached("/bin/bash", QStringList() << "-c" << script);
-#endif
-
-    if (infoBox.clickedButton() == okButton) {
-        if (!destinationPath.isEmpty()) {
-            QDir(installerFolder).removeRecursively();
-            QFile::remove(destinationPath);
+    // Prefer the user's first enabled game library directory as the default
+    // install target for base games (and as a fallback for updates whose
+    // base game isn't installed yet).
+    std::filesystem::path defaultDestDir;
+    const auto dirs = Config::getGameDirectories();
+    const auto enabled = Config::getGameDirectoriesEnabled();
+    for (size_t i = 0; i < dirs.size(); i++) {
+        if (i < enabled.size() && enabled[i]) {
+            defaultDestDir = dirs[i];
+            break;
         }
-        this->close();
-    } else if (infoBox.clickedButton() == anotherButton) {
-        QTimer::singleShot(1000, this, [this]() { LaunchPkgInstaller(); });
     }
-}
 
-void VersionDialog::InstallPkgWithV7() {
-    auto shadPath = m_compat_info->GetShadPath();
-    QString shadPathStr = QString::fromStdString(shadPath);
-
-    if (shadPath.empty() || !QDir(shadPathStr).exists()) {
-        if (shadPath.empty()) {
-            QMessageBox::warning(this, tr("Setup Required"),
-                                 tr("First you need to choose a location to save the "
-                                    "versions in (Path to save versions)."));
-        } else {
-            QMessageBox::warning(this, tr("Folder Not Found"),
-                                 tr("The previously selected folder no longer exists:\n%1\n\n"
-                                    "Please select a new location.")
-                                     .arg(shadPathStr));
-            m_compat_info->SetShadPath("");
-            ui->currentShadPath->clear();
-        }
-
-        QString shad_folder_path_string =
-            QFileDialog::getExistingDirectory(this, tr("Select the shadPS4 folder"), shadPathStr);
-
-        auto folder_path = Common::FS::PathFromQString(shad_folder_path_string);
-
-        if (folder_path.empty()) {
+    if (defaultDestDir.empty() || !std::filesystem::exists(defaultDestDir)) {
+        const QString chosen = QFileDialog::getExistingDirectory(
+            this, tr("Select a Game Install Directory"), QString(),
+            QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (chosen.isEmpty()) {
             return;
         }
-
-        m_compat_info->SetShadPath(shad_folder_path_string.toStdString());
-        ui->currentShadPath->setText(shad_folder_path_string);
+        defaultDestDir = Common::FS::PathFromQString(chosen);
     }
 
-    const QString targetReleasePrefix = "V7-shadPS4";
-    QString userPath = QString::fromStdString(m_compat_info->GetShadPath());
-    QString installerFolder = QDir(userPath).filePath("PKG_Installer_v7");
-    QString installerExe;
-
-#if defined(Q_OS_WIN)
-    installerExe = QDir(installerFolder).filePath("extractor.exe");
-    QString platform = "win64-qt";
-#elif defined(Q_OS_LINUX)
-    installerExe = QDir(installerFolder).filePath("extractor");
-    QString platform = "linux-qt";
-#elif defined(Q_OS_MAC)
-    installerExe = QDir(installerFolder).filePath("extractor");
-    QString platform = "macos-qt";
-#endif
-
-    if (QFile::exists(installerExe)) {
-        QProcess::startDetached(installerExe, QStringList() << "--install-pkg");
-        ShowPkgInstallerDialog(installerFolder);
-        this->close();
-        return;
-    }
-
-    const QString forkRepoUrl = "https://api.github.com/repos/diegolix29/shadPS4/releases";
-
-    QMessageBox::StandardButton reply =
-        QMessageBox::question(this, tr("PKG Installer Download"),
-                              tr("To run the PKG installer, we need to download the %1 build (%2 "
-                                 ")in Shadlix Repository.\n\nDo you want to proceed?")
-                                  .arg(platform)
-                                  .arg(targetReleasePrefix),
-                              QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::No)
-        return;
-
-    QNetworkAccessManager* manager = new QNetworkAccessManager(this);
-    QNetworkReply* apiReply = manager->get(QNetworkRequest(QUrl(forkRepoUrl)));
-
-    connect(
-        apiReply, &QNetworkReply::finished, this,
-        [this, apiReply, platform, targetReleasePrefix]() {
-            if (apiReply->error() != QNetworkReply::NoError) {
-                QMessageBox::warning(this, tr("Error"),
-                                     tr("Failed to fetch release info: ") +
-                                         apiReply->errorString());
-                apiReply->deleteLater();
-                return;
+    // Look across every enabled library directory for an existing base-game
+    // install with this Title ID, so an update lands next to the actual
+    // game even if that's not in the first configured directory.
+    const auto findExistingGameDir = [&](const std::string& title_id) -> std::filesystem::path {
+        for (size_t i = 0; i < dirs.size(); i++) {
+            if (i < enabled.size() && !enabled[i]) {
+                continue;
             }
+            const auto candidate = dirs[i] / title_id;
+            if (std::filesystem::exists(candidate)) {
+                return candidate;
+            }
+        }
+        return {};
+    };
 
-            QJsonDocument doc = QJsonDocument::fromJson(apiReply->readAll());
-            QJsonArray releases = doc.array();
-            QString downloadUrl;
+    QProgressDialog progress(tr("Preparing to install PKG..."), tr("Cancel"), 0, 100, this);
+    progress.setWindowTitle(tr("Installing PKG"));
+    progress.setWindowModality(Qt::WindowModal);
+    progress.setMinimumDuration(0);
+    progress.setAutoClose(false);
+    progress.setAutoReset(false);
+    progress.show();
 
-            for (const QJsonValue& releaseVal : releases) {
-                QJsonObject releaseObj = releaseVal.toObject();
-                if (releaseObj["tag_name"].toString().startsWith(targetReleasePrefix)) {
-                    QJsonArray assets = releaseObj["assets"].toArray();
-                    for (const QJsonValue& assetVal : assets) {
-                        QJsonObject assetObj = assetVal.toObject();
-                        QString name = assetObj["name"].toString();
-                        if (name.contains(platform)) {
-                            downloadUrl = assetObj["browser_download_url"].toString();
-                            break;
-                        }
-                    }
-                    break;
+    int installedCount = 0;
+    QStringList failures;
+
+    for (const QString& pkgPathQ : pkgPaths) {
+        if (progress.wasCanceled()) {
+            break;
+        }
+
+        const auto pkgPath = Common::FS::PathFromQString(pkgPathQ);
+
+        PkgMetadata meta;
+        const auto metaErr = ReadPkgMetadata(pkgPath, meta);
+        if (metaErr) {
+            failures << tr("%1: %2").arg(QFileInfo(pkgPathQ).fileName(),
+                                         QString::fromStdString(*metaErr));
+            continue;
+        }
+
+        const QString titleId = QString::fromStdString(meta.title_id);
+        const bool isUpdate = (meta.flags & kUpdateFlagsMask) != 0;
+
+        std::filesystem::path targetDir;
+        if (isUpdate && Config::getSeparateUpdateEnabled()) {
+            auto baseDir = findExistingGameDir(meta.title_id);
+            if (baseDir.empty()) {
+                // Base game isn't installed yet: put the update where the
+                // base game would go once it is.
+                baseDir = defaultDestDir / meta.title_id;
+            }
+            auto updateDir = baseDir;
+            updateDir += "-UPDATE";
+            auto patchDir = baseDir;
+            patchDir += "-patch";
+            // If an older "-patch" folder already exists and there's no
+            // "-UPDATE" one yet, keep using it; otherwise "-UPDATE" is the
+            // convention used elsewhere in Shadlix (see the Trophy Viewer).
+            targetDir = (std::filesystem::exists(patchDir) && !std::filesystem::exists(updateDir))
+                            ? patchDir
+                            : updateDir;
+        } else {
+            targetDir = defaultDestDir / meta.title_id;
+        }
+
+        progress.setLabelText(tr("Installing %1 (%2)%3...")
+                                  .arg(QFileInfo(pkgPathQ).fileName(), titleId,
+                                       isUpdate ? tr(" [update]") : QString()));
+        progress.setValue(0);
+        QCoreApplication::processEvents();
+
+        const auto extractErr =
+            ExtractPkg(pkgPath, targetDir, {}, [&](uint32_t extracted, uint32_t total) {
+                if (total > 0) {
+                    progress.setValue(static_cast<int>((extracted * 100ull) / total));
                 }
-            }
-            apiReply->deleteLater();
+                QCoreApplication::processEvents();
+            });
 
-            if (downloadUrl.isEmpty()) {
-                QMessageBox::critical(
-                    this, tr("Error"),
-                    tr("Installation files not found for release '%1' or platform %2.")
-                        .arg(targetReleasePrefix)
-                        .arg(platform));
-                return;
-            }
+        if (extractErr) {
+            failures << tr("%1: %2").arg(QFileInfo(pkgPathQ).fileName(),
+                                         QString::fromStdString(*extractErr));
+            continue;
+        }
 
-            QString userPath = QString::fromStdString(m_compat_info->GetShadPath());
-            QString downloadFileName = "temp_pkg_installer.zip";
-            const QString destinationPath = userPath + "/" + downloadFileName;
-            QString installerFolder = QDir(userPath).filePath("PKG_Installer_v7");
+        installedCount++;
+    }
 
-            QDir(installerFolder).removeRecursively();
-            QFile::remove(destinationPath);
+    progress.close();
 
-            QNetworkAccessManager* downloadManager = new QNetworkAccessManager(this);
-            QNetworkReply* downloadReply = downloadManager->get(QNetworkRequest(QUrl(downloadUrl)));
+    if (installedCount > 0) {
+        emit PkgInstalled();
+    }
 
-            QDialog* progressDialog = new QDialog(this);
-            progressDialog->setWindowTitle(
-                tr("Downloading PKG Installer (%1)").arg(targetReleasePrefix));
-            progressDialog->setFixedSize(400, 80);
-            QVBoxLayout* layout = new QVBoxLayout(progressDialog);
-            QProgressBar* progressBar = new QProgressBar(progressDialog);
-            progressBar->setRange(0, 100);
-            layout->addWidget(progressBar);
-            progressDialog->setLayout(layout);
-            progressDialog->show();
-
-            connect(downloadReply, &QNetworkReply::downloadProgress, this,
-                    [progressBar](qint64 bytesReceived, qint64 bytesTotal) {
-                        if (bytesTotal > 0)
-                            progressBar->setValue(
-                                static_cast<int>((bytesReceived * 100) / bytesTotal));
-                    });
-
-            QFile* file = new QFile(destinationPath);
-            if (!file->open(QIODevice::WriteOnly)) {
-                QMessageBox::warning(this, tr("Error"),
-                                     tr("Could not save temporary download file."));
-                file->deleteLater();
-                downloadReply->deleteLater();
-                progressDialog->close();
-                return;
-            }
-
-            connect(downloadReply, &QNetworkReply::readyRead, this,
-                    [file, downloadReply]() { file->write(downloadReply->readAll()); });
-
-            connect(downloadReply, &QNetworkReply::finished, this,
-                    [this, file, downloadReply, progressDialog, installerFolder, destinationPath,
-                     userPath]() mutable {
-                        file->flush();
-                        file->close();
-                        file->deleteLater();
-                        downloadReply->deleteLater();
-                        progressDialog->close();
-                        progressDialog->deleteLater();
-
-                        if (downloadReply->error() != QNetworkReply::NoError) {
-                            QMessageBox::critical(this, tr("Download Failed"),
-                                                  downloadReply->errorString());
-                            QFile::remove(destinationPath);
-                            return;
-                        }
-
-#if defined(Q_OS_WIN)
-                        QString psScript =
-                            QString("New-Item -ItemType Directory -Path \"%1\" -Force\n"
-                                    "Expand-Archive -Path \"%2\" -DestinationPath \"%1\" -Force\n"
-                                    "Move-Item -Path \"%1/shadps4.exe\" -Destination "
-                                    "\"%1/extractor.exe\" -Force\n"
-                                    "Start-Process -FilePath \"%1/extractor.exe\" -ArgumentList "
-                                    "\"--install-pkg\"\n")
-                                .arg(installerFolder)
-                                .arg(destinationPath);
-                        QString psFile = userPath + "/run_pkg_installer.ps1";
-                        QFile f(psFile);
-                        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                            QTextStream out(&f);
-                            f.write("\xEF\xBB\xBF");
-                            out << psScript;
-                            f.close();
-                        }
-                        QProcess::startDetached("powershell.exe",
-                                                QStringList() << "-ExecutionPolicy" << "Bypass"
-                                                              << "-File" << psFile);
-#else
-                    QString shScript =
-                        QString(
-                            "#!/bin/bash\n"
-                            "set -e  # Exit on any error\n"
-                            "mkdir -p \"%1\"\n"
-                            "echo \"Extracting PKG installer...\"\n"
-                            "if command -v unzip &> /dev/null; then\n"
-                            "    unzip -o \"%2\" -d \"%1\" 2>/dev/null || {\n"
-                            "        if command -v 7z &> /dev/null; then\n"
-                            "            7z x \"%2\" -o\"%1\" -y\n"
-                            "        else\n"
-                            "            echo \"Error: Neither unzip nor 7z available\"\n"
-                            "            exit 1\n"
-                            "        fi\n"
-                            "    }\n"
-                            "elif command -v 7z &> /dev/null; then\n"
-                            "    7z x \"%2\" -o\"%1\" -y\n"
-                            "else\n"
-                            "    echo \"Error: No archive extraction tool available\"\n"
-                            "    exit 1\n"
-                            "fi\n"
-                            "cd \"%1\"\n"
-                            "echo \"Looking for executable to rename...\"\n"
-                            "FOUND_EXEC=\"\"\n"
-                            "for exec_pattern in \"Shadps4-qt.AppImage\" \"shadps4-qt.AppImage\" "
-                            "\"Shadps4-qt\" \"shadps4-qt\" \"*.AppImage\"; do\n"
-                            "    if compgen -G \"$exec_pattern\" > /dev/null; then\n"
-                            "        FOUND_EXEC=$(ls $exec_pattern 2>/dev/null | head -1)\n"
-                            "        break\n"
-                            "    fi\n"
-                            "done\n"
-                            "if [ -n \"$FOUND_EXEC\" ]; then\n"
-                            "    echo \"Found executable: $FOUND_EXEC\"\n"
-                            "    mv -f \"$FOUND_EXEC\" extractor\n"
-                            "    chmod +x extractor 2>/dev/null || true\n"
-                            "    echo \"Starting PKG installer...\"\n"
-                            "    nohup ./extractor --install-pkg &\n"
-                            "else\n"
-                            "    echo \"Error: No suitable executable found in extraction\"\n"
-                            "    echo \"Contents:\"\n"
-                            "    ls -la\n"
-                            "    exit 1\n"
-                            "fi\n")
-                            .arg(installerFolder)
-                            .arg(destinationPath);
-
-                    QString shFile = userPath + "/run_pkg_installer.sh";
-                    QFile f(shFile);
-                    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                        QTextStream out(&f);
-                        out << shScript;
-                        f.close();
-                        f.setPermissions(QFile::ExeUser | QFile::ReadUser | QFile::WriteUser);
-                    }
-                    QProcess::startDetached("/bin/bash", QStringList() << shFile);
-#endif
-
-                        ShowPkgInstallerDialog(installerFolder, destinationPath);
-                        this->close();
-                    });
-        });
+    if (!failures.isEmpty()) {
+        QMessageBox::warning(
+            this, tr("PKG Installation Finished With Errors"),
+            tr("%1 file(s) installed successfully.\n\nThe following file(s) failed:\n%2")
+                .arg(installedCount)
+                .arg(failures.join("\n")));
+    } else if (installedCount > 0) {
+        QMessageBox::information(this, tr("Success"),
+                                 tr("%1 PKG file(s) installed successfully.").arg(installedCount));
+    }
 }

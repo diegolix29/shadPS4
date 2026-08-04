@@ -401,6 +401,26 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory(openal-soft EXCLUDE_FROM_ALL)
 endif()
 
+# CryptoPP
+if (NOT TARGET cryptopp::cryptopp)
+    set(CRYPTOPP_INSTALL OFF)
+    set(CRYPTOPP_BUILD_TESTING OFF)
+    set(CRYPTOPP_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cryptopp)
+    # cryptopp instruction set checks do not account for added compile options,
+    # so disable extensions in the library config to match our chosen target CPU.
+    set(CRYPTOPP_DISABLE_AESNI ON)
+    set(CRYPTOPP_DISABLE_AVX2 ON)
+    # Disable assembly on Windows to avoid ml64 dependency issues
+    if(WIN32)
+        set(CRYPTOPP_DISABLE_ASM ON)
+    endif()
+    add_subdirectory(cryptopp-cmake)
+    file(COPY cryptopp DESTINATION cryptopp FILES_MATCHING PATTERN "*.h")
+    # remove externals/cryptopp from include directories because it contains a conflicting zlib.h file
+    set_target_properties(cryptopp PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}/cryptopp")
+endif()
+
+
 # cpp-httplib
 add_library(Cpp_Httplib INTERFACE)
 target_include_directories(Cpp_Httplib INTERFACE cpp-httplib/)
@@ -410,7 +430,7 @@ if (TARGET ZLIB::ZLIB)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_ZLIB_SUPPORT)
     message(STATUS "cpp-httplib: zlib support enabled (gzip response decompression)")
 else()
-    message(STATUS "cpp-httplib: zlib not available — gzip responses will arrive uncompressed")
+    message(STATUS "cpp-httplib: zlib not available â€” gzip responses will arrive uncompressed")
 endif()
 
 if (DEFINED SSL_DEPENDENCIES)
@@ -418,5 +438,5 @@ if (DEFINED SSL_DEPENDENCIES)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
     message(STATUS "cpp-httplib: SSL support enabled (TLS connections)")
 else()
-    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available — libSceHttp HTTPS will fall back to mock at runtime.")
+    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available â€” libSceHttp HTTPS will fall back to mock at runtime.")
 endif()

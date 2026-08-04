@@ -63,6 +63,12 @@ if (ARCHITECTURE STREQUAL "x86_64")
     # Target x86-64-v3 CPU architecture as this is a good balance between supporting performance critical
     # instructions like AVX2 and maintaining support for older CPUs.
     add_compile_options(-march=x86-64-v3 -mno-avx512f)
+    
+    # Add additional SIMD flags required by Crypto++ library
+    # PCLMULQDQ is needed for carryless multiplication used in GCM and GF2N operations
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-mpclmul -maes -msha)
+    endif()
 
     # Disable AVX512 in zlib-ng for CI/clang compatibility
     set(WITH_AVX512 OFF CACHE BOOL "" FORCE)
@@ -217,7 +223,7 @@ execute_process(
 
 # Set Version
 set(EMULATOR_VERSION_MAJOR "0")
-set(EMULATOR_VERSION_MINOR "17")
+set(EMULATOR_VERSION_MINOR "16")
 set(EMULATOR_VERSION_PATCH "1")
 
 set_source_files_properties(src/shadps4.rc PROPERTIES COMPILE_DEFINITIONS "EMULATOR_VERSION_MAJOR=${EMULATOR_VERSION_MAJOR};EMULATOR_VERSION_MINOR=${EMULATOR_VERSION_MINOR};EMULATOR_VERSION_PATCH=${EMULATOR_VERSION_PATCH}")
@@ -261,7 +267,6 @@ find_package(VulkanHeaders 1.4.329 CONFIG)
 find_package(VulkanMemoryAllocator 3.1.0 CONFIG)
 find_package(xbyak 7.07 CONFIG)
 find_package(xxHash 0.8.2 MODULE)
-find_package(ZLIB 1.3 MODULE)
 find_package(Zydis 5.0.0 MODULE)
 find_package(pugixml 1.14 CONFIG)
 find_package(ZArchive 0.1.2 MODULE)
@@ -894,6 +899,9 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_format/trp.h
          src/core/file_format/npbind.cpp
          src/core/file_format/npbind.h
+         src/core/crypto/crypto.cpp
+         src/core/crypto/crypto.h
+         src/core/crypto/keys.h
          src/core/file_sys/fs.cpp
          src/core/file_sys/fs.h
          src/core/file_sys/ifile.h
@@ -1317,6 +1325,12 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/mod_tracker.h
            src/qt_gui/nexus_mods_api.cpp
            src/qt_gui/nexus_mods_api.h
+           src/core/file_format/pkg.cpp
+           src/core/file_format/pkg.h
+           src/core/file_format/pkg_type.cpp
+           src/core/file_format/pkg_type.h
+           src/pkg_installer/pkg_installer.cpp
+           src/pkg_installer/pkg_installer.h
            ${EMULATOR}
            ${RESOURCE_FILES}
            ${TRANSLATIONS}
@@ -1357,9 +1371,9 @@ endif()
 
 create_target_directory_groups(shadps4)
 
-target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui ImGuiFileDialog gcn half::half ZLIB::ZLIB PNG::PNG minimp3)
+target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui ImGuiFileDialog gcn half::half ZLIB::ZLIB PNG::PNG minimp3 cryptopp::cryptopp)
 target_link_libraries(shadps4 PRIVATE Boost::headers GPUOpen::VulkanMemoryAllocator LibAtrac9 sirit Vulkan::Headers xxHash::xxhash Zydis::Zydis glslang::glslang SDL3::SDL3 SDL3_image::SDL3_image SDL3_mixer::SDL3_mixer pugixml::pugixml)
-target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib)
+target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib  cryptopp::cryptopp)
 
 target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config.h")
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
