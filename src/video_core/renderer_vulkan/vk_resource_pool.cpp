@@ -112,11 +112,39 @@ DescriptorHeap::DescriptorHeap(const Instance& instance, MasterSemaphore* master
 }
 
 DescriptorHeap::~DescriptorHeap() {
+    if (master_semaphore == nullptr) {
+        // Default-constructed, never-assigned heap. Nothing to destroy.
+        return;
+    }
     device.destroyDescriptorPool(curr_pool);
     for (const auto [pool, tick] : pending_pools) {
         master_semaphore->Wait(tick);
         device.destroyDescriptorPool(pool);
     }
+}
+
+DescriptorHeap& DescriptorHeap::operator=(DescriptorHeap&& other) noexcept {
+    if (this != &other) {
+        // Destroy our current state first (may be default-constructed/inert).
+        if (master_semaphore != nullptr) {
+            device.destroyDescriptorPool(curr_pool);
+            for (const auto [pool, tick] : pending_pools) {
+                master_semaphore->Wait(tick);
+                device.destroyDescriptorPool(pool);
+            }
+        }
+        device = other.device;
+        master_semaphore = other.master_semaphore;
+        descriptor_heap_count = other.descriptor_heap_count;
+        pool_sizes = other.pool_sizes;
+        curr_pool = other.curr_pool;
+        pending_pools = std::move(other.pending_pools);
+        descriptor_sets = std::move(other.descriptor_sets);
+        // Leave the source inert so its destructor is a no-op.
+        other.master_semaphore = nullptr;
+        other.curr_pool = nullptr;
+    }
+    return *this;
 }
 
 vk::DescriptorSet DescriptorHeap::Commit(vk::DescriptorSetLayout set_layout) {

@@ -7,6 +7,7 @@
 
 #include "common/types.h"
 #include "video_core/renderer_vulkan/vk_common.h"
+#include "video_core/renderer_vulkan/vk_resource_pool.h"
 
 namespace Vulkan {
 class Instance;
@@ -50,6 +51,12 @@ private:
 private:
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
+    bool uses_push_descriptors{};
+    // Pool sizes must outlive desc_heap (DescriptorHeap stores a span to it).
+    static constexpr std::array<vk::DescriptorPoolSize, 1> pool_sizes{{
+        {vk::DescriptorType::eSampledImage, 64},
+    }};
+    Vulkan::DescriptorHeap desc_heap;
     vk::UniqueDescriptorSetLayout single_texture_descriptor_set_layout;
     vk::UniquePipelineLayout single_texture_pl_layout;
     vk::ShaderModule fs_tri_vertex;

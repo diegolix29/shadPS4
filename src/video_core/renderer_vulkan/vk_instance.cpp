@@ -244,11 +244,14 @@ bool Instance::CreateDevice() {
     // Required
     ASSERT_MSG(add_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME),
                "Required Vulkan extension unavailable: {}", VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-    ASSERT_MSG(add_extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME),
-               "Required Vulkan extension unavailable: {}", VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
-    ASSERT_MSG(add_extension(VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME),
-               "Required Vulkan extension unavailable: {}",
-               VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME);
+    // VK_KHR_push_descriptor is optional on Mali/Immortalis drivers. When unavailable,
+    // push_descriptor_props stays zero-initialized (MaxPushDescriptors()==0) and all
+    // descriptor-set layouts fall back to the non-push path with a DescriptorHeap.
+    push_descriptor = add_extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
+    // VK_EXT_vertex_attribute_divisor is also optional. When unavailable, instanced
+    // (step-rate) vertex fetch silently degrades to per-vertex (divisor=1). Per-vertex
+    // attributes are unaffected. Mali/Immortalis drivers do not expose this extension.
+    vertex_attribute_divisor = add_extension(VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME);
 
     // Optional
     maintenance_8 = add_extension(VK_KHR_MAINTENANCE_8_EXTENSION_NAME);
@@ -537,6 +540,9 @@ bool Instance::CreateDevice() {
     }
     if (!provoking_vertex) {
         device_chain.unlink<vk::PhysicalDeviceProvokingVertexFeaturesEXT>();
+    }
+    if (!vertex_attribute_divisor) {
+        device_chain.unlink<vk::PhysicalDeviceVertexAttributeDivisorFeatures>();
     }
     if (!maintenance_8) {
         device_chain.unlink<vk::PhysicalDeviceMaintenance8FeaturesKHR>();

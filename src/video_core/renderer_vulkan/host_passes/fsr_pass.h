@@ -5,7 +5,12 @@
 
 #include "common/types.h"
 #include "video_core/renderer_vulkan/vk_common.h"
+#include "video_core/renderer_vulkan/vk_resource_pool.h"
 #include "video_core/texture_cache/image.h"
+
+namespace Vulkan {
+class Instance;
+}
 
 namespace Vulkan::HostPasses {
 
@@ -17,7 +22,8 @@ public:
         float rcas_attenuation{0.25f};
     };
 
-    void Create(vk::Device device, VmaAllocator allocator, u32 num_images);
+    void Create(const Instance& instance, MasterSemaphore* master_semaphore, vk::Device device,
+                VmaAllocator allocator, u32 num_images);
 
     vk::ImageView Render(vk::CommandBuffer cmdbuf, vk::ImageView input, vk::Extent2D input_size,
                          vk::Extent2D output_size, Settings settings, bool hdr);
@@ -39,6 +45,14 @@ private:
 
     vk::Device device{};
     u32 num_images{};
+    bool uses_push_descriptors{};
+    // Pool sizes must outlive desc_heap (DescriptorHeap stores a span to it).
+    static constexpr std::array<vk::DescriptorPoolSize, 3> pool_sizes{{
+        {vk::DescriptorType::eSampledImage, 64},
+        {vk::DescriptorType::eStorageImage, 64},
+        {vk::DescriptorType::eSampler, 64},
+    }};
+    DescriptorHeap desc_heap;
 
     vk::UniqueDescriptorSetLayout descriptor_set_layout{};
     vk::UniqueDescriptorSet easu_descriptor_set{};

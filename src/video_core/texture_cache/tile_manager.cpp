@@ -26,7 +26,9 @@ struct TilingInfo {
 
 TileManager::TileManager(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
                          StreamBuffer& stream_buffer_)
-    : instance{instance}, scheduler{scheduler}, stream_buffer{stream_buffer_} {
+    : instance{instance}, scheduler{scheduler}, stream_buffer{stream_buffer_},
+      uses_push_descriptors{instance.IsPushDescriptorSupported()},
+      desc_heap{instance, scheduler.GetMasterSemaphore(), pool_sizes, 64} {
     const auto device = instance.GetDevice();
     const std::array<vk::DescriptorSetLayoutBinding, 3> bindings = {{
         {
@@ -49,8 +51,11 @@ TileManager::TileManager(const Vulkan::Instance& instance, Vulkan::Scheduler& sc
         },
     }};
 
+    const vk::DescriptorSetLayoutCreateFlags layout_flags =
+        uses_push_descriptors ? vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR
+                              : vk::DescriptorSetLayoutCreateFlagBits{};
     const vk::DescriptorSetLayoutCreateInfo desc_layout_ci = {
-        .flags = vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR,
+        .flags = layout_flags,
         .bindingCount = static_cast<u32>(bindings.size()),
         .pBindings = bindings.data(),
     };
@@ -234,7 +239,17 @@ TileManager::Result TileManager::DetileImage(vk::Buffer in_buffer, u32 in_offset
             .pBufferInfo = &params_buffer_info,
         },
     }};
-    cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eCompute, *pl_layout, 0, set_writes);
+    if (uses_push_descriptors) {
+        cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eCompute, *pl_layout, 0, set_writes);
+    } else {
+        const auto desc_set = desc_heap.Commit(*desc_layout);
+        std::array<vk::WriteDescriptorSet, 3> dst_writes = set_writes;
+        for (auto& w : dst_writes) {
+            w.dstSet = desc_set;
+        }
+        instance.GetDevice().updateDescriptorSets(dst_writes, {});
+        cmdbuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pl_layout, 0, desc_set, {});
+    }
 
     const auto dim_x = (info.guest_size / (info.num_bits / 8)) / 64;
     cmdbuf.dispatch(dim_x, 1, 1);
@@ -319,7 +334,17 @@ void TileManager::TileImage(Image& in_image, std::span<vk::BufferImageCopy> buff
             .pBufferInfo = &params_buffer_info,
         },
     }};
-    cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eCompute, *pl_layout, 0, set_writes);
+    if (uses_push_descriptors) {
+        cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eCompute, *pl_layout, 0, set_writes);
+    } else {
+        const auto desc_set = desc_heap.Commit(*desc_layout);
+        std::array<vk::WriteDescriptorSet, 3> dst_writes = set_writes;
+        for (auto& w : dst_writes) {
+            w.dstSet = desc_set;
+        }
+        instance.GetDevice().updateDescriptorSets(dst_writes, {});
+        cmdbuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pl_layout, 0, desc_set, {});
+    }
 
     const auto dim_x = (info.guest_size / (info.num_bits / 8)) / 64;
     cmdbuf.dispatch(dim_x, 1, 1);

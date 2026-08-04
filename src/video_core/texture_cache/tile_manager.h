@@ -6,6 +6,7 @@
 #include "common/types.h"
 #include "video_core/amdgpu/tiling.h"
 #include "video_core/buffer_cache/buffer.h"
+#include "video_core/renderer_vulkan/vk_resource_pool.h"
 
 namespace VideoCore {
 
@@ -37,6 +38,13 @@ private:
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
     StreamBuffer& stream_buffer;
+    bool uses_push_descriptors{};
+    // Pool sizes must outlive desc_heap (DescriptorHeap stores a span to it).
+    static constexpr std::array<vk::DescriptorPoolSize, 2> pool_sizes{{
+        {vk::DescriptorType::eStorageBuffer, 64},
+        {vk::DescriptorType::eUniformBuffer, 64},
+    }};
+    Vulkan::DescriptorHeap desc_heap;
     vk::UniqueDescriptorSetLayout desc_layout;
     vk::UniquePipelineLayout pl_layout;
     std::array<vk::UniquePipeline, AmdGpu::NUM_TILE_MODES * NUM_BPPS> detilers{};

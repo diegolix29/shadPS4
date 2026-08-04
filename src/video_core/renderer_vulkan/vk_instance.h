@@ -365,6 +365,20 @@ public:
         return push_descriptor_props.maxPushDescriptors;
     }
 
+    /// Returns true if VK_KHR_push_descriptor is supported. When false, the renderer
+    /// falls back to ordinary descriptor sets on all code paths. Mali/Immortalis drivers
+    /// do not expose this extension, so it must be optional (Bachata-S4 local fix).
+    bool IsPushDescriptorSupported() const {
+        return push_descriptor;
+    }
+
+    /// Returns true if VK_EXT_vertex_attribute_divisor is supported. When false, instanced
+    /// (step-rate) vertex fetch degrades to per-vertex (divisor=1). Per-vertex attributes
+    /// are unaffected. Mali/Immortalis drivers do not expose this extension.
+    bool IsVertexAttributeDivisorSupported() const {
+        return vertex_attribute_divisor;
+    }
+
     /// Returns the vulkan 1.2 physical device properties.
     const vk::PhysicalDeviceVulkan12Properties& GetVk12Properties() const noexcept {
         return vk12_props;
@@ -509,6 +523,8 @@ private:
     bool amd_shader_trinary_minmax{};
     bool nv_framebuffer_mixed_samples{};
     bool amd_mixed_attachment_samples{};
+    bool push_descriptor{};
+    bool vertex_attribute_divisor{};
     bool shader_atomic_float{};
     bool shader_atomic_float2{};
     bool workgroup_memory_explicit_layout{};

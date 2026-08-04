@@ -68,6 +68,13 @@ class DescriptorHeap final {
     static constexpr u32 DescriptorSetBatch = 32;
 
 public:
+    // Default constructor: leaves the heap in an empty, inert state. Used by
+    // host-pass classes (FsrPass, PostProcessingPass) that are default-constructed
+    // as Presenter members and assigned a real heap later via Create(). A
+    // default-constructed heap may be move-assigned exactly once; after the move
+    // the source is left inert (its destructor is a no-op).
+    DescriptorHeap() = default;
+    DescriptorHeap& operator=(DescriptorHeap&&) noexcept;
     explicit DescriptorHeap(const Instance& instance, MasterSemaphore* master_semaphore,
                             std::span<const vk::DescriptorPoolSize> pool_sizes,
                             u32 descriptor_heap_count = 1024);
@@ -79,11 +86,11 @@ private:
     void CreateDescriptorPool();
 
 private:
-    vk::Device device;
-    MasterSemaphore* master_semaphore;
-    u32 descriptor_heap_count;
-    std::span<const vk::DescriptorPoolSize> pool_sizes;
-    vk::DescriptorPool curr_pool;
+    vk::Device device{};
+    MasterSemaphore* master_semaphore{};
+    u32 descriptor_heap_count{};
+    std::span<const vk::DescriptorPoolSize> pool_sizes{};
+    vk::DescriptorPool curr_pool{};
     std::deque<std::pair<vk::DescriptorPool, u64>> pending_pools;
     using DescSetBatch = boost::container::static_vector<vk::DescriptorSet, DescriptorSetBatch>;
     tsl::robin_map<u64, DescSetBatch> descriptor_sets;

@@ -7,6 +7,7 @@
 #include "core/emulator_settings.h"
 #include "video_core/host_shaders/fs_tri_vert.h"
 #include "video_core/host_shaders/post_process_frag.h"
+#include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
@@ -15,7 +16,11 @@
 
 namespace Vulkan::HostPasses {
 
-void PostProcessingPass::Create(vk::Device device, const vk::Format surface_format) {
+void PostProcessingPass::Create(const Instance& instance, MasterSemaphore* master_semaphore,
+                                const vk::Format surface_format) {
+    device = instance.GetDevice();
+    uses_push_descriptors = instance.IsPushDescriptorSupported();
+    desc_heap = DescriptorHeap{instance, master_semaphore, pool_sizes, 64};
     static const std::array pp_shaders{
         HostShaders::FS_TRI_VERT,
         HostShaders::POST_PROCESS_FRAG,
@@ -30,8 +35,11 @@ void PostProcessingPass::Create(vk::Device device, const vk::Format surface_form
         },
     };
 
+    const vk::DescriptorSetLayoutCreateFlags layout_flags =
+        uses_push_descriptors ? vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR
+                              : vk::DescriptorSetLayoutCreateFlagBits{};
     const vk::DescriptorSetLayoutCreateInfo desc_layout_ci{
-        .flags = vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR,
+        .flags = layout_flags,
         .bindingCount = static_cast<u32>(bindings.size()),
         .pBindings = bindings.data(),
     };
@@ -255,7 +263,19 @@ void PostProcessingPass::Render(vk::CommandBuffer cmdbuf, vk::ImageView input,
                              },
                          });
 
-    cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics, *pipeline_layout, 0, set_writes);
+    if (uses_push_descriptors) {
+        cmdbuf.pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics, *pipeline_layout, 0,
+                                    set_writes);
+    } else {
+        const auto desc_set = desc_heap.Commit(*desc_set_layout);
+        std::array<vk::WriteDescriptorSet, 1> dst_writes = set_writes;
+        for (auto& w : dst_writes) {
+            w.dstSet = desc_set;
+        }
+        device.updateDescriptorSets(dst_writes, {});
+        cmdbuf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pipeline_layout, 0, desc_set,
+                                  {});
+    }
     cmdbuf.pushConstants(*pipeline_layout, vk::ShaderStageFlagBits::eFragment, 0, sizeof(Settings),
                          &settings);
 
