@@ -144,8 +144,7 @@ public:
         }
     }
 
-    void LoadLibcInternal() {
-    }
+    void LoadLibcInternal() {}
 
     void SetHeapAPI(void* func[]) {
         heap_api = reinterpret_cast<AppHeapAPI>(func);
