@@ -222,7 +222,8 @@ bool PKG::Extract(const std::filesystem::path& filepath, const std::filesystem::
         // Decrypt Np stuff and overwrite.
         if (entry.id == 0x400 || entry.id == 0x401 || entry.id == 0x402 ||
             entry.id == 0x403) { // somehow 0x401 is not decrypting
-            size_t paddedSize = (entry.size + CryptoPP::AES::BLOCKSIZE - 1) / CryptoPP::AES::BLOCKSIZE * CryptoPP::AES::BLOCKSIZE;
+            size_t paddedSize = (entry.size + CryptoPP::AES::BLOCKSIZE - 1) /
+                                CryptoPP::AES::BLOCKSIZE * CryptoPP::AES::BLOCKSIZE;
             decNp.resize(paddedSize);
             if (!file.Seek(entry.offset)) {
                 failreason = "Failed to seek to PKG entry offset";

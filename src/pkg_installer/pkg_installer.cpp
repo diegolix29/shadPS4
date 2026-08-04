@@ -1,11 +1,14 @@
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher4 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-#include "pkg_installer/pkg_installer.h"
-#include "core/file_format/pkg.h"
+
 #include <filesystem>
 #include <string>
 #include <vector>
+#include "core/file_format/pkg.h"
+#include "pkg_installer/pkg_installer.h"
 
-std::optional<std::string> ReadPkgMetadata(const std::filesystem::path& pkg_path, PkgMetadata& out) {
+std::optional<std::string> ReadPkgMetadata(const std::filesystem::path& pkg_path,
+                                           PkgMetadata& out) {
     if (!std::filesystem::exists(pkg_path)) {
         return std::string("PKG file does not exist: ") + pkg_path.string();
     }
@@ -45,7 +48,8 @@ std::optional<std::string> ExtractPkg(const std::filesystem::path& pkg_path,
     std::vector<int> list = indices;
     if (list.empty()) {
         list.reserve(total);
-        for (uint32_t i = 0; i < total; ++i) list.push_back(static_cast<int>(i));
+        for (uint32_t i = 0; i < total; ++i)
+            list.push_back(static_cast<int>(i));
     }
 
     uint32_t extracted = 0;
@@ -53,26 +57,31 @@ std::optional<std::string> ExtractPkg(const std::filesystem::path& pkg_path,
         try {
             pkg.ExtractFiles(idx);
         } catch (const std::exception& e) {
-            return std::string("Failed extracting file index ") + std::to_string(idx) + ": " + e.what();
+            return std::string("Failed extracting file index ") + std::to_string(idx) + ": " +
+                   e.what();
         } catch (...) {
             return std::string("Unknown error extracting file index ") + std::to_string(idx);
         }
         ++extracted;
-        if (progress_cb) progress_cb(extracted, list.size());
+        if (progress_cb)
+            progress_cb(extracted, list.size());
     }
     return std::nullopt;
 }
 
 std::vector<std::filesystem::path> ListPkgFiles(const std::filesystem::path& dir, bool recursive) {
     std::vector<std::filesystem::path> out;
-    if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir)) return out;
+    if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir))
+        return out;
     if (recursive) {
         for (auto& e : std::filesystem::recursive_directory_iterator(dir)) {
-            if (e.is_regular_file() && e.path().extension() == ".pkg") out.push_back(e.path());
+            if (e.is_regular_file() && e.path().extension() == ".pkg")
+                out.push_back(e.path());
         }
     } else {
         for (auto& e : std::filesystem::directory_iterator(dir)) {
-            if (e.is_regular_file() && e.path().extension() == ".pkg") out.push_back(e.path());
+            if (e.is_regular_file() && e.path().extension() == ".pkg")
+                out.push_back(e.path());
         }
     }
     return out;

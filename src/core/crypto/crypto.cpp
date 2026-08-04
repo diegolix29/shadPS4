@@ -125,7 +125,8 @@ void Crypto::aesCbcCfb128DecryptEntry(std::span<const CryptoPP::byte, 32> ivkey,
                                       std::span<const CryptoPP::byte> ciphertext,
                                       std::span<CryptoPP::byte> decrypted) {
     if (ciphertext.size() != decrypted.size()) {
-      throw std::length_error("aesCbcCfb128DecryptEntry: plaintext and ciphertext buffers must be equal length");
+        throw std::length_error(
+            "aesCbcCfb128DecryptEntry: plaintext and ciphertext buffers must be equal length");
     }
 
     std::array<CryptoPP::byte, CryptoPP::AES::DEFAULT_KEYLENGTH> key;

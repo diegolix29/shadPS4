@@ -902,15 +902,9 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_format/trp.h
          src/core/file_format/npbind.cpp
          src/core/file_format/npbind.h
-         src/core/file_format/pkg.cpp
-         src/core/file_format/pkg.h
-         src/core/file_format/pkg_type.cpp
-         src/core/file_format/pkg_type.h
          src/core/crypto/crypto.cpp
          src/core/crypto/crypto.h
          src/core/crypto/keys.h
-         src/pkg_installer/pkg_installer.cpp
-         src/pkg_installer/pkg_installer.h
          src/core/file_sys/fs.cpp
          src/core/file_sys/fs.h
          src/core/file_sys/ifile.h
@@ -1334,6 +1328,12 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/mod_tracker.h
            src/qt_gui/nexus_mods_api.cpp
            src/qt_gui/nexus_mods_api.h
+           src/core/file_format/pkg.cpp
+           src/core/file_format/pkg.h
+           src/core/file_format/pkg_type.cpp
+           src/core/file_format/pkg_type.h
+           src/pkg_installer/pkg_installer.cpp
+           src/pkg_installer/pkg_installer.h
            ${EMULATOR}
            ${RESOURCE_FILES}
            ${TRANSLATIONS}
