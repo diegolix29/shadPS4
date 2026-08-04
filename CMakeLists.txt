@@ -63,6 +63,12 @@ if (ARCHITECTURE STREQUAL "x86_64")
     # Target x86-64-v3 CPU architecture as this is a good balance between supporting performance critical
     # instructions like AVX2 and maintaining support for older CPUs.
     add_compile_options(-march=x86-64-v3 -mno-avx512f)
+    
+    # Add additional SIMD flags required by Crypto++ library
+    # PCLMULQDQ is needed for carryless multiplication used in GCM and GF2N operations
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-mpclmul -maes -msha)
+    endif()
 
     # Disable AVX512 in zlib-ng for CI/clang compatibility
     set(WITH_AVX512 OFF CACHE BOOL "" FORCE)
@@ -217,7 +223,7 @@ execute_process(
 
 # Set Version
 set(EMULATOR_VERSION_MAJOR "0")
-set(EMULATOR_VERSION_MINOR "17")
+set(EMULATOR_VERSION_MINOR "16")
 set(EMULATOR_VERSION_PATCH "1")
 
 set_source_files_properties(src/shadps4.rc PROPERTIES COMPILE_DEFINITIONS "EMULATOR_VERSION_MAJOR=${EMULATOR_VERSION_MAJOR};EMULATOR_VERSION_MINOR=${EMULATOR_VERSION_MINOR};EMULATOR_VERSION_PATCH=${EMULATOR_VERSION_PATCH}")
@@ -894,6 +900,15 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_format/trp.h
          src/core/file_format/npbind.cpp
          src/core/file_format/npbind.h
+         src/core/file_format/pkg.cpp
+         src/core/file_format/pkg.h
+         src/core/file_format/pkg_type.cpp
+         src/core/file_format/pkg_type.h
+         src/core/crypto/crypto.cpp
+         src/core/crypto/crypto.h
+         src/core/crypto/keys.h
+         src/pkg_installer/pkg_installer.cpp
+         src/pkg_installer/pkg_installer.h
          src/core/file_sys/fs.cpp
          src/core/file_sys/fs.h
          src/core/file_sys/ifile.h
@@ -1357,7 +1372,10 @@ endif()
 
 create_target_directory_groups(shadps4)
 
-target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui ImGuiFileDialog gcn half::half ZLIB::ZLIB PNG::PNG minimp3)
+target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui ImGuiFileDialog gcn half::half ZLIB::ZLIB PNG::PNG minimp3 cryptopp::cryptopp)
+if (MSVC)
+    target_link_libraries(shadps4 PRIVATE ws2_32)
+endif()
 target_link_libraries(shadps4 PRIVATE Boost::headers GPUOpen::VulkanMemoryAllocator LibAtrac9 sirit Vulkan::Headers xxHash::xxhash Zydis::Zydis glslang::glslang SDL3::SDL3 SDL3_image::SDL3_image SDL3_mixer::SDL3_mixer pugixml::pugixml)
 target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib)
 

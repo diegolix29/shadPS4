@@ -20,7 +20,16 @@ public:
 
     void DownloadListVersion();
     void InstallSelectedVersion();
-    void InstallPkgWithV7();
+
+    // Installs one or more PS4 .pkg files natively (no external process),
+    // using the vendored ps4-pkg-tools extraction library.
+    void InstallPkg();
+    void InstallPkgFiles(const QStringList& pkgPaths);
+
+Q_SIGNALS:
+    // Emitted after at least one PKG was installed successfully, so the
+    // game library can be refreshed.
+    void PkgInstalled();
 
 private:
     Ui::VersionDialog* ui;
@@ -35,7 +44,4 @@ private:
     void PopulateDownloadTree(const QStringList& versions);
     void InstallSelectedVersionExe();
     void UninstallSelectedVersion();
-    void LaunchPkgInstaller();
-    void ShowPkgInstallerDialog(const QString& installerFolder,
-                                const QString& destinationPath = "");
 };

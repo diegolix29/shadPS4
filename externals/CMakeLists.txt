@@ -59,6 +59,44 @@ if (NOT TARGET ZLIB::ZLIB)
     set(ZLIB_INCLUDE_DIRS "${FETCHCONTENT_BASE_DIR}/zlib-build")
 endif()
 
+if (NOT TARGET cryptopp::cryptopp)
+    set(CRYPTOPP_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    set(CRYPTOPP_BUILD_DOCUMENTATION OFF CACHE BOOL "" FORCE)
+    set(CRYPTOPP_INSTALL OFF CACHE BOOL "" FORCE)
+    set(CRYPTOPP_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cryptopp")
+    
+    if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-mpclmul -maes -msha)
+    endif()
+    
+    add_subdirectory(cryptopp-cmake EXCLUDE_FROM_ALL)
+
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(CRYPTOPP_SIMD_FLAGS -mssse3 -msse4.1 -mpclmul -maes -msha)
+        foreach(_cryptopp_simd_file
+                gcm_simd.cpp
+                gf2n_simd.cpp
+                rijndael_simd.cpp
+                sha_simd.cpp
+                shacal2_simd.cpp
+                blake2s_simd.cpp
+                blake2b_simd.cpp)
+            set(_cryptopp_simd_path "${CRYPTOPP_SOURCES}/${_cryptopp_simd_file}")
+            if (EXISTS "${_cryptopp_simd_path}")
+                set_source_files_properties(
+                    "${_cryptopp_simd_path}"
+                    PROPERTIES COMPILE_OPTIONS "${CRYPTOPP_SIMD_FLAGS}"
+                )
+            endif()
+        endforeach()
+        
+        # Also apply to the cryptopp target directly if it exists
+        if (TARGET cryptopp)
+            target_compile_options(cryptopp PRIVATE ${CRYPTOPP_SIMD_FLAGS})
+        endif()
+    endif()
+endif()
+
 # FreeType
 if (NOT TARGET Freetype::Freetype)
     # Keep optional deps off to reduce build surface; zlib stays enabled for compressed fonts.
@@ -410,7 +448,7 @@ if (TARGET ZLIB::ZLIB)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_ZLIB_SUPPORT)
     message(STATUS "cpp-httplib: zlib support enabled (gzip response decompression)")
 else()
-    message(STATUS "cpp-httplib: zlib not available — gzip responses will arrive uncompressed")
+    message(STATUS "cpp-httplib: zlib not available ï¿½ gzip responses will arrive uncompressed")
 endif()
 
 if (DEFINED SSL_DEPENDENCIES)
@@ -418,5 +456,5 @@ if (DEFINED SSL_DEPENDENCIES)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
     message(STATUS "cpp-httplib: SSL support enabled (TLS connections)")
 else()
-    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available — libSceHttp HTTPS will fall back to mock at runtime.")
+    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available ï¿½ libSceHttp HTTPS will fall back to mock at runtime.")
 endif()

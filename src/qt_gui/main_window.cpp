@@ -2120,7 +2120,11 @@ void MainWindow::CreateConnects() {
 
     connect(ui->installPkgButton, &QPushButton::clicked, this, [this]() {
         auto versionDialog = new VersionDialog(m_compat_info, this);
-        versionDialog->InstallPkgWithV7();
+        versionDialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(versionDialog, &VersionDialog::PkgInstalled, this,
+                [this]() { RefreshGameTable(); });
+        versionDialog->InstallPkg();
+        versionDialog->close();
     });
 
     connect(ui->launcherBox, &QCheckBox::clicked, this, [this](bool checked) {
@@ -2194,6 +2198,8 @@ void MainWindow::CreateConnects() {
 
     connect(ui->versionAct, &QAction::triggered, this, [this]() {
         auto versionDialog = new VersionDialog(m_compat_info, this);
+        connect(versionDialog, &VersionDialog::PkgInstalled, this,
+                [this]() { RefreshGameTable(); });
         versionDialog->show();
     });
     connect(ui->welcomeAct, &QAction::triggered, this, [this](bool checked) {
@@ -2275,6 +2281,8 @@ void MainWindow::CreateConnects() {
 
     connect(ui->versionButton, &QPushButton::clicked, this, [this]() {
         auto versionDialog = new VersionDialog(m_compat_info, this);
+        connect(versionDialog, &VersionDialog::PkgInstalled, this,
+                [this]() { RefreshGameTable(); });
         versionDialog->show();
     });
     connect(ui->bigPictureButton, &QPushButton::clicked, this,
