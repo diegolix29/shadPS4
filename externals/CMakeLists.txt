@@ -65,6 +65,10 @@ if (NOT TARGET cryptopp::cryptopp)
     set(CRYPTOPP_INSTALL OFF CACHE BOOL "" FORCE)
     set(CRYPTOPP_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cryptopp")
     
+    if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        set(CRYPTOPP_DISABLE_ASM ON CACHE BOOL "" FORCE)
+    endif()
+    
     if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_compile_options(-mpclmul -maes -msha)
     endif()
