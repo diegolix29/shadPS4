@@ -35,11 +35,11 @@ fun DiagnosticReportSheet(
     onRetry: () -> Unit,
 ) {
     val context = state.context ?: return
+    // Fixed header actions stay visible; long report details scroll underneath.
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = 640.dp)
-            .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -55,96 +55,6 @@ fun DiagnosticReportSheet(
             style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
         )
 
-        InfoRow("Report ID", context.reportId)
-        InfoRow("App", "${context.app.versionName} (${context.app.versionCode})")
-        InfoRow("Runtime", context.app.runtimeRevision)
-        InfoRow("Distribution", context.app.distribution)
-        InfoRow("Title", context.gameTitle)
-        InfoRow("CUSA", context.cusaId)
-        InfoRow(
-            "Device",
-            listOfNotNull(
-                context.device.manufacturer,
-                context.device.model,
-                "Android ${context.device.androidRelease}",
-                context.device.soc,
-            ).joinToString(" · "),
-        )
-        InfoRow(
-            "GPU",
-            listOfNotNull(context.device.gpuVendor, context.device.gpuRenderer, context.device.gpuVersion)
-                .joinToString(" · ")
-                .ifBlank { "unavailable" },
-        )
-        InfoRow(
-            "Driver",
-            listOfNotNull(
-                context.driver.name,
-                context.driver.version,
-                context.driver.build,
-                context.driver.type,
-            ).joinToString(" · "),
-        )
-        InfoRow("Backend", context.guestBackend)
-        InfoRow(
-            "Last stage",
-            context.lastCheckpoint?.let { name ->
-                runCatching { DiagnosticCheckpoint.valueOf(name).displayLabel() }.getOrDefault(name)
-            } ?: "unknown",
-        )
-        InfoRow("Process result", formatTermination(context))
-        InfoRow("First frame", if (context.firstFrameReached) "yes" else "no")
-
-        Spacer(Modifier.height(4.dp))
-        Text("Included files", color = BachataPalette.Primary, fontWeight = FontWeight.SemiBold)
-        state.attachments.forEach { attachment ->
-            val status = when {
-                !attachment.present -> "missing"
-                attachment.truncated -> "truncated"
-                else -> attachment.byteSize?.let { "$it B" } ?: "ready"
-            }
-            Text(
-                text = "• ${attachment.filename} ($status)",
-                color = BachataPalette.Secondary,
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-            )
-        }
-
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = state.privacyNotice,
-            color = BachataPalette.Secondary,
-            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-        )
-
-        OutlinedTextField(
-            value = state.userDescription,
-            onValueChange = onDescriptionChange,
-            label = { Text("Optional description") },
-            modifier = Modifier.fillMaxWidth(),
-            minLines = 2,
-            maxLines = 4,
-        )
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "Include screenshot (off by default)",
-                color = BachataPalette.Primary,
-                modifier = Modifier.weight(1f),
-            )
-            Switch(
-                checked = state.includeScreenshot,
-                onCheckedChange = onScreenshotToggle,
-            )
-        }
-        if (state.includeScreenshot) {
-            Text(
-                text = "Screenshot capture is not available in this build preview; toggle records consent only.",
-                color = BachataPalette.Secondary,
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-            )
-        }
-
         when (state.phase) {
             DiagnosticReportPhase.PREPARING -> Text("Preparing report…", color = BachataPalette.Primary)
             DiagnosticReportPhase.FAILED -> Text(
@@ -159,7 +69,10 @@ fun DiagnosticReportSheet(
             else -> Unit
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             when (state.phase) {
                 DiagnosticReportPhase.FAILED -> {
                     Button(onClick = onRetry) { Text("Retry") }
@@ -179,6 +92,106 @@ fun DiagnosticReportSheet(
                     ) { Text("Save locally") }
                     OutlinedButton(onClick = onCancel) { Text("Cancel") }
                 }
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            InfoRow("Report ID", context.reportId)
+            InfoRow("App", "${context.app.versionName} (${context.app.versionCode})")
+            InfoRow("Runtime", context.app.runtimeRevision)
+            InfoRow("Distribution", context.app.distribution)
+            InfoRow("Title", context.gameTitle)
+            InfoRow("CUSA", context.cusaId)
+            InfoRow(
+                "Device",
+                listOfNotNull(
+                    context.device.manufacturer,
+                    context.device.model,
+                    "Android ${context.device.androidRelease}",
+                    context.device.soc,
+                ).joinToString(" · "),
+            )
+            InfoRow(
+                "GPU",
+                listOfNotNull(context.device.gpuVendor, context.device.gpuRenderer, context.device.gpuVersion)
+                    .joinToString(" · ")
+                    .ifBlank { "unavailable" },
+            )
+            InfoRow(
+                "Driver",
+                listOfNotNull(
+                    context.driver.name,
+                    context.driver.version,
+                    context.driver.build,
+                    context.driver.type,
+                ).joinToString(" · "),
+            )
+            InfoRow("Backend", context.guestBackend)
+            InfoRow(
+                "Last stage",
+                context.lastCheckpoint?.let { name ->
+                    runCatching { DiagnosticCheckpoint.valueOf(name).displayLabel() }.getOrDefault(name)
+                } ?: "unknown",
+            )
+            InfoRow("Process result", formatTermination(context))
+            InfoRow("First frame", if (context.firstFrameReached) "yes" else "no")
+
+            Spacer(Modifier.height(4.dp))
+            Text("Included files", color = BachataPalette.Primary, fontWeight = FontWeight.SemiBold)
+            state.attachments.forEach { attachment ->
+                val status = when {
+                    !attachment.present -> "missing"
+                    attachment.truncated -> "truncated"
+                    else -> attachment.byteSize?.let { "$it B" } ?: "ready"
+                }
+                Text(
+                    text = "• ${attachment.filename} ($status)",
+                    color = BachataPalette.Secondary,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                )
+            }
+
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = state.privacyNotice,
+                color = BachataPalette.Secondary,
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+            )
+
+            OutlinedTextField(
+                value = state.userDescription,
+                onValueChange = onDescriptionChange,
+                label = { Text("Optional description") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 4,
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Include screenshot (off by default)",
+                    color = BachataPalette.Primary,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = state.includeScreenshot,
+                    onCheckedChange = onScreenshotToggle,
+                )
+            }
+            if (state.includeScreenshot) {
+                Text(
+                    text = "Screenshot capture is not available in this build preview; toggle records consent only.",
+                    color = BachataPalette.Secondary,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                )
             }
         }
     }
