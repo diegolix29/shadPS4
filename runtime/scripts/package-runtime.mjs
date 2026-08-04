@@ -433,7 +433,13 @@ if (existsSync(arm64SrcFull)) {
     const deployedBinary = join(rootfs, "host/shadps4-arm64-fex");
     const deployedSha = existsSync(deployedBinary) ? sha256(readFileSync(deployedBinary)) : null;
     const manifest = {
-      source_commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectRoot, encoding: "utf8" }).trim(),
+      source_commit: (() => {
+        try {
+          return execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectRoot, encoding: "utf8" }).trim();
+        } catch {
+          return "unknown";
+        }
+      })(),
       binary_build_id: buildId,
       binary_sha256: fullSha,
       deployed_sha256: deployedSha,

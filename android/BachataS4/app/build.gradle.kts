@@ -148,25 +148,57 @@ tasks.whenTaskAdded {
 // Bachata S4 runtime fixes (unlockHardwareBuffer export, abstract-socket handling,
 // robust vortek server). These markers are lost when CI vendors pristine upstream
 // sources, so verify the actual APK output, not just the sources.
-tasks.register("verifyNativeRuntimeFixes") {
-    group = "verification"
-    description = "Checks the assembled APK for the Bachata S4 native runtime fixes."
-    doLast {
-        val apk = layout.buildDirectory.dir("outputs/apk").get().asFile.walkTopDown()
-            .filter { it.isFile && it.extension == "apk" }
-            .maxByOrNull { it.lastModified() }
-            ?: error("No APK found under ${layout.buildDirectory.get()}/outputs/apk")
-        val script = File(rootProject.projectDir, "../../runtime/tests/verify-native-fixes.mjs")
-        val process = ProcessBuilder("node", script.absolutePath, apk.absolutePath)
-            .inheritIO()
-            .start()
-        val exit = process.waitFor()
-        if (exit != 0) throw GradleException("verifyNativeRuntimeFixes failed (exit $exit): native runtime fixes missing from APK")
+//
+// Task 5: Each assemble<Flavor><Type> task is wired to a variant-specific
+// verifyNativeRuntimeFixes<VariantName> task that receives the EXACT expected APK
+// path derived from the variant's output metadata — no timestamp-based scanning.
+androidComponents.onVariants { variant ->
+    val verifyTaskName = "verifyNativeRuntimeFixes${variant.name.replaceFirstChar { it.uppercaseChar() }}"
+    val flavor = variant.flavorName ?: ""
+    val buildType = variant.buildType ?: ""
+    val conventionalApkDir = layout.buildDirectory.dir(
+        "outputs/apk/${flavor}/${buildType}"
+    )
+    val verifyTask = tasks.register(verifyTaskName) {
+        group = "verification"
+        description = "Checks the exact ${variant.name} APK for Bachata S4 native runtime fixes."
+        inputs.dir(conventionalApkDir).optional()
+        doLast {
+            val dir = conventionalApkDir.get().asFile
+            val metadataFile = File(dir, "output-metadata.json")
+            val apk: File = if (metadataFile.exists()) {
+                val metaText = metadataFile.readText()
+                val match = Regex(""""outputFile"\s*:\s*"([^"]+\.apk)"""").find(metaText)
+                val fileName = match?.groupValues?.get(1)
+                    ?: error("Could not parse APK filename from ${metadataFile.absolutePath}")
+                File(dir, fileName).also { f ->
+                    if (!f.exists()) error("APK listed in metadata not found: ${f.absolutePath}")
+                }
+            } else {
+                val candidates = dir.listFiles { f -> f.isFile && f.extension == "apk" }
+                    ?.sortedBy { it.name } ?: emptyList()
+                candidates.singleOrNull()
+                    ?: error(
+                        "No output-metadata.json and ${candidates.size} APKs in ${dir.absolutePath} " +
+                        "for variant '${variant.name}': ${candidates.map { it.name }}"
+                    )
+            }
+            val script = File(rootProject.projectDir, "../../runtime/tests/verify-native-fixes.mjs")
+            val process = ProcessBuilder("node", script.absolutePath, apk.absolutePath)
+                .inheritIO()
+                .start()
+            val exit = process.waitFor()
+            if (exit != 0) throw GradleException(
+                "verifyNativeRuntimeFixes failed (exit $exit) for APK: ${apk.absolutePath}"
+            )
+        }
+    }
+    val assembleTaskName = "assemble${variant.name.replaceFirstChar { it.uppercaseChar() }}"
+    tasks.matching { it.name == assembleTaskName }.configureEach {
+        finalizedBy(verifyTask)
     }
 }
-tasks.matching { it.name.startsWith("assemble") }.configureEach {
-    finalizedBy("verifyNativeRuntimeFixes")
-}
+
 
 androidComponents {
     beforeVariants { variantBuilder ->
