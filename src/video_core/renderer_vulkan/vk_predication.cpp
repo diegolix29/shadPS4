@@ -497,15 +497,26 @@ void PredicationManager::BuildFromQueries(const std::vector<u32>& queries, bool 
         // result straight into the predicate slot. A non-zero sample count means visible, so no
         // reduction pass is needed; a count of exactly 2^32 is not reachable in practice.
         const u32 slot = AllocPredicateSlot();
+        const u32 slot_size = GetPredicateSlotSize(instance);
+        
         RecordBufferBarrier(
             cmdbuf,
             MakeBufferBarrier(predicate_buffer.Handle(), vk::PipelineStageFlagBits2::eAllCommands,
                               vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
                               vk::PipelineStageFlagBits2::eAllTransfer,
                               vk::AccessFlagBits2::eTransferWrite));
-        cmdbuf.copyQueryPoolResults(*query_pool, queries.front(), 1, predicate_buffer.Handle(),
-                                    slot * sizeof(u32), sizeof(u32),
-                                    vk::QueryResultFlagBits::eWait);
+        
+        if (use_64bit_predicate) {
+            // For AMD, copy the full 64-bit result to ensure proper predicate format
+            cmdbuf.copyQueryPoolResults(*query_pool, queries.front(), 1, predicate_buffer.Handle(),
+                                        slot * slot_size, sizeof(u64),
+                                        vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait);
+        } else {
+            cmdbuf.copyQueryPoolResults(*query_pool, queries.front(), 1, predicate_buffer.Handle(),
+                                        slot * sizeof(u32), sizeof(u32),
+                                        vk::QueryResultFlagBits::eWait);
+        }
+        
         RecordBufferBarrier(cmdbuf,
                             MakeBufferBarrier(predicate_buffer.Handle(),
                                               vk::PipelineStageFlagBits2::eAllTransfer,
@@ -586,8 +597,12 @@ void PredicationManager::ReducePredicate(u32 src_index, u32 count, u32 dst_slot,
                                          bool combine_on_gpu) {
     const auto cmdbuf = scheduler.CommandBuffer();
 
+    // Optimize barriers for AMD GPUs - use more precise stage masks and by-region dependency
+    const vk::DependencyFlags dependency_flags = 
+        instance.IsAmdGpu() ? vk::DependencyFlagBits::eByRegion : vk::DependencyFlags{};
+
     const std::array<vk::BufferMemoryBarrier2, 2> pre_barriers = {{
-        MakeBufferBarrier(counter_scratch.Handle(), vk::PipelineStageFlagBits2::eAllTransfer,
+        MakeBufferBarrier(counter_scratch.Handle(), vk::PipelineStageFlagBits2::eTransfer,
                           vk::AccessFlagBits2::eTransferWrite,
                           vk::PipelineStageFlagBits2::eComputeShader,
                           vk::AccessFlagBits2::eShaderRead),
@@ -597,6 +612,7 @@ void PredicationManager::ReducePredicate(u32 src_index, u32 count, u32 dst_slot,
                           vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite),
     }};
     cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+        .dependencyFlags = dependency_flags,
         .bufferMemoryBarrierCount = static_cast<u32>(pre_barriers.size()),
         .pBufferMemoryBarriers = pre_barriers.data(),
     });
@@ -639,14 +655,16 @@ void PredicationManager::ReducePredicate(u32 src_index, u32 count, u32 dst_slot,
     };
     cmdbuf.pushConstants(*reduce_pipeline_layout, vk::ShaderStageFlagBits::eCompute, 0,
                          sizeof(push_constants), &push_constants);
+    // Compute shader now uses workgroup size of 64, so we dispatch 1 workgroup
     cmdbuf.dispatch(1, 1, 1);
 
+    // Optimize post-barrier for AMD GPUs
     RecordBufferBarrier(cmdbuf,
                         MakeBufferBarrier(predicate_buffer.Handle(),
                                           vk::PipelineStageFlagBits2::eComputeShader,
                                           vk::AccessFlagBits2::eShaderWrite,
                                           vk::PipelineStageFlagBits2::eConditionalRenderingEXT |
-                                              vk::PipelineStageFlagBits2::eAllTransfer,
+                                              vk::PipelineStageFlagBits2::eTransfer,
                                           vk::AccessFlagBits2::eConditionalRenderingReadEXT |
                                               vk::AccessFlagBits2::eTransferRead));
 }

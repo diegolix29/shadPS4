@@ -3,7 +3,8 @@
 
 #version 450
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+// Use larger workgroup size for better AMD GPU utilization
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 // 64-bit occlusion query results (or boolean predicate values) split in dword pairs.
 layout(std430, binding = 0) readonly buffer CounterBuffer {
@@ -22,24 +23,49 @@ layout(push_constant) uniform PushConstants {
     uint use_64bit_predicate;
 };
 
+shared uint shared_bits;
+
 void main() {
-    uint bits = 0u;
-    for (uint i = 0u; i < count; ++i) {
-        const uvec2 counter = counters[src_index + i];
-        bits |= counter.x | counter.y;
-    }
-    const uint visible = bits != 0u ? 1u : 0u;
+    const uint tid = gl_LocalInvocationID.x;
     
-    if (use_64bit_predicate != 0u) {
-        // AMD GPUs require 64-bit predicate values due to hardware limitations
-        // https://gitlab.freedesktop.org/mesa/mesa/-/issues/1979
-        // Write the predicate value to both 32-bit halves to ensure proper 64-bit behavior
-        const uvec2 predicate64 = combine != 0u ? 
-            uvec2(predicates[dst_index * 2] | visible, predicates[dst_index * 2 + 1]) : 
-            uvec2(visible, 0u);
-        predicates[dst_index * 2] = predicate64.x;
-        predicates[dst_index * 2 + 1] = predicate64.y;
-    } else {
-        predicates[dst_index] = combine != 0u ? (predicates[dst_index] | visible) : visible;
+    // Initialize shared memory
+    if (tid == 0u) {
+        shared_bits = 0u;
+    }
+    memoryBarrierShared();
+    barrier();
+    
+    // Each thread processes a portion of the counters
+    uint local_bits = 0u;
+    for (uint i = tid; i < count; i += gl_WorkGroupSize.x) {
+        const uvec2 counter = counters[src_index + i];
+        local_bits |= counter.x | counter.y;
+        // Early exit if this thread already found a visible sample
+        if (local_bits != 0u) {
+            break;
+        }
+    }
+    
+    // Reduce across workgroup using shared memory
+    if (local_bits != 0u) {
+        atomicOr(shared_bits, 1u);
+    }
+    barrier();
+    
+    // Only first thread writes the result
+    if (tid == 0u) {
+        const uint visible = shared_bits != 0u ? 1u : 0u;
+        
+        if (use_64bit_predicate != 0u) {
+            // AMD GPUs require 64-bit predicate values due to hardware limitations
+            // https://gitlab.freedesktop.org/mesa/mesa/-/issues/1979
+            const uvec2 predicate64 = combine != 0u ? 
+                uvec2(predicates[dst_index * 2] | visible, predicates[dst_index * 2 + 1]) : 
+                uvec2(visible, 0u);
+            predicates[dst_index * 2] = predicate64.x;
+            predicates[dst_index * 2 + 1] = predicate64.y;
+        } else {
+            predicates[dst_index] = combine != 0u ? (predicates[dst_index] | visible) : visible;
+        }
     }
 }
