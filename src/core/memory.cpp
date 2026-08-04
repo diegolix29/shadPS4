@@ -77,6 +77,13 @@ void MemoryManager::SetupMemoryRegions(u64 flexible_size, bool use_extended_mem1
         total_size -= 128_MB;
     }
 
+    LOG_WARNING(Kernel_Vmm,
+                "[MemDiag] SetupMemoryRegions: flexible_size(param)={:#x} is_neo={} "
+                "use_extended_mem1={} use_extended_mem2={} total_size(before extra_dmem)={:#x} "
+                "old_direct_size={:#x}",
+                flexible_size, is_neo, use_extended_mem1, use_extended_mem2, total_size,
+                total_direct_size);
+
     total_flexible_size = flexible_size - ORBIS_KERNEL_FLEXIBLE_MEMORY_BASE;
     if (extra_dmem != 0) {
         LOG_WARNING(Kernel_Vmm,
