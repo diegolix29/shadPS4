@@ -7,7 +7,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-class SessionLog private constructor(
+class SessionLog internal constructor(
     val directory: Path,
 ) {
     val applicationLog: Path = directory.resolve("application.log")

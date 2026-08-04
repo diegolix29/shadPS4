@@ -9,7 +9,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DiagnosticExporterTest {
-    @Test fun sanitizesPrivateAndGamePaths() {
+    @Test
+    fun sanitizesPrivateAndGamePaths() {
         val output = ByteArrayOutputStream()
         DiagnosticExporter(File("/data/user/0/app"), File("/data/user/0/app/files/games/GAME-1")).export(
             output,
@@ -19,7 +20,7 @@ class DiagnosticExporterTest {
             zip.nextEntry
             zip.readBytes().decodeToString()
         }
-        assertTrue("<GAME>/eboot.bin" in text)
+        assertTrue("<GAME_ROOT>/eboot.bin" in text)
         assertTrue("<APP_DATA>/cache/log" in text)
         assertFalse("/data/user" in text)
     }

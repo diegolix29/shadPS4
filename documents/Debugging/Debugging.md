@@ -169,3 +169,7 @@ Accurately identifying games will help other developers that own that game recog
     Do, however, add information about the game you experienced the issue in, so that it can be tested in a reproducible environment.
   - Good example: "_Crash in `Shader::Gcn::CFG::EmitBlocks()`, out of bounds list access_" -> _issue description shares stack trace, points to code in the repository and provides relevant information_
   - Bad example: "_Amplitude crashes on boot, access violation_" -> _issue description reiterates title, focuses on the game instead of the emulator and refuses to elaborate_
+
+## In-app diagnostic reports
+
+See [in-app-diagnostic-reports.md](in-app-diagnostic-reports.md) for the Release 1 Play Store diagnostic ZIP flow, privacy behavior, and sharing steps.

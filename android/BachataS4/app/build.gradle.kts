@@ -63,6 +63,32 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
+        // Build-time metadata for diagnostic reports (never run git on device).
+        val sourceCommit = try {
+            val p = ProcessBuilder("git", "rev-parse", "--short=12", "HEAD")
+                .directory(rootProject.projectDir.resolve("../.."))
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+            val out = p.inputStream.bufferedReader().readText().trim()
+            if (p.waitFor() == 0 && out.isNotBlank()) out else "unknown"
+        } catch (_: Exception) {
+            "unknown"
+        }
+        val runtimeRevision = try {
+            val lock = rootProject.projectDir.resolve("../../runtime/locks/components.lock.json")
+            if (!lock.isFile) {
+                "unknown"
+            } else {
+                val body = lock.readText()
+                Regex("\"revision\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+                    ?: Regex("\"sha256\"\\s*:\\s*\"([0-9a-fA-F]{12,})\"").find(body)?.groupValues?.get(1)?.take(16)
+                    ?: "unknown"
+            }
+        } catch (_: Exception) {
+            "unknown"
+        }
+        buildConfigField("String", "SOURCE_COMMIT", "\"${sourceCommit.replace("\"", "").replace("\n", "")}\"")
+        buildConfigField("String", "RUNTIME_REVISION", "\"${runtimeRevision.replace("\"", "").replace("\n", "").take(64)}\"")
     }
     buildTypes {
         release {

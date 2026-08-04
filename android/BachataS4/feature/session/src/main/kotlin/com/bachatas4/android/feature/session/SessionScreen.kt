@@ -3,6 +3,8 @@ package com.bachatas4.android.feature.session
 import android.content.Intent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,7 +32,13 @@ import com.bachatas4.android.runtime.session.RuntimeSurface
 import com.bachatas4.android.feature.session.controller.FixedControllerOverlay
 import com.bachatas4.android.feature.session.controller.TouchLayout
 import com.bachatas4.android.feature.session.controller.TouchLayoutRepository
+import com.bachatas4.android.feature.session.diagnostics.DiagnosticReportPhase
+import com.bachatas4.android.feature.session.diagnostics.DiagnosticReportSheet
+import com.bachatas4.android.feature.session.diagnostics.DiagnosticReportViewModel
+import com.bachatas4.android.feature.session.diagnostics.DiagnosticShare
 import com.bachatas4.android.data.RuntimeProfileStore
+import com.bachatas4.android.runtime.diagnostics.DiagnosticCheckpoint
+import com.bachatas4.android.runtime.diagnostics.DiagnosticReportContext
 import com.bachatas4.android.runtime.settings.ProfileScope
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -45,6 +53,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -66,6 +75,7 @@ fun SessionScreen(
     /** Stops the game and returns to the library, keeping the app alive. */
     onExit: () -> Unit = {},
     viewModel: SessionViewModel = hiltViewModel(),
+    diagnosticViewModel: DiagnosticReportViewModel = hiltViewModel(),
 ) {
     SessionWindowModeEffect()
     val context = LocalContext.current
@@ -74,12 +84,27 @@ fun SessionScreen(
     val state by viewModel.state.collectAsState()
     val frames by viewModel.frameTelemetry.collectAsState()
     val device by viewModel.deviceTelemetry.collectAsState()
+    val diagnosticState by diagnosticViewModel.uiState.collectAsState()
 
     var faded by remember { mutableStateOf(false) }
     var showFps by remember { mutableStateOf(true) }
     var showStopOverlay by remember { mutableStateOf(false) }
+    var showUnexpectedStop by remember { mutableStateOf(false) }
     var notificationMessage by remember { mutableStateOf<String?>(null) }
     var notificationVisible by remember { mutableStateOf(false) }
+
+    val saveDocumentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(DiagnosticShare.MIME_ZIP),
+    ) { uri ->
+        val zip = diagnosticState.zipFile
+        if (uri != null && zip != null && zip.isFile) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    zip.inputStream().use { input -> input.copyTo(output) }
+                }
+            }
+        }
+    }
 
     LaunchedEffect(gameId) {
         val global = dependencies.runtimeProfileStore().load(ProfileScope.Global)
@@ -89,8 +114,15 @@ fun SessionScreen(
     }
 
     LaunchedEffect(state) {
-        if (state != ManagedSessionState.Idle) {
-            notificationMessage = state.label()
+        val current = state
+        val unexpected = when (current) {
+            is ManagedSessionState.Stopped -> current.isUnexpected
+            is ManagedSessionState.Failed -> current.reportContext != null
+            else -> false
+        }
+        showUnexpectedStop = unexpected
+        if (current != ManagedSessionState.Idle) {
+            notificationMessage = current.label()
             notificationVisible = true
             delay(5000)
             notificationVisible = false
@@ -176,6 +208,67 @@ fun SessionScreen(
         ) {
             notificationMessage?.let { msg ->
                 NotificationPill(message = msg)
+            }
+        }
+
+        if (showUnexpectedStop) {
+            UnexpectedStopOverlay(
+                state = state,
+                onCreateReport = {
+                    reportContextFromState(state)?.let { diagnosticViewModel.openReview(it) }
+                },
+                onRetry = {
+                    showUnexpectedStop = false
+                    viewModel.launch(gameId)
+                },
+                onClose = {
+                    showUnexpectedStop = false
+                    onExit()
+                },
+            )
+        }
+
+        if (
+            diagnosticState.phase != DiagnosticReportPhase.IDLE &&
+            diagnosticState.phase != DiagnosticReportPhase.CANCELLED &&
+            diagnosticState.context != null
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.8f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .background(BachataPalette.Surface, RoundedCornerShape(16.dp))
+                        .border(1.dp, BachataPalette.Secondary.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
+                ) {
+                    DiagnosticReportSheet(
+                        state = diagnosticState,
+                        onDescriptionChange = diagnosticViewModel::setUserDescription,
+                        onScreenshotToggle = diagnosticViewModel::setIncludeScreenshot,
+                        onCreateAndShare = {
+                            diagnosticViewModel.createAndShare { file ->
+                                context.startActivity(
+                                    DiagnosticShare.createChooser(context, file, diagnosticState.context?.reportId.orEmpty()),
+                                )
+                            }
+                        },
+                        onSaveLocally = {
+                            diagnosticViewModel.createAndSave { file ->
+                                saveDocumentLauncher.launch(file.name)
+                            }
+                        },
+                        onCancel = {
+                            diagnosticViewModel.dismiss()
+                        },
+                        onRetry = {
+                            reportContextFromState(state)?.let { diagnosticViewModel.openReview(it) }
+                        },
+                    )
+                }
             }
         }
 
@@ -350,5 +443,86 @@ private fun ManagedSessionState.label(): String = when (this) {
     is ManagedSessionState.Preparing -> "Preparing: $stage"
     is ManagedSessionState.Running -> "Running: $gameId"
     is ManagedSessionState.Failed -> "Error: $detail"
-    is ManagedSessionState.Stopped -> "Stopped: ${exitCode ?: "unknown"}"
+    is ManagedSessionState.Stopped -> when {
+        userRequestedStop -> "Stopped"
+        else -> "Stopped: ${exitCode ?: "unknown"}"
+    }
+}
+
+private fun reportContextFromState(state: ManagedSessionState): DiagnosticReportContext? = when (state) {
+    is ManagedSessionState.Stopped -> state.reportContext
+    is ManagedSessionState.Failed -> state.reportContext
+    else -> null
+}
+
+@Composable
+private fun UnexpectedStopOverlay(
+    state: ManagedSessionState,
+    onCreateReport: () -> Unit,
+    onRetry: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val reportContext = reportContextFromState(state)
+    val exitCode = when (state) {
+        is ManagedSessionState.Stopped -> state.exitCode
+        else -> reportContext?.termination?.exitCode
+    }
+    val lastStage = reportContext?.lastCheckpoint?.let { name ->
+        runCatching { DiagnosticCheckpoint.valueOf(name).displayLabel() }.getOrDefault(name)
+    } ?: "unknown"
+    val reportId = reportContext?.reportId ?: "unavailable"
+    val termination = reportContext?.termination
+    val processLine = when {
+        termination?.signalNumber != null ->
+            "Process: ${termination.processRole.name.lowercase()} · Signal ${termination.signalNumber}" +
+                (termination.signalName?.let { " ($it)" } ?: "")
+        termination != null ->
+            "Process reason: Not available (exit value ${termination.exitCode ?: "unknown"})"
+        else -> "Process reason: Not available"
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .padding(20.dp)
+                .background(BachataPalette.Surface, RoundedCornerShape(16.dp))
+                .border(1.dp, BachataPalette.Secondary.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                .padding(24.dp),
+        ) {
+            Text(
+                text = "Game stopped unexpectedly",
+                color = BachataPalette.Primary,
+                fontWeight = FontWeight.Bold,
+                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+            )
+            Text(
+                text = "The emulation process ended before a normal shutdown.",
+                color = BachataPalette.Secondary,
+                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+            )
+            Text("Exit value: ${exitCode ?: "unknown"}", color = BachataPalette.Primary)
+            Text("Last completed stage: $lastStage", color = BachataPalette.Primary)
+            Text(processLine, color = BachataPalette.Secondary, modifier = Modifier.padding(top = 4.dp))
+            Text("Report ID: $reportId", color = BachataPalette.Secondary, modifier = Modifier.padding(bottom = 16.dp))
+            Row {
+                if (reportContext != null) {
+                    Button(onClick = onCreateReport, modifier = Modifier.padding(end = 8.dp)) {
+                        Text("Create diagnostic report")
+                    }
+                }
+                OutlinedButton(onClick = onRetry, modifier = Modifier.padding(end = 8.dp)) {
+                    Text("Retry")
+                }
+                OutlinedButton(onClick = onClose) {
+                    Text("Close")
+                }
+            }
+        }
+    }
 }

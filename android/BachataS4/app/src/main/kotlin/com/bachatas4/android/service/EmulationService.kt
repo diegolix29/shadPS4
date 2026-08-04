@@ -12,9 +12,20 @@ import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import android.os.Build
+import com.bachatas4.android.BuildConfig
 import com.bachatas4.android.MainActivity
 import com.bachatas4.android.RuntimeLaunchProfileProvider
 import com.bachatas4.android.model.RuntimeErrorCode
+import com.bachatas4.android.runtime.diagnostics.DiagnosticAppInfo
+import com.bachatas4.android.runtime.diagnostics.DiagnosticCheckpoint
+import com.bachatas4.android.runtime.diagnostics.DiagnosticCheckpointStore
+import com.bachatas4.android.runtime.diagnostics.DiagnosticDeviceInfo
+import com.bachatas4.android.runtime.diagnostics.DiagnosticDriverInfo
+import com.bachatas4.android.runtime.diagnostics.DiagnosticReportContext
+import com.bachatas4.android.runtime.diagnostics.DiagnosticReportIds
+import com.bachatas4.android.runtime.diagnostics.ProcessRole
+import com.bachatas4.android.runtime.diagnostics.ProcessTerminationClassifier
 import com.bachatas4.android.runtime.diagnostics.SessionLog
 import com.bachatas4.android.runtime.config.ShadPs4ConfigManager
 import com.bachatas4.android.runtime.display.WinlatorEmbeddedXServer
@@ -46,6 +57,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 import com.bachatas4.android.runtime.input.GamepadInputManager
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -68,6 +80,7 @@ class EmulationService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var sessionJob: Job? = null
     @Volatile private var process: RuntimeProcessHandle? = null
+    private val userRequestedStop = AtomicBoolean(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -110,15 +123,29 @@ class EmulationService : Service() {
         val controlFile = File(filesDir, "runtime-control.sock").apply { delete() }
         val logsRoot = File(filesDir, "logs").toPath()
         SessionLog.prune(logsRoot, keep = MAX_LOG_SESSIONS - 1)
+        userRequestedStop.set(false)
         val sessionLog = SessionLog.create(
             logsRoot,
             gameId,
             Instant.now(),
             UUID.randomUUID().toString().substring(0, 8),
         )
+        val checkpointStore = DiagnosticCheckpointStore(sessionLog.directory, sessionLog)
+        checkpointStore.mark(DiagnosticCheckpoint.SESSION_CREATED)
+        checkpointStore.mark(DiagnosticCheckpoint.SESSION_DIRECTORY_READY)
+        val reportId = DiagnosticReportIds.generate()
         val outputFile = sessionLog.backendLog.toFile()
         val telemetryReporter = FrameTelemetryReporter()
-        sessionLog.info("Session", "start game=$gameId intentDriver=$vulkanDriver")
+        var firstFrameReached = false
+        var processStartUtc: String? = null
+        var processEndUtc: String? = null
+        var guestBackendName = "unknown"
+        var driverInfo = DiagnosticDriverInfo(type = "unknown", name = "unknown")
+        var settingsJson: String? = null
+        var gameTitle = gameId
+        var launchFailed = false
+        var statePublished = false
+        sessionLog.info("Session", "start game=$gameId intentDriver=$vulkanDriver reportId=$reportId")
         GamepadInputManager.onSessionStart()
         sessionLog.info(
             "Device",
@@ -133,7 +160,13 @@ class EmulationService : Service() {
             val eboot = File(gameRoot, "eboot.bin")
             require(eboot.isFile) { "Imported eboot.bin is missing" }
             sessionLog.info("Content", "validated game root and eboot.bin")
+            gameTitle = gameId
             val launchProfile = launchProfileProvider.resolve(gameId)
+            settingsJson = "{" +
+                "\"schemaVersion\":${launchProfile.schemaVersion}," +
+                "\"guestBackend\":\"${launchProfile.guestBackend.name}\"," +
+                "\"driverId\":\"${launchProfile.driverId}\"" +
+                "}"
             sessionLog.info(
                 "Config",
                 "schema=${launchProfile.schemaVersion} settings=${launchProfileProvider.explicitSettingIds(launchProfile).joinToString(",")}",
@@ -143,6 +176,7 @@ class EmulationService : Service() {
             val installedRuntime = installRuntime()
             runtimeRoot = installedRuntime
             sessionLog.info("Runtime", "installed version=${installedRuntime.fileName}")
+            checkpointStore.mark(DiagnosticCheckpoint.RUNTIME_VERIFIED)
             installedRuntime.resolve(".local/share").toFile().mkdirs()
             installedRuntime.resolve(".config").toFile().mkdirs()
             ManagedSession.update(ManagedSessionState.Preparing("display"))
@@ -161,6 +195,7 @@ class EmulationService : Service() {
             )
             xServer.start(target.surface, target.width, target.height)
             sessionLog.info("Display", "embedded X server started display=${xServer.display}")
+            checkpointStore.mark(DiagnosticCheckpoint.DISPLAY_READY)
 
             boundSocket = LocalSocket().also {
                 it.bind(LocalSocketAddress(controlFile.path, LocalSocketAddress.Namespace.FILESYSTEM))
@@ -199,6 +234,7 @@ class EmulationService : Service() {
                 }
                 vortekSocketPath = session.socketAsPath()
                 sessionLog.info("Vulkan", "driver=system-vortek box64Mode=HOST_GLIBC")
+                checkpointStore.mark(DiagnosticCheckpoint.VORTEK_READY)
             }
 
             val driverConfiguration = launchProfileProvider.vulkanConfiguration(
@@ -208,6 +244,21 @@ class EmulationService : Service() {
                 vortekSocketPath = vortekSocketPath,
             )
             val guestBackend = launchProfile.guestBackend
+            guestBackendName = guestBackend.name.lowercase()
+            driverInfo = DiagnosticDriverInfo(
+                type = when {
+                    useVortek -> "vortek"
+                    driverConfiguration.driverProfileId.contains("turnip", ignoreCase = true) -> "turnip"
+                    else -> "system"
+                },
+                name = driverConfiguration.driverProfileId,
+                version = null,
+                build = driverConfiguration.box64Mode.name,
+                source = if (useVortek) "system vortek" else "selected profile",
+                profileId = driverConfiguration.driverProfileId,
+            )
+            checkpointStore.mark(DiagnosticCheckpoint.DRIVER_SELECTED)
+            checkpointStore.mark(DiagnosticCheckpoint.DRIVER_LOADED)
             sessionLog.info("Runtime", "guestBackend=${guestBackend.name.lowercase()}")
             sessionLog.info(
                 "Vulkan",
@@ -248,6 +299,7 @@ class EmulationService : Service() {
                     ),
                 )
             } catch (launchError: Exception) {
+                launchFailed = true
                 if (useVortek) {
                     throw IllegalStateException(
                         "vortek_guest_launch_failed: ${launchError.message}",
@@ -256,7 +308,9 @@ class EmulationService : Service() {
                 }
                 throw launchError
             }
+            processStartUtc = Instant.now().toString()
             sessionLog.info("Runtime", "backend process launched")
+            checkpointStore.mark(DiagnosticCheckpoint.BACKEND_LAUNCHED)
             // CONTEXT_READY is observed by the Android server when the real packaged client
             // connects (Task 5 probe / game Vulkan init). Do not block control-socket accept.
             val acceptFuture = acceptExecutor.submit<LocalSocket> { serverSocket.accept() }
@@ -270,6 +324,7 @@ class EmulationService : Service() {
                     null
                 }
             }
+            checkpointStore.mark(DiagnosticCheckpoint.CONTROL_SOCKET_CONNECTED)
             val encoder = ControllerFrameEncoder()
             val controllerOutput = clientSocket.outputStream
             val writeLock = Any()
@@ -290,10 +345,16 @@ class EmulationService : Service() {
                 when {
                     frame == "BACHATA/1 EVENT Running" -> {
                         sessionLog.info("Session", "backend reported Running")
+                        checkpointStore.mark(DiagnosticCheckpoint.SHADPS4_RUNNING)
                         ManagedSession.update(ManagedSessionState.Running(gameId))
                     }
                     frame == "BACHATA/1 EVENT Frame" -> {
                         val nowNanos = System.nanoTime()
+                        if (!firstFrameReached) {
+                            firstFrameReached = true
+                            checkpointStore.mark(DiagnosticCheckpoint.FIRST_FRAME_SUBMITTED)
+                            checkpointStore.mark(DiagnosticCheckpoint.FIRST_FRAME_PRESENTED)
+                        }
                         ManagedSession.recordPresentedFrame(nowNanos)
                         telemetryReporter.record(nowNanos, ManagedSession.frameTelemetry.value)?.let { sample ->
                             sessionLog.info("Performance", sample.logLine())
@@ -301,26 +362,123 @@ class EmulationService : Service() {
                     }
                     frame.startsWith("BACHATA/1 ERROR code=") -> {
                         sessionLog.error("Backend", frame)
-                        ManagedSession.update(
-                            ManagedSessionState.Failed(RuntimeErrorCode.CONTENT_INVALID, frame.substringAfter("code=")),
+                        val reportContext = buildReportContext(
+                            reportId = reportId,
+                            sessionLog = sessionLog,
+                            checkpointStore = checkpointStore,
+                            gameTitle = gameTitle,
+                            cusaId = gameId,
+                            guestBackend = guestBackendName,
+                            firstFrameReached = firstFrameReached,
+                            driverInfo = driverInfo,
+                            processStartUtc = processStartUtc,
+                            processEndUtc = Instant.now().toString(),
+                            exitCode = process?.exitCode,
+                            launchFailed = false,
+                            runtimeErrorCode = frame.substringAfter("code="),
+                            settingsJson = settingsJson,
                         )
+                        ManagedSession.update(
+                            ManagedSessionState.Failed(
+                                RuntimeErrorCode.CONTENT_INVALID,
+                                frame.substringAfter("code="),
+                                reportContext = reportContext,
+                            ),
+                        )
+                        statePublished = true
                     }
                 }
             }
             process?.waitFor(PROCESS_EXIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            processEndUtc = Instant.now().toString()
             sessionLog.info("Session", "backend stopped exitCode=${process?.exitCode}")
-            ManagedSession.update(ManagedSessionState.Stopped(process?.exitCode))
+            if (!statePublished) {
+                checkpointStore.mark(DiagnosticCheckpoint.SESSION_STOPPING)
+                val reportContext = buildReportContext(
+                    reportId = reportId,
+                    sessionLog = sessionLog,
+                    checkpointStore = checkpointStore,
+                    gameTitle = gameTitle,
+                    cusaId = gameId,
+                    guestBackend = guestBackendName,
+                    firstFrameReached = firstFrameReached,
+                    driverInfo = driverInfo,
+                    processStartUtc = processStartUtc,
+                    processEndUtc = processEndUtc,
+                    exitCode = process?.exitCode,
+                    launchFailed = false,
+                    settingsJson = settingsJson,
+                )
+                ManagedSession.update(
+                    ManagedSessionState.Stopped(
+                        exitCode = process?.exitCode,
+                        termination = reportContext.termination,
+                        reportContext = reportContext,
+                    ),
+                )
+                statePublished = true
+            }
         } catch (_: CancellationException) {
-            sessionLog.info("Session", "cancelled exitCode=${process?.exitCode}")
-            ManagedSession.update(ManagedSessionState.Stopped(process?.exitCode))
+            processEndUtc = Instant.now().toString()
+            sessionLog.info("Session", "cancelled exitCode=${process?.exitCode} userStop=${userRequestedStop.get()}")
+            if (!statePublished) {
+                checkpointStore.mark(DiagnosticCheckpoint.SESSION_STOPPING)
+                val reportContext = buildReportContext(
+                    reportId = reportId,
+                    sessionLog = sessionLog,
+                    checkpointStore = checkpointStore,
+                    gameTitle = gameTitle,
+                    cusaId = gameId,
+                    guestBackend = guestBackendName,
+                    firstFrameReached = firstFrameReached,
+                    driverInfo = driverInfo,
+                    processStartUtc = processStartUtc,
+                    processEndUtc = processEndUtc,
+                    exitCode = process?.exitCode,
+                    launchFailed = launchFailed,
+                    settingsJson = settingsJson,
+                )
+                ManagedSession.update(
+                    ManagedSessionState.Stopped(
+                        exitCode = process?.exitCode,
+                        termination = reportContext.termination,
+                        reportContext = reportContext,
+                    ),
+                )
+                statePublished = true
+            }
         } catch (error: Exception) {
+            processEndUtc = Instant.now().toString()
             val childOutput = runCatching { outputFile.readLines().takeLast(MAX_ERROR_LOG_LINES).joinToString(" | ") }
                 .getOrDefault("")
             val detail = listOfNotNull(error.message, childOutput.ifBlank { null }).joinToString(": ")
             sessionLog.error("Session", "${error.javaClass.simpleName}: ${error.message.orEmpty()}")
-            ManagedSession.update(
-                ManagedSessionState.Failed(RuntimeErrorCode.BACKEND_CRASHED, detail.ifBlank { error.javaClass.simpleName }),
-            )
+            if (!statePublished) {
+                val reportContext = buildReportContext(
+                    reportId = reportId,
+                    sessionLog = sessionLog,
+                    checkpointStore = checkpointStore,
+                    gameTitle = gameTitle,
+                    cusaId = gameId,
+                    guestBackend = guestBackendName,
+                    firstFrameReached = firstFrameReached,
+                    driverInfo = driverInfo,
+                    processStartUtc = processStartUtc,
+                    processEndUtc = processEndUtc,
+                    exitCode = process?.exitCode,
+                    launchFailed = launchFailed || error.message?.contains("exited before socket") == true,
+                    runtimeErrorCode = RuntimeErrorCode.BACKEND_CRASHED.name,
+                    settingsJson = settingsJson,
+                )
+                ManagedSession.update(
+                    ManagedSessionState.Failed(
+                        RuntimeErrorCode.BACKEND_CRASHED,
+                        detail.ifBlank { error.javaClass.simpleName },
+                        reportContext = reportContext,
+                    ),
+                )
+                statePublished = true
+            }
         } finally {
             runtimeRoot?.resolve(".local/share/shadPS4/log/shad_log.txt")?.let { internalLog ->
                 runCatching {
@@ -357,10 +515,87 @@ class EmulationService : Service() {
                 }
             }
             controlFile.delete()
+            checkpointStore.mark(DiagnosticCheckpoint.SESSION_FINISHED)
             sessionLog.info("Session", "cleanup complete")
             stopSelf()
         }
     }
+
+    private fun buildReportContext(
+        reportId: String,
+        sessionLog: SessionLog,
+        checkpointStore: DiagnosticCheckpointStore,
+        gameTitle: String,
+        cusaId: String,
+        guestBackend: String,
+        firstFrameReached: Boolean,
+        driverInfo: DiagnosticDriverInfo,
+        processStartUtc: String?,
+        processEndUtc: String?,
+        exitCode: Int?,
+        launchFailed: Boolean,
+        runtimeErrorCode: String? = null,
+        settingsJson: String?,
+    ): DiagnosticReportContext {
+        val userStop = userRequestedStop.get()
+        val termination = ProcessTerminationClassifier.fromJavaExitValue(
+            exitCode = exitCode,
+            userRequestedStop = userStop,
+            processRole = when (guestBackend) {
+                "fex" -> ProcessRole.FEX
+                "box64" -> ProcessRole.BOX64
+                else -> ProcessRole.BACKEND
+            },
+            processStartUtc = processStartUtc,
+            processEndUtc = processEndUtc,
+            runtimeErrorCode = runtimeErrorCode,
+            launchFailed = launchFailed && !userStop,
+        )
+        return DiagnosticReportContext(
+            reportId = reportId,
+            sessionDirectory = sessionLog.directory.toString(),
+            gameTitle = gameTitle,
+            cusaId = cusaId,
+            guestBackend = guestBackend,
+            lastCheckpoint = checkpointStore.lastCheckpoint?.name,
+            firstFrameReached = firstFrameReached,
+            userRequestedStop = userStop,
+            termination = termination,
+            driver = driverInfo,
+            app = diagnosticAppInfo(),
+            device = diagnosticDeviceInfo(),
+            processStartUtc = processStartUtc,
+            processEndUtc = processEndUtc,
+            runtimeErrorCode = runtimeErrorCode,
+            settingsJson = settingsJson,
+        )
+    }
+
+    private fun diagnosticAppInfo(): DiagnosticAppInfo =
+        DiagnosticAppInfo(
+            versionName = BuildConfig.VERSION_NAME,
+            versionCode = BuildConfig.VERSION_CODE.toLong(),
+            packageName = packageName,
+            distribution = BuildConfig.FLAVOR.ifBlank { "unknown" },
+            sourceCommit = BuildConfig.SOURCE_COMMIT,
+            runtimeRevision = BuildConfig.RUNTIME_REVISION,
+            debuggable = BuildConfig.DEBUG,
+        )
+
+    private fun diagnosticDeviceInfo(): DiagnosticDeviceInfo =
+        DiagnosticDeviceInfo(
+            manufacturer = Build.MANUFACTURER.orEmpty(),
+            model = Build.MODEL.orEmpty(),
+            device = Build.DEVICE.orEmpty(),
+            androidRelease = Build.VERSION.RELEASE.orEmpty(),
+            sdkInt = Build.VERSION.SDK_INT,
+            supportedAbis = Build.SUPPORTED_ABIS?.toList().orEmpty(),
+            soc = Build.SOC_MODEL.takeIf { it.isNotBlank() } ?: Build.HARDWARE,
+            gpuRenderer = null,
+            gpuVendor = null,
+            gpuVersion = null,
+            ramTotalMb = null,
+        )
 
     private fun installRuntime(): Path {
         val installRoot = File(filesDir, "runtime").toPath()
@@ -402,6 +637,7 @@ class EmulationService : Service() {
     )
 
     private fun stopSession() {
+        userRequestedStop.set(true)
         process?.destroy()
         sessionJob?.cancel()
         sessionJob = null
