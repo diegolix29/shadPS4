@@ -97,41 +97,35 @@ void Linker::Execute(const std::vector<std::string>& args) {
     // Relocate all modules
     RelocateAllImports();
 
-    // If we're running LLE libSceLibcInternal,
-    // we need to find the _malloc_init function and run it manually.
-    // This is something libkernel runs during initialization.
-    static PS4_SYSV_ABI s32 (*malloc_init)() = nullptr;
-
-    if (has_libcinternal) {
-        for (const auto& m : m_modules) {
-            const auto& mod = m.get();
-            if (mod->name.contains("libSceLibcInternal.sprx")) {
-                // Found libSceLibcInternal, now search through function exports.
-                // Looking for _malloc_init to init libSceLibcInternal properly
-                // and for all the memory allocating functions, so we can initialize our heap API
-                for (const auto& sym : mod->export_sym.GetSymbols()) {
-                    if (sym.nid_name.compare("_malloc_init") == 0) {
-                        malloc_init = reinterpret_cast<PS4_SYSV_ABI s32 (*)()>(sym.virtual_address);
-                    }
-                }
-            }
-        }
-    }
-
     // Configure the direct and flexible memory regions.
     u64 fmem_size = ORBIS_KERNEL_FLEXIBLE_MEMORY_SIZE;
     bool use_extended_mem1 = true, use_extended_mem2 = true;
 
     const auto* proc_param = GetProcParam();
     ASSERT(proc_param);
+    LOG_WARNING(Core_Linker,
+                "[MemDiag] proc_param={} proc_param->size={:#x} sizeof(OrbisProcParam)={:#x} "
+                "proc_param->mem_param(ptr)={} proc_param->sdk_version={:#x}",
+                fmt::ptr(proc_param), proc_param->size, sizeof(OrbisProcParam),
+                fmt::ptr(proc_param->mem_param), proc_param->sdk_version);
 
     Core::OrbisKernelMemParam mem_param{};
     if (proc_param->size >= offsetof(OrbisProcParam, mem_param) + sizeof(OrbisKernelMemParam*)) {
         if (proc_param->mem_param) {
             mem_param = *proc_param->mem_param;
+            LOG_WARNING(Core_Linker,
+                        "[MemDiag] mem_param.size={:#x} sizeof(OrbisKernelMemParam)={:#x} "
+                        "flexible_memory_size(ptr)={} extended_memory_1(ptr)={} "
+                        "extended_memory_2(ptr)={}",
+                        mem_param.size, sizeof(OrbisKernelMemParam),
+                        fmt::ptr(mem_param.flexible_memory_size),
+                        fmt::ptr(mem_param.extended_memory_1),
+                        fmt::ptr(mem_param.extended_memory_2));
             if (mem_param.size >=
                 offsetof(OrbisKernelMemParam, flexible_memory_size) + sizeof(u64*)) {
                 if (const auto* flexible_size = mem_param.flexible_memory_size) {
+                    LOG_WARNING(Core_Linker, "[MemDiag] *flexible_memory_size={:#x}",
+                                *flexible_size);
                     fmem_size = *flexible_size + ORBIS_KERNEL_FLEXIBLE_MEMORY_BASE;
                 }
             }
@@ -150,6 +144,10 @@ void Linker::Execute(const std::vector<std::string>& args) {
         use_extended_mem1 = mem_param.extended_memory_1 ? *mem_param.extended_memory_1 : false;
         use_extended_mem2 = mem_param.extended_memory_2 ? *mem_param.extended_memory_2 : false;
     }
+
+    LOG_WARNING(Core_Linker,
+                "[MemDiag] Final: fmem_size={:#x} use_extended_mem1={} use_extended_mem2={}",
+                fmem_size, use_extended_mem1, use_extended_mem2);
 
     memory->SetupMemoryRegions(fmem_size, use_extended_mem1, use_extended_mem2);
 
@@ -172,12 +170,23 @@ void Linker::Execute(const std::vector<std::string>& args) {
         LoadSharedLibraries();
         RelocateAllImports();
 
+        static PS4_SYSV_ABI s32 (*malloc_init)() = nullptr;
         const auto& libc_internal_path = Config::getSysModulesPath() / "libSceLibcInternal.sprx";
         bool has_libcinternal = std::filesystem::exists(libc_internal_path);
 
-        // Load libSceLibcInternal, run malloc_init.
         if (has_libcinternal) {
-            LoadLibcInternal();
+            for (const auto& m : m_modules) {
+                const auto& mod = m.get();
+                if (mod->name.contains("libSceLibcInternal.sprx")) {
+
+                    for (const auto& sym : mod->export_sym.GetSymbols()) {
+                        if (sym.nid_name.compare("_malloc_init") == 0) {
+                            malloc_init =
+                                reinterpret_cast<PS4_SYSV_ABI s32 (*)()>(sym.virtual_address);
+                        }
+                    }
+                }
+            }
 
             if (malloc_init != nullptr) {
                 // Call _malloc_init
@@ -234,6 +243,13 @@ void Linker::Execute(const std::vector<std::string>& args) {
 }
 
 s32 Linker::LoadModule(const std::filesystem::path& elf_name, bool is_dynamic) {
+    u32 existing_handle = FindByName(elf_name);
+    if (existing_handle != -1) {
+        LOG_INFO(Core_Linker, "Module {} already loaded, returning existing handle",
+                 elf_name.string());
+        return existing_handle;
+    }
+
     std::scoped_lock lk{mutex};
     auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
     const std::string as_guest = elf_name.generic_string();
