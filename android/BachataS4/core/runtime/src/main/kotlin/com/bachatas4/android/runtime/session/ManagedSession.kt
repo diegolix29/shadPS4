@@ -2,6 +2,8 @@ package com.bachatas4.android.runtime.session
 
 import android.view.Surface
 import com.bachatas4.android.model.RuntimeErrorCode
+import com.bachatas4.android.runtime.diagnostics.DiagnosticReportContext
+import com.bachatas4.android.runtime.diagnostics.ProcessTerminationInfo
 import com.bachatas4.android.runtime.input.ControllerSnapshot
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,8 +21,27 @@ sealed interface ManagedSessionState {
     data object Idle : ManagedSessionState
     data class Preparing(val stage: String) : ManagedSessionState
     data class Running(val gameId: String) : ManagedSessionState
-    data class Failed(val code: RuntimeErrorCode, val detail: String) : ManagedSessionState
-    data class Stopped(val exitCode: Int?) : ManagedSessionState
+    data class Failed(
+        val code: RuntimeErrorCode,
+        val detail: String,
+        val reportContext: DiagnosticReportContext? = null,
+    ) : ManagedSessionState
+    data class Stopped(
+        val exitCode: Int?,
+        val termination: ProcessTerminationInfo? = null,
+        val reportContext: DiagnosticReportContext? = null,
+    ) : ManagedSessionState {
+        val userRequestedStop: Boolean
+            get() = termination?.userRequestedStop == true || reportContext?.userRequestedStop == true
+        val isUnexpected: Boolean
+            get() = !userRequestedStop && (
+                (exitCode != null && exitCode != 0) ||
+                    termination?.terminationKind?.let {
+                        it != com.bachatas4.android.runtime.diagnostics.TerminationKind.EXITED &&
+                            it != com.bachatas4.android.runtime.diagnostics.TerminationKind.CANCELLED_BY_USER
+                    } == true
+                )
+    }
 }
 
 object ManagedSession {
