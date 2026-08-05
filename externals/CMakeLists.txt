@@ -42,22 +42,20 @@ add_library(minimp3 INTERFACE)
 target_include_directories(minimp3 INTERFACE minimp3)
 
 # zlib
-if (NOT TARGET ZLIB::ZLIB)
-    set(ZLIB_ENABLE_TESTS OFF)
-    set(WITH_GTEST OFF)
-    set(WITH_NEW_STRATEGIES ON)
-    set(ZLIB_COMPAT ON CACHE BOOL "" FORCE)
-    include(FetchContent)
-    FetchContent_Declare(
-        ZLIB
-        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/zlib-ng"
-        OVERRIDE_FIND_PACKAGE
-    )
-    FetchContent_MakeAvailable(ZLIB)
-    add_library(ZLIB::ZLIB ALIAS zlib)
-    # libpng expects this variable to exist after its find_package(ZLIB)
-    set(ZLIB_INCLUDE_DIRS "${FETCHCONTENT_BASE_DIR}/zlib-build")
-endif()
+set(ZLIB_ENABLE_TESTS OFF)
+set(WITH_GTEST OFF)
+set(WITH_NEW_STRATEGIES ON)
+set(ZLIB_COMPAT ON CACHE BOOL "" FORCE)
+include(FetchContent)
+FetchContent_Declare(
+    ZLIB
+    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/zlib-ng"
+    OVERRIDE_FIND_PACKAGE
+)
+FetchContent_MakeAvailable(ZLIB)
+add_library(ZLIB::ZLIB ALIAS zlib)
+# libpng expects this variable to exist after its find_package(ZLIB)
+set(ZLIB_INCLUDE_DIRS "${FETCHCONTENT_BASE_DIR}/zlib-build")
 
 if (NOT TARGET cryptopp::cryptopp)
     set(CRYPTOPP_BUILD_TESTING OFF CACHE BOOL "" FORCE)
