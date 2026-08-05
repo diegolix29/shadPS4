@@ -1,0 +1,49 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index bb8b0e64b..54317bc88 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1297,19 +1297,32 @@ endif()
+ 
+ set_source_files_properties(${OS_LINUX_SRC} ${ELFLOADER_SRC} ${INTERPRETER} ${WRAPPEDS} ${WRAPPEDS32} PROPERTIES COMPILE_OPTIONS "${CFLAGS}")
+ 
+-# creates git_head.h
+-if(DYNAREC)
+-    add_custom_command(
+-        OUTPUT "${BOX64_ROOT}/src/git_head.h"
+-        COMMAND sh -c "echo \\\#define GITREV \\\"$(git rev-parse --short HEAD)\\\">\"${BOX64_ROOT}/src/git_head.h\""
+-        DEPENDS ${DYNAREC_SRC} ${DYNAREC_ASM} ${DYNAREC_PASS} ${ELFLOADER_SRC} ${INTERPRETER} ${WRAPPEDS} ${WRAPPEDS32} ${WRAPPEDS_HEAD} ${WRAPPEDS32_HEAD}
+-        VERBATIM)
++# Creates src/git_head.h deterministically. The revision comes from the
++# BOX64_GITREV cache variable (7-40 lowercase hex digits). Git is never
++# invoked, so the version banner is reproducible across checkouts, absolute
++# paths, build times and missing nested .git metadata. The file is only
++# rewritten when its contents would change.
++set(BOX64_GITREV "" CACHE STRING "Box64 revision to embed in the version banner (7-40 lowercase hex digits); git is never invoked")
++
++if(BOX64_GITREV)
++    string(LENGTH "${BOX64_GITREV}" _BOX64_GITREV_LENGTH)
++    if(NOT BOX64_GITREV MATCHES "^[0-9a-f]+$" OR
++       _BOX64_GITREV_LENGTH LESS 7 OR _BOX64_GITREV_LENGTH GREATER 40)
++        message(FATAL_ERROR "BOX64_GITREV must be 7-40 lowercase hex digits, got '${BOX64_GITREV}'")
++    endif()
++    set(_BOX64_GITREV_VALUE "${BOX64_GITREV}")
+ else()
+-    add_custom_command(
+-        OUTPUT "${BOX64_ROOT}/src/git_head.h"
+-        COMMAND sh -c "echo \\\#define GITREV \\\"$(git rev-parse --short HEAD)\\\">\"${BOX64_ROOT}/src/git_head.h\""
+-        DEPENDS ${ELFLOADER_SRC} ${INTERPRETER} ${WRAPPEDS} ${WRAPPEDS32} ${WRAPPEDS_HEAD} ${WRAPPEDS32_HEAD}
+-        VERBATIM)
++    set(_BOX64_GITREV_VALUE "nogit")
++endif()
++
++set(_BOX64_GITREV_HEADER "#define GITREV \"${_BOX64_GITREV_VALUE}\"\n")
++if(EXISTS "${BOX64_ROOT}/src/git_head.h")
++    file(READ "${BOX64_ROOT}/src/git_head.h" _BOX64_GITREV_OLD)
++    if(NOT _BOX64_GITREV_OLD STREQUAL _BOX64_GITREV_HEADER)
++        file(WRITE "${BOX64_ROOT}/src/git_head.h" "${_BOX64_GITREV_HEADER}")
++    endif()
++else()
++    file(WRITE "${BOX64_ROOT}/src/git_head.h" "${_BOX64_GITREV_HEADER}")
+ endif()
+ 
+ add_custom_target(generate_git_head_target
