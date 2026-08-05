@@ -42,84 +42,21 @@ add_library(minimp3 INTERFACE)
 target_include_directories(minimp3 INTERFACE minimp3)
 
 # zlib
-set(ZLIB_ENABLE_TESTS OFF)
-set(WITH_GTEST OFF)
-set(WITH_NEW_STRATEGIES ON)
-set(ZLIB_COMPAT ON CACHE BOOL "" FORCE)
-include(FetchContent)
-FetchContent_Declare(
-    ZLIB
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/zlib-ng"
-    OVERRIDE_FIND_PACKAGE
-)
-FetchContent_MakeAvailable(ZLIB)
 if (NOT TARGET ZLIB::ZLIB)
-    if (TARGET zlib)
-        add_library(ZLIB::ZLIB ALIAS zlib)
-    elseif (TARGET zlibstatic)
-        add_library(ZLIB::ZLIB ALIAS zlibstatic)
-    else()
-        message(FATAL_ERROR "zlib-ng did not create a usable 'zlib' or 'zlibstatic' target")
-    endif()
-endif()
-# Ensure zlib target has proper include directories for transitive usage.
-# zlib-ng generates zlib.h/zconf.h into its own binary directory at configure
-# time. Rather than guessing the FetchContent-internal directory naming
-# convention (which is undocumented and can change), use the SOURCE_DIR/
-# BINARY_DIR variables that FetchContent_MakeAvailable() itself guarantees
-# to set for content named "ZLIB": zlib_SOURCE_DIR / zlib_BINARY_DIR.
-# We add these unconditionally (not gated behind a property check) so a
-# false negative there can never silently leave consumers without the
-# generated header path.
-if(TARGET zlib)
-    target_include_directories(zlib PUBLIC
-        "$<BUILD_INTERFACE:${zlib_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${zlib_BINARY_DIR}>"
+    set(ZLIB_ENABLE_TESTS OFF)
+    set(WITH_GTEST OFF)
+    set(WITH_NEW_STRATEGIES ON)
+    set(ZLIB_COMPAT ON CACHE BOOL "" FORCE)
+    include(FetchContent)
+    FetchContent_Declare(
+        ZLIB
+        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/zlib-ng"
+        OVERRIDE_FIND_PACKAGE
     )
-endif()
-# libpng expects this variable to exist after its find_package(ZLIB)
-set(ZLIB_INCLUDE_DIRS "${zlib_BINARY_DIR}")
-
-if (NOT TARGET cryptopp::cryptopp)
-    set(CRYPTOPP_BUILD_TESTING OFF CACHE BOOL "" FORCE)
-    set(CRYPTOPP_BUILD_DOCUMENTATION OFF CACHE BOOL "" FORCE)
-    set(CRYPTOPP_INSTALL OFF CACHE BOOL "" FORCE)
-    set(CRYPTOPP_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cryptopp")
-    
-    if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-        set(CRYPTOPP_DISABLE_ASM ON CACHE BOOL "" FORCE)
-    endif()
-    
-    if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        add_compile_options(-mpclmul -maes -msha)
-    endif()
-    
-    add_subdirectory(cryptopp-cmake EXCLUDE_FROM_ALL)
-
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        set(CRYPTOPP_SIMD_FLAGS -mssse3 -msse4.1 -mpclmul -maes -msha)
-        foreach(_cryptopp_simd_file
-                gcm_simd.cpp
-                gf2n_simd.cpp
-                rijndael_simd.cpp
-                sha_simd.cpp
-                shacal2_simd.cpp
-                blake2s_simd.cpp
-                blake2b_simd.cpp)
-            set(_cryptopp_simd_path "${CRYPTOPP_SOURCES}/${_cryptopp_simd_file}")
-            if (EXISTS "${_cryptopp_simd_path}")
-                set_source_files_properties(
-                    "${_cryptopp_simd_path}"
-                    PROPERTIES COMPILE_OPTIONS "${CRYPTOPP_SIMD_FLAGS}"
-                )
-            endif()
-        endforeach()
-        
-        # Also apply to the cryptopp target directly if it exists
-        if (TARGET cryptopp)
-            target_compile_options(cryptopp PRIVATE ${CRYPTOPP_SIMD_FLAGS})
-        endif()
-    endif()
+    FetchContent_MakeAvailable(ZLIB)
+    add_library(ZLIB::ZLIB ALIAS zlib)
+    # libpng expects this variable to exist after its find_package(ZLIB)
+    set(ZLIB_INCLUDE_DIRS "${FETCHCONTENT_BASE_DIR}/zlib-build")
 endif()
 
 # FreeType
@@ -270,7 +207,6 @@ if (NOT TARGET PNG::PNG)
     set(PNG_TESTS OFF CACHE BOOL "" FORCE)
     set(PNG_TOOLS OFF CACHE BOOL "" FORCE)
     set(SKIP_INSTALL_ALL OFF CACHE BOOL "" FORCE)
-set(AWK "" CACHE BOOL "" FORCE)
     add_subdirectory(libpng)
     add_library(PNG::PNG ALIAS png_static)
 endif()
@@ -396,9 +332,8 @@ add_subdirectory(miniz)
 add_library(miniz::miniz ALIAS miniz)
 endif()
 
-# ZArchive (.zar archive support)
-if (NOT TARGET ZArchive::zarchive)
-    # zstd (dependency of ZArchive)
+# zstd (dependency of ZArchive)
+if (NOT TARGET libzstd_static)
     set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
     set(ZSTD_BUILD_SHARED OFF CACHE BOOL "" FORCE)
     set(ZSTD_BUILD_STATIC ON CACHE BOOL "" FORCE)
@@ -406,7 +341,10 @@ if (NOT TARGET ZArchive::zarchive)
     set(ZSTD_LEGACY_SUPPORT OFF CACHE BOOL "" FORCE)
     set(ZSTD_MULTITHREAD_SUPPORT OFF CACHE BOOL "" FORCE)
     add_subdirectory(zstd/build/cmake)
+endif()
 
+# ZArchive (.zar archive support)
+if (NOT TARGET zarchive)
     add_library(zarchive STATIC
         zarchive/src/zarchivereader.cpp
         zarchive/src/zarchivewriter.cpp
@@ -465,6 +403,22 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory(openal-soft EXCLUDE_FROM_ALL)
 endif()
 
+# CryptoPP
+if (NOT TARGET cryptopp::cryptopp)
+    set(CRYPTOPP_INSTALL OFF)
+    set(CRYPTOPP_BUILD_TESTING OFF)
+    set(CRYPTOPP_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cryptopp)
+    # cryptopp instruction set checks do not account for added compile options,
+    # so disable extensions in the library config to match our chosen target CPU.
+    set(CRYPTOPP_DISABLE_AESNI ON)
+    set(CRYPTOPP_DISABLE_AVX2 ON)
+    add_subdirectory(cryptopp-cmake)
+    file(COPY cryptopp DESTINATION cryptopp FILES_MATCHING PATTERN "*.h")
+    # remove externals/cryptopp from include directories because it contains a conflicting zlib.h file
+    set_target_properties(cryptopp PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}/cryptopp")
+endif()
+
+
 # cpp-httplib
 add_library(Cpp_Httplib INTERFACE)
 target_include_directories(Cpp_Httplib INTERFACE cpp-httplib/)
@@ -472,14 +426,9 @@ target_include_directories(Cpp_Httplib INTERFACE cpp-httplib/)
 if (TARGET ZLIB::ZLIB)
     target_link_libraries(Cpp_Httplib INTERFACE ZLIB::ZLIB)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_ZLIB_SUPPORT)
-    # Explicitly add zlib include directories for cpp-httplib
-    target_include_directories(Cpp_Httplib SYSTEM INTERFACE 
-        "${zlib_SOURCE_DIR}"
-        "${zlib_BINARY_DIR}"
-    )
     message(STATUS "cpp-httplib: zlib support enabled (gzip response decompression)")
 else()
-    message(STATUS "cpp-httplib: zlib not available -- gzip responses will arrive uncompressed")
+    message(STATUS "cpp-httplib: zlib not available — gzip responses will arrive uncompressed")
 endif()
 
 if (DEFINED SSL_DEPENDENCIES)
@@ -487,5 +436,5 @@ if (DEFINED SSL_DEPENDENCIES)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
     message(STATUS "cpp-httplib: SSL support enabled (TLS connections)")
 else()
-    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available � libSceHttp HTTPS will fall back to mock at runtime.")
+    message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available — libSceHttp HTTPS will fall back to mock at runtime.")
 endif()
