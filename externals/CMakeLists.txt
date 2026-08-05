@@ -53,7 +53,9 @@ FetchContent_Declare(
     OVERRIDE_FIND_PACKAGE
 )
 FetchContent_MakeAvailable(ZLIB)
-add_library(ZLIB::ZLIB ALIAS zlib)
+if (NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB ALIAS zlib)
+endif()
 # libpng expects this variable to exist after its find_package(ZLIB)
 set(ZLIB_INCLUDE_DIRS "${FETCHCONTENT_BASE_DIR}/zlib-build")
 
