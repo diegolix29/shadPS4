@@ -54,21 +54,31 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(ZLIB)
 if (NOT TARGET ZLIB::ZLIB)
-    add_library(ZLIB::ZLIB ALIAS zlib)
-endif()
-# Ensure zlib target has proper include directories for transitive usage
-# zlib-ng generates headers in the build directory
-if(TARGET zlib)
-    get_target_property(ZLIB_INCLUDE_DIRS zlib INTERFACE_INCLUDE_DIRECTORIES)
-    if(NOT ZLIB_INCLUDE_DIRS)
-        target_include_directories(zlib PUBLIC
-            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/zlib-ng>"
-            "$<BUILD_INTERFACE:${FETCHCONTENT_BASE_DIR}/zlib-build>"
-        )
+    if (TARGET zlib)
+        add_library(ZLIB::ZLIB ALIAS zlib)
+    elseif (TARGET zlibstatic)
+        add_library(ZLIB::ZLIB ALIAS zlibstatic)
+    else()
+        message(FATAL_ERROR "zlib-ng did not create a usable 'zlib' or 'zlibstatic' target")
     endif()
 endif()
+# Ensure zlib target has proper include directories for transitive usage.
+# zlib-ng generates zlib.h/zconf.h into its own binary directory at configure
+# time. Rather than guessing the FetchContent-internal directory naming
+# convention (which is undocumented and can change), use the SOURCE_DIR/
+# BINARY_DIR variables that FetchContent_MakeAvailable() itself guarantees
+# to set for content named "ZLIB": zlib_SOURCE_DIR / zlib_BINARY_DIR.
+# We add these unconditionally (not gated behind a property check) so a
+# false negative there can never silently leave consumers without the
+# generated header path.
+if(TARGET zlib)
+    target_include_directories(zlib PUBLIC
+        "$<BUILD_INTERFACE:${zlib_SOURCE_DIR}>"
+        "$<BUILD_INTERFACE:${zlib_BINARY_DIR}>"
+    )
+endif()
 # libpng expects this variable to exist after its find_package(ZLIB)
-set(ZLIB_INCLUDE_DIRS "${FETCHCONTENT_BASE_DIR}/zlib-build")
+set(ZLIB_INCLUDE_DIRS "${zlib_BINARY_DIR}")
 
 if (NOT TARGET cryptopp::cryptopp)
     set(CRYPTOPP_BUILD_TESTING OFF CACHE BOOL "" FORCE)
@@ -464,12 +474,12 @@ if (TARGET ZLIB::ZLIB)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_ZLIB_SUPPORT)
     # Explicitly add zlib include directories for cpp-httplib
     target_include_directories(Cpp_Httplib SYSTEM INTERFACE 
-        "${CMAKE_CURRENT_SOURCE_DIR}/zlib-ng"
-        "${FETCHCONTENT_BASE_DIR}/zlib-build"
+        "${zlib_SOURCE_DIR}"
+        "${zlib_BINARY_DIR}"
     )
     message(STATUS "cpp-httplib: zlib support enabled (gzip response decompression)")
 else()
-    message(STATUS "cpp-httplib: zlib not available � gzip responses will arrive uncompressed")
+    message(STATUS "cpp-httplib: zlib not available -- gzip responses will arrive uncompressed")
 endif()
 
 if (DEFINED SSL_DEPENDENCIES)
