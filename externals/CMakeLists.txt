@@ -56,6 +56,17 @@ FetchContent_MakeAvailable(ZLIB)
 if (NOT TARGET ZLIB::ZLIB)
     add_library(ZLIB::ZLIB ALIAS zlib)
 endif()
+# Ensure zlib target has proper include directories for transitive usage
+# zlib-ng generates headers in the build directory
+if(TARGET zlib)
+    get_target_property(ZLIB_INCLUDE_DIRS zlib INTERFACE_INCLUDE_DIRECTORIES)
+    if(NOT ZLIB_INCLUDE_DIRS)
+        target_include_directories(zlib PUBLIC
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/zlib-ng>"
+            "$<BUILD_INTERFACE:${FETCHCONTENT_BASE_DIR}/zlib-build>"
+        )
+    endif()
+endif()
 # libpng expects this variable to exist after its find_package(ZLIB)
 set(ZLIB_INCLUDE_DIRS "${FETCHCONTENT_BASE_DIR}/zlib-build")
 
@@ -451,6 +462,11 @@ target_include_directories(Cpp_Httplib INTERFACE cpp-httplib/)
 if (TARGET ZLIB::ZLIB)
     target_link_libraries(Cpp_Httplib INTERFACE ZLIB::ZLIB)
     target_compile_definitions(Cpp_Httplib INTERFACE CPPHTTPLIB_ZLIB_SUPPORT)
+    # Explicitly add zlib include directories for cpp-httplib
+    target_include_directories(Cpp_Httplib SYSTEM INTERFACE 
+        "${CMAKE_CURRENT_SOURCE_DIR}/zlib-ng"
+        "${FETCHCONTENT_BASE_DIR}/zlib-build"
+    )
     message(STATUS "cpp-httplib: zlib support enabled (gzip response decompression)")
 else()
     message(STATUS "cpp-httplib: zlib not available � gzip responses will arrive uncompressed")
