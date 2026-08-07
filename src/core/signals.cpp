@@ -5,7 +5,6 @@
 #include "common/assert.h"
 #include "common/decoder.h"
 #include "common/signal_context.h"
-#include "core/cpu_patches.h" // Windows static guest red-zone protection
 #include "core/libraries/kernel/threads/exception.h"
 #include "core/signals.h"
 #include "emulator.h"
@@ -34,9 +33,6 @@ namespace Core {
 
 static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     const auto* signals = Signals::Instance();
-    // Windows static guest red-zone protection
-    const bool use_static_windows_guest_red_zone_protection =
-        WindowsGuestRedZoneProtection::IsStaticPatchingEnabled();
     DWORD code = 0;
     PVOID address = nullptr;
 
@@ -46,22 +42,13 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     }
 
     bool handled = false;
-    bool static_protection_exception = false; // Windows static guest red-zone protection
     switch (code) {
     case EXCEPTION_ACCESS_VIOLATION:
-        static_protection_exception = true; // Windows static guest red-zone protection
         handled = signals->DispatchAccessViolation(
             pExp, reinterpret_cast<void*>(pExp->ExceptionRecord->ExceptionInformation[1]));
         break;
     case EXCEPTION_ILLEGAL_INSTRUCTION:
-        static_protection_exception = true; // Windows static guest red-zone protection
         handled = signals->DispatchIllegalInstruction(pExp);
-        break;
-    case EXCEPTION_PRIV_INSTRUCTION: // Windows static guest red-zone protection
-        if (use_static_windows_guest_red_zone_protection) {
-            static_protection_exception = true;
-            handled = signals->DispatchIllegalInstruction(pExp);
-        }
         break;
     case DBG_PRINTEXCEPTION_C:
     case DBG_PRINTEXCEPTION_WIDE_C:
@@ -78,11 +65,8 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
-    // Windows static guest red-zone protection
-    const bool report_unhandled = use_static_windows_guest_red_zone_protection
-                                      ? static_protection_exception
-                                      : code != EXCEPTION_BREAKPOINT;
-    if (report_unhandled) { // Windows static guest red-zone protection
+    // Breakpoints almost certainly come from our asserts/unreachables, no need to log it again.
+    if (code != EXCEPTION_BREAKPOINT) {
         LOG_CRITICAL(Debug, "Unhandled Exception code {:#x} at {}", code, address);
         Common::Singleton<Core::Emulator>::Instance()->Shutdown();
     }
