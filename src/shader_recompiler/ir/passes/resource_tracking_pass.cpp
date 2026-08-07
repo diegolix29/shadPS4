@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/memory_patcher.h"
@@ -617,8 +617,8 @@ void PatchImageSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors& 
             inst.ReplaceUsesWith(ir.Imm32(1));
             return;
         case IR::Opcode::ImageQueryDimensions: {
-            IR::Value dims = ir.CompositeConstruct(ir.Imm32(static_cast<u32>(image.width)), // x
-                                                   ir.Imm32(static_cast<u32>(image.width)), // y
+            IR::Value dims = ir.CompositeConstruct(ir.Imm32(static_cast<u32>(image.width)),  // x
+                                                   ir.Imm32(static_cast<u32>(image.height)), // y
                                                    ir.Imm32(1), ir.Imm32(1)); // depth, mip
             inst.ReplaceUsesWith(dims);
 
