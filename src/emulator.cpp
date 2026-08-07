@@ -29,6 +29,7 @@
 #include "common/polyfill_thread.h"
 #include "common/scm_rev.h"
 #include "common/singleton.h"
+#include "common/string_util.h"
 #include "common/zar_fs.h"
 #include "core/debug_state.h"
 #include "core/debugger.h"
@@ -599,6 +600,8 @@ void Emulator::Restart(std::filesystem::path eboot_path, const std::vector<std::
         args.push_back("--patch");
         args.push_back(MemoryPatcher::patch_file);
     }
+    args.push_back("--wait-for-pid");
+    args.push_back(std::to_string(Debugger::GetCurrentPid()));
 
     if (waitForDebuggerBeforeRun) {
         args.push_back("--wait-for-debugger");
@@ -620,7 +623,7 @@ void Emulator::Restart(std::filesystem::path eboot_path, const std::vector<std::
     args.insert(guest_args, {"--wait-for-pid", std::to_string(Debugger::GetCurrentPid())});
 
     LOG_INFO(Common, "Relaunching the emulator with args: {}", fmt::join(args, " "));
-    Common::Log::Shutdown();
+    Common::Log::Denitializer();
 
     auto& ipc = IPC::Instance();
 
