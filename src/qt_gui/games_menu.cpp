@@ -236,19 +236,19 @@ void BigPictureWidget::buildUi() {
     layout->addWidget(m_bottomBar);
 
     m_hotkeysOverlay = new HotkeysOverlay(Qt::Horizontal, this);
-    m_hotkeysOverlay->setHotkeys({{"Arrow Left/Right", "Navigate Games/Buttons"},
-                                  {"Arrow Down", "Focus on Buttons"},
-                                  {"Arrow Up", "Focus on Games"},
-                                  {"Enter/Space", "Select/Play"},
-                                  {"Shift + Arrow Up", "Hide/Show Games and Buttons"},
-                                  {"Shift + N", "Mute Background Music"},
-                                  {"Press - R - ", "Stop/Play Background Music"},
-                                  {"Press - P - ", "Play Highlighted Game"},
-                                  {"Press - M - ", "Mods Manager"},
-                                  {"Press - G - ", "Games Settings"},
-                                  {"Press - S - ", "Global Settings"},
-                                  {"Press - H - ", "Hotkeys Setup"},
-                                  {"Esc", "Exit"}});
+    m_hotkeysOverlay->setHotkeys({{tr("Arrow Left/Right"), tr("Navigate Games/Buttons")},
+                                  {tr("Arrow Down"), tr("Focus on Buttons")},
+                                  {tr("Arrow Up"), tr("Focus on Games")},
+                                  {tr("Enter/Space"), tr("Select/Play")},
+                                  {tr("Shift + Arrow Up"), tr("Hide/Show Games and Buttons")},
+                                  {tr("Shift + N"), tr("Mute Background Music")},
+                                  {tr("Press - R - "), tr("Stop/Play Background Music")},
+                                  {tr("Press - P - "), tr("Play Highlighted Game")},
+                                  {tr("Press - M - "), tr("Mods Manager")},
+                                  {tr("Press - G - "), tr("Games Settings")},
+                                  {tr("Press - S - "), tr("Global Settings")},
+                                  {tr("Press - H - "), tr("Hotkeys Setup")},
+                                  {tr("Esc"), tr("Exit")}});
     m_hotkeysOverlay->setMinimumHeight(50);
     m_hotkeysOverlay->setStyleSheet("background: rgba(0,0,0,120); padding: 6px 12px;");
     m_hotkeysOverlay->show();

@@ -56,10 +56,10 @@ EditorDialog::EditorDialog(QWidget* parent) : QDialog(parent) {
         }
     });
     // Create Save, Cancel, and Help buttons
-    QPushButton* saveButton = new QPushButton("Save", this);
-    QPushButton* cancelButton = new QPushButton("Cancel", this);
-    QPushButton* helpButton = new QPushButton("Help", this);
-    QPushButton* defaultButton = new QPushButton("Default", this);
+    QPushButton* saveButton = new QPushButton(tr("Save"), this);
+    QPushButton* cancelButton = new QPushButton(tr("Cancel"), this);
+    QPushButton* helpButton = new QPushButton(tr("Help"), this);
+    QPushButton* defaultButton = new QPushButton(tr("Default"), this);
 
     // Layout for the game selection and buttons
     QHBoxLayout* topLayout = new QHBoxLayout();
