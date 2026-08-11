@@ -273,6 +273,7 @@ static ConfigEntry<bool> shouldCopyGPUBuffers(false);
 static ConfigEntry<ReadbackSpeed> readbackSpeedMode(ReadbackSpeed::Disable);
 static ConfigEntry<bool> readbackLinearImagesEnabled(false);
 static ConfigEntry<bool> directMemoryAccessEnabled(false);
+static ConfigEntry<bool> predicationEnabled(true);
 static ConfigEntry<bool> shouldDumpShaders(false);
 static ConfigEntry<bool> shouldPatchShaders(false);
 static ConfigEntry<u32> vblankFrequency(60);
@@ -1217,6 +1218,14 @@ bool directMemoryAccess() {
     return directMemoryAccessEnabled.get();
 }
 
+bool predicationEnabled() {
+    return predicationEnabled.get();
+}
+
+void setPredicationEnabled(bool enable) {
+    predicationEnabled.base_value = enable;
+}
+
 bool dumpShaders() {
     return shouldDumpShaders.get();
 }
@@ -2068,6 +2077,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         shouldCopyGPUBuffers.setFromToml(gpu, "copyGPUBuffers", is_game_specific);
         readbackLinearImagesEnabled.setFromToml(gpu, "readbackLinearImages", is_game_specific);
         directMemoryAccessEnabled.setFromToml(gpu, "directMemoryAccess", is_game_specific);
+        predicationEnabled.setFromToml(gpu, "predicationEnabled", is_game_specific);
         isFullscreen.setFromToml(gpu, "Fullscreen", is_game_specific);
         fullscreenMode.setFromToml(gpu, "FullscreenMode", is_game_specific);
         if (is_game_specific) {
@@ -2522,6 +2532,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
                 readbackLinearImagesEnabled.base_value);
         data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.game_specific_value.value_or(
             directMemoryAccessEnabled.base_value);
+        data["GPU"]["predicationEnabled"] = predicationEnabled.game_specific_value.value_or(
+            predicationEnabled.base_value);
         data["GPU"]["dumpShaders"] =
             shouldDumpShaders.game_specific_value.value_or(shouldDumpShaders.base_value);
         data["GPU"]["patchShaders"] =
@@ -2555,6 +2567,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["GPU"]["readbackSpeedMode"] = static_cast<int>(readbackSpeedMode.base_value);
         data["GPU"]["readbackLinearImages"] = readbackLinearImagesEnabled.base_value;
         data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.base_value;
+        data["GPU"]["predicationEnabled"] = predicationEnabled.base_value;
         data["GPU"]["dumpShaders"] = shouldDumpShaders.base_value;
         data["GPU"]["patchShaders"] = shouldPatchShaders.base_value;
         data["GPU"]["vblankFrequency"] = vblankFrequency.base_value;
@@ -2834,6 +2847,7 @@ void setDefaultValues() {
     shaderSkipsEnabled = false;
     readbackLinearImagesEnabled = false;
     directMemoryAccessEnabled = false;
+    predicationEnabled = true;
     shouldDumpShaders = false;
     shouldPatchShaders = false;
     vblankFrequency = 60;

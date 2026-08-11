@@ -197,6 +197,8 @@ bool setScreenTipDisable(bool enable);
 bool getScreenTipDisable();
 bool directMemoryAccess();
 void setDirectMemoryAccess(bool enable);
+bool predicationEnabled();
+void setPredicationEnabled(bool enable);
 bool dumpShaders();
 bool patchShaders();
 bool isRdocEnabled();
