@@ -197,7 +197,7 @@ bool setScreenTipDisable(bool enable);
 bool getScreenTipDisable();
 bool directMemoryAccess();
 void setDirectMemoryAccess(bool enable);
-bool predicationEnabled();
+bool isPredicationEnabled();
 void setPredicationEnabled(bool enable);
 bool dumpShaders();
 bool patchShaders();

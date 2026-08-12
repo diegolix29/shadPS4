@@ -134,6 +134,7 @@ enum class Class : u8 {
     Input,                   ///< Input emulation
     Tty,                     ///< Debug output from emu
     IPC,
+    ShadNet,
     Count ///< Total number of logging classes
 };
 

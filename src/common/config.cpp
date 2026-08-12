@@ -1218,7 +1218,7 @@ bool directMemoryAccess() {
     return directMemoryAccessEnabled.get();
 }
 
-bool predicationEnabled() {
+bool isPredicationEnabled() {
     return predicationEnabled.get();
 }
 
@@ -2533,7 +2533,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.game_specific_value.value_or(
             directMemoryAccessEnabled.base_value);
         data["GPU"]["predicationEnabled"] = predicationEnabled.game_specific_value.value_or(
-            predicationEnabled.base_value);
+                predicationEnabled.base_value);
         data["GPU"]["dumpShaders"] =
             shouldDumpShaders.game_specific_value.value_or(shouldDumpShaders.base_value);
         data["GPU"]["patchShaders"] =

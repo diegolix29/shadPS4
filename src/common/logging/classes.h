@@ -111,5 +111,6 @@ constexpr auto Render = "Render";                                   ///< Video C
 constexpr auto Render_Recompiler = "Render.Recompiler";             ///< Shader recompiler
 constexpr auto Render_Vulkan = "Render.Vulkan";                     ///< Vulkan backend
 constexpr auto Tty = "Tty";                                         ///< Debug output from emu
+constexpr auto ShadNet = "ShadNet";                                 ///< shadNet binary protocol client
 // clang-format on
 } // namespace Common::Log::Class
