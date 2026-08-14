@@ -162,6 +162,20 @@ bool UserManager::SetDefaultUser(u32 user_id) {
     return Save();
 }
 
+bool UserManager::SetDefaultUserForProcess(u32 user_id) {
+    auto it = std::find_if(m_users.user.begin(), m_users.user.end(),
+                           [user_id](const User& u) { return u.user_id == user_id; });
+    if (it == m_users.user.end())
+        return false;
+
+    for (auto& user : m_users.user) {
+        if (user.player_index == 1)
+            user.player_index = -1;
+    }
+    it->player_index = 1;
+    return true;
+}
+
 User UserManager::GetDefaultUser() {
     User* user = GetUserByPlayerIndex(1);
     if (user) {

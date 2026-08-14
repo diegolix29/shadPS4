@@ -617,7 +617,7 @@ int PS4_SYSV_ABI sceNetDuplicateIpStop() {
 }
 
 int PS4_SYSV_ABI sceNetEpollAbort() {
-    LOG_ERROR(Lib_Net, "(STUBBED) called");
+    LOG_TRACE(Lib_Net, "(STUBBED) called");
     return ORBIS_OK;
 }
 
