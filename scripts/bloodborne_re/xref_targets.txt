@@ -1,0 +1,116 @@
+# Summon request state machine
+Allow Global Matching: %s
+CSRequestSummonStep
+CSRequestSummonStep::STEP_Init
+CSRequestSummonStep::STEP_Update
+CSRequestSummonStep::STEP_RequestSummonCheckWait
+CSRequestSummonStep::STEP_RequestSummonCheckComplete
+CSRequestSummonStep::STEP_Finish
+CSRequestGetSosStep
+CSRequestGetSosStep::STEP_Init
+CSRequestGetSosStep::STEP_Update_forSeamless
+CSRequestGetSosStep::STEP_Update_forWide
+CSRequestGetSosStep::STEP_Finish
+SummonDataCreateRequest
+SummonDataGetListRequest
+SummonDataRemoveRequest
+SummonDataSummonRequest
+SummonMethod
+MatchingLevel
+SummonTypeList
+SummonDataList
+SummonDataVersion
+RejectSummonReason
+IsValidSos:<%d>
+IsValidSos
+Condition:SelfSos
+Condition:SOS
+Condition:SosMenu
+OnMatchingCheck
+OnMatchingError
+OnSummonResult_Empty
+OnSummonResult_TimeOut
+OnSummonResult_OtherError
+ForceSummonFail
+
+# Multiplayer lifecycle
+CSMultiPlayMan
+CSMultiPlayerInsTask
+CSMultiPlayerInsTask::STEP_Init
+CSMultiPlayerInsTask::STEP_StartMultiPlayNotifyWait
+CSMultiPlayerInsTask::STEP_StartMultiPlayWait
+CSMultiPlayerInsTask::STEP_FirstSyncCompleteWait
+CSMultiPlayerInsTask::STEP_Create
+CSMultiPlayerInsTask::STEP_CreateWait
+CSMultiPlayerInsTask::STEP_Update
+CSMultiPlayerInsTask::STEP_WaitExitMultiPlay
+CSMultiPlayerInsTask::STEP_Delete
+CSMultiPlayerInsTask::STEP_DeleteWait
+CSMultiPlayerInsTask::STEP_Finish
+IsMatchingMultiPlay
+SummonSuccess
+SummonReloadStart
+ForceSummonReloadStart
+OnSummonResult_Move
+ForceSummonSuccess
+Call_WhiteSos
+Call_BlackSos
+OnEvent_Call_SOS
+OnEvent_Call_BlackSOS
+OnEvent_Call_DragonewtSOS
+OnEvent_SendSosSign_Coliseum
+OnEvent_Catch_SOS
+OnEvent_Delete_SOS
+OnEvent_Delete_WhiteSOS
+OnEvent_Delete_BlackSOS
+OnEvent_Delete_ForceJoinSOS
+ClearSosSign
+SummonBlackRequest
+FrpgMenuDlgSOSMsgDisplay
+SosSign
+SosSignMan
+Create Sos Sign
+SprjObjMessengerState::STEP_Init_forSosSign
+SprjObjMessengerState::STEP_Wait_forSosSign
+SprjObjMessengerState::STEP_Finish_forSosSign
+UseItem
+UseItem*
+UseItem [ ID %d ](Push Enter)
+SprjChrActionFlagModule
+Action Request
+SpMove*
+Drug*
+Playlog_ChrUseItem:%s
+SprjPlaylog_ChrUseItem
+|m_useRequestItemFromMenu : %d
+
+# Native placement and warp candidates
+NetworkManipulator
+PlayerWarpToolProbe
+PlayerWarpTool::RemoteWarpPlayer
+PlayerWarpTool::RemoteResetPlayer
+PlayerWarpTool::GetPlayerInfo
+PlayerWarpTool::RemoteWarpPlayerWorldPos
+PlayerWarpTool::RemoteWarpPlayerMapStudioPos
+SetSummonedPos
+SetSosSignWarp
+SetSosSignPos
+SummonedMapReload
+Lua_Warp
+Lua_Warp_1
+WarpNextStage
+WarpNextStage_Bonfire
+WarpRestart
+WarpRestartNoGrey
+WarpSelfBloodMark
+WarpNextStageKick
+Util_RequestRespawn
+FrpgMenuDlgWarp
+FrpgMenuDlgWarpPlate
+WarpInfoId
+WarpInfoList
+OnEvent_BonfireRespawn
+CSChairMessengerRespawnPointNotifyStep
+forReturnToSummonedCoordPosAng
+SummonPoint[%d][%d] PlayRegionId:%d PointIndex:%d Pos(%.1f, %.1f, %.1f) (
+SummonPoint[%d][%d] PlayRegionId:%d PointIndex:%d NotFound

@@ -1016,6 +1016,8 @@ set(CORE src/core/aerolib/stubs.cpp
 
 if (ARCHITECTURE STREQUAL "x86_64")
     set(CORE ${CORE}
+             src/core/bloodborne_re.cpp
+             src/core/bloodborne_re.h
              src/core/cpu_patches.cpp
              src/core/cpu_patches.h)
 endif()
