@@ -140,6 +140,10 @@ add_library(fdk-aac
   ${SACDEC_SRC}
 )
 
+if(MINGW)
+  target_compile_definitions(fdk-aac PRIVATE __MINGW32__)
+endif()
+
 target_include_directories(fdk-aac
   PUBLIC
     fdk-aac/libAACdec/include
