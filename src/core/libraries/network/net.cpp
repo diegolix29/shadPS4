@@ -1847,7 +1847,6 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("YWTpt45PxbI", "libSceNet", 1, "libSceNet", sceNetDumpRead);
     LIB_FUNCTION("TwjkDIPdZ1Q", "libSceNet", 1, "libSceNet", sceNetDuplicateIpStart);
     LIB_FUNCTION("QCbvCx9HL30", "libSceNet", 1, "libSceNet", sceNetDuplicateIpStop);
-    LIB_FUNCTION("w21YgGGNtBk", "libSceNet", 1, "libSceNet", sceNetEpollAbort);
     LIB_FUNCTION("ZVw46bsasAk", "libSceNet", 1, "libSceNet", sceNetEpollControl);
     LIB_FUNCTION("SF47kB2MNTo", "libSceNet", 1, "libSceNet", sceNetEpollCreate);
     LIB_FUNCTION("Inp1lfL+Jdw", "libSceNet", 1, "libSceNet", sceNetEpollDestroy);
