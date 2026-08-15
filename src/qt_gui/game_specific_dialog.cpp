@@ -448,7 +448,16 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
     ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
     ui->shadnetCheckBox->setChecked(Config::IsShadNetEnabled());
-    ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
+    
+    // Load HTTP host overrides into table
+    auto httpOverrides = Config::GetHttpHostOverride();
+    ui->httpHostOverrideTable->setRowCount(0);
+    for (const auto& [pattern, replacement] : httpOverrides) {
+        int row = ui->httpHostOverrideTable->rowCount();
+        ui->httpHostOverrideTable->insertRow(row);
+        ui->httpHostOverrideTable->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(pattern)));
+        ui->httpHostOverrideTable->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(replacement)));
+    }
 
     // App0 storage settings
     ui->app0BandwidthSpinBox->setValue(Config::getApp0ReadBandwidthMibps());
@@ -473,6 +482,21 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         QString userPath;
         Common::FS::PathToQString(userPath, Common::FS::GetUserPath(Common::FS::PathType::LogDir));
         QDesktopServices::openUrl(QUrl::fromLocalFile(userPath));
+    });
+
+    connect(ui->addHttpHostOverrideBtn, &QPushButton::clicked, this, [this]() {
+        int row = ui->httpHostOverrideTable->rowCount();
+        ui->httpHostOverrideTable->insertRow(row);
+        ui->httpHostOverrideTable->setItem(row, 0, new QTableWidgetItem());
+        ui->httpHostOverrideTable->setItem(row, 1, new QTableWidgetItem());
+        ui->httpHostOverrideTable->editItem(ui->httpHostOverrideTable->item(row, 0));
+    });
+
+    connect(ui->removeHttpHostOverrideBtn, &QPushButton::clicked, this, [this]() {
+        int currentRow = ui->httpHostOverrideTable->currentRow();
+        if (currentRow >= 0) {
+            ui->httpHostOverrideTable->removeRow(currentRow);
+        }
     });
 
     ui->hideCursorComboBox->clear();
@@ -588,9 +612,6 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->isNeoModeCheckBox->setChecked(toml::find<bool>(gen, "isPS4Pro"));
         if (gen.contains("isShadNetEnabled"))
             ui->shadnetCheckBox->setChecked(toml::find<bool>(gen, "isShadNetEnabled"));
-        if (gen.contains("httpHostOverride"))
-            ui->httpHostOverrideLineEdit->setText(
-                QString::fromStdString(toml::find<std::string>(gen, "httpHostOverride")));
         if (gen.contains("isTrophyPopupDisabled"))
             ui->disableTrophycheckBox->setChecked(toml::find<bool>(gen, "isTrophyPopupDisabled"));
         if (gen.contains("logFilter"))
@@ -830,7 +851,18 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["isDevKit"] = ui->isDevKitCheckBox->isChecked();
     overrides["General"]["isPS4Pro"] = ui->isNeoModeCheckBox->isChecked();
     overrides["General"]["isShadNetEnabled"] = ui->shadnetCheckBox->isChecked();
-    overrides["General"]["httpHostOverride"] = ui->httpHostOverrideLineEdit->text().toStdString();
+    
+    // Save HTTP host overrides from table
+    std::map<std::string, std::string> httpOverrides;
+    for (int row = 0; row < ui->httpHostOverrideTable->rowCount(); ++row) {
+        QTableWidgetItem* patternItem = ui->httpHostOverrideTable->item(row, 0);
+        QTableWidgetItem* replacementItem = ui->httpHostOverrideTable->item(row, 1);
+        if (patternItem && replacementItem && !patternItem->text().isEmpty() && !replacementItem->text().isEmpty()) {
+            httpOverrides[patternItem->text().toStdString()] = replacementItem->text().toStdString();
+        }
+    }
+    Config::SetHttpHostOverride(httpOverrides);
+    
     overrides["General"]["isTrophyPopupDisabled"] = ui->disableTrophycheckBox->isChecked();
     overrides["General"]["logFilter"] = ui->logFilterLineEdit->text().toStdString();
     overrides["General"]["logType"] =

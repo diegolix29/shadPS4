@@ -439,6 +439,21 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
 
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
 
+    connect(ui->addHttpHostOverrideBtn, &QPushButton::clicked, this, [this]() {
+        int row = ui->httpHostOverrideTable->rowCount();
+        ui->httpHostOverrideTable->insertRow(row);
+        ui->httpHostOverrideTable->setItem(row, 0, new QTableWidgetItem());
+        ui->httpHostOverrideTable->setItem(row, 1, new QTableWidgetItem());
+        ui->httpHostOverrideTable->editItem(ui->httpHostOverrideTable->item(row, 0));
+    });
+
+    connect(ui->removeHttpHostOverrideBtn, &QPushButton::clicked, this, [this]() {
+        int currentRow = ui->httpHostOverrideTable->currentRow();
+        if (currentRow >= 0) {
+            ui->httpHostOverrideTable->removeRow(currentRow);
+        }
+    });
+
     connect(ui->buttonBox, &QDialogButtonBox::clicked, this,
             [this, config_dir](QAbstractButton* button) {
                 if (button == ui->buttonBox->button(QDialogButtonBox::Save)) {
@@ -1370,7 +1385,15 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->isDevKitCheckBox->setChecked(toml::find_or<bool>(data, "General", "isDevKit", false));
     ui->isNeoModeCheckBox->setChecked(toml::find_or<bool>(data, "General", "isPS4Pro", false));
 
-    ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
+    // Load HTTP host overrides into table
+    auto httpOverrides = Config::GetHttpHostOverride();
+    ui->httpHostOverrideTable->setRowCount(0);
+    for (const auto& [pattern, replacement] : httpOverrides) {
+        int row = ui->httpHostOverrideTable->rowCount();
+        ui->httpHostOverrideTable->insertRow(row);
+        ui->httpHostOverrideTable->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(pattern)));
+        ui->httpHostOverrideTable->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(replacement)));
+    }
 
     // App0 storage settings
     ui->app0BandwidthSpinBox->setValue(
@@ -1885,7 +1908,17 @@ void SettingsDialog::UpdateSettings() {
         presenter->UpdateFsrSettingsFromConfig();
     }
     Config::setIsConnectedToNetwork(ui->connectedNetworkCheckBox->isChecked());
-    Config::SetHttpHostOverride(ui->httpHostOverrideLineEdit->text().toStdString());
+    
+    // Save HTTP host overrides from table
+    std::map<std::string, std::string> httpOverrides;
+    for (int row = 0; row < ui->httpHostOverrideTable->rowCount(); ++row) {
+        QTableWidgetItem* patternItem = ui->httpHostOverrideTable->item(row, 0);
+        QTableWidgetItem* replacementItem = ui->httpHostOverrideTable->item(row, 1);
+        if (patternItem && replacementItem && !patternItem->text().isEmpty() && !replacementItem->text().isEmpty()) {
+            httpOverrides[patternItem->text().toStdString()] = replacementItem->text().toStdString();
+        }
+    }
+    Config::SetHttpHostOverride(httpOverrides);
 
     // ShadNet network settings
     Config::setShadnetServer(ui->serverLineEdit->text().toStdString());

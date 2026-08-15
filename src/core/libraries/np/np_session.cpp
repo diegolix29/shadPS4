@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-#include <cstring>
+#include <algorithm>
+#include <array>
 #include <charconv>
+#include <cstring>
 
 #include "common/logging/log.h"
 #include "core/libraries/np/np_handler.h"
@@ -14,6 +16,7 @@
 #else
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
@@ -50,6 +53,17 @@ constexpr size_t kHeaderSize = 15;
 constexpr u32 kProtocolVersion = 1;
 constexpr u16 kCmdLogin = 0;
 constexpr u16 kCmdGetToken = 39;
+constexpr u16 kCmdRequestSignalingInfos = 105; // protocol.h CommandType::RequestSignalingInfos
+                                               // — NOT the "(17)" in matching.md, that's just
+                                               // that doc's section number.
+
+// shadnet's signaling (STUN) wire framing: every UDP datagram to/from the
+// MatchingUdpPort is prefixed with a 4-byte vport header of two 0xFFFF
+// halves (see stun_server.cpp's SIGNALING_VPORT_NBO/FrameSignaling). This
+// is unrelated to shadnet.proto/protobuf — it's a fixed raw layout.
+constexpr u16 kSignalingVport = 0xFFFF;
+constexpr size_t kVportHeaderSize = 4;
+constexpr u8 kStunPingCmd = 0x01;
 
 enum class PacketType : u8 {
     Request = 0,
@@ -285,8 +299,7 @@ bool NpSession::SendCommand(u16 command, const google::protobuf::MessageLite* re
         }
 
         if (error != 0) {
-            LOG_ERROR(Lib_NpManager, "shadNet: command {} failed with error {:#x}", command,
-                      error);
+            LOG_ERROR(Lib_NpManager, "shadNet: command {} failed with error {:#x}", command, error);
             return false;
         }
 
@@ -309,8 +322,12 @@ bool NpSession::SendCommand(u16 command, const google::protobuf::MessageLite* re
     }
 }
 
-void NpSession::Run(std::string host, std::string npid, std::string password,
-                    std::string titleId, std::string titleName) {
+void NpSession::Run(std::string host, std::string npid, std::string password, std::string titleId,
+                    std::string titleName) {
+    // Kept in the signature for when a shadNet build with presence fields is
+    // used; this build's LoginRequest doesn't have them (see comment below).
+    (void)titleId;
+    (void)titleName;
     if (npid.empty() || password.empty()) {
         LOG_WARNING(Lib_NpManager, "shadNet: no credentials configured for this user slot; "
                                    "skipping login");
@@ -362,6 +379,9 @@ void NpSession::Run(std::string host, std::string npid, std::string password,
     shadnet::LoginRequest loginReq;
     loginReq.set_npid(npid);
     loginReq.set_password(password);
+    // This shadNet build's LoginRequest only carries npid/password/token
+    // (see shadnet.proto) — no title_id/title_name presence fields, so
+    // those aren't set here.
 
     shadnet::LoginReply loginReply;
     if (!SendCommand(kCmdLogin, &loginReq, &loginReply)) {
@@ -383,8 +403,9 @@ void NpSession::Run(std::string host, std::string npid, std::string password,
         // Non-fatal: WebAPI calls fall back to NpHandler's generated UUID,
         // which third-party (non-shadNet) WebAPI hosts accept anyway. Real
         // shadNet WebAPI calls will 401 until this succeeds.
-        LOG_WARNING(Lib_NpManager, "shadNet: GetToken failed for npid '{}'; WebAPI calls will "
-                                   "use a placeholder token",
+        LOG_WARNING(Lib_NpManager,
+                    "shadNet: GetToken failed for npid '{}'; WebAPI calls will "
+                    "use a placeholder token",
                     npid);
     }
 
@@ -423,6 +444,137 @@ void NpSession::Run(std::string host, std::string npid, std::string password,
 
     m_authenticated.store(false, std::memory_order_release);
     CloseSocket();
+}
+
+bool NpSession::StunPing(const std::string& stunHost, u16 stunPort, int localSockfd) {
+    std::string npid;
+    {
+        std::scoped_lock lk{m_stateMutex};
+        npid = m_npid;
+    }
+    if (npid.empty()) {
+        LOG_WARNING(Lib_NpManager, "shadNet: StunPing called before login; no npid to send");
+        return false;
+    }
+
+    struct addrinfo hints{};
+    hints.ai_family = AF_INET; // STUN reply/local-ip fields here are IPv4-only
+    hints.ai_socktype = SOCK_DGRAM;
+    struct addrinfo* res = nullptr;
+    const std::string portStr = std::to_string(stunPort);
+    if (getaddrinfo(stunHost.c_str(), portStr.c_str(), &hints, &res) != 0 || !res) {
+        LOG_ERROR(Lib_NpManager, "shadNet: StunPing failed to resolve {}", stunHost);
+        return false;
+    }
+    struct sockaddr_in dest{};
+    std::memcpy(&dest, res->ai_addr, sizeof(dest));
+    freeaddrinfo(res);
+
+    const bool ownSocket = (localSockfd == kInvalidSocket);
+    int fd = localSockfd;
+    if (ownSocket) {
+        fd = static_cast<int>(socket(AF_INET, SOCK_DGRAM, 0));
+        if (fd == kInvalidSocket) {
+            LOG_ERROR(Lib_NpManager, "shadNet: StunPing failed to create UDP socket");
+            return false;
+        }
+    }
+
+    // Build request: [4-byte vport header][cmd=0x01][npid, 16B null-padded][localIp, 4B]
+    // localIp isn't actually consulted server-side (only its presence is
+    // length-checked), so zero-filling it is fine.
+    std::array<u8, kVportHeaderSize + 1 + 16 + 4> packet{};
+    PutU16LE(packet.data(), kSignalingVport);
+    PutU16LE(packet.data() + 2, kSignalingVport);
+    packet[kVportHeaderSize] = kStunPingCmd;
+    const size_t copyLen = std::min<size_t>(npid.size(), 16);
+    std::memcpy(packet.data() + kVportHeaderSize + 1, npid.data(), copyLen);
+    // bytes for localIp already zero from value-init.
+
+    const int sent = SendAll(fd, packet.data(), packet.size());
+    if (sent != static_cast<int>(packet.size())) {
+        LOG_ERROR(Lib_NpManager, "shadNet: StunPing send failed");
+        if (ownSocket)
+            CloseNativeSocket(fd);
+        return false;
+    }
+
+    // Wait up to 2s for the reply so this never hangs the caller forever.
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(fd, &readfds);
+    struct timeval tv{2, 0};
+    const int sel = select(fd + 1, &readfds, nullptr, nullptr, &tv);
+    if (sel <= 0) {
+        LOG_WARNING(Lib_NpManager, "shadNet: StunPing timed out waiting for reply from {}:{}",
+                    stunHost, stunPort);
+        if (ownSocket)
+            CloseNativeSocket(fd);
+        return false;
+    }
+
+    std::array<u8, kVportHeaderSize + 4 + 2> reply{};
+    const int got = RecvAll(fd, reply.data(), reply.size());
+    if (ownSocket) {
+        CloseNativeSocket(fd);
+    }
+    if (got != static_cast<int>(reply.size())) {
+        LOG_ERROR(Lib_NpManager, "shadNet: StunPing got malformed reply ({} bytes)", got);
+        return false;
+    }
+    if (GetU16LE(reply.data()) != kSignalingVport ||
+        GetU16LE(reply.data() + 2) != kSignalingVport) {
+        LOG_ERROR(Lib_NpManager, "shadNet: StunPing reply missing signaling vport header");
+        return false;
+    }
+
+    const u8* ipBytes = reply.data() + kVportHeaderSize;
+    char ipStr[16];
+    std::snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u", ipBytes[0], ipBytes[1], ipBytes[2],
+                  ipBytes[3]);
+    const u16 extPort = (static_cast<u16>(reply[kVportHeaderSize + 4]) << 8) |
+                        static_cast<u16>(reply[kVportHeaderSize + 5]);
+
+    {
+        std::scoped_lock lk{m_stateMutex};
+        m_externalIp = ipStr;
+    }
+    m_externalPort.store(extPort, std::memory_order_release);
+
+    LOG_INFO(Lib_NpManager, "shadNet: StunPing resolved external endpoint {}:{}", ipStr, extPort);
+    return true;
+}
+
+bool NpSession::RequestSignalingInfos(const std::string& targetNpid, PeerEndpoint& out) {
+    if (!IsAuthenticated()) {
+        LOG_WARNING(Lib_NpManager, "shadNet: RequestSignalingInfos called before login");
+        return false;
+    }
+
+    // NOTE: this issues a request/reply exchange on the same TCP socket the
+    // background Run() thread's idle loop is blocked reading from for
+    // notifications. Calling this concurrently with incoming notification
+    // traffic can interleave reads and corrupt the stream. shadnet currently
+    // sends no notifications for this command, so in practice this is safe
+    // today, but the real fix is to route this call through a request queue
+    // owned by the Run() thread rather than calling SendCommand() directly
+    // from an arbitrary caller thread. Flagging this rather than silently
+    // shipping the race — worth fixing before this sees concurrent load.
+    shadnet::RequestSignalingInfosRequest req;
+    req.set_target_npid(targetNpid);
+
+    shadnet::RequestSignalingInfosReply reply;
+    if (!SendCommand(kCmdRequestSignalingInfos, &req, &reply)) {
+        LOG_WARNING(Lib_NpManager, "shadNet: RequestSignalingInfos failed for npid '{}'",
+                    targetNpid);
+        return false;
+    }
+
+    out.npid = reply.target_npid();
+    out.ip = reply.target_ip();
+    out.port = static_cast<u16>(reply.target_port());
+    out.memberId = reply.target_member_id();
+    return true;
 }
 
 } // namespace Libraries::Np

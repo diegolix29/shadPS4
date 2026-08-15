@@ -60,6 +60,36 @@ public:
         return m_npid;
     }
 
+    // Sends a STUN ping (shadnet's signaling protocol, see documentation/
+    // signaling.md) to `stunHost:stunPort` over the given local UDP socket,
+    // recording this npid's external IP:port with the server so it can be
+    // handed out later via RequestSignalingInfos. `localSockfd` should be
+    // the same OS socket the game's P2P transport already owns (so the
+    // external mapping STUN discovers matches the one peers will actually
+    // send to) — pass -1 to have this call open and use its own temporary
+    // socket instead. Returns false on any I/O failure or timeout.
+    bool StunPing(const std::string& stunHost, u16 stunPort, int localSockfd = -1);
+
+    std::string ExternalIp() const {
+        std::scoped_lock lk{m_stateMutex};
+        return m_externalIp;
+    }
+    u16 ExternalPort() const {
+        return m_externalPort.load(std::memory_order_acquire);
+    }
+
+    // Looks up a peer's UDP endpoint by npid via the authenticated TCP
+    // session (command RequestSignalingInfos). Must be called after a
+    // successful LoginAsync (IsAuthenticated() == true). Returns false if
+    // not authenticated, the peer is unknown, or the request fails.
+    struct PeerEndpoint {
+        std::string npid;
+        std::string ip;
+        u16 port = 0;
+        u32 memberId = 0;
+    };
+    bool RequestSignalingInfos(const std::string& targetNpid, PeerEndpoint& out);
+
 private:
     void Run(std::string host, std::string npid, std::string password, std::string titleId,
              std::string titleName);
@@ -87,6 +117,8 @@ private:
 
     mutable std::mutex m_stateMutex;
     std::string m_npid;
+    std::string m_externalIp;
+    std::atomic<u16> m_externalPort{0};
 
     std::mutex m_socketMutex;
     int m_sockfd = -1;

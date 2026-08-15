@@ -92,7 +92,7 @@ Users UserManager::CreateDefaultUsers() {
     Users default_users;
     default_users.user = {
         {
-            .user_id = 1000,
+            .user_id = 1,
             .user_name = "shadPS4",
             .user_color = 1,
             .player_index = 1,
@@ -103,7 +103,7 @@ Users UserManager::CreateDefaultUsers() {
             .shadnet_enabled = false,
         },
         {
-            .user_id = 1001,
+            .user_id = 2,
             .user_name = "shadPS4-2",
             .user_color = 2,
             .player_index = 2,
@@ -114,7 +114,7 @@ Users UserManager::CreateDefaultUsers() {
             .shadnet_enabled = false,
         },
         {
-            .user_id = 1002,
+            .user_id = 3,
             .user_name = "shadPS4-3",
             .user_color = 3,
             .player_index = 3,
@@ -125,7 +125,7 @@ Users UserManager::CreateDefaultUsers() {
             .shadnet_enabled = false,
         },
         {
-            .user_id = 1003,
+            .user_id = 4,
             .user_name = "shadPS4-4",
             .user_color = 4,
             .player_index = 4,

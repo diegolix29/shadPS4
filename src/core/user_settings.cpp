@@ -7,6 +7,7 @@
 #include <map>
 #include <common/path_util.h>
 #include <common/scm_rev.h>
+#include <common/config.h>
 #include "common/logging/log.h"
 #include "user_settings.h"
 
@@ -37,81 +38,48 @@ void UserSettingsImpl::SetInstance(std::shared_ptr<UserSettingsImpl> instance) {
 }
 
 bool UserSettingsImpl::Save() const {
-    const auto path = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "users.json";
-    try {
-        json j;
-        j["Users"] = m_userManager.GetUsers();
-        j["Users"]["commit_hash"] = std::string(Common::g_scm_rev);
-
-        json existing = json::object();
-        if (std::ifstream existingIn{path}; existingIn.good()) {
-            try {
-                existingIn >> existing;
-            } catch (...) {
-                existing = json::object();
-            }
-        }
-
-        if (existing.contains("Users") && existing["Users"].is_object())
-            existing["Users"].update(j["Users"]);
-        else
-            existing["Users"] = j["Users"];
-
-        std::ofstream out(path);
-        if (!out) {
-            LOG_ERROR(Config, "Failed to open user settings for writing: {}", path.string());
-            return false;
-        }
-        out << std::setw(2) << existing;
-        return !out.fail();
-    } catch (const std::exception& e) {
-        LOG_ERROR(Config, "Error saving user settings: {}", e.what());
-        return false;
-    }
+    // User settings are now read from config.toml, so no need to save to users.json
+    // Config handles saving to config.toml automatically
+    return true;
 }
 
 bool UserSettingsImpl::Load() {
-    const auto path = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "users.json";
     try {
-        if (!std::filesystem::exists(path)) {
-            LOG_DEBUG(Config, "User settings file not found: {}", path.string());
-            if (m_userManager.GetUsers().user.empty())
-                m_userManager.GetUsers() = m_userManager.CreateDefaultUsers();
-            m_loaded = true;
-            Save();
-            return false;
+        // Read user configuration from config.toml via Config
+        auto user_names = Config::getUserNames();
+        auto shadnet_enabled_states = Config::getShadNetEnabledStates();
+        auto shadnet_npids = Config::getShadNetNpids();
+        auto shadnet_passwords = Config::getShadNetPasswords();
+
+        // Clear existing users
+        m_userManager.GetUsers().user.clear();
+
+        // Create users from config
+        for (int i = 0; i < 4; i++) {
+            User user;
+            user.user_id = i + 1;
+            user.user_name = user_names[i];
+            user.user_color = i + 1;
+            user.player_index = i + 1;
+            user.shadnet_npid = shadnet_npids[i];
+            user.shadnet_password = shadnet_passwords[i];
+            user.shadnet_enabled = shadnet_enabled_states[i];
+            m_userManager.GetUsers().user.push_back(user);
         }
 
-        std::ifstream in(path);
-        if (!in) {
-            LOG_ERROR(Config, "Failed to open user settings: {}", path.string());
-            return false;
+        LOG_DEBUG(Config, "User settings loaded from config.toml");
+
+        // Automatically log in the first user (user_id=1) if no users are logged in
+        auto* first_user = m_userManager.GetUserByID(1);
+        if (first_user && !m_userManager.GetLoggedInUsers()[0]) {
+            m_userManager.LoginUser(first_user, 1);
+            LOG_INFO(Config, "Automatically logged in user_id=1");
         }
-
-        json j;
-        in >> j;
-
-        auto default_users = m_userManager.CreateDefaultUsers();
-        json default_json;
-        default_json["Users"] = default_users;
-
-        if (j.contains("Users")) {
-            json current = default_json["Users"];
-            current.update(j["Users"]);
-            m_userManager.GetUsers() = current.get<Users>();
-        } else {
-            m_userManager.GetUsers() = default_users;
-        }
-
-        LOG_DEBUG(Config, "User settings loaded successfully");
 
         m_loaded = true;
-        if (m_userManager.GetUsers().commit_hash != Common::g_scm_rev)
-            Save();
-
         return true;
     } catch (const std::exception& e) {
-        LOG_ERROR(Config, "Error loading user settings: {}", e.what());
+        LOG_ERROR(Config, "Error loading user settings from config: {}", e.what());
         if (m_userManager.GetUsers().user.empty())
             m_userManager.GetUsers() = m_userManager.CreateDefaultUsers();
         return false;

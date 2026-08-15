@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+﻿// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -147,8 +147,13 @@ struct SharedTransport {
         for (;;) {
             sockaddr_in from{};
             socklen_t fromlen = sizeof(from);
+#ifdef _WIN32
             int n = ::recvfrom(fd, reinterpret_cast<char*>(buf), sizeof(buf), 0,
                                reinterpret_cast<sockaddr*>(&from), &fromlen);
+#else
+            int n = ::recvfrom(fd, reinterpret_cast<char*>(buf), sizeof(buf), MSG_DONTWAIT,
+                               reinterpret_cast<sockaddr*>(&from), &fromlen);
+#endif
             if (n <= 0)
                 break;
             if (n < static_cast<int>(VPORT_HEADER_SIZE)) {
@@ -236,7 +241,7 @@ static bool EnsureTransport() {
     socklen_t actual_len = sizeof(actual);
     ::getsockname(fd, reinterpret_cast<sockaddr*>(&actual), &actual_len);
 
-    // Shared socket is always non-blocking � individual P2PSocket handles blocking semantics
+    // Shared socket is always non-blocking — individual P2PSocket handles blocking semantics
     int nb = 1;
 #ifdef _WIN32
     ioctlsocket(fd, FIONBIO, (u_long*)&nb);
@@ -364,7 +369,7 @@ int P2PSocket::SendPacket(const void* msg, u32 len, int flags, const OrbisNetSoc
         if (peer.addr != 0 && peer.port != 0) {
             resolved_to.sin_addr = peer.addr;
             resolved_to.sin_port = peer.port;
-            LOG_INFO(Lib_Net, "P2P sendto: resolved 0.0.0.0:0 ? {:#x}:{} via NpSignaling",
+            LOG_INFO(Lib_Net, "P2P sendto: resolved 0.0.0.0:0 → {:#x}:{} via NpSignaling",
                      ntohl(peer.addr), ntohs(peer.port));
         }
     }
@@ -619,7 +624,7 @@ int P2PSocket::GetSocketAddress(OrbisNetSockaddr* name, u32* namelen) {
 }
 
 int P2PSocket::Connect(const OrbisNetSockaddr* addr, u32 namelen) {
-    // P2P UDP sockets don't truly connect � connectionless datagram
+    // P2P UDP sockets don't truly connect — connectionless datagram
     LOG_INFO(Lib_Net, "P2P Connect called (no-op for UDP P2P)");
     return 0;
 }

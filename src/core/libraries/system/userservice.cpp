@@ -12,6 +12,7 @@
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/system/userservice_error.h"
 #include "core/tls.h"
+#include "core/user_manager.h"
 #include "input/controller.h"
 
 namespace Libraries::UserService {
@@ -510,8 +511,16 @@ s32 PS4_SYSV_ABI sceUserServiceGetInitialUser(int* user_id) {
         LOG_ERROR(Lib_UserService, "user_id is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    // select first user (TODO add more)
-    *user_id = 1;
+    // Return the user ID of the first logged-in user (player index 1)
+    auto logged_in_users = Common::Singleton<UserManager>::Instance()->GetLoggedInUsers();
+    if (logged_in_users[0]) {
+        *user_id = logged_in_users[0]->user_id;
+        LOG_INFO(Lib_UserService, "Returning user_id {} from logged_in_users[0]", *user_id);
+    } else {
+        // Fallback to user ID 1 if no user is logged in
+        *user_id = 1;
+        LOG_WARNING(Lib_UserService, "No logged-in user found, returning fallback user_id 1");
+    }
     return ORBIS_OK;
 }
 

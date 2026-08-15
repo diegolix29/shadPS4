@@ -87,6 +87,17 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         if (it->second.is_array()) {
             return toml::get<T>(it->second);
         }
+    } else if constexpr (std::is_same_v<T, std::map<std::string, std::string>>) {
+        if (it->second.is_table()) {
+            std::map<std::string, std::string> result;
+            const auto& table = it->second.as_table();
+            for (const auto& [key, value] : table) {
+                if (value.is_string()) {
+                    result[key] = toml::get<std::string>(value);
+                }
+            }
+            return result;
+        }
     } else if constexpr (std::is_same_v<T, Config::AudioBackend>) {
         if (it->second.is_integer()) {
             return static_cast<Config::AudioBackend>(toml::get<int>(it->second));
@@ -221,7 +232,7 @@ static std::string guiStyle = "Fusion";
 static std::string g_customBackgroundImage;
 static ConfigEntry<bool> firstBootHandled(false);
 static std::string version_path;
-static ConfigEntry<string> httpHostOverride("localhost");
+static ConfigEntry<std::map<std::string, std::string>> httpHostOverride(std::map<std::string, std::string>{});
 static ConfigEntry<bool> enableMods(true);
 static ConfigEntry<bool> enableUpdates(true);
 static ConfigEntry<u32> app0_read_bandwidth_mibps(0);
@@ -538,12 +549,12 @@ void setIdenticalLogGrouped(bool enable, bool is_game_specific) {
     isIdenticalLogGrouped.set(enable, is_game_specific);
 }
 
-string GetHttpHostOverride() {
+std::map<std::string, std::string> GetHttpHostOverride() {
     return httpHostOverride.get();
 }
 
-void SetHttpHostOverride(const std::string& host) {
-    httpHostOverride.base_value = host;
+void SetHttpHostOverride(const std::map<std::string, std::string>& overrides) {
+    httpHostOverride.base_value = overrides;
 }
 
 // Settings
