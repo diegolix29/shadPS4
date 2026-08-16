@@ -12,6 +12,11 @@ namespace Libraries::Np::NpWebApi {
 static std::map<SceNpWebApiMockRequestType, std::string> g_templates{
     {REQ_BLOCK_LIST, "{\"totalResults\": 0, \"blockList\": []}"},
     {REQ_FRIEND_LIST, "{\"totalResults\": 0, \"friendList\": []}"},
+    {REQ_CHANNEL_GET_INFO, "{\"totalResults\": 0, \"channels\": []}"},
+    {REQ_BLOOD_MESSENGER_EVALUATION, "{\"totalResults\": 0, \"evaluations\": []}"},
+    {REQ_BLOOD_MESSENGER_MESSAGE_AREA, "{\"totalResults\": 0, \"messages\": []}"},
+    {REQ_CHAIR_MESSENGER_GET, "{\"totalResults\": 0, \"chairs\": []}"},
+    {REQ_SUMMON_MESSENGER_GET, "{\"totalResults\": 0, \"summons\": []}"},
 };
 static std::map<s64, SceNpWebApiMockRequestType> g_requests;
 static std::mutex g_templates_map_mutex;
@@ -160,6 +165,21 @@ s32 PS4_SYSV_ABI sceNpWebApiCreateRequest(s32 title_user_ctx_id, const char* p_a
     } else if (strstr(p_path, "friendList") != nullptr) {
 
         type = REQ_FRIEND_LIST;
+    } else if (strstr(p_path, "channel/get_info") != nullptr) {
+
+        type = REQ_CHANNEL_GET_INFO;
+    } else if (strstr(p_path, "blood_messenger/evaluation") != nullptr) {
+
+        type = REQ_BLOOD_MESSENGER_EVALUATION;
+    } else if (strstr(p_path, "blood_messenger/message_area") != nullptr) {
+
+        type = REQ_BLOOD_MESSENGER_MESSAGE_AREA;
+    } else if (strstr(p_path, "chair_messenger/get") != nullptr) {
+
+        type = REQ_CHAIR_MESSENGER_GET;
+    } else if (strstr(p_path, "summon_messenger/get") != nullptr) {
+
+        type = REQ_SUMMON_MESSENGER_GET;
     }
 
     if (type == REQ_INVALID) {

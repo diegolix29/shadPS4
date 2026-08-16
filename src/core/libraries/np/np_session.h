@@ -90,7 +90,20 @@ public:
     };
     bool RequestSignalingInfos(const std::string& targetNpid, PeerEndpoint& out);
 
+    // Establish matching context with server (command ContextStart).
+    // Must be called after successful LoginAsync. Returns false if not authenticated
+    // or the request fails.
+    bool ContextStart(u32 ctxId, const std::string& titleId);
+
+    // Get world info list from server (command GetWorldInfoList).
+    // Must be called after successful LoginAsync. Returns false if not authenticated
+    // or the request fails.
+    bool GetWorldInfoList();
+
 private:
+    // UDP socket for STUN pings (reused for periodic pings)
+    int m_stunSockfd = -1;
+    std::mutex m_stunSocketMutex;
     void Run(std::string host, std::string npid, std::string password, std::string titleId,
              std::string titleName);
     void CloseSocket();

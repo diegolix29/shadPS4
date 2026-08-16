@@ -24,6 +24,28 @@ using OrbisNpMatching2RoomMemberId = u16;
 using OrbisNpMatching2ServerId = u16;
 using OrbisNpMatching2TeamId = u8;
 using OrbisNpMatching2WorldId = u32;
+using OrbisNpMatching2BlockKickFlag = u8;
+using OrbisNpMatching2FlagAttr = u32;
+using OrbisNpMatching2LobbyMemberId = u16;
+using OrbisNpMatching2Operator = u8;
+using OrbisNpMatching2RoomGroupId = u8;
+using OrbisNpMatching2RoomPasswordSlotMask = u64;
+using OrbisNpMatching2SessionType = u8;
+using OrbisNpMatching2SignalingFlag = u8;
+using OrbisNpMatching2SignalingRequestId = u32;
+using OrbisNpMatching2CastType = u8;
+
+enum : OrbisNpMatching2CastType {
+    ORBIS_NP_MATCHING2_CASTTYPE_BROADCAST = 1,
+    ORBIS_NP_MATCHING2_CASTTYPE_UNICAST = 2,
+    ORBIS_NP_MATCHING2_CASTTYPE_MULTICAST = 3,
+};
+
+enum OrbisNpMatching2SignalingType : u8 {
+    ORBIS_NP_MATCHING2_SIGNALING_TYPE_NONE = 0,
+    ORBIS_NP_MATCHING2_SIGNALING_TYPE_MESH = 1,
+    ORBIS_NP_MATCHING2_SIGNALING_TYPE_STAR = 2,
+};
 
 constexpr int ORBIS_NP_MATCHING2_ERROR_NOT_INITIALIZED = 0x80550c01;
 constexpr int ORBIS_NP_MATCHING2_ERROR_ALREADY_INITIALIZED = 0x80550c02;

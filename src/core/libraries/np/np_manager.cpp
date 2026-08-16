@@ -38,6 +38,15 @@ static int ShadNetSlotFor(Libraries::UserService::OrbisUserServiceUserId user_id
     return slot;
 }
 
+// Get the NpSession for a given user_id, or nullptr if not available
+NpSession* GetShadNetSession(Libraries::UserService::OrbisUserServiceUserId user_id) {
+    const int slot = ShadNetSlotFor(user_id);
+    if (slot < 0) {
+        return nullptr;
+    }
+    std::scoped_lock lk{g_sessions_mutex};
+    return g_sessions[slot].get();
+}
 // Kicks off (or reuses) a real shadNet login for the given slot if it's
 // enabled and has credentials configured. Non-blocking: network I/O happens
 // on NpSession's own background thread. Returns the slot's current

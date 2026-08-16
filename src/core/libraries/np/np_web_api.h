@@ -20,7 +20,16 @@ struct __attribute__((packed)) SceNpWebApiContentParameter {
 };
 
 // For mocking responses
-enum SceNpWebApiMockRequestType { REQ_INVALID = -1, REQ_BLOCK_LIST = 110, REQ_FRIEND_LIST = 120 };
+enum SceNpWebApiMockRequestType {
+    REQ_INVALID = -1,
+    REQ_BLOCK_LIST = 110,
+    REQ_FRIEND_LIST = 120,
+    REQ_CHANNEL_GET_INFO = 130,
+    REQ_BLOOD_MESSENGER_EVALUATION = 140,
+    REQ_BLOOD_MESSENGER_MESSAGE_AREA = 150,
+    REQ_CHAIR_MESSENGER_GET = 160,
+    REQ_SUMMON_MESSENGER_GET = 170
+};
 
 s32 PS4_SYSV_ABI sceNpWebApiCreateContext();
 s32 PS4_SYSV_ABI sceNpWebApiCreatePushEventFilter();

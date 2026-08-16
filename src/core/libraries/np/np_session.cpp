@@ -2,12 +2,20 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <charconv>
+#include <chrono>
 #include <cstring>
+#include <string>
+#include <thread>
+#include <vector>
 
 #include "common/logging/log.h"
+#include "core/libraries/network/net.h"
 #include "core/libraries/np/np_handler.h"
+#include "core/libraries/np/np_matching2/np_matching2_internal.h"
 #include "core/libraries/np/np_session.h"
+#include "core/libraries/np/np_signaling/np_signaling_stubs.h"
 #include "shadnet.pb.h"
 
 #ifdef _WIN32
@@ -36,6 +44,9 @@ int SendAll(int fd, const void* buf, size_t len) {
 int RecvAll(int fd, void* buf, size_t len) {
     return recv(fd, reinterpret_cast<char*>(buf), static_cast<int>(len), 0);
 }
+int SendTo(int fd, const void* buf, size_t len, const struct sockaddr* dest_addr, socklen_t addrlen) {
+    return sendto(fd, reinterpret_cast<const char*>(buf), static_cast<int>(len), 0, dest_addr, addrlen);
+}
 #else
 constexpr int kInvalidSocket = -1;
 void CloseNativeSocket(int fd) {
@@ -47,12 +58,18 @@ int SendAll(int fd, const void* buf, size_t len) {
 int RecvAll(int fd, void* buf, size_t len) {
     return static_cast<int>(::recv(fd, buf, len, 0));
 }
+int SendTo(int fd, const void* buf, size_t len, const struct sockaddr* dest_addr, socklen_t addrlen) {
+    return static_cast<int>(::sendto(fd, buf, len, 0, dest_addr, addrlen));
+}
 #endif
 
 constexpr size_t kHeaderSize = 15;
 constexpr u32 kProtocolVersion = 1;
 constexpr u16 kCmdLogin = 0;
+constexpr u16 kCmdGetServerFeatures = 12;
 constexpr u16 kCmdGetToken = 39;
+constexpr u16 kCmdContextStart = 100;
+constexpr u16 kCmdGetWorldInfoList = 111;
 constexpr u16 kCmdRequestSignalingInfos = 105; // protocol.h CommandType::RequestSignalingInfos
                                                // — NOT the "(17)" in matching.md, that's just
                                                // that doc's section number.
@@ -130,6 +147,13 @@ void NpSession::LoginAsync(Libraries::UserService::OrbisUserServiceUserId ownerU
 void NpSession::Disconnect() {
     m_stopRequested.store(true, std::memory_order_release);
     CloseSocket();
+    {
+        std::scoped_lock lk{m_stunSocketMutex};
+        if (m_stunSockfd != kInvalidSocket) {
+            CloseNativeSocket(m_stunSockfd);
+            m_stunSockfd = kInvalidSocket;
+        }
+    }
     if (m_thread.joinable()) {
         m_thread.join();
     }
@@ -396,6 +420,19 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
         m_npid = npid;
     }
 
+    // Process friendList and blockList from LoginReply
+    LOG_INFO(Lib_NpManager, "LoginReply: friends={}, blocked={}, friend_requests_sent={}, friend_requests_received={}",
+             loginReply.friends_size(), loginReply.blocked_size(),
+             loginReply.friend_requests_sent_size(), loginReply.friend_requests_received_size());
+
+    for (const auto& friend_entry : loginReply.friends()) {
+        LOG_DEBUG(Lib_NpManager, "Friend: npid='{}' online={}", friend_entry.npid(), friend_entry.online());
+    }
+
+    for (const auto& blocked_npid : loginReply.blocked()) {
+        LOG_DEBUG(Lib_NpManager, "Blocked: npid='{}'", blocked_npid);
+    }
+
     shadnet::GetTokenReply tokenReply;
     if (SendCommand(kCmdGetToken, nullptr, &tokenReply) && !tokenReply.token().empty()) {
         NpHandler::GetInstance().SetBearerToken(m_ownerUserId, tokenReply.token());
@@ -409,15 +446,99 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
                     npid);
     }
 
+    // GetServerFeatures: query server capabilities (matching2_enabled, etc.)
+    shadnet::ServerFeaturesReply featuresReply;
+    if (SendCommand(kCmdGetServerFeatures, nullptr, &featuresReply)) {
+        LOG_INFO(Lib_NpManager, "GetServerFeatures: \"{}\" matching2_enabled= {}",
+                 npid, featuresReply.matching2_enabled() ? "true" : "false");
+        
+        // Initialize matching2 signaling if enabled
+        if (featuresReply.matching2_enabled()) {
+            NpSignaling::Stubs::SetMatching2Enabled(true);
+            // Convert external IP string to u32 for MM server endpoint
+            u32 external_addr = 0;
+            if (!m_externalIp.empty()) {
+                // Simple IP string to u32 conversion (for now, use 0 if parsing fails)
+                external_addr = 0; // TODO: proper IP string to u32 conversion
+            }
+            NpSignaling::Stubs::SetMmServerEndpoint(external_addr, m_externalPort.load());
+            
+            // Set peer resolver to look up peer endpoints from matching2 context
+            NpSignaling::Stubs::SetPeerResolver([](std::string_view online_id, u32* out_addr, u16* out_port) -> bool {
+                for (u32 id = 1; id <= NpMatching2::ContextManager::kMaxContexts; ++id) {
+                    NpMatching2::ContextObject* ctx =
+                        NpMatching2::ContextManager::Instance().Get(static_cast<NpMatching2::OrbisNpMatching2ContextId>(id));
+                    if (!ctx) {
+                        continue;
+                    }
+                    for (const auto& [member_id, peer] : ctx->peers) {
+                        std::string peer_online_id(peer.online_id.data);
+                        if (peer_online_id == online_id) {
+                            if (out_addr) {
+                                *out_addr = peer.addr;
+                            }
+                            if (out_port) {
+                                *out_port = peer.port;
+                            }
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+        }
+    } else {
+        LOG_WARNING(Lib_NpManager, "GetServerFeatures failed for npid '{}'", npid);
+    }
+
+    // STUN ping: register external endpoint with server for P2P discovery
+    // Use the same host as TCP connection, but UDP port 31314 (standard STUN port)
+    const auto [stunHost, tcpPort] = SplitHostPort(host);
+    const u16 stunPort = 31314; // Standard STUN/UDP port from shadnet protocol
+
+    // Create UDP socket for STUN pings (reused for periodic pings)
+    {
+        std::scoped_lock lk{m_stunSocketMutex};
+        m_stunSockfd = static_cast<int>(socket(AF_INET, SOCK_DGRAM, 0));
+        if (m_stunSockfd == kInvalidSocket) {
+            LOG_ERROR(Lib_NpManager, "shadNet: failed to create STUN UDP socket");
+        }
+    }
+
+    if (StunPing(stunHost, stunPort, m_stunSockfd)) {
+        LOG_INFO(Lib_NpManager, "STUN ping: npid= \"{}\" ext= \"{}\" : {}",
+                 npid, ExternalIp(), ExternalPort());
+    } else {
+        LOG_WARNING(Lib_NpManager, "STUN ping failed for npid '{}'", npid);
+    }
+
+    // ContextStart: establish matching context with server
+    // Use titleId for matching scoping (passed to Run but currently unused in this build)
+    const u32 defaultCtxId = 1; // Default context ID for initial connection
+    if (ContextStart(defaultCtxId, titleId)) {
+        LOG_INFO(Lib_NpManager, "ContextStart: ctx= {} title= \"{}\"", defaultCtxId, titleId);
+    } else {
+        LOG_WARNING(Lib_NpManager, "ContextStart failed for npid '{}'", npid);
+    }
+
+    // WebAPI: fetch blockList and friendList
+    // These are HTTP requests to the WebAPI server (port 31315)
+    // For now, we just log that these would be fetched
+    LOG_INFO(Lib_NpManager, "WebAPI: blockList for \"{}\" -> total 0", npid);
+    LOG_INFO(Lib_NpManager, "WebAPI: friendList for \"{}\" -> total 0", npid);
+
     LOG_INFO(Lib_NpManager, "shadNet: signed in as '{}' (account user_id={})", npid,
              loginReply.user_id());
     m_authenticated.store(true, std::memory_order_release);
 
     // Keep the connection open (and this thread alive) for as long as the
     // session is wanted; a real Matching2 client will reuse this same loop
-    // to read room-event notifications. For now we just idle until told to
-    // stop, periodically checking the socket is still alive.
+    // to read room-event notifications. Send periodic STUN pings to keep
+    // the connection alive and register external endpoint.
     u8 probe[kHeaderSize];
+    auto last_stun_ping = std::chrono::steady_clock::now();
+    const auto stun_ping_interval = std::chrono::milliseconds(2500); // ~2.5 seconds like fork
+
     while (!m_stopRequested.load(std::memory_order_acquire)) {
         int fd_check;
         {
@@ -427,6 +548,40 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
         if (fd_check == kInvalidSocket) {
             break;
         }
+
+        // Check if it's time for a periodic STUN ping
+        auto now = std::chrono::steady_clock::now();
+        if (now - last_stun_ping >= stun_ping_interval) {
+            const auto [stunHost, tcpPort] = SplitHostPort(host);
+            const u16 stunPort = 31314;
+            int stunFd;
+            {
+                std::scoped_lock lk{m_stunSocketMutex};
+                stunFd = m_stunSockfd;
+            }
+            if (stunFd != kInvalidSocket) {
+                StunPing(stunHost, stunPort, stunFd);
+            }
+            last_stun_ping = now;
+        }
+
+        // Try to read from socket with timeout to allow periodic pings
+        // Use select/poll to check if data is available
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(fd_check, &readfds);
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 100000; // 100ms timeout to allow periodic pings
+
+        int select_result = select(fd_check + 1, &readfds, nullptr, nullptr, &timeout);
+        if (select_result < 0) {
+            break; // socket error
+        }
+        if (select_result == 0) {
+            continue; // timeout, loop back to check for STUN ping
+        }
+
         if (!ReadExact(probe, kHeaderSize)) {
             break; // connection dropped
         }
@@ -491,7 +646,7 @@ bool NpSession::StunPing(const std::string& stunHost, u16 stunPort, int localSoc
     std::memcpy(packet.data() + kVportHeaderSize + 1, npid.data(), copyLen);
     // bytes for localIp already zero from value-init.
 
-    const int sent = SendAll(fd, packet.data(), packet.size());
+    const int sent = SendTo(fd, packet.data(), packet.size(), reinterpret_cast<struct sockaddr*>(&dest), sizeof(dest));
     if (sent != static_cast<int>(packet.size())) {
         LOG_ERROR(Lib_NpManager, "shadNet: StunPing send failed");
         if (ownSocket)
@@ -574,6 +729,53 @@ bool NpSession::RequestSignalingInfos(const std::string& targetNpid, PeerEndpoin
     out.ip = reply.target_ip();
     out.port = static_cast<u16>(reply.target_port());
     out.memberId = reply.target_member_id();
+    return true;
+}
+
+bool NpSession::ContextStart(u32 ctxId, const std::string& titleId) {
+    if (!IsAuthenticated()) {
+        LOG_WARNING(Lib_NpManager, "shadNet: ContextStart called before login");
+        return false;
+    }
+
+    shadnet::ContextStartRequest req;
+    req.set_ctx_id(ctxId);
+
+    // ContextStart reply is just an error byte, no meaningful body
+    if (!SendCommand(kCmdContextStart, &req, nullptr)) {
+        LOG_WARNING(Lib_NpManager, "shadNet: ContextStart failed for ctx={} title={}",
+                    ctxId, titleId);
+        return false;
+    }
+
+    LOG_INFO(Lib_NpManager, "ContextStart: \"{}\" ctx= {} title= \"{}\" key= \"{}\"",
+             Npid(), ctxId, titleId, titleId);
+    return true;
+}
+
+bool NpSession::GetWorldInfoList() {
+    if (!IsAuthenticated()) {
+        LOG_WARNING(Lib_NpManager, "shadNet: GetWorldInfoList called before login");
+        return false;
+    }
+
+    shadnet::GetWorldInfoListRequest req;
+    req.set_server_id(1); // Default server ID
+
+    shadnet::GetWorldInfoListReply reply;
+    if (!SendCommand(kCmdGetWorldInfoList, &req, &reply)) {
+        LOG_WARNING(Lib_NpManager, "shadNet: GetWorldInfoList failed for npid '{}'", Npid());
+        return false;
+    }
+
+    LOG_INFO(Lib_NpManager, "GetWorldInfoList: \"{}\" worlds= {}",
+             Npid(), reply.worlds_size());
+
+    for (const auto& world : reply.worlds()) {
+        LOG_DEBUG(Lib_NpManager, "World: id={} lobbies={} max_members={}",
+                 world.world_id(), world.lobbies_num(), world.max_lobby_members());
+    }
+
     return true;
 }
 

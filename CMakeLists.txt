@@ -676,6 +676,11 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_session.h
             src/core/libraries/np/np_matching2.cpp
             src/core/libraries/np/np_matching2.h
+            src/core/libraries/np/np_matching2/np_matching2_internal.h
+            src/core/libraries/np/np_matching2/np_matching2_signaling.h
+            src/core/libraries/np/np_matching2/np_matching2_signaling.cpp
+            src/core/libraries/np/np_signaling/np_signaling_stubs.h
+            src/core/libraries/np/np_signaling/np_signaling_stubs.cpp
             src/core/libraries/np/np_score.cpp
             src/core/libraries/np/np_score.h
             src/core/libraries/np/np_trophy.cpp
@@ -1239,9 +1244,6 @@ set(EMULATOR src/emulator.cpp
              src/sdl_window.h
              src/sdl_window.cpp
 )
-
-
-
 
 # shadNet protobuf generation
 set(SHADNET_PROTO_OUT "${CMAKE_CURRENT_BINARY_DIR}/shadnet_proto_gen")
