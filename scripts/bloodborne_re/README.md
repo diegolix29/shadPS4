@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Wozzardman
+SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
 # Bloodborne reverse-engineering tools
 
 `xref_scan.cpp` scans an unencrypted PS4 SELF, reads function boundaries from

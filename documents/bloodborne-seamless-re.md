@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Wozzardman
+SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
 # Bloodborne seamless co-op reverse engineering
 
 ## Scope and executable identity
