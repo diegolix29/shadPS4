@@ -17,7 +17,9 @@ version label alone is not accepted as proof that an offset is compatible.
 - shadNet owns summon advertisement storage, search-response normalization,
   search/claim delivery, relaxed discovery filters, and retaining an active
   pairing across ordinary removal messages.
-- shadPS4 owns HTTP routing plus PS4 NP matching, signaling, and P2P transport.
+- shadPS4 owns HTTP routing plus PS4 NP matching, signaling, P2P transport, and
+  the versioned host-placement header used only when retail's summon claim has
+  no destination field.
 - Bloodborne owns bell eligibility, summon lifecycle transitions, character
   insertion, summon-point selection, and warp/map reload behavior.
 
@@ -29,11 +31,29 @@ The captured `SummonData` blob is 224 bytes. In the current capture its four
 little-endian floats at offsets `0x5C`, `0x60`, `0x64`, and `0x68` are
 `143.97487`, `-116.94293`, `-87.73028`, and `1.8583716`, matching the exact
 player position plus heading behind the rounded JSON `PosX/PosY/PosZ` values.
-This is another reason shadNet preserves game-owned `SummonData` and `HostData`
-bytes. The one confirmed exception is the response-only available-result count
-at SummonData offset `0x79`, described below. A two-client claim capture is
-needed to confirm the parallel `HostData` layout and its role in guest
-placement.
+This is another reason shadNet preserves game-owned `SummonData` bytes. The one
+confirmed exception is the response-only available-result count at SummonData
+offset `0x79`, described below.
+
+The live cross-map claim corrected an earlier assumption about `HostData`.
+Bloodborne 1.09's native `SummonDataSummonRequest` serializer at `0x01E98650`
+writes only `CharaId`, `TargetUserId`, `TargetCharaId`, `SessionId`, and
+`UserId`. The captured request contained exactly those fields, the executable
+has no resolved `HostData` string, and the responder consequently received no
+host map or transform through the retail WebAPI message. shadNet's old
+`HostData` test fixture was synthetic rather than evidence of this game path.
+
+Seamless mode now bridges only that missing information in the existing HTTP
+exchange. The host-side `SummonBuild.Entry` hook caches the same exact map,
+area, position, and heading it wrote into Bloodborne's prepared descriptor.
+shadPS4 adds a bounded version-1 `X-ShadPS4-Bloodborne-Host-Placement` header
+to the native `/summon_messenger/request`; shadNet stores it with the claim and
+returns it on the responder's native `/summon_messenger/create` response. The
+header contains a packed map, four IEEE-754 bit patterns, and signed SOS area;
+it does not alter the game's JSON schema. The guest validates and caches the
+header, then the post-copy game hook supplies it to the native placement
+setters. An independent create/request/create probe confirmed byte-for-byte
+header relay through shadNet.
 
 ## Confirmed native paths
 
@@ -100,9 +120,15 @@ The native summon placement data flow is now concrete:
 
 This is stronger than an emulator-side coordinate write: Bloodborne already
 receives the remote transform, copies it during insertion, selects its own map,
-and owns the reload. Live captures still need to establish host/guest ordering
-and which callback sets `+0x14F0/+0x1520` in same-area and cross-area cases
-before any function is called or hooked to change behavior.
+and owns the reload. Paired captures established host/guest ordering and showed
+that retail same-map insertion never sets `+0x14F0/+0x1520`. Seamless mode now
+uses a guarded post-copy hook to invoke the game's forced-placement setters,
+map selector, named `SummonedMapReload` wrapper, and stage-transition routine
+only for a cross-map summoned client. Live paired captures have validated the
+transported placement and map transition. They also established that the
+native multiplayer serializer preserves the joined room when it runs before
+the transition; the remaining validation is the corrected ordering that
+reapplies the transported destination after serialization.
 
 ### Ordinary stage travel
 
@@ -126,10 +152,98 @@ In a verified seamless session inside the defeated Great Bridge boss arena, the
 host no longer received the lantern interaction prompt while the guest remained
 connected. Common event `7200` does not prohibit a multiplayer host: it waits for
 lamp flag `72410100` and then invokes the native respawn-point warp. The missing
-prompt therefore occurs earlier in the engine-owned Healing Fountain interaction
-availability path. `HealingFountain.Register.Match` (`0x017C67C0`) passively
-captures the matching registration object and vtable so that this prompt gate can
-be isolated without replacing the native warp.
+prompt therefore occurs earlier than the event instruction.
+
+The event interpreter now gives an exact native registration path. Event group
+`2009` dispatches command `[05]` to `0x017C60D6`, where it reads all six
+`Register Healing Fountain` operands and calls `0x0133B030`. That native accepts
+the event flag, entity ID, reaction distance and angle, initial sword count, and
+sword level; it registers an action object through `0x01327650` and enqueues an
+`OnEvent_Bonfire` record. The read-only `HealingFountain.Register.Native`
+observer is installed at this actual native entry and records those six values.
+The former observer at `0x017C67C0` was removed because that address is a record
+lookup/removal loop, not the registration call, and its first pointer could not
+honestly be described as an interaction vtable.
+
+RTTI/state-step registration also resolves
+`CSChairMessengerRespawnPointNotifyStep::STEP_Init` at `0x01E5C6C0`,
+`STEP_Update` at `0x01E5C890`, and `STEP_Finish` at `0x01E5CAA0`. Despite its
+proximity to respawn-point behavior, this is not the local lantern-prompt task.
+Update calls `0x01EA06D0`, which constructs the
+`/api_ChairMessRespawnPointNotice` WebAPI request using the selected respawn
+point. Its `+0x9F6/+0x9F8/+0xA50` checks are therefore online-notification
+availability gates, not evidence for the missing interaction prompt. Read-only
+Init and Update observers remain useful for identifying that request, but no
+seamless patch changes these fields. The game's own network-debug formatter
+names `+0x9F5/+0x9F6` LAN connect/disconnect and `+0x9F7/+0x9F8`
+sign-in/sign-out; `+0x9F6/+0x9F8` are latched from the online-state object at
+global `0x056C7048`, while `+0xA50` is asserted by a separate player-state path
+around `0x0193A3E0`.
+
+The `OnEvent_BonfireRespawn` callback at `0x0138CA20` only stores its event
+object in globals, and the `forReturnToSummonedCoordPosAng` xref at
+`0x019C9B20` only registers a named parameter. Neither is the runtime warp or
+the missing prompt gate.
+
+Following the relocated vtable of the action object created by `0x01327650`
+reaches its update at `0x012F5C40`. The update calculates four independent
+availability bytes at object `+0x48..+0x4B`; the final action enable passed to
+`0x0146E250` is true only when all four are zero. The exact multiplayer byte is
+`+0x49`: `0x012F8315` tests whether the local session has more than one player
+and combines that result with pending matchmaking state before storing the byte
+at `0x012F8323`. This is a native reason the host's lantern prompt disappears
+after a guest joins.
+
+The experimental seamless hook at `0x012F836E` runs after all four bytes are
+calculated and before the first availability decision. It clears only `+0x49`,
+and only when the local player has SpEffect `9001`, which common event `9190`
+assigns when the player is simultaneously multiplayer and host. A guest does
+not have effect `9001`, and the special-map, missing-entity, and remaining
+native gate bytes at `+0x48/+0x4A/+0x4B` are left intact.
+
+The successful two-client cross-map session disproved the earlier conclusion
+that this hook restores the host prompt. Host B repeatedly reported
+`host_effect_9001=true`, `result=applied`, and all four bytes zero after the
+hook, but neither client received a lantern interaction prompt. Clearing
+`+0x49` is therefore a confirmed local availability change, not a complete
+host-only lantern bypass. A second action-selection or presentation gate still
+needs to be resolved. The hook does not force a progression flag, change the
+shared session manager, or expose the action to a guest, but it must not be
+described as functional yet.
+
+Common event `7200` itself remains network-synchronized; it does not issue
+`Set Network Sync State (Disabled)`. Instruction 0 ends the event when the
+local process is already a multiplayer client, then the surviving event waits
+for the lamp interaction flag and calls `Warp Player to Respawn Point` with the
+instance's destination RespawnParam. A same-map responder normally initialized
+that event before becoming a client, so its task may still be waiting when the
+host activates the lamp. A guest that loads the map while already joined may
+instead end the newly initialized event at instruction 0. Once the remaining
+host prompt gate is resolved, a paired run can distinguish two outcomes without
+inventing a destination message: either Bloodborne's synchronized event
+naturally calls the bonfire warp in both processes, or only the host reaches it
+and the guest needs a scoped way to retain or replay event `7200`. Stage-warp
+captures include the current map and host effect `9001` so the two outcomes
+will be unambiguous.
+
+The installed `common.emevd.dcx` independently confirms the decoded script and
+provides a byte-level boundary for a fallback. Its DFLT payload begins at DCX
+offset `0x4C` and inflates to a `0x11950`-byte EVD. Event `7200` is event record
+31 at EVD `0x660`; its 11 instruction records begin at EVD `0x7D70`.
+Instruction record zero is bank `1003`, command `6`, with four argument bytes
+at EVD `0xF55C`: `00 01 00 00`, meaning execution end type `End` and desired
+multiplayer state `Client`. A future fallback can therefore target this one
+event instance or its one instruction with exact structural checks. It must
+not globally change command `1003[6]`, because the map scripts use the same
+client guard for many unrelated bosses, objects, and progression events.
+
+The named `SummonReloadStart` callbacks also do not provide a host-travel
+transport. `OnBeJoinStart_White` and the other join variants enqueue event
+`4059` with that name. The handler at `0x01389440` conditionally calls
+`0x0131E5C0`; `ForceSummonReloadStart` at `0x01389620` sets an additional
+manager byte before calling the same function. They lead back to the existing
+guest-side `SummonedMapReload.Native` serializer and contain no destination
+map, RespawnParam, or remote-player warp call.
 
 The event interpreter's `Warp Player` instruction (`2003[14]`) writes the same
 map and warp-point fields before calling `0x013CDE30`. Its `Warp Player to
@@ -749,6 +863,482 @@ builder marker, `SummonBuild.Return` returned the prepared request for area
 `MUTUAL_ACTIVATED`, B ran `SummonedMapReload.Native`, and native placement used
 source entity `2410019` and target area entity `2412010`. The user confirmed
 that both characters were visible and movement remained synchronized inside
-the normally unsummonable defeated-boss arena. The next test should keep this
-successful session connected while the host performs a stage transition so
-guest reload ordering can be captured.
+the normally unsummonable defeated-boss arena.
+
+The first true cross-map run started A in that Great Bridge area at `-241109`
+and B in Hunter's Dream at `210000`. B successfully executed Small Resonant and
+advertised role 7. shadNet returned it to A with the requester's top-level
+location, and A decoded, accepted, submitted, and inserted the advertisement
+into its primary candidate list. The candidate repeatedly passed the identity
+and session checkpoints but stopped before `SummonCandidate.AreaGatePassed`;
+no pending record, summon request, NP room, or map reload was created.
+
+The intervening native block performs a second location check that is not a
+top-level HTTP field comparison. It reduces the manager area at root `+0xA80`
+and decoded candidate area at `+0x98` by signed division by ten, compares the
+two at `0x014B7148`, then rejects a mismatch with `jne` at `0x014B714A`. Live
+operands retained the real areas `-241109` and `210000`, proving that this is
+the first cross-map candidate restriction. Seamless mode now NOPs only the
+byte-verified mismatch branch. It does not rewrite the opaque SummonData or
+replace the later request, placement, and reload calls.
+
+The restarted run confirmed that patch. With manager area `-241109`, candidate
+area `210000`, and manager flags `+0xB14 == 0`, A reached
+`SummonCandidate.AreaGatePassed`, consumed the normalized availability count,
+inserted the pending record, matched it, and entered `SummonBuild.Entry`. The
+prepared request retained B's real area `210000`. The builder passed its delay
+and session-state stages but returned null before
+`SummonBuild.ControlAndWorldStatePassed`.
+
+The builder repeats the same signed area-group comparison later in its control
+block. It compares the current world area and prepared candidate area at
+`0x01874B77`; the original `je` at `0x01874B79` continues only when they match,
+while a mismatch enters the null-result path. Seamless mode now changes that
+byte-verified conditional jump to an unconditional jump to the same normal
+continuation. The subsequent control, role, capacity, population, and session
+rules remain native.
+
+The next restarted run confirmed every remaining network stage across the map
+boundary. A built and queued the request, created the NP room, and claimed B's
+advertisement. B joined the room, both signaling connections became mutual,
+and B ran `CSMultiPlayerIns.PlacementCopy` and `SummonedMapReload.Native`. The
+session was genuinely active, but B remained in Hunter's Dream instead of
+loading Great Bridge.
+
+The placement records explain the split result. B's received record at global
+`+0x1620` still contained its advertised Hunter's Dream transform, packed map
+`0x15000000`, and area `210000`. `CSMultiPlayerIns.PlacementCopy` copied that
+record into the normal SOS and summoned-placement banks. The separate selected
+summoned-map slot at `+0x14F0` remained `0xffffffff`, and the selector byte at
+`+0x1520` remained zero. Bloodborne therefore had a connected player but no
+Great Bridge destination to select for the guest reload.
+
+The HTTP capture shows why shadNet cannot derive the missing placement from the
+normal claim. `/summon_messenger/request` includes the two users, characters,
+and session ID, but no host map or transform. The responder's opaque SummonData
+does include a placement record at payload offsets `+0x58` through `+0x6C`, and
+that original responder record is what survived into the prepared request.
+Changing only the response's top-level area and position cannot change the
+later native multiplayer placement payload.
+
+`SummonSelection.QueueInsert` at `0x01875320` copies the complete 0xA8-byte
+prepared descriptor into Bloodborne's own request queue. Seamless mode now
+hooks `SummonBuild.Entry` at `0x01874710` and, only when the prepared map differs
+from the current host map, replaces the descriptor's map, position, heading,
+and SOS area with the host's live values before that native copy. The source is
+the same game-owned transform chain used by `SetSosSignPos`: position at
+transform `+0x1E0`, heading at `+0x1D4`, and the current packed map resolved
+from the active map-list entry at global `0x0553B148`. That map lookup is a
+nested container: the active index is at list `+0x20`, list `+0x10` points to
+the array owner, its count is at `+0x18`, its entries pointer is at `+0x20`,
+and each entry is 0xA0 bytes with the packed map at `+0x08`. The SOS area comes
+from manager root `+0xA80`. Same-map requests are left intact, and invalid
+pointers, mappings, maps, or non-finite transforms reject the rewrite without
+partially changing the descriptor.
+
+Static disassembly also establishes what the guest does with a corrected
+record. `CSMultiPlayerIns.StartNotifyWait` copies received position,
+orientation, and map at global `+0x1620/+0x1630/+0x1644` into both the ordinary
+SOS bank `+0x14A0/+0x14B0/+0x14C0` and summoned-placement bank
+`+0x14D0/+0x14E0/+0x14C4`. It does not set forced map `+0x14F0` or selector byte
+`+0x1520`. `SummonedPlacement.SelectMap` uses `+0x14F0` only when `+0x1520` is
+set; otherwise it resolves the normal/default map. None of
+`CSMultiPlayerIns.StartNotifyWait`, `StartWait`, `FirstSyncWait`, `Create`, or
+`CreateWait` calls the selector or the stage transition. This is expected for
+retail matchmaking, where the area gates guarantee that the summoned client
+has already loaded the destination map.
+
+Seamless mode now hooks the common post-copy point at `0x01E4FF3A`. The hook is
+functional only for a multiplayer insert object whose role field at `+0xE8`
+is zero, the summoned-client role observed in the paired capture. It also
+requires a valid received placement, a valid transported host map when the
+versioned header is present, a map different from the currently loaded map,
+finite placement vectors, writable global state, and no existing stage
+transition or forced warp. The transported transform replaces the retail
+responder-sign copy in the summoned-placement bank immediately before the
+native setters run. Same-map and host-side insert paths return without
+modifying state, and a create response without the header clears stale cached
+transport state.
+
+For a qualifying cross-map guest, the handoff uses Bloodborne's native setters
+at `0x0156CF20`, `0x0156CF40`, and `0x0156CF10` to copy the summoned position,
+orientation, and map into forced slots `+0x1500/+0x1510/+0x14F0`. It invokes
+the native warp setter at `0x0156CF60`, calls the selector at `0x01332BC0` with
+warp-info ID `-1`, verifies that the selected map at global `+0x0C` equals the
+received map, and finally calls the normal stage-transition routine at
+`0x013CDE30`. The handoff arms the destination but does not serialize the
+session yet. Repeated executions of the game's insert loop copy the responder's
+old-map transform back into the summoned placement bank, so every qualifying
+post-copy callback now restores the transported host transform before applying
+its transition-pending guards. The descriptor-finalization hook described
+below dispatches the reload only after the game has captured the target map.
+This reuses the game-owned placement, reload, and transition path rather than
+implementing a custom emulator teleport. The post-copy trace records every
+guard result, whether placement was refreshed, and the native selector and
+transition results under `cross_map_guest_handoff`.
+
+The selector's disassembly removes one ABI ambiguity: `0x01332BC0` ignores its
+first argument and preserves only `esi` as the warp-info ID. When forced-warp
+byte `+0x1520` is set, it selects map `+0x14F0` directly and writes it to
+selected map `+0x0C`. Calling it as `(0, -1)` therefore matches the native
+forced path and does not omit a context object.
+
+The other direct selector/transition users explain why their extra manager
+writes must not be copied into the summon handoff. Their embedded game names
+are `HostDead_1` (`0x01381A60`), `SoloPlayDeath_2` (`0x01381DE0`),
+`PartyGhostDeath_2` (`0x013824C0`), `PlayerKill_4030_1` (`0x01383A00`),
+`BlockClear2_1` (`0x01385470`), `BlockClear2_3` (`0x01385930`),
+`OnReviveMagic_1` (`0x01389E80`), `OnLeave_Limit` (`0x0138A4A0`), and
+`Failed_BossAreaMission_LeaveMap` (`0x0138B4E0`). `SetSelfBloodMapUid` at
+`0x0132E170` also calls the selector but does not start a transition. These are
+death, revival, progression, and forced-leave paths; their additional state is
+specific to those operations. The common native core is precisely the forced
+placement setters, selector, and stage transition currently used by the hook.
+
+The two failed cross-map captures provide end-to-end controls. Before the host
+rewrite, A queued B's Hunter's Dream descriptor and B later copied and selected
+the same `0x15000000`. After the host rewrite, A's trace showed an applied
+`0x18010000` Great Bridge descriptor in `SummonBuild` and
+`SummonSelection.QueueInsert`, but B still copied `0x15000000` from its own
+sign state. The raw claim then proved why: `0x01E98650` did not serialize the
+rewritten descriptor or any host placement. The versioned header now carries
+the already game-owned host rewrite across exactly that missing boundary; it
+does not replace matchmaking, signaling, player insertion, selection, or map
+loading.
+
+The first live transported-placement run reached
+`cross_map_guest_handoff.result=applied` with `transported_host=true`, selected
+map `0x18010000`, and transition result 1. B loaded Great Bridge at A's exact
+captured transform `[-132.559601, -27.0188828, 55.6097145]`. That validates the
+host rewrite, shadNet relay, guest setters, selector, and native stage warp.
+The clients were not visible because Bloodborne left the NP room during the
+reload and A continued issuing the same summon claim.
+
+Three temporary Matching2 leave experiments were used only to isolate that
+lifecycle failure. Returning success while retaining membership, omitting the
+callback, and returning an aborted callback each failed differently: either B
+remained on the loading screen or loaded without A completing the summon and
+without mutual visibility. Those experiments are removed. The current code
+does not intercept `sceNpMatching2LeaveRoom`.
+
+The next clean run called `ForceSummonReloadStart` at `0x01389620` before the
+stage transition. The handoff recorded `summon_reload_started=true`, but the
+nested `SummonedMapReload.Native` observer never fired. Disassembly explains
+the result: the force handler still gates its tail-call to `0x0131E5C0` on the
+game's current multiplayer state, and the post-copy hook executes before that
+gate reaches the required state. B loaded the transported map, left room 1
+about 25 seconds after joining, and the clients again remained invisible.
+The next builds called the unconditional named wrapper at `0x01336B90`. A
+clean run with that wrapper after successful placement selection reached
+`SummonedMapReload.Native`, and room 1 remained joined for more than 40
+seconds instead of B leaving after the reload. The serializer also restored
+the staged destination to B's current `0x15000000` map, however, so
+`Warp.RespawnPlacement.Apply` placed B back in Hunter's Dream. Calling the
+wrapper before the forced setters, after the setters but before the stage
+transition, and after the stage transition all produced the same Dream task.
+The third trace is particularly conclusive: `Warp.StageTransition` entered
+with global map `0x18010000`, then `SummonedMapReload.Native` ran, and the
+eventual placement task contained `0x15000000`. Immediate call ordering cannot
+separate room retention from stale current-map serialization.
+
+Static analysis isolated the final state transition in `0x0131E5C0`: after
+building its three reload buffers, it sets the object at global `0x0553D6D0`
+offset `+0x84` to state 3. The game also exposes the native one-argument state
+transition at `0x0178D9A0`, whose complete body performs that same assignment.
+A live build called this small setter before `Warp.StageTransition`. It kept B
+in room 1 and the transition accepted `0x18010000`, but it prevented the game
+from constructing a Great Bridge placement task. The stage request was
+acknowledged while B's active map stayed `0x15000000`, so the deferred reload
+correctly remained `waiting_for_target_map` and B stayed in Hunter's Dream.
+State 3 must not be entered before the destination descriptor exists.
+
+The next live build moved the small state setter to the common descriptor
+finalization instruction at `0x01944F23`. That ordering succeeded in creating
+a `0x18010000` task: `r9+0x08` matched Great Bridge, the session state changed
+from 2 to 3, and `Warp.RespawnPlacement.Apply` later consumed the Great Bridge
+map. Two independent failures remained. The insert loop had overwritten the
+transported transform after the first handoff, so the task resolved B's Dream
+coordinates `[-10.8132086, -6.98065758, -21.0132046]` on the Great Bridge map
+and produced a grey/out-of-bounds scene. B also called
+`sceNpMatching2LeaveRoom` roughly five seconds after descriptor construction,
+just before placement and the deferred serializer, so room 1 was lost.
+
+The current build still waits for a completed target descriptor at
+`0x01944F23`, but dispatches the game's named `SummonedMapReload` wrapper at
+that boundary before applying the small state setter. The next live trace
+confirmed that the insert-loop refresh worked and that the wrapper ran twice
+before placement, but the reload object remained in state 2 at the return from
+each wrapper call. The Great Bridge task nevertheless resolved A's exact host
+coordinates `[-132.559601, -27.0188828, 55.6097145]`, proving that the grey
+screen placement bug is fixed. B still called `sceNpMatching2LeaveRoom` just
+before placement because state 3 had not been established.
+
+The current ordering therefore runs the complete named serializer after the
+target descriptor exists, then uses the tiny native `0x0178D9A0` setter if the
+serializer has not yet advanced the reload object from state 2 to 3. Only
+after both operations does it restore the transported host transform to both
+the summoned and forced placement banks. This combines the buffer construction
+that previously retained a room with the correctly delayed state transition;
+the descriptor already exists, so state 3 can no longer suppress its
+construction. The old `SosStatus.Update` dispatch remains only as a guarded
+fallback if the descriptor-bound sequence fails. Both functional hook sites
+and all invoked game calls are byte-signature checked. This exact ordering has
+now been live validated through exact host placement, but Bloodborne still
+left the room immediately before placement.
+
+### Multiplayer room lifecycle
+
+The HLE boundary identified the imported `sceNpMatching2LeaveRoom` return at
+`0x00CC790F`, but that call is only the final mechanism. Static recovery now
+separates the policy owner, matching wrapper, matching controller, and generic
+task scheduler.
+
+`CSMultiPlayMan` is the game-level policy owner. The singleton pointer is at
+`0x05540290`; the object is allocated as `0x308` bytes and constructed by
+`0x01ECE640` with vptr `0x05351020`. Its important fields are:
+
+| Offset | Recovered role |
+| ---: | --- |
+| `+0x10` | Owning game/world object |
+| `+0x18` | Embedded synchronized matching-controller wrapper; its first qword is the controller pointer |
+| `+0x38` | Request data used by the join flow |
+| `+0x118` | Multiplayer-active/notification byte |
+| `+0x11C` | Request deadline or duration value |
+| `+0x120` | Auxiliary multiplayer phase/result |
+| `+0x124` | `CSMultiPlayMan` lifecycle state |
+| `+0x138` and later | Member, event, and notification containers |
+| `+0x280` | Asynchronous leave-completion task |
+
+The lifecycle state at `+0x124` has two three-state operation groups:
+
+| Value | Meaning established from writers and consumers |
+| ---: | --- |
+| `0` | Idle/reset |
+| `1` | Create/join-room flow starting |
+| `2` | Create/join-room flow failed |
+| `3` | Create/join-room flow established |
+| `4` | Join-existing-room flow starting |
+| `5` | Join-existing-room flow failed |
+| `6` | Join-existing-room flow established |
+| `7` | Leave in progress |
+| `8` | Queried by `0x01ED2300`; no direct writer has been recovered |
+
+`0x01ECFCD0` builds the room attributes, sets state 1, and submits matching
+task type 7. `0x01ED0670` sets state 4 and submits matching task type 8 using
+the request object at `+0x38`. The common update at `0x01ED0B20` consumes
+matching events and advances the successful paths to states 3 and 6. The
+state predicates at `0x01ED00B0` through `0x01ED2300` are simple comparisons,
+not operations that create, join, leave, or warp a room.
+
+The matching controller behind the wrapper is a distinct `0x460`-byte object.
+Its constructor is `0x00CC3370`, factory is `0x00CBF7D0`, primary vptr is
+the relocated table at `0x052C6710`, and its secondary
+reference-count/interface subobject begins at `+0x68` with the relocated table
+at `0x052C6900`. The base controller owns the generic scheduler
+at `+0x10`, lifecycle state at `+0x118`, current time at `+0x58`, member vector
+at `+0x80/+0x88`, context ID at `+0x368`, and locks at `+0x3D0/+0x3E8`. The
+derived NP matching controller adds the room ID at `+0x400`, request ID at
+`+0x430`, and the asynchronous request reference at `+0x458`.
+
+The controller states are `0` idle, `1` starting, `2/3` the two established
+room modes, and `4` stopping. `0x00C98070` constructs stop task type `0x0C`
+at task `+0x24`, records its reason at task `+0x218`, submits it through the
+controller scheduler, and sets controller operation `+0x3C0` to 3. Its callback
+`0x00C98110` changes the controller to state 4 and schedules virtual slot
+`+0x78` for established mode 3 or slot `+0x80` for mode 2. Both paths converge
+on the same orderly teardown:
+
+1. `0x00C9B6E0` sends internal event `0x8001000100000000` to each member.
+2. `0x00C9B960` waits for the member vector to empty and schedules virtual slot `+0x88`.
+3. `0x00CC5390` unregisters room callbacks and schedules `0x00CC53C0`.
+4. `0x00CC53F0` calls the native leave wrapper with room ID `+0x400` and stores its request ID at `+0x430`.
+5. `0x00CC54F0` waits for completion, clears the room ID, and schedules `0x00C9BBE0`.
+6. `0x00C9BBE0` returns the controller to idle and completes the original stop task.
+
+NP room callbacks can also initiate this chain. The controller callback at
+`0x00CC3DA0` maps event `0x1101` to member joined, `0x1102` to member left,
+`0x1103` to kicked out, `0x1104` to room destroyed, and `0x1105` to room owner
+changed. Kicked-out and room-destroyed events enqueue stop tasks with their own
+reasons. They are not the source of the observed cross-map leave: shadNet saw
+the guest voluntarily submit `sceNpMatching2LeaveRoom`.
+
+The voluntary game-level stop is `CSMultiPlayMan::Stop` at `0x01ED07A0`. It
+returns false without acting only from idle state 0 or failed states 2 and 5.
+For the other states it sets state 7 and calls wrapper method `0x00C8ED70`.
+That method locks the wrapper at `+0x08`, loads its controller pointer from
+`+0x00`, and enqueues stop reason `0xFF000023` through `0x00C98070`. A successful
+submission creates the completion task at `CSMultiPlayMan+0x280`; a failed
+submission immediately invokes reset `0x01ED0910`. Reset clears members and
+requests, releases the matching wrapper, and returns the object to state 0.
+
+There are only six static callers of the controller stop-task constructor.
+The wrapper path above is the sole caller that supplies `0xFF000023`. Matching
+callbacks forward a reason from their event payload or use `0xFF000022`, and a
+separate controller method at `0x00CC6390` supplies `0xFF000021`. Recording the
+reason therefore distinguishes the stage-policy request from room destruction,
+kick, and lower-level controller failures without inferring ownership from the
+final `sceNpMatching2LeaveRoom` call.
+
+One unconfirmed stop path remains at `0x0193C657` inside stage update
+`0x0193AC10`. The updater resolves the active index from
+`stage_manager+0x118`, indexes a `0xA0`-byte stage-record array at
+`stage_manager+0x28`, and reads the record UID at `+0x08`. When that UID differs
+from the cached UID at the current local-state object `+0x3F8`, it updates the
+cache and transition flags, then calls `CSMultiPlayMan::Stop` only if
+multiplayer state is 1 or 3. The transported guest was in state 6, and the live
+cross-map capture did not hit this checkpoint. It is therefore not the source
+of the observed guest leave and remains unpatched.
+
+The actual caller is owned by the stage-transition task hierarchy. Function
+`0x01939970` allocates a `0x58`-byte scheduler wrapper at the owning stage
+object's `+0x140`, allocates its `0x50`-byte payload, and constructs that payload
+at `0x01946CE0` with vtable `0x05330540`. Stage update `0x01941C20` waits for the
+wrapper state at `+0x0C` to become 3, releases the wrapper, and thereby invokes
+payload destructor `0x019470F0`. The destructor releases its subordinate
+objects at `+0x38/+0x40`, checks summon-reload phase
+`[0x0553D6D0]+0x84`, and calls `CSMultiPlayMan::Stop` at `0x019471B1` whenever
+that phase is not 3.
+
+The clean capture proved the order. The destructor entered the stop method
+with reload phase 2, current map `0x15000000`, multiplayer state 6, controller
+state 2, and room ID 1. The wrapper supplied reason `0xFF000023`. Only afterward
+did `SummonedMapReload.Native` and `Warp.StageDescriptor.Finalize` advance the
+reload phase to 3 and load `0x18010000`; native leave then ran with controller
+state 4 and the same room ID. No stage-UID policy event occurred.
+
+Seamless mode retargets only the byte-verified call at `0x019471B1`. Instead of
+calling `CSMultiPlayMan::Stop`, it calls the class's native matching-existence
+predicate at `0x01ED00A0`. That method adjusts `this` to the embedded wrapper
+at `+0x18` and tail-calls `0x00C8F570`, which locks wrapper `+0x08` and tests the
+controller pointer at `+0x00`. An active room therefore follows the
+destructor's original success branch and preserves its `reload_state+0xF0`
+write without changing `CSMultiPlayMan` state or enqueueing a stop task. An
+idle object still returns false. This keeps the decision at the recovered game
+class boundary and leaves all other `CSMultiPlayMan::Stop` callers, NP room
+callbacks, and HLE leave handling intact.
+
+The next paired run proved that this retarget did exactly that, but also found
+a later owner of the same policy. B completed the forced transition to
+`0x18010000`; no stop request came from `0x019471B1`. Roughly nine seconds after
+the target descriptor advanced the reload object to phase 4,
+`SprjSessionManager::OnMatchingCheck` at `0x013808B0` entered with
+`CSMultiPlayMan` in established join state 6. Its temporary WorldChrMan lookup
+failed to find the multiplayer character while the destination world was being
+rebuilt, so the callback called `CSMultiPlayMan::Stop` at call return
+`0x013809BC`. That submitted reason `0xFF000023`, changed the matching controller
+from established state 2 to stopping state 4, and voluntarily left room 1.
+This is the direct cause of the most recent `Session Lost` result.
+
+Static recovery shows that `OnMatchingCheck` and its sibling
+`OnMatchingError` at `0x013809F0` belong to `SprjSessionManager`. The check uses
+WorldChrMan's character table at singleton `0x0553E878`; the helper at
+`0x01338CE0` scans character entries and tests the event's multiplayer IDs.
+When neither ID resolves, the callback stops matching and calls the WorldChrMan
+cleanup routine at `0x015BED10`. That behavior is correct for a missing remote
+entity in a stable world, but a cross-map reload creates the same observation
+while the entity table is necessarily empty. Retargeting this second stop call
+would keep the current post-join warp alive, but it would also weaken a real
+disconnect path. It is therefore retained unchanged.
+
+The implementation now avoids that ambiguous class state rather than adding a
+second teardown bypass. Cross-map setup is a two-phase search followed by the
+ordinary claim:
+
+1. The responder advertises normally while only searching; no NP room exists.
+2. A host search sends its current game-owned placement descriptor in the
+   `X-ShadPS4-Bloodborne-Host-Placement` request header.
+3. If a matching responder advertises a different `AreaId`, shadNet marks that
+   advertisement `Preparing`, stores the host descriptor, hides the responder
+   from the current host search, and returns zero candidates. It has not created
+   or claimed a room.
+4. The responder's next normal `/summon_messenger/create` receives only the
+   stored placement header. A delete caused by the map transition is retained
+   while the advertisement is `Preparing`.
+5. On `Game:Main`, `SosStatus.Update` consumes the descriptor only while
+   `CSMultiPlayMan` is idle and has no matching controller. It calls the native
+   forced-map, position, orientation, forced-warp, placement-selection, and
+   `StageTransition` functions. It deliberately does not call
+   `SummonedMapReload`; doing so before a room exists loaded default world
+   progression instead of the character's real save state.
+6. Once the destination map, exact SOS area, stage flags, matching state, player,
+   and transform have remained valid for 20 consecutive updates, the client calls
+   the recovered native item function at `0x018F9720` with Small Resonant Bell
+   goods ID `205` and use argument `17`. It waits for the real effect `9005` and
+   retries only once after 15 seconds if the effect never appears.
+7. The resumed native bell task advertises the destination `AreaId`. shadNet moves
+   the record from `Preparing` back to `Advertised`; the host's next ordinary
+   search returns it, after which Bloodborne performs its normal claim, room,
+   signaling, insertion, and summon flow with both clients already in one world.
+
+Same-map searches skip the preparation phase and return the candidate
+immediately. shadNet still performs no warp and owns no game state. It transports
+the descriptor and gates visibility of the advertisement; all map loading and
+item execution remain game-owned operations.
+
+The received descriptor is a single-use pre-match warp token. The successful
+transition marks it consumed so a later player-requested warp cannot be mistaken
+for another pending handoff. The descriptor itself remains available for the
+eventual multiplayer insertion, where the normal guest-handoff code can still
+verify or apply the host transform. A response without the placement header
+clears both the descriptor and its consumed state.
+
+The earlier `0x00C8F4A0`/`0x00C982D0` hypothesis was incorrect. That pair
+constructs unrelated async task type `0x1D` with selector `0x91`; neither
+observer fired during the actual leave. The trace retains the stage-UID policy
+checkpoint at `0x0193C5DE` to distinguish that independent path, then records
+every `CSMultiPlayMan::Stop` caller, controller stop-task construction, reason,
+and native leave entry. The checkpoint hook is placed at the non-relative state
+load rather than the relative `call` at `0x0193C657`, which the generic
+guest-code hook correctly refuses to relocate.
+
+The trace no longer records calls from background floor-maintenance return
+sites `0x018BEE67` and `0x018BEF34`. Those two sites accounted for millions of
+irrelevant `CharacterWarp.SetOrCopyFloor` hits in idle captures. Calls from the
+event-instruction handlers and all other callers remain visible, preserving
+the evidence needed for lantern-follow analysis while avoiding continuous
+JSONL writes and flushes.
+
+## Validated paired cross-map run
+
+The successful run used responder A (`wozzardman`, process 9510) in Hunter's
+Dream and host B (`Andrews`, process 9698) at Great Bridge. A first advertised
+map `0x15000000`, SOS area `210000`, under session
+`e7be9072-9e8a-4f84-b423-84cb85f17f0f`. B searched from map `0x18010000`, SOS
+area `241100`, at `[-125, -26, 64]`. shadNet returned zero candidates, marked A
+`Preparing`, supplied the 54-byte placement header on A's next create, and
+retained A's transition-driven delete.
+
+A's trace then recorded the native `StageTransition` from Hunter's Dream to
+Great Bridge. After arrival, `pre_match_guest_warp` reported
+`placement_consumed`, preventing the cached header from initiating another
+warp. The destination SOS area settled at `-241109`. The resume state reached
+20 stable observations with `CSMultiPlayMan` state 0 and no controller, called
+`ChrAction.UseItem.NativeApply` once with goods `205` and argument `17`, observed
+effect `9005`, and reported `responder_resume.result=completed` after one
+attempt. The bell remained visibly active. The same session then advertised
+map `0x18010000` and shadNet returned it on B's next search.
+
+B created room 1 and claimed A through the unmodified Bloodborne request. The
+two clients exchanged signaling information and A joined the room. At final
+insertion, A's `CSMultiPlayerIns.CrossMapGuestHandoff` repeatedly reported
+`same_map` with the transported host descriptor still present. The only
+`SummonedMapReload.Native` call occurred afterward in the ordinary same-map
+summon path; it was not used for the pre-match transition. No
+`CSMultiPlayMan.StopRequest`, `Matching2.StopTask.Enqueue`, or
+`Matching2.LeaveRoom.Begin` was recorded during preparation.
+
+Both clients displayed both characters, movement remained synchronized, and A
+killed enemies while acting as the summoned player. A's existing Great Bridge
+lantern was present after the pre-match load, confirming that the transition
+preserved the real save's world progression. Its presence does not mean its
+interaction was available: neither client received a lantern prompt while the
+session remained active. This validates cross-map
+discovery, automatic responder relocation, automatic native bell resumption,
+ordinary room establishment, bilateral entity insertion, and combat sync for
+Hunter's Dream to Great Bridge.
+
+Remaining coverage should repeat this sequence across additional map pairs,
+resolve the downstream host lantern prompt gate, then exercise lantern travel
+while the session is established and verify disconnect, death, and
+manual-silence recovery. Those are lifecycle and breadth tests; the core
+cross-map summon path is now live validated.

@@ -24,6 +24,7 @@
 #include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
+#include "core/bloodborne_re.h"
 #include "core/debugger.h"
 #include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
@@ -683,6 +684,45 @@ bool IsBloodborneSummonPath(std::string_view path) {
     return path.find("/summon_messenger/") != std::string_view::npos;
 }
 
+constexpr std::string_view BloodborneHostPlacementHeader = "X-ShadPS4-Bloodborne-Host-Placement";
+
+bool IsBloodborneSummonRequestPath(std::string_view path) {
+    return path.find("/summon_messenger/request") != std::string_view::npos;
+}
+
+bool IsBloodborneSummonSearchPath(std::string_view path) {
+    return path.find("/summon_messenger/get") != std::string_view::npos;
+}
+
+bool IsBloodborneSummonCreatePath(std::string_view path) {
+    return path.find("/summon_messenger/create") != std::string_view::npos;
+}
+
+std::optional<std::string_view> FindResponseHeader(std::string_view headers,
+                                                   std::string_view name) {
+    size_t line_start = 0;
+    while (line_start < headers.size()) {
+        const size_t line_end = headers.find("\r\n", line_start);
+        const std::string_view line = headers.substr(line_start, line_end == std::string_view::npos
+                                                                     ? headers.size() - line_start
+                                                                     : line_end - line_start);
+        const size_t colon = line.find(':');
+        if (colon != std::string_view::npos && HeaderNameMatches(line.substr(0, colon), name)) {
+            size_t value_start = colon + 1;
+            while (value_start < line.size() &&
+                   (line[value_start] == ' ' || line[value_start] == '\t')) {
+                ++value_start;
+            }
+            return line.substr(value_start);
+        }
+        if (line_end == std::string_view::npos) {
+            break;
+        }
+        line_start = line_end + 2;
+    }
+    return std::nullopt;
+}
+
 bool ShouldCaptureBloodborneSummon(const SendRequestPlan& plan) {
     return EnvFlagEnabled("SHADPS4_CAPTURE_BLOODBORNE_SUMMON") && IsBloodborneSummonPath(plan.path);
 }
@@ -735,6 +775,15 @@ void CaptureBloodborneSummon(const SendRequestPlan& plan, const HttpResponse& re
                   << "status=" << response.status_code << '\n'
                   << "response_bytes=" << response.body.size() << '\n'
                   << "request_error=" << request_error << '\n';
+    for (const auto& [name, value] : plan.headers) {
+        if (HeaderNameMatches(name, BloodborneHostPlacementHeader)) {
+            metadata_file << "host_placement_request=" << value << '\n';
+        }
+    }
+    if (const auto placement =
+            FindResponseHeader(response.all_headers_blob, BloodborneHostPlacementHeader)) {
+        metadata_file << "host_placement_response=" << *placement << '\n';
+    }
 
     LOG_INFO(Lib_Http, "Captured Bloodborne summon exchange {} under {}", capture_id,
              Common::FS::PathToUTF8String(capture_dir));
@@ -791,6 +840,11 @@ bool ApplyBloodborneSeamlessRoute(SendRequestPlan& plan) {
     }
     RewriteHostHeader(plan);
     plan.headers.emplace_back("X-ShadPS4-Bloodborne-Seamless", "1");
+    if (IsBloodborneSummonRequestPath(plan.path) || IsBloodborneSummonSearchPath(plan.path)) {
+        if (const auto placement = Core::Bloodborne::GetSeamlessHostPlacementHeader()) {
+            plan.headers.emplace_back(BloodborneHostPlacementHeader, *placement);
+        }
+    }
 
     // Replace user_id parameter with npid from config
     auto npids = Config::getShadNetNpids();
@@ -1765,6 +1819,17 @@ int PS4_SYSV_ABI sceHttpSendRequest(int reqId, const void* postData, u64 size) {
             worker_errno = ORBIS_HTTP_ERROR_RESOLVER_ENODNS;
         } else {
             worker_errno = RunRealHttpRequest(plan, local_res, success_event_bits);
+        }
+
+        if (worker_errno == 0 && IsBloodborneSummonPath(plan.path)) {
+            if (const auto placement =
+                    FindResponseHeader(local_res.all_headers_blob, BloodborneHostPlacementHeader);
+                placement.has_value() &&
+                !Core::Bloodborne::SetSeamlessHostPlacementHeader(*placement)) {
+                LOG_WARNING(Lib_Http, "Ignored invalid Bloodborne host-placement header");
+            } else if (!placement.has_value() && IsBloodborneSummonCreatePath(plan.path)) {
+                Core::Bloodborne::ClearSeamlessHostPlacementHeader();
+            }
         }
 
         CaptureBloodborneSummon(plan, local_res, worker_errno);
