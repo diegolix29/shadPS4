@@ -282,6 +282,7 @@ public:
     std::optional<std::string> GetFriendNpid(u32 index) const;
 
     std::string GetBearerToken() const;
+    void SetBearerToken(const std::string& token);
 
     // Callbacks
     std::function<void(const LoginResult&)> onLoginResult;

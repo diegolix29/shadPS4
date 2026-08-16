@@ -158,6 +158,11 @@ std::string ShadNetClient::GetBearerToken() const {
     return m_bearer_token;
 }
 
+void ShadNetClient::SetBearerToken(const std::string& token) {
+    std::lock_guard lock(m_mutex_bearer);
+    m_bearer_token = token;
+}
+
 // Threading
 
 void ShadNetClient::ConnectThread() {

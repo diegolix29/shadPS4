@@ -32,9 +32,11 @@ bool EnsureTransport();
 using PeerResolver = bool (*)(std::string_view online_id, u32* out_addr, u16* out_port);
 void SetPeerResolver(PeerResolver fn);
 void SetMmServerEndpoint(u32 addr, u16 udp_port);
+void SetMatching2Enabled(bool enabled);
 
 bool ResolvePeer(std::string_view online_id, u32* out_addr, u16* out_port);
 u32 MmServerAddr();
 u16 MmServerUdpPort();
+bool IsMatching2Enabled();
 
 } // namespace Libraries::Np::NpSignaling::Stubs

@@ -677,6 +677,8 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_commerce/np_commerce_ui.h
             src/core/libraries/np/np_manager.cpp
             src/core/libraries/np/np_manager.h
+            src/core/libraries/np/np_session.cpp
+            src/core/libraries/np/np_session.h
             src/core/libraries/np/np_matching2/np_matching2.cpp
             src/core/libraries/np/np_matching2/np_matching2.h
             src/core/libraries/np/np_matching2/np_matching2_internal.cpp

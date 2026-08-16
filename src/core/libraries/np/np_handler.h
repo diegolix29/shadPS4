@@ -71,6 +71,7 @@ public:
 
     // WebAPI bearer token
     std::string GetBearerToken(s32 user_id) const;
+    void SetBearerToken(s32 user_id, const std::string& token);
 
     // Local IP address (network byte order) as seen at connect time.
     u32 GetLocalIpAddr(s32 user_id) const;

@@ -373,6 +373,14 @@ std::string NpHandler::GetBearerToken(s32 user_id) const {
     return it != m_clients.end() ? it->second->GetBearerToken() : std::string{};
 }
 
+void NpHandler::SetBearerToken(s32 user_id, const std::string& token) {
+    std::lock_guard lock(m_mutex_clients);
+    auto it = m_clients.find(user_id);
+    if (it != m_clients.end()) {
+        it->second->SetBearerToken(token);
+    }
+}
+
 u32 NpHandler::GetLocalIpAddr(s32 user_id) const {
     std::lock_guard lock(m_mutex_clients);
     auto it = m_clients.find(user_id);

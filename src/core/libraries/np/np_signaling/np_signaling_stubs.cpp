@@ -10,6 +10,7 @@ TransportHooks g_transport{};
 PeerResolver g_peer_resolver = nullptr;
 u32 g_mm_server_addr = 0;
 u16 g_mm_server_udp_port = 0;
+bool g_matching2_enabled = false;
 } // namespace
 
 void SetTransportHooks(const TransportHooks& hooks) {
@@ -70,6 +71,14 @@ u32 MmServerAddr() {
 
 u16 MmServerUdpPort() {
     return g_mm_server_udp_port;
+}
+
+void SetMatching2Enabled(bool enabled) {
+    g_matching2_enabled = enabled;
+}
+
+bool IsMatching2Enabled() {
+    return g_matching2_enabled;
 }
 
 } // namespace Libraries::Np::NpSignaling::Stubs
