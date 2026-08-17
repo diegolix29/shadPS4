@@ -12,6 +12,8 @@
 
 #include "common/logging/log.h"
 #include "core/libraries/network/net.h"
+#include "core/libraries/network/net_upnp.h"
+#include "core/libraries/network/sockets.h"
 #include "core/libraries/np/np_handler.h"
 #include "core/libraries/np/np_matching2/np_matching2_internal.h"
 #include "core/libraries/np/np_session.h"
@@ -492,6 +494,18 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
             NpSignaling::Stubs::SetMmServerEndpoint(mm_addr_nbo,
                                                     Libraries::Net::sceNetHtons(stunPort));
 
+            // Set transport hooks for P2P signaling - critical for actual packet send/recv
+            NpSignaling::Stubs::SetTransportHooks({
+                .signaling_send = Libraries::Net::P2PSignalingSendTo,
+                .signaling_recv = Libraries::Net::P2PSignalingRecvFrom,
+                .control_send = Libraries::Net::P2PControlSendTo,
+                .control_recv = Libraries::Net::P2PControlRecvFrom,
+                .transport_ready = Libraries::Net::P2PTransportIsReady,
+                .configured_port = Libraries::Net::GetP2PConfiguredPort,
+                .advertised_addr = Libraries::Net::GetP2PAdvertisedAddr,
+                .ensure_transport = Libraries::Net::EnsureP2PTransport,
+            });
+
             // Set peer resolver to look up peer endpoints from matching2 context
             NpSignaling::Stubs::SetPeerResolver([](std::string_view online_id, u32* out_addr,
                                                    u16* out_port) -> bool {
@@ -529,6 +543,17 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
         m_stunSockfd = static_cast<int>(socket(AF_INET, SOCK_DGRAM, 0));
         if (m_stunSockfd == kInvalidSocket) {
             LOG_ERROR(Lib_NpManager, "shadNet: failed to create STUN UDP socket");
+        } else {
+            // Bind to port 0 to let OS choose a consistent ephemeral port
+            struct sockaddr_in bind_addr{};
+            bind_addr.sin_family = AF_INET;
+            bind_addr.sin_addr.s_addr = INADDR_ANY;
+            bind_addr.sin_port = 0; // Let OS choose port
+            if (bind(m_stunSockfd, reinterpret_cast<struct sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0) {
+                LOG_ERROR(Lib_NpManager, "shadNet: failed to bind STUN UDP socket");
+                CloseNativeSocket(m_stunSockfd);
+                m_stunSockfd = kInvalidSocket;
+            }
         }
     }
 
@@ -546,6 +571,13 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
         LOG_INFO(Lib_NpManager, "ContextStart: ctx= {} title= \"{}\"", defaultCtxId, titleId);
     } else {
         LOG_WARNING(Lib_NpManager, "ContextStart failed for npid '{}'", npid);
+    }
+
+    // GetWorldInfoList: broadcast world and server info
+    if (GetWorldInfoList()) {
+        LOG_INFO(Lib_NpManager, "GetWorldInfoList: successfully retrieved world info for '{}'", npid);
+    } else {
+        LOG_WARNING(Lib_NpManager, "GetWorldInfoList failed for npid '{}'", npid);
     }
 
     // WebAPI: fetch blockList and friendList
