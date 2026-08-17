@@ -437,7 +437,8 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
 
     shadnet::GetTokenReply tokenReply;
     if (SendCommand(kCmdGetToken, nullptr, &tokenReply) && !tokenReply.token().empty()) {
-        NpHandler::GetInstance().SetBearerToken(m_ownerUserId, tokenReply.token());
+        // TODO: Integrate with NpHandler::SetBearerToken when available
+        // NpHandler::GetInstance().SetBearerToken(m_ownerUserId, tokenReply.token());
     } else {
         // Non-fatal: WebAPI calls fall back to NpHandler's generated UUID,
         // which third-party (non-shadNet) WebAPI hosts accept anyway. Real

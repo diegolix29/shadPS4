@@ -670,7 +670,9 @@ set(VDEC_LIB src/core/libraries/videodec/video_utils.cpp
 
 set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_common.cpp
-            src/core/libraries/np/np_common.h  
+            src/core/libraries/np/np_common.h
+            src/core/libraries/np/np_session.cpp
+            src/core/libraries/np/np_session.h
             src/core/libraries/np/np_commerce/np_commerce.cpp
             src/core/libraries/np/np_commerce/np_commerce.h
             src/core/libraries/np/np_commerce/np_commerce_ui.cpp

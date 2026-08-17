@@ -487,8 +487,7 @@ u32 GetRoomPingUs(const ContextObject& ctx, OrbisNpMatching2RoomId roomId) {
 }
 
 void* BuildSignalingGetPingInfoPayload(ContextObject& ctx, OrbisNpMatching2RoomId roomId) {
-    CallbackPayload& p =
-        ctx.request_payload_override ? *ctx.request_payload_override : ctx.request_payload;
+    CallbackPayload& p = ctx.request_payload;
     p.Reset();
 
     const auto room_it = ctx.room_cache.find(roomId);
