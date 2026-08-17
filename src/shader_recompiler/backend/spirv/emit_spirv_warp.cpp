@@ -31,7 +31,15 @@ Id EmitReadLane(EmitContext& ctx, Id value, Id lane) {
 }
 
 Id EmitWriteLane(EmitContext& ctx, Id value, Id write_value, u32 lane) {
-    return ctx.u32_zero_value;
+    // V_WRITELANE_B32 stores a scalar into one lane of a VGPR and leaves the other lanes alone.
+    // Compilers use it together with V_READLANE_B32 to spill SGPRs into a vector register when
+    // scalar registers run out, so dropping the write (returning zero) silently zeroes whatever
+    // constant was spilled — e.g. a specular exponent, turning pow(x, k) into pow(x, 0) = 1.
+    // There is no subgroup "write lane" op; per invocation the result is simply the new value
+    // if this is the target lane and the old value otherwise. V_READLANE_B32 then broadcasts it.
+    const Id lane_id{ctx.OpLoad(ctx.U32[1], ctx.subgroup_local_invocation_id)};
+    const Id is_target{ctx.OpIEqual(ctx.U1[1], lane_id, ctx.ConstU32(lane))};
+    return ctx.OpSelect(ctx.U32[1], is_target, write_value, value);
 }
 
 Id EmitBallot(EmitContext& ctx, Id bit) {

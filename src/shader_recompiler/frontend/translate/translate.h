@@ -157,6 +157,7 @@ public:
     void V_SUBREV_F32(const GcnInst& inst);
     void V_MUL_F32(const GcnInst& inst);
     void V_MUL_LEGACY_F32(const GcnInst& inst);
+    void V_MAC_LEGACY_F32(const GcnInst& inst);
     void V_MUL_I32_I24(const GcnInst& inst, bool is_signed);
     void V_MIN_F32(const GcnInst& inst, bool is_legacy = false);
     void V_MAX_F32(const GcnInst& inst, bool is_legacy = false);
@@ -219,9 +220,11 @@ public:
     void V_EXP_F32(const GcnInst& inst);
     void V_LOG_F32(const GcnInst& inst);
     void V_RCP_F32(const GcnInst& inst);
+    void V_RCP_CLAMP_F32(const GcnInst& inst);
     void V_RCP_LEGACY_F32(const GcnInst& inst);
     void V_RCP_F64(const GcnInst& inst);
     void V_RSQ_F32(const GcnInst& inst);
+    void V_RSQ_CLAMP_F32(const GcnInst& inst);
     void V_SQRT_F32(const GcnInst& inst);
     void V_SIN_F32(const GcnInst& inst);
     void V_COS_F32(const GcnInst& inst);
@@ -248,6 +251,7 @@ public:
 
     // VOP3a
     void V_MAD_F32(const GcnInst& inst);
+    void V_MAD_LEGACY_F32(const GcnInst& inst);
     void V_MAD_I32_I24(const GcnInst& inst, bool is_signed = true);
     void V_MAD_U32_U24(const GcnInst& inst);
     void V_CUBEID_F32(const GcnInst& inst);
@@ -368,6 +372,8 @@ private:
     // Vector ALU Helpers
     IR::U32 GetCarryIn(const GcnInst& inst);
     void SetCarryOut(const GcnInst& inst, const IR::U1& carry);
+    IR::F32 FPMulLegacy(const IR::F32& src0, const IR::F32& src1);
+    IR::F32 FPClampInfToMax(const IR::F32& value);
     IR::U32 VMovRelSHelper(u32 src_vgprno, const IR::U32 m0);
     void VMovRelDHelper(u32 dst_vgprno, const IR::U32 src_val, const IR::U32 m0);
 

@@ -529,3 +529,145 @@ TEST_F(GcnTest, pk_add_f16_op_sel_reversed) {
     EXPECT_TRUE(result.has_value());
     EXPECT_EQ(*result, (F16x2{half(6.0f), half(4.0f)}));
 }
+
+// ---------------------------------------------------------------------------------------------
+// Edge-case behaviour of instructions whose GCN semantics differ from the IEEE operation they
+// look like. Each test runs the translated instruction on the GPU and checks the documented
+// result: legacy multiply-add with a zero operand, the clamped reciprocals, the base-2
+// transcendentals, the output and input modifiers, and lane read/write.
+// ---------------------------------------------------------------------------------------------
+
+TEST_F(GcnTest, mac_legacy_zero_times_nan) {
+    auto runner = gcn_test::Runner::instance().value();
+    // v_mac_legacy_f32 v0, v1, v2  ->  v0 = v1*v2 + v0 with legacy multiply
+    // v0 = 1.0 (accumulator), v1 = 0, v2 = NaN  ->  expect 1.0 (0*NaN = 0 in legacy semantics)
+    auto spirv = TranslateToSpirv(VOP2(OpcodeVOP2::V_MAC_LEGACY_F32, VOperand8::V0, SOperand9::V1, VOperand8::V2).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0x3f800000), u32(0), u32(0x7fc00000)});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 1.0f);
+}
+
+TEST_F(GcnTest, mad_legacy_zero_times_inf) {
+    auto runner = gcn_test::Runner::instance().value();
+    // v_mad_legacy_f32 v0, v0, v1, v2 : 0 * inf + 2.0 -> 2.0
+    auto spirv = TranslateToSpirv(VOP3A(OpcodeVOP3::V_MAD_LEGACY_F32, VOperand8::V0, SOperand9::V0, SOperand9::V1, SOperand9::V2).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0), u32(0x7f800000), u32(0x40000000)});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 2.0f);
+}
+
+TEST_F(GcnTest, rsq_clamp_zero_is_flt_max) {
+    auto runner = gcn_test::Runner::instance().value();
+    // v_rsq_clamp_f32 v0, v0 with v0 = 0 -> +FLT_MAX (not +inf)
+    auto spirv = TranslateToSpirv(VOP1(OpcodeVOP1::V_RSQ_CLAMP_F32, VOperand8::V0, SOperand9::V0).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0)});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_FALSE(std::isinf(*result));
+    EXPECT_EQ(*result, std::numeric_limits<float>::max());
+}
+
+TEST_F(GcnTest, rcp_clamp_zero_is_flt_max) {
+    auto runner = gcn_test::Runner::instance().value();
+    auto spirv = TranslateToSpirv(VOP1(OpcodeVOP1::V_RCP_CLAMP_F32, VOperand8::V0, SOperand9::V0).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0)});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(*result, std::numeric_limits<float>::max());
+}
+
+TEST_F(GcnTest, log_of_zero_is_neg_inf) {
+    auto runner = gcn_test::Runner::instance().value();
+    // v_log_f32 is log2; log2(0) = -inf on GCN
+    auto spirv = TranslateToSpirv(VOP1(OpcodeVOP1::V_LOG_F32, VOperand8::V0, SOperand9::V0).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0)});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_TRUE(std::isinf(*result) && *result < 0);
+}
+
+TEST_F(GcnTest, exp_of_neg_inf_is_zero) {
+    auto runner = gcn_test::Runner::instance().value();
+    // v_exp_f32 is 2^x; 2^-inf = 0  (this is what pow(0, k) via log/mul/exp must give)
+    auto spirv = TranslateToSpirv(VOP1(OpcodeVOP1::V_EXP_F32, VOperand8::V0, SOperand9::V0).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0xff800000)});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 0.0f);
+}
+
+TEST_F(GcnTest, exp_is_base2) {
+    auto runner = gcn_test::Runner::instance().value();
+    auto spirv = TranslateToSpirv(VOP1(OpcodeVOP1::V_EXP_F32, VOperand8::V0, SOperand9::V0).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0x40400000)}); // 3.0
+    EXPECT_TRUE(result.has_value());
+    EXPECT_NEAR(*result, 8.0f, 1e-4f);
+}
+
+TEST_F(GcnTest, log_is_base2) {
+    auto runner = gcn_test::Runner::instance().value();
+    auto spirv = TranslateToSpirv(VOP1(OpcodeVOP1::V_LOG_F32, VOperand8::V0, SOperand9::V0).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0x41000000)}); // 8.0
+    EXPECT_TRUE(result.has_value());
+    EXPECT_NEAR(*result, 3.0f, 1e-4f);
+}
+
+TEST_F(GcnTest, mad_clamp_output_modifier) {
+    auto runner = gcn_test::Runner::instance().value();
+    // v_mad_f32 v0, v0, v1, v2 clamp : 2*3+1 = 7 -> clamped to 1.0
+    auto spirv = TranslateToSpirv(VOP3A(OpcodeVOP3::V_MAD_F32, VOperand8::V0, SOperand9::V0, SOperand9::V1, SOperand9::V2).SetClamp(true).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0x40000000), u32(0x40400000), u32(0x3f800000)});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 1.0f);
+}
+
+TEST_F(GcnTest, mad_omod_mul2) {
+    auto runner = gcn_test::Runner::instance().value();
+    // v_mad_f32 v0, v0, v1, v2 mul:2 : (0.25*0.5 + 0.125) * 2 = 0.5
+    auto spirv = TranslateToSpirv(VOP3A(OpcodeVOP3::V_MAD_F32, VOperand8::V0, SOperand9::V0, SOperand9::V1, SOperand9::V2).SetOmod(Omod::Mul2).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0x3e800000), u32(0x3f000000), u32(0x3e000000)});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_NEAR(*result, 0.5f, 1e-6f);
+}
+
+TEST_F(GcnTest, max_clamp_saturate) {
+    auto runner = gcn_test::Runner::instance().value();
+    // v_max_f32 v0, v0, v0 clamp  = saturate(v0): 1.7 -> 1.0 ; the shader uses this as saturate
+    auto spirv = TranslateToSpirv(VOP3A(OpcodeVOP3::V_MAX_F32, VOperand8::V0, SOperand9::V0, SOperand9::V0).SetClamp(true).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0x3fd9999a)});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 1.0f);
+}
+
+TEST_F(GcnTest, max_clamp_negative_to_zero) {
+    auto runner = gcn_test::Runner::instance().value();
+    auto spirv = TranslateToSpirv(VOP3A(OpcodeVOP3::V_MAX_F32, VOperand8::V0, SOperand9::V0, SOperand9::V0).SetClamp(true).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0xbf800000)}); // -1.0
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 0.0f);
+}
+
+TEST_F(GcnTest, sqrt_abs_input_modifier) {
+    auto runner = gcn_test::Runner::instance().value();
+    // v_sqrt_f32 v0, |v0| with v0 = -4.0 -> 2.0
+    auto spirv = TranslateToSpirv(VOP3A(OpcodeVOP3::V_SQRT_F32, VOperand8::V0, SOperand9::V0, SOperand9::V0).SetAbs({true, false, false}).Get());
+    auto result = runner->run<float>(spirv, std::array{u32(0xc0800000)});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_NEAR(*result, 2.0f, 1e-6f);
+}
+
+TEST_F(GcnTest, writelane_then_readlane_roundtrip) {
+    auto runner = gcn_test::Runner::instance().value();
+    // Spill an SGPR into a lane of v0 and read it back into s2 (the classic SGPR-spill idiom):
+    //   v_writelane_b32 v0, s1, 0
+    //   v_readlane_b32  s2, v0, 0
+    //   v_mov_b32       v0, s2
+    // s1 = 0x42280000 (42.0f). Expect v0 == 42.0. Lane 0 is used because the test runner
+    // dispatches a single invocation; before the fix WriteLane returned 0 for every lane.
+    const std::array<u64, 3> instructions{
+        VOP3A(OpcodeVOP3::V_WRITELANE_B32, VOperand8::V0, SOperand9::S1, SOperand9::Const0).Get(),
+        VOP3A(OpcodeVOP3::V_READLANE_B32, VOperand8::V2 /*s2 via vdst field*/, SOperand9::V0,
+              SOperand9::Const0).Get(),
+        VOP1(OpcodeVOP1::V_MOV_B32, VOperand8::V0, SOperand9::S2).Get(),
+    };
+    const auto spirv = TranslateToSpirv(instructions);
+    const auto result = runner->run<float>(spirv, std::array{u32(0), u32(0x42280000), u32(0), u32(0)});
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 42.0f);
+}
