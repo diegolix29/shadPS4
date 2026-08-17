@@ -12,8 +12,6 @@
 
 #include "common/logging/log.h"
 #include "core/libraries/network/net.h"
-#include "core/libraries/network/net_upnp.h"
-#include "core/libraries/network/sockets.h"
 #include "core/libraries/np/np_handler.h"
 #include "core/libraries/np/np_matching2/np_matching2_internal.h"
 #include "core/libraries/np/np_session.h"
@@ -46,8 +44,10 @@ int SendAll(int fd, const void* buf, size_t len) {
 int RecvAll(int fd, void* buf, size_t len) {
     return recv(fd, reinterpret_cast<char*>(buf), static_cast<int>(len), 0);
 }
-int SendTo(int fd, const void* buf, size_t len, const struct sockaddr* dest_addr, socklen_t addrlen) {
-    return sendto(fd, reinterpret_cast<const char*>(buf), static_cast<int>(len), 0, dest_addr, addrlen);
+int SendTo(int fd, const void* buf, size_t len, const struct sockaddr* dest_addr,
+           socklen_t addrlen) {
+    return sendto(fd, reinterpret_cast<const char*>(buf), static_cast<int>(len), 0, dest_addr,
+                  addrlen);
 }
 #else
 constexpr int kInvalidSocket = -1;
@@ -60,7 +60,8 @@ int SendAll(int fd, const void* buf, size_t len) {
 int RecvAll(int fd, void* buf, size_t len) {
     return static_cast<int>(::recv(fd, buf, len, 0));
 }
-int SendTo(int fd, const void* buf, size_t len, const struct sockaddr* dest_addr, socklen_t addrlen) {
+int SendTo(int fd, const void* buf, size_t len, const struct sockaddr* dest_addr,
+           socklen_t addrlen) {
     return static_cast<int>(::sendto(fd, buf, len, 0, dest_addr, addrlen));
 }
 #endif
@@ -423,12 +424,15 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
     }
 
     // Process friendList and blockList from LoginReply
-    LOG_INFO(Lib_NpManager, "LoginReply: friends={}, blocked={}, friend_requests_sent={}, friend_requests_received={}",
-             loginReply.friends_size(), loginReply.blocked_size(),
-             loginReply.friend_requests_sent_size(), loginReply.friend_requests_received_size());
+    LOG_INFO(
+        Lib_NpManager,
+        "LoginReply: friends={}, blocked={}, friend_requests_sent={}, friend_requests_received={}",
+        loginReply.friends_size(), loginReply.blocked_size(),
+        loginReply.friend_requests_sent_size(), loginReply.friend_requests_received_size());
 
     for (const auto& friend_entry : loginReply.friends()) {
-        LOG_DEBUG(Lib_NpManager, "Friend: npid='{}' online={}", friend_entry.npid(), friend_entry.online());
+        LOG_DEBUG(Lib_NpManager, "Friend: npid='{}' online={}", friend_entry.npid(),
+                  friend_entry.online());
     }
 
     for (const auto& blocked_npid : loginReply.blocked()) {
@@ -437,8 +441,7 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
 
     shadnet::GetTokenReply tokenReply;
     if (SendCommand(kCmdGetToken, nullptr, &tokenReply) && !tokenReply.token().empty()) {
-        // TODO: Integrate with NpHandler::SetBearerToken when available
-        // NpHandler::GetInstance().SetBearerToken(m_ownerUserId, tokenReply.token());
+        NpHandler::GetInstance().GetBearerToken(m_ownerUserId);
     } else {
         // Non-fatal: WebAPI calls fall back to NpHandler's generated UUID,
         // which third-party (non-shadNet) WebAPI hosts accept anyway. Real
@@ -451,26 +454,50 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
 
     // GetServerFeatures: query server capabilities (matching2_enabled, etc.)
     shadnet::ServerFeaturesReply featuresReply;
+    // Use the same host as TCP connection, but UDP port 31314 (standard STUN port).
+    // Resolved here (rather than down at the STUN ping call site) because the
+    // matching2 MM-server registration below needs it too.
+    const auto [stunHost, tcpPort] = SplitHostPort(host);
+    const u16 stunPort = 31314; // Standard STUN/UDP port from shadnet protocol
+
     if (SendCommand(kCmdGetServerFeatures, nullptr, &featuresReply)) {
-        LOG_INFO(Lib_NpManager, "GetServerFeatures: \"{}\" matching2_enabled= {}",
-                 npid, featuresReply.matching2_enabled() ? "true" : "false");
-        
+        LOG_INFO(Lib_NpManager, "GetServerFeatures: \"{}\" matching2_enabled= {}", npid,
+                 featuresReply.matching2_enabled() ? "true" : "false");
+
         // Initialize matching2 signaling if enabled
         if (featuresReply.matching2_enabled()) {
             NpSignaling::Stubs::SetMatching2Enabled(true);
-            // Convert external IP string to u32 for MM server endpoint
-            u32 external_addr = 0;
-            if (!m_externalIp.empty()) {
-                // Simple IP string to u32 conversion (for now, use 0 if parsing fails)
-                external_addr = 0; // TODO: proper IP string to u32 conversion
+            // The "MM server" NpSignaling pings is this shadNet server itself
+            // (stunHost:stunPort), not our own external endpoint -- that only
+            // gets learned later, once StunPing() below gets a reply. Resolve
+            // it with getaddrinfo since stunHost may be a hostname, not a
+            // dotted-decimal address (sceNetInetPton only handles the latter).
+            u32 mm_addr_nbo = 0;
+            struct addrinfo mm_hints{};
+            mm_hints.ai_family = AF_INET;
+            mm_hints.ai_socktype = SOCK_DGRAM;
+            struct addrinfo* mm_res = nullptr;
+            const std::string stunPortStr = std::to_string(stunPort);
+            if (getaddrinfo(stunHost.c_str(), stunPortStr.c_str(), &mm_hints, &mm_res) == 0 &&
+                mm_res) {
+                mm_addr_nbo =
+                    reinterpret_cast<struct sockaddr_in*>(mm_res->ai_addr)->sin_addr.s_addr;
+                freeaddrinfo(mm_res);
+            } else {
+                LOG_WARNING(Lib_NpManager,
+                            "shadNet: failed to resolve MM server '{}'; matching2 "
+                            "StunPing will be skipped",
+                            stunHost);
             }
-            NpSignaling::Stubs::SetMmServerEndpoint(external_addr, m_externalPort.load());
-            
+            NpSignaling::Stubs::SetMmServerEndpoint(mm_addr_nbo,
+                                                    Libraries::Net::sceNetHtons(stunPort));
+
             // Set peer resolver to look up peer endpoints from matching2 context
-            NpSignaling::Stubs::SetPeerResolver([](std::string_view online_id, u32* out_addr, u16* out_port) -> bool {
+            NpSignaling::Stubs::SetPeerResolver([](std::string_view online_id, u32* out_addr,
+                                                   u16* out_port) -> bool {
                 for (u32 id = 1; id <= NpMatching2::ContextManager::kMaxContexts; ++id) {
-                    NpMatching2::ContextObject* ctx =
-                        NpMatching2::ContextManager::Instance().Get(static_cast<NpMatching2::OrbisNpMatching2ContextId>(id));
+                    NpMatching2::ContextObject* ctx = NpMatching2::ContextManager::Instance().Get(
+                        static_cast<NpMatching2::OrbisNpMatching2ContextId>(id));
                     if (!ctx) {
                         continue;
                     }
@@ -495,9 +522,6 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
     }
 
     // STUN ping: register external endpoint with server for P2P discovery
-    // Use the same host as TCP connection, but UDP port 31314 (standard STUN port)
-    const auto [stunHost, tcpPort] = SplitHostPort(host);
-    const u16 stunPort = 31314; // Standard STUN/UDP port from shadnet protocol
 
     // Create UDP socket for STUN pings (reused for periodic pings)
     {
@@ -505,23 +529,12 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
         m_stunSockfd = static_cast<int>(socket(AF_INET, SOCK_DGRAM, 0));
         if (m_stunSockfd == kInvalidSocket) {
             LOG_ERROR(Lib_NpManager, "shadNet: failed to create STUN UDP socket");
-        } else {
-            // Bind to port 0 to let OS choose a consistent ephemeral port
-            struct sockaddr_in bind_addr{};
-            bind_addr.sin_family = AF_INET;
-            bind_addr.sin_addr.s_addr = INADDR_ANY;
-            bind_addr.sin_port = 0; // Let OS choose port
-            if (bind(m_stunSockfd, reinterpret_cast<struct sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0) {
-                LOG_ERROR(Lib_NpManager, "shadNet: failed to bind STUN UDP socket");
-                CloseNativeSocket(m_stunSockfd);
-                m_stunSockfd = kInvalidSocket;
-            }
         }
     }
 
     if (StunPing(stunHost, stunPort, m_stunSockfd)) {
-        LOG_INFO(Lib_NpManager, "STUN ping: npid= \"{}\" ext= \"{}\" : {}",
-                 npid, ExternalIp(), ExternalPort());
+        LOG_INFO(Lib_NpManager, "STUN ping: npid= \"{}\" ext= \"{}\" : {}", npid, ExternalIp(),
+                 ExternalPort());
     } else {
         LOG_WARNING(Lib_NpManager, "STUN ping failed for npid '{}'", npid);
     }
@@ -533,13 +546,6 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
         LOG_INFO(Lib_NpManager, "ContextStart: ctx= {} title= \"{}\"", defaultCtxId, titleId);
     } else {
         LOG_WARNING(Lib_NpManager, "ContextStart failed for npid '{}'", npid);
-    }
-
-    // GetWorldInfoList: broadcast world and server info
-    if (GetWorldInfoList()) {
-        LOG_INFO(Lib_NpManager, "GetWorldInfoList: successfully retrieved world info for '{}'", npid);
-    } else {
-        LOG_WARNING(Lib_NpManager, "GetWorldInfoList failed for npid '{}'", npid);
     }
 
     // WebAPI: fetch blockList and friendList
@@ -667,7 +673,8 @@ bool NpSession::StunPing(const std::string& stunHost, u16 stunPort, int localSoc
     std::memcpy(packet.data() + kVportHeaderSize + 1, npid.data(), copyLen);
     // bytes for localIp already zero from value-init.
 
-    const int sent = SendTo(fd, packet.data(), packet.size(), reinterpret_cast<struct sockaddr*>(&dest), sizeof(dest));
+    const int sent = SendTo(fd, packet.data(), packet.size(),
+                            reinterpret_cast<struct sockaddr*>(&dest), sizeof(dest));
     if (sent != static_cast<int>(packet.size())) {
         LOG_ERROR(Lib_NpManager, "shadNet: StunPing send failed");
         if (ownSocket)
@@ -764,13 +771,13 @@ bool NpSession::ContextStart(u32 ctxId, const std::string& titleId) {
 
     // ContextStart reply is just an error byte, no meaningful body
     if (!SendCommand(kCmdContextStart, &req, nullptr)) {
-        LOG_WARNING(Lib_NpManager, "shadNet: ContextStart failed for ctx={} title={}",
-                    ctxId, titleId);
+        LOG_WARNING(Lib_NpManager, "shadNet: ContextStart failed for ctx={} title={}", ctxId,
+                    titleId);
         return false;
     }
 
-    LOG_INFO(Lib_NpManager, "ContextStart: \"{}\" ctx= {} title= \"{}\" key= \"{}\"",
-             Npid(), ctxId, titleId, titleId);
+    LOG_INFO(Lib_NpManager, "ContextStart: \"{}\" ctx= {} title= \"{}\" key= \"{}\"", Npid(), ctxId,
+             titleId, titleId);
     return true;
 }
 
@@ -789,12 +796,11 @@ bool NpSession::GetWorldInfoList() {
         return false;
     }
 
-    LOG_INFO(Lib_NpManager, "GetWorldInfoList: \"{}\" worlds= {}",
-             Npid(), reply.worlds_size());
+    LOG_INFO(Lib_NpManager, "GetWorldInfoList: \"{}\" worlds= {}", Npid(), reply.worlds_size());
 
     for (const auto& world : reply.worlds()) {
-        LOG_DEBUG(Lib_NpManager, "World: id={} lobbies={} max_members={}",
-                 world.world_id(), world.lobbies_num(), world.max_lobby_members());
+        LOG_DEBUG(Lib_NpManager, "World: id={} lobbies={} max_members={}", world.world_id(),
+                  world.lobbies_num(), world.max_lobby_members());
     }
 
     return true;

@@ -333,7 +333,7 @@ void Matching2HandshakeThreadMain() {
 } // namespace
 
 bool SendMatching2StunPing(const ContextObject& ctx) {
-    if (!NpSignaling::Stubs::IsMatching2Enabled()) {
+    if (!NpSignaling::Stubs::Matching2Enabled()) {
         return false;
     }
     if (!ctx.started || ctx.online_id.data[0] == '\0') {
