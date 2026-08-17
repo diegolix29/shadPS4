@@ -195,7 +195,7 @@ std::map<s32, std::string> ExtractTrophies(const std::filesystem::path& npbind_p
 
             // Move extracted trophy contents into each user's folder
             for (User user : UserSettings.GetUserManager().GetValidUsers()) {
-                auto const user_trophy_file = EmulatorSettings.GetHomeDir() /
+                auto const user_trophy_file = Common::FS::GetUserPath(Common::FS::PathType::HomeDir) /
                                               std::to_string(user.user_id) / "trophy" /
                                               (np_comm_id + ".xml");
                 if (!std::filesystem::exists(user_trophy_file)) {
@@ -468,7 +468,6 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     if (!id.empty()) {
         MemoryPatcher::g_game_serial = id;
-        Libraries::Np::NpTrophy::game_serial = id;
 
         const auto trophyDir =
             Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / id / "TrophyFiles";

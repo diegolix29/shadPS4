@@ -12,8 +12,8 @@
 
 #include <core/libraries/kernel/kernel.h>
 #include <magic_enum/magic_enum.hpp>
-#include "common/assert.h"
 #include "common/config.h"
+#include "common/assert.h"
 #include "common/error.h"
 #include "common/logging/log.h"
 #include "common/singleton.h"
@@ -658,8 +658,7 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
         case Core::FileSys::FileType::Socket: {
             auto native_handle = file->socket->Native();
             if (!native_handle) {
-                // P2P socket, cannot be added to epoll
-                LOG_ERROR(Lib_Net, "P2P socket cannot be added to epoll (unimplemented)");
+                LOG_ERROR(Lib_Net, "Socket has no native epoll readiness handle");
                 *sceNetErrnoLoc() = ORBIS_NET_EBADF;
                 return ORBIS_NET_ERROR_EBADF;
             }
@@ -708,8 +707,7 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
         case Core::FileSys::FileType::Socket: {
             auto native_handle = file->socket->Native();
             if (!native_handle) {
-                // P2P socket, cannot be modified in epoll
-                LOG_ERROR(Lib_Net, "P2P socket cannot be modified in epoll (unimplemented)");
+                LOG_ERROR(Lib_Net, "Socket has no native epoll readiness handle");
                 *sceNetErrnoLoc() = ORBIS_NET_EBADF;
                 return ORBIS_NET_ERROR_EBADF;
             }
@@ -752,8 +750,7 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
         case Core::FileSys::FileType::Socket: {
             auto native_handle = file->socket->Native();
             if (!native_handle) {
-                // P2P socket, cannot be removed from epoll
-                LOG_ERROR(Lib_Net, "P2P socket cannot be removed from epoll (unimplemented)");
+                LOG_ERROR(Lib_Net, "Socket has no native epoll readiness handle");
                 *sceNetErrnoLoc() = ORBIS_NET_EBADF;
                 return ORBIS_NET_ERROR_EBADF;
             }

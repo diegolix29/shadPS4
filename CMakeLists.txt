@@ -1236,6 +1236,8 @@ set(IMGUI src/imgui/imgui_config.h
           src/imgui/shadnet_notifications_layer.h
           src/imgui/notifications_layer.cpp
           src/imgui/notifications_layer.h
+          src/imgui/invitation_prompt_layer.cpp
+          src/imgui/invitation_prompt_layer.h
           src/imgui/renderer/imgui_core.cpp
           src/imgui/renderer/imgui_core.h
           src/imgui/renderer/imgui_impl_sdl3.cpp

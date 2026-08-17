@@ -9,19 +9,18 @@
 #include <imgui.h>
 #include <queue>
 
-#ifdef ENABLE_QT_GUI
-#include <qt_gui/background_music_player.h>
-#endif
-
 #define MINIMP3_IMPLEMENTATION
 #include <minimp3.h>
-#include "common/assert.h"
-#include "common/singleton.h"
 
 #include "common/config.h"
+#include "common/logging/formatter.h"
 #include "common/path_util.h"
+#include "core/emulator_settings.h"
 #include "core/libraries/np/trophy_ui.h"
 #include "imgui/imgui_std.h"
+#ifdef ENABLE_QT_GUI
+#include "qt_gui/background_music_player.h"
+#endif
 
 CMRC_DECLARE(res);
 namespace fs = std::filesystem;
@@ -39,7 +38,6 @@ TrophyUI::TrophyUI(const std::filesystem::path& trophyIconPath, const std::strin
     : trophy_name(trophyName), trophy_type(rarity) {
 
     side = Config::sideTrophy();
-
     trophy_timer = Config::getTrophyNotificationDuration();
 
     if (std::filesystem::exists(trophyIconPath)) {
@@ -49,7 +47,7 @@ TrophyUI::TrophyUI(const std::filesystem::path& trophyIconPath, const std::strin
                   fmt::UTF(trophyIconPath.u8string()));
     }
 
-    std::string pathString = "src/images/";
+    std::string pathString = "src/resources/";
 
     if (trophy_type == "P") {
         pathString += "platinum.png";
@@ -93,7 +91,7 @@ TrophyUI::TrophyUI(const std::filesystem::path& trophyIconPath, const std::strin
 
     AddLayer(this);
 
-    if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
+    if (SDL_WasInit(SDL_INIT_AUDIO) != 0) {
         if (!SDL_Init(SDL_INIT_AUDIO)) {
             LOG_ERROR(Lib_NpTrophy, "Unable to init SDL Audio for trophy sound: {}",
                       SDL_GetError());
@@ -112,16 +110,14 @@ TrophyUI::TrophyUI(const std::filesystem::path& trophyIconPath, const std::strin
             for (int i = 0; i < count; i++) {
                 std::string name = SDL_GetAudioDeviceName(devices[i]);
                 if (name == Config::getMainOutputDevice()) {
-                    SDL_CloseAudioDevice(audioDevice); // Close default device
                     audioDevice = SDL_OpenAudioDevice(devices[i], NULL);
-                    break; // Found the device, exit loop
                 }
             }
         }
 
         // user selected OpenAl Backend, use same device as OpenAl main Device
     } else if (Config::getAudioBackend() == Config::AudioBackend::OpenAL) {
-        if (Config::getMainOutputDevice() != "Default Device") {
+        if (Config::GetOpenALMainOutputDevice() != "Default Device") {
             int count;
             SDL_AudioDeviceID* devices = SDL_GetAudioPlaybackDevices(&count);
 
@@ -129,10 +125,8 @@ TrophyUI::TrophyUI(const std::filesystem::path& trophyIconPath, const std::strin
                 std::string name = SDL_GetAudioDeviceName(devices[i]);
                 // Device names are the same for openAl/Sdl, just with an added prefix
                 name.erase(0, 15);
-                if (name == Config::getMainOutputDevice()) {
-                    SDL_CloseAudioDevice(audioDevice); // Close default device
+                if (name == Config::GetOpenALMainOutputDevice()) {
                     audioDevice = SDL_OpenAudioDevice(devices[i], NULL);
-                    break; // Found the device, exit loop
                 }
             }
         }
@@ -161,7 +155,7 @@ TrophyUI::TrophyUI(const std::filesystem::path& trophyIconPath, const std::strin
         file.close();
         PlayWav(sound_data);
     } else {
-        auto soundFile = resource.open("src/images/trophy.wav");
+        auto soundFile = resource.open("src/resources/trophy.wav");
         sound_data = std::vector<unsigned char>(soundFile.begin(), soundFile.end());
         PlayWav(sound_data);
     }
@@ -342,7 +336,8 @@ void TrophyUI::PlayMp3(std::vector<unsigned char> mp3Data) {
     SDL_BindAudioStream(audioDevice, stream);
 
     // make this louder than game stream
-    SDL_SetAudioStreamGain(stream, static_cast<float>(Config::getVolumeSlider() * 0.01f * 1.2f));
+    SDL_SetAudioStreamGain(stream,
+                           static_cast<float>(Config::getVolumeSlider() * 0.01f * 1.2f));
     unsigned char* buffer_ptr = mp3Data.data();
     size_t remaining_size = mp3Data.size();
 
@@ -362,9 +357,6 @@ void TrophyUI::PlayMp3(std::vector<unsigned char> mp3Data) {
             break;
         }
     }
-
-    // Resume the audio device to start playback
-    SDL_ResumeAudioDevice(audioDevice);
 }
 
 void TrophyUI::PlayWav(std::vector<unsigned char> wavData) {
@@ -378,16 +370,14 @@ void TrophyUI::PlayWav(std::vector<unsigned char> wavData) {
         return;
     }
 
-    stream = SDL_CreateAudioStream(&spec, &spec);
+    SDL_AudioStream* stream = SDL_CreateAudioStream(&spec, &spec);
     SDL_BindAudioStream(audioDevice, stream);
 
     // make this louder than game stream
-    SDL_SetAudioStreamGain(stream, static_cast<float>(Config::getVolumeSlider() * 0.01f * 1.2f));
+    SDL_SetAudioStreamGain(stream,
+                           static_cast<float>(Config::getVolumeSlider() * 0.01f * 1.2f));
     SDL_PutAudioStreamData(stream, audioBuf, audioLen);
     SDL_free(audioBuf);
-
-    // Resume the audio device to start playback
-    SDL_ResumeAudioDevice(audioDevice);
 }
 
 void AddTrophyToQueue(const std::filesystem::path& trophyIconPath, const std::string& trophyName,
