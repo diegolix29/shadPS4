@@ -13,6 +13,55 @@
 #include "input/controller.h"
 #include "ui_control_settings.h"
 
+namespace GamepadSelect {
+
+static std::string selected_gamepad;
+
+std::string GetSelectedGamepad() {
+    return selected_gamepad;
+}
+
+void SetSelectedGamepad(const std::string& guid) {
+    selected_gamepad = guid;
+}
+
+std::string GetGUIDString(unsigned int* gamepads, int index) {
+    if (!gamepads || index < 0) {
+        return "";
+    }
+    SDL_Joystick* joystick = SDL_OpenJoystick(gamepads[index]);
+    if (!joystick) {
+        return "";
+    }
+    SDL_GUID guid = SDL_GetJoystickGUID(joystick);
+    char guid_str[64];
+    SDL_GUIDToString(guid, guid_str, sizeof(guid_str));
+    SDL_CloseJoystick(joystick);
+    return std::string(guid_str);
+}
+
+int GetIndexfromGUID(unsigned int* gamepads, int count, const std::string& target_guid) {
+    if (!gamepads || target_guid.empty()) {
+        return -1;
+    }
+    for (int i = 0; i < count; i++) {
+        SDL_Joystick* joystick = SDL_OpenJoystick(gamepads[i]);
+        if (!joystick) {
+            continue;
+        }
+        SDL_GUID guid = SDL_GetJoystickGUID(joystick);
+        char guid_str[64];
+        SDL_GUIDToString(guid, guid_str, sizeof(guid_str));
+        SDL_CloseJoystick(joystick);
+        if (target_guid == guid_str) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+} // namespace GamepadSelect
+
 ControlSettings::ControlSettings(std::shared_ptr<GameInfoClass> game_info_get,
                                  std::shared_ptr<IpcClient> ipc_client, bool isGameRunning,
                                  std::string GameRunningSerial, QWidget* parent)

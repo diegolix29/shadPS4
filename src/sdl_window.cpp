@@ -46,6 +46,9 @@
 #include "input/input_mouse.h"
 #include "sdl_window.h"
 
+#define SDL_EVENT_KILL_EMULATOR SDL_EVENT_USER + 16
+#define SDL_EVENT_SCREENSHOT SDL_EVENT_USER + 17
+
 static std::mutex virtual_user_mutex;
 #include "video_core/renderdoc.h"
 #include "video_core/screenshot.h"
@@ -90,7 +93,7 @@ static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
     case SDL_GAMEPAD_BUTTON_BACK:
         return OrbisPadButtonDataOffset::TouchPad;
     case SDL_GAMEPAD_BUTTON_GUIDE:
-        return OrbisPadButtonDataOffset::Home;
+        return OrbisPadButtonDataOffset::TouchPad;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
         return OrbisPadButtonDataOffset::L1;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
@@ -108,17 +111,14 @@ std::mutex motion_control_mutex;
 float gyro_buf[3] = {0.0f, 0.0f, 0.0f}, accel_buf[3] = {0.0f, 9.81f, 0.0f};
 static Uint32 SDLCALL PollGyroAndAccel(void* userdata, SDL_TimerID timer_id, Uint32 interval) {
     auto* controller = reinterpret_cast<Input::GameController*>(userdata);
-    controller->UpdateAxisSmoothing();
     float gyro[3] = {0.0f, 0.0f, 0.0f};
-    controller->Gyro(0, gyro);
-    controller->Acceleration(0, gyro);
+    controller->UpdateGyro(gyro);
+    controller->UpdateAcceleration(gyro);
     return interval;
 }
 
 static Uint32 SDLCALL UpdateAxisSmoothingTimer(void* userdata, SDL_TimerID timer_id,
                                                Uint32 interval) {
-    auto* controller = reinterpret_cast<Input::GameController*>(userdata);
-    controller->UpdateAxisSmoothing();
     return interval;
 }
 
@@ -206,7 +206,7 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     // input handler init-s
     Input::ControllerOutput::LinkJoystickAxes();
     Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
-    Input::GameControllers::TryOpenSDLControllers(controllers);
+    controllers.TryOpenSDLControllers();
 
     if (Config::getBackgroundControllerInput()) {
         SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -326,7 +326,7 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_GAMEPAD_ADDED:
     case SDL_EVENT_GAMEPAD_REMOVED:
         // todo handle userserviceevents here
-        Input::GameControllers::TryOpenSDLControllers(controllers);
+        controllers.TryOpenSDLControllers();
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
     case SDL_EVENT_GAMEPAD_BUTTON_UP:
@@ -395,7 +395,7 @@ void WindowSDL::WaitEvent() {
         }
         break;
     case SDL_EVENT_CHANGE_CONTROLLER:
-        Input::GameControllers::TryOpenSDLControllers(controllers);
+        controllers.TryOpenSDLControllers();
         break;
     case SDL_EVENT_TOGGLE_SIMPLE_FPS:
         Overlay::ToggleSimpleFps();
@@ -597,8 +597,7 @@ void WindowSDL::InitTimers() {
         SDL_AddTimer(250, &PollGyroAndAccel, controllers[i]);
         SDL_AddTimer(16, &UpdateAxisSmoothingTimer, controllers[i]);
     }
-    SDL_AddTimer(33, Input::MousePolling,
-                 (void*)Input::ControllerOutput::controllers.GetController(0));
+    SDL_AddTimer(33, Input::MousePolling, (void*)Input::ControllerOutput::controllers[0]);
 }
 
 void WindowSDL::RequestKeyboard() {
@@ -670,16 +669,15 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
 
     if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ||
         event->type == SDL_EVENT_GAMEPAD_BUTTON_UP) {
-        int idx = Input::GameControllers::GetGamepadIndexFromJoystickId(event->gbutton.which,
-                                                                        controllers);
+        int idx = controllers.GetGamepadIndexFromJoystickId(event->gbutton.which);
 
         if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
-            controllers[idx]->CheckButton(idx, OrbisPadButtonDataOffset::TouchPad, input_down);
+            controllers[idx]->Button(OrbisPadButtonDataOffset::TouchPad, input_down);
             return;
         }
 
         if (event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
-            controllers[idx]->CheckButton(idx, OrbisPadButtonDataOffset::Home, input_down);
+            controllers[idx]->Button(OrbisPadButtonDataOffset::TouchPad, input_down);
 
             if (Config::DisableHardcodedHotkeys() && event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                 SDL_Event quit_event{};
@@ -694,14 +692,13 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
     case SDL_EVENT_GAMEPAD_SENSOR_UPDATE: {
         if (!Config::getIsMotionControlsEnabled())
             return;
-        int idx = Input::GameControllers::GetGamepadIndexFromJoystickId(event->gsensor.which,
-                                                                        controllers);
+        int idx = controllers.GetGamepadIndexFromJoystickId(event->gsensor.which);
         switch ((SDL_SensorType)event->gsensor.sensor) {
         case SDL_SENSOR_GYRO:
-            controllers[idx]->Gyro(idx, event->gsensor.data);
+            controllers[idx]->UpdateGyro(event->gsensor.data);
             break;
         case SDL_SENSOR_ACCEL:
-            controllers[idx]->Acceleration(idx, event->gsensor.data);
+            controllers[idx]->UpdateAcceleration(event->gsensor.data);
             break;
         default:
             break;
@@ -711,8 +708,7 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
     case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
     case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
     case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION: {
-        int idx = Input::GameControllers::GetGamepadIndexFromJoystickId(event->gtouchpad.which,
-                                                                        controllers);
+        int idx = controllers.GetGamepadIndexFromJoystickId(event->gtouchpad.which);
         controllers[idx]->SetTouchpadState(event->gtouchpad.finger,
                                            event->type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP,
                                            event->gtouchpad.x, event->gtouchpad.y);

@@ -107,9 +107,6 @@ void Emulator::Shutdown() {
             storage_stats.demand_chunks, storage_stats.max_staging_buffers,
             storage_stats.max_queue_depth);
     }
-    if (controllers) {
-        controllers->Cleanup();
-    }
 }
 
 s32 ReadCompiledSdkVersion(const std::string& guest_or_host_path) {
@@ -468,7 +465,6 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     if (!id.empty()) {
         MemoryPatcher::g_game_serial = id;
-        Libraries::Np::NpTrophy::game_serial = id;
 
         const auto trophyDir =
             Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / id / "TrophyFiles";

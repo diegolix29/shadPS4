@@ -21,6 +21,7 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 #include "common/config.h"
+
 #include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
@@ -388,8 +389,8 @@ bool ApplyHostOverride(std::string& scheme, std::string& host, u16& port, bool& 
             if (!path.starts_with(prefix)) {
                 continue;
             }
-            const bool boundary_match =
-                path.size() == prefix.size() || prefix.ends_with('/') || path[prefix.size()] == '/';
+            const bool boundary_match = path.size() == prefix.size() || prefix.ends_with('/') ||
+                                        path[prefix.size()] == '/';
             if (boundary_match && prefix.size() > best_prefix_size) {
                 best = candidate;
                 best_prefix_size = prefix.size();
@@ -687,7 +688,8 @@ bool IsBloodborneSummonCreatePath(std::string_view path) {
 }
 
 bool ShouldCaptureBloodborneSummon(const SendRequestPlan& plan) {
-    return EnvFlagEnabled("SHADPS4_CAPTURE_BLOODBORNE_SUMMON") && IsBloodborneSummonPath(plan.path);
+    return EnvFlagEnabled("SHADPS4_CAPTURE_BLOODBORNE_SUMMON") &&
+           IsBloodborneSummonPath(plan.path);
 }
 
 void CaptureBloodborneSummon(const SendRequestPlan& plan, const HttpResponse& response,
@@ -782,24 +784,9 @@ bool ApplyBloodborneSeamlessRoute(SendRequestPlan& plan) {
     RewriteHostHeader(plan);
     plan.headers.emplace_back("X-ShadPS4-Bloodborne-Seamless", "1");
 
-    // Replace user_id parameter with npid from config
-    auto npids = Config::getShadNetNpids();
-    const std::string& npid = npids[0]; // Use first user's npid
-    if (!npid.empty()) {
-        // Replace user_id parameter in query string
-        size_t user_id_pos = plan.path.find("user_id=");
-        if (user_id_pos != std::string::npos) {
-            size_t user_id_end = plan.path.find('&', user_id_pos);
-            if (user_id_end == std::string::npos) {
-                user_id_end = plan.path.length();
-            }
-            plan.path.replace(user_id_pos, user_id_end - user_id_pos, "user_id=" + npid);
-            LOG_INFO(Lib_Http, "Replaced user_id parameter with npid: {}", npid);
-        }
-    }
-
-    LOG_INFO(Lib_Http, "Bloodborne seamless route active: {}://{}:{}{} -> {}://{}:{}{}", old_scheme,
-             old_host, old_port, plan.path, plan.scheme, plan.host, plan.port, plan.path);
+    LOG_INFO(Lib_Http, "Bloodborne seamless route active: {}://{}:{}{} -> {}://{}:{}{}",
+             old_scheme, old_host, old_port, plan.path, plan.scheme, plan.host, plan.port,
+             plan.path);
     return true;
 }
 

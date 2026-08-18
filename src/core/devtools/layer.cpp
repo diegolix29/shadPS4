@@ -877,12 +877,13 @@ void L::DrawPauseStatusWindow(bool& is_open) {
     ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoFocusOnAppearing |
                                    ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 
-    if (Input::ControllerPressedOnce(pad, {Btn::Up}) ||
-        Input::ControllerPressedOnce(pad, {Btn::Down}) ||
-        Input::ControllerPressedOnce(pad, {Btn::Left}) ||
-        Input::ControllerPressedOnce(pad, {Btn::Right})) {
-        should_focus = true;
-    }
+    // TODO: Input::ControllerPressedOnce not implemented
+    // if (Input::ControllerPressedOnce(pad, {Btn::Up}) ||
+    //     Input::ControllerPressedOnce(pad, {Btn::Down}) ||
+    //     Input::ControllerPressedOnce(pad, {Btn::Left}) ||
+    //     Input::ControllerPressedOnce(pad, {Btn::Right})) {
+    //     should_focus = true;
+    // }
 
     if (should_focus)
         ImGui::SetWindowFocus("Pause Menu");
@@ -1576,7 +1577,7 @@ void L::Draw() {
     PushID("DevtoolsLayer");
     const bool blockHardcoded = Config::DisableHardcodedHotkeys();
     const bool useHomeButtonForHotkeys = Config::UseHomeButtonForHotkeys();
-    Btn modifierButton = useHomeButtonForHotkeys ? Btn::Home : Btn::TouchPad;
+    Btn modifierButton = Btn::TouchPad;
 
     static bool showPauseHelpWindow = true;
     if (Config::getPauseOnUnfocus()) {
@@ -1598,27 +1599,32 @@ void L::Draw() {
             showTrophyViewer = !showTrophyViewer;
         }
     }
-    if (!blockHardcoded) {
-        if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Left)) {
-            showTrophyViewer = !showTrophyViewer;
-        }
-    }
+    // TODO: Input::ControllerComboPressedOnce not implemented
+    // if (!blockHardcoded) {
+    //     if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Left)) {
+    //         showTrophyViewer = !showTrophyViewer;
+    //     }
+    // }
 
-    const bool userQuitKeyboard = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::QuitPad,
-                                                              Input::HotkeyInputType::Keyboard);
-    const bool userQuitController = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::QuitPad,
-                                                                Input::HotkeyInputType::Controller);
+    // TODO: Input::HasUserHotkeyDefined not implemented
+    // const bool userQuitKeyboard = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::QuitPad,
+    //                                                           Input::HotkeyInputType::Keyboard);
+    // const bool userQuitController = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::QuitPad,
+    //                                                             Input::HotkeyInputType::Controller);
+    const bool userQuitKeyboard = false;
+    const bool userQuitController = false;
 
     // Emulated pad already handles the swap logic physically.
     // We bind statically to the logical intent.
     const Btn cancel_btn = Btn::Circle;
 
-    if (!userQuitController && !blockHardcoded) {
-        if (Input::ControllerComboPressedOnce(pad, modifierButton, cancel_btn)) {
-            Overlay::ToggleQuitWindow();
-            visibility_toggled = true;
-        }
-    }
+    // TODO: Input::ControllerComboPressedOnce not implemented
+    // if (!userQuitController && !blockHardcoded) {
+    //     if (Input::ControllerComboPressedOnce(pad, modifierButton, cancel_btn)) {
+    //         Overlay::ToggleQuitWindow();
+    //         visibility_toggled = true;
+    //     }
+    // }
 
     if (!userQuitKeyboard) {
         if (IsKeyPressed(ImGuiKey_Escape, false)) {
@@ -1627,10 +1633,13 @@ void L::Draw() {
         }
     }
 
-    const bool userPauseKeyboard = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::PausePad,
-                                                               Input::HotkeyInputType::Keyboard);
-    const bool userPauseController = Input::HasUserHotkeyDefined(
-        pad, Input::HotkeyPad::PausePad, Input::HotkeyInputType::Controller);
+    // TODO: Input::HasUserHotkeyDefined not implemented
+    // const bool userPauseKeyboard = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::PausePad,
+    //                                                            Input::HotkeyInputType::Keyboard);
+    // const bool userPauseController = Input::HasUserHotkeyDefined(
+    //     pad, Input::HotkeyPad::PausePad, Input::HotkeyInputType::Controller);
+    const bool userPauseKeyboard = false;
+    const bool userPauseController = false;
 
     if (!userPauseKeyboard) {
         if (IsKeyPressed(ImGuiKey_F9, false)) {
@@ -1642,13 +1651,14 @@ void L::Draw() {
 
     const Btn confirm_btn = Btn::Cross;
 
-    if (!userPauseController && !blockHardcoded) {
-        if (Input::ControllerComboPressedOnce(pad, modifierButton, confirm_btn)) {
-            SDL_Event e;
-            e.type = SDL_EVENT_TOGGLE_PAUSE;
-            SDL_PushEvent(&e);
-        }
-    }
+    // TODO: Input::ControllerComboPressedOnce not implemented
+    // if (!userPauseController && !blockHardcoded) {
+    //     if (Input::ControllerComboPressedOnce(pad, modifierButton, confirm_btn)) {
+    //         SDL_Event e;
+    //         e.type = SDL_EVENT_TOGGLE_PAUSE;
+    //         SDL_PushEvent(&e);
+    //     }
+    // }
 
     if (IsKeyPressed(ImGuiKey_F10, false)) {
         if (io.KeyCtrl) {
@@ -1657,17 +1667,21 @@ void L::Draw() {
         visibility_toggled = true;
     }
 
-    const bool userFpsKeyboard = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::SimpleFpsPad,
-                                                             Input::HotkeyInputType::Keyboard);
-    const bool userFpsController = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::SimpleFpsPad,
-                                                               Input::HotkeyInputType::Controller);
+    // TODO: Input::HasUserHotkeyDefined not implemented
+    // const bool userFpsKeyboard = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::SimpleFpsPad,
+    //                                                          Input::HotkeyInputType::Keyboard);
+    // const bool userFpsController = Input::HasUserHotkeyDefined(pad, Input::HotkeyPad::SimpleFpsPad,
+    //                                                            Input::HotkeyInputType::Controller);
+    const bool userFpsKeyboard = false;
+    const bool userFpsController = false;
 
-    if (!userFpsController && !blockHardcoded) {
-        if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::L2)) {
-            show_simple_fps = !show_simple_fps;
-            visibility_toggled = true;
-        }
-    }
+    // TODO: Input::ControllerComboPressedOnce not implemented
+    // if (!userFpsController && !blockHardcoded) {
+    //     if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::L2)) {
+    //         show_simple_fps = !show_simple_fps;
+    //         visibility_toggled = true;
+    //     }
+    // }
 
     if (!userFpsKeyboard) {
         if (IsKeyPressed(ImGuiKey_F10, false)) {
@@ -1676,18 +1690,22 @@ void L::Draw() {
         }
     }
 
-    const bool userFullscreenKeyboard = Input::HasUserHotkeyDefined(
-        pad, Input::HotkeyPad::FullscreenPad, Input::HotkeyInputType::Keyboard);
-    const bool userFullscreenController = Input::HasUserHotkeyDefined(
-        pad, Input::HotkeyPad::FullscreenPad, Input::HotkeyInputType::Controller);
+    // TODO: Input::HasUserHotkeyDefined not implemented
+    // const bool userFullscreenKeyboard = Input::HasUserHotkeyDefined(
+    //     pad, Input::HotkeyPad::FullscreenPad, Input::HotkeyInputType::Keyboard);
+    // const bool userFullscreenController = Input::HasUserHotkeyDefined(
+    //     pad, Input::HotkeyPad::FullscreenPad, Input::HotkeyInputType::Controller);
+    const bool userFullscreenKeyboard = false;
+    const bool userFullscreenController = false;
 
-    if (!userFullscreenController && !blockHardcoded) {
-        if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::R2)) {
-            SDL_Event toggleFullscreenEvent;
-            toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
-            SDL_PushEvent(&toggleFullscreenEvent);
-        }
-    }
+    // TODO: Input::ControllerComboPressedOnce not implemented
+    // if (!userFullscreenController && !blockHardcoded) {
+    //     if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::R2)) {
+    //         SDL_Event toggleFullscreenEvent;
+    //         toggleFullscreenEvent.type = SDL_EVENT_TOGGLE_FULLSCREEN;
+    //         SDL_PushEvent(&toggleFullscreenEvent);
+    //     }
+    // }
 
     if (!userFullscreenKeyboard) {
         if (IsKeyPressed(ImGuiKey_F11, false)) {
@@ -1697,20 +1715,20 @@ void L::Draw() {
         }
     }
     if (!blockHardcoded) {
-
-        if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Triangle)) {
-            show_fullscreen_tip = !show_fullscreen_tip;
-            fullscreen_tip_manual = true;
-        }
+        // TODO: Input::ControllerComboPressedOnce not implemented
+        // if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Triangle)) {
+        //     show_fullscreen_tip = !show_fullscreen_tip;
+        //     fullscreen_tip_manual = true;
+        // }
     }
 
 #ifdef ENABLE_QT_GUI
     if (!blockHardcoded) {
-
-        if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Right)) {
-            if (g_MainWindow)
-                g_MainWindow->ToggleMute();
-        }
+        // TODO: Input::ControllerComboPressedOnce not implemented
+        // if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Right)) {
+        //     if (g_MainWindow)
+        //         g_MainWindow->ToggleMute();
+        // }
         if (IsKeyPressed(ImGuiKey_F1, false) && !Config::hasCustomMuteHotkey()) {
             if (g_MainWindow)
                 g_MainWindow->ToggleMute();
@@ -1718,9 +1736,10 @@ void L::Draw() {
     }
 #endif
     if (!blockHardcoded) {
-
-        const bool show_debug_menu_combo =
-            Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Up);
+        // TODO: Input::ControllerComboPressedOnce not implemented
+        // const bool show_debug_menu_combo =
+        //     Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Up);
+        const bool show_debug_menu_combo = false;
         if (show_debug_menu_combo) {
             DebugState.IsShowingDebugMenuBar() ^= true;
             visibility_toggled = true;
@@ -1930,11 +1949,12 @@ void L::Draw() {
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
         bool using_controller = ImGui::IsKeyDown(ImGuiKey_GamepadL1);
 
-        if (Input::ControllerPressedOnce(pad, {Btn::Up}) ||
-            Input::ControllerPressedOnce(pad, {Btn::Down})) {
-            trophy_focus = true;
-            ImGui::SetWindowFocus("Quick Trophy List Viewer");
-        }
+        // TODO: Input::ControllerPressedOnce not implemented
+        // if (Input::ControllerPressedOnce(pad, {Btn::Up}) ||
+        //     Input::ControllerPressedOnce(pad, {Btn::Down})) {
+        //     trophy_focus = true;
+        //     ImGui::SetWindowFocus("Quick Trophy List Viewer");
+        // }
         if (!trophy_focus && using_controller) {
             ImGui::ClearActiveID();
         }

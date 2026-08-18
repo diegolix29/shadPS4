@@ -545,7 +545,7 @@ bool groupIdenticalLogs() {
     return isIdenticalLogGrouped.get();
 }
 
-void setIdenticalLogGrouped(bool enable, bool is_game_specific) {
+void setGroupIdenticalLogs(bool enable, bool is_game_specific) {
     isIdenticalLogGrouped.set(enable, is_game_specific);
 }
 

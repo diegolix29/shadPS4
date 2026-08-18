@@ -9,6 +9,13 @@
 #include "game_info.h"
 #include "sdl_event_wrapper.h"
 
+namespace GamepadSelect {
+std::string GetSelectedGamepad();
+void SetSelectedGamepad(const std::string& guid);
+std::string GetGUIDString(unsigned int* gamepads, int index);
+int GetIndexfromGUID(unsigned int* gamepads, int count, const std::string& target_guid);
+}
+
 namespace Ui {
 class ControlSettings;
 }

@@ -39,6 +39,13 @@
 #include "sdl_window.h"
 #include "video_core/cache_storage.h"
 
+namespace GamepadSelect {
+std::string GetSelectedGamepad();
+void SetSelectedGamepad(const std::string& guid);
+std::string GetGUIDString(unsigned int* gamepads, int index);
+int GetIndexfromGUID(unsigned int* gamepads, int count, const std::string& target_guid);
+}
+
 class QFlowLayout : public QLayout {
 public:
     explicit QFlowLayout(QWidget* parent, int margin = -1, int hSpacing = -1, int vSpacing = -1);
