@@ -163,7 +163,21 @@ bool UserManager::SetDefaultUser(u32 user_id) {
 }
 
 User UserManager::GetDefaultUser() {
-    return *GetUserByPlayerIndex(1);
+    User* user = GetUserByPlayerIndex(1);
+    if (user) {
+        return *user;
+    }
+    // Fallback to first user if no user assigned to player index 1
+    if (!m_users.user.empty()) {
+        return m_users.user[0];
+    }
+    // Return default user if no users exist
+    User default_user;
+    default_user.user_id = 1;
+    default_user.user_name = "Default User";
+    default_user.user_color = 1;
+    default_user.player_index = 1;
+    return default_user;
 }
 
 void UserManager::SetControllerPort(u32 user_id, int port) {

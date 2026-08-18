@@ -1372,6 +1372,8 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/settings_dialog.cpp
            src/qt_gui/settings_dialog.h
            src/qt_gui/settings_dialog.ui
+           src/qt_gui/user_manager_dialog.cpp
+           src/qt_gui/user_manager_dialog.h
            src/qt_gui/main.cpp
            src/qt_gui/sdl_event_wrapper.cpp
            src/qt_gui/sdl_event_wrapper.h

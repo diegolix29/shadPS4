@@ -6,6 +6,7 @@
 #include <core/emulator_state.h>
 
 #include "common/config.h"
+#include "core/user_settings.h"
 #include "common/logging/backend.h"
 #include "common/memory_patcher.h"
 #include "common/path_util.h"
@@ -106,6 +107,8 @@ int main(int argc, char* argv[]) {
 
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
+    UserSettings.Load();
+
     bool ignore_mods_path = false;
 
     bool has_command_line_argument = argc > 1;

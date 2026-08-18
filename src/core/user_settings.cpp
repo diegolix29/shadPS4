@@ -47,6 +47,7 @@ bool UserSettingsImpl::Load() {
     try {
         // Read user configuration from config.toml via Config
         auto user_names = Config::getUserNames();
+        auto player_user_ids = Config::getPlayerUserIds();
         auto shadnet_enabled_states = Config::getShadNetEnabledStates();
         auto shadnet_npids = Config::getShadNetNpids();
         auto shadnet_passwords = Config::getShadNetPasswords();
@@ -55,9 +56,10 @@ bool UserSettingsImpl::Load() {
         m_userManager.GetUsers().user.clear();
 
         // Create users from config
+        // player_user_ids[i] contains the user_id for player index (i+1)
         for (int i = 0; i < 4; i++) {
             User user;
-            user.user_id = i + 1;
+            user.user_id = player_user_ids[i];
             user.user_name = user_names[i];
             user.user_color = i + 1;
             user.player_index = i + 1;

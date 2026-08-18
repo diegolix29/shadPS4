@@ -38,6 +38,7 @@
 #include "sdl_event_wrapper.h"
 #include "settings_dialog.h"
 #include "ui_settings_dialog.h"
+#include "user_manager_dialog.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
 
@@ -453,6 +454,8 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
             ui->httpHostOverrideTable->removeRow(currentRow);
         }
     });
+
+    connect(ui->openUserManagerButton, &QPushButton::clicked, this, &SettingsDialog::OnOpenUserManager);
 
     connect(ui->buttonBox, &QDialogButtonBox::clicked, this,
             [this, config_dir](QAbstractButton* button) {
@@ -2108,10 +2111,6 @@ void SettingsDialog::onAudioDeviceChange(bool isAdd) {
     ui->DsAudioComboBox->addItems(deviceList);
     ui->DsAudioComboBox->setCurrentText(QString::fromStdString(Config::getPadSpkOutputDevice()));
 
-    // Set audio backend
-    Config::AudioBackend backend = Config::getAudioBackend();
-    ui->AudioBackendComboBox->setCurrentIndex((backend == Config::AudioBackend::OpenAL) ? 1 : 0);
-
     SDL_free(devices);
 }
 
@@ -2128,4 +2127,12 @@ void SettingsDialog::OnToggleDescriptionClicked() {
 
     // Save the setting to config
     Config::setDescriptionVisible(is_description_visible);
+}
+
+void SettingsDialog::OnOpenUserManager() {
+    UserManagerDialog dialog(this);
+    if (dialog.exec() == QDialog::Accepted) {
+        // Reload user-related settings after user manager closes
+        LoadValuesFromConfig();
+    }
 }
