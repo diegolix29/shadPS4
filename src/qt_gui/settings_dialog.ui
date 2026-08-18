@@ -1892,6 +1892,13 @@
 													</widget>
 												</item>
 												<item>
+													<widget class="QPushButton" name="openUserManagerButton">
+														<property name="text">
+															<string>Open User Manager</string>
+														</property>
+													</widget>
+												</item>
+												<item>
 													<widget class="QGroupBox" name="specialPadGroupBox">
 														<property name="title">
 															<string>Special Pad Settings</string>

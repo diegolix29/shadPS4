@@ -266,6 +266,8 @@ bool isPlayerEnabled(int player_id);
 void setPlayerEnabled(int player_id, bool enabled);
 std::array<bool, 4> getPlayerEnabledStates();
 void setPlayerEnabledStates(const std::array<bool, 4>& states);
+std::array<int, 4> getPlayerUserIds();
+void setPlayerUserIds(const std::array<int, 4>& ids);
 
 bool getLoggingEnabled();
 void setLoggingEnabled(bool enable);

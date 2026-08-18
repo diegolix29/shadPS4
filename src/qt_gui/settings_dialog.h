@@ -60,6 +60,7 @@ private:
     void OnCustomCpuCoresChanged(const QString& text);
     void setDefaultValues();
     void OnToggleDescriptionClicked();
+    void OnOpenUserManager();
 
     std::unique_ptr<Ui::SettingsDialog> ui;
 

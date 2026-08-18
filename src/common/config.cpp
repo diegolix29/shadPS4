@@ -78,6 +78,10 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         if (it->second.is_array()) {
             return toml::get<T>(it->second);
         }
+    } else if constexpr (std::is_same_v<T, std::array<int, 4>>) {
+        if (it->second.is_array()) {
+            return toml::get<T>(it->second);
+        }
     } else if constexpr (std::is_same_v<T, Common::CpuCoreMode>) {
         if (it->second.is_integer()) {
             return static_cast<Common::CpuCoreMode>(toml::get<int>(it->second));
@@ -203,6 +207,7 @@ static ConfigEntry<std::array<std::string, 4>> userNames({
     "shadPS4-4",
 });
 static ConfigEntry<std::array<bool, 4>> playerEnabledStates({true, true, true, true});
+static ConfigEntry<std::array<int, 4>> playerUserIds({1, 2, 3, 4});
 static ConfigEntry<std::array<bool, 4>> shadNetEnabledStates({false, false, false, false});
 static ConfigEntry<std::array<std::string, 4>> shadNetNpids({"", "", "", ""});
 static ConfigEntry<std::array<std::string, 4>> shadNetPasswords({"", "", "", ""});
@@ -1011,6 +1016,14 @@ std::array<bool, 4> getPlayerEnabledStates() {
 
 void setPlayerEnabledStates(const std::array<bool, 4>& states) {
     playerEnabledStates.set(states);
+}
+
+std::array<int, 4> getPlayerUserIds() {
+    return playerUserIds.get();
+}
+
+void setPlayerUserIds(const std::array<int, 4>& ids) {
+    playerUserIds.set(ids);
 }
 
 bool getShadNetEnabled(int id) {
@@ -1939,6 +1952,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isIdenticalLogGrouped.setFromToml(general, "isIdenticalLogGrouped", is_game_specific);
         userNames.setFromToml(general, "userNames", false);
         playerEnabledStates.setFromToml(general, "playerEnabledStates", false);
+        playerUserIds.setFromToml(general, "playerUserIds", false);
         shadNetEnabledStates.setFromToml(general, "shadNetEnabledStates", false);
         shadNetNpids.setFromToml(general, "shadNetNpids", false);
         shadNetPasswords.setFromToml(general, "shadNetPasswords", false);
@@ -2440,6 +2454,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["userNames"] = userNames.base_value;
     data["General"]["playerEnabledStates"] = playerEnabledStates.base_value;
+    data["General"]["playerUserIds"] = playerUserIds.base_value;
     data["General"]["shadNetEnabledStates"] = shadNetEnabledStates.base_value;
     data["General"]["shadNetNpids"] = shadNetNpids.base_value;
     data["General"]["shadNetPasswords"] = shadNetPasswords.base_value;
@@ -2813,6 +2828,7 @@ void setDefaultValues() {
     logType = "sync";
     userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
     playerEnabledStates = {true, true, true, true};
+    playerUserIds = {1, 2, 3, 4};
     shadNetEnabledStates = {false, false, false, false};
     shadNetNpids = {"", "", "", ""};
     shadNetPasswords = {"", "", "", ""};
