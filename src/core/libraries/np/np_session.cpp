@@ -14,9 +14,11 @@
 #include "core/libraries/network/net.h"
 #include "core/libraries/np/np_handler.h"
 #include "core/libraries/np/np_matching2/np_matching2_internal.h"
+#include "core/libraries/np/np_matching2/np_matching2_signaling.h"
 #include "core/libraries/np/np_session.h"
 #include "core/libraries/np/np_signaling/np_signaling_stubs.h"
 #include "shadnet.pb.h"
+#include "shadnet/client.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -32,6 +34,9 @@
 namespace Libraries::Np {
 
 namespace {
+
+// Global session pointer for peer resolver callback
+static NpSession* g_session_ptr = nullptr;
 
 #ifdef _WIN32
 constexpr int kInvalidSocket = static_cast<int>(INVALID_SOCKET);
@@ -492,30 +497,41 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
             NpSignaling::Stubs::SetMmServerEndpoint(mm_addr_nbo,
                                                     Libraries::Net::sceNetHtons(stunPort));
 
-            // Set peer resolver to look up peer endpoints from matching2 context
+            // Initialize matching2 with transport hooks and peer resolver
+            NpSignaling::Stubs::SetTransportHooks({
+                .signaling_send = NpSignaling::Stubs::SignalingSendTo,
+                .signaling_recv = NpSignaling::Stubs::SignalingRecvFrom,
+                .control_send = NpSignaling::Stubs::ControlSendTo,
+                .control_recv = NpSignaling::Stubs::ControlRecvFrom,
+                .transport_ready = NpSignaling::Stubs::TransportIsReady,
+                .configured_port = NpSignaling::Stubs::ConfiguredPort,
+                .advertised_addr = NpSignaling::Stubs::AdvertisedAddr,
+                .ensure_transport = NpSignaling::Stubs::EnsureTransport,
+            });
+            
+            // Store session pointer for peer resolver
+            g_session_ptr = this;
             NpSignaling::Stubs::SetPeerResolver([](std::string_view online_id, u32* out_addr,
                                                    u16* out_port) -> bool {
-                for (u32 id = 1; id <= NpMatching2::ContextManager::kMaxContexts; ++id) {
-                    NpMatching2::ContextObject* ctx = NpMatching2::ContextManager::Instance().Get(
-                        static_cast<NpMatching2::OrbisNpMatching2ContextId>(id));
-                    if (!ctx) {
-                        continue;
-                    }
-                    for (const auto& [member_id, peer] : ctx->peers) {
-                        std::string peer_online_id(peer.online_id.data);
-                        if (peer_online_id == online_id) {
-                            if (out_addr) {
-                                *out_addr = peer.addr;
-                            }
-                            if (out_port) {
-                                *out_port = peer.port;
-                            }
-                            return true;
+                if (!g_session_ptr) {
+                    return false;
+                }
+                PeerEndpoint peer;
+                if (g_session_ptr->RequestSignalingInfos(std::string(online_id), peer)) {
+                    if (out_addr) {
+                        u32 a, b, c, d;
+                        if (std::sscanf(peer.ip.c_str(), "%u.%u.%u.%u", &a, &b, &c, &d) == 4) {
+                            *out_addr = (a << 24) | (b << 16) | (c << 8) | d;
                         }
                     }
+                    if (out_port) {
+                        *out_port = Libraries::Net::sceNetHtons(peer.port);
+                    }
+                    return true;
                 }
                 return false;
             });
+            NpMatching2::StartMatching2HandshakeThread();
         }
     } else {
         LOG_WARNING(Lib_NpManager, "GetServerFeatures failed for npid '{}'", npid);

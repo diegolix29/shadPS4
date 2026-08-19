@@ -100,6 +100,16 @@ public:
     // or the request fails.
     bool GetWorldInfoList();
 
+    // Get the ShadNetClient for matching2 integration (returns nullptr if not available)
+    std::shared_ptr<ShadNet::ShadNetClient> GetShadNetClient() const {
+        return m_shadNetClient;
+    }
+
+    // Set the ShadNetClient for matching2 integration
+    void SetShadNetClient(std::shared_ptr<ShadNet::ShadNetClient> client) {
+        m_shadNetClient = client;
+    }
+
 private:
     // UDP socket for STUN pings (reused for periodic pings)
     int m_stunSockfd = -1;
@@ -137,6 +147,7 @@ private:
     int m_sockfd = -1;
 
     Libraries::UserService::OrbisUserServiceUserId m_ownerUserId = -1;
+    std::shared_ptr<ShadNet::ShadNetClient> m_shadNetClient;
 };
 
 } // namespace Libraries::Np
