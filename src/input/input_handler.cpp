@@ -733,7 +733,7 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
     old_button_state = new_button_state;
     old_param = *new_param;
     GameController* controller;
-    if (gamepad_index < 5)
+    if (gamepad_index >= 0 && gamepad_index < 5)
         controller = controllers[gamepad_index];
     else
         UNREACHABLE();

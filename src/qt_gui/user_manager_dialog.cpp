@@ -238,7 +238,7 @@ void UserManagerDialog::OnUserCreate() {
         u.user_id = new_uid;
         u.user_name = name.toStdString();
         u.user_color = 1;
-        u.player_index = -1;
+        u.player_index = 1;
         UserManagement.AddUser(u);
         UpdateTable();
         dialog.accept();

@@ -339,10 +339,20 @@ int PS4_SYSV_ABI scePadOpen(Libraries::UserService::OrbisUserServiceUserId userI
     s32 new_handle = pad_handle_counter++;
     pad_handle_map[{userId, type, index}] = new_handle;
 
-    handle_to_controller_map[new_handle] =
-        controllers[type == (Config::getUseSpecialPad(1) ? 2 : 0)
-                        ? UserManagement.GetUserByID(userId)->player_index - 1
-                        : 4];
+    s32 controller_index = 4; // default to controller 4 (reserved)
+    if (type == (Config::getUseSpecialPad(1) ? 2 : 0)) {
+        if (u->player_index >= 1 && u->player_index <= 4) {
+            controller_index = u->player_index - 1;
+        } else {
+            // Fix invalid player_index by setting it to 1
+            LOG_ERROR(Lib_Pad, "Invalid player index {} for user_id {}, fixing to 1",
+                      u->player_index, userId);
+            u->player_index = 1;
+            controller_index = 0;
+            UserManagement.Save();
+        }
+    }
+    handle_to_controller_map[new_handle] = controllers[controller_index];
     LOG_INFO(Lib_Pad,
              "called user_id = {}, type = {}, index = {}, player index = {}, out handle = {}",
              userId, type, index, u->player_index, new_handle);

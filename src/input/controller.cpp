@@ -269,6 +269,14 @@ void GameControllers::TryOpenSDLControllers() {
     SDL_JoystickID* new_joysticks = SDL_GetGamepads(&controller_count);
     LOG_INFO(Input, "{} controllers are currently connected", controller_count);
 
+    // Log available users for debugging
+    const auto& users = UserManagement.GetAllUsers();
+    LOG_INFO(Input, "Available users: {}", users.size());
+    for (const auto& u : users) {
+        LOG_INFO(Input, "  User ID: {}, Name: {}, Player Index: {}, Logged In: {}",
+                 u.user_id, u.user_name, u.player_index, u.logged_in);
+    }
+
     std::unordered_set<SDL_JoystickID> assigned_ids;
     std::array<bool, 4> slot_taken{false, false, false, false};
     auto player_enabled = Config::getPlayerEnabledStates();
@@ -309,9 +317,16 @@ void GameControllers::TryOpenSDLControllers() {
             if (!slot_taken[i] && player_enabled[i]) {
                 auto u = UserManagement.GetUserByPlayerIndex(i + 1);
                 if (!u) {
-                    LOG_INFO(Input, "User {} not found", i + 1);
-                    continue; // for now, if you don't specify who Player N is in the config,
-                              // Player N won't be registered at all
+                    LOG_INFO(Input, "User {} not found, trying first available user", i + 1);
+                    // Fallback to first available user
+                    const auto& users = UserManagement.GetAllUsers();
+                    if (!users.empty()) {
+                        u = const_cast<User*>(&users[0]);
+                        LOG_INFO(Input, "Using fallback user {} for slot {}", u->user_id, i + 1);
+                    } else {
+                        LOG_ERROR(Input, "No users available for controller connection");
+                        continue;
+                    }
                 }
                 auto* c = controllers[i];
                 LOG_INFO(Input, "Gamepad registered for slot {}! Handle: {}", i,
@@ -346,6 +361,17 @@ void GameControllers::TryOpenSDLControllers() {
         is_first_check = false;
         if (controller_count == 0) {
             auto u = UserManagement.GetUserByPlayerIndex(1);
+            if (!u) {
+                const auto& users = UserManagement.GetAllUsers();
+                if (!users.empty()) {
+                    u = const_cast<User*>(&users[0]);
+                    LOG_INFO(Input, "Using fallback user {} for virtual controller", u->user_id);
+                } else {
+                    LOG_ERROR(Input, "No users available for virtual controller");
+                    SDL_free(new_joysticks);
+                    return;
+                }
+            }
             controllers[0]->user_id = u->user_id;
             controllers[0]->ConnectController(nullptr);
             UserManagement.LoginUser(u, 1);
@@ -368,6 +394,9 @@ u8 GameControllers::GetGamepadIndexFromJoystickId(SDL_JoystickID id) {
 std::optional<u8> GameControllers::GetControllerIndexFromUserID(s32 user_id) {
     auto const u = UserManagement.GetUserByID(user_id);
     if (!u) {
+        return std::nullopt;
+    }
+    if (u->player_index < 1 || u->player_index > 4) {
         return std::nullopt;
     }
     return u->player_index - 1;

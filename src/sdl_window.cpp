@@ -670,6 +670,10 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
     if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ||
         event->type == SDL_EVENT_GAMEPAD_BUTTON_UP) {
         int idx = controllers.GetGamepadIndexFromJoystickId(event->gbutton.which);
+        if (idx < 0 || idx >= 5) {
+            LOG_ERROR(Input, "Invalid gamepad index {} from joystick ID {}, using controller 0", idx, event->gbutton.which);
+            idx = 0; // Fallback to controller 0
+        }
 
         if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
             controllers[idx]->Button(OrbisPadButtonDataOffset::TouchPad, input_down);
@@ -693,6 +697,10 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
         if (!Config::getIsMotionControlsEnabled())
             return;
         int idx = controllers.GetGamepadIndexFromJoystickId(event->gsensor.which);
+        if (idx < 0 || idx >= 5) {
+            LOG_ERROR(Input, "Invalid gamepad index {} for sensor, using controller 0", idx);
+            idx = 0;
+        }
         switch ((SDL_SensorType)event->gsensor.sensor) {
         case SDL_SENSOR_GYRO:
             controllers[idx]->UpdateGyro(event->gsensor.data);
@@ -709,6 +717,10 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
     case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
     case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION: {
         int idx = controllers.GetGamepadIndexFromJoystickId(event->gtouchpad.which);
+        if (idx < 0 || idx >= 5) {
+            LOG_ERROR(Input, "Invalid gamepad index {} for touchpad, using controller 0", idx);
+            idx = 0;
+        }
         controllers[idx]->SetTouchpadState(event->gtouchpad.finger,
                                            event->type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP,
                                            event->gtouchpad.x, event->gtouchpad.y);

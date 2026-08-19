@@ -34,6 +34,21 @@ bool UserManager::AddUser(const User& user) {
     return true;
 }
 
+void UserManager::ValidateAndFixPlayerIndices() {
+    bool needs_save = false;
+    for (auto& u : m_users.user) {
+        if (u.player_index < 1 || u.player_index > 4) {
+            LOG_WARNING(Lib_UserService, "User {} has invalid player_index {}, fixing to 1",
+                      u.user_id, u.player_index);
+            u.player_index = 1;
+            needs_save = true;
+        }
+    }
+    if (needs_save) {
+        Save();
+    }
+}
+
 bool UserManager::RemoveUser(s32 user_id) {
     auto it = std::remove_if(m_users.user.begin(), m_users.user.end(),
                              [user_id](const User& u) { return u.user_id == user_id; });
@@ -217,6 +232,12 @@ void UserManager::LoginUser(User* u, s32 player_index) {
         return;
     }
 
+    if (player_index < 1 || player_index > 4) {
+        LOG_ERROR(Lib_UserService, "Invalid player index {} for user_id {} during login",
+                  player_index, u->user_id);
+        return;
+    }
+
     // if a controller triggers a login event for an already logged in user for the same index (e.g.
     // the primary user is logged on at boot, with no controllers being connected at that time, then
     // a controller is connected, triggering another login for the first user), do nothing
@@ -240,7 +261,12 @@ void UserManager::LogoutUser(User* u) {
     }
     u->logged_in = false;
     AddUserServiceEvent({OrbisUserServiceEventType::Logout, u->user_id});
-    logged_in_users[u->player_index - 1] = {};
+    if (u->player_index >= 1 && u->player_index <= 4) {
+        logged_in_users[u->player_index - 1] = {};
+    } else {
+        LOG_ERROR(Lib_UserService, "Invalid player index {} for user_id {} during logout",
+                  u->player_index, u->user_id);
+    }
 }
 
 bool UserManager::Save() const {

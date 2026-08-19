@@ -147,6 +147,9 @@ public:
     static std::optional<u8> GetControllerIndexFromControllerID(s32 controller_id);
 
     void SetControllerCustomColor(s32 i, u8 r, u8 g, u8 b) {
+        if (i < 0 || i >= 5) {
+            return;
+        }
         // reset to ensure the next function always runs, even if there already was a preexisting
         // override colour before
         controllers[i]->override_colour = std::nullopt;

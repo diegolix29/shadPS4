@@ -6,7 +6,6 @@
 #include <core/emulator_state.h>
 
 #include "common/config.h"
-#include "core/user_settings.h"
 #include "common/logging/backend.h"
 #include "common/memory_patcher.h"
 #include "common/path_util.h"
@@ -14,6 +13,7 @@
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc_client.h"
 #include "core/libraries/audio/audioout.h"
+#include "core/user_settings.h"
 #include "emulator.h"
 #include "game_directory_dialog.h"
 #include "imgui/big_picture.h"
@@ -107,8 +107,10 @@ int main(int argc, char* argv[]) {
 
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
+    // Load user settings from config after global config is loaded
+    LOG_INFO(Input, "Qt main.cpp: About to call UserSettings.Load()");
     UserSettings.Load();
-
+    LOG_INFO(Input, "Qt main.cpp: UserSettings.Load() returned");
     bool ignore_mods_path = false;
 
     bool has_command_line_argument = argc > 1;

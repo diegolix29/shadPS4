@@ -67,7 +67,9 @@ int main(int argc, char* argv[]) {
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
     // Load user settings from config after global config is loaded
+    LOG_INFO(Input, "main.cpp: About to call UserSettings.Load()");
     UserSettings.Load();
+    LOG_INFO(Input, "main.cpp: UserSettings.Load() returned");
     // temp copy the trophy key from old config to key manager if exists
     auto key_manager = KeyManager::GetInstance();
     key_manager->LoadFromFile();

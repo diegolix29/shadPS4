@@ -57,6 +57,7 @@ public:
     LoggedInUsers GetLoggedInUsers() const;
     void LoginUser(User* u, s32 player_index);
     void LogoutUser(User* u);
+    void ValidateAndFixPlayerIndices();
 
     Users& GetUsers() {
         return m_users;
