@@ -10,6 +10,7 @@
 #include "common/types.h"
 #include "core/libraries/np/np_matching2/np_matching2.h"
 #include "core/libraries/np/np_matching2/np_matching2_types.h"
+#include "core/libraries/np/np_types2.h"
 
 namespace ShadNet {
 class ShadNetClient;
@@ -31,6 +32,11 @@ enum class MmCommand : u16 {
     SetRoomDataExternal = 21,
     KickoutRoomMember = 22,
     GetWorldInfoList = 23,
+    GetRoomDataExternalList = 24,
+    GetRoomMemberDataExternalList = 25,
+    GetUserInfoList = 26,
+    SetUserInfo = 27,
+    SendRoomMessage = 28,
 };
 
 void SetMmShadNetClient(std::shared_ptr<ShadNet::ShadNetClient> client,
@@ -42,7 +48,7 @@ void OnMatchingReply(ShadNet::CommandType cmd, u64 pkt_id, ShadNet::ErrorType er
                      const std::vector<u8>& body);
 
 void MmContextStart(OrbisNpMatching2ContextId ctx_id);
-void MmContextStop(OrbisNpMatching2ContextId ctx_id);
+s32 MmContextStop(OrbisNpMatching2ContextId ctx_id);
 
 s32 MmSubmitRequest(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
                     OrbisNpMatching2Event req_event, MmCommand cmd, const std::vector<u8>& payload,
@@ -61,7 +67,20 @@ s32 MmLeaveRoom(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_
 s32 MmGetWorldInfoList(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
                        const OrbisNpMatching2GetWorldInfoListRequest& request);
 s32 MmSearchRoom(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
-                 const OrbisNpMatching2SearchRoomRequest& request);
+                 const OrbisNpMatching2SearchRoomRequest& request, bool a_variant = false);
+s32 MmGetRoomDataExternalList(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
+                              const OrbisNpMatching2GetRoomDataExternalListRequest& request,
+                              bool a_variant = false);
+s32 MmGetRoomMemberDataExternalList(
+    OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
+    const OrbisNpMatching2GetRoomMemberDataExternalListRequest& request, bool a_variant = false);
+s32 MmGetUserInfoList(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
+                      const OrbisNpMatching2GetUserInfoListRequest& request,
+                      bool a_variant = false);
+s32 MmSetUserInfo(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
+                  const OrbisNpMatching2SetUserInfoRequest& request);
+s32 MmSendRoomMessage(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
+                      const OrbisNpMatching2SendRoomMessageRequest& request);
 s32 MmSetRoomDataInternal(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
                           const OrbisNpMatching2SetRoomDataInternalRequest& request);
 s32 MmSetRoomDataExternal(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,

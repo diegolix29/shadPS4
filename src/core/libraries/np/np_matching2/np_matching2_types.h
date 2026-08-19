@@ -50,6 +50,14 @@ using OrbisNpMatching2SignalingCallback =
                           OrbisNpMatching2RoomMemberId roomMemberId, OrbisNpMatching2Event event,
                           int errorCode, void* userdata);
 
+using OrbisNpMatching2CastType = u8;
+
+enum : OrbisNpMatching2CastType {
+    ORBIS_NP_MATCHING2_CASTTYPE_BROADCAST = 1,
+    ORBIS_NP_MATCHING2_CASTTYPE_UNICAST = 2,
+    ORBIS_NP_MATCHING2_CASTTYPE_MULTICAST = 3,
+};
+
 struct OrbisNpMatching2BinAttr {
     OrbisNpMatching2AttributeId id;
     u8 pad[6];

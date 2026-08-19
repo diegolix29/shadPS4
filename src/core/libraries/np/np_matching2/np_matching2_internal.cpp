@@ -685,6 +685,15 @@ void StoreRequestCallback(ContextObject* ctx, const OrbisNpMatching2RequestOptPa
     }
 }
 
+RequestCallbackInfo ConsumeRequestCallback(ContextObject* ctx) {
+    RequestCallbackInfo info;
+    info.callback = ctx->default_request_callback;
+    info.arg = ctx->default_request_callback_arg;
+    ctx->default_request_callback = nullptr;
+    ctx->default_request_callback_arg = nullptr;
+    return info;
+}
+
 namespace {
 
 void FireEvent(const PendingEvent& ev) {

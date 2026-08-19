@@ -56,7 +56,7 @@ int PS4_SYSV_ABI sceNpMatching2CreateContextA(const OrbisNpMatching2CreateContex
     const Libraries::Np::OrbisNpId np_id =
         Libraries::Np::NpHandler::GetInstance().GetNpId(param->userId);
 
-    return ContextManager::Instance().CreateContext(&np_id, param->serviceLabel, ctxId, true);
+    return ContextManager::Instance().CreateContext(&np_id, param->serviceLabel, ctxId);
 }
 
 int PS4_SYSV_ABI sceNpMatching2CreateJoinRoom(OrbisNpMatching2ContextId ctxId,
@@ -248,11 +248,7 @@ int PS4_SYSV_ABI sceNpMatching2ContextStop(OrbisNpMatching2ContextId ctxId) {
         return rc;
     }
 
-    const s32 submit_rc = MmContextStop(ctxId);
-    if (submit_rc != ORBIS_OK) {
-        ContextManager::Instance().CompleteStop(ctxId);
-        return submit_rc;
-    }
+    MmContextStop(ctxId);
     return ORBIS_OK;
 }
 
@@ -487,7 +483,7 @@ int PS4_SYSV_ABI sceNpMatching2SendRoomMessage(OrbisNpMatching2ContextId ctxId, 
     const OrbisNpMatching2RequestId reqId = AllocRequestId();
     *requestId = reqId;
     return MmSendRoomMessage(ctxId, reqId,
-                             *static_cast<OrbisNpMatching2SendRoomMessageRequest*>(request));
+                             *reinterpret_cast<OrbisNpMatching2SendRoomMessageRequest*>(request));
 }
 
 int PS4_SYSV_ABI sceNpMatching2SetRoomDataExternal(

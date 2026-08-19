@@ -597,12 +597,27 @@ struct PatchModule {
     /// Code generator for writing trampoline patches.
     Xbyak::CodeGenerator trampoline_gen;
 
+    /// Prevents repeated generation attempts after the fixed trampoline area is exhausted.
+    bool trampoline_exhausted{};
+
     PatchModule(u8* module_ptr, const u64 module_size, u8* trampoline_ptr,
                 const u64 trampoline_size)
         : start(module_ptr), end(module_ptr + module_size), patch_gen(module_size, module_ptr),
           trampoline_gen(trampoline_size, trampoline_ptr) {}
 };
 static std::map<u64, PatchModule> modules;
+
+static bool HandleTrampolineError(PatchModule* module, const Xbyak::Error& error) {
+    if (static_cast<int>(error) != Xbyak::ERR_CODE_IS_TOO_BIG) {
+        return false;
+    }
+    if (!module->trampoline_exhausted) {
+        LOG_WARNING(Core, "Patch trampoline space exhausted for module at {}",
+                    fmt::ptr(module->start));
+        module->trampoline_exhausted = true;
+    }
+    return true;
+}
 
 static PatchModule* GetModule(const void* ptr) {
     const auto* address = static_cast<const u8*>(ptr);
@@ -612,6 +627,13 @@ static PatchModule* GetModule(const void* ptr) {
     }
     auto& module = std::prev(upper_bound)->second;
     return address < module.end ? &module : nullptr;
+}
+
+// Windows static guest red-zone protection
+static PatchModule* GetContainingModule(const void* ptr) {
+    auto* module = GetModule(ptr);
+    const auto* address = static_cast<const u8*>(ptr);
+    return module != nullptr && address < module->end ? module : nullptr;
 }
 
 /// Returns a boolean indicating whether the instruction was patched, and the offset to advance past
