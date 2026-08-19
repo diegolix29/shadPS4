@@ -53,7 +53,7 @@ std::pair<std::string, u16> NpHandler::ParseServerAddress() const {
 }
 
 bool NpHandler::ConnectUserById(s32 user_id) {
-    if (!Config::IsShadNetEnabled())
+    if (!Config::getShadNetEnabled(user_id - 1))
         return false;
 
     {
@@ -94,8 +94,16 @@ void NpHandler::Initialize() {
         return;
     }
 
-    if (!Config::IsShadNetEnabled()) {
-        LOG_INFO(NpHandler, "shadNet disabled globally we are in offline mode");
+    // Check if any user has shadNet enabled
+    bool any_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_enabled = true;
+            break;
+        }
+    }
+    if (!any_enabled) {
+        LOG_INFO(NpHandler, "shadNet disabled for all users, running in offline mode");
         return;
     }
 
@@ -179,7 +187,7 @@ bool NpHandler::ConnectUser(s32 user_id, const std::string& host, u16 port, cons
     // Seed the current Appear-Offline preference so the login packet carries it (the send
     // is suppressed pre-auth; it just caches on the client).
     client->SetAppearOffline(m_appear_offline.load());
-    if (EmulatorSettings.IsUPnPEnabled()) {
+    if (Config::IsUPnPEnabled()) {
         Net::UPnPClient::Instance().Start();
     }
     client->Start(host, port, npid, password, token);
@@ -286,7 +294,7 @@ void NpHandler::WorkerThread() {
 }
 
 void NpHandler::MarkForReconnect(s32 user_id) {
-    if (!Config::IsShadNetEnabled())
+    if (!Config::getShadNetEnabled(user_id - 1))
         return; // offline mode: nothing to reconnect to
     constexpr auto kInitialBackoff = std::chrono::milliseconds(2000);
     std::lock_guard lock(m_mutex_clients);
@@ -311,7 +319,7 @@ void NpHandler::TryReconnect() {
     for (s32 uid : due) {
         if (!m_worker_running)
             return;
-        if (!Config::IsShadNetEnabled()) {
+        if (!Config::getShadNetEnabled(uid - 1)) {
             std::lock_guard lock(m_mutex_clients);
             m_reconnect.erase(uid);
             continue;

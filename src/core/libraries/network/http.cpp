@@ -753,8 +753,16 @@ void RewriteHostHeader(SendRequestPlan& plan) {
 }
 
 bool ApplyBloodborneSeamlessRoute(SendRequestPlan& plan) {
+    // Check if any user has shadNet enabled
+    bool any_shadnet_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_shadnet_enabled = true;
+            break;
+        }
+    }
     if (!EnvFlagEnabled("SHADPS4_BLOODBORNE_SEAMLESS_COOP") ||
-        !Config::IsShadNetEnabled() || !IsBloodborneSummonPath(plan.path)) {
+        !any_shadnet_enabled || !IsBloodborneSummonPath(plan.path)) {
         return false;
     }
 

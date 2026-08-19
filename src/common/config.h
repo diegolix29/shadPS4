@@ -96,7 +96,6 @@ int getBgOpacity();
 void setBgOpacity(int opacity);
 int getIconBgOpacity();
 void setIconBgOpacity(int opacity);
-bool IsShadNetEnabled();
 bool getShaderSkipsEnabled();
 AudioBackend getAudioBackend();
 void setAudioBackend(AudioBackend backend);

@@ -770,7 +770,15 @@ s32 sendRequest(s64 requestId, s32 partIndex, const void* pData, u64 dataSize, s
     unlockContext(context);
 
     // Stubbing sceNpManagerIntGetSigninState call with a config check.
-    if (!Config::IsShadNetEnabled()) {
+    // Check if any user has shadNet enabled
+    bool any_shadnet_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_shadnet_enabled = true;
+            break;
+        }
+    }
+    if (!any_shadnet_enabled) {
         releaseRequest(request);
         releaseUserContext(user_context);
         releaseContext(context);
@@ -1379,7 +1387,15 @@ s32 createServicePushEventFilterInternal(
     auto& handle = context->handles[handleId];
     handle->userCount++;
 
-    if (pNpServiceName != nullptr && !Config::IsShadNetEnabled()) {
+    // Check if any user has shadNet enabled
+    bool any_shadnet_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_shadnet_enabled = true;
+            break;
+        }
+    }
+    if (pNpServiceName != nullptr && !any_shadnet_enabled) {
         // Seems sceNpManagerIntGetUserList fails?
         LOG_DEBUG(Lib_NpWebApi, "Cannot create service push event while shadNet is disabled");
         handle->userCount--;
@@ -1556,7 +1572,15 @@ s32 createExtendedPushEventFilterInternal(
     auto& handle = context->handles[handleId];
     handle->userCount++;
 
-    if (pNpServiceName != nullptr && !Config::IsShadNetEnabled()) {
+    // Check if any user has shadNet enabled
+    bool any_shadnet_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_shadnet_enabled = true;
+            break;
+        }
+    }
+    if (pNpServiceName != nullptr && !any_shadnet_enabled) {
         // Seems sceNpManagerIntGetUserList fails?
         LOG_DEBUG(Lib_NpWebApi, "Cannot create extended push event while shadNet is disabled");
         handle->userCount--;

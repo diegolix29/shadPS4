@@ -447,7 +447,15 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->memoryCompressionComboBox->setCurrentIndex(compressionLevel);
     ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
     ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
-    ui->shadnetCheckBox->setChecked(Config::IsShadNetEnabled());
+    // Check if any user has shadNet enabled
+    bool any_shadnet_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_shadnet_enabled = true;
+            break;
+        }
+    }
+    ui->shadnetCheckBox->setChecked(any_shadnet_enabled);
 
     // Load HTTP host overrides into table
     auto httpOverrides = Config::GetHttpHostOverride();
@@ -612,8 +620,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
             ui->isDevKitCheckBox->setChecked(toml::find<bool>(gen, "isDevKit"));
         if (gen.contains("isPS4Pro"))
             ui->isNeoModeCheckBox->setChecked(toml::find<bool>(gen, "isPS4Pro"));
-        if (gen.contains("isShadNetEnabled"))
-            ui->shadnetCheckBox->setChecked(toml::find<bool>(gen, "isShadNetEnabled"));
+        if (gen.contains("getShadNetEnabled"))
+            ui->shadnetCheckBox->setChecked(toml::find<bool>(gen, "getShadNetEnabled"));
         if (gen.contains("isTrophyPopupDisabled"))
             ui->disableTrophycheckBox->setChecked(toml::find<bool>(gen, "isTrophyPopupDisabled"));
         if (gen.contains("logFilter"))
@@ -852,7 +860,7 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["memoryCompressionLevel"] = ui->memoryCompressionComboBox->currentIndex();
     overrides["General"]["isDevKit"] = ui->isDevKitCheckBox->isChecked();
     overrides["General"]["isPS4Pro"] = ui->isNeoModeCheckBox->isChecked();
-    overrides["General"]["isShadNetEnabled"] = ui->shadnetCheckBox->isChecked();
+    overrides["General"]["getShadNetEnabled"] = ui->shadnetCheckBox->isChecked();
 
     // Save HTTP host overrides from table
     std::map<std::string, std::string> httpOverrides;
