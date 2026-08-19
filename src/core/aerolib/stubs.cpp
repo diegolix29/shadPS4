@@ -5,8 +5,6 @@
 #include "core/aerolib/aerolib.h"
 #include "core/aerolib/stubs.h"
 
-#include <string_view>
-
 namespace Core::AeroLib {
 
 // Helper to provide stub implementations for missing functions
@@ -34,12 +32,6 @@ static std::string stub_nids_unknown[MAX_STUBS];
 
 static u64 CommonStub(int stub_index, void* addr) {
     auto entry = stub_nids[stub_index];
-    if (entry != nullptr && std::string_view{entry->nid} == "Gaxrp3EWY-M") {
-        // Bloodborne submits this fire-and-forget Plus notification every frame.
-        LOG_TRACE(Core, "Stub: {} (nid: {}) called, returning zero to {}", entry->name, entry->nid,
-                  addr);
-        return 0;
-    }
     if (entry) {
         LOG_ERROR(Core, "Stub: {} (nid: {}) called, returning zero to {}", entry->name, entry->nid,
                   addr);

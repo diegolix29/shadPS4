@@ -92,7 +92,7 @@ Users UserManager::CreateDefaultUsers() {
     Users default_users;
     default_users.user = {
         {
-            .user_id = 1,
+            .user_id = 1000,
             .user_name = "shadPS4",
             .user_color = 1,
             .player_index = 1,
@@ -103,7 +103,7 @@ Users UserManager::CreateDefaultUsers() {
             .shadnet_enabled = false,
         },
         {
-            .user_id = 2,
+            .user_id = 1001,
             .user_name = "shadPS4-2",
             .user_color = 2,
             .player_index = 2,
@@ -114,7 +114,7 @@ Users UserManager::CreateDefaultUsers() {
             .shadnet_enabled = false,
         },
         {
-            .user_id = 3,
+            .user_id = 1002,
             .user_name = "shadPS4-3",
             .user_color = 3,
             .player_index = 3,
@@ -125,7 +125,7 @@ Users UserManager::CreateDefaultUsers() {
             .shadnet_enabled = false,
         },
         {
-            .user_id = 4,
+            .user_id = 1003,
             .user_name = "shadPS4-4",
             .user_color = 4,
             .player_index = 4,
@@ -162,36 +162,8 @@ bool UserManager::SetDefaultUser(u32 user_id) {
     return Save();
 }
 
-bool UserManager::SetDefaultUserForProcess(u32 user_id) {
-    auto it = std::find_if(m_users.user.begin(), m_users.user.end(),
-                           [user_id](const User& u) { return u.user_id == user_id; });
-    if (it == m_users.user.end())
-        return false;
-
-    for (auto& user : m_users.user) {
-        if (user.player_index == 1)
-            user.player_index = -1;
-    }
-    it->player_index = 1;
-    return true;
-}
-
 User UserManager::GetDefaultUser() {
-    User* user = GetUserByPlayerIndex(1);
-    if (user) {
-        return *user;
-    }
-    // Fallback to first user if no user assigned to player index 1
-    if (!m_users.user.empty()) {
-        return m_users.user[0];
-    }
-    // Return default user if no users exist
-    User default_user;
-    default_user.user_id = 1;
-    default_user.user_name = "Default User";
-    default_user.user_color = 1;
-    default_user.player_index = 1;
-    return default_user;
+    return *GetUserByPlayerIndex(1);
 }
 
 void UserManager::SetControllerPort(u32 user_id, int port) {

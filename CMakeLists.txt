@@ -8,9 +8,9 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 if(APPLE)
-    list(APPEND ADDITIONAL_LANGUAGES OBJC)
-    # Minimum OS version for KosmicKrisp
-    set(CMAKE_OSX_DEPLOYMENT_TARGET 26.0 CACHE STRING "")
+    list(APPEND ADDITIONAL_LANGUAGES OBJC OBJCXX)
+    # Starting with 15.4, Rosetta 2 has support for all the necessary instruction sets.
+    set(CMAKE_OSX_DEPLOYMENT_TARGET 15.4 CACHE STRING "")
 endif()
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -35,9 +35,6 @@ if(UNIX AND NOT APPLE)
         message(WARNING "PIE is not supported at link time: ${pie_check}")
     endif()
 endif()
-
-include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_SYSTEM_VULKAN "Enable the system Vulkan driver" OFF APPLE OFF)
 
 option(ENABLE_QT_GUI "Enable the Qt GUI. If not selected then the emulator uses a minimal SDL-based UI instead" OFF)
 option(ENABLE_DISCORD_RPC "Enable the Discord RPC integration" ON)
@@ -266,7 +263,7 @@ find_package(SDL3 3.1.2 CONFIG)
 find_package(stb MODULE)
 find_package(toml11 4.2.0 CONFIG)
 find_package(tsl-robin-map 1.3.0 CONFIG)
-find_package(VulkanHeaders 1.4.330 CONFIG)
+find_package(VulkanHeaders 1.4.329 CONFIG)
 find_package(VulkanMemoryAllocator 3.1.0 CONFIG)
 find_package(xbyak 7.07 CONFIG)
 find_package(xxHash 0.8.2 MODULE)
@@ -443,6 +440,7 @@ set(NETWORK_LIBS src/core/libraries/network/http.cpp
                  src/core/libraries/network/ssl.h
                  src/core/libraries/network/ssl2.cpp
                  src/core/libraries/network/ssl2.h
+                 src/core/libraries/network/ssl2_error.h
                  src/core/libraries/network/sys_net.cpp
                  src/core/libraries/network/sys_net.h
                  src/core/libraries/network/posix_sockets.cpp
@@ -671,12 +669,6 @@ set(VDEC_LIB src/core/libraries/videodec/video_utils.cpp
 set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_common.cpp
             src/core/libraries/np/np_common.h
-            src/core/libraries/np/np_session.cpp
-            src/core/libraries/np/np_session.h
-            src/core/libraries/np/np_commerce/np_commerce.cpp
-            src/core/libraries/np/np_commerce/np_commerce.h
-            src/core/libraries/np/np_commerce/np_commerce_ui.cpp
-            src/core/libraries/np/np_commerce/np_commerce_ui.h
             src/core/libraries/np/np_manager.cpp
             src/core/libraries/np/np_manager.h
             src/core/libraries/np/np_matching2/np_matching2.cpp
@@ -687,36 +679,17 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_matching2/np_matching2_mm.h
             src/core/libraries/np/np_matching2/np_matching2_signaling.cpp
             src/core/libraries/np/np_matching2/np_matching2_signaling.h
-            src/core/libraries/np/np_matching2/np_matching2_types.h
-            src/core/libraries/np/np_signaling/np_signaling.cpp
-            src/core/libraries/np/np_signaling/np_signaling.h
-            src/core/libraries/np/np_signaling/np_signaling_state.cpp
-            src/core/libraries/np/np_signaling/np_signaling_state.h
-            src/core/libraries/np/np_signaling/np_signaling_helpers.cpp
-            src/core/libraries/np/np_signaling/np_signaling_helpers.h
-            src/core/libraries/np/np_signaling/np_signaling_stubs.cpp
-            src/core/libraries/np/np_signaling/np_signaling_stubs.h
+            src/core/libraries/np/np_types2.h
             src/core/libraries/np/np_trophy.cpp
             src/core/libraries/np/np_trophy.h
             src/core/libraries/np/np_tus.cpp
             src/core/libraries/np/np_tus.h
             src/core/libraries/np/trophy_ui.cpp
             src/core/libraries/np/trophy_ui.h
-            src/core/libraries/np/np_web_api/np_web_api.cpp
-            src/core/libraries/np/np_web_api/np_web_api_internal.cpp
-            src/core/libraries/np/np_web_api/np_web_api.h
-            src/core/libraries/np/np_web_api/np_web_api_internal.h
-            src/core/libraries/np/np_web_api_error.h
-            src/core/libraries/np/np_web_api2.cpp
-            src/core/libraries/np/np_web_api2.h
             src/core/libraries/np/np_party.cpp
             src/core/libraries/np/np_party.h
             src/core/libraries/np/np_auth.cpp
             src/core/libraries/np/np_auth.h
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog.cpp
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog.h
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.cpp
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.h
             src/core/libraries/np/np_sns_facebook_dialog.cpp
             src/core/libraries/np/np_sns_facebook_dialog.h
             src/core/libraries/np/np_partner.cpp
@@ -724,17 +697,37 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/object_manager.h
             src/core/libraries/np/np_handler.cpp
             src/core/libraries/np/np_handler.h
+            src/core/libraries/np/np_commerce/np_commerce.cpp
+            src/core/libraries/np/np_commerce/np_commerce.h
+            src/core/libraries/np/np_commerce/np_commerce_ui.cpp
+            src/core/libraries/np/np_commerce/np_commerce_ui.h
+            src/core/libraries/np/np_profile_dialog/np_profile_dialog.cpp
+            src/core/libraries/np/np_profile_dialog/np_profile_dialog.h
+            src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.cpp
+            src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.h
             src/core/libraries/np/np_score/np_score.cpp
             src/core/libraries/np/np_score/np_score.h
             src/core/libraries/np/np_score/np_score_ctx.h
             src/core/libraries/np/np_signaling/np_signaling.cpp
             src/core/libraries/np/np_signaling/np_signaling.h
-            src/core/libraries/np/np_signaling/np_signaling_helpers.h
-            src/core/libraries/np/np_signaling/np_signaling_helpers.cpp
-            src/core/libraries/np/np_signaling/np_signaling_state.h
-            src/core/libraries/np/np_signaling/np_signaling_stubs.h
             src/core/libraries/np/np_signaling/np_signaling_state.cpp
+            src/core/libraries/np/np_signaling/np_signaling_state.h
+            src/core/libraries/np/np_signaling/np_signaling_helpers.cpp
+            src/core/libraries/np/np_signaling/np_signaling_helpers.h
             src/core/libraries/np/np_signaling/np_signaling_stubs.cpp
+            src/core/libraries/np/np_signaling/np_signaling_stubs.h
+            src/core/libraries/np/np_web_api/np_web_api.cpp
+            src/core/libraries/np/np_web_api/np_web_api.h
+            src/core/libraries/np/np_web_api/np_web_api_internal.cpp
+            src/core/libraries/np/np_web_api/np_web_api_internal.h
+            src/core/libraries/np/np_web_api2/np_web_api2.cpp
+            src/core/libraries/np/np_web_api2/np_web_api2.h
+            src/core/libraries/np/np_web_api2/np_web_api2_internal.cpp
+            src/core/libraries/np/np_web_api2/np_web_api2_internal.h
+            src/core/libraries/np/np_web_api2/np_web_api2_context.cpp
+            src/core/libraries/np/np_web_api2/np_web_api2_context.h
+            src/core/libraries/np/np_web_api2/np_web_api2_push_event.cpp
+            src/core/libraries/np/np_web_api2/np_web_api2_push_event.h
 )
 
 set(ZLIB_LIB src/core/libraries/zlib/zlib.cpp
@@ -882,6 +875,7 @@ set(COMMON src/common/logging/backend.cpp
            src/common/number_utils.cpp
            src/common/memory_patcher.h
            src/common/memory_patcher.cpp
+           src/common/hack_features.cpp
            ${CMAKE_CURRENT_BINARY_DIR}/src/common/scm_rev.cpp
            src/common/scm_rev.h
            src/common/key_manager.cpp
@@ -947,8 +941,6 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/ipc/ipc.h
          src/core/ipc/ipc_client.h
          src/core/ipc/ipc_client.cpp
-         src/core/bloodborne_re.h
-         src/core/bloodborne_re.cpp
          src/core/loader/dwarf.cpp
          src/core/loader/dwarf.h
          src/core/loader/elf.cpp
@@ -1016,8 +1008,6 @@ set(CORE src/core/aerolib/stubs.cpp
 
 if (ARCHITECTURE STREQUAL "x86_64")
     set(CORE ${CORE}
-             src/core/bloodborne_re.cpp
-             src/core/bloodborne_re.h
              src/core/cpu_patches.cpp
              src/core/cpu_patches.h)
 endif()
@@ -1234,12 +1224,10 @@ set(IMGUI src/imgui/imgui_config.h
           src/imgui/imgui_texture.h
           src/imgui/imgui_translations.cpp
           src/imgui/imgui_translations.h
-          src/imgui/friends_layer.cpp
-          src/imgui/friends_layer.h
-          src/imgui/shadnet_notifications_layer.cpp
-          src/imgui/shadnet_notifications_layer.h
           src/imgui/notifications_layer.cpp
           src/imgui/notifications_layer.h
+          src/imgui/shadnet_notifications_layer.cpp
+          src/imgui/shadnet_notifications_layer.h
           src/imgui/renderer/imgui_core.cpp
           src/imgui/renderer/imgui_core.h
           src/imgui/renderer/imgui_impl_sdl3.cpp
@@ -1278,6 +1266,10 @@ set(EMULATOR src/emulator.cpp
              src/sdl_window.cpp
 )
 
+if (APPLE)
+    list(APPEND EMULATOR src/sdl_window_apple.mm)
+endif()
+
 # shadNet protobuf generation
 set(SHADNET_PROTO_OUT "${CMAKE_CURRENT_BINARY_DIR}/shadnet_proto_gen")
 file(MAKE_DIRECTORY "${SHADNET_PROTO_OUT}")
@@ -1301,11 +1293,6 @@ set(SHADNET src/shadnet/client.cpp
             src/shadnet/server_probe.h
             "${SHADNET_PROTO_OUT}/shadnet.pb.cc"
 )
-
-
-if (APPLE)
-    list(APPEND EMULATOR src/sdl_window_apple.mm)
-endif()
 
 
 # The above is shared in SDL and Qt version (TODO share them all)
@@ -1375,8 +1362,6 @@ set(QT_GUI src/qt_gui/about_dialog.cpp
            src/qt_gui/settings_dialog.cpp
            src/qt_gui/settings_dialog.h
            src/qt_gui/settings_dialog.ui
-           src/qt_gui/user_manager_dialog.cpp
-           src/qt_gui/user_manager_dialog.h
            src/qt_gui/main.cpp
            src/qt_gui/sdl_event_wrapper.cpp
            src/qt_gui/sdl_event_wrapper.h
@@ -1444,7 +1429,8 @@ create_target_directory_groups(shadps4)
 
 target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui ImGuiFileDialog gcn half::half ZLIB::ZLIB PNG::PNG minimp3 cryptopp::cryptopp)
 target_link_libraries(shadps4 PRIVATE Boost::headers GPUOpen::VulkanMemoryAllocator LibAtrac9 sirit Vulkan::Headers xxHash::xxhash Zydis::Zydis glslang::glslang SDL3::SDL3 SDL3_image::SDL3_image SDL3_mixer::SDL3_mixer pugixml::pugixml)
-target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib libminiupnpc-static)
+target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib  cryptopp::cryptopp)
+target_link_libraries(shadps4 PRIVATE miniupnpc::miniupnpc libprotobuf)
 
 target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config.h")
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
@@ -1452,10 +1438,6 @@ target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURC
 target_link_libraries(shadps4 PRIVATE Freetype::Freetype)
 target_link_libraries(shadps4 PRIVATE ZArchive::zarchive)
 
-target_link_libraries(shadps4 PRIVATE libprotobuf)
-target_include_directories(shadps4 PRIVATE "${SHADNET_PROTO_OUT}")
-
-target_link_libraries(shadps4 PRIVATE libprotobuf)
 target_include_directories(shadps4 PRIVATE "${SHADNET_PROTO_OUT}")
 
 if (ENABLE_DISCORD_RPC)
@@ -1472,30 +1454,25 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 endif()
 
 if (APPLE)
-    if (NOT ENABLE_SYSTEM_VULKAN)
-        # Bundle Vulkan loader and KosmicKrisp driver with the emulator.
-        set_property(TARGET shadps4 APPEND PROPERTY BUILD_RPATH "@executable_path")
+    # Include MoltenVK, along with an ICD file so it can be found by the system Vulkan loader if used for loading layers.
+    set_property(TARGET shadps4 APPEND PROPERTY BUILD_RPATH "@executable_path")
+    set(MVK_DST ${CMAKE_CURRENT_BINARY_DIR})
+    set(MVK_DYLIB_SRC ${CMAKE_CURRENT_BINARY_DIR}/externals/MoltenVK/MoltenVK/libMoltenVK.dylib)
+    set(MVK_DYLIB_DST ${MVK_DST}/libMoltenVK.dylib)
+    set(MVK_ICD_SRC ${CMAKE_CURRENT_SOURCE_DIR}/externals/MoltenVK/MoltenVK/icd/MoltenVK_icd.json)
+    set(MVK_ICD_DST ${MVK_DST}/MoltenVK_icd.json)
 
-        set(LOADER_DEST "${CMAKE_CURRENT_BINARY_DIR}/libvulkan.dylib")
-        set(DRIVER_DEST "${CMAKE_CURRENT_BINARY_DIR}/libvulkan_kosmickrisp.dylib")
-        set(ICD_DEST "${CMAKE_CURRENT_BINARY_DIR}/kosmickrisp_mesa_icd.json")
-
-        add_custom_command(
-            OUTPUT ${LOADER_DEST}
-            DEPENDS ${VULKAN_LOADER_PATH} vulkan
-            COMMAND ${CMAKE_COMMAND} -E copy ${VULKAN_LOADER_PATH} ${LOADER_DEST})
-        add_custom_command(
-            OUTPUT ${DRIVER_DEST}
-            DEPENDS ${VULKAN_DRIVER_PATH} kosmickrisp
-            COMMAND ${CMAKE_COMMAND} -E copy ${VULKAN_DRIVER_PATH} ${DRIVER_DEST})
-        add_custom_command(
-            OUTPUT ${ICD_DEST}
-            DEPENDS ${VULKAN_ICD_PATH} kosmickrisp
-            COMMAND ${CMAKE_COMMAND} -E copy ${VULKAN_ICD_PATH} ${ICD_DEST})
-
-        add_custom_target(CopyVulkanDriver DEPENDS ${LOADER_DEST} ${DRIVER_DEST} ${ICD_DEST})
-        add_dependencies(shadps4 CopyVulkanDriver)
-    endif()
+    add_custom_command(
+        OUTPUT ${MVK_ICD_DST}
+        DEPENDS ${MVK_ICD_SRC} ${MVK_DST}
+        COMMAND ${CMAKE_COMMAND} -E copy ${MVK_ICD_SRC} ${MVK_ICD_DST})
+    add_custom_command(
+        OUTPUT ${MVK_DYLIB_DST}
+        DEPENDS ${MVK_DYLIB_SRC} ${MVK_DST}
+        COMMAND ${CMAKE_COMMAND} -E copy ${MVK_DYLIB_SRC} ${MVK_DYLIB_DST})
+    add_custom_target(CopyMoltenVK DEPENDS ${MVK_ICD_DST} ${MVK_DYLIB_DST})
+    add_dependencies(CopyMoltenVK MoltenVK)
+    add_dependencies(shadps4 CopyMoltenVK)
 
     if (ARCHITECTURE STREQUAL "x86_64")
         # Reserve system-managed memory space.
@@ -1503,15 +1480,15 @@ if (APPLE)
     endif()
 
     # Replacement for std::chrono::time_zone
-    target_link_libraries(shadps4 PRIVATE date::date-tz epoll-shim)
-
-    # Create and embed Info.plist
-    set(INFO_PLIST_PATH ${CMAKE_CURRENT_BINARY_DIR}/dist/Info.plist)
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dist/MacOSBundleInfo.plist.in ${INFO_PLIST_PATH})
-    target_link_options(shadps4 PRIVATE LINKER:-sectcreate,__TEXT,__info_plist,${INFO_PLIST_PATH})
-elseif (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
-    target_link_libraries(shadps4 PRIVATE date::date-tz epoll-shim)
+    if (TARGET epoll-shim::epoll-shim)
+        target_link_libraries(shadps4 PRIVATE date::date-tz epoll-shim::epoll-shim)
+    elseif (TARGET epoll-shim)
+        target_link_libraries(shadps4 PRIVATE date::date-tz epoll-shim)
+    else()
+        message(FATAL_ERROR "epoll-shim is required on macOS (init submodule or brew install epoll-shim)")
+    endif()
 endif()
+
 if (ENABLE_QT_GUI)
     target_link_libraries(shadps4 PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia)
     add_definitions(-DENABLE_QT_GUI)
@@ -1519,6 +1496,7 @@ if (ENABLE_QT_GUI)
         add_definitions(-DENABLE_UPDATER)
     endif()
 endif()
+
 if (WIN32)
     target_link_libraries(shadps4 PRIVATE mincore wepoll wbemuuid)
 

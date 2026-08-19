@@ -23,6 +23,7 @@
 #include "common/discord_rpc_handler.h"
 #endif
 #include "common/elf_info.h"
+#include "common/hack_features.h"
 #include "common/memory_patcher.h"
 #include "common/ntapi.h"
 #include "common/path_util.h"
@@ -34,9 +35,7 @@
 #include "core/debug_state.h"
 #include "core/debugger.h"
 #include "core/devtools/widget/module_list.h"
-#include "core/emulator_settings.h"
 #include "core/emulator_state.h"
-#include "core/file_format/npbind.h"
 #include "core/file_format/psf.h"
 #include "core/file_format/trp.h"
 #include "core/file_sys/fs.h"
@@ -55,7 +54,6 @@
 #include "core/libraries/save_data/save_backup.h"
 #include "core/linker.h"
 #include "core/memory.h"
-#include "core/user_settings.h"
 #include "emulator.h"
 #include "video_core/cache_storage.h"
 #include "video_core/renderdoc.h"
@@ -130,85 +128,6 @@ s32 ReadCompiledSdkVersion(const std::string& guest_or_host_path) {
         return 0;
     }
     return 0;
-}
-
-std::map<s32, std::string> ExtractTrophies(const std::filesystem::path& npbind_path,
-                                           const std::filesystem::path& trophy_dir) {
-    std::map<s32, std::string> trophy_index_map{};
-
-    NPBindFile npbind;
-    if (!npbind.Load(npbind_path.string())) {
-        LOG_WARNING(Common_Filesystem, "Failed to load npbind.dat file");
-        return trophy_index_map;
-    }
-
-    auto np_comm_ids = npbind.GetNpCommIds();
-    if (np_comm_ids.empty()) {
-        LOG_WARNING(Common_Filesystem, "No NPCommIDs in npbind.dat");
-        return trophy_index_map;
-    }
-    auto& game_info = Common::ElfInfo::Instance();
-    game_info.SetNpCommIds(np_comm_ids);
-
-    if (!std::filesystem::exists(trophy_dir)) {
-        LOG_WARNING(Common_Filesystem, "Game does not contain a trophy directory");
-        return trophy_index_map;
-    }
-
-    std::string pattern = "trophy";
-    for (const auto& entry : std::filesystem::directory_iterator(trophy_dir)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".trp") {
-            std::string filename = entry.path().stem().string(); // "trophy00", "trophy01", etc.
-
-            // Check if filename starts with "trophy"
-            if (filename.find(pattern) != 0) {
-                continue;
-            }
-
-            // Extract the number part
-            std::string num_str = filename.substr(pattern.length());
-            s32 trophy_index = std::stoi(num_str);
-
-            if (np_comm_ids.size() <= trophy_index) {
-                // This logic currently assumes each NPCommID corresponds to a trophy index.
-                LOG_WARNING(Common_Filesystem,
-                            "Trophy index {} does not have a corresponding NPCommId", trophy_index);
-                continue;
-            }
-
-            // Add the relevant trophies to our trophy index map.
-            // This currently assumes the order of NPCommIDs matches the order of trophies.
-            std::string np_comm_id = np_comm_ids[trophy_index];
-            trophy_index_map[trophy_index] = np_comm_id;
-            LOG_DEBUG(Loader, "Mapped trophy index {} to NPCommID: {}", trophy_index, np_comm_id);
-
-            // Extract the actual trophies if they're no extracted yet
-            const auto& trophy_output_dir =
-                Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "trophy" / np_comm_id;
-            if (!std::filesystem::exists(trophy_output_dir)) {
-                TRP trp;
-                if (!trp.Extract(entry, np_comm_id)) {
-                    LOG_ERROR(Loader, "Couldn't extract trophy file {}", filename);
-                    continue;
-                }
-            }
-
-            // Move extracted trophy contents into each user's folder
-            for (User user : UserSettings.GetUserManager().GetValidUsers()) {
-                auto const user_trophy_file = EmulatorSettings.GetHomeDir() /
-                                              std::to_string(user.user_id) / "trophy" /
-                                              (np_comm_id + ".xml");
-                if (!std::filesystem::exists(user_trophy_file)) {
-                    auto temp = user_trophy_file.parent_path();
-                    std::filesystem::create_directories(temp);
-                    std::error_code discard;
-                    std::filesystem::copy_file(trophy_output_dir / "Xml" / "TROPCONF.XML",
-                                               user_trophy_file, discard);
-                }
-            }
-        }
-    }
-    return trophy_index_map;
 }
 
 void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
@@ -353,6 +272,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     auto& game_info = Common::ElfInfo::Instance();
     game_info.initialized = true;
     game_info.game_serial = id;
+    Common::HackFeatures::Init(id);
     game_info.title = title;
     game_info.app_ver = app_version;
     game_info.firmware_ver = fw_version & 0xFFF00000;
@@ -398,7 +318,7 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     LOG_INFO(Config, "General isNeo: {}", Config::isNeoModeConsole());
     LOG_INFO(Config, "General isDevKit: {}", Config::isDevKitConsole());
     LOG_INFO(Config, "General isConnectedToNetwork: {}", Config::getIsConnectedToNetwork());
-    LOG_INFO(Config, "General getShadNetEnabled: {}", Config::getShadNetEnabled(0));
+    LOG_INFO(Config, "General isShadNetEnabled: {}", Config::getShadNetEnabled(0));
     LOG_INFO(Config, "GPU isNullGpu: {}", Config::nullGpu());
     LOG_INFO(Config, "GPU readbackSpeed: {}", magic_enum::enum_name(Config::readbackSpeed()));
     LOG_INFO(Config, "GPU readbackLinearImages: {}", Config::getReadbackLinearImages());
@@ -468,7 +388,6 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     if (!id.empty()) {
         MemoryPatcher::g_game_serial = id;
-        Libraries::Np::NpTrophy::game_serial = id;
 
         const auto trophyDir =
             Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / id / "TrophyFiles";

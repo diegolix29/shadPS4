@@ -99,7 +99,7 @@ bool readbackLinearImagesSetting;
 bool directMemoryAccessSetting;
 bool devkitConsoleSetting;
 bool neoModeSetting;
-bool shadnetEnabledSetting;
+bool psnSignedInSetting;
 bool connectedNetworkSetting;
 bool pipelineCacheEnabledSetting;
 bool pipelineCacheArchiveSetting;
@@ -451,7 +451,7 @@ void LoadCategory(SettingsCategory category) {
             AddSettingBool("Enable Direct Memory Access", directMemoryAccessSetting);
             AddSettingBool("Enable Devkit Console Mode", devkitConsoleSetting);
             AddSettingBool("Enable PS4 Neo Mode", neoModeSetting);
-            AddSettingBool("Enable ShadNet", shadnetEnabledSetting);
+            AddSettingBool("Enable ShadNet", psnSignedInSetting);
             AddSettingBool("Set Network Connected to True", connectedNetworkSetting);
             AddSettingBool("Enable Shader Cache", pipelineCacheEnabledSetting);
 
@@ -555,7 +555,7 @@ void SaveSettings(std::string profile, bool isGameSpecific) {
     Config::setDirectMemoryAccess(directMemoryAccessSetting);
     Config::setDevKitMode(devkitConsoleSetting);
     Config::setNeoMode(neoModeSetting);
-    Config::setShadNetEnabled(0, shadnetEnabledSetting);
+    Config::setShadNetEnabled(0, psnSignedInSetting);
     Config::setIsConnectedToNetwork(connectedNetworkSetting);
     Config::setPipelineCacheEnabled(pipelineCacheEnabledSetting);
     Config::setPipelineCacheArchived(pipelineCacheArchiveSetting);
@@ -625,7 +625,7 @@ void LoadSettings(std::string profile) {
     directMemoryAccessSetting = Config::directMemoryAccess();
     devkitConsoleSetting = Config::isDevKitConsole();
     neoModeSetting = Config::isNeoModeConsole();
-    shadnetEnabledSetting = Config::getShadNetEnabled(0);
+    psnSignedInSetting = Config::getShadNetEnabled(1);
     connectedNetworkSetting = Config::getIsConnectedToNetwork();
     pipelineCacheEnabledSetting = Config::isPipelineCacheEnabled();
     pipelineCacheArchiveSetting = Config::isPipelineCacheArchived();

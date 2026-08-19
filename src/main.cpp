@@ -66,8 +66,6 @@ int main(int argc, char* argv[]) {
 
     const auto user_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
     Config::load(user_dir / "config.toml");
-    // Load user settings from config after global config is loaded
-    UserSettings.Load();
     // temp copy the trophy key from old config to key manager if exists
     auto key_manager = KeyManager::GetInstance();
     key_manager->LoadFromFile();
@@ -95,8 +93,6 @@ int main(int argc, char* argv[]) {
     std::optional<std::filesystem::path> gameFolder;
     std::optional<std::filesystem::path> modsFolder;
     std::optional<int> waitPid;
-    std::optional<std::filesystem::path> cacheDir;
-    std::optional<u32> userId;
 
     std::unordered_map<std::string, std::function<void(int&)>> arg_map = {
         {"-h",
@@ -261,32 +257,6 @@ int main(int argc, char* argv[]) {
              gameFolder = folder;
          }},
 
-        {"--cache-dir",
-         [&](int& i) {
-             if (++i >= argc) {
-                 std::cerr << "Error: Missing argument for --cache-dir\n";
-                 exit(1);
-             }
-             std::filesystem::path dir(argv[i]);
-             if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir)) {
-                 std::cerr << "Error: Invalid cache directory: " << dir << "\n";
-                 exit(1);
-             }
-             cacheDir = dir;
-         }},
-        {"--user-id",
-         [&](int& i) {
-             if (++i >= argc) {
-                 std::cerr << "Error: Missing argument for --user-id\n";
-                 exit(1);
-             }
-             try {
-                 userId = static_cast<u32>(std::stoul(argv[i]));
-             } catch (...) {
-                 std::cerr << "Error: Invalid user ID: " << argv[i] << "\n";
-                 exit(1);
-             }
-         }},
         {"--wait-for-debugger", [&](int& i) { waitForDebugger = true; }},
         {"--wait-for-pid",
          [&](int& i) {
@@ -360,17 +330,6 @@ int main(int argc, char* argv[]) {
         for (const auto& a : emulatorArgs)
             gameArgs.push_back(a);
     }
-
-    if (userId) {
-        if (!UserManagement.SetDefaultUserForProcess(*userId)) {
-            LOG_ERROR(Debug, "Local user ID {} does not exist", *userId);
-            return 1;
-        }
-        LOG_INFO(Debug, "Using local user ID {} for this process", *userId);
-    }
-
-    if (cacheDir)
-        Common::FS::SetUserPath(Common::FS::PathType::CacheDir, *cacheDir);
 
     if (big_picture_mode) {
         if (has_game_argument) {

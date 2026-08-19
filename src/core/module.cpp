@@ -9,7 +9,6 @@
 #include "common/sha1.h"
 #include "common/string_util.h"
 #include "core/aerolib/aerolib.h"
-#include "core/bloodborne_re.h"
 #include "core/cpu_patches.h"
 #include "core/libraries/error_codes.h"
 #include "core/loader/dwarf.h"
@@ -304,10 +303,6 @@ void Module::LoadModuleToMemory(u32& max_tls_index) {
             MemoryPatcher::g_eboot_address = base_virtual_addr;
             MemoryPatcher::g_eboot_image_size = base_size;
             MemoryPatcher::OnGameLoaded();
-#ifdef ARCH_X86_64
-            Bloodborne::InstallSeamlessCoopPatches();
-            Bloodborne::InstallReverseEngineeringTrace();
-#endif
         }
     }
 }

@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
-#include "common/config.h"
+#include <httplib.h>
 #include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "core/emulator_settings.h"
@@ -15,10 +15,12 @@
 #include "core/libraries/np/np_matching2/np_matching2_mm.h"
 #include "core/libraries/np/np_score/np_score.h"
 #include "core/libraries/np/np_web_api/np_web_api.h"
+#include "core/libraries/system/systemservice.h"
 #include "core/user_settings.h"
 #include "imgui/shadnet_notifications_layer.h"
 #include "np_handler.h"
 #include "shadnet.pb.h"
+#include "shadnet/server_probe.h"
 
 namespace Libraries::Np {
 
@@ -28,7 +30,7 @@ NpHandler& NpHandler::GetInstance() {
 }
 
 std::pair<std::string, u16> NpHandler::ParseServerAddress() const {
-    const std::string server_str = Config::getShadnetServer();
+    const std::string server_str = EmulatorSettings.GetShadNetServer();
     u16 port = 31313; // default port
     if (server_str.empty()) {
         LOG_ERROR(NpHandler,
@@ -53,7 +55,7 @@ std::pair<std::string, u16> NpHandler::ParseServerAddress() const {
 }
 
 bool NpHandler::ConnectUserById(s32 user_id) {
-    if (!Config::getShadNetEnabled(user_id - 1))
+    if (!EmulatorSettings.IsShadNetEnabled())
         return false;
 
     {
@@ -94,17 +96,54 @@ void NpHandler::Initialize() {
         return;
     }
 
-    // Check if any user has shadNet enabled
-    bool any_enabled = false;
-    for (int i = 0; i < 4; i++) {
-        if (Config::getShadNetEnabled(i)) {
-            any_enabled = true;
-            break;
-        }
-    }
-    if (!any_enabled) {
-        LOG_INFO(NpHandler, "shadNet disabled for all users, running in offline mode");
+    if (!EmulatorSettings.IsShadNetEnabled()) {
+        LOG_INFO(NpHandler, "shadNet disabled globally we are in offline mode");
         return;
+    }
+
+    {
+        const auto [host, port] = ParseServerAddress();
+        const ShadNet::ProbeInfo probe = ShadNet::ProbeServer(host, port);
+        if (probe.result != ShadNet::ProbeResult::Ok) {
+            EmulatorSettings.SetShadNetSessionDisabled(true);
+            switch (probe.result) {
+            case ShadNet::ProbeResult::VersionMismatch:
+                LOG_WARNING(NpHandler,
+                            "shadNet server {}:{} protocol version mismatch (server v{}, emulator "
+                            "v{}); disabling shadNet for this run (saved setting unchanged)",
+                            host, port, probe.server_version, ShadNet::SHAD_PROTOCOL_VERSION);
+                ImGui::ShadNetNotify::Push(
+                    ImGui::ShadNetNotify::Kind::Info,
+                    fmt::format("shadNet protocol version mismatch (server v{}, emulator v{}). "
+                                "Please update shadPS4. Online features are disabled for this "
+                                "session.",
+                                probe.server_version, ShadNet::SHAD_PROTOCOL_VERSION));
+                break;
+            case ShadNet::ProbeResult::ProtocolError:
+                LOG_WARNING(NpHandler,
+                            "shadNet server {}:{} sent an invalid ServerInfo handshake; disabling "
+                            "shadNet for this run (saved setting unchanged)",
+                            host, port);
+                ImGui::ShadNetNotify::Push(
+                    ImGui::ShadNetNotify::Kind::Info,
+                    fmt::format("shadNet server ({}:{}) uses an incompatible protocol. Online "
+                                "features are disabled for this session.",
+                                host, port));
+                break;
+            default: // Unreachable
+                LOG_WARNING(NpHandler,
+                            "shadNet server {}:{} is offline/unreachable; disabling shadNet for "
+                            "this run (saved setting unchanged)",
+                            host, port);
+                ImGui::ShadNetNotify::Push(
+                    ImGui::ShadNetNotify::Kind::Info,
+                    fmt::format("shadNet server ({}:{}) is offline. Online features are disabled "
+                                "for this session.",
+                                host, port));
+                break;
+            }
+            return;
+        }
     }
 
     const auto logged_in = UserManagement.GetLoggedInUsers(); // get all login users
@@ -187,15 +226,42 @@ bool NpHandler::ConnectUser(s32 user_id, const std::string& host, u16 port, cons
     // Seed the current Appear-Offline preference so the login packet carries it (the send
     // is suppressed pre-auth; it just caches on the client).
     client->SetAppearOffline(m_appear_offline.load());
-    if (Config::IsUPnPEnabled()) {
-        Net::UPnPClient::Instance().Start();
-    }
     client->Start(host, port, npid, password, token);
+
+    // Shared handling for an incompatible-protocol failure (version mismatch or
+    // corrupt/unparseable stream): tell the user and disable shadNet for this run,
+    // since reconnect attempts against an incompatible server are pointless.
+    const auto handle_protocol_mismatch = [&client](ShadNet::ShadNetState st) {
+        if (st != ShadNet::ShadNetState::FailureProtocol)
+            return;
+        const u32 server_ver = client->GetServerProtocolVersion();
+        EmulatorSettings.SetShadNetSessionDisabled(true);
+        if (server_ver != 0) {
+            LOG_ERROR(NpHandler,
+                      "shadNet protocol version mismatch (server v{}, emulator v{}); disabling "
+                      "shadNet for this run (saved setting unchanged)",
+                      server_ver, ShadNet::SHAD_PROTOCOL_VERSION);
+            ImGui::ShadNetNotify::Push(
+                ImGui::ShadNetNotify::Kind::Info,
+                fmt::format("shadNet protocol version mismatch (server v{}, emulator v{}). "
+                            "Please update shadPS4. Online features are disabled for this "
+                            "session.",
+                            server_ver, ShadNet::SHAD_PROTOCOL_VERSION));
+        } else {
+            LOG_ERROR(NpHandler, "shadNet protocol error during handshake; disabling shadNet for "
+                                 "this run (saved setting unchanged)");
+            ImGui::ShadNetNotify::Push(
+                ImGui::ShadNetNotify::Kind::Info,
+                "shadNet server uses an incompatible protocol. Online features are disabled "
+                "for this session.");
+        }
+    };
 
     const ShadNet::ShadNetState conn_state = client->WaitForConnection();
     if (conn_state != ShadNet::ShadNetState::Ok) {
         LOG_ERROR(NpHandler, "user_id={} connection failed (state={})", user_id,
                   static_cast<int>(conn_state));
+        handle_protocol_mismatch(conn_state);
         client->Stop();
         return false;
     }
@@ -204,6 +270,7 @@ bool NpHandler::ConnectUser(s32 user_id, const std::string& host, u16 port, cons
     if (auth_state != ShadNet::ShadNetState::Ok) {
         LOG_ERROR(NpHandler, "user_id={} authentication failed (state={})", user_id,
                   static_cast<int>(auth_state));
+        handle_protocol_mismatch(auth_state);
         client->Stop();
         return false;
     }
@@ -211,12 +278,17 @@ bool NpHandler::ConnectUser(s32 user_id, const std::string& host, u16 port, cons
     LOG_INFO(NpHandler, "user_id={} signed in npid='{}' accountId={}", user_id, npid,
              client->GetUserId());
 
+    Net::UPnPClient::Instance().SetP2PFeaturesEnabled(client->IsMatching2Enabled());
+    if (client->IsMatching2Enabled() && EmulatorSettings.IsUPnPEnabled()) {
+        Net::UPnPClient::Instance().Start();
+    }
+
     NpMatching2::SetMmShadNetClient(client, host, port);
 
     // Build OrbisNpId
     {
         OrbisNpId np_id{};
-        strncpy(np_id.handle.data, npid.c_str(), sizeof(np_id.handle.data) - 1);
+        SetNpId(np_id, npid);
         std::lock_guard lock(m_mutex_clients);
         m_np_ids[user_id] = np_id;
         m_clients[user_id] = std::move(client);
@@ -294,7 +366,7 @@ void NpHandler::WorkerThread() {
 }
 
 void NpHandler::MarkForReconnect(s32 user_id) {
-    if (!Config::getShadNetEnabled(user_id - 1))
+    if (!EmulatorSettings.IsShadNetEnabled())
         return; // offline mode: nothing to reconnect to
     constexpr auto kInitialBackoff = std::chrono::milliseconds(2000);
     std::lock_guard lock(m_mutex_clients);
@@ -319,7 +391,7 @@ void NpHandler::TryReconnect() {
     for (s32 uid : due) {
         if (!m_worker_running)
             return;
-        if (!Config::getShadNetEnabled(uid - 1)) {
+        if (!EmulatorSettings.IsShadNetEnabled()) {
             std::lock_guard lock(m_mutex_clients);
             m_reconnect.erase(uid);
             continue;
@@ -379,6 +451,41 @@ std::string NpHandler::GetBearerToken(s32 user_id) const {
     std::lock_guard lock(m_mutex_clients);
     auto it = m_clients.find(user_id);
     return it != m_clients.end() ? it->second->GetBearerToken() : std::string{};
+}
+
+// Minimal JSON string escaper for the invitation-request body (npids are safe but the user message
+// can contain quotes/backslashes/control chars).
+std::string JsonEscape(const std::string& in) {
+    std::string out;
+    out.reserve(in.size() + 8);
+    for (const char c : in) {
+        switch (c) {
+        case '"':
+            out += "\\\"";
+            break;
+        case '\\':
+            out += "\\\\";
+            break;
+        case '\n':
+            out += "\\n";
+            break;
+        case '\r':
+            out += "\\r";
+            break;
+        case '\t':
+            out += "\\t";
+            break;
+        default:
+            if (static_cast<unsigned char>(c) < 0x20) {
+                char buf[8];
+                std::snprintf(buf, sizeof(buf), "\\u%04x", c);
+                out += buf;
+            } else {
+                out += c;
+            }
+        }
+    }
+    return out;
 }
 
 u32 NpHandler::GetLocalIpAddr(s32 user_id) const {
@@ -493,14 +600,50 @@ void NpHandler::OnWebApiPushEvent(s32 user_id, const ShadNet::NotifyWebApiPushEv
     ev.data = n.data;
     if (!n.fromNpid.empty()) {
         ev.hasFrom = true;
-        std::strncpy(ev.fromOnlineId.data, n.fromNpid.c_str(), sizeof(ev.fromOnlineId.data) - 1);
+        SetNpOnlineId(ev.fromOnlineId, n.fromNpid);
     }
     if (!n.toNpid.empty()) {
         ev.hasTo = true;
-        std::strncpy(ev.toOnlineId.data, n.toNpid.c_str(), sizeof(ev.toOnlineId.data) - 1);
+        SetNpOnlineId(ev.toOnlineId, n.toNpid);
     }
     ev.extdData = n.extdData; // extended-data (key,value) pairs -> dispatched as pExtdData
     NpWebApi::EnqueuePushEvent(ev);
+
+    // Also surface a SESSION_INVITATION system-service event for titles that watch it instead of
+    // (or in addition to) the WebAPI push callback
+    if (n.npServiceName == "sessionInvitation") {
+        std::string session_id, invitation_id;
+        int64_t valid_until = 0;
+        for (const auto& kv : n.extdData) {
+            if (kv.first == "sessionId") {
+                session_id = kv.second;
+            } else if (kv.first == "invitationId") {
+                invitation_id = kv.second;
+            } else if (kv.first == "validUntil") {
+                valid_until = std::strtoll(kv.second.c_str(), nullptr, 10);
+            }
+        }
+        if (!session_id.empty()) {
+            {
+                std::lock_guard lk(m_mutex_pending_invites);
+                auto& v = m_pending_invites[user_id];
+                v.erase(std::remove_if(v.begin(), v.end(),
+                                       [&](const PendingInvitation& p) {
+                                           return p.invitation_id == invitation_id;
+                                       }),
+                        v.end());
+                v.push_back({session_id, invitation_id, n.fromNpid, n.toNpid, valid_until});
+            }
+            // ORBIS_SYSTEM_SERVICE_EVENT_SESSION_INVITATION is a *join* event: it
+            // fires only after the user explicitly accepts, via the game-opened invitation dialog
+            // (RECV) or the system software UI. Posting it here on arrival makes titles silently
+            // auto-join. The event is raised from AcceptSessionInvitation instead. The WebAPI push
+            // callback above still fires on arrival for titles that watch invites themselves.
+            //
+            // The emulator has no ShellUI, so surface the "system software UI" half here: an
+            // overlay prompt whose Accept routes through AcceptSessionInvitation.
+        }
+    }
 }
 
 void NpHandler::OnLoginResult(s32 user_id, const ShadNet::LoginResult& res) {
@@ -1635,7 +1778,7 @@ static u32 FillRankArrayFromProto(const shadnet::GetScoreResponse& resp,
 void NpHandler::OnAsyncReply(s32 user_id, ShadNet::CommandType cmd, u64 pkt_id,
                              ShadNet::ErrorType error, const std::vector<u8>& body) {
     const auto cmd_val = static_cast<u16>(cmd);
-    if (cmd_val >= 12 && cmd_val <= 23) {
+    if (cmd_val >= 100 && cmd_val <= 200) {
         NpMatching2::OnMatchingReply(cmd, pkt_id, error, body);
     } else {
         OnScoreReply(user_id, cmd, pkt_id, error, body);

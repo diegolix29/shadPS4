@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cctype>
@@ -13,7 +13,6 @@
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/np/np_common.h"
-#include "core/libraries/np/np_common_error.h"
 #include "core/libraries/np/np_error.h"
 #include "core/libraries/np/np_types.h"
 
@@ -391,6 +390,17 @@ s32 PS4_SYSV_ABI sceNpIntIsValidOnlineId(const OrbisNpOnlineId* id) {
     return 1;
 }
 
+void PS4_SYSV_ABI sceNpGetSdkVersion(char* version_buf) {
+    LOG_DEBUG(Lib_NpCommon, "called");
+    // Real library has no parameter checks, so I guess this is purely for internal use?
+    Libraries::Kernel::SwVersionStruct sw_version{};
+    sw_version.struct_size = 0x28;
+    Libraries::Kernel::sceKernelGetSystemSwVersion(&sw_version);
+    u32 sw_hex = sw_version.hex_representation;
+    snprintf(version_buf, 8, "%d.%02d", ((sw_hex >> 0x18) & 0xf) + ((sw_hex >> 0x1c) * 10),
+             ((sw_hex >> 0x10) & 0xf) + (((sw_hex >> 0x14) & 0xf) * 10));
+}
+
 s32 PS4_SYSV_ABI sceNpCalloutInitCtx(OrbisNpCalloutContext* callout_ctx, const char* name,
                                      u64 stack_size, s32 priority, u64 affinity_mask) {
     LOG_DEBUG(Lib_NpCommon, "ctx={:p} name={:p} stack={:#x} priority={} affinity={:#x}",
@@ -601,6 +611,7 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     LIB_FUNCTION("ss2xO9IJxKQ", "libSceNpCommon", 1, "libSceNpCommon", sceNpCondTimedwait);
     LIB_FUNCTION("uEwag-0YZPc", "libSceNpCommon", 1, "libSceNpCommon", sceNpMutexInit);
     LIB_FUNCTION("uMJFOA62mVU", "libSceNpCommon", 1, "libSceNpCommon", sceNpCondSignal);
+    LIB_FUNCTION("Pglk7zFj0DI", "libSceNpCommon", 1, "libSceNpCommon", sceNpGetSdkVersion);
 };
 
 } // namespace Libraries::Np::NpCommon

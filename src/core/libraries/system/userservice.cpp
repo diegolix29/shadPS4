@@ -9,17 +9,12 @@
 #include <queue>
 #include "common/singleton.h"
 #include "core/libraries/libs.h"
-#include "core/libraries/np/np_handler.h"
-#include "core/libraries/np/np_manager.h"
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/system/userservice_error.h"
 #include "core/tls.h"
-#include "core/user_manager.h"
 #include "input/controller.h"
 
 namespace Libraries::UserService {
-
-static bool g_shadnet_enabled = false;
 
 std::queue<OrbisUserServiceEvent> user_service_event_queue = {};
 
@@ -515,16 +510,8 @@ s32 PS4_SYSV_ABI sceUserServiceGetInitialUser(int* user_id) {
         LOG_ERROR(Lib_UserService, "user_id is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    // Return the user ID of the first logged-in user (player index 1)
-    auto logged_in_users = Common::Singleton<UserManager>::Instance()->GetLoggedInUsers();
-    if (logged_in_users[0]) {
-        *user_id = logged_in_users[0]->user_id;
-        LOG_INFO(Lib_UserService, "Returning user_id {} from logged_in_users[0]", *user_id);
-    } else {
-        // Fallback to user ID 1 if no user is logged in
-        *user_id = 1;
-        LOG_WARNING(Lib_UserService, "No logged-in user found, returning fallback user_id 1");
-    }
+    // select first user (TODO add more)
+    *user_id = 1;
     return ORBIS_OK;
 }
 
@@ -1110,22 +1097,8 @@ s32 PS4_SYSV_ABI sceUserServiceGetUserName(int user_id, char* user_name, std::si
         LOG_ERROR(Lib_UserService, "user_name is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-
     std::string name = Config::getUserName(user_id - 1);
-
-    if (Config::getShadNetEnabled(user_id - 1) &&
-        Libraries::Np::NpHandler::GetInstance().IsPsnSignedIn(user_id)) {
-
-        const auto np_id = Libraries::Np::NpHandler::GetInstance().GetNpId(user_id);
-
-        const std::size_t handle_len = strnlen(np_id.handle.data, sizeof(np_id.handle.data));
-
-        if (handle_len > 0) {
-            name.assign(np_id.handle.data, handle_len);
-        }
-    }
-
-    if (size < name.length() + 1) {
+    if (size < name.length()) {
         LOG_ERROR(Lib_UserService, "buffer is too short");
         return ORBIS_USER_SERVICE_ERROR_BUFFER_TOO_SHORT;
     }
@@ -2219,15 +2192,6 @@ int PS4_SYSV_ABI Func_D2B814603E7B4477() {
 }
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym) {
-    // Check if any user has shadNet enabled
-    bool any_shadnet_enabled = false;
-    for (int i = 0; i < 4; i++) {
-        if (Config::getShadNetEnabled(i)) {
-            any_shadnet_enabled = true;
-            break;
-        }
-    }
-    g_shadnet_enabled = any_shadnet_enabled;
     LIB_FUNCTION("Psl9mfs3duM", "libSceUserServiceForShellCore", 1, "libSceUserService",
                  sceUserServiceInitializeForShellCore);
     LIB_FUNCTION("CydP+QtA0KI", "libSceUserServiceForShellCore", 1, "libSceUserService",

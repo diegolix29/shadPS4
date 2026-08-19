@@ -3,16 +3,19 @@
 
 #pragma once
 
+#include <atomic>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <ostream> // Windows static guest red-zone protection
 #include <sstream>
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
 #include "common/logging/log.h"
 #include "common/types.h"
+#include "core/cpu_patches.h" // Windows static guest red-zone protection
 
 #define EmulatorSettings (*EmulatorSettingsImpl::GetInstance())
 
@@ -219,7 +222,13 @@ struct GeneralSettings {
             make_override<GeneralSettings>("trophy_notification_side",
                                            &GeneralSettings::trophy_notification_side),
             make_override<GeneralSettings>("connected_to_network",
-                                           &GeneralSettings::connected_to_network)};
+                                           &GeneralSettings::connected_to_network),
+            make_override<GeneralSettings>("console_language", &GeneralSettings::console_language),
+            make_override<GeneralSettings>("shadnet_server", &GeneralSettings::shadnet_server),
+            make_override<GeneralSettings>("shadnet_webapi_server",
+                                           &GeneralSettings::shadnet_webapi_server),
+            make_override<GeneralSettings>("signaling_info", &GeneralSettings::signaling_info),
+            make_override<GeneralSettings>("enable_upnp", &GeneralSettings::enable_upnp)};
     }
 };
 
@@ -239,6 +248,7 @@ struct LogSettings {
     Setting<bool> append{false}; // specific
     Setting<bool> enable{true};  // specific
     Setting<std::string> filter{""};
+    Setting<std::string> flush_level{""};
     Setting<u32> max_skip_duration{5'000};
     Setting<bool> separate{false}; // specific
     Setting<unsigned long long> size_limit{100_MB};
@@ -252,8 +262,9 @@ struct LogSettings {
     std::vector<OverrideItem> GetOverrideableFields() const {
         return std::vector<OverrideItem>{
             make_override<LogSettings>("append", &LogSettings::append),
-            make_override<LogSettings>("log_enabled", &LogSettings::enable),
+            make_override<LogSettings>("enable", &LogSettings::enable),
             make_override<LogSettings>("filter", &LogSettings::filter),
+            make_override<LogSettings>("flush_level", &LogSettings::flush_level),
             make_override<LogSettings>("max_skip_duration", &LogSettings::max_skip_duration),
             make_override<LogSettings>("separate", &LogSettings::separate),
             make_override<LogSettings>("size_limit", &LogSettings::size_limit),
@@ -266,11 +277,12 @@ struct LogSettings {
     }
 };
 #ifdef _WIN32
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LogSettings, append, enable, filter, max_skip_duration, separate,
-                                   size_limit, skip_duplicate, sync, type)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LogSettings, append, enable, filter, flush_level,
+                                   max_skip_duration, separate, size_limit, skip_duplicate, sync,
+                                   type)
 #else
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LogSettings, append, enable, filter, max_skip_duration, separate,
-                                   size_limit, skip_duplicate, sync)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LogSettings, append, enable, filter, flush_level,
+                                   max_skip_duration, separate, size_limit, skip_duplicate, sync)
 #endif
 
 // -------------------------------
@@ -527,9 +539,14 @@ private:
     DebugSettings m_debug{};
     InputSettings m_input{};
     AudioSettings m_audio{};
+    // Windows static guest red-zone protection
     GPUSettings m_gpu{};
     VulkanSettings m_vulkan{};
     ConfigMode m_configMode{ConfigMode::Default};
+
+    // Runtime-only override: when true, IsShadNetEnabled() reports false for the
+    // rest of this run regardless of the persisted setting
+    std::atomic<bool> m_shadnet_session_disabled{false};
 
     bool m_loaded{false};
 
@@ -609,7 +626,22 @@ public:
     SETTING_FORWARD_BOOL(m_general, Neo, neo_mode)
     SETTING_FORWARD_BOOL(m_general, DevKit, dev_kit_mode)
     SETTING_FORWARD(m_general, ExtraDmemInMBytes, extra_dmem_in_mbytes)
-    SETTING_FORWARD_BOOL(m_general, ShadNetEnabled, shad_net_enabled)
+    bool IsShadNetEnabled() const {
+        return m_general.shad_net_enabled.get(m_configMode) &&
+               !m_shadnet_session_disabled.load(std::memory_order_relaxed);
+    }
+    void SetShadNetEnabled(bool v, bool specific = false) {
+        m_general.shad_net_enabled.set(v, specific);
+    }
+    bool IsShadNetEnabledSetting() const {
+        return m_general.shad_net_enabled.get(m_configMode);
+    }
+    void SetShadNetSessionDisabled(bool v) {
+        m_shadnet_session_disabled.store(v, std::memory_order_relaxed);
+    }
+    bool IsShadNetSessionDisabled() const {
+        return m_shadnet_session_disabled.load(std::memory_order_relaxed);
+    }
     SETTING_FORWARD_BOOL(m_general, TrophyPopupDisabled, trophy_popup_disabled)
     SETTING_FORWARD(m_general, TrophyNotificationDuration, trophy_notification_duration)
     SETTING_FORWARD(m_general, TrophyNotificationSide, trophy_notification_side)
@@ -628,6 +660,7 @@ public:
     SETTING_FORWARD_BOOL(m_log, LogAppend, append)
     SETTING_FORWARD_BOOL(m_log, LogEnable, enable)
     SETTING_FORWARD(m_log, LogFilter, filter)
+    SETTING_FORWARD(m_log, LogFlushLevel, flush_level)
     SETTING_FORWARD(m_log, LogMaxSkipDuration, max_skip_duration)
     SETTING_FORWARD_BOOL(m_log, LogSeparate, separate)
     SETTING_FORWARD(m_log, LogSizeLimit, size_limit)

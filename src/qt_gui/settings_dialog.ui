@@ -1892,13 +1892,6 @@
 													</widget>
 												</item>
 												<item>
-													<widget class="QPushButton" name="openUserManagerButton">
-														<property name="text">
-															<string>Open User Manager</string>
-														</property>
-													</widget>
-												</item>
-												<item>
 													<widget class="QGroupBox" name="specialPadGroupBox">
 														<property name="title">
 															<string>Special Pad Settings</string>
@@ -3330,44 +3323,13 @@
 										<property name="title">
 											<string>HTTP Host Override</string>
 										</property>
-										<layout class="QVBoxLayout" name="httpHostLayout">
+										<layout class="QHBoxLayout" name="httpHostLayout">
 											<item>
-												<widget class="QTableWidget" name="httpHostOverrideTable">
-													<property name="columnCount">
-														<number>2</number>
+												<widget class="QLineEdit" name="httpHostOverrideLineEdit">
+													<property name="placeholderText">
+														<string>localhost</string>
 													</property>
-													<attribute name="horizontalHeaderStretchLastSection">
-														<bool>true</bool>
-													</attribute>
-													<column>
-														<property name="text">
-															<string>Pattern</string>
-														</property>
-													</column>
-													<column>
-														<property name="text">
-															<string>Replacement</string>
-														</property>
-													</column>
 												</widget>
-											</item>
-											<item>
-												<layout class="QHBoxLayout">
-													<item>
-														<widget class="QPushButton" name="addHttpHostOverrideBtn">
-															<property name="text">
-																<string>Add</string>
-															</property>
-														</widget>
-													</item>
-													<item>
-														<widget class="QPushButton" name="removeHttpHostOverrideBtn">
-															<property name="text">
-																<string>Remove</string>
-															</property>
-														</widget>
-													</item>
-												</layout>
 											</item>
 										</layout>
 									</widget>

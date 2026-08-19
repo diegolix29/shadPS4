@@ -35,3 +35,10 @@ bool EmulatorState::IsAutoPatchesLoadEnabled() const {
 void EmulatorState::SetAutoPatchesLoadEnabled(bool enable) {
     m_load_patches_auto = enable;
 }
+
+bool EmulatorState::IsGameSpecificConfigUsed() const {
+    return m_game_specific_config_used;
+}
+void EmulatorState::SetGameSpecificConfigUsed(bool used) {
+    m_game_specific_config_used = used;
+}
