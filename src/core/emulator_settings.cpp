@@ -229,7 +229,6 @@ void EmulatorSettingsImpl::ClearGameSpecificOverrides() {
     ClearGroupOverrides(m_debug);
     ClearGroupOverrides(m_input);
     ClearGroupOverrides(m_audio);
-    // Windows static guest red-zone protection
     ClearGroupOverrides(m_gpu);
     ClearGroupOverrides(m_vulkan);
 }
@@ -358,9 +357,6 @@ bool EmulatorSettingsImpl::Save(const std::string& serial) {
 // ── Load ──────────────────────────────────────────────────────────────
 
 bool EmulatorSettingsImpl::Load(const std::string& serial) {
-    // A newly loaded profile replaces, rather than extends, the previous profile.
-    ClearGameSpecificOverrides(); // Windows static guest red-zone protection
-
     try {
         if (serial.empty()) {
             // ── Global config ──────────────────────────────────────────
@@ -469,7 +465,6 @@ bool EmulatorSettingsImpl::Load(const std::string& serial) {
                 ApplyGroupOverrides(m_vulkan, gj.at("Vulkan"), changed);
 
             PrintChangedSummary(changed);
-            EmulatorState::GetInstance()->SetGameSpecificConfigUsed(true);
             return true;
         }
     } catch (const std::exception& e) {
@@ -484,7 +479,6 @@ void EmulatorSettingsImpl::SetDefaultValues() {
     m_debug = DebugSettings{};
     m_input = InputSettings{};
     m_audio = AudioSettings{};
-    // Windows static guest red-zone protection
     m_gpu = GPUSettings{};
     m_vulkan = VulkanSettings{};
 }

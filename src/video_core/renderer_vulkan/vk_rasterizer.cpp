@@ -5,7 +5,6 @@
 
 #include "common/config.h"
 #include "common/debug.h"
-#include "common/hack_features.h"
 #include "common/elf_info.h"
 #include "common/memory_patcher.h"
 #include "core/debug_state.h"
@@ -383,13 +382,6 @@ void Rasterizer::DispatchDirect() {
         return;
     }
 
-    // The Order: 1886 VSM shadow hack: depth-reduction never dispatches,
-    // so force clear shader to write a value with non-zero low-4-bit tile mask.
-    // push_data.ud_regs[1] = user_data[4] → stored as float to tile SSBO.
-    // 0x7F80000F: +inf float with bitmask=0xF, safe from DenormFlushToZero.
-    if (Common::HackFeatures::isTheOrder1886 && cs.pgm_hash == 0x9846aaff) {
-        push_data.ud_regs[1] = 0x7F80000F;
-    }
     scheduler.EndRendering();
     pipeline->BindResources(set_writes, buffer_barriers, push_data);
 
@@ -792,16 +784,6 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
     boost::container::small_vector<u32, 8> image_descriptor_array_sizes;
 
     for (const auto& image_desc : stage.images) {
-        // The Order: 1886: CS shaders 0xa7b66f58/0xefaaab2b have garbage T# data
-        // (mode always 1, textures never actually sampled). Bind empty descriptors
-        // instead of letting texture cache parse invalid sharp data and crash the driver.
-        if (Common::HackFeatures::isTheOrder1886 &&
-            (stage.pgm_hash == 0xa7b66f58 || stage.pgm_hash == 0xefaaab2b)) {
-            image_bindings.emplace_back(std::piecewise_construct, std::tuple{}, std::tuple{});
-            image_descriptor_array_sizes.push_back(1);
-            continue;
-        }
-
         const auto tsharp = image_desc.GetSharp(stage);
         if (texture_cache.IsMeta(tsharp.Address())) {
             LOG_WARNING(Render_Vulkan, "Unexpected metadata read by a shader (texture)");

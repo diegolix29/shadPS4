@@ -20,9 +20,12 @@
 #include <unordered_set>
 #include <vector>
 #include <nlohmann/json.hpp>
+#include "common/config.h"
 #include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "common/path_util.h"
+#include "core/bloodborne_re.h"
+#include "core/debugger.h"
 #include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/kernel/orbis_error.h"
@@ -387,8 +390,8 @@ bool ApplyHostOverride(std::string& scheme, std::string& host, u16& port, bool& 
             if (!path.starts_with(prefix)) {
                 continue;
             }
-            const bool boundary_match = path.size() == prefix.size() || prefix.ends_with('/') ||
-                                        path[prefix.size()] == '/';
+            const bool boundary_match =
+                path.size() == prefix.size() || prefix.ends_with('/') || path[prefix.size()] == '/';
             if (boundary_match && prefix.size() > best_prefix_size) {
                 best = candidate;
                 best_prefix_size = prefix.size();
@@ -681,13 +684,47 @@ bool IsBloodborneSummonPath(std::string_view path) {
     return path.find("/summon_messenger/") != std::string_view::npos;
 }
 
+constexpr std::string_view BloodborneHostPlacementHeader = "X-ShadPS4-Bloodborne-Host-Placement";
+
+bool IsBloodborneSummonRequestPath(std::string_view path) {
+    return path.find("/summon_messenger/request") != std::string_view::npos;
+}
+
+bool IsBloodborneSummonSearchPath(std::string_view path) {
+    return path.find("/summon_messenger/get") != std::string_view::npos;
+}
+
 bool IsBloodborneSummonCreatePath(std::string_view path) {
     return path.find("/summon_messenger/create") != std::string_view::npos;
 }
 
+std::optional<std::string_view> FindResponseHeader(std::string_view headers,
+                                                   std::string_view name) {
+    size_t line_start = 0;
+    while (line_start < headers.size()) {
+        const size_t line_end = headers.find("\r\n", line_start);
+        const std::string_view line = headers.substr(line_start, line_end == std::string_view::npos
+                                                                     ? headers.size() - line_start
+                                                                     : line_end - line_start);
+        const size_t colon = line.find(':');
+        if (colon != std::string_view::npos && HeaderNameMatches(line.substr(0, colon), name)) {
+            size_t value_start = colon + 1;
+            while (value_start < line.size() &&
+                   (line[value_start] == ' ' || line[value_start] == '\t')) {
+                ++value_start;
+            }
+            return line.substr(value_start);
+        }
+        if (line_end == std::string_view::npos) {
+            break;
+        }
+        line_start = line_end + 2;
+    }
+    return std::nullopt;
+}
+
 bool ShouldCaptureBloodborneSummon(const SendRequestPlan& plan) {
-    return EnvFlagEnabled("SHADPS4_CAPTURE_BLOODBORNE_SUMMON") &&
-           IsBloodborneSummonPath(plan.path);
+    return EnvFlagEnabled("SHADPS4_CAPTURE_BLOODBORNE_SUMMON") && IsBloodborneSummonPath(plan.path);
 }
 
 void CaptureBloodborneSummon(const SendRequestPlan& plan, const HttpResponse& response,
@@ -698,6 +735,9 @@ void CaptureBloodborneSummon(const SendRequestPlan& plan, const HttpResponse& re
 
     static std::atomic<u64> next_capture_id{1};
     const u64 capture_id = next_capture_id.fetch_add(1, std::memory_order_relaxed);
+    const auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::system_clock::now().time_since_epoch())
+                               .count();
     const auto capture_dir =
         Common::FS::GetUserPath(Common::FS::PathType::CapturesDir) / "bloodborne-summon";
     std::error_code error;
@@ -708,7 +748,9 @@ void CaptureBloodborneSummon(const SendRequestPlan& plan, const HttpResponse& re
         return;
     }
 
-    const std::string stem = "summon-" + std::to_string(capture_id);
+    const std::string stem = "summon-" + std::to_string(timestamp) + "-p" +
+                             std::to_string(Core::Debugger::GetCurrentPid()) + '-' +
+                             std::to_string(capture_id);
     const auto request_path = capture_dir / (stem + "-request.bin");
     const auto response_path = capture_dir / (stem + "-response.bin");
     const auto metadata_path = capture_dir / (stem + ".txt");
@@ -733,6 +775,15 @@ void CaptureBloodborneSummon(const SendRequestPlan& plan, const HttpResponse& re
                   << "status=" << response.status_code << '\n'
                   << "response_bytes=" << response.body.size() << '\n'
                   << "request_error=" << request_error << '\n';
+    for (const auto& [name, value] : plan.headers) {
+        if (HeaderNameMatches(name, BloodborneHostPlacementHeader)) {
+            metadata_file << "host_placement_request=" << value << '\n';
+        }
+    }
+    if (const auto placement =
+            FindResponseHeader(response.all_headers_blob, BloodborneHostPlacementHeader)) {
+        metadata_file << "host_placement_response=" << *placement << '\n';
+    }
 
     LOG_INFO(Lib_Http, "Captured Bloodborne summon exchange {} under {}", capture_id,
              Common::FS::PathToUTF8String(capture_dir));
@@ -753,12 +804,20 @@ void RewriteHostHeader(SendRequestPlan& plan) {
 }
 
 bool ApplyBloodborneSeamlessRoute(SendRequestPlan& plan) {
+    // Check if any user has shadNet enabled
+    bool any_shadnet_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_shadnet_enabled = true;
+            break;
+        }
+    }
     if (!EnvFlagEnabled("SHADPS4_BLOODBORNE_SEAMLESS_COOP") ||
-        !EmulatorSettings.IsShadNetEnabled() || !IsBloodborneSummonPath(plan.path)) {
+        !any_shadnet_enabled || !IsBloodborneSummonPath(plan.path)) {
         return false;
     }
 
-    const std::string base_url = EmulatorSettings.GetShadNetWebApiServer();
+    const std::string base_url = Config::getShadnetWebApiServer();
     const HostOverrideTarget target = ParseHostOverrideTarget(base_url);
     if (target.host.empty()) {
         LOG_WARNING(Lib_Http,
@@ -781,87 +840,31 @@ bool ApplyBloodborneSeamlessRoute(SendRequestPlan& plan) {
     }
     RewriteHostHeader(plan);
     plan.headers.emplace_back("X-ShadPS4-Bloodborne-Seamless", "1");
+    if (IsBloodborneSummonRequestPath(plan.path) || IsBloodborneSummonSearchPath(plan.path)) {
+        if (const auto placement = Core::Bloodborne::GetSeamlessHostPlacementHeader()) {
+            plan.headers.emplace_back(BloodborneHostPlacementHeader, *placement);
+        }
+    }
 
-    LOG_INFO(Lib_Http, "Bloodborne seamless route active: {}://{}:{}{} -> {}://{}:{}{}",
-             old_scheme, old_host, old_port, plan.path, plan.scheme, plan.host, plan.port,
-             plan.path);
+    // Replace user_id parameter with npid from config
+    auto npids = Config::getShadNetNpids();
+    const std::string& npid = npids[0]; // Use first user's npid
+    if (!npid.empty()) {
+        // Replace user_id parameter in query string
+        size_t user_id_pos = plan.path.find("user_id=");
+        if (user_id_pos != std::string::npos) {
+            size_t user_id_end = plan.path.find('&', user_id_pos);
+            if (user_id_end == std::string::npos) {
+                user_id_end = plan.path.length();
+            }
+            plan.path.replace(user_id_pos, user_id_end - user_id_pos, "user_id=" + npid);
+            LOG_INFO(Lib_Http, "Replaced user_id parameter with npid: {}", npid);
+        }
+    }
+
+    LOG_INFO(Lib_Http, "Bloodborne seamless route active: {}://{}:{}{} -> {}://{}:{}{}", old_scheme,
+             old_host, old_port, plan.path, plan.scheme, plan.host, plan.port, plan.path);
     return true;
-}
-
-std::string JsonValueForLog(const nlohmann::json& object, const char* key) {
-    const auto it = object.find(key);
-    if (it == object.end() || it->is_null()) {
-        return "-";
-    }
-    if (it->is_string()) {
-        return it->get<std::string>();
-    }
-    return it->dump();
-}
-
-void UpdateContentLengthHeader(std::string& headers, u64 content_length) {
-    if (headers.empty()) {
-        return;
-    }
-
-    const std::string replacement = "Content-Length: " + std::to_string(content_length) + "\r\n";
-    std::size_t line_start = 0;
-    while (line_start < headers.size()) {
-        const std::size_t line_end = headers.find("\r\n", line_start);
-        if (line_end == std::string::npos) {
-            return;
-        }
-        if (line_end == line_start) {
-            headers.insert(line_start, replacement);
-            return;
-        }
-
-        const std::size_t colon = headers.find(':', line_start);
-        if (colon != std::string::npos && colon < line_end &&
-            HeaderNameMatches(std::string_view{headers.data() + line_start, colon - line_start},
-                              "Content-Length")) {
-            headers.replace(line_start, line_end + 2 - line_start, replacement);
-            return;
-        }
-        line_start = line_end + 2;
-    }
-}
-
-void ReplaceResponseBody(HttpResponse& response, const std::string& body) {
-    response.body.assign(body.begin(), body.end());
-    response.content_length = response.body.size();
-    response.content_length_result = 0;
-    response.read_cursor = 0;
-    UpdateContentLengthHeader(response.all_headers_blob, response.content_length);
-}
-
-void ConsumeBloodborneSeamlessMetadata(const SendRequestPlan& plan, HttpResponse& response) {
-    if (!EnvFlagEnabled("SHADPS4_BLOODBORNE_SEAMLESS_COOP") ||
-        !IsBloodborneSummonCreatePath(plan.path) || response.body.empty()) {
-        return;
-    }
-
-    const std::string body(response.body.begin(), response.body.end());
-    auto root = nlohmann::json::parse(body, nullptr, false);
-    if (root.is_discarded() || !root.is_object()) {
-        return;
-    }
-
-    const auto warp_it = root.find("SeamlessWarp");
-    if (warp_it == root.end() || !warp_it->is_object()) {
-        return;
-    }
-
-    LOG_INFO(Lib_Http,
-             "Bloodborne seamless warp metadata: host_user={} host_session={} area={} region={} "
-             "channel={} pos=({},{},{})",
-             JsonValueForLog(*warp_it, "HostUserId"), JsonValueForLog(*warp_it, "HostSessionId"),
-             JsonValueForLog(*warp_it, "AreaId"), JsonValueForLog(*warp_it, "AreaRegionId"),
-             JsonValueForLog(*warp_it, "ChannelId"), JsonValueForLog(*warp_it, "PosX"),
-             JsonValueForLog(*warp_it, "PosY"), JsonValueForLog(*warp_it, "PosZ"));
-
-    root.erase(warp_it);
-    ReplaceResponseBody(response, root.dump());
 }
 
 // 303 changes the new method to GET unless original was HEAD
@@ -1801,7 +1804,7 @@ int PS4_SYSV_ABI sceHttpSendRequest(int reqId, const void* postData, u64 size) {
 
     ApplyBloodborneSeamlessRoute(plan);
 
-    const bool online = EmulatorSettings.IsConnectedToNetwork();
+    const bool online = Config::getIsConnectedToNetwork();
     LOG_INFO(Lib_Http, "reqId={} dispatched to async worker [{} {} {}://{}:{}{}]", reqId,
              online ? "ONLINE" : "OFFLINE", HttpMethodName(plan.method), plan.scheme, plan.host,
              plan.port, plan.path);
@@ -1818,7 +1821,17 @@ int PS4_SYSV_ABI sceHttpSendRequest(int reqId, const void* postData, u64 size) {
             worker_errno = RunRealHttpRequest(plan, local_res, success_event_bits);
         }
 
-        ConsumeBloodborneSeamlessMetadata(plan, local_res);
+        if (worker_errno == 0 && IsBloodborneSummonPath(plan.path)) {
+            if (const auto placement =
+                    FindResponseHeader(local_res.all_headers_blob, BloodborneHostPlacementHeader);
+                placement.has_value() &&
+                !Core::Bloodborne::SetSeamlessHostPlacementHeader(*placement)) {
+                LOG_WARNING(Lib_Http, "Ignored invalid Bloodborne host-placement header");
+            } else if (!placement.has_value() && IsBloodborneSummonCreatePath(plan.path)) {
+                Core::Bloodborne::ClearSeamlessHostPlacementHeader();
+            }
+        }
+
         CaptureBloodborneSummon(plan, local_res, worker_errno);
 
         std::lock_guard<std::mutex> lock(g_state.m_mutex);

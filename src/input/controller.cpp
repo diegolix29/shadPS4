@@ -9,6 +9,7 @@
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/system/userservice.h"
+#include "core/user_manager.h"
 #include "input/controller.h"
 
 static std::string SelectedGamepad = "";
@@ -331,6 +332,11 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
                 }
             }
             if (!still_connected) {
+                // Log the user out of UserManager
+                auto* user = Common::Singleton<UserManager>::Instance()->GetUserByID(i + 1);
+                if (user) {
+                    Common::Singleton<UserManager>::Instance()->LogoutUser(user);
+                }
                 AddUserServiceEvent({OrbisUserServiceEventType::Logout, i + 1});
                 controllers[i]->m_sdl_gamepad = nullptr;
                 SDL_CloseGamepad(pad);
@@ -360,6 +366,21 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
                 c->user_id = i + 1;
                 slot_taken[i] = true;
                 c->player_index = i;
+                // Log the user into UserManager
+                auto* user = Common::Singleton<UserManager>::Instance()->GetUserByID(c->user_id);
+                if (!user) {
+                    // Create user if it doesn't exist
+                    User new_user;
+                    new_user.user_id = c->user_id;
+                    new_user.user_name = "Player " + std::to_string(c->user_id);
+                    new_user.user_color = c->user_id;
+                    new_user.player_index = i;
+                    Common::Singleton<UserManager>::Instance()->AddUser(new_user);
+                    user = Common::Singleton<UserManager>::Instance()->GetUserByID(c->user_id);
+                }
+                if (user) {
+                    Common::Singleton<UserManager>::Instance()->LoginUser(user, i + 1);
+                }
                 AddUserServiceEvent({OrbisUserServiceEventType::Login, i + 1});
 
                 if (SDL_SetGamepadSensorEnabled(c->m_sdl_gamepad, SDL_SENSOR_GYRO, true)) {
@@ -388,6 +409,21 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
         is_first_check = false;
         if (controller_count == 0) {
             controllers[0]->user_id = 1;
+            // Log the user into UserManager
+            auto* user = Common::Singleton<UserManager>::Instance()->GetUserByID(1);
+            if (!user) {
+                // Create user if it doesn't exist
+                User new_user;
+                new_user.user_id = 1;
+                new_user.user_name = "Player 1";
+                new_user.user_color = 1;
+                new_user.player_index = 0;
+                Common::Singleton<UserManager>::Instance()->AddUser(new_user);
+                user = Common::Singleton<UserManager>::Instance()->GetUserByID(1);
+            }
+            if (user) {
+                Common::Singleton<UserManager>::Instance()->LoginUser(user, 1);
+            }
             AddUserServiceEvent({OrbisUserServiceEventType::Login, 1});
         }
     }

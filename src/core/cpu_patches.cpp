@@ -597,12 +597,27 @@ struct PatchModule {
     /// Code generator for writing trampoline patches.
     Xbyak::CodeGenerator trampoline_gen;
 
+    /// Prevents repeated generation attempts after the fixed trampoline area is exhausted.
+    bool trampoline_exhausted{};
+
     PatchModule(u8* module_ptr, const u64 module_size, u8* trampoline_ptr,
                 const u64 trampoline_size)
         : start(module_ptr), end(module_ptr + module_size), patch_gen(module_size, module_ptr),
           trampoline_gen(trampoline_size, trampoline_ptr) {}
 };
 static std::map<u64, PatchModule> modules;
+
+static bool HandleTrampolineError(PatchModule* module, const Xbyak::Error& error) {
+    if (static_cast<int>(error) != Xbyak::ERR_CODE_IS_TOO_BIG) {
+        return false;
+    }
+    if (!module->trampoline_exhausted) {
+        LOG_WARNING(Core, "Patch trampoline space exhausted for module at {}",
+                    fmt::ptr(module->start));
+        module->trampoline_exhausted = true;
+    }
+    return true;
+}
 
 static PatchModule* GetModule(const void* ptr) {
     const auto* address = static_cast<const u8*>(ptr);
@@ -612,6 +627,13 @@ static PatchModule* GetModule(const void* ptr) {
     }
     auto& module = std::prev(upper_bound)->second;
     return address < module.end ? &module : nullptr;
+}
+
+// Windows static guest red-zone protection
+static PatchModule* GetContainingModule(const void* ptr) {
+    auto* module = GetModule(ptr);
+    const auto* address = static_cast<const u8*>(ptr);
+    return module != nullptr && address < module->end ? module : nullptr;
 }
 
 /// Returns a boolean indicating whether the instruction was patched, and the offset to advance past
@@ -2128,6 +2150,179 @@ void RegisterPatchModule(void* module_ptr, u64 module_size, void* trampoline_are
                     std::forward_as_tuple(static_cast<u8*>(module_ptr), module_size,
                                           static_cast<u8*>(trampoline_area_ptr),
                                           trampoline_area_size));
+}
+
+static bool CanCopyGuestHookInstructions(void* address, std::span<const u8> instructions) {
+    size_t offset = 0;
+    while (offset < instructions.size()) {
+        ZydisDecodedInstruction instruction{};
+        std::array<ZydisDecodedOperand, ZYDIS_MAX_OPERAND_COUNT> operands{};
+        const auto status = Common::Decoder::Instance()->decodeInstruction(
+            instruction, operands.data(), static_cast<u8*>(address) + offset,
+            instructions.size() - offset);
+        if (!ZYAN_SUCCESS(status) || instruction.length == 0 ||
+            instruction.length > instructions.size() - offset) {
+            LOG_ERROR(Core, "Guest code hook at {} does not cover whole instructions",
+                      fmt::ptr(address));
+            return false;
+        }
+
+        for (u8 index = 0; index < instruction.operand_count; ++index) {
+            const auto& operand = operands[index];
+            const bool relative_immediate =
+                operand.type == ZYDIS_OPERAND_TYPE_IMMEDIATE && operand.imm.is_relative;
+            const bool instruction_pointer_memory =
+                operand.type == ZYDIS_OPERAND_TYPE_MEMORY &&
+                (operand.mem.base == ZYDIS_REGISTER_RIP || operand.mem.base == ZYDIS_REGISTER_EIP);
+            if (relative_immediate || instruction_pointer_memory) {
+                LOG_ERROR(Core,
+                          "Guest code hook at {} contains relative addressing at instruction {}",
+                          fmt::ptr(address), fmt::ptr(static_cast<u8*>(address) + offset));
+                return false;
+            }
+        }
+        offset += instruction.length;
+    }
+    return true;
+}
+
+bool InstallGuestCodeHook(void* address, std::span<const u8> expected_instructions, u64 tag,
+                          GuestCodeHook hook) {
+    constexpr size_t NearJumpBytes = 5;
+    constexpr size_t GuestRedZoneBytes = 128;
+    constexpr size_t SnapshotOffset = 0;
+    constexpr size_t ScratchR11Offset = sizeof(GuestRegisterSnapshot);
+    constexpr size_t ScratchRflagsOffset = ScratchR11Offset + sizeof(u64);
+    constexpr size_t FrameReserve =
+        Common::AlignUp(ScratchRflagsOffset + sizeof(u64) + GuestRedZoneBytes, 16);
+    static_assert(FrameReserve % 16 == 0);
+
+    auto* code = static_cast<u8*>(address);
+    auto* module = GetContainingModule(code);
+    if (module == nullptr || hook == nullptr || expected_instructions.size() < NearJumpBytes ||
+        expected_instructions.size() > static_cast<size_t>(module->end - code)) {
+        return false;
+    }
+
+    std::unique_lock lock{module->mutex};
+    if (!std::ranges::equal(expected_instructions,
+                            std::span<const u8>{code, expected_instructions.size()})) {
+        LOG_ERROR(Core, "Guest code hook signature mismatch at {}", fmt::ptr(code));
+        return false;
+    }
+    if (!CanCopyGuestHookInstructions(address, expected_instructions)) {
+        return false;
+    }
+    const auto* patch_end = code + expected_instructions.size();
+    if (std::ranges::any_of(module->patched, [code, patch_end](const u8* patched) {
+            return patched >= code && patched < patch_end;
+        })) {
+        LOG_ERROR(Core, "Guest code hook overlaps an existing CPU patch at {}", fmt::ptr(code));
+        return false;
+    }
+
+    auto& trampoline = module->trampoline_gen;
+    const size_t trampoline_offset = trampoline.getSize();
+    const auto* trampoline_start = trampoline.getCurr();
+    const auto snapshot = [](size_t field_offset) {
+        return qword[rsp + SnapshotOffset + field_offset];
+    };
+
+    try {
+        trampoline.lea(rsp, ptr[rsp - FrameReserve]);
+        trampoline.mov(qword[rsp + ScratchR11Offset], r11);
+        trampoline.pushfq();
+        trampoline.pop(r11);
+        trampoline.mov(qword[rsp + ScratchRflagsOffset], r11);
+        trampoline.mov(r11, rsp);
+        trampoline.and_(rsp, -16);
+
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, rax)), rax);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, rbx)), rbx);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, rcx)), rcx);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, rdx)), rdx);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, rsi)), rsi);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, rdi)), rdi);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, rbp)), rbp);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, r8)), r8);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, r9)), r9);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, r10)), r10);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, r12)), r12);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, r13)), r13);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, r14)), r14);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, r15)), r15);
+        trampoline.mov(rax, qword[r11 + ScratchR11Offset]);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, r11)), rax);
+        trampoline.mov(rax, qword[r11 + ScratchRflagsOffset]);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, rflags)), rax);
+        trampoline.lea(rax, ptr[r11 + FrameReserve]);
+        trampoline.mov(snapshot(offsetof(GuestRegisterSnapshot, rsp)), rax);
+        trampoline.stmxcsr(dword[rsp + SnapshotOffset + offsetof(GuestRegisterSnapshot, mxcsr)]);
+
+        for (size_t index = 0; index < 16; ++index) {
+            const size_t offset = SnapshotOffset + offsetof(GuestRegisterSnapshot, ymm) +
+                                  index * sizeof(std::array<u8, 32>);
+            trampoline.vmovdqu(yword[rsp + offset], Xbyak::Ymm(static_cast<int>(index)));
+        }
+
+        // Keep the aligned snapshot base in a callee-saved register across the host call.
+        trampoline.mov(r12, rsp);
+        trampoline.mov(rdi, tag);
+        trampoline.lea(rsi, ptr[r12 + SnapshotOffset]);
+        trampoline.mov(rax, reinterpret_cast<u64>(hook));
+        trampoline.call(rax);
+        trampoline.mov(rsp, r12);
+
+        for (size_t index = 0; index < 16; ++index) {
+            const size_t offset = SnapshotOffset + offsetof(GuestRegisterSnapshot, ymm) +
+                                  index * sizeof(std::array<u8, 32>);
+            trampoline.vmovdqu(Xbyak::Ymm(static_cast<int>(index)), yword[rsp + offset]);
+        }
+        trampoline.ldmxcsr(dword[rsp + SnapshotOffset + offsetof(GuestRegisterSnapshot, mxcsr)]);
+        trampoline.mov(rbx, snapshot(offsetof(GuestRegisterSnapshot, rbx)));
+        trampoline.mov(rcx, snapshot(offsetof(GuestRegisterSnapshot, rcx)));
+        trampoline.mov(rdx, snapshot(offsetof(GuestRegisterSnapshot, rdx)));
+        trampoline.mov(rsi, snapshot(offsetof(GuestRegisterSnapshot, rsi)));
+        trampoline.mov(rdi, snapshot(offsetof(GuestRegisterSnapshot, rdi)));
+        trampoline.mov(rbp, snapshot(offsetof(GuestRegisterSnapshot, rbp)));
+        trampoline.mov(r8, snapshot(offsetof(GuestRegisterSnapshot, r8)));
+        trampoline.mov(r9, snapshot(offsetof(GuestRegisterSnapshot, r9)));
+        trampoline.mov(r10, snapshot(offsetof(GuestRegisterSnapshot, r10)));
+        trampoline.mov(r11, snapshot(offsetof(GuestRegisterSnapshot, r11)));
+        trampoline.mov(r12, snapshot(offsetof(GuestRegisterSnapshot, r12)));
+        trampoline.mov(r13, snapshot(offsetof(GuestRegisterSnapshot, r13)));
+        trampoline.mov(r14, snapshot(offsetof(GuestRegisterSnapshot, r14)));
+        trampoline.mov(r15, snapshot(offsetof(GuestRegisterSnapshot, r15)));
+        trampoline.mov(rax, snapshot(offsetof(GuestRegisterSnapshot, rflags)));
+        trampoline.push(rax);
+        trampoline.popfq();
+        trampoline.mov(rax, snapshot(offsetof(GuestRegisterSnapshot, rax)));
+        trampoline.mov(rsp, snapshot(offsetof(GuestRegisterSnapshot, rsp)));
+        trampoline.db(expected_instructions.data(), expected_instructions.size());
+        trampoline.jmp(code + expected_instructions.size(),
+                       Xbyak::CodeGenerator::LabelType::T_NEAR);
+    } catch (const Xbyak::Error& error) {
+        trampoline.setSize(trampoline_offset);
+        HandleTrampolineError(module, error);
+        LOG_ERROR(Core, "Could not generate guest code hook at {}: {}", fmt::ptr(code),
+                  error.what());
+        return false;
+    }
+
+    try {
+        auto& patch = module->patch_gen;
+        patch.reset();
+        patch.setSize(code - patch.getCode());
+        patch.jmp(trampoline_start, Xbyak::CodeGenerator::LabelType::T_NEAR);
+        patch.nop(expected_instructions.size() - NearJumpBytes);
+    } catch (const Xbyak::Error& error) {
+        trampoline.setSize(trampoline_offset);
+        LOG_ERROR(Core, "Could not patch guest code hook at {}: {}", fmt::ptr(code), error.what());
+        return false;
+    }
+
+    module->patched.insert(code);
+    return true;
 }
 
 void PrePatchInstructions(u64 segment_addr, u64 segment_size) {

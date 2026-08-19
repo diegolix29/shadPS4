@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <magic_enum/magic_enum.hpp>
+#include "common/config.h"
 #include "common/elf_info.h"
 #include "core/emulator_settings.h"
 #include "core/libraries/kernel/process.h"
@@ -769,7 +770,15 @@ s32 sendRequest(s64 requestId, s32 partIndex, const void* pData, u64 dataSize, s
     unlockContext(context);
 
     // Stubbing sceNpManagerIntGetSigninState call with a config check.
-    if (!EmulatorSettings.IsShadNetEnabled()) {
+    // Check if any user has shadNet enabled
+    bool any_shadnet_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_shadnet_enabled = true;
+            break;
+        }
+    }
+    if (!any_shadnet_enabled) {
         releaseRequest(request);
         releaseUserContext(user_context);
         releaseContext(context);
@@ -777,7 +786,7 @@ s32 sendRequest(s64 requestId, s32 partIndex, const void* pData, u64 dataSize, s
     }
 
     if (request->http_request_id == 0) {
-        std::string base_url = EmulatorSettings.GetShadNetWebApiServer();
+        std::string base_url = Config::getShadnetWebApiServer();
         // sceHttpCreateConnectionWithURL expects a template id, not the raw libhttp
         // context id that NpWebApi was initialized with. Create a template from the
         // context first, then open the connection against it.
@@ -1378,7 +1387,15 @@ s32 createServicePushEventFilterInternal(
     auto& handle = context->handles[handleId];
     handle->userCount++;
 
-    if (pNpServiceName != nullptr && !EmulatorSettings.IsShadNetEnabled()) {
+    // Check if any user has shadNet enabled
+    bool any_shadnet_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_shadnet_enabled = true;
+            break;
+        }
+    }
+    if (pNpServiceName != nullptr && !any_shadnet_enabled) {
         // Seems sceNpManagerIntGetUserList fails?
         LOG_DEBUG(Lib_NpWebApi, "Cannot create service push event while shadNet is disabled");
         handle->userCount--;
@@ -1555,7 +1572,15 @@ s32 createExtendedPushEventFilterInternal(
     auto& handle = context->handles[handleId];
     handle->userCount++;
 
-    if (pNpServiceName != nullptr && !EmulatorSettings.IsShadNetEnabled()) {
+    // Check if any user has shadNet enabled
+    bool any_shadnet_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_shadnet_enabled = true;
+            break;
+        }
+    }
+    if (pNpServiceName != nullptr && !any_shadnet_enabled) {
         // Seems sceNpManagerIntGetUserList fails?
         LOG_DEBUG(Lib_NpWebApi, "Cannot create extended push event while shadNet is disabled");
         handle->userCount--;
@@ -2064,16 +2089,13 @@ s32 PS4_SYSV_ABI readDataInternal(s64 requestId, void* pData, u64 size) {
 // service dispatch, with matching done by FUN_010049c0. Natively this is driven by the
 // NP manager's push listener thread (mnp:usr:npweblis)
 
+using ServiceCb = PS4_SYSV_ABI void (*)(s32, s32, const char*, OrbisNpServiceLabel,
+                                        const OrbisNpWebApiPushEventDataType*, const char*, u64,
+                                        void*);
 struct PushPeerAddress {
     OrbisNpOnlineId onlineId;
     s32 platform;
 };
-// Service callback = basic callback with pNpServiceName/npServiceLabel inserted after
-// callbackId; it still carries pTo/pFrom before pDataType.
-using ServiceCb = PS4_SYSV_ABI void (*)(s32, s32, const char*, OrbisNpServiceLabel,
-                                        const PushPeerAddress*, const PushPeerAddress*,
-                                        const OrbisNpWebApiPushEventDataType*, const char*, u64,
-                                        void*);
 using BasicCb = PS4_SYSV_ABI void (*)(s32, s32, const PushPeerAddress*, const PushPeerAddress*,
                                       const OrbisNpWebApiPushEventDataType*, const char*, u64,
                                       void*);
@@ -2206,17 +2228,9 @@ void DrainPushEvents() {
                     const char* svc =
                         flt->npServiceName.empty() ? nullptr : flt->npServiceName.c_str();
                     const char* svc_data = ev.data.empty() ? nullptr : ev.data.data();
-                    PushPeerAddress to_peer{};   // notified user (self)
-                    PushPeerAddress from_peer{}; // user that caused the event
-                    if (ev.hasTo) {
-                        to_peer.onlineId = ev.toOnlineId;
-                    }
-                    if (ev.hasFrom) {
-                        from_peer.onlineId = ev.fromOnlineId;
-                    }
                     reinterpret_cast<ServiceCb>(reinterpret_cast<void (*)()>(cb->cbFunc))(
-                        title_user_ctx_id, cbId, svc, flt->npServiceLabel, &to_peer, &from_peer,
-                        &dt, svc_data, ev.data.size(), cb->pUserArg);
+                        title_user_ctx_id, cbId, svc, flt->npServiceLabel, &dt, svc_data,
+                        ev.data.size(), cb->pUserArg);
                 }
 
                 // Basic push

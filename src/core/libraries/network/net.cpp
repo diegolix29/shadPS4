@@ -13,6 +13,7 @@
 #include <core/libraries/kernel/kernel.h>
 #include <magic_enum/magic_enum.hpp>
 #include "common/assert.h"
+#include "common/config.h"
 #include "common/error.h"
 #include "common/logging/log.h"
 #include "common/singleton.h"
@@ -616,7 +617,7 @@ int PS4_SYSV_ABI sceNetDuplicateIpStop() {
 }
 
 int PS4_SYSV_ABI sceNetEpollAbort() {
-    LOG_ERROR(Lib_Net, "(STUBBED) called");
+    LOG_TRACE(Lib_Net, "(STUBBED) called");
     return ORBIS_OK;
 }
 
@@ -657,7 +658,8 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
         case Core::FileSys::FileType::Socket: {
             auto native_handle = file->socket->Native();
             if (!native_handle) {
-                LOG_ERROR(Lib_Net, "Socket has no native epoll readiness handle");
+                // P2P socket, cannot be added to epoll
+                LOG_ERROR(Lib_Net, "P2P socket cannot be added to epoll (unimplemented)");
                 *sceNetErrnoLoc() = ORBIS_NET_EBADF;
                 return ORBIS_NET_ERROR_EBADF;
             }
@@ -706,7 +708,8 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
         case Core::FileSys::FileType::Socket: {
             auto native_handle = file->socket->Native();
             if (!native_handle) {
-                LOG_ERROR(Lib_Net, "Socket has no native epoll readiness handle");
+                // P2P socket, cannot be modified in epoll
+                LOG_ERROR(Lib_Net, "P2P socket cannot be modified in epoll (unimplemented)");
                 *sceNetErrnoLoc() = ORBIS_NET_EBADF;
                 return ORBIS_NET_ERROR_EBADF;
             }
@@ -749,7 +752,8 @@ int PS4_SYSV_ABI sceNetEpollControl(OrbisNetId epollid, OrbisNetEpollFlag op, Or
         case Core::FileSys::FileType::Socket: {
             auto native_handle = file->socket->Native();
             if (!native_handle) {
-                LOG_ERROR(Lib_Net, "Socket has no native epoll readiness handle");
+                // P2P socket, cannot be removed from epoll
+                LOG_ERROR(Lib_Net, "P2P socket cannot be removed from epoll (unimplemented)");
                 *sceNetErrnoLoc() = ORBIS_NET_EBADF;
                 return ORBIS_NET_ERROR_EBADF;
             }
@@ -1451,7 +1455,7 @@ int PS4_SYSV_ABI sceNetResolverStartNtoa(OrbisNetId resolverid, const char* host
         return ORBIS_NET_ERROR_EBADF;
     }
 
-    if (!EmulatorSettings.IsConnectedToNetwork()) {
+    if (!Config::getIsConnectedToNetwork()) {
         *sceNetErrnoLoc() = ORBIS_NET_RESOLVER_ENODNS;
         file->resolver->resolution_error = ORBIS_NET_ERROR_RESOLVER_ENODNS;
         return ORBIS_NET_ERROR_RESOLVER_ENODNS;

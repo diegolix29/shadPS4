@@ -78,6 +78,10 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
         if (it->second.is_array()) {
             return toml::get<T>(it->second);
         }
+    } else if constexpr (std::is_same_v<T, std::array<int, 4>>) {
+        if (it->second.is_array()) {
+            return toml::get<T>(it->second);
+        }
     } else if constexpr (std::is_same_v<T, Common::CpuCoreMode>) {
         if (it->second.is_integer()) {
             return static_cast<Common::CpuCoreMode>(toml::get<int>(it->second));
@@ -86,6 +90,17 @@ std::optional<T> get_optional(const toml::value& v, const std::string& key) {
     } else if constexpr (std::is_same_v<T, std::vector<int>>) {
         if (it->second.is_array()) {
             return toml::get<T>(it->second);
+        }
+    } else if constexpr (std::is_same_v<T, std::map<std::string, std::string>>) {
+        if (it->second.is_table()) {
+            std::map<std::string, std::string> result;
+            const auto& table = it->second.as_table();
+            for (const auto& [key, value] : table) {
+                if (value.is_string()) {
+                    result[key] = toml::get<std::string>(value);
+                }
+            }
+            return result;
         }
     } else if constexpr (std::is_same_v<T, Config::AudioBackend>) {
         if (it->second.is_integer()) {
@@ -180,7 +195,6 @@ static ConfigEntry<std::string> shadnet_server{"srv.shadps4.net:31313"};
 static ConfigEntry<std::string> shadnet_webapi_server{"http://srv.shadps4.net:31315"};
 static ConfigEntry<std::string> signaling_info{};
 static ConfigEntry<bool> enable_upnp{true};
-static ConfigEntry<bool> isShadNetEnabled(false);
 static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
 static ConfigEntry<std::string> logFilter("");
@@ -192,6 +206,7 @@ static ConfigEntry<std::array<std::string, 4>> userNames({
     "shadPS4-4",
 });
 static ConfigEntry<std::array<bool, 4>> playerEnabledStates({true, true, true, true});
+static ConfigEntry<std::array<int, 4>> playerUserIds({1, 2, 3, 4});
 static ConfigEntry<std::array<bool, 4>> shadNetEnabledStates({false, false, false, false});
 static ConfigEntry<std::array<std::string, 4>> shadNetNpids({"", "", "", ""});
 static ConfigEntry<std::array<std::string, 4>> shadNetPasswords({"", "", "", ""});
@@ -221,7 +236,7 @@ static std::string guiStyle = "Fusion";
 static std::string g_customBackgroundImage;
 static ConfigEntry<bool> firstBootHandled(false);
 static std::string version_path;
-static ConfigEntry<string> httpHostOverride("localhost");
+static ConfigEntry<std::map<std::string, std::string>> httpHostOverride(std::map<std::string, std::string>{});
 static ConfigEntry<bool> enableMods(true);
 static ConfigEntry<bool> enableUpdates(true);
 static ConfigEntry<u32> app0_read_bandwidth_mibps(0);
@@ -273,6 +288,7 @@ static ConfigEntry<bool> shouldCopyGPUBuffers(false);
 static ConfigEntry<ReadbackSpeed> readbackSpeedMode(ReadbackSpeed::Disable);
 static ConfigEntry<bool> readbackLinearImagesEnabled(false);
 static ConfigEntry<bool> directMemoryAccessEnabled(false);
+static ConfigEntry<bool> predicationEnabled(true);
 static ConfigEntry<bool> shouldDumpShaders(false);
 static ConfigEntry<bool> shouldPatchShaders(false);
 static ConfigEntry<u32> vblankFrequency(60);
@@ -537,12 +553,12 @@ void setIdenticalLogGrouped(bool enable, bool is_game_specific) {
     isIdenticalLogGrouped.set(enable, is_game_specific);
 }
 
-string GetHttpHostOverride() {
+std::map<std::string, std::string> GetHttpHostOverride() {
     return httpHostOverride.get();
 }
 
-void SetHttpHostOverride(const std::string& host) {
-    httpHostOverride.base_value = host;
+void SetHttpHostOverride(const std::map<std::string, std::string>& overrides) {
+    httpHostOverride.base_value = overrides;
 }
 
 // Settings
@@ -1001,6 +1017,14 @@ void setPlayerEnabledStates(const std::array<bool, 4>& states) {
     playerEnabledStates.set(states);
 }
 
+std::array<int, 4> getPlayerUserIds() {
+    return playerUserIds.get();
+}
+
+void setPlayerUserIds(const std::array<int, 4>& ids) {
+    playerUserIds.set(ids);
+}
+
 bool getShadNetEnabled(int id) {
     return shadNetEnabledStates.get()[id];
 }
@@ -1215,6 +1239,14 @@ bool getScreenTipDisable() {
 
 bool directMemoryAccess() {
     return directMemoryAccessEnabled.get();
+}
+
+bool isPredicationEnabled() {
+    return predicationEnabled.get();
+}
+
+void setPredicationEnabled(bool enable) {
+    predicationEnabled.base_value = enable;
 }
 
 bool dumpShaders() {
@@ -1815,13 +1847,7 @@ void setDescriptionVisible(bool visible) {
     descriptionVisible = visible;
 }
 
-bool IsShadNetEnabled() {
-    return isShadNetEnabled.get();
-}
 
-void setShadNetEnable(bool sign) {
-    isShadNetEnabled.base_value = sign;
-}
 
 bool getShaderSkipsEnabled() {
     return shaderSkipsEnabled.get();
@@ -1907,7 +1933,6 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         memoryCompressionLevel.setFromToml(general, "memoryCompressionLevel", is_game_specific);
         isNeo.setFromToml(general, "isPS4Pro", is_game_specific);
         isDevKit.setFromToml(general, "isDevKit", is_game_specific);
-        isShadNetEnabled.setFromToml(general, "isShadNetEnabled", is_game_specific);
         playBGM = toml::find_or<bool>(general, "playBGM", false);
         isTrophyPopupDisabled.setFromToml(general, "isTrophyPopupDisabled", is_game_specific);
         trophyNotificationDuration.setFromToml(general, "trophyNotificationDuration",
@@ -1919,6 +1944,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isIdenticalLogGrouped.setFromToml(general, "isIdenticalLogGrouped", is_game_specific);
         userNames.setFromToml(general, "userNames", false);
         playerEnabledStates.setFromToml(general, "playerEnabledStates", false);
+        playerUserIds.setFromToml(general, "playerUserIds", false);
         shadNetEnabledStates.setFromToml(general, "shadNetEnabledStates", false);
         shadNetNpids.setFromToml(general, "shadNetNpids", false);
         shadNetPasswords.setFromToml(general, "shadNetPasswords", false);
@@ -2068,6 +2094,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         shouldCopyGPUBuffers.setFromToml(gpu, "copyGPUBuffers", is_game_specific);
         readbackLinearImagesEnabled.setFromToml(gpu, "readbackLinearImages", is_game_specific);
         directMemoryAccessEnabled.setFromToml(gpu, "directMemoryAccess", is_game_specific);
+        predicationEnabled.setFromToml(gpu, "predicationEnabled", is_game_specific);
         isFullscreen.setFromToml(gpu, "Fullscreen", is_game_specific);
         fullscreenMode.setFromToml(gpu, "FullscreenMode", is_game_specific);
         if (is_game_specific) {
@@ -2332,8 +2359,6 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
             useHostMemoryFallback.game_specific_value.value_or(useHostMemoryFallback.base_value);
         data["General"]["memoryCompressionLevel"] =
             memoryCompressionLevel.game_specific_value.value_or(memoryCompressionLevel.base_value);
-        data["General"]["isShadNetEnabled"] =
-            isShadNetEnabled.game_specific_value.value_or(isShadNetEnabled.base_value);
         data["General"]["isTrophyPopupDisabled"] =
             isTrophyPopupDisabled.game_specific_value.value_or(isTrophyPopupDisabled.base_value);
         data["General"]["trophyNotificationDuration"] =
@@ -2384,7 +2409,6 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["General"]["extraDmemInMbytes"] = extraDmemInMbytes.base_value;
         data["General"]["useHostMemoryFallback"] = useHostMemoryFallback.base_value;
         data["General"]["memoryCompressionLevel"] = memoryCompressionLevel.base_value;
-        data["General"]["isShadNetEnabled"] = isShadNetEnabled.base_value;
         data["General"]["isTrophyPopupDisabled"] = isTrophyPopupDisabled.base_value;
         data["General"]["trophyNotificationDuration"] = trophyNotificationDuration.base_value;
         data["General"]["logFilter"] = logFilter.base_value;
@@ -2419,6 +2443,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["General"]["enableDiscordRPC"] = enableDiscordRPC;
     data["General"]["userNames"] = userNames.base_value;
     data["General"]["playerEnabledStates"] = playerEnabledStates.base_value;
+    data["General"]["playerUserIds"] = playerUserIds.base_value;
     data["General"]["shadNetEnabledStates"] = shadNetEnabledStates.base_value;
     data["General"]["shadNetNpids"] = shadNetNpids.base_value;
     data["General"]["shadNetPasswords"] = shadNetPasswords.base_value;
@@ -2522,6 +2547,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
                 readbackLinearImagesEnabled.base_value);
         data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.game_specific_value.value_or(
             directMemoryAccessEnabled.base_value);
+        data["GPU"]["predicationEnabled"] = predicationEnabled.game_specific_value.value_or(
+                predicationEnabled.base_value);
         data["GPU"]["dumpShaders"] =
             shouldDumpShaders.game_specific_value.value_or(shouldDumpShaders.base_value);
         data["GPU"]["patchShaders"] =
@@ -2555,6 +2582,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["GPU"]["readbackSpeedMode"] = static_cast<int>(readbackSpeedMode.base_value);
         data["GPU"]["readbackLinearImages"] = readbackLinearImagesEnabled.base_value;
         data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.base_value;
+        data["GPU"]["predicationEnabled"] = predicationEnabled.base_value;
         data["GPU"]["dumpShaders"] = shouldDumpShaders.base_value;
         data["GPU"]["patchShaders"] = shouldPatchShaders.base_value;
         data["GPU"]["vblankFrequency"] = vblankFrequency.base_value;
@@ -2776,7 +2804,6 @@ void setDefaultValues() {
     memoryCompressionLevel = 0;
     extraDmemInMbytes = 0;
 
-    isShadNetEnabled = false;
     isTrophyPopupDisabled = false;
     trophyNotificationDuration = 6.0;
     enableDiscordRPC = false;
@@ -2789,6 +2816,7 @@ void setDefaultValues() {
     logType = "sync";
     userNames = {"shadPS4", "shadPS4-2", "shadPS4-3", "shadPS4-4"};
     playerEnabledStates = {true, true, true, true};
+    playerUserIds = {1, 2, 3, 4};
     shadNetEnabledStates = {false, false, false, false};
     shadNetNpids = {"", "", "", ""};
     shadNetPasswords = {"", "", "", ""};
@@ -2834,6 +2862,7 @@ void setDefaultValues() {
     shaderSkipsEnabled = false;
     readbackLinearImagesEnabled = false;
     directMemoryAccessEnabled = false;
+    predicationEnabled = true;
     shouldDumpShaders = false;
     shouldPatchShaders = false;
     vblankFrequency = 60;

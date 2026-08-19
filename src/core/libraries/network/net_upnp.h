@@ -21,7 +21,6 @@ public:
 
     // Kick off async IGD discovery. Safe to call multiple times — only the first call has effect.
     void Start();
-    void SetP2PFeaturesEnabled(bool enabled);
 
     // Block until discovery completes or timeout_ms elapses. Returns true if IGD was found.
     bool WaitReady(int timeout_ms);
@@ -49,7 +48,6 @@ private:
     void DiscoverThread();
 
     std::atomic<bool> m_started{false};
-    std::atomic<bool> m_p2p_features_enabled{true};
     std::atomic<bool> m_done{false};
     std::atomic<bool> m_available{false};
     std::atomic<u32> m_external_ip_nbo{0};

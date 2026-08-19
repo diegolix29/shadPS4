@@ -35,5 +35,9 @@ public:
     std::array<NetCtlCallbackForNpToolkit, 8> nptool_callbacks{};
     std::array<NetCtlCallback, 8> callbacks{};
     std::mutex m_mutex;
+
+private:
+    int last_callback_event{-1};
+    int last_nptool_event{-1};
 };
 } // namespace Libraries::NetCtl

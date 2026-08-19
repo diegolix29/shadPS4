@@ -1,12 +1,13 @@
-// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <mutex>
+#include "common/config.h"
 #include "common/logging/log.h"
-#include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
 #include "core/libraries/np/np_auth.h"
+#include "core/libraries/np/np_auth_error.h"
 #include "core/libraries/np/np_error.h"
 #include "core/libraries/system/userservice.h"
 
@@ -15,6 +16,8 @@ namespace Libraries::Np::NpAuth {
 static bool g_shadnet_enabled = false;
 static s32 g_active_auth_requests = 0;
 static std::mutex g_auth_request_mutex;
+
+const char* g_dummy_auth_code = "DUMMY-CODE";
 
 // Internal types for storing request-related information
 enum class NpAuthRequestState {
@@ -364,7 +367,7 @@ s32 PS4_SYSV_ABI sceNpAuthDeleteRequest(s32 req_id) {
 }
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym) {
-    g_shadnet_enabled = EmulatorSettings.IsShadNetEnabled();
+    g_shadnet_enabled = Config::getShadNetEnabled(0);
 
     LIB_FUNCTION("6bwFkosYRQg", "libSceNpAuth", 1, "libSceNpAuth", sceNpAuthCreateRequest);
     LIB_FUNCTION("N+mr7GjTvr8", "libSceNpAuth", 1, "libSceNpAuth", sceNpAuthCreateAsyncRequest);

@@ -9,6 +9,8 @@
 
 #include "common/types.h"
 #include "core/libraries/np/np_matching2/np_matching2.h"
+#include "core/libraries/np/np_matching2/np_matching2_types.h"
+#include "core/libraries/np/np_types2.h"
 
 namespace ShadNet {
 class ShadNetClient;
@@ -19,22 +21,22 @@ enum class ErrorType : u8;
 namespace Libraries::Np::NpMatching2 {
 
 enum class MmCommand : u16 {
-    ContextStart = 100,
-    CreateRoom = 101,
-    JoinRoom = 102,
-    LeaveRoom = 103,
-    SearchRoom = 104,
-    RequestSignalingInfos = 105,
-    ContextStop = 106,
-    SetUserInfo = 107,
-    SetRoomDataInternal = 108,
-    SetRoomDataExternal = 109,
-    KickoutRoomMember = 110,
-    GetWorldInfoList = 111,
-    GetRoomDataExternalList = 112,
-    GetUserInfoList = 113,
-    GetRoomMemberDataExternalList = 114,
-    SendRoomMessage = 115,
+    ContextStart = 12,
+    CreateRoom = 13,
+    JoinRoom = 14,
+    LeaveRoom = 15,
+    SearchRoom = 16,
+    RequestSignalingInfos = 17,
+    ContextStop = 18,
+    SetRoomDataInternal = 20,
+    SetRoomDataExternal = 21,
+    KickoutRoomMember = 22,
+    GetWorldInfoList = 23,
+    GetRoomDataExternalList = 24,
+    GetRoomMemberDataExternalList = 25,
+    GetUserInfoList = 26,
+    SetUserInfo = 27,
+    SendRoomMessage = 28,
 };
 
 void SetMmShadNetClient(std::shared_ptr<ShadNet::ShadNetClient> client,

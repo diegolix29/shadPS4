@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "common/logging/log.h"
+#include "core/bloodborne_re.h"
 #include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
@@ -55,7 +56,7 @@ int PS4_SYSV_ABI sceNpMatching2CreateContextA(const OrbisNpMatching2CreateContex
     const Libraries::Np::OrbisNpId np_id =
         Libraries::Np::NpHandler::GetInstance().GetNpId(param->userId);
 
-    return ContextManager::Instance().CreateContext(&np_id, param->serviceLabel, ctxId, true);
+    return ContextManager::Instance().CreateContext(&np_id, param->serviceLabel, ctxId);
 }
 
 int PS4_SYSV_ABI sceNpMatching2CreateJoinRoom(OrbisNpMatching2ContextId ctxId,
@@ -71,6 +72,7 @@ int PS4_SYSV_ABI sceNpMatching2CreateJoinRoom(OrbisNpMatching2ContextId ctxId,
         LOG_ERROR(Lib_NpMatching2, "request or requestId null");
         return ORBIS_NP_MATCHING2_ERROR_INVALID_ARGUMENT;
     }
+
     ContextObject* ctx = ContextManager::Instance().Get(ctxId);
     if (!ctx) {
         LOG_ERROR(Lib_NpMatching2, "invalid context id");
@@ -246,11 +248,7 @@ int PS4_SYSV_ABI sceNpMatching2ContextStop(OrbisNpMatching2ContextId ctxId) {
         return rc;
     }
 
-    const s32 submit_rc = MmContextStop(ctxId);
-    if (submit_rc != ORBIS_OK) {
-        ContextManager::Instance().CompleteStop(ctxId);
-        return submit_rc;
-    }
+    MmContextStop(ctxId);
     return ORBIS_OK;
 }
 
@@ -383,6 +381,15 @@ int PS4_SYSV_ABI sceNpMatching2LeaveRoom(OrbisNpMatching2ContextId ctxId,
         LOG_ERROR(Lib_NpMatching2, "request or requestId null");
         return ORBIS_NP_MATCHING2_ERROR_INVALID_ARGUMENT;
     }
+
+#if defined(__clang__) || defined(__GNUC__)
+    const auto return_address = reinterpret_cast<std::uintptr_t>(
+        __builtin_extract_return_addr(__builtin_return_address(0)));
+#else
+    constexpr std::uintptr_t return_address = 0;
+#endif
+    Core::Bloodborne::TraceMatching2LeaveRoom(return_address, request->roomId);
+
     ContextObject* ctx = ContextManager::Instance().Get(ctxId);
     if (!ctx) {
         LOG_ERROR(Lib_NpMatching2, "invalid context id");
@@ -476,7 +483,7 @@ int PS4_SYSV_ABI sceNpMatching2SendRoomMessage(OrbisNpMatching2ContextId ctxId, 
     const OrbisNpMatching2RequestId reqId = AllocRequestId();
     *requestId = reqId;
     return MmSendRoomMessage(ctxId, reqId,
-                             *static_cast<OrbisNpMatching2SendRoomMessageRequest*>(request));
+                             *reinterpret_cast<OrbisNpMatching2SendRoomMessageRequest*>(request));
 }
 
 int PS4_SYSV_ABI sceNpMatching2SetRoomDataExternal(
