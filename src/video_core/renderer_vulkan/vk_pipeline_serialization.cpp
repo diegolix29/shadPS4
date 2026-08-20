@@ -15,8 +15,8 @@ namespace Serialization {
  * ShaderBinaryVersion must also be incremented whenever the emitted SPIR-V changes: cached
  * binaries are keyed by the guest program hash alone, so without a bump every previously
  * compiled module keeps being loaded verbatim, and a codegen fix never reaches a warm cache. */
-static constexpr u32 ShaderBinaryVersion = 5u;
-static constexpr u32 ShaderMetaVersion = 3u;
+static constexpr u32 ShaderBinaryVersion = 6u;
+static constexpr u32 ShaderMetaVersion = 4u;
 static constexpr u32 PipelineKeyVersion = 3u;
 } // namespace Serialization
 
