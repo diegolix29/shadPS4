@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
+﻿// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <algorithm>
 #include <array>
@@ -136,7 +136,7 @@ NpSession::~NpSession() {
 
 void NpSession::LoginAsync(Libraries::UserService::OrbisUserServiceUserId ownerUserId,
                            std::string host, std::string npid, std::string password,
-                           std::string titleId, std::string titleName) {
+                           std::string token, std::string titleId, std::string titleName) {
     Disconnect(); // stop any previous attempt for this slot first
 
     m_ownerUserId = ownerUserId;
@@ -144,7 +144,8 @@ void NpSession::LoginAsync(Libraries::UserService::OrbisUserServiceUserId ownerU
     m_authenticated.store(false, std::memory_order_release);
 
     m_thread = std::thread(&NpSession::Run, this, std::move(host), std::move(npid),
-                           std::move(password), std::move(titleId), std::move(titleName));
+                           std::move(password), std::move(token), std::move(titleId),
+                           std::move(titleName));
 }
 
 void NpSession::Disconnect() {
@@ -292,11 +293,11 @@ bool NpSession::SendCommand(u16 command, const google::protobuf::MessageLite* re
         const size_t remaining = size > kHeaderSize ? size - kHeaderSize : 0;
 
         if (type == PacketType::Notification) {
-            // Drain and discard.
-            std::string discard(remaining, '\0');
-            if (remaining > 0 && !ReadExact(discard.data(), remaining)) {
+            std::string payload(remaining, '\0');
+            if (remaining > 0 && !ReadExact(payload.data(), remaining)) {
                 return false;
             }
+            DispatchNotification(payload);
             continue;
         }
 
@@ -349,8 +350,47 @@ bool NpSession::SendCommand(u16 command, const google::protobuf::MessageLite* re
     }
 }
 
-void NpSession::Run(std::string host, std::string npid, std::string password, std::string titleId,
-                    std::string titleName) {
+u64 NpSession::SubmitRequest(u16 command, std::vector<u8> rawPayload) {
+    const u32 totalSize = static_cast<u32>(kHeaderSize + rawPayload.size());
+    const u64 packetId = m_nextPacketId.fetch_add(1, std::memory_order_relaxed);
+
+    std::string packet;
+    packet.resize(totalSize);
+    u8* p = reinterpret_cast<u8*>(packet.data());
+    p[0] = static_cast<u8>(PacketType::Request);
+    PutU16LE(p + 1, command);
+    PutU32LE(p + 3, totalSize);
+    PutU64LE(p + 7, packetId);
+    if (!rawPayload.empty()) {
+        std::memcpy(p + kHeaderSize, rawPayload.data(), rawPayload.size());
+    }
+
+    {
+        std::scoped_lock lk{m_pendingAsyncMutex};
+        m_pendingAsync[packetId] = PendingAsyncRequest{command};
+    }
+
+    if (!WriteExact(packet.data(), packet.size())) {
+        std::scoped_lock lk{m_pendingAsyncMutex};
+        m_pendingAsync.erase(packetId);
+        return 0;
+    }
+    return packetId;
+}
+
+void NpSession::HandleAsyncReply(u16 command, u64 packetId, u8 error, std::string body) {
+    {
+        std::scoped_lock lk{m_pendingAsyncMutex};
+        m_pendingAsync.erase(packetId);
+    }
+    if (onAsyncReply) {
+        std::vector<u8> bodyBytes(body.begin(), body.end());
+        onAsyncReply(command, packetId, error, bodyBytes);
+    }
+}
+
+void NpSession::Run(std::string host, std::string npid, std::string password, std::string token,
+                    std::string titleId, std::string titleName) {
     // Kept in the signature for when a shadNet build with presence fields is
     // used; this build's LoginRequest doesn't have them (see comment below).
     (void)titleId;
@@ -406,9 +446,15 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
     shadnet::LoginRequest loginReq;
     loginReq.set_npid(npid);
     loginReq.set_password(password);
-    // This shadNet build's LoginRequest only carries npid/password/token
-    // (see shadnet.proto) — no title_id/title_name presence fields, so
-    // those aren't set here.
+    // CONFIRM: shadnet.proto's LoginRequest needs a `token` field for this
+    // to do anything server-side. If it doesn't have one yet, this is a
+    // no-op until the proto is extended — check shadnet.proto before
+    // relying on token-based re-auth actually working.
+    if (!token.empty()) {
+        loginReq.set_token(token);
+    }
+    // Still no title_id/title_name fields in this proto build (unchanged
+    // from before).
 
     shadnet::LoginReply loginReply;
     if (!SendCommand(kCmdLogin, &loginReq, &loginReply)) {
@@ -421,6 +467,12 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
     {
         std::scoped_lock lk{m_stateMutex};
         m_npid = npid;
+        // CONFIRM: if LoginReply carries a bearer token or avatar URL field,
+        // capture it here, e.g.:
+        //   m_bearerToken = loginReply.token();
+        //   m_avatarUrl = loginReply.avatar_url();
+        // Neither is visible in the code you sent — GetBearerToken()
+        // currently relies solely on the separate GetToken command below.
     }
 
     // Process friendList and blockList from LoginReply
@@ -439,13 +491,32 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
         LOG_DEBUG(Lib_NpManager, "Blocked: npid='{}'", blocked_npid);
     }
 
+    if (onLoginResult) {
+        NpSession::LoginResultInfo info;
+        info.error = 0;
+        for (const auto& friend_entry : loginReply.friends()) {
+            info.friends.emplace_back(friend_entry.npid(), friend_entry.online());
+        }
+        for (const auto& sent : loginReply.friend_requests_sent()) {
+            info.requestsSent.push_back(sent);
+        }
+        for (const auto& recv : loginReply.friend_requests_received()) {
+            info.requestsReceived.push_back(recv);
+        }
+        for (const auto& blocked_npid : loginReply.blocked()) {
+            info.blocked.push_back(blocked_npid);
+        }
+        onLoginResult(info);
+    }
+
     shadnet::GetTokenReply tokenReply;
     if (SendCommand(kCmdGetToken, nullptr, &tokenReply) && !tokenReply.token().empty()) {
+        {
+            std::scoped_lock lk{m_stateMutex};
+            m_bearerToken = tokenReply.token();
+        }
         NpHandler::GetInstance().GetBearerToken(m_ownerUserId);
     } else {
-        // Non-fatal: WebAPI calls fall back to NpHandler's generated UUID,
-        // which third-party (non-shadNet) WebAPI hosts accept anyway. Real
-        // shadNet WebAPI calls will 401 until this succeeds.
         LOG_WARNING(Lib_NpManager,
                     "shadNet: GetToken failed for npid '{}'; WebAPI calls will "
                     "use a placeholder token",
@@ -461,6 +532,7 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
     const u16 stunPort = 31314; // Standard STUN/UDP port from shadnet protocol
 
     if (SendCommand(kCmdGetServerFeatures, nullptr, &featuresReply)) {
+        m_matching2Enabled.store(featuresReply.matching2_enabled(), std::memory_order_release);
         LOG_INFO(Lib_NpManager, "GetServerFeatures: \"{}\" matching2_enabled= {}", npid,
                  featuresReply.matching2_enabled() ? "true" : "false");
 
@@ -617,10 +689,11 @@ void NpSession::Run(std::string host, std::string npid, std::string password, st
         const u32 size = GetU32LE(probe + 3);
         const size_t remaining = size > kHeaderSize ? size - kHeaderSize : 0;
         if (remaining > 0) {
-            std::string discard(remaining, '\0');
-            if (!ReadExact(discard.data(), remaining)) {
+            std::string payload(remaining, '\0');
+            if (!ReadExact(payload.data(), remaining)) {
                 break;
             }
+            DispatchNotification(payload);
         }
     }
 
@@ -728,6 +801,87 @@ bool NpSession::StunPing(const std::string& stunHost, u16 stunPort, int localSoc
     return true;
 }
 
+void NpSession::DispatchNotification(const std::string& payload) {
+    if (payload.empty()) {
+        return;
+    }
+
+    // Placeholder framing assumption: [u16 LE notifyType][protobuf blob]
+    // matching the same pattern SendCommand() uses for requests. REPLACE
+    // with the real layout once shadnet.proto / notification framing docs
+    // are available.
+    if (payload.size() < 2) {
+        LOG_WARNING(Lib_NpManager, "shadNet: notification payload too small ({} bytes)",
+                    payload.size());
+        return;
+    }
+    const u16 notifyType = GetU16LE(reinterpret_cast<const u8*>(payload.data()));
+    const char* blob = payload.data() + 2;
+    const size_t blobLen = payload.size() - 2;
+
+    // CONFIRM: these notifyType values are placeholders — replace with the
+    // actual constants once known (likely defined alongside kCmdLogin etc.,
+    // or in a shared protocol.h).
+    constexpr u16 kNotifyFriendQuery = 1000;
+    constexpr u16 kNotifyFriendNew = 1001;
+    constexpr u16 kNotifyFriendLost = 1002;
+    constexpr u16 kNotifyFriendStatus = 1003;
+    constexpr u16 kNotifyWebApiPushEvent = 1004;
+
+    // CONFIRM: Notification message types not in shadnet.proto yet
+    // switch (notifyType) {
+    // case kNotifyFriendQuery: {
+    //     shadnet::NotifyFriendQuery n; // CONFIRM message name
+    //     if (n.ParseFromArray(blob, static_cast<int>(blobLen)) && onFriendQuery) {
+    //         onFriendQuery(NotifyFriendQuery{n.from_npid()});
+    //     }
+    //     break;
+    // }
+    // case kNotifyFriendNew: {
+    //     shadnet::NotifyFriendNew n;
+    //     if (n.ParseFromArray(blob, static_cast<int>(blobLen)) && onFriendNew) {
+    //         onFriendNew(NotifyFriendNew{n.npid(), n.online()});
+    //     }
+    //     break;
+    // }
+    // case kNotifyFriendLost: {
+    //     shadnet::NotifyFriendLost n;
+    //     if (n.ParseFromArray(blob, static_cast<int>(blobLen)) && onFriendLost) {
+    //         onFriendLost(NotifyFriendLost{n.npid()});
+    //     }
+    //     break;
+    // }
+    // case kNotifyFriendStatus: {
+    //     shadnet::NotifyFriendStatus n;
+    //     if (n.ParseFromArray(blob, static_cast<int>(blobLen)) && onFriendStatus) {
+    //         onFriendStatus(NotifyFriendStatus{n.npid(), n.online()});
+    //     }
+    //     break;
+    // }
+    // case kNotifyWebApiPushEvent: {
+    //     shadnet::NotifyWebApiPushEvent n;
+    //     if (n.ParseFromArray(blob, static_cast<int>(blobLen)) && onWebApiPushEvent) {
+    //         NotifyWebApiPushEvent ev;
+    //         ev.npServiceName = n.np_service_name();
+    //         ev.npServiceLabel = n.np_service_label();
+    //         ev.dataType = n.data_type();
+    //         ev.fromNpid = n.from_npid();
+    //         ev.toNpid = n.to_npid();
+    //         ev.data.assign(n.data().begin(), n.data().end());
+    //         for (const auto& kv : n.extd_data()) {
+    //             ev.extdData.emplace_back(kv.key(), kv.value());
+    //         }
+    //         onWebApiPushEvent(ev);
+    //     }
+    //     break;
+    // }
+    // default:
+    //     LOG_DEBUG(Lib_NpManager, "shadNet: unrecognized notification type {}", notifyType);
+    //     break;
+    // }
+    LOG_DEBUG(Lib_NpManager, "shadNet: notification type {} received (handler not implemented yet)", notifyType);
+}
+
 bool NpSession::RequestSignalingInfos(const std::string& targetNpid, PeerEndpoint& out) {
     if (!IsAuthenticated()) {
         LOG_WARNING(Lib_NpManager, "shadNet: RequestSignalingInfos called before login");
@@ -804,6 +958,63 @@ bool NpSession::GetWorldInfoList() {
     }
 
     return true;
+}
+
+namespace {
+constexpr u16 kCmdAddFriend = 40;    // CONFIRM
+constexpr u16 kCmdRemoveFriend = 41; // CONFIRM
+constexpr u16 kCmdAddBlock = 42;     // CONFIRM
+constexpr u16 kCmdRemoveBlock = 43;  // CONFIRM
+} // namespace
+
+void NpSession::AddFriend(const std::string& npid) {
+    if (!IsAuthenticated()) {
+        return;
+    }
+    // CONFIRM: AddFriendRequest not in shadnet.proto yet
+    // shadnet::AddFriendRequest req;
+    // req.set_npid(npid);
+    // SendCommand(kCmdAddFriend, &req, nullptr);
+}
+
+void NpSession::RemoveFriend(const std::string& npid) {
+    if (!IsAuthenticated()) {
+        return;
+    }
+    // CONFIRM: RemoveFriendRequest not in shadnet.proto yet
+    // shadnet::RemoveFriendRequest req;
+    // req.set_npid(npid);
+    // SendCommand(kCmdRemoveFriend, &req, nullptr);
+}
+
+void NpSession::AddBlock(const std::string& npid) {
+    if (!IsAuthenticated()) {
+        return;
+    }
+    // CONFIRM: AddBlockRequest not in shadnet.proto yet
+    // shadnet::AddBlockRequest req;
+    // req.set_npid(npid);
+    // SendCommand(kCmdAddBlock, &req, nullptr);
+}
+
+void NpSession::RemoveBlock(const std::string& npid) {
+    if (!IsAuthenticated()) {
+        return;
+    }
+    // CONFIRM: RemoveBlockRequest not in shadnet.proto yet
+    // shadnet::RemoveBlockRequest req;
+    // req.set_npid(npid);
+    // SendCommand(kCmdRemoveBlock, &req, nullptr);
+}
+
+void NpSession::SetAppearOffline(bool enable) {
+    m_appearOffline.store(enable, std::memory_order_release);
+    // CONFIRM: does shadnet.proto's LoginRequest (or a separate toggle
+    // command) carry an appear-offline flag? ShadNetClient::
+    // SetAppearOffline() is called pre-auth in np_handler.cpp
+    // ("caches on the client" per that comment), then presumably sent as
+    // part of/after login. Nothing in np_session.cpp today sends this bit —
+    // needs a real command ID once you confirm where it lives on the wire.
 }
 
 } // namespace Libraries::Np

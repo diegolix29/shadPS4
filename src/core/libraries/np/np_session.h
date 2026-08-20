@@ -3,9 +3,12 @@
 #pragma once
 
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <vector>
 #include <google/protobuf/message_lite.h>
 
 #include "common/types.h"
@@ -40,8 +43,8 @@ public:
     //  - titleId/titleName: currently-running title, forwarded in
     //    LoginRequest so the server can resolve matchmaking/presence scoping
     void LoginAsync(Libraries::UserService::OrbisUserServiceUserId ownerUserId, std::string host,
-                    std::string npid, std::string password, std::string titleId,
-                    std::string titleName);
+                    std::string npid, std::string password, std::string token,
+                    std::string titleId, std::string titleName);
 
     // Closes the connection and stops the background thread. Safe to call
     // even if never logged in.
@@ -100,12 +103,60 @@ public:
     // or the request fails.
     bool GetWorldInfoList();
 
+    // Friend/block management commands
+    void AddFriend(const std::string& npid);
+    void RemoveFriend(const std::string& npid);
+    void AddBlock(const std::string& npid);
+    void RemoveBlock(const std::string& npid);
+    void SetAppearOffline(bool enable);
+
 private:
+    // Callback structures for notifications
+    struct NotifyFriendQuery {
+        std::string from_npid;
+    };
+    struct NotifyFriendNew {
+        std::string npid;
+        bool online;
+    };
+    struct NotifyFriendLost {
+        std::string npid;
+    };
+    struct NotifyFriendStatus {
+        std::string npid;
+        bool online;
+    };
+    struct NotifyWebApiPushEvent {
+        std::string npServiceName;
+        std::string npServiceLabel;
+        std::string dataType;
+        std::string fromNpid;
+        std::string toNpid;
+        std::vector<u8> data;
+        std::vector<std::pair<std::string, std::string>> extdData;
+    };
+    struct LoginResultInfo {
+        u32 error;
+        std::vector<std::pair<std::string, bool>> friends;
+        std::vector<std::string> requestsSent;
+        std::vector<std::string> requestsReceived;
+        std::vector<std::string> blocked;
+    };
+
+    // Callback types
+    std::function<void(const LoginResultInfo&)> onLoginResult;
+    std::function<void(const NotifyFriendQuery&)> onFriendQuery;
+    std::function<void(const NotifyFriendNew&)> onFriendNew;
+    std::function<void(const NotifyFriendLost&)> onFriendLost;
+    std::function<void(const NotifyFriendStatus&)> onFriendStatus;
+    std::function<void(const NotifyWebApiPushEvent&)> onWebApiPushEvent;
+    std::function<void(u16 command, u64 packetId, u8 error, std::vector<u8> body)> onAsyncReply;
+
     // UDP socket for STUN pings (reused for periodic pings)
     int m_stunSockfd = -1;
     std::mutex m_stunSocketMutex;
-    void Run(std::string host, std::string npid, std::string password, std::string titleId,
-             std::string titleName);
+    void Run(std::string host, std::string npid, std::string password, std::string token,
+             std::string titleId, std::string titleName);
     void CloseSocket();
 
     // Raw framed I/O helpers. Return false on any socket error/EOF/version
@@ -122,6 +173,14 @@ private:
     bool SendCommand(u16 command, const google::protobuf::MessageLite* request,
                      google::protobuf::MessageLite* replyOut);
 
+    // Async request submission and handling
+    struct PendingAsyncRequest {
+        u16 command;
+    };
+    u64 SubmitRequest(u16 command, std::vector<u8> rawPayload);
+    void HandleAsyncReply(u16 command, u64 packetId, u8 error, std::string body);
+    void DispatchNotification(const std::string& payload);
+
     std::thread m_thread;
     std::atomic<bool> m_stopRequested{false};
     std::atomic<bool> m_authenticated{false};
@@ -131,10 +190,16 @@ private:
     mutable std::mutex m_stateMutex;
     std::string m_npid;
     std::string m_externalIp;
+    std::string m_bearerToken;
     std::atomic<u16> m_externalPort{0};
+    std::atomic<bool> m_matching2Enabled{false};
+    std::atomic<bool> m_appearOffline{false};
 
     std::mutex m_socketMutex;
     int m_sockfd = -1;
+
+    std::mutex m_pendingAsyncMutex;
+    std::unordered_map<u64, PendingAsyncRequest> m_pendingAsync;
 
     Libraries::UserService::OrbisUserServiceUserId m_ownerUserId = -1;
 };

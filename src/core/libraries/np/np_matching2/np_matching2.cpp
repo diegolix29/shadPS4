@@ -5,6 +5,7 @@
 #include <cstring>
 #include <memory>
 
+#include "common/config.h"
 #include "common/logging/log.h"
 #include "core/bloodborne_re.h"
 #include "core/emulator_settings.h"
@@ -219,7 +220,15 @@ int PS4_SYSV_ABI sceNpMatching2ContextStart(OrbisNpMatching2ContextId ctxId, u64
         LOG_ERROR(Lib_NpMatching2, "not initialized");
         return ORBIS_NP_MATCHING2_ERROR_NOT_INITIALIZED;
     }
-    if (!EmulatorSettings.IsConnectedToNetwork() || !EmulatorSettings.IsShadNetEnabled()) {
+    // Check if any user has shadNet enabled
+    bool any_shadnet_enabled = false;
+    for (int i = 0; i < 4; i++) {
+        if (Config::getShadNetEnabled(i)) {
+            any_shadnet_enabled = true;
+            break;
+        }
+    }
+    if (!Config::getIsConnectedToNetwork() || !any_shadnet_enabled) {
         // error confirmed with a real console disconnected from the internet
         constexpr int ORBIS_NET_ERROR_RESOLVER_ETIMEDOUT = 0x804101e2;
         LOG_ERROR(Lib_NpMatching2, "not connected to network");

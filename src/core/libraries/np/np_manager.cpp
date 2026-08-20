@@ -69,7 +69,7 @@ static bool EnsureShadNetSession(int slot, const std::string& titleId,
     if (!session) {
         session = std::make_unique<NpSession>();
         session->LoginAsync(slot + 1, Config::getShadnetServer(), Config::getShadNetNpid(slot),
-                            Config::getShadNetPassword(slot), titleId, titleName);
+                            Config::getShadNetPassword(slot), "", titleId, titleName);
     }
     return session->IsAuthenticated();
 }
