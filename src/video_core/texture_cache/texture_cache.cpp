@@ -160,9 +160,12 @@ void TextureCache::InvalidateMemory(VAddr addr, size_t size) {
 void TextureCache::InvalidateMemoryFromGPU(VAddr address, size_t max_size) {
     std::scoped_lock lock{mutex};
     ForEachImageInRegion(address, max_size, [&](ImageId image_id, Image& image) {
-        // Only consider images that match base address.
-        // TODO: Maybe also consider subresources
-        if (image.info.guest_address != address) {
+        // Every image the write covers is stale, not only one that happens to start at the same
+        // address. Titles regenerate a whole region through a shader and then sample views that
+        // begin further into it; requiring an exact base match leaves those pinned to whatever
+        // their first upload contained, with no later event to correct them.
+        if (image.info.guest_address + image.info.guest_size <= address ||
+            image.info.guest_address >= address + max_size) {
             return;
         }
         // Ensure image is reuploaded when accessed again.
