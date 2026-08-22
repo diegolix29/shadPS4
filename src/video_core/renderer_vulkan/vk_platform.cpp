@@ -263,13 +263,13 @@ vk::UniqueInstance CreateInstance(Frontend::WindowSystemType window_type, bool e
     LOG_INFO(Render_Vulkan, "Creating vulkan instance");
 
 #if defined(__APPLE__) && !defined(ENABLE_QT_GUI)
-    // Initialize the environment with the path to the MoltenVK ICD, so that the loader will
+    // Initialize the environment with the path to the KosmicKrisp ICD, so that the loader will
     // find it.
     static const auto icd_path = [] {
         char path[PATH_MAX];
         u32 length = PATH_MAX;
         _NSGetExecutablePath(path, &length);
-        return std::filesystem::path(path).parent_path() / "MoltenVK_icd.json";
+        return std::filesystem::path(path).parent_path() / "kosmickrisp_mesa_icd.json";
     }();
     setenv("VK_DRIVER_FILES", icd_path.c_str(), true);
 #endif
