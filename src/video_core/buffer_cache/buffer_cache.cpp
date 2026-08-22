@@ -88,14 +88,14 @@ void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
             std::max<VAddr>(Common::AlignDown(device_addr, WindowSize), buf_start);
         const VAddr window_end = std::min<VAddr>(
             std::max<VAddr>(window_start + WindowSize, device_addr + size), buf_end);
-        DownloadBufferMemory<false>(buffer, window_start, window_end - window_start);
+        DownloadBufferMemory<false>(buffer, window_start, window_end - window_start, is_write);
         if (is_write) {
             memory_tracker->MarkRegionAsCpuModified(device_addr, size);
         }
     });
 }
 template <bool async>
-void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size) {
+void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size, bool is_write) {
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;
     memory_tracker->ForEachDownloadRange<false>(
@@ -152,7 +152,7 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
             memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
                                     copy.size);
         }
-        memory_tracker->UnmarkRegionAsGpuModified(device_addr, size);
+        memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, is_write);
     };
     if constexpr (async) {
         scheduler.DeferOperation(write_data);
@@ -160,20 +160,6 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
         scheduler.Finish();
         write_data();
     }
-}
-
-void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write) {
-    // if write tick == current_tick -> send flush request
-
-    const u64 page = device_addr >> CACHING_PAGEBITS;
-    const BufferId buffer_id = page_table[page].buffer_id;
-    const Buffer& buffer = slot_buffers[buffer_id];
-    // ASSERT(buffer.IsInBounds(device_addr, size));
-
-    liverpool->SendCommand<true>([this, device_addr, size, is_write] {
-        Buffer& buffer = slot_buffers[FindBuffer(device_addr, size)];
-        DownloadBufferMemory<false>(buffer, device_addr, size, is_write);
-    });
 }
 
 void BufferCache::ReadEdgeImagePages(const Image& image) {

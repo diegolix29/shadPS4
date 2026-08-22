@@ -69,10 +69,6 @@
 
 Frontend::WindowSDL* g_window = nullptr;
 
-namespace Libraries::Kernel {
-extern char const* g_environment[64];
-}
-
 namespace Core {
 
 Emulator::Emulator() {
@@ -135,9 +131,7 @@ s32 ReadCompiledSdkVersion(const std::string& guest_or_host_path) {
 }
 
 void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
-                   std::optional<std::filesystem::path> p_game_folder,
-                   std::vector<std::pair<std::filesystem::path, std::string>> mounts,
-                   std::vector<std::string> const& env_vars) {
+                   std::optional<std::filesystem::path> p_game_folder) {
     Common::SetCurrentThreadName("shadPS4:Main");
     if (waitForDebuggerBeforeRun) {
         Debugger::WaitForDebuggerAttach();
@@ -493,21 +487,9 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
     }
     mnt->Mount(host_font2_dir, guest_font_dir);
 
-    for (auto const& mount_pair : mounts) {
-        LOG_INFO(Loader, "Mounting {} to {}", mount_pair.first.string(), mount_pair.second);
-        mnt->Mount(mount_pair.first, mount_pair.second);
-    }
-
     if (std::filesystem::is_empty(host_font_dir) || std::filesystem::is_empty(host_font2_dir)) {
         LOG_WARNING(Loader, "No dumped system fonts, expect missing text or instability");
     }
-
-    auto env_max = std::min<u64>(env_vars.size(), 63);
-    for (int i = 0; i < env_max; i++) {
-        LOG_INFO(Loader, "Env {:02}: {}", i, env_vars[i]);
-        Libraries::Kernel::g_environment[i] = env_vars[i].c_str();
-    }
-    Libraries::Kernel::g_environment[env_max] = nullptr;
 
     Libraries::InitHLELibs(&linker->GetHLESymbols());
 

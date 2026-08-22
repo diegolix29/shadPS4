@@ -3,8 +3,8 @@
 
 #include "common/arch.h"
 #include "common/assert.h"
-#include "core/signals.h"
 #include "common/logging/backend.h"
+#include "core/signals.h"
 
 #if defined(ARCH_X86_64)
 #define Crash() __asm__ __volatile__("int $3")
@@ -15,7 +15,6 @@
 #endif
 
 void assert_fail_impl() {
-    Core::Signals::Instance()->RemoveHandlers();
     Crash();
 }
 

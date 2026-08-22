@@ -110,7 +110,7 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install ninja
+          brew install ninja llvm
 
       - name: Configure CMake
         run: |
@@ -281,6 +281,9 @@ jobs:
     - name: Print CPU Info
       run: sysctl hw machdep.cpu
 
+    - name: Install LLVM
+      run: brew install llvm
+
     - name: Configure CMake
       run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON  -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
@@ -310,6 +313,9 @@ jobs:
       uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: latest
+
+    - name: Install LLVM
+      run: brew install llvm
 
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4

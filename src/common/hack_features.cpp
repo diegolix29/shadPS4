@@ -15,8 +15,7 @@ void HackFeatures::Init(std::string_view game_serial) {
 
     // CUSA00035 / CUSA00076 / CUSA00100 are different regional/language
     // releases of The Order: 1886.
-    if (game_serial == "CUSA00035" || game_serial == "CUSA00076" ||
-        game_serial == "CUSA00100") {
+    if (game_serial == "CUSA00035" || game_serial == "CUSA00076" || game_serial == "CUSA00100") {
         isTheOrder1886 = true;
     }
 }

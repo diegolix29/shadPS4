@@ -8,6 +8,10 @@
 #include <windows.h>
 #include "common/types.h"
 
+#ifndef PCONTEXT
+typedef CONTEXT* PCONTEXT;
+#endif
+
 typedef enum _FILE_INFORMATION_CLASS {
     FileDirectoryInformation = 1,
     FileFullDirectoryInformation = 2,

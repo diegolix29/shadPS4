@@ -26,6 +26,7 @@
 #include "core/libraries/kernel/threads.h"
 #include "core/libraries/libc_internal/libc_internal.h"
 #include "core/libraries/system/sysmodule.h"
+#include "core/libraries/system/sysmodule_internal.h"
 #include "core/linker.h"
 #include "core/memory.h"
 #include "core/thread.h"

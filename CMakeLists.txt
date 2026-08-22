@@ -223,7 +223,7 @@ execute_process(
 
 # Set Version
 set(EMULATOR_VERSION_MAJOR "0")
-set(EMULATOR_VERSION_MINOR "16")
+set(EMULATOR_VERSION_MINOR "18")
 set(EMULATOR_VERSION_PATCH "1")
 
 set_source_files_properties(src/shadps4.rc PROPERTIES COMPILE_DEFINITIONS "EMULATOR_VERSION_MAJOR=${EMULATOR_VERSION_MAJOR};EMULATOR_VERSION_MINOR=${EMULATOR_VERSION_MINOR};EMULATOR_VERSION_PATCH=${EMULATOR_VERSION_PATCH}")
@@ -248,6 +248,8 @@ find_package(Freetype 2.14.1 MODULE)
 find_package(glslang 15 CONFIG)
 find_package(half 1.12.0 MODULE)
 find_package(magic_enum 0.9.7 CONFIG)
+find_package(miniupnpc 2.3.3 MODULE)
+find_package(LibreSSL 4.3.1 MODULE)
 find_package(PNG 1.6 MODULE)
 find_package(OpenAL CONFIG)
 find_package(RenderDoc 1.6.0 MODULE)
@@ -270,6 +272,7 @@ find_package(xxHash 0.8.2 MODULE)
 find_package(Zydis 5.0.0 MODULE)
 find_package(pugixml 1.14 CONFIG)
 find_package(ZArchive 0.1.2 MODULE)
+find_package(absl 20250512.1 CONFIG)
 
 if (APPLE)
     find_package(date 3.0.1 CONFIG)
@@ -375,6 +378,7 @@ set(KERNEL_LIB src/core/libraries/kernel/sync/mutex.cpp
                src/core/libraries/kernel/threads/event_flag.cpp
                src/core/libraries/kernel/threads/exception.cpp
                src/core/libraries/kernel/threads/exception.h
+               src/core/libraries/kernel/threads/exception_codes.h
                src/core/libraries/kernel/threads/mutex.cpp
                src/core/libraries/kernel/threads/pthread_attr.cpp
                src/core/libraries/kernel/threads/pthread_clean.cpp
@@ -666,7 +670,7 @@ set(VDEC_LIB src/core/libraries/videodec/video_utils.cpp
 set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_common.cpp
             src/core/libraries/np/np_common.h  
-                        src/core/libraries/np/np_commerce/np_commerce.cpp
+            src/core/libraries/np/np_commerce/np_commerce.cpp
             src/core/libraries/np/np_commerce/np_commerce.h
             src/core/libraries/np/np_manager.cpp
             src/core/libraries/np/np_manager.h
@@ -676,8 +680,6 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_score.h
             src/core/libraries/np/np_trophy.cpp
             src/core/libraries/np/np_trophy.h
-            src/core/libraries/np/np_tus.cpp
-            src/core/libraries/np/np_tus.h
             src/core/libraries/np/trophy_ui.cpp
             src/core/libraries/np/trophy_ui.h
             src/core/libraries/np/np_web_api.cpp
@@ -689,7 +691,7 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_party.h
             src/core/libraries/np/np_auth.cpp
             src/core/libraries/np/np_auth.h
-                        src/core/libraries/np/np_profile_dialog/np_profile_dialog.cpp
+            src/core/libraries/np/np_profile_dialog/np_profile_dialog.cpp
             src/core/libraries/np/np_profile_dialog/np_profile_dialog.h
             src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.cpp
             src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.h
@@ -701,6 +703,9 @@ set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/object_manager.h
             src/core/libraries/np/np_signaling.cpp
             src/core/libraries/np/np_signaling.h
+            src/core/libraries/np/np_tus/np_tus.cpp
+            src/core/libraries/np/np_tus/np_tus.h
+            src/core/libraries/np/np_tus/np_tus_ctx.h
 )
 
 set(ZLIB_LIB src/core/libraries/zlib/zlib.cpp
@@ -873,8 +878,8 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_sys/devices/nop_device.h
          src/core/file_sys/devices/console_device.cpp
          src/core/file_sys/devices/console_device.h
-         src/core/file_sys/devices/deci_tty6_device.cpp
-         src/core/file_sys/devices/deci_tty6_device.h
+         src/core/file_sys/devices/deci_tty_device.cpp
+         src/core/file_sys/devices/deci_tty_device.h
          src/core/file_sys/devices/random_device.cpp
          src/core/file_sys/devices/random_device.h
          src/core/file_sys/devices/rng_device.cpp
@@ -883,6 +888,8 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_sys/devices/urandom_device.h
          src/core/file_sys/devices/srandom_device.cpp
          src/core/file_sys/devices/srandom_device.h
+         src/core/file_sys/devices/zero_device.cpp
+         src/core/file_sys/devices/zero_device.h
          src/core/file_sys/directories/base_directory.cpp
          src/core/file_sys/directories/base_directory.h
          src/core/file_sys/directories/normal_directory.cpp
@@ -905,6 +912,7 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/crypto/keys.h
          src/core/file_sys/fs.cpp
          src/core/file_sys/fs.h
+         src/core/file_sys/ifile.cpp
          src/core/file_sys/ifile.h
          src/core/file_sys/backends/host_fs.cpp
          src/core/file_sys/backends/host_fs.h
@@ -1051,6 +1059,7 @@ set(SHADER_RECOMPILER src/shader_recompiler/profile.h
                       src/shader_recompiler/ir/passes/ir_passes.h
                       src/shader_recompiler/ir/passes/lower_buffer_format_to_raw.cpp
                       src/shader_recompiler/ir/passes/lower_fp64_to_fp32.cpp
+                      src/shader_recompiler/ir/passes/lower_user_clip_planes.cpp
                       src/shader_recompiler/ir/passes/readlane_elimination_pass.cpp
                       src/shader_recompiler/ir/passes/resource_tracking_pass.cpp
                       src/shader_recompiler/ir/passes/ring_access_elimination.cpp
@@ -1237,6 +1246,29 @@ set(EMULATOR src/emulator.cpp
              src/sdl_window.cpp
 )
 
+# shadNet protobuf generation
+set(SHADNET_PROTO_OUT "${CMAKE_CURRENT_BINARY_DIR}/shadnet_proto_gen")
+file(MAKE_DIRECTORY "${SHADNET_PROTO_OUT}")
+add_custom_command(
+    OUTPUT
+        "${SHADNET_PROTO_OUT}/shadnet.pb.cc"
+        "${SHADNET_PROTO_OUT}/shadnet.pb.h"
+    COMMAND protobuf::protoc
+        "--proto_path=${CMAKE_CURRENT_SOURCE_DIR}/src/shadnet"
+        "--cpp_out=${SHADNET_PROTO_OUT}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/shadnet/shadnet.proto"
+    DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/shadnet/shadnet.proto"
+    COMMENT "Generating shadnet protobuf sources"
+    VERBATIM
+)
+
+set(SHADNET src/shadnet/client.cpp
+            src/shadnet/client.h
+            src/shadnet/server_probe.cpp
+            src/shadnet/server_probe.h
+            "${SHADNET_PROTO_OUT}/shadnet.pb.cc"
+)
 if (APPLE)
     list(APPEND EMULATOR src/sdl_window_apple.mm)
 endif()
@@ -1374,10 +1406,12 @@ create_target_directory_groups(shadps4)
 
 target_link_libraries(shadps4 PRIVATE magic_enum::magic_enum fmt::fmt toml11::toml11 tsl::robin_map xbyak::xbyak Tracy::TracyClient RenderDoc::API FFmpeg::ffmpeg Dear_ImGui ImGuiFileDialog gcn half::half ZLIB::ZLIB PNG::PNG minimp3 cryptopp::cryptopp)
 target_link_libraries(shadps4 PRIVATE Boost::headers GPUOpen::VulkanMemoryAllocator LibAtrac9 sirit Vulkan::Headers xxHash::xxhash Zydis::Zydis glslang::glslang SDL3::SDL3 SDL3_image::SDL3_image SDL3_mixer::SDL3_mixer pugixml::pugixml)
-target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib  cryptopp::cryptopp)
+target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::hwinfo nlohmann_json::nlohmann_json miniz::miniz fdk-aac CLI11::CLI11 OpenAL::OpenAL Cpp_Httplib miniupnpc::miniupnpc cryptopp::cryptopp)
 
 target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config.h")
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
+
+target_link_libraries(shadps4 PRIVATE libprotobuf)
 
 target_link_libraries(shadps4 PRIVATE Freetype::Freetype)
 target_link_libraries(shadps4 PRIVATE ZArchive::zarchive)
@@ -1415,7 +1449,9 @@ if (APPLE)
         DEPENDS ${MVK_DYLIB_SRC} ${MVK_DST}
         COMMAND ${CMAKE_COMMAND} -E copy ${MVK_DYLIB_SRC} ${MVK_DYLIB_DST})
     add_custom_target(CopyMoltenVK DEPENDS ${MVK_ICD_DST} ${MVK_DYLIB_DST})
-    add_dependencies(CopyMoltenVK MoltenVK)
+    if (TARGET MoltenVK)
+        add_dependencies(CopyMoltenVK MoltenVK)
+    endif()
     add_dependencies(shadps4 CopyMoltenVK)
 
     if (ARCHITECTURE STREQUAL "x86_64")
@@ -1487,6 +1523,10 @@ endif()
 
 if (WIN32)
     target_sources(shadps4 PRIVATE src/shadps4.rc)
+endif()
+
+if (NOT MSVC)
+    target_compile_options(shadps4 PRIVATE -Wno-invalid-offsetof)
 endif()
 
 add_compile_definitions(BOOST_ASIO_STANDALONE)

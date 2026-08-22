@@ -5,8 +5,8 @@
 
 #include "common/config.h"
 #include "common/debug.h"
-#include "common/hack_features.h"
 #include "common/elf_info.h"
+#include "common/hack_features.h"
 #include "common/memory_patcher.h"
 #include "core/debug_state.h"
 #include "core/emulator_settings.h"

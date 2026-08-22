@@ -125,8 +125,8 @@ using namespace Shader;
 
 struct PassInfo {
     // map offset to inst
-    using PtrUserList = boost::container::flat_map<u32,
-        boost::container::small_vector<Shader::IR::Inst*, 2>>;
+    using PtrUserList =
+        boost::container::flat_map<u32, boost::container::small_vector<Shader::IR::Inst*, 2>>;
 
     Optimization::SrtGvnTable gvn_table;
     // keys are GetUserData or ReadConst instructions that are used as pointers

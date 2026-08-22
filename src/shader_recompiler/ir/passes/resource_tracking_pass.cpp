@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <queue>
-#include "core/emulator_settings.h"
 #include "common/memory_patcher.h"
+#include "core/emulator_settings.h"
 #include "shader_recompiler/frontend/control_flow_graph.h"
 #include "shader_recompiler/info.h"
 #include "shader_recompiler/ir/basic_block.h"
@@ -716,7 +716,7 @@ void PatchGlobalDataShareAccess(IR::Block& block, IR::Inst& inst, Info& info,
 
         // Patch instruction to GDS buffer atomic increment/decrement.
         const IR::U32 handle = ir.Imm32(binding);
-        const IR::U32 index = ir.ShiftRightLogical(IR::U32{inst.Arg(0)}, ir.Imm32(2));
+        index = ir.ShiftRightLogical(IR::U32{inst.Arg(0)}, ir.Imm32(2));
         const bool is_append = inst.GetOpcode() == IR::Opcode::DataAppend;
         const IR::Value prev = is_append ? ir.BufferAtomicInc(handle, index, {})
                                          : ir.BufferAtomicDec(handle, index, {});
@@ -933,8 +933,8 @@ IR::U32 CalculateBufferAddress(IR::IREmitter& ir, const IR::Inst& inst, const In
     // addr64: VGPR pair provides a 64-bit byte offset from buffer base.
     // Stride is ignored in this mode — the VGPR values are already byte offsets.
     if (inst_info.addr64) {
-        const IR::U32 addr_lo = IR::GetBufferIndexArg(&inst);     // comp 0 = addr_lo
-        const IR::U32 addr_hi = IR::GetBufferVOffsetArg(&inst);   // comp 1 = addr_hi
+        const IR::U32 addr_lo = IR::GetBufferIndexArg(&inst);   // comp 0 = addr_lo
+        const IR::U32 addr_hi = IR::GetBufferVOffsetArg(&inst); // comp 1 = addr_hi
 
         // Fold soffset + inst_offset into 64-bit address via IAddCarry → SPIR-V OpIAddCarry
         IR::U32 offset = ir.Imm32(inst_offset);

@@ -208,7 +208,7 @@ private:
     template <typename Func>
     void ForEachBufferInRange(VAddr device_addr, u64 size, Func&& func) {
         buffer_ranges.ForEachInRange(device_addr, size,
-                                     [&](u64 page_start, u64 page_end, BufferId id) {
+                                     [&](u64 page_start, u64 page_end, const BufferId& id) {
                                          Buffer& buffer = slot_buffers[id];
                                          func(id, buffer);
                                      });
@@ -239,7 +239,7 @@ private:
     vk::Buffer UploadCopies(const Buffer& buffer, std::span<vk::BufferCopy> copies,
                             size_t total_size_bytes);
 
-    bool SynchronizeBufferFromImage(const Buffer& buffer, VAddr device_addr, u32 size);
+    bool SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size);
 
     void WriteDataBuffer(Buffer& buffer, VAddr address, const void* value, u32 num_bytes);
 
