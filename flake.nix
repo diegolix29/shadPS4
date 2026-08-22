@@ -16,11 +16,11 @@
     in
     {
       formatter.x86_64-linux = pkgsLinux.nixpkgs-fmt;
-
       devShells.x86_64-linux.default =
         let
           shell =
             { self
+            , lib
             , mkShell
             , clangStdenv
             , clang-tools
@@ -87,7 +87,7 @@
                   clang-tools
                   cmake
                   pkg-config
-                ] ++ sdlConfigureDeps ++ pkgsLinux.lib.optionals enableDebugTooling [ renderdoc gef strace perf vulkan-tools ];
+                ] ++ sdlConfigureDeps ++ lib.optionals enableDebugTooling [ renderdoc gef strace perf vulkan-tools ];
 
               shellHook = ''
                 echo "Entering shadPS4 development shell!"
@@ -112,6 +112,7 @@
 
           build =
             { clangStdenv
+            , lib
             , cmake
             , ninja
             , pkg-config
@@ -159,7 +160,7 @@
             clangStdenv.mkDerivation (finalAttrs: {
               name = "${finalAttrs.pname}-${finalAttrs.version}-${finalAttrs.system}";
               pname = "shadps4";
-              version = "0.17.1";
+              version = "0.18.1";
               system = "x86_64-linux";
               src = ./.;
 
@@ -201,9 +202,9 @@
 
               cmakeFlags = [
                 (getBuildSettings releaseMode).flag
-                (pkgsLinux.lib.cmakeBool "ENABLE_DISCORD_RPC" enableDiscordRpc)
-                (pkgsLinux.lib.cmakeBool "ENABLE_TESTS" false)
-                (pkgsLinux.lib.cmakeBool "ENABLE_SYSTEM_LIBRARIES" true)
+                (lib.cmakeBool "ENABLE_DISCORD_RPC" enableDiscordRpc)
+                (lib.cmakeBool "ENABLE_TESTS" false)
+                (lib.cmakeBool "ENABLE_SYSTEM_LIBRARIES" true)
               ];
               dontStrip = (getBuildSettings releaseMode).symbols;
 

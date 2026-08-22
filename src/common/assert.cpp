@@ -3,6 +3,7 @@
 
 #include "common/arch.h"
 #include "common/assert.h"
+#include "core/signals.h"
 #include "common/logging/backend.h"
 
 #if defined(ARCH_X86_64)
@@ -14,8 +15,7 @@
 #endif
 
 void assert_fail_impl() {
-    Common::Log::Stop();
-    std::fflush(stdout);
+    Core::Signals::Instance()->RemoveHandlers();
     Crash();
 }
 
