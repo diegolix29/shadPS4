@@ -107,9 +107,6 @@ void Emulator::Shutdown() {
             storage_stats.demand_chunks, storage_stats.max_staging_buffers,
             storage_stats.max_queue_depth);
     }
-    if (controllers) {
-        controllers->Cleanup();
-    }
 }
 
 s32 ReadCompiledSdkVersion(const std::string& guest_or_host_path) {

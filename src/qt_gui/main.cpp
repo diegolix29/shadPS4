@@ -1,30 +1,55 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <csignal>
+#include <cstring>
 #include <filesystem>
+#include <iostream>
+#include <mutex>
 #include <thread>
-#include <core/emulator_state.h>
+#include <vector>
+
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_events.h>
 
 #include "common/config.h"
 #include "common/logging/backend.h"
+#include "common/logging/log.h"
 #include "common/memory_patcher.h"
 #include "common/path_util.h"
+#include "common/scm_rev.h"
+#include "common/string_util.h"
 #include "core/debugger.h"
+#include "core/emulator_state.h"
+#include "core/file_format/psf.h"
+#include "core/file_format/psf_loader.h"
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc_client.h"
 #include "core/libraries/audio/audioout.h"
+#include "core/libraries/kernel/time.h"
+#include "core/libraries/system/systemservice.h"
 #include "emulator.h"
 #include "game_directory_dialog.h"
 #include "imgui/big_picture.h"
-#include "iostream"
-#include "main_window.h"
-#include "main_window_themes.h"
+#include "input/input_handler.h"
+#include "qt_gui/cheats_patches.h"
 #include "qt_gui/compatibility_info.h"
-#include "system_error"
-#include "unordered_map"
-#include "vector"
+#include "qt_gui/main_window.h"
+#include "qt_gui/main_window_ui.h"
+#include "qt_gui/sdl_event_wrapper.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
+#include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "welcome_dialog.h"
+
+namespace {
+// Helper functions to replace missing GameControllers static methods
+void SetSelectedGamepad(const std::string& guid) {
+    Config::setActiveControllerID(guid);
+}
+}
 
 extern std::unique_ptr<Vulkan::Presenter> presenter;
 WindowThemes m_window_themes;
@@ -526,10 +551,10 @@ int main(int argc, char* argv[]) {
 
                     try {
                         std::string active_controller = next_str();
-                        GamepadSelect::SetSelectedGamepad(active_controller);
+                        SetSelectedGamepad(active_controller);
                     } catch (...) {
                         std::cerr
-                            << "[IPC] SET_ACTIVE_PAD: cannot call GamepadSelect::SetActivePad\n";
+                            << "[IPC] SET_ACTIVE_PAD: cannot call Input::SetActivePad\n";
                     }
 
                     SDL_Event checkGamepad;
@@ -539,7 +564,7 @@ int main(int argc, char* argv[]) {
 
                 } else if (cmd == "SET_ACTIVE_CONTROLLER") {
                     std::string guid = next_str();
-                    GamepadSelect::SetSelectedGamepad(guid);
+                    SetSelectedGamepad(guid);
 
                     SDL_Event checkGamepad;
                     SDL_memset(&checkGamepad, 0, sizeof(checkGamepad));

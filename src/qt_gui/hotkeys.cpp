@@ -16,6 +16,38 @@
 #include "sdl_event_wrapper.h"
 #include "ui_hotkeys.h"
 
+namespace {
+// Helper functions to replace missing GameControllers static methods
+std::string GetGUIDString(SDL_JoystickID* gamepads, int index) {
+    if (!gamepads || index < 0) {
+        return "";
+    }
+    SDL_GUID guid = SDL_GetJoystickGUIDForID(gamepads[index]);
+    char guid_str[33];
+    SDL_GUIDToString(guid, guid_str, sizeof(guid_str));
+    return std::string(guid_str);
+}
+
+int GetIndexfromGUID(SDL_JoystickID* gamepads, int gamepad_count, const std::string& target_guid) {
+    if (!gamepads || gamepad_count <= 0 || target_guid.empty()) {
+        return -1;
+    }
+    for (int i = 0; i < gamepad_count; i++) {
+        SDL_GUID guid = SDL_GetJoystickGUIDForID(gamepads[i]);
+        char guid_str[33];
+        SDL_GUIDToString(guid, guid_str, sizeof(guid_str));
+        if (std::string(guid_str) == target_guid) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+std::string GetSelectedGamepad() {
+    return Config::getActiveControllerID();
+}
+}
+
 Hotkeys::Hotkeys(std::shared_ptr<IpcClient> ipc_client, bool isGameRunning, QWidget* parent)
     : QDialog(parent), m_ipc_client(ipc_client), GameRunning(isGameRunning), ui(new Ui::Hotkeys) {
 
@@ -369,10 +401,10 @@ void Hotkeys::CheckGamePad() {
         return;
     }
 
-    int defaultIndex = GamepadSelect::GetIndexfromGUID(h_gamepads, gamepad_count,
+    int defaultIndex = GetIndexfromGUID(h_gamepads, gamepad_count,
                                                        Config::getDefaultControllerID());
-    int activeIndex = GamepadSelect::GetIndexfromGUID(h_gamepads, gamepad_count,
-                                                      GamepadSelect::GetSelectedGamepad());
+    int activeIndex = GetIndexfromGUID(h_gamepads, gamepad_count,
+                                                      GetSelectedGamepad());
 
     if (!GameRunning) {
         if (activeIndex != -1) {

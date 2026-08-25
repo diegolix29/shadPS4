@@ -55,6 +55,13 @@
 #include "main_window.h"
 #include "settings_dialog.h"
 
+namespace {
+// Helper functions to replace missing GameControllers static methods
+std::string GetSelectedGamepad() {
+    return Config::getActiveControllerID();
+}
+}
+
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"
 #endif
@@ -1842,7 +1849,7 @@ void MainWindow::CreateConnects() {
 
                 QString workDir = QDir::currentPath();
                 m_ipc_client->startGame(fileInfo, final_args, workDir, false);
-                m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+                m_ipc_client->setActiveController(GetSelectedGamepad());
 
                 m_ipc_client->gameClosedFunc = [this]() {
                     QMetaObject::invokeMethod(this, [this]() {
@@ -1885,7 +1892,7 @@ void MainWindow::CreateConnects() {
 
                 QString workDir = QDir::currentPath();
                 m_ipc_client->startGame(fileInfo, final_args, workDir, false);
-                m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+                m_ipc_client->setActiveController(GetSelectedGamepad());
 
                 m_ipc_client->gameClosedFunc = [this]() {
                     QMetaObject::invokeMethod(this, [this]() {
@@ -3000,7 +3007,7 @@ void MainWindow::StartGameWithArgs(QStringList args, int forcedIndex) {
     }
     Config::setGameRunning(true);
 
-    m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+    m_ipc_client->setActiveController(GetSelectedGamepad());
 
     m_ipc_client->gameClosedFunc = [this]() {
         QMetaObject::invokeMethod(this, [this]() {
@@ -3163,7 +3170,7 @@ void MainWindow::BootZarGame() {
 
         QString workDir = QDir::currentPath();
         m_ipc_client->startGame(fileInfo, final_args, workDir, false);
-        m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+        m_ipc_client->setActiveController(GetSelectedGamepad());
 
         setWindowState(Qt::WindowMinimized);
     }
@@ -3570,7 +3577,7 @@ void MainWindow::StartGameWithPath(const QString& gamePath) {
     StartEmulator(path, final_args);
 
     Config::setGameRunning(true);
-    m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+    m_ipc_client->setActiveController(GetSelectedGamepad());
     UpdateToolbarButtons();
 
     if (!m_ipc_client || !Config::getGameRunning()) {
@@ -3622,7 +3629,7 @@ void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
 
     QString workDir = QDir::currentPath();
     m_ipc_client->startGame(fileInfo, final_args, workDir, false);
-    m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+    m_ipc_client->setActiveController(GetSelectedGamepad());
 
     setWindowState(Qt::WindowMinimized);
 }

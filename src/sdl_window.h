@@ -1,16 +1,16 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
 #include <filesystem>
+
 #include <span>
 #include <string>
 
 #ifdef ENABLE_QT_GUI
 #include <QObject>
 #endif
-
 #include "common/types.h"
 #include "core/libraries/pad/pad.h"
 #include "input/controller.h"
@@ -34,9 +34,18 @@ enum class WindowSystemType : u8 {
 };
 
 struct WindowSystemInfo {
+    // Connection to a display server. This is used on X11 and Wayland platforms.
     void* display_connection = nullptr;
+
+    // Render surface. This is a pointer to the native window handle, which depends
+    // on the platform. e.g. HWND for Windows, Window for X11. If the surface is
+    // set to nullptr, the video backend will run in headless mode.
     void* render_surface = nullptr;
+
+    // Scale of the render surface. For hidpi systems, this will be >1.
     float render_surface_scale = 1.0f;
+
+    // Window system type. Determines which GL context or Vulkan WSI is used.
     WindowSystemType type = WindowSystemType::Headless;
 };
 
@@ -48,7 +57,7 @@ class WindowSDL
 #ifdef ENABLE_QT_GUI
     Q_OBJECT
 #endif
-
+    
     int keyboard_grab = 0;
 
 public:
@@ -59,22 +68,24 @@ public:
     s32 GetWidth() const {
         return width;
     }
+
     s32 GetHeight() const {
         return height;
     }
+
     bool IsOpen() const {
         return is_open;
     }
-    SDL_Window* GetSDLWindow() const {
+
+    [[nodiscard]] SDL_Window* GetSDLWindow() const {
         return window;
     }
+
     WindowSystemInfo GetWindowInfo() const {
         return window_info;
     }
 
     void SetIcon(std::span<const u8> png_data);
-    void SetWindowIcon(SDL_Window* window, const std::vector<u8>& png);
-    void SetDefaultWindowIcon(SDL_Window* window);
 
     void WaitEvent();
     void InitTimers();
@@ -82,14 +93,13 @@ public:
     void RequestKeyboard();
     void ReleaseKeyboard();
 
-#ifdef ENABLE_QT_GUI
+    #ifdef ENABLE_QT_GUI
 signals:
     void gamepadButtonPressed(int button);
     void GamepadButtonPressed(int button);
     void gamepadButtonReleased(int button);
     void gamepadAxisChanged(int axis, float value);
 #endif
-
 private:
     void OnResize();
     void OnKeyboardMouseInput(const SDL_Event* event);
@@ -98,6 +108,7 @@ private:
     void RelaunchEmulator();
     void RelaunchEmulatorWithBigPicture();
 
+private:
     s32 width;
     s32 height;
     Input::GameControllers controllers{};
@@ -106,5 +117,8 @@ private:
     bool is_shown{};
     bool is_open{true};
 };
+
+void SetWindowIcon(SDL_Window* window, const std::vector<u8>& png);
+void SetDefaultWindowIcon(SDL_Window* window);
 
 } // namespace Frontend

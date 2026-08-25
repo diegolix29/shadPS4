@@ -1,6 +1,5 @@
-// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
-
 #include <limits>
 
 #include <SDL3/SDL_events.h>
@@ -27,38 +26,40 @@
 
 #include "common/assert.h"
 #include "common/config.h"
+#include "core/file_sys/fs.h"
+#include "imgui/big_picture.h"
+
+
 #include "common/elf_info.h"
 #include "common/io_file.h"
 #include "common/logging/formatter.h"
 #include "common/scope_exit.h"
 #include "core/debug_state.h"
 #include "core/devtools/layer.h"
-#include "core/file_sys/fs.h"
+#include "core/emulator_settings.h"
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/system/userservice.h"
 #include "core/user_settings.h"
-#include "imgui/big_picture.h"
-#include "imgui/friends_layer.h"
 #include "imgui/renderer/imgui_core.h"
 #include "input/controller.h"
 #include "input/input_handler.h"
 #include "input/input_mouse.h"
 #include "sdl_window.h"
-
-static std::mutex virtual_user_mutex;
-#include "video_core/renderdoc.h"
 #include "video_core/screenshot.h"
 
-#ifdef __APPLE__
-#include "SDL3/SDL_metal.h"
-#endif
+#include "video_core/renderdoc.h"
 
+#ifdef __APPLE__
+#include <SDL3/SDL_metal.h>
+#endif
 #include <common/path_util.h>
+
 #include <core/emulator_settings.h>
 #include "core/libraries/mouse/sdl_mouse.h"
 
 static bool pause_due_to_focus_loss = false;
+
 CMRC_DECLARE(res);
 
 namespace Frontend {
@@ -66,59 +67,56 @@ namespace Frontend {
 using namespace Libraries::Pad;
 
 static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
+    using OPBDO = OrbisPadButtonDataOffset;
+
     switch (button) {
     case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
-        return OrbisPadButtonDataOffset::Down;
+        return OPBDO::Down;
     case SDL_GAMEPAD_BUTTON_DPAD_UP:
-        return OrbisPadButtonDataOffset::Up;
+        return OPBDO::Up;
     case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
-        return OrbisPadButtonDataOffset::Left;
+        return OPBDO::Left;
     case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
-        return OrbisPadButtonDataOffset::Right;
+        return OPBDO::Right;
     case SDL_GAMEPAD_BUTTON_SOUTH:
-        return OrbisPadButtonDataOffset::Cross;
+        return OPBDO::Cross;
     case SDL_GAMEPAD_BUTTON_NORTH:
-        return OrbisPadButtonDataOffset::Triangle;
+        return OPBDO::Triangle;
     case SDL_GAMEPAD_BUTTON_WEST:
-        return OrbisPadButtonDataOffset::Square;
+        return OPBDO::Square;
     case SDL_GAMEPAD_BUTTON_EAST:
-        return OrbisPadButtonDataOffset::Circle;
+        return OPBDO::Circle;
     case SDL_GAMEPAD_BUTTON_START:
-        return OrbisPadButtonDataOffset::Options;
+        return OPBDO::Options;
     case SDL_GAMEPAD_BUTTON_TOUCHPAD:
-        return OrbisPadButtonDataOffset::TouchPad;
+        return OPBDO::TouchPad;
     case SDL_GAMEPAD_BUTTON_BACK:
-        return OrbisPadButtonDataOffset::TouchPad;
+        return OPBDO::TouchPad;
     case SDL_GAMEPAD_BUTTON_GUIDE:
-        return OrbisPadButtonDataOffset::Home;
+        return OPBDO::Home;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
-        return OrbisPadButtonDataOffset::L1;
+        return OPBDO::L1;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
-        return OrbisPadButtonDataOffset::R1;
+        return OPBDO::R1;
     case SDL_GAMEPAD_BUTTON_LEFT_STICK:
-        return OrbisPadButtonDataOffset::L3;
+        return OPBDO::L3;
     case SDL_GAMEPAD_BUTTON_RIGHT_STICK:
-        return OrbisPadButtonDataOffset::R3;
+        return OPBDO::R3;
     default:
-        return OrbisPadButtonDataOffset::None;
+        return OPBDO::None;
     }
 }
 
-std::mutex motion_control_mutex;
-float gyro_buf[3] = {0.0f, 0.0f, 0.0f}, accel_buf[3] = {0.0f, 9.81f, 0.0f};
-static Uint32 SDLCALL PollGyroAndAccel(void* userdata, SDL_TimerID timer_id, Uint32 interval) {
+static Uint32 SDLCALL PollController(void* userdata, SDL_TimerID timer_id, Uint32 interval) {
     auto* controller = reinterpret_cast<Input::GameController*>(userdata);
-    controller->UpdateAxisSmoothing();
-    float gyro[3] = {0.0f, 0.0f, 0.0f};
-    controller->Gyro(0, gyro);
-    controller->Acceleration(0, gyro);
+    controller->PollState();
     return interval;
 }
 
-static Uint32 SDLCALL UpdateAxisSmoothingTimer(void* userdata, SDL_TimerID timer_id,
-                                               Uint32 interval) {
+static Uint32 SDLCALL PollControllerLightColour(void* userdata, SDL_TimerID timer_id,
+                                                Uint32 interval) {
     auto* controller = reinterpret_cast<Input::GameController*>(userdata);
-    controller->UpdateAxisSmoothing();
+    controller->PollLightColour();
     return interval;
 }
 
@@ -131,16 +129,20 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         UNREACHABLE_MSG("Failed to initialize SDL video subsystem: {}", SDL_GetError());
     }
+    // On macOS, the future Intel compatibility environment does not include camera frameworks.
+    // Just skip initializing it entirely, no point in splitting old vs new OS versions here.
+#ifndef __APPLE__
     if (!SDL_Init(SDL_INIT_CAMERA)) {
         LOG_ERROR(Input, "Failed to initialize SDL camera subsystem: {}", SDL_GetError());
     }
+#endif
     SDL_InitSubSystem(SDL_INIT_AUDIO);
 
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING,
                           std::string(window_title).c_str());
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, Config::getWindowPosX());
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, Config::getWindowPosY());
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height);
     SDL_SetNumberProperty(props, "flags", SDL_WINDOW_VULKAN);
@@ -185,7 +187,8 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     window_info.type = WindowSystemType::Windows;
     window_info.render_surface = SDL_GetPointerProperty(SDL_GetWindowProperties(window),
                                                         SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
-#elif defined(SDL_PLATFORM_LINUX)
+#elif defined(SDL_PLATFORM_LINUX) || defined(__FreeBSD__)
+    // SDL doesn't have a platform define for FreeBSD AAAAAAAAAA
     if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
         window_info.type = WindowSystemType::X11;
         window_info.display_connection = SDL_GetPointerProperty(
@@ -206,7 +209,6 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
     // input handler init-s
     Input::ControllerOutput::LinkJoystickAxes();
     Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
-    Input::GameControllers::TryOpenSDLControllers(controllers);
 
     if (Config::getBackgroundControllerInput()) {
         SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -215,56 +217,24 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
 
 WindowSDL::~WindowSDL() = default;
 
-SDL_Event* e = nullptr;
-
 void WindowSDL::SetIcon(std::span<const u8> png_data) {
     if (png_data.empty()) {
         LOG_WARNING(Core, "No window icon data available, using default icon.");
         SetDefaultWindowIcon(window);
         return;
     }
-#ifndef __APPLE__
     SetWindowIcon(window, std::vector<u8>(png_data.begin(), png_data.end()));
-#endif
 }
-
-#ifndef __APPLE__
-void WindowSDL::SetWindowIcon(SDL_Window* window, const std::vector<u8>& png) {
-    int width, height, channels;
-    stbi_uc* pixels = stbi_load_from_memory(png.data(), static_cast<int>(png.size()), &width,
-                                            &height, &channels, STBI_rgb_alpha);
-    if (!pixels) {
-        LOG_ERROR(Core, "Failed to load window icon from memory");
-        return;
-    }
-
-    SDL_Surface* surface = SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, pixels,
-                                                 static_cast<int>(width) * 4);
-    if (!surface) {
-        LOG_ERROR(Core, "Failed to create SDL surface for window icon");
-        stbi_image_free(pixels);
-        return;
-    }
-
-    SDL_SetWindowIcon(window, surface);
-    SDL_DestroySurface(surface);
-    stbi_image_free(pixels);
-}
-
-void WindowSDL::SetDefaultWindowIcon(SDL_Window* window) {
-    auto fs = cmrc::res::get_filesystem();
-    auto icon_entry = fs.open("resources/icon.png");
-    std::vector<u8> icon_data(icon_entry.begin(), icon_entry.end());
-    SetWindowIcon(window, icon_data);
-}
-#endif
 
 void WindowSDL::WaitEvent() {
     // Called on main thread
     SDL_Event event;
-    SDL_memset(&event, 0, sizeof(SDL_Event));
 
     if (!SDL_WaitEvent(&event)) {
+        return;
+    }
+
+    if (Libraries::Mouse::PushSDLEvent(event)) {
         return;
     }
 
@@ -278,6 +248,7 @@ void WindowSDL::WaitEvent() {
     if (ImGui::Core::ProcessEvent(&event)) {
         return;
     }
+
     switch (event.type) {
     case SDL_EVENT_WINDOW_FOCUS_LOST:
         if (Config::getPauseOnUnfocus()) {
@@ -301,6 +272,7 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_WINDOW_RESTORED:
     case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
     case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
+        OnResize();
         break;
     case SDL_EVENT_WINDOW_MOVED: {
         int x, y;
@@ -325,8 +297,7 @@ void WindowSDL::WaitEvent() {
         break;
     case SDL_EVENT_GAMEPAD_ADDED:
     case SDL_EVENT_GAMEPAD_REMOVED:
-        // todo handle userserviceevents here
-        Input::GameControllers::TryOpenSDLControllers(controllers);
+        controllers.TryOpenSDLControllers();
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
     case SDL_EVENT_GAMEPAD_BUTTON_UP:
@@ -334,8 +305,6 @@ void WindowSDL::WaitEvent() {
     case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
     case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
     case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
-        OnGamepadEvent(&event);
-        break;
     case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
         OnGamepadEvent(&event);
         break;
@@ -395,13 +364,12 @@ void WindowSDL::WaitEvent() {
         }
         break;
     case SDL_EVENT_CHANGE_CONTROLLER:
-        Input::GameControllers::TryOpenSDLControllers(controllers);
+        UNREACHABLE_MSG("todo");
         break;
     case SDL_EVENT_TOGGLE_SIMPLE_FPS:
         Overlay::ToggleSimpleFps();
         break;
     case SDL_EVENT_TOGGLE_FRIENDS:
-        ImGui::Friends::Toggle();
         break;
     case SDL_EVENT_RELOAD_INPUTS:
         Input::ParseInputConfig(std::string(Common::ElfInfo::Instance().GameSerial()));
@@ -414,37 +382,35 @@ void WindowSDL::WaitEvent() {
         SDL_SetWindowRelativeMouseMode(this->GetSDLWindow(),
                                        Input::ToggleMouseModeTo(Input::MouseMode::Gyro));
         break;
-    case SDL_EVENT_ADD_VIRTUAL_USER: {
-        std::scoped_lock lock(virtual_user_mutex);
-        for (int i = 0; i < 4; i++) {
-            if (controllers[i]->user_id == -1) {
-                controllers[i]->user_id = i + 1;
-                Libraries::UserService::OrbisUserServiceEvent(
-                    {Libraries::UserService::OrbisUserServiceEventType::Login,
-                     (s32)controllers[i]->user_id});
-                break;
-            }
-        }
-    } break;
-    case SDL_EVENT_REMOVE_VIRTUAL_USER:
-        LOG_INFO(Input, "Remove user");
-        {
-            std::scoped_lock lock(virtual_user_mutex);
-            for (int i = 3; i >= 0; i--) {
-                if (controllers[i]->user_id != -1) {
-                    Libraries::UserService::OrbisUserServiceEvent(
-                        {Libraries::UserService::OrbisUserServiceEventType::Logout,
-                         (s32)controllers[i]->user_id});
-                    controllers[i]->user_id = -1;
-                    break;
-                }
-            }
-        }
-        break;
     case SDL_EVENT_MOUSE_TO_TOUCHPAD:
         SDL_SetWindowRelativeMouseMode(this->GetSDLWindow(),
                                        Input::ToggleMouseModeTo(Input::MouseMode::Touchpad));
         SDL_SetWindowRelativeMouseMode(this->GetSDLWindow(), false);
+        break;
+    case SDL_EVENT_ADD_VIRTUAL_USER:
+        for (int i = 0; i < 4; i++) {
+            if (controllers[i]->user_id == -1) {
+                auto u = UserManagement.GetUserByPlayerIndex(i + 1);
+                if (!u) {
+                    break;
+                }
+                controllers[i]->user_id = u->user_id;
+                controllers[i]->ConnectController(controllers[i]->m_sdl_gamepad);
+                UserManagement.LoginUser(u, i + 1);
+                break;
+            }
+        }
+        break;
+    case SDL_EVENT_REMOVE_VIRTUAL_USER:
+        LOG_INFO(Input, "Remove user");
+        for (int i = 3; i >= 0; i--) {
+            if (controllers[i]->user_id != -1) {
+                UserManagement.LogoutUser(UserManagement.GetUserByID(controllers[i]->user_id));
+                controllers[i]->DisconnectController();
+                controllers[i]->user_id = -1;
+                break;
+            }
+        }
         break;
     case SDL_EVENT_RDOC_CAPTURE:
         if (VideoCore::IsRenderDocLoaded()) {
@@ -593,12 +559,10 @@ void WindowSDL::RelaunchEmulatorWithBigPicture() {
 }
 
 void WindowSDL::InitTimers() {
-    for (int i = 0; i < 4; i++) {
-        SDL_AddTimer(250, &PollGyroAndAccel, controllers[i]);
-        SDL_AddTimer(16, &UpdateAxisSmoothingTimer, controllers[i]);
+    for (int i = 0; i < 4; ++i) {
+        SDL_AddTimer(4, &PollController, controllers[i]);
     }
-    SDL_AddTimer(33, Input::MousePolling,
-                 (void*)Input::ControllerOutput::controllers.GetController(0));
+    SDL_AddTimer(33, Input::MousePolling, (void*)controllers[0]);
 }
 
 void WindowSDL::RequestKeyboard() {
@@ -644,10 +608,8 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
 
     // if it's a wheel event, make a timer that turns it off after a set time
     if (event->type == SDL_EVENT_MOUSE_WHEEL) {
-        SDL_Event* copy = new SDL_Event(*event);
-        if (!SDL_AddTimer(33, wheelOffCallback, (void*)copy)) {
-            delete copy;
-        }
+        const SDL_Event* copy = new SDL_Event(*event);
+        SDL_AddTimer(33, wheelOffCallback, (void*)copy);
     }
 
     // add/remove it from the list
@@ -660,12 +622,8 @@ void WindowSDL::OnKeyboardMouseInput(const SDL_Event* event) {
 }
 
 void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
-    bool input_down = false;
-    if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN)
-        input_down = true;
-    else if (event->type == SDL_EVENT_GAMEPAD_BUTTON_UP)
-        input_down = false;
-
+    bool input_down = event->type == SDL_EVENT_GAMEPAD_AXIS_MOTION ||
+                      event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
     Input::InputEvent input_event = Input::InputBinding::GetInputEventFromSDLEvent(*event);
 
     if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ||
@@ -674,12 +632,14 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
                                                                         controllers);
 
         if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
-            controllers[idx]->CheckButton(idx, OrbisPadButtonDataOffset::TouchPad, input_down);
+            controllers[controllers.GetGamepadIndexFromJoystickId(event->gbutton.which)]->Button(
+                OrbisPadButtonDataOffset::TouchPad, input_down);
             return;
         }
 
         if (event->gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) {
-            controllers[idx]->CheckButton(idx, OrbisPadButtonDataOffset::Home, input_down);
+            controllers[controllers.GetGamepadIndexFromJoystickId(event->gbutton.which)]->Button(
+                OrbisPadButtonDataOffset::Home, input_down);
 
             if (Config::DisableHardcodedHotkeys() && event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
                 SDL_Event quit_event{};
@@ -690,42 +650,89 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
         }
     }
 
+    // the touchpad button shouldn't be rebound to anything else,
+    // as it would break the entire touchpad handling
+    // You can still bind other things to it though
+    if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
+        controllers[controllers.GetGamepadIndexFromJoystickId(event->gbutton.which)]->Button(
+            OrbisPadButtonDataOffset::TouchPad, input_down);
+        return;
+    }
+
+    u8 gamepad;
+
     switch (event->type) {
-    case SDL_EVENT_GAMEPAD_SENSOR_UPDATE: {
-        if (!Config::getIsMotionControlsEnabled())
-            return;
-        int idx = Input::GameControllers::GetGamepadIndexFromJoystickId(event->gsensor.which,
-                                                                        controllers);
+    case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
         switch ((SDL_SensorType)event->gsensor.sensor) {
         case SDL_SENSOR_GYRO:
-            controllers[idx]->Gyro(idx, event->gsensor.data);
+            gamepad = controllers.GetGamepadIndexFromJoystickId(event->gsensor.which);
+            if (gamepad < 5) {
+                controllers[gamepad]->UpdateGyro(event->gsensor.data);
+            }
             break;
         case SDL_SENSOR_ACCEL:
-            controllers[idx]->Acceleration(idx, event->gsensor.data);
+            gamepad = controllers.GetGamepadIndexFromJoystickId(event->gsensor.which);
+            if (gamepad < 5) {
+                controllers[gamepad]->UpdateAcceleration(event->gsensor.data);
+            }
             break;
         default:
             break;
         }
         return;
-    }
     case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
     case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
-    case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION: {
-        int idx = Input::GameControllers::GetGamepadIndexFromJoystickId(event->gtouchpad.which,
-                                                                        controllers);
-        controllers[idx]->SetTouchpadState(event->gtouchpad.finger,
-                                           event->type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP,
-                                           event->gtouchpad.x, event->gtouchpad.y);
+    case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
+        controllers[controllers.GetGamepadIndexFromJoystickId(event->gtouchpad.which)]
+            ->SetTouchpadState(event->gtouchpad.finger,
+                               event->type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP, event->gtouchpad.x,
+                               event->gtouchpad.y);
         return;
-    }
     default:
         break;
     }
 
-    // Standard input handling
+    // add/remove it from the list
     bool inputs_changed = Input::UpdatePressedKeys(input_event);
-    if (inputs_changed)
+
+    if (inputs_changed) {
+        // update bindings
         Input::ActivateOutputsFromInputs();
+    }
+}
+
+#ifndef __APPLE__
+void SetWindowIcon(SDL_Window* window, const std::vector<u8>& png) {
+    int imageWidth = 0;
+    int imageHeight = 0;
+    constexpr int numChannels = 4;
+    unsigned char* imageData = stbi_load_from_memory(png.data(), png.size(), &imageWidth,
+                                                     &imageHeight, nullptr, numChannels);
+    if (imageData == nullptr) {
+        LOG_ERROR(Core, "Failed to load window icon image: {}", stbi_failure_reason());
+        return;
+    }
+    SCOPE_EXIT {
+        stbi_image_free(imageData);
+    };
+
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(imageWidth, imageHeight, SDL_PIXELFORMAT_RGBA32,
+                                                 imageData, imageWidth * numChannels);
+    if (surface == nullptr) {
+        LOG_ERROR(Core, "Failed to create SDL surface for window icon: {}", SDL_GetError());
+    }
+    if (!SDL_SetWindowIcon(window, surface)) {
+        LOG_ERROR(Core, "Failed to set SDL window icon: {}", SDL_GetError());
+    }
+    SDL_DestroySurface(surface);
+}
+#endif
+
+void SetDefaultWindowIcon(SDL_Window* window) {
+    const auto resource = cmrc::res::get_filesystem();
+    const auto file = resource.open("src/resources/shadps4.png");
+    const std::vector<u8> texData = std::vector<u8>(file.begin(), file.end());
+    SetWindowIcon(window, texData);
 }
 
 } // namespace Frontend

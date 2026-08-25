@@ -170,18 +170,21 @@ std::filesystem::path GetInputConfigFile(const std::string& game_id) {
             {"hotkey_capture_frame", "f12"},
             {"hotkey_screenshot_with_overlays", "lalt, f12"},
             {"hotkey_screenshot", "f5"},
+
             {"hotkey_fullscreen", "f11"},
             {"hotkey_show_fps", "f10"},
             {"hotkey_pause", "f9"},
             {"hotkey_reload_inputs", "f8"},
             {"hotkey_toggle_mouse_to_joystick", "f7"},
             {"hotkey_toggle_mouse_to_gyro", "f6"},
+            {"hotkey_add_virtual_user", "f5"},
+            {"hotkey_remove_virtual_user", "f4"},
             {"hotkey_toggle_mouse_to_touchpad", "delete"},
             {"hotkey_quit", "lctrl, lshift, end"},
             {"hotkey_volume_up", "kpplus"},
             {"hotkey_volume_down", "kpminus"},
+            {"hotkey_emulator_settings", "f3"},
             {"hotkey_toggle_friends", "f2"},
-
         };
         std::string legacy_capture_binding;
         bool legacy_capture_binding_found = false;
@@ -253,7 +256,6 @@ void ControllerOutput::LinkJoystickAxes() {
 static OrbisPadButtonDataOffset SDLGamepadToOrbisButton(u8 button) {
     using OPBDO = OrbisPadButtonDataOffset;
 
-    // Check if X/Circle button swap is enabled for Xbox controller layout
     bool swap_x_circle = Config::getXCircleButtonSwap();
 
     switch (button) {
@@ -550,10 +552,13 @@ void ParseInputConfig(const std::string game_id = "") {
                             lineCount, line);
                 return;
             }
-            Config::SetOverrideControllerColor(enable == "true");
-            Config::SetControllerCustomColor(*r, *g, *b);
-            LOG_DEBUG(Input, "Parsed color settings: {} {} {} {}",
-                      enable == "true" ? "override" : "no override", *r, *b, *g);
+            output_gamepad_id = output_gamepad_id == -1 ? 1 : output_gamepad_id;
+            if (enable == "true") {
+                ControllerOutput::controllers.SetControllerCustomColor(output_gamepad_id - 1, *r,
+                                                                       *g, *b);
+            }
+            LOG_DEBUG(Input, "Parsed color settings: {} {} - {} {} {}",
+                      enable == "true" ? "override" : "no override", output_gamepad_id, *r, *b, *g);
             return;
         }
 
@@ -678,29 +683,14 @@ InputEvent InputBinding::GetInputEventFromSDLEvent(const SDL_Event& e) {
     case SDL_EVENT_MOUSE_WHEEL_OFF:
         return InputEvent(InputType::KeyboardMouse, GetMouseWheelEvent(e),
                           e.type == SDL_EVENT_MOUSE_WHEEL, 0);
-    case SDL_EVENT_GAMEPAD_BUTTON_DOWN: {
-        const auto& ctrls = *Common::Singleton<GameControllers>::Instance();
-
-        gamepad =
-            ControllerOutput::controllers.GetGamepadIndexFromJoystickId(e.gbutton.which, ctrls) + 1;
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+    case SDL_EVENT_GAMEPAD_BUTTON_UP:
+        gamepad = ControllerOutput::controllers.GetGamepadIndexFromJoystickId(e.gbutton.which) + 1;
         return InputEvent({InputType::Controller, (u32)e.gbutton.button, gamepad}, e.gbutton.down,
                           0);
-    }
-    case SDL_EVENT_GAMEPAD_BUTTON_UP: {
-        const auto& ctrls = *Common::Singleton<GameControllers>::Instance();
-
-        gamepad =
-            ControllerOutput::controllers.GetGamepadIndexFromJoystickId(e.gbutton.which, ctrls) + 1;
-        return InputEvent({InputType::Controller, (u32)e.gbutton.button, gamepad}, e.gbutton.down,
-                          0);
-    }
-    case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
-        const auto& ctrls = *Common::Singleton<GameControllers>::Instance();
-
-        gamepad =
-            ControllerOutput::controllers.GetGamepadIndexFromJoystickId(e.gaxis.which, ctrls) + 1;
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+        gamepad = ControllerOutput::controllers.GetGamepadIndexFromJoystickId(e.gaxis.which) + 1;
         return InputEvent({InputType::Axis, (u32)e.gaxis.axis, gamepad}, true, e.gaxis.value / 256);
-    }
     default:
         return InputEvent();
     }
@@ -726,31 +716,7 @@ void ControllerOutput::ResetUpdate() {
     new_button_state = false;
     *new_param = 0; // bruh
 }
-void ControllerOutput::AddUpdate(InputEvent event) {
-    switch (button) {
-    case KEY_TOGGLE:
-        if (event.active) {
-            ToggleKeyInList(event.input);
-        }
-        return;
-    default:
-        break;
-    }
-    if (button != SDL_GAMEPAD_BUTTON_INVALID) {
-        if (event.input.type == InputType::Axis) {
-            bool temp = event.axis_value * (positive_axis ? 1 : -1) > 0x40;
-            new_button_state |= event.active && event.axis_value * (positive_axis ? 1 : -1) > 0x40;
-            if (temp) {
-                LOG_DEBUG(Input, "Toggled a button from an axis");
-            }
-        } else {
-            new_button_state |= event.active;
-        }
 
-    } else if (axis != SDL_GAMEPAD_AXIS_INVALID) {
-        *new_param = (event.active ? event.axis_value : 0) + *new_param;
-    }
-}
 void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
     auto PushSDLEvent = [&](u32 event_type) {
         if (new_button_state) {
@@ -775,15 +741,15 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
         switch (button) {
         case SDL_GAMEPAD_BUTTON_TOUCHPAD_LEFT:
             controller->SetTouchpadState(0, new_button_state, 0.25f, 0.5f);
-            controller->CheckButton(0, SDLGamepadToOrbisButton(button), new_button_state);
+            controller->Button(SDLGamepadToOrbisButton(button), new_button_state);
             break;
         case SDL_GAMEPAD_BUTTON_TOUCHPAD_CENTER:
             controller->SetTouchpadState(0, new_button_state, 0.50f, 0.5f);
-            controller->CheckButton(0, SDLGamepadToOrbisButton(button), new_button_state);
+            controller->Button(SDLGamepadToOrbisButton(button), new_button_state);
             break;
         case SDL_GAMEPAD_BUTTON_TOUCHPAD_RIGHT:
             controller->SetTouchpadState(0, new_button_state, 0.75f, 0.5f);
-            controller->CheckButton(0, SDLGamepadToOrbisButton(button), new_button_state);
+            controller->Button(SDLGamepadToOrbisButton(button), new_button_state);
             break;
         case LEFTJOYSTICK_HALFMODE:
             leftjoystick_halfmode = new_button_state;
@@ -852,6 +818,9 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
         case HOTKEY_QUIT:
             PushSDLEvent(SDL_EVENT_QUIT_DIALOG);
             break;
+        case HOTKEY_OPEN_EMULATOR_SETTINGS:
+            ImGuiEmuSettings::OpenInGameSettingsDialog();
+            break;
         case HOTKEY_TOGGLE_FRIENDS:
             PushSDLEvent(SDL_EVENT_TOGGLE_FRIENDS);
             break;
@@ -862,7 +831,7 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             SetMouseGyroRollMode(new_button_state);
             break;
         default: // is a normal key (hopefully)
-            controller->CheckButton(0, SDLGamepadToOrbisButton(button), new_button_state);
+            controller->Button(SDLGamepadToOrbisButton(button), new_button_state);
             break;
         }
     } else if (axis != SDL_GAMEPAD_AXIS_INVALID && positive_axis) {
@@ -871,10 +840,11 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             if (std::abs(*value) <= deadzone.first || deadzone.first == deadzone.second) {
                 *value = 0;
             } else {
-                *value = (*value >= 0 ? 1 : -1) *
-                         std::clamp(static_cast<s32>((128.0 * (std::abs(*value) - deadzone.first)) /
-                                                     (float)(deadzone.second - deadzone.first)),
-                                    0, 128);
+                *value =
+                    (*value >= 0 ? 1 : -1) *
+                    std::clamp(static_cast<s32>((128.0 * (std::abs(*value) - deadzone.first)) /
+                                                (float)(deadzone.second - deadzone.first)),
+                               0, 128);
             }
         };
         float multiplier = 1.0;
@@ -893,12 +863,12 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
         case Axis::TriggerLeft:
             ApplyDeadzone(new_param, lefttrigger_deadzone[gamepad_index]);
             controller->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
-            controller->CheckButton(0, OrbisPadButtonDataOffset::L2, *new_param > 0x20);
+            controller->Button(OrbisPadButtonDataOffset::L2, *new_param > 0x20);
             return;
         case Axis::TriggerRight:
             ApplyDeadzone(new_param, righttrigger_deadzone[gamepad_index]);
             controller->Axis(c_axis, GetAxis(0x0, 0x7f, *new_param));
-            controller->CheckButton(0, OrbisPadButtonDataOffset::R2, *new_param > 0x20);
+            controller->Button(OrbisPadButtonDataOffset::R2, *new_param > 0x20);
             return;
         default:
             break;
@@ -934,11 +904,12 @@ bool UpdatePressedKeys(InputEvent event) {
         return true;
     } else if (event.active) {
         // Find the correct position for insertion to maintain order
-        auto it = std::lower_bound(pressed_keys.begin(), pressed_keys.end(), input,
-                                   [](const std::pair<InputEvent, bool>& e, InputID i) {
-                                       return std::tie(e.first.input.type, e.first.input.sdl_id) <
-                                              std::tie(i.type, i.sdl_id);
-                                   });
+        auto it =
+            std::lower_bound(pressed_keys.begin(), pressed_keys.end(), input,
+                             [](const std::pair<InputEvent, bool>& e, InputID i) {
+                                 return std::tie(e.first.input.type, e.first.input.sdl_id) <
+                                        std::tie(i.type, i.sdl_id);
+                             });
 
         // Insert only if 'value' is not already in the list
         if (it == pressed_keys.end() || it->first.input != input) {
@@ -958,6 +929,7 @@ bool UpdatePressedKeys(InputEvent event) {
     LOG_DEBUG(Input, "No change was made!");
     return false;
 }
+
 // Check if the binding's all keys are currently active.
 // It also extracts the analog inputs' parameters, and updates the input hierarchy flags.
 InputEvent BindingConnection::ProcessBinding() {
@@ -1025,16 +997,18 @@ InputEvent BindingConnection::ProcessBinding() {
     for (bool* flag : flags_to_set) {
         *flag = true;
     }
-    if (binding.keys[0].type != InputType::Axis) { // the axes spam inputs, making this unreadable
+    if (binding.keys[0].type !=
+        InputType::Axis) { // the axes spam inputs, making this unreadable
         LOG_DEBUG(Input, "Input found: {}", binding.ToString());
     }
     event.active = true;
     return event; // All keys are active
 }
+
 bool ControllerPressedOnce(
     u8 gamepad_id, std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons) {
     static std::unordered_map<u32, bool> combo_states;
-    auto* controllers = ControllerOutput::controllers.GetController(gamepad_id);
+    auto* controllers = ControllerOutput::controllers.GetControllers(gamepad_id);
     if (!controllers)
         return false;
     const auto& state = controllers->GetLastState();
@@ -1056,10 +1030,11 @@ bool ControllerPressedOnce(
     return false;
 }
 
-bool ControllerComboPressedOnce(u8 gamepad_id, Libraries::Pad::OrbisPadButtonDataOffset holdButton,
+bool ControllerComboPressedOnce(u8 gamepad_id,
+                                Libraries::Pad::OrbisPadButtonDataOffset holdButton,
                                 Libraries::Pad::OrbisPadButtonDataOffset pressButton) {
     static std::unordered_map<u32, bool> press_states;
-    auto* controller = ControllerOutput::controllers.GetController(gamepad_id);
+    auto* controller = ControllerOutput::controllers.GetControllers(gamepad_id);
     if (!controller) {
         return false;
     }
@@ -1123,6 +1098,7 @@ bool HasUserHotkeyDefined(int controller_index, HotkeyPad pad, HotkeyInputType t
     }
     return false;
 }
+
 void ActivateOutputsFromInputs() {
 
     // todo find a better solution
