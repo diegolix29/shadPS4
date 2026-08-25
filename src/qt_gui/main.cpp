@@ -25,7 +25,6 @@
 #include "core/debugger.h"
 #include "core/emulator_state.h"
 #include "core/file_format/psf.h"
-#include "core/file_format/psf_loader.h"
 #include "core/file_sys/fs.h"
 #include "core/ipc/ipc_client.h"
 #include "core/libraries/audio/audioout.h"

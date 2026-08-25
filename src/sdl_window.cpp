@@ -628,8 +628,7 @@ void WindowSDL::OnGamepadEvent(const SDL_Event* event) {
 
     if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ||
         event->type == SDL_EVENT_GAMEPAD_BUTTON_UP) {
-        int idx = Input::GameControllers::GetGamepadIndexFromJoystickId(event->gbutton.which,
-                                                                        controllers);
+        int idx = controllers.GetGamepadIndexFromJoystickId(event->gbutton.which);
 
         if (event->gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
             controllers[controllers.GetGamepadIndexFromJoystickId(event->gbutton.which)]->Button(

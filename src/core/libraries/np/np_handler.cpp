@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <exception>
 #include "common/config.h"
 #include "common/elf_info.h"
 #include "common/logging/log.h"
@@ -53,7 +54,16 @@ std::pair<std::string, u16> NpHandler::ParseServerAddress() const {
 }
 
 bool NpHandler::ConnectUserById(s32 user_id) {
-    if (!Config::IsShadNetEnabled())
+    LOG_INFO(NpHandler, "ConnectUserById: entered user_id={} (index into config = {})", user_id,
+             user_id - 1);
+    if (user_id - 1 < 0 || user_id - 1 >= 4) {
+        LOG_ERROR(NpHandler,
+                  "ConnectUserById: user_id={} produces out-of-range config index {} -- "
+                  "aborting instead of indexing out of bounds",
+                  user_id, user_id - 1);
+        return false;
+    }
+    if (!Config::getShadNetEnabled(user_id - 1))
         return false;
 
     {
@@ -89,32 +99,60 @@ void NpHandler::StartWorker() {
 }
 
 void NpHandler::Initialize() {
+    LOG_INFO(NpHandler, "Initialize: entered");
     if (m_initialized.exchange(true)) {
         LOG_WARNING(NpHandler, "Initialize called more than once");
         return;
     }
 
-    if (!Config::IsShadNetEnabled()) {
-        LOG_INFO(NpHandler, "shadNet disabled globally we are in offline mode");
-        return;
-    }
+    try {
+        LOG_INFO(NpHandler, "Initialize: checking per-slot shadNet enabled flags");
+        // Check if any user has shadNet enabled
+        bool any_enabled = false;
+        for (int i = 0; i < 4; i++) {
+            LOG_INFO(NpHandler, "Initialize: getShadNetEnabled({})", i);
+            if (Config::getShadNetEnabled(i)) {
+                any_enabled = true;
+                break;
+            }
+        }
+        LOG_INFO(NpHandler, "Initialize: any_enabled={}", any_enabled);
+        if (!any_enabled) {
+            LOG_INFO(NpHandler, "shadNet disabled for all users, running in offline mode");
+            return;
+        }
 
-    const auto logged_in = UserManagement.GetLoggedInUsers(); // get all login users
-    int connected_count = 0;
-    for (int i = 0; i < Libraries::UserService::ORBIS_USER_SERVICE_MAX_LOGIN_USERS; ++i) {
-        const User* u = logged_in[i];
-        if (!u)
-            continue;
-        if (ConnectUserById(u->user_id))
-            ++connected_count;
-    }
+        LOG_INFO(NpHandler, "Initialize: calling UserManagement.GetLoggedInUsers()");
+        const auto logged_in = UserManagement.GetLoggedInUsers(); // get all login users
+        LOG_INFO(NpHandler, "Initialize: got logged_in users array");
+        int connected_count = 0;
+        for (int i = 0; i < Libraries::UserService::ORBIS_USER_SERVICE_MAX_LOGIN_USERS; ++i) {
+            LOG_INFO(NpHandler, "Initialize: slot {} -> user ptr={}", i,
+                     static_cast<const void*>(logged_in[i]));
+            const User* u = logged_in[i];
+            if (!u)
+                continue;
+            LOG_INFO(NpHandler, "Initialize: slot {} user_id={} name='{}' shadnet_enabled={}", i,
+                     u->user_id, u->user_name, u->shadnet_enabled);
+            if (ConnectUserById(u->user_id))
+                ++connected_count;
+            LOG_INFO(NpHandler, "Initialize: slot {} ConnectUserById returned, connected_count={}",
+                     i, connected_count);
+        }
 
-    if (connected_count == 0) {
-        LOG_WARNING(NpHandler, "no users connected to shadNet");
-        return;
-    }
+        if (connected_count == 0) {
+            LOG_WARNING(NpHandler, "no users connected to shadNet");
+            return;
+        }
 
-    StartWorker();
+        LOG_INFO(NpHandler, "Initialize: calling StartWorker()");
+        StartWorker();
+        LOG_INFO(NpHandler, "Initialize: StartWorker() returned, Initialize complete");
+    } catch (const std::exception& e) {
+        LOG_ERROR(NpHandler, "Initialize() threw: {}", e.what());
+    } catch (...) {
+        LOG_ERROR(NpHandler, "Initialize() threw a non-std::exception");
+    }
 }
 
 void NpHandler::Shutdown() {
@@ -147,75 +185,84 @@ void NpHandler::Shutdown() {
 
 bool NpHandler::ConnectUser(s32 user_id, const std::string& host, u16 port, const std::string& npid,
                             const std::string& password, const std::string& token) {
-    LOG_INFO(NpHandler, "Connecting user_id={} npid='{}' to {}:{} (timeout {}s)", user_id, npid,
-             host, port, ShadNet::SHAD_CONNECT_TIMEOUT_MS / 1000);
+    try {
+        LOG_INFO(NpHandler, "Connecting user_id={} npid='{}' to {}:{} (timeout {}s)", user_id, npid,
+                 host, port, ShadNet::SHAD_CONNECT_TIMEOUT_MS / 1000);
 
-    auto client = std::make_shared<ShadNet::ShadNetClient>();
+        auto client = std::make_shared<ShadNet::ShadNetClient>();
 
-    // Wire per-user notification callbacks
-    client->onFriendQuery = [this, user_id](const ShadNet::NotifyFriendQuery& n) {
-        OnFriendQuery(user_id, n);
-    };
-    client->onFriendNew = [this, user_id](const ShadNet::NotifyFriendNew& n) {
-        OnFriendNew(user_id, n);
-    };
-    client->onFriendLost = [this, user_id](const ShadNet::NotifyFriendLost& n) {
-        OnFriendLost(user_id, n);
-    };
-    client->onFriendStatus = [this, user_id](const ShadNet::NotifyFriendStatus& n) {
-        OnFriendStatus(user_id, n);
-    };
-    client->onWebApiPushEvent = [this, user_id](const ShadNet::NotifyWebApiPushEvent& n) {
-        OnWebApiPushEvent(user_id, n);
-    };
-    client->onAsyncReply = [this, user_id](ShadNet::CommandType cmd, u64 pkt_id,
-                                           ShadNet::ErrorType err, const std::vector<u8>& body) {
-        OnAsyncReply(user_id, cmd, pkt_id, err, body);
-    };
-    client->onLoginResult = [this, user_id](const ShadNet::LoginResult& res) {
-        OnLoginResult(user_id, res);
-    };
+        // Wire per-user notification callbacks
+        client->onFriendQuery = [this, user_id](const ShadNet::NotifyFriendQuery& n) {
+            OnFriendQuery(user_id, n);
+        };
+        client->onFriendNew = [this, user_id](const ShadNet::NotifyFriendNew& n) {
+            OnFriendNew(user_id, n);
+        };
+        client->onFriendLost = [this, user_id](const ShadNet::NotifyFriendLost& n) {
+            OnFriendLost(user_id, n);
+        };
+        client->onFriendStatus = [this, user_id](const ShadNet::NotifyFriendStatus& n) {
+            OnFriendStatus(user_id, n);
+        };
+        client->onWebApiPushEvent = [this, user_id](const ShadNet::NotifyWebApiPushEvent& n) {
+            OnWebApiPushEvent(user_id, n);
+        };
+        client->onAsyncReply = [this, user_id](ShadNet::CommandType cmd, u64 pkt_id,
+                                               ShadNet::ErrorType err,
+                                               const std::vector<u8>& body) {
+            OnAsyncReply(user_id, cmd, pkt_id, err, body);
+        };
+        client->onLoginResult = [this, user_id](const ShadNet::LoginResult& res) {
+            OnLoginResult(user_id, res);
+        };
 
-    // Seed the current Appear-Offline preference so the login packet carries it (the send
-    // is suppressed pre-auth; it just caches on the client).
-    client->SetAppearOffline(m_appear_offline.load());
-    if (EmulatorSettings.IsUPnPEnabled()) {
-        Net::UPnPClient::Instance().Start();
-    }
-    client->Start(host, port, npid, password, token);
+        // Seed the current Appear-Offline preference so the login packet carries it (the send
+        // is suppressed pre-auth; it just caches on the client).
+        client->SetAppearOffline(m_appear_offline.load());
+        if (Config::IsUPnPEnabled()) {
+            Net::UPnPClient::Instance().Start();
+        }
+        client->Start(host, port, npid, password, token);
 
-    const ShadNet::ShadNetState conn_state = client->WaitForConnection();
-    if (conn_state != ShadNet::ShadNetState::Ok) {
-        LOG_ERROR(NpHandler, "user_id={} connection failed (state={})", user_id,
-                  static_cast<int>(conn_state));
-        client->Stop();
+        const ShadNet::ShadNetState conn_state = client->WaitForConnection();
+        if (conn_state != ShadNet::ShadNetState::Ok) {
+            LOG_ERROR(NpHandler, "user_id={} connection failed (state={})", user_id,
+                      static_cast<int>(conn_state));
+            client->Stop();
+            return false;
+        }
+
+        const ShadNet::ShadNetState auth_state = client->WaitForAuthenticated();
+        if (auth_state != ShadNet::ShadNetState::Ok) {
+            LOG_ERROR(NpHandler, "user_id={} authentication failed (state={})", user_id,
+                      static_cast<int>(auth_state));
+            client->Stop();
+            return false;
+        }
+
+        LOG_INFO(NpHandler, "user_id={} signed in npid='{}' accountId={}", user_id, npid,
+                 client->GetUserId());
+
+        NpMatching2::SetMmShadNetClient(client, host, port);
+
+        // Build OrbisNpId
+        {
+            OrbisNpId np_id{};
+            strncpy(np_id.handle.data, npid.c_str(), sizeof(np_id.handle.data) - 1);
+            std::lock_guard lock(m_mutex_clients);
+            m_np_ids[user_id] = np_id;
+            m_clients[user_id] = std::move(client);
+        }
+
+        FireStateCallback(user_id, NpManager::OrbisNpState::SignedIn);
+        return true;
+    } catch (const std::exception& e) {
+        LOG_ERROR(NpHandler, "ConnectUser(user_id={}) threw: {}", user_id, e.what());
+        return false;
+    } catch (...) {
+        LOG_ERROR(NpHandler, "ConnectUser(user_id={}) threw a non-std::exception", user_id);
         return false;
     }
-
-    const ShadNet::ShadNetState auth_state = client->WaitForAuthenticated();
-    if (auth_state != ShadNet::ShadNetState::Ok) {
-        LOG_ERROR(NpHandler, "user_id={} authentication failed (state={})", user_id,
-                  static_cast<int>(auth_state));
-        client->Stop();
-        return false;
-    }
-
-    LOG_INFO(NpHandler, "user_id={} signed in npid='{}' accountId={}", user_id, npid,
-             client->GetUserId());
-
-    NpMatching2::SetMmShadNetClient(client, host, port);
-
-    // Build OrbisNpId
-    {
-        OrbisNpId np_id{};
-        strncpy(np_id.handle.data, npid.c_str(), sizeof(np_id.handle.data) - 1);
-        std::lock_guard lock(m_mutex_clients);
-        m_np_ids[user_id] = np_id;
-        m_clients[user_id] = std::move(client);
-    }
-
-    FireStateCallback(user_id, NpManager::OrbisNpState::SignedIn);
-    return true;
 }
 
 void NpHandler::SetAppearOffline(bool enable) {
@@ -286,7 +333,7 @@ void NpHandler::WorkerThread() {
 }
 
 void NpHandler::MarkForReconnect(s32 user_id) {
-    if (!Config::IsShadNetEnabled())
+    if (!Config::getShadNetEnabled(user_id - 1))
         return; // offline mode: nothing to reconnect to
     constexpr auto kInitialBackoff = std::chrono::milliseconds(2000);
     std::lock_guard lock(m_mutex_clients);
@@ -311,7 +358,7 @@ void NpHandler::TryReconnect() {
     for (s32 uid : due) {
         if (!m_worker_running)
             return;
-        if (!Config::IsShadNetEnabled()) {
+        if (!Config::getShadNetEnabled(uid - 1)) {
             std::lock_guard lock(m_mutex_clients);
             m_reconnect.erase(uid);
             continue;

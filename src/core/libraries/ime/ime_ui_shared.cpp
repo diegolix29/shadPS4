@@ -87,11 +87,8 @@ bool ReadControllerState(Libraries::UserService::OrbisUserServiceUserId user_id,
         if (has_state) {
             *has_state = false;
         }
-        Input::State pad_state{};
-        bool connected = false;
-        int connected_count = 0;
-        (*controllers)[index]->ReadState(&pad_state, &connected, &connected_count);
-        if (!connected) {
+        Input::State pad_state = (*controllers)[index]->ReadState();
+        if (!pad_state.connected) {
             return false;
         }
         if (has_state) {
@@ -101,7 +98,7 @@ bool ReadControllerState(Libraries::UserService::OrbisUserServiceUserId user_id,
         return true;
     };
 
-    const auto mapped = GamepadSelect::GetControllerIndexFromUserID(user_id);
+    const auto mapped = Input::GameControllers::GetControllerIndexFromUserID(user_id);
     if (mapped.has_value() && *mapped < 5) {
         bool has_state = false;
         if (read_state(*mapped, &has_state) && has_state) {

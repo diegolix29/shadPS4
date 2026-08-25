@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
+#include <exception>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <thread>
 #include <variant>
 
 #include <core/emulator_settings.h>
@@ -79,7 +81,7 @@ static bool EnsureShadNetSession(int slot, const std::string& titleId,
 // preserves that behaviour.
 static bool IsSignedIn() {
     // titleId/titleName are only used server-side for matchmaking scoping,
-    // which isn't wired up yet (see np_matching2.cpp) — empty is fine here.
+    // which isn't wired up yet (see np_matching2.cpp) ? empty is fine here.
     return EnsureShadNetSession(0, std::string{}, std::string{});
 }
 
@@ -857,9 +859,40 @@ void DeregisterNpCallback(std::string key) {
 }
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym) {
+    LOG_INFO(Lib_NpManager, "RegisterLib: entered");
+
+    // Bring up the real ShadNetClient connection(s) and wire them into
+    // matching2 (NpMatching2::SetMmShadNetClient). Without this, NpSession
+    // (below) still handles HTTP/WebAPI login fine, but matching2's P2P
+    // signaling has no live connection to operate over, so summon signs
+    // are discoverable while the actual P2P handshake between players
+    // never happens.
+    //
+    // Diagnostic checkpoints below: logging is synchronous in this build, so
+    // whichever LOG_INFO prints last, right before the process goes silent,
+    // pinpoints exactly which call is crashing (this is NOT a thrown C++
+    // exception -- try/catch here does not catch it, confirmed since no
+    // LOG_ERROR from the catch blocks ever appears before the crash).
+    LOG_INFO(Lib_NpManager, "RegisterLib: about to spawn NpHandler init thread");
+    std::thread([]() {
+        LOG_INFO(Lib_NpManager, "NpHandler init thread: started");
+        try {
+            LOG_INFO(Lib_NpManager, "NpHandler init thread: calling Initialize()");
+            Libraries::Np::NpHandler::GetInstance().Initialize();
+            LOG_INFO(Lib_NpManager, "NpHandler init thread: Initialize() returned normally");
+        } catch (const std::exception& e) {
+            LOG_ERROR(Lib_NpManager, "NpHandler::Initialize() threw: {}", e.what());
+        } catch (...) {
+            LOG_ERROR(Lib_NpManager, "NpHandler::Initialize() threw a non-std::exception");
+        }
+    }).detach();
+    LOG_INFO(Lib_NpManager, "RegisterLib: thread spawned and detached, continuing boot");
+
     for (int slot = 0; slot < static_cast<int>(kMaxShadNetSlots); ++slot) {
+        LOG_INFO(Lib_NpManager, "RegisterLib: EnsureShadNetSession slot={}", slot);
         EnsureShadNetSession(slot, std::string{}, std::string{});
     }
+    LOG_INFO(Lib_NpManager, "RegisterLib: EnsureShadNetSession loop complete");
 
     LIB_FUNCTION("GpLQDNKICac", "libSceNpManager", 1, "libSceNpManager", sceNpCreateRequest);
     LIB_FUNCTION("eiqMCt9UshI", "libSceNpManager", 1, "libSceNpManager", sceNpCreateAsyncRequest);
@@ -922,6 +955,24 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
                  sceNpGetGamePresenceStatus);
     LIB_FUNCTION("ilwLM4zOmu4", "libSceNpManagerCompat", 1, "libSceNpManager",
                  sceNpGetParentalControlInfo);
-};
+}
+
+void NotifyNpStateFromUserServiceEvent(Libraries::UserService::OrbisUserServiceEventType event_type,
+                                       Libraries::UserService::OrbisUserServiceUserId user_id) {
+    LOG_DEBUG(Lib_NpManager, "NotifyNpStateFromUserServiceEvent: event_type={}, user_id={}",
+              static_cast<int>(event_type), user_id);
+
+    switch (event_type) {
+    case Libraries::UserService::OrbisUserServiceEventType::Login:
+        Libraries::Np::NpHandler::GetInstance().OnUserLoggedIn(user_id);
+        break;
+    case Libraries::UserService::OrbisUserServiceEventType::Logout:
+        Libraries::Np::NpHandler::GetInstance().OnUserLoggedOut(user_id);
+        break;
+    default:
+        LOG_WARNING(Lib_NpManager, "Unknown user service event type: {}", static_cast<int>(event_type));
+        break;
+    }
+}
 
 } // namespace Libraries::Np::NpManager

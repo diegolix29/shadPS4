@@ -714,7 +714,15 @@ void ToggleKeyInList(InputID input) {
 void ControllerOutput::ResetUpdate() {
     state_changed = false;
     new_button_state = false;
-    *new_param = 0; // bruh
+    *new_param = 0;
+}
+
+void ControllerOutput::AddUpdate(InputEvent event) {
+    if (event.input.type == InputType::Controller) {
+        new_button_state = event.active;
+    } else if (event.input.type == InputType::Axis) {
+        *new_param = event.axis_value;
+    }
 }
 
 void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
@@ -819,7 +827,7 @@ void ControllerOutput::FinalizeUpdate(u8 gamepad_index) {
             PushSDLEvent(SDL_EVENT_QUIT_DIALOG);
             break;
         case HOTKEY_OPEN_EMULATOR_SETTINGS:
-            ImGuiEmuSettings::OpenInGameSettingsDialog();
+            PushSDLEvent(SDL_EVENT_OPEN_EMULATOR_SETTINGS);
             break;
         case HOTKEY_TOGGLE_FRIENDS:
             PushSDLEvent(SDL_EVENT_TOGGLE_FRIENDS);
@@ -1008,10 +1016,10 @@ InputEvent BindingConnection::ProcessBinding() {
 bool ControllerPressedOnce(
     u8 gamepad_id, std::initializer_list<Libraries::Pad::OrbisPadButtonDataOffset> buttons) {
     static std::unordered_map<u32, bool> combo_states;
-    auto* controllers = ControllerOutput::controllers.GetControllers(gamepad_id);
+    auto* controllers = ControllerOutput::controllers[gamepad_id];
     if (!controllers)
         return false;
-    const auto& state = controllers->GetLastState();
+    const auto& state = controllers->ReadState();
     u32 comboMask = 0;
     for (auto button : buttons) {
         comboMask |= static_cast<u32>(button);
@@ -1034,11 +1042,11 @@ bool ControllerComboPressedOnce(u8 gamepad_id,
                                 Libraries::Pad::OrbisPadButtonDataOffset holdButton,
                                 Libraries::Pad::OrbisPadButtonDataOffset pressButton) {
     static std::unordered_map<u32, bool> press_states;
-    auto* controller = ControllerOutput::controllers.GetControllers(gamepad_id);
+    auto* controller = ControllerOutput::controllers[gamepad_id];
     if (!controller) {
         return false;
     }
-    const auto& state = controller->GetLastState();
+    const auto& state = controller->ReadState();
     u32 pressedButtons = static_cast<u32>(state.buttonsState);
 
     bool holdDown = (pressedButtons & static_cast<u32>(holdButton)) != 0;
