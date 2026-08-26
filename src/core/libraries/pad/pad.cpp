@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/config.h"
+
 #include "common/elf_info.h"
 #include "common/logging/log.h"
 #include "common/singleton.h"
@@ -70,8 +72,8 @@ int PS4_SYSV_ABI scePadDeviceClassGetExtendedInformation(
     }
     LOG_ERROR(Lib_Pad, "(STUBBED) called");
     std::memset(pExtInfo, 0, sizeof(OrbisPadDeviceClassExtendedInformation));
-    if (EmulatorSettings.IsUsingSpecialPad()) {
-        pExtInfo->deviceClass = (OrbisPadDeviceClass)EmulatorSettings.GetSpecialPadClass();
+    if (Config::getUseSpecialPad(1)) {
+        pExtInfo->deviceClass = (OrbisPadDeviceClass)Config::getSpecialPadClass(1);
     }
     return ORBIS_OK;
 }
@@ -151,8 +153,8 @@ int PS4_SYSV_ABI scePadGetControllerInformation(s32 handle, OrbisPadControllerIn
     pInfo->deviceClass = OrbisPadDeviceClass::Standard;
     pInfo->connected = state.connected;
     if (state.connected) {
-        pInfo->deviceClass = EmulatorSettings.IsUsingSpecialPad()
-                                 ? (OrbisPadDeviceClass)EmulatorSettings.GetSpecialPadClass()
+        pInfo->deviceClass = Config::getUseSpecialPad(1)
+                                 ? (OrbisPadDeviceClass)Config::getSpecialPadClass(1)
                                  : OrbisPadDeviceClass::Standard;
     }
     LOG_DEBUG(Lib_Pad, "c: {} cc: {}, ct: {}, dc: {}", pInfo->connected, pInfo->connectedCount,
@@ -330,7 +332,9 @@ int PS4_SYSV_ABI scePadOpen(Libraries::UserService::OrbisUserServiceUserId userI
     if (type == ORBIS_PAD_PORT_TYPE_REMOTE_CONTROL) {
         return ORBIS_PAD_ERROR_INVALID_ARG;
     }
-    auto u = UserManagement.GetUserByID(userId);
+    // Convert PS4 user ID to internal ID for lookup
+    s32 internal_id = UserManager::Ps4UserIdToInternal(userId);
+    auto u = UserManagement.GetUserByID(internal_id);
     if (!u) {
         return ORBIS_DEVICE_SERVICE_ERROR_USER_NOT_LOGIN;
     }
@@ -338,8 +342,8 @@ int PS4_SYSV_ABI scePadOpen(Libraries::UserService::OrbisUserServiceUserId userI
     pad_handle_map[{userId, type, index}] = new_handle;
 
     handle_to_controller_map[new_handle] =
-        controllers[type == (EmulatorSettings.IsUsingSpecialPad() ? 2 : 0)
-                        ? UserManagement.GetUserByID(userId)->player_index - 1
+        controllers[type == (Config::getUseSpecialPad(1) ? 2 : 0)
+                        ? u->player_index - 1
                         : 4];
     LOG_INFO(Lib_Pad,
              "called user_id = {}, type = {}, index = {}, player index = {}, out handle = {}",

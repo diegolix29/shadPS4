@@ -213,6 +213,9 @@ public:
         using std::chrono::microseconds;
         using std::chrono::steady_clock;
 
+        // Get thread name outside the mutex to avoid potential deadlocks
+        const auto thread_name = Common::GetCurrentThreadName();
+
         if (Config::groupIdenticalLogs()) {
             std::unique_lock entry_loc(_mutex);
 
@@ -242,7 +245,7 @@ public:
                 .line_num = line_num,
                 .function = function,
                 .message = message,
-                .thread = Common::GetCurrentThreadName(),
+                .thread = thread_name,
                 .counter = 1,
             };
         } else {
@@ -254,7 +257,7 @@ public:
                 .line_num = line_num,
                 .function = function,
                 .message = message,
-                .thread = Common::GetCurrentThreadName(),
+                .thread = thread_name,
                 .counter = 1,
             };
 
@@ -298,6 +301,7 @@ private:
     void StopBackendThread() {
         if (Config::groupIdenticalLogs()) {
             // log last message
+            std::unique_lock entry_loc(_mutex);
             if (_last_entry.counter >= 2) {
                 _last_entry.message += " x" + std::to_string(_last_entry.counter);
             }

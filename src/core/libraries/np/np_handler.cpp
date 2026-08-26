@@ -24,7 +24,9 @@
 namespace Libraries::Np {
 
 NpHandler& NpHandler::GetInstance() {
+    LOG_INFO(NpHandler, "GetInstance: entered, about to construct/fetch static s_instance");
     static NpHandler s_instance;
+    LOG_INFO(NpHandler, "GetInstance: s_instance ready, returning reference");
     return s_instance;
 }
 
@@ -72,7 +74,9 @@ bool NpHandler::ConnectUserById(s32 user_id) {
             return false; // already connected
     }
 
-    const User* u = UserManagement.GetUserByID(user_id);
+    // Convert PS4 user ID to internal ID for lookup
+    s32 internal_id = UserManager::Ps4UserIdToInternal(user_id);
+    const User* u = UserManagement.GetUserByID(internal_id);
     if (!u)
         return false;
     if (!u->shadnet_enabled) {
@@ -100,7 +104,8 @@ void NpHandler::StartWorker() {
 
 void NpHandler::Initialize() {
     LOG_INFO(NpHandler, "Initialize: entered");
-    if (m_initialized.exchange(true)) {
+    bool expected = false;
+    if (!m_initialized.compare_exchange_strong(expected, true)) {
         LOG_WARNING(NpHandler, "Initialize called more than once");
         return;
     }
@@ -130,11 +135,22 @@ void NpHandler::Initialize() {
             LOG_INFO(NpHandler, "Initialize: slot {} -> user ptr={}", i,
                      static_cast<const void*>(logged_in[i]));
             const User* u = logged_in[i];
-            if (!u)
+            if (!u) {
+                LOG_INFO(NpHandler, "Initialize: slot {} has no logged-in user, skipping", i);
                 continue;
-            LOG_INFO(NpHandler, "Initialize: slot {} user_id={} name='{}' shadnet_enabled={}", i,
-                     u->user_id, u->user_name, u->shadnet_enabled);
-            if (ConnectUserById(u->user_id))
+            }
+            // IMPORTANT: `u` points into UserManager's internal std::vector<User>. If any user
+            // gets added (AddUser -> vector::push_back) after this pointer was cached in
+            // logged_in_users, the vector may have reallocated and `u` is now dangling. Reading
+            // a POD field (s32) off a stale pointer usually just yields garbage silently; reading
+            // a std::string field (e.g. user_name) off it reads garbage length/capacity/pointer
+            // and crashes immediately (this is what happened here). So: grab only the user_id
+            // (a POD read) and do nothing else with `u` -- ConnectUserById() below does its own
+            // fresh, safe UserManagement.GetUserByID(user_id) lookup against the live vector for
+            // everything else it needs.
+            const s32 user_id = u->user_id;
+            LOG_INFO(NpHandler, "Initialize: slot {} user_id={}", i, user_id);
+            if (ConnectUserById(user_id))
                 ++connected_count;
             LOG_INFO(NpHandler, "Initialize: slot {} ConnectUserById returned, connected_count={}",
                      i, connected_count);

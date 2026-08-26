@@ -48,6 +48,11 @@ public:
     bool RenameUser(s32 user_id, const std::string& new_name);
     User* GetUserByID(s32 user_id);
     User* GetUserByPlayerIndex(s32 index);
+    
+    // Convert PS4 user ID (1000-1003) to internal user ID (1-4)
+    static s32 Ps4UserIdToInternal(s32 ps4_user_id);
+    // Convert internal user ID (1-4) to PS4 user ID (1000-1003)
+    static s32 InternalUserIdToPs4(s32 internal_user_id);
     const std::vector<User>& GetAllUsers() const;
     Users CreateDefaultUsers();
     bool SetDefaultUser(u32 user_id);

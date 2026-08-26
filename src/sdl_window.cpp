@@ -364,7 +364,7 @@ void WindowSDL::WaitEvent() {
         }
         break;
     case SDL_EVENT_CHANGE_CONTROLLER:
-        UNREACHABLE_MSG("todo");
+        LOG_INFO(Frontend, "SDL_EVENT_CHANGE_CONTROLLER received (not implemented yet)");
         break;
     case SDL_EVENT_TOGGLE_SIMPLE_FPS:
         Overlay::ToggleSimpleFps();

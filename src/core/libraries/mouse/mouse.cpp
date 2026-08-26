@@ -87,7 +87,9 @@ int PS4_SYSV_ABI sceMouseMbusInit() {
 int PS4_SYSV_ABI sceMouseOpen(Libraries::UserService::OrbisUserServiceUserId userId, s32 type,
                               s32 index, OrbisMouseOpenParam* pParam) {
     LOG_WARNING(Lib_Mouse, "(DUMMY) called, uid: {}, type: {}, index: {}", userId, type, index);
-    auto u = UserManagement.GetUserByID(userId);
+    // Convert PS4 user ID to internal ID for lookup
+    s32 internal_id = UserManager::Ps4UserIdToInternal(userId);
+    auto u = UserManagement.GetUserByID(internal_id);
     if (!u || type != 0 || index < 0 || index > 1) {
         LOG_ERROR(Lib_Mouse, "invalid argument");
         return ORBIS_MOUSE_ERROR_INVALID_ARG;

@@ -868,25 +868,10 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
     // are discoverable while the actual P2P handshake between players
     // never happens.
     //
-    // Diagnostic checkpoints below: logging is synchronous in this build, so
-    // whichever LOG_INFO prints last, right before the process goes silent,
-    // pinpoints exactly which call is crashing (this is NOT a thrown C++
-    // exception -- try/catch here does not catch it, confirmed since no
-    // LOG_ERROR from the catch blocks ever appears before the crash).
-    LOG_INFO(Lib_NpManager, "RegisterLib: about to spawn NpHandler init thread");
-    std::thread([]() {
-        LOG_INFO(Lib_NpManager, "NpHandler init thread: started");
-        try {
-            LOG_INFO(Lib_NpManager, "NpHandler init thread: calling Initialize()");
-            Libraries::Np::NpHandler::GetInstance().Initialize();
-            LOG_INFO(Lib_NpManager, "NpHandler init thread: Initialize() returned normally");
-        } catch (const std::exception& e) {
-            LOG_ERROR(Lib_NpManager, "NpHandler::Initialize() threw: {}", e.what());
-        } catch (...) {
-            LOG_ERROR(Lib_NpManager, "NpHandler::Initialize() threw a non-std::exception");
-        }
-    }).detach();
-    LOG_INFO(Lib_NpManager, "RegisterLib: thread spawned and detached, continuing boot");
+    // Note: NpHandler initialization is now lazy - it will be initialized
+    // on first use rather than immediately during library registration.
+    // This avoids race conditions with user settings loading.
+    LOG_INFO(Lib_NpManager, "RegisterLib: NpHandler will be initialized lazily on first use");
 
     for (int slot = 0; slot < static_cast<int>(kMaxShadNetSlots); ++slot) {
         LOG_INFO(Lib_NpManager, "RegisterLib: EnsureShadNetSession slot={}", slot);

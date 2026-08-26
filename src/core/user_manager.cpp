@@ -68,9 +68,30 @@ bool UserManager::RenameUser(s32 user_id, const std::string& new_name) {
     return false;
 }
 
+s32 UserManager::Ps4UserIdToInternal(s32 ps4_user_id) {
+    // PS4 uses user IDs 1000-1003 for players 1-4
+    // Convert to internal user IDs 1-4
+    if (ps4_user_id >= 1000 && ps4_user_id <= 1003) {
+        return ps4_user_id - 999; // 1000 -> 1, 1001 -> 2, 1002 -> 3, 1003 -> 4
+    }
+    // Already an internal ID or invalid, return as-is
+    return ps4_user_id;
+}
+
+s32 UserManager::InternalUserIdToPs4(s32 internal_user_id) {
+    // Convert internal user IDs 1-4 to PS4 user IDs 1000-1003
+    if (internal_user_id >= 1 && internal_user_id <= 4) {
+        return internal_user_id + 999; // 1 -> 1000, 2 -> 1001, 3 -> 1002, 4 -> 1003
+    }
+    // Already a PS4 ID or invalid, return as-is
+    return internal_user_id;
+}
+
 User* UserManager::GetUserByID(s32 user_id) {
+    // Convert PS4 user ID to internal ID if needed
+    s32 internal_id = Ps4UserIdToInternal(user_id);
     for (auto& u : m_users.user) {
-        if (u.user_id == user_id)
+        if (u.user_id == internal_id)
             return &u;
     }
     return nullptr;
@@ -163,7 +184,11 @@ bool UserManager::SetDefaultUser(u32 user_id) {
 }
 
 User UserManager::GetDefaultUser() {
-    return *GetUserByPlayerIndex(1);
+    User* user = GetUserByPlayerIndex(1);
+    if (!user) {
+        return User{}; // Return default user if none found
+    }
+    return *user;
 }
 
 void UserManager::SetControllerPort(u32 user_id, int port) {

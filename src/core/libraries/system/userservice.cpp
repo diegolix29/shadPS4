@@ -4,6 +4,7 @@
 #include <queue>
 
 #include "common/logging/log.h"
+#include "common/config.h"
 
 #include <core/user_settings.h>
 #include <queue>
@@ -516,7 +517,9 @@ s32 PS4_SYSV_ABI sceUserServiceGetInitialUser(int* user_id) {
         LOG_ERROR(Lib_UserService, "user_id is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    *user_id = UserManagement.GetDefaultUser().user_id;
+    s32 internal_id = UserManagement.GetDefaultUser().user_id;
+    // Convert internal user ID to PS4 user ID format (1000-1003)
+    *user_id = UserManager::InternalUserIdToPs4(internal_id);
     return ORBIS_OK;
 }
 
@@ -603,6 +606,10 @@ s32 PS4_SYSV_ABI sceUserServiceGetLoginUserIdList(OrbisUserServiceLoginUserIdLis
     for (int i = 0; i < ORBIS_USER_SERVICE_MAX_LOGIN_USERS; i++) {
         s32 id =
             logged_in_users[i] ? logged_in_users[i]->user_id : ORBIS_USER_SERVICE_USER_ID_INVALID;
+        // Convert internal user ID to PS4 user ID format (1000-1003)
+        if (id != ORBIS_USER_SERVICE_USER_ID_INVALID) {
+            id = UserManager::InternalUserIdToPs4(id);
+        }
         userIdList->user_id[i] = id;
         LOG_DEBUG(Lib_UserService, "Slot {}: User ID {} (port {})", i, id,
                   logged_in_users[i] ? logged_in_users[i]->player_index : -1);
@@ -1070,13 +1077,23 @@ int PS4_SYSV_ABI sceUserServiceGetTraditionalChineseInputType() {
 }
 
 s32 PS4_SYSV_ABI sceUserServiceGetUserColor(int user_id, OrbisUserServiceUserColor* color) {
-    // TODO fix me better
     LOG_DEBUG(Lib_UserService, "called user_id = {}", user_id);
+    if (user_id == ORBIS_USER_SERVICE_USER_ID_INVALID) {
+        LOG_ERROR(Lib_UserService, "invalid user_id");
+        return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
+    }
     if (color == nullptr) {
         LOG_ERROR(Lib_UserService, "color is null");
         return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
     }
-    *color = (OrbisUserServiceUserColor)UserManagement.GetUserByID(user_id)->user_color;
+    // Convert PS4 user ID to internal ID for lookup
+    s32 internal_id = UserManager::Ps4UserIdToInternal(user_id);
+    auto* user = UserManagement.GetUserByID(internal_id);
+    if (!user) {
+        LOG_ERROR(Lib_UserService, "No user found");
+        return ORBIS_USER_SERVICE_ERROR_INVALID_ARGUMENT;
+    }
+    *color = (OrbisUserServiceUserColor)user->user_color;
     return ORBIS_OK;
 }
 
@@ -1107,7 +1124,9 @@ s32 PS4_SYSV_ABI sceUserServiceGetUserName(int user_id, char* user_name, std::si
     }
 
     std::string name = "shadPS4";
-    auto const* u = UserManagement.GetUserByID(user_id);
+    // Convert PS4 user ID to internal ID for lookup
+    s32 internal_id = UserManager::Ps4UserIdToInternal(user_id);
+    auto const* u = UserManagement.GetUserByID(internal_id);
     if (u != nullptr) {
         name = u->user_name;
     } else {
@@ -2216,7 +2235,7 @@ int PS4_SYSV_ABI Func_D2B814603E7B4477() {
 }
 
 void RegisterLib(Core::Loader::SymbolsResolver* sym) {
-    g_shadnet_enabled = EmulatorSettings.IsShadNetEnabled();
+    g_shadnet_enabled = Config::IsShadNetEnabled();
     LIB_FUNCTION("Psl9mfs3duM", "libSceUserServiceForShellCore", 1, "libSceUserService",
                  sceUserServiceInitializeForShellCore);
     LIB_FUNCTION("CydP+QtA0KI", "libSceUserServiceForShellCore", 1, "libSceUserService",
