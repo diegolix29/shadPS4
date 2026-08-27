@@ -1053,6 +1053,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->ReadbacksLinearCheckBox->installEventFilter(this);
         ui->ReadbackSpeedComboBox->installEventFilter(this);
         ui->MemorySpinBox->installEventFilter(this);
+        ui->FmemSpinBox->installEventFilter(this);
     }
 
     SdlEventWrapper::Wrapper::wrapperActive = true;
@@ -1206,6 +1207,7 @@ void SettingsDialog::LoadValuesFromConfig() {
 
     ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));
     ui->MemorySpinBox->setValue(toml::find_or<int>(data, "General", "extraDmemInMbytes", 0));
+    ui->FmemSpinBox->setValue(toml::find_or<int>(data, "General", "extraFmemInMbytes", 0));
     ui->disableTrophycheckBox->setChecked(
         toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
     ui->popUpDurationSpinBox->setValue(
@@ -1700,7 +1702,7 @@ bool SettingsDialog::eventFilter(QObject* obj, QEvent* event) {
             return true;
         }
     }
-    if ((obj == ui->ReadbackSpeedComboBox || obj == ui->MemorySpinBox) &&
+    if ((obj == ui->ReadbackSpeedComboBox || obj == ui->MemorySpinBox || obj == ui->FmemSpinBox) &&
         event->type() == QEvent::Wheel) {
         return true;
     }
@@ -1846,6 +1848,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setFpsLimiterEnabled(ui->fpsLimiterCheckBox->isChecked());
 
     Config::setExtraDmemInMbytes(ui->MemorySpinBox->value());
+    Config::setExtraFmemInMbytes(ui->FmemSpinBox->value());
     Config::setLoadGameSizeEnabled(ui->gameSizeCheckBox->isChecked());
     Config::setShowSplash(ui->showSplashCheckBox->isChecked());
     Config::setDebugDump(ui->debugDump->isChecked());

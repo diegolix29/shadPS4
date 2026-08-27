@@ -248,6 +248,7 @@ static ConfigEntry<OpenALOutputMode> openALOutputMode(OpenALOutputMode::OutputAu
 static ConfigEntry<OpenALHrtfMode> openALHrtfMode(OpenALHrtfMode::HrtfAuto);
 static ConfigEntry<string> openALMainOutputDevice("Default Device");
 static ConfigEntry<int> extraDmemInMbytes(0);
+static ConfigEntry<int> extraFmemInMbytes(0);
 static ConfigEntry<bool> useHostMemoryFallback(false);
 static ConfigEntry<int> memoryCompressionLevel(0);
 static ConfigEntry<int> usbDeviceBackend(UsbBackendType::Real);
@@ -596,6 +597,14 @@ int getExtraDmemInMbytes() {
 
 void setExtraDmemInMbytes(int value) {
     extraDmemInMbytes.base_value = value;
+}
+
+int getExtraFmemInMbytes() {
+    return extraFmemInMbytes.get();
+}
+
+void setExtraFmemInMbytes(int value) {
+    extraFmemInMbytes.base_value = value;
 }
 
 bool getUseHostMemoryFallback() {
@@ -1903,6 +1912,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         volumeSlider.setFromToml(general, "volumeSlider", is_game_specific);
         muteEnabled.setFromToml(general, "muteEnabled", is_game_specific);
         extraDmemInMbytes.setFromToml(general, "extraDmemInMbytes", is_game_specific);
+        extraFmemInMbytes.setFromToml(general, "extraFmemInMbytes", is_game_specific);
         useHostMemoryFallback.setFromToml(general, "useHostMemoryFallback", is_game_specific);
         memoryCompressionLevel.setFromToml(general, "memoryCompressionLevel", is_game_specific);
         isNeo.setFromToml(general, "isPS4Pro", is_game_specific);
@@ -2328,6 +2338,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["General"]["isDevKit"] = isDevKit.game_specific_value.value_or(isDevKit.base_value);
         data["General"]["extraDmemInMbytes"] =
             extraDmemInMbytes.game_specific_value.value_or(extraDmemInMbytes.base_value);
+        data["General"]["extraFmemInMbytes"] =
+            extraFmemInMbytes.game_specific_value.value_or(extraFmemInMbytes.base_value);
         data["General"]["useHostMemoryFallback"] =
             useHostMemoryFallback.game_specific_value.value_or(useHostMemoryFallback.base_value);
         data["General"]["memoryCompressionLevel"] =
@@ -2382,6 +2394,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["General"]["isPS4Pro"] = isNeo.base_value;
         data["General"]["isDevKit"] = isDevKit.base_value;
         data["General"]["extraDmemInMbytes"] = extraDmemInMbytes.base_value;
+        data["General"]["extraFmemInMbytes"] = extraFmemInMbytes.base_value;
         data["General"]["useHostMemoryFallback"] = useHostMemoryFallback.base_value;
         data["General"]["memoryCompressionLevel"] = memoryCompressionLevel.base_value;
         data["General"]["isShadNetEnabled"] = isShadNetEnabled.base_value;
@@ -2775,6 +2788,7 @@ void setDefaultValues() {
     useHostMemoryFallback = false;
     memoryCompressionLevel = 0;
     extraDmemInMbytes = 0;
+    extraFmemInMbytes = 0;
 
     isShadNetEnabled = false;
     isTrophyPopupDisabled = false;
