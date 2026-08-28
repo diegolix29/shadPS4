@@ -241,6 +241,8 @@ void setNeoMode(bool enable);  // no ui setting
 bool vkValidationGpuEnabled(); // no set
 int getExtraDmemInMbytes();
 void setExtraDmemInMbytes(int value);
+int getExtraFmemInMbytes();
+void setExtraFmemInMbytes(int value);
 bool getUseHostMemoryFallback();
 void setUseHostMemoryFallback(bool enable);
 int getMemoryCompressionLevel();
