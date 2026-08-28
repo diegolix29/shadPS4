@@ -403,6 +403,5 @@ int main(int argc, char* argv[]) {
     emulator->executableName = argv[0];
     emulator->waitForDebuggerBeforeRun = waitForDebugger;
     emulator->Run(ebootPath, gameArgs, gameFolder);
-
     return 0;
 }

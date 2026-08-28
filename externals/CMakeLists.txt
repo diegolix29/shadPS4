@@ -419,6 +419,20 @@ endif()
 
 # macOS Vulkan driver
 if (APPLE AND NOT ENABLE_SYSTEM_VULKAN AND NOT ENABLE_TESTS)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/externals/MoltenVK")
+        add_subdirectory(externals/MoltenVK)
+        set(VULKAN_LOADER_PATH "${CMAKE_CURRENT_BINARY_DIR}/externals/MoltenVK/libMoltenVK.dylib" PARENT_SCOPE)
+    elseif (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/externals/vulkan-loader")
+        # Fallback to vulkan-loader
+        add_subdirectory(externals/vulkan-loader)
+        set(VULKAN_LOADER_PATH "${CMAKE_CURRENT_BINARY_DIR}/externals/vulkan-loader/loader/libvulkan.dylib" PARENT_SCOPE)
+    else()
+        message(WARNING "Neither MoltenVK nor vulkan-loader found in externals/")
+    endif()
+endif()
+
+# macOS Vulkan driver
+if (APPLE AND NOT ENABLE_SYSTEM_VULKAN AND NOT ENABLE_TESTS)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vulkan-loader")
         add_subdirectory(vulkan-loader)
         set(VULKAN_LOADER_PATH "${CMAKE_CURRENT_BINARY_DIR}/vulkan-loader/loader/libvulkan.dylib" PARENT_SCOPE)

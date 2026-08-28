@@ -245,7 +245,7 @@ jobs:
         path: upload/
 
   macos-sdl:
-    runs-on: macos-15
+    runs-on: macos-26
     needs: get-info
     steps:
     - uses: actions/checkout@v6.0.2
@@ -281,8 +281,8 @@ jobs:
     - name: Print CPU Info
       run: sysctl hw machdep.cpu
 
-    - name: Install LLVM
-      run: brew install llvm
+    - name: Install LLVM, Meson, libclc and Python dependencies
+      run: brew install llvm meson ninja pkg-config spirv-tools spirv-llvm-translator libclc && pip3 install --break-system-packages mako packaging pyyaml
 
     - name: Configure CMake
       run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON  -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
@@ -294,15 +294,15 @@ jobs:
       run: |
         mkdir upload
         mv ${{github.workspace}}/build/shadps4 upload
-        mv ${{github.workspace}}/build/MoltenVK_icd.json upload
-        mv ${{github.workspace}}/build/libMoltenVK.dylib upload
+        mv ${{github.workspace}}/build/kosmickrisp_mesa_icd.json upload
+        mv ${{github.workspace}}/build/libvulkan.dylib upload
     - uses: actions/upload-artifact@v7
       with:
         name: shadps4-macos-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
         path: upload/
 
   macos-qt:
-    runs-on: macos-15
+    runs-on: macos-26
     needs: get-info
     steps:
     - uses: actions/checkout@v6.0.2
@@ -314,8 +314,8 @@ jobs:
       with:
         xcode-version: latest
 
-    - name: Install LLVM
-      run: brew install llvm
+    - name: Install LLVM, Meson, libclc and Python dependencies
+      run: brew install llvm meson ninja pkg-config spirv-tools spirv-llvm-translator libclc && pip3 install --break-system-packages mako packaging pyyaml
 
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4
