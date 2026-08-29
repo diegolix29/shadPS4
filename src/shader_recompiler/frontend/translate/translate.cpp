@@ -259,9 +259,6 @@ void Translator::EmitPrologue(IR::Block* first_block) {
     default:
         UNREACHABLE_MSG("Unknown shader stage");
     }
-
-    // Clear any scratch vgpr mappings for next shader.
-    vgpr_map.clear();
 }
 
 IR::VectorReg Translator::GetScratchVgpr(u32 offset) {
@@ -271,7 +268,7 @@ IR::VectorReg Translator::GetScratchVgpr(u32 offset) {
         it->second = static_cast<IR::VectorReg>(next_vgpr_num++);
     }
     return it->second;
-};
+}
 
 Translator::RegType Translator::GetRegType(const InstOperand& operand) const {
     if (operand.field == OperandField::ScalarGPR) {
