@@ -1432,27 +1432,24 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 endif()
 
 if (APPLE)
-    # Include MoltenVK, along with an ICD file so it can be found by the system Vulkan loader if used for loading layers.
+    # Include kosmikrips Vulkan driver
     set_property(TARGET shadps4 APPEND PROPERTY BUILD_RPATH "@executable_path")
-    set(MVK_DST ${CMAKE_CURRENT_BINARY_DIR})
-    set(MVK_DYLIB_SRC ${CMAKE_CURRENT_BINARY_DIR}/externals/MoltenVK/MoltenVK/libMoltenVK.dylib)
-    set(MVK_DYLIB_DST ${MVK_DST}/libMoltenVK.dylib)
-    set(MVK_ICD_SRC ${CMAKE_CURRENT_SOURCE_DIR}/externals/MoltenVK/MoltenVK/icd/MoltenVK_icd.json)
-    set(MVK_ICD_DST ${MVK_DST}/MoltenVK_icd.json)
+    set(KOSMIK_DST ${CMAKE_CURRENT_BINARY_DIR})
+    set(KOSMIK_DYLIB_SRC ${VULKAN_DRIVER_PATH})
+    set(KOSMIK_DYLIB_DST ${KOSMIK_DST}/libvulkan.dylib)
+    set(KOSMIK_ICD_SRC ${VULKAN_ICD_PATH})
+    set(KOSMIK_ICD_DST ${KOSMIK_DST}/kosmickrisp_mesa_icd.json)
 
     add_custom_command(
-        OUTPUT ${MVK_ICD_DST}
-        DEPENDS ${MVK_ICD_SRC} ${MVK_DST}
-        COMMAND ${CMAKE_COMMAND} -E copy ${MVK_ICD_SRC} ${MVK_ICD_DST})
+        OUTPUT ${KOSMIK_ICD_DST}
+        DEPENDS ${KOSMIK_ICD_SRC} ${KOSMIK_DST}
+        COMMAND ${CMAKE_COMMAND} -E copy ${KOSMIK_ICD_SRC} ${KOSMIK_ICD_DST})
     add_custom_command(
-        OUTPUT ${MVK_DYLIB_DST}
-        DEPENDS ${MVK_DYLIB_SRC} ${MVK_DST}
-        COMMAND ${CMAKE_COMMAND} -E copy ${MVK_DYLIB_SRC} ${MVK_DYLIB_DST})
-    add_custom_target(CopyMoltenVK DEPENDS ${MVK_ICD_DST} ${MVK_DYLIB_DST})
-    if (TARGET MoltenVK)
-        add_dependencies(CopyMoltenVK MoltenVK)
-    endif()
-    add_dependencies(shadps4 CopyMoltenVK)
+        OUTPUT ${KOSMIK_DYLIB_DST}
+        DEPENDS ${KOSMIK_DYLIB_SRC} ${KOSMIK_DST}
+        COMMAND ${CMAKE_COMMAND} -E copy ${KOSMIK_DYLIB_SRC} ${KOSMIK_DYLIB_DST})
+    add_custom_target(CopyKosmikrips DEPENDS ${KOSMIK_ICD_DST} ${KOSMIK_DYLIB_DST})
+    add_dependencies(shadps4 CopyKosmikrips)
 
     if (ARCHITECTURE STREQUAL "x86_64")
         # Reserve system-managed memory space.
