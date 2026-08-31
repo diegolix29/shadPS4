@@ -417,6 +417,19 @@ else()
     message(STATUS "cpp-httplib: OpenSSL/LibreSSL not available — libSceHttp HTTPS will fall back to mock at runtime.")
 endif()
 
+# MoltenVK (macOS Vulkan driver)
+if (APPLE AND NOT ENABLE_TESTS)
+    if (NOT TARGET MoltenVK::MoltenVK)
+        if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/MoltenVK")
+            # Build MoltenVK from source if available
+            add_subdirectory(MoltenVK)
+            add_library(MoltenVK::MoltenVK ALIAS MoltenVK)
+        else()
+            message(WARNING "MoltenVK source not found. Vulkan support on macOS will be unavailable.")
+        endif()
+    endif()
+endif()
+
 # macOS Vulkan driver
 if (APPLE AND NOT ENABLE_SYSTEM_VULKAN AND NOT ENABLE_TESTS)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vulkan-loader")
