@@ -47,7 +47,7 @@ public:
         m_titleLabel = new QLabel(this);
         m_titleLabel->setStyleSheet(
             "color: white; font-size: 24px; font-weight: bold; padding: 6px 12px;");
-        m_titleLabel->setText("Hotkeys & Navigation Keys");
+        m_titleLabel->setText(tr("Hotkeys & Navigation Keys"));
         m_titleLabel->setAlignment(Qt::AlignCenter);
         m_mainLayout->addWidget(m_titleLabel);
 

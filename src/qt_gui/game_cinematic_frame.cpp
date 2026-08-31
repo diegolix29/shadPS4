@@ -117,7 +117,7 @@ void GameCinematicFrame::SetupUI() {
     QVBoxLayout* infoLayout = new QVBoxLayout();
     infoLayout->setAlignment(Qt::AlignBottom | Qt::AlignLeft);
 
-    m_titleLabel = new QLabel("Select a Game", this);
+    m_titleLabel = new QLabel(tr("Select a Game"), this);
     m_titleLabel->setStyleSheet("font-size: 36px; font-weight: bold; color: white;");
 
     auto* shadow = new QGraphicsDropShadowEffect(this);
