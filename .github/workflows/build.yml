@@ -245,7 +245,7 @@ jobs:
         path: upload/
 
   macos-sdl:
-    runs-on: macos-15
+    runs-on: macos-26
     needs: get-info
     steps:
     - uses: actions/checkout@v6.0.2
@@ -302,7 +302,7 @@ jobs:
         path: upload/
 
   macos-qt:
-    runs-on: macos-15
+    runs-on: macos-26
     needs: get-info
     steps:
     - uses: actions/checkout@v6.0.2
