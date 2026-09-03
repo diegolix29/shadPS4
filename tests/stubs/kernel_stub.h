@@ -10,7 +10,4 @@ namespace Libraries::Kernel {
 void TestSetSdkVersion(s32 ver);
 void TestResetSdkVersion();
 
-void TestSetSystemSwVersion(u32 hex_version);
-void TestResetSystemSwVersion();
-
 } // namespace Libraries::Kernel
