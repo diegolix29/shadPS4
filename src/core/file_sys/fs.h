@@ -193,7 +193,6 @@ public:
     void DeleteHandle(int d);
     File* GetFile(int d);
     File* GetSocket(int d);
-    std::vector<int> GetSocketHandles();
     File* GetEpoll(int d);
     File* GetResolver(int d);
     File* GetFile(const std::filesystem::path& host_name);
