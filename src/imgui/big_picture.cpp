@@ -1,6 +1,8 @@
 //  SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 //  SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+#include <bit>
 #include <fstream>
 #include <limits>
 #include <cmrc/cmrc.hpp>
@@ -82,6 +84,15 @@ void Launch() {
         ImGui::FontStack::AddPrimaryUiFont(io.Fonts, 32.0f, Config::GetLanguage(), font_cfg, true);
     io.FontDefault = myFont;
 
+    io.FontDefault = ImGui::FontStack::AddPrimaryUiFont(
+        io.Fonts, 64.0f, EmulatorSettings.GetConsoleLanguage(), cfgBase, true);
+    io.FontGlobalScale = 0.5f;
+    // size the big picture font atlas cap from the renderer limit
+    const auto max_dim = SDL_GetNumberProperty(SDL_GetRendererProperties(renderer),
+                                               SDL_PROP_RENDERER_MAX_TEXTURE_SIZE_NUMBER, 8192);
+    const int atlas_max = static_cast<int>(std::bit_floor(std::max<u64>(max_dim, 512)));
+    io.Fonts->TexMaxWidth = atlas_max;
+    io.Fonts->TexMaxHeight = atlas_max;
     io.Fonts->Build();
 
     ImGuiStyle& style = ImGui::GetStyle();
