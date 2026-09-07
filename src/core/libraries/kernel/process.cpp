@@ -40,6 +40,11 @@ s32 PS4_SYSV_ABI sceKernelIsProspero() {
     return 0;
 }
 
+s32 PS4_SYSV_ABI sceKernelIsProspero() {
+    LOG_INFO(Lib_Kernel, "called: returning false");
+    return 0;
+}
+
 s32 PS4_SYSV_ABI sceKernelIsCEX() {
     return !sceKernelIsDevkit();
 }
