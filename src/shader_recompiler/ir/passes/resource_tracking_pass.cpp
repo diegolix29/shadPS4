@@ -702,7 +702,7 @@ void PatchGlobalDataShareAccess(IR::Block& block, IR::Inst& inst, Info& info,
             ASSERT_MSG(result, "Unable to track M0 source for GDS");
 
             const IR::ScalarReg ud_reg = result.value()->Arg(0).ScalarReg();
-            const IR::Inst* add = gds_offset.InstRecursive();
+            const IR::Inst* add = gds_offset.Inst();
             const u32 inst_offset = add->Arg(1).U32();
 
             // Observed: GDS base lives in upper 16 bits of the user data register.
