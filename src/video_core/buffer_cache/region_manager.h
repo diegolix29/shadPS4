@@ -153,7 +153,8 @@ public:
         }
 
         const RegionBits& bits = GetRegionBits<type>();
-        return bits.AnyInRange(start_page, end_page);
+        RegionBits test(bits, start_page, end_page);
+        return test.Any();
     }
 
     LockType lock;

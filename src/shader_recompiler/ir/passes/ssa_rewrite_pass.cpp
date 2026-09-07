@@ -222,8 +222,6 @@ public:
                 }
             }
             phi->ReplaceUsesWithAndRemove(same);
-            auto it = IR::Block::InstructionList::s_iterator_to(*phi);
-            block->Instructions().erase(it);
         }
     }
 

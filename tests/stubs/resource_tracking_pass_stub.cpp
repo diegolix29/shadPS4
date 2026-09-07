@@ -142,8 +142,8 @@ public:
 
     u32 Add(const BufferResource& desc) {
         const u32 index{Add(buffer_resources, desc, [&desc](const auto& existing) {
-            return desc.sharp_fetch == existing.sharp_fetch && desc.post_op == existing.post_op &&
-                   desc.post_op_dw1_mask == existing.post_op_dw1_mask &&
+            return desc.sharp_idx == existing.sharp_idx &&
+                   desc.inline_cbuf == existing.inline_cbuf &&
                    desc.buffer_type == existing.buffer_type;
         })};
         auto& buffer = buffer_resources[index];
@@ -155,10 +155,9 @@ public:
 
     u32 Add(const ImageResource& desc) {
         const u32 index{Add(image_resources, desc, [&desc](const auto& existing) {
-            return desc.sharp_fetch == existing.sharp_fetch && desc.is_array == existing.is_array &&
+            return desc.sharp_idx == existing.sharp_idx && desc.is_array == existing.is_array &&
                    desc.mip_fallback_mode == existing.mip_fallback_mode &&
-                   desc.constant_mip_index == existing.constant_mip_index &&
-                   desc.post_op == existing.post_op;
+                   desc.constant_mip_index == existing.constant_mip_index;
         })};
         auto& image = image_resources[index];
         image.is_atomic |= desc.is_atomic;
@@ -168,8 +167,9 @@ public:
 
     u32 Add(const SamplerResource& desc) {
         const u32 index{Add(sampler_resources, desc, [this, &desc](const auto& existing) {
-            return desc.sharp_fetch == existing.sharp_fetch && desc.post_op == existing.post_op &&
-                   desc.post_op_tsharp_dw3_off == existing.post_op_tsharp_dw3_off;
+            return desc.sharp_idx == existing.sharp_idx &&
+                   desc.is_inline_sampler == existing.is_inline_sampler &&
+                   desc.inline_sampler == existing.inline_sampler;
         })};
         return index;
     }
@@ -203,7 +203,8 @@ private:
 
 void PatchBufferSharp(IR::Block& block, IR::Inst& inst, Info& info, Descriptors& descriptors,
                       const Profile& profile) {
-    u32 buffer_binding = descriptors.Add(BufferResource{.used_types = IR::Type::U32,
+    u32 buffer_binding = descriptors.Add(BufferResource{.sharp_idx = 0,
+                                                        .used_types = IR::Type::U32,
                                                         .buffer_type = BufferType::Guest,
                                                         .is_written = true,
                                                         .is_formatted = false});

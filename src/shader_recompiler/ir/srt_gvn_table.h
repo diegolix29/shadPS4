@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <unordered_map>
+#include <boost/container/set.hpp>
 #include <boost/container/small_vector.hpp>
 #include "common/assert.h"
 #include "common/hash.h"
+#include "common/types.h"
+#include "shader_recompiler/ir/breadth_first_search.h"
 #include "shader_recompiler/ir/opcodes.h"
 #include "shader_recompiler/ir/value.h"
 
@@ -36,36 +39,34 @@ public:
     }
 
 private:
-    bool IsArgHashInst(IR::Inst* inst) {
+    u32 ComputeInstValueNumber(IR::Inst* inst) {
+        ASSERT(!value_numbers.contains(
+            IR::Value(inst))); // Should always be checking before calling this function
+
+        if (inst->MayHaveSideEffects()) {
+            return NextValueNumber(IR::Value(inst));
+        }
+
+        u32 vn;
+
         switch (inst->GetOpcode()) {
+        case IR::Opcode::Phi: {
+            const auto pred = [](IR::Inst* inst) -> std::optional<IR::Inst*> {
+                if (inst->GetOpcode() == IR::Opcode::GetUserData ||
+                    inst->GetOpcode() == IR::Opcode::CompositeConstructU32x2 ||
+                    inst->GetOpcode() == IR::Opcode::ReadConst) {
+                    return inst;
+                }
+                return std::nullopt;
+            };
+            IR::Inst* source = IR::BreadthFirstSearch(inst, pred).value();
+            vn = GetValueNumber(source);
+            value_numbers[IR::Value(inst)] = vn;
+            break;
+        }
         case IR::Opcode::GetUserData:
         case IR::Opcode::CompositeConstructU32x2:
-        case IR::Opcode::ReadConst:
-        case IR::Opcode::ReadConstBuffer:
-        case IR::Opcode::IAdd32:
-        case IR::Opcode::ISub32:
-        case IR::Opcode::IMul32:
-        case IR::Opcode::ShiftLeftLogical32:
-        case IR::Opcode::ShiftRightLogical32:
-        case IR::Opcode::BitwiseAnd32:
-        case IR::Opcode::BitwiseOr32:
-        case IR::Opcode::BitwiseXor32:
-        case IR::Opcode::BitwiseNot32:
-        case IR::Opcode::UMin32:
-        case IR::Opcode::UMax32:
-        case IR::Opcode::BitFieldUExtract:
-            ASSERT(!inst->MayHaveSideEffects());
-            return true;
-        default:
-            return false;
-        }
-    }
-
-    u32 ComputeInstValueNumber(IR::Inst* inst) {
-        // Should always be checking before calling this functio
-        ASSERT(!value_numbers.contains(IR::Value(inst)));
-        u32 vn;
-        if (IsArgHashInst(inst)) {
+        case IR::Opcode::ReadConst: {
             InstVector iv = MakeInstVector(inst);
             if (auto it = iv_to_vn.find(iv); it != iv_to_vn.end()) {
                 vn = it->second;
@@ -74,9 +75,13 @@ private:
                 vn = NextValueNumber(IR::Value(inst));
                 iv_to_vn.emplace(std::move(iv), vn);
             }
-        } else {
-            vn = NextValueNumber(IR::Value(inst));
+            break;
         }
+        default:
+            vn = NextValueNumber(IR::Value(inst));
+            break;
+        }
+
         return vn;
     }
 
