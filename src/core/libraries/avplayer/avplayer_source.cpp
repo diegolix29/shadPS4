@@ -47,7 +47,8 @@ static bool IsStreamSupported(AVStream* stream) {
            codec_id == AV_CODEC_ID_AAC;
 }
 
-AvPlayerSource::AvPlayerSource(AvPlayerStateCallback& state) : m_state(state) {}
+AvPlayerSource::AvPlayerSource(AvPlayerStateCallback& state, bool use_vdec2)
+    : m_state(state), m_use_vdec2(use_vdec2) {}
 
 AvPlayerSource::~AvPlayerSource() {
     Stop();

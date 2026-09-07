@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <queue>
+#include "common/config.h"
 #include "common/memory_patcher.h"
 #include "core/emulator_settings.h"
 #include "shader_recompiler/frontend/control_flow_graph.h"
@@ -844,7 +845,7 @@ static bool PatchInlineBuffer(IR::Block& block, IR::Inst& inst, Info& info,
         return false;
     }
 
-    if (!EmulatorSettings.IsDirectMemoryAccessEnabled()) {
+    if (!Config::directMemoryAccess()) {
         LOG_ERROR(Render_Recompiler, "Inline V# buffer load at {:#x} requires DMA but DMA disabled",
                   info.pgm_hash);
         return false;
