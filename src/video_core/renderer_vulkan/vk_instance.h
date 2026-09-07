@@ -91,22 +91,6 @@ public:
         return features.depthBounds;
     }
 
-    /// Returns true if query pools can be reset from the host.
-    bool IsHostQueryResetSupported() const {
-        return vk12_features.hostQueryReset;
-    }
-
-    /// Returns true when VK_EXT_conditional_rendering is supported
-    bool IsConditionalRenderingSupported() const {
-        return conditional_rendering;
-    }
-
-    /// Returns true when the device is AMD (requires 64-bit predicate workaround)
-    bool IsAmdGpu() const {
-        return driver_id == vk::DriverId::eAmdProprietary ||
-               driver_id == vk::DriverId::eAmdOpenSource;
-    }
-
     /// Returns true if 16-bit floats are supported in shaders
     bool IsShaderFloat16Supported() const {
         return vk12_features.shaderFloat16;
@@ -533,7 +517,6 @@ private:
     bool attachment_feedback_loop{};
     bool image_2d_view_of_3d{};
     bool image_view_min_lod{};
-    bool conditional_rendering{};
     bool supports_memory_budget{};
     bool supports_block_texel_view{};
     bool manage_imgui{true};
