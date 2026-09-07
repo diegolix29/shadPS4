@@ -1267,31 +1267,25 @@ void L::DrawPauseStatusWindow(bool& is_open) {
                 const char* label;
                 const char* key;
             };
-            static const PresentModeOption presentModes[] = {
-                {"Mailbox (Vsync)", "Mailbox"},
-                {"Fifo (Vsync)", "Fifo"},
-                {"Immediate (No Vsync)", "Immediate"},
+            static const char* presentModes[] = {
+                "Mailbox (Vsync)",
+                "Fifo (Vsync)",
+                "Immediate (No Vsync)",
+            };
+            static const char* presentModeKeys[] = {
+                "Mailbox",
+                "Fifo",
+                "Immediate",
             };
             int presentModeIndex = 0;
-            for (int i = 0; i < IM_ARRAYSIZE(presentModes); i++) {
-                if (Config::getPresentMode() == presentModes[i].key) {
+            for (int i = 0; i < IM_ARRAYSIZE(presentModeKeys); i++) {
+                if (Config::getPresentMode() == presentModeKeys[i]) {
                     presentModeIndex = i;
                     break;
                 }
             }
-            if (ImGui::Combo(
-                    "Mode", &presentModeIndex,
-                    [](void*, int idx, const char** out_text) {
-                        static const PresentModeOption presentModesLocal[] = {
-                            {"Mailbox (Vsync)", "Mailbox"},
-                            {"Fifo (Vsync)", "Fifo"},
-                            {"Immediate (No Vsync)", "Immediate"},
-                        };
-                        *out_text = presentModesLocal[idx].label;
-                        return true;
-                    },
-                    nullptr, IM_ARRAYSIZE(presentModes))) {
-                Config::setPresentMode(presentModes[presentModeIndex].key);
+            if (ImGui::Combo("Mode", &presentModeIndex, presentModes, IM_ARRAYSIZE(presentModes))) {
+                Config::setPresentMode(presentModeKeys[presentModeIndex]);
             }
 
             ImGui::EndTabItem();

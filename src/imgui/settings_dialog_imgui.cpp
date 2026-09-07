@@ -181,7 +181,7 @@ void DrawSettings(bool* open) {
         ImGui::DrawPrettyBackground();
         ImGui::SetWindowFontScale(uiScale);
         ImGuiWindowFlags child_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                       ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NavFlattened;
+                                       ImGuiWindowFlags_NoCollapse | ImGuiChildFlags_NavFlattened;
 
         ImVec4 settingsColor = ImVec4(0.1f, 0.1f, 0.12f, 0.8f); // Darker gray
         ImGui::PushStyleColor(ImGuiCol_ChildBg, settingsColor);
@@ -322,7 +322,7 @@ void LoadCategory(SettingsCategory category) {
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4.0f * uiScale, 10.0f * uiScale));
 
     ImGuiWindowFlags child_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                   ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NavFlattened;
+                                   ImGuiWindowFlags_NoCollapse | ImGuiChildFlags_NavFlattened;
 
     if (category == SettingsCategory::General) {
         if (ImGui::BeginTable("SettingsTable", 2)) {
