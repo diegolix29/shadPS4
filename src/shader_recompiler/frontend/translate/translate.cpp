@@ -992,7 +992,6 @@ void Translator::SetDst16(const InstOperand& operand, const IR::U32F32& value) {
         const auto result_16 = cast(result);
         const auto new_dst =
             ir.BitFieldInsert(prev_dst, result_16, ir.Imm32(op_sel ? 16 : 0), ir.Imm32(16));
-        type->scalar[operand.code] = RegType::Scalar;
         return ir.SetScalarReg(IR::ScalarReg(operand.code), new_dst);
     }
     case OperandField::VectorGPR: {

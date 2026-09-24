@@ -6,6 +6,7 @@
 #include "common/decoder.h"
 #include "common/signal_context.h"
 #include "core/libraries/kernel/threads/exception.h"
+#include "core/libraries/kernel/threads/pthread.h"
 #include "core/signals.h"
 
 #ifdef _WIN32
@@ -58,20 +59,8 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
-    if (guest_info._si_signo != 0) {
-        if (g_curthread &&
-            g_curthread->DispatchSignal(guest_info._si_signo, &guest_info, &guest_context)) {
-            return EXCEPTION_CONTINUE_EXECUTION;
-        }
-    }
-
-    const bool report_unhandled =
-        use_static_windows_guest_red_zone_protection ? static_protection_exception : true;
-    if (report_unhandled) {
-        LOG_CRITICAL(Debug, "Unhandled Exception code {:#x} at {}", code, address);
-        Common::Singleton<Core::Emulator>::Instance()->Shutdown();
-    }
-
+    // Vectored handlers run before frame-based SEH and language-runtime handlers. Exceptions that
+    // do not belong to the emulator must continue through normal Windows dispatch.
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -95,6 +84,31 @@ static std::string DisassembleInstruction(void* code_address) {
 #endif
 
     return buffer;
+}
+
+void SignalDispatch::RemoveHandlers() {
+    // asserting here would get into an infinite loop until too
+    // many nested exceptions makes the OS kill the process
+#if defined(_WIN32)
+    if (!(RemoveVectoredExceptionHandler(handle))) {
+        LOG_CRITICAL(Core, "Failed to remove exception handler.");
+        std::quick_exit(1);
+    }
+#else
+    struct sigaction action{};
+    action.sa_handler = SIG_DFL;
+    action.sa_flags = 0;
+    sigemptyset(&action.sa_mask);
+
+    if (!(sigaction(SIGSEGV, &action, nullptr) == 0 && sigaction(SIGBUS, &action, nullptr) == 0 &&
+          sigaction(SIGILL, &action, nullptr) == 0 && sigaction(SIGFPE, &action, nullptr) == 0 &&
+          sigaction(SIGTRAP, &action, nullptr) == 0 && sigaction(SIGSYS, &action, nullptr) == 0 &&
+          sigaction(SIGUSR1, &action, nullptr) == 0 &&
+          sigaction(SIGSLEEP, &action, nullptr) == 0)) {
+        LOG_CRITICAL(Core, "Failed to remove signal handlers.");
+        std::quick_exit(1);
+    }
+#endif
 }
 
 void SignalHandler(int sig, siginfo_t* info, void* raw_context) {

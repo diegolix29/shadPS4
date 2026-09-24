@@ -2,27 +2,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <boost/container/static_vector.hpp>
-#include "common/memory_patcher.h"
 #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
 #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
+#include "shader_recompiler/ir/microinstruction.h"
 
 namespace Shader::Backend::SPIRV {
-
-static bool IsUfc3ColorGradingWorkaround(const EmitContext& ctx, u32 handle) {
-    return ctx.stage == Stage::Fragment && ctx.info.pgm_hash == 0xe115097cULL &&
-           (MemoryPatcher::g_game_serial == "CUSA14209" ||
-            MemoryPatcher::g_game_serial == "CUSA14204") &&
-           (ctx.images[handle & 0xFFFF].view_type == AmdGpu::ImageType::Color3D) &&
-           !ctx.images[handle & 0xFFFF].is_storage;
-}
-
-static Id EmitUfc3ColorGradingPassthrough(EmitContext& ctx, Id coords) {
-    const Id x = ctx.OpCompositeExtract(ctx.F32[1], coords, 0);
-    const Id y = ctx.OpCompositeExtract(ctx.F32[1], coords, 1);
-    const Id z = ctx.OpCompositeExtract(ctx.F32[1], coords, 2);
-    const Id one = ctx.ConstF32(1.0f);
-    return ctx.OpCompositeConstruct(ctx.F32[4], x, y, z, one);
-}
 
 struct ImageOperands {
     void Add(spv::ImageOperandsMask new_mask, Id value) {
@@ -50,7 +34,7 @@ struct ImageOperands {
             Add(spv::ImageOperandsMask::ConstOffset, ctx.ConstS32(operand));
             return;
         }
-        IR::Inst* const inst{offset.InstRecursive()};
+        IR::Inst* const inst{offset.Inst()};
         if (inst->AreAllArgsImmediates()) {
             switch (inst->GetOpcode()) {
             case IR::Opcode::CompositeConstructU32x2:
@@ -98,10 +82,6 @@ Id EmitImageSampleRaw(EmitContext& ctx, IR::Inst* inst, u32 handle, Id address1,
 
 Id EmitImageSampleImplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id bias,
                               const IR::Value& offset) {
-    if (IsUfc3ColorGradingWorkaround(ctx, handle)) {
-        return EmitUfc3ColorGradingPassthrough(ctx, coords);
-    }
-
     const auto& texture = ctx.images[handle & 0xFFFF];
     const Id image = ctx.OpLoad(texture.image_type, texture.id);
     const Id result_type = texture.data_types->Get(4);
@@ -117,10 +97,6 @@ Id EmitImageSampleImplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id c
 
 Id EmitImageSampleExplicitLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id lod,
                               const IR::Value& offset) {
-    if (IsUfc3ColorGradingWorkaround(ctx, handle)) {
-        return EmitUfc3ColorGradingPassthrough(ctx, coords);
-    }
-
     const auto& texture = ctx.images[handle & 0xFFFF];
     const Id image = ctx.OpLoad(texture.image_type, texture.id);
     const Id result_type = texture.data_types->Get(4);
@@ -234,10 +210,6 @@ Id EmitImageQueryLod(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords) {
 
 Id EmitImageGradient(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id derivatives_dx,
                      Id derivatives_dy, const IR::Value& offset, const IR::Value& lod_clamp) {
-    if (IsUfc3ColorGradingWorkaround(ctx, handle)) {
-        return EmitUfc3ColorGradingPassthrough(ctx, coords);
-    }
-
     const auto& texture = ctx.images[handle & 0xFFFF];
     const Id image = ctx.OpLoad(texture.image_type, texture.id);
     const Id result_type = texture.data_types->Get(4);
@@ -255,15 +227,22 @@ Id EmitImageRead(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id lod
     const auto& texture = ctx.images[handle & 0xFFFF];
     const Id color_type = texture.data_types->Get(4);
     ImageOperands operands;
-    operands.Add(spv::ImageOperandsMask::Sample, ms);
     Id texel;
     if (!texture.is_storage) {
         const Id image = ctx.OpLoad(texture.image_type, texture.id);
-        if (texture.view_type != AmdGpu::ImageType::Color2DMsaa) {
+        if (texture.view_type == AmdGpu::ImageType::Color2DMsaa) {
+            // GCN hardware wraps out-of-range MSAA sample indices
+            if (Sirit::ValidId(ms)) {
+                const Id sample_count = ctx.OpImageQuerySamples(ctx.U32[1], image);
+                const Id wrapped_ms = ctx.OpUMod(ctx.U32[1], ms, sample_count);
+                operands.Add(spv::ImageOperandsMask::Sample, wrapped_ms);
+            }
+        } else {
             if (Sirit::ValidId(ms)) {
                 LOG_ERROR(Render_Recompiler, "image is not MS but ms operand is provided");
             }
             operands.Add(spv::ImageOperandsMask::Lod, lod);
+            operands.Add(spv::ImageOperandsMask::Sample, ms);
         }
         texel = ctx.OpImageFetch(color_type, image, coords, operands.mask, operands.operands);
     } else {
@@ -272,7 +251,7 @@ Id EmitImageRead(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id lod
             operands.Add(spv::ImageOperandsMask::Lod, lod);
         } else if (Sirit::ValidId(lod)) {
 #if 1
-            // It's  confusing what interactions will cause this code path so leave it as
+            // It's confusing what interactions will cause this code path so leave it as
             // unreachable until a case is found.
             // Normally IMAGE_LOAD_MIP should translate -> OpImageFetch
             UNREACHABLE_MSG("Unsupported ImageRead with Lod");

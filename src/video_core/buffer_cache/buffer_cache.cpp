@@ -882,10 +882,14 @@ vk::Buffer BufferCache::UploadCopies(const Buffer& buffer, std::span<vk::BufferC
 
 bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size) {
     if (auto type = texture_cache.IsMeta(device_addr)) {
-        ASSERT(*type == TextureCache::MetaType::HTile);
-        static constexpr u32 ZmaskUncompressed = 0xf;
-        buffer.Fill(buffer.Offset(device_addr), size, ZmaskUncompressed);
-        return true;
+        // Handle different metadata types appropriately
+        if (*type == TextureCache::MetaType::HTile) {
+            static constexpr u32 ZmaskUncompressed = 0xf;
+            buffer.Fill(buffer.Offset(device_addr), size, ZmaskUncompressed);
+            return true;
+        }
+        // For CMask and FMask, we don't need special handling
+        return false;
     }
     const ImageId image_id = texture_cache.FindImageFromRange(device_addr, size);
     if (!image_id) {
