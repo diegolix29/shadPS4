@@ -85,7 +85,7 @@ std::vector<u32> TranslateToSpirv(std::span<const u64> raw_gcn_insts) {
         mov.src[0].code = i;
         mov.dst[0].field = Shader::Gcn::OperandField::VectorGPR;
         mov.dst[0].code = i;
-        translator.S_MOV_B32(mov);
+        translator.S_MOV(mov);
     }
     for (const Gcn::GcnInst& inst : instructions) {
         translator.TranslateInstruction(inst);
