@@ -58,8 +58,20 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
-    // Vectored handlers run before frame-based SEH and language-runtime handlers. Exceptions that
-    // do not belong to the emulator must continue through normal Windows dispatch.
+    if (guest_info._si_signo != 0) {
+        if (g_curthread &&
+            g_curthread->DispatchSignal(guest_info._si_signo, &guest_info, &guest_context)) {
+            return EXCEPTION_CONTINUE_EXECUTION;
+        }
+    }
+
+    const bool report_unhandled =
+        use_static_windows_guest_red_zone_protection ? static_protection_exception : true;
+    if (report_unhandled) {
+        LOG_CRITICAL(Debug, "Unhandled Exception code {:#x} at {}", code, address);
+        Common::Singleton<Core::Emulator>::Instance()->Shutdown();
+    }
+
     return EXCEPTION_CONTINUE_SEARCH;
 }
 

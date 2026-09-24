@@ -63,12 +63,10 @@ Id EmitReadConst(EmitContext& ctx, IR::Inst* inst, Id addr, Id offset) {
     if (!Config::directMemoryAccess()) {
         return ctx.EmitFlatbufferLoad(ctx.ConstU32(flatbuf_off_dw));
     }
-    // We can only provide a fallback for immediate offsets.
     if (flatbuf_off_dw == 0) {
         return ctx.OpFunctionCall(ctx.U32[1], ctx.read_const_dynamic, addr, offset);
     } else {
-        return ctx.OpFunctionCall(ctx.U32[1], ctx.read_const, addr, offset,
-                                  ctx.ConstU32(flatbuf_off_dw));
+        return ctx.EmitFlatbufferLoad(ctx.ConstU32(flatbuf_off_dw));
     }
 }
 
@@ -611,6 +609,10 @@ void EmitSetMaskLaneVariable(EmitContext&) {
 }
 
 void EmitGetMaskLaneVariable(EmitContext&) {
+    UNREACHABLE_MSG("Unreachable instruction");
+}
+
+Id EmitGetPcLo(EmitContext& ctx, Id pc) {
     UNREACHABLE_MSG("Unreachable instruction");
 }
 
