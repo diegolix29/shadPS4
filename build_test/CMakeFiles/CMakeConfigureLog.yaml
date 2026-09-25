@@ -1,0 +1,11 @@
+
+---
+events:
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/devkitpro/msys2/usr/share/cmake/Modules/CMakeDetermineSystem.cmake:205 (message)"
+      - "CMakeLists.txt:25 (project)"
+    message: |
+      The system is: MSYS - 3.6.10-8fbd9808.x86_64 - x86_64
+...

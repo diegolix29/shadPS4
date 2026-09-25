@@ -110,7 +110,7 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install ninja llvm libclc meson
+          brew install ninja llvm meson
 
       - name: Configure CMake
         run: |
@@ -120,7 +120,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DENABLE_TESTS=ON \
             ${{ runner.os == 'Linux' && '-DCMAKE_CXX_FLAGS=-stdlib=libc++' || '' }} \
-            ${{ runner.os == 'macOS' && '-DCMAKE_OSX_ARCHITECTURES=x86_64 -DKOSMIKRISP_DISABLE_CLC=ON' || '' }}
+            ${{ runner.os == 'macOS' && '-DCMAKE_OSX_ARCHITECTURES=x86_64' || '' }}
         shell: bash
 
       - name: Create shadPS4 user data directory (Linux)
@@ -281,11 +281,17 @@ jobs:
     - name: Print CPU Info
       run: sysctl hw machdep.cpu
 
-    - name: Install LLVM, Meson, libclc and Python dependencies
-      run: brew install llvm meson ninja pkg-config spirv-tools spirv-llvm-translator libclc && pip3 install --break-system-packages mako packaging pyyaml
+    - name: Cache mesa-libclc
+      uses: actions/cache@v5.0.4
+      with:
+        path: ${{github.workspace}}/.deps/mesa-libclc
+        key: macos-mesa-libclc-22.1.8.3
+
+    - name: Install LLVM, Meson, mesa-libclc and Python dependencies
+      run: bash .github/scripts/macos-prepare-mesa-clc.sh
 
     - name: Configure CMake
-      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON  -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DKOSMIKRISP_DISABLE_CLC=ON
+      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON  -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(sysctl -n hw.ncpu)
@@ -314,8 +320,14 @@ jobs:
       with:
         xcode-version: latest
 
-    - name: Install LLVM, Meson, libclc and Python dependencies
-      run: brew install llvm meson ninja pkg-config spirv-tools spirv-llvm-translator libclc && pip3 install --break-system-packages mako packaging pyyaml
+    - name: Cache mesa-libclc
+      uses: actions/cache@v5.0.4
+      with:
+        path: ${{github.workspace}}/.deps/mesa-libclc
+        key: macos-mesa-libclc-22.1.8.3
+
+    - name: Install LLVM, Meson, mesa-libclc and Python dependencies
+      run: bash .github/scripts/macos-prepare-mesa-clc.sh
 
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4
@@ -349,7 +361,7 @@ jobs:
         variant: sccache
 
     - name: Configure CMake
-      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DENABLE_QT_GUI=ON -DENABLE_UPDATER=ON  -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DKOSMIKRISP_DISABLE_CLC=ON
+      run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DENABLE_QT_GUI=ON -DENABLE_UPDATER=ON  -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(sysctl -n hw.ncpu)
