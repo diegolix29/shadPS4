@@ -121,6 +121,7 @@ set(GCN_TEST_SOURCES
     stubs/config_stub.cpp
     stubs/memory_patcher_stub.cpp
     stubs/file_sys_stub.cpp
+    stubs/sdl_stub.cpp
 
     gcn/gcn_test_runner.hpp
     gcn/gcn_test_runner.cpp
