@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "emulator.h"
-#include "signals.h"
+#include "core/signals.h"
 
 namespace Core {
 
