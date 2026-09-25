@@ -21,3 +21,9 @@ bool SignalDispatch::DispatchIllegalInstruction(void* context) const {
 }
 
 } // namespace Core
+
+// Initialize the singleton instance for SignalDispatch
+namespace Common {
+template<>
+std::unique_ptr<Core::SignalDispatch> Singleton<Core::SignalDispatch>::m_instance{};
+}

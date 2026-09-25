@@ -25,6 +25,7 @@ set(SETTINGS_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/logging/text_formatter.cpp
 
     # Stubs that replace dependencies
+    stubs/core_stub.cpp
     stubs/log_stub.cpp     
     stubs/scm_rev_stub.cpp
     stubs/sdl_stub.cpp
@@ -113,6 +114,7 @@ set(GCN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/zar_fs.cpp
 
     # Stubs that replace dependencies
+    stubs/core_stub.cpp
     stubs/log_stub.cpp
     stubs/resource_tracking_pass_stub.cpp
     stubs/scm_rev_stub.cpp
