@@ -110,7 +110,7 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install ninja llvm
+          brew install ninja llvm libclc meson
 
       - name: Configure CMake
         run: |
