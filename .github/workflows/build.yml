@@ -281,14 +281,8 @@ jobs:
     - name: Print CPU Info
       run: sysctl hw machdep.cpu
 
-    - name: Cache mesa-libclc
-      uses: actions/cache@v5.0.4
-      with:
-        path: ${{github.workspace}}/.deps/mesa-libclc
-        key: macos-mesa-libclc-22.1.8.3
-
-    - name: Install LLVM, Meson, mesa-libclc and Python dependencies
-      run: bash .github/scripts/macos-prepare-mesa-clc.sh
+    - name: Install Build Dependencies
+      run: brew install cmake meson pkg-config llvm spirv-tools spirv-llvm-translator
 
     - name: Configure CMake
       run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON  -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
@@ -300,8 +294,9 @@ jobs:
       run: |
         mkdir upload
         mv ${{github.workspace}}/build/shadps4 upload
-        mv ${{github.workspace}}/build/kosmickrisp_mesa_icd.json upload
         mv ${{github.workspace}}/build/libvulkan.dylib upload
+        mv ${{github.workspace}}/build/libvulkan_kosmickrisp.dylib upload
+        mv ${{github.workspace}}/build/kosmickrisp_mesa_icd.json upload
     - uses: actions/upload-artifact@v7
       with:
         name: shadps4-macos-sdl-${{ needs.get-info.outputs.date }}-${{ needs.get-info.outputs.shorthash }}
@@ -320,14 +315,8 @@ jobs:
       with:
         xcode-version: latest
 
-    - name: Cache mesa-libclc
-      uses: actions/cache@v5.0.4
-      with:
-        path: ${{github.workspace}}/.deps/mesa-libclc
-        key: macos-mesa-libclc-22.1.8.3
-
-    - name: Install LLVM, Meson, mesa-libclc and Python dependencies
-      run: bash .github/scripts/macos-prepare-mesa-clc.sh
+    - name: Install Build Dependencies
+      run: brew install cmake meson pkg-config llvm spirv-tools spirv-llvm-translator
 
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4
