@@ -243,6 +243,18 @@ std::string MainWindow::GetRunningGameSerial() const {
 bool MainWindow::Init() {
     auto start = std::chrono::steady_clock::now();
     LoadTranslation();
+
+    
+#ifdef __APPLE__
+    // Check for Rosetta 2, as it is required to run the emulator core.
+    if (!std::filesystem::exists("/Library/Apple/usr/libexec/oah/libRosettaRuntime")) {
+        QMessageBox::critical(nullptr, tr("Error"),
+                              tr("Rosetta 2 is not installed.\n\nPlease install Rosetta 2 from "
+                                 "Terminal using 'softwareupdate --install-rosetta'."));
+        exit(1);
+    }
+#endif
+
     QApplication::setStyle(QStyleFactory::create(QStyleFactory::keys().first()));
 
     ui->toggleLabelsAct->setChecked(Config::getShowLabelsUnderIcons());
