@@ -291,7 +291,7 @@ jobs:
       run: sysctl hw machdep.cpu
 
     - name: Setup CMake
-      uses: lukka/get-cmake@v4
+      uses: lukka/get-cmake@latest
       with:
         cmakeVersion: 3.31.7
 
