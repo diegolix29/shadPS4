@@ -42,6 +42,11 @@ option(ENABLE_UPDATER "Enables the options to updater" ON)
 option(ENABLE_TESTS "Build unit tests (requires GTest)" OFF)
 option(ENABLE_SYSTEM_VULKAN "Use a system Vulkan loader/driver instead of bundling KosmicKrisp on macOS" OFF)
 
+# Automatically enable system Vulkan when Qt GUI is enabled
+if(ENABLE_QT_GUI)
+    set(ENABLE_SYSTEM_VULKAN ON CACHE BOOL "" FORCE)
+endif()
+
 # First, determine whether to use CMAKE_OSX_ARCHITECTURES or CMAKE_SYSTEM_PROCESSOR.
 if (APPLE AND CMAKE_OSX_ARCHITECTURES)
     set(BASE_ARCHITECTURE "${CMAKE_OSX_ARCHITECTURES}")
