@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
-#include <fmt/format.h>
 #include <httplib.h>
 #include "common/elf_info.h"
 #include "common/logging/log.h"

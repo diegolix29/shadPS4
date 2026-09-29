@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstdlib>
-#include <cstring>
 #include <ctime>
 #include "common/logging/log.h"
 #include "core/file_sys/devices/random_device.h"

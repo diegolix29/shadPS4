@@ -314,8 +314,7 @@ constexpr std::tuple<u32, u32, size_t> ImageSizeLinearAligned(u32 pitch, u32 hei
 
 constexpr std::tuple<u32, u32, size_t> ImageSizeMicroTiled(u32 pitch, u32 height, u32 thickness,
                                                            u32 bpp, u32 num_samples) {
-    constexpr auto pitch_align = micro_tile_extent.first;
-    constexpr auto height_align = micro_tile_extent.second;
+    const auto& [pitch_align, height_align] = micro_tile_extent;
     auto pitch_aligned = (pitch + pitch_align - 1) & ~(pitch_align - 1);
     const auto height_aligned = (height + height_align - 1) & ~(height_align - 1);
     size_t log_sz = (pitch_aligned * height_aligned * bpp * num_samples + 7) / 8;

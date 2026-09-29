@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <bit>
-#include <fmt/format.h>
 
 #include "common/alignment.h"
 #include "common/assert.h"

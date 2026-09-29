@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <utility>
-#include <fmt/format.h>
 #include <imgui.h>
 #include <magic_enum/magic_enum.hpp>
 

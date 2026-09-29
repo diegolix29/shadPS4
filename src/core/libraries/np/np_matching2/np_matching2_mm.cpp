@@ -10,7 +10,6 @@
 #include <mutex>
 #include <string>
 #include <vector>
-#include <fmt/format.h>
 
 #include "common/logging/log.h"
 #include "core/libraries/network/net.h"

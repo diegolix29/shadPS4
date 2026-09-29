@@ -25,7 +25,6 @@ set(SETTINGS_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/assert.cpp
     ${CMAKE_SOURCE_DIR}/src/common/error.cpp
     ${CMAKE_SOURCE_DIR}/src/common/string_util.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/logging/classes.cpp
     ${CMAKE_SOURCE_DIR}/src/common/logging/log.cpp
 
     # Stubs that replace dependencies
@@ -54,7 +53,6 @@ set(NGS2_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/assert.cpp
     ${CMAKE_SOURCE_DIR}/src/common/error.cpp
     ${CMAKE_SOURCE_DIR}/src/common/string_util.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/logging/classes.cpp
     ${CMAKE_SOURCE_DIR}/src/common/logging/log.cpp
 
     # Stubs that replace dependencies
@@ -143,7 +141,6 @@ set(GCN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/error.cpp
     ${CMAKE_SOURCE_DIR}/src/common/io_file.cpp
     ${CMAKE_SOURCE_DIR}/src/common/string_util.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/logging/classes.cpp
     ${CMAKE_SOURCE_DIR}/src/common/logging/log.cpp
     ${CMAKE_SOURCE_DIR}/src/common/ntapi.cpp
 
@@ -268,7 +265,6 @@ set(HTTP_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/assert.cpp
     ${CMAKE_SOURCE_DIR}/src/common/error.cpp
     ${CMAKE_SOURCE_DIR}/src/common/string_util.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/logging/classes.cpp
     ${CMAKE_SOURCE_DIR}/src/common/logging/log.cpp
 
     # Stubs that replace dependencies

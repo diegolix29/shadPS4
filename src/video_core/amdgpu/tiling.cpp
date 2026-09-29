@@ -4,7 +4,6 @@
 #include "common/assert.h"
 #include "video_core/amdgpu/tiling.h"
 
-#include <bit>
 #include <magic_enum/magic_enum.hpp>
 
 namespace AmdGpu {

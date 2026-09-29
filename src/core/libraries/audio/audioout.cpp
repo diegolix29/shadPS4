@@ -6,13 +6,11 @@
 #include <shared_mutex>
 #include <stop_token>
 #include <thread>
-#include <fmt/format.h>
+#include <core/emulator_settings.h>
 #include <magic_enum/magic_enum.hpp>
-
 #include "common/assert.h"
 #include "common/logging/log.h"
 #include "common/thread.h"
-#include "core/emulator_settings.h"
 #include "core/libraries/audio/audioout.h"
 #include "core/libraries/audio/audioout_backend.h"
 #include "core/libraries/audio/audioout_error.h"

@@ -18,7 +18,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <fmt/format.h>
 #include <nlohmann/json.hpp>
 #include <zlib.h>
 #include "common/elf_info.h"

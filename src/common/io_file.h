@@ -4,7 +4,6 @@
 #pragma once
 
 #include <cstdio>
-#include <cstring>
 #include <filesystem>
 #include <span>
 #include <type_traits>

@@ -4,8 +4,6 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
-#include <fmt/format.h>
-
 #include "common/assert.h"
 #include "core/libraries/kernel/kernel.h"
 #include "core/libraries/kernel/posix_error.h"

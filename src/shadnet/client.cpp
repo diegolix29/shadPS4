@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <chrono>
 #include <thread>
-#include <fmt/format.h>
 
 #include "client.h"
 #include "common/elf_info.h"
