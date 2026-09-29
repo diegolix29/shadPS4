@@ -11,7 +11,6 @@
 #include <unordered_map>
 #include <vector>
 #include "common/endian.h"
-#include "core/file_sys/ifile.h"
 
 constexpr u32 PSF_MAGIC = 0x00505346;
 constexpr u32 PSF_VERSION_1_1 = 0x00000101;
@@ -58,7 +57,6 @@ public:
     PSF& operator=(PSF&& other) noexcept = default;
 
     bool Open(const std::filesystem::path& filepath);
-    bool Open(const std::unique_ptr<Core::FileSys::IFile>& file);
     bool Open(const std::vector<u8>& psf_buffer);
 
     [[nodiscard]] std::vector<u8> Encode() const;
