@@ -289,8 +289,7 @@ struct PageManager::Impl {
         static constexpr size_t PAGE_BITS = PageManager::PAGE_BITS;
         static constexpr bool NULL_CHECK = false;
     };
-    MultiLevelPageTable<PageTraits> cached_pages;
-
+    Common::MultiLevelPageTable<PageTraits> cached_pages;
     struct MutexTraits {
 #ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
         using Entry = Common::AdaptiveMutex;
@@ -302,7 +301,7 @@ struct PageManager::Impl {
         static constexpr size_t PAGE_BITS = PageManager::PAGE_BITS;
         static constexpr bool NULL_CHECK = false;
     };
-    MultiLevelPageTable<MutexTraits> locks;
+    Common::MultiLevelPageTable<MutexTraits> locks;
 };
 
 #ifdef __linux__

@@ -54,6 +54,7 @@ static std::mutex virtual_user_mutex;
 
 #include <common/path_util.h>
 #include <core/emulator_settings.h>
+#include "core/libraries/keyboard/keyboard.h"
 #include "core/libraries/mouse/sdl_mouse.h"
 
 static bool pause_due_to_focus_loss = false;
