@@ -793,7 +793,6 @@ set(COMMON src/common/logging/backend.cpp
            src/common/arch.h
            src/common/assert.cpp
            src/common/assert.h
-           src/common/bit_array.h
            src/common/bit_field.h
            src/common/bounded_threadsafe_queue.h
            src/common/concepts.h
@@ -821,7 +820,6 @@ set(COMMON src/common/logging/backend.cpp
            src/common/path_util.h
            src/common/object_pool.h
            src/common/polyfill_thread.h
-           src/common/range_lock.h
            src/common/rdtsc.cpp
            src/common/rdtsc.h
            src/common/recursive_lock.cpp
@@ -834,6 +832,7 @@ set(COMMON src/common/logging/backend.cpp
            src/common/signal_context.cpp
            src/common/singleton.h
            src/common/slab_heap.h
+           src/common/small_vector.h
            src/common/slot_vector.h
            src/common/spin_lock.cpp
            src/common/spin_lock.h

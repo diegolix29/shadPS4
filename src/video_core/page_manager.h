@@ -6,7 +6,7 @@
 #include <memory>
 #include "common/alignment.h"
 #include "common/types.h"
-#include "video_core/buffer_cache//region_definitions.h"
+#include "video_core/buffer_cache/region_definitions.h"
 
 namespace Vulkan {
 class Rasterizer;
@@ -17,15 +17,17 @@ namespace VideoCore {
 struct UffdImpl;
 struct SignalImpl;
 
+enum class PageOp : s8 {
+    None = 0,
+    Track = 1,
+    Untrack = -1,
+};
+
 class PageManager {
 public:
     // Use the same page size as the tracker.
     static constexpr size_t PAGE_BITS = TRACKER_PAGE_BITS;
     static constexpr size_t PAGE_SIZE = TRACKER_BYTES_PER_PAGE;
-
-    // Keep the lock granularity the same as region granularity. (since each regions has
-    // itself a lock)
-    static constexpr size_t PAGES_PER_LOCK = NUM_PAGES_PER_REGION;
 
 public:
     explicit PageManager(Vulkan::Rasterizer* rasterizer);
@@ -38,12 +40,12 @@ public:
     void OnGpuUnmap(VAddr address, size_t size);
 
     /// Updates watches in the pages touching the specified region.
-    template <bool track>
-    void UpdatePageWatchers(VAddr addr, u64 size) const;
+    void UpdatePageWatchers(VAddr addr, u64 size, PageOp write_op) const;
 
-    /// Updates watches in the pages touching the specified region using a mask.
-    template <bool track, bool is_read = false>
-    void UpdatePageWatchersForRegion(VAddr base_addr, RegionBits& mask) const;
+    /// Updates watches in the pages touching the inclusive bounds using a mask.
+    void UpdatePageWatchersForRegion(VAddr base_addr, const Bounds& bounds,
+                                     const RegionBits& write_mask, const RegionBits& read_mask,
+                                     PageOp write_op, PageOp read_op) const;
 
     /// Returns page aligned address.
     static constexpr VAddr GetPageAddr(VAddr addr) {
