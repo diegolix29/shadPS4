@@ -110,6 +110,7 @@ enum class LogClass : u8 {
     Lib_VideoRecording,      ///< The LibSceVideodec implementation.
     Lib_Voice,               ///< The LibSceVoice implementation.
     Lib_RazorCpu,            ///< The LibRazorCpu implementation.
+    Lib_Keyboard,            ///< The LibSceKeyboard implementation.
     Lib_Mouse,               ///< The LibSceMouse implementation
     Lib_WebBrowserDialog,    ///< The LibSceWebBrowserDialog implementation
     Lib_NpParty,             ///< The LibSceNpParty implementation

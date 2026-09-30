@@ -21,7 +21,7 @@
 #include "core/emulator_settings.h"
 #include "core/memory.h"
 #include "core/signals.h"
-#include "video_core/multi_level_page_table.h"
+#include "common/multi_level_page_table.h"
 #include "video_core/page_manager.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 
