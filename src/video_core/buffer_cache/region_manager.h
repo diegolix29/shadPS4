@@ -3,12 +3,17 @@
 
 #pragma once
 
+#include <algorithm>
+#include <bit>
 #include <utility>
 
+#include "common/config.h"
 #ifdef __linux__
 #include "common/adaptive_mutex.h"
+#else
+#include "common/spin_lock.h"
+#endif
 #include "common/types.h"
-#include "core/emulator_settings.h"
 #include "video_core/buffer_cache/region_definitions.h"
 #include "video_core/page_manager.h"
 
@@ -17,7 +22,7 @@ namespace VideoCore {
 #ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
 using LockType = Common::AdaptiveMutex;
 #else
-using LockType = std::mutex;
+using LockType = Common::SpinLock;
 #endif
 
 /**
@@ -28,7 +33,7 @@ class RegionManager {
 public:
     explicit RegionManager(PageManager* tracker_, VAddr cpu_addr_)
         : tracker{tracker_}, cpu_addr{cpu_addr_},
-          readbacks_mode{EmulatorSettings.GetReadbacksMode()} {
+          readbacks_mode{static_cast<u32>(Config::readbackSpeed())} {
         cpu.Fill(~0ULL);
         gpu.Fill(0ULL);
     }
@@ -38,13 +43,19 @@ public:
         cpu_addr = new_cpu_addr;
     }
 
+    VAddr GetCpuAddr() const {
+        return cpu_addr;
+    }
+
+    LockType mutex;
+
     static constexpr Bounds GetBounds(u64 offset, u64 size) {
         const u64 end_address = offset + size - 1;
         return Bounds{
             .start_word = offset / BYTES_PER_WORD,
-            .start_page = (offset) / BYTES_PER_PAGE,
+            .start_page = offset / BYTES_PER_PAGE,
             .end_word = end_address / BYTES_PER_WORD,
-            .end_page = (end_address) / BYTES_PER_PAGE,
+            .end_page = end_address / BYTES_PER_PAGE,
         };
     }
 
@@ -54,6 +65,12 @@ public:
 
     static constexpr size_t SanitizeAddress(size_t address) {
         return static_cast<size_t>(std::max<s64>(static_cast<s64>(address), 0LL));
+    }
+
+    static constexpr std::pair<u64, u64> GetMasks(u64 start_page, u64 end_page) {
+        const u64 start_mask = ~u64{0} << (start_page & (PAGES_PER_WORD - 1));
+        const u64 end_mask = ~u64{0} >> (63 - (end_page & (PAGES_PER_WORD - 1)));
+        return {start_mask, end_mask};
     }
 
     static constexpr void IterateWords(Bounds bounds, auto&& func) {
@@ -95,8 +112,8 @@ public:
         IterateWords(bounds, [&](u64 index, u64 mask) {
             UpdateStateAndProtection<cpu_op, gpu_op>(write_prot, read_prot, index, mask);
         });
-        const auto write_op = GetPageOp<Type::CPU>(cpu_op);
-        const auto read_op = GetPageOp<Type::GPU>(gpu_op);
+        const auto write_op = GetWriteOp<cpu_op, gpu_op>();
+        const auto read_op = GetReadOp<gpu_op>();
         const bool update_watchers = write_op != PageOp::None || read_op != PageOp::None;
         if (update_watchers &&
             GetWatcherBounds<cpu_op, gpu_op>(bounds, write_prot, read_prot, watcher_bounds)) {
@@ -140,8 +157,8 @@ public:
         if (end_page) {
             func(cpu_addr + start_page * BYTES_PER_PAGE, (end_page - start_page) * BYTES_PER_PAGE);
         }
-        const auto write_op = GetPageOp<Type::CPU>(cpu_op);
-        const auto read_op = GetPageOp<Type::GPU>(gpu_op);
+        const auto write_op = GetWriteOp<cpu_op, gpu_op>();
+        const auto read_op = GetReadOp<gpu_op>();
         const bool update_watchers = write_op != PageOp::None || read_op != PageOp::None;
         if (update_watchers &&
             GetWatcherBounds<cpu_op, gpu_op>(bounds, write_prot, read_prot, watcher_bounds)) {
@@ -160,27 +177,16 @@ public:
         const auto [start_mask, end_mask] = GetMasks(start_page, end_page);
         if (start_word == end_word) [[likely]] {
             return state[start_word] & (start_mask & end_mask);
-        } else {
-            bits.UnsetRange(start_page, end_page);
         }
-        if constexpr (type == Type::CPU) {
-            UpdateProtection<!enable, false>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-            UpdateProtection<enable, true>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
-            UpdateProtection<!enable, false>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
-            UpdateProtection<!enable, false>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
-            UpdateProtection<enable, true>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
-            UpdateProtection<enable, true>();
+        if (state[start_word] & start_mask) {
+            return true;
         }
-        if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
-            for (size_t page = start_page; page != end_page && !enable; ++page) {
-                ++flushes[page];
+        for (u64 word = start_word + 1; word < end_word; ++word) {
+            if (state[word]) {
+                return true;
             }
         }
+        return state[end_word] & end_mask;
     }
 
     void Lock(const Bounds& bounds) noexcept {
@@ -191,22 +197,48 @@ public:
         mutex.unlock();
     }
 
-        if constexpr (clear) {
-            bits.UnsetRange(start_page, end_page);
-            if constexpr (type == Type::CPU) {
-                UpdateProtection<true, false>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
-                UpdateProtection<true, false>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
-                UpdateProtection<false, false>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-                UpdateProtection<false, true>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
-                UpdateProtection<false, true>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
-                UpdateProtection<false, true>();
+private:
+    Config::ReadbackSpeed ReadbackMode() const noexcept {
+        return static_cast<Config::ReadbackSpeed>(readbacks_mode);
+    }
+
+    template <StateOp cpu_op, StateOp gpu_op>
+    void UpdateStateAndProtection(RegionBits& write_prot, RegionBits& read_prot, u64 index,
+                                  u64 mask) {
+        if constexpr (cpu_op != StateOp::None) {
+            const u64 prev = cpu[index];
+            if constexpr (cpu_op == StateOp::Clear) {
+                cpu[index] &= ~mask;
+            } else {
+                cpu[index] |= mask;
+            }
+            write_prot[index] = (cpu[index] ^ prev) & mask;
+        }
+        if constexpr (gpu_op != StateOp::None) {
+            const u64 prev = gpu[index];
+            if constexpr (gpu_op == StateOp::Clear) {
+                gpu[index] &= ~mask;
+            } else {
+                gpu[index] |= mask;
+            }
+            read_prot[index] = (gpu[index] ^ prev) & mask;
+            const auto speed = ReadbackMode();
+            if (speed == Config::ReadbackSpeed::Disable ||
+                speed == Config::ReadbackSpeed::Unsafe) {
+                write_prot[index] |= read_prot[index];
+            }
+            if constexpr (gpu_op == StateOp::Clear) {
+                if (ReadbackMode() != Config::ReadbackSpeed::Low) {
+                    IteratePages(mask, [&](u64 pages_offset, u64 pages_size) {
+                        const u64 base = index * PAGES_PER_WORD + pages_offset;
+                        for (u64 i = 0; i < pages_size; ++i) {
+                            ++flushes[base + i];
+                        }
+                    });
+                }
             }
         }
+    }
 
     template <StateOp cpu_op, StateOp gpu_op>
     static bool GetWatcherBounds(const Bounds& bounds, RegionBits& write_prot,
@@ -243,21 +275,38 @@ public:
         return true;
     }
 
-    template <Type type>
-        requires(std::popcount(std::to_underlying(type)) == 1)
-    constexpr PageOp GetPageOp(StateOp state_op) {
-        if constexpr (type == Type::CPU) {
-            if (state_op == StateOp::Set) {
-                return PageOp::Untrack;
-            } else if (state_op == StateOp::Clear) {
-                return PageOp::Track;
+    // CPU dirty -> untrack writes; CPU clean -> track writes.
+    // Disable/Unsafe GPU updates also fold into write tracking, matching Shadlix.
+    template <StateOp cpu_op, StateOp gpu_op>
+    PageOp GetWriteOp() const {
+        if constexpr (cpu_op == StateOp::Set) {
+            return PageOp::Untrack;
+        }
+        if constexpr (cpu_op == StateOp::Clear) {
+            return PageOp::Track;
+        }
+        const auto speed = ReadbackMode();
+        if constexpr (gpu_op != StateOp::None) {
+            if (speed == Config::ReadbackSpeed::Disable) {
+                return gpu_op == StateOp::Set ? PageOp::Untrack : PageOp::Track;
             }
-        } else if (type == Type::GPU && readbacks_mode == GpuReadbacksMode::Precise) {
-            if (state_op == StateOp::Set) {
-                return PageOp::Track;
-            } else if (state_op == StateOp::Clear) {
+            if (speed == Config::ReadbackSpeed::Unsafe) {
                 return PageOp::Untrack;
             }
+        }
+        return PageOp::None;
+    }
+
+    // Fast/Low/Default: GPU dirty pages use read watchers for precise readbacks.
+    template <StateOp gpu_op>
+    PageOp GetReadOp() const {
+        if constexpr (gpu_op == StateOp::None) {
+            return PageOp::None;
+        }
+        const auto speed = ReadbackMode();
+        if (speed == Config::ReadbackSpeed::Fast || speed == Config::ReadbackSpeed::Low ||
+            speed == Config::ReadbackSpeed::Default) {
+            return gpu_op == StateOp::Set ? PageOp::Track : PageOp::Untrack;
         }
         return PageOp::None;
     }
@@ -277,8 +326,6 @@ public:
     u32 readbacks_mode;
     RegionBits cpu;
     RegionBits gpu;
-    RegionBits writeable;
-    RegionBits readable;
     RegionWords flushes{};
 };
 

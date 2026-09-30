@@ -236,7 +236,7 @@ static bool EnsureTransport() {
     socklen_t actual_len = sizeof(actual);
     ::getsockname(fd, reinterpret_cast<sockaddr*>(&actual), &actual_len);
 
-    // Shared socket is always non-blocking — individual P2PSocket handles blocking semantics
+    // Shared socket is always non-blocking â€” individual P2PSocket handles blocking semantics
     int nb = 1;
 #ifdef _WIN32
     ioctlsocket(fd, FIONBIO, (u_long*)&nb);
@@ -619,7 +619,7 @@ int P2PSocket::GetSocketAddress(OrbisNetSockaddr* name, u32* namelen) {
 }
 
 int P2PSocket::Connect(const OrbisNetSockaddr* addr, u32 namelen) {
-    // P2P UDP sockets don't truly connect — connectionless datagram
+    // P2P UDP sockets don't truly connect â€” connectionless datagram
     LOG_INFO(Lib_Net, "P2P Connect called (no-op for UDP P2P)");
     return 0;
 }
@@ -658,6 +658,12 @@ int P2PSocket::fstat(Libraries::Kernel::OrbisKernelStat* sb) {
     }
     return 0;
 }
+
+int P2PSocket::Shutdown(int how) {
+    LOG_ERROR(Lib_Net, "(STUBBED) called");
+    return 0;
+}
+
 
 bool P2PSocket::HasQueuedData() {
     std::scoped_lock tlock{s_transport.mutex};

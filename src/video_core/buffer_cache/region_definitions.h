@@ -21,6 +21,11 @@ constexpr u64 HIGHER_PAGE_MASK = HIGHER_PAGE_SIZE - 1ULL;
 constexpr u64 NUM_REGION_PAGES = HIGHER_PAGE_SIZE / BYTES_PER_PAGE;
 constexpr u64 NUM_REGION_WORDS = HIGHER_PAGE_SIZE / BYTES_PER_WORD;
 
+constexpr u64 NUM_PAGES_PER_REGION = NUM_REGION_PAGES;
+constexpr u64 TRACKER_HIGHER_PAGE_BITS = HIGHER_PAGE_BITS;
+constexpr u64 TRACKER_PAGE_BITS = 12;
+constexpr u64 TRACKER_BYTES_PER_PAGE = BYTES_PER_PAGE;
+
 enum class Type : u8 {
     CPU = 1 << 0,
     GPU = 1 << 1,
@@ -60,10 +65,13 @@ struct RegionBits {
         return data[index];
     }
 
+    constexpr u64 operator[](u64 index) const {
+        return data[index];
+    }
+
 private:
-    alignas(64) std::array<u64, NUM_REGION_WORDS> data;
+    alignas(64) std::array<u64, NUM_REGION_WORDS> data{};
 };
-using RegionBits = Common::BitArray<NUM_PAGES_PER_REGION>;
-using RegionWords = std::array<u16, NUM_PAGES_PER_REGION>;
+using RegionWords = std::array<u16, NUM_REGION_PAGES>;
 
 } // namespace VideoCore

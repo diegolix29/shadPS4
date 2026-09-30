@@ -5,10 +5,14 @@
 
 #include <algorithm>
 #include <deque>
+#include <mutex>
 #include <type_traits>
 #include <vector>
+#include "common/config.h"
 #include "common/debug.h"
+#include "common/div_ceil.h"
 #include "common/types.h"
+#include "video_core/buffer_cache/region_definitions.h"
 #include "video_core/buffer_cache/region_manager.h"
 
 namespace VideoCore {
@@ -22,7 +26,7 @@ public:
 
 public:
     explicit MemoryTracker(PageManager& tracker_)
-        : tracker{&tracker_}, readbacks_mode{EmulatorSettings.GetReadbacksMode()} {}
+        : tracker{&tracker_}, readbacks_mode{static_cast<u32>(Config::readbackSpeed())} {}
     ~MemoryTracker() = default;
 
     /// Returns true if a region has been modified from the GPU
@@ -39,12 +43,19 @@ public:
         });
     }
 
+    void MarkRegionAsCpuModified(VAddr dirty_cpu_addr, u64 query_size) {
+        IteratePages<false>(dirty_cpu_addr, query_size,
+                            [](RegionManager* manager, u64 offset, size_t size) {
+                                manager->template ChangeRegionState<StateOp::Set, StateOp::None>(
+                                    offset, size);
+                            });
+    }
+
     void MarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size) {
         IteratePages<false>(dirty_cpu_addr, query_size,
-                            [this](RegionManager* manager, u64 offset, size_t size) {
-                                std::scoped_lock lk{manager->lock};
-                                manager->template ChangeRegionState<Type::GPU, true>(
-                                    manager->GetCpuAddr() + offset, size);
+                            [](RegionManager* manager, u64 offset, size_t size) {
+                                manager->template ChangeRegionState<StateOp::None, StateOp::Set>(
+                                    offset, size);
                             });
     }
 
@@ -77,15 +88,15 @@ public:
     void InvalidateRegion(VAddr cpu_addr, u64 size, auto&& on_flush) noexcept {
         IteratePages<false>(cpu_addr, size,
                             [&on_flush](RegionManager* manager, u64 offset, size_t size) {
-                                manager->lock.lock();
+                                manager->mutex.lock();
                                 if (manager->template IsRegionModified<Type::GPU>(offset, size)) {
-                                    manager->lock.unlock();
+                                    manager->mutex.unlock();
                                     on_flush();
                                 } else {
 
-                                    manager->template ChangeRegionState<Type::CPU, true>(
-                                        manager->GetCpuAddr() + offset, size);
-                                    manager->lock.unlock();
+                                    manager->template ChangeRegionState<StateOp::Set, StateOp::None,
+                                                                        false>(offset, size);
+                                    manager->mutex.unlock();
                                 }
                             });
     }
@@ -96,11 +107,9 @@ public:
             // Perform both the GPU modification check and CPU state change with the lock
             // in case we are racing with GPU thread trying to mark the page as GPU
             // modified.
-            std::scoped_lock lk{manager->lock};
-            manager->template ChangeRegionState<Type::GPU, false>(manager->GetCpuAddr() + offset,
-                                                                  size);
-            manager->template ChangeRegionState<Type::CPU, true>(manager->GetCpuAddr() + offset,
-                                                                 size);
+            std::scoped_lock lk{manager->mutex};
+            manager->template ChangeRegionState<StateOp::None, StateOp::Clear, false>(offset, size);
+            manager->template ChangeRegionState<StateOp::Set, StateOp::None, false>(offset, size);
         });
     }
 
@@ -171,7 +180,7 @@ private:
             auto& last_pool = manager_pool.back();
             for (size_t i = 0; i < MANAGER_POOL_SIZE; i++) {
                 std::construct_at(&last_pool[i], tracker, 0);
-                free_managers.push_back(&last_pool[i]);
+                free_managers.emplace_back(&last_pool[i]);
             }
         }
         auto* new_manager = free_managers.back();

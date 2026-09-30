@@ -24,10 +24,12 @@ enum class PageOp : s8 {
 };
 
 class PageManager {
+    static constexpr size_t PM_PAGE_BITS = 12;
+    static constexpr size_t PM_PAGE_SIZE = 1ULL << PM_PAGE_BITS;
+
 public:
-    // Use the same page size as the tracker.
-    static constexpr size_t PAGE_BITS = TRACKER_PAGE_BITS;
-    static constexpr size_t PAGE_SIZE = TRACKER_BYTES_PER_PAGE;
+    static constexpr size_t PAGE_BITS = PM_PAGE_BITS;
+    static constexpr size_t PAGE_SIZE = PM_PAGE_SIZE;
 
 public:
     explicit PageManager(Vulkan::Rasterizer* rasterizer);

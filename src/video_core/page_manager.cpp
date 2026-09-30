@@ -1,47 +1,43 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+#include <limits>
+#include <mutex>
+#include <stdexcept>
+#include <thread>
 #include <utility>
+
 #include "common/adaptive_mutex.h"
 #include "common/assert.h"
-#include "common/config.h"
 #include "common/debug.h"
 #include "common/div_ceil.h"
-#include "common/memory_patcher.h"
-#include "common/range_lock.h"
 #include "common/error.h"
+#include "common/memory_patcher.h"
 #include "common/signal_context.h"
+#include "common/thread.h"
+#include "core/emulator_settings.h"
 #include "core/memory.h"
 #include "core/signals.h"
+#include "video_core/multi_level_page_table.h"
 #include "video_core/page_manager.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 
 #ifndef _WIN64
 #include <sys/mman.h>
-#include "common/adaptive_mutex.h"
-#ifdef ENABLE_USERFAULTFD
-#include <thread>
+#ifdef __linux__
 #include <fcntl.h>
 #include <linux/userfaultfd.h>
 #include <poll.h>
 #include <sys/ioctl.h>
-#include "common/error.h"
+#include <sys/syscall.h>
+#include <unistd.h>
 #endif
 #else
 #include <windows.h>
-#include "common/spin_lock.h"
-#endif
-
-#ifdef __linux__
-#include "common/adaptive_mutex.h"
-#else
-#include "common/spin_lock.h"
 #endif
 
 namespace VideoCore {
-
-constexpr size_t PAGE_SIZE = 4_KB;
-constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
@@ -62,10 +58,9 @@ struct PageManager::Impl {
             if (IsFastPathGame()) {
                 return num_watchers == 0 ? Core::MemoryPermission::Write
                                          : Core::MemoryPermission::Read;
-            } else {
-                return num_write_watchers == 0 ? Core::MemoryPermission::Write
-                                               : Core::MemoryPermission::None;
             }
+            return num_write_watchers == 0 ? Core::MemoryPermission::Write
+                                           : Core::MemoryPermission::None;
         }
 
         Core::MemoryPermission ReadPerm() const noexcept {
@@ -77,70 +72,71 @@ struct PageManager::Impl {
             return ReadPerm() | WritePerm();
         }
 
-        template <s32 delta, bool is_read = false>
-        u8 AddDelta() {
+        Core::MemoryPermission Update(PageOp write_op, bool update_write = true,
+                                      PageOp read_op = PageOp::None, bool update_read = false) {
             if (IsFastPathGame()) {
-                if constexpr (delta == 1) {
-                    return ++num_watchers;
-                } else if constexpr (delta == -1) {
-                    ASSERT_MSG(num_watchers > 0, "Not enough watchers");
-                    return --num_watchers;
-                } else {
-                    return num_watchers;
-                }
-            } else {
-                if constexpr (is_read) {
-                    if constexpr (delta == 1) {
-                        return ++num_read_watchers;
-                    } else if constexpr (delta == -1) {
-                        ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
-                        return --num_read_watchers;
-                    } else {
-                        return num_read_watchers;
+                const auto apply = [&](PageOp op) {
+                    if (op == PageOp::Track) {
+                        ++num_watchers;
+                    } else if (op == PageOp::Untrack) {
+                        ASSERT_MSG(num_watchers > 0, "Not enough watchers");
+                        --num_watchers;
                     }
-                } else {
-                    if constexpr (delta == 1) {
-                        return ++num_write_watchers;
-                    } else if constexpr (delta == -1) {
-                        ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
-                        return --num_write_watchers;
-                    } else {
-                        return num_write_watchers;
-                    }
+                };
+                if (update_write) {
+                    apply(write_op);
                 }
+                if (update_read) {
+                    apply(read_op);
+                }
+                return Perms();
             }
+
+            if (update_read) {
+                if (read_op == PageOp::Track) {
+                    ASSERT_MSG(num_read_watchers < 255, "Too many watchers");
+                } else if (read_op == PageOp::Untrack) {
+                    ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
+                }
+                num_read_watchers += std::to_underlying(read_op);
+            }
+            if (update_write) {
+                if (write_op == PageOp::Track) {
+                    ASSERT_MSG(num_write_watchers < 255, "Too many watchers");
+                } else if (write_op == PageOp::Untrack) {
+                    ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
+                }
+                num_write_watchers += std::to_underlying(write_op);
+            }
+            return Perms();
         }
     };
 
     static constexpr size_t ADDRESS_BITS = 40;
-    static constexpr size_t NUM_ADDRESS_PAGES = 1ULL << (40 - PAGE_BITS);
-    static constexpr size_t NUM_ADDRESS_LOCKS = NUM_ADDRESS_PAGES / PAGES_PER_LOCK;
     inline static Vulkan::Rasterizer* rasterizer;
 
     Impl() = default;
     virtual ~Impl() = default;
 
     virtual void OnMap(VAddr address, size_t size) {
-        // No-op
         EnsurePages(address, address + size);
     }
 
-    virtual void OnUnmap(VAddr address, size_t size) {
-        // No-op
-    }
+    virtual void OnUnmap(VAddr address, size_t size) {}
 
     virtual void Protect(VAddr address, size_t size, Core::MemoryPermission perms) = 0;
 
     void EnsurePages(VAddr begin, VAddr end) {
-        const size_t start_page = begin >> PM_PAGE_BITS;
-        const size_t end_page = end >> PM_PAGE_BITS;
+        end = std::min(end, VAddr{1} << ADDRESS_BITS) - 1;
+        const size_t start_page = begin >> PageManager::PAGE_BITS;
+        const size_t end_page = end >> PageManager::PAGE_BITS;
         cached_pages.reserve(start_page, end_page);
         locks.reserve(start_page, end_page);
     }
 
     void UpdatePageWatchers(VAddr addr, u64 size, PageOp write_op) {
-        const u64 page_start = addr >> PM_PAGE_BITS;
-        const u64 page_end = Common::DivCeil(addr + size, PM_PAGE_SIZE);
+        const u64 page_start = addr >> PageManager::PAGE_BITS;
+        const u64 page_end = Common::DivCeil(addr + size, PageManager::PAGE_SIZE);
 
         Core::MemoryPermission perms{};
         u64 range_begin = page_start;
@@ -149,15 +145,15 @@ struct PageManager::Impl {
 
         const auto release_pending = [&] {
             if (range_pages > 0) {
-                Protect(range_begin << PM_PAGE_BITS, range_pages << PM_PAGE_BITS, perms);
+                Protect(range_begin << PageManager::PAGE_BITS, range_pages << PageManager::PAGE_BITS,
+                        perms);
                 range_pages = 0;
                 potential_pages = 0;
             }
         };
 
-        // Iterate requested pages
-        const u64 aligned_addr = page_start << PM_PAGE_BITS;
-        const u64 aligned_end = page_end << PM_PAGE_BITS;
+        const u64 aligned_addr = page_start << PageManager::PAGE_BITS;
+        const u64 aligned_end = page_end << PageManager::PAGE_BITS;
         if (!rasterizer->IsMapped(aligned_addr, aligned_end - aligned_addr)) {
             LOG_WARNING(Render,
                         "Tracking memory region {:#x} - {:#x} which is not fully GPU mapped.",
@@ -178,29 +174,23 @@ struct PageManager::Impl {
                 perms = old_perms;
             }
 
-            // Apply the change to the page state
             const auto new_perms = state->Update(write_op);
             if (new_perms != perms) [[unlikely]] {
-                // If the protection changed add pending (un)protect action
                 release_pending();
                 perms = new_perms;
             } else if (range_pages != 0) {
                 ++potential_pages;
             }
 
-            // If the page must be (un)protected
             if (new_perms != old_perms) {
                 if (range_pages == 0) {
-                    // Start a new potential range
                     range_begin = page;
                     potential_pages = 1;
                 }
-                // Extend current range up to potential range
                 range_pages = potential_pages;
             }
         }
 
-        // Add pending (un)protect action
         release_pending();
 
         for (u64 page = page_start; page != page_end; ++page) {
@@ -213,7 +203,7 @@ struct PageManager::Impl {
     void UpdatePageWatchersForRegion(VAddr base_addr, const Bounds& bounds,
                                      const RegionBits& write_mask, const RegionBits& read_mask,
                                      PageOp write_op, PageOp read_op) {
-        const u64 base_page = base_addr >> PM_PAGE_BITS;
+        const u64 base_page = base_addr >> PageManager::PAGE_BITS;
         const u64 page_start = bounds.start_word * PAGES_PER_WORD + bounds.start_page;
         const u64 page_end = bounds.end_word * PAGES_PER_WORD + bounds.end_page + 1;
 
@@ -224,7 +214,8 @@ struct PageManager::Impl {
 
         const auto release_pending = [&] {
             if (range_pages > 0) {
-                Protect(range_begin << PM_PAGE_BITS, range_pages << PM_PAGE_BITS, perms);
+                Protect(range_begin << PageManager::PAGE_BITS, range_pages << PageManager::PAGE_BITS,
+                        perms);
                 range_pages = 0;
                 potential_pages = 0;
             }
@@ -243,33 +234,26 @@ struct PageManager::Impl {
                 perms = old_perms;
             }
 
-            // Apply the change to the page state
             const bool update_write = write_op != PageOp::None && write_mask.GetPage(page);
             const bool update_read = read_op != PageOp::None && read_mask.GetPage(page);
             const auto new_perms = state->Update(write_op, update_write, read_op, update_read);
 
             if (new_perms != perms) [[unlikely]] {
-                // If the protection changed add pending (un)protect action
                 release_pending();
                 perms = new_perms;
             } else if (range_pages != 0) {
-                // If the protection did not change, extend the potential range
                 ++potential_pages;
             }
 
-            // If the page must be (un)protected
             if (new_perms != old_perms) {
                 if (range_pages == 0) {
-                    // Start a new potential range
                     range_begin = base_page + page;
                     potential_pages = 1;
                 }
-                // Extend current rango up to potential range
                 range_pages = potential_pages;
             }
         }
 
-        // Add pending (un)protect action
         release_pending();
 
         for (u64 page = page_start; page != page_end; ++page) {
@@ -283,10 +267,11 @@ struct PageManager::Impl {
         using Entry = PageState;
         static constexpr size_t ADDRESS_SPACE_BITS = ADDRESS_BITS;
         static constexpr size_t L1_BITS = 16;
-        static constexpr size_t PAGE_BITS = PM_PAGE_BITS;
+        static constexpr size_t PAGE_BITS = PageManager::PAGE_BITS;
         static constexpr bool NULL_CHECK = false;
     };
     MultiLevelPageTable<PageTraits> cached_pages;
+
     struct MutexTraits {
 #ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
         using Entry = Common::AdaptiveMutex;
@@ -295,7 +280,7 @@ struct PageManager::Impl {
 #endif
         static constexpr size_t ADDRESS_SPACE_BITS = ADDRESS_BITS;
         static constexpr size_t L1_BITS = 16;
-        static constexpr size_t PAGE_BITS = PM_PAGE_BITS;
+        static constexpr size_t PAGE_BITS = PageManager::PAGE_BITS;
         static constexpr bool NULL_CHECK = false;
     };
     MultiLevelPageTable<MutexTraits> locks;
@@ -303,26 +288,32 @@ struct PageManager::Impl {
 
 #ifdef __linux__
 struct UffdImpl : public PageManager::Impl {
-private:
-    std::jthread ufd_thread;
-    int uffd;
-
-public:
-    UffdImpl(Vulkan::Rasterizer* rasterizer_) : Impl() {
+    UffdImpl(Vulkan::Rasterizer* rasterizer_) {
         rasterizer = rasterizer_;
         uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK | UFFD_USER_MODE_ONLY);
-        ASSERT_MSG(uffd != -1, "{}", Common::GetLastErrorMsg());
+        if (uffd == -1) {
+            LOG_ERROR(Common_Memory,
+                      "userfaultfd syscall failed: {}, falling back to signal implementation",
+                      Common::GetLastErrorMsg());
+            throw std::runtime_error("userfaultfd");
+        }
 
         uffdio_api api;
         api.api = UFFD_API;
         api.features = UFFD_FEATURE_THREAD_ID;
         const int ret = ioctl(uffd, UFFDIO_API, &api);
-        ASSERT(ret == 0 && api.api == UFFD_API);
+        if (ret != 0) {
+            LOG_ERROR(Common_Memory,
+                      "uffdio_api call failed: {}, falling back to signal implementation",
+                      Common::GetLastErrorMsg());
+            throw std::runtime_error("uffdio_api");
+        }
 
         ufd_thread = std::jthread([&](std::stop_token token) { UffdHandler(token); });
     }
 
-    void OnMap(VAddr address, size_t size) {
+    void OnMap(VAddr address, size_t size) override {
+        PageManager::Impl::OnMap(address, size);
         uffdio_register reg;
         reg.range.start = address;
         reg.range.len = size;
@@ -331,7 +322,7 @@ public:
         ASSERT_MSG(ret != -1, "Uffdio register failed with error: {}", Common::GetLastErrorMsg());
     }
 
-    void OnUnmap(VAddr address, size_t size) {
+    void OnUnmap(VAddr address, size_t size) override {
         uffdio_range range;
         range.start = address;
         range.len = size;
@@ -339,7 +330,7 @@ public:
         ASSERT_MSG(ret != -1, "Uffdio unregister failed with error: {}", Common::GetLastErrorMsg());
     }
 
-    void Protect(VAddr address, size_t size, Core::MemoryPermission perms) {
+    void Protect(VAddr address, size_t size, Core::MemoryPermission perms) override {
         bool allow_write = True(perms & Core::MemoryPermission::Write);
         uffdio_writeprotect wp;
         wp.range.start = address;
@@ -354,7 +345,7 @@ public:
 
         auto regions = Core::Memory::Instance()->GetAddressSpace().GetUsableRegions();
         for (auto& region : regions) {
-            OnMap(region.lower(), region.upper());
+            OnMap(region.lower(), region.upper() - region.lower());
         }
         LOG_INFO(Common_Memory, "registered reserved memory with userfaultfd");
 
@@ -363,43 +354,44 @@ public:
             pollfd.fd = uffd;
             pollfd.events = POLLIN;
             const int pollres = poll(&pollfd, 1, -1);
-            if (pollres <= 0)
+            if (pollres <= 0) {
                 continue;
+            }
 
             uffd_msg msg;
             const int readret = read(uffd, &msg, sizeof(msg));
-            if (readret != sizeof(msg))
+            if (readret != sizeof(msg)) {
                 continue;
+            }
 
             const VAddr addr = msg.arg.pagefault.address;
             const auto ptid = msg.arg.pagefault.feat.ptid;
             rasterizer->InvalidateMemory(addr, 1,
                                          ptid == rasterizer->GetGpuCommandProcessorThreadId());
 
-            // Some calls to InvalidateMemory never reach the UFFDIO_WRITEPROTECT ioctl in
-            // ::Protect, therefore we use MODE_DONTWAKE and wake the thread with UFFDIO_WAKE here
             uffdio_range wake;
             wake.start = msg.arg.pagefault.address;
-            wake.len = PageManager::PM_PAGE_SIZE;
+            wake.len = PageManager::PAGE_SIZE;
             const int ret = ioctl(uffd, UFFDIO_WAKE, &wake);
             ASSERT_MSG(ret != -1, "Waking thread {} failed with: {}", ptid,
                        Common::GetLastErrorMsg());
         }
     }
+
     std::jthread ufd_thread;
-    int uffd;
-#else
-    Impl(Vulkan::Rasterizer* rasterizer_) {
+    int uffd{};
+};
+#endif // __linux__
+
+struct SignalImpl : public PageManager::Impl {
+    SignalImpl(Vulkan::Rasterizer* rasterizer_) {
         rasterizer = rasterizer_;
         constexpr auto priority = std::numeric_limits<u32>::min();
         Core::Signals::Instance()->RegisterAccessViolationHandler(GuestFaultSignalHandler,
                                                                   priority);
     }
 
-    void OnMap(VAddr address, size_t size) {}
-    void OnUnmap(VAddr address, size_t size) {}
-
-    void Protect(VAddr address, size_t size, Core::MemoryPermission perms) {
+    void Protect(VAddr address, size_t size, Core::MemoryPermission perms) override {
         RENDERER_TRACE;
         auto* memory = Core::Memory::Instance();
         auto& impl = memory->GetAddressSpace();
@@ -414,89 +406,32 @@ public:
             std::this_thread::get_id() == rasterizer->GetGpuCommandProcessorThread();
         if (Common::IsWriteError(context)) {
             return rasterizer->InvalidateMemory(addr, 8, is_gpu_thread);
-        } else {
-            return rasterizer->ReadMemory(addr, 8, is_gpu_thread);
         }
+        return rasterizer->ReadMemory(addr, 8, is_gpu_thread);
     }
-#endif
-
-    template <bool track, bool is_read>
-    void UpdatePageWatchers(VAddr addr, u64 size) {
-        RENDERER_TRACE;
-
-        size_t page = addr >> PAGE_BITS;
-        const u64 page_end = Common::DivCeil(addr + size, PAGE_SIZE);
-
-        const auto lock_start = locks.begin() + (page / PAGES_PER_LOCK);
-        const auto lock_end = locks.begin() + Common::DivCeil(page_end, PAGES_PER_LOCK);
-        Common::RangeLockGuard lk(lock_start, lock_end);
-
-        auto perms = cached_pages[page].Perms();
-        u64 range_begin = page;
-        u64 range_bytes = 0;
-        u64 potential_range_bytes = 0;
-
-        const auto release_pending = [&] {
-            if (range_bytes > 0) {
-                RENDERER_TRACE;
-
-                Protect(range_begin << PAGE_BITS, range_bytes, perms);
-                range_bytes = 0;
-                potential_range_bytes = 0;
-            }
-        };
-
-        for (; page != page_end; ++page) {
-            PageState& state = cached_pages[page];
-            const u8 new_count = state.AddDelta<track ? 1 : -1, is_read>();
-            const auto new_perms = state.Perms();
-
-            if (new_perms != perms) [[unlikely]] {
-                release_pending();
-                perms = new_perms;
-            } else if (range_bytes != 0) {
-                potential_range_bytes += PAGE_SIZE;
-            }
-
-            if ((new_count == 0 && !track) || (new_count == 1 && track)) {
-                if (range_bytes == 0) {
-                    range_begin = page;
-                    potential_range_bytes = PAGE_SIZE;
-                }
-                range_bytes = potential_range_bytes;
-            }
-        }
-        release_pending();
-    }
-
-    template <bool track, bool is_read>
-    void UpdatePageWatchersForRegion(VAddr base_addr, RegionBits& mask) {
-        RENDERER_TRACE;
-
-        for (auto range : mask) {
-            if (range.first == range.second)
-                continue;
-            const VAddr start_addr = base_addr + (range.first << PAGE_BITS);
-            const u64 size = (range.second - range.first) << PAGE_BITS;
-            UpdatePageWatchers<track, is_read>(start_addr, size);
-        }
-    }
-
-    std::array<PageState, NUM_ADDRESS_PAGES> cached_pages{};
-#ifdef __linux__
-    using LockType = Common::AdaptiveMutex;
-#else
-    using LockType = Common::SpinLock;
-#endif
-    std::array<LockType, NUM_ADDRESS_LOCKS> locks{};
 };
 
-PageManager::PageManager(Vulkan::Rasterizer* rasterizer_)
-    : impl{std::make_unique<Impl>(rasterizer_)} {}
+PageManager::PageManager(Vulkan::Rasterizer* rasterizer_) {
+#ifdef __linux__
+    if (EmulatorSettings.IsUserfaultfdTracking()) {
+        try {
+            impl = std::make_unique<UffdImpl>(rasterizer_);
+            LOG_INFO(Config, "Memory tracking method: userfaultfd");
+            return;
+        } catch (const std::runtime_error&) {
+        }
+    }
+    LOG_INFO(Config, "Memory tracking method: signals");
+#endif
+    impl = std::make_unique<SignalImpl>(rasterizer_);
+}
+
 PageManager::~PageManager() = default;
+
 void PageManager::OnGpuMap(VAddr address, size_t size) {
     impl->OnMap(address, size);
 }
+
 void PageManager::OnGpuUnmap(VAddr address, size_t size) {
     impl->OnUnmap(address, size);
 }
@@ -511,16 +446,5 @@ void PageManager::UpdatePageWatchersForRegion(VAddr base_addr, const Bounds& bou
                                               PageOp read_op) const {
     impl->UpdatePageWatchersForRegion(base_addr, bounds, write_mask, read_mask, write_op, read_op);
 }
-
-template void PageManager::UpdatePageWatchers<true>(VAddr addr, u64 size) const;
-template void PageManager::UpdatePageWatchers<false>(VAddr addr, u64 size) const;
-template void PageManager::UpdatePageWatchersForRegion<true, true>(VAddr base_addr,
-                                                                   RegionBits& mask) const;
-template void PageManager::UpdatePageWatchersForRegion<true, false>(VAddr base_addr,
-                                                                    RegionBits& mask) const;
-template void PageManager::UpdatePageWatchersForRegion<false, true>(VAddr base_addr,
-                                                                    RegionBits& mask) const;
-template void PageManager::UpdatePageWatchersForRegion<false, false>(VAddr base_addr,
-                                                                     RegionBits& mask) const;
 
 } // namespace VideoCore

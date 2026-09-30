@@ -23,7 +23,7 @@ StorageImageSync::StorageImageSync(Scheduler& scheduler_, Runtime& runtime_,
 StorageImageSync::~StorageImageSync() = default;
 
 bool StorageImageSync::HasAliasAtAddress(VAddr addr, VideoCore::ImageId self_id) const {
-    const u64 page = addr >> VideoCore::TextureCache::Traits::PageBits;
+    const u64 page = addr >> VideoCore::TextureCache::Traits::PAGE_BITS;
     const auto& page_table = texture_cache.GetPageTable();
     const auto page_it = page_table.find(page);
     if (!page_it) {

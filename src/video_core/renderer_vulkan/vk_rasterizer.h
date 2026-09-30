@@ -43,10 +43,6 @@ public:
         return runtime;
     }
 
-    [[nodiscard]] Scheduler& GetScheduler() noexcept {
-        return scheduler;
-    }
-
     [[nodiscard]] const Instance& GetInstance() const noexcept {
         return instance;
     }
@@ -57,6 +53,10 @@ public:
 
     [[nodiscard]] VideoCore::TextureCache& GetTextureCache() noexcept {
         return texture_cache;
+    }
+
+    void ProcessDownloadImages() {
+        texture_cache.ProcessDownloadImages();
     }
 
     void Draw(bool is_indexed, u32 index_offset = 0);
