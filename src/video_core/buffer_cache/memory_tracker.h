@@ -86,19 +86,23 @@ public:
 
     /// Removes all protection from a page and ensures GPU data has been flushed if requested
     void InvalidateRegion(VAddr cpu_addr, u64 size, auto&& on_flush) noexcept {
+        bool should_flush = false;
         IteratePages<false>(cpu_addr, size,
-                            [&on_flush](RegionManager* manager, u64 offset, size_t size) {
-                                manager->mutex.lock();
-                                if (manager->template IsRegionModified<Type::GPU>(offset, size)) {
-                                    manager->mutex.unlock();
-                                    on_flush();
-                                } else {
-
+                            [&should_flush](RegionManager* manager, u64 offset, size_t size) {
+                                const auto bounds = manager->GetBounds(offset, size);
+                                manager->Lock(bounds);
+                                const bool modified =
+                                    manager->template IsRegionModified<Type::GPU>(offset, size);
+                                if (!modified) {
                                     manager->template ChangeRegionState<StateOp::Set, StateOp::None,
                                                                         false>(offset, size);
-                                    manager->mutex.unlock();
                                 }
+                                should_flush |= modified;
+                                manager->Unlock(bounds);
                             });
+        if (should_flush) {
+            on_flush();
+        }
     }
 
     /// Removes all protection from a page (lose any non downloaded GPU modifications)
@@ -113,18 +117,13 @@ public:
         });
     }
 
-    /// Call 'func' for each CPU modified range and unmark those pages as CPU modified
+    /// Call 'func' for each CPU modified range and unmark those pages as CPU modified.
+    /// GPU-dirty/read-watchers are applied by the caller after guest memory has been copied.
     void ForEachUploadRange(VAddr cpu_addr, u64 size, bool is_written, auto&& func) {
         IteratePages<true>(
-            cpu_addr, size, [&func, is_written](RegionManager* manager, u64 offset, u64 size) {
-                if (is_written) {
-                    manager->template ForEachModifiedRange<Type::CPU, StateOp::Clear, StateOp::Set>(
-                        offset, size, func);
-                } else {
-                    manager
-                        ->template ForEachModifiedRange<Type::CPU, StateOp::Clear, StateOp::None>(
-                            offset, size, func);
-                }
+            cpu_addr, size, [&func](RegionManager* manager, u64 offset, u64 size) {
+                manager->template ForEachModifiedRange<Type::CPU, StateOp::Clear, StateOp::None>(
+                    offset, size, func);
             });
     }
 

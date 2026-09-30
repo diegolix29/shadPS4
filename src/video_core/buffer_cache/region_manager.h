@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <bit>
 #include <utility>
+#include <vector>
 
 #include "common/config.h"
 #ifdef __linux__
@@ -132,11 +133,18 @@ public:
         RegionBits read_prot;
         u64 start_page{};
         u64 end_page{};
+        std::vector<std::pair<VAddr, u64>> ranges;
         auto bounds = GetBounds(offset, size);
         Bounds watcher_bounds;
         if constexpr (locked) {
             mutex.lock();
         }
+        const auto flush_range = [&] {
+            if (end_page) {
+                ranges.emplace_back(cpu_addr + start_page * BYTES_PER_PAGE,
+                                    (end_page - start_page) * BYTES_PER_PAGE);
+            }
+        };
         IterateWords(bounds, [&](u64 index, u64 mask) {
             const u64 base_page = index * PAGES_PER_WORD;
             const u64 word = state[index] & mask;
@@ -146,17 +154,12 @@ public:
                     end_page += pages_size;
                     return;
                 }
-                if (end_page) {
-                    func(cpu_addr + start_page * BYTES_PER_PAGE,
-                         (end_page - start_page) * BYTES_PER_PAGE);
-                }
+                flush_range();
                 start_page = base_page + pages_offset;
                 end_page = start_page + pages_size;
             });
         });
-        if (end_page) {
-            func(cpu_addr + start_page * BYTES_PER_PAGE, (end_page - start_page) * BYTES_PER_PAGE);
-        }
+        flush_range();
         const auto write_op = GetWriteOp<cpu_op, gpu_op>();
         const auto read_op = GetReadOp<gpu_op>();
         const bool update_watchers = write_op != PageOp::None || read_op != PageOp::None;
@@ -164,6 +167,9 @@ public:
             GetWatcherBounds<cpu_op, gpu_op>(bounds, write_prot, read_prot, watcher_bounds)) {
             tracker->UpdatePageWatchersForRegion(cpu_addr, watcher_bounds, write_prot, read_prot,
                                                  write_op, read_op);
+        }
+        for (const auto& [addr, range_size] : ranges) {
+            func(addr, range_size);
         }
         if constexpr (locked) {
             mutex.unlock();

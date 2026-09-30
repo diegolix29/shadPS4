@@ -425,13 +425,19 @@ void BufferCache::SubmitPendingArenaBinds(Vulkan::SubmitInfo& info) {
 
 void BufferCache::FlushSyncBatch(bool from_scheduler) {
     boost::container::small_vector<vk::BufferCopy, 32> copies;
+    boost::container::small_vector<std::pair<VAddr, u64>, 32> written_ranges;
     size_t total_size_bytes = 0;
     for (const auto& range : sync_batch) {
-        memory_tracker->ForEachUploadRange(
-            range.start, range.end - range.start, range.written, [&](u64 addr, u64 range_size) {
-                copies.emplace_back(total_size_bytes, addr, range_size);
-                total_size_bytes += range_size;
-            });
+        const u64 range_size = range.end - range.start;
+        memory_tracker->ForEachUploadRange(range.start, range_size, range.written,
+                                           [&](u64 addr, u64 copy_size) {
+                                               copies.emplace_back(total_size_bytes, addr,
+                                                                   copy_size);
+                                               total_size_bytes += copy_size;
+                                           });
+        if (range.written) {
+            written_ranges.emplace_back(range.start, range_size);
+        }
     }
     sync_batch.Clear();
     if (copies.empty()) {
@@ -441,6 +447,9 @@ void BufferCache::FlushSyncBatch(bool from_scheduler) {
     for (auto& copy : copies) {
         memory->CopySparseMemory(copy.dstOffset, staging.mapped + copy.srcOffset, copy.size);
         copy.srcOffset += staging.offset;
+    }
+    for (const auto& [addr, range_size] : written_ranges) {
+        memory_tracker->MarkRegionAsGpuModified(addr, range_size);
     }
     staging.Flush();
 

@@ -6,7 +6,9 @@
 #include <mutex>
 #include <stdexcept>
 #include <thread>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 #include "common/adaptive_mutex.h"
 #include "common/assert.h"
@@ -69,7 +71,12 @@ struct PageManager::Impl {
         }
 
         Core::MemoryPermission Perms() const noexcept {
-            return ReadPerm() | WritePerm();
+            const auto perms = ReadPerm() | WritePerm();
+            // Windows/POSIX cannot apply write-only protection; keep reads allowed.
+            if (perms == Core::MemoryPermission::Write) {
+                return Core::MemoryPermission::ReadWrite;
+            }
+            return perms;
         }
 
         Core::MemoryPermission Update(PageOp write_op, bool update_write = true,
@@ -137,29 +144,26 @@ struct PageManager::Impl {
     void UpdatePageWatchers(VAddr addr, u64 size, PageOp write_op) {
         const u64 page_start = addr >> PageManager::PAGE_BITS;
         const u64 page_end = Common::DivCeil(addr + size, PageManager::PAGE_SIZE);
+        const u64 aligned_addr = page_start << PageManager::PAGE_BITS;
+        const u64 aligned_end = page_end << PageManager::PAGE_BITS;
+        EnsurePages(aligned_addr, aligned_end);
 
         Core::MemoryPermission perms{};
         u64 range_begin = page_start;
         u64 range_pages = 0;
         u64 potential_pages = 0;
+        std::vector<std::tuple<VAddr, u64, Core::MemoryPermission>> pending_protects;
+        std::vector<u64> locked_pages;
+        locked_pages.reserve(page_end - page_start);
 
         const auto release_pending = [&] {
             if (range_pages > 0) {
-                Protect(range_begin << PageManager::PAGE_BITS, range_pages << PageManager::PAGE_BITS,
-                        perms);
+                pending_protects.emplace_back(range_begin << PageManager::PAGE_BITS,
+                                              range_pages << PageManager::PAGE_BITS, perms);
                 range_pages = 0;
                 potential_pages = 0;
             }
         };
-
-        const u64 aligned_addr = page_start << PageManager::PAGE_BITS;
-        const u64 aligned_end = page_end << PageManager::PAGE_BITS;
-        if (!rasterizer->IsMapped(aligned_addr, aligned_end - aligned_addr)) {
-            LOG_WARNING(Render,
-                        "Tracking memory region {:#x} - {:#x} which is not fully GPU mapped.",
-                        aligned_addr, aligned_end);
-            EnsurePages(aligned_addr, aligned_end);
-        }
 
         for (u64 page = page_start; page != page_end; ++page) {
             PageState* state = cached_pages.find(page);
@@ -168,6 +172,7 @@ struct PageManager::Impl {
             }
 
             locks[page].lock();
+            locked_pages.push_back(page);
 
             const auto old_perms = state->Perms();
             if (page == page_start) {
@@ -193,10 +198,14 @@ struct PageManager::Impl {
 
         release_pending();
 
-        for (u64 page = page_start; page != page_end; ++page) {
+        for (u64 page : locked_pages) {
             if (auto* lock = locks.find(page)) {
                 lock->unlock();
             }
+        }
+
+        for (const auto& [protect_addr, protect_size, protect_perms] : pending_protects) {
+            Protect(protect_addr, protect_size, protect_perms);
         }
     }
 
@@ -206,16 +215,21 @@ struct PageManager::Impl {
         const u64 base_page = base_addr >> PageManager::PAGE_BITS;
         const u64 page_start = bounds.start_word * PAGES_PER_WORD + bounds.start_page;
         const u64 page_end = bounds.end_word * PAGES_PER_WORD + bounds.end_page + 1;
+        EnsurePages((base_page + page_start) << PageManager::PAGE_BITS,
+                    (base_page + page_end) << PageManager::PAGE_BITS);
 
         Core::MemoryPermission perms{};
         u64 range_begin = base_page + page_start;
         u64 range_pages = 0;
         u64 potential_pages = 0;
+        std::vector<std::tuple<VAddr, u64, Core::MemoryPermission>> pending_protects;
+        std::vector<u64> locked_pages;
+        locked_pages.reserve(page_end - page_start);
 
         const auto release_pending = [&] {
             if (range_pages > 0) {
-                Protect(range_begin << PageManager::PAGE_BITS, range_pages << PageManager::PAGE_BITS,
-                        perms);
+                pending_protects.emplace_back(range_begin << PageManager::PAGE_BITS,
+                                              range_pages << PageManager::PAGE_BITS, perms);
                 range_pages = 0;
                 potential_pages = 0;
             }
@@ -228,6 +242,7 @@ struct PageManager::Impl {
             }
 
             locks[base_page + page].lock();
+            locked_pages.push_back(base_page + page);
 
             const auto old_perms = state->Perms();
             if (page == page_start) {
@@ -256,10 +271,14 @@ struct PageManager::Impl {
 
         release_pending();
 
-        for (u64 page = page_start; page != page_end; ++page) {
-            if (auto* lock = locks.find(base_page + page)) {
+        for (u64 page : locked_pages) {
+            if (auto* lock = locks.find(page)) {
                 lock->unlock();
             }
+        }
+
+        for (const auto& [protect_addr, protect_size, protect_perms] : pending_protects) {
+            Protect(protect_addr, protect_size, protect_perms);
         }
     }
 
@@ -402,12 +421,13 @@ struct SignalImpl : public PageManager::Impl {
 
     static bool GuestFaultSignalHandler(void* context, void* fault_address) {
         const auto addr = reinterpret_cast<VAddr>(fault_address);
+        const auto size = std::min<u64>(8, PageManager::GetNextPageAddr(addr) - addr);
         const auto is_gpu_thread =
             std::this_thread::get_id() == rasterizer->GetGpuCommandProcessorThread();
         if (Common::IsWriteError(context)) {
-            return rasterizer->InvalidateMemory(addr, 8, is_gpu_thread);
+            return rasterizer->InvalidateMemory(addr, size, is_gpu_thread);
         }
-        return rasterizer->ReadMemory(addr, 8, is_gpu_thread);
+        return rasterizer->ReadMemory(addr, size, is_gpu_thread);
     }
 };
 
