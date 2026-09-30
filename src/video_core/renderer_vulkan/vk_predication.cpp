@@ -159,8 +159,7 @@ PredicationManager::PredicationManager(const Instance& instance_, Scheduler& sch
     };
     reduce_desc_layout = Check(device.createDescriptorSetLayoutUnique(desc_layout_ci));
 
-    const auto module =
-        Compile(HostShaders::OCCLUSION_PREDICATE_COMP, vk::ShaderStageFlagBits::eCompute, device);
+    const auto module = CompileSPV(OCCLUSION_PREDICATE_COMP, device);
     SetObjectName(device, module, "Occlusion Predicate Reduce");
 
     const vk::PushConstantRange push_range = {

@@ -229,8 +229,7 @@ private:
             }
             read_prot[index] = (gpu[index] ^ prev) & mask;
             const auto speed = ReadbackMode();
-            if (speed == Config::ReadbackSpeed::Disable ||
-                speed == Config::ReadbackSpeed::Unsafe) {
+            if (speed == Config::ReadbackSpeed::Disable || speed == Config::ReadbackSpeed::Unsafe) {
                 write_prot[index] |= read_prot[index];
             }
             if constexpr (gpu_op == StateOp::Clear) {
