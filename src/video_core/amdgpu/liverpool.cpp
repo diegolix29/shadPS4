@@ -208,8 +208,15 @@ Liverpool::Task Liverpool::ProcessCeUpdate(std::span<const u32> ccb) {
         }
         case PM4ItOpcode::DumpConstRam: {
             const auto* dump_const = reinterpret_cast<const PM4DumpConstRam*>(header);
+            const u32 size = dump_const->Size();
+            if (rasterizer) {
+                auto& buffer_cache = rasterizer->GetBufferCache();
+                if (buffer_cache.IsRegionInSyncBatch(dump_const->Address<VAddr>(), size)) {
+                    buffer_cache.FlushSyncBatch();
+                }
+            }
             memcpy(dump_const->Address<void*>(),
-                   cblock.constants_heap.data() + dump_const->Offset(), dump_const->Size());
+                   cblock.constants_heap.data() + dump_const->Offset(), size);
             break;
         }
         case PM4ItOpcode::IncrementCeCounter: {
@@ -768,12 +775,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (rasterizer) {
                     rasterizer->CommitPendingGpuRanges();
                     rasterizer->ProcessDownloadImages();
+                    rasterizer->OnFence();
                 }
                 event_eos->SignalFence([](void* address, u64 data, u32 num_bytes) {
                     auto* memory = Core::Memory::Instance();
-                    if (!memory->TryWriteBacking(address, &data, num_bytes)) {
-                        memcpy(address, &data, num_bytes);
-                    }
+                    ASSERT(memory->TryWriteBacking(address, &data, num_bytes));
                 });
                 if (event_eos->command == PM4CmdEventWriteEos::Command::GdsStore) {
                     ASSERT(event_eos->size == 1);
@@ -790,13 +796,12 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (rasterizer) {
                     rasterizer->CommitPendingGpuRanges();
                     rasterizer->ProcessDownloadImages();
+                    rasterizer->OnFence();
                 }
                 event_eop->SignalFence(
                     [](void* address, u64 data, u32 num_bytes) {
                         auto* memory = Core::Memory::Instance();
-                        if (!memory->TryWriteBacking(address, &data, num_bytes)) {
-                            memcpy(address, &data, num_bytes);
-                        }
+                        ASSERT(memory->TryWriteBacking(address, &data, num_bytes));
                     },
                     [] { Platform::IrqC::Instance()->Signal(Platform::InterruptId::GfxEop); });
                 break;
@@ -848,6 +853,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     rasterizer->ProcessDownloadImages();
                 }
                 if (!write_data->wr_one_addr.Value()) {
+                    if (rasterizer) {
+                        rasterizer->OnFence();
+                    }
                     std::memcpy(address, write_data->data, data_size);
                 } else {
                     UNREACHABLE();
@@ -1256,6 +1264,9 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
                 rasterizer->ProcessDownloadImages();
             }
             if (!write_data->wr_one_addr.Value()) {
+                if (rasterizer) {
+                    rasterizer->OnFence();
+                }
                 std::memcpy(write_data->Address<void*>(), write_data->data, data_size);
             } else {
                 UNREACHABLE();
@@ -1287,6 +1298,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             if (rasterizer) {
                 rasterizer->CommitPendingGpuRanges();
                 rasterizer->ProcessDownloadImages();
+                rasterizer->OnFence();
             }
             release_mem->SignalFence(
                 [pipe_id = queue.pipe_id] {
