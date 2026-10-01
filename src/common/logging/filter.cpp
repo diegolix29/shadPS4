@@ -142,6 +142,7 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     SUB(Lib, Videodec)                                                                             \
     SUB(Lib, RazorCpu)                                                                             \
     SUB(Lib, Mouse)                                                                                \
+    SUB(Lib, Keyboard)                                                                             \
     SUB(Lib, WebBrowserDialog)                                                                     \
     SUB(Lib, NpParty)                                                                              \
     SUB(Lib, Zlib)                                                                                 \

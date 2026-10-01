@@ -199,7 +199,7 @@ void Linker::Execute(const std::vector<std::string>& args) {
                 if (mod->name.contains("libSceLibcInternal.sprx")) {
 
                     for (const auto& sym : mod->export_sym.GetSymbols()) {
-                        if (sym.nid_name.compare("_malloc_init") == 0) {
+                        if (sym.symbol.nidName.compare("_malloc_init") == 0) {
                             malloc_init =
                                 reinterpret_cast<PS4_SYSV_ABI s32 (*)()>(sym.virtual_address);
                         }

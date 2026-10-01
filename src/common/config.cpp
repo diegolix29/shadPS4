@@ -256,6 +256,7 @@ static ConfigEntry<s32> cameraId(-1);
 static ConfigEntry<bool> imeAccessibilityEnabled(false);
 static ConfigEntry<bool> imeUrlMailShortPanel(false);
 static ConfigEntry<bool> useMiceAsMice(false);
+static ConfigEntry<bool> useKeyboardAsKeyboard(false);
 
 // Non-config runtime-only
 static bool overrideControllerColor = false;
@@ -276,6 +277,7 @@ static ConfigEntry<bool> readbackLinearImagesEnabled(false);
 static ConfigEntry<bool> directMemoryAccessEnabled(false);
 static ConfigEntry<bool> shouldDumpShaders(false);
 static ConfigEntry<bool> shouldPatchShaders(false);
+static ConfigEntry<bool> inlineFetchShader(false);
 static ConfigEntry<u32> vblankFrequency(60);
 static ConfigEntry<bool> isFullscreen(false);
 static ConfigEntry<std::string> fullscreenMode("Windowed");
@@ -451,6 +453,10 @@ bool IsUseUnifiedInputConfig() {
 
 bool IsMiceUsedAsMice() {
     return useMiceAsMice.get();
+}
+
+bool IsKeyboardUsedAsKeyboard() {
+    return useKeyboardAsKeyboard.get();
 }
 
 bool IsImeUrlMailShortPanel() {
@@ -1232,6 +1238,10 @@ bool dumpShaders() {
 
 bool patchShaders() {
     return shouldPatchShaders.get();
+}
+
+bool IsInlineFetchShader() {
+    return inlineFetchShader.get();
 }
 
 bool isRdocEnabled() {
@@ -2063,6 +2073,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isNullGpu.setFromToml(gpu, "nullGpu", false);
         shouldDumpShaders.setFromToml(gpu, "dumpShaders", is_game_specific);
         shouldPatchShaders.setFromToml(gpu, "patchShaders", is_game_specific);
+        inlineFetchShader.setFromToml(gpu, "inlineFetchShader", is_game_specific);
         vblankFrequency.setFromToml(gpu, "vblankFrequency", is_game_specific);
         isHDRAllowed.setFromToml(gpu, "allowHDR", is_game_specific);
         shaderSkipsEnabled.setFromToml(gpu, "shaderSkipsEnabled", is_game_specific);
@@ -2539,6 +2550,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
             shouldDumpShaders.game_specific_value.value_or(shouldDumpShaders.base_value);
         data["GPU"]["patchShaders"] =
             shouldPatchShaders.game_specific_value.value_or(shouldPatchShaders.base_value);
+        data["GPU"]["inlineFetchShader"] =
+            inlineFetchShader.game_specific_value.value_or(inlineFetchShader.base_value);
         data["GPU"]["vblankFrequency"] =
             vblankFrequency.game_specific_value.value_or(vblankFrequency.base_value);
         data["GPU"]["Fullscreen"] =
@@ -2570,6 +2583,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.base_value;
         data["GPU"]["dumpShaders"] = shouldDumpShaders.base_value;
         data["GPU"]["patchShaders"] = shouldPatchShaders.base_value;
+        data["GPU"]["inlineFetchShader"] = inlineFetchShader.base_value;
         data["GPU"]["vblankFrequency"] = vblankFrequency.base_value;
         data["GPU"]["Fullscreen"] = isFullscreen.base_value;
         data["GPU"]["FullscreenMode"] = fullscreenMode.base_value;
@@ -2850,6 +2864,7 @@ void setDefaultValues() {
     directMemoryAccessEnabled = false;
     shouldDumpShaders = false;
     shouldPatchShaders = false;
+    inlineFetchShader = false;
     vblankFrequency = 60;
     isFullscreen = false;
     fullscreenMode = "Windowed";

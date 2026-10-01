@@ -199,6 +199,7 @@ bool directMemoryAccess();
 void setDirectMemoryAccess(bool enable);
 bool dumpShaders();
 bool patchShaders();
+bool IsInlineFetchShader();
 bool isRdocEnabled();
 bool fpsColor();
 u32 vblankFreq();
@@ -414,6 +415,7 @@ bool hasCustomMuteHotkey();
 
 bool IsUseUnifiedInputConfig();
 bool IsMiceUsedAsMice();
+bool IsKeyboardUsedAsKeyboard();
 bool IsImeUrlMailShortPanel();
 bool IsImeAccessibilityEnabled();
 std::filesystem::path GetFontsDir();
