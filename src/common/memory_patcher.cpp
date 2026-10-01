@@ -35,6 +35,7 @@ namespace MemoryPatcher {
 
 EXPORT uintptr_t g_eboot_address;
 uint64_t g_eboot_image_size;
+std::string g_eboot_name;
 std::string g_game_serial;
 std::string patch_file;
 
@@ -292,15 +293,19 @@ void OnGameLoaded() {
             for (pugi::xml_node_iterator it = patchXML.children().begin();
                  it != patchXML.children().end(); ++it) {
 
-                if (std::string(it->name()) == "Metadata") {
-                    if (std::string(it->attribute("isEnabled").value()) == "true") {
-                        std::string currentPatchName = it->attribute("Name").value();
-                        std::string metadataAppVer = it->attribute("AppVer").value();
-                        bool versionMatches = metadataAppVer == app_version;
+            if (std::string(it->name()) == "Metadata") {
+                if (std::string(it->attribute("isEnabled").value()) == "true") {
+                    std::string currentPatchName = it->attribute("Name").value();
+                    std::string metadataAppVer = it->attribute("AppVer").value();
+                    std::string metadataAppElf = it->attribute("AppElf").value();
+                    bool versionMatches = metadataAppVer == app_version;
 
-                        auto patchList = it->first_child();
-                        for (pugi::xml_node_iterator patchLineIt = patchList.children().begin();
-                             patchLineIt != patchList.children().end(); ++patchLineIt) {
+                    if (metadataAppElf != g_eboot_name)
+                        continue;
+
+                    auto patchList = it->first_child();
+                    for (pugi::xml_node_iterator patchLineIt = patchList.children().begin();
+                         patchLineIt != patchList.children().end(); ++patchLineIt) {
 
                             std::string type = patchLineIt->attribute("Type").value();
                             if (!versionMatches && type != "mask" && type != "mask_jump32")
