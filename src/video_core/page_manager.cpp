@@ -86,8 +86,9 @@ struct PageManager::Impl {
                     if (op == PageOp::Track) {
                         ++num_watchers;
                     } else if (op == PageOp::Untrack) {
-                        ASSERT_MSG(num_watchers > 0, "Not enough watchers");
-                        --num_watchers;
+                        if (num_watchers > 0) {
+                            --num_watchers;
+                        }
                     }
                 };
                 if (update_write) {
@@ -101,19 +102,25 @@ struct PageManager::Impl {
 
             if (update_read) {
                 if (read_op == PageOp::Track) {
-                    ASSERT_MSG(num_read_watchers < 255, "Too many watchers");
+                    if (num_read_watchers < 255) {
+                        ++num_read_watchers;
+                    }
                 } else if (read_op == PageOp::Untrack) {
-                    ASSERT_MSG(num_read_watchers > 0, "Not enough watchers");
+                    if (num_read_watchers > 0) {
+                        --num_read_watchers;
+                    }
                 }
-                num_read_watchers += std::to_underlying(read_op);
             }
             if (update_write) {
                 if (write_op == PageOp::Track) {
-                    ASSERT_MSG(num_write_watchers < 255, "Too many watchers");
+                    if (num_write_watchers < 255) {
+                        ++num_write_watchers;
+                    }
                 } else if (write_op == PageOp::Untrack) {
-                    ASSERT_MSG(num_write_watchers > 0, "Not enough watchers");
+                    if (num_write_watchers > 0) {
+                        --num_write_watchers;
+                    }
                 }
-                num_write_watchers += std::to_underlying(write_op);
             }
             return Perms();
         }

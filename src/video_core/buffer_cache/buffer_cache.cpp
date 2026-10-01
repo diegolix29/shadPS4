@@ -132,22 +132,17 @@ void BufferCache::DownloadMemory(const Buffer* arena, VAddr device_addr, u64 siz
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;
     const VAddr arena_base = arena->cpu_addr;
-    memory_tracker->ForEachDownloadRange<false>(device_addr, size, [&](u64 address, u64 size) {
-        const auto add_download = [&](VAddr start, VAddr end) {
-            const u64 new_offset = start - arena_base;
-            const u64 new_size = end - start;
-            copies.push_back(vk::BufferCopy{
-                .srcOffset = new_offset,
-                .dstOffset = total_size_bytes,
-                .size = new_size,
-            });
-            // Align up to avoid cache conflicts
-            constexpr u64 align = 64ULL;
-            constexpr u64 mask = ~(align - 1ULL);
-            total_size_bytes += (new_size + align - 1) & mask;
-        };
-        gpu_modified_ranges.ForEachInRange(address, size, add_download);
-        gpu_modified_ranges.Subtract(address, size);
+    memory_tracker->ForEachDownloadRange<false>(device_addr, size, [&](u64 address, u64 download_size) {
+        const u64 new_offset = address - arena_base;
+        copies.push_back(vk::BufferCopy{
+            .srcOffset = new_offset,
+            .dstOffset = total_size_bytes,
+            .size = download_size,
+        });
+        // Align up to avoid cache conflicts
+        constexpr u64 align = 64ULL;
+        constexpr u64 mask = ~(align - 1ULL);
+        total_size_bytes += (download_size + align - 1) & mask;
     });
     if (total_size_bytes == 0) {
         return;
@@ -429,11 +424,10 @@ void BufferCache::FlushSyncBatch(bool from_scheduler) {
     size_t total_size_bytes = 0;
     for (const auto& range : sync_batch) {
         const u64 range_size = range.end - range.start;
-        memory_tracker->ForEachUploadRange(range.start, range_size, range.written,
-                                           [&](u64 addr, u64 copy_size) {
-                                               copies.emplace_back(total_size_bytes, addr,
-                                                                   copy_size);
-                                               total_size_bytes += copy_size;
+        memory_tracker->ForEachUploadRange(
+            range.start, range_size, range.written, [&](u64 device_addr_out, u64 upload_size) {
+                copies.emplace_back(total_size_bytes, device_addr_out, upload_size);
+                total_size_bytes += upload_size;
                                            });
         if (range.written) {
             written_ranges.emplace_back(range.start, range_size);
