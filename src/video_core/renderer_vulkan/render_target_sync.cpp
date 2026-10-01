@@ -71,7 +71,7 @@ void RenderTargetSync::Schedule1x1Readback(VideoCore::ImageId image_id) {
 void RenderTargetSync::PushRtToAliases(VAddr addr, VideoCore::ImageId rt_id) {
     auto& rt_image = texture_cache.GetImage(rt_id);
 
-    const u64 page = addr >> VideoCore::TextureCache::Traits::PageBits;
+    const u64 page = addr >> VideoCore::TextureCache::Traits::PAGE_BITS;
     const auto& page_table = texture_cache.GetPageTable();
     const auto page_it = page_table.find(page);
     if (!page_it)

@@ -99,6 +99,7 @@ public:
     void Finish();
 
     void OnSubmit();
+    void OnFence();
     void CommitPendingGpuRanges();
 
     PipelineCache& GetPipelineCache() {

@@ -428,10 +428,12 @@ void BufferCache::FlushSyncBatch(bool from_scheduler) {
     size_t total_size_bytes = 0;
     for (const auto& range : sync_batch) {
         memory_tracker->ForEachUploadRange(
-            range.start, range.end - range.start, range.written, [&](u64 addr, u64 range_size) {
+            range.start, range.end - range.start, range.written,
+            [&](u64 addr, u64 range_size) {
                 copies.emplace_back(total_size_bytes, addr, range_size);
                 total_size_bytes += range_size;
-            });
+            },
+            [] {});
     }
     sync_batch.Clear();
     if (copies.empty()) {
