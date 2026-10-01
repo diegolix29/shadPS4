@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 ## Build shadPS4 for Linux
 
-First and foremost, Clang 18 is the **recommended compiler** as it is used for official builds and CI. If you build with GCC, you might encounter issues — please report any you find. Additionally, if you choose to use GCC, please build shadPS4 with Clang at least once before creating an `[APP BUG]` issue or submitting a pull request.
+First and foremost, Clang 19 is the **recommended compiler** as it is used for official Linux builds and CI. GCC 14 is also tested by CI. If you build with GCC, you might encounter issues — please report any you find. Additionally, if you choose to use GCC, please build shadPS4 with Clang at least once before creating an `[APP BUG]` issue or submitting a pull request.
 
 ## Preparatory steps
 
@@ -13,12 +13,23 @@ First and foremost, Clang 18 is the **recommended compiler** as it is used for o
 
 #### Debian & Ubuntu
 
+Make sure Clang 19 is installed. On Ubuntu 24.04, the default `clang` package may still provide Clang 18, while the current Linux CI uses Clang 19 from apt.llvm.org.
+
+For Ubuntu 24.04, add the LLVM 19 repository first:
+
 ```bash
-sudo apt install build-essential clang git cmake libasound2-dev \
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+sudo add-apt-repository 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main'
+sudo apt update
+```
+
+Then install the build dependencies:
+
+```bash
+sudo apt install build-essential clang-19 git cmake libasound2-dev \
     libpulse-dev libopenal-dev libssl-dev zlib1g-dev libedit-dev \
     libudev-dev libevdev-dev libsdl2-dev libjack-dev libsndio-dev \
-    qt6-base-dev qt6-tools-dev qt6-multimedia-dev libvulkan-dev \
-    vulkan-validationlayers libpng-dev
+    libvulkan-dev vulkan-validationlayers libpng-dev
 ```
 
 #### Fedora
@@ -28,8 +39,6 @@ sudo dnf install ninja-build clang git cmake libatomic alsa-lib-devel \
     pipewire-jack-audio-connection-kit-devel openal-soft-devel \
     openssl-devel libevdev-devel libudev-devel libXext-devel \
     libXcursor-devel libXi-devel libXrandr-devel libXScrnSaver-devel \
-    qt6-qtbase-devel qt6-qtbase-private-devel \
-    qt6-qtmultimedia-devel qt6-qtsvg-devel qt6-qttools-devel \
     vulkan-devel vulkan-validation-layers libpng-devel libuuid-devel
 ```
 
@@ -37,8 +46,7 @@ sudo dnf install ninja-build clang git cmake libatomic alsa-lib-devel \
 
 ```bash
 sudo pacman -S base-devel clang git cmake sndio jack2 openal \
-    qt6-base qt6-declarative qt6-multimedia qt6-tools sdl2 \
-    vulkan-validation-layers libpng
+    sdl2 vulkan-validation-layers libpng
 ```
 
 **Note**: The `shadps4-git` AUR package is not maintained by any of the developers, and it uses the default compiler, which is often set to GCC. Use at your own discretion.
@@ -49,9 +57,7 @@ sudo pacman -S base-devel clang git cmake sndio jack2 openal \
 sudo zypper install clang git cmake libasound2 libpulse-devel \
     libsndio7 libjack-devel openal-soft-devel libopenssl-devel \
     zlib-devel libedit-devel systemd-devel libevdev-devel \
-    qt6-base-devel qt6-multimedia-devel qt6-svg-devel \
-    qt6-linguist-devel qt6-gui-private-devel vulkan-devel \
-    vulkan-validationlayers libpng-devel
+    vulkan-devel vulkan-validationlayers libpng-devel
 ```
 
 #### Nix Flake Development Shell
@@ -102,12 +108,12 @@ There are 3 options you can choose from. Option 1 is **highly recommended**.
 1. Generate the build directory in the shadPS4 directory.
 
 ```bash
-cmake -S . -B build/ -DENABLE_QT_GUI=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+cmake -S . -B build/ -DCMAKE_C_COMPILER=clang-19 -DCMAKE_CXX_COMPILER=clang++-19
 ```
 
-To disable the Qt GUI, remove the `-DENABLE_QT_GUI=ON` flag. To change the build type (for debugging), add `-DCMAKE_BUILD_TYPE=Debug`.
+To change the build type (for debugging), add `-DCMAKE_BUILD_TYPE=Debug`.
 
-2. Use CMake to build the project:
+1. Use CMake to build the project:
 
 ```bash
 cmake --build ./build --parallel$(nproc)
@@ -115,16 +121,10 @@ cmake --build ./build --parallel$(nproc)
 
 If your computer freezes during this step, this could be caused by excessive system resource usage. In that case, remove `--parallel$(nproc)`.
 
-Now run the emulator. If Qt was enabled at configure time:
+Now run the emulator to get the list of options:
 
 ```bash
 ./build/shadps4
-```
-
-Otherwise, specify the path to your game's boot file:
-
-```bash
-./build/shadps4 /"PATH"/"TO"/"GAME"/"FOLDER"/eboot.bin
 ```
 
 You can also specify the Game ID as an argument for which game to boot, as long as the folder containing the games is specified in config.toml (example: Bloodborne (US) is CUSA00900).
@@ -134,7 +134,7 @@ You can also specify the Game ID as an argument for which game to boot, as long 
 
 Open `cmake-gui` and specify the source code and build directories. If you cloned the source code to your Home directory, it would be `/home/user/shadPS4` and `/home/user/shadPS4/build`.
 
-Click on Configure, select "Unix Makefiles", select "Specify native compilers", click Next and choose `clang` and `clang++` as the C and CXX compilers. Usually they are located in `/bin/clang` and `/bin/clang++`. Click on Finish and let it configure the project.
+Click on Configure, select "Unix Makefiles", select "Specify native compilers", click Next and choose `clang-19` and `clang++-19` as the C and CXX compilers. Click on Finish and let it configure the project.
 
 Now every option should be displayed in red. Change anything you want, then click on Generate to make the changes permanent, then open a terminal window and do step 2 of Option 1.
 
@@ -153,10 +153,6 @@ You can also install other CMake and Clang related extensions if you'd like, but
 Go to Settings, filter by `@ext:ms-vscode.cmake-tools configure` and disable this option:
 
 ![image](https://raw.githubusercontent.com/shadps4-emu/shadPS4/refs/heads/main/documents/Screenshots/Linux/1.png)
-
-If you wish to build with the Qt GUI, add `-DENABLE_QT_GUI=ON` to the configure arguments:
-
-![image](https://raw.githubusercontent.com/shadps4-emu/shadPS4/refs/heads/main/documents/Screenshots/Linux/2.png)
 
 On the CMake tab, change the options as you wish, but make sure that it looks similar to or exactly like this:
 

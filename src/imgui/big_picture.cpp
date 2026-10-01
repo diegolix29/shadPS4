@@ -93,7 +93,6 @@ void Launch() {
     const int atlas_max = static_cast<int>(std::bit_floor(std::max<u64>(max_dim, 512)));
     io.Fonts->TexMaxWidth = atlas_max;
     io.Fonts->TexMaxHeight = atlas_max;
-    io.Fonts->Build();
 
     ImGuiStyle& style = ImGui::GetStyle();
     ImVec4* colors = style.Colors;
