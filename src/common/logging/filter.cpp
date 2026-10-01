@@ -139,6 +139,7 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     SUB(Lib, SharePlay)                                                                            \
     SUB(Lib, Fiber)                                                                                \
     SUB(Lib, Vdec2)                                                                                \
+    SUB(Lib, Vdecsw)                                                                               \
     SUB(Lib, Videodec)                                                                             \
     SUB(Lib, RazorCpu)                                                                             \
     SUB(Lib, Mouse)                                                                                \

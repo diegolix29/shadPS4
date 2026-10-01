@@ -99,7 +99,11 @@ public:
         return gpu_modified_ranges;
     }
 
-    void CommitPendingGpuRanges() {}
+    void CommitPendingGpuRanges() {
+        FlushSyncBatch(false);
+    }
+
+    void FlushSyncBatch(bool from_scheduler = false);
 
     void MarkRegionAsCpuModified(VAddr addr, u64 size);
 
@@ -170,6 +174,18 @@ private:
         }
     };
     IntervalList<Backing> resident_ranges;
+
+    struct SyncRange : public Interval {
+        bool written{};
+        constexpr bool CanMergeWith(const SyncRange& other) const noexcept {
+            return written == other.written;
+        }
+        constexpr SyncRange SubRange(u64 a, u64 b) const noexcept {
+            return {{a, b}, written};
+        }
+    };
+    IntervalList<SyncRange> sync_batch;
+    u32 num_flushes_per_frame{};
 
     u32 arena_memory_type_index{};
     u32 block_size{};
