@@ -172,10 +172,10 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
 const char* GetLogClassName(LogClass log_class) {
     switch (log_class) {
 #define CLS(x)                                                                                     \
-    case LogClass::x:                                                                                 \
+    case LogClass::x:                                                                              \
         return #x;
 #define SUB(x, y)                                                                                  \
-    case LogClass::x##_##y:                                                                           \
+    case LogClass::x##_##y:                                                                        \
         return #x "." #y;
         ALL_LOG_CLASSES()
 #undef CLS

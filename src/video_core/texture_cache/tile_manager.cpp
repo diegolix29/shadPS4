@@ -285,7 +285,7 @@ TileManager::Result TileManager::TileLinearBuffer(vk::Buffer in_buffer, u64 in_o
 
     TilingInfo params{};
     params.bank_swizzle = info.bank_swizzle;
-    params.num_slices = info.props.is_volume ? info.size.depth : info.resources.layers;
+    params.micro_tiled_mips = info.micro_tiled_mips;
     params.num_mips = info.resources.levels;
     for (u32 mip = 0; mip < params.num_mips; ++mip) {
         auto& mip_info = params.mips[mip];

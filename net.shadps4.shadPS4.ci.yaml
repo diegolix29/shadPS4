@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+# CI-only Flatpak manifest.
+#
+# Identical to net.shadps4.shadPS4.yaml except the shadps4 module is built from the
+# already checked-out workspace (type: dir) instead of cloning the repo again.
+# The workflow's actions/checkout step fetches all submodules recursively, so
+# flatpak-builder no longer has to clone them itself. Its own nested-submodule handling
+# fails on externals/mesa-kosmickrisp/externals/mesa ("upload-pack: not our ref").
+# This also means CI builds the commit under test rather than the head of the Shadlix branch.
+
+app-id: net.shadps4.shadPS4
+runtime: org.kde.Platform
+runtime-version: '6.8'
+sdk: org.kde.Sdk
+command: shadps4
+
+finish-args:
+  - --device=dri
+  - --device=input
+  - --allow=bluetooth
+  - --talk-name=org.freedesktop.portal.Gamepad
+  - --filesystem=/dev/input
+  - --filesystem=/run/udev:ro
+  - --device=all
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --share=network
+  - --filesystem=home
+  - --filesystem=/media
+  - --filesystem=/run/media
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.llvm18
+
+add-extensions:
+  org.freedesktop.Platform.ffmpeg-full:
+    directory: lib/ffmpeg
+    add-ld-path: .
+    version: '24.08'
+    no-autodownload: false
+    autodelete: false
+
+cleanup-commands:
+  - mkdir -p ${FLATPAK_DEST}/lib/ffmpeg
+
+modules:
+  - name: rapidjson
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DRAPIDJSON_BUILD_DOC=OFF
+      - -DRAPIDJSON_BUILD_EXAMPLES=OFF
+      - -DRAPIDJSON_BUILD_TESTS=OFF
+      - -DRAPIDJSON_BUILD_THIRDPARTY_GTEST=OFF
+    sources:
+      - type: archive
+        url: https://api.github.com/repos/Tencent/rapidjson/zipball/v1.1.0
+        dest-filename: rapidjson.zip
+        sha256: 7fb9f29b86f6842a6f67ebdf6b56b3fc25671b3bca50448e1505f47f37eb19d5
+    cleanup:
+      - '*'
+
+  - name: shadps4
+    buildsystem: cmake-ninja
+    builddir: true
+    build-options:
+      append-path: /usr/lib/sdk/llvm18/bin
+      prepend-ld-library-path: /usr/lib/sdk/llvm18/lib
+    config-opts:
+      - -DENABLE_UPDATER=OFF
+      - -DENABLE_QT_GUI=ON
+      - -DCMAKE_C_COMPILER=clang
+      - -DCMAKE_CXX_COMPILER=clang++
+      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO=ON
+    sources:
+      # Build from the checked-out repo (submodules already populated by actions/checkout).
+      - type: dir
+        path: .
+        skip:
+          - .flatpak-builder
+          - .vs
+          - build
+          - Build
+          - out
+          - Install
+          - vcpkg_installed
+    prepare-commands:
+      # macOS-only dependency, not needed for the Linux/Flatpak build.
+      - rm -rf externals/mesa-kosmickrisp/externals/mesa

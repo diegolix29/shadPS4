@@ -206,7 +206,9 @@ jobs:
       run: sysctl hw machdep.cpu
 
     - name: Install LLVM, Meson, libclc and Python dependencies
-      run: brew install llvm meson ninja pkg-config spirv-tools spirv-llvm-translator libclc && pip3 install --break-system-packages mako packaging pyyaml
+      run: |
+        brew install llvm meson ninja pkg-config spirv-tools spirv-llvm-translator libclc
+        python3 -m pip install --break-system-packages mako packaging pyyaml
 
     - name: Configure CMake
       run: cmake --fresh -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON  -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
@@ -238,8 +240,8 @@ jobs:
       with:
         xcode-version: latest
 
-    - name: Install LLVM, Meson, libclc and Python dependencies
-      run: brew install llvm meson ninja pkg-config spirv-tools spirv-llvm-translator libclc && pip3 install --break-system-packages mako packaging pyyaml
+    - name: Install LLVM, Meson and libclc
+      run: brew install llvm meson ninja pkg-config spirv-tools spirv-llvm-translator libclc
 
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4
@@ -250,6 +252,11 @@ jobs:
         arch: clang_64
         archives: qtbase qttools
         modules: qtmultimedia
+
+    # Must run AFTER Setup Qt: install-qt-action puts its own Python first on PATH,
+    # and meson (via mesa-kosmickrisp) uses whichever python3 is first on PATH.
+    - name: Install Python dependencies for mesa
+      run: python3 -m pip install --break-system-packages mako packaging pyyaml
 
     - name: Cache CMake Configuration
       uses: actions/cache@v5.0.4 
@@ -500,7 +507,7 @@ jobs:
         submodules: recursive
     - uses: flatpak/flatpak-github-actions/flatpak-builder@master
       with:
-        manifest-path: net.shadps4.shadPS4.yaml
+        manifest-path: net.shadps4.shadPS4.ci.yaml
         cache-key: flatpak-builder-${{ github.sha }}
         bundle: shadps4.flatpak
         upload-artifact: false
@@ -511,7 +518,7 @@ jobs:
         
   Shadlix:
     if: github.ref == 'refs/heads/Shadlix' && github.event_name == 'push'
-    needs: [get-info, windows-sdl, windows-qt, linux-sdl, linux-qt, linux-qt-gcc, linux-sdl-gcc]
+    needs: [get-info, windows-sdl, windows-qt, linux-sdl, linux-qt, macos-sdl, macos-qt]
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts

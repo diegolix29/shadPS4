@@ -153,6 +153,8 @@ bool ImageInfo::IsCompatible(const ImageInfo& info) const {
 void ImageInfo::UpdateSize() {
     guest_size = 0;
     micro_tiled_mips = 0;
+    const bool macro = AmdGpu::IsMacroTiled(array_mode);
+    const u32 thickness = AmdGpu::GetMicroTileThickness(array_mode);
     for (s32 mip = 0; mip < resources.levels; ++mip) {
         u32 mip_w = pitch >> mip;
         u32 mip_h = size.height >> mip;

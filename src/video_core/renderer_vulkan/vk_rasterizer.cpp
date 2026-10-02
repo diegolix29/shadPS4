@@ -305,10 +305,12 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
         needs_barrier |= runtime.IsBufferAccessed(count_buffer, count_offset, 4);
     }
 
-    runtime.AccessBuffer(buffer, base, stride * max_count, vk::PipelineStageFlagBits2::eDrawIndirect,
+    runtime.AccessBuffer(buffer, base, stride * max_count,
+                         vk::PipelineStageFlagBits2::eDrawIndirect,
                          vk::AccessFlagBits2::eIndirectCommandRead);
     if (count_buffer) {
-        runtime.AccessBuffer(count_buffer, count_offset, 4, vk::PipelineStageFlagBits2::eDrawIndirect,
+        runtime.AccessBuffer(count_buffer, count_offset, 4,
+                             vk::PipelineStageFlagBits2::eDrawIndirect,
                              vk::AccessFlagBits2::eIndirectCommandRead);
     }
     if (needs_barrier) {
