@@ -159,8 +159,7 @@ PredicationManager::PredicationManager(const Instance& instance_, Scheduler& sch
     };
     reduce_desc_layout = Check(device.createDescriptorSetLayoutUnique(desc_layout_ci));
 
-    const auto module =
-        Compile(HostShaders::OCCLUSION_PREDICATE_COMP, vk::ShaderStageFlagBits::eCompute, device);
+    const auto module = CompileSPV(OCCLUSION_PREDICATE_COMP, device);
     SetObjectName(device, module, "Occlusion Predicate Reduce");
 
     const vk::PushConstantRange push_range = {
@@ -293,12 +292,11 @@ void PredicationManager::EnableFromBool(VAddr address, bool is_64bit, bool draw_
                                                       vk::AccessFlagBits2::eTransferWrite,
                                                       qword * sizeof(u64), sizeof(u64)));
     }
-    RecordBufferBarrier(cmdbuf, MakeBufferBarrier(buffer->Handle(),
-                                                  vk::PipelineStageFlagBits2::eAllCommands,
-                                                  vk::AccessFlagBits2::eMemoryWrite,
-                                                  vk::PipelineStageFlagBits2::eAllTransfer,
-                                                  vk::AccessFlagBits2::eTransferRead, offset,
-                                                  width));
+    RecordBufferBarrier(
+        cmdbuf, MakeBufferBarrier(buffer->Handle(), vk::PipelineStageFlagBits2::eAllCommands,
+                                  vk::AccessFlagBits2::eMemoryWrite,
+                                  vk::PipelineStageFlagBits2::eAllTransfer,
+                                  vk::AccessFlagBits2::eTransferRead, offset, width));
     const vk::BufferCopy copy = {
         .srcOffset = offset,
         .dstOffset = qword * sizeof(u64),
