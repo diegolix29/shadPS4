@@ -43,6 +43,12 @@ enum class ThreadPriority : u32 {
     Critical = 4,
 };
 
+enum class CpuCoreMode : u32 {
+    All = 0,
+    Efficient = 1,
+    Custom = 2,
+};
+
 void SetCurrentThreadRealtime(std::chrono::nanoseconds period_ns);
 
 void SetCurrentThreadPriority(ThreadPriority new_priority);

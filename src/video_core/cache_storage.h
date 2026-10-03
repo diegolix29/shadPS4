@@ -22,6 +22,9 @@ enum class BlobType : u32 {
     NativePipelineCache,
 };
 
+inline std::atomic_bool shader_cache_paused_game{false};
+inline std::atomic_bool shader_cache_error_shown{false};
+
 class DataBase {
 public:
     static DataBase& Instance() {
@@ -39,6 +42,11 @@ public:
         return IsOpened() && archive_mode;
     }
     [[nodiscard]] bool FinishPreload();
+
+    void ResetShaderCacheState() {
+        shader_cache_paused_game.store(false, std::memory_order_relaxed);
+        shader_cache_error_shown.store(false, std::memory_order_relaxed);
+    }
 
     template <typename T>
     [[nodiscard]] bool Save(BlobType type, const std::string& name, std::vector<T>&& data);

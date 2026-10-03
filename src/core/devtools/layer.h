@@ -21,8 +21,8 @@ public:
     static void SetupSettings();
     void SaveConfigWithOverrides(const std::filesystem::path& path, bool perGame,
                                  const std::string& gameSerial);
-    void Draw();
-    bool ShouldKeepDrawing() override;
+    void Draw() override;
+    bool NeedsRender() const override;
     void DrawPauseStatusWindow(bool& is_open);
     bool show_pause_status = false;
     void TextCentered(const std::string& text);

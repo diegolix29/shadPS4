@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <filesystem>
 #include <span>
 #include <string>
@@ -72,6 +73,10 @@ public:
         return window_info;
     }
 
+    [[nodiscard]] s64 GetDisplayRefreshPeriodNs() const {
+        return display_refresh_period_ns.load(std::memory_order_acquire);
+    }
+
     void SetIcon(std::span<const u8> png_data);
     void SetWindowIcon(SDL_Window* window, const std::vector<u8>& png);
     void SetDefaultWindowIcon(SDL_Window* window);
@@ -97,6 +102,7 @@ private:
     void CheckHotkeys();
     void RelaunchEmulator();
     void RelaunchEmulatorWithBigPicture();
+    void UpdateDisplayRefreshPeriod();
 
     s32 width;
     s32 height;
@@ -105,6 +111,7 @@ private:
     SDL_Window* window{};
     bool is_shown{};
     bool is_open{true};
+    std::atomic<s64> display_refresh_period_ns{0};
 };
 
 } // namespace Frontend

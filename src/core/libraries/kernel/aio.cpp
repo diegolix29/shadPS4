@@ -316,7 +316,7 @@ s32 SubmitCommands(OrbisKernelAioRWRequest requests[], s32 size, s32, OrbisKerne
         if (requests[index].nbyte < 0 || requests[index].offset < 0) {
             return ORBIS_KERNEL_ERROR_EINVAL;
         }
-        auto file = handles->GetFileShared(requests[index].fd);
+        auto file = handles->GetFileLease(requests[index].fd);
         if (!file) {
             return ORBIS_KERNEL_ERROR_EBADF;
         }

@@ -39,14 +39,13 @@
 #include "common/scm_rev.h"
 #include "common/string_util.h"
 #include "control_settings.h"
-#include "core/emulator_state.h"
-#include "core/ipc/ipc.h"
-
-#include "core/libraries/audio/audioout.h"
+// #include "core/emulator_state.h"
+// #include "core/ipc/ipc.h"
+// #include "core/libraries/audio/audioout.h"
 #include "imgui/big_picture.h"
 #include "version_dialog.h"
 
-#include "core/debug_state.h"
+// #include "core/debug_state.h"
 #include "game_directory_dialog.h"
 #include "hotkeys.h"
 #include "input/controller.h"
@@ -58,11 +57,7 @@
 #ifdef ENABLE_DISCORD_RPC
 #include "common/discord_rpc_handler.h"
 #endif
-namespace Storage {
-extern std::atomic_bool shader_cache_paused_game;
-extern std::atomic_bool shader_cache_error_shown;
-} // namespace Storage
-MainWindow* g_MainWindow = nullptr;
+
 QProcess* MainWindow::emulatorProcess = nullptr;
 
 QFlowLayout::QFlowLayout(QWidget* parent, int margin, int hSpacing, int vSpacing)
@@ -567,7 +562,7 @@ void MainWindow::onShaderCacheError(const QString& gameSerial) {
     }
     Storage::DataBase::Instance().ResetShaderCacheState();
     if (Storage::shader_cache_paused_game.exchange(false)) {
-        DebugState.ResumeGuestThreads();
+        // DebugState.ResumeGuestThreads();
     }
 }
 
@@ -2772,11 +2767,7 @@ void MainWindow::ToggleMute() {
             m_ipc_client->adjustVol(Config::getVolumeSlider());
         } else if (auto ipc = IpcClient::GetInstance()) {
             ipc->adjustVol(Config::getVolumeSlider());
-        } else {
-            Libraries::AudioOut::AdjustVol();
         }
-    } else {
-        Libraries::AudioOut::AdjustVol();
     }
 }
 void MainWindow::autoCheckLauncherBox() {

@@ -281,7 +281,7 @@ s32 PS4_SYSV_ABI close(s32 fd) {
         *__Error() = POSIX_EPERM;
         return -1;
     }
-    auto file = h->DeleteHandle(fd);
+    auto file = h->TakeHandle(fd);
     if (file == nullptr) {
         *__Error() = POSIX_EBADF;
         return -1;
@@ -440,7 +440,7 @@ s64 PS4_SYSV_ABI readv(s32 fd, const OrbisKernelIovec* iov, s32 iovcnt) {
         return -1;
     }
     auto* h = Common::Singleton<Core::FileSys::HandleTable>::Instance();
-    auto file = h->GetFileShared(fd);
+    auto file = h->GetFileLease(fd);
     if (file == nullptr) {
         *__Error() = POSIX_EBADF;
         return -1;
@@ -607,7 +607,7 @@ s64 PS4_SYSV_ABI sceKernelLseek(s32 fd, s64 offset, s32 whence) {
 
 s64 PS4_SYSV_ABI read(s32 fd, void* buf, u64 nbytes) {
     auto* h = Common::Singleton<Core::FileSys::HandleTable>::Instance();
-    auto file = h->GetFileShared(fd);
+    auto file = h->GetFileLease(fd);
     if (file == nullptr) {
         *__Error() = POSIX_EBADF;
         return -1;
@@ -1079,7 +1079,7 @@ s64 PS4_SYSV_ABI posix_preadv(s32 fd, OrbisKernelIovec* iov, s32 iovcnt, s64 off
     }
 
     auto* h = Common::Singleton<Core::FileSys::HandleTable>::Instance();
-    auto file = h->GetFileShared(fd);
+    auto file = h->GetFileLease(fd);
     if (file == nullptr) {
         *__Error() = POSIX_EBADF;
         return -1;

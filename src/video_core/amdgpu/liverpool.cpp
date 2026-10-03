@@ -1945,7 +1945,8 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (cond_exec->command.Value() != 0) {
                     WarnReservedCondExec();
                 }
-                const auto skip = *cond_exec->Address() == false;
+                const u32 predicate = *std::bit_cast<const u32*>(cond_exec->Address());
+                const auto skip = predicate == 0;
                 if (skip) {
                     packet_words += cond_exec->exec_count.Value();
                 }

@@ -7,12 +7,21 @@
 #include "common/assert.h"
 #include "common/decoder.h"
 #include "common/signal_context.h"
-#include "core/cpu_patches.h" // Windows static guest red-zone protection
 #include "core/libraries/kernel/kernel.h"
 #include "core/libraries/kernel/threads/exception.h"
 #include "core/memory.h"
 #include "core/signals.h"
 #include "emulator.h"
+
+#ifdef signals
+#undef signals
+#endif
+#ifdef slots
+#undef slots
+#endif
+#ifdef emit
+#undef emit
+#endif
 
 #ifdef _WIN32
 #include <windows.h>
@@ -31,10 +40,7 @@ namespace Core {
 
 static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     using namespace Libraries::Kernel;
-    const auto* signals = Signals::Instance();
-    // Windows static guest red-zone protection
-    const bool use_static_windows_guest_red_zone_protection =
-        WindowsGuestRedZoneProtection::IsStaticPatchingEnabled();
+    const auto* dispatch = Signals::Instance();
     DWORD code = 0;
     PVOID address = nullptr;
 
@@ -52,26 +58,17 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     };
 
     bool handled = false;
-    bool static_protection_exception = false; // Windows static guest red-zone protection
     switch (code) {
     case EXCEPTION_ACCESS_VIOLATION:
         guest_info._si_signo = POSIX_SIGSEGV;
         guest_info._si_code = POSIX_SEGV_MAPERR;
-        static_protection_exception = true; // Windows static guest red-zone protection
-        handled = signals->DispatchAccessViolation(
+        handled = dispatch->DispatchAccessViolation(
             pExp, reinterpret_cast<void*>(pExp->ExceptionRecord->ExceptionInformation[1]));
         break;
     case EXCEPTION_ILLEGAL_INSTRUCTION:
         guest_info._si_signo = POSIX_SIGILL;
         guest_info._si_code = POSIX_ILL_ILLOPC;
-        static_protection_exception = true; // Windows static guest red-zone protection
-        handled = signals->DispatchIllegalInstruction(pExp);
-        break;
-    case EXCEPTION_PRIV_INSTRUCTION: // Windows static guest red-zone protection
-        if (use_static_windows_guest_red_zone_protection) {
-            static_protection_exception = true;
-            handled = signals->DispatchIllegalInstruction(pExp);
-        }
+        handled = dispatch->DispatchIllegalInstruction(pExp);
         break;
     case EXCEPTION_IN_PAGE_ERROR:
         guest_info._si_signo = POSIX_SIGBUS;
@@ -116,7 +113,7 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     case EXCEPTION_BREAKPOINT:
     case EXCEPTION_SINGLE_STEP:
         if (code == EXCEPTION_SINGLE_STEP &&
-            const_cast<SignalDispatch*>(signals)->HandleSingleStepException(pExp)) {
+            const_cast<SignalDispatch*>(dispatch)->HandleSingleStepException(pExp)) {
             return EXCEPTION_CONTINUE_EXECUTION;
         }
         guest_info._si_signo = POSIX_SIGTRAP;
@@ -145,10 +142,7 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
     }
 
     // Windows static guest red-zone protection
-    const bool report_unhandled = use_static_windows_guest_red_zone_protection
-                                      ? static_protection_exception
-                                      : code != EXCEPTION_BREAKPOINT;
-    if (report_unhandled) { // Windows static guest red-zone protection
+    if (code != EXCEPTION_BREAKPOINT) {
         LOG_CRITICAL(Debug, "Unhandled Exception code {:#x} at {}", code, address);
         Common::Singleton<Core::Emulator>::Instance()->Shutdown();
     }
@@ -257,7 +251,7 @@ static s32 NativeSiCodeToGuest(s32 sig, s32 code) {
 void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
     using namespace Libraries::Kernel;
     auto* thread = g_curthread;
-    const auto* signals = Signals::Instance();
+    const auto* dispatch = Signals::Instance();
 
     auto* code_address = Common::GetRip(raw_context);
 
@@ -277,7 +271,7 @@ void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
     case SIGSEGV:
     case SIGBUS: {
         const bool is_write = Common::IsWriteError(raw_context);
-        if (!signals->DispatchAccessViolation(raw_context, info->si_addr)) {
+        if (!dispatch->DispatchAccessViolation(raw_context, info->si_addr)) {
             if (thread && thread->DispatchSignal(NativeToOrbisSignal(sig), info_p, context_p)) {
                 return;
             }
@@ -288,12 +282,12 @@ void SignalHandler(int sig, siginfo_t* info, void* raw_context) {
         break;
     }
     case SIGTRAP:
-        if (const_cast<SignalDispatch*>(signals)->HandleSingleStepException(raw_context)) {
+        if (const_cast<SignalDispatch*>(dispatch)->HandleSingleStepException(raw_context)) {
             return;
         }
         [[fallthrough]];
     case SIGILL:
-        if (sig == SIGILL && signals->DispatchIllegalInstruction(raw_context)) {
+        if (sig == SIGILL && dispatch->DispatchIllegalInstruction(raw_context)) {
             return;
         }
         [[fallthrough]];

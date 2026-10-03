@@ -216,7 +216,7 @@ void L::TextCentered(const std::string& text) {
     ImGui::TextUnformatted(text.c_str());
 }
 
-bool L::ShouldKeepDrawing() {
+bool L::NeedsRender() const {
     return DebugState.IsShowingDebugMenuBar();
 }
 

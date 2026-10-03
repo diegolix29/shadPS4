@@ -5,7 +5,10 @@
 
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include "common/singleton.h"
 #include "core/linker.h"
@@ -26,8 +29,10 @@ public:
     Emulator();
     ~Emulator();
 
-    void Run(std::filesystem::path file, const std::vector<std::string> args = {},
-             std::optional<std::filesystem::path> game_folder = {});
+    void Run(std::filesystem::path file, std::vector<std::string> args = {},
+             std::optional<std::filesystem::path> game_folder = {},
+             std::vector<std::pair<std::filesystem::path, std::string>> mounts = {},
+             const std::vector<std::string>& env_vars = {});
     void UpdatePlayTime(const std::string& serial);
 
     void Restart(std::filesystem::path eboot_path, const std::vector<std::string>& guest_args = {},

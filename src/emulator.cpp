@@ -95,20 +95,6 @@ void Emulator::Shutdown() {
     if (exit_done) {
         return;
     }
-    if (Core::FileSys::GetApp0StorageScheduler().IsEnabled()) {
-        const auto storage_stats = Core::FileSys::GetApp0StorageScheduler().GetStats();
-        LOG_DEBUG(
-            Kernel_Fs,
-            "app0 HDD summary: bytes={} chunks={} sequential={} positioned={} modeled_wait_ms={} "
-            "oversleep_ms={} host_overrun_ms={} host_wait_ms={} prefetched={} demand={} "
-            "max_staging={} max_queue={}",
-            storage_stats.bytes_read, storage_stats.chunks, storage_stats.sequential_chunks,
-            storage_stats.positioned_chunks, storage_stats.modeled_wait_ns / 1'000'000,
-            storage_stats.timer_oversleep_ns / 1'000'000, storage_stats.host_overrun_ns / 1'000'000,
-            storage_stats.host_wait_ns / 1'000'000, storage_stats.prefetched_chunks,
-            storage_stats.demand_chunks, storage_stats.max_staging_buffers,
-            storage_stats.max_queue_depth);
-    }
     if (controllers) {
         controllers->Cleanup();
     }
@@ -269,7 +255,10 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
         }
     }
 
-    Core::FileSys::GetApp0StorageScheduler().Configure(Config::getApp0ReadBandwidthMibps());
+    Core::FileSys::GetApp0StorageScheduler().Configure(Core::FileSys::StorageSchedulerConfig{
+        .bandwidth_mibps = Config::getApp0ReadBandwidthMibps(),
+        .disable_time_stretching = Config::getApp0ReadDisableTimeStretching(),
+    });
     // Switch to configured log
     Config::getSeparateLogFilesEnabled() ? id + ".log" : "shad_log.txt";
 
