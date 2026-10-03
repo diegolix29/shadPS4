@@ -1,6 +1,15 @@
 # SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+# CI-only Flatpak manifest.
+#
+# Identical to net.shadps4.shadPS4.yaml except the shadps4 module is built from the
+# already checked-out workspace (type: dir) instead of cloning the repo again.
+# The workflow's actions/checkout step fetches all submodules recursively, so
+# flatpak-builder no longer has to clone them itself. Its own nested-submodule handling
+# fails on externals/mesa-kosmickrisp/externals/mesa ("upload-pack: not our ref").
+# This also means CI builds the commit under test rather than the head of the Shadlix branch.
+
 app-id: net.shadps4.shadPS4
 runtime: org.kde.Platform
 runtime-version: '6.8'
@@ -50,11 +59,6 @@ modules:
         url: https://api.github.com/repos/Tencent/rapidjson/zipball/v1.1.0
         dest-filename: rapidjson.zip
         sha256: 7fb9f29b86f6842a6f67ebdf6b56b3fc25671b3bca50448e1505f47f37eb19d5
-        x-checker-data:
-          type: json
-          url: https://api.github.com/repos/tencent/rapidjson/releases/latest
-          version-query: .tag_name
-          url-query: .zipball_url
     cleanup:
       - '*'
 
@@ -72,18 +76,17 @@ modules:
       - -DCMAKE_BUILD_TYPE=RelWithDebInfo
       - -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO=ON
     sources:
-      # We're using a git source here rather than a zipball because zip/tarballs
-      # don't include submodules, which shadps4 depends on (in the externals directory)
-      - type: git
-        url: https://github.com/diegolix29/shadPS4
-        branch: Shadlix
-        disable-fsckobjects: true
-        x-checker-data:
-          type: json
-          url: https://api.github.com/repos/diegolix29/shadPS4/releases
-          tag-query: '[.[] | select(.prerelease == true)] | first | .tag_name // "Shadlix"'
-          version-query: '[.[] | select(.prerelease == true)] | first | .tag_name // "Shadlix"'
+      # Build from the checked-out repo (submodules already populated by actions/checkout).
+      - type: dir
+        path: .
+        skip:
+          - .flatpak-builder
+          - .vs
+          - build
+          - Build
+          - out
+          - Install
+          - vcpkg_installed
     prepare-commands:
-      - git config --global core.fsckObjects false
-      - git submodule update --init --recursive --jobs 4 || true
+      # macOS-only dependency, not needed for the Linux/Flatpak build.
       - rm -rf externals/mesa-kosmickrisp/externals/mesa
