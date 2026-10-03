@@ -1,17 +1,12 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
-#include <atomic>
-#include <utility>
 #include "common/config.h"
-
 #include "common/div_ceil.h"
-#include "common/logging/log.h"
-#include "core/emulator_settings.h"
 
-#ifdef __unix__
+#ifdef __linux__
 #include "common/adaptive_mutex.h"
 #else
 #include "common/spin_lock.h"
@@ -39,7 +34,6 @@ public:
         : tracker{tracker_}, cpu_addr{cpu_addr_} {
         cpu.Fill();
         gpu.Clear();
-        written.Clear();
         writeable.Fill();
         readable.Fill();
     }
@@ -53,8 +47,8 @@ public:
         return cpu_addr;
     }
 
-    [[nodiscard]] bool HasAnyGpuModifiedPages() const noexcept {
-        return gpu_any_modified.load(std::memory_order_acquire);
+    u16& NumFlushes(u32 page) {
+        return flushes[page];
     }
 
     static constexpr size_t SanitizeAddress(size_t address) {
@@ -97,28 +91,28 @@ public:
         }
 
         RegionBits& bits = GetRegionBits<type>();
-        if constexpr (type == Type::GPU && enable) {
-            // Publish the conservative aggregate before mutating the bitset. A lock-free negative
-            // query must never observe a stale false value after an update starts.
-            gpu_any_modified.store(true, std::memory_order_release);
-        }
         if constexpr (enable) {
             bits.SetRange(start_page, end_page);
         } else {
             bits.UnsetRange(start_page, end_page);
-            if constexpr (type == Type::CPU) {
-                written.UnsetRange(start_page, end_page);
-            }
-            if constexpr (type == Type::GPU) {
-                // Clearing may publish false only after the bitset proves that no GPU-dirty page
-                // remains in this manager.
-                gpu_any_modified.store(bits.Any(), std::memory_order_release);
-            }
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
+            UpdateProtection<enable, true>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
+            UpdateProtection<!enable, false>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
+            UpdateProtection<!enable, false>();
         } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
             UpdateProtection<enable, true>();
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
+            UpdateProtection<enable, true>();
+        }
+        if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
+            for (size_t page = start_page; page != end_page && !enable; ++page) {
+                ++flushes[page];
+            }
         }
     }
 
@@ -147,13 +141,17 @@ public:
         if constexpr (clear) {
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
-                written.UnsetRange(start_page, end_page);
                 UpdateProtection<true, false>();
-            } else {
-                gpu_any_modified.store(bits.Any(), std::memory_order_release);
-                if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable) {
-                    UpdateProtection<false, true>();
-                }
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
+                UpdateProtection<true, false>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
+                UpdateProtection<false, false>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
+                UpdateProtection<false, true>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
+                UpdateProtection<false, true>();
+            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
+                UpdateProtection<false, true>();
             }
         }
 
@@ -182,7 +180,8 @@ public:
         return bits.AnyInRange(start_page, end_page);
     }
 
-    /**
+
+       /**
      * Records a CPU write fault and opens the pages after it for writing ahead of time.
      * A sequential writer faults on every page in turn. When the pages right before the fault
      * were written since their last upload too, as many pages after it are marked CPU modified
@@ -225,7 +224,6 @@ public:
         UpdateProtection<false, false>();
         return {cpu_addr + begin * TRACKER_BYTES_PER_PAGE, (end - begin) * TRACKER_BYTES_PER_PAGE};
     }
-
     LockType lock;
 
 private:
@@ -261,6 +259,7 @@ private:
     std::atomic_bool gpu_any_modified{false};
     RegionBits writeable;
     RegionBits readable;
+    RegionWords flushes{};
 };
 
 } // namespace VideoCore
