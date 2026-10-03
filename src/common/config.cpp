@@ -271,6 +271,7 @@ static ConfigEntry<int> bigPictureScale(1000);
 static ConfigEntry<bool> isNullGpu(false);
 static ConfigEntry<bool> shouldCopyGPUBuffers(false);
 static ConfigEntry<ReadbackSpeed> readbackSpeedMode(ReadbackSpeed::Disable);
+static ConfigEntry<GpuReadbacksMode> readbacksMode(GpuReadbacksMode::Disabled);
 static ConfigEntry<bool> readbackLinearImagesEnabled(false);
 static ConfigEntry<bool> directMemoryAccessEnabled(false);
 static ConfigEntry<bool> shouldDumpShaders(false);
@@ -290,6 +291,8 @@ static int BGMvolume = 50;
 
 // Vulkan
 static ConfigEntry<s32> gpuId(-1);
+static ConfigEntry<u32> gpuFramesAhead(2);
+static ConfigEntry<bool> reflexEnabled(false);
 static ConfigEntry<bool> vkValidation(false);
 static ConfigEntry<bool> vkValidationCore(true);
 static ConfigEntry<bool> vkValidationSync(false);
@@ -930,6 +933,22 @@ s32 getGpuId() {
     return gpuId.get();
 }
 
+u32 getGpuFramesAhead() {
+    return gpuFramesAhead.get();
+}
+
+void setGpuFramesAhead(u32 value) {
+    gpuFramesAhead.set(value, is_game_specific_context);
+}
+
+bool getReflexEnabled() {
+    return reflexEnabled.get();
+}
+
+void setReflexEnabled(bool enable) {
+    reflexEnabled.set(enable, is_game_specific_context);
+}
+
 bool getFsrEnabled() {
     return fsrEnabled.get();
 }
@@ -1195,6 +1214,14 @@ ReadbackSpeed readbackSpeed() {
 
 void setReadbackSpeed(ReadbackSpeed mode) {
     readbackSpeedMode.base_value = mode;
+}
+
+GpuReadbacksMode GetReadbacksMode() {
+    return readbacksMode.get();
+}
+
+void setReadbacksMode(GpuReadbacksMode mode) {
+    readbacksMode.set(mode, is_game_specific_context);
 }
 
 bool setReadbackLinearImages(bool enable) {
@@ -2831,6 +2858,7 @@ void setDefaultValues() {
     isNullGpu = false;
     shouldCopyGPUBuffers = false;
     readbackSpeedMode = ReadbackSpeed::Disable;
+    readbacksMode = GpuReadbacksMode::Disabled;
     shaderSkipsEnabled = false;
     readbackLinearImagesEnabled = false;
     directMemoryAccessEnabled = false;

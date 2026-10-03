@@ -506,15 +506,15 @@ static void SavePendingScreenshots(const std::vector<ScreenshotReadback>& readba
 
 Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_)
     : window{window_}, liverpool{liverpool_},
-      instance{window, Config::GetGpuId(), Config::IsVkValidationEnabled(),
-               Config::IsVkCrashDiagnosticEnabled()},
+      instance{window, Config::getGpuId(), Config::vkValidationEnabled(),
+               Config::getVkCrashDiagnosticEnabled()},
       draw_scheduler{instance, true, DrawRecordingThreadEnabled()},
       present_scheduler{instance, false, false, true},
       swapchain{instance, window},
       rasterizer{std::make_unique<Rasterizer>(instance, draw_scheduler, liverpool)},
       texture_cache{rasterizer->GetTextureCache()},
-      display_pacer{1'000'000'000 / static_cast<s64>(Config::GetVblankFrequency())} {
-    gpu_frames_ahead = std::min(Config::GetGpuFramesAhead(), MaxGpuFramesAhead);
+      display_pacer{1'000'000'000 / static_cast<s64>(Config::vblankFreq())} {
+    gpu_frames_ahead = std::min(Config::getGpuFramesAhead(), MaxGpuFramesAhead);
     const u32 num_images = swapchain.GetImageCount();
     // Four source frames cover all independent ownership states during a host stall: last shown,
     // active present, mailbox and next producer. Keep the old +1 policy for larger swapchains.
@@ -564,10 +564,10 @@ Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_
 }
 
 void Presenter::UpdateFsrSettingsFromConfig() {
-    fsr_settings.enable = Config::IsFsrEnabled();
-    fsr_settings.use_rcas = Config::IsRcasEnabled();
+    fsr_settings.enable = Config::getFsrEnabled();
+    fsr_settings.use_rcas = Config::getRcasEnabled();
     fsr_settings.rcasAttenuation =
-        static_cast<float>(Config::GetRcasAttenuation() / 1000.f);
+        static_cast<float>(Config::getRcasAttenuation() / 1000.f);
 }
 
 Presenter::~Presenter() {
@@ -1356,7 +1356,7 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, const u64 presentat
         pending_screenshots.reserve(1);
     }
 
-    if (Config::IsVkHostMarkersEnabled()) {
+    if (Config::getVkHostMarkersEnabled()) {
         cmdbuf.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
             .pLabelName = "Present",
         });
@@ -1457,7 +1457,7 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, const u64 presentat
                 ImGui::SetCursorPos(ImGui::GetCursorStartPos() + offset);
                 ImGui::Image(game_texture, size);
 
-                if (Config::IsNullGPU()) {
+                if (Config::nullGpu()) {
                     Core::Devtools::Layer::DrawNullGpuNotice();
                 }
             }
@@ -1532,7 +1532,7 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, const u64 presentat
             TracyVkCollect(profiler_ctx, raw_cmdbuf);
         }
     }
-    if (Config::IsVkHostMarkersEnabled()) {
+    if (Config::getVkHostMarkersEnabled()) {
         cmdbuf.endDebugUtilsLabelEXT();
     }
 

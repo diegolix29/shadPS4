@@ -14,6 +14,7 @@
 #include <utility>
 
 #include <immintrin.h>
+#include "common/config.h"
 
 #include "common/assert.h"
 #include "common/debug.h"
@@ -515,7 +516,7 @@ namespace {
     if (const char* env = std::getenv("SHADPS4_ASYNC_COPIES"); env != nullptr && env[0] == '0') {
         return 0;
     }
-    if (Config::GetReadbacksMode() == GpuReadbacksMode::Precise) {
+    if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
         // Precise readbacks read-protect GPU-written pages; a worker touching one would fault
         // into the caches from outside the command processor thread.
         return 0;
@@ -560,7 +561,7 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
       pipeline_cache{instance, scheduler, liverpool} {
     dynamic_state_inputs = std::make_unique<DynamicStateInputCache>();
     texture_lookup = std::make_unique<std::array<TextureLookupEntry, TextureLookupSize>>();
-    if (!Config::IsNullGPU()) {
+    if (!Config::nullGpu()) {
         liverpool->BindRasterizer(this);
         scheduler.GateSubmitsOnGuestCopies();
         auto& copy_engine = VideoCore::GuestCopyEngine::Instance();
@@ -2809,8 +2810,8 @@ void Rasterizer::UpdateColorBlendingState(const GraphicsPipeline* pipeline) cons
 }
 
 void Rasterizer::ScopeMarkerBegin(const std::string_view& str, bool from_guest) {
-    if ((from_guest && !Config::IsVkGuestMarkersEnabled()) ||
-        (!from_guest && !Config::IsVkHostMarkersEnabled())) {
+    if ((from_guest && !Config::getVkGuestMarkersEnabled()) ||
+        (!from_guest && !Config::getVkHostMarkersEnabled())) {
         return;
     }
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -2820,8 +2821,8 @@ void Rasterizer::ScopeMarkerBegin(const std::string_view& str, bool from_guest) 
 }
 
 void Rasterizer::ScopeMarkerEnd(bool from_guest) {
-    if ((from_guest && !Config::IsVkGuestMarkersEnabled()) ||
-        (!from_guest && !Config::IsVkHostMarkersEnabled())) {
+    if ((from_guest && !Config::getVkGuestMarkersEnabled()) ||
+        (!from_guest && !Config::getVkHostMarkersEnabled())) {
         return;
     }
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -2829,8 +2830,8 @@ void Rasterizer::ScopeMarkerEnd(bool from_guest) {
 }
 
 void Rasterizer::ScopedMarkerInsert(const std::string_view& str, bool from_guest) {
-    if ((from_guest && !Config::IsVkGuestMarkersEnabled()) ||
-        (!from_guest && !Config::IsVkHostMarkersEnabled())) {
+    if ((from_guest && !Config::getVkGuestMarkersEnabled()) ||
+        (!from_guest && !Config::getVkHostMarkersEnabled())) {
         return;
     }
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -2841,8 +2842,8 @@ void Rasterizer::ScopedMarkerInsert(const std::string_view& str, bool from_guest
 
 void Rasterizer::ScopedMarkerInsertColor(const std::string_view& str, const u32 color,
                                          bool from_guest) {
-    if ((from_guest && !Config::IsVkGuestMarkersEnabled()) ||
-        (!from_guest && !Config::IsVkHostMarkersEnabled())) {
+    if ((from_guest && !Config::getVkGuestMarkersEnabled()) ||
+        (!from_guest && !Config::getVkHostMarkersEnabled())) {
         return;
     }
     const auto cmdbuf = scheduler.CommandBuffer();

@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <utility>
+#include "common/config.h"
 
 #include "common/div_ceil.h"
 #include "common/logging/log.h"
@@ -116,7 +117,7 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::GetReadbacksMode() == GpuReadbacksMode::Precise) {
+        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
             UpdateProtection<enable, true>();
         }
     }
@@ -150,7 +151,7 @@ public:
                 UpdateProtection<true, false>();
             } else {
                 gpu_any_modified.store(bits.Any(), std::memory_order_release);
-                if (Config::GetReadbacksMode() != GpuReadbacksMode::Disabled) {
+                if (Config::readbackSpeed() != Config::ReadbackSpeed::Disable) {
                     UpdateProtection<false, true>();
                 }
             }

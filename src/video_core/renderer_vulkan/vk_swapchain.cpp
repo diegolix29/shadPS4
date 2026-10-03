@@ -88,8 +88,8 @@ Swapchain::Swapchain(const Instance& instance_, const Frontend::WindowSDL& windo
     : instance{instance_}, window{window_}, surface{CreateSurface(instance.GetInstance(), window)} {
     FindPresentFormat();
     FindPresentMode();
-    low_latency_requested = Config::IsReflexEnabled() && instance.HasNvLowLatency2();
-    if (Config::IsReflexEnabled() && !instance.HasNvLowLatency2()) {
+    low_latency_requested = Config::getReflexEnabled() && instance.HasNvLowLatency2();
+    if (Config::getReflexEnabled() && !instance.HasNvLowLatency2()) {
         LOG_WARNING(Render_Vulkan, "NVIDIA Reflex requested, but VK_NV_low_latency2 is missing");
     }
 

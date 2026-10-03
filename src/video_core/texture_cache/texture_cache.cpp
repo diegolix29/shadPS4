@@ -10,6 +10,7 @@
 
 #include <xxhash.h>
 
+#include "common/config.h"
 #include "common/assert.h"
 #include "common/debug.h"
 #include "common/div_ceil.h"
@@ -237,7 +238,7 @@ TextureCache::TextureCache(const Vulkan::Instance& instance_, Vulkan::Scheduler&
       blit_helper{instance, scheduler},
       tile_manager{instance, scheduler, buffer_cache.GetUtilityBuffer(MemoryUsage::Stream)},
       image_recycler{instance.GetAllocator()},
-      readback_linear_images{Config::IsReadbackLinearImagesEnabled()} {
+      readback_linear_images{Config::getReadbackLinearImages()} {
 
     u32 max_samplers = instance.GetMaxSamplerAllocationCount();
     trigger_gc_samplers = max_samplers * 3 / 4;

@@ -12,6 +12,7 @@
 #include <immintrin.h>
 #include <utility>
 
+#include "common/config.h"
 #include "common/assert.h"
 #include "common/debug.h"
 #include "common/elf_info.h"
@@ -1287,8 +1288,8 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
         ce_task = ProcessCeUpdate(ccb, ib_depth);
         RESUME_GFX(ce_task);
     }
-    const bool host_markers_enabled = rasterizer && Config::IsVkHostMarkersEnabled();
-    const bool guest_markers_enabled = rasterizer && Config::IsVkGuestMarkersEnabled();
+    const bool host_markers_enabled = rasterizer && Config::getVkHostMarkersEnabled();
+    const bool guest_markers_enabled = rasterizer && Config::getVkGuestMarkersEnabled();
 
     const auto base_addr = reinterpret_cast<uintptr_t>(dcb.data());
     while (!dcb.empty()) {
@@ -2015,7 +2016,7 @@ template <bool is_indirect>
 Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid, u32 ib_depth) {
     FIBER_ENTER(acb_task_name[vqid]);
     auto& queue = asc_queues[{vqid}];
-    const bool host_markers_enabled = rasterizer && Config::IsVkHostMarkersEnabled();
+    const bool host_markers_enabled = rasterizer && Config::getVkHostMarkersEnabled();
 
     struct IndirectPatch {
         const PM4Header* header;
@@ -2381,7 +2382,7 @@ Liverpool::CmdBuffer Liverpool::CopyCmdBuffers(std::span<const u32> dcb, std::sp
 void Liverpool::SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb) {
     auto& queue = mapped_queues[GfxQueueId];
 
-    if (Config::IsCopyGpuBuffers()) {
+    if (Config::copyGPUCmdBuffers()) {
         std::tie(dcb, ccb) = CopyCmdBuffers(dcb, ccb);
     }
 

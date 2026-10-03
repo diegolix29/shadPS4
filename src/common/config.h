@@ -42,6 +42,12 @@ enum class ReadbackSpeed : u32 {
     Fast,
 };
 
+enum GpuReadbacksMode : int {
+    Disabled,
+    Relaxed,
+    Precise,
+};
+
 enum OpenALHrtfMode : int {
     HrtfAuto, // Let OpenAL Soft decide (on for headphone-like stereo outputs)
     HrtfOn,   // Force HRTF binaural rendering
@@ -165,6 +171,10 @@ void setInternalScreenHeight(u32 height);
 bool debugDump();
 void setDebugDump(bool enable);
 s32 getGpuId();
+u32 getGpuFramesAhead();
+void setGpuFramesAhead(u32 value);
+bool getReflexEnabled();
+void setReflexEnabled(bool enable);
 bool allowHDR();
 bool getEnableAutoBackup();
 
@@ -191,6 +201,8 @@ bool copyGPUCmdBuffers();
 void setCopyGPUCmdBuffers(bool enable);
 ReadbackSpeed readbackSpeed();
 void setReadbackSpeed(ReadbackSpeed mode);
+GpuReadbacksMode GetReadbacksMode();
+void setReadbacksMode(GpuReadbacksMode mode);
 bool setReadbackLinearImages(bool enable);
 bool getReadbackLinearImages();
 bool setScreenTipDisable(bool enable);

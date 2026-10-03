@@ -22,6 +22,7 @@
 #endif
 
 #include <boost/container/static_vector.hpp>
+#include "common/config.h"
 
 #include "common/assert.h"
 #include "common/elf_info.h"
@@ -1379,7 +1380,7 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
 }
 
 std::vector<u8> PipelineCache::LoadNativePipelineCache() {
-    if (!Config::IsPipelineCacheEnabled()) {
+    if (!Config::isPipelineCacheEnabled()) {
         return {};
     }
     auto& database = Storage::DataBase::Instance();
@@ -1782,7 +1783,7 @@ SHAD_NO_INLINE const GraphicsPipeline* PipelineCache::CreateGraphicsPipeline() {
     auto future = build_task.get_future();
     ++num_new_pipelines;
 
-    if (Config::IsShaderCollect()) {
+    if (Config::collectShadersForDebug()) {
         for (auto stage = 0; stage < MaxShaderStages; ++stage) {
             if (infos[stage]) {
                 auto& m = modules[stage];
@@ -1846,7 +1847,7 @@ const ComputePipeline* PipelineCache::GetComputePipeline() {
         }
         ++num_new_pipelines;
 
-        if (Config::IsShaderCollect()) {
+        if (Config::collectShadersForDebug()) {
             auto& m = modules[0];
             module_related_pipelines[m].emplace_back(compute_key);
         }
@@ -2128,7 +2129,7 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
     vk::ShaderModule module;
 
     auto patch = GetShaderPatch(info.pgm_hash, info.stage, perm_idx, "spv");
-    const bool is_patched = patch && Config::IsPatchShaders();
+    const bool is_patched = patch && Config::patchShaders();
     if (is_patched) {
         LOG_INFO(Loader, "Loaded patch for {} shader {:#x}", info.stage, info.pgm_hash);
         module = CompileSPV(*patch, instance.GetDevice());
@@ -2139,7 +2140,7 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
     const auto name = GetShaderName(info.stage, info.pgm_hash, perm_idx);
     Vulkan::SetObjectName(instance.GetDevice(), module, name);
     const bool collect_shader =
-        async_result ? async_result->collect_shader : Config::IsShaderCollect();
+        async_result ? async_result->collect_shader : Config::collectShadersForDebug();
     if (collect_shader && async_result) {
         async_result->debug_spv = spv;
         if (patch) {
@@ -2182,7 +2183,7 @@ void PipelineCache::QueueProgramCompilation(
     result->permutation_index = permutation_index;
     result->permutation_hash = permutation_hash;
     result->initial_program = initial_program;
-    result->collect_shader = Config::IsShaderCollect();
+    result->collect_shader = Config::collectShadersForDebug();
 
     std::promise<void> guest_data_promise;
     auto guest_data_captured = guest_data_promise.get_future();
@@ -2233,7 +2234,7 @@ void PipelineCache::QueueProgramCompilation(
                         DumpShader(spv, info.pgm_hash, info.stage, perm_idx, "spv");
 
                         auto patch = GetShaderPatch(info.pgm_hash, info.stage, perm_idx, "spv");
-                        const bool is_patched = patch && Config::IsPatchShaders();
+                        const bool is_patched = patch && Config::patchShaders();
                         if (is_patched) {
                             LOG_INFO(Loader, "Loaded patch for {} shader {:#x}", info.stage,
                                      info.pgm_hash);
@@ -2597,7 +2598,7 @@ std::string PipelineCache::GetShaderName(Shader::Stage stage, u64 hash,
 
 void PipelineCache::DumpShader(std::span<const u32> code, u64 hash, Shader::Stage stage,
                                size_t perm_idx, std::string_view ext) {
-    if (!Config::IsDumpShaders()) {
+    if (!Config::dumpShaders()) {
         return;
     }
 
