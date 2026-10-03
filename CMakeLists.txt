@@ -1161,6 +1161,8 @@ set(VIDEO_CORE src/video_core/amdgpu/cb_db_extent.h
                src/video_core/renderer_vulkan/vk_graphics_pipeline.h
                src/video_core/renderer_vulkan/vk_instance.cpp
                src/video_core/renderer_vulkan/vk_instance.h
+               src/video_core/renderer_vulkan/vk_master_semaphore.cpp
+               src/video_core/renderer_vulkan/vk_master_semaphore.h
                src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
                src/video_core/renderer_vulkan/vk_pipeline_cache.h
                src/video_core/renderer_vulkan/vk_pipeline_common.cpp
@@ -1273,29 +1275,6 @@ set(EMULATOR src/emulator.cpp
              src/sdl_window.cpp
 )
 
-# shadNet protobuf generation
-set(SHADNET_PROTO_OUT "${CMAKE_CURRENT_BINARY_DIR}/shadnet_proto_gen")
-file(MAKE_DIRECTORY "${SHADNET_PROTO_OUT}")
-add_custom_command(
-    OUTPUT
-        "${SHADNET_PROTO_OUT}/shadnet.pb.cc"
-        "${SHADNET_PROTO_OUT}/shadnet.pb.h"
-    COMMAND protobuf::protoc
-        "--proto_path=${CMAKE_CURRENT_SOURCE_DIR}/src/shadnet"
-        "--cpp_out=${SHADNET_PROTO_OUT}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/shadnet/shadnet.proto"
-    DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/shadnet/shadnet.proto"
-    COMMENT "Generating shadnet protobuf sources"
-    VERBATIM
-)
-
-set(SHADNET src/shadnet/client.cpp
-            src/shadnet/client.h
-            src/shadnet/server_probe.cpp
-            src/shadnet/server_probe.h
-            "${SHADNET_PROTO_OUT}/shadnet.pb.cc"
-)
 if (APPLE)
     list(APPEND EMULATOR src/sdl_window_apple.mm)
 endif()
@@ -1438,12 +1417,8 @@ target_link_libraries(shadps4 PRIVATE stb::headers libusb::usb lfreist-hwinfo::h
 target_compile_definitions(shadps4 PRIVATE IMGUI_USER_CONFIG="imgui/imgui_config.h")
 target_compile_definitions(Dear_ImGui PRIVATE IMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/imgui/imgui_config.h")
 
-target_link_libraries(shadps4 PRIVATE libprotobuf)
-
 target_link_libraries(shadps4 PRIVATE Freetype::Freetype)
 target_link_libraries(shadps4 PRIVATE ZArchive::zarchive)
-
-target_include_directories(shadps4 PRIVATE "${SHADNET_PROTO_OUT}")
 
 if (ENABLE_DISCORD_RPC)
     target_compile_definitions(shadps4 PRIVATE ENABLE_DISCORD_RPC)
