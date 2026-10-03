@@ -250,7 +250,7 @@ static void GenerateSrtProgram(Info& info, PassInfo& pass_info) {
     info.srt_info.walker_func_size =
         c.getCurr() - reinterpret_cast<const u8*>(info.srt_info.walker_func);
 
-    if (EmulatorSettings.IsDumpShaders()) {
+    if (Config::IsDumpShaders()) {
         DumpSrtProgram(info, reinterpret_cast<const u8*>(info.srt_info.walker_func),
                        info.srt_info.walker_func_size);
     }

@@ -141,7 +141,7 @@ struct ShaderProgramHash {
 class PipelineCache {
 public:
     using FetchShader = std::optional<Shader::Gcn::FetchShaderData>;
-    using Result = std::tuple<const Shader::Info*, vk::ShaderModule, FetchShader, u64>;
+    using Result = std::tuple<const Shader::Info*, vk::ShaderModule, const FetchShader*, u64>;
 
     explicit PipelineCache(const Instance& instance, Scheduler& scheduler,
                            AmdGpu::Liverpool* liverpool);
@@ -165,8 +165,8 @@ public:
                                          const Shader::RuntimeInfo& runtime_info,
                                          Shader::Backend::Bindings& binding,
                                          const FetchShader* fetch_shader);
-    Result GetProgram(Shader::Stage stage, Shader::LogicalStage l_stage,
-                      const Shader::ShaderParams& params, Shader::Backend::Bindings& binding);
+    std::optional<Result> GetProgram(Shader::Stage stage, Shader::LogicalStage l_stage,
+                                      const Shader::ShaderParams& params, Shader::Backend::Bindings& binding);
 
     std::optional<vk::ShaderModule> ReplaceShader(vk::ShaderModule module,
                                                   std::span<const u32> spv_code);

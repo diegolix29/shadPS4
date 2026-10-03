@@ -356,7 +356,7 @@ bool VideoOutDriver::Flip(const Request& req) {
     // Real guest flips (never DrawLastFrame re-presents) feed the app0 storage scheduler so
     // modeled I/O stretches when the emulator runs below the game's target flip cadence.
     auto& storage = Core::FileSys::GetApp0StorageScheduler();
-    const u32 vblank_frequency = EmulatorSettings.GetVblankFrequency();
+    const u32 vblank_frequency = Config::GetVblankFrequency();
     if (storage.IsEnabled() && vblank_frequency != 0) {
         const auto expected_period =
             std::chrono::nanoseconds{1'000'000'000 / vblank_frequency} *
@@ -477,7 +477,7 @@ void VideoOutDriver::PublishFrame(PresentRequest request) {
 
 void VideoOutDriver::VblankThread(std::stop_token token) {
     const std::chrono::nanoseconds vblank_period(1000000000 /
-                                                 EmulatorSettings.GetVblankFrequency());
+                                                 Config::GetVblankFrequency());
 
     Common::SetCurrentThreadName("shadPS4:VblankThread");
     Common::SetCurrentThreadRealtime(vblank_period);

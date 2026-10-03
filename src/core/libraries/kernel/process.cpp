@@ -31,8 +31,8 @@ s32 PS4_SYSV_ABI sceKernelHasNeoMode() {
 }
 
 s32 PS4_SYSV_ABI sceKernelIsDevkit() {
-    LOG_INFO(Lib_Kernel, "called, isDevkit: {}", EmulatorSettings.IsDevKit());
-    return EmulatorSettings.IsDevKit();
+    LOG_INFO(Lib_Kernel, "called, isDevkit: {}", Config::IsDevKit());
+    return Config::IsDevKit();
 }
 
 s32 PS4_SYSV_ABI sceKernelIsCEX() {

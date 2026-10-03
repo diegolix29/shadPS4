@@ -227,7 +227,7 @@ vk::ShaderModule Compile(const HostShaders::ShaderSource& source, vk::ShaderStag
                          vk::Device device, std::vector<std::string> defines) {
     const auto generation = GetGeneration(source, stage);
     const auto permutation = GetPermutation(defines);
-    if (EmulatorSettings.IsPipelineCacheEnabled()) {
+    if (Config::IsPipelineCacheEnabled()) {
         if (auto spirv = GetHostShaderCache().Load(source.name, generation, permutation)) {
             LOG_INFO(Render_Vulkan, "Loaded host shader {} from cache", source.name);
             return CompileSPV(*spirv, device);
@@ -322,7 +322,7 @@ vk::ShaderModule Compile(const HostShaders::ShaderSource& source, vk::ShaderStag
         LOG_INFO(Render_Vulkan, "SPIR-V conversion messages: {}", spv_messages);
     }
 
-    if (EmulatorSettings.IsPipelineCacheEnabled() &&
+    if (Config::IsPipelineCacheEnabled() &&
         !GetHostShaderCache().Store(source.name, generation, permutation, out_code)) {
         LOG_WARNING(Render_Vulkan, "Failed to cache host shader {}", source.name);
     }

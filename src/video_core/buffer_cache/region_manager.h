@@ -116,7 +116,7 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (EmulatorSettings.GetReadbacksMode() == GpuReadbacksMode::Precise) {
+        } else if (Config::GetReadbacksMode() == GpuReadbacksMode::Precise) {
             UpdateProtection<enable, true>();
         }
     }
@@ -150,7 +150,7 @@ public:
                 UpdateProtection<true, false>();
             } else {
                 gpu_any_modified.store(bits.Any(), std::memory_order_release);
-                if (EmulatorSettings.GetReadbacksMode() != GpuReadbacksMode::Disabled) {
+                if (Config::GetReadbacksMode() != GpuReadbacksMode::Disabled) {
                     UpdateProtection<false, true>();
                 }
             }

@@ -100,7 +100,7 @@ void DataBase::Open() {
 
     const auto& game_info = Common::ElfInfo::Instance();
     using namespace Common::FS;
-    archive_mode = EmulatorSettings.IsPipelineCacheArchived();
+    archive_mode = Config::IsPipelineCacheArchived();
 
     if (archive_mode) {
         mz_zip_zero_struct(&zip_ar);

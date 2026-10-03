@@ -844,7 +844,7 @@ static bool PatchInlineBuffer(IR::Block& block, IR::Inst& inst, Info& info,
         return false;
     }
 
-    if (!EmulatorSettings.IsDirectMemoryAccessEnabled()) {
+    if (!Config::IsDirectMemoryAccessEnabled()) {
         LOG_ERROR(Render_Recompiler, "Inline V# buffer load at {:#x} requires DMA but DMA disabled",
                   info.pgm_hash);
         return false;

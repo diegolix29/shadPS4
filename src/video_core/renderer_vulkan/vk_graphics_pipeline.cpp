@@ -398,6 +398,18 @@ GraphicsPipeline::GraphicsPipeline(
 
 GraphicsPipeline::~GraphicsPipeline() = default;
 
+std::span<const AmdGpu::Buffer> GraphicsPipeline::GetVertexBuffers() const {
+    vertex_buffers.clear();
+    if (!fetch_shader || fetch_shader->attributes.empty()) {
+        return {};
+    }
+    const auto& vs_info = GetStage(Shader::LogicalStage::Vertex);
+    for (const auto& attrib : fetch_shader->attributes) {
+        vertex_buffers.emplace_back(attrib.GetSharp(vs_info));
+    }
+    return vertex_buffers;
+}
+
 template <typename Attribute, typename Binding>
 void GraphicsPipeline::GetVertexInputs(
     VertexInputs<Attribute>& attributes, VertexInputs<Binding>& bindings,
