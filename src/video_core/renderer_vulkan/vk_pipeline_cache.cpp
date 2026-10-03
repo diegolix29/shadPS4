@@ -1973,7 +1973,7 @@ bool PipelineCache::RefreshGraphicsStages() {
             return BindResult::Inactive;
         }
 
-        const auto* pgm = regs.ProgramForStage(stage_in_idx);
+const auto* pgm = regs.ProgramForStage(stage_in_idx);
         if (!pgm || !pgm->Address<u32*>()) {
             key.stage_hashes[stage_out_idx] = 0;
             infos[stage_out_idx] = nullptr;
@@ -1982,6 +1982,17 @@ bool PipelineCache::RefreshGraphicsStages() {
         }
 
         const auto params = AmdGpu::GetParams(*pgm);
+
+        if (Config::getShaderSkipsEnabled()) {
+            if (Config::ShouldSkipShader(params.hash)) {
+                LOG_WARNING(Render_Vulkan, "Skipped graphics shader hash {:#x}.", params.hash);
+                key.stage_hashes[stage_out_idx] = 0;
+                infos[stage_out_idx] = nullptr;
+                modules[stage_out_idx] = nullptr;
+                return BindResult::Pending;
+            }
+        }
+
         const auto result = GetProgram(stage_in, stage_out, params, binding);
         if (!result) {
             key.stage_hashes[stage_out_idx] = 0;
@@ -2102,6 +2113,14 @@ bool PipelineCache::RefreshComputeKey() {
     Shader::Backend::Bindings binding{};
     const auto& cs_pgm = liverpool->GetCsRegs();
     const auto cs_params = AmdGpu::GetParams(cs_pgm);
+
+    if (Config::getShaderSkipsEnabled()) {
+        if (Config::ShouldSkipShader(cs_params.hash)) {
+            LOG_WARNING(Render_Vulkan, "Skipped compute shader hash {:#x}.", cs_params.hash);
+            return false;
+        }
+    }
+
     const auto result =
         GetProgram(Shader::Stage::Compute, LogicalStage::Compute, cs_params, binding);
     ASSERT(result.has_value());
