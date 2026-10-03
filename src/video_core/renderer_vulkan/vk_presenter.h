@@ -81,6 +81,10 @@ public:
         return window;
     }
 
+    const Instance& GetInstance() const {
+        return instance;
+    }
+
     Rasterizer& GetRasterizer() const {
         return *rasterizer.get();
     }

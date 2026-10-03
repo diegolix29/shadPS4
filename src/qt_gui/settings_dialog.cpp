@@ -121,16 +121,25 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
     micMap = {{tr("None"), "None"}, {tr("Default Device"), "Default Device"}};
 
     if (m_physical_devices.empty()) {
-        // Populate cache of physical devices.
-        Vulkan::Instance instance(false, false);
-        auto physical_devices = instance.GetPhysicalDevices();
-        for (const vk::PhysicalDevice physical_device : physical_devices) {
-            auto prop = physical_device.getProperties();
-            QString name = QString::fromUtf8(prop.deviceName, -1);
-            if (prop.apiVersion < Vulkan::TargetVulkanApiVersion) {
-                name += tr(" * Unsupported Vulkan Version");
+        auto cache_physical_devices = [&](std::span<const vk::PhysicalDevice> physical_devices) {
+            for (const vk::PhysicalDevice physical_device : physical_devices) {
+                auto prop = physical_device.getProperties();
+                QString name = QString::fromUtf8(prop.deviceName, -1);
+                if (prop.apiVersion < Vulkan::TargetVulkanApiVersion) {
+                    name += tr(" * Unsupported Vulkan Version");
+                }
+                m_physical_devices.push_back(name);
             }
-            m_physical_devices.push_back(name);
+        };
+        try {
+            if (presenter) {
+                cache_physical_devices(presenter->GetInstance().GetPhysicalDevices());
+            } else {
+                Vulkan::Instance instance(false, false);
+                cache_physical_devices(instance.GetPhysicalDevices());
+            }
+        } catch (const std::exception& ex) {
+            LOG_ERROR(Frontend, "Failed to enumerate Vulkan GPUs for settings: {}", ex.what());
         }
     }
 
@@ -1102,17 +1111,6 @@ void SettingsDialog::LoadValuesFromConfig() {
         return;
     }
 
-    try {
-        std::ifstream ifs;
-        ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-        const toml::value data = toml::parse(userdir / "config.toml");
-    } catch (std::exception& ex) {
-        fmt::print("Got exception trying to load config file. Exception: {}\n", ex.what());
-        Config::setConfigMode(Config::ConfigMode::Default);
-        return;
-    }
-
-    const toml::value data = toml::parse(userdir / "config.toml");
     const QVector<int> languageIndexes = {21, 23, 14, 6, 18, 1, 12, 22, 2, 4,  25, 24, 29, 5,  0, 9,
                                           15, 16, 17, 7, 26, 8, 11, 20, 3, 13, 27, 10, 19, 30, 28};
 
@@ -1134,10 +1132,10 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->consoleLanguageComboBox->setCurrentIndex(
         std::distance(languageIndexes.begin(),
                       std::find(languageIndexes.begin(), languageIndexes.end(),
-                                toml::find_or<int>(data, "Settings", "consoleLanguage", 6))) %
+                                Config::GetLanguage())) %
         languageIndexes.size());
     {
-        std::string locale = toml::find_or<std::string>(data, "GUI", "emulatorLanguage", "en_US");
+        std::string locale = Config::getEmulatorLanguage();
         int index = 0;
         if (languages.contains(locale)) {
             index = languages[locale];
@@ -1160,17 +1158,13 @@ void SettingsDialog::LoadValuesFromConfig() {
         ui->customCpuCoresLineEdit->setText(customCoresStr);
     }
 
-    ui->hideCursorComboBox->setCurrentIndex(toml::find_or<int>(data, "Input", "cursorState", 1));
-    OnCursorStateChanged(toml::find_or<int>(data, "Input", "cursorState", 1));
-    ui->idleTimeoutSpinBox->setValue(toml::find_or<int>(data, "Input", "cursorHideTimeout", 5));
-    ui->motionControlsCheckBox->setChecked(
-        toml::find_or<bool>(data, "Input", "isMotionControlsEnabled", true));
-    ui->backgroundControllerCheckBox->setChecked(
-        toml::find_or<bool>(data, "Input", "backgroundControllerInput", false));
-    ui->disableKeyboardBindingsCheckBox->setChecked(
-        toml::find_or<bool>(data, "Input", "isKeyboardBindingsDisabled", false));
-    ui->xCircleButtonSwapCheckBox->setChecked(
-        toml::find_or<bool>(data, "Input", "xCircleButtonSwap", false));
+    ui->hideCursorComboBox->setCurrentIndex(Config::getCursorState());
+    OnCursorStateChanged(Config::getCursorState());
+    ui->idleTimeoutSpinBox->setValue(Config::getCursorHideTimeout());
+    ui->motionControlsCheckBox->setChecked(Config::getIsMotionControlsEnabled());
+    ui->backgroundControllerCheckBox->setChecked(Config::getBackgroundControllerInput());
+    ui->disableKeyboardBindingsCheckBox->setChecked(Config::getKeyboardBindingsDisabled());
+    ui->xCircleButtonSwapCheckBox->setChecked(Config::getXCircleButtonSwap());
 
     QString micValue = QString::fromStdString(Config::getMicDevice());
     int micIndex = ui->micComboBox->findData(micValue);
@@ -1181,35 +1175,27 @@ void SettingsDialog::LoadValuesFromConfig() {
     }
     // First options is auto selection -1, so gpuId on the GUI will always have to subtract 1
     // when setting and add 1 when getting to select the correct gpu in Qt
-    ui->graphicsAdapterBox->setCurrentIndex(toml::find_or<int>(data, "Vulkan", "gpuId", -1) + 1);
-    ui->widthSpinBox->setValue(toml::find_or<int>(data, "GPU", "screenWidth", 1280));
-    ui->heightSpinBox->setValue(toml::find_or<int>(data, "GPU", "screenHeight", 720));
-    ui->vblankSpinBox->setValue(toml::find_or<int>(data, "GPU", "vblankFrequency", 60));
-    ui->dumpShadersCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "dumpShaders", false));
-    ui->nullGpuCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "nullGpu", false));
-    ui->enableHDRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "allowHDR", false));
-    ui->enableAutoBackupCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "enableAutoBackup", false));
-    ui->playBGMCheckBox->setChecked(toml::find_or<bool>(data, "General", "playBGM", false));
-    ui->ReadbacksLinearCheckBox->setChecked(
-        toml::find_or<bool>(data, "GPU", "readbackLinearImages", false));
-    ui->separateUpdatesCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "separateUpdateEnabled", false));
-    ui->DMACheckBox->setChecked(toml::find_or<bool>(data, "GPU", "directMemoryAccess", false));
-    ui->HotkeysCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "DisableHardcodedHotkeys", false));
-    ui->HomeHotkeysCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "UseHomeButtonForHotkeys", false));
-    ui->screenTipBox->setChecked(toml::find_or<bool>(data, "General", "screenTipDisable", false));
-    ui->ReadbackSpeedComboBox->setCurrentIndex(
-        toml::find_or<int>(data, "GPU", "readbackSpeedMode", 0));
+    ui->graphicsAdapterBox->setCurrentIndex(Config::getGpuId() + 1);
+    ui->widthSpinBox->setValue(Config::getWindowWidth());
+    ui->heightSpinBox->setValue(Config::getWindowHeight());
+    ui->vblankSpinBox->setValue(Config::vblankFreq());
+    ui->dumpShadersCheckBox->setChecked(Config::dumpShaders());
+    ui->nullGpuCheckBox->setChecked(Config::nullGpu());
+    ui->enableHDRCheckBox->setChecked(Config::allowHDR());
+    ui->enableAutoBackupCheckBox->setChecked(Config::getEnableAutoBackup());
+    ui->playBGMCheckBox->setChecked(Config::getPlayBGM());
+    ui->ReadbacksLinearCheckBox->setChecked(Config::getReadbackLinearImages());
+    ui->separateUpdatesCheckBox->setChecked(Config::getSeparateUpdateEnabled());
+    ui->DMACheckBox->setChecked(Config::directMemoryAccess());
+    ui->HotkeysCheckBox->setChecked(Config::DisableHardcodedHotkeys());
+    ui->HomeHotkeysCheckBox->setChecked(Config::UseHomeButtonForHotkeys());
+    ui->screenTipBox->setChecked(Config::getScreenTipDisable());
+    ui->ReadbackSpeedComboBox->setCurrentIndex(static_cast<int>(Config::readbackSpeed()));
 
-    ui->SkipsCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "shaderSkipsEnabled", false));
-    ui->MemorySpinBox->setValue(toml::find_or<int>(data, "General", "extraDmemInMbytes", 0));
-    ui->disableTrophycheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "isTrophyPopupDisabled", false));
-    ui->popUpDurationSpinBox->setValue(
-        toml::find_or<double>(data, "General", "trophyNotificationDuration", 6.0));
+    ui->SkipsCheckBox->setChecked(Config::getShaderSkipsEnabled());
+    ui->MemorySpinBox->setValue(Config::getExtraDmemInMbytes());
+    ui->disableTrophycheckBox->setChecked(Config::getisTrophyPopupDisabled());
+    ui->popUpDurationSpinBox->setValue(Config::getTrophyNotificationDuration());
 
     QString side = QString::fromStdString(Config::sideTrophy());
 
@@ -1218,39 +1204,36 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->radioButton_Top->setChecked(side == "top");
     ui->radioButton_Bottom->setChecked(side == "bottom");
 
-    ui->BGMVolumeSlider->setValue(toml::find_or<int>(data, "General", "BGMvolume", 50));
-    int gameVolume = toml::find_or<int>(data, "General", "volumeSlider", 50);
+    ui->BGMVolumeSlider->setValue(Config::getBGMvolume());
+    int gameVolume = Config::getVolumeSlider();
     ui->horizontalVolumeSlider->setValue(gameVolume);
     QCoreApplication::processEvents();
     ui->volumeText->setText(QString::number(ui->horizontalVolumeSlider->value()) + "%");
-    ui->fpsSlider->setValue(toml::find_or<int>(data, "GPU", "fpsLimit", 60));
-    ui->fpsSpinBox->setValue(toml::find_or<int>(data, "GPU", "fpsLimit", 60));
-    ui->fpsLimiterCheckBox->setChecked(
-        toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", false));
-    ui->fpsSpinBox->setEnabled(toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", false));
-    ui->fpsSlider->setEnabled(toml::find_or<bool>(data, "GPU", "fpsLimiterEnabled", false));
-    ui->discordRPCCheckbox->setChecked(
-        toml::find_or<bool>(data, "General", "enableDiscordRPC", true));
+    ui->fpsSlider->setValue(Config::getFpsLimit());
+    ui->fpsSpinBox->setValue(Config::getFpsLimit());
+    ui->fpsLimiterCheckBox->setChecked(Config::isFpsLimiterEnabled());
+    ui->fpsSpinBox->setEnabled(Config::isFpsLimiterEnabled());
+    ui->fpsSlider->setEnabled(Config::isFpsLimiterEnabled());
+    ui->discordRPCCheckbox->setChecked(Config::getEnableDiscordRPC());
 
-    std::string fullScreenMode =
-        toml::find_or<std::string>(data, "GPU", "FullscreenMode", "Windowed");
+    std::string fullScreenMode = Config::getFullscreenMode();
     QString translatedText_FullscreenMode =
         screenModeMap.key(QString::fromStdString(fullScreenMode));
     ui->displayModeComboBox->setCurrentText(translatedText_FullscreenMode);
 
-    std::string presentMode = toml::find_or<std::string>(data, "GPU", "presentMode", "Mailbox");
+    std::string presentMode = Config::getPresentMode();
     QString translatedText_PresentMode = presentModeMap.key(QString::fromStdString(presentMode));
     ui->presentModeComboBox->setCurrentText(translatedText_PresentMode);
 
-    ui->gameSizeCheckBox->setChecked(toml::find_or<bool>(data, "GUI", "loadGameSizeEnabled", true));
-    ui->showSplashCheckBox->setChecked(toml::find_or<bool>(data, "General", "showSplash", false));
+    ui->gameSizeCheckBox->setChecked(Config::GetLoadGameSizeEnabled());
+    ui->showSplashCheckBox->setChecked(Config::showSplash());
     QString translatedText_logType = logTypeMap.key(
-        QString::fromStdString(toml::find_or<std::string>(data, "General", "logType", "sync")));
+        QString::fromStdString(Config::getLogType()));
     if (!translatedText_logType.isEmpty()) {
         ui->logTypeComboBox->setCurrentText(translatedText_logType);
     }
     ui->logFilterLineEdit->setText(
-        QString::fromStdString(toml::find_or<std::string>(data, "General", "logFilter", "")));
+        QString::fromStdString(Config::getLogFilter()));
     auto names = Config::getUserNames();
     ui->userName1LineEdit->setText(QString::fromStdString(names[0]));
     ui->userName2LineEdit->setText(QString::fromStdString(names[1]));
@@ -1264,52 +1247,46 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->enablePlayer4CheckBox->setChecked(playerStates[3]);
 
     ui->trophyKeyLineEdit->setText(
-        QString::fromStdString(toml::find_or<std::string>(data, "Keys", "TrophyKey", "")));
+        QString::fromStdString(Config::getTrophyKey()));
     ui->trophyKeyLineEdit->setEchoMode(QLineEdit::Password);
-    ui->debugDump->setChecked(toml::find_or<bool>(data, "Debug", "DebugDump", false));
-    ui->enableLoggingCheckBox->setChecked(toml::find_or<bool>(data, "Debug", "logEnabled", true));
+    ui->debugDump->setChecked(Config::debugDump());
+    ui->enableLoggingCheckBox->setChecked(Config::getLoggingEnabled());
     ui->separateLogFilesCheckbox->setChecked(
-        toml::find_or<bool>(data, "Debug", "isSeparateLogFilesEnabled", false));
-    ui->vkValidationCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "validation", false));
-    ui->vkSyncValidationCheckBox->setChecked(
-        toml::find_or<bool>(data, "Vulkan", "validation_sync", false));
-    ui->rdocCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "rdocEnable", false));
-    ui->cacheCheckBox->setChecked(
-        toml::find_or<bool>(data, "Vulkan", "pipelineCacheEnable", false));
-    ui->cacheArchiveCheckBox->setChecked(
-        toml::find_or<bool>(data, "Vulkan", "pipelineCacheArchive", false));
-    ui->crashDiagnosticsCheckBox->setChecked(
-        toml::find_or<bool>(data, "Vulkan", "crashDiagnostic", false));
-    ui->collectShaderCheckBox->setChecked(
-        toml::find_or<bool>(data, "Debug", "CollectShader", false));
-    ui->patchShadersCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "patchShaders", false));
+        Config::getSeparateLogFilesEnabled());
+    ui->vkValidationCheckBox->setChecked(Config::vkValidationEnabled());
+    ui->vkSyncValidationCheckBox->setChecked(Config::vkValidationSyncEnabled());
+    ui->rdocCheckBox->setChecked(Config::isRdocEnabled());
+    ui->cacheCheckBox->setChecked(Config::isPipelineCacheEnabled());
+    ui->cacheArchiveCheckBox->setChecked(Config::isPipelineCacheArchived());
+    ui->crashDiagnosticsCheckBox->setChecked(Config::getVkCrashDiagnosticEnabled());
+    ui->collectShaderCheckBox->setChecked(Config::collectShadersForDebug());
+    ui->patchShadersCheckBox->setChecked(Config::patchShaders());
     ui->DsAudioComboBox->setCurrentText(QString::fromStdString(
-        toml::find_or<std::string>(data, "Audio", "padSpkOutputDevice", "")));
+        Config::getPadSpkOutputDevice()));
 
     // Load audio backend
-    int audioBackendValue = toml::find_or<int>(data, "Audio", "audioBackend", 0);
-    ui->AudioBackendComboBox->setCurrentIndex(audioBackendValue);
+    ui->AudioBackendComboBox->setCurrentIndex(static_cast<int>(Config::getAudioBackend()));
 
     // Load main output device
     ui->GenAudioComboBox->setCurrentText(QString::fromStdString(
-        toml::find_or<std::string>(data, "Audio", "mainOutputDevice", "Default Device")));
+        Config::getMainOutputDevice()));
 
     ui->checkCompatibilityOnStartupCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "checkCompatibilityOnStartup", false));
+        Config::getCheckCompatibilityOnStartup());
 
     ui->enableScreenshotNotificationsCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "screenshotNotificationsEnabled", true));
+        Config::getScreenshotNotificationsEnabled());
 
-    ui->FSRCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "fsrEnabled", true));
-    ui->RCASCheckBox->setChecked(toml::find_or<bool>(data, "GPU", "rcasEnabled", true));
+    ui->FSRCheckBox->setChecked(Config::getFsrEnabled());
+    ui->RCASCheckBox->setChecked(Config::getRcasEnabled());
 
     ui->RCASSlider->setValue(Config::getRcasAttenuation());
     ui->RCASSpinBox->setValue(Config::getRcasAttenuation() / 1000.0);
 
 #ifdef ENABLE_UPDATER
-    ui->updateCheckBox->setChecked(toml::find_or<bool>(data, "General", "autoUpdate", false));
+    ui->updateCheckBox->setChecked(Config::autoUpdate());
     ui->changelogCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "alwaysShowChangelog", false));
+        Config::alwaysShowChangelog());
 
     QString updateChannel = QString::fromStdString(Config::getUpdateChannel());
 
@@ -1321,35 +1298,20 @@ void SettingsDialog::LoadValuesFromConfig() {
 
 #endif
     // Load special pad settings
-    if (data.contains("Input")) {
-        const auto& in = toml::find(data, "Input");
+    // The special pad settings are loaded from Config directly via the getter functions
+    // Update UI matrix
+    for (int p = 1; p <= 4; ++p) {
+        int cls = Config::getSpecialPadClass(p);
+        bool use = Config::getUseSpecialPad(p);
 
-        for (int p = 1; p <= 4; ++p) {
-            std::string classKey = fmt::format("specialPadClass{}", p);
-            std::string useKey = fmt::format("useSpecialPad{}", p);
+        for (int c = 1; c <= 4; ++c)
+            specialPadChecks[c - 1][p - 1]->setChecked(false);
 
-            if (in.contains(classKey))
-                Config::setSpecialPadClass(p, toml::find<int>(in, classKey));
-
-            if (in.contains(useKey))
-                Config::setUseSpecialPad(p, toml::find<bool>(in, useKey));
-        }
-
-        // Update UI matrix
-        for (int p = 1; p <= 4; ++p) {
-            int cls = Config::getSpecialPadClass(p);
-            bool use = Config::getUseSpecialPad(p);
-
-            for (int c = 1; c <= 4; ++c)
-                specialPadChecks[c - 1][p - 1]->setChecked(false);
-
-            if (use && cls >= 1 && cls <= 4)
-                specialPadChecks[cls - 1][p - 1]->setChecked(true);
-        }
+        if (use && cls >= 1 && cls <= 4)
+            specialPadChecks[cls - 1][p - 1]->setChecked(true);
     }
 
-    std::string chooseHomeTab =
-        toml::find_or<std::string>(data, "General", "chooseHomeTab", "General");
+    std::string chooseHomeTab = Config::getChooseHomeTab();
     QString translatedText = chooseHomeTabMap.key(QString::fromStdString(chooseHomeTab));
     if (translatedText.isEmpty()) {
         translatedText = tr("General");
@@ -1364,27 +1326,27 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->tabWidgetSettings->setCurrentIndex(indexTab);
 
     ui->motionControlsCheckBox->setChecked(
-        toml::find_or<bool>(data, "Input", "isMotionControlsEnabled", true));
+        Config::getIsMotionControlsEnabled());
     ui->backgroundControllerCheckBox->setChecked(
-        toml::find_or<bool>(data, "Input", "backgroundControllerInput", false));
-    ui->isDevKitCheckBox->setChecked(toml::find_or<bool>(data, "General", "isDevKit", false));
-    ui->isNeoModeCheckBox->setChecked(toml::find_or<bool>(data, "General", "isPS4Pro", false));
+        Config::getBackgroundControllerInput());
+    ui->isDevKitCheckBox->setChecked(Config::isDevKitConsole());
+    ui->isNeoModeCheckBox->setChecked(Config::isNeoModeConsole());
 
     ui->httpHostOverrideLineEdit->setText(QString::fromStdString(Config::GetHttpHostOverride()));
 
     // App0 storage settings
     ui->app0BandwidthSpinBox->setValue(
-        toml::find_or<int>(data, "General", "app0_read_bandwidth_mibps", 0));
+        Config::getApp0ReadBandwidthMibps());
     ui->app0DisableTimeStretchingCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "app0_read_disable_time_stretching", false));
+        Config::getApp0ReadDisableTimeStretching());
     ui->app0UnlimitedSequentialReadSpeedCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "app0_read_unlimited_sequential_read_speed", false));
+        Config::getApp0ReadUnlimitedSequentialReadSpeed());
 
     ui->connectedNetworkCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "isConnectedToNetwork", false));
+        Config::getIsConnectedToNetwork());
     ui->useHostMemoryFallbackCheckBox->setChecked(
-        toml::find_or<bool>(data, "General", "useHostMemoryFallback", false));
-    int compressionLevel = toml::find_or<int>(data, "General", "memoryCompressionLevel", 0);
+        Config::getUseHostMemoryFallback());
+    int compressionLevel = Config::getMemoryCompressionLevel();
     ui->memoryCompressionComboBox->setCurrentIndex(compressionLevel);
     // ShadNet network settings (shared by all player accounts)
     ui->serverLineEdit->setText(QString::fromStdString(Config::getShadnetServer()));

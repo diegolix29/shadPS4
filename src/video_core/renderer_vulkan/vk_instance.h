@@ -559,7 +559,7 @@ private:
     vk::PhysicalDevicePrimitiveTopologyListRestartFeaturesEXT list_restart_features;
     vk::DriverIdKHR driver_id;
     vk::UniqueDebugUtilsMessengerEXT debug_callback{};
-    bool shutdown_overlay{true};
+    bool shutdown_overlay{false};
     std::string vendor_name;
     VmaAllocator allocator{};
     vk::Queue present_queue;

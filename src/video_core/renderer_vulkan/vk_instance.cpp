@@ -92,7 +92,10 @@ std::string GetReadableVersion(u32 version) {
 Instance::Instance(bool enable_validation, bool enable_crash_diagnostic)
     : instance{CreateInstance(Frontend::WindowSystemType::Headless, enable_validation,
                               enable_crash_diagnostic)},
-      physical_devices{EnumeratePhysicalDevices(instance)} {}
+      physical_devices{EnumeratePhysicalDevices(instance)} {
+    // Enumeration-only: no logical device or overlay is created.
+    shutdown_overlay = false;
+}
 
 Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index,
                    bool enable_validation /*= false*/, bool enable_crash_diagnostic /*= false*/)
@@ -180,10 +183,12 @@ Instance::Instance(Frontend::WindowSystemType window_type, s32 physical_device_i
 }
 
 Instance::~Instance() {
-    if (shutdown_overlay) {
+    if (shutdown_overlay && device) {
         ImGui::Core::Shutdown(GetDevice());
     }
-    vmaDestroyAllocator(allocator);
+    if (allocator) {
+        vmaDestroyAllocator(allocator);
+    }
 }
 
 std::string Instance::GetDriverVersionName() {
