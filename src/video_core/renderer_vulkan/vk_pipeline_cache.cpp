@@ -38,6 +38,11 @@ constexpr static std::array DescriptorHeapSizes = {
     vk::DescriptorPoolSize{vk::DescriptorType::eSampler, 1024},
 };
 
+/// State of the asynchronous shader compiler declared in the header. Nothing in this file uses it
+/// yet, but the type has to be complete before the constructor and destructor, which both destroy
+/// the owning pointer.
+struct PipelineCache::OptimizationState {};
+
 static u32 MapOutputs(std::span<Shader::OutputMap, 3> outputs, const AmdGpu::VsOutputControl& ctl) {
     u32 num_outputs = 0;
 
@@ -335,9 +340,13 @@ const GraphicsPipeline* PipelineCache::GetGraphicsPipeline() {
         LOG_INFO(Render_Vulkan, "Compiling graphics pipeline {:#x}", pipeline_hash);
 
         GraphicsPipeline::SerializationSupport sdata{};
+        std::optional<const Shader::Gcn::FetchShaderData> pipeline_fetch_shader{};
+        if (fetch_shader && *fetch_shader) {
+            pipeline_fetch_shader.emplace(**fetch_shader);
+        }
         it.value() = std::make_unique<GraphicsPipeline>(
-            instance, scheduler, desc_heap, profile, graphics_key, *pipeline_cache, infos,
-            runtime_infos, fetch_shader, modules, sdata, false);
+            instance, scheduler, desc_heap, profile, graphics_key, *pipeline_cache, infos, infos,
+            runtime_infos, std::move(pipeline_fetch_shader), modules, sdata, false);
 
         RegisterPipelineData(graphics_key, pipeline_hash, sdata);
         ++num_new_pipelines;
@@ -350,7 +359,8 @@ const GraphicsPipeline* PipelineCache::GetGraphicsPipeline() {
                 }
             }
         }
-        fetch_shader.reset();
+        fetch_shader = nullptr;
+        fetch_shader_storage.reset();
     }
     return it->second.get();
 }
@@ -477,7 +487,8 @@ bool PipelineCache::RefreshGraphicsKey() {
 bool PipelineCache::RefreshGraphicsStages() {
     const auto& regs = liverpool->regs;
     auto& key = graphics_key;
-    fetch_shader = std::nullopt;
+    fetch_shader = nullptr;
+    fetch_shader_storage.reset();
 
     Shader::Backend::Bindings binding{};
     const auto bind_stage = [&](Shader::Stage stage_in, Shader::LogicalStage stage_out) -> bool {
@@ -508,7 +519,8 @@ bool PipelineCache::RefreshGraphicsStages() {
                  key.stage_hashes[stage_out_idx]) =
             GetProgram(stage_in, stage_out, params, binding);
         if (fetch_shader_) {
-            fetch_shader = fetch_shader_;
+            fetch_shader_storage = std::move(fetch_shader_);
+            fetch_shader = &fetch_shader_storage;
         }
         return true;
     };
@@ -590,11 +602,11 @@ bool PipelineCache::RefreshGraphicsStages() {
     }
 
     const auto* vs_info = infos[static_cast<u32>(Shader::LogicalStage::Vertex)];
-    if (vs_info && fetch_shader && !instance.IsVertexInputDynamicState()) {
+    if (vs_info && fetch_shader && *fetch_shader && !instance.IsVertexInputDynamicState()) {
         // Without vertex input dynamic state, the pipeline needs to specialize on format.
         // Stride will still be handled outside the pipeline using dynamic state.
         u32 vertex_binding = 0;
-        for (const auto& attrib : fetch_shader->attributes) {
+        for (const auto& attrib : (*fetch_shader)->attributes) {
             const auto& buffer = attrib.GetSharp(*vs_info);
             ASSERT_MSG(vertex_binding < MaxVertexBufferCount,
                        "Vertex attribute binding count exceeded limit: {} >= {}", vertex_binding,
@@ -618,20 +630,29 @@ bool PipelineCache::RefreshComputeKey() {
         }
     }
 
-    std::tie(infos[0], modules[0], fetch_shader, compute_key.value) =
+    // Compute programs have no fetch shader.
+    FetchShader compute_fetch_shader{};
+    std::tie(infos[0], modules[0], compute_fetch_shader, compute_key.value) =
         GetProgram(Shader::Stage::Compute, LogicalStage::Compute, cs_params, binding);
+    fetch_shader = nullptr;
     return true;
 }
 
 vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::RuntimeInfo& runtime_info,
                                               const std::span<const u32>& code, size_t perm_idx,
-                                              Shader::Backend::Bindings& binding) {
+                                              Shader::Backend::Bindings& binding,
+                                              [[maybe_unused]] ShaderCompileResult* async_result,
+                                              const std::function<void()>& on_guest_data_captured) {
     LOG_INFO(Render_Vulkan, "Compiling {} shader {:#x} {}", info.stage, info.pgm_hash,
              perm_idx != 0 ? "(permutation)" : "");
     DumpShader(code, info.pgm_hash, info.stage, perm_idx, "bin");
 
     const std::string stage_name = fmt::format("{}", info.stage);
+    Shader::Pools pools;
     const auto ir_program = Shader::TranslateProgram(code, pools, info, runtime_info, profile);
+    if (on_guest_data_captured) {
+        on_guest_data_captured();
+    }
     auto spv = Shader::Backend::SPIRV::EmitSPIRV(profile, runtime_info, ir_program, binding);
     vk::ShaderModule module;
 

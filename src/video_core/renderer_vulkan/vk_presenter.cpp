@@ -13,6 +13,7 @@
 #include "core/libraries/system/systemservice.h"
 #include "imgui/notifications_layer.h"
 #include "imgui/renderer/imgui_core.h"
+#include "imgui/renderer/imgui_impl_vulkan.h"
 #include "sdl_window.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/renderdoc.h"
@@ -554,15 +555,19 @@ Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_
         draw_scheduler.SetLatencyPresentId(present_id);
     }
 
-    fsr_settings.enable = EmulatorSettings.IsFsrEnabled();
-    fsr_settings.use_rcas = EmulatorSettings.IsRcasEnabled();
-    fsr_settings.rcas_attenuation =
-        static_cast<float>(EmulatorSettings.GetRcasAttenuation() / 1000.f);
+    UpdateFsrSettingsFromConfig();
 
     fsr_pass.Create(device, instance.GetAllocator(), num_images);
     pp_pass.Create(device, swapchain.GetSurfaceFormat().format);
 
     ImGui::Layer::AddLayer(Common::Singleton<Core::Devtools::Layer>::Instance());
+}
+
+void Presenter::UpdateFsrSettingsFromConfig() {
+    fsr_settings.enable = EmulatorSettings.IsFsrEnabled();
+    fsr_settings.use_rcas = EmulatorSettings.IsRcasEnabled();
+    fsr_settings.rcasAttenuation =
+        static_cast<float>(EmulatorSettings.GetRcasAttenuation() / 1000.f);
 }
 
 Presenter::~Presenter() {

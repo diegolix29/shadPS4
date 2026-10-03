@@ -330,6 +330,13 @@ public:
         return features.tessellationShader;
     }
 
+    /// Returns true when isoline tessellation is supported by the device. Only portability
+    /// implementations (MoltenVK) can lack it, and this tree does not query the portability
+    /// subset features, so it follows tessellation support.
+    bool IsTessellationIsolinesSupported() const {
+        return features.tessellationShader;
+    }
+
     /// Returns the vendor ID of the physical device
     u32 GetVendorID() const {
         return properties.vendorID;

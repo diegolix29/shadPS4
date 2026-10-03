@@ -31,13 +31,16 @@ GraphicsPipeline::GraphicsPipeline(
     const Instance& instance, Scheduler& scheduler, DescriptorHeap& desc_heap,
     const Shader::Profile& profile, const GraphicsPipelineKey& key_,
     vk::PipelineCache pipeline_cache, std::span<const Shader::Info*, MaxShaderStages> infos,
+    std::span<const Shader::Info*, MaxShaderStages> runtime_stages,
     std::span<const Shader::RuntimeInfo, MaxShaderStages> runtime_infos,
     std::optional<const Shader::Gcn::FetchShaderData> fetch_shader_,
     std::span<const vk::ShaderModule> modules, SerializationSupport& sdata, bool preloading)
     : Pipeline{instance, scheduler, desc_heap, profile, pipeline_cache}, key{key_},
       fetch_shader{std::move(fetch_shader_)} {
     const vk::Device device = instance.GetDevice();
-    std::ranges::copy(infos, stages.begin());
+    // `infos` describes the permutations the shader modules were compiled from, while
+    // `runtime_stages` is what resources are bound from at draw time.
+    std::ranges::copy(runtime_stages, stages.begin());
     BuildDescSetLayout(preloading);
     const auto debug_str = GetDebugString();
 

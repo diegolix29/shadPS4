@@ -543,6 +543,12 @@ struct GPUSettings {
     Setting<bool> fsr_enabled{false};
     Setting<bool> rcas_enabled{true};
     Setting<int> rcas_attenuation{250};
+    // Guest frames the GPU may still be rendering when the command processor finishes another.
+    // 0 disables the limit. Not part of the config file yet.
+    Setting<u32> gpu_frames_ahead{0};
+    // NVIDIA Reflex (VK_NV_low_latency2). Ignored when the device does not support it. Not part of
+    // the config file yet.
+    Setting<bool> reflex_enabled{false};
     // TODO add overrides
     std::vector<OverrideItem> GetOverrideableFields() const {
         return std::vector<OverrideItem>{
@@ -845,6 +851,8 @@ public:
     SETTING_FORWARD_BOOL(m_gpu, FsrEnabled, fsr_enabled)
     SETTING_FORWARD_BOOL(m_gpu, RcasEnabled, rcas_enabled)
     SETTING_FORWARD(m_gpu, RcasAttenuation, rcas_attenuation)
+    SETTING_FORWARD(m_gpu, GpuFramesAhead, gpu_frames_ahead)
+    SETTING_FORWARD_BOOL(m_gpu, ReflexEnabled, reflex_enabled)
     SETTING_FORWARD(m_gpu, ReadbacksMode, readbacks_mode)
     SETTING_FORWARD_BOOL(m_gpu, ReadbackLinearImagesEnabled, readback_linear_images_enabled)
     SETTING_FORWARD_BOOL(m_gpu, DirectMemoryAccessEnabled, direct_memory_access_enabled)

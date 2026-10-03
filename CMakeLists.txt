@@ -881,6 +881,8 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/file_sys/devices/urandom_device.h
          src/core/file_sys/devices/srandom_device.cpp
          src/core/file_sys/devices/srandom_device.h
+         src/core/file_sys/devices/zero_device.cpp
+         src/core/file_sys/devices/zero_device.h
          src/core/file_sys/directories/base_directory.cpp
          src/core/file_sys/directories/base_directory.h
          src/core/file_sys/directories/normal_directory.cpp
@@ -903,6 +905,7 @@ set(CORE src/core/aerolib/stubs.cpp
          src/core/crypto/keys.h
          src/core/file_sys/fs.cpp
          src/core/file_sys/fs.h
+         src/core/file_sys/ifile.cpp
          src/core/file_sys/ifile.h
          src/core/file_sys/backends/host_fs.cpp
          src/core/file_sys/backends/host_fs.h
@@ -1049,6 +1052,7 @@ set(SHADER_RECOMPILER src/shader_recompiler/profile.h
                       src/shader_recompiler/ir/passes/ir_passes.h
                       src/shader_recompiler/ir/passes/lower_buffer_format_to_raw.cpp
                       src/shader_recompiler/ir/passes/lower_fp64_to_fp32.cpp
+                      src/shader_recompiler/ir/passes/lower_user_clip_planes.cpp
                       src/shader_recompiler/ir/passes/readlane_elimination_pass.cpp
                       src/shader_recompiler/ir/passes/resource_tracking_pass.cpp
                       src/shader_recompiler/ir/passes/ring_access_elimination.cpp
@@ -1090,6 +1094,10 @@ set(SHADER_RECOMPILER src/shader_recompiler/profile.h
 set(VIDEO_CORE src/video_core/amdgpu/cb_db_extent.h
                src/video_core/amdgpu/liverpool.cpp
                src/video_core/amdgpu/liverpool.h
+               src/video_core/guest_copy_engine.cpp
+               src/video_core/guest_copy_engine.h
+               src/video_core/gpu_authority_tracker.cpp
+               src/video_core/gpu_authority_tracker.h
                src/video_core/amdgpu/pixel_format.cpp
                src/video_core/amdgpu/pixel_format.h
                src/video_core/amdgpu/pm4_cmds.h
@@ -1121,8 +1129,12 @@ set(VIDEO_CORE src/video_core/amdgpu/cb_db_extent.h
                src/video_core/buffer_cache/region_manager.h
                src/video_core/renderer_vulkan/liverpool_to_vk.cpp
                src/video_core/renderer_vulkan/liverpool_to_vk.h
+               src/video_core/renderer_vulkan/vk_command_recorder.cpp
+               src/video_core/renderer_vulkan/vk_command_recorder.h
                src/video_core/renderer_vulkan/vk_common.cpp
                src/video_core/renderer_vulkan/vk_common.h
+               src/video_core/renderer_vulkan/vk_display_pacer.cpp
+               src/video_core/renderer_vulkan/vk_display_pacer.h
                src/video_core/renderer_vulkan/vk_compute_pipeline.cpp
                src/video_core/renderer_vulkan/vk_compute_pipeline.h
                src/video_core/renderer_vulkan/vk_graphics_pipeline.cpp

@@ -213,6 +213,8 @@ int QFlowLayout::smartSpacing(QStyle::PixelMetric pm) const {
     }
 }
 
+MainWindow* g_MainWindow = nullptr;
+
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     installEventFilter(this);

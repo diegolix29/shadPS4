@@ -48,6 +48,16 @@ public:
         return texture_cache;
     }
 
+    [[nodiscard]] const Instance& GetInstance() const noexcept {
+        return instance;
+    }
+
+    /// Image of the color target last bound to slot cb, or an invalid id when there is none.
+    [[nodiscard]] VideoCore::ImageId GetCurrentColorBuffer(u32 cb) const noexcept {
+        return cb < cached_color_targets.size() ? cached_color_targets[cb].image_id
+                                                : VideoCore::ImageId{};
+    }
+
     void Draw(bool is_indexed, u32 index_offset = 0);
     void DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u32 size, u32 max_count,
                       VAddr count_address);

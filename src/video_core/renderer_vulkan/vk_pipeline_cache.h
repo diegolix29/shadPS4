@@ -208,12 +208,6 @@ private:
                                  std::optional<Shader::StageSpecialization> specialization,
                                  size_t permutation_index, u64 permutation_hash,
                                  bool initial_program);
-    std::optional<Result> GetProgramSlow(Program& program, Shader::Stage stage,
-                                         Shader::LogicalStage l_stage,
-                                         const Shader::ShaderParams& params,
-                                         const Shader::RuntimeInfo& runtime_info,
-                                         Shader::Backend::Bindings& binding,
-                                         const FetchShader* fetch_shader);
     std::optional<Result> CreateProgram(Shader::Stage stage, Shader::LogicalStage l_stage,
                                         const Shader::ShaderParams& params,
                                         const Shader::RuntimeInfo& runtime_info,
@@ -264,6 +258,8 @@ private:
     std::array<const Shader::Info*, MaxShaderStages> infos{};
     std::array<vk::ShaderModule, MaxShaderStages> modules{};
     const FetchShader* fetch_shader{};
+    /// Owns the fetch shader that fetch_shader points to while a graphics pipeline is built.
+    FetchShader fetch_shader_storage{};
     GraphicsPipelineKey graphics_key{};
     ComputePipelineKey compute_key{};
     u32 num_new_pipelines{}; // new pipelines added to the cache since the game start
