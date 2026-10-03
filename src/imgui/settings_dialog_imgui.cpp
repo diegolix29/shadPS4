@@ -550,7 +550,7 @@ void SaveSettings(std::string profile, bool isGameSpecific) {
     Config::setSeparateLogFilesEnabled(separateLogSetting);
 
     /////////// Experimental Tab
-    Config::setReadbackSpeed(static_cast<Config::ReadbackSpeed>(readbacksModeSetting));
+    Config::setReadbacksMode(static_cast<Config::GpuReadbacksMode>(readbacksModeSetting));
     Config::setReadbackLinearImages(readbackLinearImagesSetting);
     Config::setDirectMemoryAccess(directMemoryAccessSetting);
     Config::setDevKitMode(devkitConsoleSetting);
@@ -620,7 +620,7 @@ void LoadSettings(std::string profile) {
     separateLogSetting = Config::getSeparateLogFilesEnabled();
 
     /////////// Experimental Tab
-    readbacksModeSetting = static_cast<int>(Config::readbackSpeed());
+    readbacksModeSetting = static_cast<int>(Config::GetReadbacksMode());
     readbackLinearImagesSetting = Config::getReadbackLinearImages();
     directMemoryAccessSetting = Config::directMemoryAccess();
     devkitConsoleSetting = Config::isDevKitConsole();

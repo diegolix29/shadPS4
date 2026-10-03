@@ -1214,14 +1214,51 @@ ReadbackSpeed readbackSpeed() {
 
 void setReadbackSpeed(ReadbackSpeed mode) {
     readbackSpeedMode.base_value = mode;
+    switch (mode) {
+    case ReadbackSpeed::Low:
+    case ReadbackSpeed::Default:
+    case ReadbackSpeed::Fast:
+        readbacksMode.base_value = GpuReadbacksMode::Precise;
+        break;
+    case ReadbackSpeed::Unsafe:
+        readbacksMode.base_value = GpuReadbacksMode::Relaxed;
+        break;
+    case ReadbackSpeed::Disable:
+        readbacksMode.base_value = GpuReadbacksMode::Disabled;
+        break;
+    }
 }
 
 GpuReadbacksMode GetReadbacksMode() {
-    return readbacksMode.get();
+    const auto mode = readbacksMode.get();
+    if (mode != GpuReadbacksMode::Disabled) {
+        return mode;
+    }
+    switch (readbackSpeedMode.get()) {
+    case ReadbackSpeed::Unsafe:
+        return GpuReadbacksMode::Relaxed;
+    case ReadbackSpeed::Low:
+    case ReadbackSpeed::Default:
+    case ReadbackSpeed::Fast:
+        return GpuReadbacksMode::Precise;
+    default:
+        return GpuReadbacksMode::Disabled;
+    }
 }
 
 void setReadbacksMode(GpuReadbacksMode mode) {
     readbacksMode.set(mode, is_game_specific_context);
+    switch (mode) {
+    case GpuReadbacksMode::Precise:
+        readbackSpeedMode.base_value = ReadbackSpeed::Low;
+        break;
+    case GpuReadbacksMode::Relaxed:
+        readbackSpeedMode.base_value = ReadbackSpeed::Unsafe;
+        break;
+    case GpuReadbacksMode::Disabled:
+        readbackSpeedMode.base_value = ReadbackSpeed::Disable;
+        break;
+    }
 }
 
 bool setReadbackLinearImages(bool enable) {
@@ -2062,9 +2099,15 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
             if (auto opt = toml::get_optional<int>(gpu, "readbackSpeedMode")) {
                 readbackSpeedMode.game_specific_value = static_cast<ReadbackSpeed>(*opt);
             }
+            if (auto opt = toml::get_optional<int>(gpu, "readbacksMode")) {
+                readbacksMode.game_specific_value = static_cast<GpuReadbacksMode>(*opt);
+            }
         } else {
             if (auto opt = toml::get_optional<int>(gpu, "readbackSpeedMode")) {
                 readbackSpeedMode.base_value = static_cast<ReadbackSpeed>(*opt);
+            }
+            if (auto opt = toml::get_optional<int>(gpu, "readbacksMode")) {
+                readbacksMode.base_value = static_cast<GpuReadbacksMode>(*opt);
             }
         }
         if (is_game_specific) {
@@ -2544,6 +2587,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
             shouldCopyGPUBuffers.game_specific_value.value_or(shouldCopyGPUBuffers.base_value);
         data["GPU"]["readbackSpeedMode"] = static_cast<int>(
             readbackSpeedMode.game_specific_value.value_or(readbackSpeedMode.base_value));
+        data["GPU"]["readbacksMode"] = static_cast<int>(
+            readbacksMode.game_specific_value.value_or(readbacksMode.base_value));
         data["GPU"]["readbackLinearImages"] =
             readbackLinearImagesEnabled.game_specific_value.value_or(
                 readbackLinearImagesEnabled.base_value);
@@ -2580,6 +2625,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["GPU"]["nullGpu"] = isNullGpu.base_value;
         data["GPU"]["copyGPUBuffers"] = shouldCopyGPUBuffers.base_value;
         data["GPU"]["readbackSpeedMode"] = static_cast<int>(readbackSpeedMode.base_value);
+        data["GPU"]["readbacksMode"] = static_cast<int>(readbacksMode.base_value);
         data["GPU"]["readbackLinearImages"] = readbackLinearImagesEnabled.base_value;
         data["GPU"]["directMemoryAccess"] = directMemoryAccessEnabled.base_value;
         data["GPU"]["dumpShaders"] = shouldDumpShaders.base_value;

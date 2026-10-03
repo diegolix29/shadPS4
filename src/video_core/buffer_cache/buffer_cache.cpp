@@ -1167,6 +1167,9 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
             gpu_modified_ranges.Subtract(device_addr_out, range_size);
         });
     if (total_size_bytes == 0) {
+        // GPU bits can be set without gpu_modified_ranges (or the window missed them).
+        // Drop the read-protect so the faulting CPU access can proceed instead of livelocking.
+        memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, false);
         return;
     }
     const auto [download, offset] = download_buffer.Map(total_size_bytes);
@@ -1201,7 +1204,7 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
             memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
                                     copy.size, Core::MemoryWriteOrigin::GpuCompletion);
         }
-        memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, true);
+        memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, false);
     };
     if constexpr (async) {
         scheduler.DeferOperation(write_data);
@@ -2377,10 +2380,13 @@ vk::Buffer BufferCache::UploadCopies(Buffer& buffer, std::span<vk::BufferCopy> c
 
 bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size) {
     if (auto type = texture_cache.IsMeta(device_addr)) {
-        ASSERT(*type == TextureCache::MetaType::HTile);
-        static constexpr u32 ZmaskUncompressed = 0xf;
-        buffer.Fill(buffer.Offset(device_addr), size, ZmaskUncompressed);
-        return true;
+        if (*type == TextureCache::MetaType::HTile) {
+            static constexpr u32 ZmaskUncompressed = 0xf;
+            buffer.Fill(buffer.Offset(device_addr), size, ZmaskUncompressed);
+            return true;
+        }
+        LOG_WARNING(Render_Vulkan, "Unhandled metadata type {}", static_cast<u32>(*type));
+        return false;
     }
     const bool pending_readback = pending_image_readback_ranges.Contains(device_addr, size);
     const auto authority = GpuAuthorityTracker::Instance().GetAuthorityForRange(device_addr, size);
@@ -2401,9 +2407,12 @@ bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, 
         return false;
     }
     Image& image = texture_cache.GetImage(image_id);
-    ASSERT_MSG(buffer.IsInBounds(image.info.guest_address, image.info.guest_size),
-               "Buffer does not contain aliased image {:x}:{:x}", image.info.guest_address,
-               image.info.guest_size);
+    if (!buffer.IsInBounds(image.info.guest_address, image.info.guest_size)) {
+        LOG_WARNING(Render_Vulkan,
+                    "Buffer does not contain aliased image {:x}:{:x}", image.info.guest_address,
+                    image.info.guest_size);
+        return false;
+    }
     // The GPU-modified mark set by a sync outlives it without readbacks, so it cannot tell whether
     // the buffer still holds the image. The copy is skipped only while neither side has changed.
     const ImageSyncState sync_state{

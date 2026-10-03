@@ -516,7 +516,7 @@ namespace {
     if (const char* env = std::getenv("SHADPS4_ASYNC_COPIES"); env != nullptr && env[0] == '0') {
         return 0;
     }
-    if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
+    if (Config::gpuReadProtectEnabled()) {
         // Precise readbacks read-protect GPU-written pages; a worker touching one would fault
         // into the caches from outside the command processor thread.
         return 0;

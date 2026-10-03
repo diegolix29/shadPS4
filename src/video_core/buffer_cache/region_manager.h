@@ -25,7 +25,7 @@ using LockType = Common::SpinLock;
 #endif
 
 /**
- * Allows tracking CPU and GPU modification of pages in a contigious 16MB virtual address region.
+ * Allows tracking CPU and GPU modification of pages in a contiguous 4MB virtual address region.
  * Information is stored in bitsets for spacial locality and fast update of single pages.
  */
 class RegionManager {
@@ -98,15 +98,8 @@ public:
         }
         if constexpr (type == Type::CPU) {
             UpdateProtection<!enable, false>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-            UpdateProtection<enable, true>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
-            UpdateProtection<!enable, false>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
-            UpdateProtection<!enable, false>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
-            UpdateProtection<enable, true>();
-        } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
+        } else if (Config::gpuReadProtectEnabled()) {
+            // Precise/Low/Default/Fast: read-protect GPU-written pages so CPU faults download them.
             UpdateProtection<enable, true>();
         }
         if (Config::readbackSpeed() != Config::ReadbackSpeed::Low) {
@@ -142,15 +135,7 @@ public:
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
                 UpdateProtection<true, false>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Disable) {
-                UpdateProtection<true, false>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Unsafe) {
-                UpdateProtection<false, false>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Fast) {
-                UpdateProtection<false, true>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Low) {
-                UpdateProtection<false, true>();
-            } else if (Config::readbackSpeed() == Config::ReadbackSpeed::Default) {
+            } else if (Config::gpuReadProtectEnabled()) {
                 UpdateProtection<false, true>();
             }
         }

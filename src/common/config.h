@@ -203,6 +203,19 @@ ReadbackSpeed readbackSpeed();
 void setReadbackSpeed(ReadbackSpeed mode);
 GpuReadbacksMode GetReadbacksMode();
 void setReadbacksMode(GpuReadbacksMode mode);
+/// True when GPU-written pages should be read-protected so CPU faults download them.
+[[nodiscard]] inline bool gpuReadProtectEnabled() {
+    switch (readbackSpeed()) {
+    case ReadbackSpeed::Low:
+    case ReadbackSpeed::Default:
+    case ReadbackSpeed::Fast:
+        return true;
+    case ReadbackSpeed::Disable:
+    case ReadbackSpeed::Unsafe:
+        return GetReadbacksMode() == GpuReadbacksMode::Precise;
+    }
+    return false;
+}
 bool setReadbackLinearImages(bool enable);
 bool getReadbackLinearImages();
 bool setScreenTipDisable(bool enable);
