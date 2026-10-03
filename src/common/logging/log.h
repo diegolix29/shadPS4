@@ -39,27 +39,27 @@ void FmtLogMessage(LogClass log_class, Level log_level, const char* filename, un
                                __LINE__, __func__, __VA_ARGS__)
 
 #define LOG_TRACE(log_class, ...)                                                                  \
-    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Trace,           \
+    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Trace,        \
                                Common::Log::TrimSourcePath(__FILE__), __LINE__, __func__,          \
                                __VA_ARGS__)
 
 #define LOG_DEBUG(log_class, ...)                                                                  \
-    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Debug,           \
+    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Debug,        \
                                Common::Log::TrimSourcePath(__FILE__), __LINE__, __func__,          \
                                __VA_ARGS__)
 #define LOG_INFO(log_class, ...)                                                                   \
-    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Info,            \
+    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Info,         \
                                Common::Log::TrimSourcePath(__FILE__), __LINE__, __func__,          \
                                __VA_ARGS__)
 #define LOG_WARNING(log_class, ...)                                                                \
-    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Warning,         \
+    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Warning,      \
                                Common::Log::TrimSourcePath(__FILE__), __LINE__, __func__,          \
                                __VA_ARGS__)
 #define LOG_ERROR(log_class, ...)                                                                  \
-    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Error,           \
+    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Error,        \
                                Common::Log::TrimSourcePath(__FILE__), __LINE__, __func__,          \
                                __VA_ARGS__)
 #define LOG_CRITICAL(log_class, ...)                                                               \
-    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Critical,        \
+    Common::Log::FmtLogMessage(Common::Log::LogClass::log_class, Common::Log::Level::Critical,     \
                                Common::Log::TrimSourcePath(__FILE__), __LINE__, __func__,          \
                                __VA_ARGS__)

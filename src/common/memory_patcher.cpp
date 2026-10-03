@@ -293,19 +293,19 @@ void OnGameLoaded() {
             for (pugi::xml_node_iterator it = patchXML.children().begin();
                  it != patchXML.children().end(); ++it) {
 
-            if (std::string(it->name()) == "Metadata") {
-                if (std::string(it->attribute("isEnabled").value()) == "true") {
-                    std::string currentPatchName = it->attribute("Name").value();
-                    std::string metadataAppVer = it->attribute("AppVer").value();
-                    std::string metadataAppElf = it->attribute("AppElf").value();
-                    bool versionMatches = metadataAppVer == app_version;
+                if (std::string(it->name()) == "Metadata") {
+                    if (std::string(it->attribute("isEnabled").value()) == "true") {
+                        std::string currentPatchName = it->attribute("Name").value();
+                        std::string metadataAppVer = it->attribute("AppVer").value();
+                        std::string metadataAppElf = it->attribute("AppElf").value();
+                        bool versionMatches = metadataAppVer == app_version;
 
-                    if (metadataAppElf != g_eboot_name)
-                        continue;
+                        if (metadataAppElf != g_eboot_name)
+                            continue;
 
-                    auto patchList = it->first_child();
-                    for (pugi::xml_node_iterator patchLineIt = patchList.children().begin();
-                         patchLineIt != patchList.children().end(); ++patchLineIt) {
+                        auto patchList = it->first_child();
+                        for (pugi::xml_node_iterator patchLineIt = patchList.children().begin();
+                             patchLineIt != patchList.children().end(); ++patchLineIt) {
 
                             std::string type = patchLineIt->attribute("Type").value();
                             if (!versionMatches && type != "mask" && type != "mask_jump32")

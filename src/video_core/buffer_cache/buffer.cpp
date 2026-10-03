@@ -297,7 +297,8 @@ StreamBufferMapping::StreamBufferMapping(StreamBuffer& stream_buffer, u64 size, 
     if (!data) {
         // This happens if the size is too big or no waiting is allowed when it is required
         is_temp_buffer = true;
-        this->buffer = new VideoCore::Buffer(stream_buffer.instance, 0, size, stream_buffer.mem_type);
+        this->buffer =
+            new VideoCore::Buffer(stream_buffer.instance, 0, size, stream_buffer.mem_type);
         this->scheduler = &stream_buffer.scheduler;
         this->data = this->buffer->mapped_data.data();
         this->offset = 0;

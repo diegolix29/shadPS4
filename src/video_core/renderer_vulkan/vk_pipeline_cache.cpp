@@ -802,8 +802,8 @@ void PipelineCache::ReloadAllPatches() {
             auto& module = program->modules[i];
             auto patch = GetShaderPatch(hash, program->info.hw_stage, i, "spv");
             if (patch) {
-                LOG_INFO(Loader, "Reloading patch for cached {} shader {:#x}", program->info.hw_stage,
-                         hash);
+                LOG_INFO(Loader, "Reloading patch for cached {} shader {:#x}",
+                         program->info.hw_stage, hash);
                 const auto& d = instance.GetDevice();
                 d.destroyShaderModule(module.module);
                 module.module = CompileSPV(*patch, d);

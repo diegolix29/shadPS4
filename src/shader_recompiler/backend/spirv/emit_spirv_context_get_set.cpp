@@ -90,7 +90,8 @@ Id EmitReadConstBuffer(EmitContext& ctx, u32 handle, Id index) {
             result = ctx.OpSelect(ctx.U32[1], is_five, ctx.u32_zero_value, result);
         }
     }
-    if (ctx.sw_stage == SwStage::Fragment && ctx.info.pgm_hash == 0xffe52ec0369553e4ULL && handle == 0) {
+    if (ctx.sw_stage == SwStage::Fragment && ctx.info.pgm_hash == 0xffe52ec0369553e4ULL &&
+        handle == 0) {
         const Id logical_index = index;
         if (MemoryPatcher::g_game_serial == "CUSA14209" ||
             MemoryPatcher::g_game_serial == "CUSA14204") {
