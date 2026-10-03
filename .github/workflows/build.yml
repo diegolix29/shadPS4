@@ -507,7 +507,7 @@ jobs:
         submodules: recursive
     - uses: flatpak/flatpak-github-actions/flatpak-builder@master
       with:
-        manifest-path: net.shadps4.shadPS4.yaml
+        manifest-path: net.shadps4.shadPS4.ci.yaml
         cache-key: flatpak-builder-${{ github.sha }}
         bundle: shadps4.flatpak
         upload-artifact: false
