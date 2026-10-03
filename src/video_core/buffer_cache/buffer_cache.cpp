@@ -1201,7 +1201,7 @@ void BufferCache::DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 si
             memory->TryWriteBacking(std::bit_cast<u8*>(copy_device_addr), download + dst_offset,
                                     copy.size, Core::MemoryWriteOrigin::GpuCompletion);
         }
-        memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, true);
+        memory_tracker->UnmarkRegionAsGpuModified(device_addr, size);
     };
     if constexpr (async) {
         scheduler.DeferOperation(write_data);
@@ -1941,7 +1941,7 @@ bool BufferCache::TrackImageReadback(Image& image, u32 copy_size) {
     // Any persistent buffer for this range now contains an older image epoch. Keep the image as
     // the authoritative source until a real buffer consumer synchronizes it through the normal
     // cache path. This avoids creating/merging/deleting buffers while EOS is being recorded.
-    memory_tracker->UnmarkRegionAsGpuModified(device_addr, copy_size, false);
+    memory_tracker->UnmarkRegionAsGpuModified(device_addr, copy_size);
     gpu_modified_ranges.Subtract(device_addr, copy_size);
     pending_image_readback_ranges.Add(device_addr, copy_size);
     image_alias_ranges.Add(device_addr, copy_size);
@@ -1951,7 +1951,7 @@ bool BufferCache::TrackImageReadback(Image& image, u32 copy_size) {
 void BufferCache::CompleteImageReadback(VAddr addr, u32 size) {
     pending_image_readback_ranges.Subtract(addr, size);
     gpu_modified_ranges.Subtract(addr, size);
-    memory_tracker->UnmarkRegionAsGpuModified(addr, size, false);
+    memory_tracker->UnmarkRegionAsGpuModified(addr, size);
     memory_tracker->MarkRegionAsCpuModified(addr, size);
 }
 
