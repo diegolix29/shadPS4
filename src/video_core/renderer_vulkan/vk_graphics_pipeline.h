@@ -143,6 +143,7 @@ private:
     u64 vertex_plan_identity{};
     std::optional<const Shader::Gcn::FetchShaderData> fetch_shader{};
     VertexInputs<Shader::Gcn::VertexAttribute> vertex_input_plan;
+    VertexInputs<AmdGpu::Buffer> vertex_buffers;
     vk::UniquePipeline square_pipeline;
     mutable bool square_pass_skip_reported{};
 };
