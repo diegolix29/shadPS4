@@ -47,9 +47,6 @@
 #include "core/libraries/np/np_signaling.h"
 #include "core/libraries/np/np_sns_facebook_dialog.h"
 #include "core/libraries/np/np_trophy.h"
-#include "core/libraries/np/np_web_api/np_web_api.h"
-#include "core/libraries/np/np_web_api2/np_web_api2.h"
-#include "core/libraries/np/np_tus.h"
 #include "core/libraries/np/np_web_api.h"
 #include "core/libraries/np/np_web_api2.h"
 #include "core/libraries/pad/pad.h"
@@ -71,7 +68,6 @@
 #include "core/libraries/system/userservice.h"
 #include "core/libraries/ulobjmgr/ulobjmgr.h"
 #include "core/libraries/usbd/usbd.h"
-#include "core/libraries/videodec/vdecsw.h"
 #include "core/libraries/videodec/videodec.h"
 #include "core/libraries/videodec/videodec2.h"
 #include "core/libraries/videoout/video_out.h"
@@ -145,7 +141,6 @@ void InitHLELibs(Core::Loader::SymbolsResolver* sym) {
             {"libSceAjm.sprx", Libraries::Ajm::RegisterLib},
             {"libSceErrorDialog.sprx", Libraries::ErrorDialog::RegisterLib},
             {"libSceImeDialog.sprx", Libraries::ImeDialog::RegisterLib},
-            {"libSceVdecsw.sprx", Libraries::Vdecsw::RegisterLib},
             {"libSceVideodec.sprx", Libraries::Videodec::RegisterLib},
             {"libSceVideodec2.sprx", Libraries::Videodec2::RegisterLib},
             {"libSceIme.sprx", Libraries::Ime::RegisterLib},

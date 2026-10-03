@@ -83,6 +83,8 @@ public:
                       vk::ImageLayout dst_layout,
                       vk::ArrayProxy<const vk::ImageResolve> const& regions) const;
     void fillBuffer(vk::Buffer dst, vk::DeviceSize offset, vk::DeviceSize size, u32 data) const;
+    void updateBuffer(vk::Buffer dst, vk::DeviceSize offset, vk::DeviceSize size,
+                      const void* data) const;
     void clearColorImage(vk::Image image, vk::ImageLayout layout, const vk::ClearColorValue& color,
                          vk::ArrayProxy<const vk::ImageSubresourceRange> const& ranges) const;
 

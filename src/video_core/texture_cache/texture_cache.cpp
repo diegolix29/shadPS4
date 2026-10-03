@@ -1702,16 +1702,17 @@ void TextureCache::RefreshImage(Image& image, bool overwritten) {
 }
 
 vk::Sampler TextureCache::GetSampler(const AmdGpu::Sampler& sampler,
-                                     AmdGpu::BorderColorBuffer border_color_base) {
-    const u64 hash =
-        HashCombine(XXH3_64bits(&sampler, sizeof(sampler)), border_color_base.Address());
+                                     AmdGpu::BorderColorBuffer border_color_base, bool is_depth) {
+    const u64 hash = HashCombine(
+        HashCombine(XXH3_64bits(&sampler, sizeof(sampler)), border_color_base.Address()),
+        static_cast<u64>(is_depth));
     {
         std::scoped_lock lock{samplers_mutex};
         if (const auto it = samplers.find(hash); it != samplers.end()) [[likely]] {
             return TouchSampler(it.value());
         }
     }
-    return CreateSampler(hash, sampler, border_color_base);
+    return CreateSampler(hash, sampler, border_color_base, is_depth);
 }
 
 vk::Sampler TextureCache::TouchSampler(Sampler& entry) {
@@ -1725,9 +1726,10 @@ vk::Sampler TextureCache::TouchSampler(Sampler& entry) {
 // Creation runs outside the lookup's lock so the lookup needs no unwinding. Another thread may
 // have created the sampler in between, which try_emplace reports as a hit.
 SHAD_NO_INLINE vk::Sampler TextureCache::CreateSampler(
-    u64 hash, const AmdGpu::Sampler& sampler, AmdGpu::BorderColorBuffer border_color_base) {
+    u64 hash, const AmdGpu::Sampler& sampler, AmdGpu::BorderColorBuffer border_color_base,
+    bool is_depth) {
     std::scoped_lock lock{samplers_mutex};
-    auto [it, inserted] = samplers.try_emplace(hash, instance, sampler, border_color_base);
+    auto [it, inserted] = samplers.try_emplace(hash, instance, sampler, border_color_base, is_depth);
     auto& entry = it.value();
     if (!inserted) {
         return TouchSampler(entry);

@@ -32,7 +32,6 @@ bool CaptureScreenshot(Vulkan::Rasterizer& rasterizer, const std::filesystem::pa
     try {
         auto& texture_cache = rasterizer.GetTextureCache();
         auto& scheduler = rasterizer.GetScheduler();
-        auto& runtime = rasterizer.GetRuntime();
         const auto& instance = rasterizer.GetInstance();
         const VmaAllocator allocator = instance.GetAllocator();
 
@@ -100,10 +99,8 @@ bool CaptureScreenshot(Vulkan::Rasterizer& rasterizer, const std::filesystem::pa
             .extent = image.info.resources,
         };
 
-        runtime.Transit(&image, vk::ImageLayout::eTransferSrcOptimal,
-                        vk::PipelineStageFlagBits2::eCopy, vk::AccessFlagBits2::eTransferRead,
-                        range);
-        runtime.FlushBarriers();
+        image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead,
+                      range);
 
         const vk::BufferImageCopy region{
             .bufferOffset = 0,

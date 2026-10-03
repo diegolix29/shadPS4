@@ -1254,7 +1254,7 @@ SHAD_NO_INLINE void PipelineCache::BuildGeometryRuntimeInfo(Shader::RuntimeInfo&
 const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalStage l_stage) {
     auto& info = runtime_infos[u32(l_stage)];
     const auto& regs = liverpool->regs;
-    info.Initialize(stage);
+    info.Initialize(stage, l_stage);
     switch (stage) {
     case Stage::Local: {
         BuildCommonRuntimeInfo(info, regs.ls_program);
@@ -1312,6 +1312,7 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
         BuildCommonRuntimeInfo(info, regs.ps_program);
         info.fs_info.en_flags = regs.ps_input_ena;
         info.fs_info.addr_flags = regs.ps_input_addr;
+        info.fs_info.front_face_all_bits = regs.barycentric_control.front_face_all_bits;
         info.fs_info.num_inputs = regs.num_interp;
         info.fs_info.z_export_format = regs.z_export_format;
         u8 stencil_ref_export_enable = regs.depth_shader_control.stencil_op_val_export_enable |
@@ -1900,6 +1901,13 @@ bool PipelineCache::RefreshGraphicsKey() {
         color_buffer.num_conversion = col_buf.GetNumberConversion();
         color_buffer.export_format = regs.color_export_format.GetFormat(cb);
         color_buffer.swizzle = col_buf.Swizzle();
+        if (const auto& blend = regs.blend_control[cb]; blend.enable) {
+            const bool min_or_max = blend.color_func == AmdGpu::BlendControl::BlendFunc::Min ||
+                                    blend.color_func == AmdGpu::BlendControl::BlendFunc::Max;
+            color_buffer.blend_self_scale =
+                min_or_max && (blend.color_src_factor != AmdGpu::BlendControl::BlendFactor::One ||
+                               blend.color_dst_factor != AmdGpu::BlendControl::BlendFactor::One);
+        }
     }
 
     // Compile and bind shader stages

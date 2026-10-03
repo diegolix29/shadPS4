@@ -68,8 +68,14 @@ struct InfoPersistent {
 
     s32 tess_consts_dword_offset = -1;
     IR::ScalarReg tess_consts_ptr_base = IR::ScalarReg::Max;
-    HwStage hw_stage;
-    SwStage sw_stage;
+    union {
+        HwStage hw_stage{};
+        HwStage stage;
+    };
+    union {
+        SwStage sw_stage{};
+        SwStage l_stage;
+    };
 
     u8 mrt_mask{};
     bool has_fetch_shader{};

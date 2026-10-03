@@ -5,10 +5,7 @@
 
 #include <vector>
 #include "common/types.h"
-
-namespace Shader {
-struct HwFragmentRuntimeInfo;
-}
+#include "shader_recompiler/runtime_info.h"
 
 namespace Shader::Backend::SPIRV {
 
@@ -24,7 +21,7 @@ enum class AuxShaderType : u32 {
 }
 
 [[nodiscard]] std::vector<u32> EmitAuxilaryTessShader(AuxShaderType type,
-                                                      const FragmentRuntimeInfo& fs_info,
+                                                      const HwFragmentRuntimeInfo& fs_info,
                                                       u64 previous_stage_output_mask = ~0ull);
 
 } // namespace Shader::Backend::SPIRV

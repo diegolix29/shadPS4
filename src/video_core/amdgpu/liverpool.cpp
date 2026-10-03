@@ -199,8 +199,8 @@ static SHAD_NO_INLINE void GraphicsPacketAssertionFailed() {
 }
 
 [[noreturn]] static SHAD_NO_INLINE void InvalidDmaData(const PM4DmaData& packet) {
-    UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}", u32(packet.src_sel.Value()),
-                    u32(packet.dst_sel.Value()));
+    UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}", u32(packet.src_sel),
+                    u32(packet.dst_sel));
 }
 
 [[noreturn]] static SHAD_NO_INLINE void UnsupportedWriteDataAddressMode() {
@@ -342,7 +342,7 @@ static SHAD_NO_INLINE std::span<const u32> NextNonType3Packet(std::span<const u3
     }
 }
 
-Liverpool::Liverpool() {
+Liverpool::Liverpool() : guest_markers_enabled{Config::getVkGuestMarkersEnabled()} {
     for (u32 queue_id = 0; queue_id < NumTotalQueues; ++queue_id) {
         memory_waits[queue_id].owner = this;
         memory_waits[queue_id].queue_id = queue_id;
@@ -2136,7 +2136,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid, u3
                 }
             } else {
                 UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
-                                u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
+                                u32(dma_data->src_sel), u32(dma_data->dst_sel));
             }
             break;
         }

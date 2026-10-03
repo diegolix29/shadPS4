@@ -34,7 +34,9 @@ enum class MemoryUsage {
     Upload,      ///< Requires a host visible memory type optimized for CPU to GPU uploads
     Download,    ///< Requires a host visible memory type optimized for GPU to CPU readbacks
     Stream,      ///< Requests device local host visible buffer, falling back host memory.
+    HostCached = Download,
 };
+using MemoryType = MemoryUsage;
 
 constexpr vk::BufferUsageFlags ReadFlags =
     vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eUniformBuffer |
@@ -203,6 +205,13 @@ public:
     /// Makes a completed download range visible to the CPU.
     void Invalidate(u64 offset, u64 size);
 
+    /// Flushes a host-mapped write so the GPU sees it.
+    void Flush(u64 offset, u64 size);
+
+    [[nodiscard]] u64 LastTick() const noexcept {
+        return last_tick;
+    }
+
 public:
     VAddr cpu_addr = 0;
     bool is_picked{};
@@ -231,6 +240,7 @@ public:
     vk::PipelineStageFlags2 read_stages{};
     /// FlushEpoch::Current() when a write access was last requested.
     u64 write_epoch{};
+    u64 last_tick{};
 
 private:
     static Common::IncrementalIdProvider<u64> global_uid;
@@ -243,6 +253,14 @@ public:
 
     /// Reserves a region of memory from the stream buffer.
     std::pair<u8*, u64> Map(u64 size, u64 alignment = 0, bool allow_wait = true);
+
+    [[nodiscard]] std::optional<u64> Reserve(u64 size, u64 alignment = 0, bool deferred = false) {
+        const auto [ptr, off] = Map(size, alignment, !deferred);
+        if (!ptr) {
+            return std::nullopt;
+        }
+        return off;
+    }
 
     /// Ensures that reserved bytes of memory are available to the GPU.
     void Commit();

@@ -691,6 +691,16 @@ void CommandRecorder::fillBuffer(vk::Buffer dst, vk::DeviceSize offset, vk::Devi
     });
 }
 
+void CommandRecorder::updateBuffer(vk::Buffer dst, vk::DeviceSize offset, vk::DeviceSize size,
+                                   const void* data) const {
+    u32 word{};
+    ASSERT_MSG(size == sizeof(word), "updateBuffer currently supports 4-byte payloads");
+    std::memcpy(&word, data, sizeof(word));
+    scheduler->Record([dst, offset, size, word](vk::CommandBuffer cmdbuf) {
+        cmdbuf.updateBuffer(dst, offset, size, &word);
+    });
+}
+
 void CommandRecorder::clearColorImage(
     vk::Image image, vk::ImageLayout layout, const vk::ClearColorValue& color,
     vk::ArrayProxy<const vk::ImageSubresourceRange> const& ranges) const {

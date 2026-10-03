@@ -211,7 +211,8 @@ public:
 
     /// Retrieves the sampler that matches the provided S# descriptor.
     [[nodiscard]] vk::Sampler GetSampler(const AmdGpu::Sampler& sampler,
-                                         AmdGpu::BorderColorBuffer border_color_base);
+                                         AmdGpu::BorderColorBuffer border_color_base,
+                                         bool is_depth = false);
 
     /// Retrieves the image with the specified id.
     [[nodiscard]] Image& GetImage(ImageId id) {
@@ -357,7 +358,7 @@ private:
     ImageId CreateStencilImage(const ImageDesc& desc);
     vk::Sampler TouchSampler(Sampler& entry);
     vk::Sampler CreateSampler(u64 hash, const AmdGpu::Sampler& sampler,
-                              AmdGpu::BorderColorBuffer border_color_base);
+                              AmdGpu::BorderColorBuffer border_color_base, bool is_depth);
 
     void PrepareImageAccess(ImageId image_id, AliasAccess access);
     void UpdateImageImpl(ImageId image_id);

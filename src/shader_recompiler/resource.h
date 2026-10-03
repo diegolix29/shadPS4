@@ -3,7 +3,11 @@
 
 #pragma once
 
+#include <array>
+#include <cstring>
+
 #include "common/types.h"
+#include "shader_recompiler/ir/passes/resource_pass.h"
 #include "shader_recompiler/ir/type.h"
 #include "video_core/amdgpu/resource.h"
 
@@ -29,6 +33,35 @@ enum class BufferType : u32 {
 
 struct Info;
 
+using SharpLocation = u32;
+static constexpr SharpLocation UNKNOWN_LOCATION = 0xFFFFFFFFu;
+
+template <typename T>
+struct SharpFetch {
+    static constexpr u32 NumDwords = static_cast<u32>(sizeof(T) / sizeof(u32));
+    std::array<u32, NumDwords> immediates{};
+    std::array<SharpLocation, NumDwords> offsets{};
+    u32 load_mask{};
+
+    bool operator==(const SharpFetch&) const = default;
+
+    T Fetch(const auto& info) const noexcept {
+        std::array<u32, NumDwords> dwords = immediates;
+        for (u32 i = 0; i < NumDwords; ++i) {
+            if ((load_mask & (1u << i)) != 0 && offsets[i] != UNKNOWN_LOCATION) {
+                dwords[i] = info.flattened_ud_buf[offsets[i]];
+            }
+        }
+        T result{};
+        std::memcpy(&result, dwords.data(), sizeof(T));
+        return result;
+    }
+
+    bool UsesFetch() const noexcept {
+        return load_mask != 0;
+    }
+};
+
 // The rejections of invalid sharps are out of line so that resolving a valid sharp, done for
 // every resource of every draw, does not carry the logging code.
 [[nodiscard]] SHAD_NO_INLINE inline AmdGpu::Buffer RejectBufferSharp() noexcept {
@@ -47,27 +80,38 @@ struct Info;
 }
 
 struct BufferResource {
-    u32 sharp_idx;
+    u32 sharp_idx{};
+    SharpFetch<AmdGpu::Buffer> sharp_fetch{};
     IR::Type used_types;
     AmdGpu::Buffer inline_cbuf;
     BufferType buffer_type;
     u8 instance_attrib{};
     bool is_written{};
     bool is_formatted{};
+    SharpFetchPostOp post_op{};
+    u32 post_op_dw1_mask{};
 
     bool IsSpecial() const noexcept {
         return buffer_type != BufferType::Guest;
     }
 
-    constexpr AmdGpu::Buffer GetSharp(const auto& info) const noexcept {
+    AmdGpu::Buffer GetSharp(const auto& info) const noexcept {
         AmdGpu::Buffer buffer{};
         if (inline_cbuf) {
             buffer = inline_cbuf;
             if (inline_cbuf.base_address != 1) {
                 buffer.base_address += info.pgm_base; // address fixup
             }
+        } else if (sharp_fetch.UsesFetch()) {
+            buffer = sharp_fetch.Fetch(info);
         } else {
             buffer = info.template ReadUdSharp<AmdGpu::Buffer>(sharp_idx);
+        }
+        if (post_op == SharpFetchPostOp::OffsetByProgramBase) {
+            buffer.base_address += info.pgm_base;
+        } else if (post_op == SharpFetchPostOp::BitwiseOrDw1WithImm) {
+            auto* dwords = reinterpret_cast<u32*>(&buffer);
+            dwords[1] |= post_op_dw1_mask;
         }
         if (!buffer.Valid()) [[unlikely]] {
             return RejectBufferSharp();
@@ -80,7 +124,8 @@ using BufferResourceList = boost::container::static_vector<BufferResource, NUM_B
 enum class MipStorageFallbackMode : u32 { None, DynamicIndex, ConstantIndex };
 
 struct ImageResource {
-    u32 sharp_idx;
+    u32 sharp_idx{};
+    SharpFetch<AmdGpu::Image> sharp_fetch{};
     bool is_depth{};
     bool is_atomic{};
     bool is_array{};
@@ -88,15 +133,21 @@ struct ImageResource {
     bool is_r128{};
     MipStorageFallbackMode mip_fallback_mode{};
     u32 constant_mip_index{};
+    SharpFetchPostOp post_op{};
 
-    constexpr AmdGpu::Image GetSharp(const auto& info) const noexcept {
+    AmdGpu::Image GetSharp(const auto& info) const noexcept {
         AmdGpu::Image image{};
-        if (!is_r128) {
+        if (sharp_fetch.UsesFetch()) {
+            image = sharp_fetch.Fetch(info);
+        } else if (!is_r128) {
             image = info.template ReadUdSharp<AmdGpu::Image>(sharp_idx);
         } else {
             const auto raw = info.template ReadUdSharp<u128>(sharp_idx);
             std::memcpy(&image, &raw, sizeof(raw));
             image.pitch = image.width;
+        }
+        if (post_op == SharpFetchPostOp::ConvertCubeTo2DArray && image.IsCube()) {
+            image.type = static_cast<u64>(AmdGpu::ImageType::Color2DArray);
         }
         if (!image.Valid()) [[unlikely]] {
             image = RejectImageSharp(is_depth);
@@ -123,15 +174,35 @@ struct ImageResource {
 using ImageResourceList = boost::container::static_vector<ImageResource, NUM_IMAGES>;
 
 struct SamplerResource {
-    u32 sharp_idx;
+    u32 sharp_idx{};
+    SharpFetch<AmdGpu::Sampler> sharp_fetch{};
     AmdGpu::Sampler inline_sampler;
     u32 is_inline_sampler : 1;
     u32 associated_image : 4;
     u32 disable_aniso : 1;
+    SharpFetchPostOp post_op{};
+    SharpLocation post_op_tsharp_dw3_off{UNKNOWN_LOCATION};
+    bool is_depth{};
 
-    constexpr AmdGpu::Sampler GetSharp(const auto& info) const noexcept {
-        return is_inline_sampler ? inline_sampler
-                                 : info.template ReadUdSharp<AmdGpu::Sampler>(sharp_idx);
+    AmdGpu::Sampler GetSharp(const auto& info) const noexcept {
+        AmdGpu::Sampler sampler = is_inline_sampler ? inline_sampler
+            : (sharp_fetch.UsesFetch() ? sharp_fetch.Fetch(info)
+                                       : info.template ReadUdSharp<AmdGpu::Sampler>(sharp_idx));
+        if (disable_aniso || post_op == SharpFetchPostOp::DisableAnisoIfSingleLod) {
+            sampler.max_aniso.Assign(AmdGpu::AnisoRatio::One);
+        }
+        if (post_op == SharpFetchPostOp::ForceRepeatXyzClamp) {
+            sampler.clamp_x.Assign(AmdGpu::ClampMode::Wrap);
+            sampler.clamp_y.Assign(AmdGpu::ClampMode::Wrap);
+            sampler.clamp_z.Assign(AmdGpu::ClampMode::Wrap);
+        } else if (post_op == SharpFetchPostOp::ForceLastTexelXyClamp) {
+            sampler.clamp_x.Assign(AmdGpu::ClampMode::ClampLastTexel);
+            sampler.clamp_y.Assign(AmdGpu::ClampMode::ClampLastTexel);
+        } else if (post_op == SharpFetchPostOp::ClearAnisoRatioAndThreshold) {
+            sampler.max_aniso.Assign(AmdGpu::AnisoRatio::One);
+            sampler.aniso_threshold.Assign(0);
+        }
+        return sampler;
     }
 };
 using SamplerResourceList = boost::container::static_vector<SamplerResource, NUM_SAMPLERS>;

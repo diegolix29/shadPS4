@@ -102,8 +102,9 @@ StagingBufferRef StagingBufferPool::RequestLarge(u64 size, MemoryType type, bool
 
     if (!best) {
         best = &cache.emplace_back(LargeBuffer{
-            .buffer = std::make_unique<VideoCore::Buffer>(instance, 0, RoundAllocationSize(size),
-                                                          type, "StagingBufferPool:Dedicated"),
+            .buffer = std::make_unique<VideoCore::Buffer>(instance, scheduler, type, 0,
+                                                          VideoCore::AllFlags,
+                                                          RoundAllocationSize(size)),
             .tick = 0,
             .last_used_frame = frame,
             .held = false,

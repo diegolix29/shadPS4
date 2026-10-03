@@ -26,6 +26,7 @@ enum class Stage : u32 {
     Local,
     Compute,
 };
+using HwStage = Stage;
 
 // Vertex intentionally comes after TCS/TES due to order of compilation
 enum class LogicalStage : u32 {
@@ -37,6 +38,7 @@ enum class LogicalStage : u32 {
     Compute,
     NumLogicalStages
 };
+using SwStage = LogicalStage;
 
 constexpr u32 MaxStageTypes = static_cast<u32>(LogicalStage::NumLogicalStages);
 constexpr auto MaxEmulatedClipDistances = 4u;
@@ -51,7 +53,7 @@ struct CommonHsEsVsRuntimeInfo {
     bool operator<=>(const CommonHsEsVsRuntimeInfo&) const noexcept = default;
 };
 
-struct CommonEsVsRuntimeInfo : protected CommonHsEsVsRuntimeInfo {
+struct CommonEsVsRuntimeInfo : public CommonHsEsVsRuntimeInfo {
     AmdGpu::TessellationType tess_type;
     AmdGpu::TessellationTopology tess_topology;
     AmdGpu::TessellationPartitioning tess_partitioning;
@@ -64,12 +66,14 @@ struct LocalRuntimeInfo {
 
     auto operator<=>(const LocalRuntimeInfo&) const noexcept = default;
 };
+using HwLocalRuntimeInfo = LocalRuntimeInfo;
 
-struct ExportRuntimeInfo : protected CommonEsVsRuntimeInfo {
+struct ExportRuntimeInfo : public CommonEsVsRuntimeInfo {
     u32 vertex_data_size;
 
     bool operator<=>(const ExportRuntimeInfo&) const noexcept = default;
 };
+using HwExportRuntimeInfo = ExportRuntimeInfo;
 
 enum class Output : u8 {
     None,
@@ -98,7 +102,7 @@ enum class Output : u8 {
 };
 using OutputMap = std::array<Output, 4>;
 
-struct VertexRuntimeInfo : protected CommonEsVsRuntimeInfo {
+struct VertexRuntimeInfo : public CommonEsVsRuntimeInfo {
     u32 num_outputs;
     std::array<OutputMap, 3> outputs;
     bool tess_emulated_primitive{};
@@ -108,11 +112,14 @@ struct VertexRuntimeInfo : protected CommonEsVsRuntimeInfo {
     u32 step_rate_1;
     /// UCP_ENA bits from PA_CL_CLIP_CNTL, lowered to clip distances in the shader.
     u32 user_clip_plane_mask{};
+    u16 vertex_sgpr_offset{};
+    u16 instance_sgpr_offset{};
 
     bool operator<=>(const VertexRuntimeInfo& other) const noexcept = default;
 };
+using HwVertexRuntimeInfo = VertexRuntimeInfo;
 
-struct HullRuntimeInfo : protected CommonHsEsVsRuntimeInfo {
+struct HullRuntimeInfo : public CommonHsEsVsRuntimeInfo {
     u32 num_input_control_points;
     u32 num_threads;
     AmdGpu::TessellationType tess_type;
@@ -137,6 +144,7 @@ struct HullRuntimeInfo : protected CommonHsEsVsRuntimeInfo {
         return IsPassthrough() ? num_input_control_points : num_threads;
     }
 };
+using HwHullRuntimeInfo = HullRuntimeInfo;
 
 static constexpr auto GsMaxOutputStreams = 4u;
 using GsOutputPrimTypes = std::array<AmdGpu::GsOutputPrimitiveType, GsMaxOutputStreams>;
@@ -161,6 +169,7 @@ struct GeometryRuntimeInfo {
                vs_copy_hash == other.vs_copy_hash;
     }
 };
+using HwGeometryRuntimeInfo = GeometryRuntimeInfo;
 
 enum class MrtSwizzle : u8 {
     Identity = 0,
@@ -175,6 +184,7 @@ struct PsColorBuffer {
     AmdGpu::NumberFormat num_format : 4;
     AmdGpu::NumberConversion num_conversion : 4;
     AmdGpu::ShaderExportFormat export_format : 4;
+    u32 blend_self_scale : 1;
     AmdGpu::CompMapping swizzle;
 
     bool operator==(const PsColorBuffer& other) const = default;
@@ -206,6 +216,7 @@ struct FragmentRuntimeInfo {
     u8 mrtz_mask{};
     bool dual_source_blending{false};
     bool clip_distance_emulation{false};
+    bool front_face_all_bits{false};
 
     bool operator==(const FragmentRuntimeInfo& other) const noexcept {
         u64 lhs_interp_flags;
@@ -263,6 +274,7 @@ struct FragmentRuntimeInfo {
         return _mm256_testz_si256(difference, difference) != 0;
     }
 };
+using HwFragmentRuntimeInfo = FragmentRuntimeInfo;
 
 struct ComputeRuntimeInfo {
     u32 shared_memory_size;
@@ -273,6 +285,7 @@ struct ComputeRuntimeInfo {
         return workgroup_size == other.workgroup_size && tgid_enable == other.tgid_enable;
     }
 };
+using HwComputeRuntimeInfo = ComputeRuntimeInfo;
 
 /**
  * Stores information relevant to shader compilation sourced from liverpool registers.
@@ -280,14 +293,31 @@ struct ComputeRuntimeInfo {
  * It's also possible to store any other custom information that needs to be part of shader key.
  */
 struct RuntimeInfo {
-    Stage stage;
-    u32 num_user_data;
-    u32 num_input_vgprs;
-    u32 num_allocated_vgprs;
-    AmdGpu::FpDenormMode fp_denorm_mode32;
-    AmdGpu::FpDenormMode fp_denorm_mode16_64;
-    AmdGpu::FpRoundMode fp_round_mode32;
-    AmdGpu::FpRoundMode fp_round_mode16_64;
+    union {
+        Stage stage;
+        HwStage hw_stage;
+    };
+    LogicalStage sw_stage{};
+    union {
+        struct {
+            u32 num_user_data;
+            u32 num_input_vgprs;
+            u32 num_allocated_vgprs;
+            AmdGpu::FpDenormMode fp_denorm_mode32;
+            AmdGpu::FpDenormMode fp_denorm_mode16_64;
+            AmdGpu::FpRoundMode fp_round_mode32;
+            AmdGpu::FpRoundMode fp_round_mode16_64;
+        };
+        struct {
+            u32 num_user_data;
+            u32 num_input_vgprs;
+            u32 num_allocated_vgprs;
+            AmdGpu::FpDenormMode fp_denorm_mode32;
+            AmdGpu::FpDenormMode fp_denorm_mode16_64;
+            AmdGpu::FpRoundMode fp_round_mode32;
+            AmdGpu::FpRoundMode fp_round_mode16_64;
+        } props;
+    };
     union {
         LocalRuntimeInfo ls_info;
         ExportRuntimeInfo es_info;
@@ -300,11 +330,28 @@ struct RuntimeInfo {
         // access common info with correct offsets
         CommonHsEsVsRuntimeInfo hs_es_vs_info;
         CommonEsVsRuntimeInfo es_vs_info;
+        union {
+            LocalRuntimeInfo ls;
+            ExportRuntimeInfo es;
+            VertexRuntimeInfo vs;
+            HullRuntimeInfo hs;
+            GeometryRuntimeInfo gs;
+            FragmentRuntimeInfo fs;
+            ComputeRuntimeInfo cs;
+            CommonHsEsVsRuntimeInfo hs_es_vs;
+            CommonEsVsRuntimeInfo es_vs;
+        } hw;
+        union {
+            VertexRuntimeInfo vs;
+            HullRuntimeInfo tcs;
+            VertexRuntimeInfo tes;
+        } sw;
     };
 
-    void Initialize(Stage stage_) {
+    void Initialize(Stage stage_, LogicalStage sw_stage_ = {}) {
         memset(this, 0, sizeof(*this));
         stage = stage_;
+        sw_stage = sw_stage_;
     }
 
     bool operator==(const RuntimeInfo& other) const noexcept {

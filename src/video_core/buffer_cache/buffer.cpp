@@ -188,6 +188,13 @@ void Buffer::Invalidate(u64 offset, u64 size) {
     }
 }
 
+void Buffer::Flush(u64 offset, u64 size) {
+    ASSERT(offset + size <= size_bytes);
+    if (!is_coherent && mapped_data.data() != nullptr) {
+        vmaFlushAllocation(instance->GetAllocator(), buffer.allocation, offset, size);
+    }
+}
+
 constexpr u64 WATCHES_INITIAL_RESERVE = 0x4000;
 constexpr u64 WATCHES_RESERVE_CHUNK = 0x1000;
 

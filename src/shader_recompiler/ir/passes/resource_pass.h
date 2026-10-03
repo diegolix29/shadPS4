@@ -5,11 +5,21 @@
 
 #include <boost/container/small_vector.hpp>
 
+#include "shader_recompiler/ir/microinstruction.h"
 #include "shader_recompiler/ir/opcodes.h"
 #include "shader_recompiler/ir/value.h"
 
 namespace Shader {
-enum class SharpFetchPostOp : u8;
+enum class SharpFetchPostOp : u8 {
+    None = 0,
+    OffsetByProgramBase,
+    BitwiseOrDw1WithImm,
+    ConvertCubeTo2DArray,
+    DisableAnisoIfSingleLod,
+    ForceRepeatXyzClamp,
+    ForceLastTexelXyClamp,
+    ClearAnisoRatioAndThreshold,
+};
 }
 
 namespace Shader::Optimization {
