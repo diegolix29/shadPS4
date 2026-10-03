@@ -1,23 +1,13 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <algorithm>
-#include <array>
-#include <atomic>
-#include <chrono>
-#include <cstddef>
-#include <cstring>
-#include <filesystem>
-#include <optional>
 #include <ranges>
 
 #include "common/config.h"
-#include "common/elf_info.h"
 #include "common/hash.h"
 #include "common/io_file.h"
 #include "common/path_util.h"
 #include "core/debug_state.h"
-#include "core/emulator_settings.h"
 #include "shader_recompiler/backend/spirv/emit_spirv.h"
 #include "shader_recompiler/info.h"
 #include "shader_recompiler/recompiler.h"
@@ -47,74 +37,6 @@ constexpr static std::array DescriptorHeapSizes = {
     vk::DescriptorPoolSize{vk::DescriptorType::eStorageImage, 1024},
     vk::DescriptorPoolSize{vk::DescriptorType::eSampler, 1024},
 };
-
-constexpr std::array<u8, 8> NativePipelineCacheMagic{'S', 'H', 'A', 'D', 'V', 'K', 'P', 'C'};
-constexpr u32 NativePipelineCacheVersion = 1;
-constexpr u64 MaxNativePipelineCacheSize = 512ULL * 1024 * 1024;
-
-struct NativePipelineCacheHeader {
-    std::array<u8, 8> magic;
-    u32 version;
-    u32 pipeline_key_version;
-    u32 driver_version;
-    u64 payload_size;
-    Shader::Profile profile;
-};
-
-struct VulkanPipelineCacheHeader {
-    u32 header_size;
-    u32 header_version;
-    u32 vendor_id;
-    u32 device_id;
-    std::array<u8, VK_UUID_SIZE> uuid;
-};
-
-static_assert(std::is_trivially_copyable_v<NativePipelineCacheHeader>);
-static_assert(sizeof(VulkanPipelineCacheHeader) == 32);
-
-constexpr std::string_view NativePipelineCacheName = "pipeline_cache";
-
-/// Where the native cache was kept before it moved into the game's cache.
-[[nodiscard]] std::filesystem::path GetLegacyNativePipelineCacheDir() {
-    return Common::FS::GetUserPath(Common::FS::PathType::CacheDir) / "vulkan" /
-           Common::ElfInfo::Instance().GameSerial();
-}
-
-[[nodiscard]] std::vector<u8> ReadLegacyNativePipelineCache() {
-    using namespace Common::FS;
-    const IOFile file{GetLegacyNativePipelineCacheDir() / "pipeline_cache.bin",
-                      FileAccessMode::Read};
-    if (!file.IsOpen()) {
-        return {};
-    }
-    std::vector<u8> blob(file.GetSize());
-    if (blob.size() > sizeof(NativePipelineCacheHeader) + MaxNativePipelineCacheSize ||
-        file.Read(blob) != blob.size()) {
-        return {};
-    }
-    return blob;
-}
-
-void RemoveLegacyNativePipelineCache() {
-    std::error_code ec;
-    const auto dir = GetLegacyNativePipelineCacheDir();
-    std::filesystem::remove_all(dir, ec);
-    std::filesystem::remove(dir.parent_path(), ec); // Only when empty.
-}
-
-[[nodiscard]] bool ValidateNativePipelineCacheData(std::span<const u8> data,
-                                                   const Instance& instance) {
-    if (data.size() < sizeof(VulkanPipelineCacheHeader)) {
-        return false;
-    }
-    VulkanPipelineCacheHeader header{};
-    std::memcpy(&header, data.data(), sizeof(header));
-    return header.header_size >= sizeof(header) && header.header_size <= data.size() &&
-           header.header_version == static_cast<u32>(VK_PIPELINE_CACHE_HEADER_VERSION_ONE) &&
-           header.vendor_id == instance.GetVendorID() &&
-           header.device_id == instance.GetDeviceID() &&
-           header.uuid == instance.GetPipelineCacheUUID();
-}
 
 /// State of the asynchronous shader compiler declared in the header. Nothing in this file uses it
 /// yet, but the type has to be complete before the constructor and destructor, which both destroy
@@ -338,49 +260,6 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(Stage stage, LogicalS
     return info;
 }
 
-std::vector<u8> PipelineCache::LoadNativePipelineCache() {
-    if (!EmulatorSettings.IsPipelineCacheEnabled()) {
-        return {};
-    }
-    auto& database = Storage::DataBase::Instance();
-    database.Open();
-    std::vector<u8> blob;
-    database.Load(Storage::BlobType::NativePipelineCache, std::string{NativePipelineCacheName},
-                  blob);
-    if (blob.empty()) {
-        blob = ReadLegacyNativePipelineCache();
-        if (blob.empty()) {
-            return {};
-        }
-        // Moves the legacy copy into the game's cache on close.
-        native_pipeline_cache_dirty.store(true, std::memory_order_release);
-    }
-
-    if (blob.size() < sizeof(NativePipelineCacheHeader) ||
-        blob.size() > sizeof(NativePipelineCacheHeader) + MaxNativePipelineCacheSize) {
-        LOG_WARNING(Render_Vulkan, "Ignoring invalid native Vulkan pipeline cache");
-        return {};
-    }
-
-    NativePipelineCacheHeader header{};
-    std::memcpy(&header, blob.data(), sizeof(header));
-    if (header.magic != NativePipelineCacheMagic || header.version != NativePipelineCacheVersion ||
-        header.pipeline_key_version != Serialization::PipelineKeyVersion ||
-        header.driver_version != instance.GetDriverVersion() || header.profile != profile ||
-        header.payload_size != blob.size() - sizeof(header)) {
-        LOG_INFO(Render_Vulkan, "Native Vulkan pipeline cache is stale; rebuilding it");
-        return {};
-    }
-
-    std::vector<u8> data(blob.begin() + sizeof(header), blob.end());
-    if (!ValidateNativePipelineCacheData(data, instance)) {
-        LOG_WARNING(Render_Vulkan, "Ignoring incompatible native Vulkan pipeline cache");
-        return {};
-    }
-    LOG_INFO(Render_Vulkan, "Loaded {} KiB native Vulkan pipeline cache", data.size() / 1024);
-    return data;
-}
-
 PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
                              AmdGpu::Liverpool* liverpool_)
     : instance{instance_}, scheduler{scheduler_}, liverpool{liverpool_},
@@ -441,30 +320,15 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
         .needs_clip_distance_emulation = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
         .supports_shader_stencil_export = instance_.IsShaderStencilExportSupported(),
     };
-    const auto initial_data = LoadNativePipelineCache();
-    const vk::PipelineCacheCreateInfo cache_info{
-        .initialDataSize = initial_data.size(),
-        .pInitialData = initial_data.empty() ? nullptr : initial_data.data(),
-    };
-    auto [cache_result, cache] = instance.GetDevice().createPipelineCacheUnique(cache_info);
-    if (cache_result != vk::Result::eSuccess && !initial_data.empty()) {
-        LOG_WARNING(Render_Vulkan, "Driver rejected native Vulkan pipeline cache: {}",
-                    vk::to_string(cache_result));
-        auto fallback = instance.GetDevice().createPipelineCacheUnique({});
-        cache_result = fallback.result;
-        cache = std::move(fallback.value);
-    }
+    WarmUp();
+
+    auto [cache_result, cache] = instance.GetDevice().createPipelineCacheUnique({});
     ASSERT_MSG(cache_result == vk::Result::eSuccess, "Failed to create pipeline cache: {}",
                vk::to_string(cache_result));
     pipeline_cache = std::move(cache);
-    Shader::InitializeSrtWalker();
-    WarmUp();
-    SaveNativePipelineCacheCheckpoint();
 }
 
-PipelineCache::~PipelineCache() {
-    SaveNativePipelineCache();
-}
+PipelineCache::~PipelineCache() = default;
 
 const GraphicsPipeline* PipelineCache::GetGraphicsPipeline() {
     if (!RefreshGraphicsKey()) {
@@ -987,60 +851,5 @@ std::optional<std::vector<u32>> PipelineCache::GetShaderPatch(u64 hash, Shader::
     std::vector<u32> code(file.GetSize() / sizeof(u32));
     file.Read(code);
     return code;
-}
-
-void PipelineCache::Sync() {
-    SaveNativePipelineCache();
-    const bool persisted = !native_pipeline_cache_dirty.load(std::memory_order_acquire);
-    Storage::DataBase::Instance().Close();
-    if (persisted) {
-        RemoveLegacyNativePipelineCache();
-    }
-}
-
-void PipelineCache::SaveNativePipelineCacheCheckpoint() {
-    // Saving to an archive before it is published only grows it.
-    if (!Storage::DataBase::Instance().IsArchived()) {
-        SaveNativePipelineCache();
-    }
-}
-
-void PipelineCache::SaveNativePipelineCache() {
-    auto& database = Storage::DataBase::Instance();
-    if (!pipeline_cache || !database.IsOpened() ||
-        !native_pipeline_cache_dirty.load(std::memory_order_acquire)) {
-        return;
-    }
-
-    std::scoped_lock lock{native_pipeline_cache_mutex};
-    if (!native_pipeline_cache_dirty.exchange(false, std::memory_order_acq_rel)) {
-        return;
-    }
-
-    auto [result, data] = instance.GetDevice().getPipelineCacheData(*pipeline_cache);
-    if (result != vk::Result::eSuccess || data.empty() || data.size() > MaxNativePipelineCacheSize ||
-        !ValidateNativePipelineCacheData(data, instance)) {
-        native_pipeline_cache_dirty.store(true, std::memory_order_release);
-        LOG_WARNING(Render_Vulkan, "Failed to retrieve native Vulkan pipeline cache: {}",
-                    vk::to_string(result));
-        return;
-    }
-
-    const NativePipelineCacheHeader header{
-        .magic = NativePipelineCacheMagic,
-        .version = NativePipelineCacheVersion,
-        .pipeline_key_version = Serialization::PipelineKeyVersion,
-        .driver_version = instance.GetDriverVersion(),
-        .payload_size = data.size(),
-        .profile = profile,
-    };
-    std::vector<u8> blob(sizeof(header) + data.size());
-    std::memcpy(blob.data(), &header, sizeof(header));
-    std::memcpy(blob.data() + sizeof(header), data.data(), data.size());
-    if (!database.Save(Storage::BlobType::NativePipelineCache,
-                       std::string{NativePipelineCacheName}, std::move(blob))) {
-        native_pipeline_cache_dirty.store(true, std::memory_order_release);
-        LOG_WARNING(Render_Vulkan, "Failed to persist native Vulkan pipeline cache");
-    }
 }
 } // namespace Vulkan
