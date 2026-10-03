@@ -504,16 +504,6 @@ bool MemoryManager::WalkBackingLocked(VAddr source, u8* destination, u64 size) {
     return true;
 }
 
-bool MemoryManager::IsBackedRange(VAddr source, u64 size) {
-    std::shared_lock lk{mutex};
-    return WalkBackingLocked<false>(source, nullptr, size);
-}
-
-bool MemoryManager::ReadBacking(VAddr source, u8* destination, u64 size) {
-    std::shared_lock lk{mutex};
-    return WalkBackingLocked<true>(source, destination, size);
-}
-
 u8* MemoryManager::TryGetBacking(VAddr virtual_addr, u64 size) {
     std::shared_lock lk{mutex};
     if (!size || !IsValidMapping(virtual_addr, size)) {
@@ -551,6 +541,70 @@ u8* MemoryManager::TryGetBacking(VAddr virtual_addr, u64 size) {
         current_vma++;
     }
     return remaining ? nullptr : backing_start;
+}
+
+bool MemoryManager::IsBackedRange(VAddr virtual_addr, u64 size) {
+    std::shared_lock lk{mutex};
+    if (!size || !IsValidMapping(virtual_addr, size)) {
+        return false;
+    }
+
+    u64 remaining = size;
+    auto current_vma = FindVMA(virtual_addr);
+    while (remaining && current_vma != vma_map.end() &&
+           current_vma->second.Overlaps(virtual_addr, size)) {
+        const auto& vma = current_vma->second;
+        if (!HasPhysicalBacking(vma)) {
+            return false;
+        }
+        const u64 start_in_vma = std::max<VAddr>(virtual_addr, vma.base) - vma.base;
+        auto phys_handle = std::prev(vma.phys_areas.upper_bound(start_in_vma));
+        for (; phys_handle != vma.phys_areas.end(); phys_handle++) {
+            if (!remaining) {
+                break;
+            }
+            const u64 start_in_dma =
+                std::max<u64>(start_in_vma, phys_handle->first) - phys_handle->first;
+            const u64 chunk = std::min<u64>(remaining, phys_handle->second.size - start_in_dma);
+            remaining -= chunk;
+        }
+        current_vma++;
+    }
+    return remaining == 0;
+}
+
+bool MemoryManager::ReadBacking(VAddr virtual_addr, u8* destination, u64 size) {
+    std::shared_lock lk{mutex};
+    if (!size || !IsValidMapping(virtual_addr, size)) {
+        return false;
+    }
+
+    u8* dest = destination;
+    u64 remaining = size;
+    auto current_vma = FindVMA(virtual_addr);
+    while (remaining && current_vma != vma_map.end() &&
+           current_vma->second.Overlaps(virtual_addr, size)) {
+        const auto& vma = current_vma->second;
+        if (!HasPhysicalBacking(vma)) {
+            return false;
+        }
+        const u64 start_in_vma = std::max<VAddr>(virtual_addr, vma.base) - vma.base;
+        auto phys_handle = std::prev(vma.phys_areas.upper_bound(start_in_vma));
+        for (; phys_handle != vma.phys_areas.end(); phys_handle++) {
+            if (!remaining) {
+                break;
+            }
+            const u64 start_in_dma =
+                std::max<u64>(start_in_vma, phys_handle->first) - phys_handle->first;
+            u8* backing = impl.BackingBase() + phys_handle->second.base + start_in_dma;
+            const u64 chunk = std::min<u64>(remaining, phys_handle->second.size - start_in_dma);
+            std::memcpy(dest, backing, chunk);
+            dest += chunk;
+            remaining -= chunk;
+        }
+        current_vma++;
+    }
+    return remaining == 0;
 }
 
 PAddr MemoryManager::PoolExpand(PAddr search_start, PAddr search_end, u64 size, u64 alignment) {
