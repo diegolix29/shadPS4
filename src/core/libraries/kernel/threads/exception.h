@@ -8,6 +8,11 @@
 
 #ifndef _WIN32
 #include <sys/signal.h>
+#else
+#include <windows.h>
+#ifndef PCONTEXT
+typedef CONTEXT* PCONTEXT;
+#endif
 #endif
 
 namespace Core::Loader {

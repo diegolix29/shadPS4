@@ -356,8 +356,8 @@ struct StageSpecialization {
                      });
 
         // Initialize runtime_info fields that rely on analysis in tessellation passes
-        if (info->l_stage == LogicalStage::TessellationControl ||
-            info->l_stage == LogicalStage::TessellationEval) {
+        if (info->sw_stage == SwStage::TessellationControl ||
+            info->sw_stage == SwStage::TessellationEval) {
             TessellationDataConstantBuffer tess_constants{};
             info->ReadTessConstantBuffer(tess_constants);
             runtime_info.InitFromTessConstants(tess_constants);

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "shader_recompiler/runtime_info.h"
 #include "translator.hpp"
 
 #include <iostream>
@@ -16,6 +17,7 @@
 #include "shader_recompiler/ir/program.h"
 #include "shader_recompiler/profile.h"
 #include "shader_recompiler/recompiler.h"
+#include "video_core/amdgpu/pixel_format.h"
 
 using namespace Shader;
 
@@ -46,8 +48,8 @@ std::vector<u32> TranslateToSpirv(std::span<const u64> raw_gcn_insts) {
     Gcn::GcnInst store_inst = decoder.decodeInstruction(second);
 
     Shader::Info info{};
-    info.stage = Stage::Compute;
-    info.l_stage = LogicalStage::Compute;
+    info.hw_stage = HwStage::Compute;
+    info.sw_stage = SwStage::Compute;
     info.flattened_ud_buf.resize(4);
     AmdGpu::Buffer buf = AmdGpu::Buffer::Null();
     std::memcpy(info.flattened_ud_buf.data(), &buf, sizeof(buf));
@@ -63,16 +65,16 @@ std::vector<u32> TranslateToSpirv(std::span<const u64> raw_gcn_insts) {
     program.syntax_list.back().data.block = block;
     program.syntax_list.emplace_back();
     program.syntax_list.back().type = IR::AbstractSyntaxNode::Type::Return;
-    program.post_order_blocks = Shader::IR::PostOrder(program.syntax_list.front());
+    program.post_order_blocks = Shader::IR::PostOrder(block);
 
     Profile profile{};
     profile.supported_spirv = 0x00010600;
     profile.subgroup_size = 32;
 
     RuntimeInfo runtime_info{};
-    runtime_info.Initialize(Stage::Compute);
-    runtime_info.num_user_data = 4;
-    runtime_info.cs_info.workgroup_size = {1, 1, 1};
+    runtime_info.Initialize(HwStage::Compute, SwStage::Compute);
+    runtime_info.props.num_user_data = 4;
+    runtime_info.hw.cs.workgroup_size = {1, 1, 1};
 
     Gcn::Translator translator(program.info, runtime_info, profile);
     translator.EmitPrologue(block);
@@ -85,15 +87,14 @@ std::vector<u32> TranslateToSpirv(std::span<const u64> raw_gcn_insts) {
         mov.src[0].code = i;
         mov.dst[0].field = Shader::Gcn::OperandField::VectorGPR;
         mov.dst[0].code = i;
-        translator.S_MOV_B32(mov);
+        translator.S_MOV(mov);
     }
     for (const Gcn::GcnInst& inst : instructions) {
         translator.TranslateInstruction(inst);
     }
     translator.TranslateInstruction(store_inst);
 
-    Shader::Optimization::SsaRewritePass(program.post_order_blocks);
-    Shader::Optimization::IdentityRemovalPass(program.blocks);
+    Shader::Optimization::SsaRewritePass(program);
     Shader::Optimization::ResourceTrackingPassStub(program, profile);
     Shader::Optimization::ConstantPropagationPass(program.blocks);
     Shader::Optimization::DeadCodeEliminationPass(program);
@@ -104,4 +105,45 @@ std::vector<u32> TranslateToSpirv(std::span<const u64> raw_gcn_insts) {
     const auto spirv = Backend::SPIRV::EmitSPIRV(profile, runtime_info, program, bindings);
 
     return spirv;
+}
+
+std::vector<u32> TranslateFragmentFrontFaceToSpirv(bool front_face_all_bits) {
+    Shader::Info info{};
+    info.hw_stage = HwStage::Fragment;
+    info.sw_stage = SwStage::Fragment;
+
+    IR::Program program{info};
+    Pools pools{};
+    IR::Block* block = pools.block_pool.Create(pools.inst_pool);
+    program.blocks.push_back(block);
+    program.syntax_list.emplace_back();
+    program.syntax_list.back().type = IR::AbstractSyntaxNode::Type::Block;
+    program.syntax_list.back().data.block = block;
+    program.syntax_list.emplace_back();
+    program.syntax_list.back().type = IR::AbstractSyntaxNode::Type::Return;
+    program.post_order_blocks = IR::PostOrder(block);
+
+    Profile profile{};
+    profile.supported_spirv = 0x00010600;
+    RuntimeInfo runtime_info{};
+    runtime_info.Initialize(HwStage::Fragment, SwStage::Fragment);
+    runtime_info.hw.fs.en_flags.front_face_ena = 1;
+    runtime_info.hw.fs.addr_flags.front_face_ena = 1;
+    runtime_info.hw.fs.front_face_all_bits = front_face_all_bits;
+    runtime_info.hw.fs.color_buffers[0].num_format = AmdGpu::NumberFormat::Float;
+
+    Gcn::Translator translator(program.info, runtime_info, profile);
+    translator.EmitPrologue(block);
+
+    IR::IREmitter ir{*block};
+    const IR::U32 front_face = ir.GetVectorReg<IR::U32>(IR::VectorReg::V0);
+    ir.SetAttribute(IR::Attribute::RenderTarget0, ir.BitCast<IR::F32>(front_face));
+    ir.Epilogue();
+
+    Optimization::SsaRewritePass(program);
+    Optimization::ConstantPropagationPass(program.blocks);
+    Optimization::DeadCodeEliminationPass(program);
+    Optimization::CollectShaderInfoPass(program, profile);
+    Backend::Bindings bindings{};
+    return Backend::SPIRV::EmitSPIRV(profile, runtime_info, program, bindings);
 }

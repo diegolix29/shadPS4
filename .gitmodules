@@ -74,11 +74,6 @@
 	path = externals/half
 	url = https://github.com/ROCm/half.git
 	shallow = true
-[submodule "externals/dear_imgui"]
-	path = externals/dear_imgui
-	url = https://github.com/shadps4-emu/ext-imgui.git
-	shallow = true
-	branch = docking
 [submodule "externals/pugixml"]
 	path = externals/pugixml
 	url = https://github.com/zeux/pugixml.git
@@ -109,7 +104,7 @@
 	branch = dist
 [submodule "externals/MoltenVK"]
 	path = externals/MoltenVK
-	url = https://github.com/shadPS4-emu/ext-MoltenVK.git
+	url = https://github.com/KhronosGroup/MoltenVK.git
 	shallow = true
 [submodule "externals/json"]
 	path = externals/json

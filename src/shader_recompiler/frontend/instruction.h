@@ -191,7 +191,8 @@ struct InstControlMTBUF {
     u64 offen : 1;
     u64 idxen : 1;
     u64 glc : 1;
-    u64 : 4;
+    u64 addr64 : 1;
+    u64 : 3;
     u64 dfmt : 4;
     u64 nfmt : 3;
     u64 : 28;

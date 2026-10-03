@@ -7,6 +7,8 @@
 #include <string>
 #include <string_view>
 #include <thread>
+
+#include "core/libraries/fiber/fiber.h"
 #include <fmt/format.h>
 
 #include "core/libraries/kernel/threads/pthread.h"
@@ -287,17 +289,23 @@ void AccurateTimer::Reset() {
 std::string_view GetCurrentThreadNameView() {
     using namespace Libraries::Kernel;
     if (g_curthread && !g_curthread->name.empty()) {
+        if (g_curthread->tcb->tcb_fiber) {
+            return fmt::format("{}@@{}", g_curthread->name,
+                               g_curthread->tcb->tcb_fiber->current_fiber->name);
+        }
         return g_curthread->name;
     }
     if (!current_thread_name.empty()) {
         return current_thread_name;
     }
 #ifdef _WIN32
-    PWSTR name = nullptr;
-    if (SUCCEEDED(GetThreadDescription(GetCurrentThread(), &name)) && name != nullptr) {
-        current_thread_name = Common::UTF16ToUTF8(name);
-        LocalFree(name);
+    PWSTR name{};
+    if (FAILED(GetThreadDescription(GetCurrentThread(), &name)) || name == nullptr) {
+        return "<unknown name>";
     }
+    const auto result = Common::UTF16ToUTF8(name);
+    LocalFree(name);
+    return result;
 #else
     char name[256];
     if (pthread_getname_np(pthread_self(), name, sizeof(name)) == 0) {

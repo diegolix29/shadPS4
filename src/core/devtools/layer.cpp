@@ -38,6 +38,7 @@
 #include "video_core/renderer_vulkan/vk_presenter.h"
 #include "widget/frame_dump.h"
 #include "widget/frame_graph.h"
+#include "widget/gpu_memory.h"
 #include "widget/memory_map.h"
 #include "widget/module_list.h"
 #include "widget/shader_list.h"
@@ -64,6 +65,7 @@ using L = ::Core::Devtools::Layer;
 
 static bool show_simple_fps = false;
 static bool visibility_toggled = false;
+static float fps_anchor_width = FLT_MAX;
 static bool show_pause_status = false;
 static bool show_quit_window = false;
 
@@ -200,6 +202,7 @@ static bool just_opened_options = false;
 static Widget::MemoryMapViewer memory_map;
 static Widget::ShaderList shader_list;
 static Widget::ModuleList module_list;
+static Widget::GpuMemoryViewer gpu_memory;
 
 // clang-format off
 static std::string help_text =
@@ -243,6 +246,7 @@ void L::DrawMenuBar() {
         if (BeginMenu("GPU Tools")) {
             MenuItem("Show frame info", nullptr, &frame_graph.is_open);
             MenuItem("Show loaded shaders", nullptr, &shader_list.open);
+            MenuItem("Show GPU memory usage", nullptr, &gpu_memory.open);
             if (BeginMenu("Dump frames")) {
                 SliderInt("Count", &dump_frame_count, 1, 5);
                 if (MenuItem("Dump", "Ctrl+Alt+F9", nullptr, !DebugState.DumpingCurrentFrame())) {
@@ -445,6 +449,9 @@ void L::DrawAdvanced() {
     if (module_list.open) {
         module_list.Draw();
     }
+    if (gpu_memory.open) {
+        gpu_memory.Draw();
+    }
 }
 
 void L::DrawSimple() {
@@ -493,6 +500,10 @@ static void LoadSettings(const char* line) {
         module_list.open = i != 0;
         return;
     }
+    if (sscanf(line, "show_gpu_memory=%d", &i) == 1) {
+        gpu_memory.open = i != 0;
+        return;
+    }
     if (sscanf(line, "dump_frame_count=%d", &i) == 1) {
         dump_frame_count = i;
         return;
@@ -537,6 +548,7 @@ void L::SetupSettings() {
         buf->appendf("show_shader_list=%d\n", shader_list.open);
         buf->appendf("show_memory_map=%d\n", memory_map.open);
         buf->appendf("show_module_list=%d\n", module_list.open);
+        buf->appendf("show_gpu_memory=%d\n", gpu_memory.open);
         buf->appendf("dump_frame_count=%d\n", dump_frame_count);
         buf->append("\n");
         buf->appendf("[%s][CmdList]\n", handler->TypeName);
@@ -1267,31 +1279,25 @@ void L::DrawPauseStatusWindow(bool& is_open) {
                 const char* label;
                 const char* key;
             };
-            static const PresentModeOption presentModes[] = {
-                {"Mailbox (Vsync)", "Mailbox"},
-                {"Fifo (Vsync)", "Fifo"},
-                {"Immediate (No Vsync)", "Immediate"},
+            static const char* presentModes[] = {
+                "Mailbox (Vsync)",
+                "Fifo (Vsync)",
+                "Immediate (No Vsync)",
+            };
+            static const char* presentModeKeys[] = {
+                "Mailbox",
+                "Fifo",
+                "Immediate",
             };
             int presentModeIndex = 0;
-            for (int i = 0; i < IM_ARRAYSIZE(presentModes); i++) {
-                if (Config::getPresentMode() == presentModes[i].key) {
+            for (int i = 0; i < IM_ARRAYSIZE(presentModeKeys); i++) {
+                if (Config::getPresentMode() == presentModeKeys[i]) {
                     presentModeIndex = i;
                     break;
                 }
             }
-            if (ImGui::Combo(
-                    "Mode", &presentModeIndex,
-                    [](void*, int idx, const char** out_text) {
-                        static const PresentModeOption presentModesLocal[] = {
-                            {"Mailbox (Vsync)", "Mailbox"},
-                            {"Fifo (Vsync)", "Fifo"},
-                            {"Immediate (No Vsync)", "Immediate"},
-                        };
-                        *out_text = presentModesLocal[idx].label;
-                        return true;
-                    },
-                    nullptr, IM_ARRAYSIZE(presentModes))) {
-                Config::setPresentMode(presentModes[presentModeIndex].key);
+            if (ImGui::Combo("Mode", &presentModeIndex, presentModes, IM_ARRAYSIZE(presentModes))) {
+                Config::setPresentMode(presentModeKeys[presentModeIndex]);
             }
 
             ImGui::EndTabItem();
@@ -1771,6 +1777,12 @@ void L::Draw() {
         if (Begin("Video Info", nullptr,
                   ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration |
                       ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking)) {
+            if (const float width = GetIO().DisplaySize.x; width != fps_anchor_width) {
+                visibility_toggled |= GetWindowPos().x + GetCurrentWindowRead()->SizeFull.x >=
+                                      fps_anchor_width - 1.0f;
+                fps_anchor_width = width;
+            }
+            // Set window position to top left if it was toggled on
             if (visibility_toggled) {
                 SetWindowPos("Video Info", {999999.0f, 0.0f}, ImGuiCond_Always);
                 visibility_toggled = false;

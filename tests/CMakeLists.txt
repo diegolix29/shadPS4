@@ -28,6 +28,7 @@ set(SETTINGS_TEST_SOURCES
     stubs/log_stub.cpp     
     stubs/scm_rev_stub.cpp
     stubs/sdl_stub.cpp
+    stubs/file_sys_stub.cpp
 
     # Tests
     test_emulator_settings.cpp
@@ -90,7 +91,6 @@ set(GCN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/ir_passes.h
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/constant_propagation_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/dead_code_elimination_pass.cpp
-    ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/identity_removal_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/shader_info_collection_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/passes/ssa_rewrite_pass.cpp
     ${CMAKE_SOURCE_DIR}/src/shader_recompiler/ir/post_order.cpp
@@ -113,11 +113,12 @@ set(GCN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/zar_fs.cpp
 
     # Stubs that replace dependencies
-    stubs/log_stub.cpp     
+    stubs/log_stub.cpp
     stubs/resource_tracking_pass_stub.cpp
     stubs/scm_rev_stub.cpp
     stubs/config_stub.cpp
     stubs/memory_patcher_stub.cpp
+    stubs/file_sys_stub.cpp
 
     gcn/gcn_test_runner.hpp
     gcn/gcn_test_runner.cpp
@@ -148,6 +149,7 @@ set(ZAR_TEST_SOURCES
     stubs/log_stub.cpp
     stubs/scm_rev_stub.cpp
     stubs/sdl_stub.cpp
+    stubs/file_sys_stub.cpp
 
     # Tests
     common/test_zar_fs.cpp

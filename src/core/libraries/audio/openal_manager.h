@@ -237,16 +237,16 @@ private:
         if (has_mode_ext) {
             ALCint requested_mode = ALC_ANY_SOFT;
             switch (Config::GetOpenALOutputMode()) {
-            case OpenALOutputMode::OutputStereo:
+            case Config::OpenALOutputMode::OutputStereo:
                 requested_mode = ALC_STEREO_SOFT;
                 break;
-            case OpenALOutputMode::OutputQuad:
+            case Config::OpenALOutputMode::OutputQuad:
                 requested_mode = ALC_QUAD_SOFT;
                 break;
-            case OpenALOutputMode::OutputSurround51:
+            case Config::OpenALOutputMode::OutputSurround51:
                 requested_mode = ALC_SURROUND_5_1_SOFT;
                 break;
-            case OpenALOutputMode::OutputSurround71:
+            case Config::OpenALOutputMode::OutputSurround71:
                 requested_mode = ALC_SURROUND_7_1_SOFT;
                 break;
             default:

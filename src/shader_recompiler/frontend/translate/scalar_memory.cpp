@@ -30,6 +30,8 @@ void Translator::EmitScalarMemory(const GcnInst& inst) {
         return S_BUFFER_LOAD_DWORD(8, inst);
     case Opcode::S_BUFFER_LOAD_DWORDX16:
         return S_BUFFER_LOAD_DWORD(16, inst);
+    case Opcode::S_MEMTIME:
+        return S_MEMTIME(inst);
     default:
         LogMissingOpcode(inst);
     }
@@ -55,7 +57,6 @@ void Translator::S_LOAD_DWORD(int num_dwords, const GcnInst& inst) {
     for (u32 i = 0; i < num_dwords; i++) {
         IR::U32 index = ir.IAdd(dword_offset, ir.Imm32(i));
         ir.SetScalarReg(dst_reg + i, ir.ReadConst(base, index));
-        type->scalar[inst.dst[0].code + i] = RegType::Scalar;
     }
 }
 
@@ -82,8 +83,11 @@ void Translator::S_BUFFER_LOAD_DWORD(int num_dwords, const GcnInst& inst) {
     for (u32 i = 0; i < num_dwords; i++) {
         const IR::U32 index = ir.IAdd(dword_offset, ir.Imm32(i));
         ir.SetScalarReg(dst_reg + i, ir.ReadConstBuffer(vsharp, index, buffer_info));
-        type->scalar[inst.dst[0].code + i] = RegType::Scalar;
     }
+}
+
+void Translator::S_MEMTIME(const GcnInst& inst) {
+    SetDst64(inst.dst[0], ir.Memtime());
 }
 
 } // namespace Shader::Gcn

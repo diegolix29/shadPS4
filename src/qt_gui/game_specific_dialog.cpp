@@ -374,6 +374,7 @@ GameSpecificDialog::GameSpecificDialog(std::shared_ptr<CompatibilityInfoClass> c
 
     ui->ReadbackSpeedComboBox->installEventFilter(this);
     ui->MemorySpinBox->installEventFilter(this);
+    ui->FmemSpinBox->installEventFilter(this);
 }
 static QMap<QString, QString> screenModeMap = {
     {"Fullscreen (Borderless)", "Fullscreen (Borderless)"},
@@ -383,7 +384,7 @@ static QMap<QString, QString> screenModeMap = {
 GameSpecificDialog::~GameSpecificDialog() = default;
 
 bool GameSpecificDialog::eventFilter(QObject* obj, QEvent* event) {
-    if ((obj == ui->ReadbackSpeedComboBox || obj == ui->MemorySpinBox) &&
+    if ((obj == ui->ReadbackSpeedComboBox || obj == ui->MemorySpinBox || obj == ui->FmemSpinBox) &&
         event->type() == QEvent::Wheel) {
         return true;
     }
@@ -504,6 +505,7 @@ void GameSpecificDialog::LoadValuesFromConfig() {
     ui->FSRCheckBox->setChecked(Config::getFsrEnabled());
     ui->displayModeComboBox->setCurrentText(QString::fromStdString(Config::getFullscreenMode()));
     ui->MemorySpinBox->setValue(Config::getExtraDmemInMbytes());
+    ui->FmemSpinBox->setValue(Config::getExtraFmemInMbytes());
     ui->presentModeComboBox->setCurrentText(QString::fromStdString(Config::getPresentMode()));
     ui->RCASSlider->setMinimum(0);
     ui->RCASSlider->setMaximum(3000);
@@ -574,6 +576,8 @@ void GameSpecificDialog::LoadValuesFromConfig() {
         }
         if (gen.contains("extraDmemInMbytes"))
             ui->MemorySpinBox->setValue(toml::find<int>(gen, "extraDmemInMbytes"));
+        if (gen.contains("extraFmemInMbytes"))
+            ui->FmemSpinBox->setValue(toml::find<int>(gen, "extraFmemInMbytes"));
         if (gen.contains("isConnectedToNetwork"))
             ui->connectedNetworkCheckBox->setChecked(toml::find<bool>(gen, "isConnectedToNetwork"));
         if (gen.contains("useHostMemoryFallback"))
@@ -852,6 +856,7 @@ void GameSpecificDialog::UpdateSettings() {
     overrides["General"]["enableMods"] = ui->enableModsCheckBox->isChecked();
     overrides["General"]["enableUpdates"] = ui->enableUpdatesCheckBox->isChecked();
     overrides["General"]["extraDmemInMbytes"] = ui->MemorySpinBox->value();
+    overrides["General"]["extraFmemInMbytes"] = ui->FmemSpinBox->value();
 
     // App0 storage settings
     overrides["General"]["app0_read_bandwidth_mibps"] = ui->app0BandwidthSpinBox->value();

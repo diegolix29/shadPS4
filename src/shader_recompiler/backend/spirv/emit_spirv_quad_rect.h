@@ -7,7 +7,7 @@
 #include "common/types.h"
 
 namespace Shader {
-struct FragmentRuntimeInfo;
+struct HwFragmentRuntimeInfo;
 }
 
 namespace Shader::Backend::SPIRV {

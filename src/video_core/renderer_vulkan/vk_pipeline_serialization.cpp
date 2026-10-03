@@ -13,8 +13,9 @@
 
 namespace Serialization {
 /* You should increment versions below once corresponding serialization scheme is changed. */
-static constexpr u32 ShaderBinaryVersion = 5u;
+static constexpr u32 ShaderBinaryVersion = 4u;
 static constexpr u32 ShaderMetaVersion = 4u;
+static constexpr u32 PipelineKeyVersion = 3u;
 } // namespace Serialization
 
 namespace Vulkan {
@@ -283,7 +284,7 @@ bool PipelineCache::LoadPipelineStage(Serialization::Archive& ar, size_t stage,
     vk::ShaderModule module{};
 
     // Check for patches even when loading from cache
-    auto patch = GetShaderPatch(program->info.pgm_hash, program->info.stage, perm_idx, "spv");
+    auto patch = GetShaderPatch(program->info.pgm_hash, program->info.hw_stage, perm_idx, "spv");
     const bool use_patch = patch && Config::patchShaders();
 
     if (use_patch) {
@@ -306,7 +307,7 @@ bool PipelineCache::LoadPipelineStage(Serialization::Archive& ar, size_t stage,
                 LOG_WARNING(Render_Vulkan,
                             "Cached permutation {} of {}_{:x} conflicts with index {}, skipping "
                             "preload",
-                            perm_idx, program->info.stage, program->info.pgm_hash, idx);
+                            perm_idx, program->info.hw_stage, program->info.pgm_hash, idx);
                 return false;
             }
             module = it->module;
