@@ -363,8 +363,13 @@ bool Instance::CreateDevice() {
     if (driver_id == vk::DriverId::eMoltenvk) {
         portability_subset = add_extension(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
         if (portability_subset) {
+            // The portability subset struct is not part of the main feature chain above, so
+            // query it on its own instead of calling get<>() on a chain that lacks it.
+            const vk::StructureChain portability_chain =
+                physical_device.getFeatures2<vk::PhysicalDeviceFeatures2,
+                                             vk::PhysicalDevicePortabilitySubsetFeaturesKHR>();
             portability_features =
-                feature_chain.get<vk::PhysicalDevicePortabilitySubsetFeaturesKHR>();
+                portability_chain.get<vk::PhysicalDevicePortabilitySubsetFeaturesKHR>();
         }
     }
 #endif
