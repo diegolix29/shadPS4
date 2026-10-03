@@ -159,8 +159,6 @@ static bool ExecuteCopyShaderHLE(const Shader::Info& info, const AmdGpu::Compute
                 vk::DependencyFlagBits::eByRegion, UPLOAD_BARRIER, {}, {});
         }
 
-        const auto vk_copies = std::span{copies}.subspan(batch_start, batch_end - batch_start);
-
         auto* memory = Core::Memory::Instance();
         const VAddr src_span_addr = src_buf_sharp.base_address + src_offset_min;
         const VAddr dst_span_addr = dst_buf_sharp.base_address + dst_offset_min;

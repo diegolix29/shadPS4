@@ -504,6 +504,16 @@ bool MemoryManager::WalkBackingLocked(VAddr source, u8* destination, u64 size) {
     return true;
 }
 
+bool MemoryManager::IsBackedRange(VAddr source, u64 size) {
+    std::shared_lock lk{mutex};
+    return WalkBackingLocked<false>(source, nullptr, size);
+}
+
+bool MemoryManager::ReadBacking(VAddr source, u8* destination, u64 size) {
+    std::shared_lock lk{mutex};
+    return WalkBackingLocked<true>(source, destination, size);
+}
+
 u8* MemoryManager::TryGetBacking(VAddr virtual_addr, u64 size) {
     std::shared_lock lk{mutex};
     if (!size || !IsValidMapping(virtual_addr, size)) {
