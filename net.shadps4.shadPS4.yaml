@@ -78,6 +78,10 @@ modules:
         url: https://github.com/diegolix29/shadPS4
         branch: Shadlix
         disable-fsckobjects: true
+        # Shallow clones only resolve submodule commits that sit at the tip of a branch/tag.
+        # mesa-kosmickrisp pins a nested mesa commit that isn't one, which fails with
+        # "upload-pack: not our ref". A full clone can find any reachable commit.
+        disable-shallow-clone: true
         x-checker-data:
           type: json
           url: https://api.github.com/repos/diegolix29/shadPS4/releases

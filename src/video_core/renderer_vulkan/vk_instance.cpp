@@ -211,21 +211,18 @@ std::string Instance::GetDriverVersionName() {
 }
 
 bool Instance::CreateDevice() {
-    const vk::StructureChain feature_chain =
-        physical_device
-            .getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
-                          vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
-                          vk::PhysicalDeviceRobustness2FeaturesEXT,
-                          vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT,
-                          vk::PhysicalDevicePrimitiveTopologyListRestartFeaturesEXT,
-                          vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
-                          vk::PhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR,
-                          vk::PhysicalDeviceImage2DViewOf3DFeaturesEXT,
-                          vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT,
-                          vk::PhysicalDevicePresentId2FeaturesKHR,
-                          vk::PhysicalDevicePresentWait2FeaturesKHR,
-                          vk::PhysicalDevicePresentIdFeaturesKHR,
-                          vk::PhysicalDevicePresentWaitFeaturesKHR>();
+    const vk::StructureChain feature_chain = physical_device.getFeatures2<
+        vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
+        vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
+        vk::PhysicalDeviceRobustness2FeaturesEXT,
+        vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT,
+        vk::PhysicalDevicePrimitiveTopologyListRestartFeaturesEXT,
+        vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
+        vk::PhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR,
+        vk::PhysicalDeviceImage2DViewOf3DFeaturesEXT,
+        vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT, vk::PhysicalDevicePresentId2FeaturesKHR,
+        vk::PhysicalDevicePresentWait2FeaturesKHR, vk::PhysicalDevicePresentIdFeaturesKHR,
+        vk::PhysicalDevicePresentWaitFeaturesKHR>();
     features = feature_chain.get().features;
 
     const vk::StructureChain properties_chain = physical_device.getProperties2<
@@ -385,6 +382,21 @@ bool Instance::CreateDevice() {
         (present_wait2 || present_wait) && add_extension(VK_NV_LOW_LATENCY_2_EXTENSION_NAME);
 #if TRACY_GPU_ENABLED
     calibrated_timestamps = add_extension(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
+#endif
+
+#ifdef __APPLE__
+    if (driver_id == vk::DriverId::eMoltenvk) {
+        portability_subset = add_extension(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+        if (portability_subset) {
+            // The portability subset struct is not part of the main feature chain above, so
+            // query it on its own instead of calling get<>() on a chain that lacks it.
+            const vk::StructureChain portability_chain =
+                physical_device.getFeatures2<vk::PhysicalDeviceFeatures2,
+                                             vk::PhysicalDevicePortabilitySubsetFeaturesKHR>();
+            portability_features =
+                portability_chain.get<vk::PhysicalDevicePortabilitySubsetFeaturesKHR>();
+        }
+    }
 #endif
 
     const auto family_properties = physical_device.getQueueFamilyProperties();
@@ -601,6 +613,9 @@ bool Instance::CreateDevice() {
         vk::PhysicalDevicePresentWaitFeaturesKHR{
             .presentWait = true,
         },
+#ifdef __APPLE__
+        portability_features,
+#endif
     };
 
     if (!custom_border_color) {
@@ -657,6 +672,11 @@ bool Instance::CreateDevice() {
         device_chain.unlink<vk::PhysicalDevicePresentIdFeaturesKHR>();
         device_chain.unlink<vk::PhysicalDevicePresentWaitFeaturesKHR>();
     }
+#ifdef __APPLE__
+    if (!portability_subset) {
+        device_chain.unlink<vk::PhysicalDevicePortabilitySubsetFeaturesKHR>();
+    }
+#endif
 
     auto [device_result, dev] = physical_device.createDeviceUnique(device_chain.get());
     if (device_result != vk::Result::eSuccess) {
@@ -796,7 +816,7 @@ void Instance::CollectPhysicalMemoryInfo() {
     // Leave at least 8 GB for the system on integrated GPUs.
     const s64 available_memory = static_cast<s64>(total_memory_budget - device_initial_usage);
     total_memory_budget =
-        static_cast<u64>(std::max<s64>(available_memory - 8_GB, static_cast<s64>(local_memory)));
+        static_cast<u64>(std::max<s64>(available_memory - 8_GB, static_cast<s64>(2_GB)));
 }
 
 void Instance::CollectImageFormatInfo() {
@@ -867,7 +887,9 @@ u64 Instance::GetDeviceMemoryUsage() const {
     for (const size_t heap : valid_heaps) {
         total_usage += memory_budget_props.heapUsage[heap];
     }
-    return total_usage;
+
+    const u64 ps4_vram_limit = 4_GB;
+    return std::min(total_usage, ps4_vram_limit);
 }
 
 vk::FormatFeatureFlags2 Instance::GetFormatFeatureFlags(vk::Format format) const {
@@ -902,6 +924,11 @@ vk::Format Instance::GetSupportedFormat(const vk::Format format,
         case vk::Format::eR8Srgb:
             if (IsFormatSupported(vk::Format::eR8Unorm, flags)) {
                 return vk::Format::eR8Unorm;
+            }
+            break;
+        case vk::Format::eR8G8Srgb:
+            if (IsFormatSupported(vk::Format::eR8G8Unorm, flags)) {
+                return vk::Format::eR8G8Unorm;
             }
             break;
         default:
