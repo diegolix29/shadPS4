@@ -1443,7 +1443,7 @@ target_link_libraries(shadps4 PRIVATE libprotobuf)
 
 target_link_libraries(shadps4 PRIVATE Freetype::Freetype)
 target_link_libraries(shadps4 PRIVATE ZArchive::zarchive)
-
+target_link_libraries(shadps4 PRIVATE libzstd_static)
 target_include_directories(shadps4 PRIVATE "${SHADNET_PROTO_OUT}")
 
 if (ENABLE_DISCORD_RPC)
@@ -1580,6 +1580,7 @@ cmrc_add_resource_library(embedded-resources
         src/images/big_picture/log.png
         src/images/big_picture/profiles.png
         src/images/trophy.wav
+        src/images/amd_rcp_index_table.bin.zstd
         src/images/bgm.wav
         src/images/tick.mp3
         src/images/play.mp3

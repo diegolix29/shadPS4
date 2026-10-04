@@ -272,15 +272,20 @@ void Module::LoadModuleToMemory(u32& max_tls_index) {
     }
 
 #if defined(ARCH_X86_64) && defined(_WIN32)
+    // Red-zone relocation and CPU trampolines share one pass so stolen spans cannot
+    // re-emit a raw Intel VRCPPS and bypass the AMD RCP fixup.
+    constexpr bool enable_red_zone_patching = true;
     for (const auto& [segment_addr, segment_size] : executable_segments) {
         const auto result =
-            PatchRedZoneMemoryInstructions(segment_addr, segment_size, function_starts);
+            enable_red_zone_patching
+                ? PatchRedZoneMemoryInstructions(segment_addr, segment_size, function_starts)
+                : PatchCpuInstructionsStatically(segment_addr, segment_size, function_starts);
         LOG_DEBUG(
             Core_Linker,
-            "Windows red-zone patching for {}: {} functions, {} instructions, {} red-zone "
+            "Windows static patching for {}: {} functions, {} instructions, {} red-zone "
             "functions, {}/{} memory instructions patched "
             "({} short, {} stack-dependent, {} control-flow, {} unrelocatable), "
-            "{}/{} short CPU patches applied ({} unsupported), {} indirect red-zone functions",
+            "{}/{} CPU trampoline patches applied ({} unsupported), {} indirect red-zone functions",
             name, result.function_count, result.instruction_count, result.red_zone_function_count,
             result.patched_memory_instruction_count, result.memory_instruction_count,
             result.short_memory_instruction_count, result.stack_dependent_memory_instruction_count,

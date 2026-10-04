@@ -35,4 +35,9 @@ void PrePatchInstructions(u64 segment_addr, u64 segment_size);
 RedZonePatchResult PatchRedZoneMemoryInstructions(u64 segment_addr, u64 segment_size,
                                                   std::span<const uintptr_t> function_starts);
 
+/// Applies CPU instruction patches (including short trampolines such as VRCPPS) without
+/// relocating memory accesses for red-zone protection.
+RedZonePatchResult PatchCpuInstructionsStatically(u64 segment_addr, u64 segment_size,
+                                                  std::span<const uintptr_t> function_starts);
+
 } // namespace Core
