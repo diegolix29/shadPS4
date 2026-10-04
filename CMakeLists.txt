@@ -1581,6 +1581,7 @@ cmrc_add_resource_library(embedded-resources
         src/images/big_picture/profiles.png
         src/images/trophy.wav
         src/images/amd_rcp_index_table.bin.zstd
+        src/images/amd_rsqrt_index_table.bin.zstd
         src/images/bgm.wav
         src/images/tick.mp3
         src/images/play.mp3
