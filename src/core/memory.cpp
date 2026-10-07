@@ -290,8 +290,7 @@ void MemoryManager::CopySparseMemory(VAddr source, u8* destination, u64 size) {
     CopySparseMemoryBatch(std::span<const SparseCopyRequest>{&request, 1}, size);
 }
 
-bool MemoryManager::ResolveMappedSpan(VAddr source, u64 size, VAddr& span_begin,
-                                      VAddr& span_end) {
+bool MemoryManager::ResolveMappedSpan(VAddr source, u64 size, VAddr& span_begin, VAddr& span_end) {
     const auto upper = vma_map.upper_bound(source);
     if (upper == vma_map.begin()) [[unlikely]] {
         return false;
@@ -304,8 +303,7 @@ bool MemoryManager::ResolveMappedSpan(VAddr source, u64 size, VAddr& span_begin,
 
     span_begin = area.base;
     span_end = area.base + area.size;
-    for (++vma; vma != vma_map.end() && vma->second.IsMapped() &&
-                vma->second.base == span_end;
+    for (++vma; vma != vma_map.end() && vma->second.IsMapped() && vma->second.base == span_end;
          ++vma) {
         span_end += vma->second.size;
     }
@@ -364,8 +362,7 @@ void MemoryManager::CopySparseMemoryBatch(std::span<const SparseCopyRequest> req
 
     std::shared_lock lk{mutex};
     bool used_non_temporal = false;
-    const bool use_non_temporal =
-        allow_non_temporal && total_size >= NonTemporalCopyThreshold;
+    const bool use_non_temporal = allow_non_temporal && total_size >= NonTemporalCopyThreshold;
 
     auto& dense_cache = dense_copy_cache;
     if (dense_cache.owner != this || dense_cache.generation != mapping_generation) {
@@ -502,6 +499,22 @@ bool MemoryManager::WalkBackingLocked(VAddr source, u8* destination, u64 size) {
         size -= run;
     }
     return true;
+}
+
+bool MemoryManager::IsBackedRange(VAddr source, u64 size) {
+    if (size == 0) {
+        return true;
+    }
+    std::shared_lock lk{mutex};
+    return WalkBackingLocked<false>(source, nullptr, size);
+}
+
+bool MemoryManager::ReadBacking(VAddr source, u8* destination, u64 size) {
+    if (size == 0) {
+        return true;
+    }
+    std::shared_lock lk{mutex};
+    return WalkBackingLocked<true>(source, destination, size);
 }
 
 u8* MemoryManager::TryGetBacking(VAddr virtual_addr, u64 size) {

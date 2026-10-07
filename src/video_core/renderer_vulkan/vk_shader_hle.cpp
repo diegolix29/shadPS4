@@ -8,6 +8,8 @@
 #include "common/alignment.h"
 #include "core/memory.h"
 #include "shader_recompiler/info.h"
+#include "video_core/gpu_authority_tracker.h"
+#include "video_core/guest_copy_engine.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_hle.h"
@@ -159,8 +161,6 @@ static bool ExecuteCopyShaderHLE(const Shader::Info& info, const AmdGpu::Compute
                 vk::DependencyFlagBits::eByRegion, UPLOAD_BARRIER, {}, {});
         }
 
-        const auto vk_copies = std::span{copies}.subspan(batch_start, batch_end - batch_start);
-
         auto* memory = Core::Memory::Instance();
         const VAddr src_span_addr = src_buf_sharp.base_address + src_offset_min;
         const VAddr dst_span_addr = dst_buf_sharp.base_address + dst_offset_min;
@@ -168,17 +168,29 @@ static bool ExecuteCopyShaderHLE(const Shader::Info& info, const AmdGpu::Compute
             memory->TryGetBacking(src_span_addr, src_offset_max - src_offset_min);
         u8* dst_backing = memory->TryGetBacking(dst_span_addr, dst_offset_max - dst_offset_min);
         if (src_backing && dst_backing) {
+            // The backing view ignores page protection, so this path must do by hand what the
+            // guest mapping and TryWriteBacking do on their own: materialize GPU-owned source
+            // bytes, wait for deferred copies still reading the destination, and tell the
+            // rasterizer the destination changed.
+            const auto mirror_copy = [&](const vk::BufferCopy& copy) {
+                const VAddr src_addr = src_buf_sharp.base_address + copy.srcOffset;
+                const VAddr dst_addr = dst_buf_sharp.base_address + copy.dstOffset;
+                VideoCore::GpuAuthorityTracker::Instance().ResolveForRamRead(src_addr, copy.size);
+                VideoCore::GuestCopyEngine::Instance().WaitForGuestWrite(dst_addr, copy.size);
+                memcpy(dst_backing + (copy.dstOffset - dst_offset_min),
+                       src_backing + (copy.srcOffset - src_offset_min), copy.size);
+                rasterizer.NotifyMemoryWrite(dst_addr, copy.size,
+                                             VideoCore::MemoryWriteSource::CommandProcessor);
+            };
             if (!buffer_cache.IsRegionGpuModified(src_span_addr, src_offset_max - src_offset_min)) {
                 for (const auto& copy : vk_copies) {
-                    memcpy(dst_backing + (copy.dstOffset - dst_offset_min),
-                           src_backing + (copy.srcOffset - src_offset_min), copy.size);
+                    mirror_copy(copy);
                 }
             } else {
                 for (const auto& copy : vk_copies) {
                     if (!buffer_cache.IsRegionGpuModified(
                             src_buf_sharp.base_address + copy.srcOffset, copy.size)) {
-                        memcpy(dst_backing + (copy.dstOffset - dst_offset_min),
-                               src_backing + (copy.srcOffset - src_offset_min), copy.size);
+                        mirror_copy(copy);
                     }
                 }
             }
