@@ -16,6 +16,11 @@ if (MSVC)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS)
 endif()
 
+# Silence incompatible pointer types warning in vendored FLAC (SDL3_mixer)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-Wno-incompatible-pointer-types)
+endif()
+
 # Boost
 if (NOT TARGET Boost::headers)
     add_subdirectory(ext-boost)
