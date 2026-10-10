@@ -16,6 +16,11 @@ if (MSVC)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS)
 endif()
 
+# Silence incompatible pointer types warning in vendored FLAC (SDL3_mixer)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-Wno-incompatible-pointer-types)
+endif()
+
 # Boost
 if (NOT TARGET Boost::headers)
     add_subdirectory(ext-boost)
@@ -447,6 +452,9 @@ endif()
 
 # abseil (for protobuf)
 if (NOT TARGET absl::strings)
+    # Disable ABSL_PROPAGATE_CXX_STD to avoid compile feature errors with newer Clang versions
+    # The parent project already sets C++23, so this is safe to disable
+    set(ABSL_PROPAGATE_CXX_STD OFF CACHE BOOL "" FORCE)
     add_subdirectory(abseil-cpp EXCLUDE_FROM_ALL)
 endif()
 
