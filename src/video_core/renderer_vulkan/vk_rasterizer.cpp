@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <cstdlib>
 
 #include "common/config.h"
 #include "common/debug.h"
@@ -90,7 +91,17 @@ bool Rasterizer::FilterDraw() {
     }
     if (regs.color_control.mode == AmdGpu::ColorControl::OperationMode::FmaskDecompress) {
         // TODO: check for a valid MRT1 to promote the draw to the resolve pass.
-        LOG_TRACE(Render_Vulkan, "FMask decompression pass skipped");
+        // Samples are kept uncompressed, so only the fast clear expansion matters: the surface
+        // reads back with the clear color wherever nothing was drawn since the clear (UFC 4
+        // resolves an untouched tattoo layer target for fighters without tattoos).
+        // SHADPS4_FMASK_DECOMPRESS=0 skips the pass as before (A/B test).
+        static const bool expand_clear = [] {
+            const char* env = std::getenv("SHADPS4_FMASK_DECOMPRESS");
+            return !env || env[0] != '0';
+        }();
+        if (expand_clear) {
+            EliminateFastClear();
+        }
         ScopedMarkerInsert("FmaskDecompress");
         return false;
     }
@@ -190,8 +201,15 @@ void Rasterizer::EliminateFastClear() {
     }
     VideoCore::TextureCache::ImageDesc desc(col_buf, liverpool->last_cb_extent[0]);
     const auto image_id = texture_cache.FindImage(desc);
+    // A multisampled image cannot be uploaded from guest memory, so one the GPU never rendered
+    // to has undefined contents. The game fast cleared it, possibly before its CMASK was known
+    // here (it only gets tracked once the target is bound), and expands the clear now.
+    const auto& found = texture_cache.GetImage(image_id);
+    const bool undefined_msaa =
+        found.info.num_samples > 1 && False(found.flags & VideoCore::ImageFlagBits::GpuModified);
     const auto& image_view = texture_cache.FindRenderTarget(image_id, desc);
-    if (!texture_cache.IsMetaCleared(col_buf.CmaskAddress(), col_buf.view.slice_start)) {
+    if (!undefined_msaa &&
+        !texture_cache.IsMetaCleared(col_buf.CmaskAddress(), col_buf.view.slice_start)) {
         return;
     }
     for (u32 slice = col_buf.view.slice_start; slice <= col_buf.view.slice_max; ++slice) {
