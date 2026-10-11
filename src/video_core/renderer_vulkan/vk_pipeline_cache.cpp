@@ -830,8 +830,10 @@ PipelineCache::Result PipelineCache::GetProgram(HwStage hw_stage, SwStage sw_sta
         perm_idx = std::distance(program->modules.begin(), it);
         perm_hash = HashCombine(params.hash, perm_idx);
 
-        // Check for patches even on cached shaders
-        if (Config::patchShaders()) {
+        // Check for patches even on cached shaders, but only once per permutation: this path
+        // runs for every draw, and reloading the patch from disk each time tanks performance.
+        if (Config::patchShaders() && !it->patch_checked) {
+            it->patch_checked = true;
             auto patch = GetShaderPatch(info.pgm_hash, info.hw_stage, perm_idx, "spv");
             if (patch) {
                 const auto& d = instance.GetDevice();
