@@ -877,6 +877,28 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
                 }
                 const auto [buffer, offset] = buffer_cache.ObtainBuffer(
                     vsharp.base_address, size, desc.is_written, desc.is_formatted);
+                // A shader reading a color buffer's CMASK (UFC 4's native resolution composite
+                // only blends the UI layer into tiles whose CMASK bits are set): emulated draws
+                // never update CMASK, so report every tile as written. Images hold the real
+                // contents (cleared parts are transparent), so this matches the hardware result.
+                static const bool cmask_expand = [] {
+                    const char* env = std::getenv("SHADPS4_CMASK_EXPAND");
+                    return !env || env[0] != '0';
+                }();
+                if (cmask_expand && !desc.is_written &&
+                    texture_cache.IsMeta(vsharp.base_address) ==
+                        VideoCore::TextureCache::MetaType::CMask) {
+                    const u64 fill_offset = Common::AlignDown(offset, 4);
+                    const u64 fill_size = Common::AlignUp(offset + size, 4) - fill_offset;
+                    runtime.FillBuffer(buffer, fill_offset, fill_size, 0xFFFFFFFFu);
+                    static bool logged = false;
+                    if (!logged) {
+                        logged = true;
+                        LOG_INFO(Render_Vulkan,
+                                 "Shader {:#x} reads CMASK {:#x}: reporting all tiles as written",
+                                 stage.pgm_hash, vsharp.base_address);
+                    }
+                }
                 const u64 offset_aligned = Common::AlignDown(offset, alignment);
                 const u64 adjust = offset - offset_aligned;
                 if (adjust % 4 != 0) {
