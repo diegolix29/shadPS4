@@ -208,6 +208,17 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(HwStage stage, SwStag
         for (u32 i = 0; i < Shader::MaxColorBuffers; i++) {
             info.hw.fs.color_buffers[i] = graphics_key.color_buffers[i];
         }
+        // DB_ALPHA_TO_MASK: with one sample the hardware turns MRT0 alpha into a 2x2 dither
+        // pattern (games resolve it with TAA, e.g. hair cards). Emulated in the shader.
+        static const bool alpha_to_mask_enabled = [] {
+            const char* env = std::getenv("SHADPS4_ALPHA_TO_MASK");
+            return !env || env[0] != '0';
+        }();
+        const u32 alpha_to_mask = regs.reg_array[AmdGpu::Regs::ContextRegWordOffset + 0x2DC];
+        info.hw.fs.alpha_to_mask =
+            alpha_to_mask_enabled && (alpha_to_mask & 1) && graphics_key.num_samples <= 1
+                ? (alpha_to_mask & 0x1FF01)
+                : 0;
         // Lowered user clip planes ride the same emulation path as guest-exported distances, so
         // the fragment side arms whenever the hardware vertex stage lowers them, keeping its input
         // locations in sync with the shifted vertex outputs.
@@ -519,6 +530,15 @@ bool PipelineCache::RefreshGraphicsKey() {
             key.num_samples = key.depth_samples;
         }
     }
+
+    // DB_ALPHA_TO_MASK on a multisampled target maps to Vulkan alpha to coverage (hair cards
+    // rely on it for soft edges). Single sample targets are handled in the fragment shader.
+    static const bool alpha_to_mask_enabled = [] {
+        const char* env = std::getenv("SHADPS4_ALPHA_TO_MASK");
+        return !env || env[0] != '0';
+    }();
+    key.alpha_to_coverage = alpha_to_mask_enabled && key.num_samples > 1 &&
+                            (regs.reg_array[AmdGpu::Regs::ContextRegWordOffset + 0x2DC] & 1);
 
     return true;
 }
