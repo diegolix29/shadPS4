@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <variant>
 #include <tsl/robin_map.h>
 #include "shader_recompiler/profile.h"
@@ -78,6 +79,9 @@ public:
     void WarmUp();
     void Sync();
 
+    /// Writes the driver pipeline cache to disk.
+    void SaveVkPipelineCache();
+
     bool LoadComputePipeline(Serialization::Archive& ar);
     bool LoadGraphicsPipeline(Serialization::Archive& ar);
     bool LoadPipelineStage(Serialization::Archive& ar, size_t stage);
@@ -115,6 +119,8 @@ private:
                                    const std::span<const u32>& code, size_t perm_idx,
                                    Shader::Backend::Bindings& binding);
     const Shader::RuntimeInfo& BuildRuntimeInfo(Shader::HwStage stage, Shader::SwStage l_stage);
+
+    std::filesystem::path VkPipelineCachePath() const;
 
     [[nodiscard]] bool IsPipelineCacheDirty() const {
         return num_new_pipelines > 0;

@@ -193,9 +193,22 @@ bool WriteVector(const BlobType type, std::filesystem::path&& path_, std::vector
                     LOG_ERROR(Render, "Failed to add {} to the archive", path.string().c_str());
                 }
             } else {
+                // Write to a temporary file and rename it into place: an entry cut short by a
+                // forced exit would otherwise be loaded (and crash) on the next start.
                 using namespace Common::FS;
-                const auto file = IOFile{path, FileAccessMode::Create};
-                file.Write(v);
+                auto tmp_path = path;
+                tmp_path += ".tmp";
+                {
+                    const auto file = IOFile{tmp_path, FileAccessMode::Create};
+                    file.Write(v);
+                }
+                std::error_code ec;
+                std::filesystem::rename(tmp_path, path, ec);
+                if (ec) {
+                    LOG_ERROR(Render, "Failed to store cache entry {}: {}", path.string(),
+                              ec.message());
+                    std::filesystem::remove(tmp_path, ec);
+                }
             }
         }};
         std::scoped_lock lock{m_request};

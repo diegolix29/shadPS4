@@ -5,6 +5,7 @@
 #include <ranges>
 
 #include "common/config.h"
+#include "common/elf_info.h"
 #include "common/hash.h"
 #include "common/io_file.h"
 #include "common/path_util.h"
@@ -367,15 +368,72 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
         .needs_clip_distance_emulation = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
         .supports_shader_stencil_export = instance_.IsShaderStencilExportSupported(),
     };
-    WarmUp();
-
-    auto [cache_result, cache] = instance.GetDevice().createPipelineCacheUnique({});
+    // Driver-compiled pipelines persist across runs so preloading and shaders seen before
+    // don't have to be compiled by the driver again.
+    std::vector<u8> cache_data;
+    if (Config::isPipelineCacheEnabled()) {
+        const auto path = VkPipelineCachePath();
+        if (std::filesystem::exists(path)) {
+            Common::FS::IOFile file{path, Common::FS::FileAccessMode::Read};
+            cache_data.resize(file.GetSize());
+            file.Read(cache_data);
+        }
+    }
+    auto [cache_result, cache] =
+        instance.GetDevice().createPipelineCacheUnique(vk::PipelineCacheCreateInfo{
+            .initialDataSize = cache_data.size(), .pInitialData = cache_data.data()});
+    if (cache_result != vk::Result::eSuccess && !cache_data.empty()) {
+        LOG_WARNING(Render_Vulkan, "Vulkan pipeline cache data rejected, starting empty");
+        cache_data.clear();
+        auto empty = instance.GetDevice().createPipelineCacheUnique({});
+        cache_result = empty.result;
+        cache = std::move(empty.value);
+    }
     ASSERT_MSG(cache_result == vk::Result::eSuccess, "Failed to create pipeline cache: {}",
                vk::to_string(cache_result));
     pipeline_cache = std::move(cache);
+    LOG_INFO(Render_Vulkan, "Vulkan pipeline cache: loaded {} KB", cache_data.size() / 1024);
+
+    WarmUp();
+    if (num_new_pipelines == 0) {
+        SaveVkPipelineCache();
+    }
 }
 
-PipelineCache::~PipelineCache() = default;
+std::filesystem::path PipelineCache::VkPipelineCachePath() const {
+    const auto props = instance.GetPhysicalDevice().getProperties();
+    return Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
+           fmt::format("{}_vk_{:04x}_{:04x}.bin", Common::ElfInfo::Instance().GameSerial(),
+                       props.vendorID, props.deviceID);
+}
+
+void PipelineCache::SaveVkPipelineCache() {
+    if (!Config::isPipelineCacheEnabled() || !pipeline_cache) {
+        return;
+    }
+    const auto [result, data] = instance.GetDevice().getPipelineCacheData(*pipeline_cache);
+    if (result != vk::Result::eSuccess || data.empty()) {
+        return;
+    }
+    const auto path = VkPipelineCachePath();
+    auto tmp = path;
+    tmp += ".tmp";
+    {
+        Common::FS::IOFile file{tmp, Common::FS::FileAccessMode::Create};
+        if (!file.IsOpen() || file.WriteSpan(std::span<const u8>{data}) != data.size()) {
+            return;
+        }
+    }
+    std::error_code ec;
+    std::filesystem::rename(tmp, path, ec);
+    LOG_INFO(Render_Vulkan, "Vulkan pipeline cache saved: {} KB", data.size() / 1024);
+}
+
+PipelineCache::~PipelineCache() {
+    if (num_new_pipelines % 50 != 0) {
+        SaveVkPipelineCache();
+    }
+}
 
 const GraphicsPipeline* PipelineCache::GetGraphicsPipeline(const DrawIndirectParams params) {
     draw_indirect_params = params;
@@ -393,7 +451,9 @@ const GraphicsPipeline* PipelineCache::GetGraphicsPipeline(const DrawIndirectPar
             runtime_infos, fetch_shader, modules, sdata, false);
 
         RegisterPipelineData(graphics_key, pipeline_hash, sdata);
-        ++num_new_pipelines;
+        if (++num_new_pipelines % 50 == 0) {
+            SaveVkPipelineCache();
+        }
 
         if (Config::collectShadersForDebug()) {
             for (auto stage = 0; stage < MaxShaderStages; ++stage) {
@@ -421,7 +481,9 @@ const ComputePipeline* PipelineCache::GetComputePipeline() {
                                                        *pipeline_cache, compute_key, *infos[0],
                                                        modules[0], sdata, false);
         RegisterPipelineData(compute_key, sdata);
-        ++num_new_pipelines;
+        if (++num_new_pipelines % 50 == 0) {
+            SaveVkPipelineCache();
+        }
 
         if (Config::collectShadersForDebug()) {
             auto& m = modules[0];
