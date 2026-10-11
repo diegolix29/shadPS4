@@ -280,11 +280,20 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(HwStage stage, SwStag
     return info;
 }
 
-// Intel produces NaNs in places where GCN does not, and blur chains spread a single NaN into
-// large black blocks. On by default there; SHADPS4_NAN_GUARD=0/1 overrides.
+// GPUs whose shader execution differs from GCN in ways games rely on (NaN results, how
+// subgroups are formed): Intel, where the problems were found, and NVIDIA, which shows the same
+// symptoms in UFC 4 (black squares, broken compute results).
+static bool NeedsGcnWorkarounds(const Instance& instance) {
+    const auto driver = instance.GetDriverID();
+    return driver == vk::DriverId::eIntelProprietaryWindows ||
+           driver == vk::DriverId::eIntelOpenSourceMESA ||
+           driver == vk::DriverId::eNvidiaProprietary || driver == vk::DriverId::eMesaNvk;
+}
+
+// Intel and NVIDIA produce NaNs in places where GCN does not, and blur chains spread a single
+// NaN into large black blocks. On by default there; SHADPS4_NAN_GUARD=0/1 overrides.
 static bool SanitizeNanOutputs(const Instance& instance) {
-    bool enabled = instance.GetDriverID() == vk::DriverId::eIntelProprietaryWindows ||
-                   instance.GetDriverID() == vk::DriverId::eIntelOpenSourceMESA;
+    bool enabled = NeedsGcnWorkarounds(instance);
     if (const char* env = std::getenv("SHADPS4_NAN_GUARD")) {
         enabled = env[0] == '1';
     }
@@ -295,10 +304,9 @@ static bool SanitizeNanOutputs(const Instance& instance) {
 // GCN packs waves from consecutive flattened thread ids. Intel may pack subgroups of 2D/3D
 // workgroups in tiles, which breaks wave-lockstep code that relies on a row being one wave.
 // Declaring 1D workgroups and rebuilding the 3D local id keeps the GCN mapping.
-// On by default for Intel; SHADPS4_FLATTEN_WG=0/1 overrides.
+// On by default for Intel and NVIDIA; SHADPS4_FLATTEN_WG=0/1 overrides.
 static bool FlattenComputeWorkgroups(const Instance& instance) {
-    bool enabled = instance.GetDriverID() == vk::DriverId::eIntelProprietaryWindows ||
-                   instance.GetDriverID() == vk::DriverId::eIntelOpenSourceMESA;
+    bool enabled = NeedsGcnWorkarounds(instance);
     if (const char* env = std::getenv("SHADPS4_FLATTEN_WG")) {
         enabled = env[0] == '1';
     }
