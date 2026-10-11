@@ -22,17 +22,20 @@ fixes made while getting **EA SPORTS UFC 4 (CUSA14204)** to run correctly on an 
 
 ### What is fixed
 
+**UFC 4 status: career mode is fully playable, and the hair bug is fixed.**
+
 | Problem | Change |
 |---|---|
 | Black squares on models, flickering floor, gaps in shadows (Intel) | Subgroup size 32, 1D compute workgroups, LDS ordering barriers, NaN guard on Intel and NVIDIA; NaN-aware min/max |
 | Shadow acne on Intel/NVIDIA | Depth bias scaled for emulated D16S8 depth |
-| Flat, hard-edged hair | Alpha to coverage (DB_ALPHA_TO_MASK) |
+| Hair bug: flat, hard-edged hair | Fixed: alpha to coverage (DB_ALPHA_TO_MASK) |
 | Create Fighter: grey skin | GPU-compressed textures go through memory; GPU images are flushed before CPU writes |
 | Create Fighter: pieces of other skins after choosing a preset | FMASK decompress expands fast clears |
 | Stutter / heavy memory traffic while editing a fighter | Lazy write-back of storage image aliases (about 87 % less traffic) |
 | Random freeze, picture stops while sound keeps playing | Self-heal for pages that stay write-protected without an owner |
 | Menus invisible at native resolution | Shaders that read CMASK see every tile as written |
 | Shader compile stutter on later runs | Vulkan pipeline cache kept on disk, atomic shader cache writes |
+| Career mode not playable (broken fighter skins, freezes) | Fully playable: skin, freeze and avatar fixes in this table |
 | Black pictures of created fighters (avatars) | Linear images written by compute shaders are copied back to memory, so the game can save them |
 
 Also included: fixes from the official [shadPS4](https://github.com/shadps4-emu/shadPS4) (October 2026):
