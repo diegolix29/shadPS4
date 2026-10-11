@@ -96,8 +96,8 @@ Instance::Instance(bool enable_validation, bool enable_crash_diagnostic, bool ma
 
 Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index, bool enable_validation,
                    bool enable_crash_diagnostic, bool manage_imgui)
-    : instance{CreateInstance(window.GetWindowInfo().type, enable_validation,
-                              enable_crash_diagnostic)},
+    : instance{
+          CreateInstance(window.GetWindowInfo().type, enable_validation, enable_crash_diagnostic)},
       physical_devices{EnumeratePhysicalDevices(instance)}, manage_imgui{manage_imgui} {
     if (enable_validation) {
         debug_callback = CreateDebugCallback(*instance);
@@ -225,6 +225,9 @@ bool Instance::CreateDevice() {
     vk13_props = properties_chain.get<vk::PhysicalDeviceVulkan13Properties>();
     push_descriptor_props = properties_chain.get<vk::PhysicalDevicePushDescriptorPropertiesKHR>();
     LOG_INFO(Render_Vulkan, "Physical device subgroup size {}", vk11_props.subgroupSize);
+    LOG_INFO(Render_Vulkan, "Subgroup size range {}-{}, required size stages: {}",
+             vk13_props.minSubgroupSize, vk13_props.maxSubgroupSize,
+             vk::to_string(vk13_props.requiredSubgroupSizeStages));
 
     if (available_extensions.empty()) {
         LOG_CRITICAL(Render_Vulkan, "No extensions supported by device.");

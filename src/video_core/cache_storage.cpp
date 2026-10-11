@@ -14,6 +14,7 @@
 #include <miniz.h>
 
 #include <condition_variable>
+#include <cstdlib>
 #include <functional>
 #include <future>
 #include <mutex>
@@ -101,13 +102,20 @@ void DataBase::Open() {
     }
 
     const auto& game_info = Common::ElfInfo::Instance();
+    std::string cache_name{game_info.GameSerial()};
+    // Options that change generated shaders get their own cache.
+    for (const char* var : {"SHADPS4_LDS_ORDER", "SHADPS4_FLATTEN_WG", "SHADPS4_NAN_GUARD"}) {
+        if (const char* value = std::getenv(var); value && *value) {
+            cache_name += fmt::format("_{}{}", var + 8, value);
+        }
+    }
 
     using namespace Common::FS;
     if (Config::isPipelineCacheArchived()) {
         mz_zip_zero_struct(&zip_ar);
 
         cache_path = GetUserPath(PathType::CacheDir) /
-                     std::filesystem::path{game_info.GameSerial()}.replace_extension(".zip");
+                     std::filesystem::path{cache_name}.replace_extension(".zip");
 
         if (!mz_zip_reader_init_file(&zip_ar, cache_path.string().c_str(),
                                      MZ_ZIP_FLAG_READ_ALLOW_WRITING) ||
@@ -118,7 +126,7 @@ void DataBase::Open() {
             mz_zip_writer_init_file(&zip_ar, cache_path.string().c_str(), 0);
         }
     } else {
-        cache_path = GetUserPath(PathType::CacheDir) / game_info.GameSerial();
+        cache_path = GetUserPath(PathType::CacheDir) / cache_name;
         if (!std::filesystem::exists(cache_path)) {
             std::filesystem::create_directories(cache_path);
         }

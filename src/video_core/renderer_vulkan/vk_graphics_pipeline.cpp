@@ -245,11 +245,13 @@ GraphicsPipeline::GraphicsPipeline(
         });
     }
 
-    const vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo subgroup_size_ci = {
-        .requiredSubgroupSize = 64,
-    };
-    for (auto& stage : shader_stages) {
-        stage.pNext = instance.IsSubgroupSize64Supported() ? &subgroup_size_ci : nullptr;
+    std::array<vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo, MaxShaderStages>
+        subgroup_size_cis{};
+    for (size_t i = 0; i < shader_stages.size(); ++i) {
+        auto& stage = shader_stages[i];
+        subgroup_size_cis[i].requiredSubgroupSize = instance.RequiredSubgroupSize(stage.stage);
+        stage.pNext =
+            subgroup_size_cis[i].requiredSubgroupSize != 0 ? &subgroup_size_cis[i] : nullptr;
     }
 
     const auto depth_format =

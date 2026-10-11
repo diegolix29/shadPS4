@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdlib>
 #include <ranges>
 
 #include "common/config.h"
@@ -267,6 +268,32 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(HwStage stage, SwStag
     return info;
 }
 
+// Intel produces NaNs in places where GCN does not, and blur chains spread a single NaN into
+// large black blocks. On by default there; SHADPS4_NAN_GUARD=0/1 overrides.
+static bool SanitizeNanOutputs(const Instance& instance) {
+    bool enabled = instance.GetDriverID() == vk::DriverId::eIntelProprietaryWindows ||
+                   instance.GetDriverID() == vk::DriverId::eIntelOpenSourceMESA;
+    if (const char* env = std::getenv("SHADPS4_NAN_GUARD")) {
+        enabled = env[0] == '1';
+    }
+    LOG_INFO(Render_Vulkan, "NaN output guard: {}", enabled ? "on" : "off");
+    return enabled;
+}
+
+// GCN packs waves from consecutive flattened thread ids. Intel may pack subgroups of 2D/3D
+// workgroups in tiles, which breaks wave-lockstep code that relies on a row being one wave.
+// Declaring 1D workgroups and rebuilding the 3D local id keeps the GCN mapping.
+// On by default for Intel; SHADPS4_FLATTEN_WG=0/1 overrides.
+static bool FlattenComputeWorkgroups(const Instance& instance) {
+    bool enabled = instance.GetDriverID() == vk::DriverId::eIntelProprietaryWindows ||
+                   instance.GetDriverID() == vk::DriverId::eIntelOpenSourceMESA;
+    if (const char* env = std::getenv("SHADPS4_FLATTEN_WG")) {
+        enabled = env[0] == '1';
+    }
+    LOG_INFO(Render_Vulkan, "Flatten compute workgroups: {}", enabled ? "on" : "off");
+    return enabled;
+}
+
 PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
                              AmdGpu::Liverpool* liverpool_, u32 sparse_page_shift)
     : instance{instance_}, scheduler{scheduler_}, liverpool{liverpool_},
@@ -320,7 +347,10 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
         .needs_manual_interpolation = instance.IsFragmentShaderBarycentricSupported() &&
                                       instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
         .needs_lds_barriers = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary ||
-                              instance.GetDriverID() == vk::DriverId::eMoltenvk,
+                              instance.GetDriverID() == vk::DriverId::eMoltenvk ||
+                              instance.SubgroupSize() < 64,
+        .sanitize_nan_outputs = SanitizeNanOutputs(instance),
+        .flatten_compute_workgroups = FlattenComputeWorkgroups(instance),
         .needs_buffer_offsets = instance.StorageMinAlignment() > 4,
         .needs_unorm_fixup = instance.GetDriverID() == vk::DriverId::eMoltenvk,
         .needs_clip_distance_emulation = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
