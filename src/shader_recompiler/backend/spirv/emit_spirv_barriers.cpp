@@ -34,26 +34,30 @@ void EmitBarrier(EmitContext& ctx) {
                          ctx.ConstU32(static_cast<u32>(memory_semantics)));
 }
 
-void EmitWorkgroupMemoryBarrier(EmitContext& ctx) {
+void EmitSubgroupBarrier(EmitContext& ctx) {
     // Keeps GCN lockstep LDS steps in order (inserted by SharedMemoryBarrierPass). A plain
     // memory barrier only orders accesses of one invocation; hosts that run a subgroup as
     // several hardware passes (e.g. SIMD32 on SIMD16 Intel Xe2) may still schedule one half's
     // loads before the other half's stores. A subgroup-scope control barrier syncs the lanes.
-    // Only shared memory semantics: flushing uniform/image memory on every step is expensive.
-    const auto semantics{spv::MemorySemanticsMask::AcquireRelease |
-                         spv::MemorySemanticsMask::WorkgroupMemory};
+    // SHADPS4_LDS_ORDER=1 emits only the memory barrier.
+    const auto semantics{static_cast<u32>(spv::MemorySemanticsMask::AcquireRelease |
+                                          spv::MemorySemanticsMask::WorkgroupMemory)};
     static const bool memory_only = [] {
         const char* env = std::getenv("SHADPS4_LDS_ORDER");
         return env && env[0] == '1';
     }();
     if (memory_only) {
-        ctx.OpMemoryBarrier(ctx.ConstU32(static_cast<u32>(spv::Scope::Workgroup)),
-                            ctx.ConstU32(static_cast<u32>(semantics)));
+        ctx.OpMemoryBarrier(ctx.ConstU32(static_cast<u32>(spv::Scope::Subgroup)),
+                            ctx.ConstU32(semantics));
         return;
     }
     ctx.OpControlBarrier(ctx.ConstU32(static_cast<u32>(spv::Scope::Subgroup)),
                          ctx.ConstU32(static_cast<u32>(spv::Scope::Workgroup)),
-                         ctx.ConstU32(static_cast<u32>(semantics)));
+                         ctx.ConstU32(semantics));
+}
+
+void EmitWorkgroupMemoryBarrier(EmitContext& ctx) {
+    MemoryBarrier(ctx, spv::Scope::Workgroup);
 }
 
 void EmitDeviceMemoryBarrier(EmitContext& ctx) {
