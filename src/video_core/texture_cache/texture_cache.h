@@ -4,6 +4,7 @@
 #pragma once
 
 #include <mutex>
+#include <string>
 #include <unordered_set>
 #include <boost/container/small_vector.hpp>
 #include <tsl/robin_map.h>
@@ -95,6 +96,13 @@ public:
     [[nodiscard]] const PageTable& GetPageTable() const noexcept {
         return page_table;
     }
+
+    /// Diagnostics: images overlapping the range with their flags (freeze / fault storm dumps).
+    std::string DescribeRegion(VAddr addr, size_t size);
+
+    /// True if the last CPU write fault on this thread was answered by FlushBeforeCpuWrite
+    /// (the write is retried without untracking the image).
+    static bool LastFaultWasFlush();
 
     /// Invalidates any image in the logical page range.
     /// @param exclude_image_id  If set, this image is skipped (used by storage sync to

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <boost/container/small_vector.hpp>
+#include <fmt/format.h>
 #include "common/assert.h"
 #include "common/config.h"
 #include "common/debug.h"
@@ -228,6 +229,21 @@ struct PageManager::Impl {
     }
 #endif
 
+    std::string DescribePage(VAddr addr) {
+        const auto& state = cached_pages[addr >> PAGE_BITS];
+        u32 os_protect = 0;
+#ifdef _WIN32
+        MEMORY_BASIC_INFORMATION info{};
+        if (VirtualQuery(reinterpret_cast<LPCVOID>(addr), &info, sizeof(info))) {
+            os_protect = info.Protect;
+        }
+#endif
+        return fmt::format("watchers={} write_watchers={} read_watchers={} perms={:#x} "
+                           "host_protect={:#x}",
+                           state.num_watchers, state.num_write_watchers, state.num_read_watchers,
+                           static_cast<u32>(state.Perms()), os_protect);
+    }
+
     template <bool track, bool is_read>
     void UpdatePageWatchers(VAddr addr, u64 size) {
         RENDERER_TRACE;
@@ -302,6 +318,15 @@ struct PageManager::Impl {
 PageManager::PageManager(Vulkan::Rasterizer* rasterizer_)
     : impl{std::make_unique<Impl>(rasterizer_)} {}
 PageManager::~PageManager() = default;
+std::string PageManager::DescribePage(VAddr addr) const {
+    return impl->DescribePage(addr);
+}
+
+void PageManager::ForceWritable(VAddr addr) const {
+    impl->Protect(GetPageAddr(addr), PAGE_SIZE,
+                  Core::MemoryPermission::Read | Core::MemoryPermission::Write);
+}
+
 void PageManager::OnGpuMap(VAddr address, size_t size) {
     impl->OnMap(address, size);
 }

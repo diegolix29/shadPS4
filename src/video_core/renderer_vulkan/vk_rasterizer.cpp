@@ -1335,6 +1335,38 @@ bool Rasterizer::InvalidateMemory(VAddr addr, u64 size, bool assume_locks, bool 
     }
     buffer_cache.InvalidateMemory(addr, size, assume_locks);
     texture_cache.InvalidateMemory(addr, size, {}, from_fault && !assume_locks);
+    if (from_fault) {
+        // Fault storm detector: the same thread faulting on the same page over and over means
+        // the handler keeps answering without making the page writable (guest livelock).
+        thread_local VAddr storm_page = 0;
+        thread_local u64 storm_count = 0;
+        const VAddr page = addr & ~VAddr{0xFFF};
+        storm_count = page == storm_page ? storm_count + 1 : 1;
+        storm_page = page;
+        if (storm_count % 64 == 0 && storm_count <= 640) {
+            // Nothing makes progress: log the page state and make it writable so the guest
+            // continues (a stale watcher would otherwise freeze the game for good).
+            LOG_CRITICAL(
+                Render_Vulkan,
+                "Fault storm: {} write faults in a row at {:#x} (gpu thread={}), "
+                "flush={} gpu_modified={} page: {} images:{}; making it writable",
+                storm_count, addr, assume_locks, VideoCore::TextureCache::LastFaultWasFlush(),
+                buffer_cache.IsRegionGpuModified(page, 0x1000), page_manager.DescribePage(page),
+                assume_locks ? std::string{" (not listed on the GPU thread)"}
+                             : texture_cache.DescribeRegion(page, 0x1000));
+            page_manager.ForceWritable(page);
+        }
+        if (storm_count == 1000 || storm_count == 100000) {
+            LOG_CRITICAL(Render_Vulkan,
+                         "Fault storm: {} write faults in a row at {:#x} (gpu thread={}), last "
+                         "answered by CPU-write flush={}, buffer cache gpu_modified={}, images:{}",
+                         storm_count, addr, assume_locks,
+                         VideoCore::TextureCache::LastFaultWasFlush(),
+                         buffer_cache.IsRegionGpuModified(page, 0x1000),
+                         assume_locks ? std::string{" (not listed on the GPU thread)"}
+                                      : texture_cache.DescribeRegion(page, 0x1000));
+        }
+    }
     return true;
 }
 

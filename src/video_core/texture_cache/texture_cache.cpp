@@ -78,6 +78,8 @@ u32 BcMode() {
 }
 } // Anonymous namespace
 
+static thread_local bool last_fault_was_flush = false;
+
 void TextureCache::ProcessDownloadImages() {
     std::unique_lock lk{download_images_mutex};
     for (const ImageId image_id : download_images) {
@@ -226,7 +228,9 @@ void TextureCache::InvalidateMemory(VAddr addr, size_t size, ImageId exclude_ima
         const char* env = std::getenv("SHADPS4_FLUSH_CPU_WRITE");
         return !env || env[0] != '0';
     }();
+    last_fault_was_flush = false;
     if (cpu_write_fault && flush_enabled && FlushBeforeCpuWrite(addr, size)) {
+        last_fault_was_flush = true;
         // The faulting write is retried: it faults again on the still protected pages, the
         // buffer cache downloads the flushed contents, and the image is invalidated normally.
         return;
@@ -262,6 +266,26 @@ void TextureCache::InvalidateMemory(VAddr addr, size_t size, ImageId exclude_ima
             MarkAsMaybeDirty(image_id, image);
         }
     });
+}
+
+bool TextureCache::LastFaultWasFlush() {
+    return last_fault_was_flush;
+}
+
+std::string TextureCache::DescribeRegion(VAddr addr, size_t size) {
+    std::string text;
+    std::scoped_lock lock{mutex};
+    ForEachImageInRegion(addr, size, [&](ImageId image_id, Image& image) {
+        const auto& info = image.info;
+        text += fmt::format(" [img#{} {:#x} {} {}x{} mips={} samples={} size={:#x} flags={:#x} "
+                            "rt={} storage={} overlaps={}]",
+                            image_id.index, info.guest_address, vk::to_string(info.pixel_format),
+                            info.size.width, info.size.height, info.resources.levels,
+                            info.num_samples, info.guest_size, static_cast<u32>(image.flags),
+                            static_cast<u32>(image.usage.render_target),
+                            static_cast<u32>(image.usage.storage), image.Overlaps(addr, size));
+    });
+    return text.empty() ? std::string{" (no images)"} : text;
 }
 
 bool TextureCache::FlushBeforeCpuWrite(VAddr addr, size_t size) {
