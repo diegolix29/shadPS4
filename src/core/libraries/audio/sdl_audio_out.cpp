@@ -14,6 +14,7 @@
 #include "core/libraries/audio/audioout.h"
 #include "core/libraries/audio/audioout_backend.h"
 #include "core/libraries/kernel/threads.h"
+#include "video_core/perf_stats.h"
 
 // SIMD support detection
 #if defined(__x86_64__) || defined(_M_X64)
@@ -85,6 +86,20 @@ public:
         const u64 current_time = Kernel::sceKernelGetProcessTime();
         convert(ptr, internal_buffer, buffer_frames, nullptr);
         HandleTiming(current_time);
+
+        // Dropout counters for PerfStats (debug logs): an empty device queue when new data
+        // arrives means the listener heard a gap.
+        if (VideoCore::DebugLogsEnabled()) {
+            VideoCore::PerfAdd(VideoCore::PerfCounter::AudioOutputs);
+            const u64 prev_output = last_output_time.load(std::memory_order_relaxed);
+            if (prev_output != 0) {
+                VideoCore::PerfMax(VideoCore::PerfCounter::AudioMaxGapUs,
+                                   current_time - prev_output);
+                if (output_count > 16 && SDL_GetAudioStreamQueued(stream) == 0) {
+                    VideoCore::PerfAdd(VideoCore::PerfCounter::AudioDry);
+                }
+            }
+        }
 
         if ((output_count++ & 0xF) == 0) { // Check every 16 outputs
             ManageAudioQueue();
@@ -251,6 +266,7 @@ private:
         if (queued >= queue_threshold) [[unlikely]] {
             LOG_DEBUG(Lib_AudioOut, "Clearing backed up audio queue ({} >= {})", queued,
                       queue_threshold);
+            VideoCore::PerfAdd(VideoCore::PerfCounter::AudioClears);
             SDL_ClearAudioStream(stream);
             CalculateQueueThreshold();
         }
@@ -321,8 +337,9 @@ private:
             return false;
         }
 
-        LOG_INFO(Lib_AudioOut, "Opened audio device: {} ({} Hz, {} ch, gain: {:.3f})", device_name,
-                 sample_rate, num_channels, initial_gain);
+        LOG_INFO(Lib_AudioOut,
+                 "Opened audio device: {} ({} Hz, {} ch, {} frames per buffer, gain: {:.3f})",
+                 device_name, sample_rate, num_channels, buffer_frames, initial_gain);
         return true;
     }
 

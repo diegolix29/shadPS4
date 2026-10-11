@@ -1224,6 +1224,8 @@ set(VIDEO_CORE src/video_core/amdgpu/cb_db_extent.h
                src/video_core/cache_storage.h
                src/video_core/page_manager.cpp
                src/video_core/page_manager.h
+               src/video_core/perf_stats.cpp
+               src/video_core/perf_stats.h
                src/video_core/renderdoc.cpp
                src/video_core/renderdoc.h
 )
@@ -1541,6 +1543,11 @@ if (WIN32)
         target_link_options(shadps4 PRIVATE /BASE:0x700000000000)
     else()
         target_link_options(shadps4 PRIVATE -Wl,--image-base=0x700000000000)
+    endif()
+
+    # Linker map (shadPS4.map): resolves the exe+offset frames of freeze dumps in debug logs
+    if (MSVC)
+        target_link_options(shadps4 PRIVATE /MAP)
     endif()
 endif()
 

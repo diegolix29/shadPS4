@@ -182,6 +182,7 @@ bool getGameRunning();
 void setGameRunning(bool running);
 bool debugDump();
 bool collectShadersForDebug();
+bool collectDebugLogs();
 bool showSplash();
 bool autoUpdate();
 bool alwaysShowChangelog();
@@ -214,6 +215,7 @@ void setCustomBackgroundImage(const std::string& path);
 
 void setDebugDump(bool enable);
 void setCollectShaderForDebug(bool enable);
+void setCollectDebugLogs(bool enable);
 void setShowSplash(bool enable);
 void setAutoUpdate(bool enable);
 void setAlwaysShowChangelog(bool enable);

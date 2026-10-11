@@ -368,8 +368,10 @@ public:
     void WriteBackImage(ImageId image_id, bool dirty_all_aliases);
 
 private:
+    /// Why an image is tiled into memory (PerfStats write back counters).
+    enum class TileReason : u32 { WriteBack, View, Pending, CpuWrite };
     /// Tiles all mips of the image into the buffer cache copy of its guest memory.
-    void TileImageToBuffer(Image& image);
+    void TileImageToBuffer(Image& image, TileReason reason = TileReason::WriteBack);
 
     /// Lazy write back (SHADPS4_LAZY_WRITEBACK, default on): tiles a storage image whose write back
     /// was deferred into the buffer cache. GPU thread only.

@@ -3016,6 +3016,13 @@
 																					</property>
 																				</widget>
 																			</item>
+																			<item>
+																				<widget class="QCheckBox" name="collectDebugLogsCheckBox">
+																					<property name="text">
+																						<string>Collect Debug Logs</string>
+																					</property>
+																				</widget>
+																			</item>
 																		</layout>
 																	</item>
 																	<item>

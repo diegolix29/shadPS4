@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <chrono>
 #include <cstdlib>
+#include <set>
+#include <tuple>
 #include <xxhash.h>
 
 #include "common/assert.h"
@@ -14,6 +17,7 @@
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/page_manager.h"
+#include "video_core/perf_stats.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_runtime.h"
@@ -185,6 +189,7 @@ void TextureCache::DeferWriteBackLocked(ImageId image_id, bool dirty_all_aliases
                 other.flags |= ImageFlagBits::GpuDirty;
             }
         });
+    VideoCore::PerfAdd(VideoCore::PerfCounter::WriteBacksDeferred);
 }
 
 void TextureCache::FlushPendingWriteBack(Image& image) {
@@ -193,7 +198,7 @@ void TextureCache::FlushPendingWriteBack(Image& image) {
     }
     image.flags &= ~ImageFlagBits::PendingWriteBack;
     if (True(image.flags & ImageFlagBits::Registered) && image.SafeToDownload()) {
-        TileImageToBuffer(image);
+        TileImageToBuffer(image, TileReason::Pending);
         image.flags |= ImageFlagBits::WrittenBack;
     }
 }
@@ -220,9 +225,22 @@ void TextureCache::WriteBackImage(ImageId image_id, bool dirty_all_aliases) {
             other.flags |= ImageFlagBits::GpuDirty;
         }
     });
+
+    // Debug logs: each distinct image/reason once, plus every 1000th write back (hot spots).
+    static std::set<std::tuple<VAddr, u32, bool>> logged;
+    static u64 num_write_backs = 0;
+    if (VideoCore::DebugLogsEnabled() &&
+        ((logged.size() < 512 && logged.emplace(address, size, dirty_all_aliases).second) ||
+         ++num_write_backs % 1000 == 0)) {
+        LOG_INFO(Render_Vulkan,
+                 "Wrote back {:#x} {} {}x{} mips={} size={:#x} over {} images (total {})", address,
+                 vk::to_string(image.info.pixel_format), image.info.size.width,
+                 image.info.size.height, image.info.resources.levels, size,
+                 dirty_all_aliases ? "aliasing" : "compressed", num_write_backs);
+    }
 }
 
-void TextureCache::TileImageToBuffer(Image& image) {
+void TextureCache::TileImageToBuffer(Image& image, TileReason reason) {
     // Stays on the GPU: a CPU write back would have to wait for the GPU and take the memory
     // manager lock, which guest threads hold while waiting for the GPU thread (unmap flushes).
     // The range becomes GPU modified, so image uploads read it from the buffer cache and CPU
@@ -251,6 +269,12 @@ void TextureCache::TileImageToBuffer(Image& image) {
     }
     const auto [arena, arena_offset] = buffer_cache.ObtainBuffer(address, size, true);
     tile_manager.TileImage(image, copies, arena, arena_offset);
+    VideoCore::PerfAdd(VideoCore::PerfCounter::TileToBuffer);
+    VideoCore::PerfAdd(VideoCore::PerfCounter::TileBytes, size);
+    VideoCore::PerfAdd(
+        static_cast<VideoCore::PerfCounter>(
+            static_cast<u32>(VideoCore::PerfCounter::TileMbWriteBack) + static_cast<u32>(reason)),
+        size);
     // Any write back satisfies a deferred one.
     image.flags &= ~ImageFlagBits::PendingWriteBack;
 
@@ -365,6 +389,15 @@ bool TextureCache::FlushBeforeCpuWrite(VAddr addr, size_t size) {
     if (to_flush.empty()) {
         return false;
     }
+    const auto wait_start = std::chrono::steady_clock::now();
+    SCOPE_EXIT {
+        const u64 us = std::chrono::duration_cast<std::chrono::microseconds>(
+                           std::chrono::steady_clock::now() - wait_start)
+                           .count();
+        VideoCore::PerfAdd(VideoCore::PerfCounter::FlushCpu);
+        VideoCore::PerfAdd(VideoCore::PerfCounter::FlushWaitUs, us);
+        VideoCore::PerfMax(VideoCore::PerfCounter::FlushWaitMaxUs, us);
+    };
     liverpool->SendCommand<true>([this, &to_flush] {
         for (const ImageId image_id : to_flush) {
             Image& image = slot_images[image_id];
@@ -372,7 +405,7 @@ bool TextureCache::FlushBeforeCpuWrite(VAddr addr, size_t size) {
                 True(image.flags & ImageFlagBits::Dirty)) {
                 continue;
             }
-            TileImageToBuffer(image);
+            TileImageToBuffer(image, TileReason::CpuWrite);
             std::scoped_lock lock{mutex};
             image.flags |= ImageFlagBits::WrittenBack;
         }
@@ -517,7 +550,7 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
             // the buffer cache, so later CPU writes to the range download it first instead of
             // dropping GPU-only image contents.
             if (cache_image.SafeToDownload()) {
-                TileImageToBuffer(cache_image);
+                TileImageToBuffer(cache_image, TileReason::View);
             }
             if (cache_image.binding.is_bound || cache_image.binding.is_target) {
                 cache_image.binding.needs_rebind = 1u;
@@ -864,6 +897,7 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
         }
         image_id = slot_images.Insert(instance, runtime, slot_image_views, info);
         RegisterImage(image_id);
+        VideoCore::PerfAdd(VideoCore::PerfCounter::ImagesCreated);
     }
 
     Image& image = slot_images[image_id];

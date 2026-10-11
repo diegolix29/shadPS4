@@ -309,6 +309,7 @@ static std::vector<u32> customCpuCores = {};
 // Debug
 static ConfigEntry<bool> isDebugDump(false);
 static ConfigEntry<bool> isShaderDebug(false);
+static ConfigEntry<bool> collectDebugLogsEnabled(false);
 static ConfigEntry<bool> isSeparateLogFilesEnabled(false);
 static ConfigEntry<bool> shaderSkipsEnabled(false);
 static ConfigEntry<bool> showFpsCounter(false);
@@ -1148,6 +1149,10 @@ bool collectShadersForDebug() {
     return isShaderDebug.get();
 }
 
+bool collectDebugLogs() {
+    return collectDebugLogsEnabled.get();
+}
+
 bool showSplash() {
     return isShowSplash.get();
 }
@@ -1354,6 +1359,10 @@ void setLoggingEnabled(bool enable) {
 
 void setCollectShaderForDebug(bool enable) {
     isShaderDebug.base_value = enable;
+}
+
+void setCollectDebugLogs(bool enable) {
+    collectDebugLogsEnabled.base_value = enable;
 }
 
 bool ShouldSkipShader(const u64& hash) {
@@ -2126,6 +2135,7 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         isSeparateLogFilesEnabled =
             toml::find_or<bool>(debug, "isSeparateLogFilesEnabled", is_game_specific);
         isShaderDebug.setFromToml(debug, "CollectShader", is_game_specific);
+        collectDebugLogsEnabled.setFromToml(debug, "CollectDebugLogs", is_game_specific);
         showFpsCounter.setFromToml(debug, "showFpsCounter", is_game_specific);
         logEnabled.setFromToml(debug, "logEnabled", is_game_specific);
         current_version = toml::find_or<std::string>(debug, "ConfigVersion", current_version);
@@ -2633,6 +2643,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
             isDebugDump.game_specific_value.value_or(isDebugDump.base_value);
         data["Debug"]["CollectShader"] =
             isShaderDebug.game_specific_value.value_or(isShaderDebug.base_value);
+        data["Debug"]["CollectDebugLogs"] = collectDebugLogsEnabled.game_specific_value.value_or(
+            collectDebugLogsEnabled.base_value);
         data["Debug"]["isSeparateLogFilesEnabled"] =
             isSeparateLogFilesEnabled.game_specific_value.value_or(
                 isSeparateLogFilesEnabled.base_value);
@@ -2643,6 +2655,7 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     } else {
         data["Debug"]["DebugDump"] = isDebugDump.base_value;
         data["Debug"]["CollectShader"] = isShaderDebug.base_value;
+        data["Debug"]["CollectDebugLogs"] = collectDebugLogsEnabled.base_value;
         data["Debug"]["isSeparateLogFilesEnabled"] = isSeparateLogFilesEnabled.base_value;
         data["Debug"]["showFpsCounter"] = showFpsCounter.base_value;
         data["Debug"]["logEnabled"] = logEnabled.base_value;
@@ -2848,6 +2861,7 @@ void setDefaultValues() {
     // GPU
     isDebugDump = false;
     isShaderDebug = false;
+    collectDebugLogsEnabled = false;
     isShowSplash = false;
     isAutoUpdate = false;
     pauseOnUnfocus = false;
@@ -2891,6 +2905,7 @@ void setDefaultValues() {
     // Debug
     isDebugDump = false;
     isShaderDebug = false;
+    collectDebugLogsEnabled = false;
     isSeparateLogFilesEnabled = false;
     logEnabled = true;
 

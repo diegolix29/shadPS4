@@ -2,12 +2,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
+#include <set>
+#include <tuple>
 
 #include "common/config.h"
 #include "common/debug.h"
 #include "common/elf_info.h"
 #include "common/memory_patcher.h"
+#include "common/scope_exit.h"
 #include "core/debug_state.h"
 #include "core/emulator_settings.h"
 #include "core/memory.h"
@@ -15,6 +19,7 @@
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/buffer_cache/buffer_cache.h"
+#include "video_core/perf_stats.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_depth_stencil_state.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -70,6 +75,13 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_, Runtime
     scheduler.SetSubmitCallback([this](Vulkan::SubmitInfo& info) {
         runtime.FlushBarriers();
         buffer_cache.SubmitPendingArenaBinds(info);
+    });
+    VideoCore::SetFreezeAddressInspector([this](u64 addr) {
+        if (!IsMapped(addr, 8)) {
+            return std::string{"(not GPU mapped)"};
+        }
+        return fmt::format("(GPU mapped, buffer cache gpu_modified={})",
+                           buffer_cache.IsRegionGpuModified(addr, 8));
     });
 }
 
@@ -199,6 +211,14 @@ void Rasterizer::EliminateFastClear() {
     if (!col_buf || !col_buf.info.fast_clear) {
         return;
     }
+    const auto perf_start = std::chrono::steady_clock::now();
+    SCOPE_EXIT {
+        VideoCore::PerfAdd(VideoCore::PerfCounter::FceCalls);
+        VideoCore::PerfAdd(VideoCore::PerfCounter::FceUs,
+                           std::chrono::duration_cast<std::chrono::microseconds>(
+                               std::chrono::steady_clock::now() - perf_start)
+                               .count());
+    };
     VideoCore::TextureCache::ImageDesc desc(col_buf, liverpool->last_cb_extent[0]);
     const auto image_id = texture_cache.FindImage(desc);
     // A multisampled image cannot be uploaded from guest memory, so one the GPU never rendered
@@ -218,6 +238,7 @@ void Rasterizer::EliminateFastClear() {
     auto& image = texture_cache.GetImage(image_id);
     const auto clear_value = LiverpoolToVK::ColorBufferClearValue(col_buf);
 
+    VideoCore::PerfAdd(VideoCore::PerfCounter::FceClears);
     ScopeMarkerBegin(fmt::format("EliminateFastClear:MRT={:#x}:M={:#x}", col_buf.Address(),
                                  col_buf.CmaskAddress()));
     runtime.ClearImage(&image, desc.view_info.range, clear_value);
@@ -1132,6 +1153,19 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
         texture_cache.UpdateImage(image_id);
         runtime.SetBackingSamples(image, key.color_samples[cb]);
         const auto& image_view = texture_cache.FindRenderTarget(image_id, desc);
+        if (VideoCore::DebugLogsEnabled() && desc.info.size.width >= 1280) {
+            // Shows the game's render resolution (e.g. PS4 Pro mode) once per size/format.
+            static std::set<std::tuple<u32, u32, u32>> seen_sizes;
+            if (seen_sizes.size() < 64 && seen_sizes
+                                              .emplace(desc.info.size.width, desc.info.size.height,
+                                                       static_cast<u32>(desc.info.pixel_format))
+                                              .second) {
+                LOG_INFO(Render_Vulkan, "Render target size {}x{} {} samples={} at {:#x}",
+                         desc.info.size.width, desc.info.size.height,
+                         vk::to_string(desc.info.pixel_format), desc.info.num_samples,
+                         desc.info.guest_address);
+            }
+        }
         const auto& serial = Common::ElfInfo::Instance().GameSerial();
         if (!ShouldDisableSync() && serial != "CUSA11227" && serial != "CUSA12982" &&
             serial != "CUSA00093" && serial != "CUSA00003" && serial != "CUSA01778" &&
