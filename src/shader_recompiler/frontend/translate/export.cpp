@@ -93,6 +93,30 @@ void Translator::ExportRenderTarget(const GcnInst& inst) {
         }
     }
 
+    if (mrt == IR::Attribute::RenderTarget0 && runtime_info.hw.fs.alpha_to_mask != 0 &&
+        !components[3].IsEmpty()) {
+        // Alpha to mask with one sample: the pixel is covered when alpha reaches a threshold
+        // given per pixel of the 2x2 quad by the dither offsets (in quarters of a sample).
+        const u32 alpha_to_mask = runtime_info.hw.fs.alpha_to_mask;
+        const f32 rounding = (alpha_to_mask >> 16) & 1 ? 0.5f : 0.f;
+        std::array<f32, 4> thresholds{};
+        for (u32 i = 0; i < 4; i++) {
+            const u32 offset = (alpha_to_mask >> (8 + 2 * i)) & 3;
+            thresholds[i] = 1.f - (static_cast<f32>(offset) + rounding) / 4.f;
+        }
+        const IR::U32 x = ir.BitwiseAnd(
+            ir.ConvertFToU(32, ir.GetAttribute(IR::Attribute::FragCoord, 0)), ir.Imm32(1u));
+        const IR::U32 y = ir.BitwiseAnd(
+            ir.ConvertFToU(32, ir.GetAttribute(IR::Attribute::FragCoord, 1)), ir.Imm32(1u));
+        const IR::U32 quad_pixel = ir.BitwiseOr(x, ir.ShiftLeftLogical(y, ir.Imm32(1u)));
+        IR::F32 threshold = ir.Imm32(thresholds[3]);
+        for (s32 i = 2; i >= 0; i--) {
+            threshold = IR::F32{ir.Select(ir.IEqual(quad_pixel, ir.Imm32(static_cast<u32>(i))),
+                                          ir.Imm32(thresholds[i]), threshold)};
+        }
+        ir.Discard(ir.FPLessThan(components[3], threshold));
+    }
+
     // Metal seems to have an issue where 8-bit unorm/snorm/sRGB outputs to render target
     // need a bias applied to round correctly; detect and set the flag for that here.
     const auto needs_unorm_fixup = profile.needs_unorm_fixup &&

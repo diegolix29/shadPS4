@@ -210,6 +210,8 @@ struct HwFragmentRuntimeInfo {
     bool front_face_all_bits{false};
     bool dual_source_blending{false};
     bool clip_distance_emulation{false};
+    /// DB_ALPHA_TO_MASK (enable, dither offsets, rounding) when alpha to coverage is emulated.
+    u32 alpha_to_mask{};
 
     bool operator==(const HwFragmentRuntimeInfo& other) const noexcept {
         return std::ranges::equal(color_buffers, other.color_buffers) &&
@@ -219,6 +221,7 @@ struct HwFragmentRuntimeInfo {
                front_face_all_bits == other.front_face_all_bits &&
                dual_source_blending == other.dual_source_blending &&
                clip_distance_emulation == other.clip_distance_emulation &&
+               alpha_to_mask == other.alpha_to_mask &&
                std::ranges::equal(inputs.begin(), inputs.begin() + num_inputs, other.inputs.begin(),
                                   other.inputs.begin() + num_inputs);
     }
@@ -243,13 +246,17 @@ struct RuntimeInfo {
     SwStage sw_stage;
     HwStage hw_stage;
     struct Properties {
-        AmdGpu::FpDenormMode fp_denorm_mode32;
-        AmdGpu::FpDenormMode fp_denorm_mode16_64;
-        AmdGpu::FpRoundMode fp_round_mode32;
-        AmdGpu::FpRoundMode fp_round_mode16_64;
-        u32 num_user_data;
-        u32 num_input_vgprs;
-        u32 num_allocated_vgprs;
+        AmdGpu::FpDenormMode fp_denorm_mode32 : 2;
+        AmdGpu::FpDenormMode fp_denorm_mode16_64 : 2;
+        AmdGpu::FpRoundMode fp_round_mode32 : 2;
+        AmdGpu::FpRoundMode fp_round_mode16_64 : 2;
+        // 9 bits: up to 256 VGPRs ((63 + 1) * 4). With 8 bits a full allocation would read as 0
+        // and the translator would hand out temporaries from v0.
+        u32 num_allocated_vgprs : 9;
+        u32 num_user_data : 5;
+        u32 num_input_vgprs : 2;
+        u32 dx10_clamp : 1;
+        u32 reserved : 7;
         bool operator==(const Properties&) const noexcept = default;
     } props;
     union SwInfo {

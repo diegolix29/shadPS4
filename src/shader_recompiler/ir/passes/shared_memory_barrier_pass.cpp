@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdlib>
 #include <unordered_set>
 #include "shader_recompiler/ir/breadth_first_search.h"
 #include "shader_recompiler/ir/ir_emitter.h"
@@ -25,7 +26,14 @@ static bool IsWriteShared(const IR::Inst& inst) {
 }
 
 // Inserts barriers when a shared memory write and read occur in the same basic block.
-static void EmitBarrierInBlock(IR::Block* block) {
+static void EmitBarrierInBlock(IR::Block* block, bool subgroup = false) {
+    const auto emit_barrier = [subgroup](IR::IREmitter& ir) {
+        if (subgroup) {
+            ir.SubgroupBarrier();
+        } else {
+            ir.Barrier();
+        }
+    };
     enum class BarrierAction : u32 {
         None,
         BarrierOnWrite,
@@ -36,7 +44,7 @@ static void EmitBarrierInBlock(IR::Block* block) {
         if (IsLoadShared(inst)) {
             if (action == BarrierAction::BarrierOnRead) {
                 IR::IREmitter ir{*block, IR::Block::InstructionList::s_iterator_to(inst)};
-                ir.Barrier();
+                emit_barrier(ir);
             }
             action = BarrierAction::BarrierOnWrite;
             continue;
@@ -44,14 +52,14 @@ static void EmitBarrierInBlock(IR::Block* block) {
         if (IsWriteShared(inst)) {
             if (action == BarrierAction::BarrierOnWrite) {
                 IR::IREmitter ir{*block, IR::Block::InstructionList::s_iterator_to(inst)};
-                ir.Barrier();
+                emit_barrier(ir);
             }
             action = BarrierAction::BarrierOnRead;
         }
     }
     if (action != BarrierAction::None) {
         IR::IREmitter ir{*block, --block->end()};
-        ir.Barrier();
+        emit_barrier(ir);
     }
 }
 
@@ -121,10 +129,27 @@ void SharedMemoryBarrierPass(IR::Program& program, const RuntimeInfo& runtime_in
     const u32 shared_memory_size = cs_info.shared_memory_size;
     const u32 threadgroup_size =
         cs_info.workgroup_size[0] * cs_info.workgroup_size[1] * cs_info.workgroup_size[2];
+    if (shared_memory_size == 0) {
+        return;
+    }
+    // GCN waves can use shared memory between invocations without explicit barriers because
+    // they run in lockstep. Host compilers can reorder these accesses, so keep their order with
+    // subgroup barriers (see EmitSubgroupBarrier). SHADPS4_LDS_ORDER=0 leaves them out.
+    static const bool lds_order_enabled = [] {
+        const char* env = std::getenv("SHADPS4_LDS_ORDER");
+        return !(env && env[0] == '0');
+    }();
     // The compiler can only omit barriers when the local workgroup size is the same as the HW
     // subgroup.
-    if (shared_memory_size == 0 || threadgroup_size != GcnSubgroupSize ||
-        !profile.needs_lds_barriers) {
+    if (threadgroup_size != GcnSubgroupSize || !profile.needs_lds_barriers) {
+        if (!lds_order_enabled) {
+            return;
+        }
+        for (const IR::AbstractSyntaxNode& node : program.syntax_list) {
+            if (node.type == IR::AbstractSyntaxNode::Type::Block) {
+                EmitBarrierInBlock(node.data.block, true);
+            }
+        }
         return;
     }
     using Type = IR::AbstractSyntaxNode::Type;
@@ -156,8 +181,14 @@ void SharedMemoryBarrierPass(IR::Program& program, const RuntimeInfo& runtime_in
             }
             continue;
         }
-        if (node.type == Type::Block && divergence_depth == 0) {
-            EmitBarrierInBlock(node.data.block);
+        if (node.type == Type::Block) {
+            if (divergence_depth == 0) {
+                EmitBarrierInBlock(node.data.block);
+            } else if (lds_order_enabled) {
+                // Workgroup barriers are invalid in divergent code, but lockstep LDS steps
+                // (scans, reductions) live there; order them within the subgroup instead.
+                EmitBarrierInBlock(node.data.block, true);
+            }
         }
     }
 }

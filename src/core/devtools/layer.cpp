@@ -22,6 +22,7 @@
 #include "common/types.h"
 #include "core/debug_state.h"
 #include "core/emulator_state.h"
+#include "core/libraries/audio/audioout.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/videoout/video_out.h"
 #include "imgui/imgui_std.h"
@@ -1720,6 +1721,15 @@ void L::Draw() {
         if (IsKeyPressed(ImGuiKey_F1, false) && !Config::hasCustomMuteHotkey()) {
             if (g_MainWindow)
                 g_MainWindow->ToggleMute();
+        }
+    }
+#else
+    // SDL build: same mute hotkeys without the Qt main window.
+    if (!blockHardcoded) {
+        if (Input::ControllerComboPressedOnce(pad, modifierButton, Btn::Right) ||
+            (IsKeyPressed(ImGuiKey_F1, false) && !Config::hasCustomMuteHotkey())) {
+            Config::setMuteEnabled(!Config::isMuteEnabled());
+            ::Libraries::AudioOut::AdjustVol();
         }
     }
 #endif

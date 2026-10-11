@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdlib>
 #include <ranges>
 
 #include "common/config.h"
+#include "common/elf_info.h"
 #include "common/hash.h"
 #include "common/io_file.h"
 #include "common/path_util.h"
@@ -93,13 +95,14 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(HwStage stage, SwStag
     auto& info = runtime_infos[u32(l_stage)];
     const auto& regs = liverpool->regs;
     const auto BuildCommon = [&](const auto& program) {
-        info.props.num_user_data = program.settings.num_user_regs;
-        info.props.num_input_vgprs = program.settings.vgpr_comp_cnt;
-        info.props.num_allocated_vgprs = program.NumVgprs();
         info.props.fp_denorm_mode32 = program.settings.fp_denorm_mode32;
         info.props.fp_denorm_mode16_64 = program.settings.fp_denorm_mode64;
         info.props.fp_round_mode32 = program.settings.fp_round_mode32;
         info.props.fp_round_mode16_64 = program.settings.fp_round_mode64;
+        info.props.num_allocated_vgprs = program.NumVgprs();
+        info.props.num_user_data = program.settings.num_user_regs;
+        info.props.num_input_vgprs = program.settings.vgpr_comp_cnt;
+        info.props.dx10_clamp = program.settings.dx10_clamp;
     };
     info.Initialize(stage, l_stage);
     switch (stage) {
@@ -207,6 +210,17 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(HwStage stage, SwStag
         for (u32 i = 0; i < Shader::MaxColorBuffers; i++) {
             info.hw.fs.color_buffers[i] = graphics_key.color_buffers[i];
         }
+        // DB_ALPHA_TO_MASK: with one sample the hardware turns MRT0 alpha into a 2x2 dither
+        // pattern (games resolve it with TAA, e.g. hair cards). Emulated in the shader.
+        static const bool alpha_to_mask_enabled = [] {
+            const char* env = std::getenv("SHADPS4_ALPHA_TO_MASK");
+            return !env || env[0] != '0';
+        }();
+        const u32 alpha_to_mask = regs.reg_array[AmdGpu::Regs::ContextRegWordOffset + 0x2DC];
+        info.hw.fs.alpha_to_mask =
+            alpha_to_mask_enabled && (alpha_to_mask & 1) && graphics_key.num_samples <= 1
+                ? (alpha_to_mask & 0x1FF01)
+                : 0;
         // Lowered user clip planes ride the same emulation path as guest-exported distances, so
         // the fragment side arms whenever the hardware vertex stage lowers them, keeping its input
         // locations in sync with the shifted vertex outputs.
@@ -228,6 +242,7 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(HwStage stage, SwStag
         info.props.fp_denorm_mode16_64 = cs_pgm.settings.fp_denorm_mode64;
         info.props.fp_round_mode32 = cs_pgm.settings.fp_round_mode32;
         info.props.fp_round_mode16_64 = cs_pgm.settings.fp_round_mode64;
+        info.props.dx10_clamp = cs_pgm.settings.dx10_clamp;
         info.hw.cs.workgroup_size = {cs_pgm.num_thread_x.full, cs_pgm.num_thread_y.full,
                                      cs_pgm.num_thread_z.full};
         info.hw.cs.tgid_enable = {cs_pgm.IsTgidEnabled(0), cs_pgm.IsTgidEnabled(1),
@@ -265,6 +280,40 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(HwStage stage, SwStag
         break;
     }
     return info;
+}
+
+// GPUs whose shader execution differs from GCN in ways games rely on (NaN results, how
+// subgroups are formed): Intel, where the problems were found, and NVIDIA, which shows the same
+// symptoms in UFC 4 (black squares, broken compute results).
+static bool NeedsGcnWorkarounds(const Instance& instance) {
+    const auto driver = instance.GetDriverID();
+    return driver == vk::DriverId::eIntelProprietaryWindows ||
+           driver == vk::DriverId::eIntelOpenSourceMESA ||
+           driver == vk::DriverId::eNvidiaProprietary || driver == vk::DriverId::eMesaNvk;
+}
+
+// Intel and NVIDIA produce NaNs in places where GCN does not, and blur chains spread a single
+// NaN into large black blocks. On by default there; SHADPS4_NAN_GUARD=0/1 overrides.
+static bool SanitizeNanOutputs(const Instance& instance) {
+    bool enabled = NeedsGcnWorkarounds(instance);
+    if (const char* env = std::getenv("SHADPS4_NAN_GUARD")) {
+        enabled = env[0] == '1';
+    }
+    LOG_INFO(Render_Vulkan, "NaN output guard: {}", enabled ? "on" : "off");
+    return enabled;
+}
+
+// GCN packs waves from consecutive flattened thread ids. Intel may pack subgroups of 2D/3D
+// workgroups in tiles, which breaks wave-lockstep code that relies on a row being one wave.
+// Declaring 1D workgroups and rebuilding the 3D local id keeps the GCN mapping.
+// On by default for Intel and NVIDIA; SHADPS4_FLATTEN_WG=0/1 overrides.
+static bool FlattenComputeWorkgroups(const Instance& instance) {
+    bool enabled = NeedsGcnWorkarounds(instance);
+    if (const char* env = std::getenv("SHADPS4_FLATTEN_WG")) {
+        enabled = env[0] == '1';
+    }
+    LOG_INFO(Render_Vulkan, "Flatten compute workgroups: {}", enabled ? "on" : "off");
+    return enabled;
 }
 
 PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
@@ -320,21 +369,81 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
         .needs_manual_interpolation = instance.IsFragmentShaderBarycentricSupported() &&
                                       instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
         .needs_lds_barriers = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary ||
-                              instance.GetDriverID() == vk::DriverId::eMoltenvk,
+                              instance.GetDriverID() == vk::DriverId::eMoltenvk ||
+                              instance.SubgroupSize() < 64,
+        .sanitize_nan_outputs = SanitizeNanOutputs(instance),
+        .flatten_compute_workgroups = FlattenComputeWorkgroups(instance),
         .needs_buffer_offsets = instance.StorageMinAlignment() > 4,
         .needs_unorm_fixup = instance.GetDriverID() == vk::DriverId::eMoltenvk,
         .needs_clip_distance_emulation = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
         .supports_shader_stencil_export = instance_.IsShaderStencilExportSupported(),
     };
-    WarmUp();
-
-    auto [cache_result, cache] = instance.GetDevice().createPipelineCacheUnique({});
+    // Driver-compiled pipelines persist across runs so preloading and shaders seen before
+    // don't have to be compiled by the driver again.
+    std::vector<u8> cache_data;
+    if (Config::isPipelineCacheEnabled()) {
+        const auto path = VkPipelineCachePath();
+        if (std::filesystem::exists(path)) {
+            Common::FS::IOFile file{path, Common::FS::FileAccessMode::Read};
+            cache_data.resize(file.GetSize());
+            file.Read(cache_data);
+        }
+    }
+    auto [cache_result, cache] =
+        instance.GetDevice().createPipelineCacheUnique(vk::PipelineCacheCreateInfo{
+            .initialDataSize = cache_data.size(), .pInitialData = cache_data.data()});
+    if (cache_result != vk::Result::eSuccess && !cache_data.empty()) {
+        LOG_WARNING(Render_Vulkan, "Vulkan pipeline cache data rejected, starting empty");
+        cache_data.clear();
+        auto empty = instance.GetDevice().createPipelineCacheUnique({});
+        cache_result = empty.result;
+        cache = std::move(empty.value);
+    }
     ASSERT_MSG(cache_result == vk::Result::eSuccess, "Failed to create pipeline cache: {}",
                vk::to_string(cache_result));
     pipeline_cache = std::move(cache);
+    LOG_INFO(Render_Vulkan, "Vulkan pipeline cache: loaded {} KB", cache_data.size() / 1024);
+
+    WarmUp();
+    if (num_new_pipelines == 0) {
+        SaveVkPipelineCache();
+    }
 }
 
-PipelineCache::~PipelineCache() = default;
+std::filesystem::path PipelineCache::VkPipelineCachePath() const {
+    const auto props = instance.GetPhysicalDevice().getProperties();
+    return Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
+           fmt::format("{}_vk_{:04x}_{:04x}.bin", Common::ElfInfo::Instance().GameSerial(),
+                       props.vendorID, props.deviceID);
+}
+
+void PipelineCache::SaveVkPipelineCache() {
+    if (!Config::isPipelineCacheEnabled() || !pipeline_cache) {
+        return;
+    }
+    const auto [result, data] = instance.GetDevice().getPipelineCacheData(*pipeline_cache);
+    if (result != vk::Result::eSuccess || data.empty()) {
+        return;
+    }
+    const auto path = VkPipelineCachePath();
+    auto tmp = path;
+    tmp += ".tmp";
+    {
+        Common::FS::IOFile file{tmp, Common::FS::FileAccessMode::Create};
+        if (!file.IsOpen() || file.WriteSpan(std::span<const u8>{data}) != data.size()) {
+            return;
+        }
+    }
+    std::error_code ec;
+    std::filesystem::rename(tmp, path, ec);
+    LOG_INFO(Render_Vulkan, "Vulkan pipeline cache saved: {} KB", data.size() / 1024);
+}
+
+PipelineCache::~PipelineCache() {
+    if (num_new_pipelines % 50 != 0) {
+        SaveVkPipelineCache();
+    }
+}
 
 const GraphicsPipeline* PipelineCache::GetGraphicsPipeline(const DrawIndirectParams params) {
     draw_indirect_params = params;
@@ -352,7 +461,9 @@ const GraphicsPipeline* PipelineCache::GetGraphicsPipeline(const DrawIndirectPar
             runtime_infos, fetch_shader, modules, sdata, false);
 
         RegisterPipelineData(graphics_key, pipeline_hash, sdata);
-        ++num_new_pipelines;
+        if (++num_new_pipelines % 50 == 0) {
+            SaveVkPipelineCache();
+        }
 
         if (Config::collectShadersForDebug()) {
             for (auto stage = 0; stage < MaxShaderStages; ++stage) {
@@ -380,7 +491,9 @@ const ComputePipeline* PipelineCache::GetComputePipeline() {
                                                        *pipeline_cache, compute_key, *infos[0],
                                                        modules[0], sdata, false);
         RegisterPipelineData(compute_key, sdata);
-        ++num_new_pipelines;
+        if (++num_new_pipelines % 50 == 0) {
+            SaveVkPipelineCache();
+        }
 
         if (Config::collectShadersForDebug()) {
             auto& m = modules[0];
@@ -489,6 +602,15 @@ bool PipelineCache::RefreshGraphicsKey() {
             key.num_samples = key.depth_samples;
         }
     }
+
+    // DB_ALPHA_TO_MASK on a multisampled target maps to Vulkan alpha to coverage (hair cards
+    // rely on it for soft edges). Single sample targets are handled in the fragment shader.
+    static const bool alpha_to_mask_enabled = [] {
+        const char* env = std::getenv("SHADPS4_ALPHA_TO_MASK");
+        return !env || env[0] != '0';
+    }();
+    key.alpha_to_coverage = alpha_to_mask_enabled && key.num_samples > 1 &&
+                            (regs.reg_array[AmdGpu::Regs::ContextRegWordOffset + 0x2DC] & 1);
 
     return true;
 }
@@ -718,8 +840,10 @@ PipelineCache::Result PipelineCache::GetProgram(HwStage hw_stage, SwStage sw_sta
         perm_idx = std::distance(program->modules.begin(), it);
         perm_hash = HashCombine(params.hash, perm_idx);
 
-        // Check for patches even on cached shaders
-        if (Config::patchShaders()) {
+        // Check for patches even on cached shaders, but only once per permutation: this path
+        // runs for every draw, and reloading the patch from disk each time tanks performance.
+        if (Config::patchShaders() && !it->patch_checked) {
+            it->patch_checked = true;
             auto patch = GetShaderPatch(info.pgm_hash, info.hw_stage, perm_idx, "spv");
             if (patch) {
                 const auto& d = instance.GetDevice();

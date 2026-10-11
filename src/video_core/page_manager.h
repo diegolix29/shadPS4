@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <string>
+
 #include <memory>
 #include "common/alignment.h"
 #include "common/types.h"
@@ -44,6 +46,12 @@ public:
     /// Updates watches in the pages touching the specified region using a mask.
     template <bool track, bool is_read = false>
     void UpdatePageWatchersForRegion(VAddr base_addr, RegionBits& mask) const;
+
+    /// Diagnostics: watcher counts and the host protection of the page containing addr.
+    std::string DescribePage(VAddr addr) const;
+
+    /// Fault storm recovery: makes the page containing addr writable again (counts unchanged).
+    void ForceWritable(VAddr addr) const;
 
     /// Returns page aligned address.
     static constexpr VAddr GetPageAddr(VAddr addr) {

@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <chrono>
+#include <cstdlib>
+#include <set>
+#include <tuple>
 #include <xxhash.h>
 
 #include "common/assert.h"
@@ -10,8 +14,10 @@
 #include "common/hash.h"
 #include "common/scope_exit.h"
 #include "core/memory.h"
+#include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/page_manager.h"
+#include "video_core/perf_stats.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_runtime.h"
@@ -63,6 +69,36 @@ TextureCache::TextureCache(const Vulkan::Instance& instance_, Vulkan::Scheduler&
 
 TextureCache::~TextureCache() = default;
 
+namespace {
+// A/B switches for the GPU texture compression handling (SHADPS4_BC_MODE):
+// bit 0 = compressed view through memory (else host image copy), bit 1 = write back storage
+// images over compressed images (after dispatches and before creating compressed images).
+u32 BcMode() {
+    static const u32 mode = [] {
+        const char* env = std::getenv("SHADPS4_BC_MODE");
+        return env && *env ? static_cast<u32>(std::strtoul(env, nullptr, 0)) : 3u;
+    }();
+    return mode;
+}
+
+// Linear 2D images written by compute shaders are downloaded to guest memory after the dispatch
+// (SHADPS4_LINEAR_STORAGE_READBACK=0 disables). Small ones are skipped: per-frame helper images
+// would cost a GPU wait each time, and CPU-read pictures are large.
+bool ReadbackLinearStorage(const ImageInfo& info) {
+    static const bool enabled = [] {
+        const char* env = std::getenv("SHADPS4_LINEAR_STORAGE_READBACK");
+        return !env || env[0] != '0';
+    }();
+    if (!enabled || info.size.width < 64 || info.size.height < 64 || info.props.is_depth ||
+        info.props.is_block) {
+        return false;
+    }
+    return true;
+}
+} // Anonymous namespace
+
+static thread_local bool last_fault_was_flush = false;
+
 void TextureCache::ProcessDownloadImages() {
     std::unique_lock lk{download_images_mutex};
     for (const ImageId image_id : download_images) {
@@ -113,6 +149,163 @@ void TextureCache::DownloadImageMemory(ImageId image_id, bool sync) {
     }
 }
 
+bool TextureCache::WriteBackIfAliasesCompressed(ImageId image_id) {
+    if ((BcMode() & 2) == 0) {
+        return false;
+    }
+    {
+        std::scoped_lock lock{mutex};
+        Image& image = slot_images[image_id];
+        if (image.info.guest_address == 0 || image.info.props.is_block ||
+            False(image.flags & ImageFlagBits::GpuModified)) {
+            return false;
+        }
+        bool aliases_compressed = false;
+        ForEachImageInRegion(
+            image.info.guest_address, image.info.guest_size, [&](ImageId other_id, Image& other) {
+                aliases_compressed |= other_id != image_id && other.info.props.is_block;
+            });
+        if (!aliases_compressed) {
+            return false;
+        }
+        if (LazyWriteBack()) {
+            DeferWriteBackLocked(image_id, false);
+            return true;
+        }
+    }
+    WriteBackImage(image_id, false);
+    return true;
+}
+
+bool TextureCache::LazyWriteBack() {
+    static const bool lazy = [] {
+        const char* env = std::getenv("SHADPS4_LAZY_WRITEBACK");
+        return !env || env[0] != '0';
+    }();
+    return lazy;
+}
+
+void TextureCache::DeferWriteBack(ImageId image_id, bool dirty_all_aliases) {
+    std::scoped_lock lock{mutex};
+    DeferWriteBackLocked(image_id, dirty_all_aliases);
+}
+
+void TextureCache::DeferWriteBackLocked(ImageId image_id, bool dirty_all_aliases) {
+    // Games write textures through storage views one mip/dispatch at a time (UFC 4 Create
+    // Fighter also every frame). Writing the whole image back after every dispatch moved up to
+    // ~10 GB/s; instead the aliases are marked dirty now and the image reaches memory once, when
+    // one of them is uploaded (RefreshImage) or the image is freed.
+    Image& image = slot_images[image_id];
+    image.flags |= ImageFlagBits::PendingWriteBack;
+    image.flags &= ~ImageFlagBits::WrittenBack;
+    ForEachImageInRegion(
+        image.info.guest_address, image.info.guest_size, [&](ImageId other_id, Image& other) {
+            if (other_id != image_id && (dirty_all_aliases || other.info.props.is_block)) {
+                other.flags |= ImageFlagBits::GpuDirty;
+            }
+        });
+    VideoCore::PerfAdd(VideoCore::PerfCounter::WriteBacksDeferred);
+}
+
+void TextureCache::FlushPendingWriteBack(Image& image) {
+    if (False(image.flags & ImageFlagBits::PendingWriteBack)) {
+        return;
+    }
+    image.flags &= ~ImageFlagBits::PendingWriteBack;
+    if (True(image.flags & ImageFlagBits::Registered) && image.SafeToDownload()) {
+        TileImageToBuffer(image, TileReason::Pending);
+        image.flags |= ImageFlagBits::WrittenBack;
+    }
+}
+
+void TextureCache::FlushPendingWriteBacks(VAddr addr, size_t size) {
+    ForEachImageInRegion(addr, size, [&](ImageId, Image& other) {
+        if (True(other.flags & ImageFlagBits::PendingWriteBack)) {
+            FlushPendingWriteBack(other);
+        }
+    });
+}
+
+void TextureCache::WriteBackImage(ImageId image_id, bool dirty_all_aliases) {
+    Image& image = slot_images[image_id];
+    const VAddr address = image.info.guest_address;
+    const u32 size = image.info.guest_size;
+    TileImageToBuffer(image);
+
+    std::scoped_lock lock{mutex};
+    image.flags |= ImageFlagBits::WrittenBack;
+    image.flags &= ~ImageFlagBits::PendingWriteBack;
+    ForEachImageInRegion(address, size, [&](ImageId other_id, Image& other) {
+        if (other_id != image_id && (dirty_all_aliases || other.info.props.is_block)) {
+            other.flags |= ImageFlagBits::GpuDirty;
+        }
+    });
+
+    // Debug logs: each distinct image/reason once, plus every 1000th write back (hot spots).
+    static std::set<std::tuple<VAddr, u32, bool>> logged;
+    static u64 num_write_backs = 0;
+    if (VideoCore::DebugLogsEnabled() &&
+        ((logged.size() < 512 && logged.emplace(address, size, dirty_all_aliases).second) ||
+         ++num_write_backs % 1000 == 0)) {
+        LOG_INFO(Render_Vulkan,
+                 "Wrote back {:#x} {} {}x{} mips={} size={:#x} over {} images (total {})", address,
+                 vk::to_string(image.info.pixel_format), image.info.size.width,
+                 image.info.size.height, image.info.resources.levels, size,
+                 dirty_all_aliases ? "aliasing" : "compressed", num_write_backs);
+    }
+}
+
+void TextureCache::TileImageToBuffer(Image& image, TileReason reason) {
+    // Stays on the GPU: a CPU write back would have to wait for the GPU and take the memory
+    // manager lock, which guest threads hold while waiting for the GPU thread (unmap flushes).
+    // The range becomes GPU modified, so image uploads read it from the buffer cache and CPU
+    // accesses download it.
+    const VAddr address = image.info.guest_address;
+    const u32 size = image.info.guest_size;
+
+    boost::container::small_vector<vk::BufferImageCopy, 14> copies;
+    for (u32 mip = 0; mip < image.info.resources.levels; ++mip) {
+        const auto& mip_info = image.info.mips_layout[mip];
+        copies.push_back({
+            .bufferOffset = mip_info.offset,
+            .bufferRowLength = mip_info.pitch,
+            .bufferImageHeight = mip_info.height,
+            .imageSubresource{
+                .aspectMask = image.aspect_mask & ~vk::ImageAspectFlagBits::eStencil,
+                .mipLevel = mip,
+                .baseArrayLayer = 0,
+                .layerCount = image.info.resources.layers,
+            },
+            .imageOffset = {0, 0, 0},
+            .imageExtent = {std::max(image.info.size.width >> mip, 1u),
+                            std::max(image.info.size.height >> mip, 1u),
+                            std::max(image.info.size.depth >> mip, 1u)},
+        });
+    }
+    const auto [arena, arena_offset] = buffer_cache.ObtainBuffer(address, size, true);
+    tile_manager.TileImage(image, copies, arena, arena_offset);
+    VideoCore::PerfAdd(VideoCore::PerfCounter::TileToBuffer);
+    VideoCore::PerfAdd(VideoCore::PerfCounter::TileBytes, size);
+    VideoCore::PerfAdd(
+        static_cast<VideoCore::PerfCounter>(
+            static_cast<u32>(VideoCore::PerfCounter::TileMbWriteBack) + static_cast<u32>(reason)),
+        size);
+    // Any write back satisfies a deferred one.
+    image.flags &= ~ImageFlagBits::PendingWriteBack;
+
+    // Image uploads detile from this buffer without checking for earlier writes to it.
+    const vk::MemoryBarrier2 tiled_barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eComputeShader,
+        .srcAccessMask = vk::AccessFlagBits2::eShaderWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+    };
+    scheduler.CommandBuffer().pipelineBarrier2(vk::DependencyInfo{
+        .memoryBarrierCount = 1u,
+        .pMemoryBarriers = &tiled_barrier,
+    });
+}
+
 void TextureCache::MarkAsMaybeDirty(ImageId image_id, Image& image) {
     if (image.hash == 0) {
         // Initialize hash
@@ -123,7 +316,19 @@ void TextureCache::MarkAsMaybeDirty(ImageId image_id, Image& image) {
     UntrackImage(image_id);
 }
 
-void TextureCache::InvalidateMemory(VAddr addr, size_t size, ImageId exclude_image_id) {
+void TextureCache::InvalidateMemory(VAddr addr, size_t size, ImageId exclude_image_id,
+                                    bool cpu_write_fault) {
+    static const bool flush_enabled = [] {
+        const char* env = std::getenv("SHADPS4_FLUSH_CPU_WRITE");
+        return !env || env[0] != '0';
+    }();
+    last_fault_was_flush = false;
+    if (cpu_write_fault && flush_enabled && FlushBeforeCpuWrite(addr, size)) {
+        last_fault_was_flush = true;
+        // The faulting write is retried: it faults again on the still protected pages, the
+        // buffer cache downloads the flushed contents, and the image is invalidated normally.
+        return;
+    }
     std::scoped_lock lock{mutex};
     const auto pages_start = PageManager::GetPageAddr(addr);
     const auto pages_end = PageManager::GetNextPageAddr(addr + size - 1);
@@ -157,6 +362,72 @@ void TextureCache::InvalidateMemory(VAddr addr, size_t size, ImageId exclude_ima
     });
 }
 
+bool TextureCache::LastFaultWasFlush() {
+    return last_fault_was_flush;
+}
+
+std::string TextureCache::DescribeRegion(VAddr addr, size_t size) {
+    std::string text;
+    std::scoped_lock lock{mutex};
+    ForEachImageInRegion(addr, size, [&](ImageId image_id, Image& image) {
+        const auto& info = image.info;
+        text += fmt::format(" [img#{} {:#x} {} {}x{} mips={} samples={} size={:#x} flags={:#x} "
+                            "rt={} storage={} overlaps={}]",
+                            image_id.index, info.guest_address, vk::to_string(info.pixel_format),
+                            info.size.width, info.size.height, info.resources.levels,
+                            info.num_samples, info.guest_size, static_cast<u32>(image.flags),
+                            static_cast<u32>(image.usage.render_target),
+                            static_cast<u32>(image.usage.storage), image.Overlaps(addr, size));
+    });
+    return text.empty() ? std::string{" (no images)"} : text;
+}
+
+bool TextureCache::FlushBeforeCpuWrite(VAddr addr, size_t size) {
+    // A CPU write into an image that only exists on the GPU (render target or storage output)
+    // would make it reupload from guest memory, which never received the GPU contents, so
+    // everything the GPU wrote is lost (e.g. UFC 4 fighter skin atlases next to streamed
+    // assets). On hardware the write only changes its own bytes: put the image contents into
+    // the buffer cache copy of guest memory first, so the retried write lands on top of them.
+    ImageIds to_flush;
+    {
+        std::scoped_lock lock{mutex};
+        ForEachImageInRegion(addr, size, [&](ImageId image_id, Image& image) {
+            if (image.Overlaps(addr, size) && True(image.flags & ImageFlagBits::GpuModified) &&
+                False(image.flags & ImageFlagBits::Dirty) &&
+                False(image.flags & ImageFlagBits::WrittenBack) &&
+                (image.usage.storage || image.usage.render_target) && !image.info.props.is_depth &&
+                image.info.num_samples == 1 && image.info.guest_address != 0) {
+                to_flush.push_back(image_id);
+            }
+        });
+    }
+    if (to_flush.empty()) {
+        return false;
+    }
+    const auto wait_start = std::chrono::steady_clock::now();
+    SCOPE_EXIT {
+        const u64 us = std::chrono::duration_cast<std::chrono::microseconds>(
+                           std::chrono::steady_clock::now() - wait_start)
+                           .count();
+        VideoCore::PerfAdd(VideoCore::PerfCounter::FlushCpu);
+        VideoCore::PerfAdd(VideoCore::PerfCounter::FlushWaitUs, us);
+        VideoCore::PerfMax(VideoCore::PerfCounter::FlushWaitMaxUs, us);
+    };
+    liverpool->SendCommand<true>([this, &to_flush] {
+        for (const ImageId image_id : to_flush) {
+            Image& image = slot_images[image_id];
+            if (False(image.flags & ImageFlagBits::Registered) ||
+                True(image.flags & ImageFlagBits::Dirty)) {
+                continue;
+            }
+            TileImageToBuffer(image, TileReason::CpuWrite);
+            std::scoped_lock lock{mutex};
+            image.flags |= ImageFlagBits::WrittenBack;
+        }
+    });
+    return true;
+}
+
 void TextureCache::InvalidateMemoryFromGPU(VAddr address, size_t max_size) {
     std::scoped_lock lock{mutex};
     ForEachImageInRegion(address, max_size, [&](ImageId image_id, Image& image) {
@@ -184,6 +455,7 @@ void TextureCache::UnmapMemory(VAddr cpu_addr, size_t size) {
     ForEachImageInRegion(cpu_addr, size, [&](ImageId id, Image&) { deleted_images.push_back(id); });
     for (const ImageId id : deleted_images) {
         // TODO: Download image data back to host.
+        slot_images[id].flags &= ~ImageFlagBits::PendingWriteBack; // memory is going away
         FreeImage(id);
     }
 }
@@ -286,7 +558,20 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
 
         // Compressed view of uncompressed image with same block size.
         if (image_info.props.is_block && !cache_image.info.props.is_block) {
-            return {ExpandImage(image_info, cache_image_id), -1, -1};
+            if ((BcMode() & 1) == 0) {
+                return {ExpandImage(image_info, cache_image_id), -1, -1};
+            }
+            // Always go through memory: it is correct for any layout, and the result lives in
+            // the buffer cache, so later CPU writes to the range download it first instead of
+            // dropping GPU-only image contents.
+            if (cache_image.SafeToDownload()) {
+                TileImageToBuffer(cache_image, TileReason::View);
+            }
+            if (cache_image.binding.is_bound || cache_image.binding.is_target) {
+                cache_image.binding.needs_rebind = 1u;
+            }
+            FreeImage(cache_image_id);
+            return {merged_image_id, -1, -1};
         }
 
         if (image_info.guest_size == cache_image.info.guest_size &&
@@ -302,6 +587,17 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
             image_info.pitch == cache_image.info.pitch && image_info.resources.levels == 1 &&
             cache_image.info.resources.levels == 1 && image_info.resources.layers == 1 &&
             cache_image.info.resources.layers == 1;
+
+        // A compatible format (e.g. UNORM over SRGB) that needs more mips/layers than the cached
+        // image: the guest renders level 0 first and then generates the rest through another
+        // view. Expand and keep the GPU-written contents instead of dropping the cached image
+        // (which would re-upload stale guest memory).
+        if (image_info.pixel_format != cache_image.info.pixel_format &&
+            image_info.type == cache_image.info.type && image_info.size == cache_image.info.size &&
+            image_info.resources > cache_image.info.resources &&
+            IsVulkanFormatCompatible(cache_image.info.pixel_format, image_info.pixel_format)) {
+            return {ExpandImage(image_info, cache_image_id), -1, -1};
+        }
 
         // Size and resources are less than or equal, use image view.
         if (image_info.pixel_format != cache_image.info.pixel_format ||
@@ -510,8 +806,15 @@ ImageId TextureCache::ExpandImage(const ImageInfo& info, ImageId image_id) {
     auto& src_image = slot_images[image_id];
     auto& new_image = slot_images[new_image_id];
 
+    // A deferred write back moves to the new image with the contents (the copy below), instead
+    // of writing the old image to memory first (a texture written mip by mip expands each time).
+    const bool src_pending = True(src_image.flags & ImageFlagBits::PendingWriteBack);
+    src_image.flags &= ~ImageFlagBits::PendingWriteBack;
     RefreshImage(new_image);
     runtime.CopyImage(&src_image, &new_image);
+    if (src_pending) {
+        new_image.flags |= ImageFlagBits::GpuModified | ImageFlagBits::PendingWriteBack;
+    }
 
     if (src_image.binding.is_bound || src_image.binding.is_target) {
         src_image.binding.needs_rebind = 1u;
@@ -526,7 +829,7 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
     const auto& info = desc.info;
     ASSERT(info.guest_address != 0);
 
-    std::scoped_lock lock{mutex};
+    std::unique_lock lock{mutex};
     ImageIds image_ids;
     ForEachImageInRegion(info.guest_address, info.guest_size,
                          [&](ImageId image_id, Image& image) { image_ids.push_back(image_id); });
@@ -588,8 +891,28 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
     }
     // Create and register a new image
     if (!image_id) {
+        if (info.props.is_block && (BcMode() & 2) != 0) {
+            // The texture may have been compressed on the GPU into memory that a storage image
+            // still holds; write it back so the upload below picks up the compressed data.
+            ImageIds storage_aliases;
+            ForEachImageInRegion(
+                info.guest_address, info.guest_size, [&](ImageId other_id, Image& other) {
+                    if (!other.info.props.is_block && other.usage.storage &&
+                        other.SafeToDownload() && False(other.flags & ImageFlagBits::WrittenBack)) {
+                        storage_aliases.push_back(other_id);
+                    }
+                });
+            if (!storage_aliases.empty()) {
+                lock.unlock();
+                for (const ImageId alias_id : storage_aliases) {
+                    WriteBackImage(alias_id, false);
+                }
+                lock.lock();
+            }
+        }
         image_id = slot_images.Insert(instance, runtime, slot_image_views, info);
         RegisterImage(image_id);
+        VideoCore::PerfAdd(VideoCore::PerfCounter::ImagesCreated);
     }
 
     Image& image = slot_images[image_id];
@@ -641,8 +964,16 @@ ImageView& TextureCache::FindTexture(ImageId image_id, const ImageDesc& desc) {
     Image& image = slot_images[image_id];
     if (desc.type == BindingType::Storage) {
         image.flags |= ImageFlagBits::GpuModified;
+        image.flags &= ~ImageFlagBits::WrittenBack;
         if (!image.info.props.is_tiled && image.info.guest_address != 0 &&
             image.info.props.is_volume) {
+            download_images.emplace(image_id);
+        } else if (!image.info.props.is_tiled && image.info.guest_address != 0 &&
+                   ReadbackLinearStorage(image.info)) {
+            // Games convert pictures to a linear layout with a compute shader so the CPU can read
+            // them (UFC 4 encodes fighter pictures for the save this way). Without a download the
+            // CPU reads stale memory and saves black pictures.
+            std::unique_lock lk{download_images_mutex};
             download_images.emplace(image_id);
         }
     }
@@ -653,6 +984,7 @@ ImageView& TextureCache::FindTexture(ImageId image_id, const ImageDesc& desc) {
 ImageView& TextureCache::FindRenderTarget(ImageId image_id, const ImageDesc& desc) {
     Image& image = slot_images[image_id];
     image.flags |= ImageFlagBits::GpuModified;
+    image.flags &= ~ImageFlagBits::WrittenBack;
     if (readback_linear_images && (!image.info.props.is_tiled || image.info.size.width <= 8)) {
         std::unique_lock lk{download_images_mutex};
         download_images.emplace(image_id);
@@ -722,6 +1054,11 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
 void TextureCache::RefreshImage(Image& image) {
     if (False(image.flags & ImageFlagBits::Dirty) || image.info.num_samples > 1) {
         return;
+    }
+    // Deferred write backs of storage aliases must be in memory before a compressed alias is
+    // uploaded (other aliases get them when the pending image is freed or expanded).
+    if (image.info.props.is_block || True(image.flags & ImageFlagBits::GpuDirty)) {
+        FlushPendingWriteBacks(image.info.guest_address, image.info.guest_size);
     }
 
     RENDERER_TRACE;
@@ -995,6 +1332,7 @@ void TextureCache::RunGarbageCollector() {
         if (download)
             DownloadImageMemory(image_id);
 
+        FlushPendingWriteBack(image);
         EnqueueForGc([this, image_id]() { FreeImage(image_id); });
         return false;
     };

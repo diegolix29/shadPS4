@@ -152,7 +152,8 @@ void EmitContext::DefineArithmeticTypes() {
     u16_zero_value = Constant(U16, 0U);
     u32_one_value = ConstU32(1U);
     u32_zero_value = ConstU32(0U);
-    f32_zero_value = ConstF32(0.0f);
+    f32_one_value = ConstF32(1.f);
+    f32_zero_value = ConstF32(0.f);
     u64_one_value = Constant(U64, 1ULL);
     u64_zero_value = Constant(U64, 0ULL);
 
@@ -500,10 +501,17 @@ void EmitContext::DefineInputs() {
                 DefineVariable(U32[3], spv::BuiltIn::NumWorkgroups, spv::StorageClass::Input);
         }
         if (info.loads.GetAny(IR::Attribute::LocalInvocationId)) {
-            local_invocation_id =
-                DefineVariable(U32[3], spv::BuiltIn::LocalInvocationId, spv::StorageClass::Input);
+            if (profile.flatten_compute_workgroups) {
+                // The 3D id is rebuilt from the flattened index.
+                local_invocation_index = DefineVariable(U32[1], spv::BuiltIn::LocalInvocationIndex,
+                                                        spv::StorageClass::Input);
+            } else {
+                local_invocation_id = DefineVariable(U32[3], spv::BuiltIn::LocalInvocationId,
+                                                     spv::StorageClass::Input);
+            }
         }
-        if (info.loads.Get(IR::Attribute::LocalInvocationIndex)) {
+        if (info.loads.Get(IR::Attribute::LocalInvocationIndex) &&
+            !Sirit::ValidId(local_invocation_index)) {
             local_invocation_index = DefineVariable(U32[1], spv::BuiltIn::LocalInvocationIndex,
                                                     spv::StorageClass::Input);
         }

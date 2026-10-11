@@ -48,6 +48,8 @@ struct Profile {
     bool lower_left_origin_mode{};
     bool needs_manual_interpolation{};
     bool needs_lds_barriers{};
+    bool sanitize_nan_outputs{};
+    bool flatten_compute_workgroups{};
     bool needs_buffer_offsets{};
     bool needs_unorm_fixup{};
     bool needs_clip_distance_emulation{};

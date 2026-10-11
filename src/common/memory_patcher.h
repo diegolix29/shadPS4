@@ -44,6 +44,9 @@ struct patchInfo {
 std::string convertValueToHex(const std::string type, const std::string valueStr);
 
 void OnGameLoaded();
+
+/// SHADPS4_RENDER_RES=WxH: UFC 4 render resolution (instead of loading the patch file).
+void ApplyRenderResolution();
 void AddPatchToQueue(const patchInfo& patchToAdd);
 void ApplyRuntimePatch(const std::string& modNameStr, const std::string& offsetStr,
                        const std::string& valueStr, const std::string& targetStr,

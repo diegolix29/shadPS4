@@ -14,6 +14,7 @@
 #include <miniz.h>
 
 #include <condition_variable>
+#include <cstdlib>
 #include <functional>
 #include <future>
 #include <mutex>
@@ -101,13 +102,25 @@ void DataBase::Open() {
     }
 
     const auto& game_info = Common::ElfInfo::Instance();
+    // Cached SPIR-V depends on the host GPU profile (subgroup size, workarounds), so keep a
+    // separate cache when another GPU is picked with SHADPS4_GPU.
+    std::string cache_name{game_info.GameSerial()};
+    if (const char* gpu = std::getenv("SHADPS4_GPU"); gpu && *gpu) {
+        cache_name += fmt::format("_{}", gpu);
+    }
+    // Options that change generated shaders get their own cache.
+    for (const char* var : {"SHADPS4_LDS_ORDER", "SHADPS4_FLATTEN_WG", "SHADPS4_NAN_GUARD"}) {
+        if (const char* value = std::getenv(var); value && *value) {
+            cache_name += fmt::format("_{}{}", var + 8, value);
+        }
+    }
 
     using namespace Common::FS;
     if (Config::isPipelineCacheArchived()) {
         mz_zip_zero_struct(&zip_ar);
 
         cache_path = GetUserPath(PathType::CacheDir) /
-                     std::filesystem::path{game_info.GameSerial()}.replace_extension(".zip");
+                     std::filesystem::path{cache_name}.replace_extension(".zip");
 
         if (!mz_zip_reader_init_file(&zip_ar, cache_path.string().c_str(),
                                      MZ_ZIP_FLAG_READ_ALLOW_WRITING) ||
@@ -118,7 +131,7 @@ void DataBase::Open() {
             mz_zip_writer_init_file(&zip_ar, cache_path.string().c_str(), 0);
         }
     } else {
-        cache_path = GetUserPath(PathType::CacheDir) / game_info.GameSerial();
+        cache_path = GetUserPath(PathType::CacheDir) / cache_name;
         if (!std::filesystem::exists(cache_path)) {
             std::filesystem::create_directories(cache_path);
         }
@@ -185,9 +198,22 @@ bool WriteVector(const BlobType type, std::filesystem::path&& path_, std::vector
                     LOG_ERROR(Render, "Failed to add {} to the archive", path.string().c_str());
                 }
             } else {
+                // Write to a temporary file and rename it into place: an entry cut short by a
+                // forced exit would otherwise be loaded (and crash) on the next start.
                 using namespace Common::FS;
-                const auto file = IOFile{path, FileAccessMode::Create};
-                file.Write(v);
+                auto tmp_path = path;
+                tmp_path += ".tmp";
+                {
+                    const auto file = IOFile{tmp_path, FileAccessMode::Create};
+                    file.Write(v);
+                }
+                std::error_code ec;
+                std::filesystem::rename(tmp_path, path, ec);
+                if (ec) {
+                    LOG_ERROR(Render, "Failed to store cache entry {}: {}", path.string(),
+                              ec.message());
+                    std::filesystem::remove(tmp_path, ec);
+                }
             }
         }};
         std::scoped_lock lock{m_request};

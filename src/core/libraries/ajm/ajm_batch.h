@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <chrono>
+
 #include "common/assert.h"
 #include "common/types.h"
 #include "core/libraries/ajm/ajm.h"
@@ -54,6 +56,7 @@ struct AjmBatch {
     std::atomic_bool canceled{};
     std::atomic_bool processed{};
     std::binary_semaphore finished{0};
+    std::chrono::steady_clock::time_point submit_time{}; ///< for the PerfStats wait counters
     boost::container::small_vector<AjmJob, 16> jobs;
 
     static std::shared_ptr<AjmBatch> FromBatchBuffer(std::span<u8> buffer);

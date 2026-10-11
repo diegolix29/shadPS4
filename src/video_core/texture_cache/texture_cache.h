@@ -4,6 +4,7 @@
 #pragma once
 
 #include <mutex>
+#include <string>
 #include <unordered_set>
 #include <boost/container/small_vector.hpp>
 #include <tsl/robin_map.h>
@@ -96,10 +97,25 @@ public:
         return page_table;
     }
 
+    /// Lazy write back (SHADPS4_LAZY_WRITEBACK=0 disables): marks the aliases of a storage image
+    /// dirty and writes the image to memory only when one of them is uploaded or it is freed.
+    static bool LazyWriteBack();
+    void DeferWriteBack(ImageId image_id, bool dirty_all_aliases);
+
+    /// Diagnostics: images overlapping the range with their flags (freeze / fault storm dumps).
+    std::string DescribeRegion(VAddr addr, size_t size);
+
+    /// True if the last CPU write fault on this thread was answered by FlushBeforeCpuWrite
+    /// (the write is retried without untracking the image).
+    static bool LastFaultWasFlush();
+
     /// Invalidates any image in the logical page range.
     /// @param exclude_image_id  If set, this image is skipped (used by storage sync to
     ///                          exclude the producer storage image from invalidation).
-    void InvalidateMemory(VAddr addr, size_t size, ImageId exclude_image_id = {});
+    /// @param cpu_write_fault  The call comes from a guest CPU write fault on a guest thread;
+    ///                         the write is retried once the handler returns.
+    void InvalidateMemory(VAddr addr, size_t size, ImageId exclude_image_id = {},
+                          bool cpu_write_fault = false);
 
     /// Marks an image as dirty if it exists at the provided address.
     void InvalidateMemoryFromGPU(VAddr address, size_t max_size);
@@ -111,6 +127,12 @@ public:
 
     /// Schedules a copy of pending images for download back to CPU memory.
     void ProcessDownloadImages();
+
+    /// Writes a storage image back to guest memory if it aliases block-compressed images.
+    /// Games compress textures on the GPU through an uncompressed storage view of the
+    /// compressed texture memory; the two can't share a host image, so the compressed
+    /// images are re-uploaded from the written back memory instead.
+    bool WriteBackIfAliasesCompressed(ImageId image_id);
 
     /// Add an image to the download queue for guest memory writeback on next submit.
     void AddDownload(ImageId image_id) {
@@ -337,6 +359,30 @@ private:
 
     /// Stop tracking CPU reads and writes for image
     void UntrackImage(ImageId image_id);
+
+public:
+    /// Re-tiles all mips of a storage image into the buffer cache copy of its guest memory
+    /// (on the GPU, the range becomes GPU modified) and marks the images overlapping it
+    /// (all of them, or only block-compressed ones) to reupload from there.
+    /// Must be called without the cache mutex held.
+    void WriteBackImage(ImageId image_id, bool dirty_all_aliases);
+
+private:
+    /// Why an image is tiled into memory (PerfStats write back counters).
+    enum class TileReason : u32 { WriteBack, View, Pending, CpuWrite };
+    /// Tiles all mips of the image into the buffer cache copy of its guest memory.
+    void TileImageToBuffer(Image& image, TileReason reason = TileReason::WriteBack);
+
+    /// Lazy write back (SHADPS4_LAZY_WRITEBACK, default on): tiles a storage image whose write back
+    /// was deferred into the buffer cache. GPU thread only.
+    void FlushPendingWriteBack(Image& image);
+    void DeferWriteBackLocked(ImageId image_id, bool dirty_all_aliases);
+
+    /// Flushes deferred write backs of images overlapping the range (before it is uploaded).
+    void FlushPendingWriteBacks(VAddr addr, size_t size);
+
+    /// Flushes GPU written images overlapping a pending CPU write. Returns true if any was.
+    bool FlushBeforeCpuWrite(VAddr addr, size_t size);
     void UntrackImageHead(ImageId image_id);
     void UntrackImageTail(ImageId image_id);
 
@@ -349,6 +395,7 @@ private:
     void TouchImage(Image& image);
 
     void FreeImage(ImageId image_id) {
+        FlushPendingWriteBack(slot_images[image_id]);
         UntrackImage(image_id);
         UnregisterImage(image_id);
         DeleteImage(image_id);

@@ -1024,6 +1024,7 @@ SettingsDialog::SettingsDialog(std::shared_ptr<CompatibilityInfoClass> m_compat_
         ui->logFilter->installEventFilter(this);
         ui->enableLoggingCheckBox->installEventFilter(this);
         ui->separateLogFilesCheckbox->installEventFilter(this);
+        ui->collectDebugLogsCheckBox->installEventFilter(this);
         ui->OpenLogLocationButton->installEventFilter(this);
 
         // Debug
@@ -1272,6 +1273,8 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->enableLoggingCheckBox->setChecked(toml::find_or<bool>(data, "Debug", "logEnabled", true));
     ui->separateLogFilesCheckbox->setChecked(
         toml::find_or<bool>(data, "Debug", "isSeparateLogFilesEnabled", false));
+    ui->collectDebugLogsCheckBox->setChecked(
+        toml::find_or<bool>(data, "Debug", "CollectDebugLogs", false));
     ui->vkValidationCheckBox->setChecked(toml::find_or<bool>(data, "Vulkan", "validation", false));
     ui->vkSyncValidationCheckBox->setChecked(
         toml::find_or<bool>(data, "Vulkan", "validation_sync", false));
@@ -1655,6 +1658,8 @@ void SettingsDialog::updateNoteTextEdit(const QString& elementName) {
         text = tr("Enable Shader Patching:\\nAutomatically enables and loads shader patches from the shader/patch folder.\\nPatches will be applied on launch without requiring manual activation via debug menu.");
     } else if (elementName == "separateLogFilesCheckbox") {
         text = tr("Separate Log Files:\\nWrites a separate logfile for each game.");
+    } else if (elementName == "collectDebugLogsCheckBox") {
+        text = tr("Collect Debug Logs:\\nAdds frame times, performance counters and, if the game freezes, a dump of every thread to the log.\\nTurn this on when something goes wrong, play until it happens, then send the log file (Open Log Location).\\nLeave it off otherwise.");
     } else if (elementName == "enableLoggingCheckBox") {
         text = tr("Enable Logging:\\nEnables logging.\\nDo not change this if you do not know what you're doing!\\nWhen asking for help, make sure this setting is ENABLED.");
     } else if (elementName == "OpenLogLocationButton") {
@@ -1853,6 +1858,7 @@ void SettingsDialog::UpdateSettings() {
     Config::setShowSplash(ui->showSplashCheckBox->isChecked());
     Config::setDebugDump(ui->debugDump->isChecked());
     Config::setSeparateLogFilesEnabled(ui->separateLogFilesCheckbox->isChecked());
+    Config::setCollectDebugLogs(ui->collectDebugLogsCheckBox->isChecked());
     Config::setVkValidation(ui->vkValidationCheckBox->isChecked());
     Config::setVkSyncValidation(ui->vkSyncValidationCheckBox->isChecked());
     Config::setRdocEnabled(ui->rdocCheckBox->isChecked());

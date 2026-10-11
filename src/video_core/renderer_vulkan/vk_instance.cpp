@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdlib>
 #include <boost/container/static_vector.hpp>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -96,8 +97,8 @@ Instance::Instance(bool enable_validation, bool enable_crash_diagnostic, bool ma
 
 Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index, bool enable_validation,
                    bool enable_crash_diagnostic, bool manage_imgui)
-    : instance{CreateInstance(window.GetWindowInfo().type, enable_validation,
-                              enable_crash_diagnostic)},
+    : instance{
+          CreateInstance(window.GetWindowInfo().type, enable_validation, enable_crash_diagnostic)},
       physical_devices{EnumeratePhysicalDevices(instance)}, manage_imgui{manage_imgui} {
     if (enable_validation) {
         debug_callback = CreateDebugCallback(*instance);
@@ -105,6 +106,21 @@ Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index, bool 
     const std::size_t num_physical_devices = static_cast<u16>(physical_devices.size());
     ASSERT_MSG(num_physical_devices > 0, "No physical devices found");
     LOG_INFO(Render_Vulkan, "Found {} physical devices", num_physical_devices);
+    for (size_t i = 0; i < num_physical_devices; ++i) {
+        LOG_INFO(Render_Vulkan, "  Device {}: {}", i,
+                 std::string_view{physical_devices[i].getProperties().deviceName});
+    }
+    // SHADPS4_GPU=<part of device name> picks a GPU for this run without touching the config.
+    if (const char* gpu = std::getenv("SHADPS4_GPU"); gpu && *gpu) {
+        for (size_t i = 0; i < num_physical_devices; ++i) {
+            const std::string_view name{physical_devices[i].getProperties().deviceName};
+            if (name.find(gpu) != std::string_view::npos) {
+                physical_device_index = static_cast<s32>(i);
+                LOG_INFO(Render_Vulkan, "SHADPS4_GPU={} selects device {}", gpu, i);
+                break;
+            }
+        }
+    }
 
     if (physical_device_index < 0) {
         std::vector<
@@ -225,6 +241,9 @@ bool Instance::CreateDevice() {
     vk13_props = properties_chain.get<vk::PhysicalDeviceVulkan13Properties>();
     push_descriptor_props = properties_chain.get<vk::PhysicalDevicePushDescriptorPropertiesKHR>();
     LOG_INFO(Render_Vulkan, "Physical device subgroup size {}", vk11_props.subgroupSize);
+    LOG_INFO(Render_Vulkan, "Subgroup size range {}-{}, required size stages: {}",
+             vk13_props.minSubgroupSize, vk13_props.maxSubgroupSize,
+             vk::to_string(vk13_props.requiredSubgroupSizeStages));
 
     if (available_extensions.empty()) {
         LOG_CRITICAL(Render_Vulkan, "No extensions supported by device.");

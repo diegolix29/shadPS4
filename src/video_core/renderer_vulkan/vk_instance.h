@@ -246,6 +246,21 @@ public:
         return vk13_features.subgroupSizeControl && vk13_props.maxSubgroupSize >= 64;
     }
 
+    /// Returns the subgroup size to require for a shader stage, or 0 to let the driver choose.
+    /// Without wave64, request 32 where the driver could otherwise pick a smaller size
+    /// (Intel SIMD8/16): wave64 lowering and LDS barrier insertion assume 32-wide subgroups.
+    u32 RequiredSubgroupSize(vk::ShaderStageFlagBits stage) const {
+        if (IsSubgroupSize64Supported()) {
+            return 64;
+        }
+        if (vk13_features.subgroupSizeControl && vk13_props.maxSubgroupSize == 32 &&
+            vk13_props.minSubgroupSize < 32 && vk11_props.subgroupSize == 32 &&
+            (vk13_props.requiredSubgroupSizeStages & stage)) {
+            return 32;
+        }
+        return 0;
+    }
+
     /// Returns true when VK_KHR_workgroup_memory_explicit_layout is supported.
     bool IsWorkgroupMemoryExplicitLayoutSupported() const {
         return workgroup_memory_explicit_layout &&

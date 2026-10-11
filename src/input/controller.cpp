@@ -1,7 +1,18 @@
 ﻿// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <sstream>
+#include <string_view>
+#include <thread>
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 #include <SDL3/SDL.h>
 #include <common/singleton.h>
 #include "common/config.h"
@@ -10,11 +21,217 @@
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/system/userservice.h"
 #include "input/controller.h"
+#include "video_core/renderdoc.h"
 
 static std::string SelectedGamepad = "";
 static std::mutex SelectedGamepadMutex;
 
 namespace Input {
+
+// Input recording/playback for automated testing.
+// SHADPS4_INPUT_RECORD=<file> records player 1 button/axis changes with timestamps (ms since
+// process start); pressing the capture key adds a 'C' marker. SHADPS4_INPUT_PLAY=<file> replays
+// them on player 1; at the marker it takes screenshots, exits, or triggers a RenderDoc capture.
+namespace {
+const auto g_input_t0 = std::chrono::steady_clock::now();
+std::mutex g_record_mutex;
+std::atomic_bool g_playing{false};
+
+long long InputElapsedMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() -
+                                                                 g_input_t0)
+        .count();
+}
+
+std::FILE* InputRecordFile() {
+    static std::FILE* file = []() -> std::FILE* {
+        const char* path = std::getenv("SHADPS4_INPUT_RECORD");
+        return path && *path ? std::fopen(path, "w") : nullptr;
+    }();
+    return file;
+}
+
+// UI file loads mark menu screen transitions. Inputs are recorded relative to the latest one
+// so playback follows the game instead of the clock (loading speed varies between runs).
+struct AnchorState {
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::unordered_map<std::string, std::vector<std::chrono::steady_clock::time_point>> opens;
+    std::string last_path;
+};
+
+AnchorState& Anchors() {
+    static AnchorState state;
+    return state;
+}
+
+// Delay between the 'C' marker and SHADPS4_EXIT_AT_MARKER's exit (SHADPS4_CAPTURE_DELAY_MS).
+u32 MarkerDelayMs() {
+    static const u32 delay = [] {
+        const char* env = std::getenv("SHADPS4_CAPTURE_DELAY_MS");
+        return env && *env ? static_cast<u32>(std::strtoul(env, nullptr, 10)) : 120000u;
+    }();
+    return delay;
+}
+
+bool InputScriptActive() {
+    static const bool active = [] {
+        const char* rec = std::getenv("SHADPS4_INPUT_RECORD");
+        const char* play = std::getenv("SHADPS4_INPUT_PLAY");
+        return (rec && *rec) || (play && *play);
+    }();
+    return active;
+}
+
+void RecordInputEvent(const GameController* controller, char kind, u32 a, s32 b) {
+    std::FILE* file = InputRecordFile();
+    if (!file || g_playing) {
+        return;
+    }
+    if (controller && controller != (*Common::Singleton<GameControllers>::Instance())[0]) {
+        return;
+    }
+    std::string anchor = "-";
+    size_t anchor_count = 0;
+    long long anchor_dt = 0;
+    {
+        auto& anchors = Anchors();
+        std::scoped_lock lock{anchors.mutex};
+        if (!anchors.last_path.empty()) {
+            const auto& times = anchors.opens[anchors.last_path];
+            anchor = anchors.last_path;
+            anchor_count = times.size();
+            anchor_dt = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now() - times.back())
+                            .count();
+        }
+    }
+    std::scoped_lock lock{g_record_mutex};
+    std::fprintf(file, "%lld %c %u %d %zu %lld %s\n", InputElapsedMs(), kind, a, b, anchor_count,
+                 anchor_dt, anchor.c_str());
+    std::fflush(file);
+}
+
+void InputPlaybackThread(std::string path) {
+    struct Event {
+        long long time;
+        char kind;
+        u32 a;
+        s32 b;
+        size_t anchor_count;
+        long long anchor_dt;
+        std::string anchor;
+    };
+    std::vector<Event> events;
+    std::ifstream in{path};
+    std::string line;
+    while (std::getline(in, line)) {
+        std::istringstream ss{line};
+        Event e{};
+        if (ss >> e.time >> e.kind >> e.a >> e.b) {
+            if (!(ss >> e.anchor_count >> e.anchor_dt >> e.anchor) || e.anchor == "-") {
+                e.anchor_count = 0;
+            }
+            events.push_back(e);
+        }
+    }
+    g_playing = true;
+    for (size_t i = 0; i < events.size(); ++i) {
+        const auto& e = events[i];
+        bool synced = false;
+        if (e.anchor_count > 0) {
+            auto& anchors = Anchors();
+            std::unique_lock lock{anchors.mutex};
+            const bool reached = anchors.cv.wait_for(lock, std::chrono::seconds(60), [&] {
+                const auto it = anchors.opens.find(e.anchor);
+                return it != anchors.opens.end() && it->second.size() >= e.anchor_count;
+            });
+            if (reached) {
+                const auto base = anchors.opens[e.anchor][e.anchor_count - 1];
+                lock.unlock();
+                std::this_thread::sleep_until(base + std::chrono::milliseconds(e.anchor_dt));
+                synced = true;
+            } else {
+                LOG_WARNING(Input, "InputPlayback: anchor {} #{} not reached, using recorded time",
+                            e.anchor, e.anchor_count);
+            }
+        }
+        if (!synced) {
+            std::this_thread::sleep_until(g_input_t0 + std::chrono::milliseconds(e.time));
+        }
+        auto* controller = (*Common::Singleton<GameControllers>::Instance())[0];
+        switch (e.kind) {
+        case 'B':
+            controller->CheckButton(0, static_cast<Libraries::Pad::OrbisPadButtonDataOffset>(e.a),
+                                    e.b != 0);
+            break;
+        case 'A':
+            controller->Axis(static_cast<Input::Axis>(e.a), e.b);
+            break;
+        case 'C':
+            LOG_INFO(Input, "InputPlayback: capture marker at {} ms (event {}/{})", e.time, i + 1,
+                     events.size());
+            // SHADPS4_SCREENSHOT_SERIES=count:interval_ms:delay_ms takes plain screenshots.
+            if (const char* series = std::getenv("SHADPS4_SCREENSHOT_SERIES"); series && *series) {
+                unsigned count = 8, interval = 300, delay = 10000;
+                std::sscanf(series, "%u:%u:%u", &count, &interval, &delay);
+                LOG_INFO(Input, "InputPlayback: {} screenshots every {} ms after {} ms", count,
+                         interval, delay);
+                std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+                for (unsigned n = 0; n < count; ++n) {
+                    VideoCore::RequestScreenshot(VideoCore::ScreenshotRequest::GameOnly);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(interval));
+                }
+                LOG_INFO(Input, "InputPlayback: screenshot series requested");
+            }
+            if (const char* exit_env = std::getenv("SHADPS4_EXIT_AT_MARKER");
+                exit_env && *exit_env == '1') {
+                const u32 delay = MarkerDelayMs();
+                LOG_INFO(Input, "InputPlayback: exiting in {} ms (performance run)", delay);
+                std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+                std::_Exit(0);
+            }
+            if (VideoCore::IsRenderDocLoaded()) {
+                VideoCore::TriggerCapture();
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    LOG_INFO(Input, "InputPlayback: finished {} events", events.size());
+}
+
+const bool g_input_playback_started = [] {
+    const char* path = std::getenv("SHADPS4_INPUT_PLAY");
+    if (!path || !*path) {
+        return false;
+    }
+    std::thread(InputPlaybackThread, std::string{path}).detach();
+    return true;
+}();
+} // namespace
+
+void RecordInputMarker(char kind) {
+    RecordInputEvent(nullptr, kind, 0, 0);
+}
+
+void NotifyGameFileOpen(const char* path) {
+    if (!InputScriptActive() || !path) {
+        return;
+    }
+    const std::string_view view{path};
+    if (view.find("/ui/") == std::string_view::npos) {
+        return;
+    }
+    auto& anchors = Anchors();
+    {
+        std::scoped_lock lock{anchors.mutex};
+        anchors.opens[std::string{view}].push_back(std::chrono::steady_clock::now());
+        anchors.last_path = std::string{view};
+    }
+    anchors.cv.notify_all();
+}
 
 GameController::GameController() {
     m_states_num = 0;
@@ -83,6 +300,7 @@ void GameController::AddState(const State& state) {
 
 void GameController::CheckButton(int id, Libraries::Pad::OrbisPadButtonDataOffset button,
                                  bool is_pressed) {
+    RecordInputEvent(this, 'B', static_cast<u32>(button), is_pressed ? 1 : 0);
     std::scoped_lock lock{m_mutex};
     auto state = GetLastState();
     state.time = Libraries::Kernel::sceKernelGetProcessTime();
@@ -96,6 +314,7 @@ void GameController::CheckButton(int id, Libraries::Pad::OrbisPadButtonDataOffse
 }
 
 void GameController::Axis(Input::Axis axis, int value, bool smooth) {
+    RecordInputEvent(this, 'A', static_cast<u32>(axis), value);
     std::scoped_lock lock{m_mutex};
     auto state = GetLastState();
     state.time = Libraries::Kernel::sceKernelGetProcessTime();

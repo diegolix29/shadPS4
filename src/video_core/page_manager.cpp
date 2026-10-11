@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <boost/container/small_vector.hpp>
+#include <fmt/format.h>
 #include "common/assert.h"
 #include "common/config.h"
 #include "common/debug.h"
@@ -181,8 +182,8 @@ struct PageManager::Impl {
 
             const VAddr addr = msg.arg.pagefault.address;
             const auto ptid = msg.arg.pagefault.feat.ptid;
-            rasterizer->InvalidateMemory(addr, 1,
-                                         ptid == rasterizer->GetGpuCommandProcessorThreadId());
+            rasterizer->InvalidateMemory(
+                addr, 1, ptid == rasterizer->GetGpuCommandProcessorThreadId(), true);
 
             // Some calls to InvalidateMemory never reach the UFFDIO_WRITEPROTECT ioctl in
             // ::Protect, therefore we use MODE_DONTWAKE and wake the thread with UFFDIO_WAKE here
@@ -221,12 +222,27 @@ struct PageManager::Impl {
         const auto is_gpu_thread =
             std::this_thread::get_id() == rasterizer->GetGpuCommandProcessorThread();
         if (Common::IsWriteError(context)) {
-            return rasterizer->InvalidateMemory(addr, 8, is_gpu_thread);
+            return rasterizer->InvalidateMemory(addr, 8, is_gpu_thread, true);
         } else {
             return rasterizer->ReadMemory(addr, 8, is_gpu_thread);
         }
     }
 #endif
+
+    std::string DescribePage(VAddr addr) {
+        const auto& state = cached_pages[addr >> PAGE_BITS];
+        u32 os_protect = 0;
+#ifdef _WIN32
+        MEMORY_BASIC_INFORMATION info{};
+        if (VirtualQuery(reinterpret_cast<LPCVOID>(addr), &info, sizeof(info))) {
+            os_protect = info.Protect;
+        }
+#endif
+        return fmt::format("watchers={} write_watchers={} read_watchers={} perms={:#x} "
+                           "host_protect={:#x}",
+                           state.num_watchers, state.num_write_watchers, state.num_read_watchers,
+                           static_cast<u32>(state.Perms()), os_protect);
+    }
 
     template <bool track, bool is_read>
     void UpdatePageWatchers(VAddr addr, u64 size) {
@@ -302,6 +318,15 @@ struct PageManager::Impl {
 PageManager::PageManager(Vulkan::Rasterizer* rasterizer_)
     : impl{std::make_unique<Impl>(rasterizer_)} {}
 PageManager::~PageManager() = default;
+std::string PageManager::DescribePage(VAddr addr) const {
+    return impl->DescribePage(addr);
+}
+
+void PageManager::ForceWritable(VAddr addr) const {
+    impl->Protect(GetPageAddr(addr), PAGE_SIZE,
+                  Core::MemoryPermission::Read | Core::MemoryPermission::Write);
+}
+
 void PageManager::OnGpuMap(VAddr address, size_t size) {
     impl->OnMap(address, size);
 }

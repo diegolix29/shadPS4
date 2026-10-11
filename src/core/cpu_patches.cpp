@@ -2280,7 +2280,7 @@ RedZonePatchResult PatchRedZoneMemoryInstructions(u64 segment_addr, u64 segment_
 RedZonePatchResult PatchCpuInstructionsStatically(u64 segment_addr, u64 segment_size,
                                                   std::span<const uintptr_t> function_starts) {
     return PatchSegmentStatically(segment_addr, segment_size, function_starts, false);
-}
+} 
 
 #else
 

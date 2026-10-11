@@ -12,6 +12,7 @@
 #include "core/libraries/ajm/ajm_instance_statistics.h"
 #include "core/libraries/ajm/ajm_mp3.h"
 #include "core/libraries/error_codes.h"
+#include "video_core/perf_stats.h"
 
 #include <span>
 #include <utility>
@@ -67,8 +68,16 @@ void AjmContext::WorkerThread(std::stop_token stop) {
         if (batch != nullptr && !batch->canceled) {
             bool expected = false;
             batch->processed.compare_exchange_strong(expected, true);
+            const auto start = std::chrono::steady_clock::now();
             ProcessBatch(batch->id, batch->jobs);
+            const auto end = std::chrono::steady_clock::now();
             batch->finished.release();
+            using std::chrono::duration_cast, std::chrono::microseconds;
+            VideoCore::PerfAdd(VideoCore::PerfCounter::AjmBatches);
+            VideoCore::PerfAdd(VideoCore::PerfCounter::AjmBusyUs,
+                               duration_cast<microseconds>(end - start).count());
+            VideoCore::PerfMax(VideoCore::PerfCounter::AjmMaxLatencyUs,
+                               duration_cast<microseconds>(end - batch->submit_time).count());
         }
     }
 }
@@ -150,6 +159,7 @@ int AjmContext::BatchStartBuffer(u8* p_batch, u32 batch_size, const int priority
     batch_info->id = *out_batch_id;
 
     if (!batch_info->jobs.empty()) {
+        batch_info->submit_time = std::chrono::steady_clock::now();
         batch_queue.EmplaceWait(batch_info);
     } else {
         // Empty batches are not submitted to the processor and are marked as finished

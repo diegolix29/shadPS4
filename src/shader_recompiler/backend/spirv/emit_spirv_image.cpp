@@ -366,7 +366,11 @@ void EmitImageWrite(EmitContext& ctx, IR::Inst* inst, u32 handle, Id coords, Id 
         image_ptr = ctx.OpAccessChain(single_image_ptr_type, image_ptr, std::array{lod});
     }
     const Id image = ctx.OpLoad(texture.image_type, image_ptr);
-    const Id texel = texture.is_integer ? ctx.OpBitcast(color_type, color) : color;
+    Id texel = texture.is_integer ? ctx.OpBitcast(color_type, color) : color;
+    if (ctx.profile.sanitize_nan_outputs && !texture.is_integer && texture.data_types == &ctx.F32) {
+        texel = ctx.OpSelect(color_type, ctx.OpIsNan(ctx.U1[4], texel),
+                             ctx.ConstantNull(color_type), texel);
+    }
     ctx.OpImageWrite(image, fixed_coords, texel, operands.mask, operands.operands);
 }
 

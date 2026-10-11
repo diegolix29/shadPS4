@@ -2,11 +2,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <set>
+#include <tuple>
 
 #include "common/config.h"
 #include "common/debug.h"
 #include "common/elf_info.h"
 #include "common/memory_patcher.h"
+#include "common/scope_exit.h"
 #include "core/debug_state.h"
 #include "core/emulator_settings.h"
 #include "core/memory.h"
@@ -14,6 +19,7 @@
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/buffer_cache/buffer_cache.h"
+#include "video_core/perf_stats.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_depth_stencil_state.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -70,6 +76,13 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_, Runtime
         runtime.FlushBarriers();
         buffer_cache.SubmitPendingArenaBinds(info);
     });
+    VideoCore::SetFreezeAddressInspector([this](u64 addr) {
+        if (!IsMapped(addr, 8)) {
+            return std::string{"(not GPU mapped)"};
+        }
+        return fmt::format("(GPU mapped, buffer cache gpu_modified={})",
+                           buffer_cache.IsRegionGpuModified(addr, 8));
+    });
 }
 
 Rasterizer::~Rasterizer() = default;
@@ -90,7 +103,17 @@ bool Rasterizer::FilterDraw() {
     }
     if (regs.color_control.mode == AmdGpu::ColorControl::OperationMode::FmaskDecompress) {
         // TODO: check for a valid MRT1 to promote the draw to the resolve pass.
-        LOG_TRACE(Render_Vulkan, "FMask decompression pass skipped");
+        // Samples are kept uncompressed, so only the fast clear expansion matters: the surface
+        // reads back with the clear color wherever nothing was drawn since the clear (UFC 4
+        // resolves an untouched tattoo layer target for fighters without tattoos).
+        // SHADPS4_FMASK_DECOMPRESS=0 skips the pass as before (A/B test).
+        static const bool expand_clear = [] {
+            const char* env = std::getenv("SHADPS4_FMASK_DECOMPRESS");
+            return !env || env[0] != '0';
+        }();
+        if (expand_clear) {
+            EliminateFastClear();
+        }
         ScopedMarkerInsert("FmaskDecompress");
         return false;
     }
@@ -188,10 +211,25 @@ void Rasterizer::EliminateFastClear() {
     if (!col_buf || !col_buf.info.fast_clear) {
         return;
     }
+    const auto perf_start = std::chrono::steady_clock::now();
+    SCOPE_EXIT {
+        VideoCore::PerfAdd(VideoCore::PerfCounter::FceCalls);
+        VideoCore::PerfAdd(VideoCore::PerfCounter::FceUs,
+                           std::chrono::duration_cast<std::chrono::microseconds>(
+                               std::chrono::steady_clock::now() - perf_start)
+                               .count());
+    };
     VideoCore::TextureCache::ImageDesc desc(col_buf, liverpool->last_cb_extent[0]);
     const auto image_id = texture_cache.FindImage(desc);
+    // A multisampled image cannot be uploaded from guest memory, so one the GPU never rendered
+    // to has undefined contents. The game fast cleared it, possibly before its CMASK was known
+    // here (it only gets tracked once the target is bound), and expands the clear now.
+    const auto& found = texture_cache.GetImage(image_id);
+    const bool undefined_msaa =
+        found.info.num_samples > 1 && False(found.flags & VideoCore::ImageFlagBits::GpuModified);
     const auto& image_view = texture_cache.FindRenderTarget(image_id, desc);
-    if (!texture_cache.IsMetaCleared(col_buf.CmaskAddress(), col_buf.view.slice_start)) {
+    if (!undefined_msaa &&
+        !texture_cache.IsMetaCleared(col_buf.CmaskAddress(), col_buf.view.slice_start)) {
         return;
     }
     for (u32 slice = col_buf.view.slice_start; slice <= col_buf.view.slice_max; ++slice) {
@@ -200,6 +238,7 @@ void Rasterizer::EliminateFastClear() {
     auto& image = texture_cache.GetImage(image_id);
     const auto clear_value = LiverpoolToVK::ColorBufferClearValue(col_buf);
 
+    VideoCore::PerfAdd(VideoCore::PerfCounter::FceClears);
     ScopeMarkerBegin(fmt::format("EliminateFastClear:MRT={:#x}:M={:#x}", col_buf.Address(),
                                  col_buf.CmaskAddress()));
     runtime.ClearImage(&image, desc.view_info.range, clear_value);
@@ -365,6 +404,7 @@ void Rasterizer::DispatchDirect() {
     }
 
     const auto& cs = pipeline->GetStage(Shader::SwStage::Compute);
+    VideoCore::NotifyComputeDispatch(cs.pgm_hash);
     if (ExecuteShaderHLE(cs, liverpool->regs, cs_program, *this)) {
         return;
     }
@@ -410,6 +450,7 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_g
     if (!BindResources(pipeline)) {
         return;
     }
+    VideoCore::NotifyComputeDispatch(pipeline->GetStage(Shader::SwStage::Compute).pgm_hash);
 
     const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, false);
     needs_barrier |= runtime.IsBufferAccessed(buffer, base, size);
@@ -859,6 +900,28 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
                 }
                 const auto [buffer, offset] = buffer_cache.ObtainBuffer(
                     vsharp.base_address, size, desc.is_written, desc.is_formatted);
+                // A shader reading a color buffer's CMASK (UFC 4's native resolution composite
+                // only blends the UI layer into tiles whose CMASK bits are set): emulated draws
+                // never update CMASK, so report every tile as written. Images hold the real
+                // contents (cleared parts are transparent), so this matches the hardware result.
+                static const bool cmask_expand = [] {
+                    const char* env = std::getenv("SHADPS4_CMASK_EXPAND");
+                    return !env || env[0] != '0';
+                }();
+                if (cmask_expand && !desc.is_written &&
+                    texture_cache.IsMeta(vsharp.base_address) ==
+                        VideoCore::TextureCache::MetaType::CMask) {
+                    const u64 fill_offset = Common::AlignDown(offset, 4);
+                    const u64 fill_size = Common::AlignUp(offset + size, 4) - fill_offset;
+                    runtime.FillBuffer(buffer, fill_offset, fill_size, 0xFFFFFFFFu);
+                    static bool logged = false;
+                    if (!logged) {
+                        logged = true;
+                        LOG_INFO(Render_Vulkan,
+                                 "Shader {:#x} reads CMASK {:#x}: reporting all tiles as written",
+                                 stage.pgm_hash, vsharp.base_address);
+                    }
+                }
                 const u64 offset_aligned = Common::AlignDown(offset, alignment);
                 const u64 adjust = offset - offset_aligned;
                 if (adjust % 4 != 0) {
@@ -1092,6 +1155,19 @@ RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
         texture_cache.UpdateImage(image_id);
         runtime.SetBackingSamples(image, key.color_samples[cb]);
         const auto& image_view = texture_cache.FindRenderTarget(image_id, desc);
+        if (VideoCore::DebugLogsEnabled() && desc.info.size.width >= 1280) {
+            // Shows the game's render resolution (e.g. PS4 Pro mode) once per size/format.
+            static std::set<std::tuple<u32, u32, u32>> seen_sizes;
+            if (seen_sizes.size() < 64 && seen_sizes
+                                              .emplace(desc.info.size.width, desc.info.size.height,
+                                                       static_cast<u32>(desc.info.pixel_format))
+                                              .second) {
+                LOG_INFO(Render_Vulkan, "Render target size {}x{} {} samples={} at {:#x}",
+                         desc.info.size.width, desc.info.size.height,
+                         vk::to_string(desc.info.pixel_format), desc.info.num_samples,
+                         desc.info.guest_address);
+            }
+        }
         const auto& serial = Common::ElfInfo::Instance().GameSerial();
         if (!ShouldDisableSync() && serial != "CUSA11227" && serial != "CUSA12982" &&
             serial != "CUSA00093" && serial != "CUSA00003" && serial != "CUSA01778" &&
@@ -1310,13 +1386,45 @@ u32 Rasterizer::ReadDataFromGds(u32 gds_offset) {
     return value;
 }
 
-bool Rasterizer::InvalidateMemory(VAddr addr, u64 size, bool assume_locks) {
+bool Rasterizer::InvalidateMemory(VAddr addr, u64 size, bool assume_locks, bool from_fault) {
     if (!IsMapped(addr, size)) {
         // Not GPU mapped memory, can skip invalidation logic entirely.
         return false;
     }
     buffer_cache.InvalidateMemory(addr, size, assume_locks);
-    texture_cache.InvalidateMemory(addr, size);
+    texture_cache.InvalidateMemory(addr, size, {}, from_fault && !assume_locks);
+    if (from_fault) {
+        // Fault storm detector: the same thread faulting on the same page over and over means
+        // the handler keeps answering without making the page writable (guest livelock).
+        thread_local VAddr storm_page = 0;
+        thread_local u64 storm_count = 0;
+        const VAddr page = addr & ~VAddr{0xFFF};
+        storm_count = page == storm_page ? storm_count + 1 : 1;
+        storm_page = page;
+        if (storm_count % 64 == 0 && storm_count <= 640) {
+            // Nothing makes progress: log the page state and make it writable so the guest
+            // continues (a stale watcher would otherwise freeze the game for good).
+            LOG_CRITICAL(
+                Render_Vulkan,
+                "Fault storm: {} write faults in a row at {:#x} (gpu thread={}), "
+                "flush={} gpu_modified={} page: {} images:{}; making it writable",
+                storm_count, addr, assume_locks, VideoCore::TextureCache::LastFaultWasFlush(),
+                buffer_cache.IsRegionGpuModified(page, 0x1000), page_manager.DescribePage(page),
+                assume_locks ? std::string{" (not listed on the GPU thread)"}
+                             : texture_cache.DescribeRegion(page, 0x1000));
+            page_manager.ForceWritable(page);
+        }
+        if (storm_count == 1000 || storm_count == 100000) {
+            LOG_CRITICAL(Render_Vulkan,
+                         "Fault storm: {} write faults in a row at {:#x} (gpu thread={}), last "
+                         "answered by CPU-write flush={}, buffer cache gpu_modified={}, images:{}",
+                         storm_count, addr, assume_locks,
+                         VideoCore::TextureCache::LastFaultWasFlush(),
+                         buffer_cache.IsRegionGpuModified(page, 0x1000),
+                         assume_locks ? std::string{" (not listed on the GPU thread)"}
+                                      : texture_cache.DescribeRegion(page, 0x1000));
+        }
+    }
     return true;
 }
 
@@ -1531,8 +1639,21 @@ void Rasterizer::UpdateDepthStencilState() const {
     dynamic_state.SetDepthBiasEnabled(depth_bias_enabled);
     if (depth_bias_enabled) {
         const bool front = regs.polygon_control.enable_polygon_offset_front;
+        // The constant bias is in units of the depth format's precision. When D16S8 is not
+        // supported (Intel, NVIDIA) it is emulated with a 24/32-bit format, whose minimum
+        // resolvable difference is ~256x smaller, so scale the bias to keep shadows stable.
+        static const bool d16s8_emulated =
+            instance.GetSupportedFormat(vk::Format::eD16UnormS8Uint,
+                                        vk::FormatFeatureFlagBits2::eDepthStencilAttachment) !=
+            vk::Format::eD16UnormS8Uint;
+        const bool is_d16s8 =
+            depth_stencil.needs_attachment && regs.depth_buffer.DepthValid() &&
+            regs.depth_buffer.StencilValid() &&
+            regs.depth_buffer.z_info.format == AmdGpu::DepthBuffer::ZFormat::Z16 &&
+            regs.depth_buffer.stencil_info.format == AmdGpu::DepthBuffer::StencilFormat::Stencil8;
+        const f32 bias_scale = d16s8_emulated && is_d16s8 ? 256.f : 1.f;
         dynamic_state.SetDepthBias(
-            front ? regs.poly_offset.front_offset : regs.poly_offset.back_offset,
+            (front ? regs.poly_offset.front_offset : regs.poly_offset.back_offset) * bias_scale,
             regs.poly_offset.depth_bias,
             (front ? regs.poly_offset.front_scale : regs.poly_offset.back_scale) / 16.f);
     }

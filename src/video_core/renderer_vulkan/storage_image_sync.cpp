@@ -56,6 +56,9 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
         serial == "CUSA28863" || serial == "CUSA00093" || serial == "CUSA00003") {
         return;
     }
+    if (texture_cache.WriteBackIfAliasesCompressed(image_id)) {
+        return;
+    }
     auto& img = texture_cache.GetImage(image_id);
     const VAddr guest_addr = img.info.guest_address;
     if (guest_addr == 0) {
@@ -68,58 +71,11 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
     if (!disable_alias_check && !HasAliasAtAddress(guest_addr, image_id)) {
         return;
     }
-
-    const u32 bpp = img.info.num_bits / 8u;
-    const u32 row_length = img.info.pitch ? img.info.pitch : img.info.size.width;
-    const u32 download_size = row_length * img.info.size.height * img.info.resources.layers * bpp;
-    const u32 write_back_size =
-        img.info.props.is_tiled ? std::max(download_size, img.info.guest_size) : download_size;
-
-    LOG_DEBUG(Render_Vulkan,
-              "[StorageSync] guest={:#x} {}x{} layers={} bpp={} row_len={} size={} "
-              "write_back_size={}",
-              guest_addr, img.info.size.width, img.info.size.height, img.info.resources.layers, bpp,
-              row_length, download_size, write_back_size);
-
-    const auto download = runtime.GetStagingPool().Request(
-        std::max<u64>(write_back_size, img.info.guest_size), VideoCore::MemoryType::HostCached);
-    if (!download.mapped) {
-        LOG_ERROR(Render_Vulkan,
-                  "[StorageSync] Staging map failed for {}B — download SKIPPED, "
-                  "texture corruption likely",
-                  write_back_size);
+    if (VideoCore::TextureCache::LazyWriteBack()) {
+        texture_cache.DeferWriteBack(image_id, true);
         return;
     }
-
-    boost::container::small_vector<vk::BufferImageCopy, 6> regions;
-    const u32 layer_size = row_length * img.info.size.height * bpp;
-    const u32 layers = img.info.resources.layers;
-    for (u32 layer = 0; layer < layers; ++layer) {
-        regions.push_back({
-            .bufferOffset = layer * layer_size,
-            .bufferRowLength = row_length,
-            .bufferImageHeight = 0,
-            .imageSubresource{
-                .aspectMask = img.aspect_mask & ~vk::ImageAspectFlagBits::eStencil,
-                .mipLevel = 0,
-                .baseArrayLayer = layer,
-                .layerCount = 1,
-            },
-            .imageOffset = {0, 0, 0},
-            .imageExtent = {img.info.size.width, img.info.size.height, 1},
-        });
-    }
-
-    texture_cache.GetTileManager().TileImage(img, regions, download.buffer, download.offset);
-
-    scheduler.Finish();
-    download.Invalidate();
-
-    texture_cache.InvalidateMemory(guest_addr, img.info.guest_size,
-                                   /*exclude_image_id=*/image_id);
-    Core::Memory::Instance()->TryWriteBacking(std::bit_cast<u8*>(guest_addr), download.mapped,
-                                              write_back_size);
-    buffer_cache.MarkRegionAsCpuModified(guest_addr, write_back_size);
+    texture_cache.WriteBackImage(image_id, true);
 }
 
 } // namespace Vulkan

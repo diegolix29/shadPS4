@@ -28,6 +28,7 @@
 #include "core/libraries/libs.h"
 #include "core/libraries/network/sockets.h"
 #include "core/memory.h"
+#include "input/controller.h"
 #include "kernel.h"
 
 #ifdef _WIN32
@@ -79,6 +80,7 @@ namespace Libraries::Kernel {
 
 s32 PS4_SYSV_ABI open(const char* raw_path, s32 flags, u16 mode) {
     LOG_INFO(Kernel_Fs, "path = {} flags = {:#x} mode = {:#o}", raw_path, flags, mode);
+    Input::NotifyGameFileOpen(raw_path);
 
     auto* h = Common::Singleton<Core::FileSys::HandleTable>::Instance();
     auto* mnt = Common::Singleton<Core::FileSys::MntPoints>::Instance();
