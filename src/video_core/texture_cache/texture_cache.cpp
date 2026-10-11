@@ -80,6 +80,21 @@ u32 BcMode() {
     }();
     return mode;
 }
+
+// Linear 2D images written by compute shaders are downloaded to guest memory after the dispatch
+// (SHADPS4_LINEAR_STORAGE_READBACK=0 disables). Small ones are skipped: per-frame helper images
+// would cost a GPU wait each time, and CPU-read pictures are large.
+bool ReadbackLinearStorage(const ImageInfo& info) {
+    static const bool enabled = [] {
+        const char* env = std::getenv("SHADPS4_LINEAR_STORAGE_READBACK");
+        return !env || env[0] != '0';
+    }();
+    if (!enabled || info.size.width < 64 || info.size.height < 64 || info.props.is_depth ||
+        info.props.is_block) {
+        return false;
+    }
+    return true;
+}
 } // Anonymous namespace
 
 static thread_local bool last_fault_was_flush = false;
@@ -952,6 +967,13 @@ ImageView& TextureCache::FindTexture(ImageId image_id, const ImageDesc& desc) {
         image.flags &= ~ImageFlagBits::WrittenBack;
         if (!image.info.props.is_tiled && image.info.guest_address != 0 &&
             image.info.props.is_volume) {
+            download_images.emplace(image_id);
+        } else if (!image.info.props.is_tiled && image.info.guest_address != 0 &&
+                   ReadbackLinearStorage(image.info)) {
+            // Games convert pictures to a linear layout with a compute shader so the CPU can read
+            // them (UFC 4 encodes fighter pictures for the save this way). Without a download the
+            // CPU reads stale memory and saves black pictures.
+            std::unique_lock lk{download_images_mutex};
             download_images.emplace(image_id);
         }
     }
