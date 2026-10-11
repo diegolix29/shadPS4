@@ -36,6 +36,7 @@ enum ImageFlagBits : u32 {
     MaybeReused = 1 << 4, ///< Memory region containing this image was maybe reused by the GPU
     Registered = 1 << 6,  ///< True when the image is registered
     Picked = 1 << 7,      ///< Temporary flag to mark the image as picked
+    WrittenBack = 1 << 8, ///< GPU contents were written back to guest memory
 };
 DECLARE_ENUM_FLAG_OPERATORS(ImageFlagBits)
 

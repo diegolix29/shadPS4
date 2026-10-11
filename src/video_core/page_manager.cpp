@@ -181,8 +181,8 @@ struct PageManager::Impl {
 
             const VAddr addr = msg.arg.pagefault.address;
             const auto ptid = msg.arg.pagefault.feat.ptid;
-            rasterizer->InvalidateMemory(addr, 1,
-                                         ptid == rasterizer->GetGpuCommandProcessorThreadId());
+            rasterizer->InvalidateMemory(
+                addr, 1, ptid == rasterizer->GetGpuCommandProcessorThreadId(), true);
 
             // Some calls to InvalidateMemory never reach the UFFDIO_WRITEPROTECT ioctl in
             // ::Protect, therefore we use MODE_DONTWAKE and wake the thread with UFFDIO_WAKE here
@@ -221,7 +221,7 @@ struct PageManager::Impl {
         const auto is_gpu_thread =
             std::this_thread::get_id() == rasterizer->GetGpuCommandProcessorThread();
         if (Common::IsWriteError(context)) {
-            return rasterizer->InvalidateMemory(addr, 8, is_gpu_thread);
+            return rasterizer->InvalidateMemory(addr, 8, is_gpu_thread, true);
         } else {
             return rasterizer->ReadMemory(addr, 8, is_gpu_thread);
         }

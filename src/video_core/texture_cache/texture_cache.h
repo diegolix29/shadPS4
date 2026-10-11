@@ -99,7 +99,10 @@ public:
     /// Invalidates any image in the logical page range.
     /// @param exclude_image_id  If set, this image is skipped (used by storage sync to
     ///                          exclude the producer storage image from invalidation).
-    void InvalidateMemory(VAddr addr, size_t size, ImageId exclude_image_id = {});
+    /// @param cpu_write_fault  The call comes from a guest CPU write fault on a guest thread;
+    ///                         the write is retried once the handler returns.
+    void InvalidateMemory(VAddr addr, size_t size, ImageId exclude_image_id = {},
+                          bool cpu_write_fault = false);
 
     /// Marks an image as dirty if it exists at the provided address.
     void InvalidateMemoryFromGPU(VAddr address, size_t max_size);
@@ -111,6 +114,12 @@ public:
 
     /// Schedules a copy of pending images for download back to CPU memory.
     void ProcessDownloadImages();
+
+    /// Writes a storage image back to guest memory if it aliases block-compressed images.
+    /// Games compress textures on the GPU through an uncompressed storage view of the
+    /// compressed texture memory; the two can't share a host image, so the compressed
+    /// images are re-uploaded from the written back memory instead.
+    bool WriteBackIfAliasesCompressed(ImageId image_id);
 
     /// Add an image to the download queue for guest memory writeback on next submit.
     void AddDownload(ImageId image_id) {
@@ -337,6 +346,20 @@ private:
 
     /// Stop tracking CPU reads and writes for image
     void UntrackImage(ImageId image_id);
+
+public:
+    /// Re-tiles all mips of a storage image into the buffer cache copy of its guest memory
+    /// (on the GPU, the range becomes GPU modified) and marks the images overlapping it
+    /// (all of them, or only block-compressed ones) to reupload from there.
+    /// Must be called without the cache mutex held.
+    void WriteBackImage(ImageId image_id, bool dirty_all_aliases);
+
+private:
+    /// Tiles all mips of the image into the buffer cache copy of its guest memory.
+    void TileImageToBuffer(Image& image);
+
+    /// Flushes GPU written images overlapping a pending CPU write. Returns true if any was.
+    bool FlushBeforeCpuWrite(VAddr addr, size_t size);
     void UntrackImageHead(ImageId image_id);
     void UntrackImageTail(ImageId image_id);
 
