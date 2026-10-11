@@ -446,6 +446,7 @@ void WindowSDL::WaitEvent() {
         SDL_SetWindowRelativeMouseMode(this->GetSDLWindow(), false);
         break;
     case SDL_EVENT_RDOC_CAPTURE:
+        Input::RecordInputMarker('C');
         if (VideoCore::IsRenderDocLoaded()) {
             VideoCore::TriggerCapture();
         } else {

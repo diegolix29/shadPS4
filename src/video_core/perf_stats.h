@@ -20,6 +20,9 @@ void NotifyGameFrame();
 /// Logs the presented game frame rate ("PresentFPS") every 300 frames.
 void NotifyPresent();
 
+/// Automated testing: counts dispatches of the shader named in SHADPS4_WATCH_SHADER (hex hash).
+void NotifyComputeDispatch(u64 pgm_hash);
+
 /// Cost counters logged with GameFPS as "PerfStats" (per 120 game frames).
 enum class PerfCounter : u32 {
     FceCalls,           ///< EliminateFastClear runs (FCE and FMASK decompress passes)

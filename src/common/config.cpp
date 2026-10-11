@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdlib>
 #include <fstream>
 #include <map>
 #include <optional>
@@ -827,7 +828,12 @@ void setLoadGameSizeEnabled(bool enable) {
 }
 
 bool isNeoModeConsole() {
-    return isNeo.get();
+    // SHADPS4_PS4PRO=1/0 overrides the config for one run (A/B tests).
+    static const int env_override = [] {
+        const char* env = std::getenv("SHADPS4_PS4PRO");
+        return env && *env ? (env[0] == '1' ? 1 : 0) : -1;
+    }();
+    return env_override >= 0 ? env_override == 1 : isNeo.get();
 }
 
 bool isDevKitConsole() {

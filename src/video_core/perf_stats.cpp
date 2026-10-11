@@ -42,6 +42,9 @@ static bool FreezeWatchdogEnabled() {
     return enabled;
 }
 
+// Dispatches of the SHADPS4_WATCH_SHADER shader (automated tests check that a scene was reached).
+static std::atomic<u64> watch_count{0};
+
 static std::array<std::atomic<u64>, static_cast<size_t>(PerfCounter::Count)> perf_counters{};
 
 // Freeze watchdog (with debug logs, or SHADPS4_FREEZE_DUMP_S / SHADPS4_FREEZE_EXIT set): when the
@@ -275,7 +278,8 @@ void NotifyGameFrame() {
     hitches += frame_ms > 50.0;
     if (++frames % 120 == 0) {
         const double secs = std::chrono::duration<double>(now - window_start).count();
-        LOG_INFO(Render, "GameFPS: {:.1f}", 120.0 / secs);
+        LOG_INFO(Render, "GameFPS: {:.1f} (watched shader seen: {})", 120.0 / secs,
+                 watch_count.load() > 0 ? "yes" : "no");
         const auto take = [](PerfCounter counter) {
             return perf_counters[static_cast<size_t>(counter)].exchange(0,
                                                                         std::memory_order_relaxed);
@@ -325,8 +329,22 @@ void NotifyPresent() {
     if (++frames % 300 == 0) {
         const auto now = Clock::now();
         const double secs = std::chrono::duration<double>(now - window_start).count();
-        LOG_INFO(Render, "PresentFPS: {:.1f}", 300.0 / secs);
+        LOG_INFO(Render, "PresentFPS: {:.1f} (watched shader seen: {})", 300.0 / secs,
+                 watch_count.load() > 0 ? "yes" : "no");
         window_start = now;
+    }
+}
+
+void NotifyComputeDispatch(u64 pgm_hash) {
+    static const u64 watch_hash = [] {
+        const char* env = std::getenv("SHADPS4_WATCH_SHADER");
+        return env && *env ? std::strtoull(env, nullptr, 16) : 0ull;
+    }();
+    if (watch_hash == 0 || pgm_hash != watch_hash) {
+        return;
+    }
+    if (watch_count.fetch_add(1) == 0) {
+        LOG_INFO(Render, "WatchShader: {:#x} dispatched for the first time", pgm_hash);
     }
 }
 

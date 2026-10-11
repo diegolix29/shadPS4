@@ -139,6 +139,12 @@ private:
     u8 player_index = -1;
 };
 
+/// Automated testing: adds a marker (e.g. 'C' = capture here) to the input recording.
+void RecordInputMarker(char kind);
+
+/// Automated testing: game UI file opens sync input playback with the menus.
+void NotifyGameFileOpen(const char* path);
+
 class GameControllers {
     std::array<GameController*, 4> controllers;
 

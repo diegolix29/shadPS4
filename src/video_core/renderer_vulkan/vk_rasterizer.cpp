@@ -404,6 +404,7 @@ void Rasterizer::DispatchDirect() {
     }
 
     const auto& cs = pipeline->GetStage(Shader::SwStage::Compute);
+    VideoCore::NotifyComputeDispatch(cs.pgm_hash);
     if (ExecuteShaderHLE(cs, liverpool->regs, cs_program, *this)) {
         return;
     }
@@ -449,6 +450,7 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size, bool on_g
     if (!BindResources(pipeline)) {
         return;
     }
+    VideoCore::NotifyComputeDispatch(pipeline->GetStage(Shader::SwStage::Compute).pgm_hash);
 
     const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, false);
     needs_barrier |= runtime.IsBufferAccessed(buffer, base, size);
