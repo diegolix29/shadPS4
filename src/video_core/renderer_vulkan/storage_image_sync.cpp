@@ -71,6 +71,10 @@ void StorageImageSync::Sync(VideoCore::ImageId image_id) {
     if (!disable_alias_check && !HasAliasAtAddress(guest_addr, image_id)) {
         return;
     }
+    if (VideoCore::TextureCache::LazyWriteBack()) {
+        texture_cache.DeferWriteBack(image_id, true);
+        return;
+    }
     texture_cache.WriteBackImage(image_id, true);
 }
 

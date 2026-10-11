@@ -149,9 +149,61 @@ bool TextureCache::WriteBackIfAliasesCompressed(ImageId image_id) {
         if (!aliases_compressed) {
             return false;
         }
+        if (LazyWriteBack()) {
+            DeferWriteBackLocked(image_id, false);
+            return true;
+        }
     }
     WriteBackImage(image_id, false);
     return true;
+}
+
+bool TextureCache::LazyWriteBack() {
+    static const bool lazy = [] {
+        const char* env = std::getenv("SHADPS4_LAZY_WRITEBACK");
+        return !env || env[0] != '0';
+    }();
+    return lazy;
+}
+
+void TextureCache::DeferWriteBack(ImageId image_id, bool dirty_all_aliases) {
+    std::scoped_lock lock{mutex};
+    DeferWriteBackLocked(image_id, dirty_all_aliases);
+}
+
+void TextureCache::DeferWriteBackLocked(ImageId image_id, bool dirty_all_aliases) {
+    // Games write textures through storage views one mip/dispatch at a time (UFC 4 Create
+    // Fighter also every frame). Writing the whole image back after every dispatch moved up to
+    // ~10 GB/s; instead the aliases are marked dirty now and the image reaches memory once, when
+    // one of them is uploaded (RefreshImage) or the image is freed.
+    Image& image = slot_images[image_id];
+    image.flags |= ImageFlagBits::PendingWriteBack;
+    image.flags &= ~ImageFlagBits::WrittenBack;
+    ForEachImageInRegion(
+        image.info.guest_address, image.info.guest_size, [&](ImageId other_id, Image& other) {
+            if (other_id != image_id && (dirty_all_aliases || other.info.props.is_block)) {
+                other.flags |= ImageFlagBits::GpuDirty;
+            }
+        });
+}
+
+void TextureCache::FlushPendingWriteBack(Image& image) {
+    if (False(image.flags & ImageFlagBits::PendingWriteBack)) {
+        return;
+    }
+    image.flags &= ~ImageFlagBits::PendingWriteBack;
+    if (True(image.flags & ImageFlagBits::Registered) && image.SafeToDownload()) {
+        TileImageToBuffer(image);
+        image.flags |= ImageFlagBits::WrittenBack;
+    }
+}
+
+void TextureCache::FlushPendingWriteBacks(VAddr addr, size_t size) {
+    ForEachImageInRegion(addr, size, [&](ImageId, Image& other) {
+        if (True(other.flags & ImageFlagBits::PendingWriteBack)) {
+            FlushPendingWriteBack(other);
+        }
+    });
 }
 
 void TextureCache::WriteBackImage(ImageId image_id, bool dirty_all_aliases) {
@@ -162,6 +214,7 @@ void TextureCache::WriteBackImage(ImageId image_id, bool dirty_all_aliases) {
 
     std::scoped_lock lock{mutex};
     image.flags |= ImageFlagBits::WrittenBack;
+    image.flags &= ~ImageFlagBits::PendingWriteBack;
     ForEachImageInRegion(address, size, [&](ImageId other_id, Image& other) {
         if (other_id != image_id && (dirty_all_aliases || other.info.props.is_block)) {
             other.flags |= ImageFlagBits::GpuDirty;
@@ -198,6 +251,8 @@ void TextureCache::TileImageToBuffer(Image& image) {
     }
     const auto [arena, arena_offset] = buffer_cache.ObtainBuffer(address, size, true);
     tile_manager.TileImage(image, copies, arena, arena_offset);
+    // Any write back satisfies a deferred one.
+    image.flags &= ~ImageFlagBits::PendingWriteBack;
 
     // Image uploads detile from this buffer without checking for earlier writes to it.
     const vk::MemoryBarrier2 tiled_barrier = {
@@ -352,6 +407,7 @@ void TextureCache::UnmapMemory(VAddr cpu_addr, size_t size) {
     ForEachImageInRegion(cpu_addr, size, [&](ImageId id, Image&) { deleted_images.push_back(id); });
     for (const ImageId id : deleted_images) {
         // TODO: Download image data back to host.
+        slot_images[id].flags &= ~ImageFlagBits::PendingWriteBack; // memory is going away
         FreeImage(id);
     }
 }
@@ -702,8 +758,15 @@ ImageId TextureCache::ExpandImage(const ImageInfo& info, ImageId image_id) {
     auto& src_image = slot_images[image_id];
     auto& new_image = slot_images[new_image_id];
 
+    // A deferred write back moves to the new image with the contents (the copy below), instead
+    // of writing the old image to memory first (a texture written mip by mip expands each time).
+    const bool src_pending = True(src_image.flags & ImageFlagBits::PendingWriteBack);
+    src_image.flags &= ~ImageFlagBits::PendingWriteBack;
     RefreshImage(new_image);
     runtime.CopyImage(&src_image, &new_image);
+    if (src_pending) {
+        new_image.flags |= ImageFlagBits::GpuModified | ImageFlagBits::PendingWriteBack;
+    }
 
     if (src_image.binding.is_bound || src_image.binding.is_target) {
         src_image.binding.needs_rebind = 1u;
@@ -935,6 +998,11 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
 void TextureCache::RefreshImage(Image& image) {
     if (False(image.flags & ImageFlagBits::Dirty) || image.info.num_samples > 1) {
         return;
+    }
+    // Deferred write backs of storage aliases must be in memory before a compressed alias is
+    // uploaded (other aliases get them when the pending image is freed or expanded).
+    if (image.info.props.is_block || True(image.flags & ImageFlagBits::GpuDirty)) {
+        FlushPendingWriteBacks(image.info.guest_address, image.info.guest_size);
     }
 
     RENDERER_TRACE;
@@ -1208,6 +1276,7 @@ void TextureCache::RunGarbageCollector() {
         if (download)
             DownloadImageMemory(image_id);
 
+        FlushPendingWriteBack(image);
         EnqueueForGc([this, image_id]() { FreeImage(image_id); });
         return false;
     };

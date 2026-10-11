@@ -97,6 +97,11 @@ public:
         return page_table;
     }
 
+    /// Lazy write back (SHADPS4_LAZY_WRITEBACK=0 disables): marks the aliases of a storage image
+    /// dirty and writes the image to memory only when one of them is uploaded or it is freed.
+    static bool LazyWriteBack();
+    void DeferWriteBack(ImageId image_id, bool dirty_all_aliases);
+
     /// Diagnostics: images overlapping the range with their flags (freeze / fault storm dumps).
     std::string DescribeRegion(VAddr addr, size_t size);
 
@@ -366,6 +371,14 @@ private:
     /// Tiles all mips of the image into the buffer cache copy of its guest memory.
     void TileImageToBuffer(Image& image);
 
+    /// Lazy write back (SHADPS4_LAZY_WRITEBACK, default on): tiles a storage image whose write back
+    /// was deferred into the buffer cache. GPU thread only.
+    void FlushPendingWriteBack(Image& image);
+    void DeferWriteBackLocked(ImageId image_id, bool dirty_all_aliases);
+
+    /// Flushes deferred write backs of images overlapping the range (before it is uploaded).
+    void FlushPendingWriteBacks(VAddr addr, size_t size);
+
     /// Flushes GPU written images overlapping a pending CPU write. Returns true if any was.
     bool FlushBeforeCpuWrite(VAddr addr, size_t size);
     void UntrackImageHead(ImageId image_id);
@@ -380,6 +393,7 @@ private:
     void TouchImage(Image& image);
 
     void FreeImage(ImageId image_id) {
+        FlushPendingWriteBack(slot_images[image_id]);
         UntrackImage(image_id);
         UnregisterImage(image_id);
         DeleteImage(image_id);
