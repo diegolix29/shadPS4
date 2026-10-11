@@ -102,7 +102,12 @@ void DataBase::Open() {
     }
 
     const auto& game_info = Common::ElfInfo::Instance();
+    // Cached SPIR-V depends on the host GPU profile (subgroup size, workarounds), so keep a
+    // separate cache when another GPU is picked with SHADPS4_GPU.
     std::string cache_name{game_info.GameSerial()};
+    if (const char* gpu = std::getenv("SHADPS4_GPU"); gpu && *gpu) {
+        cache_name += fmt::format("_{}", gpu);
+    }
     // Options that change generated shaders get their own cache.
     for (const char* var : {"SHADPS4_LDS_ORDER", "SHADPS4_FLATTEN_WG", "SHADPS4_NAN_GUARD"}) {
         if (const char* value = std::getenv(var); value && *value) {

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdlib>
 #include <boost/container/static_vector.hpp>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -105,6 +106,21 @@ Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index, bool 
     const std::size_t num_physical_devices = static_cast<u16>(physical_devices.size());
     ASSERT_MSG(num_physical_devices > 0, "No physical devices found");
     LOG_INFO(Render_Vulkan, "Found {} physical devices", num_physical_devices);
+    for (size_t i = 0; i < num_physical_devices; ++i) {
+        LOG_INFO(Render_Vulkan, "  Device {}: {}", i,
+                 std::string_view{physical_devices[i].getProperties().deviceName});
+    }
+    // SHADPS4_GPU=<part of device name> picks a GPU for this run without touching the config.
+    if (const char* gpu = std::getenv("SHADPS4_GPU"); gpu && *gpu) {
+        for (size_t i = 0; i < num_physical_devices; ++i) {
+            const std::string_view name{physical_devices[i].getProperties().deviceName};
+            if (name.find(gpu) != std::string_view::npos) {
+                physical_device_index = static_cast<s32>(i);
+                LOG_INFO(Render_Vulkan, "SHADPS4_GPU={} selects device {}", gpu, i);
+                break;
+            }
+        }
+    }
 
     if (physical_device_index < 0) {
         std::vector<
