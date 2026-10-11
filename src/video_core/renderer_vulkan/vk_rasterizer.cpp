@@ -1531,8 +1531,21 @@ void Rasterizer::UpdateDepthStencilState() const {
     dynamic_state.SetDepthBiasEnabled(depth_bias_enabled);
     if (depth_bias_enabled) {
         const bool front = regs.polygon_control.enable_polygon_offset_front;
+        // The constant bias is in units of the depth format's precision. When D16S8 is not
+        // supported (Intel, NVIDIA) it is emulated with a 24/32-bit format, whose minimum
+        // resolvable difference is ~256x smaller, so scale the bias to keep shadows stable.
+        static const bool d16s8_emulated =
+            instance.GetSupportedFormat(vk::Format::eD16UnormS8Uint,
+                                        vk::FormatFeatureFlagBits2::eDepthStencilAttachment) !=
+            vk::Format::eD16UnormS8Uint;
+        const bool is_d16s8 =
+            depth_stencil.needs_attachment && regs.depth_buffer.DepthValid() &&
+            regs.depth_buffer.StencilValid() &&
+            regs.depth_buffer.z_info.format == AmdGpu::DepthBuffer::ZFormat::Z16 &&
+            regs.depth_buffer.stencil_info.format == AmdGpu::DepthBuffer::StencilFormat::Stencil8;
+        const f32 bias_scale = d16s8_emulated && is_d16s8 ? 256.f : 1.f;
         dynamic_state.SetDepthBias(
-            front ? regs.poly_offset.front_offset : regs.poly_offset.back_offset,
+            (front ? regs.poly_offset.front_offset : regs.poly_offset.back_offset) * bias_scale,
             regs.poly_offset.depth_bias,
             (front ? regs.poly_offset.front_scale : regs.poly_offset.back_scale) / 16.f);
     }
