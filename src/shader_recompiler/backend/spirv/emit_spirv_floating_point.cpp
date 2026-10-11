@@ -40,41 +40,41 @@ Id EmitFPFma64(EmitContext& ctx, IR::Inst* inst, Id a, Id b, Id c) {
 }
 
 Id EmitFPMax32(EmitContext& ctx, Id a, Id b) {
-    return ctx.OpFMax(ctx.F32[1], a, b);
+    return ctx.OpNMax(ctx.F32[1], a, b);
 }
 
 Id EmitFPMax64(EmitContext& ctx, Id a, Id b) {
-    return ctx.OpFMax(ctx.F64[1], a, b);
+    return ctx.OpNMax(ctx.F64[1], a, b);
 }
 
 Id EmitFPMin32(EmitContext& ctx, Id a, Id b) {
-    return ctx.OpFMin(ctx.F32[1], a, b);
+    return ctx.OpNMin(ctx.F32[1], a, b);
 }
 
 Id EmitFPMin64(EmitContext& ctx, Id a, Id b) {
-    return ctx.OpFMin(ctx.F64[1], a, b);
+    return ctx.OpNMin(ctx.F64[1], a, b);
 }
 
 Id EmitFPMinTri32(EmitContext& ctx, Id a, Id b, Id c) {
     if (ctx.profile.supports_trinary_minmax) {
         return ctx.OpFMin3AMD(ctx.F32[1], a, b, c);
     }
-    return ctx.OpFMin(ctx.F32[1], a, ctx.OpFMin(ctx.F32[1], b, c));
+    return ctx.OpNMin(ctx.F32[1], a, ctx.OpNMin(ctx.F32[1], b, c));
 }
 
 Id EmitFPMaxTri32(EmitContext& ctx, Id a, Id b, Id c) {
     if (ctx.profile.supports_trinary_minmax) {
         return ctx.OpFMax3AMD(ctx.F32[1], a, b, c);
     }
-    return ctx.OpFMax(ctx.F32[1], a, ctx.OpFMax(ctx.F32[1], b, c));
+    return ctx.OpNMax(ctx.F32[1], a, ctx.OpNMax(ctx.F32[1], b, c));
 }
 
 Id EmitFPMedTri32(EmitContext& ctx, Id a, Id b, Id c) {
     if (ctx.profile.supports_trinary_minmax) {
         return ctx.OpFMid3AMD(ctx.F32[1], a, b, c);
     }
-    const Id mmx{ctx.OpFMin(ctx.F32[1], ctx.OpFMax(ctx.F32[1], a, b), c)};
-    return ctx.OpFMax(ctx.F32[1], ctx.OpFMin(ctx.F32[1], a, b), mmx);
+    const Id mmx{ctx.OpNMin(ctx.F32[1], ctx.OpNMax(ctx.F32[1], a, b), c)};
+    return ctx.OpNMax(ctx.F32[1], ctx.OpNMin(ctx.F32[1], a, b), mmx);
 }
 
 Id EmitFPMul32(EmitContext& ctx, IR::Inst* inst, Id a, Id b) {
@@ -148,21 +148,21 @@ Id EmitFPSqrt(EmitContext& ctx, Id value) {
 Id EmitFPSaturate32(EmitContext& ctx, Id value) {
     const Id zero{ctx.ConstF32(f32{0.0})};
     const Id one{ctx.ConstF32(f32{1.0})};
-    return ctx.OpFClamp(ctx.F32[1], value, zero, one);
+    return ctx.OpNMin(ctx.F32[1], ctx.OpNMax(ctx.F32[1], value, zero), one);
 }
 
 Id EmitFPSaturate64(EmitContext& ctx, Id value) {
     const Id zero{ctx.Constant(ctx.F64[1], f64{0.0})};
     const Id one{ctx.Constant(ctx.F64[1], f64{1.0})};
-    return ctx.OpFClamp(ctx.F64[1], value, zero, one);
+    return ctx.OpNMin(ctx.F64[1], ctx.OpNMax(ctx.F64[1], value, zero), one);
 }
 
 Id EmitFPClamp32(EmitContext& ctx, Id value, Id min_value, Id max_value) {
-    return ctx.OpFClamp(ctx.F32[1], value, min_value, max_value);
+    return ctx.OpNMin(ctx.F32[1], ctx.OpNMax(ctx.F32[1], value, min_value), max_value);
 }
 
 Id EmitFPClamp64(EmitContext& ctx, Id value, Id min_value, Id max_value) {
-    return ctx.OpFClamp(ctx.F64[1], value, min_value, max_value);
+    return ctx.OpNMin(ctx.F64[1], ctx.OpNMax(ctx.F64[1], value, min_value), max_value);
 }
 
 Id EmitFPRoundEven32(EmitContext& ctx, Id value) {
