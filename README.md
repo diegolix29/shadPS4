@@ -15,16 +15,16 @@ fixes made while getting **EA SPORTS UFC 4 (CUSA14204)** to run correctly on an 
 > B580** (with a few checks on a Radeon 780M). The Linux and macOS builds are produced automatically by
 > CI, but they are **not tested and not supported**. Other games were not tested either.
 >
-> **NVIDIA:** In next release the two Intel workarounds that fix the black squares (NaN guard, 1D compute workgroups) are
-> also will be enabled on NVIDIA GPUs: NVIDIA users report the same black squares, and on the Arc they come back as
-> soon as these workarounds are turned off. This is **untested on NVIDIA hardware** (no NVIDIA card here);
+> **NVIDIA:** since release `ufc4-intel-arc-2026-10-11.2` the two Intel workarounds that fix the black squares
+> (NaN guard, 1D compute workgroups) are also enabled on NVIDIA GPUs: NVIDIA users report the same black squares,
+> and on the Arc they come back as soon as these workarounds are turned off. This is **untested on NVIDIA hardware** (no NVIDIA card here);
 > please report results with **Collect Debug Logs** enabled.
 
 ### What is fixed
 
 | Problem | Change |
 |---|---|
-| Black squares on models, flickering floor, gaps in shadows (Intel) | Subgroup size 32, 1D compute workgroups, LDS ordering barriers, NaN guard on Intel; NaN-aware min/max/clamp like GCN |
+| Black squares on models, flickering floor, gaps in shadows (Intel) | Subgroup size 32, 1D compute workgroups, LDS ordering barriers, NaN guard on Intel and NVIDIA; NaN-aware min/max |
 | Shadow acne on Intel/NVIDIA | Depth bias scaled for emulated D16S8 depth |
 | Flat, hard-edged hair | Alpha to coverage (DB_ALPHA_TO_MASK) |
 | Create Fighter: grey skin | GPU-compressed textures go through memory; GPU images are flushed before CPU writes |
@@ -33,6 +33,12 @@ fixes made while getting **EA SPORTS UFC 4 (CUSA14204)** to run correctly on an 
 | Random freeze, picture stops while sound keeps playing | Self-heal for pages that stay write-protected without an owner |
 | Menus invisible at native resolution | Shaders that read CMASK see every tile as written |
 | Shader compile stutter on later runs | Vulkan pipeline cache kept on disk, atomic shader cache writes |
+| Black pictures of created fighters (avatars) | Linear images written by compute shaders are copied back to memory, so the game can save them |
+
+Also included: fixes from the official [shadPS4](https://github.com/shadps4-emu/shadPS4) (October 2026):
+NaN handling and RCP/RSQ/LOG clamps, MP3 parser crash fix, subgroup barriers for shared memory, Windows
+memory protection after a region split, MIN/MAX blend factors, EXEC scope after an empty branch, instance
+id unbiasing, analog stick smoothing fix.
 
 Also: F1 mutes the SDL build; `SHADPS4_GPU=<part of the GPU name>` picks a GPU for one run.
 
