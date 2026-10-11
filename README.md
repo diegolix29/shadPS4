@@ -14,6 +14,11 @@ fixes made while getting **EA SPORTS UFC 4 (CUSA14204)** to run correctly on an 
 > **Windows + Intel Arc only.** All changes were written and tested on **Windows 11 with an Intel Arc
 > B580** (with a few checks on a Radeon 780M). The Linux and macOS builds are produced automatically by
 > CI, but they are **not tested and not supported**. Other games were not tested either.
+>
+> **NVIDIA:** the two Intel workarounds that fix the black squares (NaN guard, 1D compute workgroups) are
+> also enabled on NVIDIA GPUs: NVIDIA users report the same black squares, and on the Arc they come back as
+> soon as these workarounds are turned off. This is **untested on NVIDIA hardware** (no NVIDIA card here);
+> please report results with **Collect Debug Logs** enabled.
 
 ### What is fixed
 
