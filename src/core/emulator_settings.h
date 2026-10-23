@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -345,7 +346,13 @@ struct GeneralSettings {
     Setting<int> cpu_core_mode{0}; // 0 = All cores
     Setting<std::vector<int>> custom_cpu_cores{};
     Setting<int> big_picture_scale{1000};
-    Setting<std::string> shadnet_server{""};
+    // Network / ShadNet. Filled from config.toml by Config::SyncToEmulatorSettings()
+    Setting<std::string> shadnet_server{"srv.shadps4.net:31313"};
+    Setting<std::string> shadnet_webapi_server{"http://srv.shadps4.net:31315"};
+    Setting<bool> shad_net_enabled{false};
+    Setting<bool> enable_upnp{true};
+    Setting<int> p2p_port{3658}; // 0 = any free port, 3658 = default PS4 port
+    Setting<bool> disable_https{false};
 
     // return a vector of override descriptors (runtime, but tiny)
     std::vector<OverrideItem> GetOverrideableFields() const {
@@ -685,6 +692,9 @@ private:
 
     bool m_loaded{false};
 
+    // Runtime-only: when true, IsShadNetEnabled() reports false for the rest of this run
+    std::atomic<bool> m_shadnet_session_disabled{false};
+
     static std::shared_ptr<EmulatorSettingsImpl> s_instance;
     static std::mutex s_mutex;
 
@@ -803,6 +813,26 @@ public:
     SETTING_FORWARD(m_general, CustomCpuCores, custom_cpu_cores)
     SETTING_FORWARD(m_general, BigPictureScale, big_picture_scale)
     SETTING_FORWARD(m_general, ShadNetServer, shadnet_server)
+    SETTING_FORWARD(m_general, ShadNetWebApiServer, shadnet_webapi_server)
+    SETTING_FORWARD_BOOL(m_general, UPnPEnabled, enable_upnp)
+    SETTING_FORWARD(m_general, P2PPort, p2p_port)
+    SETTING_FORWARD_BOOL(m_general, ForcedHttpsDisabled, disable_https)
+    bool IsShadNetEnabled() const {
+        return m_general.shad_net_enabled.get(m_configMode) &&
+               !m_shadnet_session_disabled.load(std::memory_order_relaxed);
+    }
+    void SetShadNetEnabled(bool v, bool specific = false) {
+        m_general.shad_net_enabled.set(v, specific);
+    }
+    bool IsShadNetEnabledSetting() const {
+        return m_general.shad_net_enabled.get(m_configMode);
+    }
+    void SetShadNetSessionDisabled(bool v) {
+        m_shadnet_session_disabled.store(v, std::memory_order_relaxed);
+    }
+    bool IsShadNetSessionDisabled() const {
+        return m_shadnet_session_disabled.load(std::memory_order_relaxed);
+    }
 
     // Audio settings
     SETTING_FORWARD(m_audio, AudioBackend, audio_backend)

@@ -27,6 +27,7 @@ enum class PathType {
     PatchesDir,      // Where patches are stored.
     MetaDataDir,     // Where game metadata (e.g. trophies and menu backgrounds) is stored.
     CustomTrophy,    // Where custom files for trophies are stored.
+    TrophyDir,       // Where extracted trophy data (per NP comm id) is stored.
     CustomConfigs,   // Where custom files for different games are stored.
     CustomThemes,    // Where custom themes for emulator are stored.
     ModsFolder,      // Where mods for games are stored.

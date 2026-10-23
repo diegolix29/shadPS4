@@ -407,6 +407,14 @@ void setSignalingPort(u16 port);
 
 bool IsUPnPEnabled();
 void SetUPnPEnabled(bool enable);
+bool IsHttpsDisabled();
+void SetHttpsDisabled(bool disabled);
+int GetP2PPort();
+void SetP2PPort(int port);
+
+// Copies network/ShadNet, trophy/audio and user settings from config.toml into the in-memory
+// EmulatorSettings / UserManagement used by the NP code. Called automatically by load().
+void SyncToEmulatorSettings();
 int getVolumeSlider();
 void setVolumeSlider(int volumeValue, bool is_game_specific);
 bool isMuteEnabled();

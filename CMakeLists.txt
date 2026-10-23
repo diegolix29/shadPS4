@@ -424,30 +424,15 @@ set(NETWORK_LIBS src/core/libraries/network/http.cpp
                  src/core/libraries/network/http_error.h
                  src/core/libraries/network/http2.cpp
                  src/core/libraries/network/http2.h
-                 src/core/libraries/network/net.cpp
                  src/core/libraries/network/netctl.cpp
                  src/core/libraries/network/netctl.h
                  src/core/libraries/network/net_ctl_obj.cpp
                  src/core/libraries/network/net_ctl_obj.h
                  src/core/libraries/network/net_ctl_codes.h
-                 src/core/libraries/network/net_util.cpp
-                 src/core/libraries/network/net_util.h
-                 src/core/libraries/network/net_epoll.cpp
-                 src/core/libraries/network/net_epoll.h
-                 src/core/libraries/network/net_resolver.cpp
-                 src/core/libraries/network/net_resolver.h
-                 src/core/libraries/network/net_error.h
-                 src/core/libraries/network/net.h
                  src/core/libraries/network/ssl.cpp
                  src/core/libraries/network/ssl.h
                  src/core/libraries/network/ssl2.cpp
                  src/core/libraries/network/ssl2.h
-                 src/core/libraries/network/sys_net.cpp
-                 src/core/libraries/network/sys_net.h
-                 src/core/libraries/network/posix_sockets.cpp
-                 src/core/libraries/network/p2p_sockets.cpp
-                 src/core/libraries/network/unix_sockets.cpp
-                 src/core/libraries/network/sockets.h
 )
 
 set(AVPLAYER_LIB src/core/libraries/avplayer/avplayer_common.cpp
@@ -469,6 +454,10 @@ set(AVPLAYER_LIB src/core/libraries/avplayer/avplayer_common.cpp
 
 set(SYSTEM_LIBS src/core/libraries/system/commondialog.cpp
                 src/core/libraries/system/commondialog.h
+                src/core/libraries/invitation_dialog/invitation_dialog.cpp
+                src/core/libraries/invitation_dialog/invitation_dialog.h
+                src/core/libraries/invitation_dialog/invitation_dialog_ui.cpp
+                src/core/libraries/invitation_dialog/invitation_dialog_ui.h
                 src/core/libraries/system/msgdialog.cpp
                 src/core/libraries/system/msgdialog.h
                 src/core/libraries/system/msgdialog_ui.cpp
@@ -675,45 +664,118 @@ set(VDEC_LIB src/core/libraries/videodec/video_utils.cpp
              src/core/libraries/videodec/videodec_impl.h
 )
 
+set(NET_CORE  src/core/net/guest_net.cpp
+              src/core/net/guest_net.h
+              src/core/net/host_net.cpp
+              src/core/net/host_net.h
+              src/core/net/p2p_codec.cpp
+              src/core/net/p2p_codec.h
+              src/core/net/p2p_crypto.cpp
+              src/core/net/p2p_crypto.h
+              src/core/net/p2p_tcp.cpp
+              src/core/net/p2p_tcp.h
+              src/core/net/p2p_transport.cpp
+              src/core/net/p2p_transport.h
+)
+
+set(NET_LIB   src/core/libraries/net/net.cpp
+              src/core/libraries/net/net.h
+              src/core/libraries/net/net_error.h
+              src/core/libraries/net/net_kernel.cpp
+              src/core/libraries/net/net_kernel.h
+              src/core/libraries/net/net_log.cpp
+              src/core/libraries/net/net_log.h
+              src/core/libraries/net/net_p2p.cpp
+              src/core/libraries/net/net_p2p.h
+              src/core/libraries/net/net_p2p_ioctl.cpp
+              src/core/libraries/net/net_p2p_ioctl.h
+              src/core/libraries/net/net_resolver.cpp
+              src/core/libraries/net/net_resolver.h
+              src/core/libraries/net/net_translate.cpp
+              src/core/libraries/net/net_translate.h
+              src/core/libraries/net/net_types.h
+              src/core/libraries/net/net_util.cpp
+              src/core/libraries/net/net_util.h
+              src/core/libraries/net/net_upnp.cpp
+              src/core/libraries/net/net_upnp.h
+)
+
 set(NP_LIBS src/core/libraries/np/np_error.h
             src/core/libraries/np/np_common.cpp
-            src/core/libraries/np/np_common.h  
-            src/core/libraries/np/np_commerce/np_commerce.cpp
-            src/core/libraries/np/np_commerce/np_commerce.h
+            src/core/libraries/np/np_common.h
             src/core/libraries/np/np_manager.cpp
             src/core/libraries/np/np_manager.h
-            src/core/libraries/np/np_matching2.cpp
-            src/core/libraries/np/np_matching2.h
-            src/core/libraries/np/np_score.cpp
-            src/core/libraries/np/np_score.h
+            src/core/libraries/np/np_matching2/np_matching2.cpp
+            src/core/libraries/np/np_matching2/np_matching2.h
+            src/core/libraries/np/np_matching2/np_matching2_internal.cpp
+            src/core/libraries/np/np_matching2/np_matching2_internal.h
+            src/core/libraries/np/np_matching2/np_matching2_mm.cpp
+            src/core/libraries/np/np_matching2/np_matching2_mm.h
+            src/core/libraries/np/np_matching2/np_matching2_signaling.cpp
+            src/core/libraries/np/np_matching2/np_matching2_signaling.h
+            src/core/libraries/np/np_types2.h
             src/core/libraries/np/np_trophy.cpp
             src/core/libraries/np/np_trophy.h
             src/core/libraries/np/trophy_ui.cpp
             src/core/libraries/np/trophy_ui.h
-            src/core/libraries/np/np_web_api.cpp
-            src/core/libraries/np/np_web_api.h
-            src/core/libraries/np/np_web_api_error.h
-            src/core/libraries/np/np_web_api2.cpp
-            src/core/libraries/np/np_web_api2.h
             src/core/libraries/np/np_party.cpp
             src/core/libraries/np/np_party.h
-            src/core/libraries/np/np_auth.cpp
-            src/core/libraries/np/np_auth.h
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog.cpp
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog.h
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.cpp
-            src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.h
+            src/core/libraries/np/np_auth/np_auth.cpp
+            src/core/libraries/np/np_auth/np_auth.h
+            src/core/libraries/np/np_auth/np_auth_ctx.h
             src/core/libraries/np/np_sns_facebook_dialog.cpp
             src/core/libraries/np/np_sns_facebook_dialog.h
             src/core/libraries/np/np_partner.cpp
             src/core/libraries/np/np_partner.h
-            src/core/libraries/np/np_signaling.cpp
             src/core/libraries/np/object_manager.h
-            src/core/libraries/np/np_signaling.cpp
-            src/core/libraries/np/np_signaling.h
+            src/core/libraries/np/np_handler/np_handler.cpp
+            src/core/libraries/np/np_handler/np_handler.h
+            src/core/libraries/np/np_handler/np_handler_friends.cpp
+            src/core/libraries/np/np_handler/np_handler_auth.cpp
+            src/core/libraries/np/np_handler/np_handler_invitation.cpp
+            src/core/libraries/np/np_handler/np_handler_score.cpp
+            src/core/libraries/np/np_handler/np_handler_trophy.cpp
+            src/core/libraries/np/np_handler/np_handler_tus.cpp
+            src/core/libraries/np/np_handler/np_handler_web_api.cpp
+            src/core/libraries/np/signaling_handler.cpp
+            src/core/libraries/np/signaling_handler.h
+            src/core/libraries/np/np_commerce/np_commerce.cpp
+            src/core/libraries/np/np_commerce/np_commerce.h
+            src/core/libraries/np/np_commerce/np_commerce_ui.cpp
+            src/core/libraries/np/np_commerce/np_commerce_ui.h
+            src/core/libraries/np/np_profile_dialog/np_profile_dialog.cpp
+            src/core/libraries/np/np_profile_dialog/np_profile_dialog.h
+            src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.cpp
+            src/core/libraries/np/np_profile_dialog/np_profile_dialog_ui.h
+            src/core/libraries/np/np_score/np_score.cpp
+            src/core/libraries/np/np_score/np_score.h
+            src/core/libraries/np/np_score/np_score_ctx.h
+            src/core/libraries/np/np_signaling/np_signaling.cpp
+            src/core/libraries/np/np_signaling/np_signaling.h
+            src/core/libraries/np/np_signaling/np_signaling_state.cpp
+            src/core/libraries/np/np_signaling/np_signaling_state.h
+            src/core/libraries/np/np_signaling/np_signaling_helpers.cpp
+            src/core/libraries/np/np_signaling/np_signaling_helpers.h
+            src/core/libraries/np/np_signaling/np_signaling_transport.cpp
+            src/core/libraries/np/np_signaling/np_signaling_transport.h
+            src/core/libraries/np/np_web_api/np_web_api.cpp
+            src/core/libraries/np/np_web_api/np_web_api.h
+            src/core/libraries/np/np_web_api/np_web_api_internal.cpp
+            src/core/libraries/np/np_web_api/np_web_api_internal.h
+            src/core/libraries/np/np_web_api2/np_web_api2.cpp
+            src/core/libraries/np/np_web_api2/np_web_api2.h
+            src/core/libraries/np/np_web_api2/np_web_api2_internal.cpp
+            src/core/libraries/np/np_web_api2/np_web_api2_internal.h
+            src/core/libraries/np/np_web_api2/np_web_api2_context.cpp
+            src/core/libraries/np/np_web_api2/np_web_api2_context.h
+            src/core/libraries/np/np_web_api2/np_web_api2_push_event.cpp
+            src/core/libraries/np/np_web_api2/np_web_api2_push_event.h
             src/core/libraries/np/np_tus/np_tus.cpp
             src/core/libraries/np/np_tus/np_tus.h
             src/core/libraries/np/np_tus/np_tus_ctx.h
+            src/core/libraries/np/np_utility/np_utility.cpp
+            src/core/libraries/np/np_utility/np_utility.h
+            src/core/libraries/np/np_utility/np_utility_ctx.h
 )
 
 set(ZLIB_LIB src/core/libraries/zlib/zlib.cpp
@@ -949,6 +1011,8 @@ set(CORE src/core/aerolib/stubs.cpp
          ${GNM_LIB}
          ${KERNEL_LIB}
          ${NETWORK_LIBS}
+         ${NET_CORE}
+         ${NET_LIB}
          ${SYSTEM_LIBS}
          ${HLE_LIBC_INTERNAL_LIB}
          ${PAD_LIB}
@@ -1234,6 +1298,10 @@ set(IMGUI src/imgui/imgui_config.h
           src/imgui/imgui_texture.h
           src/imgui/imgui_translations.cpp
           src/imgui/imgui_translations.h
+          src/imgui/invitation_prompt_layer.cpp
+          src/imgui/invitation_prompt_layer.h
+          src/imgui/shadnet_notifications_layer.cpp
+          src/imgui/shadnet_notifications_layer.h
           src/imgui/notifications_layer.cpp
           src/imgui/notifications_layer.h
           src/imgui/renderer/imgui_core.cpp
@@ -1410,6 +1478,7 @@ if (ENABLE_QT_GUI)
         ${SHADER_RECOMPILER}
         ${VIDEO_CORE}
         ${EMULATOR}
+        ${SHADNET}
         src/images/shadPS4.icns
     )
 else()
@@ -1422,6 +1491,7 @@ else()
         ${SHADER_RECOMPILER}
         ${VIDEO_CORE}
         ${EMULATOR}
+        ${SHADNET}
         src/main.cpp
         src/emulator.cpp
         src/emulator.h
@@ -1607,6 +1677,19 @@ if (ENABLE_QT_GUI)
     set(MACOSX_BUNDLE_TYPE_EXTENSION "zar")
     set_source_files_properties(src/images/shadPS4.icns PROPERTIES
         MACOSX_PACKAGE_LOCATION Resources)
+
+    # Deploy Qt DLLs on Windows after build
+    if (WIN32)
+        find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${Qt6_DIR}/../../../bin")
+        if (WINDEPLOYQT_EXECUTABLE)
+            add_custom_command(TARGET shadps4 POST_BUILD
+                COMMAND ${WINDEPLOYQT_EXECUTABLE} "$<TARGET_FILE:shadps4>"
+                COMMENT "Deploying Qt dependencies with windeployqt"
+            )
+        else()
+            message(WARNING "windeployqt not found. Qt DLLs will not be automatically deployed.")
+        endif()
+    endif()
 endif()
 
 if (UNIX AND NOT APPLE)

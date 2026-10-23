@@ -111,6 +111,7 @@ static auto UserPaths = [] {
     create_path(PathType::PatchesDir, "");
     create_path(PathType::MetaDataDir, "");
     create_path(PathType::CustomTrophy, "");
+    create_path(PathType::TrophyDir, "");
     create_path(PathType::CustomConfigs, "");
     create_path(PathType::CustomThemes, "");
     create_path(PathType::ModsFolder, "");
@@ -199,6 +200,7 @@ const fs::path& GetUserPath(PathType shad_path) {
         UserPaths.insert_or_assign(PathType::PatchesDir, fallback_path / PATCHES_DIR);
         UserPaths.insert_or_assign(PathType::MetaDataDir, fallback_path / METADATA_DIR);
         UserPaths.insert_or_assign(PathType::CustomTrophy, fallback_path / CUSTOM_TROPHY);
+        UserPaths.insert_or_assign(PathType::TrophyDir, fallback_path / TROPHY_DIR);
         UserPaths.insert_or_assign(PathType::CustomConfigs, fallback_path / CUSTOM_CONFIGS);
         UserPaths.insert_or_assign(PathType::CustomThemes, fallback_path / CUSTOM_THEMES);
         UserPaths.insert_or_assign(PathType::ModsFolder, fallback_path / MODS_FOLDER);
@@ -339,6 +341,7 @@ void InitializeUserPaths(PathInitState state) {
     create_path(PathType::PatchesDir, user_dir / PATCHES_DIR);
     create_path(PathType::MetaDataDir, user_dir / METADATA_DIR);
     create_path(PathType::CustomTrophy, user_dir / CUSTOM_TROPHY);
+    create_path(PathType::TrophyDir, user_dir / TROPHY_DIR);
     create_path(PathType::CustomConfigs, user_dir / CUSTOM_CONFIGS);
     create_path(PathType::CustomThemes, user_dir / CUSTOM_THEMES);
     create_path(PathType::ModsFolder, user_dir / MODS_FOLDER);

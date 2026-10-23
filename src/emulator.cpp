@@ -35,8 +35,11 @@
 #include "core/debugger.h"
 #include "core/devtools/widget/module_list.h"
 #include "core/emulator_state.h"
+#include "core/emulator_settings.h"
+#include "core/file_format/npbind.h"
 #include "core/file_format/psf.h"
 #include "core/file_format/trp.h"
+#include "core/user_settings.h"
 #include "core/file_sys/fs.h"
 #include "core/file_sys/storage_scheduler.h"
 #include "core/libraries/disc_map/disc_map.h"
@@ -127,6 +130,111 @@ s32 ReadCompiledSdkVersion(const std::string& guest_or_host_path) {
         return 0;
     }
     return 0;
+}
+
+// Host-path port of upstream's ExtractTrophies. Maps each trophyNN.trp to its NP comm id,
+// extracts it to TrophyDir/<npcommid>/{Icons,Xml} and creates each user's progress file
+// (<home>/<user_id>/trophy/<npcommid>.xml). If the old fork already unlocked trophies for this
+// game (MetaData/<serial>/TrophyFiles/trophyNN/Xml/TROP.XML), that file seeds the progress.
+static std::map<s32, std::string> ExtractTrophies(const std::filesystem::path& npbind_host,
+                                                  const std::filesystem::path& trophy_dir_host,
+                                                  const std::filesystem::path& legacy_dir) {
+    std::map<s32, std::string> trophy_index_map{};
+
+    NPBindFile npbind;
+    if (npbind_host.empty() || !npbind.Load(npbind_host.string())) {
+        LOG_WARNING(Common_Filesystem, "Failed to load npbind.dat file");
+        return trophy_index_map;
+    }
+    const auto np_comm_ids = npbind.GetNpCommIds();
+    if (np_comm_ids.empty()) {
+        LOG_WARNING(Common_Filesystem, "No NPCommIDs in npbind.dat");
+        return trophy_index_map;
+    }
+    Common::ElfInfo::Instance().SetNpCommIds(np_comm_ids);
+
+    std::error_code ec;
+    if (trophy_dir_host.empty() || !std::filesystem::is_directory(trophy_dir_host, ec)) {
+        LOG_WARNING(Common_Filesystem, "Game does not contain a trophy directory");
+        return trophy_index_map;
+    }
+
+    const std::string pattern = "trophy";
+    for (const auto& entry : std::filesystem::directory_iterator(trophy_dir_host, ec)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        const std::string name_lower = Common::ToLower(entry.path().filename().string());
+        if (!name_lower.ends_with(".trp")) {
+            continue;
+        }
+        const std::string stem = name_lower.substr(0, name_lower.size() - 4);
+        if (!stem.starts_with(pattern)) {
+            continue;
+        }
+        s32 trophy_index;
+        try {
+            trophy_index = std::stoi(stem.substr(pattern.length()));
+        } catch (...) {
+            continue;
+        }
+        if (static_cast<s32>(np_comm_ids.size()) <= trophy_index) {
+            LOG_WARNING(Common_Filesystem, "Trophy index {} does not have a corresponding NPCommId",
+                        trophy_index);
+            continue;
+        }
+
+        const std::string np_comm_id = np_comm_ids[trophy_index];
+        trophy_index_map[trophy_index] = np_comm_id;
+
+        const auto trophy_output_dir =
+            Common::FS::GetUserPath(Common::FS::PathType::TrophyDir) / np_comm_id;
+        if (!std::filesystem::exists(trophy_output_dir)) {
+            // The TRP extractor checks for a lowercase ".trp" extension.
+            std::filesystem::path trp_source = entry.path();
+            std::filesystem::path temp_copy;
+            if (trp_source.extension() != ".trp") {
+                temp_copy = std::filesystem::temp_directory_path() / (np_comm_id + ".trp");
+                std::filesystem::copy_file(trp_source, temp_copy,
+                                           std::filesystem::copy_options::overwrite_existing, ec);
+                trp_source = temp_copy;
+            }
+            TRP trp;
+            const bool ok = trp.Extract(trp_source, np_comm_id, trophy_output_dir);
+            if (!temp_copy.empty()) {
+                std::filesystem::remove(temp_copy, ec);
+            }
+            if (!ok) {
+                LOG_ERROR(Loader, "Couldn't extract trophy file {}", entry.path().string());
+                continue;
+            }
+        }
+
+        const auto legacy_trop = legacy_dir / fmt::format("trophy{:02d}", trophy_index) / "Xml" /
+                                 "TROP.XML";
+        const auto tropconf = trophy_output_dir / "Xml" / "TROPCONF.XML";
+        for (const User& user : UserManagement.GetAllUsers()) {
+            const auto user_trophy_file = EmulatorSettings.GetHomeDir() /
+                                          std::to_string(user.user_id) / "trophy" /
+                                          (np_comm_id + ".xml");
+            if (std::filesystem::exists(user_trophy_file)) {
+                continue;
+            }
+            std::filesystem::create_directories(user_trophy_file.parent_path(), ec);
+            const auto& source = std::filesystem::exists(legacy_trop) ? legacy_trop : tropconf;
+            std::filesystem::copy_file(source, user_trophy_file, ec);
+            if (ec) {
+                LOG_ERROR(Loader, "Failed to copy {} to {}: {}", source.string(),
+                          user_trophy_file.string(), ec.message());
+            }
+        }
+    }
+
+    if (trophy_index_map.empty()) {
+        LOG_WARNING(Common_Filesystem, "No usable trophy files found in {}",
+                    trophy_dir_host.string());
+    }
+    return trophy_index_map;
 }
 
 void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
@@ -386,16 +494,19 @@ void Emulator::Run(std::filesystem::path file, std::vector<std::string> args,
 
     if (!id.empty()) {
         MemoryPatcher::g_game_serial = id;
-        Libraries::Np::NpTrophy::game_serial = id;
 
-        const auto trophyDir =
+        // Old per-serial extraction, still used by the Qt trophy viewer.
+        const auto legacyTrophyDir =
             Common::FS::GetUserPath(Common::FS::PathType::MetaDataDir) / id / "TrophyFiles";
-        if (!std::filesystem::exists(trophyDir)) {
+        if (!std::filesystem::exists(legacyTrophyDir)) {
             TRP trp;
             if (!trp.Extract(game_folder, id)) {
                 LOG_ERROR(Loader, "Couldn't extract trophies");
             }
         }
+
+        // NP trophy code: extract per NP comm id and build the trophy index map.
+        game_info.trophy_index_map = ExtractTrophies(npbindPath, trophyDir, legacyTrophyDir);
     }
     if (Config::getShaderSkipsEnabled()) {
         Config::SetSkippedShaderHashes("Default");

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #ifdef WIN32
@@ -13,13 +13,13 @@
 #endif
 
 #include <common/singleton.h>
-#include "common/config.h"
 #include "common/logging/log.h"
+#include "core/emulator_settings.h"
 #include "core/libraries/error_codes.h"
 #include "core/libraries/libs.h"
+#include "core/libraries/net/net_util.h"
 #include "core/libraries/network/net_ctl_codes.h"
 #include "core/libraries/network/netctl.h"
-#include "net_util.h"
 
 namespace Libraries::NetCtl {
 
@@ -96,8 +96,7 @@ int PS4_SYSV_ABI sceNetCtlUnregisterCallbackV6() {
 }
 
 int PS4_SYSV_ABI sceNetCtlCheckCallback() {
-    LOG_TRACE(Lib_NetCtl, "called");
-    netctl.CheckCallback();
+    LOG_DEBUG(Lib_NetCtl, "(STUBBED) called");
     return ORBIS_OK;
 }
 
@@ -163,7 +162,7 @@ int PS4_SYSV_ABI sceNetCtlGetIfStat() {
 
 int PS4_SYSV_ABI sceNetCtlGetInfo(int code, OrbisNetCtlInfo* info) {
     LOG_DEBUG(Lib_NetCtl, "code = {}", code);
-    if (!Config::getIsConnectedToNetwork()) {
+    if (!EmulatorSettings.IsConnectedToNetwork()) {
         return ORBIS_NET_CTL_ERROR_NOT_CONNECTED;
     }
 
@@ -181,8 +180,8 @@ int PS4_SYSV_ABI sceNetCtlGetInfo(int code, OrbisNetCtlInfo* info) {
         info->mtu = 1500; // default value
         break;
     case ORBIS_NET_CTL_INFO_LINK:
-        info->link = Config::getIsConnectedToNetwork() ? ORBIS_NET_CTL_LINK_CONNECTED
-                                                       : ORBIS_NET_CTL_LINK_DISCONNECTED;
+        info->link = EmulatorSettings.IsConnectedToNetwork() ? ORBIS_NET_CTL_LINK_CONNECTED
+                                                             : ORBIS_NET_CTL_LINK_DISCONNECTED;
         break;
     case ORBIS_NET_CTL_INFO_IP_ADDRESS: {
         strcpy(info->ip_address,
@@ -259,8 +258,30 @@ int PS4_SYSV_ABI sceNetCtlGetInfoV6IpcInt() {
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceNetCtlGetNatInfo() {
-    LOG_ERROR(Lib_NetCtl, "(STUBBED) called");
+int PS4_SYSV_ABI sceNetCtlGetNatInfo(OrbisNetCtlNatInfo* nat_info) {
+    if (!nat_info) {
+        return ORBIS_NET_CTL_ERROR_INVALID_ADDR;
+    }
+    if (nat_info->size != sizeof(OrbisNetCtlNatInfo)) {
+        return ORBIS_NET_CTL_ERROR_INVALID_SIZE;
+    }
+
+    auto* netinfo = Common::Singleton<NetUtil::NetUtilInternal>::Instance();
+    nat_info->nat_type = netinfo->GetNatType();
+    const u32 ext_ip = netinfo->GetExternalIp();
+    if (ext_ip != 0) {
+        nat_info->stun_status = 1;
+        nat_info->mapped_addr = ext_ip;
+    } else {
+        nat_info->stun_status = 0;
+        nat_info->mapped_addr = inet_addr("127.0.0.1");
+        if (netinfo->RetrieveIp()) {
+            nat_info->mapped_addr = inet_addr(netinfo->GetIp().c_str());
+        }
+    }
+
+    LOG_DEBUG(Lib_NetCtl, "stun_status={} nat_type={} mapped_addr={:#x}", nat_info->stun_status,
+              nat_info->nat_type, nat_info->mapped_addr);
     return ORBIS_OK;
 }
 
@@ -319,7 +340,7 @@ int PS4_SYSV_ABI sceNetCtlGetScanInfoForSsidScanIpcInt() {
 }
 
 int PS4_SYSV_ABI sceNetCtlGetState(int* state) {
-    const auto connected = Config::getIsConnectedToNetwork();
+    const auto connected = EmulatorSettings.IsConnectedToNetwork();
     LOG_DEBUG(Lib_NetCtl, "connected = {}", connected);
     const auto current_state =
         connected ? ORBIS_NET_CTL_STATE_IPOBTAINED : ORBIS_NET_CTL_STATE_DISCONNECTED;
@@ -436,8 +457,7 @@ int PS4_SYSV_ABI Func_D8DCB6973537A3DC() {
 }
 
 int PS4_SYSV_ABI sceNetCtlCheckCallbackForNpToolkit() {
-    LOG_TRACE(Lib_NetCtl, "called");
-    netctl.CheckNpToolkitCallback();
+    LOG_DEBUG(Lib_NetCtl, "(STUBBED) called");
     return ORBIS_OK;
 }
 

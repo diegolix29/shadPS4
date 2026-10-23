@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cctype>
+#include <cstdlib>
 #include <fstream>
 #include <map>
 #include <optional>
@@ -18,6 +20,8 @@
 #include "common/path_util.h"
 #include "common/scm_rev.h"
 #include "common/thread.h"
+#include "core/emulator_settings.h"
+#include "core/user_settings.h"
 #include "input/input_handler.h"
 
 using std::nullopt;
@@ -180,6 +184,8 @@ static ConfigEntry<std::string> shadnet_server{"srv.shadps4.net:31313"};
 static ConfigEntry<std::string> shadnet_webapi_server{"http://srv.shadps4.net:31315"};
 static ConfigEntry<std::string> signaling_info{};
 static ConfigEntry<bool> enable_upnp{true};
+static ConfigEntry<int> p2p_port{3658}; // 0 = any free port, 3658 = default PS4 port
+static ConfigEntry<bool> disable_https{false};
 static ConfigEntry<bool> isShadNetEnabled(false);
 static ConfigEntry<bool> isTrophyPopupDisabled(false);
 static ConfigEntry<double> trophyNotificationDuration(6.0);
@@ -222,6 +228,10 @@ static std::string g_customBackgroundImage;
 static ConfigEntry<bool> firstBootHandled(false);
 static std::string version_path;
 static ConfigEntry<string> httpHostOverride("localhost");
+// Mirror of user/host_overrides.json, saved as the [HostOverrides] table in config.toml.
+// The JSON file is the master copy: it is re-read on every global load.
+static std::map<std::string, std::string> g_host_overrides;
+static std::map<std::string, std::string> CurrentHostOverrides();
 static ConfigEntry<bool> enableMods(true);
 static ConfigEntry<bool> enableUpdates(true);
 static ConfigEntry<u32> app0_read_bandwidth_mibps(0);
@@ -407,6 +417,22 @@ bool IsUPnPEnabled() {
 
 void SetUPnPEnabled(bool enable) {
     enable_upnp.base_value = enable;
+}
+
+bool IsHttpsDisabled() {
+    return disable_https.get();
+}
+
+void SetHttpsDisabled(bool disabled) {
+    disable_https.base_value = disabled;
+}
+
+int GetP2PPort() {
+    return p2p_port.get();
+}
+
+void SetP2PPort(int port) {
+    p2p_port.base_value = port;
 }
 std::string getShadnetServer() {
     return shadnet_server.get();
@@ -1889,7 +1915,7 @@ void setXCircleButtonSwap(bool swap) {
     xCircleButtonSwap.set(swap, is_game_specific_context);
 }
 
-void load(const std::filesystem::path& path, bool is_game_specific) {
+static void LoadImpl(const std::filesystem::path& path, bool is_game_specific) {
     // If the configuration file does not exist, create it and return, unless it is game specific
     std::error_code error;
     if (!std::filesystem::exists(path, error)) {
@@ -1946,6 +1972,8 @@ void load(const std::filesystem::path& path, bool is_game_specific) {
         shadnet_webapi_server.setFromToml(general, "shadnetWebApiServer", false);
         signaling_info.setFromToml(general, "signalingInfo", false);
         enable_upnp.setFromToml(general, "enableUPnP", false);
+        p2p_port.setFromToml(general, "p2pPort", false);
+        disable_https.setFromToml(general, "disableHttps", false);
 
         if (!Common::g_is_release) {
             updateChannel = toml::find_or<std::string>(general, "updateChannel", "Shadlix");
@@ -2291,6 +2319,7 @@ void sortTomlSections(toml::ordered_value& data) {
     std::vector<std::string> section_order = {"General", "Input", "Audio", "GPU",     "Vulkan",
                                               "Debug",   "Keys",  "GUI",   "Settings"};
     section_order.insert(section_order.begin() + 8, "ShaderSkip");
+    section_order.push_back("HostOverrides");
 
     for (const auto& section : section_order) {
         if (data.contains(section)) {
@@ -2318,7 +2347,7 @@ void sortTomlSections(toml::ordered_value& data) {
     data = ordered_data;
 }
 
-void save(const std::filesystem::path& path, bool is_game_specific) {
+static void SaveImpl(const std::filesystem::path& path, bool is_game_specific) {
     toml::ordered_value data;
 
     std::error_code error;
@@ -2450,6 +2479,8 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
     data["General"]["shadnetWebApiServer"] = shadnet_webapi_server.base_value;
     data["General"]["signalingInfo"] = signaling_info.base_value;
     data["General"]["enableUPnP"] = enable_upnp.base_value;
+    data["General"]["p2pPort"] = p2p_port.base_value;
+    data["General"]["disableHttps"] = disable_https.base_value;
     data["General"]["updateChannel"] = updateChannel;
     data["General"]["chooseHomeTab"] = chooseHomeTab;
     data["General"]["showSplash"] = isShowSplash.base_value;
@@ -2732,6 +2763,14 @@ void save(const std::filesystem::path& path, bool is_game_specific) {
         data["ShaderSkip"][game_id] = hashes;
     }
 
+    if (!is_game_specific) {
+        toml::value host_overrides_table = toml::table{};
+        for (const auto& [key, target] : CurrentHostOverrides()) {
+            host_overrides_table[key] = target;
+        }
+        data["HostOverrides"] = host_overrides_table;
+    }
+
     sortTomlSections(data);
 
     std::ofstream file(path, std::ios::binary);
@@ -2824,6 +2863,8 @@ void setDefaultValues() {
     shadnet_webapi_server = "http://srv.shadps4.net:31315";
     signaling_info = "";
     enable_upnp = true;
+    p2p_port = 3658;
+    disable_https = false;
     chooseHomeTab = "General";
     isShowSplash = false;
     isSideTrophy = "right";
@@ -3138,6 +3179,350 @@ std::vector<u32> getEffectiveCpuCores() {
         return getCustomCpuCores();
     default:
         return {};
+    }
+}
+
+// The NP / ShadNet code (taken as-is from upstream) reads its settings from the JSON-based
+// EmulatorSettings and the users from UserManagement. This fork keeps config.toml as the
+// source of truth, so after every TOML load we copy the relevant values over in memory.
+// Nothing is written to the JSON files.
+void SyncToEmulatorSettings() {
+    auto& es = EmulatorSettings;
+
+    // Network / ShadNet
+    const auto shadnet_states = getShadNetEnabledStates();
+    bool any_user_shadnet = false;
+    for (bool b : shadnet_states) {
+        any_user_shadnet |= b;
+    }
+    es.SetConnectedToNetwork(getIsConnectedToNetwork());
+    es.SetShadNetEnabled(IsShadNetEnabled() || any_user_shadnet);
+    es.SetShadNetServer(getShadnetServer());
+    es.SetShadNetWebApiServer(getShadnetWebApiServer());
+    es.SetUPnPEnabled(IsUPnPEnabled());
+    es.SetP2PPort(GetP2PPort());
+    es.SetForcedHttpsDisabled(IsHttpsDisabled());
+
+    // Trophy UI / audio
+    es.SetTrophyPopupDisabled(getisTrophyPopupDisabled());
+    es.SetTrophyNotificationDuration(getTrophyNotificationDuration());
+    es.SetTrophyNotificationSide(sideTrophy());
+    es.SetVolumeSlider(getVolumeSlider());
+    es.SetAudioBackend(static_cast<u32>(getAudioBackend()));
+    es.SetSDLMainOutputDevice(getMainOutputDevice());
+    es.SetOpenALMainOutputDevice(getMainOutputDevice());
+    es.SetConsoleLanguage(static_cast<int>(GetLanguage()));
+
+    // Users: one per player slot, user_id = slot + 1 (matches Input::GameController::user_id).
+    // Create all 4 at once the first time so pointers handed to LoginUser stay valid.
+    auto& users = UserManagement.GetUsers().user;
+    if (users.empty()) {
+        users.reserve(4);
+        for (int i = 0; i < 4; ++i) {
+            User u{};
+            u.user_id = i + 1;
+            u.player_index = i + 1;
+            u.user_color = static_cast<u32>(i + 1);
+            users.push_back(u);
+        }
+    }
+    const auto names = getUserNames();
+    const auto npids = getShadNetNpids();
+    const auto passwords = getShadNetPasswords();
+    for (int i = 0; i < 4; ++i) {
+        User* u = UserManagement.GetUserByID(i + 1);
+        if (!u) {
+            continue;
+        }
+        u->user_name = names[i];
+        u->shadnet_enabled = shadnet_states[i];
+        u->shadnet_npid = npids[i];
+        u->shadnet_password = passwords[i];
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// JSON mirror for upstream compatibility.
+// config.toml stays the source of truth. On every global save, the values upstream keeps in JSON
+// are written to user/config.json ("Network" section), user/users.json (names + ShadNet accounts,
+// matched by player_index) and user/host_overrides.json (catch-all "*" entry built from
+// httpHostOverride). Other keys in those files are left untouched. When there is no config.toml
+// yet (e.g. coming from upstream), those JSON files are imported first.
+// ---------------------------------------------------------------------------------------------
+
+static std::filesystem::path UserDirFile(const char* name) {
+    return Common::FS::GetUserPath(Common::FS::PathType::UserDir) / name;
+}
+
+static nlohmann::json ReadJsonObject(const std::filesystem::path& path) {
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+        return nlohmann::json::object();
+    }
+    try {
+        std::ifstream in(path);
+        nlohmann::json j = nlohmann::json::parse(in);
+        if (j.is_object()) {
+            return j;
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR(Config, "Failed to parse {}: {}", path.string(), e.what());
+    }
+    return nlohmann::json::object();
+}
+
+static void WriteJsonIfChanged(const std::filesystem::path& path, const nlohmann::json& j) {
+    if (ReadJsonObject(path) == j) {
+        return;
+    }
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        LOG_ERROR(Config, "Failed to write {}", path.string());
+        return;
+    }
+    out << j.dump(2);
+}
+
+// The old fork behaviour replaced every request host and forced plain http. In upstream's
+// host_overrides.json format that is the catch-all "*" entry with an http:// target.
+static std::string HostOverrideTarget(std::string host) {
+    while (!host.empty() && std::isspace(static_cast<unsigned char>(host.back()))) {
+        host.pop_back();
+    }
+    while (!host.empty() && std::isspace(static_cast<unsigned char>(host.front()))) {
+        host.erase(host.begin());
+    }
+    if (host.empty() || host.find("://") != std::string::npos) {
+        return host;
+    }
+    return "http://" + host;
+}
+
+// Writes `path` as a copy of the global host_overrides.json with the "*" entry set from `host`
+// (or removed when `host` is empty). Entries for specific hosts are kept as they are.
+static void WriteHostOverridesJson(const std::filesystem::path& path, const std::string& host) {
+    nlohmann::json j = ReadJsonObject(UserDirFile("host_overrides.json"));
+    const std::string target = HostOverrideTarget(host);
+    if (target.empty()) {
+        j.erase("*");
+    } else {
+        j["*"] = target;
+    }
+    WriteJsonIfChanged(path, j);
+}
+
+// Upstream's HTTP code reads this env var (if set) instead of user/host_overrides.json.
+static void SetHostOverridesEnv(const std::filesystem::path& path) {
+    const std::string value = path.empty() ? std::string{} : path.string();
+#ifdef _WIN32
+    _putenv_s("SHADPS4_HTTP_HOST_OVERRIDES_JSON", value.c_str());
+#else
+    if (value.empty()) {
+        unsetenv("SHADPS4_HTTP_HOST_OVERRIDES_JSON");
+    } else {
+        setenv("SHADPS4_HTTP_HOST_OVERRIDES_JSON", value.c_str(), 1);
+    }
+#endif
+}
+
+static bool AnyUserShadNetEnabled() {
+    for (bool b : getShadNetEnabledStates()) {
+        if (b) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void MirrorToJson() {
+    // config.json - upstream "Network" section
+    const auto config_path = UserDirFile("config.json");
+    nlohmann::json config = ReadJsonObject(config_path);
+    auto& net = config["Network"];
+    if (!net.is_object()) {
+        net = nlohmann::json::object();
+    }
+    net["connected_to_network"] = isConnectedToNetwork.base_value;
+    net["shad_net_enabled"] = isShadNetEnabled.base_value || AnyUserShadNetEnabled();
+    net["shadnet_server"] = shadnet_server.base_value;
+    net["shadnet_webapi_server"] = shadnet_webapi_server.base_value;
+    net["enable_upnp"] = enable_upnp.base_value;
+    net["p2p_port"] = p2p_port.base_value;
+    net["disable_https"] = disable_https.base_value;
+    WriteJsonIfChanged(config_path, config);
+
+    // users.json - update the user in each player slot, keep everything else (ids, colors, ...)
+    const auto users_path = UserDirFile("users.json");
+    nlohmann::json users = ReadJsonObject(users_path);
+    auto& users_obj = users["Users"];
+    if (!users_obj.is_object()) {
+        users_obj = nlohmann::json::object();
+    }
+    const auto defaults = UserManager{}.CreateDefaultUsers().user;
+    auto& list = users_obj["user"];
+    if (!list.is_array() || list.empty()) {
+        list = nlohmann::json(defaults);
+    }
+    const auto names = getUserNames();
+    const auto states = getShadNetEnabledStates();
+    const auto npids = getShadNetNpids();
+    const auto passwords = getShadNetPasswords();
+    for (int i = 0; i < 4; ++i) {
+        nlohmann::json* entry = nullptr;
+        for (auto& u : list) {
+            if (u.value("player_index", 0) == i + 1) {
+                entry = &u;
+                break;
+            }
+        }
+        if (!entry) {
+            if (i >= static_cast<int>(defaults.size())) {
+                continue;
+            }
+            list.push_back(nlohmann::json(defaults[i]));
+            entry = &list.back();
+        }
+        (*entry)["user_name"] = names[i];
+        (*entry)["shadnet_enabled"] = states[i];
+        (*entry)["shadnet_npid"] = npids[i];
+        (*entry)["shadnet_password"] = passwords[i];
+    }
+    WriteJsonIfChanged(users_path, users);
+
+    WriteHostOverridesJson(UserDirFile("host_overrides.json"), httpHostOverride.base_value);
+}
+
+template <typename T>
+static void ReadJsonValue(const nlohmann::json& obj, const char* key, T& out) {
+    try {
+        if (obj.contains(key)) {
+            out = obj.at(key).get<T>();
+        }
+    } catch (const std::exception& e) {
+        LOG_WARNING(Config, "Ignoring JSON key '{}': {}", key, e.what());
+    }
+}
+
+static void ImportFromJson() {
+    const nlohmann::json config = ReadJsonObject(UserDirFile("config.json"));
+    if (config.contains("Network") && config["Network"].is_object()) {
+        const auto& net = config["Network"];
+        ReadJsonValue(net, "connected_to_network", isConnectedToNetwork.base_value);
+        ReadJsonValue(net, "shad_net_enabled", isShadNetEnabled.base_value);
+        ReadJsonValue(net, "shadnet_server", shadnet_server.base_value);
+        ReadJsonValue(net, "shadnet_webapi_server", shadnet_webapi_server.base_value);
+        ReadJsonValue(net, "enable_upnp", enable_upnp.base_value);
+        ReadJsonValue(net, "p2p_port", p2p_port.base_value);
+        ReadJsonValue(net, "disable_https", disable_https.base_value);
+        LOG_INFO(Config, "Imported network settings from config.json");
+    }
+
+    const nlohmann::json users = ReadJsonObject(UserDirFile("users.json"));
+    if (users.contains("Users") && users["Users"].is_object() &&
+        users["Users"].contains("user") && users["Users"]["user"].is_array()) {
+        for (const auto& u : users["Users"]["user"]) {
+            if (!u.is_object()) {
+                continue;
+            }
+            const int slot = u.value("player_index", 0) - 1;
+            if (slot < 0 || slot >= 4) {
+                continue;
+            }
+            setUserName(slot, u.value("user_name", getUserName(slot)));
+            setShadNetEnabled(slot, u.value("shadnet_enabled", false));
+            setShadNetNpid(slot, u.value("shadnet_npid", std::string{}));
+            setShadNetPassword(slot, u.value("shadnet_password", std::string{}));
+        }
+        LOG_INFO(Config, "Imported users and ShadNet accounts from users.json");
+    }
+
+    const nlohmann::json overrides = ReadJsonObject(UserDirFile("host_overrides.json"));
+    if (overrides.contains("*") && overrides["*"].is_string()) {
+        httpHostOverride.base_value = overrides["*"].get<std::string>();
+    }
+}
+
+// g_host_overrides with the "*" entry taken from httpHostOverride (the Qt GUI field).
+static std::map<std::string, std::string> CurrentHostOverrides() {
+    auto entries = g_host_overrides;
+    const std::string target = HostOverrideTarget(httpHostOverride.base_value);
+    if (target.empty()) {
+        entries.erase("*");
+    } else {
+        entries["*"] = target;
+    }
+    return entries;
+}
+
+// host_overrides.json is the master copy. Read it into the TOML-side values (httpHostOverride for
+// the "*" entry, g_host_overrides for everything) and write config.toml if they changed.
+// If the JSON file doesn't exist yet, create it from config.toml's [HostOverrides] table.
+static void SyncHostOverridesFromJson(const std::filesystem::path& toml_path) {
+    // What config.toml currently has.
+    g_host_overrides.clear();
+    try {
+        const auto data = toml::parse(toml_path);
+        if (data.contains("HostOverrides") && data.at("HostOverrides").is_table()) {
+            for (const auto& [key, value] : data.at("HostOverrides").as_table()) {
+                if (value.is_string()) {
+                    g_host_overrides[key] = value.as_string();
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        LOG_WARNING(Config, "Could not read [HostOverrides] from config.toml: {}", e.what());
+    }
+
+    const auto json_path = UserDirFile("host_overrides.json");
+    std::error_code ec;
+    if (!std::filesystem::exists(json_path, ec)) {
+        WriteJsonIfChanged(json_path, nlohmann::json(CurrentHostOverrides()));
+        return;
+    }
+
+    std::map<std::string, std::string> entries;
+    for (const auto& [key, value] : ReadJsonObject(json_path).items()) {
+        if (value.is_string()) {
+            entries[key] = value.get<std::string>();
+        }
+    }
+    const auto star = entries.find("*");
+    const std::string star_value = star != entries.end() ? star->second : std::string{};
+
+    if (entries != g_host_overrides || star_value != httpHostOverride.base_value) {
+        g_host_overrides = std::move(entries);
+        httpHostOverride.base_value = star_value;
+        SaveImpl(toml_path, false);
+        LOG_INFO(Config, "config.toml host overrides updated from host_overrides.json");
+    }
+}
+
+void load(const std::filesystem::path& path, bool is_game_specific) {
+    std::error_code ec;
+    if (!is_game_specific && !std::filesystem::exists(path, ec)) {
+        ImportFromJson();
+    }
+    LoadImpl(path, is_game_specific);
+    SyncToEmulatorSettings();
+
+    if (!is_game_specific) {
+        SyncHostOverridesFromJson(path);
+        SetHostOverridesEnv({});
+    } else if (httpHostOverride.game_specific_value.has_value() &&
+               *httpHostOverride.game_specific_value != httpHostOverride.base_value) {
+        // Per-game override: write a copy of the global file with this game's "*" entry and
+        // point upstream's HTTP code at it for this run.
+        const auto game_file = Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) /
+                               (path.stem().string() + ".host_overrides.json");
+        WriteHostOverridesJson(game_file, *httpHostOverride.game_specific_value);
+        SetHostOverridesEnv(game_file);
+    }
+}
+
+void save(const std::filesystem::path& path, bool is_game_specific) {
+    SaveImpl(path, is_game_specific);
+    if (!is_game_specific) {
+        MirrorToJson();
     }
 }
 

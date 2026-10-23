@@ -37,6 +37,8 @@ public:
     TRP();
     ~TRP();
     bool Extract(const std::filesystem::path& trophyPath, const std::string titleId);
+    bool Extract(const std::filesystem::path& trophyPath, std::string npCommId,
+                 const std::filesystem::path& outputPath);
 
 private:
     bool ProcessPngEntry(Common::FS::IOFile& file, const TrpEntry& entry,

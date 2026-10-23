@@ -157,6 +157,8 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     SUB(Lib, CompanionUtil)                                                                        \
     SUB(Lib, Voice)                                                                                \
     SUB(Lib, VrTracker)                                                                            \
+    SUB(Lib, InvitationDialog)                                                                     \
+    SUB(Lib, NpUtility)                                                                            \
     CLS(Frontend)                                                                                  \
     CLS(Render)                                                                                    \
     SUB(Render, Vulkan)                                                                            \
@@ -166,7 +168,9 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     CLS(Tty)                                                                                       \
     CLS(KeyManager)                                                                                \
     CLS(Loader)                                                                                    \
-    CLS(IPC)
+    CLS(IPC)                                                                                       \
+    CLS(NpHandler)                                                                                 \
+    CLS(ShadNet)
 
 // GetClassName is a macro defined by Windows.h, grrr...
 const char* GetLogClassName(LogClass log_class) {

@@ -127,6 +127,8 @@ enum class LogClass : u8 {
     Lib_VrTracker,           ///< The LibSceVrTracker implementation.
     Lib_Font,                ///< The libSceFont implementation.
     Lib_FontFt,              ///< The libSceFontFt implementation.
+    Lib_InvitationDialog,    ///< The LibSceInvitationDialog implementation.
+    Lib_NpUtility,           ///< The LibSceNpUtility implementation.
     Frontend,                ///< Emulator UI
     Render,                  ///< Video Core
     Render_Vulkan,           ///< Vulkan backend
@@ -136,6 +138,8 @@ enum class LogClass : u8 {
     Input,                   ///< Input emulation
     Tty,                     ///< Debug output from emu
     IPC,
+    NpHandler, ///< ShadNet NP handler
+    ShadNet,   ///< ShadNet client
     Count ///< Total number of logging classes
 };
 

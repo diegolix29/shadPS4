@@ -9,12 +9,33 @@
 #include "core/libraries/kernel/time.h"
 #include "core/libraries/pad/pad.h"
 #include "core/libraries/system/userservice.h"
+#include "core/user_settings.h"
 #include "input/controller.h"
 
 static std::string SelectedGamepad = "";
 static std::mutex SelectedGamepadMutex;
 
 namespace Input {
+
+// Log a player slot in/out through UserManagement so the NP code sees the same logged-in users
+// as the game. Falls back to the raw user service event if no user exists for that slot.
+static void LoginPlayerSlot(int slot) {
+    using namespace Libraries::UserService;
+    if (auto* u = UserManagement.GetUserByPlayerIndex(slot + 1)) {
+        UserManagement.LoginUser(u, slot + 1);
+    } else {
+        AddUserServiceEvent({OrbisUserServiceEventType::Login, slot + 1});
+    }
+}
+
+static void LogoutPlayerSlot(int slot) {
+    using namespace Libraries::UserService;
+    if (auto* u = UserManagement.GetUserByPlayerIndex(slot + 1); u && u->logged_in) {
+        UserManagement.LogoutUser(u);
+    } else {
+        AddUserServiceEvent({OrbisUserServiceEventType::Logout, slot + 1});
+    }
+}
 
 GameController::GameController() {
     m_states_num = 0;
@@ -331,7 +352,7 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
                 }
             }
             if (!still_connected) {
-                AddUserServiceEvent({OrbisUserServiceEventType::Logout, i + 1});
+                LogoutPlayerSlot(i);
                 controllers[i]->m_sdl_gamepad = nullptr;
                 SDL_CloseGamepad(pad);
                 controllers[i]->user_id = -1;
@@ -360,7 +381,7 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
                 c->user_id = i + 1;
                 slot_taken[i] = true;
                 c->player_index = i;
-                AddUserServiceEvent({OrbisUserServiceEventType::Login, i + 1});
+                LoginPlayerSlot(i);
 
                 if (SDL_SetGamepadSensorEnabled(c->m_sdl_gamepad, SDL_SENSOR_GYRO, true)) {
                     c->gyro_poll_rate =
@@ -388,7 +409,7 @@ void GameControllers::TryOpenSDLControllers(GameControllers& controllers) {
         is_first_check = false;
         if (controller_count == 0) {
             controllers[0]->user_id = 1;
-            AddUserServiceEvent({OrbisUserServiceEventType::Login, 1});
+            LoginPlayerSlot(0);
         }
     }
 
